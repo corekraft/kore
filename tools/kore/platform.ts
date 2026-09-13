@@ -47,7 +47,7 @@ export async function reconcileComponent(repository: Repository, runner: Runner,
   } catch (error) { throw new Error(`component ${component.name} failed to become ready: ${error instanceof Error ? error.message : String(error)}`); }
 }
 
-export async function platformUp(repository: Repository, runner: Runner): Promise<void> {
+async function ensureCluster(repository: Repository, runner: Runner): Promise<void> {
   if (repository.environment.provider === "minikube") {
     try { await assertExpectedCluster(repository, runner); }
     catch (error) {
@@ -55,7 +55,22 @@ export async function platformUp(repository: Repository, runner: Runner): Promis
       await clusterUp(repository, runner);
     }
   } else await assertExpectedCluster(repository, runner);
-  for (const component of orderedComponents(repository.catalog)) await reconcileComponent(repository, runner, component);
+}
+
+export async function bootstrapControllers(repository: Repository, runner: Runner): Promise<void> {
+  await ensureCluster(repository, runner);
+  for (const component of orderedComponents(repository.catalog)) {
+    if (component.phase === "configuration" || component.phase === "enforcement") continue;
+    await reconcileComponent(repository, runner, component);
+  }
+}
+
+export async function platformUp(repository: Repository, runner: Runner): Promise<void> {
+  await bootstrapControllers(repository, runner);
+  for (const component of orderedComponents(repository.catalog)) {
+    if (component.phase !== "configuration" && component.phase !== "enforcement") continue;
+    await reconcileComponent(repository, runner, component);
+  }
   await writePlatformState(repository, "ready");
 }
 

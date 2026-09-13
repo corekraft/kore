@@ -5,7 +5,7 @@ import { loadRepository, orderedComponents } from "./config.js";
 import { doctor, doctorFailed } from "./doctor.js";
 import { boolFlag, parseArgs, requireEnvironment, stringFlag } from "./flags.js";
 import { withEnvironmentLock } from "./lock.js";
-import { platformDestroy, platformRender, platformStatus, platformStop, platformUp } from "./platform.js";
+import { bootstrapControllers, platformDestroy, platformRender, platformStatus, platformStop, platformUp } from "./platform.js";
 import { ProcessRunner } from "./runner.js";
 import { syncLocalSecrets } from "./secrets.js";
 import { installLocalTrust } from "./trust.js";
@@ -18,7 +18,7 @@ Usage:
   kore validate [--environment local] [--json]
   kore cluster up|stop|destroy --environment <name> [--yes] [--purge-data]
   kore cluster status [--environment <name>] [--json]
-  kore platform up|stop|destroy --environment <name> [--yes] [--purge-data]
+  kore platform bootstrap|up|stop|destroy --environment <name> [--yes] [--purge-data]
   kore platform status|render [--environment <name>] [--output <directory>] [--json]
   kore app up|down <name> --environment <name>
   kore app status <name> [--environment <name>] [--json]
@@ -40,7 +40,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   if (!command || command === "help" || command === "--help") { console.log(usage); return 0; }
   const offset = ["doctor","validate"].includes(command) ? 1 : 2;
   const parsed = parseArgs(argv.slice(offset));
-  const mutating = (command === "cluster" && ["up","stop","destroy"].includes(action ?? "")) || (command === "platform" && ["up","stop","destroy"].includes(action ?? "")) || (command === "app" && ["up","down"].includes(action ?? "")) || command === "secrets" || command === "trust";
+  const mutating = (command === "cluster" && ["up","stop","destroy"].includes(action ?? "")) || (command === "platform" && ["bootstrap","up","stop","destroy"].includes(action ?? "")) || (command === "app" && ["up","down"].includes(action ?? "")) || command === "secrets" || command === "trust";
   const environmentName = mutating ? requireEnvironment(parsed) : (stringFlag(parsed,"environment") ?? "local");
   const repository = await loadRepository(environmentName);
   const runner = new ProcessRunner();
@@ -68,7 +68,8 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     if (action === "status") { print(await platformStatus(repository,runner),json); return 0; }
     if (action === "render") { await platformRender(repository,runner,stringFlag(parsed,"output")); print({status:"valid",output:stringFlag(parsed,"output") ?? "stdout discarded"},json); return 0; }
     return await withEnvironmentLock(repository.root,environmentName,async () => {
-      if (action === "up") await platformUp(repository,runner);
+      if (action === "bootstrap") await bootstrapControllers(repository,runner);
+      else if (action === "up") await platformUp(repository,runner);
       else if (action === "stop") await platformStop(repository,runner);
       else if (action === "destroy") await platformDestroy(repository,runner,{yes:boolFlag(parsed,"yes"),purgeData:boolFlag(parsed,"purge-data")});
       else throw new Error(`unknown platform action: ${action ?? ""}`);

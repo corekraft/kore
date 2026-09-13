@@ -64,7 +64,12 @@ test("repository toolchain pins are declared in the local mise profile", async (
 
 test("local catalog pins an available Istio chart release", async () => {
   const repository = await loadRepository("local");
-  assert.equal(repository.versions.components.istio, "1.31.0");
+  assert.equal(repository.versions.components.istio, "1.30.4");
   assert.equal(repository.versions.components["opentelemetry-operator"], "0.122.0");
   assert.equal(repository.versions.components.prometheus, "29.29.0");
+});
+
+test("local tool catalog matches the supported Docker CLI line", async () => {
+  const repository = await loadRepository("local");
+  assert.equal(repository.versions.tools.docker, "29.7.2");
 });

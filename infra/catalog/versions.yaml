@@ -12,17 +12,17 @@
     "mkcert": "1.4.4",
     "tofu": "1.12.6",
     "opa": "1.20.2",
-    "docker": "29.8.0"
+    "docker": "29.7.2"
   },
   "kubernetes": "1.37.0",
   "components": {
     "gateway-api": "1.6.2",
     "cert-manager": "v1.21.2",
     "gatekeeper": "3.23.1",
-    "istio": "1.31.0",
+    "istio": "1.30.4",
     "crossplane": "2.4.0",
     "external-secrets": "2.10.0",
-    "cloudnative-pg": "1.30.0",
+    "cloudnative-pg": "0.29.0",
     "opentelemetry-operator": "0.122.0",
     "prometheus": "29.29.0",
     "loki": "7.3.0",

@@ -24,6 +24,7 @@ export async function installLocalTrust(repository:Repository,runner:Runner):Pro
   const secretYaml=(await runner.run("kubectl",["--context",repository.environment.kubeContext,"--namespace",certificateNamespace,"create","secret","tls",secret,"--cert",cert,"--key",key,"--dry-run=client","--output","yaml"],{capture:true})).stdout;
   await runner.run("kubectl",["--context",repository.environment.kubeContext,"apply","--server-side","--field-manager=kore-trust","--filename","-"],{capture:true,input:secretYaml});
   await runner.run("kubectl",["--context",repository.environment.kubeContext,"apply","--server-side","--field-manager=kore-trust","--filename","-"],{capture:true,input:issuerManifest("kore-local-ca",secret)});
+  await runner.run("kubectl",["--context",repository.environment.kubeContext,"wait","--for=condition=Ready","clusterissuer/kore-local-ca","--timeout=2m"],{capture:false});
   // Ensure this operation never leaves a copied CA in the repository or a build artifact.
   await Promise.allSettled([readFile(cert),readFile(key)]);
 }

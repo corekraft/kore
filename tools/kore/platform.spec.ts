@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { loadRepository, orderedComponents } from "./config.js";
-import { helmUpgradeArgs, platformRender, platformStatus, platformUp, reconcileComponent } from "./platform.js";
+import { bootstrapControllers, helmUpgradeArgs, platformRender, platformStatus, platformUp, reconcileComponent } from "./platform.js";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { RecordingRunner, type RunOptions, type RunResult, type Runner } from "./runner.js";
@@ -9,7 +9,23 @@ import { RecordingRunner, type RunOptions, type RunResult, type Runner } from ".
 test("release graph order is stable", async () => {
   const repository = await loadRepository("local");
   const first = orderedComponents(repository.catalog).map(({name}) => name); const second = orderedComponents(repository.catalog).map(({name}) => name);
-  assert.deepEqual(first,second); assert.ok(first.indexOf("cert-manager") < first.indexOf("opentelemetry-operator")); assert.ok(first.indexOf("crossplane") < first.indexOf("kore-platform-config")); assert.ok(first.indexOf("kore-platform-config") < first.indexOf("prometheus"));
+  assert.deepEqual(first,second); assert.ok(first.indexOf("cert-manager") < first.indexOf("opentelemetry-operator")); assert.ok(first.indexOf("crossplane") < first.indexOf("kore-platform-config")); assert.ok(first.indexOf("opentelemetry-operator") < first.indexOf("kore-platform-config"));
+});
+
+test("controller bootstrap reconciles controllers before shared Gateway configuration", async () => {
+  const repository = await loadRepository("local");
+  const runner = new RecordingRunner([
+    { stdout: '{"Host":"Running"}', stderr: "", code: 0 },
+    { stdout: "kube-system", stderr: "", code: 0 },
+  ]);
+
+  await bootstrapControllers(repository, runner);
+
+  const releases = runner.calls
+    .filter(({ command, args }) => command === "helm" && args[0] === "upgrade")
+    .map(({ args }) => args[2]);
+  assert.ok(releases.includes("opentelemetry-operator"));
+  assert.equal(releases.includes("kore-platform-config"), false);
 });
 
 test("helm construction always uses explicit context, namespace, pin, and timeout", async () => {

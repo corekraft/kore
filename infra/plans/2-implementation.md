@@ -22,6 +22,15 @@ affected acceptance criteria.
 - Pin every tool, chart, image, provider, and policy-bundle version.
 - Make every reconciliation idempotent and safe to resume after partial failure.
 - Introduce policy in audit mode before enforcing it.
+- Treat the internal OCI registry and image-signature verifier as bootstrap
+  dependencies, and do not report bootstrap complete until the seed trust loop is
+  closed and fail-closed admission is active.
+- Permit only protected release automation identities to sign trusted images;
+  developers and untrusted pipeline contexts may build candidates but cannot sign
+  or promote them.
+- Keep application admission closed throughout all internal bootstrap phases and
+  open it only after every required infrastructure tool and capability passes its
+  current-generation readiness checks.
 - Validate destructive behavior with retained data before exposing destructive
   commands.
 - Do not present `kore platform up` as complete until it converges the full MVP
@@ -32,11 +41,12 @@ affected acceptance criteria.
 ```mermaid
 flowchart TD
     s6[Step 6: Repository and cluster foundation]
-    s7[Step 7: Bootstrap controllers]
+    s7[Step 7: Bootstrap registry, trust, and controllers]
     s8[Step 8: Networking, certificates, and secrets]
-    s9[Step 9: Workload identity and policy]
+    s9[Step 9: Workload identity, application image trust, and policy]
     s10[Step 10: Storage and PostgreSQL platform API]
     s11[Step 11: Observability]
+    gate[Platform bootstrap completion gate]
     s12[Step 12: Reference application]
     s13[Step 13: Complete lifecycle orchestration]
     s14[Step 14: Portability and resilience validation]
@@ -47,10 +57,11 @@ flowchart TD
     s7 --> s9
     s7 --> s10
     s7 --> s11
-    s8 --> s12
-    s9 --> s12
-    s10 --> s12
-    s11 --> s12
+    s8 --> gate
+    s9 --> gate
+    s10 --> gate
+    s11 --> gate
+    gate --> s12
     s12 --> s13
     s13 --> s14
     s14 --> s15
@@ -118,13 +129,16 @@ claim that the platform is ready.
 - [x] Tests that do not require a live cluster run without one.
 - [x] No infrastructure controller or application is installed by this step.
 
-## Step 7: Bootstrap Controllers and CRD Ownership
+## Step 7: Bootstrap Registry, Image Trust, Controllers, and CRD Ownership
 
 ### Objective
 
-Install every controller required by the MVP in dependency order while preserving
-explicit CRD ownership and leaving shared configuration and enforcement for later
-steps.
+Install the internal OCI registry, Sigstore Policy Controller, and every controller
+required by the MVP in dependency order. Establish the application admission gate
+in its closed state, close the foundation seed trust loop, and enable fail-closed
+image admission while preserving explicit CRD ownership. This is an internal
+bootstrap phase and cannot publish overall platform readiness before Steps 8
+through 11 also converge.
 
 ### Work
 
@@ -133,6 +147,9 @@ steps.
 - [x] Record a compatibility matrix covering Kubernetes, Helm, Gateway API,
   cert-manager, Gatekeeper, Istio, Crossplane, External Secrets Operator,
   CloudNativePG, and OpenTelemetry Operator.
+- [ ] Select and pin the OCI Distribution-compatible registry, Cosign, and Sigstore
+  Policy Controller; add them to the compatibility matrix, component catalog,
+  version catalog, release graph, and readiness model.
 - [x] Give every logical release a namespace, CRD owner, dependencies, timeout,
   and readiness checks.
 - [x] Implement topological sorting and cycle detection for the release graph.
@@ -140,11 +157,41 @@ steps.
 - [ ] Install Gateway API CRDs before Istio resources that consume them.
 - [ ] Install cert-manager and wait for its deployments and webhook.
 - [ ] Install OPA Gatekeeper without enforcing Kore constraints.
+- [ ] Install a persistent `oci-registry` infrastructure release and verify push,
+  pull, restart, storage retention, authentication, authorization, and bounded
+  readiness behavior.
+- [ ] Install Sigstore Policy Controller and its CRDs/webhook from an explicitly
+  allowlisted, digest-pinned seed artifact without enabling enforcement yet.
 - [ ] Install Istio base, `istiod`, Istio CNI, and `ztunnel` for ambient mode.
 - [ ] Install Crossplane and the required composition functions.
 - [ ] Install External Secrets Operator.
 - [ ] Install CloudNativePG.
 - [ ] Install OpenTelemetry Operator after its prerequisites are ready.
+- [ ] Define the minimal digest-pinned seed manifest required to start the registry,
+  verifier, and their prerequisites; reject unrecorded seed artifacts and record
+  the reason and upstream verification evidence for every seed.
+- [ ] Implement protected release automation that mirrors approved platform images
+  into the internal registry, verifies recorded upstream digests and provenance,
+  signs internal digests with Cosign, verifies each signature, and emits an
+  immutable image lock manifest.
+- [ ] Bind the accepted Cosign authority to an exact protected automation identity
+  or KMS/HSM key. Grant developers, pull-request workflows, ordinary build jobs,
+  cluster workloads, and registry administrators no signing permission.
+- [ ] Roll every managed platform workload, including the registry and verifier,
+  from its seed or external reference to the signed internal digest recorded in
+  the image lock manifest.
+- [ ] Install `ClusterImagePolicy` resources covering containers, init containers,
+  and ephemeral containers; reject unmatched images and fail closed on signature,
+  registry, or verifier errors.
+- [ ] Enroll all managed platform namespaces, then inventory running workloads and
+  fail bootstrap if a seed, external, tag-only, unsigned, or unauthorized image
+  remains. Seed exceptions must be empty before success.
+- [ ] Create the generation-specific application admission gate in its closed state;
+  grant only bootstrap automation permission to update it or application namespace
+  activation metadata.
+- [x] Make controller bootstrap independently runnable and complete it before
+  shared configuration readiness checks; OpenTelemetry Operator must not be
+  blocked by a Gateway waiting for its certificate or external address.
 - [x] Keep controller configuration instances out of controller releases.
 - [ ] Add controller health, CRD establishment, webhook, and idempotency tests.
 
@@ -160,10 +207,22 @@ release. Ordinary component removal never deletes CRDs implicitly.
 - [ ] The release graph is acyclic and produces a deterministic order.
 - [ ] All CRDs are established before their custom resources are submitted.
 - [ ] All controller deployments, daemon sets, and webhooks report ready.
+- [ ] The registry persists images and signatures across platform stop and resume.
+- [ ] Every managed foundation workload installed in this step uses an internal
+  digest-qualified image with a valid signature from the authorized release
+  automation identity; later platform releases must satisfy the same condition
+  before installation.
+- [ ] Unsigned images and images signed by developer, pull-request, build-job, or
+  other unauthorized identities are rejected.
+- [ ] Registry or signature-verifier unavailability denies new managed workloads
+  and is reported as degraded without weakening policy.
+- [ ] The internal foundation phase finishes with no active seed exception or
+  external image reference and leaves the application admission gate closed.
 - [ ] A second reconciliation produces no unintended release changes.
 - [ ] Failure identifies the component and readiness condition that timed out.
-- [ ] No shared issuer, gateway, composition, secret store, or enforcing policy is
-  installed yet.
+- [ ] No shared issuer, gateway, composition, secret store, or unrelated enforcing
+  Gatekeeper/runtime policy is installed yet; image signature enforcement is the
+  required bootstrap exception because it closes the image trust boundary.
 
 ## Step 8: Networking, Certificates, and Secrets
 
@@ -195,6 +254,35 @@ API, cert-manager, SOPS with age, and External Secrets Operator.
   not reveal secret values.
 - [ ] Add readiness and end-to-end tests for Gateway, TLS, and Secret materialization.
 
+### Gateway Bootstrap Repair
+
+The clean-cluster run on 2026-09-13 reached `kore-platform-config` but could not
+complete: `kore-gateway` reported `AddressNotAssigned`, and its HTTPS listener
+reported `InvalidCertificateRef` because `kore-system/kore-local-tls` did not
+exist. The installation was canceled and the configuration release removed.
+The Istio CNI AppArmor deprecation warning did not cause this failure.
+
+- [ ] Order local bootstrap explicitly: ready controllers, local CA/issuer setup,
+  Certificate creation, TLS Secret readiness, Gateway creation, and external
+  address/route readiness. Split configuration releases where a Helm wait would
+  otherwise block the commands needed to satisfy its own prerequisites.
+- [ ] Use the explicit `kore trust install --environment local` operation to
+  establish host trust and install the issuer prerequisites. Verify the
+  ClusterIssuer is Ready before waiting for certificate issuance; report a
+  missing trust setup with an actionable command.
+- [ ] Create and wait for the Certificate that produces
+  `kore-system/kore-local-tls`; check the expected TLS Secret keys without
+  printing their contents before installing the HTTPS Gateway.
+- [ ] Start and supervise the local Minikube tunnel so the Gateway LoadBalancer
+  Service receives an address; handle required host privileges, tunnel exit,
+  stale processes, and stop/destroy cleanup explicitly.
+- [ ] Wait with bounded timeouts for the Service address, Gateway `Accepted` and
+  `Programmed`, and listener `ResolvedRefs`; include condition reasons such as
+  `AddressNotAssigned` and `InvalidCertificateRef` in failure output.
+- [ ] Add regression tests for missing issuer/TLS Secret, unavailable tunnel,
+  and configuration ordering. Run a fresh-cluster end-to-end check through a
+  trusted HTTPS route, including cleanup and retry after an injected failure.
+
 ### Exit Criteria
 
 - [ ] A test `HTTPRoute` receives a stable local HTTPS endpoint.
@@ -206,12 +294,13 @@ API, cert-manager, SOPS with age, and External Secrets Operator.
   cluster changes.
 - [ ] Application manifests contain no Minikube-specific values.
 
-## Step 9: Workload Identity and Policy
+## Step 9: Workload Identity, Application Image Trust, and Policy
 
 ### Objective
 
-Establish dedicated workload identities, ambient mutual TLS, admission policy, and
-OPA-backed contextual authorization without turning OPA into an identity issuer.
+Establish dedicated workload identities, ambient mutual TLS, application image
+trust, admission policy, and OPA-backed contextual authorization without turning
+OPA into an identity issuer or a signature verifier.
 
 ### Work
 
@@ -225,6 +314,12 @@ OPA-backed contextual authorization without turning OPA into an identity issuer.
   privilege, resource, health-probe, Secret, mesh-enrollment, and retention rules.
 - [x] Deploy constraints in audit mode and define minimal explicit system namespace
   exemptions.
+- [ ] Define the application namespace enrollment contract for Sigstore Policy
+  Controller and make enrollment mandatory before an application workload release.
+- [ ] Define environment-specific trusted release automation identities and ensure
+  local identities are never trusted by managed environments.
+- [ ] Verify that registry membership alone grants no trust: admission must validate
+  the Cosign signature and exact authorized signer for the deployed digest.
 - [x] Package and deploy the platform-operated OPA-Envoy external authorization
   service.
 - [x] Deliver tested Rego as versioned OPA bundles.
@@ -249,6 +344,9 @@ OPA-backed contextual authorization without turning OPA into an identity issuer.
 - [ ] Protected routes fail closed when the OPA authorizer is unavailable.
 - [ ] Policy decisions and denials are observable without leaking credentials.
 - [ ] Bootstrap and system controllers remain operational under enforcing policy.
+- [ ] Every application namespace is enrolled in fail-closed image admission.
+- [ ] Every container, init container, and ephemeral container is rejected unless
+  its digest is signed by the environment-authorized release automation identity.
 
 ## Step 10: Storage and PostgreSQL Platform API
 
@@ -329,12 +427,63 @@ policy telemetry with correlated local metrics, logs, and traces.
 - [ ] Local telemetry storage has explicit retention and resource bounds.
 - [ ] No application sends telemetry directly to a storage backend.
 
+## Platform Bootstrap Completion Gate
+
+### Objective
+
+Make the transition from infrastructure convergence to application admission an
+explicit, fail-closed operation. No application claim or workload may be deployed,
+applied, or admitted until all infrastructure required by the application contract
+is installed, configured, healthy, and enforcing for the current bootstrap
+generation.
+
+### Work
+
+- [ ] Define one versioned readiness manifest listing every required controller,
+  registry, trust policy, shared configuration release, platform API, endpoint, and
+  health condition from Steps 7 through 11.
+- [ ] Make bootstrap automation evaluate the manifest with bounded checks and write
+  platform-owned, generation-specific readiness state only after every check passes.
+- [ ] Keep application namespaces absent or inactive until readiness is published;
+  activate them with platform-owned metadata that enrolls all required admission
+  policies, including fail-closed Sigstore verification.
+- [ ] Add cluster-side RBAC and admission policy that reject application claims,
+  PodSpec-bearing resources, and direct Helm or Kubernetes API mutations when the
+  readiness state is missing, closed, stale, or for another environment generation.
+- [ ] Prevent developer, build, pull-request, and ordinary deployment identities
+  from modifying readiness state, namespace activation, admission configuration, or
+  bootstrap-owned RBAC. Only protected bootstrap automation may open the gate.
+- [ ] Make any required platform capability becoming unhealthy close the gate for
+  new application mutations without disrupting already-running healthy workloads;
+  status must identify the failed prerequisite.
+- [ ] Test early `kore app up`, Helm, and direct Kubernetes API attempts and prove
+  each is rejected before readiness and accepted only after the gate opens.
+- [ ] Ensure interrupted or failed bootstrap leaves the gate closed and that a
+  successful idempotent retry opens it only after revalidating every prerequisite.
+
+### Exit Criteria
+
+- [ ] Every infrastructure tool required by the declared application contracts is
+  installed, configured, healthy, and reported by the current readiness generation.
+- [ ] The registry contains every managed platform image and its authorized Cosign
+  signature; all platform workloads use internal digest-qualified references.
+- [ ] Gatekeeper, Sigstore Policy Controller, workload identity, secrets, storage,
+  database APIs, networking, certificates, and telemetry prerequisites are ready
+  and enforcing their application-facing contracts.
+- [ ] No application resource can be applied through `kore`, Helm, or the Kubernetes
+  API while the gate is closed or stale under supported non-administrator identities.
+- [ ] Only protected bootstrap automation can open the gate, and opening it produces
+  auditable evidence covering every prerequisite.
+- [ ] `kore platform up` and bootstrap status cannot report success before the gate
+  is open.
+
 ## Step 12: Reference Application
 
 ### Objective
 
-Prove the complete platform contract with a small application that exercises every
-MVP capability and includes positive and negative tests.
+After the application admission gate opens, prove the complete platform contract
+with a small application that exercises every MVP capability and includes positive
+and negative tests.
 
 ### Work
 
@@ -344,8 +493,11 @@ MVP capability and includes positive and negative tests.
 - [x] Create `charts/resources` for the PostgreSQL claim and any external Secrets.
 - [x] Create `charts/workload` for Deployments, Services, health probes,
   `HTTPRoute`, telemetry configuration, and authorization policy references.
-- [x] Build an OCI-compatible image and automate its Minikube delivery without
-  embedding local behavior in either chart.
+- [x] Build an OCI-compatible candidate image without embedding local behavior in
+  either chart.
+- [ ] Publish the candidate to the platform registry, promote and Cosign-sign its
+  digest only through protected release automation, verify the signature, and pass
+  only the resulting digest-qualified internal reference to Helm.
 - [x] Read the PostgreSQL connection only from the normalized Secret contract.
 - [x] Emit OpenTelemetry logs, metrics, and traces with stable service attributes.
 - [x] Add a route protected by native Istio policy and a route protected by OPA.
@@ -355,6 +507,9 @@ MVP capability and includes positive and negative tests.
   native authorization, and OPA authorization.
 - [ ] Add negative tests proving that policy rejects an invalid workload and an
   unauthorized caller.
+- [ ] Add image-admission tests proving that a correctly automation-signed digest is
+  admitted while an unsigned image, a tag-only reference, a modified digest, and an
+  image signed by a developer or untrusted pipeline identity are rejected.
 
 ### Exit Criteria
 
@@ -366,6 +521,8 @@ MVP capability and includes positive and negative tests.
 - [ ] Logs, metrics, and traces are queryable and correlated.
 - [ ] Removing and reinstalling the workload preserves retained application data.
 - [ ] All Gatekeeper constraints intended for the MVP are enforcing.
+- [ ] All application images are pulled from the platform registry by digest and
+  verified at admission against the authorized release automation identity.
 
 ## Step 13: Complete Lifecycle Orchestration
 
@@ -378,11 +535,22 @@ converge and validate the complete platform.
 
 - [x] Implement `kore platform up`, `status`, `stop`, and guarded `destroy` by
   composing the focused operations from earlier steps.
+- [ ] Make `kore platform up` own the complete bootstrap generation and open the
+  application admission gate only after Steps 7 through 11 and trust closure pass.
 - [x] Implement `kore app up`, `status`, and `down` with separate resource and
   workload release phases.
+- [ ] Make `kore app up` accept only a release-automation-produced image lock entry,
+  independently verify its digest and signer, and refuse local developer-produced
+  signatures before invoking Helm.
 - [x] Require an explicit environment for every mutating command.
 - [x] Add bounded readiness waits and actionable component-level failures.
 - [ ] Resume from partial failure without reinstalling healthy dependencies.
+- [ ] Clean up failed or canceled releases and their attempt-owned resources
+  before another `up`; verify cleanup has completed and preserve healthy
+  dependencies and retained data. Full profile deletion is an explicit reset.
+- [x] Make guarded cleanup tolerate CRDs that were never installed. Cover the
+  observed missing `postgresqlinstances.platform.kore.dev` resource type during
+  partial-bootstrap destroy without bypassing retained-data checks.
 - [x] Prevent concurrent mutation of the same environment.
 - [x] Produce concise human output and stable machine-readable output.
 - [x] Ensure diagnostic output is read-only and redacts sensitive data.
@@ -406,8 +574,12 @@ kore app down <name> --environment <name>
 ### Exit Criteria
 
 - [ ] One command creates and validates the complete local platform.
+- [ ] A partial or degraded bootstrap cannot report success or allow application
+  claims or workloads to be applied.
 - [ ] Platform creation does not install applications.
 - [ ] One command installs and validates the reference application.
+- [ ] Status reports the deployed digest, verified signer identity, registry, and
+  namespace image-enforcement state without exposing credentials.
 - [ ] Repeating platform and application reconciliation is idempotent.
 - [ ] Interrupted operations resume safely.
 - [ ] Status commands make no changes.
@@ -431,6 +603,11 @@ failures have automated detection and recovery paths.
   architectural decision.
 - [ ] Define the provider OpenTofu stack for networking, identity, registry,
   Kubernetes, and other pre-cluster dependencies.
+- [ ] Preserve the platform registry contract when a provider-managed OCI registry
+  substitutes the in-cluster local implementation.
+- [ ] Prove with provider IAM that only the protected release workload can invoke
+  the signing key or obtain an accepted keyless identity; developer and
+  pull-request identities must fail both signing authorization and admission.
 - [ ] Define a managed PostgreSQL Crossplane composition that preserves the
   `PostgreSQLInstance` API and connection Secret schema.
 - [x] Replace the local secret store, certificate issuer, storage classes, gateway
@@ -443,6 +620,8 @@ failures have automated detection and recovery paths.
   provider.
 - [ ] Test controller restart, OPA outage, telemetry backend outage, interrupted
   Helm upgrade, and partial platform reconciliation.
+- [ ] Test registry outage, signature-verifier outage, signer rotation, interrupted
+  image promotion, and recovery from a partially closed bootstrap trust loop.
 - [ ] Verify status reports degraded capabilities without corrupting healthy state.
 
 ### Exit Criteria
@@ -474,6 +653,10 @@ keeping production-only scale and availability work explicitly scoped.
 - [ ] Validate CRD conversion and rollback behavior before controller upgrades.
 - [ ] Add artifact integrity checks, dependency inventory, and automated
   vulnerability reporting.
+- [ ] Document registry backup, restore, garbage collection, signature retention,
+  immutable-tag or digest policy, and disaster recovery.
+- [ ] Document signing identity and key rotation, revocation, compromise response,
+  protected-pipeline controls, and time-bounded audited break-glass recovery.
 - [ ] Document trust roots, certificate rotation, secret rotation, and workload
   identity incident response.
 - [ ] Document policy change review, audit-to-enforce promotion, rollback, and
@@ -505,12 +688,13 @@ test evidence, and architectural decisions from the evidence column.
 
 | Step | Status | Evidence |
 | --- | --- | --- |
-| 6. Repository and local cluster foundation | Complete (offline); live preflight blocked | `tools/kore` TypeScript CLI, catalogs, local environment, `npm test`; `kore doctor --environment local` reports pinned-tool and disk prerequisites |
-| 7. Bootstrap controllers and CRD ownership | Live-validated | Gateway API, cert-manager, Crossplane, Gatekeeper, Istio, External Secrets, CloudNativePG, OPA, ztunnel, and OpenTelemetry Operator ready on `kore-local` |
-| 8. Networking, certificates, and secrets | Partially live-validated | local CA trust, ClusterIssuer, Gateway programming, and TLS Certificate ready on `kore-local`; Secret materialization and HTTPS route remain pending |
-| 9. Workload identity and policy | Implemented; live validation pending | ambient values, Gatekeeper templates/constraints, OPA bundle/chart |
+| 6. Repository and local cluster foundation | Complete; live lifecycle validated | `tools/kore` TypeScript CLI, updated catalogs and local environment, 37 unit tests, catalog/OPA validation, direct `kore validate` and `cluster status`, and live Minikube create/inspect/stop/resume integration on Kubernetes 1.37.0 |
+| 7. Bootstrap registry, image trust, controllers, and CRD ownership | Existing controllers live-validated; registry trust closure not started | Gateway API 1.6.2, cert-manager 1.21.2, Crossplane 2.4.0, Gatekeeper 3.23.1, Istio 1.30.4, External Secrets 2.10.0, CloudNativePG chart 0.29.0, OPA, and ztunnel rolled out; registry, Cosign automation authority, Sigstore admission, internal signed rollout, and seed-closure evidence remain open |
+| 8. Networking, certificates, and secrets | Blocked on clean-cluster Gateway prerequisites | 2026-09-13: Gateway reported `AddressNotAssigned` and missing `kore-system/kore-local-tls` (`InvalidCertificateRef`); canceled configuration release cleaned up. Gateway Bootstrap Repair checklist tracks issuer, certificate, tunnel, ordering, and HTTPS verification |
+| 9. Workload identity, application image trust, and policy | Identity/runtime policy implemented; application image trust not started | ambient values, Gatekeeper templates/constraints, OPA bundle/chart; application namespace enrollment and signed-image admission remain open |
 | 10. Storage and PostgreSQL platform API | Implemented; live validation pending | StorageClasses, immediate Minikube binding, `PostgreSQLInstance` XRD/composition, retention guards |
 | 11. Observability | Live-validated installation | Prometheus, Loki, Tempo, Grafana, and OTLP Collector ready on `kore-local`; synthetic signal correlation remains pending |
+| Platform bootstrap completion gate | Not started | Readiness manifest, protected gate ownership, cluster-side pre-bootstrap rejection, and complete prerequisite evidence remain open |
 | 12. Reference application | Implemented; live validation pending | two Node workloads, resource/workload charts, Dockerfile, policy paths |
 | 13. Complete lifecycle orchestration | Implemented; live validation pending | platform/app command phases, lock, explicit contexts and confirmations |
 | 14. Portability and resilience validation | Complete (offline validation) | `kore validate --environment managed-example`, environment-selected overlays, application overlay rejection, `tools/kore/{portability,config}.spec.ts`; live/provider resilience tests pending |

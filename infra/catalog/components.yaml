@@ -267,7 +267,7 @@
       },
       {
         "name": "kore-platform-config",
-        "phase": "core",
+        "phase": "configuration",
         "namespace": "kore-system",
         "kind": "local-chart",
         "chart": "infra/charts/platform-config",

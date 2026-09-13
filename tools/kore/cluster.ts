@@ -72,10 +72,15 @@ async function purgeRetainedResources(repository: Repository, runner: Runner): P
   const context = repository.environment.kubeContext;
   const selector = "platform.kore.dev/retention=Retain";
   for (const resource of ["postgresqlinstances.platform.kore.dev", "pvc"]) {
-    await runner.run("kubectl", [
-      "--context", context, "delete", resource, "--all-namespaces", "--selector", selector,
-      "--ignore-not-found", "--wait",
-    ], { capture:false });
+    try {
+      await runner.run("kubectl", [
+        "--context", context, "delete", resource, "--all-namespaces", "--selector", selector,
+        "--ignore-not-found", "--wait",
+      ], { capture:true });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      if (!/doesn't have a resource type|the server doesn't have a resource type|no matches for kind/i.test(detail)) throw error;
+    }
   }
 }
 

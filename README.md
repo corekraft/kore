@@ -16,16 +16,20 @@ mise exec -- npm --prefix tools/kore run test:opa
 mise exec -- npm --prefix tools/kore run kore -- doctor --environment local
 mise exec -- npm --prefix tools/kore run kore -- validate --environment local
 mise exec -- npm --prefix tools/kore run kore -- cluster up --environment local
+mise exec -- npm --prefix tools/kore run kore -- platform bootstrap --environment local
 mise exec -- npm --prefix tools/kore run kore -- trust install --environment local
 mise exec -- npm --prefix tools/kore run kore -- platform up --environment local
 mise exec -- npm --prefix tools/kore run kore -- app up reference --environment local
 ```
 
 `platform up` installs only platform releases; applications are always a separate
-operation. Status, validate, and render are read-only. Mutations require an
-explicit environment and use the configured kube context, never the current
-kubectl context. Destruction requires `--yes`; retained claims additionally
-require `--purge-data`.
+operation. Run `platform bootstrap` before `trust install`: bootstrap installs
+cert-manager and the other controllers required for the local issuer, while
+`trust install` establishes host trust and waits for the issuer to become ready.
+Status, validate, and render are read-only. Mutations require an explicit
+environment and use the configured kube context, never the current kubectl
+context. Destruction requires `--yes`; retained claims additionally require
+`--purge-data`.
 
 For the local profile, the focused cluster lifecycle commands are:
 
@@ -37,6 +41,12 @@ mise exec -- npm --prefix tools/kore run kore -- cluster destroy --environment l
 
 `cluster destroy` is destructive. Omit `--purge-data` to preserve retained data;
 the command will refuse to destroy a profile while retained data exists.
+If a live integration or platform attempt fails, destroy the explicit local
+profile before retrying from a clean cluster:
+
+```sh
+mise exec -- npm --prefix tools/kore run kore -- cluster destroy --environment local --yes --purge-data
+```
 
 `kore validate --environment <name>` also checks that every application has
 separate resources and workload charts with no provider-specific references.

@@ -62,6 +62,26 @@ test("purging retained data explicitly deletes retained claims before the profil
   assert.equal(runner.calls.at(-1)?.args[0],"delete");
 });
 
+test("purge tolerates a PostgreSQL CRD that was never installed", async () => {
+  const repository = await loadRepository("local");
+  const calls: { command: string; args: readonly string[] }[] = [];
+  const runner = {
+    async run(command: string, args: readonly string[]) {
+      calls.push({ command, args });
+      if (command === "kubectl" && args.includes("delete") && args.includes("postgresqlinstances.platform.kore.dev")) {
+        throw new Error('the server doesn\'t have a resource type "postgresqlinstances"');
+      }
+      return { stdout: command === "minikube" && args[0] === "status" ? '{"Host":"Running"}' : command === "kubectl" && args.includes("jsonpath={.metadata.name}") ? "kube-system" : "", stderr: "", code: 0 };
+    },
+  };
+
+  await clusterDestroy(repository, runner, { yes: true, purgeData: true });
+
+  assert.ok(calls.some(({ command, args }) => command === "kubectl" && args.includes("delete") && args.includes("pvc")));
+  assert.equal(calls.at(-1)?.command, "minikube");
+  assert.equal(calls.at(-1)?.args[0], "delete");
+});
+
 test("verified exports allow destroying an unreachable profile without purging data", async () => {
   const repository = await loadRepository("local");
   const exportDirectory = join(repository.root, ".kore", "exports", repository.environment.name);

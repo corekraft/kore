@@ -2,7 +2,10 @@
   "name": "@corekraft/reference-app",
   "private": true,
   "type": "module",
-  "engines": {"node": ">=24.7.0"},
-  "scripts": {"start":"node --experimental-strip-types src/server.ts"}
+  "engines": {
+    "node": ">=24.7.0"
+  },
+  "scripts": {
+    "start": "node --experimental-strip-types src/server.ts"
+  }
 }
-

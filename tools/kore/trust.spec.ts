@@ -28,4 +28,5 @@ test("local trust installation ensures the target namespace exists", async () =>
   assert.ok(calls.some(({command, args, options}) => command === "kubectl" && args.includes("--filename") && options?.input?.includes("name: kore-system") && options.input.includes("app.kubernetes.io/managed-by: Helm") && options.input.includes("meta.helm.sh/release-name: kore-platform-config")));
   assert.ok(calls.some(({command, args}) => command === "kubectl" && args.includes("create") && args.includes("secret") && args.includes("--namespace") && args.includes("cert-manager")));
   assert.ok(calls.some(({command, options}) => command === "kubectl" && options?.input?.includes("name: kore-local-ca")));
+  assert.ok(calls.some(({command, args}) => command === "kubectl" && args.includes("wait") && args.includes("--for=condition=Ready") && args.includes("clusterissuer/kore-local-ca")));
 });

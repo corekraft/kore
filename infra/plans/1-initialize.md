@@ -24,6 +24,18 @@ interface for logs, metrics, and traces.
   operation belong to infrastructure.
 - **Tool** is an open-source tool configuration or a custom CLI used to perform a
   focused, automated operation.
+- **Platform-signed image** is an OCI image whose immutable digest has a valid
+  Cosign signature from an environment-authorized platform release automation
+  identity. Registry location, repository ownership, or a mutable tag does not
+  establish trust.
+- **Bootstrap seed image** is a digest-pinned image required to start the internal
+  registry, signature verifier, or another prerequisite before the platform trust
+  boundary exists. Seed use is temporary, explicitly allowlisted, and closed before
+  bootstrap reports success.
+- **Application admission gate** is the platform-owned readiness state that remains
+  closed until every infrastructure tool and capability required by applications is
+  installed, configured, healthy, and enforcing. While closed, ordinary developer
+  and deployment identities cannot create or update application claims or workloads.
 
 ## Responsibility Boundaries
 
@@ -82,6 +94,17 @@ environment overlays.
 - OPA validates workload identity configuration at admission time and provides
   contextual authorization decisions at runtime where native Istio policy is not
   sufficient.
+- Application and platform workload images are trusted only after their immutable
+  digests are verified as signed by an environment-authorized platform release
+  automation identity.
+- Developers and developer credentials cannot sign trusted images. Build automation
+  may publish candidate images, while protected release automation alone may sign
+  and promote them.
+- The platform OCI registry is the source of deployable images and signatures after
+  bootstrap trust closure; registry membership alone never implies trust.
+- Image verification fails closed. Unsigned images, invalid signatures,
+  unauthorized signer identities, mutable-only references, and verification errors
+  are rejected.
 - Secrets and persistent services have explicit ownership, lifecycle, and retention
   boundaries rather than hidden defaults.
 - Local development has a small number of predictable commands.
@@ -121,38 +144,64 @@ For Minikube, provisioning the environment substrate means preparing the local
 environment before creating the cluster. For a cloud environment, it may include
 networking, identity, and other dependencies required by a managed cluster.
 
-Platform initialization does not install applications.
+Platform initialization does not install applications. The complete initialization
+lifecycle is the platform bootstrap; individual controller-installation operations
+are internal phases and must never publish platform readiness on their own.
 
 ### Infrastructure Installation Phases
 
 Infrastructure is installed in dependency-aware phases:
 
-1. **Bootstrap** installs namespaces, CRDs, infrastructure controllers, and their
-   policy or admission prerequisites. OPA Gatekeeper constraints begin in audit
-   mode so that bootstrap cannot block its own dependencies.
-2. **Core capabilities** install workload identity, the service mesh, ingress,
-   certificates, secret delivery, storage, database or messaging operators, and
-   the OPA runtime authorizer.
+1. **Bootstrap seed** installs namespaces, the internal OCI registry, signature
+   admission controller, CRDs, and infrastructure controllers from an explicit set
+   of digest-pinned seed artifacts. OPA Gatekeeper constraints begin in audit mode
+   so that bootstrap cannot block its own dependencies.
+2. **Trust closure and core capabilities** mirror every required platform image
+   into the internal registry, verify its recorded upstream digest and provenance,
+   sign its digest through protected platform release automation, roll platform
+   workloads to internal digest-qualified references, and install workload
+   identity, the service mesh, ingress, certificates, secret delivery, storage,
+   database or messaging operators, and the OPA runtime authorizer.
 3. **Observability** installs the OpenTelemetry collection path and the required
    metrics, logs, and traces services.
-4. **Policy enforcement** promotes validated Gatekeeper constraints and runtime
-   authorization policies from audit to enforcement after all dependencies are
-   ready.
+4. **Policy enforcement** enables fail-closed image signature admission, promotes
+   validated Gatekeeper constraints and runtime authorization policies from audit
+   to enforcement, and audits all running platform workloads for internal,
+   digest-qualified, authorized signatures.
+
+Bootstrap is not complete until the internal registry is ready, all seed artifacts
+have been replaced by their mirrored and platform-signed equivalents, image
+admission is enforcing, and an inventory proves that no managed platform workload
+uses an external, tag-only, unsigned, or unauthorized image. Seed exceptions are
+not part of the steady state. Bootstrap must also install, configure, and verify
+every infrastructure tool required by the declared application contracts before it
+opens the application admission gate.
+
+The gate is represented by platform-owned, generation-specific readiness state and
+is opened only by bootstrap automation after all required release and capability
+checks pass. Application namespaces are created or activated only after that point.
+Admission policy and RBAC reject application claims and workload resources while
+the gate is absent, stale, or closed. Developers cannot set or modify the readiness
+state, namespace activation metadata, admission policy, or deployment identity.
 
 The specific components used to implement these capabilities are selected
 separately from this lifecycle contract.
 
 ## Application Lifecycle
 
-Applications are installed only after the platform is ready:
+Applications are installable only after bootstrap has opened the application
+admission gate:
 
-1. Verify platform readiness.
+1. Verify the current bootstrap generation is ready and the application admission
+   gate is open.
 2. Install or upgrade the application's infrastructure claims.
 3. Wait for every claim to report that it is ready.
 4. Verify that required Secrets and endpoints exist.
-5. Install or upgrade the application workload.
-6. Wait for the workload rollout to complete.
-7. Report application readiness and endpoints.
+5. Obtain the release-automation-produced, digest-qualified, Cosign-signed image
+   reference and verify its signer identity.
+6. Install or upgrade the application workload using only that reference.
+7. Wait for signature admission and the workload rollout to complete.
+8. Report application readiness, image digest, signer identity, and endpoints.
 
 Infrastructure claims and application workloads use separate Helm releases. For
 an application named `example`, those releases are:
@@ -175,8 +224,8 @@ surface is:
 | Command                                       | Responsibility                                                      |
 | --------------------------------------------- | ------------------------------------------------------------------- |
 | `kore doctor`                                 | Validate required tools, versions, credentials, and host capacity.  |
-| `kore platform up --environment <name>`       | Reconcile the cluster and all foundational infrastructure.          |
-| `kore platform status --environment <name>`   | Report platform readiness without making changes.                   |
+| `kore platform up --environment <name>`       | Bootstrap all required infrastructure and open the application gate only after complete readiness. |
+| `kore platform status --environment <name>`   | Report bootstrap generation, prerequisite readiness, and application-gate state without making changes. |
 | `kore app up <name> --environment <name>`     | Reconcile one application's claims and workload.                    |
 | `kore app status <name> --environment <name>` | Report application and claim readiness without making changes.      |
 | `kore app down <name> --environment <name>`   | Remove an application workload while retaining stateful resources.  |
@@ -192,6 +241,9 @@ The `kore` command composes focused tools without taking over their concerns:
 - OpenTofu provisions external infrastructure.
 - Helm installs and upgrades in-cluster resources.
 - `kubectl` observes resources and waits for readiness.
+- Cosign signs and verifies immutable image digests when invoked by authorized
+  release automation.
+- The OCI registry stores promoted images and their signatures.
 
 ### Command Behavior
 
@@ -205,6 +257,12 @@ Every mutating command must:
 - Return a nonzero exit code when convergence fails.
 - Identify the failed component without requiring undocumented manual patching.
 - Support non-interactive execution in CI.
+
+Application mutation commands must additionally refuse to render or apply claims or
+workloads until the current environment reports a complete bootstrap generation and
+an open application admission gate. This CLI check supplements, but does not
+replace, cluster-side RBAC and admission enforcement against direct Helm or
+Kubernetes API use.
 
 Destructive commands must:
 
@@ -224,6 +282,8 @@ Destructive commands must:
 - An interrupted operation can be rerun safely.
 - A command refuses to operate against an unexpected cluster.
 - Application installation stops when an infrastructure claim is not ready.
+- Application claims and workloads cannot be applied before all required platform
+  tools are ready and the platform-owned application admission gate is open.
 - Application removal and local platform stop retain stateful data by default.
 - Local platform destruction is blocked while retained data exists unless an
   explicit purge or verified export permits it.
@@ -244,8 +304,9 @@ specific implementations are selected.
 | Persistence       | A PersistentVolumeClaim and storage class contract                             | Provision storage backed by the local environment               | Substitute a cloud storage class while preserving claim semantics           |
 | Observability     | An OTLP endpoint and standard telemetry attributes                             | Collect logs, metrics, and traces locally                       | Substitute telemetry backends without changing application instrumentation  |
 | Workload identity | A dedicated Kubernetes ServiceAccount represented as an Istio SPIFFE principal | Issue short-lived mesh identities and enforce mutual TLS        | Preserve the principal contract across Kubernetes environments              |
-| Policy            | Gatekeeper constraints and Istio authorization policy                          | Audit configuration and enforce admission and runtime decisions | Keep policy inputs stable and policy bundles versioned                      |
-| Container images  | An OCI image reference                                                         | Build or load the image into Minikube                           | Push the same image format to a provider registry                           |
+| Policy            | Gatekeeper constraints, Sigstore image policy, and Istio authorization policy  | Audit configuration and enforce admission and runtime decisions | Keep policy inputs stable and policy bundles versioned                      |
+| OCI registry      | A platform registry endpoint and digest-qualified repository contract           | Run a persistent OCI Distribution-compatible registry           | Substitute a managed registry without changing workload charts             |
+| Container images  | An internal, digest-qualified OCI reference with an authorized Cosign signature | Build candidates locally; protected automation promotes and signs | Preserve digest and signer verification across environment registries      |
 
 ### Reference Application
 
@@ -261,6 +322,8 @@ layers. It requires:
 - Mutual TLS for service-to-service traffic.
 - Native Istio authorization and one OPA-backed contextual authorization decision.
 - OPA Gatekeeper admission and audit validation.
+- Admission rejection of unsigned images and images signed by unauthorized
+  identities.
 - Kubernetes health and readiness reporting.
 
 ### Capability Requirements
@@ -293,6 +356,9 @@ not on implementation-specific APIs unless a reviewed exception is recorded.
 | Edge and mesh API        | Kubernetes Gateway API                               | Provide portable `Gateway` and route resources.                                                  |
 | Gateway and service mesh | Istio in ambient mode                                | Implement Gateway API, workload identity, mutual TLS, runtime authorization, and mesh telemetry. |
 | Admission policy         | OPA Gatekeeper                                       | Validate resources during admission and continuously audit existing resources.                   |
+| Image signing            | Cosign                                               | Sign immutable OCI image digests using protected platform release automation identities.         |
+| Image admission          | Sigstore Policy Controller                           | Resolve and verify workload images and reject unauthorized signatures at admission.              |
+| Local OCI registry       | OCI Distribution-compatible registry                 | Persist platform images, application images, signatures, and attestations inside the platform.   |
 | Runtime policy decisions | OPA with the OPA-Envoy plugin                        | Evaluate contextual Layer 7 authorization requests delegated by Istio.                           |
 | Certificates             | cert-manager                                         | Issue, renew, and materialize certificates from environment-selected issuers.                    |
 | Local certificate trust  | mkcert-backed local CA                               | Establish host-trusted local development certificates.                                           |
@@ -307,7 +373,7 @@ not on implementation-specific APIs unless a reviewed exception is recorded.
 | Observability UI         | Grafana                                              | Query and correlate metrics, logs, and traces.                                                   |
 | Tool versions            | mise                                                 | Install and pin repository development tool versions.                                            |
 | Kubernetes inspection    | `kubectl`                                            | Observe resources and wait for readiness without owning desired state.                           |
-| Local image delivery     | Minikube image tooling                               | Build or load OCI images into the local cluster runtime.                                         |
+| Local image delivery     | OCI registry push and pull                           | Publish candidate images and consume promoted, signed, digest-qualified images.                  |
 
 Envoy Gateway is not part of the initial stack. Istio is the Gateway API
 implementation so that the platform has one control plane for ingress, ambient
@@ -370,6 +436,51 @@ Initial Gatekeeper identity constraints require:
 Constraints start in audit mode. Each constraint moves to enforcement only after
 the platform and reference application comply and its failure behavior is tested.
 System namespace exemptions must be explicit, minimal, and documented.
+
+### Image Provenance and Registry Trust
+
+The platform operates an OCI Distribution-compatible registry as a foundational
+infrastructure application. Workloads consume images from the environment's
+platform registry by immutable digest. Images and their Cosign signatures remain
+OCI artifacts so that a managed environment may substitute a provider registry
+without changing application charts.
+
+Sigstore Policy Controller performs cryptographic image verification during
+admission. Gatekeeper remains responsible for workload shape, identity, and other
+declarative constraints; it does not duplicate signature verification in Rego.
+Every namespace containing Kore-managed platform or application workloads is
+enrolled after its bootstrap prerequisites are ready. Policy covers containers,
+init containers, and ephemeral containers, rejects references that do not match a
+policy, and fails closed when the image, signature, registry, or verifier cannot be
+validated.
+
+Only protected release automation is an authorized signer. The authorization
+policy binds verification to an exact workload identity, such as an OIDC issuer
+and protected workflow subject, or to a KMS/HSM key whose sign permission is
+granted only to that workload identity. Developers, pull-request workflows,
+ordinary build jobs, cluster workloads, and registry administrators receive no
+sign permission. Build automation may push candidates to a staging repository;
+release automation verifies the candidate digest and required checks, promotes it
+to a trusted repository, signs that digest, verifies the result, and emits the
+digest-qualified release reference. Admission trusts the signer, not the registry
+path alone.
+
+Local development exercises the same promotion and admission flow with a distinct
+local automation identity that is never trusted by managed environments. A user
+with administrator access to a local machine or Minikube cluster cannot be treated
+as cryptographically isolated from that local environment; local proves workflow
+behavior, while managed KMS/IAM and protected CI establish the developer/signing
+boundary.
+
+The registry and verifier create a bootstrap trust loop. The seed phase may use
+only repository-recorded upstream digests needed to start that loop. Once the
+registry and verifier are ready, automation mirrors those artifacts, validates
+their upstream digest and provenance, signs the approved internal digests, updates
+all platform releases to the internal digest-qualified references, enables
+fail-closed admission, and performs a complete workload inventory. Bootstrap fails
+and rolls back if any seed, external, tag-only, unsigned, or unauthorized image
+remains. Signing keys and credentials are never stored in the registry, cluster,
+repository, Helm values, or developer workstations.
 
 ### Networking and Certificates
 
@@ -448,7 +559,8 @@ it does not hide component lists or versions inside imperative scripts.
 │   │   └── stacks/
 │   ├── charts/
 │   │   ├── platform-config/
-│   │   └── opa-authorizer/
+│   │   ├── opa-authorizer/
+│   │   └── oci-registry/
 │   ├── apis/
 │   │   └── postgresql/
 │   │       ├── definitions/
@@ -459,8 +571,12 @@ it does not hide component lists or versions inside imperative scripts.
 │   │   │   ├── templates/
 │   │   │   ├── constraints/
 │   │   │   └── tests/
-│   │   └── opa/
+│   │   ├── opa/
 │   │       ├── bundles/
+│   │       └── tests/
+│   │   └── sigstore/
+│   │       ├── cluster-image-policies/
+│   │       ├── trust-roots/
 │   │       └── tests/
 │   └── observability/
 │       ├── collector/
@@ -486,6 +602,8 @@ The layout follows these ownership rules:
 - `infra/apis` owns platform custom APIs and their environment compositions.
 - `infra/policies/gatekeeper` owns admission and audit policy.
 - `infra/policies/opa` owns versioned runtime authorization bundles.
+- `infra/policies/sigstore` owns image-signature trust roots, signer identities,
+  admission policy, and policy tests; it never owns signing credentials.
 - `infra/observability` owns Collector pipelines, dashboards, and alert rules.
 - `apps/<name>/charts/resources` owns application infrastructure claims.
 - `apps/<name>/charts/workload` owns application workloads.
@@ -501,6 +619,8 @@ The initial logical releases and namespaces are:
 | `kore-gateway-api`       | `kore-system`                   | Gateway API CRDs.                                                                                                           |
 | `cert-manager`           | `cert-manager`                  | cert-manager controller and its CRDs.                                                                                       |
 | `gatekeeper`             | `gatekeeper-system`             | OPA Gatekeeper controllers and CRDs.                                                                                        |
+| `oci-registry`           | `registry-system`               | Persistent OCI registry used for platform and application images, signatures, and attestations.                            |
+| `policy-controller`      | `cosign-system`                 | Sigstore signature admission controller, webhook, and CRDs.                                                                |
 | `istio-base`             | `istio-system`                  | Istio cluster-scoped base resources and CRDs.                                                                               |
 | `istiod`                 | `istio-system`                  | Istio control plane.                                                                                                        |
 | `istio-cni`              | `istio-system`                  | Istio ambient networking integration.                                                                                       |
@@ -516,6 +636,7 @@ The initial logical releases and namespaces are:
 | `otel-collector`         | `observability`                 | Application, platform, and mesh telemetry pipelines.                                                                        |
 | `opa-authorizer`         | `opa-system`                    | OPA-Envoy runtime authorization service and policy bundle loader.                                                           |
 | `kore-platform-config`   | `kore-system`                   | Platform-owned issuers, gateways, storage profiles, secret stores, Crossplane APIs and compositions, and policy activation. |
+| `kore-image-policy`      | `kore-system`                   | Verification trust roots, authorized automation identities, `ClusterImagePolicy` resources, and namespace enrollment.      |
 
 Logical releases may map to multiple upstream charts when required by a project's
 supported installation model. The catalog records that mapping without changing
@@ -572,6 +693,15 @@ flowchart TD
     gatekeeper --> policyTemplates[Constraint templates]
     policyTemplates --> auditConstraints[Audit constraints]
 
+    cluster --> registrySeed[OCI registry from pinned seed]
+    cluster --> sigstoreSeed[Sigstore Policy Controller from pinned seed]
+    registrySeed --> mirror[Mirror and approve platform images]
+    sigstoreSeed --> imagePolicy[Image signature policy]
+    mirror --> automationSign[Protected release automation signs digests]
+    automationSign --> internalRollout[Roll platform workloads to internal digests]
+    imagePolicy --> internalRollout
+    internalRollout --> imageAudit[Enforce and audit trust closure]
+
     cluster --> crossplane[Crossplane]
     crossplane --> platformApis[Functions and XRDs]
     cluster --> cloudNativePg[CloudNativePG]
@@ -606,16 +736,21 @@ flowchart TD
     otelCollector --> platformReady
     dataSources --> platformReady
     customPolicy --> platformReady
+    imageAudit --> platformReady
 
-    platformReady --> appResources[Application resources release]
+    platformReady --> admissionGate[Open application admission gate]
+    admissionGate --> appResources[Application resources release]
     appResources --> claimsReady[Claims Ready and Secrets present]
     claimsReady --> appWorkload[Application workload release]
     appWorkload --> rolloutReady[Rollout Ready]
 ```
 
 Istio identity and native authorization are ready before OPA-backed runtime policy
-is enforced. Gatekeeper constraints remain in audit mode until all infrastructure
-releases and the reference application pass their policy tests.
+is enforced. Gatekeeper constraints begin in audit mode, pass offline and
+pre-admission fixtures, and promote to enforcement before the application admission
+gate opens; the reference application then provides post-gate end-to-end evidence.
+Image policy is enforced before bootstrap reports completion, after the seed images
+have been mirrored, automation-signed, and replaced by internal digest references.
 
 ### Environment Overlay Rules
 
@@ -623,12 +758,16 @@ releases and the reference application pass their policy tests.
 - An environment overlay may select implementations, sizes, endpoints, issuers,
   storage classes, compositions, and platform-owned parent references.
 - An overlay must not fork an application chart or change application source code.
-- Minikube commands, profile names, tunnel behavior, local mounts, and local image
-  loading exist only in the local environment and `kore` adapters.
+- Minikube commands, profile names, tunnel behavior, local mounts, and local
+  registry bootstrap behavior exist only in the local environment and `kore`
+  adapters.
 - Cloud provider names, regions, identities, and managed-resource settings exist
   only in their OpenTofu stack and environment overlay.
 - Secrets are referenced by stable logical keys; plaintext values are not overlay
   inputs or Helm values.
+- Registry endpoints, repository prefixes, trusted signing identities, and public
+  verification material are environment inputs. Private signing credentials are
+  never environment, overlay, cluster, or developer inputs.
 
 ### Version Catalog
 
@@ -656,6 +795,13 @@ version used by the platform.
 - Workload identity is derived from a dedicated ServiceAccount and is available to
   native Istio and OPA authorization decisions.
 - Admission policy cannot block bootstrap before its constraints are validated.
+- Bootstrap cannot report success while any managed workload uses a seed, external,
+  tag-only, unsigned, or unauthorized image.
+- Only protected release automation can produce a signature accepted by image
+  admission; developer and pull-request identities are rejected.
+- A platform-owned readiness gate prevents application claims and workloads from
+  being applied until every required infrastructure tool is installed, configured,
+  healthy, and enforcing for the current bootstrap generation.
 - `kore platform up` can derive its complete execution order and readiness checks
   from repository-owned configuration.
 
