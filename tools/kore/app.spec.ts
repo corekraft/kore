@@ -6,7 +6,11 @@ import type { RunOptions, RunResult, Runner } from "./runner.js";
 class UnreadyPlatformRunner implements Runner {
   calls: string[] = [];
 
-  async run(command: string, args: readonly string[], _options?: RunOptions): Promise<RunResult> {
+  async run(
+    command: string,
+    args: readonly string[],
+    _options?: RunOptions,
+  ): Promise<RunResult> {
     this.calls.push(`${command} ${args.join(" ")}`);
     if (command === "helm" && args[0] === "status") {
       throw new Error("release is missing");
@@ -25,6 +29,8 @@ test("app up stops before installing resources when the platform is not ready", 
   const repository = await loadRepository("local");
   const runner = new UnreadyPlatformRunner();
 
-  await expect(appUp(repository, runner, "reference")).rejects.toThrow(/platform.*ready|missing/i);
+  await expect(appUp(repository, runner, "reference")).rejects.toThrow(
+    /platform.*ready|missing/i,
+  );
   expect(runner.calls.some((call) => call.includes(" upgrade "))).toBe(false);
 });

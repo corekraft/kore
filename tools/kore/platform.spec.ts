@@ -14,7 +14,7 @@ test("release graph order is stable", async () => {
 
 test("helm construction always uses explicit context, namespace, pin, and timeout", async () => {
   const repository = await loadRepository("local"); const component = repository.catalog.components.find(({name}) => name === "crossplane")!; const args = helmUpgradeArgs(repository,component);
-  assert.ok(args.includes("--kube-context")); assert.ok(args.includes("kore-local")); assert.ok(args.includes("--namespace")); assert.ok(args.includes("--version")); assert.ok(args.includes("2.3.4")); assert.ok(args.includes("--timeout"));
+  assert.ok(args.includes("--kube-context")); assert.ok(args.includes("kore-local")); assert.ok(args.includes("--namespace")); assert.ok(args.includes("--version")); assert.ok(args.includes("2.4.0")); assert.ok(args.includes("--timeout"));
   assert.ok(args.includes("--rollback-on-failure")); assert.equal(args.includes("--atomic"), false);
 });
 

@@ -2,13 +2,14 @@ apiVersion: apiextensions.crossplane.io/v1
 kind: Composition
 metadata:
   name: postgresqlinstance-local
-  labels: {platform.kore.dev/provider: local}
+  labels: { platform.kore.dev/provider: local }
 spec:
-  compositeTypeRef: {apiVersion: platform.kore.dev/v1alpha1, kind: PostgreSQLInstance}
+  compositeTypeRef:
+    { apiVersion: platform.kore.dev/v1alpha1, kind: PostgreSQLInstance }
   mode: Pipeline
   pipeline:
     - step: compose-cloudnative-pg
-      functionRef: {name: function-go-templating}
+      functionRef: { name: function-go-templating }
       input:
         apiVersion: gotemplating.fn.crossplane.io/v1beta1
         kind: GoTemplate
@@ -50,15 +51,18 @@ spec:
               passwordSecretRef: {{ .observed.composite.resource.metadata.name }}-app
               sslmode: require
     - step: mark-ready
-      functionRef: {name: function-auto-ready}
+      functionRef: { name: function-auto-ready }
 ---
 apiVersion: pkg.crossplane.io/v1beta1
 kind: Function
-metadata: {name: function-go-templating}
-spec: {package: xpkg.crossplane.io/crossplane-contrib/function-go-templating:v0.11.0}
+metadata: { name: function-go-templating }
+spec:
+  {
+    package: xpkg.crossplane.io/crossplane-contrib/function-go-templating:v0.11.0,
+  }
 ---
 apiVersion: pkg.crossplane.io/v1beta1
 kind: Function
-metadata: {name: function-auto-ready}
-spec: {package: xpkg.crossplane.io/crossplane-contrib/function-auto-ready:v0.5.0}
-
+metadata: { name: function-auto-ready }
+spec:
+  { package: xpkg.crossplane.io/crossplane-contrib/function-auto-ready:v0.5.0 }

@@ -5,7 +5,7 @@
   "kubeContext": "kore-local",
   "cluster": {
     "profile": "kore-local",
-    "kubernetesVersion": "1.35.1",
+    "kubernetesVersion": "1.37.0",
     "driver": "docker",
     "containerRuntime": "containerd",
     "cpus": 4,
