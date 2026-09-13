@@ -9,6 +9,7 @@ import { platformDestroy, platformRender, platformStatus, platformStop, platform
 import { ProcessRunner } from "./runner.js";
 import { syncLocalSecrets } from "./secrets.js";
 import { installLocalTrust } from "./trust.js";
+import { validatePortability } from "./portability.js";
 
 const usage = `Kore local platform orchestration
 
@@ -47,7 +48,8 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
 
   if (command === "validate") {
     const order = orderedComponents(repository.catalog).map((component) => component.name);
-    print({ environment:repository.environment.name,components:order.length,order,status:"valid" },json); return 0;
+    const portability = await validatePortability(repository);
+    print({ environment:repository.environment.name,components:order.length,order,applications:portability.applications,status:"valid" },json); return 0;
   }
   if (command === "doctor") {
     const checks = await doctor(repository,runner); print(checks,json); return doctorFailed(checks) ? 1 : 0;

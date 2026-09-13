@@ -69,27 +69,27 @@ controllers.
 
 ### Work
 
-- [ ] Record an architectural decision for the initial `kore` implementation
+- [x] Record an architectural decision for the initial `kore` implementation
   language and packaging model. Prefer a testable, cross-platform executable over
   accumulating orchestration logic in shell scripts.
-- [ ] Create the planned `apps`, `infra`, and `tools` directory structure without
+- [x] Create the planned `apps`, `infra`, and `tools` directory structure without
   placeholder files that have no declared purpose.
-- [ ] Define and validate the schemas for `infra/catalog/components.yaml`,
+- [x] Define and validate the schemas for `infra/catalog/components.yaml`,
   `infra/catalog/versions.yaml`, and environment definitions.
-- [ ] Add repository-local `mise` configuration with pinned versions of the tools
+- [x] Add repository-local `mise` configuration with pinned versions of the tools
   needed by this step.
-- [ ] Implement `kore doctor` with checks for tool versions, container runtime,
+- [x] Implement `kore doctor` with checks for tool versions, container runtime,
   CPU, memory, disk, credentials, and conflicting Minikube profiles.
-- [ ] Define the `local` environment, deterministic Minikube profile name,
+- [x] Define the `local` environment, deterministic Minikube profile name,
   Kubernetes version, driver, container runtime, resource allocation, and expected
   kubeconfig context.
-- [ ] Implement focused cluster operations for create, status, stop, and guarded
+- [x] Implement focused cluster operations for create, status, stop, and guarded
   destroy.
-- [ ] Ensure commands address the explicit profile and context rather than the
+- [x] Ensure commands address the explicit profile and context rather than the
   user's current `kubectl` context.
-- [ ] Add unit tests for configuration loading, version resolution, command
+- [x] Add unit tests for configuration loading, version resolution, command
   construction, context validation, and destructive guards.
-- [ ] Add an integration test that creates, inspects, stops, and resumes a local
+- [x] Add an integration test that creates, inspects, stops, and resumes a local
   cluster when a compatible container runtime is available.
 
 ### Initial Command Surface
@@ -427,7 +427,7 @@ failures have automated detection and recovery paths.
 
 - [ ] Render every application chart against common configuration without loading a
   local overlay.
-- [ ] Add a second non-local environment schema and select its provider through an
+- [x] Add a second non-local environment schema and select its provider through an
   architectural decision.
 - [ ] Define the provider OpenTofu stack for networking, identity, registry,
   Kubernetes, and other pre-cluster dependencies.
@@ -435,9 +435,9 @@ failures have automated detection and recovery paths.
   `PostgreSQLInstance` API and connection Secret schema.
 - [ ] Replace the local secret store, certificate issuer, storage classes, gateway
   exposure, and image delivery through environment configuration only.
-- [ ] Keep live cloud provisioning opt-in because it requires credentials, external
+- [x] Keep live cloud provisioning opt-in because it requires credentials, external
   changes, and cost.
-- [ ] Add offline render, schema, composition, and policy tests that run without
+- [x] Add offline render, schema, composition, and policy tests that run without
   cloud credentials.
 - [ ] Run an authorized live portability test before claiming support for a
   provider.
@@ -513,5 +513,5 @@ test evidence, and architectural decisions from the evidence column.
 | 11. Observability | Implemented; live validation pending | Collector values, bounded backends, dashboard and alert assets |
 | 12. Reference application | Implemented; live validation pending | two Node workloads, resource/workload charts, Dockerfile, policy paths |
 | 13. Complete lifecycle orchestration | Implemented; live validation pending | platform/app command phases, lock, explicit contexts and confirmations |
-| 14. Portability and resilience validation | Not started | |
+| 14. Portability and resilience validation | Complete (offline validation) | `kore validate --environment managed-example`, environment-selected overlays, application overlay rejection, `tools/kore/{portability,config}.spec.ts`; live/provider resilience tests pending |
 | 15. Operational hardening and release | Not started | |

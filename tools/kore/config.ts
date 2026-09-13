@@ -47,6 +47,7 @@ export interface Environment {
   gateway: { namespace: string; name: string; hostname: string };
   secrets: { storeName: string; sourceNamespace: string };
   telemetry: { otlpEndpoint: string };
+  componentValues?: Record<string, string[]>;
 }
 
 export interface Repository {
@@ -126,9 +127,13 @@ export async function validateRepository(repository: Repository): Promise<void> 
       crdOwners.set(crd, component.name);
     }
     for (const path of component.values ?? []) if (!await exists(join(root, path))) errors.push(`${component.name}: values file does not exist: ${path}`);
+    for (const path of environment.componentValues?.[component.name] ?? []) if (!await exists(join(root, path))) errors.push(`${component.name}: environment values file does not exist: ${path}`);
   }
   for (const component of catalog.components ?? []) for (const dependency of component.dependencies ?? []) {
     if (!components.has(dependency)) errors.push(`${component.name}: unknown dependency ${dependency}`);
+  }
+  for (const componentName of Object.keys(environment.componentValues ?? {})) {
+    if (!components.has(componentName)) errors.push(`unknown environment component values: ${componentName}`);
   }
   try { orderedComponents(catalog); } catch (error) { errors.push(String(error instanceof Error ? error.message : error)); }
   if (errors.length) throw new Error([...new Set(errors)].sort().join("\n"));
@@ -173,4 +178,8 @@ export function expandVersions(repository: Repository, value: string): string {
 
 export function absolute(repository: Repository, path: string): string {
   return isAbsolute(path) ? path : join(repository.root, path);
+}
+
+export function componentValues(repository: Repository, component: Component): string[] {
+  return [...(component.values ?? []), ...(repository.environment.componentValues?.[component.name] ?? [])];
 }

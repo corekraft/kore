@@ -6,7 +6,7 @@ import { platformStatus } from "./platform.js";
 import type { Runner } from "./runner.js";
 
 function releaseArgs(repository: Repository, name: string, release: string, chart: string): string[] {
-  return ["upgrade","--install",release,chart,"--namespace",name,"--create-namespace","--kube-context",repository.environment.kubeContext,"--wait","--timeout","10m","--atomic=false",
+  return ["upgrade","--install",release,chart,"--namespace",name,"--create-namespace","--kube-context",repository.environment.kubeContext,"--wait","--timeout","10m","--rollback-on-failure",
     "--set-string",`platform.gateway.name=${repository.environment.gateway.name}`,
     "--set-string",`platform.gateway.namespace=${repository.environment.gateway.namespace}`,
     "--set-string",`platform.gateway.hostname=${repository.environment.gateway.hostname}`,

@@ -14,6 +14,12 @@
   },
   "gateway": {"namespace":"kore-system","name":"kore-gateway","hostname":"kore.local"},
   "secrets": {"storeName":"platform-secrets","sourceNamespace":"kore-secret-source"},
-  "telemetry": {"otlpEndpoint":"http://otel-collector-opentelemetry-collector.observability.svc:4318"}
+  "telemetry": {"otlpEndpoint":"http://otel-collector-opentelemetry-collector.observability.svc:4318"},
+  "componentValues": {
+    "prometheus":["infra/environments/local/values/prometheus.yaml"],
+    "loki":["infra/environments/local/values/loki.yaml"],
+    "tempo":["infra/environments/local/values/tempo.yaml"],
+    "grafana":["infra/environments/local/values/grafana.yaml"],
+    "kore-platform-config":["infra/environments/local/values/platform-config.yaml"]
+  }
 }
-

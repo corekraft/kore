@@ -1,6 +1,6 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { absolute, componentVersion, expandVersions, orderedComponents, type Component, type Repository } from "./config.js";
+import { absolute, componentValues, componentVersion, expandVersions, orderedComponents, type Component, type Repository } from "./config.js";
 import { assertExpectedCluster, ClusterUnavailableError, clusterDestroy, clusterStop, clusterUp } from "./cluster.js";
 import type { Runner } from "./runner.js";
 
@@ -11,10 +11,10 @@ function helmTarget(component: Component): string {
 }
 
 export function helmUpgradeArgs(repository: Repository, component: Component): string[] {
-  const args = ["upgrade", "--install", component.name, helmTarget(component), "--namespace", component.namespace, "--create-namespace", "--kube-context", repository.environment.kubeContext, "--wait", "--timeout", component.timeout, "--atomic=false"];
+  const args = ["upgrade", "--install", component.name, helmTarget(component), "--namespace", component.namespace, "--create-namespace", "--kube-context", repository.environment.kubeContext, "--wait", "--timeout", component.timeout, "--rollback-on-failure"];
   if (component.kind === "helm" && component.repository && !component.repository.startsWith("oci://")) args.push("--repo", component.repository);
   const version = componentVersion(repository, component); if (version) args.push("--version", version);
-  for (const values of component.values ?? []) args.push("--values", absolute(repository, values));
+  for (const values of componentValues(repository, component)) args.push("--values", absolute(repository, values));
   return args;
 }
 
@@ -22,7 +22,7 @@ export function helmTemplateArgs(repository: Repository, component: Component): 
   const args = ["template", component.name, helmTarget(component), "--namespace", component.namespace, "--include-crds"];
   if (component.kind === "helm" && component.repository && !component.repository.startsWith("oci://")) args.push("--repo", component.repository);
   const version = componentVersion(repository, component); if (version) args.push("--version", version);
-  for (const values of component.values ?? []) args.push("--values", absolute(repository, values));
+  for (const values of componentValues(repository, component)) args.push("--values", absolute(repository, values));
   return args;
 }
 
@@ -41,7 +41,7 @@ export async function reconcileComponent(repository: Repository, runner: Runner,
     if (component.kind === "manifest") {
       const expanded = expandVersions(repository, component.source!);
       const source = /^https?:\/\//.test(expanded) ? expanded : absolute(repository, expanded);
-      await runner.run("kubectl", ["--context", repository.environment.kubeContext, "apply", "--server-side", "--field-manager=kore", "--filename", source], { capture:false });
+      await runner.run("kubectl", ["--context", repository.environment.kubeContext, "apply", "--server-side", "--field-manager=kore", "--recursive", "--filename", source], { capture:false });
     } else await runner.run("helm", helmUpgradeArgs(repository, component).map((value) => component.kind === "local-chart" && value === component.chart ? absolute(repository, value) : value), { capture:false, cwd:repository.root });
     await waitFor(repository, runner, component);
   } catch (error) { throw new Error(`component ${component.name} failed to become ready: ${error instanceof Error ? error.message : String(error)}`); }

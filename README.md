@@ -10,16 +10,15 @@ their reconciliation loops.
 
 ```sh
 mise install
-npm --prefix tools/kore install
-npm --prefix tools/kore test
-npm --prefix tools/kore run test:opa
-npm --prefix tools/kore run build
-node tools/kore/dist/cli.js doctor --environment local
-node tools/kore/dist/cli.js validate --environment local
-node tools/kore/dist/cli.js cluster up --environment local
-node tools/kore/dist/cli.js trust install --environment local
-node tools/kore/dist/cli.js platform up --environment local
-node tools/kore/dist/cli.js app up reference --environment local
+mise exec -- npm --prefix tools/kore install
+mise exec -- npm --prefix tools/kore test
+mise exec -- npm --prefix tools/kore run test:opa
+mise exec -- npm --prefix tools/kore run kore -- doctor --environment local
+mise exec -- npm --prefix tools/kore run kore -- validate --environment local
+mise exec -- npm --prefix tools/kore run kore -- cluster up --environment local
+mise exec -- npm --prefix tools/kore run kore -- trust install --environment local
+mise exec -- npm --prefix tools/kore run kore -- platform up --environment local
+mise exec -- npm --prefix tools/kore run kore -- app up reference --environment local
 ```
 
 `platform up` installs only platform releases; applications are always a separate
@@ -27,6 +26,20 @@ operation. Status, validate, and render are read-only. Mutations require an
 explicit environment and use the configured kube context, never the current
 kubectl context. Destruction requires `--yes`; retained claims additionally
 require `--purge-data`.
+
+For the local profile, the focused cluster lifecycle commands are:
+
+```sh
+mise exec -- npm --prefix tools/kore run kore -- cluster status --environment local
+mise exec -- npm --prefix tools/kore run kore -- cluster stop --environment local
+mise exec -- npm --prefix tools/kore run kore -- cluster destroy --environment local --yes --purge-data
+```
+
+`cluster destroy` is destructive. Omit `--purge-data` to preserve retained data;
+the command will refuse to destroy a profile while retained data exists.
+
+`kore validate --environment <name>` also checks that every application has
+separate resources and workload charts with no provider-specific references.
 
 The catalog and environment files intentionally use JSON-compatible YAML. This
 makes schema failures deterministic before any cluster mutation while remaining

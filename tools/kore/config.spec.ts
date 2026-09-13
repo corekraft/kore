@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vitest";
-import { findRoot, loadRepository, orderedComponents, type Catalog } from "./config.js";
+import { findRoot, loadRepository, orderedComponents, validateRepository, type Catalog } from "./config.js";
 
 test("repository catalogs and local environment validate", async () => {
   const root = await findRoot(); const repository = await loadRepository("local",root); const order = orderedComponents(repository.catalog);
@@ -35,4 +35,19 @@ test("missing catalog sections fail as schema errors instead of TypeError", asyn
   await writeFile(join(root,"infra/catalog/versions.yaml"),`{}`); await writeFile(join(root,"infra/catalog/components.yaml"),`{}`);
   await writeFile(join(root,"infra/environments/local/environment.yaml"),`{}`);
   await assert.rejects(loadRepository("local",root),/schema|kubernetes|environment/i);
+});
+
+test("environment overlays reject unknown component names", async () => {
+  const repository = await loadRepository("local");
+  await assert.rejects(
+    validateRepository({ ...repository, environment: { ...repository.environment, componentValues: { unknown: ["infra/observability/collector/values.yaml"] } } }),
+    /unknown environment component values.*unknown/i,
+  );
+});
+
+test("local catalog pins an available Istio chart release", async () => {
+  const repository = await loadRepository("local");
+  assert.equal(repository.versions.components.istio, "1.30.4");
+  assert.equal(repository.versions.components["opentelemetry-operator"], "0.122.0");
+  assert.equal(repository.versions.components.prometheus, "27.52.0");
 });

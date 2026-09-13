@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { loadRepository, orderedComponents } from "./config.js";
-import { helmUpgradeArgs, platformRender, platformUp } from "./platform.js";
+import { helmUpgradeArgs, platformRender, platformUp, reconcileComponent } from "./platform.js";
 import { RecordingRunner, type RunOptions, type RunResult, type Runner } from "./runner.js";
 
 test("release graph order is stable", async () => {
@@ -13,6 +13,7 @@ test("release graph order is stable", async () => {
 test("helm construction always uses explicit context, namespace, pin, and timeout", async () => {
   const repository = await loadRepository("local"); const component = repository.catalog.components.find(({name}) => name === "crossplane")!; const args = helmUpgradeArgs(repository,component);
   assert.ok(args.includes("--kube-context")); assert.ok(args.includes("kore-local")); assert.ok(args.includes("--namespace")); assert.ok(args.includes("--version")); assert.ok(args.includes("2.3.4")); assert.ok(args.includes("--timeout"));
+  assert.ok(args.includes("--rollback-on-failure")); assert.equal(args.includes("--atomic"), false);
 });
 
 test("render validation sends rendered manifests to kubectl over stdin", async () => {
@@ -42,4 +43,21 @@ test("platform up refuses a profile whose Kubernetes context is unexpected", asy
 
   await assert.rejects(platformUp(repository, runner), /expected cluster|context/i);
   assert.equal(calls.some(({ command, args }) => command === "minikube" && args[0] === "start"), false);
+});
+
+test("managed environments do not inherit local-only component values", async () => {
+  const repository = await loadRepository("managed-example");
+  const prometheus = repository.catalog.components.find(({ name }) => name === "prometheus")!;
+
+  assert.deepEqual(helmUpgradeArgs(repository, prometheus).filter((value) => value === "--values"), []);
+});
+
+test("manifest components apply nested manifest directories recursively", async () => {
+  const repository = await loadRepository("local");
+  const component = repository.catalog.components.find(({ name }) => name === "kore-postgresql-api")!;
+  const runner = new RecordingRunner();
+
+  await reconcileComponent(repository, runner, component);
+
+  assert.ok(runner.calls[0]?.args.includes("--recursive"));
 });
