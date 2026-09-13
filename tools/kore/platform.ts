@@ -1,7 +1,7 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { absolute, componentValues, componentVersion, expandVersions, orderedComponents, type Component, type Repository } from "./config.js";
-import { assertExpectedCluster, ClusterUnavailableError, clusterDestroy, clusterStop, clusterUp } from "./cluster.js";
+import { assertExpectedCluster, ClusterUnavailableError, clusterDestroy, clusterStop, clusterUp, hasVerifiedExport } from "./cluster.js";
 import type { Runner } from "./runner.js";
 
 function helmTarget(component: Component): string {
@@ -71,7 +71,15 @@ export async function platformStatus(repository: Repository, runner: Runner): Pr
     try {
       if (component.kind === "manifest") {
         for (const crd of component.ownsCRDs) await runner.run("kubectl", ["--context",repository.environment.kubeContext,"get",`crd/${crd}`,"-o","name"], { capture:true });
-      } else await runner.run("helm", ["status",component.name,"--namespace",component.namespace,"--kube-context",repository.environment.kubeContext,"--output","json"], { capture:true });
+      } else {
+        const release = await runner.run("helm", ["status",component.name,"--namespace",component.namespace,"--kube-context",repository.environment.kubeContext,"--output","json"], { capture:true });
+        const parsed = JSON.parse(release.stdout) as { info?: { status?: string | { status?: string } } };
+        const releaseStatus = typeof parsed.info?.status === "string" ? parsed.info.status : parsed.info?.status?.status;
+        if (releaseStatus && releaseStatus !== "deployed") {
+          result.push({ name:component.name,namespace:component.namespace,status:"degraded",detail:`Helm release status is ${releaseStatus}` });
+          continue;
+        }
+      }
       result.push({ name:component.name,namespace:component.namespace,status:"ready",detail:"installed" });
     } catch (error) { result.push({ name:component.name,namespace:component.namespace,status:"missing",detail:error instanceof Error ? error.message : String(error) }); }
   }
@@ -82,7 +90,12 @@ export async function platformRender(repository: Repository, runner: Runner, out
   const target = outputDirectory ? absolute(repository, outputDirectory) : undefined;
   if (target) await mkdir(target, { recursive:true });
   for (const component of orderedComponents(repository.catalog)) {
-    if (component.kind === "manifest") continue;
+    if (component.kind === "manifest") {
+      const expanded = expandVersions(repository, component.source!);
+      const source = /^https?:\/\//.test(expanded) ? expanded : absolute(repository, expanded);
+      await runner.run("kubectl", ["apply", "--dry-run=client", "--validate=false", "--recursive", "--filename", source], { capture:true, cwd:repository.root });
+      continue;
+    }
     const result = await runner.run("helm", helmTemplateArgs(repository, component).map((value) => component.kind === "local-chart" && value === component.chart ? absolute(repository, value) : value), { capture:true, cwd:repository.root });
     if (target) await writeFile(join(target, `${component.name}.yaml`), result.stdout, { mode:0o600 });
     await runner.run("kubectl", ["apply", "--dry-run=client", "--validate=false", "--filename", "-"], { capture:true, input:result.stdout });
@@ -91,15 +104,3 @@ export async function platformRender(repository: Repository, runner: Runner, out
 
 export async function platformStop(repository: Repository, runner: Runner): Promise<void> { await clusterStop(repository, runner); }
 export async function platformDestroy(repository: Repository, runner: Runner, options: { yes:boolean; purgeData:boolean }): Promise<void> { await clusterDestroy(repository, runner, options); }
-
-export async function hasVerifiedExport(repository: Repository): Promise<boolean> {
-  const directory = join(repository.root, ".kore", "exports", repository.environment.name);
-  try {
-    for (const entry of await readdir(directory)) {
-      if (!entry.endsWith(".sha256")) continue;
-      const checksum = (await readFile(join(directory, entry), "utf8")).trim();
-      if (/^[a-f0-9]{64}$/.test(checksum)) return true;
-    }
-  } catch { return false; }
-  return false;
-}

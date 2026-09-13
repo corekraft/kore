@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { loadRepository, orderedComponents } from "./config.js";
-import { helmUpgradeArgs, platformRender, platformUp, reconcileComponent } from "./platform.js";
+import { helmUpgradeArgs, platformRender, platformStatus, platformUp, reconcileComponent } from "./platform.js";
 import { RecordingRunner, type RunOptions, type RunResult, type Runner } from "./runner.js";
 
 test("release graph order is stable", async () => {
@@ -60,4 +60,31 @@ test("manifest components apply nested manifest directories recursively", async 
   await reconcileComponent(repository, runner, component);
 
   assert.ok(runner.calls[0]?.args.includes("--recursive"));
+});
+
+test("render validation checks manifest components without mutating the cluster", async () => {
+  const repository = await loadRepository("local");
+  const component = repository.catalog.components.find(({name}) => name === "kore-postgresql-api")!;
+  repository.catalog.components = [{...component, dependencies:[]}];
+  const runner = new RecordingRunner();
+
+  await platformRender(repository, runner);
+
+  assert.equal(runner.calls.length, 1);
+  assert.equal(runner.calls[0]?.command, "kubectl");
+  assert.ok(runner.calls[0]?.args.includes("--dry-run=client"));
+  assert.ok(runner.calls[0]?.args.includes("--recursive"));
+});
+
+test("platform status reports a failed Helm release as degraded", async () => {
+  const repository = await loadRepository("local");
+  const component = repository.catalog.components.find(({name}) => name === "opa-authorizer")!;
+  repository.catalog.components = [{...component, dependencies:[]}];
+  const runner = new RecordingRunner([{stdout: JSON.stringify({info: {status: {status: "failed"}}}), stderr: "", code: 0}]);
+
+  const [status] = await platformStatus(repository, runner);
+
+  assert.ok(status);
+  assert.equal(status.status, "degraded");
+  assert.match(status.detail, /failed/i);
 });

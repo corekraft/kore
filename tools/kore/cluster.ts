@@ -1,3 +1,6 @@
+import { createHash } from "node:crypto";
+import { readdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { Environment, Repository } from "./config.js";
 import type { Runner } from "./runner.js";
 
@@ -76,12 +79,33 @@ async function purgeRetainedResources(repository: Repository, runner: Runner): P
   }
 }
 
+export async function hasVerifiedExport(repository: Repository): Promise<boolean> {
+  const directory = join(repository.root, ".kore", "exports", repository.environment.name);
+  try {
+    const checksums = (await readdir(directory)).filter((entry) => entry.endsWith(".sha256"));
+    for (const checksumFile of checksums) {
+      const line = (await readFile(join(directory, checksumFile), "utf8")).trim();
+      const match = line.match(/^([a-f0-9]{64})(?:\s+\*?(.+))?$/i);
+      if (!match) continue;
+      const expected = match[1];
+      if (!expected) continue;
+      const exportName = match[2]?.trim() || checksumFile.slice(0, -".sha256".length);
+      const contents = await readFile(join(directory, exportName));
+      const actual = createHash("sha256").update(contents).digest("hex");
+      if (actual.toLowerCase() === expected.toLowerCase()) return true;
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 export async function clusterDestroy(repository: Repository, runner: Runner, options: { yes: boolean; purgeData: boolean }): Promise<void> {
   if (repository.environment.provider !== "minikube") throw new Error("cluster destroy is only available for Minikube environments");
   let clusterVerified = true;
   try { await assertExpectedCluster(repository, runner); } catch (error) {
     clusterVerified = false;
-    if (!options.purgeData) throw new Error(`destroy blocked because retained data cannot be verified on the stopped/unreachable profile: ${error instanceof Error ? error.message : String(error)}; export data or use --purge-data`);
+    if (!options.purgeData && !await hasVerifiedExport(repository)) throw new Error(`destroy blocked because retained data cannot be verified on the stopped/unreachable profile: ${error instanceof Error ? error.message : String(error)}; export data or use --purge-data`);
   }
   const retained = clusterVerified ? await retainedResources(repository, runner) : [];
   if (retained.length && !options.purgeData) throw new Error(`destroy blocked by retained data:\n${retained.join("\n")}\nExport it or repeat with --purge-data`);

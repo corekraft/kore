@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vitest";
@@ -18,6 +18,15 @@ test("cycle detection reports every blocked component", () => {
     {name:"b",phase:"core",namespace:"b",kind:"helm",chart:"b",version:"local",ownsCRDs:[],dependencies:["a"],timeout:"1m",readiness:[]},
   ]};
   assert.throws(() => orderedComponents(catalog),/a, b/);
+});
+
+test("release ordering places earlier infrastructure phases before later phases", () => {
+  const catalog: Catalog = { components: [
+    {name:"a-core-release",phase:"core",namespace:"core",kind:"helm",chart:"core",version:"local",ownsCRDs:[],dependencies:[],timeout:"1m",readiness:[]},
+    {name:"z-bootstrap-release",phase:"bootstrap",namespace:"bootstrap",kind:"helm",chart:"bootstrap",version:"local",ownsCRDs:[],dependencies:[],timeout:"1m",readiness:[]},
+  ]};
+
+  assert.deepEqual(orderedComponents(catalog).map(({name}) => name), ["z-bootstrap-release", "a-core-release"]);
 });
 
 test("malformed environment fails with useful schema errors", async () => {
@@ -43,6 +52,14 @@ test("environment overlays reject unknown component names", async () => {
     validateRepository({ ...repository, environment: { ...repository.environment, componentValues: { unknown: ["infra/observability/collector/values.yaml"] } } }),
     /unknown environment component values.*unknown/i,
   );
+});
+
+test("repository toolchain pins are declared in the local mise profile", async () => {
+  const root = await findRoot();
+  const mise = await readFile(join(root, ".mise.toml"), "utf8");
+  for (const pin of ["node = \"24.7.0\"", "minikube = \"1.38.1\"", "kubectl = \"1.36.2\"", "helm = \"4.2.3\"", "yq = \"4.53.3\"", "sops = \"3.11.0\"", "age = \"1.2.1\"", "mkcert = \"1.4.4\"", "opa = \"1.20.2\"", "tofu = \"1.10.6\""]) {
+    assert.match(mise, new RegExp(pin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
 });
 
 test("local catalog pins an available Istio chart release", async () => {

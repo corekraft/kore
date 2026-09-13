@@ -109,14 +109,14 @@ claim that the platform is ready.
 
 - [ ] A fresh checkout can install all pinned Step 6 tools through one documented
   operation.
-- [ ] Catalog and environment files fail fast with useful schema errors.
-- [ ] `kore doctor` distinguishes required failures from optional warnings.
+- [x] Catalog and environment files fail fast with useful schema errors.
+- [x] `kore doctor` distinguishes required failures from optional warnings.
 - [ ] Repeating cluster creation produces no unintended change.
-- [ ] Cluster commands refuse to operate on an unexpected context or profile.
+- [x] Cluster commands refuse to operate on an unexpected context or profile.
 - [ ] Stopping and resuming the profile preserves its Kubernetes state.
-- [ ] Destroy requires explicit confirmation and has a tested retained-data guard.
-- [ ] Tests that do not require a live cluster run without one.
-- [ ] No infrastructure controller or application is installed by this step.
+- [x] Destroy requires explicit confirmation and has a tested retained-data guard.
+- [x] Tests that do not require a live cluster run without one.
+- [x] No infrastructure controller or application is installed by this step.
 
 ## Step 7: Bootstrap Controllers and CRD Ownership
 
@@ -128,15 +128,15 @@ steps.
 
 ### Work
 
-- [ ] Populate the component and version catalogs with pinned upstream chart and
+- [x] Populate the component and version catalogs with pinned upstream chart and
   image references.
-- [ ] Record a compatibility matrix covering Kubernetes, Helm, Gateway API,
+- [x] Record a compatibility matrix covering Kubernetes, Helm, Gateway API,
   cert-manager, Gatekeeper, Istio, Crossplane, External Secrets Operator,
   CloudNativePG, and OpenTelemetry Operator.
-- [ ] Give every logical release a namespace, CRD owner, dependencies, timeout,
+- [x] Give every logical release a namespace, CRD owner, dependencies, timeout,
   and readiness checks.
-- [ ] Implement topological sorting and cycle detection for the release graph.
-- [ ] Add a render and validation operation that does not mutate a cluster.
+- [x] Implement topological sorting and cycle detection for the release graph.
+- [x] Add a render and validation operation that does not mutate a cluster.
 - [ ] Install Gateway API CRDs before Istio resources that consume them.
 - [ ] Install cert-manager and wait for its deployments and webhook.
 - [ ] Install OPA Gatekeeper without enforcing Kore constraints.
@@ -145,7 +145,7 @@ steps.
 - [ ] Install External Secrets Operator.
 - [ ] Install CloudNativePG.
 - [ ] Install OpenTelemetry Operator after its prerequisites are ready.
-- [ ] Keep controller configuration instances out of controller releases.
+- [x] Keep controller configuration instances out of controller releases.
 - [ ] Add controller health, CRD establishment, webhook, and idempotency tests.
 
 ### Note
@@ -376,17 +376,17 @@ converge and validate the complete platform.
 
 ### Work
 
-- [ ] Implement `kore platform up`, `status`, `stop`, and guarded `destroy` by
+- [x] Implement `kore platform up`, `status`, `stop`, and guarded `destroy` by
   composing the focused operations from earlier steps.
-- [ ] Implement `kore app up`, `status`, and `down` with separate resource and
+- [x] Implement `kore app up`, `status`, and `down` with separate resource and
   workload release phases.
-- [ ] Require an explicit environment for every mutating command.
-- [ ] Add bounded readiness waits and actionable component-level failures.
+- [x] Require an explicit environment for every mutating command.
+- [x] Add bounded readiness waits and actionable component-level failures.
 - [ ] Resume from partial failure without reinstalling healthy dependencies.
-- [ ] Prevent concurrent mutation of the same environment.
-- [ ] Produce concise human output and stable machine-readable output.
-- [ ] Ensure diagnostic output is read-only and redacts sensitive data.
-- [ ] Implement non-interactive confirmation behavior for CI.
+- [x] Prevent concurrent mutation of the same environment.
+- [x] Produce concise human output and stable machine-readable output.
+- [x] Ensure diagnostic output is read-only and redacts sensitive data.
+- [x] Implement non-interactive confirmation behavior for CI.
 - [ ] Add a clean-machine end-to-end test from tool installation through reference
   application verification.
 

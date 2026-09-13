@@ -94,6 +94,7 @@ const name = /^[a-z0-9-]+$/;
 const duration = /^[1-9]\d*[smh]$/;
 const phases = new Set<Phase>(["bootstrap", "core", "observability", "configuration", "enforcement"]);
 const kinds = new Set<ComponentKind>(["helm", "local-chart", "manifest"]);
+const phaseOrder: Record<Phase, number> = { bootstrap: 0, core: 1, observability: 2, configuration: 3, enforcement: 4 };
 
 export async function validateRepository(repository: Repository): Promise<void> {
   const { root, versions, catalog, environment } = repository;
@@ -146,16 +147,20 @@ export function orderedComponents(catalog: Catalog): Component[] {
   for (const component of catalog.components) for (const dependency of component.dependencies) {
     dependents.set(dependency, [...(dependents.get(dependency) ?? []), component.name]);
   }
-  const ready = [...degree.entries()].filter(([, value]) => value === 0).map(([key]) => key).sort();
+  const compare = (left: string, right: string): number => {
+    const phaseDifference = phaseOrder[byName.get(left)?.phase ?? "enforcement"] - phaseOrder[byName.get(right)?.phase ?? "enforcement"];
+    return phaseDifference || left.localeCompare(right);
+  };
+  const ready = [...degree.entries()].filter(([, value]) => value === 0).map(([key]) => key).sort(compare);
   const result: Component[] = [];
   while (ready.length) {
     const current = ready.shift()!;
     const component = byName.get(current);
     if (component) result.push(component);
-    for (const child of (dependents.get(current) ?? []).sort()) {
+    for (const child of (dependents.get(current) ?? []).sort(compare)) {
       const next = (degree.get(child) ?? 0) - 1;
       degree.set(child, next);
-      if (next === 0) { ready.push(child); ready.sort(); }
+      if (next === 0) { ready.push(child); ready.sort(compare); }
     }
   }
   if (result.length !== catalog.components.length) {

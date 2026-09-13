@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { mkdir, rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { test } from "vitest";
 import { clusterDestroy, clusterStartArgs } from "./cluster.js";
 import { loadRepository } from "./config.js";
@@ -44,4 +47,22 @@ test("purging retained data explicitly deletes retained claims before the profil
   assert.ok(deleteCalls.every(({args}) => args.includes("--all-namespaces") && args.includes("--ignore-not-found")));
   assert.equal(runner.calls.at(-1)?.command,"minikube");
   assert.equal(runner.calls.at(-1)?.args[0],"delete");
+});
+
+test("verified exports allow destroying an unreachable profile without purging data", async () => {
+  const repository = await loadRepository("local");
+  const exportDirectory = join(repository.root, ".kore", "exports", repository.environment.name);
+  await mkdir(exportDirectory, { recursive: true });
+  const exportFile = join(exportDirectory, "reference.sql");
+  const exportContents = "CREATE TABLE reference (id integer);\n";
+  await writeFile(exportFile, exportContents);
+  const checksum = join(exportDirectory, "reference.sql.sha256");
+  await writeFile(checksum, `${createHash("sha256").update(exportContents).digest("hex")}  reference.sql\n`);
+  const runner = new RecordingRunner();
+  try {
+    await clusterDestroy(repository, runner, { yes: true, purgeData: false });
+  } finally {
+    await rm(join(repository.root, ".kore"), { recursive: true, force: true });
+  }
+  assert.equal(runner.calls.at(-1)?.args[0], "delete");
 });
