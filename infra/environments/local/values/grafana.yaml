@@ -1,0 +1,16 @@
+persistence: {enabled: true, size: 2Gi, storageClassName: kore-standard}
+admin:
+  existingSecret: grafana-admin
+  userKey: admin-user
+  passwordKey: admin-password
+resources:
+  requests: {cpu: 50m, memory: 128Mi}
+  limits: {cpu: 300m, memory: 512Mi}
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - {name: Prometheus, type: prometheus, uid: prometheus, url: "http://prometheus-server", access: proxy, isDefault: true}
+      - {name: Loki, type: loki, uid: loki, url: "http://loki:3100", access: proxy}
+      - {name: Tempo, type: tempo, uid: tempo, url: "http://tempo:3100", access: proxy}
+

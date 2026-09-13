@@ -1,0 +1,36 @@
+apiVersion: apiextensions.crossplane.io/v2
+kind: CompositeResourceDefinition
+metadata:
+  name: postgresqlinstances.platform.kore.dev
+spec:
+  scope: Namespaced
+  group: platform.kore.dev
+  names:
+    kind: PostgreSQLInstance
+    plural: postgresqlinstances
+  defaultCompositionRef:
+    name: postgresqlinstance-local
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          required: [spec]
+          properties:
+            spec:
+              type: object
+              required: [serviceClass, storageSize, compatibilityVersion, connectionSecretName, retentionPolicy]
+              properties:
+                serviceClass: {type: string, enum: [development, standard]}
+                storageSize: {type: string, pattern: '^[1-9][0-9]*Gi$'}
+                compatibilityVersion: {type: integer, enum: [16, 17, 18]}
+                connectionSecretName: {type: string, pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'}
+                retentionPolicy: {type: string, enum: [Delete, Retain]}
+            status:
+              type: object
+              properties:
+                conditions: {type: array, x-kubernetes-preserve-unknown-fields: true}
+                endpoint: {type: string}
+

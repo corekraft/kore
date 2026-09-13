@@ -1,0 +1,19 @@
+{
+  "$schema": "../schema.json",
+  "name": "local",
+  "provider": "minikube",
+  "kubeContext": "kore-local",
+  "cluster": {
+    "profile": "kore-local",
+    "kubernetesVersion": "1.35.1",
+    "driver": "docker",
+    "containerRuntime": "containerd",
+    "cpus": 4,
+    "memoryMB": 8192,
+    "diskSize": "40g"
+  },
+  "gateway": {"namespace":"kore-system","name":"kore-gateway","hostname":"kore.local"},
+  "secrets": {"storeName":"platform-secrets","sourceNamespace":"kore-secret-source"},
+  "telemetry": {"otlpEndpoint":"http://otel-collector-opentelemetry-collector.observability.svc:4318"}
+}
+

@@ -1,0 +1,31 @@
+[tools]
+node = "24.7.0"
+minikube = "1.38.1"
+kubectl = "1.36.2"
+helm = "4.2.3"
+yq = "4.53.3"
+sops = "3.11.0"
+age = "1.2.1"
+mkcert = "1.4.4"
+opentofu = "1.10.6"
+opa = "1.20.2"
+
+[tasks.build]
+description = "Build the kore executable"
+run = "npm --prefix tools/kore run build"
+
+[tasks.test]
+description = "Run tests that do not require a cluster"
+run = "npm --prefix tools/kore test"
+
+[tasks.validate]
+description = "Validate catalogs, environments, and release ordering"
+run = "npm --prefix tools/kore run kore -- validate --environment local"
+
+[tasks.test-opa]
+description = "Run colocated Rego policy specifications with the OPA CLI"
+run = "opa test infra/policies/opa/bundles/v1 -v"
+
+[tasks.install]
+description = "Install kore into the repository-local bin directory"
+depends = ["build"]

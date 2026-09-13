@@ -1,0 +1,6 @@
+image: {repository: openpolicyagent/opa, tag: 1.9.0-envoy, pullPolicy: IfNotPresent}
+bundle: {url: "http://opa-bundle.opa-system.svc:8080/bundle.tar.gz", pollingSeconds: 60}
+resources:
+  requests: {cpu: 25m, memory: 64Mi}
+  limits: {cpu: 250m, memory: 256Mi}
+

@@ -1,0 +1,28 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: kore-gateway
+  namespace: kore-system
+  labels: {app.kubernetes.io/managed-by: Helm}
+spec:
+  gatewayClassName: istio
+  listeners:
+    - name: https
+      hostname: {{ .Values.gateway.hostname | quote }}
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - {kind: Secret, name: {{ .Values.gateway.certificateSecret }}}
+      allowedRoutes:
+        namespaces: {from: All}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: {name: kore-local, namespace: kore-system}
+spec:
+  secretName: {{ .Values.gateway.certificateSecret }}
+  dnsNames: [{{ .Values.gateway.hostname | quote }}]
+  issuerRef: {kind: ClusterIssuer, name: {{ .Values.issuer.name }}}
+

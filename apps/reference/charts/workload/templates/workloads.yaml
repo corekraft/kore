@@ -1,0 +1,88 @@
+{{- range $component := list "frontend" "api" }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: reference-{{ $component }}
+automountServiceAccountToken: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reference-{{ $component }}
+  labels: {app.kubernetes.io/name: reference-{{ $component }}, app.kubernetes.io/part-of: reference}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app.kubernetes.io/name: reference-{{ $component }}}}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: reference-{{ $component }}, app.kubernetes.io/part-of: reference, platform.kore.dev/service-account: reference-{{ $component }}}
+    spec:
+      serviceAccountName: reference-{{ $component }}
+      automountServiceAccountToken: false
+      containers:
+        - name: app
+          image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          env:
+            - {name: APP_MODE, value: {{ $component | quote }}}
+            - {name: OTEL_SERVICE_NAME, value: reference-{{ $component }} }
+            - {name: OTEL_EXPORTER_OTLP_ENDPOINT, value: {{ $.Values.platform.otlpEndpoint | quote }}}
+            - {name: API_URL, value: "http://reference-api:8080"}
+            - {name: PGHOST, valueFrom: {secretKeyRef: {name: reference-db-connection, key: host}}}
+            - {name: PGPORT, valueFrom: {secretKeyRef: {name: reference-db-connection, key: port}}}
+            - {name: PGDATABASE, valueFrom: {secretKeyRef: {name: reference-db-connection, key: database}}}
+            - {name: PGUSER, valueFrom: {secretKeyRef: {name: reference-db-connection, key: username}}}
+            - {name: API_TOKEN, valueFrom: {secretKeyRef: {name: reference-app, key: API_TOKEN}}}
+          ports: [{name: http, containerPort: 8080}]
+          livenessProbe: {httpGet: {path: /livez, port: http}, initialDelaySeconds: 2, periodSeconds: 10}
+          readinessProbe: {httpGet: {path: /readyz, port: http}, initialDelaySeconds: 2, periodSeconds: 5}
+          resources: {{ toYaml $.Values.resources | nindent 12 }}
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, runAsNonRoot: true, capabilities: {drop: [ALL]}}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: reference-{{ $component }}}
+spec:
+  selector: {app.kubernetes.io/name: reference-{{ $component }}}
+  ports: [{name: http, port: 8080, targetPort: http}]
+---
+{{- end }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata: {name: reference}
+spec:
+  parentRefs:
+    - {name: {{ .Values.platform.gateway.name }}, namespace: {{ .Values.platform.gateway.namespace }} }
+  hostnames: [{{ .Values.platform.gateway.hostname | quote }}]
+  rules:
+    - matches: [{path: {type: PathPrefix, value: /}}]
+      backendRefs: [{name: reference-frontend, port: 8080}]
+---
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata: {name: strict}
+spec: {mtls: {mode: STRICT}}
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata: {name: api-default-deny}
+spec: {selector: {matchLabels: {app.kubernetes.io/name: reference-api}}}
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata: {name: api-allow-frontend}
+spec:
+  selector: {matchLabels: {app.kubernetes.io/name: reference-api}}
+  action: ALLOW
+  rules:
+    - from: [{source: {principals: ["cluster.local/ns/{{ .Release.Namespace }}/sa/reference-frontend"]}}]
+      to: [{operation: {paths: ["/api", "/readyz", "/livez"]}}]
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata: {name: api-opa-protected}
+spec:
+  selector: {matchLabels: {app.kubernetes.io/name: reference-api}}
+  action: CUSTOM
+  provider: {name: opa-authorizer}
+  rules: [{to: [{operation: {paths: ["/api/protected"]}}]}]

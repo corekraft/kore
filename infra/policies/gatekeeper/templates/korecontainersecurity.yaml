@@ -1,0 +1,29 @@
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata: {name: korecontainersecurity}
+spec:
+  crd: {spec: {names: {kind: KoreContainerSecurity}}}
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package kore.containersecurity
+        workload { input.review.kind.kind in {"Deployment", "StatefulSet", "DaemonSet"} }
+        violation[{"msg": msg}] {
+          workload
+          container := input.review.object.spec.template.spec.containers[_]
+          container.securityContext.privileged == true
+          msg := sprintf("container %s must not be privileged", [container.name])
+        }
+        violation[{"msg": msg}] {
+          workload
+          container := input.review.object.spec.template.spec.containers[_]
+          not container.resources.requests.cpu
+          msg := sprintf("container %s needs CPU and memory requests", [container.name])
+        }
+        violation[{"msg": msg}] {
+          workload
+          container := input.review.object.spec.template.spec.containers[_]
+          not container.readinessProbe
+          msg := sprintf("container %s needs a readiness probe", [container.name])
+        }
+

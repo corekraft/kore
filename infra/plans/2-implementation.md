@@ -505,13 +505,13 @@ test evidence, and architectural decisions from the evidence column.
 
 | Step | Status | Evidence |
 | --- | --- | --- |
-| 6. Repository and local cluster foundation | Not started | |
-| 7. Bootstrap controllers and CRD ownership | Not started | |
-| 8. Networking, certificates, and secrets | Not started | |
-| 9. Workload identity and policy | Not started | |
-| 10. Storage and PostgreSQL platform API | Not started | |
-| 11. Observability | Not started | |
-| 12. Reference application | Not started | |
-| 13. Complete lifecycle orchestration | Not started | |
+| 6. Repository and local cluster foundation | Complete (offline) | `tools/kore` TypeScript CLI, catalogs, local environment, `npm test` |
+| 7. Bootstrap controllers and CRD ownership | Implemented; live validation pending | release catalog, compatibility matrix, dependency/CRD checks |
+| 8. Networking, certificates, and secrets | Implemented; live validation pending | platform-config chart, SOPS sync command, Gateway/Certificate contract |
+| 9. Workload identity and policy | Implemented; live validation pending | ambient values, Gatekeeper templates/constraints, OPA bundle/chart |
+| 10. Storage and PostgreSQL platform API | Implemented; live validation pending | StorageClasses, `PostgreSQLInstance` XRD/composition, retention guards |
+| 11. Observability | Implemented; live validation pending | Collector values, bounded backends, dashboard and alert assets |
+| 12. Reference application | Implemented; live validation pending | two Node workloads, resource/workload charts, Dockerfile, policy paths |
+| 13. Complete lifecycle orchestration | Implemented; live validation pending | platform/app command phases, lock, explicit contexts and confirmations |
 | 14. Portability and resilience validation | Not started | |
 | 15. Operational hardening and release | Not started | |

@@ -1,0 +1,37 @@
+{
+  "$schema": "./schemas/versions.schema.json",
+  "tools": {
+    "node": "24.7.0",
+    "npm": "11.5.1",
+    "minikube": "1.38.1",
+    "kubectl": "1.36.2",
+    "helm": "4.2.3",
+    "yq": "4.53.3",
+    "sops": "3.11.0",
+    "age": "1.2.1",
+    "mkcert": "1.4.4",
+    "tofu": "1.10.6",
+    "opa": "1.20.2",
+    "docker": "29.6.1"
+  },
+  "kubernetes": "1.35.1",
+  "components": {
+    "gateway-api": "1.4.0",
+    "cert-manager": "v1.21.1",
+    "gatekeeper": "3.21.0",
+    "istio": "1.31.0",
+    "crossplane": "2.3.4",
+    "external-secrets": "1.2.1",
+    "cloudnative-pg": "0.26.0",
+    "opentelemetry-operator": "0.140.0",
+    "prometheus": "27.39.0",
+    "loki": "6.41.0",
+    "tempo": "1.24.0",
+    "grafana": "10.0.0",
+    "opentelemetry-collector": "0.140.0"
+  },
+  "images": {
+    "opa-envoy": "openpolicyagent/opa:1.9.0-envoy",
+    "reference": "kore/reference:0.1.0"
+  }
+}

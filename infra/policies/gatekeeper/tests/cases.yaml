@@ -1,0 +1,10 @@
+cases:
+  - name: rejects-default-service-account
+    template: koreworkloadidentity
+    expectedViolations: 2
+    object: {apiVersion: apps/v1, kind: Deployment, metadata: {name: invalid, namespace: app}, spec: {template: {spec: {serviceAccountName: default, containers: [{name: app, image: invalid}]}}}}
+  - name: accepts-dedicated-service-account
+    template: koreworkloadidentity
+    expectedViolations: 0
+    object: {apiVersion: apps/v1, kind: Deployment, metadata: {name: valid, namespace: app}, spec: {template: {spec: {serviceAccountName: valid, automountServiceAccountToken: false, containers: [{name: app, image: invalid}]}}}}
+

@@ -1,0 +1,38 @@
+mode: deployment
+fullnameOverride: otel-collector
+image: {repository: otel/opentelemetry-collector-contrib}
+resources:
+  requests: {cpu: 100m, memory: 256Mi}
+  limits: {cpu: 500m, memory: 768Mi}
+ports:
+  otlp: {enabled: true, containerPort: 4317, servicePort: 4317, protocol: TCP}
+  otlp-http: {enabled: true, containerPort: 4318, servicePort: 4318, protocol: TCP}
+config:
+  receivers:
+    otlp:
+      protocols: {grpc: {}, http: {}}
+  processors:
+    memory_limiter: {check_interval: 1s, limit_mib: 600}
+    batch: {send_batch_size: 512, timeout: 5s}
+    k8sattributes:
+      auth_type: serviceAccount
+      extract:
+        metadata: [k8s.namespace.name, k8s.deployment.name, k8s.pod.name, k8s.node.name]
+        labels:
+          - {tag_name: app.kubernetes.io/name, key: app.kubernetes.io/name, from: pod}
+          - {tag_name: service_account, key: platform.kore.dev/service-account, from: pod}
+    attributes/cardinality:
+      actions:
+        - {key: k8s.pod.uid, action: delete}
+        - {key: process.command_line, action: delete}
+  exporters:
+    prometheus: {endpoint: "0.0.0.0:8889", resource_to_telemetry_conversion: {enabled: true}}
+    otlphttp/loki: {endpoint: "http://loki:3100/otlp"}
+    otlp/tempo: {endpoint: "tempo:4317", tls: {insecure: true}}
+  service:
+    telemetry: {metrics: {level: detailed}}
+    pipelines:
+      metrics: {receivers: [otlp], processors: [memory_limiter, k8sattributes, "attributes/cardinality", batch], exporters: [prometheus]}
+      logs: {receivers: [otlp], processors: [memory_limiter, k8sattributes, "attributes/cardinality", batch], exporters: ["otlphttp/loki"]}
+      traces: {receivers: [otlp], processors: [memory_limiter, k8sattributes, "attributes/cardinality", batch], exporters: ["otlp/tempo"]}
+

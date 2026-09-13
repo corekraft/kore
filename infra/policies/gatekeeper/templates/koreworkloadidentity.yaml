@@ -1,0 +1,38 @@
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata: {name: koreworkloadidentity}
+spec:
+  crd:
+    spec:
+      names: {kind: KoreWorkloadIdentity}
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties: {exemptNamespaces: {type: array, items: {type: string}}}
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package kore.workloadidentity
+        exempt { input.review.object.metadata.namespace in input.parameters.exemptNamespaces }
+        workload { input.review.kind.kind in {"Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob"} }
+        podspec := input.review.object.spec.template.spec
+        podspec := input.review.object.spec.jobTemplate.spec.template.spec if { input.review.kind.kind == "CronJob" }
+        violation[{"msg": msg}] {
+          workload
+          not exempt
+          not podspec.serviceAccountName
+          msg := "a dedicated serviceAccountName is required"
+        }
+        violation[{"msg": msg}] {
+          workload
+          not exempt
+          podspec.serviceAccountName == "default"
+          msg := "the default ServiceAccount is forbidden"
+        }
+        violation[{"msg": msg}] {
+          workload
+          not exempt
+          podspec.automountServiceAccountToken != false
+          msg := "automountServiceAccountToken must be explicit and false unless reviewed"
+        }
+

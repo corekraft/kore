@@ -1,0 +1,13 @@
+profile: ambient
+meshConfig:
+  trustDomain: cluster.local
+  defaultConfig:
+    proxyMetadata:
+      ISTIO_META_ENABLE_HBONE: "true"
+  extensionProviders:
+    - name: opa-authorizer
+      envoyExtAuthzGrpc:
+        service: opa-authorizer.opa-system.svc.cluster.local
+        port: 9191
+        failOpen: false
+

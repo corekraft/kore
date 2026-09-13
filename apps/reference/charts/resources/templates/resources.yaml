@@ -1,0 +1,26 @@
+apiVersion: platform.kore.dev/v1alpha1
+kind: PostgreSQLInstance
+metadata:
+  name: reference-db
+  labels: {app.kubernetes.io/part-of: reference, platform.kore.dev/retention: {{ .Values.database.retentionPolicy }}}
+spec:
+  serviceClass: development
+  storageSize: {{ .Values.database.storageSize }}
+  compatibilityVersion: {{ .Values.database.compatibilityVersion }}
+  connectionSecretName: {{ .Values.database.connectionSecretName }}
+  retentionPolicy: {{ .Values.database.retentionPolicy }}
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata: {name: reference-app}
+spec:
+  refreshInterval: 1h
+  secretStoreRef: {kind: ClusterSecretStore, name: {{ .Values.platform.secretStore }}}
+  target:
+    name: reference-app
+    template:
+      metadata: {labels: {app.kubernetes.io/part-of: reference}}
+  data:
+    - secretKey: API_TOKEN
+      remoteRef: {key: reference-app, property: API_TOKEN}
+

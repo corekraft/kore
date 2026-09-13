@@ -1,0 +1,27 @@
+{
+  "name": "@corekraft/kore",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Provider-neutral local Kubernetes platform orchestration",
+  "type": "module",
+  "bin": {
+    "kore": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "kore": "npm run build --silent && node dist/cli.js",
+    "test": "npm run build --silent && vitest run",
+    "test:opa": "opa test ../../infra/policies/opa/bundles/v1 -v",
+    "test:unit": "vitest run",
+    "test:integration": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --test dist/*.integration.spec.js"
+  },
+  "devDependencies": {
+    "@types/node": "24.3.1",
+    "typescript": "5.9.2",
+    "vitest": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=24.7.0"
+  }
+}

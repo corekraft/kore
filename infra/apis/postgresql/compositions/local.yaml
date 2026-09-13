@@ -1,0 +1,64 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: postgresqlinstance-local
+  labels: {platform.kore.dev/provider: local}
+spec:
+  compositeTypeRef: {apiVersion: platform.kore.dev/v1alpha1, kind: PostgreSQLInstance}
+  mode: Pipeline
+  pipeline:
+    - step: compose-cloudnative-pg
+      functionRef: {name: function-go-templating}
+      input:
+        apiVersion: gotemplating.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |
+            apiVersion: postgresql.cnpg.io/v1
+            kind: Cluster
+            metadata:
+              name: {{ .observed.composite.resource.metadata.name }}
+              namespace: {{ .observed.composite.resource.metadata.namespace }}
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: database
+              labels:
+                platform.kore.dev/retention: {{ .observed.composite.resource.spec.retentionPolicy }}
+            spec:
+              instances: 1
+              imageName: ghcr.io/cloudnative-pg/postgresql:{{ .observed.composite.resource.spec.compatibilityVersion }}.4
+              storage:
+                size: {{ .observed.composite.resource.spec.storageSize }}
+                storageClass: {{ if eq .observed.composite.resource.spec.retentionPolicy "Retain" }}kore-retained{{ else }}kore-standard{{ end }}
+              bootstrap: {initdb: {database: app, owner: app}}
+            ---
+            apiVersion: v1
+            kind: Secret
+            metadata:
+              name: {{ .observed.composite.resource.spec.connectionSecretName }}
+              namespace: {{ .observed.composite.resource.metadata.namespace }}
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: connection
+              labels:
+                app.kubernetes.io/part-of: {{ .observed.composite.resource.metadata.namespace }}
+            type: Opaque
+            stringData:
+              host: {{ .observed.composite.resource.metadata.name }}-rw
+              port: "5432"
+              database: app
+              username: app
+              passwordSecretRef: {{ .observed.composite.resource.metadata.name }}-app
+              sslmode: require
+    - step: mark-ready
+      functionRef: {name: function-auto-ready}
+---
+apiVersion: pkg.crossplane.io/v1beta1
+kind: Function
+metadata: {name: function-go-templating}
+spec: {package: xpkg.crossplane.io/crossplane-contrib/function-go-templating:v0.11.0}
+---
+apiVersion: pkg.crossplane.io/v1beta1
+kind: Function
+metadata: {name: function-auto-ready}
+spec: {package: xpkg.crossplane.io/crossplane-contrib/function-auto-ready:v0.5.0}
+

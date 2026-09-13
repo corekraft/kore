@@ -1,0 +1,12 @@
+crds:
+  enabled: true
+config:
+  enableGatewayAPI: true
+resources:
+  requests: {cpu: 10m, memory: 32Mi}
+  limits: {cpu: 200m, memory: 128Mi}
+webhook:
+  resources:
+    requests: {cpu: 10m, memory: 32Mi}
+    limits: {cpu: 200m, memory: 128Mi}
+

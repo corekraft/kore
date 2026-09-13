@@ -1,0 +1,9 @@
+image: {repository: kore/reference, tag: 0.1.0, pullPolicy: IfNotPresent}
+platform:
+  secretStore: platform-secrets
+  gateway: {name: kore-gateway, namespace: kore-system, hostname: REQUIRED}
+  otlpEndpoint: http://otel-collector-opentelemetry-collector.observability.svc:4318
+resources:
+  requests: {cpu: 25m, memory: 64Mi}
+  limits: {cpu: 250m, memory: 256Mi}
+
