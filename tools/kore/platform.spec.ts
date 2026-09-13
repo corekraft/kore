@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { loadRepository, orderedComponents } from "./config.js";
 import { helmUpgradeArgs, platformRender, platformStatus, platformUp, reconcileComponent } from "./platform.js";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { RecordingRunner, type RunOptions, type RunResult, type Runner } from "./runner.js";
 
 test("release graph order is stable", async () => {
   const repository = await loadRepository("local");
   const first = orderedComponents(repository.catalog).map(({name}) => name); const second = orderedComponents(repository.catalog).map(({name}) => name);
-  assert.deepEqual(first,second); assert.ok(first.indexOf("cert-manager") < first.indexOf("opentelemetry-operator")); assert.ok(first.indexOf("crossplane") < first.indexOf("kore-platform-config"));
+  assert.deepEqual(first,second); assert.ok(first.indexOf("cert-manager") < first.indexOf("opentelemetry-operator")); assert.ok(first.indexOf("crossplane") < first.indexOf("kore-platform-config")); assert.ok(first.indexOf("kore-platform-config") < first.indexOf("prometheus"));
 });
 
 test("helm construction always uses explicit context, namespace, pin, and timeout", async () => {
@@ -50,6 +52,41 @@ test("managed environments do not inherit local-only component values", async ()
   const prometheus = repository.catalog.components.find(({ name }) => name === "prometheus")!;
 
   assert.deepEqual(helmUpgradeArgs(repository, prometheus).filter((value) => value === "--values"), []);
+});
+
+test("managed environments select platform infrastructure through an overlay", async () => {
+  const repository = await loadRepository("managed-example");
+  const platformConfig = repository.catalog.components.find(({name}) => name === "kore-platform-config")!;
+  const args = helmUpgradeArgs(repository, platformConfig);
+
+  assert.ok(args.some((value) => value.endsWith("/infra/environments/managed-example/values/platform-config.yaml")));
+  assert.equal(args.some((value) => value.includes("environments/local/")), false);
+});
+
+test("local storage classes use binding compatible with the Minikube hostpath provisioner", async () => {
+  const repository = await loadRepository("local");
+  const storage = await readFile(join(repository.root, "infra/charts/platform-config/templates/storage.yaml"), "utf8");
+
+  assert.equal((storage.match(/volumeBindingMode: Immediate/g) ?? []).length, 2);
+});
+
+test("local Loki configuration declares filesystem storage buckets", async () => {
+  const repository = await loadRepository("local");
+  const values = await readFile(join(repository.root, "infra/environments/local/values/loki.yaml"), "utf8");
+
+  assert.match(values, /type:\s*filesystem/);
+  assert.match(values, /bucketNames:\s*\n\s+chunks:/);
+  assert.match(values, /\n\s+ruler:/);
+  assert.match(values, /chunksCache:\s*\n\s+enabled:\s*false/);
+  assert.match(values, /resultsCache:\s*\n\s+enabled:\s*false/);
+});
+
+test("local Grafana does not require an unmaterialized admin Secret", async () => {
+  const repository = await loadRepository("local");
+  const values = await readFile(join(repository.root, "infra/environments/local/values/grafana.yaml"), "utf8");
+
+  assert.doesNotMatch(values, /existingSecret:/);
+  assert.match(values, /anonymous:\s*\n\s+enabled:\s*true/);
 });
 
 test("manifest components apply nested manifest directories recursively", async () => {

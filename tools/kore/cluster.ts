@@ -51,7 +51,7 @@ export async function clusterStatus(repository: Repository, runner: Runner): Pro
 export async function clusterStop(repository: Repository, runner: Runner): Promise<void> {
   if (repository.environment.provider !== "minikube") throw new Error("cluster stop is only available for Minikube environments");
   await assertExpectedCluster(repository, runner);
-  await runner.run("minikube", ["stop", "--profile", repository.environment.cluster.profile, "--keep-context=false"], { capture:false });
+  await runner.run("minikube", ["stop", "--profile", repository.environment.cluster.profile], { capture:false });
 }
 
 export async function retainedResources(repository: Repository, runner: Runner): Promise<string[]> {

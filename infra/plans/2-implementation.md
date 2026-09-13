@@ -107,7 +107,7 @@ claim that the platform is ready.
 
 ### Exit Criteria
 
-- [ ] A fresh checkout can install all pinned Step 6 tools through one documented
+- [x] A fresh checkout can install all pinned Step 6 tools through one documented
   operation.
 - [x] Catalog and environment files fail fast with useful schema errors.
 - [x] `kore doctor` distinguishes required failures from optional warnings.
@@ -174,22 +174,22 @@ API, cert-manager, SOPS with age, and External Secrets Operator.
 
 ### Work
 
-- [ ] Create the infrastructure-owned Gateway API `Gateway` and environment-owned
+- [x] Create the infrastructure-owned Gateway API `Gateway` and environment-owned
   parent-reference contract used by application `HTTPRoute` resources.
 - [ ] Automate the lifecycle of the Minikube tunnel as local adapter behavior,
   including status, cleanup, and stale-process detection.
-- [ ] Establish the local CA with mkcert through an explicit trust-changing
+- [x] Establish the local CA with mkcert through an explicit trust-changing
   operation.
-- [ ] Configure the cert-manager local issuer without committing private key
+- [x] Configure the cert-manager local issuer without committing private key
   material.
 - [ ] Issue a test certificate and verify its readiness, renewal metadata, and host
   trust.
-- [ ] Define a stable `platform-secrets` store name for application resource
+- [x] Define a stable `platform-secrets` store name for application resource
   charts.
-- [ ] Add SOPS and age configuration for encrypted local source secrets.
-- [ ] Automate decryption directly into a protected source namespace without
+- [x] Add SOPS and age configuration for encrypted local source secrets.
+- [x] Automate decryption directly into a protected source namespace without
   writing plaintext files into the repository or build artifacts.
-- [ ] Configure External Secrets Operator to materialize application-scoped
+- [x] Configure External Secrets Operator to materialize application-scoped
   Kubernetes Secrets from the local source.
 - [ ] Define redaction rules so rendered output, dry runs, errors, and CI logs do
   not reveal secret values.
@@ -215,22 +215,22 @@ OPA-backed contextual authorization without turning OPA into an identity issuer.
 
 ### Work
 
-- [ ] Define the namespace enrollment contract for Istio ambient mode.
-- [ ] Require every workload to use a dedicated Kubernetes ServiceAccount.
+- [x] Define the namespace enrollment contract for Istio ambient mode.
+- [x] Require every workload to use a dedicated Kubernetes ServiceAccount.
 - [ ] Verify Istio produces the expected SPIFFE principal from namespace and
   ServiceAccount identity.
-- [ ] Enable strict mutual TLS for participating workloads.
-- [ ] Establish native Istio default-deny and explicit-allow authorization patterns.
-- [ ] Create Gatekeeper constraint templates and tests for identity, RBAC,
+- [x] Enable strict mutual TLS for participating workloads.
+- [x] Establish native Istio default-deny and explicit-allow authorization patterns.
+- [x] Create Gatekeeper constraint templates and tests for identity, RBAC,
   privilege, resource, health-probe, Secret, mesh-enrollment, and retention rules.
-- [ ] Deploy constraints in audit mode and define minimal explicit system namespace
+- [x] Deploy constraints in audit mode and define minimal explicit system namespace
   exemptions.
-- [ ] Package and deploy the platform-operated OPA-Envoy external authorization
+- [x] Package and deploy the platform-operated OPA-Envoy external authorization
   service.
-- [ ] Deliver tested Rego as versioned OPA bundles.
-- [ ] Configure OPA as an Istio external authorization provider without manual
+- [x] Deliver tested Rego as versioned OPA bundles.
+- [x] Configure OPA as an Istio external authorization provider without manual
   ConfigMap editing.
-- [ ] Route one Layer 7 policy through an ambient waypoint and Istio `CUSTOM`
+- [x] Route one Layer 7 policy through an ambient waypoint and Istio `CUSTOM`
   authorization policy.
 - [ ] Verify the OPA decision receives authenticated source and destination workload
   principals.
@@ -259,24 +259,24 @@ PostgreSQL claim backed locally by CloudNativePG.
 
 ### Work
 
-- [ ] Define `kore-standard` and `kore-retained` StorageClasses with documented
+- [x] Define `kore-standard` and `kore-retained` StorageClasses with documented
   reclaim and expansion behavior.
 - [ ] Verify Minikube storage paths survive profile stop and resume.
-- [ ] Define the namespaced
+- [x] Define the namespaced
   `PostgreSQLInstance.platform.kore.dev` Crossplane XRD.
-- [ ] Limit the API to portable inputs: service class, storage size, PostgreSQL
+- [x] Limit the API to portable inputs: service class, storage size, PostgreSQL
   compatibility version, connection Secret name, and retention policy.
-- [ ] Create the local Crossplane composition that produces a CloudNativePG cluster
+- [x] Create the local Crossplane composition that produces a CloudNativePG cluster
   and connection Secret.
 - [ ] Grant Crossplane only the RBAC required to compose CloudNativePG and related
   Kubernetes resources.
-- [ ] Normalize connection data into the documented Secret schema.
+- [x] Normalize connection data into the documented Secret schema.
 - [ ] Propagate readiness, failure, and useful status conditions to the claim.
-- [ ] Keep the claim in the application resources release and the composed database
+- [x] Keep the claim in the application resources release and the composed database
   outside Helm ownership.
-- [ ] Implement retained-data discovery used by application and cluster lifecycle
+- [x] Implement retained-data discovery used by application and cluster lifecycle
   guards.
-- [ ] Define and test an explicit purge path.
+- [x] Define and test an explicit purge path.
 - [ ] Implement a local export and restore proof before treating platform destroy as
   recoverable.
 
@@ -301,20 +301,20 @@ policy telemetry with correlated local metrics, logs, and traces.
 
 ### Work
 
-- [ ] Install resource-bounded local configurations for Prometheus, Loki, Tempo,
+- [x] Install resource-bounded local configurations for Prometheus, Loki, Tempo,
   and Grafana.
-- [ ] Deploy the OpenTelemetry Collector with OTLP gRPC and HTTP receivers.
-- [ ] Define separate pipelines for application telemetry, Kubernetes logs and
+- [x] Deploy the OpenTelemetry Collector with OTLP gRPC and HTTP receivers.
+- [x] Define separate pipelines for application telemetry, Kubernetes logs and
   metrics, Istio telemetry, and policy decision telemetry where appropriate.
-- [ ] Enrich signals with cluster, environment, namespace, application,
+- [x] Enrich signals with cluster, environment, namespace, application,
   ServiceAccount, and workload identity attributes.
-- [ ] Establish attribute and label cardinality limits before ingesting pod-level
+- [x] Establish attribute and label cardinality limits before ingesting pod-level
   data.
-- [ ] Export metrics to Prometheus, logs to Loki, and traces to Tempo.
-- [ ] Provision Grafana data sources and initial dashboards as desired state.
-- [ ] Add health, queue, dropped-data, and exporter-failure monitoring for the
+- [x] Export metrics to Prometheus, logs to Loki, and traces to Tempo.
+- [x] Provision Grafana data sources and initial dashboards as desired state.
+- [x] Add health, queue, dropped-data, and exporter-failure monitoring for the
   Collector.
-- [ ] Define local retention and storage limits for every backend.
+- [x] Define local retention and storage limits for every backend.
 - [ ] Add synthetic telemetry tests for all three signals and their correlation.
 
 ### Exit Criteria
@@ -338,17 +338,17 @@ MVP capability and includes positive and negative tests.
 
 ### Work
 
-- [ ] Implement at least two communicating workloads so workload-to-workload
+- [x] Implement at least two communicating workloads so workload-to-workload
   identity and authorization can be demonstrated.
-- [ ] Give each workload a dedicated ServiceAccount.
-- [ ] Create `charts/resources` for the PostgreSQL claim and any external Secrets.
-- [ ] Create `charts/workload` for Deployments, Services, health probes,
+- [x] Give each workload a dedicated ServiceAccount.
+- [x] Create `charts/resources` for the PostgreSQL claim and any external Secrets.
+- [x] Create `charts/workload` for Deployments, Services, health probes,
   `HTTPRoute`, telemetry configuration, and authorization policy references.
-- [ ] Build an OCI-compatible image and automate its Minikube delivery without
+- [x] Build an OCI-compatible image and automate its Minikube delivery without
   embedding local behavior in either chart.
-- [ ] Read the PostgreSQL connection only from the normalized Secret contract.
-- [ ] Emit OpenTelemetry logs, metrics, and traces with stable service attributes.
-- [ ] Add a route protected by native Istio policy and a route protected by OPA.
+- [x] Read the PostgreSQL connection only from the normalized Secret contract.
+- [x] Emit OpenTelemetry logs, metrics, and traces with stable service attributes.
+- [x] Add a route protected by native Istio policy and a route protected by OPA.
 - [ ] Add database schema initialization or migration as an explicit, repeatable
   operation.
 - [ ] Add smoke tests for HTTPS, persistence, Secret use, health, telemetry, mTLS,
@@ -433,7 +433,7 @@ failures have automated detection and recovery paths.
   Kubernetes, and other pre-cluster dependencies.
 - [ ] Define a managed PostgreSQL Crossplane composition that preserves the
   `PostgreSQLInstance` API and connection Secret schema.
-- [ ] Replace the local secret store, certificate issuer, storage classes, gateway
+- [x] Replace the local secret store, certificate issuer, storage classes, gateway
   exposure, and image delivery through environment configuration only.
 - [x] Keep live cloud provisioning opt-in because it requires credentials, external
   changes, and cost.
@@ -505,12 +505,12 @@ test evidence, and architectural decisions from the evidence column.
 
 | Step | Status | Evidence |
 | --- | --- | --- |
-| 6. Repository and local cluster foundation | Complete (offline) | `tools/kore` TypeScript CLI, catalogs, local environment, `npm test` |
-| 7. Bootstrap controllers and CRD ownership | Implemented; live validation pending | release catalog, compatibility matrix, dependency/CRD checks |
-| 8. Networking, certificates, and secrets | Implemented; live validation pending | platform-config chart, SOPS sync command, Gateway/Certificate contract |
+| 6. Repository and local cluster foundation | Complete (offline); live preflight blocked | `tools/kore` TypeScript CLI, catalogs, local environment, `npm test`; `kore doctor --environment local` reports pinned-tool and disk prerequisites |
+| 7. Bootstrap controllers and CRD ownership | Live-validated | Gateway API, cert-manager, Crossplane, Gatekeeper, Istio, External Secrets, CloudNativePG, OPA, ztunnel, and OpenTelemetry Operator ready on `kore-local` |
+| 8. Networking, certificates, and secrets | Partially live-validated | local CA trust, ClusterIssuer, Gateway programming, and TLS Certificate ready on `kore-local`; Secret materialization and HTTPS route remain pending |
 | 9. Workload identity and policy | Implemented; live validation pending | ambient values, Gatekeeper templates/constraints, OPA bundle/chart |
-| 10. Storage and PostgreSQL platform API | Implemented; live validation pending | StorageClasses, `PostgreSQLInstance` XRD/composition, retention guards |
-| 11. Observability | Implemented; live validation pending | Collector values, bounded backends, dashboard and alert assets |
+| 10. Storage and PostgreSQL platform API | Implemented; live validation pending | StorageClasses, immediate Minikube binding, `PostgreSQLInstance` XRD/composition, retention guards |
+| 11. Observability | Live-validated installation | Prometheus, Loki, Tempo, Grafana, and OTLP Collector ready on `kore-local`; synthetic signal correlation remains pending |
 | 12. Reference application | Implemented; live validation pending | two Node workloads, resource/workload charts, Dockerfile, policy paths |
 | 13. Complete lifecycle orchestration | Implemented; live validation pending | platform/app command phases, lock, explicit contexts and confirmations |
 | 14. Portability and resilience validation | Complete (offline validation) | `kore validate --environment managed-example`, environment-selected overlays, application overlay rejection, `tools/kore/{portability,config}.spec.ts`; live/provider resilience tests pending |

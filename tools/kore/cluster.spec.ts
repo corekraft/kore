@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "vitest";
-import { clusterDestroy, clusterStartArgs } from "./cluster.js";
+import { clusterDestroy, clusterStartArgs, clusterStop } from "./cluster.js";
 import { loadRepository } from "./config.js";
 import { RecordingRunner } from "./runner.js";
 
@@ -20,6 +20,19 @@ test("destroy requires explicit confirmation", async () => {
   ]);
   await assert.rejects(clusterDestroy(repository,runner,{yes:false,purgeData:false}),/requires --yes/);
   assert.equal(runner.calls.some((call) => call.args.includes("delete")),false);
+});
+
+test("cluster stop uses flags supported by Minikube", async () => {
+  const repository = await loadRepository("local");
+  const runner = new RecordingRunner([
+    {stdout:"{}",stderr:"",code:0},
+    {stdout:"kube-system",stderr:"",code:0},
+  ]);
+
+  await clusterStop(repository, runner);
+
+  assert.equal(runner.calls.at(-1)?.command, "minikube");
+  assert.deepEqual(runner.calls.at(-1)?.args, ["stop", "--profile", "kore-local"]);
 });
 
 test("retained data blocks cluster deletion", async () => {

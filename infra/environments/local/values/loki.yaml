@@ -10,6 +10,11 @@ loki:
         schema: v13
         index: {prefix: index_, period: 24h}
   limits_config: {retention_period: 72h, max_query_series: 5000}
+  storage:
+    type: filesystem
+    bucketNames:
+      chunks: chunks
+      ruler: ruler
 singleBinary:
   replicas: 1
   persistence: {enabled: true, size: 5Gi, storageClass: kore-standard}
@@ -19,4 +24,7 @@ singleBinary:
 backend: {replicas: 0}
 read: {replicas: 0}
 write: {replicas: 0}
-
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false
