@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { loadRepository, orderedComponents } from "./config.js";
 import { bootstrapControllers, helmUpgradeArgs, platformRender, platformStatus, platformUp, reconcileComponent } from "./platform.js";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { RecordingRunner, type RunOptions, type RunResult, type Runner } from "./runner.js";
+import { tmpdir } from "node:os";
+import { tunnelStatePath } from "./tunnel.js";
 
 test("release graph order is stable", async () => {
   const repository = await loadRepository("local");
@@ -26,6 +28,43 @@ test("controller bootstrap reconciles controllers before shared Gateway configur
     .map(({ args }) => args[2]);
   assert.ok(releases.includes("opentelemetry-operator"));
   assert.equal(releases.includes("kore-platform-config"), false);
+});
+
+test("controller bootstrap resumes a deployed component without another Helm upgrade", async () => {
+  const repository = await loadRepository("local");
+  const component = repository.catalog.components.find(({ name }) => name === "opa-authorizer")!;
+  repository.catalog.components = [{ ...component, dependencies: [], readiness: [] }];
+  const runner = new RecordingRunner([
+    { stdout: '{"Host":"Running"}', stderr: "", code: 0 },
+    { stdout: "kube-system", stderr: "", code: 0 },
+    { stdout: JSON.stringify({ info: { status: "deployed" } }), stderr: "", code: 0 },
+  ]);
+
+  await bootstrapControllers(repository, runner);
+
+  assert.equal(runner.calls.some(({ command, args }) => command === "helm" && args[0] === "upgrade"), false);
+});
+
+test("local platform configuration starts the managed Minikube tunnel", async () => {
+  const base = await loadRepository("local");
+  const root = await mkdtemp(join(tmpdir(), "kore-platform-tunnel-"));
+  const repository = { ...base, root };
+  repository.catalog.components = [];
+  const runner = new RecordingRunner([
+    { stdout: '{"Host":"Running"}', stderr: "", code: 0 },
+    { stdout: "kube-system", stderr: "", code: 0 },
+    { stdout: '{"Host":"Running"}', stderr: "", code: 0 },
+    { stdout: "kube-system", stderr: "", code: 0 },
+  ]);
+  try {
+    await platformUp(repository, runner, {
+      spawnTunnel: () => 4321,
+      isProcessAlive: () => false,
+    });
+    assert.deepEqual(await readFile(tunnelStatePath(repository), "utf8").then(JSON.parse), { profile: "kore-local", pid: 4321 });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("helm construction always uses explicit context, namespace, pin, and timeout", async () => {
@@ -113,6 +152,24 @@ test("manifest components apply nested manifest directories recursively", async 
   await reconcileComponent(repository, runner, component);
 
   assert.ok(runner.calls[0]?.args.includes("--recursive"));
+});
+
+test("retries an asynchronously-created CRD until it is established", async () => {
+  const repository = await loadRepository("local");
+  const component = repository.catalog.components.find(({ name }) => name === "kore-postgresql-api")!;
+  let waits = 0;
+  const runner: Runner = {
+    async run(command, args) {
+      if (command === "kubectl" && args.includes("wait")) {
+        waits++;
+        if (waits === 1) throw new Error("customresourcedefinitions.apiextensions.k8s.io not found");
+      }
+      return { stdout: "", stderr: "", code: 0 };
+    },
+  };
+
+  await reconcileComponent(repository, runner, component);
+  assert.equal(waits, 3);
 });
 
 test("render validation checks manifest components without mutating the cluster", async () => {

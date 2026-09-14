@@ -16,6 +16,7 @@ mise exec -- npm --prefix tools/kore run test:opa
 mise exec -- npm --prefix tools/kore run kore -- doctor --environment local
 mise exec -- npm --prefix tools/kore run kore -- validate --environment local
 mise exec -- npm --prefix tools/kore run kore -- cluster up --environment local
+mise exec -- npm --prefix tools/kore run kore -- tunnel start --environment local
 mise exec -- npm --prefix tools/kore run kore -- platform bootstrap --environment local
 mise exec -- npm --prefix tools/kore run kore -- trust install --environment local
 mise exec -- npm --prefix tools/kore run kore -- platform up --environment local
@@ -26,10 +27,34 @@ mise exec -- npm --prefix tools/kore run kore -- app up reference --environment 
 operation. Run `platform bootstrap` before `trust install`: bootstrap installs
 cert-manager and the other controllers required for the local issuer, while
 `trust install` establishes host trust and waits for the issuer to become ready.
+For Minikube, `platform up` starts the managed tunnel automatically before
+configuring the local Gateway. It can also be managed explicitly with
+`kore tunnel start|status|stop`; platform stop and destroy clean it up.
 Status, validate, and render are read-only. Mutations require an explicit
 environment and use the configured kube context, never the current kubectl
 context. Destruction requires `--yes`; retained claims additionally require
 `--purge-data`.
+
+### Minikube tunnel
+
+The local Gateway uses a LoadBalancer address. Kore manages the required
+detached `minikube tunnel` process for the explicit `kore-local` profile:
+
+```sh
+# Start or reuse the tunnel
+mise exec -- npm --prefix tools/kore run kore -- tunnel start --environment local
+
+# Inspect the managed tunnel PID and state
+mise exec -- npm --prefix tools/kore run kore -- tunnel status --environment local --json
+
+# Stop the tunnel and remove its state
+mise exec -- npm --prefix tools/kore run kore -- tunnel stop --environment local
+```
+
+`platform up` starts the tunnel automatically before configuring the local
+Gateway. `platform stop` and `platform destroy` stop it automatically. A stale
+tunnel PID is discarded and replaced on the next `tunnel start`. Tunnel state is
+stored under `.kore/state` and should not be committed.
 
 For the local profile, the focused cluster lifecycle commands are:
 

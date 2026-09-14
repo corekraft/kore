@@ -21,7 +21,7 @@ spec:
       automountServiceAccountToken: false
       containers:
         - name: app
-          image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
+          image: "{{- if $.Values.image.digest }}{{ $.Values.image.repository }}@{{ $.Values.image.digest }}{{ else }}{{ $.Values.image.repository }}:{{ $.Values.image.tag }}{{ end }}"
           imagePullPolicy: {{ $.Values.image.pullPolicy }}
           env:
             - {name: APP_MODE, value: {{ $component | quote }}}

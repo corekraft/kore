@@ -13,7 +13,7 @@ export class ClusterUnavailableError extends Error {
 
 export function clusterStartArgs(environment: Environment): string[] {
   const cluster = environment.cluster;
-  return ["start", "--profile", cluster.profile, "--kubernetes-version", `v${cluster.kubernetesVersion.replace(/^v/, "")}`, "--driver", cluster.driver, "--container-runtime", cluster.containerRuntime, "--cpus", String(cluster.cpus), "--memory", String(cluster.memoryMB), "--disk-size", cluster.diskSize, "--keep-context=false"];
+  return ["start", "--profile", cluster.profile, "--kubernetes-version", `v${cluster.kubernetesVersion.replace(/^v/, "")}`, "--driver", cluster.driver, "--container-runtime", cluster.containerRuntime, "--cpus", String(cluster.cpus), "--memory", String(cluster.memoryMB), "--disk-size", cluster.diskSize, "--apiserver-names", cluster.profile, "--keep-context=false"];
 }
 
 export async function assertExpectedCluster(repository: Repository, runner: Runner): Promise<void> {

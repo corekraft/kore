@@ -9,7 +9,7 @@ import { RecordingRunner } from "./runner.js";
 
 test("cluster start command pins profile, context inputs, runtime, and resources", async () => {
   const repository = await loadRepository("local"); const args = clusterStartArgs(repository.environment);
-  assert.deepEqual(args,["start","--profile","kore-local","--kubernetes-version","v1.37.0","--driver","docker","--container-runtime","containerd","--cpus","4","--memory","8192","--disk-size","40g","--keep-context=false"]);
+  assert.deepEqual(args,["start","--profile","kore-local","--kubernetes-version","v1.37.0","--driver","docker","--container-runtime","containerd","--cpus","4","--memory","8192","--disk-size","40g","--apiserver-names","kore-local","--keep-context=false"]);
 });
 
 test("destroy requires explicit confirmation", async () => {

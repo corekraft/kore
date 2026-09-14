@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "authorizedSigners": ["release@kore.dev"],
+  "entries": {
+    "reference": {
+      "image": "registry.kore.local/reference",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "signer": "release@kore.dev"
+    }
+  }
+}

@@ -20,3 +20,17 @@ test("validate reports portable applications for the selected environment", asyn
     write.mockRestore();
   }
 });
+
+test("tunnel status is a read-only local command", async () => {
+  const output: string[] = [];
+  const write = vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
+    output.push(String(chunk));
+    return true;
+  });
+  try {
+    assert.equal(await main(["tunnel", "status", "--environment", "local", "--json"]), 0);
+    assert.match(output.join(""), /"status":\s*"(?:missing|stale|running)"/);
+  } finally {
+    write.mockRestore();
+  }
+});

@@ -14,7 +14,7 @@
     "test": "npm run build --silent && vitest run",
     "test:opa": "opa test ../../infra/policies/opa/bundles/v1 -v",
     "test:unit": "vitest run",
-    "test:integration": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --test dist/*.integration.spec.js"
+    "test:integration": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --test --test-concurrency=1 dist/*.integration.spec.js"
   },
   "devDependencies": {
     "@types/node": "24.3.1",

@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { Repository } from "./config.js";
 import { assertExpectedCluster } from "./cluster.js";
 import { platformStatus } from "./platform.js";
+import { imageForApplication, loadImageLock, type LockedImage } from "./image-lock.js";
 import type { Runner } from "./runner.js";
 
 function releaseArgs(
@@ -10,8 +11,9 @@ function releaseArgs(
   name: string,
   release: string,
   chart: string,
+  image?: LockedImage,
 ): string[] {
-  return [
+  const args = [
     "upgrade",
     "--install",
     release,
@@ -35,6 +37,30 @@ function releaseArgs(
     `platform.secretStore=${repository.environment.secrets.storeName}`,
     "--set-string",
     `platform.otlpEndpoint=${repository.environment.telemetry.otlpEndpoint}`,
+  ];
+  if (image) args.push(...imageReleaseArgs(repository, name, image));
+  return args;
+}
+
+export function imageReleaseArgs(
+  _repository: Repository,
+  _name: string,
+  image: LockedImage,
+): string[] {
+  const separator = image.reference.lastIndexOf("@");
+  if (separator < 1) throw new Error("locked image reference must include a digest");
+  return [
+    "--set-string", `image.repository=${image.reference.slice(0, separator)}`,
+    "--set-string", `image.digest=${image.digest}`,
+  ];
+}
+
+export function verifyLockedImageArgs(image: LockedImage): string[] {
+  return [
+    "verify",
+    "--certificate-identity", image.signer,
+    "--certificate-oidc-issuer", "https://token.actions.githubusercontent.com",
+    image.reference,
   ];
 }
 
@@ -65,6 +91,8 @@ export async function appUp(
       `platform is not ready: ${unavailable.map((component) => `${component.name} (${component.detail})`).join(", ")}`,
     );
   }
+  const image = imageForApplication(await loadImageLock(repository.root), name);
+  await runner.run("cosign", verifyLockedImageArgs(image), { capture: false });
   const resources = await chart(repository, name, "resources"),
     workload = await chart(repository, name, "workload");
   await runner.run(
@@ -104,22 +132,20 @@ export async function appUp(
     { capture: false },
   );
   if (repository.environment.provider === "minikube") {
-    const image =
-      repository.versions.images[name] ?? repository.versions.images.reference;
-    if (image)
+    if (image.reference)
       await runner.run(
         "minikube",
         [
           "image",
           "load",
-          image,
+          image.reference,
           "--profile",
           repository.environment.cluster.profile,
         ],
         { capture: false },
       );
   }
-  await runner.run("helm", releaseArgs(repository, name, name, workload), {
+  await runner.run("helm", releaseArgs(repository, name, name, workload, image), {
     capture: false,
   });
   await runner.run(
@@ -145,6 +171,7 @@ export async function appStatus(
   name: string,
 ): Promise<Record<string, unknown>> {
   await assertExpectedCluster(repository, runner);
+  const image = imageForApplication(await loadImageLock(repository.root), name);
   const resources = await runner.run(
     "helm",
     [
@@ -173,6 +200,7 @@ export async function appStatus(
   );
   return {
     name,
+    image,
     resources: JSON.parse(resources.stdout),
     workload: JSON.parse(workload.stdout),
   };
