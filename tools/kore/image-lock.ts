@@ -33,7 +33,8 @@ function validate(lock: unknown, source: string): ImageLock {
       throw new Error(`image lock ${source} has an invalid entry for ${application}`);
     }
     const value = entry as ImageLockEntry;
-    if (!imagePattern.test(value.image) || value.image.includes(":")) {
+    const repositoryPart = value.image.slice(value.image.lastIndexOf("/") + 1);
+    if (!imagePattern.test(value.image) || repositoryPart.includes(":")) {
       throw new Error(`image lock ${source} entry ${application} must use an internal image without a tag`);
     }
     if (!digestPattern.test(value.digest)) throw new Error(`image lock ${source} entry ${application} has an invalid digest`);

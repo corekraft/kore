@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "authorizedSigners": ["release@kore.dev"],
+  "authorizedSigners": ["local-kore-key"],
   "entries": {
     "reference": {
-      "image": "registry.kore.local/reference",
-      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "signer": "release@kore.dev"
+      "image": "registry.kore.local:30500/reference",
+      "digest": "sha256:80bfba2c62b3a6366e2de03b9e95f6160e47775587b75d5b571895e208409008",
+      "signer": "local-kore-key"
     }
   }
 }

@@ -4,6 +4,7 @@ import type { Repository } from "./config.js";
 import { assertExpectedCluster } from "./cluster.js";
 import { platformStatus } from "./platform.js";
 import { imageForApplication, loadImageLock, type LockedImage } from "./image-lock.js";
+import { localRegistryReference } from "./registry.js";
 import type { Runner } from "./runner.js";
 
 function releaseArgs(
@@ -55,11 +56,11 @@ export function imageReleaseArgs(
   ];
 }
 
-export function verifyLockedImageArgs(image: LockedImage): string[] {
+export function verifyLockedImageArgs(image: LockedImage, publicKey?: string): string[] {
   return [
     "verify",
-    "--certificate-identity", image.signer,
-    "--certificate-oidc-issuer", "https://token.actions.githubusercontent.com",
+    ...( /:[0-9]+\//.test(image.reference) ? ["--allow-http-registry"] : [] ),
+    ...(publicKey ? ["--key", publicKey] : ["--certificate-identity", image.signer, "--certificate-oidc-issuer", "https://token.actions.githubusercontent.com"]),
     image.reference,
   ];
 }
@@ -92,7 +93,11 @@ export async function appUp(
     );
   }
   const image = imageForApplication(await loadImageLock(repository.root), name);
-  await runner.run("cosign", verifyLockedImageArgs(image), { capture: false });
+  const verificationImage = { ...image, reference: await localRegistryReference(repository, runner, image.reference) };
+  const publicKey = repository.environment.provider === "minikube" && image.signer === "local-kore-key"
+    ? join(repository.root, ".kore", "keys", "local", "kore.pub")
+    : undefined;
+  await runner.run("cosign", verifyLockedImageArgs(verificationImage, publicKey), { capture: false });
   const resources = await chart(repository, name, "resources"),
     workload = await chart(repository, name, "workload");
   await runner.run(

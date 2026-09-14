@@ -14,6 +14,38 @@ test("release graph order is stable", async () => {
   assert.deepEqual(first,second); assert.ok(first.indexOf("cert-manager") < first.indexOf("opentelemetry-operator")); assert.ok(first.indexOf("crossplane") < first.indexOf("kore-platform-config")); assert.ok(first.indexOf("opentelemetry-operator") < first.indexOf("kore-platform-config"));
 });
 
+test("storage primitives are installed before observability claims PVCs", async () => {
+  const repository = await loadRepository("local");
+  const order = orderedComponents(repository.catalog).map(({ name }) => name);
+
+  assert.ok(order.indexOf("kore-storage") >= 0);
+  assert.ok(order.indexOf("kore-storage") < order.indexOf("loki"));
+  assert.ok(order.indexOf("kore-storage") < order.indexOf("kore-platform-config"));
+});
+
+test("Crossplane database permissions are installed before the PostgreSQL API", async () => {
+  const repository = await loadRepository("local");
+  const order = orderedComponents(repository.catalog).map(({ name }) => name);
+
+  assert.ok(order.indexOf("kore-postgresql-rbac") >= 0);
+  assert.ok(order.indexOf("kore-postgresql-rbac") < order.indexOf("kore-postgresql-api"));
+});
+
+test("the local registry is bootstrapped before shared platform configuration", async () => {
+  const repository = await loadRepository("local");
+  const order = orderedComponents(repository.catalog).map(({ name }) => name);
+
+  assert.ok(order.indexOf("oci-registry") >= 0);
+  assert.ok(order.indexOf("oci-registry") < order.indexOf("kore-platform-config"));
+});
+
+test("OpenTelemetry collector readiness targets the pinned chart deployment", async () => {
+  const repository = await loadRepository("local");
+  const collector = repository.catalog.components.find(({ name }) => name === "otel-collector")!;
+
+  assert.deepEqual(collector.readiness, ["deployment/otel-collector"]);
+});
+
 test("controller bootstrap reconciles controllers before shared Gateway configuration", async () => {
   const repository = await loadRepository("local");
   const runner = new RecordingRunner([
@@ -55,6 +87,16 @@ test("local platform configuration starts the managed Minikube tunnel", async ()
     { stdout: "kube-system", stderr: "", code: 0 },
     { stdout: '{"Host":"Running"}', stderr: "", code: 0 },
     { stdout: "kube-system", stderr: "", code: 0 },
+    { stdout: "", stderr: "", code: 0 },
+    { stdout: "", stderr: "", code: 0 },
+    { stdout: "", stderr: "", code: 0 },
+    { stdout: "/tmp/mkcert", stderr: "", code: 0 },
+    { stdout: "", stderr: "", code: 0 },
+    { stdout: "", stderr: "", code: 0 },
+    { stdout: "", stderr: "", code: 0 },
+    { stdout: "", stderr: "", code: 0 },
+    { stdout: '{"Host":"Running"}', stderr: "", code: 0 },
+    { stdout: "kube-system", stderr: "", code: 0 },
   ]);
   try {
     await platformUp(repository, runner, {
@@ -62,6 +104,39 @@ test("local platform configuration starts the managed Minikube tunnel", async ()
       isProcessAlive: () => false,
     });
     assert.deepEqual(await readFile(tunnelStatePath(repository), "utf8").then(JSON.parse), { profile: "kore-local", pid: 4321 });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("local platform up establishes trust and the tunnel before shared configuration", async () => {
+  const base = await loadRepository("local");
+  const root = await mkdtemp(join(tmpdir(), "kore-platform-order-"));
+  const platformConfig = base.catalog.components.find(({ name }) => name === "kore-platform-config")!;
+  const repository = { ...base, root, catalog: { ...base.catalog, components: [{ ...platformConfig, dependencies: [] }] } };
+  const calls: { command: string; args: readonly string[] }[] = [];
+  const runner: Runner = {
+    async run(command, args) {
+      calls.push({ command, args });
+      if (command === "kubectl" && args.includes("--context")) {
+        if (args.includes("jsonpath={.metadata.name}")) return { stdout: "kube-system", stderr: "", code: 0 };
+        if (args.includes("wait") && args.includes("clusterissuer/kore-local-ca")) return { stdout: "", stderr: "", code: 0 };
+      }
+      if (command === "mkcert" && args.includes("-CAROOT")) return { stdout: "/tmp/mkcert", stderr: "", code: 0 };
+      if (command === "helm" && args[0] === "upgrade") return { stdout: "", stderr: "", code: 0 };
+      return { stdout: "", stderr: "", code: 0 };
+    },
+  };
+
+  try {
+    await platformUp(repository, runner, { spawnTunnel: () => { calls.push({ command: "managed-tunnel", args: [] }); return 4321; }, isProcessAlive: () => false });
+
+    const issuerReady = calls.findIndex(({ command, args }) => command === "kubectl" && args.includes("clusterissuer/kore-local-ca"));
+    const tunnelStarted = calls.findIndex(({ command }) => command === "managed-tunnel");
+    const configurationApplied = calls.findIndex(({ command, args }) => command === "helm" && args[0] === "upgrade" && args.includes("kore-platform-config"));
+    assert.ok(issuerReady >= 0);
+    assert.ok(tunnelStarted > issuerReady);
+    assert.ok(configurationApplied > tunnelStarted);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -120,7 +195,7 @@ test("managed environments select platform infrastructure through an overlay", a
 
 test("local storage classes use binding compatible with the Minikube hostpath provisioner", async () => {
   const repository = await loadRepository("local");
-  const storage = await readFile(join(repository.root, "infra/charts/platform-config/templates/storage.yaml"), "utf8");
+  const storage = await readFile(join(repository.root, "infra/charts/platform-storage/templates/storage.yaml"), "utf8");
 
   assert.equal((storage.match(/volumeBindingMode: Immediate/g) ?? []).length, 2);
 });
@@ -163,6 +238,27 @@ test("retries an asynchronously-created CRD until it is established", async () =
       if (command === "kubectl" && args.includes("wait")) {
         waits++;
         if (waits === 1) throw new Error("customresourcedefinitions.apiextensions.k8s.io not found");
+      }
+      return { stdout: "", stderr: "", code: 0 };
+    },
+  };
+
+  await reconcileComponent(repository, runner, component);
+  assert.equal(waits, 3);
+});
+
+test("preserves CRD wait errors so an asynchronous NotFound is retried", async () => {
+  const repository = await loadRepository("local");
+  const component = repository.catalog.components.find(({ name }) => name === "kore-postgresql-api")!;
+  let waits = 0;
+  const runner: Runner = {
+    async run(command, args, options) {
+      if (command === "kubectl" && args.includes("wait")) {
+        waits++;
+        if (waits === 1) {
+          if (options?.capture !== true) throw new Error("kubectl wait failed (1):");
+          throw new Error("kubectl wait failed (1): customresourcedefinition not found");
+        }
       }
       return { stdout: "", stderr: "", code: 0 };
     },

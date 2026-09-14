@@ -24,6 +24,30 @@
           ]
       },
       {
+        "name": "oci-registry",
+        "phase": "bootstrap",
+        "namespace": "kore-registry",
+        "kind": "local-chart",
+        "chart": "infra/charts/oci-registry",
+        "version": "local",
+        "ownsCRDs": [],
+        "dependencies": ["kore-gateway-api"],
+        "timeout": "10m",
+        "readiness": ["deployment/oci-registry"]
+      },
+      {
+        "name": "kore-storage",
+        "phase": "bootstrap",
+        "namespace": "kore-system",
+        "kind": "local-chart",
+        "chart": "infra/charts/platform-storage",
+        "version": "local",
+        "ownsCRDs": [],
+        "dependencies": ["kore-gateway-api"],
+        "timeout": "5m",
+        "readiness": []
+      },
+      {
         "name": "cert-manager",
         "phase": "bootstrap",
         "namespace": "cert-manager",
@@ -184,7 +208,7 @@
         "chart": "prometheus",
         "version": "prometheus",
         "ownsCRDs": [],
-        "dependencies": ["opentelemetry-operator"],
+        "dependencies": ["opentelemetry-operator", "kore-storage"],
         "timeout": "15m",
         "readiness": ["deployment/prometheus-server"]
       },
@@ -197,7 +221,7 @@
         "chart": "loki",
         "version": "loki",
         "ownsCRDs": [],
-        "dependencies": ["opentelemetry-operator"],
+        "dependencies": ["opentelemetry-operator", "kore-storage"],
         "timeout": "15m",
         "readiness": ["statefulset/loki"]
       },
@@ -210,7 +234,7 @@
         "chart": "tempo",
         "version": "tempo",
         "ownsCRDs": [],
-        "dependencies": ["opentelemetry-operator"],
+        "dependencies": ["opentelemetry-operator", "kore-storage"],
         "timeout": "15m",
         "readiness": ["statefulset/tempo"]
       },
@@ -223,7 +247,7 @@
         "chart": "grafana",
         "version": "grafana",
         "ownsCRDs": [],
-        "dependencies": ["prometheus", "loki", "tempo"],
+        "dependencies": ["prometheus", "loki", "tempo", "kore-storage"],
         "timeout": "10m",
         "readiness": ["deployment/grafana"]
       },
@@ -239,7 +263,7 @@
         "dependencies": ["prometheus", "loki", "tempo"],
         "timeout": "10m",
         "values": ["infra/observability/collector/values.yaml"],
-        "readiness": ["deployment/otel-collector-opentelemetry-collector"]
+        "readiness": ["deployment/otel-collector"]
       },
       {
         "name": "opa-authorizer",
@@ -254,6 +278,18 @@
         "readiness": ["deployment/opa-authorizer"]
       },
       {
+        "name": "kore-postgresql-rbac",
+        "phase": "core",
+        "namespace": "crossplane-system",
+        "kind": "local-chart",
+        "chart": "infra/charts/crossplane-postgresql-rbac",
+        "version": "local",
+        "ownsCRDs": [],
+        "dependencies": ["crossplane", "cloudnative-pg"],
+        "timeout": "2m",
+        "readiness": []
+      },
+      {
         "name": "kore-postgresql-api",
         "phase": "core",
         "namespace": "crossplane-system",
@@ -261,7 +297,7 @@
         "source": "infra/apis/postgresql",
         "version": "local",
         "ownsCRDs": ["postgresqlinstances.platform.kore.dev"],
-        "dependencies": ["crossplane", "cloudnative-pg"],
+        "dependencies": ["crossplane", "cloudnative-pg", "kore-postgresql-rbac"],
         "timeout": "10m",
         "readiness": ["crd/postgresqlinstances.platform.kore.dev"]
       },
@@ -276,6 +312,7 @@
         "dependencies":
           [
             "kore-postgresql-api",
+            "oci-registry",
             "external-secrets",
             "ztunnel",
             "gatekeeper",

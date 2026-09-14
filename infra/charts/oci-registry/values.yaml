@@ -1,0 +1,7 @@
+image:
+  repository: registry
+  tag: 3.0.0
+service:
+  nodePort: 30500
+storage:
+  size: 10Gi

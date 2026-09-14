@@ -1,4 +1,6 @@
 import { expect, test } from "vitest";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { loadRepository } from "./config.js";
 import { appStatus, appUp, imageReleaseArgs, verifyLockedImageArgs } from "./app.js";
 import type { RunOptions, RunResult, Runner } from "./runner.js";
@@ -60,6 +62,42 @@ test("image verification is bound to the locked signer and digest", () => {
   ]);
 });
 
+test("HTTP local registry verification uses its explicit NodePort", () => {
+  expect(verifyLockedImageArgs({
+    reference: "registry.kore.local:30500/reference@sha256:" + "a".repeat(64),
+    digest: "sha256:" + "a".repeat(64),
+    signer: "release@kore.dev",
+  })).toEqual([
+    "verify",
+    "--allow-http-registry",
+    "--certificate-identity", "release@kore.dev",
+    "--certificate-oidc-issuer", "https://token.actions.githubusercontent.com",
+    "registry.kore.local:30500/reference@sha256:" + "a".repeat(64),
+  ]);
+});
+
+test("local image verification uses the generated public key", () => {
+  expect(verifyLockedImageArgs({
+    reference: "127.0.0.1:30500/reference@sha256:" + "a".repeat(64),
+    digest: "sha256:" + "a".repeat(64),
+    signer: "local-kore-key",
+  }, "/workspace/.kore/keys/local/kore.pub")).toEqual([
+    "verify",
+    "--allow-http-registry",
+    "--key", "/workspace/.kore/keys/local/kore.pub",
+    "127.0.0.1:30500/reference@sha256:" + "a".repeat(64),
+  ]);
+});
+
+test("reference resources template evaluates database values with Helm delimiters", async () => {
+  const repository = await loadRepository("local");
+  const template = await readFile(join(repository.root, "apps/reference/charts/resources/templates/resources.yaml"), "utf8");
+
+  expect(template).not.toContain("{ {");
+  expect(template).toContain("{{ .Values.database.retentionPolicy | quote }}");
+  expect(template).toContain("compatibilityVersion: {{ .Values.database.compatibilityVersion }}");
+});
+
 test("app status reports locked image provenance", async () => {
   const repository = await loadRepository("local");
   const runner: Runner = { async run(command, args) {
@@ -69,8 +107,8 @@ test("app status reports locked image provenance", async () => {
   } };
   const status = await appStatus(repository, runner, "reference");
   expect(status.image).toEqual({
-    reference: "registry.kore.local/reference@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    signer: "release@kore.dev",
+    reference: "registry.kore.local:30500/reference@sha256:80bfba2c62b3a6366e2de03b9e95f6160e47775587b75d5b571895e208409008",
+    digest: "sha256:80bfba2c62b3a6366e2de03b9e95f6160e47775587b75d5b571895e208409008",
+    signer: "local-kore-key",
   });
 });

@@ -4,6 +4,7 @@ import { absolute, componentValues, componentVersion, expandVersions, orderedCom
 import { assertExpectedCluster, ClusterUnavailableError, clusterDestroy, clusterStop, clusterUp, hasVerifiedExport } from "./cluster.js";
 import type { Runner } from "./runner.js";
 import { startLocalTunnel, stopLocalTunnel, type TunnelDependencies } from "./tunnel.js";
+import { installLocalTrust } from "./trust.js";
 
 function helmTarget(component: Component): string {
   if (component.kind === "local-chart") return component.chart!;
@@ -48,7 +49,7 @@ async function waitForCRD(repository: Repository, runner: Runner, resource: stri
   const deadline = Date.now() + timeoutMilliseconds(timeout);
   while (true) {
     try {
-      await runner.run("kubectl", ["--context", repository.environment.kubeContext, "wait", "--for=condition=Established", resource, `--timeout=${timeout}`], { capture:false });
+      await runner.run("kubectl", ["--context", repository.environment.kubeContext, "wait", "--for=condition=Established", resource, `--timeout=${timeout}`], { capture:true });
       return;
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
@@ -119,6 +120,7 @@ export async function bootstrapControllers(repository: Repository, runner: Runne
 
 export async function platformUp(repository: Repository, runner: Runner, tunnelDependencies: TunnelDependencies = {}): Promise<void> {
   await bootstrapControllers(repository, runner);
+  if (repository.environment.provider === "minikube") await installLocalTrust(repository, runner);
   if (repository.environment.provider === "minikube") await startLocalTunnel(repository, runner, tunnelDependencies);
   for (const component of orderedComponents(repository.catalog)) {
     if (component.phase !== "configuration" && component.phase !== "enforcement") continue;

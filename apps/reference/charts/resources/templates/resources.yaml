@@ -5,14 +5,14 @@ metadata:
   labels:
     {
       app.kubernetes.io/part-of: reference,
-      platform.kore.dev/retention: { { .Values.database.retentionPolicy } },
+      platform.kore.dev/retention: {{ .Values.database.retentionPolicy | quote }},
     }
 spec:
   serviceClass: development
-  storageSize: { { .Values.database.storageSize } }
-  compatibilityVersion: { { .Values.database.compatibilityVersion } }
-  connectionSecretName: { { .Values.database.connectionSecretName } }
-  retentionPolicy: { { .Values.database.retentionPolicy } }
+  storageSize: {{ .Values.database.storageSize | quote }}
+  compatibilityVersion: {{ .Values.database.compatibilityVersion }}
+  connectionSecretName: {{ .Values.database.connectionSecretName | quote }}
+  retentionPolicy: {{ .Values.database.retentionPolicy | quote }}
 ---
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
@@ -20,7 +20,7 @@ metadata: { name: reference-app }
 spec:
   refreshInterval: 1h
   secretStoreRef:
-    { kind: ClusterSecretStore, name: { { .Values.platform.secretStore } } }
+    { kind: ClusterSecretStore, name: {{ .Values.platform.secretStore | quote }} }
   target:
     name: reference-app
     template:

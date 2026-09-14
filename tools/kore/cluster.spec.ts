@@ -95,7 +95,7 @@ test("verified exports allow destroying an unreachable profile without purging d
   try {
     await clusterDestroy(repository, runner, { yes: true, purgeData: false });
   } finally {
-    await rm(join(repository.root, ".kore"), { recursive: true, force: true });
+    await rm(exportDirectory, { recursive: true, force: true });
   }
   assert.equal(runner.calls.at(-1)?.args[0], "delete");
 });

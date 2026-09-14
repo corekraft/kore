@@ -31,6 +31,16 @@ test("loads an application image only when its lock entry is immutable and signe
   });
 });
 
+test("allows an immutable image from a registry exposed on an explicit port", async () => {
+  const root = await mkdtemp(join(tmpdir(), "kore-image-lock-port-"));
+  await writeFile(join(root, "images.lock.json"), JSON.stringify({
+    version: 1,
+    authorizedSigners: ["release@kore.dev"],
+    entries: { reference: { image: "registry.kore.local:30500/reference", digest: "sha256:" + "a".repeat(64), signer: "release@kore.dev" } },
+  }));
+  await expect(loadImageLock(root, "images.lock.json")).resolves.toBeTruthy();
+});
+
 test.each([
   ["tag-only", { image: "registry.kore.local/reference:latest", digest: "", signer: "release@kore.dev" }],
   ["missing signer", { image: "registry.kore.local/reference", digest: "sha256:" + "b".repeat(64), signer: "" }],

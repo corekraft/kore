@@ -9,10 +9,10 @@ export interface Check { name: string; status: CheckStatus; message: string; req
 const commands: Record<string, readonly string[]> = {
   node: ["--version"], npm: ["--version"], minikube: ["version", "--short"],
   kubectl: ["version", "--client=true", "-o", "json"], helm: ["version", "--short"],
-  yq: ["--version"], sops: ["--version"], age: ["--version"], mkcert: ["--version"],
+  yq: ["--version"], sops: ["--version"], age: ["--version"], mkcert: ["--version"], cosign: ["version"],
   tofu: ["version"], opa: ["version"], docker: ["--version"],
 };
-const required = new Set(["node", "npm", "minikube", "kubectl", "helm", "docker"]);
+const required = new Set(["node", "npm", "minikube", "kubectl", "helm", "docker", "cosign"]);
 
 function detectedVersion(output: string): string | undefined {
   return output.match(/v?(\d+\.\d+\.\d+)/)?.[1];

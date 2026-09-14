@@ -1,0 +1,5 @@
+apiVersion: v2
+name: crossplane-postgresql-rbac
+description: Minimal Crossplane permissions for the local PostgreSQL composition
+type: application
+version: 0.1.0

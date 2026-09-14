@@ -57,9 +57,14 @@ test("environment overlays reject unknown component names", async () => {
 test("repository toolchain pins are declared in the local mise profile", async () => {
   const root = await findRoot();
   const mise = await readFile(join(root, ".mise.toml"), "utf8");
-  for (const pin of ["node = \"26.8.2\"", "npm = \"12.0.2\"", "minikube = \"1.39.0\"", "kubectl = \"1.37.0\"", "helm = \"4.3.0\"", "yq = \"4.53.6\"", "sops = \"3.13.3\"", "age = \"1.3.2\"", "mkcert = \"1.4.4\"", "opa = \"1.20.2\"", "tofu = \"1.12.6\""]) {
+  for (const pin of ["node = \"26.8.2\"", "npm = \"12.0.2\"", "minikube = \"1.39.0\"", "kubectl = \"1.37.0\"", "helm = \"4.3.0\"", "yq = \"4.53.6\"", "sops = \"3.13.3\"", "age = \"1.3.2\"", "mkcert = \"1.4.4\"", "opa = \"1.20.2\"", "tofu = \"1.12.6\"", "cosign = \"3.1.3\""]) {
     assert.match(mise, new RegExp(pin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
+});
+
+test("the repository tool catalog pins Cosign for image verification", async () => {
+  const repository = await loadRepository("local");
+  assert.equal(repository.versions.tools.cosign, "3.1.3");
 });
 
 test("local catalog pins an available Istio chart release", async () => {
