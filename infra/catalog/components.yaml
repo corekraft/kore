@@ -302,6 +302,18 @@
         "readiness": ["crd/postgresqlinstances.platform.kore.dev"]
       },
       {
+        "name": "kore-local-tls",
+        "phase": "configuration",
+        "namespace": "kore-system",
+        "kind": "local-chart",
+        "chart": "infra/charts/platform-certificate",
+        "version": "local",
+        "ownsCRDs": [],
+        "dependencies": ["cert-manager"],
+        "timeout": "10m",
+        "readiness": ["certificate/kore-local", "secret/kore-local-tls"]
+      },
+      {
         "name": "kore-platform-config",
         "phase": "configuration",
         "namespace": "kore-system",
@@ -316,7 +328,8 @@
             "external-secrets",
             "ztunnel",
             "gatekeeper",
-            "opa-authorizer"
+            "opa-authorizer",
+            "kore-local-tls"
           ],
         "timeout": "10m",
         "readiness": ["gateway/kore-gateway"]

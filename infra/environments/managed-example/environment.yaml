@@ -7,5 +7,8 @@
   "gateway": {"namespace":"kore-system","name":"kore-gateway","hostname":"REQUIRED"},
   "secrets": {"storeName":"platform-secrets","sourceNamespace":"external"},
   "telemetry": {"otlpEndpoint":"http://otel-collector-opentelemetry-collector.observability.svc:4318"},
-  "componentValues": {"kore-platform-config":["infra/environments/managed-example/values/platform-config.yaml"]}
+  "componentValues": {
+    "kore-platform-config":["infra/environments/managed-example/values/platform-config.yaml"],
+    "kore-local-tls":["infra/environments/managed-example/values/platform-config.yaml"]
+  }
 }

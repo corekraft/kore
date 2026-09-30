@@ -266,13 +266,15 @@ The Istio CNI AppArmor deprecation warning did not cause this failure.
   Certificate creation, TLS Secret readiness, Gateway creation, and external
   address/route readiness. Split configuration releases where a Helm wait would
   otherwise block the commands needed to satisfy its own prerequisites.
-- [ ] Use the explicit `kore trust install --environment local` operation to
+- [x] Use the explicit `kore trust install --environment local` operation to
   establish host trust and install the issuer prerequisites. Verify the
   ClusterIssuer is Ready before waiting for certificate issuance; report a
   missing trust setup with an actionable command.
-- [ ] Create and wait for the Certificate that produces
+- [x] Create and wait for the Certificate that produces
   `kore-system/kore-local-tls`; check the expected TLS Secret keys without
-  printing their contents before installing the HTTPS Gateway.
+  printing their contents before installing the HTTPS Gateway. The certificate
+  now has a separate release, waits for `Certificate Ready`, then checks for a
+  TLS Secret containing both `tls.crt` and `tls.key` before the Gateway release.
 - [ ] Start and supervise the local Minikube tunnel so the Gateway LoadBalancer
   Service receives an address; handle required host privileges, tunnel exit,
   stale processes, and stop/destroy cleanup explicitly.
@@ -690,7 +692,7 @@ test evidence, and architectural decisions from the evidence column.
 | --- | --- | --- |
 | 6. Repository and local cluster foundation | Complete; live lifecycle validated | `tools/kore` TypeScript CLI, updated catalogs and local environment, 37 unit tests, catalog/OPA validation, direct `kore validate` and `cluster status`, and live Minikube create/inspect/stop/resume integration on Kubernetes 1.37.0 |
 | 7. Bootstrap registry, image trust, controllers, and CRD ownership | Existing controllers live-validated; registry trust closure not started | Gateway API 1.6.2, cert-manager 1.21.2, Crossplane 2.4.0, Gatekeeper 3.23.1, Istio 1.30.4, External Secrets 2.10.0, CloudNativePG chart 0.29.0, OPA, and ztunnel rolled out; registry, Cosign automation authority, Sigstore admission, internal signed rollout, and seed-closure evidence remain open |
-| 8. Networking, certificates, and secrets | Blocked on clean-cluster Gateway prerequisites | 2026-09-13: Gateway reported `AddressNotAssigned` and missing `kore-system/kore-local-tls` (`InvalidCertificateRef`); canceled configuration release cleaned up. Gateway Bootstrap Repair checklist tracks issuer, certificate, tunnel, ordering, and HTTPS verification |
+| 8. Networking, certificates, and secrets | Gateway prerequisites ordered; live HTTPS validation pending | The TLS Certificate is installed as a prerequisite release after local issuer readiness; bootstrap verifies the issued TLS Secret before installing the Gateway. Unit tests, catalog validation, and chart lint pass. External address, route, and host-trust behavior still need a fresh-cluster check. The 2026-09-13 `AddressNotAssigned` and `InvalidCertificateRef` failure remains the live-validation baseline. |
 | 9. Workload identity, application image trust, and policy | Identity/runtime policy implemented; application image trust not started | ambient values, Gatekeeper templates/constraints, OPA bundle/chart; application namespace enrollment and signed-image admission remain open |
 | 10. Storage and PostgreSQL platform API | Implemented; live validation pending | StorageClasses, immediate Minikube binding, `PostgreSQLInstance` XRD/composition, retention guards |
 | 11. Observability | Live-validated installation | Prometheus, Loki, Tempo, Grafana, and OTLP Collector ready on `kore-local`; synthetic signal correlation remains pending |

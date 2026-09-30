@@ -1,0 +1,11 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kore-local
+spec:
+  secretName: {{ .Values.gateway.certificateSecret }}
+  dnsNames:
+    - {{ .Values.gateway.hostname | quote }}
+  issuerRef:
+    kind: ClusterIssuer
+    name: {{ .Values.issuer.name }}

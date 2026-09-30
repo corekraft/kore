@@ -33,9 +33,27 @@ async function waitFor(repository: Repository, runner: Runner, component: Compon
   for (const resource of component.readiness) {
     if (resource.startsWith("crd/")) await waitForCRD(repository, runner, resource, component.timeout);
     else if (resource.startsWith("gateway/")) await runner.run("kubectl", [...base, "wait", "--for=condition=Programmed", resource, `--timeout=${component.timeout}`], { capture:false });
+    else if (resource.startsWith("certificate/")) await runner.run("kubectl", [...base, "wait", "--for=condition=Ready", resource, `--timeout=${component.timeout}`], { capture:false });
+    else if (resource.startsWith("secret/")) await waitForTLSSecret(repository, runner, base, resource, component.timeout);
     else await runner.run("kubectl", [...base, "rollout", "status", resource, `--timeout=${component.timeout}`], { capture:false });
   }
   for (const crd of component.ownsCRDs) await waitForCRD(repository, runner, `crd/${crd}`, component.timeout);
+}
+
+async function waitForTLSSecret(repository: Repository, runner: Runner, base: string[], resource: string, timeout: string): Promise<void> {
+  const deadline = Date.now() + timeoutMilliseconds(timeout);
+  const template = '{{if and (eq .type "kubernetes.io/tls") (index .data "tls.crt") (index .data "tls.key")}}ready{{end}}';
+  let lastError = "Secret is missing tls.crt or tls.key";
+  while (Date.now() < deadline) {
+    try {
+      const result = await runner.run("kubectl", [...base, "get", resource, "--output", `go-template=${template}`], { capture:true });
+      if (result.stdout.trim() === "ready") return;
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error(`${resource} did not become a complete TLS Secret within ${timeout}: ${lastError}`);
 }
 
 function timeoutMilliseconds(value: string): number {

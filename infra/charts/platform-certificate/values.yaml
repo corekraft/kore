@@ -1,0 +1,5 @@
+gateway:
+  hostname: kore.local
+  certificateSecret: kore-local-tls
+issuer:
+  name: kore-local-ca

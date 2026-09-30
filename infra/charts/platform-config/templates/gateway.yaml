@@ -17,12 +17,3 @@ spec:
           - {kind: Secret, name: {{ .Values.gateway.certificateSecret }}}
       allowedRoutes:
         namespaces: {from: All}
----
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata: {name: kore-local, namespace: kore-system}
-spec:
-  secretName: {{ .Values.gateway.certificateSecret }}
-  dnsNames: [{{ .Values.gateway.hostname | quote }}]
-  issuerRef: {kind: ClusterIssuer, name: {{ .Values.issuer.name }}}
-

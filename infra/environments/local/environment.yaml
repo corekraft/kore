@@ -20,6 +20,7 @@
     "loki":["infra/environments/local/values/loki.yaml"],
     "tempo":["infra/environments/local/values/tempo.yaml"],
     "grafana":["infra/environments/local/values/grafana.yaml"],
-    "kore-platform-config":["infra/environments/local/values/platform-config.yaml"]
+    "kore-platform-config":["infra/environments/local/values/platform-config.yaml"],
+    "kore-local-tls":["infra/environments/local/values/platform-config.yaml"]
   }
 }

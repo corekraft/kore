@@ -49,6 +49,35 @@ test("the local registry is bootstrapped before shared platform configuration", 
   assert.ok(order.indexOf("oci-registry") < order.indexOf("kore-platform-config"));
 });
 
+test("the TLS certificate and complete TLS Secret are ready before Gateway configuration", async () => {
+  const repository = await loadRepository("local");
+  const order = orderedComponents(repository.catalog).map(({ name }) => name);
+  const certificate = repository.catalog.components.find(({ name }) => name === "kore-local-tls")!;
+  const gateway = repository.catalog.components.find(({ name }) => name === "kore-platform-config")!;
+
+  assert.ok(certificate);
+  assert.ok(order.indexOf("kore-local-tls") < order.indexOf("kore-platform-config"));
+  assert.ok(gateway.dependencies.includes("kore-local-tls"));
+  assert.deepEqual(certificate.readiness, ["certificate/kore-local", "secret/kore-local-tls"]);
+
+  const runner = new RecordingRunner([
+    { stdout: "", stderr: "", code: 0 },
+    { stdout: "", stderr: "", code: 0 },
+    { stdout: "ready", stderr: "", code: 0 },
+  ]);
+  await reconcileComponent(repository, runner, certificate);
+  assert.ok(runner.calls.some(({ command, args }) => command === "kubectl" && args.includes("certificate/kore-local")));
+  assert.ok(runner.calls.some(({ command, args }) => command === "kubectl" && args.some((arg) => arg.includes("tls.crt") && arg.includes("tls.key"))));
+});
+
+test("Gateway chart does not create its TLS certificate in the same release", async () => {
+  const repository = await loadRepository("local");
+  const gateway = await readFile(join(repository.root, "infra/charts/platform-config/templates/gateway.yaml"), "utf8");
+
+  assert.match(gateway, /kind: Gateway/);
+  assert.doesNotMatch(gateway, /kind: Certificate/);
+});
+
 test("OpenTelemetry collector readiness targets the pinned chart deployment", async () => {
   const repository = await loadRepository("local");
   const collector = repository.catalog.components.find(({ name }) => name === "otel-collector")!;
