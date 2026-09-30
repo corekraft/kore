@@ -40,6 +40,7 @@ function releaseArgs(
     `platform.otlpEndpoint=${repository.environment.telemetry.otlpEndpoint}`,
   ];
   if (image) args.push(...imageReleaseArgs(repository, name, image));
+  if (image && repository.environment.provider === "minikube") args.push(...localImagePullPolicyArgs());
   return args;
 }
 
@@ -56,11 +57,35 @@ export function imageReleaseArgs(
   ];
 }
 
+export function localImageTagArgs(sourceReference: string, lockedRepository: string): string[] {
+  const separator = sourceReference.lastIndexOf("@");
+  if (separator < 1) throw new Error("local source image reference must include a digest");
+  return ["tag", `${sourceReference.slice(0, separator)}:local`, `${lockedRepository}:local`];
+}
+
+export function localImageLoadReference(reference: string): string {
+  const separator = reference.lastIndexOf("@");
+  if (separator < 1) throw new Error("local image reference must include a digest");
+  return `${reference.slice(0, separator)}:local`;
+}
+
+export function localImagePullPolicyArgs(): string[] {
+  return ["--set-string", "image.pullPolicy=Never"];
+}
+
+export function deploymentRolloutStatusArgs(name: string): string[] {
+  return ["rollout", "status", `deployment/${name}`, "--timeout=10m"];
+}
+
+export function deploymentListArgs(): string[] {
+  return ["get", "deployment", "--output=name"];
+}
+
 export function verifyLockedImageArgs(image: LockedImage, publicKey?: string): string[] {
   return [
     "verify",
     ...( /:[0-9]+\//.test(image.reference) ? ["--allow-http-registry"] : [] ),
-    ...(publicKey ? ["--key", publicKey] : ["--certificate-identity", image.signer, "--certificate-oidc-issuer", "https://token.actions.githubusercontent.com"]),
+    ...(publicKey ? ["--insecure-ignore-tlog", "--key", publicKey] : ["--certificate-identity", image.signer, "--certificate-oidc-issuer", "https://token.actions.githubusercontent.com"]),
     image.reference,
   ];
 }
@@ -137,37 +162,43 @@ export async function appUp(
     { capture: false },
   );
   if (repository.environment.provider === "minikube") {
-    if (image.reference)
+    if (image.reference) {
+      await runner.run("docker", localImageTagArgs(verificationImage.reference, image.reference.slice(0, image.reference.lastIndexOf("@"))), { capture: false });
       await runner.run(
         "minikube",
         [
           "image",
           "load",
-          image.reference,
+          localImageLoadReference(image.reference),
           "--profile",
           repository.environment.cluster.profile,
         ],
         { capture: false },
       );
+    }
   }
   await runner.run("helm", releaseArgs(repository, name, name, workload, image), {
     capture: false,
   });
-  await runner.run(
+  const deployments = await runner.run(
     "kubectl",
     [
       "--context",
       repository.environment.kubeContext,
       "--namespace",
       name,
-      "rollout",
-      "status",
-      "deployment",
-      "--all",
-      "--timeout=10m",
+      ...deploymentListArgs(),
     ],
-    { capture: false },
+    { capture: true },
   );
+  for (const deployment of deployments.stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)) {
+    const deploymentName = deployment.replace(/^deployment(?:\.apps)?\//, "");
+    await runner.run(
+      "kubectl",
+      ["--context", repository.environment.kubeContext, "--namespace", name, ...deploymentRolloutStatusArgs(deploymentName)],
+      { capture: false },
+    );
+  }
 }
 
 export async function appStatus(

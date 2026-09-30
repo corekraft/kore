@@ -37,7 +37,7 @@ spec:
           livenessProbe: {httpGet: {path: /livez, port: http}, initialDelaySeconds: 2, periodSeconds: 10}
           readinessProbe: {httpGet: {path: /readyz, port: http}, initialDelaySeconds: 2, periodSeconds: 5}
           resources: {{ toYaml $.Values.resources | nindent 12 }}
-          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, runAsNonRoot: true, capabilities: {drop: [ALL]}}
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000, capabilities: {drop: [ALL]}}
 ---
 apiVersion: v1
 kind: Service

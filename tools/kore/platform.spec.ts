@@ -31,6 +31,16 @@ test("Crossplane database permissions are installed before the PostgreSQL API", 
   assert.ok(order.indexOf("kore-postgresql-rbac") < order.indexOf("kore-postgresql-api"));
 });
 
+test("the PostgreSQL connection secret is explicitly marked ready for Crossplane", async () => {
+  const repository = await loadRepository("local");
+  const composition = await (await import("node:fs/promises")).readFile(
+    `${repository.root}/infra/apis/postgresql/compositions/local.yaml`,
+    "utf8",
+  );
+
+  assert.match(composition, /gotemplating\.fn\.crossplane\.io\/ready: "True"/);
+});
+
 test("the local registry is bootstrapped before shared platform configuration", async () => {
   const repository = await loadRepository("local");
   const order = orderedComponents(repository.catalog).map(({ name }) => name);

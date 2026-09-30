@@ -40,6 +40,7 @@ spec:
               namespace: {{ .observed.composite.resource.metadata.namespace }}
               annotations:
                 gotemplating.fn.crossplane.io/composition-resource-name: connection
+                gotemplating.fn.crossplane.io/ready: "True"
               labels:
                 app.kubernetes.io/part-of: {{ .observed.composite.resource.metadata.namespace }}
             type: Opaque

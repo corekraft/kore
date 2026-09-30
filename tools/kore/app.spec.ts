@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { loadRepository } from "./config.js";
-import { appStatus, appUp, imageReleaseArgs, verifyLockedImageArgs } from "./app.js";
+import { appStatus, appUp, deploymentListArgs, deploymentRolloutStatusArgs, imageReleaseArgs, localImageLoadReference, localImagePullPolicyArgs, localImageTagArgs, verifyLockedImageArgs } from "./app.js";
 import type { RunOptions, RunResult, Runner } from "./runner.js";
 
 class UnreadyPlatformRunner implements Runner {
@@ -84,9 +84,43 @@ test("local image verification uses the generated public key", () => {
   }, "/workspace/.kore/keys/local/kore.pub")).toEqual([
     "verify",
     "--allow-http-registry",
+    "--insecure-ignore-tlog",
     "--key", "/workspace/.kore/keys/local/kore.pub",
     "127.0.0.1:30500/reference@sha256:" + "a".repeat(64),
   ]);
+});
+
+test("local image loading aliases the host-proxy image to the locked repository", () => {
+  expect(localImageTagArgs(
+    "127.0.0.1:30500/reference@sha256:" + "a".repeat(64),
+    "registry.kore.local:30500/reference",
+  )).toEqual([
+    "tag",
+    "127.0.0.1:30500/reference:local",
+    "registry.kore.local:30500/reference:local",
+  ]);
+});
+
+test("local image loading uses the aliased tag", () => {
+  expect(localImageLoadReference("registry.kore.local:30500/reference@sha256:" + "a".repeat(64)))
+    .toBe("registry.kore.local:30500/reference:local");
+});
+
+test("local workload releases never pull the already-loaded image", () => {
+  expect(localImagePullPolicyArgs()).toEqual(["--set-string", "image.pullPolicy=Never"]);
+});
+
+test("deployment rollout status targets a named deployment", () => {
+  expect(deploymentRolloutStatusArgs("reference")).toEqual([
+    "rollout",
+    "status",
+    "deployment/reference",
+    "--timeout=10m",
+  ]);
+});
+
+test("deployment discovery uses kubectl get", () => {
+  expect(deploymentListArgs()).toEqual(["get", "deployment", "--output=name"]);
 });
 
 test("reference resources template evaluates database values with Helm delimiters", async () => {
@@ -96,6 +130,14 @@ test("reference resources template evaluates database values with Helm delimiter
   expect(template).not.toContain("{ {");
   expect(template).toContain("{{ .Values.database.retentionPolicy | quote }}");
   expect(template).toContain("compatibilityVersion: {{ .Values.database.compatibilityVersion }}");
+});
+
+test("reference workload pins the non-root UID for Kubernetes runtime validation", async () => {
+  const repository = await loadRepository("local");
+  const template = await readFile(join(repository.root, "apps/reference/charts/workload/templates/workloads.yaml"), "utf8");
+
+  expect(template).toContain("runAsUser: 1000");
+  expect(template).toContain("runAsGroup: 1000");
 });
 
 test("app status reports locked image provenance", async () => {
