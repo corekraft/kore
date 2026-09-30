@@ -4,7 +4,7 @@
   "entries": {
     "reference": {
       "image": "registry.kore.local:30500/reference",
-      "digest": "sha256:80bfba2c62b3a6366e2de03b9e95f6160e47775587b75d5b571895e208409008",
+      "digest": "sha256:76eae6c0774b5292f70e3541e57bd8f2b4df2e5f74aacaba258fed9fa894b3bc",
       "signer": "local-kore-key"
     }
   }

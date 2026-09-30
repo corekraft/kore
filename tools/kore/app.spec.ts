@@ -1,8 +1,9 @@
 import { expect, test } from "vitest";
-import { readFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { loadRepository } from "./config.js";
-import { appStatus, appUp, deploymentListArgs, deploymentRolloutStatusArgs, imageReleaseArgs, localImageLoadReference, localImagePullPolicyArgs, localImageTagArgs, verifyLockedImageArgs } from "./app.js";
+import { appStatus, appUp, deploymentListArgs, deploymentRolloutStatusArgs, imageReleaseArgs, localMinikubeImageReference, minikubeImagePullArgs, localImagePullPolicyArgs, verifyLockedImageArgs } from "./app.js";
 import type { RunOptions, RunResult, Runner } from "./runner.js";
 
 class UnreadyPlatformRunner implements Runner {
@@ -90,20 +91,16 @@ test("local image verification uses the generated public key", () => {
   ]);
 });
 
-test("local image loading aliases the host-proxy image to the locked repository", () => {
-  expect(localImageTagArgs(
-    "127.0.0.1:30500/reference@sha256:" + "a".repeat(64),
-    "registry.kore.local:30500/reference",
-  )).toEqual([
-    "tag",
-    "127.0.0.1:30500/reference:local",
-    "registry.kore.local:30500/reference:local",
+test("Minikube stages the locked digest under the registry service reference", () => {
+  const reference = localMinikubeImageReference(
+    "registry.kore.local:30500/reference@sha256:" + "a".repeat(64),
+    "10.102.135.66",
+  );
+  expect(reference).toBe("10.102.135.66:5000/reference@sha256:" + "a".repeat(64));
+  expect(minikubeImagePullArgs("kore-local", reference)).toEqual([
+    "ssh", "--profile", "kore-local", "--",
+    `sudo nerdctl --insecure-registry --namespace k8s.io pull ${reference}`,
   ]);
-});
-
-test("local image loading uses the aliased tag", () => {
-  expect(localImageLoadReference("registry.kore.local:30500/reference@sha256:" + "a".repeat(64)))
-    .toBe("registry.kore.local:30500/reference:local");
 });
 
 test("local workload releases never pull the already-loaded image", () => {
@@ -141,16 +138,24 @@ test("reference workload pins the non-root UID for Kubernetes runtime validation
 });
 
 test("app status reports locked image provenance", async () => {
-  const repository = await loadRepository("local");
+  const base = await loadRepository("local");
+  const root = await mkdtemp(join(tmpdir(), "kore-app-status-"));
+  await mkdir(join(root, "infra/catalog"), { recursive: true });
+  await copyFile(join(base.root, "infra/catalog/images.lock.json"), join(root, "infra/catalog/images.lock.json"));
+  const repository = { ...base, root };
   const runner: Runner = { async run(command, args) {
     if (command === "kubectl") return { stdout: "kube-system", stderr: "", code: 0 };
     if (command === "helm") return { stdout: '{"info":{"status":"deployed"}}', stderr: "", code: 0 };
     return { stdout: "", stderr: "", code: 0 };
   } };
-  const status = await appStatus(repository, runner, "reference");
-  expect(status.image).toEqual({
-    reference: "registry.kore.local:30500/reference@sha256:80bfba2c62b3a6366e2de03b9e95f6160e47775587b75d5b571895e208409008",
-    digest: "sha256:80bfba2c62b3a6366e2de03b9e95f6160e47775587b75d5b571895e208409008",
-    signer: "local-kore-key",
-  });
+  try {
+    const status = await appStatus(repository, runner, "reference");
+    expect(status.image).toEqual({
+      reference: "registry.kore.local:30500/reference@sha256:76eae6c0774b5292f70e3541e57bd8f2b4df2e5f74aacaba258fed9fa894b3bc",
+      digest: "sha256:76eae6c0774b5292f70e3541e57bd8f2b4df2e5f74aacaba258fed9fa894b3bc",
+      signer: "local-kore-key",
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });

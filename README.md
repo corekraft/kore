@@ -15,25 +15,28 @@ mise exec -- npm --prefix tools/kore test
 mise exec -- npm --prefix tools/kore run test:opa
 mise exec -- npm --prefix tools/kore run kore -- doctor --environment local
 mise exec -- npm --prefix tools/kore run kore -- validate --environment local
-mise exec -- npm --prefix tools/kore run kore -- cluster up --environment local
-mise exec -- npm --prefix tools/kore run kore -- tunnel start --environment local
-mise exec -- npm --prefix tools/kore run kore -- platform bootstrap --environment local
-mise exec -- npm --prefix tools/kore run kore -- trust install --environment local
-mise exec -- npm --prefix tools/kore run kore -- platform up --environment local
-mise exec -- npm --prefix tools/kore run kore -- app up reference --environment local
+mise exec -- npm --prefix tools/kore run kore -- local up --environment local
 ```
 
-`platform up` installs only platform releases; applications are always a separate
-operation. Run `platform bootstrap` before `trust install`: bootstrap installs
-cert-manager and the other controllers required for the local issuer, while
-`trust install` establishes host trust and waits for the issuer to become ready.
-For Minikube, `platform up` starts the managed tunnel automatically before
-configuring the local Gateway. It can also be managed explicitly with
-`kore tunnel start|status|stop`; platform stop and destroy clean it up.
+`local up` starts/reuses the Minikube profile, reconciles the platform and local
+trust, generates/reuses a local API token and syncs local secrets, builds each
+locked application, publishes it to the in-cluster registry, signs and verifies
+the registry digest, then deploys that exact digest. The token is stored at
+`.kore/state/reference-api-token` with owner-only permissions and survives
+`local down --prune`; it is never committed. Optional SOPS-encrypted local
+secret documents can still be placed in `infra/environments/local/secrets/`.
+It records per-machine image digests and its
+local-only signing key under ignored `.kore/` state; it does not edit the shared
+release image lock. Local signatures have no Rekor entry and are not release
+signatures. For a state-preserving teardown, run `mise exec -- npm --prefix tools/kore run kore -- local down
+--environment local`; this stops the cluster and tunnel without uninstalling
+releases or deleting data. Add `--prune` to explicitly destroy the cluster and
+purge retained data. `platform up` remains available when you want only platform
+reconciliation, and `kore tunnel start|status|stop` manages the tunnel directly.
 Status, validate, and render are read-only. Mutations require an explicit
 environment and use the configured kube context, never the current kubectl
-context. Destruction requires `--yes`; retained claims additionally require
-`--purge-data`.
+context. Direct destruction requires `--yes`; retained claims additionally
+require `--purge-data`. `local down --prune` explicitly opts into both.
 
 ### Minikube tunnel
 

@@ -11,6 +11,7 @@ import { syncLocalSecrets } from "./secrets.js";
 import { installLocalTrust } from "./trust.js";
 import { startLocalTunnel, stopLocalTunnel, tunnelStatus } from "./tunnel.js";
 import { validatePortability } from "./portability.js";
+import { localDown, localUp } from "./local.js";
 
 const usage = `Kore local platform orchestration
 
@@ -23,6 +24,7 @@ Usage:
   kore platform status|render [--environment <name>] [--output <directory>] [--json]
   kore app up|down <name> --environment <name>
   kore app status <name> [--environment <name>] [--json]
+  kore local up|down --environment local [--prune]
   kore tunnel start|stop --environment local
   kore tunnel status [--environment local] [--json]
   kore secrets sync --environment local
@@ -43,7 +45,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   if (!command || command === "help" || command === "--help") { console.log(usage); return 0; }
   const offset = ["doctor","validate"].includes(command) ? 1 : 2;
   const parsed = parseArgs(argv.slice(offset));
-  const mutating = (command === "cluster" && ["up","stop","destroy"].includes(action ?? "")) || (command === "platform" && ["bootstrap","up","stop","destroy"].includes(action ?? "")) || (command === "app" && ["up","down"].includes(action ?? "")) || (command === "tunnel" && ["start","stop"].includes(action ?? "")) || command === "secrets" || command === "trust";
+  const mutating = (command === "cluster" && ["up","stop","destroy"].includes(action ?? "")) || (command === "platform" && ["bootstrap","up","stop","destroy"].includes(action ?? "")) || (command === "app" && ["up","down"].includes(action ?? "")) || (command === "local" && ["up","down"].includes(action ?? "")) || (command === "tunnel" && ["start","stop"].includes(action ?? "")) || command === "secrets" || command === "trust";
   const environmentName = mutating ? requireEnvironment(parsed) : (stringFlag(parsed,"environment") ?? "local");
   const repository = await loadRepository(environmentName);
   const runner = new ProcessRunner();
@@ -86,6 +88,14 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       if (action === "up") await appUp(repository,runner,name);
       else if (action === "down") await appDown(repository,runner,name);
       else throw new Error(`unknown app action: ${action ?? ""}`);
+      return 0;
+    });
+  }
+  if (command === "local") {
+    return await withEnvironmentLock(repository.root, environmentName, async () => {
+      if (action === "up") await localUp(repository, runner);
+      else if (action === "down") await localDown(repository, runner, boolFlag(parsed, "prune"));
+      else throw new Error(`unknown local action: ${action ?? ""}`);
       return 0;
     });
   }

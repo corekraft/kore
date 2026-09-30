@@ -57,16 +57,17 @@ export function imageReleaseArgs(
   ];
 }
 
-export function localImageTagArgs(sourceReference: string, lockedRepository: string): string[] {
-  const separator = sourceReference.lastIndexOf("@");
-  if (separator < 1) throw new Error("local source image reference must include a digest");
-  return ["tag", `${sourceReference.slice(0, separator)}:local`, `${lockedRepository}:local`];
+export function localMinikubeImageReference(reference: string, registryClusterIp: string): string {
+  const separator = reference.indexOf("/");
+  if (separator < 1 || !registryClusterIp.trim()) throw new Error("local image reference and registry ClusterIP are required");
+  return `${registryClusterIp}:5000/${reference.slice(separator + 1)}`;
 }
 
-export function localImageLoadReference(reference: string): string {
-  const separator = reference.lastIndexOf("@");
-  if (separator < 1) throw new Error("local image reference must include a digest");
-  return `${reference.slice(0, separator)}:local`;
+export function minikubeImagePullArgs(profile: string, reference: string): string[] {
+  return [
+    "ssh", "--profile", profile, "--",
+    `sudo nerdctl --insecure-registry --namespace k8s.io pull ${reference}`,
+  ];
 }
 
 export function localImagePullPolicyArgs(): string[] {
@@ -106,6 +107,8 @@ export async function appUp(
   repository: Repository,
   runner: Runner,
   name: string,
+  imageOverride?: LockedImage,
+  publicKeyOverride?: string,
 ): Promise<void> {
   await assertExpectedCluster(repository, runner);
   const platform = await platformStatus(repository, runner);
@@ -117,12 +120,28 @@ export async function appUp(
       `platform is not ready: ${unavailable.map((component) => `${component.name} (${component.detail})`).join(", ")}`,
     );
   }
-  const image = imageForApplication(await loadImageLock(repository.root), name);
+  const image = imageOverride ?? imageForApplication(await loadImageLock(repository.root), name);
   const verificationImage = { ...image, reference: await localRegistryReference(repository, runner, image.reference) };
-  const publicKey = repository.environment.provider === "minikube" && image.signer === "local-kore-key"
+  const publicKey = publicKeyOverride ?? (repository.environment.provider === "minikube" && image.signer === "local-kore-key"
     ? join(repository.root, ".kore", "keys", "local", "kore.pub")
-    : undefined;
+    : undefined);
   await runner.run("cosign", verifyLockedImageArgs(verificationImage, publicKey), { capture: false });
+  let workloadImage = image;
+  if (repository.environment.provider === "minikube") {
+    const registry = await runner.run("kubectl", [
+      "--context", repository.environment.kubeContext,
+      "--namespace", "kore-registry",
+      "get", "service", "oci-registry",
+      "--output=jsonpath={.spec.clusterIP}",
+    ], { capture: true });
+    const clusterIp = registry.stdout.trim();
+    if (!clusterIp) throw new Error("local OCI registry has no ClusterIP");
+    workloadImage = {
+      ...image,
+      reference: localMinikubeImageReference(image.reference, clusterIp),
+    };
+    await runner.run("minikube", minikubeImagePullArgs(repository.environment.cluster.profile, workloadImage.reference), { capture: false });
+  }
   const resources = await chart(repository, name, "resources"),
     workload = await chart(repository, name, "workload");
   await runner.run(
@@ -161,23 +180,7 @@ export async function appUp(
     ],
     { capture: false },
   );
-  if (repository.environment.provider === "minikube") {
-    if (image.reference) {
-      await runner.run("docker", localImageTagArgs(verificationImage.reference, image.reference.slice(0, image.reference.lastIndexOf("@"))), { capture: false });
-      await runner.run(
-        "minikube",
-        [
-          "image",
-          "load",
-          localImageLoadReference(image.reference),
-          "--profile",
-          repository.environment.cluster.profile,
-        ],
-        { capture: false },
-      );
-    }
-  }
-  await runner.run("helm", releaseArgs(repository, name, name, workload, image), {
+  await runner.run("helm", releaseArgs(repository, name, name, workload, workloadImage), {
     capture: false,
   });
   const deployments = await runner.run(
@@ -207,7 +210,14 @@ export async function appStatus(
   name: string,
 ): Promise<Record<string, unknown>> {
   await assertExpectedCluster(repository, runner);
-  const image = imageForApplication(await loadImageLock(repository.root), name);
+  const localImageLockPath = ".kore/state/local-images.lock.json";
+  let imageLockPath: string | undefined;
+  if (repository.environment.provider === "minikube") {
+    try { await access(join(repository.root, localImageLockPath)); imageLockPath = localImageLockPath; }
+    catch { /* No local source build has been recorded yet; use the release lock. */ }
+  }
+  const imageLock = await loadImageLock(repository.root, imageLockPath);
+  const image = imageForApplication(imageLock, name);
   const resources = await runner.run(
     "helm",
     [
