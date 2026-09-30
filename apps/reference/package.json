@@ -6,6 +6,7 @@
     "node": ">=24.7.0"
   },
   "scripts": {
-    "start": "node --experimental-strip-types src/server.ts"
+    "start": "node --experimental-strip-types src/server.ts",
+    "test": "node --experimental-strip-types --test src/server.test.ts"
   }
 }

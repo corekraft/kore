@@ -35,12 +35,19 @@ createServer(async (request,response) => {
     if (path === "/livez") body = {live:true};
     else if (path === "/readyz") { const ready = mode === "frontend" || await databaseReady(); status = ready ? 200 : 503; body = {ready}; }
     else if (mode === "frontend") {
-      const upstream = await fetch(`${api}${path}`,{headers:{traceparent:`00-${traceId.padEnd(32,"0").slice(0,32)}-${traceId.slice(0,16)}-01`,"x-kore-role":request.headers["x-kore-role"] ?? "viewer"}});
-      status=upstream.status; body=await upstream.json();
+      const apiToken = process.env.API_TOKEN;
+      const role = apiToken && request.headers.authorization === `Bearer ${apiToken}` ? "developer" : "viewer";
+      const upstream = await fetch(`${api}${path}`,{headers:{traceparent:`00-${traceId.padEnd(32,"0").slice(0,32)}-${traceId.slice(0,16)}-01`,"x-kore-authenticated-role":role}});
+      status=upstream.status;
+      const upstreamBody=await upstream.text();
+      if (!upstreamBody) body={error:status>=400?"upstream request denied":"empty upstream response"};
+      else {
+        try { body=JSON.parse(upstreamBody); }
+        catch { body={error:upstreamBody}; }
+      }
     } else if (path === "/api" || path === "/api/protected") body={service,authenticatedPrincipal:request.headers["x-forwarded-client-cert"]??"mesh",database:await databaseReady()};
     else { status=404; body={error:"not found"}; }
   } catch (error) { status=502; body={error:error instanceof Error?error.message:String(error)}; }
   response.writeHead(status,{"content-type":"application/json"}); response.end(JSON.stringify(body));
   await telemetry(path,status,Date.now()-start,traceId);
 }).listen(port,"0.0.0.0");
-

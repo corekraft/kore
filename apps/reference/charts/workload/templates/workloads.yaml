@@ -15,7 +15,7 @@ spec:
   selector: {matchLabels: {app.kubernetes.io/name: reference-{{ $component }}}}
   template:
     metadata:
-      labels: {app.kubernetes.io/name: reference-{{ $component }}, app.kubernetes.io/part-of: reference, platform.kore.dev/service-account: reference-{{ $component }}}
+      labels: {app.kubernetes.io/name: reference-{{ $component }}, app.kubernetes.io/part-of: reference, platform.kore.dev/service-account: reference-{{ $component }}, istio.io/dataplane-mode: ambient}
     spec:
       serviceAccountName: reference-{{ $component }}
       automountServiceAccountToken: false
@@ -41,7 +41,11 @@ spec:
 ---
 apiVersion: v1
 kind: Service
-metadata: {name: reference-{{ $component }}}
+metadata:
+  name: reference-{{ $component }}
+  {{ if eq $component "api" }}
+  labels: {istio.io/use-waypoint: reference-api-waypoint}
+  {{ end }}
 spec:
   selector: {app.kubernetes.io/name: reference-{{ $component }}}
   ports: [{name: http, port: 8080, targetPort: http}]
@@ -57,6 +61,18 @@ spec:
   rules:
     - matches: [{path: {type: PathPrefix, value: /}}]
       backendRefs: [{name: reference-frontend, port: 8080}]
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: reference-api-waypoint
+  labels: {istio.io/waypoint-for: service}
+spec:
+  gatewayClassName: istio-waypoint
+  listeners:
+    - name: mesh
+      port: 15008
+      protocol: HBONE
 ---
 apiVersion: security.istio.io/v1
 kind: PeerAuthentication
@@ -75,14 +91,29 @@ spec:
   selector: {matchLabels: {app.kubernetes.io/name: reference-api}}
   action: ALLOW
   rules:
+    - from: [{source: {principals: ["cluster.local/ns/{{ .Release.Namespace }}/sa/reference-api-waypoint"]}}]
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata: {name: api-allow-frontend-l7}
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: reference-api
+  action: ALLOW
+  rules:
     - from: [{source: {principals: ["cluster.local/ns/{{ .Release.Namespace }}/sa/reference-frontend"]}}]
-      to: [{operation: {paths: ["/api", "/readyz", "/livez"]}}]
+      to: [{operation: {paths: ["/api", "/api/protected"]}}]
 ---
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata: {name: api-opa-protected}
 spec:
-  selector: {matchLabels: {app.kubernetes.io/name: reference-api}}
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: reference-api
   action: CUSTOM
   provider: {name: opa-authorizer}
   rules: [{to: [{operation: {paths: ["/api/protected"]}}]}]

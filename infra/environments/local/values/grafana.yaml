@@ -1,4 +1,8 @@
 persistence: {enabled: true, size: 2Gi, storageClassName: kore-standard}
+# Minikube's hostpath provisioner creates writable directories; recursive chown
+# of existing hostpath data is denied by the container runtime.
+initChownData:
+  enabled: false
 grafana.ini:
   auth.anonymous:
     enabled: true

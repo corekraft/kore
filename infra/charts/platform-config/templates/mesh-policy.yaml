@@ -7,4 +7,18 @@ apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata: {name: default-deny, namespace: kore-system}
 spec: {}
-
+---
+# The Gateway is the intentional public entry point; keep the rest of
+# kore-system denied by default while allowing HTTPS traffic to this Gateway.
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata: {name: gateway-allow-https, namespace: kore-system}
+spec:
+  selector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-name: kore-gateway
+  action: ALLOW
+  rules:
+    - to:
+        - operation:
+            ports: ["443"]

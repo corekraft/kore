@@ -69,9 +69,8 @@ data:
   policy.rego: |
     package envoy.authz
     default allow := false
+    # Ambient waypoint CheckRequests omit workload principals; Istio's native Service policy enforces caller identity.
     allow if {
       input.attributes.request.http.path == "/api/protected"
-      startswith(input.attributes.source.principal, "spiffe://cluster.local/ns/reference/sa/reference-frontend")
-      input.attributes.destination.principal == "spiffe://cluster.local/ns/reference/sa/reference-api"
-      input.attributes.request.http.headers["x-kore-role"] == "developer"
+      input.attributes.request.http.headers["x-kore-authenticated-role"] == "developer"
     }

@@ -4,10 +4,9 @@ import rego.v1
 
 default allow := false
 
+# Istio 1.30 ambient waypoint CheckRequests omit workload principals. The native
+# Service-targeted Istio ALLOW policy enforces frontend identity before this role check.
 allow if {
   input.attributes.request.http.path == "/api/protected"
-  startswith(input.attributes.source.principal, "spiffe://cluster.local/ns/reference/sa/reference-frontend")
-  input.attributes.destination.principal == "spiffe://cluster.local/ns/reference/sa/reference-api"
-  input.attributes.request.http.headers["x-kore-role"] == "developer"
+  input.attributes.request.http.headers["x-kore-authenticated-role"] == "developer"
 }
-

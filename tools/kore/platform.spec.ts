@@ -78,6 +78,29 @@ test("Gateway chart does not create its TLS certificate in the same release", as
   assert.doesNotMatch(gateway, /kind: Certificate/);
 });
 
+test("platform authorization allows HTTPS only to the named Gateway", async () => {
+  const repository = await loadRepository("local");
+  const policies = await readFile(join(repository.root, "infra/charts/platform-config/templates/mesh-policy.yaml"), "utf8");
+
+  assert.match(policies, /name: gateway-allow-https/);
+  assert.match(policies, /gateway\.networking\.k8s\.io\/gateway-name: kore-gateway/);
+  assert.match(policies, /action: ALLOW/);
+  assert.match(policies, /ports:\s*\["443"\]/);
+});
+
+test("reference API L7 authorization is attached to an enrolled ambient waypoint", async () => {
+  const repository = await loadRepository("local");
+  const workload = await readFile(join(repository.root, "apps/reference/charts/workload/templates/workloads.yaml"), "utf8");
+
+  assert.match(workload, /gatewayClassName:\s*istio-waypoint/);
+  assert.match(workload, /name:\s*reference-api-waypoint/);
+  assert.match(workload, /istio\.io\/dataplane-mode:\s*ambient/);
+  assert.match(workload, /istio\.io\/use-waypoint:\s*reference-api-waypoint/);
+  assert.match(workload, /targetRefs:\s*\n\s+- group:\s*""\s*\n\s+kind:\s*Service\s*\n\s+name:\s*reference-api/);
+  assert.match(workload, /action:\s*CUSTOM/);
+  assert.match(workload, /principals:\s*\["cluster\.local\/ns\/\{\{ \.Release\.Namespace \}\}\/sa\/reference-api-waypoint"\]/);
+});
+
 test("OpenTelemetry collector readiness targets the pinned chart deployment", async () => {
   const repository = await loadRepository("local");
   const collector = repository.catalog.components.find(({ name }) => name === "otel-collector")!;
@@ -256,6 +279,13 @@ test("local Grafana does not require an unmaterialized admin Secret", async () =
 
   assert.doesNotMatch(values, /existingSecret:/);
   assert.match(values, /anonymous:\s*\n\s+enabled:\s*true/);
+});
+
+test("local Grafana does not chown existing hostpath data on startup", async () => {
+  const repository = await loadRepository("local");
+  const values = await readFile(join(repository.root, "infra/environments/local/values/grafana.yaml"), "utf8");
+
+  assert.match(values, /initChownData:\s*\n\s+enabled:\s*false/);
 });
 
 test("manifest components apply nested manifest directories recursively", async () => {
