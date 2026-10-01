@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { createConnection } from "node:net";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Repository } from "./config.js";
@@ -13,11 +14,13 @@ interface TunnelState {
 export interface TunnelStatus {
   status: "missing" | "stale" | "running";
   pid?: number;
+  port?: number;
 }
 
 export interface TunnelDependencies {
   spawnTunnel?: (profile: string) => number;
   isProcessAlive?: (pid: number) => boolean;
+  isPortOpen?: (port: number) => Promise<boolean>;
   terminateProcess?: (pid: number) => void;
 }
 
@@ -51,6 +54,17 @@ function processIsAlive(pid: number): boolean {
   }
 }
 
+function portIsOpen(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = createConnection({ host: "127.0.0.1", port });
+    const finish = (open: boolean) => { socket.destroy(); resolve(open); };
+    socket.setTimeout(300);
+    socket.once("connect", () => finish(true));
+    socket.once("error", () => finish(false));
+    socket.once("timeout", () => finish(false));
+  });
+}
+
 function spawnTunnel(profile: string): number {
   const child = spawn("minikube", ["tunnel", "--profile", profile, "--cleanup=false"], {
     detached: true,
@@ -71,8 +85,9 @@ export async function tunnelStatus(repository: Repository, dependencies: TunnelD
   assertLocal(repository);
   const state = await readState(repository);
   if (!state) return { status: "missing" };
-  return (dependencies.isProcessAlive ?? processIsAlive)(state.pid)
-    ? { status: "running", pid: state.pid }
+  if (!(dependencies.isProcessAlive ?? processIsAlive)(state.pid)) return { status: "stale", pid: state.pid };
+  return await (dependencies.isPortOpen ?? portIsOpen)(repository.environment.gateway.port)
+    ? { status: "running", pid: state.pid, port: repository.environment.gateway.port }
     : { status: "stale", pid: state.pid };
 }
 
@@ -81,10 +96,25 @@ export async function startLocalTunnel(repository: Repository, runner: Runner, d
   await assertExpectedCluster(repository, runner);
   const current = await tunnelStatus(repository, dependencies);
   if (current.status === "running") return current;
-  if (current.status === "stale") await rm(tunnelStatePath(repository), { force: true });
+  if (current.status === "stale") {
+    await stopLocalTunnel(repository, runner, dependencies);
+    const isAlive = dependencies.isProcessAlive ?? processIsAlive;
+    const deadline = Date.now() + 3_000;
+    while (isAlive(current.pid!) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 100));
+    if (isAlive(current.pid!)) throw new Error(`could not stop stale Minikube tunnel process ${current.pid}`);
+  }
   const pid = (dependencies.spawnTunnel ?? spawnTunnel)(repository.environment.cluster.profile);
-  await writeState(repository, { profile: repository.environment.cluster.profile, pid });
-  return { status: "running", pid };
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    if (await (dependencies.isPortOpen ?? portIsOpen)(repository.environment.gateway.port)) {
+      await writeState(repository, { profile: repository.environment.cluster.profile, pid });
+      return { status: "running", pid, port: repository.environment.gateway.port };
+    }
+    if (!(dependencies.isProcessAlive ?? processIsAlive)(pid)) break;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  (dependencies.terminateProcess ?? ((processId) => process.kill(processId, "SIGTERM")))(pid);
+  throw new Error(`Minikube tunnel did not expose local Gateway port ${repository.environment.gateway.port}`);
 }
 
 export async function stopLocalTunnel(repository: Repository, _runner: Runner, dependencies: TunnelDependencies = {}): Promise<void> {

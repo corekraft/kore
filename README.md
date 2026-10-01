@@ -40,24 +40,30 @@ require `--purge-data`. `local down --prune` explicitly opts into both.
 
 ### Minikube tunnel
 
-The local Gateway uses a LoadBalancer address. Kore manages the required
-detached `minikube tunnel` process for the explicit `kore-local` profile:
+The local Gateway uses HTTPS port `8443`. Port `443` is privileged inside the
+Docker-backed Minikube node and cannot be exposed by a detached tunnel without
+an interactive sudo prompt. The higher local port keeps the direct Minikube
+tunnel fully automated; use `https://kore.local:8443/` (or your route path).
+Kore manages the detached `minikube tunnel` process for the explicit
+`kore-local` profile:
 
 ```sh
-# Start or reuse the tunnel
+# Start or reuse the tunnel after `platform up` has configured the Gateway
 mise exec -- npm --prefix tools/kore run kore -- tunnel start --environment local
 
-# Inspect the managed tunnel PID and state
+# Check both the managed process and its local listening port
 mise exec -- npm --prefix tools/kore run kore -- tunnel status --environment local --json
 
 # Stop the tunnel and remove its state
 mise exec -- npm --prefix tools/kore run kore -- tunnel stop --environment local
 ```
 
-`platform up` starts the tunnel automatically before configuring the local
-Gateway. `platform stop` and `platform destroy` stop it automatically. A stale
-tunnel PID is discarded and replaced on the next `tunnel start`. Tunnel state is
-stored under `.kore/state` and should not be committed.
+`platform up` starts the tunnel after configuring the local Gateway and waits
+for port `8443` to become reachable; `local up` does this automatically.
+`platform stop` and `platform destroy` stop it automatically. A tunnel is
+reported as running only when its process is alive and the configured port is
+reachable. Stale tunnel processes are replaced on the next `tunnel start`.
+Tunnel state is stored under `.kore/state` and should not be committed.
 
 For the local profile, the focused cluster lifecycle commands are:
 

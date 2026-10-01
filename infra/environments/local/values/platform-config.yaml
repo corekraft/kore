@@ -1,6 +1,7 @@
 environment: local
 gateway:
   hostname: kore.local
+  port: 8443
   certificateSecret: kore-local-tls
 issuer:
   name: kore-local-ca
@@ -9,4 +10,3 @@ secrets:
   storeName: platform-secrets
 storage:
   provisioner: k8s.io/minikube-hostpath
-

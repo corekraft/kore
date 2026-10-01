@@ -77,13 +77,14 @@ async function waitForCRD(repository: Repository, runner: Runner, resource: stri
   }
 }
 
-export async function reconcileComponent(repository: Repository, runner: Runner, component: Component): Promise<void> {
+export async function reconcileComponent(repository: Repository, runner: Runner, component: Component, afterApply?: () => Promise<void>): Promise<void> {
   try {
     if (component.kind === "manifest") {
       const expanded = expandVersions(repository, component.source!);
       const source = /^https?:\/\//.test(expanded) ? expanded : absolute(repository, expanded);
       await runner.run("kubectl", ["--context", repository.environment.kubeContext, "apply", "--server-side", "--field-manager=kore", "--recursive", "--filename", source], { capture:false });
     } else await runner.run("helm", helmUpgradeArgs(repository, component).map((value) => component.kind === "local-chart" && value === component.chart ? absolute(repository, value) : value), { capture:false, cwd:repository.root });
+    await afterApply?.();
     await waitFor(repository, runner, component);
   } catch (error) { throw new Error(`component ${component.name} failed to become ready: ${error instanceof Error ? error.message : String(error)}`); }
 }
@@ -139,11 +140,16 @@ export async function bootstrapControllers(repository: Repository, runner: Runne
 export async function platformUp(repository: Repository, runner: Runner, tunnelDependencies: TunnelDependencies = {}): Promise<void> {
   await bootstrapControllers(repository, runner);
   if (repository.environment.provider === "minikube") await installLocalTrust(repository, runner);
-  if (repository.environment.provider === "minikube") await startLocalTunnel(repository, runner, tunnelDependencies);
+  let tunnelStarted = false;
   for (const component of orderedComponents(repository.catalog)) {
     if (component.phase !== "configuration" && component.phase !== "enforcement") continue;
-    await reconcileIfNeeded(repository, runner, component);
+    const createsGateway = component.readiness.some((resource) => resource.startsWith("gateway/"));
+    const startTunnelAfterApply = repository.environment.provider === "minikube" && !tunnelStarted && createsGateway
+      ? async () => { await startLocalTunnel(repository, runner, tunnelDependencies); tunnelStarted = true; }
+      : undefined;
+    await reconcileComponent(repository, runner, component, startTunnelAfterApply);
   }
+  if (repository.environment.provider === "minikube" && !tunnelStarted) await startLocalTunnel(repository, runner, tunnelDependencies);
   await writePlatformState(repository, "ready");
 }
 

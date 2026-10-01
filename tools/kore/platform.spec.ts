@@ -78,6 +78,17 @@ test("Gateway chart does not create its TLS certificate in the same release", as
   assert.doesNotMatch(gateway, /kind: Certificate/);
 });
 
+test("local Gateway uses a non-privileged HTTPS port so Minikube tunnel needs no sudo", async () => {
+  const repository = await loadRepository("local");
+  const values = await readFile(join(repository.root, "infra/environments/local/values/platform-config.yaml"), "utf8");
+  const gateway = await readFile(join(repository.root, "infra/charts/platform-config/templates/gateway.yaml"), "utf8");
+  const policies = await readFile(join(repository.root, "infra/charts/platform-config/templates/mesh-policy.yaml"), "utf8");
+
+  assert.match(values, /port:\s*8443/);
+  assert.match(gateway, /port:\s*{{ \.Values\.gateway\.port }}/);
+  assert.match(policies, /ports:\s*\[{{ \.Values\.gateway\.port \| quote }}\]/);
+});
+
 test("platform authorization allows HTTPS only to the named Gateway", async () => {
   const repository = await loadRepository("local");
   const policies = await readFile(join(repository.root, "infra/charts/platform-config/templates/mesh-policy.yaml"), "utf8");
@@ -85,7 +96,7 @@ test("platform authorization allows HTTPS only to the named Gateway", async () =
   assert.match(policies, /name: gateway-allow-https/);
   assert.match(policies, /gateway\.networking\.k8s\.io\/gateway-name: kore-gateway/);
   assert.match(policies, /action: ALLOW/);
-  assert.match(policies, /ports:\s*\["443"\]/);
+  assert.match(policies, /ports:\s*\[{{ \.Values\.gateway\.port \| quote }}\]/);
 });
 
 test("reference API L7 authorization is attached to an enrolled ambient waypoint", async () => {
@@ -163,7 +174,8 @@ test("local platform configuration starts the managed Minikube tunnel", async ()
   try {
     await platformUp(repository, runner, {
       spawnTunnel: () => 4321,
-      isProcessAlive: () => false,
+      isProcessAlive: () => true,
+      isPortOpen: async () => true,
     });
     assert.deepEqual(await readFile(tunnelStatePath(repository), "utf8").then(JSON.parse), { profile: "kore-local", pid: 4321 });
   } finally {
@@ -171,7 +183,7 @@ test("local platform configuration starts the managed Minikube tunnel", async ()
   }
 });
 
-test("local platform up establishes trust and the tunnel before shared configuration", async () => {
+test("local platform up starts its tunnel before waiting for Gateway programming", async () => {
   const base = await loadRepository("local");
   const root = await mkdtemp(join(tmpdir(), "kore-platform-order-"));
   const platformConfig = base.catalog.components.find(({ name }) => name === "kore-platform-config")!;
@@ -191,14 +203,38 @@ test("local platform up establishes trust and the tunnel before shared configura
   };
 
   try {
-    await platformUp(repository, runner, { spawnTunnel: () => { calls.push({ command: "managed-tunnel", args: [] }); return 4321; }, isProcessAlive: () => false });
+    await platformUp(repository, runner, { spawnTunnel: () => { calls.push({ command: "managed-tunnel", args: [] }); return 4321; }, isProcessAlive: () => true, isPortOpen: async () => true });
 
     const issuerReady = calls.findIndex(({ command, args }) => command === "kubectl" && args.includes("clusterissuer/kore-local-ca"));
     const tunnelStarted = calls.findIndex(({ command }) => command === "managed-tunnel");
     const configurationApplied = calls.findIndex(({ command, args }) => command === "helm" && args[0] === "upgrade" && args.includes("kore-platform-config"));
+    const gatewayProgrammed = calls.findIndex(({ command, args }) => command === "kubectl" && args.includes("gateway/kore-gateway"));
     assert.ok(issuerReady >= 0);
-    assert.ok(tunnelStarted > issuerReady);
-    assert.ok(configurationApplied > tunnelStarted);
+    assert.ok(configurationApplied > issuerReady);
+    assert.ok(tunnelStarted > configurationApplied);
+    assert.ok(gatewayProgrammed > tunnelStarted);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("platform up upgrades an already-installed configuration release", async () => {
+  const base = await loadRepository("local");
+  const root = await mkdtemp(join(tmpdir(), "kore-platform-upgrade-"));
+  const platformConfig = base.catalog.components.find(({ name }) => name === "kore-platform-config")!;
+  const repository = { ...base, root, catalog: { ...base.catalog, components: [{ ...platformConfig, dependencies: [] }] } };
+  const calls: { command: string; args: readonly string[] }[] = [];
+  const runner: Runner = {
+    async run(command, args) {
+      calls.push({ command, args });
+      if (command === "helm" && args[0] === "status") return { stdout: '{"info":{"status":"deployed"}}', stderr: "", code: 0 };
+      if (command === "mkcert" && args.includes("-CAROOT")) return { stdout: "/tmp/mkcert", stderr: "", code: 0 };
+      return { stdout: "kube-system", stderr: "", code: 0 };
+    },
+  };
+  try {
+    await platformUp(repository, runner, { spawnTunnel: () => 4321, isProcessAlive: () => true, isPortOpen: async () => true });
+    assert.ok(calls.some(({ command, args }) => command === "helm" && args[0] === "upgrade" && args.includes("kore-platform-config")));
   } finally {
     await rm(root, { recursive: true, force: true });
   }

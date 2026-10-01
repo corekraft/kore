@@ -12,7 +12,7 @@
     "memoryMB": 8192,
     "diskSize": "40g"
   },
-  "gateway": {"namespace":"kore-system","name":"kore-gateway","hostname":"kore.local"},
+  "gateway": {"namespace":"kore-system","name":"kore-gateway","hostname":"kore.local","port":8443},
   "secrets": {"storeName":"platform-secrets","sourceNamespace":"kore-secret-source"},
   "telemetry": {"otlpEndpoint":"http://otel-collector-opentelemetry-collector.observability.svc:4318"},
   "componentValues": {

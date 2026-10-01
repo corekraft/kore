@@ -1,6 +1,5 @@
 environment: local
-gateway: {hostname: kore.local, certificateSecret: kore-local-tls}
+gateway: {hostname: kore.local, port: 443, certificateSecret: kore-local-tls}
 issuer: {name: kore-local-ca}
 secrets: {sourceNamespace: kore-secret-source, storeName: platform-secrets}
 storage: {provisioner: k8s.io/minikube-hostpath}
-

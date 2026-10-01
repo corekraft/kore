@@ -44,7 +44,7 @@ export interface Environment {
     memoryMB: number;
     diskSize: string;
   };
-  gateway: { namespace: string; name: string; hostname: string };
+  gateway: { namespace: string; name: string; hostname: string; port: number };
   secrets: { storeName: string; sourceNamespace: string };
   telemetry: { otlpEndpoint: string };
   componentValues?: Record<string, string[]>;

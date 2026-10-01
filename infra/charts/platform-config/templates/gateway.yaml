@@ -9,7 +9,7 @@ spec:
   listeners:
     - name: https
       hostname: {{ .Values.gateway.hostname | quote }}
-      port: 443
+      port: {{ .Values.gateway.port }}
       protocol: HTTPS
       tls:
         mode: Terminate
