@@ -415,7 +415,7 @@ policy telemetry with correlated local metrics, logs, and traces.
 - [x] Add health, queue, dropped-data, and exporter-failure monitoring for the
   Collector.
 - [x] Define local retention and storage limits for every backend.
-- [ ] Add synthetic telemetry tests for all three signals and their correlation.
+- [x] Add synthetic telemetry tests for all three signals and their correlation.
 
 ### Exit Criteria
 
