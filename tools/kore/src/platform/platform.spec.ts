@@ -6,6 +6,8 @@ import {
   helmUpgradeArgs,
   platformRender,
   platformStatus,
+  platformStop,
+  platformDestroy,
   platformUp,
   reconcileComponent,
 } from "./platform.js";
@@ -665,4 +667,101 @@ test("platform status reports a failed Helm release as degraded", async () => {
   assert.ok(status);
   assert.equal(status.status, "degraded");
   assert.match(status.detail, /failed/i);
+});
+
+test("platform stop removes managed tunnel state before stopping the cluster", async () => {
+  const base = await loadRepository("local");
+  const root = await mkdtemp(join(tmpdir(), "kore-platform-stop-"));
+  const repository = { ...base, root };
+  const runner = new RecordingRunner([
+    { stdout: "{}", stderr: "", code: 0 },
+    { stdout: "kube-system", stderr: "", code: 0 },
+    { stdout: "", stderr: "", code: 0 },
+  ]);
+  try {
+    await platformStop(repository, runner);
+    assert.deepEqual(runner.calls.at(-1)?.args, [
+      "stop",
+      "--profile",
+      repository.environment.cluster.profile,
+    ]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("platform destroy stops the tunnel before purging and deleting the cluster", async () => {
+  const base = await loadRepository("local");
+  const root = await mkdtemp(join(tmpdir(), "kore-platform-destroy-"));
+  const repository = { ...base, root };
+  const runner = new RecordingRunner([
+    { stdout: "{}", stderr: "", code: 0 },
+    { stdout: "kube-system", stderr: "", code: 0 },
+    { stdout: "", stderr: "", code: 0 },
+    { stdout: "", stderr: "", code: 0 },
+    { stdout: "", stderr: "", code: 0 },
+    { stdout: "", stderr: "", code: 0 },
+  ]);
+  try {
+    await platformDestroy(repository, runner, { yes: true, purgeData: true });
+    assert.equal(runner.calls.at(-1)?.args[0], "delete");
+    assert.equal(
+      runner.calls.filter(({ args }) => args.includes("--selector")).length,
+      2,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("controller bootstrap creates a missing Minikube profile", async () => {
+  const base = await loadRepository("local");
+  const repository = {
+    ...base,
+    catalog: { components: [] },
+  };
+  let statusCalls = 0;
+  const runner: Runner = {
+    async run(command, args) {
+      if (command === "minikube" && args[0] === "status") {
+        statusCalls += 1;
+        if (statusCalls === 1) throw new Error("profile is stopped");
+      }
+      if (command === "kubectl" && args.includes("jsonpath={.metadata.name}"))
+        return { stdout: "kube-system", stderr: "", code: 0 };
+      return { stdout: "", stderr: "", code: 0 };
+    },
+  };
+
+  await bootstrapControllers(repository, runner);
+
+  assert.equal(statusCalls, 2);
+});
+
+test("platform render writes rendered Helm manifests to an output directory", async () => {
+  const base = await loadRepository("local");
+  const root = await mkdtemp(join(tmpdir(), "kore-platform-render-output-"));
+  const repository = { ...base, root };
+  const component = base.catalog.components.find(
+    ({ kind }) => kind === "helm",
+  )!;
+  repository.catalog.components = [{ ...component, dependencies: [] }];
+  const runner: Runner = {
+    async run(command) {
+      return {
+        stdout: command === "helm" ? "apiVersion: v1\nkind: ConfigMap\n" : "",
+        stderr: "",
+        code: 0,
+      };
+    },
+  };
+  try {
+    await platformRender(repository, runner, "rendered");
+    assert.equal(
+      await readFile(join(root, "rendered", `${component.name}.yaml`), "utf8"),
+      "apiVersion: v1\nkind: ConfigMap\n",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });

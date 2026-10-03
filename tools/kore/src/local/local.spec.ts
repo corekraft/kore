@@ -137,3 +137,17 @@ test("local down preserves cluster state unless pruning is explicitly requested"
 
   expect(calls).toEqual(["stop", "destroy:true:true"]);
 });
+
+test("local lifecycle refuses managed environments", async () => {
+  const base = await loadRepository("local");
+  const repository = {
+    ...base,
+    environment: { ...base.environment, provider: "managed" as const },
+  };
+  await expect(localUp(repository, {} as never)).rejects.toThrow(
+    /only manage Minikube environments/,
+  );
+  await expect(localDown(repository, {} as never, false)).rejects.toThrow(
+    /only manage Minikube environments/,
+  );
+});

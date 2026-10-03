@@ -3,7 +3,16 @@ import { createHash } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "vitest";
-import { clusterDestroy, clusterStartArgs, clusterStop } from "./cluster.js";
+import {
+  assertExpectedCluster,
+  clusterDestroy,
+  clusterStartArgs,
+  clusterUp,
+  clusterStatus,
+  clusterStop,
+  hasVerifiedExport,
+  retainedResources,
+} from "./cluster.js";
 import { loadRepository } from "../config/index.js";
 import { RecordingRunner } from "../runtime/runner.js";
 
@@ -185,4 +194,195 @@ test("verified exports allow destroying an unreachable profile without purging d
     await rm(exportDirectory, { recursive: true, force: true });
   }
   assert.equal(runner.calls.at(-1)?.args[0], "delete");
+});
+
+test("managed cluster status uses kubectl and reports its context", async () => {
+  const base = await loadRepository("local");
+  const repository = {
+    ...base,
+    environment: {
+      ...base.environment,
+      provider: "managed" as const,
+      kubeContext: "production-east",
+    },
+  };
+  const runner = new RecordingRunner([
+    { stdout: "Kubernetes control plane is running", stderr: "", code: 0 },
+  ]);
+
+  assert.deepEqual(await clusterStatus(repository, runner), {
+    environment: "local",
+    profile: "kore-local",
+    context: "production-east",
+    status: "Kubernetes control plane is running",
+  });
+  assert.deepEqual(runner.calls[0]?.args, [
+    "--context",
+    "production-east",
+    "cluster-info",
+  ]);
+});
+
+test("expected-cluster validation checks the configured managed context directly", async () => {
+  const base = await loadRepository("local");
+  const repository = {
+    ...base,
+    environment: {
+      ...base.environment,
+      provider: "managed" as const,
+      kubeContext: "managed-eu",
+    },
+  };
+  const runner = new RecordingRunner([
+    { stdout: "namespace/kube-system", stderr: "", code: 0 },
+  ]);
+  await assertExpectedCluster(repository, runner);
+  assert.deepEqual(runner.calls[0]?.args, [
+    "--context",
+    "managed-eu",
+    "get",
+    "namespace",
+    "kube-system",
+    "-o",
+    "name",
+  ]);
+});
+
+test("expected-cluster checks reject mismatched contexts and unavailable profiles", async () => {
+  const base = await loadRepository("local");
+  const mismatched = {
+    ...base,
+    environment: { ...base.environment, kubeContext: "other-context" },
+  };
+  await assert.rejects(
+    assertExpectedCluster(mismatched, new RecordingRunner()),
+    /refusing unexpected profile\/context pair/,
+  );
+
+  const unavailable = {
+    async run() {
+      throw new Error("profile is stopped");
+    },
+  };
+  await assert.rejects(
+    assertExpectedCluster(base, unavailable),
+    (error: unknown) =>
+      error instanceof Error &&
+      error.name === "ClusterUnavailableError" &&
+      error.message.includes("kore-local") &&
+      error.cause instanceof Error &&
+      error.cause.message === "profile is stopped",
+  );
+});
+
+test("retained resource discovery ignores unavailable APIs, trims, deduplicates, and sorts", async () => {
+  const repository = await loadRepository("local");
+  let query = 0;
+  const runner = {
+    async run() {
+      query += 1;
+      if (query === 1)
+        return {
+          stdout:
+            " postgresqlinstance.platform.kore.dev/reference-db \npostgresqlinstance.platform.kore.dev/reference-db\n",
+          stderr: "",
+          code: 0,
+        };
+      throw new Error("persistentvolumeclaims API is unavailable");
+    },
+  };
+
+  assert.deepEqual(await retainedResources(repository, runner), [
+    "postgresqlinstance.platform.kore.dev/reference-db",
+  ]);
+});
+
+test("cluster up starts the configured profile then validates its context", async () => {
+  const repository = await loadRepository("local");
+  const runner = new RecordingRunner([
+    { stdout: "", stderr: "", code: 0 },
+    { stdout: '{"Host":"Running"}', stderr: "", code: 0 },
+    { stdout: "kube-system", stderr: "", code: 0 },
+  ]);
+
+  await clusterUp(repository, runner);
+
+  assert.deepEqual(
+    runner.calls[0]?.args,
+    clusterStartArgs(repository.environment),
+  );
+  assert.equal(runner.calls[0]?.options?.capture, false);
+  assert.equal(runner.calls[0]?.options?.cwd, repository.root);
+  assert.equal(runner.calls.at(-1)?.args.at(-1), "jsonpath={.metadata.name}");
+});
+
+test("cluster lifecycle rejects unmanaged providers and mismatched start profiles", async () => {
+  const base = await loadRepository("local");
+  const managed = {
+    ...base,
+    environment: { ...base.environment, provider: "managed" as const },
+  };
+  await assert.rejects(
+    clusterUp(managed, new RecordingRunner()),
+    /only manages Minikube/,
+  );
+  await assert.rejects(
+    clusterStop(managed, new RecordingRunner()),
+    /only available for Minikube/,
+  );
+  await assert.rejects(
+    clusterDestroy(managed, new RecordingRunner(), {
+      yes: true,
+      purgeData: true,
+    }),
+    /only available for Minikube/,
+  );
+  const mismatched = {
+    ...base,
+    environment: { ...base.environment, kubeContext: "different-context" },
+  };
+  await assert.rejects(
+    clusterUp(mismatched, new RecordingRunner()),
+    /profile and expected context must match/,
+  );
+});
+
+test("expected-cluster validation rejects a context pointing at another cluster", async () => {
+  const repository = await loadRepository("local");
+  const runner = new RecordingRunner([
+    { stdout: '{"Host":"Running"}', stderr: "", code: 0 },
+    { stdout: "default", stderr: "", code: 0 },
+  ]);
+  await assert.rejects(
+    assertExpectedCluster(repository, runner),
+    /did not identify the expected cluster/,
+  );
+});
+
+test("export verification rejects malformed or mismatched checksum files", async () => {
+  const repository = await loadRepository("local");
+  const exportDirectory = join(
+    repository.root,
+    ".kore",
+    "exports",
+    repository.environment.name,
+  );
+  await mkdir(exportDirectory, { recursive: true });
+  try {
+    await writeFile(
+      join(exportDirectory, "invalid.sha256"),
+      "not a checksum\n",
+    );
+    await writeFile(
+      join(exportDirectory, "missing-name.sha256"),
+      `${"a".repeat(64)}\n`,
+    );
+    await writeFile(
+      join(exportDirectory, "missing-name"),
+      "different contents",
+    );
+    assert.equal(await hasVerifiedExport(repository), false);
+  } finally {
+    await rm(exportDirectory, { recursive: true, force: true });
+  }
 });

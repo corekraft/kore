@@ -4,6 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vitest";
 import {
+  absolute,
+  componentValues,
+  componentVersion,
+  expandVersions,
   findRoot,
   loadRepository,
   orderedComponents,
@@ -180,6 +184,102 @@ test("local catalog pins an available Istio chart release", async () => {
     "0.122.0",
   );
   assert.equal(repository.versions.components.prometheus, "29.29.0");
+});
+
+test("component helpers resolve local and pinned versions and combine value files", async () => {
+  const repository = await loadRepository("local");
+  const component = repository.catalog.components[0]!;
+  assert.equal(
+    componentVersion(repository, { ...component, version: "local" }),
+    undefined,
+  );
+  assert.equal(
+    componentVersion(repository, {
+      ...component,
+      version: "istio",
+    }),
+    repository.versions.components.istio?.replace(/^v/, ""),
+  );
+  assert.equal(
+    componentVersion(repository, { ...component, version: "missing-version" }),
+    undefined,
+  );
+  assert.deepEqual(
+    componentValues(
+      {
+        ...repository,
+        environment: {
+          ...repository.environment,
+          componentValues: { [component.name]: ["environment.yaml"] },
+        },
+      },
+      { ...component, values: ["base.yaml"] },
+    ),
+    ["base.yaml", "environment.yaml"],
+  );
+  assert.deepEqual(
+    componentValues(repository, { ...component, values: [] }),
+    [],
+  );
+  assert.equal(
+    absolute(repository, "/tmp/external.yaml"),
+    "/tmp/external.yaml",
+  );
+  assert.equal(
+    absolute(repository, "relative.yaml"),
+    join(repository.root, "relative.yaml"),
+  );
+  assert.equal(
+    expandVersions(repository, "${istio} ${not-defined}"),
+    `${repository.versions.components.istio?.replace(/^v/, "")} \${not-defined}`,
+  );
+});
+
+test("validation reports invalid versions, component definitions, and missing value files", async () => {
+  const base = await loadRepository("local");
+  const component = base.catalog.components[0]!;
+  const { chart: _chart, ...withoutChart } = component;
+  await assert.rejects(
+    validateRepository({
+      ...base,
+      versions: {
+        ...base.versions,
+        kubernetes: "latest",
+        tools: { broken: "main" },
+        components: { invalid: "1" },
+      },
+      environment: {
+        ...base.environment,
+        name: "BAD_NAME",
+        kubeContext: "",
+        cluster: { ...base.environment.cluster, cpus: 1, memoryMB: 1 },
+        componentValues: { [component.name]: ["missing-env.yaml"] },
+      },
+      catalog: {
+        components: [
+          {
+            ...withoutChart,
+            name: "BAD_NAME",
+            phase: "invalid" as never,
+            kind: "invalid" as never,
+            namespace: "",
+            timeout: "0m",
+            version: "unknown",
+            values: ["missing.yaml"],
+            dependencies: ["missing-dependency"],
+            ownsCRDs: ["shared.example.com"],
+          },
+          {
+            ...component,
+            name: "also-bad",
+            ownsCRDs: ["shared.example.com"],
+            dependencies: [],
+          },
+        ],
+      },
+    }),
+    /semantic version|invalid|must|required|unknown|exist|multiple owners|dependency/i,
+  );
 });
 
 test("local tool catalog matches the supported Docker CLI line", async () => {

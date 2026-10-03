@@ -221,6 +221,55 @@ test("local image verification uses the generated public key", () => {
   ]);
 });
 
+test("image reference helpers reject missing immutable digest and local registry inputs", () => {
+  const image = {
+    reference: "registry.kore.local/reference:dev",
+    digest: "sha256:" + "a".repeat(64),
+    signer: "release@kore.dev",
+  };
+  expect(() => imageReleaseArgs({} as never, "reference", image)).toThrow(
+    /must include a digest/,
+  );
+  expect(() => localMinikubeImageReference("invalid", "10.0.0.1")).toThrow(
+    /reference and registry ClusterIP are required/,
+  );
+  expect(() => localMinikubeImageReference("registry/image:dev", "  ")).toThrow(
+    /reference and registry ClusterIP are required/,
+  );
+});
+
+test("app up rejects an invalid application name before resolving chart paths", async () => {
+  localRegistryReferenceMock.mockImplementation(
+    async (_repository, _runner, reference) => reference,
+  );
+  const base = await loadRepository("local");
+  const repository = {
+    ...base,
+    catalog: { components: [] },
+  };
+  const runner: Runner = {
+    async run(command, args) {
+      if (command === "minikube")
+        return { stdout: '{"Host":"Running"}', stderr: "", code: 0 };
+      if (command === "kubectl" && args.includes("jsonpath={.metadata.name}"))
+        return { stdout: "kube-system", stderr: "", code: 0 };
+      if (
+        command === "kubectl" &&
+        args.some((arg) => arg.includes(".spec.clusterIP"))
+      )
+        return { stdout: "10.0.0.8", stderr: "", code: 0 };
+      return { stdout: "", stderr: "", code: 0 };
+    },
+  };
+  await expect(
+    appUp(repository, runner, "Bad_Name", {
+      reference: "registry.kore.local/reference@sha256:" + "a".repeat(64),
+      digest: "sha256:" + "a".repeat(64),
+      signer: "release@kore.dev",
+    }),
+  ).rejects.toThrow(/invalid application name/);
+});
+
 test("Minikube stages the locked digest under the registry service reference", () => {
   const reference = localMinikubeImageReference(
     "registry.kore.local:30500/reference@sha256:" + "a".repeat(64),
@@ -320,6 +369,33 @@ test("app status reports locked image provenance", async () => {
         "sha256:76eae6c0774b5292f70e3541e57bd8f2b4df2e5f74aacaba258fed9fa894b3bc",
       signer: "local-kore-key",
     });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("app status prefers the local image lock when present", async () => {
+  const base = await loadRepository("local");
+  const root = await mkdtemp(join(tmpdir(), "kore-app-status-local-lock-"));
+  await mkdir(join(root, ".kore/state"), { recursive: true });
+  await copyFile(
+    join(base.root, "infra/catalog/images.lock.json"),
+    join(root, ".kore/state/local-images.lock.json"),
+  );
+  const runner: Runner = {
+    async run(command) {
+      if (command === "kubectl")
+        return { stdout: "kube-system", stderr: "", code: 0 };
+      return {
+        stdout: '{"info":{"status":"deployed"}}',
+        stderr: "",
+        code: 0,
+      };
+    },
+  };
+  try {
+    const status = await appStatus({ ...base, root }, runner, "reference");
+    expect(status.image).toMatchObject({ signer: "local-kore-key" });
   } finally {
     await rm(root, { recursive: true, force: true });
   }

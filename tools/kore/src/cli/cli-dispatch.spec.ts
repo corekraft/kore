@@ -202,3 +202,34 @@ test("tunnel, secret, and trust CLI mutations dispatch their operations", async 
     "installLocalTrust",
   ]);
 });
+
+test("CLI rejects unknown commands, missing environments, and unsupported actions", async () => {
+  await expect(main(["unrecognized"])).rejects.toThrow(/unknown command/);
+  await expect(
+    main(["cluster", "nope", "--environment", "local"]),
+  ).rejects.toThrow(/unknown cluster action/);
+  await expect(
+    main(["platform", "nope", "--environment", "local"]),
+  ).rejects.toThrow(/unknown platform action/);
+  await expect(
+    main(["app", "publish", "reference", "--environment", "local"]),
+  ).rejects.toThrow(/unknown app action/);
+  await expect(
+    main(["local", "restart", "--environment", "local"]),
+  ).rejects.toThrow(/unknown local action/);
+  await expect(
+    main(["tunnel", "restart", "--environment", "local"]),
+  ).rejects.toThrow(/unknown tunnel action/);
+  await expect(
+    main(["secrets", "rotate", "--environment", "local"]),
+  ).rejects.toThrow(/unknown secrets action/);
+  await expect(
+    main(["trust", "remove", "--environment", "local"]),
+  ).rejects.toThrow(/unknown trust action/);
+  await expect(
+    main(["app", "status", "--environment", "local"]),
+  ).rejects.toThrow(/application name is required/);
+  await expect(main(["app", "up", "reference"])).rejects.toThrow(
+    /--environment is required for mutating commands/,
+  );
+});

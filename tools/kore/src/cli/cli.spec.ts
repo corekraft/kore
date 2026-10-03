@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import { main } from "./cli.js";
+import {
+  boolFlag,
+  parseArgs,
+  requireEnvironment,
+  stringFlag,
+} from "./flags.js";
 
 test("validate reports portable applications for the selected environment", async () => {
   const output: string[] = [];
@@ -72,5 +78,26 @@ test("unknown commands report the supported CLI usage", async () => {
   await assert.rejects(
     main(["unknown-command"]),
     /unknown command: unknown-command/,
+  );
+});
+
+test("CLI flags support equals values, standalone booleans, and positional arguments", () => {
+  const parsed = parseArgs([
+    "app",
+    "reference",
+    "--environment=staging",
+    "--json",
+    "--output",
+    "rendered",
+  ]);
+  assert.deepEqual(parsed.positional, ["app", "reference"]);
+  assert.equal(stringFlag(parsed, "environment"), "staging");
+  assert.equal(stringFlag(parsed, "json"), undefined);
+  assert.equal(boolFlag(parsed, "json"), true);
+  assert.equal(boolFlag(parsed, "environment"), false);
+  assert.equal(requireEnvironment(parsed), "staging");
+  assert.throws(
+    () => requireEnvironment(parseArgs([])),
+    /--environment is required/,
   );
 });

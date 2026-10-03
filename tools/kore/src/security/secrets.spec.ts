@@ -154,3 +154,38 @@ test("local secret sync immediately retries an existing reference ExternalSecret
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("secret sync rejects a corrupted persisted local API token", async () => {
+  const base = await loadRepository("local");
+  const root = await mkdtemp(join(tmpdir(), "kore-invalid-local-token-"));
+  await mkdir(join(root, "infra/environments/local/secrets"), {
+    recursive: true,
+  });
+  await mkdir(join(root, ".kore/state"), { recursive: true });
+  await writeFile(
+    join(root, ".kore/state/reference-api-token"),
+    "not-secret\n",
+  );
+  try {
+    await assert.rejects(
+      syncLocalSecrets({ ...base, root }, new SecretRunner()),
+      /local API token.*is invalid/,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("secret sync rejects managed environments before running commands", async () => {
+  const base = await loadRepository("local");
+  const repository = {
+    ...base,
+    environment: { ...base.environment, provider: "managed" as const },
+  };
+  const runner = new SecretRunner();
+  await assert.rejects(
+    syncLocalSecrets(repository, runner),
+    /only valid for a Minikube environment/,
+  );
+  assert.equal(runner.calls.length, 0);
+});
