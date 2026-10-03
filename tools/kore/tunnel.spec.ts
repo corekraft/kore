@@ -4,7 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vitest";
 import { loadRepository } from "./config.js";
-import { startLocalTunnel, stopLocalTunnel, tunnelStatePath, tunnelStatus } from "./tunnel.js";
+import {
+  startLocalTunnel,
+  stopLocalTunnel,
+  tunnelStatePath,
+  tunnelStatus,
+} from "./tunnel.js";
 import { RecordingRunner } from "./runner.js";
 
 test("starts a detached Minikube tunnel for the explicit profile", async () => {
@@ -26,7 +31,13 @@ test("starts a detached Minikube tunnel for the explicit profile", async () => {
     });
 
     assert.deepEqual(result, { status: "running", pid: 4321, port: 8443 });
-    assert.deepEqual(await tunnelStatus(repository, { isProcessAlive: (pid) => pid === 4321, isPortOpen: async () => true }), { status: "running", pid: 4321, port: 8443 });
+    assert.deepEqual(
+      await tunnelStatus(repository, {
+        isProcessAlive: (pid) => pid === 4321,
+        isPortOpen: async () => true,
+      }),
+      { status: "running", pid: 4321, port: 8443 },
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -37,7 +48,10 @@ test("replaces a stale tunnel state instead of reusing its PID", async () => {
   const root = await mkdtemp(join(tmpdir(), "kore-tunnel-"));
   const repository = { ...base, root };
   await mkdir(join(root, ".kore", "state"), { recursive: true });
-  await writeFile(tunnelStatePath(repository), JSON.stringify({ profile: "kore-local", pid: 1234 }));
+  await writeFile(
+    tunnelStatePath(repository),
+    JSON.stringify({ profile: "kore-local", pid: 1234 }),
+  );
   const runner = new RecordingRunner([
     { stdout: '{"Host":"Running"}', stderr: "", code: 0 },
     { stdout: "kube-system", stderr: "", code: 0 },
@@ -59,7 +73,10 @@ test("stops a managed tunnel and relies on process shutdown to clear routes", as
   const root = await mkdtemp(join(tmpdir(), "kore-tunnel-"));
   const repository = { ...base, root };
   await mkdir(join(root, ".kore", "state"), { recursive: true });
-  await writeFile(tunnelStatePath(repository), JSON.stringify({ profile: "kore-local", pid: 4321 }));
+  await writeFile(
+    tunnelStatePath(repository),
+    JSON.stringify({ profile: "kore-local", pid: 4321 }),
+  );
   const runner = new RecordingRunner();
   const terminated: number[] = [];
   try {
@@ -80,10 +97,16 @@ test("does not report the tunnel running when its local Gateway port is unreacha
   const root = await mkdtemp(join(tmpdir(), "kore-tunnel-health-"));
   const repository = { ...base, root };
   await mkdir(join(root, ".kore", "state"), { recursive: true });
-  await writeFile(tunnelStatePath(repository), JSON.stringify({ profile: "kore-local", pid: 4321 }));
+  await writeFile(
+    tunnelStatePath(repository),
+    JSON.stringify({ profile: "kore-local", pid: 4321 }),
+  );
   try {
     assert.deepEqual(
-      await tunnelStatus(repository, { isProcessAlive: () => true, isPortOpen: async () => false }),
+      await tunnelStatus(repository, {
+        isProcessAlive: () => true,
+        isPortOpen: async () => false,
+      }),
       { status: "stale", pid: 4321 },
     );
   } finally {

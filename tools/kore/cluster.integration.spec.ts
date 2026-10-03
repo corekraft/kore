@@ -1,6 +1,11 @@
 import test from "node:test";
 import { findRoot, loadRepository } from "./config.js";
-import { clusterDestroy, clusterStatus, clusterStop, clusterUp } from "./cluster.js";
+import {
+  clusterDestroy,
+  clusterStatus,
+  clusterStop,
+  clusterUp,
+} from "./cluster.js";
 import { ProcessRunner } from "./runner.js";
 
 test(

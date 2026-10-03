@@ -3,7 +3,11 @@ import { join } from "node:path";
 import type { Repository } from "./config.js";
 import { assertExpectedCluster } from "./cluster.js";
 import { platformStatus } from "./platform.js";
-import { imageForApplication, loadImageLock, type LockedImage } from "./image-lock.js";
+import {
+  imageForApplication,
+  loadImageLock,
+  type LockedImage,
+} from "./image-lock.js";
 import { localRegistryReference } from "./registry.js";
 import type { Runner } from "./runner.js";
 
@@ -40,7 +44,8 @@ function releaseArgs(
     `platform.otlpEndpoint=${repository.environment.telemetry.otlpEndpoint}`,
   ];
   if (image) args.push(...imageReleaseArgs(repository, name, image));
-  if (image && repository.environment.provider === "minikube") args.push(...localImagePullPolicyArgs());
+  if (image && repository.environment.provider === "minikube")
+    args.push(...localImagePullPolicyArgs());
   return args;
 }
 
@@ -50,22 +55,37 @@ export function imageReleaseArgs(
   image: LockedImage,
 ): string[] {
   const separator = image.reference.lastIndexOf("@");
-  if (separator < 1) throw new Error("locked image reference must include a digest");
+  if (separator < 1)
+    throw new Error("locked image reference must include a digest");
   return [
-    "--set-string", `image.repository=${image.reference.slice(0, separator)}`,
-    "--set-string", `image.digest=${image.digest}`,
+    "--set-string",
+    `image.repository=${image.reference.slice(0, separator)}`,
+    "--set-string",
+    `image.digest=${image.digest}`,
   ];
 }
 
-export function localMinikubeImageReference(reference: string, registryClusterIp: string): string {
+export function localMinikubeImageReference(
+  reference: string,
+  registryClusterIp: string,
+): string {
   const separator = reference.indexOf("/");
-  if (separator < 1 || !registryClusterIp.trim()) throw new Error("local image reference and registry ClusterIP are required");
+  if (separator < 1 || !registryClusterIp.trim())
+    throw new Error(
+      "local image reference and registry ClusterIP are required",
+    );
   return `${registryClusterIp}:5000/${reference.slice(separator + 1)}`;
 }
 
-export function minikubeImagePullArgs(profile: string, reference: string): string[] {
+export function minikubeImagePullArgs(
+  profile: string,
+  reference: string,
+): string[] {
   return [
-    "ssh", "--profile", profile, "--",
+    "ssh",
+    "--profile",
+    profile,
+    "--",
     `sudo nerdctl --insecure-registry --namespace k8s.io pull ${reference}`,
   ];
 }
@@ -82,11 +102,21 @@ export function deploymentListArgs(): string[] {
   return ["get", "deployment", "--output=name"];
 }
 
-export function verifyLockedImageArgs(image: LockedImage, publicKey?: string): string[] {
+export function verifyLockedImageArgs(
+  image: LockedImage,
+  publicKey?: string,
+): string[] {
   return [
     "verify",
-    ...( /:[0-9]+\//.test(image.reference) ? ["--allow-http-registry"] : [] ),
-    ...(publicKey ? ["--insecure-ignore-tlog", "--key", publicKey] : ["--certificate-identity", image.signer, "--certificate-oidc-issuer", "https://token.actions.githubusercontent.com"]),
+    ...(/:[0-9]+\//.test(image.reference) ? ["--allow-http-registry"] : []),
+    ...(publicKey
+      ? ["--insecure-ignore-tlog", "--key", publicKey]
+      : [
+          "--certificate-identity",
+          image.signer,
+          "--certificate-oidc-issuer",
+          "https://token.actions.githubusercontent.com",
+        ]),
     image.reference,
   ];
 }
@@ -120,27 +150,58 @@ export async function appUp(
       `platform is not ready: ${unavailable.map((component) => `${component.name} (${component.detail})`).join(", ")}`,
     );
   }
-  const image = imageOverride ?? imageForApplication(await loadImageLock(repository.root), name);
-  const verificationImage = { ...image, reference: await localRegistryReference(repository, runner, image.reference) };
-  const publicKey = publicKeyOverride ?? (repository.environment.provider === "minikube" && image.signer === "local-kore-key"
-    ? join(repository.root, ".kore", "keys", "local", "kore.pub")
-    : undefined);
-  await runner.run("cosign", verifyLockedImageArgs(verificationImage, publicKey), { capture: false });
+  const image =
+    imageOverride ??
+    imageForApplication(await loadImageLock(repository.root), name);
+  const verificationImage = {
+    ...image,
+    reference: await localRegistryReference(
+      repository,
+      runner,
+      image.reference,
+    ),
+  };
+  const publicKey =
+    publicKeyOverride ??
+    (repository.environment.provider === "minikube" &&
+    image.signer === "local-kore-key"
+      ? join(repository.root, ".kore", "keys", "local", "kore.pub")
+      : undefined);
+  await runner.run(
+    "cosign",
+    verifyLockedImageArgs(verificationImage, publicKey),
+    { capture: false },
+  );
   let workloadImage = image;
   if (repository.environment.provider === "minikube") {
-    const registry = await runner.run("kubectl", [
-      "--context", repository.environment.kubeContext,
-      "--namespace", "kore-registry",
-      "get", "service", "oci-registry",
-      "--output=jsonpath={.spec.clusterIP}",
-    ], { capture: true });
+    const registry = await runner.run(
+      "kubectl",
+      [
+        "--context",
+        repository.environment.kubeContext,
+        "--namespace",
+        "kore-registry",
+        "get",
+        "service",
+        "oci-registry",
+        "--output=jsonpath={.spec.clusterIP}",
+      ],
+      { capture: true },
+    );
     const clusterIp = registry.stdout.trim();
     if (!clusterIp) throw new Error("local OCI registry has no ClusterIP");
     workloadImage = {
       ...image,
       reference: localMinikubeImageReference(image.reference, clusterIp),
     };
-    await runner.run("minikube", minikubeImagePullArgs(repository.environment.cluster.profile, workloadImage.reference), { capture: false });
+    await runner.run(
+      "minikube",
+      minikubeImagePullArgs(
+        repository.environment.cluster.profile,
+        workloadImage.reference,
+      ),
+      { capture: false },
+    );
   }
   const resources = await chart(repository, name, "resources"),
     workload = await chart(repository, name, "workload");
@@ -180,9 +241,13 @@ export async function appUp(
     ],
     { capture: false },
   );
-  await runner.run("helm", releaseArgs(repository, name, name, workload, workloadImage), {
-    capture: false,
-  });
+  await runner.run(
+    "helm",
+    releaseArgs(repository, name, name, workload, workloadImage),
+    {
+      capture: false,
+    },
+  );
   const deployments = await runner.run(
     "kubectl",
     [
@@ -194,11 +259,20 @@ export async function appUp(
     ],
     { capture: true },
   );
-  for (const deployment of deployments.stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)) {
+  for (const deployment of deployments.stdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)) {
     const deploymentName = deployment.replace(/^deployment(?:\.apps)?\//, "");
     await runner.run(
       "kubectl",
-      ["--context", repository.environment.kubeContext, "--namespace", name, ...deploymentRolloutStatusArgs(deploymentName)],
+      [
+        "--context",
+        repository.environment.kubeContext,
+        "--namespace",
+        name,
+        ...deploymentRolloutStatusArgs(deploymentName),
+      ],
       { capture: false },
     );
   }
@@ -213,8 +287,12 @@ export async function appStatus(
   const localImageLockPath = ".kore/state/local-images.lock.json";
   let imageLockPath: string | undefined;
   if (repository.environment.provider === "minikube") {
-    try { await access(join(repository.root, localImageLockPath)); imageLockPath = localImageLockPath; }
-    catch { /* No local source build has been recorded yet; use the release lock. */ }
+    try {
+      await access(join(repository.root, localImageLockPath));
+      imageLockPath = localImageLockPath;
+    } catch {
+      /* No local source build has been recorded yet; use the release lock. */
+    }
   }
   const imageLock = await loadImageLock(repository.root, imageLockPath);
   const image = imageForApplication(imageLock, name);

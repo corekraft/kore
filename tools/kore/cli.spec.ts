@@ -15,7 +15,7 @@ test("validate reports portable applications for the selected environment", asyn
       await main(["validate", "--environment", "managed-example", "--json"]),
       0,
     );
-    assert.match(output.join(""), /\"applications\": \[\n\s+\"reference\"/);
+    assert.match(output.join(""), /"applications": \[\n\s+"reference"/);
   } finally {
     write.mockRestore();
   }
@@ -23,12 +23,17 @@ test("validate reports portable applications for the selected environment", asyn
 
 test("tunnel status is a read-only local command", async () => {
   const output: string[] = [];
-  const write = vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
-    output.push(String(chunk));
-    return true;
-  });
+  const write = vi
+    .spyOn(process.stdout, "write")
+    .mockImplementation((chunk) => {
+      output.push(String(chunk));
+      return true;
+    });
   try {
-    assert.equal(await main(["tunnel", "status", "--environment", "local", "--json"]), 0);
+    assert.equal(
+      await main(["tunnel", "status", "--environment", "local", "--json"]),
+      0,
+    );
     assert.match(output.join(""), /"status":\s*"(?:missing|stale|running)"/);
   } finally {
     write.mockRestore();

@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+
+repo_root="$(git rev-parse --show-toplevel)"
+"$repo_root/tools/kore/node_modules/.bin/lint-staged" \
+  --config "$repo_root/tools/kore/lint-staged.config.js"

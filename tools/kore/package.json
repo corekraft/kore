@@ -10,14 +10,24 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
+    "format": "prettier --write \"*.ts\" package.json tsconfig.json .oxlintrc.json .prettierrc.json commitlint.config.js lint-staged.config.js",
+    "format:check": "prettier --check \"*.ts\" package.json tsconfig.json .oxlintrc.json .prettierrc.json commitlint.config.js lint-staged.config.js",
+    "lint": "oxlint --deny-warnings *.ts",
     "kore": "npm run build --silent && node dist/cli.js",
     "test": "npm run build --silent && vitest run",
     "test:opa": "opa test ../../infra/policies/opa/bundles/v1 -v",
     "test:unit": "vitest run",
-    "test:integration": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --test --test-concurrency=1 dist/*.integration.spec.js"
+    "test:integration": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --test --test-concurrency=1 dist/*.integration.spec.js",
+    "prepare": "cd ../.. && husky tools/kore/.husky"
   },
   "devDependencies": {
+    "@commitlint/cli": "^21.2.3",
+    "@commitlint/config-conventional": "^21.2.3",
     "@types/node": "24.3.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "oxlint": "^1.86.0",
+    "prettier": "^3.9.9",
     "typescript": "5.9.2",
     "vitest": "^5.0.0"
   },
