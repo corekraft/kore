@@ -1,5 +1,5 @@
 export default {
-  "tools/kore/*.ts": [
+  "tools/kore/src/**/*.ts": [
     "tools/kore/node_modules/.bin/oxlint --fix --deny-warnings",
     "tools/kore/node_modules/.bin/prettier --write",
   ],

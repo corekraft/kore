@@ -1,0 +1,34 @@
+import test from "node:test";
+import { loadRepository } from "../config/index.js";
+import { findRoot } from "../config/config.js";
+import {
+  clusterDestroy,
+  clusterStatus,
+  clusterStop,
+  clusterUp,
+} from "../cluster/index.js";
+import { ProcessRunner } from "../runtime/index.js";
+
+test(
+  "Minikube create/inspect/stop/resume integration",
+  {
+    concurrency: false,
+    skip:
+      process.env.KORE_RUN_INTEGRATION !== "1"
+        ? "set KORE_RUN_INTEGRATION=1 to opt into a live cluster"
+        : false,
+  },
+  async () => {
+    const repository = await loadRepository("local", await findRoot());
+    const runner = new ProcessRunner();
+    try {
+      await clusterUp(repository, runner);
+      await clusterStatus(repository, runner);
+      await clusterStop(repository, runner);
+      await clusterUp(repository, runner);
+      await clusterStatus(repository, runner);
+    } finally {
+      await clusterDestroy(repository, runner, { yes: true, purgeData: true });
+    }
+  },
+);

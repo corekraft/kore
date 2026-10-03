@@ -5,20 +5,20 @@
   "description": "Provider-neutral local Kubernetes platform orchestration",
   "type": "module",
   "bin": {
-    "kore": "dist/cli.js"
+    "kore": "dist/src/cli/cli.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
-    "format": "prettier --write \"*.ts\" package.json tsconfig.json .oxlintrc.json .prettierrc.json commitlint.config.js lint-staged.config.js",
-    "format:check": "prettier --check \"*.ts\" package.json tsconfig.json .oxlintrc.json .prettierrc.json commitlint.config.js lint-staged.config.js",
-    "lint": "oxlint --deny-warnings *.ts",
-    "kore": "npm run build --silent && node dist/cli.js",
+    "format": "prettier --write \"src/**/*.ts\" package.json tsconfig.json .oxlintrc.json .prettierrc.json commitlint.config.js lint-staged.config.js",
+    "format:check": "prettier --check \"src/**/*.ts\" package.json tsconfig.json .oxlintrc.json .prettierrc.json commitlint.config.js lint-staged.config.js",
+    "lint": "oxlint --deny-warnings src/**/*.ts",
+    "kore": "npm run build --silent && node dist/src/cli/cli.js",
     "test": "npm run build --silent && vitest run --coverage",
     "test:coverage": "vitest run --coverage",
     "test:opa": "opa test ../../infra/policies/opa/bundles/v1 -v",
     "test:unit": "vitest run",
-    "test:integration": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --test --test-concurrency=1 dist/*.integration.spec.js",
+    "test:integration": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --test --test-concurrency=1 dist/src/cluster/*.integration.spec.js dist/src/platform/*.integration.spec.js",
     "prepare": "cd ../.. && husky tools/kore/.husky"
   },
   "devDependencies": {
