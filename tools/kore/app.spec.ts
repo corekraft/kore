@@ -1,10 +1,16 @@
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
+
+const localRegistryReferenceMock = vi.hoisted(() => vi.fn());
+vi.mock("./registry.js", () => ({
+  localRegistryReference: localRegistryReferenceMock,
+}));
 import { copyFile, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { loadRepository } from "./config.js";
 import {
   appStatus,
+  appDown,
   appUp,
   deploymentListArgs,
   deploymentRolloutStatusArgs,
@@ -46,6 +52,101 @@ test("app up stops before installing resources when the platform is not ready", 
     /platform.*ready|missing/i,
   );
   expect(runner.calls.some((call) => call.includes(" upgrade "))).toBe(false);
+});
+
+test("app up verifies, installs, and waits for every workload deployment", async () => {
+  const repository = await loadRepository("local");
+  const calls: { command: string; args: readonly string[] }[] = [];
+  const runner: Runner = {
+    async run(command, args) {
+      calls.push({ command, args });
+      if (command === "helm" && args[0] === "status")
+        return {
+          stdout: '{"info":{"status":"deployed"}}',
+          stderr: "",
+          code: 0,
+        };
+      if (
+        command === "kubectl" &&
+        args.some((arg) => arg.includes("spec.clusterIP"))
+      )
+        return { stdout: "10.0.0.8", stderr: "", code: 0 };
+      if (command === "kubectl" && args.includes("--output=name"))
+        return {
+          stdout:
+            "deployment/reference-api\ndeployment.apps/reference-worker\n",
+          stderr: "",
+          code: 0,
+        };
+      if (command === "kubectl" && args.includes("namespace"))
+        return { stdout: "kube-system", stderr: "", code: 0 };
+      return { stdout: "", stderr: "", code: 0 };
+    },
+  };
+  const image = {
+    reference: "registry.kore.local:30500/reference@sha256:" + "a".repeat(64),
+    digest: "sha256:" + "a".repeat(64),
+    signer: "local-kore-key",
+  };
+  localRegistryReferenceMock.mockImplementation(
+    async (_repository, _runner, reference) => reference,
+  );
+
+  await appUp(repository, runner, "reference", image, "/tmp/kore.pub");
+
+  expect(
+    calls.some(
+      ({ command, args }) => command === "cosign" && args[0] === "verify",
+    ),
+  ).toBe(true);
+  expect(
+    calls.some(
+      ({ command, args }) => command === "minikube" && args[0] === "ssh",
+    ),
+  ).toBe(true);
+  expect(
+    calls
+      .filter(
+        ({ command, args }) => command === "helm" && args[0] === "upgrade",
+      )
+      .map(({ args }) => args[2]),
+  ).toEqual(["reference-resources", "reference"]);
+  expect(
+    calls
+      .filter(
+        ({ command, args }) =>
+          command === "kubectl" && args.includes("rollout"),
+      )
+      .map(({ args }) => args[args.indexOf("status") + 1]),
+  ).toEqual(["deployment/reference-api", "deployment/reference-worker"]);
+});
+
+test("app down uninstalls the named workload release", async () => {
+  const repository = await loadRepository("local");
+  const calls: { command: string; args: readonly string[] }[] = [];
+  const runner: Runner = {
+    async run(command, args) {
+      calls.push({ command, args });
+      if (command === "kubectl")
+        return { stdout: "kube-system", stderr: "", code: 0 };
+      return { stdout: "", stderr: "", code: 0 };
+    },
+  };
+
+  await appDown(repository, runner, "reference");
+
+  expect(calls.at(-1)).toEqual({
+    command: "helm",
+    args: [
+      "uninstall",
+      "reference",
+      "--namespace=reference",
+      "--kube-context",
+      "kore-local",
+      "--wait",
+      "--timeout=10m",
+    ],
+  });
 });
 
 test("workload release uses the immutable locked image reference", async () => {

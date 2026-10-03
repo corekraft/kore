@@ -39,3 +39,38 @@ test("tunnel status is a read-only local command", async () => {
     write.mockRestore();
   }
 });
+
+test("help prints usage without loading an environment", async () => {
+  const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+  try {
+    assert.equal(await main(["help"]), 0);
+    assert.match(
+      String(log.mock.calls[0]?.[0]),
+      /Kore local platform orchestration/,
+    );
+  } finally {
+    log.mockRestore();
+  }
+});
+
+test("mutating commands require an explicit environment", async () => {
+  await assert.rejects(main(["cluster", "up"]), /--environment is required/);
+});
+
+test("app commands require an application name", async () => {
+  await assert.rejects(main(["app", "status"]), /application name is required/);
+});
+
+test("unknown app actions are reported after acquiring and releasing the lock", async () => {
+  await assert.rejects(
+    main(["app", "restart", "reference", "--environment", "local"]),
+    /unknown app action: restart/,
+  );
+});
+
+test("unknown commands report the supported CLI usage", async () => {
+  await assert.rejects(
+    main(["unknown-command"]),
+    /unknown command: unknown-command/,
+  );
+});
