@@ -245,8 +245,24 @@ const appendOnlyWarn = (path) =>
 
 const TRUNCATING_REDIRECT = /^(?:\d*|&)>(?!>)(.*)$/;
 
-function checkAppendOnly(name, args, segment) {
+// Removing or moving these directories removes every journal inside them.
+const PROTECTED_DIRS = new Set([".kore", ".kore/state", ".kore/state/journal"]);
+
+function isProtectedDir(arg, root) {
+  let path = arg.replace(/^\.\//, "").replace(/\/+$/, "");
+  const base = root.replace(/\/+$/, "");
+  if (base && path.startsWith(`${base}/`)) path = path.slice(base.length + 1);
+  return PROTECTED_DIRS.has(path);
+}
+
+function checkAppendOnly(name, args, segment, root) {
   const rewrites = (args) => args.find((arg) => isAppendOnly(arg));
+  if (name === "rm" || name === "mv") {
+    const dir = args.find(
+      (arg) => !arg.startsWith("-") && isProtectedDir(arg, root),
+    );
+    if (dir) return appendOnlyWarn(dir);
+  }
   for (let i = 0; i < segment.length; i++) {
     const match = TRUNCATING_REDIRECT.exec(segment[i]);
     if (!match) continue;
@@ -295,7 +311,7 @@ function checkBashSegment(segment, ctx) {
     checkDestructive(name, args) ??
     checkContext(name, args) ??
     checkNoVerify(name, args) ??
-    checkAppendOnly(name, args, segment)
+    checkAppendOnly(name, args, segment, ctx.root)
   );
 }
 

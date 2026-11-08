@@ -335,6 +335,17 @@ test("append-only: Bash that truncates, rewrites, moves, or removes the files wa
     `echo x | tee -p ${JOURNAL}`,
     `cp /tmp/x ${JOURNAL}`,
     `cp -f /tmp/x ${HISTORY}`,
+    `rm -rf .kore/state/journal`,
+    `rm -rf .kore/state/journal/`,
+    `rm -rf .kore/state`,
+    `rm -rf .kore/state/`,
+    `rm -rf .kore`,
+    `rm -rf .kore/`,
+    `rm -rf /repo/.kore/state/journal`,
+    `rm -rf /repo/.kore`,
+    `mv .kore/state/journal x`,
+    `mv .kore/state/journal/ x`,
+    `mv .kore /tmp/x`,
   ]) {
     appendOnlyWarned(bash(command), command);
   }
@@ -355,6 +366,8 @@ test("append-only: appending and reading the files is allowed", () => {
     `cp ${HISTORY} /tmp/backup.jsonl`,
     `cp ${JOURNAL} /tmp/dir/`,
     `echo x > .kore/state/other.txt`,
+    `rm -rf .kore/locks/x`,
+    `rm .kore/state/other.txt`,
   ]) {
     allowed(bash(command));
   }
