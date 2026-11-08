@@ -1,0 +1,157 @@
+{
+  "rule_files": [
+    "../files/rules/platform.yaml"
+  ],
+  "evaluation_interval": "1m",
+  "tests": [
+    {
+      "interval": "1m",
+      "name": "queue near capacity fires after ten minutes",
+      "input_series": [
+        {
+          "series": "otelcol_exporter_queue_size{exporter=\"otlp/tempo\"}",
+          "values": "90+0x15"
+        },
+        {
+          "series": "otelcol_exporter_queue_capacity{exporter=\"otlp/tempo\"}",
+          "values": "100+0x15"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "5m",
+          "alertname": "KoreCollectorQueueNearCapacity",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "12m",
+          "alertname": "KoreCollectorQueueNearCapacity",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "severity": "warning",
+                "exporter": "otlp/tempo"
+              },
+              "exp_annotations": {
+                "summary": "OpenTelemetry Collector exporter queue is above 80 percent of capacity"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "interval": "1m",
+      "name": "healthy queue stays quiet",
+      "input_series": [
+        {
+          "series": "otelcol_exporter_queue_size{exporter=\"otlp/tempo\"}",
+          "values": "10+0x15"
+        },
+        {
+          "series": "otelcol_exporter_queue_capacity{exporter=\"otlp/tempo\"}",
+          "values": "100+0x15"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "14m",
+          "alertname": "KoreCollectorQueueNearCapacity",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "interval": "1m",
+      "name": "collector down fires when the scrape target is gone",
+      "input_series": [
+        {
+          "series": "up{job=\"otel-collector-self\"}",
+          "values": "1 1 1 0 0 0 0 0 0 0"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "2m",
+          "alertname": "KoreCollectorDown",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "9m",
+          "alertname": "KoreCollectorDown",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "severity": "critical"
+              },
+              "exp_annotations": {
+                "summary": "OpenTelemetry Collector is not being scraped or is down"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "interval": "1m",
+      "name": "exporter failures page and a quiet exporter does not",
+      "input_series": [
+        {
+          "series": "otelcol_exporter_send_failed_spans_total{exporter=\"otlp/tempo\"}",
+          "values": "0+60x12"
+        },
+        {
+          "series": "otelcol_exporter_send_failed_log_records_total{exporter=\"otlphttp/loki\"}",
+          "values": "0+0x12"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "3m",
+          "alertname": "KoreCollectorExporterFailure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "10m",
+          "alertname": "KoreCollectorExporterFailure",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "severity": "critical"
+              },
+              "exp_annotations": {
+                "summary": "OpenTelemetry Collector exporter is failing"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "interval": "1m",
+      "name": "dropped data warns after ten minutes",
+      "input_series": [
+        {
+          "series": "otelcol_processor_dropped_spans_total{processor=\"batch\"}",
+          "values": "0+30x16"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "14m",
+          "alertname": "KoreCollectorDroppedData",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "OpenTelemetry Collector is dropping telemetry"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

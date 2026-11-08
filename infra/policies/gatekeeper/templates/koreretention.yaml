@@ -1,0 +1,55 @@
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata: {name: koreretention}
+spec:
+  crd:
+    spec:
+      names: {kind: KoreRetention}
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties: {exemptNamespaces: {type: array, items: {type: string}}}
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package kore.retention
+        import future.keywords.in
+        key := "platform.kore.dev/retention"
+        retained_class := "kore-retained"
+        exempt { input.review.object.metadata.namespace in input.parameters.exemptNamespaces }
+        # A claim is a PersistentVolumeClaim or a StatefulSet volumeClaimTemplate.
+        claims[{"name": name, "meta": meta, "class": class}] {
+          input.review.kind.kind == "PersistentVolumeClaim"
+          meta := input.review.object.metadata
+          name := meta.name
+          class := object.get(input.review.object.spec, "storageClassName", "")
+        }
+        claims[{"name": name, "meta": meta, "class": class}] {
+          input.review.kind.kind == "StatefulSet"
+          template := input.review.object.spec.volumeClaimTemplates[_]
+          meta := template.metadata
+          name := meta.name
+          class := object.get(template.spec, "storageClassName", "")
+        }
+        retention(meta) = value { value := meta.labels[key] }
+        retention(meta) = "" { not meta.labels[key] }
+        violation[{"msg": msg}] {
+          not exempt
+          claim := claims[_]
+          not retention(claim.meta) in {"Retain", "Delete"}
+          msg := sprintf("claim %s must declare %s as Retain or Delete", [claim.name, key])
+        }
+        violation[{"msg": msg}] {
+          not exempt
+          claim := claims[_]
+          retention(claim.meta) == "Retain"
+          claim.class != retained_class
+          msg := sprintf("claim %s is labelled Retain but uses StorageClass %q instead of %s", [claim.name, claim.class, retained_class])
+        }
+        violation[{"msg": msg}] {
+          not exempt
+          claim := claims[_]
+          claim.class == retained_class
+          retention(claim.meta) != "Retain"
+          msg := sprintf("claim %s uses %s, so it must be labelled %s: Retain", [claim.name, retained_class, key])
+        }

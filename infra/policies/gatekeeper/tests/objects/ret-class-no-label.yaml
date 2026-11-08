@@ -1,0 +1,4 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: data, namespace: app, labels: {app: x}}
+spec: {accessModes: [ReadWriteOnce], storageClassName: kore-retained, resources: {requests: {storage: 1Gi}}}

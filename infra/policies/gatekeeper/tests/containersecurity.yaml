@@ -1,0 +1,10 @@
+kind: Suite
+apiVersion: test.gatekeeper.sh/v1alpha1
+tests:
+  - name: container-security
+    template: ../templates/korecontainersecurity.yaml
+    constraint: ../constraints/korecontainersecurity.yaml
+    cases:
+      - {name: rejects-privileged-container, object: objects/cs-privileged.yaml, assertions: [{violations: 1, message: must not be privileged}]}
+      - {name: rejects-missing-requests-and-probe, object: objects/cs-no-requests-no-probe.yaml, assertions: [{violations: 2}]}
+      - {name: accepts-compliant-container, object: objects/cs-compliant.yaml, assertions: [{violations: 0}]}

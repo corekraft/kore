@@ -1,6 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Repository } from "../config/index.js";
+import type { Runner } from "../runtime/index.js";
 
 export interface PortabilityReport {
   environment: string;
@@ -25,8 +26,37 @@ async function filesIn(directory: string): Promise<string[]> {
   return files;
 }
 
+/** Renders a chart with its own values only, so no overlay can mask a provider dependency. */
+async function renderCommon(
+  runner: Runner,
+  application: string,
+  chart: string,
+  chartDirectory: string,
+): Promise<void> {
+  let stdout: string;
+  try {
+    ({ stdout } = await runner.run(
+      "helm",
+      ["template", `${application}-${chart}`, chartDirectory],
+      { capture: true },
+    ));
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `${application}: ${chart} chart does not render with common values: ${reason}`,
+    );
+  }
+  const match = stdout.match(providerSpecific);
+  if (match) {
+    throw new Error(
+      `${application}: rendered ${chart} chart has provider-specific output ${match[0]}`,
+    );
+  }
+}
+
 export async function validatePortability(
   repository: Repository,
+  runner: Runner,
 ): Promise<PortabilityReport> {
   const appsDirectory = join(repository.root, "apps");
   let applications: string[];
@@ -65,6 +95,7 @@ export async function validatePortability(
           );
         }
       }
+      await renderCommon(runner, application, chart, chartDirectory);
     }
   }
   return { environment: repository.environment.name, applications };

@@ -157,3 +157,12 @@ test("tunnel, secret, and trust CLI mutations dispatch their operations", async 
     "installLocalTrust",
   ]);
 });
+
+test("app down --json always reports the retained list, even when empty", async () => {
+  const write = vi.spyOn(process.stdout, "write");
+
+  await main(["app", "down", "reference", "--environment", "local", "--json"]);
+
+  const printed = write.mock.calls.map(([chunk]) => String(chunk)).join("");
+  expect(JSON.parse(printed)).toEqual({ name: "reference", retained: [] });
+});

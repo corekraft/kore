@@ -1,0 +1,8 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: web, namespace: app}
+spec:
+  template:
+    spec:
+      initContainers: [{name: init, image: i, env: [{name: API_TOKEN, value: abc}]}]
+      containers: [{name: app, image: i}]

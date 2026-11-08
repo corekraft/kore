@@ -1,0 +1,24 @@
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata: {name: koremeshenrollment}
+spec:
+  crd:
+    spec:
+      names: {kind: KoreMeshEnrollment}
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties: {exemptNamespaces: {type: array, items: {type: string}}}
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package kore.meshenrollment
+        import future.keywords.in
+        exempt { input.review.object.metadata.name in input.parameters.exemptNamespaces }
+        enrolled { input.review.object.metadata.labels["istio.io/dataplane-mode"] == "ambient" }
+        violation[{"msg": msg}] {
+          input.review.kind.kind == "Namespace"
+          not exempt
+          not enrolled
+          msg := sprintf("namespace %s must carry istio.io/dataplane-mode: ambient so its traffic joins the mesh", [input.review.object.metadata.name])
+        }

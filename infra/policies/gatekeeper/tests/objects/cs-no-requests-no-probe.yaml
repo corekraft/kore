@@ -1,0 +1,7 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: cs-no-requests-no-probe, namespace: app}
+spec:
+  template:
+    spec:
+      containers: [{name: app, image: invalid}]

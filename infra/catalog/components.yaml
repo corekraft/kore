@@ -45,7 +45,8 @@
         "ownsCRDs": [],
         "dependencies": ["kore-gateway-api"],
         "timeout": "5m",
-        "readiness": []
+        "readiness":
+          ["storageclass/kore-standard", "storageclass/kore-retained"]
       },
       {
         "name": "cert-manager",
@@ -111,7 +112,11 @@
           ],
         "dependencies": ["kore-gateway-api"],
         "timeout": "10m",
-        "readiness": []
+        "readiness":
+          [
+            "crd/authorizationpolicies.security.istio.io",
+            "crd/peerauthentications.security.istio.io"
+          ]
       },
       {
         "name": "istiod",
@@ -185,10 +190,7 @@
         "dependencies": ["cert-manager"],
         "timeout": "10m",
         "readiness":
-          [
-            "deployment/external-secrets",
-            "deployment/external-secrets-webhook"
-          ]
+          ["deployment/external-secrets", "deployment/external-secrets-webhook"]
       },
       {
         "name": "cloudnative-pg",
@@ -217,6 +219,22 @@
         "readiness": ["deployment/opentelemetry-operator"]
       },
       {
+        "name": "kore-observability-config",
+        "phase": "observability",
+        "namespace": "observability",
+        "kind": "local-chart",
+        "chart": "infra/observability/config",
+        "version": "local",
+        "ownsCRDs": [],
+        "dependencies": ["kore-storage", "istiod"],
+        "timeout": "2m",
+        "readiness":
+          [
+            "configmap/kore-prometheus-rules",
+            "configmap/kore-grafana-dashboards"
+          ]
+      },
+      {
         "name": "prometheus",
         "phase": "observability",
         "namespace": "observability",
@@ -225,7 +243,12 @@
         "chart": "prometheus",
         "version": "prometheus",
         "ownsCRDs": [],
-        "dependencies": ["opentelemetry-operator", "kore-storage"],
+        "dependencies":
+          [
+            "opentelemetry-operator",
+            "kore-storage",
+            "kore-observability-config"
+          ],
         "timeout": "15m",
         "readiness": ["deployment/prometheus-server"]
       },
@@ -264,7 +287,14 @@
         "chart": "grafana",
         "version": "grafana",
         "ownsCRDs": [],
-        "dependencies": ["prometheus", "loki", "tempo", "kore-storage"],
+        "dependencies":
+          [
+            "prometheus",
+            "loki",
+            "tempo",
+            "kore-storage",
+            "kore-observability-config"
+          ],
         "timeout": "10m",
         "readiness": ["deployment/grafana"]
       },
@@ -281,6 +311,20 @@
         "timeout": "10m",
         "values": ["infra/observability/collector/values.yaml"],
         "readiness": ["deployment/otel-collector"]
+      },
+      {
+        "name": "otel-agent",
+        "phase": "observability",
+        "namespace": "observability",
+        "kind": "helm",
+        "repository": "https://open-telemetry.github.io/opentelemetry-helm-charts",
+        "chart": "opentelemetry-collector",
+        "version": "opentelemetry-collector",
+        "ownsCRDs": [],
+        "dependencies": ["otel-collector"],
+        "timeout": "10m",
+        "values": ["infra/observability/agent/values.yaml"],
+        "readiness": ["daemonset/otel-agent"]
       },
       {
         "name": "opa-authorizer",
@@ -304,7 +348,7 @@
         "ownsCRDs": [],
         "dependencies": ["crossplane", "cloudnative-pg"],
         "timeout": "2m",
-        "readiness": []
+        "readiness": ["clusterrole/crossplane-postgresql-composition"]
       },
       {
         "name": "kore-postgresql-api",
@@ -314,9 +358,64 @@
         "source": "infra/apis/postgresql",
         "version": "local",
         "ownsCRDs": ["postgresqlinstances.platform.kore.dev"],
-        "dependencies": ["crossplane", "cloudnative-pg", "kore-postgresql-rbac"],
+        "dependencies":
+          ["crossplane", "cloudnative-pg", "kore-postgresql-rbac"],
         "timeout": "10m",
         "readiness": ["crd/postgresqlinstances.platform.kore.dev"]
+      },
+      {
+        "name": "kore-policy-templates",
+        "phase": "configuration",
+        "namespace": "gatekeeper-system",
+        "kind": "manifest",
+        "source": "infra/policies/gatekeeper/templates",
+        "version": "local",
+        "ownsCRDs":
+          [
+            "korecontainersecurity.constraints.gatekeeper.sh",
+            "koremeshenrollment.constraints.gatekeeper.sh",
+            "korerbac.constraints.gatekeeper.sh",
+            "koreretention.constraints.gatekeeper.sh",
+            "koresecrets.constraints.gatekeeper.sh",
+            "koreworkloadidentity.constraints.gatekeeper.sh"
+          ],
+        "dependencies": ["gatekeeper"],
+        "timeout": "5m",
+        "readiness":
+          [
+            "constrainttemplate.templates.gatekeeper.sh/korecontainersecurity",
+            "constrainttemplate.templates.gatekeeper.sh/koremeshenrollment",
+            "constrainttemplate.templates.gatekeeper.sh/korerbac",
+            "constrainttemplate.templates.gatekeeper.sh/koreretention",
+            "constrainttemplate.templates.gatekeeper.sh/koresecrets",
+            "constrainttemplate.templates.gatekeeper.sh/koreworkloadidentity",
+            "crd/korecontainersecurity.constraints.gatekeeper.sh",
+            "crd/koremeshenrollment.constraints.gatekeeper.sh",
+            "crd/korerbac.constraints.gatekeeper.sh",
+            "crd/koreretention.constraints.gatekeeper.sh",
+            "crd/koresecrets.constraints.gatekeeper.sh",
+            "crd/koreworkloadidentity.constraints.gatekeeper.sh"
+          ]
+      },
+      {
+        "name": "kore-policy-constraints",
+        "phase": "configuration",
+        "namespace": "gatekeeper-system",
+        "kind": "manifest",
+        "source": "infra/policies/gatekeeper/constraints",
+        "version": "local",
+        "ownsCRDs": [],
+        "dependencies": ["gatekeeper", "kore-policy-templates"],
+        "timeout": "5m",
+        "readiness":
+          [
+            "korecontainersecurity.constraints.gatekeeper.sh/kore-container-security",
+            "koremeshenrollment.constraints.gatekeeper.sh/kore-mesh-enrollment",
+            "korerbac.constraints.gatekeeper.sh/kore-rbac",
+            "koreretention.constraints.gatekeeper.sh/kore-retention",
+            "koresecrets.constraints.gatekeeper.sh/kore-secrets",
+            "koreworkloadidentity.constraints.gatekeeper.sh/kore-workload-identity"
+          ]
       },
       {
         "name": "kore-local-tls",

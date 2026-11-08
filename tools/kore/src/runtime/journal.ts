@@ -60,6 +60,14 @@ export interface OperationSummary {
 
 const sensitiveFlag = /password|secret|token|key/i;
 const redacted = "<redacted>";
+
+/** The placeholder shown wherever a secret value was removed. */
+export const redactionMarker = redacted;
+
+/** Whether a flag or key name looks secret-bearing. */
+export function isSensitiveName(name: string): boolean {
+  return sensitiveFlag.test(name);
+}
 const maxErrorLength = 200;
 
 function journalPath(root: string, environment: string): string {

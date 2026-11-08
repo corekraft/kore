@@ -4,6 +4,7 @@
       "Bash(mise run test)",
       "Bash(mise run validate)",
       "Bash(mise run test-opa)",
+      "Bash(mise run test-gatekeeper)",
       "Bash(mise run test-hooks)",
       "Bash(kore doctor:*)",
       "Bash(kore * status)",

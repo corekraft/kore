@@ -20,6 +20,7 @@ test("repository toolchain pins are declared in the local mise profile", async (
     'opa = "1.22.2"',
     'tofu = "1.13.9"',
     'cosign = "3.1.4"',
+    'promtool = "3.16.0"',
   ]) {
     assert.match(mise, new RegExp(pin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }

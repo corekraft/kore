@@ -1,0 +1,16 @@
+kind: Suite
+apiVersion: test.gatekeeper.sh/v1alpha1
+tests:
+  - name: rbac
+    template: ../templates/korerbac.yaml
+    constraint: ../constraints/korerbac.yaml
+    cases:
+      - {name: rejects-wildcard-verbs, object: objects/rbac-wildcard-verbs.yaml, assertions: [{violations: 1}]}
+      - {name: rejects-wildcard-resources, object: objects/rbac-wildcard-resources.yaml, assertions: [{violations: 1}]}
+      - {name: accepts-scoped-role, object: objects/rbac-scoped.yaml, assertions: [{violations: 0}]}
+      - {name: exempts-system-namespace-roles, object: objects/rbac-wildcard-exempt.yaml, assertions: [{violations: 0}]}
+      - {name: rejects-cluster-admin-clusterrolebinding-to-service-account, object: objects/rbac-crb-admin-sa.yaml, assertions: [{violations: 1}]}
+      - {name: rejects-cluster-admin-rolebinding-to-service-account, object: objects/rbac-rb-admin-sa.yaml, assertions: [{violations: 1}]}
+      - {name: accepts-view-binding-to-service-account, object: objects/rbac-crb-view-sa.yaml, assertions: [{violations: 0}]}
+      - {name: ignores-cluster-admin-bound-to-users, object: objects/rbac-crb-admin-user.yaml, assertions: [{violations: 0}]}
+      - {name: exempts-system-service-account-bindings, object: objects/rbac-crb-admin-exempt-sa.yaml, assertions: [{violations: 0}]}

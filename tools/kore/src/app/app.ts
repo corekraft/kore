@@ -1,7 +1,7 @@
 import { access } from "node:fs/promises";
 import { join } from "node:path";
 import type { Repository } from "../config/index.js";
-import { assertExpectedCluster } from "../cluster/index.js";
+import { assertExpectedCluster, retainedResources } from "../cluster/index.js";
 import { imageForApplication, loadImageLock } from "../images/index.js";
 import type { Runner } from "../runtime/index.js";
 
@@ -57,12 +57,18 @@ export async function appStatus(
   };
 }
 
+export interface AppDownReport {
+  retained: string[];
+  warnings: string[];
+}
+
 export async function appDown(
   repository: Repository,
   runner: Runner,
   name: string,
-): Promise<void> {
+): Promise<AppDownReport> {
   await assertExpectedCluster(repository, runner);
+  // --ignore-not-found makes a rerun after a partial failure succeed.
   await runner.run(
     "helm",
     [
@@ -71,9 +77,27 @@ export async function appDown(
       `--namespace=${name}`,
       "--kube-context",
       repository.environment.kubeContext,
+      "--ignore-not-found",
       "--wait",
       "--timeout=10m",
     ],
     { capture: false },
   );
+  // Only the workload release is removed; the resources release keeps the
+  // claim and its data. Report what stays so the operator knows it remains.
+  // The uninstall already succeeded, so a failed read is a warning, not a
+  // failure that would make a rerun look like the uninstall went wrong.
+  try {
+    return {
+      retained: await retainedResources(repository, runner, name),
+      warnings: [],
+    };
+  } catch (error) {
+    return {
+      retained: [],
+      warnings: [
+        `could not list retained data in namespace ${name}: ${error instanceof Error ? error.message : String(error)}. The workload was uninstalled; check retained claims with kubectl before destroying anything.`,
+      ],
+    };
+  }
 }

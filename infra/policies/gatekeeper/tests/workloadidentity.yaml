@@ -1,0 +1,10 @@
+kind: Suite
+apiVersion: test.gatekeeper.sh/v1alpha1
+tests:
+  - name: workload-identity
+    template: ../templates/koreworkloadidentity.yaml
+    constraint: ../constraints/koreworkloadidentity.yaml
+    cases:
+      - {name: rejects-default-service-account, object: objects/wi-default-sa.yaml, assertions: [{violations: 2}]}
+      - {name: accepts-dedicated-service-account, object: objects/wi-dedicated-sa.yaml, assertions: [{violations: 0}]}
+      - {name: exempts-system-namespaces, object: objects/wi-exempt-ns.yaml, assertions: [{violations: 0}]}

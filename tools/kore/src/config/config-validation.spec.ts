@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { test } from "vitest";
 import { loadRepository, validateRepository } from "./config.js";
 
@@ -58,7 +59,7 @@ const sound = {
   ownsCRDs: [] as string[],
   dependencies: [] as string[],
   timeout: "1m",
-  readiness: [] as string[],
+  readiness: ["deployment/sound"],
 };
 
 async function validationMessage(
@@ -158,6 +159,8 @@ test("validation reports malformed version sections and missing sections", async
       "unknown environment component values: kore-local-tls",
       "unknown environment component values: kore-platform-config",
       "unknown environment component values: loki",
+      "unknown environment component values: otel-agent",
+      "unknown environment component values: otel-collector",
       "unknown environment component values: prometheus",
       "unknown environment component values: tempo",
       "versions.components must be an object of pinned versions",
@@ -169,4 +172,88 @@ test("validation reports malformed version sections and missing sections", async
 
 test("validation accepts a sound repository", async () => {
   assert.equal(await validationMessage((base) => base), "");
+});
+
+test("a component with no readiness check fails validation naming the component", async () => {
+  const message = await validationMessage((base) => ({
+    ...base,
+    catalog: {
+      components: [{ ...sound, name: "unchecked", readiness: [] }],
+    },
+  }));
+  assert.match(message, /unchecked: at least one readiness check is required/);
+});
+
+test("every catalog component declares at least one readiness check", async () => {
+  const base = await loadRepository("local");
+  const unchecked = base.catalog.components
+    .filter(({ readiness }) => readiness.length === 0)
+    .map(({ name }) => name);
+  assert.deepEqual(unchecked, []);
+});
+
+test("the components schema requires at least one readiness check", async () => {
+  const schema = JSON.parse(
+    await readFile(
+      new URL(
+        "../../../../infra/catalog/schemas/components.schema.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  assert.equal(
+    schema.properties.components.items.properties.readiness.minItems,
+    1,
+  );
+});
+
+test("storage and PostgreSQL RBAC releases prove the resources they own", async () => {
+  const base = await loadRepository("local");
+  const readiness = (name: string) =>
+    base.catalog.components.find((component) => component.name === name)
+      ?.readiness;
+  assert.deepEqual(readiness("kore-storage"), [
+    "storageclass/kore-standard",
+    "storageclass/kore-retained",
+  ]);
+  // The binding is a ClusterRoleBinding or per-namespace RoleBindings by mode,
+  // so only the ClusterRole is valid in both.
+  assert.deepEqual(readiness("kore-postgresql-rbac"), [
+    "clusterrole/crossplane-postgresql-composition",
+  ]);
+});
+
+test("policy releases prove the objects they apply, not the Gatekeeper controller", async () => {
+  const base = await loadRepository("local");
+  const readiness = (name: string) =>
+    base.catalog.components.find((component) => component.name === name)
+      ?.readiness ?? [];
+  assert.ok(
+    !readiness("kore-policy-constraints").some((r) =>
+      r.startsWith("deployment/"),
+    ),
+  );
+  assert.deepEqual(readiness("kore-policy-constraints"), [
+    "korecontainersecurity.constraints.gatekeeper.sh/kore-container-security",
+    "koremeshenrollment.constraints.gatekeeper.sh/kore-mesh-enrollment",
+    "korerbac.constraints.gatekeeper.sh/kore-rbac",
+    "koreretention.constraints.gatekeeper.sh/kore-retention",
+    "koresecrets.constraints.gatekeeper.sh/kore-secrets",
+    "koreworkloadidentity.constraints.gatekeeper.sh/kore-workload-identity",
+  ]);
+  for (const name of [
+    "korecontainersecurity",
+    "koremeshenrollment",
+    "korerbac",
+    "koreretention",
+    "koresecrets",
+    "koreworkloadidentity",
+  ]) {
+    assert.ok(
+      readiness("kore-policy-templates").includes(
+        `constrainttemplate.templates.gatekeeper.sh/${name}`,
+      ),
+    );
+  }
 });

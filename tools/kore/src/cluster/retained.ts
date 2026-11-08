@@ -21,15 +21,17 @@ function errorText(error: unknown): string {
 export async function retainedResources(
   repository: Repository,
   runner: Runner,
+  namespace?: string,
 ): Promise<string[]> {
   const context = repository.environment.kubeContext;
+  const scope = namespace ? `--namespace=${namespace}` : "--all-namespaces";
   const queries = [
     [
       "--context",
       context,
       "get",
       "postgresqlinstances.platform.kore.dev",
-      "--all-namespaces",
+      scope,
       "-l",
       "platform.kore.dev/retention=Retain",
       "-o",
@@ -40,7 +42,7 @@ export async function retainedResources(
       context,
       "get",
       "pvc",
-      "--all-namespaces",
+      scope,
       "-l",
       "platform.kore.dev/retention=Retain",
       "-o",

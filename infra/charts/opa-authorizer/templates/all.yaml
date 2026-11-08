@@ -14,6 +14,8 @@ spec:
   selector: {matchLabels: {app.kubernetes.io/name: opa-authorizer}}
   template:
     metadata:
+      annotations:
+        checksum/bundle: {{ printf "%s%s%s" (.Files.Get "bundle/.manifest") (.Files.Get "bundle/policy.rego") (.Files.Get "bundle/mask.rego") | sha256sum }}
       labels:
         app.kubernetes.io/name: opa-authorizer
         platform.kore.dev/service-account: opa-authorizer
@@ -31,7 +33,9 @@ spec:
             - "--diagnostic-addr=0.0.0.0:8282"
             - "--set=plugins.envoy_ext_authz_grpc.addr=:9191"
             - "--set=plugins.envoy_ext_authz_grpc.path=envoy/authz/allow"
-            - /policies/policy.rego
+            - "--set=decision_logs.console=true"
+            - --bundle
+            - /bundle
           ports:
             - {name: grpc-authz, containerPort: 9191}
             - {name: health, containerPort: 8282}
@@ -49,9 +53,12 @@ spec:
             readOnlyRootFilesystem: true
             runAsNonRoot: true
             capabilities: {drop: [ALL]}
-          volumeMounts: [{name: policies, mountPath: /policies, readOnly: true}]
+          volumeMounts:
+            - {name: bundle, mountPath: /bundle/.manifest, subPath: .manifest, readOnly: true}
+            - {name: bundle, mountPath: /bundle/policy.rego, subPath: policy.rego, readOnly: true}
+            - {name: bundle, mountPath: /bundle/mask.rego, subPath: mask.rego, readOnly: true}
       volumes:
-        - name: policies
+        - name: bundle
           configMap: {name: opa-authorizer-policy}
 ---
 apiVersion: v1
@@ -66,11 +73,9 @@ apiVersion: v1
 kind: ConfigMap
 metadata: {name: opa-authorizer-policy}
 data:
+  .manifest: |
+{{ .Files.Get "bundle/.manifest" | indent 4 }}
   policy.rego: |
-    package envoy.authz
-    default allow := false
-    # Ambient waypoint CheckRequests omit workload principals; Istio's native Service policy enforces caller identity.
-    allow if {
-      input.attributes.request.http.path == "/api/protected"
-      input.attributes.request.http.headers["x-kore-authenticated-role"] == "developer"
-    }
+{{ .Files.Get "bundle/policy.rego" | indent 4 }}
+  mask.rego: |
+{{ .Files.Get "bundle/mask.rego" | indent 4 }}

@@ -9,6 +9,7 @@ import {
   errorMessage,
   helmReleaseStatus,
 } from "./probe.js";
+import { readinessFailure } from "./readiness.js";
 
 export interface ComponentStatus {
   name: string;
@@ -40,10 +41,13 @@ async function componentStatus(
         };
       }
     }
-    return { ...identity, status: "ready", detail: "installed" };
   } catch (error) {
     return { ...identity, status: "missing", detail: errorMessage(error) };
   }
+  const failure = await readinessFailure(repository, runner, component);
+  return failure
+    ? { ...identity, status: "degraded", detail: failure }
+    : { ...identity, status: "ready", detail: "installed and ready" };
 }
 
 export async function platformStatus(

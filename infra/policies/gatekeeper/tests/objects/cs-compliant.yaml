@@ -1,0 +1,12 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: cs-compliant, namespace: app}
+spec:
+  template:
+    spec:
+      serviceAccountName: valid
+      containers:
+        - name: app
+          image: invalid
+          resources: {requests: {cpu: 10m, memory: 8Mi}}
+          readinessProbe: {tcpSocket: {port: 80}}
