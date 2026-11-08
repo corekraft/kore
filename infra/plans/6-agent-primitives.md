@@ -170,9 +170,21 @@ object per line, appended under the environment lock. `.kore/` is gitignored.
   since the session's own commits would be noise. It tracks items in active
   plans only, keyed by their first 60 characters. Snapshots older than 14 days
   are pruned. The startup brief adds one line per environment journal.
+- Principles review of the merged branch found five issues, fixed on
+  `feat/ap-review-fixes`, one commit each, test first. (1) Pruning worked only
+  against test fakes: `realDeps` lacked `now`, `listSnapshots`, and
+  `removeSnapshot`, so the error was swallowed and nothing was deleted. The
+  implementer had reported these as present; a CLI test now proves pruning end
+  to end. (2) One unreadable journal file crashed the startup brief; it is now
+  skipped. (3) `rm` or `mv` of `.kore`, `.kore/state`, or the journal directory
+  did not warn; it does now. (4) The journal spec left temporary directories
+  behind. (5) Its write-failure test relied on `chmod`, which root ignores; it
+  now replaces the file with a directory.
 - Checks on the merged tree: `npm --prefix tools/kore run check`,
-  `mise run test`, `mise run test-hooks` (193 pass), `mise run test-opa`,
+  `mise run test`, `mise run test-hooks` (195 pass), `mise run test-opa`,
   `mise run validate`, and `mise run kb-check -- --strict` all exit 0.
+- Lesson: an implementer's report is not evidence. Check that the claimed code
+  is wired into the real dependencies, not only into test fakes.
 - Incident: under the pre-commit hook, an early version of the delta fixture
   test inherited `GIT_DIR` and ran `git init` and `git commit` against the real
   repository. It set `core.bare = true` in `.git/config` and put two fixture
