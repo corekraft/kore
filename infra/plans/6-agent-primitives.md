@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 summary: Give the harness an operations journal it owns, protect append-only records, and tell the agent what changed between turns.
 last-verified: 2026-11-07
 ---
@@ -58,84 +58,84 @@ object per line, appended under the environment lock. `.kore/` is gitignored.
 
 ### Work
 
-- [ ] Add a journal to the `runtime` domain: append an entry, read entries for
+- [x] Add a journal to the `runtime` domain: append an entry, read entries for
       an environment, and a `Runner` decorator that records an `exec` entry per
       command. Export them through `runtime/index.ts` only.
-- [ ] Wrap every mutating command in `cli.ts` (the commands that take
+- [x] Wrap every mutating command in `cli.ts` (the commands that take
       `withEnvironmentLock`) so it writes `start`, the decorated runner's `exec`
       entries, and `end` with its outcome. Read-only commands write nothing.
-- [ ] Add a read-only `kore journal --environment <name> [--limit <n>] [--json]`
+- [x] Add a read-only `kore journal --environment <name> [--limit <n>] [--json]`
       that lists recent operations with their outcome, and flags interrupted
       ones. Follow `skills/add-command`, and update the usage text and
       `README.md`.
 
 ### Exit Criteria
 
-- [ ] Tests show: a successful and a failed operation write `start`, `exec`,
+- [x] Tests show: a successful and a failed operation write `start`, `exec`,
       and `end`; `input` and `env` are never written, even when they hold a
       secret; flag values are redacted in both forms; a read-only command
       writes nothing; a start-entry write failure stops the operation before
       the runner is called.
-- [ ] `kore journal` reports an interrupted operation from a fixture journal.
-- [ ] `npm --prefix tools/kore run check` and `mise run test` pass, and
+- [x] `kore journal` reports an interrupted operation from a fixture journal.
+- [x] `npm --prefix tools/kore run check` and `mise run test` pass, and
       coverage does not drop.
 
 ## Step 2: Append-Only Guard
 
 ### Work
 
-- [ ] Add an `append-only` rule to `.claude/hooks/guard.mjs`, in warn mode, for
+- [x] Add an `append-only` rule to `.claude/hooks/guard.mjs`, in warn mode, for
       `.claude/evals/history.jsonl` and `.kore/state/journal/*.jsonl`. It warns
       on `Edit` and `Write`, and on Bash segments that truncate, rewrite, or
       remove them: `>` (not `>>`), `sed -i`, `rm`, `mv`, or `truncate`.
-- [ ] The message says who owns the file and the fix: append through the owning
+- [x] The message says who owns the file and the fix: append through the owning
       script (`eval.mjs`, `kore`), never edit by hand.
-- [ ] Note the rule in AGENTS.md under the matching principle as _Audited_.
+- [x] Note the rule in AGENTS.md under the matching principle as _Audited_.
 
 ### Exit Criteria
 
-- [ ] `guard.test.mjs` covers each warned form, and that `>>`, `cat`, `Read`,
+- [x] `guard.test.mjs` covers each warned form, and that `>>`, `cat`, `Read`,
       and `tail` on the same files are allowed.
-- [ ] `node .claude/hooks/retro-scan.mjs` lists `append-only` among audit rules.
-- [ ] `mise run test-hooks` passes.
+- [x] `node .claude/hooks/retro-scan.mjs` lists `append-only` among audit rules.
+- [x] `mise run test-hooks` passes.
 
 ## Step 3: What Changed Between Turns
 
 ### Work
 
-- [ ] Add a `UserPromptSubmit` hook, `.claude/hooks/delta.mjs`, wired in
+- [x] Add a `UserPromptSubmit` hook, `.claude/hooks/delta.mjs`, wired in
       `.claude/settings.json`. It keeps a per-session snapshot in the git
       directory (`$(git rev-parse --git-dir)/kore-delta/<session_id>.json`):
       `HEAD` and branch, `main`'s commit, open items per plan, files in
       `.kore/locks/`, and the last journal entry per environment.
-- [ ] On the first prompt of a session it writes the snapshot and prints
+- [x] On the first prompt of a session it writes the snapshot and prints
       nothing. Afterwards it prints only what differs, at most 600 characters:
       new commits on `main`, plan items ticked or added, locks taken or
       released, journal operations started, finished, or failed.
-- [ ] Reads go through injectable functions so tests use fixtures. The hook
+- [x] Reads go through injectable functions so tests use fixtures. The hook
       fails open and exits 0 on any unexpected input.
 
 ### Exit Criteria
 
-- [ ] `delta.test.mjs` covers: first prompt prints nothing; no change prints
+- [x] `delta.test.mjs` covers: first prompt prints nothing; no change prints
       nothing; each kind of change is reported; output is capped; malformed
       input exits 0 without output.
-- [ ] `mise run test-hooks` passes.
+- [x] `mise run test-hooks` passes.
 
 ## Step 4: Environment in the Session Brief
 
 ### Work
 
-- [ ] In `context.mjs`, add one line per environment journal to the startup
+- [x] In `context.mjs`, add one line per environment journal to the startup
       brief: the last operation, its outcome, and its date, and say so when it
       was interrupted. Read only the journal files; never call `kore`,
       `kubectl`, or `minikube` from a hook.
 
 ### Exit Criteria
 
-- [ ] `context.test.mjs` covers no journal, a finished operation, a failed
+- [x] `context.test.mjs` covers no journal, a finished operation, a failed
       one, and an interrupted one.
-- [ ] `mise run test-hooks` passes.
+- [x] `mise run test-hooks` passes.
 
 ## Not Planned
 
@@ -146,3 +146,44 @@ object per line, appended under the environment lock. `.kore/` is gitignored.
   Revisit after this plan, using the journal as their input.
 
 ## Results
+
+- Implemented on 2026-11-07 by three Sonnet sessions in Herdr panes, one
+  worktree and branch each (`feat/ap-journal`, `feat/ap-guard`,
+  `feat/ap-delta`), merged into `feat/agent-primitives-plan`. The Opus
+  session reviewed each branch and sent one round of fixes per branch.
+- Step 1: `runtime/journal.ts` holds the journal, `JournalingRunner`, and
+  `withJournal`. One `mutate` helper in `cli.ts` takes the environment lock,
+  then journals. `kore journal` lists operations, flags interrupted ones, and
+  defaults to `--environment local --limit 20`. Review found that redaction
+  matched flag names only, so `--set db.password=x`, `--from-literal=…`, and
+  positional `api_key=x` were journaled in plaintext. Now any `<k>=<v>` whose
+  key contains `password`, `secret`, `token`, or `key` is redacted wherever it
+  appears, including error text. Error text is cut at the end of the first
+  line after a secret-looking key. An unknown action on a mutating command
+  still writes a `start` and a failed `end`.
+- Step 2: `append-only` warns on Edit and Write, and on `>`, `sed -i`, `rm`,
+  `mv`, `truncate`, `tee` without `-a`, and `cp` onto the file. It is checked
+  after the blocking rules. `retro-scan` lists it as an audit rule. `main`'s
+  `guard.mjs` was not prettier-clean, so the reformat is its own commit
+  (`67d24f7`).
+- Steps 3 and 4: `delta.mjs` reports branch switches but not `HEAD` moves,
+  since the session's own commits would be noise. It tracks items in active
+  plans only, keyed by their first 60 characters. Snapshots older than 14 days
+  are pruned. The startup brief adds one line per environment journal.
+- Checks on the merged tree: `npm --prefix tools/kore run check`,
+  `mise run test`, `mise run test-hooks` (193 pass), `mise run test-opa`,
+  `mise run validate`, and `mise run kb-check -- --strict` all exit 0.
+- Incident: under the pre-commit hook, an early version of the delta fixture
+  test inherited `GIT_DIR` and ran `git init` and `git commit` against the real
+  repository. It set `core.bare = true` in `.git/config` and put two fixture
+  commits on `feat/ap-delta`. The session reset the branch and changed the test
+  to strip `GIT_*` from the fixture's environment. The orchestrator restored
+  `core.bare = false`. No other config, branch, or `main` was touched. The
+  hook tests then ran with `GIT_DIR` pointing at an empty throwaway repository
+  and left it unchanged. Only the existing `kb-check` CLI test failed there,
+  because it reads this repository's history.
+- Follow-up: any hook test that runs `git` against a fixture must strip
+  `GIT_*`. A shared test helper, or a check that fails such a test, would
+  stop this from recurring.
+- Follow-up: `kubectl-context` blocked a heredoc whose body was test text
+  containing `kubectl get pods`. The guard reads heredoc bodies as commands.
