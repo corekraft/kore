@@ -190,10 +190,7 @@
         "dependencies": ["cert-manager"],
         "timeout": "10m",
         "readiness":
-          [
-            "deployment/external-secrets",
-            "deployment/external-secrets-webhook"
-          ]
+          ["deployment/external-secrets", "deployment/external-secrets-webhook"]
       },
       {
         "name": "cloudnative-pg",
@@ -231,7 +228,11 @@
         "ownsCRDs": [],
         "dependencies": ["kore-storage", "istiod"],
         "timeout": "2m",
-        "readiness": ["configmap/kore-prometheus-rules", "configmap/kore-grafana-dashboards"]
+        "readiness":
+          [
+            "configmap/kore-prometheus-rules",
+            "configmap/kore-grafana-dashboards"
+          ]
       },
       {
         "name": "prometheus",
@@ -242,7 +243,12 @@
         "chart": "prometheus",
         "version": "prometheus",
         "ownsCRDs": [],
-        "dependencies": ["opentelemetry-operator", "kore-storage", "kore-observability-config"],
+        "dependencies":
+          [
+            "opentelemetry-operator",
+            "kore-storage",
+            "kore-observability-config"
+          ],
         "timeout": "15m",
         "readiness": ["deployment/prometheus-server"]
       },
@@ -281,7 +287,14 @@
         "chart": "grafana",
         "version": "grafana",
         "ownsCRDs": [],
-        "dependencies": ["prometheus", "loki", "tempo", "kore-storage", "kore-observability-config"],
+        "dependencies":
+          [
+            "prometheus",
+            "loki",
+            "tempo",
+            "kore-storage",
+            "kore-observability-config"
+          ],
         "timeout": "10m",
         "readiness": ["deployment/grafana"]
       },
@@ -335,11 +348,7 @@
         "ownsCRDs": [],
         "dependencies": ["crossplane", "cloudnative-pg"],
         "timeout": "2m",
-        "readiness":
-          [
-            "clusterrole/crossplane-postgresql-composition",
-            "clusterrolebinding/crossplane-postgresql-composition"
-          ]
+        "readiness": ["clusterrole/crossplane-postgresql-composition"]
       },
       {
         "name": "kore-postgresql-api",
@@ -349,7 +358,8 @@
         "source": "infra/apis/postgresql",
         "version": "local",
         "ownsCRDs": ["postgresqlinstances.platform.kore.dev"],
-        "dependencies": ["crossplane", "cloudnative-pg", "kore-postgresql-rbac"],
+        "dependencies":
+          ["crossplane", "cloudnative-pg", "kore-postgresql-rbac"],
         "timeout": "10m",
         "readiness": ["crd/postgresqlinstances.platform.kore.dev"]
       },

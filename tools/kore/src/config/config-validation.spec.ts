@@ -217,8 +217,9 @@ test("storage and PostgreSQL RBAC releases prove the resources they own", async 
     "storageclass/kore-standard",
     "storageclass/kore-retained",
   ]);
+  // The binding is a ClusterRoleBinding or per-namespace RoleBindings by mode,
+  // so only the ClusterRole is valid in both.
   assert.deepEqual(readiness("kore-postgresql-rbac"), [
     "clusterrole/crossplane-postgresql-composition",
-    "clusterrolebinding/crossplane-postgresql-composition",
   ]);
 });
