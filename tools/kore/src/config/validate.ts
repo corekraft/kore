@@ -109,6 +109,11 @@ const componentRules: Rule<ComponentContext>[] = [
       !versions.components?.[component.version],
   ),
   rule(
+    ({ component }) =>
+      `${component.name}: at least one readiness check is required`,
+    ({ component }) => !component.readiness?.length,
+  ),
+  rule(
     ({ component }) => `${component.name}: manifest source is required`,
     ({ component }) => component.kind === "manifest" && !component.source,
   ),

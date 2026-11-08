@@ -47,12 +47,37 @@ test("local platform configuration starts the managed Minikube tunnel", async ()
 
 type Call = { command: string; args: readonly string[] };
 
+const healthyGateway = JSON.stringify({
+  status: {
+    conditions: [
+      { type: "Accepted", status: "True" },
+      { type: "Programmed", status: "True" },
+    ],
+    listeners: [
+      { name: "https", conditions: [{ type: "ResolvedRefs", status: "True" }] },
+    ],
+  },
+});
+const healthyService = JSON.stringify({
+  items: [{ status: { loadBalancer: { ingress: [{ ip: "127.0.0.1" }] } } }],
+});
+
+function kubectlOutput(args: readonly string[]): string {
+  if (args.includes("jsonpath={.metadata.name}")) {
+    return "kube-system";
+  }
+  if (args.includes("service")) {
+    return healthyService;
+  }
+  return args.includes("gateway/kore-gateway") ? healthyGateway : "";
+}
+
 function gatewayOrderRunner(calls: Call[]): Runner {
   return {
     async run(command, args) {
       calls.push({ command, args });
-      if (command === "kubectl" && args.includes("jsonpath={.metadata.name}")) {
-        return { stdout: "kube-system", stderr: "", code: 0 };
+      if (command === "kubectl") {
+        return { stdout: kubectlOutput(args), stderr: "", code: 0 };
       }
       if (command === "mkcert" && args.includes("-CAROOT")) {
         return { stdout: "/tmp/mkcert", stderr: "", code: 0 };
@@ -149,7 +174,11 @@ test("platform up upgrades an already-installed configuration release", async ()
       if (command === "mkcert" && args.includes("-CAROOT")) {
         return { stdout: "/tmp/mkcert", stderr: "", code: 0 };
       }
-      return { stdout: "kube-system", stderr: "", code: 0 };
+      return {
+        stdout: command === "kubectl" ? kubectlOutput(args) : "kube-system",
+        stderr: "",
+        code: 0,
+      };
     },
   };
   try {

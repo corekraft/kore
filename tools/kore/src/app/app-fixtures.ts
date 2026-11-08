@@ -14,6 +14,37 @@ export interface Call {
   args: readonly string[];
 }
 
+const healthyGateway = JSON.stringify({
+  status: {
+    conditions: [
+      { type: "Accepted", status: "True" },
+      { type: "Programmed", status: "True" },
+    ],
+    listeners: [
+      { name: "https", conditions: [{ type: "ResolvedRefs", status: "True" }] },
+    ],
+  },
+});
+const healthyService = JSON.stringify({
+  items: [{ status: { loadBalancer: { ingress: [{ ip: "127.0.0.1" }] } } }],
+});
+
+/** What a healthy cluster answers to the platform readiness probes, if any. */
+export function healthyReadinessOutput(
+  args: readonly string[],
+): string | undefined {
+  if (args.includes("service") && args.includes("--selector")) {
+    return healthyService;
+  }
+  if (args.some((arg) => arg.startsWith("gateway/"))) {
+    return healthyGateway;
+  }
+  if (args.some((arg) => arg.startsWith("go-template="))) {
+    return "ready";
+  }
+  return undefined;
+}
+
 /** Records every call and answers like a healthy local cluster. */
 export function healthyRunner(
   calls: Call[],
@@ -27,6 +58,10 @@ export function healthyRunner(
         throw new Error(`${command} failed`);
       }
       const ok = (stdout: string) => ({ stdout, stderr: "", code: 0 });
+      const readiness = healthyReadinessOutput(args);
+      if (command === "kubectl" && readiness !== undefined) {
+        return ok(readiness);
+      }
       if (command === "helm" && args[0] === "status") {
         return ok('{"info":{"status":"deployed"}}');
       }

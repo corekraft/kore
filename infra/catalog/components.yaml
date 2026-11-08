@@ -45,7 +45,8 @@
         "ownsCRDs": [],
         "dependencies": ["kore-gateway-api"],
         "timeout": "5m",
-        "readiness": []
+        "readiness":
+          ["storageclass/kore-standard", "storageclass/kore-retained"]
       },
       {
         "name": "cert-manager",
@@ -111,7 +112,11 @@
           ],
         "dependencies": ["kore-gateway-api"],
         "timeout": "10m",
-        "readiness": []
+        "readiness":
+          [
+            "crd/authorizationpolicies.security.istio.io",
+            "crd/peerauthentications.security.istio.io"
+          ]
       },
       {
         "name": "istiod",
@@ -304,7 +309,11 @@
         "ownsCRDs": [],
         "dependencies": ["crossplane", "cloudnative-pg"],
         "timeout": "2m",
-        "readiness": []
+        "readiness":
+          [
+            "clusterrole/crossplane-postgresql-composition",
+            "clusterrolebinding/crossplane-postgresql-composition"
+          ]
       },
       {
         "name": "kore-postgresql-api",

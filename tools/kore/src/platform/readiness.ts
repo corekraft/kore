@@ -1,42 +1,43 @@
 import type { Component, Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { errorMessage } from "./probe.js";
+import { waitForGateway } from "./readiness-gateway.js";
+import { assertIssuerReady, trustRemedy } from "./readiness-issuer.js";
+import { pause, pollUntil, timeoutMilliseconds } from "./readiness-poll.js";
 
 const TLS_READY_TEMPLATE =
   '{{if and (eq .type "kubernetes.io/tls") (index .data "tls.crt") (index .data "tls.key")}}ready{{end}}';
-const POLL_MILLISECONDS = 250;
+const NOT_FOUND = /NotFound|not found/i;
+const RETRYABLE_CRD_ERROR =
+  /not found|no matches for kind|the server doesn't have a resource type/i;
+const EXISTENCE_KINDS = [
+  "storageclass/",
+  "clusterrole/",
+  "clusterrolebinding/",
+];
+/** Bound for each read-only check `kore status` evaluates. */
+const STATUS_TIMEOUT = "3s";
 
-function unitMilliseconds(unit: string | undefined): number {
-  if (unit === "h") {
-    return 3600000;
-  }
-  if (unit === "m") {
-    return 60000;
-  }
-  return 1000;
+interface Context {
+  repository: Repository;
+  runner: Runner;
+  base: string[];
+  /** Capture command output instead of streaming it to the terminal. */
+  capture: boolean;
 }
 
-function timeoutMilliseconds(value: string): number {
-  const match = value.match(/^(\d+)([smh])$/);
-  if (!match) {
-    return 10 * 60 * 1000;
-  }
-  return Number(match[1]) * unitMilliseconds(match[2]);
-}
-
-function pause(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, POLL_MILLISECONDS));
+/** A readiness check: the condition it proves and a bounded evaluation. */
+interface Check {
+  condition: string;
+  run: (timeout: string) => Promise<void>;
 }
 
 async function waitForTLSSecret(
-  runner: Runner,
-  base: string[],
+  { repository, runner, base }: Context,
   resource: string,
   timeout: string,
 ): Promise<void> {
-  const deadline = Date.now() + timeoutMilliseconds(timeout);
-  let lastError = "Secret is missing tls.crt or tls.key";
-  while (Date.now() < deadline) {
+  await pollUntil(timeout, async () => {
     try {
       const result = await runner.run(
         "kubectl",
@@ -49,25 +50,35 @@ async function waitForTLSSecret(
         ],
         { capture: true },
       );
-      if (result.stdout.trim() === "ready") {
-        return;
-      }
+      return result.stdout.trim() === "ready"
+        ? undefined
+        : "Secret is missing tls.crt or tls.key";
     } catch (error) {
-      lastError = errorMessage(error);
+      const message = errorMessage(error);
+      return NOT_FOUND.test(message)
+        ? `${message}. cert-manager has not issued it; ${trustRemedy(repository)}`
+        : message;
     }
-    await pause();
-  }
-  throw new Error(
-    `${resource} did not become a complete TLS Secret within ${timeout}: ${lastError}`,
-  );
+  });
 }
 
-const RETRYABLE_CRD_ERROR =
-  /not found|no matches for kind|the server doesn't have a resource type/i;
+async function waitForExistence(
+  { runner, base }: Context,
+  resource: string,
+  timeout: string,
+): Promise<void> {
+  await pollUntil(timeout, async () => {
+    await runner.run(
+      "kubectl",
+      [...base, "get", resource, "--output", "name"],
+      { capture: true },
+    );
+    return undefined;
+  });
+}
 
 async function waitForCRD(
-  repository: Repository,
-  runner: Runner,
+  { repository, runner }: Context,
   resource: string,
   timeout: string,
 ): Promise<void> {
@@ -99,19 +110,109 @@ async function waitForCRD(
   }
 }
 
-function kubectlWaitArgs(resource: string, timeout: string): string[] {
+function nativeCheck(
+  { runner, base, capture }: Context,
+  condition: string,
+  args: (timeout: string) => string[],
+): Check {
+  return {
+    condition,
+    run: async (timeout) => {
+      await runner.run("kubectl", [...base, ...args(timeout)], {
+        capture,
+      });
+    },
+  };
+}
+
+function checkFor(context: Context, resource: string): Check {
+  if (resource.startsWith("crd/")) {
+    return {
+      condition: "Established",
+      run: (timeout) => waitForCRD(context, resource, timeout),
+    };
+  }
+  if (resource.startsWith("secret/")) {
+    return {
+      condition: "complete TLS Secret",
+      run: (timeout) => waitForTLSSecret(context, resource, timeout),
+    };
+  }
   if (resource.startsWith("gateway/")) {
-    return [
-      "wait",
-      "--for=condition=Programmed",
-      resource,
-      `--timeout=${timeout}`,
-    ];
+    return {
+      condition: "Accepted, LoadBalancer address, Programmed, ResolvedRefs",
+      run: (timeout) =>
+        waitForGateway(context.runner, context.base, resource, timeout),
+    };
+  }
+  if (EXISTENCE_KINDS.some((kind) => resource.startsWith(kind))) {
+    return {
+      condition: "exists",
+      run: (timeout) => waitForExistence(context, resource, timeout),
+    };
   }
   if (resource.startsWith("certificate/")) {
-    return ["wait", "--for=condition=Ready", resource, `--timeout=${timeout}`];
+    const wait = nativeCheck(context, "Ready", (timeout) => [
+      "wait",
+      "--for=condition=Ready",
+      resource,
+      `--timeout=${timeout}`,
+    ]);
+    return {
+      ...wait,
+      run: async (timeout) => {
+        await assertIssuerReady(
+          context.repository,
+          context.runner,
+          context.base,
+          resource,
+        );
+        await wait.run(timeout);
+      },
+    };
   }
-  return ["rollout", "status", resource, `--timeout=${timeout}`];
+  return nativeCheck(context, "rollout complete", (timeout) => [
+    "rollout",
+    "status",
+    resource,
+    `--timeout=${timeout}`,
+  ]);
+}
+
+async function runChecks(
+  repository: Repository,
+  runner: Runner,
+  component: Component,
+  timeout: string,
+  capture: boolean,
+): Promise<void> {
+  const context: Context = {
+    repository,
+    runner,
+    base: [
+      "--context",
+      repository.environment.kubeContext,
+      "--namespace",
+      component.namespace,
+    ],
+    capture,
+  };
+  const named = (resource: string) => ({
+    resource,
+    check: checkFor(context, resource),
+  });
+  const crds = component.ownsCRDs.map((crd) => `crd/${crd}`);
+  for (const { resource, check } of [...component.readiness, ...crds].map(
+    named,
+  )) {
+    try {
+      await check.run(timeout);
+    } catch (error) {
+      throw new Error(
+        `${resource} not ready (${check.condition}) within ${timeout}: ${errorMessage(error)}`,
+      );
+    }
+  }
 }
 
 /** Blocks until every readiness resource and owned CRD of the component is ready. */
@@ -120,26 +221,22 @@ export async function waitFor(
   runner: Runner,
   component: Component,
 ): Promise<void> {
-  const base = [
-    "--context",
-    repository.environment.kubeContext,
-    "--namespace",
-    component.namespace,
-  ];
-  for (const resource of component.readiness) {
-    if (resource.startsWith("crd/")) {
-      await waitForCRD(repository, runner, resource, component.timeout);
-    } else if (resource.startsWith("secret/")) {
-      await waitForTLSSecret(runner, base, resource, component.timeout);
-    } else {
-      await runner.run(
-        "kubectl",
-        [...base, ...kubectlWaitArgs(resource, component.timeout)],
-        { capture: false },
-      );
-    }
-  }
-  for (const crd of component.ownsCRDs) {
-    await waitForCRD(repository, runner, `crd/${crd}`, component.timeout);
+  await runChecks(repository, runner, component, component.timeout, false);
+}
+
+/**
+ * Evaluates the same readiness checks read-only with a short bound; returns the
+ * first failure (naming resource and condition), or undefined when all pass.
+ */
+export async function readinessFailure(
+  repository: Repository,
+  runner: Runner,
+  component: Component,
+): Promise<string | undefined> {
+  try {
+    await runChecks(repository, runner, component, STATUS_TIMEOUT, true);
+    return undefined;
+  } catch (error) {
+    return errorMessage(error);
   }
 }

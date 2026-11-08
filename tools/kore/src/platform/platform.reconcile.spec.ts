@@ -56,6 +56,7 @@ test("the TLS certificate and complete TLS Secret are ready before Gateway confi
   const runner = new RecordingRunner([
     { stdout: "", stderr: "", code: 0 },
     { stdout: "", stderr: "", code: 0 },
+    { stdout: "", stderr: "", code: 0 },
     { stdout: "ready", stderr: "", code: 0 },
   ]);
   await reconcileComponent(repository, runner, certificate);
