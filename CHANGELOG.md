@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.2.0](https://github.com/corekraft/kore/compare/v0.1.1...v0.2.0) (2026-11-08)
+
+
+### Features
+
+* enforce image admission in the local environment ([9443d33](https://github.com/corekraft/kore/commit/9443d339a4bff22f8935fb1071e7c87f8e0ef815))
+* enforce image admission in the local environment ([bc67002](https://github.com/corekraft/kore/commit/bc6700225e4c230183af2d136103f013cf4fe055))
+* enroll application namespaces in image admission in warn mode ([a1020a6](https://github.com/corekraft/kore/commit/a1020a6534828082c76fc2b084019111ec1f2bff))
+* enroll application namespaces in image admission in warn mode ([e9fbe3d](https://github.com/corekraft/kore/commit/e9fbe3db8e7b7fba1974c2305626974503fc2de7))
+
+
+### Bug fixes
+
+* bind reference dashboard panels to their signal's datasource ([c4c1140](https://github.com/corekraft/kore/commit/c4c1140825d397208d5e23737b29ead44e51cc88))
+* bind reference dashboard panels to their signal's datasource ([72d21f7](https://github.com/corekraft/kore/commit/72d21f74dd8742f9f5fed79d27ed6fee75368f58))
+* repair grafana tempo port and reference dashboard metrics ([72df634](https://github.com/corekraft/kore/commit/72df6346ec5318695481b2d88eedcdc615550bd7))
+* repair grafana tempo port and reference dashboard metrics ([7c577ae](https://github.com/corekraft/kore/commit/7c577ae85e7766b9b628bd6e7ff28be4a80f9cf8))
+* sign local images in legacy format and derive no-match policy from trust mode ([140fde9](https://github.com/corekraft/kore/commit/140fde9f318988c443f0dba4f40075c60dd6ed31))
+* trust the v0.1.1 release subject, the first published image ([ff3497e](https://github.com/corekraft/kore/commit/ff3497e75568a750991e87153f47ece21349edb6))
+* trust the v0.1.1 release subject, the first published image ([4694bb2](https://github.com/corekraft/kore/commit/4694bb262fc4bd703b09cd2d826454ac6a704b0d))
+
+
+### Documentation
+
+* point the step 7 handoff at publishing the release image ([c42d45d](https://github.com/corekraft/kore/commit/c42d45d5a4217725b70342ba5c206c3e2545aed8))
+* point the step 7 handoff at publishing the release image ([c09f371](https://github.com/corekraft/kore/commit/c09f371881a01ab07e697872cc9376bfe511ebe3))
+* record live image admission enforce-mode evidence ([e50afe6](https://github.com/corekraft/kore/commit/e50afe6027ceb1576d238782f53c3f0f611b06db))
+* record live image admission warn-mode evidence ([95c5d63](https://github.com/corekraft/kore/commit/95c5d633b88273c2c5a00b394111010bebf28c17))
+
 ## [0.1.1](https://github.com/corekraft/kore/compare/v0.1.0...v0.1.1) (2026-11-08)
 
 
