@@ -221,16 +221,16 @@ default. Permanent data deletion requires a separate, explicit purge operation.
 `kore` is the stable developer-facing command namespace. Its initial command
 surface is:
 
-| Command                                       | Responsibility                                                      |
-| --------------------------------------------- | ------------------------------------------------------------------- |
-| `kore doctor`                                 | Validate required tools, versions, credentials, and host capacity.  |
-| `kore platform up --environment <name>`       | Bootstrap all required infrastructure and open the application gate only after complete readiness. |
+| Command                                       | Responsibility                                                                                          |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `kore doctor`                                 | Validate required tools, versions, credentials, and host capacity.                                      |
+| `kore platform up --environment <name>`       | Bootstrap all required infrastructure and open the application gate only after complete readiness.      |
 | `kore platform status --environment <name>`   | Report bootstrap generation, prerequisite readiness, and application-gate state without making changes. |
-| `kore app up <name> --environment <name>`     | Reconcile one application's claims and workload.                    |
-| `kore app status <name> --environment <name>` | Report application and claim readiness without making changes.      |
-| `kore app down <name> --environment <name>`   | Remove an application workload while retaining stateful resources.  |
-| `kore platform stop --environment <name>`     | Stop a local platform while retaining its cluster profile and data. |
-| `kore platform destroy --environment <name>`  | Destroy a platform after explicit confirmation.                     |
+| `kore app up <name> --environment <name>`     | Reconcile one application's claims and workload.                                                        |
+| `kore app status <name> --environment <name>` | Report application and claim readiness without making changes.                                          |
+| `kore app down <name> --environment <name>`   | Remove an application workload while retaining stateful resources.                                      |
+| `kore platform stop --environment <name>`     | Stop a local platform while retaining its cluster profile and data.                                     |
+| `kore platform destroy --environment <name>`  | Destroy a platform after explicit confirmation.                                                         |
 
 The `--environment` argument is required for every mutating command. Commands must
 not silently use the current `kubectl` context.
@@ -295,18 +295,18 @@ The first platform increment is a thin vertical slice driven by one reference
 application. Capabilities are defined by their application-facing contracts before
 specific implementations are selected.
 
-| Capability        | Application-facing contract                                                    | Local behavior                                                  | Portability requirement                                                     |
-| ----------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Networking        | Kubernetes `Gateway` and `HTTPRoute` resources                                 | Route traffic through an Istio-managed gateway                  | Replace the gateway or load balancer without changing application manifests |
-| Certificates      | A TLS endpoint and trusted certificate contract                                | Issue certificates from a local issuer                          | Substitute a public or provider-managed issuer                              |
-| Secrets           | A Kubernetes Secret reference                                                  | Materialize secrets from a local source                         | Substitute an external secret manager without changing the workload         |
-| Database          | A database claim and connection Secret                                         | Run PostgreSQL as a Kubernetes workload                         | Substitute managed PostgreSQL while preserving the claim and Secret schema  |
-| Persistence       | A PersistentVolumeClaim and storage class contract                             | Provision storage backed by the local environment               | Substitute a cloud storage class while preserving claim semantics           |
-| Observability     | An OTLP endpoint and standard telemetry attributes                             | Collect logs, metrics, and traces locally                       | Substitute telemetry backends without changing application instrumentation  |
-| Workload identity | A dedicated Kubernetes ServiceAccount represented as an Istio SPIFFE principal | Issue short-lived mesh identities and enforce mutual TLS        | Preserve the principal contract across Kubernetes environments              |
-| Policy            | Gatekeeper constraints, Sigstore image policy, and Istio authorization policy  | Audit configuration and enforce admission and runtime decisions | Keep policy inputs stable and policy bundles versioned                      |
-| OCI registry      | A platform registry endpoint and digest-qualified repository contract           | Run a persistent OCI Distribution-compatible registry           | Substitute a managed registry without changing workload charts             |
-| Container images  | An internal, digest-qualified OCI reference with an authorized Cosign signature | Build candidates locally; protected automation promotes and signs | Preserve digest and signer verification across environment registries      |
+| Capability        | Application-facing contract                                                     | Local behavior                                                    | Portability requirement                                                     |
+| ----------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Networking        | Kubernetes `Gateway` and `HTTPRoute` resources                                  | Route traffic through an Istio-managed gateway                    | Replace the gateway or load balancer without changing application manifests |
+| Certificates      | A TLS endpoint and trusted certificate contract                                 | Issue certificates from a local issuer                            | Substitute a public or provider-managed issuer                              |
+| Secrets           | A Kubernetes Secret reference                                                   | Materialize secrets from a local source                           | Substitute an external secret manager without changing the workload         |
+| Database          | A database claim and connection Secret                                          | Run PostgreSQL as a Kubernetes workload                           | Substitute managed PostgreSQL while preserving the claim and Secret schema  |
+| Persistence       | A PersistentVolumeClaim and storage class contract                              | Provision storage backed by the local environment                 | Substitute a cloud storage class while preserving claim semantics           |
+| Observability     | An OTLP endpoint and standard telemetry attributes                              | Collect logs, metrics, and traces locally                         | Substitute telemetry backends without changing application instrumentation  |
+| Workload identity | A dedicated Kubernetes ServiceAccount represented as an Istio SPIFFE principal  | Issue short-lived mesh identities and enforce mutual TLS          | Preserve the principal contract across Kubernetes environments              |
+| Policy            | Gatekeeper constraints, Sigstore image policy, and Istio authorization policy   | Audit configuration and enforce admission and runtime decisions   | Keep policy inputs stable and policy bundles versioned                      |
+| OCI registry      | A platform registry endpoint and digest-qualified repository contract           | Run a persistent OCI Distribution-compatible registry             | Substitute a managed registry without changing workload charts              |
+| Container images  | An internal, digest-qualified OCI reference with an authorized Cosign signature | Build candidates locally; protected automation promotes and signs | Preserve digest and signer verification across environment registries       |
 
 ### Reference Application
 
@@ -619,8 +619,8 @@ The initial logical releases and namespaces are:
 | `kore-gateway-api`       | `kore-system`                   | Gateway API CRDs.                                                                                                           |
 | `cert-manager`           | `cert-manager`                  | cert-manager controller and its CRDs.                                                                                       |
 | `gatekeeper`             | `gatekeeper-system`             | OPA Gatekeeper controllers and CRDs.                                                                                        |
-| `oci-registry`           | `registry-system`               | Persistent OCI registry used for platform and application images, signatures, and attestations.                            |
-| `policy-controller`      | `cosign-system`                 | Sigstore signature admission controller, webhook, and CRDs.                                                                |
+| `oci-registry`           | `registry-system`               | Persistent OCI registry used for platform and application images, signatures, and attestations.                             |
+| `policy-controller`      | `cosign-system`                 | Sigstore signature admission controller, webhook, and CRDs.                                                                 |
 | `istio-base`             | `istio-system`                  | Istio cluster-scoped base resources and CRDs.                                                                               |
 | `istiod`                 | `istio-system`                  | Istio control plane.                                                                                                        |
 | `istio-cni`              | `istio-system`                  | Istio ambient networking integration.                                                                                       |
@@ -636,7 +636,7 @@ The initial logical releases and namespaces are:
 | `otel-collector`         | `observability`                 | Application, platform, and mesh telemetry pipelines.                                                                        |
 | `opa-authorizer`         | `opa-system`                    | OPA-Envoy runtime authorization service and policy bundle loader.                                                           |
 | `kore-platform-config`   | `kore-system`                   | Platform-owned issuers, gateways, storage profiles, secret stores, Crossplane APIs and compositions, and policy activation. |
-| `kore-image-policy`      | `kore-system`                   | Verification trust roots, authorized automation identities, `ClusterImagePolicy` resources, and namespace enrollment.      |
+| `kore-image-policy`      | `kore-system`                   | Verification trust roots, authorized automation identities, `ClusterImagePolicy` resources, and namespace enrollment.       |
 
 Logical releases may map to multiple upstream charts when required by a project's
 supported installation model. The catalog records that mapping without changing
