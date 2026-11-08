@@ -90,3 +90,32 @@ upgrade fail with a field-manager conflict, after which the rollback fails too.
   `failurePolicy` on upgrade (`.Release.IsUpgrade`) for the same reason.
 - Recovery needs no new path: a release left `failed` after a deployed
   revision is upgraded by the next reconcile and never uninstalled.
+
+## Refinement: webhook readiness is proven, not inferred from the Deployment
+
+A webhook Deployment that rolled out does not mean admission works: the
+configuration can still lack a `caBundle`, or its Service can have no ready
+endpoint. Step 7's exit criterion is that webhooks report ready, so they are
+readiness resources of their own.
+
+- `validatingwebhookconfiguration/<name>` and
+  `mutatingwebhookconfiguration/<name>` are readiness kinds. A configuration is
+  ready when it exists, every webhook with a `clientConfig.service` has a
+  non-empty `caBundle`, and every such Service has an EndpointSlice endpoint
+  that is not `ready: false`. Webhooks addressed by `url` are skipped. The check
+  uses `get` only and the shared `pollUntil`, so a missing configuration is
+  retried and `kore status` bounds it like every other check.
+- Failures name the webhook entry. A missing `caBundle` names the injector when
+  the configuration carries a cert-manager `inject-ca-from` annotation (the
+  OpenTelemetry operator, cert-manager), and otherwise says the owning
+  controller has not injected it yet (Gatekeeper, Policy Controller, Istiod,
+  External Secrets, CloudNativePG). A missing endpoint names `namespace/Service`.
+- Catalog entries were taken from `helm template` of the pinned charts with the
+  environment values: cert-manager, Gatekeeper, Policy Controller (four
+  configurations), Istiod, External Secrets, CloudNativePG and the
+  OpenTelemetry operator. Crossplane renders no webhook configuration, so it
+  has none. Only configurations the pinned chart renders by default or the
+  values enable are listed; an upgrade that renames one fails readiness
+  visibly and is fixed with the pin.
+- The Deployment rollout checks stay: they report the workload, these report
+  admission.
