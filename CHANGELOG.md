@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.3.0](https://github.com/corekraft/kore/compare/v0.2.0...v0.3.0) (2026-11-08)
+
+
+### Features
+
+* **catalog:** require webhook readiness for admission controllers ([47788e0](https://github.com/corekraft/kore/commit/47788e0c3fc46f33067f0628344842bce52566fe))
+* check every installed crd has one catalog owner ([78bb7c0](https://github.com/corekraft/kore/commit/78bb7c00d9bde703b3981c8b13481f84ba027810))
+* check every installed crd has one catalog owner ([bb13a02](https://github.com/corekraft/kore/commit/bb13a0255c1daa6ff884287018bc2c77a2b9fb40))
+* check rollout feasibility and smoke-run kore chart containers ([#51](https://github.com/corekraft/kore/issues/51)) ([112df2f](https://github.com/corekraft/kore/commit/112df2f211db7515b8561cb1b0532616954c9f7b))
+* equalize spawned herdr session panes after each split or close ([bb58a7b](https://github.com/corekraft/kore/commit/bb58a7baa739c68e1c8f545c6a1f9b3e710db786))
+* equalize spawned herdr session panes after each split or close ([e6b80c3](https://github.com/corekraft/kore/commit/e6b80c3c99d9290b885eabb0445d1dd499cd12ef))
+* fail fast on fatal pod states during component install and readiness ([#50](https://github.com/corekraft/kore/issues/50)) ([97292c5](https://github.com/corekraft/kore/commit/97292c5f1579ac5c11ce9a4efe163db528d44340))
+* pin every platform image by digest and approve it for mirroring ([#47](https://github.com/corekraft/kore/issues/47)) ([25dcf6b](https://github.com/corekraft/kore/commit/25dcf6b90478b6192fa23f93de99b0a6fa49bcc8))
+* **platform:** check webhook configuration readiness ([c2dadcf](https://github.com/corekraft/kore/commit/c2dadcfc98237b19921e1b5277318add68414306))
+* **platform:** check webhook configuration readiness ([0a87dfc](https://github.com/corekraft/kore/commit/0a87dfc0fecf795bdcc68bfdff30fc2d728a7cd3))
+* **registry:** authenticate and authorize the oci registry behind a proxy sidecar ([#46](https://github.com/corekraft/kore/issues/46)) ([6c2a459](https://github.com/corekraft/kore/commit/6c2a459bf448074d8546a8bfae122045e19503f6))
+* **release:** mirror approved platform images with signed digests and a lock ([818b7d5](https://github.com/corekraft/kore/commit/818b7d514b892d71f820dd0e6a4a020a8b2e5418))
+* **release:** mirror approved platform images with signed digests and a lock ([df41713](https://github.com/corekraft/kore/commit/df4171381148b0c74e352a3330d31d821a91b628))
+
+
+### Bug fixes
+
+* silence herdr resize output in the equalize script ([5019158](https://github.com/corekraft/kore/commit/5019158b2fe81aa84ff10de5d3f751b346b457ba))
+* trust the v0.2.0 release subject ([7989246](https://github.com/corekraft/kore/commit/79892462eb020ca1828adadbb4ca82be6cf3fc13))
+* trust the v0.2.0 release subject ([1f7864d](https://github.com/corekraft/kore/commit/1f7864d7a8a936f665e1a9a9a6d57c83c824e7bf))
+* write the equalize script in node so it runs where zsh is absent ([7524c91](https://github.com/corekraft/kore/commit/7524c911ad3a86d09350526fff35570b03e9c19d))
+
+
+### Documentation
+
+* **adr:** refine 0016 with webhook readiness ([abf8c8a](https://github.com/corekraft/kore/commit/abf8c8a3d88373ddfb8fbb24a97a434f8fe41a5d))
+* make it just works a principle and a review check ([#48](https://github.com/corekraft/kore/issues/48)) ([154d7f3](https://github.com/corekraft/kore/commit/154d7f37e8d2e3d5df07e1a28875435d5af7e7c0))
+* record step 7 progress from crd ownership, webhook readiness, and mirror work ([#45](https://github.com/corekraft/kore/issues/45)) ([383ee13](https://github.com/corekraft/kore/commit/383ee1397f79ca5b59eb5de9646b3a9fcc651028))
+
 ## [0.2.0](https://github.com/corekraft/kore/compare/v0.1.1...v0.2.0) (2026-11-08)
 
 
