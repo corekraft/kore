@@ -30,7 +30,7 @@ spec:
       serviceAccountName: default
       containers:
         - name: registry
-          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}@{{ .Values.image.digest }}
           imagePullPolicy: IfNotPresent
           ports:
             - name: registry
