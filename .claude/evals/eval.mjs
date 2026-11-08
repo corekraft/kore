@@ -3,7 +3,8 @@
 // and does principles-review flag each seeded violation and pass a clean diff?
 // Plan: infra/plans/3-agent-harness.md (Step 9). Node standard library only.
 //
-// Usage: node .claude/evals/eval.mjs [--json] [--kind skill,review,deny]
+// Usage: node .claude/evals/eval.mjs [--json] [--kind skill,review,deny] [--no-history]
+//        node .claude/evals/eval.mjs --trend [--json]   (no model calls)
 //        (mise run eval-harness)
 // Runs `claude -p` once per case, so it costs tokens: opt-in, never in ordinary
 // runs. Sessions are not persisted, so evals never count toward the retrospective.
@@ -11,6 +12,8 @@
 
 import { execFile, execFileSync } from "node:child_process";
 import {
+  appendFileSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -19,7 +22,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const EVALS_DIR = fileURLToPath(new URL(".", import.meta.url));
@@ -27,6 +30,7 @@ const EVALS_DIR = fileURLToPath(new URL(".", import.meta.url));
 export const EVAL_MODEL = "claude-opus-5-5";
 /** Triggering varies between runs, so each skill case is graded by majority. */
 export const SKILL_SAMPLES = 3;
+const HISTORY_FILE = join(EVALS_DIR, "history.jsonl");
 const KINDS = ["skill", "review", "deny"];
 
 /** The case kinds to run: all by default, or those named by --kind a,b. */
@@ -182,6 +186,13 @@ async function pool(tasks, size) {
   return results;
 }
 
+/** A review or deny case is one sample: it hits once or not at all. */
+const single = (grade) => ({
+  ...grade,
+  hits: grade.hit ? 1 : 0,
+  samples: 1,
+});
+
 /** Run every case through deps.claude(args) and grade it. Never throws on a failed run. */
 export async function runEvals(deps) {
   if (deps.skillCases.length > 0 && !deps.worktree) {
@@ -225,6 +236,8 @@ export async function runEvals(deps) {
       kind: "skill",
       name: testCase.prompt,
       hit: hits * 2 > grades.length,
+      hits,
+      samples: grades.length,
       expected: grades[0].expected,
       got: tally(grades.map((grade) => grade.got)),
     };
@@ -252,6 +265,8 @@ export async function runEvals(deps) {
         kind: "review",
         name: testCase.diff,
         hit: false,
+        hits: 0,
+        samples: 1,
         expected,
         got: `claude exited ${run.status}`,
       };
@@ -259,7 +274,7 @@ export async function runEvals(deps) {
     return {
       kind: "review",
       name: testCase.diff,
-      ...gradeReview(testCase, result),
+      ...single(gradeReview(testCase, result)),
     };
   });
   // Deny cases switch every other gate off, so a broken rule must reach only
@@ -295,7 +310,7 @@ export async function runEvals(deps) {
     return {
       kind: "deny",
       name: testCase.command,
-      ...gradeDeny(testCase, run.stdout),
+      ...single(gradeDeny(testCase, run.stdout)),
     };
   });
   return pool([...skillTasks, ...reviewTasks, ...denyTasks], CONCURRENCY);
@@ -382,32 +397,138 @@ function realWorktree(root) {
   };
 }
 
-async function main(argv) {
+const TREND_WINDOW = 5;
+const rateOf = (runs) => {
+  const samples = runs.reduce((sum, run) => sum + run.samples, 0);
+  return samples === 0
+    ? 0
+    : runs.reduce((sum, run) => sum + run.hits, 0) / samples;
+};
+
+/**
+ * Per case: its hit rate over the last five runs that included it, the rate
+ * over the five before, and whether it fell. With fewer than ten runs there is
+ * nothing to compare, so a case is never reported as regressed.
+ */
+export function trend(history) {
+  const byCase = new Map();
+  for (const entry of history) {
+    for (const item of entry.cases ?? []) {
+      const key = `${item.kind}\u0000${item.name}`;
+      if (!byCase.has(key)) byCase.set(key, { ...item, runs: [] });
+      byCase.get(key).runs.push(item);
+    }
+  }
+  return [...byCase.values()].map(({ kind, name, runs }) => {
+    const recent = runs.slice(-TREND_WINDOW);
+    const before = runs.slice(-2 * TREND_WINDOW, -TREND_WINDOW);
+    const rate = rateOf(recent);
+    const previous = before.length === TREND_WINDOW ? rateOf(before) : null;
+    return {
+      kind,
+      name,
+      runs: runs.length,
+      rate,
+      previous,
+      regressed: previous !== null && rate < previous,
+    };
+  });
+}
+
+/** One line per case; a regression is spelled out. */
+export function formatTrend(rows) {
+  if (rows.length === 0) return "eval history is empty";
+  const percent = (rate) => `${Math.round(rate * 100)}%`;
+  return rows
+    .map((row) => {
+      const window = Math.min(row.runs, TREND_WINDOW);
+      const base = `${row.name}: ${percent(row.rate)} over last ${window} run${window === 1 ? "" : "s"}`;
+      if (row.previous === null) return base;
+      return row.regressed
+        ? `${base}, was ${percent(row.previous)}, regressed`
+        : `${base}, was ${percent(row.previous)}`;
+    })
+    .join("\n");
+}
+
+/** The live dependencies: real `claude` runs and worktrees of this repository. */
+function realDeps() {
   const root = join(EVALS_DIR, "../..");
-  const readJson = (name) =>
-    JSON.parse(readFileSync(join(EVALS_DIR, name), "utf8"));
-  const kinds = selectedKinds(argv);
-  const cases = (kind, file) => (kinds.includes(kind) ? readJson(file) : []);
-  const results = await runEvals({
+  return {
     claude: realClaude(root),
     worktree: realWorktree(root),
-    skillCases: cases("skill", "skills.json"),
-    reviewCases: cases("review", "principles-review.json"),
-    denyCases: cases("deny", "deny.json"),
+    version: () =>
+      execFileSync("claude", ["--version"], { encoding: "utf8" }).trim(),
+    readJson: (name) => JSON.parse(readFileSync(join(EVALS_DIR, name), "utf8")),
     readDiff: (name) =>
       readFileSync(join(EVALS_DIR, "principles-review", name), "utf8"),
     repoSkills: readdirSync(join(root, "skills")),
-  });
-  const meta = {
-    version: execFileSync("claude", ["--version"], { encoding: "utf8" }).trim(),
-    model: EVAL_MODEL,
+    write: (text) => process.stdout.write(text),
+    now: () => new Date(),
+    historyFile: HISTORY_FILE,
   };
-  process.stdout.write(
+}
+
+/** Every dependency is injected, so tests never reach a real `claude`. */
+export async function main(argv, deps) {
+  if (argv.includes("--trend")) {
+    const history = existsSync(deps.historyFile)
+      ? readFileSync(deps.historyFile, "utf8")
+          .split("\n")
+          .map((text, index) => ({ text, number: index + 1 }))
+          .filter(({ text }) => text)
+          .map(({ text, number }) => {
+            try {
+              return JSON.parse(text);
+            } catch (error) {
+              if (!(error instanceof SyntaxError)) throw error;
+              throw new Error(
+                `${basename(deps.historyFile)}:${number} is not valid JSON; repair or delete that line`,
+              );
+            }
+          })
+      : [];
+    const rows = trend(history);
+    deps.write(
+      `${argv.includes("--json") ? JSON.stringify(rows, null, 2) : formatTrend(rows)}\n`,
+    );
+    return 0;
+  }
+  const kinds = selectedKinds(argv);
+  const cases = (kind, file) =>
+    kinds.includes(kind) ? deps.readJson(file) : [];
+  const results = await runEvals({
+    claude: deps.claude,
+    worktree: deps.worktree,
+    skillCases: cases("skill", "skills.json"),
+    reviewCases: cases("review", "principles-review.json"),
+    denyCases: cases("deny", "deny.json"),
+    readDiff: deps.readDiff,
+    repoSkills: deps.repoSkills,
+  });
+  const meta = { version: deps.version(), model: EVAL_MODEL };
+  if (!argv.includes("--no-history")) {
+    const entry = {
+      date: deps.now().toISOString(),
+      source: "run",
+      claude: meta.version,
+      model: meta.model,
+      kinds,
+      cases: results.map(({ kind, name, hits, samples }) => ({
+        kind,
+        name,
+        hits,
+        samples,
+      })),
+    };
+    appendFileSync(deps.historyFile, `${JSON.stringify(entry)}\n`);
+  }
+  deps.write(
     `${argv.includes("--json") ? JSON.stringify({ ...meta, results }, null, 2) : report(results, meta)}\n`,
   );
   return results.every((result) => result.hit) ? 0 : 1;
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  process.exitCode = await main(process.argv.slice(2));
+  process.exitCode = await main(process.argv.slice(2), realDeps());
 }

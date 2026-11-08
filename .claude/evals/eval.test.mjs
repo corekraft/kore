@@ -1,4 +1,13 @@
 import assert from "node:assert/strict";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
 
 import {
@@ -8,9 +17,12 @@ import {
   gradeDeny,
   gradeReview,
   gradeSkill,
+  formatTrend,
   invokedSkills,
+  main,
   report,
   runEvals,
+  trend,
 } from "./eval.mjs";
 
 const repoSkills = ["add-command", "handoff", "retro"];
@@ -423,5 +435,219 @@ test("selectedKinds refuses an empty --kind instead of running nothing and passi
       /--kind needs at least one of skill, review, deny/,
       argv.join(" "),
     );
+  }
+});
+
+const scratch = () => mkdtempSync(join(tmpdir(), "kore-eval-history-"));
+const lines = (file) =>
+  readFileSync(file, "utf8")
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+const reviewOnly = (historyFile, extra = {}) => ({
+  claude: async () => ({
+    status: 0,
+    stdout: JSON.stringify({ result: "No violations." }),
+  }),
+  version: () => "2.1.319 (Claude Code)",
+  now: () => new Date("2026-11-08T10:00:00.000Z"),
+  historyFile,
+  readJson: (name) =>
+    name === "principles-review.json"
+      ? [{ diff: "clean.diff", expect: null }]
+      : [],
+  readDiff: () => "diff",
+  repoSkills,
+  worktree: fakeWorktree,
+  write: () => {},
+  ...extra,
+});
+
+test("skill results count hits per sample, and review and deny results count one sample", async () => {
+  const outcomes = [stream, "", stream];
+  let call = 0;
+  const results = await runEvals({
+    claude: async (args) =>
+      args.includes("--agent")
+        ? { status: 0, stdout: JSON.stringify({ result: "No violations." }) }
+        : { status: 0, stdout: outcomes[call++] },
+    skillCases: [{ prompt: "Add a flag", expect: "add-command" }],
+    reviewCases: [{ diff: "clean.diff", expect: null }],
+    readDiff: () => "",
+    repoSkills,
+    worktree: fakeWorktree,
+  });
+  assert.deepEqual(
+    results.map(({ kind, hits, samples }) => [kind, hits, samples]),
+    [
+      ["skill", 2, 3],
+      ["review", 1, 1],
+    ],
+  );
+});
+
+test("a run appends one history line with date, claude version, model, kinds, and hits and samples per case", async () => {
+  const dir = scratch();
+  try {
+    const file = join(dir, "history.jsonl");
+    writeFileSync(file, `${JSON.stringify({ date: "2026-11-07" })}\n`);
+    const status = await main(["--kind", "review"], reviewOnly(file));
+    assert.equal(status, 0);
+    const history = lines(file);
+    assert.equal(history.length, 2, "earlier lines are kept, not rewritten");
+    assert.deepEqual(history[1], {
+      date: "2026-11-08T10:00:00.000Z",
+      source: "run",
+      claude: "2.1.319 (Claude Code)",
+      model: EVAL_MODEL,
+      kinds: ["review"],
+      cases: [{ kind: "review", name: "clean.diff", hits: 1, samples: 1 }],
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("--no-history runs the evals without touching the history file", async () => {
+  const dir = scratch();
+  try {
+    const file = join(dir, "history.jsonl");
+    await main(["--kind", "review", "--no-history"], reviewOnly(file));
+    assert.equal(existsSync(file), false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+const run = (date, cases) => ({
+  date,
+  cases: Object.entries(cases).map(([name, [hits, samples]]) => ({
+    kind: "skill",
+    name,
+    hits,
+    samples,
+  })),
+});
+
+test("trend over fewer than five runs reports the rate so far and no regression", () => {
+  const rows = trend([
+    run("1", { tdd: [0, 3] }),
+    run("2", { tdd: [3, 3], adr: [3, 3] }),
+  ]);
+  assert.deepEqual(rows, [
+    {
+      kind: "skill",
+      name: "tdd",
+      runs: 2,
+      rate: 0.5,
+      previous: null,
+      regressed: false,
+    },
+    {
+      kind: "skill",
+      name: "adr",
+      runs: 1,
+      rate: 1,
+      previous: null,
+      regressed: false,
+    },
+  ]);
+});
+
+test("trend flags a case whose last five runs hit less often than the five before", () => {
+  const history = [];
+  for (let i = 0; i < 5; i++)
+    history.push(run(`a${i}`, { tdd: [3, 3], adr: [2, 3] }));
+  for (let i = 0; i < 5; i++)
+    history.push(run(`b${i}`, { tdd: [i === 4 ? 2 : 3, 3], adr: [2, 3] }));
+  history.push(run("c", { tdd: [3, 3], adr: [2, 3] }));
+  const rows = trend(history);
+  const tdd = rows.find((row) => row.name === "tdd");
+  const adr = rows.find((row) => row.name === "adr");
+  assert.deepEqual([tdd.runs, tdd.regressed], [11, true]);
+  assert.equal(tdd.rate, 14 / 15);
+  assert.equal(tdd.previous, 1);
+  assert.equal(adr.regressed, false, "a steady rate is not a regression");
+  assert.match(
+    formatTrend(rows),
+    /tdd: 93% over last 5 runs, was 100%, regressed/,
+  );
+  assert.doesNotMatch(formatTrend(rows), /adr:.*regressed/);
+});
+
+test("--trend reads the history and makes no claude calls", async () => {
+  const dir = scratch();
+  try {
+    const file = join(dir, "history.jsonl");
+    writeFileSync(
+      file,
+      [run("1", { tdd: [3, 3] }), run("2", { tdd: [1, 3] })]
+        .map((entry) => JSON.stringify(entry))
+        .join("\n") + "\n",
+    );
+    let output = "";
+    const status = await main(
+      ["--trend"],
+      reviewOnly(file, {
+        claude: async () => assert.fail("--trend must not call claude"),
+        version: () => assert.fail("--trend must not call claude"),
+        write: (text) => (output += text),
+      }),
+    );
+    assert.equal(status, 0);
+    assert.match(output, /tdd: 67% over last 2 runs/);
+    assert.equal(lines(file).length, 2, "--trend appends nothing");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("the committed history starts with the backfilled runs from plan 3", () => {
+  const history = lines(new URL("./history.jsonl", import.meta.url));
+  const backfill = history.slice(0, 3);
+  assert.ok(backfill.every((entry) => entry.source === "backfill"));
+  for (const entry of history.slice(3))
+    assert.notEqual(entry.source, "backfill");
+});
+
+test("--trend names the file and line of a corrupt history entry", async () => {
+  const dir = scratch();
+  try {
+    const file = join(dir, "history.jsonl");
+    writeFileSync(
+      file,
+      `${JSON.stringify(run("1", { tdd: [3, 3] }))}\n{"date"\n`,
+    );
+    await assert.rejects(
+      main(["--trend"], reviewOnly(file)),
+      /history\.jsonl:2 is not valid JSON; repair or delete that line/,
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("--trend --json prints the trend rows as JSON", async () => {
+  const dir = scratch();
+  try {
+    const file = join(dir, "history.jsonl");
+    writeFileSync(file, `${JSON.stringify(run("1", { tdd: [3, 3] }))}\n`);
+    let output = "";
+    await main(
+      ["--trend", "--json"],
+      reviewOnly(file, { write: (text) => (output += text) }),
+    );
+    assert.deepEqual(JSON.parse(output), [
+      {
+        kind: "skill",
+        name: "tdd",
+        runs: 1,
+        rate: 1,
+        previous: null,
+        regressed: false,
+      },
+    ]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 });

@@ -322,3 +322,93 @@ test("cli: runs against the repository and exits 0 in warn mode", () => {
   assert.equal(warn.status, 0, warn.stderr);
   assert.match(warn.stdout, /^kb-check: (clean|\d+ findings?)/m);
 });
+
+// Staleness: a document last verified before a file it depends on changed.
+// Docs: infra/plans/5-self-maintenance.md#step-5-stale-documents
+
+/** run() over a tree whose git history is a fixture: {path: "YYYY-MM-DD"}. */
+function runWithHistory(tree, history, argv = []) {
+  const lines = [];
+  const asked = [];
+  const deps = {
+    ...fakeDeps(tree),
+    commitDate: (path) => {
+      asked.push(path);
+      return history[path] ?? null;
+    },
+  };
+  const status = run(argv, deps, (line) => lines.push(line));
+  return { status, lines, asked };
+}
+
+test("a document verified after every file it depends on is current", () => {
+  const { lines } = runWithHistory(cleanTree(), {
+    "tools/kore/src/app/index.ts": "2026-11-06",
+    "tools/kore/src/cli/cli.ts": "2026-11-07",
+  });
+  assert.deepEqual(lines, ["kb-check: clean"]);
+});
+
+test("a document older than a file it links to is stale, naming the document, its date, and the newest file and commit", () => {
+  const { status, lines } = runWithHistory(
+    cleanTree({
+      "infra/plans/1-a.md": `${planFrontmatter}# Plan A\n\n## Step 1: Do It\n\nSee [the rules](../../skills/tdd/references/rules.md) and [the skill](../../skills/tdd/SKILL.md).\n`,
+    }),
+    {
+      "skills/tdd/references/rules.md": "2026-11-09",
+      "skills/tdd/SKILL.md": "2026-11-12",
+    },
+  );
+  assert.equal(status, 0);
+  assert.ok(
+    lines.includes(
+      "stale: infra/plans/1-a.md was last verified 2026-11-07, but skills/tdd/SKILL.md changed 2026-11-12; re-read it and update last-verified",
+    ),
+    lines.join("\n"),
+  );
+  assert.equal(lines.at(-1), "kb-check: 1 stale document (warn only)");
+});
+
+test("a document is stale through a file whose Docs, Plan, or ADR marker points back at it", () => {
+  const { lines } = runWithHistory(cleanTree(), {
+    "tools/kore/src/app/index.ts": "2026-12-01",
+  });
+  assert.ok(
+    lines.includes(
+      "stale: docs/decisions/0001-a.md was last verified 2026-11-07, but tools/kore/src/app/index.ts changed 2026-12-01; re-read it and update last-verified",
+    ),
+    lines.join("\n"),
+  );
+});
+
+test("a document with no linked files, or whose files have no history, is never stale", () => {
+  const tree = cleanTree({
+    "infra/plans/1-a.md": `${planFrontmatter}# Plan A\n\n## Step 1: Do It\n\nNothing linked.\n`,
+    "tools/kore/src/cli/cli.ts": `${usage}\n`,
+    "tools/kore/src/app/index.ts": "export {};\n",
+  });
+  const { lines } = runWithHistory(tree, { "README.md": "2027-01-01" });
+  assert.deepEqual(lines, ["kb-check: clean"]);
+});
+
+test("--strict ignores staleness: it neither fails nor counts it as a finding", () => {
+  const { status, lines } = runWithHistory(
+    cleanTree(),
+    { "tools/kore/src/app/index.ts": "2026-12-01" },
+    ["--strict"],
+  );
+  assert.equal(status, 0);
+  assert.equal(lines.at(-1), "kb-check: 1 stale document (warn only)");
+  assert.ok(lines.every((line) => !line.startsWith("kb-check: 1 finding")));
+});
+
+test("staleness is skipped for a document with no valid last-verified date, which is already a finding", () => {
+  const tree = cleanTree({
+    "infra/plans/1-a.md":
+      "# Plan A\n\nSee [rules](../../skills/tdd/SKILL.md).\n",
+  });
+  const { lines } = runWithHistory(tree, {
+    "skills/tdd/SKILL.md": "2026-12-01",
+  });
+  assert.ok(lines.every((line) => !line.startsWith("stale:")));
+});
