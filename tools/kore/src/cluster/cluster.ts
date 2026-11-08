@@ -160,13 +160,17 @@ export async function clusterStop(
 }
 
 function isResourceTypeMissing(error: unknown): boolean {
-  const text =
-    error instanceof CommandError
-      ? error.result.stderr
-      : error instanceof Error
-        ? error.message
-        : String(error);
-  return /the server doesn't have a resource type/i.test(text);
+  return /the server doesn't have a resource type/i.test(errorText(error));
+}
+
+function errorText(error: unknown): string {
+  if (error instanceof CommandError) {
+    return error.result.stderr;
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
 }
 
 export async function retainedResources(

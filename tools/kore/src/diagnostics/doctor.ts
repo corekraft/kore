@@ -57,9 +57,17 @@ export async function doctor(
       const result = await runner.run(tool, args, { capture: true });
       const actual = detectedVersion(`${result.stdout}\n${result.stderr}`);
       const matches = actual && majorMinor(actual) === majorMinor(expected);
+      let status: CheckStatus;
+      if (matches) {
+        status = "pass";
+      } else if (required.has(tool)) {
+        status = "fail";
+      } else {
+        status = "warn";
+      }
       checks.push({
         name: `tool:${tool}`,
-        status: matches ? "pass" : required.has(tool) ? "fail" : "warn",
+        status,
         required: required.has(tool),
         message: matches
           ? `${actual} (pinned ${expected})`

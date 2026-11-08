@@ -17,6 +17,16 @@ import { loadRepository } from "../config/index.js";
 import { CommandError } from "../runtime/index.js";
 import { RecordingRunner } from "../runtime/runner.js";
 
+function mockStdout(command: string, args: readonly string[]): string {
+  if (command === "minikube" && args[0] === "status") {
+    return '{"Host":"Running"}';
+  }
+  if (command === "kubectl" && args.includes("jsonpath={.metadata.name}")) {
+    return "kube-system";
+  }
+  return "";
+}
+
 test("cluster start command pins profile, context inputs, runtime, and resources", async () => {
   const repository = await loadRepository("local");
   const args = clusterStartArgs(repository.environment);
@@ -144,13 +154,7 @@ test("purge tolerates a PostgreSQL CRD that was never installed", async () => {
         );
       }
       return {
-        stdout:
-          command === "minikube" && args[0] === "status"
-            ? '{"Host":"Running"}'
-            : command === "kubectl" &&
-                args.includes("jsonpath={.metadata.name}")
-              ? "kube-system"
-              : "",
+        stdout: mockStdout(command, args),
         stderr: "",
         code: 0,
       };

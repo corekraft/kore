@@ -15,14 +15,14 @@ function releaseArgs(
   repository: Repository,
   name: string,
   release: string,
-  chart: string,
+  chartPath: string,
   image?: LockedImage,
 ): string[] {
   const args = [
     "upgrade",
     "--install",
     release,
-    chart,
+    chartPath,
     "--namespace",
     name,
     "--create-namespace",

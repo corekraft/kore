@@ -93,7 +93,7 @@ function print(value: unknown, json: boolean): void {
       );
     }
   } else {
-    console.log(String(value));
+    console.log(String(value as string | number | boolean | undefined));
   }
 }
 
@@ -209,13 +209,13 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       print(await clusterStatus(repository, runner), json);
       return 0;
     }
-    return await mutate(`cluster ${action}`, async (runner) => {
+    return await mutate(`cluster ${action}`, async (mutationRunner) => {
       if (action === "up") {
-        await clusterUp(repository, runner);
+        await clusterUp(repository, mutationRunner);
       } else if (action === "stop") {
-        await clusterStop(repository, runner);
+        await clusterStop(repository, mutationRunner);
       } else if (action === "destroy") {
-        await clusterDestroy(repository, runner, {
+        await clusterDestroy(repository, mutationRunner, {
           yes: boolFlag(parsed, "yes"),
           purgeData: boolFlag(parsed, "purge-data"),
         });
@@ -239,15 +239,15 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       );
       return 0;
     }
-    return await mutate(`platform ${action}`, async (runner) => {
+    return await mutate(`platform ${action}`, async (mutationRunner) => {
       if (action === "bootstrap") {
-        await bootstrapControllers(repository, runner);
+        await bootstrapControllers(repository, mutationRunner);
       } else if (action === "up") {
-        await platformUp(repository, runner);
+        await platformUp(repository, mutationRunner);
       } else if (action === "stop") {
-        await platformStop(repository, runner);
+        await platformStop(repository, mutationRunner);
       } else if (action === "destroy") {
-        await platformDestroy(repository, runner, {
+        await platformDestroy(repository, mutationRunner, {
           yes: boolFlag(parsed, "yes"),
           purgeData: boolFlag(parsed, "purge-data"),
         });
@@ -264,21 +264,21 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       print(await appStatus(repository, runner, name), json);
       return 0;
     }
-    return await mutate(`app ${action} ${name}`, async (runner) => {
+    return await mutate(`app ${action} ${name}`, async (mutationRunner) => {
       if (action === "up") {
-        await appUp(repository, runner, name);
+        await appUp(repository, mutationRunner, name);
       } else if (action === "down") {
-        await appDown(repository, runner, name);
+        await appDown(repository, mutationRunner, name);
       }
       return 0;
     });
   }
   if (command === "local") {
-    return await mutate(`local ${action}`, async (runner) => {
+    return await mutate(`local ${action}`, async (mutationRunner) => {
       if (action === "up") {
-        await localUp(repository, runner);
+        await localUp(repository, mutationRunner);
       } else if (action === "down") {
-        await localDown(repository, runner, {
+        await localDown(repository, mutationRunner, {
           prune: boolFlag(parsed, "prune"),
           purgeData: boolFlag(parsed, "purge-data"),
         });
@@ -291,26 +291,26 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       print(await tunnelStatus(repository), json);
       return 0;
     }
-    return await mutate(`tunnel ${action}`, async (runner) => {
+    return await mutate(`tunnel ${action}`, async (mutationRunner) => {
       if (action === "start") {
-        print(await startLocalTunnel(repository, runner), json);
+        print(await startLocalTunnel(repository, mutationRunner), json);
       } else if (action === "stop") {
-        await stopLocalTunnel(repository, runner);
+        await stopLocalTunnel(repository, mutationRunner);
         print({ status: "stopped" }, json);
       }
       return 0;
     });
   }
   if (command === "secrets") {
-    return await mutate(`secrets ${action}`, async (runner) => {
-      const count = await syncLocalSecrets(repository, runner);
+    return await mutate(`secrets ${action}`, async (mutationRunner) => {
+      const count = await syncLocalSecrets(repository, mutationRunner);
       print({ status: "synced", files: count }, json);
       return 0;
     });
   }
   if (command === "trust") {
-    return await mutate(`trust ${action}`, async (runner) => {
-      await installLocalTrust(repository, runner);
+    return await mutate(`trust ${action}`, async (mutationRunner) => {
+      await installLocalTrust(repository, mutationRunner);
       print(
         { status: "installed", issuer: repository.environment.gateway.name },
         json,

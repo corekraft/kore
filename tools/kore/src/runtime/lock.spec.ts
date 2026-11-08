@@ -68,7 +68,7 @@ test("environment lock is removed when the operation throws", async () => {
 
 async function plantLock(
   root: string,
-  owner: Record<string, unknown> | string | "legacy",
+  owner: Record<string, unknown> | string,
 ): Promise<string> {
   const base = join(root, ".kore", "locks");
   const lockPath = join(base, "local.lock");

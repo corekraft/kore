@@ -12,7 +12,7 @@
     "check": "tsc -p tsconfig.json --noEmit",
     "format": "prettier --write \"src/**/*.ts\" package.json tsconfig.json .oxlintrc.json .prettierrc.json commitlint.config.js lint-staged.config.js",
     "format:check": "prettier --check \"src/**/*.ts\" package.json tsconfig.json .oxlintrc.json .prettierrc.json commitlint.config.js lint-staged.config.js",
-    "lint": "oxlint --deny-warnings src/**/*.ts",
+    "lint": "oxlint --type-aware --deny-warnings src/**/*.ts",
     "kore": "npm run build --silent && node dist/src/cli/cli.js",
     "test": "npm run build --silent && vitest run --coverage",
     "test:coverage": "vitest run --coverage",
@@ -29,6 +29,7 @@
     "husky": "9.1.7",
     "lint-staged": "17.6.0",
     "oxlint": "1.92.0",
+    "oxlint-tsgolint": "7.0.2006",
     "prettier": "3.9.10",
     "typescript": "7.0.2",
     "vitest": "5.1.0"

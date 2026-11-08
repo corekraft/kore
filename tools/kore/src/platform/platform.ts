@@ -201,9 +201,17 @@ function timeoutMilliseconds(value: string): number {
     return 10 * 60 * 1000;
   }
   const amount = Number(match[1]);
-  return (
-    amount * (match[2] === "h" ? 3600000 : match[2] === "m" ? 60000 : 1000)
-  );
+  return amount * unitMilliseconds(match[2]);
+}
+
+function unitMilliseconds(unit: string | undefined): number {
+  if (unit === "h") {
+    return 3600000;
+  }
+  if (unit === "m") {
+    return 60000;
+  }
+  return 1000;
 }
 
 async function waitForCRD(
