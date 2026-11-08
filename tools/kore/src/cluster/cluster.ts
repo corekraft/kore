@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Environment, Repository } from "../config/index.js";
-import type { Runner } from "../runtime/index.js";
+import { CommandError, type Runner } from "../runtime/index.js";
 
 export class ClusterUnavailableError extends Error {
   constructor(message: string, options?: { cause?: unknown }) {
@@ -154,6 +154,16 @@ export async function clusterStop(
   );
 }
 
+function isResourceTypeMissing(error: unknown): boolean {
+  const text =
+    error instanceof CommandError
+      ? error.result.stderr
+      : error instanceof Error
+        ? error.message
+        : String(error);
+  return /the server doesn't have a resource type/i.test(text);
+}
+
 export async function retainedResources(
   repository: Repository,
   runner: Runner,
@@ -193,8 +203,10 @@ export async function retainedResources(
           .map((line) => line.trim())
           .filter(Boolean),
       );
-    } catch {
-      /* An API that is not installed cannot contain retained data. */
+    } catch (error) {
+      // An API that is not installed cannot contain retained data; any other
+      // failure (unreachable cluster, wrong context) must refuse the destroy.
+      if (!isResourceTypeMissing(error)) throw error;
     }
   }
   return [...new Set(retained)].sort();
