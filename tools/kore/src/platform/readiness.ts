@@ -14,6 +14,16 @@ const TLS_READY_TEMPLATE =
   '{{if and (eq .type "kubernetes.io/tls") (index .data "tls.crt") (index .data "tls.key")}}ready{{end}}';
 /** Crossplane composition Function packages report Installed, then Healthy. */
 const FUNCTION_PREFIX = "function.pkg.crossplane.io/";
+/**
+ * Cluster-scoped kinds proven by conditions, waited for in order: CRDs are
+ * Established, Functions Installed then Healthy, and Sigstore Policy
+ * Controller reports a ClusterImagePolicy Ready once its keys are inlined.
+ */
+const CONDITION_KINDS: readonly (readonly [string, string[]])[] = [
+  ["crd/", ["Established"]],
+  [FUNCTION_PREFIX, ["Installed", "Healthy"]],
+  ["clusterimagepolicy.policy.sigstore.dev/", ["Ready"]],
+];
 const NOT_FOUND = /NotFound|not found/i;
 const EXISTENCE_KINDS = [
   "storageclass/",
@@ -143,18 +153,14 @@ function nativeCheck(
 }
 
 function checkFor(context: Context, resource: string): Check {
-  if (resource.startsWith("crd/")) {
+  const conditions = CONDITION_KINDS.find(([prefix]) =>
+    resource.startsWith(prefix),
+  )?.[1];
+  if (conditions) {
     return {
-      condition: "Established",
+      condition: conditions.join(" and "),
       run: (timeout) =>
-        waitForConditions(context, resource, ["Established"], timeout),
-    };
-  }
-  if (resource.startsWith(FUNCTION_PREFIX)) {
-    return {
-      condition: "Installed and Healthy",
-      run: (timeout) =>
-        waitForConditions(context, resource, ["Installed", "Healthy"], timeout),
+        waitForConditions(context, resource, conditions, timeout),
     };
   }
   if (resource.startsWith("secret/")) {

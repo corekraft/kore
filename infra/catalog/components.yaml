@@ -467,7 +467,8 @@
         "ownsCRDs": [],
         "dependencies": ["policy-controller", "oci-registry"],
         "timeout": "5m",
-        "readiness": ["clusterimagepolicy/kore-platform-images"]
+        "readiness":
+          ["clusterimagepolicy.policy.sigstore.dev/kore-platform-images"]
       },
       {
         "name": "kore-platform-config",
