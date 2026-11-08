@@ -1,0 +1,73 @@
+name: release
+
+# Signs the reference image with keyless Cosign. The signature is bound to this
+# exact workflow on the pushed tag, which the managed environment lists as one
+# reviewed subject (ADR 0028). Version tags MUST be protected by a repository
+# ruleset (restrict creation, updates, and deletion of v* tags to maintainers):
+# the repository cannot configure that itself, and without it anyone who can
+# push a tag can mint a trusted signature.
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    env:
+      MISE_TASK_RUN_AUTO_INSTALL: "false"
+      # The one place the release registry is chosen.
+      IMAGE: ghcr.io/corekraft/kore/reference
+      ISSUER: https://token.actions.githubusercontent.com
+      IDENTITY: https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/${{ github.ref_name }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        with:
+          install: true
+          install_args: cosign
+          cache: false
+      - name: Check the tag is a release version
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "tag $TAG is not vX.Y.Z" >&2; exit 1; }
+      - name: Log in to the registry
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$ACTOR" --password-stdin
+      - name: Build and push the reference image
+        run: |
+          docker build --tag "$IMAGE:$TAG" apps/reference
+          docker push "$IMAGE:$TAG"
+          DIGEST="$(docker inspect --format '{{ index .RepoDigests 0 }}' "$IMAGE:$TAG")"
+          echo "DIGEST=${DIGEST##*@}" >> "$GITHUB_ENV"
+      - name: Sign the digest
+        run: mise exec -- cosign sign --yes "${IMAGE}@${DIGEST}"
+      - name: Verify the signature against the exact identity
+        run: |
+          mise exec -- cosign verify \
+            --certificate-identity "$IDENTITY" \
+            --certificate-oidc-issuer "$ISSUER" \
+            "${IMAGE}@${DIGEST}"
+      - name: Write the image lock
+        run: |
+          jq -n --arg image "$IMAGE" --arg digest "$DIGEST" --arg signer "$IDENTITY" \
+            '{version: 1, authorizedSigners: [$signer], entries: {reference: {image: $image, digest: $digest, signer: $signer}}}' \
+            > images.lock.json
+          cat images.lock.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: images.lock.json
+          path: images.lock.json
+          if-no-files-found: error

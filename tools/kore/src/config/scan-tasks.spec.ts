@@ -112,6 +112,16 @@ test("CI runs the scans through mise without publishing or signing", async () =>
   }
 });
 
+test("the workflow scan lists every committed workflow by hand", async () => {
+  const block = taskBlock(await read(".mise.toml"), "scan-workflows");
+  for (const file of ["check.yml", "release.yaml"]) {
+    assert.match(
+      block,
+      new RegExp(`actionlint[^\\]]*\\.github/workflows/${file}`),
+    );
+  }
+});
+
 test("every tracked npm lockfile is scanned for vulnerabilities", async () => {
   const { root } = await loadRepository("local");
   const mise = await read(".mise.toml");

@@ -149,6 +149,20 @@ makes schema failures deterministic before any cluster mutation while remaining
 valid YAML for Helm/Kubernetes tooling. See [`docs/index.md`](docs/index.md) for the plans and decisions behind the
 lifecycle and capability contracts.
 
+## Releases
+
+Pushing a `vX.Y.Z` tag runs `.github/workflows/release.yaml`, which builds the
+reference image, pushes it to `ghcr.io/corekraft/kore/reference` (the `IMAGE`
+variable in the workflow), signs the digest with keyless Cosign, verifies it
+against the exact workflow-on-tag identity, and uploads an `images.lock.json`
+artifact. To accept a release, copy the digest into `infra/catalog/images.lock.json`
+and add the tag's subject
+(`https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/vX.Y.Z`)
+to the managed environment's `trust.subjects`; patterns are rejected. Protect `v*`
+tags with a repository ruleset first: the workflow cannot configure that, and an
+unprotected tag push mints a trusted signature. See
+[ADR 0028](docs/decisions/0028-image-trust-authority.md).
+
 ## Scans
 
 `mise run scan` runs the pinned security and quality scans: TruffleHog (secrets
