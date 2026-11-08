@@ -1,7 +1,13 @@
 tempo:
   retention: 72h
   resources:
-    requests: {cpu: 100m, memory: 256Mi}
-    limits: {cpu: 500m, memory: 1Gi}
-persistence: {enabled: true, size: 5Gi, storageClassName: kore-standard}
-
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: 500m, memory: 1Gi }
+  # The final tempo chart (1.24.4) cannot label its volumeClaimTemplates, so
+  # traces live on the labelled tempo-storage claim owned by
+  # kore-observability-config.
+  extraVolumeMounts:
+    - { name: storage, mountPath: /var/tempo }
+persistence: { enabled: false }
+extraVolumes:
+  - { name: storage, persistentVolumeClaim: { claimName: tempo-storage } }

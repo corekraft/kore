@@ -276,7 +276,7 @@
         "chart": "tempo",
         "version": "tempo",
         "ownsCRDs": [],
-        "dependencies": ["opentelemetry-operator", "kore-storage"],
+        "dependencies": ["opentelemetry-operator", "kore-storage", "kore-observability-config"],
         "timeout": "15m",
         "readiness": ["statefulset/tempo"]
       },
