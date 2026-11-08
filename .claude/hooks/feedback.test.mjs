@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { isTrackedSource, postEdit, stop } from "./feedback.mjs";
+import { bound, isTrackedSource, postEdit, stop } from "./feedback.mjs";
 
 const root = "/repo";
 
@@ -94,4 +94,42 @@ test("stop does not loop when the harness is already continuing from a stop hook
   const result = stop({ stop_hook_active: true }, deps);
   assert.equal(result.code, 0);
   assert.deepEqual(deps.calls, []);
+});
+
+const lines = (count) => Array.from({ length: count }, (_, index) => `line ${index + 1}`).join("\n");
+
+test("bound leaves short output untouched", () => {
+  assert.equal(bound(lines(40), "cmd"), lines(40));
+});
+
+test("bound keeps the first 40 lines and says how to see the rest", () => {
+  const result = bound(lines(100), "npm run check");
+  assert.match(result, /line 40\n/);
+  assert.doesNotMatch(result, /line 41/);
+  assert.match(result, /60 more lines cut/);
+  assert.match(result, /npm run check/);
+});
+
+test("postEdit bounds a large lint report", () => {
+  const deps = fakeDeps({ results: { "/repo/tools/kore/node_modules/.bin/oxlint": { status: 1, output: lines(500) } } });
+  const result = postEdit(edited("/repo/tools/kore/src/a.ts"), deps);
+  assert.equal(result.code, 2);
+  assert.doesNotMatch(result.message, /line 41/);
+  assert.match(result.message, /oxlint --deny-warnings \/repo\/tools\/kore\/src\/a\.ts/);
+});
+
+test("postEdit bounds a large format report", () => {
+  const deps = fakeDeps({ results: { "/repo/tools/kore/node_modules/.bin/prettier": { status: 1, output: lines(500) } } });
+  const result = postEdit(edited("/repo/tools/kore/src/a.ts"), deps);
+  assert.equal(result.code, 2);
+  assert.doesNotMatch(result.message, /line 41/);
+  assert.match(result.message, /prettier --check \/repo\/tools\/kore\/src\/a\.ts/);
+});
+
+test("stop bounds a large typecheck report", () => {
+  const deps = fakeDeps({ marked: true, results: { npm: { status: 2, output: lines(500) } } });
+  const result = stop({}, deps);
+  assert.equal(result.code, 2);
+  assert.doesNotMatch(result.message, /line 41/);
+  assert.match(result.message, /npm --prefix tools\/kore run check/);
 });

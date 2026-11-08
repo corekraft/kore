@@ -21,7 +21,7 @@ description = "Run tests that do not require a cluster"
 run = "npm --prefix tools/kore test"
 
 [tasks.test-hooks]
-description = "Run tests for the agent guard and feedback hooks"
+description = "Run tests for the agent guard, feedback, and context hooks"
 run = "node --test .claude/hooks"
 
 [tasks.validate]

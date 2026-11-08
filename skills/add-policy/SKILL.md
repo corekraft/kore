@@ -11,6 +11,6 @@ New policies start in audit mode (`AGENTS.md`: audit before enforce).
 
 1. **Test first.** Add failing tests to the `*.spec.rego` file beside the policy, covering the allowed and the denied case. Bundles live in `infra/policies/opa/bundles/v1/`.
 2. **Implement** the rule in the sibling `policy.rego`, using `import rego.v1` and default-deny style as the existing rules do.
-3. **Audit mode.** Ship any cluster-enforced constraint with an audit enforcement action. Record in the change what must hold before it is promoted to enforce.
+3. **Audit mode.** Ship any cluster-enforced constraint with an audit enforcement action. Then answer: what would it deny on the current tree? What evidence promotes it to enforce? Record both in the change.
 4. **Run** `mise run test-opa` and `mise run validate`.
 5. **Record** a significant policy decision as an ADR (see the `write-adr` skill).

@@ -21,6 +21,16 @@ export function isTrackedSource(filePath, root) {
   return relative.startsWith(SOURCE_DIR) && relative.endsWith(".ts");
 }
 
+const MAX_LINES = 40;
+
+/** Keep the first lines of a report so a large one never floods the agent's context. */
+export function bound(output, command) {
+  const lines = output.split("\n");
+  if (lines.length <= MAX_LINES) return output;
+  const cut = lines.length - MAX_LINES;
+  return `${lines.slice(0, MAX_LINES).join("\n")}\n... ${cut} more lines cut. Run \`${command}\` to see all.`;
+}
+
 const ok = { code: 0, message: "" };
 const fail = (message) => ({ code: 2, message });
 
@@ -32,13 +42,13 @@ export function postEdit(call, deps) {
 
   const lint = deps.run(`${deps.root}/${BIN}/oxlint`, ["--deny-warnings", filePath]);
   if (lint.status !== 0) {
-    return fail(`oxlint reported problems in ${filePath}. Fix them before continuing.\n${lint.output}`);
+    const details = bound(lint.output, `${BIN}/oxlint --deny-warnings ${filePath}`);
+    return fail(`oxlint reported problems in ${filePath}. Fix them before continuing.\n${details}`);
   }
   const format = deps.run(`${deps.root}/${BIN}/prettier`, ["--check", filePath]);
   if (format.status !== 0) {
-    return fail(
-      `${filePath} is not formatted. Run \`${BIN}/prettier --write ${filePath}\`.\n${format.output}`,
-    );
+    const details = bound(format.output, `${BIN}/prettier --check ${filePath}`);
+    return fail(`${filePath} is not formatted. Run \`${BIN}/prettier --write ${filePath}\`.\n${details}`);
   }
   return ok;
 }
@@ -47,7 +57,8 @@ export function stop(call, deps) {
   if (call?.stop_hook_active || !deps.hasChanged()) return ok;
   const check = deps.run("npm", ["--prefix", "tools/kore", "run", "check", "--silent"]);
   if (check.status !== 0) {
-    return fail(`Typecheck failed after your TypeScript changes. Fix it before finishing.\n${check.output}`);
+    const details = bound(check.output, "npm --prefix tools/kore run check");
+    return fail(`Typecheck failed after your TypeScript changes. Fix it before finishing.\n${details}`);
   }
   deps.clearChanged();
   return ok;

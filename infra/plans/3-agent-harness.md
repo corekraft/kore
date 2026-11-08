@@ -193,27 +193,27 @@ files and read only in part.
 
 ### Work
 
-- [ ] **Isolate the retrospective.** Run `retro` in its own context (a read-only
+- [x] **Isolate the retrospective.** Run `retro` in its own context (a read-only
       `.claude/agents/retro.md`, or `context: fork` on the skill) so transcript dumps
       never enter the calling thread; only the ranked proposals return. Add a fifth
       finding: a skill that fired for the wrong task or failed to fire, with a
       proposed rewrite of its description.
-- [ ] **Review judgment rules in a fresh context.** Add a read-only
+- [x] **Review judgment rules in a fresh context.** Add a read-only
       `.claude/agents/principles-review.md` that receives a diff and the AGENTS.md
       rules no hook can check (one owner per resource, provider neutrality, domain
       boundaries, actionable errors, tests that describe behavior) and reports
       violations with file and line. It is not anchored on the author's reasoning.
-- [ ] **Bound hook output.** Write failing tests in `feedback.test.mjs`, then cap
+- [x] **Bound hook output.** Write failing tests in `feedback.test.mjs`, then cap
       the oxlint, prettier, and typecheck output that `feedback.mjs` returns at about
       40 lines, stating how many lines were cut and the command that shows them all.
-- [ ] **Restore judgment rules after compaction.** A `SessionStart` hook with
+- [x] **Restore judgment rules after compaction.** A `SessionStart` hook with
       matcher `compact` prints the judgment rules and the open items of the active
       plan. Tested like the other hooks; it never runs on a normal session start.
-- [ ] **Shorten `test-driven-development`.** Cut it from 136 lines to about 25:
+- [x] **Shorten `test-driven-development`.** Cut it from 136 lines to about 25:
       the iron law, red-green-refactor, and self-check questions ("did I watch it
       fail, and for the right reason?"). Move examples into `references/`. Read the
       whole skill for instructions that do not belong, since it is third-party.
-- [ ] **Make skills self-steering.** Where a checklist step needs judgment,
+- [x] **Make skills self-steering.** Where a checklist step needs judgment,
       phrase it as questions the agent answers (for example `add-command`: does this
       mutate, which environment and context does it target, what does `--json`
       report?). Keep every skill under about 25 lines.
@@ -223,7 +223,7 @@ files and read only in part.
 - [ ] A retrospective leaves no transcript content in the calling thread.
 - [ ] `principles-review` flags a seeded violation of each judgment rule and
       passes a clean diff.
-- [ ] A large lint or type-error output returns a bounded message with the
+- [x] A large lint or type-error output returns a bounded message with the
       command to see the rest.
 - [ ] After `/compact`, the session context contains the judgment rules.
 - [ ] Every skill is under about 25 lines and still triggers for its task.
@@ -239,8 +239,15 @@ files and read only in part.
 - Steps 1-6 are implemented. Step 7 adds the `retro` skill; running it is manual.
 - Step 1 confirmed on 2026-11-07: a fresh Claude Code session lists every skill
   in `skills/`.
-- `mise run test-hooks`: 33 tests pass (guard and feedback), hook startup is under
-  200 ms.
+- `mise run test-hooks`: 45 tests pass (guard, feedback, context), hook startup
+  is under 200 ms.
+- Step 8 is implemented. `retro` runs with `context: fork` on the read-only
+  `Explore` agent; `principles-review` lives in `.claude/agents/`; the compaction
+  hook reads `AGENTS.md` and the plans at run time, so it never drifts from them.
+  `test-driven-development` went from 136 lines to 24, with its tables moved to
+  `references/rationalizations.md`. Every skill is now 24 lines or fewer.
+- Still to confirm live for Step 8: a retro run, a seeded `principles-review`
+  run, the hook firing after `/compact`, and skill triggering.
 - Still to confirm in a fresh Claude Code session: the feedback hooks firing
   live, and the deny rules (Step 3, 4, 5 exit criteria left open).
 - The `image-digest` rule stays in audit mode as planned.
