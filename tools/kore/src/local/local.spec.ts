@@ -118,24 +118,47 @@ test("local down preserves cluster state unless pruning is explicitly requested"
   const repository = await loadRepository("local");
   const calls: string[] = [];
 
-  await localDown(repository, {} as never, false, {
-    platformStop: async () => {
-      calls.push("stop");
+  await localDown(
+    repository,
+    {} as never,
+    { prune: false, purgeData: false },
+    {
+      platformStop: async () => {
+        calls.push("stop");
+      },
+      platformDestroy: async (_repository, _runner, options) => {
+        calls.push(`destroy:${options.yes}:${options.purgeData}`);
+      },
     },
-    platformDestroy: async (_repository, _runner, options) => {
-      calls.push(`destroy:${options.yes}:${options.purgeData}`);
+  );
+  await localDown(
+    repository,
+    {} as never,
+    { prune: true, purgeData: false },
+    {
+      platformStop: async () => {
+        calls.push("stop");
+      },
+      platformDestroy: async (_repository, _runner, options) => {
+        calls.push(`destroy:${options.yes}:${options.purgeData}`);
+      },
     },
-  });
-  await localDown(repository, {} as never, true, {
-    platformStop: async () => {
-      calls.push("stop");
+  );
+  await localDown(
+    repository,
+    {} as never,
+    { prune: true, purgeData: true },
+    {
+      platformStop: async () => {
+        calls.push("stop");
+      },
+      platformDestroy: async (_repository, _runner, options) => {
+        calls.push(`destroy:${options.yes}:${options.purgeData}`);
+      },
     },
-    platformDestroy: async (_repository, _runner, options) => {
-      calls.push(`destroy:${options.yes}:${options.purgeData}`);
-    },
-  });
+  );
 
-  expect(calls).toEqual(["stop", "destroy:true:true"]);
+  expect(calls).toEqual(["stop", "destroy:true:false", "destroy:true:true"]);
 });
 
 test("local lifecycle refuses managed environments", async () => {
@@ -147,7 +170,28 @@ test("local lifecycle refuses managed environments", async () => {
   await expect(localUp(repository, {} as never)).rejects.toThrow(
     /only manage Minikube environments/,
   );
-  await expect(localDown(repository, {} as never, false)).rejects.toThrow(
-    /only manage Minikube environments/,
-  );
+  await expect(
+    localDown(repository, {} as never, { prune: false, purgeData: false }),
+  ).rejects.toThrow(/only manage Minikube environments/);
+});
+
+test("purging retained data without --prune is refused before anything is touched", async () => {
+  const repository = await loadRepository("local");
+  const calls: string[] = [];
+  await expect(
+    localDown(
+      repository,
+      {} as never,
+      { prune: false, purgeData: true },
+      {
+        platformStop: async () => {
+          calls.push("stop");
+        },
+        platformDestroy: async () => {
+          calls.push("destroy");
+        },
+      },
+    ),
+  ).rejects.toThrow(/--purge-data requires --prune/);
+  expect(calls).toEqual([]);
 });

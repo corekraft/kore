@@ -99,7 +99,10 @@ vi.mock("../tunnel/index.js", () => ({
   ),
 }));
 vi.mock("../local/index.js", () => ({
-  localDown: vi.fn(async () => void dispatch.push("localDown")),
+  localDown: vi.fn(
+    async (_repo, _runner, options) =>
+      void dispatch.push(`localDown:${options.prune}:${options.purgeData}`),
+  ),
   localUp: vi.fn(async () => void dispatch.push("localUp")),
 }));
 
@@ -199,6 +202,14 @@ test("application and local CLI commands dispatch deploy and teardown actions", 
   await main(["app", "down", "reference", "--environment", "local"]);
   await main(["local", "up", "--environment", "local"]);
   await main(["local", "down", "--environment", "local", "--prune"]);
+  await main([
+    "local",
+    "down",
+    "--environment",
+    "local",
+    "--prune",
+    "--purge-data",
+  ]);
 
   expect(dispatch).toEqual([
     "lock",
@@ -212,7 +223,10 @@ test("application and local CLI commands dispatch deploy and teardown actions", 
     "localUp",
     "lock",
     "journal:local down:kore-local",
-    "localDown",
+    "localDown:true:false",
+    "lock",
+    "journal:local down:kore-local",
+    "localDown:true:true",
   ]);
 });
 

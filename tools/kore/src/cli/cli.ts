@@ -51,7 +51,7 @@ Usage:
   kore platform status|render [--environment <name>] [--output <directory>] [--json]
   kore app up|down <name> --environment <name>
   kore app status <name> [--environment <name>] [--json]
-  kore local up|down --environment local [--prune]
+  kore local up|down --environment local [--prune [--purge-data]]
   kore tunnel start|stop --environment local
   kore tunnel status [--environment local] [--json]
   kore secrets sync --environment local
@@ -255,7 +255,10 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     return await mutate(`local ${action}`, async (runner) => {
       if (action === "up") await localUp(repository, runner);
       else if (action === "down")
-        await localDown(repository, runner, boolFlag(parsed, "prune"));
+        await localDown(repository, runner, {
+          prune: boolFlag(parsed, "prune"),
+          purgeData: boolFlag(parsed, "purge-data"),
+        });
       return 0;
     });
   }

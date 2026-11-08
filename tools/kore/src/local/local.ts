@@ -102,15 +102,19 @@ export async function localUp(
 export async function localDown(
   repository: Repository,
   runner: Runner,
-  prune: boolean,
+  options: { prune: boolean; purgeData: boolean },
   dependencies: LocalLifecycleDependencies = {},
 ): Promise<void> {
   assertLocalMinikube(repository);
-  if (prune) {
+  if (options.purgeData && !options.prune)
+    throw new Error(
+      "--purge-data requires --prune; local down only destroys the cluster with --prune",
+    );
+  if (options.prune) {
     await (dependencies.platformDestroy ?? platformDestroy)(
       repository,
       runner,
-      { yes: true, purgeData: true },
+      { yes: true, purgeData: options.purgeData },
     );
   } else {
     await (dependencies.platformStop ?? platformStop)(repository, runner);
