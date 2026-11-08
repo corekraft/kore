@@ -28,7 +28,7 @@ test("controller bootstrap reconciles controllers before shared Gateway configur
 test("controller bootstrap resumes a deployed component without another Helm upgrade", async () => {
   const repository = await loadRepository("local");
   const component = repository.catalog.components.find(
-    ({ name }) => name === "opa-authorizer",
+    ({ name }) => name === "kore-postgresql-rbac",
   )!;
   repository.catalog.components = [
     { ...component, dependencies: [], readiness: [] },
@@ -123,4 +123,48 @@ test("controller bootstrap creates a missing Minikube profile", async () => {
   await bootstrapControllers(repository, runner);
 
   assert.equal(statusCalls, 2);
+});
+
+test("controller bootstrap installs no shared composition, issuer, gateway, secret store, or OPA authorizer", async () => {
+  const repository = await loadRepository("local");
+  const runner = new RecordingRunner([
+    { stdout: '{"Host":"Running"}', stderr: "", code: 0 },
+    { stdout: "kube-system", stderr: "", code: 0 },
+  ]);
+  await bootstrapControllers(repository, runner);
+
+  const bootstrapped = repository.catalog.components.filter(
+    ({ phase }) => phase !== "configuration" && phase !== "enforcement",
+  );
+  const shared =
+    /^(crd\/)?(postgresqlinstances\.platform|compositions?|compositeresourcedefinitions?\/|clusterissuer|issuer|gateway\/|gatewayclass|secretstore|clustersecretstore)/;
+  for (const component of bootstrapped) {
+    assert.notEqual(
+      component.name,
+      "opa-authorizer",
+      "the OPA authorizer belongs to the configuration phase",
+    );
+    assert.deepEqual(
+      component.readiness.filter((resource) => shared.test(resource)),
+      [],
+      `${component.name} readiness names a shared resource`,
+    );
+    assert.equal(
+      component.ownsCRDs.includes("postgresqlinstances.platform.kore.dev"),
+      false,
+      `${component.name} installs the shared PostgreSQL XRD`,
+    );
+    assert.equal(
+      /^infra\/(apis\/postgresql|charts\/(platform-certificate|platform-config|opa-authorizer))/.test(
+        component.source ?? component.chart ?? "",
+      ),
+      false,
+      `${component.name} installs shared platform configuration`,
+    );
+  }
+  const releases = runner.calls
+    .filter(({ command, args }) => command === "helm" && args[0] === "upgrade")
+    .map(({ args }) => args[2]);
+  assert.equal(releases.includes("opa-authorizer"), false);
+  assert.equal(releases.includes("kore-postgresql-api"), false);
 });
