@@ -7,6 +7,7 @@ spec:
     - target: admission.k8s.gatekeeper.sh
       rego: |
         package kore.containersecurity
+        import future.keywords.in
         workload { input.review.kind.kind in {"Deployment", "StatefulSet", "DaemonSet"} }
         violation[{"msg": msg}] {
           workload

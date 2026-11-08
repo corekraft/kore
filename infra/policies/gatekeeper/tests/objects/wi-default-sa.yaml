@@ -1,0 +1,8 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: wi-default-sa, namespace: app}
+spec:
+  template:
+    spec:
+      serviceAccountName: default
+      containers: [{name: app, image: invalid}]

@@ -1,0 +1,8 @@
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: KoreWorkloadIdentity
+metadata: {name: kore-workload-identity}
+spec:
+  enforcementAction: dryrun
+  match: {kinds: [{apiGroups: [apps, batch], kinds: [Deployment, StatefulSet, DaemonSet, Job, CronJob]}]}
+  parameters:
+    exemptNamespaces: [kube-system, cert-manager, gatekeeper-system, istio-system, cosign-system, crossplane-system, external-secrets, cnpg-system, opentelemetry-operator-system]
