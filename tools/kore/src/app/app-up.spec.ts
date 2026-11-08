@@ -1,0 +1,287 @@
+import { expect, test, vi } from "vitest";
+
+const localRegistryReferenceMock = vi.hoisted(() => vi.fn());
+vi.mock("../images/index.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../images/index.js")>()),
+  localRegistryReference: localRegistryReferenceMock,
+}));
+import { loadRepository } from "../config/index.js";
+import { appUp } from "./up.js";
+import {
+  healthyRunner,
+  lockedImage,
+  passthroughRegistry,
+  type Call,
+} from "./app-fixtures.js";
+import type { RunOptions, RunResult, Runner } from "../runtime/index.js";
+
+class UnreadyPlatformRunner implements Runner {
+  calls: string[] = [];
+
+  async run(
+    command: string,
+    args: readonly string[],
+    _options?: RunOptions,
+  ): Promise<RunResult> {
+    this.calls.push(`${command} ${args.join(" ")}`);
+    if (command === "helm" && args[0] === "status") {
+      throw new Error("release is missing");
+    }
+    if (command === "minikube" && args[0] === "status") {
+      return { stdout: '{"Host":"Running"}', stderr: "", code: 0 };
+    }
+    if (command === "kubectl") {
+      return { stdout: "kube-system", stderr: "", code: 0 };
+    }
+    return { stdout: "", stderr: "", code: 0 };
+  }
+}
+
+test("app up stops before installing resources when the platform is not ready", async () => {
+  const repository = await loadRepository("local");
+  const runner = new UnreadyPlatformRunner();
+
+  await expect(appUp(repository, runner, "reference")).rejects.toThrow(
+    /platform.*ready|missing/i,
+  );
+  expect(runner.calls.some((call) => call.includes(" upgrade "))).toBe(false);
+});
+
+test("app up verifies, installs, and waits for every workload deployment", async () => {
+  const repository = await loadRepository("local");
+  const calls: { command: string; args: readonly string[] }[] = [];
+  const runner: Runner = {
+    async run(command, args) {
+      calls.push({ command, args });
+      if (command === "helm" && args[0] === "status") {
+        return {
+          stdout: '{"info":{"status":"deployed"}}',
+          stderr: "",
+          code: 0,
+        };
+      }
+      if (
+        command === "kubectl" &&
+        args.some((arg) => arg.includes("spec.clusterIP"))
+      ) {
+        return { stdout: "10.0.0.8", stderr: "", code: 0 };
+      }
+      if (command === "kubectl" && args.includes("--output=name")) {
+        return {
+          stdout:
+            "deployment/reference-api\ndeployment.apps/reference-worker\n",
+          stderr: "",
+          code: 0,
+        };
+      }
+      if (command === "kubectl" && args.includes("namespace")) {
+        return { stdout: "kube-system", stderr: "", code: 0 };
+      }
+      return { stdout: "", stderr: "", code: 0 };
+    },
+  };
+  const image = {
+    reference: "registry.kore.local:30500/reference@sha256:" + "a".repeat(64),
+    digest: "sha256:" + "a".repeat(64),
+    signer: "local-kore-key",
+  };
+  localRegistryReferenceMock.mockImplementation(passthroughRegistry);
+
+  await appUp(repository, runner, "reference", image, "/tmp/kore.pub");
+
+  expect(
+    calls.some(
+      ({ command, args }) => command === "cosign" && args[0] === "verify",
+    ),
+  ).toBe(true);
+  expect(
+    calls.some(
+      ({ command, args }) => command === "minikube" && args[0] === "ssh",
+    ),
+  ).toBe(true);
+  expect(
+    calls
+      .filter(
+        ({ command, args }) => command === "helm" && args[0] === "upgrade",
+      )
+      .map(({ args }) => args[2]),
+  ).toEqual(["reference-resources", "reference"]);
+  expect(
+    calls
+      .filter(
+        ({ command, args }) =>
+          command === "kubectl" && args.includes("rollout"),
+      )
+      .map(({ args }) => args[args.indexOf("status") + 1]),
+  ).toEqual(["deployment/reference-api", "deployment/reference-worker"]);
+});
+
+test("app up rejects an invalid application name before resolving chart paths", async () => {
+  localRegistryReferenceMock.mockImplementation(passthroughRegistry);
+  const base = await loadRepository("local");
+  const repository = {
+    ...base,
+    catalog: { components: [] },
+  };
+  const runner: Runner = {
+    async run(command, args) {
+      if (command === "minikube") {
+        return { stdout: '{"Host":"Running"}', stderr: "", code: 0 };
+      }
+      if (command === "kubectl" && args.includes("jsonpath={.metadata.name}")) {
+        return { stdout: "kube-system", stderr: "", code: 0 };
+      }
+      if (
+        command === "kubectl" &&
+        args.some((arg) => arg.includes(".spec.clusterIP"))
+      ) {
+        return { stdout: "10.0.0.8", stderr: "", code: 0 };
+      }
+      return { stdout: "", stderr: "", code: 0 };
+    },
+  };
+  await expect(
+    appUp(repository, runner, "Bad_Name", {
+      reference: "registry.kore.local/reference@sha256:" + "a".repeat(64),
+      digest: "sha256:" + "a".repeat(64),
+      signer: "release@kore.dev",
+    }),
+  ).rejects.toThrow(/invalid application name/);
+});
+
+const upCalls = (calls: Call[], command: string, verb: string) =>
+  calls.filter((c) => c.command === command && c.args.includes(verb));
+
+test("app up fails before staging or installing when the local registry has no ClusterIP", async () => {
+  const repository = await loadRepository("local");
+  const calls: Call[] = [];
+  localRegistryReferenceMock.mockImplementation(passthroughRegistry);
+
+  await expect(
+    appUp(
+      repository,
+      healthyRunner(calls, "  "),
+      "reference",
+      lockedImage(),
+      "/tmp/kore.pub",
+    ),
+  ).rejects.toThrow(/no ClusterIP/);
+  expect(
+    calls.some((c) => c.command === "minikube" && c.args[0] === "ssh"),
+  ).toBe(false);
+  expect(upCalls(calls, "helm", "upgrade")).toEqual([]);
+});
+
+test("app up does not install anything when image verification fails", async () => {
+  const repository = await loadRepository("local");
+  const calls: Call[] = [];
+  localRegistryReferenceMock.mockImplementation(passthroughRegistry);
+  const runner = healthyRunner(
+    calls,
+    "10.0.0.8",
+    (c) => c.command === "cosign",
+  );
+
+  await expect(
+    appUp(repository, runner, "reference", lockedImage(), "/tmp/kore.pub"),
+  ).rejects.toThrow(/cosign failed/);
+  expect(
+    calls.some((c) => c.command === "minikube" && c.args[0] === "ssh"),
+  ).toBe(false);
+  expect(upCalls(calls, "helm", "upgrade")).toEqual([]);
+});
+
+test("app up verifies keylessly against the locked signer when the image is not locally signed", async () => {
+  const repository = await loadRepository("local");
+  const calls: Call[] = [];
+  localRegistryReferenceMock.mockImplementation(passthroughRegistry);
+
+  await appUp(
+    repository,
+    healthyRunner(calls),
+    "reference",
+    lockedImage("release@kore.dev"),
+  );
+
+  const verify = calls.find((c) => c.command === "cosign");
+  expect(verify?.args).toContain("release@kore.dev");
+  expect(verify?.args).not.toContain("--key");
+});
+
+test("app up verifies the registry-resolved reference but deploys the staged cluster-local reference", async () => {
+  const repository = await loadRepository("local");
+  const calls: Call[] = [];
+  localRegistryReferenceMock.mockImplementation(
+    async () => "127.0.0.1:30500/reference@" + lockedImage().digest,
+  );
+
+  await appUp(
+    repository,
+    healthyRunner(calls),
+    "reference",
+    lockedImage(),
+    "/tmp/kore.pub",
+  );
+
+  const verify = calls.find((c) => c.command === "cosign");
+  expect(verify?.args.at(-1)).toBe(
+    "127.0.0.1:30500/reference@" + lockedImage().digest,
+  );
+  const workload = upCalls(calls, "helm", "upgrade")[1]!;
+  expect(workload.args).toContain("image.repository=10.0.0.8:5000/reference");
+  expect(workload.args).toContain("image.pullPolicy=Never");
+});
+
+test("app up waits for databases and secrets before installing the workload", async () => {
+  const repository = await loadRepository("local");
+  const calls: Call[] = [];
+  localRegistryReferenceMock.mockImplementation(passthroughRegistry);
+
+  await appUp(
+    repository,
+    healthyRunner(calls),
+    "reference",
+    lockedImage(),
+    "/tmp/kore.pub",
+  );
+
+  const steps = calls
+    .map((c) => `${c.command} ${c.args.join(" ")}`)
+    .filter((c) => /upgrade|wait --for|rollout/.test(c));
+  expect(steps).toEqual([
+    expect.stringMatching(/^helm upgrade --install reference-resources /),
+    expect.stringMatching(/postgresqlinstances.platform.kore.dev --all/),
+    expect.stringMatching(
+      /--for=jsonpath=\{.data\} secret .*part-of=reference/,
+    ),
+    expect.stringMatching(/^helm upgrade --install reference /),
+    expect.stringMatching(/rollout status deployment\/reference-api/),
+    expect.stringMatching(/rollout status deployment\/reference-worker/),
+  ]);
+});
+
+test("app up on a managed provider deploys the locked reference without staging", async () => {
+  const base = await loadRepository("local");
+  const repository = {
+    ...base,
+    environment: { ...base.environment, provider: "managed" as const },
+  };
+  const calls: Call[] = [];
+  localRegistryReferenceMock.mockImplementation(passthroughRegistry);
+
+  await appUp(
+    repository,
+    healthyRunner(calls),
+    "reference",
+    lockedImage("release@kore.dev"),
+  );
+
+  expect(
+    calls.some((c) => c.command === "minikube" && c.args[0] === "ssh"),
+  ).toBe(false);
+  const workload = upCalls(calls, "helm", "upgrade")[1]!;
+  expect(workload.args).toContain(
+    "image.repository=registry.kore.local:30500/reference",
+  );
+  expect(workload.args).not.toContain("image.pullPolicy=Never");
+});
