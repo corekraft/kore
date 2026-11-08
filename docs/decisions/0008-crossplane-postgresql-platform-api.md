@@ -2,7 +2,7 @@
 status: accepted
 summary: Applications claim PostgreSQL through a namespaced Crossplane PostgreSQLInstance API with portable inputs and a fixed connection Secret schema, composed locally by CloudNativePG.
 date: 2026-09-12
-last-verified: 2026-11-07
+last-verified: 2026-11-08
 ---
 
 # ADR 0008: Expose PostgreSQL as a namespaced Crossplane platform API

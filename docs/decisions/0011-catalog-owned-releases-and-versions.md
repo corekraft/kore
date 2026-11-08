@@ -2,7 +2,7 @@
 status: accepted
 summary: The repository catalog declares every release, namespace, single owner, CRD owner, dependency, readiness check, and pinned version; orchestration derives its order from it.
 date: 2026-09-12
-last-verified: 2026-11-07
+last-verified: 2026-11-08
 ---
 
 # ADR 0011: Declare releases, ownership, and versions in the catalog

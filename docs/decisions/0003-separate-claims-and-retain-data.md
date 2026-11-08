@@ -2,7 +2,7 @@
 status: accepted
 summary: Each application has separate resources and workload releases, stateful data is retained by default, and deletion needs an explicit purge.
 date: 2026-09-12
-last-verified: 2026-11-07
+last-verified: 2026-11-08
 ---
 
 # ADR 0003: Separate claims from workloads and retain data by default

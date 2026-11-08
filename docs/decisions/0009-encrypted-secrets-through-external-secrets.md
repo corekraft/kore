@@ -2,7 +2,7 @@
 status: accepted
 summary: Application charts reference a stable platform-secrets store through ExternalSecret; locally SOPS with age decrypts into a protected namespace, and plaintext never enters git, disk, or Helm values.
 date: 2026-09-12
-last-verified: 2026-11-07
+last-verified: 2026-11-08
 ---
 
 # ADR 0009: Deliver secrets through External Secrets from encrypted sources
