@@ -879,8 +879,8 @@ test-first, on its own worktree branch, and merged back after review.
       compatibility evidence in `infra/catalog/compatibility.md`.
 - [x] Upgrade every pinned toolchain dependency (`.mise.toml` tools, CLI npm
       devDependencies, GitHub Action SHAs) to its latest release.
-- [ ] After the upgrades, rerun the live bootstrap on a fresh profile before the
-      Step 7 rows claim the new versions are live-validated.
+- [x] After the upgrades, rerun the live bootstrap on a fresh profile before the
+      Step 7 rows claim the new versions are live-validated (2026-11-08).
 
 Upgrade notes: Istio 1.31 charts now come from `blob.istio.io` because the
 Google-hosted repository is being retired. Gatekeeper stays on 3.23.1 because
@@ -909,6 +909,34 @@ readiness (Step 12), the `oci-registry` PVC retention label (it would make
 `cluster destroy` require `--purge-data` for registry images), and the Step 7
 conflict over installing `kore-postgresql-api` and the OPA authorizer at
 bootstrap.
+
+### 2026-11-08 fresh-profile live bootstrap
+
+`kore local up --environment local` converged on a fresh `kore-local` profile
+against the upgraded pins after two fixes found live, both test-first on
+`fix/prometheus-scrape-config`: Prometheus `extraScrapeConfigs` must be
+block-sequence YAML (the JSON flow list crash-looped the server), and the node
+agent DaemonSet is named `otel-agent-agent`. Evidence:
+
+- `kore platform status` reported every component ready through the catalog
+  readiness checks; the Gateway, `kore-local-tls`, Gatekeeper policy, and
+  observability config releases passed their new checks.
+- All six constraints installed in `dryrun`. Audit violations: container
+  security 25, workload identity 13, retention 8, mesh enrollment 5, Secrets 5,
+  RBAC 0. Review these before promoting any constraint.
+- The `reference-db` claim was `Ready` with `DatabaseHealthy`, phase, and
+  endpoint `reference-db-rw:5432` copied from CloudNativePG. Its PVC carried
+  `platform.kore.dev/retention=Retain`; the `oci-registry` PVC did not.
+- The reference image digest was signed and verified with the local key. Over
+  trusted HTTPS, `/api` returned 200 with `database: true`, and
+  `/api/protected` returned 403 without auth and with a forged `x-kore-role`.
+- The opt-in README integration test reran `local up` on the converged cluster
+  (it succeeded) and passed the reference smoke, then failed its persistence
+  check on CloudNativePG's removed `role` label (now `cnpg.io/instanceRole`). Its
+  cleanup destroyed the profile with data purge, so persistence and stop/resume
+  were not observed.
+- The Collector chart warns that `otlp`, `otlphttp`, `filelog`, and
+  `k8sattributes` are renamed; rename them before the next chart upgrade.
 
 ## Progress Record
 

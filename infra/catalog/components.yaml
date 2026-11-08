@@ -324,7 +324,7 @@
         "dependencies": ["otel-collector"],
         "timeout": "10m",
         "values": ["infra/observability/agent/values.yaml"],
-        "readiness": ["daemonset/otel-agent"]
+        "readiness": ["daemonset/otel-agent-agent"]
       },
       {
         "name": "opa-authorizer",

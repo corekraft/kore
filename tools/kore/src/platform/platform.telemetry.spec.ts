@@ -32,7 +32,14 @@ test("Prometheus scrapes the Collector exporter and the Collector's own metrics"
   const values = await readJson(
     "infra/environments/local/values/prometheus.yaml",
   );
-  const scrape = JSON.parse(values.extraScrapeConfigs);
+  // The chart pastes this string verbatim under `scrape_configs:`, so it must be
+  // block-sequence YAML: one `- {...}` item per line, never a flow list.
+  const lines: string[] = values.extraScrapeConfigs.trimEnd().split("\n");
+  assert.ok(
+    lines.every((line) => line.startsWith("- {")),
+    "every extraScrapeConfigs line is a block-sequence item",
+  );
+  const scrape = lines.map((line) => JSON.parse(line.slice(2)));
   const targets = scrape.flatMap((job: Json) =>
     job.static_configs.flatMap((config: Json) => config.targets),
   );
@@ -215,7 +222,12 @@ test("the node agent is its own release ordered after the gateway Collector", as
     ({ name }) => name === "otel-agent",
   )!;
   assert.equal(component.chart, "opentelemetry-collector");
-  assert.deepEqual(component.readiness, ["daemonset/otel-agent"]);
+  // In daemonset mode the chart suffixes the full name with `-agent`.
+  const values = await readJson(agent);
+  assert.equal(values.mode, "daemonset");
+  assert.deepEqual(component.readiness, [
+    `daemonset/${values.fullnameOverride}-agent`,
+  ]);
   assert.ok(order.indexOf("otel-collector") < order.indexOf("otel-agent"));
 });
 
