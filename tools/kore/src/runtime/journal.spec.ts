@@ -1,12 +1,5 @@
 import { existsSync } from "node:fs";
-import {
-  mkdtemp,
-  readFile,
-  writeFile,
-  mkdir,
-  rm,
-  chmod,
-} from "node:fs/promises";
+import { mkdtemp, readFile, writeFile, mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, expect, onTestFinished, test, vi } from "vitest";
@@ -227,7 +220,8 @@ test("a write failure after start warns and lets the mutation finish", async () 
     async (runner) => {
       // Make later appends fail, for any user, by replacing the journal file with a directory.
       const path = join(dir, ".kore", "state", "journal", "local.jsonl");
-      await chmod(path, 0o400);
+      await rm(path);
+      await mkdir(path);
       await runner.run("helm", ["list"]);
       return "finished";
     },
