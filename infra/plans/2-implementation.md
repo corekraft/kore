@@ -983,7 +983,14 @@ The round trip ran on the third fresh profile:
    privileges. The restarted `reference-api` passed its database readiness check.
 
 The new registry pin took effect on this profile: the Service holds
-`10.96.0.50`. A unit test read the real `.kore/exports/` and lost its refusal once
+`10.96.0.50`. The next `local up` found a defect: the overwrite restore had recreated
+`public` with a bare `CREATE SCHEMA`, so it was owned by `postgres` with no
+grants. The migration Job failed ("no schema has been selected to create in")
+and the release rolled back. Restore now recreates `public` with PostgreSQL 15+
+defaults: owned by `pg_database_owner`, with `USAGE` granted to `PUBLIC`. After
+restoring again, `local up` converged and the migration Job ran against the
+restored data. The marker survived, and the registry rewire did nothing because
+the address already matched. A unit test read the real `.kore/exports/` and lost its refusal once
 a verified export existed. It now uses an isolated root.
 
 ### 2026-11-08 decisions
