@@ -51,6 +51,8 @@ interface Workload {
   surge: number;
   labels: Record<string, string>;
   selfAntiAffinity: boolean;
+  /** Selectors of required hostname anti-affinity terms. */
+  antiSelectors: unknown[];
   hostPorts: number[];
 }
 
@@ -89,15 +91,15 @@ function describe(manifest: Json): Workload {
   const labels = labelsOf(obj(template["metadata"])["labels"]);
   const replicas = typeof spec["replicas"] === "number" ? spec["replicas"] : 1;
 
-  const terms = list(
+  const antiSelectors = list(
     obj(obj(podSpec["affinity"])["podAntiAffinity"])[
       "requiredDuringSchedulingIgnoredDuringExecution"
     ],
-  );
-  const selfAntiAffinity = terms.some(
-    (term) =>
-      term["topologyKey"] === hostnameKey &&
-      selects(term["labelSelector"], labels),
+  )
+    .filter((term) => term["topologyKey"] === hostnameKey)
+    .map((term) => term["labelSelector"]);
+  const selfAntiAffinity = antiSelectors.some((selector) =>
+    selects(selector, labels),
   );
 
   const hostPorts = [
@@ -115,6 +117,7 @@ function describe(manifest: Json): Workload {
     surge: surgeOf(kind, spec, replicas),
     labels,
     selfAntiAffinity,
+    antiSelectors,
     hostPorts,
   };
 }
@@ -154,6 +157,31 @@ function workloadProblems(workload: Workload, nodes: number): string[] {
   ];
 }
 
+/**
+ * The running pods' anti-affinity applies to the surge pod too, even when the
+ * new template drops the rule.
+ */
+function inheritedProblems(
+  workload: Workload,
+  previous: Workload[],
+  nodes: number,
+): string[] {
+  const { kind, id: name, replicas, surge } = workload;
+  if (kind !== "Deployment" || surge === 0 || replicas + surge <= nodes) {
+    return [];
+  }
+  const old = previous.find((p) => p.kind === kind && p.id === name);
+  if (
+    workload.selfAntiAffinity ||
+    !old?.antiSelectors.some((selector) => selects(selector, workload.labels))
+  ) {
+    return [];
+  }
+  return [
+    `${kind} ${name}: the running pods carry required hostname anti-affinity that selects the new pods, so with maxSurge ${surge} the surge pod cannot schedule beside them on ${nodes} node${nodes === 1 ? "" : "s"}, even though the new template drops the rule. Set maxSurge to 0 so the old pod is replaced first.`,
+  ];
+}
+
 function budgetProblems(manifest: Json, workloads: Workload[]): string[] {
   const spec = obj(manifest["spec"]);
   const minAvailable = spec["minAvailable"];
@@ -172,14 +200,30 @@ function budgetProblems(manifest: Json, workloads: Workload[]): string[] {
     );
 }
 
-/** Reasons a rollout or drain cannot progress on a cluster of `nodes` nodes. */
-export function rolloutProblems(manifests: unknown[], nodes: number): string[] {
-  const documents = manifests.map(obj);
-  const workloads = documents
+function workloadsOf(manifests: unknown[]): Workload[] {
+  return manifests
+    .map(obj)
     .filter((doc) => workloadKinds.includes(String(doc["kind"])))
     .map(describe);
+}
+
+/**
+ * Reasons a rollout or drain cannot progress on a cluster of `nodes` nodes.
+ * `previous` is the manifests of the release already running, if any.
+ */
+export function rolloutProblems(
+  manifests: unknown[],
+  nodes: number,
+  previous: unknown[] = [],
+): string[] {
+  const documents = manifests.map(obj);
+  const workloads = workloadsOf(manifests);
+  const running = workloadsOf(previous);
   return [
-    ...workloads.flatMap((workload) => workloadProblems(workload, nodes)),
+    ...workloads.flatMap((workload) => [
+      ...workloadProblems(workload, nodes),
+      ...inheritedProblems(workload, running, nodes),
+    ]),
     ...documents
       .filter((doc) => doc["kind"] === "PodDisruptionBudget")
       .flatMap((doc) => budgetProblems(doc, workloads)),

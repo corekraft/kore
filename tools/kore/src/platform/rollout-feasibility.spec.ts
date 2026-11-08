@@ -212,3 +212,48 @@ test("a budget with maxUnavailable never blocks drains", () => {
   pdb.spec = { maxUnavailable: 0, selector: pdb.spec.selector } as never;
   assert.deepEqual(rolloutProblems([pdb], 1), []);
 });
+
+// The new template drops the rule, but the pods of the release that is
+// running still carry it, and anti-affinity is symmetric: the old pod rejects
+// a surge pod whose labels it selects.
+function withoutAffinity() {
+  const next = structuredClone(lokiGateway);
+  delete (next.spec.template.spec as { affinity?: unknown }).affinity;
+  return next;
+}
+
+test("an old pod's required anti-affinity rejects the surge pod even when the new template drops it", () => {
+  const problems = rolloutProblems([withoutAffinity()], 1, [lokiGateway]);
+  assert.equal(problems.length, 1);
+  assert.match(problems[0]!, /Deployment observability\/loki-gateway/);
+  assert.match(problems[0]!, /running pods/);
+  assert.match(problems[0]!, /maxSurge/);
+});
+
+test("the symmetric case is cleared by maxSurge 0 on one node", () => {
+  const inPlace = withoutAffinity() as ReturnType<typeof withoutAffinity> & {
+    spec: { strategy: unknown };
+  };
+  inPlace.spec.strategy = {
+    type: "RollingUpdate",
+    rollingUpdate: { maxSurge: 0, maxUnavailable: 1 },
+  };
+  assert.deepEqual(rolloutProblems([inPlace], 1, [lokiGateway]), []);
+});
+
+test("the symmetric case needs the old rule to select the new pods", () => {
+  const unrelated = structuredClone(lokiGateway);
+  unrelated.spec.template.spec.affinity = hostnameAntiAffinity({
+    "app.kubernetes.io/component": "backend",
+  });
+  assert.deepEqual(rolloutProblems([withoutAffinity()], 1, [unrelated]), []);
+});
+
+test("the symmetric case is moot with a second node or no previous release", () => {
+  assert.deepEqual(rolloutProblems([withoutAffinity()], 2, [lokiGateway]), []);
+  assert.deepEqual(rolloutProblems([withoutAffinity()], 1, []), []);
+});
+
+test("a workload that keeps the rule is reported once, not twice", () => {
+  assert.equal(rolloutProblems([lokiGateway], 1, [lokiGateway]).length, 1);
+});

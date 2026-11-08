@@ -27,7 +27,11 @@ the surge pod could never schedule.
   surge) exceeds the node count while pods need their own node (required
   hostname anti-affinity against themselves, or a `hostPort`), a DaemonSet that
   surges onto a `hostPort`, and a PodDisruptionBudget whose `minAvailable`
-  covers every replica. The environment schema declares no node count, so local
+  covers every replica. It also flags the symmetric case: the running pods'
+  required anti-affinity rejects a surge pod even when the new template drops
+  the rule. The opt-in spec models the running release by rendering each
+  upstream chart with the environment's scheduling keys (`affinity`, rollout
+  strategies) removed. The environment schema declares no node count, so local
   is treated as one node. It runs in `npm run test:upstream-charts`.
 - **Container smoke** (`classifySmokeLogs`, `smokeTargets`, `dockerRunArgs`,
   pure and unit-tested). The opt-in spec, `npm run test:container-smoke`, runs
@@ -42,6 +46,6 @@ the surge pod could never schedule.
 
 ## Consequences
 
-- Local values now set `gateway.affinity: null` for loki, and disable the
-  policy-controller webhook PodDisruptionBudget (one replica, one node).
+- Local values disable the
+  policy-controller webhook PodDisruptionBudget (one replica, one node). The loki gateway fix (affinity null with `maxSurge 0`) landed separately.
 - Run both checks when adding or changing a chart or its local values.
