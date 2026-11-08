@@ -867,11 +867,11 @@ explain what is missing. Changes:
 Tracked in [PR #9](https://github.com/corekraft/kore/pull/9). Each item is written
 test-first, on its own worktree branch, and merged back after review.
 
-- [ ] Make retained-data discovery fail closed: treat only "resource type not
+- [x] Make retained-data discovery fail closed: treat only "resource type not
       installed" as empty, and fail the destroy on any other kubectl error.
-- [ ] Split `kore local down --prune` so purging retained data needs its own
+- [x] Split `kore local down --prune` so purging retained data needs its own
       opt-in, separate from destroy consent.
-- [ ] Detect and recover a stale environment lock left by a killed run, without
+- [x] Detect and recover a stale environment lock left by a killed run, without
       ever breaking a lock held by a live process.
 - [ ] Keep the local Cosign private key off disk in plaintext, and record the
       decision in ADR 0015.
