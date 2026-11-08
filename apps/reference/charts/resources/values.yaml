@@ -8,4 +8,4 @@ database:
 platform:
   secretStore: platform-secrets
   gateway: { name: kore-gateway, namespace: kore-system, hostname: REQUIRED }
-  otlpEndpoint: http://otel-collector-opentelemetry-collector.observability.svc:4318
+  otlpEndpoint: http://otel-collector.observability.svc:4318

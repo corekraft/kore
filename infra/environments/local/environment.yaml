@@ -14,7 +14,7 @@
   },
   "gateway": {"namespace":"kore-system","name":"kore-gateway","hostname":"kore.local","port":8443},
   "secrets": {"storeName":"platform-secrets","sourceNamespace":"kore-secret-source"},
-  "telemetry": {"otlpEndpoint":"http://otel-collector-opentelemetry-collector.observability.svc:4318"},
+  "telemetry": {"otlpEndpoint":"http://otel-collector.observability.svc:4318"},
   "componentValues": {
     "prometheus":["infra/environments/local/values/prometheus.yaml"],
     "loki":["infra/environments/local/values/loki.yaml"],
