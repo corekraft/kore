@@ -95,6 +95,7 @@
           ],
         "dependencies": ["kore-gateway-api"],
         "timeout": "10m",
+        "values": ["infra/environments/common/values/policy-controller.yaml"],
         "readiness": ["deployment/policy-controller-webhook"]
       },
       {

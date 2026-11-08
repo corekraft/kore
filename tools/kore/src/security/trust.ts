@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Repository } from "../config/index.js";
 import { assertExpectedCluster } from "../cluster/index.js";
+import { CommandError } from "../runtime/index.js";
 import type { Runner } from "../runtime/index.js";
 
 export function issuerManifest(name: string, secretName: string): string {
@@ -45,8 +46,11 @@ async function readable(path: string): Promise<boolean> {
   try {
     await access(path);
     return true;
-  } catch {
-    return false;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return false;
+    }
+    throw error;
   }
 }
 
@@ -73,8 +77,11 @@ async function mkcertCaTrusted(
       capture: true,
     });
     return true;
-  } catch {
-    return false;
+  } catch (error) {
+    if (error instanceof CommandError) {
+      return false;
+    }
+    throw error;
   }
 }
 

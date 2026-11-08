@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "vitest";
-import { findRoot, loadRepository } from "./config.js";
+import { componentValues, findRoot, loadRepository } from "./config.js";
 
 const DIGEST = /@sha256:[0-9a-f]{64}$/;
 
@@ -45,23 +45,28 @@ test("the registry chart deploys the catalog's tag and digest", async () => {
   assert.match(template, /\.Values\.image\.digest/);
 });
 
-test("the Policy Controller webhook and lease-cleanup job images come from digest-pinned local values", async () => {
+test("every environment receives the digest-pinned Policy Controller webhook and lease-cleanup images", async () => {
   const root = await findRoot();
-  const repository = await loadRepository("local");
-  const files =
-    repository.environment.componentValues?.["policy-controller"] ?? [];
-  assert.equal(files.length, 1, "policy-controller has one values file");
-  const values = await readFile(join(root, files[0]!), "utf8");
-  const webhook = repository.versions.images["policy-controller"]!;
-  const kubectl = repository.versions.images["policy-controller-kubectl"]!;
-  const [webhookName, webhookDigest] = webhook.split("@");
-  const [webhookRepo, webhookTag] = webhookName!.split(":");
-  const [kubectlName, kubectlDigest] = kubectl.split("@");
-  const [kubectlRepo, kubectlTag] = kubectlName!.split(":");
-  assert.ok(values.includes(`"repository": "${webhookRepo}"`));
-  assert.ok(values.includes(`"version": "${webhookTag}@${webhookDigest}"`));
-  assert.ok(values.includes(`"repository": "${kubectlRepo}"`));
-  assert.ok(values.includes(`"version": "${kubectlTag}@${kubectlDigest}"`));
+  for (const name of ["local", "managed-example"]) {
+    const repository = await loadRepository(name);
+    const component = repository.catalog.components.find(
+      (candidate) => candidate.name === "policy-controller",
+    )!;
+    const files = componentValues(repository, component);
+    assert.ok(files.length > 0, `${name}: policy-controller has values`);
+    const values = (
+      await Promise.all(files.map((file) => readFile(join(root, file), "utf8")))
+    ).join("\n");
+    for (const key of ["policy-controller", "policy-controller-kubectl"]) {
+      const [nameTag, digest] = repository.versions.images[key]!.split("@");
+      const [repo, tag] = nameTag!.split(":");
+      assert.ok(values.includes(`"repository": "${repo}"`), `${name} ${key}`);
+      assert.ok(
+        values.includes(`"version": "${tag}@${digest}"`),
+        `${name} ${key}`,
+      );
+    }
+  }
 });
 
 test("the Cosign CLI has a compatibility row recording its pinned version", async () => {
