@@ -67,10 +67,19 @@ export interface Environment {
   componentValues?: Record<string, string[]>;
 }
 
+/**
+ * Machine-readable upstream provenance: the exact keyless signer the release
+ * workflow verifies before mirroring, or an explicit statement that upstream
+ * publishes no signature.
+ */
+export type SeedProvenance =
+  { signed: true; issuer: string; identity: string } | { signed: false };
+
 export interface SeedEvidence {
   method: string;
   source: string;
   checked: string;
+  provenance: SeedProvenance;
 }
 
 export interface Seed {

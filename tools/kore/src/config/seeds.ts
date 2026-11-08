@@ -5,11 +5,34 @@ import type { Component, Repository, Seed } from "./types.js";
 const digest = /@sha256:[0-9a-f]{64}$/;
 const date = /^\d{4}-\d{2}-\d{2}$/;
 
+const exactUrl = /^https:\/\/[^\s*?[\]()|^$\\]+$/;
+
+function provenanceErrors(seed: Seed): string[] {
+  const label = `seed ${seed.image}`;
+  const provenance = seed.evidence?.provenance;
+  if (!provenance || typeof provenance.signed !== "boolean") {
+    return [
+      `${label}: evidence.provenance is required: {signed: false} or {signed: true, issuer, identity}`,
+    ];
+  }
+  if (!provenance.signed) {
+    return [];
+  }
+  return [provenance.issuer, provenance.identity].every(
+    (value) => typeof value === "string" && exactUrl.test(value),
+  )
+    ? []
+    : [
+        `${label}: evidence.provenance issuer and identity must be exact https URLs (no patterns)`,
+      ];
+}
+
 function fieldErrors(seed: Seed): string[] {
   const label = `seed ${seed.image}`;
   const missing = (value: unknown): boolean =>
     typeof value !== "string" || value.trim() === "";
   return [
+    ...provenanceErrors(seed),
     ...(digest.test(seed.image ?? "")
       ? []
       : [`${label}: image must be pinned tag@sha256:<digest>`]),

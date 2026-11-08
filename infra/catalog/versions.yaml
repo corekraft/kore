@@ -15,6 +15,7 @@
       "opa": "1.22.2",
       "gator": "3.23.1",
       "cosign": "3.1.4",
+      "crane": "0.22.1",
       "promtool": "3.16.0",
       "trufflehog": "3.99.7",
       "osv-scanner": "2.7.0",

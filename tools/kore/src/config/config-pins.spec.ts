@@ -20,6 +20,7 @@ test("repository toolchain pins are declared in the local mise profile", async (
     'opa = "1.22.2"',
     'tofu = "1.13.9"',
     'cosign = "3.1.4"',
+    'crane = "0.22.1"',
     'promtool = "3.16.0"',
   ]) {
     assert.match(mise, new RegExp(pin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
@@ -29,6 +30,11 @@ test("repository toolchain pins are declared in the local mise profile", async (
 test("the repository tool catalog pins Cosign for image verification", async () => {
   const repository = await loadRepository("local");
   assert.equal(repository.versions.tools.cosign, "3.1.4");
+});
+
+test("the repository tool catalog pins crane for mirroring by digest", async () => {
+  const repository = await loadRepository("local");
+  assert.equal(repository.versions.tools.crane, "0.22.1");
 });
 
 test("local catalog pins an available Istio chart release", async () => {
