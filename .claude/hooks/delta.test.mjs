@@ -34,6 +34,9 @@ function fakeDeps(overrides = {}) {
     readJournals: () => ({}),
     readSnapshot: (id) => store.get(id) ?? null,
     writeSnapshot: (id, snap) => store.set(id, snap),
+    now: () => 0,
+    listSnapshots: () => [],
+    removeSnapshot: () => {},
     ...overrides,
   };
 }
@@ -233,6 +236,47 @@ test("a git or filesystem failure prints nothing instead of throwing", () => {
 const cleanEnv = Object.fromEntries(
   Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_")),
 );
+
+const DAY = 24 * 60 * 60 * 1000;
+
+test("writing a snapshot prunes other sessions' snapshots older than 14 days, never its own", () => {
+  const removed = [];
+  const now = 100 * DAY;
+  const deps = fakeDeps({
+    now: () => now,
+    listSnapshots: () => [
+      { id: "old", mtimeMs: now - 15 * DAY },
+      { id: "recent", mtimeMs: now - 13 * DAY },
+      { id: "s1", mtimeMs: now - 30 * DAY },
+    ],
+    removeSnapshot: (id) => removed.push(id),
+  });
+  update("s1", deps);
+  assert.deepEqual(removed, ["old"]);
+});
+
+test("a failure while pruning does not lose the delta", () => {
+  const deps = fakeDeps();
+  update("s1", deps);
+  const out = update("s1", {
+    ...deps,
+    branch: () => "feat/y",
+    listSnapshots: () => {
+      throw new Error("readdir failed");
+    },
+  });
+  assert.match(out, /branch changed/);
+  const noisy = update("s1", {
+    ...deps,
+    branch: () => "feat/z",
+    listSnapshots: () => [{ id: "old", mtimeMs: -99 * DAY }],
+    removeSnapshot: () => {
+      throw new Error("unlink failed");
+    },
+    now: () => 0,
+  });
+  assert.match(noisy, /feat\/z/);
+});
 
 function runCli(root, input, env = {}) {
   return spawnSync(process.execPath, [hook], {

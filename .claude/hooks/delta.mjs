@@ -26,6 +26,7 @@ import {
 const MAX_CHARS = 600;
 const MAX_ITEM_CHARS = 60;
 const MAX_SUBJECTS = 3;
+const SNAPSHOT_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 const LOCKS_DIR = ".kore/locks";
 
 /** Open and ticked state per plan item: {planName: {itemTitle: checked}}. */
@@ -123,12 +124,30 @@ export function describeChanges(before, after, commitsBetween) {
   return text.length <= MAX_CHARS ? text : `${text.slice(0, MAX_CHARS - 3)}...`;
 }
 
+/** Delete other sessions' snapshots older than two weeks; errors are ignored. */
+function prune(currentId, deps) {
+  try {
+    const cutoff = deps.now() - SNAPSHOT_MAX_AGE_MS;
+    for (const { id, mtimeMs } of deps.listSnapshots()) {
+      if (id === currentId || mtimeMs >= cutoff) continue;
+      try {
+        deps.removeSnapshot(id);
+      } catch {
+        // Pruning is housekeeping; a stuck file must not break the turn.
+      }
+    }
+  } catch {
+    // Same: an unreadable directory is not worth a failed prompt.
+  }
+}
+
 /** Store this turn's snapshot and return what changed since the session's last one. */
 export function update(sessionId, deps) {
   try {
     const before = deps.readSnapshot(sessionId);
     const after = snapshot(deps);
     deps.writeSnapshot(sessionId, after);
+    prune(sessionId, deps);
     return before ? describeChanges(before, after, deps.commitsBetween) : "";
   } catch {
     return "";
