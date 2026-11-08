@@ -11,7 +11,7 @@ The installed `herdr` binary is the authority for syntax; run `herdr --skill` on
 2. **Split beside the caller, keeping focus:** `herdr pane split --current --direction right --cwd "$PWD" --no-focus`. Read the id from `.result.pane.pane_id`.
 3. **Start it with its role as the name:** `herdr agent start verifier --kind claude --pane <id>`.
 4. **Talk to it:** `herdr agent prompt <name> "<brief>" --wait --timeout <ms>`, then `herdr agent read <name>`. For a slash command, `herdr pane send-text <id> "/clear"`, then `herdr agent send-keys <name> enter`.
-5. **Wait on long work** for a line only the task prints when done (`herdr pane wait-output --regex '<summary pattern>' <id>`), never for a word that may already be on screen.
+5. **Wait on long work** for a line only the task prints when done (`herdr pane wait-output --regex '<summary pattern>' <id>`), never for a word that may already be on screen. The brief itself is on screen, so anchor the marker to its own line: `--regex '(?m)^\s*RESULT: (pass|miss)\s*$'`.
 
 Ask yourself:
 
