@@ -973,7 +973,8 @@ The user decided four open questions:
    bound to an exact protected GitHub Actions workflow identity (OIDC issuer
    `https://token.actions.githubusercontent.com`, an exact release workflow on
    protected tags). Local keeps the local key as an environment-specific exception
-   (ADR 0015).
+   (ADR 0015). The user confirmed exact identities: each accepted release tag is
+   listed as its own reviewed subject, with no tag pattern.
 3. **SOPS recipients (Step 8):** local gets its own age recipient, separate from
    managed environments. The user generates the key and supplies only the public
    recipient.
