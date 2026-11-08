@@ -297,9 +297,10 @@ API, cert-manager, SOPS with age, and External Secrets Operator.
 - [x] Define a stable `platform-secrets` store name for application resource
       charts.
 - [ ] Add SOPS and age configuration for encrypted local source secrets.
-      _Partial: `.sops.yaml` has a creation rule, but its age recipient is the
-      placeholder `AGE-RECIPIENT-MUST-BE-CONFIGURED` and no `*.enc.yaml` source
-      exists, so the encrypted path has never run._
+      _Partial: `.sops.yaml` encrypts local documents to a local-only age
+      recipient (decision 3 below), and `sops-canary.enc.yaml` is the first
+      encrypted source, checked by `sops-config.spec.ts`. Open until a live
+      `local up` applies the canary into the source namespace (2026-11-08)._
 - [x] Automate decryption directly into a protected source namespace without
       writing plaintext files into the repository or build artifacts.
 - [x] Configure External Secrets Operator to materialize application-scoped
