@@ -189,3 +189,36 @@ test("local Grafana does not chown existing hostpath data on startup", async () 
 
   assert.match(values, /initChownData:\s*\n\s+enabled:\s*false/);
 });
+
+test("Crossplane Functions are their own release, ordered after Crossplane and before the PostgreSQL API", async () => {
+  const repository = await loadRepository("local");
+  const order = orderedComponents(repository.catalog).map(({ name }) => name);
+  const functions = repository.catalog.components.find(
+    ({ name }) => name === "kore-crossplane-functions",
+  );
+
+  assert.ok(functions, "a kore-crossplane-functions release exists");
+  assert.ok(order.indexOf("crossplane") < order.indexOf(functions.name));
+  assert.ok(
+    order.indexOf(functions.name) < order.indexOf("kore-postgresql-api"),
+  );
+  assert.deepEqual(functions.readiness, [
+    "function.pkg.crossplane.io/function-go-templating",
+    "function.pkg.crossplane.io/function-auto-ready",
+  ]);
+});
+
+test("only the Crossplane Functions release declares Function packages", async () => {
+  const repository = await loadRepository("local");
+  const read = (path: string) => readFile(join(repository.root, path), "utf8");
+
+  assert.doesNotMatch(
+    await read("infra/apis/postgresql/compositions/local.yaml"),
+    /kind: Function\b/,
+  );
+  const functions = await read(
+    "infra/apis/crossplane-functions/functions.yaml",
+  );
+  assert.match(functions, /name: function-go-templating/);
+  assert.match(functions, /name: function-auto-ready/);
+});

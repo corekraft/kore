@@ -20,8 +20,8 @@ on a live cluster.
 | Sigstore Policy Controller chart | 0.10.8                  | 2026-11-07 | `policy.sigstore.dev` CRDs (`clusterimagepolicies`, `trustroots`); `deployment/policy-controller-webhook`; audit-only (see note) |
 | Istio                            | 1.31.4                  | 2026-11-07 | Ambient profile, Gateway API, Kubernetes 1.37; charts from `blob.istio.io` (see note)                                            |
 | Crossplane                       | 2.4.3                   | 2026-11-07 | Namespaced v2 composite resources; patch release                                                                                 |
-| function-go-templating           | v0.13.2                 | 2026-11-07 | Composition pipeline function for `infra/apis/postgresql`                                                                        |
-| function-auto-ready              | v0.7.3                  | 2026-11-07 | Composition pipeline function for `infra/apis/postgresql`                                                                        |
+| function-go-templating           | v0.13.2                 | 2026-11-07 | Composition pipeline function for `infra/apis/postgresql`, installed by `kore-crossplane-functions`                              |
+| function-auto-ready              | v0.7.3                  | 2026-11-07 | Composition pipeline function for `infra/apis/postgresql`, installed by `kore-crossplane-functions`                              |
 | External Secrets                 | 2.14.0                  | 2026-11-07 | `external-secrets.io/v1`                                                                                                         |
 | CloudNativePG chart              | 0.29.1                  | 2026-11-07 | PostgreSQL operator API v1; patch release                                                                                        |
 | OpenTelemetry Operator           | 0.129.0                 | 2026-11-07 | Collector custom resources and target allocator                                                                                  |
