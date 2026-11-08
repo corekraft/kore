@@ -194,3 +194,6 @@ outward-facing, so it is proposed to the user and not done by an agent.
   injectable `commitDate` (a fixture in tests, `git log -1 --format=%cs` live).
   They never affect the exit code, including under `--strict`. `mise run
 kb-check` on this tree: 0 stale documents.
+- Step 5: CI checks out with `fetch-depth: 0`. A shallow clone dates every
+  file at the tip commit, so stale-document warnings in CI would be wrong.
+  `workflow.test.mjs` asserts it.

@@ -67,3 +67,7 @@ test("mise tasks cannot install tools beyond the ones the job installed", () => 
     /^ {4}env:\n(?: {6}.+\n)*? {6}MISE_TASK_RUN_AUTO_INSTALL: "false"\n/m,
   );
 });
+
+test("checkout fetches full history, so kb-check's stale-document dates are real", () => {
+  assert.match(check(), /^\s+fetch-depth: 0\s*$/m);
+});
