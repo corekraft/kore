@@ -13,8 +13,10 @@ import { basename, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
+import { lastRetrospective, readPlans } from "./context.mjs";
+
 const USAGE =
-  "Usage: node .claude/hooks/retro-scan.mjs [--dir <transcripts>] [--since YYYY-MM-DD]";
+  "Usage: node .claude/hooks/retro-scan.mjs [--dir <transcripts>] [--since YYYY-MM-DD]\n--since keeps sessions that ended after that date, like the session-start count.";
 const MAX_ERROR = 120;
 const MIN_WARNINGS = 5;
 const MIN_CORRECTION_WORDS = 4;
@@ -62,10 +64,7 @@ export function summarizeError(text) {
   const exit = /^Exit code \d+$/.exec(head);
   if (exit) {
     prefix = head;
-    head =
-      lines[1] && /^(\(eval\):\d+|[A-Za-z_][A-Za-z0-9_./-]*): /.test(lines[1])
-        ? lines[1]
-        : "";
+    head = lines[1] ?? "";
   }
   const normalized = head
     .replace(/'[^']*'|"[^"]*"/g, "<q>")
@@ -254,7 +253,7 @@ export function scan(
   const included = parsed
     .map((session) => ({ session, ...timestamps(session) }))
     .filter(
-      ({ last }) => last !== null && (!since || last.slice(0, 10) >= since),
+      ({ last }) => last !== null && (!since || last.slice(0, 10) > since),
     )
     .sort((a, b) => a.first.localeCompare(b.first));
 
@@ -321,10 +320,21 @@ export function scan(
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
 
-  const corrections = [...phraseSessions]
-    .filter(([, evidence]) => evidence.length >= 2)
-    .map(([phrase, evidence]) => ({
-      id: createHash("sha1").update(phrase).digest("hex").slice(0, 8),
+  // Phrases from the same messages are one correction, so merge identical evidence.
+  const byEvidence = new Map();
+  for (const [phrase, evidence] of phraseSessions) {
+    if (evidence.length < 2) continue;
+    const key = JSON.stringify(evidence);
+    const group = byEvidence.get(key) ?? { phrases: [], evidence };
+    group.phrases.push(phrase);
+    byEvidence.set(key, group);
+  }
+  const corrections = [...byEvidence.values()]
+    .map(({ phrases, evidence }) => ({
+      id: createHash("sha1")
+        .update(phrases.sort().join("\n"))
+        .digest("hex")
+        .slice(0, 8),
       sessions: evidence.length,
       evidence,
     }))
@@ -407,20 +417,8 @@ function defaultDir() {
   return join(homedir(), ".claude", "projects", main.replace(/[/.]/g, "-"));
 }
 
-function lastRetrospective() {
-  try {
-    const plan = readFileSync(
-      join(root, "infra/plans/3-agent-harness.md"),
-      "utf8",
-    );
-    const dates = [
-      ...plan.matchAll(/^Last retrospective: (\d{4}-\d{2}-\d{2})$/gm),
-    ].map((m) => m[1]);
-    return dates.sort().at(-1);
-  } catch (error) {
-    if (error.code !== "ENOENT") throw error;
-    return undefined;
-  }
+function lastRetrospectiveDate() {
+  return lastRetrospective(readPlans(root)) ?? undefined;
 }
 
 function main(argv) {
@@ -430,7 +428,7 @@ function main(argv) {
     return 2;
   }
   const dir = args.dir ?? defaultDir();
-  const since = args.since ?? (args.dir ? undefined : lastRetrospective());
+  const since = args.since ?? (args.dir ? undefined : lastRetrospectiveDate());
   let files;
   try {
     files = readdirSync(dir)

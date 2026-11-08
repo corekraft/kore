@@ -28,7 +28,7 @@ const fixture = (name) => ({
 });
 const all = () => ["alpha", "bravo", "charlie"].map(fixture);
 const options = {
-  since: "2026-11-01",
+  since: "2026-10-31",
   knownSkills: ["handoff", "retro", "test-driven-development", "write-adr"],
   auditRules: ["image-digest", "sample-audit", "unquoted-glob"],
 };
@@ -116,7 +116,7 @@ test("error summaries strip paths, numbers, and quotes, and stay within 120 char
   assert.equal(summarizeError("Exit code 137"), "Exit code 137");
   assert.equal(
     summarizeError("Exit code 1\nsome file contents\nmore contents"),
-    "Exit code 1",
+    "Exit code 1: some file contents",
   );
   assert.ok(summarizeError(`Error ${"word ".repeat(80)}`).length <= 120);
 });
@@ -226,7 +226,7 @@ test("the CLI scans a directory and prints JSON without user text", () => {
 test("the CLI applies --since to a directory", () => {
   const result = spawnSync(
     process.execPath,
-    [hook, "--dir", fixtures, "--since", "2026-11-02"],
+    [hook, "--dir", fixtures, "--since", "2026-11-01"],
     {
       encoding: "utf8",
     },
@@ -241,4 +241,69 @@ test("the CLI rejects an unknown flag with usage", () => {
   });
   assert.equal(result.status, 2);
   assert.match(result.stderr, /Usage: node \.claude\/hooks\/retro-scan\.mjs/);
+});
+
+test("a session from the day of the last retrospective is not scanned, matching the session-start count", () => {
+  const result = scan(all(), { ...options, since: "2026-11-01" });
+  assert.deepEqual(
+    result.sessions.list.map((session) => session.id),
+    ["bravo"],
+  );
+});
+
+test("a command failure is grouped by the first line after its exit code, not by the exit code alone", () => {
+  const failure = (id, output) => [
+    JSON.stringify({
+      type: "assistant",
+      timestamp: "2026-11-03T00:00:00.000Z",
+      message: { content: [{ type: "tool_use", id, name: "Bash", input: {} }] },
+    }),
+    JSON.stringify({
+      type: "user",
+      timestamp: "2026-11-03T00:00:00.000Z",
+      message: {
+        content: [
+          {
+            type: "tool_result",
+            tool_use_id: id,
+            is_error: true,
+            content: output,
+          },
+        ],
+      },
+    }),
+  ];
+  const text = [
+    ...failure("x1", "Exit code 1\n\nnpm ERR! missing script: build"),
+    ...failure("x2", "Exit code 1\nfatal: not a git repository"),
+    ...failure("x3", "Exit code 2"),
+  ].join("\n");
+  const { failures } = scan([{ id: "s", text }], options);
+  assert.deepEqual(failures.map((item) => item.error).sort(), [
+    "Exit code 1: fatal: not a git repository",
+    "Exit code 1: npm ERR! missing script: build",
+    "Exit code 2",
+  ]);
+});
+
+test("several repeated phrases from the same messages are one correction, not several", () => {
+  const message = (line, text) =>
+    JSON.stringify({
+      type: "user",
+      timestamp: "2026-11-03T00:00:00.000Z",
+      message: { role: "user", content: text },
+      line,
+    });
+  const text = message(
+    1,
+    "Never touch the shared stash. Always ask before you push.",
+  );
+  const sessions = [
+    { id: "p", text },
+    { id: "q", text },
+  ];
+  const { corrections } = scan(sessions, options);
+  assert.equal(corrections.length, 1);
+  assert.equal(corrections[0].sessions, 2);
+  assert.equal(corrections[0].evidence.length, 2);
 });
