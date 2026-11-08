@@ -8,3 +8,15 @@ export type { BuiltLocalImage } from "./local-image.js";
 export { localRegistryReference } from "./registry.js";
 export { ensureLocalSigningPublicKey } from "./local-signer.js";
 export { verifiedRegistryAddress } from "./registry-service.js";
+export {
+  ensureRegistryAuth,
+  koreManagesRegistryAuth,
+  loadRegistryCredential,
+  registryAddress,
+  registryPullSecret,
+  registryPullSecretName,
+  withSecretsRedacted,
+} from "./registry-auth.js";
+export type { RegistryCredential } from "./registry-auth.js";
+export { withRegistryClient } from "./registry-client.js";
+export { minikubeRegistrySessionArgs, shellQuote } from "./local-image-args.js";

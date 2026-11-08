@@ -18,23 +18,66 @@ export function minikubeImageLoadArgs(profile: string, tag: string): string[] {
   return ["image", "load", "--profile", profile, "--daemon", tag];
 }
 
+/**
+ * Runs registry commands inside the node. The password is read from stdin by
+ * one line of stdin and piped to `nerdctl login --password-stdin`, which
+ * writes a Docker config on memory-backed
+ * storage that the script removes on exit, so it is never in an argument or on
+ * a persistent disk (ADR 0034). The caller supplies `${password}\n` as input.
+ */
+export function minikubeRegistrySessionArgs(
+  profile: string,
+  registryAddress: string,
+  username: string,
+  commands: string[],
+): string[] {
+  if (!/^[A-Za-z0-9][A-Za-z0-9.-]*(?::\d{1,5})?$/.test(registryAddress)) {
+    throw new Error(`local registry has an invalid registry address`);
+  }
+  if (!/^[a-z][a-z0-9-]*$/.test(username)) {
+    throw new Error(`local registry has an invalid username`);
+  }
+  const script = [
+    "set -e",
+    "d=$(mktemp -d -p /dev/shm)",
+    `trap 'rm -rf "$d"' EXIT`,
+    'export DOCKER_CONFIG="$d"',
+    // Read exactly one line: minikube's native SSH client never closes stdin,
+    // so a login that reads to end of input would hang forever.
+    "IFS= read -r p",
+    `printf '%s' "$p" | nerdctl --insecure-registry login --username ${shellQuote(username)} --password-stdin ${shellQuote(registryAddress)} >/dev/null`,
+    "unset p",
+    ...commands,
+  ].join("\n");
+  // The native Go SSH client allocates a terminal that echoes stdin (the
+  // password) into the captured output, and never closes stdin; the external
+  // ssh client does neither.
+  return [
+    "ssh",
+    "--profile",
+    profile,
+    "--native-ssh=false",
+    "--",
+    `sudo sh -c ${shellQuote(script)}`,
+  ];
+}
+
+export function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", "'\\''")}'`;
+}
+
 export function minikubeImagePublishArgs(
   profile: string,
   tag: string,
   registryAddress: string,
   repositoryPath: string,
+  username: string,
 ): string[] {
-  if (!/^[A-Za-z0-9][A-Za-z0-9.-]*(?::\d{1,5})?$/.test(registryAddress)) {
-    throw new Error(`local registry has an invalid registry address`);
-  }
   const destination = `${registryAddress}/${repositoryPath}`;
-  return [
-    "ssh",
-    "--profile",
-    profile,
-    "--",
-    `sudo nerdctl --namespace k8s.io tag '${tag}' '${destination}' && sudo nerdctl --insecure-registry --namespace k8s.io push '${destination}'`,
-  ];
+  return minikubeRegistrySessionArgs(profile, registryAddress, username, [
+    `nerdctl --namespace k8s.io tag ${shellQuote(tag)} ${shellQuote(destination)}`,
+    `nerdctl --insecure-registry --namespace k8s.io push ${shellQuote(destination)}`,
+  ]);
 }
 
 export function imageDigestFromRegistryHead(

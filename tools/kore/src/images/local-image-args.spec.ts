@@ -14,6 +14,7 @@ test("publishing refuses a registry address that is not an IPv4 ClusterIP", () =
       "tag",
       "10.0.0.8:5000; rm -rf /",
       "repo:kore-local",
+      "kore-push",
     ),
   ).toThrow(/invalid registry address/);
 });

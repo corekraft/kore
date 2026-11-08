@@ -133,6 +133,9 @@ test("app up rejects an invalid application name before resolving chart paths", 
       if (command === "minikube") {
         return { stdout: '{"Host":"Running"}', stderr: "", code: 0 };
       }
+      if (command === "kubectl" && args.includes("oci-registry-credentials")) {
+        return { stdout: healthyReadinessOutput(args)!, stderr: "", code: 0 };
+      }
       if (command === "kubectl" && args.includes("jsonpath={.metadata.name}")) {
         return { stdout: "kube-system", stderr: "", code: 0 };
       }

@@ -2,15 +2,18 @@ import { join } from "node:path";
 import type { ImageLockEntry, LockedImage } from "./image-lock.js";
 import type { Repository } from "../config/index.js";
 import {
-  imageDigestFromRegistryHead,
   localDockerBuildArgs,
   localSignArgs,
   minikubeImageLoadArgs,
-  minikubeImagePublishArgs,
 } from "./local-image-args.js";
 import { withLocalSigner, type LocalSigner } from "./local-signer.js";
 import { localRegistryReference } from "./registry.js";
-import { verifiedRegistryAddress } from "./registry-service.js";
+import {
+  publishedDigest,
+  publishToLocalRegistry,
+  withPublishSession,
+  type PublishSession,
+} from "./local-publish.js";
 import type { Runner } from "../runtime/index.js";
 
 export {
@@ -25,9 +28,6 @@ export interface BuiltLocalImage {
   image: LockedImage;
   publicKey: string;
 }
-
-const manifestAccept =
-  "application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json";
 
 async function loadIntoMinikube(
   repository: Repository,
@@ -47,53 +47,12 @@ async function loadIntoMinikube(
   );
 }
 
-async function publishToLocalRegistry(
-  repository: Repository,
-  runner: Runner,
-  entry: ImageLockEntry,
-  imageTag: string,
-): Promise<string> {
-  const address = await verifiedRegistryAddress(repository, runner);
-  const separator = entry.image.indexOf("/");
-  if (separator < 1) {
-    throw new Error("image repository path is unavailable");
-  }
-  const repositoryPath = entry.image
-    .slice(separator + 1)
-    .replace(/:[^/:]+$/, "");
-  await runner.run(
-    "minikube",
-    minikubeImagePublishArgs(
-      repository.environment.cluster.profile,
-      imageTag,
-      address,
-      `${repositoryPath}:kore-local`,
-    ),
-    { capture: true },
-  );
-  return repositoryPath;
-}
-
-async function publishedDigest(repositoryPath: string): Promise<string> {
-  const manifestPath = repositoryPath
-    .split("/")
-    .map(encodeURIComponent)
-    .join("/");
-  const manifest = await fetch(
-    `http://127.0.0.1:30500/v2/${manifestPath}/manifests/kore-local`,
-    { method: "HEAD", headers: { Accept: manifestAccept } },
-  );
-  return imageDigestFromRegistryHead(
-    manifest.status,
-    `docker-content-digest: ${manifest.headers.get("docker-content-digest") ?? ""}`,
-  );
-}
-
 async function signImage(
   repository: Repository,
   runner: Runner,
   image: LockedImage,
   signer: LocalSigner,
+  client: PublishSession["client"],
 ): Promise<void> {
   const signingReference = await localRegistryReference(
     repository,
@@ -102,16 +61,21 @@ async function signImage(
   );
   await runner.run("cosign", localSignArgs(signer.key, signingReference), {
     capture: false,
-    env: signer.env,
+    env: { ...signer.env, ...client.env },
   });
 }
 
+interface Context {
+  repository: Repository;
+  runner: Runner;
+  signer: LocalSigner;
+  session: PublishSession;
+}
+
 async function buildAndSign(
-  repository: Repository,
-  runner: Runner,
+  { repository, runner, signer, session }: Context,
   application: string,
   entry: ImageLockEntry,
-  signer: LocalSigner,
 ): Promise<BuiltLocalImage> {
   const imageTag = `kore-local/${application}:kore-local`;
   await localRegistryReference(repository, runner, `${entry.image}:kore-local`);
@@ -121,14 +85,18 @@ async function buildAndSign(
     runner,
     entry,
     imageTag,
+    session.credential,
   );
-  const digest = await publishedDigest(repositoryPath);
+  const digest = await publishedDigest(
+    repositoryPath,
+    session.client.authorization,
+  );
   const image: LockedImage = {
     reference: `${entry.image}@${digest}`,
     digest,
     signer: "local-kore-key",
   };
-  await signImage(repository, runner, image, signer);
+  await signImage(repository, runner, image, signer, session.client);
   return { image, publicKey: signer.publicKey };
 }
 
@@ -138,7 +106,9 @@ export async function buildAndSignLocalImage(
   application: string,
   entry: ImageLockEntry,
 ): Promise<BuiltLocalImage> {
-  return await withLocalSigner(repository, runner, (signer) =>
-    buildAndSign(repository, runner, application, entry, signer),
+  return await withPublishSession(repository, runner, (session) =>
+    withLocalSigner(repository, runner, (signer) =>
+      buildAndSign({ repository, runner, signer, session }, application, entry),
+    ),
   );
 }

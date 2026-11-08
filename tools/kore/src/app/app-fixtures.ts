@@ -30,10 +30,25 @@ const healthyService = JSON.stringify({
   items: [{ status: { loadBalancer: { ingress: [{ ip: "127.0.0.1" }] } } }],
 });
 
+export const readPassword = "read-password-0123456789-abcdefghijklmn";
+export const pushPassword = "push-password-0123456789-abcdefghijklmnop";
+const b64 = (value: string): string => Buffer.from(value).toString("base64");
+const registryCredentials = JSON.stringify({
+  data: {
+    "push-username": b64("kore-push"),
+    "push-password": b64(pushPassword),
+    "read-username": b64("kore-read"),
+    "read-password": b64(readPassword),
+  },
+});
+
 /** What a healthy cluster answers to the platform readiness probes, if any. */
 export function healthyReadinessOutput(
   args: readonly string[],
 ): string | undefined {
+  if (args.includes("oci-registry-credentials")) {
+    return registryCredentials;
+  }
   if (args.includes("service") && args.includes("--selector")) {
     return healthyService;
   }
