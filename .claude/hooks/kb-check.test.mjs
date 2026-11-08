@@ -320,7 +320,10 @@ test("a clean tree exits 0 in both modes and prints only the clean line", () => 
 test("cli: runs against the repository and exits 0 in warn mode", () => {
   const warn = spawnSync(process.execPath, [hook], { encoding: "utf8" });
   assert.equal(warn.status, 0, warn.stderr);
-  assert.match(warn.stdout, /^kb-check: (clean|\d+ findings?)/m);
+  assert.match(
+    warn.stdout,
+    /^kb-check: (clean|\d+ findings?|\d+ stale documents?)/m,
+  );
 });
 
 // Staleness: a document last verified before a file it depends on changed.
