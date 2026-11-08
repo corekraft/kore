@@ -36,6 +36,35 @@ test("readiness waits use the condition that matches each resource kind", async 
   assert.ok(waits.every((call) => call.includes(`--namespace`)));
 });
 
+test("Gatekeeper constraints and templates are checked by existence, not rollout", async () => {
+  const { repository, component } = await helmComponent([
+    "koresecrets.constraints.gatekeeper.sh/kore-secrets",
+    "constrainttemplate.templates.gatekeeper.sh/koresecrets",
+  ]);
+  const runner = new RecordingRunner();
+
+  await reconcileComponent(repository, runner, component);
+
+  const calls = runner.calls
+    .filter(({ command }) => command === "kubectl")
+    .map(({ args }) => args.join(" "));
+  assert.ok(
+    calls.some((c) =>
+      /get koresecrets\.constraints\.gatekeeper\.sh\/kore-secrets --output name/.test(
+        c,
+      ),
+    ),
+  );
+  assert.ok(
+    calls.some((c) =>
+      /get constrainttemplate\.templates\.gatekeeper\.sh\/koresecrets --output name/.test(
+        c,
+      ),
+    ),
+  );
+  assert.ok(!calls.some((c) => c.includes("rollout status")));
+});
+
 test("a TLS Secret that never completes fails with the readiness timeout", async () => {
   const { repository, component } = await helmComponent(["secret/edge-tls"]);
   const runner = new RecordingRunner();

@@ -383,6 +383,12 @@
         "timeout": "5m",
         "readiness":
           [
+            "constrainttemplate.templates.gatekeeper.sh/korecontainersecurity",
+            "constrainttemplate.templates.gatekeeper.sh/koremeshenrollment",
+            "constrainttemplate.templates.gatekeeper.sh/korerbac",
+            "constrainttemplate.templates.gatekeeper.sh/koreretention",
+            "constrainttemplate.templates.gatekeeper.sh/koresecrets",
+            "constrainttemplate.templates.gatekeeper.sh/koreworkloadidentity",
             "crd/korecontainersecurity.constraints.gatekeeper.sh",
             "crd/koremeshenrollment.constraints.gatekeeper.sh",
             "crd/korerbac.constraints.gatekeeper.sh",
@@ -401,7 +407,15 @@
         "ownsCRDs": [],
         "dependencies": ["gatekeeper", "kore-policy-templates"],
         "timeout": "5m",
-        "readiness": ["deployment/gatekeeper-audit"]
+        "readiness":
+          [
+            "korecontainersecurity.constraints.gatekeeper.sh/kore-container-security",
+            "koremeshenrollment.constraints.gatekeeper.sh/kore-mesh-enrollment",
+            "korerbac.constraints.gatekeeper.sh/kore-rbac",
+            "koreretention.constraints.gatekeeper.sh/kore-retention",
+            "koresecrets.constraints.gatekeeper.sh/kore-secrets",
+            "koreworkloadidentity.constraints.gatekeeper.sh/kore-workload-identity"
+          ]
       },
       {
         "name": "kore-local-tls",

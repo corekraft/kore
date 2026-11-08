@@ -19,6 +19,9 @@ const EXISTENCE_KINDS = [
   "clusterrole/",
   "clusterrolebinding/",
 ];
+/** Gatekeeper templates and constraints are proven by existing. */
+const GATEKEEPER_OBJECT =
+  /^(constrainttemplate\.templates|[a-z0-9]+\.constraints)\.gatekeeper\.sh\//;
 /** Bound for each read-only check `kore status` evaluates. */
 const STATUS_TIMEOUT = "3s";
 
@@ -147,7 +150,10 @@ function checkFor(context: Context, resource: string): Check {
         waitForGateway(context.runner, context.base, resource, timeout),
     };
   }
-  if (EXISTENCE_KINDS.some((kind) => resource.startsWith(kind))) {
+  if (
+    GATEKEEPER_OBJECT.test(resource) ||
+    EXISTENCE_KINDS.some((kind) => resource.startsWith(kind))
+  ) {
     return {
       condition: "exists",
       run: (timeout) => waitForExistence(context, resource, timeout),

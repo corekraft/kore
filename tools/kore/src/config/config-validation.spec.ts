@@ -223,3 +223,37 @@ test("storage and PostgreSQL RBAC releases prove the resources they own", async 
     "clusterrole/crossplane-postgresql-composition",
   ]);
 });
+
+test("policy releases prove the objects they apply, not the Gatekeeper controller", async () => {
+  const base = await loadRepository("local");
+  const readiness = (name: string) =>
+    base.catalog.components.find((component) => component.name === name)
+      ?.readiness ?? [];
+  assert.ok(
+    !readiness("kore-policy-constraints").some((r) =>
+      r.startsWith("deployment/"),
+    ),
+  );
+  assert.deepEqual(readiness("kore-policy-constraints"), [
+    "korecontainersecurity.constraints.gatekeeper.sh/kore-container-security",
+    "koremeshenrollment.constraints.gatekeeper.sh/kore-mesh-enrollment",
+    "korerbac.constraints.gatekeeper.sh/kore-rbac",
+    "koreretention.constraints.gatekeeper.sh/kore-retention",
+    "koresecrets.constraints.gatekeeper.sh/kore-secrets",
+    "koreworkloadidentity.constraints.gatekeeper.sh/kore-workload-identity",
+  ]);
+  for (const name of [
+    "korecontainersecurity",
+    "koremeshenrollment",
+    "korerbac",
+    "koreretention",
+    "koresecrets",
+    "koreworkloadidentity",
+  ]) {
+    assert.ok(
+      readiness("kore-policy-templates").includes(
+        `constrainttemplate.templates.gatekeeper.sh/${name}`,
+      ),
+    );
+  }
+});
