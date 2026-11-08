@@ -22,7 +22,9 @@ export function parseArgs(args: string[]): ParsedArgs {
     if (next && !next.startsWith("--")) {
       flags.set(key, next);
       index++;
-    } else flags.set(key, true);
+    } else {
+      flags.set(key, true);
+    }
   }
   return { positional, flags };
 }
@@ -36,7 +38,8 @@ export function boolFlag(args: ParsedArgs, name: string): boolean {
 }
 export function requireEnvironment(args: ParsedArgs): string {
   const environment = stringFlag(args, "environment");
-  if (!environment)
+  if (!environment) {
     throw new Error("--environment is required for mutating commands");
+  }
   return environment;
 }

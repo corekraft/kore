@@ -56,12 +56,17 @@ export class ProcessRunner implements Runner {
       child.stderr?.on("data", (chunk: Buffer) => {
         stderr += chunk.toString();
       });
-      if (options.input !== undefined) child.stdin?.end(options.input);
+      if (options.input !== undefined) {
+        child.stdin?.end(options.input);
+      }
       child.on("error", reject);
       child.on("close", (code) => {
         const result = { stdout, stderr, code: code ?? 1 };
-        if (result.code === 0) resolve(result);
-        else reject(new CommandError(command, args, result));
+        if (result.code === 0) {
+          resolve(result);
+        } else {
+          reject(new CommandError(command, args, result));
+        }
       });
     });
   }

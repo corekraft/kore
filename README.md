@@ -105,7 +105,7 @@ never process input or environment), and the outcome. If the journal cannot be
 written at the start, the mutation does not run. Run `kore journal` to see
 recent operations and any that were interrupted.
 
-Run `kore --help` for every flag; the usage text in `tools/kore/src/cli/cli.ts`
+Run `kore --help` for every flag; the usage text in `tools/kore/src/cli/usage.ts`
 is the source of truth.
 
 | Command         | Does                                                                                                                     |

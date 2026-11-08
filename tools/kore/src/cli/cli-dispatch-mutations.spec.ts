@@ -1,0 +1,159 @@
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { dispatch } from "./cli-dispatch.fixtures.js";
+
+vi.mock("../app/index.js", async () =>
+  (await import("./cli-dispatch.fixtures.js")).appModule(),
+);
+vi.mock("../cluster/index.js", async () =>
+  (await import("./cli-dispatch.fixtures.js")).clusterModule(),
+);
+vi.mock("../config/index.js", async () =>
+  (await import("./cli-dispatch.fixtures.js")).configModule(),
+);
+vi.mock("../diagnostics/index.js", async () =>
+  (await import("./cli-dispatch.fixtures.js")).diagnosticsModule(),
+);
+vi.mock("../runtime/index.js", async () =>
+  (await import("./cli-dispatch.fixtures.js")).runtimeModule(),
+);
+vi.mock("../platform/index.js", async () =>
+  (await import("./cli-dispatch.fixtures.js")).platformModule(),
+);
+vi.mock("../security/index.js", async () =>
+  (await import("./cli-dispatch.fixtures.js")).securityModule(),
+);
+vi.mock("../tunnel/index.js", async () =>
+  (await import("./cli-dispatch.fixtures.js")).tunnelModule(),
+);
+vi.mock("../local/index.js", async () =>
+  (await import("./cli-dispatch.fixtures.js")).localModule(),
+);
+
+import { main } from "./cli.js";
+
+beforeEach(() => {
+  dispatch.length = 0;
+  vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+test("cluster CLI commands dispatch guarded mutations and destroy options", async () => {
+  await main(["cluster", "up", "--environment", "local"]);
+  await main(["cluster", "stop", "--environment", "local"]);
+  await main([
+    "cluster",
+    "destroy",
+    "--environment",
+    "local",
+    "--yes",
+    "--purge-data",
+  ]);
+
+  expect(dispatch).toEqual([
+    "lock",
+    "journal:cluster up:kore-local",
+    "clusterUp",
+    "lock",
+    "journal:cluster stop:kore-local",
+    "clusterStop",
+    "lock",
+    "journal:cluster destroy:kore-local",
+    "clusterDestroy:true:true",
+  ]);
+});
+
+test("platform CLI commands dispatch render and all lifecycle actions", async () => {
+  await main([
+    "platform",
+    "render",
+    "--environment",
+    "local",
+    "--output",
+    "/tmp/render",
+  ]);
+  await main(["platform", "bootstrap", "--environment", "local"]);
+  await main(["platform", "up", "--environment", "local"]);
+  await main(["platform", "stop", "--environment", "local"]);
+  await main([
+    "platform",
+    "destroy",
+    "--environment",
+    "local",
+    "--yes",
+    "--purge-data",
+  ]);
+
+  expect(dispatch).toEqual([
+    "platformRender",
+    "lock",
+    "journal:platform bootstrap:kore-local",
+    "bootstrapControllers",
+    "lock",
+    "journal:platform up:kore-local",
+    "platformUp",
+    "lock",
+    "journal:platform stop:kore-local",
+    "platformStop",
+    "lock",
+    "journal:platform destroy:kore-local",
+    "platformDestroy",
+  ]);
+});
+
+test("application and local CLI commands dispatch deploy and teardown actions", async () => {
+  await main(["app", "up", "reference", "--environment", "local"]);
+  await main(["app", "down", "reference", "--environment", "local"]);
+  await main(["local", "up", "--environment", "local"]);
+  await main(["local", "down", "--environment", "local", "--prune"]);
+  await main([
+    "local",
+    "down",
+    "--environment",
+    "local",
+    "--prune",
+    "--purge-data",
+  ]);
+
+  expect(dispatch).toEqual([
+    "lock",
+    "journal:app up reference:kore-local",
+    "appUp",
+    "lock",
+    "journal:app down reference:kore-local",
+    "appDown",
+    "lock",
+    "journal:local up:kore-local",
+    "localUp",
+    "lock",
+    "journal:local down:kore-local",
+    "localDown:true:false",
+    "lock",
+    "journal:local down:kore-local",
+    "localDown:true:true",
+  ]);
+});
+
+test("tunnel, secret, and trust CLI mutations dispatch their operations", async () => {
+  await main(["tunnel", "start", "--environment", "local", "--json"]);
+  await main(["tunnel", "stop", "--environment", "local", "--json"]);
+  await main(["secrets", "sync", "--environment", "local", "--json"]);
+  await main(["trust", "install", "--environment", "local", "--json"]);
+
+  expect(dispatch).toEqual([
+    "lock",
+    "journal:tunnel start:kore-local",
+    "startLocalTunnel",
+    "lock",
+    "journal:tunnel stop:kore-local",
+    "stopLocalTunnel",
+    "lock",
+    "journal:secrets sync:kore-local",
+    "syncLocalSecrets",
+    "lock",
+    "journal:trust install:kore-local",
+    "installLocalTrust",
+  ]);
+});

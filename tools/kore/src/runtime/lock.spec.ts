@@ -68,17 +68,19 @@ test("environment lock is removed when the operation throws", async () => {
 
 async function plantLock(
   root: string,
-  owner: Record<string, unknown> | string | "legacy",
+  owner: Record<string, unknown> | string,
 ): Promise<string> {
   const base = join(root, ".kore", "locks");
   const lockPath = join(base, "local.lock");
   await mkdir(base, { recursive: true });
-  if (owner === "legacy") await mkdir(lockPath);
-  else
+  if (owner === "legacy") {
+    await mkdir(lockPath);
+  } else {
     await writeFile(
       lockPath,
       typeof owner === "string" ? owner : JSON.stringify(owner),
     );
+  }
   return lockPath;
 }
 

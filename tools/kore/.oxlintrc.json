@@ -1,7 +1,89 @@
 {
   "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/npm/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "import"],
   "rules": {
     "no-unused-vars": "error",
-    "no-useless-escape": "error"
-  }
+    "no-useless-escape": "error",
+    "curly": ["error", "all"],
+    "eqeqeq": "error",
+    "no-param-reassign": "error",
+    "default-case": "error",
+    "no-else-return": "error",
+    "no-shadow": "error",
+    "no-nested-ternary": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/no-floating-promises": "error",
+    "typescript/no-misused-promises": "error",
+    "typescript/await-thenable": "error",
+    "unicorn/prefer-node-protocol": "error",
+    "oxc/no-accumulating-spread": "error",
+    "complexity": [
+      "error",
+      {
+        "max": 18
+      }
+    ],
+    "max-statements": [
+      "error",
+      {
+        "max": 24
+      }
+    ],
+    "max-lines-per-function": [
+      "error",
+      {
+        "max": 70,
+        "skipBlankLines": true,
+        "skipComments": true
+      }
+    ],
+    "max-lines": [
+      "error",
+      {
+        "max": 300,
+        "skipBlankLines": true,
+        "skipComments": true
+      }
+    ],
+    "max-params": [
+      "error",
+      {
+        "max": 5
+      }
+    ],
+    "max-depth": [
+      "error",
+      {
+        "max": 4
+      }
+    ],
+    "import/max-dependencies": [
+      "error",
+      {
+        "max": 8
+      }
+    ],
+    "import/no-cycle": "error"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.spec.ts"],
+      "rules": {
+        "complexity": [
+          "error",
+          {
+            "max": 15
+          }
+        ],
+        "max-statements": "off",
+        "import/max-dependencies": "off"
+      }
+    },
+    {
+      "files": ["**/*.integration.spec.ts"],
+      "rules": {
+        "typescript/no-floating-promises": "off"
+      }
+    }
+  ]
 }

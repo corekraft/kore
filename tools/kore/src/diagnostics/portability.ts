@@ -16,8 +16,11 @@ async function filesIn(directory: string): Promise<string[]> {
   const files: string[] = [];
   for (const entry of entries) {
     const path = join(directory, entry.name);
-    if (entry.isDirectory()) files.push(...(await filesIn(path)));
-    else files.push(path);
+    if (entry.isDirectory()) {
+      files.push(...(await filesIn(path)));
+    } else {
+      files.push(path);
+    }
   }
   return files;
 }
@@ -35,8 +38,9 @@ export async function validatePortability(
   } catch {
     throw new Error("portability validation requires an apps directory");
   }
-  if (!applications.length)
+  if (!applications.length) {
     throw new Error("portability validation found no applications");
+  }
 
   for (const application of applications) {
     for (const chart of ["resources", "workload"]) {
@@ -49,15 +53,17 @@ export async function validatePortability(
       for (const path of await filesIn(chartDirectory)) {
         const contents = await readFile(path, "utf8");
         const providerMatch = contents.match(providerSpecific);
-        if (providerMatch)
+        if (providerMatch) {
           throw new Error(
             `${application}: provider-specific reference ${providerMatch[0]} in ${path}`,
           );
+        }
         const overlayMatch = contents.match(environmentOverlay);
-        if (overlayMatch)
+        if (overlayMatch) {
           throw new Error(
             `${application}: environment overlay reference ${overlayMatch[0]} in ${path}`,
           );
+        }
       }
     }
   }

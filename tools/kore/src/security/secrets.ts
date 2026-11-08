@@ -18,7 +18,9 @@ async function ensureLocalReferenceSecret(
   try {
     token = (await readFile(tokenPath, "utf8")).trim();
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error;
+    }
     token = randomBytes(32).toString("hex");
     try {
       await writeFile(tokenPath, `${token}\n`, {
@@ -27,15 +29,17 @@ async function ensureLocalReferenceSecret(
         flag: "wx",
       });
     } catch (writeError) {
-      if ((writeError as NodeJS.ErrnoException).code !== "EEXIST")
+      if ((writeError as NodeJS.ErrnoException).code !== "EEXIST") {
         throw writeError;
+      }
       token = (await readFile(tokenPath, "utf8")).trim();
     }
   }
-  if (!/^[a-f0-9]{64}$/.test(token))
+  if (!/^[a-f0-9]{64}$/.test(token)) {
     throw new Error(
       `local API token at ${tokenPath} is invalid; remove it to generate a new token`,
     );
+  }
   await chmod(tokenPath, 0o600);
   const secret = {
     apiVersion: "v1",
@@ -65,32 +69,37 @@ async function ensureLocalReferenceSecret(
   );
 }
 
-export async function syncLocalSecrets(
+function applyArgs(context: string, namespace?: string): string[] {
+  return [
+    "--context",
+    context,
+    ...(namespace ? ["--namespace", namespace] : []),
+    "apply",
+    "--server-side",
+    "--field-manager=kore-secrets",
+    "--filename",
+    "-",
+  ];
+}
+
+async function ensureSourceNamespace(
+  runner: Runner,
+  context: string,
+  namespace: string,
+): Promise<void> {
+  const manifest = `apiVersion: v1\nkind: Namespace\nmetadata:\n  name: ${namespace}\n  labels:\n    platform.kore.dev/secret-source: "true"\n`;
+  await runner.run("kubectl", applyArgs(context), {
+    capture: true,
+    input: manifest,
+  });
+}
+
+// Plaintext is streamed from sops into kubectl stdin and never written to disk.
+async function applyEncryptedSecrets(
   repository: Repository,
   runner: Runner,
+  namespace: string,
 ): Promise<number> {
-  if (repository.environment.provider !== "minikube")
-    throw new Error(
-      "local SOPS synchronization is only valid for a Minikube environment",
-    );
-  await assertExpectedCluster(repository, runner);
-  const context = repository.environment.kubeContext,
-    namespace = repository.environment.secrets.sourceNamespace;
-  const namespaceManifest = `apiVersion: v1\nkind: Namespace\nmetadata:\n  name: ${namespace}\n  labels:\n    platform.kore.dev/secret-source: "true"\n`;
-  await runner.run(
-    "kubectl",
-    [
-      "--context",
-      context,
-      "apply",
-      "--server-side",
-      "--field-manager=kore-secrets",
-      "--filename",
-      "-",
-    ],
-    { capture: true, input: namespaceManifest },
-  );
-  await ensureLocalReferenceSecret(repository, runner, namespace);
   const directory = join(
     repository.root,
     "infra/environments",
@@ -108,20 +117,17 @@ export async function syncLocalSecrets(
     );
     await runner.run(
       "kubectl",
-      [
-        "--context",
-        context,
-        "--namespace",
-        namespace,
-        "apply",
-        "--server-side",
-        "--field-manager=kore-secrets",
-        "--filename",
-        "-",
-      ],
+      applyArgs(repository.environment.kubeContext, namespace),
       { capture: true, input: decrypted.stdout },
     );
   }
+  return files.length;
+}
+
+async function forceReferenceResync(
+  runner: Runner,
+  context: string,
+): Promise<void> {
   const externalSecret = await runner.run(
     "kubectl",
     [
@@ -138,21 +144,41 @@ export async function syncLocalSecrets(
     ],
     { capture: true },
   );
-  if (externalSecret.stdout.trim())
-    await runner.run(
-      "kubectl",
-      [
-        "--context",
-        context,
-        "--namespace",
-        "reference",
-        "annotate",
-        "externalsecret",
-        "reference-app",
-        `force-sync=${Date.now()}`,
-        "--overwrite",
-      ],
-      { capture: true },
+  if (!externalSecret.stdout.trim()) {
+    return;
+  }
+  await runner.run(
+    "kubectl",
+    [
+      "--context",
+      context,
+      "--namespace",
+      "reference",
+      "annotate",
+      "externalsecret",
+      "reference-app",
+      `force-sync=${Date.now()}`,
+      "--overwrite",
+    ],
+    { capture: true },
+  );
+}
+
+export async function syncLocalSecrets(
+  repository: Repository,
+  runner: Runner,
+): Promise<number> {
+  if (repository.environment.provider !== "minikube") {
+    throw new Error(
+      "local SOPS synchronization is only valid for a Minikube environment",
     );
-  return files.length;
+  }
+  await assertExpectedCluster(repository, runner);
+  const context = repository.environment.kubeContext;
+  const namespace = repository.environment.secrets.sourceNamespace;
+  await ensureSourceNamespace(runner, context, namespace);
+  await ensureLocalReferenceSecret(repository, runner, namespace);
+  const count = await applyEncryptedSecrets(repository, runner, namespace);
+  await forceReferenceResync(runner, context);
+  return count;
 }

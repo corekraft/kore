@@ -74,21 +74,26 @@ function fakeRunner(
         ...(runOptions ? { options: runOptions } : {}),
       });
       let stdout = "";
-      if (command === "cosign" && args[0] === "generate-key-pair")
+      if (command === "cosign" && args[0] === "generate-key-pair") {
         exists = true;
+      }
       if (command === "cosign" && args[0] === "signing-config") {
         const path = args[args.indexOf("--out") + 1]!;
         await mkdir(join(path, ".."), { recursive: true });
         await writeFile(path, "{}");
       }
       if (command === "kubectl") {
-        if (args.includes("secret") && args.includes("--output=name"))
+        if (args.includes("secret") && args.includes("--output=name")) {
           stdout = exists ? "secret/kore-local-signing-key\n" : "";
-        else if (args.some((arg) => arg.startsWith("--output=jsonpath={.data")))
+        } else if (
+          args.some((arg) => arg.startsWith("--output=jsonpath={.data"))
+        ) {
           stdout = Buffer.from("local public key").toString("base64");
-        else if (args.includes("config"))
+        } else if (args.includes("config")) {
           stdout = options.kubeconfig ?? minifiedKubeconfig;
-        else stdout = options.clusterIp ?? "10.0.0.8";
+        } else {
+          stdout = options.clusterIp ?? "10.0.0.8";
+        }
       }
       return { stdout, stderr: "", code: 0 };
     },
