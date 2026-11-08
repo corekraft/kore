@@ -138,7 +138,7 @@ claim that the platform is ready.
 
 ## Step 7: Bootstrap Registry, Image Trust, Controllers, and CRD Ownership
 
-Next: merge this branch (image admission in warn mode) and PR #32 (trust subject `v0.1.1`). Then flip local `trust.mode` to `enforce`, rerun `kore local up` with `SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt`, and confirm that `busybox` is denied in `reference` while kore images and the upstream static-pass images are still admitted. The GHCR package `corekraft/kore/reference` is still private (anonymous pull returns 401); a maintainer must set it to public before a managed cluster can pull or verify the `v0.1.1` image.
+Next: merge #35 (local enforce) and #36 (dashboard telemetry), then rerun `kore local up` from `main` with `SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt`. Check the `Kore Reference` dashboard live: `increase(http_server_request_count_total[10m])` returns data and a Tempo search returns `reference-*` traces. The GHCR package `corekraft/kore/reference` is still private (anonymous pull returns 401); a maintainer must make it public before a managed cluster can pull or verify `v0.1.1`.
 
 ### Objective
 
@@ -961,6 +961,22 @@ Live evidence (`.kore/live-bootstrap-2026-11-08-fresh3f.log`):
 
 - **Reference app:** the API, frontend, waypoint, and database pods are
   running.
+
+### 2026-11-08 image admission in enforce mode
+
+Local `trust.mode` was promoted to `enforce` after the warn period. `kore local up`
+converged on the third fresh profile:
+
+- `no-match-policy` reads `deny`. `kore-platform-images` and
+  `kore-upstream-images` both run `spec.mode: enforce` and report `Ready`.
+- A server dry-run of `busybox:1.37.0` in `reference` was denied:
+  `no matching policies: spec.containers[0].image`.
+- The signed internal image and the CloudNativePG operator image
+  (`ghcr.io/cloudnative-pg/cloudnative-pg:1.30.1`) were admitted. The operator
+  image runs as the bootstrap-controller init container of `reference-db-1` and
+  was the only gap found before the flip.
+- The rollout recreated `reference-api` and `reference-frontend` under enforce.
+  Both are running, and the waypoint and `reference-db-1` stayed up.
 
 ### 2026-11-08 image admission in warn mode
 
