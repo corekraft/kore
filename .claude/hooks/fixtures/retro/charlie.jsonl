@@ -1,0 +1,3 @@
+{"sessionId":"charlie","timestamp":"2026-10-01T08:01:00.000Z","isSidechain":false,"type":"user","origin":{"kind":"human"},"message":{"role":"user","content":"Never use the shared stash for widgets."}}
+{"sessionId":"charlie","timestamp":"2026-10-01T08:02:00.000Z","isSidechain":false,"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"c1","name":"Skill","input":{"skill":"write-adr"}}]}}
+{"sessionId":"charlie","timestamp":"2026-10-01T08:03:00.000Z","isSidechain":false,"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"c1","content":"ok","is_error":false}]},"toolUseResult":{"stdout":"ok","stderr":""}}
