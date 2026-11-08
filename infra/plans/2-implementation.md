@@ -153,13 +153,13 @@ through 11 also converge.
 - [x] Record a compatibility matrix covering Kubernetes, Helm, Gateway API,
       cert-manager, Gatekeeper, Istio, Crossplane, External Secrets Operator,
       CloudNativePG, and OpenTelemetry Operator.
-- [ ] Select and pin the OCI Distribution-compatible registry, Cosign, and Sigstore
+- [x] Select and pin the OCI Distribution-compatible registry, Cosign, and Sigstore
       Policy Controller; add them to the compatibility matrix, component catalog,
       version catalog, release graph, and readiness model.
-      _Partial: Sigstore Policy Controller chart 0.10.8 is a bootstrap release in the
-      catalog with CRD ownership and readiness, and the registry (`registry:3.1.2`)
-      is in `compatibility.md`. The registry and Policy Controller images are pinned
-      by tag, not digest, and the Cosign 3.1.4 CLI has no compatibility row._
+      The registry, Policy Controller webhook, and its `leasescleanup` kubectl
+      images are pinned by index digest (`config/image-pins.spec.ts`), and Cosign
+      3.1.4 has a compatibility row. The kubectl image's upstream tag is the
+      floating `latest-dev`, so only its digest pins it.
 - [x] Give every logical release a namespace, CRD owner, dependencies, timeout,
       and readiness checks. The schema requires at least one readiness check;
       StorageClass, ClusterRole, ClusterRoleBinding, and ConfigMap entries are
@@ -173,20 +173,23 @@ through 11 also converge.
 - [ ] Install a persistent `oci-registry` infrastructure release and verify push,
       pull, restart, storage retention, authentication, authorization, and bounded
       readiness behavior.
-      _Partial: the `oci-registry` release has a `kore-retained` PVC and a `/v2/`
-      readiness probe. It has no authentication or authorization and is exposed as an
-      unauthenticated NodePort; no test exercises the chart._
+      _Partial: the `oci-registry` release has a `kore-retained` PVC labelled
+      `platform.kore.dev/retention=Retain`, so registry images are retained data and
+      `cluster destroy` needs `--purge-data`, and a `/v2/` readiness probe. It has no
+      authentication or authorization and is exposed as an unauthenticated NodePort
+      (clients fall back from HTTPS to plain HTTP)._
 - [ ] Install Sigstore Policy Controller and its CRDs/webhook from an explicitly
       allowlisted, digest-pinned seed artifact without enabling enforcement yet.
       _Partial: declared in the catalog with no `ClusterImagePolicy` and no opted-in
-      namespace. Its image is not yet digest-pinned or allowlisted as a seed, and it
-      has not been installed live. The chart (app 0.13.1) lags the 0.15.1 application
-      release._
+      namespace; it installed and became ready in the 2026-11-08 live bootstrap
+      (tag-pinned then). Its images are now digest-pinned but not allowlisted as
+      seeds. The chart (app 0.13.1) lags the 0.15.1 application release._
 - [x] Install Istio base, `istiod`, Istio CNI, and `ztunnel` for ambient mode.
-- [ ] Install Crossplane and the required composition functions.
-      _Partial: Crossplane is a bootstrap release. `function-go-templating` and
-      `function-auto-ready` are applied inside the `kore-postgresql-api` manifest
-      with no readiness check of their own._
+- [x] Install Crossplane and the required composition functions. The
+      `kore-crossplane-functions` release installs both Functions after Crossplane
+      and before `kore-postgresql-api`, and waits for `Installed` and `Healthy`
+      ([ADR 0023](../../docs/decisions/0023-crossplane-functions-own-release-and-readiness.md)).
+      _The `Healthy` wait is unverified live._
 - [x] Install External Secrets Operator.
 - [x] Install CloudNativePG.
 - [x] Install OpenTelemetry Operator after its prerequisites are ready.
@@ -254,7 +257,7 @@ CRD ownership is decided in
 - [ ] A second reconciliation produces no unintended release changes.
 - [x] Failure identifies the component and readiness condition that timed out
       (`component <c> failed to become ready: <resource> not ready (<condition>)
-    within <timeout>: <reason>`).
+  within <timeout>: <reason>`).
 - [ ] No shared issuer, gateway, composition, secret store, or unrelated enforcing
       Gatekeeper/runtime policy is installed yet; image signature enforcement is the
       required bootstrap exception because it closes the image trust boundary.
@@ -320,7 +323,7 @@ The Istio CNI AppArmor deprecation warning did not cause this failure.
       missing trust setup with an actionable command.
       Before waiting on a Certificate, Kore checks the ClusterIssuer and its CA
       Secret and fails immediately with `Run: kore trust install --environment
-    <env>`.
+  <env>`.
 - [x] Create and wait for the Certificate that produces
       `kore-system/kore-local-tls`; check the expected TLS Secret keys without
       printing their contents before installing the HTTPS Gateway. The certificate
@@ -363,10 +366,12 @@ OPA into an identity issuer or a signature verifier.
 
 ### Work
 
-- [ ] Define the namespace enrollment contract for Istio ambient mode.
-      _Partial: workloads set `istio.io/dataplane-mode: ambient` on their Pod
-      templates. No namespace-level label, written contract, or Gatekeeper
-      mesh-enrollment rule exists._
+- [x] Define the namespace enrollment contract for Istio ambient mode.
+      `kore app up` is the only owner of an application namespace: it applies the
+      namespace with `istio.io/dataplane-mode: ambient`, and Helm no longer
+      creates it. The Gatekeeper mesh-enrollment constraint audits the label
+      ([ADR 0025](../../docs/decisions/0025-application-namespace-ambient-enrollment.md)).
+      _Unverified live; `kore app down` still leaves the namespace._
 - [x] Require every workload to use a dedicated Kubernetes ServiceAccount.
 - [ ] Verify Istio produces the expected SPIFFE principal from namespace and
       ServiceAccount identity.
@@ -379,8 +384,9 @@ OPA into an identity issuer or a signature verifier.
 - [x] Deploy constraints in audit mode and define minimal explicit system namespace
       exemptions. The `kore-policy-templates` and `kore-policy-constraints`
       configuration releases install them in `dryrun`.
-      _Known audit findings: the `oci-registry` PVC uses `kore-retained` without the
-      retention label, and application namespaces are not yet labeled for ambient._
+      _The two known audit findings (the unlabelled `oci-registry` PVC and the
+      unlabelled application namespace) are fixed offline; recheck the audit
+      counts live._
 - [ ] Define the application namespace enrollment contract for Sigstore Policy
       Controller and make enrollment mandatory before an application workload release.
       _Blocked on selecting Sigstore Policy Controller in Step 7._
@@ -433,10 +439,9 @@ PostgreSQL claim backed locally by CloudNativePG.
 
 ### Work
 
-- [ ] Define `kore-standard` and `kore-retained` StorageClasses with documented
-      reclaim and expansion behavior.
-      _Partial: both classes exist (`Delete` and `Retain`, expansion allowed). Only
-      `kore-retained` is documented (ADR 0003), and no test asserts `reclaimPolicy`._
+- [x] Define `kore-standard` and `kore-retained` StorageClasses with documented
+      reclaim and expansion behavior. The README documents both, and
+      `platform.storage.spec.ts` asserts `Delete`, `Retain`, and expansion.
 - [ ] Verify Minikube storage paths survive profile stop and resume.
 - [x] Define the namespaced
       `PostgreSQLInstance.platform.kore.dev` Crossplane XRD.
@@ -458,8 +463,8 @@ PostgreSQL claim backed locally by CloudNativePG.
 - [ ] Implement retained-data discovery used by application and cluster lifecycle
       guards.
       _Partial: `cluster destroy` and `app down` use it and it fails closed; the
-      composition now labels CloudNativePG PVCs through `inheritedMetadata`. The
-      `oci-registry` PVC is still unlabeled, so destroy does not see it._
+      composition labels CloudNativePG PVCs through `inheritedMetadata`, and the
+      `oci-registry` PVC is now labelled too. Export and restore remain._
 - [x] Define and test an explicit purge path.
 - [ ] Implement a local export and restore proof before treating platform destroy as
       recoverable.
@@ -505,7 +510,7 @@ policy telemetry with correlated local metrics, logs, and traces.
       The `kore-observability-config` release owns the dashboard ConfigMap.
 - [x] Add health, queue, dropped-data, and exporter-failure monitoring for the
       Collector. Prometheus loads the rule files from a ConfigMap; `mise run
-    test-promtool` unit-tests them. Alertmanager stays disabled locally.
+  test-promtool` unit-tests them. Alertmanager stays disabled locally.
 - [x] Define local retention and storage limits for every backend.
 - [ ] Add synthetic telemetry tests for all three signals and their correlation.
       _Partial: `apps/reference/src/server.test.ts` checks trace/log/metric
@@ -604,13 +609,17 @@ and negative tests.
       `cosign verify`, and passed to Helm, but it is signed by `local-kore-key`, not
       by protected release automation._
 - [x] Read the PostgreSQL connection only from the normalized Secret contract.
-      _Note: only host, port, database, and username are consumed. The password is
-      never injected, and `databaseReady()` opens a TCP socket without authenticating,
-      so "database access" in the exit criteria is not yet proven._
+      The password comes from a `secretKeyRef` to the Secret the contract's
+      `passwordSecretRef` names, and readiness authenticates with SCRAM-SHA-256 and
+      runs `SELECT 1` through a std-lib client
+      ([ADR 0024](../../docs/decisions/0024-reference-app-database-access.md)).
+      _Unverified live._
 - [x] Emit OpenTelemetry logs, metrics, and traces with stable service attributes.
 - [x] Add a route protected by native Istio policy and a route protected by OPA.
-- [ ] Add database schema initialization or migration as an explicit, repeatable
-      operation.
+- [x] Add database schema initialization or migration as an explicit, repeatable
+      operation. A `pre-install,pre-upgrade` hook Job applies an append-only list
+      in one transaction under an advisory lock (ADR 0024). _Unverified live: the
+      Job's mesh identity must be allowed to reach the database._
 - [ ] Add smoke tests for HTTPS, persistence, Secret use, health, telemetry, mTLS,
       native authorization, and OPA authorization.
 - [ ] Add negative tests proving that policy rejects an invalid workload and an
@@ -887,11 +896,10 @@ Google-hosted repository is being retired. Gatekeeper stays on 3.23.1 because
 3.24.0 is beta. The trailing-comma problem in `mise run format` is fixed by a
 `.prettierrc.json` override with a regression spec (2026-11-08).
 
-Next: run the live bootstrap on a fresh profile against the upgraded pins and the
-2026-11-08 changes (Gatekeeper audit releases, observability config release,
-Gateway condition waits, readiness-driven status), then digest-pin the Sigstore
-Policy Controller seed and enable `ClusterImagePolicy` enforcement (Step 7),
-which unblocks Step 9 enrollment and the bootstrap gate.
+Next: run the live check listed under "2026-11-08 second parallel offline
+implementation", then allowlist the digest-pinned Sigstore Policy Controller seed
+and enable `ClusterImagePolicy` enforcement (Step 7), which unblocks Step 9
+enrollment and the bootstrap gate.
 
 ### 2026-11-08 parallel offline implementation
 
@@ -936,7 +944,27 @@ agent DaemonSet is named `otel-agent-agent`. Evidence:
   cleanup destroyed the profile with data purge, so persistence and stop/resume
   were not observed.
 - The Collector chart warns that `otlp`, `otlphttp`, `filelog`, and
-  `k8sattributes` are renamed; rename them before the next chart upgrade.
+  `k8sattributes` are renamed (done in the next entry).
+
+### 2026-11-08 second parallel offline implementation
+
+Seven parallel sessions closed offline items (branch `feat/plan-open-items-2`,
+ADRs 0023 through 0025). No cluster was used. Changes: Collector component
+renames (the `otlp` receiver keeps its name) and OpenTelemetry Operator resource
+bounds; `cosign.pub` no longer lands in the caller's directory; `kore trust
+install` skips `mkcert -install` on macOS when `security verify-cert` already
+trusts the mkcert CA, and runs it in every other case; the `oci-registry` PVC
+retention label; digest pins for the registry and Policy Controller; the Crossplane
+Functions release; authenticated reference database access with a migration Job;
+and ambient namespace enrollment owned by `kore app up`. `mise run test` now also
+runs the reference application's suite, which CI had never run.
+
+Next live check, on a fresh profile: Functions report `Healthy`, the migration
+Job reaches the database through the mesh, `/readyz` authenticates, the audit
+counts for retention and mesh enrollment drop, and `cluster destroy` asks for
+`--purge-data` because of the registry PVC. Then observe persistence and
+stop/resume without the README integration spec, whose cleanup purges the
+profile.
 
 ## Progress Record
 
