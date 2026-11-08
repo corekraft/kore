@@ -138,6 +138,8 @@ claim that the platform is ready.
 
 ## Step 7: Bootstrap Registry, Image Trust, Controllers, and CRD Ownership
 
+Next: finish the live warn-mode check of branch `feat/image-admission`. It is unmerged and needs PR #25 (`--force-conflicts`) and the drift fix: rerun `kore local up` and confirm the `policy-controller` release (rev3 failed) upgrades, `no-match-policy` is `warn`, re-signed internal images admit with no warning, and `busybox` warns rather than being denied. Then open its PR, cut `v0.1.0` (merge #27, wait for release PR #26 to read 0.1.0, merge it), add `.../release.yaml@refs/tags/v0.1.0` to the managed `trust.subjects`, and flip local `trust.mode` to `enforce`. Run `local up` with `SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt`.
+
 ### Objective
 
 Install the internal OCI registry, Sigstore Policy Controller, and every controller
@@ -919,9 +921,6 @@ asserted in `platform.storage.spec.ts`. Claim templates are immutable and bootst
 skips deployed releases, so only fresh profiles pick this up; an existing profile
 keeps its unlabelled Loki and Tempo claims until it is recreated (2026-11-08).
 
-Next: confirm a clean retention audit on a fresh profile, then
-enable `ClusterImagePolicy` enforcement (Step 7), which unblocks Step 9
-enrollment and the bootstrap gate.
 
 ### 2026-11-08 third fresh-profile live bootstrap
 
