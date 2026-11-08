@@ -27,7 +27,7 @@ Markdown file is the source; update both together.
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **One home for every app**           | Every app, the operator's own or a tenant's, runs on the same platform under the same contracts. Nothing is a one-off.                                                 | [Plan 1](../infra/plans/1-initialize.md), [ADR 0002](decisions/0002-tool-responsibility-boundaries.md)                                                                                                               |
 | **Static frontends, small backends** | Frontends are static builds hosted anywhere static. Each one gets a small, stateless backend for frontend (BFF) that holds its secrets and scales horizontally.        | [ADR 0009](decisions/0009-encrypted-secrets-through-external-secrets.md), [ADR 0006](decisions/0006-istio-ambient-gateway-api.md)                                                                                    |
-| **Organizations are tenants**        | An organization is one tenant. It can hold sub-organizations (an umbrella of companies), and each one hosts its own services.                                          | New: tenancy API                                                                                                                                                                                                     |
+| **Organizations are tenants**        | An organization is one tenant. It can hold sub-organizations (an umbrella of companies), and each one hosts its own services under its own domains.                    | New: tenancy API                                                                                                                                                                                                     |
 | **An org-scoped portal**             | Each organization sees its own tree of sub-orgs, services, environments, and health, and nothing outside it. One stop for everything needed to ship and run a service. | New: portal                                                                                                                                                                                                          |
 | **Business and developer platform**  | Business users manage companies, members, domains, and usage. Developers ship, observe, and operate services. Both views read the same model.                          | New: human identity, usage                                                                                                                                                                                           |
 | **Secure and verified by default**   | Signed digests only, mesh identity, mutual TLS, policy, and encrypted secrets come with every service. A tenant cannot opt out.                                        | [ADR 0005](decisions/0005-release-automation-signed-image-trust.md), [ADR 0007](decisions/0007-workload-identity-and-layered-authorization.md), [ADR 0017](decisions/0017-gatekeeper-policy-families-audit-first.md) |
@@ -82,16 +82,71 @@ Rules the model keeps:
 
 How it maps onto what Kore already does:
 
-| Concept      | Platform API (proposed)                                 | Composes into                                                                                                                                                                                                         |
-| ------------ | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Organization | `Organization.platform.kore.dev`, with a `parent` field | RBAC groups, ResourceQuota and LimitRange defaults, allowed domains, Gatekeeper parameters                                                                                                                            |
-| Service      | `Service.platform.kore.dev`, owned by one organization  | A namespace per environment with ambient enrollment and image admission ([ADR 0025](decisions/0025-application-namespace-ambient-enrollment.md), [ADR 0032](decisions/0032-application-namespace-image-admission.md)) |
-| Capability   | Existing claims such as `PostgreSQLInstance`            | Unchanged: services claim capabilities, and environments choose the implementation                                                                                                                                    |
+| Concept      | Platform API (proposed)                                                    | Composes into                                                                                                                                                                                                                                                              |
+| ------------ | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Organization | `Organization.platform.kore.dev`, with a `parent` field and its domains    | RBAC groups, ResourceQuota and LimitRange defaults, verified domains and a service base, Gatekeeper parameters                                                                                                                                                             |
+| Service      | `Service.platform.kore.dev`, owned by one organization, with its hostnames | A namespace per environment with ambient enrollment and image admission ([ADR 0025](decisions/0025-application-namespace-ambient-enrollment.md), [ADR 0032](decisions/0032-application-namespace-image-admission.md)); routes, certificates, and DNS records for its hosts |
+| Capability   | Existing claims such as `PostgreSQLInstance`                               | Unchanged: services claim capabilities, and environments choose the implementation                                                                                                                                                                                         |
 
 These follow the pattern of the PostgreSQL API ([ADR
 0008](decisions/0008-crossplane-postgresql-platform-api.md)): a portable
 Crossplane API that controllers reconcile. Kore coordinates it and never
 reconciles it itself.
+
+## Domains and Hosts
+
+An organization owns its domains, and its services live under them. With
+`corekraft.ca` as the organization's domain and `apps.corekraft.ca` as its
+service base, a service named `auth` is served at `auth.apps.corekraft.ca`.
+
+| Host                     | Owner                  | Comes from                            |
+| ------------------------ | ---------------------- | ------------------------------------- |
+| `corekraft.ca`           | Organization Corekraft | A verified domain                     |
+| `apps.corekraft.ca`      | Organization Corekraft | The service base it chose             |
+| `auth.apps.corekraft.ca` | Service `auth`         | Default host: service name, then base |
+| `login.corekraft.ca`     | Service `auth`         | An extra host under a verified domain |
+
+- **Organizations hold domains.** An organization registers the domains it
+  owns, such as `corekraft.ca`, and proves ownership with a DNS TXT record
+  before any service can use them. It also names a base for its services, such
+  as `apps.corekraft.ca`.
+- **Services are subdomains.** A service gets `<service>.<base>` by default. It
+  can ask for other hosts under any domain its organization owns, such as
+  `login.corekraft.ca`, or the apex `corekraft.ca` for a marketing site.
+- **Sub-organizations get a slice.** A sub-organization uses its parent's
+  domains or is given a subdomain of its own, such as `retail.acme.com`, as the
+  base for its services. Like other policy, a sub-organization's domains only
+  narrow what its parent allows.
+- **One owner per hostname.** A hostname belongs to exactly one service, and
+  only under a verified domain that the service's organization or one of its
+  ancestors owns. Admission rejects a route for any other host, so one tenant
+  can never claim another tenant's name.
+- **A platform default until a domain is added.** An organization that has not
+  added a domain gets hosts under a platform-owned domain, such as
+  `auth.corekraft.<platform domain>`. That domain belongs on the Public Suffix
+  List, as `github.io` does, so browsers treat each organization as its own
+  site and cookies cannot cross between tenants.
+- **Host-only cookies.** Every service under `corekraft.ca` shares one site. A
+  BFF sets host-only cookies and never `Domain=corekraft.ca`, which would send
+  its session to every other service under the domain.
+
+Upstream controllers deliver it, and Kore coordinates them:
+
+- **Routing.** Each service's `HTTPRoute` lists its hostnames, and the Gateway
+  accepts them ([ADR 0006](decisions/0006-istio-ambient-gateway-api.md)).
+- **Certificates.** cert-manager issues a certificate for each host through
+  ACME, and locally from the local issuer
+  ([ADR 0013](decisions/0013-local-tls-before-gateway.md)). A wildcard such as
+  `*.apps.corekraft.ca` covers one label only, so `api.auth.apps.corekraft.ca`
+  needs its own certificate.
+- **DNS records.** A DNS controller, with ExternalDNS as the candidate, writes
+  records to the DNS provider the environment names. The provider is an
+  environment setting ([ADR
+  0012](decisions/0012-environment-overlays-hold-provider-specifics.md));
+  locally, hosts resolve the way `kore.local` does today.
+- **Ownership policy.** A Gatekeeper constraint checks every hostname against
+  the organization's verified domains, starting in audit mode
+  ([ADR 0017](decisions/0017-gatekeeper-policy-families-audit-first.md)).
 
 ## The Golden Path: Frontend, BFF, Data
 
@@ -115,8 +170,10 @@ graph LR
   environment choice: GitHub Pages, any static host or object store, or a small
   in-cluster static server running from a signed image.
 - **Same site as its BFF.** The browser should reach the frontend and its BFF
-  on one site, for example `app.example.com` and `app.example.com/api` through
-  the Gateway, or `app.example.com` and `api.app.example.com`. The BFF can then
+  on one site, for example `auth.apps.corekraft.ca` and
+  `auth.apps.corekraft.ca/api` through the Gateway, or
+  `api.auth.apps.corekraft.ca` when the frontend is hosted elsewhere, such as
+  GitHub Pages pointed at the service host by a CNAME record. The BFF can then
   hold the session in an `HttpOnly`, `SameSite` cookie and keep tokens out of
   the browser. Splitting across unrelated sites, such as `*.github.io` and a
   platform domain, turns that cookie into a third-party cookie and breaks it.
@@ -172,7 +229,7 @@ signed-in user's organizations and shows only what they may see.
 | Data           | What data is retained, and for whom              | Database claims, connection status, export and restore        |
 | Secrets        | Who can manage which secrets                     | Secret names and sync status, never values                    |
 | Observability  | Uptime and service-level summaries               | Logs, metrics, and traces, filtered to their services         |
-| Domains        | Owned domains and certificates                   | Routes and TLS status                                         |
+| Domains        | Add and verify domains; choose the service base  | Hostnames per service, routes, certificates, and DNS status   |
 | Usage and cost | Usage against quotas, per organization           | Resource use per service and environment                      |
 | Audit          | Who changed what, and when                       | Operation history for their services                          |
 
@@ -207,7 +264,7 @@ What exists or is in flight today, and what the vision adds.
 | Horizontal autoscaling (metrics source, HPA defaults)        | New                                                                                      |
 | Human identity and single sign-on, with organizations        | New                                                                                      |
 | Portal                                                       | New                                                                                      |
-| Custom domains and DNS                                       | New                                                                                      |
+| Organization domains, service hostnames, and DNS automation  | New                                                                                      |
 | Usage metering                                               | New                                                                                      |
 | GitOps reconciliation, queues, object storage, multi-cluster | Deferred in [Plan 1](../infra/plans/1-initialize.md#deferred-tooling); revisit as needed |
 
@@ -274,3 +331,8 @@ Each one becomes an ADR before the work that depends on it starts.
    to KEDA for request-based scaling and scale to zero?
 10. **Usage and cost.** What is metered per organization, and is it for
     visibility only or also enforced?
+11. **Domain verification and DNS.** Which controller checks the TXT record
+    and writes DNS records (ExternalDNS is the candidate), and what happens to
+    a service's hosts when a domain stops verifying or is removed?
+12. **Platform default domain.** Which domain hosts organizations that have not
+    added their own, and is it registered on the Public Suffix List?

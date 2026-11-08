@@ -387,6 +387,52 @@
         color: var(--muted);
       }
 
+      td code {
+        white-space: nowrap;
+        overflow-wrap: normal;
+      }
+
+      /* Hostname breakdown */
+      .hostname {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 4px;
+        font-family: var(--mono);
+        font-size: clamp(1.1rem, 3.4vw, 1.75rem);
+      }
+      .label-part {
+        display: grid;
+        gap: 4px;
+        padding-top: 6px;
+        border-top: 3px solid var(--line);
+      }
+      .label-part b {
+        font-weight: 500;
+        line-height: 1.1;
+      }
+      .label-part small {
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .label-part.svc {
+        border-top-color: var(--accent);
+      }
+      .label-part.base {
+        border-top-color: var(--new);
+      }
+      .label-part.dom {
+        border-top-color: var(--ink);
+      }
+      .hostname .dot {
+        padding-top: 6px;
+        line-height: 1.1;
+        color: var(--muted);
+      }
+
       /* Tables */
       .table-scroll {
         overflow-x: auto;
@@ -710,7 +756,8 @@
             <h3>Organizations are tenants</h3>
             <p>
               An organization is one tenant. It can hold sub-organizations, an
-              umbrella of companies, and each one hosts its own services.
+              umbrella of companies, and each one hosts its own services under
+              its own domains.
             </p>
             <div class="chips">
               <span class="pill new">New: tenancy API</span>
@@ -951,18 +998,18 @@
                 <td>Organization</td>
                 <td>
                   <code>Organization.platform.kore.dev</code>, with a
-                  <code>parent</code> field
+                  <code>parent</code> field and its domains
                 </td>
                 <td>
-                  RBAC groups, ResourceQuota and LimitRange defaults, allowed
-                  domains, Gatekeeper parameters
+                  RBAC groups, ResourceQuota and LimitRange defaults, verified
+                  domains and a service base, Gatekeeper parameters
                 </td>
               </tr>
               <tr>
                 <td>Service</td>
                 <td>
                   <code>Service.platform.kore.dev</code>, owned by one
-                  organization
+                  organization, with its hostnames
                 </td>
                 <td>
                   A namespace per environment with ambient enrollment and image
@@ -973,7 +1020,7 @@
                   <a
                     href="https://github.com/corekraft/kore/blob/main/docs/decisions/0032-application-namespace-image-admission.md"
                     >ADR 0032</a
-                  >)
+                  >); routes, certificates, and DNS records for its hosts
                 </td>
               </tr>
               <tr>
@@ -994,6 +1041,168 @@
           >): a portable Crossplane API that controllers reconcile. Kore
           coordinates it and never reconciles it itself.
         </p>
+      </section>
+
+      <section aria-labelledby="domains">
+        <div class="section-head">
+          <span class="eyebrow">Domains and hosts</span>
+          <h2 id="domains">
+            Organizations own domains; services are subdomains
+          </h2>
+          <p class="lede">
+            With <code>corekraft.ca</code> as the organization's domain and
+            <code>apps.corekraft.ca</code> as its service base, a service named
+            <code>auth</code> is served at <code>auth.apps.corekraft.ca</code>.
+          </p>
+        </div>
+        <div
+          class="hostname"
+          aria-label="auth.apps.corekraft.ca broken into its parts"
+        >
+          <span class="label-part svc"><b>auth</b><small>Service</small></span
+          ><span class="dot">.</span
+          ><span class="label-part base"
+            ><b>apps</b><small>Service base</small></span
+          ><span class="dot">.</span
+          ><span class="label-part dom"
+            ><b>corekraft.ca</b
+            ><small>Verified organization domain</small></span
+          >
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Host</th>
+                <th>Owner</th>
+                <th>Comes from</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>corekraft.ca</code></td>
+                <td>Organization Corekraft</td>
+                <td>A verified domain</td>
+              </tr>
+              <tr>
+                <td><code>apps.corekraft.ca</code></td>
+                <td>Organization Corekraft</td>
+                <td>The service base it chose</td>
+              </tr>
+              <tr>
+                <td><code>auth.apps.corekraft.ca</code></td>
+                <td>Service <code>auth</code></td>
+                <td>Default host: service name, then base</td>
+              </tr>
+              <tr>
+                <td><code>login.corekraft.ca</code></td>
+                <td>Service <code>auth</code></td>
+                <td>An extra host under a verified domain</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="split">
+          <ul class="rules">
+            <li>
+              <strong>Organizations hold domains.</strong
+              ><span
+                >An organization registers the domains it owns, such as
+                <code>corekraft.ca</code>, and proves ownership with a DNS TXT
+                record before any service can use them. It also names a base for
+                its services, such as <code>apps.corekraft.ca</code>.</span
+              >
+            </li>
+            <li>
+              <strong>Services are subdomains.</strong
+              ><span
+                >A service gets <code>&lt;service&gt;.&lt;base&gt;</code> by
+                default. It can ask for other hosts under any domain its
+                organization owns, such as <code>login.corekraft.ca</code>, or
+                the apex <code>corekraft.ca</code> for a marketing site.</span
+              >
+            </li>
+            <li>
+              <strong>Sub-organizations get a slice.</strong
+              ><span
+                >A sub-organization uses its parent's domains or is given a
+                subdomain of its own, such as <code>retail.acme.com</code>, as
+                its service base. Its domains only narrow what its parent
+                allows.</span
+              >
+            </li>
+          </ul>
+          <ul class="rules">
+            <li>
+              <strong>One owner per hostname.</strong
+              ><span
+                >A hostname belongs to exactly one service, and only under a
+                verified domain its organization or an ancestor owns. Admission
+                rejects any other host, so one tenant can never claim another
+                tenant's name.</span
+              >
+            </li>
+            <li>
+              <strong>A platform default until a domain is added.</strong
+              ><span
+                >Organizations without a domain get hosts under a platform-owned
+                domain, such as
+                <code>auth.corekraft.&lt;platform domain&gt;</code>. That domain
+                belongs on the Public Suffix List, as
+                <code>github.io</code> does, so each organization is its own
+                site to browsers and cookies cannot cross between tenants.</span
+              >
+            </li>
+            <li>
+              <strong>Host-only cookies.</strong
+              ><span
+                >Every service under <code>corekraft.ca</code> shares one site.
+                A BFF sets host-only cookies and never
+                <code>Domain=corekraft.ca</code>, which would send its session
+                to every other service under the domain.</span
+              >
+            </li>
+          </ul>
+        </div>
+        <div class="section-head">
+          <h3>Delivered by upstream controllers</h3>
+          <ul class="points">
+            <li>
+              <strong>Routing.</strong> Each service's
+              <code>HTTPRoute</code> lists its hostnames, and the Gateway
+              accepts them (<a
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0006-istio-ambient-gateway-api.md"
+                >ADR 0006</a
+              >).
+            </li>
+            <li>
+              <strong>Certificates.</strong> cert-manager issues a certificate
+              for each host through ACME, and locally from the local issuer (<a
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0013-local-tls-before-gateway.md"
+                >ADR 0013</a
+              >). A wildcard such as <code>*.apps.corekraft.ca</code> covers one
+              label only, so <code>api.auth.apps.corekraft.ca</code> needs its
+              own certificate.
+            </li>
+            <li>
+              <strong>DNS records.</strong> A DNS controller, with ExternalDNS
+              as the candidate, writes records to the DNS provider the
+              environment names (<a
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0012-environment-overlays-hold-provider-specifics.md"
+                >ADR 0012</a
+              >). Locally, hosts resolve the way <code>kore.local</code> does
+              today.
+            </li>
+            <li>
+              <strong>Ownership policy.</strong> A Gatekeeper constraint checks
+              every hostname against the organization's verified domains,
+              starting in audit mode (<a
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0017-gatekeeper-policy-families-audit-first.md"
+                >ADR 0017</a
+              >).
+            </li>
+          </ul>
+        </div>
       </section>
 
       <section aria-labelledby="golden-path">
@@ -1054,11 +1263,13 @@
               </li>
               <li>
                 <strong>Same site as its BFF.</strong> Serve
-                <code>app.example.com</code> and
-                <code>app.example.com/api</code> through the Gateway, or
-                <code>api.app.example.com</code>. The BFF then keeps the session
-                in an <code>HttpOnly</code>, <code>SameSite</code> cookie and
-                tokens never reach the browser. A frontend on
+                <code>auth.apps.corekraft.ca</code> and
+                <code>auth.apps.corekraft.ca/api</code> through the Gateway, or
+                <code>api.auth.apps.corekraft.ca</code> when the frontend is
+                hosted elsewhere, such as GitHub Pages pointed at the service
+                host by a CNAME record. The BFF then keeps the session in an
+                <code>HttpOnly</code>, <code>SameSite</code> cookie and tokens
+                never reach the browser. A frontend on
                 <code>*.github.io</code> with the BFF on a platform domain turns
                 that cookie into a third-party cookie and breaks it.
               </li>
@@ -1170,8 +1381,10 @@
               </tr>
               <tr>
                 <td>Domains</td>
-                <td>Owned domains and certificates</td>
-                <td>Routes and TLS status</td>
+                <td>Add and verify domains; choose the service base</td>
+                <td>
+                  Hostnames per service, routes, certificates, and DNS status
+                </td>
               </tr>
               <tr>
                 <td>Usage and cost</td>
@@ -1257,7 +1470,9 @@
                 <td><span class="pill new">New</span></td>
               </tr>
               <tr>
-                <td>Custom domains and DNS</td>
+                <td>
+                  Organization domains, service hostnames, and DNS automation
+                </td>
                 <td><span class="pill new">New</span></td>
               </tr>
               <tr>
@@ -1484,6 +1699,25 @@
               ><span
                 >What is metered per organization, and is it for visibility only
                 or also enforced?</span
+              >
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Domain verification and DNS</strong
+              ><span
+                >Which controller checks the TXT record and writes DNS records
+                (ExternalDNS is the candidate), and what happens to a service's
+                hosts when a domain stops verifying or is removed?</span
+              >
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Platform default domain</strong
+              ><span
+                >Which domain hosts organizations that have not added their own,
+                and is it registered on the Public Suffix List?</span
               >
             </div>
           </li>
