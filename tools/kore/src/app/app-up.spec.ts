@@ -8,6 +8,7 @@ vi.mock("../images/index.js", async (importOriginal) => ({
 import { loadRepository } from "../config/index.js";
 import { appUp } from "./up.js";
 import {
+  healthyReadinessOutput,
   healthyRunner,
   lockedImage,
   passthroughRegistry,
@@ -59,6 +60,9 @@ test("app up verifies, installs, and waits for every workload deployment", async
           stderr: "",
           code: 0,
         };
+      }
+      if (command === "kubectl" && healthyReadinessOutput(args) !== undefined) {
+        return { stdout: healthyReadinessOutput(args)!, stderr: "", code: 0 };
       }
       if (
         command === "kubectl" &&
@@ -112,7 +116,8 @@ test("app up verifies, installs, and waits for every workload deployment", async
         ({ command, args }) =>
           command === "kubectl" && args.includes("rollout"),
       )
-      .map(({ args }) => args[args.indexOf("status") + 1]),
+      .map(({ args }) => args[args.indexOf("status") + 1])
+      .filter((resource) => resource?.startsWith("deployment/reference-")),
   ).toEqual(["deployment/reference-api", "deployment/reference-worker"]);
 });
 
@@ -245,8 +250,14 @@ test("app up waits for databases and secrets before installing the workload", as
     "/tmp/kore.pub",
   );
 
-  const steps = calls
-    .map((c) => `${c.command} ${c.args.join(" ")}`)
+  const lines = calls.map((c) => `${c.command} ${c.args.join(" ")}`);
+  // Skip the platform readiness probes that run before the workload install.
+  const steps = lines
+    .slice(
+      lines.findIndex((c) =>
+        c.startsWith("helm upgrade --install reference-resources"),
+      ),
+    )
     .filter((c) => /upgrade|wait --for|rollout/.test(c));
   expect(steps).toEqual([
     expect.stringMatching(/^helm upgrade --install reference-resources /),

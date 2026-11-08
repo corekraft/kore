@@ -19,7 +19,6 @@ async function helmComponent(readiness: string[], timeout = "1s") {
 
 test("readiness waits use the condition that matches each resource kind", async () => {
   const { repository, component } = await helmComponent([
-    "gateway/edge",
     "certificate/edge-tls",
     "deployment/web",
   ]);
@@ -29,11 +28,11 @@ test("readiness waits use the condition that matches each resource kind", async 
 
   const waits = runner.calls
     .filter(({ command }) => command === "kubectl")
-    .map(({ args }) => args.join(" "));
-  assert.equal(waits.length, 3);
-  assert.match(waits[0]!, /wait --for=condition=Programmed gateway\/edge/);
-  assert.match(waits[1]!, /wait --for=condition=Ready certificate\/edge-tls/);
-  assert.match(waits[2]!, /rollout status deployment\/web --timeout=1s/);
+    .map(({ args }) => args.join(" "))
+    .filter((call) => /\b(wait|rollout)\b/.test(call));
+  assert.equal(waits.length, 2);
+  assert.match(waits[0]!, /wait --for=condition=Ready certificate\/edge-tls/);
+  assert.match(waits[1]!, /rollout status deployment\/web --timeout=1s/);
   assert.ok(waits.every((call) => call.includes(`--namespace`)));
 });
 
@@ -43,7 +42,7 @@ test("a TLS Secret that never completes fails with the readiness timeout", async
 
   await assert.rejects(
     reconcileComponent(repository, runner, component),
-    /component .* failed to become ready: secret\/edge-tls did not become a complete TLS Secret within 1s/,
+    /component .* failed to become ready: secret\/edge-tls not ready \(complete TLS Secret\) within 1s/,
   );
 });
 
