@@ -160,3 +160,16 @@ test("cli: valid JSON that is not an object fails open", () => {
     assert.equal(result.stderr, "", input);
   }
 });
+
+test("cli: without AGENTS.md the hook fails open and prints nothing", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "kore-context-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const result = spawnSync("node", [hook], {
+    input: JSON.stringify({ source: "compact" }),
+    encoding: "utf8",
+    env: { ...process.env, CLAUDE_PROJECT_DIR: root },
+  });
+  assert.equal(result.status, 0);
+  assert.equal(result.stdout, "");
+  assert.equal(result.stderr, "");
+});

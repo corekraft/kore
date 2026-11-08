@@ -239,15 +239,26 @@ files and read only in part.
 - Steps 1-6 are implemented. Step 7 adds the `retro` skill; running it is manual.
 - Step 1 confirmed on 2026-11-07: a fresh Claude Code session lists every skill
   in `skills/`.
-- `mise run test-hooks`: 45 tests pass (guard, feedback, context), hook startup
+- `mise run test-hooks`: 49 tests pass (guard, feedback, context), hook startup
   is under 200 ms.
 - Step 8 is implemented. `retro` runs with `context: fork` on the read-only
   `Explore` agent; `principles-review` lives in `.claude/agents/`; the compaction
   hook reads `AGENTS.md` and the plans at run time, so it never drifts from them.
   `test-driven-development` went from 136 lines to 24, with its tables moved to
   `references/rationalizations.md`. Every skill is now 24 lines or fewer.
-- Still to confirm live for Step 8: a retro run, a seeded `principles-review`
-  run, the hook firing after `/compact`, and skill triggering.
+- `principles-review` was widened during review: every AGENTS.md rule is in
+  scope, and it skips only the mechanical part an _Enforced_ or _Audited_ hook
+  checks, because several marked rules also carry guidance no hook checks (for
+  example "status, validation, and rendering never mutate", "local builds never
+  alter the release lock"). For the same reason the compaction hook restates
+  every rule with its markers, not only the unmarked ones.
+- `principles-review` keeps Bash because it needs `git diff`, so it is read-only
+  by instruction, backed by the guard hook and deny rules; nothing enforces it.
+- Confirmed live for Step 8 on 2026-11-07: `/retro` runs forked and returns
+  only its ranked list, with no transcript lines in the main thread; after
+  `/compact` the hook restores the AGENTS.md rules and open plan items.
+- Still to confirm live for Step 8: a seeded `principles-review` run and skill
+  triggering.
 - Still to confirm in a fresh Claude Code session: the feedback hooks firing
   live, and the deny rules (Step 3, 4, 5 exit criteria left open).
 - The `image-digest` rule stays in audit mode as planned.
