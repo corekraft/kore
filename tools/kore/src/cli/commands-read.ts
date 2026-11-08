@@ -18,7 +18,7 @@ export async function validateCommand(
   const order = orderedComponents(repository.catalog).map(
     (component) => component.name,
   );
-  const portability = await validatePortability(repository);
+  const portability = await validatePortability(repository, context.runner);
   print(
     {
       environment: repository.environment.name,

@@ -39,8 +39,11 @@ description = "Opt-in: check skill triggering and principles-review with live cl
 run = "node .claude/evals/eval.mjs"
 
 [tasks.validate]
-description = "Validate catalogs, environments, and release ordering"
-run = "npm --prefix tools/kore run kore -- validate --environment local"
+description = "Validate catalogs, environments, and release ordering for every environment"
+run = [
+  "npm --prefix tools/kore run kore -- validate --environment local",
+  "npm --prefix tools/kore run kore -- validate --environment managed-example",
+]
 
 [tasks.test-opa]
 description = "Run colocated Rego policy specifications with the OPA CLI"
