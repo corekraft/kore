@@ -287,13 +287,27 @@ function checkFile(tool, input, relative, ctx) {
   return null;
 }
 
+// An unquoted glob in --include/--exclude: zsh expands it and, when nothing
+// matches, fails the whole command before it runs. Audit mode (warn).
+const UNQUOTED_GLOB = /(?:^|\s)--(include|exclude)=([^\s'"]*\*[^\s'"]*)/;
+
+function unquotedGlob(command) {
+  const match = UNQUOTED_GLOB.exec(command);
+  if (!match) return null;
+  return warn(
+    "unquoted-glob",
+    `--${match[1]}=${match[2]} is unquoted; zsh fails the whole command when the glob matches no file. ` +
+      `Instead, quote it: --${match[1]}='${match[2]}'.`,
+  );
+}
+
 /** Decide on one tool call. Returns {action: "allow" | "warn" | "block", rule?, message?}. */
 export function evaluate(call, ctx) {
   const tool = call?.tool_name;
   const input = call?.tool_input ?? {};
 
   if (tool === "Bash" && typeof input.command === "string") {
-    let warning = null;
+    let warning = unquotedGlob(input.command);
     for (const segment of splitSegments(input.command)) {
       const result = checkBashSegment(segment, ctx);
       if (result?.action === "block") return result;

@@ -319,3 +319,38 @@ test("cli: a fresh session counts earlier transcripts but not its own", (t) => {
   rmSync(join(transcripts, "e.jsonl"));
   assert.doesNotMatch(run("current").stdout, /retro/);
 });
+
+test("cli: sessions from the day of the last retrospective do not count toward the next one", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "kore-context-"));
+  const config = mkdtempSync(join(tmpdir(), "kore-config-"));
+  t.after(() => {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(config, { recursive: true, force: true });
+  });
+  mkdirSync(join(root, "infra/plans"), { recursive: true });
+  writeFileSync(join(root, "AGENTS.md"), agents);
+  const today = new Date().toLocaleDateString("sv"); // local YYYY-MM-DD
+  writeFileSync(
+    join(root, "infra/plans/3-agent-harness.md"),
+    `${plan}\nLast retrospective: ${today}\n`,
+  );
+  const transcripts = join(
+    config,
+    "projects",
+    root.replace(/[^a-zA-Z0-9]/g, "-"),
+  );
+  mkdirSync(transcripts, { recursive: true });
+  for (const id of ["a", "b", "c", "d", "e", "f"]) {
+    writeFileSync(join(transcripts, `${id}.jsonl`), "{}\n");
+  }
+  const result = spawnSync("node", [hook], {
+    input: JSON.stringify({ source: "startup", session_id: "current" }),
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      CLAUDE_PROJECT_DIR: root,
+      CLAUDE_CONFIG_DIR: config,
+    },
+  });
+  assert.doesNotMatch(result.stdout, /retro/);
+});

@@ -20,6 +20,10 @@ run = "npm --prefix tools/kore run build"
 description = "Run tests that do not require a cluster"
 run = "npm --prefix tools/kore test"
 
+[tasks.format]
+description = "Format files with the pinned prettier: mise run format <files>"
+run = "tools/kore/node_modules/.bin/prettier --write"
+
 [tasks.test-hooks]
 description = "Run tests for the agent harness: hooks, status line, skill links, and eval grading"
 run = "node --test .claude/hooks .claude/evals"

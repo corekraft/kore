@@ -1,6 +1,6 @@
 ---
 name: test-driven-development
-description: Use when implementing any feature, bugfix, refactoring, or behavior change, before writing production code.
+description: Use before writing or changing any code or hook, including implementing a plan step, a review finding, or a fix. Write the failing test first.
 ---
 
 # Test-Driven Development

@@ -205,3 +205,30 @@ test("cli: finishes well under the 200 ms budget", () => {
   run({ tool_name: "Bash", tool_input: { command: "git status" } });
   assert.ok(performance.now() - start < 200, "hook startup exceeded 200 ms");
 });
+
+test("unquoted-glob: an unquoted --include or --exclude glob warns, since zsh fails the whole command when it matches nothing", () => {
+  for (const command of [
+    "grep -rn foo --include=*.ts tools/kore/src",
+    "grep -rn foo src --exclude=*.spec.ts | head",
+  ]) {
+    const result = bash(command);
+    assert.equal(result.action, "warn", command);
+    assert.equal(result.rule, "unquoted-glob", command);
+    assert.match(result.message, /--(include|exclude)='\*/, command);
+  }
+});
+
+test("unquoted-glob: quoted globs and globless flags pass", () => {
+  for (const command of [
+    "grep -rn foo --include='*.ts' src",
+    'grep -rn foo "--include=*.ts" src',
+    "grep -rn foo --include=app.ts src",
+    "echo '--include=*.ts'",
+  ]) {
+    assert.equal(bash(command).action, "allow", command);
+  }
+});
+
+test("unquoted-glob: a blocking rule in the same command still blocks", () => {
+  blocked(bash("grep -rn x --include=*.ts . && kubectl get pods"), "kubectl-context");
+});

@@ -170,7 +170,11 @@ function realDeps(root) {
         if (error?.code === "ENOENT") return 0;
         throw error;
       }
-      const after = date ? Date.parse(date) : 0;
+      // The marker is a local date and the retrospective ran during it, so
+      // count only sessions active after that day ends.
+      const after = date
+        ? new Date(`${date}T00:00:00`).getTime() + 24 * 60 * 60 * 1000
+        : 0;
       return names.filter(
         (name) =>
           name.endsWith(".jsonl") &&

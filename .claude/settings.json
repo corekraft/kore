@@ -6,9 +6,11 @@
       "Bash(mise run test-opa)",
       "Bash(mise run test-hooks)",
       "Bash(kore doctor:*)",
-      "Bash(kore * status:*)",
+      "Bash(kore * status)",
+      "Bash(kore * status *)",
       "Bash(./bin/kore doctor:*)",
-      "Bash(./bin/kore * status:*)"
+      "Bash(./bin/kore * status)",
+      "Bash(./bin/kore * status *)"
     ],
     "deny": [
       "Bash(minikube delete:*)",
@@ -17,8 +19,10 @@
       "Bash(helm uninstall:*)",
       "Bash(kubectl delete namespace:*)",
       "Bash(kubectl delete ns:*)",
-      "Bash(kore * destroy:*)",
-      "Bash(./bin/kore * destroy:*)",
+      "Bash(kore * destroy)",
+      "Bash(kore * destroy *)",
+      "Bash(./bin/kore * destroy)",
+      "Bash(./bin/kore * destroy *)",
       "Read(./.kore/keys/**)",
       "Read(./.kore/state/*token*)"
     ]

@@ -27,7 +27,14 @@
     "prompt": "Look over my last few sessions here and suggest harness improvements.",
     "expect": "retro"
   },
-  { "prompt": "Explain what the guard hook blocks and why.", "expect": null },
+  {
+    "prompt": "Spin up a verifier session in a new herdr pane and have it check the brief after /clear.",
+    "expect": "spawn-session"
+  },
+  {
+    "prompt": "Explain what the guard hook blocks and why.",
+    "expect": null
+  },
   {
     "prompt": "What does the add-policy skill do? Just summarize it.",
     "expect": null
@@ -36,5 +43,12 @@
     "prompt": "Which helm version is pinned in this repository?",
     "expect": null
   },
-  { "prompt": "Summarize ADR 0001 in two sentences.", "expect": null }
+  {
+    "prompt": "Summarize ADR 0001 in two sentences.",
+    "expect": null
+  },
+  {
+    "prompt": "What is herdr, in one sentence?",
+    "expect": null
+  }
 ]
