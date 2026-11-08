@@ -68,19 +68,26 @@ graph TD
 
 Rules the model keeps:
 
-- **The tenant root is the isolation boundary.** Nothing crosses between tenants
-  unless an operator grants it explicitly. Within a tenant, sharing between
-  sibling organizations is opt-in.
+- **The tenant root is the isolation boundary.** Tenants share one cluster and
+  are isolated per service environment namespace by mesh, network policy,
+  quotas, and admission
+  ([ADR 0037](decisions/0037-tenant-isolation-by-namespace.md)).
+- **Sharing is an owner's grant.** Within a tenant, a service is shared only
+  when its owner grants it, and a parent can block grants in its subtree. Only
+  an operator grants across tenants
+  ([ADR 0039](decisions/0039-service-sharing-by-owner-grant.md)).
 - **Policy flows down and only tightens.** A sub-organization inherits members,
   quotas, allowed domains, and policy from its parent, and can narrow them but
   never widen them.
 - **One owner per service.** Each service belongs to exactly one organization,
   and moving it is an explicit operation, which matches the one-owner rule in
   AGENTS.md.
-- **The hierarchy is data, not cluster topology.** Kubernetes stays flat: each
-  service environment gets its own namespace, labeled with its tenant and
-  organization path. The tree lives in the model, so reorganizing companies
-  never means moving workloads.
+- **The hierarchy is data, not cluster topology.** Organizations nest at most
+  four levels below the tenant root. Kubernetes stays flat: each service
+  environment gets its own namespace with a tenant label and an organization
+  label, and the controller resolves ancestry from the model, so reorganizing
+  companies never means moving workloads
+  ([ADR 0038](decisions/0038-organization-hierarchy-depth-and-labels.md)).
 
 How it maps onto what Kore already does:
 
@@ -464,16 +471,18 @@ What exists or is in flight today, and what the vision adds.
 
 ## Open Questions
 
-Each one becomes an ADR before the work that depends on it starts.
+Each one becomes an ADR before the work that depends on it starts. Decided
+questions keep their numbers and link to their ADR.
 
-1. **Isolation tier.** Is a namespace per service environment, with mesh and
-   policy, enough between tenants, or do some tenants need a virtual cluster
-   (for example vCluster) or a dedicated cluster? Candidates for grouping
-   namespaces into tenants include Capsule.
-2. **Hierarchy depth.** Are sub-organizations nested to any depth, or limited
-   to tenant → company → service?
-3. **Sharing.** Can a service be shared between sibling organizations, and is
-   that a grant from the owner or a policy from the parent?
+1. **Isolation tier.** Decided: one shared cluster, a namespace per service
+   environment, no Capsule, and vCluster as a later dedicated tier
+   ([ADR 0037](decisions/0037-tenant-isolation-by-namespace.md)).
+2. **Hierarchy depth.** Decided: at most four levels below the tenant root,
+   with tenant and organization labels on namespaces
+   ([ADR 0038](decisions/0038-organization-hierarchy-depth-and-labels.md)).
+3. **Sharing.** Decided: owner grants within a tenant, parents can block, and
+   only operators grant across tenants
+   ([ADR 0039](decisions/0039-service-sharing-by-owner-grant.md)).
 4. **Argo CD's ownership boundary.** Argo CD delivers tenant services from
    git. Does it also take over platform components after bootstrap, and how
    does that refine ADR 0002 and ADR 0011, which give the job to Helm and the

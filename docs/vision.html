@@ -712,6 +712,16 @@
         color: var(--muted);
       }
 
+      .questions li.decided {
+        background: transparent;
+        border-style: dashed;
+      }
+      .questions li.decided > div {
+        display: grid;
+        gap: 6px;
+        justify-items: start;
+      }
+
       footer {
         color: var(--muted);
         font-size: 0.85rem;
@@ -1049,33 +1059,51 @@
           </ul>
           <ul class="rules">
             <li>
-              <strong>The tenant root is the isolation boundary.</strong>
-              <span
-                >Nothing crosses between tenants unless an operator grants it.
-                Within a tenant, sharing between sibling organizations is
-                opt-in.</span
+              <strong>The tenant root is the isolation boundary.</strong
+              ><span
+                >Tenants share one cluster and are isolated per service
+                environment namespace by mesh, network policy, quotas, and
+                admission (<a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0037-tenant-isolation-by-namespace.md"
+                  >ADR 0037</a
+                >).</span
               >
             </li>
             <li>
-              <strong>Policy flows down and only tightens.</strong>
-              <span
+              <strong>Sharing is an owner's grant.</strong
+              ><span
+                >Within a tenant, a service is shared only when its owner grants
+                it, and a parent can block grants in its subtree. Only an
+                operator grants across tenants (<a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0039-service-sharing-by-owner-grant.md"
+                  >ADR 0039</a
+                >).</span
+              >
+            </li>
+            <li>
+              <strong>Policy flows down and only tightens.</strong
+              ><span
                 >A sub-organization inherits members, quotas, allowed domains,
                 and policy, and can narrow them but never widen them.</span
               >
             </li>
             <li>
-              <strong>One owner per service.</strong>
-              <span
+              <strong>One owner per service.</strong
+              ><span
                 >Each service belongs to exactly one organization; moving it is
                 an explicit operation.</span
               >
             </li>
             <li>
-              <strong>The hierarchy is data, not cluster topology.</strong>
-              <span
-                >Kubernetes stays flat: one namespace per service environment,
-                labeled with its tenant and organization path. Reorganizing
-                companies never moves workloads.</span
+              <strong>The hierarchy is data, not cluster topology.</strong
+              ><span
+                >Organizations nest at most four levels below the tenant root.
+                Each service environment namespace carries a tenant and an
+                organization label; the controller resolves ancestry from the
+                model, so reorganizing companies never moves workloads (<a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0038-organization-hierarchy-depth-and-labels.md"
+                  >ADR 0038</a
+                >).</span
               >
             </li>
           </ul>
@@ -2159,37 +2187,48 @@
       <section aria-labelledby="questions">
         <div class="section-head">
           <span class="eyebrow"
-            >Each becomes an ADR before dependent work starts</span
+            >Each becomes an ADR before dependent work starts; decided ones link
+            to it</span
           >
           <h2 id="questions">Open questions</h2>
         </div>
         <ol class="questions">
-          <li>
+          <li class="decided">
             <div>
               <strong>Isolation tier</strong
               ><span
-                >Is a namespace per service environment, with mesh and policy,
-                enough between tenants, or do some need a virtual cluster
-                (vCluster) or a dedicated one? Capsule is a candidate for
-                grouping namespaces into tenants.</span
+                >One shared cluster, a namespace per service environment, no
+                Capsule, and vCluster as a later dedicated tier.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0037-tenant-isolation-by-namespace.md"
+                >Decided · ADR 0037</a
               >
             </div>
           </li>
-          <li>
+          <li class="decided">
             <div>
               <strong>Hierarchy depth</strong
               ><span
-                >Sub-organizations to any depth, or limited to tenant → company
-                → service?</span
+                >At most four levels below the tenant root, with tenant and
+                organization labels on namespaces.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0038-organization-hierarchy-depth-and-labels.md"
+                >Decided · ADR 0038</a
               >
             </div>
           </li>
-          <li>
+          <li class="decided">
             <div>
               <strong>Sharing</strong
               ><span
-                >Can a service be shared between sibling organizations, and is
-                that a grant from the owner or a policy from the parent?</span
+                >Owner grants within a tenant, parents can block, and only
+                operators grant across tenants.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0039-service-sharing-by-owner-grant.md"
+                >Decided · ADR 0039</a
               >
             </div>
           </li>
