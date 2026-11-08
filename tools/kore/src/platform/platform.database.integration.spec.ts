@@ -5,7 +5,8 @@ import type { ProcessRunner } from "../runtime/index.js";
 type Repository = Awaited<ReturnType<typeof loadRepository>>;
 type Psql = (pod: string, sql: string) => Promise<{ stdout: string }>;
 
-const PRIMARY_SELECTOR = "--selector=cnpg.io/cluster=reference-db,role=primary";
+const PRIMARY_SELECTOR =
+  "--selector=cnpg.io/cluster=reference-db,cnpg.io/instanceRole=primary";
 const PRIMARY_OUTPUT =
   "--output=jsonpath={.items[0].metadata.name}{'\\n'}{.items[0].metadata.uid}";
 
