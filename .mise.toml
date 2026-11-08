@@ -25,8 +25,12 @@ description = "Format files with the pinned prettier: mise run format <files>"
 run = "tools/kore/node_modules/.bin/prettier --write"
 
 [tasks.test-hooks]
-description = "Run tests for the agent harness: hooks, status line, skill links, and eval grading"
-run = "node --test .claude/hooks .claude/evals"
+description = "Run tests for the agent harness: hooks, status line, skill links, and eval grading; then kb-check in warn mode"
+run = ["node --test .claude/hooks .claude/evals", "node .claude/hooks/kb-check.mjs"]
+
+[tasks.kb-check]
+description = "Check knowledge-base links, index, frontmatter, and Docs: markers; pass -- --strict to fail on findings"
+run = "node .claude/hooks/kb-check.mjs"
 
 [tasks.eval-harness]
 description = "Opt-in: check skill triggering and principles-review with live claude runs (costs tokens)"
