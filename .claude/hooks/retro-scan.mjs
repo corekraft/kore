@@ -1,0 +1,477 @@
+#!/usr/bin/env node
+// Deterministic retrospective scan: counts over session transcripts that the
+// retro skill interprets. Prints JSON with rule names, tool names, and short
+// error summaries; never user or assistant text. Node standard library only.
+// Docs: infra/plans/5-self-maintenance.md#step-2-deterministic-retrospective-scan
+//
+// Usage: node .claude/hooks/retro-scan.mjs [--dir <transcripts>] [--since YYYY-MM-DD]
+
+import { createHash } from "node:crypto";
+import { readFileSync, readdirSync } from "node:fs";
+import { homedir } from "node:os";
+import { basename, join } from "node:path";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
+const USAGE =
+  "Usage: node .claude/hooks/retro-scan.mjs [--dir <transcripts>] [--since YYYY-MM-DD]";
+const MAX_ERROR = 120;
+const MIN_WARNINGS = 5;
+const MIN_CORRECTION_WORDS = 4;
+const GUARD_TAG = /\[guard:([a-z0-9-]+)\]/g;
+
+/** Rules the guard runs in audit mode: the literal names passed to warn(). */
+export function auditRules(guardSource) {
+  const names = [...guardSource.matchAll(/\bwarn\(\s*"([a-z0-9-]+)"/g)].map(
+    (match) => match[1],
+  );
+  return [...new Set(names)].sort();
+}
+
+/** Parse JSONL, keeping the 1-based line number; malformed lines are counted. */
+export function parseTranscript(id, text) {
+  const events = [];
+  let skipped = 0;
+  text.split("\n").forEach((raw, index) => {
+    if (raw.trim() === "") return;
+    try {
+      const value = JSON.parse(raw);
+      if (value === null || typeof value !== "object")
+        throw new Error("not an object");
+      events.push({ ...value, line: index + 1 });
+    } catch {
+      skipped++;
+    }
+  });
+  return { id, events, skipped };
+}
+
+/**
+ * Reduce an error to a stable, short summary: the first line (plus a shell
+ * error line after an exit code), with paths, quoted text, globs, and numbers
+ * replaced by placeholders.
+ */
+export function summarizeError(text) {
+  const lines = String(text)
+    .replace(/<\/?tool_use_error>/g, "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  let head = lines[0] ?? "";
+  let prefix = "";
+  const exit = /^Exit code \d+$/.exec(head);
+  if (exit) {
+    prefix = head;
+    head =
+      lines[1] && /^(\(eval\):\d+|[A-Za-z_][A-Za-z0-9_./-]*): /.test(lines[1])
+        ? lines[1]
+        : "";
+  }
+  const normalized = head
+    .replace(/'[^']*'|"[^"]*"/g, "<q>")
+    .replace(/(^|[\s(=])\/[^\s)]*/g, "$1<path>")
+    .replace(/(^|\s)\S*\*\S*/g, "$1<glob>")
+    .replace(/\b\d+\b/g, "N");
+  const joined =
+    prefix && normalized ? `${prefix}: ${normalized}` : prefix || normalized;
+  return joined.slice(0, MAX_ERROR);
+}
+
+const blocksOf = (event) =>
+  Array.isArray(event.message?.content) ? event.message.content : [];
+
+const resultText = (block) => {
+  const { content } = block;
+  if (typeof content === "string") return content;
+  if (Array.isArray(content))
+    return content.map((part) => part?.text ?? "").join("\n");
+  return "";
+};
+
+const callSignature = (input = {}) =>
+  JSON.stringify(input.command ?? input.new_string ?? input.content ?? input);
+
+/** The user's own typed text, or null for tool results, commands, and injected text. */
+function humanText(event) {
+  if (
+    event.type !== "user" ||
+    event.isSidechain ||
+    event.isMeta ||
+    event.isCompactSummary
+  ) {
+    return null;
+  }
+  if (event.origin && event.origin.kind !== "human") return null;
+  const content = event.message?.content;
+  const text =
+    typeof content === "string"
+      ? content
+      : Array.isArray(content)
+        ? content
+            .filter((block) => block.type === "text")
+            .map((block) => block.text)
+            .join("\n")
+        : "";
+  if (
+    text.trim() === "" ||
+    /^\s*<(command-|local-command|task-notification)/.test(text)
+  ) {
+    return null;
+  }
+  return text;
+}
+
+const phrasesOf = (text) =>
+  text
+    .replace(/<pasted_content[^>]*>[\s\S]*?<\/pasted_content[^>]*>/g, " ")
+    .replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, " ")
+    .split(/[.!?;\n]+/)
+    .map((part) =>
+      part
+        .toLowerCase()
+        .replace(/['’`]/g, "")
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim(),
+    )
+    .filter((phrase) => phrase.split(" ").length >= MIN_CORRECTION_WORDS);
+
+function timestamps(session) {
+  const stamps = session.events
+    .map((event) => event.timestamp)
+    .filter(Boolean)
+    .sort();
+  return { first: stamps[0] ?? null, last: stamps.at(-1) ?? null };
+}
+
+function analyzeSession(session) {
+  const calls = new Map();
+  const guards = {};
+  const failures = [];
+  const skills = new Set();
+  const slashCommands = [];
+  const phrases = [];
+  const warnings = [];
+  const ordered = [];
+  const bump = (rule, key) => {
+    guards[rule] ??= { blocks: 0, warnings: 0 };
+    guards[rule][key]++;
+  };
+
+  for (const event of session.events) {
+    for (const block of blocksOf(event)) {
+      if (event.type === "assistant" && block.type === "tool_use") {
+        calls.set(block.id, block.name);
+        ordered.push({
+          kind: "call",
+          id: block.id,
+          name: block.name,
+          signature: callSignature(block.input),
+        });
+        if (block.name === "Skill" && block.input?.skill)
+          skills.add(block.input.skill);
+      } else if (
+        event.type === "user" &&
+        block.type === "tool_result" &&
+        block.is_error
+      ) {
+        const text = resultText(block);
+        const tags = [...text.matchAll(GUARD_TAG)];
+        if (tags.length > 0) {
+          for (const tag of new Set(tags.map((match) => match[1])))
+            bump(tag, "blocks");
+        } else {
+          failures.push({
+            tool: calls.get(block.tool_use_id) ?? "unknown",
+            error: summarizeError(text),
+          });
+        }
+      }
+    }
+    const attachment = event.attachment;
+    if (
+      event.type === "attachment" &&
+      attachment?.type === "hook_additional_context"
+    ) {
+      const text = [attachment.content].flat().join("\n");
+      for (const tag of [...text.matchAll(GUARD_TAG)]) {
+        bump(tag[1], "warnings");
+        warnings.push({
+          rule: tag[1],
+          toolUseId: attachment.toolUseID,
+          at: ordered.length,
+        });
+      }
+    }
+    const text = humanText(event);
+    if (text !== null) {
+      ordered.push({ kind: "human" });
+      for (const phrase of phrasesOf(text))
+        phrases.push({ phrase, line: event.line });
+    }
+    const slash =
+      typeof event.message?.content === "string" && event.type === "user"
+        ? /<command-name>\/?([a-z0-9:-]+)<\/command-name>/.exec(
+            event.message.content,
+          )
+        : null;
+    if (slash) slashCommands.push(slash[1]);
+  }
+  return {
+    guards,
+    failures,
+    skills,
+    slashCommands,
+    phrases,
+    warnings,
+    ordered,
+  };
+}
+
+/** What the agent did after one warning: heeded, repeated, overridden, or unresolved. */
+function outcome(warning, ordered) {
+  const call = ordered.findIndex(
+    (item) => item.kind === "call" && item.id === warning.toolUseId,
+  );
+  if (call === -1) return "unresolved";
+  const warned = ordered[call];
+  for (const item of ordered.slice(call + 1)) {
+    if (item.kind === "human") return "overridden";
+    if (item.name === warned.name)
+      return item.signature === warned.signature ? "repeated" : "heeded";
+  }
+  return "unresolved";
+}
+
+/**
+ * Scan sessions ({ id, text }) into the report. Options: since (YYYY-MM-DD,
+ * sessions that ended earlier are left out), knownSkills, auditRules.
+ */
+export function scan(
+  inputs,
+  { since, knownSkills = [], auditRules: audit = [] } = {},
+) {
+  const parsed = inputs.map(({ id, text }) => parseTranscript(id, text));
+  const included = parsed
+    .map((session) => ({ session, ...timestamps(session) }))
+    .filter(
+      ({ last }) => last !== null && (!since || last.slice(0, 10) >= since),
+    )
+    .sort((a, b) => a.first.localeCompare(b.first));
+
+  const guards = {};
+  const failureCounts = new Map();
+  const perSession = {};
+  const loaded = new Set();
+  const phraseSessions = new Map();
+  const ruleStats = new Map(
+    audit.map((rule) => [
+      rule,
+      {
+        warnings: 0,
+        sessions: 0,
+        heeded: 0,
+        overridden: 0,
+        repeated: 0,
+        unresolved: 0,
+      },
+    ]),
+  );
+
+  for (const { session } of included) {
+    const found = analyzeSession(session);
+    for (const [rule, counts] of Object.entries(found.guards)) {
+      guards[rule] ??= { blocks: 0, warnings: 0 };
+      guards[rule].blocks += counts.blocks;
+      guards[rule].warnings += counts.warnings;
+    }
+    for (const { tool, error } of found.failures) {
+      const key = `${tool}\u0000${error}`;
+      failureCounts.set(key, (failureCounts.get(key) ?? 0) + 1);
+    }
+    const used = new Set([
+      ...found.skills,
+      ...found.slashCommands.filter((name) => knownSkills.includes(name)),
+    ]);
+    for (const name of used) loaded.add(name);
+    if (used.size > 0) perSession[session.id] = [...used].sort();
+    const seen = new Set();
+    for (const { phrase, line } of found.phrases) {
+      if (seen.has(phrase)) continue;
+      seen.add(phrase);
+      const entry = phraseSessions.get(phrase) ?? [];
+      entry.push({ session: session.id, line });
+      phraseSessions.set(phrase, entry);
+    }
+    const touched = new Set();
+    for (const warning of found.warnings) {
+      const stats = ruleStats.get(warning.rule);
+      if (!stats) continue;
+      stats.warnings++;
+      stats[outcome(warning, found.ordered)]++;
+      touched.add(warning.rule);
+    }
+    for (const rule of touched) ruleStats.get(rule).sessions++;
+  }
+
+  const failures = [...failureCounts]
+    .map(([key, count]) => {
+      const [tool, error] = key.split("\u0000");
+      return { tool, error, count };
+    })
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+
+  const corrections = [...phraseSessions]
+    .filter(([, evidence]) => evidence.length >= 2)
+    .map(([phrase, evidence]) => ({
+      id: createHash("sha1").update(phrase).digest("hex").slice(0, 8),
+      sessions: evidence.length,
+      evidence,
+    }))
+    .sort((a, b) => b.sessions - a.sessions);
+
+  const rules = [...ruleStats]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([rule, stats]) => {
+      let status = "insufficient-evidence";
+      if (stats.warnings >= MIN_WARNINGS) {
+        status =
+          stats.heeded === stats.warnings ? "promotable" : "not-promotable";
+      }
+      return { rule, status, ...stats };
+    });
+
+  return {
+    sessions: {
+      count: included.length,
+      first: included.map((item) => item.first).sort()[0] ?? null,
+      last:
+        included
+          .map((item) => item.last)
+          .sort()
+          .at(-1) ?? null,
+      list: included.map(({ session, first, last }) => ({
+        id: session.id,
+        first,
+        last,
+      })),
+    },
+    skippedLines: included.reduce((sum, item) => sum + item.session.skipped, 0),
+    guards: Object.fromEntries(
+      Object.entries(guards).sort(([a], [b]) => a.localeCompare(b)),
+    ),
+    failures,
+    skills: {
+      perSession,
+      unused: knownSkills.filter((name) => !loaded.has(name)).sort(),
+    },
+    corrections,
+    rules: {
+      promotable: rules
+        .filter((r) => r.status === "promotable")
+        .map((r) => r.rule),
+      audit: rules,
+    },
+  };
+}
+
+// --- command line ---------------------------------------------------------
+
+const root = fileURLToPath(new URL("../../", import.meta.url));
+
+function parseArgs(argv) {
+  const args = { dir: null, since: undefined };
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === "--dir" && argv[i + 1]) args.dir = argv[++i];
+    else if (
+      argv[i] === "--since" &&
+      /^\d{4}-\d{2}-\d{2}$/.test(argv[i + 1] ?? "")
+    )
+      args.since = argv[++i];
+    else return null;
+  }
+  return args;
+}
+
+/** The main checkout's transcript directory, which a worktree shares by repository. */
+function defaultDir() {
+  const git = spawnSync(
+    "git",
+    ["rev-parse", "--path-format=absolute", "--git-common-dir"],
+    {
+      cwd: root,
+      encoding: "utf8",
+    },
+  );
+  const main = git.status === 0 ? join(git.stdout.trim(), "..") : root;
+  return join(homedir(), ".claude", "projects", main.replace(/[/.]/g, "-"));
+}
+
+function lastRetrospective() {
+  try {
+    const plan = readFileSync(
+      join(root, "infra/plans/3-agent-harness.md"),
+      "utf8",
+    );
+    const dates = [
+      ...plan.matchAll(/^Last retrospective: (\d{4}-\d{2}-\d{2})$/gm),
+    ].map((m) => m[1]);
+    return dates.sort().at(-1);
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+    return undefined;
+  }
+}
+
+function main(argv) {
+  const args = parseArgs(argv);
+  if (!args) {
+    console.error(USAGE);
+    return 2;
+  }
+  const dir = args.dir ?? defaultDir();
+  const since = args.since ?? (args.dir ? undefined : lastRetrospective());
+  let files;
+  try {
+    files = readdirSync(dir)
+      .filter((name) => name.endsWith(".jsonl"))
+      .sort();
+  } catch {
+    console.error(
+      `Cannot read transcripts in ${dir}. Pass --dir <transcripts>.\n${USAGE}`,
+    );
+    return 2;
+  }
+  const inputs = files.map((name) => ({
+    id: basename(name, ".jsonl"),
+    text: readFileSync(join(dir, name), "utf8"),
+  }));
+  let knownSkills = [];
+  try {
+    knownSkills = readdirSync(join(root, "skills"), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+    console.error("No skills/ directory found; skills.unused will be empty.");
+  }
+  const guardSource = readFileSync(
+    new URL("./guard.mjs", import.meta.url),
+    "utf8",
+  );
+  if (since === undefined && !args.dir) {
+    console.error(
+      "No `Last retrospective:` date found; scanning all sessions. Pass --since to narrow.",
+    );
+  }
+  const report = scan(inputs, {
+    since,
+    knownSkills,
+    auditRules: auditRules(guardSource),
+  });
+  console.log(JSON.stringify({ since: since ?? null, ...report }, null, 2));
+  return 0;
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url))
+  process.exitCode = main(process.argv.slice(2));

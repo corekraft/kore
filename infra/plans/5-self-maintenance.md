@@ -66,7 +66,7 @@ outward-facing, so it is proposed to the user and not done by an agent.
 
 ### Work
 
-- [ ] Add `.claude/hooks/retro-scan.mjs`. It reads the session transcripts
+- [x] Add `.claude/hooks/retro-scan.mjs`. It reads the session transcripts
       (`~/.claude/projects/<project>/*.jsonl`) since the `Last retrospective:` date
       in `3-agent-harness.md`, or a directory passed with `--dir`, and prints JSON:
   - sessions scanned, with first and last timestamps
@@ -75,17 +75,17 @@ outward-facing, so it is proposed to the user and not done by an agent.
   - skills loaded per session (`Skill` tool calls and slash commands)
   - user messages that repeat a correction across sessions: same normalized
     phrase in two or more sessions
-- [ ] Export the parsing and grouping as pure functions, and test them against
+- [x] Export the parsing and grouping as pure functions, and test them against
       small fixture transcripts in `.claude/hooks/fixtures/retro/`.
-- [ ] Make `skills/retro/SKILL.md` run the scan first and read transcripts only
+- [x] Make `skills/retro/SKILL.md` run the scan first and read transcripts only
       to quote evidence for a finding the scan surfaced. The skill stays under about
       25 lines.
 
 ### Exit Criteria
 
-- [ ] `node --test .claude/hooks` covers each count above with a fixture,
+- [x] `node --test .claude/hooks` covers each count above with a fixture,
       including a malformed line that is skipped and does not crash the scan.
-- [ ] The scan runs over this repository's real transcripts in under two
+- [x] The scan runs over this repository's real transcripts in under two
       seconds and prints no transcript text beyond rule names, tool names, and
       error summaries of 120 characters or less.
 - [ ] One `/retro` run after the change returns its ranked list. Record how many
@@ -95,21 +95,21 @@ outward-facing, so it is proposed to the user and not done by an agent.
 
 ### Work
 
-- [ ] Extend the scan's JSON with `skills.unused`: skills in `skills/` loaded in
+- [x] Extend the scan's JSON with `skills.unused`: skills in `skills/` loaded in
       no scanned session.
-- [ ] Extend it with `rules.promotable`: audit-mode guard rules (warn only) whose
+- [x] Extend it with `rules.promotable`: audit-mode guard rules (warn only) whose
       warnings in the scanned sessions were all followed by the agent changing the
       command, with none overridden or restated by the user. Report the number of
       sessions observed. A rule with fewer than five observed warnings is reported
       as `insufficient-evidence`, never as promotable.
-- [ ] `retro` turns each entry into a proposal: archive or rewrite the
+- [x] `retro` turns each entry into a proposal: archive or rewrite the
       description of an unused skill; promote a promotable rule to enforce mode.
 
 ### Exit Criteria
 
-- [ ] Fixture tests cover a used and an unused skill, and a rule that is
+- [x] Fixture tests cover a used and an unused skill, and a rule that is
       promotable, one overridden by the user, and one with too few warnings.
-- [ ] Run against the real transcripts, the scan names the current status of
+- [x] Run against the real transcripts, the scan names the current status of
       `image-digest` and `unquoted-glob`. Record it in Results.
 
 ## Step 4: Eval History
@@ -165,3 +165,29 @@ outward-facing, so it is proposed to the user and not done by an agent.
   for a while.
 
 ## Results
+
+- Step 2: `retro-scan.mjs` and its 18 tests pass (`node --test .claude/hooks`,
+  116 tests). Over the 18 real transcripts it runs in about 0.3 s and prints
+  only rule names, tool names, and error summaries of 120 characters or less.
+  A shell error line is kept after `Exit code N` only when it looks like a
+  command error (`(eval):N: ...`), so file contents in a failed command's
+  output never reach the summary. Corrections are reported as a short hash plus
+  session and line, never as text; only phrases of four or more words count.
+  Without `--dir`, the scan finds the main checkout's transcript directory
+  through `git --git-common-dir`, so it works from a worktree.
+- Step 2: the live `/retro` exit criterion is not done. It needs an interactive
+  slash command, which this session could not run. Pending: run `/retro` once
+  and record how many transcript files it opens compared with the previous run
+  (the scan itself reads all 18 files in one pass and the skill now opens only
+  the lines the scan names).
+- Step 3: `skills.unused` and `rules.promotable` come from the same scan.
+  Overridden means a human message arrived between the warning and the agent's
+  next call of the same tool; repeated means that next call was identical;
+  unresolved means no later call. All three block promotion. Fixture tests
+  cover a used and an unused skill, a promotable rule, one the user overrode,
+  and one with too few warnings.
+- Step 3: on the real transcripts, `unquoted-glob` is `insufficient-evidence`
+  (3 warnings in 3 sessions, all heeded, none overridden) and `image-digest` is
+  `insufficient-evidence` (0 warnings). Unused skills: `add-policy`,
+  `handoff`, `write-adr`; none is archived on this evidence, since the
+  transcripts cover a single day.
