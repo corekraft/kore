@@ -31,6 +31,14 @@ function fieldErrors(seed: Seed): string[] {
   ];
 }
 
+// A local chart may ship no values.yaml; any other read failure is real.
+function missingAsEmpty(error: unknown): string {
+  if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+    return "";
+  }
+  throw error;
+}
+
 // Files that configure a component's images: its chart defaults (local
 // charts), catalog values, and environment overlays.
 async function configuredText(
@@ -46,7 +54,7 @@ async function configuredText(
   ];
   const texts = await Promise.all(
     files.map((file) =>
-      readFile(join(repository.root, file), "utf8").catch(() => ""),
+      readFile(join(repository.root, file), "utf8").catch(missingAsEmpty),
     ),
   );
   return texts.join("\n");

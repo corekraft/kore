@@ -106,3 +106,22 @@ test("duplicate seeds are rejected", async () => {
   const repository = await withSeeds((seeds) => [...seeds, seeds[0]!]);
   await assert.rejects(validateRepository(repository), /duplicate seed/);
 });
+
+test("an unreadable seed component values file fails instead of hiding its images", async () => {
+  const base = await loadRepository("local");
+  const repository: Repository = {
+    ...base,
+    catalog: {
+      ...base.catalog,
+      components: base.catalog.components.map((component) =>
+        component.name === "policy-controller"
+          ? {
+              ...component,
+              values: [...(component.values ?? []), "infra/catalog"],
+            }
+          : component,
+      ),
+    },
+  };
+  await assert.rejects(validateRepository(repository), /EISDIR|infra\/catalog/);
+});
