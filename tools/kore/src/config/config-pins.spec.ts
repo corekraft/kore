@@ -121,7 +121,11 @@ test("the catalog declares Sigstore Policy Controller as a bootstrap component w
   ).filter((file) => /\.ya?ml$/.test(file) && !file.startsWith("plans"));
   for (const file of files) {
     const text = await readFile(join(root, "infra", file), "utf8");
-    assert.doesNotMatch(text, /kind:\s*"?ClusterImagePolicy"?/, file);
+    // Only the image-policy chart (ADR 0028) renders policies; its namespaces
+    // are never labelled, so nothing is enforced.
+    if (!file.startsWith("charts/image-policy/")) {
+      assert.doesNotMatch(text, /kind:\s*"?ClusterImagePolicy"?/, file);
+    }
     assert.doesNotMatch(text, /policy\.sigstore\.dev\/include/, file);
   }
 });
