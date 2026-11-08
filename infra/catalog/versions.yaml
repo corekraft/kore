@@ -20,6 +20,7 @@
     "gateway-api": "1.7.0",
     "cert-manager": "v1.21.3",
     "gatekeeper": "3.23.1",
+    "policy-controller": "0.10.8",
     "istio": "1.31.4",
     "crossplane": "2.4.3",
     "external-secrets": "2.14.0",

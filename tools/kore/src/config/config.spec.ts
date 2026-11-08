@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vitest";
@@ -332,4 +332,34 @@ test("chart image defaults and the reference base image match the catalog pins",
   );
   assert.match(opaAuthorizer, /tag: 1\.22\.2-envoy\b/);
   assert.match(dockerfile, /^FROM node:26\.13\.0-alpine3\.24$/m);
+});
+
+test("the catalog declares Sigstore Policy Controller as a bootstrap component with readiness and CRD ownership, enforcing nothing", async () => {
+  const repository = await loadRepository("local");
+  const component = repository.catalog.components.find(
+    ({ name }) => name === "policy-controller",
+  );
+  assert.ok(component, "policy-controller is declared");
+  assert.equal(component.phase, "bootstrap");
+  assert.equal(component.kind, "helm");
+  assert.equal(component.repository, "https://sigstore.github.io/helm-charts");
+  assert.equal(component.chart, "policy-controller");
+  assert.equal(component.version, "policy-controller");
+  assert.equal(repository.versions.components["policy-controller"], "0.10.8");
+  assert.deepEqual(component.ownsCRDs, [
+    "clusterimagepolicies.policy.sigstore.dev",
+    "trustroots.policy.sigstore.dev",
+  ]);
+  assert.deepEqual(component.readiness, [
+    "deployment/policy-controller-webhook",
+  ]);
+  const root = await findRoot();
+  const files = (
+    await readdir(join(root, "infra"), { recursive: true })
+  ).filter((file) => /\.ya?ml$/.test(file) && !file.startsWith("plans"));
+  for (const file of files) {
+    const text = await readFile(join(root, "infra", file), "utf8");
+    assert.doesNotMatch(text, /kind:\s*"?ClusterImagePolicy"?/, file);
+    assert.doesNotMatch(text, /policy\.sigstore\.dev\/include/, file);
+  }
 });

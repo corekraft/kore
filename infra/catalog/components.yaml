@@ -80,6 +80,23 @@
           ]
       },
       {
+        "name": "policy-controller",
+        "phase": "bootstrap",
+        "namespace": "cosign-system",
+        "kind": "helm",
+        "repository": "https://sigstore.github.io/helm-charts",
+        "chart": "policy-controller",
+        "version": "policy-controller",
+        "ownsCRDs":
+          [
+            "clusterimagepolicies.policy.sigstore.dev",
+            "trustroots.policy.sigstore.dev"
+          ],
+        "dependencies": ["kore-gateway-api"],
+        "timeout": "10m",
+        "readiness": ["deployment/policy-controller-webhook"]
+      },
+      {
         "name": "istio-base",
         "phase": "bootstrap",
         "namespace": "istio-system",
