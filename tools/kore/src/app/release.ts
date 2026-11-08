@@ -1,4 +1,4 @@
-import type { Repository } from "../config/index.js";
+import { registryPlan, type Repository } from "../config/index.js";
 import type { LockedImage } from "../images/index.js";
 
 export function releaseArgs(
@@ -27,6 +27,8 @@ export function releaseArgs(
     `platform.gateway.namespace=${repository.environment.gateway.namespace}`,
     "--set-string",
     `platform.gateway.hostname=${repository.environment.gateway.hostname}`,
+    "--set-string",
+    `platform.registry.address=${registryPlan(repository.environment).address}`,
     "--set-string",
     `platform.secretStore=${repository.environment.secrets.storeName}`,
     "--set-string",

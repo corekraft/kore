@@ -1,4 +1,4 @@
-import type { Repository } from "../config/index.js";
+import { registryPlan, type Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 
 const namespace = "kore-registry";
@@ -16,7 +16,7 @@ export async function rewireRegistryService(
   runner: Runner,
   log: (message: string) => void = () => undefined,
 ): Promise<boolean> {
-  const pinned = repository.registryClusterIP;
+  const pinned = registryPlan(repository.environment).clusterIP;
   if (pinned === undefined) {
     return false;
   }

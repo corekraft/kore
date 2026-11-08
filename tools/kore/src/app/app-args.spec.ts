@@ -92,17 +92,17 @@ test("image reference helpers reject missing immutable digest and local registry
     /must include a digest/,
   );
   expect(() => localMinikubeImageReference("invalid", "10.0.0.1")).toThrow(
-    /reference and registry ClusterIP are required/,
+    /reference and registry address are required/,
   );
   expect(() => localMinikubeImageReference("registry/image:dev", "  ")).toThrow(
-    /reference and registry ClusterIP are required/,
+    /reference and registry address are required/,
   );
 });
 
 test("Minikube stages the locked digest under the registry service reference", () => {
   const reference = localMinikubeImageReference(
     "registry.kore.local:30500/reference@sha256:" + "a".repeat(64),
-    "10.102.135.66",
+    "10.102.135.66:5000",
   );
   expect(reference).toBe(
     "10.102.135.66:5000/reference@sha256:" + "a".repeat(64),

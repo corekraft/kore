@@ -5,3 +5,4 @@ export { buildAndSignLocalImage } from "./local-image.js";
 export type { BuiltLocalImage } from "./local-image.js";
 export { localRegistryReference } from "./registry.js";
 export { ensureLocalSigningPublicKey } from "./local-signer.js";
+export { verifiedRegistryAddress } from "./registry-service.js";

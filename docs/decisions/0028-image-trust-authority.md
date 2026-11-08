@@ -83,3 +83,5 @@ delete service oci-registry`), logs the rewiring to stderr, and reconciles the
   images stay; running pods keep the address they pulled by, and later deploys
   read the live address. An absent or already-matching Service changes nothing.
 - Nothing is enrolled; enforcement is still off.
+
+> Refined by [ADR 0031](0031-registry-address-platform-variable.md): the registry address is now the environment's `registry.address`, derived into the Service pin and the `images` glob; overlays no longer repeat it.

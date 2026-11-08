@@ -1,18 +1,16 @@
 import type { Repository } from "../config/index.js";
-import type { LockedImage } from "../images/index.js";
+import { verifiedRegistryAddress, type LockedImage } from "../images/index.js";
 import type { Runner } from "../runtime/index.js";
 
 export function localMinikubeImageReference(
   reference: string,
-  registryClusterIp: string,
+  registryAddress: string,
 ): string {
   const separator = reference.indexOf("/");
-  if (separator < 1 || !registryClusterIp.trim()) {
-    throw new Error(
-      "local image reference and registry ClusterIP are required",
-    );
+  if (separator < 1 || !registryAddress.trim()) {
+    throw new Error("local image reference and registry address are required");
   }
-  return `${registryClusterIp}:5000/${reference.slice(separator + 1)}`;
+  return `${registryAddress}/${reference.slice(separator + 1)}`;
 }
 
 export function minikubeImagePullArgs(
@@ -28,31 +26,6 @@ export function minikubeImagePullArgs(
   ];
 }
 
-async function fetchRegistryClusterIp(
-  repository: Repository,
-  runner: Runner,
-): Promise<string> {
-  const registry = await runner.run(
-    "kubectl",
-    [
-      "--context",
-      repository.environment.kubeContext,
-      "--namespace",
-      "kore-registry",
-      "get",
-      "service",
-      "oci-registry",
-      "--output=jsonpath={.spec.clusterIP}",
-    ],
-    { capture: true },
-  );
-  const clusterIp = registry.stdout.trim();
-  if (!clusterIp) {
-    throw new Error("local OCI registry has no ClusterIP");
-  }
-  return clusterIp;
-}
-
 /** Pulls the image into Minikube; other providers deploy the locked image. */
 export async function stageLocalImage(
   repository: Repository,
@@ -62,10 +35,10 @@ export async function stageLocalImage(
   if (repository.environment.provider !== "minikube") {
     return image;
   }
-  const clusterIp = await fetchRegistryClusterIp(repository, runner);
+  const address = await verifiedRegistryAddress(repository, runner);
   const staged = {
     ...image,
-    reference: localMinikubeImageReference(image.reference, clusterIp),
+    reference: localMinikubeImageReference(image.reference, address),
   };
   await runner.run(
     "minikube",

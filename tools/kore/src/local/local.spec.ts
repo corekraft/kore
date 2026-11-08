@@ -54,7 +54,7 @@ test("Minikube publishes the staged image to the in-cluster registry over HTTP",
     minikubeImagePublishArgs(
       "kore-local",
       "kore-local/reference:kore-local",
-      "10.102.17.251",
+      "10.102.17.251:5000",
       "reference:kore-local",
     ),
   ).toEqual([

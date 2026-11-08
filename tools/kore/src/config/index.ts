@@ -7,6 +7,11 @@ export {
   loadRepository,
   orderedComponents,
 } from "./config.js";
+export {
+  registryConsumers,
+  registryHelmArgs,
+  registryPlan,
+} from "./registry-address.js";
 export type {
   Catalog,
   Component,

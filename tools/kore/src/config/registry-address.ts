@@ -1,6 +1,10 @@
-import type { Repository } from "./types.js";
+import type { Environment, Repository } from "./types.js";
 
-export const registryPort = 5000;
+/** Port the in-cluster registry listens on when the address names none. */
+export const defaultRegistryPort = "5000";
+
+/** Components that receive the registry address as a platform value. */
+export const registryConsumers = ["oci-registry", "kore-image-policy"];
 
 const cidrPattern = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\/(\d{1,2})$/;
 const ipPattern = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
@@ -31,50 +35,161 @@ function inRange(ip: string, cidr: { base: number; size: number }): boolean {
   return value >= start && value < start + cidr.size;
 }
 
+export interface RegistryPlan {
+  /** The environment's registry.address, verbatim: the single source of truth. */
+  address: string;
+  host: string;
+  port?: string;
+  /**
+   * Set when the address is an IPv4 literal: the environment provides the
+   * in-cluster registry and its Service is pinned to this ClusterIP.
+   */
+  clusterIP?: string;
+}
+
+const addressPattern =
+  /^(?<host>[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?)(?::(?<port>\d{1,5}))?$/;
+
+function parseAddress(address: unknown): RegistryPlan | undefined {
+  const groups =
+    typeof address === "string"
+      ? addressPattern.exec(address)?.groups
+      : undefined;
+  const host = groups?.["host"];
+  if (typeof address !== "string" || host === undefined) {
+    return undefined;
+  }
+  const port = groups?.["port"];
+  return {
+    address,
+    host,
+    ...(port === undefined ? {} : { port }),
+    ...(ipPattern.test(host) ? { clusterIP: host } : {}),
+  };
+}
+
+/** Derives everything registry-shaped from the environment's one address. */
+export function registryPlan(environment: Environment): RegistryPlan {
+  const plan = parseAddress(
+    (environment as { registry?: { address?: unknown } }).registry?.address,
+  );
+  if (!plan) {
+    throw new Error(
+      `environment ${environment.name} must declare registry.address as host[:port]`,
+    );
+  }
+  return plan;
+}
+
 /**
- * The oci-registry values pin the Service ClusterIP; this is the one place the
- * address is chosen. The service range and the image policy globs are checked
- * against it so a disagreement fails validation instead of admission.
+ * Helm arguments that hand the registry address to a consuming component: the
+ * platform value every chart reads, plus the Service pin and port the local
+ * registry chart derives from an in-cluster address.
+ */
+export function registryHelmArgs(
+  environment: Environment,
+  component?: string,
+): string[] {
+  const plan = registryPlan(environment);
+  return [
+    "--set-string",
+    `platform.registry.address=${plan.address}`,
+    ...(component === "oci-registry" && plan.clusterIP !== undefined
+      ? [
+          "--set-string",
+          `service.clusterIP=${plan.clusterIP}`,
+          "--set-string",
+          `service.port=${plan.port ?? defaultRegistryPort}`,
+        ]
+      : []),
+  ];
+}
+
+const forbiddenPaths: Record<string, string[][]> = {
+  "oci-registry": [
+    ["service", "clusterIP"],
+    ["service", "port"],
+  ],
+  "kore-image-policy": [["trust", "images"]],
+};
+
+function valueAt(values: unknown, path: string[]): unknown {
+  return path.reduce<unknown>(
+    (node, key) =>
+      node && typeof node === "object"
+        ? (node as Record<string, unknown>)[key]
+        : undefined,
+    values,
+  );
+}
+
+function strings(value: unknown): string[] {
+  if (typeof value === "string") {
+    return [value];
+  }
+  return value && typeof value === "object"
+    ? Object.values(value).flatMap(strings)
+    : [];
+}
+
+function hardcodedErrors(repository: Repository, host: string): string[] {
+  return Object.entries(repository.registryComponentValues ?? {}).flatMap(
+    ([component, values]) => [
+      ...(forbiddenPaths[component] ?? [])
+        .filter((path) => valueAt(values, path) !== undefined)
+        .map(
+          (path) =>
+            `${component} values must not set ${path.join(".")}; it is derived from registry.address in environment ${repository.environment.name}`,
+        ),
+      ...(strings(values).some((text) => text.includes(host))
+        ? [
+            `${component} values hardcode the registry host ${host}; remove it, registry.address in environment ${repository.environment.name} is the only place it is written`,
+          ]
+        : []),
+    ],
+  );
+}
+
+/**
+ * registry.address is the one place the registry location is chosen. An IPv4
+ * address means the environment provides the in-cluster registry, so it must
+ * lie inside the Minikube service range; a hostname pins nothing.
  */
 export function registryAddressErrors(repository: Repository): string[] {
-  const { environment, registryClusterIP: ip } = repository;
+  const { environment } = repository;
   const cidrText = (
     environment.cluster as Repository["environment"]["cluster"] | undefined
   )?.serviceCidr;
   const cidr = cidrText === undefined ? undefined : parseCidr(cidrText);
+  const declared = (environment as { registry?: { address?: unknown } })
+    .registry?.address;
+  const plan = parseAddress(declared);
   return [
     ...(cidrText !== undefined && cidr === undefined
       ? [
           `cluster.serviceCidr must be an IPv4 CIDR such as 10.96.0.0/12, got ${cidrText}`,
         ]
       : []),
-    ...(ip === undefined
-      ? []
+    ...(plan === undefined
+      ? [
+          `registry.address must be host[:port] (for example 10.96.0.50:5000 or registry.example.internal) in environment ${environment.name}, got ${JSON.stringify(declared)}`,
+        ]
       : [
-          ...(cidrText === undefined && environment.cluster !== undefined
+          ...(plan.clusterIP !== undefined &&
+          cidrText === undefined &&
+          environment.cluster !== undefined
             ? [
-                `oci-registry pins service.clusterIP ${ip}; set cluster.serviceCidr in environment ${environment.name} so Minikube is started with a range that contains it`,
+                `registry.address ${plan.address} is an in-cluster ClusterIP; set cluster.serviceCidr in environment ${environment.name} so Minikube is started with a range that contains it`,
               ]
             : []),
-          ...(cidr !== undefined && !inRange(ip, cidr)
+          ...(plan.clusterIP !== undefined &&
+          cidr !== undefined &&
+          !inRange(plan.clusterIP, cidr)
             ? [
-                `oci-registry service.clusterIP ${ip} is outside cluster.serviceCidr ${cidrText}; change service.clusterIP (and the image policy glob) to an address inside the range`,
+                `registry.address ${plan.address} is outside cluster.serviceCidr ${cidrText}; change registry.address to an address inside the range`,
               ]
             : []),
-          ...registryGlobErrors(repository, `${ip}:${registryPort}`),
+          ...hardcodedErrors(repository, plan.host),
         ]),
   ];
-}
-
-function registryGlobErrors(repository: Repository, address: string): string[] {
-  const images = (
-    repository.imageTrustValues?.["trust"] as { images?: unknown } | undefined
-  )?.images;
-  return (Array.isArray(images) ? images : [])
-    .filter((glob): glob is string => typeof glob === "string")
-    .filter((glob) => glob.split("/")[0] !== address)
-    .map(
-      (glob) =>
-        `image trust: images glob ${glob} must name the registry address ${address} pinned by oci-registry service.clusterIP; update the glob or the pin so they agree`,
-    );
 }

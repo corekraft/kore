@@ -1,3 +1,8 @@
 # The trust authority is owned by the environment overlay
 # (infra/environments/<env>/values/image-policy.yaml); kore validate checks it.
 trust: {}
+# Passed by kore from the environment's registry.address (ADR 0031); the policy
+# glob is "<address>/**" and is never written in an overlay.
+platform:
+  registry:
+    address: ""
