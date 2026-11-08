@@ -44,6 +44,8 @@ export interface Environment {
     cpus: number;
     memoryMB: number;
     diskSize: string;
+    /** Service ClusterIP range handed to Minikube; the registry pin must lie inside it. */
+    serviceCidr?: string;
   };
   gateway: { namespace: string; name: string; hostname: string; port: number };
   secrets: { storeName: string; sourceNamespace: string };
@@ -78,4 +80,6 @@ export interface Repository {
   environment: Environment;
   /** Parsed environment overlay of the kore-image-policy component. */
   imageTrustValues?: Record<string, unknown> | undefined;
+  /** service.clusterIP pinned in the oci-registry values overlay, if any. */
+  registryClusterIP?: string | undefined;
 }
