@@ -142,7 +142,7 @@ captures a workflow that otherwise requires re-exploring the repository.
 
 ### Exit Criteria
 
-- [ ] Each skill's description triggers it for its task and not for unrelated
+- [x] Each skill's description triggers it for its task and not for unrelated
       ones.
 - [x] Each skill references repository files instead of duplicating their
       content.
@@ -226,7 +226,7 @@ files and read only in part.
 - [x] A large lint or type-error output returns a bounded message with the
       command to see the rest.
 - [x] After `/compact`, the session context contains the judgment rules.
-- [ ] Every skill is under about 25 lines and still triggers for its task.
+- [x] Every skill is under about 25 lines and still triggers for its task.
 
 ### Not Planned
 
@@ -235,10 +235,6 @@ files and read only in part.
 - Hook parity for Codex: out of scope unless AGENTS.md states the rule.
 
 ## Step 9: Operator Load
-
-Next: rerun `mise run eval-harness --kind skill` now that skill cases run in a
-throwaway worktree, and record whether `test-driven-development` and
-`spawn-session` hit.
 
 Steps 1-8 manage what the agent has in context. This step manages what the human
 has to keep in their head: when to start a new thread, where the last one
@@ -281,7 +277,7 @@ still work. It also closes the exit criteria above that need a live session.
 - [x] A link with an absolute target fails `mise run test-hooks`.
 - [x] A fresh session after `/clear` shows the active plan, its `Next:` line, and
       a due retrospective, and a resumed session shows nothing.
-- [ ] `mise run eval-harness` reports every skill case and every seeded
+- [x] `mise run eval-harness` reports every skill case and every seeded
       `principles-review` diff as a hit; results recorded below.
 
 ## Results
@@ -361,6 +357,13 @@ destroy` and `kore * destroy *` (and likewise for `./bin/kore` and the
   `PATH` and at `bin/kore`, so a broken rule reaches only a stub (`principles-review`
   finding). `--kind skill,review,deny` reruns part of the eval and refuses an
   empty list.
+- Third `mise run eval-harness --kind skill` on 2026-11-07, `claude 2.1.319`,
+  model `claude-opus-5-5`, three samples per case in throwaway worktrees: 13/13
+  hits, every case 3/3. `add-command`, `add-policy`, `pin-upgrade`, `write-adr`,
+  `test-driven-development`, `handoff`, `retro`, and `spawn-session` each fired
+  3/3, and all five near misses stayed silent 3/3. With plan mode dropped,
+  `test-driven-development` now fires on the bugfix prompt, so no skill
+  description changed. `git worktree list` afterwards showed only the main tree.
 
 ### Retrospective 2026-11-07
 
