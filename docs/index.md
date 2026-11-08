@@ -13,7 +13,8 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/vision.md`](vision.md) — where Kore is going: a multi-tenant
   business and developer platform of organizations, sub-organizations, and
   services, with static frontends, autoscaled backends for frontend, and an
-  org-scoped portal. Read before planning work beyond Plan 2.
+  org-scoped portal. Read before planning work beyond Plan 2. Rendered as a
+  page in [`docs/vision.html`](vision.html).
 
 ## Plans
 

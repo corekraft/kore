@@ -11,6 +11,9 @@ plans in [`infra/plans`](../infra/plans) and names the decisions they still need
 to make. [`AGENTS.md`](../AGENTS.md) still sets the rules, and a decision
 counts only once an ADR in [`docs/decisions`](decisions) records it.
 
+An HTML rendering of this board lives in [`vision.html`](vision.html). This
+Markdown file is the source; update both together.
+
 ## North Star
 
 > **Kore is the one place an organization goes to run its software.** Register
