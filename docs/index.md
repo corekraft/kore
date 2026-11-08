@@ -61,6 +61,7 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0019-telemetry-pipeline-wiring.md`](decisions/0019-telemetry-pipeline-wiring.md) — gateway Collector plus node agent, config chart owns rules and dashboards, metric attribute allowlist. Read when changing telemetry wiring.
 - [`docs/decisions/0020-postgresql-api-scoped-rbac-status-and-retention.md`](decisions/0020-postgresql-api-scoped-rbac-status-and-retention.md) — refines 0008: scoped Crossplane Secret access, projected database status, labeled retained PVCs, app down reports retained data. Read when changing the PostgreSQL API.
 - [`docs/decisions/0021-render-redaction-and-portability-rendering.md`](decisions/0021-render-redaction-and-portability-rendering.md) — Portability renders app charts with defaults only; rendered platform output redacts Secret values. Read when changing render or portability checks.
+- [`docs/decisions/0023-crossplane-functions-own-release-and-readiness.md`](decisions/0023-crossplane-functions-own-release-and-readiness.md) — refines 0008 and 0016: Functions are their own release; readiness waits for Installed and Healthy. Read when changing Crossplane Functions or function readiness.
 
 ## Reference
 
