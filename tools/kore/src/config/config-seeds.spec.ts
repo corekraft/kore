@@ -125,3 +125,67 @@ test("an unreadable seed component values file fails instead of hiding its image
   };
   await assert.rejects(validateRepository(repository), /EISDIR|infra\/catalog/);
 });
+
+test("every seed records machine-readable upstream provenance: an exact signer or explicit unsigned", async () => {
+  const { seeds } = await loadRepository("local");
+  const byImage = Object.fromEntries(
+    seeds.seeds.map((seed) => [seed.catalogImage, seed.evidence.provenance]),
+  );
+  assert.deepEqual(byImage["oci-registry"], { signed: false });
+  assert.deepEqual(byImage["policy-controller"], {
+    signed: true,
+    issuer: "https://token.actions.githubusercontent.com",
+    identity:
+      "https://github.com/sigstore/policy-controller/.github/workflows/release.yaml@refs/tags/v0.13.1",
+  });
+  assert.deepEqual(byImage["policy-controller-kubectl"], {
+    signed: true,
+    issuer: "https://token.actions.githubusercontent.com",
+    identity:
+      "https://github.com/chainguard-images/images/.github/workflows/release.yaml@refs/heads/main",
+  });
+});
+
+test("a seed without provenance is rejected so the mirror cannot guess", async () => {
+  const repository = await withSeeds((seeds) =>
+    seeds.map((seed, i) =>
+      i === 0
+        ? {
+            ...seed,
+            evidence: { ...seed.evidence, provenance: undefined as never },
+          }
+        : seed,
+    ),
+  );
+  await assert.rejects(
+    validateRepository(repository),
+    /evidence\.provenance is required/,
+  );
+});
+
+test("a signed seed must name an https issuer and an exact identity, never a pattern", async () => {
+  const signed = (identity: string, issuer = "https://issuer.example") => ({
+    signed: true as const,
+    issuer,
+    identity,
+  });
+  for (const provenance of [
+    signed("https://github.com/sigstore/.*"),
+    signed("https://github.com/a/b/*"),
+    signed("not-a-url"),
+    signed("https://github.com/a/b.yaml@refs/tags/v1", "issuer"),
+  ]) {
+    const repository = await withSeeds((seeds) =>
+      seeds.map((seed, i) =>
+        i === 0
+          ? { ...seed, evidence: { ...seed.evidence, provenance } }
+          : seed,
+      ),
+    );
+    await assert.rejects(
+      validateRepository(repository),
+      /provenance/,
+      JSON.stringify(provenance),
+    );
+  }
+});

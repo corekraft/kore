@@ -218,11 +218,94 @@ test("the release workflow names the registry once and emits an image lock", () 
   assert.doesNotMatch(text, /secrets\.(?!GITHUB_TOKEN)/);
 });
 
-test("the release workflow checks out without credentials and installs only cosign", () => {
+test("the release workflow checks out without credentials and installs only the signing tools", () => {
   const text = release();
-  assert.match(text, /persist-credentials: false/);
-  assert.match(text, /install_args: cosign$/m);
-  assert.match(text, /cache: false/);
+  assert.equal(
+    text.match(/persist-credentials: false/g)?.length,
+    2,
+    "both signing jobs check out without credentials",
+  );
+  assert.match(jobText("release"), /install_args: cosign$/m);
+  assert.match(jobText("mirror"), /install_args: cosign crane$/m);
+  assert.equal(text.match(/cache: false/g)?.length, 2);
+});
+
+test("platform image mirroring is a separate tag-only job with the minimal signing permissions", () => {
+  const job = jobText("mirror");
+  assert.match(job, /^ {4}if: github\.ref_type == 'tag'$/m);
+  assert.doesNotMatch(job, /needs:/);
+  assert.match(job, /^ {6}contents: read$/m);
+  assert.match(job, /^ {6}packages: write$/m);
+  assert.match(job, /^ {6}id-token: write$/m);
+  assert.doesNotMatch(
+    job,
+    /contents: write|pull-requests|actions: write|issues:/,
+  );
+  assert.match(job, /MISE_TASK_RUN_AUTO_INSTALL: "false"/);
+  assert.match(
+    job,
+    /^ {6}ISSUER: https:\/\/token\.actions\.githubusercontent\.com$/m,
+  );
+  assert.ok(
+    job.includes(`IDENTITY: ${subject}\${{ github.ref_name }}`),
+    "mirror signatures carry the same exact tag identity",
+  );
+  // The registry for mirrored images is named once, apart from the app image.
+  assert.equal(
+    release().match(/ghcr\.io\/corekraft\/kore\/mirror\b/g)?.length,
+    1,
+  );
+});
+
+test("the mirror job reads the approved list from the catalog, never a second pin list", () => {
+  const job = jobText("mirror");
+  assert.match(job, /infra\/catalog\/seeds\.yaml/);
+  assert.doesNotMatch(job, /@sha256:[0-9a-f]{64}/);
+  assert.match(job, /\.evidence\.provenance/);
+});
+
+test("the mirror job verifies the pulled digest, upstream provenance, and the copy before signing", () => {
+  const job = jobText("mirror");
+  const order = [
+    /crane digest "\$ref"/,
+    /cosign verify \\\n\s+--certificate-identity "\$upstream_identity"/,
+    /crane copy "\$ref" "\$MIRROR\/\$name:\$TAG"/,
+    /cosign sign --yes "\$MIRROR\/\$name@\$digest"/,
+    /cosign verify \\\n\s+--certificate-identity "\$IDENTITY"/,
+  ];
+  let at = -1;
+  for (const step of order) {
+    const found = job.search(step);
+    assert.ok(found > at, `${step} present, after the previous step`);
+    at = found;
+  }
+  assert.match(job, /--certificate-oidc-issuer "\$upstream_issuer"/);
+  assert.match(job, /--certificate-oidc-issuer "\$ISSUER"/);
+  assert.match(job, /\$pulled" != "\$digest"/);
+  assert.match(job, /\$copied" != "\$digest"/);
+  assert.match(job, /unsigned-upstream/);
+  assert.doesNotMatch(job, /-regexp|--insecure-ignore-tlog|--key\b/);
+  assert.doesNotMatch(job, /cosign sign[^\n]*:\$/);
+});
+
+test("the mirror job emits a versioned platform image lock artifact beside the app lock", () => {
+  const job = jobText("mirror");
+  assert.match(job, /platform-images\.lock\.json/);
+  assert.match(job, /version: 1/);
+  assert.match(job, /authorizedSigners: \[\$signer\]/);
+  for (const field of [
+    "upstream",
+    "upstreamDigest",
+    "mirror",
+    "provenance",
+    "signer",
+  ]) {
+    assert.match(job, new RegExp(`\\b${field}\\b`), field);
+  }
+  assert.match(job, /upload-artifact@[0-9a-f]{40} # v\d+\.\d+\.\d+/);
+  assert.match(job, /name: platform-images\.lock\.json/);
+  assert.match(job, /if-no-files-found: error/);
+  assert.doesNotMatch(job, /secrets\.(?!GITHUB_TOKEN)/);
 });
 
 test("the released image names its public source repository so GHCR links and publishes it", () => {

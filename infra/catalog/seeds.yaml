@@ -11,7 +11,8 @@
           {
             "method": "docker-hub-digest",
             "source": "Docker Hub library/registry tag 3.1.2 resolves to this index digest (hub.docker.com/v2/repositories/library/registry/tags/3.1.2); Docker Official Image, no cosign signature published (cosign verify: no signatures found).",
-            "checked": "2026-11-08"
+            "checked": "2026-11-08",
+            "provenance": { "signed": false }
           }
       },
       {
@@ -23,7 +24,13 @@
           {
             "method": "cosign-keyless",
             "source": "cosign verify --certificate-oidc-issuer https://token.actions.githubusercontent.com --certificate-identity-regexp 'https://github.com/sigstore/policy-controller/': subject https://github.com/sigstore/policy-controller/.github/workflows/release.yaml@refs/tags/v0.13.1, Rekor entry verified.",
-            "checked": "2026-11-08"
+            "checked": "2026-11-08",
+            "provenance":
+              {
+                "signed": true,
+                "issuer": "https://token.actions.githubusercontent.com",
+                "identity": "https://github.com/sigstore/policy-controller/.github/workflows/release.yaml@refs/tags/v0.13.1"
+              }
           }
       },
       {
@@ -35,7 +42,13 @@
           {
             "method": "cosign-keyless",
             "source": "cosign verify --certificate-oidc-issuer https://token.actions.githubusercontent.com --certificate-identity-regexp 'https://github.com/chainguard-images/images/': subject https://github.com/chainguard-images/images/.github/workflows/release.yaml@refs/heads/main, Rekor entry verified.",
-            "checked": "2026-11-08"
+            "checked": "2026-11-08",
+            "provenance":
+              {
+                "signed": true,
+                "issuer": "https://token.actions.githubusercontent.com",
+                "identity": "https://github.com/chainguard-images/images/.github/workflows/release.yaml@refs/heads/main"
+              }
           }
       }
     ]

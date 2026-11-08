@@ -118,3 +118,96 @@ jobs:
           name: images.lock.json
           path: images.lock.json
           if-no-files-found: error
+
+  # Mirrors the approved platform images (infra/catalog/seeds.yaml, the one owner
+  # of the digest pins) into the internal registry (ADR 0033). Same tag-only gate
+  # and minimal permissions as `release`; it runs beside it, not after it, so an
+  # upstream outage cannot block the reference image.
+  mirror:
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    env:
+      MISE_TASK_RUN_AUTO_INSTALL: "false"
+      # The one place the mirror namespace is chosen.
+      MIRROR: ghcr.io/corekraft/kore/mirror
+      ISSUER: https://token.actions.githubusercontent.com
+      IDENTITY: https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/${{ github.ref_name }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        with:
+          install: true
+          install_args: cosign crane
+          cache: false
+      - name: Check the tag is a release version
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "tag $TAG is not vX.Y.Z" >&2; exit 1; }
+      - name: Log in to the registry
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: printf '%s' "$REGISTRY_TOKEN" | mise exec -- crane auth login ghcr.io --username "$ACTOR" --password-stdin
+      - name: Mirror, verify, and sign each approved platform image
+        run: |
+          set -euo pipefail
+          # seeds.yaml is JSON-compatible YAML, so jq reads it directly.
+          jq -c '.seeds[] | {ref: .image, name: .catalogImage, provenance: .evidence.provenance}' infra/catalog/seeds.yaml > approved.ndjson
+          [ -s approved.ndjson ] || { echo "no approved platform images" >&2; exit 1; }
+          : > entries.ndjson
+          while IFS= read -r seed; do
+            ref="$(jq -r .ref <<< "$seed")"
+            name="$(jq -r .name <<< "$seed")"
+            digest="${ref##*@}"
+            upstream="${ref%@*}"
+            # Pull by the recorded digest; a different digest is a hard failure.
+            pulled="$(mise exec -- crane digest "$ref")"
+            if [ "$pulled" != "$digest" ]; then
+              echo "$name: upstream returned $pulled, catalog records $digest" >&2
+              exit 1
+            fi
+            if [ "$(jq -r .provenance.signed <<< "$seed")" = "true" ]; then
+              upstream_issuer="$(jq -r .provenance.issuer <<< "$seed")"
+              upstream_identity="$(jq -r .provenance.identity <<< "$seed")"
+              mise exec -- cosign verify \
+                --certificate-identity "$upstream_identity" \
+                --certificate-oidc-issuer "$upstream_issuer" \
+                "$ref" > /dev/null
+              provenance="$(jq -nc --arg i "$upstream_issuer" --arg d "$upstream_identity" '{result: "verified", issuer: $i, identity: $d}')"
+            else
+              echo "$name: upstream publishes no signature (unsigned-upstream)"
+              provenance='{"result":"unsigned-upstream"}'
+            fi
+            mise exec -- crane copy "$ref" "$MIRROR/$name:$TAG"
+            copied="$(mise exec -- crane digest "$MIRROR/$name:$TAG")"
+            if [ "$copied" != "$digest" ]; then
+              echo "$name: mirror digest $copied differs from upstream $digest" >&2
+              exit 1
+            fi
+            mise exec -- cosign sign --yes "$MIRROR/$name@$digest"
+            mise exec -- cosign verify \
+              --certificate-identity "$IDENTITY" \
+              --certificate-oidc-issuer "$ISSUER" \
+              "$MIRROR/$name@$digest" > /dev/null
+            jq -nc --arg name "$name" --arg upstream "$upstream" --arg digest "$digest" \
+              --arg mirror "$MIRROR/$name@$digest" --argjson provenance "$provenance" --arg signer "$IDENTITY" \
+              '{key: $name, value: {upstream: $upstream, upstreamDigest: $digest, mirror: $mirror, provenance: $provenance, signer: $signer}}' >> entries.ndjson
+          done < approved.ndjson
+      - name: Write the platform image lock
+        run: |
+          jq -s --arg signer "$IDENTITY" \
+            '{version: 1, authorizedSigners: [$signer], entries: from_entries}' entries.ndjson \
+            > platform-images.lock.json
+          cat platform-images.lock.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: platform-images.lock.json
+          path: platform-images.lock.json
+          if-no-files-found: error
