@@ -286,6 +286,29 @@
         min-width: 0;
       }
 
+      .facts {
+        margin: 0;
+        display: grid;
+        grid-template-columns: 6.5em 1fr;
+        gap: 8px 12px;
+      }
+      .facts dt {
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        padding-top: 3px;
+      }
+      .facts dd {
+        margin: 0;
+        min-width: 0;
+      }
+      .facts code {
+        white-space: nowrap;
+        overflow-wrap: normal;
+      }
+
       /* Personas */
       .personas {
         display: grid;
@@ -1372,9 +1395,19 @@
                 downstream calls for the page.
               </li>
               <li>
-                <strong>Kotlin on Spring Boot, compiled ahead of time.</strong>
-                The proposed template is a GraalVM native image; Ktor is the
-                fallback. The platform contract stays language-neutral: a signed
+                <strong>Kotlin on Spring Boot, built with Jib.</strong> No
+                Dockerfile and no Docker daemon; Jib writes the image digest
+                that the sign and deploy-by-digest steps use, so
+                <code>kore</code>
+                runs the Jib task instead of a Docker build, refining
+                <a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0015-local-signed-image-delivery.md"
+                  >ADR 0015</a
+                >. The OpenTelemetry Java agent is baked into the image and
+                pinned by version and checksum.
+              </li>
+              <li>
+                <strong>The contract stays language-neutral:</strong> a signed
                 image, health and readiness, OTLP, resource requests, and a
                 dedicated ServiceAccount.
               </li>
@@ -1396,6 +1429,50 @@
               <b>&lt; 256 MiB</b><span>Memory per replica</span>
             </div>
             <div class="budget"><b>&lt; 150 MB</b><span>Image size</span></div>
+          </div>
+        </div>
+        <div class="section-head">
+          <span class="eyebrow">Two Kotlin builds, one contract</span>
+          <div class="split">
+            <div class="tool">
+              <h3>Default: JVM on GraalVM</h3>
+              <dl class="facts">
+                <dt>Build</dt>
+                <dd>
+                  Jib image with the OpenTelemetry Java agent and
+                  <code>-javaagent</code>
+                </dd>
+                <dt>Telemetry</dt>
+                <dd>
+                  The agent traces Spring, HTTP, JDBC, Kafka, and Redis clients
+                  with no code
+                </dd>
+                <dt>Startup</dt>
+                <dd>
+                  Spring ahead-of-time processing and the JDK class data cache;
+                  expected to miss 1 s, to measure
+                </dd>
+              </dl>
+            </div>
+            <div class="tool">
+              <h3>When startup must be under 1 s: native image</h3>
+              <dl class="facts">
+                <dt>Build</dt>
+                <dd>
+                  GraalVM native image, packaged by Jib's native-image extension
+                </dd>
+                <dt>Telemetry</dt>
+                <dd>
+                  OpenTelemetry Spring Boot starter; the Java agent cannot run
+                  in a native image
+                </dd>
+                <dt>Startup</dt>
+                <dd>
+                  Fastest start and smallest memory, at the cost of longer
+                  builds
+                </dd>
+              </dl>
+            </div>
           </div>
         </div>
       </section>
@@ -1608,9 +1685,10 @@
               ><span
                 >Every service receives the Collector endpoint and standard
                 resource attributes, so the Kotlin BFF template exports from its
-                first deploy. It uses Spring Boot's built-in OTLP export,
-                because the Java agent behind OpenTelemetry auto-instrumentation
-                does not run in a GraalVM native image.</span
+                first deploy. On the JVM, the Java agent Jib bakes in traces
+                Spring, HTTP clients, JDBC, Kafka, and Redis clients with no
+                code; a native-image build uses the OpenTelemetry Spring Boot
+                starter, because the agent cannot run there.</span
               >
             </li>
             <li>
@@ -1878,7 +1956,10 @@
                 <td><span class="pill new">New</span></td>
               </tr>
               <tr>
-                <td>Golden-path templates (static frontend, Kotlin BFF)</td>
+                <td>
+                  Golden-path templates (static frontend, Kotlin BFF built with
+                  Jib)
+                </td>
                 <td><span class="pill new">New</span></td>
               </tr>
               <tr>
@@ -2155,8 +2236,9 @@
             <div>
               <strong>BFF runtime</strong
               ><span
-                >Confirm Kotlin with a Spring Boot native image against the
-                budgets, with Ktor as the fallback.</span
+                >Measure the Jib JVM image on GraalVM, with the Java agent and a
+                class data cache, against the budgets, and decide when a service
+                should build a native image instead.</span
               >
             </div>
           </li>

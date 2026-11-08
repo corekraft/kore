@@ -199,14 +199,34 @@ graph LR
   | Memory per replica   | under 256 MiB  |
   | Image size           | under 150 MB   |
 
-- **Runtime: Kotlin on Spring Boot, compiled ahead of time.** Kotlin with
-  Spring Boot is the proposed default template, built as a GraalVM native image
-  so it starts and scales like a small service rather than a JVM monolith. Ktor
-  is the lighter alternative if native images prove awkward. Language stays a
-  template choice, not a platform contract: the platform asks only for a signed
-  image, health and readiness endpoints, OTLP telemetry, resource requests, and
-  a dedicated ServiceAccount. The existing Node reference app keeps satisfying
-  the same contract.
+  The JVM build below is expected to miss the 1-second startup target.
+  Measurements decide whether a class data cache closes the gap, or whether a
+  service switches to a native image or keeps more warm replicas.
+
+- **Kotlin on Spring Boot, built with Jib.** The template builds its image with
+  Jib: no Dockerfile and no Docker daemon, reproducible layers, and the image
+  digest written to a file that the sign and deploy-by-digest steps use
+  directly. `kore` runs the template's Jib task instead of a Docker build for
+  these services, which refines
+  [ADR 0015](decisions/0015-local-signed-image-delivery.md). The base image is
+  pinned by digest.
+- **The OpenTelemetry Java agent is baked in.** Jib adds the agent jar to the
+  image and starts the JVM with `-javaagent`, so instrumentation is part of the
+  signed digest rather than injected at admission. The agent is pinned by exact
+  version and checksum, like every other dependency.
+- **Runs on GraalVM.** The default image runs on the GraalVM JDK as a regular
+  JVM, where the Java agent works. It starts faster with Spring's
+  ahead-of-time processing and the JDK's class data cache, checked against the
+  agent before it becomes the default.
+- **Native image when the budget demands it.** A service that must start in
+  under a second can build a GraalVM native image instead, packaged by Jib's
+  native-image extension. The Java agent cannot run inside a native image, so
+  that build exports telemetry through the OpenTelemetry Spring Boot starter,
+  which supports native images, and keeps the same OTLP contract.
+- **The contract stays language-neutral.** The platform asks only for a signed
+  image, health and readiness endpoints, OTLP telemetry, resource requests,
+  and a dedicated ServiceAccount. The existing Node reference app keeps
+  satisfying the same contract.
 - **Autoscaling needs its prerequisites.** HPA needs resource requests and a
   metrics source; the catalog has no metrics-server or equivalent yet. Scaling
   on request rate, or to zero, is a later step (KEDA is a candidate).
@@ -278,9 +298,11 @@ What a service gets without writing any instrumentation:
 
 - **The OTLP endpoint is injected.** Every service receives the Collector
   endpoint and standard resource attributes in its environment, so the Kotlin
-  BFF template exports from its first deploy. The template uses Spring Boot's
-  built-in OTLP export, because the Java agent that OpenTelemetry
-  auto-instrumentation relies on does not run in a GraalVM native image.
+  BFF template exports from its first deploy. On the JVM, the OpenTelemetry
+  Java agent that Jib bakes into the image traces Spring, HTTP clients, JDBC,
+  Kafka, and Redis clients with no code. A native-image build uses the
+  OpenTelemetry Spring Boot starter instead, because the agent cannot run
+  there.
 - **The platform stamps the organization.** The Collector adds tenant,
   organization, service, and environment attributes from namespace labels.
   It never trusts an organization a service reports about itself, so one tenant
@@ -383,7 +405,7 @@ What exists or is in flight today, and what the vision adds.
 | Default dashboards and alerts per service, routed to the organization     | New                                                                                  |
 | Tenancy API (`Organization`, `Service`)                                   | New                                                                                  |
 | Quotas and per-organization limits                                        | New                                                                                  |
-| Golden-path templates (static frontend, Kotlin BFF)                       | New                                                                                  |
+| Golden-path templates (static frontend, Kotlin BFF built with Jib)        | New                                                                                  |
 | Static frontend hosting contract                                          | New                                                                                  |
 | Horizontal autoscaling (metrics source, HPA defaults)                     | New                                                                                  |
 | Human identity and single sign-on, with organizations                     | New                                                                                  |
@@ -463,8 +485,9 @@ Each one becomes an ADR before the work that depends on it starts.
    organizations, or one instance per tenant?
 7. **Default static host.** GitHub Pages, object storage behind the Gateway, or
    an in-cluster static server, and which is the default per environment?
-8. **BFF runtime.** Confirm Kotlin with Spring Boot native image against the
-   startup and memory budgets above, with Ktor as the fallback.
+8. **BFF runtime.** Measure the Jib JVM image on GraalVM, with the Java agent
+   and a class data cache, against the budgets above, and decide when a service
+   should build a native image instead.
 9. **Autoscaling source.** metrics-server for CPU-based HPA first, or straight
    to KEDA for request-based scaling and scale to zero?
 10. **Usage and cost.** What is metered per organization, and is it for
