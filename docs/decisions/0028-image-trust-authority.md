@@ -67,8 +67,19 @@ key and password. Decisions:
   component's namespace.
 - Registry host: node container runtimes pull and cache by ClusterIP because they
   cannot resolve cluster DNS, so the DNS name in the glob never matched what is
-  deployed. The local `oci-registry` Service is pinned to `10.96.0.50` (inside
-  Minikube's default service range, in the lower band Kubernetes keeps for static
-  assignment) through the environment overlay, and the glob is
-  `10.96.0.50:5000/**`. A different service CIDR needs both values changed.
+  deployed. The local `oci-registry` Service is pinned to `10.96.0.50` through
+  the environment overlay (the one place the address is chosen), and the glob is
+  `10.96.0.50:5000/**`. The environment declares the range as
+  `cluster.serviceCidr` (`10.96.0.0/12`) and `kore cluster up` passes it to
+  Minikube as `--service-cluster-ip-range`, so the pin no longer relies on
+  Minikube's default. `kore validate` fails when the pin lies outside the range
+  or the glob does not name exactly `<pin>:5000`.
+- Self-healing: a Service's clusterIP is immutable and bootstrap skips deployed
+  releases, so a profile created before the pin keeps a random address. During
+  local bootstrap, when the live `oci-registry` Service differs from the pin,
+  Kore deletes only that Service (`kubectl --context <ctx> -n kore-registry
+delete service oci-registry`), logs the rewiring to stderr, and reconciles the
+  release so Helm recreates it. The Deployment and PVC are untouched, so pushed
+  images stay; running pods keep the address they pulled by, and later deploys
+  read the live address. An absent or already-matching Service changes nothing.
 - Nothing is enrolled; enforcement is still off.

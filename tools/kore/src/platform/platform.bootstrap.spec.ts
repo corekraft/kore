@@ -168,3 +168,36 @@ test("controller bootstrap installs no shared composition, issuer, gateway, secr
   assert.equal(releases.includes("opa-authorizer"), false);
   assert.equal(releases.includes("kore-postgresql-api"), false);
 });
+
+test("bootstrap recreates a deployed registry whose Service drifted from the pin, without touching its data", async () => {
+  const repository = await loadRepository("local");
+  const component = repository.catalog.components.find(
+    ({ name }) => name === "oci-registry",
+  )!;
+  repository.catalog.components = [
+    { ...component, dependencies: [], readiness: [] },
+  ];
+  const runner = new RecordingRunner([
+    { stdout: '{"Host":"Running"}', stderr: "", code: 0 },
+    { stdout: "kube-system", stderr: "", code: 0 },
+    { stdout: "10.99.1.2", stderr: "", code: 0 },
+  ]);
+
+  await bootstrapControllers(repository, runner);
+
+  const kinds = runner.calls.map(({ command, args }) =>
+    command === "helm" ? `helm ${args[0]}` : `${command} ${args.join(" ")}`,
+  );
+  const deleted = runner.calls.filter(({ args }) => args.includes("delete"));
+  assert.equal(deleted.length, 1);
+  assert.deepEqual(deleted[0]?.args.slice(-4), [
+    "delete",
+    "service",
+    "oci-registry",
+    "--ignore-not-found",
+  ]);
+  assert.ok(
+    kinds.indexOf("helm upgrade") >
+      runner.calls.findIndex(({ args }) => args.includes("delete")),
+  );
+});

@@ -7,7 +7,8 @@ import {
 } from "../cluster/index.js";
 import { ensureLocalSigningPublicKey } from "../images/index.js";
 import type { Runner } from "../runtime/index.js";
-import { reconcileIfNeeded } from "./reconcile.js";
+import { rewireRegistryService } from "./registry-rewire.js";
+import { reconcileComponent, reconcileIfNeeded } from "./reconcile.js";
 
 async function ensureCluster(
   repository: Repository,
@@ -37,6 +38,18 @@ export async function bootstrapControllers(
       component.phase === "configuration" ||
       component.phase === "enforcement"
     ) {
+      continue;
+    }
+    // A deployed release is normally only awaited, but a rewired registry
+    // Service must be recreated by Helm, so that release reconciles anyway.
+    if (
+      component.name === "oci-registry" &&
+      repository.environment.provider === "minikube" &&
+      (await rewireRegistryService(repository, runner, (message) =>
+        process.stderr.write(`${message}\n`),
+      ))
+    ) {
+      await reconcileComponent(repository, runner, component);
       continue;
     }
     await reconcileIfNeeded(repository, runner, component);

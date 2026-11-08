@@ -11,7 +11,8 @@
       "containerRuntime": "containerd",
       "cpus": 4,
       "memoryMB": 8192,
-      "diskSize": "40g"
+      "diskSize": "40g",
+      "serviceCidr": "10.96.0.0/12"
     },
   "gateway":
     {

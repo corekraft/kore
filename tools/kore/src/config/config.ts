@@ -68,6 +68,25 @@ async function loadImageTrustValues(
   return loadJSON<Record<string, unknown>>(join(root, path));
 }
 
+async function loadRegistryClusterIP(
+  root: string,
+  environment: Environment,
+): Promise<string | undefined> {
+  for (const path of environment.componentValues?.["oci-registry"] ?? []) {
+    if (!(await exists(join(root, path)))) {
+      continue;
+    }
+    const values = await loadJSON<{ service?: { clusterIP?: unknown } }>(
+      join(root, path),
+    );
+    const ip = values.service?.clusterIP;
+    if (typeof ip === "string" && ip !== "") {
+      return ip;
+    }
+  }
+  return undefined;
+}
+
 export async function loadRepository(
   environmentName = "local",
   start?: string,
@@ -89,6 +108,7 @@ export async function loadRepository(
     catalog,
     environment,
     imageTrustValues,
+    registryClusterIP: await loadRegistryClusterIP(root, environment),
   };
   await validateRepository(repository);
   return repository;
