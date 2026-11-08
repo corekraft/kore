@@ -920,6 +920,25 @@ Next: confirm a clean retention audit on a fresh profile, then
 enable `ClusterImagePolicy` enforcement (Step 7), which unblocks Step 9
 enrollment and the bootstrap gate.
 
+### 2026-11-08 decisions
+
+The user decided four open questions:
+
+1. **Bootstrap scope (Step 7 conflict):** move `kore-postgresql-api` and the OPA
+   authorizer out of the `core` phase into the configuration phase, so bootstrap
+   installs only controllers and image trust. The Step 7 exit criterion stands.
+2. **Signing authority (Step 7):** internal images are signed with keyless Cosign
+   bound to an exact protected GitHub Actions workflow identity (OIDC issuer
+   `https://token.actions.githubusercontent.com`, an exact release workflow on
+   protected tags). Local keeps the local key as an environment-specific exception
+   (ADR 0015).
+3. **SOPS recipients (Step 8):** local gets its own age recipient, separate from
+   managed environments. The user generates the key and supplies only the public
+   recipient.
+4. **Export and restore (Step 10):** a local proof first: export the CloudNativePG
+   database and retained volumes, then restore into a fresh profile. Scheduled
+   backups and recovery objectives wait for the managed environment.
+
 ### 2026-11-08 parallel offline implementation
 
 Six parallel sessions closed offline items in Steps 7 through 11 and 14 (branch
