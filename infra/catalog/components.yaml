@@ -112,7 +112,8 @@
             "deployment/gatekeeper-audit",
             "mutatingwebhookconfiguration/gatekeeper-mutating-webhook-configuration",
             "validatingwebhookconfiguration/gatekeeper-validating-webhook-configuration"
-          ]
+          ],
+        "values": ["infra/environments/common/values/gatekeeper.yaml"]
       },
       {
         "name": "policy-controller",
@@ -222,7 +223,8 @@
         "ownsCRDs": [],
         "dependencies": ["istio-cni"],
         "timeout": "10m",
-        "readiness": ["daemonset/ztunnel"]
+        "readiness": ["daemonset/ztunnel"],
+        "values": ["infra/environments/common/values/ztunnel.yaml"]
       },
       {
         "name": "crossplane",
@@ -237,7 +239,8 @@
         "dependencies": ["kore-gateway-api"],
         "timeout": "10m",
         "readiness":
-          ["deployment/crossplane", "deployment/crossplane-rbac-manager"]
+          ["deployment/crossplane", "deployment/crossplane-rbac-manager"],
+        "values": ["infra/environments/common/values/crossplane.yaml"]
       },
       {
         "name": "external-secrets",
@@ -283,7 +286,8 @@
             "deployment/external-secrets-webhook",
             "validatingwebhookconfiguration/secretstore-validate",
             "validatingwebhookconfiguration/externalsecret-validate"
-          ]
+          ],
+        "values": ["infra/environments/common/values/external-secrets.yaml"]
       },
       {
         "name": "cloudnative-pg",
@@ -314,7 +318,8 @@
             "deployment/cloudnative-pg",
             "mutatingwebhookconfiguration/cnpg-mutating-webhook-configuration",
             "validatingwebhookconfiguration/cnpg-validating-webhook-configuration"
-          ]
+          ],
+        "values": ["infra/environments/common/values/cloudnative-pg.yaml"]
       },
       {
         "name": "opentelemetry-operator",
@@ -373,7 +378,8 @@
             "kore-observability-config"
           ],
         "timeout": "15m",
-        "readiness": ["deployment/prometheus-server"]
+        "readiness": ["deployment/prometheus-server"],
+        "values": ["infra/environments/common/values/prometheus.yaml"]
       },
       {
         "name": "loki",
@@ -386,7 +392,8 @@
         "ownsCRDs": [],
         "dependencies": ["opentelemetry-operator", "kore-storage"],
         "timeout": "15m",
-        "readiness": ["statefulset/loki"]
+        "readiness": ["statefulset/loki"],
+        "values": ["infra/environments/common/values/loki.yaml"]
       },
       {
         "name": "tempo",
@@ -404,7 +411,8 @@
             "kore-observability-config"
           ],
         "timeout": "15m",
-        "readiness": ["statefulset/tempo"]
+        "readiness": ["statefulset/tempo"],
+        "values": ["infra/environments/common/values/tempo.yaml"]
       },
       {
         "name": "grafana",
@@ -424,7 +432,8 @@
             "kore-observability-config"
           ],
         "timeout": "10m",
-        "readiness": ["deployment/grafana"]
+        "readiness": ["deployment/grafana"],
+        "values": ["infra/environments/common/values/grafana.yaml"]
       },
       {
         "name": "otel-collector",

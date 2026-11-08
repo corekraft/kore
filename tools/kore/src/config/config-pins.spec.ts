@@ -94,11 +94,18 @@ test("chart image defaults and the reference base image match the catalog pins",
     /^registry:3\.1\.2@sha256:/,
   );
   assert.match(registry, /tag: 3\.1\.2\b/);
-  assert.equal(
-    repository.versions.images["opa-envoy"],
-    "openpolicyagent/opa:1.22.2-envoy",
+  const opaEnvoy = repository.approved.images.find(
+    ({ name }) => name === "opa-envoy",
+  );
+  assert.match(
+    opaEnvoy?.image ?? "",
+    /^docker\.io\/openpolicyagent\/opa:1\.22\.2-envoy@sha256:/,
   );
   assert.match(opaAuthorizer, /tag: 1\.22\.2-envoy\b/);
+  assert.ok(
+    opaAuthorizer.includes(opaEnvoy!.image.split("@")[1]!),
+    "the chart pins the approved opa-envoy digest",
+  );
   assert.match(dockerfile, /^FROM node:26\.13\.0-alpine3\.24$/m);
 });
 

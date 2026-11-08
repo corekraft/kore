@@ -116,10 +116,15 @@ test("managed environments do not inherit local-only component values", async ()
     ({ name }) => name === "prometheus",
   )!;
 
+  const valueFiles = helmUpgradeArgs(repository, prometheus).filter((value) =>
+    value.endsWith(".yaml"),
+  );
+  // The shared digest pins apply everywhere; only local overlays are excluded.
+  assert.ok(
+    valueFiles.some((file) => file.endsWith("/common/values/prometheus.yaml")),
+  );
   assert.deepEqual(
-    helmUpgradeArgs(repository, prometheus).filter(
-      (value) => value === "--values",
-    ),
+    valueFiles.filter((file) => file.includes("/environments/local/")),
     [],
   );
 });

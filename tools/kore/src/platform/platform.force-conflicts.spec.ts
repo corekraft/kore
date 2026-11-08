@@ -83,6 +83,7 @@ test("forcing conflicts without a reason fails validation naming the component",
     validateRepository({
       ...repository,
       seeds: { seeds: [] },
+      approved: { images: [] },
       catalog: {
         components: repository.catalog.components.map((c) =>
           c === component ? { ...c, helm: { forceConflicts: true } } : c,

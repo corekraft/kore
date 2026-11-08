@@ -20,6 +20,8 @@ export {
   registryPlan,
 } from "./registry-address.js";
 export type {
+  ApprovedImage,
+  ApprovedImageManifest,
   Catalog,
   Component,
   ComponentKind,
@@ -30,3 +32,5 @@ export type {
   SeedManifest,
   Versions,
 } from "./config.js";
+export { approvedImageList } from "./approved.js";
+export type { ApprovedEntry } from "./approved.js";

@@ -48,7 +48,6 @@
       "oci-registry": "registry:3.1.2@sha256:38907510915c3f1604c7e83d6ab602ab3020d092f73bdaed8696773693ff768c",
       "policy-controller": "ghcr.io/sigstore/policy-controller/policy-controller:v0.13.1@sha256:0bcd60beb93f4427c29cf3a669743caf58490e98ded4380c33c09f092734a6ab",
       "policy-controller-kubectl": "cgr.dev/chainguard/kubectl:latest-dev@sha256:3562a8854a81a77e39eb34cd87106345d1122432f88d74ea2dd4c9595883c033",
-      "opa-envoy": "openpolicyagent/opa:1.22.2-envoy",
       "reference": "kore/reference:0.1.0"
     }
 }

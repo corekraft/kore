@@ -1,0 +1,31 @@
+{
+  "server":
+    {
+      "image":
+        {
+          "tag": "v3.16.0",
+          "digest": "sha256:9332054523223e2ddc18d8101799d54a4a8d823b030c53216f063a6c117773cd"
+        }
+    },
+  "configmapReload":
+    {
+      "prometheus":
+        {
+          "image":
+            {
+              "tag": "v0.95.1",
+              "digest": "sha256:39bdbade0c64f7c38bb6d18d6f602b14ad489bc189b709dc9266b49e6647aac1"
+            }
+        }
+    },
+  "kube-state-metrics":
+    {
+      "image":
+        {
+          "registry": "registry.k8s.io",
+          "repository": "kube-state-metrics/kube-state-metrics",
+          "tag": "v2.20.0",
+          "sha": "sha256:42cfe3723a5f058171c627537fb57a3ea0f26e4380fa18555a95cb1a1b4cfc5b"
+        }
+    }
+}

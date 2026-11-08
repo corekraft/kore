@@ -68,7 +68,11 @@ async function validationMessage(
   const base = await loadRepository("local");
   try {
     await validateRepository(
-      mutate({ ...base, seeds: { seeds: [] } }) as typeof base,
+      mutate({
+        ...base,
+        seeds: { seeds: [] },
+        approved: { images: [] },
+      }) as typeof base,
     );
   } catch (error) {
     return (error as Error).message;
