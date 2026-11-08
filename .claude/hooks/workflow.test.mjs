@@ -47,6 +47,7 @@ test("the workflow runs every check the commit and stop hooks run, in order", ()
     "mise run test",
     "mise run test-hooks",
     "mise run test-opa",
+    "mise run test-gatekeeper",
     "mise run validate",
     "mise run kb-check -- --strict",
   ]);
@@ -54,7 +55,7 @@ test("the workflow runs every check the commit and stop hooks run, in order", ()
 
 test("mise installs only the tools the checks need", () => {
   const text = check();
-  assert.match(text, /install_args: node npm opa\b/);
+  assert.match(text, /install_args: node npm opa gator\b/);
 });
 
 test("the workflow never calls a model", () => {
