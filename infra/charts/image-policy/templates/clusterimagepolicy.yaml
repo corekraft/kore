@@ -9,6 +9,11 @@ or signature errors deny admission (webhook failurePolicy: Fail). Namespaces are
 only evaluated when carrying the Policy Controller include label; kore app up
 enrolls application namespaces (ADR 0032), this chart never does. spec.mode
 comes from the environment (warn first: audit before enforce).
+trust.signaturePullSecret names a read-only registry credential that Policy
+Controller uses to read signatures. It resolves that Secret in the namespace of
+the workload being admitted (not cosign-system), with no ServiceAccount, so
+kore app up places it in each enrolled namespace (ADR 0034). The source sets no
+oci repository, so signatures are still read from each image's own repository.
 */ -}}
 apiVersion: policy.sigstore.dev/v1beta1
 kind: ClusterImagePolicy
@@ -31,10 +36,20 @@ spec:
           {{- end }}
       ctlog:
         url: https://rekor.sigstore.dev
+      {{- with .Values.trust.signaturePullSecret }}
+      source:
+        - signaturePullSecrets:
+            - name: {{ . | quote }}
+      {{- end }}
     {{- else }}
     - name: local-signing-key
       key:
         secretRef:
           name: {{ .Values.trust.keyRef.name | quote }}
           namespace: {{ .Values.trust.keyRef.namespace | quote }}
+      {{- with .Values.trust.signaturePullSecret }}
+      source:
+        - signaturePullSecrets:
+            - name: {{ . | quote }}
+      {{- end }}
     {{- end }}

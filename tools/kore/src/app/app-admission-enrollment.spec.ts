@@ -81,7 +81,7 @@ test("enrollment has no opt-out: the label is always applied", async () => {
   );
 });
 
-test("enrollment gives the namespace only the read-only registry identity as an image pull Secret", async () => {
+test("enrollment gives the namespace only the read-only registry identity, as the signature credential Policy Controller reads from it", async () => {
   const repository = await loadRepository("local");
   const { calls, runner } = fakeRunner("true");
 
@@ -94,7 +94,9 @@ test("enrollment gives the namespace only the read-only registry identity as an 
   const items = (JSON.parse(pull.input ?? "{}") as { items: unknown[] }).items;
   const text = JSON.stringify(items);
   expect(text).toContain("kubernetes.io/dockerconfigjson");
-  expect(text).toContain('"imagePullSecrets":[{"name":"kore-registry-read"}]');
+  expect(items).toHaveLength(1);
+  expect(text).not.toContain("ServiceAccount");
+  expect(text).not.toContain("imagePullSecrets");
   const config = Buffer.from(
     (items[0] as { data: Record<string, string> }).data[".dockerconfigjson"]!,
     "base64",

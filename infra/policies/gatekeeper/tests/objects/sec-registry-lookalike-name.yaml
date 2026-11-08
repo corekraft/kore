@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: oci-registry-backdoor
+  namespace: kore-registry
+  labels: { app.kubernetes.io/managed-by: kore-registry-auth }
+type: Opaque
+data: { htpasswd: eA== }

@@ -57,10 +57,23 @@ service, a second stateful component.
   - The digest lookup sends an `Authorization` header from memory.
 - **Pull path.** `kore app up` verifies with `kore-read` through the same
   helper, and the node pulls the staged image with `nerdctl login` of the same
-  identity. Enrollment applies a `kore-registry-read` `dockerconfigjson`
-  Secret and an `imagePullSecrets` entry on the namespace's default
-  ServiceAccount, because Policy Controller resolves signature credentials from
-  the pod's pull secrets. The push credential never leaves `kore-registry`.
+  identity.
+- **Signature credential.** Policy Controller reads `.sig` tags with the Secret
+  named by `source.signaturePullSecrets` of the `kore-platform-images`
+  authorities (field checked against the pinned CRD, chart 0.10.8, and the
+  v0.13.1 source). It resolves that Secret in the namespace of the workload
+  being admitted, with no ServiceAccount, so it neither uses nor needs the
+  ServiceAccounts a pod runs as, and a Secret in `cosign-system` would not be
+  found. The source sets no `oci` repository, so signatures still come from each
+  image's own repository. The local overlay sets
+  `trust.signaturePullSecret: kore-registry-read`, and enrollment in
+  `kore app up` applies that `dockerconfigjson` Secret, holding only the read
+  identity, into each enrolled namespace. App-owned ServiceAccounts are not
+  patched. The push credential never leaves `kore-registry`.
+- **Gatekeeper.** `KoreSecrets` allows exactly the two Opaque Secrets kore
+  generates in `kore-registry` (by name, `kore-registry-auth` label, and exact
+  keys). The typed pull Secret is outside that rule, which only covers Opaque
+  Secrets.
 - **External registries.** When `registry.address` is a hostname, kore
   distributes and loads nothing; the provider owns those credentials.
 - **No NodePort.** Nodes and pods use the pinned ClusterIP; kore uses a
@@ -85,6 +98,14 @@ service, a second stateful component.
   redeploying apps so their pull Secrets refresh.
 - The credential Secret is cluster-readable to anyone who can read Secrets in
   `kore-registry`; RBAC for that namespace is a Step 8 and 9 concern.
-- Policy Controller's credential lookup, `minikube ssh` forwarding stdin, the
-  nginx method rules, and the alpine `nc` probe are validated by the live
-  checks in the plan, not by the fast tests.
+- Kubelet pulls need no credential locally (`imagePullPolicy: Never`). A
+  managed environment whose nodes pull from this registry will need
+  `imagePullSecrets` delivered by its provider-owned mechanism, not by patching
+  app-owned ServiceAccounts: a managed follow-up.
+- A managed environment with an in-cluster registry must set
+  `trust.signaturePullSecret` in its overlay; external registries keep the
+  provider's credentials.
+- `minikube ssh` forwarding stdin, Policy Controller reading signatures with
+  the namespace Secret, and the alpine `nc` probe are validated by the live
+  checks in the plan, not by the fast tests. The nginx method rules were
+  exercised against the pinned image in Docker.

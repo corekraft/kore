@@ -6,7 +6,6 @@ import {
   loadRegistryCredential,
   registryAddress,
   registryPullSecret,
-  registryPullSecretName,
   type LockedImage,
 } from "../images/index.js";
 import type { Runner } from "../runtime/index.js";
@@ -88,17 +87,19 @@ export async function enrollNamespace(
       `namespace ${name} is not enrolled in image admission: label ${admissionLabel}="true" is missing after apply. Rerun kore app up (it applies the label); if it persists, another field manager is removing it`,
     );
   }
-  await distributePullSecret(repository, runner, name);
+  await distributeSignatureCredential(repository, runner, name);
 }
 
 /**
- * Admission reads image signatures from the authenticated registry with the
- * pod's own image pull credentials, so the enrolled namespace gets the
- * read-only identity (never the push credential) as a pull Secret on its
- * default ServiceAccount (ADR 0034). Environments using an external registry
- * keep the provider's credentials.
+ * Policy Controller reads an image's signatures with the Secret that the
+ * kore-platform-images authority names in `source.signaturePullSecrets`, looked
+ * up in the namespace of the workload being admitted and with no ServiceAccount
+ * (verified against policy-controller v0.13.1, ADR 0034). The enrolled
+ * namespace therefore gets the read-only identity, never the push credential.
+ * App-owned ServiceAccounts are left alone. Environments using an external
+ * registry keep the provider's credentials.
  */
-async function distributePullSecret(
+async function distributeSignatureCredential(
   repository: Repository,
   runner: Runner,
   namespace: string,
@@ -129,12 +130,6 @@ async function distributePullSecret(
             credential,
             namespace,
           ),
-          {
-            apiVersion: "v1",
-            kind: "ServiceAccount",
-            metadata: { name: "default", namespace },
-            imagePullSecrets: [{ name: registryPullSecretName }],
-          },
         ],
       }),
     },
