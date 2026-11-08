@@ -116,40 +116,40 @@ outward-facing, so it is proposed to the user and not done by an agent.
 
 ### Work
 
-- [ ] `eval.mjs` appends one JSON line per run to
+- [x] `eval.mjs` appends one JSON line per run to
       `.claude/evals/history.jsonl`: date, `claude` version, model, kinds run, and
       hits and samples per case. `--no-history` skips it.
-- [ ] `eval.mjs --trend` reads the history and prints, for each case, its hit
+- [x] `eval.mjs --trend` reads the history and prints, for each case, its hit
       rate over the last five runs and whether it is below its previous five. It
       makes no model calls.
-- [ ] `history.jsonl` is committed, so the trend is shared and reviewed with the
+- [x] `history.jsonl` is committed, so the trend is shared and reviewed with the
       change that caused it.
 
 ### Exit Criteria
 
-- [ ] Tests cover appending, `--no-history`, a trend over fewer than five runs,
+- [x] Tests cover appending, `--no-history`, a trend over fewer than five runs,
       and a regression, using a temporary history file and no `claude` calls.
-- [ ] The three runs recorded in `3-agent-harness.md` Results are entered into
+- [x] The three runs recorded in `3-agent-harness.md` Results are entered into
       the history as its first lines, marked `"source": "backfill"`.
 
 ## Step 5: Stale Documents
 
 ### Work
 
-- [ ] `kb-check` warns when a plan or ADR has a `last-verified` date older than
+- [x] `kb-check` warns when a plan or ADR has a `last-verified` date older than
       the latest commit to a file it links to, or to a file whose `Docs:`, `Plan:`, or
       `ADR:` marker points back at it. The warning names the document, its date, and
       the newest such file and commit date.
-- [ ] Git history is read through one injectable function, so tests use
+- [x] Git history is read through one injectable function, so tests use
       fixtures and never a real repository.
-- [ ] Warn mode only. `--strict` ignores staleness until a later step promotes
+- [x] Warn mode only. `--strict` ignores staleness until a later step promotes
       it.
 
 ### Exit Criteria
 
-- [ ] Tests cover a current document, a stale one through a link, a stale one
+- [x] Tests cover a current document, a stale one through a link, a stale one
       through a back-marker, and a document with no linked files.
-- [ ] `mise run kb-check` on this tree lists the stale documents, or none.
+- [x] `mise run kb-check` on this tree lists the stale documents, or none.
       Record the count in Results.
 
 ## Not Planned
@@ -165,3 +165,16 @@ outward-facing, so it is proposed to the user and not done by an agent.
   for a while.
 
 ## Results
+
+- Step 4: `eval.mjs` appends one line per run to `.claude/evals/history.jsonl`
+  (`--no-history` skips it) and `--trend` prints each case's rate over its last
+  five runs against the five before, with no model calls. Tests use a temporary
+  history file and a fake `claude`. The three runs from plan 3 are backfilled
+  with `"source": "backfill"`. Plan 3 recorded per-case results only for the
+  third run (13 skill cases, 3/3 each); the first two are aggregates (9/11 skill
+  and 5/6 review; 22/24 overall), so they enter the trend as one pseudo-case
+  each and only the third contributes per-case rates. No live eval was run.
+- Step 5: `kb-check` lists stale plans and ADRs as `stale:` warnings through an
+  injectable `commitDate` (a fixture in tests, `git log -1 --format=%cs` live).
+  They never affect the exit code, including under `--strict`. `mise run
+kb-check` on this tree: 0 stale documents.
