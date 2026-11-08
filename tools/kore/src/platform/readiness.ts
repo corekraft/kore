@@ -9,6 +9,7 @@ import {
   pollUntil,
   timeoutMilliseconds,
 } from "./readiness-poll.js";
+import { WEBHOOK_CONFIGURATION, waitForWebhook } from "./readiness-webhook.js";
 
 const TLS_READY_TEMPLATE =
   '{{if and (eq .type "kubernetes.io/tls") (index .data "tls.crt") (index .data "tls.key")}}ready{{end}}';
@@ -152,6 +153,19 @@ function nativeCheck(
   };
 }
 
+function webhookCheck(context: Context, resource: string): Check {
+  return {
+    condition: "caBundle injected and Service endpoints ready",
+    run: (timeout) =>
+      waitForWebhook(
+        context.runner,
+        context.repository.environment.kubeContext,
+        resource,
+        timeout,
+      ),
+  };
+}
+
 function checkFor(context: Context, resource: string): Check {
   const conditions = CONDITION_KINDS.find(([prefix]) =>
     resource.startsWith(prefix),
@@ -168,6 +182,9 @@ function checkFor(context: Context, resource: string): Check {
       condition: "complete TLS Secret",
       run: (timeout) => waitForTLSSecret(context, resource, timeout),
     };
+  }
+  if (WEBHOOK_CONFIGURATION.test(resource)) {
+    return webhookCheck(context, resource);
   }
   if (resource.startsWith("gateway/")) {
     return {
