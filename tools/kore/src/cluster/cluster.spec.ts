@@ -24,7 +24,7 @@ test("cluster start command pins profile, context inputs, runtime, and resources
     "--profile",
     "kore-local",
     "--kubernetes-version",
-    "v1.37.0",
+    "v1.37.2",
     "--driver",
     "docker",
     "--container-runtime",

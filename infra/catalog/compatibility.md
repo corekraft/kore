@@ -5,8 +5,8 @@ test and is required before a release is tagged.
 
 | Component              | Pinned version | Kubernetes contract                              |
 | ---------------------- | -------------- | ------------------------------------------------ |
-| Kubernetes             | 1.37.0         | Minikube 1.39 supported release                  |
-| Helm                   | 4.3.0          | Chart rendering and release client               |
+| Kubernetes             | 1.37.2         | Minikube 1.39 supported release                  |
+| Helm                   | 4.3.1          | Chart rendering and release client               |
 | Gateway API            | 1.6.2          | Standard channel, `gateway.networking.k8s.io/v1` |
 | cert-manager           | 1.21.2         | Gateway API certificate integration enabled      |
 | Gatekeeper             | 3.23.1         | `templates.gatekeeper.sh/v1`                     |
