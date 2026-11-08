@@ -55,6 +55,7 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0013-local-tls-before-gateway.md`](decisions/0013-local-tls-before-gateway.md) — refines 0006: the local certificate gets its own release before the Gateway. Read when debugging local Gateway readiness.
 - [`docs/decisions/0014-native-identity-before-opa.md`](decisions/0014-native-identity-before-opa.md) — refines 0007: Istio checks caller identity because ExtAuthz omits principals. Read when changing OPA policy.
 - [`docs/decisions/0016-gatekeeper-policy-families-audit-first.md`](decisions/0016-gatekeeper-policy-families-audit-first.md) — Gatekeeper RBAC, Secret, mesh, and retention rules ship in dryrun, tested with gator. Read when changing admission policy.
+- [`docs/decisions/0016-opa-bundle-chart-single-source.md`](decisions/0016-opa-bundle-chart-single-source.md) — refines 0014: the chart deploys the tested bundle, with a drift test and masked decision logs. Read when changing OPA delivery.
 - [`docs/decisions/0015-local-signed-image-delivery.md`](decisions/0015-local-signed-image-delivery.md) — refines 0005: local images are signed with a local key and deployed by digest. Read when changing `local up` or image delivery.
 
 ## Reference
