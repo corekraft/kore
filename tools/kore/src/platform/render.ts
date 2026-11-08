@@ -7,6 +7,7 @@ import {
   type Repository,
 } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
+import { redactManifest } from "./render-redaction.js";
 import { helmTemplateArgs, manifestSource, withAbsoluteChart } from "./helm.js";
 
 async function validateManifest(
@@ -44,9 +45,13 @@ async function renderChart(
     { capture: true, cwd: repository.root },
   );
   if (target) {
-    await writeFile(join(target, `${component.name}.yaml`), result.stdout, {
-      mode: 0o600,
-    });
+    await writeFile(
+      join(target, `${component.name}.yaml`),
+      redactManifest(result.stdout),
+      {
+        mode: 0o600,
+      },
+    );
   }
   await runner.run(
     "kubectl",
