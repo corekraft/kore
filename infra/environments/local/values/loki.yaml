@@ -34,5 +34,11 @@ chunksCache:
   enabled: false
 resultsCache:
   enabled: false
-# One node: the chart's hard gateway anti-affinity would block every rollout.
-gateway: { affinity: null }
+# One node: the chart's hard gateway anti-affinity blocks every rollout, and
+# because anti-affinity is symmetric the old pod also rejects a surge pod, so
+# the single replica is replaced in place rather than surged.
+gateway:
+  affinity: null
+  deploymentStrategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 0, maxUnavailable: 1 }
