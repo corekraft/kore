@@ -60,3 +60,10 @@ test("mise installs only the tools the checks need", () => {
 test("the workflow never calls a model", () => {
   assert.doesNotMatch(check(), /\bclaude\b|eval-harness|ANTHROPIC/i);
 });
+
+test("mise tasks cannot install tools beyond the ones the job installed", () => {
+  assert.match(
+    check(),
+    /^ {4}env:\n(?: {6}.+\n)*? {6}MISE_TASK_RUN_AUTO_INSTALL: "false"\n/m,
+  );
+});
