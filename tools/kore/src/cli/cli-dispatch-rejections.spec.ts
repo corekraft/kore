@@ -71,6 +71,16 @@ test("CLI rejects unknown commands, missing environments, and unsupported action
   );
 });
 
+test("data commands require an environment, and restore requires --from", async () => {
+  await expect(main(["data", "export"])).rejects.toThrow(
+    /--environment is required for mutating commands/,
+  );
+  await expect(
+    main(["data", "restore", "--environment", "local"]),
+  ).rejects.toThrow(/--from/);
+  expect(dispatch).not.toContain("restoreRetainedData");
+});
+
 test("unknown actions fail before taking the lock or writing a journal entry", async () => {
   for (const argv of [
     ["cluster", "nope"],

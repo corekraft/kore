@@ -1,6 +1,3 @@
-import { createHash } from "node:crypto";
-import { readdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
 import type { Repository } from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 
@@ -111,43 +108,4 @@ export async function purgeRetainedResources(
       }
     }
   }
-}
-
-export async function hasVerifiedExport(
-  repository: Repository,
-): Promise<boolean> {
-  const directory = join(
-    repository.root,
-    ".kore",
-    "exports",
-    repository.environment.name,
-  );
-  try {
-    const checksums = (await readdir(directory)).filter((entry) =>
-      entry.endsWith(".sha256"),
-    );
-    for (const checksumFile of checksums) {
-      const line = (
-        await readFile(join(directory, checksumFile), "utf8")
-      ).trim();
-      const match = line.match(/^([a-f0-9]{64})(?:\s+\*?(.+))?$/i);
-      if (!match) {
-        continue;
-      }
-      const expected = match[1];
-      if (!expected) {
-        continue;
-      }
-      const exportName =
-        match[2]?.trim() || checksumFile.slice(0, -".sha256".length);
-      const contents = await readFile(join(directory, exportName));
-      const actual = createHash("sha256").update(contents).digest("hex");
-      if (actual.toLowerCase() === expected.toLowerCase()) {
-        return true;
-      }
-    }
-  } catch {
-    return false;
-  }
-  return false;
 }

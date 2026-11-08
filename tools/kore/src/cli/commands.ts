@@ -2,6 +2,7 @@ import {
   clusterCommand,
   platformCommand,
   appCommand,
+  dataCommand,
 } from "./commands-infra.js";
 import {
   localCommand,
@@ -34,6 +35,7 @@ export const COMMANDS: ReadonlyMap<string, CommandSpec> = new Map<
     "platform",
     { mutations: ["bootstrap", "up", "stop", "destroy"], run: platformCommand },
   ],
+  ["data", { mutations: ["export", "restore"], run: dataCommand }],
   ["app", { mutations: ["up", "down"], run: appCommand }],
   ["local", { mutations: ["up", "down"], run: localCommand }],
   ["tunnel", { mutations: ["start", "stop"], run: tunnelCommand }],

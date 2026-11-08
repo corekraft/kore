@@ -65,6 +65,31 @@ test("cluster CLI commands dispatch guarded mutations and destroy options", asyn
   ]);
 });
 
+test("data CLI commands dispatch guarded export and restore", async () => {
+  await main(["data", "export", "--environment", "local"]);
+  await main([
+    "data",
+    "restore",
+    "--environment",
+    "local",
+    "--from",
+    "pg.sql.age",
+    "--identity",
+    "/k",
+    "--overwrite-data",
+    "--yes",
+  ]);
+
+  expect(dispatch).toEqual([
+    "lock",
+    "journal:data export:kore-local",
+    "exportRetainedData:reference",
+    "lock",
+    "journal:data restore:kore-local",
+    "restoreRetainedData:pg.sql.age:/k:true:true",
+  ]);
+});
+
 test("platform CLI commands dispatch render and all lifecycle actions", async () => {
   await main([
     "platform",
