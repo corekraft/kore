@@ -2,7 +2,7 @@
 status: accepted
 summary: Locally, kore signs candidate images with a local Cosign key held as a cluster Secret and no Rekor entry, and deploys them by exact digest pulled into Minikube with imagePullPolicy Never.
 date: 2026-09-30
-last-verified: 2026-11-07
+last-verified: 2026-11-08
 ---
 
 # ADR 0015: Deliver locally signed images by digest into Minikube

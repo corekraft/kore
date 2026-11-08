@@ -1,7 +1,7 @@
 ---
 status: done
 summary: Moves checkable AGENTS.md rules into hooks, deny rules, skills, and evals, with a retrospective loop.
-last-verified: 2026-11-07
+last-verified: 2026-11-08
 ---
 
 # Agent Harness Plan
@@ -123,7 +123,7 @@ pods --context kore-local` passes).
       Step 2 as a second, independent layer. Deny rules apply even in
       `bypassPermissions` mode.
 - [x] Add allow rules for read-only commands: `mise run test`, `mise run
-validate`, `mise run test-opa`, `kore doctor`, `kore * status`.
+validate`, `mise run test-opa`, `mise run test-gatekeeper`, `kore doctor`, `kore * status`.
 
 ### Exit Criteria
 

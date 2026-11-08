@@ -1,7 +1,7 @@
 ---
 status: done
 summary: Make the harness check and maintain itself, with CI, a deterministic retrospective scan, usage-driven pruning and promotion, eval history, and stale-doc detection.
-last-verified: 2026-11-07
+last-verified: 2026-11-08
 ---
 
 # Self-Maintenance Plan
@@ -41,10 +41,11 @@ cluster.
 - [x] Add `.github/workflows/check.yml`, run on `pull_request` and on `push` to
       `main`. Run the same checks as the commit and stop hooks: `npm ci` in
       `tools/kore`, `npm --prefix tools/kore run check`, `mise run test`,
-      `mise run test-hooks`, `mise run test-opa`, `mise run validate`, and
+      `mise run test-hooks`, `mise run test-opa`, `mise run test-gatekeeper`,
+      `mise run test-promtool`, `mise run validate`, and
       `mise run kb-check -- --strict`.
 - [x] Install tools through mise from `.mise.toml`, limited to what the checks
-      need (`node`, `npm`, `opa`), so CI uses the same pinned versions as a
+      need (`node`, `npm`, `opa`, `gator`, `helm`, `promtool`), so CI uses the same pinned versions as a
       developer.
 - [x] Pin every third-party action by full commit SHA, with the release tag in a
       trailing comment. Give the workflow `permissions: contents: read` and no
@@ -166,15 +167,17 @@ outward-facing, so it is proposed to the user and not done by an agent.
 
 ## Results
 
-- Step 1: `.github/workflows/check.yml` runs the seven checks in order on
+- Step 1: `.github/workflows/check.yml` runs the checks in order on
   `pull_request` and `push` to `main`. Actions are pinned to
   `actions/checkout` v7.0.1 (`3d3c42e5`) and `jdx/mise-action` v5.2.7
   (`b44d12e7`), the latest releases, resolved with `gh api`. mise installs
-  only `node npm opa`.
+  only the tools the checks need: first `node npm opa`, now `node npm opa gator
+helm promtool` after the Gatekeeper and Prometheus rule tests joined the
+  workflow (seven checks then, nine now).
 - Step 1: `.claude/hooks/workflow.test.mjs` guards the workflow: SHA pins,
   triggers, read-only permissions, no secrets, step list and order, tool
   subset, and no model calls. It failed first because the file was missing.
-- Step 1: All seven commands pass locally in this worktree, and the exit-criteria
+- Step 1: All seven original commands pass locally in this worktree, and the exit-criteria
   `grep` matches nothing.
 - Step 1: The checks also use the runner's own `git` (for `kb-check`), which is
   not installed through mise.

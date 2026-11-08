@@ -2,7 +2,7 @@
 status: accepted
 summary: Because Istio 1.30 ambient ExtAuthz requests omit workload principals, native Istio policy enforces caller identity before OPA, which decides only on request context.
 date: 2026-09-30
-last-verified: 2026-11-07
+last-verified: 2026-11-08
 ---
 
 # ADR 0014: Enforce workload identity natively before OPA

@@ -1,7 +1,7 @@
 ---
 status: done
 summary: Give the harness an operations journal it owns, protect append-only records, and tell the agent what changed between turns.
-last-verified: 2026-11-07
+last-verified: 2026-11-08
 ---
 
 # Agent Primitives Plan
@@ -61,7 +61,7 @@ object per line, appended under the environment lock. `.kore/` is gitignored.
 - [x] Add a journal to the `runtime` domain: append an entry, read entries for
       an environment, and a `Runner` decorator that records an `exec` entry per
       command. Export them through `runtime/index.ts` only.
-- [x] Wrap every mutating command in `cli.ts` (the commands that take
+- [x] Wrap every mutating command in the CLI (the commands that take
       `withEnvironmentLock`) so it writes `start`, the decorated runner's `exec`
       entries, and `end` with its outcome. Read-only commands write nothing.
 - [x] Add a read-only `kore journal --environment <name> [--limit <n>] [--json]`
@@ -152,7 +152,7 @@ object per line, appended under the environment lock. `.kore/` is gitignored.
   `feat/ap-delta`), merged into `feat/agent-primitives-plan`. The Opus
   session reviewed each branch and sent one round of fixes per branch.
 - Step 1: `runtime/journal.ts` holds the journal, `JournalingRunner`, and
-  `withJournal`. One `mutate` helper in `cli.ts` takes the environment lock,
+  `withJournal`. One `mutate` helper (`createMutate`, wired in `cli/cli.ts`) takes the environment lock,
   then journals. `kore journal` lists operations, flags interrupted ones, and
   defaults to `--environment local --limit 20`. Review found that redaction
   matched flag names only, so `--set db.password=x`, `--from-literal=…`, and

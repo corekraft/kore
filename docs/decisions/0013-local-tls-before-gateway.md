@@ -2,7 +2,7 @@
 status: accepted
 summary: Local bootstrap issues the TLS certificate in its own kore-local-tls release, after an explicit kore trust install, before the Gateway release waits for readiness.
 date: 2026-09-30
-last-verified: 2026-11-07
+last-verified: 2026-11-08
 ---
 
 # ADR 0013: Issue the local TLS certificate before installing the Gateway

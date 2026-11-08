@@ -2,7 +2,7 @@
 status: accepted
 summary: Bootstrap installs infrastructure in phases and opens a platform-owned, generation-specific application admission gate only after every prerequisite is ready and enforcing.
 date: 2026-09-12
-last-verified: 2026-11-07
+last-verified: 2026-11-08
 ---
 
 # ADR 0004: Gate application admission on complete, fail-closed bootstrap
