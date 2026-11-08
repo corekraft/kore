@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import {
   imageDigestFromRegistryHead,
+  localSignArgs,
   minikubeImagePublishArgs,
 } from "./local-image-args.js";
 
@@ -27,4 +28,23 @@ test("a registry answering with conflicting manifest digests is rejected", () =>
 test("repeated identical manifest digests are accepted as one", () => {
   const line = `Docker-Content-Digest: ${digest("c")}\r\n`;
   expect(imageDigestFromRegistryHead(200, line + line)).toBe(digest("c"));
+});
+
+test("local signatures use the legacy tag format Policy Controller 0.13 reads for key authorities", () => {
+  const args = localSignArgs(
+    "k8s://kore-system/key",
+    "10.96.0.50:5000/app@sha256:x",
+  );
+  expect(args).toEqual([
+    "sign",
+    "--key",
+    "k8s://kore-system/key",
+    "--new-bundle-format=false",
+    "--use-signing-config=false",
+    "--tlog-upload=false",
+    "--allow-http-registry",
+    "--yes",
+    "10.96.0.50:5000/app@sha256:x",
+  ]);
+  expect(args).not.toContain("--signing-config");
 });

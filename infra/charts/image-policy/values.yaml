@@ -6,3 +6,9 @@ trust: {}
 platform:
   registry:
     address: ""
+# Upstream repositories Kore deploys into application namespaces (ADR 0032):
+# the Istio waypoint proxy and the CloudNativePG instance image. Exact
+# repositories only; the chart owns this list, overlays do not.
+upstreamImages:
+  - "index.docker.io/istio/proxyv2**"
+  - "ghcr.io/cloudnative-pg/postgresql**"

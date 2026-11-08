@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
-import { localSigningConfigArgs } from "./local-image-args.js";
 
 export const localSigningKeyNamespace = "kore-system";
 export const localSigningKeySecret = "kore-local-signing-key";
@@ -16,7 +15,6 @@ const localSigningKeyReference = `k8s://${localSigningKeyNamespace}/${localSigni
 export interface LocalSigner {
   key: string;
   publicKey: string;
-  signingConfig: string;
   env: NodeJS.ProcessEnv;
 }
 
@@ -157,19 +155,6 @@ async function applyPublicSecret(
   );
 }
 
-async function ensureSigningConfig(
-  runner: Runner,
-  state: string,
-): Promise<string> {
-  const signingConfig = join(state, "local-signing-config.json");
-  if (!(await exists(signingConfig))) {
-    await runner.run("cosign", localSigningConfigArgs(signingConfig), {
-      capture: false,
-    });
-  }
-  return signingConfig;
-}
-
 async function withKeyPair<T>(
   repository: Repository,
   runner: Runner,
@@ -215,11 +200,9 @@ export async function withLocalSigner<T>(
   const state = join(repository.root, ".kore", "state");
   return await withKeyPair(repository, runner, async (env, publicKeyBase64) => {
     const publicKey = await writePublicKey(publicKeyBase64, state);
-    const signingConfig = await ensureSigningConfig(runner, state);
     return await action({
       key: localSigningKeyReference,
       publicKey,
-      signingConfig,
       env,
     });
   });

@@ -138,3 +138,7 @@ The trust model is unchanged: the signing identity stays the exact
 - The tag ruleset must let the `github-actions` integration create `v*` tags.
   Anyone with write access can dispatch at an existing tag and re-sign it; that
   re-signs the same tagged code, still under the same exact subject.
+
+## Refinement (2026-11-08): enrollment and mode
+
+[ADR 0032](0032-application-namespace-image-admission.md) supersedes "nothing labels a namespace": `kore app up` enrolls application namespaces, every policy carries the environment `trust.mode` (starting at `warn`), and Kore-placed upstream images have a separate policy.

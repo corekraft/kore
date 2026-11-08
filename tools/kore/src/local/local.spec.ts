@@ -15,7 +15,6 @@ import { localDown, localUp } from "./local.js";
 import {
   imageDigestFromRegistryHead,
   localDockerBuildArgs,
-  localSigningConfigArgs,
   minikubeImageLoadArgs,
   minikubeImagePublishArgs,
 } from "../images/local-image.js";
@@ -72,20 +71,6 @@ test("local image digest comes from the registry manifest response header", () =
     imageDigestFromRegistryHead(200, `Docker-Content-Digest: ${digest}\r\n`),
   ).toBe(digest);
   expect(() => imageDigestFromRegistryHead(404, "")).toThrow(/manifest/i);
-});
-
-test("local signing config deliberately omits transparency-log services", () => {
-  expect(
-    localSigningConfigArgs("/repo/.kore/state/local-signing-config.json"),
-  ).toEqual([
-    "signing-config",
-    "create",
-    "--with-default-services",
-    "--no-default-rekor",
-    "--no-default-tsa",
-    "--out",
-    "/repo/.kore/state/local-signing-config.json",
-  ]);
 });
 
 test("local up starts the platform before reconciling every locked application", async () => {

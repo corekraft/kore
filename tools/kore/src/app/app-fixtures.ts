@@ -39,6 +39,9 @@ export function healthyReadinessOutput(
   if (args.some((arg) => arg.startsWith("gateway/"))) {
     return healthyGateway;
   }
+  if (args.some((arg) => arg.includes("policy\\.sigstore\\.dev/include"))) {
+    return "true"; // the namespace admission label read back after enrollment
+  }
   if (args.some((arg) => arg.startsWith("go-template="))) {
     return "ready";
   }

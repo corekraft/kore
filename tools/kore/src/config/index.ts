@@ -7,6 +7,7 @@ export {
   loadRepository,
   orderedComponents,
 } from "./config.js";
+export { noMatchPolicy } from "./image-trust.js";
 export {
   registryConsumers,
   registryHelmArgs,

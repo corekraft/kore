@@ -70,6 +70,7 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0029-local-export-and-restore.md`](decisions/0029-local-export-and-restore.md) — refines 0003: `kore data export|restore` dump retained CloudNativePG databases through age-encrypted, digest-manifested exports that `cluster destroy` trusts. Read when changing retained-data recovery.
 - [`docs/decisions/0030-security-and-quality-scans.md`](decisions/0030-security-and-quality-scans.md) — pinned mise scanners (TruffleHog, OSV-Scanner, Semgrep, actionlint, zizmor, hadolint), CI gate, and ignore policy. Read when adding a scan or an ignore.
 - [`docs/decisions/0031-registry-address-platform-variable.md`](decisions/0031-registry-address-platform-variable.md) — refines 0028 and 0012: one per-environment `registry.address` from which the registry Service pin, image policy glob, and push/sign/deploy references derive; local IP versus remote hostname. Read when changing where images are published or admitted.
+- [`docs/decisions/0032-application-namespace-image-admission.md`](decisions/0032-application-namespace-image-admission.md) — refines 0028 and 0025: mandatory Sigstore namespace enrollment in `kore app up`, per-environment warn/enforce mode, and a separate static policy for upstream images the platform places in application namespaces. Read when changing admission enrollment or adding an upstream image.
 
 ## Reference
 

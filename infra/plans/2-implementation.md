@@ -138,7 +138,7 @@ claim that the platform is ready.
 
 ## Step 7: Bootstrap Registry, Image Trust, Controllers, and CRD Ownership
 
-Next: finish the live warn-mode check of branch `feat/image-admission`. It is unmerged and needs PR #25 (`--force-conflicts`) and the drift fix: rerun `kore local up` and confirm the `policy-controller` release (rev3 failed) upgrades, `no-match-policy` is `warn`, re-signed internal images admit with no warning, and `busybox` warns rather than being denied. Then open its PR, cut `v0.1.0` (merge #27, wait for release PR #26 to read 0.1.0, merge it), add `.../release.yaml@refs/tags/v0.1.0` to the managed `trust.subjects`, and flip local `trust.mode` to `enforce`. Run `local up` with `SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt`.
+Next: merge this branch (image admission in warn mode) and PR #32 (trust subject `v0.1.1`). Then flip local `trust.mode` to `enforce`, rerun `kore local up` with `SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt`, and confirm that `busybox` is denied in `reference` while kore images and the upstream static-pass images are still admitted. The GHCR package `corekraft/kore/reference` is still private (anonymous pull returns 401); a maintainer must set it to public before a managed cluster can pull or verify the `v0.1.1` image.
 
 ### Objective
 
@@ -921,7 +921,6 @@ asserted in `platform.storage.spec.ts`. Claim templates are immutable and bootst
 skips deployed releases, so only fresh profiles pick this up; an existing profile
 keeps its unlabelled Loki and Tempo claims until it is recreated (2026-11-08).
 
-
 ### 2026-11-08 third fresh-profile live bootstrap
 
 The profile was destroyed with `--purge-data` and recreated. Stopping the run
@@ -962,6 +961,26 @@ Live evidence (`.kore/live-bootstrap-2026-11-08-fresh3f.log`):
 
 - **Reference app:** the API, frontend, waypoint, and database pods are
   running.
+
+### 2026-11-08 image admission in warn mode
+
+This was checked live on the third fresh profile, with `feat/image-admission`
+merged over #24 (drift fingerprint) and #25 (`--force-conflicts`):
+
+- The drift check upgraded the failed `policy-controller` release to rev4 with
+  `--force-conflicts`. `config-policy-controller` reports `no-match-policy: warn`,
+  and both ClusterImagePolicies (`kore-local-images`, `kore-upstream-images`)
+  report `Ready`.
+- `reference` is the only namespace labelled `policy.sigstore.dev/include=true`.
+- A server dry-run of `busybox:1.37.0` in `reference` was admitted with
+  `Warning: no matching policies`. The re-signed internal image
+  `10.96.0.50:5000/reference@sha256:9816…` was admitted with no warning.
+- Release `v0.1.0` was tagged, but its GHCR push was denied because the image had
+  no `org.opencontainers.image.source` label (#30). `v0.1.1` is the first
+  published image: run 42514827133 signed
+  `ghcr.io/corekraft/kore/reference@sha256:c3b42704…` keylessly and verified it
+  against the exact tag identity. The package is still private, so an
+  independent anonymous `cosign verify` returns `UNAUTHORIZED`.
 
 ### 2026-11-08 export, purge, and restore round trip
 

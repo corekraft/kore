@@ -63,14 +63,22 @@ export function imageDigestFromRegistryHead(
   return digests[0];
 }
 
-export function localSigningConfigArgs(path: string): string[] {
+/**
+ * Policy Controller 0.13 reads key signatures only from the legacy `.sig` tag
+ * (its new-bundle path is keyless-only), and cosign 3 defaults to bundles, so
+ * the legacy format is requested explicitly. A signing config cannot be
+ * combined with it; the local flow has no transparency log anyway (ADR 0032).
+ */
+export function localSignArgs(key: string, reference: string): string[] {
   return [
-    "signing-config",
-    "create",
-    "--with-default-services",
-    "--no-default-rekor",
-    "--no-default-tsa",
-    "--out",
-    path,
+    "sign",
+    "--key",
+    key,
+    "--new-bundle-format=false",
+    "--use-signing-config=false",
+    "--tlog-upload=false",
+    "--allow-http-registry",
+    "--yes",
+    reference,
   ];
 }

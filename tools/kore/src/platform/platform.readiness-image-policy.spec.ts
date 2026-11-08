@@ -58,5 +58,6 @@ test("the image policy component waits on its ClusterImagePolicy by fully qualif
   )!;
   assert.deepEqual(component.readiness, [
     "clusterimagepolicy.policy.sigstore.dev/kore-platform-images",
+    "clusterimagepolicy.policy.sigstore.dev/kore-upstream-images",
   ]);
 });
