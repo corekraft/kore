@@ -3,3 +3,7 @@
 repo_root="$(git rev-parse --show-toplevel)"
 "$repo_root/tools/kore/node_modules/.bin/lint-staged" \
   --config "$repo_root/tools/kore/lint-staged.config.js"
+
+if git diff --cached --name-only | grep -q '^\.claude/hooks/'; then
+  node --test "$repo_root/.claude/hooks"
+fi

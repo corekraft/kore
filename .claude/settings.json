@@ -1,0 +1,60 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mise run test)",
+      "Bash(mise run validate)",
+      "Bash(mise run test-opa)",
+      "Bash(mise run test-hooks)",
+      "Bash(kore doctor:*)",
+      "Bash(kore * status:*)",
+      "Bash(./bin/kore doctor:*)",
+      "Bash(./bin/kore * status:*)"
+    ],
+    "deny": [
+      "Bash(minikube delete:*)",
+      "Bash(tofu destroy:*)",
+      "Bash(terraform destroy:*)",
+      "Bash(helm uninstall:*)",
+      "Bash(kubectl delete namespace:*)",
+      "Bash(kubectl delete ns:*)",
+      "Bash(kore * destroy:*)",
+      "Bash(./bin/kore * destroy:*)",
+      "Read(./.kore/keys/**)",
+      "Read(./.kore/state/*token*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Read|Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard.mjs\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/feedback.mjs\" post-edit"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/feedback.mjs\" stop"
+          }
+        ]
+      }
+    ]
+  }
+}

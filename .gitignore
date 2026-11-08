@@ -5,3 +5,4 @@ bin/
 coverage/
 *.log
 
+.claude/settings.local.json
