@@ -16,3 +16,18 @@ datasources:
       - {name: Prometheus, type: prometheus, uid: prometheus, url: "http://prometheus-server", access: proxy, isDefault: true}
       - {name: Loki, type: loki, uid: loki, url: "http://loki:3100", access: proxy}
       - {name: Tempo, type: tempo, uid: tempo, url: "http://tempo:3100", access: proxy}
+# The reference dashboard is owned by the kore-observability-config chart and
+# mounted from its ConfigMap; no dashboard JSON is duplicated here.
+dashboardProviders:
+  providers.yaml:
+    apiVersion: 1
+    providers:
+      - name: kore
+        orgId: 1
+        folder: Kore
+        type: file
+        disableDeletion: true
+        options:
+          path: /var/lib/grafana/dashboards/kore
+dashboardsConfigMaps:
+  kore: kore-grafana-dashboards

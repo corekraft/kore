@@ -1,0 +1,8 @@
+# Dashboards provisioned into Grafana through dashboardsConfigMaps.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kore-grafana-dashboards
+  namespace: {{ .Release.Namespace }}
+data:
+{{ (.Files.Glob "files/dashboards/*.json").AsConfig | indent 2 }}

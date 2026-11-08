@@ -27,6 +27,7 @@ on a live cluster.
 | OpenTelemetry Operator           | 0.129.0                 | 2026-11-07 | Collector custom resources and target allocator                                                                                  |
 | OpenTelemetry Collector chart    | 0.178.2                 | 2026-11-07 | `deployment/otel-collector` renders with `infra/observability/collector/values.yaml`                                             |
 | Prometheus chart                 | 29.45.1                 | 2026-11-07 | `deployment/prometheus-server` renders with the local values                                                                     |
+| promtool                         | 3.16.0                  | 2026-11-08 | Offline `promtool check rules` and `promtool test rules` for `infra/observability/config` (`mise run test-promtool`)             |
 | Loki chart                       | 7.5.0                   | 2026-11-07 | `statefulset/loki` renders in SingleBinary mode with the local values                                                            |
 | Tempo chart                      | 1.24.4                  | 2026-11-07 | Already latest stable; `statefulset/tempo`                                                                                       |
 | Grafana chart                    | 10.5.15                 | 2026-11-07 | Already latest stable; `deployment/grafana`                                                                                      |

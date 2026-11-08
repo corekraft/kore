@@ -1,0 +1,12 @@
+# Mesh-wide telemetry defaults. Metadata lives in the Istio root namespace so the
+# resource applies to every workload; the provider is declared in istiod values.
+apiVersion: telemetry.istio.io/v1
+kind: Telemetry
+metadata:
+  name: mesh-default
+  namespace: istio-system
+spec:
+  tracing:
+    - providers:
+        - name: otel-tracing
+      randomSamplingPercentage: {{ .Values.tracing.samplingPercentage }}
