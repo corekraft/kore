@@ -1,3 +1,4 @@
+import { healthyWebhookOutput } from "./webhook-fixtures.js";
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { loadRepository } from "../config/index.js";
@@ -125,7 +126,7 @@ class InterruptedInstallRunner implements Runner {
     if (command === "helm" && args[0] === "history") {
       return ok([{ revision: 1, status: this.history }]);
     }
-    return { stdout: "", stderr: "", code: 0 };
+    return { stdout: healthyWebhookOutput(args) ?? "", stderr: "", code: 0 };
   }
 }
 

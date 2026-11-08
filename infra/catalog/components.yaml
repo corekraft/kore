@@ -69,7 +69,12 @@
         "timeout": "10m",
         "values": ["infra/environments/common/values/cert-manager.yaml"],
         "readiness":
-          ["deployment/cert-manager", "deployment/cert-manager-webhook"]
+          [
+            "deployment/cert-manager",
+            "deployment/cert-manager-webhook",
+            "mutatingwebhookconfiguration/cert-manager-webhook",
+            "validatingwebhookconfiguration/cert-manager-webhook"
+          ]
       },
       {
         "name": "gatekeeper",
@@ -104,7 +109,9 @@
         "readiness":
           [
             "deployment/gatekeeper-controller-manager",
-            "deployment/gatekeeper-audit"
+            "deployment/gatekeeper-audit",
+            "mutatingwebhookconfiguration/gatekeeper-mutating-webhook-configuration",
+            "validatingwebhookconfiguration/gatekeeper-validating-webhook-configuration"
           ]
       },
       {
@@ -123,7 +130,14 @@
         "dependencies": ["kore-gateway-api"],
         "timeout": "10m",
         "values": ["infra/environments/common/values/policy-controller.yaml"],
-        "readiness": ["deployment/policy-controller-webhook"],
+        "readiness":
+          [
+            "deployment/policy-controller-webhook",
+            "mutatingwebhookconfiguration/defaulting.clusterimagepolicy.sigstore.dev",
+            "mutatingwebhookconfiguration/policy.sigstore.dev",
+            "validatingwebhookconfiguration/validating.clusterimagepolicy.sigstore.dev",
+            "validatingwebhookconfiguration/policy.sigstore.dev"
+          ],
         "helm":
           {
             "forceConflicts": true,
@@ -176,7 +190,12 @@
         "dependencies": ["istio-base"],
         "timeout": "10m",
         "values": ["infra/environments/common/values/istiod.yaml"],
-        "readiness": ["deployment/istiod"]
+        "readiness":
+          [
+            "deployment/istiod",
+            "mutatingwebhookconfiguration/istio-sidecar-injector",
+            "validatingwebhookconfiguration/istio-validator-istio-system"
+          ]
       },
       {
         "name": "istio-cni",
@@ -259,7 +278,12 @@
         "dependencies": ["cert-manager"],
         "timeout": "10m",
         "readiness":
-          ["deployment/external-secrets", "deployment/external-secrets-webhook"]
+          [
+            "deployment/external-secrets",
+            "deployment/external-secrets-webhook",
+            "validatingwebhookconfiguration/secretstore-validate",
+            "validatingwebhookconfiguration/externalsecret-validate"
+          ]
       },
       {
         "name": "cloudnative-pg",
@@ -285,7 +309,12 @@
           ],
         "dependencies": ["cert-manager"],
         "timeout": "10m",
-        "readiness": ["deployment/cloudnative-pg"]
+        "readiness":
+          [
+            "deployment/cloudnative-pg",
+            "mutatingwebhookconfiguration/cnpg-mutating-webhook-configuration",
+            "validatingwebhookconfiguration/cnpg-validating-webhook-configuration"
+          ]
       },
       {
         "name": "opentelemetry-operator",
@@ -305,7 +334,12 @@
         "dependencies": ["cert-manager"],
         "timeout": "10m",
         "values": ["infra/observability/operator/values.yaml"],
-        "readiness": ["deployment/opentelemetry-operator"]
+        "readiness":
+          [
+            "deployment/opentelemetry-operator",
+            "mutatingwebhookconfiguration/opentelemetry-operator-mutation",
+            "validatingwebhookconfiguration/opentelemetry-operator-validation"
+          ]
       },
       {
         "name": "kore-observability-config",

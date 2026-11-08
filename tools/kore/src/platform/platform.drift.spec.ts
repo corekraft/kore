@@ -1,3 +1,4 @@
+import { healthyWebhookOutput } from "./webhook-fixtures.js";
 import assert from "node:assert/strict";
 import { cp, mkdtemp, rm, writeFile, appendFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -38,7 +39,7 @@ class DeployedRunner implements Runner {
         ]),
       );
     }
-    return ok("ready");
+    return ok(healthyWebhookOutput(args) ?? "ready");
   }
   upgrades() {
     return this.calls.filter(

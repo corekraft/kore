@@ -1,3 +1,4 @@
+import { healthyWebhookOutput } from "./webhook-fixtures.js";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "vitest";
@@ -127,7 +128,7 @@ test("a release left failed after a conflicting upgrade is upgraded, never unins
           ]),
         );
       }
-      return ok("ready");
+      return ok(healthyWebhookOutput(args) ?? "ready");
     },
   };
   await reconcileIfNeeded(repository, runner, component);

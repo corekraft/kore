@@ -120,6 +120,10 @@ test("the catalog declares Sigstore Policy Controller as a bootstrap component w
   ]);
   assert.deepEqual(component.readiness, [
     "deployment/policy-controller-webhook",
+    "mutatingwebhookconfiguration/defaulting.clusterimagepolicy.sigstore.dev",
+    "mutatingwebhookconfiguration/policy.sigstore.dev",
+    "validatingwebhookconfiguration/validating.clusterimagepolicy.sigstore.dev",
+    "validatingwebhookconfiguration/policy.sigstore.dev",
   ]);
   const root = await findRoot();
   const files = (

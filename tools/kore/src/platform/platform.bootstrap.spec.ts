@@ -1,3 +1,4 @@
+import { withHealthyWebhooks } from "./webhook-fixtures.js";
 import { desiredFingerprint } from "./fingerprint.js";
 import assert from "node:assert/strict";
 import { test } from "vitest";
@@ -17,7 +18,7 @@ test("controller bootstrap reconciles controllers before shared Gateway configur
     { stdout: "kube-system", stderr: "", code: 0 },
   ]);
 
-  await bootstrapControllers(repository, runner);
+  await bootstrapControllers(repository, withHealthyWebhooks(runner));
 
   const releases = runner.calls
     .filter(({ command, args }) => command === "helm" && args[0] === "upgrade")
@@ -54,7 +55,7 @@ test("controller bootstrap resumes a deployed component without another Helm upg
     },
   ]);
 
-  await bootstrapControllers(repository, runner);
+  await bootstrapControllers(repository, withHealthyWebhooks(runner));
 
   assert.equal(
     runner.calls.some(
@@ -142,7 +143,7 @@ test("controller bootstrap installs no shared composition, issuer, gateway, secr
     { stdout: '{"Host":"Running"}', stderr: "", code: 0 },
     { stdout: "kube-system", stderr: "", code: 0 },
   ]);
-  await bootstrapControllers(repository, runner);
+  await bootstrapControllers(repository, withHealthyWebhooks(runner));
 
   const bootstrapped = repository.catalog.components.filter(
     ({ phase }) => phase !== "configuration" && phase !== "enforcement",
