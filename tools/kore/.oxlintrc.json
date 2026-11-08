@@ -17,29 +17,71 @@
     "typescript/await-thenable": "error",
     "unicorn/prefer-node-protocol": "error",
     "oxc/no-accumulating-spread": "error",
-    "complexity": ["error", { "max": 58 }],
-    "max-statements": ["error", { "max": 71 }],
+    "complexity": [
+      "error",
+      {
+        "max": 18
+      }
+    ],
+    "max-statements": [
+      "error",
+      {
+        "max": 26
+      }
+    ],
     "max-lines-per-function": [
       "error",
-      { "max": 221, "skipBlankLines": true, "skipComments": true }
+      {
+        "max": 146,
+        "skipBlankLines": true,
+        "skipComments": true
+      }
     ],
     "max-lines": [
       "error",
-      { "max": 596, "skipBlankLines": true, "skipComments": true }
+      {
+        "max": 596,
+        "skipBlankLines": true,
+        "skipComments": true
+      }
     ],
-    "max-params": ["error", { "max": 5 }],
-    "max-depth": ["error", { "max": 4 }],
-    "import/max-dependencies": ["error", { "max": 10 }],
+    "max-params": [
+      "error",
+      {
+        "max": 5
+      }
+    ],
+    "max-depth": [
+      "error",
+      {
+        "max": 4
+      }
+    ],
+    "import/max-dependencies": [
+      "error",
+      {
+        "max": 8
+      }
+    ],
     "import/no-cycle": "error"
   },
   "overrides": [
     {
       "files": ["**/*.spec.ts"],
       "rules": {
-        "complexity": ["error", { "max": 15 }],
+        "complexity": [
+          "error",
+          {
+            "max": 15
+          }
+        ],
         "max-lines": [
           "error",
-          { "max": 900, "skipBlankLines": true, "skipComments": true }
+          {
+            "max": 900,
+            "skipBlankLines": true,
+            "skipComments": true
+          }
         ],
         "max-lines-per-function": "off",
         "max-statements": "off",
@@ -48,7 +90,9 @@
     },
     {
       "files": ["**/*.integration.spec.ts"],
-      "rules": { "typescript/no-floating-promises": "off" }
+      "rules": {
+        "typescript/no-floating-promises": "off"
+      }
     }
   ]
 }
