@@ -589,3 +589,25 @@ test("cli: the startup brief carries the journal line without calling any cluste
     /Environment local: last operation `local up` was interrupted/,
   );
 });
+
+test("cli: an unreadable journal entry is skipped and the brief still carries the plan lines", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "kore-context-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, ".kore/state/journal/x.jsonl"), { recursive: true });
+  mkdirSync(join(root, "infra/plans"), { recursive: true });
+  writeFileSync(
+    join(root, "infra/plans/6-plan.md"),
+    "---\nstatus: active\nsummary: A plan.\nlast-verified: 2026-11-07\n---\n\n## Step 1: Work\n\n- [ ] Build it.\n",
+  );
+  assert.deepEqual(readJournals(root), {}, "the directory is skipped");
+  const result = spawnSync(process.execPath, [hook], {
+    input: JSON.stringify({ source: "startup", session_id: "s" }),
+    encoding: "utf8",
+    env: { ...process.env, CLAUDE_PROJECT_DIR: root },
+  });
+  assert.equal(result.status, 0);
+  assert.match(
+    JSON.parse(result.stdout).hookSpecificOutput.additionalContext,
+    /Open items: Step 1 \(1\)/,
+  );
+});

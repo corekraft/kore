@@ -1,7 +1,8 @@
-import { mkdtemp, readFile, writeFile, mkdir, chmod } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { mkdtemp, readFile, writeFile, mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect, test, vi } from "vitest";
+import { afterAll, expect, onTestFinished, test, vi } from "vitest";
 import {
   CommandError,
   RecordingRunner,
@@ -16,9 +17,20 @@ import {
   withJournal,
 } from "./journal.js";
 
+const created: string[] = [];
+
 async function root(): Promise<string> {
-  return await mkdtemp(join(tmpdir(), "kore-journal-"));
+  const dir = await mkdtemp(join(tmpdir(), "kore-journal-"));
+  created.push(dir);
+  onTestFinished(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+  return dir;
 }
+
+afterAll(() => {
+  expect(created.filter((dir) => existsSync(dir))).toEqual([]);
+});
 async function lines(dir: string, environment = "local") {
   const text = await readFile(
     join(dir, ".kore", "state", "journal", `${environment}.jsonl`),
@@ -206,9 +218,10 @@ test("a write failure after start warns and lets the mutation finish", async () 
     { root: dir, environment: "local", command: "local up" },
     inner,
     async (runner) => {
-      // Make later appends fail by replacing the journal file with a directory.
+      // Make later appends fail, for any user, by replacing the journal file with a directory.
       const path = join(dir, ".kore", "state", "journal", "local.jsonl");
-      await chmod(path, 0o400);
+      await rm(path);
+      await mkdir(path);
       await runner.run("helm", ["list"]);
       return "finished";
     },
