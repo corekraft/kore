@@ -50,6 +50,26 @@ vi.mock("../diagnostics/index.js", () => ({
 }));
 vi.mock("../runtime/index.js", () => ({
   ProcessRunner: class {},
+  readJournal: vi.fn(async () => (dispatch.push("readJournal"), [])),
+  summarizeOperations: vi.fn(() => [
+    {
+      op: "a",
+      command: "local up",
+      ts: "2026-11-07T10:00:00.000Z",
+      outcome: "interrupted",
+    },
+    {
+      op: "b",
+      command: "cluster stop",
+      ts: "2026-11-07T10:01:00.000Z",
+      outcome: "ok",
+      ms: 5,
+    },
+  ]),
+  withJournal: vi.fn(async (operation, runner, work) => {
+    dispatch.push(`journal:${operation.command}:${operation.context}`);
+    return work(runner);
+  }),
   withEnvironmentLock: vi.fn(async (_root, _environment, operation) => {
     dispatch.push("lock");
     return operation();
@@ -125,10 +145,13 @@ test("cluster CLI commands dispatch guarded mutations and destroy options", asyn
 
   expect(dispatch).toEqual([
     "lock",
+    "journal:cluster up:kore-local",
     "clusterUp",
     "lock",
+    "journal:cluster stop:kore-local",
     "clusterStop",
     "lock",
+    "journal:cluster destroy:kore-local",
     "clusterDestroy:true:true",
   ]);
 });
@@ -157,12 +180,16 @@ test("platform CLI commands dispatch render and all lifecycle actions", async ()
   expect(dispatch).toEqual([
     "platformRender",
     "lock",
+    "journal:platform bootstrap:kore-local",
     "bootstrapControllers",
     "lock",
+    "journal:platform up:kore-local",
     "platformUp",
     "lock",
+    "journal:platform stop:kore-local",
     "platformStop",
     "lock",
+    "journal:platform destroy:kore-local",
     "platformDestroy",
   ]);
 });
@@ -175,12 +202,16 @@ test("application and local CLI commands dispatch deploy and teardown actions", 
 
   expect(dispatch).toEqual([
     "lock",
+    "journal:app up reference:kore-local",
     "appUp",
     "lock",
+    "journal:app down reference:kore-local",
     "appDown",
     "lock",
+    "journal:local up:kore-local",
     "localUp",
     "lock",
+    "journal:local down:kore-local",
     "localDown",
   ]);
 });
@@ -193,12 +224,16 @@ test("tunnel, secret, and trust CLI mutations dispatch their operations", async 
 
   expect(dispatch).toEqual([
     "lock",
+    "journal:tunnel start:kore-local",
     "startLocalTunnel",
     "lock",
+    "journal:tunnel stop:kore-local",
     "stopLocalTunnel",
     "lock",
+    "journal:secrets sync:kore-local",
     "syncLocalSecrets",
     "lock",
+    "journal:trust install:kore-local",
     "installLocalTrust",
   ]);
 });
@@ -232,4 +267,38 @@ test("CLI rejects unknown commands, missing environments, and unsupported action
   await expect(main(["app", "up", "reference"])).rejects.toThrow(
     /--environment is required for mutating commands/,
   );
+});
+
+test("journal CLI command reads the journal without locking or mutating", async () => {
+  const write = vi.spyOn(process.stdout, "write");
+  expect(await main(["journal", "--environment", "local", "--json"])).toBe(0);
+  expect(dispatch).toEqual(["readJournal"]);
+  const output = JSON.parse(String(write.mock.calls[0]![0])) as {
+    operations: { op: string; outcome: string }[];
+    interrupted: number;
+  };
+  expect(output.interrupted).toBe(1);
+  expect(output.operations.map((op) => op.outcome)).toEqual([
+    "interrupted",
+    "ok",
+  ]);
+});
+
+test("journal CLI command limits output to the most recent operations", async () => {
+  const write = vi.spyOn(process.stdout, "write");
+  await main(["journal", "--limit", "1", "--json"]);
+  const output = JSON.parse(String(write.mock.calls[0]![0])) as {
+    operations: { op: string }[];
+  };
+  expect(output.operations.map((op) => op.op)).toEqual(["b"]);
+  await expect(main(["journal", "--limit", "zero"])).rejects.toThrow(
+    /--limit must be a positive integer/,
+  );
+});
+
+test("read-only commands never open a journal entry", async () => {
+  await main(["cluster", "status"]);
+  await main(["platform", "render"]);
+  await main(["doctor"]);
+  expect(dispatch.some((item) => item.startsWith("journal:"))).toBe(false);
 });

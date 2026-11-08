@@ -15,7 +15,13 @@ import {
   requireEnvironment,
   stringFlag,
 } from "./flags.js";
-import { withEnvironmentLock } from "../runtime/index.js";
+import {
+  readJournal,
+  summarizeOperations,
+  withEnvironmentLock,
+  withJournal,
+} from "../runtime/index.js";
+import type { Runner } from "../runtime/index.js";
 import {
   bootstrapControllers,
   platformDestroy,
@@ -50,9 +56,11 @@ Usage:
   kore tunnel status [--environment local] [--json]
   kore secrets sync --environment local
   kore trust install --environment local
+  kore journal [--environment <name>] [--limit <n>] [--json]
 
-Every mutation requires --environment. Status, doctor, validate, and render are
-read-only and default to local.`;
+Every mutation requires --environment and is recorded in
+.kore/state/journal/<environment>.jsonl. Status, doctor, validate, render, and
+journal are read-only and default to local.`;
 
 function print(value: unknown, json: boolean): void {
   if (json) process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
@@ -78,7 +86,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     console.log(usage);
     return 0;
   }
-  const offset = ["doctor", "validate"].includes(command) ? 1 : 2;
+  const offset = ["doctor", "validate", "journal"].includes(command) ? 1 : 2;
   const parsed = parseArgs(argv.slice(offset));
   const mutating =
     (command === "cluster" &&
@@ -96,7 +104,25 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   const repository = await loadRepository(environmentName);
   const runner = new ProcessRunner();
   const json = boolFlag(parsed, "json");
-
+  const mutate = async (
+    label: string,
+    work: (runner: Runner) => Promise<number>,
+  ): Promise<number> =>
+    await withEnvironmentLock(
+      repository.root,
+      environmentName,
+      async () =>
+        await withJournal(
+          {
+            root: repository.root,
+            environment: environmentName,
+            command: label,
+            context: repository.environment.kubeContext,
+          },
+          runner,
+          work,
+        ),
+    );
   if (command === "validate") {
     const order = orderedComponents(repository.catalog).map(
       (component) => component.name,
@@ -119,26 +145,58 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     print(checks, json);
     return doctorFailed(checks) ? 1 : 0;
   }
+  if (command === "journal") {
+    const limitText = stringFlag(parsed, "limit");
+    const limit = limitText === undefined ? 20 : Number(limitText);
+    if (!Number.isInteger(limit) || limit < 1)
+      throw new Error("--limit must be a positive integer");
+    const operations = summarizeOperations(
+      await readJournal(repository.root, environmentName),
+    );
+    const recent = operations.slice(-limit);
+    const interrupted = recent.filter(
+      (operation) => operation.outcome === "interrupted",
+    ).length;
+    if (json)
+      print(
+        { environment: environmentName, operations: recent, interrupted },
+        true,
+      );
+    else {
+      for (const operation of recent)
+        console.log(
+          [
+            operation.ts,
+            operation.outcome === "interrupted"
+              ? "INTERRUPTED"
+              : operation.outcome,
+            operation.command,
+            operation.error ?? "",
+          ].join("\t"),
+        );
+      if (interrupted > 0)
+        console.log(
+          `${interrupted} interrupted operation(s): rerun the command, it is idempotent.`,
+        );
+    }
+    return 0;
+  }
   if (command === "cluster") {
     if (action === "status") {
       print(await clusterStatus(repository, runner), json);
       return 0;
     }
-    return await withEnvironmentLock(
-      repository.root,
-      environmentName,
-      async () => {
-        if (action === "up") await clusterUp(repository, runner);
-        else if (action === "stop") await clusterStop(repository, runner);
-        else if (action === "destroy")
-          await clusterDestroy(repository, runner, {
-            yes: boolFlag(parsed, "yes"),
-            purgeData: boolFlag(parsed, "purge-data"),
-          });
-        else throw new Error(`unknown cluster action: ${action ?? ""}`);
-        return 0;
-      },
-    );
+    return await mutate(`cluster ${action}`, async (runner) => {
+      if (action === "up") await clusterUp(repository, runner);
+      else if (action === "stop") await clusterStop(repository, runner);
+      else if (action === "destroy")
+        await clusterDestroy(repository, runner, {
+          yes: boolFlag(parsed, "yes"),
+          purgeData: boolFlag(parsed, "purge-data"),
+        });
+      else throw new Error(`unknown cluster action: ${action ?? ""}`);
+      return 0;
+    });
   }
   if (command === "platform") {
     if (action === "status") {
@@ -156,23 +214,19 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       );
       return 0;
     }
-    return await withEnvironmentLock(
-      repository.root,
-      environmentName,
-      async () => {
-        if (action === "bootstrap")
-          await bootstrapControllers(repository, runner);
-        else if (action === "up") await platformUp(repository, runner);
-        else if (action === "stop") await platformStop(repository, runner);
-        else if (action === "destroy")
-          await platformDestroy(repository, runner, {
-            yes: boolFlag(parsed, "yes"),
-            purgeData: boolFlag(parsed, "purge-data"),
-          });
-        else throw new Error(`unknown platform action: ${action ?? ""}`);
-        return 0;
-      },
-    );
+    return await mutate(`platform ${action}`, async (runner) => {
+      if (action === "bootstrap")
+        await bootstrapControllers(repository, runner);
+      else if (action === "up") await platformUp(repository, runner);
+      else if (action === "stop") await platformStop(repository, runner);
+      else if (action === "destroy")
+        await platformDestroy(repository, runner, {
+          yes: boolFlag(parsed, "yes"),
+          purgeData: boolFlag(parsed, "purge-data"),
+        });
+      else throw new Error(`unknown platform action: ${action ?? ""}`);
+      return 0;
+    });
   }
   if (command === "app") {
     const name = parsed.positional[0];
@@ -181,77 +235,57 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       print(await appStatus(repository, runner, name), json);
       return 0;
     }
-    return await withEnvironmentLock(
-      repository.root,
-      environmentName,
-      async () => {
-        if (action === "up") await appUp(repository, runner, name);
-        else if (action === "down") await appDown(repository, runner, name);
-        else throw new Error(`unknown app action: ${action ?? ""}`);
-        return 0;
-      },
-    );
+    return await mutate(`app ${action} ${name}`, async (runner) => {
+      if (action === "up") await appUp(repository, runner, name);
+      else if (action === "down") await appDown(repository, runner, name);
+      else throw new Error(`unknown app action: ${action ?? ""}`);
+      return 0;
+    });
   }
   if (command === "local") {
-    return await withEnvironmentLock(
-      repository.root,
-      environmentName,
-      async () => {
-        if (action === "up") await localUp(repository, runner);
-        else if (action === "down")
-          await localDown(repository, runner, boolFlag(parsed, "prune"));
-        else throw new Error(`unknown local action: ${action ?? ""}`);
-        return 0;
-      },
-    );
+    return await mutate(`local ${action}`, async (runner) => {
+      if (action === "up") await localUp(repository, runner);
+      else if (action === "down")
+        await localDown(repository, runner, boolFlag(parsed, "prune"));
+      else throw new Error(`unknown local action: ${action ?? ""}`);
+      return 0;
+    });
   }
   if (command === "tunnel") {
     if (action === "status") {
       print(await tunnelStatus(repository), json);
       return 0;
     }
-    return await withEnvironmentLock(
-      repository.root,
-      environmentName,
-      async () => {
-        if (action === "start")
-          print(await startLocalTunnel(repository, runner), json);
-        else if (action === "stop") {
-          await stopLocalTunnel(repository, runner);
-          print({ status: "stopped" }, json);
-        } else throw new Error(`unknown tunnel action: ${action ?? ""}`);
-        return 0;
-      },
-    );
+    return await mutate(`tunnel ${action}`, async (runner) => {
+      if (action === "start")
+        print(await startLocalTunnel(repository, runner), json);
+      else if (action === "stop") {
+        await stopLocalTunnel(repository, runner);
+        print({ status: "stopped" }, json);
+      } else throw new Error(`unknown tunnel action: ${action ?? ""}`);
+      return 0;
+    });
   }
   if (command === "secrets") {
     if (action !== "sync")
       throw new Error(`unknown secrets action: ${action ?? ""}`);
-    return await withEnvironmentLock(
-      repository.root,
-      environmentName,
-      async () => {
-        const count = await syncLocalSecrets(repository, runner);
-        print({ status: "synced", files: count }, json);
-        return 0;
-      },
-    );
+    return await mutate(`secrets ${action}`, async (runner) => {
+      const count = await syncLocalSecrets(repository, runner);
+      print({ status: "synced", files: count }, json);
+      return 0;
+    });
   }
   if (command === "trust") {
     if (action !== "install")
       throw new Error(`unknown trust action: ${action ?? ""}`);
-    return await withEnvironmentLock(
-      repository.root,
-      environmentName,
-      async () => {
-        await installLocalTrust(repository, runner);
-        print(
-          { status: "installed", issuer: repository.environment.gateway.name },
-          json,
-        );
-        return 0;
-      },
-    );
+    return await mutate(`trust ${action}`, async (runner) => {
+      await installLocalTrust(repository, runner);
+      print(
+        { status: "installed", issuer: repository.environment.gateway.name },
+        json,
+      );
+      return 0;
+    });
   }
   throw new Error(`unknown command: ${command}\n\n${usage}`);
 }

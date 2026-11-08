@@ -95,6 +95,13 @@ lifecycle and capability contracts.
 
 ## Commands
 
+Every mutating command appends to an operations journal at
+`.kore/state/journal/<environment>.jsonl` (gitignored). The journal records the
+command, each external process it ran (redacting secret-looking flag values,
+never process input or environment), and the outcome. If the journal cannot be
+written at the start, the mutation does not run. Run `kore journal` to see
+recent operations and any that were interrupted.
+
 Run `kore --help` for every flag; the usage text in `tools/kore/src/cli/cli.ts`
 is the source of truth.
 
@@ -109,3 +116,4 @@ is the source of truth.
 | `kore tunnel`   | Starts, stops, or reports the managed Minikube tunnel.                          |
 | `kore secrets`  | Syncs local secrets, including the generated API token, into the cluster.       |
 | `kore trust`    | Installs the local certificate authority before the Gateway is configured.      |
+| `kore journal`  | Lists recent mutating operations and flags interrupted ones. Read-only.         |
