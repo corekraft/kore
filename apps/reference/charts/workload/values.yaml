@@ -1,9 +1,15 @@
-image: {repository: kore/reference, tag: 0.1.0, pullPolicy: IfNotPresent}
+image: { repository: kore/reference, tag: 0.1.0, pullPolicy: IfNotPresent }
 platform:
   secretStore: platform-secrets
-  gateway: {name: kore-gateway, namespace: kore-system, hostname: REQUIRED}
+  gateway: { name: kore-gateway, namespace: kore-system, hostname: REQUIRED }
   otlpEndpoint: http://otel-collector.observability.svc:4318
 resources:
-  requests: {cpu: 25m, memory: 64Mi}
-  limits: {cpu: 250m, memory: 256Mi}
+  requests: { cpu: 25m, memory: 64Mi }
+  limits: { cpu: 250m, memory: 256Mi }
 
+database:
+  # The connection Secret's passwordSecretRef names the Secret that holds the
+  # password; Helm cannot dereference it, so the chart is told the same name.
+  passwordSecret: { name: reference-db-app, key: password }
+migrate:
+  activeDeadlineSeconds: 600
