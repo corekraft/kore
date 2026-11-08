@@ -38,18 +38,18 @@ cluster.
 
 ### Work
 
-- [ ] Add `.github/workflows/check.yml`, run on `pull_request` and on `push` to
+- [x] Add `.github/workflows/check.yml`, run on `pull_request` and on `push` to
       `main`. Run the same checks as the commit and stop hooks: `npm ci` in
       `tools/kore`, `npm --prefix tools/kore run check`, `mise run test`,
       `mise run test-hooks`, `mise run test-opa`, `mise run validate`, and
       `mise run kb-check -- --strict`.
-- [ ] Install tools through mise from `.mise.toml`, limited to what the checks
+- [x] Install tools through mise from `.mise.toml`, limited to what the checks
       need (`node`, `npm`, `opa`), so CI uses the same pinned versions as a
       developer.
-- [ ] Pin every third-party action by full commit SHA, with the release tag in a
+- [x] Pin every third-party action by full commit SHA, with the release tag in a
       trailing comment. Give the workflow `permissions: contents: read` and no
       secrets.
-- [ ] No step calls a model, needs a cluster, or reaches the network beyond
+- [x] No step calls a model, needs a cluster, or reaches the network beyond
       installing pinned tools and packages.
 
 ### Exit Criteria
@@ -57,7 +57,7 @@ cluster.
 - [ ] The workflow passes on this branch's pull request.
 - [ ] A commit that breaks any one check fails the workflow at that step. Show
       this once on a throwaway branch and record the result.
-- [ ] `grep -E 'uses: [^@]+@[^0-9a-f]' .github/workflows/*.yml` matches nothing.
+- [x] `grep -E 'uses: [^@]+@[^0-9a-f]' .github/workflows/*.yml` matches nothing.
 
 Making the check required on `main` changes repository settings. That is
 outward-facing, so it is proposed to the user and not done by an agent.
@@ -165,3 +165,20 @@ outward-facing, so it is proposed to the user and not done by an agent.
   for a while.
 
 ## Results
+
+- Step 1: `.github/workflows/check.yml` runs the seven checks in order on
+  `pull_request` and `push` to `main`. Actions are pinned to
+  `actions/checkout` v7.0.1 (`3d3c42e5`) and `jdx/mise-action` v5.2.7
+  (`b44d12e7`), the latest releases, resolved with `gh api`. mise installs
+  only `node npm opa`.
+- Step 1: `.claude/hooks/workflow.test.mjs` guards the workflow: SHA pins,
+  triggers, read-only permissions, no secrets, step list and order, tool
+  subset, and no model calls. It failed first because the file was missing.
+- Step 1: All seven commands pass locally in this worktree, and the exit-criteria
+  `grep` matches nothing.
+- Step 1: The checks also use the runner's own `git` (for `kb-check`), which is
+  not installed through mise.
+- Step 1 (pending, needs a push): the workflow passing on this branch's pull
+  request, and the throwaway failing branch. Both exit criteria stay unticked
+  until the user approves a push. Making the check required on `main` is also
+  pending the user.
