@@ -638,7 +638,7 @@ and negative tests.
 - [ ] All application images are pulled from the platform registry by digest and
       verified at admission against the authorized release automation identity.
       _Partial: images are deployed by digest and verified client-side by `kore app
-    up`, not at admission, and the signer is the local key._
+  up`, not at admission, and the signer is the local key._
 
 ## Step 13: Complete Lifecycle Orchestration
 
@@ -862,8 +862,32 @@ explain what is missing. Changes:
   conflicts with the `core` phase installing `kore-postgresql-api` and the OPA
   authorizer during bootstrap.
 
-Next: fix the four safety defects, then select and pin Sigstore Policy Controller
-(Step 7), which unblocks Step 9 enrollment and the bootstrap gate.
+### 2026-11-07 follow-up work
+
+Tracked in [PR #9](https://github.com/corekraft/kore/pull/9). Each item is written
+test-first, on its own worktree branch, and merged back after review.
+
+- [ ] Make retained-data discovery fail closed: treat only "resource type not
+      installed" as empty, and fail the destroy on any other kubectl error.
+- [ ] Split `kore local down --prune` so purging retained data needs its own
+      opt-in, separate from destroy consent.
+- [ ] Detect and recover a stale environment lock left by a killed run, without
+      ever breaking a lock held by a live process.
+- [ ] Keep the local Cosign private key off disk in plaintext, and record the
+      decision in ADR 0015.
+- [ ] Select and pin the latest Sigstore Policy Controller; add it to the
+      component catalog, version catalog, compatibility matrix, and release graph
+      as a bootstrap release with no `ClusterImagePolicy` enforcement yet.
+- [ ] Upgrade every pinned platform dependency (Kubernetes, controllers, charts,
+      images, composition functions, base images) to its latest release, and record
+      compatibility evidence in `infra/catalog/compatibility.md`.
+- [ ] Upgrade every pinned toolchain dependency (`.mise.toml` tools, CLI npm
+      devDependencies, GitHub Action SHAs) to its latest release.
+- [ ] After the upgrades, rerun the live bootstrap on a fresh profile before the
+      Step 7 rows claim the new versions are live-validated.
+
+Next: finish the follow-up work above, then install Sigstore Policy Controller
+enforcement (Step 7), which unblocks Step 9 enrollment and the bootstrap gate.
 
 ## Progress Record
 
