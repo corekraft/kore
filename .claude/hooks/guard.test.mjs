@@ -328,6 +328,18 @@ test("bare-glob: quoted, escaped, parameter-expansion, and heredoc text pass", (
   }
 });
 
+test("bare-glob: special parameters like $? and $* are not globs", () => {
+  for (const command of [
+    "echo EXIT $?",
+    'echo "EXIT $?"',
+    "echo $# args: $* $@",
+    "false; echo status=$?",
+  ]) {
+    assert.equal(bash(command).action, "allow", command);
+  }
+  assert.equal(bash("echo $? src/*.ts").rule, "bare-glob");
+});
+
 test("equals-word: an unquoted word starting with = warns, since zsh expands it as a command lookup", () => {
   for (const [command, word] of [
     ["echo =====", "====="],

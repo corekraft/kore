@@ -426,6 +426,9 @@ const WORD_BREAK = new Set([
   ">",
 ]);
 
+// $?, $*, $#, $@ and the other special parameters expand before globbing.
+const SPECIAL_PARAMETER = /^[?*#@!$0-9-]$/;
+
 /** Raw shell words, noting an unquoted * or ? and an unquoted leading =. */
 function rawWords(command) {
   const words = [];
@@ -449,6 +452,8 @@ function rawWords(command) {
       start().text += command[++i] ?? "";
     } else if (WORD_BREAK.has(char)) {
       end();
+    } else if (char === "$" && SPECIAL_PARAMETER.test(command[i + 1] ?? "")) {
+      start().text += char + command[++i];
     } else {
       start();
       if (char === "*" || char === "?") word.glob = true;
