@@ -42,6 +42,26 @@ test("local trusts its local signing key and managed-example a pinned release wo
   await validateRepository(managed);
 });
 
+test("every managed-example subject is the release workflow's real identity on an exact tag", async () => {
+  const { root } = await loadRepository("local");
+  const workflow = await readFile(
+    join(root, ".github", "workflows", "release.yaml"),
+    "utf8",
+  );
+  const template = /^ {6}IDENTITY: (\S+)\$\{\{ github\.ref_name \}\}$/m.exec(
+    workflow,
+  )?.[1];
+  assert.ok(template, "release.yaml declares IDENTITY from the pushed tag");
+  const managed = await loadRepository("managed-example");
+  const subjects = managed.imageTrustValues?.["trust"] as Trust;
+  const listed = subjects["subjects"] as string[];
+  assert.ok(listed.length > 0);
+  for (const subject of listed) {
+    assert.ok(subject.startsWith(template), subject);
+    assert.match(subject.slice(template.length), /^v\d+\.\d+\.\d+$/);
+  }
+});
+
 test("a missing authority is rejected with the fix", async () => {
   const repository = await withTrust("local", () => undefined);
   await assert.rejects(

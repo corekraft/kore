@@ -88,7 +88,7 @@ run = "semgrep --test --metrics=off --disable-version-check infra/policies/semgr
 
 [tasks.scan-workflows]
 description = "Lint GitHub workflows with actionlint and audit them for security issues with zizmor (offline)"
-run = ["actionlint .github/workflows/check.yml", "zizmor --offline --no-progress .github/workflows"]
+run = ["actionlint .github/workflows/check.yml .github/workflows/release.yaml","zizmor --offline --no-progress .github/workflows"]
 
 [tasks.scan-dockerfiles]
 description = "Lint Dockerfiles with hadolint"

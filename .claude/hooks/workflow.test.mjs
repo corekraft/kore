@@ -9,7 +9,7 @@ const workflows = join(root, ".github", "workflows");
 const check = () => readFileSync(join(workflows, "check.yml"), "utf8");
 
 test("every third-party action is pinned by full commit SHA with a release tag comment", () => {
-  const files = readdirSync(workflows).filter((f) => f.endsWith(".yml"));
+  const files = readdirSync(workflows).filter((f) => /\.ya?ml$/.test(f));
   assert.ok(files.length > 0);
   for (const file of files) {
     const uses = readFileSync(join(workflows, file), "utf8")
@@ -83,4 +83,64 @@ test("mise tasks cannot install tools beyond the ones each job installed", () =>
 
 test("checkout fetches full history, so kb-check's stale-document dates are real", () => {
   assert.match(check(), /^\s+fetch-depth: 0\s*$/m);
+});
+
+const release = () => readFileSync(join(workflows, "release.yaml"), "utf8");
+const subject =
+  "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/";
+
+test("the release workflow triggers only on version tags", () => {
+  const text = release();
+  assert.match(
+    text,
+    /^on:\n {2}push:\n {4}tags: \["v\[0-9\]\+\.\[0-9\]\+\.\[0-9\]\+"\]\n\n/m,
+  );
+  assert.doesNotMatch(text, /pull_request|workflow_dispatch|branches:/);
+});
+
+test("the release workflow grants write scopes to its job only, never the workflow", () => {
+  const text = release();
+  assert.match(text, /^permissions:\n {2}contents: read\n/m);
+  const job = text.slice(text.indexOf("jobs:"));
+  assert.match(job, /^ {6}id-token: write$/m);
+  assert.match(job, /^ {6}packages: write$/m);
+  assert.doesNotMatch(text.slice(0, text.indexOf("jobs:")), /: write/);
+});
+
+test("the release workflow signs and verifies by digest with an exact identity", () => {
+  const text = release();
+  assert.match(text, /cosign sign --yes "\$\{?IMAGE\}?@\$\{?DIGEST\}?"/);
+  assert.doesNotMatch(text, /cosign sign[^\n]*:\$\{?\w*TAG/);
+  assert.match(
+    text,
+    /cosign verify \\\n\s+--certificate-identity "\$IDENTITY"/,
+  );
+  assert.match(text, /--certificate-oidc-issuer "\$ISSUER"/);
+  assert.match(
+    text,
+    /^ {6}ISSUER: https:\/\/token\.actions\.githubusercontent\.com$/m,
+  );
+  assert.doesNotMatch(text, /-regexp/);
+  assert.doesNotMatch(text, /--insecure-ignore-tlog|--key\b/);
+  assert.ok(
+    text.includes(`IDENTITY: ${subject}\${{ github.ref_name }}`),
+    "identity is this workflow on the pushed tag",
+  );
+});
+
+test("the release workflow names the registry once and emits an image lock", () => {
+  const text = release();
+  assert.equal(text.match(/ghcr\.io\/corekraft\/kore\/reference/g)?.length, 1);
+  assert.match(text, /apps\/reference/);
+  assert.match(text, /version: 1|"version":\s*1|version:1/);
+  assert.match(text, /authorizedSigners/);
+  assert.match(text, /upload-artifact@[0-9a-f]{40} # v\d+\.\d+\.\d+/);
+  assert.doesNotMatch(text, /secrets\.(?!GITHUB_TOKEN)/);
+});
+
+test("the release workflow checks out without credentials and installs only cosign", () => {
+  const text = release();
+  assert.match(text, /persist-credentials: false/);
+  assert.match(text, /install_args: cosign$/m);
+  assert.match(text, /cache: false/);
 });

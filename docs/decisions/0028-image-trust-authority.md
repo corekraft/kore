@@ -45,7 +45,7 @@ workflow (keyless Cosign); local keeps its cluster-lifetime key.
 - Enforcement is not active; enrolling namespaces is the next step.
 - The local registry host and the public-key Secret location were open here and
   are settled in the refinement below.
-- The release workflow that signs by digest does not exist yet.
+- The release workflow that signs by digest is added in the release refinement below.
 
 ## Refinement (2026-11-08): local public key and registry host
 
@@ -85,3 +85,30 @@ delete service oci-registry`), logs the rewiring to stderr, and reconciles the
 - Nothing is enrolled; enforcement is still off.
 
 > Refined by [ADR 0031](0031-registry-address-platform-variable.md): the registry address is now the environment's `registry.address`, derived into the Service pin and the `images` glob; overlays no longer repeat it.
+
+## Refinement (2026-11-08): release workflow and exact identities
+
+`.github/workflows/release.yaml` is the only keyless signer. It runs on push of a
+`vX.Y.Z` tag, builds `apps/reference`, pushes it to `IMAGE` (one variable,
+`ghcr.io/corekraft/kore/reference`, the managed-example target), then signs the
+pushed **digest** with keyless Cosign and verifies it with
+`--certificate-identity` set to the exact workflow-on-tag subject and
+`--certificate-oidc-issuer` set to the GitHub issuer. It never uses regexp flags
+or a tag-based reference. The workflow writes `images.lock.json` (same format as
+`infra/catalog/images.lock.json`, signer = the identity) as a run artifact; a
+reviewer copies the digest into the catalog lock and adds the tag's subject to the
+environment's `trust.subjects` in the same reviewed change.
+
+- Permissions: `contents: read` for the workflow; the single job adds
+  `packages: write` (push to GHCR) and `id-token: write` (keyless). Actions are
+  pinned by SHA; Cosign comes from the mise pin (3.1.4), not an installer action.
+- Each accepted release tag is its own subject, e.g.
+  `.../release.yaml@refs/tags/v0.1.0`. Validation still rejects regexps,
+  wildcards, branches, pull requests, and other repositories; a test ties the
+  committed subjects to the workflow's real identity format.
+- **Tag protection is outside the repository.** A ruleset restricting creation,
+  updates, and deletion of `v*` tags to maintainers must be configured in GitHub
+  settings. Without it, anyone able to push a tag can obtain a trusted signature,
+  so the exact-subject check is only as strong as that ruleset.
+- Not covered: mirroring upstream platform images into the registry (remaining),
+  and no tag has been pushed or workflow run yet.
