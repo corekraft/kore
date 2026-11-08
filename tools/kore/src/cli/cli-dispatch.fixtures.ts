@@ -17,7 +17,7 @@ export const repository = {
 export const appModule = () => ({
   appDown: vi.fn(async () => {
     dispatch.push("appDown");
-    return [];
+    return { retained: [], warnings: [] };
   }),
   appStatus: vi.fn(
     async () => (dispatch.push("appStatus"), { status: "ready" }),

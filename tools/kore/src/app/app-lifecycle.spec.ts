@@ -29,10 +29,30 @@ test("app down uninstalls the named workload release", async () => {
       "--namespace=reference",
       "--kube-context",
       "kore-local",
+      "--ignore-not-found",
       "--wait",
       "--timeout=10m",
     ],
   });
+});
+
+test("app down warns instead of failing when the retained-data query fails", async () => {
+  const repository = await loadRepository("local");
+  const runner: Runner = {
+    async run(command, args) {
+      if (command === "kubectl" && args.includes("-l")) {
+        throw new Error("Unable to connect to the server");
+      }
+      return { stdout: "kube-system", stderr: "", code: 0 };
+    },
+  };
+
+  const report = await appDown(repository, runner, "reference");
+
+  expect(report.retained).toEqual([]);
+  expect(report.warnings).toHaveLength(1);
+  expect(report.warnings[0]).toContain("Unable to connect to the server");
+  expect(report.warnings[0]).toContain("retained");
 });
 
 test("app down reports retained data in the application namespace and never deletes it", async () => {
@@ -62,8 +82,9 @@ test("app down reports retained data in the application namespace and never dele
     },
   };
 
-  const retained = await appDown(repository, runner, "reference");
+  const { retained, warnings } = await appDown(repository, runner, "reference");
 
+  expect(warnings).toEqual([]);
   expect(retained).toEqual([
     "persistentvolumeclaim/reference-db-1",
     "postgresqlinstance.platform.kore.dev/reference-db",

@@ -97,7 +97,14 @@ export async function appCommand(context: CommandContext): Promise<number> {
       up: async (_context, mutationRunner) =>
         await appUp(repository, mutationRunner, name),
       down: async (_context, mutationRunner) => {
-        const retained = await appDown(repository, mutationRunner, name);
+        const { retained, warnings } = await appDown(
+          repository,
+          mutationRunner,
+          name,
+        );
+        for (const warning of warnings) {
+          process.stderr.write(`warning: ${warning}\n`);
+        }
         if (retained.length) {
           print({ name, retained }, json);
         }
