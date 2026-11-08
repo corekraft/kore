@@ -881,7 +881,7 @@ test-first, on its own worktree branch, and merged back after review.
 - [ ] Upgrade every pinned platform dependency (Kubernetes, controllers, charts,
       images, composition functions, base images) to its latest release, and record
       compatibility evidence in `infra/catalog/compatibility.md`.
-- [ ] Upgrade every pinned toolchain dependency (`.mise.toml` tools, CLI npm
+- [x] Upgrade every pinned toolchain dependency (`.mise.toml` tools, CLI npm
       devDependencies, GitHub Action SHAs) to its latest release.
 - [ ] After the upgrades, rerun the live bootstrap on a fresh profile before the
       Step 7 rows claim the new versions are live-validated.
