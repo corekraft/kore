@@ -25,6 +25,10 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`infra/plans/4-knowledge.md`](../infra/plans/4-knowledge.md) — done: this
   index, document frontmatter, upward links, and `kb-check`. Read before adding
   or restructuring documents.
+- [`infra/plans/5-self-maintenance.md`](../infra/plans/5-self-maintenance.md) —
+  active: CI, a deterministic retrospective scan, skill pruning and rule
+  promotion, eval history, and stale-document checks. Read before changing CI,
+  `retro`, `eval.mjs`, or `kb-check`.
 
 ## Decisions
 
