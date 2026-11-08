@@ -191,9 +191,6 @@
         .board {
           grid-template-columns: repeat(2, 1fr);
         }
-        .board .tile.lead {
-          grid-column: span 2;
-        }
       }
       @media (min-width: 900px) {
         .board {
@@ -255,6 +252,32 @@
       .pill.deferred {
         background: var(--deferred-soft);
         color: var(--deferred);
+      }
+
+      .pill.shared {
+        background: var(--deferred-soft);
+        color: var(--deferred);
+      }
+      .pill.dedicated {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      td .pill {
+        display: inline-block;
+        margin-right: 6px;
+      }
+      table.wide {
+        min-width: 860px;
+      }
+      .tool {
+        display: grid;
+        gap: 10px;
+        align-content: start;
+        padding: 18px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        min-width: 0;
       }
 
       /* Personas */
@@ -689,9 +712,10 @@
             software.</strong
           >
           Register a service and get an HTTPS address, a backend that keeps
-          secrets, a database, identity, telemetry, and a clear view of its
-          health, all scoped to the organization, with no need to know
-          Kubernetes or a cloud provider.
+          secrets, the data stores it needs, identity, telemetry, a developer
+          portal, delivery from git, and a clear view of its health, all scoped
+          to the organization, with no need to know Kubernetes or a cloud
+          provider.
         </blockquote>
         <p class="lede">
           This sets direction for the plans in
@@ -709,7 +733,7 @@
 
       <section aria-labelledby="board">
         <div class="section-head">
-          <span class="eyebrow">Seven pillars</span>
+          <span class="eyebrow">Eight pillars</span>
           <h2 id="board">The board</h2>
         </div>
         <div class="board">
@@ -764,12 +788,35 @@
             </div>
           </article>
           <article class="tile">
-            <h3>An org-scoped portal</h3>
+            <h3>Every dependency, scoped to the organization</h3>
             <p>
-              Each organization sees its own tree of sub-orgs, services,
-              environments, and health, and nothing outside it.
+              Object storage, a durable message bus, document, relational, and
+              key-value stores are claims against platform APIs, isolated by
+              organization.
             </p>
-            <div class="chips"><span class="pill new">New: portal</span></div>
+            <div class="chips">
+              <a
+                class="chip"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0008-crossplane-postgresql-platform-api.md"
+                >ADR 0008</a
+              >
+              <a
+                class="chip"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0003-separate-claims-and-retain-data.md"
+                >ADR 0003</a
+              >
+            </div>
+          </article>
+          <article class="tile">
+            <h3>A developer portal out of the box</h3>
+            <p>
+              Backstage and Argo CD come installed and wired to the tenancy
+              model: each organization sees its own catalog and delivers from
+              git.
+            </p>
+            <div class="chips">
+              <span class="pill new">New: portal, GitOps</span>
+            </div>
           </article>
           <article class="tile">
             <h3>Business and developer platform</h3>
@@ -1025,7 +1072,10 @@
               </tr>
               <tr>
                 <td>Capability</td>
-                <td>Existing claims such as <code>PostgreSQLInstance</code></td>
+                <td>
+                  Data claims such as <code>PostgreSQLInstance</code>, and the
+                  other <a href="#data">data services</a>
+                </td>
                 <td>
                   Unchanged: services claim capabilities, and environments
                   choose the implementation
@@ -1243,7 +1293,10 @@
               <b>Internal services</b><small>mTLS, workload identity</small>
             </div>
             <div class="box">
-              <b>PostgreSQL claim</b><small>Retained by default</small>
+              <b>Data claims</b
+              ><small
+                >PostgreSQL, object store, Kafka, document, key-value</small
+              >
             </div>
             <div class="box">
               <b>Secrets</b><small>ExternalSecret, never in the browser</small>
@@ -1321,19 +1374,220 @@
         </div>
       </section>
 
+      <section aria-labelledby="data">
+        <div class="section-head">
+          <span class="eyebrow">Data services</span>
+          <h2 id="data">Every dependency, scoped to the organization</h2>
+          <p class="lede">
+            Every dependency a service needs is a claim against a platform API,
+            owned by the service and scoped to its organization. The service
+            receives a connection Secret and speaks the standard protocol; the
+            environment picks the implementation, as the PostgreSQL API already
+            does (<a
+              href="https://github.com/corekraft/kore/blob/main/docs/decisions/0008-crossplane-postgresql-platform-api.md"
+              >ADR 0008</a
+            >).
+          </p>
+        </div>
+        <div class="table-scroll">
+          <table class="wide">
+            <thead>
+              <tr>
+                <th>Capability</th>
+                <th>Contract the app sees</th>
+                <th>Local (candidates)</th>
+                <th>Managed substitutes</th>
+                <th>Default tenancy</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Relational store</td>
+                <td>PostgreSQL protocol, <code>PostgreSQLInstance</code></td>
+                <td>CloudNativePG <span class="pill plan">exists</span></td>
+                <td>Amazon RDS, Cloud SQL, Azure Database for PostgreSQL</td>
+                <td><span class="pill dedicated">Instance per claim</span></td>
+              </tr>
+              <tr>
+                <td>Object store</td>
+                <td>S3 API, a bucket claim</td>
+                <td>Rook Ceph object gateway, SeaweedFS, or Garage</td>
+                <td>Amazon S3, Google Cloud Storage, Cloudflare R2</td>
+                <td>
+                  <span class="pill shared">Shared store</span> bucket per
+                  claim, service policy
+                </td>
+              </tr>
+              <tr>
+                <td>Durable message bus</td>
+                <td>Kafka protocol, topic and user claims</td>
+                <td>Strimzi</td>
+                <td>Amazon MSK, Confluent Cloud</td>
+                <td>
+                  <span class="pill shared">Shared cluster</span> topics and
+                  ACLs prefixed by org and service
+                </td>
+              </tr>
+              <tr>
+                <td>Document store</td>
+                <td>MongoDB wire protocol, a database claim</td>
+                <td>FerretDB, or the Percona Operator for MongoDB</td>
+                <td>MongoDB Atlas, Amazon DocumentDB</td>
+                <td><span class="pill dedicated">Instance per claim</span></td>
+              </tr>
+              <tr>
+                <td>Key-value store</td>
+                <td>Redis protocol, a cache or store claim</td>
+                <td>Valkey</td>
+                <td>
+                  Amazon ElastiCache, Google Memorystore (both offer Valkey)
+                </td>
+                <td><span class="pill dedicated">Instance per claim</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="split">
+          <ul class="rules">
+            <li>
+              <strong>Scoped by organization.</strong
+              ><span
+                >Every claim names its service, and through it its organization.
+                Credentials are per service, arrive as a Secret in the service's
+                namespace, and reach only that service's resources.</span
+              >
+            </li>
+            <li>
+              <strong>Sharing is a grant.</strong
+              ><span
+                >Another service in the same organization can read a topic or
+                bucket once its owner grants it. Another tenant never can unless
+                an operator grants it.</span
+              >
+            </li>
+            <li>
+              <strong>Quotas per organization.</strong
+              ><span
+                >The number of claims, storage, and throughput are limited per
+                organization, inherited down the tree, and only tightened.</span
+              >
+            </li>
+          </ul>
+          <ul class="rules">
+            <li>
+              <strong>Shared and dedicated tiers.</strong
+              ><span
+                >The shared tier partitions one store with its own access
+                control, such as Kafka prefix ACLs and quotas or bucket
+                policies. The dedicated tier gives an organization its own
+                instance or cluster.</span
+              >
+            </li>
+            <li>
+              <strong>Retained and recoverable.</strong
+              ><span
+                >Data is retained by default, and each capability gets export
+                and restore, as PostgreSQL has (<a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0029-local-export-and-restore.md"
+                  >ADR 0029</a
+                >).</span
+              >
+            </li>
+            <li>
+              <strong>Open source locally.</strong
+              ><span
+                >The MongoDB server is licensed under the SSPL and Redis under
+                RSALv2, SSPL, or AGPLv3, so the local candidates are open
+                implementations of the same protocols, FerretDB and Valkey.
+                Upstream MongoDB or Redis would be an exception recorded in an
+                ADR.</span
+              >
+            </li>
+          </ul>
+        </div>
+      </section>
+
       <section aria-labelledby="portal">
         <div class="section-head">
           <span class="eyebrow">The portal</span>
-          <h2 id="portal">One stop shop, scoped to the organization</h2>
+          <h2 id="portal">Backstage and Argo CD, out of the box</h2>
           <p class="lede">
-            The portal is how organizations use Kore without a terminal. It
-            shows only what the signed-in user's organizations may see. It reads
-            cluster and repository state, and every change it makes becomes a
-            reviewed change to desired state, never a direct edit to the
-            cluster. It is itself a Kore service, a static frontend and a BFF
-            owned by the platform's own organization, and it reads the same
-            model as <code>kore</code>.
+            The platform installs, configures, and upgrades its developer portal
+            and its delivery tool like any other component. Organizations use
+            Kore through them without a terminal, and each user sees only their
+            own organizations. Backstage reads cluster and repository state, and
+            every change it makes becomes a reviewed change to desired state
+            that Argo CD or <code>kore</code> applies, never a direct edit to
+            the cluster.
           </p>
+        </div>
+        <div class="split">
+          <div class="tool">
+            <h3>Backstage</h3>
+            <ul class="points">
+              <li>
+                <strong>The catalog comes from Kore's model.</strong>
+                Organizations become groups, services become components, and
+                data claims become resources, never a hand-kept copy.
+              </li>
+              <li>
+                <strong>Software Templates are the golden path.</strong> A
+                template creates the repository from the static frontend and
+                Kotlin BFF templates, registers the <code>Service</code>, and
+                gives it its host, as a reviewed change.
+              </li>
+              <li>
+                <strong>Plugins show the running service.</strong> Kubernetes
+                and Argo CD plugins show rollout and sync, TechDocs publishes
+                docs, and links lead to dashboards.
+              </li>
+              <li>
+                <strong>Scoped by organization.</strong> Permission policies key
+                on the organization, so each user sees their tree and nothing
+                outside it.
+              </li>
+              <li>
+                <strong>The business view is a Kore plugin</strong> for
+                organizations, members, domains, and usage.
+              </li>
+            </ul>
+          </div>
+          <div class="tool">
+            <h3>Argo CD</h3>
+            <ul class="points">
+              <li>
+                <strong>Delivers tenant services from git.</strong> Tenant code
+                and charts live in tenant repositories; an ApplicationSet
+                creates an Application per service environment from the
+                registrations in Kore's desired state.
+              </li>
+              <li>
+                <strong>An AppProject per organization</strong> limits which
+                repositories it deploys from, which namespaces it deploys to,
+                and which kinds of resources it may create.
+              </li>
+              <li>
+                <strong>Still deploys only what was verified.</strong> Argo CD
+                syncs digest references, and image admission still rejects
+                anything not signed by release automation (<a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0005-release-automation-signed-image-trust.md"
+                  >ADR 0005</a
+                >).
+              </li>
+              <li>
+                <strong>A new owner needs an ADR.</strong> Plan 1 deferred
+                GitOps, and Helm and the catalog own every release today (<a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0002-tool-responsibility-boundaries.md"
+                  >ADR 0002</a
+                >,
+                <a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0011-catalog-owned-releases-and-versions.md"
+                  >ADR 0011</a
+                >). Handing Argo CD tenant workloads is recorded before it is
+                built.
+              </li>
+            </ul>
+          </div>
         </div>
         <div class="table-scroll">
           <table>
@@ -1354,7 +1608,7 @@
                 <td>Services</td>
                 <td>Catalog of every service, its owner, and its URL</td>
                 <td>
-                  Create from the golden-path template; deploy a signed release
+                  Create from a Software Template; follow the Argo CD sync
                 </td>
               </tr>
               <tr>
@@ -1367,7 +1621,9 @@
               <tr>
                 <td>Data</td>
                 <td>What data is retained, and for whom</td>
-                <td>Database claims, connection status, export and restore</td>
+                <td>
+                  Every data claim, its connection status, export and restore
+                </td>
               </tr>
               <tr>
                 <td>Secrets</td>
@@ -1389,12 +1645,12 @@
               <tr>
                 <td>Usage and cost</td>
                 <td>Usage against quotas, per organization</td>
-                <td>Resource use per service and environment</td>
+                <td>Resource and data use per service and environment</td>
               </tr>
               <tr>
                 <td>Audit</td>
                 <td>Who changed what, and when</td>
-                <td>Operation history for their services</td>
+                <td>Operation and sync history for their services</td>
               </tr>
             </tbody>
           </table>
@@ -1466,13 +1722,45 @@
                 <td><span class="pill new">New</span></td>
               </tr>
               <tr>
-                <td>Portal</td>
-                <td><span class="pill new">New</span></td>
-              </tr>
-              <tr>
                 <td>
                   Organization domains, service hostnames, and DNS automation
                 </td>
+                <td><span class="pill new">New</span></td>
+              </tr>
+              <tr>
+                <td>Developer portal: Backstage with Kore plugins</td>
+                <td><span class="pill new">New</span></td>
+              </tr>
+              <tr>
+                <td>GitOps delivery of tenant services: Argo CD</td>
+                <td>
+                  <span class="pill new"
+                    >New, deferred in Plan 1 until now</span
+                  >
+                </td>
+              </tr>
+              <tr>
+                <td>Object storage (S3 API)</td>
+                <td><span class="pill new">New</span></td>
+              </tr>
+              <tr>
+                <td>Durable message bus (Kafka)</td>
+                <td>
+                  <span class="pill new"
+                    >New, deferred in Plan 1 until now</span
+                  >
+                </td>
+              </tr>
+              <tr>
+                <td>Document store (MongoDB protocol)</td>
+                <td><span class="pill new">New</span></td>
+              </tr>
+              <tr>
+                <td>Key-value store (Redis protocol)</td>
+                <td><span class="pill new">New</span></td>
+              </tr>
+              <tr>
+                <td>Organization scoping and quotas for every data service</td>
                 <td><span class="pill new">New</span></td>
               </tr>
               <tr>
@@ -1480,9 +1768,7 @@
                 <td><span class="pill new">New</span></td>
               </tr>
               <tr>
-                <td>
-                  GitOps reconciliation, queues, object storage, multi-cluster
-                </td>
+                <td>Multi-cluster mesh and management</td>
                 <td>
                   <a
                     class="pill deferred"
@@ -1512,27 +1798,29 @@
           </li>
           <li class="horizon">
             <span class="eyebrow">Next</span>
-            <h3>Services are first-class and scale</h3>
+            <h3>Services are first-class, delivered from git</h3>
             <p>
               <code>Organization</code> and <code>Service</code> exist as
-              platform APIs; a Kotlin BFF and a static frontend reach HTTPS and
-              scale 1→N.
+              platform APIs; Argo CD delivers a Kotlin BFF and a static frontend
+              that reach HTTPS and scale 1→N; Backstage shows them.
             </p>
           </li>
           <li class="horizon">
             <span class="eyebrow">Then</span>
-            <h3>Many tenants, each in its own lane</h3>
+            <h3>Many tenants, each with its own data</h3>
             <p>
-              Two tenants with nested sub-orgs share a cluster and cannot see or
-              reach each other; quotas hold.
+              Two tenants with nested sub-orgs cannot see or reach each other's
+              services or data; object store, Kafka, document, and key-value
+              claims work beside PostgreSQL.
             </p>
           </li>
           <li class="horizon">
             <span class="eyebrow">Later</span>
             <h3>The one stop shop</h3>
             <p>
-              An organization admin and a developer do their whole job in the
-              portal, through single sign-on.
+              An organization admin and a developer do their whole job in
+              Backstage, through single sign-on, from template to running
+              service.
             </p>
           </li>
           <li class="horizon">
@@ -1553,8 +1841,13 @@
             <h2>Success measures</h2>
             <ul class="points">
               <li>
-                A new service reaches a working HTTPS address in under 15
-                minutes, with no hand edits to the cluster.
+                From a Backstage template to a working HTTPS address takes under
+                15 minutes, with no hand edits to the cluster.
+              </li>
+              <li>
+                A service gets a bucket, a Kafka topic, a document store, a
+                key-value store, and a PostgreSQL database by claim, and a
+                service in another organization cannot reach any of them.
               </li>
               <li>
                 Under load, a BFF scales out and back in by itself, and no
@@ -1592,7 +1885,12 @@
               </li>
               <li>
                 <strong>Not reimplementing controllers.</strong> Tenancy,
-                scaling, and hosting are composed from upstream controllers.
+                scaling, hosting, delivery, and data services are composed from
+                upstream controllers.
+              </li>
+              <li>
+                <strong>Not forking Backstage or Argo CD.</strong> Kore
+                configures them and adds plugins; it carries no patches to them.
               </li>
             </ul>
           </div>
@@ -1638,11 +1936,11 @@
           </li>
           <li>
             <div>
-              <strong>Where tenant code lives</strong
+              <strong>Argo CD's ownership boundary</strong
               ><span
-                >Tenant source lives in tenant repositories. How do registration
-                and signed releases reach Kore's desired state, and does that
-                need the deferred GitOps reconciliation?</span
+                >Argo CD delivers tenant services from git. Does it also take
+                over platform components after bootstrap, and how does that
+                refine ADR 0002 and ADR 0011?</span
               >
             </div>
           </li>
@@ -1658,10 +1956,10 @@
           </li>
           <li>
             <div>
-              <strong>Portal</strong
+              <strong>Backstage tenancy</strong
               ><span
-                >Build a small portal on the golden path, or adopt Backstage and
-                key its permissions to organizations?</span
+                >One Backstage with permission policies keyed to organizations,
+                or one instance per tenant?</span
               >
             </div>
           </li>
@@ -1708,7 +2006,7 @@
               ><span
                 >Which controller checks the TXT record and writes DNS records
                 (ExternalDNS is the candidate), and what happens to a service's
-                hosts when a domain stops verifying or is removed?</span
+                hosts when a domain stops verifying?</span
               >
             </div>
           </li>
@@ -1718,6 +2016,26 @@
               ><span
                 >Which domain hosts organizations that have not added their own,
                 and is it registered on the Public Suffix List?</span
+              >
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Data isolation tiers</strong
+              ><span
+                >For each data service, what does the shared tier share, when
+                does an organization get a dedicated instance, and who
+                decides?</span
+              >
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Data store implementations</strong
+              ><span
+                >Rook Ceph, SeaweedFS, or Garage for the local object store, and
+                FerretDB and Valkey, or upstream MongoDB and Redis recorded as
+                license exceptions?</span
               >
             </div>
           </li>
