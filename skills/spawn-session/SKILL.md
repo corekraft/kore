@@ -11,6 +11,7 @@ The installed `herdr` binary is the authority for syntax; run `herdr --skill` on
 2. **Keep the layout: main session on the left, spawned sessions stacked in one column on the right.** Only the first spawned pane splits horizontally; every later pane splits that column vertically. Always pass `--no-focus` so focus stays on the caller, and read the id from `.result.pane.pane_id`.
    - No spawned pane open yet: `herdr pane split --current --direction right --cwd "$PWD" --no-focus`.
    - Otherwise, split the bottom-most spawned pane down: `herdr pane split <last-pane-id> --direction down --cwd "$PWD" --no-focus`.
+   - After every split or close, equalize the column so each spawned pane gets the same height: `zsh .claude/skills/spawn-session/equalize.zsh`. Each split halves the pane above it, so without this the user has to resize panes by hand to read them.
    - Sessions that run in parallel and edit code each get their own worktree (`git worktree add -b <branch> <scratchpad>/wt-<subject> HEAD`, then `npm ci` in `tools/kore`), passed as `--cwd`, so builds and edits never collide. Merge their branches, then remove the worktrees.
 3. **Pick the model for the role**, by exact ID (aliases drift):
 
