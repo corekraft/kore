@@ -1,14 +1,12 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vitest";
 import { clusterDestroy } from "./cluster.js";
-import {
-  hasVerifiedExport,
-  purgeRetainedResources,
-  retainedResources,
-} from "./retained.js";
+import { hasVerifiedExport } from "./export-manifest.js";
+import { purgeRetainedResources, retainedResources } from "./retained.js";
 import { loadRepository } from "../config/index.js";
 import { CommandError } from "../runtime/index.js";
 import { RecordingRunner } from "../runtime/runner.js";
@@ -112,7 +110,10 @@ test("purge tolerates a PostgreSQL CRD that was never installed", async () => {
 });
 
 test("verified exports allow destroying an unreachable profile without purging data", async () => {
-  const repository = await loadRepository("local");
+  const repository = {
+    ...(await loadRepository("local")),
+    root: await mkdtemp(join(tmpdir(), "kore-retained-")),
+  };
   const exportDirectory = join(
     repository.root,
     ".kore",
@@ -120,19 +121,34 @@ test("verified exports allow destroying an unreachable profile without purging d
     repository.environment.name,
   );
   await mkdir(exportDirectory, { recursive: true });
-  const exportFile = join(exportDirectory, "reference.sql");
-  const exportContents = "CREATE TABLE reference (id integer);\n";
-  await writeFile(exportFile, exportContents);
-  const checksum = join(exportDirectory, "reference.sql.sha256");
+  const artifact = "-----BEGIN AGE ENCRYPTED FILE-----\nabc\n";
+  await writeFile(join(exportDirectory, "reference.sql.age"), artifact);
   await writeFile(
-    checksum,
-    `${createHash("sha256").update(exportContents).digest("hex")}  reference.sql\n`,
+    join(exportDirectory, "reference.sql.age.manifest.json"),
+    JSON.stringify({
+      version: 1,
+      environment: repository.environment.name,
+      createdAt: "2026-11-08T00:00:00.000Z",
+      recipient: "age1x",
+      contents: {
+        kind: "cnpg-database",
+        namespace: "reference",
+        cluster: "reference-db",
+        database: "app",
+        format: "pg_dump-plain",
+      },
+      artifact: {
+        file: "reference.sql.age",
+        sha256: createHash("sha256").update(artifact).digest("hex"),
+        bytes: Buffer.byteLength(artifact),
+      },
+    }),
   );
   const runner = new RecordingRunner();
   try {
     await clusterDestroy(repository, runner, { yes: true, purgeData: false });
   } finally {
-    await rm(exportDirectory, { recursive: true, force: true });
+    await rm(repository.root, { recursive: true, force: true });
   }
   assert.equal(runner.calls.at(-1)?.args[0], "delete");
 });
@@ -215,8 +231,11 @@ test("an unreachable cluster blocks destroy instead of counting as no retained d
   );
 });
 
-test("export verification rejects malformed or mismatched checksum files", async () => {
-  const repository = await loadRepository("local");
+test("export verification rejects malformed or mismatched manifests", async () => {
+  const repository = {
+    ...(await loadRepository("local")),
+    root: await mkdtemp(join(tmpdir(), "kore-retained-")),
+  };
   const exportDirectory = join(
     repository.root,
     ".kore",
@@ -226,20 +245,16 @@ test("export verification rejects malformed or mismatched checksum files", async
   await mkdir(exportDirectory, { recursive: true });
   try {
     await writeFile(
-      join(exportDirectory, "invalid.sha256"),
-      "not a checksum\n",
+      join(exportDirectory, "invalid.manifest.json"),
+      "not json\n",
     );
     await writeFile(
-      join(exportDirectory, "missing-name.sha256"),
-      `${"a".repeat(64)}\n`,
-    );
-    await writeFile(
-      join(exportDirectory, "missing-name"),
-      "different contents",
+      join(exportDirectory, "empty.manifest.json"),
+      JSON.stringify({ version: 1 }),
     );
     assert.equal(await hasVerifiedExport(repository), false);
   } finally {
-    await rm(exportDirectory, { recursive: true, force: true });
+    await rm(repository.root, { recursive: true, force: true });
   }
 });
 

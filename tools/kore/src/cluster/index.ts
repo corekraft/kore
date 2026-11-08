@@ -7,3 +7,6 @@ export {
 } from "./cluster.js";
 export { assertExpectedCluster, ClusterUnavailableError } from "./cluster.js";
 export { retainedResources } from "./retained.js";
+export { exportRetainedData } from "./export.js";
+export { restoreRetainedData } from "./restore.js";
+export { hasVerifiedExport } from "./export-manifest.js";

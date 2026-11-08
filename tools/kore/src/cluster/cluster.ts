@@ -1,10 +1,7 @@
 import type { Environment, Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
-import {
-  hasVerifiedExport,
-  purgeRetainedResources,
-  retainedResources,
-} from "./retained.js";
+import { hasVerifiedExport } from "./export-manifest.js";
+import { purgeRetainedResources, retainedResources } from "./retained.js";
 
 export class ClusterUnavailableError extends Error {
   constructor(message: string, options?: { cause?: unknown }) {
