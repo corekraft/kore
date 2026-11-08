@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: reference-app
+  namespace: kore-secret-source
+  labels: {}
+type: Opaque
+stringData: {password: x}
