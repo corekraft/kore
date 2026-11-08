@@ -38,7 +38,7 @@ test("local trusts its local signing key and managed-example a pinned release wo
   const local = await loadRepository("local");
   assert.deepEqual(local.imageTrustValues?.["trust"], {
     type: "key",
-    mode: "warn",
+    mode: "enforce",
     keyRef: { name: "kore-local-signing-pub", namespace: "cosign-system" },
   });
   const managed = await loadRepository("managed-example");
@@ -317,6 +317,7 @@ test("upstream images get their own static policy and never widen the internal-i
   assert.match(upstream, /static:\s*\n\s*action: pass/);
   assert.match(upstream, /istio\/proxyv2/);
   assert.match(upstream, /ghcr\.io\/cloudnative-pg\/postgresql/);
+  assert.match(upstream, /ghcr\.io\/cloudnative-pg\/cloudnative-pg\*\*/);
   assert.doesNotMatch(upstream, /registry\.example/);
   assert.doesNotMatch(upstream, /glob: "?(\*\*|\*)"?\s*$/m);
 });

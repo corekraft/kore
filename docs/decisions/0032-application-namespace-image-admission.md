@@ -112,3 +112,33 @@ _Live re-verification (orchestrator):_ re-sign, then confirm a
 `--dry-run=server` Deployment and Job of the internal digest pass with no
 warning, an unsigned internal digest warns, and an unmatched image
 (`busybox:1.37`) warns rather than denies while `trust.mode` is `warn`.
+
+## Refinement: promotion of local to enforce (2026-11-08)
+
+Audit before enforce: the live warn-mode run was clean. `busybox:1.37.0` was
+admitted only with a "no matching policies" warning, and the re-signed internal
+image and the upstream static-pass images were admitted with no warning. Local
+`trust.mode` is now `enforce`: both policies render `spec.mode: enforce` and
+`no-match-policy` becomes `deny`. `managed-example` stays at `warn`.
+
+Before flipping, every image that can run in an enrolled application namespace
+(`reference`) was listed and matched against the policies. Ambient mode injects
+no sidecars.
+
+| Image                                                                   | Matched by                                          |
+| ----------------------------------------------------------------------- | --------------------------------------------------- |
+| Workload Deployment and migration Job (`10.96.0.50:5000/reference@…`)   | `kore-platform-images` (signature required)         |
+| Istio waypoint (`docker.io/istio/proxyv2`)                              | `kore-upstream-images`                              |
+| CloudNativePG PostgreSQL instance (`ghcr.io/cloudnative-pg/postgresql`) | `kore-upstream-images`                              |
+| CloudNativePG operator image (`ghcr.io/cloudnative-pg/cloudnative-pg`)  | none before this change; now `kore-upstream-images` |
+
+**Gap found and closed.** CloudNativePG runs its `bootstrap-controller` init
+container from the operator image in every instance and initdb pod; live,
+`reference-db-1` carries `ghcr.io/cloudnative-pg/cloudnative-pg:1.30.1`. Under
+`deny` that pod would have been rejected. `upstreamImages` gains
+`ghcr.io/cloudnative-pg/cloudnative-pg**`, a repository-level static pass like
+the other two. A test renders the pinned chart (0.29.1) and requires the
+`OPERATOR_IMAGE_NAME` repository to appear in the policy, so a chart bump that
+moves the repository fails instead of denying the database at runtime. The
+operator image is tag-pinned by the chart, not digest-pinned; the tightening
+noted under Consequences covers it too.
