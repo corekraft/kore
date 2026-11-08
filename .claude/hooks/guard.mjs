@@ -230,6 +230,46 @@ const sopsBlock = (path) =>
       "Instead, edit it with `sops <path>` or encrypt through `sops --encrypt`.",
   );
 
+// Append-only records: written only by their owning script, never by hand.
+// Audit mode (warn).
+const APPEND_ONLY =
+  /(^|[/\s>'"=])(\.claude\/evals\/history\.jsonl|\.kore\/state\/journal\/[^/\s'"]*\.jsonl)$/;
+const isAppendOnly = (path) => APPEND_ONLY.test(path);
+
+const appendOnlyWarn = (path) =>
+  warn(
+    "append-only",
+    `${path} is an append-only record: .claude/evals/history.jsonl is owned by eval.mjs, ` +
+      `.kore/state/journal/*.jsonl by kore. Instead, append through the owning script (eval.mjs, kore); never edit, truncate, move, or remove it by hand.`,
+  );
+
+const TRUNCATING_REDIRECT = /^(?:\d*|&)>(?!>)(.*)$/;
+
+function checkAppendOnly(name, args, segment) {
+  const rewrites = (args) => args.find((arg) => isAppendOnly(arg));
+  for (let i = 0; i < segment.length; i++) {
+    const match = TRUNCATING_REDIRECT.exec(segment[i]);
+    if (!match) continue;
+    const target = (match[1].replace(/^\|/, "") || segment[i + 1]) ?? "";
+    if (isAppendOnly(target)) return appendOnlyWarn(target);
+  }
+  const inPlace = (arg) =>
+    /^-[A-Za-z]*i/.test(arg) || arg.startsWith("--in-place");
+  const destructive =
+    ["rm", "mv", "truncate"].includes(name) ||
+    (name === "sed" && args.some(inPlace));
+  const operands = args.filter((arg) => !arg.startsWith("-"));
+  const appends = args.some((arg) => arg === "-a" || arg === "--append");
+  const path = destructive
+    ? rewrites(args)
+    : name === "tee" && !appends
+      ? rewrites(operands)
+      : name === "cp"
+        ? rewrites(operands.slice(-1))
+        : undefined;
+  return path ? appendOnlyWarn(path) : null;
+}
+
 function checkBashSegment(segment, ctx) {
   const { name, args } = commandOf(segment);
   if (!name) return null;
@@ -254,7 +294,8 @@ function checkBashSegment(segment, ctx) {
   return (
     checkDestructive(name, args) ??
     checkContext(name, args) ??
-    checkNoVerify(name, args)
+    checkNoVerify(name, args) ??
+    checkAppendOnly(name, args, segment)
   );
 }
 
@@ -281,6 +322,8 @@ function checkFile(tool, input, relative, ctx) {
   if (SECRET_PATH.test(relative)) return secretBlock();
 
   if (tool !== "Read") {
+    if (isAppendOnly(relative)) return appendOnlyWarn(relative);
+
     if (loadSopsPatterns(ctx).some((pattern) => pattern.test(relative))) {
       const encrypted = tool === "Write" && /^sops:/m.test(input.content ?? "");
       if (!encrypted) return sopsBlock(relative);
