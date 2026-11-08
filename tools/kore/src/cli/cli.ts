@@ -62,6 +62,17 @@ Every mutation requires --environment and is recorded in
 .kore/state/journal/<environment>.jsonl. Status, doctor, validate, render, and
 journal are read-only and default to local.`;
 
+/** The actions of each command that mutate an environment. */
+const MUTATIONS: Partial<Record<string, readonly string[]>> = {
+  cluster: ["up", "stop", "destroy"],
+  platform: ["bootstrap", "up", "stop", "destroy"],
+  app: ["up", "down"],
+  local: ["up", "down"],
+  tunnel: ["start", "stop"],
+  secrets: ["sync"],
+  trust: ["install"],
+};
+
 function print(value: unknown, json: boolean): void {
   if (json) process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
   else if (Array.isArray(value))
@@ -88,16 +99,13 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   }
   const offset = ["doctor", "validate", "journal"].includes(command) ? 1 : 2;
   const parsed = parseArgs(argv.slice(offset));
+  const mutations = MUTATIONS[command];
+  // Every secrets and trust action mutates, so each one needs --environment.
   const mutating =
-    (command === "cluster" &&
-      ["up", "stop", "destroy"].includes(action ?? "")) ||
-    (command === "platform" &&
-      ["bootstrap", "up", "stop", "destroy"].includes(action ?? "")) ||
-    (command === "app" && ["up", "down"].includes(action ?? "")) ||
-    (command === "local" && ["up", "down"].includes(action ?? "")) ||
-    (command === "tunnel" && ["start", "stop"].includes(action ?? "")) ||
-    command === "secrets" ||
-    command === "trust";
+    mutations !== undefined &&
+    (mutations.includes(action ?? "") ||
+      command === "secrets" ||
+      command === "trust");
   const environmentName = mutating
     ? requireEnvironment(parsed)
     : (stringFlag(parsed, "environment") ?? "local");
@@ -107,8 +115,11 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   const mutate = async (
     label: string,
     work: (runner: Runner) => Promise<number>,
-  ): Promise<number> =>
-    await withEnvironmentLock(
+  ): Promise<number> => {
+    // Reject an unknown action before the lock, so it never reaches the journal.
+    if (!mutations?.includes(action ?? ""))
+      throw new Error(`unknown ${command} action: ${action ?? ""}`);
+    return await withEnvironmentLock(
       repository.root,
       environmentName,
       async () =>
@@ -123,6 +134,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
           work,
         ),
     );
+  };
   if (command === "validate") {
     const order = orderedComponents(repository.catalog).map(
       (component) => component.name,
@@ -194,7 +206,6 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
           yes: boolFlag(parsed, "yes"),
           purgeData: boolFlag(parsed, "purge-data"),
         });
-      else throw new Error(`unknown cluster action: ${action ?? ""}`);
       return 0;
     });
   }
@@ -224,7 +235,6 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
           yes: boolFlag(parsed, "yes"),
           purgeData: boolFlag(parsed, "purge-data"),
         });
-      else throw new Error(`unknown platform action: ${action ?? ""}`);
       return 0;
     });
   }
@@ -238,7 +248,6 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     return await mutate(`app ${action} ${name}`, async (runner) => {
       if (action === "up") await appUp(repository, runner, name);
       else if (action === "down") await appDown(repository, runner, name);
-      else throw new Error(`unknown app action: ${action ?? ""}`);
       return 0;
     });
   }
@@ -247,7 +256,6 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       if (action === "up") await localUp(repository, runner);
       else if (action === "down")
         await localDown(repository, runner, boolFlag(parsed, "prune"));
-      else throw new Error(`unknown local action: ${action ?? ""}`);
       return 0;
     });
   }
@@ -262,13 +270,11 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       else if (action === "stop") {
         await stopLocalTunnel(repository, runner);
         print({ status: "stopped" }, json);
-      } else throw new Error(`unknown tunnel action: ${action ?? ""}`);
+      }
       return 0;
     });
   }
   if (command === "secrets") {
-    if (action !== "sync")
-      throw new Error(`unknown secrets action: ${action ?? ""}`);
     return await mutate(`secrets ${action}`, async (runner) => {
       const count = await syncLocalSecrets(repository, runner);
       print({ status: "synced", files: count }, json);
@@ -276,8 +282,6 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     });
   }
   if (command === "trust") {
-    if (action !== "install")
-      throw new Error(`unknown trust action: ${action ?? ""}`);
     return await mutate(`trust ${action}`, async (runner) => {
       await installLocalTrust(repository, runner);
       print(

@@ -269,6 +269,24 @@ test("CLI rejects unknown commands, missing environments, and unsupported action
   );
 });
 
+test("unknown actions fail before taking the lock or writing a journal entry", async () => {
+  for (const argv of [
+    ["cluster", "nope"],
+    ["platform", "nope"],
+    ["app", "restart", "reference"],
+    ["local", "restart"],
+    ["tunnel", "restart"],
+    ["secrets", "rotate"],
+    ["trust", "remove"],
+  ]) {
+    dispatch.length = 0;
+    await expect(main([...argv, "--environment", "local"])).rejects.toThrow(
+      /unknown \w+ action/,
+    );
+    expect(dispatch, argv.join(" ")).toEqual([]);
+  }
+});
+
 test("journal CLI command reads the journal without locking or mutating", async () => {
   const write = vi.spyOn(process.stdout, "write");
   expect(await main(["journal", "--environment", "local", "--json"])).toBe(0);
