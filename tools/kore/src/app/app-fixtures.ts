@@ -1,3 +1,4 @@
+import { healthyWebhookOutput } from "../platform/webhook-fixtures.js";
 import type { Runner } from "../runtime/index.js";
 
 export const digest = "sha256:" + "a".repeat(64);
@@ -35,6 +36,10 @@ export function healthyReadinessOutput(
 ): string | undefined {
   if (args.includes("service") && args.includes("--selector")) {
     return healthyService;
+  }
+  const webhook = healthyWebhookOutput(args);
+  if (webhook !== undefined) {
+    return webhook;
   }
   if (args.some((arg) => arg.startsWith("gateway/"))) {
     return healthyGateway;
