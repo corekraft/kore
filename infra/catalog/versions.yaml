@@ -24,12 +24,12 @@
     "crossplane": "2.4.3",
     "external-secrets": "2.14.0",
     "cloudnative-pg": "0.29.1",
-    "opentelemetry-operator": "0.122.0",
-    "prometheus": "29.29.0",
-    "loki": "7.3.0",
+    "opentelemetry-operator": "0.129.0",
+    "prometheus": "29.45.1",
+    "loki": "7.5.0",
     "tempo": "1.24.4",
     "grafana": "10.5.15",
-    "opentelemetry-collector": "0.173.1"
+    "opentelemetry-collector": "0.178.2"
   },
   "images": {
     "oci-registry": "registry:3.0.0",

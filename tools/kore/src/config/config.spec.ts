@@ -184,9 +184,14 @@ test("local catalog pins an available Istio chart release", async () => {
   assert.equal(repository.versions.components["cloudnative-pg"], "0.29.1");
   assert.equal(
     repository.versions.components["opentelemetry-operator"],
-    "0.122.0",
+    "0.129.0",
   );
-  assert.equal(repository.versions.components.prometheus, "29.29.0");
+  assert.equal(repository.versions.components.prometheus, "29.45.1");
+  assert.equal(repository.versions.components.loki, "7.5.0");
+  assert.equal(
+    repository.versions.components["opentelemetry-collector"],
+    "0.178.2",
+  );
 });
 
 test("Istio charts avoid the Google-hosted repository Istio is retiring", async () => {
