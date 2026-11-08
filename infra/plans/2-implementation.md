@@ -899,8 +899,17 @@ Google-hosted repository is being retired. Gatekeeper stays on 3.23.1 because
 3.24.0 is beta. The trailing-comma problem in `mise run format` is fixed by a
 `.prettierrc.json` override with a regression spec (2026-11-08).
 
-Next: label the observability claims (`retention=Delete`) so the retention audit
-is clean, then allowlist the digest-pinned Sigstore Policy Controller seed and
+Observability claims are labelled `platform.kore.dev/retention: Delete` on
+`kore-standard`: Grafana (`extraPvcLabels`), Prometheus
+(`server.persistentVolume.labels`), and Loki (`singleBinary.persistence.labels`).
+The final Tempo chart (1.24.4, deprecated) cannot label its
+`volumeClaimTemplates`, so Tempo now mounts a labelled `tempo-storage` claim owned
+by `kore-observability-config`. Rendered offline with the pinned charts and
+asserted in `platform.storage.spec.ts`. Claim templates are immutable and bootstrap
+skips deployed releases, so only fresh profiles pick this up; an existing profile
+keeps its unlabelled Loki and Tempo claims until it is recreated (2026-11-08).
+
+Next: confirm a clean retention audit on a fresh profile, then allowlist the digest-pinned Sigstore Policy Controller seed and
 enable `ClusterImagePolicy` enforcement (Step 7), which unblocks Step 9
 enrollment and the bootstrap gate.
 

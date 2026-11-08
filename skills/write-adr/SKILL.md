@@ -1,6 +1,6 @@
 ---
 name: write-adr
-description: Use when recording a significant architectural decision, or when a plan step refines an earlier decision.
+description: Use when choosing between two designs, changing what a plan in infra/plans or a decision in docs/decisions says, or when a plan step refines an earlier decision.
 ---
 
 # Write an ADR

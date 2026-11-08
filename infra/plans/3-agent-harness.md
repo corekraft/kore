@@ -419,6 +419,43 @@ unquoted globs, which `unquoted-glob` may miss. The scan does not report where
 failures happened, so this is unconfirmed. It would first need failure
 locations (session and line) in the scan output.
 
+### Retrospective 2026-11-08
+
+Last retrospective: 2026-11-08
+
+The third retrospective covered 35 sessions on 2026-11-08. It found no repeated
+correction. Four proposals were accepted and implemented:
+
+- **`unquoted-glob` blocks** (16 warnings in 13 sessions, all heeded, none
+  overridden; status `promotable`). It now ignores heredoc bodies, which are
+  data: the warning fired on a `--include=*.ts` inside a Python heredoc while
+  this change was written, and as a block it would have refused the command.
+- **`bare-glob` and `equals-word` in audit mode (warn)**, the follow-up the
+  second retrospective left open: 3 `no matches found` failures from bare
+  globs and 4 `== not found`/`===== not found` failures from words zsh expands
+  as `=command`. `bare-glob` skips quoted, escaped, `${...}`, and `$((...))`
+  text; `equals-word` skips a lone `=`, assignments, and `[[ ]]` tests. A more
+  specific per-segment warning (for example `append-only`) wins. `bare-glob`
+  also warns on globs that do match, so expect it to be noisy; the next
+  retrospective decides from its override rate whether it stays.
+- **`handoff` and `write-adr` triggers** (neither loaded in 35 sessions).
+  `handoff` dropped the "context use passes about 50%" trigger, which a session
+  cannot observe, for "before ending a turn, or before /clear or /compact,
+  while the active plan step still has unchecked items". `write-adr` now names
+  concrete actions: choosing between two designs, or changing what a plan or a
+  decision in `docs/decisions` says. `add-policy` is unchanged: no session
+  touched `infra/policies`.
+- **`journal-redaction.spec.ts` flake fixed** (2 failures, passing on rerun).
+  The test asserted the secrets `abc` and `def` were absent from the journal,
+  but each operation's `op` is a hex `randomUUID()`, which contains one of them
+  in roughly one run in seventy. The spec now pins `randomUUID` to a value full
+  of hex runs, which made the old assertion fail every run, and uses secrets
+  with non-hex letters.
+
+Left alone: two `Exit code 137` kills (too little detail), two `secret-path`
+blocks (no location to judge them by), and `append-only` and `image-digest`
+stay in audit mode.
+
 ## Out of Scope
 
 - Reimplementing the guards inside the `kore` CLI. The CLI already enforces

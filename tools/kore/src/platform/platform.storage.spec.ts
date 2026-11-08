@@ -52,3 +52,56 @@ test("the oci-registry claim is disposable cache on kore-standard and never coun
   expect(claim).not.toMatch(/kore-retained/);
   expect(claim).not.toMatch(/retention: Retain/);
 });
+
+async function readText(path: string): Promise<string> {
+  const repository = await loadRepository("local");
+  return readFile(join(repository.root, path), "utf8");
+}
+
+/** Flow-style values with whitespace and quotes removed, for formatter-proof matching. */
+async function compact(path: string): Promise<string> {
+  return (await readText(path)).replace(/[\s"]/g, "");
+}
+
+test("observability claims are disposable telemetry labelled Delete on kore-standard", async () => {
+  const label = "{platform.kore.dev/retention:Delete}";
+  const grafana = await compact("infra/environments/local/values/grafana.yaml");
+  expect(grafana).toContain(`extraPvcLabels:${label}`);
+  expect(grafana).toContain("storageClassName:kore-standard");
+  const prometheus = JSON.parse(
+    await readText("infra/environments/local/values/prometheus.yaml"),
+  );
+  expect(prometheus.server.persistentVolume.labels).toEqual({
+    "platform.kore.dev/retention": "Delete",
+  });
+  expect(prometheus.server.persistentVolume.storageClass).toBe("kore-standard");
+  const loki = await compact("infra/environments/local/values/loki.yaml");
+  expect(loki).toMatch(
+    /persistence:\{[^}]*labels:\{platform\.kore\.dev\/retention:Delete\}/,
+  );
+  expect(loki).toContain("storageClass:kore-standard");
+  expect(loki).not.toContain("Retain");
+});
+
+test("Tempo stores traces on a labelled claim instead of an unlabellable claim template", async () => {
+  // tempo 1.24.4 (the final, deprecated chart) renders volumeClaimTemplates
+  // without labels, so the claim comes from the observability config chart.
+  const tempo = await compact("infra/environments/local/values/tempo.yaml");
+  expect(tempo).toContain("persistence:{enabled:false}");
+  expect(tempo).toContain(
+    "{name:storage,persistentVolumeClaim:{claimName:tempo-storage}}",
+  );
+  expect(tempo).toContain("{name:storage,mountPath:/var/tempo}");
+  const [claim] = await documents(
+    "infra/observability/config/templates/tempo-storage.yaml",
+  );
+  expect(claim).toMatch(/^kind: PersistentVolumeClaim$/m);
+  expect(claim).toMatch(/^  name: tempo-storage$/m);
+  expect(claim).toMatch(/platform\.kore\.dev\/retention: Delete/);
+  expect(claim).toMatch(/storageClassName: kore-standard/);
+  const repository = await loadRepository("local");
+  const component = repository.catalog.components.find(
+    ({ name }) => name === "tempo",
+  );
+  expect(component?.dependencies).toContain("kore-observability-config");
+});
