@@ -11,10 +11,10 @@ test("publishing refuses a registry address that is not an IPv4 ClusterIP", () =
     minikubeImagePublishArgs(
       "p",
       "tag",
-      "10.0.0.8; rm -rf /",
+      "10.0.0.8:5000; rm -rf /",
       "repo:kore-local",
     ),
-  ).toThrow(/invalid ClusterIP/);
+  ).toThrow(/invalid registry address/);
 });
 
 test("a registry answering with conflicting manifest digests is rejected", () => {

@@ -21,13 +21,13 @@ export function minikubeImageLoadArgs(profile: string, tag: string): string[] {
 export function minikubeImagePublishArgs(
   profile: string,
   tag: string,
-  clusterIp: string,
+  registryAddress: string,
   repositoryPath: string,
 ): string[] {
-  if (!/^\d{1,3}(?:\.\d{1,3}){3}$/.test(clusterIp)) {
-    throw new Error("local registry has an invalid ClusterIP");
+  if (!/^[A-Za-z0-9][A-Za-z0-9.-]*(?::\d{1,5})?$/.test(registryAddress)) {
+    throw new Error(`local registry has an invalid registry address`);
   }
-  const destination = `${clusterIp}:5000/${repositoryPath}`;
+  const destination = `${registryAddress}/${repositoryPath}`;
   return [
     "ssh",
     "--profile",

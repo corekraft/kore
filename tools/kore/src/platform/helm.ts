@@ -3,6 +3,8 @@ import {
   componentValues,
   componentVersion,
   expandVersions,
+  registryConsumers,
+  registryHelmArgs,
   type Component,
   type Repository,
 } from "../config/index.js";
@@ -35,6 +37,9 @@ function chartSelectionArgs(
   }
   for (const values of componentValues(repository, component)) {
     args.push("--values", absolute(repository, values));
+  }
+  if (registryConsumers.includes(component.name)) {
+    args.push(...registryHelmArgs(repository.environment, component.name));
   }
   return args;
 }

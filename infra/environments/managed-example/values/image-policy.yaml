@@ -6,7 +6,6 @@
       "subjects":
         [
           "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.1.0"
-        ],
-      "images": ["registry.example.com/kore/**"]
+        ]
     }
 }

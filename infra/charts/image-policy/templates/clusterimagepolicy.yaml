@@ -17,9 +17,7 @@ spec:
       version: v1
       resource: pods
   images:
-    {{- range .Values.trust.images }}
-    - glob: {{ . | quote }}
-    {{- end }}
+    - glob: {{ printf "%s/**" (required "platform.registry.address is required; kore passes it from registry.address" .Values.platform.registry.address) | quote }}
   authorities:
     {{- if eq .Values.trust.type "keyless" }}
     - name: release-workflow

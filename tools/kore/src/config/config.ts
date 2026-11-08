@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { exists } from "./files.js";
+import { registryConsumers } from "./registry-address.js";
 import { validateRepository } from "./validate.js";
 import type {
   Catalog,
@@ -68,23 +69,22 @@ async function loadImageTrustValues(
   return loadJSON<Record<string, unknown>>(join(root, path));
 }
 
-async function loadRegistryClusterIP(
+async function loadRegistryComponentValues(
   root: string,
   environment: Environment,
-): Promise<string | undefined> {
-  for (const path of environment.componentValues?.["oci-registry"] ?? []) {
-    if (!(await exists(join(root, path)))) {
-      continue;
-    }
-    const values = await loadJSON<{ service?: { clusterIP?: unknown } }>(
-      join(root, path),
-    );
-    const ip = values.service?.clusterIP;
-    if (typeof ip === "string" && ip !== "") {
-      return ip;
+): Promise<Record<string, Record<string, unknown>>> {
+  const loaded: Record<string, Record<string, unknown>> = {};
+  for (const component of registryConsumers) {
+    for (const path of environment.componentValues?.[component] ?? []) {
+      if (await exists(join(root, path))) {
+        loaded[component] = {
+          ...loaded[component],
+          ...(await loadJSON<Record<string, unknown>>(join(root, path))),
+        };
+      }
     }
   }
-  return undefined;
+  return loaded;
 }
 
 export async function loadRepository(
@@ -108,7 +108,10 @@ export async function loadRepository(
     catalog,
     environment,
     imageTrustValues,
-    registryClusterIP: await loadRegistryClusterIP(root, environment),
+    registryComponentValues: await loadRegistryComponentValues(
+      root,
+      environment,
+    ),
   };
   await validateRepository(repository);
   return repository;

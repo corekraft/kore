@@ -14,6 +14,7 @@
       "diskSize": "40g",
       "serviceCidr": "10.96.0.0/12"
     },
+  "registry": { "address": "10.96.0.50:5000" },
   "gateway":
     {
       "namespace": "kore-system",
@@ -40,7 +41,6 @@
         ["infra/environments/local/values/platform-config.yaml"],
       "kore-local-tls":
         ["infra/environments/local/values/platform-config.yaml"],
-      "oci-registry": ["infra/environments/local/values/oci-registry.yaml"],
       "kore-image-policy": ["infra/environments/local/values/image-policy.yaml"]
     }
 }

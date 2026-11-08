@@ -9,6 +9,7 @@ import {
 } from "./local-image-args.js";
 import { withLocalSigner, type LocalSigner } from "./local-signer.js";
 import { localRegistryReference } from "./registry.js";
+import { verifiedRegistryAddress } from "./registry-service.js";
 import type { Runner } from "../runtime/index.js";
 
 export {
@@ -51,26 +52,10 @@ async function publishToLocalRegistry(
   entry: ImageLockEntry,
   imageTag: string,
 ): Promise<string> {
-  const registry = await runner.run(
-    "kubectl",
-    [
-      "--context",
-      repository.environment.kubeContext,
-      "--namespace",
-      "kore-registry",
-      "get",
-      "service",
-      "oci-registry",
-      "--output=jsonpath={.spec.clusterIP}",
-    ],
-    { capture: true },
-  );
-  const clusterIp = registry.stdout.trim();
+  const address = await verifiedRegistryAddress(repository, runner);
   const separator = entry.image.indexOf("/");
-  if (separator < 1 || !clusterIp) {
-    throw new Error(
-      "local registry service or image repository path is unavailable",
-    );
+  if (separator < 1) {
+    throw new Error("image repository path is unavailable");
   }
   const repositoryPath = entry.image
     .slice(separator + 1)
@@ -80,7 +65,7 @@ async function publishToLocalRegistry(
     minikubeImagePublishArgs(
       repository.environment.cluster.profile,
       imageTag,
-      clusterIp,
+      address,
       `${repositoryPath}:kore-local`,
     ),
     { capture: true },

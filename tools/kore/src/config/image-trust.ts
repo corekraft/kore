@@ -1,3 +1,4 @@
+import { registryPlan } from "./registry-address.js";
 import type { Repository } from "./types.js";
 
 export const imagePolicyComponent = "kore-image-policy";
@@ -85,32 +86,38 @@ function canonical(image: string): string {
     : `docker.io/${image.includes("/") ? image : `library/${image}`}`;
 }
 
+/** The glob the image-policy chart renders: the registry address and nothing else. */
+export function registryGlob(repository: Repository): string {
+  return `${registryPlan(repository.environment).address}/**`;
+}
+
 function imageErrors(trust: Trust, repository: Repository): string[] {
-  const images = trust.images;
-  if (!Array.isArray(images) || !images.length) {
+  if (trust.images !== undefined) {
     return [
-      "image trust: images must list the internal registry globs this authority covers",
+      "image trust: images is derived from registry.address; remove it from the values overlay so the address is written once",
     ];
   }
-  const seeds = (repository.seeds?.seeds ?? []).map((s) => canonical(s.image));
-  return images.flatMap((glob: unknown) => {
-    if (typeof glob !== "string") {
-      return [`image trust: images entries must be strings`];
-    }
-    const host = glob.split("/")[0] ?? "";
-    if (!glob.includes("/") || host.includes("*")) {
-      return [
-        `image trust: images glob ${glob} is too broad; name the registry host literally (host:port/**)`,
-      ];
-    }
-    const pattern = globPattern(glob);
-    return seeds
-      .filter((seed) => pattern.test(seed))
-      .map(
-        (seed) =>
-          `image trust: images glob ${glob} covers seed ${seed}; seeds stay out of scope until they are rolled to signed internal digests`,
-      );
-  });
+  if (!parseableAddress(repository)) {
+    return [];
+  }
+  const glob = registryGlob(repository);
+  const pattern = globPattern(glob);
+  return (repository.seeds?.seeds ?? [])
+    .map((s) => canonical(s.image))
+    .filter((seed) => pattern.test(seed))
+    .map(
+      (seed) =>
+        `image trust: registry.address glob ${glob} covers seed ${seed}; seeds stay out of scope until they are rolled to signed internal digests`,
+    );
+}
+
+function parseableAddress(repository: Repository): boolean {
+  try {
+    registryPlan(repository.environment);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function imageTrustErrors(repository: Repository): string[] {

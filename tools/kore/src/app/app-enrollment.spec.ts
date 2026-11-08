@@ -34,7 +34,7 @@ test("app up enrolls the application namespace in the ambient mesh before any re
         command === "kubectl" &&
         args.some((arg) => arg.includes("spec.clusterIP"))
       ) {
-        return { stdout: "10.0.0.8", stderr: "", code: 0 };
+        return { stdout: "10.96.0.50", stderr: "", code: 0 };
       }
       if (command === "kubectl" && args.includes("--output=name")) {
         return { stdout: "deployment/reference-api\n", stderr: "", code: 0 };

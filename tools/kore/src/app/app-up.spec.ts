@@ -68,7 +68,7 @@ test("app up verifies, installs, and waits for every workload deployment", async
         command === "kubectl" &&
         args.some((arg) => arg.includes("spec.clusterIP"))
       ) {
-        return { stdout: "10.0.0.8", stderr: "", code: 0 };
+        return { stdout: "10.96.0.50", stderr: "", code: 0 };
       }
       if (command === "kubectl" && args.includes("--output=name")) {
         return {
@@ -140,7 +140,7 @@ test("app up rejects an invalid application name before resolving chart paths", 
         command === "kubectl" &&
         args.some((arg) => arg.includes(".spec.clusterIP"))
       ) {
-        return { stdout: "10.0.0.8", stderr: "", code: 0 };
+        return { stdout: "10.96.0.50", stderr: "", code: 0 };
       }
       return { stdout: "", stderr: "", code: 0 };
     },
@@ -183,7 +183,7 @@ test("app up does not install anything when image verification fails", async () 
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
   const runner = healthyRunner(
     calls,
-    "10.0.0.8",
+    "10.96.0.50",
     (c) => c.command === "cosign",
   );
 
@@ -233,7 +233,7 @@ test("app up verifies the registry-resolved reference but deploys the staged clu
     "127.0.0.1:30500/reference@" + lockedImage().digest,
   );
   const workload = upCalls(calls, "helm", "upgrade")[1]!;
-  expect(workload.args).toContain("image.repository=10.0.0.8:5000/reference");
+  expect(workload.args).toContain("image.repository=10.96.0.50:5000/reference");
   expect(workload.args).toContain("image.pullPolicy=Never");
 });
 
@@ -295,4 +295,23 @@ test("app up on a managed provider deploys the locked reference without staging"
     "image.repository=registry.kore.local:30500/reference",
   );
   expect(workload.args).not.toContain("image.pullPolicy=Never");
+});
+
+test("app up fails with the fix when the registry Service is not at registry.address", async () => {
+  const repository = await loadRepository("local");
+  const calls: Call[] = [];
+  localRegistryReferenceMock.mockImplementation(passthroughRegistry);
+
+  await expect(
+    appUp(
+      repository,
+      healthyRunner(calls, "10.99.1.2"),
+      "reference",
+      lockedImage(),
+      "/tmp/kore.pub",
+    ),
+  ).rejects.toThrow(
+    /10\.99\.1\.2.*registry\.address 10\.96\.0\.50:5000.*kore platform up/s,
+  );
+  expect(upCalls(calls, "helm", "upgrade")).toEqual([]);
 });

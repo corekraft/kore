@@ -48,7 +48,7 @@ export function healthyReadinessOutput(
 /** Records every call and answers like a healthy local cluster. */
 export function healthyRunner(
   calls: Call[],
-  clusterIp = "10.0.0.8",
+  clusterIp = "10.96.0.50",
   fail?: (call: Call) => boolean,
 ): Runner {
   return {

@@ -35,13 +35,9 @@ test("local trusts its local signing key and managed-example a pinned release wo
   assert.deepEqual(local.imageTrustValues?.["trust"], {
     type: "key",
     keyRef: { name: "kore-local-signing-pub", namespace: "cosign-system" },
-    images: ["10.96.0.50:5000/**"],
   });
   const managed = await loadRepository("managed-example");
-  assert.deepEqual(
-    managed.imageTrustValues?.trust,
-    keyless({ images: ["registry.example.com/kore/**"] }),
-  );
+  assert.deepEqual(managed.imageTrustValues?.trust, keyless());
   await validateRepository(local);
   await validateRepository(managed);
 });
@@ -121,18 +117,29 @@ test("a key authority must reference a key and cannot also be keyless", async ()
   );
 });
 
-test("image globs may not cover a seed image or everything", async () => {
-  for (const glob of ["**", "*", "docker.io/**", "ghcr.io/**", "cgr.dev/**"]) {
-    const repository = await withTrust("local", (trust) => ({
-      ...trust,
-      images: [glob],
-    }));
+test("a registry address that covers a seed image or everything is rejected", async () => {
+  for (const address of ["docker.io", "ghcr.io", "cgr.dev"]) {
+    const base = await loadRepository("managed-example");
     await assert.rejects(
-      validateRepository(repository),
-      /images.*(too broad|seed)/is,
-      glob,
+      validateRepository({
+        ...base,
+        environment: { ...base.environment, registry: { address } },
+      }),
+      /glob .*\/\*\* covers seed/is,
+      address,
     );
   }
+});
+
+test("a committed images list is rejected because the glob is derived from registry.address", async () => {
+  const repository = await withTrust("local", (trust) => ({
+    ...trust,
+    images: ["10.96.0.50:5000/**"],
+  }));
+  await assert.rejects(
+    validateRepository(repository),
+    /images is derived from registry\.address/,
+  );
 });
 
 test("the chart renders ClusterImagePolicy for all containers without regexps or namespace opt-in", async () => {
@@ -179,23 +186,4 @@ test("a key reference outside the policy-controller namespace is rejected with t
     assert.match(error.message, /policy-controller/);
     return true;
   });
-});
-
-test("the local registry Service is pinned to the address the image policy glob names", async () => {
-  const repository = await loadRepository("local");
-  const overlay = JSON.parse(
-    await readFile(
-      join(
-        repository.root,
-        "infra/environments/local/values/oci-registry.yaml",
-      ),
-      "utf8",
-    ),
-  );
-  const trust = repository.imageTrustValues?.trust as { images: string[] };
-  assert.equal(overlay.service.clusterIP, "10.96.0.50");
-  assert.deepEqual(trust.images, [`${overlay.service.clusterIP}:5000/**`]);
-  assert.deepEqual(repository.environment.componentValues?.["oci-registry"], [
-    "infra/environments/local/values/oci-registry.yaml",
-  ]);
 });

@@ -99,7 +99,7 @@ function fakeRunner(
         } else if (args.includes("config")) {
           stdout = options.kubeconfig ?? minifiedKubeconfig;
         } else {
-          stdout = options.clusterIp ?? "10.0.0.8";
+          stdout = options.clusterIp ?? "10.96.0.50";
         }
       }
       return { stdout, stderr: "", code: 0 };
@@ -277,7 +277,7 @@ test("build and sign rejects when the local registry service has no address", as
 
   await expect(
     buildAndSignLocalImage(repository, runner, "reference", entry),
-  ).rejects.toThrow(/registry service or image repository path is unavailable/);
+  ).rejects.toThrow(/no ClusterIP/);
 });
 
 test("key generation runs in a private temp directory so cosign.pub never lands in the caller's working directory", async () => {
@@ -297,4 +297,29 @@ test("key generation runs in a private temp directory so cosign.pub never lands 
   expect(existsSync(join(process.cwd(), "cosign.pub"))).toBe(before);
   const files = await filesUnder(repository.root);
   expect(files.filter((file) => file.endsWith("cosign.pub"))).toEqual([]);
+});
+
+test("build and sign pushes to the environment's registry.address, not a live lookup", async () => {
+  const repository = await testRepository();
+  const { runner, calls } = fakeRunner();
+  stubRegistry();
+
+  await buildAndSignLocalImage(repository, runner, "reference", entry);
+
+  const publish = calls.find((c) => c.args.some((a) => a.includes("push")));
+  expect(publish?.args.join(" ")).toContain(
+    "'10.96.0.50:5000/reference:kore-local'",
+  );
+});
+
+test("build and sign fails with the fix when the Service is not at registry.address", async () => {
+  const repository = await testRepository();
+  const { runner, calls } = fakeRunner({ clusterIp: "10.99.1.2" });
+
+  await expect(
+    buildAndSignLocalImage(repository, runner, "reference", entry),
+  ).rejects.toThrow(
+    /10\.99\.1\.2.*registry\.address 10\.96\.0\.50:5000.*kore platform up/s,
+  );
+  expect(calls.some((c) => c.args.some((a) => a.includes("push")))).toBe(false);
 });
