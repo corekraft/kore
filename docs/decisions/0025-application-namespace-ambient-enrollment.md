@@ -35,6 +35,17 @@ controller installs.
   platform-owned namespaces (`kore-system`, `kore-registry`, `observability`,
   `opa-system`), which stay exempt until each is enrolled deliberately with live
   evidence. Promotion to `deny` follows ADR 0017.
+- **Database pods stay out of the mesh.** Namespace-level enrollment would also
+  enroll the CloudNativePG instance pods, whose operator (in `cnpg-system`) is
+  not meshed and calls the instance manager in plaintext, which the workload
+  chart's STRICT `PeerAuthentication` would reject. The local PostgreSQL
+  composition therefore sets `istio.io/dataplane-mode: none` through the
+  Cluster's `inheritedMetadata.labels`, which CloudNativePG propagates to the
+  pods it creates; a pod label overrides the namespace label. The Gatekeeper
+  rule inspects only Namespaces, so these pods are not flagged. The chart's
+  `PeerAuthentication` is also scoped by selector to the pods labelled
+  `app.kubernetes.io/part-of: reference`, matching the selector-based
+  authorization policies.
 - **Teardown.** `kore app down` still leaves the namespace, as before.
 
 ## Consequences

@@ -76,3 +76,34 @@ test("reference migrations run as an idempotent pre-install and pre-upgrade hook
   );
   expect(template).not.toMatch(/PGPASSWORD,\s*value:/);
 });
+
+test("reference frontend receives no database environment and no password", async () => {
+  const template = await referenceTemplate("workloads.yaml");
+
+  expect(template.match(/PGPASSWORD/g)).toHaveLength(1);
+  const passwordAt = template.indexOf("PGPASSWORD");
+  const guardAt = template.lastIndexOf(
+    '{{- if eq $component "api" }}',
+    passwordAt,
+  );
+  const guardEnd = template.indexOf("{{- end }}", passwordAt);
+  expect(guardAt).toBeGreaterThanOrEqual(0);
+  expect(guardEnd).toBeGreaterThan(passwordAt);
+  expect(template.slice(guardAt, guardEnd)).toContain("PGHOST");
+});
+
+test("reference peer authentication is scoped to the app workloads", async () => {
+  const template = await referenceTemplate("workloads.yaml");
+
+  expect(template).toMatch(
+    /kind: PeerAuthentication\nmetadata: \{name: strict\}\nspec:\n\s+selector: \{matchLabels: \{app\.kubernetes\.io\/part-of: reference\}\}\n\s+mtls: \{mode: STRICT\}/,
+  );
+});
+
+test("reference migrate hook ServiceAccount is removed after the hook succeeds", async () => {
+  const template = await referenceTemplate("migrate.yaml");
+  const account = template.split("\n---\n")[0] ?? "";
+
+  expect(account).toContain("kind: ServiceAccount");
+  expect(account).toContain("before-hook-creation,hook-succeeded");
+});

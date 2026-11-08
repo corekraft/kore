@@ -134,3 +134,13 @@ test("the XRD accepts only the five portable inputs", async () => {
     ],
   );
 });
+
+test("database pods stay out of the ambient mesh because the operator is not meshed", async () => {
+  const source = await composition();
+  const cluster = template(source, "compose-cloudnative-pg");
+
+  assert.match(
+    cluster,
+    /inheritedMetadata:\n\s+labels:\n[\s\S]*?istio\.io\/dataplane-mode: none/,
+  );
+});

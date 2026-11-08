@@ -185,6 +185,7 @@ function scram(
 export async function connect(
   config: DatabaseConfig,
   timeoutMs = 5000,
+  queryTimeoutMs = 30000,
 ): Promise<Connection> {
   if (!config.password)
     throw new Error(
@@ -284,32 +285,48 @@ export async function connect(
 
   return {
     async query(sql: string): Promise<string[][]> {
-      wire.socket.write(frontend("Q", cstring(sql)));
-      const rows: string[][] = [];
-      let failure: Error | undefined;
-      for (;;) {
-        const { type, body } = await wire.message();
-        if (type === "E") failure ??= serverError(body);
-        else if (type === "D") {
-          const count = body.readInt16BE(0);
-          const row: string[] = [];
-          let offset = 2;
-          for (let i = 0; i < count; i++) {
-            const length = body.readInt32BE(offset);
-            offset += 4;
-            if (length < 0) {
-              row.push("");
-              continue;
-            }
-            row.push(body.subarray(offset, offset + length).toString());
-            offset += length;
-          }
-          rows.push(row);
-        } else if (type === "Z") break;
+      const socket = wire.socket;
+      const deadline = setTimeout(
+        () =>
+          socket.destroy(
+            new Error(`database query timed out after ${queryTimeoutMs}ms`),
+          ),
+        queryTimeoutMs,
+      );
+      try {
+        return await run(sql);
+      } finally {
+        clearTimeout(deadline);
       }
-      if (failure) throw failure;
-      return rows;
     },
     close,
   };
+
+  async function run(sql: string): Promise<string[][]> {
+    wire.socket.write(frontend("Q", cstring(sql)));
+    const rows: string[][] = [];
+    let failure: Error | undefined;
+    for (;;) {
+      const { type, body } = await wire.message();
+      if (type === "E") failure ??= serverError(body);
+      else if (type === "D") {
+        const count = body.readInt16BE(0);
+        const row: string[] = [];
+        let offset = 2;
+        for (let i = 0; i < count; i++) {
+          const length = body.readInt32BE(offset);
+          offset += 4;
+          if (length < 0) {
+            row.push("");
+            continue;
+          }
+          row.push(body.subarray(offset, offset + length).toString());
+          offset += length;
+        }
+        rows.push(row);
+      } else if (type === "Z") break;
+    }
+    if (failure) throw failure;
+    return rows;
+  }
 }
