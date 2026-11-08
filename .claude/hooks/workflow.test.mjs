@@ -278,6 +278,7 @@ test("the mirror job verifies the pulled digest, upstream provenance, and the co
   const order = [
     /crane digest "\$ref"/,
     /cosign verify \\\n\s+--certificate-identity "\$upstream_identity"/,
+    /link-mirror-package\.sh "\$MIRROR\/\$name"/,
     /crane copy "\$ref" "\$MIRROR\/\$name:\$TAG"/,
     /cosign sign --yes "\$MIRROR\/\$name@\$digest"/,
     /cosign verify \\\n\s+--certificate-identity "\$IDENTITY"/,
@@ -295,6 +296,33 @@ test("the mirror job verifies the pulled digest, upstream provenance, and the co
   assert.match(job, /unsigned-upstream/);
   assert.doesNotMatch(job, /-regexp|--insecure-ignore-tlog|--key\b/);
   assert.doesNotMatch(job, /cosign sign[^\n]*:\$/);
+});
+
+test("each mirror package is created linked to this repository before the bit-identical copy, and the link image is never signed or locked", () => {
+  // GHCR lets the repository's GITHUB_TOKEN create only packages linked to it;
+  // a plain crane copy has no source label, so the first push is denied.
+  const script = readFileSync(
+    join(root, ".github/scripts/link-mirror-package.sh"),
+    "utf8",
+  );
+  assert.match(script, /set -euo pipefail/);
+  assert.match(script, /kore-link/);
+  assert.match(script, /crane\[@\]\}" append/);
+  assert.match(script, /crane\[@\]\}" mutate/);
+  assert.match(
+    script,
+    /org\.opencontainers\.image\.source=https:\/\/github\.com\/corekraft\/kore/,
+  );
+  assert.match(script, /org\.opencontainers\.image\.description=/);
+  // Idempotent: an existing kore-link tag is left alone.
+  assert.match(script, /crane\[@\]\}" digest "\$repo:kore-link"/);
+  assert.doesNotMatch(script, /cosign/);
+  const job = jobText("mirror");
+  assert.match(job, /\.github\/scripts\/link-mirror-package\.sh/);
+  assert.doesNotMatch(job, /cosign[^\n]*kore-link|kore-link[^\n]*cosign/);
+  // The copy stays a bit-identical copy: no annotation or mutation of it.
+  assert.doesNotMatch(job, /crane mutate|crane append/);
+  assert.match(job, /\$copied" != "\$digest"/);
 });
 
 test("the mirror job emits a versioned platform image lock artifact beside the app lock", () => {

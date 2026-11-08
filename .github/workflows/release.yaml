@@ -192,6 +192,10 @@ jobs:
               echo "$name: upstream publishes no signature (unsigned-upstream)"
               provenance='{"result":"unsigned-upstream"}'
             fi
+            # GHCR creates a package from the repository token only when it is
+            # linked to the repository, so seed the link first. The copy itself
+            # stays bit-identical.
+            CRANE="mise exec -- crane" .github/scripts/link-mirror-package.sh "$MIRROR/$name"
             mise exec -- crane copy "$ref" "$MIRROR/$name:$TAG"
             copied="$(mise exec -- crane digest "$MIRROR/$name:$TAG")"
             if [ "$copied" != "$digest" ]; then
