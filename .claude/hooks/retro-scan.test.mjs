@@ -205,7 +205,11 @@ test("an audit rule with no warnings at all is still listed as insufficient evid
 });
 
 test("the audit-mode rules are read from the guard's warn calls", () => {
-  assert.deepEqual(auditRules(guardSource), ["image-digest", "unquoted-glob"]);
+  assert.deepEqual(auditRules(guardSource), [
+    "append-only",
+    "image-digest",
+    "unquoted-glob",
+  ]);
 });
 
 test("the CLI scans a directory and prints JSON without user text", () => {

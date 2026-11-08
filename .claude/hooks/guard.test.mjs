@@ -30,23 +30,38 @@ const ctx = {
   },
 };
 
-const bash = (command) => evaluate({ tool_name: "Bash", tool_input: { command } }, ctx);
+const bash = (command) =>
+  evaluate({ tool_name: "Bash", tool_input: { command } }, ctx);
 const write = (file_path, content) =>
   evaluate({ tool_name: "Write", tool_input: { file_path, content } }, ctx);
 const edit = (file_path, old_string, new_string) =>
-  evaluate({ tool_name: "Edit", tool_input: { file_path, old_string, new_string } }, ctx);
-const read = (file_path) => evaluate({ tool_name: "Read", tool_input: { file_path } }, ctx);
+  evaluate(
+    { tool_name: "Edit", tool_input: { file_path, old_string, new_string } },
+    ctx,
+  );
+const read = (file_path) =>
+  evaluate({ tool_name: "Read", tool_input: { file_path } }, ctx);
 
 const blocked = (result, rule) => {
   assert.equal(result.action, "block", JSON.stringify(result));
   assert.equal(result.rule, rule);
   assert.match(result.message, new RegExp(rule), "message names the rule");
-  assert.match(result.message, /Instead|instead/, "message offers an alternative");
+  assert.match(
+    result.message,
+    /Instead|instead/,
+    "message offers an alternative",
+  );
 };
-const allowed = (result) => assert.equal(result.action, "allow", JSON.stringify(result));
+const allowed = (result) =>
+  assert.equal(result.action, "allow", JSON.stringify(result));
 
 test("splitSegments separates chained commands but keeps quoted operators", () => {
-  assert.deepEqual(splitSegments('a && b; c | d'), [["a"], ["b"], ["c"], ["d"]]);
+  assert.deepEqual(splitSegments("a && b; c | d"), [
+    ["a"],
+    ["b"],
+    ["c"],
+    ["d"],
+  ]);
   assert.deepEqual(splitSegments('echo "a && b"'), [["echo", "a && b"]]);
 });
 
@@ -83,11 +98,20 @@ test("destructive: cluster and infrastructure destruction is blocked", () => {
   blocked(bash("minikube delete"), "destructive");
   blocked(bash("minikube delete -p kore-local"), "destructive");
   blocked(bash("tofu destroy"), "destructive");
-  blocked(bash("kubectl delete namespace apps --context kore-local"), "destructive");
+  blocked(
+    bash("kubectl delete namespace apps --context kore-local"),
+    "destructive",
+  );
   blocked(bash("kubectl delete ns apps --context kore-local"), "destructive");
   blocked(bash("helm uninstall a --kube-context kore-local"), "destructive");
-  blocked(bash("./bin/kore cluster destroy --environment local"), "destructive");
-  blocked(bash("npm --prefix tools/kore run kore -- platform destroy"), "destructive");
+  blocked(
+    bash("./bin/kore cluster destroy --environment local"),
+    "destructive",
+  );
+  blocked(
+    bash("npm --prefix tools/kore run kore -- platform destroy"),
+    "destructive",
+  );
 });
 
 test("destructive: non-destructive siblings pass", () => {
@@ -103,7 +127,10 @@ test("secret-path: reading key and token material is blocked", () => {
   blocked(bash("cat .kore/keys/local/age.txt"), "secret-path");
   blocked(bash("echo hi > .kore/state/reference-api-token"), "secret-path");
   blocked(write("/repo/.kore/keys/local/age.txt", "x"), "secret-path");
-  blocked(edit("/repo/.kore/state/reference-api-token", "a", "b"), "secret-path");
+  blocked(
+    edit("/repo/.kore/state/reference-api-token", "a", "b"),
+    "secret-path",
+  );
 });
 
 test("secret-path: listing and unrelated state files pass", () => {
@@ -117,7 +144,9 @@ test("sops-plaintext: writing plaintext to an encrypted path is blocked", () => 
   blocked(write(path, "stringData:\n  password: hunter2\n"), "sops-plaintext");
   blocked(edit(path, "a", "b"), "sops-plaintext");
   blocked(
-    bash("echo 'stringData: {}' > infra/environments/local/secrets/db.enc.yaml"),
+    bash(
+      "echo 'stringData: {}' > infra/environments/local/secrets/db.enc.yaml",
+    ),
     "sops-plaintext",
   );
 });
@@ -143,7 +172,10 @@ test("no-verify: ordinary commits pass", () => {
 test("coverage-threshold: lowering a threshold is blocked", () => {
   const path = "/repo/tools/kore/vitest.config.ts";
   blocked(edit(path, "statements: 95", "statements: 90"), "coverage-threshold");
-  blocked(write(path, vitestConfig.replace("lines: 95", "lines: 80")), "coverage-threshold");
+  blocked(
+    write(path, vitestConfig.replace("lines: 95", "lines: 80")),
+    "coverage-threshold",
+  );
 });
 
 test("coverage-threshold: keeping or raising a threshold passes", () => {
@@ -154,14 +186,27 @@ test("coverage-threshold: keeping or raising a threshold passes", () => {
 });
 
 test("image-digest: tag-pinned images warn instead of blocking", () => {
-  const result = write("/repo/apps/web/deployment.yaml", "image: ghcr.io/x/web:1.2.3\n");
+  const result = write(
+    "/repo/apps/web/deployment.yaml",
+    "image: ghcr.io/x/web:1.2.3\n",
+  );
   assert.equal(result.action, "warn");
   assert.equal(result.rule, "image-digest");
 });
 
 test("image-digest: digest-pinned images and bootstrap charts pass", () => {
-  allowed(write("/repo/apps/web/deployment.yaml", `image: ghcr.io/x/web@sha256:${"a".repeat(64)}\n`));
-  allowed(write("/repo/infra/charts/oci-registry/values.yaml", "image: registry:3.0.0\n"));
+  allowed(
+    write(
+      "/repo/apps/web/deployment.yaml",
+      `image: ghcr.io/x/web@sha256:${"a".repeat(64)}\n`,
+    ),
+  );
+  allowed(
+    write(
+      "/repo/infra/charts/oci-registry/values.yaml",
+      "image: registry:3.0.0\n",
+    ),
+  );
 });
 
 test("unrelated tools and empty input pass", () => {
@@ -171,16 +216,25 @@ test("unrelated tools and empty input pass", () => {
 
 const hook = join(dirname(fileURLToPath(import.meta.url)), "guard.mjs");
 const run = (payload) =>
-  spawnSync("node", [hook], { input: JSON.stringify(payload), encoding: "utf8" });
+  spawnSync("node", [hook], {
+    input: JSON.stringify(payload),
+    encoding: "utf8",
+  });
 
 test("cli: exits 2 and explains on stderr when blocking", () => {
-  const result = run({ tool_name: "Bash", tool_input: { command: "minikube delete" } });
+  const result = run({
+    tool_name: "Bash",
+    tool_input: { command: "minikube delete" },
+  });
   assert.equal(result.status, 2);
   assert.match(result.stderr, /destructive/);
 });
 
 test("cli: exits 0 silently when allowing", () => {
-  const result = run({ tool_name: "Bash", tool_input: { command: "git status" } });
+  const result = run({
+    tool_name: "Bash",
+    tool_input: { command: "git status" },
+  });
   assert.equal(result.status, 0);
   assert.equal(result.stderr, "");
 });
@@ -189,14 +243,23 @@ test("cli: warns through additionalContext without blocking", () => {
   const result = run({
     tool_name: "Write",
     cwd: "/repo",
-    tool_input: { file_path: "/repo/apps/web/d.yaml", content: "image: web:1\n" },
+    tool_input: {
+      file_path: "/repo/apps/web/d.yaml",
+      content: "image: web:1\n",
+    },
   });
   assert.equal(result.status, 0);
-  assert.match(JSON.parse(result.stdout).hookSpecificOutput.additionalContext, /image-digest/);
+  assert.match(
+    JSON.parse(result.stdout).hookSpecificOutput.additionalContext,
+    /image-digest/,
+  );
 });
 
 test("cli: malformed input fails open", () => {
-  const result = spawnSync("node", [hook], { input: "not json", encoding: "utf8" });
+  const result = spawnSync("node", [hook], {
+    input: "not json",
+    encoding: "utf8",
+  });
   assert.equal(result.status, 0);
 });
 
@@ -230,5 +293,76 @@ test("unquoted-glob: quoted globs and globless flags pass", () => {
 });
 
 test("unquoted-glob: a blocking rule in the same command still blocks", () => {
-  blocked(bash("grep -rn x --include=*.ts . && kubectl get pods"), "kubectl-context");
+  blocked(
+    bash("grep -rn x --include=*.ts . && kubectl get pods"),
+    "kubectl-context",
+  );
+});
+
+const HISTORY = ".claude/evals/history.jsonl";
+const JOURNAL = ".kore/state/journal/local.jsonl";
+
+const appendOnlyWarned = (result, label) => {
+  assert.equal(result.action, "warn", `${label}: ${JSON.stringify(result)}`);
+  assert.equal(result.rule, "append-only", label);
+  assert.match(result.message, /\[guard:append-only\]/, label);
+  assert.match(result.message, /eval\.mjs/, `${label}: names the eval owner`);
+  assert.match(result.message, /kore/, `${label}: names the kore owner`);
+  assert.match(result.message, /Instead/, `${label}: offers the fix`);
+};
+
+test("append-only: Edit and Write on a history or journal file warn, naming the owner and the fix", () => {
+  for (const file of [HISTORY, JOURNAL]) {
+    appendOnlyWarned(edit(`/repo/${file}`, "a", "b"), `Edit ${file}`);
+    appendOnlyWarned(write(`/repo/${file}`, "{}\n"), `Write ${file}`);
+  }
+});
+
+test("append-only: Bash that truncates, rewrites, moves, or removes the files warns", () => {
+  for (const command of [
+    `echo x > ${HISTORY}`,
+    `echo x >${JOURNAL}`,
+    `: > ${JOURNAL}`,
+    `sed -i '' s/a/b/ ${HISTORY}`,
+    `sed -i.bak s/a/b/ ${JOURNAL}`,
+    `rm ${HISTORY}`,
+    `rm -f .kore/state/journal/*.jsonl`,
+    `mv ${JOURNAL} /tmp/x`,
+    `mv /tmp/x ${HISTORY}`,
+    `truncate -s 0 ${JOURNAL}`,
+    `cd x && rm ${HISTORY}`,
+    `echo x | tee ${HISTORY}`,
+    `echo x | tee -p ${JOURNAL}`,
+    `cp /tmp/x ${JOURNAL}`,
+    `cp -f /tmp/x ${HISTORY}`,
+  ]) {
+    appendOnlyWarned(bash(command), command);
+  }
+});
+
+test("append-only: appending and reading the files is allowed", () => {
+  for (const command of [
+    `echo x >> ${HISTORY}`,
+    `echo x >>${JOURNAL}`,
+    `cat ${HISTORY}`,
+    `tail -n 5 ${JOURNAL}`,
+    `grep fail ${HISTORY}`,
+    `cat ${JOURNAL} > /tmp/copy.txt`,
+    `rm /tmp/other.jsonl`,
+    `echo x | tee -a ${HISTORY}`,
+    `echo x | tee --append ${JOURNAL}`,
+    `echo x | tee /tmp/other.txt`,
+    `cp ${HISTORY} /tmp/backup.jsonl`,
+    `cp ${JOURNAL} /tmp/dir/`,
+    `echo x > .kore/state/other.txt`,
+  ]) {
+    allowed(bash(command));
+  }
+  allowed(read(`/repo/${HISTORY}`));
+  allowed(read(`/repo/${JOURNAL}`));
+  allowed(edit("/repo/.claude/evals/other.jsonl", "a", "b"));
+});
+
+test("append-only: a blocking rule in the same command still blocks", () => {
+  blocked(bash(`rm ${HISTORY} && kubectl get pods`), "kubectl-context");
 });
