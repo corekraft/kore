@@ -62,6 +62,7 @@ export function helmUpgradeArgs(
     "--timeout",
     component.timeout,
     "--rollback-on-failure",
+    ...(component.helm?.forceConflicts ? ["--force-conflicts"] : []),
     ...chartSelectionArgs(repository, component),
   ];
 }

@@ -117,6 +117,17 @@ const componentRules: Rule<ComponentContext>[] = [
     ({ component }) => !component.readiness?.length,
   ),
   rule(
+    ({ component }) =>
+      `${component.name}: helm.forceConflicts requires a reason`,
+    ({ component }) =>
+      component.helm?.forceConflicts === true && !component.helm.reason?.trim(),
+  ),
+  rule(
+    ({ component }) =>
+      `${component.name}: helm options do not apply to a manifest component`,
+    ({ component }) => component.kind === "manifest" && !!component.helm,
+  ),
+  rule(
     ({ component }) => `${component.name}: manifest source is required`,
     ({ component }) => component.kind === "manifest" && !component.source,
   ),

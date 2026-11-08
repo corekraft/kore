@@ -96,7 +96,12 @@
         "dependencies": ["kore-gateway-api"],
         "timeout": "10m",
         "values": ["infra/environments/common/values/policy-controller.yaml"],
-        "readiness": ["deployment/policy-controller-webhook"]
+        "readiness": ["deployment/policy-controller-webhook"],
+        "helm":
+          {
+            "forceConflicts": true,
+            "reason": "The controller's webhook reconciler (field manager `webhook`) co-owns the namespaceSelector and caBundle of the policy.sigstore.dev Mutating and ValidatingWebhookConfigurations after install, and the chart renders a namespaceSelector that no value can omit, so Helm 4 server-side apply conflicts on upgrade. Helm takes the fields back and the controller re-reconciles them."
+          }
       },
       {
         "name": "istio-base",
