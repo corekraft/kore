@@ -1,2 +1,2 @@
-{"title":"Kore Reference","panels":[{"type":"timeseries","title":"HTTP requests","targets":[{"expr":"http_server_request_count"}]},{"type":"logs","title":"Reference logs","targets":[{"expr":"{service_name=~\"reference-.*\"}"}]},{"type":"traces","title":"Reference traces","targets":[{"queryType":"traceql","query":"{ .service.name =~ `reference-.*` }"}]}]}
+{"title":"Kore Reference","panels":[{"type":"timeseries","title":"HTTP requests","targets":[{"expr":"sum by (service_name, http_route) (rate(http_server_request_count_total[5m]))"}]},{"type":"logs","title":"Reference logs","targets":[{"expr":"{service_name=~\"reference-.*\"}"}]},{"type":"traces","title":"Reference traces","targets":[{"queryType":"traceql","query":"{ .service.name =~ `reference-.*` }"}]}]}
 
