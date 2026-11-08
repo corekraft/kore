@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 import { join } from "node:path";
 import { test } from "vitest";
 import { findRoot, loadRepository, validateRepository } from "./config.js";
+import { helmUpgradeArgs } from "../platform/helm.js";
 import type { Repository } from "./types.js";
 
 const releaseSubject =
@@ -172,7 +173,9 @@ test("the chart renders ClusterImagePolicy for all containers without regexps or
   const text = await readFile(join(dir, "clusterimagepolicy.yaml"), "utf8");
   assert.match(text, /kind: ClusterImagePolicy/);
   assert.match(text, /apiVersion: policy\.sigstore\.dev\/v1beta1/);
-  assert.match(text, /group: ""\s+version: v1\s+resource: pods/);
+  // A match on pods alone would leave Deployments and Jobs unmatched (the
+  // webhook evaluates the kind it is handed) and rejected as "no matching policies".
+  assert.doesNotMatch(text, /^\s*match:/m);
   assert.match(text, /\.Values\.trust\.issuer/);
   assert.doesNotMatch(text, /RegExp/i);
   assert.doesNotMatch(text, /static:/);
@@ -260,6 +263,48 @@ test("the platform policy renders the environment trust mode for every environme
       assert.match(upstream, new RegExp(`mode: ${mode}\\b`), environment);
     }
   }
+});
+
+test("both policies apply to every workload kind the webhook evaluates, not only pods", async () => {
+  const { platform, upstream } = await render("local", "warn");
+  for (const policy of [platform, upstream]) {
+    assert.doesNotMatch(policy, /^\s*match:/m);
+    assert.doesNotMatch(policy, /resource: pods/);
+  }
+});
+
+test("policy controller's no-match behavior follows trust.mode: warn while auditing, deny when enforcing", async () => {
+  for (const [mode, policy] of [
+    ["warn", "warn"],
+    ["enforce", "deny"],
+  ] as const) {
+    const repository = await withTrust("local", (trust) => ({
+      ...trust,
+      mode,
+    }));
+    const component = repository.catalog.components!.find(
+      (c) => c.name === "policy-controller",
+    )!;
+    const args = helmUpgradeArgs(repository, component);
+    const at = args.indexOf(`webhook.configData.no-match-policy=${policy}`);
+    assert.notEqual(at, -1, mode);
+    assert.equal(args[at - 1], "--set-string");
+  }
+});
+
+test("an unrecognised trust.mode never relaxes the no-match policy", async () => {
+  const repository = await withTrust("local", (trust) => ({
+    ...trust,
+    mode: "audit",
+  }));
+  const component = repository.catalog.components!.find(
+    (c) => c.name === "policy-controller",
+  )!;
+  assert.ok(
+    helmUpgradeArgs(repository, component).includes(
+      "webhook.configData.no-match-policy=deny",
+    ),
+  );
 });
 
 test("upstream images get their own static policy and never widen the internal-image policy", async () => {

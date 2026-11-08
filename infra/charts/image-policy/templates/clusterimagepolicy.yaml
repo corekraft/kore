@@ -1,6 +1,9 @@
 {{- /*
 One policy covers every pod container kind: the Policy Controller evaluates
 containers, initContainers, and ephemeralContainers of the matched resources.
+There is deliberately no spec.match: the webhook evaluates Pods and also
+Deployments, Jobs, and the other pod-template kinds, and a match limited to pods
+leaves those unmatched, so they are rejected as "no matching policies".
 An image that matches no ClusterImagePolicy is rejected, and webhook, registry,
 or signature errors deny admission (webhook failurePolicy: Fail). Namespaces are
 only evaluated when carrying the Policy Controller include label; kore app up
@@ -14,10 +17,6 @@ metadata:
   labels: {app.kubernetes.io/managed-by: Helm}
 spec:
   mode: {{ required "trust.mode is required (warn or enforce)" .Values.trust.mode }}
-  match:
-    - group: ""
-      version: v1
-      resource: pods
   images:
     - glob: {{ printf "%s/**" (required "platform.registry.address is required; kore passes it from registry.address" .Values.platform.registry.address) | quote }}
   authorities:

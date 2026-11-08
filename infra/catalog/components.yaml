@@ -473,7 +473,10 @@
         "dependencies": ["policy-controller", "oci-registry"],
         "timeout": "5m",
         "readiness":
-          ["clusterimagepolicy.policy.sigstore.dev/kore-platform-images"]
+          [
+            "clusterimagepolicy.policy.sigstore.dev/kore-platform-images",
+            "clusterimagepolicy.policy.sigstore.dev/kore-upstream-images"
+          ]
       },
       {
         "name": "kore-platform-config",

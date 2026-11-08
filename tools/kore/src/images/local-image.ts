@@ -4,6 +4,7 @@ import type { Repository } from "../config/index.js";
 import {
   imageDigestFromRegistryHead,
   localDockerBuildArgs,
+  localSignArgs,
   minikubeImageLoadArgs,
   minikubeImagePublishArgs,
 } from "./local-image-args.js";
@@ -15,7 +16,7 @@ import type { Runner } from "../runtime/index.js";
 export {
   imageDigestFromRegistryHead,
   localDockerBuildArgs,
-  localSigningConfigArgs,
+  localSignArgs,
   minikubeImageLoadArgs,
   minikubeImagePublishArgs,
 } from "./local-image-args.js";
@@ -99,20 +100,10 @@ async function signImage(
     runner,
     image.reference,
   );
-  await runner.run(
-    "cosign",
-    [
-      "sign",
-      "--key",
-      signer.key,
-      "--signing-config",
-      signer.signingConfig,
-      "--allow-http-registry",
-      "--yes",
-      signingReference,
-    ],
-    { capture: false, env: signer.env },
-  );
+  await runner.run("cosign", localSignArgs(signer.key, signingReference), {
+    capture: false,
+    env: signer.env,
+  });
 }
 
 async function buildAndSign(

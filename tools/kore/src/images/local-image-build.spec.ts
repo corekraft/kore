@@ -84,11 +84,6 @@ function fakeRunner(
         exists = true;
         await writeCosignPub(runOptions?.cwd);
       }
-      if (command === "cosign" && args[0] === "signing-config") {
-        const path = args[args.indexOf("--out") + 1]!;
-        await mkdir(join(path, ".."), { recursive: true });
-        await writeFile(path, "{}");
-      }
       if (command === "kubectl") {
         if (args.includes("secret") && args.includes("--output=name")) {
           stdout = exists ? "secret/kore-local-signing-key\n" : "";
@@ -227,7 +222,7 @@ test("build and sign reuses the key Secret already in the cluster", async () => 
     calls
       .filter(({ command }) => command === "cosign")
       .map(({ args }) => args[0]),
-  ).toEqual(["signing-config", "sign"]);
+  ).toEqual(["sign"]);
 });
 
 test("a legacy key under .kore is never used and is reported as deletable", async () => {

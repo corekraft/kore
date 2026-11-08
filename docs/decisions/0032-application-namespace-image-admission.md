@@ -51,3 +51,64 @@ Once enforced, these would be rejected as unmatched.
 - Registry membership still grants nothing: internal images need the signature.
 - Live verification of glob matching (`index.docker.io` normalization, tag and
   digest suffix) happens in warn mode before enforcing.
+
+## Refinement: live warn-mode trial (2026-11-08)
+
+A warn-mode trial on the local profile found three defects. Each cause below is
+from upstream source at the pinned versions (policy-controller v0.13.1, built on
+cosign v2.5.0 and go-containerregistry v0.20.3; cosign CLI 3.1.4), not from
+behavior alone.
+
+**1. "no signatures found" for kore-signed images.** cosign 3 signs in the
+Sigstore bundle format by default and stores it as an OCI referrer. Policy
+Controller 0.13.1 only reads a bundle for keyless authorities
+(`checkOptsFromAuthority`: "when using the new bundle format, the authority must
+be keyless"; `signatureFormat: bundle` is the opt-in), so a key authority looks
+for the legacy `sha256-<digest>.sig` tag and finds none. Not the cause, checked
+and ruled out:
+
+- **Transparency log:** with no `ctlog` and no Rekor keys on the authority the
+  verifier sets `IgnoreTlog`, so a key authority needs no tlog entry and no extra
+  option.
+- **Plain HTTP:** go-containerregistry's `Registry.Scheme()` selects HTTP for
+  RFC 1918 addresses (and loopback and `*.local`) and the transport pings HTTPS
+  then HTTP, so the `10.x` ClusterIP registry needs no insecure option. This holds
+  only for such addresses: an external registry reached by a public hostname must
+  serve TLS, and there is no Policy Controller setting that relaxes that (do not
+  add one cluster-wide).
+
+_Decision:_ kore signs local images with `--new-bundle-format=false
+--use-signing-config=false --tlog-upload=false` (plus the existing
+`--allow-http-registry`, for the CLI only). cosign 3.1.4 rejects a signing config
+combined with the legacy format, so the local signing config and its generation
+step are removed. `cosign verify` in 3.1.4 detects the missing bundle and falls
+back to legacy signatures, so kore's own verify is unchanged. These flags are
+deprecated in cosign 3; when Policy Controller reads key bundles
+(`signatureFormat: bundle` for key authorities) switch back and drop them. Images
+signed before this change carry only a bundle and must be re-signed by `kore
+local up`. The managed (keyless) path is unaffected: it will use
+`signatureFormat: bundle`.
+
+**2. Opting in already enforced for unmatched images.** `no-match-policy` is a
+cluster-wide key of `config-policy-controller`; the chart ships only `_example`,
+and the default is `deny`, regardless of any policy's `spec.mode`. The chart
+sets it through `webhook.configData`. kore now passes
+`webhook.configData.no-match-policy` to the `policy-controller` release, derived
+from the same `trust.mode` as the policies: `warn` for `warn`, `deny` for
+`enforce`, and `deny` for anything else (fail closed). There is one source of
+truth and no values-file copy.
+
+**3. "no matching policies" for Deployments and the migration Job.** Both
+policies carried `match: pods`. The webhook evaluates each pod-template kind
+under its own kind (`GetMatchingPolicies` maps kind to resource), so a Pod
+matched (hence the later `--dry-run=server` pod) while the Deployment and Job
+did not and fell to the `deny` default. The `match` is removed so the policies
+apply to every kind the webhook evaluates. A second, unproven contributor is
+policy propagation lag: the controller writes policies into its ConfigMap
+asynchronously. Readiness now waits for both policies rather than only
+`kore-platform-images`; a longer wait is not added until a live run shows lag.
+
+_Live re-verification (orchestrator):_ re-sign, then confirm a
+`--dry-run=server` Deployment and Job of the internal digest pass with no
+warning, an unsigned internal digest warns, and an unmatched image
+(`busybox:1.37`) warns rather than denies while `trust.mode` is `warn`.

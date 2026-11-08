@@ -15,10 +15,6 @@ metadata:
   labels: {app.kubernetes.io/managed-by: Helm}
 spec:
   mode: {{ required "trust.mode is required (warn or enforce)" .Values.trust.mode }}
-  match:
-    - group: ""
-      version: v1
-      resource: pods
   images:
     {{- range .Values.upstreamImages }}
     - glob: {{ . | quote }}

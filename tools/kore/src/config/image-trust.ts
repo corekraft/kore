@@ -156,3 +156,13 @@ export function imageTrustErrors(repository: Repository): string[] {
     ...imageErrors(trust, repository),
   ];
 }
+
+/**
+ * Policy Controller's no-match behavior is one cluster-wide setting, so it is
+ * derived from the same trust.mode that sets every policy's spec.mode: warn
+ * while auditing, deny when enforcing. Anything unrecognised fails closed.
+ */
+export function noMatchPolicy(repository: Repository): "warn" | "deny" {
+  const trust = repository.imageTrustValues?.trust as Trust | undefined;
+  return trust?.mode === "warn" ? "warn" : "deny";
+}

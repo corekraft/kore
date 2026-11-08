@@ -3,6 +3,7 @@ import {
   componentValues,
   componentVersion,
   expandVersions,
+  noMatchPolicy,
   registryConsumers,
   registryHelmArgs,
   type Component,
@@ -40,6 +41,12 @@ function chartSelectionArgs(
   }
   if (registryConsumers.includes(component.name)) {
     args.push(...registryHelmArgs(repository.environment, component.name));
+  }
+  if (component.name === "policy-controller") {
+    args.push(
+      "--set-string",
+      `webhook.configData.no-match-policy=${noMatchPolicy(repository)}`,
+    );
   }
   return args;
 }
