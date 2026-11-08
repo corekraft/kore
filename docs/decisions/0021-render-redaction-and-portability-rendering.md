@@ -5,7 +5,7 @@ date: 2026-11-08
 last-verified: 2026-11-08
 ---
 
-# ADR 0016: Render for portability and redact rendered output
+# ADR 0021: Render for portability and redact rendered output
 
 Source: [`infra/plans/2-implementation.md` § Progress Record](../../infra/plans/2-implementation.md#progress-record)
 (Steps 8 and 14)

@@ -22,7 +22,7 @@ jobs:
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           install: true
-          install_args: node npm opa gator helm
+          install_args: node npm opa gator helm promtool
           cache: true
       - name: Install CLI dependencies
         run: npm ci --prefix tools/kore
@@ -36,6 +36,8 @@ jobs:
         run: mise run test-opa
       - name: Gatekeeper policy tests
         run: mise run test-gatekeeper
+      - name: Test Prometheus rules
+        run: mise run test-promtool
       - name: Validate catalogs
         run: mise run validate
       - name: Knowledge base

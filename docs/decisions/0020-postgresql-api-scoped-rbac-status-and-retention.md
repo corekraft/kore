@@ -5,7 +5,7 @@ date: 2026-11-08
 last-verified: 2026-11-08
 ---
 
-# ADR 0016: Scope PostgreSQL API permissions, status, and retained-data discovery
+# ADR 0020: Scope PostgreSQL API permissions, status, and retained-data discovery
 
 Source: [`infra/plans/2-implementation.md` § Step 10](../../infra/plans/2-implementation.md)
 

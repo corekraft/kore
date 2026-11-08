@@ -5,7 +5,7 @@ date: 2026-11-08
 last-verified: 2026-11-08
 ---
 
-# ADR 0016: Gatekeeper policy families ship in audit mode, tested with gator
+# ADR 0017: Gatekeeper policy families ship in audit mode, tested with gator
 
 Source: [`infra/plans/2-implementation.md` § Step 9](../../infra/plans/2-implementation.md)
 

@@ -5,7 +5,7 @@ date: 2026-11-08
 last-verified: 2026-11-08
 ---
 
-# ADR 0016: Deploy the tested OPA bundle from the chart
+# ADR 0018: Deploy the tested OPA bundle from the chart
 
 Source: [`infra/plans/2-implementation.md` § Step 9](../../infra/plans/2-implementation.md#step-9-workload-identity-application-image-trust-and-policy)
 

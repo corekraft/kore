@@ -5,7 +5,7 @@ date: 2026-11-08
 last-verified: 2026-11-08
 ---
 
-# ADR 0016: Wire telemetry as separate pipelines with bounded cardinality
+# ADR 0019: Wire telemetry as separate pipelines with bounded cardinality
 
 Source: [`infra/plans/2-implementation.md` § Step 11: Observability](../../infra/plans/2-implementation.md#step-11-observability)
 
