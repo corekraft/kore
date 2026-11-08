@@ -7,6 +7,12 @@ export {
   loadRepository,
   orderedComponents,
 } from "./config.js";
+export {
+  checkCrdOwnership,
+  crdNameFormatErrors,
+  renderedCrdNames,
+} from "./crd-ownership.js";
+export type { CrdOwnership } from "./crd-ownership.js";
 export { noMatchPolicy } from "./image-trust.js";
 export {
   registryConsumers,
