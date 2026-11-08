@@ -394,17 +394,17 @@ function realDeps(root) {
   };
 }
 
-function main(argv) {
+/** Print findings through log and return the exit code: 1 only for findings under --strict. */
+export function run(argv, deps, log) {
   const strict = argv.includes("--strict");
-  const root = fileURLToPath(new URL("../..", import.meta.url));
-  const problems = findings(realDeps(root));
-  for (const problem of problems) console.log(format(problem));
+  const problems = findings(deps);
+  for (const problem of problems) log(format(problem));
   if (problems.length === 0) {
-    console.log("kb-check: clean");
+    log("kb-check: clean");
     return 0;
   }
   const noun = problems.length === 1 ? "finding" : "findings";
-  console.log(
+  log(
     strict
       ? `kb-check: ${problems.length} ${noun}`
       : `kb-check: ${problems.length} ${noun} (warn mode; --strict fails on them)`,
@@ -413,5 +413,6 @@ function main(argv) {
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  process.exitCode = main(process.argv.slice(2));
+  const root = fileURLToPath(new URL("../..", import.meta.url));
+  process.exitCode = run(process.argv.slice(2), realDeps(root), console.log);
 }

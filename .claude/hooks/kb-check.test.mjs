@@ -7,7 +7,7 @@ import { spawnSync } from "node:child_process";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { findings, format, slug } from "./kb-check.mjs";
+import { findings, format, run, slug } from "./kb-check.mjs";
 
 const hook = fileURLToPath(new URL("./kb-check.mjs", import.meta.url));
 
@@ -275,13 +275,50 @@ test("a top-level kore command in the usage text that README.md does not mention
   ]);
 });
 
-test("warn mode prints findings and exits 0; --strict exits 1", () => {
+function fakeDeps(tree) {
+  const files = Object.keys(tree).filter((path) => tree[path] !== null);
+  return { files: () => files, read: (path) => tree[path] ?? null };
+}
+
+function runWith(tree, argv) {
+  const lines = [];
+  const status = run(argv, fakeDeps(tree), (line) => lines.push(line));
+  return { status, lines };
+}
+
+const brokenTree = () =>
+  cleanTree({
+    "README.md":
+      "# Kore\n\nRun `kore -- doctor` and `kore cluster up`. Read the [index](docs/index.md) and [gone](missing.md).\n",
+  });
+
+test("warn mode prints each finding and a warn summary, and still exits 0", () => {
+  const { status, lines } = runWith(brokenTree(), []);
+  assert.equal(status, 0);
+  assert.match(lines[0], /^README\.md:3: .*missing\.md/);
+  assert.equal(
+    lines.at(-1),
+    "kb-check: 1 finding (warn mode; --strict fails on them)",
+  );
+});
+
+test("--strict exits 1 when there are findings", () => {
+  const { status, lines } = runWith(brokenTree(), ["--strict"]);
+  assert.equal(status, 1);
+  assert.equal(lines.at(-1), "kb-check: 1 finding");
+});
+
+test("a clean tree exits 0 in both modes and prints only the clean line", () => {
+  for (const argv of [[], ["--strict"]]) {
+    assert.deepEqual(runWith(cleanTree(), argv), {
+      status: 0,
+      lines: ["kb-check: clean"],
+    });
+  }
+});
+
+test("cli: runs against the repository and exits 0 in warn mode", () => {
   const warn = spawnSync(process.execPath, [hook], { encoding: "utf8" });
   assert.equal(warn.status, 0, warn.stderr);
-  assert.match(warn.stdout, /^kb-check: \d+ findings?|^kb-check: clean/m);
-  const strict = spawnSync(process.execPath, [hook, "--strict"], {
-    encoding: "utf8",
-  });
-  const clean = /^kb-check: clean/m.test(warn.stdout);
-  assert.equal(strict.status, clean ? 0 : 1, strict.stderr);
+  assert.match(warn.stdout, /^kb-check: (clean|\d+ findings?)/m);
 });
