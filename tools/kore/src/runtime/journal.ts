@@ -66,28 +66,38 @@ function journalPath(root: string, environment: string): string {
   return join(root, ".kore", "state", "journal", `${environment}.jsonl`);
 }
 
-/** Replaces the value of any flag whose name looks secret-bearing. */
+const sensitivePair =
+  /(^|[,;\s])([^=,;\s]*(?:password|secret|token|key)[^=,;\s]*)=[\s\S]*/i;
+
+/** Keeps `<k>=` and redacts the rest when `<k>` looks secret-bearing. */
+function redactPair(text: string): string {
+  return text.replace(sensitivePair, `$1$2=${redacted}`);
+}
+
+/** Redacts secret-looking flag values and secret-looking key=value tokens. */
 export function redactArgs(args: readonly string[]): string[] {
   const result: string[] = [];
   for (let index = 0; index < args.length; index++) {
     const item = args[index]!;
     if (!item.startsWith("--")) {
-      result.push(item);
+      result.push(redactPair(item));
       continue;
     }
     const equals = item.indexOf("=");
     const name = equals > 2 ? item.slice(2, equals) : item.slice(2);
-    if (!sensitiveFlag.test(name)) {
-      result.push(item);
-    } else if (equals > 2) {
-      result.push(`${item.slice(0, equals)}=${redacted}`);
-    } else {
-      result.push(item);
-      const next = args[index + 1];
-      if (next !== undefined && !next.startsWith("--")) {
-        result.push(redacted);
-        index++;
-      }
+    if (equals > 2) {
+      result.push(
+        sensitiveFlag.test(name)
+          ? `${item.slice(0, equals)}=${redacted}`
+          : `${item.slice(0, equals)}=${redactPair(item.slice(equals + 1))}`,
+      );
+      continue;
+    }
+    result.push(item);
+    const next = args[index + 1];
+    if (next !== undefined && !next.startsWith("--")) {
+      result.push(sensitiveFlag.test(name) ? redacted : redactPair(next));
+      index++;
     }
   }
   return result;
@@ -128,7 +138,7 @@ function failureText(error: unknown): string {
   const text =
     error instanceof CommandError
       ? `${error.command} ${redactArgs(error.args).join(" ")} failed (${error.result.code})`
-      : describe(error);
+      : redactPair(describe(error).split("\n")[0] ?? "");
   return (text.split("\n")[0] ?? "").slice(0, maxErrorLength);
 }
 

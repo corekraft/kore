@@ -310,3 +310,57 @@ test("the runner decorator records a failing command's exit code and rethrows", 
   await expect(runner.run("kubectl", ["get"])).rejects.toThrow();
   expect((await lines(dir))[0]).toMatchObject({ code: 7, command: "kubectl" });
 });
+
+test("key=value arguments with secret-looking keys are redacted wherever they appear", () => {
+  expect(
+    redactArgs([
+      "upgrade",
+      "--set",
+      "db.password=p1",
+      "--set-string",
+      "auth.token=t2",
+      "--from-literal=password=p3",
+      "api_key=k4",
+      "--set",
+      "replicas=2",
+      "--set=image.tag=v1",
+    ]),
+  ).toEqual([
+    "upgrade",
+    "--set",
+    "db.password=<redacted>",
+    "--set-string",
+    "auth.token=<redacted>",
+    "--from-literal=password=<redacted>",
+    "api_key=<redacted>",
+    "--set",
+    "replicas=2",
+    "--set=image.tag=v1",
+  ]);
+});
+
+test("an unrelated --set value is kept while a secret in the same list is redacted", () => {
+  expect(redactArgs(["--set", "replicas=2,db.password=p1"])).toEqual([
+    "--set",
+    "replicas=2,db.password=<redacted>",
+  ]);
+});
+
+test("non-command error text is redacted before it is journaled", async () => {
+  const dir = await root();
+  await expect(
+    withJournal(
+      { root: dir, environment: "local", command: "x" },
+      new RecordingRunner(),
+      async () => {
+        throw new Error("wrapped: tool --set db.password=hunter2 failed");
+      },
+    ),
+  ).rejects.toThrow();
+  const text = await readFile(
+    join(dir, ".kore", "state", "journal", "local.jsonl"),
+    "utf8",
+  );
+  expect(text).not.toContain("hunter2");
+  expect(text).toContain("db.password=<redacted>");
+});
