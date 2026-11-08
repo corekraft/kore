@@ -19,7 +19,7 @@ The installed `herdr` binary is the authority for syntax; run `herdr --skill` on
 
    The main session is the Opus orchestrator: it does the thinking, design, and final judgment itself. Minimize Opus elsewhere; spawn it only for the last row, and say why. Prefer Haiku whenever the task leaves no decisions open.
 
-4. **Start it with its role as the name**, passing the model after `--`: `herdr agent start verifier --kind claude --pane <id> -- --model claude-sonnet-5-5`. A fresh pane can answer `agent_pane_busy` until its shell is ready; retry for a few seconds. Confirm the model in `herdr agent read <name>` (the status line names it).
+4. **Name it after its subject**, in the domain's own words: `image-trust-reader`, `gateway-tls-verifier`, `postgresql-api-fixer`. Never use letters, ordinals, or plan step numbers (`reader-a`, `verifier-2`, `step8-verifier`); the name alone must tell the user what the pane is about. Pass the model after `--`: `herdr agent start gateway-tls-verifier --kind claude --pane <id> -- --model claude-sonnet-5-5`. A fresh pane can answer `agent_pane_busy` until its shell is ready; retry for a few seconds. Confirm the model in `herdr agent read <name>` (the status line names it).
 5. **Talk to it:** `herdr agent prompt <name> "<brief>" --wait --timeout <ms>`, then `herdr agent read <name>`. For a slash command, `herdr pane send-text <id> "/clear"`, then `herdr agent send-keys <name> enter`.
 6. **Wait on long work** for a line only the task prints when done (`herdr pane wait-output --regex '<summary pattern>' <id>`), never for a word that may already be on screen. The brief itself is on screen, so anchor the marker to its own line: `--regex '(?m)^\s*RESULT: (pass|miss)\s*$'`.
 
