@@ -135,12 +135,13 @@ test("release-please is pinned, reads its config files, and tags vX.Y.Z", () => 
   // With no prior release, release-please ignores bump-minor-pre-major and
   // would cut 1.0.0; the first release must be 0.1.0.
   assert.equal(config.packages["."]["initial-version"], "0.1.0");
-  assert.deepEqual(
-    JSON.parse(
-      readFileSync(join(root, ".release-please-manifest.json"), "utf8"),
-    ),
-    { ".": "0.0.0" },
+  // release-please owns the manifest and bumps it in every release PR, so
+  // assert its shape, never a fixed version.
+  const manifest = JSON.parse(
+    readFileSync(join(root, ".release-please-manifest.json"), "utf8"),
   );
+  assert.deepEqual(Object.keys(manifest), ["."]);
+  assert.match(manifest["."], /^\d+\.\d+\.\d+$/);
 });
 
 test("release-please and the tag dispatch hold only their own write scopes", () => {
