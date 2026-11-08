@@ -138,7 +138,7 @@ claim that the platform is ready.
 
 ## Step 7: Bootstrap Registry, Image Trust, Controllers, and CRD Ownership
 
-Next: merge #35 (local enforce) and #36 (dashboard telemetry), then rerun `kore local up` from `main` with `SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt`. Check the `Kore Reference` dashboard live: `increase(http_server_request_count_total[10m])` returns data and a Tempo search returns `reference-*` traces. The GHCR package `corekraft/kore/reference` is still private (anonymous pull returns 401); a maintainer must make it public before a managed cluster can pull or verify `v0.1.1`.
+Next: a maintainer makes the GHCR package `corekraft/kore/reference` public (anonymous pull returns 401). Then verify `v0.1.1` independently: an anonymous `cosign verify` with the exact identity `.../release.yaml@refs/tags/v0.1.1` passes, and the same check with a `refs/heads/main` identity fails. Local image admission is enforcing, and the `Kore Reference` dashboard shows metrics, logs and traces (#36, #37).
 
 ### Objective
 
