@@ -429,7 +429,7 @@ test("helm construction always uses explicit context, namespace, pin, and timeou
   assert.ok(args.includes("kore-local"));
   assert.ok(args.includes("--namespace"));
   assert.ok(args.includes("--version"));
-  assert.ok(args.includes("2.4.0"));
+  assert.ok(args.includes(repository.versions.components.crossplane!));
   assert.ok(args.includes("--timeout"));
   assert.ok(args.includes("--rollback-on-failure"));
   assert.equal(args.includes("--atomic"), false);
