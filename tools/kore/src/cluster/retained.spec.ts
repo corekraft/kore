@@ -4,7 +4,11 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "vitest";
 import { clusterDestroy } from "./cluster.js";
-import { hasVerifiedExport, retainedResources } from "./retained.js";
+import {
+  hasVerifiedExport,
+  purgeRetainedResources,
+  retainedResources,
+} from "./retained.js";
 import { loadRepository } from "../config/index.js";
 import { CommandError } from "../runtime/index.js";
 import { RecordingRunner } from "../runtime/runner.js";
@@ -237,4 +241,18 @@ test("export verification rejects malformed or mismatched checksum files", async
   } finally {
     await rm(exportDirectory, { recursive: true, force: true });
   }
+});
+
+test("purge never waits on a claim that a running pod still mounts", async () => {
+  const repository = await loadRepository("local");
+  const runner = new RecordingRunner([]);
+
+  await purgeRetainedResources(repository, runner);
+
+  const pvcDelete = runner.calls.find(
+    ({ args }) => args.includes("delete") && args.includes("pvc"),
+  );
+  assert.ok(pvcDelete, "expected a pvc delete");
+  assert.ok(pvcDelete.args.includes("--wait=false"));
+  assert.equal(pvcDelete.args.includes("--wait"), false);
 });

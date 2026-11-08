@@ -42,11 +42,13 @@ test("kore-retained keeps volumes after claim deletion and allows expansion", as
   expect(doc).toMatch(/^allowVolumeExpansion: true$/m);
 });
 
-test("the oci-registry claim on kore-retained carries the retention label so destroy and audit see it", async () => {
+test("the oci-registry claim is disposable cache on kore-standard and never counts as retained data", async () => {
   const docs = await documents("infra/charts/oci-registry/templates/all.yaml");
   const claim = docs.find((doc) => /^kind: PersistentVolumeClaim$/m.test(doc));
 
   expect(claim).toBeDefined();
-  expect(claim).toMatch(/^  storageClassName: kore-retained$/m);
-  expect(claim).toMatch(/platform\.kore\.dev\/retention: Retain/);
+  expect(claim).toMatch(/^  storageClassName: kore-standard$/m);
+  expect(claim).toMatch(/platform\.kore\.dev\/retention: Delete/);
+  expect(claim).not.toMatch(/kore-retained/);
+  expect(claim).not.toMatch(/retention: Retain/);
 });

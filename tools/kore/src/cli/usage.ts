@@ -18,7 +18,7 @@ Usage:
   kore journal [--environment <name>] [--limit <n>] [--json]
 
 "cluster destroy" refuses while data labeled platform.kore.dev/retention=Retain
-(databases and the oci-registry image store) exists; --purge-data deletes it.
+(databases) exists; --purge-data deletes it.
 
 "app down" uninstalls only the workload release and reports the retained data
 (claims and volumes) that remains; with --json it always prints

@@ -53,9 +53,9 @@ kind: PersistentVolumeClaim
 metadata:
   name: oci-registry
   namespace: {{ .Release.Namespace }}
-  labels: {app.kubernetes.io/managed-by: Helm, platform.kore.dev/retention: Retain}
+  labels: {app.kubernetes.io/managed-by: Helm, platform.kore.dev/retention: Delete}
 spec:
   accessModes: [ReadWriteOnce]
-  storageClassName: kore-retained
+  storageClassName: kore-standard
   resources:
     requests: {storage: {{ .Values.storage.size }}}
