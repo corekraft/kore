@@ -224,3 +224,16 @@ test("the release workflow checks out without credentials and installs only cosi
   assert.match(text, /install_args: cosign$/m);
   assert.match(text, /cache: false/);
 });
+
+test("the released image names its public source repository so GHCR links and publishes it", () => {
+  // Without this label GHCR creates an unlinked private package, which the
+  // organization does not allow, and the push is denied.
+  const dockerfile = readFileSync(
+    join(root, "apps/reference/Dockerfile"),
+    "utf8",
+  );
+  assert.match(
+    dockerfile,
+    /^LABEL org\.opencontainers\.image\.source="https:\/\/github\.com\/corekraft\/kore"$/m,
+  );
+});
