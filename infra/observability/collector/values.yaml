@@ -131,6 +131,7 @@
         "check_interval": "1s",
         "limit_mib": 600
       },
+      "deltatocumulative": {},
       "batch": {
         "send_batch_size": 512,
         "timeout": "5s"
@@ -254,6 +255,7 @@
             "k8s_attributes",
             "resource/environment",
             "attributes/cardinality",
+            "deltatocumulative",
             "transform/metric-cardinality",
             "batch"
           ],
