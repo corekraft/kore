@@ -6,6 +6,8 @@ export interface RunOptions {
   env?: NodeJS.ProcessEnv;
   stdin?: "inherit" | "ignore";
   input?: string;
+  /** Aborting terminates the running process (SIGTERM) and rejects the run. */
+  signal?: AbortSignal;
 }
 export interface RunResult {
   stdout: string;
@@ -59,8 +61,15 @@ export class ProcessRunner implements Runner {
       if (options.input !== undefined) {
         child.stdin?.end(options.input);
       }
+      const terminate = () => child.kill("SIGTERM");
+      if (options.signal?.aborted) {
+        terminate();
+      } else {
+        options.signal?.addEventListener("abort", terminate, { once: true });
+      }
       child.on("error", reject);
       child.on("close", (code) => {
+        options.signal?.removeEventListener("abort", terminate);
         const result = { stdout, stderr, code: code ?? 1 };
         if (result.code === 0) {
           resolve(result);
@@ -84,4 +93,15 @@ export class RecordingRunner implements Runner {
     this.calls.push({ command, args, ...(options ? { options } : {}) });
     return this.responses.shift() ?? { stdout: "", stderr: "", code: 0 };
   }
+}
+
+/**
+ * A runner whose every command is cancelled by `signal`: one abort stops
+ * whichever commands are running and any started afterwards.
+ */
+export function withSignal(inner: Runner, signal: AbortSignal): Runner {
+  return {
+    run: (command, args, options) =>
+      inner.run(command, args, { ...options, signal }),
+  };
 }
