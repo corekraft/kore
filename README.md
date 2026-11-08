@@ -149,6 +149,15 @@ makes schema failures deterministic before any cluster mutation while remaining
 valid YAML for Helm/Kubernetes tooling. See [`docs/index.md`](docs/index.md) for the plans and decisions behind the
 lifecycle and capability contracts.
 
+## Scans
+
+`mise run scan` runs the pinned security and quality scans: TruffleHog (secrets
+in history and tracked files), OSV-Scanner (npm lockfiles), Semgrep with the
+committed rules in `infra/policies/semgrep`, actionlint and zizmor (workflows),
+and hadolint (Dockerfiles). Run one with `mise run scan-secrets`, `scan-vulns`,
+`scan-sast`, `scan-workflows`, or `scan-dockerfiles`. CI fails on any finding.
+See [ADR 0030](docs/decisions/0030-security-and-quality-scans.md).
+
 ## Commands
 
 Every mutating command appends to an operations journal at

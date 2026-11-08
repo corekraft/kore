@@ -215,6 +215,7 @@ function loadSopsPatterns(ctx) {
   const patterns = [];
   for (const match of text.matchAll(/path_regex:\s*(.+)$/gm)) {
     try {
+      // nosemgrep: kore-dynamic-regexp -- path_regex comes from the committed .sops.yaml, not external input
       patterns.push(new RegExp(match[1].trim().replace(/^['"]|['"]$/g, "")));
     } catch {
       // An unparsable pattern cannot be checked; skip it rather than block work.

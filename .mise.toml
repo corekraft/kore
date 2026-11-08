@@ -13,6 +13,12 @@ opa = "1.22.2"
 gator = "3.23.1"
 cosign = "3.1.4"
 promtool = "3.16.0"
+trufflehog = "3.99.7"
+osv-scanner = "2.7.0"
+semgrep = "1.182.1"
+actionlint = "1.7.12"
+zizmor = "1.31.1"
+hadolint = "2.15.1"
 
 [tasks.build]
 description = "Build the kore executable"
@@ -60,3 +66,34 @@ depends = ["build"]
 [tasks.test-promtool]
 description = "Check and unit test Prometheus rule files with promtool"
 run = ["promtool check rules infra/observability/config/files/rules/platform.yaml", "promtool test rules infra/observability/config/tests/platform.test.yaml"]
+
+[tasks.scan-secrets]
+description = "Scan git history and tracked files for secrets with TruffleHog (verification needs network); .kore/ and SOPS ciphertext are excluded"
+run = [
+  "trufflehog git file://. --results=verified,unknown,unverified --exclude-paths=.trufflehog-exclude --no-update --fail --no-color",
+  "git ls-files -z | xargs -0 trufflehog filesystem --results=verified,unknown,unverified --exclude-paths=.trufflehog-exclude --no-update --fail --no-color",
+]
+
+[tasks.scan-vulns]
+description = "Scan npm lockfiles for known vulnerabilities with OSV-Scanner (queries the OSV API); add each new lockfile here"
+run = "osv-scanner scan source -L tools/kore/package-lock.json"
+
+[tasks.scan-sast]
+description = "Run the committed Semgrep rules (infra/policies/semgrep) over source; offline, no telemetry; tests are not scanned"
+run = "semgrep scan --metrics=off --disable-version-check --config infra/policies/semgrep/kore-node.yaml --error --exclude '*.spec.ts' --exclude '*.test.ts' --exclude '*.test.mjs' --exclude node_modules tools/kore/src apps .claude"
+
+[tasks.scan-sast-test]
+description = "Run the Semgrep rule tests beside the rules"
+run = "semgrep --test --metrics=off --disable-version-check infra/policies/semgrep"
+
+[tasks.scan-workflows]
+description = "Lint GitHub workflows with actionlint and audit them for security issues with zizmor (offline)"
+run = ["actionlint .github/workflows/check.yml", "zizmor --offline --no-progress .github/workflows"]
+
+[tasks.scan-dockerfiles]
+description = "Lint Dockerfiles with hadolint"
+run = "hadolint apps/reference/Dockerfile"
+
+[tasks.scan]
+description = "Run every security and quality scan"
+depends = ["scan-secrets", "scan-vulns", "scan-sast-test", "scan-sast", "scan-workflows", "scan-dockerfiles"]

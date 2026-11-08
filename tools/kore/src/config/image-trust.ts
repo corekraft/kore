@@ -67,6 +67,7 @@ function keyErrors(trust: Trust, repository: Repository): string[] {
 }
 
 const globPattern = (glob: string): RegExp =>
+  // nosemgrep: kore-dynamic-regexp -- every glob segment is regex-escaped before interpolation
   new RegExp(
     `^${glob
       .split("**")

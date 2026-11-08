@@ -16,6 +16,12 @@
       "gator": "3.23.1",
       "cosign": "3.1.4",
       "promtool": "3.16.0",
+      "trufflehog": "3.99.7",
+      "osv-scanner": "2.7.0",
+      "semgrep": "1.182.1",
+      "actionlint": "1.7.12",
+      "zizmor": "1.31.1",
+      "hadolint": "2.15.1",
       "docker": "29.7.2"
     },
   "kubernetes": "1.37.2",
