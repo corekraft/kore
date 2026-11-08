@@ -1,0 +1,126 @@
+import assert from "node:assert/strict";
+import { test } from "vitest";
+import { loadRepository } from "../config/index.js";
+import { bootstrapControllers } from "./bootstrap.js";
+import { platformStop, platformDestroy } from "./lifecycle.js";
+import { mkdtemp, rm } from "node:fs/promises";
+import { join } from "node:path";
+import type { Runner } from "../runtime/index.js";
+import { RecordingRunner } from "../runtime/runner.js";
+import { tmpdir } from "node:os";
+
+test("controller bootstrap reconciles controllers before shared Gateway configuration", async () => {
+  const repository = await loadRepository("local");
+  const runner = new RecordingRunner([
+    { stdout: '{"Host":"Running"}', stderr: "", code: 0 },
+    { stdout: "kube-system", stderr: "", code: 0 },
+  ]);
+
+  await bootstrapControllers(repository, runner);
+
+  const releases = runner.calls
+    .filter(({ command, args }) => command === "helm" && args[0] === "upgrade")
+    .map(({ args }) => args[2]);
+  assert.ok(releases.includes("opentelemetry-operator"));
+  assert.equal(releases.includes("kore-platform-config"), false);
+});
+
+test("controller bootstrap resumes a deployed component without another Helm upgrade", async () => {
+  const repository = await loadRepository("local");
+  const component = repository.catalog.components.find(
+    ({ name }) => name === "opa-authorizer",
+  )!;
+  repository.catalog.components = [
+    { ...component, dependencies: [], readiness: [] },
+  ];
+  const runner = new RecordingRunner([
+    { stdout: '{"Host":"Running"}', stderr: "", code: 0 },
+    { stdout: "kube-system", stderr: "", code: 0 },
+    {
+      stdout: JSON.stringify({ info: { status: "deployed" } }),
+      stderr: "",
+      code: 0,
+    },
+  ]);
+
+  await bootstrapControllers(repository, runner);
+
+  assert.equal(
+    runner.calls.some(
+      ({ command, args }) => command === "helm" && args[0] === "upgrade",
+    ),
+    false,
+  );
+});
+
+test("platform stop removes managed tunnel state before stopping the cluster", async () => {
+  const base = await loadRepository("local");
+  const root = await mkdtemp(join(tmpdir(), "kore-platform-stop-"));
+  const repository = { ...base, root };
+  const runner = new RecordingRunner([
+    { stdout: "{}", stderr: "", code: 0 },
+    { stdout: "kube-system", stderr: "", code: 0 },
+    { stdout: "", stderr: "", code: 0 },
+  ]);
+  try {
+    await platformStop(repository, runner);
+    assert.deepEqual(runner.calls.at(-1)?.args, [
+      "stop",
+      "--profile",
+      repository.environment.cluster.profile,
+    ]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("platform destroy stops the tunnel before purging and deleting the cluster", async () => {
+  const base = await loadRepository("local");
+  const root = await mkdtemp(join(tmpdir(), "kore-platform-destroy-"));
+  const repository = { ...base, root };
+  const runner = new RecordingRunner([
+    { stdout: "{}", stderr: "", code: 0 },
+    { stdout: "kube-system", stderr: "", code: 0 },
+    { stdout: "", stderr: "", code: 0 },
+    { stdout: "", stderr: "", code: 0 },
+    { stdout: "", stderr: "", code: 0 },
+    { stdout: "", stderr: "", code: 0 },
+  ]);
+  try {
+    await platformDestroy(repository, runner, { yes: true, purgeData: true });
+    assert.equal(runner.calls.at(-1)?.args[0], "delete");
+    assert.equal(
+      runner.calls.filter(({ args }) => args.includes("--selector")).length,
+      2,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("controller bootstrap creates a missing Minikube profile", async () => {
+  const base = await loadRepository("local");
+  const repository = {
+    ...base,
+    catalog: { components: [] },
+  };
+  let statusCalls = 0;
+  const runner: Runner = {
+    async run(command, args) {
+      if (command === "minikube" && args[0] === "status") {
+        statusCalls += 1;
+        if (statusCalls === 1) {
+          throw new Error("profile is stopped");
+        }
+      }
+      if (command === "kubectl" && args.includes("jsonpath={.metadata.name}")) {
+        return { stdout: "kube-system", stderr: "", code: 0 };
+      }
+      return { stdout: "", stderr: "", code: 0 };
+    },
+  };
+
+  await bootstrapControllers(repository, runner);
+
+  assert.equal(statusCalls, 2);
+});

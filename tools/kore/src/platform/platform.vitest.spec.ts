@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { loadRepository } from "../config/index.js";
-import { platformUp } from "./platform.js";
+import { platformUp } from "./up.js";
 
 describe("platform safety boundaries", () => {
   it("does not start Minikube when the configured context identifies another cluster", async () => {

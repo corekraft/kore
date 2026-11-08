@@ -18,13 +18,10 @@ test("CA issuer manifest references a generated secret and never embeds key mate
   assert.doesNotMatch(manifest, /BEGIN (RSA )?PRIVATE KEY/);
 });
 
-test("local trust installation ensures the target namespace exists", async () => {
-  const repository = await loadRepository("local");
-  const calls: {
-    command: string;
-    args: readonly string[];
-    options?: RunOptions;
-  }[] = [];
+type Call = { command: string; args: readonly string[]; options?: RunOptions };
+
+function recordingRunner(): { runner: Runner; calls: Call[] } {
+  const calls: Call[] = [];
   const runner: Runner = {
     async run(
       command: string,
@@ -32,70 +29,63 @@ test("local trust installation ensures the target namespace exists", async () =>
       options?: RunOptions,
     ): Promise<RunResult> {
       calls.push({ command, args, ...(options ? { options } : {}) });
+      let stdout = "";
       if (command === "minikube") {
-        return { stdout: "{}", stderr: "", code: 0 };
+        stdout = "{}";
+      } else if (args.includes("jsonpath={.metadata.name}")) {
+        stdout = "kube-system";
+      } else if (command === "mkcert" && args[0] === "-CAROOT") {
+        stdout = "/tmp";
+      } else if (args.includes("create") && args.includes("secret")) {
+        stdout = "apiVersion: v1\nkind: Secret\n";
       }
-      if (command === "kubectl" && args.includes("jsonpath={.metadata.name}")) {
-        return { stdout: "kube-system", stderr: "", code: 0 };
-      }
-      if (command === "mkcert" && args[0] === "-CAROOT") {
-        return { stdout: "/tmp", stderr: "", code: 0 };
-      }
-      if (
-        command === "kubectl" &&
-        args.includes("create") &&
-        args.includes("secret")
-      ) {
-        return {
-          stdout: "apiVersion: v1\nkind: Secret\n",
-          stderr: "",
-          code: 0,
-        };
-      }
-      return { stdout: "", stderr: "", code: 0 };
+      return { stdout, stderr: "", code: 0 };
     },
   };
+  return { runner, calls };
+}
 
-  await installLocalTrust(repository, runner);
+function appliedInputs(calls: Call[]): string[] {
+  return calls
+    .filter(({ args }) => args.includes("--filename"))
+    .map(({ options }) => options?.input ?? "");
+}
 
+test("local trust installation hands the gateway namespace to Helm ownership", async () => {
+  const { runner, calls } = recordingRunner();
+  await installLocalTrust(await loadRepository("local"), runner);
   assert.ok(
-    calls.some(
-      ({ command, args, options }) =>
-        command === "kubectl" &&
-        args.includes("--filename") &&
-        options?.input?.includes("name: kore-system") &&
-        options.input.includes("app.kubernetes.io/managed-by: Helm") &&
-        options.input.includes(
-          "meta.helm.sh/release-name: kore-platform-config",
-        ),
+    appliedInputs(calls).some(
+      (input) =>
+        input.includes("name: kore-system") &&
+        input.includes("app.kubernetes.io/managed-by: Helm") &&
+        input.includes("meta.helm.sh/release-name: kore-platform-config"),
     ),
   );
-  assert.ok(
-    calls.some(
-      ({ command, args }) =>
-        command === "kubectl" &&
-        args.includes("create") &&
-        args.includes("secret") &&
-        args.includes("--namespace") &&
-        args.includes("cert-manager"),
-    ),
+});
+
+test("local trust installation builds the CA secret from the mkcert root for cert-manager", async () => {
+  const { runner, calls } = recordingRunner();
+  await installLocalTrust(await loadRepository("local"), runner);
+  const create = calls.find(({ args }) => args.includes("create"));
+  assert.ok(create);
+  assert.ok(create.args.includes("cert-manager"));
+  assert.ok(create.args.includes("/tmp/rootCA.pem"));
+  assert.ok(create.args.includes("--dry-run=client"));
+});
+
+test("local trust installation applies the issuer then waits for it to be ready", async () => {
+  const { runner, calls } = recordingRunner();
+  await installLocalTrust(await loadRepository("local"), runner);
+  const issuer = calls.findIndex(({ options }) =>
+    options?.input?.includes("name: kore-local-ca"),
   );
-  assert.ok(
-    calls.some(
-      ({ command, options }) =>
-        command === "kubectl" &&
-        options?.input?.includes("name: kore-local-ca"),
-    ),
+  const wait = calls.findIndex(
+    ({ args }) =>
+      args.includes("wait") && args.includes("clusterissuer/kore-local-ca"),
   );
-  assert.ok(
-    calls.some(
-      ({ command, args }) =>
-        command === "kubectl" &&
-        args.includes("wait") &&
-        args.includes("--for=condition=Ready") &&
-        args.includes("clusterissuer/kore-local-ca"),
-    ),
-  );
+  assert.ok(issuer >= 0 && wait > issuer);
+  assert.ok(calls[wait]?.args.includes("--for=condition=Ready"));
 });
 
 test("trust installation rejects managed environments before side effects", async () => {
