@@ -6,6 +6,7 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, test, vi } from "vitest";
@@ -53,6 +54,11 @@ users:
     user: {client-certificate: /home/u/.minikube/client.crt, client-key: /home/u/.minikube/client.key}
 `;
 
+// The real cosign writes cosign.pub into its working directory.
+async function writeCosignPub(cwd: string | undefined): Promise<void> {
+  await writeFile(join(cwd ?? process.cwd(), "cosign.pub"), "pub");
+}
+
 function fakeRunner(
   options: {
     clusterIp?: string;
@@ -76,6 +82,7 @@ function fakeRunner(
       let stdout = "";
       if (command === "cosign" && args[0] === "generate-key-pair") {
         exists = true;
+        await writeCosignPub(runOptions?.cwd);
       }
       if (command === "cosign" && args[0] === "signing-config") {
         const path = args[args.indexOf("--out") + 1]!;
@@ -271,4 +278,23 @@ test("build and sign rejects when the local registry service has no address", as
   await expect(
     buildAndSignLocalImage(repository, runner, "reference", entry),
   ).rejects.toThrow(/registry service or image repository path is unavailable/);
+});
+
+test("key generation runs in a private temp directory so cosign.pub never lands in the caller's working directory", async () => {
+  const repository = await testRepository();
+  const { runner, calls } = fakeRunner();
+  stubRegistry();
+  const before = existsSync(join(process.cwd(), "cosign.pub"));
+
+  await buildAndSignLocalImage(repository, runner, "reference", entry);
+
+  const generate = calls.find(({ args }) => args[0] === "generate-key-pair")!;
+  const cwd = generate.options?.cwd;
+  expect(cwd).toBeDefined();
+  expect(cwd!.startsWith(tmpdir())).toBe(true);
+  expect(cwd!.startsWith(repository.root)).toBe(false);
+  expect(existsSync(cwd!)).toBe(false);
+  expect(existsSync(join(process.cwd(), "cosign.pub"))).toBe(before);
+  const files = await filesUnder(repository.root);
+  expect(files.filter((file) => file.endsWith("cosign.pub"))).toEqual([]);
 });
