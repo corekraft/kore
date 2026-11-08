@@ -334,3 +334,42 @@ test("read-only commands never open a journal entry", async () => {
   await main(["doctor"]);
   expect(dispatch.some((item) => item.startsWith("journal:"))).toBe(false);
 });
+
+test("journal prints tab-separated lines and an interrupted notice without --json", async () => {
+  const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+  expect(await main(["journal"])).toBe(0);
+  expect(log.mock.calls.map((call) => call[0])).toEqual([
+    "2026-11-07T10:00:00.000Z\tINTERRUPTED\tlocal up\t",
+    "2026-11-07T10:01:00.000Z\tok\tcluster stop\t",
+    "1 interrupted operation(s): rerun the command, it is idempotent.",
+  ]);
+});
+
+test("plain output prints key-value pairs for objects and lines for lists", async () => {
+  const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+  await main(["tunnel", "status"]);
+  await main(["platform", "status"]);
+  await main(["validate"]);
+  expect(log.mock.calls.map((call) => call[0])).toEqual([
+    "status: running",
+    "environment: local",
+    "components: 1",
+    'order: ["gateway"]',
+    'applications: ["reference"]',
+    "status: valid",
+  ]);
+});
+
+test("help prints usage and exits 0 for no command, help, and --help", async () => {
+  const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+  for (const argv of [[], ["help"], ["--help"]]) {
+    expect(await main(argv)).toBe(0);
+  }
+  expect(log).toHaveBeenCalledTimes(3);
+  expect(String(log.mock.calls[0]![0])).toContain("Usage:");
+  expect(dispatch).toEqual([]);
+});
+
+test("unknown command error carries the usage text", async () => {
+  await expect(main(["bogus"])).rejects.toThrow(/Usage:[\s\S]*kore journal/);
+});
