@@ -222,7 +222,12 @@ test("the node agent is its own release ordered after the gateway Collector", as
     ({ name }) => name === "otel-agent",
   )!;
   assert.equal(component.chart, "opentelemetry-collector");
-  assert.deepEqual(component.readiness, ["daemonset/otel-agent"]);
+  // In daemonset mode the chart suffixes the full name with `-agent`.
+  const values = await readJson(agent);
+  assert.equal(values.mode, "daemonset");
+  assert.deepEqual(component.readiness, [
+    `daemonset/${values.fullnameOverride}-agent`,
+  ]);
   assert.ok(order.indexOf("otel-collector") < order.indexOf("otel-agent"));
 });
 
