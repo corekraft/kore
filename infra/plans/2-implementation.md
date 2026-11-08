@@ -173,9 +173,9 @@ through 11 also converge.
 - [ ] Install a persistent `oci-registry` infrastructure release and verify push,
       pull, restart, storage retention, authentication, authorization, and bounded
       readiness behavior.
-      _Partial: the `oci-registry` release has a `kore-retained` PVC labelled
-      `platform.kore.dev/retention=Retain`, so registry images are retained data and
-      `cluster destroy` needs `--purge-data`, and a `/v2/` readiness probe. It has no
+      _Partial: the `oci-registry` release has a `kore-standard` PVC labelled
+      `platform.kore.dev/retention=Delete`, because its contents are rebuildable
+      cache rather than retained data, and a `/v2/` readiness probe. It has no
       authentication or authorization and is exposed as an unauthenticated NodePort
       (clients fall back from HTTPS to plain HTTP)._
 - [ ] Install Sigstore Policy Controller and its CRDs/webhook from an explicitly
@@ -257,7 +257,7 @@ CRD ownership is decided in
 - [ ] A second reconciliation produces no unintended release changes.
 - [x] Failure identifies the component and readiness condition that timed out
       (`component <c> failed to become ready: <resource> not ready (<condition>)
-  within <timeout>: <reason>`).
+within <timeout>: <reason>`).
 - [ ] No shared issuer, gateway, composition, secret store, or unrelated enforcing
       Gatekeeper/runtime policy is installed yet; image signature enforcement is the
       required bootstrap exception because it closes the image trust boundary.
@@ -323,7 +323,7 @@ The Istio CNI AppArmor deprecation warning did not cause this failure.
       missing trust setup with an actionable command.
       Before waiting on a Certificate, Kore checks the ClusterIssuer and its CA
       Secret and fails immediately with `Run: kore trust install --environment
-  <env>`.
+<env>`.
 - [x] Create and wait for the Certificate that produces
       `kore-system/kore-local-tls`; check the expected TLS Secret keys without
       printing their contents before installing the HTTPS Gateway. The certificate
@@ -463,8 +463,8 @@ PostgreSQL claim backed locally by CloudNativePG.
 - [ ] Implement retained-data discovery used by application and cluster lifecycle
       guards.
       _Partial: `cluster destroy` and `app down` use it and it fails closed; the
-      composition labels CloudNativePG PVCs through `inheritedMetadata`, and the
-      `oci-registry` PVC is now labelled too. Export and restore remain._
+      composition labels CloudNativePG PVCs through `inheritedMetadata`, and purge
+      no longer waits on a claim a pod still mounts. Export and restore remain._
 - [x] Define and test an explicit purge path.
 - [ ] Implement a local export and restore proof before treating platform destroy as
       recoverable.
@@ -510,7 +510,7 @@ policy telemetry with correlated local metrics, logs, and traces.
       The `kore-observability-config` release owns the dashboard ConfigMap.
 - [x] Add health, queue, dropped-data, and exporter-failure monitoring for the
       Collector. Prometheus loads the rule files from a ConfigMap; `mise run
-  test-promtool` unit-tests them. Alertmanager stays disabled locally.
+test-promtool` unit-tests them. Alertmanager stays disabled locally.
 - [x] Define local retention and storage limits for every backend.
 - [ ] Add synthetic telemetry tests for all three signals and their correlation.
       _Partial: `apps/reference/src/server.test.ts` checks trace/log/metric
@@ -953,18 +953,32 @@ ADRs 0023 through 0025). No cluster was used. Changes: Collector component
 renames (the `otlp` receiver keeps its name) and OpenTelemetry Operator resource
 bounds; `cosign.pub` no longer lands in the caller's directory; `kore trust
 install` skips `mkcert -install` on macOS when `security verify-cert` already
-trusts the mkcert CA, and runs it in every other case; the `oci-registry` PVC
-retention label; digest pins for the registry and Policy Controller; the Crossplane
-Functions release; authenticated reference database access with a migration Job;
-and ambient namespace enrollment owned by `kore app up`. `mise run test` now also
+trusts the mkcert CA, and runs it in every other case; digest pins for the
+registry and Policy Controller in every environment; the Crossplane Functions
+release; authenticated reference database access with a migration Job; and
+ambient namespace enrollment owned by `kore app up`. `mise run test` now also
 runs the reference application's suite, which CI had never run.
 
-Next live check, on a fresh profile: Functions report `Healthy`, the migration
-Job reaches the database through the mesh, `/readyz` authenticates, the audit
-counts for retention and mesh enrollment drop, and `cluster destroy` asks for
-`--purge-data` because of the registry PVC. Then observe persistence and
-stop/resume without the README integration spec, whose cleanup purges the
-profile.
+A principles review of the merge found three defects, fixed before commit:
+
+- Labelling the registry PVC `Retain` made every `cluster destroy` need
+  `--purge-data`, and the purge then hung on the still-mounted claim. The claim
+  moved to `kore-standard` with `retention=Delete`, and purge deletes PVCs without
+  waiting. An existing cluster keeps the old class until the claim is recreated,
+  because `storageClassName` is immutable.
+- The ambient namespace label enrolled the CloudNativePG pods under a
+  namespace-wide `STRICT` `PeerAuthentication`, which the out-of-mesh operator
+  could not reach. The composition labels database pods
+  `istio.io/dataplane-mode: none`, and `STRICT` is scoped to the app (ADR 0025).
+- The frontend received the database password; now only the API does.
+
+Next live check, on a fresh profile: Functions report `Healthy`; `reference-db-1`
+carries `istio.io/dataplane-mode: none` and stays healthy; the migration Job and
+`/readyz` authenticate to the database; no hook ServiceAccount survives `app
+down`; the retention and mesh-enrollment audit counts drop; and `cluster
+destroy` does not ask for `--purge-data` when only the registry has storage.
+Then observe persistence and stop/resume without the README integration spec,
+whose cleanup purges the profile.
 
 ## Progress Record
 
