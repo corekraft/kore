@@ -113,12 +113,18 @@ test("Minikube stages the locked digest under the registry service reference", (
     "10.102.135.66:5000",
     "kore-read",
   );
-  expect(args.slice(0, 4)).toEqual(["ssh", "--profile", "kore-local", "--"]);
-  expect(args[4]).toContain("--password-stdin");
-  expect(args[4]).toContain(
+  expect(args.slice(0, 5)).toEqual([
+    "ssh",
+    "--profile",
+    "kore-local",
+    "--native-ssh=false",
+    "--",
+  ]);
+  expect(args[5]).toContain("--password-stdin");
+  expect(args[5]).toContain(
     "nerdctl --insecure-registry --namespace k8s.io pull",
   );
-  expect(args[4]).toContain(reference);
+  expect(args[5]).toContain(reference);
 });
 
 test("local workload releases never pull the already-loaded image", () => {

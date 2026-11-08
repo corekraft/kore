@@ -98,3 +98,37 @@ test("the digest lookup authenticates and a rejected credential is reported acti
     `Basic ${encodeBase64(`kore-push:${pushPassword}`)}`,
   );
 });
+
+test("the node reads exactly one password line, so the login never waits for end of input", async () => {
+  // minikube's native SSH client forwards stdin but never closes it, so a
+  // command that reads stdin to EOF hangs forever (2026-11-08 live run).
+  const repository = await testRepository();
+  const { runner, calls } = fakeRunner();
+  stubRegistry(registryReference);
+
+  await buildAndSignLocalImage(repository, runner, "reference", entry);
+
+  const script = calls
+    .find((c) => c.args.some((a) => a.includes("push")))!
+    .args.join(" ")
+    .replaceAll("'\\''", "'");
+  expect(script).toMatch(/IFS= read -r \w+/);
+  expect(script).toMatch(
+    /printf '%s' "\$\w+" \| nerdctl [^\n]*login [^\n]*--password-stdin/,
+  );
+  expect(script).not.toMatch(/^nerdctl [^\n]*login[^\n]*--password-stdin/m);
+});
+
+test("credentialed node sessions use the external ssh client, which neither echoes stdin nor holds it open", async () => {
+  // minikube's native SSH client allocates a terminal that echoes the password
+  // into captured output (and so into error messages), and never closes stdin.
+  const repository = await testRepository();
+  const { runner, calls } = fakeRunner();
+  stubRegistry(registryReference);
+
+  await buildAndSignLocalImage(repository, runner, "reference", entry);
+
+  const publish = calls.find((c) => c.args.some((a) => a.includes("push")))!;
+  const dashdash = publish.args.indexOf("--");
+  expect(publish.args.slice(0, dashdash)).toContain("--native-ssh=false");
+});

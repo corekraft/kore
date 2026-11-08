@@ -57,8 +57,14 @@ test("Minikube publishes the staged image over HTTP with a stdin login and no pa
     "kore-push",
   );
 
-  expect(args.slice(0, 4)).toEqual(["ssh", "--profile", "kore-local", "--"]);
-  const script = args[4] ?? "";
+  expect(args.slice(0, 5)).toEqual([
+    "ssh",
+    "--profile",
+    "kore-local",
+    "--native-ssh=false",
+    "--",
+  ]);
+  const script = args[5] ?? "";
   expect(script).toContain("--password-stdin");
   expect(script).toContain(
     "nerdctl --insecure-registry --namespace k8s.io push",

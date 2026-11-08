@@ -20,7 +20,8 @@ export function minikubeImageLoadArgs(profile: string, tag: string): string[] {
 
 /**
  * Runs registry commands inside the node. The password is read from stdin by
- * `nerdctl login --password-stdin` into a Docker config on memory-backed
+ * one line of stdin and piped to `nerdctl login --password-stdin`, which
+ * writes a Docker config on memory-backed
  * storage that the script removes on exit, so it is never in an argument or on
  * a persistent disk (ADR 0034). The caller supplies `${password}\n` as input.
  */
@@ -41,13 +42,21 @@ export function minikubeRegistrySessionArgs(
     "d=$(mktemp -d -p /dev/shm)",
     `trap 'rm -rf "$d"' EXIT`,
     'export DOCKER_CONFIG="$d"',
-    `nerdctl --insecure-registry login --username ${shellQuote(username)} --password-stdin ${shellQuote(registryAddress)} >/dev/null`,
+    // Read exactly one line: minikube's native SSH client never closes stdin,
+    // so a login that reads to end of input would hang forever.
+    "IFS= read -r p",
+    `printf '%s' "$p" | nerdctl --insecure-registry login --username ${shellQuote(username)} --password-stdin ${shellQuote(registryAddress)} >/dev/null`,
+    "unset p",
     ...commands,
   ].join("\n");
+  // The native Go SSH client allocates a terminal that echoes stdin (the
+  // password) into the captured output, and never closes stdin; the external
+  // ssh client does neither.
   return [
     "ssh",
     "--profile",
     profile,
+    "--native-ssh=false",
     "--",
     `sudo sh -c ${shellQuote(script)}`,
   ];
