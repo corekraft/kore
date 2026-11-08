@@ -191,10 +191,16 @@
         .board {
           grid-template-columns: repeat(2, 1fr);
         }
+        .board .tile.lead {
+          grid-column: span 2;
+        }
       }
       @media (min-width: 900px) {
         .board {
-          grid-template-columns: repeat(4, 1fr);
+          grid-template-columns: repeat(3, 1fr);
+        }
+        .board .tile.lead {
+          grid-column: auto;
         }
       }
       .tile {
@@ -733,7 +739,7 @@
 
       <section aria-labelledby="board">
         <div class="section-head">
-          <span class="eyebrow">Eight pillars</span>
+          <span class="eyebrow">Nine pillars</span>
           <h2 id="board">The board</h2>
         </div>
         <div class="board">
@@ -827,6 +833,26 @@
             </p>
             <div class="chips">
               <span class="pill new">New: identity, usage</span>
+            </div>
+          </article>
+          <article class="tile">
+            <h3>Observed from the first request</h3>
+            <p>
+              Logs, metrics, and traces from every service, data store, and
+              platform component reach org-scoped backends with no setup.
+              Dashboards and alerts come with each service.
+            </p>
+            <div class="chips">
+              <a
+                class="chip"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0010-opentelemetry-collector-ingestion.md"
+                >ADR 0010</a
+              >
+              <a
+                class="chip"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0019-telemetry-pipeline-wiring.md"
+                >ADR 0019</a
+              >
             </div>
           </article>
           <article class="tile">
@@ -1507,6 +1533,135 @@
         </div>
       </section>
 
+      <section aria-labelledby="observability">
+        <div class="section-head">
+          <span class="eyebrow">Observability</span>
+          <h2 id="observability">
+            Telemetry out of the box, scoped to the organization
+          </h2>
+          <p class="lede">
+            Telemetry is part of the platform, not a step each team adds. Plan 2
+            Step 11 installs the pipeline: services send OTLP to the Collector,
+            which exports to Prometheus, Loki, and Tempo, with Grafana in front
+            (<a
+              href="https://github.com/corekraft/kore/blob/main/docs/decisions/0010-opentelemetry-collector-ingestion.md"
+              >ADR 0010</a
+            >,
+            <a
+              href="https://github.com/corekraft/kore/blob/main/docs/decisions/0019-telemetry-pipeline-wiring.md"
+              >ADR 0019</a
+            >). The vision makes it automatic for every service and scopes it to
+            the organization.
+          </p>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Signal, with no instrumentation code</th>
+                <th>Where it comes from</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Request metrics</td>
+                <td>
+                  Gateway and mesh telemetry: request rate, errors, and latency
+                  for every route
+                </td>
+              </tr>
+              <tr>
+                <td>Logs</td>
+                <td>
+                  The node agent collects container output and enriches it with
+                  service and organization
+                </td>
+              </tr>
+              <tr>
+                <td>Traces</td>
+                <td>
+                  Mesh spans at the Gateway and between services, joined to the
+                  service's own spans
+                </td>
+              </tr>
+              <tr>
+                <td>Resource use</td>
+                <td>
+                  Kubelet and cluster metrics per service, plus HPA replica
+                  counts
+                </td>
+              </tr>
+              <tr>
+                <td>Data health</td>
+                <td>
+                  Metrics from each data service operator, such as CloudNativePG
+                  and Strimzi
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="split">
+          <ul class="rules">
+            <li>
+              <strong>The OTLP endpoint is injected.</strong
+              ><span
+                >Every service receives the Collector endpoint and standard
+                resource attributes, so the Kotlin BFF template exports from its
+                first deploy. It uses Spring Boot's built-in OTLP export,
+                because the Java agent behind OpenTelemetry auto-instrumentation
+                does not run in a GraalVM native image.</span
+              >
+            </li>
+            <li>
+              <strong>The platform stamps the organization.</strong
+              ><span
+                >The Collector adds tenant, organization, service, and
+                environment attributes from namespace labels. It never trusts an
+                organization a service reports about itself, so one tenant
+                cannot write into another's telemetry.</span
+              >
+            </li>
+            <li>
+              <strong>Queries are scoped to the organization.</strong
+              ><span
+                >Each organization sees only its own signals. Loki and Tempo
+                separate tenants natively; metrics need a label-enforcing proxy
+                in front of Prometheus or a store that separates tenants, such
+                as Mimir.</span
+              >
+            </li>
+          </ul>
+          <ul class="rules">
+            <li>
+              <strong>Dashboards and alerts come with each service.</strong
+              ><span
+                >Request rate, errors, latency, saturation, replicas, and data
+                claims on one dashboard, plus default alerts routed to the
+                organization's contacts. Alerting needs Alertmanager, which ADR
+                0019 keeps disabled until routing is designed.</span
+              >
+            </li>
+            <li>
+              <strong>Bounded per organization.</strong
+              ><span
+                >Cardinality stays bounded by the ADR 0019 attribute allowlist,
+                retention is set per organization, and telemetry volume counts
+                toward usage.</span
+              >
+            </li>
+            <li>
+              <strong>Platform components too.</strong
+              ><span
+                >Backstage, Argo CD, the data operators, and the Collectors
+                report into the platform organization's view, so operators watch
+                the platform with the same tools tenants use.</span
+              >
+            </li>
+          </ul>
+        </div>
+      </section>
+
       <section aria-labelledby="portal">
         <div class="section-head">
           <span class="eyebrow">The portal</span>
@@ -1633,7 +1788,10 @@
               <tr>
                 <td>Observability</td>
                 <td>Uptime and service-level summaries</td>
-                <td>Logs, metrics, and traces, filtered to their services</td>
+                <td>
+                  Dashboards, alerts, logs, metrics, and traces for their
+                  services
+                </td>
               </tr>
               <tr>
                 <td>Domains</td>
@@ -1694,6 +1852,20 @@
               <tr>
                 <td>Logs, metrics, traces via OpenTelemetry</td>
                 <td><span class="pill plan">Plan 2 · Step 11</span></td>
+              </tr>
+              <tr>
+                <td>
+                  Org-scoped telemetry: organization attributes, per-org
+                  queries, retention
+                </td>
+                <td><span class="pill new">New</span></td>
+              </tr>
+              <tr>
+                <td>
+                  Default dashboards and alerts per service, routed to the
+                  organization
+                </td>
+                <td><span class="pill new">New</span></td>
               </tr>
               <tr>
                 <td>
@@ -1856,6 +2028,12 @@
               <li>
                 An organization admin sees their own tree and nothing else, and
                 a negative test proves it.
+              </li>
+              <li>
+                A new service shows request rate, errors, latency, logs, and
+                traces in its organization's dashboards before anyone writes
+                instrumentation code, and another organization cannot query
+                them.
               </li>
               <li>
                 Every workload in every tenant runs by signed digest; no secret
@@ -2036,6 +2214,26 @@
                 >Rook Ceph, SeaweedFS, or Garage for the local object store, and
                 FerretDB and Valkey, or upstream MongoDB and Redis recorded as
                 license exceptions?</span
+              >
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Telemetry isolation</strong
+              ><span
+                >A label-enforcing proxy in front of Prometheus, or a
+                multi-tenant metrics store such as Mimir? And does each Kore
+                tenant map to a Grafana organization?</span
+              >
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Telemetry retention and alert routing</strong
+              ><span
+                >How long is each signal kept per organization, does volume
+                count against quotas, and where do an organization's alerts
+                go?</span
               >
             </div>
           </li>
