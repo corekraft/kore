@@ -130,7 +130,8 @@ claim that the platform is ready.
 - [x] `kore doctor` distinguishes required failures from optional warnings.
 - [ ] Repeating cluster creation produces no unintended change.
 - [x] Cluster commands refuse to operate on an unexpected context or profile.
-- [ ] Stopping and resuming the profile preserves its Kubernetes state.
+- [x] Stopping and resuming the profile preserves its Kubernetes state
+      (2026-11-08: PV UIDs, database rows, and registry contents unchanged).
 - [x] Destroy requires explicit confirmation and has a tested retained-data guard.
 - [x] Tests that do not require a live cluster run without one.
 - [x] No infrastructure controller or application is installed by this step.
@@ -189,7 +190,7 @@ through 11 also converge.
       `kore-crossplane-functions` release installs both Functions after Crossplane
       and before `kore-postgresql-api`, and waits for `Installed` and `Healthy`
       ([ADR 0023](../../docs/decisions/0023-crossplane-functions-own-release-and-readiness.md)).
-      _The `Healthy` wait is unverified live._
+      Live-verified 2026-11-08.
 - [x] Install External Secrets Operator.
 - [x] Install CloudNativePG.
 - [x] Install OpenTelemetry Operator after its prerequisites are ready.
@@ -243,7 +244,8 @@ CRD ownership is decided in
 - [x] The release graph is acyclic and produces a deterministic order.
 - [ ] All CRDs are established before their custom resources are submitted.
 - [ ] All controller deployments, daemon sets, and webhooks report ready.
-- [ ] The registry persists images and signatures across platform stop and resume.
+- [x] The registry persists images and signatures across platform stop and resume
+      (2026-11-08).
 - [ ] Every managed foundation workload installed in this step uses an internal
       digest-qualified image with a valid signature from the authorized release
       automation identity; later platform releases must satisfy the same condition
@@ -371,7 +373,8 @@ OPA into an identity issuer or a signature verifier.
       namespace with `istio.io/dataplane-mode: ambient`, and Helm no longer
       creates it. The Gatekeeper mesh-enrollment constraint audits the label
       ([ADR 0025](../../docs/decisions/0025-application-namespace-ambient-enrollment.md)).
-      _Unverified live; `kore app down` still leaves the namespace._
+      Live-verified 2026-11-08 (mesh-enrollment audit 0). _`kore app down` still
+      leaves the namespace._
 - [x] Require every workload to use a dedicated Kubernetes ServiceAccount.
 - [ ] Verify Istio produces the expected SPIFFE principal from namespace and
       ServiceAccount identity.
@@ -442,7 +445,7 @@ PostgreSQL claim backed locally by CloudNativePG.
 - [x] Define `kore-standard` and `kore-retained` StorageClasses with documented
       reclaim and expansion behavior. The README documents both, and
       `platform.storage.spec.ts` asserts `Delete`, `Retain`, and expansion.
-- [ ] Verify Minikube storage paths survive profile stop and resume.
+- [x] Verify Minikube storage paths survive profile stop and resume (2026-11-08).
 - [x] Define the namespaced
       `PostgreSQLInstance.platform.kore.dev` Crossplane XRD.
 - [x] Limit the API to portable inputs: service class, storage size, PostgreSQL
@@ -613,13 +616,13 @@ and negative tests.
       `passwordSecretRef` names, and readiness authenticates with SCRAM-SHA-256 and
       runs `SELECT 1` through a std-lib client
       ([ADR 0024](../../docs/decisions/0024-reference-app-database-access.md)).
-      _Unverified live._
+      Live-verified 2026-11-08.
 - [x] Emit OpenTelemetry logs, metrics, and traces with stable service attributes.
 - [x] Add a route protected by native Istio policy and a route protected by OPA.
 - [x] Add database schema initialization or migration as an explicit, repeatable
       operation. A `pre-install,pre-upgrade` hook Job applies an append-only list
-      in one transaction under an advisory lock (ADR 0024). _Unverified live: the
-      Job's mesh identity must be allowed to reach the database._
+      in one transaction under an advisory lock (ADR 0024). Live-verified on
+      install and on the resume upgrade, which applied nothing new.
 - [ ] Add smoke tests for HTTPS, persistence, Secret use, health, telemetry, mTLS,
       native authorization, and OPA authorization.
 - [ ] Add negative tests proving that policy rejects an invalid workload and an
@@ -896,9 +899,9 @@ Google-hosted repository is being retired. Gatekeeper stays on 3.23.1 because
 3.24.0 is beta. The trailing-comma problem in `mise run format` is fixed by a
 `.prettierrc.json` override with a regression spec (2026-11-08).
 
-Next: run the live check listed under "2026-11-08 second parallel offline
-implementation", then allowlist the digest-pinned Sigstore Policy Controller seed
-and enable `ClusterImagePolicy` enforcement (Step 7), which unblocks Step 9
+Next: label the observability claims (`retention=Delete`) so the retention audit
+is clean, then allowlist the digest-pinned Sigstore Policy Controller seed and
+enable `ClusterImagePolicy` enforcement (Step 7), which unblocks Step 9
 enrollment and the bootstrap gate.
 
 ### 2026-11-08 parallel offline implementation
@@ -972,13 +975,38 @@ A principles review of the merge found three defects, fixed before commit:
   `istio.io/dataplane-mode: none`, and `STRICT` is scoped to the app (ADR 0025).
 - The frontend received the database password; now only the API does.
 
-Next live check, on a fresh profile: Functions report `Healthy`; `reference-db-1`
-carries `istio.io/dataplane-mode: none` and stays healthy; the migration Job and
-`/readyz` authenticate to the database; no hook ServiceAccount survives `app
-down`; the retention and mesh-enrollment audit counts drop; and `cluster
-destroy` does not ask for `--purge-data` when only the registry has storage.
-Then observe persistence and stop/resume without the README integration spec,
-whose cleanup purges the profile.
+### 2026-11-08 second fresh-profile live bootstrap
+
+`kore local up --environment local` converged on a new `kore-local` profile on
+the first attempt, from `feat/plan-open-items-2` (PR #13). Evidence:
+
+- Both Crossplane Functions reported `Installed=True` and `Healthy=True`, and
+  every component reported ready in `kore platform status`.
+- The `reference` namespace carried `istio.io/dataplane-mode: ambient`. The
+  `reference-db-1` pod carried `none`, and CloudNativePG reported `Cluster in
+healthy state`. `PeerAuthentication/strict` selected
+  `app.kubernetes.io/part-of: reference`.
+- The migration hook Job completed and recorded `0001-reference-events` in
+  `schema_migrations`. Neither the Job nor its ServiceAccount remained.
+  `/readyz` returned 200 through the authenticating client. Over HTTPS, `/api`
+  returned `database: true`, and `/api/protected` returned 403 without auth and
+  with a forged `x-kore-role`. The frontend had no `PG*` environment.
+- The `oci-registry` PVC was on `kore-standard` with `retention=Delete`, and
+  `reference-db-1` was on `kore-retained` with `Retain`.
+- Audit violations: mesh enrollment 5 → 0, retention 8 → 6, container
+  security 24, workload identity 13, Secrets 5, RBAC 0. The six remaining
+  retention findings are the unlabelled Grafana, Prometheus, Loki, and Tempo
+  claims, including the Loki and Tempo StatefulSet templates.
+- `kore cluster stop` followed by `kore local up` preserved all six PV UIDs, the
+  migration record and its timestamp, and the registry's image and signature
+  tags. HTTPS kept returning `database: true`. The resume skipped every
+  bootstrap release and upgraded only the four configuration and app releases.
+- The claim reports `Responsive=False` (`WatchCircuitOpen`: too many watch events
+  from the CloudNativePG Cluster). Crossplane throttles the watch; readiness was
+  unaffected.
+
+Not observed: `cluster destroy` without `--purge-data`. The retained reference
+database still requires it, so this needs a run without the app.
 
 ## Progress Record
 
