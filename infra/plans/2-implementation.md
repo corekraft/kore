@@ -873,7 +873,7 @@ test-first, on its own worktree branch, and merged back after review.
       opt-in, separate from destroy consent.
 - [x] Detect and recover a stale environment lock left by a killed run, without
       ever breaking a lock held by a live process.
-- [ ] Keep the local Cosign private key off disk in plaintext, and record the
+- [x] Keep the local Cosign private key off disk in plaintext, and record the
       decision in ADR 0015.
 - [ ] Select and pin the latest Sigstore Policy Controller; add it to the
       component catalog, version catalog, compatibility matrix, and release graph
