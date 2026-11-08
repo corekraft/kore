@@ -26,13 +26,13 @@
     "max-statements": [
       "error",
       {
-        "max": 26
+        "max": 24
       }
     ],
     "max-lines-per-function": [
       "error",
       {
-        "max": 146,
+        "max": 70,
         "skipBlankLines": true,
         "skipComments": true
       }
@@ -40,7 +40,7 @@
     "max-lines": [
       "error",
       {
-        "max": 596,
+        "max": 300,
         "skipBlankLines": true,
         "skipComments": true
       }
@@ -75,15 +75,6 @@
             "max": 15
           }
         ],
-        "max-lines": [
-          "error",
-          {
-            "max": 900,
-            "skipBlankLines": true,
-            "skipComments": true
-          }
-        ],
-        "max-lines-per-function": "off",
         "max-statements": "off",
         "import/max-dependencies": "off"
       }
