@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: webhook-certs
+  namespace: cosign-system
+  labels: {app.kubernetes.io/name: policy-controller, control-plane: policy-controller-webhook}
+type: Opaque
+data: {ca-cert.pem: eA==, server-cert.pem: eA==, server-key.pem: eA==, cosign.key: eA==}
