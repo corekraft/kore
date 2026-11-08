@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -345,4 +352,38 @@ test("cli: a repository change between two prompts is injected as additionalCont
     "",
     "nothing new on the third prompt",
   );
+});
+
+test("cli: snapshots of other sessions older than 14 days are deleted, the current one stays", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "kore-delta-prune-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const git = (...args) =>
+    spawnSync("git", args, { cwd: root, encoding: "utf8", env: cleanEnv });
+  git("init", "-q", "-b", "main");
+  git("config", "user.email", "t@example.com");
+  git("config", "user.name", "t");
+  git("config", "commit.gpgsign", "false");
+  writeFileSync(join(root, "a.txt"), "a");
+  git("add", ".");
+  git("commit", "-q", "-m", "chore: start");
+
+  const dir = join(root, ".git", "kore-delta");
+  mkdirSync(dir, { recursive: true });
+  const old = join(dir, "old-session.json");
+  const recent = join(dir, "recent-session.json");
+  const own = join(dir, "sess-1.json");
+  for (const file of [old, recent, own]) writeFileSync(file, "{}");
+  const ago = (days) => new Date(Date.now() - days * DAY);
+  utimesSync(old, ago(15), ago(15));
+  utimesSync(recent, ago(13), ago(13));
+  utimesSync(own, ago(30), ago(30));
+
+  const result = runCli(root, {
+    hook_event_name: "UserPromptSubmit",
+    session_id: "sess-1",
+  });
+  assert.equal(result.status, 0);
+  assert.equal(existsSync(old), false, "old snapshot is pruned");
+  assert.equal(existsSync(recent), true, "recent snapshot stays");
+  assert.equal(existsSync(own), true, "the current session's snapshot stays");
 });

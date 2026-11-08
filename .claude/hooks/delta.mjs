@@ -11,7 +11,14 @@
 // delta as additionalContext. Fails open: any error exits 0 without output.
 
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -167,7 +174,26 @@ function realDeps(root) {
       "kore-delta",
       `${id}.json`,
     );
+  const snapshotDir = () => join(snapshotFile("x"), "..");
   return {
+    now: () => Date.now(),
+    listSnapshots: () => {
+      const dir = snapshotDir();
+      let names;
+      try {
+        names = readdirSync(dir);
+      } catch (error) {
+        if (error?.code === "ENOENT") return [];
+        throw error;
+      }
+      return names
+        .filter((name) => name.endsWith(".json"))
+        .map((name) => ({
+          id: name.slice(0, -".json".length),
+          mtimeMs: statSync(join(dir, name)).mtimeMs,
+        }));
+    },
+    removeSnapshot: (id) => unlinkSync(snapshotFile(id)),
     head: () => git("rev-parse", "HEAD"),
     branch: () => git("rev-parse", "--abbrev-ref", "HEAD"),
     main: () => {
