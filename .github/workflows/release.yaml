@@ -119,14 +119,15 @@ jobs:
           path: images.lock.json
           if-no-files-found: error
 
-  # Mirrors the approved platform images (infra/catalog/seeds.yaml, the one owner
-  # of the digest pins) into the internal registry (ADR 0033). Same tag-only gate
-  # and minimal permissions as `release`; it runs beside it, not after it, so an
-  # upstream outage cannot block the reference image.
+  # Mirrors the approved platform images (infra/catalog/seeds.yaml and
+  # approved-images.yaml, the owners of the digest pins) into the internal
+  # registry (ADR 0033). Same tag-only gate and minimal permissions as
+  # `release`; it runs beside it, not after it, so an upstream outage cannot
+  # block the reference image.
   mirror:
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     permissions:
       contents: read
       packages: write
@@ -158,9 +159,15 @@ jobs:
       - name: Mirror, verify, and sign each approved platform image
         run: |
           set -euo pipefail
-          # seeds.yaml is JSON-compatible YAML, so jq reads it directly.
+          # Both catalog files are JSON-compatible YAML, so jq reads them directly.
+          # The seeds are the bootstrap exception; approved-images.yaml holds the
+          # rest. Together they are the full approved list.
           jq -c '.seeds[] | {ref: .image, name: .catalogImage, provenance: .evidence.provenance}' infra/catalog/seeds.yaml > approved.ndjson
+          jq -c '.images[] | {ref: .image, name: .name, provenance: .evidence.provenance}' infra/catalog/approved-images.yaml >> approved.ndjson
           [ -s approved.ndjson ] || { echo "no approved platform images" >&2; exit 1; }
+          # A repeated name would overwrite a mirrored copy and collapse a lock entry.
+          repeated="$(jq -r .name approved.ndjson | sort | uniq -d)"
+          [ -z "$repeated" ] || { echo "duplicate mirror name: $repeated" >&2; exit 1; }
           : > entries.ndjson
           while IFS= read -r seed; do
             ref="$(jq -r .ref <<< "$seed")"

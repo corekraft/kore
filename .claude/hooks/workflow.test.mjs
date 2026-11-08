@@ -257,11 +257,20 @@ test("platform image mirroring is a separate tag-only job with the minimal signi
   );
 });
 
-test("the mirror job reads the approved list from the catalog, never a second pin list", () => {
+test("the mirror job reads the full approved list, seeds plus approved images, from the catalog, never a second pin list", () => {
   const job = jobText("mirror");
   assert.match(job, /infra\/catalog\/seeds\.yaml/);
+  assert.match(job, /infra\/catalog\/approved-images\.yaml/);
   assert.doesNotMatch(job, /@sha256:[0-9a-f]{64}/);
   assert.match(job, /\.evidence\.provenance/);
+  // Both lists feed one loop, and a repeated mirror name would overwrite a copy.
+  assert.match(job, /\.seeds\[\]/);
+  assert.match(job, /\.images\[\]/);
+  assert.match(job, /duplicate mirror name/);
+});
+
+test("the mirror job has time to copy and sign every approved image", () => {
+  assert.match(jobText("mirror"), /timeout-minutes: (?:[6-9]\d|\d{3})$/m);
 });
 
 test("the mirror job verifies the pulled digest, upstream provenance, and the copy before signing", () => {

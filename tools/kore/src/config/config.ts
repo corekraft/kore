@@ -9,10 +9,13 @@ import type {
   Environment,
   Repository,
   SeedManifest,
+  ApprovedImageManifest,
   Versions,
 } from "./types.js";
 
 export type {
+  ApprovedImage,
+  ApprovedImageManifest,
   Catalog,
   Component,
   ComponentKind,
@@ -92,9 +95,12 @@ export async function loadRepository(
   start?: string,
 ): Promise<Repository> {
   const root = await findRoot(start);
-  const [versions, seeds, catalog, environment] = await Promise.all([
+  const [versions, seeds, approved, catalog, environment] = await Promise.all([
     loadJSON<Versions>(join(root, "infra/catalog/versions.yaml")),
     loadJSON<SeedManifest>(join(root, "infra/catalog/seeds.yaml")),
+    loadJSON<ApprovedImageManifest>(
+      join(root, "infra/catalog/approved-images.yaml"),
+    ),
     loadJSON<Catalog>(join(root, "infra/catalog/components.yaml")),
     loadJSON<Environment>(
       join(root, "infra/environments", environmentName, "environment.yaml"),
@@ -105,6 +111,7 @@ export async function loadRepository(
     root,
     versions,
     seeds,
+    approved,
     catalog,
     environment,
     imageTrustValues,

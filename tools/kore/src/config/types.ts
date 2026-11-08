@@ -95,10 +95,27 @@ export interface SeedManifest {
   seeds: Seed[];
 }
 
+/**
+ * A platform image the release mirror may copy: approved, but not a seed, so
+ * it is deployed only after the verifier runs. `name` is its mirror path.
+ */
+export interface ApprovedImage {
+  image: string;
+  name: string;
+  component: string;
+  evidence: SeedEvidence;
+}
+
+export interface ApprovedImageManifest {
+  $schema?: string;
+  images: ApprovedImage[];
+}
+
 export interface Repository {
   root: string;
   versions: Versions;
   seeds: SeedManifest;
+  approved: ApprovedImageManifest;
   catalog: Catalog;
   environment: Environment;
   /** Parsed environment overlay of the kore-image-policy component. */

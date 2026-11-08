@@ -1,6 +1,6 @@
 ---
 status: accepted
-summary: The tag-gated release workflow gets a separate mirror job that copies each approved platform image (the digest-pinned seeds, the one owner) into ghcr.io/corekraft/kore/mirror by digest, verifies recorded upstream provenance, signs the mirrored digest keylessly, verifies it with the exact tag identity, and emits a versioned platform image lock; admission and workloads are unchanged.
+summary: The tag-gated release workflow gets a separate mirror job that copies each approved platform image (the digest-pinned seeds plus infra/catalog/approved-images.yaml, every other platform image pinned by digest through chart values) into ghcr.io/corekraft/kore/mirror by digest, verifies recorded upstream provenance, signs the mirrored digest keylessly, verifies it with the exact tag identity, and emits a versioned platform image lock; an opt-in check fails any rendered image that is not approved by digest; admission and workload references are unchanged.
 date: 2026-11-08
 last-verified: 2026-11-08
 ---
@@ -67,3 +67,64 @@ changing admission are the next item.
   the exact cosign output. The lock is not yet consumed by anything.
 - Charts and `registry.address` are not changed; the next item rolls managed
   workloads to these digests.
+
+## Refinement: every platform image is digest-pinned and approved
+
+The first cut mirrored only the three seeds, because every other platform image
+was tag-pinned through its chart. Rolling workloads to mirrored references needs
+every image approved and pinned by digest first, so this refinement does that
+and nothing more: workloads still pull from upstream, now by digest.
+
+- **The approved list has two files.** `seeds.yaml` stays the bootstrap
+  exception (images that run before the verifier can). The new
+  `infra/catalog/approved-images.yaml` (schema `schemas/approved-images.schema.json`)
+  lists every other platform image as `{image, name, component, evidence}`. The
+  evidence has the seeds' shape, including `provenance`, minus the seed-only
+  `reason`. `name` is the mirror path and is unique across both files. Together
+  they are the one approved list; `approvedImageList` returns both.
+- **Provenance is verified, not assumed.** Where upstream signs keylessly, the
+  exact issuer and identity were found from the signature's certificate and then
+  confirmed with `cosign verify --certificate-identity` (no regexps): CloudNativePG
+  operator and PostgreSQL 18, External Secrets, the OpenTelemetry operator and
+  both collector distributions, the Prometheus config reloader, and
+  kube-state-metrics. Identity may now also be an exact email, because the
+  kube-state-metrics signer is a Google service account. Everything else is
+  `signed: false`: upstream publishes no signature, signs with a key (cert-manager;
+  the model records keyless signers only), or has a signature whose log
+  certificate does not verify (`curlimages/curl`).
+- **Charts pin by digest through values.** Provider-neutral digests live in
+  `infra/environments/common/values/` (listed in the component's catalog
+  `values`), `infra/observability/*/values.yaml`, and the local charts. Charts
+  with a `digest` or `sha` field use it; the rest take `tag@sha256:...` or, for
+  Istio and ztunnel, a full image reference. `opa-envoy` moves from
+  `versions.yaml` into the approved list and is pinned in its chart. The
+  PostgreSQL composition picks its operand image from a digest table keyed by
+  `compatibilityVersion`, so each supported major version is approved.
+- **The mirror job reads both files** with `jq`, fails on a repeated name, and
+  has a 60-minute timeout for the larger list. Lock validation
+  (`platformImageLockErrors`) takes the combined list.
+- **`test:upstream-charts` gains an opt-in check.** It renders every Helm and
+  local-chart component with the arguments `kore` uses and collects each
+  `image:` field, `--*-image=` argument, `*IMAGE*` environment value, and
+  embedded JSON `"image"` value (Helm test hooks never run on install and are
+  skipped). Each must carry a digest and match an approved repository and
+  digest, so a chart bump that adds or moves an image fails until the list
+  records it. An offline test also fails if an approved image's digest appears
+  nowhere in the repository.
+
+### Gaps, stated
+
+- **Istio's `grpc-agent` injection template** hard-codes `busybox:1.28` and the
+  chart has no value for it. No pod here selects that template, so it is
+  excluded by name in the upstream check, which fails if the image stops
+  rendering.
+- **Crossplane Function packages are still tag-pinned.** `function-go-templating`
+  and `function-auto-ready` (`infra/apis/crossplane-functions/functions.yaml`) are
+  OCI packages Crossplane pulls, not Helm output, so the rendered-image check
+  cannot see them. They are the next images to approve and pin.
+- **Local `kore up` now pulls by digest.** Not run here (no cluster allowed); the
+  first live bootstrap must confirm each digest pulls, especially the Gatekeeper
+  hook Jobs and the Istio proxy.
+- Upstream signatures verify at mirror time, so a key-signed upstream
+  (cert-manager) is mirrored with the unsigned result and gains a verifiable
+  signature only from this repository's signer.

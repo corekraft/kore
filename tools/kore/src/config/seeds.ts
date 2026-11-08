@@ -1,15 +1,18 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { Component, Repository, Seed } from "./types.js";
+import type { Component, Repository, Seed, SeedEvidence } from "./types.js";
 
 const digest = /@sha256:[0-9a-f]{64}$/;
 const date = /^\d{4}-\d{2}-\d{2}$/;
 
 const exactUrl = /^https:\/\/[^\s*?[\]()|^$\\]+$/;
+// Some signers (Google service accounts) certify an email, not a URL.
+const exactEmail = /^[^\s@*?[\]()|^$\\]+@[^\s@*?[\]()|^$\\]+$/;
 
-function provenanceErrors(seed: Seed): string[] {
-  const label = `seed ${seed.image}`;
-  const provenance = seed.evidence?.provenance;
+function provenanceErrors(
+  label: string,
+  provenance: SeedEvidence["provenance"] | undefined,
+): string[] {
   if (!provenance || typeof provenance.signed !== "boolean") {
     return [
       `${label}: evidence.provenance is required: {signed: false} or {signed: true, issuer, identity}`,
@@ -18,21 +21,45 @@ function provenanceErrors(seed: Seed): string[] {
   if (!provenance.signed) {
     return [];
   }
-  return [provenance.issuer, provenance.identity].every(
-    (value) => typeof value === "string" && exactUrl.test(value),
-  )
+  const valid =
+    typeof provenance.issuer === "string" &&
+    exactUrl.test(provenance.issuer) &&
+    typeof provenance.identity === "string" &&
+    (exactUrl.test(provenance.identity) ||
+      exactEmail.test(provenance.identity));
+  return valid
     ? []
     : [
-        `${label}: evidence.provenance issuer and identity must be exact https URLs (no patterns)`,
+        `${label}: evidence.provenance issuer must be an exact https URL and identity an exact https URL or email (no patterns)`,
       ];
+}
+
+const missing = (value: unknown): boolean =>
+  typeof value !== "string" || value.trim() === "";
+
+/** The evidence rules a seed and an approved image share. */
+export function evidenceErrors(
+  label: string,
+  evidence: SeedEvidence | undefined,
+): string[] {
+  return [
+    ...provenanceErrors(label, evidence?.provenance),
+    ...(missing(evidence?.method)
+      ? [`${label}: evidence.method is required`]
+      : []),
+    ...(missing(evidence?.source)
+      ? [`${label}: evidence.source is required (upstream verification)`]
+      : []),
+    ...(date.test(evidence?.checked ?? "")
+      ? []
+      : [`${label}: evidence.checked must be a YYYY-MM-DD date`]),
+  ];
 }
 
 function fieldErrors(seed: Seed): string[] {
   const label = `seed ${seed.image}`;
-  const missing = (value: unknown): boolean =>
-    typeof value !== "string" || value.trim() === "";
   return [
-    ...provenanceErrors(seed),
+    ...evidenceErrors(label, seed.evidence),
     ...(digest.test(seed.image ?? "")
       ? []
       : [`${label}: image must be pinned tag@sha256:<digest>`]),
@@ -42,15 +69,6 @@ function fieldErrors(seed: Seed): string[] {
     ...(missing(seed.reason)
       ? [`${label}: reason is required (why it cannot be verified first)`]
       : []),
-    ...(missing(seed.evidence?.method)
-      ? [`${label}: evidence.method is required`]
-      : []),
-    ...(missing(seed.evidence?.source)
-      ? [`${label}: evidence.source is required (upstream verification)`]
-      : []),
-    ...(date.test(seed.evidence?.checked ?? "")
-      ? []
-      : [`${label}: evidence.checked must be a YYYY-MM-DD date`]),
   ];
 }
 

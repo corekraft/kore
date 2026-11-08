@@ -15,3 +15,10 @@ meshConfig:
       opentelemetry:
         service: otel-collector.observability.svc.cluster.local
         port: 4317
+
+image: "docker.io/istio/pilot:1.31.4-distroless@sha256:2bc9c4190eec5146c6dacb3e2b81fe2752ecd4f5f5198e51fb27ca67b5930312"
+global:
+  proxy:
+    image: "docker.io/istio/proxyv2:1.31.4-distroless@sha256:553f3640686d588531426e4c6b6810390b230374b7f83aae65fe4c68efccf1cc"
+  proxy_init:
+    image: "docker.io/istio/proxyv2:1.31.4-distroless@sha256:553f3640686d588531426e4c6b6810390b230374b7f83aae65fe4c68efccf1cc"

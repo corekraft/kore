@@ -2,3 +2,5 @@ profile: ambient
 ambient:
   enabled: true
 
+
+image: "docker.io/istio/install-cni:1.31.4-distroless@sha256:f80f8bd86001494329d62544da21d75570eef4582f6e95f431296f3bc13b9629"

@@ -1,0 +1,430 @@
+{
+  "$schema": "./schemas/approved-images.schema.json",
+  "images":
+    [
+      {
+        "image": "quay.io/jetstack/cert-manager-controller:v1.21.3@sha256:9f4f96a33c7774cef24466fcd85031997531a03a8d117f151126baa8d1290dcc",
+        "name": "cert-manager-controller",
+        "component": "cert-manager",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest quay.io/jetstack/cert-manager-controller:v1.21.3 resolves to this index digest. Upstream signs with a long-lived key, not a keyless certificate (cosign verify with any identity: x509: unsupported public key type); the provenance model records keyless signers only, so this is recorded unsigned.",
+            "checked": "2026-11-08",
+            "provenance": { "signed": false }
+          }
+      },
+      {
+        "image": "quay.io/jetstack/cert-manager-cainjector:v1.21.3@sha256:083d0e906f8eb44e255fe4ff817ae54e49f9ed82e22f1011bb4e9e4f4b8a641f",
+        "name": "cert-manager-cainjector",
+        "component": "cert-manager",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest quay.io/jetstack/cert-manager-cainjector:v1.21.3 resolves to this index digest. Upstream signs with a long-lived key, not a keyless certificate (cosign verify with any identity: x509: unsupported public key type); the provenance model records keyless signers only, so this is recorded unsigned.",
+            "checked": "2026-11-08",
+            "provenance": { "signed": false }
+          }
+      },
+      {
+        "image": "quay.io/jetstack/cert-manager-webhook:v1.21.3@sha256:055ac8e9de6a0ba6763794838fe38944acc650f68ebe1b01dd8be079e580f458",
+        "name": "cert-manager-webhook",
+        "component": "cert-manager",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest quay.io/jetstack/cert-manager-webhook:v1.21.3 resolves to this index digest. Upstream signs with a long-lived key, not a keyless certificate (cosign verify with any identity: x509: unsupported public key type); the provenance model records keyless signers only, so this is recorded unsigned.",
+            "checked": "2026-11-08",
+            "provenance": { "signed": false }
+          }
+      },
+      {
+        "image": "quay.io/jetstack/cert-manager-startupapicheck:v1.21.3@sha256:1c519d4afca1413d1e4ccd78bdc756184418ab55a34569a3b3de39d32f9974e1",
+        "name": "cert-manager-startupapicheck",
+        "component": "cert-manager",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest quay.io/jetstack/cert-manager-startupapicheck:v1.21.3 resolves to this index digest. Upstream signs with a long-lived key, not a keyless certificate (cosign verify with any identity: x509: unsupported public key type); the provenance model records keyless signers only, so this is recorded unsigned.",
+            "checked": "2026-11-08",
+            "provenance": { "signed": false }
+          }
+      },
+      {
+        "image": "quay.io/jetstack/cert-manager-acmesolver:v1.21.3@sha256:c8c1225bb2fe8ab37a330b77f0d8c2ee6a41210fcb54fc07ca606ab9a022b8b7",
+        "name": "cert-manager-acmesolver",
+        "component": "cert-manager",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest quay.io/jetstack/cert-manager-acmesolver:v1.21.3 resolves to this index digest. Upstream signs with a long-lived key, not a keyless certificate (cosign verify with any identity: x509: unsupported public key type); the provenance model records keyless signers only, so this is recorded unsigned.",
+            "checked": "2026-11-08",
+            "provenance": { "signed": false }
+          }
+      },
+      {
+        "image": "ghcr.io/cloudnative-pg/cloudnative-pg:1.30.1@sha256:923c267ec29636db3bee20f993d0ec4973fa22998e1adad37da79e4d32b5bc07",
+        "name": "cloudnative-pg",
+        "component": "cloudnative-pg",
+        "evidence":
+          {
+            "method": "cosign-keyless",
+            "source": "cosign verify --certificate-oidc-issuer https://token.actions.githubusercontent.com --certificate-identity https://github.com/cloudnative-pg/cloudnative-pg/.github/workflows/release-publish.yml@refs/tags/v1.30.1: verified at this index digest (crane digest ghcr.io/cloudnative-pg/cloudnative-pg:1.30.1), Rekor entry verified.",
+            "checked": "2026-11-08",
+            "provenance":
+              {
+                "signed": true,
+                "issuer": "https://token.actions.githubusercontent.com",
+                "identity": "https://github.com/cloudnative-pg/cloudnative-pg/.github/workflows/release-publish.yml@refs/tags/v1.30.1"
+              }
+          }
+      },
+      {
+        "image": "ghcr.io/cloudnative-pg/postgresql:16.4@sha256:99be063781d171d3971089b49c992706bdab9ccbd2b57cdf126c7542773aedfe",
+        "name": "cnpg-postgresql-16",
+        "component": "kore-postgresql-api",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest ghcr.io/cloudnative-pg/postgresql:16.4 resolves to this index digest. No cosign signature published (cosign verify: no signatures found).",
+            "checked": "2026-11-08",
+            "provenance": { "signed": false }
+          }
+      },
+      {
+        "image": "ghcr.io/cloudnative-pg/postgresql:17.4@sha256:3c0ba08ea353c9705a755c113e4ae395be76553e0ed68076e5410cb09b9d17d9",
+        "name": "cnpg-postgresql-17",
+        "component": "kore-postgresql-api",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest ghcr.io/cloudnative-pg/postgresql:17.4 resolves to this index digest. No cosign signature published (cosign verify: no signatures found).",
+            "checked": "2026-11-08",
+            "provenance": { "signed": false }
+          }
+      },
+      {
+        "image": "ghcr.io/cloudnative-pg/postgresql:18.4@sha256:6138f19539304b585c6cafd1af82ca407f184139459a8e06f0880df4556d3588",
+        "name": "cnpg-postgresql-18",
+        "component": "kore-postgresql-api",
+        "evidence":
+          {
+            "method": "cosign-keyless",
+            "source": "cosign verify --certificate-oidc-issuer https://token.actions.githubusercontent.com --certificate-identity https://github.com/cloudnative-pg/postgres-containers/.github/workflows/bake_targets.yml@refs/heads/main: verified at this index digest (crane digest ghcr.io/cloudnative-pg/postgresql:18.4), Rekor entry verified.",
+            "checked": "2026-11-08",
+            "provenance":
+              {
+                "signed": true,
+                "issuer": "https://token.actions.githubusercontent.com",
+                "identity": "https://github.com/cloudnative-pg/postgres-containers/.github/workflows/bake_targets.yml@refs/heads/main"
+              }
+          }
+      },
+      {
+        "image": "xpkg.crossplane.io/crossplane/crossplane:v2.4.3@sha256:1c66261d805a73cade46e2ac94b665c73aebd4a00844de5fcae4bcadaa2be638",
+        "name": "crossplane",
+        "component": "crossplane",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest xpkg.crossplane.io/crossplane/crossplane:v2.4.3 resolves to this index digest. No cosign signature published (cosign verify: no signatures found).",
+            "checked": "2026-11-08",
+            "provenance": { "signed": false }
+          }
+      },
+      {
+        "image": "ghcr.io/external-secrets/external-secrets:v2.14.0@sha256:10608eb53e636e744903d5f3657a4d9c44e28d9d9c181b73e07bc7dd2e6884dc",
+        "name": "external-secrets",
+        "component": "external-secrets",
+        "evidence":
+          {
+            "method": "cosign-keyless",
+            "source": "cosign verify --certificate-oidc-issuer https://token.actions.githubusercontent.com --certificate-identity https://github.com/external-secrets/external-secrets/.github/workflows/release.yml@refs/heads/main: verified at this index digest (crane digest ghcr.io/external-secrets/external-secrets:v2.14.0), Rekor entry verified.",
+            "checked": "2026-11-08",
+            "provenance":
+              {
+                "signed": true,
+                "issuer": "https://token.actions.githubusercontent.com",
+                "identity": "https://github.com/external-secrets/external-secrets/.github/workflows/release.yml@refs/heads/main"
+              }
+          }
+      },
+      {
+        "image": "docker.io/openpolicyagent/gatekeeper:v3.23.1@sha256:dfc6fc78753f5564303429c1c1fdfe611df17be224ab22c09ce9d2a73c468a8d",
+        "name": "gatekeeper",
+        "component": "gatekeeper",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest docker.io/openpolicyagent/gatekeeper:v3.23.1 resolves to this index digest. No cosign signature published (cosign verify: no signatures found).",
+            "checked": "2026-11-08",
+            "provenance": { "signed": false }
+          }
+      },
+      {
+        "image": "docker.io/openpolicyagent/gatekeeper-crds:v3.23.1@sha256:ab3620e6bec901e2a3f71ea4a65e589cc2b8b362a9836832dd0cc6ff916e4ce5",
+        "name": "gatekeeper-crds",
+        "component": "gatekeeper",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest docker.io/openpolicyagent/gatekeeper-crds:v3.23.1 resolves to this index digest. No cosign signature published (cosign verify: no signatures found).",
+            "checked": "2026-11-08",
+            "provenance": { "signed": false }
+          }
+      },
+      {
+        "image": "docker.io/curlimages/curl:8.20.0@sha256:b3f1fb2a51d923260350d21b8654bbc607164a987e2f7c84a0ac199a67df812a",
+        "name": "gatekeeper-curl",
+        "component": "gatekeeper",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest docker.io/curlimages/curl:8.20.0 resolves to this index digest. A signature is attached but its transparency-log certificate does not verify (cosign verify: failed to verify log inclusion), so provenance is not established.",
+            "checked": "2026-11-08",
+            "provenance": { "signed": false }
+          }
+      },
+      {
+        "image": "docker.io/grafana/grafana:12.3.1@sha256:2175aaa91c96733d86d31cf270d5310b278654b03f5718c59de12a865380a31f",
+        "name": "grafana",
+        "component": "grafana",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest docker.io/grafana/grafana:12.3.1 resolves to this index digest. No cosign signature published (cosign verify: no signatures found).",
+            "checked": "2026-11-08",
+            "provenance": { "signed": false }
+          }
+      },
+      {
+        "image": "docker.io/istio/install-cni:1.31.4-distroless@sha256:f80f8bd86001494329d62544da21d75570eef4582f6e95f431296f3bc13b9629",
+        "name": "istio-install-cni",
+        "component": "istio-cni",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest docker.io/istio/install-cni:1.31.4-distroless resolves to this index digest. No cosign signature published (cosign verify: no signatures found).",
+            "checked": "2026-11-08",
+            "provenance": { "signed": false }
+          }
+      },
+      {
+        "image": "docker.io/istio/pilot:1.31.4-distroless@sha256:2bc9c4190eec5146c6dacb3e2b81fe2752ecd4f5f5198e51fb27ca67b5930312",
+        "name": "istio-pilot",
+        "component": "istiod",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest docker.io/istio/pilot:1.31.4-distroless resolves to this index digest. No cosign signature published (cosign verify: no signatures found).",
+            "checked": "2026-11-08",
+            "provenance": { "signed": false }
+          }
+      },
+      {
+        "image": "docker.io/istio/proxyv2:1.31.4-distroless@sha256:553f3640686d588531426e4c6b6810390b230374b7f83aae65fe4c68efccf1cc",
+        "name": "istio-proxyv2",
+        "component": "istiod",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest docker.io/istio/proxyv2:1.31.4-distroless resolves to this index digest. No cosign signature published (cosign verify: no signatures found).",
+            "checked": "2026-11-08",
+            "provenance": { "signed": false }
+          }
+      },
+      {
+        "image": "docker.io/istio/ztunnel:1.31.4@sha256:18c2ef38857675ed6ae430c7c2b7c9977f7d5a3bc31be7000383d532a1be5b4e",
+        "name": "istio-ztunnel",
+        "component": "ztunnel",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest docker.io/istio/ztunnel:1.31.4 resolves to this index digest. No cosign signature published (cosign verify: no signatures found).",
+            "checked": "2026-11-08",
+            "provenance": { "signed": false }
+          }
+      },
+      {
+        "image": "docker.io/grafana/loki:3.6.11@sha256:44148ad243c07957113baea950ee5ba9b0c8eff8d7e38ff3cc1c0af705790945",
+        "name": "loki",
+        "component": "loki",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest docker.io/grafana/loki:3.6.11 resolves to this index digest. No cosign signature published (cosign verify: no signatures found).",
+            "checked": "2026-11-08",
+            "provenance": { "signed": false }
+          }
+      },
+      {
+        "image": "docker.io/grafana/loki-canary:3.6.16@sha256:6d53ce040b436e558936fe05514729c230e9e04edf1fe411d02701025e515924",
+        "name": "loki-canary",
+        "component": "loki",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest docker.io/grafana/loki-canary:3.6.16 resolves to this index digest. No cosign signature published (cosign verify: no signatures found).",
+            "checked": "2026-11-08",
+            "provenance": { "signed": false }
+          }
+      },
+      {
+        "image": "docker.io/nginxinc/nginx-unprivileged:1.29-alpine@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6",
+        "name": "loki-gateway-nginx",
+        "component": "loki",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest docker.io/nginxinc/nginx-unprivileged:1.29-alpine resolves to this index digest. No cosign signature published (cosign verify: no signatures found).",
+            "checked": "2026-11-08",
+            "provenance": { "signed": false }
+          }
+      },
+      {
+        "image": "docker.io/kiwigrid/k8s-sidecar:2.5.0@sha256:a6b3f707f883108376514489a94d6629109a327b2978e1d826cd104c4ca436df",
+        "name": "loki-sidecar",
+        "component": "loki",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest docker.io/kiwigrid/k8s-sidecar:2.5.0 resolves to this index digest. No cosign signature published (cosign verify: no signatures found).",
+            "checked": "2026-11-08",
+            "provenance": { "signed": false }
+          }
+      },
+      {
+        "image": "ghcr.io/open-telemetry/opentelemetry-operator/opentelemetry-operator:0.162.0@sha256:771d341d89b2c0a31580293c0a9e09598e2c425b6cf342d31b91da16c2b952d9",
+        "name": "opentelemetry-operator",
+        "component": "opentelemetry-operator",
+        "evidence":
+          {
+            "method": "cosign-keyless",
+            "source": "cosign verify --certificate-oidc-issuer https://token.actions.githubusercontent.com --certificate-identity https://github.com/open-telemetry/opentelemetry-operator/.github/workflows/publish-images.yaml@refs/tags/v0.162.0: verified at this index digest (crane digest ghcr.io/open-telemetry/opentelemetry-operator/opentelemetry-operator:0.162.0), Rekor entry verified.",
+            "checked": "2026-11-08",
+            "provenance":
+              {
+                "signed": true,
+                "issuer": "https://token.actions.githubusercontent.com",
+                "identity": "https://github.com/open-telemetry/opentelemetry-operator/.github/workflows/publish-images.yaml@refs/tags/v0.162.0"
+              }
+          }
+      },
+      {
+        "image": "ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-k8s:0.162.0@sha256:ed6862e1506e11c08a0ec4cc7e1395eb5cf10e3acf2c2ba3846edc1b6b3916d6",
+        "name": "opentelemetry-collector-k8s",
+        "component": "opentelemetry-operator",
+        "evidence":
+          {
+            "method": "cosign-keyless",
+            "source": "cosign verify --certificate-oidc-issuer https://token.actions.githubusercontent.com --certificate-identity https://github.com/open-telemetry/opentelemetry-collector-releases/.github/workflows/base-release.yaml@refs/tags/v0.162.0: verified at this index digest (crane digest ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-k8s:0.162.0), Rekor entry verified.",
+            "checked": "2026-11-08",
+            "provenance":
+              {
+                "signed": true,
+                "issuer": "https://token.actions.githubusercontent.com",
+                "identity": "https://github.com/open-telemetry/opentelemetry-collector-releases/.github/workflows/base-release.yaml@refs/tags/v0.162.0"
+              }
+          }
+      },
+      {
+        "image": "ghcr.io/open-telemetry/opentelemetry-operator/target-allocator:0.162.0@sha256:a5cf679c8b8522ab84543902116f138c3b84795952e31dc056cfb5c945dc8698",
+        "name": "opentelemetry-target-allocator",
+        "component": "opentelemetry-operator",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest ghcr.io/open-telemetry/opentelemetry-operator/target-allocator:0.162.0 resolves to this index digest. No cosign signature published (cosign verify: no signatures found).",
+            "checked": "2026-11-08",
+            "provenance": { "signed": false }
+          }
+      },
+      {
+        "image": "docker.io/otel/opentelemetry-collector-contrib:0.163.2@sha256:7f22d2a6748110ffb6a59bc0df448bccbf501cdb667d610ede4c61d3863d5849",
+        "name": "opentelemetry-collector-contrib",
+        "component": "otel-collector",
+        "evidence":
+          {
+            "method": "cosign-keyless",
+            "source": "cosign verify --certificate-oidc-issuer https://token.actions.githubusercontent.com --certificate-identity https://github.com/open-telemetry/opentelemetry-collector-releases/.github/workflows/base-release.yaml@refs/tags/v0.163.2: verified at this index digest (crane digest docker.io/otel/opentelemetry-collector-contrib:0.163.2), Rekor entry verified.",
+            "checked": "2026-11-08",
+            "provenance":
+              {
+                "signed": true,
+                "issuer": "https://token.actions.githubusercontent.com",
+                "identity": "https://github.com/open-telemetry/opentelemetry-collector-releases/.github/workflows/base-release.yaml@refs/tags/v0.163.2"
+              }
+          }
+      },
+      {
+        "image": "registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.20.0@sha256:42cfe3723a5f058171c627537fb57a3ea0f26e4380fa18555a95cb1a1b4cfc5b",
+        "name": "kube-state-metrics",
+        "component": "prometheus",
+        "evidence":
+          {
+            "method": "cosign-keyless",
+            "source": "cosign verify --certificate-oidc-issuer https://accounts.google.com --certificate-identity krel-trust@k8s-releng-prod.iam.gserviceaccount.com: verified at this index digest (crane digest registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.20.0), Rekor entry verified.",
+            "checked": "2026-11-08",
+            "provenance":
+              {
+                "signed": true,
+                "issuer": "https://accounts.google.com",
+                "identity": "krel-trust@k8s-releng-prod.iam.gserviceaccount.com"
+              }
+          }
+      },
+      {
+        "image": "quay.io/prometheus-operator/prometheus-config-reloader:v0.95.1@sha256:39bdbade0c64f7c38bb6d18d6f602b14ad489bc189b709dc9266b49e6647aac1",
+        "name": "prometheus-config-reloader",
+        "component": "prometheus",
+        "evidence":
+          {
+            "method": "cosign-keyless",
+            "source": "cosign verify --certificate-oidc-issuer https://token.actions.githubusercontent.com --certificate-identity https://github.com/prometheus-operator/prometheus-operator/.github/workflows/publish.yaml@refs/tags/v0.95.1: verified at this index digest (crane digest quay.io/prometheus-operator/prometheus-config-reloader:v0.95.1), Rekor entry verified.",
+            "checked": "2026-11-08",
+            "provenance":
+              {
+                "signed": true,
+                "issuer": "https://token.actions.githubusercontent.com",
+                "identity": "https://github.com/prometheus-operator/prometheus-operator/.github/workflows/publish.yaml@refs/tags/v0.95.1"
+              }
+          }
+      },
+      {
+        "image": "quay.io/prometheus/prometheus:v3.16.0@sha256:9332054523223e2ddc18d8101799d54a4a8d823b030c53216f063a6c117773cd",
+        "name": "prometheus",
+        "component": "prometheus",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest quay.io/prometheus/prometheus:v3.16.0 resolves to this index digest. No cosign signature published (cosign verify: no signatures found).",
+            "checked": "2026-11-08",
+            "provenance": { "signed": false }
+          }
+      },
+      {
+        "image": "docker.io/grafana/tempo:2.9.0@sha256:65a5789759435f1ef696f1953258b9bbdb18eb571d5ce711ff812d2e128288a4",
+        "name": "tempo",
+        "component": "tempo",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest docker.io/grafana/tempo:2.9.0 resolves to this index digest. No cosign signature published (cosign verify: no signatures found).",
+            "checked": "2026-11-08",
+            "provenance": { "signed": false }
+          }
+      },
+      {
+        "image": "docker.io/openpolicyagent/opa:1.22.2-envoy@sha256:16218464017553a5152c619cf8605b6b8bb1c01612918fa6dba44b571c8de4c7",
+        "name": "opa-envoy",
+        "component": "opa-authorizer",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest docker.io/openpolicyagent/opa:1.22.2-envoy resolves to this index digest. No cosign signature published (cosign verify: no signatures found).",
+            "checked": "2026-11-08",
+            "provenance": { "signed": false }
+          }
+      }
+    ]
+}
