@@ -328,6 +328,46 @@
         "readiness": ["crd/postgresqlinstances.platform.kore.dev"]
       },
       {
+        "name": "kore-policy-templates",
+        "phase": "configuration",
+        "namespace": "gatekeeper-system",
+        "kind": "manifest",
+        "source": "infra/policies/gatekeeper/templates",
+        "version": "local",
+        "ownsCRDs":
+          [
+            "korecontainersecurity.constraints.gatekeeper.sh",
+            "koremeshenrollment.constraints.gatekeeper.sh",
+            "korerbac.constraints.gatekeeper.sh",
+            "koreretention.constraints.gatekeeper.sh",
+            "koresecrets.constraints.gatekeeper.sh",
+            "koreworkloadidentity.constraints.gatekeeper.sh"
+          ],
+        "dependencies": ["gatekeeper"],
+        "timeout": "5m",
+        "readiness":
+          [
+            "crd/korecontainersecurity.constraints.gatekeeper.sh",
+            "crd/koremeshenrollment.constraints.gatekeeper.sh",
+            "crd/korerbac.constraints.gatekeeper.sh",
+            "crd/koreretention.constraints.gatekeeper.sh",
+            "crd/koresecrets.constraints.gatekeeper.sh",
+            "crd/koreworkloadidentity.constraints.gatekeeper.sh"
+          ]
+      },
+      {
+        "name": "kore-policy-constraints",
+        "phase": "configuration",
+        "namespace": "gatekeeper-system",
+        "kind": "manifest",
+        "source": "infra/policies/gatekeeper/constraints",
+        "version": "local",
+        "ownsCRDs": [],
+        "dependencies": ["gatekeeper", "kore-policy-templates"],
+        "timeout": "5m",
+        "readiness": ["deployment/gatekeeper-audit"]
+      },
+      {
         "name": "kore-local-tls",
         "phase": "configuration",
         "namespace": "kore-system",

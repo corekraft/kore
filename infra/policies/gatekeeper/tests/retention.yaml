@@ -1,0 +1,17 @@
+kind: Suite
+apiVersion: test.gatekeeper.sh/v1alpha1
+tests:
+  - name: retention
+    template: ../templates/koreretention.yaml
+    constraint: ../constraints/koreretention.yaml
+    cases:
+      - {name: accepts-retained-claim-on-retained-class, object: objects/ret-retained-ok.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-delete-claim-on-standard-class, object: objects/ret-delete-ok.yaml, assertions: [{violations: 0}]}
+      - {name: rejects-retain-label-on-non-retained-class, object: objects/ret-label-wrong-class.yaml, assertions: [{violations: 1}]}
+      - {name: rejects-retained-class-without-retention-label, object: objects/ret-class-no-label.yaml, assertions: [{violations: 2}]}
+      - {name: rejects-delete-label-on-retained-class, object: objects/ret-class-delete-label.yaml, assertions: [{violations: 1}]}
+      - {name: rejects-claim-without-explicit-retention, object: objects/ret-no-label.yaml, assertions: [{violations: 1}]}
+      - {name: rejects-unknown-retention-value, object: objects/ret-bad-value.yaml, assertions: [{violations: 1}]}
+      - {name: exempts-system-namespaces, object: objects/ret-exempt-ns.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-retained-statefulset-claim-template, object: objects/ret-statefulset-retained.yaml, assertions: [{violations: 0}]}
+      - {name: rejects-statefulset-claim-template-without-retention, object: objects/ret-statefulset-unlabeled.yaml, assertions: [{violations: 1}]}

@@ -1,0 +1,10 @@
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: KoreRBAC
+metadata: {name: kore-rbac}
+spec:
+  enforcementAction: dryrun
+  match:
+    kinds:
+      - {apiGroups: [rbac.authorization.k8s.io], kinds: [Role, RoleBinding, ClusterRoleBinding]}
+  parameters:
+    exemptNamespaces: [kube-system, cert-manager, gatekeeper-system, istio-system, cosign-system, crossplane-system, external-secrets, cnpg-system, opentelemetry-operator-system]

@@ -1,0 +1,39 @@
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata: {name: korerbac}
+spec:
+  crd:
+    spec:
+      names: {kind: KoreRBAC}
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties: {exemptNamespaces: {type: array, items: {type: string}}}
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package kore.rbac
+        import future.keywords.in
+        exempt { input.review.object.metadata.namespace in input.parameters.exemptNamespaces }
+        violation[{"msg": msg}] {
+          input.review.kind.kind == "Role"
+          not exempt
+          rule := input.review.object.rules[_]
+          "*" in rule.verbs
+          msg := sprintf("role %s must not grant wildcard verbs", [input.review.object.metadata.name])
+        }
+        violation[{"msg": msg}] {
+          input.review.kind.kind == "Role"
+          not exempt
+          rule := input.review.object.rules[_]
+          "*" in rule.resources
+          msg := sprintf("role %s must not grant wildcard resources", [input.review.object.metadata.name])
+        }
+        violation[{"msg": msg}] {
+          input.review.kind.kind in {"RoleBinding", "ClusterRoleBinding"}
+          input.review.object.roleRef.name == "cluster-admin"
+          subject := input.review.object.subjects[_]
+          subject.kind == "ServiceAccount"
+          not subject.namespace in input.parameters.exemptNamespaces
+          msg := sprintf("ServiceAccount %s/%s must not be bound to cluster-admin", [subject.namespace, subject.name])
+        }

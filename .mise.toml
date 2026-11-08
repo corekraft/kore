@@ -10,6 +10,7 @@ age = "1.3.2"
 mkcert = "1.4.4"
 opentofu = "1.13.9"
 opa = "1.22.2"
+gator = "3.23.1"
 cosign = "3.1.4"
 
 [tasks.build]
@@ -43,6 +44,10 @@ run = "npm --prefix tools/kore run kore -- validate --environment local"
 [tasks.test-opa]
 description = "Run colocated Rego policy specifications with the OPA CLI"
 run = "opa test infra/policies/opa/bundles/v1 -v"
+
+[tasks.test-gatekeeper]
+description = "Run Gatekeeper constraint template suites with the pinned gator CLI"
+run = "gator verify infra/policies/gatekeeper/tests/ -v"
 
 [tasks.install]
 description = "Install kore into the repository-local bin directory"

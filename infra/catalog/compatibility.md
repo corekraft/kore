@@ -31,6 +31,7 @@ on a live cluster.
 | Tempo chart                      | 1.24.4                  | 2026-11-07 | Already latest stable; `statefulset/tempo`                                                                                       |
 | Grafana chart                    | 10.5.15                 | 2026-11-07 | Already latest stable; `deployment/grafana`                                                                                      |
 | OCI registry image               | registry:3.1.2          | 2026-11-07 | `deployment/oci-registry` renders; distribution 3.1.2 has no config-breaking changes                                             |
+| gator CLI                        | 3.23.1                  | 2026-11-08 | Same release as the Gatekeeper chart; `test-gatekeeper` runs the constraint template suites offline                              |
 | OPA Envoy image                  | 1.22.2-envoy            | 2026-11-07 | `opa-authorizer` renders; same OPA release as the toolchain CLI; policies pass `test-opa`                                        |
 | Reference base image             | node:26.13.0-alpine3.24 | 2026-11-07 | Latest Node LTS on Alpine                                                                                                        |
 

@@ -1,0 +1,9 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: wi-dedicated-sa, namespace: app}
+spec:
+  template:
+    spec:
+      serviceAccountName: valid
+      automountServiceAccountToken: false
+      containers: [{name: app, image: invalid}]
