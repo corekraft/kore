@@ -1,0 +1,157 @@
+import assert from "node:assert/strict";
+import { mkdtemp, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { afterEach, test, vi } from "vitest";
+
+vi.mock("../images/index.js", () => ({
+  ensureLocalSigningPublicKey: async () => undefined,
+}));
+import { loadRepository } from "../config/index.js";
+import type { Runner } from "../runtime/index.js";
+import type { RunResult } from "../runtime/runner.js";
+import { desiredFingerprint } from "./fingerprint.js";
+import { platformUp } from "./up.js";
+import { healthyWebhookOutput } from "./webhook-fixtures.js";
+
+const ok = (stdout = ""): RunResult => ({ stdout, stderr: "", code: 0 });
+const temporary: string[] = [];
+afterEach(async () => {
+  await Promise.all(
+    temporary
+      .splice(0)
+      .map((path) => rm(path, { recursive: true, force: true })),
+  );
+});
+
+// The releases a second `kore local up` upgraded although nothing had changed.
+const configurationReleases = [
+  "kore-image-policy",
+  "kore-local-tls",
+  "opa-authorizer",
+  "kore-platform-config",
+];
+
+const healthyGateway = JSON.stringify({
+  status: {
+    conditions: [
+      { type: "Accepted", status: "True" },
+      { type: "Programmed", status: "True" },
+    ],
+    listeners: [
+      { name: "https", conditions: [{ type: "ResolvedRefs", status: "True" }] },
+    ],
+  },
+});
+
+/** A cluster where the release is deployed with the given description. */
+function cluster(description: (revision: number) => string) {
+  const calls: { command: string; args: readonly string[] }[] = [];
+  const runner: Runner = {
+    async run(command, args) {
+      calls.push({ command, args });
+      if (command === "helm" && args[0] === "status") {
+        return ok('{"info":{"status":"deployed"}}');
+      }
+      if (command === "helm" && args[0] === "history") {
+        return ok(
+          JSON.stringify([
+            { revision: 1, status: "superseded", description: description(1) },
+            { revision: 2, status: "deployed", description: description(2) },
+          ]),
+        );
+      }
+      if (command === "mkcert") {
+        return ok("/tmp/mkcert");
+      }
+      if (command === "kubectl") {
+        const webhook = healthyWebhookOutput(args);
+        if (webhook !== undefined) {
+          return ok(webhook);
+        }
+        if (args.includes("service")) {
+          return ok(
+            JSON.stringify({
+              items: [
+                {
+                  status: { loadBalancer: { ingress: [{ ip: "127.0.0.1" }] } },
+                },
+              ],
+            }),
+          );
+        }
+        if (args.some((arg) => arg.startsWith("gateway/"))) {
+          return ok(healthyGateway);
+        }
+        return ok(
+          args.includes("jsonpath={.metadata.name}") ? "kube-system" : "ready",
+        );
+      }
+      return ok("kube-system");
+    },
+  };
+  return { calls, runner };
+}
+
+async function upOnly(name: string, stale = false) {
+  const base = await loadRepository("local");
+  const root = await mkdtemp(join(tmpdir(), "kore-second-run-"));
+  temporary.push(root);
+  const component = {
+    ...base.catalog.components.find((c) => c.name === name)!,
+    dependencies: [],
+  };
+  const repository = {
+    ...base,
+    root,
+    catalog: { ...base.catalog, components: [component] },
+  };
+  const fingerprint =
+    stale || component.kind === "manifest"
+      ? "kore desired-state sha256:stale"
+      : desiredFingerprint(repository, component);
+  const { calls, runner } = cluster(() => fingerprint);
+  const tunnel: string[] = [];
+  await platformUp(repository, runner, {
+    spawnTunnel: () => {
+      tunnel.push("started");
+      return 4321;
+    },
+    isProcessAlive: () => true,
+    isPortOpen: async () => true,
+  });
+  return { calls, tunnel };
+}
+
+const upgrades = (calls: { command: string; args: readonly string[] }[]) =>
+  calls.filter((c) => c.command === "helm" && c.args[0] === "upgrade");
+
+for (const name of configurationReleases) {
+  test(`a second platform up does not upgrade the unchanged configuration release ${name}`, async () => {
+    const { calls } = await upOnly(name);
+    assert.deepEqual(upgrades(calls), []);
+  });
+
+  test(`platform up still upgrades ${name} when its desired state changed`, async () => {
+    const { calls } = await upOnly(name, true);
+    assert.equal(upgrades(calls).length, 1);
+  });
+}
+
+test("an unchanged Gateway release still starts the tunnel and waits for the Gateway", async () => {
+  const { calls, tunnel } = await upOnly("kore-platform-config");
+  assert.deepEqual(upgrades(calls), []);
+  assert.deepEqual(tunnel, ["started"]);
+  assert.ok(
+    calls.some(
+      (c) => c.command === "kubectl" && c.args.includes("gateway/kore-gateway"),
+    ),
+  );
+});
+
+test("configuration manifests are still applied on every platform up", async () => {
+  const { calls } = await upOnly("kore-policy-templates");
+  assert.ok(
+    calls.some((c) => c.command === "kubectl" && c.args.includes("apply")),
+  );
+});
