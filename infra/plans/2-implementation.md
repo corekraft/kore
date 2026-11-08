@@ -296,11 +296,11 @@ API, cert-manager, SOPS with age, and External Secrets Operator.
       trust.
 - [x] Define a stable `platform-secrets` store name for application resource
       charts.
-- [ ] Add SOPS and age configuration for encrypted local source secrets.
-      _Partial: `.sops.yaml` encrypts local documents to a local-only age
-      recipient (decision 3 below), and `sops-canary.enc.yaml` is the first
-      encrypted source, checked by `sops-config.spec.ts`. Open until a live
-      `local up` applies the canary into the source namespace (2026-11-08)._
+- [x] Add SOPS and age configuration for encrypted local source secrets.
+      `.sops.yaml` encrypts local documents to a local-only age recipient (decision 3
+      below), and `sops-canary.enc.yaml` holds no real secret. Live 2026-11-08:
+      `local up` decrypted it through stdin into `kore-secret-source`. On macOS,
+      export `SOPS_AGE_KEY_FILE` when the identity lives under `~/.config`.
 - [x] Automate decryption directly into a protected source namespace without
       writing plaintext files into the repository or build artifacts.
 - [x] Configure External Secrets Operator to materialize application-scoped
@@ -920,6 +920,47 @@ keeps its unlabelled Loki and Tempo claims until it is recreated (2026-11-08).
 Next: confirm a clean retention audit on a fresh profile, then
 enable `ClusterImagePolicy` enforcement (Step 7), which unblocks Step 9
 enrollment and the bootstrap gate.
+
+### 2026-11-08 third fresh-profile live bootstrap
+
+The profile was destroyed with `--purge-data` and recreated. Stopping the run
+mid-install left `policy-controller` stuck `uninstalling` with no deployed
+revision, which `helm upgrade --install` refuses. Reconcile now checks the
+release history after a failed upgrade, uninstalls a release that was never
+deployed, and retries once. The resume recovered it live. Two more defects were
+fixed test-first on the way:
+
+- **Image policy key Secret:** Policy Controller only reads key Secrets in its
+  own namespace, and only Secrets with a single entry. Kore now publishes a
+  public-key-only `cosign-system/kore-local-signing-pub` at the end of bootstrap.
+- **Image policy readiness:** readiness now waits for the ClusterImagePolicy's
+  `Ready` condition instead of `rollout status`.
+
+Live evidence (`.kore/live-bootstrap-2026-11-08-fresh3f.log`):
+
+- **Bootstrap scope:** the PostgreSQL XRD and `opa-authorizer` installed only in
+  the configuration phase (ADR 0027).
+- **Image policy:** `kore-platform-images` reports `Ready`, and the public Secret
+  holds only `cosign.pub`.
+- **Claims:** every claim is labelled `Delete` except the reference database,
+  which is `Retain`.
+- **Gatekeeper audit:**
+
+  | Constraint         | Violations |
+  | ------------------ | ---------- |
+  | Retention          | 0 (was 6)  |
+  | Mesh enrollment    | 0          |
+  | RBAC               | 0          |
+  | Container security | 24         |
+  | Workload identity  | 13         |
+  | Secrets            | 6          |
+
+  The canary is the sixth `KoreSecrets` violation. Hand-made Secrets in the
+  `kore-secret-source` namespace are flagged even though they are the intended
+  sources, so that policy needs an exemption for the source namespace.
+
+- **Reference app:** the API, frontend, waypoint, and database pods are
+  running.
 
 ### 2026-11-08 decisions
 
