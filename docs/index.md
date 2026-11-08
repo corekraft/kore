@@ -29,6 +29,10 @@ repository root; `mise run kb-check` keeps this list complete.
   done: CI, a deterministic retrospective scan, skill pruning and rule
   promotion, eval history, and stale-document checks. Read before changing CI,
   `retro`, `eval.mjs`, or `kb-check`.
+- [`infra/plans/6-agent-primitives.md`](../infra/plans/6-agent-primitives.md) —
+  active: an operations journal `kore` owns, an append-only guard, and a hook
+  that reports what changed between turns. Read before changing the runner,
+  `guard.mjs`, or context hooks.
 
 ## Decisions
 
