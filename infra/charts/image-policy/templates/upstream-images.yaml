@@ -1,0 +1,29 @@
+{{- /*
+Policy Controller's no-match behavior is cluster-wide (config-policy-controller),
+so upstream images that Kore itself places in an enrolled application namespace
+need a policy of their own or they would be rejected as unmatched: the Istio
+waypoint proxy and the CloudNativePG PostgreSQL instance image. Each glob names
+one exact upstream repository, never a host, and never overlaps the internal
+registry glob of kore-platform-images, which keeps requiring the signature.
+A static pass trusts the repository, not a digest; ADR 0032 records the interim
+and the path to signed/digest-pinned upstream images.
+*/ -}}
+apiVersion: policy.sigstore.dev/v1beta1
+kind: ClusterImagePolicy
+metadata:
+  name: kore-upstream-images
+  labels: {app.kubernetes.io/managed-by: Helm}
+spec:
+  mode: {{ required "trust.mode is required (warn or enforce)" .Values.trust.mode }}
+  match:
+    - group: ""
+      version: v1
+      resource: pods
+  images:
+    {{- range .Values.upstreamImages }}
+    - glob: {{ . | quote }}
+    {{- end }}
+  authorities:
+    - name: kore-managed-upstream
+      static:
+        action: pass

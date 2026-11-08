@@ -3,8 +3,9 @@ One policy covers every pod container kind: the Policy Controller evaluates
 containers, initContainers, and ephemeralContainers of the matched resources.
 An image that matches no ClusterImagePolicy is rejected, and webhook, registry,
 or signature errors deny admission (webhook failurePolicy: Fail). Namespaces are
-only evaluated when carrying the Policy Controller include label; this chart never
-opts one in (audit before enforce).
+only evaluated when carrying the Policy Controller include label; kore app up
+enrolls application namespaces (ADR 0032), this chart never does. spec.mode
+comes from the environment (warn first: audit before enforce).
 */ -}}
 apiVersion: policy.sigstore.dev/v1beta1
 kind: ClusterImagePolicy
@@ -12,6 +13,7 @@ metadata:
   name: kore-platform-images
   labels: {app.kubernetes.io/managed-by: Helm}
 spec:
+  mode: {{ required "trust.mode is required (warn or enforce)" .Values.trust.mode }}
   match:
     - group: ""
       version: v1

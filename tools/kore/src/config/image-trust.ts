@@ -145,6 +145,11 @@ export function imageTrustErrors(repository: Repository): string[] {
   }
   return [
     ...regexps,
+    ...(trust.mode === "warn" || trust.mode === "enforce"
+      ? []
+      : [
+          "image trust: mode must be warn or enforce (new environments start at warn; audit before enforce)",
+        ]),
     ...(trust.type === "keyless"
       ? keylessErrors(trust)
       : keyErrors(trust, repository)),

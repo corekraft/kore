@@ -33,10 +33,14 @@ export async function resolveCharts(
   };
 }
 
+const admissionLabel = "policy.sigstore.dev/include";
+
 /**
- * `kore app up` is the single owner of an application namespace and its mesh
- * enrollment (ADR 0025). Helm's `--create-namespace` cannot label, so the
- * namespace is applied here and no release creates it.
+ * `kore app up` is the single owner of an application namespace, its mesh
+ * enrollment (ADR 0025), and its Sigstore admission enrollment (ADR 0032).
+ * Helm's `--create-namespace` cannot label, so the namespace is applied here
+ * and no release creates it. Enrollment is mandatory: the label is read back
+ * and the release is refused when it is absent.
  */
 export async function enrollNamespace(
   repository: Repository,
@@ -56,9 +60,27 @@ export async function enrollNamespace(
     ],
     {
       capture: true,
-      input: `apiVersion: v1\nkind: Namespace\nmetadata:\n  name: ${name}\n  labels:\n    istio.io/dataplane-mode: ambient\n`,
+      input: `apiVersion: v1\nkind: Namespace\nmetadata:\n  name: ${name}\n  labels:\n    istio.io/dataplane-mode: ambient\n    ${admissionLabel}: "true"\n`,
     },
   );
+  const { stdout } = await runner.run(
+    "kubectl",
+    [
+      "--context",
+      repository.environment.kubeContext,
+      "get",
+      "namespace",
+      name,
+      "--output",
+      `jsonpath={.metadata.labels.${admissionLabel.replaceAll(".", "\\.")}}`,
+    ],
+    { capture: true },
+  );
+  if (stdout.trim() !== "true") {
+    throw new Error(
+      `namespace ${name} is not enrolled in image admission: label ${admissionLabel}="true" is missing after apply. Rerun kore app up (it applies the label); if it persists, another field manager is removing it`,
+    );
+  }
 }
 
 export async function installResources(

@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import { readdir, readFile } from "node:fs/promises";
+import { promisify } from "node:util";
 import { join } from "node:path";
 import { test } from "vitest";
 import { findRoot, loadRepository, validateRepository } from "./config.js";
@@ -25,6 +27,7 @@ async function withTrust(
 
 const keyless = (over: Trust = {}): Trust => ({
   type: "keyless",
+  mode: "warn",
   issuer,
   subjects: [releaseSubject],
   ...over,
@@ -34,6 +37,7 @@ test("local trusts its local signing key and managed-example a pinned release wo
   const local = await loadRepository("local");
   assert.deepEqual(local.imageTrustValues?.["trust"], {
     type: "key",
+    mode: "warn",
     keyRef: { name: "kore-local-signing-pub", namespace: "cosign-system" },
   });
   const managed = await loadRepository("managed-example");
@@ -165,17 +169,13 @@ test("a committed images list is rejected because the glob is derived from regis
 test("the chart renders ClusterImagePolicy for all containers without regexps or namespace opt-in", async () => {
   const root = await findRoot();
   const dir = join(root, "infra/charts/image-policy/templates");
-  const text = (
-    await Promise.all(
-      (await readdir(dir)).map((f) => readFile(join(dir, f), "utf8")),
-    )
-  ).join("\n");
+  const text = await readFile(join(dir, "clusterimagepolicy.yaml"), "utf8");
   assert.match(text, /kind: ClusterImagePolicy/);
   assert.match(text, /apiVersion: policy\.sigstore\.dev\/v1beta1/);
   assert.match(text, /group: ""\s+version: v1\s+resource: pods/);
   assert.match(text, /\.Values\.trust\.issuer/);
   assert.doesNotMatch(text, /RegExp/i);
-  assert.doesNotMatch(text, /static:\s*\n\s*action: pass/);
+  assert.doesNotMatch(text, /static:/);
   assert.doesNotMatch(text, /policy\.sigstore\.dev\/include/);
 });
 
@@ -206,4 +206,72 @@ test("a key reference outside the policy-controller namespace is rejected with t
     assert.match(error.message, /policy-controller/);
     return true;
   });
+});
+
+test("trust.mode must be warn or enforce so a typo cannot silently disable the audit", async () => {
+  for (const mode of [undefined, "audit", "Enforce", ""]) {
+    const repository = await withTrust("local", (trust) => ({
+      ...trust,
+      mode,
+    }));
+    await assert.rejects(
+      validateRepository(repository),
+      /image trust: mode must be warn or enforce/,
+      String(mode),
+    );
+  }
+  for (const mode of ["warn", "enforce"]) {
+    await validateRepository(
+      await withTrust("local", (trust) => ({ ...trust, mode })),
+    );
+  }
+});
+
+const run = promisify(execFile);
+
+async function render(
+  environment: string,
+  mode: string,
+): Promise<{ platform: string; upstream: string }> {
+  const root = await findRoot();
+  const repository = await loadRepository(environment);
+  const trust = { ...(repository.imageTrustValues?.trust as Trust), mode };
+  const { stdout } = await run("helm", [
+    "template",
+    "kore-image-policy",
+    join(root, "infra/charts/image-policy"),
+    "--set-string",
+    "platform.registry.address=registry.example:5000",
+    "--set-json",
+    `trust=${JSON.stringify(trust)}`,
+  ]);
+  const docs = stdout.split(/^---$/m);
+  return {
+    platform: docs.find((d) => d.includes("name: kore-platform-images")) ?? "",
+    upstream: docs.find((d) => d.includes("name: kore-upstream-images")) ?? "",
+  };
+}
+
+test("the platform policy renders the environment trust mode for every environment", async () => {
+  for (const environment of ["local", "managed-example"]) {
+    for (const mode of ["warn", "enforce"]) {
+      const { platform, upstream } = await render(environment, mode);
+      assert.match(platform, new RegExp(`mode: ${mode}\\b`), environment);
+      assert.match(upstream, new RegExp(`mode: ${mode}\\b`), environment);
+    }
+  }
+});
+
+test("upstream images get their own static policy and never widen the internal-image policy", async () => {
+  const { platform, upstream } = await render("local", "enforce");
+  // Internal images: signature required, never a static pass.
+  assert.doesNotMatch(platform, /static:/);
+  assert.match(platform, /registry\.example:5000\/\*\*/);
+  assert.doesNotMatch(platform, /proxyv2|cloudnative-pg/);
+  // Upstream images (waypoint, CloudNativePG) are named exactly, not by wildcard host.
+  assert.match(upstream, /static:\s*\n\s*action: pass/);
+  assert.match(upstream, /istio\/proxyv2/);
+  assert.match(upstream, /ghcr\.io\/cloudnative-pg\/postgresql/);
+  assert.doesNotMatch(upstream, /registry\.example/);
+  assert.doesNotMatch(upstream, /glob: "?(\*\*|\*)"?\s*$/m);
 });

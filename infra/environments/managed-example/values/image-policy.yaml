@@ -2,6 +2,7 @@
   "trust":
     {
       "type": "keyless",
+      "mode": "warn",
       "issuer": "https://token.actions.githubusercontent.com",
       "subjects":
         [

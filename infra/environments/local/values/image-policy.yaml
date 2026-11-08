@@ -2,6 +2,7 @@
   "trust":
     {
       "type": "key",
+      "mode": "warn",
       "keyRef":
         { "name": "kore-local-signing-pub", "namespace": "cosign-system" }
     }
