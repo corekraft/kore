@@ -403,7 +403,8 @@ guard blocked legitimate work. Three proposals were accepted:
   `dd60e344` was the same typed prompt, used to check the SessionStart brief.
   `retro-scan.mjs` should count a repeated prompt only if it follows an
   assistant mistake or carries a correction signal ("no", "don't", "instead",
-  "wrong"). A separate session is implementing it.
+  "wrong"). Implemented in `3019dc4`; on the same transcripts the scan now
+  reports no corrections.
 - **Keep `add-policy`, `handoff`, and `write-adr`** (each unused in 19
   sessions): none of those sessions needed a policy, an ADR, or a handoff. Check
   them again after a window of real plan-step work. Archive or rewrite one only

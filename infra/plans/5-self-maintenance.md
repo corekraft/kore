@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 summary: Make the harness check and maintain itself, with CI, a deterministic retrospective scan, usage-driven pruning and promotion, eval history, and stale-doc detection.
 last-verified: 2026-11-07
 ---
@@ -88,7 +88,7 @@ outward-facing, so it is proposed to the user and not done by an agent.
 - [x] The scan runs over this repository's real transcripts in under two
       seconds and prints no transcript text beyond rule names, tool names, and
       error summaries of 120 characters or less.
-- [ ] One `/retro` run after the change returns its ranked list. Record how many
+- [x] One `/retro` run after the change returns its ranked list. Record how many
       transcript files it opened compared with the previous run.
 
 ## Step 3: Prune and Promote From Usage
@@ -244,3 +244,12 @@ kb-check` on this tree: 0 stale documents.
   locally is counted on the wrong side of the boundary. `context.mjs` already
   had this problem, and the scan now shares it by reusing that function. Fix
   both together; not in this plan.
+- Step 2: live `/retro` on 2026-11-07, in an Opus session in a Herdr pane. It
+  returned a ranked list of three proposals in 26 s. The forked run opened 2
+  transcript files, only at the lines the scan named. The first retrospective
+  read all 12 sessions' transcripts. The three proposals are recorded and
+  accepted in `3-agent-harness.md`. One is a scan false positive: a repeated
+  neutral prompt counted as a correction. It is fixed in `3019dc4`.
+- Done: every work item and exit criterion is ticked. `main` now requires the
+  `check` status. Admins can bypass it, and force pushes and branch deletion
+  are blocked.
