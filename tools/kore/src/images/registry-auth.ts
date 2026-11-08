@@ -228,3 +228,31 @@ export function registryAddress(repository: Repository): string {
 export function koreManagesRegistryAuth(repository: Repository): boolean {
   return registryPlan(repository.environment).clusterIP !== undefined;
 }
+
+/**
+ * Runs `operation` and, if it fails, removes every secret from the error's
+ * message and stack before rethrowing. A credentialed command's captured
+ * output ends up in kore's error text, the journal, and logs, so a secret that
+ * reaches that output (for example a terminal echoing stdin) must not survive.
+ */
+export async function withSecretsRedacted<T>(
+  secrets: readonly string[],
+  operation: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    if (!(error instanceof Error)) {
+      throw error;
+    }
+    const redact = (text: string) =>
+      secrets
+        .filter((secret) => secret !== "")
+        .reduce((out, secret) => out.replaceAll(secret, "[REDACTED]"), text);
+    error.message = redact(error.message);
+    if (error.stack) {
+      error.stack = redact(error.stack);
+    }
+    throw error;
+  }
+}

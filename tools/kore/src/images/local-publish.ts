@@ -7,6 +7,7 @@ import {
 } from "./local-image-args.js";
 import {
   loadRegistryCredential,
+  withSecretsRedacted,
   type RegistryCredential,
 } from "./registry-auth.js";
 import { withRegistryClient, type RegistryClient } from "./registry-client.js";
@@ -49,16 +50,18 @@ export async function publishToLocalRegistry(
   const repositoryPath = entry.image
     .slice(separator + 1)
     .replace(/:[^/:]+$/, "");
-  await runner.run(
-    "minikube",
-    minikubeImagePublishArgs(
-      repository.environment.cluster.profile,
-      imageTag,
-      address,
-      `${repositoryPath}:kore-local`,
-      credential.username,
+  await withSecretsRedacted([credential.password], () =>
+    runner.run(
+      "minikube",
+      minikubeImagePublishArgs(
+        repository.environment.cluster.profile,
+        imageTag,
+        address,
+        `${repositoryPath}:kore-local`,
+        credential.username,
+      ),
+      { capture: true, input: `${credential.password}\n` },
     ),
-    { capture: true, input: `${credential.password}\n` },
   );
   return repositoryPath;
 }

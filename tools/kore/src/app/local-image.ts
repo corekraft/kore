@@ -4,6 +4,7 @@ import {
   minikubeRegistrySessionArgs,
   shellQuote,
   verifiedRegistryAddress,
+  withSecretsRedacted,
   type LockedImage,
 } from "../images/index.js";
 import type { Runner } from "../runtime/index.js";
@@ -45,15 +46,17 @@ export async function stageLocalImage(
     reference: localMinikubeImageReference(image.reference, address),
   };
   const credential = await loadRegistryCredential(repository, runner, "read");
-  await runner.run(
-    "minikube",
-    minikubeImagePullArgs(
-      repository.environment.cluster.profile,
-      staged.reference,
-      address,
-      credential.username,
+  await withSecretsRedacted([credential.password], () =>
+    runner.run(
+      "minikube",
+      minikubeImagePullArgs(
+        repository.environment.cluster.profile,
+        staged.reference,
+        address,
+        credential.username,
+      ),
+      { capture: false, input: `${credential.password}\n` },
     ),
-    { capture: false, input: `${credential.password}\n` },
   );
   return staged;
 }

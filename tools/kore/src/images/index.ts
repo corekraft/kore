@@ -14,6 +14,7 @@ export {
   registryAddress,
   registryPullSecret,
   registryPullSecretName,
+  withSecretsRedacted,
 } from "./registry-auth.js";
 export type { RegistryCredential } from "./registry-auth.js";
 export { withRegistryClient } from "./registry-client.js";

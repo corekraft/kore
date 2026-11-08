@@ -132,3 +132,33 @@ test("credentialed node sessions use the external ssh client, which neither echo
   const dashdash = publish.args.indexOf("--");
   expect(publish.args.slice(0, dashdash)).toContain("--native-ssh=false");
 });
+
+test("a failed publish never carries the push password in its error, even if the node echoed it", async () => {
+  const repository = await testRepository();
+  const { runner } = fakeRunner();
+  stubRegistry(registryReference);
+  const echoing: typeof runner = {
+    async run(command, args, options) {
+      if (args.some((a) => a.includes("push"))) {
+        throw new Error(
+          `minikube ssh failed (1): ${pushPassword}\n${pushPassword}`,
+        );
+      }
+      return runner.run(command, args, options);
+    },
+  };
+
+  const error = await buildAndSignLocalImage(
+    repository,
+    echoing,
+    "reference",
+    entry,
+  ).catch((e: unknown) => e as Error);
+
+  if (!(error instanceof Error)) {
+    throw new Error("the failed publish must reject");
+  }
+  expect(error.message).not.toContain(pushPassword);
+  expect(String(error.stack)).not.toContain(pushPassword);
+  expect(error.message).toContain("[REDACTED]");
+});
