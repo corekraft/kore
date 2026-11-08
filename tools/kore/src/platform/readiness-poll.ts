@@ -2,6 +2,10 @@ import { errorMessage } from "./probe.js";
 
 const POLL_MILLISECONDS = 250;
 
+/** Errors that mean the resource or its type does not exist yet. */
+export const NOT_YET_THERE =
+  /not found|no matches for kind|the server doesn't have a resource type/i;
+
 function unitMilliseconds(unit: string | undefined): number {
   if (unit === "h") {
     return 3600000;
@@ -27,7 +31,9 @@ export function pause(): Promise<void> {
 /**
  * Polls `probe` until it reports ready (undefined) or the timeout elapses,
  * always probing at least once. A probe returns the reason it is not ready, or
- * throws; the last reason becomes the failure.
+ * throws; only not-yet-there errors are retried, any other error (Forbidden,
+ * unreachable context, malformed output) is rethrown at once. The last reason
+ * becomes the failure.
  */
 export async function pollUntil(
   timeout: string,
@@ -39,6 +45,9 @@ export async function pollUntil(
     try {
       reason = await probe();
     } catch (error) {
+      if (!NOT_YET_THERE.test(errorMessage(error))) {
+        throw error;
+      }
       reason = errorMessage(error);
     }
     if (reason === undefined) {

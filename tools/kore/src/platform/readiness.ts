@@ -3,13 +3,16 @@ import type { Runner } from "../runtime/index.js";
 import { errorMessage } from "./probe.js";
 import { waitForGateway } from "./readiness-gateway.js";
 import { assertIssuerReady, trustRemedy } from "./readiness-issuer.js";
-import { pause, pollUntil, timeoutMilliseconds } from "./readiness-poll.js";
+import {
+  NOT_YET_THERE,
+  pause,
+  pollUntil,
+  timeoutMilliseconds,
+} from "./readiness-poll.js";
 
 const TLS_READY_TEMPLATE =
   '{{if and (eq .type "kubernetes.io/tls") (index .data "tls.crt") (index .data "tls.key")}}ready{{end}}';
 const NOT_FOUND = /NotFound|not found/i;
-const RETRYABLE_CRD_ERROR =
-  /not found|no matches for kind|the server doesn't have a resource type/i;
 const EXISTENCE_KINDS = [
   "storageclass/",
   "configmap/",
@@ -56,9 +59,10 @@ async function waitForTLSSecret(
         : "Secret is missing tls.crt or tls.key";
     } catch (error) {
       const message = errorMessage(error);
-      return NOT_FOUND.test(message)
-        ? `${message}. cert-manager has not issued it; ${trustRemedy(repository)}`
-        : message;
+      if (!NOT_FOUND.test(message)) {
+        throw error;
+      }
+      return `${message}. cert-manager has not issued it; ${trustRemedy(repository)}`;
     }
   });
 }
@@ -100,10 +104,7 @@ async function waitForCRD(
       );
       return;
     } catch (error) {
-      if (
-        !RETRYABLE_CRD_ERROR.test(errorMessage(error)) ||
-        Date.now() >= deadline
-      ) {
+      if (!NOT_YET_THERE.test(errorMessage(error)) || Date.now() >= deadline) {
         throw error;
       }
       await pause();
