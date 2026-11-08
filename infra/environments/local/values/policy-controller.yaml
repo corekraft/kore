@@ -1,0 +1,5 @@
+{
+  # One webhook replica on one node: a minAvailable 1 budget can never be
+  # satisfied during a drain. Admission stays fail-closed while it restarts.
+  "webhook": { "podDisruptionBudget": { "enabled": false } }
+}
