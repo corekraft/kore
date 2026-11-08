@@ -55,6 +55,7 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0013-local-tls-before-gateway.md`](decisions/0013-local-tls-before-gateway.md) — refines 0006: the local certificate gets its own release before the Gateway. Read when debugging local Gateway readiness.
 - [`docs/decisions/0014-native-identity-before-opa.md`](decisions/0014-native-identity-before-opa.md) — refines 0007: Istio checks caller identity because ExtAuthz omits principals. Read when changing OPA policy.
 - [`docs/decisions/0015-local-signed-image-delivery.md`](decisions/0015-local-signed-image-delivery.md) — refines 0005: local images are signed with a local key and deployed by digest. Read when changing `local up` or image delivery.
+- [`docs/decisions/0016-postgresql-api-scoped-rbac-status-and-retention.md`](decisions/0016-postgresql-api-scoped-rbac-status-and-retention.md) — refines 0008: scoped Crossplane Secret access, projected database status, labeled retained PVCs, app down reports retained data. Read when changing the PostgreSQL API.
 
 ## Reference
 

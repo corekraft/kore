@@ -27,6 +27,9 @@ spec:
                 platform.kore.dev/retention: {{ .observed.composite.resource.spec.retentionPolicy }}
             spec:
               instances: 1
+              inheritedMetadata:
+                labels:
+                  platform.kore.dev/retention: {{ .observed.composite.resource.spec.retentionPolicy }}
               imageName: ghcr.io/cloudnative-pg/postgresql:{{ .observed.composite.resource.spec.compatibilityVersion }}.4
               storage:
                 size: {{ .observed.composite.resource.spec.storageSize }}
@@ -51,6 +54,37 @@ spec:
               username: app
               passwordSecretRef: {{ .observed.composite.resource.metadata.name }}-app
               sslmode: require
+    - step: project-status
+      functionRef: { name: function-go-templating }
+      input:
+        apiVersion: gotemplating.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |
+            {{- $phase := "" }}
+            {{- $reason := "" }}
+            {{- with .observed.resources }}{{ with .database }}{{ with .resource.status }}
+            {{- $phase = .phase | default "" }}
+            {{- $reason = .phaseReason | default "" }}
+            {{- end }}{{ end }}{{ end }}
+            apiVersion: platform.kore.dev/v1alpha1
+            kind: PostgreSQLInstance
+            status:
+              phase: {{ $phase | quote }}
+              failureReason: {{ $reason | quote }}
+              host: {{ .observed.composite.resource.metadata.name }}-rw
+              port: 5432
+              endpoint: {{ .observed.composite.resource.metadata.name }}-rw:5432
+            ---
+            apiVersion: meta.gotemplating.fn.crossplane.io/v1alpha1
+            kind: ClaimConditions
+            conditions:
+              - type: DatabaseHealthy
+                status: {{ if eq $phase "Cluster in healthy state" }}"True"{{ else }}"False"{{ end }}
+                reason: {{ if eq $phase "Cluster in healthy state" }}Healthy{{ else if $reason }}Failed{{ else }}Provisioning{{ end }}
+                message: {{ $reason | default $phase | quote }}
+                target: CompositeAndClaim
     - step: mark-ready
       functionRef: { name: function-auto-ready }
 ---

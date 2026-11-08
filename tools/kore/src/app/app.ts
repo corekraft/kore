@@ -1,7 +1,7 @@
 import { access } from "node:fs/promises";
 import { join } from "node:path";
 import type { Repository } from "../config/index.js";
-import { assertExpectedCluster } from "../cluster/index.js";
+import { assertExpectedCluster, retainedResources } from "../cluster/index.js";
 import { imageForApplication, loadImageLock } from "../images/index.js";
 import type { Runner } from "../runtime/index.js";
 
@@ -61,7 +61,7 @@ export async function appDown(
   repository: Repository,
   runner: Runner,
   name: string,
-): Promise<void> {
+): Promise<string[]> {
   await assertExpectedCluster(repository, runner);
   await runner.run(
     "helm",
@@ -76,4 +76,7 @@ export async function appDown(
     ],
     { capture: false },
   );
+  // Only the workload release is removed; the resources release keeps the
+  // claim and its data. Report what stays so the operator knows it remains.
+  return await retainedResources(repository, runner, name);
 }

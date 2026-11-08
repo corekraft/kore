@@ -96,8 +96,12 @@ export async function appCommand(context: CommandContext): Promise<number> {
     {
       up: async (_context, mutationRunner) =>
         await appUp(repository, mutationRunner, name),
-      down: async (_context, mutationRunner) =>
-        await appDown(repository, mutationRunner, name),
+      down: async (_context, mutationRunner) => {
+        const retained = await appDown(repository, mutationRunner, name);
+        if (retained.length) {
+          print({ name, retained }, json);
+        }
+      },
     },
     `app ${context.action ?? ""} ${name}`,
   );
