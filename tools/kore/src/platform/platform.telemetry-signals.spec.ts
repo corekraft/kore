@@ -101,3 +101,15 @@ test("every reference dashboard panel names the provisioned datasource for its s
     }
   }
 });
+
+test("the single-node local Loki gateway drops the chart's hard anti-affinity so it can roll", async () => {
+  // The chart requires one gateway pod per node. On one node the surge pod of
+  // any gateway rollout can never schedule, and the upgrade times out. Helm
+  // merges maps, so only null (not {}) removes the default.
+  const repository = await loadRepository("local");
+  const values = await readFile(
+    join(repository.root, "infra/environments/local/values/loki.yaml"),
+    "utf8",
+  );
+  assert.match(values, /^gateway:\s*\{\s*affinity:\s*null\s*\}\s*$/m);
+});

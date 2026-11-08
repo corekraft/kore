@@ -34,3 +34,5 @@ chunksCache:
   enabled: false
 resultsCache:
   enabled: false
+# One node: the chart's hard gateway anti-affinity would block every rollout.
+gateway: { affinity: null }
