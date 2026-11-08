@@ -252,8 +252,14 @@ export function readJournals(root) {
   }
   const journals = {};
   for (const name of names) {
+    let text;
+    try {
+      text = readFileSync(join(dir, name), "utf8");
+    } catch {
+      continue; // An unreadable entry must not lose the rest of the brief.
+    }
     const entries = [];
-    for (const line of readFileSync(join(dir, name), "utf8").split("\n")) {
+    for (const line of text.split("\n")) {
       try {
         const entry = JSON.parse(line);
         if (entry && typeof entry === "object") entries.push(entry);
