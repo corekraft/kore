@@ -12,6 +12,7 @@ const RETRYABLE_CRD_ERROR =
   /not found|no matches for kind|the server doesn't have a resource type/i;
 const EXISTENCE_KINDS = [
   "storageclass/",
+  "configmap/",
   "clusterrole/",
   "clusterrolebinding/",
 ];

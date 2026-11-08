@@ -240,3 +240,24 @@ test("a missing TLS Secret names the Secret and points at trust install", async 
     /secret\/edge-tls .*complete TLS Secret.*kore trust install --environment local/s,
   );
 });
+
+test("a ConfigMap readiness entry is proven by existence, not by a rollout", async () => {
+  const { repository, component } = await helmComponent([
+    "configmap/kore-prometheus-rules",
+  ]);
+  const { runner, calls } = fakeCluster(
+    () => "configmap/kore-prometheus-rules",
+  );
+
+  await reconcileComponent(repository, runner, component);
+
+  const kubectl = calls.filter(({ command }) => command === "kubectl");
+  assert.ok(
+    kubectl.some(
+      ({ args }) =>
+        args.includes("get") &&
+        args.includes("configmap/kore-prometheus-rules"),
+    ),
+  );
+  assert.ok(kubectl.every(({ args }) => !args.includes("rollout")));
+});

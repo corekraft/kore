@@ -231,7 +231,7 @@
         "ownsCRDs": [],
         "dependencies": ["kore-storage", "istiod"],
         "timeout": "2m",
-        "readiness": []
+        "readiness": ["configmap/kore-prometheus-rules", "configmap/kore-grafana-dashboards"]
       },
       {
         "name": "prometheus",
