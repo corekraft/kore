@@ -1,0 +1,91 @@
+rules:
+  - id: kore-child-process-shell
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      exec/execSync run their argument through a shell, so interpolated values
+      become command injection. Run external processes through the injectable
+      runner (argv array, no shell) instead.
+    pattern-either:
+      - patterns:
+          - pattern-either:
+              - pattern: $CP.exec(...)
+              - pattern: $CP.execSync(...)
+          - metavariable-regex:
+              metavariable: $CP
+              regex: ^(cp|child_process|childProcess)$
+      - patterns:
+          - pattern-either:
+              - pattern: exec(...)
+              - pattern: execSync(...)
+          - pattern-inside: |
+              import {..., $F, ...} from "node:child_process";
+              ...
+      - pattern: '$CP.$FN($CMD, $ARGS, {..., shell: true, ...})'
+    metadata:
+      category: security
+      cwe: "CWE-78"
+  - id: kore-path-traversal
+    mode: taint
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      A path built from external input (argv, env, request URL) reaches a
+      filesystem call. Resolve it against a fixed root and reject paths that
+      escape it before use.
+    pattern-sources:
+      - pattern: process.argv
+      - pattern: process.env.$NAME
+      - patterns:
+          - pattern: $REQ.url
+          - metavariable-regex:
+              metavariable: $REQ
+              regex: ^(req|request)$
+    pattern-sanitizers:
+      - pattern: path.basename(...)
+      - pattern: basename(...)
+    pattern-sinks:
+      - pattern: $FS.readFile($PATH, ...)
+      - pattern: $FS.readFileSync($PATH, ...)
+      - pattern: $FS.writeFile($PATH, ...)
+      - pattern: $FS.writeFileSync($PATH, ...)
+      - pattern: $FS.rm($PATH, ...)
+      - pattern: $FS.createReadStream($PATH, ...)
+      - pattern: readFile($PATH, ...)
+      - pattern: writeFile($PATH, ...)
+      - pattern: rm($PATH, ...)
+    metadata:
+      category: security
+      cwe: "CWE-22"
+  - id: kore-secret-in-log
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      A value named like a credential is written to a log or console. Secrets
+      never reach logs; log the name of the secret, not its value.
+    patterns:
+      - pattern-either:
+          - pattern: console.$M(..., $X, ...)
+          - pattern: process.stderr.write(..., $X, ...)
+          - pattern: process.stdout.write(..., $X, ...)
+      - metavariable-regex:
+          metavariable: $X
+          regex: (?i)^(.*\.)?(token|secret|password|passphrase|apikey|api_key|privatekey|private_key)$
+    metadata:
+      category: security
+      cwe: "CWE-532"
+  - id: kore-dynamic-regexp
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      A RegExp is built from a non-literal value, which allows regex injection
+      and catastrophic backtracking. Escape the input and bound its length, or
+      use a literal pattern.
+    patterns:
+      - pattern-either:
+          - pattern: new RegExp($X, ...)
+          - pattern: RegExp($X, ...)
+      - pattern-not: new RegExp("...", ...)
+    metadata:
+      category: security
+      cwe: "CWE-1333"

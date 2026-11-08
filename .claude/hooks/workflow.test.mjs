@@ -51,23 +51,34 @@ test("the workflow runs every check the commit and stop hooks run, in order", ()
     "mise run test-promtool",
     "mise run validate",
     "mise run kb-check -- --strict",
+    "mise run scan",
   ]);
 });
 
 test("mise installs only the tools the checks need", () => {
   const text = check();
   assert.match(text, /install_args: node npm opa gator helm promtool$/m);
+  assert.match(
+    text,
+    /install_args: trufflehog osv-scanner semgrep actionlint zizmor hadolint$/m,
+  );
 });
 
 test("the workflow never calls a model", () => {
   assert.doesNotMatch(check(), /\bclaude\b|eval-harness|ANTHROPIC/i);
 });
 
-test("mise tasks cannot install tools beyond the ones the job installed", () => {
-  assert.match(
-    check(),
-    /^ {4}env:\n(?: {6}.+\n)*? {6}MISE_TASK_RUN_AUTO_INSTALL: "false"\n/m,
-  );
+test("mise tasks cannot install tools beyond the ones each job installed", () => {
+  const jobs = check()
+    .split(/^ {2}(?=\w+:\n {4}runs-on)/m)
+    .slice(1);
+  assert.equal(jobs.length, 2);
+  for (const job of jobs) {
+    assert.match(
+      job,
+      /^ {4}env:\n(?: {6}.+\n)*? {6}MISE_TASK_RUN_AUTO_INSTALL: "false"\n/m,
+    );
+  }
 });
 
 test("checkout fetches full history, so kb-check's stale-document dates are real", () => {

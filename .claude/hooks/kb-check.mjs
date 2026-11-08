@@ -346,6 +346,7 @@ export function findings(deps) {
       const command = /^\s+kore\s+([a-z][\w-]*)/.exec(line)?.[1];
       if (!command || seen.has(command)) return;
       seen.add(command);
+      // nosemgrep: kore-dynamic-regexp -- command is matched by [a-z][\w-]* above, so it has no regex metacharacters
       if (!new RegExp(`\\bkore(?: --)? ${command}\\b`).test(readme)) {
         problems.push(
           finding(

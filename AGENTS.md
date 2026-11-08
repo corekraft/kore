@@ -79,6 +79,7 @@ the plans and ADRs record why. Find them through
 - **Conventional Commits,** lowercase imperative subjects. Enforced on commit.
 - **Typecheck, lint, format, and test pass** before anything is committed.
   _Enforced: commit hooks, stop hook._
+- **Scans pass before merge:** `mise run scan`. Ignore narrowly, with a reason.
 - **Record significant decisions** as ADRs; when a step refines an earlier
   decision, record why.
 

@@ -1,0 +1,9 @@
+# Regex patterns, one per line, matched against repository-relative paths.
+# .kore/ holds local key material; no scanner may ever read it.
+^\.kore/
+(^|/)node_modules/
+(^|/)dist/
+(^|/)bin/
+(^|/)coverage/
+# SOPS-encrypted files are expected ciphertext (ENC[...] values), not leaked secrets.
+\.enc\.yaml$
