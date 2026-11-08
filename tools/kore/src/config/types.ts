@@ -24,6 +24,18 @@ export interface Component {
   timeout: string;
   values?: string[];
   readiness: string[];
+  helm?: HelmOptions;
+}
+
+/** Per-component Helm behavior that is off unless the catalog opts in. */
+export interface HelmOptions {
+  /**
+   * Upgrade with server-side apply `--force-conflicts`, for a release whose
+   * controller co-owns fields of the release's own objects.
+   */
+  forceConflicts: boolean;
+  /** Why Helm must take the fields back; required when forceConflicts is set. */
+  reason?: string;
 }
 
 export interface Catalog {

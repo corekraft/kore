@@ -68,3 +68,25 @@ it matches.
 - Manifest components keep their behaviour (server-side apply is idempotent).
   The registry Service rewire remains: Helm cannot change an immutable
   `clusterIP`, so the generic path does not cover it.
+
+## Refinement: opt-in forced conflicts for self-managing controllers
+
+Drift upgrades exposed a case a first install never hits. Helm 4 applies
+server-side, and a controller that keeps writing fields of its own release's
+objects (the first live case: `policy-controller`'s `webhook` reconciler owning
+`namespaceSelector` and `caBundle` of its webhook configurations) makes the
+upgrade fail with a field-manager conflict, after which the rollback fails too.
+
+- A catalog component may set `helm: {forceConflicts: true, reason}`. Only
+  then does `helmUpgradeArgs` add `--force-conflicts`, so Helm takes the fields
+  back and the controller re-reconciles them. It is never on by default, the
+  schema and validation require a reason, and the flag is in the args, so it
+  already changes the desired-state fingerprint.
+- It is set only where the chart renders a field the controller later owns
+  and no chart value omits it: `policy-controller` only. cert-manager,
+  Gatekeeper, External Secrets, CloudNativePG and the OpenTelemetry operator
+  have controllers or cainjector that write only `caBundle`, which their
+  charts do not render, so there is no overlap. Istiod's chart omits
+  `failurePolicy` on upgrade (`.Release.IsUpgrade`) for the same reason.
+- Recovery needs no new path: a release left `failed` after a deployed
+  revision is upgraded by the next reconcile and never uninstalled.
