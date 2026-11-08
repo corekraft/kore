@@ -10,6 +10,10 @@ repository root; `mise run kb-check` keeps this list complete.
   enforce. Read at the start of any change.
 - [`README.md`](../README.md) — what Kore does and how to run each `kore`
   command. Read before running or changing a command.
+- [`docs/vision.md`](vision.md) — where Kore is going: a multi-tenant
+  business and developer platform of organizations, sub-organizations, and
+  services, with static frontends, autoscaled backends for frontend, and an
+  org-scoped portal. Read before planning work beyond Plan 2.
 
 ## Plans
 
