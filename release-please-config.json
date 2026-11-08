@@ -17,6 +17,6 @@
     { "type": "build", "section": "Build", "hidden": true }
   ],
   "packages": {
-    ".": {}
+    ".": { "initial-version": "0.1.0" }
   }
 }
