@@ -83,7 +83,10 @@ test("chart image defaults and the reference base image match the catalog pins",
     join(root, "apps/reference/Dockerfile"),
     "utf8",
   );
-  assert.equal(repository.versions.images["oci-registry"], "registry:3.1.2");
+  assert.match(
+    repository.versions.images["oci-registry"] ?? "",
+    /^registry:3\.1\.2@sha256:/,
+  );
   assert.match(registry, /tag: 3\.1\.2\b/);
   assert.equal(
     repository.versions.images["opa-envoy"],
