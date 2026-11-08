@@ -105,7 +105,9 @@ export async function appCommand(context: CommandContext): Promise<number> {
         for (const warning of warnings) {
           process.stderr.write(`warning: ${warning}\n`);
         }
-        if (retained.length) {
+        if (json) {
+          print({ name, retained, ...(warnings.length && { warnings }) }, json);
+        } else if (retained.length) {
           print({ name, retained }, json);
         }
       },

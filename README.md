@@ -44,6 +44,13 @@ environment and use the configured kube context, never the current kubectl
 context. Direct destruction requires `--yes`; retained claims additionally
 require `--purge-data`. `local down --prune` destroys without purging; `local down --prune --purge-data` opts into both.
 
+`kore app down <name> --environment <name>` uninstalls only the workload release
+(rerunning it is safe) and keeps the application's resources release and data.
+It lists the retained claims and volumes that remain; a failed lookup is a
+warning on stderr, not a failure. With `--json` it always prints
+`{ "name": "...", "retained": [...] }` (plus `warnings` when a lookup failed),
+with an empty list when nothing is retained.
+
 ### Minikube tunnel
 
 The local Gateway uses HTTPS port `8443`. Port `443` is privileged inside the
