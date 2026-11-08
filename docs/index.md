@@ -101,3 +101,5 @@ repository root; `mise run kb-check` keeps this list complete.
   — writing the failing test first for any code or hook change.
 - [`skills/write-adr/SKILL.md`](../skills/write-adr/SKILL.md) — recording an
   architectural decision.
+
+- [`docs/ci-probe.md`](ci-probe.md) — probe: a dead link that only kb-check catches.
