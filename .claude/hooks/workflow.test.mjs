@@ -89,21 +89,97 @@ const release = () => readFileSync(join(workflows, "release.yaml"), "utf8");
 const subject =
   "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/";
 
-test("the release workflow triggers only on version tags", () => {
+const jobText = (name) => {
+  const text = release();
+  const body = text.slice(text.indexOf("\njobs:\n") + 1);
+  const match = body.match(
+    new RegExp(
+      `^ {2}${name}:\\n([\\s\\S]*?)(?=^ {2}[\\w-]+:\\n|(?![\\s\\S]))`,
+      "m",
+    ),
+  );
+  assert.ok(match, `job ${name} exists`);
+  return match[1] ?? "";
+};
+
+test("the release workflow runs on main pushes, version tags, and dispatch only", () => {
   const text = release();
   assert.match(
     text,
-    /^on:\n {2}push:\n {4}tags: \["v\[0-9\]\+\.\[0-9\]\+\.\[0-9\]\+"\]\n\n/m,
+    /^on:\n {2}push:\n {4}branches: \[main\]\n {4}tags: \["v\[0-9\]\+\.\[0-9\]\+\.\[0-9\]\+"\]\n {2}workflow_dispatch:\n\n/m,
   );
-  assert.doesNotMatch(text, /pull_request|workflow_dispatch|branches:/);
+  assert.doesNotMatch(text, /pull_request|schedule:|workflow_run/);
 });
 
-test("the release workflow grants write scopes to its job only, never the workflow", () => {
+test("release-please is pinned, reads its config files, and tags vX.Y.Z", () => {
+  const job = jobText("release-please");
+  assert.match(
+    job,
+    /uses: googleapis\/release-please-action@[0-9a-f]{40} # v\d+\.\d+\.\d+/,
+  );
+  assert.match(job, /config-file: release-please-config\.json/);
+  assert.match(job, /manifest-file: \.release-please-manifest\.json/);
+  assert.match(job, /if: github\.ref == 'refs\/heads\/main'/);
+  assert.match(
+    job,
+    /release_created: \$\{\{ steps\.\w+\.outputs\.release_created \}\}/,
+  );
+  assert.match(job, /tag_name: \$\{\{ steps\.\w+\.outputs\.tag_name \}\}/);
+  const config = JSON.parse(
+    readFileSync(join(root, "release-please-config.json"), "utf8"),
+  );
+  assert.equal(config["include-component-in-tag"], false);
+  assert.equal(config["include-v-in-tag"], true);
+  assert.equal(config["release-type"], "simple");
+  assert.deepEqual(Object.keys(config.packages), ["."]);
+  assert.deepEqual(
+    JSON.parse(
+      readFileSync(join(root, ".release-please-manifest.json"), "utf8"),
+    ),
+    { ".": "0.0.0" },
+  );
+});
+
+test("release-please and the tag dispatch hold only their own write scopes", () => {
   const text = release();
   assert.match(text, /^permissions:\n {2}contents: read\n/m);
-  const job = text.slice(text.indexOf("jobs:"));
-  assert.match(job, /^ {6}id-token: write$/m);
-  assert.match(job, /^ {6}packages: write$/m);
+  assert.doesNotMatch(text.slice(0, text.indexOf("jobs:")), /: write/);
+  const rp = jobText("release-please");
+  assert.match(rp, /^ {6}contents: write$/m);
+  assert.match(rp, /^ {6}pull-requests: write$/m);
+  assert.doesNotMatch(rp, /id-token|packages:|actions:/);
+  const dispatch = jobText("dispatch");
+  assert.match(dispatch, /^ {6}actions: write$/m);
+  assert.doesNotMatch(dispatch, /id-token|packages:|contents: write/);
+  const sign = jobText("release");
+  assert.match(sign, /^ {6}id-token: write$/m);
+  assert.match(sign, /^ {6}packages: write$/m);
+  assert.doesNotMatch(sign, /contents: write|pull-requests|actions: write/);
+});
+
+test("a created release re-runs this workflow at its tag, so the signing identity is the tag", () => {
+  const job = jobText("dispatch");
+  assert.match(job, /needs: release-please/);
+  assert.match(
+    job,
+    /if: needs\.release-please\.outputs\.release_created == 'true'/,
+  );
+  assert.match(job, /gh workflow run release\.yaml --ref "refs\/tags\/\$TAG"/);
+  assert.match(
+    job,
+    /TAG: \$\{\{ needs\.release-please\.outputs\.tag_name \}\}/,
+  );
+  assert.doesNotMatch(job, /\$\{\{[^}]*\}\}[^\n]*gh workflow run/);
+});
+
+test("signing runs only for a tag ref, never for main or a branch dispatch", () => {
+  const job = jobText("release");
+  assert.match(job, /^ {4}if: github\.ref_type == 'tag'$/m);
+  assert.doesNotMatch(job, /needs:/);
+});
+
+test("the release workflow grants write scopes to jobs only, never the workflow", () => {
+  const text = release();
   assert.doesNotMatch(text.slice(0, text.indexOf("jobs:")), /: write/);
 });
 

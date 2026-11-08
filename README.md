@@ -151,7 +151,18 @@ lifecycle and capability contracts.
 
 ## Releases
 
-Pushing a `vX.Y.Z` tag runs `.github/workflows/release.yaml`, which builds the
+Tags are cut by [release-please](https://github.com/googleapis/release-please)
+from Conventional Commits. Each push to `main` updates a release pull request
+(version bump in `version.txt`, `CHANGELOG.md`); merging it creates the `vX.Y.Z`
+tag and GitHub release. A tag made with the default `GITHUB_TOKEN` starts no
+workflow, and signing from `main` would give the identity `...@refs/heads/main`,
+so the workflow's `dispatch` job re-runs `release.yaml` at the new tag. Only that
+tag run signs. Maintainer setup: allow Actions to create pull requests
+(Settings > Actions > General), and add the `github-actions` integration as a
+bypass actor in the `v*` tag ruleset so it can create tags. Versions start at
+0.1.0 (`feat` bumps the minor while below 1.0).
+
+Running `release.yaml` at a `vX.Y.Z` tag (pushed, or by the dispatch above) runs `.github/workflows/release.yaml`, which builds the
 reference image, pushes it to `ghcr.io/corekraft/kore/reference` (the `IMAGE`
 variable in the workflow), signs the digest with keyless Cosign, verifies it
 against the exact workflow-on-tag identity, and uploads an `images.lock.json`

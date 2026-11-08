@@ -112,3 +112,27 @@ environment's `trust.subjects` in the same reviewed change.
   so the exact-subject check is only as strong as that ruleset.
 - Not covered: mirroring upstream platform images into the registry (remaining),
   and no tag has been pushed or workflow run yet.
+
+## Refinement (2026-11-08): release-please tags the repository
+
+`release.yaml` also hosts release-please (config in `release-please-config.json`,
+version in `.release-please-manifest.json`; tags `vX.Y.Z`, no component prefix).
+The trust model is unchanged: the signing identity stays the exact
+`release.yaml@refs/tags/vX.Y.Z`.
+
+- Why not sign from the release-please run: the certificate SAN is the workflow
+  file at the ref the run started from, so a run on `main` signs as
+  `...release.yaml@refs/heads/main`, which validation rejects. A tag created with
+  `GITHUB_TOKEN` starts no `push: tags` run either.
+- Choice: the `dispatch` job (`actions: write` only) runs
+  `gh workflow run release.yaml --ref refs/tags/vX.Y.Z` after a release is
+  created. `workflow_dispatch` is exempt from the `GITHUB_TOKEN` restriction, and a
+  dispatch at a tag ref carries that tag as its identity. The signing job runs only
+  when `github.ref_type == 'tag'`, so main and branch dispatches never sign.
+- Rejected: a GitHub App token for release-please (its tag push would trigger the
+  tag workflow). It also works, but adds a secret and an app to maintain; revisit
+  if dispatch proves unreliable. Accepting a `refs/heads/main` identity would
+  weaken the exact-tag guarantee.
+- The tag ruleset must let the `github-actions` integration create `v*` tags.
+  Anyone with write access can dispatch at an existing tag and re-sign it; that
+  re-signs the same tagged code, still under the same exact subject.

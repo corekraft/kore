@@ -1,21 +1,68 @@
-name: release
-
-# Signs the reference image with keyless Cosign. The signature is bound to this
-# exact workflow on the pushed tag, which the managed environment lists as one
-# reviewed subject (ADR 0028). Version tags MUST be protected by a repository
-# ruleset (restrict creation, updates, and deletion of v* tags to maintainers):
-# the repository cannot configure that itself, and without it anyone who can
-# push a tag can mint a trusted signature.
+# Tags releases with release-please and signs the reference image with keyless
+# Cosign. Both live in this one file because the keyless certificate identity is
+# this workflow file at the ref the run started from (ADR 0028).
+#
+# release-please creates the vX.Y.Z tag with the default GITHUB_TOKEN, and a tag
+# pushed with that token starts no workflow. A signing job run from main would
+# carry the identity ...release.yaml@refs/heads/main, which is not a release tag.
+# So the `dispatch` job re-runs this workflow at the new tag (workflow_dispatch is
+# exempt from the GITHUB_TOKEN restriction), and only that tag-ref run signs: its
+# identity is ...release.yaml@refs/tags/vX.Y.Z, the exact subject the managed
+# environment lists. No GitHub App or personal token is needed.
+#
+# Version tags MUST be protected by a repository ruleset (restrict creation,
+# updates, and deletion of v* tags to maintainers, with the github-actions
+# integration allowed to create them): the repository cannot configure that
+# itself, and without it anyone who can push a tag can mint a trusted signature.
 
 on:
   push:
+    branches: [main]
     tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
+  release-please:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: release-please
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      issues: write # release-please labels its pull requests
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  dispatch:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ needs.release-please.outputs.tag_name }}
+    steps:
+      - name: Run the signing workflow at the new tag
+        run: gh workflow run release.yaml --ref "refs/tags/$TAG"
+
   release:
+    if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
