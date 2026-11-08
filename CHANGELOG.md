@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.1](https://github.com/corekraft/kore/compare/v0.1.0...v0.1.1) (2026-11-08)
+
+
+### Bug fixes
+
+* label the reference image with its source repository ([7a67f66](https://github.com/corekraft/kore/commit/7a67f66c567955449d981c02efab7c575d7c08ac))
+* label the reference image with its source repository ([67ea0f0](https://github.com/corekraft/kore/commit/67ea0f0933fe411f60bfb0f15959c19325dd32b1))
+
 ## 0.1.0 (2026-11-08)
 
 
