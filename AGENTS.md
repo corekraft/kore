@@ -6,6 +6,11 @@ the plans and ADRs record why. Find them through
 
 ## Platform
 
+- **It just works.** `kore local up` converges on the first run, from a fresh
+  or an existing profile. A change to what runs in a cluster (images, chart
+  values, ports, probes, scheduling, readiness) is done only when a live run
+  proves it, before merge. When a run does fail, it fails fast and names the
+  cause, never just a timeout.
 - **Desired state lives in the repository.** Catalogs, environment overlays,
   charts, and manifests are the source of truth. Kore coordinates upstream tools
   (Minikube, Helm, kubectl, OpenTofu, controllers) and never reimplements their
@@ -70,7 +75,8 @@ the plans and ADRs record why. Find them through
 - **Fast tests need no cluster.** Fake the process runner and inspect its
   commands. Clean up temporary state.
 - **Live tests are opt-in.** Anything that creates or destroys a cluster runs
-  only when requested, never in ordinary runs.
+  only when requested, never in ordinary runs. A cluster-facing change still
+  needs a live run before merge (see _It just works_).
 - **Coverage only goes up.** _Enforced: `coverage-threshold`._
 - **Policies have tests too,** kept beside the policies they verify.
 
