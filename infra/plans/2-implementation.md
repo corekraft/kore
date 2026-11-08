@@ -138,7 +138,7 @@ claim that the platform is ready.
 
 ## Step 7: Bootstrap Registry, Image Trust, Controllers, and CRD Ownership
 
-Next: a maintainer makes the GHCR package `corekraft/kore/reference` public (anonymous pull returns 401). Then verify `v0.1.1` independently: an anonymous `cosign verify` with the exact identity `.../release.yaml@refs/tags/v0.1.1` passes, and the same check with a `refs/heads/main` identity fails. Local image admission is enforcing, and the `Kore Reference` dashboard shows metrics, logs and traces (#36, #37).
+Next: managed environments are still unverified, since only local admission is proven. Start the open item "Roll every managed platform workload ... to the signed internal digest": mirror the approved platform images through the release workflow so the managed `kore-platform-images` policy has signed digests to admit.
 
 ### Objective
 
@@ -961,6 +961,21 @@ Live evidence (`.kore/live-bootstrap-2026-11-08-fresh3f.log`):
 
 - **Reference app:** the API, frontend, waypoint, and database pods are
   running.
+
+### 2026-11-08 public release images verified independently
+
+The GHCR package `corekraft/kore/reference` is now public, and an anonymous
+manifest pull returns 200. Without registry credentials, `cosign verify` passes
+for each release against its exact tag identity
+(`.../release.yaml@refs/tags/<tag>`) and the GitHub OIDC issuer:
+
+- `v0.1.1`: `ghcr.io/corekraft/kore/reference@sha256:c3b42704…`
+- `v0.2.0`: `ghcr.io/corekraft/kore/reference@sha256:63232645…`, from release
+  run 42517712490 (release-please, then a tag dispatch, then signing).
+
+The same digests fail with a `refs/heads/main` identity, because the certificate
+SAN names the tag. `managed-example` now trusts both tags, each as its own exact
+subject.
 
 ### 2026-11-08 image admission in enforce mode
 

@@ -42,7 +42,12 @@ test("local trusts its local signing key and managed-example a pinned release wo
     keyRef: { name: "kore-local-signing-pub", namespace: "cosign-system" },
   });
   const managed = await loadRepository("managed-example");
-  assert.deepEqual(managed.imageTrustValues?.trust, keyless());
+  assert.deepEqual(
+    managed.imageTrustValues?.trust,
+    keyless({
+      subjects: [releaseSubject, releaseSubject.replace(/v0\.1\.1$/, "v0.2.0")],
+    }),
+  );
   await validateRepository(local);
   await validateRepository(managed);
 });
