@@ -20,7 +20,7 @@ run = "npm --prefix tools/kore run build"
 
 [tasks.test]
 description = "Run tests that do not require a cluster"
-run = "npm --prefix tools/kore test"
+run = "npm --prefix tools/kore test && npm --prefix apps/reference test"
 
 [tasks.format]
 description = "Format files with the pinned prettier: mise run format <files>"
