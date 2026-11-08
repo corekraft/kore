@@ -30,6 +30,9 @@ export function clusterStartArgs(environment: Environment): string[] {
     cluster.diskSize,
     "--apiserver-names",
     cluster.profile,
+    ...(cluster.serviceCidr
+      ? ["--service-cluster-ip-range", cluster.serviceCidr]
+      : []),
     "--keep-context=false",
   ];
 }

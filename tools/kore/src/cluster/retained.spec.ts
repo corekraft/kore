@@ -201,34 +201,43 @@ test("a missing PostgreSQL CRD counts as no retained data", async () => {
 });
 
 test("an unreachable cluster blocks destroy instead of counting as no retained data", async () => {
-  const repository = await loadRepository("local");
-  const runner = {
-    calls: [] as string[][],
-    async run(command: string, args: readonly string[]) {
-      this.calls.push([command, ...args]);
-      if (command === "kubectl" && args.includes("get")) {
-        throw new CommandError(command, args, {
-          stdout: "",
-          stderr:
-            "Unable to connect to the server: dial tcp 192.168.49.2:8443: i/o timeout",
-          code: 1,
-        });
-      }
-      return { stdout: "", stderr: "", code: 0 };
-    },
+  // An isolated root: a real export under the repository's .kore/ would
+  // legitimately unblock destroy and hide what this test protects.
+  const repository = {
+    ...(await loadRepository("local")),
+    root: await mkdtemp(join(tmpdir(), "kore-retained-")),
   };
-  await assert.rejects(
-    retainedResources(repository, runner),
-    /Unable to connect/,
-  );
-  await assert.rejects(
-    clusterDestroy(repository, runner, { yes: true, purgeData: false }),
-    /Unable to connect/,
-  );
-  assert.equal(
-    runner.calls.some((call) => call.includes("delete")),
-    false,
-  );
+  try {
+    const runner = {
+      calls: [] as string[][],
+      async run(command: string, args: readonly string[]) {
+        this.calls.push([command, ...args]);
+        if (command === "kubectl" && args.includes("get")) {
+          throw new CommandError(command, args, {
+            stdout: "",
+            stderr:
+              "Unable to connect to the server: dial tcp 192.168.49.2:8443: i/o timeout",
+            code: 1,
+          });
+        }
+        return { stdout: "", stderr: "", code: 0 };
+      },
+    };
+    await assert.rejects(
+      retainedResources(repository, runner),
+      /Unable to connect/,
+    );
+    await assert.rejects(
+      clusterDestroy(repository, runner, { yes: true, purgeData: false }),
+      /Unable to connect/,
+    );
+    assert.equal(
+      runner.calls.some((call) => call.includes("delete")),
+      false,
+    );
+  } finally {
+    await rm(repository.root, { recursive: true, force: true });
+  }
 });
 
 test("export verification rejects malformed or mismatched manifests", async () => {

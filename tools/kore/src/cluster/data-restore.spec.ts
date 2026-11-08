@@ -172,11 +172,16 @@ test("overwrite replaces the public schema inside the same transaction as the lo
     c.args.includes("--single-transaction"),
   );
   assert.ok(load);
-  assert.ok(
-    load.options?.input?.startsWith(
-      "DROP SCHEMA IF EXISTS public CASCADE;\nCREATE SCHEMA public;\n",
-    ),
+  const input = load.options?.input ?? "";
+  assert.ok(input.startsWith("DROP SCHEMA IF EXISTS public CASCADE;\n"));
+  // The recreated schema must match PostgreSQL 15+ defaults, or the app role
+  // that owns the database can no longer create tables (its next migration fails).
+  assert.match(
+    input,
+    /CREATE SCHEMA public AUTHORIZATION pg_database_owner;\n/,
   );
+  assert.match(input, /GRANT USAGE ON SCHEMA public TO PUBLIC;\n/);
+  assert.doesNotMatch(input, /CREATE SCHEMA public;\n/);
   assert.ok(load.options?.input?.endsWith(PLAINTEXT));
 });
 

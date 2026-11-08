@@ -32,8 +32,21 @@ test("cluster start command pins profile, context inputs, runtime, and resources
     "40g",
     "--apiserver-names",
     "kore-local",
+    "--service-cluster-ip-range",
+    "10.96.0.0/12",
     "--keep-context=false",
   ]);
+});
+
+test("cluster start omits the service range when none is declared", async () => {
+  const { environment } = await loadRepository("local");
+  const { serviceCidr: _drop, ...cluster } = environment.cluster;
+  assert.equal(
+    clusterStartArgs({ ...environment, cluster }).includes(
+      "--service-cluster-ip-range",
+    ),
+    false,
+  );
 });
 
 test("destroy requires explicit confirmation", async () => {

@@ -477,9 +477,11 @@ PostgreSQL claim backed locally by CloudNativePG.
       composition labels CloudNativePG PVCs through `inheritedMetadata`, and purge
       no longer waits on a claim a pod still mounts. Export and restore remain._
 - [x] Define and test an explicit purge path.
-- [ ] Implement a local export and restore proof before treating platform destroy as
-      recoverable.
-      _Not started: no export or restore code exists._
+- [x] Implement a local export and restore proof before treating platform destroy as
+      recoverable. `kore data export` and `kore data restore`
+      ([ADR 0029](../../docs/decisions/0029-local-export-and-restore.md)) cover the
+      CloudNativePG database only; export refuses while other retained volumes exist.
+      Live round trip 2026-11-08, recorded in the third fresh-profile entry below.
 
 ### Exit Criteria
 
@@ -491,7 +493,7 @@ PostgreSQL claim backed locally by CloudNativePG.
 - [ ] Deleting a retained claim does not silently delete its backing data.
 - [ ] Cluster destroy is blocked while retained data lacks an explicit purge or
       verified export.
-- [ ] Exported local data can be restored into a fresh local platform.
+- [x] Exported local data can be restored into a fresh local platform (2026-11-08).
 
 ## Step 11: Observability
 
@@ -962,6 +964,35 @@ Live evidence (`.kore/live-bootstrap-2026-11-08-fresh3f.log`):
 - **Reference app:** the API, frontend, waypoint, and database pods are
   running.
 
+### 2026-11-08 export, purge, and restore round trip
+
+The round trip ran on the third fresh profile:
+
+1. A marker row, `round-trip-marker-2026-11-08`, was written to
+   `reference_events`.
+2. `kore data export` wrote `reference-db-2026-11-08T17-16-12Z.sql.age` and its
+   manifest. The artifact is age ciphertext, its sha256 matches the manifest, and
+   the marker never appears in plaintext.
+3. `cluster destroy --yes` without `--purge-data` refused and named the retained
+   claim and `PostgreSQLInstance`. Destroying with `--purge-data` then removed the
+   profile.
+4. A fresh `local up` converged, and the migration Job recreated the empty schema.
+5. `kore data restore` refused the non-empty database (2 tables). With
+   `--overwrite-data --yes` it restored the marker row.
+6. The tables stay owned by `app`, which keeps select, insert, and sequence
+   privileges. The restarted `reference-api` passed its database readiness check.
+
+The new registry pin took effect on this profile: the Service holds
+`10.96.0.50`. The next `local up` found a defect: the overwrite restore had recreated
+`public` with a bare `CREATE SCHEMA`, so it was owned by `postgres` with no
+grants. The migration Job failed ("no schema has been selected to create in")
+and the release rolled back. Restore now recreates `public` with PostgreSQL 15+
+defaults: owned by `pg_database_owner`, with `USAGE` granted to `PUBLIC`. After
+restoring again, `local up` converged and the migration Job ran against the
+restored data. The marker survived, and the registry rewire did nothing because
+the address already matched. A unit test read the real `.kore/exports/` and lost its refusal once
+a verified export existed. It now uses an isolated root.
+
 ### 2026-11-08 decisions
 
 The user decided four open questions:
@@ -973,7 +1004,8 @@ The user decided four open questions:
    bound to an exact protected GitHub Actions workflow identity (OIDC issuer
    `https://token.actions.githubusercontent.com`, an exact release workflow on
    protected tags). Local keeps the local key as an environment-specific exception
-   (ADR 0015).
+   (ADR 0015). The user confirmed exact identities: each accepted release tag is
+   listed as its own reviewed subject, with no tag pattern.
 3. **SOPS recipients (Step 8):** local gets its own age recipient, separate from
    managed environments. The user generates the key and supplies only the public
    recipient.

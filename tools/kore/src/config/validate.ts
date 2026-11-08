@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { exists } from "./files.js";
+import { registryAddressErrors } from "./registry-address.js";
 import { imageTrustErrors } from "./image-trust.js";
 import { seedErrors } from "./seeds.js";
 import { orderedComponents } from "./order.js";
@@ -243,6 +244,7 @@ export async function validateRepository(
     ...cycleErrors(catalog),
     ...(await seedErrors(repository)),
     ...imageTrustErrors(repository),
+    ...registryAddressErrors(repository),
     ...(
       await Promise.all(
         components.map((component) =>

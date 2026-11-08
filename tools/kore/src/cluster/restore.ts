@@ -18,8 +18,16 @@ export interface RestoreOptions {
   env?: NodeJS.ProcessEnv;
 }
 
-const REPLACE_SCHEMA =
-  "DROP SCHEMA IF EXISTS public CASCADE;\nCREATE SCHEMA public;\n";
+// Recreate `public` exactly as PostgreSQL 15+ creates it: owned by the
+// database owner (the application role) with USAGE for everyone. A bare
+// CREATE SCHEMA would make it postgres-owned, and the app could no longer
+// create tables in its own database.
+const REPLACE_SCHEMA = [
+  "DROP SCHEMA IF EXISTS public CASCADE;",
+  "CREATE SCHEMA public AUTHORIZATION pg_database_owner;",
+  "GRANT USAGE ON SCHEMA public TO PUBLIC;",
+  "",
+].join("\n");
 
 async function targetPrimary(
   repository: Repository,
