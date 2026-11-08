@@ -1,16 +1,21 @@
 #!/usr/bin/env node
-// SessionStart hook: after compaction, restates the AGENTS.md rules and the
-// active plan's open items, since compaction may drop them.
-// Plan: infra/plans/3-agent-harness.md (Step 8). Node standard library only.
+// SessionStart hook. After compaction it restates the AGENTS.md rules and the
+// active plan's open items, since compaction may drop them (Step 8). On a fresh
+// session or /clear it prints a short brief: where the active plan stands, its
+// Next: line, and whether a retrospective is due (Step 9).
+// Plan: infra/plans/3-agent-harness.md. Node standard library only.
 //
 // Contract: reads the SessionStart event as JSON on stdin and returns context as
-// additionalContext. Silent on any start other than "compact". Fails open.
+// additionalContext. Silent on resume. Fails open.
 
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const PLANS_DIR = "infra/plans";
+const RETRO_AFTER_SESSIONS = 5;
+const RETRO_MARKER = /^\W*Last retrospective: (\d{4}-\d{2}-\d{2})/m;
 
 /** Group a Markdown list into items, joining wrapped lines. Returns [{heading, text}]. */
 function listItems(markdown) {
@@ -51,8 +56,73 @@ export function activePlan(plans) {
   return names.find((name) => openItems(plans[name]).length > 0) ?? null;
 }
 
-/** The context to restore for a SessionStart event; empty unless it follows compaction. */
+/** The plan's `Next:` line and the step it sits under, or null. */
+export function nextStep(planMarkdown) {
+  let heading = "";
+  let next = null;
+  for (const line of planMarkdown.split("\n")) {
+    if (next) {
+      if (!line.trim() || line.startsWith("#")) break;
+      next.text += ` ${line.trim()}`;
+    } else if (line.startsWith("## ")) {
+      heading = line.slice(3).trim();
+    } else if (line.startsWith("Next:")) {
+      next = { step: heading, text: line.slice(5).trim() };
+    }
+  }
+  return next;
+}
+
+/** The latest `Last retrospective:` date across all plans, or null. */
+export function lastRetrospective(plans) {
+  const dates = Object.values(plans)
+    .map((markdown) => RETRO_MARKER.exec(markdown)?.[1])
+    .filter(Boolean)
+    .sort();
+  return dates.at(-1) ?? null;
+}
+
+/** Open item counts per step, in plan order: "Step 3 (2), Step 4 (1)". */
+function openCounts(planMarkdown) {
+  const counts = new Map();
+  for (const item of listItems(planMarkdown)) {
+    if (!item.text.startsWith("- [ ]")) continue;
+    const step = item.heading.split(":")[0];
+    counts.set(step, (counts.get(step) ?? 0) + 1);
+  }
+  return [...counts].map(([step, count]) => `${step} (${count})`).join(", ");
+}
+
+/** A few lines for a fresh session: active plan, Next: line, retrospective due. */
+export function brief(event, deps) {
+  const plans = deps.readPlans();
+  const lines = [];
+  const plan = activePlan(plans);
+  if (plan) {
+    lines.push(
+      `Session brief from ${PLANS_DIR}/${plan}:`,
+      `Open items: ${openCounts(plans[plan])}.`,
+    );
+    const next = nextStep(plans[plan]);
+    if (next) lines.push(`Next (${next.step}): ${next.text}`);
+  }
+  const since = lastRetrospective(plans);
+  const sessions = deps.sessionsSince(since, event?.session_id);
+  if (sessions >= RETRO_AFTER_SESSIONS) {
+    lines.push(
+      since
+        ? `${sessions} sessions since the last retrospective (${since}); run /retro.`
+        : `${sessions} sessions without a recorded retrospective; run /retro.`,
+    );
+  }
+  return lines.join("\n");
+}
+
+/** The context for a SessionStart event: the brief on a fresh start, the rules after compaction. */
 export function restore(event, deps) {
+  if (event?.source === "startup" || event?.source === "clear") {
+    return brief(event, deps);
+  }
   if (event?.source !== "compact") return "";
   const sections = [
     "Context was compacted. Keep applying these AGENTS.md rules; hooks check only the parts marked Enforced or Audited:",
@@ -70,21 +140,47 @@ export function restore(event, deps) {
   return sections.join("\n");
 }
 
+/** Every plan under root, keyed by file name; empty when there is no plans directory. */
+export function readPlans(root) {
+  const dir = join(root, PLANS_DIR);
+  let names;
+  try {
+    names = readdirSync(dir).filter((name) => name.endsWith(".md"));
+  } catch (error) {
+    if (error?.code === "ENOENT") return {};
+    throw error;
+  }
+  return Object.fromEntries(
+    names.map((name) => [name, readFileSync(join(dir, name), "utf8")]),
+  );
+}
+
 function realDeps(root) {
   return {
     readAgents: () => readFileSync(join(root, "AGENTS.md"), "utf8"),
-    readPlans: () => {
-      const dir = join(root, PLANS_DIR);
+    readPlans: () => readPlans(root),
+    sessionsSince: (date, current) => {
+      const config =
+        process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
+      const dir = join(config, "projects", root.replace(/[^a-zA-Z0-9]/g, "-"));
       let names;
       try {
-        names = readdirSync(dir).filter((name) => name.endsWith(".md"));
+        names = readdirSync(dir);
       } catch (error) {
-        if (error?.code === "ENOENT") return {};
+        if (error?.code === "ENOENT") return 0;
         throw error;
       }
-      return Object.fromEntries(
-        names.map((name) => [name, readFileSync(join(dir, name), "utf8")]),
-      );
+      // The marker is a local date and the retrospective ran during it, so
+      // count only sessions active after that day ends.
+      const after = date
+        ? new Date(`${date}T00:00:00`).getTime() + 24 * 60 * 60 * 1000
+        : 0;
+      return names.filter(
+        (name) =>
+          name.endsWith(".jsonl") &&
+          name !== `${current}.jsonl` &&
+          statSync(join(dir, name)).mtimeMs >= after,
+      ).length;
     },
   };
 }

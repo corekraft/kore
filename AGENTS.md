@@ -55,7 +55,8 @@ the plans and ADRs record why.
 - **Structured output.** Commands that report state offer machine-readable
   output. Keep usage text and docs in step with command changes.
 - **Formatting and lint are not up for debate.** Automated on commit; warnings
-  fail the build. _Enforced: `no-verify`, post-edit feedback hook._
+  fail the build. Format by hand with `mise run format <files>`, the pinned
+  version, never a bare `npx prettier`. _Enforced: `no-verify`, post-edit feedback hook._
 
 ## Testing
 

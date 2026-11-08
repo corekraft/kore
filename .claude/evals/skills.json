@@ -1,0 +1,54 @@
+[
+  {
+    "prompt": "Add a --json flag to the kore tunnel status command.",
+    "expect": "add-command"
+  },
+  {
+    "prompt": "Add a Gatekeeper policy that denies Deployments without resource limits.",
+    "expect": "add-policy"
+  },
+  {
+    "prompt": "Upgrade helm to the next patch release.",
+    "expect": "pin-upgrade"
+  },
+  {
+    "prompt": "Record why we chose OpenTofu over Terraform for the infra stacks.",
+    "expect": "write-adr"
+  },
+  {
+    "prompt": "Fix the bug where kore validate accepts an empty environment name.",
+    "expect": "test-driven-development"
+  },
+  {
+    "prompt": "I'm stopping for today. Hand this thread off so I can pick it up tomorrow.",
+    "expect": "handoff"
+  },
+  {
+    "prompt": "Look over my last few sessions here and suggest harness improvements.",
+    "expect": "retro"
+  },
+  {
+    "prompt": "Spin up a verifier session in a new herdr pane and have it check the brief after /clear.",
+    "expect": "spawn-session"
+  },
+  {
+    "prompt": "Explain what the guard hook blocks and why.",
+    "expect": null
+  },
+  {
+    "prompt": "What does the add-policy skill do? Just summarize it.",
+    "expect": null
+  },
+  {
+    "prompt": "Which helm version is pinned in this repository?",
+    "expect": null
+  },
+  {
+    "prompt": "Summarize ADR 0001 in two sentences.",
+    "expect": null
+  },
+  {
+    "prompt": "What is herdr, in one sentence?",
+    "expect": null
+  }
+]

@@ -1,0 +1,11 @@
+[
+  { "diff": "one-owner.diff", "expect": "One owner per resource" },
+  { "diff": "provider-neutral.diff", "expect": "provider-neutral" },
+  {
+    "diff": "domain-boundaries.diff",
+    "expect": "Domains own their boundaries"
+  },
+  { "diff": "actionable-errors.diff", "expect": "Errors are actionable" },
+  { "diff": "test-behavior.diff", "expect": "Tests describe behavior" },
+  { "diff": "clean.diff", "expect": null }
+]

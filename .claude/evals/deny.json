@@ -1,0 +1,32 @@
+[
+  {
+    "command": "minikube delete --profile kore-eval-absent"
+  },
+  {
+    "command": "tofu destroy -input=false"
+  },
+  {
+    "command": "terraform destroy -input=false"
+  },
+  {
+    "command": "helm uninstall kore-eval-absent --kube-context kore-eval-absent"
+  },
+  {
+    "command": "kubectl delete namespace kore-eval-absent --context kore-eval-absent"
+  },
+  {
+    "command": "kubectl delete ns kore-eval-absent --context kore-eval-absent"
+  },
+  {
+    "command": "./bin/kore eval-absent destroy"
+  },
+  {
+    "command": "./bin/kore eval-absent destroy --yes --purge-data"
+  },
+  {
+    "command": "kore eval-absent destroy"
+  },
+  {
+    "command": "kore eval-absent destroy --yes"
+  }
+]

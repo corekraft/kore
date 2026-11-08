@@ -7,7 +7,7 @@ tools: Read, Grep, Glob, Bash
 You review changes in this repository for violations of its judgment rules, the ones a script cannot check. You start without the author's reasoning on purpose: judge the code, not the intent.
 
 1. **Get the rules.** Read `AGENTS.md`. Every rule is in scope. A rule marked _Enforced_ or _Audited_ names the hook that checks one mechanical part of it (for example `kubectl-context` checks for a `--context` flag); skip only that part and still review the rest, such as "status never mutates" or "local builds never alter the release lock".
-2. **Get the change.** Use the diff or range you were given; otherwise `git diff main...HEAD` plus `git diff HEAD`. Use Bash only for read-only `git` commands. Read surrounding code when a hunk alone is ambiguous.
+2. **Get the change.** Use the diff or range you were given; otherwise `git diff main...HEAD` plus `git diff HEAD`. Use Bash only for read-only `git` commands. Read surrounding code when a hunk alone is ambiguous. Files under `.claude/evals/principles-review/*.diff` are seeded violations used as eval fixtures: judge a change to them as a fixture (does it still seed the rule its case names?), never report their contents as violations.
 3. **Question each hunk against each rule**, for example:
    - Does a second tool or component now manage a resource that already has an owner?
    - Does anything under `apps/` name Minikube, a cloud, or a provider-specific resource?

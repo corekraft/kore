@@ -104,9 +104,9 @@ pods --context kore-local` passes).
 
 ### Exit Criteria
 
-- [ ] A formatting or lint violation is reported in the same turn it is
+- [x] A formatting or lint violation is reported in the same turn it is
       introduced.
-- [ ] A type error prevents the agent from ending its turn silently.
+- [x] A type error prevents the agent from ending its turn silently.
 - [x] Sessions that change no TypeScript pay no typecheck cost.
 
 ## Step 4: Permission Deny Rules
@@ -121,7 +121,7 @@ validate`, `mise run test-opa`, `kore doctor`, `kore * status`.
 
 ### Exit Criteria
 
-- [ ] Destructive commands are refused even if the guard hook is disabled.
+- [x] Destructive commands are refused even if the guard hook is disabled.
 - [x] Read-only workflows run without permission prompts.
 
 ## Step 5: Workflow Skills
@@ -142,7 +142,7 @@ captures a workflow that otherwise requires re-exploring the repository.
 
 ### Exit Criteria
 
-- [ ] Each skill's description triggers it for its task and not for unrelated
+- [x] Each skill's description triggers it for its task and not for unrelated
       ones.
 - [x] Each skill references repository files instead of duplicating their
       content.
@@ -175,14 +175,14 @@ captures a workflow that otherwise requires re-exploring the repository.
   - hooks that blocked legitimate work (false positives)
 - [x] The skill proposes changes; a human accepts or rejects each one. It never
       edits configuration on its own.
-- [ ] Run it manually after every few working sessions; consider scheduling it
+- [x] Run it manually after every few working sessions; consider scheduling it
       once the history is large enough to be useful.
 
 ### Exit Criteria
 
-- [ ] A retrospective produces a short, ranked list of proposed changes, each
+- [x] A retrospective produces a short, ranked list of proposed changes, each
       tied to evidence from a transcript.
-- [ ] Accepted proposals are recorded in this plan or as an ADR.
+- [x] Accepted proposals are recorded in this plan or as an ADR.
 
 ## Step 8: Context Hygiene
 
@@ -220,19 +220,65 @@ files and read only in part.
 
 ### Exit Criteria
 
-- [ ] A retrospective leaves no transcript content in the calling thread.
-- [ ] `principles-review` flags a seeded violation of each judgment rule and
+- [x] A retrospective leaves no transcript content in the calling thread.
+- [x] `principles-review` flags a seeded violation of each judgment rule and
       passes a clean diff.
 - [x] A large lint or type-error output returns a bounded message with the
       command to see the rest.
-- [ ] After `/compact`, the session context contains the judgment rules.
-- [ ] Every skill is under about 25 lines and still triggers for its task.
+- [x] After `/compact`, the session context contains the judgment rules.
+- [x] Every skill is under about 25 lines and still triggers for its task.
 
 ### Not Planned
 
-- A router skill: six skills with distinct descriptions do not need one yet.
+- A router skill: seven skills with distinct descriptions do not need one yet.
 - A scheduled cloud retrospective: cloud routines cannot read local transcripts.
 - Hook parity for Codex: out of scope unless AGENTS.md states the rule.
+
+## Step 9: Operator Load
+
+Steps 1-8 manage what the agent has in context. This step manages what the human
+has to keep in their head: when to start a new thread, where the last one
+stopped, when a retrospective is due, and whether the skills and the review agent
+still work. It also closes the exit criteria above that need a live session.
+
+### Work
+
+- [x] **Relative skill links.** `.claude/skills/*` and `.codex/skills/*` link to
+      `../../skills/<name>`, never an absolute path. A `skill-links` test in
+      `mise run test-hooks` checks every skill in `skills/` is linked from both
+      harness directories, and the pre-commit hook runs it when `skills/`,
+      `.claude/`, or `.codex/` changes.
+- [x] **Codex skill metadata.** `skills/test-driven-development/agents/openai.yaml`
+      carries the trigger from `SKILL.md`, not a placeholder.
+- [x] **`session-brief`.** `context.mjs` also runs on `startup` and `clear`, and
+      prints at most four lines: the active plan with open items per step, the
+      plan's `Next:` line, and a retrospective reminder once five or more sessions
+      have run since the latest `Last retrospective:` marker. Compaction behavior is
+      unchanged.
+- [x] **`statusline`.** `.claude/statusline.mjs` shows context use, the active
+      plan, and the `Next:` step. Context use turns amber at 40% and red at 50%, the
+      edge of the range where the model works best. It is not registered in
+      `.claude/settings.json`, because a project status line replaces each
+      person's own; each person opts in from their user settings.
+- [x] **`handoff`.** A skill for leaving a thread mid-step: tick finished items in
+      the active plan and write one `Next:` line under the current step. No
+      transcript content.
+- [x] **`harness-eval`.** `mise run eval-harness` runs `claude -p` against
+      `.claude/evals/`: prompts paired with the skill they should trigger (including
+      near misses), and one seeded diff per judgment rule plus a clean diff for
+      `principles-review`. It costs tokens, so it is opt-in like live tests and runs
+      without session persistence, so it never counts toward the retrospective.
+- [x] **Contain release notes.** `pin-upgrade` reads upstream release notes in
+      the `Explore` subagent, treats them as data, and returns only what breaks a
+      contract in `infra/catalog/compatibility.md`.
+
+### Exit Criteria
+
+- [x] A link with an absolute target fails `mise run test-hooks`.
+- [x] A fresh session after `/clear` shows the active plan, its `Next:` line, and
+      a due retrospective, and a resumed session shows nothing.
+- [x] `mise run eval-harness` reports every skill case and every seeded
+      `principles-review` diff as a hit; results recorded below.
 
 ## Results
 
@@ -257,11 +303,87 @@ files and read only in part.
 - Confirmed live for Step 8 on 2026-11-07: `/retro` runs forked and returns
   only its ranked list, with no transcript lines in the main thread; after
   `/compact` the hook restores the AGENTS.md rules and open plan items.
-- Still to confirm live for Step 8: a seeded `principles-review` run and skill
-  triggering.
-- Still to confirm in a fresh Claude Code session: the feedback hooks firing
-  live, and the deny rules (Step 3, 4, 5 exit criteria left open).
+- Step 8's seeded `principles-review` run is confirmed by the eval below (6/6).
+- Confirmed live for Step 3 on 2026-11-07 in a fresh Herdr pane: writing a
+  `debugger;` statement into `tools/kore/src/hook-probe.ts` returned the oxlint
+  `no-debugger` report right after the Write, in the same turn; a `string`
+  returned as `number` made the Stop hook report `TS2322` and the agent took
+  another turn instead of ending silently. The probe file was deleted.
+- Confirmed for Step 4 on 2026-11-07 by `mise run eval-harness --kind deny`:
+  with every hook disabled and permissions bypassed, all ten destructive
+  commands in `.claude/evals/deny.json` were refused by the deny rules.
 - The `image-digest` rule stays in audit mode as planned.
+- Step 9 is implemented. `mise run test-hooks`: 75 tests pass (guard, feedback,
+  context and brief, status line, skill links, eval grading). The skill-links test
+  failed on the tree as found: `.codex/skills/test-driven-development` was
+  committed with an absolute target and is now relative. Run against this
+  repository, the brief reports open items in Steps 3, 4, 5, 7, 8, and 9, and 8
+  sessions without a recorded retrospective. `retro` now reads and the calling
+  thread updates the `Last retrospective:` line in this section.
+- Confirmed live for Step 9 on 2026-11-07 in a fresh Herdr pane: the startup
+  brief and the brief after `/clear` both arrived, the second with the `Next:`
+  line; resume stays silent (tested).
+- First `mise run eval-harness` on 2026-11-07, `claude 2.1.319`, model
+  `claude-opus-5-5`: 14/17 hits.
+  - Review: 5/5 seeded diffs flagged with the right rule. The clean diff missed
+    because the fixture was wrong: it called `appUp` with an options object and
+    claimed no command runs before name validation, and the reviewer said so.
+    With a corrected fixture, a rerun returned `No violations.` (6/6).
+  - Skills: 9/11. All four near misses stayed silent. `add-command` missed once
+    and fired on a rerun after one `Grep`, so one sample per case cannot tell a
+    weak description from noise. `test-driven-development` missed on a bugfix
+    prompt; the skill cases run in plan mode, where a skill meant for "before
+    writing production code" may rightly wait. Neither description is changed on
+    a single sample.
+- Second `mise run eval-harness` on 2026-11-07, three samples per skill case
+  graded by majority, plus deny cases: 22/24. `add-command` hit 3/3, so the
+  first run's miss was noise. `test-driven-development` missed 3/3, and
+  `./bin/kore eval-absent destroy` was not denied, and ran: only the missing
+  `bin/kore` kept it harmless.
+- The deny-rule miss was a pattern bug. A live probe showed `Bash(kore *
+destroy:*)` matches nothing: the `:*` suffix does not combine with a `*`
+  earlier in the pattern, and a trailing ` *` matches only when arguments
+  follow. Each `kore` rule in `.claude/settings.json` is now two rules, `kore *
+destroy` and `kore * destroy *` (and likewise for `./bin/kore` and the
+  `status` allow rules). The rerun denied all ten cases.
+- The `test-driven-development` misses were the eval's doing. Traced on
+  2026-11-07, the model in plan mode explored and wrote a plan without loading
+  any skill, since plan mode forbids writing code. Plan mode is therefore
+  dropped for skill cases, which refines this step's work item: each sample now
+  runs in a throwaway `git worktree` of `HEAD` with `acceptEdits`, no MCP
+  servers, and shell commands limited to the allow list, and the worktree is
+  removed afterwards. Deny cases also run in a throwaway worktree, with stub
+  `kore`, `minikube`, `helm`, `kubectl`, `tofu`, and `terraform` first on
+  `PATH` and at `bin/kore`, so a broken rule reaches only a stub (`principles-review`
+  finding). `--kind skill,review,deny` reruns part of the eval and refuses an
+  empty list.
+- Third `mise run eval-harness --kind skill` on 2026-11-07, `claude 2.1.319`,
+  model `claude-opus-5-5`, three samples per case in throwaway worktrees: 13/13
+  hits, every case 3/3. `add-command`, `add-policy`, `pin-upgrade`, `write-adr`,
+  `test-driven-development`, `handoff`, `retro`, and `spawn-session` each fired
+  3/3, and all five near misses stayed silent 3/3. With plan mode dropped,
+  `test-driven-development` now fires on the bugfix prompt, so no skill
+  description changed. `git worktree list` afterwards showed only the main tree.
+
+### Retrospective 2026-11-07
+
+Last retrospective: 2026-11-07
+
+The first recorded retrospective covered all 12 sessions. It found no hook
+false positives, no skill firing for the wrong task, and no repeated
+correction. All four proposals were accepted and implemented:
+
+- **`spawn-session` skill** (5 sessions rediscovered Herdr from scratch): how
+  to start, brief, and wait on a verifier or fixer session in a Herdr pane;
+  plus a memory that "herder" means `herdr`.
+- **Quote zsh globs** (about 28 failed calls in 6 sessions): a memory, and a
+  guard rule `unquoted-glob` in audit mode (warn) for an unquoted
+  `--include=`/`--exclude=` glob.
+- **`test-driven-development` trigger** (never fired in an implementation
+  session): the description now reads "Use before writing or changing any code
+  or hook, including implementing a plan step, a review finding, or a fix."
+- **`mise run format`** (three sessions improvised prettier, one pulled an
+  unpinned version): one task running the pinned binary, named in AGENTS.md.
 
 ## Out of Scope
 

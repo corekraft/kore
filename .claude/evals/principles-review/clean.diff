@@ -1,0 +1,17 @@
+diff --git a/tools/kore/src/app/app.spec.ts b/tools/kore/src/app/app.spec.ts
+--- a/tools/kore/src/app/app.spec.ts
++++ b/tools/kore/src/app/app.spec.ts
+@@ -303,6 +303,10 @@ test("deployment rollout status targets a named deployment", () => {
+   ]);
+ });
+ 
+-test("deployment discovery uses kubectl get", () => {
+-  expect(deploymentListArgs()).toEqual(["get", "deployment", "--output=name"]);
++test("deployment discovery only reads: it lists deployment names and never mutates", () => {
++  const args = deploymentListArgs();
++
++  expect(args).toEqual(["get", "deployment", "--output=name"]);
++  for (const verb of ["apply", "create", "delete", "patch", "scale"])
++    expect(args).not.toContain(verb);
+ });
+ 

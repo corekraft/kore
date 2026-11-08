@@ -1,0 +1,10 @@
+diff --git a/apps/reference/charts/workload/values.yaml b/apps/reference/charts/workload/values.yaml
+--- a/apps/reference/charts/workload/values.yaml
++++ b/apps/reference/charts/workload/values.yaml
+@@ -7,3 +7,6 @@ platform:
+ resources:
+   requests: {cpu: 25m, memory: 64Mi}
+   limits: {cpu: 250m, memory: 256Mi}
++nodeSelector:
++  minikube.k8s.io/primary: "true"
++storageClassName: standard
