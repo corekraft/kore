@@ -32,7 +32,14 @@ test("Prometheus scrapes the Collector exporter and the Collector's own metrics"
   const values = await readJson(
     "infra/environments/local/values/prometheus.yaml",
   );
-  const scrape = JSON.parse(values.extraScrapeConfigs);
+  // The chart pastes this string verbatim under `scrape_configs:`, so it must be
+  // block-sequence YAML: one `- {...}` item per line, never a flow list.
+  const lines: string[] = values.extraScrapeConfigs.trimEnd().split("\n");
+  assert.ok(
+    lines.every((line) => line.startsWith("- {")),
+    "every extraScrapeConfigs line is a block-sequence item",
+  );
+  const scrape = lines.map((line) => JSON.parse(line.slice(2)));
   const targets = scrape.flatMap((job: Json) =>
     job.static_configs.flatMap((config: Json) => config.targets),
   );
