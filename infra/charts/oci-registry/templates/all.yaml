@@ -53,7 +53,7 @@ kind: PersistentVolumeClaim
 metadata:
   name: oci-registry
   namespace: {{ .Release.Namespace }}
-  labels: {app.kubernetes.io/managed-by: Helm}
+  labels: {app.kubernetes.io/managed-by: Helm, platform.kore.dev/retention: Retain}
 spec:
   accessModes: [ReadWriteOnce]
   storageClassName: kore-retained
