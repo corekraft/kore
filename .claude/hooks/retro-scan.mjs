@@ -48,6 +48,14 @@ export function parseTranscript(id, text) {
   return { id, events, skipped };
 }
 
+const ERROR_WORDS =
+  /error|fail|fatal|not found|no such|denied|cannot|invalid|refused|no matches/i;
+const TOOL_PREFIX = /^(\(eval\):\d+|[A-Za-z_][\w.-]*): /;
+
+/** Whether a line of command output reads as an error rather than stdout. */
+const looksLikeError = (line) =>
+  ERROR_WORDS.test(line) || TOOL_PREFIX.test(line);
+
 /**
  * Reduce an error to a stable, short summary: the first line (plus a shell
  * error line after an exit code), with paths, quoted text, globs, and numbers
@@ -64,7 +72,7 @@ export function summarizeError(text) {
   const exit = /^Exit code \d+$/.exec(head);
   if (exit) {
     prefix = head;
-    head = lines[1] ?? "";
+    head = lines.slice(1).find(looksLikeError) ?? "";
   }
   const normalized = head
     .replace(/'[^']*'|"[^"]*"/g, "<q>")

@@ -116,7 +116,7 @@ test("error summaries strip paths, numbers, and quotes, and stay within 120 char
   assert.equal(summarizeError("Exit code 137"), "Exit code 137");
   assert.equal(
     summarizeError("Exit code 1\nsome file contents\nmore contents"),
-    "Exit code 1: some file contents",
+    "Exit code 1",
   );
   assert.ok(summarizeError(`Error ${"word ".repeat(80)}`).length <= 120);
 });
@@ -251,7 +251,7 @@ test("a session from the day of the last retrospective is not scanned, matching 
   );
 });
 
-test("a command failure is grouped by the first line after its exit code, not by the exit code alone", () => {
+test("a command failure is grouped by the first error-looking line after its exit code, else by the exit code alone", () => {
   const failure = (id, output) => [
     JSON.stringify({
       type: "assistant",
@@ -274,14 +274,19 @@ test("a command failure is grouped by the first line after its exit code, not by
     }),
   ];
   const text = [
-    ...failure("x1", "Exit code 1\n\nnpm ERR! missing script: build"),
+    ...failure(
+      "x1",
+      "Exit code 1\ntotal 8\n# Kore\nnpm error missing script: build",
+    ),
     ...failure("x2", "Exit code 1\nfatal: not a git repository"),
-    ...failure("x3", "Exit code 2"),
+    ...failure("x3", "Exit code 2\nM .claude/evals/eval.mjs\n──────"),
+    ...failure("x4", "Exit code 1\nzsh: command not found: foo"),
   ].join("\n");
   const { failures } = scan([{ id: "s", text }], options);
   assert.deepEqual(failures.map((item) => item.error).sort(), [
     "Exit code 1: fatal: not a git repository",
-    "Exit code 1: npm ERR! missing script: build",
+    "Exit code 1: npm error missing script: build",
+    "Exit code 1: zsh: command not found: foo",
     "Exit code 2",
   ]);
 });
