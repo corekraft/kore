@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
-import { connect } from "node:net";
 import { randomUUID } from "node:crypto";
+import { connect, databaseConfigFromEnv } from "./postgres.ts";
 
 const mode = process.env.APP_MODE ?? "api";
 const port = Number(process.env.PORT ?? "8080");
@@ -20,12 +20,15 @@ async function telemetry(path: string, status: number, durationMs: number, trace
   ]);
 }
 
-function databaseReady(): Promise<boolean> {
-  return new Promise((resolve) => {
-    const socket = connect({host:process.env.PGHOST ?? "reference-db-rw",port:Number(process.env.PGPORT ?? "5432")});
-    const done = (value:boolean) => { socket.destroy(); resolve(value); };
-    socket.setTimeout(1000); socket.once("connect",()=>done(true)); socket.once("error",()=>done(false)); socket.once("timeout",()=>done(false));
-  });
+async function databaseReady(): Promise<boolean> {
+  try {
+    const connection = await connect(databaseConfigFromEnv(process.env));
+    try { return (await connection.query("SELECT 1"))[0]?.[0] === "1"; }
+    finally { await connection.close(); }
+  } catch (error) {
+    console.log(JSON.stringify({severity:"WARN",message:"database not ready",service,reason:error instanceof Error?error.message:String(error)}));
+    return false;
+  }
 }
 
 createServer(async (request,response) => {

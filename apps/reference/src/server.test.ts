@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { createServer } from "node:http";
 import { test } from "node:test";
+import { startFakePostgres } from "./testing/fake-postgres.ts";
 
 async function availablePort(): Promise<number> {
   const probe = createServer();
@@ -137,4 +138,86 @@ test("one request emits correlated OTLP traces, logs, and metrics", async () => 
     await new Promise<void>((resolve) => app.once("exit", () => resolve()));
     await new Promise<void>((resolve, reject) => collector.close((error) => error ? reject(error) : resolve()));
   }
+});
+
+async function startApp(env: Record<string, string>): Promise<{ port: number; stop: () => Promise<void> }> {
+  const port = await availablePort();
+  const app = spawn(process.execPath, ["--experimental-strip-types", "src/server.ts"], {
+    env: { ...process.env, APP_MODE: "api", PORT: String(port), ...env },
+    stdio: "ignore",
+  });
+  for (let attempt = 0; attempt < 100; attempt++) {
+    try { await fetch(`http://127.0.0.1:${port}/livez`); break; } catch { await new Promise((resolve) => setTimeout(resolve, 50)); }
+  }
+  return { port, stop: async () => { app.kill("SIGTERM"); await new Promise<void>((resolve) => app.once("exit", () => resolve())); } };
+}
+
+const databaseEnv = (port: number, password: string | undefined) => ({
+  PGHOST: "127.0.0.1", PGPORT: String(port), PGDATABASE: "app", PGUSER: "app", PGSSLMODE: "disable",
+  ...(password === undefined ? {} : { PGPASSWORD: password }),
+});
+
+test("readiness authenticates to the database and runs a query", async () => {
+  const database = await startFakePostgres({ user: "app", password: "pw", database: "app" });
+  const app = await startApp(databaseEnv(database.port, "pw"));
+  try {
+    const response = await fetch(`http://127.0.0.1:${app.port}/readyz`);
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { ready: true });
+    assert.deepEqual(database.queries, ["SELECT 1"]);
+  } finally { await app.stop(); await database.close(); }
+});
+
+test("readiness fails when the database accepts TCP but rejects the credentials", async () => {
+  const database = await startFakePostgres({ user: "app", password: "pw", database: "app" });
+  const app = await startApp(databaseEnv(database.port, "wrong"));
+  try {
+    const response = await fetch(`http://127.0.0.1:${app.port}/readyz`);
+    assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), { ready: false });
+    const api = await fetch(`http://127.0.0.1:${app.port}/api`);
+    assert.equal(((await api.json()) as { database: boolean }).database, false);
+    assert.deepEqual(database.queries, []);
+  } finally { await app.stop(); await database.close(); }
+});
+
+test("readiness fails when no password is injected", async () => {
+  const database = await startFakePostgres({ user: "app", password: "pw", database: "app" });
+  const app = await startApp(databaseEnv(database.port, undefined));
+  try {
+    assert.equal((await fetch(`http://127.0.0.1:${app.port}/readyz`)).status, 503);
+  } finally { await app.stop(); await database.close(); }
+});
+
+async function runMigrate(env: Record<string, string>): Promise<number | null> {
+  const child = spawn(process.execPath, ["--experimental-strip-types", "src/migrate-main.ts"], { env: { ...process.env, ...env }, stdio: "ignore" });
+  const [code] = (await once(child, "exit")) as [number | null];
+  return code;
+}
+
+test("the migrate entrypoint applies the schema and exits zero, and a rerun is a no-op", async () => {
+  const applied = new Set<string>();
+  const database = await startFakePostgres({
+    user: "app", password: "pw", database: "app",
+    onQuery: (sql) => {
+      if (/^select id from schema_migrations/i.test(sql)) return { columns: ["id"], rows: [...applied].map((id) => [id]) };
+      const insert = /values \('([^']+)'\)/i.exec(sql);
+      if (insert) applied.add(insert[1]!);
+      return { tag: "OK" };
+    },
+  });
+  try {
+    assert.equal(await runMigrate(databaseEnv(database.port, "pw")), 0);
+    const first = database.queries.length;
+    assert.ok(applied.size > 0);
+    assert.equal(await runMigrate(databaseEnv(database.port, "pw")), 0);
+    assert.ok(!database.queries.slice(first).some((sql) => /reference_events/.test(sql)), "rerun must not reapply migrations");
+  } finally { await database.close(); }
+});
+
+test("the migrate entrypoint exits non-zero when authentication fails", async () => {
+  const database = await startFakePostgres({ user: "app", password: "pw", database: "app" });
+  try {
+    assert.notEqual(await runMigrate(databaseEnv(database.port, "wrong")), 0);
+  } finally { await database.close(); }
 });

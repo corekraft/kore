@@ -32,6 +32,8 @@ spec:
             - {name: PGPORT, valueFrom: {secretKeyRef: {name: reference-db-connection, key: port}}}
             - {name: PGDATABASE, valueFrom: {secretKeyRef: {name: reference-db-connection, key: database}}}
             - {name: PGUSER, valueFrom: {secretKeyRef: {name: reference-db-connection, key: username}}}
+            - {name: PGSSLMODE, valueFrom: {secretKeyRef: {name: reference-db-connection, key: sslmode}}}
+            - {name: PGPASSWORD, valueFrom: {secretKeyRef: {name: {{ $.Values.database.passwordSecret.name }}, key: {{ $.Values.database.passwordSecret.key }}}}}
             - {name: API_TOKEN, valueFrom: {secretKeyRef: {name: reference-app, key: API_TOKEN}}}
           ports: [{name: http, containerPort: 8080}]
           livenessProbe: {httpGet: {path: /livez, port: http}, initialDelaySeconds: 2, periodSeconds: 10}
