@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: reference-db-ca
+  namespace: reference
+  ownerReferences: [{apiVersion: example.com/v1, kind: Cluster, name: o, uid: u, controller: true}]
+type: Opaque
+data: {ca.crt: eA==}

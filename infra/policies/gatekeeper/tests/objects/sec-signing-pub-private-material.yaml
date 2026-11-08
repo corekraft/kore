@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kore-local-signing-pub
+  namespace: cosign-system
+  labels: {app.kubernetes.io/managed-by: kore-signing, app.kubernetes.io/part-of: kore-image-policy}
+type: Opaque
+data: {cosign.pub: eA==, cosign.key: eA==}

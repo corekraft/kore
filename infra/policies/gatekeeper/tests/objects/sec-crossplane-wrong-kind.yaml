@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: reference-db-connection
+  namespace: reference
+  ownerReferences: [{apiVersion: platform.kore.dev/v1alpha1, kind: Other, name: o, uid: u, controller: true}]
+type: Opaque
+stringData: {host: h}
