@@ -23,8 +23,9 @@
         "evidence":
           {
             "method": "docker-hub-digest",
-            "source": "Docker Hub nginxinc/nginx-unprivileged tag 1.31.7-alpine3.24 resolves to this index digest (hub.docker.com/v2/repositories/nginxinc/nginx-unprivileged/tags); published by NGINX, Inc., no cosign signature checked or published.",
-            "checked": "2026-11-08"
+            "source": "Docker Hub nginxinc/nginx-unprivileged tag 1.31.7-alpine3.24 resolves to this index digest (hub.docker.com/v2/repositories/nginxinc/nginx-unprivileged/tags); published by NGINX, Inc.; cosign tree finds no signature, attestation, or SBOM for this digest.",
+            "checked": "2026-11-08",
+            "provenance": { "signed": false }
           }
       },
       {
