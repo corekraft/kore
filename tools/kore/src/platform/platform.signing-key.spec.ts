@@ -8,6 +8,9 @@ vi.mock("../images/index.js", () => ({
   ensureLocalSigningPublicKey: async () => {
     events.push("public-key");
   },
+  ensureRegistryAuth: async () => {
+    events.push("registry-auth");
+  },
 }));
 vi.mock("../cluster/index.js", () => ({
   assertExpectedCluster: async () => undefined,
@@ -40,4 +43,18 @@ test("managed environments never publish the local signing key", async () => {
   await bootstrapControllers(repository, new RecordingRunner());
 
   expect(events).not.toContain("public-key");
+});
+
+test("registry credentials exist before the registry release starts, in every environment", async () => {
+  for (const name of ["local", "managed-example"]) {
+    events.length = 0;
+    const repository = await loadRepository(name);
+
+    await bootstrapControllers(repository, new RecordingRunner());
+
+    expect(events.indexOf("registry-auth"), name).toBeGreaterThanOrEqual(0);
+    expect(events.indexOf("registry-auth"), name).toBeLessThan(
+      events.indexOf("reconcile:oci-registry"),
+    );
+  }
 });

@@ -1,7 +1,13 @@
 import { access } from "node:fs/promises";
 import { join } from "node:path";
 import type { Repository } from "../config/index.js";
-import type { LockedImage } from "../images/index.js";
+import {
+  koreManagesRegistryAuth,
+  loadRegistryCredential,
+  registryAddress,
+  registryPullSecret,
+  type LockedImage,
+} from "../images/index.js";
 import type { Runner } from "../runtime/index.js";
 import { releaseArgs } from "./release.js";
 
@@ -81,6 +87,53 @@ export async function enrollNamespace(
       `namespace ${name} is not enrolled in image admission: label ${admissionLabel}="true" is missing after apply. Rerun kore app up (it applies the label); if it persists, another field manager is removing it`,
     );
   }
+  await distributeSignatureCredential(repository, runner, name);
+}
+
+/**
+ * Policy Controller reads an image's signatures with the Secret that the
+ * kore-platform-images authority names in `source.signaturePullSecrets`, looked
+ * up in the namespace of the workload being admitted and with no ServiceAccount
+ * (verified against policy-controller v0.13.1, ADR 0034). The enrolled
+ * namespace therefore gets the read-only identity, never the push credential.
+ * App-owned ServiceAccounts are left alone. Environments using an external
+ * registry keep the provider's credentials.
+ */
+async function distributeSignatureCredential(
+  repository: Repository,
+  runner: Runner,
+  namespace: string,
+): Promise<void> {
+  if (!koreManagesRegistryAuth(repository)) {
+    return;
+  }
+  const credential = await loadRegistryCredential(repository, runner, "read");
+  await runner.run(
+    "kubectl",
+    [
+      "--context",
+      repository.environment.kubeContext,
+      "apply",
+      "--server-side",
+      "--field-manager=kore-app",
+      "--force-conflicts",
+      "--filename=-",
+    ],
+    {
+      capture: true,
+      input: JSON.stringify({
+        apiVersion: "v1",
+        kind: "List",
+        items: [
+          registryPullSecret(
+            registryAddress(repository),
+            credential,
+            namespace,
+          ),
+        ],
+      }),
+    },
+  );
 }
 
 export async function installResources(

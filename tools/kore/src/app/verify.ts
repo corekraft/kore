@@ -1,6 +1,12 @@
 import { join } from "node:path";
 import type { Repository } from "../config/index.js";
-import { localRegistryReference, type LockedImage } from "../images/index.js";
+import {
+  koreManagesRegistryAuth,
+  loadRegistryCredential,
+  localRegistryReference,
+  withRegistryClient,
+  type LockedImage,
+} from "../images/index.js";
 import type { Runner } from "../runtime/index.js";
 
 export function verifyLockedImageArgs(
@@ -52,9 +58,23 @@ export async function verifyImage(
     ),
   };
   const publicKey = publicKeyOverride ?? localPublicKey(repository, image);
-  await runner.run(
-    "cosign",
-    verifyLockedImageArgs(verificationImage, publicKey),
-    { capture: false },
-  );
+  if (
+    repository.environment.provider !== "minikube" ||
+    !koreManagesRegistryAuth(repository)
+  ) {
+    await runner.run(
+      "cosign",
+      verifyLockedImageArgs(verificationImage, publicKey),
+      { capture: false },
+    );
+    return;
+  }
+  const credential = await loadRegistryCredential(repository, runner, "read");
+  await withRegistryClient(credential, async (client) => {
+    await runner.run(
+      "cosign",
+      verifyLockedImageArgs(verificationImage, publicKey),
+      { capture: false, env: { ...process.env, ...client.env } },
+    );
+  });
 }

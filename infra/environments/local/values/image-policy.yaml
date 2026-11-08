@@ -3,6 +3,7 @@
     {
       "type": "key",
       "mode": "enforce",
+      "signaturePullSecret": "kore-registry-read",
       "keyRef":
         { "name": "kore-local-signing-pub", "namespace": "cosign-system" }
     }
