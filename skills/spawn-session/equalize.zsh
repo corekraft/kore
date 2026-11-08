@@ -18,6 +18,6 @@ for ((i = 1; i < n; i++)); do
     dir=down target=${panes[i]}
   fi
   if (( delta > 0.0005 )); then
-    herdr pane resize --pane "$target" --direction "$dir" --amount "$(printf '%.6f' "$delta")"
+    herdr pane resize --pane "$target" --direction "$dir" --amount "$(printf '%.6f' "$delta")" >/dev/null
   fi
 done
