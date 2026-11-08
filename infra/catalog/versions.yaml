@@ -1,7 +1,7 @@
 {
   "$schema": "./schemas/versions.schema.json",
   "tools": {
-    "node": "26.8.2",
+    "node": "not-a-version",
     "npm": "12.0.2",
     "minikube": "1.39.0",
     "kubectl": "1.37.0",
