@@ -3,26 +3,40 @@
   "name": "local",
   "provider": "minikube",
   "kubeContext": "kore-local",
-  "cluster": {
-    "profile": "kore-local",
-    "kubernetesVersion": "1.37.2",
-    "driver": "docker",
-    "containerRuntime": "containerd",
-    "cpus": 4,
-    "memoryMB": 8192,
-    "diskSize": "40g"
-  },
-  "gateway": {"namespace":"kore-system","name":"kore-gateway","hostname":"kore.local","port":8443},
-  "secrets": {"storeName":"platform-secrets","sourceNamespace":"kore-secret-source"},
-  "telemetry": {"otlpEndpoint":"http://otel-collector.observability.svc:4318"},
-  "componentValues": {
-    "prometheus":["infra/environments/local/values/prometheus.yaml"],
-    "loki":["infra/environments/local/values/loki.yaml"],
-    "tempo":["infra/environments/local/values/tempo.yaml"],
-    "grafana":["infra/environments/local/values/grafana.yaml"],
-    "otel-collector":["infra/environments/local/values/otel-collector.yaml"],
-    "otel-agent":["infra/environments/local/values/otel-agent.yaml"],
-    "kore-platform-config":["infra/environments/local/values/platform-config.yaml"],
-    "kore-local-tls":["infra/environments/local/values/platform-config.yaml"]
-  }
+  "cluster":
+    {
+      "profile": "kore-local",
+      "kubernetesVersion": "1.37.2",
+      "driver": "docker",
+      "containerRuntime": "containerd",
+      "cpus": 4,
+      "memoryMB": 8192,
+      "diskSize": "40g"
+    },
+  "gateway":
+    {
+      "namespace": "kore-system",
+      "name": "kore-gateway",
+      "hostname": "kore.local",
+      "port": 8443
+    },
+  "secrets":
+    {
+      "storeName": "platform-secrets",
+      "sourceNamespace": "kore-secret-source"
+    },
+  "telemetry":
+    { "otlpEndpoint": "http://otel-collector.observability.svc:4318" },
+  "componentValues":
+    {
+      "prometheus": ["infra/environments/local/values/prometheus.yaml"],
+      "loki": ["infra/environments/local/values/loki.yaml"],
+      "tempo": ["infra/environments/local/values/tempo.yaml"],
+      "grafana": ["infra/environments/local/values/grafana.yaml"],
+      "otel-collector": ["infra/environments/local/values/otel-collector.yaml"],
+      "otel-agent": ["infra/environments/local/values/otel-agent.yaml"],
+      "kore-platform-config":
+        ["infra/environments/local/values/platform-config.yaml"],
+      "kore-local-tls": ["infra/environments/local/values/platform-config.yaml"]
+    }
 }

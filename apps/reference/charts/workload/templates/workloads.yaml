@@ -28,10 +28,14 @@ spec:
             - {name: OTEL_SERVICE_NAME, value: reference-{{ $component }} }
             - {name: OTEL_EXPORTER_OTLP_ENDPOINT, value: {{ $.Values.platform.otlpEndpoint | quote }}}
             - {name: API_URL, value: "http://reference-api:8080"}
+            {{- if eq $component "api" }}
             - {name: PGHOST, valueFrom: {secretKeyRef: {name: reference-db-connection, key: host}}}
             - {name: PGPORT, valueFrom: {secretKeyRef: {name: reference-db-connection, key: port}}}
             - {name: PGDATABASE, valueFrom: {secretKeyRef: {name: reference-db-connection, key: database}}}
             - {name: PGUSER, valueFrom: {secretKeyRef: {name: reference-db-connection, key: username}}}
+            - {name: PGSSLMODE, valueFrom: {secretKeyRef: {name: reference-db-connection, key: sslmode}}}
+            - {name: PGPASSWORD, valueFrom: {secretKeyRef: {name: {{ $.Values.database.passwordSecret.name }}, key: {{ $.Values.database.passwordSecret.key }}}}}
+            {{- end }}
             - {name: API_TOKEN, valueFrom: {secretKeyRef: {name: reference-app, key: API_TOKEN}}}
           ports: [{name: http, containerPort: 8080}]
           livenessProbe: {httpGet: {path: /livez, port: http}, initialDelaySeconds: 2, periodSeconds: 10}
@@ -77,7 +81,9 @@ spec:
 apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata: {name: strict}
-spec: {mtls: {mode: STRICT}}
+spec:
+  selector: {matchLabels: {app.kubernetes.io/part-of: reference}}
+  mtls: {mode: STRICT}
 ---
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy

@@ -12,6 +12,8 @@ import {
 
 const TLS_READY_TEMPLATE =
   '{{if and (eq .type "kubernetes.io/tls") (index .data "tls.crt") (index .data "tls.key")}}ready{{end}}';
+/** Crossplane composition Function packages report Installed, then Healthy. */
+const FUNCTION_PREFIX = "function.pkg.crossplane.io/";
 const NOT_FOUND = /NotFound|not found/i;
 const EXISTENCE_KINDS = [
   "storageclass/",
@@ -85,32 +87,42 @@ async function waitForExistence(
   });
 }
 
-async function waitForCRD(
+/**
+ * Waits for each condition on a cluster-scoped resource in order, retrying
+ * while the resource or its type does not exist yet.
+ */
+async function waitForConditions(
   { repository, runner }: Context,
   resource: string,
+  conditions: string[],
   timeout: string,
 ): Promise<void> {
   const deadline = Date.now() + timeoutMilliseconds(timeout);
-  while (true) {
-    try {
-      await runner.run(
-        "kubectl",
-        [
-          "--context",
-          repository.environment.kubeContext,
-          "wait",
-          "--for=condition=Established",
-          resource,
-          `--timeout=${timeout}`,
-        ],
-        { capture: true },
-      );
-      return;
-    } catch (error) {
-      if (!NOT_YET_THERE.test(errorMessage(error)) || Date.now() >= deadline) {
-        throw error;
+  for (const condition of conditions) {
+    while (true) {
+      try {
+        await runner.run(
+          "kubectl",
+          [
+            "--context",
+            repository.environment.kubeContext,
+            "wait",
+            `--for=condition=${condition}`,
+            resource,
+            `--timeout=${timeout}`,
+          ],
+          { capture: true },
+        );
+        break;
+      } catch (error) {
+        if (
+          !NOT_YET_THERE.test(errorMessage(error)) ||
+          Date.now() >= deadline
+        ) {
+          throw error;
+        }
+        await pause();
       }
-      await pause();
     }
   }
 }
@@ -134,7 +146,15 @@ function checkFor(context: Context, resource: string): Check {
   if (resource.startsWith("crd/")) {
     return {
       condition: "Established",
-      run: (timeout) => waitForCRD(context, resource, timeout),
+      run: (timeout) =>
+        waitForConditions(context, resource, ["Established"], timeout),
+    };
+  }
+  if (resource.startsWith(FUNCTION_PREFIX)) {
+    return {
+      condition: "Installed and Healthy",
+      run: (timeout) =>
+        waitForConditions(context, resource, ["Installed", "Healthy"], timeout),
     };
   }
   if (resource.startsWith("secret/")) {

@@ -2,7 +2,7 @@
 status: accepted
 summary: Environment overlays select implementations and hold all Minikube and provider specifics; a provider-neutral managed-example environment validates portability offline.
 date: 2026-09-13
-last-verified: 2026-11-07
+last-verified: 2026-11-08
 ---
 
 # ADR 0012: Keep provider specifics in environment overlays

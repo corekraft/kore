@@ -2,7 +2,7 @@
 status: accepted
 summary: Workloads run only from internal, digest-qualified images signed by protected release automation, verified at admission by Sigstore Policy Controller, with a closed bootstrap seed loop.
 date: 2026-09-12
-last-verified: 2026-11-07
+last-verified: 2026-11-08
 ---
 
 # ADR 0005: Trust images by release-automation signature, not by registry
@@ -36,7 +36,9 @@ signature verifier are themselves images, which creates a bootstrap loop.
   workload to internal digests. Bootstrap fails while any seed, external,
   tag-only, unsigned, or unauthorized image remains.
 - Signing credentials never live in the registry, cluster, repository, Helm
-  values, or developer workstations.
+  values, or developer workstations. The one exception is the local
+  development key, a cluster Secret that managed environments never trust (see
+  [ADR 0015](0015-local-signed-image-delivery.md)).
 - Local development runs the same flow with a distinct local identity that
   managed environments never trust.
 

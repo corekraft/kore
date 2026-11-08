@@ -2,7 +2,7 @@
 status: accepted
 summary: Applications send OTLP only to the OpenTelemetry Collector, which enriches and exports to Prometheus, Loki, and Tempo, with Grafana for queries.
 date: 2026-09-12
-last-verified: 2026-11-07
+last-verified: 2026-11-08
 ---
 
 # ADR 0010: Make the OpenTelemetry Collector the only telemetry ingress

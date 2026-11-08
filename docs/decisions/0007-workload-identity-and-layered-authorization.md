@@ -2,7 +2,7 @@
 status: accepted
 summary: Workload identity comes from dedicated ServiceAccounts as Istio SPIFFE principals; native Istio policy handles common rules and a platform-operated OPA-Envoy service handles contextual decisions, failing closed.
 date: 2026-09-12
-last-verified: 2026-11-07
+last-verified: 2026-11-08
 ---
 
 # ADR 0007: Derive identity from ServiceAccounts and layer authorization

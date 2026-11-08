@@ -17,9 +17,17 @@ Usage:
   kore trust install --environment local
   kore journal [--environment <name>] [--limit <n>] [--json]
 
+"cluster destroy" refuses while data labeled platform.kore.dev/retention=Retain
+(databases) exists; --purge-data deletes it.
+
 "app down" uninstalls only the workload release and reports the retained data
 (claims and volumes) that remains; with --json it always prints
 { name, retained: [...], warnings? }.
+
+"trust install" runs "mkcert -install" (which may prompt for your password)
+only when the mkcert CA is not already trusted on the host; on macOS it skips
+the install when the CA files exist and "security verify-cert" accepts the
+root, and on other hosts it always runs it.
 
 Every mutation requires --environment and is recorded in
 .kore/state/journal/<environment>.jsonl. Status, doctor, validate, render, and

@@ -2,7 +2,7 @@
 status: accepted
 summary: OpenTofu provisions the substrate, Helm installs in-cluster software, controllers reconcile claims, and kore only coordinates them.
 date: 2026-09-12
-last-verified: 2026-11-07
+last-verified: 2026-11-08
 ---
 
 # ADR 0002: Give each upstream tool one responsibility

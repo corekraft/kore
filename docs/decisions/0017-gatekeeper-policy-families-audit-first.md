@@ -42,8 +42,10 @@ never flagged).
 
 ## Consequences
 
-On the current tree the audit would flag the `oci-registry` PVC (it uses
-`kore-retained` but lacks the retention label) and any application namespace not
-yet enrolled in ambient mesh; both are real findings to fix before promotion.
+When this was written the audit flagged the `oci-registry` PVC (on
+`kore-retained` without the retention label) and application namespaces not yet
+enrolled in ambient mesh. Both were fixed on 2026-11-08: the registry claim moved
+to `kore-standard` with `retention=Delete`, because its contents are rebuildable
+cache, and `kore app up` labels application namespaces (ADR 0025).
 Only the ExternalSecret ownership of Secrets is a heuristic, since admission
 cannot see the ExternalSecret that will fill a `secretKeyRef`.

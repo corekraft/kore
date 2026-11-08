@@ -2,7 +2,7 @@
 status: accepted
 summary: Istio in ambient mode implements Gateway API, the mesh, and workload identity; Envoy Gateway is not used; cert-manager issues certificates from environment-selected issuers.
 date: 2026-09-12
-last-verified: 2026-11-07
+last-verified: 2026-11-08
 ---
 
 # ADR 0006: Use Istio ambient as the Gateway API implementation

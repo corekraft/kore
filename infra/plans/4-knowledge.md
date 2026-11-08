@@ -1,7 +1,7 @@
 ---
 status: done
 summary: Make the plans, ADRs, and skills reachable by agents through an index, frontmatter, upward links, and a health check.
-last-verified: 2026-11-07
+last-verified: 2026-11-08
 ---
 
 # Knowledge Base Plan
@@ -40,7 +40,7 @@ strings only, no lists or nesting):
 ---
 status: done
 summary: One sentence saying what this document decides or delivers.
-last-verified: 2026-11-07
+last-verified: 2026-11-08
 ---
 ```
 

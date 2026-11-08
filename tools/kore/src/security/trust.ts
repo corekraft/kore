@@ -1,8 +1,9 @@
-import { rm } from "node:fs/promises";
+import { access, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Repository } from "../config/index.js";
 import { assertExpectedCluster } from "../cluster/index.js";
+import { CommandError } from "../runtime/index.js";
 import type { Runner } from "../runtime/index.js";
 
 export function issuerManifest(name: string, secretName: string): string {
@@ -41,12 +42,60 @@ async function ensureNamespaces(
   }
 }
 
-async function mkcertRoot(runner: Runner): Promise<string> {
-  await runner.run("mkcert", ["-install"], { capture: false });
+async function readable(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return false;
+    }
+    throw error;
+  }
+}
+
+// mkcert has no read-only status command, so trust is inferred from the CA
+// files plus the host's own verification. Anything uncertain reports false and
+// the caller runs `mkcert -install`.
+async function mkcertCaTrusted(
+  runner: Runner,
+  caRoot: string,
+  platform: NodeJS.Platform,
+): Promise<boolean> {
+  if (platform !== "darwin") {
+    return false;
+  }
+  const certificate = join(caRoot, "rootCA.pem");
+  if (
+    !(await readable(certificate)) ||
+    !(await readable(join(caRoot, "rootCA-key.pem")))
+  ) {
+    return false;
+  }
+  try {
+    await runner.run("security", ["verify-cert", "-c", certificate], {
+      capture: true,
+    });
+    return true;
+  } catch (error) {
+    if (error instanceof CommandError) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+async function mkcertRoot(
+  runner: Runner,
+  platform: NodeJS.Platform,
+): Promise<string> {
   const rootResult = await runner.run("mkcert", ["-CAROOT"], { capture: true });
   const caRoot = rootResult.stdout.trim();
   if (!caRoot) {
     throw new Error("mkcert did not return its CA root");
+  }
+  if (!(await mkcertCaTrusted(runner, caRoot, platform))) {
+    await runner.run("mkcert", ["-install"], { capture: false });
   }
   return caRoot;
 }
@@ -112,13 +161,14 @@ async function applyIssuer(
 export async function installLocalTrust(
   repository: Repository,
   runner: Runner,
+  options: { platform?: NodeJS.Platform } = {},
 ): Promise<void> {
   if (repository.environment.provider !== "minikube") {
     throw new Error("local CA trust is only valid for a Minikube environment");
   }
   await assertExpectedCluster(repository, runner);
   await ensureNamespaces(repository, runner);
-  const caRoot = await mkcertRoot(runner);
+  const caRoot = await mkcertRoot(runner, options.platform ?? process.platform);
   await applyCaSecret(repository, runner, caRoot);
   await applyIssuer(repository, runner);
 }

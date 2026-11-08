@@ -127,7 +127,7 @@ test("rule unit tests exist and run through a pinned promtool", async () => {
 test("signals carry cluster, environment, and part-of attributes from environment config", async () => {
   const base = await readJson(gateway);
   assert.ok(
-    base.config.processors.k8sattributes.extract.labels.some(
+    base.config.processors.k8s_attributes.extract.labels.some(
       ({ key }: Json) => key === "app.kubernetes.io/part-of",
     ),
   );
@@ -191,7 +191,7 @@ test("Kubernetes sources run as separate pipelines with minimal RBAC", async () 
   const values = await readJson(agent);
   assert.equal(values.mode, "daemonset");
   assert.deepEqual(values.config.service.pipelines["logs/pods"].receivers, [
-    "filelog",
+    "file_log",
   ]);
   assert.deepEqual(
     values.config.service.pipelines["metrics/kubelet"].receivers,
@@ -200,7 +200,7 @@ test("Kubernetes sources run as separate pipelines with minimal RBAC", async () 
   assert.deepEqual(values.config.receivers.kubeletstats.metric_groups, [
     "node",
   ]);
-  assert.match(values.config.receivers.filelog.exclude.join(), /otel-/);
+  assert.match(values.config.receivers.file_log.exclude.join(), /otel-/);
   const verbsAgent = values.clusterRole.rules.flatMap(
     (rule: Json) => rule.verbs,
   );
@@ -209,7 +209,7 @@ test("Kubernetes sources run as separate pipelines with minimal RBAC", async () 
     ["get"],
   );
   assert.ok(
-    values.config.exporters["otlp/gateway"].endpoint.startsWith(
+    values.config.exporters["otlp_grpc/gateway"].endpoint.startsWith(
       "otel-collector.",
     ),
   );
@@ -245,4 +245,42 @@ test("Istio sends traces to the Collector through a mesh Telemetry resource", as
   assert.match(telemetry, /kind: Telemetry/);
   assert.match(telemetry, /namespace: istio-system/);
   assert.match(telemetry, /name: otel-tracing/);
+});
+
+test("both Collector releases use the renamed component names the pinned chart expects", async () => {
+  const gatewayText = await readText(gateway);
+  const agentText = await readText(agent);
+  for (const text of [gatewayText, agentText]) {
+    assert.doesNotMatch(text, /"(filelog|k8sattributes|otlphttp)(\/[\w-]+)?"/);
+    assert.doesNotMatch(text, /"otlp\/[\w-]+"/);
+  }
+  const base = (await readJson(gateway)).config;
+  assert.ok(base.processors.k8s_attributes);
+  assert.ok(base.exporters["otlp_grpc/tempo"]);
+  assert.ok(base.exporters["otlp_http/loki"]);
+  assert.ok(base.receivers.otlp, "the otlp receiver is not renamed");
+  const node = (await readJson(agent)).config;
+  assert.ok(node.receivers.file_log);
+  assert.ok(node.exporters["otlp_grpc/gateway"]);
+  assert.deepEqual(node.service.pipelines["logs/pods"].receivers, ["file_log"]);
+});
+
+test("the OpenTelemetry operator manager has bounded requests and limits", async () => {
+  const repository = await loadRepository("local");
+  const component = repository.catalog.components.find(
+    ({ name }) => name === "opentelemetry-operator",
+  );
+  assert.ok(
+    component?.values?.includes("infra/observability/operator/values.yaml"),
+  );
+  const values = await readJson("infra/observability/operator/values.yaml");
+  // chart 0.129.0 no longer ships kube-rbac-proxy, so only the manager remains
+  assert.equal(values.kubeRBACProxy, undefined);
+  for (const bound of [
+    values.manager.resources.requests,
+    values.manager.resources.limits,
+  ]) {
+    assert.ok(bound.cpu);
+    assert.ok(bound.memory);
+  }
 });

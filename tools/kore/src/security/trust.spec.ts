@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { loadRepository } from "../config/index.js";
+import { CommandError } from "../runtime/index.js";
 import type { RunOptions, RunResult, Runner } from "../runtime/index.js";
 import {
   issuerManifest,
   installLocalTrust,
   removeLocalTrustArtifacts,
 } from "./trust.js";
-import { mkdir, rm, stat } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -141,5 +142,146 @@ test("removes the temporary CA artifact directory for the selected environment",
     await assert.rejects(stat(artifacts), { code: "ENOENT" });
   } finally {
     await rm(artifacts, { recursive: true, force: true });
+  }
+});
+
+async function caRootWithFiles(files: string[]): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), "kore-caroot-"));
+  for (const file of files) {
+    await writeFile(join(root, file), "x");
+  }
+  return root;
+}
+
+function trustRunner(caRoot: string, verifyFails: boolean | Error = false) {
+  const { runner, calls } = recordingRunner();
+  const wrapped: Runner = {
+    async run(command, args, options) {
+      if (command === "mkcert" && args[0] === "-CAROOT") {
+        calls.push({ command, args });
+        return { stdout: caRoot, stderr: "", code: 0 };
+      }
+      if (command === "security" && verifyFails) {
+        calls.push({ command, args });
+        throw verifyFails instanceof Error
+          ? verifyFails
+          : new CommandError(command, args, {
+              stdout: "",
+              stderr: "not trusted",
+              code: 1,
+            });
+      }
+      return runner.run(command, args, options);
+    },
+  };
+  return { runner: wrapped, calls };
+}
+
+const installed = (calls: Call[]) =>
+  calls.some(
+    ({ command, args }) => command === "mkcert" && args[0] === "-install",
+  );
+
+test("mkcert -install is skipped when the CA files exist and macOS already trusts the root", async () => {
+  const caRoot = await caRootWithFiles(["rootCA.pem", "rootCA-key.pem"]);
+  try {
+    const { runner, calls } = trustRunner(caRoot);
+    await installLocalTrust(await loadRepository("local"), runner, {
+      platform: "darwin",
+    });
+    assert.equal(installed(calls), false);
+    const verify = calls.find(({ command }) => command === "security");
+    assert.deepEqual(verify?.args, [
+      "verify-cert",
+      "-c",
+      join(caRoot, "rootCA.pem"),
+    ]);
+    assert.ok(calls.some(({ args }) => args.includes("--dry-run=client")));
+  } finally {
+    await rm(caRoot, { recursive: true, force: true });
+  }
+});
+
+test("mkcert -install still runs when the host trust check fails", async () => {
+  const caRoot = await caRootWithFiles(["rootCA.pem", "rootCA-key.pem"]);
+  try {
+    const { runner, calls } = trustRunner(caRoot, true);
+    await installLocalTrust(await loadRepository("local"), runner, {
+      platform: "darwin",
+    });
+    assert.equal(installed(calls), true);
+  } finally {
+    await rm(caRoot, { recursive: true, force: true });
+  }
+});
+
+test("mkcert -install still runs when the CA key is missing", async () => {
+  const caRoot = await caRootWithFiles(["rootCA.pem"]);
+  try {
+    const { runner, calls } = trustRunner(caRoot);
+    await installLocalTrust(await loadRepository("local"), runner, {
+      platform: "darwin",
+    });
+    assert.equal(installed(calls), true);
+    assert.equal(
+      calls.some(({ command }) => command === "security"),
+      false,
+    );
+  } finally {
+    await rm(caRoot, { recursive: true, force: true });
+  }
+});
+
+test("mkcert -install always runs on hosts without a supported trust check", async () => {
+  const caRoot = await caRootWithFiles(["rootCA.pem", "rootCA-key.pem"]);
+  try {
+    const { runner, calls } = trustRunner(caRoot);
+    await installLocalTrust(await loadRepository("local"), runner, {
+      platform: "linux",
+    });
+    assert.equal(installed(calls), true);
+    assert.equal(
+      calls.some(({ command }) => command === "security"),
+      false,
+    );
+  } finally {
+    await rm(caRoot, { recursive: true, force: true });
+  }
+});
+
+test("a missing security binary is rethrown rather than treated as untrusted", async () => {
+  const caRoot = await caRootWithFiles(["rootCA.pem", "rootCA-key.pem"]);
+  try {
+    const spawnError = Object.assign(new Error("spawn security ENOENT"), {
+      code: "ENOENT",
+    });
+    const { runner, calls } = trustRunner(caRoot, spawnError);
+    await assert.rejects(
+      installLocalTrust(await loadRepository("local"), runner, {
+        platform: "darwin",
+      }),
+      /spawn security ENOENT/,
+    );
+    assert.equal(installed(calls), false);
+  } finally {
+    await rm(caRoot, { recursive: true, force: true });
+  }
+});
+
+test("an unreadable CA file is rethrown rather than treated as untrusted", async () => {
+  const caRoot = await caRootWithFiles(["rootCA.pem", "rootCA-key.pem"]);
+  try {
+    await chmod(caRoot, 0o000);
+    const { runner, calls } = trustRunner(caRoot);
+    await assert.rejects(
+      installLocalTrust(await loadRepository("local"), runner, {
+        platform: "darwin",
+      }),
+      { code: "EACCES" },
+    );
+    assert.equal(installed(calls), false);
+  } finally {
+    await chmod(caRoot, 0o700);
+    await rm(caRoot, { recursive: true, force: true });
   }
 });

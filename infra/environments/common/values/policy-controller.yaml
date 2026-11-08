@@ -1,0 +1,18 @@
+{
+  "webhook":
+    {
+      "image":
+        {
+          "repository": "ghcr.io/sigstore/policy-controller/policy-controller",
+          "version": "v0.13.1@sha256:0bcd60beb93f4427c29cf3a669743caf58490e98ded4380c33c09f092734a6ab"
+        }
+    },
+  "leasescleanup":
+    {
+      "image":
+        {
+          "repository": "cgr.dev/chainguard/kubectl",
+          "version": "latest-dev@sha256:3562a8854a81a77e39eb34cd87106345d1122432f88d74ea2dd4c9595883c033"
+        }
+    }
+}

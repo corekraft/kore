@@ -30,7 +30,7 @@ spec:
       serviceAccountName: default
       containers:
         - name: registry
-          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}@{{ .Values.image.digest }}
           imagePullPolicy: IfNotPresent
           ports:
             - name: registry
@@ -53,9 +53,9 @@ kind: PersistentVolumeClaim
 metadata:
   name: oci-registry
   namespace: {{ .Release.Namespace }}
-  labels: {app.kubernetes.io/managed-by: Helm}
+  labels: {app.kubernetes.io/managed-by: Helm, platform.kore.dev/retention: Delete}
 spec:
   accessModes: [ReadWriteOnce]
-  storageClassName: kore-retained
+  storageClassName: kore-standard
   resources:
     requests: {storage: {{ .Values.storage.size }}}

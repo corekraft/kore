@@ -88,6 +88,23 @@ mise exec -- npm --prefix tools/kore run kore -- cluster destroy --environment l
 
 `cluster destroy` is destructive. Omit `--purge-data` to preserve retained data;
 the command will refuse to destroy a profile while retained data exists.
+Retained data is every PersistentVolumeClaim or PostgreSQL instance labeled
+`platform.kore.dev/retention=Retain`. The `oci-registry` image store is
+rebuildable cache on `kore-standard`, so it never blocks a destroy.
+
+### Storage classes
+
+The `platform-storage` release defines two StorageClasses. Both allow volume
+expansion; neither is a backup.
+
+| Class           | Reclaim  | Use for                                                                                                                                                 |
+| --------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kore-standard` | `Delete` | Disposable data (telemetry, caches, the registry image store). The volume is deleted with its claim. Claims label `platform.kore.dev/retention=Delete`. |
+| `kore-retained` | `Retain` | Data to keep (databases). The volume survives claim deletion. Claims label `platform.kore.dev/retention=Retain`.                                        |
+
+Gatekeeper audits that every claim declares one of those labels and that
+`Retain` claims use `kore-retained`.
+
 If a live integration or platform attempt fails, destroy the explicit local
 profile before retrying from a clean cluster:
 

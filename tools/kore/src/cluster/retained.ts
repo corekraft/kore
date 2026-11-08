@@ -76,7 +76,14 @@ export async function purgeRetainedResources(
 ): Promise<void> {
   const context = repository.environment.kubeContext;
   const selector = "platform.kore.dev/retention=Retain";
-  for (const resource of ["postgresqlinstances.platform.kore.dev", "pvc"]) {
+  // A claim still mounted by a running pod stays Terminating until the pod
+  // goes, so waiting on it would hang; the profile deletion that follows
+  // removes the pod and the volume.
+  const targets = [
+    { resource: "postgresqlinstances.platform.kore.dev", wait: "--wait" },
+    { resource: "pvc", wait: "--wait=false" },
+  ];
+  for (const { resource, wait } of targets) {
     try {
       await runner.run(
         "kubectl",
@@ -89,7 +96,7 @@ export async function purgeRetainedResources(
           "--selector",
           selector,
           "--ignore-not-found",
-          "--wait",
+          wait,
         ],
         { capture: true },
       );
