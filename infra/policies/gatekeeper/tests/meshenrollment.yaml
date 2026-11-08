@@ -1,0 +1,11 @@
+kind: Suite
+apiVersion: test.gatekeeper.sh/v1alpha1
+tests:
+  - name: mesh-enrollment
+    template: ../templates/koremeshenrollment.yaml
+    constraint: ../constraints/koremeshenrollment.yaml
+    cases:
+      - {name: accepts-ambient-enrolled-namespace, object: objects/mesh-enrolled.yaml, assertions: [{violations: 0}]}
+      - {name: rejects-namespace-without-dataplane-label, object: objects/mesh-unenrolled.yaml, assertions: [{violations: 1, message: ambient}]}
+      - {name: rejects-non-ambient-dataplane-mode, object: objects/mesh-wrong-mode.yaml, assertions: [{violations: 1}]}
+      - {name: exempts-system-namespaces, object: objects/mesh-system.yaml, assertions: [{violations: 0}]}

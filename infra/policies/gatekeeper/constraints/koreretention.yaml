@@ -1,0 +1,11 @@
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: KoreRetention
+metadata: {name: kore-retention}
+spec:
+  enforcementAction: dryrun
+  match:
+    kinds:
+      - {apiGroups: [""], kinds: [PersistentVolumeClaim]}
+      - {apiGroups: [apps], kinds: [StatefulSet]}
+  parameters:
+    exemptNamespaces: [kube-system, cert-manager, gatekeeper-system, istio-system, cosign-system, crossplane-system, external-secrets, cnpg-system, opentelemetry-operator-system]

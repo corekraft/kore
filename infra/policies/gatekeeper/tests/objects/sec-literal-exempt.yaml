@@ -1,0 +1,7 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: web, namespace: kube-system}
+spec:
+  template:
+    spec:
+      containers: [{name: app, image: i, env: [{name: DB_PASSWORD, value: x}]}]
