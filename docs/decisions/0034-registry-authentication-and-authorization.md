@@ -26,7 +26,7 @@ service, a second stateful component.
 
 - **Proxy sidecar.** A second container in the registry pod runs
   `nginxinc/nginx-unprivileged:1.31.7-alpine3.24`, pinned by index digest. The
-  registry listens on `127.0.0.1:5001` only; the proxy listens on `5000`, which
+  registry listens on `127.0.0.1:5080` only, with its debug server on `127.0.0.1:5081` (the stock config binds the debug server to `:5001` on every interface, which collided with the first choice of port and would have served `/metrics` around the proxy); the proxy listens on `5000`, which
   the Service targets. nginx authenticates with basic auth and authorizes by
   method: any authenticated identity may `GET` or `HEAD`, only `kore-push` may
   write. A request with no credentials gets `401` and a `WWW-Authenticate`

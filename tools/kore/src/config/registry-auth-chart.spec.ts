@@ -14,12 +14,12 @@ async function chartFile(path: string): Promise<string> {
 test("the registry is reachable only through the authenticating proxy", async () => {
   const template = await chartFile("templates/all.yaml");
   assert.match(template, /REGISTRY_HTTP_ADDR/);
-  assert.match(template, /127\.0\.0\.1:5001/);
+  assert.match(template, /127\.0\.0\.1:5080/);
   assert.match(template, /name: proxy/);
   assert.match(template, /\.Values\.proxy\.image\.digest/);
   assert.doesNotMatch(
     template,
-    /containerPort: 5001/,
+    /containerPort: 50[0-9]{2}(?<!5000)/,
     "the registry's own port is never published",
   );
 });
@@ -65,4 +65,28 @@ test("the proxy image is a digest-pinned catalog image the chart deploys", async
   assert.match(reference, /@sha256:[0-9a-f]{64}$/);
   const values = await chartFile("values.yaml");
   assert.ok(values.includes(reference.split("@")[1]!), "values carry digest");
+});
+
+test("the registry's listen and debug servers use distinct loopback ports the proxy targets", async () => {
+  // registry:3's stock config runs a debug server on :5001 on every interface;
+  // sharing that port crashes the registry, and an unbound debug server would
+  // serve /metrics around the proxy.
+  const template = await chartFile("templates/all.yaml");
+  const conf = await chartFile("templates/proxy-config.yaml");
+  const env = (name: string) =>
+    new RegExp(`name: ${name}, value: "([^"]+)"`).exec(template)?.[1];
+  const listen = env("REGISTRY_HTTP_ADDR");
+  const debug = env("REGISTRY_HTTP_DEBUG_ADDR");
+  assert.ok(listen && debug, "both addresses are set explicitly");
+  assert.match(listen, /^127\.0\.0\.1:\d+$/);
+  assert.match(debug, /^127\.0\.0\.1:\d+$/);
+  assert.notEqual(listen, debug);
+  assert.match(
+    conf,
+    new RegExp(`proxy_pass http://${listen.replace(/\./g, "\\.")};`),
+  );
+  assert.match(
+    template,
+    new RegExp(`nc, -z, 127\\.0\\.0\\.1, "${listen.split(":")[1]}"`),
+  );
 });

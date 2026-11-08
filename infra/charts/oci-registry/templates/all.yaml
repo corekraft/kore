@@ -39,9 +39,12 @@ spec:
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}@{{ .Values.image.digest }}
           imagePullPolicy: IfNotPresent
           env:
-            - {name: REGISTRY_HTTP_ADDR, value: "127.0.0.1:5001"}
+            - {name: REGISTRY_HTTP_ADDR, value: "127.0.0.1:5080"}
+            # The stock config runs a debug server on :5001 on every interface;
+            # keep it on loopback so /metrics never bypasses the proxy.
+            - {name: REGISTRY_HTTP_DEBUG_ADDR, value: "127.0.0.1:5081"}
           readinessProbe:
-            exec: {command: [nc, -z, 127.0.0.1, "5001"]}
+            exec: {command: [nc, -z, 127.0.0.1, "5080"]}
             initialDelaySeconds: 2
             periodSeconds: 2
             timeoutSeconds: 2
