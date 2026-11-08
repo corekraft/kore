@@ -16,7 +16,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const script = fileURLToPath(
-  new URL("../../skills/spawn-session/equalize.zsh", import.meta.url),
+  new URL("../../skills/spawn-session/equalize.mjs", import.meta.url),
 );
 
 const pane = (id, x, y, height) => ({
@@ -41,7 +41,7 @@ function run(t, layout) {
     `#!/bin/sh\nif [ "$2" = layout ]; then cat "${dir}/layout.json"; else echo "$*" >> "${calls}"; fi\n`,
   );
   chmodSync(fake, 0o755);
-  execFileSync("zsh", [script], {
+  execFileSync("node", [script], {
     env: { ...process.env, PATH: `${dir}:${process.env.PATH}` },
   });
   return readFileSync(calls, "utf8").trim().split("\n").filter(Boolean);
