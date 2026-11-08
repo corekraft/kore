@@ -178,12 +178,29 @@ test("the repository tool catalog pins Cosign for image verification", async () 
 
 test("local catalog pins an available Istio chart release", async () => {
   const repository = await loadRepository("local");
-  assert.equal(repository.versions.components.istio, "1.30.4");
+  assert.equal(repository.versions.components.istio, "1.31.4");
+  assert.equal(repository.versions.components.crossplane, "2.4.3");
+  assert.equal(repository.versions.components["external-secrets"], "2.14.0");
+  assert.equal(repository.versions.components["cloudnative-pg"], "0.29.1");
   assert.equal(
     repository.versions.components["opentelemetry-operator"],
     "0.122.0",
   );
   assert.equal(repository.versions.components.prometheus, "29.29.0");
+});
+
+test("Istio charts avoid the Google-hosted repository Istio is retiring", async () => {
+  const repository = await loadRepository("local");
+  const istio = repository.catalog.components.filter(
+    ({ version }) => version === "istio",
+  );
+  assert.ok(istio.length >= 4);
+  for (const component of istio) {
+    assert.equal(
+      component.repository,
+      "https://blob.istio.io/istio-release/charts",
+    );
+  }
 });
 
 test("component helpers resolve local and pinned versions and combine value files", async () => {
