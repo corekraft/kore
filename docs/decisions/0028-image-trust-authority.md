@@ -103,9 +103,11 @@ environment's `trust.subjects` in the same reviewed change.
   `packages: write` (push to GHCR) and `id-token: write` (keyless). Actions are
   pinned by SHA; Cosign comes from the mise pin (3.1.4), not an installer action.
 - Each accepted release tag is its own subject, e.g.
-  `.../release.yaml@refs/tags/v0.1.0`. Validation still rejects regexps,
+  `.../release.yaml@refs/tags/v0.1.1`. Validation still rejects regexps,
   wildcards, branches, pull requests, and other repositories; a test ties the
-  committed subjects to the workflow's real identity format.
+  committed subjects to the workflow's real identity format. `v0.1.0` was tagged
+  but published no image (its GHCR push was denied), so `v0.1.1` is the first
+  trusted subject and the only one in `managed-example`.
 - **Tag protection is outside the repository.** A ruleset restricting creation,
   updates, and deletion of `v*` tags to maintainers must be configured in GitHub
   settings. Without it, anyone able to push a tag can obtain a trusted signature,
