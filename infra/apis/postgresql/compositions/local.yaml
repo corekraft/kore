@@ -30,6 +30,7 @@ spec:
               inheritedMetadata:
                 labels:
                   platform.kore.dev/retention: {{ .observed.composite.resource.spec.retentionPolicy }}
+                  istio.io/dataplane-mode: none
               imageName: ghcr.io/cloudnative-pg/postgresql:{{ .observed.composite.resource.spec.compatibilityVersion }}.4
               storage:
                 size: {{ .observed.composite.resource.spec.storageSize }}

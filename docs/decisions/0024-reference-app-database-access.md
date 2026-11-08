@@ -63,5 +63,10 @@ release, so the resources release must be installed first (it already is); the
 Job waits on missing Secrets until its deadline. The `passwordSecret` default
 duplicates the composition's naming; adding a `password` key to the connection
 Secret contract would remove it and is a separate decision about ADR 0008.
-Hook resources are not part of the release, so `helm uninstall` leaves nothing
-extra, and `hook-succeeded` removes completed Jobs.
+Hook resources are not part of the release, so Helm does not remove them on
+`helm uninstall`. The hook policies bound what is left: `hook-succeeded` removes
+the completed Job and the hook ServiceAccount, while a failed Job is kept for
+diagnosis until the next hook run (`before-hook-creation`) or namespace removal.
+Only the api receives database environment (including `PGPASSWORD`); the
+frontend never sees the credential. Every database query has a per-query
+deadline that destroys the socket, in addition to the connect timeout.
