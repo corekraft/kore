@@ -55,7 +55,7 @@ cluster.
 ### Exit Criteria
 
 - [x] The workflow passes on this branch's pull request.
-- [ ] A commit that breaks any one check fails the workflow at that step. Show
+- [x] A commit that breaks any one check fails the workflow at that step. Show
       this once on a throwaway branch and record the result.
 - [x] `grep -E 'uses: [^@]+@[^0-9a-f]' .github/workflows/*.yml` matches nothing.
 
@@ -184,8 +184,15 @@ outward-facing, so it is proposed to the user and not done by an agent.
   pending the user.
 - Step 1: confirmed on 2026-11-07 on PR #6, run 42451880499: every step ran and
   passed in 22 s. `mise install node npm opa` installed only those three, and
-  the harness tests reported 160 passing. The failing-branch criterion is still
-  pending.
+  the harness tests reported 160 passing. The failing-branch criterion is shown
+  below.
+- Step 1: failing-branch probe on 2026-11-07, draft PR #7 (closed, branch
+  deleted). An invalid `node` pin in `versions.yaml` failed at **Unit tests**,
+  and every later step was skipped. The unit tests read the real catalog, so
+  the pin broke two checks and CI stopped at the first. A dead link in
+  `docs/index.md`, which only `kb-check` catches, then failed at **Knowledge
+  base** (run 42452143340) after every earlier step passed. The error named
+  `docs/index.md:105` and the fix.
 - Step 4: `eval.mjs` appends one line per run to `.claude/evals/history.jsonl`
   (`--no-history` skips it) and `--trend` prints each case's rate over its last
   five runs against the five before, with no model calls. Tests use a temporary
