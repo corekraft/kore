@@ -11,7 +11,9 @@ vi.mock("node:net", () => ({
     const connected = connectionOutcomes.shift() ?? false;
     return {
       once(event: string, callback: () => void) {
-        if ((event === "connect") === connected) queueMicrotask(callback);
+        if ((event === "connect") === connected) {
+          queueMicrotask(callback);
+        }
         return this;
       },
       destroy() {},

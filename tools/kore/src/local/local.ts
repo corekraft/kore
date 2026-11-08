@@ -109,10 +109,11 @@ export async function localDown(
   dependencies: LocalLifecycleDependencies = {},
 ): Promise<void> {
   assertLocalMinikube(repository);
-  if (options.purgeData && !options.prune)
+  if (options.purgeData && !options.prune) {
     throw new Error(
       "--purge-data requires --prune; local down only destroys the cluster with --prune",
     );
+  }
   if (options.prune) {
     // The signing key lives in the cluster Secret and is destroyed with it.
     const state = join(repository.root, ".kore", "state");

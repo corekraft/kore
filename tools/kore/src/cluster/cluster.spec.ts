@@ -282,13 +282,14 @@ test("retained resource discovery ignores unavailable APIs, trims, deduplicates,
   const runner = {
     async run() {
       query += 1;
-      if (query === 1)
+      if (query === 1) {
         return {
           stdout:
             " postgresqlinstance.platform.kore.dev/reference-db \npostgresqlinstance.platform.kore.dev/reference-db\n",
           stderr: "",
           code: 0,
         };
+      }
       throw new CommandError("kubectl", ["get", "pvc"], {
         stdout: "",
         stderr: 'error: the server doesn\'t have a resource type "pvc"',
@@ -308,13 +309,14 @@ test("a missing PostgreSQL CRD counts as no retained data", async () => {
   const runner = {
     async run() {
       query += 1;
-      if (query === 1)
+      if (query === 1) {
         throw new CommandError("kubectl", ["get"], {
           stdout: "",
           stderr:
             'error: the server doesn\'t have a resource type "postgresqlinstances"',
           code: 1,
         });
+      }
       return { stdout: "", stderr: "", code: 0 };
     },
   };
@@ -327,13 +329,14 @@ test("an unreachable cluster blocks destroy instead of counting as no retained d
     calls: [] as string[][],
     async run(command: string, args: readonly string[]) {
       this.calls.push([command, ...args]);
-      if (command === "kubectl" && args.includes("get"))
+      if (command === "kubectl" && args.includes("get")) {
         throw new CommandError(command, args, {
           stdout: "",
           stderr:
             "Unable to connect to the server: dial tcp 192.168.49.2:8443: i/o timeout",
           code: 1,
         });
+      }
       return { stdout: "", stderr: "", code: 0 };
     },
   };

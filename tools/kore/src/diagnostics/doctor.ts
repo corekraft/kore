@@ -50,7 +50,9 @@ export async function doctor(
   const checks: Check[] = [];
   for (const [tool, expected] of Object.entries(repository.versions.tools)) {
     const args = commands[tool];
-    if (!args) continue;
+    if (!args) {
+      continue;
+    }
     try {
       const result = await runner.run(tool, args, { capture: true });
       const actual = detectedVersion(`${result.stdout}\n${result.stderr}`);
@@ -128,13 +130,14 @@ export async function doctor(
           ? "managed environment credentials/context are not configured"
           : "managed context is configured",
     });
-  } else
+  } else {
     checks.push({
       name: "credentials",
       status: "pass",
       required: false,
       message: "local environment needs no cloud credentials",
     });
+  }
   try {
     const result = await runner.run(
       "minikube",

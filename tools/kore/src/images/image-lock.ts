@@ -23,8 +23,9 @@ const digestPattern = /^sha256:[a-f0-9]{64}$/;
 const imagePattern = /^[^@\s/]+(?:\/[^@\s]+)+$/;
 
 function validate(lock: unknown, source: string): ImageLock {
-  if (!lock || typeof lock !== "object")
+  if (!lock || typeof lock !== "object") {
     throw new Error(`image lock ${source} must be an object`);
+  }
   const candidate = lock as Partial<ImageLock>;
   if (
     candidate.version !== 1 ||
@@ -57,18 +58,21 @@ function validate(lock: unknown, source: string): ImageLock {
         `image lock ${source} entry ${application} must use an internal image without a tag`,
       );
     }
-    if (!digestPattern.test(value.digest))
+    if (!digestPattern.test(value.digest)) {
       throw new Error(
         `image lock ${source} entry ${application} has an invalid digest`,
       );
-    if (!value.signer?.trim())
+    }
+    if (!value.signer?.trim()) {
       throw new Error(
         `image lock ${source} entry ${application} has no signer`,
       );
-    if (!(candidate as ImageLock).authorizedSigners.includes(value.signer))
+    }
+    if (!(candidate as ImageLock).authorizedSigners.includes(value.signer)) {
       throw new Error(
         `image lock ${source} entry ${application} has an unauthorized signer`,
       );
+    }
   }
   return candidate as ImageLock;
 }
@@ -100,7 +104,9 @@ export function imageForApplication(
   application: string,
 ): LockedImage {
   const entry = lock.entries[application];
-  if (!entry) throw new Error(`no locked image for application ${application}`);
+  if (!entry) {
+    throw new Error(`no locked image for application ${application}`);
+  }
   return {
     reference: `${entry.image}@${entry.digest}`,
     digest: entry.digest,

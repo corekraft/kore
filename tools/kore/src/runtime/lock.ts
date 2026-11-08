@@ -43,7 +43,9 @@ async function readOwner(lock: string): Promise<LockOwner | undefined> {
     text = await readFile(lock, "utf8");
   } catch (error) {
     // A legacy lock is a directory; a vanished lock is handled by the caller.
-    if (["EISDIR", "ENOENT"].includes(errorCode(error) ?? "")) return undefined;
+    if (["EISDIR", "ENOENT"].includes(errorCode(error) ?? "")) {
+      return undefined;
+    }
     throw error;
   }
   try {
@@ -53,8 +55,9 @@ async function readOwner(lock: string): Promise<LockOwner | undefined> {
       typeof value.host === "string" &&
       typeof value.token === "string" &&
       typeof value.acquiredAt === "string"
-    )
+    ) {
       return value as LockOwner;
+    }
   } catch {
     // Malformed content is treated like a missing owner.
   }
@@ -117,7 +120,9 @@ export async function withEnvironmentLock<T>(
       await link(staging, lock);
       return true;
     } catch (error) {
-      if (errorCode(error) === "EEXIST") return false;
+      if (errorCode(error) === "EEXIST") {
+        return false;
+      }
       throw error;
     } finally {
       await rm(staging, { force: true });
@@ -131,26 +136,29 @@ export async function withEnvironmentLock<T>(
   > => {
     const current = await readOwner(lock);
     const manual = `If no kore process is running, remove it with: rm -rf ${lock}`;
-    if (current === undefined)
+    if (current === undefined) {
       return {
         dead: false,
         reason: "its owner is unknown (legacy or malformed lock)",
         fix: manual,
       };
-    if (current.host !== hostname())
+    }
+    if (current.host !== hostname()) {
       return {
         dead: false,
         reason: `held by pid ${current.pid} on host ${current.host}, which cannot be checked from here`,
         fix: manual,
       };
+    }
     const predatesBoot =
       Date.parse(current.acquiredAt) < bootTime() - BOOT_TOLERANCE_MS;
-    if (isAlive(current.pid) && !predatesBoot)
+    if (isAlive(current.pid) && !predatesBoot) {
       return {
         dead: false,
         reason: `held by running pid ${current.pid}`,
         fix: "Wait for it to finish, or stop that process.",
       };
+    }
     return { dead: true, owner: current };
   };
 
@@ -160,13 +168,17 @@ export async function withEnvironmentLock<T>(
     try {
       handle = await open(recovery, "wx");
     } catch (error) {
-      if (errorCode(error) === "EEXIST") return undefined;
+      if (errorCode(error) === "EEXIST") {
+        return undefined;
+      }
       throw error;
     }
     try {
       // Re-judge under the recovery lock: the lock may have changed hands.
       const verdict = await judge();
-      if (!verdict.dead) return undefined;
+      if (!verdict.dead) {
+        return undefined;
+      }
       await unlink(lock);
       return verdict.owner;
     } finally {
@@ -178,16 +190,18 @@ export async function withEnvironmentLock<T>(
   let recovered: LockOwner | undefined;
   if (!(await acquire())) {
     const verdict = await judge();
-    if (!verdict.dead)
+    if (!verdict.dead) {
       throw refusal(environment, lock, verdict.reason, verdict.fix);
+    }
     recovered = await recover();
-    if (recovered === undefined || !(await acquire()))
+    if (recovered === undefined || !(await acquire())) {
       throw refusal(
         environment,
         lock,
         "another process is recovering or has just taken it",
         `Retry shortly; if it persists, check ${recovery} and ${lock}.`,
       );
+    }
     onRecover(
       `recovered stale lock ${lock} left by pid ${recovered.pid} (acquired ${recovered.acquiredAt}); the previous mutation was interrupted, so check \`kore journal\` before trusting the environment state`,
     );
@@ -197,7 +211,8 @@ export async function withEnvironmentLock<T>(
     return await operation();
   } finally {
     // Only remove the lock if it is still ours.
-    if ((await readOwner(lock))?.token === owner.token)
+    if ((await readOwner(lock))?.token === owner.token) {
       await rm(lock, { force: true });
+    }
   }
 }

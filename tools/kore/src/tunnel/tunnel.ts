@@ -54,8 +54,9 @@ async function readState(
       typeof pid !== "number" ||
       !Number.isSafeInteger(pid) ||
       pid < 1
-    )
+    ) {
       return undefined;
+    }
     return { profile: value.profile, pid };
   } catch {
     return undefined;
@@ -95,8 +96,9 @@ function spawnTunnel(profile: string): number {
     },
   );
   child.unref();
-  if (!child.pid)
+  if (!child.pid) {
     throw new Error("could not start the Minikube tunnel process");
+  }
   return child.pid;
 }
 
@@ -115,9 +117,12 @@ export async function tunnelStatus(
 ): Promise<TunnelStatus> {
   assertLocal(repository);
   const state = await readState(repository);
-  if (!state) return { status: "missing" };
-  if (!(dependencies.isProcessAlive ?? processIsAlive)(state.pid))
+  if (!state) {
+    return { status: "missing" };
+  }
+  if (!(dependencies.isProcessAlive ?? processIsAlive)(state.pid)) {
     return { status: "stale", pid: state.pid };
+  }
   return (await (dependencies.isPortOpen ?? portIsOpen)(
     repository.environment.gateway.port,
   ))
@@ -137,17 +142,21 @@ export async function startLocalTunnel(
   assertLocal(repository);
   await assertExpectedCluster(repository, runner);
   const current = await tunnelStatus(repository, dependencies);
-  if (current.status === "running") return current;
+  if (current.status === "running") {
+    return current;
+  }
   if (current.status === "stale") {
     await stopLocalTunnel(repository, runner, dependencies);
     const isAlive = dependencies.isProcessAlive ?? processIsAlive;
     const deadline = Date.now() + 3_000;
-    while (isAlive(current.pid!) && Date.now() < deadline)
+    while (isAlive(current.pid!) && Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, 100));
-    if (isAlive(current.pid!))
+    }
+    if (isAlive(current.pid!)) {
       throw new Error(
         `could not stop stale Minikube tunnel process ${current.pid}`,
       );
+    }
   }
   const pid = (dependencies.spawnTunnel ?? spawnTunnel)(
     repository.environment.cluster.profile,
@@ -169,7 +178,9 @@ export async function startLocalTunnel(
         port: repository.environment.gateway.port,
       };
     }
-    if (!(dependencies.isProcessAlive ?? processIsAlive)(pid)) break;
+    if (!(dependencies.isProcessAlive ?? processIsAlive)(pid)) {
+      break;
+    }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   (

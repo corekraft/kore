@@ -23,9 +23,11 @@ test("repository catalogs and local environment validate", async () => {
   const positions = new Map(
     order.map((component, index) => [component.name, index]),
   );
-  for (const component of order)
-    for (const dependency of component.dependencies)
+  for (const component of order) {
+    for (const dependency of component.dependencies) {
       assert.ok(positions.get(dependency)! < positions.get(component.name)!);
+    }
+  }
 });
 
 test("cycle detection reports every blocked component", () => {

@@ -13,8 +13,9 @@ export async function installLocalTrust(
   repository: Repository,
   runner: Runner,
 ): Promise<void> {
-  if (repository.environment.provider !== "minikube")
+  if (repository.environment.provider !== "minikube") {
     throw new Error("local CA trust is only valid for a Minikube environment");
+  }
   await assertExpectedCluster(repository, runner);
   const namespace = repository.environment.gateway.namespace,
     certificateNamespace = "cert-manager";
@@ -41,7 +42,9 @@ export async function installLocalTrust(
   await runner.run("mkcert", ["-install"], { capture: false });
   const rootResult = await runner.run("mkcert", ["-CAROOT"], { capture: true });
   const caRoot = rootResult.stdout.trim();
-  if (!caRoot) throw new Error("mkcert did not return its CA root");
+  if (!caRoot) {
+    throw new Error("mkcert did not return its CA root");
+  }
   const cert = join(caRoot, "rootCA.pem"),
     key = join(caRoot, "rootCA-key.pem");
   const secret = "kore-local-ca-key-pair";

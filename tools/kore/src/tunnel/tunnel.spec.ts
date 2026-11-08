@@ -228,7 +228,9 @@ test("stops a live stale process before starting its replacement", async () => {
     const result = await startLocalTunnel(repository, runner, {
       isProcessAlive: () => aliveChecks.shift() ?? false,
       isPortOpen: async () => {
-        if (terminated.length === 0) return false;
+        if (terminated.length === 0) {
+          return false;
+        }
         return true;
       },
       terminateProcess: (pid) => terminated.push(pid),
@@ -305,7 +307,9 @@ test("waits for a live stale tunnel process to exit before replacement", async (
   const timeout = vi
     .spyOn(globalThis, "setTimeout")
     .mockImplementation((callback) => {
-      if (typeof callback === "function") callback();
+      if (typeof callback === "function") {
+        callback();
+      }
       return 0 as never;
     });
   let portsChecked = 0;

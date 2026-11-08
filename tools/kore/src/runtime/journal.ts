@@ -151,15 +151,21 @@ export async function readJournal(
   try {
     text = await readFile(journalPath(root, environment), "utf8");
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return [];
+    }
     throw error;
   }
   const entries: JournalEntry[] = [];
   for (const line of text.split("\n")) {
-    if (!line.trim()) continue;
+    if (!line.trim()) {
+      continue;
+    }
     try {
       const entry = JSON.parse(line) as JournalEntry;
-      if (entry && typeof entry.op === "string") entries.push(entry);
+      if (entry && typeof entry.op === "string") {
+        entries.push(entry);
+      }
     } catch {
       // A torn or foreign line must not hide the rest of the journal.
     }
@@ -182,10 +188,14 @@ export function summarizeOperations(
       });
     } else if (entry.kind === "end") {
       const operation = operations.get(entry.op);
-      if (!operation) continue;
+      if (!operation) {
+        continue;
+      }
       operation.outcome = entry.outcome;
       operation.ms = entry.ms;
-      if (entry.error !== undefined) operation.error = entry.error;
+      if (entry.error !== undefined) {
+        operation.error = entry.error;
+      }
     }
   }
   return [...operations.values()];

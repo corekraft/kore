@@ -23,24 +23,27 @@ class SecretRunner implements Runner {
     options?: RunOptions,
   ): Promise<RunResult> {
     this.calls.push({ command, args, ...(options ? { options } : {}) });
-    if (command === "sops")
+    if (command === "sops") {
       return {
         stdout: "apiVersion: v1\nkind: Secret\nmetadata:\n  name: source\n",
         stderr: "",
         code: 0,
       };
+    }
     if (
       command === "kubectl" &&
       args.includes("get") &&
       args.includes("externalsecret")
-    )
+    ) {
       return {
         stdout: "externalsecret.external-secrets.io/reference-app\n",
         stderr: "",
         code: 0,
       };
-    if (command === "kubectl" && args.includes("jsonpath={.metadata.name}"))
+    }
+    if (command === "kubectl" && args.includes("jsonpath={.metadata.name}")) {
       return { stdout: "kube-system", stderr: "", code: 0 };
+    }
     return { stdout: "", stderr: "", code: 0 };
   }
 }

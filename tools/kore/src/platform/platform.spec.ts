@@ -319,18 +319,22 @@ test("local platform up starts its tunnel before waiting for Gateway programming
     async run(command, args) {
       calls.push({ command, args });
       if (command === "kubectl" && args.includes("--context")) {
-        if (args.includes("jsonpath={.metadata.name}"))
+        if (args.includes("jsonpath={.metadata.name}")) {
           return { stdout: "kube-system", stderr: "", code: 0 };
+        }
         if (
           args.includes("wait") &&
           args.includes("clusterissuer/kore-local-ca")
-        )
+        ) {
           return { stdout: "", stderr: "", code: 0 };
+        }
       }
-      if (command === "mkcert" && args.includes("-CAROOT"))
+      if (command === "mkcert" && args.includes("-CAROOT")) {
         return { stdout: "/tmp/mkcert", stderr: "", code: 0 };
-      if (command === "helm" && args[0] === "upgrade")
+      }
+      if (command === "helm" && args[0] === "upgrade") {
         return { stdout: "", stderr: "", code: 0 };
+      }
       return { stdout: "", stderr: "", code: 0 };
     },
   };
@@ -389,14 +393,16 @@ test("platform up upgrades an already-installed configuration release", async ()
   const runner: Runner = {
     async run(command, args) {
       calls.push({ command, args });
-      if (command === "helm" && args[0] === "status")
+      if (command === "helm" && args[0] === "status") {
         return {
           stdout: '{"info":{"status":"deployed"}}',
           stderr: "",
           code: 0,
         };
-      if (command === "mkcert" && args.includes("-CAROOT"))
+      }
+      if (command === "mkcert" && args.includes("-CAROOT")) {
         return { stdout: "/tmp/mkcert", stderr: "", code: 0 };
+      }
       return { stdout: "kube-system", stderr: "", code: 0 };
     },
   };
@@ -593,10 +599,11 @@ test("retries an asynchronously-created CRD until it is established", async () =
     async run(command, args) {
       if (command === "kubectl" && args.includes("wait")) {
         waits++;
-        if (waits === 1)
+        if (waits === 1) {
           throw new Error(
             "customresourcedefinitions.apiextensions.k8s.io not found",
           );
+        }
       }
       return { stdout: "", stderr: "", code: 0 };
     },
@@ -617,8 +624,9 @@ test("preserves CRD wait errors so an asynchronous NotFound is retried", async (
       if (command === "kubectl" && args.includes("wait")) {
         waits++;
         if (waits === 1) {
-          if (options?.capture !== true)
+          if (options?.capture !== true) {
             throw new Error("kubectl wait failed (1):");
+          }
           throw new Error(
             "kubectl wait failed (1): customresourcedefinition not found",
           );
@@ -725,10 +733,13 @@ test("controller bootstrap creates a missing Minikube profile", async () => {
     async run(command, args) {
       if (command === "minikube" && args[0] === "status") {
         statusCalls += 1;
-        if (statusCalls === 1) throw new Error("profile is stopped");
+        if (statusCalls === 1) {
+          throw new Error("profile is stopped");
+        }
       }
-      if (command === "kubectl" && args.includes("jsonpath={.metadata.name}"))
+      if (command === "kubectl" && args.includes("jsonpath={.metadata.name}")) {
         return { stdout: "kube-system", stderr: "", code: 0 };
+      }
       return { stdout: "", stderr: "", code: 0 };
     },
   };

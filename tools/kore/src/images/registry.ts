@@ -23,8 +23,9 @@ function spawnPortForward(repository: Repository): number {
     { detached: true, stdio: "ignore" },
   );
   child.unref();
-  if (!child.pid)
+  if (!child.pid) {
     throw new Error("could not start the local OCI registry port-forward");
+  }
   return child.pid;
 }
 
@@ -47,11 +48,15 @@ async function ensurePortForward(
   dependencies: RegistryDependencies,
 ): Promise<void> {
   const portReady = dependencies.isPortOpen ?? isPortOpen;
-  if (await portReady()) return;
+  if (await portReady()) {
+    return;
+  }
   (dependencies.spawnPortForward ?? spawnPortForward)(repository);
   const deadline = Date.now() + 15000;
   while (Date.now() < deadline) {
-    if (await portReady()) return;
+    if (await portReady()) {
+      return;
+    }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   throw new Error(
@@ -65,7 +70,9 @@ export async function localRegistryReference(
   reference: string,
   dependencies: RegistryDependencies = {},
 ): Promise<string> {
-  if (repository.environment.provider !== "minikube") return reference;
+  if (repository.environment.provider !== "minikube") {
+    return reference;
+  }
   await ensurePortForward(repository, dependencies);
   return reference.replace(/^[^/]+/, "127.0.0.1:30500");
 }

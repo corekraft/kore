@@ -74,20 +74,27 @@ const MUTATIONS: Partial<Record<string, readonly string[]>> = {
 };
 
 function print(value: unknown, json: boolean): void {
-  if (json) process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
-  else if (Array.isArray(value))
-    for (const item of value)
+  if (json) {
+    process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+  } else if (Array.isArray(value)) {
+    for (const item of value) {
       console.log(
         typeof item === "object"
           ? Object.values(item as Record<string, unknown>).join("\t")
           : String(item),
       );
-  else if (typeof value === "object")
-    for (const [key, item] of Object.entries(value as Record<string, unknown>))
+    }
+  } else if (typeof value === "object") {
+    for (const [key, item] of Object.entries(
+      value as Record<string, unknown>,
+    )) {
       console.log(
         `${key}: ${typeof item === "string" ? item : JSON.stringify(item)}`,
       );
-  else console.log(String(value));
+    }
+  } else {
+    console.log(String(value));
+  }
 }
 
 export async function main(argv = process.argv.slice(2)): Promise<number> {
@@ -117,8 +124,9 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     work: (runner: Runner) => Promise<number>,
   ): Promise<number> => {
     // Reject an unknown action before the lock, so it never reaches the journal.
-    if (!mutations?.includes(action ?? ""))
+    if (!mutations?.includes(action ?? "")) {
       throw new Error(`unknown ${command} action: ${action ?? ""}`);
+    }
     return await withEnvironmentLock(
       repository.root,
       environmentName,
@@ -160,8 +168,9 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   if (command === "journal") {
     const limitText = stringFlag(parsed, "limit");
     const limit = limitText === undefined ? 20 : Number(limitText);
-    if (!Number.isInteger(limit) || limit < 1)
+    if (!Number.isInteger(limit) || limit < 1) {
       throw new Error("--limit must be a positive integer");
+    }
     const operations = summarizeOperations(
       await readJournal(repository.root, environmentName),
     );
@@ -169,13 +178,13 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     const interrupted = recent.filter(
       (operation) => operation.outcome === "interrupted",
     ).length;
-    if (json)
+    if (json) {
       print(
         { environment: environmentName, operations: recent, interrupted },
         true,
       );
-    else {
-      for (const operation of recent)
+    } else {
+      for (const operation of recent) {
         console.log(
           [
             operation.ts,
@@ -186,10 +195,12 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
             operation.error ?? "",
           ].join("\t"),
         );
-      if (interrupted > 0)
+      }
+      if (interrupted > 0) {
         console.log(
           `${interrupted} interrupted operation(s): rerun the command, it is idempotent.`,
         );
+      }
     }
     return 0;
   }
@@ -199,13 +210,16 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       return 0;
     }
     return await mutate(`cluster ${action}`, async (runner) => {
-      if (action === "up") await clusterUp(repository, runner);
-      else if (action === "stop") await clusterStop(repository, runner);
-      else if (action === "destroy")
+      if (action === "up") {
+        await clusterUp(repository, runner);
+      } else if (action === "stop") {
+        await clusterStop(repository, runner);
+      } else if (action === "destroy") {
         await clusterDestroy(repository, runner, {
           yes: boolFlag(parsed, "yes"),
           purgeData: boolFlag(parsed, "purge-data"),
         });
+      }
       return 0;
     });
   }
@@ -226,39 +240,49 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       return 0;
     }
     return await mutate(`platform ${action}`, async (runner) => {
-      if (action === "bootstrap")
+      if (action === "bootstrap") {
         await bootstrapControllers(repository, runner);
-      else if (action === "up") await platformUp(repository, runner);
-      else if (action === "stop") await platformStop(repository, runner);
-      else if (action === "destroy")
+      } else if (action === "up") {
+        await platformUp(repository, runner);
+      } else if (action === "stop") {
+        await platformStop(repository, runner);
+      } else if (action === "destroy") {
         await platformDestroy(repository, runner, {
           yes: boolFlag(parsed, "yes"),
           purgeData: boolFlag(parsed, "purge-data"),
         });
+      }
       return 0;
     });
   }
   if (command === "app") {
     const name = parsed.positional[0];
-    if (!name) throw new Error("application name is required");
+    if (!name) {
+      throw new Error("application name is required");
+    }
     if (action === "status") {
       print(await appStatus(repository, runner, name), json);
       return 0;
     }
     return await mutate(`app ${action} ${name}`, async (runner) => {
-      if (action === "up") await appUp(repository, runner, name);
-      else if (action === "down") await appDown(repository, runner, name);
+      if (action === "up") {
+        await appUp(repository, runner, name);
+      } else if (action === "down") {
+        await appDown(repository, runner, name);
+      }
       return 0;
     });
   }
   if (command === "local") {
     return await mutate(`local ${action}`, async (runner) => {
-      if (action === "up") await localUp(repository, runner);
-      else if (action === "down")
+      if (action === "up") {
+        await localUp(repository, runner);
+      } else if (action === "down") {
         await localDown(repository, runner, {
           prune: boolFlag(parsed, "prune"),
           purgeData: boolFlag(parsed, "purge-data"),
         });
+      }
       return 0;
     });
   }
@@ -268,9 +292,9 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       return 0;
     }
     return await mutate(`tunnel ${action}`, async (runner) => {
-      if (action === "start")
+      if (action === "start") {
         print(await startLocalTunnel(repository, runner), json);
-      else if (action === "stop") {
+      } else if (action === "stop") {
         await stopLocalTunnel(repository, runner);
         print({ status: "stopped" }, json);
       }

@@ -18,7 +18,9 @@ async function ensureLocalReferenceSecret(
   try {
     token = (await readFile(tokenPath, "utf8")).trim();
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error;
+    }
     token = randomBytes(32).toString("hex");
     try {
       await writeFile(tokenPath, `${token}\n`, {
@@ -27,15 +29,17 @@ async function ensureLocalReferenceSecret(
         flag: "wx",
       });
     } catch (writeError) {
-      if ((writeError as NodeJS.ErrnoException).code !== "EEXIST")
+      if ((writeError as NodeJS.ErrnoException).code !== "EEXIST") {
         throw writeError;
+      }
       token = (await readFile(tokenPath, "utf8")).trim();
     }
   }
-  if (!/^[a-f0-9]{64}$/.test(token))
+  if (!/^[a-f0-9]{64}$/.test(token)) {
     throw new Error(
       `local API token at ${tokenPath} is invalid; remove it to generate a new token`,
     );
+  }
   await chmod(tokenPath, 0o600);
   const secret = {
     apiVersion: "v1",
@@ -69,10 +73,11 @@ export async function syncLocalSecrets(
   repository: Repository,
   runner: Runner,
 ): Promise<number> {
-  if (repository.environment.provider !== "minikube")
+  if (repository.environment.provider !== "minikube") {
     throw new Error(
       "local SOPS synchronization is only valid for a Minikube environment",
     );
+  }
   await assertExpectedCluster(repository, runner);
   const context = repository.environment.kubeContext,
     namespace = repository.environment.secrets.sourceNamespace;
@@ -138,7 +143,7 @@ export async function syncLocalSecrets(
     ],
     { capture: true },
   );
-  if (externalSecret.stdout.trim())
+  if (externalSecret.stdout.trim()) {
     await runner.run(
       "kubectl",
       [
@@ -154,5 +159,6 @@ export async function syncLocalSecrets(
       ],
       { capture: true },
     );
+  }
   return files.length;
 }

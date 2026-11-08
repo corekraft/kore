@@ -43,9 +43,12 @@ function releaseArgs(
     "--set-string",
     `platform.otlpEndpoint=${repository.environment.telemetry.otlpEndpoint}`,
   ];
-  if (image) args.push(...imageReleaseArgs(repository, name, image));
-  if (image && repository.environment.provider === "minikube")
+  if (image) {
+    args.push(...imageReleaseArgs(repository, name, image));
+  }
+  if (image && repository.environment.provider === "minikube") {
     args.push(...localImagePullPolicyArgs());
+  }
   return args;
 }
 
@@ -55,8 +58,9 @@ export function imageReleaseArgs(
   image: LockedImage,
 ): string[] {
   const separator = image.reference.lastIndexOf("@");
-  if (separator < 1)
+  if (separator < 1) {
     throw new Error("locked image reference must include a digest");
+  }
   return [
     "--set-string",
     `image.repository=${image.reference.slice(0, separator)}`,
@@ -70,10 +74,11 @@ export function localMinikubeImageReference(
   registryClusterIp: string,
 ): string {
   const separator = reference.indexOf("/");
-  if (separator < 1 || !registryClusterIp.trim())
+  if (separator < 1 || !registryClusterIp.trim()) {
     throw new Error(
       "local image reference and registry ClusterIP are required",
     );
+  }
   return `${registryClusterIp}:5000/${reference.slice(separator + 1)}`;
 }
 
@@ -126,8 +131,9 @@ async function chart(
   name: string,
   kind: "resources" | "workload",
 ): Promise<string> {
-  if (!/^[a-z0-9-]+$/.test(name))
+  if (!/^[a-z0-9-]+$/.test(name)) {
     throw new Error(`invalid application name: ${name}`);
+  }
   const path = join(repository.root, "apps", name, "charts", kind);
   await access(join(path, "Chart.yaml"));
   return path;
@@ -193,7 +199,9 @@ export async function appUp(
       { capture: true },
     );
     const clusterIp = registry.stdout.trim();
-    if (!clusterIp) throw new Error("local OCI registry has no ClusterIP");
+    if (!clusterIp) {
+      throw new Error("local OCI registry has no ClusterIP");
+    }
     workloadImage = {
       ...image,
       reference: localMinikubeImageReference(image.reference, clusterIp),

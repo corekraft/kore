@@ -25,8 +25,12 @@ import {
 import { installLocalTrust } from "../security/index.js";
 
 function helmTarget(component: Component): string {
-  if (component.kind === "local-chart") return component.chart!;
-  if (component.repository?.startsWith("oci://")) return component.repository;
+  if (component.kind === "local-chart") {
+    return component.chart!;
+  }
+  if (component.repository?.startsWith("oci://")) {
+    return component.repository;
+  }
   return component.chart!;
 }
 
@@ -53,12 +57,16 @@ export function helmUpgradeArgs(
     component.kind === "helm" &&
     component.repository &&
     !component.repository.startsWith("oci://")
-  )
+  ) {
     args.push("--repo", component.repository);
+  }
   const version = componentVersion(repository, component);
-  if (version) args.push("--version", version);
-  for (const values of componentValues(repository, component))
+  if (version) {
+    args.push("--version", version);
+  }
+  for (const values of componentValues(repository, component)) {
     args.push("--values", absolute(repository, values));
+  }
   return args;
 }
 
@@ -78,12 +86,16 @@ export function helmTemplateArgs(
     component.kind === "helm" &&
     component.repository &&
     !component.repository.startsWith("oci://")
-  )
+  ) {
     args.push("--repo", component.repository);
+  }
   const version = componentVersion(repository, component);
-  if (version) args.push("--version", version);
-  for (const values of componentValues(repository, component))
+  if (version) {
+    args.push("--version", version);
+  }
+  for (const values of componentValues(repository, component)) {
     args.push("--values", absolute(repository, values));
+  }
   return args;
 }
 
@@ -99,9 +111,9 @@ async function waitFor(
     component.namespace,
   ];
   for (const resource of component.readiness) {
-    if (resource.startsWith("crd/"))
+    if (resource.startsWith("crd/")) {
       await waitForCRD(repository, runner, resource, component.timeout);
-    else if (resource.startsWith("gateway/"))
+    } else if (resource.startsWith("gateway/")) {
       await runner.run(
         "kubectl",
         [
@@ -113,7 +125,7 @@ async function waitFor(
         ],
         { capture: false },
       );
-    else if (resource.startsWith("certificate/"))
+    } else if (resource.startsWith("certificate/")) {
       await runner.run(
         "kubectl",
         [
@@ -125,7 +137,7 @@ async function waitFor(
         ],
         { capture: false },
       );
-    else if (resource.startsWith("secret/"))
+    } else if (resource.startsWith("secret/")) {
       await waitForTLSSecret(
         repository,
         runner,
@@ -133,7 +145,7 @@ async function waitFor(
         resource,
         component.timeout,
       );
-    else
+    } else {
       await runner.run(
         "kubectl",
         [
@@ -145,9 +157,11 @@ async function waitFor(
         ],
         { capture: false },
       );
+    }
   }
-  for (const crd of component.ownsCRDs)
+  for (const crd of component.ownsCRDs) {
     await waitForCRD(repository, runner, `crd/${crd}`, component.timeout);
+  }
 }
 
 async function waitForTLSSecret(
@@ -168,7 +182,9 @@ async function waitForTLSSecret(
         [...base, "get", resource, "--output", `go-template=${template}`],
         { capture: true },
       );
-      if (result.stdout.trim() === "ready") return;
+      if (result.stdout.trim() === "ready") {
+        return;
+      }
     } catch (error) {
       lastError = error instanceof Error ? error.message : String(error);
     }
@@ -181,7 +197,9 @@ async function waitForTLSSecret(
 
 function timeoutMilliseconds(value: string): number {
   const match = value.match(/^(\d+)([smh])$/);
-  if (!match) return 10 * 60 * 1000;
+  if (!match) {
+    return 10 * 60 * 1000;
+  }
   const amount = Number(match[1]);
   return (
     amount * (match[2] === "h" ? 3600000 : match[2] === "m" ? 60000 : 1000)
@@ -217,8 +235,9 @@ async function waitForCRD(
           detail,
         ) ||
         Date.now() >= deadline
-      )
+      ) {
         throw error;
+      }
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
   }
@@ -250,7 +269,7 @@ export async function reconcileComponent(
         ],
         { capture: false },
       );
-    } else
+    } else {
       await runner.run(
         "helm",
         helmUpgradeArgs(repository, component).map((value) =>
@@ -260,6 +279,7 @@ export async function reconcileComponent(
         ),
         { capture: false, cwd: repository.root },
       );
+    }
     await afterApply?.();
     await waitFor(repository, runner, component);
   } catch (error) {
@@ -287,7 +307,9 @@ async function componentIsInstalled(
 ): Promise<boolean> {
   try {
     if (component.kind === "manifest") {
-      if (!component.ownsCRDs.length) return false;
+      if (!component.ownsCRDs.length) {
+        return false;
+      }
       for (const crd of component.ownsCRDs) {
         await runner.run(
           "kubectl",
@@ -344,10 +366,14 @@ async function ensureCluster(
     try {
       await assertExpectedCluster(repository, runner);
     } catch (error) {
-      if (!(error instanceof ClusterUnavailableError)) throw error;
+      if (!(error instanceof ClusterUnavailableError)) {
+        throw error;
+      }
       await clusterUp(repository, runner);
     }
-  } else await assertExpectedCluster(repository, runner);
+  } else {
+    await assertExpectedCluster(repository, runner);
+  }
 }
 
 export async function bootstrapControllers(
@@ -359,8 +385,9 @@ export async function bootstrapControllers(
     if (
       component.phase === "configuration" ||
       component.phase === "enforcement"
-    )
+    ) {
       continue;
+    }
     await reconcileIfNeeded(repository, runner, component);
   }
 }
@@ -371,15 +398,17 @@ export async function platformUp(
   tunnelDependencies: TunnelDependencies = {},
 ): Promise<void> {
   await bootstrapControllers(repository, runner);
-  if (repository.environment.provider === "minikube")
+  if (repository.environment.provider === "minikube") {
     await installLocalTrust(repository, runner);
+  }
   let tunnelStarted = false;
   for (const component of orderedComponents(repository.catalog)) {
     if (
       component.phase !== "configuration" &&
       component.phase !== "enforcement"
-    )
+    ) {
       continue;
+    }
     const createsGateway = component.readiness.some((resource) =>
       resource.startsWith("gateway/"),
     );
@@ -399,8 +428,9 @@ export async function platformUp(
       startTunnelAfterApply,
     );
   }
-  if (repository.environment.provider === "minikube" && !tunnelStarted)
+  if (repository.environment.provider === "minikube" && !tunnelStarted) {
     await startLocalTunnel(repository, runner, tunnelDependencies);
+  }
   await writePlatformState(repository, "ready");
 }
 
@@ -439,7 +469,7 @@ export async function platformStatus(
   for (const component of orderedComponents(repository.catalog)) {
     try {
       if (component.kind === "manifest") {
-        for (const crd of component.ownsCRDs)
+        for (const crd of component.ownsCRDs) {
           await runner.run(
             "kubectl",
             [
@@ -452,6 +482,7 @@ export async function platformStatus(
             ],
             { capture: true },
           );
+        }
       } else {
         const release = await runner.run(
           "helm",
@@ -510,7 +541,9 @@ export async function platformRender(
   const target = outputDirectory
     ? absolute(repository, outputDirectory)
     : undefined;
-  if (target) await mkdir(target, { recursive: true });
+  if (target) {
+    await mkdir(target, { recursive: true });
+  }
   for (const component of orderedComponents(repository.catalog)) {
     if (component.kind === "manifest") {
       const expanded = expandVersions(repository, component.source!);
@@ -540,10 +573,11 @@ export async function platformRender(
       ),
       { capture: true, cwd: repository.root },
     );
-    if (target)
+    if (target) {
       await writeFile(join(target, `${component.name}.yaml`), result.stdout, {
         mode: 0o600,
       });
+    }
     await runner.run(
       "kubectl",
       ["apply", "--dry-run=client", "--validate=false", "--filename", "-"],
@@ -556,8 +590,9 @@ export async function platformStop(
   repository: Repository,
   runner: Runner,
 ): Promise<void> {
-  if (repository.environment.provider === "minikube")
+  if (repository.environment.provider === "minikube") {
     await stopLocalTunnel(repository, runner);
+  }
   await clusterStop(repository, runner);
 }
 export async function platformDestroy(
@@ -565,7 +600,8 @@ export async function platformDestroy(
   runner: Runner,
   options: { yes: boolean; purgeData: boolean },
 ): Promise<void> {
-  if (repository.environment.provider === "minikube")
+  if (repository.environment.provider === "minikube") {
     await stopLocalTunnel(repository, runner);
+  }
   await clusterDestroy(repository, runner, options);
 }

@@ -62,26 +62,30 @@ test("app up verifies, installs, and waits for every workload deployment", async
   const runner: Runner = {
     async run(command, args) {
       calls.push({ command, args });
-      if (command === "helm" && args[0] === "status")
+      if (command === "helm" && args[0] === "status") {
         return {
           stdout: '{"info":{"status":"deployed"}}',
           stderr: "",
           code: 0,
         };
+      }
       if (
         command === "kubectl" &&
         args.some((arg) => arg.includes("spec.clusterIP"))
-      )
+      ) {
         return { stdout: "10.0.0.8", stderr: "", code: 0 };
-      if (command === "kubectl" && args.includes("--output=name"))
+      }
+      if (command === "kubectl" && args.includes("--output=name")) {
         return {
           stdout:
             "deployment/reference-api\ndeployment.apps/reference-worker\n",
           stderr: "",
           code: 0,
         };
-      if (command === "kubectl" && args.includes("namespace"))
+      }
+      if (command === "kubectl" && args.includes("namespace")) {
         return { stdout: "kube-system", stderr: "", code: 0 };
+      }
       return { stdout: "", stderr: "", code: 0 };
     },
   };
@@ -129,8 +133,9 @@ test("app down uninstalls the named workload release", async () => {
   const runner: Runner = {
     async run(command, args) {
       calls.push({ command, args });
-      if (command === "kubectl")
+      if (command === "kubectl") {
         return { stdout: "kube-system", stderr: "", code: 0 };
+      }
       return { stdout: "", stderr: "", code: 0 };
     },
   };
@@ -250,15 +255,18 @@ test("app up rejects an invalid application name before resolving chart paths", 
   };
   const runner: Runner = {
     async run(command, args) {
-      if (command === "minikube")
+      if (command === "minikube") {
         return { stdout: '{"Host":"Running"}', stderr: "", code: 0 };
-      if (command === "kubectl" && args.includes("jsonpath={.metadata.name}"))
+      }
+      if (command === "kubectl" && args.includes("jsonpath={.metadata.name}")) {
         return { stdout: "kube-system", stderr: "", code: 0 };
+      }
       if (
         command === "kubectl" &&
         args.some((arg) => arg.includes(".spec.clusterIP"))
-      )
+      ) {
         return { stdout: "10.0.0.8", stderr: "", code: 0 };
+      }
       return { stdout: "", stderr: "", code: 0 };
     },
   };
@@ -350,14 +358,16 @@ test("app status reports locked image provenance", async () => {
   const repository = { ...base, root };
   const runner: Runner = {
     async run(command, _args) {
-      if (command === "kubectl")
+      if (command === "kubectl") {
         return { stdout: "kube-system", stderr: "", code: 0 };
-      if (command === "helm")
+      }
+      if (command === "helm") {
         return {
           stdout: '{"info":{"status":"deployed"}}',
           stderr: "",
           code: 0,
         };
+      }
       return { stdout: "", stderr: "", code: 0 };
     },
   };
@@ -385,8 +395,9 @@ test("app status prefers the local image lock when present", async () => {
   );
   const runner: Runner = {
     async run(command) {
-      if (command === "kubectl")
+      if (command === "kubectl") {
         return { stdout: "kube-system", stderr: "", code: 0 };
+      }
       return {
         stdout: '{"info":{"status":"deployed"}}',
         stderr: "",

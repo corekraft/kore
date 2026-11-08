@@ -6,10 +6,12 @@ describe("platform safety boundaries", () => {
   it("does not start Minikube when the configured context identifies another cluster", async () => {
     const repository = await loadRepository("local");
     const run = vi.fn(async (command: string, args: readonly string[]) => {
-      if (command === "minikube" && args[0] === "status")
+      if (command === "minikube" && args[0] === "status") {
         return { stdout: '{"Host":"Running"}', stderr: "", code: 0 };
-      if (command === "kubectl")
+      }
+      if (command === "kubectl") {
         return { stdout: "wrong-cluster", stderr: "", code: 0 };
+      }
       return { stdout: "", stderr: "", code: 0 };
     });
 

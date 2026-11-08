@@ -10,9 +10,12 @@ class MismatchRunner implements Runner {
     _args: readonly string[],
     _options?: RunOptions,
   ): Promise<RunResult> {
-    if (command === "docker") return { stdout: "0.0.0", stderr: "", code: 0 };
-    if (command === "minikube" && _args[0] === "profile")
+    if (command === "docker") {
+      return { stdout: "0.0.0", stderr: "", code: 0 };
+    }
+    if (command === "minikube" && _args[0] === "profile") {
       return { stdout: `{"valid":[]}`, stderr: "", code: 0 };
+    }
     return { stdout: "0.0.0", stderr: "", code: 0 };
   }
 }
@@ -32,16 +35,20 @@ test("doctor distinguishes optional version warnings from required failures", as
 test("doctor reports unavailable tools, daemon failures, and ambiguous profiles", async () => {
   const runner: Runner = {
     async run(command, args) {
-      if (command === "docker" && args[0] === "info")
+      if (command === "docker" && args[0] === "info") {
         throw new Error("daemon is down");
-      if (command === "minikube" && args[0] === "profile")
+      }
+      if (command === "minikube" && args[0] === "profile") {
         return {
           stdout:
             '{"valid":[{"Name":"kore-local"},{"Config":{"Name":"kore-local"}}]}',
           stderr: "",
           code: 0,
         };
-      if (command === "tofu") throw new Error("not installed");
+      }
+      if (command === "tofu") {
+        throw new Error("not installed");
+      }
       return { stdout: "version v99.1.2", stderr: "", code: 0 };
     },
   };
@@ -71,10 +78,12 @@ test("doctor warns when Minikube profile listing fails and requires managed cred
   };
   const runner: Runner = {
     async run(command, args) {
-      if (command === "docker" && args[0] === "info")
+      if (command === "docker" && args[0] === "info") {
         return { stdout: "", stderr: "", code: 0 };
-      if (command === "minikube" && args[0] === "profile")
+      }
+      if (command === "minikube" && args[0] === "profile") {
         throw "profile command unavailable";
+      }
       return { stdout: "unknown version", stderr: "", code: 0 };
     },
   };

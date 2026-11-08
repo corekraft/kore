@@ -32,21 +32,26 @@ test("local trust installation ensures the target namespace exists", async () =>
       options?: RunOptions,
     ): Promise<RunResult> {
       calls.push({ command, args, ...(options ? { options } : {}) });
-      if (command === "minikube") return { stdout: "{}", stderr: "", code: 0 };
-      if (command === "kubectl" && args.includes("jsonpath={.metadata.name}"))
+      if (command === "minikube") {
+        return { stdout: "{}", stderr: "", code: 0 };
+      }
+      if (command === "kubectl" && args.includes("jsonpath={.metadata.name}")) {
         return { stdout: "kube-system", stderr: "", code: 0 };
-      if (command === "mkcert" && args[0] === "-CAROOT")
+      }
+      if (command === "mkcert" && args[0] === "-CAROOT") {
         return { stdout: "/tmp", stderr: "", code: 0 };
+      }
       if (
         command === "kubectl" &&
         args.includes("create") &&
         args.includes("secret")
-      )
+      ) {
         return {
           stdout: "apiVersion: v1\nkind: Secret\n",
           stderr: "",
           code: 0,
         };
+      }
       return { stdout: "", stderr: "", code: 0 };
     },
   };
@@ -117,11 +122,15 @@ test("trust installation fails closed when mkcert does not expose a CA root", as
   const repository = await loadRepository("local");
   const runner: Runner = {
     async run(command: string, args: readonly string[]): Promise<RunResult> {
-      if (command === "minikube") return { stdout: "{}", stderr: "", code: 0 };
-      if (command === "kubectl" && args.includes("jsonpath={.metadata.name}"))
+      if (command === "minikube") {
+        return { stdout: "{}", stderr: "", code: 0 };
+      }
+      if (command === "kubectl" && args.includes("jsonpath={.metadata.name}")) {
         return { stdout: "kube-system", stderr: "", code: 0 };
-      if (command === "mkcert" && args[0] === "-CAROOT")
+      }
+      if (command === "mkcert" && args[0] === "-CAROOT") {
         return { stdout: "  \n", stderr: "", code: 0 };
+      }
       return { stdout: "", stderr: "", code: 0 };
     },
   };

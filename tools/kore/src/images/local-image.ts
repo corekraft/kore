@@ -35,8 +35,9 @@ export function minikubeImagePublishArgs(
   clusterIp: string,
   repositoryPath: string,
 ): string[] {
-  if (!/^\d{1,3}(?:\.\d{1,3}){3}$/.test(clusterIp))
+  if (!/^\d{1,3}(?:\.\d{1,3}){3}$/.test(clusterIp)) {
     throw new Error("local registry has an invalid ClusterIP");
+  }
   const destination = `${clusterIp}:5000/${repositoryPath}`;
   return [
     "ssh",
@@ -51,10 +52,11 @@ export function imageDigestFromRegistryHead(
   status: number,
   headers: string,
 ): string {
-  if (status !== 200)
+  if (status !== 200) {
     throw new Error(
       `local registry manifest lookup failed with HTTP ${status}`,
     );
+  }
   const digests = [
     ...new Set(
       [
@@ -64,10 +66,11 @@ export function imageDigestFromRegistryHead(
       ].map((match) => match[1]),
     ),
   ];
-  if (digests.length !== 1 || !digests[0])
+  if (digests.length !== 1 || !digests[0]) {
     throw new Error(
       "local registry response did not include one valid manifest digest",
     );
+  }
   return digests[0];
 }
 
@@ -127,10 +130,11 @@ async function withLocalSigner<T>(
   const kubeContext = repository.environment.kubeContext;
   const state = join(repository.root, ".kore", "state");
   const legacy = join(repository.root, ".kore", "keys", "local");
-  if (await exists(legacy))
+  if (await exists(legacy)) {
     process.stderr.write(
       `legacy local signing key under ${legacy} is no longer used and can be deleted; the key now lives in the ${localSigningKeyNamespace}/${localSigningKeySecret} Secret for the cluster's lifetime\n`,
     );
+  }
   const kubeconfig = (
     await runner.run(
       "kubectl",
@@ -138,10 +142,11 @@ async function withLocalSigner<T>(
       { capture: true },
     )
   ).stdout;
-  if (/(?:-data|token|password)\s*:/.test(kubeconfig))
+  if (/(?:-data|token|password)\s*:/.test(kubeconfig)) {
     throw new Error(
       `kubeconfig context ${kubeContext} embeds credentials; reference certificate files instead so they are never copied to disk`,
     );
+  }
   const directory = await mkdtemp(join(tmpdir(), "kore-kubeconfig-"));
   try {
     const kubeconfigPath = join(directory, "config");
@@ -156,12 +161,13 @@ async function withLocalSigner<T>(
       secretArgs(kubeContext, "--ignore-not-found", "--output=name"),
       { capture: true },
     );
-    if (!present.stdout.trim())
+    if (!present.stdout.trim()) {
       await runner.run(
         "cosign",
         ["generate-key-pair", localSigningKeyReference],
         { capture: false, env },
       );
+    }
     const encoded = await runner.run(
       "kubectl",
       secretArgs(kubeContext, "--output=jsonpath={.data.cosign\\.pub}"),
@@ -174,10 +180,11 @@ async function withLocalSigner<T>(
       publicKey,
       Buffer.from(encoded.stdout.trim(), "base64").toString("utf8"),
     );
-    if (!(await exists(signingConfig)))
+    if (!(await exists(signingConfig))) {
       await runner.run("cosign", localSigningConfigArgs(signingConfig), {
         capture: false,
       });
+    }
     return await action({
       key: localSigningKeyReference,
       publicKey,
@@ -235,10 +242,11 @@ async function buildAndSign(
   );
   const clusterIp = registry.stdout.trim();
   const separator = entry.image.indexOf("/");
-  if (separator < 1 || !clusterIp)
+  if (separator < 1 || !clusterIp) {
     throw new Error(
       "local registry service or image repository path is unavailable",
     );
+  }
   const repositoryPath = entry.image
     .slice(separator + 1)
     .replace(/:[^/:]+$/, "");

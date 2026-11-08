@@ -56,10 +56,11 @@ export async function assertExpectedCluster(
     );
     return;
   }
-  if (environment.cluster.profile !== environment.kubeContext)
+  if (environment.cluster.profile !== environment.kubeContext) {
     throw new Error(
       `refusing unexpected profile/context pair: ${environment.cluster.profile} != ${environment.kubeContext}`,
     );
+  }
   try {
     await runner.run(
       "minikube",
@@ -85,10 +86,11 @@ export async function assertExpectedCluster(
     ],
     { capture: true },
   );
-  if (result.stdout.trim() !== "kube-system")
+  if (result.stdout.trim() !== "kube-system") {
     throw new Error(
       `context ${environment.kubeContext} did not identify the expected cluster`,
     );
+  }
 }
 
 export async function clusterUp(
@@ -96,12 +98,14 @@ export async function clusterUp(
   runner: Runner,
 ): Promise<void> {
   const { environment } = repository;
-  if (environment.provider !== "minikube")
+  if (environment.provider !== "minikube") {
     throw new Error(
       "cluster up only manages Minikube environments; provision managed clusters with OpenTofu",
     );
-  if (environment.cluster.profile !== environment.kubeContext)
+  }
+  if (environment.cluster.profile !== environment.kubeContext) {
     throw new Error("Minikube profile and expected context must match");
+  }
   await runner.run("minikube", clusterStartArgs(environment), {
     capture: false,
     cwd: repository.root,
@@ -144,8 +148,9 @@ export async function clusterStop(
   repository: Repository,
   runner: Runner,
 ): Promise<void> {
-  if (repository.environment.provider !== "minikube")
+  if (repository.environment.provider !== "minikube") {
     throw new Error("cluster stop is only available for Minikube environments");
+  }
   await assertExpectedCluster(repository, runner);
   await runner.run(
     "minikube",
@@ -206,7 +211,9 @@ export async function retainedResources(
     } catch (error) {
       // An API that is not installed cannot contain retained data; any other
       // failure (unreachable cluster, wrong context) must refuse the destroy.
-      if (!isResourceTypeMissing(error)) throw error;
+      if (!isResourceTypeMissing(error)) {
+        throw error;
+      }
     }
   }
   return [...new Set(retained)].sort();
@@ -241,8 +248,9 @@ async function purgeRetainedResources(
         !/doesn't have a resource type|the server doesn't have a resource type|no matches for kind/i.test(
           detail,
         )
-      )
+      ) {
         throw error;
+      }
     }
   }
 }
@@ -265,14 +273,20 @@ export async function hasVerifiedExport(
         await readFile(join(directory, checksumFile), "utf8")
       ).trim();
       const match = line.match(/^([a-f0-9]{64})(?:\s+\*?(.+))?$/i);
-      if (!match) continue;
+      if (!match) {
+        continue;
+      }
       const expected = match[1];
-      if (!expected) continue;
+      if (!expected) {
+        continue;
+      }
       const exportName =
         match[2]?.trim() || checksumFile.slice(0, -".sha256".length);
       const contents = await readFile(join(directory, exportName));
       const actual = createHash("sha256").update(contents).digest("hex");
-      if (actual.toLowerCase() === expected.toLowerCase()) return true;
+      if (actual.toLowerCase() === expected.toLowerCase()) {
+        return true;
+      }
     }
   } catch {
     return false;
@@ -285,33 +299,38 @@ export async function clusterDestroy(
   runner: Runner,
   options: { yes: boolean; purgeData: boolean },
 ): Promise<void> {
-  if (repository.environment.provider !== "minikube")
+  if (repository.environment.provider !== "minikube") {
     throw new Error(
       "cluster destroy is only available for Minikube environments",
     );
+  }
   let clusterVerified = true;
   try {
     await assertExpectedCluster(repository, runner);
   } catch (error) {
     clusterVerified = false;
-    if (!options.purgeData && !(await hasVerifiedExport(repository)))
+    if (!options.purgeData && !(await hasVerifiedExport(repository))) {
       throw new Error(
         `destroy blocked because retained data cannot be verified on the stopped/unreachable profile: ${error instanceof Error ? error.message : String(error)}; export data or use --purge-data`,
       );
+    }
   }
   const retained = clusterVerified
     ? await retainedResources(repository, runner)
     : [];
-  if (retained.length && !options.purgeData)
+  if (retained.length && !options.purgeData) {
     throw new Error(
       `destroy blocked by retained data:\n${retained.join("\n")}\nExport it or repeat with --purge-data`,
     );
-  if (!options.yes)
+  }
+  if (!options.yes) {
     throw new Error(
       "destruction requires --yes (and --purge-data when retained data exists)",
     );
-  if (options.purgeData && clusterVerified)
+  }
+  if (options.purgeData && clusterVerified) {
     await purgeRetainedResources(repository, runner);
+  }
   await runner.run(
     "minikube",
     [
