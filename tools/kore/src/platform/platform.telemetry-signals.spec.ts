@@ -63,3 +63,41 @@ test("the reference dashboard queries the metric name Prometheus actually stores
   assert.match(metric, /http_server_request_count_total/);
   assert.match(metric, /rate\(/);
 });
+
+test("every reference dashboard panel names the provisioned datasource for its signal", async () => {
+  // A panel without a datasource falls back to Grafana's default (Prometheus),
+  // which cannot run LogQL or TraceQL, so the logs and traces panels stay empty.
+  const repository = await loadRepository("local");
+  const grafana = await readFile(
+    join(repository.root, "infra/environments/local/values/grafana.yaml"),
+    "utf8",
+  );
+  const provisioned = new Map(
+    [...grafana.matchAll(/type: (\w+),\s+uid: (\w+),/g)].map(
+      ([, type, uid]) => [uid, type] as const,
+    ),
+  );
+  const dashboard = await readJson(
+    "infra/observability/config/files/dashboards/reference.json",
+  );
+  const expected: Record<string, string> = {
+    timeseries: "prometheus",
+    logs: "loki",
+    traces: "tempo",
+  };
+  for (const panel of dashboard.panels as Json[]) {
+    const signal = expected[panel["type"]];
+    assert.ok(signal, `panel ${panel["title"]} has a known type`);
+    for (const ref of [
+      panel["datasource"],
+      ...panel["targets"].map((t: Json) => t["datasource"]),
+    ]) {
+      assert.equal(ref?.type, signal, `${panel["title"]} datasource type`);
+      assert.equal(
+        provisioned.get(ref?.uid),
+        signal,
+        `${panel["title"]} uses a provisioned ${signal} uid`,
+      );
+    }
+  }
+});
