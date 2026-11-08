@@ -38,9 +38,20 @@ function keylessErrors(trust: Trust): string[] {
   ];
 }
 
-function keyErrors(trust: Trust): string[] {
+function keyErrors(trust: Trust, repository: Repository): string[] {
   const ref = trust.keyRef as Record<string, unknown> | undefined;
+  // Policy Controller only reads key Secrets from its own namespace.
+  const controllerNamespace = repository.catalog.components?.find(
+    (c) => c.name === "policy-controller",
+  )?.namespace;
   return [
+    ...(isText(ref?.namespace) &&
+    controllerNamespace !== undefined &&
+    ref.namespace !== controllerNamespace
+      ? [
+          `image trust: keyRef.namespace must be ${controllerNamespace}, the policy-controller namespace; Policy Controller cannot read key Secrets elsewhere. Publish a public-key-only Secret there (the local signer does this) and reference it`,
+        ]
+      : []),
     ...(isText(ref?.name) && isText(ref?.namespace)
       ? []
       : [
@@ -126,7 +137,9 @@ export function imageTrustErrors(repository: Repository): string[] {
   }
   return [
     ...regexps,
-    ...(trust.type === "keyless" ? keylessErrors(trust) : keyErrors(trust)),
+    ...(trust.type === "keyless"
+      ? keylessErrors(trust)
+      : keyErrors(trust, repository)),
     ...imageErrors(trust, repository),
   ];
 }

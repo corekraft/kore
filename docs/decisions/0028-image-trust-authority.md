@@ -43,6 +43,32 @@ workflow (keyless Cosign); local keeps its cluster-lifetime key.
 ## Consequences
 
 - Enforcement is not active; enrolling namespaces is the next step.
-- The local registry host and the public-key Secret location are open
-  (see the plan notes): the controller reads key Secrets from `cosign-system`.
+- The local registry host and the public-key Secret location were open here and
+  are settled in the refinement below.
 - The release workflow that signs by digest does not exist yet.
+
+## Refinement (2026-11-08): local public key and registry host
+
+A fresh `local up` failed: Policy Controller rejects `secretRef.namespace` outside
+its own namespace (`cosign-system`), and reads a key Secret that must hold exactly
+one data entry, while `kore-system/kore-local-signing-key` also holds the private
+key and password. Decisions:
+
+- The local signer server-side applies a public-key-only Secret
+  `cosign-system/kore-local-signing-pub` (single entry `cosign.pub`, field manager
+  `kore-signing`, labelled `app.kubernetes.io/managed-by: kore-signing`), streamed
+  through kubectl stdin. The private key is never copied and the policy never
+  references the original Secret.
+- `platformUp` ensures the key pair and this Secret right after Policy Controller
+  and local trust are ready, before the configuration phase, so
+  `kore-image-policy` (whose readiness waits only on the `ClusterImagePolicy`
+  object) never references a missing Secret.
+- `kore validate` rejects a `keyRef.namespace` other than the `policy-controller`
+  component's namespace.
+- Registry host: node container runtimes pull and cache by ClusterIP because they
+  cannot resolve cluster DNS, so the DNS name in the glob never matched what is
+  deployed. The local `oci-registry` Service is pinned to `10.96.0.50` (inside
+  Minikube's default service range, in the lower band Kubernetes keeps for static
+  assignment) through the environment overlay, and the glob is
+  `10.96.0.50:5000/**`. A different service CIDR needs both values changed.
+- Nothing is enrolled; enforcement is still off.

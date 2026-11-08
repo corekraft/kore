@@ -7,6 +7,10 @@ import { localSigningConfigArgs } from "./local-image-args.js";
 
 export const localSigningKeyNamespace = "kore-system";
 export const localSigningKeySecret = "kore-local-signing-key";
+// Policy Controller reads key Secrets from its own namespace and requires
+// exactly one data entry, so it gets a public-key-only copy (ADR 0028).
+export const localSigningPublicNamespace = "cosign-system";
+export const localSigningPublicSecret = "kore-local-signing-pub";
 const localSigningKeyReference = `k8s://${localSigningKeyNamespace}/${localSigningKeySecret}`;
 
 export interface LocalSigner {
@@ -91,23 +95,66 @@ async function ensureSigningKey(
   }
 }
 
-async function writePublicKey(
+async function readPublicKey(
   runner: Runner,
   kubeContext: string,
-  state: string,
 ): Promise<string> {
   const encoded = await runner.run(
     "kubectl",
     secretArgs(kubeContext, "--output=jsonpath={.data.cosign\\.pub}"),
     { capture: true },
   );
+  return encoded.stdout.trim();
+}
+
+async function writePublicKey(
+  publicKeyBase64: string,
+  state: string,
+): Promise<string> {
   const publicKey = join(state, "local-signing.pub");
   await mkdir(state, { recursive: true });
   await writeFile(
     publicKey,
-    Buffer.from(encoded.stdout.trim(), "base64").toString("utf8"),
+    Buffer.from(publicKeyBase64, "base64").toString("utf8"),
   );
   return publicKey;
+}
+
+// Only the public half is ever copied; the manifest is streamed through stdin.
+async function applyPublicSecret(
+  runner: Runner,
+  kubeContext: string,
+  publicKeyBase64: string,
+): Promise<void> {
+  await runner.run(
+    "kubectl",
+    [
+      "--context",
+      kubeContext,
+      "apply",
+      "--server-side",
+      "--field-manager=kore-signing",
+      "--force-conflicts",
+      "--filename=-",
+    ],
+    {
+      capture: true,
+      input: JSON.stringify({
+        apiVersion: "v1",
+        kind: "Secret",
+        metadata: {
+          name: localSigningPublicSecret,
+          namespace: localSigningPublicNamespace,
+          labels: {
+            "app.kubernetes.io/managed-by": "kore-signing",
+            "app.kubernetes.io/part-of": "kore-image-policy",
+          },
+        },
+        type: "Opaque",
+        data: { "cosign.pub": publicKeyBase64 },
+      }),
+    },
+  );
 }
 
 async function ensureSigningConfig(
@@ -123,16 +170,12 @@ async function ensureSigningConfig(
   return signingConfig;
 }
 
-// Cosign resolves k8s:// references through the kubeconfig's current context,
-// so the configured context is pinned with a minified, credential-free
-// kubeconfig that only lives for the duration of the signing call.
-export async function withLocalSigner<T>(
+async function withKeyPair<T>(
   repository: Repository,
   runner: Runner,
-  action: (signer: LocalSigner) => Promise<T>,
+  action: (env: NodeJS.ProcessEnv, publicKeyBase64: string) => Promise<T>,
 ): Promise<T> {
   const kubeContext = repository.environment.kubeContext;
-  const state = join(repository.root, ".kore", "state");
   await warnAboutLegacyKey(repository);
   const kubeconfig = await minifiedKubeconfig(runner, kubeContext);
   const directory = await mkdtemp(join(tmpdir(), "kore-kubeconfig-"));
@@ -145,7 +188,33 @@ export async function withLocalSigner<T>(
       COSIGN_PASSWORD: "",
     };
     await ensureSigningKey(runner, kubeContext, env, directory);
-    const publicKey = await writePublicKey(runner, kubeContext, state);
+    const publicKeyBase64 = await readPublicKey(runner, kubeContext);
+    await applyPublicSecret(runner, kubeContext, publicKeyBase64);
+    return await action(env, publicKeyBase64);
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+}
+
+/** Ensures the key pair and its public-key-only Secret for Policy Controller. */
+export async function ensureLocalSigningPublicKey(
+  repository: Repository,
+  runner: Runner,
+): Promise<void> {
+  await withKeyPair(repository, runner, async () => undefined);
+}
+
+// Cosign resolves k8s:// references through the kubeconfig's current context,
+// so the configured context is pinned with a minified, credential-free
+// kubeconfig that only lives for the duration of the signing call.
+export async function withLocalSigner<T>(
+  repository: Repository,
+  runner: Runner,
+  action: (signer: LocalSigner) => Promise<T>,
+): Promise<T> {
+  const state = join(repository.root, ".kore", "state");
+  return await withKeyPair(repository, runner, async (env, publicKeyBase64) => {
+    const publicKey = await writePublicKey(publicKeyBase64, state);
     const signingConfig = await ensureSigningConfig(runner, state);
     return await action({
       key: localSigningKeyReference,
@@ -153,7 +222,5 @@ export async function withLocalSigner<T>(
       signingConfig,
       env,
     });
-  } finally {
-    await rm(directory, { force: true, recursive: true });
-  }
+  });
 }

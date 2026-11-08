@@ -34,8 +34,8 @@ test("local trusts its local signing key and managed-example a pinned release wo
   const local = await loadRepository("local");
   assert.deepEqual(local.imageTrustValues?.["trust"], {
     type: "key",
-    keyRef: { name: "kore-local-signing-key", namespace: "kore-system" },
-    images: ["oci-registry.kore-registry.svc.cluster.local:5000/**"],
+    keyRef: { name: "kore-local-signing-pub", namespace: "cosign-system" },
+    images: ["10.96.0.50:5000/**"],
   });
   const managed = await loadRepository("managed-example");
   assert.deepEqual(
@@ -167,4 +167,35 @@ test("no namespace is opted into enforcement yet", async () => {
       );
     }
   }
+});
+
+test("a key reference outside the policy-controller namespace is rejected with the fix", async () => {
+  const repository = await withTrust("local", (trust) => ({
+    ...trust,
+    keyRef: { name: "kore-local-signing-pub", namespace: "kore-system" },
+  }));
+  await assert.rejects(validateRepository(repository), (error: Error) => {
+    assert.match(error.message, /keyRef\.namespace must be cosign-system/);
+    assert.match(error.message, /policy-controller/);
+    return true;
+  });
+});
+
+test("the local registry Service is pinned to the address the image policy glob names", async () => {
+  const repository = await loadRepository("local");
+  const overlay = JSON.parse(
+    await readFile(
+      join(
+        repository.root,
+        "infra/environments/local/values/oci-registry.yaml",
+      ),
+      "utf8",
+    ),
+  );
+  const trust = repository.imageTrustValues?.trust as { images: string[] };
+  assert.equal(overlay.service.clusterIP, "10.96.0.50");
+  assert.deepEqual(trust.images, [`${overlay.service.clusterIP}:5000/**`]);
+  assert.deepEqual(repository.environment.componentValues?.["oci-registry"], [
+    "infra/environments/local/values/oci-registry.yaml",
+  ]);
 });

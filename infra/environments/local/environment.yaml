@@ -39,6 +39,7 @@
         ["infra/environments/local/values/platform-config.yaml"],
       "kore-local-tls":
         ["infra/environments/local/values/platform-config.yaml"],
+      "oci-registry": ["infra/environments/local/values/oci-registry.yaml"],
       "kore-image-policy": ["infra/environments/local/values/image-policy.yaml"]
     }
 }

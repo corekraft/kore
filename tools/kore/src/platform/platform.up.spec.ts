@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
-import { test } from "vitest";
+import { test, vi } from "vitest";
+
+// Publishing the signing key is covered in platform.signing-key.spec.ts.
+vi.mock("../images/index.js", () => ({
+  ensureLocalSigningPublicKey: async () => undefined,
+}));
 import { loadRepository } from "../config/index.js";
 import { platformUp } from "./up.js";
 import { mkdtemp, readFile, rm } from "node:fs/promises";

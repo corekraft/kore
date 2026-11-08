@@ -4,5 +4,8 @@ image:
   digest: sha256:38907510915c3f1604c7e83d6ab602ab3020d092f73bdaed8696773693ff768c
 service:
   nodePort: 30500
+  # Optional fixed ClusterIP. Local pins one because nodes cannot resolve cluster
+  # DNS and the image policy glob must name the host pods are deployed with.
+  clusterIP: ""
 storage:
   size: 10Gi
