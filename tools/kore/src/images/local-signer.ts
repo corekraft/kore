@@ -70,6 +70,7 @@ async function ensureSigningKey(
   runner: Runner,
   kubeContext: string,
   env: NodeJS.ProcessEnv,
+  scratch: string,
 ): Promise<void> {
   const present = await runner.run(
     "kubectl",
@@ -83,6 +84,8 @@ async function ensureSigningKey(
       {
         capture: false,
         env,
+        // cosign writes cosign.pub into its cwd; keep it out of the user's tree.
+        cwd: scratch,
       },
     );
   }
@@ -141,7 +144,7 @@ export async function withLocalSigner<T>(
       KUBECONFIG: kubeconfigPath,
       COSIGN_PASSWORD: "",
     };
-    await ensureSigningKey(runner, kubeContext, env);
+    await ensureSigningKey(runner, kubeContext, env, directory);
     const publicKey = await writePublicKey(runner, kubeContext, state);
     const signingConfig = await ensureSigningConfig(runner, state);
     return await action({

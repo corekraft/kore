@@ -21,6 +21,11 @@ Usage:
 (claims and volumes) that remains; with --json it always prints
 { name, retained: [...], warnings? }.
 
+"trust install" runs "mkcert -install" (which may prompt for your password)
+only when the mkcert CA is not already trusted on the host; on macOS it skips
+the install when the CA files exist and "security verify-cert" accepts the
+root, and on other hosts it always runs it.
+
 Every mutation requires --environment and is recorded in
 .kore/state/journal/<environment>.jsonl. Status, doctor, validate, render, and
 journal are read-only and default to local.`;
