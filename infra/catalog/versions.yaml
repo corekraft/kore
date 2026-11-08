@@ -32,8 +32,8 @@
     "opentelemetry-collector": "0.178.2"
   },
   "images": {
-    "oci-registry": "registry:3.0.0",
-    "opa-envoy": "openpolicyagent/opa:1.20.2-envoy",
+    "oci-registry": "registry:3.1.2",
+    "opa-envoy": "openpolicyagent/opa:1.22.2-envoy",
     "reference": "kore/reference:0.1.0"
   }
 }

@@ -308,3 +308,28 @@ test("local tool catalog matches the supported Docker CLI line", async () => {
   const repository = await loadRepository("local");
   assert.equal(repository.versions.tools.docker, "29.7.2");
 });
+
+test("chart image defaults and the reference base image match the catalog pins", async () => {
+  const root = await findRoot();
+  const repository = await loadRepository("local");
+  const registry = await readFile(
+    join(root, "infra/charts/oci-registry/values.yaml"),
+    "utf8",
+  );
+  const opaAuthorizer = await readFile(
+    join(root, "infra/charts/opa-authorizer/values.yaml"),
+    "utf8",
+  );
+  const dockerfile = await readFile(
+    join(root, "apps/reference/Dockerfile"),
+    "utf8",
+  );
+  assert.equal(repository.versions.images["oci-registry"], "registry:3.1.2");
+  assert.match(registry, /tag: 3\.1\.2\b/);
+  assert.equal(
+    repository.versions.images["opa-envoy"],
+    "openpolicyagent/opa:1.22.2-envoy",
+  );
+  assert.match(opaAuthorizer, /tag: 1\.22\.2-envoy\b/);
+  assert.match(dockerfile, /^FROM node:26\.13\.0-alpine3\.24$/m);
+});
