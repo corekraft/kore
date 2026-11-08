@@ -183,6 +183,12 @@ object per line, appended under the environment lock. `.kore/` is gitignored.
 - Checks on the merged tree: `npm --prefix tools/kore run check`,
   `mise run test`, `mise run test-hooks` (195 pass), `mise run test-opa`,
   `mise run validate`, and `mise run kb-check -- --strict` all exit 0.
+- After merge, the new `delta.mjs` hook reported a failed `app restart
+reference` in the real local journal. A CLI test sent an unknown action
+  through `main`, and the action was only checked inside the journaled block,
+  so every test run wrote to `.kore/state/journal/local.jsonl`. One table of
+  mutating actions now drives both `--environment` and a check before the lock
+  (`79df752`). The polluted file, which held only test entries, was removed.
 - Lesson: an implementer's report is not evidence. Check that the claimed code
   is wired into the real dependencies, not only into test fakes.
 - Incident: under the pre-commit hook, an early version of the delta fixture
