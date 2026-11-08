@@ -1,0 +1,3 @@
+# The trust authority is owned by the environment overlay
+# (infra/environments/<env>/values/image-policy.yaml); kore validate checks it.
+trust: {}

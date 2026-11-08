@@ -1,0 +1,9 @@
+{
+  "trust":
+    {
+      "type": "key",
+      "keyRef":
+        { "name": "kore-local-signing-pub", "namespace": "cosign-system" },
+      "images": ["10.96.0.50:5000/**"]
+    }
+}

@@ -6,6 +6,9 @@ metadata:
   labels: {app.kubernetes.io/managed-by: Helm}
 spec:
   type: NodePort
+  {{- with .Values.service.clusterIP }}
+  clusterIP: {{ . | quote }}
+  {{- end }}
   selector: {app.kubernetes.io/name: oci-registry}
   ports:
     - name: registry

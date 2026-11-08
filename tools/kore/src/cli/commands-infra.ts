@@ -4,6 +4,8 @@ import {
   clusterStatus,
   clusterStop,
   clusterUp,
+  exportRetainedData,
+  restoreRetainedData,
 } from "../cluster/index.js";
 import {
   bootstrapControllers,
@@ -114,4 +116,35 @@ export async function appCommand(context: CommandContext): Promise<number> {
     },
     `app ${context.action ?? ""} ${name}`,
   );
+}
+
+export async function dataCommand(context: CommandContext): Promise<number> {
+  const { repository, parsed, json } = context;
+  return await mutateAction(context, {
+    export: async (_context, runner) =>
+      print(
+        await exportRetainedData(repository, runner, {
+          namespace: stringFlag(parsed, "namespace") ?? "reference",
+        }),
+        json,
+      ),
+    restore: async (_context, runner) => {
+      const from = stringFlag(parsed, "from");
+      if (!from) {
+        throw new Error(
+          "data restore requires --from <artifact file name in .kore/exports/<environment>>",
+        );
+      }
+      const identity = stringFlag(parsed, "identity");
+      print(
+        await restoreRetainedData(repository, runner, {
+          from,
+          ...(identity ? { identity } : {}),
+          overwriteData: boolFlag(parsed, "overwrite-data"),
+          yes: boolFlag(parsed, "yes"),
+        }),
+        json,
+      );
+    },
+  });
 }

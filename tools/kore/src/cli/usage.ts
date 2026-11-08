@@ -10,6 +10,8 @@ Usage:
   kore app up <name> --environment <name>
   kore app down <name> --environment <name> [--json]
   kore app status <name> [--environment <name>] [--json]
+  kore data export --environment <name> [--namespace reference] [--json]
+  kore data restore --environment <name> --from <file> [--identity <age-key-file>] [--overwrite-data --yes] [--json]
   kore local up|down --environment local [--prune [--purge-data]]
   kore tunnel start|stop --environment local
   kore tunnel status [--environment local] [--json]
@@ -19,6 +21,19 @@ Usage:
 
 "cluster destroy" refuses while data labeled platform.kore.dev/retention=Retain
 (databases) exists; --purge-data deletes it.
+
+"data export" dumps each retained CloudNativePG database with pg_dump in the
+primary, encrypts the stream with age to the recipient that .sops.yaml names for
+the environment, and writes only ciphertext plus a manifest (digest, contents,
+environment, time) to .kore/exports/<environment>/. It refuses while the
+recipient is the placeholder, and while retained volumes exist that the dump
+does not cover. "cluster destroy" accepts an unreachable profile only when such
+an export still matches its manifest.
+
+"data restore" loads an export into the matching cluster of a fresh profile. It
+verifies the digest, decrypts with "age --decrypt --identity" (--identity or
+SOPS_AGE_KEY_FILE; Kore never reads the key), and refuses a database that
+already holds tables unless --overwrite-data --yes replaces it.
 
 "app down" uninstalls only the workload release and reports the retained data
 (claims and volumes) that remains; with --json it always prints

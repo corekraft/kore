@@ -1,5 +1,5 @@
 import type { Component, Repository } from "../config/index.js";
-import type { Runner } from "../runtime/index.js";
+import { CommandError, type Runner } from "../runtime/index.js";
 import { helmUpgradeArgs, manifestSource, withAbsoluteChart } from "./helm.js";
 import {
   assertOwnedCrdsExist,
@@ -7,6 +7,64 @@ import {
   helmReleaseStatus,
 } from "./probe.js";
 import { waitFor } from "./readiness.js";
+
+const neverDeployed = new Set(["uninstalling", "pending-install", "failed"]);
+
+/**
+ * Clears a release whose first install never reached `deployed` (for example a
+ * run interrupted mid-install or mid-rollback), which `helm upgrade --install`
+ * otherwise refuses with "has no deployed releases". A release that was ever
+ * deployed is left for Helm to upgrade or roll back. Returns whether it
+ * uninstalled anything.
+ */
+export async function recoverUndeployedRelease(
+  repository: Repository,
+  runner: Runner,
+  component: Component,
+): Promise<boolean> {
+  const scope = [
+    "--namespace",
+    component.namespace,
+    "--kube-context",
+    repository.environment.kubeContext,
+  ];
+  let stdout: string;
+  try {
+    ({ stdout } = await runner.run(
+      "helm",
+      ["history", component.name, ...scope, "--output", "json"],
+      { capture: true },
+    ));
+  } catch (error) {
+    if (
+      error instanceof CommandError &&
+      /release: not found/.test(error.result.stderr)
+    ) {
+      return false;
+    }
+    throw error;
+  }
+  const revisions = JSON.parse(stdout) as { status?: string }[];
+  if (
+    revisions.length === 0 ||
+    !revisions.every(({ status }) => neverDeployed.has(status ?? ""))
+  ) {
+    return false;
+  }
+  await runner.run(
+    "helm",
+    [
+      "uninstall",
+      component.name,
+      ...scope,
+      "--wait",
+      "--timeout",
+      component.timeout,
+    ],
+    { capture: false },
+  );
+  return true;
+}
 
 async function applyComponent(
   repository: Repository,
@@ -30,15 +88,29 @@ async function applyComponent(
     );
     return;
   }
-  await runner.run(
-    "helm",
-    withAbsoluteChart(
-      repository,
-      component,
-      helmUpgradeArgs(repository, component),
-    ),
-    { capture: false, cwd: repository.root },
-  );
+  const upgrade = () =>
+    runner.run(
+      "helm",
+      withAbsoluteChart(
+        repository,
+        component,
+        helmUpgradeArgs(repository, component),
+      ),
+      { capture: false, cwd: repository.root },
+    );
+  try {
+    await upgrade();
+  } catch (error) {
+    // The upgrade output streams to the terminal, so the error cannot say why;
+    // the history check alone decides whether a never-deployed release is in the way.
+    if (!(error instanceof CommandError)) {
+      throw error;
+    }
+    if (!(await recoverUndeployedRelease(repository, runner, component))) {
+      throw error;
+    }
+    await upgrade();
+  }
 }
 
 export async function reconcileComponent(

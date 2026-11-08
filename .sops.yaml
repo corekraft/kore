@@ -1,5 +1,5 @@
 creation_rules:
   - path_regex: infra/environments/local/secrets/.*\.enc\.yaml$
     encrypted_regex: '^(data|stringData)$'
-    age: AGE-RECIPIENT-MUST-BE-CONFIGURED
+    age: age12mqechtl4xrs0mtl9ase7ayup36t8ad7f3ut85v7hgcnwm9f0p6sgg8hrx
 

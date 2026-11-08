@@ -55,6 +55,19 @@ async function loadJSON<T>(path: string): Promise<T> {
   }
 }
 
+// The environment overlay of the image policy owns the trust authority. A
+// missing file is reported by validation, not here.
+async function loadImageTrustValues(
+  root: string,
+  environment: Environment,
+): Promise<Record<string, unknown> | undefined> {
+  const path = environment.componentValues?.["kore-image-policy"]?.[0];
+  if (!path || !(await exists(join(root, path)))) {
+    return undefined;
+  }
+  return loadJSON<Record<string, unknown>>(join(root, path));
+}
+
 export async function loadRepository(
   environmentName = "local",
   start?: string,
@@ -68,7 +81,15 @@ export async function loadRepository(
       join(root, "infra/environments", environmentName, "environment.yaml"),
     ),
   ]);
-  const repository = { root, versions, seeds, catalog, environment };
+  const imageTrustValues = await loadImageTrustValues(root, environment);
+  const repository = {
+    root,
+    versions,
+    seeds,
+    catalog,
+    environment,
+    imageTrustValues,
+  };
   await validateRepository(repository);
   return repository;
 }

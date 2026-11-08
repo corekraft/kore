@@ -5,6 +5,7 @@ import {
   ClusterUnavailableError,
   clusterUp,
 } from "../cluster/index.js";
+import { ensureLocalSigningPublicKey } from "../images/index.js";
 import type { Runner } from "../runtime/index.js";
 import { reconcileIfNeeded } from "./reconcile.js";
 
@@ -39,5 +40,10 @@ export async function bootstrapControllers(
       continue;
     }
     await reconcileIfNeeded(repository, runner, component);
+  }
+  if (repository.environment.provider === "minikube") {
+    // Policy Controller is ready; kore-image-policy (configuration phase)
+    // references this public-key Secret, so it must exist first (ADR 0028).
+    await ensureLocalSigningPublicKey(repository, runner);
   }
 }

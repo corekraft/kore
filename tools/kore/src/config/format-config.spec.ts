@@ -25,3 +25,15 @@ for (const file of [
     );
   });
 }
+
+test("the formatter never rewrites SOPS-encrypted documents", async () => {
+  const { getFileInfo } = await import("prettier");
+  const path = resolve(
+    root,
+    "infra/environments/local/secrets/sops-canary.enc.yaml",
+  );
+  const info = await getFileInfo(path, {
+    ignorePath: resolve(root, ".prettierignore"),
+  });
+  assert.equal(info.ignored, true);
+});

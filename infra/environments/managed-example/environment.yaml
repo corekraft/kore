@@ -10,6 +10,7 @@
   "componentValues": {
     "otel-collector":["infra/environments/managed-example/values/otel-collector.yaml"],
     "kore-platform-config":["infra/environments/managed-example/values/platform-config.yaml"],
-    "kore-local-tls":["infra/environments/managed-example/values/platform-config.yaml"]
+    "kore-local-tls":["infra/environments/managed-example/values/platform-config.yaml"],
+    "kore-image-policy":["infra/environments/managed-example/values/image-policy.yaml"]
   }
 }

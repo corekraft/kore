@@ -276,7 +276,12 @@
         "chart": "tempo",
         "version": "tempo",
         "ownsCRDs": [],
-        "dependencies": ["opentelemetry-operator", "kore-storage", "kore-observability-config"],
+        "dependencies":
+          [
+            "opentelemetry-operator",
+            "kore-storage",
+            "kore-observability-config"
+          ],
         "timeout": "15m",
         "readiness": ["statefulset/tempo"]
       },
@@ -330,7 +335,7 @@
       },
       {
         "name": "opa-authorizer",
-        "phase": "core",
+        "phase": "configuration",
         "namespace": "opa-system",
         "kind": "local-chart",
         "chart": "infra/charts/opa-authorizer",
@@ -370,7 +375,7 @@
       },
       {
         "name": "kore-postgresql-api",
-        "phase": "core",
+        "phase": "configuration",
         "namespace": "crossplane-system",
         "kind": "manifest",
         "source": "infra/apis/postgresql",
@@ -451,6 +456,19 @@
         "dependencies": ["cert-manager"],
         "timeout": "10m",
         "readiness": ["certificate/kore-local", "secret/kore-local-tls"]
+      },
+      {
+        "name": "kore-image-policy",
+        "phase": "configuration",
+        "namespace": "cosign-system",
+        "kind": "local-chart",
+        "chart": "infra/charts/image-policy",
+        "version": "local",
+        "ownsCRDs": [],
+        "dependencies": ["policy-controller", "oci-registry"],
+        "timeout": "5m",
+        "readiness":
+          ["clusterimagepolicy.policy.sigstore.dev/kore-platform-images"]
       },
       {
         "name": "kore-platform-config",

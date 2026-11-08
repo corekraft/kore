@@ -1,0 +1,2 @@
+# SOPS documents carry a MAC over their content; only sops may rewrite them.
+*.enc.yaml

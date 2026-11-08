@@ -35,6 +35,16 @@ export const clusterModule = () => ({
   ),
   clusterStop: vi.fn(async () => void dispatch.push("clusterStop")),
   clusterUp: vi.fn(async () => void dispatch.push("clusterUp")),
+  exportRetainedData: vi.fn(async (_repo, _runner, options) => {
+    dispatch.push(`exportRetainedData:${options.namespace}`);
+    return { exports: [] };
+  }),
+  restoreRetainedData: vi.fn(async (_repo, _runner, options) => {
+    dispatch.push(
+      `restoreRetainedData:${options.from}:${options.identity}:${options.overwriteData}:${options.yes}`,
+    );
+    return { restored: true, cluster: "pg", database: "app" };
+  }),
 });
 
 export const configModule = () => ({
