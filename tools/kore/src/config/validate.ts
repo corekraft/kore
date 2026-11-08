@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { exists } from "./files.js";
+import { seedErrors } from "./seeds.js";
 import { orderedComponents } from "./order.js";
 import type {
   Catalog,
@@ -239,6 +240,7 @@ export async function validateRepository(
     ...dependencyErrors(components, names),
     ...unknownOverlayErrors(environment, names),
     ...cycleErrors(catalog),
+    ...(await seedErrors(repository)),
     ...(
       await Promise.all(
         components.map((component) =>

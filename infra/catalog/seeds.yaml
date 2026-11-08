@@ -1,0 +1,42 @@
+{
+  "$schema": "./schemas/seeds.schema.json",
+  "seeds":
+    [
+      {
+        "image": "registry:3.1.2@sha256:38907510915c3f1604c7e83d6ab602ab3020d092f73bdaed8696773693ff768c",
+        "catalogImage": "oci-registry",
+        "component": "oci-registry",
+        "reason": "The internal registry is the first image admitted; nothing can serve or verify an image before it runs, so it is pulled from Docker Hub by digest.",
+        "evidence":
+          {
+            "method": "docker-hub-digest",
+            "source": "Docker Hub library/registry tag 3.1.2 resolves to this index digest (hub.docker.com/v2/repositories/library/registry/tags/3.1.2); Docker Official Image, no cosign signature published (cosign verify: no signatures found).",
+            "checked": "2026-11-08"
+          }
+      },
+      {
+        "image": "ghcr.io/sigstore/policy-controller/policy-controller:v0.13.1@sha256:0bcd60beb93f4427c29cf3a669743caf58490e98ded4380c33c09f092734a6ab",
+        "catalogImage": "policy-controller",
+        "component": "policy-controller",
+        "reason": "The signature verifier cannot verify its own admission webhook image; it starts before any ClusterImagePolicy exists.",
+        "evidence":
+          {
+            "method": "cosign-keyless",
+            "source": "cosign verify --certificate-oidc-issuer https://token.actions.githubusercontent.com --certificate-identity-regexp 'https://github.com/sigstore/policy-controller/': subject https://github.com/sigstore/policy-controller/.github/workflows/release.yaml@refs/tags/v0.13.1, Rekor entry verified.",
+            "checked": "2026-11-08"
+          }
+      },
+      {
+        "image": "cgr.dev/chainguard/kubectl:latest-dev@sha256:3562a8854a81a77e39eb34cd87106345d1122432f88d74ea2dd4c9595883c033",
+        "catalogImage": "policy-controller-kubectl",
+        "component": "policy-controller",
+        "reason": "The Policy Controller chart's lease-cleanup hook Job runs this image during install and uninstall, before the verifier is ready.",
+        "evidence":
+          {
+            "method": "cosign-keyless",
+            "source": "cosign verify --certificate-oidc-issuer https://token.actions.githubusercontent.com --certificate-identity-regexp 'https://github.com/chainguard-images/images/': subject https://github.com/chainguard-images/images/.github/workflows/release.yaml@refs/heads/main, Rekor entry verified.",
+            "checked": "2026-11-08"
+          }
+      }
+    ]
+}
