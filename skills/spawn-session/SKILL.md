@@ -8,7 +8,10 @@ description: Use when asked to start, verify with, or hand off to another Claude
 The installed `herdr` binary is the authority for syntax; run `herdr --skill` once if its skill is not in context.
 
 1. **Check you are inside Herdr:** `test "${HERDR_ENV:-}" = 1`. If not, say so and stop.
-2. **Split beside the caller, keeping focus:** `herdr pane split --current --direction right --cwd "$PWD" --no-focus`. Read the id from `.result.pane.pane_id`.
+2. **Keep the layout: main session on the left, spawned sessions stacked in one column on the right.** Only the first spawned pane splits horizontally; every later pane splits that column vertically. Always pass `--no-focus` so focus stays on the caller, and read the id from `.result.pane.pane_id`.
+   - No spawned pane open yet: `herdr pane split --current --direction right --cwd "$PWD" --no-focus`.
+   - Otherwise, split the bottom-most spawned pane down: `herdr pane split <last-pane-id> --direction down --cwd "$PWD" --no-focus`.
+   - Sessions that run in parallel and edit code each get their own worktree (`git worktree add -b <branch> <scratchpad>/wt-<subject> HEAD`, then `npm ci` in `tools/kore`), passed as `--cwd`, so builds and edits never collide. Merge their branches, then remove the worktrees.
 3. **Pick the model for the role**, by exact ID (aliases drift):
 
    | Role                                                                        | Model               |
@@ -20,8 +23,8 @@ The installed `herdr` binary is the authority for syntax; run `herdr --skill` on
    The main session is the Opus orchestrator: it does the thinking, design, and final judgment itself. Minimize Opus elsewhere; spawn it only for the last row, and say why. Prefer Haiku whenever the task leaves no decisions open.
 
 4. **Name it after its subject**, in the domain's own words: `image-trust-reader`, `gateway-tls-verifier`, `postgresql-api-fixer`. Never use letters, ordinals, or plan step numbers (`reader-a`, `verifier-2`, `step8-verifier`); the name alone must tell the user what the pane is about. Pass the model after `--`: `herdr agent start gateway-tls-verifier --kind claude --pane <id> -- --model claude-sonnet-5-5`. A fresh pane can answer `agent_pane_busy` until its shell is ready; retry for a few seconds. Confirm the model in `herdr agent read <name>` (the status line names it).
-5. **Talk to it:** `herdr agent prompt <name> "<brief>" --wait --timeout <ms>`, then `herdr agent read <name>`. For a slash command, `herdr pane send-text <id> "/clear"`, then `herdr agent send-keys <name> enter`.
-6. **Wait on long work** for a line only the task prints when done (`herdr pane wait-output --regex '<summary pattern>' <id>`), never for a word that may already be on screen. The brief itself is on screen, so anchor the marker to its own line: `--regex '(?m)^\s*RESULT: (pass|miss)\s*$'`.
+5. **Talk to it:** `herdr agent prompt <name> "<brief>" --wait --until working --timeout <ms>` and check the reply says `working`; `--timeout` without `--wait` is rejected, so never discard the prompt's output. Then `herdr agent read <name>`. Text sitting in a pane's input box after a turn (such as `commit this`) is Claude Code's suggested prompt, not the user's. For a slash command, `herdr pane send-text <id> "/clear"`, then `herdr agent send-keys <name> enter`.
+6. **Wait on long work** with `herdr agent wait <name> --until idle --timeout <ms>` in the background, then read its result line; or wait for a line only the task prints when done (`herdr pane wait-output --regex '<summary pattern>' <id>`), never for a word that may already be on screen. The brief itself is on screen, so anchor the marker to its own line: `--regex '(?m)^\s*RESULT: (pass|miss)\s*$'`.
 
 Ask yourself:
 
