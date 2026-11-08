@@ -29,7 +29,7 @@ Markdown file is the source; update both together.
 | **Static frontends, small backends**             | Frontends are static builds hosted anywhere static. Each one gets a small, stateless backend for frontend (BFF) that holds its secrets and scales horizontally.         | [ADR 0009](decisions/0009-encrypted-secrets-through-external-secrets.md), [ADR 0006](decisions/0006-istio-ambient-gateway-api.md)                                                                                    |
 | **Organizations are tenants**                    | An organization is one tenant. It can hold sub-organizations (an umbrella of companies), and each one hosts its own services under its own domains.                     | New: tenancy API                                                                                                                                                                                                     |
 | **Every dependency, scoped to the organization** | Object storage, a durable message bus, document, relational, and key-value stores are claims against platform APIs, isolated by organization.                           | [ADR 0008](decisions/0008-crossplane-postgresql-platform-api.md), [ADR 0003](decisions/0003-separate-claims-and-retain-data.md)                                                                                      |
-| **A developer portal out of the box**            | Backstage and Argo CD come installed and wired to the tenancy model: each organization sees its own catalog and delivers its services from git.                         | New: portal, GitOps delivery                                                                                                                                                                                         |
+| **A developer portal out of the box**            | Every tenant gets its own Backstage and Argo CD, wired to the tenancy model and Keycloak: each organization sees its own catalog and delivers its services from git.    | New: portal, GitOps delivery                                                                                                                                                                                         |
 | **Business and developer platform**              | Business users manage companies, members, domains, and usage. Developers ship, observe, and operate services. Both views read the same model.                           | New: human identity, usage                                                                                                                                                                                           |
 | **Observed from the first request**              | Logs, metrics, and traces from every service, data store, and platform component reach org-scoped backends with no setup. Dashboards and alerts come with each service. | [ADR 0010](decisions/0010-opentelemetry-collector-ingestion.md), [ADR 0019](decisions/0019-telemetry-pipeline-wiring.md)                                                                                             |
 | **Secure and verified by default**               | Signed digests only, mesh identity, mutual TLS, policy, and encrypted secrets come with every service. A tenant cannot opt out.                                         | [ADR 0005](decisions/0005-release-automation-signed-image-trust.md), [ADR 0007](decisions/0007-workload-identity-and-layered-authorization.md), [ADR 0017](decisions/0017-gatekeeper-policy-families-audit-first.md) |
@@ -332,9 +332,13 @@ What a service gets without writing any instrumentation:
 
 ## The Portal: Backstage and Argo CD Out of the Box
 
-The platform installs, configures, and upgrades its developer portal and its
-delivery tool like any other component. Organizations use Kore through them
-without a terminal, and each user sees only their own organizations.
+Every tenant root gets its own Backstage and its own Argo CD, composed by the
+`Organization` API, and the platform organization gets a pair for operators
+([ADR 0041](decisions/0041-backstage-and-argo-cd-per-tenant.md)). People sign
+in through Keycloak, whose groups mirror the organization tree
+([ADR 0040](decisions/0040-keycloak-human-identity.md)). Organizations use Kore
+through them without a terminal, and each user sees only their own
+organizations.
 
 ### Backstage
 
@@ -348,8 +352,12 @@ without a terminal, and each user sees only their own organizations.
 - **Plugins show the running service.** The Kubernetes and Argo CD plugins show
   rollout and sync per environment, TechDocs publishes each service's docs, and
   links lead to its dashboards.
-- **Scoped by organization.** Permission policies key on the organization, so
-  each user sees their organization's tree and nothing outside it.
+- **One per tenant, scoped by organization.** Each tenant's Backstage shows
+  only that tenant, and permission policies key on the sub-organization groups
+  in the token, so each user sees their part of the tree.
+- **Reads clusters as the user.** The Kubernetes plugin uses the user's own
+  token so Kubernetes RBAC applies. A plugin that calls another system with
+  shared credentials is enabled only once it is scoped to the tenant.
 - **The business view is a Kore plugin.** Organizations, members, domains, and
   usage are pages Backstage does not ship, built as a plugin on the same model.
 
@@ -358,17 +366,19 @@ without a terminal, and each user sees only their own organizations.
 - **Delivers tenant services from git.** Tenant code and charts live in the
   tenant's own repositories. An ApplicationSet creates an Application for each
   service environment from the registrations in Kore's desired state.
+- **One per tenant, namespace-scoped.** Each tenant's Argo CD can deploy only
+  into that tenant's service namespaces, never into another tenant or
+  cluster-scoped resources.
 - **An AppProject per organization.** Each project limits which repositories
   an organization deploys from, which namespaces it deploys to, and which kinds
-  of resources it may create.
+  of resources it may create, with RBAC keyed to the organization's group.
 - **Still deploys only what was verified.** Argo CD syncs digest references,
   and image admission still rejects anything not signed by release automation
   ([ADR 0005](decisions/0005-release-automation-signed-image-trust.md)).
-- **A new owner needs an ADR.** Plan 1 deferred GitOps, and today Helm and the
-  catalog own every release ([ADR 0002](decisions/0002-tool-responsibility-boundaries.md),
-  [ADR 0011](decisions/0011-catalog-owned-releases-and-versions.md)). Giving
-  Argo CD tenant workloads, while bootstrap keeps the platform, changes that
-  split, so it is recorded before it is built.
+- **Owns tenant workloads, not the platform.** Argo CD owns each tenant
+  service's workload release, refining ADR 0002 and ADR 0011 for tenant
+  workloads only. Platform components stay with bootstrap, Helm, and the
+  catalog.
 
 ### What Each View Shows
 
@@ -390,9 +400,10 @@ Principles for the portal:
   in the repository. Backstage reads cluster and repository state, and each
   change it makes becomes a reviewed change to desired state that Argo CD or
   `kore` then applies, never a direct edit to the cluster.
-- **Run as a platform service.** Backstage and Argo CD are owned by the
-  platform's own organization, which is the first tenant, and get the same
-  identity, policy, and telemetry as every other service.
+- **Run like any other service.** Each tenant's Backstage and Argo CD get hosts
+  under the tenant's service base, such as `backstage.apps.corekraft.ca`, a
+  PostgreSQL claim, quotas, identity, policy, and telemetry like every other
+  service.
 - **Same model as the CLI.** `kore` and Backstage read and propose the same
   objects, so both report the same thing.
 
@@ -415,9 +426,9 @@ What exists or is in flight today, and what the vision adds.
 | Golden-path templates (static frontend, Kotlin BFF built with Jib)        | New                                                                                  |
 | Static frontend hosting contract                                          | New                                                                                  |
 | Horizontal autoscaling (metrics source, HPA defaults)                     | New                                                                                  |
-| Human identity and single sign-on, with organizations                     | New                                                                                  |
-| Developer portal: Backstage with Kore plugins                             | New                                                                                  |
-| GitOps delivery of tenant services: Argo CD                               | New, deferred in [Plan 1](../infra/plans/1-initialize.md#deferred-tooling) until now |
+| Human identity and single sign-on: Keycloak with groups per organization  | New                                                                                  |
+| Developer portal: a Backstage per tenant with Kore plugins                | New                                                                                  |
+| GitOps delivery of tenant services: an Argo CD per tenant                 | New, deferred in [Plan 1](../infra/plans/1-initialize.md#deferred-tooling) until now |
 | Object storage (S3 API)                                                   | New                                                                                  |
 | Durable message bus (Kafka)                                               | New, deferred in Plan 1 until now                                                    |
 | Document store (MongoDB protocol)                                         | New                                                                                  |
@@ -483,15 +494,16 @@ questions keep their numbers and link to their ADR.
 3. **Sharing.** Decided: owner grants within a tenant, parents can block, and
    only operators grant across tenants
    ([ADR 0039](decisions/0039-service-sharing-by-owner-grant.md)).
-4. **Argo CD's ownership boundary.** Argo CD delivers tenant services from
-   git. Does it also take over platform components after bootstrap, and how
-   does that refine ADR 0002 and ADR 0011, which give the job to Helm and the
-   catalog today?
-5. **Human identity.** Which identity provider holds people and their
-   organizations? Candidates include Zitadel, which models organizations
-   natively, and Keycloak with its organizations feature.
-6. **Backstage tenancy.** One Backstage with permission policies keyed to
-   organizations, or one instance per tenant?
+4. **Argo CD for platform components.** Each tenant's Argo CD owns its tenant
+   workloads ([ADR 0041](decisions/0041-backstage-and-argo-cd-per-tenant.md)).
+   Should a platform Argo CD also take over platform components after
+   bootstrap, replacing Helm and the catalog for them?
+5. **Human identity.** Decided: Keycloak, one realm, an organization per tenant
+   root, and nested groups per sub-organization owned by the `Organization` API
+   ([ADR 0040](decisions/0040-keycloak-human-identity.md)).
+6. **Backstage tenancy.** Decided: one Backstage and one namespace-scoped Argo
+   CD per tenant root, scoped inside by organization
+   ([ADR 0041](decisions/0041-backstage-and-argo-cd-per-tenant.md)).
 7. **Default static host.** GitHub Pages, object storage behind the Gateway, or
    an in-cluster static server, and which is the default per environment?
 8. **BFF runtime.** Measure the Jib JVM image on GraalVM, with the Java agent

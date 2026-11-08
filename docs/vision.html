@@ -849,9 +849,9 @@
           <article class="tile">
             <h3>A developer portal out of the box</h3>
             <p>
-              Backstage and Argo CD come installed and wired to the tenancy
-              model: each organization sees its own catalog and delivers from
-              git.
+              Every tenant gets its own Backstage and Argo CD, wired to the
+              tenancy model and Keycloak: each organization sees its own catalog
+              and delivers from git.
             </p>
             <div class="chips">
               <span class="pill new">New: portal, GitOps</span>
@@ -1773,13 +1773,20 @@
           <span class="eyebrow">The portal</span>
           <h2 id="portal">Backstage and Argo CD, out of the box</h2>
           <p class="lede">
-            The platform installs, configures, and upgrades its developer portal
-            and its delivery tool like any other component. Organizations use
-            Kore through them without a terminal, and each user sees only their
-            own organizations. Backstage reads cluster and repository state, and
-            every change it makes becomes a reviewed change to desired state
-            that Argo CD or <code>kore</code> applies, never a direct edit to
-            the cluster.
+            Every tenant root gets its own Backstage and its own Argo CD,
+            composed by the <code>Organization</code> API, and the platform
+            organization gets a pair for operators (<a
+              href="https://github.com/corekraft/kore/blob/main/docs/decisions/0041-backstage-and-argo-cd-per-tenant.md"
+              >ADR 0041</a
+            >). People sign in through Keycloak, whose groups mirror the
+            organization tree (<a
+              href="https://github.com/corekraft/kore/blob/main/docs/decisions/0040-keycloak-human-identity.md"
+              >ADR 0040</a
+            >). Organizations use Kore through them without a terminal, and each
+            user sees only their own organizations. Backstage reads cluster and
+            repository state, and every change it makes becomes a reviewed
+            change to desired state that Argo CD or <code>kore</code> applies,
+            never a direct edit to the cluster.
           </p>
         </div>
         <div class="split">
@@ -1803,9 +1810,15 @@
                 docs, and links lead to dashboards.
               </li>
               <li>
-                <strong>Scoped by organization.</strong> Permission policies key
-                on the organization, so each user sees their tree and nothing
-                outside it.
+                <strong>One per tenant, scoped by organization.</strong>
+                Each tenant's Backstage shows only that tenant; permission
+                policies key on the sub-organization groups in the token.
+              </li>
+              <li>
+                <strong>Reads clusters as the user.</strong> The Kubernetes
+                plugin uses the user's token so Kubernetes RBAC applies; a
+                plugin with shared credentials is enabled only once it is scoped
+                to the tenant.
               </li>
               <li>
                 <strong>The business view is a Kore plugin</strong> for
@@ -1823,9 +1836,15 @@
                 registrations in Kore's desired state.
               </li>
               <li>
+                <strong>One per tenant, namespace-scoped.</strong> Each tenant's
+                Argo CD deploys only into that tenant's service namespaces,
+                never into another tenant or cluster-scoped resources.
+              </li>
+              <li>
                 <strong>An AppProject per organization</strong> limits which
                 repositories it deploys from, which namespaces it deploys to,
-                and which kinds of resources it may create.
+                and which kinds of resources it may create, with RBAC keyed to
+                the organization's group.
               </li>
               <li>
                 <strong>Still deploys only what was verified.</strong> Argo CD
@@ -1836,16 +1855,10 @@
                 >).
               </li>
               <li>
-                <strong>A new owner needs an ADR.</strong> Plan 1 deferred
-                GitOps, and Helm and the catalog own every release today (<a
-                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0002-tool-responsibility-boundaries.md"
-                  >ADR 0002</a
-                >,
-                <a
-                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0011-catalog-owned-releases-and-versions.md"
-                  >ADR 0011</a
-                >). Handing Argo CD tenant workloads is recorded before it is
-                built.
+                <strong>Owns tenant workloads, not the platform.</strong> It
+                owns each tenant service's workload release, refining ADR 0002
+                and ADR 0011 for tenant workloads only; platform components stay
+                with bootstrap, Helm, and the catalog.
               </li>
             </ul>
           </div>
@@ -1999,7 +2012,10 @@
                 <td><span class="pill new">New</span></td>
               </tr>
               <tr>
-                <td>Human identity and single sign-on, with organizations</td>
+                <td>
+                  Human identity and single sign-on: Keycloak with groups per
+                  organization
+                </td>
                 <td><span class="pill new">New</span></td>
               </tr>
               <tr>
@@ -2009,11 +2025,15 @@
                 <td><span class="pill new">New</span></td>
               </tr>
               <tr>
-                <td>Developer portal: Backstage with Kore plugins</td>
+                <td>
+                  Developer portal: a Backstage per tenant with Kore plugins
+                </td>
                 <td><span class="pill new">New</span></td>
               </tr>
               <tr>
-                <td>GitOps delivery of tenant services: Argo CD</td>
+                <td>
+                  GitOps delivery of tenant services: an Argo CD per tenant
+                </td>
                 <td>
                   <span class="pill new"
                     >New, deferred in Plan 1 until now</span
@@ -2234,30 +2254,38 @@
           </li>
           <li>
             <div>
-              <strong>Argo CD's ownership boundary</strong
+              <strong>Argo CD for platform components</strong
               ><span
-                >Argo CD delivers tenant services from git. Does it also take
-                over platform components after bootstrap, and how does that
-                refine ADR 0002 and ADR 0011?</span
+                >Each tenant's Argo CD owns its tenant workloads (ADR 0041).
+                Should a platform Argo CD also take over platform components
+                after bootstrap, replacing Helm and the catalog for them?</span
               >
             </div>
           </li>
-          <li>
+          <li class="decided">
             <div>
               <strong>Human identity</strong
               ><span
-                >Which identity provider holds people and their organizations?
-                Zitadel models organizations natively; Keycloak has an
-                organizations feature.</span
+                >Keycloak, one realm, an organization per tenant root, and
+                nested groups per sub-organization owned by the Organization
+                API.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0040-keycloak-human-identity.md"
+                >Decided · ADR 0040</a
               >
             </div>
           </li>
-          <li>
+          <li class="decided">
             <div>
               <strong>Backstage tenancy</strong
               ><span
-                >One Backstage with permission policies keyed to organizations,
-                or one instance per tenant?</span
+                >One Backstage and one namespace-scoped Argo CD per tenant root,
+                scoped inside by organization.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0041-backstage-and-argo-cd-per-tenant.md"
+                >Decided · ADR 0041</a
               >
             </div>
           </li>
