@@ -33,6 +33,34 @@ export async function resolveCharts(
   };
 }
 
+/**
+ * `kore app up` is the single owner of an application namespace and its mesh
+ * enrollment (ADR 0025). Helm's `--create-namespace` cannot label, so the
+ * namespace is applied here and no release creates it.
+ */
+export async function enrollNamespace(
+  repository: Repository,
+  runner: Runner,
+  name: string,
+): Promise<void> {
+  await runner.run(
+    "kubectl",
+    [
+      "--context",
+      repository.environment.kubeContext,
+      "apply",
+      "--server-side",
+      "--field-manager=kore-app",
+      "--filename",
+      "-",
+    ],
+    {
+      capture: true,
+      input: `apiVersion: v1\nkind: Namespace\nmetadata:\n  name: ${name}\n  labels:\n    istio.io/dataplane-mode: ambient\n`,
+    },
+  );
+}
+
 export async function installResources(
   repository: Repository,
   runner: Runner,

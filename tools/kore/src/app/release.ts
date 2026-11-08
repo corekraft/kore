@@ -15,7 +15,6 @@ export function releaseArgs(
     chartPath,
     "--namespace",
     name,
-    "--create-namespace",
     "--kube-context",
     repository.environment.kubeContext,
     "--wait",

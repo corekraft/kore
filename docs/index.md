@@ -61,6 +61,7 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0019-telemetry-pipeline-wiring.md`](decisions/0019-telemetry-pipeline-wiring.md) — gateway Collector plus node agent, config chart owns rules and dashboards, metric attribute allowlist. Read when changing telemetry wiring.
 - [`docs/decisions/0020-postgresql-api-scoped-rbac-status-and-retention.md`](decisions/0020-postgresql-api-scoped-rbac-status-and-retention.md) — refines 0008: scoped Crossplane Secret access, projected database status, labeled retained PVCs, app down reports retained data. Read when changing the PostgreSQL API.
 - [`docs/decisions/0021-render-redaction-and-portability-rendering.md`](decisions/0021-render-redaction-and-portability-rendering.md) — Portability renders app charts with defaults only; rendered platform output redacts Secret values. Read when changing render or portability checks.
+- [`docs/decisions/0025-application-namespace-ambient-enrollment.md`](decisions/0025-application-namespace-ambient-enrollment.md) — refines 0017: `kore app up` owns application namespaces and labels them ambient; Gatekeeper audits it. Read when changing namespace creation or mesh enrollment.
 
 ## Reference
 
