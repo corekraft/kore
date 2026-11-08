@@ -312,3 +312,64 @@ test("several repeated phrases from the same messages are one correction, not se
   assert.equal(corrections[0].sessions, 2);
   assert.equal(corrections[0].evidence.length, 2);
 });
+
+test("stdout that only resembles an error is not taken as the failure summary", () => {
+  const failure = (id, output) => [
+    JSON.stringify({
+      type: "assistant",
+      timestamp: "2026-11-03T00:00:00.000Z",
+      message: { content: [{ type: "tool_use", id, name: "Bash", input: {} }] },
+    }),
+    JSON.stringify({
+      type: "user",
+      timestamp: "2026-11-03T00:00:00.000Z",
+      message: {
+        content: [
+          {
+            type: "tool_result",
+            tool_use_id: id,
+            is_error: true,
+            content: output,
+          },
+        ],
+      },
+    }),
+  ];
+  const text = [
+    ...failure("y1", "Exit code 1\nname: add-command"),
+    ...failure(
+      "y2",
+      "Exit code 1\nimport { doctor, doctorFailed } from './x';",
+    ),
+    ...failure(
+      "y3",
+      "Exit code 1\n- [x] A large lint or type-error output is bounded",
+    ),
+    ...failure("y4", "Exit code 1\n# Notes on error handling"),
+    ...failure("y5", "Exit code 1\nexport const failure = 1;"),
+    ...failure("y6", "Exit code 1\n| error | count |"),
+  ].join("\n");
+  const { failures } = scan([{ id: "s", text }], options);
+  assert.deepEqual(failures, [
+    { tool: "Bash", error: "Exit code 1", count: 6 },
+  ]);
+});
+
+test("whole-word keywords and shell-reported lines still count as errors", () => {
+  assert.equal(
+    summarizeError("Exit code 1\nbuild failed"),
+    "Exit code 1: build failed",
+  );
+  assert.equal(
+    summarizeError("Exit code 1\n3 failures"),
+    "Exit code 1: N failures",
+  );
+  assert.equal(
+    summarizeError("Exit code 2\nbash: foo: command not found"),
+    "Exit code 2: bash: foo: command not found",
+  );
+  assert.equal(
+    summarizeError("Exit code 1\nsh: 1: oops"),
+    "Exit code 1: sh: N: oops",
+  );
+});

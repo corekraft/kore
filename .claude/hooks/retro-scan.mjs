@@ -49,12 +49,14 @@ export function parseTranscript(id, text) {
 }
 
 const ERROR_WORDS =
-  /error|fail|fatal|not found|no such|denied|cannot|invalid|refused|no matches/i;
-const TOOL_PREFIX = /^(\(eval\):\d+|[A-Za-z_][\w.-]*): /;
+  /\b(errors?|fail(ed|ure|ures)?|fatal|not found|no such|denied|cannot|invalid|refused|no matches)\b/i;
+const SHELL_PREFIX = /^(\(eval\):\d+:|zsh:|bash:|sh:)/;
+const NOT_OUTPUT_ERROR = /^(- |#|import |export |\|)/;
 
-/** Whether a line of command output reads as an error rather than stdout. */
+/** Whether a line of command output reads as an error rather than stdout, Markdown, or code. */
 const looksLikeError = (line) =>
-  ERROR_WORDS.test(line) || TOOL_PREFIX.test(line);
+  !NOT_OUTPUT_ERROR.test(line) &&
+  (ERROR_WORDS.test(line) || SHELL_PREFIX.test(line));
 
 /**
  * Reduce an error to a stable, short summary: the first line (plus a shell
