@@ -8,6 +8,7 @@
   "secrets": {"storeName":"platform-secrets","sourceNamespace":"external"},
   "telemetry": {"otlpEndpoint":"http://otel-collector-opentelemetry-collector.observability.svc:4318"},
   "componentValues": {
+    "otel-collector":["infra/environments/managed-example/values/otel-collector.yaml"],
     "kore-platform-config":["infra/environments/managed-example/values/platform-config.yaml"],
     "kore-local-tls":["infra/environments/managed-example/values/platform-config.yaml"]
   }

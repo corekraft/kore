@@ -1,0 +1,9 @@
+# Prometheus rule files, loaded by the prometheus release through
+# server.extraConfigmapMounts. The PrometheusRule CRD is not installed.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kore-prometheus-rules
+  namespace: {{ .Release.Namespace }}
+data:
+{{ (.Files.Glob "files/rules/*.yaml").AsConfig | indent 2 }}

@@ -1,0 +1,161 @@
+{
+  "mode": "daemonset",
+  "fullnameOverride": "otel-agent",
+  "image": {
+    "repository": "otel/opentelemetry-collector-contrib"
+  },
+  "resources": {
+    "requests": {
+      "cpu": "50m",
+      "memory": "128Mi"
+    },
+    "limits": {
+      "cpu": "250m",
+      "memory": "256Mi"
+    }
+  },
+  "ports": {
+    "otlp": {
+      "enabled": false
+    },
+    "otlp-http": {
+      "enabled": false
+    },
+    "jaeger-compact": {
+      "enabled": false
+    },
+    "jaeger-thrift": {
+      "enabled": false
+    },
+    "jaeger-grpc": {
+      "enabled": false
+    },
+    "zipkin": {
+      "enabled": false
+    }
+  },
+  "clusterRole": {
+    "create": true,
+    "rules": [
+      {
+        "apiGroups": [
+          ""
+        ],
+        "resources": [
+          "nodes/stats"
+        ],
+        "verbs": [
+          "get"
+        ]
+      }
+    ]
+  },
+  "extraEnvs": [
+    {
+      "name": "K8S_NODE_NAME",
+      "valueFrom": {
+        "fieldRef": {
+          "fieldPath": "spec.nodeName"
+        }
+      }
+    }
+  ],
+  "extraVolumes": [
+    {
+      "name": "varlogpods",
+      "hostPath": {
+        "path": "/var/log/pods"
+      }
+    }
+  ],
+  "extraVolumeMounts": [
+    {
+      "name": "varlogpods",
+      "mountPath": "/var/log/pods",
+      "readOnly": true
+    }
+  ],
+  "config": {
+    "receivers": {
+      "jaeger": null,
+      "zipkin": null,
+      "otlp": null,
+      "prometheus": null,
+      "filelog": {
+        "include": [
+          "/var/log/pods/*/*/*.log"
+        ],
+        "exclude": [
+          "/var/log/pods/observability_otel-*/*/*.log"
+        ],
+        "start_at": "end",
+        "include_file_path": true,
+        "include_file_name": false,
+        "operators": [
+          {
+            "type": "container",
+            "id": "container-parser"
+          }
+        ]
+      },
+      "kubeletstats": {
+        "auth_type": "serviceAccount",
+        "endpoint": "https://${env:K8S_NODE_NAME}:10250",
+        "collection_interval": "30s",
+        "metric_groups": [
+          "node"
+        ]
+      }
+    },
+    "processors": {
+      "memory_limiter": {
+        "check_interval": "1s",
+        "limit_mib": 200
+      },
+      "batch": {
+        "send_batch_size": 512,
+        "timeout": "5s"
+      }
+    },
+    "exporters": {
+      "debug": null,
+      "otlp/gateway": {
+        "endpoint": "otel-collector.observability.svc:4317",
+        "tls": {
+          "insecure": true
+        }
+      }
+    },
+    "service": {
+      "pipelines": {
+        "logs": null,
+        "metrics": null,
+        "traces": null,
+        "logs/pods": {
+          "receivers": [
+            "filelog"
+          ],
+          "processors": [
+            "memory_limiter",
+            "batch"
+          ],
+          "exporters": [
+            "otlp/gateway"
+          ]
+        },
+        "metrics/kubelet": {
+          "receivers": [
+            "kubeletstats"
+          ],
+          "processors": [
+            "memory_limiter",
+            "batch"
+          ],
+          "exporters": [
+            "otlp/gateway"
+          ]
+        }
+      }
+    }
+  }
+}

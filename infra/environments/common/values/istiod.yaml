@@ -11,3 +11,7 @@ meshConfig:
         port: 9191
         failOpen: false
 
+    - name: otel-tracing
+      opentelemetry:
+        service: otel-collector.observability.svc.cluster.local
+        port: 4317

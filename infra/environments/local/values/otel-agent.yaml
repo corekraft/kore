@@ -1,0 +1,9 @@
+{
+  "config": {
+    "receivers": {
+      "kubeletstats": {
+        "insecure_skip_verify": true
+      }
+    }
+  }
+}

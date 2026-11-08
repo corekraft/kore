@@ -1,0 +1,20 @@
+{
+  "config": {
+    "processors": {
+      "resource/environment": {
+        "attributes": [
+          {
+            "key": "k8s.cluster.name",
+            "value": "kore-local",
+            "action": "upsert"
+          },
+          {
+            "key": "deployment.environment.name",
+            "value": "local",
+            "action": "upsert"
+          }
+        ]
+      }
+    }
+  }
+}

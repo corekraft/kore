@@ -1,0 +1,64 @@
+{
+  "groups": [
+    {
+      "name": "kore.platform",
+      "rules": [
+        {
+          "alert": "KoreCollectorDown",
+          "expr": "absent(up{job=\"otel-collector-self\"} == 1)",
+          "for": "5m",
+          "labels": {
+            "severity": "critical"
+          },
+          "annotations": {
+            "summary": "OpenTelemetry Collector is not being scraped or is down"
+          }
+        },
+        {
+          "alert": "KoreCollectorQueueNearCapacity",
+          "expr": "max by (exporter) (otelcol_exporter_queue_size / otelcol_exporter_queue_capacity) > 0.8",
+          "for": "10m",
+          "labels": {
+            "severity": "warning"
+          },
+          "annotations": {
+            "summary": "OpenTelemetry Collector exporter queue is above 80 percent of capacity"
+          }
+        },
+        {
+          "alert": "KoreCollectorDroppedData",
+          "expr": "sum(rate(otelcol_processor_dropped_spans_total[5m]) or rate(otelcol_processor_dropped_metric_points_total[5m]) or rate(otelcol_processor_dropped_log_records_total[5m])) > 0",
+          "for": "10m",
+          "labels": {
+            "severity": "warning"
+          },
+          "annotations": {
+            "summary": "OpenTelemetry Collector is dropping telemetry"
+          }
+        },
+        {
+          "alert": "KoreCollectorRefusingData",
+          "expr": "sum(rate(otelcol_processor_refused_spans_total[5m]) or rate(otelcol_processor_refused_metric_points_total[5m]) or rate(otelcol_processor_refused_log_records_total[5m])) > 0",
+          "for": "10m",
+          "labels": {
+            "severity": "warning"
+          },
+          "annotations": {
+            "summary": "OpenTelemetry Collector is refusing telemetry because memory is limited"
+          }
+        },
+        {
+          "alert": "KoreCollectorExporterFailure",
+          "expr": "sum(rate(otelcol_exporter_send_failed_spans_total[5m]) or rate(otelcol_exporter_send_failed_metric_points_total[5m]) or rate(otelcol_exporter_send_failed_log_records_total[5m])) > 0",
+          "for": "5m",
+          "labels": {
+            "severity": "critical"
+          },
+          "annotations": {
+            "summary": "OpenTelemetry Collector exporter is failing"
+          }
+        }
+      ]
+    }
+  ]
+}

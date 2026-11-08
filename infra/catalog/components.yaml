@@ -222,6 +222,18 @@
         "readiness": ["deployment/opentelemetry-operator"]
       },
       {
+        "name": "kore-observability-config",
+        "phase": "observability",
+        "namespace": "observability",
+        "kind": "local-chart",
+        "chart": "infra/observability/config",
+        "version": "local",
+        "ownsCRDs": [],
+        "dependencies": ["kore-storage", "istiod"],
+        "timeout": "2m",
+        "readiness": []
+      },
+      {
         "name": "prometheus",
         "phase": "observability",
         "namespace": "observability",
@@ -230,7 +242,7 @@
         "chart": "prometheus",
         "version": "prometheus",
         "ownsCRDs": [],
-        "dependencies": ["opentelemetry-operator", "kore-storage"],
+        "dependencies": ["opentelemetry-operator", "kore-storage", "kore-observability-config"],
         "timeout": "15m",
         "readiness": ["deployment/prometheus-server"]
       },
@@ -269,7 +281,7 @@
         "chart": "grafana",
         "version": "grafana",
         "ownsCRDs": [],
-        "dependencies": ["prometheus", "loki", "tempo", "kore-storage"],
+        "dependencies": ["prometheus", "loki", "tempo", "kore-storage", "kore-observability-config"],
         "timeout": "10m",
         "readiness": ["deployment/grafana"]
       },
@@ -286,6 +298,20 @@
         "timeout": "10m",
         "values": ["infra/observability/collector/values.yaml"],
         "readiness": ["deployment/otel-collector"]
+      },
+      {
+        "name": "otel-agent",
+        "phase": "observability",
+        "namespace": "observability",
+        "kind": "helm",
+        "repository": "https://open-telemetry.github.io/opentelemetry-helm-charts",
+        "chart": "opentelemetry-collector",
+        "version": "opentelemetry-collector",
+        "ownsCRDs": [],
+        "dependencies": ["otel-collector"],
+        "timeout": "10m",
+        "values": ["infra/observability/agent/values.yaml"],
+        "readiness": ["daemonset/otel-agent"]
       },
       {
         "name": "opa-authorizer",
