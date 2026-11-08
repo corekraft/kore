@@ -269,13 +269,13 @@ test("cli: finishes well under the 200 ms budget", () => {
   assert.ok(performance.now() - start < 200, "hook startup exceeded 200 ms");
 });
 
-test("unquoted-glob: an unquoted --include or --exclude glob warns, since zsh fails the whole command when it matches nothing", () => {
+test("unquoted-glob: an unquoted --include or --exclude glob blocks, since zsh fails the whole command when it matches nothing", () => {
   for (const command of [
     "grep -rn foo --include=*.ts tools/kore/src",
     "grep -rn foo src --exclude=*.spec.ts | head",
   ]) {
     const result = bash(command);
-    assert.equal(result.action, "warn", command);
+    assert.equal(result.action, "block", command);
     assert.equal(result.rule, "unquoted-glob", command);
     assert.match(result.message, /--(include|exclude)='\*/, command);
   }
@@ -287,16 +287,78 @@ test("unquoted-glob: quoted globs and globless flags pass", () => {
     'grep -rn foo "--include=*.ts" src',
     "grep -rn foo --include=app.ts src",
     "echo '--include=*.ts'",
+    "python3 - <<'EOF'\nrun('grep x --include=*.ts')\nEOF",
   ]) {
     assert.equal(bash(command).action, "allow", command);
   }
 });
 
-test("unquoted-glob: a blocking rule in the same command still blocks", () => {
-  blocked(
-    bash("grep -rn x --include=*.ts . && kubectl get pods"),
-    "kubectl-context",
-  );
+test("bare-glob: an unquoted * or ? argument warns, since zsh fails the whole command when it matches nothing", () => {
+  for (const [command, word] of [
+    ["ls infra/*.yaml", "infra/*.yaml"],
+    ["find . -name *.spec.ts", "*.spec.ts"],
+    [
+      "curl -s http://localhost:8080/health?full=1",
+      "http://localhost:8080/health?full=1",
+    ],
+    ["echo $(ls src/*.ts)", "src/*.ts"],
+  ]) {
+    const result = bash(command);
+    assert.equal(result.action, "warn", command);
+    assert.equal(result.rule, "bare-glob", command);
+    assert.ok(
+      result.message.includes(`'${word}'`),
+      `${command}: ${result.message}`,
+    );
+  }
+});
+
+test("bare-glob: quoted, escaped, parameter-expansion, and heredoc text pass", () => {
+  for (const command of [
+    "ls 'infra/*.yaml'",
+    'find . -name "*.spec.ts"',
+    "expr 2 \\* 3",
+    'echo "${name%.*}"',
+    "echo ${name%.*}",
+    "echo $((2*3))",
+    "git commit -F - <<'EOF'\n* a bullet line\nEOF",
+    "git status",
+  ]) {
+    assert.equal(bash(command).action, "allow", command);
+  }
+});
+
+test("equals-word: an unquoted word starting with = warns, since zsh expands it as a command lookup", () => {
+  for (const [command, word] of [
+    ["echo =====", "====="],
+    ['[ "$a" == "$b" ] && echo same', "=="],
+  ]) {
+    const result = bash(command);
+    assert.equal(result.action, "warn", command);
+    assert.equal(result.rule, "equals-word", command);
+    assert.ok(
+      result.message.includes(`'${word}'`),
+      `${command}: ${result.message}`,
+    );
+  }
+});
+
+test("equals-word: quoted words, assignments, lone =, and [[ ]] tests pass", () => {
+  for (const command of [
+    "echo '====='",
+    'echo "=="',
+    "FOO=bar node x.mjs",
+    '[ "$a" = "$b" ]',
+    '[[ "$a" == "$b" ]] && echo same',
+    "git log --format==%H",
+  ]) {
+    assert.equal(bash(command).action, "allow", command);
+  }
+});
+
+test("bare-glob and equals-word: a blocking rule in the same command still blocks", () => {
+  blocked(bash("ls src/*.ts && kubectl get pods"), "kubectl-context");
+  blocked(bash("echo ==== && kubectl get pods"), "kubectl-context");
 });
 
 const HISTORY = ".claude/evals/history.jsonl";

@@ -389,18 +389,104 @@ function checkFile(tool, input, relative, ctx) {
   return null;
 }
 
+// Heredoc bodies are data, not shell words: scan only up to the line that
+// opens the first heredoc.
+function shellText(command) {
+  const start = command.indexOf("<<");
+  if (start < 0) return command;
+  const newline = command.indexOf("\n", start);
+  return newline < 0 ? command : command.slice(0, newline);
+}
+
 // An unquoted glob in --include/--exclude: zsh expands it and, when nothing
-// matches, fails the whole command before it runs. Audit mode (warn).
+// matches, fails the whole command before it runs. Blocks: every warning in
+// the 2026-11-08 retrospective was heeded and none was overridden.
 const UNQUOTED_GLOB = /(?:^|\s)--(include|exclude)=([^\s'"]*\*[^\s'"]*)/;
 
 function unquotedGlob(command) {
-  const match = UNQUOTED_GLOB.exec(command);
+  const match = UNQUOTED_GLOB.exec(shellText(command));
   if (!match) return null;
-  return warn(
+  return block(
     "unquoted-glob",
     `--${match[1]}=${match[2]} is unquoted; zsh fails the whole command when the glob matches no file. ` +
       `Instead, quote it: --${match[1]}='${match[2]}'.`,
   );
+}
+
+const WORD_BREAK = new Set([
+  " ",
+  "\t",
+  "\n",
+  ";",
+  "&",
+  "|",
+  "(",
+  ")",
+  "<",
+  ">",
+]);
+
+/** Raw shell words, noting an unquoted * or ? and an unquoted leading =. */
+function rawWords(command) {
+  const words = [];
+  let word = null;
+  let quote = null;
+  const start = () => (word ??= { text: "", glob: false, equals: false });
+  const end = () => {
+    if (word) words.push(word);
+    word = null;
+  };
+  for (let i = 0; i < command.length; i++) {
+    const char = command[i];
+    if (quote) {
+      if (char === quote) quote = null;
+      else if (char === "\\" && quote === '"') word.text += command[++i] ?? "";
+      else word.text += char;
+    } else if (char === "'" || char === '"') {
+      start();
+      quote = char;
+    } else if (char === "\\") {
+      start().text += command[++i] ?? "";
+    } else if (WORD_BREAK.has(char)) {
+      end();
+    } else {
+      start();
+      if (char === "*" || char === "?") word.glob = true;
+      if (
+        char === "=" &&
+        word.text === "" &&
+        /[^\s]/.test(command[i + 1] ?? " ")
+      )
+        word.equals = true;
+      word.text += char;
+    }
+  }
+  end();
+  return words;
+}
+
+// zsh pitfalls beyond --include/--exclude, in audit mode (warn): a bare glob
+// that matches nothing fails with "no matches found", and a word starting
+// with = is expanded as a command lookup ("== not found").
+function zshWords(command) {
+  const text = shellText(command).replace(/\$\(\([^)]*\)\)/g, "");
+  for (const word of rawWords(text)) {
+    if (word.glob && !word.text.includes("${")) {
+      return warn(
+        "bare-glob",
+        `${word.text} is an unquoted glob; zsh fails the whole command with "no matches found" when it matches no file. ` +
+          `Instead, quote it ('${word.text}') unless it must expand, and check that it matches.`,
+      );
+    }
+    if (word.equals && !text.includes("[[")) {
+      return warn(
+        "equals-word",
+        `${word.text} starts with an unquoted =, which zsh expands as a command lookup ("${word.text.slice(1)} not found"). ` +
+          `Instead, quote it: '${word.text}'.`,
+      );
+    }
+  }
+  return null;
 }
 
 /** Decide on one tool call. Returns {action: "allow" | "warn" | "block", rule?, message?}. */
@@ -409,13 +495,15 @@ export function evaluate(call, ctx) {
   const input = call?.tool_input ?? {};
 
   if (tool === "Bash" && typeof input.command === "string") {
-    let warning = unquotedGlob(input.command);
+    const glob = unquotedGlob(input.command);
+    if (glob) return glob;
+    let warning = null;
     for (const segment of splitSegments(input.command)) {
       const result = checkBashSegment(segment, ctx);
       if (result?.action === "block") return result;
       warning ??= result;
     }
-    return warning ?? allow;
+    return warning ?? zshWords(input.command) ?? allow;
   }
 
   if (

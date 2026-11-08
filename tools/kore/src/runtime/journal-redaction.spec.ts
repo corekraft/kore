@@ -1,9 +1,17 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect, onTestFinished, test } from "vitest";
+import { expect, onTestFinished, test, vi } from "vitest";
 import { CommandError, RecordingRunner, type Runner } from "./runner.js";
 import { redactArgs, withJournal } from "./journal.js";
+
+// The journal stamps each operation with a hex UUID. Pin one containing hex
+// runs like "abcdef", so a secret that could also occur in a UUID fails every
+// run instead of about one in seventy.
+vi.mock("node:crypto", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("node:crypto")>()),
+  randomUUID: () => "abcdef00-abcd-4def-8abc-defabcdefabc",
+}));
 
 async function root(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "kore-journal-"));
@@ -57,7 +65,7 @@ test("redaction also applies to args journaled by the runner decorator and to fa
       { root: dir, environment: "local", command: "x" },
       failing,
       async (runner) => {
-        await runner.run("tool", ["--token=abc", "--password", "def"]);
+        await runner.run("tool", ["--token=tok-qwz", "--password", "pw-jkv"]);
       },
     ),
   ).rejects.toThrow();
@@ -65,8 +73,8 @@ test("redaction also applies to args journaled by the runner decorator and to fa
     join(dir, ".kore", "state", "journal", "local.jsonl"),
     "utf8",
   );
-  expect(text).not.toContain("abc");
-  expect(text).not.toContain("def");
+  expect(text).not.toContain("tok-qwz");
+  expect(text).not.toContain("pw-jkv");
   expect(text).toContain("<redacted>");
 });
 

@@ -1,6 +1,6 @@
 ---
 name: handoff
-description: Use when ending a thread before its plan step is finished, so the next thread resumes from the plan instead of rediscovering it. Also when context use passes about 50%.
+description: Use before ending a turn, or before /clear or /compact, while the active plan step still has unchecked items, so the next thread resumes from the plan instead of rediscovering it.
 ---
 
 # Hand off a thread
