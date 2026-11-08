@@ -1,3 +1,4 @@
+import { desiredFingerprint } from "./fingerprint.js";
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { loadRepository } from "../config/index.js";
@@ -38,6 +39,16 @@ test("controller bootstrap resumes a deployed component without another Helm upg
     { stdout: "kube-system", stderr: "", code: 0 },
     {
       stdout: JSON.stringify({ info: { status: "deployed" } }),
+      stderr: "",
+      code: 0,
+    },
+    {
+      stdout: JSON.stringify([
+        {
+          status: "deployed",
+          description: desiredFingerprint(repository, component),
+        },
+      ]),
       stderr: "",
       code: 0,
     },
