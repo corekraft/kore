@@ -194,9 +194,16 @@ through 11 also converge.
 - [x] Install External Secrets Operator.
 - [x] Install CloudNativePG.
 - [x] Install OpenTelemetry Operator after its prerequisites are ready.
-- [ ] Define the minimal digest-pinned seed manifest required to start the registry,
+- [x] Define the minimal digest-pinned seed manifest required to start the registry,
       verifier, and their prerequisites; reject unrecorded seed artifacts and record
       the reason and upstream verification evidence for every seed.
+      `infra/catalog/seeds.yaml` records three seeds: the registry, Policy Controller,
+      and its lease-cleanup kubectl image. `kore validate` rejects a seed with no
+      digest, reason, or evidence, and any digest-pinned image a seed component uses
+      that is not recorded
+      ([ADR 0026](../../docs/decisions/0026-seed-manifest.md)). The registry image
+      has no upstream signature; its only evidence is the Docker Hub digest, so the
+      signing step must establish its trust (2026-11-08).
 - [ ] Implement protected release automation that mirrors approved platform images
       into the internal registry, verifies recorded upstream digests and provenance,
       signs internal digests with Cosign, verifies each signature, and emits an
@@ -909,7 +916,7 @@ asserted in `platform.storage.spec.ts`. Claim templates are immutable and bootst
 skips deployed releases, so only fresh profiles pick this up; an existing profile
 keeps its unlabelled Loki and Tempo claims until it is recreated (2026-11-08).
 
-Next: confirm a clean retention audit on a fresh profile, then allowlist the digest-pinned Sigstore Policy Controller seed and
+Next: confirm a clean retention audit on a fresh profile, then
 enable `ClusterImagePolicy` enforcement (Step 7), which unblocks Step 9
 enrollment and the bootstrap gate.
 

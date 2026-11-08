@@ -64,6 +64,7 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0023-crossplane-functions-own-release-and-readiness.md`](decisions/0023-crossplane-functions-own-release-and-readiness.md) — refines 0008 and 0016: Functions are their own release; readiness waits for Installed and Healthy. Read when changing Crossplane Functions or function readiness.
 - [`docs/decisions/0024-reference-app-database-access.md`](decisions/0024-reference-app-database-access.md) — refines 0008: std-lib SCRAM PostgreSQL client, secretKeyRef password, authenticated readiness, hook-Job migrations. Read when changing how the reference app reaches its database.
 - [`docs/decisions/0025-application-namespace-ambient-enrollment.md`](decisions/0025-application-namespace-ambient-enrollment.md) — refines 0017: `kore app up` owns application namespaces and labels them ambient; Gatekeeper audits it. Read when changing namespace creation or mesh enrollment.
+- [`docs/decisions/0026-seed-manifest.md`](decisions/0026-seed-manifest.md) — refines 0015: `infra/catalog/seeds.yaml` records every seed image with reason and upstream evidence; `kore validate` rejects unrecorded ones. Read when adding or upgrading an image on the registry or verifier path.
 
 ## Reference
 

@@ -51,9 +51,29 @@ export interface Environment {
   componentValues?: Record<string, string[]>;
 }
 
+export interface SeedEvidence {
+  method: string;
+  source: string;
+  checked: string;
+}
+
+export interface Seed {
+  image: string;
+  catalogImage: string;
+  component: string;
+  reason: string;
+  evidence: SeedEvidence;
+}
+
+export interface SeedManifest {
+  $schema?: string;
+  seeds: Seed[];
+}
+
 export interface Repository {
   root: string;
   versions: Versions;
+  seeds: SeedManifest;
   catalog: Catalog;
   environment: Environment;
 }
