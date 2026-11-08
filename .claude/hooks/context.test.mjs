@@ -8,12 +8,14 @@ import { fileURLToPath } from "node:url";
 
 import {
   activePlan,
+  activePlans,
   brief,
   lastRetrospective,
   nextStep,
   openItems,
   restore,
   rules,
+  upcomingSteps,
 } from "./context.mjs";
 
 const hook = fileURLToPath(new URL("./context.mjs", import.meta.url));
@@ -353,4 +355,122 @@ test("cli: sessions from the day of the last retrospective do not count toward t
     },
   });
   assert.doesNotMatch(result.stdout, /retro/);
+});
+
+const fourSteps = `# Plan
+
+## Step 1: Done
+
+- [x] Finished.
+
+## Step 2: Current
+
+- [ ] Now.
+
+## Step 3: Third
+
+- [ ] Later.
+
+## Step 4: Closed
+
+- [x] Already done.
+
+## Step 5: Fifth
+
+- [ ] Later still.
+
+## Step 6: Sixth
+
+- [ ] Much later.
+
+## Step 7: Seventh
+
+- [ ] Beyond the horizon.
+`;
+
+test("upcomingSteps lists the next three open steps after the current one, skipping finished steps", () => {
+  assert.deepEqual(upcomingSteps(fourSteps), [
+    "Step 3: Third",
+    "Step 5: Fifth",
+    "Step 6: Sixth",
+  ]);
+});
+
+test("upcomingSteps counts from the step holding the Next: line", () => {
+  assert.deepEqual(upcomingSteps(handedOff), []);
+  const nextInStep3 = fourSteps.replace(
+    "- [ ] Later.",
+    "Next: pick up here.\n\n- [ ] Later.",
+  );
+  assert.deepEqual(upcomingSteps(nextInStep3), [
+    "Step 5: Fifth",
+    "Step 6: Sixth",
+    "Step 7: Seventh",
+  ]);
+});
+
+test("upcomingSteps is empty when the current step is the last open one", () => {
+  assert.deepEqual(upcomingSteps(plan), []);
+});
+
+test("brief lists upcoming step titles, and none after the last step", () => {
+  const deps = (markdown) => ({
+    ...briefDeps(0),
+    readPlans: () => ({ "4-knowledge.md": markdown }),
+  });
+  assert.match(
+    brief({ source: "startup" }, deps(fourSteps)),
+    /^Upcoming: Step 3: Third; Step 5: Fifth; Step 6: Sixth\.$/m,
+  );
+  assert.doesNotMatch(brief({ source: "startup" }, deps(plan)), /Upcoming/);
+});
+
+const frontmatter = (status) =>
+  `---\nstatus: ${status}\nsummary: A plan.\nlast-verified: 2026-11-07\n---\n\n`;
+
+test("activePlans covers every plan whose frontmatter is active, newest first, and never a done one", () => {
+  const plans = {
+    "1-initialize.md": `${frontmatter("done")}## Step 1: A\n\n- [ ] stale box\n`,
+    "2-implementation.md": `${frontmatter("active")}## Step 9: B\n\n- [ ] open\n`,
+    "3-agent-harness.md": `${frontmatter("done")}## Step 1: C\n\n- [x] done\n`,
+    "4-knowledge.md": `${frontmatter("active")}## Step 1: D\n\n- [ ] open\n`,
+  };
+  assert.deepEqual(activePlans(plans), [
+    "4-knowledge.md",
+    "2-implementation.md",
+  ]);
+});
+
+test("activePlans keeps the open-item rule for plans without frontmatter", () => {
+  const plans = {
+    "1-old.md": "## Step 1: A\n\n- [ ] open\n",
+    "2-older.md": "## Step 1: B\n\n- [ ] open\n",
+    "3-closed.md": "## Step 1: C\n\n- [x] done\n",
+    "4-new.md": `${frontmatter("active")}## Step 1: D\n\n- [ ] open\n`,
+  };
+  assert.deepEqual(activePlans(plans), ["4-new.md", "2-older.md"]);
+  assert.deepEqual(activePlans({ "1-a.md": "- [x] done\n" }), []);
+});
+
+test("brief and compaction context cover every active plan", () => {
+  const plans = {
+    "2-implementation.md": `${frontmatter("active")}## Step 9: Workload\n\n- [ ] Sign images.\n`,
+    "3-agent-harness.md": `${frontmatter("done")}## Step 1: Hooks\n\n- [ ] Stale box.\n`,
+    "4-knowledge.md": `${frontmatter("active")}## Step 1: ADRs\n\n- [ ] Extract decisions.\n`,
+  };
+  const deps = { ...briefDeps(0), readPlans: () => plans };
+  const fresh = brief({ source: "startup" }, deps);
+  assert.match(fresh, /Session brief from infra\/plans\/4-knowledge\.md/);
+  assert.match(fresh, /Session brief from infra\/plans\/2-implementation\.md/);
+  assert.doesNotMatch(fresh, /3-agent-harness/);
+  const compacted = restore({ source: "compact" }, deps);
+  assert.match(
+    compacted,
+    /Open plan items in infra\/plans\/4-knowledge\.md:\n.*Extract decisions/,
+  );
+  assert.match(
+    compacted,
+    /Open plan items in infra\/plans\/2-implementation\.md:\n.*Sign images/,
+  );
+  assert.doesNotMatch(compacted, /Stale box/);
 });

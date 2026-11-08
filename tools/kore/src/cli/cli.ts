@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// Docs: infra/plans/2-implementation.md#public-command-surface
 import { appDown, appStatus, appUp } from "../app/index.js";
 import {
   clusterDestroy,
