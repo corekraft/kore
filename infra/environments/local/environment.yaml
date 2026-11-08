@@ -41,6 +41,9 @@
         ["infra/environments/local/values/platform-config.yaml"],
       "kore-local-tls":
         ["infra/environments/local/values/platform-config.yaml"],
-      "kore-image-policy": ["infra/environments/local/values/image-policy.yaml"]
+      "kore-image-policy":
+        ["infra/environments/local/values/image-policy.yaml"],
+      "policy-controller":
+        ["infra/environments/local/values/policy-controller.yaml"]
     }
 }
