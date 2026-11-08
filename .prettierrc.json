@@ -1,0 +1,8 @@
+{
+  "overrides": [
+    {
+      "files": ["infra/**/*.yaml", "apps/**/*.yaml"],
+      "options": { "trailingComma": "none" }
+    }
+  ]
+}
