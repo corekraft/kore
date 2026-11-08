@@ -916,7 +916,7 @@ asserted in `platform.storage.spec.ts`. Claim templates are immutable and bootst
 skips deployed releases, so only fresh profiles pick this up; an existing profile
 keeps its unlabelled Loki and Tempo claims until it is recreated (2026-11-08).
 
-Next: confirm a clean retention audit on a fresh profile, then allowlist the digest-pinned Sigstore Policy Controller seed and
+Next: confirm a clean retention audit on a fresh profile, then
 enable `ClusterImagePolicy` enforcement (Step 7), which unblocks Step 9
 enrollment and the bootstrap gate.
 
