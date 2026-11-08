@@ -133,6 +133,10 @@ async function chart(
   return path;
 }
 
+export function localPublicKeyPath(root: string): string {
+  return join(root, ".kore", "state", "local-signing.pub");
+}
+
 export async function appUp(
   repository: Repository,
   runner: Runner,
@@ -165,7 +169,7 @@ export async function appUp(
     publicKeyOverride ??
     (repository.environment.provider === "minikube" &&
     image.signer === "local-kore-key"
-      ? join(repository.root, ".kore", "keys", "local", "kore.pub")
+      ? localPublicKeyPath(repository.root)
       : undefined);
   await runner.run(
     "cosign",

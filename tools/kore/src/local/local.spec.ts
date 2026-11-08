@@ -1,3 +1,14 @@
+import {
+  copyFile,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { expect, test } from "vitest";
 import { loadRepository } from "../config/index.js";
 import { localDown, localUp } from "./local.js";
@@ -98,7 +109,7 @@ test("local up starts the platform before reconciling every locked application",
           digest: "sha256:" + "a".repeat(64),
           signer: "local-kore-key",
         },
-        publicKey: "/repo/.kore/keys/local/automation.pub",
+        publicKey: "/repo/.kore/state/local-signing.pub",
       };
     },
     appUp: async (_repository, _runner, name, image) => {
@@ -194,4 +205,93 @@ test("purging retained data without --prune is refused before anything is touche
     ),
   ).rejects.toThrow(/--purge-data requires --prune/);
   expect(calls).toEqual([]);
+});
+
+async function staleKeyRepository() {
+  const base = await loadRepository("local");
+  const root = await mkdtemp(join(tmpdir(), "kore-local-stale-key-"));
+  const state = join(root, ".kore/state");
+  await mkdir(state, { recursive: true });
+  await mkdir(join(root, "infra/catalog"), { recursive: true });
+  await copyFile(
+    join(base.root, "infra/catalog/images.lock.json"),
+    join(root, "infra/catalog/images.lock.json"),
+  );
+  await writeFile(join(state, "local-images.lock.json"), "stale");
+  await writeFile(join(state, "local-signing.pub"), "vanished public key");
+  return { repository: { ...base, root }, state, root };
+}
+
+test("local down --prune forgets the digest and public key of the destroyed signing key", async () => {
+  const { repository, state, root } = await staleKeyRepository();
+  try {
+    await localDown(
+      repository,
+      {} as never,
+      { prune: true, purgeData: false },
+      {
+        platformDestroy: async () => undefined,
+      },
+    );
+    await expect(stat(join(state, "local-images.lock.json"))).rejects.toThrow(
+      /ENOENT/,
+    );
+    await expect(stat(join(state, "local-signing.pub"))).rejects.toThrow(
+      /ENOENT/,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("local down without prune keeps the signed local digests because the key survives", async () => {
+  const { repository, state, root } = await staleKeyRepository();
+  try {
+    await localDown(
+      repository,
+      {} as never,
+      { prune: false, purgeData: false },
+      {
+        platformStop: async () => undefined,
+      },
+    );
+    expect(await readFile(join(state, "local-images.lock.json"), "utf8")).toBe(
+      "stale",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("local up discards a local lock left by a vanished signing key before re-signing", async () => {
+  const { repository, state, root } = await staleKeyRepository();
+  let lockDuringBuild: string | undefined = "unset";
+  try {
+    await localUp(repository, {} as never, {
+      platformUp: async () => undefined,
+      syncSecrets: async () => 0,
+      buildImage: async () => {
+        lockDuringBuild = await readFile(
+          join(state, "local-images.lock.json"),
+          "utf8",
+        ).catch(() => undefined);
+        return {
+          image: {
+            reference: `registry.kore.local:30500/reference@sha256:${"a".repeat(64)}`,
+            digest: `sha256:${"a".repeat(64)}`,
+            signer: "local-kore-key",
+          },
+          publicKey: join(state, "local-signing.pub"),
+        };
+      },
+      appUp: async () => undefined,
+    });
+    expect(lockDuringBuild).toBeUndefined();
+    expect(
+      JSON.parse(await readFile(join(state, "local-images.lock.json"), "utf8"))
+        .entries.reference.digest,
+    ).toBe(`sha256:${"a".repeat(64)}`);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });

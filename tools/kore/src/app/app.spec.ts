@@ -20,6 +20,7 @@ import {
   minikubeImagePullArgs,
   localImagePullPolicyArgs,
   verifyLockedImageArgs,
+  localPublicKeyPath,
 } from "./app.js";
 import type { RunOptions, RunResult, Runner } from "../runtime/index.js";
 
@@ -399,4 +400,10 @@ test("app status prefers the local image lock when present", async () => {
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test("local verification reads the public key published from the cluster Secret, never the legacy key directory", () => {
+  const path = localPublicKeyPath("/workspace");
+  expect(path).toBe("/workspace/.kore/state/local-signing.pub");
+  expect(path).not.toContain("keys");
 });
