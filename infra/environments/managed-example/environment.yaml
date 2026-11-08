@@ -3,7 +3,7 @@
   "name": "managed-example",
   "provider": "managed",
   "kubeContext": "REQUIRED",
-  "cluster": {"profile":"external","kubernetesVersion":"1.37.0","driver":"external","containerRuntime":"containerd","cpus":4,"memoryMB":8192,"diskSize":"40g"},
+  "cluster": {"profile":"external","kubernetesVersion":"1.37.2","driver":"external","containerRuntime":"containerd","cpus":4,"memoryMB":8192,"diskSize":"40g"},
   "gateway": {"namespace":"kore-system","name":"kore-gateway","hostname":"REQUIRED","port":443},
   "secrets": {"storeName":"platform-secrets","sourceNamespace":"external"},
   "telemetry": {"otlpEndpoint":"http://otel-collector-opentelemetry-collector.observability.svc:4318"},

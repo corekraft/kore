@@ -156,23 +156,39 @@ through 11 also converge.
 - [ ] Select and pin the OCI Distribution-compatible registry, Cosign, and Sigstore
       Policy Controller; add them to the compatibility matrix, component catalog,
       version catalog, release graph, and readiness model.
-- [x] Give every logical release a namespace, CRD owner, dependencies, timeout,
+      _Partial: Sigstore Policy Controller chart 0.10.8 is a bootstrap release in the
+      catalog with CRD ownership and readiness, and the registry (`registry:3.1.2`)
+      is in `compatibility.md`. The registry and Policy Controller images are pinned
+      by tag, not digest, and the Cosign 3.1.4 CLI has no compatibility row._
+- [ ] Give every logical release a namespace, CRD owner, dependencies, timeout,
       and readiness checks.
+      _Partial: the schema requires a `readiness` key but accepts an empty list;
+      `kore-storage` and `kore-postgresql-rbac` have no readiness check._
 - [x] Implement topological sorting and cycle detection for the release graph.
 - [x] Add a render and validation operation that does not mutate a cluster.
-- [ ] Install Gateway API CRDs before Istio resources that consume them.
-- [ ] Install cert-manager and wait for its deployments and webhook.
-- [ ] Install OPA Gatekeeper without enforcing Kore constraints.
+- [x] Install Gateway API CRDs before Istio resources that consume them.
+- [x] Install cert-manager and wait for its deployments and webhook.
+- [x] Install OPA Gatekeeper without enforcing Kore constraints.
 - [ ] Install a persistent `oci-registry` infrastructure release and verify push,
       pull, restart, storage retention, authentication, authorization, and bounded
       readiness behavior.
+      _Partial: the `oci-registry` release has a `kore-retained` PVC and a `/v2/`
+      readiness probe. It has no authentication or authorization and is exposed as an
+      unauthenticated NodePort; no test exercises the chart._
 - [ ] Install Sigstore Policy Controller and its CRDs/webhook from an explicitly
       allowlisted, digest-pinned seed artifact without enabling enforcement yet.
-- [ ] Install Istio base, `istiod`, Istio CNI, and `ztunnel` for ambient mode.
+      _Partial: declared in the catalog with no `ClusterImagePolicy` and no opted-in
+      namespace. Its image is not yet digest-pinned or allowlisted as a seed, and it
+      has not been installed live. The chart (app 0.13.1) lags the 0.15.1 application
+      release._
+- [x] Install Istio base, `istiod`, Istio CNI, and `ztunnel` for ambient mode.
 - [ ] Install Crossplane and the required composition functions.
-- [ ] Install External Secrets Operator.
-- [ ] Install CloudNativePG.
-- [ ] Install OpenTelemetry Operator after its prerequisites are ready.
+      _Partial: Crossplane is a bootstrap release. `function-go-templating` and
+      `function-auto-ready` are applied inside the `kore-postgresql-api` manifest
+      with no readiness check of their own._
+- [x] Install External Secrets Operator.
+- [x] Install CloudNativePG.
+- [x] Install OpenTelemetry Operator after its prerequisites are ready.
 - [ ] Define the minimal digest-pinned seed manifest required to start the registry,
       verifier, and their prerequisites; reject unrecorded seed artifacts and record
       the reason and upstream verification evidence for every seed.
@@ -180,9 +196,16 @@ through 11 also converge.
       into the internal registry, verifies recorded upstream digests and provenance,
       signs internal digests with Cosign, verifies each signature, and emits an
       immutable image lock manifest.
+      _Partial (local analogue only): `kore local up` builds, publishes, and signs
+      the reference image with a local key into `.kore/state/local-images.lock.json`.
+      There is no mirroring, upstream digest or provenance check, or release
+      workflow; `.github/workflows/check.yml` has no publish or sign job._
 - [ ] Bind the accepted Cosign authority to an exact protected automation identity
       or KMS/HSM key. Grant developers, pull-request workflows, ordinary build jobs,
       cluster workloads, and registry administrators no signing permission.
+      _Not started: the only signer is `local-kore-key`, which now lives in the
+      `kore-system/kore-local-signing-key` Secret for the cluster's lifetime
+      (ADR 0015)._
 - [ ] Roll every managed platform workload, including the registry and verifier,
       from its seed or external reference to the signed internal digest recorded in
       the image lock manifest.
@@ -200,6 +223,8 @@ through 11 also converge.
       blocked by a Gateway waiting for its certificate or external address.
 - [x] Keep controller configuration instances out of controller releases.
 - [ ] Add controller health, CRD establishment, webhook, and idempotency tests.
+      _Partial: CRD establishment retries and the deployed-release skip are tested.
+      Webhooks are checked only through their Deployment rollout._
 
 ### Note
 
@@ -209,7 +234,9 @@ CRD ownership is decided in
 ### Exit Criteria
 
 - [ ] Every controller and CRD has exactly one catalog owner.
-- [ ] The release graph is acyclic and produces a deterministic order.
+      _Partial: duplicate owners are rejected, but nothing checks that every CRD a
+      chart installs is declared (for example, CloudNativePG CRDs beyond `clusters`)._
+- [x] The release graph is acyclic and produces a deterministic order.
 - [ ] All CRDs are established before their custom resources are submitted.
 - [ ] All controller deployments, daemon sets, and webhooks report ready.
 - [ ] The registry persists images and signatures across platform stop and resume.
@@ -228,6 +255,9 @@ CRD ownership is decided in
 - [ ] No shared issuer, gateway, composition, secret store, or unrelated enforcing
       Gatekeeper/runtime policy is installed yet; image signature enforcement is the
       required bootstrap exception because it closes the image trust boundary.
+      _Conflict: `kore platform bootstrap` runs the `core` phase, which installs the
+      shared `kore-postgresql-api` XRD and Composition and the OPA authorizer. Either
+      move them to the configuration phase or revise this criterion with an ADR._
 
 ## Step 8: Networking, Certificates, and Secrets
 
@@ -240,8 +270,9 @@ API, cert-manager, SOPS with age, and External Secrets Operator.
 
 - [x] Create the infrastructure-owned Gateway API `Gateway` and environment-owned
       parent-reference contract used by application `HTTPRoute` resources.
-- [ ] Automate the lifecycle of the Minikube tunnel as local adapter behavior,
-      including status, cleanup, and stale-process detection.
+- [x] Automate the lifecycle of the Minikube tunnel as local adapter behavior,
+      including status, cleanup, and stale-process detection
+      (`kore tunnel start|stop|status`, `tools/kore/src/tunnel/tunnel.ts`).
 - [x] Establish the local CA with mkcert through an explicit trust-changing
       operation.
 - [x] Configure the cert-manager local issuer without committing private key
@@ -250,14 +281,22 @@ API, cert-manager, SOPS with age, and External Secrets Operator.
       trust.
 - [x] Define a stable `platform-secrets` store name for application resource
       charts.
-- [x] Add SOPS and age configuration for encrypted local source secrets.
+- [ ] Add SOPS and age configuration for encrypted local source secrets.
+      _Partial: `.sops.yaml` has a creation rule, but its age recipient is the
+      placeholder `AGE-RECIPIENT-MUST-BE-CONFIGURED` and no `*.enc.yaml` source
+      exists, so the encrypted path has never run._
 - [x] Automate decryption directly into a protected source namespace without
       writing plaintext files into the repository or build artifacts.
 - [x] Configure External Secrets Operator to materialize application-scoped
       Kubernetes Secrets from the local source.
 - [ ] Define redaction rules so rendered output, dry runs, errors, and CI logs do
       not reveal secret values.
+      _Partial: journal arguments and error text are redacted and tested. Rendered
+      and dry-run output has no redaction rule or test._
 - [ ] Add readiness and end-to-end tests for Gateway, TLS, and Secret materialization.
+      _Partial: certificate-before-Gateway ordering is unit-tested. No offline test
+      covers Secret materialization, and the opt-in integration test is not specific
+      to the Gateway or TLS._
 
 ### Gateway Bootstrap Repair
 
@@ -270,10 +309,14 @@ The Istio CNI AppArmor deprecation warning did not cause this failure.
       Certificate creation, TLS Secret readiness, Gateway creation, and external
       address/route readiness. Split configuration releases where a Helm wait would
       otherwise block the commands needed to satisfy its own prerequisites.
+      _Partial: everything through Gateway creation is ordered and `kore-local-tls`
+      is a separate release. The external address and route readiness waits remain._
 - [x] Use the explicit `kore trust install --environment local` operation to
       establish host trust and install the issuer prerequisites. Verify the
       ClusterIssuer is Ready before waiting for certificate issuance; report a
       missing trust setup with an actionable command.
+      _Gap: no code path tells the user to run `kore trust install` when trust or
+      the issuer is missing; the ClusterIssuer wait just times out._
 - [x] Create and wait for the Certificate that produces
       `kore-system/kore-local-tls`; check the expected TLS Secret keys without
       printing their contents before installing the HTTPS Gateway. The certificate
@@ -282,12 +325,19 @@ The Istio CNI AppArmor deprecation warning did not cause this failure.
 - [ ] Start and supervise the local Minikube tunnel so the Gateway LoadBalancer
       Service receives an address; handle required host privileges, tunnel exit,
       stale processes, and stop/destroy cleanup explicitly.
+      _Partial: start, stale replacement, and stop/destroy cleanup are implemented.
+      The local Gateway listens on 8443, which avoids host privileges rather than
+      handling them. Nothing restarts the tunnel when it exits._
 - [ ] Wait with bounded timeouts for the Service address, Gateway `Accepted` and
       `Programmed`, and listener `ResolvedRefs`; include condition reasons such as
       `AddressNotAssigned` and `InvalidCertificateRef` in failure output.
+      _Partial: only `Programmed` is waited on. Nothing waits for the Service
+      address, `Accepted`, or `ResolvedRefs`, or reports condition reasons._
 - [ ] Add regression tests for missing issuer/TLS Secret, unavailable tunnel,
       and configuration ordering. Run a fresh-cluster end-to-end check through a
       trusted HTTPS route, including cleanup and retry after an injected failure.
+      _Partial: ordering and unreachable-tunnel tests exist. Missing-issuer and
+      missing-TLS-Secret failures are untested; the fresh-cluster run is pending._
 
 ### Exit Criteria
 
@@ -310,25 +360,42 @@ OPA into an identity issuer or a signature verifier.
 
 ### Work
 
-- [x] Define the namespace enrollment contract for Istio ambient mode.
+- [ ] Define the namespace enrollment contract for Istio ambient mode.
+      _Partial: workloads set `istio.io/dataplane-mode: ambient` on their Pod
+      templates. No namespace-level label, written contract, or Gatekeeper
+      mesh-enrollment rule exists._
 - [x] Require every workload to use a dedicated Kubernetes ServiceAccount.
 - [ ] Verify Istio produces the expected SPIFFE principal from namespace and
       ServiceAccount identity.
 - [x] Enable strict mutual TLS for participating workloads.
 - [x] Establish native Istio default-deny and explicit-allow authorization patterns.
-- [x] Create Gatekeeper constraint templates and tests for identity, RBAC,
+- [ ] Create Gatekeeper constraint templates and tests for identity, RBAC,
       privilege, resource, health-probe, Secret, mesh-enrollment, and retention rules.
-- [x] Deploy constraints in audit mode and define minimal explicit system namespace
+      _Partial: `koreworkloadidentity` and `korecontainersecurity` cover identity,
+      privilege, CPU requests, and readiness probes. RBAC, Secret, mesh-enrollment,
+      and retention rules are missing, and `tests/cases.yaml` is run by no task or CI
+      job._
+- [ ] Deploy constraints in audit mode and define minimal explicit system namespace
       exemptions.
+      _Partial: `constraints/audit.yaml` uses `dryrun` with explicit exemptions, but
+      no catalog component installs the templates or constraints._
 - [ ] Define the application namespace enrollment contract for Sigstore Policy
       Controller and make enrollment mandatory before an application workload release.
+      _Blocked on selecting Sigstore Policy Controller in Step 7._
 - [ ] Define environment-specific trusted release automation identities and ensure
       local identities are never trusted by managed environments.
+      _Partial: authorized signers are per lock file. `kore app up` uses the local
+      public key only for Minikube with `local-kore-key`; no per-environment
+      trusted-identity list exists._
 - [ ] Verify that registry membership alone grants no trust: admission must validate
       the Cosign signature and exact authorized signer for the deployed digest.
 - [x] Package and deploy the platform-operated OPA-Envoy external authorization
       service.
-- [x] Deliver tested Rego as versioned OPA bundles.
+- [ ] Deliver tested Rego as versioned OPA bundles.
+      _Partial: `bundles/v1` is tested in CI, but the deployed policy is an inline
+      copy in `infra/charts/opa-authorizer/templates/all.yaml` that differs from it.
+      `values.yaml` `bundle.url` is used by no template. Serve the tested bundle or
+      test that the copies match._
 - [x] Configure OPA as an Istio external authorization provider without manual
       ConfigMap editing.
 - [x] Route one Layer 7 policy through an ambient waypoint and Istio `CUSTOM`
@@ -337,6 +404,8 @@ OPA into an identity issuer or a signature verifier.
       principals.
 - [ ] Test allow, deny, authorizer-unavailable, stale-bundle, and invalid-bundle
       behavior.
+      _Partial: allow and deny have Rego tests; `failOpen: false` is configured but
+      untested. Stale- and invalid-bundle behavior needs bundle delivery first._
 - [ ] Promote constraints individually from audit to enforcement only after the
       platform complies.
 
@@ -363,8 +432,10 @@ PostgreSQL claim backed locally by CloudNativePG.
 
 ### Work
 
-- [x] Define `kore-standard` and `kore-retained` StorageClasses with documented
+- [ ] Define `kore-standard` and `kore-retained` StorageClasses with documented
       reclaim and expansion behavior.
+      _Partial: both classes exist (`Delete` and `Retain`, expansion allowed). Only
+      `kore-retained` is documented (ADR 0003), and no test asserts `reclaimPolicy`._
 - [ ] Verify Minikube storage paths survive profile stop and resume.
 - [x] Define the namespaced
       `PostgreSQLInstance.platform.kore.dev` Crossplane XRD.
@@ -374,15 +445,23 @@ PostgreSQL claim backed locally by CloudNativePG.
       and connection Secret.
 - [ ] Grant Crossplane only the RBAC required to compose CloudNativePG and related
       Kubernetes resources.
+      _Partial: the ClusterRole grants all verbs on Secrets in every namespace; scope
+      it to what the composition needs._
 - [x] Normalize connection data into the documented Secret schema.
 - [ ] Propagate readiness, failure, and useful status conditions to the claim.
+      _Partial: readiness comes only from `function-auto-ready`; no step copies
+      CloudNativePG status, failure reasons, or the endpoint onto the claim._
 - [x] Keep the claim in the application resources release and the composed database
       outside Helm ownership.
-- [x] Implement retained-data discovery used by application and cluster lifecycle
+- [ ] Implement retained-data discovery used by application and cluster lifecycle
       guards.
+      _Partial: only `cluster destroy` uses it; it now fails closed on any kubectl
+      error except a missing resource type. The PVC query relies on a
+      `platform.kore.dev/retention` label that the composition never sets._
 - [x] Define and test an explicit purge path.
 - [ ] Implement a local export and restore proof before treating platform destroy as
       recoverable.
+      _Not started: no export or restore code exists._
 
 ### Exit Criteria
 
@@ -408,18 +487,37 @@ policy telemetry with correlated local metrics, logs, and traces.
 - [x] Install resource-bounded local configurations for Prometheus, Loki, Tempo,
       and Grafana.
 - [x] Deploy the OpenTelemetry Collector with OTLP gRPC and HTTP receivers.
-- [x] Define separate pipelines for application telemetry, Kubernetes logs and
+- [ ] Define separate pipelines for application telemetry, Kubernetes logs and
       metrics, Istio telemetry, and policy decision telemetry where appropriate.
-- [x] Enrich signals with cluster, environment, namespace, application,
+      _Partial: one OTLP receiver feeds per-signal pipelines. There are no
+      Kubernetes log or metric receivers, no Istio Telemetry resource or tracing
+      config, and no OPA decision logging._
+- [ ] Enrich signals with cluster, environment, namespace, application,
       ServiceAccount, and workload identity attributes.
-- [x] Establish attribute and label cardinality limits before ingesting pod-level
+      _Partial: `k8sattributes` adds namespace, workload, pod, node, app name, and
+      ServiceAccount. Cluster, environment, and `app.kubernetes.io/part-of` are
+      missing._
+- [ ] Establish attribute and label cardinality limits before ingesting pod-level
       data.
-- [x] Export metrics to Prometheus, logs to Loki, and traces to Tempo.
-- [x] Provision Grafana data sources and initial dashboards as desired state.
-- [x] Add health, queue, dropped-data, and exporter-failure monitoring for the
+      _Partial: `attributes/cardinality` drops `k8s.pod.uid` and
+      `process.command_line`; no limit is defined and `k8s.pod.name` is kept._
+- [ ] Export metrics to Prometheus, logs to Loki, and traces to Tempo.
+      _Partial: the Collector's `prometheus` exporter listens on 8889, but the port
+      is not exposed and Prometheus has no scrape config for it. Logs and traces are
+      wired._
+- [ ] Provision Grafana data sources and initial dashboards as desired state.
+      _Partial: data sources are provisioned; `infra/observability/dashboards/reference.json`
+      is loaded by nothing._
+- [ ] Add health, queue, dropped-data, and exporter-failure monitoring for the
       Collector.
+      _Partial: `infra/observability/alerts/platform.yaml` defines dropped-span and
+      exporter-failure rules, but nothing installs it, the PrometheusRule CRD is not
+      installed, and Alertmanager is disabled. Health and queue alerts are missing._
 - [x] Define local retention and storage limits for every backend.
-- [x] Add synthetic telemetry tests for all three signals and their correlation.
+- [ ] Add synthetic telemetry tests for all three signals and their correlation.
+      _Partial: `apps/reference/src/server.test.ts` checks trace/log/metric
+      correlation against a fake collector. Nothing tests the path through the
+      Collector to the backends._
 
 ### Exit Criteria
 
@@ -430,7 +528,10 @@ policy telemetry with correlated local metrics, logs, and traces.
 - [ ] OPA authorization decisions can be correlated with request traces where
       supported.
 - [ ] Collector or backend failure is visible through platform status.
-- [ ] Local telemetry storage has explicit retention and resource bounds.
+      _Gap: `platformStatus` reports a component ready once its Helm release is
+      `deployed` and never evaluates the catalog `readiness` entries, so a
+      crash-looping Collector shows as ready._
+- [x] Local telemetry storage has explicit retention and resource bounds.
 - [ ] No application sends telemetry directly to a storage backend.
 
 ## Platform Bootstrap Completion Gate
@@ -504,7 +605,13 @@ and negative tests.
 - [ ] Publish the candidate to the platform registry, promote and Cosign-sign its
       digest only through protected release automation, verify the signature, and pass
       only the resulting digest-qualified internal reference to Helm.
+      _Partial: the digest is published to the local registry, verified with
+      `cosign verify`, and passed to Helm, but it is signed by `local-kore-key`, not
+      by protected release automation._
 - [x] Read the PostgreSQL connection only from the normalized Secret contract.
+      _Note: only host, port, database, and username are consumed. The password is
+      never injected, and `databaseReady()` opens a TCP socket without authenticating,
+      so "database access" in the exit criteria is not yet proven._
 - [x] Emit OpenTelemetry logs, metrics, and traces with stable service attributes.
 - [x] Add a route protected by native Istio policy and a route protected by OPA.
 - [ ] Add database schema initialization or migration as an explicit, repeatable
@@ -513,13 +620,17 @@ and negative tests.
       native authorization, and OPA authorization.
 - [ ] Add negative tests proving that policy rejects an invalid workload and an
       unauthorized caller.
+      _Partial: the unauthorized-caller case has a Rego test and a live 403 check.
+      The invalid-workload case exists only in the unexecuted Gatekeeper
+      `tests/cases.yaml`._
 - [ ] Add image-admission tests proving that a correctly automation-signed digest is
       admitted while an unsigned image, a tag-only reference, a modified digest, and an
       image signed by a developer or untrusted pipeline identity are rejected.
 
 ### Exit Criteria
 
-- [ ] The resources release becomes ready before the workload release begins.
+- [x] The resources release becomes ready before the workload release begins
+      (`app.spec.ts` asserts the release order and the claim and Secret waits).
 - [ ] The application starts without provider-specific templates or source changes.
 - [ ] HTTPS, database access, Secret injection, and persistence work locally.
 - [ ] Allowed identity paths succeed and undeclared identity paths fail.
@@ -529,6 +640,8 @@ and negative tests.
 - [ ] All Gatekeeper constraints intended for the MVP are enforcing.
 - [ ] All application images are pulled from the platform registry by digest and
       verified at admission against the authorized release automation identity.
+      _Partial: images are deployed by digest and verified client-side by `kore app
+up`, not at admission, and the signer is the local key._
 
 ## Step 13: Complete Lifecycle Orchestration
 
@@ -551,6 +664,8 @@ converge and validate the complete platform.
 - [x] Require an explicit environment for every mutating command.
 - [x] Add bounded readiness waits and actionable component-level failures.
 - [ ] Resume from partial failure without reinstalling healthy dependencies.
+      _Partial: bootstrap skips deployed releases; configuration releases and both
+      app releases are always upgraded._
 - [ ] Clean up failed or canceled releases and their attempt-owned resources
       before another `up`; verify cleanup has completed and preserve healthy
       dependencies and retained data. Full profile deletion is an explicit reset.
@@ -558,6 +673,8 @@ converge and validate the complete platform.
       observed missing `postgresqlinstances.platform.kore.dev` resource type during
       partial-bootstrap destroy without bypassing retained-data checks.
 - [x] Prevent concurrent mutation of the same environment.
+      A lock left by a dead owner on this host is recovered; live, other-host, and
+      legacy locks are refused with removal guidance.
 - [x] Produce concise human output and stable machine-readable output.
 - [x] Ensure diagnostic output is read-only and redacts sensitive data.
 - [x] Implement non-interactive confirmation behavior for CI.
@@ -577,22 +694,43 @@ kore app status <name> --environment <name>
 kore app down <name> --environment <name>
 ```
 
+Implemented local and supporting commands outside this surface:
+
+```text
+kore local up|down [--prune]
+kore trust install --environment local
+kore tunnel start|stop|status --environment local
+kore secrets sync --environment local
+kore platform render|bootstrap --environment <name>
+kore journal [--json]
+kore validate --environment <name>
+```
+
+`kore local` composes the public commands for the local quick start. Decide
+whether it joins the public surface before Step 15 documentation.
+
 ### Exit Criteria
 
 - [ ] One command creates and validates the complete local platform.
 - [ ] A partial or degraded bootstrap cannot report success or allow application
       claims or workloads to be applied.
-- [ ] Platform creation does not install applications.
+- [x] Platform creation does not install applications.
 - [ ] One command installs and validates the reference application.
 - [ ] Status reports the deployed digest, verified signer identity, registry, and
       namespace image-enforcement state without exposing credentials.
 - [ ] Repeating platform and application reconciliation is idempotent.
 - [ ] Interrupted operations resume safely.
-- [ ] Status commands make no changes.
-- [ ] Unexpected profile, context, or environment combinations fail before mutation.
-- [ ] No documented success path requires manual `kubectl patch`, `edit`, or
+- [x] Status commands make no changes (`cli-dispatch.spec.ts` "read-only commands
+      never open a journal entry").
+- [x] Unexpected profile, context, or environment combinations fail before mutation.
+      _Note: for the managed provider, the check only confirms `kube-system`
+      exists._
+- [x] No documented success path requires manual `kubectl patch`, `edit`, or
       imperative resource creation.
 - [ ] Destructive operations preserve or explicitly account for retained data.
+      _Open: export and restore do not exist yet (Step 10), and live evidence is
+      pending. Discovery now fails closed and `local down` needs `--purge-data` to
+      purge._
 
 ## Step 14: Portability and Resilience Validation
 
@@ -605,6 +743,8 @@ failures have automated detection and recovery paths.
 
 - [ ] Render every application chart against common configuration without loading a
       local overlay.
+      _Partial: `diagnostics/portability.ts` scans chart files for provider names
+      and overlay paths; nothing runs `helm template`._
 - [x] Add a second non-local environment schema and select its provider through an
       architectural decision
       ([ADR 0012](../../docs/decisions/0012-environment-overlays-hold-provider-specifics.md)).
@@ -621,8 +761,11 @@ failures have automated detection and recovery paths.
       exposure, and image delivery through environment configuration only.
 - [x] Keep live cloud provisioning opt-in because it requires credentials, external
       changes, and cost.
-- [x] Add offline render, schema, composition, and policy tests that run without
+- [ ] Add offline render, schema, composition, and policy tests that run without
       cloud credentials.
+      _Partial: schema, portability, render validation, and OPA tests run offline.
+      The composition contract (`infra/apis/postgresql/tests/contract.md`) is prose,
+      and Gatekeeper `tests/cases.yaml` is not run._
 - [ ] Run an authorized live portability test before claiming support for a
       provider.
 - [ ] Test controller restart, OPA outage, telemetry backend outage, interrupted
@@ -640,6 +783,8 @@ failures have automated detection and recovery paths.
 - [ ] The managed PostgreSQL composition produces the same readiness and Secret
       interface as the local composition.
 - [ ] Offline provider validation runs in ordinary CI.
+      _Gap: `mise run validate` checks only `--environment local`; add
+      `managed-example`._
 - [ ] Provider support is documented only after an authorized live test passes.
 - [ ] Recoverable failures converge without manual cluster patching.
 
@@ -688,21 +833,87 @@ Production high availability, multi-cluster operation, and organization-specific
 cloud controls remain separate initiatives. They are not implied by completion of
 the local-platform MVP.
 
+## Refinement Record
+
+### 2026-11-07 code audit
+
+Every checklist item was compared with the code (read-only; no cluster was used).
+Boxes now mean "implemented in the repository", and live-only exit criteria stay
+open until live evidence is recorded. Items marked _Partial_, _Gap_, or _Conflict_
+explain what is missing. Changes:
+
+- Unchecked work that the code does not support: SOPS/age configuration
+  (placeholder recipient), Gatekeeper templates and audit deployment (rule families
+  missing, nothing installs them), versioned OPA bundles (the deployed policy is an
+  untested inline copy), the ambient enrollment contract, release readiness checks,
+  StorageClass documentation, retained-data discovery, five Step 11 pipeline items,
+  and offline composition and Gatekeeper tests.
+- Checked work that the code supports: catalog-declared controller installs with
+  recorded live rollout (Step 7), tunnel lifecycle (Step 8), local telemetry bounds
+  (Step 11), resource-before-workload ordering (Step 12), and four Step 13 exit
+  criteria.
+- Safety defects found, all fixed test-first in PR #9 (see follow-up work):
+  1. `retainedResources` swallows every kubectl error, so an unreachable cluster
+     reports no retained data and the destroy guard fails open.
+  2. `kore local down --prune` grants both destroy consent and data purge from one
+     flag, which merges the two consent gates.
+  3. A killed mutation leaves a stale environment lock with no recovery path.
+  4. The local Cosign private key is generated with an empty password. It is
+     gitignored, but it is still plaintext key material at rest. Decision: keep it
+     in a cluster Secret through Cosign's `k8s://` reference (ADR 0015).
+- Conflict to resolve: Step 7's "no shared composition installed" exit criterion
+  conflicts with the `core` phase installing `kore-postgresql-api` and the OPA
+  authorizer during bootstrap.
+
+### 2026-11-07 follow-up work
+
+Tracked in [PR #9](https://github.com/corekraft/kore/pull/9). Each item is written
+test-first, on its own worktree branch, and merged back after review.
+
+- [x] Make retained-data discovery fail closed: treat only "resource type not
+      installed" as empty, and fail the destroy on any other kubectl error.
+- [x] Split `kore local down --prune` so purging retained data needs its own
+      opt-in, separate from destroy consent.
+- [x] Detect and recover a stale environment lock left by a killed run, without
+      ever breaking a lock held by a live process.
+- [x] Keep the local Cosign private key off disk in plaintext, and record the
+      decision in ADR 0015.
+- [x] Select and pin the latest Sigstore Policy Controller; add it to the
+      component catalog, version catalog, compatibility matrix, and release graph
+      as a bootstrap release with no `ClusterImagePolicy` enforcement yet.
+- [x] Upgrade every pinned platform dependency (Kubernetes, controllers, charts,
+      images, composition functions, base images) to its latest release, and record
+      compatibility evidence in `infra/catalog/compatibility.md`.
+- [x] Upgrade every pinned toolchain dependency (`.mise.toml` tools, CLI npm
+      devDependencies, GitHub Action SHAs) to its latest release.
+- [ ] After the upgrades, rerun the live bootstrap on a fresh profile before the
+      Step 7 rows claim the new versions are live-validated.
+
+Upgrade notes: Istio 1.31 charts now come from `blob.istio.io` because the
+Google-hosted repository is being retired. Gatekeeper stays on 3.23.1 because
+3.24.0 is beta. `mise run format` on `infra/catalog/*.yaml` adds trailing commas
+that break the JSON-compatible YAML rule, so the catalogs were edited by hand; the
+format task needs a fix.
+
+Next: run the live bootstrap on a fresh profile against the upgraded pins, then
+digest-pin the Sigstore Policy Controller seed and enable `ClusterImagePolicy`
+enforcement (Step 7), which unblocks Step 9 enrollment and the bootstrap gate.
+
 ## Progress Record
 
 Update this table when a step begins or completes. Link implementation commits,
 test evidence, and architectural decisions from the evidence column.
 
-| Step                                                               | Status                                                                                                                     | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 6. Repository and local cluster foundation                         | Complete; live lifecycle validated                                                                                         | `tools/kore` TypeScript CLI, updated catalogs and local environment, 37 unit tests, catalog/OPA validation, direct `kore validate` and `cluster status`, and live Minikube create/inspect/stop/resume integration on Kubernetes 1.37.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| 7. Bootstrap registry, image trust, controllers, and CRD ownership | Existing controllers and one local signed-image rollout live-validated; trust closure remains open                         | Gateway API 1.6.2, cert-manager 1.21.2, Crossplane 2.4.0, Gatekeeper 3.23.1, Istio 1.30.4, External Secrets 2.10.0, CloudNativePG chart 0.29.0, OPA, and ztunnel rolled out. The reference image was verified with the local Cosign key and deployed by digest; this local signature intentionally has no Rekor entry. Release automation authority, Sigstore admission, and seed-closure evidence remain open. [ADR 0015](../../docs/decisions/0015-local-signed-image-delivery.md)                                                                                                                                                                                                                                                                                                                  |
-| 8. Networking, certificates, and secrets                           | TLS, Gateway listener, and local HTTPS forwarding live-validated on the existing profile; fresh-cluster validation pending | `platform up` completed after migrating the existing Certificate out of the old Helm release ([ADR 0013](../../docs/decisions/0013-local-tls-before-gateway.md)). Certificate readiness and renewal metadata were verified; the managed Gateway returns HTTPS responses through the interactive Minikube tunnel. A chart-managed Istio ALLOW policy now exempts only the named Gateway on port 443 from the `kore-system` default deny. `/api` returns 200 with database readiness; `/` returns the reference API's expected 404. Repeat on a fresh profile and validate managed detached tunnel privilege handling.                                                                                                                                                                                  |
-| 9. Workload identity, application image trust, and policy          | Local ambient authorization and signed workload live-validated; admission and external signing remain open                 | `reference-api` Service waypoint and `targetRefs` policies report `WaypointAccepted`; Istio L4 policy requires waypoint identity, and Istio L7 ALLOW checks the frontend principal. OPA requires `x-kore-authenticated-role`; live HTTPS tests return 403 for unauthenticated and caller-forged `x-kore-role` requests, and 200 for the valid app Bearer token. Direct Pod-IP bypass is rejected. Captured Istio 1.30 ambient ExtAuthz input omits source/destination principals, so identity is enforced natively before OPA ([ADR 0014](../../docs/decisions/0014-native-identity-before-opa.md)). The deployed digest was verified with the local Cosign public key; its local signing config has no Rekor service. OPA principal context, Sigstore admission, and release automation remain open. |
-| 10. Storage and PostgreSQL platform API                            | Implemented; live validation pending                                                                                       | StorageClasses, immediate Minikube binding, `PostgreSQLInstance` XRD/composition, retention guards                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| 11. Observability                                                  | Live-validated installation                                                                                                | Prometheus, Loki, Tempo, Grafana, and OTLP Collector ready on `kore-local`; synthetic signal correlation remains pending                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| Platform bootstrap completion gate                                 | Not started                                                                                                                | Readiness manifest, protected gate ownership, cluster-side pre-bootstrap rejection, and complete prerequisite evidence remain open                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| 12. Reference application                                          | Local workload and authorization flow live-validated                                                                       | Two Node workloads, resource/workload charts, Dockerfile, and policy paths; live HTTPS `/api/protected` returns 403 without authentication or with a forged `x-kore-role`, and 200 with the valid app Bearer token. The API waypoint denies direct Pod-IP bypass. The root path remains unimplemented and returns 404. Kore now pulls the exact immutable digest into Minikube before deploying with `imagePullPolicy: Never`.                                                                                                                                                                                                                                                                                                                                                                        |
-| 13. Complete lifecycle orchestration                               | Implemented; live validation pending                                                                                       | platform/app command phases, lock, explicit contexts and confirmations                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| 14. Portability and resilience validation                          | Complete (offline validation)                                                                                              | `kore validate --environment managed-example`, environment-selected overlays, application overlay rejection, `tools/kore/{portability,config}.spec.ts`; live/provider resilience tests pending                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| 15. Operational hardening and release                              | Not started                                                                                                                |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Step                                                               | Status                                                                                                                                           | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 6. Repository and local cluster foundation                         | Complete; live lifecycle validated                                                                                                               | `tools/kore` TypeScript CLI, updated catalogs and local environment, 37 unit tests, catalog/OPA validation, direct `kore validate` and `cluster status`, and live Minikube create/inspect/stop/resume integration on Kubernetes 1.37.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| 7. Bootstrap registry, image trust, controllers, and CRD ownership | Controllers live-validated on the previous pins; upgraded pins and Sigstore Policy Controller validated offline only; trust closure remains open | Live rollout was recorded on Gateway API 1.6.2, cert-manager 1.21.2, Crossplane 2.4.0, Gatekeeper 3.23.1, Istio 1.30.4, External Secrets 2.10.0, and CloudNativePG chart 0.29.0. PR #9 upgraded them (see `infra/catalog/compatibility.md`) and added Sigstore Policy Controller 0.10.8 with no enforcement; the fresh-profile live bootstrap is pending. The local signing key now lives in a cluster Secret ([ADR 0015](../../docs/decisions/0015-local-signed-image-delivery.md)). Release automation authority, Sigstore admission, and seed-closure evidence remain open.                                                                                                                                                                                                                        |
+| 8. Networking, certificates, and secrets                           | TLS, Gateway listener, and local HTTPS forwarding live-validated on the existing profile; fresh-cluster validation pending                       | `platform up` completed after migrating the existing Certificate out of the old Helm release ([ADR 0013](../../docs/decisions/0013-local-tls-before-gateway.md)). Certificate readiness and renewal metadata were verified; the managed Gateway returns HTTPS responses through the interactive Minikube tunnel. A chart-managed Istio ALLOW policy now exempts only the named Gateway on its HTTPS listener port (8443 locally, 443 in the base chart) from the `kore-system` default deny. `/api` returns 200 with database readiness; `/` returns the reference API's expected 404. Repeat on a fresh profile and validate managed detached tunnel privilege handling.                                                                                                                             |
+| 9. Workload identity, application image trust, and policy          | Local ambient authorization and signed workload live-validated; admission and external signing remain open                                       | `reference-api` Service waypoint and `targetRefs` policies report `WaypointAccepted`; Istio L4 policy requires waypoint identity, and Istio L7 ALLOW checks the frontend principal. OPA requires `x-kore-authenticated-role`; live HTTPS tests return 403 for unauthenticated and caller-forged `x-kore-role` requests, and 200 for the valid app Bearer token. Direct Pod-IP bypass is rejected. Captured Istio 1.30 ambient ExtAuthz input omits source/destination principals, so identity is enforced natively before OPA ([ADR 0014](../../docs/decisions/0014-native-identity-before-opa.md)). The deployed digest was verified with the local Cosign public key; its local signing config has no Rekor service. OPA principal context, Sigstore admission, and release automation remain open. |
+| 10. Storage and PostgreSQL platform API                            | Partly implemented; live validation pending                                                                                                      | StorageClasses, immediate Minikube binding, `PostgreSQLInstance` XRD/composition, and the `cluster destroy` retention guard. Open: Secret-scoped Crossplane RBAC, claim status propagation, fail-closed retained-data discovery, and export/restore (not started).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| 11. Observability                                                  | Backends installed and live-validated; pipeline wiring incomplete                                                                                | Prometheus, Loki, Tempo, Grafana, and OTLP Collector ready on `kore-local`. 2026-11-07 code review found the Collector metrics export unscraped, the dashboard and alert rules not installed, no Kubernetes, Istio, or OPA telemetry sources, and status blind to workload health. Synthetic correlation is tested only at the app level.                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Platform bootstrap completion gate                                 | Not started                                                                                                                                      | Readiness manifest, protected gate ownership, cluster-side pre-bootstrap rejection, and complete prerequisite evidence remain open                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| 12. Reference application                                          | Local workload and authorization flow live-validated                                                                                             | Two Node workloads, resource/workload charts, Dockerfile, and policy paths; live HTTPS `/api/protected` returns 403 without authentication or with a forged `x-kore-role`, and 200 with the valid app Bearer token. The API waypoint denies direct Pod-IP bypass. The root path remains unimplemented and returns 404. Kore now pulls the exact immutable digest into Minikube before deploying with `imagePullPolicy: Never`.                                                                                                                                                                                                                                                                                                                                                                        |
+| 13. Complete lifecycle orchestration                               | Commands implemented; trust and resume gaps open; live validation pending                                                                        | Platform/app command phases, environment lock, journal with interrupted-operation detection, explicit contexts and confirmations. Open: admission gate ownership, release-automation image lock, stale-lock recovery, failed-attempt cleanup, and the clean-machine end-to-end test.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| 14. Portability and resilience validation                          | Offline portability checks only                                                                                                                  | `kore validate --environment managed-example`, environment-selected overlays, application overlay rejection, `tools/kore/src/diagnostics/portability.spec.ts`, `tools/kore/src/config/config.spec.ts`. Missing: chart rendering against common values, CI validation of `managed-example`, OpenTofu stack, managed PostgreSQL composition, provider IAM, and every live and resilience test.                                                                                                                                                                                                                                                                                                                                                                                                          |
+| 15. Operational hardening and release                              | Not started                                                                                                                                      |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |

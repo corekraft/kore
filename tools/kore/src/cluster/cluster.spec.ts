@@ -14,6 +14,7 @@ import {
   retainedResources,
 } from "./cluster.js";
 import { loadRepository } from "../config/index.js";
+import { CommandError } from "../runtime/index.js";
 import { RecordingRunner } from "../runtime/runner.js";
 
 test("cluster start command pins profile, context inputs, runtime, and resources", async () => {
@@ -24,7 +25,7 @@ test("cluster start command pins profile, context inputs, runtime, and resources
     "--profile",
     "kore-local",
     "--kubernetes-version",
-    "v1.37.0",
+    "v1.37.2",
     "--driver",
     "docker",
     "--container-runtime",
@@ -288,13 +289,66 @@ test("retained resource discovery ignores unavailable APIs, trims, deduplicates,
           stderr: "",
           code: 0,
         };
-      throw new Error("persistentvolumeclaims API is unavailable");
+      throw new CommandError("kubectl", ["get", "pvc"], {
+        stdout: "",
+        stderr: 'error: the server doesn\'t have a resource type "pvc"',
+        code: 1,
+      });
     },
   };
 
   assert.deepEqual(await retainedResources(repository, runner), [
     "postgresqlinstance.platform.kore.dev/reference-db",
   ]);
+});
+
+test("a missing PostgreSQL CRD counts as no retained data", async () => {
+  const repository = await loadRepository("local");
+  let query = 0;
+  const runner = {
+    async run() {
+      query += 1;
+      if (query === 1)
+        throw new CommandError("kubectl", ["get"], {
+          stdout: "",
+          stderr:
+            'error: the server doesn\'t have a resource type "postgresqlinstances"',
+          code: 1,
+        });
+      return { stdout: "", stderr: "", code: 0 };
+    },
+  };
+  assert.deepEqual(await retainedResources(repository, runner), []);
+});
+
+test("an unreachable cluster blocks destroy instead of counting as no retained data", async () => {
+  const repository = await loadRepository("local");
+  const runner = {
+    calls: [] as string[][],
+    async run(command: string, args: readonly string[]) {
+      this.calls.push([command, ...args]);
+      if (command === "kubectl" && args.includes("get"))
+        throw new CommandError(command, args, {
+          stdout: "",
+          stderr:
+            "Unable to connect to the server: dial tcp 192.168.49.2:8443: i/o timeout",
+          code: 1,
+        });
+      return { stdout: "", stderr: "", code: 0 };
+    },
+  };
+  await assert.rejects(
+    retainedResources(repository, runner),
+    /Unable to connect/,
+  );
+  await assert.rejects(
+    clusterDestroy(repository, runner, { yes: true, purgeData: false }),
+    /Unable to connect/,
+  );
+  assert.equal(
+    runner.calls.some((call) => call.includes("delete")),
+    false,
+  );
 });
 
 test("cluster up starts the configured profile then validates its context", async () => {

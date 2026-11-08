@@ -1,5 +1,5 @@
 import type { Repository } from "../config/index.js";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { appUp } from "../app/index.js";
 import {
@@ -64,6 +64,9 @@ export async function localUp(
     "local-images.lock.json",
   );
   await mkdir(join(repository.root, ".kore", "state"), { recursive: true });
+  // A lock from an earlier run names digests signed by a key that may have
+  // vanished with its cluster; every run re-signs, so start without it.
+  await rm(localLockPath, { force: true });
   for (const application of Object.keys(lock.entries).sort()) {
     const built = await (dependencies.buildImage ?? buildAndSignLocalImage)(
       repository,
@@ -102,15 +105,23 @@ export async function localUp(
 export async function localDown(
   repository: Repository,
   runner: Runner,
-  prune: boolean,
+  options: { prune: boolean; purgeData: boolean },
   dependencies: LocalLifecycleDependencies = {},
 ): Promise<void> {
   assertLocalMinikube(repository);
-  if (prune) {
+  if (options.purgeData && !options.prune)
+    throw new Error(
+      "--purge-data requires --prune; local down only destroys the cluster with --prune",
+    );
+  if (options.prune) {
+    // The signing key lives in the cluster Secret and is destroyed with it.
+    const state = join(repository.root, ".kore", "state");
+    await rm(join(state, "local-images.lock.json"), { force: true });
+    await rm(join(state, "local-signing.pub"), { force: true });
     await (dependencies.platformDestroy ?? platformDestroy)(
       repository,
       runner,
-      { yes: true, purgeData: true },
+      { yes: true, purgeData: options.purgeData },
     );
   } else {
     await (dependencies.platformStop ?? platformStop)(repository, runner);

@@ -1,5 +1,6 @@
-import { access, chmod, mkdir } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { ImageLockEntry, LockedImage } from "./image-lock.js";
 import type { Repository } from "../config/index.js";
 import { localRegistryReference } from "./registry.js";
@@ -91,47 +92,101 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-async function ensureLocalSigner(
+export const localSigningKeyNamespace = "kore-system";
+export const localSigningKeySecret = "kore-local-signing-key";
+const localSigningKeyReference = `k8s://${localSigningKeyNamespace}/${localSigningKeySecret}`;
+
+function secretArgs(kubeContext: string, ...rest: string[]): string[] {
+  return [
+    "--context",
+    kubeContext,
+    "--namespace",
+    localSigningKeyNamespace,
+    "get",
+    "secret",
+    localSigningKeySecret,
+    ...rest,
+  ];
+}
+
+interface LocalSigner {
+  key: string;
+  publicKey: string;
+  signingConfig: string;
+  env: NodeJS.ProcessEnv;
+}
+
+// Cosign resolves k8s:// references through the kubeconfig's current context,
+// so the configured context is pinned with a minified, credential-free
+// kubeconfig that only lives for the duration of the signing call.
+async function withLocalSigner<T>(
   repository: Repository,
   runner: Runner,
-): Promise<{ key: string; publicKey: string; signingConfig: string }> {
-  const directory = join(repository.root, ".kore", "keys", "local");
-  await mkdir(directory, { recursive: true, mode: 0o700 });
-  await chmod(directory, 0o700);
-  const prefix = join(directory, "automation");
-  const key = `${prefix}.key`,
-    publicKey = `${prefix}.pub`,
-    signingConfig = join(
-      repository.root,
-      ".kore",
-      "state",
-      "local-signing-config.json",
+  action: (signer: LocalSigner) => Promise<T>,
+): Promise<T> {
+  const kubeContext = repository.environment.kubeContext;
+  const state = join(repository.root, ".kore", "state");
+  const legacy = join(repository.root, ".kore", "keys", "local");
+  if (await exists(legacy))
+    process.stderr.write(
+      `legacy local signing key under ${legacy} is no longer used and can be deleted; the key now lives in the ${localSigningKeyNamespace}/${localSigningKeySecret} Secret for the cluster's lifetime\n`,
     );
-  const hasKey = await exists(key),
-    hasPublicKey = await exists(publicKey);
-  if (hasKey !== hasPublicKey)
-    throw new Error(
-      `local signing key pair is incomplete: expected ${key} and ${publicKey}`,
-    );
-  if (!hasKey) {
+  const kubeconfig = (
     await runner.run(
-      "cosign",
-      ["generate-key-pair", "--output-key-prefix", prefix],
-      {
-        capture: false,
-        env: { ...process.env, COSIGN_PASSWORD: "" },
-      },
+      "kubectl",
+      ["config", "view", "--minify", "--context", kubeContext],
+      { capture: true },
+    )
+  ).stdout;
+  if (/(?:-data|token|password)\s*:/.test(kubeconfig))
+    throw new Error(
+      `kubeconfig context ${kubeContext} embeds credentials; reference certificate files instead so they are never copied to disk`,
     );
-    await chmod(key, 0o600);
-    await chmod(publicKey, 0o644);
-  }
-  if (!(await exists(signingConfig))) {
-    await mkdir(dirname(signingConfig), { recursive: true });
-    await runner.run("cosign", localSigningConfigArgs(signingConfig), {
-      capture: false,
+  const directory = await mkdtemp(join(tmpdir(), "kore-kubeconfig-"));
+  try {
+    const kubeconfigPath = join(directory, "config");
+    await writeFile(kubeconfigPath, kubeconfig, { mode: 0o600 });
+    const env = {
+      ...process.env,
+      KUBECONFIG: kubeconfigPath,
+      COSIGN_PASSWORD: "",
+    };
+    const present = await runner.run(
+      "kubectl",
+      secretArgs(kubeContext, "--ignore-not-found", "--output=name"),
+      { capture: true },
+    );
+    if (!present.stdout.trim())
+      await runner.run(
+        "cosign",
+        ["generate-key-pair", localSigningKeyReference],
+        { capture: false, env },
+      );
+    const encoded = await runner.run(
+      "kubectl",
+      secretArgs(kubeContext, "--output=jsonpath={.data.cosign\\.pub}"),
+      { capture: true },
+    );
+    const publicKey = join(state, "local-signing.pub");
+    const signingConfig = join(state, "local-signing-config.json");
+    await mkdir(state, { recursive: true });
+    await writeFile(
+      publicKey,
+      Buffer.from(encoded.stdout.trim(), "base64").toString("utf8"),
+    );
+    if (!(await exists(signingConfig)))
+      await runner.run("cosign", localSigningConfigArgs(signingConfig), {
+        capture: false,
+      });
+    return await action({
+      key: localSigningKeyReference,
+      publicKey,
+      signingConfig,
+      env,
     });
+  } finally {
+    await rm(directory, { force: true, recursive: true });
   }
-  return { key, publicKey, signingConfig };
 }
 
 export async function buildAndSignLocalImage(
@@ -140,7 +195,18 @@ export async function buildAndSignLocalImage(
   application: string,
   entry: ImageLockEntry,
 ): Promise<BuiltLocalImage> {
-  const signer = await ensureLocalSigner(repository, runner);
+  return await withLocalSigner(repository, runner, (signer) =>
+    buildAndSign(repository, runner, application, entry, signer),
+  );
+}
+
+async function buildAndSign(
+  repository: Repository,
+  runner: Runner,
+  application: string,
+  entry: ImageLockEntry,
+  signer: LocalSigner,
+): Promise<BuiltLocalImage> {
   const applicationPath = join(repository.root, "apps", application);
   const imageTag = `kore-local/${application}:kore-local`;
   await localRegistryReference(repository, runner, `${entry.image}:kore-local`);
@@ -226,7 +292,7 @@ export async function buildAndSignLocalImage(
       "--yes",
       signingReference,
     ],
-    { capture: false, env: { ...process.env, COSIGN_PASSWORD: "" } },
+    { capture: false, env: signer.env },
   );
   return { image, publicKey: signer.publicKey };
 }

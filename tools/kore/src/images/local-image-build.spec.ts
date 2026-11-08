@@ -1,4 +1,11 @@
-import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, test, vi } from "vitest";
@@ -30,12 +37,35 @@ async function testRepository(): Promise<Repository> {
   return { ...repository, root };
 }
 
-function fakeRunner(options: { clusterIp?: string } = {}) {
+const kubeContext = "kore-local";
+const secretRef = "k8s://kore-system/kore-local-signing-key";
+const minifiedKubeconfig = `apiVersion: v1
+kind: Config
+current-context: ${kubeContext}
+clusters:
+  - name: kore-local
+    cluster: {server: "https://192.168.49.2:8443", certificate-authority: /home/u/.minikube/ca.crt}
+contexts:
+  - name: ${kubeContext}
+    context: {cluster: kore-local, user: kore-local}
+users:
+  - name: kore-local
+    user: {client-certificate: /home/u/.minikube/client.crt, client-key: /home/u/.minikube/client.key}
+`;
+
+function fakeRunner(
+  options: {
+    clusterIp?: string;
+    secretExists?: boolean;
+    kubeconfig?: string;
+  } = {},
+) {
   const calls: {
     command: string;
     args: readonly string[];
     options?: RunOptions;
   }[] = [];
+  let exists = options.secretExists ?? false;
   const runner: Runner = {
     async run(command, args, runOptions): Promise<RunResult> {
       calls.push({
@@ -43,96 +73,37 @@ function fakeRunner(options: { clusterIp?: string } = {}) {
         args,
         ...(runOptions ? { options: runOptions } : {}),
       });
-      if (command === "cosign" && args[0] === "generate-key-pair") {
-        const prefix = args[args.indexOf("--output-key-prefix") + 1]!;
-        await writeFile(`${prefix}.key`, "local private key");
-        await writeFile(`${prefix}.pub`, "local public key");
-      }
+      let stdout = "";
+      if (command === "cosign" && args[0] === "generate-key-pair")
+        exists = true;
       if (command === "cosign" && args[0] === "signing-config") {
         const path = args[args.indexOf("--out") + 1]!;
         await mkdir(join(path, ".."), { recursive: true });
         await writeFile(path, "{}");
       }
-      return {
-        stdout: command === "kubectl" ? (options.clusterIp ?? "10.0.0.8") : "",
-        stderr: "",
-        code: 0,
-      };
+      if (command === "kubectl") {
+        if (args.includes("secret") && args.includes("--output=name"))
+          stdout = exists ? "secret/kore-local-signing-key\n" : "";
+        else if (args.some((arg) => arg.startsWith("--output=jsonpath={.data")))
+          stdout = Buffer.from("local public key").toString("base64");
+        else if (args.includes("config"))
+          stdout = options.kubeconfig ?? minifiedKubeconfig;
+        else stdout = options.clusterIp ?? "10.0.0.8";
+      }
+      return { stdout, stderr: "", code: 0 };
     },
   };
   return { runner, calls };
 }
 
-const entry: ImageLockEntry = {
-  image: "registry.kore.local:30500/reference",
-  digest: `sha256:${"a".repeat(64)}`,
-  signer: "release@kore.dev",
-};
+async function filesUnder(root: string): Promise<string[]> {
+  const entries = await readdir(root, { recursive: true, withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isFile())
+    .map((entry) => join(entry.parentPath, entry.name));
+}
 
-test("build and sign creates a protected keypair and locks the registry digest", async () => {
-  const repository = await testRepository();
-  const { runner, calls } = fakeRunner();
-  const fetch = vi.fn().mockResolvedValue(
-    new Response(null, {
-      status: 200,
-      headers: { "docker-content-digest": digest },
-    }),
-  );
-  vi.stubGlobal("fetch", fetch);
-  registryReference.mockImplementation(
-    async (_repo, _runner, reference) => reference,
-  );
-
-  const result = await buildAndSignLocalImage(
-    repository,
-    runner,
-    "reference",
-    entry,
-  );
-
-  const key = join(repository.root, ".kore/keys/local/automation.key");
-  const publicKey = join(repository.root, ".kore/keys/local/automation.pub");
-  const signingConfig = join(
-    repository.root,
-    ".kore/state/local-signing-config.json",
-  );
-  expect(result).toEqual({
-    image: {
-      reference: `${entry.image}@${digest}`,
-      digest,
-      signer: "local-kore-key",
-    },
-    publicKey,
-  });
-  expect(await readFile(key, "utf8")).toBe("local private key");
-  expect(
-    (await stat(join(repository.root, ".kore/keys/local"))).mode & 0o777,
-  ).toBe(0o700);
-  expect((await stat(key)).mode & 0o777).toBe(0o600);
-  expect((await stat(publicKey)).mode & 0o777).toBe(0o644);
-  expect(await readFile(signingConfig, "utf8")).toBe("{}");
-  expect(fetch).toHaveBeenCalledWith(
-    "http://127.0.0.1:30500/v2/reference/manifests/kore-local",
-    expect.objectContaining({ method: "HEAD" }),
-  );
-  expect(registryReference).toHaveBeenCalledTimes(2);
-  expect(
-    calls
-      .filter(({ command }) => command === "cosign")
-      .map(({ args }) => args[0]),
-  ).toEqual(["generate-key-pair", "signing-config", "sign"]);
-});
-
-test("build and sign reuses an existing local signer", async () => {
-  const repository = await testRepository();
-  const directory = join(repository.root, ".kore/keys/local");
-  const state = join(repository.root, ".kore/state");
-  await mkdir(directory, { recursive: true });
-  await mkdir(state, { recursive: true });
-  await writeFile(join(directory, "automation.key"), "private");
-  await writeFile(join(directory, "automation.pub"), "public");
-  await writeFile(join(state, "local-signing-config.json"), "{}");
-  const { runner, calls } = fakeRunner();
+function stubRegistry(): void {
   vi.stubGlobal(
     "fetch",
     vi.fn().mockResolvedValue(
@@ -145,6 +116,98 @@ test("build and sign reuses an existing local signer", async () => {
   registryReference.mockImplementation(
     async (_repo, _runner, reference) => reference,
   );
+}
+
+const entry: ImageLockEntry = {
+  image: "registry.kore.local:30500/reference",
+  digest: `sha256:${"a".repeat(64)}`,
+  signer: "release@kore.dev",
+};
+
+test("build and sign generates the key pair as a Kubernetes Secret through the configured context and writes no private key", async () => {
+  const repository = await testRepository();
+  const { runner, calls } = fakeRunner();
+  stubRegistry();
+
+  const result = await buildAndSignLocalImage(
+    repository,
+    runner,
+    "reference",
+    entry,
+  );
+
+  const publicKey = join(repository.root, ".kore/state/local-signing.pub");
+  expect(result).toEqual({
+    image: {
+      reference: `${entry.image}@${digest}`,
+      digest,
+      signer: "local-kore-key",
+    },
+    publicKey,
+  });
+  expect(await readFile(publicKey, "utf8")).toBe("local public key");
+  const generate = calls.find(({ args }) => args[0] === "generate-key-pair")!;
+  expect(generate.command).toBe("cosign");
+  expect(generate.args).toEqual(["generate-key-pair", secretRef]);
+  expect(calls.map(({ command, args }) => [command, ...args])).toContainEqual([
+    "kubectl",
+    "--context",
+    kubeContext,
+    "--namespace",
+    "kore-system",
+    "get",
+    "secret",
+    "kore-local-signing-key",
+    "--ignore-not-found",
+    "--output=name",
+  ]);
+  expect(calls.map(({ command, args }) => [command, ...args])).toContainEqual([
+    "kubectl",
+    "config",
+    "view",
+    "--minify",
+    "--context",
+    kubeContext,
+  ]);
+  const sign = calls.find(({ args }) => args[0] === "sign")!;
+  expect(sign.args).toEqual(expect.arrayContaining(["--key", secretRef]));
+  const files = await filesUnder(repository.root);
+  expect(files.filter((file) => /\.key$|cosign\.key/.test(file))).toEqual([]);
+  expect(files.filter((file) => file.includes(".kore/keys"))).toEqual([]);
+});
+
+test("cosign is pinned to the configured context through a kubeconfig that is removed afterwards", async () => {
+  const repository = await testRepository();
+  const { runner, calls } = fakeRunner();
+  stubRegistry();
+
+  await buildAndSignLocalImage(repository, runner, "reference", entry);
+
+  const generate = calls.find(({ args }) => args[0] === "generate-key-pair")!;
+  const sign = calls.find(({ args }) => args[0] === "sign")!;
+  const kubeconfig = generate.options?.env?.KUBECONFIG;
+  expect(kubeconfig).toBeTruthy();
+  expect(sign.options?.env?.KUBECONFIG).toBe(kubeconfig);
+  expect(kubeconfig?.startsWith(repository.root)).toBe(false);
+  await expect(stat(kubeconfig!)).rejects.toThrow(/ENOENT/);
+});
+
+test("build and sign refuses a kubeconfig that embeds credentials", async () => {
+  const repository = await testRepository();
+  const { runner, calls } = fakeRunner({
+    kubeconfig: `${minifiedKubeconfig}    client-key-data: c2VjcmV0\n`,
+  });
+
+  await expect(
+    buildAndSignLocalImage(repository, runner, "reference", entry),
+  ).rejects.toThrow(/embeds credentials/);
+  expect(calls.some(({ command }) => command === "cosign")).toBe(false);
+});
+
+test("build and sign reuses the key Secret already in the cluster", async () => {
+  const repository = await testRepository();
+  const { runner, calls } = fakeRunner({ secretExists: true });
+  stubRegistry();
 
   await buildAndSignLocalImage(repository, runner, "reference", entry);
 
@@ -152,20 +215,32 @@ test("build and sign reuses an existing local signer", async () => {
     calls
       .filter(({ command }) => command === "cosign")
       .map(({ args }) => args[0]),
-  ).toEqual(["sign"]);
+  ).toEqual(["signing-config", "sign"]);
 });
 
-test("build and sign rejects an incomplete local signer keypair", async () => {
+test("a legacy key under .kore is never used and is reported as deletable", async () => {
   const repository = await testRepository();
   const directory = join(repository.root, ".kore/keys/local");
   await mkdir(directory, { recursive: true });
   await writeFile(join(directory, "automation.key"), "private");
+  await writeFile(join(directory, "automation.pub"), "public");
   const { runner, calls } = fakeRunner();
+  stubRegistry();
+  const stderr = vi.spyOn(process.stderr, "write").mockReturnValue(true);
 
-  await expect(
-    buildAndSignLocalImage(repository, runner, "reference", entry),
-  ).rejects.toThrow(/key pair is incomplete/);
-  expect(calls).toEqual([]);
+  await buildAndSignLocalImage(repository, runner, "reference", entry);
+
+  expect(
+    calls.find(({ args }) => args[0] === "generate-key-pair"),
+  ).toBeTruthy();
+  expect(JSON.stringify(calls)).not.toContain("automation.key");
+  expect(stderr).toHaveBeenCalledWith(
+    expect.stringMatching(/\.kore\/keys\/local.*can be deleted/),
+  );
+  expect(await readFile(join(directory, "automation.key"), "utf8")).toBe(
+    "private",
+  );
+  stderr.mockRestore();
 });
 
 test("build and sign rejects a registry response without a usable digest", async () => {

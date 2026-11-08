@@ -6,5 +6,5 @@ export type {
   JournalOperation,
   OperationSummary,
 } from "./journal.js";
-export { ProcessRunner } from "./runner.js";
+export { CommandError, ProcessRunner } from "./runner.js";
 export type { RunOptions, RunResult, Runner } from "./runner.js";
