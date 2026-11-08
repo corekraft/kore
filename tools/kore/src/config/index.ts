@@ -14,5 +14,7 @@ export type {
   Environment,
   Phase,
   Repository,
+  Seed,
+  SeedManifest,
   Versions,
 } from "./config.js";

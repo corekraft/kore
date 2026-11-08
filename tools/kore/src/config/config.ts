@@ -7,6 +7,7 @@ import type {
   Component,
   Environment,
   Repository,
+  SeedManifest,
   Versions,
 } from "./types.js";
 
@@ -17,6 +18,9 @@ export type {
   Environment,
   Phase,
   Repository,
+  Seed,
+  SeedEvidence,
+  SeedManifest,
   Versions,
 } from "./types.js";
 export { orderedComponents } from "./order.js";
@@ -56,14 +60,15 @@ export async function loadRepository(
   start?: string,
 ): Promise<Repository> {
   const root = await findRoot(start);
-  const [versions, catalog, environment] = await Promise.all([
+  const [versions, seeds, catalog, environment] = await Promise.all([
     loadJSON<Versions>(join(root, "infra/catalog/versions.yaml")),
+    loadJSON<SeedManifest>(join(root, "infra/catalog/seeds.yaml")),
     loadJSON<Catalog>(join(root, "infra/catalog/components.yaml")),
     loadJSON<Environment>(
       join(root, "infra/environments", environmentName, "environment.yaml"),
     ),
   ]);
-  const repository = { root, versions, catalog, environment };
+  const repository = { root, versions, seeds, catalog, environment };
   await validateRepository(repository);
   return repository;
 }

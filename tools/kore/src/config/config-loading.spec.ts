@@ -13,6 +13,7 @@ test("malformed environment fails with useful schema errors", async () => {
     join(root, "infra/catalog/versions.yaml"),
     `{"tools":{},"kubernetes":"1.35.1","components":{},"images":{}}`,
   );
+  await writeFile(join(root, "infra/catalog/seeds.yaml"), `{"seeds":[]}`);
   await writeFile(
     join(root, "infra/catalog/components.yaml"),
     `{"components":[]}`,
@@ -32,6 +33,7 @@ test("missing catalog sections fail as schema errors instead of TypeError", asyn
   await mkdir(join(root, "infra/catalog"), { recursive: true });
   await mkdir(join(root, "infra/environments/local"), { recursive: true });
   await writeFile(join(root, "infra/catalog/versions.yaml"), `{}`);
+  await writeFile(join(root, "infra/catalog/seeds.yaml"), `{"seeds":[]}`);
   await writeFile(join(root, "infra/catalog/components.yaml"), `{}`);
   await writeFile(
     join(root, "infra/environments/local/environment.yaml"),
