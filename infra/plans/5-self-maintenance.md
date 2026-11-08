@@ -176,6 +176,8 @@ outward-facing, so it is proposed to the user and not done by an agent.
   subset, and no model calls. It failed first because the file was missing.
 - Step 1: All seven commands pass locally in this worktree, and the exit-criteria
   `grep` matches nothing.
+- Step 1: The checks also use the runner's own `git` (for `kb-check`), which is
+  not installed through mise.
 - Step 1 (pending, needs a push): the workflow passing on this branch's pull
   request, and the throwaway failing branch. Both exit criteria stay unticked
   until the user approves a push. Making the check required on `main` is also
