@@ -29,8 +29,6 @@
     { "otlpEndpoint": "http://otel-collector.observability.svc:4318" },
   "componentValues":
     {
-      "policy-controller":
-        ["infra/environments/local/values/policy-controller.yaml"],
       "prometheus": ["infra/environments/local/values/prometheus.yaml"],
       "loki": ["infra/environments/local/values/loki.yaml"],
       "tempo": ["infra/environments/local/values/tempo.yaml"],
