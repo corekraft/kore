@@ -1,5 +1,6 @@
 import type { Component, Repository } from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
+import { desiredFingerprint } from "./fingerprint.js";
 import { helmUpgradeArgs, manifestSource, withAbsoluteChart } from "./helm.js";
 import {
   assertOwnedCrdsExist,
@@ -91,11 +92,11 @@ async function applyComponent(
   const upgrade = () =>
     runner.run(
       "helm",
-      withAbsoluteChart(
-        repository,
-        component,
-        helmUpgradeArgs(repository, component),
-      ),
+      withAbsoluteChart(repository, component, [
+        ...helmUpgradeArgs(repository, component),
+        "--description",
+        desiredFingerprint(repository, component),
+      ]),
       { capture: false, cwd: repository.root },
     );
   try {
@@ -151,13 +152,64 @@ async function componentIsInstalled(
   }
 }
 
-/** Waits for an installed component, otherwise reconciles it. */
+/**
+ * Whether the deployed revision was applied from the current desired state.
+ * Helm cannot tell kore what values files and local chart contents it was given,
+ * so kore records a digest of them in the revision description on every upgrade
+ * (see desiredFingerprint). A missing or different description means drift.
+ * A failure to read the history is not drift: it is reported, never swallowed.
+ */
+async function releaseMatchesDesiredState(
+  repository: Repository,
+  runner: Runner,
+  component: Component,
+): Promise<boolean> {
+  let stdout: string;
+  try {
+    ({ stdout } = await runner.run(
+      "helm",
+      [
+        "history",
+        component.name,
+        "--namespace",
+        component.namespace,
+        "--kube-context",
+        repository.environment.kubeContext,
+        "--output",
+        "json",
+      ],
+      { capture: true },
+    ));
+  } catch (error) {
+    throw new Error(
+      `cannot read the deployed state of release ${component.name} in ${component.namespace} (${repository.environment.kubeContext}) to check for drift: ${errorMessage(error)}. Check cluster access, then rerun.`,
+    );
+  }
+  const revisions = JSON.parse(stdout) as {
+    status?: string;
+    description?: string;
+  }[];
+  const deployed = revisions.filter(({ status }) => status === "deployed");
+  return (
+    deployed.at(-1)?.description === desiredFingerprint(repository, component)
+  );
+}
+
+/**
+ * Waits for an installed component whose deployed state matches the repository,
+ * otherwise reconciles it. Manifest components apply idempotently when absent
+ * and are only awaited once their CRDs exist.
+ */
 export async function reconcileIfNeeded(
   repository: Repository,
   runner: Runner,
   component: Component,
 ): Promise<void> {
-  if (await componentIsInstalled(repository, runner, component)) {
+  if (
+    (await componentIsInstalled(repository, runner, component)) &&
+    (component.kind === "manifest" ||
+      (await releaseMatchesDesiredState(repository, runner, component)))
+  ) {
     await waitFor(repository, runner, component);
     return;
   }

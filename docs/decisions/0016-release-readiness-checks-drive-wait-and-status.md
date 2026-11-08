@@ -43,3 +43,28 @@ trust anchor surfaced only as a ClusterIssuer timeout.
 - `kore status` and `app up` now probe the cluster per component, so they are
   slower than a Helm-status-only check and need the same fakes in tests.
 - Status uses a fixed bound; making it configurable is deferred.
+
+## Refinement: resume applies drifted desired state
+
+A deployed release was previously only awaited on resume, so a changed values
+file, chart version, or local chart template never reached an existing profile.
+Resume (`reconcileIfNeeded`) now compares a desired-state fingerprint and
+upgrades a deployed Helm release when it differs, and still only awaits it when
+it matches.
+
+- The fingerprint is a sha256 of the chart, version, `--set`/`--set-string`
+  arguments, the content of each values file, and (local charts) the content of
+  every file in the chart directory. Paths are relative, so another checkout of
+  the same content matches.
+- Kore stores it as the Helm revision description (`helm upgrade
+--description`) and reads it back from `helm history`. The release is the
+  single owner; there is no extra state file, label, or annotation. Merging
+  `--values` files and diffing against `helm get values` was rejected: it
+  would reimplement Helm's merge semantics and could not see chart template
+  changes.
+- A release deployed before this change has no fingerprint and is upgraded
+  once. A failure reading the history is reported with the release name and
+  context rather than treated as current or as drift.
+- Manifest components keep their behaviour (server-side apply is idempotent).
+  The registry Service rewire remains: Helm cannot change an immutable
+  `clusterIP`, so the generic path does not cover it.
