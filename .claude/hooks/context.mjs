@@ -21,7 +21,7 @@ const FRONTMATTER = /^---\n([\s\S]*?)\n---\n/;
 const UPCOMING_STEPS = 3;
 
 /** Group a Markdown list into items, joining wrapped lines. Returns [{heading, text}]. */
-function listItems(markdown) {
+export function listItems(markdown) {
   const items = [];
   let heading = "";
   let current = null;
@@ -137,7 +137,48 @@ export function upcomingSteps(planMarkdown) {
     .slice(0, UPCOMING_STEPS);
 }
 
-/** A few lines for a fresh session: active plans, Next: lines, upcoming steps, retrospective due. */
+const JOURNAL_DIR = ".kore/state/journal";
+
+/** The latest operation in a journal: {op, command, ts, outcome, error}; outcome is null when interrupted. */
+export function lastOperation(entries) {
+  const start = entries.findLast((entry) => entry?.kind === "start");
+  if (!start) return null;
+  const end = entries.findLast(
+    (entry) => entry?.kind === "end" && entry.op === start.op,
+  );
+  return {
+    op: start.op,
+    command: start.command,
+    ts: start.ts,
+    outcome: end?.outcome ?? null,
+    error: end?.error,
+  };
+}
+
+/** One line per environment journal: the last operation, its outcome, and its date. */
+export function environmentLines(journals) {
+  const lines = [];
+  for (const environment of Object.keys(journals).sort()) {
+    const last = lastOperation(journals[environment]);
+    if (!last) continue;
+    const date = String(last.ts).slice(0, 10);
+    const label = `Environment ${environment}: last operation \`${last.command}\``;
+    if (last.outcome === null) {
+      lines.push(
+        `${label} was interrupted (started ${date}, no end recorded).`,
+      );
+    } else if (last.outcome === "failed") {
+      lines.push(
+        `${label} failed on ${date}${last.error ? `: ${last.error}` : ""}.`,
+      );
+    } else {
+      lines.push(`${label} ${last.outcome} on ${date}.`);
+    }
+  }
+  return lines;
+}
+
+/** A few lines for a fresh session: active plans, Next: lines, upcoming steps, environments, retrospective due. */
 export function brief(event, deps) {
   const plans = deps.readPlans();
   const lines = [];
@@ -150,6 +191,7 @@ export function brief(event, deps) {
     const upcoming = upcomingSteps(plans[plan]);
     if (upcoming.length > 0) lines.push(`Upcoming: ${upcoming.join("; ")}.`);
   }
+  lines.push(...environmentLines(deps.readJournals?.() ?? {}));
   const since = lastRetrospective(plans);
   const sessions = deps.sessionsSince(since, event?.session_id);
   if (sessions >= RETRO_AFTER_SESSIONS) {
@@ -198,8 +240,41 @@ export function readPlans(root) {
   );
 }
 
+/** Parsed entries per environment from the journal files under root; malformed lines are skipped. */
+export function readJournals(root) {
+  const dir = join(root, JOURNAL_DIR);
+  let names;
+  try {
+    names = readdirSync(dir).filter((name) => name.endsWith(".jsonl"));
+  } catch (error) {
+    if (error?.code === "ENOENT") return {};
+    throw error;
+  }
+  const journals = {};
+  for (const name of names) {
+    let text;
+    try {
+      text = readFileSync(join(dir, name), "utf8");
+    } catch {
+      continue; // An unreadable entry must not lose the rest of the brief.
+    }
+    const entries = [];
+    for (const line of text.split("\n")) {
+      try {
+        const entry = JSON.parse(line);
+        if (entry && typeof entry === "object") entries.push(entry);
+      } catch {
+        // A torn or foreign line is not worth failing the brief.
+      }
+    }
+    journals[name.slice(0, -".jsonl".length)] = entries;
+  }
+  return journals;
+}
+
 function realDeps(root) {
   return {
+    readJournals: () => readJournals(root),
     readAgents: () => readFileSync(join(root, "AGENTS.md"), "utf8"),
     readPlans: () => readPlans(root),
     sessionsSince: (date, current) => {

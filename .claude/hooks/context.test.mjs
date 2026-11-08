@@ -13,6 +13,7 @@ import {
   lastRetrospective,
   nextStep,
   openItems,
+  readJournals,
   restore,
   rules,
   upcomingSteps,
@@ -473,4 +474,140 @@ test("brief and compaction context cover every active plan", () => {
     /Open plan items in infra\/plans\/2-implementation\.md:\n.*Sign images/,
   );
   assert.doesNotMatch(compacted, /Stale box/);
+});
+
+const entry = (op, kind, extra = {}) => ({
+  ts: "2026-11-07T10:00:00.000Z",
+  op,
+  kind,
+  ...extra,
+});
+
+function journalDeps(journals) {
+  return {
+    ...briefDeps(0),
+    readPlans: () => ({}),
+    readJournals: () => journals,
+  };
+}
+
+test("brief says nothing about environments that have no journal", () => {
+  assert.equal(restore({ source: "startup" }, journalDeps({})), "");
+  assert.equal(restore({ source: "startup" }, journalDeps({ local: [] })), "");
+});
+
+test("brief reports a finished operation with its outcome and date", () => {
+  const journals = {
+    local: [
+      entry("a", "start", { command: "local up" }),
+      entry("a", "exec", { command: "helm" }),
+      entry("a", "end", { outcome: "ok", ms: 5 }),
+    ],
+  };
+  assert.equal(
+    restore({ source: "startup" }, journalDeps(journals)),
+    "Environment local: last operation `local up` ok on 2026-11-07.",
+  );
+});
+
+test("brief reports a failed operation with its error", () => {
+  const journals = {
+    local: [
+      entry("a", "start", { command: "local up" }),
+      entry("a", "end", { outcome: "failed", error: "helm timed out" }),
+    ],
+  };
+  assert.match(
+    restore({ source: "startup" }, journalDeps(journals)),
+    /^Environment local: last operation `local up` failed on 2026-11-07: helm timed out\.$/,
+  );
+});
+
+test("brief flags an interrupted operation and judges only the latest one", () => {
+  const journals = {
+    local: [
+      entry("a", "start", { command: "local down" }),
+      entry("a", "end", { outcome: "failed", error: "old" }),
+      entry("b", "start", { command: "local up" }),
+      entry("b", "exec", { command: "helm" }),
+    ],
+  };
+  const context = restore({ source: "startup" }, journalDeps(journals));
+  assert.equal(
+    context,
+    "Environment local: last operation `local up` was interrupted (started 2026-11-07, no end recorded).",
+  );
+  assert.doesNotMatch(context, /old/);
+});
+
+test("brief lists environments in name order, one line each", () => {
+  const done = [
+    entry("a", "start", { command: "x" }),
+    entry("a", "end", { outcome: "ok" }),
+  ];
+  const lines = restore(
+    { source: "startup" },
+    journalDeps({ staging: done, local: done }),
+  ).split("\n");
+  assert.deepEqual(
+    lines.map((l) => l.split(":")[0]),
+    ["Environment local", "Environment staging"],
+  );
+});
+
+test("readJournals parses journal files, skips malformed lines, and tolerates a missing directory", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "kore-context-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  assert.deepEqual(readJournals(root), {});
+  const dir = join(root, ".kore/state/journal");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, "local.jsonl"),
+    `${JSON.stringify(entry("a", "start"))}\nnot json\n`,
+  );
+  writeFileSync(join(dir, "notes.txt"), "x");
+  assert.deepEqual(readJournals(root), { local: [entry("a", "start")] });
+});
+
+test("cli: the startup brief carries the journal line without calling any cluster tool", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "kore-context-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const dir = join(root, ".kore/state/journal");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, "local.jsonl"),
+    `${JSON.stringify(entry("a", "start", { command: "local up" }))}\n`,
+  );
+  const result = spawnSync(process.execPath, [hook], {
+    input: JSON.stringify({ source: "startup", session_id: "s" }),
+    encoding: "utf8",
+    env: { ...process.env, CLAUDE_PROJECT_DIR: root, PATH: "" },
+  });
+  assert.equal(result.status, 0);
+  assert.match(
+    JSON.parse(result.stdout).hookSpecificOutput.additionalContext,
+    /Environment local: last operation `local up` was interrupted/,
+  );
+});
+
+test("cli: an unreadable journal entry is skipped and the brief still carries the plan lines", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "kore-context-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, ".kore/state/journal/x.jsonl"), { recursive: true });
+  mkdirSync(join(root, "infra/plans"), { recursive: true });
+  writeFileSync(
+    join(root, "infra/plans/6-plan.md"),
+    "---\nstatus: active\nsummary: A plan.\nlast-verified: 2026-11-07\n---\n\n## Step 1: Work\n\n- [ ] Build it.\n",
+  );
+  assert.deepEqual(readJournals(root), {}, "the directory is skipped");
+  const result = spawnSync(process.execPath, [hook], {
+    input: JSON.stringify({ source: "startup", session_id: "s" }),
+    encoding: "utf8",
+    env: { ...process.env, CLAUDE_PROJECT_DIR: root },
+  });
+  assert.equal(result.status, 0);
+  assert.match(
+    JSON.parse(result.stdout).hookSpecificOutput.additionalContext,
+    /Open items: Step 1 \(1\)/,
+  );
 });

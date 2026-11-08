@@ -34,7 +34,9 @@ the plans and ADRs record why. Find them through
   `helm-context`._
 - **Destruction requires consent, data destruction requires more.** Confirm
   destructive operations; retained data needs a second opt-in. Preserve these
-  gates. _Enforced: `destructive`, deny rules._
+  gates. Eval history and operation journals are append-only: write them
+  through their owning script, never by hand. _Enforced: `destructive`, deny
+  rules. Audited: `append-only`._
 - **Idempotent and resumable.** Reconciliation reruns safely and recovers from
   partial failure. Mutations are serialized per environment.
 - **Validate before touching a cluster.** Schema-check config up front so

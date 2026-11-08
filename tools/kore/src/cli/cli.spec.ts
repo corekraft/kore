@@ -67,7 +67,7 @@ test("app commands require an application name", async () => {
   await assert.rejects(main(["app", "status"]), /application name is required/);
 });
 
-test("unknown app actions are reported after acquiring and releasing the lock", async () => {
+test("unknown app actions are rejected before taking the lock", async () => {
   await assert.rejects(
     main(["app", "restart", "reference", "--environment", "local"]),
     /unknown app action: restart/,

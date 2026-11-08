@@ -35,7 +35,8 @@ export function splitSegments(command) {
     const char = command[i];
     if (quote) {
       if (char === quote) quote = null;
-      else if (char === "\\" && quote === '"' && i + 1 < command.length) word += command[++i];
+      else if (char === "\\" && quote === '"' && i + 1 < command.length)
+        word += command[++i];
       else word += char;
     } else if (char === "'" || char === '"') {
       quote = char;
@@ -50,7 +51,10 @@ export function splitSegments(command) {
     } else if ((char === "&" || char === "|") && command[i + 1] === char) {
       endSegment();
       i++;
-    } else if (char === "|" || (char === "&" && command[i + 1] !== ">" && command[i - 1] !== ">")) {
+    } else if (
+      char === "|" ||
+      (char === "&" && command[i + 1] !== ">" && command[i - 1] !== ">")
+    ) {
       endSegment();
     } else {
       word += char;
@@ -58,7 +62,9 @@ export function splitSegments(command) {
     }
   }
   endSegment();
-  return segments.filter((segment) => !(segment.length === 1 && OPERATORS.has(segment[0])));
+  return segments.filter(
+    (segment) => !(segment.length === 1 && OPERATORS.has(segment[0])),
+  );
 }
 
 const WRAPPERS = new Set(["sudo", "env", "time", "command", "nohup", "exec"]);
@@ -68,7 +74,8 @@ function commandOf(tokens) {
   let index = 0;
   while (
     index < tokens.length &&
-    (/^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[index]) || WRAPPERS.has(tokens[index]))
+    (/^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[index]) ||
+      WRAPPERS.has(tokens[index]))
   ) {
     index++;
   }
@@ -81,14 +88,29 @@ const isKore = (name, args) =>
   (name === "npm" && args.includes("kore")) ||
   (name === "node" && args.some((arg) => arg.endsWith("cli/cli.js")));
 
-const hasFlag = (args, flag) => args.some((arg) => arg === flag || arg.startsWith(`${flag}=`));
+const hasFlag = (args, flag) =>
+  args.some((arg) => arg === flag || arg.startsWith(`${flag}=`));
 const firstPositional = (args) => args.find((arg) => !arg.startsWith("-"));
 
-const block = (rule, message) => ({ action: "block", rule, message: `[guard:${rule}] ${message}` });
-const warn = (rule, message) => ({ action: "warn", rule, message: `[guard:${rule}] ${message}` });
+const block = (rule, message) => ({
+  action: "block",
+  rule,
+  message: `[guard:${rule}] ${message}`,
+});
+const warn = (rule, message) => ({
+  action: "warn",
+  rule,
+  message: `[guard:${rule}] ${message}`,
+});
 const allow = { action: "allow" };
 
-const KUBECTL_OFFLINE = new Set(["config", "completion", "help", "kustomize", "plugin"]);
+const KUBECTL_OFFLINE = new Set([
+  "config",
+  "completion",
+  "help",
+  "kustomize",
+  "plugin",
+]);
 const HELM_CLUSTER = new Set([
   "install",
   "upgrade",
@@ -137,13 +159,19 @@ function checkDestructive(name, args) {
       "Destructive operations need a human's explicit consent. " +
         "Instead, ask the user to run the command themselves (for example with `! <command>`), or use a non-destructive alternative.",
     );
-  if (name === "minikube" && firstPositional(args) === "delete") return destructive();
-  if ((name === "tofu" || name === "terraform") && args.includes("destroy")) return destructive();
-  if (name === "helm" && firstPositional(args) === "uninstall") return destructive();
+  if (name === "minikube" && firstPositional(args) === "delete")
+    return destructive();
+  if ((name === "tofu" || name === "terraform") && args.includes("destroy"))
+    return destructive();
+  if (name === "helm" && firstPositional(args) === "uninstall")
+    return destructive();
   if (name === "kubectl") {
     const positional = args.filter((arg) => !arg.startsWith("-"));
     const deleteAt = positional.indexOf("delete");
-    if (deleteAt >= 0 && ["namespace", "namespaces", "ns"].includes(positional[deleteAt + 1])) {
+    if (
+      deleteAt >= 0 &&
+      ["namespace", "namespaces", "ns"].includes(positional[deleteAt + 1])
+    ) {
       return destructive();
     }
   }
@@ -156,7 +184,9 @@ function checkNoVerify(name, args) {
   const commitAt = args.indexOf("commit");
   if (commitAt < 0) return null;
   const rest = args.slice(commitAt + 1);
-  const skips = rest.some((arg) => arg === "--no-verify" || /^-[A-Za-z]*n[A-Za-z]*$/.test(arg));
+  const skips = rest.some(
+    (arg) => arg === "--no-verify" || /^-[A-Za-z]*n[A-Za-z]*$/.test(arg),
+  );
   if (!skips) return null;
   return block(
     "no-verify",
@@ -200,15 +230,73 @@ const sopsBlock = (path) =>
       "Instead, edit it with `sops <path>` or encrypt through `sops --encrypt`.",
   );
 
+// Append-only records: written only by their owning script, never by hand.
+// Audit mode (warn).
+const APPEND_ONLY =
+  /(^|[/\s>'"=])(\.claude\/evals\/history\.jsonl|\.kore\/state\/journal\/[^/\s'"]*\.jsonl)$/;
+const isAppendOnly = (path) => APPEND_ONLY.test(path);
+
+const appendOnlyWarn = (path) =>
+  warn(
+    "append-only",
+    `${path} is an append-only record: .claude/evals/history.jsonl is owned by eval.mjs, ` +
+      `.kore/state/journal/*.jsonl by kore. Instead, append through the owning script (eval.mjs, kore); never edit, truncate, move, or remove it by hand.`,
+  );
+
+const TRUNCATING_REDIRECT = /^(?:\d*|&)>(?!>)(.*)$/;
+
+// Removing or moving these directories removes every journal inside them.
+const PROTECTED_DIRS = new Set([".kore", ".kore/state", ".kore/state/journal"]);
+
+function isProtectedDir(arg, root) {
+  let path = arg.replace(/^\.\//, "").replace(/\/+$/, "");
+  const base = root.replace(/\/+$/, "");
+  if (base && path.startsWith(`${base}/`)) path = path.slice(base.length + 1);
+  return PROTECTED_DIRS.has(path);
+}
+
+function checkAppendOnly(name, args, segment, root) {
+  const rewrites = (args) => args.find((arg) => isAppendOnly(arg));
+  if (name === "rm" || name === "mv") {
+    const dir = args.find(
+      (arg) => !arg.startsWith("-") && isProtectedDir(arg, root),
+    );
+    if (dir) return appendOnlyWarn(dir);
+  }
+  for (let i = 0; i < segment.length; i++) {
+    const match = TRUNCATING_REDIRECT.exec(segment[i]);
+    if (!match) continue;
+    const target = (match[1].replace(/^\|/, "") || segment[i + 1]) ?? "";
+    if (isAppendOnly(target)) return appendOnlyWarn(target);
+  }
+  const inPlace = (arg) =>
+    /^-[A-Za-z]*i/.test(arg) || arg.startsWith("--in-place");
+  const destructive =
+    ["rm", "mv", "truncate"].includes(name) ||
+    (name === "sed" && args.some(inPlace));
+  const operands = args.filter((arg) => !arg.startsWith("-"));
+  const appends = args.some((arg) => arg === "-a" || arg === "--append");
+  const path = destructive
+    ? rewrites(args)
+    : name === "tee" && !appends
+      ? rewrites(operands)
+      : name === "cp"
+        ? rewrites(operands.slice(-1))
+        : undefined;
+  return path ? appendOnlyWarn(path) : null;
+}
+
 function checkBashSegment(segment, ctx) {
   const { name, args } = commandOf(segment);
   if (!name) return null;
   const text = segment.join(" ");
 
-  if (!SECRET_SAFE.has(name) && !isKore(name, args) && SECRET_PATH.test(text)) return secretBlock();
+  if (!SECRET_SAFE.has(name) && !isKore(name, args) && SECRET_PATH.test(text))
+    return secretBlock();
 
   if (name !== "sops") {
-    const writes = text.includes(">") || ["tee", "cp", "mv", "sed"].includes(name);
+    const writes =
+      text.includes(">") || ["tee", "cp", "mv", "sed"].includes(name);
     if (writes) {
       const patterns = loadSopsPatterns(ctx);
       const target = segment.find((token) => {
@@ -220,14 +308,20 @@ function checkBashSegment(segment, ctx) {
   }
 
   return (
-    checkDestructive(name, args) ?? checkContext(name, args) ?? checkNoVerify(name, args)
+    checkDestructive(name, args) ??
+    checkContext(name, args) ??
+    checkNoVerify(name, args) ??
+    checkAppendOnly(name, args, segment, ctx.root)
   );
 }
 
-const THRESHOLD = /\b(statements|branches|functions|lines)\s*:\s*(\d+(?:\.\d+)?)/g;
+const THRESHOLD =
+  /\b(statements|branches|functions|lines)\s*:\s*(\d+(?:\.\d+)?)/g;
 
 function thresholds(text) {
-  return new Map([...text.matchAll(THRESHOLD)].map((match) => [match[1], Number(match[2])]));
+  return new Map(
+    [...text.matchAll(THRESHOLD)].map((match) => [match[1], Number(match[2])]),
+  );
 }
 
 function lowersThresholds(before, after) {
@@ -244,6 +338,8 @@ function checkFile(tool, input, relative, ctx) {
   if (SECRET_PATH.test(relative)) return secretBlock();
 
   if (tool !== "Read") {
+    if (isAppendOnly(relative)) return appendOnlyWarn(relative);
+
     if (loadSopsPatterns(ctx).some((pattern) => pattern.test(relative))) {
       const encrypted = tool === "Write" && /^sops:/m.test(input.content ?? "");
       if (!encrypted) return sopsBlock(relative);
@@ -272,9 +368,15 @@ function checkFile(tool, input, relative, ctx) {
       }
     }
 
-    if (relative.startsWith("apps/") || relative.startsWith("infra/environments/")) {
-      const text = tool === "Edit" ? (input.new_string ?? "") : (input.content ?? "");
-      const tagged = [...text.matchAll(IMAGE_LINE)].filter((m) => !m[1].includes("@sha256:"));
+    if (
+      relative.startsWith("apps/") ||
+      relative.startsWith("infra/environments/")
+    ) {
+      const text =
+        tool === "Edit" ? (input.new_string ?? "") : (input.content ?? "");
+      const tagged = [...text.matchAll(IMAGE_LINE)].filter(
+        (m) => !m[1].includes("@sha256:"),
+      );
       if (tagged.length > 0) {
         return warn(
           "image-digest",
@@ -316,7 +418,10 @@ export function evaluate(call, ctx) {
     return warning ?? allow;
   }
 
-  if (["Read", "Write", "Edit"].includes(tool) && typeof input.file_path === "string") {
+  if (
+    ["Read", "Write", "Edit"].includes(tool) &&
+    typeof input.file_path === "string"
+  ) {
     const prefix = `${ctx.root}/`;
     const relative = input.file_path.startsWith(prefix)
       ? input.file_path.slice(prefix.length)
@@ -335,7 +440,10 @@ function main() {
     return 0;
   }
   const root = process.env.CLAUDE_PROJECT_DIR || call.cwd || process.cwd();
-  const result = evaluate(call, { root, readFile: (path) => readFileSync(path, "utf8") });
+  const result = evaluate(call, {
+    root,
+    readFile: (path) => readFileSync(path, "utf8"),
+  });
 
   if (result.action === "block") {
     process.stderr.write(`${result.message}\n`);
@@ -344,7 +452,10 @@ function main() {
   if (result.action === "warn") {
     process.stdout.write(
       JSON.stringify({
-        hookSpecificOutput: { hookEventName: "PreToolUse", additionalContext: result.message },
+        hookSpecificOutput: {
+          hookEventName: "PreToolUse",
+          additionalContext: result.message,
+        },
       }),
     );
   }
