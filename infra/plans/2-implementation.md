@@ -138,7 +138,7 @@ claim that the platform is ready.
 
 ## Step 7: Bootstrap Registry, Image Trust, Controllers, and CRD Ownership
 
-Next: managed environments are still unverified, since only local admission is proven. Start the open item "Roll every managed platform workload ... to the signed internal digest": mirror the approved platform images through the release workflow so the managed `kore-platform-images` policy has signed digests to admit.
+Next: merge the open platform image digest pins (`feat/platform-image-pins`) and registry auth (`feat/registry-auth`, ADR 0034) work. Then run `kore local up` (`SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt`) to check live: the 69 newly owned CRDs are `Established`, the webhook readiness checks pass, digest-pinned charts pull, and the registry refuses anonymous push and pull. Cut a release and confirm the `mirror` job pushes linked, public `mirror/*` packages.
 
 ### Objective
 
@@ -181,12 +181,12 @@ through 11 also converge.
       cache rather than retained data, and a `/v2/` readiness probe. It has no
       authentication or authorization and is exposed as an unauthenticated NodePort
       (clients fall back from HTTPS to plain HTTP)._
-- [ ] Install Sigstore Policy Controller and its CRDs/webhook from an explicitly
+- [x] Install Sigstore Policy Controller and its CRDs/webhook from an explicitly
       allowlisted, digest-pinned seed artifact without enabling enforcement yet.
-      _Partial: declared in the catalog with no `ClusterImagePolicy` and no opted-in
-      namespace; it installed and became ready in the 2026-11-08 live bootstrap
-      (tag-pinned then). Its images are now digest-pinned but not allowlisted as
-      seeds. The chart (app 0.13.1) lags the 0.15.1 application release._
+      _Its controller and lease-cleanup images are digest-pinned seeds in
+      `infra/catalog/seeds.yaml`, with recorded provenance. Enforcement came later,
+      after a warn period (ADR 0032). The chart (app 0.13.1) lags the 0.15.1
+      application release._
 - [x] Install Istio base, `istiod`, Istio CNI, and `ztunnel` for ambient mode.
 - [x] Install Crossplane and the required composition functions. The
       `kore-crossplane-functions` release installs both Functions after Crossplane
@@ -210,10 +210,14 @@ through 11 also converge.
       into the internal registry, verifies recorded upstream digests and provenance,
       signs internal digests with Cosign, verifies each signature, and emits an
       immutable image lock manifest.
-      _Partial (local analogue only): `kore local up` builds, publishes, and signs
-      the reference image with a local key into `.kore/state/local-images.lock.json`.
-      There is no mirroring, upstream digest or provenance check, or release
-      workflow; `.github/workflows/check.yml` has no publish or sign job._
+      _Partial: `release.yaml` signs the reference image keylessly on each release
+      tag (proven on `v0.1.1` and `v0.2.0`). Its `mirror` job (#43,
+      [ADR 0033](../../docs/decisions/0033-platform-image-mirror.md)) checks the
+      upstream digest and provenance, copies the image to
+      `ghcr.io/corekraft/kore/mirror/*`, signs and verifies it, and emits
+      `platform-images.lock.json`. It covers only the 3 seed images and has not run
+      on a tag yet. The other platform images are still tag-pinned through their
+      charts._
 - [ ] Bind the accepted Cosign authority to an exact protected automation identity
       or KMS/HSM key. Grant developers, pull-request workflows, ordinary build jobs,
       cluster workloads, and registry administrators no signing permission.
@@ -236,9 +240,11 @@ through 11 also converge.
       shared configuration readiness checks; OpenTelemetry Operator must not be
       blocked by a Gateway waiting for its certificate or external address.
 - [x] Keep controller configuration instances out of controller releases.
-- [ ] Add controller health, CRD establishment, webhook, and idempotency tests.
-      _Partial: CRD establishment retries and the deployed-release skip are tested.
-      Webhooks are checked only through their Deployment rollout._
+- [x] Add controller health, CRD establishment, webhook, and idempotency tests.
+      _CRD establishment retries are tested. Webhook configurations need a
+      `caBundle` and a ready endpoint (#44). An unchanged deployed release gets no
+      upgrade (`platform.drift.spec.ts`). The new webhook checks are not yet
+      exercised live._
 
 ### Note
 
@@ -248,8 +254,10 @@ CRD ownership is decided in
 ### Exit Criteria
 
 - [ ] Every controller and CRD has exactly one catalog owner.
-      _Partial: duplicate owners are rejected, but nothing checks that every CRD a
-      chart installs is declared (for example, CloudNativePG CRDs beyond `clusters`)._
+      _Partial: every CRD a pinned chart renders is declared once (69 were added in
+      #42), and `npm run test:upstream-charts` checks this on each chart bump. CRDs a
+      controller installs at runtime (Crossplane, Gatekeeper hooks) are not checked.
+      The longer readiness wait for 69 more CRDs has not run live._
 - [x] The release graph is acyclic and produces a deterministic order.
 - [ ] All CRDs are established before their custom resources are submitted.
 - [ ] All controller deployments, daemon sets, and webhooks report ready.
@@ -269,12 +277,12 @@ CRD ownership is decided in
 - [x] Failure identifies the component and readiness condition that timed out
       (`component <c> failed to become ready: <resource> not ready (<condition>)
 within <timeout>: <reason>`).
-- [ ] No shared issuer, gateway, composition, secret store, or unrelated enforcing
+- [x] No shared issuer, gateway, composition, secret store, or unrelated enforcing
       Gatekeeper/runtime policy is installed yet; image signature enforcement is the
       required bootstrap exception because it closes the image trust boundary.
-      _Conflict: `kore platform bootstrap` runs the `core` phase, which installs the
-      shared `kore-postgresql-api` XRD and Composition and the OPA authorizer. Either
-      move them to the configuration phase or revise this criterion with an ADR._
+      _`kore-postgresql-api` and `opa-authorizer` moved to the configuration phase
+      ([ADR 0027](../../docs/decisions/0027-bootstrap-installs-controllers-and-image-trust-only.md)). This was confirmed
+      in the third fresh-profile live bootstrap._
 
 ## Step 8: Networking, Certificates, and Secrets
 
