@@ -9,9 +9,6 @@ import {
 import { waitFor } from "./readiness.js";
 
 const neverDeployed = new Set(["uninstalling", "pending-install", "failed"]);
-// What `helm upgrade --install` says about a first install that was interrupted.
-const interruptedInstall =
-  /has no deployed releases|another operation \(install\/upgrade\/rollback\) is in progress/;
 
 /**
  * Clears a release whose first install never reached `deployed` (for example a
@@ -104,10 +101,9 @@ async function applyComponent(
   try {
     await upgrade();
   } catch (error) {
-    if (
-      !(error instanceof CommandError) ||
-      !interruptedInstall.test(error.message)
-    ) {
+    // The upgrade output streams to the terminal, so the error cannot say why;
+    // the history check alone decides whether a never-deployed release is in the way.
+    if (!(error instanceof CommandError)) {
       throw error;
     }
     if (!(await recoverUndeployedRelease(repository, runner, component))) {

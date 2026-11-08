@@ -109,7 +109,10 @@ test("any other helm history failure is rethrown, not treated as a missing relea
 class InterruptedInstallRunner implements Runner {
   calls: string[] = [];
   private upgrades = 0;
-  constructor(private readonly failure: string) {}
+  constructor(
+    private readonly failure: string,
+    private readonly history = "uninstalling",
+  ) {}
   async run(command: string, args: readonly string[]): Promise<RunResult> {
     this.calls.push(`${command} ${args[0]}`);
     if (command === "helm" && args[0] === "upgrade" && this.upgrades++ === 0) {
@@ -120,15 +123,16 @@ class InterruptedInstallRunner implements Runner {
       });
     }
     if (command === "helm" && args[0] === "history") {
-      return ok([{ revision: 1, status: "uninstalling" }]);
+      return ok([{ revision: 1, status: this.history }]);
     }
     return { stdout: "", stderr: "", code: 0 };
   }
 }
 
+// Kore streams helm output to the terminal, so the error carries no helm text.
 for (const failure of [
   'Error: UPGRADE FAILED: "policy-controller" has no deployed releases',
-  "Error: UPGRADE FAILED: another operation (install/upgrade/rollback) is in progress",
+  "",
 ]) {
   test(`reconcile resumes after an interrupted first install: ${failure}`, async () => {
     const { repository, component } = await policyController();
@@ -141,12 +145,9 @@ for (const failure of [
   });
 }
 
-test("reconcile never uninstalls on an unrelated helm upgrade failure", async () => {
+test("reconcile never uninstalls a release that was deployed before a failed upgrade", async () => {
   const { repository, component } = await policyController();
-  const runner = new InterruptedInstallRunner("Error: chart not found");
-  await assert.rejects(
-    reconcileComponent(repository, runner, component),
-    /chart not found/,
-  );
-  assert.deepEqual(runner.calls, ["helm upgrade"]);
+  const runner = new InterruptedInstallRunner("", "deployed");
+  await assert.rejects(reconcileComponent(repository, runner, component));
+  assert.deepEqual(runner.calls, ["helm upgrade", "helm history"]);
 });
