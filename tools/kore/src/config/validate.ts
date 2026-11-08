@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { exists } from "./files.js";
 import { registryAddressErrors } from "./registry-address.js";
 import { imageTrustErrors } from "./image-trust.js";
+import { crdNameFormatErrors } from "./crd-ownership.js";
 import { seedErrors } from "./seeds.js";
 import { orderedComponents } from "./order.js";
 import type {
@@ -250,6 +251,9 @@ export async function validateRepository(
     ),
     ...duplicateErrors(components),
     ...crdOwnerErrors(components),
+    ...components.flatMap((component) =>
+      crdNameFormatErrors(component.name, component.ownsCRDs ?? []),
+    ),
     ...dependencyErrors(components, names),
     ...unknownOverlayErrors(environment, names),
     ...cycleErrors(catalog),

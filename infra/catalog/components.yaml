@@ -56,7 +56,15 @@
         "repository": "oci://quay.io/jetstack/charts/cert-manager",
         "chart": "cert-manager",
         "version": "cert-manager",
-        "ownsCRDs": ["certificates.cert-manager.io", "issuers.cert-manager.io"],
+        "ownsCRDs":
+          [
+            "certificaterequests.cert-manager.io",
+            "certificates.cert-manager.io",
+            "challenges.acme.cert-manager.io",
+            "clusterissuers.cert-manager.io",
+            "issuers.cert-manager.io",
+            "orders.acme.cert-manager.io"
+          ],
         "dependencies": ["kore-gateway-api"],
         "timeout": "10m",
         "values": ["infra/environments/common/values/cert-manager.yaml"],
@@ -71,7 +79,26 @@
         "repository": "https://open-policy-agent.github.io/gatekeeper/charts",
         "chart": "gatekeeper",
         "version": "gatekeeper",
-        "ownsCRDs": ["constrainttemplates.templates.gatekeeper.sh"],
+        "ownsCRDs":
+          [
+            "assign.mutations.gatekeeper.sh",
+            "assignimage.mutations.gatekeeper.sh",
+            "assignmetadata.mutations.gatekeeper.sh",
+            "configpodstatuses.status.gatekeeper.sh",
+            "configs.config.gatekeeper.sh",
+            "connectionpodstatuses.status.gatekeeper.sh",
+            "connections.connection.gatekeeper.sh",
+            "constraintpodstatuses.status.gatekeeper.sh",
+            "constrainttemplatepodstatuses.status.gatekeeper.sh",
+            "constrainttemplates.templates.gatekeeper.sh",
+            "expansiontemplate.expansion.gatekeeper.sh",
+            "expansiontemplatepodstatuses.status.gatekeeper.sh",
+            "modifyset.mutations.gatekeeper.sh",
+            "mutatorpodstatuses.status.gatekeeper.sh",
+            "providerpodstatuses.status.gatekeeper.sh",
+            "providers.externaldata.gatekeeper.sh",
+            "syncsets.syncset.gatekeeper.sh"
+          ],
         "dependencies": ["kore-gateway-api"],
         "timeout": "10m",
         "readiness":
@@ -114,7 +141,20 @@
         "ownsCRDs":
           [
             "authorizationpolicies.security.istio.io",
-            "peerauthentications.security.istio.io"
+            "destinationrules.networking.istio.io",
+            "envoyfilters.networking.istio.io",
+            "gateways.networking.istio.io",
+            "peerauthentications.security.istio.io",
+            "proxyconfigs.networking.istio.io",
+            "requestauthentications.security.istio.io",
+            "serviceentries.networking.istio.io",
+            "sidecars.networking.istio.io",
+            "telemetries.telemetry.istio.io",
+            "trafficextensions.extensions.istio.io",
+            "virtualservices.networking.istio.io",
+            "wasmplugins.extensions.istio.io",
+            "workloadentries.networking.istio.io",
+            "workloadgroups.networking.istio.io"
           ],
         "dependencies": ["kore-gateway-api"],
         "timeout": "10m",
@@ -190,8 +230,31 @@
         "version": "external-secrets",
         "ownsCRDs":
           [
+            "acraccesstokens.generators.external-secrets.io",
+            "beyondtrustworkloadcredentialsdynamicsecrets.generators.external-secrets.io",
+            "cloudsmithaccesstokens.generators.external-secrets.io",
+            "clusterexternalsecrets.external-secrets.io",
+            "clustergenerators.generators.external-secrets.io",
+            "clusterpushsecrets.external-secrets.io",
+            "clustersecretstores.external-secrets.io",
+            "ecrauthorizationtokens.generators.external-secrets.io",
             "externalsecrets.external-secrets.io",
-            "secretstores.external-secrets.io"
+            "fakes.generators.external-secrets.io",
+            "gcraccesstokens.generators.external-secrets.io",
+            "generatorstates.generators.external-secrets.io",
+            "githubaccesstokens.generators.external-secrets.io",
+            "gitlabdeploytokens.generators.external-secrets.io",
+            "grafanas.generators.external-secrets.io",
+            "mfas.generators.external-secrets.io",
+            "passwords.generators.external-secrets.io",
+            "pushsecrets.external-secrets.io",
+            "quayaccesstokens.generators.external-secrets.io",
+            "secretstores.external-secrets.io",
+            "sshkeys.generators.external-secrets.io",
+            "stssessiontokens.generators.external-secrets.io",
+            "uuids.generators.external-secrets.io",
+            "vaultdynamicsecrets.generators.external-secrets.io",
+            "webhooks.generators.external-secrets.io"
           ],
         "dependencies": ["cert-manager"],
         "timeout": "10m",
@@ -206,7 +269,20 @@
         "repository": "https://cloudnative-pg.github.io/charts",
         "chart": "cloudnative-pg",
         "version": "cloudnative-pg",
-        "ownsCRDs": ["clusters.postgresql.cnpg.io"],
+        "ownsCRDs":
+          [
+            "backups.postgresql.cnpg.io",
+            "clusterimagecatalogs.postgresql.cnpg.io",
+            "clusters.postgresql.cnpg.io",
+            "databaseroles.postgresql.cnpg.io",
+            "databases.postgresql.cnpg.io",
+            "failoverquorums.postgresql.cnpg.io",
+            "imagecatalogs.postgresql.cnpg.io",
+            "poolers.postgresql.cnpg.io",
+            "publications.postgresql.cnpg.io",
+            "scheduledbackups.postgresql.cnpg.io",
+            "subscriptions.postgresql.cnpg.io"
+          ],
         "dependencies": ["cert-manager"],
         "timeout": "10m",
         "readiness": ["deployment/cloudnative-pg"]
@@ -219,7 +295,13 @@
         "repository": "https://open-telemetry.github.io/opentelemetry-helm-charts",
         "chart": "opentelemetry-operator",
         "version": "opentelemetry-operator",
-        "ownsCRDs": ["opentelemetrycollectors.opentelemetry.io"],
+        "ownsCRDs":
+          [
+            "instrumentations.opentelemetry.io",
+            "opampbridges.opentelemetry.io",
+            "opentelemetrycollectors.opentelemetry.io",
+            "targetallocators.opentelemetry.io"
+          ],
         "dependencies": ["cert-manager"],
         "timeout": "10m",
         "values": ["infra/observability/operator/values.yaml"],

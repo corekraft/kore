@@ -35,12 +35,12 @@ test("validation reports invalid versions, component definitions, and missing va
             version: "unknown",
             values: ["missing.yaml"],
             dependencies: ["missing-dependency"],
-            ownsCRDs: ["shared.example.com"],
+            ownsCRDs: ["things.shared.example.com"],
           },
           {
             ...component,
             name: "also-bad",
-            ownsCRDs: ["shared.example.com"],
+            ownsCRDs: ["things.shared.example.com"],
             dependencies: [],
           },
         ],
@@ -106,9 +106,9 @@ test("validation reports every rule violation exactly once, sorted", async () =>
           chart: undefined,
           values: ["missing.yaml"],
           dependencies: ["missing-dependency"],
-          ownsCRDs: ["shared.example.com"],
+          ownsCRDs: ["things.shared.example.com"],
         },
-        { ...sound, name: "also-bad", ownsCRDs: ["shared.example.com"] },
+        { ...sound, name: "also-bad", ownsCRDs: ["things.shared.example.com"] },
         { ...sound, name: "also-bad", kind: "manifest", chart: undefined },
         { ...sound, name: "cyc-a", dependencies: ["cyc-b"] },
         { ...sound, name: "cyc-b", dependencies: ["cyc-a"] },
@@ -125,7 +125,7 @@ test("validation reports every rule violation exactly once, sorted", async () =>
       "BAD_NAME: unknown dependency missing-dependency",
       "BAD_NAME: unknown version key unknown",
       "BAD_NAME: values file does not exist: missing.yaml",
-      "CRD shared.example.com has multiple owners: BAD_NAME and also-bad",
+      "CRD things.shared.example.com has multiple owners: BAD_NAME and also-bad",
       "also-bad: environment values file does not exist: missing-env.yaml",
       "also-bad: manifest source is required",
       "component has invalid name: BAD_NAME",
@@ -259,4 +259,17 @@ test("policy releases prove the objects they apply, not the Gatekeeper controlle
       ),
     );
   }
+});
+
+test("validation rejects ownsCRDs entries that are not <plural>.<group>", async () => {
+  const message = await validationMessage((base) => ({
+    ...base,
+    catalog: {
+      components: [{ ...sound, name: "odd", ownsCRDs: ["shared.example"] }],
+    },
+  }));
+  assert.match(
+    message,
+    /odd: ownsCRDs entry shared\.example must look like <plural>\.<group>/,
+  );
 });
