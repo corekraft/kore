@@ -1,8 +1,8 @@
-import type { Seed } from "../config/types.js";
+import type { ApprovedEntry } from "../config/index.js";
 
 /**
  * Checks the platform image lock the release workflow emits against the
- * approved list (infra/catalog/seeds.yaml): same images, mirror digests equal
+ * approved list (infra/catalog/seeds.yaml and approved-images.yaml): same images, mirror digests equal
  * to the recorded upstream digests, provenance results that match what the
  * catalog records, and an exact release-tag signer. Returns every problem.
  */
@@ -20,10 +20,10 @@ const isRecord = (value: unknown): value is Record_ =>
 
 function provenanceErrors(
   name: string,
-  seed: Seed,
+  approved: ApprovedEntry,
   provenance: unknown,
 ): string[] {
-  const recorded = seed.evidence.provenance;
+  const recorded = approved.evidence.provenance;
   const result = isRecord(provenance) ? provenance["result"] : undefined;
   if (!recorded.signed) {
     return result === "unsigned-upstream"
@@ -49,7 +49,7 @@ function provenanceErrors(
 
 function entryErrors(
   name: string,
-  seed: Seed,
+  approved: ApprovedEntry,
   entry: unknown,
   authorized: unknown[],
   mirrorBase: string | undefined,
@@ -57,7 +57,7 @@ function entryErrors(
   if (!isRecord(entry)) {
     return [`${name}: entry must be an object`];
   }
-  const [reference = "", pinned = ""] = seed.image.split("@");
+  const [reference = "", pinned = ""] = approved.image.split("@");
   const mirror = typeof entry["mirror"] === "string" ? entry["mirror"] : "";
   const mirrored = digestOf.exec(mirror)?.[1];
   const signer = entry["signer"];
@@ -85,13 +85,13 @@ function entryErrors(
     ...(typeof signer === "string" && authorized.includes(signer)
       ? []
       : [`${name}: signer ${describe(signer)} is not authorized by the lock`]),
-    ...provenanceErrors(name, seed, entry["provenance"]),
+    ...provenanceErrors(name, approved, entry["provenance"]),
   ];
 }
 
 export function platformImageLockErrors(
   lock: unknown,
-  seeds: Seed[],
+  images: ApprovedEntry[],
 ): string[] {
   if (!isRecord(lock)) {
     return ["platform image lock must be an object"];
@@ -119,20 +119,18 @@ export function platformImageLockErrors(
     typeof firstMirror === "string" && firstMirror.includes("/mirror/")
       ? `${firstMirror.slice(0, firstMirror.indexOf("/mirror/"))}/mirror/`
       : undefined;
-  const bySeed = new Map(seeds.map((seed) => [seed.catalogImage, seed]));
+  const byName = new Map(images.map((image) => [image.name, image]));
   return [
     ...signerErrors,
-    ...seeds
-      .filter((seed) => !(seed.catalogImage in entries))
-      .map((seed) => `missing approved image ${seed.catalogImage}`),
+    ...images
+      .filter((image) => !(image.name in entries))
+      .map((image) => `missing approved image ${image.name}`),
     ...Object.keys(entries)
-      .filter((name) => !bySeed.has(name))
-      .map(
-        (name) => `unapproved image ${name}: not in infra/catalog/seeds.yaml`,
-      ),
-    ...[...bySeed].flatMap(([name, seed]) =>
+      .filter((name) => !byName.has(name))
+      .map((name) => `unapproved image ${name}: not in the approved list`),
+    ...[...byName].flatMap(([name, approved]) =>
       name in entries
-        ? entryErrors(name, seed, entries[name], authorized, mirrorBase)
+        ? entryErrors(name, approved, entries[name], authorized, mirrorBase)
         : [],
     ),
   ];

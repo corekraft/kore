@@ -1,25 +1,25 @@
-import {
-  mkdir,
-  readdir,
-  readFile,
-  rm,
-  stat,
-  writeFile,
-} from "node:fs/promises";
+import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, test, vi } from "vitest";
 import { loadRepository, type Repository } from "../config/index.js";
-import type { ImageLockEntry } from "./image-lock.js";
+import {
+  digest,
+  entry,
+  fakeRunner,
+  filesUnder,
+  kubeContext,
+  minifiedKubeconfig,
+  secretRef,
+  stubRegistry,
+} from "./local-image-fixtures.js";
 import { buildAndSignLocalImage } from "./local-image.js";
-import type { Runner, RunOptions, RunResult } from "../runtime/index.js";
 
 const registryReference = vi.hoisted(() => vi.fn());
 vi.mock("./registry.js", () => ({ localRegistryReference: registryReference }));
 
 const roots: string[] = [];
-const digest = `sha256:${"d".repeat(64)}`;
 
 afterEach(async () => {
   vi.unstubAllGlobals();
@@ -38,103 +38,10 @@ async function testRepository(): Promise<Repository> {
   return { ...repository, root };
 }
 
-const kubeContext = "kore-local";
-const secretRef = "k8s://kore-system/kore-local-signing-key";
-const minifiedKubeconfig = `apiVersion: v1
-kind: Config
-current-context: ${kubeContext}
-clusters:
-  - name: kore-local
-    cluster: {server: "https://192.168.49.2:8443", certificate-authority: /home/u/.minikube/ca.crt}
-contexts:
-  - name: ${kubeContext}
-    context: {cluster: kore-local, user: kore-local}
-users:
-  - name: kore-local
-    user: {client-certificate: /home/u/.minikube/client.crt, client-key: /home/u/.minikube/client.key}
-`;
-
-// The real cosign writes cosign.pub into its working directory.
-async function writeCosignPub(cwd: string | undefined): Promise<void> {
-  await writeFile(join(cwd ?? process.cwd(), "cosign.pub"), "pub");
-}
-
-function fakeRunner(
-  options: {
-    clusterIp?: string;
-    secretExists?: boolean;
-    kubeconfig?: string;
-  } = {},
-) {
-  const calls: {
-    command: string;
-    args: readonly string[];
-    options?: RunOptions;
-  }[] = [];
-  let exists = options.secretExists ?? false;
-  const runner: Runner = {
-    async run(command, args, runOptions): Promise<RunResult> {
-      calls.push({
-        command,
-        args,
-        ...(runOptions ? { options: runOptions } : {}),
-      });
-      let stdout = "";
-      if (command === "cosign" && args[0] === "generate-key-pair") {
-        exists = true;
-        await writeCosignPub(runOptions?.cwd);
-      }
-      if (command === "kubectl") {
-        if (args.includes("secret") && args.includes("--output=name")) {
-          stdout = exists ? "secret/kore-local-signing-key\n" : "";
-        } else if (
-          args.some((arg) => arg.startsWith("--output=jsonpath={.data"))
-        ) {
-          stdout = Buffer.from("local public key").toString("base64");
-        } else if (args.includes("config")) {
-          stdout = options.kubeconfig ?? minifiedKubeconfig;
-        } else {
-          stdout = options.clusterIp ?? "10.96.0.50";
-        }
-      }
-      return { stdout, stderr: "", code: 0 };
-    },
-  };
-  return { runner, calls };
-}
-
-async function filesUnder(root: string): Promise<string[]> {
-  const entries = await readdir(root, { recursive: true, withFileTypes: true });
-  return entries
-    .filter((entry) => entry.isFile())
-    .map((entry) => join(entry.parentPath, entry.name));
-}
-
-function stubRegistry(): void {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue(
-      new Response(null, {
-        status: 200,
-        headers: { "docker-content-digest": digest },
-      }),
-    ),
-  );
-  registryReference.mockImplementation(
-    async (_repo, _runner, reference) => reference,
-  );
-}
-
-const entry: ImageLockEntry = {
-  image: "registry.kore.local:30500/reference",
-  digest: `sha256:${"a".repeat(64)}`,
-  signer: "release@kore.dev",
-};
-
 test("build and sign generates the key pair as a Kubernetes Secret through the configured context and writes no private key", async () => {
   const repository = await testRepository();
   const { runner, calls } = fakeRunner();
-  stubRegistry();
+  stubRegistry(registryReference);
 
   const result = await buildAndSignLocalImage(
     repository,
@@ -186,7 +93,7 @@ test("build and sign generates the key pair as a Kubernetes Secret through the c
 test("cosign is pinned to the configured context through a kubeconfig that is removed afterwards", async () => {
   const repository = await testRepository();
   const { runner, calls } = fakeRunner();
-  stubRegistry();
+  stubRegistry(registryReference);
 
   await buildAndSignLocalImage(repository, runner, "reference", entry);
 
@@ -214,7 +121,7 @@ test("build and sign refuses a kubeconfig that embeds credentials", async () => 
 test("build and sign reuses the key Secret already in the cluster", async () => {
   const repository = await testRepository();
   const { runner, calls } = fakeRunner({ secretExists: true });
-  stubRegistry();
+  stubRegistry(registryReference);
 
   await buildAndSignLocalImage(repository, runner, "reference", entry);
 
@@ -232,7 +139,7 @@ test("a legacy key under .kore is never used and is reported as deletable", asyn
   await writeFile(join(directory, "automation.key"), "private");
   await writeFile(join(directory, "automation.pub"), "public");
   const { runner, calls } = fakeRunner();
-  stubRegistry();
+  stubRegistry(registryReference);
   const stderr = vi.spyOn(process.stderr, "write").mockReturnValue(true);
 
   await buildAndSignLocalImage(repository, runner, "reference", entry);
@@ -278,7 +185,7 @@ test("build and sign rejects when the local registry service has no address", as
 test("key generation runs in a private temp directory so cosign.pub never lands in the caller's working directory", async () => {
   const repository = await testRepository();
   const { runner, calls } = fakeRunner();
-  stubRegistry();
+  stubRegistry(registryReference);
   const before = existsSync(join(process.cwd(), "cosign.pub"));
 
   await buildAndSignLocalImage(repository, runner, "reference", entry);
@@ -297,7 +204,7 @@ test("key generation runs in a private temp directory so cosign.pub never lands 
 test("build and sign pushes to the environment's registry.address, not a live lookup", async () => {
   const repository = await testRepository();
   const { runner, calls } = fakeRunner();
-  stubRegistry();
+  stubRegistry(registryReference);
 
   await buildAndSignLocalImage(repository, runner, "reference", entry);
 

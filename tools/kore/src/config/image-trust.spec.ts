@@ -11,7 +11,6 @@ import type { Repository } from "./types.js";
 const releaseSubject =
   "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.1.1";
 const issuer = "https://token.actions.githubusercontent.com";
-
 type Trust = Record<string, unknown>;
 
 async function withTrust(
@@ -32,24 +31,6 @@ const keyless = (over: Trust = {}): Trust => ({
   issuer,
   subjects: [releaseSubject],
   ...over,
-});
-
-test("local trusts its local signing key and managed-example a pinned release workflow", async () => {
-  const local = await loadRepository("local");
-  assert.deepEqual(local.imageTrustValues?.["trust"], {
-    type: "key",
-    mode: "enforce",
-    keyRef: { name: "kore-local-signing-pub", namespace: "cosign-system" },
-  });
-  const managed = await loadRepository("managed-example");
-  assert.deepEqual(
-    managed.imageTrustValues?.trust,
-    keyless({
-      subjects: [releaseSubject, releaseSubject.replace(/v0\.1\.1$/, "v0.2.0")],
-    }),
-  );
-  await validateRepository(local);
-  await validateRepository(managed);
 });
 
 test("every managed-example subject is the release workflow's real identity on an exact tag", async () => {

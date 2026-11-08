@@ -5,7 +5,10 @@ import {
   ClusterUnavailableError,
   clusterUp,
 } from "../cluster/index.js";
-import { ensureLocalSigningPublicKey } from "../images/index.js";
+import {
+  ensureLocalSigningPublicKey,
+  ensureRegistryAuth,
+} from "../images/index.js";
 import type { Runner } from "../runtime/index.js";
 import { rewireRegistryService } from "./registry-rewire.js";
 import { reconcileComponent, reconcileIfNeeded } from "./reconcile.js";
@@ -39,6 +42,11 @@ export async function bootstrapControllers(
       component.phase === "enforcement"
     ) {
       continue;
+    }
+    // The registry proxy mounts these Secrets, so they precede its release
+    // (ADR 0034). Existing credentials are reused, never rotated.
+    if (component.name === "oci-registry") {
+      await ensureRegistryAuth(repository, runner);
     }
     // A deployed release is normally only awaited, but a rewired registry
     // Service must be recreated by Helm, so that release reconciles anyway.

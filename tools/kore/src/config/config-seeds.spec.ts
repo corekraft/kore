@@ -14,6 +14,7 @@ test("the repository seed manifest records the registry and verifier images, eac
   const { seeds } = await loadRepository("local");
   assert.deepEqual(seeds.seeds.map((seed) => seed.catalogImage).sort(), [
     "oci-registry",
+    "oci-registry-proxy",
     "policy-controller",
     "policy-controller-kubectl",
   ]);

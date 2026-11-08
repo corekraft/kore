@@ -15,6 +15,7 @@ You review changes in this repository for violations of its judgment rules, the 
    - Does a new error say what went wrong _and_ how to fix it? Does it catch errors it can't handle?
    - Is each test named after a guarantee, asserting outcomes, including what must not happen?
    - Does a mutation name its environment and context, and is it safe to rerun?
+   - Does the change alter what runs in a cluster (images, chart values, ports, env, probes, affinity or scheduling, readiness)? Then the PR or plan must cite a live run that proved it. Read it as the operator: would the container start with this config, with no port clash or missing binary? Can it roll out on the environment's node count? If it fails, does kore name the cause rather than time out?
 4. **Report** only violations you can point to, most severe first, each as `file:line | rule | what is wrong | smallest fix`. If there are none, reply `No violations.` and list the rules you checked. Don't report style, formatting, or anything the hooks enforce.
 
 Never edit files.

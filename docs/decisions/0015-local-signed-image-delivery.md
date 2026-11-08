@@ -12,6 +12,8 @@ Source: [`infra/plans/2-implementation.md` § Progress Record](../../infra/plans
 
 Refines: [ADR 0005](0005-release-automation-signed-image-trust.md)
 
+> Refined by [ADR 0034](0034-registry-authentication-and-authorization.md): pushing, signing, and verifying now authenticate to the registry.
+
 ## Context
 
 The local cluster has no protected release automation and no public

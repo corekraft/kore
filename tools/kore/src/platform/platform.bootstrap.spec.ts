@@ -192,6 +192,8 @@ test("bootstrap recreates a deployed registry whose Service drifted from the pin
   const runner = new RecordingRunner([
     { stdout: '{"Host":"Running"}', stderr: "", code: 0 },
     { stdout: "kube-system", stderr: "", code: 0 },
+    { stdout: "", stderr: "", code: 0 }, // registry credentials: none yet
+    { stdout: "", stderr: "", code: 0 }, // registry credentials: applied
     { stdout: "10.99.1.2", stderr: "", code: 0 },
   ]);
 

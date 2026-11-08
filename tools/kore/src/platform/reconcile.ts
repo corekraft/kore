@@ -1,5 +1,6 @@
 import type { Component, Repository } from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
+import { FailFastError, withFailFast, type WatchOptions } from "./fail-fast.js";
 import { desiredFingerprint } from "./fingerprint.js";
 import { helmUpgradeArgs, manifestSource, withAbsoluteChart } from "./helm.js";
 import {
@@ -71,6 +72,7 @@ async function applyComponent(
   repository: Repository,
   runner: Runner,
   component: Component,
+  watch: WatchOptions,
 ): Promise<void> {
   if (component.kind === "manifest") {
     await runner.run(
@@ -90,14 +92,21 @@ async function applyComponent(
     return;
   }
   const upgrade = () =>
-    runner.run(
-      "helm",
-      withAbsoluteChart(repository, component, [
-        ...helmUpgradeArgs(repository, component),
-        "--description",
-        desiredFingerprint(repository, component),
-      ]),
-      { capture: false, cwd: repository.root },
+    withFailFast(
+      repository,
+      runner,
+      component,
+      (guarded) =>
+        guarded.run(
+          "helm",
+          withAbsoluteChart(repository, component, [
+            ...helmUpgradeArgs(repository, component),
+            "--description",
+            desiredFingerprint(repository, component),
+          ]),
+          { capture: false, cwd: repository.root },
+        ),
+      watch,
     );
   try {
     await upgrade();
@@ -119,12 +128,22 @@ export async function reconcileComponent(
   runner: Runner,
   component: Component,
   afterApply?: () => Promise<void>,
+  watch: WatchOptions = {},
 ): Promise<void> {
   try {
-    await applyComponent(repository, runner, component);
+    await applyComponent(repository, runner, component, watch);
     await afterApply?.();
-    await waitFor(repository, runner, component);
+    await withFailFast(
+      repository,
+      runner,
+      component,
+      (guarded) => waitFor(repository, guarded, component),
+      watch,
+    );
   } catch (error) {
+    if (error instanceof FailFastError) {
+      throw error;
+    }
     throw new Error(
       `component ${component.name} failed to become ready: ${errorMessage(error)}`,
     );
@@ -204,14 +223,21 @@ export async function reconcileIfNeeded(
   repository: Repository,
   runner: Runner,
   component: Component,
+  watch: WatchOptions = {},
 ): Promise<void> {
   if (
     (await componentIsInstalled(repository, runner, component)) &&
     (component.kind === "manifest" ||
       (await releaseMatchesDesiredState(repository, runner, component)))
   ) {
-    await waitFor(repository, runner, component);
+    await withFailFast(
+      repository,
+      runner,
+      component,
+      (guarded) => waitFor(repository, guarded, component),
+      watch,
+    );
     return;
   }
-  await reconcileComponent(repository, runner, component);
+  await reconcileComponent(repository, runner, component, undefined, watch);
 }

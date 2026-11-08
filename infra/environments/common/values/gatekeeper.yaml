@@ -1,0 +1,44 @@
+{
+  "image":
+    {
+      "release": "v3.23.1@sha256:dfc6fc78753f5564303429c1c1fdfe611df17be224ab22c09ce9d2a73c468a8d"
+    },
+  "preInstall":
+    {
+      "crdRepository":
+        {
+          "image":
+            {
+              "tag": "v3.23.1@sha256:ab3620e6bec901e2a3f71ea4a65e589cc2b8b362a9836832dd0cc6ff916e4ce5",
+              "repository": "openpolicyagent/gatekeeper-crds"
+            }
+        }
+    },
+  "postUpgrade":
+    {
+      "labelNamespace":
+        {
+          "image":
+            {
+              "tag": "v3.23.1@sha256:ab3620e6bec901e2a3f71ea4a65e589cc2b8b362a9836832dd0cc6ff916e4ce5"
+            }
+        }
+    },
+  "postInstall":
+    {
+      "labelNamespace":
+        {
+          "image":
+            {
+              "tag": "v3.23.1@sha256:ab3620e6bec901e2a3f71ea4a65e589cc2b8b362a9836832dd0cc6ff916e4ce5"
+            }
+        },
+      "probeWebhook":
+        {
+          "image":
+            {
+              "tag": "8.20.0@sha256:b3f1fb2a51d923260350d21b8654bbc607164a987e2f7c84a0ac199a67df812a"
+            }
+        }
+    }
+}

@@ -10,6 +10,7 @@ export default defineConfig({
       exclude: [
         "src/**/*.spec.ts",
         "src/**/*.integration.spec.ts",
+        "src/**/*-support.ts",
         "dist/**",
       ],
       reporter: ["text", "html"],

@@ -3,7 +3,7 @@ import { exists } from "./files.js";
 import { registryAddressErrors } from "./registry-address.js";
 import { imageTrustErrors } from "./image-trust.js";
 import { crdNameFormatErrors } from "./crd-ownership.js";
-import { seedErrors } from "./seeds.js";
+import { imageListErrors } from "./approved.js";
 import { orderedComponents } from "./order.js";
 import type {
   Catalog,
@@ -257,7 +257,7 @@ export async function validateRepository(
     ...dependencyErrors(components, names),
     ...unknownOverlayErrors(environment, names),
     ...cycleErrors(catalog),
-    ...(await seedErrors(repository)),
+    ...(await imageListErrors(repository)),
     ...imageTrustErrors(repository),
     ...registryAddressErrors(repository),
     ...(

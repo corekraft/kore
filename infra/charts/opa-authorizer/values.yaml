@@ -1,4 +1,4 @@
-image: {repository: openpolicyagent/opa, tag: 1.22.2-envoy, pullPolicy: IfNotPresent}
+image: {repository: openpolicyagent/opa, tag: 1.22.2-envoy, digest: sha256:16218464017553a5152c619cf8605b6b8bb1c01612918fa6dba44b571c8de4c7, pullPolicy: IfNotPresent}
 resources:
   requests: {cpu: 25m, memory: 64Mi}
   limits: {cpu: 250m, memory: 256Mi}
