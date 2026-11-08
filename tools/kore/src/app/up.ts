@@ -6,7 +6,12 @@ import {
   type LockedImage,
 } from "../images/index.js";
 import type { Runner } from "../runtime/index.js";
-import { installResources, installWorkload, resolveCharts } from "./install.js";
+import {
+  enrollNamespace,
+  installResources,
+  installWorkload,
+  resolveCharts,
+} from "./install.js";
 import { stageLocalImage } from "./local-image.js";
 import {
   assertPlatformReady,
@@ -30,6 +35,7 @@ export async function appUp(
   await verifyImage(repository, runner, image, publicKeyOverride);
   const workloadImage = await stageLocalImage(repository, runner, image);
   const charts = await resolveCharts(repository, name);
+  await enrollNamespace(repository, runner, name);
   await installResources(repository, runner, name, charts);
   await waitForResources(repository, runner, name);
   await installWorkload(repository, runner, name, charts, workloadImage);
