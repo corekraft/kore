@@ -1,0 +1,13 @@
+diff --git a/tools/kore/src/app/app.spec.ts b/tools/kore/src/app/app.spec.ts
+--- a/tools/kore/src/app/app.spec.ts
++++ b/tools/kore/src/app/app.spec.ts
+@@ -400,3 +400,12 @@
++
++test("test appDown", async () => {
++  const runner = { run: vi.fn().mockResolvedValue({ code: 0, stdout: "", stderr: "" }) };
++  const repository = await loadRepository(process.cwd());
++
++  await appDown(repository, runner, { environment: "local", name: "reference", yes: true });
++
++  expect(runner.run).toHaveBeenCalledTimes(3);
++});

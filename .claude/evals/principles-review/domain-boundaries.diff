@@ -1,0 +1,12 @@
+diff --git a/tools/kore/src/app/app.ts b/tools/kore/src/app/app.ts
+--- a/tools/kore/src/app/app.ts
++++ b/tools/kore/src/app/app.ts
+@@ -1,7 +1,8 @@
+ import { access } from "node:fs/promises";
+ import { join } from "node:path";
+ import type { Repository } from "../config/index.js";
+ import { assertExpectedCluster } from "../cluster/index.js";
++import { minikubeProfileArgs } from "../cluster/cluster.js";
+ import { platformStatus } from "../platform/index.js";
+ import {
+   imageForApplication,

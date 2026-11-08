@@ -230,9 +230,58 @@ files and read only in part.
 
 ### Not Planned
 
-- A router skill: six skills with distinct descriptions do not need one yet.
+- A router skill: seven skills with distinct descriptions do not need one yet.
 - A scheduled cloud retrospective: cloud routines cannot read local transcripts.
 - Hook parity for Codex: out of scope unless AGENTS.md states the rule.
+
+## Step 9: Operator Load
+
+Next: run each skill case three times and grade it by majority, keeping plan
+mode so cases stay read-only, then rerun `mise run eval-harness`.
+
+Steps 1-8 manage what the agent has in context. This step manages what the human
+has to keep in their head: when to start a new thread, where the last one
+stopped, when a retrospective is due, and whether the skills and the review agent
+still work. It also closes the exit criteria above that need a live session.
+
+### Work
+
+- [x] **Relative skill links.** `.claude/skills/*` and `.codex/skills/*` link to
+      `../../skills/<name>`, never an absolute path. A `skill-links` test in
+      `mise run test-hooks` checks every skill in `skills/` is linked from both
+      harness directories, and the pre-commit hook runs it when `skills/`,
+      `.claude/`, or `.codex/` changes.
+- [x] **Codex skill metadata.** `skills/test-driven-development/agents/openai.yaml`
+      carries the trigger from `SKILL.md`, not a placeholder.
+- [x] **`session-brief`.** `context.mjs` also runs on `startup` and `clear`, and
+      prints at most four lines: the active plan with open items per step, the
+      plan's `Next:` line, and a retrospective reminder once five or more sessions
+      have run since the latest `Last retrospective:` marker. Compaction behavior is
+      unchanged.
+- [x] **`statusline`.** `.claude/statusline.mjs` shows context use, the active
+      plan, and the `Next:` step. Context use turns amber at 40% and red at 50%, the
+      edge of the range where the model works best. It is not registered in
+      `.claude/settings.json`, because a project status line replaces each
+      person's own; each person opts in from their user settings.
+- [x] **`handoff`.** A skill for leaving a thread mid-step: tick finished items in
+      the active plan and write one `Next:` line under the current step. No
+      transcript content.
+- [x] **`harness-eval`.** `mise run eval-harness` runs `claude -p` against
+      `.claude/evals/`: prompts paired with the skill they should trigger (including
+      near misses), and one seeded diff per judgment rule plus a clean diff for
+      `principles-review`. It costs tokens, so it is opt-in like live tests and runs
+      without session persistence, so it never counts toward the retrospective.
+- [x] **Contain release notes.** `pin-upgrade` reads upstream release notes in
+      the `Explore` subagent, treats them as data, and returns only what breaks a
+      contract in `infra/catalog/compatibility.md`.
+
+### Exit Criteria
+
+- [x] A link with an absolute target fails `mise run test-hooks`.
+- [x] A fresh session after `/clear` shows the active plan, its `Next:` line, and
+      a due retrospective, and a resumed session shows nothing.
+- [ ] `mise run eval-harness` reports every skill case and every seeded
+      `principles-review` diff as a hit; results recorded below.
 
 ## Results
 
@@ -262,6 +311,29 @@ files and read only in part.
 - Still to confirm in a fresh Claude Code session: the feedback hooks firing
   live, and the deny rules (Step 3, 4, 5 exit criteria left open).
 - The `image-digest` rule stays in audit mode as planned.
+- Step 9 is implemented. `mise run test-hooks`: 75 tests pass (guard, feedback,
+  context and brief, status line, skill links, eval grading). The skill-links test
+  failed on the tree as found: `.codex/skills/test-driven-development` was
+  committed with an absolute target and is now relative. Run against this
+  repository, the brief reports open items in Steps 3, 4, 5, 7, 8, and 9, and 8
+  sessions without a recorded retrospective. `retro` now reads and the calling
+  thread updates a `Last retrospective:` line in this section; none is recorded
+  yet.
+- Confirmed live for Step 9 on 2026-11-07 in a fresh Herdr pane: the startup
+  brief and the brief after `/clear` both arrived, the second with the `Next:`
+  line; resume stays silent (tested).
+- First `mise run eval-harness` on 2026-11-07, `claude 2.1.319`, model
+  `claude-opus-5-5`: 14/17 hits.
+  - Review: 5/5 seeded diffs flagged with the right rule. The clean diff missed
+    because the fixture was wrong: it called `appUp` with an options object and
+    claimed no command runs before name validation, and the reviewer said so.
+    With a corrected fixture, a rerun returned `No violations.` (6/6).
+  - Skills: 9/11. All four near misses stayed silent. `add-command` missed once
+    and fired on a rerun after one `Grep`, so one sample per case cannot tell a
+    weak description from noise. `test-driven-development` missed on a bugfix
+    prompt; the skill cases run in plan mode, where a skill meant for "before
+    writing production code" may rightly wait. Neither description is changed on
+    a single sample.
 
 ## Out of Scope
 

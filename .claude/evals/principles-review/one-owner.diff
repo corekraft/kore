@@ -1,0 +1,19 @@
+diff --git a/infra/charts/platform-config/templates/gateway-crds.yaml b/infra/charts/platform-config/templates/gateway-crds.yaml
+new file mode 100644
+--- /dev/null
++++ b/infra/charts/platform-config/templates/gateway-crds.yaml
+@@ -0,0 +1,14 @@
++# Install the Gateway API CRDs with the platform config so they are always present.
++apiVersion: apiextensions.k8s.io/v1
++kind: CustomResourceDefinition
++metadata:
++  name: gateways.gateway.networking.k8s.io
++spec:
++  group: gateway.networking.k8s.io
++  names:
++    kind: Gateway
++    plural: gateways
++  scope: Namespaced
++  versions:
++    - name: v1
++      served: true

@@ -6,7 +6,15 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { activePlan, openItems, restore, rules } from "./context.mjs";
+import {
+  activePlan,
+  brief,
+  lastRetrospective,
+  nextStep,
+  openItems,
+  restore,
+  rules,
+} from "./context.mjs";
 
 const hook = fileURLToPath(new URL("./context.mjs", import.meta.url));
 
@@ -70,12 +78,12 @@ test("activePlan picks the highest-numbered plan that still has open items", () 
   assert.equal(activePlan({ "1-a.md": "- [x] done\n" }), null);
 });
 
-test("restore says nothing on a normal session start", () => {
+test("restore says nothing when a session resumes, since its context is intact", () => {
   const deps = {
     readAgents: () => agents,
     readPlans: () => ({ "3-agent-harness.md": plan }),
+    sessionsSince: () => 9,
   };
-  assert.equal(restore({ source: "startup" }, deps), "");
   assert.equal(restore({ source: "resume" }, deps), "");
 });
 
@@ -103,7 +111,7 @@ test("restore without an active plan still states the rules", () => {
   assert.doesNotMatch(context, /Open plan items/);
 });
 
-test("cli: injects context after compaction and stays silent otherwise", (t) => {
+test("cli: injects context after compaction and stays silent on resume", (t) => {
   const root = mkdtempSync(join(tmpdir(), "kore-context-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, "infra/plans"), { recursive: true });
@@ -122,9 +130,9 @@ test("cli: injects context after compaction and stays silent otherwise", (t) => 
   assert.equal(output.hookEventName, "SessionStart");
   assert.match(output.additionalContext, /One owner per resource/);
 
-  const started = run({ hook_event_name: "SessionStart", source: "startup" });
-  assert.equal(started.status, 0);
-  assert.equal(started.stdout, "");
+  const resumed = run({ hook_event_name: "SessionStart", source: "resume" });
+  assert.equal(resumed.status, 0);
+  assert.equal(resumed.stdout, "");
 });
 
 test("cli: malformed input fails open", () => {
@@ -172,4 +180,142 @@ test("cli: without AGENTS.md the hook fails open and prints nothing", (t) => {
   assert.equal(result.status, 0);
   assert.equal(result.stdout, "");
   assert.equal(result.stderr, "");
+});
+
+const handedOff = `# Plan
+
+## Step 8: Earlier
+
+- [ ] Confirm live.
+
+## Step 9: Operator Load
+
+Next: write the statusline tests, then
+wire it into settings.
+
+### Work
+
+- [x] Brief.
+- [ ] Statusline.
+
+## Results
+
+- Last retrospective: 2026-11-01
+`;
+
+test("nextStep returns the plan's Next: line with its step, joining wrapped lines", () => {
+  assert.deepEqual(nextStep(handedOff), {
+    step: "Step 9: Operator Load",
+    text: "write the statusline tests, then wire it into settings.",
+  });
+  assert.equal(nextStep(plan), null);
+});
+
+test("lastRetrospective returns the latest marker across plans, or null", () => {
+  assert.equal(
+    lastRetrospective({
+      "2-a.md": "Last retrospective: 2026-10-01\n",
+      "3-b.md": handedOff,
+    }),
+    "2026-11-01",
+  );
+  assert.equal(lastRetrospective({ "3-b.md": plan }), null);
+});
+
+function briefDeps(sessions) {
+  const calls = [];
+  return {
+    calls,
+    readAgents: () => agents,
+    readPlans: () => ({ "3-agent-harness.md": handedOff }),
+    sessionsSince: (date, current) => {
+      calls.push([date, current]);
+      return sessions;
+    },
+  };
+}
+
+test("brief names the active plan, its open items per step, and the Next: line", () => {
+  const context = brief({ source: "startup", session_id: "s1" }, briefDeps(0));
+  assert.equal(
+    context,
+    [
+      "Session brief from infra/plans/3-agent-harness.md:",
+      "Open items: Step 8 (1), Step 9 (1).",
+      "Next (Step 9: Operator Load): write the statusline tests, then wire it into settings.",
+    ].join("\n"),
+  );
+});
+
+test("brief reminds about a retrospective only once five sessions have passed since the marker", () => {
+  const due = briefDeps(5);
+  assert.match(
+    brief({ source: "clear", session_id: "s1" }, due),
+    /5 sessions since the last retrospective \(2026-11-01\); run \/retro\./,
+  );
+  assert.deepEqual(due.calls, [["2026-11-01", "s1"]]);
+  assert.doesNotMatch(brief({ source: "clear" }, briefDeps(4)), /retro/);
+});
+
+test("brief without a marker counts every session as since the last retrospective", () => {
+  const deps = {
+    ...briefDeps(5),
+    readPlans: () => ({ "3-agent-harness.md": plan }),
+  };
+  assert.match(
+    brief({ source: "startup" }, deps),
+    /5 sessions without a recorded retrospective; run \/retro\./,
+  );
+});
+
+test("brief never restates the AGENTS.md rules, which a fresh session already loads", () => {
+  const context = restore({ source: "startup" }, briefDeps(0));
+  assert.match(context, /Session brief/);
+  assert.doesNotMatch(context, /One owner per resource/);
+});
+
+test("brief is empty with no open plan and no retrospective due", () => {
+  const deps = { ...briefDeps(0), readPlans: () => ({}) };
+  assert.equal(restore({ source: "startup" }, deps), "");
+  assert.equal(restore({ source: "clear" }, deps), "");
+});
+
+test("cli: a fresh session counts earlier transcripts but not its own", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "kore-context-"));
+  const config = mkdtempSync(join(tmpdir(), "kore-config-"));
+  t.after(() => {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(config, { recursive: true, force: true });
+  });
+  mkdirSync(join(root, "infra/plans"), { recursive: true });
+  writeFileSync(join(root, "AGENTS.md"), agents);
+  writeFileSync(join(root, "infra/plans/3-agent-harness.md"), plan);
+  const transcripts = join(
+    config,
+    "projects",
+    root.replace(/[^a-zA-Z0-9]/g, "-"),
+  );
+  mkdirSync(transcripts, { recursive: true });
+  for (const id of ["a", "b", "c", "d", "e", "current"]) {
+    writeFileSync(join(transcripts, `${id}.jsonl`), "{}\n");
+  }
+  writeFileSync(join(transcripts, "notes.txt"), "");
+
+  const run = (sessionId) =>
+    spawnSync("node", [hook], {
+      input: JSON.stringify({ source: "startup", session_id: sessionId }),
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        CLAUDE_PROJECT_DIR: root,
+        CLAUDE_CONFIG_DIR: config,
+      },
+    });
+  const context = JSON.parse(run("current").stdout).hookSpecificOutput
+    .additionalContext;
+  assert.match(context, /Session brief from infra\/plans\/3-agent-harness\.md/);
+  assert.match(context, /5 sessions without a recorded retrospective/);
+
+  rmSync(join(transcripts, "e.jsonl"));
+  assert.doesNotMatch(run("current").stdout, /retro/);
 });

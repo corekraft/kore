@@ -1,0 +1,15 @@
+diff --git a/tools/kore/src/app/app.ts b/tools/kore/src/app/app.ts
+--- a/tools/kore/src/app/app.ts
++++ b/tools/kore/src/app/app.ts
+@@ -127,7 +127,11 @@ async function chart(
+   if (!/^[a-z0-9-]+$/.test(name))
+     throw new Error(`invalid application name: ${name}`);
+   const path = join(repository.root, "apps", name, "charts", kind);
+-  await access(join(path, "Chart.yaml"));
++  try {
++    await access(join(path, "Chart.yaml"));
++  } catch {
++    throw new Error("chart error");
++  }
+   return path;
+ }
