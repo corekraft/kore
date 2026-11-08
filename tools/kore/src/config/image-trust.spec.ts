@@ -6,7 +6,7 @@ import { findRoot, loadRepository, validateRepository } from "./config.js";
 import type { Repository } from "./types.js";
 
 const releaseSubject =
-  "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.1.0";
+  "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.1.1";
 const issuer = "https://token.actions.githubusercontent.com";
 
 type Trust = Record<string, unknown>;
