@@ -216,6 +216,7 @@
         "ownsCRDs": ["opentelemetrycollectors.opentelemetry.io"],
         "dependencies": ["cert-manager"],
         "timeout": "10m",
+        "values": ["infra/observability/operator/values.yaml"],
         "readiness": ["deployment/opentelemetry-operator"]
       },
       {

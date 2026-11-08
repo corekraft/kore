@@ -81,7 +81,7 @@
       "zipkin": null,
       "otlp": null,
       "prometheus": null,
-      "filelog": {
+      "file_log": {
         "include": [
           "/var/log/pods/*/*/*.log"
         ],
@@ -119,7 +119,7 @@
     },
     "exporters": {
       "debug": null,
-      "otlp/gateway": {
+      "otlp_grpc/gateway": {
         "endpoint": "otel-collector.observability.svc:4317",
         "tls": {
           "insecure": true
@@ -133,14 +133,14 @@
         "traces": null,
         "logs/pods": {
           "receivers": [
-            "filelog"
+            "file_log"
           ],
           "processors": [
             "memory_limiter",
             "batch"
           ],
           "exporters": [
-            "otlp/gateway"
+            "otlp_grpc/gateway"
           ]
         },
         "metrics/kubelet": {
@@ -152,7 +152,7 @@
             "batch"
           ],
           "exporters": [
-            "otlp/gateway"
+            "otlp_grpc/gateway"
           ]
         }
       }

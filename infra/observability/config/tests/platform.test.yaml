@@ -9,11 +9,11 @@
       "name": "queue near capacity fires after ten minutes",
       "input_series": [
         {
-          "series": "otelcol_exporter_queue_size{exporter=\"otlp/tempo\"}",
+          "series": "otelcol_exporter_queue_size{exporter=\"otlp_grpc/tempo\"}",
           "values": "90+0x15"
         },
         {
-          "series": "otelcol_exporter_queue_capacity{exporter=\"otlp/tempo\"}",
+          "series": "otelcol_exporter_queue_capacity{exporter=\"otlp_grpc/tempo\"}",
           "values": "100+0x15"
         }
       ],
@@ -30,7 +30,7 @@
             {
               "exp_labels": {
                 "severity": "warning",
-                "exporter": "otlp/tempo"
+                "exporter": "otlp_grpc/tempo"
               },
               "exp_annotations": {
                 "summary": "OpenTelemetry Collector exporter queue is above 80 percent of capacity"
@@ -45,11 +45,11 @@
       "name": "healthy queue stays quiet",
       "input_series": [
         {
-          "series": "otelcol_exporter_queue_size{exporter=\"otlp/tempo\"}",
+          "series": "otelcol_exporter_queue_size{exporter=\"otlp_grpc/tempo\"}",
           "values": "10+0x15"
         },
         {
-          "series": "otelcol_exporter_queue_capacity{exporter=\"otlp/tempo\"}",
+          "series": "otelcol_exporter_queue_capacity{exporter=\"otlp_grpc/tempo\"}",
           "values": "100+0x15"
         }
       ],
@@ -97,11 +97,11 @@
       "name": "exporter failures page and a quiet exporter does not",
       "input_series": [
         {
-          "series": "otelcol_exporter_send_failed_spans_total{exporter=\"otlp/tempo\"}",
+          "series": "otelcol_exporter_send_failed_spans_total{exporter=\"otlp_grpc/tempo\"}",
           "values": "0+60x12"
         },
         {
-          "series": "otelcol_exporter_send_failed_log_records_total{exporter=\"otlphttp/loki\"}",
+          "series": "otelcol_exporter_send_failed_log_records_total{exporter=\"otlp_http/loki\"}",
           "values": "0+0x12"
         }
       ],

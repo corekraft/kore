@@ -135,7 +135,7 @@
         "send_batch_size": 512,
         "timeout": "5s"
       },
-      "k8sattributes": {
+      "k8s_attributes": {
         "auth_type": "serviceAccount",
         "pod_association": [
           {
@@ -228,10 +228,10 @@
           "enabled": true
         }
       },
-      "otlphttp/loki": {
+      "otlp_http/loki": {
         "endpoint": "http://loki:3100/otlp"
       },
-      "otlp/tempo": {
+      "otlp_grpc/tempo": {
         "endpoint": "tempo:4317",
         "tls": {
           "insecure": true
@@ -251,7 +251,7 @@
           ],
           "processors": [
             "memory_limiter",
-            "k8sattributes",
+            "k8s_attributes",
             "resource/environment",
             "attributes/cardinality",
             "transform/metric-cardinality",
@@ -282,13 +282,13 @@
           ],
           "processors": [
             "memory_limiter",
-            "k8sattributes",
+            "k8s_attributes",
             "resource/environment",
             "attributes/cardinality",
             "batch"
           ],
           "exporters": [
-            "otlphttp/loki"
+            "otlp_http/loki"
           ]
         },
         "traces": {
@@ -297,13 +297,13 @@
           ],
           "processors": [
             "memory_limiter",
-            "k8sattributes",
+            "k8s_attributes",
             "resource/environment",
             "attributes/cardinality",
             "batch"
           ],
           "exporters": [
-            "otlp/tempo"
+            "otlp_grpc/tempo"
           ]
         }
       }
