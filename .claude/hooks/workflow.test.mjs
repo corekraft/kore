@@ -132,6 +132,9 @@ test("release-please is pinned, reads its config files, and tags vX.Y.Z", () => 
   assert.equal(config["include-v-in-tag"], true);
   assert.equal(config["release-type"], "simple");
   assert.deepEqual(Object.keys(config.packages), ["."]);
+  // With no prior release, release-please ignores bump-minor-pre-major and
+  // would cut 1.0.0; the first release must be 0.1.0.
+  assert.equal(config.packages["."]["initial-version"], "0.1.0");
   assert.deepEqual(
     JSON.parse(
       readFileSync(join(root, ".release-please-manifest.json"), "utf8"),
