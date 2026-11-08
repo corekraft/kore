@@ -6,3 +6,4 @@ export {
   clusterUp,
 } from "./cluster.js";
 export { assertExpectedCluster, ClusterUnavailableError } from "./cluster.js";
+export { retainedResources } from "./retained.js";

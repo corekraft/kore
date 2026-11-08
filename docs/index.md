@@ -58,6 +58,7 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0016-opa-bundle-chart-single-source.md`](decisions/0016-opa-bundle-chart-single-source.md) — refines 0014: the chart deploys the tested bundle, with a drift test and masked decision logs. Read when changing OPA delivery.
 - [`docs/decisions/0015-local-signed-image-delivery.md`](decisions/0015-local-signed-image-delivery.md) — refines 0005: local images are signed with a local key and deployed by digest. Read when changing `local up` or image delivery.
 - [`docs/decisions/0016-telemetry-pipeline-wiring.md`](decisions/0016-telemetry-pipeline-wiring.md) — gateway Collector plus node agent, config chart owns rules and dashboards, metric attribute allowlist. Read when changing telemetry wiring.
+- [`docs/decisions/0016-postgresql-api-scoped-rbac-status-and-retention.md`](decisions/0016-postgresql-api-scoped-rbac-status-and-retention.md) — refines 0008: scoped Crossplane Secret access, projected database status, labeled retained PVCs, app down reports retained data. Read when changing the PostgreSQL API.
 
 ## Reference
 

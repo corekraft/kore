@@ -42,3 +42,7 @@ spec:
                 conditions:
                   { type: array, x-kubernetes-preserve-unknown-fields: true }
                 endpoint: { type: string }
+                phase: { type: string }
+                failureReason: { type: string }
+                host: { type: string }
+                port: { type: integer }

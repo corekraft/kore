@@ -21,7 +21,7 @@ test("app down uninstalls the named workload release", async () => {
 
   await appDown(repository, runner, "reference");
 
-  expect(calls.at(-1)).toEqual({
+  expect(calls.find((call) => call.command === "helm")).toEqual({
     command: "helm",
     args: [
       "uninstall",
@@ -33,6 +33,56 @@ test("app down uninstalls the named workload release", async () => {
       "--timeout=10m",
     ],
   });
+});
+
+test("app down reports retained data in the application namespace and never deletes it", async () => {
+  const repository = await loadRepository("local");
+  const calls: { command: string; args: readonly string[] }[] = [];
+  const runner: Runner = {
+    async run(command, args) {
+      calls.push({ command, args });
+      if (command === "kubectl" && args.includes("pvc")) {
+        return {
+          stdout: "persistentvolumeclaim/reference-db-1\n",
+          stderr: "",
+          code: 0,
+        };
+      }
+      if (
+        command === "kubectl" &&
+        args.includes("postgresqlinstances.platform.kore.dev")
+      ) {
+        return {
+          stdout: "postgresqlinstance.platform.kore.dev/reference-db\n",
+          stderr: "",
+          code: 0,
+        };
+      }
+      return { stdout: "kube-system", stderr: "", code: 0 };
+    },
+  };
+
+  const retained = await appDown(repository, runner, "reference");
+
+  expect(retained).toEqual([
+    "persistentvolumeclaim/reference-db-1",
+    "postgresqlinstance.platform.kore.dev/reference-db",
+  ]);
+  expect(calls.some((call) => call.args.includes("delete"))).toBe(false);
+  const queries = calls.filter(
+    (call) =>
+      call.command === "kubectl" &&
+      call.args.includes("get") &&
+      call.args.includes("-l"),
+  );
+  expect(queries.length).toBe(2);
+  for (const query of queries) {
+    expect(query.args).toContain("--namespace=reference");
+    expect(query.args).not.toContain("--all-namespaces");
+  }
+  const uninstall = calls.findIndex((call) => call.args.includes("uninstall"));
+  expect(uninstall).toBeGreaterThanOrEqual(0);
+  expect(calls.indexOf(queries[0]!)).toBeGreaterThan(uninstall);
 });
 
 test("app status reports locked image provenance", async () => {
