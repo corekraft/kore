@@ -6,6 +6,9 @@ Crossplane APIs, and policy/observability assets. `kore` coordinates Minikube,
 Helm, kubectl, OpenTofu, and Kubernetes controllers without taking ownership of
 their reconciliation loops.
 
+For the plans, decisions, and reference files behind this, start at
+[`docs/index.md`](docs/index.md).
+
 ## Quick start
 
 ```sh
@@ -87,5 +90,22 @@ separate resources and workload charts with no provider-specific references.
 
 The catalog and environment files intentionally use JSON-compatible YAML. This
 makes schema failures deterministic before any cluster mutation while remaining
-valid YAML for Helm/Kubernetes tooling. See `infra/plans/1-initialize.md` and
-`infra/plans/2-implementation.md` for the lifecycle and capability contracts.
+valid YAML for Helm/Kubernetes tooling. See [`docs/index.md`](docs/index.md) for the plans and decisions behind the
+lifecycle and capability contracts.
+
+## Commands
+
+Run `kore --help` for every flag; the usage text in `tools/kore/src/cli/cli.ts`
+is the source of truth.
+
+| Command         | Does                                                                            |
+| --------------- | ------------------------------------------------------------------------------- |
+| `kore doctor`   | Checks pinned tools and prerequisites. Read-only.                               |
+| `kore validate` | Validates catalogs, environments, and release ordering. Read-only.              |
+| `kore cluster`  | Starts, stops, destroys, or reports the Minikube profile.                       |
+| `kore platform` | Bootstraps, reconciles, stops, destroys, renders, or reports platform releases. |
+| `kore app`      | Deploys, removes, or reports one application's resources and workload releases. |
+| `kore local`    | Brings the whole local environment up or down (`--prune` destroys it).          |
+| `kore tunnel`   | Starts, stops, or reports the managed Minikube tunnel.                          |
+| `kore secrets`  | Syncs local secrets, including the generated API token, into the cluster.       |
+| `kore trust`    | Installs the local certificate authority before the Gateway is configured.      |

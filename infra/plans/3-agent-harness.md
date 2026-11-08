@@ -1,3 +1,9 @@
+---
+status: done
+summary: Moves checkable AGENTS.md rules into hooks, deny rules, skills, and evals, with a retrospective loop.
+last-verified: 2026-11-07
+---
+
 # Agent Harness Plan
 
 ## Purpose
