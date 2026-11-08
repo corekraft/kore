@@ -1,3 +1,9 @@
+---
+status: done
+summary: Architecture, lifecycle, capability, tool-selection, and repository-topology decisions for the platform (Steps 1–5).
+last-verified: 2026-11-07
+---
+
 # Local Kubernetes Platform Initialization Plan
 
 ## Goal
@@ -39,44 +45,23 @@ interface for logs, metrics, and traces.
 
 ## Responsibility Boundaries
 
+Decided in [ADR 0002: Give each upstream tool one responsibility](../../docs/decisions/0002-tool-responsibility-boundaries.md).
+
 ### OpenTofu
 
-OpenTofu provisions infrastructure that exists outside of or must exist before
-Kubernetes. This includes cloud accounts and projects, networks, managed clusters,
-node pools, foundational identity and access management, key management, external
-secret stores, registries, DNS zones, and state storage.
-
-OpenTofu does not manage application releases or ordinary in-cluster Kubernetes
-resources. This keeps infrastructure state independent from Helm release state and
-from the continuous reconciliation performed by Kubernetes controllers.
+OpenTofu provisions the substrate outside of or before Kubernetes.
 
 ### Helm
 
-Helm installs and upgrades software and resources inside Kubernetes. Helm charts
-contain reusable application packaging and provider-neutral Kubernetes resources.
-Application charts must not contain Minikube-specific or cloud-provider-specific
-logic.
-
-Controllers and Custom Resource Definitions (CRDs) belong to dedicated
-infrastructure charts. Their lifecycle is managed separately from application
-charts because they are cluster-wide platform APIs.
+Helm installs in-cluster software; controllers and CRDs use dedicated charts.
 
 ### Kubernetes Controllers
 
-Applications request infrastructure through stable Kubernetes custom resources
-installed by their Helm charts. Infrastructure controllers reconcile those claims
-into environment-specific implementations.
-
-For example, the same database claim may create a PostgreSQL workload in the local
-cluster or a managed database in a cloud environment. Both implementations must
-expose the same application-facing connection contract, normally through a
-Kubernetes Secret.
+Controllers reconcile application claims into environment-specific implementations.
 
 ### Local and Provider-Specific Tooling
 
-Minikube-specific behavior remains in local scripts and environment configuration.
-Provider-specific behavior is isolated in infrastructure modules, variables, and
-environment overlays.
+Minikube and provider specifics stay in adapters, modules, and overlays.
 
 ## Principles
 
@@ -144,9 +129,7 @@ For Minikube, provisioning the environment substrate means preparing the local
 environment before creating the cluster. For a cloud environment, it may include
 networking, identity, and other dependencies required by a managed cluster.
 
-Platform initialization does not install applications. The complete initialization
-lifecycle is the platform bootstrap; individual controller-installation operations
-are internal phases and must never publish platform readiness on their own.
+Decided in [ADR 0004: Gate application admission on complete, fail-closed bootstrap](../../docs/decisions/0004-fail-closed-application-admission-gate.md).
 
 ### Infrastructure Installation Phases
 
@@ -169,23 +152,7 @@ Infrastructure is installed in dependency-aware phases:
    to enforcement, and audits all running platform workloads for internal,
    digest-qualified, authorized signatures.
 
-Bootstrap is not complete until the internal registry is ready, all seed artifacts
-have been replaced by their mirrored and platform-signed equivalents, image
-admission is enforcing, and an inventory proves that no managed platform workload
-uses an external, tag-only, unsigned, or unauthorized image. Seed exceptions are
-not part of the steady state. Bootstrap must also install, configure, and verify
-every infrastructure tool required by the declared application contracts before it
-opens the application admission gate.
-
-The gate is represented by platform-owned, generation-specific readiness state and
-is opened only by bootstrap automation after all required release and capability
-checks pass. Application namespaces are created or activated only after that point.
-Admission policy and RBAC reject application claims and workload resources while
-the gate is absent, stale, or closed. Developers cannot set or modify the readiness
-state, namespace activation metadata, admission policy, or deployment identity.
-
-The specific components used to implement these capabilities are selected
-separately from this lifecycle contract.
+Completion and gate rules: decided in [ADR 0004: Gate application admission on complete, fail-closed bootstrap](../../docs/decisions/0004-fail-closed-application-admission-gate.md).
 
 ## Application Lifecycle
 
@@ -203,18 +170,7 @@ admission gate:
 7. Wait for signature admission and the workload rollout to complete.
 8. Report application readiness, image digest, signer identity, and endpoints.
 
-Infrastructure claims and application workloads use separate Helm releases. For
-an application named `example`, those releases are:
-
-- `example-resources` for infrastructure claims.
-- `example` for Deployments, Services, ConfigMaps, and other workload resources.
-
-This lifecycle boundary allows workloads to be replaced or removed without
-implicitly deleting their persistent infrastructure.
-
-Stateful infrastructure claims must define an explicit retention policy. Removing
-an application or stopping a local platform retains persistent resources by
-default. Permanent data deletion requires a separate, explicit purge operation.
+Release split and retention: decided in [ADR 0003: Separate claims from workloads and retain data by default](../../docs/decisions/0003-separate-claims-and-retain-data.md).
 
 ## Command Contract
 
@@ -235,15 +191,7 @@ surface is:
 The `--environment` argument is required for every mutating command. Commands must
 not silently use the current `kubectl` context.
 
-The `kore` command composes focused tools without taking over their concerns:
-
-- Minikube creates and removes the local cluster.
-- OpenTofu provisions external infrastructure.
-- Helm installs and upgrades in-cluster resources.
-- `kubectl` observes resources and waits for readiness.
-- Cosign signs and verifies immutable image digests when invoked by authorized
-  release automation.
-- The OCI registry stores promoted images and their signatures.
+Tool responsibilities: decided in [ADR 0002: Give each upstream tool one responsibility](../../docs/decisions/0002-tool-responsibility-boundaries.md).
 
 ### Command Behavior
 
@@ -258,20 +206,9 @@ Every mutating command must:
 - Identify the failed component without requiring undocumented manual patching.
 - Support non-interactive execution in CI.
 
-Application mutation commands must additionally refuse to render or apply claims or
-workloads until the current environment reports a complete bootstrap generation and
-an open application admission gate. This CLI check supplements, but does not
-replace, cluster-side RBAC and admission enforcement against direct Helm or
-Kubernetes API use.
+Application mutation commands also check the admission gate; decided in [ADR 0004: Gate application admission on complete, fail-closed bootstrap](../../docs/decisions/0004-fail-closed-application-admission-gate.md).
 
-Destructive commands must:
-
-- Require confirmation during interactive use.
-- Require an explicit confirmation flag during non-interactive use.
-- Retain persistent resources by default.
-- Require an explicit `--purge-data` operation to delete persistent data.
-- Refuse to destroy a local cluster containing retained data unless that data is
-  explicitly purged or a verified export exists.
+Destructive commands follow [ADR 0003: Separate claims from workloads and retain data by default](../../docs/decisions/0003-separate-claims-and-retain-data.md).
 
 ## Lifecycle Acceptance Criteria
 
@@ -375,158 +312,35 @@ not on implementation-specific APIs unless a reviewed exception is recorded.
 | Kubernetes inspection    | `kubectl`                                            | Observe resources and wait for readiness without owning desired state.                           |
 | Local image delivery     | OCI registry push and pull                           | Publish candidate images and consume promoted, signed, digest-qualified images.                  |
 
-Envoy Gateway is not part of the initial stack. Istio is the Gateway API
-implementation so that the platform has one control plane for ingress, ambient
-mesh networking, workload identity, runtime authorization, and mesh telemetry.
-Application charts use standard Gateway API resources for ingress. Istio-specific
-networking resources remain infrastructure-owned and are used only when the
-standard API cannot express a required capability.
+Istio instead of Envoy Gateway: decided in [ADR 0006: Use Istio ambient as the Gateway API implementation](../../docs/decisions/0006-istio-ambient-gateway-api.md).
 
 ### Platform API and PostgreSQL
 
-Crossplane defines a namespaced `PostgreSQLInstance.platform.kore.dev` API rather
-than a generic database API. A local composition creates a CloudNativePG cluster;
-a provider composition may create managed PostgreSQL. Both compositions publish
-the same connection Secret schema and readiness contract.
-
-The initial API exposes only portable requirements such as service class, storage
-size, connection Secret name, PostgreSQL compatibility version, and retention
-policy. Provider-specific settings remain in environment compositions.
+Decided in [ADR 0008: Expose PostgreSQL as a namespaced Crossplane platform API](../../docs/decisions/0008-crossplane-postgresql-platform-api.md).
 
 ### Workload Identity and Authorization
 
-Every application workload uses a dedicated Kubernetes ServiceAccount. Istio uses
-that ServiceAccount to establish a short-lived, mutually authenticated workload
-identity with this principal format:
-
-```text
-spiffe://<trust-domain>/ns/<namespace>/sa/<service-account>
-```
-
-Responsibility is divided as follows:
-
-- Kubernetes ServiceAccounts establish the workload identity input.
-- Istio issues and validates the cryptographic identity, provides mutual TLS, and
-  enforces native `AuthorizationPolicy` rules.
-- OPA Gatekeeper rejects or audits workload definitions that violate identity and
-  authorization requirements.
-- The OPA-Envoy plugin acts as an external policy decision point for contextual
-  Layer 7 decisions delegated through Istio `AuthorizationPolicy` resources with
-  the `CUSTOM` action.
-
-Native Istio `ALLOW` and `DENY` policies handle common service-to-service rules.
-OPA is used when a decision needs richer context or shared Rego policy. Protected
-routes fail closed if the OPA authorizer is unavailable. The initial deployment
-uses a platform-operated OPA authorization service rather than injecting OPA
-sidecars, preserving the ambient data-plane model. OPA policies are delivered as
-versioned bundles and tested independently of application releases.
-
-Initial Gatekeeper identity constraints require:
-
-- A dedicated ServiceAccount rather than the namespace default.
-- Explicit service account token mounting behavior.
-- No wildcard RBAC permissions or unauthorized role bindings.
-- Explicit enrollment in the ambient mesh for participating application namespaces.
-- Required ownership, application, and workload identity labels.
-- Resource requests, limits, and health probes.
-- No privileged containers or unapproved host namespace access.
-- No plaintext Secret resources in application releases.
-- Explicit retention policy for stateful infrastructure claims.
-
-Constraints start in audit mode. Each constraint moves to enforcement only after
-the platform and reference application comply and its failure behavior is tested.
-System namespace exemptions must be explicit, minimal, and documented.
+Decided in [ADR 0007: Derive identity from ServiceAccounts and layer authorization](../../docs/decisions/0007-workload-identity-and-layered-authorization.md).
 
 ### Image Provenance and Registry Trust
 
-The platform operates an OCI Distribution-compatible registry as a foundational
-infrastructure application. Workloads consume images from the environment's
-platform registry by immutable digest. Images and their Cosign signatures remain
-OCI artifacts so that a managed environment may substitute a provider registry
-without changing application charts.
-
-Sigstore Policy Controller performs cryptographic image verification during
-admission. Gatekeeper remains responsible for workload shape, identity, and other
-declarative constraints; it does not duplicate signature verification in Rego.
-Every namespace containing Kore-managed platform or application workloads is
-enrolled after its bootstrap prerequisites are ready. Policy covers containers,
-init containers, and ephemeral containers, rejects references that do not match a
-policy, and fails closed when the image, signature, registry, or verifier cannot be
-validated.
-
-Only protected release automation is an authorized signer. The authorization
-policy binds verification to an exact workload identity, such as an OIDC issuer
-and protected workflow subject, or to a KMS/HSM key whose sign permission is
-granted only to that workload identity. Developers, pull-request workflows,
-ordinary build jobs, cluster workloads, and registry administrators receive no
-sign permission. Build automation may push candidates to a staging repository;
-release automation verifies the candidate digest and required checks, promotes it
-to a trusted repository, signs that digest, verifies the result, and emits the
-digest-qualified release reference. Admission trusts the signer, not the registry
-path alone.
-
-Local development exercises the same promotion and admission flow with a distinct
-local automation identity that is never trusted by managed environments. A user
-with administrator access to a local machine or Minikube cluster cannot be treated
-as cryptographically isolated from that local environment; local proves workflow
-behavior, while managed KMS/IAM and protected CI establish the developer/signing
-boundary.
-
-The registry and verifier create a bootstrap trust loop. The seed phase may use
-only repository-recorded upstream digests needed to start that loop. Once the
-registry and verifier are ready, automation mirrors those artifacts, validates
-their upstream digest and provenance, signs the approved internal digests, updates
-all platform releases to the internal digest-qualified references, enables
-fail-closed admission, and performs a complete workload inventory. Bootstrap fails
-and rolls back if any seed, external, tag-only, unsigned, or unauthorized image
-remains. Signing keys and credentials are never stored in the registry, cluster,
-repository, Helm values, or developer workstations.
+Decided in [ADR 0005: Trust images by release-automation signature, not by registry](../../docs/decisions/0005-release-automation-signed-image-trust.md).
 
 ### Networking and Certificates
 
-Istio implements Kubernetes Gateway API for ingress and ambient mesh traffic.
-Minikube-specific tunnel management remains behind the `kore` command. Application
-charts do not invoke Minikube or depend on an Istio `GatewayClass` name directly;
-environment configuration supplies infrastructure-owned parent references.
-
-cert-manager provides the `Certificate` contract in every environment. Local
-development uses a CA established with mkcert. Managed environments substitute an
-ACME or provider-supported issuer without changing application workloads.
+Decided in [ADR 0006: Use Istio ambient as the Gateway API implementation](../../docs/decisions/0006-istio-ambient-gateway-api.md).
 
 ### Secrets
 
-Application resource charts create `ExternalSecret` resources that reference a
-consistently named platform `SecretStore` or `ClusterSecretStore`.
-
-Locally, SOPS and age decrypt version-controlled values into a protected source
-namespace, and External Secrets Operator materializes application-scoped Secrets.
-Managed environments replace the store implementation with a provider secret
-manager. Plaintext secret values are never committed to the repository or passed
-through Helm values.
+Decided in [ADR 0009: Deliver secrets through External Secrets from encrypted sources](../../docs/decisions/0009-encrypted-secrets-through-external-secrets.md).
 
 ### Storage and Retention
 
-The platform initially exposes two storage profiles:
-
-- `kore-standard` for disposable data using the environment's standard storage.
-- `kore-retained` for persistent data using a `Retain` reclaim policy.
-
-Minikube provides the initial local storage implementation. Stopping its profile
-preserves local data. Destroying a profile containing retained data requires an
-explicit purge or a verified export. Retention is not a backup; backup and restore
-requirements are defined before the platform is considered production-ready.
+Decided in [ADR 0003: Separate claims from workloads and retain data by default](../../docs/decisions/0003-separate-claims-and-retain-data.md).
 
 ### Observability
 
-Applications send OTLP logs, metrics, and traces only to the OpenTelemetry
-Collector. The Collector enriches signals with Kubernetes and workload identity
-attributes and exports them to Prometheus, Loki, and Tempo. Grafana provides the
-initial correlated query interface.
-
-Istio telemetry also flows through the platform's OpenTelemetry path where the
-supported signal permits it. Applications do not send telemetry directly to a
-backend, which allows managed backends to replace the local stack without changing
-application instrumentation.
+Decided in [ADR 0010: Make the OpenTelemetry Collector the only telemetry ingress](../../docs/decisions/0010-opentelemetry-collector-ingestion.md).
 
 ## Repository and Release Topology
 
@@ -590,11 +404,10 @@ it does not hide component lists or versions inside imperative scripts.
 
 The layout follows these ownership rules:
 
-- `infra/catalog` is the source of truth for components, versions, namespaces,
-  release names, dependencies, readiness checks, and upstream chart locations.
-- `infra/environments/common` contains provider-neutral defaults.
-- `infra/environments/<name>` contains only environment-specific inputs and Helm
-  values. Application directories never import these files directly.
+- `infra/catalog` is the source of truth for releases and versions; see
+  [ADR 0011](../../docs/decisions/0011-catalog-owned-releases-and-versions.md).
+- `infra/environments` holds common defaults and per-environment inputs; see
+  [ADR 0012](../../docs/decisions/0012-environment-overlays-hold-provider-specifics.md).
 - `infra/tofu/modules` contains reusable infrastructure modules, while
   `infra/tofu/stacks` contains environment entry points and state boundaries.
 - `infra/charts` contains only Kore-owned charts. Upstream charts remain external,
@@ -642,33 +455,11 @@ Logical releases may map to multiple upstream charts when required by a project'
 supported installation model. The catalog records that mapping without changing
 the logical owner.
 
-Each application adds exactly two releases:
-
-- `<application>-resources` for infrastructure claims and their retention policy.
-- `<application>` for its ServiceAccount, workload, Service, routes, telemetry
-  configuration, and authorization policy references.
+Each application adds exactly two releases; decided in [ADR 0003: Separate claims from workloads and retain data by default](../../docs/decisions/0003-separate-claims-and-retain-data.md).
 
 ### Resource Ownership
 
-Every cluster-scoped resource, CRD, and namespaced object has exactly one declared
-owner in the release catalog.
-
-- A controller's infrastructure release owns its CRDs unless the upstream project
-  requires a distinct CRD release. That distinction is recorded in the catalog.
-- `kore-gateway-api` is the sole owner of Gateway API CRDs.
-- Controller releases own controller Deployments, Services, ServiceAccounts, and
-  webhook infrastructure.
-- `kore-platform-config` owns instances that configure shared platform behavior; it
-  does not own controller CRDs or Deployments.
-- Application resource releases own only their claims, never the resources composed
-  or reconciled from those claims.
-- Kubernetes controllers own resources they reconcile from claims or platform APIs.
-- No resource may be rendered by more than one Helm release or by both Helm and
-  OpenTofu.
-
-CRD installation, upgrade, conversion, and removal behavior must be declared per
-component. CRD removal is never an implicit consequence of an ordinary Helm
-uninstall.
+Decided in [ADR 0011: Declare releases, ownership, and versions in the catalog](../../docs/decisions/0011-catalog-owned-releases-and-versions.md).
 
 ### Release Dependency Graph
 
@@ -754,34 +545,11 @@ have been mirrored, automation-signed, and replaced by internal digest reference
 
 ### Environment Overlay Rules
 
-- Common configuration defines portable contracts and safe defaults.
-- An environment overlay may select implementations, sizes, endpoints, issuers,
-  storage classes, compositions, and platform-owned parent references.
-- An overlay must not fork an application chart or change application source code.
-- Minikube commands, profile names, tunnel behavior, local mounts, and local
-  registry bootstrap behavior exist only in the local environment and `kore`
-  adapters.
-- Cloud provider names, regions, identities, and managed-resource settings exist
-  only in their OpenTofu stack and environment overlay.
-- Secrets are referenced by stable logical keys; plaintext values are not overlay
-  inputs or Helm values.
-- Registry endpoints, repository prefixes, trusted signing identities, and public
-  verification material are environment inputs. Private signing credentials are
-  never environment, overlay, cluster, or developer inputs.
+Decided in [ADR 0012: Keep provider specifics in environment overlays](../../docs/decisions/0012-environment-overlays-hold-provider-specifics.md).
 
 ### Version Catalog
 
-`infra/catalog/versions.yaml` records every Kubernetes version, CLI, OpenTofu
-provider, Helm chart, controller image, composition function, and policy bundle
-version used by the platform.
-
-- Floating versions such as `latest` are prohibited.
-- OCI image digests and artifact checksums are recorded where supported.
-- Helm dependencies and OpenTofu providers retain their native lock files.
-- A version change updates the compatibility matrix and passes the reference
-  application before promotion.
-- Component configuration reads a version from one catalog entry rather than
-  duplicating version strings across scripts and environment files.
+Decided in [ADR 0011: Declare releases, ownership, and versions in the catalog](../../docs/decisions/0011-catalog-owned-releases-and-versions.md).
 
 ### Topology Acceptance Criteria
 

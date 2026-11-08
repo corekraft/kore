@@ -1,7 +1,8 @@
 # AGENTS.md
 
 Principles for working in this repository. The README explains what Kore does;
-the plans and ADRs record why.
+the plans and ADRs record why. Find them through
+[`docs/index.md`](docs/index.md).
 
 ## Platform
 

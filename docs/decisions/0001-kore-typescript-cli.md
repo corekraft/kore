@@ -1,7 +1,13 @@
+---
+status: accepted
+summary: Implement kore as a Node.js TypeScript executable that coordinates upstream tools and reads JSON-compatible YAML.
+date: 2026-09-13
+last-verified: 2026-11-07
+---
+
 # ADR 0001: Implement `kore` as a Node.js TypeScript executable
 
-- Status: accepted
-- Date: 2026-09-13
+Source: [`infra/plans/2-implementation.md` § Step 6](../../infra/plans/2-implementation.md#step-6-repository-and-local-cluster-foundation)
 
 ## Context
 

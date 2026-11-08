@@ -1,3 +1,4 @@
+// Docs: docs/decisions/0002-tool-responsibility-boundaries.md
 export { withEnvironmentLock } from "./lock.js";
 export { ProcessRunner } from "./runner.js";
 export type { RunOptions, RunResult, Runner } from "./runner.js";

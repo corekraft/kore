@@ -1,0 +1,99 @@
+# Knowledge Index
+
+One line per document: what it decides and when to read it. Start here when a
+task needs the reasons behind the code, not just the code. Paths are from the
+repository root; `mise run kb-check` keeps this list complete.
+
+## Principles and Overview
+
+- [`AGENTS.md`](../AGENTS.md) — the repository's rules, and which ones hooks
+  enforce. Read at the start of any change.
+- [`README.md`](../README.md) — what Kore does and how to run each `kore`
+  command. Read before running or changing a command.
+
+## Plans
+
+- [`infra/plans/1-initialize.md`](../infra/plans/1-initialize.md) — done:
+  architecture, lifecycle, capabilities, tool selection, and repository
+  topology. Read when a change touches platform shape or a tool choice.
+- [`infra/plans/2-implementation.md`](../infra/plans/2-implementation.md) —
+  active: implementation Steps 6–15, with work items and exit criteria. Read
+  for the step you are implementing and the steps after it.
+- [`infra/plans/3-agent-harness.md`](../infra/plans/3-agent-harness.md) — done:
+  hooks, deny rules, skills, evals, and the retrospective log. Read before
+  changing anything under `.claude/` or `skills/`.
+- [`infra/plans/4-knowledge.md`](../infra/plans/4-knowledge.md) — done: this
+  index, document frontmatter, upward links, and `kb-check`. Read before adding
+  or restructuring documents.
+
+## Decisions
+
+- [`docs/decisions/0001-kore-typescript-cli.md`](decisions/0001-kore-typescript-cli.md) — `kore` is a Node.js TypeScript executable using the standard library. Read before adding a dependency or another language.
+- [`docs/decisions/0002-tool-responsibility-boundaries.md`](decisions/0002-tool-responsibility-boundaries.md) — OpenTofu owns the substrate, Helm in-cluster software, controllers claims; `kore` only coordinates. Read before making `kore` manage a resource.
+- [`docs/decisions/0003-separate-claims-and-retain-data.md`](decisions/0003-separate-claims-and-retain-data.md) — apps keep resources and workload as separate releases; data is retained unless purged. Read when changing app charts or teardown.
+- [`docs/decisions/0004-fail-closed-application-admission-gate.md`](decisions/0004-fail-closed-application-admission-gate.md) — phased bootstrap opens app admission only after every prerequisite is ready. Read when changing bootstrap order or readiness.
+- [`docs/decisions/0005-release-automation-signed-image-trust.md`](decisions/0005-release-automation-signed-image-trust.md) — only digest-pinned images signed by release automation are admitted. Read when touching image build, signing, or admission.
+- [`docs/decisions/0006-istio-ambient-gateway-api.md`](decisions/0006-istio-ambient-gateway-api.md) — Istio ambient implements Gateway API, mesh, and identity; cert-manager issues certificates. Read when changing networking or TLS.
+- [`docs/decisions/0007-workload-identity-and-layered-authorization.md`](decisions/0007-workload-identity-and-layered-authorization.md) — ServiceAccount identities, native Istio policy, then fail-closed OPA. Read when changing authorization.
+- [`docs/decisions/0008-crossplane-postgresql-platform-api.md`](decisions/0008-crossplane-postgresql-platform-api.md) — apps claim PostgreSQL through a portable Crossplane API, composed locally by CloudNativePG. Read when changing the database API.
+- [`docs/decisions/0009-encrypted-secrets-through-external-secrets.md`](decisions/0009-encrypted-secrets-through-external-secrets.md) — apps reference secrets through ExternalSecret; SOPS with age locally, never plaintext on disk. Read before touching secrets.
+- [`docs/decisions/0010-opentelemetry-collector-ingestion.md`](decisions/0010-opentelemetry-collector-ingestion.md) — apps send OTLP only to the Collector, which exports to Prometheus, Loki, and Tempo. Read when changing telemetry.
+- [`docs/decisions/0011-catalog-owned-releases-and-versions.md`](decisions/0011-catalog-owned-releases-and-versions.md) — the catalog declares every release, owner, dependency, readiness check, and version. Read when adding a component.
+- [`docs/decisions/0012-environment-overlays-hold-provider-specifics.md`](decisions/0012-environment-overlays-hold-provider-specifics.md) — Minikube and provider specifics live only in environment overlays. Read when adding an environment or a provider setting.
+- [`docs/decisions/0013-local-tls-before-gateway.md`](decisions/0013-local-tls-before-gateway.md) — refines 0006: the local certificate gets its own release before the Gateway. Read when debugging local Gateway readiness.
+- [`docs/decisions/0014-native-identity-before-opa.md`](decisions/0014-native-identity-before-opa.md) — refines 0007: Istio checks caller identity because ExtAuthz omits principals. Read when changing OPA policy.
+- [`docs/decisions/0015-local-signed-image-delivery.md`](decisions/0015-local-signed-image-delivery.md) — refines 0005: local images are signed with a local key and deployed by digest. Read when changing `local up` or image delivery.
+
+## Reference
+
+- [`infra/catalog/versions.yaml`](../infra/catalog/versions.yaml) — the pinned
+  version of every tool, chart, controller, and provider. Read when a version
+  matters; never copy versions elsewhere.
+- [`infra/catalog/components.yaml`](../infra/catalog/components.yaml) — the
+  platform components: phase, source, CRD ownership, dependencies, and readiness.
+  Read when adding or reordering a component.
+- [`infra/catalog/schemas/`](../infra/catalog/schemas/) — JSON Schemas for the
+  catalogs. Read when a catalog fails validation.
+- [`infra/catalog/compatibility.md`](../infra/catalog/compatibility.md) —
+  compatibility evidence for the pinned versions. Read when upgrading a pin.
+- [`infra/catalog/images.lock.json`](../infra/catalog/images.lock.json) — the
+  release image lock, by digest. Read when deploying or signing an image; local
+  builds never edit it.
+- [`infra/environments/schema.json`](../infra/environments/schema.json) — the
+  environment overlay schema. Read when adding an environment or its settings.
+- [`infra/apis/postgresql/tests/contract.md`](../infra/apis/postgresql/tests/contract.md)
+  — what the PostgreSQL platform API guarantees to applications. Read when
+  changing the API or its compositions.
+- [`infra/tofu/modules/README.md`](../infra/tofu/modules/README.md) — why
+  OpenTofu modules are empty until a managed provider is chosen.
+- [`infra/environments/local/secrets/README.md`](../infra/environments/local/secrets/README.md)
+  — how local secrets are generated and encrypted. Read before touching
+  secrets.
+
+## Agent Harness
+
+- [`.claude/settings.json`](../.claude/settings.json) — hook wiring, allow and
+  deny rules. Read before adding a hook or permission.
+- [`.claude/agents/principles-review.md`](../.claude/agents/principles-review.md)
+  — the read-only review of a diff against AGENTS.md. Run before committing.
+- [`.claude/evals/`](../.claude/evals/) — skill-triggering and review evals.
+  Read when changing a skill description or the review agent.
+
+## Skills
+
+- [`skills/add-command/SKILL.md`](../skills/add-command/SKILL.md) — adding or
+  changing a `kore` command, subcommand, or flag.
+- [`skills/add-policy/SKILL.md`](../skills/add-policy/SKILL.md) — adding or
+  changing an OPA/Rego or Gatekeeper policy.
+- [`skills/handoff/SKILL.md`](../skills/handoff/SKILL.md) — ending a thread
+  before its plan step is finished.
+- [`skills/pin-upgrade/SKILL.md`](../skills/pin-upgrade/SKILL.md) — upgrading or
+  adding a pinned version.
+- [`skills/retro/SKILL.md`](../skills/retro/SKILL.md) — reviewing recent
+  sessions and proposing harness changes.
+- [`skills/spawn-session/SKILL.md`](../skills/spawn-session/SKILL.md) — starting
+  a verifier or fixer session in a Herdr pane.
+- [`skills/test-driven-development/SKILL.md`](../skills/test-driven-development/SKILL.md)
+  — writing the failing test first for any code or hook change.
+- [`skills/write-adr/SKILL.md`](../skills/write-adr/SKILL.md) — recording an
+  architectural decision.

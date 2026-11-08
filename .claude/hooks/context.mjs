@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 // SessionStart hook. After compaction it restates the AGENTS.md rules and the
-// active plan's open items, since compaction may drop them (Step 8). On a fresh
-// session or /clear it prints a short brief: where the active plan stands, its
-// Next: line, and whether a retrospective is due (Step 9).
+// active plans' open items, since compaction may drop them (Step 8). On a fresh
+// session or /clear it prints a short brief: where each active plan stands, its
+// Next: line and upcoming steps, and whether a retrospective is due (Step 9).
 // Plan: infra/plans/3-agent-harness.md. Node standard library only.
+// Docs: infra/plans/4-knowledge.md#step-4-upward-context
 //
 // Contract: reads the SessionStart event as JSON on stdin and returns context as
 // additionalContext. Silent on resume. Fails open.
@@ -16,6 +17,8 @@ import { fileURLToPath } from "node:url";
 const PLANS_DIR = "infra/plans";
 const RETRO_AFTER_SESSIONS = 5;
 const RETRO_MARKER = /^\W*Last retrospective: (\d{4}-\d{2}-\d{2})/m;
+const FRONTMATTER = /^---\n([\s\S]*?)\n---\n/;
+const UPCOMING_STEPS = 3;
 
 /** Group a Markdown list into items, joining wrapped lines. Returns [{heading, text}]. */
 function listItems(markdown) {
@@ -56,6 +59,24 @@ export function activePlan(plans) {
   return names.find((name) => openItems(plans[name]).length > 0) ?? null;
 }
 
+/**
+ * Every plan the brief should cover, highest-numbered first: each plan whose
+ * frontmatter says `status: active`, plus the highest-numbered plan without
+ * frontmatter that still has open items.
+ */
+export function activePlans(plans) {
+  const withoutFrontmatter = {};
+  const active = [];
+  for (const [name, markdown] of Object.entries(plans)) {
+    const frontmatter = FRONTMATTER.exec(markdown)?.[1];
+    if (frontmatter === undefined) withoutFrontmatter[name] = markdown;
+    else if (/^status: *active *$/m.test(frontmatter)) active.push(name);
+  }
+  const legacy = activePlan(withoutFrontmatter);
+  if (legacy) active.push(legacy);
+  return active.sort((a, b) => Number.parseInt(b, 10) - Number.parseInt(a, 10));
+}
+
 /** The plan's `Next:` line and the step it sits under, or null. */
 export function nextStep(planMarkdown) {
   let heading = "";
@@ -82,29 +103,52 @@ export function lastRetrospective(plans) {
   return dates.at(-1) ?? null;
 }
 
-/** Open item counts per step, in plan order: "Step 3 (2), Step 4 (1)". */
-function openCounts(planMarkdown) {
+/** Open item counts per step heading, in plan order. */
+function openSteps(planMarkdown) {
   const counts = new Map();
   for (const item of listItems(planMarkdown)) {
     if (!item.text.startsWith("- [ ]")) continue;
-    const step = item.heading.split(":")[0];
-    counts.set(step, (counts.get(step) ?? 0) + 1);
+    counts.set(item.heading, (counts.get(item.heading) ?? 0) + 1);
   }
-  return [...counts].map(([step, count]) => `${step} (${count})`).join(", ");
+  return counts;
 }
 
-/** A few lines for a fresh session: active plan, Next: line, retrospective due. */
+/** Open item counts per step, in plan order: "Step 3 (2), Step 4 (1)". */
+function openCounts(planMarkdown) {
+  return [...openSteps(planMarkdown)]
+    .map(([heading, count]) => `${heading.split(":")[0]} (${count})`)
+    .join(", ");
+}
+
+/**
+ * Titles of the next steps with open items after the current one: the step
+ * holding the `Next:` line, or else the first step with open items.
+ */
+export function upcomingSteps(planMarkdown) {
+  const open = [...openSteps(planMarkdown).keys()];
+  const current = nextStep(planMarkdown)?.step ?? open[0];
+  const headings = planMarkdown
+    .split("\n")
+    .filter((line) => line.startsWith("## "))
+    .map((line) => line.slice(3).trim());
+  const after = headings.slice(headings.indexOf(current) + 1);
+  return after
+    .filter((heading) => open.includes(heading))
+    .slice(0, UPCOMING_STEPS);
+}
+
+/** A few lines for a fresh session: active plans, Next: lines, upcoming steps, retrospective due. */
 export function brief(event, deps) {
   const plans = deps.readPlans();
   const lines = [];
-  const plan = activePlan(plans);
-  if (plan) {
-    lines.push(
-      `Session brief from ${PLANS_DIR}/${plan}:`,
-      `Open items: ${openCounts(plans[plan])}.`,
-    );
+  for (const plan of activePlans(plans)) {
+    lines.push(`Session brief from ${PLANS_DIR}/${plan}:`);
+    const counts = openCounts(plans[plan]);
+    if (counts) lines.push(`Open items: ${counts}.`);
     const next = nextStep(plans[plan]);
     if (next) lines.push(`Next (${next.step}): ${next.text}`);
+    const upcoming = upcomingSteps(plans[plan]);
+    if (upcoming.length > 0) lines.push(`Upcoming: ${upcoming.join("; ")}.`);
   }
   const since = lastRetrospective(plans);
   const sessions = deps.sessionsSince(since, event?.session_id);
@@ -129,8 +173,7 @@ export function restore(event, deps) {
     ...rules(deps.readAgents()),
   ];
   const plans = deps.readPlans();
-  const plan = activePlan(plans);
-  if (plan) {
+  for (const plan of activePlans(plans)) {
     sections.push(
       "",
       `Open plan items in ${PLANS_DIR}/${plan}:`,

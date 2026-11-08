@@ -1,3 +1,4 @@
+// Docs: infra/plans/2-implementation.md#step-7-bootstrap-registry-image-trust-controllers-and-crd-ownership
 export {
   bootstrapControllers,
   platformDestroy,
