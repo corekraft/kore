@@ -130,10 +130,17 @@ function humanText(event) {
   return text;
 }
 
-const phrasesOf = (text) =>
+const CORRECTION_WORD =
+  /\b(no|not|dont|don't|don’t|stop|instead|wrong|again|actually|should|never)\b/i;
+
+/** The user's words without pasted content and injected reminders. */
+const ownWords = (text) =>
   text
     .replace(/<pasted_content[^>]*>[\s\S]*?<\/pasted_content[^>]*>/g, " ")
-    .replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, " ")
+    .replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, " ");
+
+const phrasesOf = (text) =>
+  text
     .split(/[.!?;\n]+/)
     .map((part) =>
       part
@@ -161,6 +168,7 @@ function analyzeSession(session) {
   const phrases = [];
   const warnings = [];
   const ordered = [];
+  let failedSinceHuman = false;
   const bump = (rule, key) => {
     guards[rule] ??= { blocks: 0, warnings: 0 };
     guards[rule][key]++;
@@ -183,6 +191,7 @@ function analyzeSession(session) {
         block.type === "tool_result" &&
         block.is_error
       ) {
+        failedSinceHuman = true;
         const text = resultText(block);
         const tags = [...text.matchAll(GUARD_TAG)];
         if (tags.length > 0) {
@@ -214,8 +223,13 @@ function analyzeSession(session) {
     const text = humanText(event);
     if (text !== null) {
       ordered.push({ kind: "human" });
-      for (const phrase of phrasesOf(text))
-        phrases.push({ phrase, line: event.line });
+      const own = ownWords(text);
+      // A repeated prompt is only a correction if it reads like one or follows a failure.
+      if (failedSinceHuman || CORRECTION_WORD.test(own)) {
+        for (const phrase of phrasesOf(own))
+          phrases.push({ phrase, line: event.line });
+      }
+      failedSinceHuman = false;
     }
     const slash =
       typeof event.message?.content === "string" && event.type === "user"

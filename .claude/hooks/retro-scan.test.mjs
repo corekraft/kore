@@ -373,3 +373,95 @@ test("whole-word keywords and shell-reported lines still count as errors", () =>
     "Exit code 1: sh: N: oops",
   );
 });
+
+const human = (stamp, text) =>
+  JSON.stringify({
+    type: "user",
+    origin: { kind: "human" },
+    timestamp: `2026-11-03T00:${stamp}:00.000Z`,
+    message: { role: "user", content: text },
+  });
+const toolTurn = (stamp, id, isError) =>
+  [
+    JSON.stringify({
+      type: "assistant",
+      timestamp: `2026-11-03T00:${stamp}:00.000Z`,
+      message: {
+        role: "assistant",
+        content: [{ type: "tool_use", id, name: "Bash", input: {} }],
+      },
+    }),
+    JSON.stringify({
+      type: "user",
+      timestamp: `2026-11-03T00:${stamp}:30.000Z`,
+      message: {
+        role: "user",
+        content: [
+          {
+            type: "tool_result",
+            tool_use_id: id,
+            content: isError ? "Exit code 1\nfatal: synthetic" : "ok",
+            is_error: isError,
+          },
+        ],
+      },
+    }),
+  ].join("\n");
+const twoSessions = (build) => [
+  { id: "p", text: build("p") },
+  { id: "q", text: build("q") },
+];
+
+test("a repeated neutral prompt with no correction word is not a correction", () => {
+  const sessions = twoSessions(() =>
+    human("01", "Quote verbatim any session start hook additional context"),
+  );
+  assert.deepEqual(scan(sessions, options).corrections, []);
+});
+
+test("a repeated phrase counts as a correction when it has a correction word, matched as a whole word", () => {
+  const withWord = twoSessions(() =>
+    human("01", "Stop editing the widget manifests directly"),
+  );
+  assert.equal(scan(withWord, options).corrections.length, 1);
+  const contraction = twoSessions(() =>
+    human("01", "Please don't edit the widget manifests directly"),
+  );
+  assert.equal(scan(contraction, options).corrections.length, 1);
+  const insideWords = twoSessions(() =>
+    human("01", "Another nobody knows nothing about widget manifests today"),
+  );
+  assert.deepEqual(scan(insideWords, options).corrections, []);
+});
+
+test("a correction word inside pasted content does not make the message a correction", () => {
+  const sessions = twoSessions(() =>
+    human(
+      "01",
+      '<pasted_content id="z">Never do that.</pasted_content> summarize widget manifests for review',
+    ),
+  );
+  assert.deepEqual(scan(sessions, options).corrections, []);
+});
+
+test("a repeated neutral phrase right after a failed tool call is a correction", () => {
+  const sessions = twoSessions((id) =>
+    [
+      toolTurn("01", `${id}1`, true),
+      human("02", "Summarize the widget manifests for review"),
+    ].join("\n"),
+  );
+  assert.equal(scan(sessions, options).corrections.length, 1);
+});
+
+test("a failed tool call before an earlier human message does not taint a later neutral message", () => {
+  const sessions = twoSessions((id) =>
+    [
+      toolTurn("01", `${id}1`, true),
+      human("02", `Carry on with step number ${id} please`),
+      toolTurn("03", `${id}2`, false),
+      human("04", "Summarize the widget manifests for review"),
+    ].join("\n"),
+  );
+  assert.deepEqual(scan(sessions, options).corrections, []);
+});
