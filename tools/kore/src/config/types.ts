@@ -76,4 +76,6 @@ export interface Repository {
   seeds: SeedManifest;
   catalog: Catalog;
   environment: Environment;
+  /** Parsed environment overlay of the kore-image-policy component. */
+  imageTrustValues?: Record<string, unknown> | undefined;
 }

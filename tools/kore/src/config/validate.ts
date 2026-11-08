@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { exists } from "./files.js";
+import { imageTrustErrors } from "./image-trust.js";
 import { seedErrors } from "./seeds.js";
 import { orderedComponents } from "./order.js";
 import type {
@@ -241,6 +242,7 @@ export async function validateRepository(
     ...unknownOverlayErrors(environment, names),
     ...cycleErrors(catalog),
     ...(await seedErrors(repository)),
+    ...imageTrustErrors(repository),
     ...(
       await Promise.all(
         components.map((component) =>

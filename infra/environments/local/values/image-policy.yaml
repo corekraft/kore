@@ -1,0 +1,9 @@
+{
+  "trust":
+    {
+      "type": "key",
+      "keyRef":
+        { "name": "kore-local-signing-key", "namespace": "kore-system" },
+      "images": ["oci-registry.kore-registry.svc.cluster.local:5000/**"]
+    }
+}

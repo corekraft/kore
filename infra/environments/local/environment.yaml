@@ -37,6 +37,8 @@
       "otel-agent": ["infra/environments/local/values/otel-agent.yaml"],
       "kore-platform-config":
         ["infra/environments/local/values/platform-config.yaml"],
-      "kore-local-tls": ["infra/environments/local/values/platform-config.yaml"]
+      "kore-local-tls":
+        ["infra/environments/local/values/platform-config.yaml"],
+      "kore-image-policy": ["infra/environments/local/values/image-policy.yaml"]
     }
 }

@@ -1,0 +1,41 @@
+{{- /*
+One policy covers every pod container kind: the Policy Controller evaluates
+containers, initContainers, and ephemeralContainers of the matched resources.
+An image that matches no ClusterImagePolicy is rejected, and webhook, registry,
+or signature errors deny admission (webhook failurePolicy: Fail). Namespaces are
+only evaluated when carrying the Policy Controller include label; this chart never
+opts one in (audit before enforce).
+*/ -}}
+apiVersion: policy.sigstore.dev/v1beta1
+kind: ClusterImagePolicy
+metadata:
+  name: kore-platform-images
+  labels: {app.kubernetes.io/managed-by: Helm}
+spec:
+  match:
+    - group: ""
+      version: v1
+      resource: pods
+  images:
+    {{- range .Values.trust.images }}
+    - glob: {{ . | quote }}
+    {{- end }}
+  authorities:
+    {{- if eq .Values.trust.type "keyless" }}
+    - name: release-workflow
+      keyless:
+        url: https://fulcio.sigstore.dev
+        identities:
+          {{- range .Values.trust.subjects }}
+          - issuer: {{ $.Values.trust.issuer | quote }}
+            subject: {{ . | quote }}
+          {{- end }}
+      ctlog:
+        url: https://rekor.sigstore.dev
+    {{- else }}
+    - name: local-signing-key
+      key:
+        secretRef:
+          name: {{ .Values.trust.keyRef.name | quote }}
+          namespace: {{ .Values.trust.keyRef.namespace | quote }}
+    {{- end }}
