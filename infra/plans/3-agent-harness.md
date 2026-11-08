@@ -391,6 +391,34 @@ correction. All four proposals were accepted and implemented:
 - **`mise run format`** (three sessions improvised prettier, one pulled an
   unpinned version): one task running the pinned binary, named in AGENTS.md.
 
+### Retrospective 2026-11-07 (second run)
+
+Last retrospective: 2026-11-07
+
+The second retrospective covered the 19 sessions since the first one
+(2026-11-08 03:26 to 05:46 UTC). Most were short hook and verifier test runs. No
+guard blocked legitimate work. Three proposals were accepted:
+
+- **Repeated test prompt counted as a correction** (2 sessions): correction
+  `dd60e344` was the same typed prompt, used to check the SessionStart brief.
+  `retro-scan.mjs` should count a repeated prompt only if it follows an
+  assistant mistake or carries a correction signal ("no", "don't", "instead",
+  "wrong"). Implemented in `3019dc4`; on the same transcripts the scan now
+  reports no corrections.
+- **Keep `add-policy`, `handoff`, and `write-adr`** (each unused in 19
+  sessions): none of those sessions needed a policy, an ADR, or a handoff. Check
+  them again after a window of real plan-step work. Archive or rewrite one only
+  if its task came up and it still did not load.
+- **Leave `unquoted-glob` and `image-digest` in audit mode**: `unquoted-glob`
+  warned 3 times in 3 sessions, all heeded, but its status is
+  `insufficient-evidence`. `image-digest` never warned.
+
+Follow-up, not accepted: about 4 Bash failures look like zsh mistakes, `=word`
+expansion (`===== not found`, `== not found`) and `no matches found` from
+unquoted globs, which `unquoted-glob` may miss. The scan does not report where
+failures happened, so this is unconfirmed. It would first need failure
+locations (session and line) in the scan output.
+
 ## Out of Scope
 
 - Reimplementing the guards inside the `kore` CLI. The CLI already enforces

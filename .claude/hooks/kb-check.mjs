@@ -8,6 +8,9 @@
 //
 // Usage: node .claude/hooks/kb-check.mjs [--strict]
 // Warn mode prints findings and exits 0; --strict exits 1 when there are any.
+// Stale plans and ADRs (older last-verified than a file they depend on) are
+// listed as warnings only; --strict ignores them.
+// Plan: infra/plans/5-self-maintenance.md#step-5-stale-documents
 
 import { execFileSync } from "node:child_process";
 import { readFileSync, statSync } from "node:fs";
@@ -359,6 +362,64 @@ export function findings(deps) {
   return problems;
 }
 
+/**
+ * Plans and ADRs whose `last-verified` date is older than the latest commit to
+ * a file they link to, or to a file whose Docs/Plan/ADR marker points at them.
+ * Needs deps.commitDate(path): the date (YYYY-MM-DD) of the newest commit that
+ * touched the file, or null when it has none. Without it nothing is stale.
+ */
+export function staleDocuments(deps) {
+  if (!deps.commitDate) return [];
+  const files = [...deps.files()].sort();
+  const tracked = new Set(files);
+  const dependencies = new Map();
+  const depend = (document, path) => {
+    if (path === document || !tracked.has(path)) return;
+    if (!dependencies.has(document)) dependencies.set(document, new Set());
+    dependencies.get(document).add(path);
+  };
+  for (const file of files) {
+    const text = deps.read(file);
+    if (text === null) continue;
+    if (PLAN.test(file) || ADR.test(file)) {
+      for (const { text: prose } of proseLines(text)) {
+        for (const [, raw] of prose.matchAll(LINK)) {
+          if (isExternal(raw)) continue;
+          const [pathPart] = raw.split("#", 1);
+          if (!pathPart) continue;
+          const target = resolve(file, decodeURI(pathPart));
+          if (target !== null) depend(file, target);
+        }
+      }
+    }
+    if (file.endsWith(".md")) continue;
+    for (const line of text.split("\n")) {
+      const match = MARKER.exec(line);
+      if (!match) continue;
+      const path = match[2].replace(/[.,;:)]+$/, "");
+      if (PLAN.test(path) || ADR.test(path)) depend(path, file);
+    }
+  }
+  const stale = [];
+  for (const [document, paths] of dependencies) {
+    const verified = frontmatter(document, deps.read(document) ?? "")?.keys.get(
+      "last-verified",
+    )?.value;
+    if (!verified || !DATE.test(verified)) continue;
+    let newest = null;
+    for (const path of [...paths].sort()) {
+      const date = deps.commitDate(path);
+      if (date && (newest === null || date > newest.date)) {
+        newest = { path, date };
+      }
+    }
+    if (newest && newest.date > verified) {
+      stale.push({ document, verified, ...newest });
+    }
+  }
+  return stale.sort((a, b) => a.document.localeCompare(b.document));
+}
+
 /** One finding as `file:line: message; fix`. */
 export function format(problem) {
   return `${problem.file}:${problem.line}: ${problem.message}; ${problem.fix}`;
@@ -367,6 +428,11 @@ export function format(problem) {
 /** Tracked and untracked-but-not-ignored regular files under root. */
 function realDeps(root) {
   return {
+    commitDate: (path) =>
+      execFileSync("git", ["log", "-1", "--format=%cs", "--", path], {
+        cwd: root,
+        encoding: "utf8",
+      }).trim() || null,
     files: () =>
       execFileSync(
         "git",
@@ -399,8 +465,25 @@ export function run(argv, deps, log) {
   const strict = argv.includes("--strict");
   const problems = findings(deps);
   for (const problem of problems) log(format(problem));
+  // Staleness is warn-only for now: it never changes the exit code, even --strict.
+  const stale = staleDocuments(deps);
+  for (const item of stale) {
+    log(
+      `stale: ${item.document} was last verified ${item.verified}, but ${item.path} changed ${item.date}; re-read it and update last-verified`,
+    );
+  }
+  const staleNote = () => {
+    if (stale.length === 0) return;
+    log(
+      `kb-check: ${stale.length} stale ${stale.length === 1 ? "document" : "documents"} (warn only)`,
+    );
+  };
   if (problems.length === 0) {
-    log("kb-check: clean");
+    if (stale.length === 0) {
+      log("kb-check: clean");
+    } else {
+      staleNote();
+    }
     return 0;
   }
   const noun = problems.length === 1 ? "finding" : "findings";
@@ -409,6 +492,7 @@ export function run(argv, deps, log) {
       ? `kb-check: ${problems.length} ${noun}`
       : `kb-check: ${problems.length} ${noun} (warn mode; --strict fails on them)`,
   );
+  staleNote();
   return strict ? 1 : 0;
 }
 
