@@ -65,6 +65,7 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0024-reference-app-database-access.md`](decisions/0024-reference-app-database-access.md) — refines 0008: std-lib SCRAM PostgreSQL client, secretKeyRef password, authenticated readiness, hook-Job migrations. Read when changing how the reference app reaches its database.
 - [`docs/decisions/0025-application-namespace-ambient-enrollment.md`](decisions/0025-application-namespace-ambient-enrollment.md) — refines 0017: `kore app up` owns application namespaces and labels them ambient; Gatekeeper audits it. Read when changing namespace creation or mesh enrollment.
 - [`docs/decisions/0026-seed-manifest.md`](decisions/0026-seed-manifest.md) — refines 0015: `infra/catalog/seeds.yaml` records every seed image with reason and upstream evidence; `kore validate` rejects unrecorded ones. Read when adding or upgrading an image on the registry or verifier path.
+- [`docs/decisions/0027-bootstrap-installs-controllers-and-image-trust-only.md`](decisions/0027-bootstrap-installs-controllers-and-image-trust-only.md) — refines 0004, 0008, 0014: bootstrap installs controllers and image trust only; the PostgreSQL API and OPA authorizer are configuration phase. Read when changing bootstrap scope or phases.
 
 ## Reference
 
