@@ -5,7 +5,9 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels: {app.kubernetes.io/managed-by: Helm}
 spec:
-  type: NodePort
+  # Cluster-internal only: nodes and pods reach the pinned ClusterIP, and kore
+  # reaches it through a port-forward (ADR 0034).
+  type: ClusterIP
   {{- with .Values.service.clusterIP }}
   clusterIP: {{ . | quote }}
   {{- end }}
@@ -14,7 +16,6 @@ spec:
     - name: registry
       port: {{ .Values.service.port }}
       targetPort: registry
-      nodePort: {{ .Values.service.nodePort }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -32,24 +33,53 @@ spec:
     spec:
       serviceAccountName: default
       containers:
+        # The registry listens on loopback only; the proxy is the sole way in
+        # and enforces who may read and who may write (ADR 0034).
         - name: registry
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}@{{ .Values.image.digest }}
           imagePullPolicy: IfNotPresent
-          ports:
-            - name: registry
-              containerPort: 5000
+          env:
+            - {name: REGISTRY_HTTP_ADDR, value: "127.0.0.1:5001"}
           readinessProbe:
-            httpGet: {path: /v2/, port: registry}
+            exec: {command: [nc, -z, 127.0.0.1, "5001"]}
             initialDelaySeconds: 2
             periodSeconds: 2
+            timeoutSeconds: 2
           resources:
             requests: {cpu: 50m, memory: 128Mi}
             limits: {cpu: 250m, memory: 512Mi}
           volumeMounts:
             - {name: data, mountPath: /var/lib/registry}
+        - name: proxy
+          image: {{ .Values.proxy.image.repository }}:{{ .Values.proxy.image.tag }}@{{ .Values.proxy.image.digest }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: registry
+              containerPort: 5000
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          # A TCP check stays bounded and independent of the 401 that /v2/
+          # returns without credentials.
+          readinessProbe:
+            tcpSocket: {port: registry}
+            initialDelaySeconds: 2
+            periodSeconds: 2
+            timeoutSeconds: 2
+          resources:
+            requests: {cpu: 25m, memory: 32Mi}
+            limits: {cpu: 250m, memory: 128Mi}
+          volumeMounts:
+            - {name: proxy-config, mountPath: /etc/nginx/conf.d/default.conf, subPath: default.conf, readOnly: true}
+            - {name: auth, mountPath: /etc/nginx/auth, readOnly: true}
       volumes:
         - name: data
           persistentVolumeClaim: {claimName: oci-registry}
+        - name: proxy-config
+          configMap: {name: oci-registry-proxy}
+        # Hashes only; kore generates it and streams it through stdin.
+        - name: auth
+          secret: {secretName: oci-registry-auth}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

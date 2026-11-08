@@ -1,7 +1,14 @@
 import { access } from "node:fs/promises";
 import { join } from "node:path";
 import type { Repository } from "../config/index.js";
-import type { LockedImage } from "../images/index.js";
+import {
+  koreManagesRegistryAuth,
+  loadRegistryCredential,
+  registryAddress,
+  registryPullSecret,
+  registryPullSecretName,
+  type LockedImage,
+} from "../images/index.js";
 import type { Runner } from "../runtime/index.js";
 import { releaseArgs } from "./release.js";
 
@@ -81,6 +88,57 @@ export async function enrollNamespace(
       `namespace ${name} is not enrolled in image admission: label ${admissionLabel}="true" is missing after apply. Rerun kore app up (it applies the label); if it persists, another field manager is removing it`,
     );
   }
+  await distributePullSecret(repository, runner, name);
+}
+
+/**
+ * Admission reads image signatures from the authenticated registry with the
+ * pod's own image pull credentials, so the enrolled namespace gets the
+ * read-only identity (never the push credential) as a pull Secret on its
+ * default ServiceAccount (ADR 0034). Environments using an external registry
+ * keep the provider's credentials.
+ */
+async function distributePullSecret(
+  repository: Repository,
+  runner: Runner,
+  namespace: string,
+): Promise<void> {
+  if (!koreManagesRegistryAuth(repository)) {
+    return;
+  }
+  const credential = await loadRegistryCredential(repository, runner, "read");
+  await runner.run(
+    "kubectl",
+    [
+      "--context",
+      repository.environment.kubeContext,
+      "apply",
+      "--server-side",
+      "--field-manager=kore-app",
+      "--force-conflicts",
+      "--filename=-",
+    ],
+    {
+      capture: true,
+      input: JSON.stringify({
+        apiVersion: "v1",
+        kind: "List",
+        items: [
+          registryPullSecret(
+            registryAddress(repository),
+            credential,
+            namespace,
+          ),
+          {
+            apiVersion: "v1",
+            kind: "ServiceAccount",
+            metadata: { name: "default", namespace },
+            imagePullSecrets: [{ name: registryPullSecretName }],
+          },
+        ],
+      }),
+    },
+  );
 }
 
 export async function installResources(

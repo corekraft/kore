@@ -1,6 +1,11 @@
 import { expect, test } from "vitest";
 import { loadRepository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
+import {
+  healthyReadinessOutput,
+  readPassword,
+  pushPassword,
+} from "./app-fixtures.js";
 import { enrollNamespace } from "./install.js";
 
 const label = "policy.sigstore.dev/include";
@@ -14,6 +19,13 @@ function fakeRunner(readBack: string) {
   const runner: Runner = {
     async run(command, args, options) {
       calls.push({ command, args, input: options?.input });
+      if (args.includes("oci-registry-credentials")) {
+        return {
+          stdout: healthyReadinessOutput(args) ?? "",
+          stderr: "",
+          code: 0,
+        };
+      }
       const isRead = args.includes("get");
       return { stdout: isRead ? readBack : "", stderr: "", code: 0 };
     },
@@ -67,4 +79,53 @@ test("enrollment has no opt-out: the label is always applied", async () => {
   expect(calls.find((c) => c.args.includes("apply"))!.input).toContain(
     `${label}: "true"`,
   );
+});
+
+test("enrollment gives the namespace only the read-only registry identity as an image pull Secret", async () => {
+  const repository = await loadRepository("local");
+  const { calls, runner } = fakeRunner("true");
+
+  await enrollNamespace(repository, runner, "reference");
+
+  const applies = calls.filter((c) => c.args.includes("apply"));
+  const pull = applies.at(-1)!;
+  expect(pull.args).toContain(repository.environment.kubeContext);
+  expect(pull.args).toContain("--filename=-");
+  const items = (JSON.parse(pull.input ?? "{}") as { items: unknown[] }).items;
+  const text = JSON.stringify(items);
+  expect(text).toContain("kubernetes.io/dockerconfigjson");
+  expect(text).toContain('"imagePullSecrets":[{"name":"kore-registry-read"}]');
+  const config = Buffer.from(
+    (items[0] as { data: Record<string, string> }).data[".dockerconfigjson"]!,
+    "base64",
+  ).toString("utf8");
+  expect(config).toContain(readPassword);
+  expect(config).not.toContain(pushPassword);
+  expect(JSON.stringify(calls.map((c) => c.args))).not.toContain(readPassword);
+});
+
+test("a refused enrollment never distributes the registry credential", async () => {
+  const repository = await loadRepository("local");
+  const { calls, runner } = fakeRunner("");
+
+  await expect(
+    enrollNamespace(repository, runner, "reference"),
+  ).rejects.toThrow(/not enrolled/);
+  expect(calls.filter((c) => c.args.includes("apply"))).toHaveLength(1);
+});
+
+test("an external registry address gets no in-cluster pull Secret", async () => {
+  const repository = await loadRepository("local");
+  const external = {
+    ...repository,
+    environment: {
+      ...repository.environment,
+      registry: { address: "registry.example.com" },
+    },
+  };
+  const { calls, runner } = fakeRunner("true");
+
+  await enrollNamespace(external, runner, "reference");
+
+  expect(calls.filter((c) => c.args.includes("apply"))).toHaveLength(1);
 });

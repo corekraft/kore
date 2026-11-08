@@ -1,5 +1,11 @@
 import type { Repository } from "../config/index.js";
-import { verifiedRegistryAddress, type LockedImage } from "../images/index.js";
+import {
+  loadRegistryCredential,
+  minikubeRegistrySessionArgs,
+  shellQuote,
+  verifiedRegistryAddress,
+  type LockedImage,
+} from "../images/index.js";
 import type { Runner } from "../runtime/index.js";
 
 export function localMinikubeImageReference(
@@ -16,14 +22,12 @@ export function localMinikubeImageReference(
 export function minikubeImagePullArgs(
   profile: string,
   reference: string,
+  registryAddress: string,
+  username: string,
 ): string[] {
-  return [
-    "ssh",
-    "--profile",
-    profile,
-    "--",
-    `sudo nerdctl --insecure-registry --namespace k8s.io pull ${reference}`,
-  ];
+  return minikubeRegistrySessionArgs(profile, registryAddress, username, [
+    `nerdctl --insecure-registry --namespace k8s.io pull ${shellQuote(reference)}`,
+  ]);
 }
 
 /** Pulls the image into Minikube; other providers deploy the locked image. */
@@ -40,13 +44,16 @@ export async function stageLocalImage(
     ...image,
     reference: localMinikubeImageReference(image.reference, address),
   };
+  const credential = await loadRegistryCredential(repository, runner, "read");
   await runner.run(
     "minikube",
     minikubeImagePullArgs(
       repository.environment.cluster.profile,
       staged.reference,
+      address,
+      credential.username,
     ),
-    { capture: false },
+    { capture: false, input: `${credential.password}\n` },
   );
   return staged;
 }

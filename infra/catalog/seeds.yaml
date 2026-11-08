@@ -16,6 +16,18 @@
           }
       },
       {
+        "image": "nginxinc/nginx-unprivileged:1.31.7-alpine3.24@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e",
+        "catalogImage": "oci-registry-proxy",
+        "component": "oci-registry",
+        "reason": "The authenticating proxy shares the registry's pod and starts with it, before any image or signature can be verified, so it is pulled from Docker Hub by digest.",
+        "evidence":
+          {
+            "method": "docker-hub-digest",
+            "source": "Docker Hub nginxinc/nginx-unprivileged tag 1.31.7-alpine3.24 resolves to this index digest (hub.docker.com/v2/repositories/nginxinc/nginx-unprivileged/tags); published by NGINX, Inc., no cosign signature checked or published.",
+            "checked": "2026-11-08"
+          }
+      },
+      {
         "image": "ghcr.io/sigstore/policy-controller/policy-controller:v0.13.1@sha256:0bcd60beb93f4427c29cf3a669743caf58490e98ded4380c33c09f092734a6ab",
         "catalogImage": "policy-controller",
         "component": "policy-controller",
