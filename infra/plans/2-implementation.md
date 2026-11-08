@@ -160,10 +160,11 @@ through 11 also converge.
       catalog with CRD ownership and readiness, and the registry (`registry:3.1.2`)
       is in `compatibility.md`. The registry and Policy Controller images are pinned
       by tag, not digest, and the Cosign 3.1.4 CLI has no compatibility row._
-- [ ] Give every logical release a namespace, CRD owner, dependencies, timeout,
-      and readiness checks.
-      _Partial: the schema requires a `readiness` key but accepts an empty list;
-      `kore-storage` and `kore-postgresql-rbac` have no readiness check._
+- [x] Give every logical release a namespace, CRD owner, dependencies, timeout,
+      and readiness checks. The schema requires at least one readiness check;
+      StorageClass, ClusterRole, ClusterRoleBinding, and ConfigMap entries are
+      proven by existence
+      ([ADR 0016](../../docs/decisions/0016-release-readiness-checks-drive-wait-and-status.md)).
 - [x] Implement topological sorting and cycle detection for the release graph.
 - [x] Add a render and validation operation that does not mutate a cluster.
 - [x] Install Gateway API CRDs before Istio resources that consume them.
@@ -251,7 +252,9 @@ CRD ownership is decided in
 - [ ] The internal foundation phase finishes with no active seed exception or
       external image reference and leaves the application admission gate closed.
 - [ ] A second reconciliation produces no unintended release changes.
-- [ ] Failure identifies the component and readiness condition that timed out.
+- [x] Failure identifies the component and readiness condition that timed out
+      (`component <c> failed to become ready: <resource> not ready (<condition>)
+    within <timeout>: <reason>`).
 - [ ] No shared issuer, gateway, composition, secret store, or unrelated enforcing
       Gatekeeper/runtime policy is installed yet; image signature enforcement is the
       required bootstrap exception because it closes the image trust boundary.
@@ -289,10 +292,10 @@ API, cert-manager, SOPS with age, and External Secrets Operator.
       writing plaintext files into the repository or build artifacts.
 - [x] Configure External Secrets Operator to materialize application-scoped
       Kubernetes Secrets from the local source.
-- [ ] Define redaction rules so rendered output, dry runs, errors, and CI logs do
-      not reveal secret values.
-      _Partial: journal arguments and error text are redacted and tested. Rendered
-      and dry-run output has no redaction rule or test._
+- [x] Define redaction rules so rendered output, dry runs, errors, and CI logs do
+      not reveal secret values. `kore platform render` redacts Secret `data` and
+      `stringData` and sensitive keys with the journal marker
+      ([ADR 0021](../../docs/decisions/0021-render-redaction-and-portability-rendering.md)).
 - [ ] Add readiness and end-to-end tests for Gateway, TLS, and Secret materialization.
       _Partial: certificate-before-Gateway ordering is unit-tested. No offline test
       covers Secret materialization, and the opt-in integration test is not specific
@@ -315,8 +318,9 @@ The Istio CNI AppArmor deprecation warning did not cause this failure.
       establish host trust and install the issuer prerequisites. Verify the
       ClusterIssuer is Ready before waiting for certificate issuance; report a
       missing trust setup with an actionable command.
-      _Gap: no code path tells the user to run `kore trust install` when trust or
-      the issuer is missing; the ClusterIssuer wait just times out._
+      Before waiting on a Certificate, Kore checks the ClusterIssuer and its CA
+      Secret and fails immediately with `Run: kore trust install --environment
+    <env>`.
 - [x] Create and wait for the Certificate that produces
       `kore-system/kore-local-tls`; check the expected TLS Secret keys without
       printing their contents before installing the HTTPS Gateway. The certificate
@@ -328,16 +332,15 @@ The Istio CNI AppArmor deprecation warning did not cause this failure.
       _Partial: start, stale replacement, and stop/destroy cleanup are implemented.
       The local Gateway listens on 8443, which avoids host privileges rather than
       handling them. Nothing restarts the tunnel when it exits._
-- [ ] Wait with bounded timeouts for the Service address, Gateway `Accepted` and
+- [x] Wait with bounded timeouts for the Service address, Gateway `Accepted` and
       `Programmed`, and listener `ResolvedRefs`; include condition reasons such as
-      `AddressNotAssigned` and `InvalidCertificateRef` in failure output.
-      _Partial: only `Programmed` is waited on. Nothing waits for the Service
-      address, `Accepted`, or `ResolvedRefs`, or reports condition reasons._
+      `AddressNotAssigned` and `InvalidCertificateRef` in failure output
+      (`platform/readiness-gateway.ts`).
 - [ ] Add regression tests for missing issuer/TLS Secret, unavailable tunnel,
       and configuration ordering. Run a fresh-cluster end-to-end check through a
       trusted HTTPS route, including cleanup and retry after an injected failure.
-      _Partial: ordering and unreachable-tunnel tests exist. Missing-issuer and
-      missing-TLS-Secret failures are untested; the fresh-cluster run is pending._
+      _Partial: ordering, unreachable-tunnel, missing-issuer, missing-CA-Secret,
+      and missing-TLS-Secret tests exist; the fresh-cluster run is pending._
 
 ### Exit Criteria
 
@@ -369,16 +372,15 @@ OPA into an identity issuer or a signature verifier.
       ServiceAccount identity.
 - [x] Enable strict mutual TLS for participating workloads.
 - [x] Establish native Istio default-deny and explicit-allow authorization patterns.
-- [ ] Create Gatekeeper constraint templates and tests for identity, RBAC,
+- [x] Create Gatekeeper constraint templates and tests for identity, RBAC,
       privilege, resource, health-probe, Secret, mesh-enrollment, and retention rules.
-      _Partial: `koreworkloadidentity` and `korecontainersecurity` cover identity,
-      privilege, CPU requests, and readiness probes. RBAC, Secret, mesh-enrollment,
-      and retention rules are missing, and `tests/cases.yaml` is run by no task or CI
-      job._
-- [ ] Deploy constraints in audit mode and define minimal explicit system namespace
-      exemptions.
-      _Partial: `constraints/audit.yaml` uses `dryrun` with explicit exemptions, but
-      no catalog component installs the templates or constraints._
+      `mise run test-gatekeeper` runs the suites with pinned gator, locally and in CI
+      ([ADR 0017](../../docs/decisions/0017-gatekeeper-policy-families-audit-first.md)).
+- [x] Deploy constraints in audit mode and define minimal explicit system namespace
+      exemptions. The `kore-policy-templates` and `kore-policy-constraints`
+      configuration releases install them in `dryrun`.
+      _Known audit findings: the `oci-registry` PVC uses `kore-retained` without the
+      retention label, and application namespaces are not yet labeled for ambient._
 - [ ] Define the application namespace enrollment contract for Sigstore Policy
       Controller and make enrollment mandatory before an application workload release.
       _Blocked on selecting Sigstore Policy Controller in Step 7._
@@ -391,11 +393,9 @@ OPA into an identity issuer or a signature verifier.
       the Cosign signature and exact authorized signer for the deployed digest.
 - [x] Package and deploy the platform-operated OPA-Envoy external authorization
       service.
-- [ ] Deliver tested Rego as versioned OPA bundles.
-      _Partial: `bundles/v1` is tested in CI, but the deployed policy is an inline
-      copy in `infra/charts/opa-authorizer/templates/all.yaml` that differs from it.
-      `values.yaml` `bundle.url` is used by no template. Serve the tested bundle or
-      test that the copies match._
+- [x] Deliver tested Rego as versioned OPA bundles. The chart carries the
+      `bundles/v1` files and a spec fails if they drift; the dead `bundle.url` value
+      is gone ([ADR 0018](../../docs/decisions/0018-opa-bundle-chart-single-source.md)).
 - [x] Configure OPA as an Istio external authorization provider without manual
       ConfigMap editing.
 - [x] Route one Layer 7 policy through an ambient waypoint and Istio `CUSTOM`
@@ -404,8 +404,9 @@ OPA into an identity issuer or a signature verifier.
       principals.
 - [ ] Test allow, deny, authorizer-unavailable, stale-bundle, and invalid-bundle
       behavior.
-      _Partial: allow and deny have Rego tests; `failOpen: false` is configured but
-      untested. Stale- and invalid-bundle behavior needs bundle delivery first._
+      _Partial: allow, deny, and missing-input Rego tests exist, and a spec asserts
+      the ext-authz provider is `failOpen: false`. Live unavailability and stale- or
+      invalid-bundle behavior are untested._
 - [ ] Promote constraints individually from audit to enforcement only after the
       platform complies.
 
@@ -445,19 +446,20 @@ PostgreSQL claim backed locally by CloudNativePG.
       and connection Secret.
 - [ ] Grant Crossplane only the RBAC required to compose CloudNativePG and related
       Kubernetes resources.
-      _Partial: the ClusterRole grants all verbs on Secrets in every namespace; scope
-      it to what the composition needs._
+      _Partial: Secret `update` is dropped and `clusters/status` is read-only; the
+      chart's `namespaces` value binds the role per namespace, but its default is
+      still cluster-wide ([ADR 0020](../../docs/decisions/0020-postgresql-api-scoped-rbac-status-and-retention.md))._
 - [x] Normalize connection data into the documented Secret schema.
-- [ ] Propagate readiness, failure, and useful status conditions to the claim.
-      _Partial: readiness comes only from `function-auto-ready`; no step copies
-      CloudNativePG status, failure reasons, or the endpoint onto the claim._
+- [x] Propagate readiness, failure, and useful status conditions to the claim.
+      A `project-status` step copies CloudNativePG phase, reason, and endpoint and
+      sets `DatabaseHealthy`. _Unverified live._
 - [x] Keep the claim in the application resources release and the composed database
       outside Helm ownership.
 - [ ] Implement retained-data discovery used by application and cluster lifecycle
       guards.
-      _Partial: only `cluster destroy` uses it; it now fails closed on any kubectl
-      error except a missing resource type. The PVC query relies on a
-      `platform.kore.dev/retention` label that the composition never sets._
+      _Partial: `cluster destroy` and `app down` use it and it fails closed; the
+      composition now labels CloudNativePG PVCs through `inheritedMetadata`. The
+      `oci-registry` PVC is still unlabeled, so destroy does not see it._
 - [x] Define and test an explicit purge path.
 - [ ] Implement a local export and restore proof before treating platform destroy as
       recoverable.
@@ -487,32 +489,23 @@ policy telemetry with correlated local metrics, logs, and traces.
 - [x] Install resource-bounded local configurations for Prometheus, Loki, Tempo,
       and Grafana.
 - [x] Deploy the OpenTelemetry Collector with OTLP gRPC and HTTP receivers.
-- [ ] Define separate pipelines for application telemetry, Kubernetes logs and
+- [x] Define separate pipelines for application telemetry, Kubernetes logs and
       metrics, Istio telemetry, and policy decision telemetry where appropriate.
-      _Partial: one OTLP receiver feeds per-signal pipelines. There are no
-      Kubernetes log or metric receivers, no Istio Telemetry resource or tracing
-      config, and no OPA decision logging._
-- [ ] Enrich signals with cluster, environment, namespace, application,
-      ServiceAccount, and workload identity attributes.
-      _Partial: `k8sattributes` adds namespace, workload, pod, node, app name, and
-      ServiceAccount. Cluster, environment, and `app.kubernetes.io/part-of` are
-      missing._
-- [ ] Establish attribute and label cardinality limits before ingesting pod-level
-      data.
-      _Partial: `attributes/cardinality` drops `k8s.pod.uid` and
-      `process.command_line`; no limit is defined and `k8s.pod.name` is kept._
-- [ ] Export metrics to Prometheus, logs to Loki, and traces to Tempo.
-      _Partial: the Collector's `prometheus` exporter listens on 8889, but the port
-      is not exposed and Prometheus has no scrape config for it. Logs and traces are
-      wired._
-- [ ] Provision Grafana data sources and initial dashboards as desired state.
-      _Partial: data sources are provisioned; `infra/observability/dashboards/reference.json`
-      is loaded by nothing._
-- [ ] Add health, queue, dropped-data, and exporter-failure monitoring for the
-      Collector.
-      _Partial: `infra/observability/alerts/platform.yaml` defines dropped-span and
-      exporter-failure rules, but nothing installs it, the PrometheusRule CRD is not
-      installed, and Alertmanager is disabled. Health and queue alerts are missing._
+      An `otel-agent` DaemonSet reads pod logs and kubelet stats, Istio traces go to
+      the Collector through a mesh `Telemetry` resource, and OPA writes masked
+      console decision logs ([ADR 0019](../../docs/decisions/0019-telemetry-pipeline-wiring.md)).
+- [x] Enrich signals with cluster, environment, namespace, application,
+      ServiceAccount, and workload identity attributes. Cluster and environment
+      come from environment overlays.
+- [x] Establish attribute and label cardinality limits before ingesting pod-level
+      data (a metric attribute allowlist).
+- [x] Export metrics to Prometheus, logs to Loki, and traces to Tempo. Prometheus
+      scrapes the Collector exporter (8889) and its own metrics (8888).
+- [x] Provision Grafana data sources and initial dashboards as desired state.
+      The `kore-observability-config` release owns the dashboard ConfigMap.
+- [x] Add health, queue, dropped-data, and exporter-failure monitoring for the
+      Collector. Prometheus loads the rule files from a ConfigMap; `mise run
+    test-promtool` unit-tests them. Alertmanager stays disabled locally.
 - [x] Define local retention and storage limits for every backend.
 - [ ] Add synthetic telemetry tests for all three signals and their correlation.
       _Partial: `apps/reference/src/server.test.ts` checks trace/log/metric
@@ -523,14 +516,16 @@ policy telemetry with correlated local metrics, logs, and traces.
 
 - [ ] Applications use only the documented OTLP endpoint and standard environment
       variables.
+      _Fixed: environments and reference charts pointed at
+      `otel-collector-opentelemetry-collector`, a Service that does not exist; a
+      spec now pins them to the Collector's `otel-collector` Service._
 - [ ] A synthetic request produces a correlated metric, log, and trace.
 - [ ] Istio traffic exposes source and destination workload identity attributes.
 - [ ] OPA authorization decisions can be correlated with request traces where
       supported.
 - [ ] Collector or backend failure is visible through platform status.
-      _Gap: `platformStatus` reports a component ready once its Helm release is
-      `deployed` and never evaluates the catalog `readiness` entries, so a
-      crash-looping Collector shows as ready._
+      _Partial: `platformStatus` now evaluates every catalog readiness entry with a
+      3s bound and reports the failing component and condition. Live check pending._
 - [x] Local telemetry storage has explicit retention and resource bounds.
 - [ ] No application sends telemetry directly to a storage backend.
 
@@ -741,10 +736,9 @@ failures have automated detection and recovery paths.
 
 ### Work
 
-- [ ] Render every application chart against common configuration without loading a
-      local overlay.
-      _Partial: `diagnostics/portability.ts` scans chart files for provider names
-      and overlay paths; nothing runs `helm template`._
+- [x] Render every application chart against common configuration without loading a
+      local overlay. Portability validation runs `helm template` with chart defaults
+      and rejects provider-specific output.
 - [x] Add a second non-local environment schema and select its provider through an
       architectural decision
       ([ADR 0012](../../docs/decisions/0012-environment-overlays-hold-provider-specifics.md)).
@@ -783,8 +777,7 @@ failures have automated detection and recovery paths.
 - [ ] The managed PostgreSQL composition produces the same readiness and Secret
       interface as the local composition.
 - [ ] Offline provider validation runs in ordinary CI.
-      _Gap: `mise run validate` checks only `--environment local`; add
-      `managed-example`._
+      `mise run validate` now checks `local` and `managed-example` in CI.
 - [ ] Provider support is documented only after an authorized live test passes.
 - [ ] Recoverable failures converge without manual cluster patching.
 
@@ -891,13 +884,31 @@ test-first, on its own worktree branch, and merged back after review.
 
 Upgrade notes: Istio 1.31 charts now come from `blob.istio.io` because the
 Google-hosted repository is being retired. Gatekeeper stays on 3.23.1 because
-3.24.0 is beta. `mise run format` on `infra/catalog/*.yaml` adds trailing commas
-that break the JSON-compatible YAML rule, so the catalogs were edited by hand; the
-format task needs a fix.
+3.24.0 is beta. The trailing-comma problem in `mise run format` is fixed by a
+`.prettierrc.json` override with a regression spec (2026-11-08).
 
-Next: run the live bootstrap on a fresh profile against the upgraded pins, then
-digest-pin the Sigstore Policy Controller seed and enable `ClusterImagePolicy`
-enforcement (Step 7), which unblocks Step 9 enrollment and the bootstrap gate.
+Next: run the live bootstrap on a fresh profile against the upgraded pins and the
+2026-11-08 changes (Gatekeeper audit releases, observability config release,
+Gateway condition waits, readiness-driven status), then digest-pin the Sigstore
+Policy Controller seed and enable `ClusterImagePolicy` enforcement (Step 7),
+which unblocks Step 9 enrollment and the bootstrap gate.
+
+### 2026-11-08 parallel offline implementation
+
+Six parallel sessions closed offline items in Steps 7 through 11 and 14 (branch
+`feat/plan-open-items`, ADRs 0016 through 0021). No cluster was used, so every
+live exit criterion stays open. Merging them found two defects, both fixed
+test-first: the telemetry config release had no readiness check, which the new
+mandatory-readiness rule rejected; and every OTLP endpoint named a Collector
+Service that does not exist.
+
+Still open and needing a decision or a cluster: the release-automation signing
+identity and Sigstore enforcement (Step 7), export and restore (Step 10), the SOPS
+age recipient (Step 8), the reference app's database password and authenticated
+readiness (Step 12), the `oci-registry` PVC retention label (it would make
+`cluster destroy` require `--purge-data` for registry images), and the Step 7
+conflict over installing `kore-postgresql-api` and the OPA authorizer at
+bootstrap.
 
 ## Progress Record
 
