@@ -1,6 +1,6 @@
 ---
 status: accepted
-summary: While a component installs or its readiness is awaited, kore watches only that component's namespace read-only, and on a fatal pod state (crash loop, persistent image pull or config error, persistent scheduling failure) cancels the running command and fails with the pod, container, state, message, previous logs, and a fix hint instead of waiting out the timeout.
+summary: While a component installs or its readiness is awaited, kore watches only that component's namespace read-only, and on a fatal pod state (crash loop, persistent image pull, config, or container-create error, persistent scheduling or sandbox-creation failure) cancels the running command and fails with the pod, container, state, message, previous logs, and a fix hint instead of waiting out the timeout.
 date: 2026-11-08
 last-verified: 2026-11-08
 ---
@@ -41,6 +41,27 @@ rules"). A failing run must fail fast and name the cause.
   `CreateContainerConfigError` gets the grace period because a Secret another
   component creates may arrive moments later. A single restart,
   `ContainerCreating`, and a scheduling failure that clears are never fatal.
+- **Pods that never start (live probe, 2026-11-08).** Setting
+  opa-authorizer's memory request and limit to 4Mi left the new pod in
+  `ContainerCreating` with about 15 `FailedCreatePodSandBox` events ("container
+  init was OOM-killed"). It never reached `CrashLoopBackOff`, so none of the
+  states above fired and kore waited out Helm's 10m timeout, whose error
+  ("Updated: 1/2 and context deadline exceeded") did not name the cause. The
+  watcher now also reads the namespace's events for pods that are scheduled
+  but not running (`ContainerCreating`, `PodInitializing`, or `Pending`).
+  `FailedCreatePodSandBox`, `FailedCreatePodContainer`, and `Failed` events with
+  count >= 3 are fatal after the 60s grace; a lone one on a pod still stuck is
+  fatal after 90s (1.5x grace). `CreateContainerError` and `RunContainerError`
+  join the persistent states at 60s. A single sandbox failure that clears, and
+  normal pulling (a `Pulling` event without a failure), are never fatal. The
+  error quotes the event: `pod <pod> is stuck in ContainerCreating:
+  FailedCreatePodSandBox (x15): "<message>"`, with a hint to check
+  `resources.limits`, runtime class, CNI, or volume mounts.
+- **Helm failing first keeps the watch's last look.** When Helm or a readiness
+  wait fails on its own, the watch has not cancelled it, but whatever findings
+  it saw at its latest look (even short of the grace period) are appended to
+  that error under "The watch of <namespace> last saw:". The error object keeps
+  its type, so recovery that tests for `CommandError` is unaffected.
 - **Cancel, then explain.** The runner gains `RunOptions.signal`;
   `ProcessRunner` sends SIGTERM when it aborts, and `withSignal` gives a block
   of commands one shared signal. On detection the signal is aborted once, kore
@@ -70,5 +91,6 @@ rules"). A failing run must fail fast and name the cause.
 - Failures now arrive in about a minute with the pod, container, state, and
   log lines that explain them.
 - Each component wait adds a `kubectl get pods` every 5s.
-- Thresholds (2 restarts, 60s grace, 5s interval) are defaults of
+- When Helm fails first, its error carries the watch's last observation.
+- Thresholds (2 restarts, 3 events, 60s grace, 5s interval) are defaults of
   `WatchOptions`; tests inject a fake clock.

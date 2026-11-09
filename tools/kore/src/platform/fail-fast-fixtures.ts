@@ -52,6 +52,28 @@ export function podList(pods: Pod[]): string {
   });
 }
 
+export interface FakeEvent {
+  reason: string;
+  message: string;
+  count?: number;
+  pod?: string;
+}
+
+/** The probe's event: a 4Mi limit OOM-kills the sandbox's init, over and over. */
+export const sandboxOom = (count: number): FakeEvent => ({
+  reason: "FailedCreatePodSandBox",
+  count,
+  message:
+    "Failed to create pod sandbox: rpc error: code = Unknown desc = failed to start sandbox: container init was OOM-killed (memory limit too low?)",
+});
+
+export interface ScenarioOptions {
+  /** Events in the namespace at a tick (default: one FailedScheduling). */
+  events?: (tick: number) => FakeEvent[];
+  /** Helm itself gives up at this tick, as on its own timeout. */
+  helmFailsAtTick?: number;
+}
+
 export const SCHEDULING_MESSAGE =
   "0/1 nodes are available: 1 node(s) didn't match pod anti-affinity rules.";
 export const LOGS = [
@@ -69,6 +91,7 @@ export class Scenario implements Runner {
   constructor(
     private readonly pods: (tick: number) => Pod[],
     private readonly helmFinishesAtTick?: number,
+    private readonly options: ScenarioOptions = {},
   ) {}
 
   readonly clock: WatchClock = {
@@ -103,15 +126,20 @@ export class Scenario implements Runner {
       return ok(podList(this.pods(this.ticks)));
     }
     if (args.includes("events")) {
+      const events = this.options.events?.(this.ticks) ?? [
+        { reason: "FailedScheduling", message: SCHEDULING_MESSAGE },
+      ];
       return ok(
         JSON.stringify({
-          items: [
-            {
-              reason: "FailedScheduling",
-              message: SCHEDULING_MESSAGE,
-              involvedObject: { kind: "Pod", name: "oci-registry-x" },
+          items: events.map((event) => ({
+            reason: event.reason,
+            message: event.message,
+            count: event.count ?? 1,
+            involvedObject: {
+              kind: "Pod",
+              name: event.pod ?? "oci-registry-x",
             },
-          ],
+          })),
         }),
       );
     }
@@ -125,11 +153,25 @@ export class Scenario implements Runner {
     args: readonly string[],
     options?: RunOptions,
   ): Promise<RunResult> {
+    const failed = () =>
+      this.options.helmFailsAtTick !== undefined &&
+      this.ticks >= this.options.helmFailsAtTick;
     const finished = () =>
       this.helmFinishesAtTick !== undefined &&
       this.ticks >= this.helmFinishesAtTick;
     return await new Promise((resolve, reject) => {
       const settle = () => {
+        if (failed()) {
+          reject(
+            new CommandError("helm", args, {
+              stdout: "",
+              stderr:
+                "UPGRADE FAILED: resource Deployment/x not ready. context deadline exceeded",
+              code: 1,
+            }),
+          );
+          return true;
+        }
         if (finished()) {
           resolve({ stdout: "", stderr: "", code: 0 });
           return true;
