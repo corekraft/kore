@@ -4,10 +4,10 @@ import { errorMessage } from "./probe.js";
 import { gatewayCheck } from "./readiness-gateway.js";
 import { assertIssuerReady, trustRemedy } from "./readiness-issuer.js";
 import {
-  NOT_YET_THERE,
-  pause,
+  STATUS_BOUNDS,
+  type Bounds,
   pollUntil,
-  timeoutMilliseconds,
+  waitForConditions,
 } from "./readiness-poll.js";
 import { withScheduledPods } from "./readiness-daemonset.js";
 import { WEBHOOK_CONFIGURATION, waitForWebhook } from "./readiness-webhook.js";
@@ -42,21 +42,22 @@ const AVAILABLE_TEMPLATE = "{{if .status.availableReplicas}}available{{end}}";
 /** Gatekeeper templates and constraints are proven by existing. */
 const GATEKEEPER_OBJECT =
   /^(constrainttemplate\.templates|[a-z0-9]+\.constraints)\.gatekeeper\.sh\//;
-/** Bound for each read-only check `kore status` evaluates. */
-const STATUS_TIMEOUT = "3s";
-
 interface Context {
   repository: Repository;
   runner: Runner;
   base: string[];
   /** Capture command output instead of streaming it to the terminal. */
   capture: boolean;
+  /** `--timeout` for kubectl calls that wait on the server; defaults to the check bound. */
+  kubectlTimeout?: string;
 }
 
 /** A readiness check: the condition it proves and a bounded evaluation. */
 interface Check {
   condition: string;
   run: (timeout: string) => Promise<void>;
+  /** The check waits with kubectl's `--timeout`, so a failure names that bound. */
+  waitsOnServer?: boolean;
 }
 
 async function waitForTLSSecret(
@@ -105,46 +106,6 @@ async function waitForExistence(
   });
 }
 
-/**
- * Waits for each condition on a cluster-scoped resource in order, retrying
- * while the resource or its type does not exist yet.
- */
-async function waitForConditions(
-  { repository, runner }: Context,
-  resource: string,
-  conditions: string[],
-  timeout: string,
-): Promise<void> {
-  const deadline = Date.now() + timeoutMilliseconds(timeout);
-  for (const condition of conditions) {
-    while (true) {
-      try {
-        await runner.run(
-          "kubectl",
-          [
-            "--context",
-            repository.environment.kubeContext,
-            "wait",
-            `--for=condition=${condition}`,
-            resource,
-            `--timeout=${timeout}`,
-          ],
-          { capture: true },
-        );
-        break;
-      } catch (error) {
-        if (
-          !NOT_YET_THERE.test(errorMessage(error)) ||
-          Date.now() >= deadline
-        ) {
-          throw error;
-        }
-        await pause();
-      }
-    }
-  }
-}
-
 function nativeCheck(
   { runner, base, capture }: Context,
   condition: string,
@@ -152,6 +113,7 @@ function nativeCheck(
 ): Check {
   return {
     condition,
+    waitsOnServer: true,
     run: async (timeout) => {
       await runner.run("kubectl", [...base, ...args(timeout)], {
         capture,
@@ -182,6 +144,7 @@ function checkFor(context: Context, resource: string): Check {
       condition: conditions.join(" and "),
       run: (timeout) =>
         waitForConditions(context, resource, conditions, timeout),
+      waitsOnServer: true,
     };
   }
   if (resource.startsWith("secret/")) {
@@ -211,7 +174,7 @@ function checkFor(context: Context, resource: string): Check {
       "wait",
       "--for=condition=Ready",
       resource,
-      `--timeout=${timeout}`,
+      `--timeout=${context.kubectlTimeout ?? timeout}`,
     ]);
     return {
       ...wait,
@@ -230,14 +193,17 @@ function checkFor(context: Context, resource: string): Check {
     "rollout",
     "status",
     resource,
-    `--timeout=${timeout}`,
+    `--timeout=${context.kubectlTimeout ?? timeout}`,
   ]);
+  const server = (check: Check): Check => ({ ...check, waitsOnServer: true });
   if (resource.startsWith("deployment/")) {
-    return withAvailableReplica(context, resource, rollout);
+    return server(withAvailableReplica(context, resource, rollout));
   }
-  return resource.startsWith("daemonset/")
-    ? withScheduledPods(context, resource, rollout)
-    : rollout;
+  return server(
+    resource.startsWith("daemonset/")
+      ? withScheduledPods(context, resource, rollout)
+      : rollout,
+  );
 }
 
 function withAvailableReplica(
@@ -273,8 +239,7 @@ async function runChecks(
   repository: Repository,
   runner: Runner,
   component: Component,
-  timeout: string,
-  capture: boolean,
+  { timeout, capture, kubectlTimeout }: Bounds,
 ): Promise<void> {
   const context: Context = {
     repository,
@@ -286,6 +251,7 @@ async function runChecks(
       component.namespace,
     ],
     capture,
+    ...(kubectlTimeout ? { kubectlTimeout } : {}),
   };
   const named = (resource: string) => ({
     resource,
@@ -298,8 +264,9 @@ async function runChecks(
     try {
       await check.run(timeout);
     } catch (error) {
+      const bound = check.waitsOnServer ? (kubectlTimeout ?? timeout) : timeout;
       throw new Error(
-        `${resource} not ready (${check.condition}) within ${timeout}: ${errorMessage(error)}`,
+        `${resource} not ready (${check.condition}) within ${bound}: ${errorMessage(error)}`,
       );
     }
   }
@@ -311,7 +278,10 @@ export async function waitFor(
   runner: Runner,
   component: Component,
 ): Promise<void> {
-  await runChecks(repository, runner, component, component.timeout, false);
+  await runChecks(repository, runner, component, {
+    timeout: component.timeout,
+    capture: false,
+  });
 }
 
 /**
@@ -324,7 +294,7 @@ export async function readinessFailure(
   component: Component,
 ): Promise<string | undefined> {
   try {
-    await runChecks(repository, runner, component, STATUS_TIMEOUT, true);
+    await runChecks(repository, runner, component, STATUS_BOUNDS);
     return undefined;
   } catch (error) {
     return errorMessage(error);

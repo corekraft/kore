@@ -5,7 +5,12 @@ import { promisify } from "node:util";
 import { test } from "vitest";
 import { approvedImageList, loadRepository } from "../config/index.js";
 import type { Repository } from "../config/index.js";
-import { helmTemplateArgs, withAbsoluteChart } from "../platform/helm.js";
+import {
+  envOption,
+  helmEnv,
+  helmTemplateArgs,
+  withAbsoluteChart,
+} from "../platform/helm.js";
 import { renderedImages, unapprovedImages } from "./rendered-images.js";
 
 const run = promisify(execFile);
@@ -94,7 +99,10 @@ async function assertRendersApproved(
                 join(repository.root, file),
               ]),
             ]),
-            { maxBuffer: 256 * 1024 * 1024 },
+            {
+              maxBuffer: 256 * 1024 * 1024,
+              ...envOption(helmEnv(repository, component)),
+            },
           );
           return unapprovedImages(renderedImages(stdout), approved).map(
             (problem) => `${component.name}: ${problem}`,

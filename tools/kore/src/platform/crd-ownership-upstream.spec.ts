@@ -8,7 +8,12 @@ import {
   renderedCrdNames,
   type CrdOwnership,
 } from "../config/index.js";
-import { helmTemplateArgs, withAbsoluteChart } from "./helm.js";
+import {
+  envOption,
+  helmEnv,
+  helmTemplateArgs,
+  withAbsoluteChart,
+} from "./helm.js";
 
 const run = promisify(execFile);
 
@@ -37,7 +42,10 @@ test.runIf(process.env["KORE_CHECK_UPSTREAM_CHARTS"] === "1")(
             component,
             helmTemplateArgs(repository, component),
           ),
-          { maxBuffer: 256 * 1024 * 1024 },
+          {
+            maxBuffer: 256 * 1024 * 1024,
+            ...envOption(helmEnv(repository, component)),
+          },
         );
         return {
           name: component.name,

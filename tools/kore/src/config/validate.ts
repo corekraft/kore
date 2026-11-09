@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { exists } from "./files.js";
 import { registryAddressErrors } from "./registry-address.js";
 import { policyErrors } from "./policy-validation.js";
-import { crdGroupErrors, crdNameFormatErrors } from "./crd-ownership.js";
+import { catalogErrors } from "./catalog-errors.js";
 import { imageListErrors } from "./approved.js";
 import { orderedComponents, readinessErrors } from "./order.js";
 import type {
@@ -277,10 +277,7 @@ export async function validateRepository(
     ),
     ...duplicateErrors(components),
     ...crdOwnerErrors(components),
-    ...crdGroupErrors(components),
-    ...components.flatMap((component) =>
-      crdNameFormatErrors(component.name, component.ownsCRDs ?? []),
-    ),
+    ...catalogErrors(components),
     ...dependencyErrors(components, names),
     ...unknownOverlayErrors(environment, names),
     ...(await componentSourceErrors(

@@ -2,7 +2,7 @@
 status: accepted
 summary: Catalog readiness entries are mandatory, and the same read-only checks drive both bootstrap waits and platform status, with failures naming the component, resource, condition, and reason.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-09
 ---
 
 # ADR 0016: One set of readiness checks for waits and status
@@ -24,9 +24,11 @@ trust anchor surfaced only as a ClusterIssuer timeout.
   only create cluster resources use existence checks (`storageclass/`,
   `clusterrole/`, `clusterrolebinding/`) or owned-CRD `crd/` checks.
 - `kore status` evaluates each installed release's readiness checks read-only
-  (get, wait, rollout status; never apply) with a 3s bound per check and
-  reports `degraded` with the first failing check. Status writes no journal
-  entry.
+  (get, wait, rollout status; never apply) with a 3s bound per polled check
+  (15s for `kubectl wait` and `rollout status`, whose bound spans kubectl's
+  startup; [ADR 0081](0081-declarative-probe-patches-through-a-helm-post-renderer.md))
+  and reports `degraded` with the first failing check. Status writes no
+  journal entry.
 - Gateways are ready only when Accepted, the Gateway Service has a
   LoadBalancer address, Programmed, and every listener has ResolvedRefs. Each
   step is bounded and its failure includes the condition reason
@@ -42,7 +44,7 @@ trust anchor surfaced only as a ClusterIssuer timeout.
 
 - `kore status` and `app up` now probe the cluster per component, so they are
   slower than a Helm-status-only check and need the same fakes in tests.
-- Status uses a fixed bound; making it configurable is deferred.
+- Status uses fixed bounds; making them configurable is deferred.
 
 ## Refinement: resume applies drifted desired state
 
