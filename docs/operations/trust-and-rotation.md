@@ -28,7 +28,9 @@ external registry, whose credentials belong to its provider.
 
 The certificate is valid for ten years and the proxy reads it at start, so
 rotation is a deliberate act ([ADR 0058](../decisions/0058-registry-transport-tls.md)).
-**Gap:** no `kore` command rotates it. The documented sequence is: delete the
+**Gap:** no `kore` command rotates it (plan Step 15, "Document trust roots,
+certificate rotation, secret rotation, and workload identity incident
+response"). The documented sequence is manual: delete the
 `oci-registry-tls` Secret (and `oci-registry-ca` to replace the CA) in
 `kore-registry`, run `kore local up --environment local` (which reissues,
 redistributes the CA to the ConfigMap and the node, and reapplies trust), then
@@ -44,7 +46,7 @@ run `mkcert -uninstall` and `mkcert -install` (outside Kore), delete the
 `kore-local-tls` Secret, and rerun `kore local up --environment local`; then
 `kore trust install --environment local` re-trusts the CA on the host.
 **Gap:** Kore does not test a CA replacement; it only installs the mkcert CA
-before the Gateway is configured.
+before the Gateway is configured (plan Step 15, same item as above).
 
 ## Application secrets
 
@@ -63,7 +65,7 @@ documents; plaintext never touches disk or git ([ADR 0009](../decisions/0009-enc
   `kore secrets sync --environment local`.
 - **SOPS age recipient:** `.sops.yaml` holds the recipient. Replace it, re-encrypt
   each document with `sops updatekeys`, and rerun `kore secrets sync`. **Gap:**
-  no `kore` command re-encrypts documents or rotates the recipient, and
+  (plan Step 15, same item as above) no `kore` command re-encrypts documents or rotates the recipient, and
   `kore data export` refuses the placeholder recipient
   `AGE-RECIPIENT-MUST-BE-CONFIGURED`.
 
@@ -77,9 +79,8 @@ A ServiceAccount token or identity is suspected stolen:
    with it.
 2. **Invalidate.** `kore app up <name> --environment local` creates a new
    ServiceAccount, so the old identity's tokens stop working and Istio
-   authorization bound to the old principal stops matching. For a quicker
-   cut-off, `kubectl --context kore-local --namespace <ns> delete
-serviceaccount <name>` before the redeploy.
+   authorization bound to the old principal stops matching. Do not delete the
+   ServiceAccount with `kubectl` first: the redeploy owns it.
 3. **Review.** Gatekeeper's `KoreWorkloadIdentity` constraint audits workloads
    on the namespace default ServiceAccount; read its violations with
    `kubectl --context kore-local get koreworkloadidentity kore-workload-identity
