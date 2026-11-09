@@ -57,7 +57,9 @@ test("app up enrolls the application namespace in the ambient mesh before any re
   };
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
 
-  await appUp(repository, runner, "reference", image, "/tmp/kore.pub");
+  await appUp(repository, runner, "reference", image, {
+    publicKey: "/tmp/kore.pub",
+  });
 
   const enroll = calls.findIndex(
     ({ command, input }) =>

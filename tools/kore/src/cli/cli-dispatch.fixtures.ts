@@ -116,6 +116,9 @@ export const securityModule = () => ({
 });
 
 export const tunnelModule = () => ({
+  ensureLocalTunnel: vi.fn(
+    async () => (dispatch.push("ensureLocalTunnel"), { status: "running" }),
+  ),
   startLocalTunnel: vi.fn(
     async () => (dispatch.push("startLocalTunnel"), { status: "running" }),
   ),
