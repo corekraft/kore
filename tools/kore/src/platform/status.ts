@@ -10,6 +10,10 @@ import {
   errorMessage,
   helmReleaseStatus,
 } from "./probe.js";
+import {
+  imageInventoryStatus,
+  type ImageInventory,
+} from "./image-inventory.js";
 import { readinessFailure } from "./readiness.js";
 
 export interface ComponentStatus {
@@ -17,6 +21,8 @@ export interface ComponentStatus {
   namespace: string;
   status: "ready" | "missing" | "degraded";
   detail: string;
+  /** Present on the image-inventory row: every inventoried image and finding. */
+  inventory?: ImageInventory;
 }
 
 async function componentStatus(
@@ -64,8 +70,10 @@ export async function platformStatus(
     }
     result.push(await componentStatus(repository, runner, component));
   }
-  // The gate is a platform-wide row, not a component: a filtered query omits it.
+  // The gate and the inventory are platform-wide rows, not components: a
+  // filtered query omits them.
   if (!only) {
+    result.push(await imageInventoryStatus(repository, runner));
     result.push(await admissionGateStatus(repository, runner));
   }
   return result;

@@ -69,6 +69,12 @@ export interface Environment {
    * environment's values overlays and admitted by the image policy (ADR 0044).
    */
   platformMirror?: string;
+  /**
+   * How the running-image inventory treats an image that is not an approved
+   * internal digest (ADR 0056). `audit` (the default) reports; `enforce` fails
+   * bootstrap and keeps the application admission gate closed.
+   */
+  imageInventory?: "audit" | "enforce";
   gateway: { namespace: string; name: string; hostname: string; port: number };
   secrets: { storeName: string; sourceNamespace: string };
   telemetry: { otlpEndpoint: string };

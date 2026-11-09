@@ -103,6 +103,9 @@ export const platformModule = () => ({
   platformStatusReport: vi.fn(
     async () => (dispatch.push("platformStatusReport"), []),
   ),
+  platformStatus: vi.fn(
+    async (): Promise<unknown[]> => (dispatch.push("platformStatus"), []),
+  ),
   platformStop: vi.fn(async () => void dispatch.push("platformStop")),
   platformUp: vi.fn(async () => void dispatch.push("platformUp")),
 });

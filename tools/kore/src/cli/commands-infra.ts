@@ -61,6 +61,7 @@ export async function platformCommand(
 ): Promise<number> {
   const { repository, runner, json } = context;
   if (context.action === "status") {
+    // Plain rows print scalar fields; --json carries the nested findings.
     print(await platformStatusReport(repository, runner), json);
     return 0;
   }

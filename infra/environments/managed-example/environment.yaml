@@ -15,6 +15,7 @@
     },
   "registry": { "address": "registry.example.internal" },
   "platformMirror": "ghcr.io/corekraft/kore/mirror",
+  "imageInventory": "enforce",
   "gateway":
     {
       "namespace": "kore-system",

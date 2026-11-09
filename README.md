@@ -56,7 +56,9 @@ require `--purge-data`. `local down --prune` destroys without purging; `local do
 or applied, until the application admission gate is open for the repository's
 platform generation ([ADR 0054](docs/decisions/0054-application-admission-gate-closed-at-foundation.md)).
 `kore platform up` closes the gate first and opens it only after every component is
-ready in that run; `platform status` reports it. The refusal names the gate's state and
+ready in that run, and the running platform images pass the image inventory
+([ADR 0056](docs/decisions/0056-platform-image-inventory.md): `audit` locally, `enforce`
+in managed environments); `platform status` reports both. The refusal names the gate's state and
 the remedy.
 
 `platform status` also lists cluster CRDs that no catalog component owns, or more than one,

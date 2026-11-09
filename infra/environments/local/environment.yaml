@@ -15,6 +15,7 @@
       "serviceCidr": "10.96.0.0/12"
     },
   "registry": { "address": "10.96.0.50:5000" },
+  "imageInventory": "audit",
   "gateway":
     {
       "namespace": "kore-system",
