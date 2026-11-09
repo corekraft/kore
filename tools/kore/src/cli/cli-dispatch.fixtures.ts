@@ -151,6 +151,9 @@ export const localModule = () => ({
 
 export const imagesModule = async () => ({
   ...(await vi.importActual<object>("../images/index.js")),
+  swapLocalSigningKey: vi.fn(async (_repo, _runner, options) => {
+    dispatch.push(`swapLocalSigningKey:${options.yes}`);
+  }),
   rotateRegistryCredentials: vi.fn(async (_repo, _runner, options) => {
     dispatch.push(`rotateRegistryCredentials:${options.yes}`);
     return { namespaces: ["reference"] };

@@ -94,6 +94,7 @@ test("unknown actions fail before taking the lock or writing a journal entry", a
     ["secrets", "rotate"],
     ["trust", "remove"],
     ["registry", "rotate"],
+    ["signer", "rotate"],
   ]) {
     dispatch.length = 0;
     await expect(main([...argv, "--environment", "local"])).rejects.toThrow(
@@ -101,6 +102,13 @@ test("unknown actions fail before taking the lock or writing a journal entry", a
     );
     expect(dispatch, argv.join(" ")).toEqual([]);
   }
+});
+
+test("signer swap-key requires a named environment", async () => {
+  await expect(main(["signer", "swap-key", "--yes"])).rejects.toThrow(
+    /--environment is required for mutating commands/,
+  );
+  expect(dispatch).toEqual([]);
 });
 
 test("registry rotate-credentials requires a named environment", async () => {
