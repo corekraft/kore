@@ -137,10 +137,38 @@ export interface ApprovedImageManifest {
   images: ApprovedImage[];
 }
 
+export type ReadinessCapability =
+  | "controller"
+  | "registry"
+  | "trust-policy"
+  | "shared-configuration"
+  | "platform-api"
+  | "endpoint"
+  | "health-condition";
+
+/** One prerequisite the application admission gate waits for (ADR 0067). */
+export interface ReadinessRequirement {
+  name: string;
+  /** The plan step (7 to 11) whose contract this prerequisite serves. */
+  step: number;
+  capability: ReadinessCapability;
+  /** Catalog components that must be installed and ready. */
+  components?: string[];
+  /** Platform-wide status checks (not components) that must be ready. */
+  platformChecks?: string[];
+}
+
+export interface ReadinessManifest {
+  $schema?: string;
+  version: 1;
+  requirements: ReadinessRequirement[];
+}
+
 export interface Repository {
   root: string;
   versions: Versions;
   seeds: SeedManifest;
+  readiness: ReadinessManifest;
   approved: ApprovedImageManifest;
   catalog: Catalog;
   environment: Environment;

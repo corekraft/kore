@@ -7,6 +7,7 @@ import type {
   Catalog,
   Component,
   Environment,
+  ReadinessManifest,
   Repository,
   SeedManifest,
   ApprovedImageManifest,
@@ -21,6 +22,9 @@ export type {
   ComponentKind,
   Environment,
   Phase,
+  ReadinessCapability,
+  ReadinessManifest,
+  ReadinessRequirement,
   Repository,
   Seed,
   SeedEvidence,
@@ -95,22 +99,25 @@ export async function loadRepository(
   start?: string,
 ): Promise<Repository> {
   const root = await findRoot(start);
-  const [versions, seeds, approved, catalog, environment] = await Promise.all([
-    loadJSON<Versions>(join(root, "infra/catalog/versions.yaml")),
-    loadJSON<SeedManifest>(join(root, "infra/catalog/seeds.yaml")),
-    loadJSON<ApprovedImageManifest>(
-      join(root, "infra/catalog/approved-images.yaml"),
-    ),
-    loadJSON<Catalog>(join(root, "infra/catalog/components.yaml")),
-    loadJSON<Environment>(
-      join(root, "infra/environments", environmentName, "environment.yaml"),
-    ),
-  ]);
+  const [versions, seeds, readiness, approved, catalog, environment] =
+    await Promise.all([
+      loadJSON<Versions>(join(root, "infra/catalog/versions.yaml")),
+      loadJSON<SeedManifest>(join(root, "infra/catalog/seeds.yaml")),
+      loadJSON<ReadinessManifest>(join(root, "infra/catalog/readiness.yaml")),
+      loadJSON<ApprovedImageManifest>(
+        join(root, "infra/catalog/approved-images.yaml"),
+      ),
+      loadJSON<Catalog>(join(root, "infra/catalog/components.yaml")),
+      loadJSON<Environment>(
+        join(root, "infra/environments", environmentName, "environment.yaml"),
+      ),
+    ]);
   const imageTrustValues = await loadImageTrustValues(root, environment);
   const repository = {
     root,
     versions,
     seeds,
+    readiness,
     approved,
     catalog,
     environment,

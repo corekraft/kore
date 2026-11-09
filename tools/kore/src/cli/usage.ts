@@ -5,7 +5,7 @@ Usage:
   kore validate [--environment local] [--platform-image-lock <file>] [--json]
   kore cluster up|stop|destroy --environment <name> [--yes] [--purge-data]
   kore cluster status [--environment <name>] [--json]
-  kore platform bootstrap|up|stop|destroy --environment <name> [--yes] [--purge-data]
+  kore platform bootstrap|up|gate-check|stop|destroy --environment <name> [--yes] [--purge-data]
   kore platform status|render [--environment <name>] [--output <directory>] [--json]
   kore app up <name> --environment <name>
   kore app down <name> --environment <name> [--json]

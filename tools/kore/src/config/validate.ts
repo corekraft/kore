@@ -4,7 +4,7 @@ import { registryAddressErrors } from "./registry-address.js";
 import { imageTrustErrors } from "./image-trust.js";
 import { crdGroupErrors, crdNameFormatErrors } from "./crd-ownership.js";
 import { imageListErrors } from "./approved.js";
-import { orderedComponents } from "./order.js";
+import { orderedComponents, readinessErrors } from "./order.js";
 import type {
   Catalog,
   Component,
@@ -292,6 +292,7 @@ export async function validateRepository(
     ...cycleErrors(catalog),
     ...(await imageListErrors(repository)),
     ...imageTrustErrors(repository),
+    ...readinessErrors(repository),
     ...registryAddressErrors(repository),
     ...(
       await Promise.all(
