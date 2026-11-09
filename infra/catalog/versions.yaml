@@ -25,6 +25,7 @@
       "hadolint": "2.15.1",
       "docker": "29.7.2"
     },
+  "providers": { "hashicorp/null": "3.2.4" },
   "kubernetes": "1.37.2",
   "components":
     {

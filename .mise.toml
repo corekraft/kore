@@ -52,10 +52,6 @@ run = [
   "npm --prefix tools/kore run kore -- validate --environment managed-example",
 ]
 
-[tasks.tofu-validate]
-description = "Validate every OpenTofu stack offline (init without a backend, then validate); never plans or applies"
-run = "for stack in infra/tofu/stacks/*/; do tofu -chdir=\"$stack\" init -backend=false -input=false && tofu -chdir=\"$stack\" validate || exit 1; done"
-
 [tasks.test-opa]
 description = "Run colocated Rego policy specifications with the OPA CLI"
 run = "opa test infra/policies/opa/bundles/v1 -v"

@@ -1,6 +1,6 @@
 # Offline-validated contract stack. It declares no backend, no credentials, and
 # no cloud resource: a provider module is added only after a reviewed
-# portability decision. CI runs `mise run tofu-validate`; nothing applies it.
+# portability decision. CI runs `mise run validate-tofu`; nothing applies it.
 
 variable "environment" {
   description = "Name of the Kore environment this stack serves."

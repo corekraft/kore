@@ -6,7 +6,7 @@ creates no cloud resource. It is validated offline and **never applied** by Kore
 or CI:
 
 ```sh
-mise run tofu-validate   # tofu init -backend=false && tofu validate, per stack
+mise run validate-tofu   # tofu init -backend=false && tofu validate, per stack
 ```
 
 Add provider modules only after a reviewed portability decision and offline plan
