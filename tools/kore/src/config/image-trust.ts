@@ -1,3 +1,4 @@
+import { enrollmentExemptionErrors } from "./enrollment.js";
 import { registryPlan } from "./registry-address.js";
 import type { Repository } from "./types.js";
 
@@ -123,6 +124,13 @@ function parseableAddress(repository: Repository): boolean {
 }
 
 export function imageTrustErrors(repository: Repository): string[] {
+  return [
+    ...enrollmentExemptionErrors(repository),
+    ...trustValueErrors(repository),
+  ];
+}
+
+function trustValueErrors(repository: Repository): string[] {
   const hasComponent = repository.catalog.components?.some(
     (c) => c.name === imagePolicyComponent,
   );

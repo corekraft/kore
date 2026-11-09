@@ -26,3 +26,46 @@ test("local audits and managed-example enforces the image inventory", async () =
     "enforce",
   );
 });
+
+test("only cosign-system and kore-registry are exempt from enrollment, in every environment", async () => {
+  for (const name of ["local", "managed-example"]) {
+    const { environment } = await loadRepository(name);
+    assert.deepEqual(
+      Object.keys(environment.enrollmentExemptions ?? {}).sort(),
+      ["cosign-system", "kore-registry"],
+    );
+  }
+});
+
+test("an enrollment exemption for a namespace the catalog does not manage is rejected", async () => {
+  const base = await loadRepository("local");
+
+  await assert.rejects(
+    validateRepository({
+      ...base,
+      environment: {
+        ...base.environment,
+        enrollmentExemptions: {
+          ...base.environment.enrollmentExemptions,
+          "kube-system": "widened",
+        },
+      },
+    }),
+    /enrollmentExemptions: kube-system is not a platform namespace/,
+  );
+});
+
+test("an enrollment exemption must carry a reason", async () => {
+  const base = await loadRepository("local");
+
+  await assert.rejects(
+    validateRepository({
+      ...base,
+      environment: {
+        ...base.environment,
+        enrollmentExemptions: { "cosign-system": " " },
+      },
+    }),
+    /enrollmentExemptions: cosign-system needs a reason/,
+  );
+});

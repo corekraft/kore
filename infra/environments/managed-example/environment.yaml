@@ -16,6 +16,11 @@
   "registry": { "address": "registry.example.internal" },
   "platformMirror": "ghcr.io/corekraft/kore/mirror",
   "imageInventory": "enforce",
+  "enrollmentExemptions":
+    {
+      "cosign-system": "Enrolling the verifier's own namespace deadlocks its webhook (ADR 0056).",
+      "kore-registry": "The registry serves the signatures the verifier needs, so enrolling it would make a registry restart depend on the registry (ADR 0056)."
+    },
   "gateway":
     {
       "namespace": "kore-system",

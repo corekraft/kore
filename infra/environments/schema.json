@@ -41,6 +41,10 @@
       "pattern": "^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?(:\\d{1,5})?(/[a-z0-9._-]+)+$"
     },
     "imageInventory": { "enum": ["audit", "enforce"] },
+    "enrollmentExemptions": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
     "componentSources": {
       "type": "object",
       "additionalProperties": { "type": "string", "minLength": 1 }

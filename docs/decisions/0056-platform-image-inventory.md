@@ -38,7 +38,14 @@ each container, init container and ephemeral container image as:
 - `tag-only`: no digest;
 - `unknown`: any other digest, including an internal one that is not approved.
 
-It also reports platform namespaces that lack `policy.sigstore.dev/include=true`.
+It also reports platform namespaces that lack `policy.sigstore.dev/include=true`,
+except those in the schema-validated `environment.enrollmentExemptions` (each
+with a reason): `cosign-system`, because enrolling the verifier's own namespace
+deadlocks its webhook, and `kore-registry`, because the registry serves the
+signatures the verifier needs, so enrolling it would make a registry restart
+depend on the registry. Validation rejects an exemption for a namespace the
+catalog does not manage or without a reason. The exemption covers enrollment
+only; those namespaces' images are still inventoried and must be approved digests.
 
 The optional, schema-validated `environment.imageInventory` selects the mode.
 `audit` (the default, and `local`) reports findings with a `ready` row;
@@ -55,6 +62,7 @@ refuses on any non-ready row, so an enforce finding keeps the gate closed.
   closes the "no active seed exception" criterion for managed environments.
 - Local still shows its seeds and upstream digests on every `platform status`
   without failing.
+- Widening the exemption is an explicit, reviewed edit to the environment file.
 - The check only observes: it does not label namespaces. Enrollment of the
   platform namespaces is still a separate mutation; until it exists an
   `enforce` environment reports them unenrolled and stays closed.

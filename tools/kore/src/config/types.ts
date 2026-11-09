@@ -75,6 +75,12 @@ export interface Environment {
    * bootstrap and keeps the application admission gate closed.
    */
   imageInventory?: "audit" | "enforce";
+  /**
+   * Platform namespaces exempt from the Policy Controller enrollment check,
+   * each with its reason (ADR 0056). Their images are still inventoried.
+   * Validation rejects a namespace the catalog does not manage.
+   */
+  enrollmentExemptions?: Record<string, string>;
   gateway: { namespace: string; name: string; hostname: string; port: number };
   secrets: { storeName: string; sourceNamespace: string };
   telemetry: { otlpEndpoint: string };

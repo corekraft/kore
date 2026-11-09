@@ -248,3 +248,21 @@ test("an unreadable cluster is degraded, never ready, and never mutates", async 
   assert.ok(calls.every((call) => /\bget\b/.test(call)));
   assert.ok(calls.every((call) => call.includes("--context kore-local")));
 });
+
+test("exempt namespaces are not reported unenrolled but every other one is checked, and their images are still classified", async () => {
+  const repository = await loadRepository("managed-example");
+  const all = names(repository);
+  const { runner } = cluster(
+    repository,
+    [{ namespace: "kore-registry", name: "r", containers: ["busybox:1"] }],
+    { unlabelled: all },
+  );
+
+  const inventory = await imageInventory(repository, runner);
+
+  assert.deepEqual(
+    inventory.unenrolledNamespaces,
+    all.filter((ns) => ns !== "cosign-system" && ns !== "kore-registry").sort(),
+  );
+  assert.equal(inventory.images[0]?.classification, "tag-only");
+});

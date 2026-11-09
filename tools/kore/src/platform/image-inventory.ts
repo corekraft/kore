@@ -121,6 +121,7 @@ export async function imageInventory(
   runner: Runner,
 ): Promise<ImageInventory> {
   const namespaces = new Set(platformNamespaces(repository));
+  const exempt = repository.environment.enrollmentExemptions ?? {};
   const pods = await kubectlJson<PodList>(repository, runner, [
     "pods",
     "--all-namespaces",
@@ -155,7 +156,9 @@ export async function imageInventory(
   return {
     mode: repository.environment.imageInventory ?? "audit",
     images,
-    unenrolledNamespaces: [...namespaces].filter((ns) => !enrolled.has(ns)),
+    unenrolledNamespaces: [...namespaces].filter(
+      (ns) => !enrolled.has(ns) && !(ns in exempt),
+    ),
   };
 }
 
