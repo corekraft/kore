@@ -26,4 +26,5 @@ tests:
       - {name: admits-application-pod-once-open, object: objects/gate-pod-app.yaml, assertions: [{violations: 0}]}
       - {name: admits-activation-by-bootstrap-for-current-generation, object: objects/gate-namespace-active-current.yaml, assertions: [{violations: 0}]}
       - {name: rejects-activation-for-a-stale-generation, object: objects/gate-namespace-active-stale.yaml, assertions: [{violations: 1, message: stale}]}
+      - {name: audit-does-not-flag-an-already-activated-namespace-it-cannot-attribute, object: objects/gate-namespace-audit-activated.yaml, assertions: [{violations: 0}]}
       - {name: rejects-activation-by-non-bootstrap-even-when-open, object: objects/gate-namespace-active-developer.yaml, assertions: [{violations: 1, message: bootstrap}]}
