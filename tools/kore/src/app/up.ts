@@ -8,6 +8,7 @@ import {
 import type { Runner } from "../runtime/index.js";
 import {
   activateNamespace,
+  bindCrossplaneSecrets,
   enrollNamespace,
   installResources,
   installWorkload,
@@ -41,6 +42,7 @@ export async function appUp(
   const charts = await resolveCharts(repository, name);
   await enrollNamespace(repository, runner, name);
   await activateNamespace(repository, runner, name, generation);
+  await bindCrossplaneSecrets(repository, runner, name);
   await installResources(repository, runner, name, charts);
   await waitForResources(repository, runner, name);
   await installWorkload(repository, runner, name, charts, workloadImage);

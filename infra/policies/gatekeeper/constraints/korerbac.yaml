@@ -11,4 +11,5 @@ spec:
     signingNamespace: kore-system
     signingKeySecret: kore-local-signing-key
     allowedSecretRoles: [kore-signing-key, external-secrets-controller, external-secrets-cert-controller]
+    namespaceBoundSecretRoles: [crossplane-postgresql-secrets]
     bootstrapGroups: ["kore:bootstrap"]

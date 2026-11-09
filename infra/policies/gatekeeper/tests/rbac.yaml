@@ -26,3 +26,8 @@ tests:
       - {name: accepts-bootstrap-group-binding-in-signing-namespace, object: objects/rbac-rb-edit-signing-namespace-bootstrap.yaml, assertions: [{violations: 0}]}
       - {name: accepts-edit-binding-in-an-application-namespace, object: objects/rbac-rb-edit-app-namespace.yaml, assertions: [{violations: 0}]}
       - {name: rejects-cluster-wide-edit-binding-for-developers, object: objects/rbac-crb-edit-user.yaml, assertions: [{violations: 1, message: signing key}]}
+      - {name: accepts-crossplane-secret-role-bound-per-application-namespace, object: objects/rbac-crossplane-secrets-clusterrole.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-crossplane-rolebinding-in-an-application-namespace, object: objects/rbac-crossplane-rb-app-namespace.yaml, assertions: [{violations: 0}]}
+      - {name: rejects-crossplane-secret-role-bound-cluster-wide, object: objects/rbac-crossplane-crb-secrets.yaml, assertions: [{violations: 1, message: signing key}]}
+      - {name: rejects-crossplane-secret-role-bound-in-the-signing-namespace, object: objects/rbac-crossplane-rb-signing-namespace.yaml, assertions: [{violations: 1, message: signing key}]}
+      - {name: accepts-crossplane-cluster-wide-composition-binding, object: objects/rbac-crossplane-crb-composition.yaml, assertions: [{violations: 0}]}

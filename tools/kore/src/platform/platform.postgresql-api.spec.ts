@@ -22,7 +22,10 @@ test("Crossplane may only touch Secrets with the verbs the composition needs", a
   const rbac = await read(
     "infra/charts/crossplane-postgresql-rbac/templates/rbac.yaml",
   );
-  const role = rbac.split("\n---\n")[0] ?? "";
+  const role =
+    rbac
+      .split("\n---\n")
+      .find((doc) => /name: crossplane-postgresql-secrets/.test(doc)) ?? "";
   const rule = role
     .split("  - apiGroups:")
     .find((block) => /resources: \[secrets\]/.test(block));
@@ -32,26 +35,24 @@ test("Crossplane may only touch Secrets with the verbs the composition needs", a
     verbs.split(",").map((verb) => verb.trim()),
     ["get", "list", "watch", "create", "patch", "delete"],
   );
-  assert.doesNotMatch(role, /"\*"|\[\*\]|deletecollection/);
+  assert.doesNotMatch(rbac, /"\*"|\[\*\]|deletecollection/);
+  const clusterWide = rbac.split("\n---\n")[0] ?? "";
   assert.doesNotMatch(
-    role.split("clusters/status")[1]?.split("verbs: [")[1]?.split("]")[0] ?? "",
+    clusterWide
+      .split("clusters/status")[1]
+      ?.split("verbs: [")[1]
+      ?.split("]")[0] ?? "",
     /create|delete|patch|update/,
     "the Cluster status subresource is read-only",
   );
 });
 
-test("Secret access narrows to listed namespaces when the chart is given them", async () => {
+test("the chart binds no Secret access; kore app up binds it per application namespace", async () => {
   const rbac = await read(
     "infra/charts/crossplane-postgresql-rbac/templates/rbac.yaml",
   );
-  const values = await read(
-    "infra/charts/crossplane-postgresql-rbac/values.yaml",
-  );
-  assert.match(rbac, /kind: RoleBinding/);
-  assert.match(rbac, /range \.Values\.namespaces/);
-  assert.match(rbac, /if \.Values\.namespaces/);
-  assert.match(rbac, /else/);
-  assert.match(values, /namespaces: \[\]/);
+  assert.doesNotMatch(rbac, /kind: RoleBinding/);
+  assert.doesNotMatch(rbac, /\.Values/);
 });
 
 test("the composition reports CloudNativePG phase, failure and endpoint on the composite status", async () => {
