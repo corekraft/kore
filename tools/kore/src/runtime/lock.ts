@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { readFileSync, rmSync } from "node:fs";
 import { link, mkdir, open, rm } from "node:fs/promises";
 import { hostname, uptime } from "node:os";
 import { join } from "node:path";
@@ -39,6 +40,8 @@ export const HELD_LOCK_ENV = "KORE_HELD_ENVIRONMENT_LOCK";
 export interface HeldLock {
   /** Releases the lock if it is still ours. Safe to call more than once. */
   release: () => Promise<void>;
+  /** Synchronous release for `process.on("exit")`, where nothing can be awaited. */
+  releaseSync: () => void;
 }
 
 /** Creates the lock with `link` so it appears atomically with its owner record. */
@@ -91,13 +94,21 @@ async function recoverStale(
 }
 
 /** Whether this process was handed the environment's lock by its holder. */
-async function inheritsLock(lock: string, environment: string) {
+export async function inheritsLock(lock: string, environment: string) {
   const [name, token] = (process.env[HELD_LOCK_ENV] ?? "").split(":");
   return (
     name === environment &&
     token !== undefined &&
     (await readOwner(lock))?.token === token
   );
+}
+
+function readOwnerSync(lock: string): { token?: string } | undefined {
+  try {
+    return JSON.parse(readFileSync(lock, "utf8")) as { token?: string };
+  } catch {
+    return undefined;
+  }
 }
 
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
@@ -195,22 +206,35 @@ async function takeLock(
     process.env[HELD_LOCK_ENV] = `${environment}:${owner.token}`;
   }
   let released = false;
+  const restoreEnv = () => {
+    if (exportToken) {
+      if (previous === undefined) {
+        delete process.env[HELD_LOCK_ENV];
+      } else {
+        process.env[HELD_LOCK_ENV] = previous;
+      }
+    }
+  };
   return {
     release: async () => {
       if (released) {
         return;
       }
       released = true;
-      if (exportToken) {
-        if (previous === undefined) {
-          delete process.env[HELD_LOCK_ENV];
-        } else {
-          process.env[HELD_LOCK_ENV] = previous;
-        }
-      }
+      restoreEnv();
       // Only remove the lock if it is still ours.
       if ((await readOwner(lock))?.token === owner.token) {
         await rm(lock, { force: true });
+      }
+    },
+    releaseSync: () => {
+      if (released) {
+        return;
+      }
+      released = true;
+      restoreEnv();
+      if (readOwnerSync(lock)?.token === owner.token) {
+        rmSync(lock, { force: true });
       }
     },
   };

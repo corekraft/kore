@@ -1,48 +1,60 @@
-import { before, after } from "node:test";
 import { findRoot } from "../config/config.js";
-import { holdEnvironmentLock, type HeldLock } from "./lock.js";
+import { holdEnvironmentLock, inheritsLock } from "./lock.js";
 
 // Docs: AGENTS.md "Mutations are serialized per environment."
 
 /** Ten minutes: long enough for a `kore local up` already running to finish. */
 const DEFAULT_WAIT_MS = 10 * 60 * 1000;
 
-type Hook = () => Promise<void>;
+interface ProcessHooks {
+  on: (event: string, handler: () => void) => unknown;
+  exit: (code: number) => unknown;
+}
 
-interface SpecLockOptions {
-  before?: (fn: Hook) => void;
-  after?: (fn: Hook) => void;
+interface HoldOptions {
   root?: () => Promise<string>;
+  process?: ProcessHooks;
+  waitMs?: number;
 }
 
 /**
- * Makes an opt-in live spec file hold the environment lock for its whole run,
- * the same lock `kore local up` and the other mutating commands take. Call it
- * once at the top of every `*.integration.spec.ts` that mutates the cluster.
+ * Holds the environment lock for the whole test process, the same lock
+ * `kore local up` and every other mutating command take. Loaded through
+ * `node --import` by every `test:integration*` script, so no live spec can
+ * mutate the cluster unserialized, however many specs exist.
  *
- * It waits for a running kore mutation (up to `KORE_INTEGRATION_LOCK_WAIT_MS`,
- * ten minutes by default) and then fails naming the holder. The lock token is
- * exported, so kore commands the spec runs itself, in process or as children,
- * nest under it instead of deadlocking. Without `KORE_RUN_INTEGRATION=1` the
- * specs skip and no lock is taken.
+ * Without `KORE_RUN_INTEGRATION=1` it does nothing. It waits for a running
+ * kore mutation (`KORE_INTEGRATION_LOCK_WAIT_MS`, ten minutes by default),
+ * then fails naming the holder. The token is exported, so the child process
+ * `node --test` starts for each spec file (which loads this module again)
+ * and every kore command a spec runs nest under it instead of deadlocking.
+ * The lock is released on exit and on SIGINT/SIGTERM.
  */
-export function lockEnvironmentForSpec(
-  environment: string,
-  options: SpecLockOptions = {},
-): void {
-  let held: HeldLock | undefined;
-  (options.before ?? before)(async () => {
-    if (process.env.KORE_RUN_INTEGRATION !== "1") {
-      return;
-    }
-    const root = await (options.root ?? findRoot)();
-    const waitMs = Number(
-      process.env.KORE_INTEGRATION_LOCK_WAIT_MS ?? DEFAULT_WAIT_MS,
-    );
-    held = await holdEnvironmentLock(root, environment, { waitMs });
-  });
-  (options.after ?? after)(async () => {
-    await held?.release();
-    held = undefined;
-  });
+export async function holdIntegrationLock(
+  options: HoldOptions = {},
+): Promise<void> {
+  if (process.env.KORE_RUN_INTEGRATION !== "1") {
+    return;
+  }
+  const environment = process.env.KORE_INTEGRATION_ENVIRONMENT ?? "local";
+  const root = await (options.root ?? findRoot)();
+  const lock = `${root}/.kore/locks/${environment}.lock`;
+  if (await inheritsLock(lock, environment)) {
+    return;
+  }
+  const waitMs =
+    options.waitMs ??
+    Number(process.env.KORE_INTEGRATION_LOCK_WAIT_MS ?? DEFAULT_WAIT_MS);
+  const held = await holdEnvironmentLock(root, environment, { waitMs });
+  const hooks = options.process ?? process;
+  hooks.on("exit", held.releaseSync);
+  for (const [signal, code] of [
+    ["SIGINT", 130],
+    ["SIGTERM", 143],
+  ] as const) {
+    hooks.on(signal, () => {
+      held.releaseSync();
+      hooks.exit(code);
+    });
+  }
 }

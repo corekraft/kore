@@ -8,10 +8,6 @@ import {
   clusterUp,
 } from "../cluster/index.js";
 import { ProcessRunner } from "../runtime/index.js";
-import { lockEnvironmentForSpec } from "../runtime/integration-lock.js";
-
-// Mutates the cluster, so it holds the environment lock for the whole file.
-lockEnvironmentForSpec("local");
 
 test(
   "Minikube create/inspect/stop/resume integration",

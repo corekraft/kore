@@ -11,10 +11,6 @@ import {
   publishUntrustedCopies,
   runningPodWithImage,
 } from "./admission-probe.js";
-import { lockEnvironmentForSpec } from "../runtime/integration-lock.js";
-
-// Mutates the cluster, so it holds the environment lock for the whole file.
-lockEnvironmentForSpec("local");
 
 // Docs: docs/decisions/0028-image-trust-authority.md
 // Live and opt-in: needs a running local profile with the `reference`

@@ -6,10 +6,6 @@ import { ProcessRunner } from "../runtime/index.js";
 import { stopLocalTunnel } from "../tunnel/index.js";
 import { assertDatabasePersistence } from "./platform.database.integration.spec.js";
 import { assertReferenceSmoke } from "./platform.reference-smoke.integration.spec.js";
-import { lockEnvironmentForSpec } from "../runtime/integration-lock.js";
-
-// Mutates the cluster, so it holds the environment lock for the whole file.
-lockEnvironmentForSpec("local");
 
 test(
   "README local quick start converges and cleans up",

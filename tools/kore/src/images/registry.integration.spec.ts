@@ -10,10 +10,6 @@ import { loadRegistryCredential, rotateRegistryCredentials } from "./index.js";
 import type { RegistryCredential } from "./index.js";
 import { localRegistryReference } from "./registry.js";
 import { loadRegistryCa } from "./registry-tls.js";
-import { lockEnvironmentForSpec } from "../runtime/integration-lock.js";
-
-// Mutates the cluster, so it holds the environment lock for the whole file.
-lockEnvironmentForSpec("local");
 
 // Docs: docs/decisions/0055-registry-credential-rotation.md and
 // docs/decisions/0058-registry-transport-tls.md
