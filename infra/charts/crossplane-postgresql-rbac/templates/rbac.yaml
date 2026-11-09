@@ -1,3 +1,4 @@
+# Cluster-wide: composing CloudNativePG Clusters needs no Secret access.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -10,28 +11,6 @@ rules:
   - apiGroups: [postgresql.cnpg.io]
     resources: [clusters/status]
     verbs: [get]
-  - apiGroups: [""]
-    resources: [secrets]
-    verbs: [get, list, watch, create, patch, delete]
-{{- if .Values.namespaces }}
-{{- range .Values.namespaces }}
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: crossplane-postgresql-composition
-  namespace: {{ . }}
-  labels: {app.kubernetes.io/managed-by: Helm}
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: crossplane-postgresql-composition
-subjects:
-  - kind: ServiceAccount
-    name: crossplane
-    namespace: crossplane-system
-{{- end }}
-{{- else }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -46,4 +25,16 @@ subjects:
   - kind: ServiceAccount
     name: crossplane
     namespace: crossplane-system
-{{- end }}
+---
+# The Secret permission set only. It is deliberately never bound here: kore app
+# up binds it with a RoleBinding in each application namespace it activates, so
+# Crossplane cannot read Secrets in kore-system (ADR 0061).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: crossplane-postgresql-secrets
+  labels: {app.kubernetes.io/managed-by: Helm}
+rules:
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: [get, list, watch, create, patch, delete]

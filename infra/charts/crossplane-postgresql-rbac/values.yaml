@@ -1,4 +1,1 @@
-# Namespaces whose PostgreSQLInstance Secrets Crossplane may manage. Empty
-# grants the Secret permissions cluster-wide, because claims may live in any
-# application namespace; list namespaces to bind them per namespace instead.
-namespaces: []
+# No values. Secret access is bound per application namespace by `kore app up`.
