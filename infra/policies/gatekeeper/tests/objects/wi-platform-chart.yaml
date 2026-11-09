@@ -1,0 +1,8 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: {name: tempo, namespace: observability}
+spec:
+  template:
+    spec:
+      serviceAccountName: tempo
+      containers: [{name: tempo, image: invalid}]
