@@ -1416,8 +1416,8 @@
                 frontend release is a pinned static-server image with the build
                 inside, signed and deployed by digest. GitHub Pages or object
                 storage is a per-service escape hatch (<a
-                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0044-static-frontends-as-signed-images.md"
-                  >ADR 0044</a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0045-static-frontends-as-signed-images.md"
+                  >ADR 0045</a
                 >).
               </li>
               <li>
@@ -1473,8 +1473,8 @@
                 first, as a catalog Helm release; a CPU-based autoscaler with at
                 least two replicas and no replica count in the chart; KEDA
                 after, and no scale to zero (<a
-                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0046-autoscaling-metrics-server-then-keda.md"
-                  >ADR 0046</a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0047-autoscaling-metrics-server-then-keda.md"
+                  >ADR 0047</a
                 >).
               </li>
             </ul>
@@ -1539,8 +1539,8 @@
           <p class="lede">
             Decided in
             <a
-              href="https://github.com/corekraft/kore/blob/main/docs/decisions/0045-bff-jvm-with-agent-and-aot-cache.md"
-              >ADR 0045</a
+              href="https://github.com/corekraft/kore/blob/main/docs/decisions/0046-bff-jvm-with-agent-and-aot-cache.md"
+              >ADR 0046</a
             >.
           </p>
         </div>
@@ -1653,8 +1653,8 @@
                 partitioned with their own access control. A tenant root can get
                 its own Kafka cluster or object store when its administrators
                 request it and an operator approves (<a
-                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0047-data-service-tenancy-tiers.md"
-                  >ADR 0047</a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0048-data-service-tenancy-tiers.md"
+                  >ADR 0048</a
                 >).</span
               >
             </li>
@@ -1675,8 +1675,8 @@
                 images. The MongoDB server is SSPL and Redis is RSALv2, SSPL, or
                 AGPLv3, so upstream MongoDB or Redis would be an exception with
                 its own ADR (<a
-                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0048-data-store-implementations.md"
-                  >ADR 0048</a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0049-data-store-implementations.md"
+                  >ADR 0049</a
                 >).</span
               >
             </li>
@@ -1780,8 +1780,8 @@
                 Keycloak. Loki and Tempo separate tenants natively, Prometheus
                 is read through a label-enforcing proxy, and Mimir replaces it
                 when a tenant needs its own metric retention (<a
-                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0049-tenant-telemetry-isolation.md"
-                  >ADR 0049</a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0050-tenant-telemetry-isolation.md"
+                  >ADR 0050</a
                 >).</span
               >
             </li>
@@ -1794,8 +1794,8 @@
                 into the tenant's Grafana, with contact points from the
                 Organization resource. Alertmanager serves platform alerts only
                 (<a
-                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0050-telemetry-retention-and-alerting.md"
-                  >ADR 0050</a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0051-telemetry-retention-and-alerting.md"
+                  >ADR 0051</a
                 >).</span
               >
             </li>
@@ -2369,8 +2369,8 @@
                 storage as a per-service escape hatch.</span
               ><a
                 class="pill plan"
-                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0044-static-frontends-as-signed-images.md"
-                >Decided · ADR 0044</a
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0045-static-frontends-as-signed-images.md"
+                >Decided · ADR 0045</a
               >
             </div>
           </li>
@@ -2382,8 +2382,8 @@
                 AOT cache; native image only by exception.</span
               ><a
                 class="pill plan"
-                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0045-bff-jvm-with-agent-and-aot-cache.md"
-                >Decided · ADR 0045</a
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0046-bff-jvm-with-agent-and-aot-cache.md"
+                >Decided · ADR 0046</a
               >
             </div>
           </li>
@@ -2395,8 +2395,8 @@
                 autoscaling defaults in chart values; KEDA after.</span
               ><a
                 class="pill plan"
-                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0046-autoscaling-metrics-server-then-keda.md"
-                >Decided · ADR 0046</a
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0047-autoscaling-metrics-server-then-keda.md"
+                >Decided · ADR 0047</a
               >
             </div>
           </li>
@@ -2409,8 +2409,8 @@
                 billing.</span
               ><a
                 class="pill plan"
-                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0051-usage-metering-with-opencost.md"
-                >Decided · ADR 0051</a
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0052-usage-metering-with-opencost.md"
+                >Decided · ADR 0052</a
               >
             </div>
           </li>
@@ -2450,8 +2450,8 @@
                 stores per tenant root on approval.</span
               ><a
                 class="pill plan"
-                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0047-data-service-tenancy-tiers.md"
-                >Decided · ADR 0047</a
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0048-data-service-tenancy-tiers.md"
+                >Decided · ADR 0048</a
               >
             </div>
           </li>
@@ -2463,8 +2463,8 @@
                 no Bitnami images.</span
               ><a
                 class="pill plan"
-                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0048-data-store-implementations.md"
-                >Decided · ADR 0048</a
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0049-data-store-implementations.md"
+                >Decided · ADR 0049</a
               >
             </div>
           </li>
@@ -2477,8 +2477,8 @@
                 later.</span
               ><a
                 class="pill plan"
-                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0049-tenant-telemetry-isolation.md"
-                >Decided · ADR 0049</a
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0050-tenant-telemetry-isolation.md"
+                >Decided · ADR 0050</a
               >
             </div>
           </li>
@@ -2491,8 +2491,8 @@
                 for platform alerts only.</span
               ><a
                 class="pill plan"
-                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0050-telemetry-retention-and-alerting.md"
-                >Decided · ADR 0050</a
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0051-telemetry-retention-and-alerting.md"
+                >Decided · ADR 0051</a
               >
             </div>
           </li>

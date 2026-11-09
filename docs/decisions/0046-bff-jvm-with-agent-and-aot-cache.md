@@ -5,7 +5,7 @@ date: 2026-11-09
 last-verified: 2026-11-09
 ---
 
-# ADR 0045: Run the BFF on the JVM with the Java agent and a build-time AOT cache
+# ADR 0046: Run the BFF on the JVM with the Java agent and a build-time AOT cache
 
 Source: [`docs/vision.md` § Backend for Frontend](../vision.md#backend-for-frontend)
 
@@ -40,7 +40,7 @@ context has refreshed.
 - **The budget is measured, not assumed.** The template records measured
   startup to readiness with the cache and agent. Until it meets the budget,
   autoscaling starts earlier and keeps at least two replicas
-  ([ADR 0046](0046-autoscaling-metrics-server-then-keda.md)).
+  ([ADR 0047](0047-autoscaling-metrics-server-then-keda.md)).
 
 ## Consequences
 

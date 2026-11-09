@@ -5,7 +5,7 @@ date: 2026-11-09
 last-verified: 2026-11-09
 ---
 
-# ADR 0050: Set telemetry retention per tenant and route alerts through each tenant's Grafana
+# ADR 0051: Set telemetry retention per tenant and route alerts through each tenant's Grafana
 
 Source: [`docs/vision.md` § Observability Out of the Box](../vision.md#observability-out-of-the-box)
 
@@ -18,7 +18,7 @@ Each organization should get default dashboards and alerts, retention set per
 tenant, and telemetry volume counted toward usage. Loki and Tempo support
 per-tenant retention and ingestion limits; Prometheus has one retention for
 everything. Each tenant has its own Grafana
-([ADR 0049](0049-tenant-telemetry-isolation.md)).
+([ADR 0050](0050-tenant-telemetry-isolation.md)).
 
 ## Decision
 

@@ -1,0 +1,14 @@
+{
+  "webhook":
+    {
+      "image":
+        { "repository": "ghcr.io/corekraft/kore/mirror/policy-controller" }
+    },
+  "leasescleanup":
+    {
+      "image":
+        {
+          "repository": "ghcr.io/corekraft/kore/mirror/policy-controller-kubectl"
+        }
+    }
+}

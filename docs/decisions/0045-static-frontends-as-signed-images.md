@@ -5,7 +5,7 @@ date: 2026-11-09
 last-verified: 2026-11-09
 ---
 
-# ADR 0044: Serve static frontends in the cluster as signed images
+# ADR 0045: Serve static frontends in the cluster as signed images
 
 Source: [`docs/vision.md` § The Golden Path: Frontend, BFF, Data](../vision.md#the-golden-path-frontend-bff-data)
 
@@ -37,5 +37,5 @@ or on a static host are not.
 - Every frontend release goes through the same build, sign, and deploy path as
   a backend, and rolls back by digest.
 - Frontends cost a small pod each; they scale with the same autoscaling defaults
-  ([ADR 0046](0046-autoscaling-metrics-server-then-keda.md)).
+  ([ADR 0047](0047-autoscaling-metrics-server-then-keda.md)).
 - The static-server base image is pinned and recorded like other images.

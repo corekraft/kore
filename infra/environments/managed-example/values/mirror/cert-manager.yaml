@@ -1,0 +1,30 @@
+{
+  "image":
+    { "repository": "ghcr.io/corekraft/kore/mirror/cert-manager-controller" },
+  "cainjector":
+    {
+      "image":
+        {
+          "repository": "ghcr.io/corekraft/kore/mirror/cert-manager-cainjector"
+        }
+    },
+  "webhook":
+    {
+      "image":
+        { "repository": "ghcr.io/corekraft/kore/mirror/cert-manager-webhook" }
+    },
+  "startupapicheck":
+    {
+      "image":
+        {
+          "repository": "ghcr.io/corekraft/kore/mirror/cert-manager-startupapicheck"
+        }
+    },
+  "acmesolver":
+    {
+      "image":
+        {
+          "repository": "ghcr.io/corekraft/kore/mirror/cert-manager-acmesolver"
+        }
+    }
+}

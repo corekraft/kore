@@ -5,7 +5,7 @@ date: 2026-11-09
 last-verified: 2026-11-09
 ---
 
-# ADR 0048: Implement local data services with SeaweedFS, Strimzi, FerretDB, and Valkey
+# ADR 0049: Implement local data services with SeaweedFS, Strimzi, FerretDB, and Valkey
 
 Source: [`docs/vision.md` § Data Services, Scoped to the Organization](../vision.md#data-services-scoped-to-the-organization)
 
@@ -24,7 +24,7 @@ repository.
   Ceph was too heavy for local use, and Garage covers less of the S3 API.
 - **Kafka: Strimzi.** Topics and users are Kubernetes resources, which fits
   organization-prefixed topics and per-service ACLs
-  ([ADR 0047](0047-data-service-tenancy-tiers.md)).
+  ([ADR 0048](0048-data-service-tenancy-tiers.md)).
 - **Document store: FerretDB on CloudNativePG.** FerretDB serves the MongoDB
   wire protocol on PostgreSQL with the DocumentDB extension, so the document
   store reuses the PostgreSQL platform

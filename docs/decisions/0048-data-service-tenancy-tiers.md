@@ -5,7 +5,7 @@ date: 2026-11-09
 last-verified: 2026-11-09
 ---
 
-# ADR 0047: Tier data services between per-claim instances, shared stores, and dedicated tenant stores
+# ADR 0048: Tier data services between per-claim instances, shared stores, and dedicated tenant stores
 
 Source: [`docs/vision.md` § Data Services, Scoped to the Organization](../vision.md#data-services-scoped-to-the-organization)
 

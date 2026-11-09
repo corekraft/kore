@@ -5,7 +5,7 @@ date: 2026-11-09
 last-verified: 2026-11-09
 ---
 
-# ADR 0049: Isolate telemetry per tenant with a Grafana each and tenant-scoped queries
+# ADR 0050: Isolate telemetry per tenant with a Grafana each and tenant-scoped queries
 
 Source: [`docs/vision.md` § Observability Out of the Box](../vision.md#observability-out-of-the-box)
 

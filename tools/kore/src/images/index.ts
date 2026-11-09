@@ -2,6 +2,7 @@
 export { imageForApplication, loadImageLock } from "./image-lock.js";
 export type { ImageLockEntry, LockedImage } from "./image-lock.js";
 export { platformImageLockErrors } from "./platform-image-lock.js";
+export { managedLockErrors } from "./managed-lock.js";
 export { renderedImages, unapprovedImages } from "./rendered-images.js";
 export { buildAndSignLocalImage } from "./local-image.js";
 export type { BuiltLocalImage } from "./local-image.js";

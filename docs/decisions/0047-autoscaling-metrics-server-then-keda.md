@@ -5,7 +5,7 @@ date: 2026-11-09
 last-verified: 2026-11-09
 ---
 
-# ADR 0046: Autoscale on metrics-server first, then KEDA
+# ADR 0047: Autoscale on metrics-server first, then KEDA
 
 Source: [`docs/vision.md` § Backend for Frontend](../vision.md#backend-for-frontend)
 

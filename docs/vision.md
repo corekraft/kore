@@ -187,7 +187,7 @@ graph LR
   built from a pinned static-server base with the build inside it, signed and
   deployed by digest. GitHub Pages or object storage is a per-service escape
   hatch whose files sit outside signature admission
-  ([ADR 0044](decisions/0044-static-frontends-as-signed-images.md)).
+  ([ADR 0045](decisions/0045-static-frontends-as-signed-images.md)).
 - **Same site as its BFF.** The browser should reach the frontend and its BFF
   on one site, for example `auth.apps.corekraft.ca` and
   `auth.apps.corekraft.ca/api` through the Gateway, or
@@ -235,7 +235,7 @@ graph LR
   application once as a training run, with the same JDK, flags, and agent and
   no secrets, and bakes the resulting JDK AOT cache into the image beside
   Spring's ahead-of-time processing, so every pod starts from it
-  ([ADR 0045](decisions/0045-bff-jvm-with-agent-and-aot-cache.md)).
+  ([ADR 0046](decisions/0046-bff-jvm-with-agent-and-aot-cache.md)).
 - **Native image is an exception.** The agent cannot run inside a GraalVM
   native image, so a native build, with the OpenTelemetry Spring Boot starter
   instead, is allowed only as a recorded exception.
@@ -248,7 +248,7 @@ graph LR
   with at least two replicas and a disruption budget, and leaves the replica
   count out so Helm and Argo CD never fight it. KEDA follows for request-rate
   scaling; BFFs do not scale to zero
-  ([ADR 0046](decisions/0046-autoscaling-metrics-server-then-keda.md)).
+  ([ADR 0047](decisions/0047-autoscaling-metrics-server-then-keda.md)).
 
 ### Data and Capabilities
 
@@ -265,7 +265,7 @@ Secret and speaks the standard protocol; the environment picks the
 implementation, as the PostgreSQL API already does
 ([ADR 0008](decisions/0008-crossplane-postgresql-platform-api.md)). The local
 implementations are decided in
-[ADR 0048](decisions/0048-data-store-implementations.md).
+[ADR 0049](decisions/0049-data-store-implementations.md).
 
 | Capability          | Contract the app sees                     | Local implementation                                    | Managed substitutes                                        | Default tenancy                                               |
 | ------------------- | ----------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------- |
@@ -290,7 +290,7 @@ Rules every data service keeps:
   prefix ACLs and quotas or bucket policies. A tenant root can get its own
   Kafka cluster or object store when its administrators request it and an
   operator approves
-  ([ADR 0047](decisions/0047-data-service-tenancy-tiers.md)).
+  ([ADR 0048](decisions/0048-data-service-tenancy-tiers.md)).
 - **Retained and recoverable.** Data is retained by default, and each
   capability gets export and restore, as PostgreSQL has
   ([ADR 0029](decisions/0029-local-export-and-restore.md)).
@@ -333,13 +333,13 @@ What a service gets without writing any instrumentation:
   Prometheus is read through a label-enforcing proxy, and Mimir replaces it
   when a tenant needs its own metric retention or limits. Within a tenant,
   dashboards are foldered per organization
-  ([ADR 0049](decisions/0049-tenant-telemetry-isolation.md)).
+  ([ADR 0050](decisions/0050-tenant-telemetry-isolation.md)).
 - **Dashboards and alerts come with each service.** Every service gets a
   dashboard for request rate, errors, latency, saturation, replicas, and its
   data claims, plus default alerts. Tenant alerts run in the tenant's Grafana
   with contact points from the `Organization` resource; Alertmanager serves
   only platform alerts
-  ([ADR 0050](decisions/0050-telemetry-retention-and-alerting.md)).
+  ([ADR 0051](decisions/0051-telemetry-retention-and-alerting.md)).
 - **Bounded per tenant.** Cardinality stays bounded by the attribute allowlist
   in ADR 0019. Logs keep 14 days and traces 7 days by default, overridable per
   tenant with ingestion limits; metrics keep one platform retention until
@@ -459,7 +459,7 @@ What exists or is in flight today, and what the vision adds.
 | Key-value store (Redis protocol)                                                                                           | New                                                                                  |
 | Organization scoping and quotas for every data service                                                                     | New                                                                                  |
 | Organization domains, service hostnames, and DNS automation                                                                | New                                                                                  |
-| Usage metering per organization with OpenCost, for visibility ([ADR 0051](decisions/0051-usage-metering-with-opencost.md)) | New                                                                                  |
+| Usage metering per organization with OpenCost, for visibility ([ADR 0052](decisions/0052-usage-metering-with-opencost.md)) | New                                                                                  |
 | Multi-cluster mesh and management                                                                                          | Deferred in Plan 1                                                                   |
 
 ## Horizons
@@ -529,17 +529,17 @@ so earlier references still resolve.
    ([ADR 0041](decisions/0041-backstage-and-argo-cd-per-tenant.md)).
 7. **Default static host.** Decided: in the cluster as a signed image, with
    GitHub Pages or object storage as a per-service escape hatch
-   ([ADR 0044](decisions/0044-static-frontends-as-signed-images.md)).
+   ([ADR 0045](decisions/0045-static-frontends-as-signed-images.md)).
 8. **BFF runtime.** Decided: always the JVM with the Java agent, started from a
    build-time AOT cache; native image only by exception
-   ([ADR 0045](decisions/0045-bff-jvm-with-agent-and-aot-cache.md)).
+   ([ADR 0046](decisions/0046-bff-jvm-with-agent-and-aot-cache.md)).
 9. **Autoscaling source.** Decided: metrics-server first, as a catalog Helm
    release, with autoscaling defaults in chart values; KEDA after
-   ([ADR 0046](decisions/0046-autoscaling-metrics-server-then-keda.md)).
+   ([ADR 0047](decisions/0047-autoscaling-metrics-server-then-keda.md)).
 10. **Usage and cost.** Decided: OpenCost and platform counters meter usage
     per organization for visibility, rolled up the tree; enforcement stays
     with quotas and there is no billing
-    ([ADR 0051](decisions/0051-usage-metering-with-opencost.md)).
+    ([ADR 0052](decisions/0052-usage-metering-with-opencost.md)).
 11. **Domain verification and DNS.** Decided: organizations at any level
     delegate zones under any TLD, services are subdomains inside them, and
     ExternalDNS writes the records
@@ -550,15 +550,15 @@ so earlier references still resolve.
 13. **Data isolation tiers.** Decided: per-claim instances for PostgreSQL,
     document, and key-value stores; shared, partitioned Kafka and object store;
     dedicated stores per tenant root on request and operator approval
-    ([ADR 0047](decisions/0047-data-service-tenancy-tiers.md)).
+    ([ADR 0048](decisions/0048-data-service-tenancy-tiers.md)).
 14. **Data store implementations.** Decided: SeaweedFS, Strimzi, FerretDB on
     CloudNativePG, and Valkey, with no Bitnami images
-    ([ADR 0048](decisions/0048-data-store-implementations.md)).
+    ([ADR 0049](decisions/0049-data-store-implementations.md)).
 15. **Telemetry isolation.** Decided: shared backends, a Grafana per tenant,
     Loki and Tempo multi-tenant, a label-enforcing proxy for Prometheus, and
     Mimir later
-    ([ADR 0049](decisions/0049-tenant-telemetry-isolation.md)).
+    ([ADR 0050](decisions/0050-tenant-telemetry-isolation.md)).
 16. **Telemetry retention and alert routing.** Decided: 14 days of logs and 7
     of traces by default with per-tenant overrides, tenant alerts in the
     tenant's Grafana, and Alertmanager for platform alerts only
-    ([ADR 0050](decisions/0050-telemetry-retention-and-alerting.md)).
+    ([ADR 0051](decisions/0051-telemetry-retention-and-alerting.md)).

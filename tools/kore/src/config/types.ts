@@ -61,6 +61,12 @@ export interface Environment {
   };
   /** The one registry address (host[:port]) every consumer derives from. */
   registry: { address: string };
+  /**
+   * Repository prefix (host included) of the signed platform image mirror. When
+   * set, every approved platform image is rewritten to `<prefix>/<name>` by the
+   * environment's values overlays and admitted by the image policy (ADR 0044).
+   */
+  platformMirror?: string;
   gateway: { namespace: string; name: string; hostname: string; port: number };
   secrets: { storeName: string; sourceNamespace: string };
   telemetry: { otlpEndpoint: string };

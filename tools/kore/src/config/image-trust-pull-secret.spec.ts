@@ -107,7 +107,12 @@ test("local trusts its local signing key and managed-example a pinned release wo
   assert.deepEqual(
     managed.imageTrustValues?.trust,
     keyless({
-      subjects: [releaseSubject, releaseSubject.replace(/v0\.1\.1$/, "v0.2.0")],
+      subjects: [
+        releaseSubject,
+        releaseSubject.replace(/v0\.1\.1$/, "v0.2.0"),
+        releaseSubject.replace(/v0\.1\.1$/, "v0.3.1"),
+        releaseSubject.replace(/v0\.1\.1$/, "v0.3.2"),
+      ],
     }),
   );
   await validateRepository(local);

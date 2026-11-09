@@ -1,4 +1,6 @@
+import { readFile } from "node:fs/promises";
 import { orderedComponents } from "../config/index.js";
+import { managedLockErrors } from "../images/index.js";
 import {
   doctor,
   doctorFailed,
@@ -11,10 +13,35 @@ import { print } from "./output.js";
 
 type Operation = ReturnType<typeof summarizeOperations>[number];
 
+/** Problems of the platform image lock a release published, or throws. */
+async function checkPlatformImageLock(
+  context: CommandContext,
+  path: string,
+): Promise<void> {
+  let lock: unknown;
+  try {
+    lock = JSON.parse(await readFile(path, "utf8"));
+  } catch (error) {
+    throw new Error(
+      `--platform-image-lock ${path} must be the platform-images.lock.json of a release: ${String(error)}`,
+    );
+  }
+  const errors = managedLockErrors(lock, context.repository);
+  if (errors.length > 0) {
+    throw new Error(
+      `platform image lock ${path} does not match environment ${context.repository.environment.name}:\n${errors.join("\n")}`,
+    );
+  }
+}
+
 export async function validateCommand(
   context: CommandContext,
 ): Promise<number> {
   const { repository, json } = context;
+  const lockPath = stringFlag(context.parsed, "platform-image-lock");
+  if (lockPath !== undefined) {
+    await checkPlatformImageLock(context, lockPath);
+  }
   const order = orderedComponents(repository.catalog).map(
     (component) => component.name,
   );

@@ -5,7 +5,7 @@ date: 2026-11-09
 last-verified: 2026-11-09
 ---
 
-# ADR 0051: Meter usage per organization with OpenCost, for visibility
+# ADR 0052: Meter usage per organization with OpenCost, for visibility
 
 Source: [`docs/vision.md` § The Portal: Backstage and Argo CD Out of the Box](../vision.md#the-portal-backstage-and-argo-cd-out-of-the-box)
 
@@ -14,7 +14,7 @@ Source: [`docs/vision.md` § The Portal: Backstage and Argo CD Out of the Box](.
 Organization administrators want to see what their services use and cost.
 Quotas already bound what an organization can consume
 ([ADR 0037](0037-tenant-isolation-by-namespace.md),
-[ADR 0047](0047-data-service-tenancy-tiers.md)). Kore must not reimplement
+[ADR 0048](0048-data-service-tenancy-tiers.md)). Kore must not reimplement
 cost allocation that an upstream tool already does.
 
 ## Decision

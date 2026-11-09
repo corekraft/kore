@@ -1,0 +1,40 @@
+---
+status: accepted
+summary: A managed environment declares a platformMirror and rewrites only the image repository of every approved platform image to it, leaving each digest with its one existing owner; a validate rule and an opt-in render test fail on a missing or drifted rewrite; the managed image policy admits the mirror under the same exact release subjects; and the release lock is attached to the GitHub release as an asset by a separate job and checked with kore validate, never committed by a bot.
+date: 2026-11-08
+last-verified: 2026-11-08
+---
+
+# ADR 0044: Managed platform images from the mirror
+
+Source: [`infra/plans/2-implementation.md` § Step 7](../../infra/plans/2-implementation.md)
+
+Refines: [ADR 0033](0033-platform-image-mirror.md) (it left workloads and admission unchanged and the lock unconsumed; this rolls a managed environment onto the mirror and decides how the lock reaches the repository), [ADR 0031](0031-registry-address-platform-variable.md) (a second, path-bearing location is declared once, beside `registry.address`).
+
+## Context
+
+Tag `v0.3.1` proved the mirror job: every approved image is copied bit-identically to `ghcr.io/corekraft/kore/mirror/<name>` and signed keylessly by `release.yaml@refs/tags/<tag>`. Because the copy is bit-identical, the mirror digest equals the upstream digest that charts already pin. Nothing consumes the mirror, so a managed environment still runs upstream (or seed) references, and nothing says how the lock reaches the repository.
+
+## Decision
+
+- **Rewrite the repository, keep the digest.** `managed-example` declares `platformMirror: ghcr.io/corekraft/kore/mirror`. One values file per component under `infra/environments/managed-example/values/mirror/` rewrites each image to `<platformMirror>/<name>`. Where a chart takes the repository separately from `tag`/`digest`/`sha`, the overlay holds only the repository, so the digest stays in `infra/environments/common/values/` (and the chart values), its one owner. Istio, ztunnel, and Istio CNI take one full reference, so their overlays repeat the digest; the checks below make a drift fail. `local` declares no mirror and keeps upstream references. Seeds are covered the same way (`oci-registry`, `policy-controller`): they still start before admission, now from their mirror reference, and stay the bootstrap exception.
+- **No drift.** `kore validate` (so every `loadRepository`) runs `mirrorRewriteErrors` for an environment that declares a mirror: every approved image needs a rewrite to its own name, a rewrite of an unknown name fails, any digest an overlay carries (in the reference, a `tag`, or a `digest` field beside the repository) must equal the approved digest, and a stale exemption fails. The opt-in `test:upstream-charts` also renders `managed-example` with the charts and requires every image to be `<platformMirror>/<name>@<approved digest>`. Observability charts that refuse to render without storage values borrow the local overlay in that test only; managed observability values belong to Step 11.
+- **Admission.** `kore-image-policy` receives `platform.mirror.repository` from the environment and adds `<platformMirror>/**` to `kore-platform-images`, with the same keyless authority. `managed-example` lists the exact subject `release.yaml@refs/tags/v0.3.1` (the tag that signed the mirror) beside the earlier ones, and stays in `warn` mode until a managed cluster proves it. No wildcard, branch, or pull-request subject is allowed; each later release whose mirror is to be admitted is added deliberately.
+- **The lock is attached to the release, checked by `kore validate`.** A new `attach-lock` job in `release.yaml` (`needs: mirror`, tag runs only, `contents: write` and nothing else) downloads the lock artifact and uploads `platform-images.lock.json` to the GitHub release release-please created. A rerun repeats an identical upload and refuses a different lock. `kore validate --environment managed-example --platform-image-lock <file>` (read-only) runs `platformImageLockErrors`, requires every mirror reference to sit under `platformMirror`, and requires every lock signer to be in the policy's `trust.subjects`. The lock is evidence, not authority: admission still verifies each signature, and the digests it carries are the ones already committed.
+- **Exempt for now.** The three `cnpg-postgresql-*` images are chosen by the local PostgreSQL composition's inline table; no managed composition exists. They are listed with a reason in `unmirroredImages`, and the check fails once an overlay rewrites one.
+
+## Rejected alternatives
+
+- **A generated overlay or mapping.** Each chart spells its image keys differently, so a generator needs a per-component table of value paths: the hand-written overlay with an extra moving part and a staleness risk. A table of paths owns the same facts as the overlay files.
+- **Repeating digests in the overlays** (or pointing charts at the lock's digests). A second owner of every pin; the mirror is bit-identical, so the existing pin is already correct.
+- **A bot-committed lock, or a lock written into the release PR.** The lock exists only after the tag-ref run (the signing identity must be the tag), which runs after the release PR merged; committing it back needs a write token on `main` or a second PR per release, a bot-authored file in the tree, and a window where the repository disagrees with the release.
+- **Attaching from release-please's job, or from `mirror`.** release-please runs on `main` before the tag-ref run and never has the lock. Uploading from `mirror` would add `contents: write` to the job that holds `id-token` and `packages`, whose signing identity is the trust root.
+- **Declaring the mirror as `registry.address`.** That value is `host[:port]` with an in-cluster-IP mode, and it is the application registry; the mirror has a path and a different owner.
+- **Signing the lock blob.** Worth considering, but it would make the lock an authority nothing needs; deferred.
+
+## Consequences
+
+- Evidence: the `platform-images.lock.json` artifact of the `v0.3.1` run (42538355127), downloaded with `gh run download`, passes `kore validate --environment managed-example --platform-image-lock` against the committed overlay, so every overlay digest equals the digest the release signed (2026-11-08). The check ran offline; no cluster was touched.
+- Not yet proven live: that a managed cluster pulls `<mirror>/<name>@<digest>` from GHCR. Rendered references keep the upstream tag beside the mirror digest (the mirror's own tag is the release tag), which a runtime resolves by the digest. `kore-upstream-images` (static pass for upstream proxy and database images in application namespaces) is unchanged; a managed environment should drop it once those images come from the mirror. Whether GHCR or the repository allows adding an asset to a published release (immutable releases) is not yet exercised; the first tag run after this lands shows it.
+- The two Crossplane function packages are still tag-pinned and unapproved, so they are neither mirrored nor rewritten.
+- `v0.3.2` is admitted too: its tag run (42540719589) mirrored and signed all 36 images, and its lock passes `kore validate --platform-image-lock` against the overlay (2026-11-09). A later release is a further `trust.subjects` entry with the lock check as its evidence.
