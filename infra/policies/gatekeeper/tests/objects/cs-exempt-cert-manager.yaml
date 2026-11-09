@@ -1,0 +1,10 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: cs-exempt, namespace: cert-manager}
+spec:
+  template:
+    spec:
+      containers:
+        - name: controller
+          image: invalid
+          securityContext: {privileged: true}

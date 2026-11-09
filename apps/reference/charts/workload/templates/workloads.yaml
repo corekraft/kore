@@ -73,6 +73,8 @@ metadata:
   labels: {istio.io/waypoint-for: service}
 spec:
   gatewayClassName: istio-waypoint
+  infrastructure:
+    annotations: {ambient.istio.io/xfcc-include-client-identity: "true"}
   listeners:
     - name: mesh
       port: 15008

@@ -5,6 +5,7 @@ import { assertExpectedCluster, retainedResources } from "../cluster/index.js";
 import { imageForApplication, loadImageLock } from "../images/index.js";
 import { platformStatus } from "../platform/index.js";
 import type { Runner } from "../runtime/index.js";
+import { tunnelHealthRow, type TunnelDependencies } from "../tunnel/index.js";
 
 /**
  * The components a new workload needs to be admitted: the registry that serves
@@ -36,6 +37,7 @@ export async function appStatus(
   repository: Repository,
   runner: Runner,
   name: string,
+  tunnelDependencies: TunnelDependencies = {},
 ): Promise<Record<string, unknown>> {
   await assertExpectedCluster(repository, runner);
   const localImageLockPath = ".kore/state/local-images.lock.json";
@@ -76,11 +78,23 @@ export async function appStatus(
     ],
     { capture: true },
   );
-  const degraded = await degradedAdmission(repository, runner);
+  const degraded: { component: string; namespace: string; detail: string }[] =
+    await degradedAdmission(repository, runner);
+  // A dead tunnel leaves the application unreachable from the host; status
+  // reports it with the remedy and never restarts it (read-only, ADR 0060).
+  const tunnel = await tunnelHealthRow(repository, tunnelDependencies);
+  if (tunnel?.status === "degraded") {
+    degraded.push({
+      component: tunnel.name,
+      namespace: tunnel.namespace,
+      detail: tunnel.detail,
+    });
+  }
   return {
     name,
     status: degraded.length ? "degraded" : "ready",
     degraded,
+    ...(tunnel && { tunnel }),
     image,
     resources: JSON.parse(resources.stdout),
     workload: JSON.parse(workload.stdout),

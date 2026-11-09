@@ -23,7 +23,7 @@ const bound = (docs: string[]) =>
 
 test("only the bootstrap group is bound to the gate, activation, and signing-key roles", async () => {
   const bindings = bound(await render());
-  assert.equal(bindings.length, 2);
+  assert.equal(bindings.length, 3);
   for (const binding of bindings) {
     assert.match(binding, /kind: Group\n\s+name: "kore:bootstrap"/);
     assert.doesNotMatch(binding, /kind: (User|ServiceAccount)/);
@@ -71,4 +71,22 @@ test("editing or deleting the gate is limited to the gate itself and never to na
     .split(/\n  - /)
     .find((rule) => /resources: \[namespaces\]/.test(rule))!;
   assert.doesNotMatch(namespaces, /delete/);
+});
+
+test("readiness evidence is writable only by bootstrap, by name, and never deletable", async () => {
+  const docs = await render();
+  const role = docs.find(
+    (doc) =>
+      /name: kore-readiness-evidence\n\s+namespace/.test(doc) &&
+      /^kind: Role$/m.test(doc),
+  )!;
+  assert.ok(role, "an evidence Role exists");
+  assert.match(role, /namespace: kore-system/);
+  assert.match(role, /resourceNames: \[kore-platform-readiness\]/);
+  assert.doesNotMatch(role, /(verbs|resources): \[[^\]]*(delete|\*)/);
+  const binding = docs.find(
+    (doc) =>
+      /^kind: RoleBinding$/m.test(doc) && /kore-readiness-evidence/.test(doc),
+  )!;
+  assert.match(binding, /kind: Group\n\s+name: "kore:bootstrap"/);
 });

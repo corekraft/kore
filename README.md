@@ -60,7 +60,12 @@ platform generation ([ADR 0054](docs/decisions/0054-application-admission-gate-c
 ready in that run, and the running platform images pass the image inventory
 ([ADR 0056](docs/decisions/0056-platform-image-inventory.md): `audit` locally, `enforce`
 in managed environments); `platform status` reports both. The refusal names the gate's state and
-the remedy.
+the remedy. The readiness manifest `infra/catalog/readiness.yaml` lists every
+prerequisite the gate waits for, and each open or close records evidence in the
+ConfigMap `kore-system/kore-platform-readiness`
+([ADR 0067](docs/decisions/0067-platform-readiness-manifest-and-evidence.md)).
+`kore platform gate-check --environment <name>` re-evaluates the manifest and closes
+the gate, never opens it, when a prerequisite is unhealthy; running workloads are untouched.
 
 `platform status` also lists cluster CRDs that no catalog component owns, or more than one,
 as degraded; this is an audit and never fails `platform up`
@@ -232,17 +237,18 @@ recent operations and any that were interrupted.
 Run `kore --help` for every flag; the usage text in `tools/kore/src/cli/usage.ts`
 is the source of truth.
 
-| Command         | Does                                                                                                                      |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `kore doctor`   | Checks pinned tools and prerequisites. Read-only.                                                                         |
-| `kore validate` | Validates catalogs, environments, and release ordering. Read-only.                                                        |
-| `kore cluster`  | Starts, stops, destroys, or reports the Minikube profile.                                                                 |
-| `kore platform` | Bootstraps, reconciles, stops, destroys, renders, or reports platform releases.                                           |
-| `kore app`      | Deploys, removes, or reports one application's resources and workload releases.                                           |
-| `kore data`     | Exports retained CloudNativePG data as an age-encrypted, digest-manifested artifact, or restores it into a fresh profile. |
-| `kore local`    | Brings the whole local environment up or down (`--prune` destroys it; `--prune --purge-data` also purges retained data).  |
-| `kore tunnel`   | Starts, stops, or reports the managed Minikube tunnel.                                                                    |
-| `kore registry` | Rotates the registry's push and read passwords and the enrolled pull Secrets (`rotate-credentials --yes`).                |
-| `kore secrets`  | Syncs local secrets, including the generated API token, into the cluster.                                                 |
-| `kore trust`    | Installs the local certificate authority before the Gateway is configured.                                                |
-| `kore journal`  | Lists recent mutating operations and flags interrupted ones. Read-only.                                                   |
+| Command         | Does                                                                                                                               |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `kore doctor`   | Checks pinned tools and prerequisites. Read-only.                                                                                  |
+| `kore validate` | Validates catalogs, environments, and release ordering. Read-only.                                                                 |
+| `kore cluster`  | Starts, stops, destroys, or reports the Minikube profile.                                                                          |
+| `kore platform` | Bootstraps, reconciles, stops, destroys, renders, or reports platform releases.                                                    |
+| `kore app`      | Deploys, removes, or reports one application's resources and workload releases.                                                    |
+| `kore data`     | Exports retained CloudNativePG data as an age-encrypted, digest-manifested artifact, or restores it into a fresh profile.          |
+| `kore local`    | Brings the whole local environment up or down (`--prune` destroys it; `--prune --purge-data` also purges retained data).           |
+| `kore tunnel`   | Starts, stops, or reports the managed Minikube tunnel.                                                                             |
+| `kore registry` | Rotates the registry's push and read passwords and the enrolled pull Secrets (`rotate-credentials --yes`).                         |
+| `kore secrets`  | Syncs local secrets, including the generated API token, into the cluster.                                                          |
+| `kore trust`    | Installs the local certificate authority before the Gateway is configured.                                                         |
+| `kore ops`      | Offline checks: dependency inventory and integrity, recovery objectives, upgrade from the previous release, CRD safety. Read-only. |
+| `kore journal`  | Lists recent mutating operations and flags interrupted ones. Read-only.                                                            |

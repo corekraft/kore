@@ -5,11 +5,12 @@ spec:
   enforcementAction: dryrun
   match:
     kinds:
-      - {apiGroups: [""], kinds: [Namespace, Pod]}
-      - {apiGroups: [apps, batch], kinds: [Deployment, StatefulSet, DaemonSet, Job, CronJob]}
+      - {apiGroups: [""], kinds: [Namespace, Pod, ReplicationController]}
+      - {apiGroups: [apps, batch], kinds: [Deployment, ReplicaSet, StatefulSet, DaemonSet, Job, CronJob]}
       - {apiGroups: [platform.kore.dev], kinds: [PostgreSQLInstance]}
   parameters:
     generation: g-0123456789ab
     state: open
     platformNamespaces: [kube-system, kore-system, cosign-system]
     bootstrapGroups: [kore:bootstrap]
+    controllerIdentities: [system:serviceaccount:kube-system:replicaset-controller, system:serviceaccount:kube-system:deployment-controller]

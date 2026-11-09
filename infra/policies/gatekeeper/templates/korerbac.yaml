@@ -1,20 +1,20 @@
 apiVersion: templates.gatekeeper.sh/v1
 kind: ConstraintTemplate
-metadata: {name: korerbac}
+metadata: { name: korerbac }
 spec:
   crd:
     spec:
-      names: {kind: KoreRBAC}
+      names: { kind: KoreRBAC }
       validation:
         openAPIV3Schema:
           type: object
           properties:
-            exemptNamespaces: {type: array, items: {type: string}}
-            signingNamespace: {type: string}
-            signingKeySecret: {type: string}
-            allowedSecretRoles: {type: array, items: {type: string}}
-            bootstrapGroups: {type: array, items: {type: string}}
-            namespaceBoundSecretRoles: {type: array, items: {type: string}}
+            exemptNamespaces: { type: array, items: { type: string } }
+            signingNamespace: { type: string }
+            signingKeySecret: { type: string }
+            allowedSecretRoles: { type: array, items: { type: string } }
+            bootstrapGroups: { type: array, items: { type: string } }
+            namespaceBoundSecretRoles: { type: array, items: { type: string } }
   targets:
     - target: admission.k8s.gatekeeper.sh
       rego: |
@@ -48,7 +48,10 @@ spec:
         # the key's namespace, by any ClusterRole, or through the built-in
         # admin/edit roles; each is refused unless it is the named signing-path
         # role, an allowlisted controller role, or bound only to bootstrap groups.
+        # Secrets are a core-group resource, so only a rule that covers the core
+        # group ("" or "*") reads them; a wildcard inside another API group does not.
         reads_secrets(rule) {
+          rule.apiGroups[_] in {"", "*"}
           rule.resources[_] in {"secrets", "*"}
           rule.verbs[_] in {"get", "list", "watch", "*"}
         }

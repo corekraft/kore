@@ -1,10 +1,10 @@
 import { join } from "node:path";
 import { exists } from "./files.js";
 import { registryAddressErrors } from "./registry-address.js";
-import { imageTrustErrors } from "./image-trust.js";
+import { policyErrors } from "./policy-validation.js";
 import { crdGroupErrors, crdNameFormatErrors } from "./crd-ownership.js";
 import { imageListErrors } from "./approved.js";
-import { orderedComponents } from "./order.js";
+import { orderedComponents, readinessErrors } from "./order.js";
 import type {
   Catalog,
   Component,
@@ -291,7 +291,8 @@ export async function validateRepository(
     )),
     ...cycleErrors(catalog),
     ...(await imageListErrors(repository)),
-    ...imageTrustErrors(repository),
+    ...(await policyErrors(repository)),
+    ...readinessErrors(repository),
     ...registryAddressErrors(repository),
     ...(
       await Promise.all(

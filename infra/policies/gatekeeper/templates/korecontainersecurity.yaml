@@ -2,27 +2,38 @@ apiVersion: templates.gatekeeper.sh/v1
 kind: ConstraintTemplate
 metadata: {name: korecontainersecurity}
 spec:
-  crd: {spec: {names: {kind: KoreContainerSecurity}}}
+  crd:
+    spec:
+      names: {kind: KoreContainerSecurity}
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties:
+            exemptNamespaces: {type: array, items: {type: string}}
   targets:
     - target: admission.k8s.gatekeeper.sh
       rego: |
         package kore.containersecurity
         import future.keywords.in
         workload { input.review.kind.kind in {"Deployment", "StatefulSet", "DaemonSet"} }
+        exempt { input.review.object.metadata.namespace in input.parameters.exemptNamespaces }
         violation[{"msg": msg}] {
           workload
+          not exempt
           container := input.review.object.spec.template.spec.containers[_]
           container.securityContext.privileged == true
           msg := sprintf("container %s must not be privileged", [container.name])
         }
         violation[{"msg": msg}] {
           workload
+          not exempt
           container := input.review.object.spec.template.spec.containers[_]
           not container.resources.requests.cpu
           msg := sprintf("container %s needs CPU and memory requests", [container.name])
         }
         violation[{"msg": msg}] {
           workload
+          not exempt
           container := input.review.object.spec.template.spec.containers[_]
           not container.readinessProbe
           msg := sprintf("container %s needs a readiness probe", [container.name])

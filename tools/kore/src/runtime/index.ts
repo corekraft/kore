@@ -21,3 +21,5 @@ export {
   withTransientRetry,
 } from "./retry.js";
 export type { TransientRetryOptions } from "./retry.js";
+export { listHostProcesses, terminateMatching } from "./processes.js";
+export type { ProcessControl, ProcessEntry } from "./processes.js";

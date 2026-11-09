@@ -44,6 +44,8 @@ export interface ProbeOptions {
   placement?: "container" | "initContainer";
   /** The main container's image when `placement` is `initContainer`. */
   trusted?: string;
+  /** The ServiceAccount the probe pod names; omitted, the pod names none. */
+  serviceAccountName?: string;
 }
 
 /** Runs `kubectl`; a webhook refusal is a verdict, anything else is rethrown. */
@@ -95,6 +97,9 @@ export async function admissionVerdict(
     metadata: { name: `kore-admission-probe-${Date.now().toString(36)}` },
     spec: {
       restartPolicy: "Never",
+      ...(options.serviceAccountName === undefined
+        ? {}
+        : { serviceAccountName: options.serviceAccountName }),
       containers: [{ name: "probe", image: initial ? options.trusted : image }],
       ...(initial ? { initContainers: [{ name: "init-probe", image }] } : {}),
     },
@@ -190,6 +195,36 @@ export async function deployedImage(
     );
   }
   return image;
+}
+
+function splitDigest(image: string): { repository: string; digest: string } {
+  const at = image.indexOf("@sha256:");
+  if (at === -1) {
+    throw new Error(
+      `${image} carries no sha256 digest; pass the digest-qualified image the workload runs`,
+    );
+  }
+  return { repository: image.slice(0, at), digest: image.slice(at + 8) };
+}
+
+/**
+ * The signed image's repository addressed by tag alone. `kore-local` is the
+ * tag `kore app image` publishes beside every digest, so the reference names
+ * the signed content without pinning it.
+ */
+export function tagOnlyReference(image: string, tag = "kore-local"): string {
+  return `${splitDigest(image).repository}:${tag}`;
+}
+
+/**
+ * The same repository with one digest character changed: a well-formed digest
+ * for content nobody pushed or signed.
+ */
+export function modifiedDigestReference(image: string): string {
+  const { repository, digest } = splitDigest(image);
+  const last = digest.slice(-1);
+  const replacement = last === "0" ? "1" : "0";
+  return `${repository}@sha256:${digest.slice(0, -1)}${replacement}`;
 }
 
 export interface UntrustedImages {

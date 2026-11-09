@@ -31,3 +31,27 @@ tests:
       - {name: rejects-crossplane-secret-role-bound-cluster-wide, object: objects/rbac-crossplane-crb-secrets.yaml, assertions: [{violations: 1, message: signing key}]}
       - {name: rejects-crossplane-secret-role-bound-in-the-signing-namespace, object: objects/rbac-crossplane-rb-signing-namespace.yaml, assertions: [{violations: 1, message: signing key}]}
       - {name: accepts-crossplane-cluster-wide-composition-binding, object: objects/rbac-crossplane-crb-composition.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-upstream-cert-manager-cainjector, object: objects/rbac-excluded-cert-manager-cainjector.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-upstream-cert-manager-controller-issuers, object: objects/rbac-excluded-cert-manager-controller-issuers.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-upstream-cert-manager-controller-clusterissuers, object: objects/rbac-excluded-cert-manager-controller-clusterissuers.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-upstream-cert-manager-controller-certificates, object: objects/rbac-excluded-cert-manager-controller-certificates.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-upstream-cert-manager-controller-orders, object: objects/rbac-excluded-cert-manager-controller-orders.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-upstream-cert-manager-controller-challenges, object: objects/rbac-excluded-cert-manager-controller-challenges.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-upstream-cloudnative-pg, object: objects/rbac-excluded-cloudnative-pg.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-upstream-crossplane-system-aggregate-to-crossplane, object: objects/rbac-excluded-crossplane-system-aggregate-to-crossplane.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-upstream-crossplane-aggregate-to-admin, object: objects/rbac-excluded-crossplane-aggregate-to-admin.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-upstream-crossplane-aggregate-to-edit, object: objects/rbac-excluded-crossplane-aggregate-to-edit.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-upstream-gatekeeper-manager-role, object: objects/rbac-excluded-gatekeeper-manager-role.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-upstream-istiod-clusterrole-istio-system, object: objects/rbac-excluded-istiod-clusterrole-istio-system.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-upstream-istio-reader-clusterrole-istio-system, object: objects/rbac-excluded-istio-reader-clusterrole-istio-system.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-upstream-policy-controller-webhook, object: objects/rbac-excluded-policy-controller-webhook.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-upstream-cluster-admin, object: objects/rbac-excluded-cluster-admin.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-upstream-admin, object: objects/rbac-excluded-admin.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-upstream-edit, object: objects/rbac-excluded-edit.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-upstream-system-node, object: objects/rbac-excluded-system-node.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-upstream-system-kube-controller-manager, object: objects/rbac-excluded-system-kube-controller-manager.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-upstream-system-controller-generic-garbage-collector, object: objects/rbac-excluded-system-controller-generic-garbage-collector.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-upstream-system-controller-namespace-controller, object: objects/rbac-excluded-system-controller-namespace-controller.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-upstream-system-controller-resourcequota-controller, object: objects/rbac-excluded-system-controller-resourcequota-controller.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-wildcard-resources-in-a-non-core-api-group, object: objects/rbac-clusterrole-wildcard-other-group.yaml, assertions: [{violations: 0}]}
+      - {name: rejects-wildcard-resources-in-every-api-group, object: objects/rbac-clusterrole-wildcard-all-groups.yaml, assertions: [{violations: 1, message: signing key}]}

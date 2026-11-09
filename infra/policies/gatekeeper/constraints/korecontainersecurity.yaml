@@ -4,3 +4,6 @@ metadata: {name: kore-container-security}
 spec:
   enforcementAction: dryrun
   match: {kinds: [{apiGroups: [apps], kinds: [Deployment, StatefulSet, DaemonSet]}]}
+  # Third-party controller namespaces (upstream charts set no CPU request or readiness probe; minikube's kube-proxy is privileged). Kore-owned and application namespaces stay covered. ADR 0066.
+  parameters:
+    exemptNamespaces: [kube-system, cert-manager, gatekeeper-system, istio-system, crossplane-system, external-secrets, cnpg-system, opentelemetry-operator-system, observability]

@@ -65,7 +65,7 @@ test("app up binds Crossplane's Secret role in the application namespace before 
       digest,
       signer: "local-kore-key",
     },
-    "/tmp/kore.pub",
+    { publicKey: "/tmp/kore.pub" },
   );
 
   const bind = calls.findIndex(({ input }) => input?.includes("RoleBinding"));

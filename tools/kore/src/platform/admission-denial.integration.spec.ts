@@ -8,8 +8,10 @@ import {
   admissionVerdict,
   deployedImage,
   ephemeralContainerVerdict,
+  modifiedDigestReference,
   publishUntrustedCopies,
   runningPodWithImage,
+  tagOnlyReference,
 } from "./admission-probe.js";
 
 // Docs: docs/decisions/0028-image-trust-authority.md
@@ -189,5 +191,41 @@ test(
       `an image no ClusterImagePolicy matches must be denied: ${unmatchedImage}`,
     );
     assert.match(verdict.detail, /no matching policies/i);
+  },
+);
+
+test(
+  "a tag-only reference and a modified digest of the signed image are denied",
+  live,
+  async () => {
+    const repository = await loadRepository("local", await findRoot());
+    const runner = new ProcessRunner();
+    await assertExpectedCluster(repository, runner);
+
+    const signed = await deployedImage(repository, runner, namespace);
+    const baseline = await admissionVerdict(
+      repository,
+      runner,
+      namespace,
+      signed,
+    );
+    assert.equal(
+      baseline.admitted,
+      true,
+      `the signed digest must be admitted so a denial below is caused by the variant: ${baseline.detail}`,
+    );
+
+    for (const [what, image] of [
+      ["a tag-only reference", tagOnlyReference(signed)],
+      ["a modified digest", modifiedDigestReference(signed)],
+    ] as const) {
+      const verdict = await admissionVerdict(
+        repository,
+        runner,
+        namespace,
+        image,
+      );
+      assert.equal(verdict.admitted, false, `${what} must be denied: ${image}`);
+    }
   },
 );
