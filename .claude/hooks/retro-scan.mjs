@@ -7,16 +7,22 @@
 // Usage: node .claude/hooks/retro-scan.mjs [--dir <transcripts>] [--since YYYY-MM-DD]
 
 import { createHash } from "node:crypto";
-import { readFileSync, readdirSync } from "node:fs";
+import {
+  closeSync,
+  openSync,
+  readFileSync,
+  readdirSync,
+  readSync,
+} from "node:fs";
 import { homedir } from "node:os";
-import { basename, join } from "node:path";
+import { basename, join, sep } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-import { lastRetrospective, readPlans } from "./context.mjs";
+import { lastRetrospective, readPlans, windowStart } from "./context.mjs";
 
 const USAGE =
-  "Usage: node .claude/hooks/retro-scan.mjs [--dir <transcripts>] [--since YYYY-MM-DD]\n--since keeps sessions that ended after that date, like the session-start count.";
+  "Usage: node .claude/hooks/retro-scan.mjs [--dir <transcripts>] [--since YYYY-MM-DD]\n--since keeps sessions active at or after local midnight of that date, like the session-start count.";
 const MAX_ERROR = 120;
 const MIN_WARNINGS = 5;
 const MIN_CORRECTION_WORDS = 4;
@@ -267,7 +273,7 @@ function outcome(warning, ordered) {
 
 /**
  * Scan sessions ({ id, text }) into the report. Options: since (YYYY-MM-DD,
- * sessions that ended earlier are left out), knownSkills, auditRules.
+ * sessions that ended before local midnight of that date are left out), knownSkills, auditRules.
  */
 export function scan(
   inputs,
@@ -277,7 +283,7 @@ export function scan(
   const included = parsed
     .map((session) => ({ session, ...timestamps(session) }))
     .filter(
-      ({ last }) => last !== null && (!since || last.slice(0, 10) > since),
+      ({ last }) => last !== null && Date.parse(last) >= windowStart(since),
     )
     .sort((a, b) => a.first.localeCompare(b.first));
 
@@ -427,18 +433,119 @@ function parseArgs(argv) {
   return args;
 }
 
-/** The main checkout's transcript directory, which a worktree shares by repository. */
-function defaultDir() {
-  const git = spawnSync(
-    "git",
-    ["rev-parse", "--path-format=absolute", "--git-common-dir"],
-    {
-      cwd: root,
-      encoding: "utf8",
-    },
-  );
-  const main = git.status === 0 ? join(git.stdout.trim(), "..") : root;
-  return join(homedir(), ".claude", "projects", main.replace(/[/.]/g, "-"));
+const PROBE_BYTES = 256 * 1024;
+const DEFAULT_BRANCHES = new Set(["main", "master", "HEAD"]);
+
+/** Claude names a project directory after its cwd with every non-alphanumeric replaced by "-". */
+const encodePath = (path) => path.replace(/[^a-zA-Z0-9]/g, "-");
+
+const insideOf = (path, base) => path === base || path.startsWith(base + sep);
+
+/** The first bytes of a transcript, enough to hold its first events. */
+function probe(file) {
+  const fd = openSync(file, "r");
+  try {
+    const buffer = Buffer.alloc(PROBE_BYTES);
+    return buffer.toString("utf8", 0, readSync(fd, buffer, 0, PROBE_BYTES, 0));
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/**
+ * Transcript directories under projectsDir whose sessions belong to the
+ * repository ({ main, worktrees, branches }). Claude files a session under its
+ * cwd, and worktrees are removed after use, so a directory name alone is not
+ * enough. A directory qualifies when any of its transcripts shows one of:
+ *   1. its name encodes the main checkout or a live worktree (git worktree list);
+ *   2. a recorded cwd inside the main checkout or a live worktree, which covers
+ *      removed worktrees under .claude/worktrees/;
+ *   3. a recorded gitBranch that is a branch of this repository, other than
+ *      main/master (which every repository has, so it would claim foreign work);
+ *   4. the main checkout's absolute path in the first 256 KB, which covers a
+ *      removed worktree outside the repository on a since-deleted branch.
+ * Rules 3 and 4 are heuristics and favor over-inclusion; the retro skill reads
+ * only the transcripts the scan names.
+ */
+export function repoTranscriptDirs(projectsDir, { main, worktrees, branches }) {
+  const roots = [...new Set([main, ...worktrees])];
+  const names = new Set(roots.map(encodePath));
+  const branchSet = new Set(branches.filter((b) => !DEFAULT_BRANCHES.has(b)));
+  let entries;
+  try {
+    entries = readdirSync(projectsDir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const belongs = (dir) => {
+    let files;
+    try {
+      files = readdirSync(dir).filter((f) => f.endsWith(".jsonl"));
+    } catch {
+      return false;
+    }
+    return files.some((file) => {
+      let head;
+      try {
+        head = probe(join(dir, file));
+      } catch {
+        return false;
+      }
+      if (head.includes(main)) return true;
+      for (const line of head.split("\n")) {
+        try {
+          const event = JSON.parse(line);
+          if (
+            typeof event?.cwd === "string" &&
+            roots.some((root) => insideOf(event.cwd, root))
+          )
+            return true;
+          if (branchSet.has(event?.gitBranch)) return true;
+        } catch {
+          // A partial last line or a foreign line proves nothing.
+        }
+      }
+      return false;
+    });
+  };
+  return entries
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => join(projectsDir, entry.name))
+    .filter((dir) => names.has(basename(dir)) || belongs(dir))
+    .sort();
+}
+
+function git(args) {
+  const result = spawnSync("git", args, { cwd: root, encoding: "utf8" });
+  return result.status === 0 ? result.stdout : "";
+}
+
+/** The repository's transcript directories: the main checkout and every worktree, live or removed. */
+function defaultDirs() {
+  const worktrees = git(["worktree", "list", "--porcelain"])
+    .split("\n")
+    .filter((line) => line.startsWith("worktree "))
+    .map((line) => line.slice("worktree ".length));
+  const common = git([
+    "rev-parse",
+    "--path-format=absolute",
+    "--git-common-dir",
+  ]).trim();
+  const main = worktrees[0] ?? (common ? join(common, "..") : root);
+  const branches = git([
+    "for-each-ref",
+    "--format=%(refname:short)",
+    "refs/heads",
+    "refs/remotes",
+  ])
+    .split("\n")
+    .filter(Boolean)
+    .map((name) => name.replace(/^origin\//, ""));
+  return repoTranscriptDirs(join(homedir(), ".claude", "projects"), {
+    main,
+    worktrees: worktrees.length > 0 ? worktrees : [main],
+    branches,
+  });
 }
 
 function lastRetrospectiveDate() {
@@ -451,23 +558,33 @@ function main(argv) {
     console.error(USAGE);
     return 2;
   }
-  const dir = args.dir ?? defaultDir();
+  const dirs = args.dir ? [args.dir] : defaultDirs();
   const since = args.since ?? (args.dir ? undefined : lastRetrospectiveDate());
-  let files;
+  const byId = new Map();
   try {
-    files = readdirSync(dir)
-      .filter((name) => name.endsWith(".jsonl"))
-      .sort();
+    for (const dir of dirs) {
+      for (const name of readdirSync(dir).filter((n) => n.endsWith(".jsonl"))) {
+        const id = basename(name, ".jsonl");
+        const text = readFileSync(join(dir, name), "utf8");
+        // A resumed session can appear in two directories; keep the fuller one.
+        if (text.length >= (byId.get(id)?.text.length ?? -1))
+          byId.set(id, { id, text });
+      }
+    }
   } catch {
     console.error(
-      `Cannot read transcripts in ${dir}. Pass --dir <transcripts>.\n${USAGE}`,
+      `Cannot read transcripts in ${dirs.join(", ") || "any project directory"}. Pass --dir <transcripts>.\n${USAGE}`,
     );
     return 2;
   }
-  const inputs = files.map((name) => ({
-    id: basename(name, ".jsonl"),
-    text: readFileSync(join(dir, name), "utf8"),
-  }));
+  if (!args.dir && byId.size === 0) {
+    console.error(
+      "No transcripts found for this repository or its worktrees. Pass --dir <transcripts>.\n" +
+        USAGE,
+    );
+    return 2;
+  }
+  const inputs = [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
   let knownSkills = [];
   try {
     knownSkills = readdirSync(join(root, "skills"), { withFileTypes: true })
