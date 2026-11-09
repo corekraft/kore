@@ -7,9 +7,11 @@ import {
   assertAdmissionGateOpen,
   closedAdmissionGate,
   ensureClosedAdmissionGate,
+  openAdmissionGate,
   platformGeneration,
   readAdmissionGate,
 } from "./admission-gate.js";
+import { gateCrdJson } from "./admission-gate-support.js";
 
 interface Call {
   command: string;
@@ -75,14 +77,43 @@ test("the gate is born closed for the current generation and exempts every platf
   expect(parameters.bootstrapGroups).toContain("kore:bootstrap");
 });
 
+test("the gate matches every PodSpec-bearing kind and the claim, and lets only cluster controllers keep admitted workloads running", async () => {
+  const gate = closedAdmissionGate(await loadRepository("local"));
+  const kinds = gate.spec.match.kinds.flatMap((match) => match.kinds);
+  for (const kind of [
+    "Pod",
+    "ReplicaSet",
+    "ReplicationController",
+    "Deployment",
+    "StatefulSet",
+    "DaemonSet",
+    "Job",
+    "CronJob",
+    "PostgreSQLInstance",
+    "Namespace",
+  ]) {
+    expect(kinds).toContain(kind);
+  }
+  const { controllerIdentities, bootstrapGroups } = gate.spec.parameters;
+  expect(controllerIdentities).toContain(
+    "system:serviceaccount:kube-system:replicaset-controller",
+  );
+  // An exemption by identity, never by a group developers can be placed in.
+  for (const identity of controllerIdentities) {
+    expect(identity).toMatch(/^system:(serviceaccount:kube-system:|kube-)/);
+    expect(bootstrapGroups).not.toContain(identity);
+  }
+});
+
 test("ensuring the gate applies it closed to the configured context under the bootstrap field manager", async () => {
   const repository = await loadRepository("local");
   const calls: Call[] = [];
 
   await ensureClosedAdmissionGate(repository, gateRunner(calls));
 
-  expect(calls).toHaveLength(1);
-  const [call] = calls;
+  const applies = calls.filter(({ args }) => args.includes("apply"));
+  expect(applies).toHaveLength(1);
+  const [call] = applies;
   expect(call?.command).toBe("kubectl");
   expect(call?.args).toEqual([
     "--context",
@@ -207,4 +238,99 @@ test("status reports a closed gate, a stale gate, and a missing gate as not read
   expect(await admissionGateStatus(repository, gateRunner([]))).toMatchObject({
     status: "missing",
   });
+});
+
+const crdName = "koreapplicationadmission.constraints.gatekeeper.sh";
+
+/** A cluster whose generated constraint CRD declares exactly these parameters. */
+function schemaRunner(calls: Call[], declared: string[] | undefined): Runner {
+  return {
+    async run(command, args, options) {
+      calls.push({ command, args, input: options?.input });
+      if (args.includes("get") && args.includes(`crd/${crdName}`)) {
+        return { stdout: gateCrdJson(declared ?? []), stderr: "", code: 0 };
+      }
+      return { stdout: "", stderr: "", code: 0 };
+    },
+  };
+}
+
+const oldParameters = [
+  "generation",
+  "state",
+  "platformNamespaces",
+  "bootstrapGroups",
+];
+
+function applied(calls: Call[]): { spec: { parameters: object } }[] {
+  return calls
+    .filter(({ args }) => args.includes("apply"))
+    .map((call) => JSON.parse(call.input ?? "{}"));
+}
+
+test("closing the gate on a cluster whose template predates controllerIdentities never sends the undeclared parameter", async () => {
+  const repository = await loadRepository("local");
+  const calls: Call[] = [];
+
+  await ensureClosedAdmissionGate(
+    repository,
+    schemaRunner(calls, oldParameters),
+  );
+
+  const [gate] = applied(calls);
+  expect(gate?.spec.parameters).toMatchObject({ state: "closed" });
+  expect(gate?.spec.parameters).not.toHaveProperty("controllerIdentities");
+});
+
+test("closing the gate once the template declares controllerIdentities sends it", async () => {
+  const repository = await loadRepository("local");
+  const calls: Call[] = [];
+
+  await ensureClosedAdmissionGate(
+    repository,
+    schemaRunner(calls, [...oldParameters, "controllerIdentities"]),
+  );
+
+  expect(applied(calls)[0]?.spec.parameters).toHaveProperty(
+    "controllerIdentities",
+  );
+});
+
+test("the schema is read before the constraint is applied, and the read never mutates", async () => {
+  const repository = await loadRepository("local");
+  const calls: Call[] = [];
+
+  await ensureClosedAdmissionGate(
+    repository,
+    schemaRunner(calls, oldParameters),
+  );
+
+  expect(calls[0]?.args).toContain("get");
+  expect(calls[0]?.args).toContain(`crd/${crdName}`);
+  expect(calls[1]?.args).toContain("apply");
+});
+
+test("opening the gate is refused, applying nothing, while the template still lacks controllerIdentities", async () => {
+  const repository = await loadRepository("local");
+  const calls: Call[] = [];
+
+  await expect(
+    openAdmissionGate(repository, schemaRunner(calls, oldParameters)),
+  ).rejects.toThrow(/controllerIdentities.*kore-policy-templates/s);
+  expect(applied(calls)).toHaveLength(0);
+});
+
+test("a repeated close on an up-to-date cluster applies the identical gate", async () => {
+  const repository = await loadRepository("local");
+  const calls: Call[] = [];
+  const runner = schemaRunner(calls, [
+    ...oldParameters,
+    "controllerIdentities",
+  ]);
+
+  await ensureClosedAdmissionGate(repository, runner);
+  await ensureClosedAdmissionGate(repository, runner);
+
+  const [first, second] = applied(calls);
+  expect(second).toEqual(first);
 });

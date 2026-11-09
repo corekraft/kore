@@ -7,7 +7,8 @@ Helm, kubectl, OpenTofu, and Kubernetes controllers without taking ownership of
 their reconciliation loops.
 
 For the plans, decisions, and reference files behind this, start at
-[`docs/index.md`](docs/index.md).
+[`docs/index.md`](docs/index.md). To run the platform, start with the
+[operator guide](docs/guides/operator.md).
 
 ## Quick start
 
@@ -59,7 +60,12 @@ platform generation ([ADR 0054](docs/decisions/0054-application-admission-gate-c
 ready in that run, and the running platform images pass the image inventory
 ([ADR 0056](docs/decisions/0056-platform-image-inventory.md): `audit` locally, `enforce`
 in managed environments); `platform status` reports both. The refusal names the gate's state and
-the remedy.
+the remedy. The readiness manifest `infra/catalog/readiness.yaml` lists every
+prerequisite the gate waits for, and each open or close records evidence in the
+ConfigMap `kore-system/kore-platform-readiness`
+([ADR 0067](docs/decisions/0067-platform-readiness-manifest-and-evidence.md)).
+`kore platform gate-check --environment <name>` re-evaluates the manifest and closes
+the gate, never opens it, when a prerequisite is unhealthy; running workloads are untouched.
 
 `platform status` also lists cluster CRDs that no catalog component owns, or more than one,
 as degraded; this is an audit and never fails `platform up`

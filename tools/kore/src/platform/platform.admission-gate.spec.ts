@@ -2,6 +2,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, expect, test, vi } from "vitest";
+
+// Enrollment is covered in enrollment.spec.ts and platform.enrollment-order.spec.ts.
+vi.mock("./enrollment.js", () => ({
+  enrollPlatformNamespaces: async () => undefined,
+}));
 import { loadRepository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 
@@ -41,27 +46,18 @@ vi.mock("./reconcile.js", () => ({
     events.push(`configure:${c.name}`);
   },
 }));
-vi.mock("./status.js", () => ({
-  imageInventoryStatusName: "image-inventory",
-  platformStatus: async () =>
-    control.unready
-      ? [
-          {
-            name: "gatekeeper",
-            namespace: "gatekeeper-system",
-            status: "degraded",
-            detail: "webhook not ready",
-          },
-        ]
-      : [
-          {
-            name: "gatekeeper",
-            namespace: "gatekeeper-system",
-            status: "ready",
-            detail: "installed and ready",
-          },
-        ],
-}));
+vi.mock("./status.js", async () => {
+  const { readyRows } = await import("./readiness-fixtures.js");
+  return {
+    imageInventoryStatusName: "image-inventory",
+    platformStatus: async (repository: Parameters<typeof readyRows>[0]) =>
+      readyRows(repository).map((row) =>
+        control.unready && row.name === "gatekeeper"
+          ? { ...row, status: "degraded", detail: "webhook not ready" }
+          : row,
+      ),
+  };
+});
 vi.mock("../security/index.js", () => ({
   installLocalTrust: async () => undefined,
 }));
@@ -69,6 +65,10 @@ vi.mock("../tunnel/index.js", () => ({
   startLocalTunnel: async () => undefined,
 }));
 
+import {
+  currentGateParameters,
+  gateCrdJson,
+} from "./admission-gate-support.js";
 import { platformGeneration, readAdmissionGate } from "./admission-gate.js";
 import { platformUp } from "./up.js";
 
@@ -83,15 +83,30 @@ function cluster(initial?: Gate) {
   const runner: Runner = {
     async run(_command, args, options) {
       if (args.includes("apply")) {
-        const { parameters } = (
-          JSON.parse(options?.input ?? "{}") as { spec: { parameters: Gate } }
-        ).spec;
+        const object = JSON.parse(options?.input ?? "{}") as {
+          kind: string;
+          spec: { parameters: Gate };
+        };
+        if (object.kind === "ConfigMap") {
+          events.push("evidence");
+          return { stdout: "", stderr: "", code: 0 };
+        }
+        const { parameters } = object.spec;
         box.gate = {
           generation: parameters.generation,
           state: parameters.state,
         };
         events.push(`gate:${parameters.state}:${parameters.generation}`);
         return { stdout: "", stderr: "", code: 0 };
+      }
+      if (
+        args.includes("crd/koreapplicationadmission.constraints.gatekeeper.sh")
+      ) {
+        return {
+          stdout: gateCrdJson(currentGateParameters),
+          stderr: "",
+          code: 0,
+        };
       }
       const stdout = box.gate
         ? JSON.stringify({ spec: { parameters: box.gate } })

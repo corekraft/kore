@@ -192,6 +192,36 @@ export async function deployedImage(
   return image;
 }
 
+function splitDigest(image: string): { repository: string; digest: string } {
+  const at = image.indexOf("@sha256:");
+  if (at === -1) {
+    throw new Error(
+      `${image} carries no sha256 digest; pass the digest-qualified image the workload runs`,
+    );
+  }
+  return { repository: image.slice(0, at), digest: image.slice(at + 8) };
+}
+
+/**
+ * The signed image's repository addressed by tag alone. `kore-local` is the
+ * tag `kore app image` publishes beside every digest, so the reference names
+ * the signed content without pinning it.
+ */
+export function tagOnlyReference(image: string, tag = "kore-local"): string {
+  return `${splitDigest(image).repository}:${tag}`;
+}
+
+/**
+ * The same repository with one digest character changed: a well-formed digest
+ * for content nobody pushed or signed.
+ */
+export function modifiedDigestReference(image: string): string {
+  const { repository, digest } = splitDigest(image);
+  const last = digest.slice(-1);
+  const replacement = last === "0" ? "1" : "0";
+  return `${repository}@sha256:${digest.slice(0, -1)}${replacement}`;
+}
+
 export interface UntrustedImages {
   /** Pushed to the internal registry; nobody signed it. */
   unsigned: string;

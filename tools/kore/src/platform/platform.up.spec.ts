@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 
+// Enrollment is covered in enrollment.spec.ts and platform.enrollment-order.spec.ts.
+vi.mock("./enrollment.js", () => ({
+  enrollPlatformNamespaces: async () => undefined,
+}));
+
 // Publishing the signing key is covered in platform.signing-key.spec.ts.
 vi.mock("../images/index.js", () => ({
   ensureLocalSigningPublicKey: async () => undefined,
@@ -10,8 +15,16 @@ vi.mock("./admission-gate.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./admission-gate.js")>()),
   closeExistingAdmissionGate: async () => undefined,
   openAdmissionGate: async () => undefined,
+  assertAdmissionGateOpen: async () => "g",
 }));
-vi.mock("./status.js", () => ({ platformStatus: async () => [] }));
+vi.mock("./status.js", async () => {
+  const { readyRows } = await import("./readiness-fixtures.js");
+  return {
+    imageInventoryStatusName: "image-inventory",
+    platformStatus: async (repository: Parameters<typeof readyRows>[0]) =>
+      readyRows(repository),
+  };
+});
 import { loadRepository } from "../config/index.js";
 import { platformUp } from "./up.js";
 import { mkdtemp, readFile, rm } from "node:fs/promises";

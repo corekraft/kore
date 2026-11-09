@@ -1,7 +1,10 @@
 import { registryTlsSecret } from "../images/registry-tls-fixtures.js";
 import { loadRepository } from "../config/index.js";
 import { platformGeneration } from "../platform/admission-gate.js";
-import { healthyWebhookOutput } from "../platform/webhook-fixtures.js";
+import {
+  healthyDaemonSetOutput,
+  healthyWebhookOutput,
+} from "../platform/webhook-fixtures.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 
 export const digest = "sha256:" + "a".repeat(64);
@@ -85,6 +88,10 @@ export function healthyReadinessOutput(
   }
   if (args.some((arg) => arg.includes("policy\\.sigstore\\.dev/include"))) {
     return "true"; // the namespace admission label read back after enrollment
+  }
+  const daemonSet = healthyDaemonSetOutput(args);
+  if (daemonSet !== undefined) {
+    return daemonSet;
   }
   if (args.some((arg) => arg.startsWith("go-template="))) {
     return "ready";
