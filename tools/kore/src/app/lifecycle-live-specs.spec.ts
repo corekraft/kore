@@ -7,10 +7,19 @@ import { expect, test } from "vitest";
 
 const read = (path: string) => readFile(new URL(path, import.meta.url), "utf8");
 
-test("the destroy-guard spec never asks a destroy to purge data", async () => {
-  const source = await read("../cluster/destroy-guard.integration.spec.ts");
-  expect(source).not.toMatch(/["']--purge-data["']/);
-  expect(source).not.toMatch(/purgeData\s*:\s*true/);
+test("the destroy guard never purges data and gives --yes only to the throwaway profile", async () => {
+  const support = await read("../cluster/destroy-guard-support.ts");
+  const local = await read("../cluster/destroy-guard.integration.spec.ts");
+  const cleanMachine = await read("./clean-machine.integration.spec.ts");
+  for (const source of [support, local, cleanMachine]) {
+    expect(source).not.toMatch(/["']--purge-data["']\s*[\],]/);
+    expect(source).not.toMatch(/purgeData\s*:\s*true/);
+  }
+  // The shared helper refuses to run a flag set that purges data.
+  expect(support).toContain('flags.includes("--purge-data")');
+  // kore-local gets no --yes at all.
+  expect(local).not.toMatch(/["']--yes["']/);
+  expect(cleanMachine).toMatch(/flagSets: \[\[\], \["--yes"\]\]/);
 });
 
 test("the clean-machine script and spec delete only the throwaway profile", async () => {

@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { findRoot } from "../config/config.js";
 import { loadRepository } from "../config/index.js";
+import { proveDestroyRefused } from "../cluster/destroy-guard-support.js";
 import { assertReferenceSmoke } from "../platform/platform.reference-smoke.integration.spec.js";
 import { ProcessRunner } from "../runtime/index.js";
 import {
@@ -104,6 +105,16 @@ test(
 
     // Idempotency: a second up on the converged platform succeeds.
     await kore("local", "up");
+
+    // Consent is not enough: a destroy with --yes but without --purge-data
+    // is refused while retained data exists, and changes nothing. Only this
+    // throwaway profile may be given --yes; the real destroy follows below.
+    await proveDestroyRefused({
+      repository,
+      runner,
+      flagSets: [[], ["--yes"]],
+      spawn: { cwd: staged, env: { ...process.env, KORE_ROOT: staged } },
+    });
 
     // Destroy through kore, with the data it would retain explicitly purged
     // (the throwaway profile holds nothing worth exporting).
