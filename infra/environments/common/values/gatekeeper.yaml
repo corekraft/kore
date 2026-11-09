@@ -40,5 +40,8 @@
               "tag": "8.20.0@sha256:b3f1fb2a51d923260350d21b8654bbc607164a987e2f7c84a0ac199a67df812a"
             }
         }
-    }
+    },
+  # Tolerate a busy host: the chart's 1s probe timeout kills a healthy controller.
+  "controllerManager": { "livenessTimeout": 5, "readinessTimeout": 5 },
+  "audit": { "livenessTimeout": 5, "readinessTimeout": 5 }
 }

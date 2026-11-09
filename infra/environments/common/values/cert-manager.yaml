@@ -6,6 +6,12 @@ resources:
   requests: {cpu: 10m, memory: 32Mi}
   limits: {cpu: 200m, memory: 128Mi}
 webhook:
+  # Tolerate a busy host: the chart's 1s probe timeout kills a healthy webhook.
+  livenessProbe:
+    timeoutSeconds: 5
+    failureThreshold: 6
+  readinessProbe:
+    timeoutSeconds: 5
   image:
     digest: sha256:055ac8e9de6a0ba6763794838fe38944acc650f68ebe1b01dd8be079e580f458
   resources:
