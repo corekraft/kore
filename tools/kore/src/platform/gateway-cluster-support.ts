@@ -178,8 +178,8 @@ export async function helmRevisions(cluster: Cluster): Promise<string[]> {
       "--kube-context",
       cluster.repository.environment.kubeContext,
       "list",
+      // Helm 4 lists releases in every status by default and has no --all.
       "--all-namespaces",
-      "--all",
       "--output",
       "json",
     ],
