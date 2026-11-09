@@ -1,0 +1,4 @@
+{
+  "image":
+    { "registry": "ghcr.io", "repository": "corekraft/kore/mirror/grafana" }
+}

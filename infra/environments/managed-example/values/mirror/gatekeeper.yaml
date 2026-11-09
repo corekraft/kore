@@ -1,0 +1,32 @@
+{
+  "image": { "repository": "ghcr.io/corekraft/kore/mirror/gatekeeper" },
+  "preInstall":
+    {
+      "crdRepository":
+        {
+          "image":
+            { "repository": "ghcr.io/corekraft/kore/mirror/gatekeeper-crds" }
+        }
+    },
+  "postUpgrade":
+    {
+      "labelNamespace":
+        {
+          "image":
+            { "repository": "ghcr.io/corekraft/kore/mirror/gatekeeper-crds" }
+        }
+    },
+  "postInstall":
+    {
+      "labelNamespace":
+        {
+          "image":
+            { "repository": "ghcr.io/corekraft/kore/mirror/gatekeeper-crds" }
+        },
+      "probeWebhook":
+        {
+          "image":
+            { "repository": "ghcr.io/corekraft/kore/mirror/gatekeeper-curl" }
+        }
+    }
+}

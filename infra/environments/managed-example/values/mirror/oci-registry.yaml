@@ -1,0 +1,8 @@
+{
+  "image": { "repository": "ghcr.io/corekraft/kore/mirror/oci-registry" },
+  "proxy":
+    {
+      "image":
+        { "repository": "ghcr.io/corekraft/kore/mirror/oci-registry-proxy" }
+    }
+}
