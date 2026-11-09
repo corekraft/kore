@@ -9,63 +9,21 @@ import {
   helmReleaseStatus,
 } from "./probe.js";
 import { waitFor } from "./readiness.js";
-
-const neverDeployed = new Set(["uninstalling", "pending-install", "failed"]);
+import { recoverRelease } from "./release-recovery.js";
 
 /**
- * Clears a release whose first install never reached `deployed` (for example a
- * run interrupted mid-install or mid-rollback), which `helm upgrade --install`
- * otherwise refuses with "has no deployed releases". A release that was ever
- * deployed is left for Helm to upgrade or roll back. Returns whether it
- * uninstalled anything.
+ * Clears a release a run left in the way: a first install that never reached
+ * `deployed` is uninstalled, a canceled upgrade is rolled back to its last
+ * deployed revision, which `helm upgrade --install` otherwise refuses ("has no
+ * deployed releases", "another operation is in progress"). A release that was
+ * ever deployed is never uninstalled. Returns whether it changed anything.
  */
 export async function recoverUndeployedRelease(
   repository: Repository,
   runner: Runner,
   component: Component,
 ): Promise<boolean> {
-  const scope = [
-    "--namespace",
-    component.namespace,
-    "--kube-context",
-    repository.environment.kubeContext,
-  ];
-  let stdout: string;
-  try {
-    ({ stdout } = await runner.run(
-      "helm",
-      ["history", component.name, ...scope, "--output", "json"],
-      { capture: true },
-    ));
-  } catch (error) {
-    if (
-      error instanceof CommandError &&
-      /release: not found/.test(error.result.stderr)
-    ) {
-      return false;
-    }
-    throw error;
-  }
-  const revisions = JSON.parse(stdout) as { status?: string }[];
-  if (
-    revisions.length === 0 ||
-    !revisions.every(({ status }) => neverDeployed.has(status ?? ""))
-  ) {
-    return false;
-  }
-  await runner.run(
-    "helm",
-    [
-      "uninstall",
-      component.name,
-      ...scope,
-      "--wait",
-      "--timeout",
-      component.timeout,
-    ],
-    { capture: false },
-  );
-  return true;
+  return (await recoverRelease(repository, runner, component)) !== "none";
 }
 
 async function applyComponent(

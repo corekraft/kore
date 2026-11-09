@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { Repository } from "../config/index.js";
 import { assertExpectedCluster, retainedResources } from "../cluster/index.js";
 import { imageForApplication, loadImageLock } from "../images/index.js";
+import { deployedImage } from "./deployed.js";
 import { platformStatus } from "../platform/index.js";
 import type { Runner } from "../runtime/index.js";
 
@@ -82,6 +83,7 @@ export async function appStatus(
     status: degraded.length ? "degraded" : "ready",
     degraded,
     image,
+    deployed: await deployedImage(repository, runner, name, image),
     resources: JSON.parse(resources.stdout),
     workload: JSON.parse(workload.stdout),
   };

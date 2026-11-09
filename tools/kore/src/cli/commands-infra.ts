@@ -1,4 +1,4 @@
-import { appDown, appStatus, appUp } from "../app/index.js";
+import { appDown, appStatus, appUpRelease } from "../app/index.js";
 import {
   clusterDestroy,
   clusterStatus,
@@ -18,6 +18,7 @@ import {
 import { mutateAction } from "./context.js";
 import type { CommandContext } from "./context.js";
 import { boolFlag, stringFlag } from "./flags.js";
+import { imageLockFlag } from "./image-lock-flag.js";
 import { print } from "./output.js";
 
 function destroyOptions(context: CommandContext): {
@@ -98,7 +99,12 @@ export async function appCommand(context: CommandContext): Promise<number> {
     context,
     {
       up: async (_context, mutationRunner) =>
-        await appUp(repository, mutationRunner, name),
+        await appUpRelease(
+          repository,
+          mutationRunner,
+          name,
+          imageLockFlag(context.parsed, repository.root),
+        ),
       down: async (_context, mutationRunner) => {
         const { retained, warnings } = await appDown(
           repository,
