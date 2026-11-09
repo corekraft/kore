@@ -1,0 +1,38 @@
+# Grafana's admin credentials (ADR 0080). External Secrets generates the
+# password once inside the cluster and owns the Secret the Grafana chart reads
+# through admin.existingSecret, so no plaintext reaches git, values, or disk.
+# The platform secret store is not used because it arrives in a later phase
+# than Grafana. refreshInterval "0" keeps the password stable after creation.
+apiVersion: generators.external-secrets.io/v1alpha1
+kind: Password
+metadata:
+  name: grafana-admin
+  namespace: {{ .Release.Namespace }}
+spec:
+  length: 32
+  digits: 8
+  symbols: 0
+  noUpper: false
+  allowRepeat: true
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: grafana-admin
+  namespace: {{ .Release.Namespace }}
+spec:
+  refreshInterval: "0"
+  target:
+    name: grafana-admin
+    creationPolicy: Owner
+    template:
+      type: Opaque
+      data:
+        admin-user: admin
+        admin-password: {{ "{{ .password }}" | quote }}
+  dataFrom:
+    - sourceRef:
+        generatorRef:
+          apiVersion: generators.external-secrets.io/v1alpha1
+          kind: Password
+          name: grafana-admin

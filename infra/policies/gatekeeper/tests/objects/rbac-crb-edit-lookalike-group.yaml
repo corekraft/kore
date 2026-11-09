@@ -1,0 +1,5 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata: {name: crossplane-viewers-edit}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: edit}
+subjects: [{kind: Group, name: "crossplane:viewers", apiGroup: rbac.authorization.k8s.io}]

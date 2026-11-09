@@ -18,13 +18,15 @@ tests:
       - {name: rejects-role-naming-the-signing-key, object: objects/rbac-signing-role-named.yaml, assertions: [{violations: 1, message: signing key}]}
       - {name: accepts-the-signing-path-role, object: objects/rbac-signing-role-allowed.yaml, assertions: [{violations: 0}]}
       - {name: accepts-signing-namespace-role-for-another-secret, object: objects/rbac-signing-role-other-secret.yaml, assertions: [{violations: 0}]}
-      - {name: rejects-clusterrole-reading-secrets-cluster-wide, object: objects/rbac-clusterrole-secrets.yaml, assertions: [{violations: 1, message: signing key}]}
+      - {name: rejects-clusterrole-reading-secrets-when-bound-cluster-wide-to-a-developer, object: objects/rbac-clusterrole-secrets.yaml, inventory: [objects/inv-crb-dev-secrets-user.yaml], assertions: [{violations: 1, message: signing key}]}
       - {name: accepts-allowlisted-controller-clusterrole, object: objects/rbac-clusterrole-secrets-allowed.yaml, assertions: [{violations: 0}]}
       - {name: accepts-clusterrole-without-secret-access, object: objects/rbac-clusterrole-pods.yaml, assertions: [{violations: 0}]}
       - {name: accepts-secret-reading-role-outside-the-signing-namespace, object: objects/rbac-role-secrets-app-namespace.yaml, assertions: [{violations: 0}]}
       - {name: rejects-secret-reading-builtin-role-in-signing-namespace-for-developers, object: objects/rbac-rb-edit-signing-namespace-user.yaml, assertions: [{violations: 1, message: signing key}]}
       - {name: accepts-bootstrap-group-binding-in-signing-namespace, object: objects/rbac-rb-edit-signing-namespace-bootstrap.yaml, assertions: [{violations: 0}]}
       - {name: accepts-edit-binding-in-an-application-namespace, object: objects/rbac-rb-edit-app-namespace.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-admin-equivalent-group-binding, object: objects/rbac-crb-edit-admin-group.yaml, assertions: [{violations: 0}]}
+      - {name: rejects-lookalike-group-binding, object: objects/rbac-crb-edit-lookalike-group.yaml, assertions: [{violations: 1, message: signing key}]}
       - {name: rejects-cluster-wide-edit-binding-for-developers, object: objects/rbac-crb-edit-user.yaml, assertions: [{violations: 1, message: signing key}]}
       - {name: accepts-crossplane-secret-role-bound-per-application-namespace, object: objects/rbac-crossplane-secrets-clusterrole.yaml, assertions: [{violations: 0}]}
       - {name: accepts-crossplane-rolebinding-in-an-application-namespace, object: objects/rbac-crossplane-rb-app-namespace.yaml, assertions: [{violations: 0}]}
@@ -54,4 +56,15 @@ tests:
       - {name: accepts-upstream-system-controller-namespace-controller, object: objects/rbac-excluded-system-controller-namespace-controller.yaml, assertions: [{violations: 0}]}
       - {name: accepts-upstream-system-controller-resourcequota-controller, object: objects/rbac-excluded-system-controller-resourcequota-controller.yaml, assertions: [{violations: 0}]}
       - {name: accepts-wildcard-resources-in-a-non-core-api-group, object: objects/rbac-clusterrole-wildcard-other-group.yaml, assertions: [{violations: 0}]}
-      - {name: rejects-wildcard-resources-in-every-api-group, object: objects/rbac-clusterrole-wildcard-all-groups.yaml, assertions: [{violations: 1, message: signing key}]}
+      - {name: rejects-wildcard-resources-in-every-api-group-when-bound-to-a-developer, object: objects/rbac-clusterrole-wildcard-all-groups.yaml, inventory: [objects/inv-crb-all-groups-user.yaml], assertions: [{violations: 1, message: signing key}]}
+      - {name: accepts-an-unbound-secret-reading-clusterrole, object: objects/rbac-clusterrole-secrets.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-an-aggregation-source-role-nothing-binds-directly, object: objects/rbac-clusterrole-aggregate-source.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-secret-reading-clusterrole-bound-only-to-the-bootstrap-group, object: objects/rbac-clusterrole-secrets.yaml, inventory: [objects/inv-crb-dev-secrets-bootstrap.yaml], assertions: [{violations: 0}]}
+      - {name: accepts-secret-reading-clusterrole-bound-only-in-an-application-namespace, object: objects/rbac-clusterrole-secrets.yaml, inventory: [objects/inv-rb-dev-secrets-app-namespace.yaml], assertions: [{violations: 0}]}
+      - {name: rejects-secret-reading-clusterrole-bound-in-the-signing-namespace-to-a-developer, object: objects/rbac-clusterrole-secrets.yaml, inventory: [objects/inv-rb-dev-secrets-signing-namespace.yaml], assertions: [{violations: 1, message: signing key}]}
+      - {name: accepts-crossplane-clusterrole-bound-to-its-own-controller-service-account, object: objects/rbac-clusterrole-crossplane.yaml, inventory: [objects/inv-crb-crossplane-sa.yaml], assertions: [{violations: 0}]}
+      - {name: rejects-a-developer-binding-an-existing-secret-reading-clusterrole-cluster-wide, object: objects/inv-crb-dev-secrets-user.yaml, inventory: [objects/rbac-clusterrole-secrets.yaml], assertions: [{violations: 1, message: signing key}]}
+      - {name: rejects-a-developer-binding-an-existing-secret-reading-clusterrole-in-the-signing-namespace, object: objects/inv-rb-dev-secrets-signing-namespace.yaml, inventory: [objects/rbac-clusterrole-secrets.yaml], assertions: [{violations: 1, message: signing key}]}
+      - {name: accepts-the-bootstrap-group-binding-an-existing-secret-reading-clusterrole, object: objects/inv-crb-dev-secrets-bootstrap.yaml, inventory: [objects/rbac-clusterrole-secrets.yaml], assertions: [{violations: 0}]}
+      - {name: accepts-a-developer-binding-a-clusterrole-that-reads-no-secrets, object: objects/inv-crb-dev-secrets-user.yaml, inventory: [objects/rbac-clusterrole-pods-dev-secrets.yaml], assertions: [{violations: 0}]}
+      - {name: accepts-a-developer-binding-an-existing-secret-reading-clusterrole-in-an-application-namespace, object: objects/inv-rb-dev-secrets-app-namespace.yaml, inventory: [objects/rbac-clusterrole-secrets.yaml], assertions: [{violations: 0}]}
