@@ -15,6 +15,59 @@ function errorText(error: unknown): string {
   return String(error);
 }
 
+/** The StorageClass whose volumes outlive their claims (`reclaimPolicy: Retain`). */
+const RETAINED_STORAGE_CLASS = "kore-retained";
+
+interface VolumeList {
+  items?: {
+    metadata?: { name?: string };
+    spec?: {
+      storageClassName?: string;
+      claimRef?: { namespace?: string };
+    };
+  }[];
+}
+
+/**
+ * Volumes of the retained storage class. Deleting a retained claim leaves its
+ * PersistentVolume behind as Released, with no label and no claim to find it
+ * by, so volumes are discovered by class (scoped by the namespace of the claim
+ * that last bound them). An unreadable list refuses rather than reporting none.
+ */
+async function retainedVolumes(
+  repository: Repository,
+  runner: Runner,
+  namespace?: string,
+): Promise<string[]> {
+  const result = await runner.run(
+    "kubectl",
+    [
+      "--context",
+      repository.environment.kubeContext,
+      "get",
+      "persistentvolumes",
+      "-o",
+      "json",
+    ],
+    { capture: true },
+  );
+  let list: VolumeList;
+  try {
+    list = JSON.parse(result.stdout || "{}") as VolumeList;
+  } catch (error) {
+    throw new Error(
+      `could not read the PersistentVolume list: ${errorText(error)}. Check the cluster with kubectl before destroying anything.`,
+    );
+  }
+  return (list.items ?? [])
+    .filter(
+      (volume) =>
+        volume.spec?.storageClassName === RETAINED_STORAGE_CLASS &&
+        (!namespace || volume.spec.claimRef?.namespace === namespace),
+    )
+    .map((volume) => `persistentvolume/${volume.metadata?.name ?? ""}`);
+}
+
 export async function retainedResources(
   repository: Repository,
   runner: Runner,
@@ -64,6 +117,7 @@ export async function retainedResources(
       }
     }
   }
+  retained.push(...(await retainedVolumes(repository, runner, namespace)));
   return [...new Set(retained)].sort();
 }
 

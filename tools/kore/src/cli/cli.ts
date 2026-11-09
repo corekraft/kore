@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Docs: infra/plans/2-implementation.md#public-command-surface
 import { loadRepository } from "../config/index.js";
-import { ProcessRunner } from "../runtime/index.js";
+import { ProcessRunner, withTransientRetry } from "../runtime/index.js";
 import { COMMANDS, isMutating, usage } from "./commands.js";
 import type { CommandContext } from "./context.js";
 import {
@@ -32,7 +32,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     ? requireEnvironment(parsed)
     : (stringFlag(parsed, "environment") ?? "local");
   const repository = await loadRepository(environmentName);
-  const runner = new ProcessRunner();
+  const runner = withTransientRetry(new ProcessRunner());
   const context: CommandContext = {
     command,
     action,
