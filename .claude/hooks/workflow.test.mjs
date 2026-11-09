@@ -357,3 +357,23 @@ test("the released image names its public source repository so GHCR links and pu
     /^LABEL org\.opencontainers\.image\.source="https:\/\/github\.com\/corekraft\/kore"$/m,
   );
 });
+
+test("the platform image lock is attached to the GitHub release by a job that holds no signing permission", () => {
+  // The lock is evidence, not authority: it names digests that admission still
+  // verifies by signature. So the upload job needs only contents: write, never
+  // the id-token or packages scopes of the signing jobs (ADR 0044).
+  const job = jobText("attach-lock");
+  assert.match(job, /^ {4}needs: mirror$/m);
+  assert.match(job, /^ {4}if: github\.ref_type == 'tag'$/m);
+  assert.match(job, /^ {6}contents: write$/m);
+  assert.doesNotMatch(job, /id-token|packages:|actions: write|pull-requests/);
+  assert.match(job, /download-artifact@[0-9a-f]{40} # v\d+\.\d+\.\d+/);
+  assert.match(job, /name: platform-images\.lock\.json/);
+  assert.match(job, /gh release upload "\$TAG" platform-images\.lock\.json/);
+  // A rerun may repeat an identical upload, never replace a published lock.
+  assert.match(job, /cmp /);
+  assert.doesNotMatch(job, /--clobber/);
+  assert.doesNotMatch(job, /actions\/checkout|cosign|crane|mise/);
+  assert.doesNotMatch(job, /secrets\.(?!GITHUB_TOKEN)/);
+  assert.doesNotMatch(job, /\$\{\{[^}]*\}\}[^\n]*gh release/);
+});
