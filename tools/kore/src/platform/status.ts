@@ -64,6 +64,9 @@ export async function platformStatus(
     }
     result.push(await componentStatus(repository, runner, component));
   }
-  result.push(await admissionGateStatus(repository, runner));
+  // The gate is a platform-wide row, not a component: a filtered query omits it.
+  if (!only) {
+    result.push(await admissionGateStatus(repository, runner));
+  }
   return result;
 }
