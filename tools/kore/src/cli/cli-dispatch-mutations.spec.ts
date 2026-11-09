@@ -259,9 +259,9 @@ test("platform gate-check requires an explicit environment", async () => {
 });
 
 test("app up hands the app domain a hook that restores the tunnel", async () => {
-  const { appUp } = await import("../app/index.js");
+  const { appUpRelease } = await import("../app/index.js");
   await main(["app", "up", "reference", "--environment", "local"]);
-  const options = vi.mocked(appUp).mock.calls.at(-1)?.[4] as
+  const options = vi.mocked(appUpRelease).mock.calls.at(-1)?.[4] as
     { ensureTunnel: () => Promise<unknown> } | undefined;
   expect(dispatch).not.toContain("ensureLocalTunnel");
   await options?.ensureTunnel();

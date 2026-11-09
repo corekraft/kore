@@ -22,7 +22,7 @@ export const appModule = () => ({
   appStatus: vi.fn(
     async () => (dispatch.push("appStatus"), { status: "ready" }),
   ),
-  appUp: vi.fn(async () => void dispatch.push("appUp")),
+  appUpRelease: vi.fn(async () => void dispatch.push("appUp")),
 });
 
 export const clusterModule = () => ({

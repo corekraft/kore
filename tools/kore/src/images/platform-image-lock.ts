@@ -1,4 +1,5 @@
 import type { ApprovedEntry } from "../config/index.js";
+import { isReleaseAutomationSigner } from "./release-image.js";
 
 /**
  * Checks the platform image lock the release workflow emits against the
@@ -8,8 +9,6 @@ import type { ApprovedEntry } from "../config/index.js";
  */
 
 const digestOf = /@(sha256:[0-9a-f]{64})$/;
-const releaseSigner =
-  /^https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/\.github\/workflows\/[^@\s/]+@refs\/tags\/v\d+\.\d+\.\d+$/;
 
 const describe = (value: unknown): string =>
   typeof value === "string" ? value : (JSON.stringify(value) ?? "undefined");
@@ -108,7 +107,7 @@ export function platformImageLockErrors(
     ];
   }
   const signerErrors = authorized.some(
-    (s) => typeof s !== "string" || !releaseSigner.test(s),
+    (s) => typeof s !== "string" || !isReleaseAutomationSigner(s),
   )
     ? [
         "authorizedSigners must be exact workflow identities at refs/tags/vX.Y.Z",
