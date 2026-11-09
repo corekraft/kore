@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.4.0](https://github.com/corekraft/kore/compare/v0.3.2...v0.4.0) (2026-11-09)
+
+
+### Features
+
+* pin, approve, and mirror the crossplane function packages ([#60](https://github.com/corekraft/kore/issues/60)) ([3c7e7e7](https://github.com/corekraft/kore/commit/3c7e7e7423073ee02566f13ce44b826e952d3d5c))
+* roll managed-example platform images to the signed mirror ([#58](https://github.com/corekraft/kore/issues/58)) ([582bccb](https://github.com/corekraft/kore/commit/582bccb8101b4266506d056b4d3f72f0a38fe943))
+
+
+### Bug fixes
+
+* equalize only the rightmost herdr column and skip layouts it can't read ([#61](https://github.com/corekraft/kore/issues/61)) ([2a90b8a](https://github.com/corekraft/kore/commit/2a90b8afe6b2d4184a834e599eb58e5db1e310bf))
+* fail fast on pods stuck creating their sandbox or containers ([#62](https://github.com/corekraft/kore/issues/62)) ([b10fbb7](https://github.com/corekraft/kore/commit/b10fbb7f915114557121ba0687a962cfa0d074b0))
+
+
+### Documentation
+
+* decide the remaining vision questions ([#57](https://github.com/corekraft/kore/issues/57)) ([11dd7da](https://github.com/corekraft/kore/commit/11dd7da052721e2ed2c7ce1af220bd8dc53a7183))
+* record function pins, managed mirror, and fail-fast probe evidence ([#63](https://github.com/corekraft/kore/issues/63)) ([1af9078](https://github.com/corekraft/kore/commit/1af9078b76d1d0b93ec45bb46adf77ac6d5aecb4))
+
 ## [0.3.2](https://github.com/corekraft/kore/compare/v0.3.1...v0.3.2) (2026-11-09)
 
 
