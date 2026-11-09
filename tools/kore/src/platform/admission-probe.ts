@@ -38,37 +38,24 @@ function scope(repository: Repository, namespace: string): string[] {
   ];
 }
 
-/**
- * Server dry-runs a Pod of `image` in `namespace` and says whether admission
- * accepts it. A webhook refusal is a verdict; any other failure is rethrown so
- * an unreachable cluster is never mistaken for a denial.
- */
-export async function admissionVerdict(
-  repository: Repository,
+export interface ProbeOptions {
+  /** Where the probed image sits in the pod; defaults to a main container. */
+  placement?: "container" | "initContainer";
+  /** The main container's image when `placement` is `initContainer`. */
+  trusted?: string;
+}
+
+/** Runs `kubectl`; a webhook refusal is a verdict, anything else is rethrown. */
+async function verdictOf(
   runner: Runner,
-  namespace: string,
-  image: string,
+  args: string[],
+  input?: string,
 ): Promise<AdmissionVerdict> {
-  const pod = {
-    apiVersion: "v1",
-    kind: "Pod",
-    metadata: { name: `kore-admission-probe-${Date.now().toString(36)}` },
-    spec: {
-      restartPolicy: "Never",
-      containers: [{ name: "probe", image }],
-    },
-  };
   try {
-    const result = await runner.run(
-      "kubectl",
-      [
-        ...scope(repository, namespace),
-        "create",
-        "--dry-run=server",
-        "--filename=-",
-      ],
-      { capture: true, input: JSON.stringify(pod) },
-    );
+    const result = await runner.run("kubectl", args, {
+      capture: true,
+      ...(input === undefined ? {} : { input }),
+    });
     return { admitted: true, detail: result.stdout.trim() };
   } catch (error) {
     if (
@@ -79,6 +66,104 @@ export async function admissionVerdict(
     }
     throw error;
   }
+}
+
+/**
+ * Server dry-runs a Pod with `image` in `namespace` and says whether admission
+ * accepts it. A webhook refusal is a verdict; any other failure is rethrown so
+ * an unreachable cluster is never mistaken for a denial. With an init
+ * container placement the image runs only there, beside a `trusted` main
+ * container, so only the probed image can cause a denial.
+ */
+export async function admissionVerdict(
+  repository: Repository,
+  runner: Runner,
+  namespace: string,
+  image: string,
+  options: ProbeOptions = {},
+): Promise<AdmissionVerdict> {
+  const initial = options.placement === "initContainer";
+  if (initial && options.trusted === undefined) {
+    throw new Error(
+      "an init container probe needs a `trusted` main container image so that only the probed image can cause a denial",
+    );
+  }
+  const pod = {
+    apiVersion: "v1",
+    kind: "Pod",
+    metadata: { name: `kore-admission-probe-${Date.now().toString(36)}` },
+    spec: {
+      restartPolicy: "Never",
+      containers: [{ name: "probe", image: initial ? options.trusted : image }],
+      ...(initial ? { initContainers: [{ name: "init-probe", image }] } : {}),
+    },
+  };
+  return await verdictOf(
+    runner,
+    [
+      ...scope(repository, namespace),
+      "create",
+      "--dry-run=server",
+      "--filename=-",
+    ],
+    JSON.stringify(pod),
+  );
+}
+
+/**
+ * The name of a Running pod whose first container runs `image`, the target of
+ * an ephemeral container probe. It is found by image so no label convention
+ * is assumed.
+ */
+export async function runningPodWithImage(
+  repository: Repository,
+  runner: Runner,
+  namespace: string,
+  image: string,
+): Promise<string> {
+  const { stdout } = await runner.run(
+    "kubectl",
+    [
+      ...scope(repository, namespace),
+      "get",
+      "pods",
+      "--field-selector=status.phase=Running",
+      `--output=jsonpath={.items[?(@.spec.containers[0].image=="${image}")].metadata.name}`,
+    ],
+    { capture: true },
+  );
+  const name = stdout.trim().split(/\s+/)[0] ?? "";
+  if (name === "") {
+    throw new Error(
+      `no Running pod of ${image} in namespace ${namespace}; run \`kore app up ${namespace} --environment ${repository.environment.name}\` first so a signed workload is running`,
+    );
+  }
+  return name;
+}
+
+/**
+ * Server dry-runs adding an ephemeral container of `image` to the running
+ * pod, the same request as `kubectl debug`, and says whether admission accepts
+ * it. Nothing is attached: a dry run persists no change.
+ */
+export async function ephemeralContainerVerdict(
+  repository: Repository,
+  runner: Runner,
+  namespace: string,
+  pod: string,
+  image: string,
+): Promise<AdmissionVerdict> {
+  return await verdictOf(runner, [
+    ...scope(repository, namespace),
+    "patch",
+    `pod/${pod}`,
+    "--subresource=ephemeralcontainers",
+    "--dry-run=server",
+    "--patch",
+    JSON.stringify({
+      spec: { ephemeralContainers: [{ name: "probe", image }] },
+    }),
+  ]);
 }
 
 /** The image the application's workload runs: the kore-signed digest. */
