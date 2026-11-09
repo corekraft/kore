@@ -1,6 +1,6 @@
 ---
 status: accepted
-summary: kore keeps installing the bootstrap, core, and observability phases through Helm, installs the platform organization's Argo CD in core, and hands every configuration-phase release except the image policy to that Argo CD, whose health gates application admission.
+summary: kore keeps installing the bootstrap, core, and observability phases through Helm, installs the platform organization's Argo CD in core, and hands every configuration-phase release except the image policy to that Argo CD as Helm charts from the platform OCI registry, with its health gating application admission.
 date: 2026-11-09
 last-verified: 2026-11-09
 ---
@@ -50,10 +50,13 @@ on controllers that earlier phases install.
   readiness checks, before the application admission gate opens
   ([ADR 0004](0004-fail-closed-application-admission-gate.md)).
   `kore platform status` reports Application sync and health.
-- **Sources come by digest.** `kore` publishes each configuration release as an
-  OCI artifact to the platform registry and points its Application at that
-  digest, so a local change needs no git push and Argo CD deploys only what
-  was built from the repository.
+- **Configuration stays Helm charts, served over OCI.** `kore` packages each
+  configuration release's chart and pushes it to the platform registry as an
+  OCI Helm chart, and the Application renders it with Helm from there. A local
+  change needs no git push.
+- **Published charts are immutable.** `kore` gives each content change a new
+  chart version, never republishes a version, and records and signs the
+  chart's digest, so Argo CD deploys only what was built from the repository.
 
 ## Consequences
 
@@ -64,7 +67,10 @@ on controllers that earlier phases install.
 - Existing clusters must hand their configuration-phase Helm releases to
   Argo CD without deleting resources; the handover is implemented, tested, and
   proven by a live run before merge.
-- Argo CD's support for OCI sources at the pinned version must be confirmed
-  before implementation.
+- The Argo CD repository credentials for the platform registry follow the
+  registry's authentication
+  ([ADR 0034](0034-registry-authentication-and-authorization.md)).
+- Whether the pinned Argo CD can pin a Helm OCI chart by digest, rather than
+  by version, is checked before implementation.
 - The bootstrap spec's phase-boundary test gains a check that no `argocd`
   release is installed by Helm.

@@ -173,7 +173,7 @@ hatch has to be recorded.
 ```mermaid
 graph LR
   U["Browser"] -->|"HTTPS, same site"| G["Gateway"]
-  G -->|"/"| FE["Static frontend: GitHub Pages, object storage, or in-cluster"]
+  G -->|"/"| FE["Static frontend: signed image in the cluster"]
   G -->|"/api"| BFF["BFF pods 1..N (HPA)"]
   BFF -->|"mTLS, workload identity"| SVC["Internal services"]
   BFF --> PG["Data claims: PostgreSQL, object store, Kafka, document, key-value"]
@@ -183,9 +183,11 @@ graph LR
 
 ### Static Frontend
 
-- A frontend is a static build artifact plus a domain. Where it is hosted is an
-  environment choice: GitHub Pages, any static host or object store, or a small
-  in-cluster static server running from a signed image.
+- **In the cluster, as a signed image.** Each frontend release is an image
+  built from a pinned static-server base with the build inside it, signed and
+  deployed by digest. GitHub Pages or object storage is a per-service escape
+  hatch whose files sit outside signature admission
+  ([ADR 0045](decisions/0045-static-frontends-as-signed-images.md)).
 - **Same site as its BFF.** The browser should reach the frontend and its BFF
   on one site, for example `auth.apps.corekraft.ca` and
   `auth.apps.corekraft.ca/api` through the Gateway, or
@@ -214,9 +216,8 @@ graph LR
   | Memory per replica   | under 256 MiB  |
   | Image size           | under 150 MB   |
 
-  The JVM build below is expected to miss the 1-second startup target.
-  Measurements decide whether a class data cache closes the gap, or whether a
-  service switches to a native image or keeps more warm replicas.
+  The template records measured startup with the agent and cache. Until it
+  meets the budget, autoscaling starts earlier and keeps at least two replicas.
 
 - **Kotlin on Spring Boot, built with Jib.** The template builds its image with
   Jib: no Dockerfile and no Docker daemon, reproducible layers, and the image
@@ -229,22 +230,25 @@ graph LR
   image and starts the JVM with `-javaagent`, so instrumentation is part of the
   signed digest rather than injected at admission. The agent is pinned by exact
   version and checksum, like every other dependency.
-- **Runs on GraalVM.** The default image runs on the GraalVM JDK as a regular
-  JVM, where the Java agent works. It starts faster with Spring's
-  ahead-of-time processing and the JDK's class data cache, checked against the
-  agent before it becomes the default.
-- **Native image when the budget demands it.** A service that must start in
-  under a second can build a GraalVM native image instead, packaged by Jib's
-  native-image extension. The Java agent cannot run inside a native image, so
-  that build exports telemetry through the OpenTelemetry Spring Boot starter,
-  which supports native images, and keeps the same OTLP contract.
+- **The JVM with the agent, started from a build-time cache.** The BFF always
+  runs on the GraalVM JDK as a JVM, where the agent works. The build runs the
+  application once as a training run, with the same JDK, flags, and agent and
+  no secrets, and bakes the resulting JDK AOT cache into the image beside
+  Spring's ahead-of-time processing, so every pod starts from it
+  ([ADR 0046](decisions/0046-bff-jvm-with-agent-and-aot-cache.md)).
+- **Native image is an exception.** The agent cannot run inside a GraalVM
+  native image, so a native build, with the OpenTelemetry Spring Boot starter
+  instead, is allowed only as a recorded exception.
 - **The contract stays language-neutral.** The platform asks only for a signed
   image, health and readiness endpoints, OTLP telemetry, resource requests,
   and a dedicated ServiceAccount. The existing Node reference app keeps
   satisfying the same contract.
-- **Autoscaling needs its prerequisites.** HPA needs resource requests and a
-  metrics source; the catalog has no metrics-server or equivalent yet. Scaling
-  on request rate, or to zero, is a later step (KEDA is a candidate).
+- **Autoscaling from chart values.** metrics-server comes first, as a catalog
+  Helm release. The workload chart creates a CPU-based HorizontalPodAutoscaler
+  with at least two replicas and a disruption budget, and leaves the replica
+  count out so Helm and Argo CD never fight it. KEDA follows for request-rate
+  scaling; BFFs do not scale to zero
+  ([ADR 0047](decisions/0047-autoscaling-metrics-server-then-keda.md)).
 
 ### Data and Capabilities
 
@@ -259,15 +263,17 @@ Every dependency a service needs is a claim against a platform API, owned by
 the service and scoped to its organization. The service receives a connection
 Secret and speaks the standard protocol; the environment picks the
 implementation, as the PostgreSQL API already does
-([ADR 0008](decisions/0008-crossplane-postgresql-platform-api.md)).
+([ADR 0008](decisions/0008-crossplane-postgresql-platform-api.md)). The local
+implementations are decided in
+[ADR 0049](decisions/0049-data-store-implementations.md).
 
-| Capability          | Contract the app sees                     | Local implementation (candidates)              | Managed substitutes                                        | Default tenancy                                               |
-| ------------------- | ----------------------------------------- | ---------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------- |
-| Relational store    | PostgreSQL protocol, `PostgreSQLInstance` | CloudNativePG (exists)                         | Amazon RDS, Cloud SQL, Azure Database for PostgreSQL       | One instance per claim                                        |
-| Object store        | S3 API, a bucket claim                    | Rook Ceph object gateway, SeaweedFS, or Garage | Amazon S3, Google Cloud Storage, Cloudflare R2             | A bucket per claim in a shared store, with a service policy   |
-| Durable message bus | Kafka protocol, topic and user claims     | Strimzi                                        | Amazon MSK, Confluent Cloud                                | A shared cluster; topics and ACLs prefixed by org and service |
-| Document store      | MongoDB wire protocol, a database claim   | FerretDB, or the Percona Operator for MongoDB  | MongoDB Atlas, Amazon DocumentDB                           | One instance per claim                                        |
-| Key-value store     | Redis protocol, a cache or store claim    | Valkey                                         | Amazon ElastiCache, Google Memorystore (both offer Valkey) | One instance per claim                                        |
+| Capability          | Contract the app sees                     | Local implementation                                    | Managed substitutes                                        | Default tenancy                                               |
+| ------------------- | ----------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------- |
+| Relational store    | PostgreSQL protocol, `PostgreSQLInstance` | CloudNativePG (exists)                                  | Amazon RDS, Cloud SQL, Azure Database for PostgreSQL       | One instance per claim                                        |
+| Object store        | S3 API, a bucket claim                    | SeaweedFS                                               | Amazon S3, Google Cloud Storage, Cloudflare R2             | A bucket per claim in a shared store, with a service policy   |
+| Durable message bus | Kafka protocol, topic and user claims     | Strimzi                                                 | Amazon MSK, Confluent Cloud                                | A shared cluster; topics and ACLs prefixed by org and service |
+| Document store      | MongoDB wire protocol, a database claim   | FerretDB on CloudNativePG with the DocumentDB extension | MongoDB Atlas, Amazon DocumentDB                           | One instance per claim                                        |
+| Key-value store     | Redis protocol, a cache or store claim    | Valkey                                                  | Amazon ElastiCache, Google Memorystore (both offer Valkey) | One instance per claim                                        |
 
 Rules every data service keeps:
 
@@ -279,18 +285,20 @@ Rules every data service keeps:
   operator grants it.
 - **Quotas per organization.** The number of claims, storage, and throughput
   are limited per organization, inherited down the tree, and only tightened.
-- **Shared and dedicated tiers.** The shared tier partitions one store with its
-  own access control, such as Kafka prefix ACLs and quotas or bucket policies.
-  The dedicated tier gives an organization its own instance or cluster for
-  isolation or performance.
+- **Shared and dedicated tiers.** Kafka and the object store are shared per
+  environment and partitioned with their own access control, such as Kafka
+  prefix ACLs and quotas or bucket policies. A tenant root can get its own
+  Kafka cluster or object store when its administrators request it and an
+  operator approves
+  ([ADR 0048](decisions/0048-data-service-tenancy-tiers.md)).
 - **Retained and recoverable.** Data is retained by default, and each
   capability gets export and restore, as PostgreSQL has
   ([ADR 0029](decisions/0029-local-export-and-restore.md)).
 - **Open source locally.** The MongoDB server is licensed under the SSPL and
-  Redis under RSALv2, SSPL, or AGPLv3, so the local candidates are open
-  implementations of the same protocols, FerretDB and Valkey. Using upstream
-  MongoDB or Redis instead is an exception that needs an ADR, as Plan 1
-  requires.
+  Redis under RSALv2, SSPL, or AGPLv3, so the local implementations are open
+  implementations of the same protocols, FerretDB and Valkey, and no image
+  comes from Bitnami. Using upstream MongoDB or Redis instead is an exception
+  that needs an ADR, as Plan 1 requires.
 
 ## Observability Out of the Box
 
@@ -315,28 +323,59 @@ What a service gets without writing any instrumentation:
   endpoint and standard resource attributes in its environment, so the Kotlin
   BFF template exports from its first deploy. On the JVM, the OpenTelemetry
   Java agent that Jib bakes into the image traces Spring, HTTP clients, JDBC,
-  Kafka, and Redis clients with no code. A native-image build uses the
-  OpenTelemetry Spring Boot starter instead, because the agent cannot run
-  there.
+  Kafka, and Redis clients with no code, in every BFF.
 - **The platform stamps the organization.** The Collector adds tenant,
   organization, service, and environment attributes from namespace labels.
   It never trusts an organization a service reports about itself, so one tenant
   cannot write into another's telemetry.
-- **Queries are scoped to the organization.** Each organization sees only its
-  own logs, metrics, and traces. Loki and Tempo separate tenants natively;
-  metrics need a label-enforcing proxy in front of Prometheus or a store that
-  separates tenants, such as Mimir.
+- **Queries are scoped to the tenant.** Each tenant root gets its own Grafana,
+  signed in through its Keycloak. Loki and Tempo separate tenants natively,
+  Prometheus is read through a label-enforcing proxy, and Mimir replaces it
+  when a tenant needs its own metric retention or limits. Within a tenant,
+  dashboards are foldered per organization
+  ([ADR 0050](decisions/0050-tenant-telemetry-isolation.md)).
 - **Dashboards and alerts come with each service.** Every service gets a
   dashboard for request rate, errors, latency, saturation, replicas, and its
-  data claims, plus default alerts routed to its organization's contacts.
-  Alerting needs Alertmanager, which ADR 0019 keeps disabled until routing is
-  designed.
-- **Bounded per organization.** Cardinality stays bounded by the attribute
-  allowlist in ADR 0019, retention is set per organization, and telemetry
-  volume counts toward usage.
+  data claims, plus default alerts. Tenant alerts run in the tenant's Grafana
+  with contact points from the `Organization` resource; Alertmanager serves
+  only platform alerts
+  ([ADR 0051](decisions/0051-telemetry-retention-and-alerting.md)).
+- **Bounded per tenant.** Cardinality stays bounded by the attribute allowlist
+  in ADR 0019. Logs keep 14 days and traces 7 days by default, overridable per
+  tenant with ingestion limits; metrics keep one platform retention until
+  Mimir. Telemetry volume counts toward usage.
 - **Platform components too.** Backstage, Argo CD, the data operators, and the
   Collectors themselves report into the platform organization's view, so
   operators watch the platform with the same tools tenants use.
+
+### Forensic Archive
+
+Beside the hot tier, every log record and every span is kept as evidence
+([ADR 0053](decisions/0053-forensic-telemetry-archive.md)).
+
+| Tier     | Holds                                                               | Kept for                           | Searched by                                |
+| -------- | ------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------ |
+| Hot      | Metrics, logs, and traces in Prometheus, Loki, Tempo                | Days: 14 for logs, 7 for traces    | Dashboards, alerts, and debugging          |
+| Forensic | Every log record and span, unsampled, with full body and attributes | Per tenant, years, with legal hold | Full text over every message and attribute |
+
+- **Written twice through a durable buffer.** The Collector buffers to disk and
+  sends everything to the hot tier and, through a Kafka topic per tenant, to
+  Quickwit, so an indexer outage loses nothing and the archive can be
+  replayed.
+- **Indexed on the object store.** Quickwit, licensed under Apache 2.0, keeps
+  one index per tenant root in the object store, with every message and
+  attribute searchable.
+- **Nothing sampled away.** Mesh tracing samples every request, and the archive
+  receives every span even where the hot tier samples.
+- **Tamper-evident.** Each tenant's archive bucket uses S3 Object Lock in
+  compliance mode, so no one, root included, can delete or change it before
+  retention ends. Each indexed batch has a signed digest, and gaps are
+  reported.
+- **Private and audited.** Secrets are stripped before either tier, tenants can
+  mask personal data, every archive search is logged, and operators reach a
+  tenant's archive only through a logged break-glass path.
+- **Deletable by key.** Each tenant's archive is encrypted with its own key, so
+  destroying the key destroys the archive once no legal hold applies.
 
 ## The Portal: Backstage and Argo CD Out of the Box
 
@@ -388,8 +427,9 @@ organizations.
 - **The platform Argo CD owns platform configuration.** `kore` keeps installing
   the bootstrap, core, and observability phases through Helm, and installs the
   platform organization's Argo CD in core. That Argo CD owns every
-  configuration-phase release except the image policy, deployed from OCI
-  artifacts by digest, and its health gates application admission
+  configuration-phase release except the image policy, as Helm charts served
+  from the platform registry over OCI, and its health gates application
+  admission
   ([ADR 0043](decisions/0043-platform-configuration-through-argo-cd.md)).
 
 ### What Each View Shows
@@ -423,33 +463,34 @@ Principles for the portal:
 
 What exists or is in flight today, and what the vision adds.
 
-| Capability                                                                            | Status                                                                               |
-| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Networking, TLS, Gateway API                                                          | In [Plan 2](../infra/plans/2-implementation.md), Step 8                              |
-| Workload identity, mTLS, authorization                                                | In Plan 2, Step 9                                                                    |
-| Signed image trust and registry                                                       | In Plan 2, Step 7                                                                    |
-| Encrypted secrets via External Secrets                                                | In Plan 2, Step 8                                                                    |
-| PostgreSQL platform API with retention                                                | In Plan 2, Step 10                                                                   |
-| Logs, metrics, traces via OpenTelemetry                                               | In Plan 2, Step 11                                                                   |
-| Org-scoped telemetry: organization attributes, per-org queries, retention             | New                                                                                  |
-| Default dashboards and alerts per service, routed to the organization                 | New                                                                                  |
-| Tenancy API (`Organization`, `Service`)                                               | New                                                                                  |
-| Quotas and per-organization limits                                                    | New                                                                                  |
-| Golden-path templates (static frontend, Kotlin BFF built with Jib)                    | New                                                                                  |
-| Static frontend hosting contract                                                      | New                                                                                  |
-| Horizontal autoscaling (metrics source, HPA defaults)                                 | New                                                                                  |
-| Human identity and single sign-on: a Keycloak per tenant with groups per organization | New                                                                                  |
-| Developer portal: a Backstage per tenant with Kore plugins                            | New                                                                                  |
-| GitOps delivery of tenant services: an Argo CD per tenant                             | New, deferred in [Plan 1](../infra/plans/1-initialize.md#deferred-tooling) until now |
-| Platform configuration through the platform Argo CD                                   | New                                                                                  |
-| Object storage (S3 API)                                                               | New                                                                                  |
-| Durable message bus (Kafka)                                                           | New, deferred in Plan 1 until now                                                    |
-| Document store (MongoDB protocol)                                                     | New                                                                                  |
-| Key-value store (Redis protocol)                                                      | New                                                                                  |
-| Organization scoping and quotas for every data service                                | New                                                                                  |
-| Organization domains, service hostnames, and DNS automation                           | New                                                                                  |
-| Usage metering                                                                        | New                                                                                  |
-| Multi-cluster mesh and management                                                     | Deferred in Plan 1                                                                   |
+| Capability                                                                                                                 | Status                                                                               |
+| -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Networking, TLS, Gateway API                                                                                               | In [Plan 2](../infra/plans/2-implementation.md), Step 8                              |
+| Workload identity, mTLS, authorization                                                                                     | In Plan 2, Step 9                                                                    |
+| Signed image trust and registry                                                                                            | In Plan 2, Step 7                                                                    |
+| Encrypted secrets via External Secrets                                                                                     | In Plan 2, Step 8                                                                    |
+| PostgreSQL platform API with retention                                                                                     | In Plan 2, Step 10                                                                   |
+| Logs, metrics, traces via OpenTelemetry                                                                                    | In Plan 2, Step 11                                                                   |
+| Org-scoped telemetry: organization attributes, per-org queries, retention                                                  | New                                                                                  |
+| Default dashboards and alerts per service, routed to the organization                                                      | New                                                                                  |
+| Forensic telemetry archive: Quickwit on the object store, fed through Kafka                                                | New                                                                                  |
+| Tenancy API (`Organization`, `Service`)                                                                                    | New                                                                                  |
+| Quotas and per-organization limits                                                                                         | New                                                                                  |
+| Golden-path templates (static frontend, Kotlin BFF built with Jib)                                                         | New                                                                                  |
+| Static frontend hosting contract                                                                                           | New                                                                                  |
+| Horizontal autoscaling: metrics-server and HPA defaults, then KEDA                                                         | New                                                                                  |
+| Human identity and single sign-on: a Keycloak per tenant with groups per organization                                      | New                                                                                  |
+| Developer portal: a Backstage per tenant with Kore plugins                                                                 | New                                                                                  |
+| GitOps delivery of tenant services: an Argo CD per tenant                                                                  | New, deferred in [Plan 1](../infra/plans/1-initialize.md#deferred-tooling) until now |
+| Platform configuration through the platform Argo CD                                                                        | New                                                                                  |
+| Object storage (S3 API)                                                                                                    | New                                                                                  |
+| Durable message bus (Kafka)                                                                                                | New, deferred in Plan 1 until now                                                    |
+| Document store (MongoDB protocol)                                                                                          | New                                                                                  |
+| Key-value store (Redis protocol)                                                                                           | New                                                                                  |
+| Organization scoping and quotas for every data service                                                                     | New                                                                                  |
+| Organization domains, service hostnames, and DNS automation                                                                | New                                                                                  |
+| Usage metering per organization with OpenCost, for visibility ([ADR 0052](decisions/0052-usage-metering-with-opencost.md)) | New                                                                                  |
+| Multi-cluster mesh and management                                                                                          | Deferred in Plan 1                                                                   |
 
 ## Horizons
 
@@ -493,10 +534,10 @@ What exists or is in flight today, and what the vision adds.
 - **Not forking Backstage or Argo CD.** Kore configures them and adds plugins;
   it does not carry patches to them.
 
-## Open Questions
+## Decisions
 
-Each one becomes an ADR before the work that depends on it starts. Decided
-questions keep their numbers and link to their ADR.
+Every question is now decided and links to its ADR; the numbers stay stable
+so earlier references still resolve.
 
 1. **Isolation tier.** Decided: one shared cluster, a namespace per service
    environment, no Capsule, and vCluster as a later dedicated tier
@@ -516,15 +557,19 @@ questions keep their numbers and link to their ADR.
 6. **Backstage tenancy.** Decided: one Backstage and one namespace-scoped Argo
    CD per tenant root, scoped inside by organization
    ([ADR 0041](decisions/0041-backstage-and-argo-cd-per-tenant.md)).
-7. **Default static host.** GitHub Pages, object storage behind the Gateway, or
-   an in-cluster static server, and which is the default per environment?
-8. **BFF runtime.** Measure the Jib JVM image on GraalVM, with the Java agent
-   and a class data cache, against the budgets above, and decide when a service
-   should build a native image instead.
-9. **Autoscaling source.** metrics-server for CPU-based HPA first, or straight
-   to KEDA for request-based scaling and scale to zero?
-10. **Usage and cost.** What is metered per organization, and is it for
-    visibility only or also enforced?
+7. **Default static host.** Decided: in the cluster as a signed image, with
+   GitHub Pages or object storage as a per-service escape hatch
+   ([ADR 0045](decisions/0045-static-frontends-as-signed-images.md)).
+8. **BFF runtime.** Decided: always the JVM with the Java agent, started from a
+   build-time AOT cache; native image only by exception
+   ([ADR 0046](decisions/0046-bff-jvm-with-agent-and-aot-cache.md)).
+9. **Autoscaling source.** Decided: metrics-server first, as a catalog Helm
+   release, with autoscaling defaults in chart values; KEDA after
+   ([ADR 0047](decisions/0047-autoscaling-metrics-server-then-keda.md)).
+10. **Usage and cost.** Decided: OpenCost and platform counters meter usage
+    per organization for visibility, rolled up the tree; enforcement stays
+    with quotas and there is no billing
+    ([ADR 0052](decisions/0052-usage-metering-with-opencost.md)).
 11. **Domain verification and DNS.** Decided: organizations at any level
     delegate zones under any TLD, services are subdomains inside them, and
     ExternalDNS writes the records
@@ -532,15 +577,22 @@ questions keep their numbers and link to their ADR.
 12. **Platform default domain.** Decided: every organization gets one default
     zone under a per-environment platform domain, still to be chosen
     ([ADR 0042](decisions/0042-organization-domains-by-delegation.md)).
-13. **Data isolation tiers.** For each data service, what does the shared tier
-    share, when does an organization get a dedicated instance, and who
-    decides?
-14. **Data store implementations.** Rook Ceph, SeaweedFS, or Garage for the
-    local object store, and FerretDB and Valkey or upstream MongoDB and Redis
-    recorded as license exceptions?
-15. **Telemetry isolation.** A label-enforcing proxy in front of Prometheus, or
-    a multi-tenant metrics store such as Mimir? And does each Kore tenant map
-    to a Grafana organization?
-16. **Telemetry retention and alert routing.** How long is each signal kept
-    per organization, does volume count against quotas, and where do an
-    organization's alerts go?
+13. **Data isolation tiers.** Decided: per-claim instances for PostgreSQL,
+    document, and key-value stores; shared, partitioned Kafka and object store;
+    dedicated stores per tenant root on request and operator approval
+    ([ADR 0048](decisions/0048-data-service-tenancy-tiers.md)).
+14. **Data store implementations.** Decided: SeaweedFS, Strimzi, FerretDB on
+    CloudNativePG, and Valkey, with no Bitnami images
+    ([ADR 0049](decisions/0049-data-store-implementations.md)).
+15. **Telemetry isolation.** Decided: shared backends, a Grafana per tenant,
+    Loki and Tempo multi-tenant, a label-enforcing proxy for Prometheus, and
+    Mimir later
+    ([ADR 0050](decisions/0050-tenant-telemetry-isolation.md)).
+16. **Telemetry retention and alert routing.** Decided: 14 days of logs and 7
+    of traces by default with per-tenant overrides, tenant alerts in the
+    tenant's Grafana, and Alertmanager for platform alerts only
+    ([ADR 0051](decisions/0051-telemetry-retention-and-alerting.md)).
+17. **Forensic telemetry.** Decided: every log record and span kept unsampled
+    in a Quickwit archive on the object store, fed through Kafka, write-once
+    with signed batch digests
+    ([ADR 0053](decisions/0053-forensic-telemetry-archive.md)).

@@ -722,6 +722,28 @@
         display: grid;
         gap: 6px;
         justify-items: start;
+        align-content: start;
+      }
+
+      .tiers {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+        align-items: center;
+      }
+      @media (min-width: 760px) {
+        .tiers {
+          grid-template-columns: 1fr auto 1fr;
+        }
+        .questions li.wide {
+          grid-column: 1 / -1;
+        }
+      }
+      .tool.forensic {
+        border-color: var(--new);
+      }
+      .tool > .pill {
+        justify-self: start;
       }
 
       footer {
@@ -1380,7 +1402,7 @@
           <div class="stage">
             <div class="box">
               <span class="route">/</span><b>Static frontend</b>
-              <small>GitHub Pages, object storage, or in-cluster</small>
+              <small>Signed image in the cluster</small>
             </div>
             <div class="box bff">
               <span class="route">/api</span><b>BFF pods 1..N</b>
@@ -1411,8 +1433,13 @@
             <h3>Static frontend</h3>
             <ul class="points">
               <li>
-                A frontend is a static build plus a domain. Where it is hosted
-                is an environment choice.
+                <strong>In the cluster, as a signed image.</strong> Each
+                frontend release is a pinned static-server image with the build
+                inside, signed and deployed by digest. GitHub Pages or object
+                storage is a per-service escape hatch (<a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0045-static-frontends-as-signed-images.md"
+                  >ADR 0045</a
+                >).
               </li>
               <li>
                 <strong>Same site as its BFF.</strong> Serve
@@ -1463,9 +1490,13 @@
                 dedicated ServiceAccount.
               </li>
               <li>
-                <strong>Autoscaling needs a metrics source,</strong> which the
-                catalog does not have yet. Request-rate scaling and scale to
-                zero (KEDA) come later.
+                <strong>Autoscaling from chart values.</strong> metrics-server
+                first, as a catalog Helm release; a CPU-based autoscaler with at
+                least two replicas and no replica count in the chart; KEDA
+                after, and no scale to zero (<a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0047-autoscaling-metrics-server-then-keda.md"
+                  >ADR 0047</a
+                >).
               </li>
             </ul>
           </div>
@@ -1483,48 +1514,56 @@
           </div>
         </div>
         <div class="section-head">
-          <span class="eyebrow">Two Kotlin builds, one contract</span>
+          <span class="eyebrow"
+            >The Kotlin BFF: agent always, fast start from a build-time
+            cache</span
+          >
           <div class="split">
             <div class="tool">
-              <h3>Default: JVM on GraalVM</h3>
+              <h3>Golden path: JVM on GraalVM</h3>
               <dl class="facts">
                 <dt>Build</dt>
                 <dd>
                   Jib image with the OpenTelemetry Java agent and
                   <code>-javaagent</code>
                 </dd>
-                <dt>Telemetry</dt>
+                <dt>Training</dt>
                 <dd>
-                  The agent traces Spring, HTTP, JDBC, Kafka, and Redis clients
-                  with no code
+                  One run at build time, same JDK, flags, and agent, no secrets;
+                  stops after the Spring context refreshes
                 </dd>
                 <dt>Startup</dt>
                 <dd>
-                  Spring ahead-of-time processing and the JDK class data cache;
-                  expected to miss 1 s, to measure
+                  JDK AOT cache baked into the image plus Spring AOT; measured,
+                  with two warm replicas until it meets the budget
                 </dd>
               </dl>
             </div>
             <div class="tool">
-              <h3>When startup must be under 1 s: native image</h3>
+              <h3>Exception: native image</h3>
               <dl class="facts">
-                <dt>Build</dt>
-                <dd>
-                  GraalVM native image, packaged by Jib's native-image extension
-                </dd>
+                <dt>When</dt>
+                <dd>Only as a recorded exception</dd>
                 <dt>Telemetry</dt>
                 <dd>
                   OpenTelemetry Spring Boot starter; the Java agent cannot run
                   in a native image
                 </dd>
-                <dt>Startup</dt>
+                <dt>Why not CRaC</dt>
                 <dd>
-                  Fastest start and smallest memory, at the cost of longer
-                  builds
+                  It needs a CRaC-enabled JDK, not GraalVM, and its snapshot
+                  captures memory, secrets included
                 </dd>
               </dl>
             </div>
           </div>
+          <p class="lede">
+            Decided in
+            <a
+              href="https://github.com/corekraft/kore/blob/main/docs/decisions/0046-bff-jvm-with-agent-and-aot-cache.md"
+              >ADR 0046</a
+            >.
+          </p>
         </div>
       </section>
 
@@ -1549,7 +1588,7 @@
               <tr>
                 <th>Capability</th>
                 <th>Contract the app sees</th>
-                <th>Local (candidates)</th>
+                <th>Local implementation</th>
                 <th>Managed substitutes</th>
                 <th>Default tenancy</th>
               </tr>
@@ -1565,7 +1604,7 @@
               <tr>
                 <td>Object store</td>
                 <td>S3 API, a bucket claim</td>
-                <td>Rook Ceph object gateway, SeaweedFS, or Garage</td>
+                <td>SeaweedFS</td>
                 <td>Amazon S3, Google Cloud Storage, Cloudflare R2</td>
                 <td>
                   <span class="pill shared">Shared store</span> bucket per
@@ -1585,7 +1624,7 @@
               <tr>
                 <td>Document store</td>
                 <td>MongoDB wire protocol, a database claim</td>
-                <td>FerretDB, or the Percona Operator for MongoDB</td>
+                <td>FerretDB on CloudNativePG with the DocumentDB extension</td>
                 <td>MongoDB Atlas, Amazon DocumentDB</td>
                 <td><span class="pill dedicated">Instance per claim</span></td>
               </tr>
@@ -1631,10 +1670,13 @@
             <li>
               <strong>Shared and dedicated tiers.</strong
               ><span
-                >The shared tier partitions one store with its own access
-                control, such as Kafka prefix ACLs and quotas or bucket
-                policies. The dedicated tier gives an organization its own
-                instance or cluster.</span
+                >Kafka and the object store are shared per environment and
+                partitioned with their own access control. A tenant root can get
+                its own Kafka cluster or object store when its administrators
+                request it and an operator approves (<a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0048-data-service-tenancy-tiers.md"
+                  >ADR 0048</a
+                >).</span
               >
             </li>
             <li>
@@ -1650,11 +1692,13 @@
             <li>
               <strong>Open source locally.</strong
               ><span
-                >The MongoDB server is licensed under the SSPL and Redis under
-                RSALv2, SSPL, or AGPLv3, so the local candidates are open
-                implementations of the same protocols, FerretDB and Valkey.
-                Upstream MongoDB or Redis would be an exception recorded in an
-                ADR.</span
+                >SeaweedFS, Strimzi, FerretDB, and Valkey, with no Bitnami
+                images. The MongoDB server is SSPL and Redis is RSALv2, SSPL, or
+                AGPLv3, so upstream MongoDB or Redis would be an exception with
+                its own ADR (<a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0049-data-store-implementations.md"
+                  >ADR 0049</a
+                >).</span
               >
             </li>
           </ul>
@@ -1738,8 +1782,7 @@
                 resource attributes, so the Kotlin BFF template exports from its
                 first deploy. On the JVM, the Java agent Jib bakes in traces
                 Spring, HTTP clients, JDBC, Kafka, and Redis clients with no
-                code; a native-image build uses the OpenTelemetry Spring Boot
-                starter, because the agent cannot run there.</span
+                code, in every BFF.</span
               >
             </li>
             <li>
@@ -1752,12 +1795,15 @@
               >
             </li>
             <li>
-              <strong>Queries are scoped to the organization.</strong
+              <strong>Queries are scoped to the tenant.</strong
               ><span
-                >Each organization sees only its own signals. Loki and Tempo
-                separate tenants natively; metrics need a label-enforcing proxy
-                in front of Prometheus or a store that separates tenants, such
-                as Mimir.</span
+                >Each tenant root gets its own Grafana, signed in through its
+                Keycloak. Loki and Tempo separate tenants natively, Prometheus
+                is read through a label-enforcing proxy, and Mimir replaces it
+                when a tenant needs its own metric retention (<a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0050-tenant-telemetry-isolation.md"
+                  >ADR 0050</a
+                >).</span
               >
             </li>
           </ul>
@@ -1765,18 +1811,22 @@
             <li>
               <strong>Dashboards and alerts come with each service.</strong
               ><span
-                >Request rate, errors, latency, saturation, replicas, and data
-                claims on one dashboard, plus default alerts routed to the
-                organization's contacts. Alerting needs Alertmanager, which ADR
-                0019 keeps disabled until routing is designed.</span
+                >Default dashboards and alert rules per service, provisioned
+                into the tenant's Grafana, with contact points from the
+                Organization resource. Alertmanager serves platform alerts only
+                (<a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0051-telemetry-retention-and-alerting.md"
+                  >ADR 0051</a
+                >).</span
               >
             </li>
             <li>
-              <strong>Bounded per organization.</strong
+              <strong>Bounded per tenant.</strong
               ><span
-                >Cardinality stays bounded by the ADR 0019 attribute allowlist,
-                retention is set per organization, and telemetry volume counts
-                toward usage.</span
+                >Logs keep 14 days and traces 7 days by default, overridable per
+                tenant with ingestion limits; metrics keep one platform
+                retention until Mimir. Cardinality stays bounded by the ADR 0019
+                allowlist.</span
               >
             </li>
             <li>
@@ -1785,6 +1835,98 @@
                 >Backstage, Argo CD, the data operators, and the Collectors
                 report into the platform organization's view, so operators watch
                 the platform with the same tools tenants use.</span
+              >
+            </li>
+          </ul>
+        </div>
+        <div class="section-head">
+          <span class="eyebrow">Forensic archive</span>
+          <h3>Every log record and span, kept as evidence</h3>
+          <p class="lede">
+            Beside the hot tier, the Collector sends everything through a Kafka
+            topic per tenant to Quickwit, which indexes every message and
+            attribute in the object store (<a
+              href="https://github.com/corekraft/kore/blob/main/docs/decisions/0053-forensic-telemetry-archive.md"
+              >ADR 0053</a
+            >). Quickwit is licensed under Apache 2.0.
+          </p>
+        </div>
+        <div class="tiers">
+          <div class="tool">
+            <span class="pill plan">Hot</span>
+            <dl class="facts">
+              <dt>Holds</dt>
+              <dd>Metrics, logs, and traces in Prometheus, Loki, and Tempo</dd>
+              <dt>Kept</dt>
+              <dd>Days: 14 for logs, 7 for traces</dd>
+              <dt>For</dt>
+              <dd>Dashboards, alerts, and debugging</dd>
+            </dl>
+          </div>
+          <div class="arrow" aria-hidden="true">→</div>
+          <div class="tool forensic">
+            <span class="pill new">Forensic</span>
+            <dl class="facts">
+              <dt>Holds</dt>
+              <dd>
+                Every log record and span, unsampled, with full body and
+                attributes
+              </dd>
+              <dt>Kept</dt>
+              <dd>Per tenant, for years, with legal hold</dd>
+              <dt>For</dt>
+              <dd>Full-text search over every message and attribute</dd>
+            </dl>
+          </div>
+        </div>
+        <div class="split">
+          <ul class="rules">
+            <li>
+              <strong>Written twice through a durable buffer.</strong
+              ><span
+                >The Collector buffers to disk; Kafka holds every signal so an
+                indexer outage loses nothing and the archive can be
+                replayed.</span
+              >
+            </li>
+            <li>
+              <strong>Nothing sampled away.</strong
+              ><span
+                >Mesh tracing samples every request, and the archive receives
+                every span even where the hot tier samples.</span
+              >
+            </li>
+            <li>
+              <strong>Tamper-evident.</strong
+              ><span
+                >S3 Object Lock in compliance mode, so no one, root included,
+                can delete or change the archive before retention ends; a signed
+                digest per indexed batch; reported gaps.</span
+              >
+            </li>
+          </ul>
+          <ul class="rules">
+            <li>
+              <strong>Private.</strong
+              ><span
+                >Secrets are stripped before either tier, and tenants can mask
+                personal data.</span
+              >
+            </li>
+            <li>
+              <strong>Tenant-scoped and audited.</strong
+              ><span
+                >One index per tenant, searched through the tenant's Grafana;
+                every search is logged, and operators use a logged break-glass
+                path.</span
+              >
+            </li>
+            <li>
+              <strong>Deletable by key.</strong
+              ><span
+                >Each tenant's archive is encrypted with its own key, so
+                destroying the key destroys the archive once no legal hold
+                applies.</span
               >
             </li>
           </ul>
@@ -1888,8 +2030,9 @@
                 >
                 <code>kore</code> keeps the bootstrap, core, and observability
                 phases; the platform organization's Argo CD owns every
-                configuration-phase release except the image policy, deployed
-                from OCI artifacts by digest, and its health gates admission (<a
+                configuration-phase release except the image policy, as Helm
+                charts served from the platform registry over OCI, and its
+                health gates admission (<a
                   href="https://github.com/corekraft/kore/blob/main/docs/decisions/0043-platform-configuration-through-argo-cd.md"
                   >ADR 0043</a
                 >).
@@ -2022,6 +2165,13 @@
               </tr>
               <tr>
                 <td>
+                  Forensic telemetry archive: Quickwit on the object store, fed
+                  through Kafka
+                </td>
+                <td><span class="pill new">New</span></td>
+              </tr>
+              <tr>
+                <td>
                   Tenancy API (<code>Organization</code>, <code>Service</code>)
                 </td>
                 <td><span class="pill new">New</span></td>
@@ -2042,7 +2192,10 @@
                 <td><span class="pill new">New</span></td>
               </tr>
               <tr>
-                <td>Horizontal autoscaling (metrics source, HPA defaults)</td>
+                <td>
+                  Horizontal autoscaling: metrics-server and HPA defaults, then
+                  KEDA
+                </td>
                 <td><span class="pill new">New</span></td>
               </tr>
               <tr>
@@ -2103,7 +2256,9 @@
                 <td><span class="pill new">New</span></td>
               </tr>
               <tr>
-                <td>Usage metering</td>
+                <td>
+                  Usage metering per organization with OpenCost, for visibility
+                </td>
                 <td><span class="pill new">New</span></td>
               </tr>
               <tr>
@@ -2244,11 +2399,8 @@
 
       <section aria-labelledby="questions">
         <div class="section-head">
-          <span class="eyebrow"
-            >Each becomes an ADR before dependent work starts; decided ones link
-            to it</span
-          >
-          <h2 id="questions">Open questions</h2>
+          <span class="eyebrow">Every vision question, each with its ADR</span>
+          <h2 id="questions">Decisions</h2>
         </div>
         <ol class="questions">
           <li class="decided">
@@ -2329,41 +2481,56 @@
               >
             </div>
           </li>
-          <li>
+          <li class="decided">
             <div>
               <strong>Default static host</strong
               ><span
-                >GitHub Pages, object storage behind the Gateway, or an
-                in-cluster static server, and which is the default per
-                environment?</span
+                >In the cluster as a signed image, with GitHub Pages or object
+                storage as a per-service escape hatch.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0045-static-frontends-as-signed-images.md"
+                >Decided · ADR 0045</a
               >
             </div>
           </li>
-          <li>
+          <li class="decided">
             <div>
               <strong>BFF runtime</strong
               ><span
-                >Measure the Jib JVM image on GraalVM, with the Java agent and a
-                class data cache, against the budgets, and decide when a service
-                should build a native image instead.</span
+                >Always the JVM with the Java agent, started from a build-time
+                AOT cache; native image only by exception.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0046-bff-jvm-with-agent-and-aot-cache.md"
+                >Decided · ADR 0046</a
               >
             </div>
           </li>
-          <li>
+          <li class="decided">
             <div>
               <strong>Autoscaling source</strong
               ><span
-                >metrics-server for CPU-based HPA first, or straight to KEDA for
-                request-based scaling and scale to zero?</span
+                >metrics-server first, as a catalog Helm release, with
+                autoscaling defaults in chart values; KEDA after.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0047-autoscaling-metrics-server-then-keda.md"
+                >Decided · ADR 0047</a
               >
             </div>
           </li>
-          <li>
+          <li class="decided">
             <div>
               <strong>Usage and cost</strong
               ><span
-                >What is metered per organization, and is it for visibility only
-                or also enforced?</span
+                >OpenCost and platform counters meter usage per organization for
+                visibility, rolled up the tree; quotas enforce, and there is no
+                billing.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0052-usage-metering-with-opencost.md"
+                >Decided · ADR 0052</a
               >
             </div>
           </li>
@@ -2394,43 +2561,72 @@
               >
             </div>
           </li>
-          <li>
+          <li class="decided">
             <div>
               <strong>Data isolation tiers</strong
               ><span
-                >For each data service, what does the shared tier share, when
-                does an organization get a dedicated instance, and who
-                decides?</span
+                >Per-claim instances for PostgreSQL, document, and key-value
+                stores; shared, partitioned Kafka and object store; dedicated
+                stores per tenant root on approval.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0048-data-service-tenancy-tiers.md"
+                >Decided · ADR 0048</a
               >
             </div>
           </li>
-          <li>
+          <li class="decided">
             <div>
               <strong>Data store implementations</strong
               ><span
-                >Rook Ceph, SeaweedFS, or Garage for the local object store, and
-                FerretDB and Valkey, or upstream MongoDB and Redis recorded as
-                license exceptions?</span
+                >SeaweedFS, Strimzi, FerretDB on CloudNativePG, and Valkey, with
+                no Bitnami images.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0049-data-store-implementations.md"
+                >Decided · ADR 0049</a
               >
             </div>
           </li>
-          <li>
+          <li class="decided">
             <div>
               <strong>Telemetry isolation</strong
               ><span
-                >A label-enforcing proxy in front of Prometheus, or a
-                multi-tenant metrics store such as Mimir? And does each Kore
-                tenant map to a Grafana organization?</span
+                >Shared backends, a Grafana per tenant, multi-tenant Loki and
+                Tempo, a label-enforcing proxy for Prometheus, and Mimir
+                later.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0050-tenant-telemetry-isolation.md"
+                >Decided · ADR 0050</a
               >
             </div>
           </li>
-          <li>
+          <li class="decided">
             <div>
               <strong>Telemetry retention and alert routing</strong
               ><span
-                >How long is each signal kept per organization, does volume
-                count against quotas, and where do an organization's alerts
-                go?</span
+                >14 days of logs and 7 of traces by default with per-tenant
+                overrides; tenant alerts in the tenant's Grafana; Alertmanager
+                for platform alerts only.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0051-telemetry-retention-and-alerting.md"
+                >Decided · ADR 0051</a
+              >
+            </div>
+          </li>
+          <li class="decided wide">
+            <div>
+              <strong>Forensic telemetry</strong
+              ><span
+                >Every log record and span kept unsampled in a Quickwit archive
+                on the object store, fed through Kafka, write-once with signed
+                batch digests, per-tenant indexes, and audited access.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0053-forensic-telemetry-archive.md"
+                >Decided · ADR 0053</a
               >
             </div>
           </li>
