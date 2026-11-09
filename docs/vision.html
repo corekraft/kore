@@ -722,6 +722,7 @@
         display: grid;
         gap: 6px;
         justify-items: start;
+        align-content: start;
       }
 
       footer {
@@ -1566,7 +1567,7 @@
               <tr>
                 <th>Capability</th>
                 <th>Contract the app sees</th>
-                <th>Local (candidates)</th>
+                <th>Local implementation</th>
                 <th>Managed substitutes</th>
                 <th>Default tenancy</th>
               </tr>
@@ -1582,7 +1583,7 @@
               <tr>
                 <td>Object store</td>
                 <td>S3 API, a bucket claim</td>
-                <td>Rook Ceph object gateway, SeaweedFS, or Garage</td>
+                <td>SeaweedFS</td>
                 <td>Amazon S3, Google Cloud Storage, Cloudflare R2</td>
                 <td>
                   <span class="pill shared">Shared store</span> bucket per
@@ -1602,7 +1603,7 @@
               <tr>
                 <td>Document store</td>
                 <td>MongoDB wire protocol, a database claim</td>
-                <td>FerretDB, or the Percona Operator for MongoDB</td>
+                <td>FerretDB on CloudNativePG with the DocumentDB extension</td>
                 <td>MongoDB Atlas, Amazon DocumentDB</td>
                 <td><span class="pill dedicated">Instance per claim</span></td>
               </tr>
@@ -1648,10 +1649,13 @@
             <li>
               <strong>Shared and dedicated tiers.</strong
               ><span
-                >The shared tier partitions one store with its own access
-                control, such as Kafka prefix ACLs and quotas or bucket
-                policies. The dedicated tier gives an organization its own
-                instance or cluster.</span
+                >Kafka and the object store are shared per environment and
+                partitioned with their own access control. A tenant root can get
+                its own Kafka cluster or object store when its administrators
+                request it and an operator approves (<a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0047-data-service-tenancy-tiers.md"
+                  >ADR 0047</a
+                >).</span
               >
             </li>
             <li>
@@ -1667,11 +1671,13 @@
             <li>
               <strong>Open source locally.</strong
               ><span
-                >The MongoDB server is licensed under the SSPL and Redis under
-                RSALv2, SSPL, or AGPLv3, so the local candidates are open
-                implementations of the same protocols, FerretDB and Valkey.
-                Upstream MongoDB or Redis would be an exception recorded in an
-                ADR.</span
+                >SeaweedFS, Strimzi, FerretDB, and Valkey, with no Bitnami
+                images. The MongoDB server is SSPL and Redis is RSALv2, SSPL, or
+                AGPLv3, so upstream MongoDB or Redis would be an exception with
+                its own ADR (<a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0048-data-store-implementations.md"
+                  >ADR 0048</a
+                >).</span
               >
             </li>
           </ul>
@@ -1768,12 +1774,15 @@
               >
             </li>
             <li>
-              <strong>Queries are scoped to the organization.</strong
+              <strong>Queries are scoped to the tenant.</strong
               ><span
-                >Each organization sees only its own signals. Loki and Tempo
-                separate tenants natively; metrics need a label-enforcing proxy
-                in front of Prometheus or a store that separates tenants, such
-                as Mimir.</span
+                >Each tenant root gets its own Grafana, signed in through its
+                Keycloak. Loki and Tempo separate tenants natively, Prometheus
+                is read through a label-enforcing proxy, and Mimir replaces it
+                when a tenant needs its own metric retention (<a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0049-tenant-telemetry-isolation.md"
+                  >ADR 0049</a
+                >).</span
               >
             </li>
           </ul>
@@ -1781,18 +1790,22 @@
             <li>
               <strong>Dashboards and alerts come with each service.</strong
               ><span
-                >Request rate, errors, latency, saturation, replicas, and data
-                claims on one dashboard, plus default alerts routed to the
-                organization's contacts. Alerting needs Alertmanager, which ADR
-                0019 keeps disabled until routing is designed.</span
+                >Default dashboards and alert rules per service, provisioned
+                into the tenant's Grafana, with contact points from the
+                Organization resource. Alertmanager serves platform alerts only
+                (<a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0050-telemetry-retention-and-alerting.md"
+                  >ADR 0050</a
+                >).</span
               >
             </li>
             <li>
-              <strong>Bounded per organization.</strong
+              <strong>Bounded per tenant.</strong
               ><span
-                >Cardinality stays bounded by the ADR 0019 attribute allowlist,
-                retention is set per organization, and telemetry volume counts
-                toward usage.</span
+                >Logs keep 14 days and traces 7 days by default, overridable per
+                tenant with ingestion limits; metrics keep one platform
+                retention until Mimir. Cardinality stays bounded by the ADR 0019
+                allowlist.</span
               >
             </li>
             <li>
@@ -2123,7 +2136,9 @@
                 <td><span class="pill new">New</span></td>
               </tr>
               <tr>
-                <td>Usage metering</td>
+                <td>
+                  Usage metering per organization with OpenCost, for visibility
+                </td>
                 <td><span class="pill new">New</span></td>
               </tr>
               <tr>
@@ -2264,11 +2279,8 @@
 
       <section aria-labelledby="questions">
         <div class="section-head">
-          <span class="eyebrow"
-            >Each becomes an ADR before dependent work starts; decided ones link
-            to it</span
-          >
-          <h2 id="questions">Open questions</h2>
+          <span class="eyebrow">Every vision question, each with its ADR</span>
+          <h2 id="questions">Decisions</h2>
         </div>
         <ol class="questions">
           <li class="decided">
@@ -2388,12 +2400,17 @@
               >
             </div>
           </li>
-          <li>
+          <li class="decided">
             <div>
               <strong>Usage and cost</strong
               ><span
-                >What is metered per organization, and is it for visibility only
-                or also enforced?</span
+                >OpenCost and platform counters meter usage per organization for
+                visibility, rolled up the tree; quotas enforce, and there is no
+                billing.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0051-usage-metering-with-opencost.md"
+                >Decided · ADR 0051</a
               >
             </div>
           </li>
@@ -2424,43 +2441,58 @@
               >
             </div>
           </li>
-          <li>
+          <li class="decided">
             <div>
               <strong>Data isolation tiers</strong
               ><span
-                >For each data service, what does the shared tier share, when
-                does an organization get a dedicated instance, and who
-                decides?</span
+                >Per-claim instances for PostgreSQL, document, and key-value
+                stores; shared, partitioned Kafka and object store; dedicated
+                stores per tenant root on approval.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0047-data-service-tenancy-tiers.md"
+                >Decided · ADR 0047</a
               >
             </div>
           </li>
-          <li>
+          <li class="decided">
             <div>
               <strong>Data store implementations</strong
               ><span
-                >Rook Ceph, SeaweedFS, or Garage for the local object store, and
-                FerretDB and Valkey, or upstream MongoDB and Redis recorded as
-                license exceptions?</span
+                >SeaweedFS, Strimzi, FerretDB on CloudNativePG, and Valkey, with
+                no Bitnami images.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0048-data-store-implementations.md"
+                >Decided · ADR 0048</a
               >
             </div>
           </li>
-          <li>
+          <li class="decided">
             <div>
               <strong>Telemetry isolation</strong
               ><span
-                >A label-enforcing proxy in front of Prometheus, or a
-                multi-tenant metrics store such as Mimir? And does each Kore
-                tenant map to a Grafana organization?</span
+                >Shared backends, a Grafana per tenant, multi-tenant Loki and
+                Tempo, a label-enforcing proxy for Prometheus, and Mimir
+                later.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0049-tenant-telemetry-isolation.md"
+                >Decided · ADR 0049</a
               >
             </div>
           </li>
-          <li>
+          <li class="decided">
             <div>
               <strong>Telemetry retention and alert routing</strong
               ><span
-                >How long is each signal kept per organization, does volume
-                count against quotas, and where do an organization's alerts
-                go?</span
+                >14 days of logs and 7 of traces by default with per-tenant
+                overrides; tenant alerts in the tenant's Grafana; Alertmanager
+                for platform alerts only.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0050-telemetry-retention-and-alerting.md"
+                >Decided · ADR 0050</a
               >
             </div>
           </li>

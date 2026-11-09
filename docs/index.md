@@ -91,6 +91,11 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0044-static-frontends-as-signed-images.md`](decisions/0044-static-frontends-as-signed-images.md) — static frontends are served in the cluster from signed static-server images on the same host as their BFF; external hosting is a recorded escape hatch. Read when changing frontend delivery.
 - [`docs/decisions/0045-bff-jvm-with-agent-and-aot-cache.md`](decisions/0045-bff-jvm-with-agent-and-aot-cache.md) — refines ADR 0015: the Kotlin BFF runs on the GraalVM JDK as a JVM with the OpenTelemetry Java agent, starting from a build-time AOT cache in its Jib image. Read when changing the BFF template or its build.
 - [`docs/decisions/0046-autoscaling-metrics-server-then-keda.md`](decisions/0046-autoscaling-metrics-server-then-keda.md) — metrics-server first as a catalog Helm release, CPU autoscaling defaults in chart values without a replica count, KEDA later. Read when changing autoscaling.
+- [`docs/decisions/0047-data-service-tenancy-tiers.md`](decisions/0047-data-service-tenancy-tiers.md) — per-claim instances for PostgreSQL, document, and key-value stores; shared, partitioned Kafka and object store; dedicated stores per tenant root on approval. Read when changing a data service API.
+- [`docs/decisions/0048-data-store-implementations.md`](decisions/0048-data-store-implementations.md) — SeaweedFS, Strimzi, FerretDB on CloudNativePG, and Valkey for local data services, with no Bitnami images. Read when adding or changing a data store.
+- [`docs/decisions/0049-tenant-telemetry-isolation.md`](decisions/0049-tenant-telemetry-isolation.md) — refines ADR 0010 and 0019: shared backends, a Grafana per tenant, multi-tenant Loki and Tempo, a label-enforcing proxy for Prometheus, Mimir later. Read when changing telemetry access.
+- [`docs/decisions/0050-telemetry-retention-and-alerting.md`](decisions/0050-telemetry-retention-and-alerting.md) — refines ADR 0019: default and per-tenant retention, tenant alerts in each tenant's Grafana, Alertmanager for platform alerts only. Read when changing retention or alerting.
+- [`docs/decisions/0051-usage-metering-with-opencost.md`](decisions/0051-usage-metering-with-opencost.md) — usage per organization through OpenCost and platform counters, for visibility only. Read when changing usage reporting.
 
 ## Reference
 
