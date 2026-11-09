@@ -44,16 +44,22 @@ test("image verification is bound to the locked signer and digest", () => {
   ]);
 });
 
-test("HTTP local registry verification uses its explicit NodePort", () => {
+test("a registry with a port never switches cosign to plain HTTP: it verifies over TLS against the given CA", () => {
   expect(
-    verifyLockedImageArgs({
-      reference: "registry.kore.local:30500/reference@sha256:" + "a".repeat(64),
-      digest: "sha256:" + "a".repeat(64),
-      signer: "release@kore.dev",
-    }),
+    verifyLockedImageArgs(
+      {
+        reference:
+          "registry.kore.local:30500/reference@sha256:" + "a".repeat(64),
+        digest: "sha256:" + "a".repeat(64),
+        signer: "release@kore.dev",
+      },
+      undefined,
+      "/tmp/ca.crt",
+    ),
   ).toEqual([
     "verify",
-    "--allow-http-registry",
+    "--registry-cacert",
+    "/tmp/ca.crt",
     "--certificate-identity",
     "release@kore.dev",
     "--certificate-oidc-issuer",
@@ -71,10 +77,12 @@ test("local image verification uses the generated public key", () => {
         signer: "local-kore-key",
       },
       "/workspace/.kore/keys/local/kore.pub",
+      "/tmp/ca.crt",
     ),
   ).toEqual([
     "verify",
-    "--allow-http-registry",
+    "--registry-cacert",
+    "/tmp/ca.crt",
     "--insecure-ignore-tlog",
     "--key",
     "/workspace/.kore/keys/local/kore.pub",
@@ -121,9 +129,7 @@ test("Minikube stages the locked digest under the registry service reference", (
     "--",
   ]);
   expect(args[5]).toContain("--password-stdin");
-  expect(args[5]).toContain(
-    "nerdctl --insecure-registry --namespace k8s.io pull",
-  );
+  expect(args[5]).toContain("nerdctl --namespace k8s.io pull");
   expect(args[5]).toContain(reference);
 });
 

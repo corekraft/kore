@@ -1,3 +1,4 @@
+import { registryTlsSecret } from "../images/registry-tls-fixtures.js";
 import type { Runner } from "../runtime/index.js";
 
 /**
@@ -22,8 +23,14 @@ export function healthyWebhookOutput(
 export function withHealthyWebhooks(runner: Runner): Runner {
   return {
     async run(command, args, options) {
+      // The CA cert-manager issued answers the registry trust read (ADR 0058).
+      const trust = args.includes("oci-registry-tls")
+        ? registryTlsSecret
+        : undefined;
       const output =
-        command === "kubectl" ? healthyWebhookOutput(args) : undefined;
+        command === "kubectl"
+          ? (trust ?? healthyWebhookOutput(args))
+          : undefined;
       return output === undefined
         ? runner.run(command, args, options)
         : { stdout: output, stderr: "", code: 0 };

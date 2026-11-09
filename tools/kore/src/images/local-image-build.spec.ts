@@ -18,12 +18,15 @@ import { buildAndSignLocalImage } from "./local-image.js";
 
 const registryReference = vi.hoisted(() => vi.fn());
 vi.mock("./registry.js", () => ({ localRegistryReference: registryReference }));
+const registryHead = vi.hoisted(() => vi.fn());
+vi.mock("./registry-https.js", () => ({ registryHead }));
 
 const roots: string[] = [];
 
 afterEach(async () => {
   vi.unstubAllGlobals();
   registryReference.mockReset();
+  registryHead.mockReset();
   await Promise.all(
     roots.splice(0).map((root) => rm(root, { force: true, recursive: true })),
   );
@@ -41,7 +44,7 @@ async function testRepository(): Promise<Repository> {
 test("build and sign generates the key pair as a Kubernetes Secret through the configured context and writes no private key", async () => {
   const repository = await testRepository();
   const { runner, calls } = fakeRunner();
-  stubRegistry(registryReference);
+  stubRegistry(registryReference, registryHead);
 
   const result = await buildAndSignLocalImage(
     repository,
@@ -93,7 +96,7 @@ test("build and sign generates the key pair as a Kubernetes Secret through the c
 test("cosign is pinned to the configured context through a kubeconfig that is removed afterwards", async () => {
   const repository = await testRepository();
   const { runner, calls } = fakeRunner();
-  stubRegistry(registryReference);
+  stubRegistry(registryReference, registryHead);
 
   await buildAndSignLocalImage(repository, runner, "reference", entry);
 
@@ -121,7 +124,7 @@ test("build and sign refuses a kubeconfig that embeds credentials", async () => 
 test("build and sign reuses the key Secret already in the cluster", async () => {
   const repository = await testRepository();
   const { runner, calls } = fakeRunner({ secretExists: true });
-  stubRegistry(registryReference);
+  stubRegistry(registryReference, registryHead);
 
   await buildAndSignLocalImage(repository, runner, "reference", entry);
 
@@ -139,7 +142,7 @@ test("a legacy key under .kore is never used and is reported as deletable", asyn
   await writeFile(join(directory, "automation.key"), "private");
   await writeFile(join(directory, "automation.pub"), "public");
   const { runner, calls } = fakeRunner();
-  stubRegistry(registryReference);
+  stubRegistry(registryReference, registryHead);
   const stderr = vi.spyOn(process.stderr, "write").mockReturnValue(true);
 
   await buildAndSignLocalImage(repository, runner, "reference", entry);
@@ -160,10 +163,7 @@ test("a legacy key under .kore is never used and is reported as deletable", asyn
 test("build and sign rejects a registry response without a usable digest", async () => {
   const repository = await testRepository();
   const { runner } = fakeRunner();
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue(new Response(null, { status: 404 })),
-  );
+  registryHead.mockResolvedValue({ status: 404, digest: "" });
   registryReference.mockImplementation(
     async (_repo, _runner, reference) => reference,
   );
@@ -185,7 +185,7 @@ test("build and sign rejects when the local registry service has no address", as
 test("key generation runs in a private temp directory so cosign.pub never lands in the caller's working directory", async () => {
   const repository = await testRepository();
   const { runner, calls } = fakeRunner();
-  stubRegistry(registryReference);
+  stubRegistry(registryReference, registryHead);
   const before = existsSync(join(process.cwd(), "cosign.pub"));
 
   await buildAndSignLocalImage(repository, runner, "reference", entry);
@@ -204,7 +204,7 @@ test("key generation runs in a private temp directory so cosign.pub never lands 
 test("build and sign pushes to the environment's registry.address, not a live lookup", async () => {
   const repository = await testRepository();
   const { runner, calls } = fakeRunner();
-  stubRegistry(registryReference);
+  stubRegistry(registryReference, registryHead);
 
   await buildAndSignLocalImage(repository, runner, "reference", entry);
 

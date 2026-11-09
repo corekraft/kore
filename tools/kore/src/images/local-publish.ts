@@ -10,6 +10,7 @@ import {
   withSecretsRedacted,
   type RegistryCredential,
 } from "./registry-auth.js";
+import { loadRegistryCa } from "./registry-tls.js";
 import { withRegistryClient, type RegistryClient } from "./registry-client.js";
 import { verifiedRegistryAddress } from "./registry-service.js";
 
@@ -30,7 +31,8 @@ export async function withPublishSession<T>(
   action: (session: PublishSession) => Promise<T>,
 ): Promise<T> {
   const credential = await loadRegistryCredential(repository, runner, "push");
-  return await withRegistryClient(credential, (client) =>
+  const ca = await loadRegistryCa(repository, runner);
+  return await withRegistryClient(credential, ca, (client) =>
     action({ credential, client }),
   );
 }
@@ -68,21 +70,18 @@ export async function publishToLocalRegistry(
 
 export async function publishedDigest(
   repositoryPath: string,
-  authorization: string,
+  client: Pick<RegistryClient, "authorization" | "head">,
 ): Promise<string> {
   const manifestPath = repositoryPath
     .split("/")
     .map(encodeURIComponent)
     .join("/");
-  const manifest = await fetch(
-    `http://127.0.0.1:30500/v2/${manifestPath}/manifests/kore-local`,
-    {
-      method: "HEAD",
-      headers: { Accept: manifestAccept, Authorization: authorization },
-    },
+  const manifest = await client.head(
+    `https://127.0.0.1:30500/v2/${manifestPath}/manifests/kore-local`,
+    { Accept: manifestAccept, Authorization: client.authorization },
   );
   return imageDigestFromRegistryHead(
     manifest.status,
-    `docker-content-digest: ${manifest.headers.get("docker-content-digest") ?? ""}`,
+    `docker-content-digest: ${manifest.digest}`,
   );
 }

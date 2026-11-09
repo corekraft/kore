@@ -9,6 +9,7 @@ import {
   publishedDigest,
   verifiedRegistryAddress,
   withPublishSession,
+  type RegistryClient,
   type RegistryDependencies,
 } from "../images/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
@@ -200,7 +201,7 @@ export interface UntrustedImages {
 
 export interface ProbeDependencies {
   registry?: RegistryDependencies;
-  digest?: (repositoryPath: string, authorization: string) => Promise<string>;
+  digest?: (repositoryPath: string, client: RegistryClient) => Promise<string>;
 }
 
 /**
@@ -240,7 +241,7 @@ export async function publishUntrustedCopies(
         dependencies.registry,
       );
       published[name] =
-        `${address}/${path}@${await digestOf(path, session.client.authorization)}`;
+        `${address}/${path}@${await digestOf(path, session.client)}`;
     }
     const foreign = published["foreign-signed"]!;
     const directory = await mkdtemp(join(tmpdir(), "kore-throwaway-key-"));
@@ -261,6 +262,7 @@ export async function publishUntrustedCopies(
             foreign,
             dependencies.registry,
           ),
+          session.client.caFile,
         ),
         { capture: true, env: { ...env, ...session.client.env } },
       );

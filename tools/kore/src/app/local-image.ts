@@ -27,7 +27,7 @@ export function minikubeImagePullArgs(
   username: string,
 ): string[] {
   return minikubeRegistrySessionArgs(profile, registryAddress, username, [
-    `nerdctl --insecure-registry --namespace k8s.io pull ${shellQuote(reference)}`,
+    `nerdctl --namespace k8s.io pull ${shellQuote(reference)}`,
   ]);
 }
 

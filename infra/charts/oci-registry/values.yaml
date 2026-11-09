@@ -19,3 +19,8 @@ platform:
     address: ""
 storage:
   size: 10Gi
+tls:
+  # Lifetime of the CA and the serving certificate (ADR 0058). The proxy reads
+  # its certificate at start, so renewal needs a pod restart; ten years keeps
+  # rotation a deliberate, documented act rather than a surprise outage.
+  duration: 87600h

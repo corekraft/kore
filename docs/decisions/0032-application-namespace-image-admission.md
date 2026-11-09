@@ -75,7 +75,9 @@ and ruled out:
   then HTTP, so the `10.x` ClusterIP registry needs no insecure option. This holds
   only for such addresses: an external registry reached by a public hostname must
   serve TLS, and there is no Policy Controller setting that relaxes that (do not
-  add one cluster-wide).
+  add one cluster-wide). Since [ADR 0058](0058-registry-transport-tls.md) the
+  internal registry serves TLS only and Policy Controller trusts its CA, so the
+  HTTP half of that ping no longer finds anything to talk to.
 
 _Decision:_ kore signs local images with `--new-bundle-format=false
 --use-signing-config=false --tlog-upload=false` (plus the existing

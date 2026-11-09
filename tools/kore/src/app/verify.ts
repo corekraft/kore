@@ -2,6 +2,7 @@ import { join } from "node:path";
 import type { Repository } from "../config/index.js";
 import {
   koreManagesRegistryAuth,
+  loadRegistryCa,
   loadRegistryCredential,
   localRegistryReference,
   withRegistryClient,
@@ -12,10 +13,13 @@ import type { Runner } from "../runtime/index.js";
 export function verifyLockedImageArgs(
   image: LockedImage,
   publicKey?: string,
+  registryCaFile?: string,
 ): string[] {
   return [
     "verify",
-    ...(/:[0-9]+\//.test(image.reference) ? ["--allow-http-registry"] : []),
+    // The internal registry is TLS-only; cosign verifies it against its CA
+    // (ADR 0058). External registries use the system roots.
+    ...(registryCaFile ? ["--registry-cacert", registryCaFile] : []),
     ...(publicKey
       ? ["--insecure-ignore-tlog", "--key", publicKey]
       : [
@@ -70,10 +74,11 @@ export async function verifyImage(
     return;
   }
   const credential = await loadRegistryCredential(repository, runner, "read");
-  await withRegistryClient(credential, async (client) => {
+  const ca = await loadRegistryCa(repository, runner);
+  await withRegistryClient(credential, ca, async (client) => {
     await runner.run(
       "cosign",
-      verifyLockedImageArgs(verificationImage, publicKey),
+      verifyLockedImageArgs(verificationImage, publicKey, client.caFile),
       { capture: false, env: { ...process.env, ...client.env } },
     );
   });

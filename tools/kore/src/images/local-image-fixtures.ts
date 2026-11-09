@@ -1,6 +1,7 @@
 import { readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { vi, type Mock } from "vitest";
+import type { Mock } from "vitest";
+import { registryCaPem } from "./registry-tls-fixtures.js";
 import type { ImageLockEntry } from "./image-lock.js";
 import type { Runner, RunOptions, RunResult } from "../runtime/index.js";
 
@@ -67,6 +68,10 @@ export function fakeRunner(
       if (command === "kubectl") {
         if (args.includes("oci-registry-credentials")) {
           stdout = registryCredentialsJson;
+        } else if (args.includes("oci-registry-tls")) {
+          stdout = JSON.stringify({
+            data: { "ca.crt": encodeBase64(registryCaPem) },
+          });
         } else if (args.includes("secret") && args.includes("--output=name")) {
           stdout = exists ? "secret/kore-local-signing-key\n" : "";
         } else if (
@@ -92,16 +97,11 @@ export async function filesUnder(root: string): Promise<string[]> {
     .map((entry) => join(entry.parentPath, entry.name));
 }
 
-export function stubRegistry(registryReference: Mock): void {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue(
-      new Response(null, {
-        status: 200,
-        headers: { "docker-content-digest": digest },
-      }),
-    ),
-  );
+export function stubRegistry(
+  registryReference: Mock,
+  registryHead: Mock,
+): void {
+  registryHead.mockResolvedValue({ status: 200, digest });
   registryReference.mockImplementation(
     async (_repo, _runner, reference) => reference,
   );

@@ -15,6 +15,7 @@ import {
   type ImageInventory,
 } from "./image-inventory.js";
 import { readinessFailure } from "./readiness.js";
+import { registryTrustProblem } from "../images/index.js";
 
 export interface ComponentStatus {
   name: string;
@@ -73,10 +74,27 @@ export async function platformStatus(
   // The gate and the inventory are platform-wide rows, not components: a
   // filtered query omits them.
   if (!only) {
+    result.push(await registryTrustStatus(repository, runner));
     result.push(await imageInventoryStatus(repository, runner));
     result.push(await admissionGateStatus(repository, runner));
   }
   return result;
+}
+
+export const registryTrustStatusName = "registry-trust";
+
+/** Fails closed: a missing CA is a degraded row, which keeps the gate shut. */
+async function registryTrustStatus(
+  repository: Repository,
+  runner: Runner,
+): Promise<ComponentStatus> {
+  const problem = await registryTrustProblem(repository, runner);
+  return {
+    name: registryTrustStatusName,
+    namespace: "kore-registry",
+    status: problem === undefined ? "ready" : "degraded",
+    detail: problem ?? "registry CA present; every client verifies it",
+  };
 }
 
 // Callers that read the inventory row by name need no second import.

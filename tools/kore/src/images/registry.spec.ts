@@ -6,13 +6,16 @@ import type { Runner } from "../runtime/index.js";
 const spawnMock = vi.hoisted(() => vi.fn());
 const connectionOutcomes = vi.hoisted(() => [] as boolean[]);
 vi.mock("node:child_process", () => ({ spawn: spawnMock }));
-vi.mock("node:net", () => ({
-  createConnection: vi.fn(() => {
+vi.mock("./registry-tls.js", () => ({
+  loadRegistryCa: async () => "ca-pem",
+}));
+vi.mock("node:tls", () => ({
+  connect: vi.fn(() => {
     const connected = connectionOutcomes.shift() ?? false;
     // A live forward accepts the connection and answers the probe request.
     return {
       once(event: string, callback: (chunk?: Buffer) => void) {
-        if (connected && event === "connect") {
+        if (connected && event === "secureConnect") {
           queueMicrotask(() => callback());
         } else if (connected && event === "data") {
           setTimeout(() => callback(Buffer.from("HTTP/1.1 401 \r\n")), 0);

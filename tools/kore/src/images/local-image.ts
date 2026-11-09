@@ -59,10 +59,14 @@ async function signImage(
     runner,
     image.reference,
   );
-  await runner.run("cosign", localSignArgs(signer.key, signingReference), {
-    capture: false,
-    env: { ...signer.env, ...client.env },
-  });
+  await runner.run(
+    "cosign",
+    localSignArgs(signer.key, signingReference, client.caFile),
+    {
+      capture: false,
+      env: { ...signer.env, ...client.env },
+    },
+  );
 }
 
 interface Context {
@@ -87,10 +91,7 @@ async function buildAndSign(
     imageTag,
     session.credential,
   );
-  const digest = await publishedDigest(
-    repositoryPath,
-    session.client.authorization,
-  );
+  const digest = await publishedDigest(repositoryPath, session.client);
   const image: LockedImage = {
     reference: `${entry.image}@${digest}`,
     digest,

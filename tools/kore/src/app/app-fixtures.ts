@@ -1,3 +1,4 @@
+import { registryTlsSecret } from "../images/registry-tls-fixtures.js";
 import { loadRepository } from "../config/index.js";
 import { platformGeneration } from "../platform/admission-gate.js";
 import { healthyWebhookOutput } from "../platform/webhook-fixtures.js";
@@ -68,6 +69,9 @@ export function healthyReadinessOutput(
   }
   if (args.includes("oci-registry-credentials")) {
     return registryCredentials;
+  }
+  if (args.includes("oci-registry-tls")) {
+    return registryTlsSecret;
   }
   if (args.includes("service") && args.includes("--selector")) {
     return healthyService;

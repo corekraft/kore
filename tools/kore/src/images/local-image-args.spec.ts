@@ -35,6 +35,7 @@ test("local signatures use the legacy tag format Policy Controller 0.13 reads fo
   const args = localSignArgs(
     "k8s://kore-system/key",
     "10.96.0.50:5000/app@sha256:x",
+    "/tmp/ca.crt",
   );
   expect(args).toEqual([
     "sign",
@@ -43,7 +44,8 @@ test("local signatures use the legacy tag format Policy Controller 0.13 reads fo
     "--new-bundle-format=false",
     "--use-signing-config=false",
     "--tlog-upload=false",
-    "--allow-http-registry",
+    "--registry-cacert",
+    "/tmp/ca.crt",
     "--yes",
     "10.96.0.50:5000/app@sha256:x",
   ]);

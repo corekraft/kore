@@ -19,7 +19,10 @@ function fakeRunner(readBack: string) {
   const runner: Runner = {
     async run(command, args, options) {
       calls.push({ command, args, input: options?.input });
-      if (args.includes("oci-registry-credentials")) {
+      if (
+        args.includes("oci-registry-credentials") ||
+        args.includes("oci-registry-tls")
+      ) {
         return {
           stdout: healthyReadinessOutput(args) ?? "",
           stderr: "",

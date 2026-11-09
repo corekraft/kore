@@ -2,6 +2,7 @@ import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import type { RegistryCredential } from "./registry-auth.js";
+import { registryHead, type RegistryHead } from "./registry-https.js";
 
 // Docs: docs/decisions/0034-registry-authentication-and-authorization.md
 
@@ -13,6 +14,10 @@ export interface RegistryClient {
   env: NodeJS.ProcessEnv;
   /** Basic Authorization header for in-process registry requests. */
   authorization: string;
+  /** HEAD over HTTPS, verified against the registry CA (ADR 0058). */
+  head: (url: string, headers: Record<string, string>) => Promise<RegistryHead>;
+  /** A temporary file holding the CA, for `--registry-cacert`. */
+  caFile: string;
 }
 
 // The helper only answers `get`, from the child's environment. go-containerregistry
@@ -33,6 +38,7 @@ printf '{"ServerURL":"%s","Username":"%s","Secret":"%s"}' "$server" "$KORE_REGIS
  */
 export async function withRegistryClient<T>(
   credential: RegistryCredential,
+  ca: string,
   action: (client: RegistryClient) => Promise<T>,
 ): Promise<T> {
   const directory = await mkdtemp(join(tmpdir(), "kore-registry-"));
@@ -42,6 +48,9 @@ export async function withRegistryClient<T>(
       JSON.stringify({ credsStore: "kore-env" }),
       { mode: 0o600 },
     );
+    // Public certificate: a file is safe, and it is deleted with the directory.
+    const caFile = join(directory, "ca.crt");
+    await writeFile(caFile, ca, { mode: 0o600 });
     const helper = join(directory, "docker-credential-kore-env");
     await writeFile(helper, helperScript, { mode: 0o700 });
     await chmod(helper, 0o700);
@@ -52,6 +61,8 @@ export async function withRegistryClient<T>(
         KORE_REGISTRY_USERNAME: credential.username,
         KORE_REGISTRY_PASSWORD: credential.password,
       },
+      head: (url, headers) => registryHead(url, headers, ca),
+      caFile,
       authorization: `Basic ${Buffer.from(`${credential.username}:${credential.password}`).toString("base64")}`,
     });
   } finally {
