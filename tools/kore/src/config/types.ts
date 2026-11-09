@@ -20,6 +20,8 @@ export interface Component {
   source?: string;
   version: string;
   ownsCRDs: string[];
+  /** API groups whose CRDs this component's controller installs at runtime. */
+  ownsCRDGroups?: string[];
   dependencies: string[];
   timeout: string;
   values?: string[];

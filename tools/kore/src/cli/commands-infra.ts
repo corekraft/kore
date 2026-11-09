@@ -11,7 +11,7 @@ import {
   bootstrapControllers,
   platformDestroy,
   platformRender,
-  platformStatus,
+  platformStatusReport,
   platformStop,
   platformUp,
 } from "../platform/index.js";
@@ -61,7 +61,7 @@ export async function platformCommand(
 ): Promise<number> {
   const { repository, runner, json } = context;
   if (context.action === "status") {
-    print(await platformStatus(repository, runner), json);
+    print(await platformStatusReport(repository, runner), json);
     return 0;
   }
   if (context.action === "render") {

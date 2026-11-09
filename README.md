@@ -59,6 +59,10 @@ platform generation ([ADR 0054](docs/decisions/0054-application-admission-gate-c
 ready in that run; `platform status` reports it. The refusal names the gate's state and
 the remedy.
 
+`platform status` also lists cluster CRDs that no catalog component owns, or more than one,
+as degraded; this is an audit and never fails `platform up`
+([ADR 0057](docs/decisions/0057-runtime-crd-ownership.md)).
+
 `kore app down <name> --environment <name>` uninstalls only the workload release
 (rerunning it is safe) and keeps the application's resources release and data.
 It lists the retained claims and volumes that remain; a failed lookup is a

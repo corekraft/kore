@@ -66,3 +66,66 @@ export function checkCrdOwnership(components: CrdOwnership[]): string[] {
   }
   return errors;
 }
+
+/** The API group of a CRD name: everything after the plural. */
+function crdGroup(crd: string): string {
+  return crd.slice(crd.indexOf(".") + 1);
+}
+
+export interface CrdClaims {
+  name: string;
+  /** CRD names the component declares. */
+  ownsCRDs: string[];
+  /**
+   * API groups whose CRDs the component's controller creates at runtime
+   * (Crossplane packages, Gatekeeper constraint templates). Optional.
+   */
+  ownsCRDGroups?: string[];
+}
+
+/** Components that own a CRD by name or by a claimed group, sorted. */
+export function crdOwners(components: CrdClaims[], crd: string): string[] {
+  const group = crdGroup(crd);
+  return components
+    .filter(
+      (c) =>
+        c.ownsCRDs.includes(crd) || (c.ownsCRDGroups ?? []).includes(group),
+    )
+    .map((c) => c.name)
+    .sort();
+}
+
+/** Malformed group claims and overlaps between components' claims. */
+export function crdGroupErrors(components: CrdClaims[]): string[] {
+  const errors: string[] = [];
+  const claimed = new Map<string, string>();
+  for (const { name, ownsCRDGroups = [] } of components) {
+    for (const group of ownsCRDGroups) {
+      if (!crdName.test(`x.${group}`)) {
+        errors.push(
+          `${name}: ownsCRDGroups entry ${group} must be an API group such as widgets.example.com`,
+        );
+        continue;
+      }
+      const other = claimed.get(group);
+      if (other && other !== name) {
+        errors.push(
+          `CRD group ${group} is claimed by multiple components: ${other} and ${name}`,
+        );
+      }
+      claimed.set(group, name);
+    }
+  }
+  for (const { name, ownsCRDs } of components) {
+    for (const crd of ownsCRDs) {
+      const group = crdGroup(crd);
+      const claimant = claimed.get(group);
+      if (claimant && claimant !== name) {
+        errors.push(
+          `CRD ${crd} is owned by ${name} but ${claimant} claims its group ${group}`,
+        );
+      }
+    }
+  }
+  return errors;
+}
