@@ -66,7 +66,7 @@ test("app up rejects an invalid application name before resolving chart paths", 
         digest: "sha256:" + "a".repeat(64),
         signer: "local-kore-key",
       },
-      "/tmp/kore.pub",
+      { publicKey: "/tmp/kore.pub" },
     ),
   ).rejects.toThrow(/invalid application name/);
 });

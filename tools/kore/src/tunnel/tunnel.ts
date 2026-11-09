@@ -206,3 +206,55 @@ export async function stopLocalTunnel(
   }
   await rm(tunnelStatePath(repository), { force: true });
 }
+
+/**
+ * Brings the tunnel back when it has exited or stopped answering, and leaves a
+ * healthy one alone, so commands that need the Gateway endpoint can call it
+ * unconditionally. A stopped profile is never restarted: the cluster check
+ * inside `startLocalTunnel` fails first with the cluster-unavailable error.
+ */
+export async function ensureLocalTunnel(
+  repository: Repository,
+  runner: Runner,
+  dependencies: TunnelDependencies = {},
+): Promise<TunnelStatus | { status: "not-applicable" }> {
+  if (repository.environment.provider !== "minikube") {
+    return { status: "not-applicable" };
+  }
+  return await startLocalTunnel(repository, runner, dependencies);
+}
+
+export interface TunnelHealthRow {
+  name: "local-tunnel";
+  namespace: string;
+  status: "ready" | "degraded";
+  detail: string;
+}
+
+/** A read-only status row; absent for environments without a local tunnel. */
+export async function tunnelHealthRow(
+  repository: Repository,
+  dependencies: TunnelDependencies = {},
+): Promise<TunnelHealthRow | undefined> {
+  if (repository.environment.provider !== "minikube") {
+    return undefined;
+  }
+  const current = await tunnelStatus(repository, dependencies);
+  const base = { name: "local-tunnel", namespace: "host" } as const;
+  if (current.status === "running") {
+    return {
+      ...base,
+      status: "ready",
+      detail: `tunnel process ${current.pid} serves Gateway port ${current.port}`,
+    };
+  }
+  const problem =
+    current.status === "stale"
+      ? `tunnel process ${current.pid} has exited or its Gateway port ${repository.environment.gateway.port} does not answer`
+      : "no tunnel is running";
+  return {
+    ...base,
+    status: "degraded",
+    detail: `${problem}; run \`kore tunnel start --environment ${repository.environment.name}\` (\`kore platform up\` and \`kore app up\` also restart it)`,
+  };
+}

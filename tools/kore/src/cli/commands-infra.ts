@@ -15,6 +15,7 @@ import {
   platformStop,
   platformUp,
 } from "../platform/index.js";
+import { ensureLocalTunnel } from "../tunnel/index.js";
 import { mutateAction } from "./context.js";
 import type { CommandContext } from "./context.js";
 import { boolFlag, stringFlag } from "./flags.js";
@@ -104,6 +105,9 @@ export async function appCommand(context: CommandContext): Promise<number> {
           mutationRunner,
           name,
           imageLockFlag(context.parsed, repository.root),
+          {
+            ensureTunnel: () => ensureLocalTunnel(repository, mutationRunner),
+          },
         ),
       down: async (_context, mutationRunner) => {
         const { retained, warnings } = await appDown(

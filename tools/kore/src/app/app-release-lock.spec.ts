@@ -80,7 +80,9 @@ test("a local developer-signed image is accepted only on Minikube, from kore loc
   };
   const calls: Call[] = [];
   await expect(
-    appUp(managed, healthyRunner(calls), "reference", lockedImage(), "/k.pub"),
+    appUp(managed, healthyRunner(calls), "reference", lockedImage(), {
+      publicKey: "/k.pub",
+    }),
   ).rejects.toThrow(/Minikube.*local-kore-key.*managed/s);
   expect(helmUpgrades(calls)).toEqual([]);
 });

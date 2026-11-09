@@ -1,7 +1,9 @@
 import type { Repository } from "../config/index.js";
 import type { LockedImage } from "../images/index.js";
 import type { Runner } from "../runtime/index.js";
-import { converge } from "./converge.js";
+import { converge, type AppUpOptions } from "./converge.js";
+
+export type { AppUpOptions };
 import { resolveImage } from "./image-source.js";
 
 /**
@@ -13,13 +15,20 @@ export async function appUpRelease(
   runner: Runner,
   name: string,
   lockPath?: string,
+  options: AppUpOptions = {},
 ): Promise<void> {
   await converge(
     repository,
     runner,
     name,
-    await resolveImage(repository, name, undefined, undefined, lockPath),
-    undefined,
+    await resolveImage(
+      repository,
+      name,
+      undefined,
+      options.publicKey,
+      lockPath,
+    ),
+    options,
   );
 }
 
@@ -32,13 +41,13 @@ export async function appUp(
   runner: Runner,
   name: string,
   imageOverride?: LockedImage,
-  publicKeyOverride?: string,
+  options: AppUpOptions = {},
 ): Promise<void> {
   await converge(
     repository,
     runner,
     name,
-    await resolveImage(repository, name, imageOverride, publicKeyOverride),
-    publicKeyOverride,
+    await resolveImage(repository, name, imageOverride, options.publicKey),
+    options,
   );
 }

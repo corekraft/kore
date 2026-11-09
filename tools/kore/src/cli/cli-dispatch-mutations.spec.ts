@@ -217,3 +217,13 @@ test("registry rotate-credentials without --yes still reaches the operation, whi
 
   expect(dispatch).toContain("rotateRegistryCredentials:false");
 });
+
+test("app up hands the app domain a hook that restores the tunnel", async () => {
+  const { appUpRelease } = await import("../app/index.js");
+  await main(["app", "up", "reference", "--environment", "local"]);
+  const options = vi.mocked(appUpRelease).mock.calls.at(-1)?.[4] as
+    { ensureTunnel: () => Promise<unknown> } | undefined;
+  expect(dispatch).not.toContain("ensureLocalTunnel");
+  await options?.ensureTunnel();
+  expect(dispatch).toContain("ensureLocalTunnel");
+});

@@ -1,11 +1,10 @@
-import { access } from "node:fs/promises";
-import { join } from "node:path";
 import type { Repository } from "../config/index.js";
 import { assertExpectedCluster, retainedResources } from "../cluster/index.js";
-import { imageForApplication, loadImageLock } from "../images/index.js";
 import { deployedImage } from "./deployed.js";
+import { lockedImageForStatus } from "./image-source.js";
 import { platformStatus } from "../platform/index.js";
 import type { Runner } from "../runtime/index.js";
+import { tunnelHealthRow, type TunnelDependencies } from "../tunnel/index.js";
 
 /**
  * The components a new workload needs to be admitted: the registry that serves
@@ -37,20 +36,10 @@ export async function appStatus(
   repository: Repository,
   runner: Runner,
   name: string,
+  tunnelDependencies: TunnelDependencies = {},
 ): Promise<Record<string, unknown>> {
   await assertExpectedCluster(repository, runner);
-  const localImageLockPath = ".kore/state/local-images.lock.json";
-  let imageLockPath: string | undefined;
-  if (repository.environment.provider === "minikube") {
-    try {
-      await access(join(repository.root, localImageLockPath));
-      imageLockPath = localImageLockPath;
-    } catch {
-      /* No local source build has been recorded yet; use the release lock. */
-    }
-  }
-  const imageLock = await loadImageLock(repository.root, imageLockPath);
-  const image = imageForApplication(imageLock, name);
+  const image = await lockedImageForStatus(repository, name);
   const resources = await runner.run(
     "helm",
     [
@@ -78,10 +67,15 @@ export async function appStatus(
     { capture: true },
   );
   const degraded = await degradedAdmission(repository, runner);
+  // A dead tunnel leaves the application unreachable from the host; status
+  // reports it with the remedy and never restarts it (read-only, ADR 0060).
+  const tunnel = await tunnelHealthRow(repository, tunnelDependencies);
   return {
     name,
-    status: degraded.length ? "degraded" : "ready",
+    status:
+      degraded.length || tunnel?.status === "degraded" ? "degraded" : "ready",
     degraded,
+    ...(tunnel && { tunnel }),
     image,
     deployed: await deployedImage(repository, runner, name, image),
     resources: JSON.parse(resources.stdout),
