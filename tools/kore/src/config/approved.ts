@@ -1,3 +1,4 @@
+import { managedMirrorErrors } from "./mirror.js";
 import { evidenceErrors, seedErrors } from "./seeds.js";
 import type { Repository, SeedEvidence } from "./types.js";
 
@@ -80,5 +81,12 @@ function approvedErrors(repository: Repository): string[] {
 export async function imageListErrors(
   repository: Repository,
 ): Promise<string[]> {
-  return [...(await seedErrors(repository)), ...approvedErrors(repository)];
+  return [
+    ...(await seedErrors(repository)),
+    ...approvedErrors(repository),
+    // A malformed list is already reported above; there is nothing to rewrite.
+    ...(Array.isArray(repository.approved?.images)
+      ? await managedMirrorErrors(repository, approvedImageList(repository))
+      : []),
+  ];
 }

@@ -94,6 +94,12 @@ export function registryHelmArgs(
   return [
     "--set-string",
     `platform.registry.address=${plan.address}`,
+    ...(component === "kore-image-policy" && environment.platformMirror
+      ? [
+          "--set-string",
+          `platform.mirror.repository=${environment.platformMirror}`,
+        ]
+      : []),
     ...(component === "oci-registry" && plan.clusterIP !== undefined
       ? [
           "--set-string",

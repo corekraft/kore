@@ -3,15 +3,82 @@
   "name": "managed-example",
   "provider": "managed",
   "kubeContext": "REQUIRED",
-  "cluster": {"profile":"external","kubernetesVersion":"1.37.2","driver":"external","containerRuntime":"containerd","cpus":4,"memoryMB":8192,"diskSize":"40g"},
-  "registry": {"address":"registry.example.internal"},
-  "gateway": {"namespace":"kore-system","name":"kore-gateway","hostname":"REQUIRED","port":443},
-  "secrets": {"storeName":"platform-secrets","sourceNamespace":"external"},
-  "telemetry": {"otlpEndpoint":"http://otel-collector.observability.svc:4318"},
-  "componentValues": {
-    "otel-collector":["infra/environments/managed-example/values/otel-collector.yaml"],
-    "kore-platform-config":["infra/environments/managed-example/values/platform-config.yaml"],
-    "kore-local-tls":["infra/environments/managed-example/values/platform-config.yaml"],
-    "kore-image-policy":["infra/environments/managed-example/values/image-policy.yaml"]
-  }
+  "cluster":
+    {
+      "profile": "external",
+      "kubernetesVersion": "1.37.2",
+      "driver": "external",
+      "containerRuntime": "containerd",
+      "cpus": 4,
+      "memoryMB": 8192,
+      "diskSize": "40g"
+    },
+  "registry": { "address": "registry.example.internal" },
+  "platformMirror": "ghcr.io/corekraft/kore/mirror",
+  "gateway":
+    {
+      "namespace": "kore-system",
+      "name": "kore-gateway",
+      "hostname": "REQUIRED",
+      "port": 443
+    },
+  "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },
+  "telemetry":
+    { "otlpEndpoint": "http://otel-collector.observability.svc:4318" },
+  "componentValues":
+    {
+      "otel-collector":
+        [
+          "infra/environments/managed-example/values/otel-collector.yaml",
+          "infra/environments/managed-example/values/mirror/otel-collector.yaml"
+        ],
+      "kore-platform-config":
+        ["infra/environments/managed-example/values/platform-config.yaml"],
+      "kore-local-tls":
+        ["infra/environments/managed-example/values/platform-config.yaml"],
+      "kore-image-policy":
+        ["infra/environments/managed-example/values/image-policy.yaml"],
+      "cert-manager":
+        ["infra/environments/managed-example/values/mirror/cert-manager.yaml"],
+      "cloudnative-pg":
+        [
+          "infra/environments/managed-example/values/mirror/cloudnative-pg.yaml"
+        ],
+      "crossplane":
+        ["infra/environments/managed-example/values/mirror/crossplane.yaml"],
+      "external-secrets":
+        [
+          "infra/environments/managed-example/values/mirror/external-secrets.yaml"
+        ],
+      "gatekeeper":
+        ["infra/environments/managed-example/values/mirror/gatekeeper.yaml"],
+      "grafana":
+        ["infra/environments/managed-example/values/mirror/grafana.yaml"],
+      "istiod":
+        ["infra/environments/managed-example/values/mirror/istiod.yaml"],
+      "istio-cni":
+        ["infra/environments/managed-example/values/mirror/istio-cni.yaml"],
+      "ztunnel":
+        ["infra/environments/managed-example/values/mirror/ztunnel.yaml"],
+      "loki": ["infra/environments/managed-example/values/mirror/loki.yaml"],
+      "opentelemetry-operator":
+        [
+          "infra/environments/managed-example/values/mirror/opentelemetry-operator.yaml"
+        ],
+      "otel-agent":
+        ["infra/environments/managed-example/values/mirror/otel-agent.yaml"],
+      "prometheus":
+        ["infra/environments/managed-example/values/mirror/prometheus.yaml"],
+      "tempo": ["infra/environments/managed-example/values/mirror/tempo.yaml"],
+      "opa-authorizer":
+        [
+          "infra/environments/managed-example/values/mirror/opa-authorizer.yaml"
+        ],
+      "oci-registry":
+        ["infra/environments/managed-example/values/mirror/oci-registry.yaml"],
+      "policy-controller":
+        [
+          "infra/environments/managed-example/values/mirror/policy-controller.yaml"
+        ]
+    }
 }

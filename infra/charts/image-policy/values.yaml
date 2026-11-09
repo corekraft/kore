@@ -6,6 +6,10 @@ trust: {}
 platform:
   registry:
     address: ""
+  # Passed by kore from the environment's platformMirror when it declares one
+  # (ADR 0044): the repository prefix of the signed platform image mirror.
+  mirror:
+    repository: ""
 # Upstream repositories Kore deploys into application namespaces (ADR 0032):
 # the Istio waypoint proxy, the CloudNativePG instance image, and the
 # CloudNativePG operator image that runs as each database pod's

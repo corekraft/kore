@@ -222,3 +222,38 @@ jobs:
           name: platform-images.lock.json
           path: platform-images.lock.json
           if-no-files-found: error
+
+  # Attaches the platform image lock to the GitHub release release-please
+  # created, so a committed overlay can be checked against it with
+  # `kore validate --platform-image-lock` (ADR 0044). The lock is evidence, not
+  # authority: admission still verifies each image's signature, so this job
+  # holds only the scope to write release assets, none of the signing job's. A rerun may
+  # repeat an identical upload; a different lock never replaces a published one.
+  attach-lock:
+    needs: mirror
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: platform-images.lock.json
+      - name: Attach the lock to the release
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -qx platform-images.lock.json; then
+            gh release download "$TAG" --pattern platform-images.lock.json --dir published
+            cmp published/platform-images.lock.json platform-images.lock.json || {
+              echo "release $TAG already has a different platform-images.lock.json; refusing to replace it" >&2
+              exit 1
+            }
+            echo "release $TAG already carries this lock"
+          else
+            gh release upload "$TAG" platform-images.lock.json
+          fi
