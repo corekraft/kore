@@ -39,16 +39,27 @@ function parseOwner(text: string): LockOwner | undefined {
   return undefined;
 }
 
-export async function readOwner(lock: string): Promise<LockOwner | undefined> {
+/** Reads the owner, or "gone" when the lock file does not exist (any more). */
+export async function readLock(
+  lock: string,
+): Promise<LockOwner | undefined | "gone"> {
   let text: string;
   try {
     text = await readFile(lock, "utf8");
   } catch (error) {
-    // A legacy lock is a directory; a vanished lock is handled by the caller.
-    if (["EISDIR", "ENOENT"].includes(errorCode(error) ?? "")) {
+    if (errorCode(error) === "ENOENT") {
+      return "gone";
+    }
+    // A legacy lock is a directory.
+    if (errorCode(error) === "EISDIR") {
       return undefined;
     }
     throw error;
   }
   return parseOwner(text);
+}
+
+export async function readOwner(lock: string): Promise<LockOwner | undefined> {
+  const read = await readLock(lock);
+  return read === "gone" ? undefined : read;
 }
