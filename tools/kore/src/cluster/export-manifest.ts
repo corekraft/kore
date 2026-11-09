@@ -116,3 +116,29 @@ export async function hasVerifiedExport(
   }
   return false;
 }
+
+/**
+ * Creation time of the newest export whose digest still matches its manifest,
+ * from manifest metadata only: nothing is decrypted. Undefined when none.
+ */
+export async function newestVerifiedExport(
+  repository: Repository,
+): Promise<Date | undefined> {
+  let entries: string[];
+  try {
+    entries = await readdir(exportDirectory(repository));
+  } catch {
+    return undefined;
+  }
+  let newest: Date | undefined;
+  for (const entry of entries.filter((name) =>
+    name.endsWith(MANIFEST_SUFFIX),
+  )) {
+    const verified = await verifyManifest(repository, entry);
+    const createdAt = verified && new Date(verified.manifest.createdAt);
+    if (createdAt && !Number.isNaN(createdAt.getTime())) {
+      newest = !newest || createdAt > newest ? createdAt : newest;
+    }
+  }
+  return newest;
+}
