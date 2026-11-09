@@ -22,6 +22,10 @@ const hook = fileURLToPath(
   new URL("../../tools/kore/.husky/pre-commit", import.meta.url),
 );
 
+const helper = fileURLToPath(
+  new URL("../../tools/kore/.husky/pinned.sh", import.meta.url),
+);
+
 const cleanEnv = Object.fromEntries(
   Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_")),
 );
@@ -34,15 +38,27 @@ function script(path, body) {
 
 // Stages `files` in a throwaway repo whose lint-staged and npm are fakes that
 // log their calls; `failing` names the npm scripts that exit non-zero.
-function commit(files, failing = []) {
+function commit(files, failing = [], { withMise = true } = {}) {
   const root = mkdtempSync(join(tmpdir(), "pre-commit-"));
   try {
     const opts = { cwd: root, env: cleanEnv, encoding: "utf8" };
     spawnSync("git", ["init", "-q"], opts);
+    mkdirSync(join(root, "tools/kore/.husky"), { recursive: true });
     copyFileSync(hook, join(root, "hook.sh"));
-    script(join(root, "tools/kore/node_modules/.bin/lint-staged"), "exit 0");
+    copyFileSync(helper, join(root, "tools/kore/.husky/pinned.sh"));
     const log = join(root, "calls.log");
     const bin = join(root, "bin");
+    script(
+      join(root, "tools/kore/node_modules/.bin/lint-staged"),
+      `echo "lint-staged" >> "${log}"`,
+    );
+    script(join(bin, "node"), `echo "node $*" >> "${log}"`);
+    if (withMise) {
+      script(
+        join(bin, "mise"),
+        `echo "mise $*" >> "${log}"\n[ "$1" = exec ] && [ "$2" = -- ] || exit 2\nshift 2\nexec "$@"`,
+      );
+    }
     script(
       join(bin, "npm"),
       `echo "$*" >> "${log}"\ncase " ${failing.join(" ")} " in *" $2 "*) exit 1;; esac`,
@@ -54,7 +70,10 @@ function commit(files, failing = []) {
     spawnSync("git", ["add", "-A", "--", ...files], opts);
     const result = spawnSync("sh", [join(root, "hook.sh")], {
       ...opts,
-      env: { ...cleanEnv, PATH: `${bin}:${process.env.PATH}` },
+      env: {
+        ...cleanEnv,
+        PATH: withMise ? `${bin}:${process.env.PATH}` : `${bin}:/usr/bin:/bin`,
+      },
     });
     let calls = "";
     try {
@@ -67,6 +86,28 @@ function commit(files, failing = []) {
     rmSync(root, { recursive: true, force: true });
   }
 }
+
+test("every tool the hook runs goes through the pinned toolchain", () => {
+  const result = commit([".claude/hooks/a.mjs", "tools/kore/src/a.ts"]);
+  assert.equal(result.status, 0);
+  const lines = result.calls.split("\n").filter(Boolean);
+  const tools = lines.filter((l) => !l.startsWith("mise "));
+  assert.deepEqual(
+    tools.map((l) => l.split(" ")[0]),
+    ["lint-staged", "node", "run", "run"],
+  );
+  assert.equal(lines.length, 8);
+  for (const [i, l] of lines.entries()) {
+    if (i % 2 === 0) assert.match(l, /^mise exec -- /);
+  }
+});
+
+test("a missing mise blocks the commit with one actionable line and runs nothing", () => {
+  const result = commit(["tools/kore/src/a.ts"], [], { withMise: false });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /^git hook: mise is not installed; .+\n$/);
+  assert.equal(result.calls, "");
+});
 
 for (const file of [
   "tools/kore/src/a.ts",
@@ -89,7 +130,7 @@ for (const file of ["README.md", "docs/index.md", "infra/plans/1.md"]) {
   test(`staging only ${file} runs neither the typecheck nor the unit tests`, () => {
     const result = commit([file]);
     assert.equal(result.status, 0);
-    assert.equal(result.calls, "");
+    assert.doesNotMatch(result.calls, /npm|node /);
   });
 }
 
