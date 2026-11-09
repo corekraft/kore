@@ -20,3 +20,4 @@ export {
 } from "./admission-gate.js";
 export { imageInventoryStatusName } from "./image-inventory.js";
 export type { ImageInventory, InventoriedImage } from "./image-inventory.js";
+export { waitForHTTPRoute } from "./readiness-gateway.js";

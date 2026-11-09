@@ -2,7 +2,7 @@
 status: accepted
 summary: A catalog component can claim the API groups whose CRDs its controller installs at runtime (`ownsCRDGroups`); validation rejects overlapping claims offline, and `kore platform status` reports cluster CRDs with no owner or several as degraded, in audit mode only.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-09
 ---
 
 # ADR 0057: Own runtime-installed CRDs by API group, and audit them in status

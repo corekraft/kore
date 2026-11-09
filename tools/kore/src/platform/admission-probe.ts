@@ -30,7 +30,7 @@ const probeRepository = "kore-admission-probe";
 const WEBHOOK_REFUSAL =
   /admission webhook|failed calling webhook|denied the request/i;
 
-function scope(repository: Repository, namespace: string): string[] {
+export function scope(repository: Repository, namespace: string): string[] {
   return [
     "--context",
     repository.environment.kubeContext,
@@ -49,7 +49,7 @@ export interface ProbeOptions {
 }
 
 /** Runs `kubectl`; a webhook refusal is a verdict, anything else is rethrown. */
-async function verdictOf(
+export async function verdictOf(
   runner: Runner,
   args: string[],
   input?: string,

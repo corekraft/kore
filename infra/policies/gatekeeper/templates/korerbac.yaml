@@ -14,6 +14,7 @@ spec:
             signingKeySecret: { type: string }
             allowedSecretRoles: { type: array, items: { type: string } }
             bootstrapGroups: { type: array, items: { type: string } }
+            namespaceBoundSecretRoles: { type: array, items: { type: string } }
   targets:
     - target: admission.k8s.gatekeeper.sh
       rego: |
@@ -72,9 +73,24 @@ spec:
         violation[{"msg": msg}] {
           covers_signing_namespace
           not input.review.object.metadata.name in input.parameters.allowedSecretRoles
+          not input.review.object.metadata.name in input.parameters.namespaceBoundSecretRoles
           rule := input.review.object.rules[_]
           reaches_signing_key(rule)
           msg := sprintf("%s %s can read the local signing key %s/%s; only the signing path and bootstrap automation may (scope it with resourceNames)", [input.review.kind.kind, input.review.object.metadata.name, input.parameters.signingNamespace, input.parameters.signingKeySecret])
+        }
+        # A ClusterRole in namespaceBoundSecretRoles is a permission set that may
+        # be bound only by RoleBinding in application namespaces (ADR 0061); a
+        # cluster-wide binding or one in the signing namespace would reach the key.
+        violation[{"msg": msg}] {
+          input.review.kind.kind == "ClusterRoleBinding"
+          input.review.object.roleRef.name in input.parameters.namespaceBoundSecretRoles
+          msg := sprintf("ClusterRoleBinding %s binds %s cluster-wide, which reaches the local signing key %s/%s; bind it with a RoleBinding in an application namespace", [input.review.object.metadata.name, input.review.object.roleRef.name, input.parameters.signingNamespace, input.parameters.signingKeySecret])
+        }
+        violation[{"msg": msg}] {
+          input.review.kind.kind == "RoleBinding"
+          input.review.object.metadata.namespace == input.parameters.signingNamespace
+          input.review.object.roleRef.name in input.parameters.namespaceBoundSecretRoles
+          msg := sprintf("RoleBinding %s binds %s in %s, which reaches the local signing key %s", [input.review.object.metadata.name, input.review.object.roleRef.name, input.parameters.signingNamespace, input.parameters.signingKeySecret])
         }
         secret_reading_builtin { input.review.object.roleRef.name in {"admin", "edit"} }
         violation[{"msg": msg}] {

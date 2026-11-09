@@ -35,16 +35,29 @@ describes the workflow.
 ## Audit before enforce
 
 Every Gatekeeper constraint ships with `enforcementAction: dryrun`. Promote one
-constraint at a time (a pull request per family):
+constraint at a time (a pull request per constraint). The commands edit the
+repository only; they never touch a cluster
+([ADR 0072](../decisions/0072-constraint-promotion-procedure.md)).
 
-1. **Audit.** Read the violations on the live cluster:
-   `kubectl --context kore-local get <kind> <name> --output yaml` (for example
-   `korerbac kore-rbac`) and read `.status.violations`.
-2. **Clean or recorded.** Promotion needs zero violations outside the exempt
-   namespaces, or each one recorded as a reviewed exception in the pull request.
-3. **Promote.** Change `enforcementAction` to `deny` in
-   [`infra/policies/gatekeeper/constraints`](../../infra/policies/gatekeeper/constraints)
-   and run `kore platform up --environment local`.
+1. **Audit.** Read the constraint's audit on the live cluster and record it:
+
+   ```sh
+   kubectl --context kore-local get koreworkloadidentity.constraints.gatekeeper.sh kore-workload-identity --output json \
+     | kore policy record kore-workload-identity --environment local --audit -
+   ```
+
+   Only the audit time and violation count are kept in
+   `infra/policies/gatekeeper/promotions/<constraint>.json`.
+
+2. **Promote.** `kore policy promote kore-workload-identity --environment local`
+   changes that one constraint from `dryrun` to `deny`. It refuses, changing
+   nothing, when the record is missing, shows any violation, has no evidence for
+   the environment, or is older than 14 days (audit again). Fix the platform
+   rather than record a reviewed exception; the platform and its controllers
+   must comply.
+3. **Review and apply.** Commit the two changed files in a pull request;
+   `kore validate --environment local` applies the same evidence checks. Then
+   `kore platform up --environment local`.
 4. **Verify.** `kore platform status --environment local` must stay ready;
    then `kore app up <name> --environment local` for each application.
 
@@ -53,16 +66,23 @@ warn` admits with a warning, `enforce` denies
 ([ADR 0032](../decisions/0032-application-namespace-image-admission.md)).
 Local is on `enforce`; a new policy starts on `warn`.
 
-**Gap:** Gatekeeper promotion has no `kore` command and no live proof that every
-constraint is clean (plan Step 9, "Promote constraints individually"); the OPA
+The offline tests prove refusal with violations, with stale or missing
+evidence, and the rollback. The live round trip is opt-in:
+`npm --prefix tools/kore run test:integration:policy` promotes
+`kore-workload-identity`, proves a default-ServiceAccount workload is rejected,
+rolls back, and proves it is admitted again. It has not run live yet, and no
+committed constraint is promoted.
+
+**Gap:** no live proof yet that every constraint audits clean; the OPA
 authorizer has no audit mode.
 
 ## Rollback
 
 A policy change that blocks legitimate work is reverted, not bypassed:
 
-1. Revert the pull request (`git revert`), or set the constraint back to
-   `enforcementAction: dryrun` / `trust.mode: warn` in a new change.
+1. `kore policy rollback <constraint> --environment local` sets one constraint
+   back to `dryrun` and keeps its evidence (or `git revert` the promotion pull
+   request, or set `trust.mode: warn` for image admission).
 2. `kore platform up --environment local` applies it (the release hash changes,
    so the release or manifest is reconciled).
 3. `kore platform status --environment local` confirms readiness.
@@ -70,8 +90,9 @@ A policy change that blocks legitimate work is reverted, not bypassed:
 The offline suites above must pass on the reverted tree. The OPA authorizer
 fails closed when unavailable, so a broken bundle denies traffic until the
 chart is reverted.
-**Gap:** no live test exercises a policy rollback end to end (plan Step 15, exit
-criterion "Policy and identity changes have tested rollback procedures").
+The Gatekeeper rollback is tested offline and by the live round trip above, which
+has not run yet (plan Step 15, "Policy and identity changes have tested rollback
+procedures"). The OPA bundle rollback is still untested live.
 
 ## Emergency exemptions
 

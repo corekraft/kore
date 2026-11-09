@@ -3,6 +3,12 @@ kind: KoreWorkloadIdentity
 metadata: {name: kore-workload-identity}
 spec:
   enforcementAction: dryrun
-  match: {kinds: [{apiGroups: [apps, batch], kinds: [Deployment, StatefulSet, DaemonSet, Job, CronJob]}]}
+  match:
+    kinds: [{apiGroups: [apps, batch], kinds: [Deployment, StatefulSet, DaemonSet, Job, CronJob]}]
+    # Application workloads only: namespaces bootstrap has activated (ADR 0054).
+    # Platform charts are not application workloads.
+    namespaceSelector:
+      matchExpressions:
+        - {key: platform.kore.dev/activation-generation, operator: Exists}
   parameters:
     exemptNamespaces: [kube-system, cert-manager, gatekeeper-system, istio-system, cosign-system, crossplane-system, external-secrets, cnpg-system, opentelemetry-operator-system]
