@@ -68,6 +68,7 @@ export const diagnosticsModule = () => ({
 
 export const runtimeModule = () => ({
   ProcessRunner: class {},
+  withTransientRetry: (runner: unknown) => runner,
   readJournal: vi.fn(async () => (dispatch.push("readJournal"), [])),
   summarizeOperations: vi.fn(() => [
     {
