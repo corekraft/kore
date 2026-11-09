@@ -231,17 +231,18 @@ recent operations and any that were interrupted.
 Run `kore --help` for every flag; the usage text in `tools/kore/src/cli/usage.ts`
 is the source of truth.
 
-| Command         | Does                                                                                                                      |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `kore doctor`   | Checks pinned tools and prerequisites. Read-only.                                                                         |
-| `kore validate` | Validates catalogs, environments, and release ordering. Read-only.                                                        |
-| `kore cluster`  | Starts, stops, destroys, or reports the Minikube profile.                                                                 |
-| `kore platform` | Bootstraps, reconciles, stops, destroys, renders, or reports platform releases.                                           |
-| `kore app`      | Deploys, removes, or reports one application's resources and workload releases.                                           |
-| `kore data`     | Exports retained CloudNativePG data as an age-encrypted, digest-manifested artifact, or restores it into a fresh profile. |
-| `kore local`    | Brings the whole local environment up or down (`--prune` destroys it; `--prune --purge-data` also purges retained data).  |
-| `kore tunnel`   | Starts, stops, or reports the managed Minikube tunnel.                                                                    |
-| `kore registry` | Rotates the registry's push and read passwords and the enrolled pull Secrets (`rotate-credentials --yes`).                |
-| `kore secrets`  | Syncs local secrets, including the generated API token, into the cluster.                                                 |
-| `kore trust`    | Installs the local certificate authority before the Gateway is configured.                                                |
-| `kore journal`  | Lists recent mutating operations and flags interrupted ones. Read-only.                                                   |
+| Command         | Does                                                                                                                               |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `kore doctor`   | Checks pinned tools and prerequisites. Read-only.                                                                                  |
+| `kore validate` | Validates catalogs, environments, and release ordering. Read-only.                                                                 |
+| `kore cluster`  | Starts, stops, destroys, or reports the Minikube profile.                                                                          |
+| `kore platform` | Bootstraps, reconciles, stops, destroys, renders, or reports platform releases.                                                    |
+| `kore app`      | Deploys, removes, or reports one application's resources and workload releases.                                                    |
+| `kore data`     | Exports retained CloudNativePG data as an age-encrypted, digest-manifested artifact, or restores it into a fresh profile.          |
+| `kore local`    | Brings the whole local environment up or down (`--prune` destroys it; `--prune --purge-data` also purges retained data).           |
+| `kore tunnel`   | Starts, stops, or reports the managed Minikube tunnel.                                                                             |
+| `kore registry` | Rotates the registry's push and read passwords and the enrolled pull Secrets (`rotate-credentials --yes`).                         |
+| `kore secrets`  | Syncs local secrets, including the generated API token, into the cluster.                                                          |
+| `kore trust`    | Installs the local certificate authority before the Gateway is configured.                                                         |
+| `kore ops`      | Offline checks: dependency inventory and integrity, recovery objectives, upgrade from the previous release, CRD safety. Read-only. |
+| `kore journal`  | Lists recent mutating operations and flags interrupted ones. Read-only.                                                            |
