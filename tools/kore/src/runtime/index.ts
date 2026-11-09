@@ -1,5 +1,6 @@
 // Docs: docs/decisions/0002-tool-responsibility-boundaries.md
-export { withEnvironmentLock } from "./lock.js";
+export { holdEnvironmentLock, withEnvironmentLock } from "./lock.js";
+export type { HeldLock, LockOptions } from "./lock.js";
 export {
   isSensitiveName,
   readJournal,
