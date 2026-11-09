@@ -4,6 +4,7 @@ import {
   appCommand,
   dataCommand,
 } from "./commands-infra.js";
+import { opsCommand } from "./commands-ops.js";
 import {
   localCommand,
   registryCommand,
@@ -31,10 +32,14 @@ export const COMMANDS: ReadonlyMap<string, CommandSpec> = new Map<
   ["doctor", { mutations: [], noAction: true, run: doctorCommand }],
   ["validate", { mutations: [], noAction: true, run: validateCommand }],
   ["journal", { mutations: [], noAction: true, run: journalCommand }],
+  ["ops", { mutations: [], run: opsCommand }],
   ["cluster", { mutations: ["up", "stop", "destroy"], run: clusterCommand }],
   [
     "platform",
-    { mutations: ["bootstrap", "up", "stop", "destroy"], run: platformCommand },
+    {
+      mutations: ["bootstrap", "up", "gate-check", "stop", "destroy"],
+      run: platformCommand,
+    },
   ],
   ["data", { mutations: ["export", "restore"], run: dataCommand }],
   ["app", { mutations: ["up", "down"], run: appCommand }],

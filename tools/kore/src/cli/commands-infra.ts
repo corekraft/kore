@@ -9,11 +9,13 @@ import {
 } from "../cluster/index.js";
 import {
   bootstrapControllers,
+  closeGateIfDegraded,
   platformDestroy,
   platformRender,
   platformStatusReport,
   platformStop,
   platformUp,
+  readinessFailureSummary,
 } from "../platform/index.js";
 import { ensureLocalTunnel } from "../tunnel/index.js";
 import { mutateAction } from "./context.js";
@@ -64,8 +66,15 @@ export async function platformCommand(
   const { repository, runner, json } = context;
   if (context.action === "status") {
     // Plain rows print scalar fields; --json carries the nested findings.
-    print(await platformStatusReport(repository, runner), json);
-    return 0;
+    const rows = await platformStatusReport(repository, runner);
+    print(rows, json);
+    // Success is never reported before the gate is open, nor while any
+    // prerequisite is unready (ADR 0067). CRD ownership is audit-only.
+    return rows.some(
+      ({ name, status }) => name !== "crd-ownership" && status !== "ready",
+    )
+      ? 1
+      : 0;
   }
   if (context.action === "render") {
     return await platformRenderCommand(context);
@@ -75,6 +84,22 @@ export async function platformCommand(
       await bootstrapControllers(repository, mutationRunner),
     up: async (_context, mutationRunner) =>
       await platformUp(repository, mutationRunner),
+    "gate-check": async (_context, mutationRunner) => {
+      const result = await closeGateIfDegraded(repository, mutationRunner);
+      print(
+        {
+          gate: result.failures.length === 0 ? "healthy" : "unhealthy",
+          closed: result.closed,
+          failures: result.failures,
+        },
+        json,
+      );
+      if (result.failures.length > 0) {
+        throw new Error(
+          `the application admission gate is closed for new applications: ${readinessFailureSummary(result.evidence)}. Running workloads are untouched; fix the prerequisite and run kore platform up`,
+        );
+      }
+    },
     stop: async (_context, mutationRunner) =>
       await platformStop(repository, mutationRunner),
     destroy: async (_context, mutationRunner) =>

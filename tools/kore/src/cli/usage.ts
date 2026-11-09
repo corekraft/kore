@@ -5,7 +5,7 @@ Usage:
   kore validate [--environment local] [--platform-image-lock <file>] [--json]
   kore cluster up|stop|destroy --environment <name> [--yes] [--purge-data]
   kore cluster status [--environment <name>] [--json]
-  kore platform bootstrap|up|stop|destroy --environment <name> [--yes] [--purge-data]
+  kore platform bootstrap|up|gate-check|stop|destroy --environment <name> [--yes] [--purge-data]
   kore platform status|render [--environment <name>] [--output <directory>] [--json]
   kore app up <name> --environment <name> [--image-lock <release images.lock.json>]
   kore app down <name> --environment <name> [--json]
@@ -19,6 +19,8 @@ Usage:
   kore secrets sync --environment local
   kore trust install --environment local
   kore journal [--environment <name>] [--limit <n>] [--json]
+  kore ops inventory|recovery [--environment local] [--json]
+  kore ops upgrade-check|crd-check [--from <release-tag>] [--environment local] [--json]
 
 "cluster destroy" refuses while data labeled platform.kore.dev/retention=Retain
 (databases) exists; --purge-data deletes it.
@@ -60,6 +62,18 @@ only when the mkcert CA is not already trusted on the host; on macOS it skips
 the install when the CA files exist and "security verify-cert" accepts the
 root, and on other hosts it always runs it.
 
+"ops" is read-only and offline. "inventory" lists every pinned tool, component,
+image, npm package, and GitHub Action, and fails on a range, a missing digest or
+integrity hash, or a tag-pinned Action. "recovery" checks
+infra/catalog/recovery.yaml: every stateful component needs a recovery objective
+and an export objective needs a restore test. "upgrade-check" compares the
+catalog at a release tag (default: the newest v* tag, read with git show) with
+this checkout and fails on a downgrade, a skipped Kubernetes minor, a removed
+CRD owner, or an application contract change that breaks existing claims.
+"crd-check" renders each changed chart's CRDs at both versions (helm template,
+no cluster) and fails on a removed CRD, a dropped stored version, an unsafe
+storage-version move, or a rollback that cannot read the new version.
+
 Every mutation requires --environment and is recorded in
-.kore/state/journal/<environment>.jsonl. Status, doctor, validate, render, and
-journal are read-only and default to local.`;
+.kore/state/journal/<environment>.jsonl. Status, doctor, validate, render, ops,
+and journal are read-only and default to local.`;

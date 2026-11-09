@@ -1,5 +1,6 @@
 import type { Environment, Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
+import { waitForClusterReady, type ReadinessOptions } from "./readiness.js";
 import { hasVerifiedExport } from "./export-manifest.js";
 import { purgeRetainedResources, retainedResources } from "./retained.js";
 
@@ -98,6 +99,7 @@ export async function assertExpectedCluster(
 export async function clusterUp(
   repository: Repository,
   runner: Runner,
+  readiness: ReadinessOptions = {},
 ): Promise<void> {
   const { environment } = repository;
   if (environment.provider !== "minikube") {
@@ -112,6 +114,7 @@ export async function clusterUp(
     capture: false,
     cwd: repository.root,
   });
+  await waitForClusterReady(repository, runner, readiness);
   await assertExpectedCluster(repository, runner);
 }
 

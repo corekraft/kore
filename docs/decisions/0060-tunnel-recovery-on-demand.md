@@ -3,6 +3,7 @@ status: accepted
 summary: The local Minikube tunnel is recovered on demand by the commands that need the Gateway endpoint, and reported as degraded with a remedy by status; no supervisor process is added.
 date: 2026-11-08
 last-verified: 2026-11-08
+last-verified: 2026-11-09
 ---
 
 # ADR 0060: Recover the local tunnel on demand, not with a supervisor
@@ -31,6 +32,7 @@ Recovery is **on demand**; there is no supervisor.
   `kore app status` adds a `tunnel` field. Either is `degraded` for a `stale` or
   `missing` tunnel, and the detail names the remedy (`kore tunnel start
   --environment local`). Status never starts a process.
+--environment local`). Status never starts a process.
 - **Recover.** `ensureLocalTunnel` is `startLocalTunnel` for a local
   environment: a healthy tunnel is returned untouched, a stale one is stopped and
   replaced, and exactly one new process is started. `kore app up` calls it after
@@ -62,6 +64,41 @@ Recovery is **on demand**; there is no supervisor.
 - Stale-PID replacement signals a recorded PID only while it is alive; a
   recycled PID could be signalled. The state file stores no process identity.
   Adding one (start time or command line) is a follow-up if this is ever seen.
+  Orphan cleanup (below) never signals by pid alone.
+
+## Process group
+
+The tunnel is spawned detached, so it leads its own process group, and stop,
+stale replacement, and a failed start signal `-pid` (the group). Signalling
+only the leader left minikube's `ssh -L` child alive and holding the Gateway
+port. Group signalling still runs only while the recorded leader is alive.
+
+## Orphans
+
+A live run showed that when the leader dies (killed or crashed) its `ssh -L`
+child survives, can keep holding Gateway port 8443, and orphans accumulate.
+Signalling the group only while the leader is alive cannot reach them, so this
+ADR reverses the earlier "recorded PID only" cleanup:
+
+- **Match by command line.** On stop, destroy, stale replacement, and a start
+  with no recorded tunnel, kore lists host processes (`ps`) and terminates each
+  whose full command line is an `ssh` with this profile's machine key under
+  `/.minikube/machines/<profile>/` and `-L` forwards for the Gateway port and
+  15021. Matching is on the command line, never on a pid. Another profile, a
+  longer profile name, or any other ssh does not match. Each kill is reported
+  in one line; nothing to kill prints nothing.
+- **Not matched: the ssh port.** The profile's ssh port is known only from the
+  cluster (`docker port`/`minikube ssh-host`), and cleanup runs when the
+  cluster may be stopped, so the key path is the profile identity instead.
+- **Registry port-forward.** `ensurePortForward` starts a detached
+  `kubectl --context <ctx> --namespace kore-registry port-forward
+service/oci-registry 30500:5000` that was never ended. `platform stop` and
+  `platform destroy` (so `local down`) now terminate it by that exact command
+  line for the environment's context; a forward for another context or any
+  other kubectl is left alone, and with none running it does nothing.
+- **Seams.** `runtime/processes.ts` provides `listProcesses`, `signalProcess`,
+  and `report` (`ProcessControl`); the unit-test setup stubs the host listing
+  empty so no test can see or signal a real process.
 
 ## Verification
 
@@ -74,3 +111,11 @@ start --environment local`) and expects a new PID in the state file, one
 `minikube tunnel` process, and `curl -k https://127.0.0.1:8443/api` answering.
 Finally `kore platform stop` must leave no `minikube tunnel` process and no
 state file.
+`minikube tunnel` process, and `curl --cacert <kore CA> --resolve kore.local:8443:127.0.0.1
+https://kore.local:8443/api` answering (no `-k`: the Gateway routes by SNI, so a
+bare `https://127.0.0.1:8443` is refused with `000`).
+Finally `kore platform stop` must leave no `minikube tunnel` process, no
+`ssh -L 15021` child (`pgrep -f "ssh.*15021"` is empty), no `kubectl ...
+port-forward service/oci-registry` process, and no state file. Kill the leader
+alone (`kill <pid>`), run `kore tunnel start`, and expect one line naming the
+orphaned ssh forward killed and exactly one ssh forward afterwards.
