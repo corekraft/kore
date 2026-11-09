@@ -4,7 +4,7 @@ import test from "node:test";
 import { loadRepository, type Repository } from "../config/index.js";
 import { assertExpectedCluster } from "../cluster/index.js";
 import { ProcessRunner, type Runner } from "../runtime/index.js";
-import { postOtlp, withForward } from "./otlp-forward.js";
+import { postOtlp, waitForOtlp, withForward } from "./otlp-forward.js";
 import { platformStatus } from "./status.js";
 
 // Docs: docs/decisions/0019-telemetry-pipeline-wiring.md
@@ -188,15 +188,17 @@ test(
     const marker = `/proof/${traceId.slice(0, 12)}`;
     const payloads = syntheticPayloads(traceId, marker);
 
-    // The documented endpoint is the Collector's OTLP/HTTP port.
+    // A port-forward dials the pod's loopback, which the pod-IP OTLP receiver on
+    // 4318 refuses (ADR 0062); the Collector's loopback-only receiver takes it.
     await withForward(
       {
         context: repository.environment.kubeContext,
         namespace,
-        target: "service/otel-collector",
-        remotePort: 4318,
+        target: "deployment/otel-collector",
+        remotePort: 4319,
       },
       async (port) => {
+        await waitForOtlp(port);
         for (const signal of ["traces", "logs", "metrics"] as const) {
           await postOtlp(port, signal, payloads[signal]);
         }

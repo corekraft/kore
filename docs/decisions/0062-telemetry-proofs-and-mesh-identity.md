@@ -34,8 +34,18 @@ the workload principals are labels on ztunnel's TCP metrics, not OTLP.
   `x-request-id` remain in each record and are found by LogQL.
 - **Proof split.** Offline specs pin wiring, status behavior, and the absence of
   direct backend addressing in `apps/`. One opt-in spec
-  (`npm run test:integration:telemetry`) posts synthetic OTLP through the API
-  server's Service proxy and reads each backend back; it creates nothing.
+  (`npm run test:integration:telemetry`) posts synthetic OTLP through a short-lived
+  `kubectl port-forward` and reads each backend back; it creates nothing.
+- **Loopback receiver for the forward.** The chart binds OTLP to the pod IP
+  (`${env:MY_POD_IP}:4318`), and a port-forward dials the pod's loopback, so
+  the forward was accepted locally and then closed (`UND_ERR_SOCKET`). The
+  Collector gains `otlp/loopback`, OTLP/HTTP on `127.0.0.1:4319`, in the same
+  three pipelines. It is unreachable from the network, so it adds no exposure
+  and leaves the pod-IP receiver untouched. An in-cluster Job was rejected: the
+  only catalog image with `curl` (`gatekeeper-curl`) is unsigned, and a pull
+  under the `Never` policy and admission cannot be proven offline. The spec
+  also waits for an answered HTTP request and retries resets a bounded number
+  of times.
 
 ## Consequences
 

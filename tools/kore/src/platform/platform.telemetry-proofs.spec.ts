@@ -29,9 +29,9 @@ test("each signal reaches its own backend through the Collector OTLP receiver", 
     const endpoint: string = config.exporters[exporter].endpoint;
     return endpoint.replace(/^https?:\/\//, "").split(/[:/]/)[0]!;
   };
-  assert.deepEqual(pipelines.metrics.receivers, ["otlp"]);
-  assert.deepEqual(pipelines.logs.receivers, ["otlp"]);
-  assert.deepEqual(pipelines.traces.receivers, ["otlp"]);
+  assert.deepEqual(pipelines.metrics.receivers, ["otlp", "otlp/loopback"]);
+  assert.deepEqual(pipelines.logs.receivers, ["otlp", "otlp/loopback"]);
+  assert.deepEqual(pipelines.traces.receivers, ["otlp", "otlp/loopback"]);
   assert.deepEqual(pipelines.logs.exporters, ["otlp_http/loki"]);
   assert.deepEqual(pipelines.traces.exporters, ["otlp_grpc/tempo"]);
   assert.deepEqual(pipelines.metrics.exporters, ["prometheus"]);

@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
 import { test } from "vitest";
-import { postOtlp, withForward, type ForwardChild } from "./otlp-forward.js";
+import {
+  postOtlp,
+  waitForOtlp,
+  withForward,
+  type ForwardChild,
+} from "./otlp-forward.js";
 
 class FakeChild extends EventEmitter {
   stdout = new PassThrough();
@@ -113,4 +118,72 @@ test("a rejected OTLP post names the signal and status", async () => {
   const fetchFn = (async () =>
     new Response("nope", { status: 415 })) as unknown as typeof fetch;
   await assert.rejects(postOtlp(1, "logs", {}, fetchFn), /logs.*415/);
+});
+
+const reset = () =>
+  Object.assign(new TypeError("fetch failed"), {
+    cause: Object.assign(new Error("other side closed"), {
+      code: "UND_ERR_SOCKET",
+    }),
+  });
+const noWait = async () => undefined;
+
+test("an OTLP post retries a reset connection and then succeeds", async () => {
+  let calls = 0;
+  const fetchFn = (async () => {
+    calls += 1;
+    if (calls < 3) {
+      throw reset();
+    }
+    return new Response("{}", { status: 200 });
+  }) as unknown as typeof fetch;
+  await postOtlp(1, "logs", {}, fetchFn, noWait);
+  assert.equal(calls, 3);
+});
+
+test("an OTLP post gives up after a bounded number of resets", async () => {
+  let calls = 0;
+  const fetchFn = (async () => {
+    calls += 1;
+    throw reset();
+  }) as unknown as typeof fetch;
+  await assert.rejects(
+    postOtlp(1, "logs", {}, fetchFn, noWait),
+    /fetch failed/,
+  );
+  assert.equal(calls, 5);
+});
+
+test("an OTLP post does not retry a rejection by the Collector", async () => {
+  let calls = 0;
+  const fetchFn = (async () => {
+    calls += 1;
+    return new Response("bad", { status: 400 });
+  }) as unknown as typeof fetch;
+  await assert.rejects(postOtlp(1, "logs", {}, fetchFn, noWait), /400/);
+  assert.equal(calls, 1);
+});
+
+test("the forward is ready only once the receiver answers an HTTP request", async () => {
+  let calls = 0;
+  const fetchFn = (async (url: string) => {
+    calls += 1;
+    assert.equal(url, "http://127.0.0.1:4000/v1/traces");
+    if (calls < 3) {
+      throw reset();
+    }
+    return new Response("", { status: 405 });
+  }) as unknown as typeof fetch;
+  await waitForOtlp(4000, fetchFn, noWait);
+  assert.equal(calls, 3);
+});
+
+test("a forward that never answers fails naming the port", async () => {
+  const fetchFn = (async () => {
+    throw reset();
+  }) as unknown as typeof fetch;
+  await assert.rejects(
+    waitForOtlp(4000, fetchFn, noWait),
+    /4000.*did not answer/,
+  );
 });
