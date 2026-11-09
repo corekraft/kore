@@ -128,3 +128,45 @@ and nothing more: workloads still pull from upstream, now by digest.
 - Upstream signatures verify at mirror time, so a key-signed upstream
   (cert-manager) is mirrored with the unsigned result and gains a verifiable
   signature only from this repository's signer.
+
+## Refinement: each mirror package is created linked, then copied unchanged
+
+The first tagged run (`v0.3.0`, run 42534467085) failed on its first push with
+`DENIED: requested access to the resource is denied`. GHCR lets a repository's
+`GITHUB_TOKEN` create only packages linked to that repository, and it links a
+package from the `org.opencontainers.image.source` label or annotation of the
+first image pushed into it. A bit-identical `crane copy` carries neither, so the
+token cannot create `mirror/<name>`. The reference image failed the same way
+until its Dockerfile gained the label (#30).
+
+- **Seed the link, keep the copy.** Before copying an image,
+  `.github/scripts/link-mirror-package.sh` checks `mirror/<name>:kore-link`. If
+  the tag is absent it pushes a one-empty-layer image labelled
+  `org.opencontainers.image.source=https://github.com/corekraft/kore` (plus a
+  description saying it only links the package), which creates the package
+  linked to this repository. A present tag is left alone, so reruns are
+  idempotent. The upstream digest is then copied unchanged, so the
+  copy-digest-equality rule above stands and the recorded digest survives.
+- **The link image is not a platform image.** It is never signed, never verified
+  against the tag identity, and never enters the lock (lock validation already
+  rejects any entry outside the approved list). Admission never needs it.
+- **Built in a throwaway registry.** `crane mutate` edits only a pushed image,
+  and the first push must already carry the label, so the image is assembled in
+  an in-memory `crane registry serve` and copied (digest preserved) into the
+  package.
+
+### Rejected: annotate the mirrored top level
+
+`crane` 0.22.1 cannot do it. `crane mutate --annotation` fails on an index
+("mutating annotations on an index is not yet supported"), `crane index append`
+rebuilds child descriptors, and a Docker manifest list (the cert-manager images)
+has no annotations field. The denied PUT was also by digest, which points at a
+child manifest the annotation would not reach. Other tools would be unpinned.
+
+### Unverified until a real tag run
+
+That a seeded `kore-link` image makes GHCR create the package linked to the
+repository (rather than only linking the tag), that the packages come up public
+as the organization setting intends, and that later pushes into a linked package
+by the same token succeed. Rehearsed locally only against a throwaway registry:
+label present in the config, second run skips, copy digest equals upstream.

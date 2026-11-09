@@ -176,3 +176,17 @@ test("approved images that are not seeds are held to the same lock rules", () =>
     /unapproved image cert-manager-webhook: not in the approved list/,
   );
 });
+
+test("the kore-link package-seeding image is never a lock entry", () => {
+  const lock = good();
+  (lock.entries as Record<string, unknown>)["kore-link"] = {
+    upstream: "kore-link",
+    upstreamDigest,
+    mirror: `ghcr.io/corekraft/kore/mirror/kore-link@${upstreamDigest}`,
+    provenance: { result: "unsigned-upstream" },
+    signer,
+  };
+  expect(platformImageLockErrors(lock, approved).join()).toMatch(
+    /unapproved image kore-link: not in the approved list/,
+  );
+});
