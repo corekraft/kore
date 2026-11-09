@@ -13,18 +13,27 @@ import { ProcessRunner } from "../runtime/index.js";
 import { stopLocalTunnel } from "../tunnel/index.js";
 import { checkoutRelease, releaseKore, removeRelease } from "./release-tree.js";
 import { schemaProblems } from "./schema-compat.js";
+import {
+  THROWAWAY,
+  installThrowawayEnvironment,
+} from "./throwaway-environment.js";
 import { previousRelease, upgradeCheck } from "./upgrade.js";
 
 // Docs: docs/operations/support-and-upgrades.md
-// Live: proves the supported upgrade path (Step 15). It destroys and purges the
-// local profile, installs the platform and reference app with the previous
-// release tag's own built CLI and catalog (a detached git worktree outside the
+// Live: proves the supported upgrade path (Step 15) in a SEPARATE throwaway
+// Minikube profile (kore-upgrade-test, environment upgrade-test, Gateway port
+// 18443), so it never touches kore-local, its tunnel (8443), or its retained
+// data. It installs the platform and reference app with the previous release
+// tag's own built CLI and catalog (a detached git worktree outside the
 // repository), writes a marker row into the retained reference database, then
 // upgrades with this working tree's `kore local up` and checks that every
 // component is ready, the reference app still serves, the marker survived, and
 // the application contract (the PostgreSQLInstance XRD schema) did not change.
-// It ends on the working-tree state and removes the worktree, so it is safe to
-// rerun. Set KORE_UPGRADE_FROM=<tag> to override the newest v* tag.
+// The finally block deletes only the throwaway profile and removes the
+// generated environment directories and the worktree. Secrets need the SOPS age
+// identity: set SOPS_AGE_KEY_FILE to its path (the key file is never copied or
+// read by the test). Set KORE_UPGRADE_FROM=<tag> to override the newest v* tag.
+// Both profiles need CPU and memory at once (about 8 GiB more than kore-local).
 // Run with: npm run test:integration:upgrade (sets KORE_RUN_INTEGRATION=1).
 
 const NAMESPACE = "reference";
@@ -135,19 +144,44 @@ async function assertUpgraded(
   }
 }
 
+const skipReason = (): string | false => {
+  if (process.env["KORE_RUN_INTEGRATION"] !== "1") {
+    return "set KORE_RUN_INTEGRATION=1 to opt into a live platform";
+  }
+  return process.env["SOPS_AGE_KEY_FILE"]
+    ? false
+    : "set SOPS_AGE_KEY_FILE to the path of your SOPS age identity (Kore passes the variable to sops and never reads the key)";
+};
+
+const environmentArgs = ["--environment", THROWAWAY.name];
+
+/** Installs the previous release into the throwaway profile and seeds a marker. */
+async function installPrevious(
+  runner: ProcessRunner,
+  repository: Repository,
+  tree: string,
+  from: string,
+  marker: string,
+): Promise<Record<string, unknown>> {
+  const installed = await releaseKore(runner, tree, [
+    "local",
+    "up",
+    ...environmentArgs,
+  ]);
+  assert.equal(installed.code, 0, `${from} kore local up must converge`);
+  await assertReferenceSmoke(repository, runner);
+  const before = await contractSchema(repository, runner);
+  const create = `CREATE TABLE ${TABLE} (marker text NOT NULL)`;
+  await psql(repository, runner, create);
+  await psql(repository, runner, `INSERT INTO ${TABLE} VALUES ('${marker}')`);
+  return before;
+}
+
 test(
   "a supported upgrade from the previous release keeps the reference app, its data, and the application contract",
-  {
-    concurrency: false,
-    skip:
-      process.env.KORE_RUN_INTEGRATION !== "1"
-        ? "set KORE_RUN_INTEGRATION=1 to opt into a live platform"
-        : false,
-    timeout: 90 * 60 * 1000,
-  },
+  { concurrency: false, skip: skipReason(), timeout: 90 * 60 * 1000 },
   async () => {
     const root = await findRoot();
-    const repository = await loadRepository("local", root);
     const runner = new ProcessRunner();
     const from =
       process.env["KORE_UPGRADE_FROM"] ?? (await previousRelease(runner, root));
@@ -159,35 +193,26 @@ test(
     );
     const parent = await mkdtemp(join(tmpdir(), "kore-upgrade-"));
     const tree = join(parent, from);
-    const marker = randomUUID();
-    let treeReady = false;
+    const removers: (() => Promise<void>)[] = [];
+    let repository: Repository | undefined;
     try {
-      await clusterDestroy(repository, runner, { yes: true, purgeData: true });
+      removers.push(await installThrowawayEnvironment(root));
+      repository = await loadRepository(THROWAWAY.name, root);
+      assert.equal(repository.environment.cluster.profile, THROWAWAY.profile);
+      assert.notEqual(repository.environment.kubeContext, "kore-local");
       await checkoutRelease(runner, root, from, tree);
-      treeReady = true;
-      const installed = await releaseKore(runner, tree, [
-        "local",
-        "up",
-        "--environment",
-        "local",
-      ]);
-      assert.equal(installed.code, 0, `${from} kore local up must converge`);
-      await assertReferenceSmoke(repository, runner);
-      const before = await contractSchema(repository, runner);
-      await psql(
-        repository,
+      removers.push(await installThrowawayEnvironment(tree));
+      const marker = randomUUID();
+      const before = await installPrevious(
         runner,
-        `CREATE TABLE ${TABLE} (marker text NOT NULL)`,
-      );
-      await psql(
         repository,
-        runner,
-        `INSERT INTO ${TABLE} VALUES ('${marker}')`,
+        tree,
+        from,
+        marker,
       );
-
       const upgraded = await runner.run(
         "node",
-        ["dist/src/cli/cli.js", "local", "up", "--environment", "local"],
+        ["dist/src/cli/cli.js", "local", "up", ...environmentArgs],
         { capture: false, cwd: join(root, "tools/kore"), env: process.env },
       );
       assert.equal(
@@ -195,18 +220,24 @@ test(
         0,
         "the working-tree kore local up must converge",
       );
-
       await assertUpgraded(repository, runner, marker, before);
     } finally {
       try {
-        if (treeReady) {
-          await psql(repository, runner, `DROP TABLE IF EXISTS ${TABLE}`).catch(
-            () => undefined,
+        if (repository) {
+          await stopLocalTunnel(repository, runner);
+          // Only the throwaway profile: a mismatch would be a bug, never a destroy.
+          assert.equal(
+            repository.environment.cluster.profile,
+            THROWAWAY.profile,
           );
+          await clusterDestroy(repository, runner, {
+            yes: true,
+            purgeData: true,
+          });
         }
-        await stopLocalTunnel(repository, runner);
       } finally {
         await removeRelease(runner, root, tree);
+        await Promise.all(removers.map((remove) => remove()));
         await rm(parent, { recursive: true, force: true });
       }
     }
