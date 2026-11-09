@@ -138,7 +138,7 @@ claim that the platform is ready.
 
 ## Step 7: Bootstrap Registry, Image Trust, Controllers, and CRD Ownership
 
-Next: cut the next release so the mirror copies the two Crossplane function packages, check its platform image lock with `kore validate --environment managed-example --platform-image-lock <lock>`, then add its exact tag subject to managed `trust.subjects`. After that, managed-example has nothing left to prove offline. The remaining Step 7 items need a managed cluster (see ADR 0044's gaps) or the local application admission gate.
+Next: prove verifier unavailability live (scale `policy-controller` to 0 in the outage spec, as for the registry), then enroll all managed platform namespaces and fail bootstrap on any seed, external, tag-only, unsigned, or unauthorized image, which also closes the "no active seed exception" criterion. Live specs: `npm run test:integration:admission` and `test:integration:registry` (opt-in, need a running profile). Managed-only items wait on a managed cluster (ADR 0044's gaps).
 
 ### Objective
 
@@ -183,8 +183,13 @@ through 11 also converge.
       Service is ClusterIP and readiness is a TCP check. Live on a fresh profile:
       anonymous push and pull get 401, and kore pushes and signs with the push
       identity. Read-only enforcement (403 on a write) was proven only in Docker.
-      Not yet checked live: a pod restart with auth on, and rotation (credentials
-      are reused and never rotated). Clients still fall back to plain HTTP._
+      Since #67 ([ADR 0055](../../docs/decisions/0055-registry-credential-rotation.md)),
+      `kore registry rotate-credentials --environment <env> --yes` rotates both
+      credentials. Live 2026-11-08 (`npm run test:integration:registry`): images and
+      signatures survive a pod restart with anonymous access still 401, and after
+      rotation the old password gets 401 while the new one pushes and a signed image
+      is still admitted. Still open: read-only enforcement (403) live, and clients
+      still fall back to plain HTTP._
 - [x] Install Sigstore Policy Controller and its CRDs/webhook from an explicitly
       allowlisted, digest-pinned seed artifact without enabling enforcement yet.
       _Its controller and lease-cleanup images are digest-pinned seeds in
@@ -242,9 +247,16 @@ through 11 also converge.
 - [ ] Enroll all managed platform namespaces, then inventory running workloads and
       fail bootstrap if a seed, external, tag-only, unsigned, or unauthorized image
       remains. Seed exceptions must be empty before success.
-- [ ] Create the generation-specific application admission gate in its closed state;
+- [x] Create the generation-specific application admission gate in its closed state;
       grant only bootstrap automation permission to update it or application namespace
       activation metadata.
+      _#68 ([ADR 0054](../../docs/decisions/0054-application-admission-gate-closed-at-foundation.md)):
+      a `KoreApplicationAdmission` constraint per environment, closed at the start of
+      each run, opened by `platform up` only after every phase and readiness pass in
+      the same run; `kore platform status` reports it and `kore app up` refuses while
+      it is closed or stale. Live: closed early, opened after readiness, same
+      generation on a second run. The constraint is `dryrun`, so cluster-side denial
+      is Step 11's to prove._
 - [x] Make controller bootstrap independently runnable and complete it before
       shared configuration readiness checks; OpenTelemetry Operator must not be
       blocked by a Gateway waiting for its certificate or external address.
@@ -280,10 +292,17 @@ CRD ownership is decided in
       digest-qualified image with a valid signature from the authorized release
       automation identity; later platform releases must satisfy the same condition
       before installation.
-- [ ] Unsigned images and images signed by developer, pull-request, build-job, or
+- [x] Unsigned images and images signed by developer, pull-request, build-job, or
       other unauthorized identities are rejected.
+      _#66: live (`npm run test:integration:admission`), an unsigned image and one
+      signed by an unauthorized key are denied in an enrolled namespace while the
+      kore-signed image is admitted. Keyless subjects are exact-match and tested
+      offline._
 - [ ] Registry or signature-verifier unavailability denies new managed workloads
       and is reported as degraded without weakening policy.
+      _Partial (#66): live, a registry scaled to 0 denies a new signed workload and
+      `app status` reports degraded naming `oci-registry`, then recovers. Verifier
+      unavailability is covered only by unit tests._
 - [ ] The internal foundation phase finishes with no active seed exception or
       external image reference and leaves the application admission gate closed.
 - [x] A second reconciliation produces no unintended release changes.
