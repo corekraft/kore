@@ -5,7 +5,12 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { absolute, type Component, type Repository } from "../config/index.js";
-import { helmTemplateArgs, withAbsoluteChart } from "./helm.js";
+import {
+  envOption,
+  helmEnv,
+  helmTemplateArgs,
+  withAbsoluteChart,
+} from "./helm.js";
 
 const run = promisify(execFile);
 const maxBuffer = 256 * 1024 * 1024;
@@ -80,7 +85,7 @@ export async function renderChart(
       component,
       helmTemplateArgs(repository, component),
     ),
-    { maxBuffer },
+    { maxBuffer, ...envOption(helmEnv(repository, component)) },
   );
   return stdout;
 }

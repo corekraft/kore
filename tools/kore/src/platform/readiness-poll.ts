@@ -1,3 +1,5 @@
+import type { Repository } from "../config/index.js";
+import type { Runner } from "../runtime/index.js";
 import { errorMessage } from "./probe.js";
 
 const POLL_MILLISECONDS = 250;
@@ -57,5 +59,69 @@ export async function pollUntil(
       throw new Error(reason);
     }
     await pause();
+  }
+}
+
+/** Bound for each read-only check `kore status` evaluates. */
+const STATUS_TIMEOUT = "3s";
+/** Status-mode `--timeout` for `kubectl wait`/`rollout status`: it spans kubectl's startup, so 3s misreported a long-Established CRD on a loaded host. */
+const STATUS_KUBECTL_TIMEOUT = "15s";
+
+/** How a run of checks is bounded and whether it captures kubectl output. */
+export interface Bounds {
+  timeout: string;
+  capture: boolean;
+  kubectlTimeout?: string;
+}
+
+export const STATUS_BOUNDS: Bounds = {
+  timeout: STATUS_TIMEOUT,
+  capture: true,
+  kubectlTimeout: STATUS_KUBECTL_TIMEOUT,
+};
+
+export interface ConditionContext {
+  repository: Repository;
+  runner: Runner;
+  kubectlTimeout?: string | undefined;
+}
+
+/**
+ * Waits for each condition on a cluster-scoped resource in order, retrying
+ * while the resource or its type does not exist yet.
+ */
+export async function waitForConditions(
+  { repository, runner, kubectlTimeout }: ConditionContext,
+  resource: string,
+  conditions: string[],
+  timeout: string,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMilliseconds(timeout);
+  for (const condition of conditions) {
+    while (true) {
+      try {
+        await runner.run(
+          "kubectl",
+          [
+            "--context",
+            repository.environment.kubeContext,
+            "wait",
+            `--for=condition=${condition}`,
+            resource,
+            `--timeout=${kubectlTimeout ?? timeout}`,
+          ],
+          { capture: true },
+        );
+        break;
+      } catch (error) {
+        if (
+          !NOT_YET_THERE.test(errorMessage(error)) ||
+          Date.now() >= deadline
+        ) {
+          throw error;
+        }
+        await pause();
+      }
+    }
   }
 }

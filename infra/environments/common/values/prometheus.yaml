@@ -11,6 +11,9 @@
     {
       "prometheus":
         {
+          # Tolerate a busy host: the chart leaves the reloader's probe timeout at 1s.
+          "livenessProbe": { "timeoutSeconds": 5, "failureThreshold": 6 },
+          "readinessProbe": { "timeoutSeconds": 5 },
           "image":
             {
               "tag": "v0.95.1",

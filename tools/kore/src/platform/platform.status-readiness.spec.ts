@@ -69,3 +69,33 @@ test("status evaluates readiness read-only with bounded timeouts", async () => {
   );
   assert.deepEqual(mutating, []);
 });
+
+test("status gives each read-only check at least 15s, so a loaded host is not reported as not ready", async () => {
+  const repository = await collectorRepository();
+  const { runner, calls } = recordingRunner(false);
+
+  await platformStatus(repository, runner);
+
+  const bounds = calls
+    .map((call) => /--timeout=(\d+)s/.exec(call)?.[1])
+    .filter((seconds): seconds is string => seconds !== undefined)
+    .map(Number);
+  assert.notEqual(bounds.length, 0);
+  assert.deepEqual(
+    bounds.filter((seconds) => seconds < 15),
+    [],
+  );
+});
+
+test("a genuinely failing status check still names the object, condition and the bound it waited", async () => {
+  const repository = await collectorRepository();
+  const { runner } = recordingRunner(true);
+
+  const [status] = await platformStatus(repository, runner);
+
+  assert.match(status!.detail, /deployment\/otel-collector not ready/);
+  assert.match(status!.detail, /rollout complete/);
+  // The message states the bound kubectl actually waited, not the poll bound.
+  assert.match(status!.detail, /within 15s/);
+  assert.doesNotMatch(status!.detail, /within 3s/);
+});
