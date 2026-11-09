@@ -2,6 +2,7 @@
 status: accepted
 summary: A constraint leaves dryrun only through its own promotion record with recent zero-violation audit evidence per environment, an image signer is trusted only if the environment's image policy lists it (a managed environment can never trust the local key), and OPA bundle failure and staleness semantics are proven offline and live.
 date: 2026-11-08
+last-verified: 2026-11-08
 last-verified: 2026-11-09
 ---
 

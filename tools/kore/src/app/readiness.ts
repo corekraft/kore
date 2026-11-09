@@ -1,4 +1,5 @@
 import type { Repository } from "../config/index.js";
+import { assertExpectedCluster } from "../cluster/index.js";
 import {
   admissionGateStatusName,
   assertAdmissionGateOpen,
@@ -44,6 +45,16 @@ export async function assertApplicationAdmission(
   runner: Runner,
 ): Promise<string> {
   return await assertAdmissionGateOpen(repository, runner);
+}
+
+/** Everything `app up` requires before it touches an application: the expected cluster, a ready platform, an open gate. Returns the generation to activate under. */
+export async function assertAppAdmissible(
+  repository: Repository,
+  runner: Runner,
+): Promise<string> {
+  await assertExpectedCluster(repository, runner);
+  await assertPlatformReady(repository, runner);
+  return await assertApplicationAdmission(repository, runner);
 }
 
 function namespaced(repository: Repository, name: string): string[] {

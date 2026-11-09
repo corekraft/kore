@@ -1,0 +1,12 @@
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: KoreImageDigest
+metadata: {name: kore-image-digest}
+spec:
+  enforcementAction: dryrun
+  match:
+    kinds:
+      - {apiGroups: [""], kinds: [Pod]}
+      - {apiGroups: [apps, batch], kinds: [Deployment, StatefulSet, DaemonSet, Job, CronJob]}
+  # Third-party controller namespaces keep their upstream chart image references. Kore-owned and application namespaces stay covered. ADR 0073.
+  parameters:
+    exemptNamespaces: [kube-system, cert-manager, gatekeeper-system, istio-system, crossplane-system, external-secrets, cnpg-system, opentelemetry-operator-system, observability]
