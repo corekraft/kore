@@ -14,6 +14,7 @@ spec:
             signingKeySecret: { type: string }
             allowedSecretRoles: { type: array, items: { type: string } }
             bootstrapGroups: { type: array, items: { type: string } }
+            adminEquivalentGroups: { type: array, items: { type: string } }
             namespaceBoundSecretRoles: { type: array, items: { type: string } }
   targets:
     - target: admission.k8s.gatekeeper.sh
@@ -72,6 +73,13 @@ spec:
         # binding is visible, so the sync Config is part of this policy.
         allowed_subject(subject) {
           bootstrap_subject(subject)
+        }
+        # Groups that are cluster-admin by convention (Crossplane's crossplane:masters,
+        # like system:masters): membership needs a client certificate or
+        # impersonation that only a cluster admin can grant.
+        allowed_subject(subject) {
+          subject.kind == "Group"
+          subject.name in input.parameters.adminEquivalentGroups
         }
         allowed_subject(subject) {
           subject.kind == "ServiceAccount"
@@ -149,7 +157,7 @@ spec:
           input.review.kind.kind == "ClusterRoleBinding"
           secret_reading_builtin
           subject := input.review.object.subjects[_]
-          not bootstrap_subject(subject)
+          not cluster_wide_subject(subject)
           msg := sprintf("%s %s grants %s, which reads the local signing key %s/%s, to %s %s; only bootstrap groups may hold it cluster-wide", [input.review.kind.kind, input.review.object.metadata.name, input.review.object.roleRef.name, input.parameters.signingNamespace, input.parameters.signingKeySecret, subject.kind, subject.name])
         }
         violation[{"msg": msg}] {
@@ -159,6 +167,13 @@ spec:
           subject := input.review.object.subjects[_]
           not bootstrap_subject(subject)
           msg := sprintf("RoleBinding %s grants %s in %s, which reads the local signing key %s, to %s %s; only bootstrap groups may hold it", [input.review.object.metadata.name, input.review.object.roleRef.name, input.parameters.signingNamespace, input.parameters.signingKeySecret, subject.kind, subject.name])
+        }
+        cluster_wide_subject(subject) {
+          bootstrap_subject(subject)
+        }
+        cluster_wide_subject(subject) {
+          subject.kind == "Group"
+          subject.name in input.parameters.adminEquivalentGroups
         }
         bootstrap_subject(subject) {
           subject.kind == "Group"

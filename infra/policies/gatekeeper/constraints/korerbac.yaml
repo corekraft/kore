@@ -67,3 +67,7 @@ spec:
     # in application namespaces (ADR 0061); cluster-wide bindings of it are refused.
     namespaceBoundSecretRoles: [crossplane-postgresql-secrets]
     bootstrapGroups: ["kore:bootstrap"]
+    # Cluster-admin-equivalent groups that charts bind by convention; they have no
+    # members unless a cluster admin issues a certificate or impersonation for them.
+    # Not allowed in the signing-namespace RoleBinding rule, which stays bootstrap-only.
+    adminEquivalentGroups: ["crossplane:masters"]
