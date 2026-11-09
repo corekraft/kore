@@ -1,0 +1,103 @@
+{
+  "$schema": "./schemas/readiness.schema.json",
+  "version": 1,
+  "requirements":
+    [
+      {
+        "name": "registry",
+        "step": 7,
+        "capability": "registry",
+        "components": ["oci-registry"],
+        "platformChecks": ["registry-trust"]
+      },
+      {
+        "name": "image-trust",
+        "step": 7,
+        "capability": "trust-policy",
+        "components": ["policy-controller", "kore-image-policy"]
+      },
+      {
+        "name": "image-inventory",
+        "step": 7,
+        "capability": "health-condition",
+        "platformChecks": ["image-inventory"]
+      },
+      {
+        "name": "policy-engine",
+        "step": 9,
+        "capability": "controller",
+        "components": ["gatekeeper", "kore-policy-templates"]
+      },
+      {
+        "name": "policy-constraints",
+        "step": 9,
+        "capability": "shared-configuration",
+        "components": ["kore-policy-constraints", "kore-admission-gate"]
+      },
+      {
+        "name": "networking-and-certificates",
+        "step": 8,
+        "capability": "endpoint",
+        "components":
+          [
+            "kore-gateway-api",
+            "cert-manager",
+            "kore-local-tls",
+            "kore-platform-config"
+          ]
+      },
+      {
+        "name": "service-mesh",
+        "step": 8,
+        "capability": "controller",
+        "components": ["istio-base", "istiod", "istio-cni", "ztunnel"]
+      },
+      {
+        "name": "secrets",
+        "step": 8,
+        "capability": "controller",
+        "components": ["external-secrets"]
+      },
+      {
+        "name": "workload-authorization",
+        "step": 9,
+        "capability": "controller",
+        "components": ["opa-authorizer"]
+      },
+      {
+        "name": "storage",
+        "step": 10,
+        "capability": "shared-configuration",
+        "components": ["kore-storage"]
+      },
+      {
+        "name": "postgresql-platform-api",
+        "step": 10,
+        "capability": "platform-api",
+        "components":
+          [
+            "cloudnative-pg",
+            "crossplane",
+            "kore-postgresql-rbac",
+            "kore-crossplane-functions",
+            "kore-postgresql-api"
+          ]
+      },
+      {
+        "name": "telemetry",
+        "step": 11,
+        "capability": "endpoint",
+        "components":
+          [
+            "opentelemetry-operator",
+            "kore-observability-config",
+            "prometheus",
+            "loki",
+            "tempo",
+            "grafana",
+            "otel-collector",
+            "otel-agent"
+          ]
+      }
+    ]
+}

@@ -65,3 +65,36 @@ subjects:
     kind: Group
     name: {{ . | quote }}
 {{- end }}
+---
+# The readiness evidence (ADR 0067): the ConfigMap bootstrap writes before it
+# opens the gate. Only bootstrap automation may create or change it, by name,
+# and nobody is granted delete, so evidence cannot be erased through RBAC.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kore-readiness-evidence
+  namespace: {{ .Values.signingKey.namespace }}
+rules:
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [create]
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [kore-platform-readiness]
+    verbs: [get, update, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kore-readiness-evidence
+  namespace: {{ .Values.signingKey.namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kore-readiness-evidence
+subjects:
+{{- range .Values.bootstrapGroups }}
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: {{ . | quote }}
+{{- end }}

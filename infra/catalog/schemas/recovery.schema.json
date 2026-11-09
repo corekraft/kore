@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Kore recovery objectives",
+  "type": "object",
+  "required": ["objectives"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "objectives": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "components",
+          "data",
+          "environment",
+          "protection",
+          "schedule",
+          "rpoMinutes",
+          "rtoMinutes"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          },
+          "components": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" }
+          },
+          "data": { "type": "string", "minLength": 1 },
+          "environment": { "enum": ["local", "managed"] },
+          "status": { "enum": ["planned", "active"] },
+          "protection": {
+            "enum": ["data-export", "rebuild", "scheduled-backup"]
+          },
+          "schedule": {
+            "oneOf": [
+              {
+                "type": "object",
+                "required": ["kind", "trigger"],
+                "additionalProperties": false,
+                "properties": {
+                  "kind": { "const": "on-demand" },
+                  "trigger": { "type": "string" }
+                }
+              },
+              {
+                "type": "object",
+                "required": ["kind", "expression"],
+                "additionalProperties": false,
+                "properties": {
+                  "kind": { "const": "cron" },
+                  "expression": { "type": "string" }
+                }
+              }
+            ]
+          },
+          "rpoMinutes": { "type": ["integer", "null"], "minimum": 1 },
+          "rtoMinutes": { "type": "integer", "minimum": 1 },
+          "reason": { "type": "string" },
+          "restoreTest": {
+            "type": "string",
+            "pattern": "\\.integration\\.spec\\.ts$"
+          }
+        }
+      }
+    }
+  }
+}
