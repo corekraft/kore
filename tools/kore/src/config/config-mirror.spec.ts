@@ -56,6 +56,12 @@ test("managed admission hands the mirror to the image policy and trusts the rele
     ),
     "v0.3.1 signed the mirror",
   );
+  assert.ok(
+    trust.subjects.includes(
+      "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.3.2",
+    ),
+    "v0.3.2 signed the mirror",
+  );
 });
 
 test("the image policy chart admits the mirror beside the registry address", async () => {

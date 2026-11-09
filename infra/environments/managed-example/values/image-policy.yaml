@@ -8,7 +8,8 @@
         [
           "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.1.1",
           "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.2.0",
-          "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.3.1"
+          "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.3.1",
+          "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.3.2"
         ]
     }
 }
