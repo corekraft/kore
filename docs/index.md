@@ -10,6 +10,12 @@ repository root; `mise run kb-check` keeps this list complete.
   enforce. Read at the start of any change.
 - [`README.md`](../README.md) — what Kore does and how to run each `kore`
   command. Read before running or changing a command.
+- [`docs/vision.md`](vision.md) — where Kore is going: a multi-tenant
+  business and developer platform of organizations, sub-organizations, and
+  services on their own domains, with static frontends, autoscaled backends for
+  frontend, org-scoped data services and telemetry, and Backstage and Argo CD
+  out of the box. Read before planning work beyond Plan 2. Rendered as a
+  page in [`docs/vision.html`](vision.html).
 
 ## Plans
 
@@ -75,6 +81,13 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0034-registry-authentication-and-authorization.md`](decisions/0034-registry-authentication-and-authorization.md) — refines 0015 and 0031: an nginx auth proxy sidecar gives the registry separate push and read-only identities that kore generates and streams as Secrets, drops the NodePort, and uses a TCP readiness probe. Read when changing how images are pushed, pulled, or exposed.
 - [`docs/decisions/0035-fail-fast-readiness-diagnosis.md`](decisions/0035-fail-fast-readiness-diagnosis.md) — refines the fail-closed readiness gate: a read-only, namespace-scoped watcher cancels a running Helm or readiness wait on a fatal pod state and fails with the pod, container, state, previous logs, and a fix hint. Read when changing component install, readiness waits, or the Runner.
 - [`docs/decisions/0036-rollout-feasibility-and-container-smoke.md`](decisions/0036-rollout-feasibility-and-container-smoke.md) — opt-in rollout-feasibility and container-smoke checks that catch crash-loops and unschedulable rollouts before live contact. Read when adding or changing a chart or its local values.
+- [`docs/decisions/0037-tenant-isolation-by-namespace.md`](decisions/0037-tenant-isolation-by-namespace.md) — tenants share one cluster, isolated per service environment namespace by mesh, network policy, quotas, and admission; no Capsule; vCluster is a later dedicated tier. Read when changing tenant namespaces or isolation.
+- [`docs/decisions/0038-organization-hierarchy-depth-and-labels.md`](decisions/0038-organization-hierarchy-depth-and-labels.md) — organizations nest at most four levels below the tenant root; namespaces carry only tenant and organization labels. Read when changing the `Organization` API or namespace labels.
+- [`docs/decisions/0039-service-sharing-by-owner-grant.md`](decisions/0039-service-sharing-by-owner-grant.md) — services are shared within a tenant only by owner grant, which parents can block; only operators grant across tenants. Read when changing service-to-service access.
+- [`docs/decisions/0040-keycloak-human-identity.md`](decisions/0040-keycloak-human-identity.md) — each tenant root gets its own Keycloak, composed by the `Organization` API, with one realm and nested groups per sub-organization. Read when changing sign-in or group-based access.
+- [`docs/decisions/0041-backstage-and-argo-cd-per-tenant.md`](decisions/0041-backstage-and-argo-cd-per-tenant.md) — refines ADR 0002 and 0011 for tenant workloads: one Backstage and one namespace-scoped Argo CD per tenant root, scoped by organization. Read when changing the portal or tenant delivery.
+- [`docs/decisions/0042-organization-domains-by-delegation.md`](decisions/0042-organization-domains-by-delegation.md) — organizations delegate zones under any TLD to the platform's DNS, services are subdomains inside them, and each organization gets one default zone under a per-environment platform domain. Read when changing hostnames, DNS, or certificates.
+- [`docs/decisions/0043-platform-configuration-through-argo-cd.md`](decisions/0043-platform-configuration-through-argo-cd.md) — refines ADR 0002, 0011, 0016, and 0027: `kore` keeps the bootstrap, core, and observability phases; the platform Argo CD owns the configuration phase except the image policy, and its health gates admission. Read when changing phases, release owners, or the platform Argo CD.
 
 ## Reference
 

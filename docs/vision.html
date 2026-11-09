@@ -1,0 +1,2446 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Kore Platform Vision</title>
+    <meta name="claude:viewport-fit-sides" content="cover" />
+    <!-- HTML rendering of docs/vision.md. Update both together; the Markdown is the source. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=JetBrains+Mono:wght@400;500&family=Public+Sans:wght@400;500;600&display=swap"
+    />
+    <style>
+      /* Layout: a pinned board. Pillar tiles first, then the tenancy tree, the golden path, the portal, and the capability map as labelled bands in one 1100px column. */
+      :root {
+        --bg: #f3f6f5;
+        --surface: #ffffff;
+        --ink: #13201c;
+        --muted: #56675f;
+        --line: #d3dcd8;
+        --accent: #0e6a5a;
+        --accent-soft: #dcefea;
+        --new: #9a5207;
+        --new-soft: #f7e8d6;
+        --deferred: #555b78;
+        --deferred-soft: #e6e8f0;
+        --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+        --body: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+        --mono:
+          "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+        --step-0: 0.9375rem;
+        --step-1: 1.125rem;
+        --step-2: 1.5rem;
+        --step-3: clamp(2rem, 5vw, 3.25rem);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          --bg: #0d1412;
+          --surface: #141e1b;
+          --ink: #e2ebe7;
+          --muted: #9aaba4;
+          --line: #26332f;
+          --accent: #5cc7ae;
+          --accent-soft: #16332c;
+          --new: #e9a456;
+          --new-soft: #3a2a16;
+          --deferred: #a9aecb;
+          --deferred-soft: #252838;
+          color-scheme: dark;
+        }
+      }
+      :root[data-theme="dark"] {
+        --bg: #0d1412;
+        --surface: #141e1b;
+        --ink: #e2ebe7;
+        --muted: #9aaba4;
+        --line: #26332f;
+        --accent: #5cc7ae;
+        --accent-soft: #16332c;
+        --new: #e9a456;
+        --new-soft: #3a2a16;
+        --deferred: #a9aecb;
+        --deferred-soft: #252838;
+        color-scheme: dark;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: var(--body);
+        font-size: var(--step-0);
+        line-height: 1.6;
+      }
+      .wrap {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding-left: max(16px, env(safe-area-inset-left, 0px));
+        padding-right: max(16px, env(safe-area-inset-right, 0px));
+        padding-block: 48px 72px;
+        display: grid;
+        gap: 64px;
+      }
+      a {
+        color: var(--accent);
+        text-underline-offset: 2px;
+      }
+      a:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+        border-radius: 2px;
+      }
+      code {
+        font-family: var(--mono);
+        font-size: 0.85em;
+        background: var(--accent-soft);
+        padding: 0.1em 0.35em;
+        border-radius: 4px;
+        overflow-wrap: anywhere;
+      }
+      h1,
+      h2,
+      h3 {
+        font-family: var(--display);
+        text-wrap: balance;
+        margin: 0;
+        line-height: 1.15;
+      }
+      h1 {
+        font-size: var(--step-3);
+        font-stretch: 118%;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+      }
+      h2 {
+        font-size: var(--step-2);
+        font-stretch: 112%;
+        font-weight: 700;
+      }
+      h3 {
+        font-size: var(--step-1);
+        font-stretch: 105%;
+        font-weight: 650;
+      }
+      p {
+        margin: 0;
+      }
+      .eyebrow {
+        font-family: var(--mono);
+        font-size: 0.75rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .lede {
+        max-width: 65ch;
+        color: var(--muted);
+      }
+      section {
+        display: grid;
+        gap: 20px;
+        min-width: 0;
+      }
+      .section-head {
+        display: grid;
+        gap: 6px;
+      }
+
+      /* Header */
+      header {
+        display: grid;
+        gap: 20px;
+      }
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 20px;
+      }
+      .north-star {
+        margin: 0;
+        border-left: 4px solid var(--accent);
+        padding: 4px 0 4px 20px;
+        max-width: 62ch;
+        font-size: var(--step-1);
+        line-height: 1.55;
+      }
+      .north-star strong {
+        font-family: var(--display);
+        font-stretch: 110%;
+        font-size: var(--step-2);
+        display: block;
+        line-height: 1.2;
+        margin-bottom: 8px;
+      }
+
+      /* Pillar board */
+      .board {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 14px;
+      }
+      @media (min-width: 560px) {
+        .board {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .board .tile.lead {
+          grid-column: span 2;
+        }
+      }
+      @media (min-width: 900px) {
+        .board {
+          grid-template-columns: repeat(3, 1fr);
+        }
+        .board .tile.lead {
+          grid-column: auto;
+        }
+      }
+      .tile {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 18px;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        gap: 10px;
+        min-width: 0;
+      }
+      .tile.lead {
+        background: var(--accent-soft);
+        border-color: transparent;
+      }
+      .tile p {
+        color: var(--muted);
+      }
+      .tile.lead p {
+        color: var(--ink);
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .chip,
+      .pill {
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        line-height: 1;
+        padding: 5px 8px;
+        border-radius: 999px;
+        white-space: nowrap;
+        text-decoration: none;
+      }
+      .chip {
+        border: 1px solid var(--line);
+        color: var(--ink);
+        background: var(--bg);
+      }
+      a.chip:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      .pill.plan {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      .pill.new {
+        background: var(--new-soft);
+        color: var(--new);
+      }
+      .pill.deferred {
+        background: var(--deferred-soft);
+        color: var(--deferred);
+      }
+
+      .pill.shared {
+        background: var(--deferred-soft);
+        color: var(--deferred);
+      }
+      .pill.dedicated {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      td .pill {
+        display: inline-block;
+        margin-right: 6px;
+      }
+      table.wide {
+        min-width: 860px;
+      }
+      .tool {
+        display: grid;
+        gap: 10px;
+        align-content: start;
+        padding: 18px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        min-width: 0;
+      }
+
+      .facts {
+        margin: 0;
+        display: grid;
+        grid-template-columns: 6.5em 1fr;
+        gap: 8px 12px;
+      }
+      .facts dt {
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        padding-top: 3px;
+      }
+      .facts dd {
+        margin: 0;
+        min-width: 0;
+      }
+      .facts code {
+        white-space: nowrap;
+        overflow-wrap: normal;
+      }
+
+      /* Personas */
+      .personas {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 14px;
+      }
+      @media (min-width: 560px) {
+        .personas {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      @media (min-width: 900px) {
+        .personas {
+          grid-template-columns: repeat(4, 1fr);
+        }
+      }
+      .persona {
+        display: grid;
+        gap: 8px;
+        align-content: start;
+        padding-top: 14px;
+        border-top: 2px solid var(--ink);
+        min-width: 0;
+      }
+      .persona dl {
+        margin: 0;
+        display: grid;
+        gap: 6px;
+      }
+      .persona dt {
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .persona dd {
+        margin: 0 0 6px;
+      }
+
+      /* Two-column bands */
+      .split {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 28px;
+      }
+      @media (min-width: 860px) {
+        .split {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      .split > * {
+        min-width: 0;
+      }
+
+      /* Org tree */
+      .tree,
+      .tree ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      .tree ul {
+        margin-left: 14px;
+        padding-left: 18px;
+        border-left: 1px dashed var(--line);
+      }
+      .tree li {
+        position: relative;
+        padding: 5px 0;
+      }
+      .tree ul > li::before {
+        content: "";
+        position: absolute;
+        left: -18px;
+        top: 19px;
+        width: 14px;
+        border-top: 1px dashed var(--line);
+      }
+      .node {
+        display: inline-flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 8px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        max-width: 100%;
+      }
+      .node .kind {
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .node.tenant {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+        font-weight: 600;
+      }
+      .node.service {
+        border-style: solid;
+        border-color: var(--ink);
+      }
+      .node.part {
+        background: transparent;
+        border-style: dashed;
+        font-size: 0.875rem;
+      }
+      .rules {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 14px;
+        align-content: start;
+      }
+      .rules li {
+        display: grid;
+        gap: 2px;
+        align-content: start;
+      }
+      .rules strong {
+        font-family: var(--display);
+        font-stretch: 105%;
+      }
+      .rules span {
+        color: var(--muted);
+      }
+
+      td code {
+        white-space: nowrap;
+        overflow-wrap: normal;
+      }
+
+      /* Hostname breakdown */
+      .hostname {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 4px;
+        font-family: var(--mono);
+        font-size: clamp(1.1rem, 3.4vw, 1.75rem);
+      }
+      .label-part {
+        display: grid;
+        gap: 4px;
+        padding-top: 6px;
+        border-top: 3px solid var(--line);
+      }
+      .label-part b {
+        font-weight: 500;
+        line-height: 1.1;
+      }
+      .label-part small {
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .label-part.svc {
+        border-top-color: var(--accent);
+      }
+      .label-part.base {
+        border-top-color: var(--new);
+      }
+      .label-part.dom {
+        border-top-color: var(--ink);
+      }
+      .hostname .dot {
+        padding-top: 6px;
+        line-height: 1.1;
+        color: var(--muted);
+      }
+
+      /* Tables */
+      .table-scroll {
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--surface);
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        min-width: 560px;
+      }
+      th,
+      td {
+        text-align: left;
+        vertical-align: top;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--line);
+      }
+      tr:last-child td {
+        border-bottom: 0;
+      }
+      th {
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        font-weight: 500;
+      }
+      td:first-child {
+        font-weight: 600;
+      }
+
+      /* Golden path flow */
+      .flow {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+        align-items: center;
+      }
+      @media (min-width: 860px) {
+        .flow {
+          grid-template-columns: 1fr auto 1fr auto 1.3fr auto 1.3fr;
+        }
+      }
+      .stage {
+        display: grid;
+        gap: 8px;
+        min-width: 0;
+      }
+      .box {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px 12px;
+        display: grid;
+        gap: 2px;
+      }
+      .box b {
+        font-family: var(--display);
+        font-stretch: 105%;
+      }
+      .box small {
+        color: var(--muted);
+        font-size: 0.8rem;
+        line-height: 1.4;
+      }
+      .box .route {
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        color: var(--accent);
+      }
+      .box.bff {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+      }
+      .arrow {
+        font-family: var(--mono);
+        color: var(--muted);
+        text-align: center;
+        font-size: 1.1rem;
+        transform: rotate(90deg);
+      }
+      @media (min-width: 860px) {
+        .arrow {
+          transform: none;
+        }
+      }
+      .budgets {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .budget {
+        border-top: 2px solid var(--accent);
+        padding-top: 8px;
+        display: grid;
+        gap: 2px;
+      }
+      .budget b {
+        font-family: var(--display);
+        font-stretch: 110%;
+        font-size: var(--step-2);
+        font-variant-numeric: tabular-nums;
+        line-height: 1.1;
+      }
+      .budget span {
+        color: var(--muted);
+        font-size: 0.8rem;
+      }
+      .points {
+        margin: 0;
+        padding-left: 1.1em;
+        display: grid;
+        gap: 10px;
+        max-width: 65ch;
+      }
+      .points li::marker {
+        color: var(--accent);
+      }
+
+      /* Horizons */
+      .horizons {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0;
+      }
+      @media (min-width: 860px) {
+        .horizons {
+          grid-template-columns: repeat(5, 1fr);
+          gap: 14px;
+        }
+      }
+      .horizon {
+        display: grid;
+        gap: 6px;
+        align-content: start;
+        padding: 14px 0 14px 18px;
+        border-left: 2px solid var(--line);
+        position: relative;
+        min-width: 0;
+      }
+      .horizon::before {
+        content: "";
+        position: absolute;
+        left: -6px;
+        top: 20px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--bg);
+        border: 2px solid var(--muted);
+      }
+      .horizon.now {
+        border-left-color: var(--accent);
+      }
+      .horizon.now::before {
+        background: var(--accent);
+        border-color: var(--accent);
+      }
+      @media (min-width: 860px) {
+        .horizon {
+          border-left: 0;
+          border-top: 2px solid var(--line);
+          padding: 18px 0 0;
+        }
+        .horizon.now {
+          border-top-color: var(--accent);
+        }
+        .horizon::before {
+          left: 0;
+          top: -7px;
+        }
+      }
+      .horizon p {
+        color: var(--muted);
+        font-size: 0.875rem;
+      }
+
+      /* Open questions */
+      .questions {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        counter-reset: q;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+      @media (min-width: 760px) {
+        .questions {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      .questions li {
+        counter-increment: q;
+        display: grid;
+        grid-template-columns: 2.2em 1fr;
+        gap: 4px 8px;
+        padding: 14px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+      }
+      .questions li::before {
+        content: counter(q, decimal-leading-zero);
+        font-family: var(--mono);
+        color: var(--accent);
+        font-size: 0.85rem;
+        padding-top: 2px;
+      }
+      .questions li > div {
+        min-width: 0;
+      }
+      .questions strong {
+        font-family: var(--display);
+        font-stretch: 105%;
+        display: block;
+      }
+      .questions span {
+        color: var(--muted);
+      }
+
+      .questions li.decided {
+        background: transparent;
+        border-style: dashed;
+      }
+      .questions li.decided > div {
+        display: grid;
+        gap: 6px;
+        justify-items: start;
+      }
+
+      footer {
+        color: var(--muted);
+        font-size: 0.85rem;
+        border-top: 1px solid var(--line);
+        padding-top: 18px;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none !important;
+          animation: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="meta">
+          <span class="eyebrow">corekraft/kore · docs/vision.md</span>
+          <span class="eyebrow">Status: active · Last verified 2026-11-08</span>
+        </div>
+        <h1>Platform Vision Board</h1>
+        <blockquote class="north-star">
+          <strong
+            >Kore is the one place an organization goes to run its
+            software.</strong
+          >
+          Register a service and get an HTTPS address, a backend that keeps
+          secrets, the data stores it needs, identity, telemetry, a developer
+          portal, delivery from git, and a clear view of its health, all scoped
+          to the organization, with no need to know Kubernetes or a cloud
+          provider.
+        </blockquote>
+        <p class="lede">
+          This sets direction for the plans in
+          <a href="https://github.com/corekraft/kore/tree/main/infra/plans"
+            >infra/plans</a
+          >
+          and names the decisions they still need to make.
+          <a href="https://github.com/corekraft/kore/blob/main/AGENTS.md"
+            >AGENTS.md</a
+          >
+          still sets the rules, and a decision counts only once an ADR records
+          it.
+        </p>
+      </header>
+
+      <section aria-labelledby="board">
+        <div class="section-head">
+          <span class="eyebrow">Nine pillars</span>
+          <h2 id="board">The board</h2>
+        </div>
+        <div class="board">
+          <article class="tile lead">
+            <h3>One home for every app</h3>
+            <p>
+              Every app, the operator's own or a tenant's, runs on the same
+              platform under the same contracts. Nothing is a one-off.
+            </p>
+            <div class="chips">
+              <a
+                class="chip"
+                href="https://github.com/corekraft/kore/blob/main/infra/plans/1-initialize.md"
+                >Plan 1</a
+              >
+              <a
+                class="chip"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0002-tool-responsibility-boundaries.md"
+                >ADR 0002</a
+              >
+            </div>
+          </article>
+          <article class="tile">
+            <h3>Static frontends, small backends</h3>
+            <p>
+              Frontends are static builds hosted anywhere static. Each gets a
+              small, stateless backend for frontend that holds its secrets and
+              scales horizontally.
+            </p>
+            <div class="chips">
+              <a
+                class="chip"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0009-encrypted-secrets-through-external-secrets.md"
+                >ADR 0009</a
+              >
+              <a
+                class="chip"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0006-istio-ambient-gateway-api.md"
+                >ADR 0006</a
+              >
+            </div>
+          </article>
+          <article class="tile">
+            <h3>Organizations are tenants</h3>
+            <p>
+              An organization is one tenant. It can hold sub-organizations, an
+              umbrella of companies, and each one hosts its own services under
+              its own domains.
+            </p>
+            <div class="chips">
+              <span class="pill new">New: tenancy API</span>
+            </div>
+          </article>
+          <article class="tile">
+            <h3>Every dependency, scoped to the organization</h3>
+            <p>
+              Object storage, a durable message bus, document, relational, and
+              key-value stores are claims against platform APIs, isolated by
+              organization.
+            </p>
+            <div class="chips">
+              <a
+                class="chip"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0008-crossplane-postgresql-platform-api.md"
+                >ADR 0008</a
+              >
+              <a
+                class="chip"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0003-separate-claims-and-retain-data.md"
+                >ADR 0003</a
+              >
+            </div>
+          </article>
+          <article class="tile">
+            <h3>A developer portal out of the box</h3>
+            <p>
+              Every tenant gets its own Backstage, Argo CD, and Keycloak, wired
+              to the tenancy model: each organization sees its own catalog and
+              delivers from git.
+            </p>
+            <div class="chips">
+              <span class="pill new">New: portal, GitOps</span>
+            </div>
+          </article>
+          <article class="tile">
+            <h3>Business and developer platform</h3>
+            <p>
+              Business users manage companies, members, domains, and usage.
+              Developers ship, observe, and operate. Both views read the same
+              model.
+            </p>
+            <div class="chips">
+              <span class="pill new">New: identity, usage</span>
+            </div>
+          </article>
+          <article class="tile">
+            <h3>Observed from the first request</h3>
+            <p>
+              Logs, metrics, and traces from every service, data store, and
+              platform component reach org-scoped backends with no setup.
+              Dashboards and alerts come with each service.
+            </p>
+            <div class="chips">
+              <a
+                class="chip"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0010-opentelemetry-collector-ingestion.md"
+                >ADR 0010</a
+              >
+              <a
+                class="chip"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0019-telemetry-pipeline-wiring.md"
+                >ADR 0019</a
+              >
+            </div>
+          </article>
+          <article class="tile">
+            <h3>Secure and verified by default</h3>
+            <p>
+              Signed digests only, mesh identity, mutual TLS, policy, and
+              encrypted secrets come with every service. A tenant cannot opt
+              out.
+            </p>
+            <div class="chips">
+              <a
+                class="chip"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0005-release-automation-signed-image-trust.md"
+                >ADR 0005</a
+              >
+              <a
+                class="chip"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0007-workload-identity-and-layered-authorization.md"
+                >ADR 0007</a
+              >
+              <a
+                class="chip"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0017-gatekeeper-policy-families-audit-first.md"
+                >ADR 0017</a
+              >
+            </div>
+          </article>
+          <article class="tile">
+            <h3>Provider-neutral, local first</h3>
+            <p>
+              A service moves from Minikube to a managed cloud by changing
+              environment configuration, never service code.
+            </p>
+            <div class="chips">
+              <a
+                class="chip"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0012-environment-overlays-hold-provider-specifics.md"
+                >ADR 0012</a
+              >
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="personas">
+        <div class="section-head">
+          <span class="eyebrow">Who it serves</span>
+          <h2 id="personas">Four people, one model</h2>
+        </div>
+        <div class="personas">
+          <div class="persona">
+            <h3>Platform operator</h3>
+            <dl>
+              <dt>Wants</dt>
+              <dd>
+                One platform for everything, upgraded deliberately, safe to
+                rebuild.
+              </dd>
+              <dt>Sees</dt>
+              <dd>Every tenant, platform health, capacity, pinned versions.</dd>
+            </dl>
+          </div>
+          <div class="persona">
+            <h3>Organization admin</h3>
+            <dl>
+              <dt>Wants</dt>
+              <dd>
+                Create companies, invite people, own domains, see what
+                everything costs.
+              </dd>
+              <dt>Sees</dt>
+              <dd>Their organization tree, members, services, usage, audit.</dd>
+            </dl>
+          </div>
+          <div class="persona">
+            <h3>Developer</h3>
+            <dl>
+              <dt>Wants</dt>
+              <dd>
+                Go from code to an HTTPS address in minutes, then observe and
+                fix it.
+              </dd>
+              <dt>Sees</dt>
+              <dd>
+                The services they own: deploys, logs, traces, secrets, data.
+              </dd>
+            </dl>
+          </div>
+          <div class="persona">
+            <h3>End user</h3>
+            <dl>
+              <dt>Wants</dt>
+              <dd>A fast site that keeps their data safe.</dd>
+              <dt>Sees</dt>
+              <dd>A static frontend and the BFF behind it.</dd>
+            </dl>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="tenancy">
+        <div class="section-head">
+          <span class="eyebrow">Tenancy model</span>
+          <h2 id="tenancy">Organizations nest; services belong to one</h2>
+          <p class="lede">
+            A root organization is the tenant. It holds sub-organizations, such
+            as the companies under an umbrella, and they may hold their own. A
+            service is a hosted app owned by exactly one organization, running
+            in one or more environments.
+          </p>
+        </div>
+        <div class="split">
+          <ul class="tree" aria-label="Example organization tree">
+            <li>
+              <span class="node tenant"
+                ><span class="kind">Tenant</span> Acme Holdings</span
+              >
+              <ul>
+                <li>
+                  <span class="node"
+                    ><span class="kind">Sub-org</span> Acme Retail</span
+                  >
+                  <ul>
+                    <li>
+                      <span class="node service"
+                        ><span class="kind">Service</span> storefront</span
+                      >
+                      <ul>
+                        <li><span class="node part">Static frontend</span></li>
+                        <li>
+                          <span class="node part"
+                            >BFF, stateless, autoscaled</span
+                          >
+                        </li>
+                        <li><span class="node part">PostgreSQL claim</span></li>
+                      </ul>
+                    </li>
+                    <li>
+                      <span class="node service"
+                        ><span class="kind">Service</span> loyalty</span
+                      >
+                    </li>
+                  </ul>
+                </li>
+                <li>
+                  <span class="node"
+                    ><span class="kind">Sub-org</span> Acme Logistics</span
+                  >
+                  <ul>
+                    <li>
+                      <span class="node service"
+                        ><span class="kind">Service</span> tracking</span
+                      >
+                    </li>
+                    <li>
+                      <span class="node"
+                        ><span class="kind">Sub-org</span> Acme Freight EU</span
+                      >
+                      <ul>
+                        <li>
+                          <span class="node service"
+                            ><span class="kind">Service</span> customs</span
+                          >
+                        </li>
+                      </ul>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+          </ul>
+          <ul class="rules">
+            <li>
+              <strong>The tenant root is the isolation boundary.</strong
+              ><span
+                >Tenants share one cluster and are isolated per service
+                environment namespace by mesh, network policy, quotas, and
+                admission (<a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0037-tenant-isolation-by-namespace.md"
+                  >ADR 0037</a
+                >).</span
+              >
+            </li>
+            <li>
+              <strong>Sharing is an owner's grant.</strong
+              ><span
+                >Within a tenant, a service is shared only when its owner grants
+                it, and a parent can block grants in its subtree. Only an
+                operator grants across tenants (<a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0039-service-sharing-by-owner-grant.md"
+                  >ADR 0039</a
+                >).</span
+              >
+            </li>
+            <li>
+              <strong>Policy flows down and only tightens.</strong
+              ><span
+                >A sub-organization inherits members, quotas, allowed domains,
+                and policy, and can narrow them but never widen them.</span
+              >
+            </li>
+            <li>
+              <strong>One owner per service.</strong
+              ><span
+                >Each service belongs to exactly one organization; moving it is
+                an explicit operation.</span
+              >
+            </li>
+            <li>
+              <strong>The hierarchy is data, not cluster topology.</strong
+              ><span
+                >Organizations nest at most four levels below the tenant root.
+                Each service environment namespace carries a tenant and an
+                organization label; the controller resolves ancestry from the
+                model, so reorganizing companies never moves workloads (<a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0038-organization-hierarchy-depth-and-labels.md"
+                  >ADR 0038</a
+                >).</span
+              >
+            </li>
+          </ul>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Concept</th>
+                <th>Platform API (proposed)</th>
+                <th>Composes into</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Organization</td>
+                <td>
+                  <code>Organization.platform.kore.dev</code>, with a
+                  <code>parent</code> field and its domains
+                </td>
+                <td>
+                  RBAC groups, ResourceQuota and LimitRange defaults, delegated
+                  zones, a default zone, and a service base, Gatekeeper
+                  parameters
+                </td>
+              </tr>
+              <tr>
+                <td>Service</td>
+                <td>
+                  <code>Service.platform.kore.dev</code>, owned by one
+                  organization, with its hostnames
+                </td>
+                <td>
+                  A namespace per environment with ambient enrollment and image
+                  admission (<a
+                    href="https://github.com/corekraft/kore/blob/main/docs/decisions/0025-application-namespace-ambient-enrollment.md"
+                    >ADR 0025</a
+                  >,
+                  <a
+                    href="https://github.com/corekraft/kore/blob/main/docs/decisions/0032-application-namespace-image-admission.md"
+                    >ADR 0032</a
+                  >); routes, certificates, and DNS records for its hosts
+                </td>
+              </tr>
+              <tr>
+                <td>Capability</td>
+                <td>
+                  Data claims such as <code>PostgreSQLInstance</code>, and the
+                  other <a href="#data">data services</a>
+                </td>
+                <td>
+                  Unchanged: services claim capabilities, and environments
+                  choose the implementation
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="lede">
+          Both APIs follow the pattern of the PostgreSQL API (<a
+            href="https://github.com/corekraft/kore/blob/main/docs/decisions/0008-crossplane-postgresql-platform-api.md"
+            >ADR 0008</a
+          >): a portable Crossplane API that controllers reconcile. Kore
+          coordinates it and never reconciles it itself.
+        </p>
+      </section>
+
+      <section aria-labelledby="domains">
+        <div class="section-head">
+          <span class="eyebrow">Domains and hosts</span>
+          <h2 id="domains">
+            Organizations delegate zones; services are subdomains
+          </h2>
+          <p class="lede">
+            Organizations bring their own domains by delegating a zone to the
+            platform's DNS, and services are subdomains inside those zones (<a
+              href="https://github.com/corekraft/kore/blob/main/docs/decisions/0042-organization-domains-by-delegation.md"
+              >ADR 0042</a
+            >). With <code>apps.corekraft.ca</code> delegated and chosen as the
+            service base, a service named <code>auth</code> is served at
+            <code>auth.apps.corekraft.ca</code>.
+          </p>
+        </div>
+        <div
+          class="hostname"
+          aria-label="auth.apps.corekraft.ca broken into its parts"
+        >
+          <span class="label-part svc"><b>auth</b><small>Service</small></span
+          ><span class="dot">.</span
+          ><span class="label-part base"
+            ><b>apps</b><small>Service base</small></span
+          ><span class="dot">.</span
+          ><span class="label-part dom"
+            ><b>corekraft.ca</b
+            ><small>Organization domain, any TLD</small></span
+          >
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Host</th>
+                <th>Owner</th>
+                <th>Comes from</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>apps.corekraft.ca</code></td>
+                <td>Organization Corekraft</td>
+                <td>A zone delegated to the platform's DNS</td>
+              </tr>
+              <tr>
+                <td><code>auth.apps.corekraft.ca</code></td>
+                <td>Service <code>auth</code></td>
+                <td>Default host: service name, then base</td>
+              </tr>
+              <tr>
+                <td><code>login.apps.corekraft.ca</code></td>
+                <td>Service <code>auth</code></td>
+                <td>An extra host inside the organization's zone</td>
+              </tr>
+              <tr>
+                <td><code>auth.corekraft.&lt;platform domain&gt;</code></td>
+                <td>Service <code>auth</code></td>
+                <td>The organization's default zone</td>
+              </tr>
+              <tr>
+                <td><code>tracking.apps.acme-freight.eu</code></td>
+                <td>Service <code>tracking</code></td>
+                <td>A sub-organization's own zone, another TLD</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="split">
+          <ul class="rules">
+            <li>
+              <strong>Domains come by delegation.</strong
+              ><span
+                >An organization delegates a whole domain, such as
+                <code>corekraft.ca</code>, or a subdomain, such as
+                <code>apps.corekraft.ca</code>, to the platform's DNS with NS
+                records. A working delegation is the proof of control, and the
+                platform writes every record itself.</span
+              >
+            </li>
+            <li>
+              <strong>Any organization, any TLD.</strong
+              ><span
+                >Companies under one umbrella often use unrelated domains, so an
+                organization at any level may delegate zones under any TLD. A
+                parent may restrict which domains its subtree uses, without
+                requiring its own.</span
+              >
+            </li>
+            <li>
+              <strong>Services are subdomains.</strong
+              ><span
+                >A service gets <code>&lt;service&gt;.&lt;base&gt;</code> by
+                default; other hosts are allowed only inside the organization's
+                own zones. Serving a domain's apex means delegating the whole
+                domain.</span
+              >
+            </li>
+            <li>
+              <strong>One owner per hostname.</strong
+              ><span
+                >A hostname belongs to exactly one service, inside its
+                organization's zones. Admission rejects any other host, so one
+                tenant can never claim another tenant's name.</span
+              >
+            </li>
+          </ul>
+          <ul class="rules">
+            <li>
+              <strong>One default zone per organization.</strong
+              ><span
+                >Before delegating anything, every organization gets
+                <code>&lt;organization&gt;.&lt;platform domain&gt;</code>. The
+                platform domain is a per-environment setting, still to be
+                chosen; locally it is <code>kore.local</code>. It goes on the
+                Public Suffix List before outside tenants arrive.</span
+              >
+            </li>
+            <li>
+              <strong>A lapsed delegation has a grace period.</strong
+              ><span
+                >No new routes are admitted, the organization is alerted,
+                existing hosts keep serving for seven days, and then their
+                routes are removed.</span
+              >
+            </li>
+            <li>
+              <strong>Host-only cookies.</strong
+              ><span
+                >Every service under <code>corekraft.ca</code> shares one site.
+                A BFF sets host-only cookies and never
+                <code>Domain=corekraft.ca</code>, which would send its session
+                to every other service under the domain.</span
+              >
+            </li>
+          </ul>
+        </div>
+        <div class="section-head">
+          <h3>Delivered by upstream controllers</h3>
+          <ul class="points">
+            <li>
+              <strong>Delegation check.</strong> The
+              <code>Organization</code> API checks each zone's NS records
+              through a Crossplane function, as the PostgreSQL API composes
+              today.
+            </li>
+            <li>
+              <strong>DNS records.</strong> ExternalDNS writes records inside
+              delegated zones, in the DNS provider the environment names (<a
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0012-environment-overlays-hold-provider-specifics.md"
+                >ADR 0012</a
+              >).
+            </li>
+            <li>
+              <strong>Routing.</strong> Each service's
+              <code>HTTPRoute</code> lists its hostnames, and the Gateway
+              accepts them (<a
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0006-istio-ambient-gateway-api.md"
+                >ADR 0006</a
+              >).
+            </li>
+            <li>
+              <strong>Certificates.</strong> cert-manager issues certificates
+              for each zone, including DNS-01 wildcards, and locally from the
+              local issuer (<a
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0013-local-tls-before-gateway.md"
+                >ADR 0013</a
+              >). A wildcard such as <code>*.apps.corekraft.ca</code> covers one
+              label only.
+            </li>
+            <li>
+              <strong>Ownership policy.</strong> A Gatekeeper constraint checks
+              every hostname against the organization's zones, starting in audit
+              mode (<a
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0017-gatekeeper-policy-families-audit-first.md"
+                >ADR 0017</a
+              >).
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section aria-labelledby="golden-path">
+        <div class="section-head">
+          <span class="eyebrow">Golden path</span>
+          <h2 id="golden-path">Frontend, BFF, data</h2>
+          <p class="lede">
+            Every service starts from the same shape. Teams can leave it, but
+            the escape hatch has to be recorded.
+          </p>
+        </div>
+        <div
+          class="flow"
+          role="img"
+          aria-label="Browser to Gateway, which routes slash to the static frontend and slash api to the BFF; the BFF reaches internal services, PostgreSQL, secrets, and the telemetry collector"
+        >
+          <div class="stage">
+            <div class="box"><b>Browser</b><small>One site, HTTPS</small></div>
+          </div>
+          <div class="arrow" aria-hidden="true">→</div>
+          <div class="stage">
+            <div class="box"><b>Gateway</b><small>Gateway API, TLS</small></div>
+          </div>
+          <div class="arrow" aria-hidden="true">→</div>
+          <div class="stage">
+            <div class="box">
+              <span class="route">/</span><b>Static frontend</b>
+              <small>GitHub Pages, object storage, or in-cluster</small>
+            </div>
+            <div class="box bff">
+              <span class="route">/api</span><b>BFF pods 1..N</b>
+              <small>Stateless, scaled by HPA</small>
+            </div>
+          </div>
+          <div class="arrow" aria-hidden="true">→</div>
+          <div class="stage">
+            <div class="box">
+              <b>Internal services</b><small>mTLS, workload identity</small>
+            </div>
+            <div class="box">
+              <b>Data claims</b
+              ><small
+                >PostgreSQL, object store, Kafka, document, key-value</small
+              >
+            </div>
+            <div class="box">
+              <b>Secrets</b><small>ExternalSecret, never in the browser</small>
+            </div>
+            <div class="box">
+              <b>Collector</b><small>OTLP logs, metrics, traces</small>
+            </div>
+          </div>
+        </div>
+        <div class="split">
+          <div class="section-head">
+            <h3>Static frontend</h3>
+            <ul class="points">
+              <li>
+                A frontend is a static build plus a domain. Where it is hosted
+                is an environment choice.
+              </li>
+              <li>
+                <strong>Same site as its BFF.</strong> Serve
+                <code>auth.apps.corekraft.ca</code> and
+                <code>auth.apps.corekraft.ca/api</code> through the Gateway, or
+                <code>api.auth.apps.corekraft.ca</code> when the frontend is
+                hosted elsewhere, such as GitHub Pages pointed at the service
+                host by a CNAME record. The BFF then keeps the session in an
+                <code>HttpOnly</code>, <code>SameSite</code> cookie and tokens
+                never reach the browser. A frontend on
+                <code>*.github.io</code> with the BFF on a platform domain turns
+                that cookie into a third-party cookie and breaks it.
+              </li>
+              <li>
+                No secrets in the frontend, ever. Anything secret goes through
+                the BFF.
+              </li>
+            </ul>
+          </div>
+          <div class="section-head">
+            <h3>Backend for frontend</h3>
+            <ul class="points">
+              <li>
+                <strong>Stateless.</strong> Sessions live in an encrypted cookie
+                or a shared store, so the HorizontalPodAutoscaler can add and
+                remove pods freely.
+              </li>
+              <li>
+                <strong>Hides secrets and upstreams.</strong> Holds keys as
+                ExternalSecrets, runs the OAuth token exchange, and shapes
+                downstream calls for the page.
+              </li>
+              <li>
+                <strong>Kotlin on Spring Boot, built with Jib.</strong> No
+                Dockerfile and no Docker daemon; Jib writes the image digest
+                that the sign and deploy-by-digest steps use, so
+                <code>kore</code>
+                runs the Jib task instead of a Docker build, refining
+                <a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0015-local-signed-image-delivery.md"
+                  >ADR 0015</a
+                >. The OpenTelemetry Java agent is baked into the image and
+                pinned by version and checksum.
+              </li>
+              <li>
+                <strong>The contract stays language-neutral:</strong> a signed
+                image, health and readiness, OTLP, resource requests, and a
+                dedicated ServiceAccount.
+              </li>
+              <li>
+                <strong>Autoscaling needs a metrics source,</strong> which the
+                catalog does not have yet. Request-rate scaling and scale to
+                zero (KEDA) come later.
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div class="section-head">
+          <span class="eyebrow">BFF budgets, to confirm with measurements</span>
+          <div class="budgets">
+            <div class="budget">
+              <b>&lt; 1 s</b><span>Startup to readiness</span>
+            </div>
+            <div class="budget">
+              <b>&lt; 256 MiB</b><span>Memory per replica</span>
+            </div>
+            <div class="budget"><b>&lt; 150 MB</b><span>Image size</span></div>
+          </div>
+        </div>
+        <div class="section-head">
+          <span class="eyebrow">Two Kotlin builds, one contract</span>
+          <div class="split">
+            <div class="tool">
+              <h3>Default: JVM on GraalVM</h3>
+              <dl class="facts">
+                <dt>Build</dt>
+                <dd>
+                  Jib image with the OpenTelemetry Java agent and
+                  <code>-javaagent</code>
+                </dd>
+                <dt>Telemetry</dt>
+                <dd>
+                  The agent traces Spring, HTTP, JDBC, Kafka, and Redis clients
+                  with no code
+                </dd>
+                <dt>Startup</dt>
+                <dd>
+                  Spring ahead-of-time processing and the JDK class data cache;
+                  expected to miss 1 s, to measure
+                </dd>
+              </dl>
+            </div>
+            <div class="tool">
+              <h3>When startup must be under 1 s: native image</h3>
+              <dl class="facts">
+                <dt>Build</dt>
+                <dd>
+                  GraalVM native image, packaged by Jib's native-image extension
+                </dd>
+                <dt>Telemetry</dt>
+                <dd>
+                  OpenTelemetry Spring Boot starter; the Java agent cannot run
+                  in a native image
+                </dd>
+                <dt>Startup</dt>
+                <dd>
+                  Fastest start and smallest memory, at the cost of longer
+                  builds
+                </dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="data">
+        <div class="section-head">
+          <span class="eyebrow">Data services</span>
+          <h2 id="data">Every dependency, scoped to the organization</h2>
+          <p class="lede">
+            Every dependency a service needs is a claim against a platform API,
+            owned by the service and scoped to its organization. The service
+            receives a connection Secret and speaks the standard protocol; the
+            environment picks the implementation, as the PostgreSQL API already
+            does (<a
+              href="https://github.com/corekraft/kore/blob/main/docs/decisions/0008-crossplane-postgresql-platform-api.md"
+              >ADR 0008</a
+            >).
+          </p>
+        </div>
+        <div class="table-scroll">
+          <table class="wide">
+            <thead>
+              <tr>
+                <th>Capability</th>
+                <th>Contract the app sees</th>
+                <th>Local (candidates)</th>
+                <th>Managed substitutes</th>
+                <th>Default tenancy</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Relational store</td>
+                <td>PostgreSQL protocol, <code>PostgreSQLInstance</code></td>
+                <td>CloudNativePG <span class="pill plan">exists</span></td>
+                <td>Amazon RDS, Cloud SQL, Azure Database for PostgreSQL</td>
+                <td><span class="pill dedicated">Instance per claim</span></td>
+              </tr>
+              <tr>
+                <td>Object store</td>
+                <td>S3 API, a bucket claim</td>
+                <td>Rook Ceph object gateway, SeaweedFS, or Garage</td>
+                <td>Amazon S3, Google Cloud Storage, Cloudflare R2</td>
+                <td>
+                  <span class="pill shared">Shared store</span> bucket per
+                  claim, service policy
+                </td>
+              </tr>
+              <tr>
+                <td>Durable message bus</td>
+                <td>Kafka protocol, topic and user claims</td>
+                <td>Strimzi</td>
+                <td>Amazon MSK, Confluent Cloud</td>
+                <td>
+                  <span class="pill shared">Shared cluster</span> topics and
+                  ACLs prefixed by org and service
+                </td>
+              </tr>
+              <tr>
+                <td>Document store</td>
+                <td>MongoDB wire protocol, a database claim</td>
+                <td>FerretDB, or the Percona Operator for MongoDB</td>
+                <td>MongoDB Atlas, Amazon DocumentDB</td>
+                <td><span class="pill dedicated">Instance per claim</span></td>
+              </tr>
+              <tr>
+                <td>Key-value store</td>
+                <td>Redis protocol, a cache or store claim</td>
+                <td>Valkey</td>
+                <td>
+                  Amazon ElastiCache, Google Memorystore (both offer Valkey)
+                </td>
+                <td><span class="pill dedicated">Instance per claim</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="split">
+          <ul class="rules">
+            <li>
+              <strong>Scoped by organization.</strong
+              ><span
+                >Every claim names its service, and through it its organization.
+                Credentials are per service, arrive as a Secret in the service's
+                namespace, and reach only that service's resources.</span
+              >
+            </li>
+            <li>
+              <strong>Sharing is a grant.</strong
+              ><span
+                >Another service in the same organization can read a topic or
+                bucket once its owner grants it. Another tenant never can unless
+                an operator grants it.</span
+              >
+            </li>
+            <li>
+              <strong>Quotas per organization.</strong
+              ><span
+                >The number of claims, storage, and throughput are limited per
+                organization, inherited down the tree, and only tightened.</span
+              >
+            </li>
+          </ul>
+          <ul class="rules">
+            <li>
+              <strong>Shared and dedicated tiers.</strong
+              ><span
+                >The shared tier partitions one store with its own access
+                control, such as Kafka prefix ACLs and quotas or bucket
+                policies. The dedicated tier gives an organization its own
+                instance or cluster.</span
+              >
+            </li>
+            <li>
+              <strong>Retained and recoverable.</strong
+              ><span
+                >Data is retained by default, and each capability gets export
+                and restore, as PostgreSQL has (<a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0029-local-export-and-restore.md"
+                  >ADR 0029</a
+                >).</span
+              >
+            </li>
+            <li>
+              <strong>Open source locally.</strong
+              ><span
+                >The MongoDB server is licensed under the SSPL and Redis under
+                RSALv2, SSPL, or AGPLv3, so the local candidates are open
+                implementations of the same protocols, FerretDB and Valkey.
+                Upstream MongoDB or Redis would be an exception recorded in an
+                ADR.</span
+              >
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section aria-labelledby="observability">
+        <div class="section-head">
+          <span class="eyebrow">Observability</span>
+          <h2 id="observability">
+            Telemetry out of the box, scoped to the organization
+          </h2>
+          <p class="lede">
+            Telemetry is part of the platform, not a step each team adds. Plan 2
+            Step 11 installs the pipeline: services send OTLP to the Collector,
+            which exports to Prometheus, Loki, and Tempo, with Grafana in front
+            (<a
+              href="https://github.com/corekraft/kore/blob/main/docs/decisions/0010-opentelemetry-collector-ingestion.md"
+              >ADR 0010</a
+            >,
+            <a
+              href="https://github.com/corekraft/kore/blob/main/docs/decisions/0019-telemetry-pipeline-wiring.md"
+              >ADR 0019</a
+            >). The vision makes it automatic for every service and scopes it to
+            the organization.
+          </p>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Signal, with no instrumentation code</th>
+                <th>Where it comes from</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Request metrics</td>
+                <td>
+                  Gateway and mesh telemetry: request rate, errors, and latency
+                  for every route
+                </td>
+              </tr>
+              <tr>
+                <td>Logs</td>
+                <td>
+                  The node agent collects container output and enriches it with
+                  service and organization
+                </td>
+              </tr>
+              <tr>
+                <td>Traces</td>
+                <td>
+                  Mesh spans at the Gateway and between services, joined to the
+                  service's own spans
+                </td>
+              </tr>
+              <tr>
+                <td>Resource use</td>
+                <td>
+                  Kubelet and cluster metrics per service, plus HPA replica
+                  counts
+                </td>
+              </tr>
+              <tr>
+                <td>Data health</td>
+                <td>
+                  Metrics from each data service operator, such as CloudNativePG
+                  and Strimzi
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="split">
+          <ul class="rules">
+            <li>
+              <strong>The OTLP endpoint is injected.</strong
+              ><span
+                >Every service receives the Collector endpoint and standard
+                resource attributes, so the Kotlin BFF template exports from its
+                first deploy. On the JVM, the Java agent Jib bakes in traces
+                Spring, HTTP clients, JDBC, Kafka, and Redis clients with no
+                code; a native-image build uses the OpenTelemetry Spring Boot
+                starter, because the agent cannot run there.</span
+              >
+            </li>
+            <li>
+              <strong>The platform stamps the organization.</strong
+              ><span
+                >The Collector adds tenant, organization, service, and
+                environment attributes from namespace labels. It never trusts an
+                organization a service reports about itself, so one tenant
+                cannot write into another's telemetry.</span
+              >
+            </li>
+            <li>
+              <strong>Queries are scoped to the organization.</strong
+              ><span
+                >Each organization sees only its own signals. Loki and Tempo
+                separate tenants natively; metrics need a label-enforcing proxy
+                in front of Prometheus or a store that separates tenants, such
+                as Mimir.</span
+              >
+            </li>
+          </ul>
+          <ul class="rules">
+            <li>
+              <strong>Dashboards and alerts come with each service.</strong
+              ><span
+                >Request rate, errors, latency, saturation, replicas, and data
+                claims on one dashboard, plus default alerts routed to the
+                organization's contacts. Alerting needs Alertmanager, which ADR
+                0019 keeps disabled until routing is designed.</span
+              >
+            </li>
+            <li>
+              <strong>Bounded per organization.</strong
+              ><span
+                >Cardinality stays bounded by the ADR 0019 attribute allowlist,
+                retention is set per organization, and telemetry volume counts
+                toward usage.</span
+              >
+            </li>
+            <li>
+              <strong>Platform components too.</strong
+              ><span
+                >Backstage, Argo CD, the data operators, and the Collectors
+                report into the platform organization's view, so operators watch
+                the platform with the same tools tenants use.</span
+              >
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section aria-labelledby="portal">
+        <div class="section-head">
+          <span class="eyebrow">The portal</span>
+          <h2 id="portal">Backstage and Argo CD, out of the box</h2>
+          <p class="lede">
+            Every tenant root gets its own Backstage and its own Argo CD,
+            composed by the <code>Organization</code> API, and the platform
+            organization gets a pair for operators (<a
+              href="https://github.com/corekraft/kore/blob/main/docs/decisions/0041-backstage-and-argo-cd-per-tenant.md"
+              >ADR 0041</a
+            >). Each tenant root also gets its own Keycloak, whose groups mirror
+            the organization tree (<a
+              href="https://github.com/corekraft/kore/blob/main/docs/decisions/0040-keycloak-human-identity.md"
+              >ADR 0040</a
+            >). Organizations use Kore through them without a terminal, and each
+            user sees only their own organizations. Backstage reads cluster and
+            repository state, and every change it makes becomes a reviewed
+            change to desired state that Argo CD or <code>kore</code> applies,
+            never a direct edit to the cluster.
+          </p>
+        </div>
+        <div class="split">
+          <div class="tool">
+            <h3>Backstage</h3>
+            <ul class="points">
+              <li>
+                <strong>The catalog comes from Kore's model.</strong>
+                Organizations become groups, services become components, and
+                data claims become resources, never a hand-kept copy.
+              </li>
+              <li>
+                <strong>Software Templates are the golden path.</strong> A
+                template creates the repository from the static frontend and
+                Kotlin BFF templates, registers the <code>Service</code>, and
+                gives it its host, as a reviewed change.
+              </li>
+              <li>
+                <strong>Plugins show the running service.</strong> Kubernetes
+                and Argo CD plugins show rollout and sync, TechDocs publishes
+                docs, and links lead to dashboards.
+              </li>
+              <li>
+                <strong>One per tenant, scoped by organization.</strong>
+                Each tenant's Backstage shows only that tenant; permission
+                policies key on the sub-organization groups in the token.
+              </li>
+              <li>
+                <strong>Reads clusters as the user.</strong> The Kubernetes
+                plugin uses the user's token so Kubernetes RBAC applies; a
+                plugin with shared credentials is enabled only once it is scoped
+                to the tenant.
+              </li>
+              <li>
+                <strong>The business view is a Kore plugin</strong> for
+                organizations, members, domains, and usage.
+              </li>
+            </ul>
+          </div>
+          <div class="tool">
+            <h3>Argo CD</h3>
+            <ul class="points">
+              <li>
+                <strong>Delivers tenant services from git.</strong> Tenant code
+                and charts live in tenant repositories; an ApplicationSet
+                creates an Application per service environment from the
+                registrations in Kore's desired state.
+              </li>
+              <li>
+                <strong>One per tenant, namespace-scoped.</strong> Each tenant's
+                Argo CD deploys only into that tenant's service namespaces,
+                never into another tenant or cluster-scoped resources.
+              </li>
+              <li>
+                <strong>An AppProject per organization</strong> limits which
+                repositories it deploys from, which namespaces it deploys to,
+                and which kinds of resources it may create, with RBAC keyed to
+                the organization's group.
+              </li>
+              <li>
+                <strong>Still deploys only what was verified.</strong> Argo CD
+                syncs digest references, and image admission still rejects
+                anything not signed by release automation (<a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0005-release-automation-signed-image-trust.md"
+                  >ADR 0005</a
+                >).
+              </li>
+              <li>
+                <strong>Owns tenant workloads.</strong> Each tenant's Argo CD
+                owns its services' workload releases, refining ADR 0002 and ADR
+                0011 for tenant workloads.
+              </li>
+              <li>
+                <strong
+                  >The platform Argo CD owns platform configuration.</strong
+                >
+                <code>kore</code> keeps the bootstrap, core, and observability
+                phases; the platform organization's Argo CD owns every
+                configuration-phase release except the image policy, deployed
+                from OCI artifacts by digest, and its health gates admission (<a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0043-platform-configuration-through-argo-cd.md"
+                  >ADR 0043</a
+                >).
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Area</th>
+                <th>Business view</th>
+                <th>Developer view</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Organizations</td>
+                <td>Create and arrange companies; invite members</td>
+                <td>See which organization owns what</td>
+              </tr>
+              <tr>
+                <td>Services</td>
+                <td>Catalog of every service, its owner, and its URL</td>
+                <td>
+                  Create from a Software Template; follow the Argo CD sync
+                </td>
+              </tr>
+              <tr>
+                <td>Environments</td>
+                <td>Which services are live where</td>
+                <td>
+                  Readiness, rollout, image digest, and signer per environment
+                </td>
+              </tr>
+              <tr>
+                <td>Data</td>
+                <td>What data is retained, and for whom</td>
+                <td>
+                  Every data claim, its connection status, export and restore
+                </td>
+              </tr>
+              <tr>
+                <td>Secrets</td>
+                <td>Who can manage which secrets</td>
+                <td>Secret names and sync status, never values</td>
+              </tr>
+              <tr>
+                <td>Observability</td>
+                <td>Uptime and service-level summaries</td>
+                <td>
+                  Dashboards, alerts, logs, metrics, and traces for their
+                  services
+                </td>
+              </tr>
+              <tr>
+                <td>Domains</td>
+                <td>Add and verify domains; choose the service base</td>
+                <td>
+                  Hostnames per service, routes, certificates, and DNS status
+                </td>
+              </tr>
+              <tr>
+                <td>Usage and cost</td>
+                <td>Usage against quotas, per organization</td>
+                <td>Resource and data use per service and environment</td>
+              </tr>
+              <tr>
+                <td>Audit</td>
+                <td>Who changed what, and when</td>
+                <td>Operation and sync history for their services</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section aria-labelledby="capabilities">
+        <div class="section-head">
+          <span class="eyebrow">Capability map</span>
+          <h2 id="capabilities">What exists, and what the vision adds</h2>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Capability</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Networking, TLS, Gateway API</td>
+                <td><span class="pill plan">Plan 2 · Step 8</span></td>
+              </tr>
+              <tr>
+                <td>Workload identity, mTLS, authorization</td>
+                <td><span class="pill plan">Plan 2 · Step 9</span></td>
+              </tr>
+              <tr>
+                <td>Signed image trust and registry</td>
+                <td><span class="pill plan">Plan 2 · Step 7</span></td>
+              </tr>
+              <tr>
+                <td>Encrypted secrets via External Secrets</td>
+                <td><span class="pill plan">Plan 2 · Step 8</span></td>
+              </tr>
+              <tr>
+                <td>PostgreSQL platform API with retention</td>
+                <td><span class="pill plan">Plan 2 · Step 10</span></td>
+              </tr>
+              <tr>
+                <td>Logs, metrics, traces via OpenTelemetry</td>
+                <td><span class="pill plan">Plan 2 · Step 11</span></td>
+              </tr>
+              <tr>
+                <td>
+                  Org-scoped telemetry: organization attributes, per-org
+                  queries, retention
+                </td>
+                <td><span class="pill new">New</span></td>
+              </tr>
+              <tr>
+                <td>
+                  Default dashboards and alerts per service, routed to the
+                  organization
+                </td>
+                <td><span class="pill new">New</span></td>
+              </tr>
+              <tr>
+                <td>
+                  Tenancy API (<code>Organization</code>, <code>Service</code>)
+                </td>
+                <td><span class="pill new">New</span></td>
+              </tr>
+              <tr>
+                <td>Quotas and per-organization limits</td>
+                <td><span class="pill new">New</span></td>
+              </tr>
+              <tr>
+                <td>
+                  Golden-path templates (static frontend, Kotlin BFF built with
+                  Jib)
+                </td>
+                <td><span class="pill new">New</span></td>
+              </tr>
+              <tr>
+                <td>Static frontend hosting contract</td>
+                <td><span class="pill new">New</span></td>
+              </tr>
+              <tr>
+                <td>Horizontal autoscaling (metrics source, HPA defaults)</td>
+                <td><span class="pill new">New</span></td>
+              </tr>
+              <tr>
+                <td>
+                  Human identity and single sign-on: a Keycloak per tenant with
+                  groups per organization
+                </td>
+                <td><span class="pill new">New</span></td>
+              </tr>
+              <tr>
+                <td>
+                  Organization domains, service hostnames, and DNS automation
+                </td>
+                <td><span class="pill new">New</span></td>
+              </tr>
+              <tr>
+                <td>
+                  Developer portal: a Backstage per tenant with Kore plugins
+                </td>
+                <td><span class="pill new">New</span></td>
+              </tr>
+              <tr>
+                <td>
+                  GitOps delivery of tenant services: an Argo CD per tenant
+                </td>
+                <td>
+                  <span class="pill new"
+                    >New, deferred in Plan 1 until now</span
+                  >
+                </td>
+              </tr>
+              <tr>
+                <td>Platform configuration through the platform Argo CD</td>
+                <td><span class="pill new">New</span></td>
+              </tr>
+              <tr>
+                <td>Object storage (S3 API)</td>
+                <td><span class="pill new">New</span></td>
+              </tr>
+              <tr>
+                <td>Durable message bus (Kafka)</td>
+                <td>
+                  <span class="pill new"
+                    >New, deferred in Plan 1 until now</span
+                  >
+                </td>
+              </tr>
+              <tr>
+                <td>Document store (MongoDB protocol)</td>
+                <td><span class="pill new">New</span></td>
+              </tr>
+              <tr>
+                <td>Key-value store (Redis protocol)</td>
+                <td><span class="pill new">New</span></td>
+              </tr>
+              <tr>
+                <td>Organization scoping and quotas for every data service</td>
+                <td><span class="pill new">New</span></td>
+              </tr>
+              <tr>
+                <td>Usage metering</td>
+                <td><span class="pill new">New</span></td>
+              </tr>
+              <tr>
+                <td>Multi-cluster mesh and management</td>
+                <td>
+                  <a
+                    class="pill deferred"
+                    href="https://github.com/corekraft/kore/blob/main/infra/plans/1-initialize.md#deferred-tooling"
+                    >Deferred in Plan 1</a
+                  >
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section aria-labelledby="horizons">
+        <div class="section-head">
+          <span class="eyebrow">Horizons, in order</span>
+          <h2 id="horizons">From one tenant to a business platform</h2>
+        </div>
+        <ol class="horizons">
+          <li class="horizon now">
+            <span class="eyebrow">Now</span>
+            <h3>Finish Plan 2</h3>
+            <p>
+              The reference app runs end to end on a fresh profile and passes
+              the portability checks.
+            </p>
+          </li>
+          <li class="horizon">
+            <span class="eyebrow">Next</span>
+            <h3>Services are first-class, delivered from git</h3>
+            <p>
+              <code>Organization</code> and <code>Service</code> exist as
+              platform APIs; Argo CD delivers a Kotlin BFF and a static frontend
+              that reach HTTPS and scale 1→N; Backstage shows them.
+            </p>
+          </li>
+          <li class="horizon">
+            <span class="eyebrow">Then</span>
+            <h3>Many tenants, each with its own data</h3>
+            <p>
+              Two tenants with nested sub-orgs cannot see or reach each other's
+              services or data; object store, Kafka, document, and key-value
+              claims work beside PostgreSQL.
+            </p>
+          </li>
+          <li class="horizon">
+            <span class="eyebrow">Later</span>
+            <h3>The one stop shop</h3>
+            <p>
+              An organization admin and a developer do their whole job in
+              Backstage, through single sign-on, from template to running
+              service.
+            </p>
+          </li>
+          <li class="horizon">
+            <span class="eyebrow">Someday</span>
+            <h3>Stronger isolation, a business layer</h3>
+            <p>
+              A tenant can choose a dedicated virtual or physical cluster; usage
+              becomes reports per organization.
+            </p>
+          </li>
+        </ol>
+      </section>
+
+      <section aria-label="Success measures and non-goals">
+        <div class="split">
+          <div class="section-head">
+            <span class="eyebrow">How we will know</span>
+            <h2>Success measures</h2>
+            <ul class="points">
+              <li>
+                From a Backstage template to a working HTTPS address takes under
+                15 minutes, with no hand edits to the cluster.
+              </li>
+              <li>
+                A service gets a bucket, a Kafka topic, a document store, a
+                key-value store, and a PostgreSQL database by claim, and a
+                service in another organization cannot reach any of them.
+              </li>
+              <li>
+                Under load, a BFF scales out and back in by itself, and no
+                request fails on a cold pod.
+              </li>
+              <li>
+                An organization admin sees their own tree and nothing else, and
+                a negative test proves it.
+              </li>
+              <li>
+                A new service shows request rate, errors, latency, logs, and
+                traces in its organization's dashboards before anyone writes
+                instrumentation code, and another organization cannot query
+                them.
+              </li>
+              <li>
+                Every workload in every tenant runs by signed digest; no secret
+                exists in plaintext on disk or in git.
+              </li>
+              <li>
+                Moving a service between local and managed changes only
+                environment configuration.
+              </li>
+            </ul>
+          </div>
+          <div class="section-head">
+            <span class="eyebrow">Out of scope</span>
+            <h2>Not goals</h2>
+            <ul class="points">
+              <li>
+                <strong>Not a CI system.</strong> Tenants bring their own
+                pipeline; Kore accepts a signed digest.
+              </li>
+              <li>
+                <strong>Not a cloud console.</strong> A small set of platform
+                APIs, not every upstream knob.
+              </li>
+              <li>
+                <strong>Not hiding Kubernetes from operators.</strong> The
+                portal hides it from tenants only.
+              </li>
+              <li>
+                <strong>Not reimplementing controllers.</strong> Tenancy,
+                scaling, hosting, delivery, and data services are composed from
+                upstream controllers.
+              </li>
+              <li>
+                <strong>Not forking Backstage or Argo CD.</strong> Kore
+                configures them and adds plugins; it carries no patches to them.
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="questions">
+        <div class="section-head">
+          <span class="eyebrow"
+            >Each becomes an ADR before dependent work starts; decided ones link
+            to it</span
+          >
+          <h2 id="questions">Open questions</h2>
+        </div>
+        <ol class="questions">
+          <li class="decided">
+            <div>
+              <strong>Isolation tier</strong
+              ><span
+                >One shared cluster, a namespace per service environment, no
+                Capsule, and vCluster as a later dedicated tier.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0037-tenant-isolation-by-namespace.md"
+                >Decided · ADR 0037</a
+              >
+            </div>
+          </li>
+          <li class="decided">
+            <div>
+              <strong>Hierarchy depth</strong
+              ><span
+                >At most four levels below the tenant root, with tenant and
+                organization labels on namespaces.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0038-organization-hierarchy-depth-and-labels.md"
+                >Decided · ADR 0038</a
+              >
+            </div>
+          </li>
+          <li class="decided">
+            <div>
+              <strong>Sharing</strong
+              ><span
+                >Owner grants within a tenant, parents can block, and only
+                operators grant across tenants.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0039-service-sharing-by-owner-grant.md"
+                >Decided · ADR 0039</a
+              >
+            </div>
+          </li>
+          <li class="decided">
+            <div>
+              <strong>Argo CD for platform components</strong
+              ><span
+                ><code>kore</code> keeps the early phases; the platform Argo CD
+                owns the configuration phase except the image policy.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0043-platform-configuration-through-argo-cd.md"
+                >Decided · ADR 0043</a
+              >
+            </div>
+          </li>
+          <li class="decided">
+            <div>
+              <strong>Human identity</strong
+              ><span
+                >A Keycloak per tenant root with one realm and nested groups per
+                sub-organization, owned by the Organization API.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0040-keycloak-human-identity.md"
+                >Decided · ADR 0040</a
+              >
+            </div>
+          </li>
+          <li class="decided">
+            <div>
+              <strong>Backstage tenancy</strong
+              ><span
+                >One Backstage and one namespace-scoped Argo CD per tenant root,
+                scoped inside by organization.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0041-backstage-and-argo-cd-per-tenant.md"
+                >Decided · ADR 0041</a
+              >
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Default static host</strong
+              ><span
+                >GitHub Pages, object storage behind the Gateway, or an
+                in-cluster static server, and which is the default per
+                environment?</span
+              >
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>BFF runtime</strong
+              ><span
+                >Measure the Jib JVM image on GraalVM, with the Java agent and a
+                class data cache, against the budgets, and decide when a service
+                should build a native image instead.</span
+              >
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Autoscaling source</strong
+              ><span
+                >metrics-server for CPU-based HPA first, or straight to KEDA for
+                request-based scaling and scale to zero?</span
+              >
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Usage and cost</strong
+              ><span
+                >What is metered per organization, and is it for visibility only
+                or also enforced?</span
+              >
+            </div>
+          </li>
+          <li class="decided">
+            <div>
+              <strong>Domain verification and DNS</strong
+              ><span
+                >Organizations at any level delegate zones under any TLD,
+                services are subdomains inside them, and ExternalDNS writes the
+                records.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0042-organization-domains-by-delegation.md"
+                >Decided · ADR 0042</a
+              >
+            </div>
+          </li>
+          <li class="decided">
+            <div>
+              <strong>Platform default domain</strong
+              ><span
+                >Every organization gets one default zone under a
+                per-environment platform domain, still to be chosen.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0042-organization-domains-by-delegation.md"
+                >Decided · ADR 0042</a
+              >
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Data isolation tiers</strong
+              ><span
+                >For each data service, what does the shared tier share, when
+                does an organization get a dedicated instance, and who
+                decides?</span
+              >
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Data store implementations</strong
+              ><span
+                >Rook Ceph, SeaweedFS, or Garage for the local object store, and
+                FerretDB and Valkey, or upstream MongoDB and Redis recorded as
+                license exceptions?</span
+              >
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Telemetry isolation</strong
+              ><span
+                >A label-enforcing proxy in front of Prometheus, or a
+                multi-tenant metrics store such as Mimir? And does each Kore
+                tenant map to a Grafana organization?</span
+              >
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Telemetry retention and alert routing</strong
+              ><span
+                >How long is each signal kept per organization, does volume
+                count against quotas, and where do an organization's alerts
+                go?</span
+              >
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <footer>
+        HTML rendering of <code>docs/vision.md</code>, which is the source.
+        Update both together.
+      </footer>
+    </div>
+  </body>
+</html>
