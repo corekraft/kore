@@ -259,10 +259,18 @@ async function installRelease(
   repository: Repository,
   runner: Runner,
   name: string,
-  target: { release: string; chartPath: string; image?: LockedImage },
+  target: {
+    release: string;
+    chartPath: string;
+    image?: LockedImage;
+    secretVersion?: string;
+  },
 ): Promise<boolean> {
-  const { release, chartPath, image } = target;
-  const args = releaseArgs(repository, name, release, chartPath, image);
+  const { release, chartPath, image, secretVersion } = target;
+  const args = releaseArgs(repository, name, release, chartPath, {
+    ...(image ? { image } : {}),
+    ...(secretVersion ? { secretVersion } : {}),
+  });
   const fingerprint = argsFingerprint(
     args.map((arg) =>
       arg === chartPath ? relative(repository.root, chartPath) : arg,
@@ -302,11 +310,11 @@ export async function installWorkload(
   runner: Runner,
   name: string,
   charts: Charts,
-  image: LockedImage,
+  workload: { image: LockedImage; secretVersion?: string },
 ): Promise<void> {
   await installRelease(repository, runner, name, {
     release: name,
     chartPath: charts.workload,
-    image,
+    ...workload,
   });
 }

@@ -15,6 +15,7 @@ import {
   assertAppAdmissible,
   waitForResources,
   waitForRoutes,
+  waitForSecretSource,
   waitForRollouts,
 } from "./readiness.js";
 import { verifyImage } from "./verify.js";
@@ -47,7 +48,11 @@ export async function converge(
   await cleanupInterruptedReleases(repository, runner, name);
   await installResources(repository, runner, name, charts);
   await waitForResources(repository, runner, name);
-  await installWorkload(repository, runner, name, charts, workloadImage);
+  const secretVersion = await waitForSecretSource(repository, runner, name);
+  await installWorkload(repository, runner, name, charts, {
+    image: workloadImage,
+    ...(secretVersion ? { secretVersion } : {}),
+  });
   await waitForRollouts(repository, runner, name);
   await waitForRoutes(repository, runner, name, options.routeTimeout);
 }

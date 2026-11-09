@@ -17,7 +17,7 @@ Usage:
   kore tunnel status [--environment local] [--json]
   kore registry rotate-credentials --environment <name> --yes [--json]
   kore signer swap-key --environment local --yes [--json]
-  kore secrets sync --environment local
+  kore secrets sync --environment local [--rotate --yes]
   kore trust install --environment local
   kore journal [--environment <name>] [--limit <n>] [--json]
   kore ops inventory|recovery [--environment local] [--json]

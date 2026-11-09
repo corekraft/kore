@@ -13,3 +13,7 @@ database:
   passwordSecret: { name: reference-db-app, key: password }
 migrate:
   activeDeadlineSeconds: 600
+
+# Opaque marker of the secrets this workload consumes; a new value restarts the
+# pods. Set by the deployer, never carries secret data.
+secretVersion: ""
