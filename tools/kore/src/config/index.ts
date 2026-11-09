@@ -17,6 +17,12 @@ export {
 export type { CrdClaims, CrdOwnership } from "./crd-ownership.js";
 export { noMatchPolicy, trustedSigners } from "./image-trust.js";
 export {
+  promoteConstraint,
+  recordPromotionEvidence,
+  rollbackConstraint,
+} from "./policy-promotion-change.js";
+export type { PromotionChange } from "./policy-promotion-change.js";
+export {
   auditEvidence,
   evaluateAudit,
   policyPromotionErrors,

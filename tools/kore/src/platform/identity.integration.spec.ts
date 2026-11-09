@@ -3,7 +3,7 @@ import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 import { evaluateAudit } from "../config/index.js";
-import { admissionVerdict, deployedImage } from "./admission-probe.js";
+import { deployedImage } from "./admission-probe.js";
 import {
   constraints,
   live,
@@ -12,6 +12,7 @@ import {
   setup,
   viaGateway,
 } from "./identity-live.js";
+import { workloadVerdict } from "./workload-probe.js";
 
 // Docs: docs/decisions/0059-identity-policy-evidence.md
 // Live and opt-in; see identity-live.ts. Run: npm run test:integration:identity
@@ -74,12 +75,13 @@ test(
       return;
     }
     const image = await deployedImage(repository, runner, namespace);
-    const verdict = await admissionVerdict(
+    // The constraint matches workloads, not bare Pods, so probe a Deployment.
+    const verdict = await workloadVerdict(
       repository,
       runner,
       namespace,
       image,
-      { serviceAccountName: "default" },
+      "default",
     );
     assert.equal(
       verdict.admitted,
