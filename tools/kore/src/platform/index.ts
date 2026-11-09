@@ -1,5 +1,7 @@
 // Docs: infra/plans/2-implementation.md#step-7-bootstrap-registry-image-trust-controllers-and-crd-ownership
-export { bootstrapControllers } from "./bootstrap.js";
+export { bootstrapControllers, closeGateIfDegraded } from "./bootstrap.js";
+export type { GateCheckResult } from "./bootstrap.js";
+export { readinessFailureSummary } from "./readiness-manifest.js";
 export { platformStop, platformDestroy } from "./lifecycle.js";
 export { platformRender } from "./render.js";
 export { platformStatusReport } from "./crd-ownership-status.js";

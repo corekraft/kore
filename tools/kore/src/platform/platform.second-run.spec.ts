@@ -12,8 +12,16 @@ vi.mock("./admission-gate.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./admission-gate.js")>()),
   closeExistingAdmissionGate: async () => undefined,
   openAdmissionGate: async () => undefined,
+  assertAdmissionGateOpen: async () => "g",
 }));
-vi.mock("./status.js", () => ({ platformStatus: async () => [] }));
+vi.mock("./status.js", async () => {
+  const { readyRows } = await import("./readiness-fixtures.js");
+  return {
+    imageInventoryStatusName: "image-inventory",
+    platformStatus: async (repository: Parameters<typeof readyRows>[0]) =>
+      readyRows(repository),
+  };
+});
 import { loadRepository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import type { RunResult } from "../runtime/runner.js";

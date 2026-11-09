@@ -104,6 +104,7 @@ test("platform CLI commands dispatch render and all lifecycle actions", async ()
   ]);
   await main(["platform", "bootstrap", "--environment", "local"]);
   await main(["platform", "up", "--environment", "local"]);
+  await main(["platform", "gate-check", "--environment", "local"]);
   await main(["platform", "stop", "--environment", "local"]);
   await main([
     "platform",
@@ -122,6 +123,9 @@ test("platform CLI commands dispatch render and all lifecycle actions", async ()
     "lock",
     "journal:platform up:kore-local",
     "platformUp",
+    "lock",
+    "journal:platform gate-check:kore-local",
+    "closeGateIfDegraded",
     "lock",
     "journal:platform stop:kore-local",
     "platformStop",
@@ -216,4 +220,40 @@ test("registry rotate-credentials without --yes still reaches the operation, whi
   await main(["registry", "rotate-credentials", "--environment", "local"]);
 
   expect(dispatch).toContain("rotateRegistryCredentials:false");
+});
+
+test("platform gate-check fails naming the prerequisite after it closes the gate", async () => {
+  const { closeGateIfDegraded } = await import("../platform/index.js");
+  vi.mocked(closeGateIfDegraded).mockResolvedValueOnce({
+    closed: true,
+    failures: [
+      {
+        requirement: "telemetry",
+        name: "otel-collector",
+        status: "degraded",
+        detail: "no available replica",
+      },
+    ],
+    evidence: {
+      failures: [
+        {
+          requirement: "telemetry",
+          name: "otel-collector",
+          detail: "no available replica",
+        },
+      ],
+    },
+  } as never);
+
+  await expect(
+    main(["platform", "gate-check", "--environment", "local"]),
+  ).rejects.toThrow(
+    /gate is closed.*telemetry: otel-collector \(no available replica\)/,
+  );
+});
+
+test("platform gate-check requires an explicit environment", async () => {
+  await expect(main(["platform", "gate-check"])).rejects.toThrow(
+    /environment/i,
+  );
 });

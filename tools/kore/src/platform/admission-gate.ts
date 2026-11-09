@@ -17,6 +17,24 @@ export const admissionGateFieldManager = "kore-bootstrap-gate";
 export const activationLabel = "platform.kore.dev/activation-generation";
 export const bootstrapGroup = "kore:bootstrap";
 
+/**
+ * Kubernetes' own workload controllers. A closed gate refuses new application
+ * mutations but must not stop these replacing a Pod of a workload admitted
+ * while it was open (ADR 0067).
+ */
+export const controllerIdentities = [
+  "system:kube-controller-manager",
+  ...[
+    "replicaset-controller",
+    "replication-controller",
+    "deployment-controller",
+    "statefulset-controller",
+    "daemon-set-controller",
+    "job-controller",
+    "cronjob-controller",
+  ].map((name) => `system:serviceaccount:kube-system:${name}`),
+];
+
 const systemNamespaces = ["kube-system", "kube-public", "kube-node-lease"];
 
 export interface AdmissionGate {
@@ -32,6 +50,8 @@ export interface AdmissionGate {
       state: "closed" | "open";
       platformNamespaces: string[];
       bootstrapGroups: string[];
+      /** Controllers that keep already-admitted workloads running while closed. */
+      controllerIdentities: string[];
     };
   };
 }
@@ -69,10 +89,20 @@ export function admissionGate(
       enforcementAction: "dryrun",
       match: {
         kinds: [
-          { apiGroups: [""], kinds: ["Namespace", "Pod"] },
+          {
+            apiGroups: [""],
+            kinds: ["Namespace", "Pod", "ReplicationController"],
+          },
           {
             apiGroups: ["apps", "batch"],
-            kinds: ["Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob"],
+            kinds: [
+              "Deployment",
+              "ReplicaSet",
+              "StatefulSet",
+              "DaemonSet",
+              "Job",
+              "CronJob",
+            ],
           },
           { apiGroups: ["platform.kore.dev"], kinds: ["PostgreSQLInstance"] },
         ],
@@ -87,6 +117,7 @@ export function admissionGate(
           repository.environment.provider === "minikube"
             ? [bootstrapGroup, "system:masters"]
             : [bootstrapGroup],
+        controllerIdentities,
       },
     },
   };

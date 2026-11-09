@@ -84,3 +84,6 @@ export function orderedComponents(catalog: Catalog): Component[] {
   }
   return result;
 }
+
+// Catalog coverage by the readiness manifest is validated beside ordering.
+export { readinessErrors } from "./readiness.js";

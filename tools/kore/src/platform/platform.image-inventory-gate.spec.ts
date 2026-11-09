@@ -19,6 +19,14 @@ function runnerWith(applied: string[], badImage: boolean): Runner {
           code: 0,
         };
       }
+      if (joined.includes("get koreapplicationadmission")) {
+        const gate = applied.findLast((input) => input.includes("parameters"));
+        return {
+          stdout: gate ? JSON.stringify(JSON.parse(gate)) : "",
+          stderr: "",
+          code: 0,
+        };
+      }
       if (joined.includes("apply")) {
         applied.push(options?.input ?? "");
         return { stdout: "", stderr: "", code: 0 };
@@ -56,6 +64,18 @@ async function managedWithoutComponents() {
   repository.catalog.components = [
     { ...component, dependencies: [], readiness: [] },
   ];
+  repository.readiness = {
+    version: 1,
+    requirements: [
+      {
+        name: "inventory",
+        step: 7,
+        capability: "health-condition",
+        components: [component.name],
+        platformChecks: ["image-inventory"],
+      },
+    ],
+  };
   return repository;
 }
 
@@ -85,8 +105,9 @@ test("enforce findings keep the gate closed and name the image", async () => {
     openApplicationAdmission(repository, runnerWith(applied, true)),
     /image-inventory.*busybox:1 \(tag-only\)/,
   );
-  assert.equal(applied.length, 1);
+  assert.equal(applied.length, 2);
   assert.match(applied[0]!, /"state":"closed"/);
+  assert.match(applied[1]!, /ConfigMap/);
 });
 
 test("opening the gate reports the image inventory summary in the run log, findings included under audit", async () => {

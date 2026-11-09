@@ -155,3 +155,35 @@ test("help prints usage and exits 0 for no command, help, and --help", async () 
 test("unknown command error carries the usage text", async () => {
   await expect(main(["bogus"])).rejects.toThrow(/Usage:[\s\S]*kore journal/);
 });
+
+test("platform status exits non-zero while the gate or any prerequisite is not ready, so success cannot be reported early", async () => {
+  const { platformStatusReport } = await import("../platform/index.js");
+  vi.spyOn(console, "log").mockImplementation(() => undefined);
+  vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+  const row = (name: string, status: string) => ({
+    name,
+    namespace: "cluster",
+    status,
+    detail: "x",
+  });
+
+  vi.mocked(platformStatusReport).mockResolvedValue([
+    row("gatekeeper", "ready"),
+    row("application-admission-gate", "degraded"),
+  ] as never);
+  expect(await main(["platform", "status"])).toBe(1);
+
+  vi.mocked(platformStatusReport).mockResolvedValue([
+    row("gatekeeper", "degraded"),
+    row("application-admission-gate", "ready"),
+  ] as never);
+  expect(await main(["platform", "status", "--json"])).toBe(1);
+
+  // The CRD ownership row is an audit and never fails status.
+  vi.mocked(platformStatusReport).mockResolvedValue([
+    row("gatekeeper", "ready"),
+    row("application-admission-gate", "ready"),
+    row("crd-ownership", "degraded"),
+  ] as never);
+  expect(await main(["platform", "status"])).toBe(0);
+});

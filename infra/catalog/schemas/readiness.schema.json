@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["version", "requirements"],
+  "properties": {
+    "version": { "const": 1 },
+    "requirements": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "step", "capability"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "step": { "type": "integer", "minimum": 7, "maximum": 11 },
+          "capability": {
+            "enum": [
+              "controller",
+              "registry",
+              "trust-policy",
+              "shared-configuration",
+              "platform-api",
+              "endpoint",
+              "health-condition"
+            ]
+          },
+          "components": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "platformChecks": {
+            "type": "array",
+            "items": { "enum": ["registry-trust", "image-inventory"] }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}

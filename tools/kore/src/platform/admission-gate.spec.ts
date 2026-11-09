@@ -75,6 +75,34 @@ test("the gate is born closed for the current generation and exempts every platf
   expect(parameters.bootstrapGroups).toContain("kore:bootstrap");
 });
 
+test("the gate matches every PodSpec-bearing kind and the claim, and lets only cluster controllers keep admitted workloads running", async () => {
+  const gate = closedAdmissionGate(await loadRepository("local"));
+  const kinds = gate.spec.match.kinds.flatMap((match) => match.kinds);
+  for (const kind of [
+    "Pod",
+    "ReplicaSet",
+    "ReplicationController",
+    "Deployment",
+    "StatefulSet",
+    "DaemonSet",
+    "Job",
+    "CronJob",
+    "PostgreSQLInstance",
+    "Namespace",
+  ]) {
+    expect(kinds).toContain(kind);
+  }
+  const { controllerIdentities, bootstrapGroups } = gate.spec.parameters;
+  expect(controllerIdentities).toContain(
+    "system:serviceaccount:kube-system:replicaset-controller",
+  );
+  // An exemption by identity, never by a group developers can be placed in.
+  for (const identity of controllerIdentities) {
+    expect(identity).toMatch(/^system:(serviceaccount:kube-system:|kube-)/);
+    expect(bootstrapGroups).not.toContain(identity);
+  }
+});
+
 test("ensuring the gate applies it closed to the configured context under the bootstrap field manager", async () => {
   const repository = await loadRepository("local");
   const calls: Call[] = [];
