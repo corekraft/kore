@@ -103,7 +103,22 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0057-runtime-crd-ownership.md`](decisions/0057-runtime-crd-ownership.md) — refines ADR 0011: `ownsCRDGroups` lets a component own the CRDs its controller installs at runtime; validate rejects overlapping claims, and `kore platform status` reports unowned or multiply owned cluster CRDs as degraded (audit only). Read when adding a Function, provider, or constraint template.
 - [`docs/decisions/0058-registry-transport-tls.md`](decisions/0058-registry-transport-tls.md) — refines ADR 0034: the registry proxy serves TLS only with a cert-manager certificate from a kore-owned CA; containerd, nerdctl, cosign, kore, and Policy Controller verify it and no plain-HTTP flag remains. Read when changing registry transport or clients.
 - [`docs/decisions/0062-telemetry-proofs-and-mesh-identity.md`](decisions/0062-telemetry-proofs-and-mesh-identity.md) — refines ADR 0019: ztunnel scraped for mesh identity, Grafana trace/log links, offline telemetry specs plus one opt-in live spec. Read when changing telemetry proofs or mesh metrics.
+- [`docs/decisions/0061-retained-volumes-are-discovered-by-storage-class.md`](decisions/0061-retained-volumes-are-discovered-by-storage-class.md) — refines 0020: retained-data discovery also lists kore-retained PersistentVolumes, so a deleted retained claim's Released volume still blocks destroy. Read when changing retained-data discovery.
+- [`docs/decisions/0065-restart-readiness-and-transient-kubectl-retry.md`](decisions/0065-restart-readiness-and-transient-kubectl-retry.md) — refines 0035: after a Minikube start kore waits for /readyz and a Ready node before any apply, and one runner layer retries mutating kubectl commands on transient stderr with bounded backoff and in-memory stdin replay. Read when changing cluster start, kubectl retries, or readiness waits.
 - [`docs/decisions/0056-platform-image-inventory.md`](decisions/0056-platform-image-inventory.md) — refines ADR 0033 and 0054: a read-only inventory of every running platform image and namespace enrollment, `audit` locally and `enforce` in managed environments (`environment.imageInventory`), reported in `platform status` and checked before the gate opens. Read when changing bootstrap success criteria, seeds, or image trust.
+
+## Operations and Guides
+
+- [`docs/guides/operator.md`](guides/operator.md) — running the local platform: start, stop, status, and where each recurring task is documented. Read first when operating Kore.
+- [`docs/guides/contributor.md`](guides/contributor.md) — the change loop: tests first, the checks to run, where each kind of change lives. Read before your first change.
+- [`docs/guides/troubleshooting.md`](guides/troubleshooting.md) — symptom to cause to fix, by status row and error. Read when a command or the platform fails.
+- [`docs/guides/application-onboarding.md`](guides/application-onboarding.md) — the contract an application meets and the steps to deploy one. Read before adding an application.
+- [`docs/operations/support-and-upgrades.md`](operations/support-and-upgrades.md) — support window, upgrade order, rollback, and the gaps. Read before upgrading a pin or Kore.
+- [`docs/operations/registry.md`](operations/registry.md) — registry backup, restore, recovery objectives, garbage collection, signature retention, and the digest policy. Read when the registry or its data is lost or full.
+- [`docs/operations/signing-and-keys.md`](operations/signing-and-keys.md) — signing identities, key and identity rotation, compromise response, pipeline controls, and break-glass. Read when changing who may sign.
+- [`docs/operations/trust-and-rotation.md`](operations/trust-and-rotation.md) — every trust root, certificate and secret rotation, and workload identity incident response. Read when rotating or revoking anything.
+- [`docs/operations/policy-changes.md`](operations/policy-changes.md) — policy review, audit-to-enforce promotion, rollback, and emergency exemptions. Read when changing or promoting a policy.
+- [`docs/operations/resource-budgets.md`](operations/resource-budgets.md) — profile sizing and the `capacity` status warning. Read when the platform runs short of CPU or memory.
 
 ## Reference
 
