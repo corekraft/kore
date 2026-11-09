@@ -9,7 +9,7 @@ last-verified: 2026-11-08
 
 Source: [`infra/plans/2-implementation.md` § Step 13](../../infra/plans/2-implementation.md#step-13-complete-lifecycle-orchestration)
 
-Refines: [ADR 0005](0005-release-automation-signed-image-trust.md), [ADR 0015](0015-local-signed-image-delivery.md), [ADR 0054](0054-application-admission-gate-closed-at-foundation.md)
+Refines: [ADR 0005](0005-release-automation-signed-image-trust.md), [ADR 0015](0015-local-signed-image-delivery.md), [ADR 0059](0059-identity-policy-evidence.md), [ADR 0054](0054-application-admission-gate-closed-at-foundation.md)
 
 ## Context
 
@@ -46,6 +46,17 @@ itself.
   namespace is enrolled in image admission, and the environment's inventory
   mode. It reads only user-supplied Helm values and one namespace label, never
   a Secret.
+
+## Interaction with ADR 0059
+
+The two checks are layered, and both must pass. This ADR decides what kind of
+signer `app up` accepts (release automation, never the local key). ADR 0059
+decides which identities an environment trusts: `verifyImage` refuses a signer
+outside the environment's trusted subjects. A release-signed lock entry is
+therefore deployable only where the environment trusts that exact subject; on
+`local`, which trusts only `local-kore-key`, it is refused with the relock
+remedy, and a managed environment must list the release subject in
+`trust.subjects`.
 
 ## Consequences
 

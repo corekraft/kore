@@ -5,13 +5,13 @@ vi.mock("../images/index.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../images/index.js")>()),
   localRegistryReference: localRegistryReferenceMock,
 }));
-import { loadRepository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { appUpRelease } from "./up.js";
 import {
   healthyRunner,
   passthroughRegistry,
   removeReleaseLocks,
+  repositoryTrustingRelease,
   writeReleaseLock,
   type Call,
 } from "./app-fixtures.js";
@@ -49,7 +49,7 @@ function interrupted(calls: Call[]): Runner {
 
 test("a rerun after an interrupted attempt clears only the failed release, then converges", async () => {
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
-  const repository = await loadRepository("local");
+  const repository = await repositoryTrustingRelease();
   const calls: Call[] = [];
 
   await appUpRelease(

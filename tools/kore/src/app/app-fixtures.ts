@@ -192,3 +192,20 @@ export async function removeReleaseLocks(): Promise<void> {
       .map((directory) => rm(directory, { recursive: true, force: true })),
   );
 }
+
+/**
+ * The local repository, but with an image policy that trusts the release
+ * subject (ADR 0059), so a release-signed lock entry is deployable. Without
+ * it, local trusts only `local-kore-key`.
+ */
+export async function repositoryTrustingRelease(
+  signer = releaseSigner,
+): Promise<Awaited<ReturnType<typeof loadRepository>>> {
+  const base = await loadRepository("local");
+  return {
+    ...base,
+    imageTrustValues: {
+      trust: { type: "keyless", mode: "warn", subjects: [signer] },
+    },
+  };
+}

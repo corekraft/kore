@@ -178,7 +178,13 @@ test("app up does not install anything when image verification fails", async () 
 });
 
 test("app up verifies keylessly against the locked signer when the image is not locally signed", async () => {
-  const repository = await loadRepository("local");
+  const base = await loadRepository("local");
+  const repository = {
+    ...base,
+    imageTrustValues: {
+      trust: { type: "keyless", mode: "warn", subjects: [releaseSigner] },
+    },
+  };
   const calls: Call[] = [];
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
 
@@ -249,6 +255,9 @@ test("app up on a managed provider deploys the locked reference without staging"
   const repository = {
     ...base,
     environment: { ...base.environment, provider: "managed" as const },
+    imageTrustValues: {
+      trust: { type: "keyless", mode: "warn", subjects: [releaseSigner] },
+    },
   };
   const calls: Call[] = [];
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);

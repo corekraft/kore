@@ -13,6 +13,7 @@ import {
   lockedImage,
   passthroughRegistry,
   removeReleaseLocks,
+  repositoryTrustingRelease,
   writeReleaseLock,
   type Call,
 } from "./app-fixtures.js";
@@ -79,7 +80,7 @@ test("app up does not touch the tunnel while the gate is closed", async () => {
 });
 
 test("app up from the release lock restores the tunnel after admission and before verifying or deploying", async () => {
-  const repository = await loadRepository("local");
+  const repository = await repositoryTrustingRelease();
   const calls: Call[] = [];
   let atTunnel: Call[] = [];
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);

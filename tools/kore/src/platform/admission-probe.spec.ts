@@ -221,3 +221,35 @@ test("scaling names the environment context and namespace, never the current con
     "scaling is one mutation; waiting is the caller's",
   );
 });
+
+test("a probe can name the ServiceAccount its pod uses, so identity policy can be probed", async () => {
+  const repository = await loadRepository("local");
+  let body = "";
+  const runner: Runner = {
+    async run(_command, _args, options) {
+      body = options?.input ?? "";
+      return { stdout: "pod/x created (server dry run)", stderr: "", code: 0 };
+    },
+  };
+
+  await admissionVerdict(repository, runner, "reference", source, {
+    serviceAccountName: "default",
+  });
+
+  assert.equal(JSON.parse(body).spec.serviceAccountName, "default");
+});
+
+test("a probe without a ServiceAccount option leaves the pod spec unchanged", async () => {
+  const repository = await loadRepository("local");
+  let body = "";
+  const runner: Runner = {
+    async run(_command, _args, options) {
+      body = options?.input ?? "";
+      return { stdout: "", stderr: "", code: 0 };
+    },
+  };
+
+  await admissionVerdict(repository, runner, "reference", source);
+
+  assert.equal("serviceAccountName" in JSON.parse(body).spec, false);
+});

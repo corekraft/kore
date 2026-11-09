@@ -12,6 +12,7 @@ import {
   lockedImage,
   passthroughRegistry,
   releaseSigner,
+  repositoryTrustingRelease,
   removeReleaseLocks,
   writeReleaseLock,
   type Call,
@@ -49,7 +50,7 @@ test("app up refuses the committed placeholder lock, which carries the local key
 
 test("app up deploys a release-automation lock entry offline, verifying its exact workflow identity", async () => {
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
-  const repository = await loadRepository("local");
+  const repository = await repositoryTrustingRelease();
   const calls: Call[] = [];
   const lock = await writeReleaseLock(repository.root);
 
@@ -84,5 +85,21 @@ test("a local developer-signed image is accepted only on Minikube, from kore loc
       publicKey: "/k.pub",
     }),
   ).rejects.toThrow(/Minikube.*local-kore-key.*managed/s);
+  expect(helmUpgrades(calls)).toEqual([]);
+});
+
+test("a release-signed entry from an identity the environment does not trust is refused on local with the remedy, before Helm", async () => {
+  localRegistryReferenceMock.mockImplementation(passthroughRegistry);
+  const repository = await loadRepository("local");
+  const calls: Call[] = [];
+  const lock = await writeReleaseLock(repository.root);
+
+  await expect(
+    appUpRelease(repository, healthyRunner(calls), "reference", lock),
+  ).rejects.toThrow(
+    /image signer .*release\.yaml@refs\/tags\/v0\.3\.1 is not trusted by environment local.*relock the image with that identity/s,
+  );
+
+  expect(cosignCalls(calls)).toEqual([]);
   expect(helmUpgrades(calls)).toEqual([]);
 });
