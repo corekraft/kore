@@ -1,13 +1,16 @@
+import { createHash } from "node:crypto";
 import { registryPlan, type Repository } from "../config/index.js";
 import type { LockedImage } from "../images/index.js";
+import type { Runner } from "../runtime/index.js";
 
 export function releaseArgs(
   repository: Repository,
   name: string,
   release: string,
   chartPath: string,
-  image?: LockedImage,
+  extras: { image?: LockedImage; secretVersion?: string } = {},
 ): string[] {
+  const { image, secretVersion } = extras;
   const args = [
     "upgrade",
     "--install",
@@ -34,6 +37,9 @@ export function releaseArgs(
     "--set-string",
     `platform.otlpEndpoint=${repository.environment.telemetry.otlpEndpoint}`,
   ];
+  if (secretVersion) {
+    args.push("--set-string", `secretVersion=${secretVersion}`);
+  }
   if (image) {
     args.push(...imageReleaseArgs(repository, name, image));
   }
@@ -62,4 +68,36 @@ export function imageReleaseArgs(
 
 export function localImagePullPolicyArgs(): string[] {
   return ["--set-string", "image.pullPolicy=Never"];
+}
+
+/**
+ * A one-way marker of the application's secret source, passed to the workload
+ * chart as `secretVersion` so a rotated secret changes the pod template and the
+ * pods restart onto the new value. It digests the source's rotation id (set by
+ * `kore secrets`), never any secret data, and the chart knows nothing about how
+ * the Secret arrives. Empty when the source has no rotation id.
+ */
+export async function rotationMarker(
+  repository: Repository,
+  runner: Runner,
+  name: string,
+): Promise<string> {
+  const { stdout } = await runner.run(
+    "kubectl",
+    [
+      "--context",
+      repository.environment.kubeContext,
+      "--namespace",
+      repository.environment.secrets.sourceNamespace,
+      "get",
+      "secret",
+      `${name}-app`,
+      "--ignore-not-found",
+      "--output",
+      "jsonpath={.metadata.annotations.platform\\.kore\\.dev/rotation-id}",
+    ],
+    { capture: true },
+  );
+  const id = stdout.trim();
+  return id ? createHash("sha256").update(id).digest("hex").slice(0, 16) : "";
 }

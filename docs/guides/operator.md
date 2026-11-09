@@ -76,7 +76,8 @@ gates it is ready.
 ## Secrets and local trust
 
 `kore secrets sync --environment local` applies the encrypted local secrets and
-the generated API token. `kore trust install --environment local` trusts the
+the generated API token (created once; a second checkout never overwrites it,
+and `--rotate --yes` replaces it). `kore trust install --environment local` trusts the
 local certificate authority on the host (it may prompt for your password). Never
 put plaintext secrets in files or Helm values.
 

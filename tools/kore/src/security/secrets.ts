@@ -6,14 +6,9 @@ import type { Repository } from "../config/index.js";
 import { assertExpectedCluster } from "../cluster/index.js";
 import type { Runner } from "../runtime/index.js";
 
-async function ensureLocalReferenceSecret(
-  repository: Repository,
-  runner: Runner,
-  namespace: string,
-): Promise<void> {
-  const state = join(repository.root, ".kore", "state");
-  const tokenPath = join(state, "reference-api-token");
-  await mkdir(state, { recursive: true, mode: 0o700 });
+export const rotationAnnotation = "platform.kore.dev/rotation-id";
+
+async function readLocalToken(tokenPath: string): Promise<string> {
   let token: string;
   try {
     token = (await readFile(tokenPath, "utf8")).trim();
@@ -40,6 +35,62 @@ async function ensureLocalReferenceSecret(
       `local API token at ${tokenPath} is invalid; remove it to generate a new token`,
     );
   }
+  return token;
+}
+
+async function sourceExists(
+  repository: Repository,
+  runner: Runner,
+  namespace: string,
+): Promise<boolean> {
+  const { stdout } = await runner.run(
+    "kubectl",
+    [
+      "--context",
+      repository.environment.kubeContext,
+      "--namespace",
+      namespace,
+      "get",
+      "secret",
+      "reference-app",
+      "--ignore-not-found",
+      "--output",
+      "name",
+    ],
+    { capture: true },
+  );
+  return stdout.trim() !== "";
+}
+
+/**
+ * The cluster's token source has one owner: the first checkout that creates it.
+ * Any later checkout leaves an existing source alone, whatever its own local
+ * state holds, so two checkouts sharing a profile cannot fight over the value.
+ * Only an explicit, consented rotation replaces it. Every write also records a
+ * fresh rotation id (never derived from the token) so consumers can be rolled.
+ */
+async function ensureLocalReferenceSecret(
+  repository: Repository,
+  runner: Runner,
+  namespace: string,
+  rotate: boolean,
+): Promise<void> {
+  if (!rotate && (await sourceExists(repository, runner, namespace))) {
+    return;
+  }
+  const state = join(repository.root, ".kore", "state");
+  const tokenPath = join(state, "reference-api-token");
+  await mkdir(state, { recursive: true, mode: 0o700 });
+  let token: string;
+  if (rotate) {
+    token = randomBytes(32).toString("hex");
+    await writeFile(tokenPath, `${token}\n`, {
+      encoding: "utf8",
+      mode: 0o600,
+    });
+  } else {
+    token = await readLocalToken(tokenPath);
+  }
   await chmod(tokenPath, 0o600);
   const secret = {
     apiVersion: "v1",
@@ -48,6 +99,7 @@ async function ensureLocalReferenceSecret(
       name: "reference-app",
       namespace,
       labels: { "platform.kore.dev/secret-source": "true" },
+      annotations: { [rotationAnnotation]: randomBytes(8).toString("hex") },
     },
     type: "Opaque",
     data: { API_TOKEN: Buffer.from(token).toString("base64") },
@@ -164,10 +216,23 @@ async function forceReferenceResync(
   );
 }
 
+export interface SyncSecretsOptions {
+  /** Replace the existing token with a new one; needs `yes`. */
+  rotate?: boolean;
+  yes?: boolean;
+}
+
 export async function syncLocalSecrets(
   repository: Repository,
   runner: Runner,
+  options: SyncSecretsOptions = {},
 ): Promise<number> {
+  const rotate = options.rotate === true;
+  if (rotate && options.yes !== true) {
+    throw new Error(
+      "rotating the reference API token replaces the cluster's token; rerun with --rotate --yes, then run kore local up to restart the consumers",
+    );
+  }
   if (repository.environment.provider !== "minikube") {
     throw new Error(
       "local SOPS synchronization is only valid for a Minikube environment",
@@ -177,7 +242,7 @@ export async function syncLocalSecrets(
   const context = repository.environment.kubeContext;
   const namespace = repository.environment.secrets.sourceNamespace;
   await ensureSourceNamespace(runner, context, namespace);
-  await ensureLocalReferenceSecret(repository, runner, namespace);
+  await ensureLocalReferenceSecret(repository, runner, namespace, rotate);
   const count = await applyEncryptedSecrets(repository, runner, namespace);
   await forceReferenceResync(runner, context);
   return count;

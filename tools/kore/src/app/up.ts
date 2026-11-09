@@ -11,6 +11,7 @@ import {
   enrollNamespace,
   installResources,
   installWorkload,
+  rotationMarker,
   resolveCharts,
 } from "./install.js";
 import { stageLocalImage } from "./local-image.js";
@@ -51,6 +52,10 @@ export async function appUp(
   await activateNamespace(repository, runner, name, generation);
   await installResources(repository, runner, name, charts);
   await waitForResources(repository, runner, name);
-  await installWorkload(repository, runner, name, charts, workloadImage);
+  const secretVersion = await rotationMarker(repository, runner, name);
+  await installWorkload(repository, runner, name, charts, {
+    image: workloadImage,
+    ...(secretVersion ? { secretVersion } : {}),
+  });
   await waitForRollouts(repository, runner, name);
 }
