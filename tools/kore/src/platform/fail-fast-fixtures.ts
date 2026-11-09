@@ -190,6 +190,9 @@ export class Scenario implements Runner {
     if (args.includes("logs")) {
       return ok(LOGS);
     }
+    if (args.some((arg) => arg.includes("availableReplicas"))) {
+      return ok("available"); // the Deployment is up once Helm finishes
+    }
     return ok();
   }
 

@@ -11,6 +11,7 @@ import type { Runner } from "../runtime/index.js";
 import { RecordingRunner } from "../runtime/runner.js";
 import { bootstrapControllers } from "./bootstrap.js";
 import { reconcileComponent } from "./reconcile.js";
+import { withHealthyWebhooks } from "./webhook-fixtures.js";
 
 async function helmComponent(readiness: string[], timeout = "1s") {
   const repository = await loadRepository("local");
@@ -28,11 +29,12 @@ test("readiness waits use the condition that matches each resource kind", async 
     "certificate/edge-tls",
     "deployment/web",
   ]);
-  const runner = new RecordingRunner();
+  const recording = new RecordingRunner();
+  const runner = withHealthyWebhooks(recording);
 
   await reconcileComponent(repository, runner, component);
 
-  const waits = runner.calls
+  const waits = recording.calls
     .filter(({ command }) => command === "kubectl")
     .map(({ args }) => args.join(" "))
     .filter((call) => /\b(wait|rollout)\b/.test(call));

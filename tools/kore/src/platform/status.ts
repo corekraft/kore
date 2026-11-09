@@ -51,12 +51,17 @@ async function componentStatus(
     : { ...identity, status: "ready", detail: "installed and ready" };
 }
 
+/** Reports every component, or only the named ones when `only` is given. */
 export async function platformStatus(
   repository: Repository,
   runner: Runner,
+  only?: readonly string[],
 ): Promise<ComponentStatus[]> {
   const result: ComponentStatus[] = [];
   for (const component of orderedComponents(repository.catalog)) {
+    if (only && !only.includes(component.name)) {
+      continue;
+    }
     result.push(await componentStatus(repository, runner, component));
   }
   result.push(await admissionGateStatus(repository, runner));

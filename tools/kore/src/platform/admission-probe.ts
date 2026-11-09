@@ -1,0 +1,207 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { Repository } from "../config/index.js";
+import {
+  localRegistryReference,
+  localSignArgs,
+  minikubeImagePublishArgs,
+  publishedDigest,
+  verifiedRegistryAddress,
+  withPublishSession,
+  type RegistryDependencies,
+} from "../images/index.js";
+import { CommandError, type Runner } from "../runtime/index.js";
+
+// Docs: docs/decisions/0028-image-trust-authority.md
+// Helpers for the opt-in live admission specs (`*.integration.spec.ts`). They
+// only ever dry-run admission or push throwaway test images; nothing here
+// deploys a workload.
+
+export interface AdmissionVerdict {
+  admitted: boolean;
+  detail: string;
+}
+
+/** Repositories the live specs write to; never used by an application. */
+const probeRepository = "kore-admission-probe";
+/** What the API server says when a webhook, or its absence, refuses a request. */
+const WEBHOOK_REFUSAL =
+  /admission webhook|failed calling webhook|denied the request/i;
+
+function scope(repository: Repository, namespace: string): string[] {
+  return [
+    "--context",
+    repository.environment.kubeContext,
+    "--namespace",
+    namespace,
+  ];
+}
+
+/**
+ * Server dry-runs a Pod of `image` in `namespace` and says whether admission
+ * accepts it. A webhook refusal is a verdict; any other failure is rethrown so
+ * an unreachable cluster is never mistaken for a denial.
+ */
+export async function admissionVerdict(
+  repository: Repository,
+  runner: Runner,
+  namespace: string,
+  image: string,
+): Promise<AdmissionVerdict> {
+  const pod = {
+    apiVersion: "v1",
+    kind: "Pod",
+    metadata: { name: `kore-admission-probe-${Date.now().toString(36)}` },
+    spec: {
+      restartPolicy: "Never",
+      containers: [{ name: "probe", image }],
+    },
+  };
+  try {
+    const result = await runner.run(
+      "kubectl",
+      [
+        ...scope(repository, namespace),
+        "create",
+        "--dry-run=server",
+        "--filename=-",
+      ],
+      { capture: true, input: JSON.stringify(pod) },
+    );
+    return { admitted: true, detail: result.stdout.trim() };
+  } catch (error) {
+    if (
+      error instanceof CommandError &&
+      WEBHOOK_REFUSAL.test(error.result.stderr)
+    ) {
+      return { admitted: false, detail: error.result.stderr.trim() };
+    }
+    throw error;
+  }
+}
+
+/** The image the application's workload runs: the kore-signed digest. */
+export async function deployedImage(
+  repository: Repository,
+  runner: Runner,
+  namespace: string,
+): Promise<string> {
+  const { stdout } = await runner.run(
+    "kubectl",
+    [
+      ...scope(repository, namespace),
+      "get",
+      "deployment",
+      "--output=jsonpath={.items[0].spec.template.spec.containers[0].image}",
+    ],
+    { capture: true },
+  );
+  const image = stdout.trim();
+  if (image === "") {
+    throw new Error(
+      `no workload Deployment in namespace ${namespace}; run \`kore app up ${namespace} --environment ${repository.environment.name}\` first so a kore-signed image exists to compare against`,
+    );
+  }
+  return image;
+}
+
+export interface UntrustedImages {
+  /** Pushed to the internal registry; nobody signed it. */
+  unsigned: string;
+  /** Signed with a throwaway key whose public half no policy trusts. */
+  foreignSigned: string;
+}
+
+export interface ProbeDependencies {
+  registry?: RegistryDependencies;
+  digest?: (repositoryPath: string, authorization: string) => Promise<string>;
+}
+
+/**
+ * Copies the already-staged `source` image into two probe repositories with
+ * the push identity (a signature belongs to its repository, so a copy under a
+ * new name carries none), then signs one of them with a key generated in a
+ * temporary directory and deleted afterwards. The key never reaches the
+ * cluster, the repository, or an argument other than its temporary path.
+ */
+export async function publishUntrustedCopies(
+  repository: Repository,
+  runner: Runner,
+  source: string,
+  dependencies: ProbeDependencies = {},
+): Promise<UntrustedImages> {
+  const address = await verifiedRegistryAddress(repository, runner);
+  const digestOf = dependencies.digest ?? publishedDigest;
+  return await withPublishSession(repository, runner, async (session) => {
+    const published: Record<string, string> = {};
+    for (const name of ["unsigned", "foreign-signed"]) {
+      const path = `${probeRepository}/${name}`;
+      await runner.run(
+        "minikube",
+        minikubeImagePublishArgs(
+          repository.environment.cluster.profile,
+          source,
+          address,
+          `${path}:kore-local`,
+          session.credential.username,
+        ),
+        { capture: true, input: `${session.credential.password}\n` },
+      );
+      await localRegistryReference(
+        repository,
+        runner,
+        `${address}/${path}`,
+        dependencies.registry,
+      );
+      published[name] =
+        `${address}/${path}@${await digestOf(path, session.client.authorization)}`;
+    }
+    const foreign = published["foreign-signed"]!;
+    const directory = await mkdtemp(join(tmpdir(), "kore-throwaway-key-"));
+    try {
+      const env = { ...process.env, COSIGN_PASSWORD: "" };
+      await runner.run("cosign", ["generate-key-pair"], {
+        capture: true,
+        cwd: directory,
+        env,
+      });
+      await runner.run(
+        "cosign",
+        localSignArgs(
+          join(directory, "cosign.key"),
+          await localRegistryReference(
+            repository,
+            runner,
+            foreign,
+            dependencies.registry,
+          ),
+        ),
+        { capture: true, env: { ...env, ...session.client.env } },
+      );
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+    return { unsigned: published["unsigned"]!, foreignSigned: foreign };
+  });
+}
+
+/** Scales one Deployment; the caller waits for the result and restores it. */
+export async function scaleDeployment(
+  repository: Repository,
+  runner: Runner,
+  namespace: string,
+  name: string,
+  replicas: number,
+): Promise<void> {
+  await runner.run(
+    "kubectl",
+    [
+      ...scope(repository, namespace),
+      "scale",
+      `deployment/${name}`,
+      `--replicas=${replicas}`,
+    ],
+    { capture: true },
+  );
+}

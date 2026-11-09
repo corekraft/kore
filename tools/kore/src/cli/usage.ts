@@ -9,7 +9,7 @@ Usage:
   kore platform status|render [--environment <name>] [--output <directory>] [--json]
   kore app up <name> --environment <name>
   kore app down <name> --environment <name> [--json]
-  kore app status <name> [--environment <name>] [--json]
+  kore app status <name> [--environment <name>] [--json]   (reports degraded when the registry or verifier is down)
   kore data export --environment <name> [--namespace reference] [--json]
   kore data restore --environment <name> --from <file> [--identity <age-key-file>] [--overwrite-data --yes] [--json]
   kore local up|down --environment local [--prune [--purge-data]]

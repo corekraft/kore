@@ -26,6 +26,9 @@ function recordingRunner(rolloutFails: boolean) {
       if (rolloutFails && args.includes("rollout")) {
         throw new Error("timed out waiting for the condition");
       }
+      if (args.some((arg) => arg.includes("availableReplicas"))) {
+        return { stdout: "available", stderr: "", code: 0 };
+      }
       return { stdout: "", stderr: "", code: 0 };
     },
   };

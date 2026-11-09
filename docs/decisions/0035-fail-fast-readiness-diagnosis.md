@@ -111,3 +111,21 @@ container <c> <state>: <reason/message>`, the last 20 lines of
 - When Helm fails first, its error carries the watch's last observation.
 - Thresholds (2 restarts, 3 events, 60s grace, 5s interval) are defaults of
   `WatchOptions`; tests inject a fake clock.
+
+## Refinement (2026-11-08): registry or verifier down is degraded
+
+`kubectl rollout status` reports a Deployment scaled to zero as rolled out, so
+a registry or Policy Controller webhook that is down would have read as ready.
+Readiness of a `deployment/<name>` now also requires an available replica
+(`status.availableReplicas`), failing with `deployment/<name> has no available
+replicas`. This applies to every Deployment readiness check, install and status
+alike, and only makes a check stricter.
+
+`kore app status` adds `status` (`ready` or `degraded`) and `degraded` (the
+component, namespace, and cause) from the same read-only readiness checks of
+`oci-registry` and `policy-controller`, the two components a new workload needs
+to be admitted. Policy is unchanged: both webhooks keep `failurePolicy: Fail`,
+so new workloads are denied while either is unavailable. `kore platform status`
+already reported each component's first failed check, now including this one.
+The opt-in `npm run test:integration:admission` scales the registry to zero,
+asserts the denial and the degraded report, and restores it in `finally`.
