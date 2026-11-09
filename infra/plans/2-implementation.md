@@ -138,7 +138,7 @@ claim that the platform is ready.
 
 ## Step 7: Bootstrap Registry, Image Trust, Controllers, and CRD Ownership
 
-Next: prove verifier unavailability live (scale `policy-controller` to 0 in the outage spec, as for the registry), then enroll all managed platform namespaces and fail bootstrap on any seed, external, tag-only, unsigned, or unauthorized image, which also closes the "no active seed exception" criterion. Live specs: `npm run test:integration:admission` and `test:integration:registry` (opt-in, need a running profile). Managed-only items wait on a managed cluster (ADR 0044's gaps).
+Next: the remaining local item is removing the registry clients' plain-HTTP fallback (TLS for the internal registry). The rest of Step 7 needs a managed cluster: enrolling platform namespaces (ADR 0056 keeps managed-example's gate closed until then), rolling platform workloads to the signed mirror, and binding the signer to the release identity (ADR 0044's gaps).
 
 ### Objective
 
@@ -188,8 +188,8 @@ through 11 also converge.
       credentials. Live 2026-11-08 (`npm run test:integration:registry`): images and
       signatures survive a pod restart with anonymous access still 401, and after
       rotation the old password gets 401 while the new one pushes and a signed image
-      is still admitted. Still open: read-only enforcement (403) live, and clients
-      still fall back to plain HTTP._
+      is still admitted. Since #70 the read credential gets 403 on a push, live.
+      Still open: clients still fall back to plain HTTP._
 - [x] Install Sigstore Policy Controller and its CRDs/webhook from an explicitly
       allowlisted, digest-pinned seed artifact without enabling enforcement yet.
       _Its controller and lease-cleanup images are digest-pinned seeds in
@@ -241,12 +241,22 @@ through 11 also converge.
 - [ ] Roll every managed platform workload, including the registry and verifier,
       from its seed or external reference to the signed internal digest recorded in
       the image lock manifest.
-- [ ] Install `ClusterImagePolicy` resources covering containers, init containers,
+- [x] Install `ClusterImagePolicy` resources covering containers, init containers,
       and ephemeral containers; reject unmatched images and fail closed on signature,
       registry, or verifier errors.
+      _#70, live 2026-11-08 (`npm run test:integration:admission`, 5/5): an unsigned
+      image is denied as an init container and as an ephemeral container, an image
+      no policy matches is denied, and new workloads are denied while the registry
+      or the verifier is scaled to 0._
 - [ ] Enroll all managed platform namespaces, then inventory running workloads and
       fail bootstrap if a seed, external, tag-only, unsigned, or unauthorized image
       remains. Seed exceptions must be empty before success.
+      _Partial: #71 ([ADR 0056](../../docs/decisions/0056-platform-image-inventory.md))
+      inventories every container image in managed platform namespaces before the
+      gate opens and checks enrollment (`cosign-system` and `kore-registry` exempt).
+      local runs it in audit; live it logs "35 approved-upstream-digest, 3 seed, 10
+      namespace(s) not enrolled". managed-example enforces it, so its gate stays
+      closed until namespaces are enrolled. Enrollment (labelling) is not built._
 - [x] Create the generation-specific application admission gate in its closed state;
       grant only bootstrap automation permission to update it or application namespace
       activation metadata.
@@ -274,11 +284,14 @@ CRD ownership is decided in
 
 ### Exit Criteria
 
-- [ ] Every controller and CRD has exactly one catalog owner.
-      _Partial: every CRD a pinned chart renders is declared once (69 were added in
-      #42), and `npm run test:upstream-charts` checks this on each chart bump. CRDs a
-      controller installs at runtime (Crossplane, Gatekeeper hooks) are not checked.
-      On the fresh profile (2026-11-08) all 118 CRDs were Established._
+- [x] Every controller and CRD has exactly one catalog owner.
+      _Every CRD a pinned chart renders is declared once, checked by `npm run
+    test:upstream-charts`. Since #72
+      ([ADR 0057](../../docs/decisions/0057-runtime-crd-ownership.md)) runtime CRDs are
+      owned by API group, validate rejects overlapping claims, and `platform status`
+      audits the cluster: live, "all 119 CRDs have exactly one catalog owner" (it
+      first found seven Gateway API CRDs unowned). It reports, it does not fail
+      `platform up` yet._
 - [x] The release graph is acyclic and produces a deterministic order.
 - [x] All CRDs are established before their custom resources are submitted.
       _Each component waits for its owned CRDs to be Established before the next
@@ -298,11 +311,11 @@ CRD ownership is decided in
       signed by an unauthorized key are denied in an enrolled namespace while the
       kore-signed image is admitted. Keyless subjects are exact-match and tested
       offline._
-- [ ] Registry or signature-verifier unavailability denies new managed workloads
+- [x] Registry or signature-verifier unavailability denies new managed workloads
       and is reported as degraded without weakening policy.
-      _Partial (#66): live, a registry scaled to 0 denies a new signed workload and
-      `app status` reports degraded naming `oci-registry`, then recovers. Verifier
-      unavailability is covered only by unit tests._
+      _Live (#66, #70): with the registry or the verifier scaled to 0, a new signed
+      workload is denied and `app status` reports degraded naming the component,
+      then recovers._
 - [ ] The internal foundation phase finishes with no active seed exception or
       external image reference and leaves the application admission gate closed.
 - [x] A second reconciliation produces no unintended release changes.
