@@ -44,6 +44,8 @@ export interface ProbeOptions {
   placement?: "container" | "initContainer";
   /** The main container's image when `placement` is `initContainer`. */
   trusted?: string;
+  /** The ServiceAccount the probe pod names; omitted, the pod names none. */
+  serviceAccountName?: string;
 }
 
 /** Runs `kubectl`; a webhook refusal is a verdict, anything else is rethrown. */
@@ -95,6 +97,9 @@ export async function admissionVerdict(
     metadata: { name: `kore-admission-probe-${Date.now().toString(36)}` },
     spec: {
       restartPolicy: "Never",
+      ...(options.serviceAccountName === undefined
+        ? {}
+        : { serviceAccountName: options.serviceAccountName }),
       containers: [{ name: "probe", image: initial ? options.trusted : image }],
       ...(initial ? { initContainers: [{ name: "init-probe", image }] } : {}),
     },

@@ -1,0 +1,9 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: cs-covered, namespace: kore-registry}
+spec:
+  template:
+    spec:
+      containers:
+        - name: controller
+          image: invalid

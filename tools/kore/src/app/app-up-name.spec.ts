@@ -60,7 +60,7 @@ test("app up rejects an invalid application name before resolving chart paths", 
     appUp(repository, runner, "Bad_Name", {
       reference: "registry.kore.local/reference@sha256:" + "a".repeat(64),
       digest: "sha256:" + "a".repeat(64),
-      signer: "release@kore.dev",
+      signer: "local-kore-key",
     }),
   ).rejects.toThrow(/invalid application name/);
 });

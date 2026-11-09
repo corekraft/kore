@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import type { Repository } from "../config/index.js";
+import { trustedSigners, type Repository } from "../config/index.js";
 import {
   koreManagesRegistryAuth,
   loadRegistryCa,
@@ -46,6 +46,22 @@ function localPublicKey(
     : undefined;
 }
 
+/**
+ * An image is verified only against signers the environment's image policy
+ * admits, so a managed environment never accepts the local key and a stray
+ * lock entry fails here, naming the signer, instead of in cosign.
+ */
+export function assertTrustedSigner(
+  repository: Repository,
+  image: LockedImage,
+): void {
+  if (!trustedSigners(repository).includes(image.signer)) {
+    throw new Error(
+      `image signer ${image.signer} is not trusted by environment ${repository.environment.name}; its image policy admits only its configured authority (the local key is never trusted by a managed environment). Rebuild or relock the image with that identity`,
+    );
+  }
+}
+
 /** Verifies the image signature against the registry-resolved reference. */
 export async function verifyImage(
   repository: Repository,
@@ -53,6 +69,7 @@ export async function verifyImage(
   image: LockedImage,
   publicKeyOverride?: string,
 ): Promise<void> {
+  assertTrustedSigner(repository, image);
   const verificationImage = {
     ...image,
     reference: await localRegistryReference(

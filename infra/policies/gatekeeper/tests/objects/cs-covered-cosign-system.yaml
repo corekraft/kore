@@ -1,0 +1,9 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: cs-covered, namespace: cosign-system}
+spec:
+  template:
+    spec:
+      containers:
+        - name: controller
+          image: invalid

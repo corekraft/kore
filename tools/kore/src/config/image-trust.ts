@@ -130,6 +130,24 @@ export function imageTrustErrors(repository: Repository): string[] {
   ];
 }
 
+/** The signer name `kore local up` records for images it signs with the local key. */
+export const localSigner = "local-kore-key";
+
+/**
+ * The signers this environment's image policy admits: the local key for a key
+ * authority, the exact release subjects for a keyless one. A managed
+ * environment can only be keyless, so the local signer is never in its list.
+ */
+export function trustedSigners(repository: Repository): string[] {
+  const trust = repository.imageTrustValues?.trust as Trust | undefined;
+  if (trust?.type === "key") {
+    return [localSigner];
+  }
+  return trust?.type === "keyless" && Array.isArray(trust.subjects)
+    ? trust.subjects.filter(isText)
+    : [];
+}
+
 function trustValueErrors(repository: Repository): string[] {
   const hasComponent = repository.catalog.components?.some(
     (c) => c.name === imagePolicyComponent,
@@ -154,6 +172,11 @@ function trustValueErrors(repository: Repository): string[] {
   }
   return [
     ...regexps,
+    ...(trust.type === "key" && repository.environment.provider === "managed"
+      ? [
+          `image trust: managed environment ${repository.environment.name} must use a keyless authority; a key authority is the local signing key and is never trusted outside the local profile`,
+        ]
+      : []),
     ...(trust.mode === "warn" || trust.mode === "enforce"
       ? []
       : [
