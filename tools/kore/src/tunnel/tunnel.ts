@@ -4,7 +4,11 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Repository } from "../config/index.js";
 import { assertExpectedCluster } from "../cluster/index.js";
-import type { Runner } from "../runtime/index.js";
+import {
+  terminateMatching,
+  type ProcessControl,
+  type Runner,
+} from "../runtime/index.js";
 
 interface TunnelState {
   profile: string;
@@ -17,11 +21,79 @@ export interface TunnelStatus {
   port?: number;
 }
 
-export interface TunnelDependencies {
+export interface TunnelDependencies extends ProcessControl {
   spawnTunnel?: (profile: string) => number;
   isProcessAlive?: (pid: number) => boolean;
   isPortOpen?: (port: number) => Promise<boolean>;
   terminateProcess?: (pid: number) => void;
+}
+
+/**
+ * The tunnel is spawned as a process-group leader, because `minikube tunnel`
+ * starts an `ssh -L` child that holds the Gateway port; a negative pid
+ * signals the whole group so no child is orphaned.
+ */
+function terminateGroup(pid: number, dependencies: TunnelDependencies): void {
+  (
+    dependencies.terminateProcess ??
+    ((leader) =>
+      (dependencies.signalProcess ?? process.kill.bind(process))(
+        -leader,
+        "SIGTERM",
+      ))
+  )(pid);
+}
+
+const ISTIO_STATUS_PORT = 15021;
+
+/**
+ * Whether a full command line is the `ssh -L` forward minikube starts for this
+ * profile's tunnel: the ssh binary, the profile's machine key, and the Gateway
+ * and status-port forwards. Matched on the whole line, never on a pid.
+ */
+export function isTunnelSshForward(
+  command: string,
+  profile: string,
+  gatewayPort: number,
+): boolean {
+  // Plain string checks: a RegExp built from the port is a dynamic pattern.
+  const tokens = command.split(/\s+/);
+  const specs = tokens.flatMap((token, index) => {
+    if (token === "-L") {
+      return [tokens[index + 1] ?? ""];
+    }
+    return token.startsWith("-L") ? [token.slice(2)] : [];
+  });
+  const forwards = (port: number) =>
+    specs.some((spec) => {
+      const parts = spec.split(":");
+      // [bind:]port:host:hostport
+      return parts.length >= 3 && parts.at(-3) === String(port);
+    });
+  return (
+    /(?:^|\/)ssh\s/.test(command) &&
+    command.includes(`/.minikube/machines/${profile}/`) &&
+    forwards(gatewayPort) &&
+    forwards(ISTIO_STATUS_PORT)
+  );
+}
+
+/**
+ * Terminates `ssh -L` forwards that outlived a dead tunnel leader and may hold
+ * the Gateway port, reporting each. Foreign ssh processes never match.
+ */
+export async function stopOrphanedForwards(
+  repository: Repository,
+  dependencies: TunnelDependencies = {},
+): Promise<number[]> {
+  const profile = repository.environment.cluster.profile;
+  const port = repository.environment.gateway.port;
+  return await terminateMatching(
+    (entry) => isTunnelSshForward(entry.command, profile, port),
+    (entry) =>
+      `stopped orphaned minikube ssh forward ${entry.pid} for profile ${profile}`,
+    dependencies,
+  );
 }
 
 export function tunnelStatePath(repository: Repository): string {
@@ -134,6 +206,23 @@ export async function tunnelStatus(
     : { status: "stale", pid: state.pid };
 }
 
+async function replaceStale(
+  repository: Repository,
+  runner: Runner,
+  stalePid: number,
+  dependencies: TunnelDependencies,
+): Promise<void> {
+  await stopLocalTunnel(repository, runner, dependencies);
+  const isAlive = dependencies.isProcessAlive ?? processIsAlive;
+  const deadline = Date.now() + 3_000;
+  while (isAlive(stalePid) && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  if (isAlive(stalePid)) {
+    throw new Error(`could not stop stale Minikube tunnel process ${stalePid}`);
+  }
+}
+
 export async function startLocalTunnel(
   repository: Repository,
   runner: Runner,
@@ -146,17 +235,10 @@ export async function startLocalTunnel(
     return current;
   }
   if (current.status === "stale") {
-    await stopLocalTunnel(repository, runner, dependencies);
-    const isAlive = dependencies.isProcessAlive ?? processIsAlive;
-    const deadline = Date.now() + 3_000;
-    while (isAlive(current.pid!) && Date.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-    if (isAlive(current.pid!)) {
-      throw new Error(
-        `could not stop stale Minikube tunnel process ${current.pid}`,
-      );
-    }
+    await replaceStale(repository, runner, current.pid!, dependencies);
+  } else {
+    // No recorded tunnel: a crashed leader may still have left its ssh forward.
+    await stopOrphanedForwards(repository, dependencies);
   }
   const pid = (dependencies.spawnTunnel ?? spawnTunnel)(
     repository.environment.cluster.profile,
@@ -183,10 +265,7 @@ export async function startLocalTunnel(
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
-  (
-    dependencies.terminateProcess ??
-    ((processId) => process.kill(processId, "SIGTERM"))
-  )(pid);
+  terminateGroup(pid, dependencies);
   throw new Error(
     `Minikube tunnel did not expose local Gateway port ${repository.environment.gateway.port}`,
   );
@@ -200,9 +279,60 @@ export async function stopLocalTunnel(
   assertLocal(repository);
   const state = await readState(repository);
   if (state && (dependencies.isProcessAlive ?? processIsAlive)(state.pid)) {
-    (dependencies.terminateProcess ?? ((pid) => process.kill(pid, "SIGTERM")))(
-      state.pid,
-    );
+    terminateGroup(state.pid, dependencies);
   }
+  await stopOrphanedForwards(repository, dependencies);
   await rm(tunnelStatePath(repository), { force: true });
+}
+
+/**
+ * Brings the tunnel back when it has exited or stopped answering, and leaves a
+ * healthy one alone, so commands that need the Gateway endpoint can call it
+ * unconditionally. A stopped profile is never restarted: the cluster check
+ * inside `startLocalTunnel` fails first with the cluster-unavailable error.
+ */
+export async function ensureLocalTunnel(
+  repository: Repository,
+  runner: Runner,
+  dependencies: TunnelDependencies = {},
+): Promise<TunnelStatus | { status: "not-applicable" }> {
+  if (repository.environment.provider !== "minikube") {
+    return { status: "not-applicable" };
+  }
+  return await startLocalTunnel(repository, runner, dependencies);
+}
+
+export interface TunnelHealthRow {
+  name: "local-tunnel";
+  namespace: string;
+  status: "ready" | "degraded";
+  detail: string;
+}
+
+/** A read-only status row; absent for environments without a local tunnel. */
+export async function tunnelHealthRow(
+  repository: Repository,
+  dependencies: TunnelDependencies = {},
+): Promise<TunnelHealthRow | undefined> {
+  if (repository.environment.provider !== "minikube") {
+    return undefined;
+  }
+  const current = await tunnelStatus(repository, dependencies);
+  const base = { name: "local-tunnel", namespace: "host" } as const;
+  if (current.status === "running") {
+    return {
+      ...base,
+      status: "ready",
+      detail: `tunnel process ${current.pid} serves Gateway port ${current.port}`,
+    };
+  }
+  const problem =
+    current.status === "stale"
+      ? `tunnel process ${current.pid} has exited or its Gateway port ${repository.environment.gateway.port} does not answer`
+      : "no tunnel is running";
+  return {
+    ...base,
+    status: "degraded",
+    detail: `${problem}; run \`kore tunnel start --environment ${repository.environment.name}\` (\`kore platform up\` and \`kore app up\` also restart it)`,
+  };
 }
