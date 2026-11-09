@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
-import { auditEvidence } from "../config/index.js";
+import { evaluateAudit } from "../config/index.js";
 import { admissionVerdict, deployedImage } from "./admission-probe.js";
 import {
   constraints,
@@ -17,33 +17,38 @@ import {
 // Live and opt-in; see identity-live.ts. Run: npm run test:integration:identity
 
 test(
-  "every Gatekeeper constraint audits the live platform with zero violations, the evidence a promotion records",
+  "every enforcing Gatekeeper constraint audits clean, and every dryrun constraint records its violations as promotion evidence",
   live,
   async () => {
     const { repository, runner } = await setup();
     const evidence: Record<string, unknown> = {};
+    const failures: string[] = [];
     for (const { kind, name } of await constraints(repository)) {
-      const json = JSON.parse(
-        await read(
-          repository,
-          runner,
-          "get",
-          `${kind.toLowerCase()}.constraints.gatekeeper.sh`,
-          name,
-          "--output=json",
-        ),
-      ) as Record<string, unknown>;
-      const observed = auditEvidence(json);
-      assert.ok(observed, `${name} has not been audited yet; wait a cycle`);
-      evidence[name] = observed;
-      assert.equal(
-        observed.totalViolations,
-        0,
-        `${name} reports ${observed.totalViolations} violations; the platform, including its controllers, must comply before promotion`,
+      const report = evaluateAudit(
+        JSON.parse(
+          await read(
+            repository,
+            runner,
+            "get",
+            `${kind.toLowerCase()}.constraints.gatekeeper.sh`,
+            name,
+            "--output=json",
+          ),
+        ) as Record<string, unknown>,
       );
+      if (report.failure) {
+        failures.push(report.failure);
+      }
+      evidence[name] = {
+        action: report.action,
+        ...report.evidence,
+        sample: report.sample,
+      };
     }
-    // Copy these into infra/policies/gatekeeper/promotions/<constraint>.json.
+    // Promote one constraint at a time: copy a clean constraint's observedAt
+    // and totalViolations into infra/policies/gatekeeper/promotions/<constraint>.json.
     console.log(JSON.stringify({ environment: "local", evidence }, null, 2));
+    assert.deepEqual(failures, []);
   },
 );
 

@@ -37,6 +37,54 @@ export function auditEvidence(
     : undefined;
 }
 
+const sampleSize = 5;
+
+export interface AuditReport {
+  name: string;
+  action: string;
+  evidence: AuditEvidence | undefined;
+  /** First violating resources as kind/[namespace/]name; messages are dropped. */
+  sample: string[];
+  /** Set when the constraint enforces (deny/warn) and must be clean. */
+  failure?: string;
+}
+
+/**
+ * Evaluates one constraint's audit status. Enforcing constraints (deny, warn)
+ * must have zero violations. A dryrun constraint is recorded as evidence with
+ * its first violating resources and never fails, since the plan promotes
+ * constraints one at a time.
+ */
+export function evaluateAudit(
+  constraint: Record<string, unknown>,
+): AuditReport {
+  const metadata = (constraint["metadata"] ?? {}) as { name?: string };
+  const spec = (constraint["spec"] ?? {}) as { enforcementAction?: string };
+  const name = metadata.name ?? "";
+  const action = spec.enforcementAction ?? "deny";
+  const evidence = auditEvidence(constraint);
+  const listed = ((constraint["status"] as { violations?: unknown } | undefined)
+    ?.violations ?? []) as {
+    kind?: string;
+    namespace?: string;
+    name?: string;
+  }[];
+  const sample = listed
+    .slice(0, sampleSize)
+    .map((v) =>
+      [v.kind, v.namespace, v.name]
+        .filter((p) => p !== undefined && p !== "")
+        .join("/"),
+    );
+  let failure: string | undefined;
+  if (evidence === undefined) {
+    failure = `${name} has not been audited yet; wait a cycle`;
+  } else if (action !== "dryrun" && evidence.totalViolations > 0) {
+    failure = `${name} enforces ${action} but reports ${evidence.totalViolations} violations (${sample.join(", ")}); the platform, including its controllers, must comply`;
+  }
+  return { name, action, evidence, sample, ...(failure ? { failure } : {}) };
+}
+
 const isEvidence = (value: unknown): value is AuditEvidence => {
   const e = value as Partial<AuditEvidence> | null;
   return (
