@@ -29,6 +29,15 @@ case for a reviewed exception.
   `platform-secrets` store is not used here because it arrives in the
   configuration phase, after Grafana is installed and awaited; a store-sourced
   Secret would deadlock a fresh `kore local up`.
+  Grafana applies its environment password only when it first creates its
+  database, so a profile whose PVC predates the Secret would reject the new
+  credentials. `kore local up` therefore runs `grafana cli admin
+reset-admin-password --password-from-stdin` in the pod right after Grafana is
+  ready, fed from the pod's own `GF_SECURITY_ADMIN_PASSWORD`; the value never
+  reaches kore, an argument, or a log, and a failure's output is withheld. Reading
+  the old chart-made Secret through External Secrets was rejected: Helm deletes it
+  when `existingSecret` is set, the config chart installs before Grafana, and it
+  would need External Secrets to read Secrets in `observability`.
 - **The local signing key has one recognised owner.** cosign creates
   `kore-system/kore-local-signing-key`; kore labels it
   `app.kubernetes.io/managed-by=kore-signing` on every signer run (so an
@@ -56,6 +65,6 @@ case for a reviewed exception.
 
 - The constraints stay `dryrun`; promotion is a separate step with live
   evidence (expected: 0 violations each).
-- Existing Grafana data keeps its old admin password after the switch; Grafana
-  only applies the password from the environment on first start.
+- Every run resets the Grafana admin password to the Secret's value; this is
+  idempotent and also corrects a password changed by hand in the UI.
 - Gatekeeper caches three RBAC kinds, a small memory cost.

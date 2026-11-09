@@ -12,6 +12,7 @@ import {
 } from "../images/index.js";
 import type { Runner } from "../runtime/index.js";
 import { closeExistingAdmissionGate } from "./admission-gate.js";
+import { reconcileGrafanaAdminPassword } from "./grafana-admin.js";
 import { rewireRegistryService } from "./registry-rewire.js";
 // The gate's open and close operations live in readiness-gate.ts.
 export {
@@ -82,6 +83,11 @@ export async function bootstrapControllers(
       continue;
     }
     await reconcileIfNeeded(repository, runner, component);
+    // A Grafana database from before its admin Secret keeps the old password;
+    // converge it to the Secret on every run (ADR 0080).
+    if (component.name === "grafana") {
+      await reconcileGrafanaAdminPassword(repository, runner);
+    }
     // The CA exists once the registry's certificate is issued. Clients that
     // live in the cluster (the node's containerd, Policy Controller) get it
     // before anything that depends on the registry runs (ADR 0058), and it is
