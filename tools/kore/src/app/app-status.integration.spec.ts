@@ -4,6 +4,7 @@ import { findRoot } from "../config/config.js";
 import { loadRepository } from "../config/index.js";
 import { ProcessRunner } from "../runtime/index.js";
 import { appStatus } from "./index.js";
+import { exposesCredential } from "./credential-scan.js";
 
 // Docs: infra/plans/2-implementation.md#step-13-complete-lifecycle-orchestration
 // Live and opt-in (`npm run test:integration:app-status`): on a running local
@@ -69,9 +70,9 @@ test(
       `a running container carries ${deployed.digest}; pods report ${running.trim()}`,
     );
 
-    assert.doesNotMatch(
-      JSON.stringify(status),
-      /password|authorization|bearer |BEGIN [A-Z ]*PRIVATE KEY/i,
+    assert.equal(
+      exposesCredential(JSON.stringify(status)),
+      false,
       "the status report exposes no credential",
     );
   },
