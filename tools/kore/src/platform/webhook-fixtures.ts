@@ -20,6 +20,19 @@ export function healthyWebhookOutput(
 }
 
 /** Wraps a runner so webhook configuration reads answer healthy; all else passes through. */
+/** What a healthy DaemonSet status read answers: every desired pod ready. */
+export function healthyDaemonSetOutput(
+  args: readonly string[],
+): string | undefined {
+  return args.some((arg) => arg.startsWith("daemonset/"))
+    ? JSON.stringify({
+        desiredNumberScheduled: 1,
+        numberReady: 1,
+        updatedNumberScheduled: 1,
+      })
+    : undefined;
+}
+
 export function withHealthyWebhooks(runner: Runner): Runner {
   return {
     async run(command, args, options) {
@@ -29,7 +42,9 @@ export function withHealthyWebhooks(runner: Runner): Runner {
         : undefined;
       const output =
         command === "kubectl"
-          ? (trust ?? healthyWebhookOutput(args))
+          ? (trust ??
+            healthyWebhookOutput(args) ??
+            healthyDaemonSetOutput(args))
           : undefined;
       return output === undefined
         ? runner.run(command, args, options)
