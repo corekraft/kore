@@ -18,6 +18,7 @@ import {
   assertApplicationAdmission,
   assertPlatformReady,
   waitForResources,
+  waitForRoutes,
   waitForRollouts,
 } from "./readiness.js";
 import { verifyImage } from "./verify.js";
@@ -26,6 +27,8 @@ export interface AppUpOptions {
   /** Verify against this public key instead of the image's signer key. */
   publicKey?: string;
   /** Restores the local endpoint once the platform is proven ready (ADR 0060). */
+  /** Bound for each HTTPRoute wait; defaults to five minutes. */
+  routeTimeout?: string;
   ensureTunnel?: () => Promise<unknown>;
 }
 
@@ -53,4 +56,5 @@ export async function appUp(
   await waitForResources(repository, runner, name);
   await installWorkload(repository, runner, name, charts, workloadImage);
   await waitForRollouts(repository, runner, name);
+  await waitForRoutes(repository, runner, name, options.routeTimeout);
 }
