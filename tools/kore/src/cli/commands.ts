@@ -6,6 +6,7 @@ import {
 } from "./commands-infra.js";
 import {
   localCommand,
+  registryCommand,
   secretsCommand,
   trustCommand,
   tunnelCommand,
@@ -38,6 +39,7 @@ export const COMMANDS: ReadonlyMap<string, CommandSpec> = new Map<
   ["data", { mutations: ["export", "restore"], run: dataCommand }],
   ["app", { mutations: ["up", "down"], run: appCommand }],
   ["local", { mutations: ["up", "down"], run: localCommand }],
+  ["registry", { mutations: ["rotate-credentials"], run: registryCommand }],
   ["tunnel", { mutations: ["start", "stop"], run: tunnelCommand }],
   // Every secrets and trust action mutates, so each one needs --environment.
   [

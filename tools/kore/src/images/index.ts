@@ -24,3 +24,5 @@ export { minikubeRegistrySessionArgs, shellQuote } from "./local-image-args.js";
 export { publishedDigest, withPublishSession } from "./local-publish.js";
 export { localSignArgs, minikubeImagePublishArgs } from "./local-image.js";
 export type { RegistryDependencies } from "./registry.js";
+export { rotateRegistryCredentials } from "./registry-rotation.js";
+export type { RotationResult } from "./registry-rotation.js";

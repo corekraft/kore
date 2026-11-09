@@ -128,6 +128,22 @@ reads the key), and refuses a database that already holds tables unless
 `--overwrite-data --yes` replaces it. See
 [ADR 0029](docs/decisions/0029-local-export-and-restore.md).
 
+### Rotating registry credentials
+
+Kore reuses the registry credentials it generated and never rotates them on its
+own. After a suspected leak, rotate them explicitly:
+
+```sh
+mise exec -- npm --prefix tools/kore run kore -- registry rotate-credentials --environment local --yes
+```
+
+The command replaces both passwords and every enrolled namespace's
+`kore-registry-read` Secret in an order that keeps admission reading signatures
+(the proxy accepts the old and new read identity until the pull Secrets are
+replaced), then waits until the proxy refuses the old passwords. It takes a few
+minutes, prints no secret, and is safe to rerun after a failure. See
+[ADR 0055](docs/decisions/0055-registry-credential-rotation.md).
+
 ### Storage classes
 
 The `platform-storage` release defines two StorageClasses. Both allow volume
@@ -219,6 +235,7 @@ is the source of truth.
 | `kore data`     | Exports retained CloudNativePG data as an age-encrypted, digest-manifested artifact, or restores it into a fresh profile. |
 | `kore local`    | Brings the whole local environment up or down (`--prune` destroys it; `--prune --purge-data` also purges retained data).  |
 | `kore tunnel`   | Starts, stops, or reports the managed Minikube tunnel.                                                                    |
+| `kore registry` | Rotates the registry's push and read passwords and the enrolled pull Secrets (`rotate-credentials --yes`).                |
 | `kore secrets`  | Syncs local secrets, including the generated API token, into the cluster.                                                 |
 | `kore trust`    | Installs the local certificate authority before the Gateway is configured.                                                |
 | `kore journal`  | Lists recent mutating operations and flags interrupted ones. Read-only.                                                   |

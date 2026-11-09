@@ -1,3 +1,4 @@
+import { rotateRegistryCredentials } from "../images/index.js";
 import { localDown, localUp } from "../local/index.js";
 import { installLocalTrust, syncLocalSecrets } from "../security/index.js";
 import {
@@ -64,4 +65,21 @@ export async function trustCommand(context: CommandContext): Promise<number> {
       return 0;
     },
   );
+}
+
+export async function registryCommand(
+  context: CommandContext,
+): Promise<number> {
+  return await mutateAction(context, {
+    "rotate-credentials": async (_context, runner) =>
+      print(
+        {
+          status: "rotated",
+          ...(await rotateRegistryCredentials(context.repository, runner, {
+            yes: boolFlag(context.parsed, "yes"),
+          })),
+        },
+        context.json,
+      ),
+  });
 }

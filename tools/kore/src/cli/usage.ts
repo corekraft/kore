@@ -15,6 +15,7 @@ Usage:
   kore local up|down --environment local [--prune [--purge-data]]
   kore tunnel start|stop --environment local
   kore tunnel status [--environment local] [--json]
+  kore registry rotate-credentials --environment <name> --yes [--json]
   kore secrets sync --environment local
   kore trust install --environment local
   kore journal [--environment <name>] [--limit <n>] [--json]
@@ -38,6 +39,13 @@ already holds tables unless --overwrite-data --yes replaces it.
 "app down" uninstalls only the workload release and reports the retained data
 (claims and volumes) that remains; with --json it always prints
 { name, retained: [...], warnings? }.
+
+"registry rotate-credentials" replaces the internal registry's push and read
+passwords and every enrolled namespace's kore-registry-read pull Secret.
+Admission keeps reading signatures throughout (the proxy accepts the old and new
+read identity until the pull Secrets are replaced); afterwards the old
+passwords get 401. It prints no secret, requires --yes, and is safe to rerun
+after a failure.
 
 "trust install" runs "mkcert -install" (which may prompt for your password)
 only when the mkcert CA is not already trusted on the host; on macOS it skips

@@ -16,6 +16,9 @@ vi.mock("../diagnostics/index.js", async () =>
 vi.mock("../runtime/index.js", async () =>
   (await import("./cli-dispatch.fixtures.js")).runtimeModule(),
 );
+vi.mock("../images/index.js", async () =>
+  (await import("./cli-dispatch.fixtures.js")).imagesModule(),
+);
 vi.mock("../platform/index.js", async () =>
   (await import("./cli-dispatch.fixtures.js")).platformModule(),
 );
@@ -90,6 +93,7 @@ test("unknown actions fail before taking the lock or writing a journal entry", a
     ["tunnel", "restart"],
     ["secrets", "rotate"],
     ["trust", "remove"],
+    ["registry", "rotate"],
   ]) {
     dispatch.length = 0;
     await expect(main([...argv, "--environment", "local"])).rejects.toThrow(
@@ -97,4 +101,11 @@ test("unknown actions fail before taking the lock or writing a journal entry", a
     );
     expect(dispatch, argv.join(" ")).toEqual([]);
   }
+});
+
+test("registry rotate-credentials requires a named environment", async () => {
+  await expect(
+    main(["registry", "rotate-credentials", "--yes"]),
+  ).rejects.toThrow(/--environment is required for mutating commands/);
+  expect(dispatch).toEqual([]);
 });
