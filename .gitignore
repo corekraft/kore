@@ -10,3 +10,6 @@ coverage/
 # cosign generate-key-pair defaults; commit a trusted public key only at an explicit path
 cosign.pub
 cosign.key
+
+# OpenTofu working directories (provider binaries); the lock file is committed
+.terraform/
