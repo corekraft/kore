@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { Repository } from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
+import { declaredGateParameters } from "./admission-gate-schema.js";
 
 /**
  * The application admission gate (ADR 0054) is one Gatekeeper constraint of
@@ -132,6 +133,22 @@ async function writeGate(
   runner: Runner,
   state: "closed" | "open",
 ): Promise<void> {
+  const gate = admissionGate(repository, state);
+  const declared = await declaredGateParameters(repository, runner);
+  if (declared !== undefined && !declared.has("controllerIdentities")) {
+    if (state === "open") {
+      throw new Error(
+        `the KoreApplicationAdmission template in ${repository.environment.kubeContext} does not declare controllerIdentities yet: kore-policy-templates has not been applied or Gatekeeper has not regenerated the constraint CRD. The gate stays closed; rerun kore platform up --environment ${repository.environment.name}`,
+      );
+    }
+    // Closed with the parameters the old template declares: it still refuses
+    // every application mutation, and the run's own template update, followed
+    // by the final write, restores the controller exemption.
+    const { controllerIdentities: _omitted, ...parameters } =
+      gate.spec.parameters;
+    void _omitted;
+    gate.spec.parameters = parameters as AdmissionGate["spec"]["parameters"];
+  }
   await runner.run(
     "kubectl",
     [
@@ -143,7 +160,7 @@ async function writeGate(
       "--force-conflicts",
       "--filename=-",
     ],
-    { capture: true, input: JSON.stringify(admissionGate(repository, state)) },
+    { capture: true, input: JSON.stringify(gate) },
   );
 }
 

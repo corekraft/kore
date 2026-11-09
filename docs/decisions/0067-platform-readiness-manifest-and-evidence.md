@@ -2,7 +2,7 @@
 status: accepted
 summary: What opens the application admission gate is a versioned readiness manifest evaluated in one run and recorded as evidence before the gate opens; `platform gate-check` can only close it; a closed gate spares the cluster's own controllers; promotion to deny stays a separate, live-proven change.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-09
 ---
 
 # ADR 0067: Platform readiness manifest, evidence, and the closing gate
@@ -54,6 +54,20 @@ make for running workloads.
   constraint on a throwaway namespace. Promote the platform gate only after
   that spec passes live and a full `kore local up` has run with the controller
   exemption in place.
+
+### Gate order on an existing cluster
+
+The gate is closed at the start of every run, but the `KoreApplicationAdmission`
+template that declares `controllerIdentities` is updated later, in the
+configuration phase, by `kore-policy-templates`, which stays its only owner.
+The gate does not apply the template itself. Before every write it reads the
+generated constraint CRD and sends only the parameters that schema declares.
+While the template is old, the gate closes without `controllerIdentities`: it
+still refuses every application mutation (fail closed) and the API server never
+sees an undeclared field. Opening is refused, applying nothing, until the
+schema declares the parameter. The write after the template update restores the
+exemption, so a first run from an existing profile converges and a rerun
+changes nothing.
 
 ## Consequences
 

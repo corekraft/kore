@@ -65,6 +65,10 @@ vi.mock("../tunnel/index.js", () => ({
   startLocalTunnel: async () => undefined,
 }));
 
+import {
+  currentGateParameters,
+  gateCrdJson,
+} from "./admission-gate-support.js";
 import { platformGeneration, readAdmissionGate } from "./admission-gate.js";
 import { platformUp } from "./up.js";
 
@@ -94,6 +98,15 @@ function cluster(initial?: Gate) {
         };
         events.push(`gate:${parameters.state}:${parameters.generation}`);
         return { stdout: "", stderr: "", code: 0 };
+      }
+      if (
+        args.includes("crd/koreapplicationadmission.constraints.gatekeeper.sh")
+      ) {
+        return {
+          stdout: gateCrdJson(currentGateParameters),
+          stderr: "",
+          code: 0,
+        };
       }
       const stdout = box.gate
         ? JSON.stringify({ spec: { parameters: box.gate } })

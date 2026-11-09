@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import { loadRepository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
+import {
+  currentGateParameters,
+  gateCrdJson,
+} from "./admission-gate-support.js";
 import { openApplicationAdmission } from "./bootstrap.js";
 import { platformStatus } from "./status.js";
 
@@ -15,6 +19,13 @@ function runnerWith(applied: string[], badImage: boolean): Runner {
       if (command === "helm") {
         return {
           stdout: JSON.stringify({ info: { status: "deployed" } }),
+          stderr: "",
+          code: 0,
+        };
+      }
+      if (joined.includes("crd/koreapplicationadmission")) {
+        return {
+          stdout: gateCrdJson(currentGateParameters),
           stderr: "",
           code: 0,
         };
