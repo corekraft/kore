@@ -1,14 +1,66 @@
 apiVersion: constraints.gatekeeper.sh/v1beta1
 kind: KoreRBAC
-metadata: {name: kore-rbac}
+metadata: { name: kore-rbac }
 spec:
   enforcementAction: dryrun
   match:
     kinds:
-      - {apiGroups: [rbac.authorization.k8s.io], kinds: [Role, ClusterRole, RoleBinding, ClusterRoleBinding]}
+      - {
+          apiGroups: [rbac.authorization.k8s.io],
+          kinds: [Role, ClusterRole, RoleBinding, ClusterRoleBinding]
+        }
   parameters:
-    exemptNamespaces: [kube-system, cert-manager, gatekeeper-system, istio-system, cosign-system, crossplane-system, external-secrets, cnpg-system, opentelemetry-operator-system]
+    exemptNamespaces:
+      [
+        kube-system,
+        cert-manager,
+        gatekeeper-system,
+        istio-system,
+        cosign-system,
+        crossplane-system,
+        external-secrets,
+        cnpg-system,
+        opentelemetry-operator-system
+      ]
     signingNamespace: kore-system
     signingKeySecret: kore-local-signing-key
-    allowedSecretRoles: [kore-signing-key, external-secrets-controller, external-secrets-cert-controller]
+    # Cluster-wide Secret readers that stay out of scope, each with a reason and a
+    # gator case in tests/rbac.yaml. Every other ClusterRole, and every Kore chart
+    # (including crossplane-postgresql-composition), stays covered.
+    allowedSecretRoles:
+      # Kore's own signing path and the external-secrets controller (ADR 0054).
+      - kore-signing-key
+      - external-secrets-controller
+      - external-secrets-cert-controller
+      # cert-manager controllers read issuer credentials and write certificate Secrets in any namespace.
+      - cert-manager-cainjector
+      - cert-manager-controller-issuers
+      - cert-manager-controller-clusterissuers
+      - cert-manager-controller-certificates
+      - cert-manager-controller-orders
+      - cert-manager-controller-challenges
+      # CloudNativePG creates and reads the credential and certificate Secrets of every Cluster.
+      - cloudnative-pg
+      # Crossplane writes the connection Secrets of every composite; the aggregate-to-admin and
+      # aggregate-to-edit roles only extend the built-in admin and edit roles, which already read Secrets.
+      - "crossplane:system:aggregate-to-crossplane"
+      - "crossplane:aggregate-to-admin"
+      - "crossplane:aggregate-to-edit"
+      # Gatekeeper audits and syncs every resource kind, so it reads all resources.
+      - gatekeeper-manager-role
+      # istiod reads gateway and remote-cluster credential Secrets in any namespace.
+      - istiod-clusterrole-istio-system
+      - istio-reader-clusterrole-istio-system
+      # The image verifier reads the pull Secrets of the pods it admits, in any namespace.
+      - policy-controller-webhook
+      # Kubernetes bootstrap roles (v1.37.2 bootstrappolicy); the API server reconciles them
+      # and bindings to them are governed by the admin, edit, and cluster-admin binding rules.
+      - cluster-admin
+      - admin
+      - edit
+      - "system:node"
+      - "system:kube-controller-manager"
+      - "system:controller:generic-garbage-collector"
+      - "system:controller:namespace-controller"
+      - "system:controller:resourcequota-controller"
     bootstrapGroups: ["kore:bootstrap"]

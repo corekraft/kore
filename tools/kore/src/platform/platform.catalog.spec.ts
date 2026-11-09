@@ -130,6 +130,22 @@ test("reference API L7 authorization is attached to an enrolled ambient waypoint
   );
 });
 
+test("the reference waypoint publishes the authenticated peer identity to OPA (ADR 0066)", async () => {
+  const repository = await loadRepository("local");
+  const workload = await readFile(
+    join(
+      repository.root,
+      "apps/reference/charts/workload/templates/workloads.yaml",
+    ),
+    "utf8",
+  );
+
+  assert.match(
+    workload,
+    /infrastructure:\s*\n\s+annotations:\s*\{\s*ambient\.istio\.io\/xfcc-include-client-identity:\s*"true"\s*\}/,
+  );
+});
+
 test("OpenTelemetry collector readiness targets the pinned chart deployment", async () => {
   const repository = await loadRepository("local");
   const collector = repository.catalog.components.find(

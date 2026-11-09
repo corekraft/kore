@@ -16,8 +16,16 @@ export {
 } from "./crd-ownership.js";
 export type { CrdClaims, CrdOwnership } from "./crd-ownership.js";
 export { noMatchPolicy, trustedSigners } from "./image-trust.js";
-export { auditEvidence, policyPromotionErrors } from "./policy-promotion.js";
-export type { AuditEvidence, PromotionRecord } from "./policy-promotion.js";
+export {
+  auditEvidence,
+  evaluateAudit,
+  policyPromotionErrors,
+} from "./policy-promotion.js";
+export type {
+  AuditEvidence,
+  AuditReport,
+  PromotionRecord,
+} from "./policy-promotion.js";
 export {
   registryConsumers,
   registryHelmArgs,

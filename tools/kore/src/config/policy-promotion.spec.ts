@@ -6,6 +6,7 @@ import { afterEach, test } from "vitest";
 import { loadRepository, validateRepository } from "./config.js";
 import {
   auditEvidence,
+  evaluateAudit,
   policyPromotionErrors,
   type PromotionRecord,
 } from "./policy-promotion.js";
@@ -197,4 +198,72 @@ test("an unparsable promotion record is rejected rather than crashing validation
     (await policyPromotionErrors(repository, now)).join("\n"),
     /kore-rbac\.json is not a valid promotion record/,
   );
+});
+
+test("an enforcing constraint with audit violations fails its evaluation", () => {
+  const report = evaluateAudit({
+    metadata: { name: "kore-rbac" },
+    spec: { enforcementAction: "deny" },
+    status: { auditTimestamp: "2026-11-08T10:00:00Z", totalViolations: 2 },
+  });
+  assert.equal(report.failure?.includes("kore-rbac"), true);
+  assert.equal(report.failure?.includes("2 violations"), true);
+});
+
+test("a warn constraint with no violations passes its evaluation", () => {
+  const report = evaluateAudit({
+    metadata: { name: "kore-rbac" },
+    spec: { enforcementAction: "warn" },
+    status: { auditTimestamp: "2026-11-08T10:00:00Z", totalViolations: 0 },
+  });
+  assert.equal(report.failure, undefined);
+});
+
+test("a dryrun constraint with violations records evidence and the first resources without failing", () => {
+  const violations = Array.from({ length: 8 }, (_, i) => ({
+    kind: "ClusterRole",
+    name: `role-${i}`,
+    message: "secret text must not be recorded",
+    enforcementAction: "dryrun",
+  }));
+  const report = evaluateAudit({
+    metadata: { name: "kore-rbac" },
+    spec: { enforcementAction: "dryrun" },
+    status: {
+      auditTimestamp: "2026-11-08T10:00:00Z",
+      totalViolations: 8,
+      violations,
+    },
+  });
+  assert.equal(report.failure, undefined);
+  assert.equal(report.evidence?.totalViolations, 8);
+  assert.deepEqual(report.sample, [
+    "ClusterRole/role-0",
+    "ClusterRole/role-1",
+    "ClusterRole/role-2",
+    "ClusterRole/role-3",
+    "ClusterRole/role-4",
+  ]);
+  assert.equal(JSON.stringify(report).includes("secret text"), false);
+});
+
+test("namespaced violating resources are named kind, namespace, and name", () => {
+  const report = evaluateAudit({
+    metadata: { name: "c" },
+    spec: { enforcementAction: "dryrun" },
+    status: {
+      auditTimestamp: "2026-11-08T10:00:00Z",
+      totalViolations: 1,
+      violations: [{ kind: "Role", namespace: "ns", name: "r" }],
+    },
+  });
+  assert.deepEqual(report.sample, ["Role/ns/r"]);
+});
+
+test("a constraint that has not been audited yet fails its evaluation", () => {
+  const report = evaluateAudit({
+    metadata: { name: "c" },
+    spec: { enforcementAction: "deny" },
+  });
+  assert.equal(report.failure?.includes("not been audited"), true);
 });
