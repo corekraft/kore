@@ -31,7 +31,7 @@
     "test:integration:signer": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/platform/signer-swap.integration.spec.js",
     "test:integration:identity": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/platform/identity.integration.spec.js dist/src/platform/authorizer.integration.spec.js",
     "test:integration:policy": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/platform/policy-promotion.integration.spec.js",
-    "test:integration:ops": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/ops/*.integration.spec.js",
+    "test:integration:ops": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/ops/data-restore.integration.spec.js",
     "test:integration:registry": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/images/registry.integration.spec.js",
     "test:integration:telemetry": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/platform/platform.telemetry.integration.spec.js",
     "test:integration:gate": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/platform/gate.integration.spec.js",
@@ -44,6 +44,7 @@
     "test:integration:helm-interrupt": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/platform/helm-interrupt.integration.spec.js",
     "test:integration:gateway": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/platform/gateway.integration.spec.js",
     "test:integration:docs": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/platform/operations-docs.integration.spec.js",
+    "test:integration:upgrade": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/ops/upgrade.integration.spec.js",
     "test:integration:storage": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/platform/storage-lifecycle.integration.spec.js",
     "prepare": "cd ../.. && husky tools/kore/.husky"
   },

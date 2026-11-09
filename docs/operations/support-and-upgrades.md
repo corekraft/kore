@@ -28,10 +28,17 @@ narrow:
   ([README](../../README.md#releases)); each tag's `CHANGELOG.md` entry is the
   release note.
 
-**Gap:** no automated upgrade test from the previous version catalog exists
-(plan Step 15, "Add upgrade tests"), and no release has been tagged after a
-fresh-install and upgrade pass. Until one does, treat the order below as the
-procedure and the live bootstrap as the proof.
+**Upgrade test.** `kore ops upgrade-check` compares the previous release's
+catalog with the working tree offline. The opt-in live spec
+(`npm --prefix tools/kore run test:integration:upgrade`) creates a throwaway `kore-upgrade-test` profile (environment `upgrade-test`, Gateway port
+18443; `kore-local` is never touched), installs the previous tag with that tag's own built CLI from a
+detached git worktree, writes a marker into the retained reference database,
+then runs this tree's `kore local up` and checks that every component is ready,
+the reference app serves, the marker survived, and the PostgreSQLInstance schema
+did not change. It needs `SOPS_AGE_KEY_FILE` set (the key file is passed by path, never
+copied), and it deletes only the throwaway profile when it finishes. **Gap:** the live spec has not
+yet passed, and no release has been tagged after a fresh-install and upgrade
+pass.
 
 ## Upgrade order
 
