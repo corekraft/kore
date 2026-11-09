@@ -38,3 +38,25 @@ test("Crossplane package CRDs and Function input CRDs each have one owner", asyn
     "kore-crossplane-functions",
   ]);
 });
+
+test("every Gateway API CRD the standard install applies is owned by kore-gateway-api", async () => {
+  const { catalog } = await loadRepository("local");
+  // Found unowned on the live profile (2026-11-08): the standard install
+  // carries more CRDs than the three the readiness checks name.
+  for (const plural of [
+    "backendtlspolicies",
+    "grpcroutes",
+    "listenersets",
+    "referencegrants",
+    "tcproutes",
+    "tlsroutes",
+    "udproutes",
+    "httproutes",
+  ]) {
+    assert.deepEqual(
+      crdOwners(catalog.components, `${plural}.gateway.networking.k8s.io`),
+      ["kore-gateway-api"],
+      plural,
+    );
+  }
+});

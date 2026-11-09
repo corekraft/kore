@@ -15,6 +15,7 @@
             "gateways.gateway.networking.k8s.io",
             "httproutes.gateway.networking.k8s.io"
           ],
+        "ownsCRDGroups": ["gateway.networking.k8s.io"],
         "dependencies": [],
         "timeout": "3m",
         "readiness":

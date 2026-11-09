@@ -2,7 +2,15 @@ function printList(items: unknown[]): void {
   for (const item of items) {
     console.log(
       typeof item === "object"
-        ? Object.values(item as Record<string, unknown>).join("\t")
+        ? Object.values(item as Record<string, unknown>)
+            // Nested detail has no tab-separated form; --json carries it.
+            .filter(
+              (field) =>
+                typeof field !== "object" ||
+                field === null ||
+                Array.isArray(field),
+            )
+            .join("\t")
         : String(item as string),
     );
   }
