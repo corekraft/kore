@@ -204,6 +204,26 @@ function unknownOverlayErrors(
     );
 }
 
+async function componentSourceErrors(
+  repository: Repository,
+  manifests: Set<string>,
+): Promise<string[]> {
+  const sources = Object.entries(repository.environment.componentSources ?? {});
+  const present = await Promise.all(
+    sources.map(([, path]) => exists(join(repository.root, path))),
+  );
+  return sources.flatMap(([component, path], index) => [
+    ...(manifests.has(component)
+      ? []
+      : [
+          `environment component source for a non-manifest component: ${component}`,
+        ]),
+    ...(present[index]
+      ? []
+      : [`${component}: environment source does not exist: ${path}`]),
+  ]);
+}
+
 function cycleErrors(catalog: Catalog): string[] {
   try {
     orderedComponents(catalog);
@@ -256,6 +276,12 @@ export async function validateRepository(
     ),
     ...dependencyErrors(components, names),
     ...unknownOverlayErrors(environment, names),
+    ...(await componentSourceErrors(
+      repository,
+      new Set(
+        components.filter((c) => c.kind === "manifest").map((c) => c.name),
+      ),
+    )),
     ...cycleErrors(catalog),
     ...(await imageListErrors(repository)),
     ...imageTrustErrors(repository),

@@ -1,0 +1,15 @@
+apiVersion: pkg.crossplane.io/v1beta1
+kind: Function
+metadata: { name: function-go-templating }
+spec:
+  {
+    package: ghcr.io/corekraft/kore/mirror/function-go-templating:v0.13.2@sha256:20198cb6ea5b4b8a48042343410ec9031e5ec43431d874364ecd3eac8e861290
+  }
+---
+apiVersion: pkg.crossplane.io/v1beta1
+kind: Function
+metadata: { name: function-auto-ready }
+spec:
+  {
+    package: ghcr.io/corekraft/kore/mirror/function-auto-ready:v0.7.3@sha256:cce8799e19a8f25fb84e1f8dd8855021fdbe8cd7a12a5c22a0c0c345476ae9fe
+  }
