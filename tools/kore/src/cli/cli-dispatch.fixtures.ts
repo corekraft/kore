@@ -100,7 +100,9 @@ export const platformModule = () => ({
   ),
   platformDestroy: vi.fn(async () => void dispatch.push("platformDestroy")),
   platformRender: vi.fn(async () => void dispatch.push("platformRender")),
-  platformStatus: vi.fn(async () => (dispatch.push("platformStatus"), [])),
+  platformStatusReport: vi.fn(
+    async () => (dispatch.push("platformStatusReport"), []),
+  ),
   platformStop: vi.fn(async () => void dispatch.push("platformStop")),
   platformUp: vi.fn(async () => void dispatch.push("platformUp")),
 });

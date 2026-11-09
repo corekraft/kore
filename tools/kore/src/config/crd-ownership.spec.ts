@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import {
   checkCrdOwnership,
+  crdGroupErrors,
   crdNameFormatErrors,
+  crdOwners,
   renderedCrdNames,
 } from "./crd-ownership.js";
 
@@ -106,5 +108,82 @@ test("ownsCRDs entries must look like <plural>.<group>", () => {
       "a: ownsCRDs entry nogroup must look like <plural>.<group>",
       "a: ownsCRDs entry trailing..dot.io must look like <plural>.<group>",
     ],
+  );
+});
+
+const owner = (
+  name: string,
+  ownsCRDs: string[] = [],
+  ownsCRDGroups: string[] = [],
+) => ({ name, ownsCRDs, ownsCRDGroups });
+
+test("a CRD is owned by the component that names it or claims its group", () => {
+  const components = [
+    owner("a", ["widgets.example.com"]),
+    owner("b", [], ["fn.example.io"]),
+  ];
+  assert.deepEqual(crdOwners(components, "widgets.example.com"), ["a"]);
+  assert.deepEqual(crdOwners(components, "inputs.fn.example.io"), ["b"]);
+  assert.deepEqual(crdOwners(components, "stray.other.io"), []);
+});
+
+test("a group claim matches the whole group and not its subdomains", () => {
+  const components = [owner("b", [], ["example.io"])];
+  assert.deepEqual(crdOwners(components, "x.sub.example.io"), []);
+});
+
+test("a component that names and claims the same CRD is one owner", () => {
+  assert.deepEqual(
+    crdOwners([owner("a", ["x.example.io"], ["example.io"])], "x.example.io"),
+    ["a"],
+  );
+});
+
+test("a CRD named by one component and claimed by another has two owners", () => {
+  assert.deepEqual(
+    crdOwners(
+      [owner("a", ["x.example.io"]), owner("b", [], ["example.io"])],
+      "x.example.io",
+    ),
+    ["a", "b"],
+  );
+});
+
+test("group claims must be API groups", () => {
+  assert.deepEqual(
+    crdGroupErrors([
+      owner("a", [], ["nogroup", "Bad.Example.io", "ok.example.io"]),
+    ]),
+    [
+      "a: ownsCRDGroups entry nogroup must be an API group such as widgets.example.com",
+      "a: ownsCRDGroups entry Bad.Example.io must be an API group such as widgets.example.com",
+    ],
+  );
+});
+
+test("two components claiming one group is an error", () => {
+  assert.deepEqual(
+    crdGroupErrors([
+      owner("a", [], ["example.io"]),
+      owner("b", [], ["example.io"]),
+    ]),
+    ["CRD group example.io is claimed by multiple components: a and b"],
+  );
+});
+
+test("a component claiming a group that another names a CRD in is an error", () => {
+  assert.deepEqual(
+    crdGroupErrors([
+      owner("a", ["x.example.io"]),
+      owner("b", [], ["example.io"]),
+    ]),
+    ["CRD x.example.io is owned by a but b claims its group example.io"],
+  );
+});
+
+test("a component may name CRDs inside a group it claims", () => {
+  assert.deepEqual(
+    crdGroupErrors([owner("a", ["x.example.io"], ["example.io"])]),
+    [],
   );
 });

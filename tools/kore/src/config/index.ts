@@ -9,10 +9,12 @@ export {
 } from "./config.js";
 export {
   checkCrdOwnership,
+  crdGroupErrors,
   crdNameFormatErrors,
+  crdOwners,
   renderedCrdNames,
 } from "./crd-ownership.js";
-export type { CrdOwnership } from "./crd-ownership.js";
+export type { CrdClaims, CrdOwnership } from "./crd-ownership.js";
 export { noMatchPolicy } from "./image-trust.js";
 export {
   registryConsumers,

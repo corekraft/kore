@@ -15,6 +15,7 @@
             "gateways.gateway.networking.k8s.io",
             "httproutes.gateway.networking.k8s.io"
           ],
+        "ownsCRDGroups": ["gateway.networking.k8s.io"],
         "dependencies": [],
         "timeout": "3m",
         "readiness":
@@ -236,6 +237,14 @@
         "version": "crossplane",
         "ownsCRDs":
           ["compositeresourcedefinitions.apiextensions.crossplane.io"],
+        "ownsCRDGroups":
+          [
+            "apiextensions.crossplane.io",
+            "ops.crossplane.io",
+            "pkg.crossplane.io",
+            "protection.crossplane.io",
+            "secrets.crossplane.io"
+          ],
         "dependencies": ["kore-gateway-api"],
         "timeout": "10m",
         "readiness":
@@ -495,6 +504,7 @@
         "source": "infra/apis/crossplane-functions",
         "version": "local",
         "ownsCRDs": [],
+        "ownsCRDGroups": ["gotemplating.fn.crossplane.io"],
         "dependencies": ["crossplane"],
         "timeout": "10m",
         "readiness":
@@ -538,6 +548,7 @@
             "koresecrets.constraints.gatekeeper.sh",
             "koreworkloadidentity.constraints.gatekeeper.sh"
           ],
+        "ownsCRDGroups": ["constraints.gatekeeper.sh"],
         "dependencies": ["gatekeeper"],
         "timeout": "5m",
         "readiness":

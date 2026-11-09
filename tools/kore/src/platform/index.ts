@@ -2,6 +2,8 @@
 export { bootstrapControllers } from "./bootstrap.js";
 export { platformStop, platformDestroy } from "./lifecycle.js";
 export { platformRender } from "./render.js";
+export { platformStatusReport } from "./crd-ownership-status.js";
+export type { CrdOwnershipStatus } from "./crd-ownership-status.js";
 export { platformStatus } from "./status.js";
 export type { ComponentStatus } from "./status.js";
 export { platformUp } from "./up.js";

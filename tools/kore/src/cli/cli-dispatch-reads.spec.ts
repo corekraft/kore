@@ -51,7 +51,7 @@ test("read-only CLI commands dispatch doctor, validation, and status", async () 
     "validatePortability",
     "doctor",
     "clusterStatus",
-    "platformStatus",
+    "platformStatusReport",
     "appStatus",
     "tunnelStatus",
   ]);
