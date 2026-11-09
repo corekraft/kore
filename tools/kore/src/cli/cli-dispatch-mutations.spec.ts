@@ -16,6 +16,9 @@ vi.mock("../diagnostics/index.js", async () =>
 vi.mock("../runtime/index.js", async () =>
   (await import("./cli-dispatch.fixtures.js")).runtimeModule(),
 );
+vi.mock("../images/index.js", async () =>
+  (await import("./cli-dispatch.fixtures.js")).imagesModule(),
+);
 vi.mock("../platform/index.js", async () =>
   (await import("./cli-dispatch.fixtures.js")).platformModule(),
 );
@@ -190,4 +193,27 @@ test("app down --json always reports the retained list, even when empty", async 
 
   const printed = write.mock.calls.map(([chunk]) => String(chunk)).join("");
   expect(JSON.parse(printed)).toEqual({ name: "reference", retained: [] });
+});
+
+test("registry rotate-credentials is a locked, journaled mutation that carries the consent flag", async () => {
+  await main([
+    "registry",
+    "rotate-credentials",
+    "--environment",
+    "local",
+    "--yes",
+    "--json",
+  ]);
+
+  expect(dispatch).toEqual([
+    "lock",
+    "journal:registry rotate-credentials:kore-local",
+    "rotateRegistryCredentials:true",
+  ]);
+});
+
+test("registry rotate-credentials without --yes still reaches the operation, which refuses", async () => {
+  await main(["registry", "rotate-credentials", "--environment", "local"]);
+
+  expect(dispatch).toContain("rotateRegistryCredentials:false");
 });

@@ -27,13 +27,19 @@ const encode = (value: string): string =>
 const decode = (value: string | undefined): string =>
   Buffer.from(value ?? "", "base64").toString("utf8");
 
-type Credentials = Record<RegistryRole, RegistryCredential>;
+export type RegistryCredentials = Record<RegistryRole, RegistryCredential>;
+type Credentials = RegistryCredentials;
 
-function generated(): Credentials {
+/**
+ * Fresh passwords for both identities. A rotation passes a new read username
+ * so the proxy can accept the old and the new read identity side by side while
+ * pull Secrets are replaced (nginx stops at the first line of a username).
+ */
+export function generated(readUsername: string = usernames.read): Credentials {
   // 256 random bits per identity: a slow password hash adds nothing at that
   // entropy, which is why {SHA} is enough and no bcrypt dependency is needed.
   const credential = (role: RegistryRole): RegistryCredential => ({
-    username: usernames[role],
+    username: role === "read" ? readUsername : usernames[role],
     password: randomBytes(32).toString("base64url"),
   });
   return { push: credential("push"), read: credential("read") };
@@ -74,7 +80,7 @@ function secretArgs(kubeContext: string): string[] {
   ];
 }
 
-async function existingCredentials(
+export async function existingCredentials(
   repository: Repository,
   runner: Runner,
 ): Promise<Credentials | undefined> {
@@ -86,7 +92,7 @@ async function existingCredentials(
   return parsed(stdout);
 }
 
-function htpasswdLine(credential: RegistryCredential): string {
+export function htpasswdLine(credential: RegistryCredential): string {
   const digest = createHash("sha1")
     .update(credential.password)
     .digest("base64");
@@ -101,7 +107,10 @@ function metadata(name: string): Record<string, unknown> {
   };
 }
 
-function manifests(credentials: Credentials): unknown[] {
+function manifests(
+  credentials: Credentials,
+  retainedHtpasswdLines: readonly string[],
+): unknown[] {
   return [
     {
       apiVersion: "v1",
@@ -127,7 +136,11 @@ function manifests(credentials: Credentials): unknown[] {
       type: "Opaque",
       data: {
         htpasswd: encode(
-          `${htpasswdLine(credentials.push)}\n${htpasswdLine(credentials.read)}\n`,
+          [
+            htpasswdLine(credentials.push),
+            htpasswdLine(credentials.read),
+            ...retainedHtpasswdLines,
+          ].join("\n") + "\n",
         ),
       },
     },
@@ -145,8 +158,23 @@ export async function ensureRegistryAuth(
   repository: Repository,
   runner: Runner,
 ): Promise<void> {
-  const credentials =
-    (await existingCredentials(repository, runner)) ?? generated();
+  await applyRegistryCredentials(
+    repository,
+    runner,
+    (await existingCredentials(repository, runner)) ?? generated(),
+  );
+}
+
+/**
+ * Applies both registry Secrets from `credentials` through stdin.
+ * `retainedHtpasswdLines` keep extra identities valid in the proxy's htpasswd.
+ */
+export async function applyRegistryCredentials(
+  repository: Repository,
+  runner: Runner,
+  credentials: Credentials,
+  retainedHtpasswdLines: readonly string[] = [],
+): Promise<void> {
   await runner.run(
     "kubectl",
     [
@@ -163,7 +191,7 @@ export async function ensureRegistryAuth(
       input: JSON.stringify({
         apiVersion: "v1",
         kind: "List",
-        items: manifests(credentials),
+        items: manifests(credentials, retainedHtpasswdLines),
       }),
     },
   );

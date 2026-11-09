@@ -93,9 +93,9 @@ service, a second stateful component.
 
 - Manual `docker push` or `nerdctl push` gets `401`. Developers publish
   through `kore local up`, which is unchanged for them.
-- A registry credential is as long-lived as its Secret. Rotation means
-  deleting `oci-registry-credentials`, rerunning `kore platform up`, and
-  redeploying apps so their pull Secrets refresh.
+- A registry credential is as long-lived as its Secret. Rotate it with
+  `kore registry rotate-credentials --yes`
+  ([ADR 0055](0055-registry-credential-rotation.md)).
 - The credential Secret is cluster-readable to anyone who can read Secrets in
   `kore-registry`; RBAC for that namespace is a Step 8 and 9 concern.
 - Kubelet pulls need no credential locally (`imagePullPolicy: Never`). A

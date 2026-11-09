@@ -127,3 +127,11 @@ export const localModule = () => ({
   ),
   localUp: vi.fn(async () => void dispatch.push("localUp")),
 });
+
+export const imagesModule = async () => ({
+  ...(await vi.importActual<object>("../images/index.js")),
+  rotateRegistryCredentials: vi.fn(async (_repo, _runner, options) => {
+    dispatch.push(`rotateRegistryCredentials:${options.yes}`);
+    return { namespaces: ["reference"] };
+  }),
+});
