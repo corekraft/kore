@@ -59,3 +59,21 @@ export async function pollUntil(
     await pause();
   }
 }
+
+/** Bound for each read-only check `kore status` evaluates. */
+const STATUS_TIMEOUT = "3s";
+/** Status-mode `--timeout` for `kubectl wait`/`rollout status`: it spans kubectl's startup, so 3s misreported a long-Established CRD on a loaded host. */
+const STATUS_KUBECTL_TIMEOUT = "15s";
+
+/** How a run of checks is bounded and whether it captures kubectl output. */
+export interface Bounds {
+  timeout: string;
+  capture: boolean;
+  kubectlTimeout?: string;
+}
+
+export const STATUS_BOUNDS: Bounds = {
+  timeout: STATUS_TIMEOUT,
+  capture: true,
+  kubectlTimeout: STATUS_KUBECTL_TIMEOUT,
+};
