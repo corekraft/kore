@@ -87,7 +87,7 @@ test("status gives each read-only check at least 15s, so a loaded host is not re
   );
 });
 
-test("a genuinely failing status check still names the object and condition", async () => {
+test("a genuinely failing status check still names the object, condition and the bound it waited", async () => {
   const repository = await collectorRepository();
   const { runner } = recordingRunner(true);
 
@@ -95,4 +95,7 @@ test("a genuinely failing status check still names the object and condition", as
 
   assert.match(status!.detail, /deployment\/otel-collector not ready/);
   assert.match(status!.detail, /rollout complete/);
+  // The message states the bound kubectl actually waited, not the poll bound.
+  assert.match(status!.detail, /within 15s/);
+  assert.doesNotMatch(status!.detail, /within 3s/);
 });

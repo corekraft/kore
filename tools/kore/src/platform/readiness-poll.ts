@@ -1,3 +1,5 @@
+import type { Repository } from "../config/index.js";
+import type { Runner } from "../runtime/index.js";
 import { errorMessage } from "./probe.js";
 
 const POLL_MILLISECONDS = 250;
@@ -77,3 +79,49 @@ export const STATUS_BOUNDS: Bounds = {
   capture: true,
   kubectlTimeout: STATUS_KUBECTL_TIMEOUT,
 };
+
+export interface ConditionContext {
+  repository: Repository;
+  runner: Runner;
+  kubectlTimeout?: string | undefined;
+}
+
+/**
+ * Waits for each condition on a cluster-scoped resource in order, retrying
+ * while the resource or its type does not exist yet.
+ */
+export async function waitForConditions(
+  { repository, runner, kubectlTimeout }: ConditionContext,
+  resource: string,
+  conditions: string[],
+  timeout: string,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMilliseconds(timeout);
+  for (const condition of conditions) {
+    while (true) {
+      try {
+        await runner.run(
+          "kubectl",
+          [
+            "--context",
+            repository.environment.kubeContext,
+            "wait",
+            `--for=condition=${condition}`,
+            resource,
+            `--timeout=${kubectlTimeout ?? timeout}`,
+          ],
+          { capture: true },
+        );
+        break;
+      } catch (error) {
+        if (
+          !NOT_YET_THERE.test(errorMessage(error)) ||
+          Date.now() >= deadline
+        ) {
+          throw error;
+        }
+        await pause();
+      }
+    }
+  }
+}
