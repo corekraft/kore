@@ -12,6 +12,10 @@ and [§ Progress Record](../../infra/plans/2-implementation.md#progress-record)
 
 Refines: [ADR 0007](0007-workload-identity-and-layered-authorization.md)
 
+See also: [ADR 0066](0066-opa-receives-peer-identity-via-xfcc.md), which gives OPA the
+authenticated source principal through a waypoint-synthesized
+`x-forwarded-client-cert`; the native Istio policy decision here stays.
+
 ## Context
 
 ADR 0007 expected OPA to receive authenticated source and destination

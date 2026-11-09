@@ -51,7 +51,11 @@ const protectedRequest = (role: string) => ({
     request: {
       http: {
         path: "/api/protected",
-        headers: { "x-kore-authenticated-role": role },
+        headers: {
+          "x-kore-authenticated-role": role,
+          "x-forwarded-client-cert":
+            "URI=spiffe://cluster.local/ns/app/sa/reference-frontend",
+        },
       },
     },
   },

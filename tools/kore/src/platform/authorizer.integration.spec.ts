@@ -13,7 +13,7 @@ import {
 // Live and opt-in; see identity-live.ts. Run: npm run test:integration:identity
 
 test(
-  "OPA's decision input carries the authenticated source and destination principals (ADR 0014 records that Istio 1.30 does not send them)",
+  "OPA's decision input carries the authenticated source and destination principals (the waypoint forwards them in x-forwarded-client-cert; ADR 0066)",
   live,
   async () => {
     const { repository, runner } = await setup();
@@ -40,8 +40,7 @@ test(
           JSON.parse(line) as {
             input?: {
               attributes?: {
-                source?: { principal?: string };
-                destination?: { principal?: string };
+                request?: { http?: { headers?: Record<string, string> } };
               };
             };
           },
@@ -50,9 +49,14 @@ test(
       decisions.length > 0,
       "the protected request produced no OPA decision",
     );
-    const last = decisions[decisions.length - 1]?.input?.attributes;
-    assert.match(String(last?.source?.principal), /\/ns\/.+\/sa\/.+/);
-    assert.match(String(last?.destination?.principal), /\/ns\/.+\/sa\/.+/);
+    // Envoy's ext_authz request has no TLS peer identity behind an ambient waypoint;
+    // the waypoint synthesizes XFCC (By = waypoint, URI = authenticated caller).
+    const xfcc = String(
+      decisions[decisions.length - 1]?.input?.attributes?.request?.http
+        ?.headers?.["x-forwarded-client-cert"],
+    );
+    assert.match(xfcc, /(?:^|;)URI=spiffe:\/\/[^;]+\/ns\/.+\/sa\/.+/);
+    assert.match(xfcc, /(?:^|;)By=spiffe:\/\/[^;]+\/ns\/.+\/sa\/.+/);
   },
 );
 
