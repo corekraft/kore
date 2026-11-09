@@ -1,0 +1,8 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: wi-no-automount, namespace: app}
+spec:
+  template:
+    spec:
+      serviceAccountName: valid
+      containers: [{name: app, image: invalid}]

@@ -2,7 +2,7 @@
 status: accepted
 summary: Retained-data discovery also lists PersistentVolumes of the kore-retained class, because deleting a retained claim leaves an unlabeled Released volume that claim and PVC queries cannot see.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-09
 ---
 
 # ADR 0061: Discover retained volumes by storage class
@@ -28,10 +28,19 @@ and has no claim to find it by. Discovery then reported nothing, so
   queries do; it never counts as no data.
 - Purge is unchanged: it deletes labeled claims, and profile deletion removes
   the volumes. Deleting a Released volume by hand stays an explicit act.
-- Least-privilege Crossplane RBAC stays as ADR 0020 left it. Binding per
-  namespace needs the namespace to exist when the role is bound, which belongs
-  to namespace enrollment, so the default stays cluster-wide until that design
-  lands.
+- Crossplane's Secret access is bound per application namespace (amended
+  2026-11-09). The RBAC chart keeps cluster-wide only the CloudNativePG
+  permissions (`crossplane-postgresql-composition`) and ships the Secret rules
+  as a separate ClusterRole, `crossplane-postgresql-secrets`, with no binding.
+  `kore app up` binds that role to the `crossplane` ServiceAccount with a
+  RoleBinding in the application namespace (field manager `kore-app`, the
+  configured context), after namespace activation and before the claim
+  installs, and refuses platform namespaces, so Crossplane can no longer read
+  the signing key in `kore-system`. `app down` keeps the binding because the
+  claim and its data stay; the binding goes when the namespace does. The
+  `kore-rbac` constraint lists the role in `namespaceBoundSecretRoles` and
+  flags any ClusterRoleBinding or `kore-system` RoleBinding to it. The chart's
+  `namespaces` value is removed: one owner, `kore app up`.
 
 ## Consequences
 

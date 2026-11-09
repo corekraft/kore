@@ -14,7 +14,24 @@ spec:
       rego: |
         package kore.workloadidentity
         import future.keywords.in
-        exempt { input.review.object.metadata.namespace in input.parameters.exemptNamespaces }
+        # The constraint matches application namespaces only (the activation
+        # label, set by bootstrap, in its namespaceSelector). exemptNamespaces
+        # stays as a second line of defence.
+        exempt { input.review.object.metadata.namespace in object.get(input.parameters, "exemptNamespaces", []) }
+        # Istio-generated gateways and waypoints need a projected token for xDS.
+        # Exempt only a pod template carrying the full label set Istio writes
+        # (pkg/config/constants and waypoint.yaml: gateway.istio.io/managed is
+        # istio.io-mesh-controller for waypoints, istio.io-gateway-controller
+        # for gateways, with the Gateway API name and class labels).
+        istio_controllers := {"istio.io-mesh-controller", "istio.io-gateway-controller"}
+        pod_labels := object.get(object.get(podspec_template, "metadata", {}), "labels", {})
+        istio_managed {
+          object.get(pod_labels, "gateway.istio.io/managed", "") in istio_controllers
+          object.get(pod_labels, "gateway.networking.k8s.io/gateway-name", "") != ""
+          object.get(pod_labels, "gateway.networking.k8s.io/gateway-class-name", "") != ""
+        }
+        podspec_template = input.review.object.spec.template { input.review.kind.kind != "CronJob" }
+        podspec_template = input.review.object.spec.jobTemplate.spec.template { input.review.kind.kind == "CronJob" }
         workload { input.review.kind.kind in {"Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob"} }
         podspec = input.review.object.spec.template.spec { input.review.kind.kind != "CronJob" }
         podspec = input.review.object.spec.jobTemplate.spec.template.spec { input.review.kind.kind == "CronJob" }
@@ -35,6 +52,7 @@ spec:
           workload
           not exempt
           not automount_disabled
+          not istio_managed
           msg := "automountServiceAccountToken must be explicit and false unless reviewed"
         }
 

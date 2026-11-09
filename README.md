@@ -53,6 +53,9 @@ environment and use the configured kube context, never the current kubectl
 context. Direct destruction requires `--yes`; retained claims additionally
 require `--purge-data`. `local down --prune` destroys without purging; `local down --prune --purge-data` opts into both.
 
+`kore app up` deploys only an image that release automation signed (`--image-lock <release images.lock.json>`);
+a source build runs through `kore local up` ([ADR 0063](docs/decisions/0063-lifecycle-resume-and-release-only-app-up.md)).
+
 `kore app up <name> --environment <name>` is refused, before anything is verified
 or applied, until the application admission gate is open for the repository's
 platform generation ([ADR 0054](docs/decisions/0054-application-admission-gate-closed-at-foundation.md)).

@@ -7,7 +7,7 @@ Usage:
   kore cluster status [--environment <name>] [--json]
   kore platform bootstrap|up|gate-check|stop|destroy --environment <name> [--yes] [--purge-data]
   kore platform status|render [--environment <name>] [--output <directory>] [--json]
-  kore app up <name> --environment <name>
+  kore app up <name> --environment <name> [--image-lock <release images.lock.json>]
   kore app down <name> --environment <name> [--json]
   kore app status <name> [--environment <name>] [--json]   (reports degraded when the registry or verifier is down)
   kore data export --environment <name> [--namespace reference] [--json]
@@ -39,6 +39,14 @@ an export still matches its manifest.
 verifies the digest, decrypts with "age --decrypt --identity" (--identity or
 SOPS_AGE_KEY_FILE; Kore never reads the key), and refuses a database that
 already holds tables unless --overwrite-data --yes replaces it.
+
+"app up" deploys only an image that release automation produced: the lock entry's
+signer must be a release workflow at a version tag, and cosign verifies that
+exact identity before Helm runs. Pass the images.lock.json attached to the
+release with --image-lock. A source build runs through "kore local up". Before
+installing it clears a failed or canceled earlier attempt (a release that never
+deployed is uninstalled, a canceled upgrade is rolled back) and refuses to
+uninstall a release whose claim holds retained data.
 
 "app down" uninstalls only the workload release and reports the retained data
 (claims and volumes) that remains; with --json it always prints
