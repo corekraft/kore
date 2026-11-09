@@ -138,7 +138,7 @@ claim that the platform is ready.
 
 ## Step 7: Bootstrap Registry, Image Trust, Controllers, and CRD Ownership
 
-Next: every remaining Step 7 item needs a managed cluster or the protected release pipeline; none is local. Managed cluster: build namespace enrollment (labelling; ADR 0056 keeps managed-example's gate closed until then), roll every platform workload, registry and verifier included, from its seed or external reference to the signed digest in `platform-images.lock.json` (nothing consumes the lock yet), then prove the two exit criteria (signed internal digests only; no seed exception or external reference left). Release pipeline: digest-pin the two tag-pinned Crossplane function packages in the mirror, and bind the signer to the exact release identity or a KMS key in place of `local-kore-key` (ADR 0044's gaps).
+Next: every remaining Step 7 item needs a managed cluster or the protected release pipeline; none is local. Managed cluster: build namespace enrollment (labelling; ADR 0056 keeps managed-example's gate closed until then), roll every platform workload, registry and verifier included, from its seed or external reference to the signed digest in `platform-images.lock.json` (nothing consumes the lock yet), then prove the two exit criteria (signed internal digests only; no seed exception or external reference left). Release pipeline: bind the signer to the exact release identity or a KMS key in place of `local-kore-key` (ADR 0044's gaps).
 
 ### Objective
 
