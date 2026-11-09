@@ -15,3 +15,9 @@ export type {
 } from "./journal.js";
 export { CommandError, ProcessRunner, withSignal } from "./runner.js";
 export type { RunOptions, RunResult, Runner } from "./runner.js";
+export {
+  isTransientKubectlFailure,
+  TransientFailureError,
+  withTransientRetry,
+} from "./retry.js";
+export type { TransientRetryOptions } from "./retry.js";
