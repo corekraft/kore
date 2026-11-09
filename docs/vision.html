@@ -1878,10 +1878,21 @@
                 >).
               </li>
               <li>
-                <strong>Owns tenant workloads, not the platform.</strong> It
-                owns each tenant service's workload release, refining ADR 0002
-                and ADR 0011 for tenant workloads only; platform components stay
-                with bootstrap, Helm, and the catalog.
+                <strong>Owns tenant workloads.</strong> Each tenant's Argo CD
+                owns its services' workload releases, refining ADR 0002 and ADR
+                0011 for tenant workloads.
+              </li>
+              <li>
+                <strong
+                  >The platform Argo CD owns platform configuration.</strong
+                >
+                <code>kore</code> keeps the bootstrap, core, and observability
+                phases; the platform organization's Argo CD owns every
+                configuration-phase release except the image policy, deployed
+                from OCI artifacts by digest, and its health gates admission (<a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0043-platform-configuration-through-argo-cd.md"
+                  >ADR 0043</a
+                >).
               </li>
             </ul>
           </div>
@@ -2062,6 +2073,10 @@
                     >New, deferred in Plan 1 until now</span
                   >
                 </td>
+              </tr>
+              <tr>
+                <td>Platform configuration through the platform Argo CD</td>
+                <td><span class="pill new">New</span></td>
               </tr>
               <tr>
                 <td>Object storage (S3 API)</td>
@@ -2275,13 +2290,16 @@
               >
             </div>
           </li>
-          <li>
+          <li class="decided">
             <div>
               <strong>Argo CD for platform components</strong
               ><span
-                >Each tenant's Argo CD owns its tenant workloads (ADR 0041).
-                Should a platform Argo CD also take over platform components
-                after bootstrap, replacing Helm and the catalog for them?</span
+                ><code>kore</code> keeps the early phases; the platform Argo CD
+                owns the configuration phase except the image policy.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0043-platform-configuration-through-argo-cd.md"
+                >Decided · ADR 0043</a
               >
             </div>
           </li>

@@ -383,10 +383,14 @@ organizations.
 - **Still deploys only what was verified.** Argo CD syncs digest references,
   and image admission still rejects anything not signed by release automation
   ([ADR 0005](decisions/0005-release-automation-signed-image-trust.md)).
-- **Owns tenant workloads, not the platform.** Argo CD owns each tenant
-  service's workload release, refining ADR 0002 and ADR 0011 for tenant
-  workloads only. Platform components stay with bootstrap, Helm, and the
-  catalog.
+- **Owns tenant workloads.** Each tenant's Argo CD owns its tenant services'
+  workload releases, refining ADR 0002 and ADR 0011 for tenant workloads.
+- **The platform Argo CD owns platform configuration.** `kore` keeps installing
+  the bootstrap, core, and observability phases through Helm, and installs the
+  platform organization's Argo CD in core. That Argo CD owns every
+  configuration-phase release except the image policy, deployed from OCI
+  artifacts by digest, and its health gates application admission
+  ([ADR 0043](decisions/0043-platform-configuration-through-argo-cd.md)).
 
 ### What Each View Shows
 
@@ -437,6 +441,7 @@ What exists or is in flight today, and what the vision adds.
 | Human identity and single sign-on: a Keycloak per tenant with groups per organization | New                                                                                  |
 | Developer portal: a Backstage per tenant with Kore plugins                            | New                                                                                  |
 | GitOps delivery of tenant services: an Argo CD per tenant                             | New, deferred in [Plan 1](../infra/plans/1-initialize.md#deferred-tooling) until now |
+| Platform configuration through the platform Argo CD                                   | New                                                                                  |
 | Object storage (S3 API)                                                               | New                                                                                  |
 | Durable message bus (Kafka)                                                           | New, deferred in Plan 1 until now                                                    |
 | Document store (MongoDB protocol)                                                     | New                                                                                  |
@@ -502,10 +507,9 @@ questions keep their numbers and link to their ADR.
 3. **Sharing.** Decided: owner grants within a tenant, parents can block, and
    only operators grant across tenants
    ([ADR 0039](decisions/0039-service-sharing-by-owner-grant.md)).
-4. **Argo CD for platform components.** Each tenant's Argo CD owns its tenant
-   workloads ([ADR 0041](decisions/0041-backstage-and-argo-cd-per-tenant.md)).
-   Should a platform Argo CD also take over platform components after
-   bootstrap, replacing Helm and the catalog for them?
+4. **Argo CD for platform components.** Decided: `kore` keeps the early phases,
+   and the platform Argo CD owns the configuration phase except the image
+   policy ([ADR 0043](decisions/0043-platform-configuration-through-argo-cd.md)).
 5. **Human identity.** Decided: a Keycloak per tenant root with one realm and
    nested groups per sub-organization, owned by the `Organization` API
    ([ADR 0040](decisions/0040-keycloak-human-identity.md)).
