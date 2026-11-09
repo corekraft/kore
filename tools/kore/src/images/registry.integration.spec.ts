@@ -1,17 +1,41 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import test, { after as cleanup } from "node:test";
 import { loadRepository } from "../config/index.js";
 import { ProcessRunner } from "../runtime/index.js";
 import type { Runner } from "../runtime/index.js";
 import { loadRegistryCredential, rotateRegistryCredentials } from "./index.js";
 import type { RegistryCredential } from "./index.js";
 import { localRegistryReference } from "./registry.js";
+import { loadRegistryCa } from "./registry-tls.js";
 
-// Docs: docs/decisions/0055-registry-credential-rotation.md
+// Docs: docs/decisions/0055-registry-credential-rotation.md and
+// docs/decisions/0058-registry-transport-tls.md
 // Live: needs a running local profile after `kore local up` (a signed,
 // deployed reference image). Run with KORE_RUN_INTEGRATION=1.
 
-const forwarded = "http://127.0.0.1:30500";
+const forwardedHost = "127.0.0.1:30500";
+const forwarded = `https://${forwardedHost}`;
+
+// The PUBLIC CA only, read the way kore reads it; credentials never use a file.
+let caDirectory: string | undefined;
+let caFile = "";
+async function registryCaFile(runner: Runner): Promise<string> {
+  if (caFile === "") {
+    const repository = await loadRepository("local");
+    caDirectory = await mkdtemp(join(tmpdir(), "kore-registry-ca-"));
+    caFile = join(caDirectory, "ca.crt");
+    await writeFile(caFile, await loadRegistryCa(repository, runner));
+  }
+  return caFile;
+}
+cleanup(async () => {
+  if (caDirectory !== undefined) {
+    await rm(caDirectory, { force: true, recursive: true });
+  }
+});
 
 type Repository = Awaited<ReturnType<typeof loadRepository>>;
 
@@ -24,9 +48,10 @@ async function status(
   method: string,
   path: string,
   credential?: RegistryCredential,
+  scheme: { url?: string; cacert?: boolean } = {},
 ): Promise<{ code: number; body: string }> {
   const config = [
-    `url = "${forwarded}${path}"`,
+    `url = "${scheme.url ?? forwarded}${path}"`,
     `request = "${method}"`,
     ...(credential
       ? [`user = "${credential.username}:${credential.password}"`]
@@ -37,6 +62,9 @@ async function status(
     [
       "--silent",
       "--show-error",
+      ...(scheme.cacert === false
+        ? []
+        : ["--cacert", await registryCaFile(runner)]),
       "--write-out",
       "\n%{http_code}",
       "--config",
@@ -268,6 +296,41 @@ test(
       accepted.code,
       202,
       "the push credential must start an upload",
+    );
+  },
+);
+
+test(
+  "the registry answers only HTTPS verified against the kore CA: plain HTTP and an unverified HTTPS request both fail",
+  live,
+  async () => {
+    const repository = await loadRepository("local");
+    const runner = new ProcessRunner();
+    const read = await loadRegistryCredential(repository, runner, "read");
+    await localRegistryReference(repository, runner, "kore/x");
+
+    assert.equal(
+      (await status(runner, "GET", "/v2/", read)).code,
+      200,
+      "HTTPS with the CA must work",
+    );
+
+    // nginx answers a plain request on its TLS port with 400 at most; no
+    // registry response (200, 401, 202) may ever come back over HTTP.
+    const plain = await status(runner, "GET", "/v2/", read, {
+      url: `http://${forwardedHost}`,
+      cacert: false,
+    }).catch(() => undefined);
+    assert.ok(
+      plain === undefined || ![200, 202, 401].includes(plain.code),
+      `plain HTTP must not reach the registry (got ${plain?.code})`,
+    );
+
+    // Without the CA, curl must reject the certificate (exit 60), not skip it.
+    await assert.rejects(
+      status(runner, "GET", "/v2/", read, { cacert: false }),
+      /certificate|\b60\b/i,
+      "HTTPS without the CA must fail verification",
     );
   },
 );
