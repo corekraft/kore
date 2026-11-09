@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1](https://github.com/corekraft/kore/compare/v0.3.0...v0.3.1) (2026-11-09)
+
+
+### Bug fixes
+
+* **release:** link each mirror package to the repository before copying into it ([#52](https://github.com/corekraft/kore/issues/52)) ([5dd83df](https://github.com/corekraft/kore/commit/5dd83df06639f69f373c0b93e6f7859e025a3de4))
+* skip helm upgrades of unchanged configuration and app releases ([#53](https://github.com/corekraft/kore/issues/53)) ([3d84606](https://github.com/corekraft/kore/commit/3d8460646a0676ce0ec595b9520f61b3f98b146c))
+
 ## [0.3.0](https://github.com/corekraft/kore/compare/v0.2.0...v0.3.0) (2026-11-08)
 
 
