@@ -9,11 +9,8 @@ import {
   admissionGateResource,
   readAdmissionGate,
 } from "./admission-gate.js";
-import {
-  assertRbac,
-  kubectl,
-  proveAdmission,
-} from "./gate-integration-support.js";
+import { assertRbac, proveAdmission } from "./gate-integration-support.js";
+import { kubectl } from "./gate-live.js";
 
 // Docs: docs/decisions/0067-platform-readiness-manifest-and-evidence.md
 // Live and opt-in (`npm run test:integration:gate`, KORE_RUN_INTEGRATION=1):

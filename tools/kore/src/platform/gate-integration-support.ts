@@ -1,79 +1,29 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { type Repository } from "../config/index.js";
-import { CommandError, type Runner } from "../runtime/index.js";
 import {
   admissionGate,
   admissionGateName,
   admissionGateResource,
 } from "./admission-gate.js";
-import { readinessEvidenceName } from "./readiness-manifest.js";
+import {
+  bootstrap,
+  canI,
+  developer,
+  evidenceObject,
+  evidenceScope,
+  gateObject,
+  kubectl,
+  replicaSetController,
+  closedMessage,
+  type Live,
+} from "./gate-live.js";
+import {
+  grantProofGateAccess,
+  revokeProofGateAccess,
+} from "./gate-proof-access.js";
 
 // Shared by gate.integration.spec.ts: the live proof helpers. Kept out of the
 // spec so the spec stays within the max-lines rule; behaviour is unchanged.
-
-export const developer = [
-  "--as",
-  "kore-gate-developer",
-  "--as-group",
-  "kore:developers",
-];
-export const bootstrap = [
-  "--as",
-  "kore-gate-bootstrap",
-  "--as-group",
-  "kore:bootstrap",
-];
-export const replicaSetController = [
-  "--as",
-  "system:serviceaccount:kube-system:replicaset-controller",
-];
-export const closedMessage = /application admission gate is closed/;
-export const gateObject = `${admissionGateResource}/${admissionGateName}`;
-export const evidenceObject = `configmaps/${readinessEvidenceName}`;
-export const evidenceScope = ["-n", "kore-system"];
-
-export interface Live {
-  repository: Repository;
-  runner: Runner;
-}
-
-export async function kubectl(
-  { repository, runner }: Live,
-  args: string[],
-  input?: string,
-): Promise<{ ok: boolean; output: string }> {
-  try {
-    const result = await runner.run(
-      "kubectl",
-      ["--context", repository.environment.kubeContext, ...args],
-      { capture: true, ...(input === undefined ? {} : { input }) },
-    );
-    return { ok: true, output: result.stdout.trim() };
-  } catch (error) {
-    if (error instanceof CommandError) {
-      return { ok: false, output: error.result.stderr.trim() };
-    }
-    throw error;
-  }
-}
-
-export async function canI(
-  cluster: Live,
-  identity: string[],
-  request: [verb: string, resource: string, ...scope: string[]],
-): Promise<boolean> {
-  const [verb, resource, ...scope] = request;
-  const answer = await kubectl(cluster, [
-    ...identity,
-    "auth",
-    "can-i",
-    verb,
-    resource,
-    ...scope,
-  ]);
-  return answer.output.startsWith("yes");
-}
 
 export async function assertRbac(cluster: Live): Promise<void> {
   const denied: [string, string, ...string[]][] = [
@@ -106,6 +56,14 @@ export async function assertRbac(cluster: Live): Promise<void> {
       `bootstrap automation must be able to ${request.join(" ")}`,
     );
   }
+  assert.equal(
+    await canI(cluster, bootstrap, [
+      "patch",
+      `${admissionGateResource}/${admissionGateName}-other`,
+    ]),
+    false,
+    "bootstrap automation is limited to the platform gate by name",
+  );
   assert.equal(
     await canI(cluster, bootstrap, [
       "delete",
@@ -277,6 +235,7 @@ export async function proveAdmission(
         ])
       ).ok,
     );
+    await grantProofGateAccess(cluster, proof.constraint);
     await setProofGate(proof, "closed");
     await assertClosedDenies(proof);
     // Only bootstrap opens it; the developer's request is then not refused.
@@ -288,6 +247,7 @@ export async function proveAdmission(
     const again = await dryRunUntil(proof, "Deployment", true);
     assert.match(again.output, closedMessage);
   } finally {
+    await revokeProofGateAccess(cluster, proof.constraint);
     await kubectl(cluster, [
       "delete",
       admissionGateResource,
