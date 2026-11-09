@@ -113,9 +113,11 @@ async function assertRerunConverges(
   await appUp(repository, runner, application, built.image, {
     publicKey: built.publicKey,
   });
+  // The workload names the in-cluster registry address and the lock the
+  // logical one; the signed digest is what must match.
   assert.equal(
-    await deployedImage(repository, runner, application),
-    built.image.reference,
+    (await deployedImage(repository, runner, application)).split("@")[1],
+    built.image.reference.split("@")[1],
     "the rerun deploys the image it signed",
   );
   assert.equal(
@@ -139,7 +141,12 @@ async function assertRerunConverges(
 
 /** The steps of a local promotion, each killed once in turn. */
 const steps = [
-  { name: "image push", command: "minikube", word: "push" },
+  // The push runs inside one `minikube ssh` argument, so match a substring.
+  {
+    name: "image push",
+    command: "minikube",
+    word: "nerdctl --namespace k8s.io push",
+  },
   { name: "signing", command: "cosign", word: "sign" },
 ];
 
@@ -158,7 +165,8 @@ for (const step of steps) {
 
       const { runner: killing, interrupted } = interruptingRunner(runner, {
         matches: (command, args) =>
-          command === step.command && args.includes(step.word),
+          command === step.command &&
+          args.some((arg) => arg === step.word || arg.includes(step.word)),
         afterMs: 50,
       });
       await assert.rejects(

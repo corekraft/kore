@@ -44,6 +44,37 @@ async function brokenComponents(
     .map(({ name }) => name);
 }
 
+async function makeStale(
+  repository: Awaited<ReturnType<typeof loadRepository>>,
+  runner: Runner,
+  namespace: string,
+): Promise<void> {
+  const base = [
+    "--kube-context",
+    repository.environment.kubeContext,
+    "--namespace",
+    namespace,
+  ];
+  const history = JSON.parse(
+    (
+      await runner.run(
+        "helm",
+        [...base, "history", target, "--output", "json"],
+        {
+          capture: true,
+        },
+      )
+    ).stdout,
+  ) as { revision: number }[];
+  const current = history.at(-1)?.revision;
+  assert.ok(current, `${target} has a release history`);
+  await runner.run(
+    "helm",
+    [...base, "rollback", target, String(current), "--wait", "--timeout", "5m"],
+    { capture: true },
+  );
+}
+
 async function session() {
   const repository = await loadRepository("local", await findRoot());
   const runner = new ProcessRunner();
@@ -60,6 +91,11 @@ async function session() {
     [],
     "the platform must be healthy before the spec",
   );
+  // A converged release is skipped (its latest revision's description is the
+  // desired fingerprint), so nothing would upgrade. A same-revision rollback
+  // keeps the content but records a new description, which makes the next
+  // reconcile upgrade the release for real.
+  await makeStale(repository, runner, component.namespace);
   const killing = (inner: Runner) =>
     interruptingRunner(inner, {
       matches: (command, args) =>
