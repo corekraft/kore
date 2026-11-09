@@ -7,6 +7,7 @@ import { assertExpectedCluster } from "../cluster/index.js";
 import type { Runner } from "../runtime/index.js";
 
 export const rotationAnnotation = "platform.kore.dev/rotation-id";
+export const rotatedAtAnnotation = "platform.kore.dev/rotated-at";
 
 async function readLocalToken(tokenPath: string): Promise<string> {
   let token: string;
@@ -99,7 +100,10 @@ async function ensureLocalReferenceSecret(
       name: "reference-app",
       namespace,
       labels: { "platform.kore.dev/secret-source": "true" },
-      annotations: { [rotationAnnotation]: randomBytes(8).toString("hex") },
+      annotations: {
+        [rotationAnnotation]: randomBytes(8).toString("hex"),
+        [rotatedAtAnnotation]: new Date().toISOString(),
+      },
     },
     type: "Opaque",
     data: { API_TOKEN: Buffer.from(token).toString("base64") },

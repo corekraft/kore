@@ -14,9 +14,7 @@ import {
 } from "../platform/index.js";
 import type { Runner } from "../runtime/index.js";
 import { activationLabel } from "../platform/admission-gate.js";
-import { releaseArgs, rotationMarker } from "./release.js";
-
-export { rotationMarker };
+import { releaseArgs } from "./release.js";
 
 async function chart(
   repository: Repository,

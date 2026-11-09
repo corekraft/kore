@@ -105,6 +105,10 @@ test("creating the source records a rotation id that is not the token", async ()
     const id = source?.metadata.annotations?.[rotationAnnotation];
     assert.match(id ?? "", /^[a-f0-9]{16}$/);
     assert.equal(token.includes(id!), false);
+    assert.match(
+      source?.metadata.annotations?.["platform.kore.dev/rotated-at"] ?? "",
+      /^\d{4}-\d\d-\d\dT[\d:.]+Z$/,
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }

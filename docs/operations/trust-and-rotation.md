@@ -57,7 +57,8 @@ documents; plaintext never touches disk or git ([ADR 0009](../decisions/0009-enc
   created once and no other checkout overwrites it ([ADR 0075](../decisions/0075-token-source-has-one-owner-and-rotation-rolls-consumers.md)).
   To rotate, run `kore secrets sync --environment local --rotate --yes`, then
   `kore local up --environment local` so the API pods restart onto the new
-  value.
+  value; kore first waits for External Secrets to materialize the new token and
+  fails naming the ExternalSecret if it cannot.
 - **Other secrets:** edit the `*.enc.yaml` document with `sops`, then run
   `kore secrets sync --environment local`.
 - **SOPS age recipient:** `.sops.yaml` holds the recipient. Replace it, re-encrypt

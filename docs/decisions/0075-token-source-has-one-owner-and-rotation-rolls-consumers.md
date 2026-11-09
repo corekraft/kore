@@ -36,15 +36,25 @@ cluster's current token.
   `platform.kore.dev/secret-version`. A new rotation changes the template, so the
   Deployment rolls onto the new value. The chart does not know about External
   Secrets, and a source without the annotation adds no marker.
+- **The Secret is current before the pods roll.** The source also records
+  `platform.kore.dev/rotated-at`. Before `kore app up` passes a `secretVersion`,
+  it checks the ExternalSecret (`<app>-app`) in the app namespace: if it is not
+  Ready or its `status.refreshTime` is not after the rotation, kore sets the
+  `force-sync` annotation on it (kore owns that, not the chart) and waits,
+  bounded to two minutes, for Ready with a later refresh. The wait reads only
+  annotations and status, never Secret data. On timeout it fails naming the
+  ExternalSecret and its Ready condition, reason and refresh time. A Secret
+  already refreshed after the rotation is not resynced.
 
 ## Consequences
 
 - A checkout whose local token differs from the cluster's no longer changes the
   cluster; the cluster's token is the truth. To recover a cluster already out of
   step, run `kore secrets sync --rotate --yes` then `kore local up`.
-- Rotation completes only on `kore app up`/`kore local up`; the rotate command
-  tells the operator so. The restart can race the External Secrets refresh, which
-  `secrets sync` forces immediately; a rare early restart is cured by rerunning
-  `kore app up` after the Secret syncs.
+- Rotation completes on `kore app up`/`kore local up`; the rotate command tells
+  the operator so. The pods never restart before the materialized Secret holds
+  the new value, so no manual rerun is needed; a Secret that cannot sync fails
+  the run with the ExternalSecret's condition instead of rolling pods onto a
+  stale value.
 - Needs a live run (two checkouts: up from A, up from B, protected route answers
   200 with the cluster token) before this is considered proven.

@@ -11,7 +11,6 @@ import {
   enrollNamespace,
   installResources,
   installWorkload,
-  rotationMarker,
   resolveCharts,
 } from "./install.js";
 import { stageLocalImage } from "./local-image.js";
@@ -19,6 +18,7 @@ import {
   assertApplicationAdmission,
   assertPlatformReady,
   waitForResources,
+  waitForSecretSource,
   waitForRollouts,
 } from "./readiness.js";
 import { verifyImage } from "./verify.js";
@@ -52,7 +52,7 @@ export async function appUp(
   await activateNamespace(repository, runner, name, generation);
   await installResources(repository, runner, name, charts);
   await waitForResources(repository, runner, name);
-  const secretVersion = await rotationMarker(repository, runner, name);
+  const secretVersion = await waitForSecretSource(repository, runner, name);
   await installWorkload(repository, runner, name, charts, {
     image: workloadImage,
     ...(secretVersion ? { secretVersion } : {}),

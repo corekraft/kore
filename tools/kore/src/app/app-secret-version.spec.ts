@@ -34,7 +34,19 @@ function withRotationId(calls: Call[], id: string): Runner {
         args.some((arg) => arg.includes("platform\\.kore\\.dev/rotation-id"))
       ) {
         calls.push({ command, args });
-        return { stdout: id, stderr: "", code: 0 };
+        return {
+          stdout: id ? `${id}|2026-11-09T10:00:00.400Z` : "|",
+          stderr: "",
+          code: 0,
+        };
+      }
+      if (command === "kubectl" && args.includes("externalsecret")) {
+        calls.push({ command, args });
+        return {
+          stdout: "2026-11-09T10:00:05Z|True|SecretSynced",
+          stderr: "",
+          code: 0,
+        };
       }
       return inner.run(command, args, options);
     },
