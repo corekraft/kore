@@ -80,7 +80,7 @@ Each must pass independently before Step 12 begins.
 
 Every unchecked item sits in exactly one class, by what its completion needs.
 Where an item is partly local, the note says which part is. The handoff updates
-this section when items are ticked (as of 2026-11-09: 22 local, 13 managed
+this section when items are ticked (as of 2026-11-09: 21 local, 13 managed
 cluster, 8 release pipeline).
 
 ### Local
@@ -114,10 +114,9 @@ Built and proven on the local Minikube profile (`kore local up`), or offline
   signature-verifier outage, signer rotation (outages and the local key swap pass
   live; interrupted image promotion and the partially closed trust loop are
   untested).
-- Step 15 (4): Add upgrade tests (live upgrade from a previous tag is unwritten);
-  Add backup schedules (local objective and audit-only `backups` row done, ADR
-  0074; no managed target); and two exit criteria: A supported upgrade path
-  passes; Documentation contains no hidden manual remediation.
+- Step 15 (3): Add upgrade tests (spec in PR #116, not yet run live); Add backup
+  schedules (local objective and audit-only `backups` row done, ADR 0074; no
+  managed target); and one exit criterion: A supported upgrade path passes.
 
 ### Managed cluster
 
@@ -230,7 +229,7 @@ claim that the platform is ready.
 
 ## Step 7: Bootstrap Registry, Image Trust, Controllers, and CRD Ownership
 
-Next: Step 7's managed work needs a managed cluster or the protected release pipeline, so start with the 22 local items in "Where each open item can be done". The first is the live upgrade test from the previous tag (Step 15), then promoting constraints one at a time with `kore policy` (Steps 9 and 12). Every PR through #111 is merged and proven on kore-local (2026-11-09 combined batch). `infra/catalog/images.lock.json` still carries a local `local-kore-key` entry, because no release has published an application `images.lock.json` yet (Step 7). Release PR #65 (0.5.0) awaits the user.
+Next: finish proving and landing the open PRs, then tick their items. #115 (gate degradation and interrupt) passed live on scratch branch `live/batch6`. On #118 (constraint compliance) 7 of 8 constraints are at 0 violations live, and kore-rbac's last 2 (`crossplane:masters`) are fixed but unapplied. #119 (probe post-renderer, ADR 0081) is applied live. #114 (promotion, helm-interrupt) and #117 (app-status) had spec fixes pushed after their failures. #116 (upgrade) and #117's clean-machine spec need kore-local stopped (`kore local stop`, data kept) on this 16 GiB host. Scratch branch `live/batch6b` merges all six. Batch 6 was stopped during `resilience`, so `resilience`, `registry`, `policy`, `ops` and `docs` still need a run. On `live/batch6b`, run `kore local up`, check every constraint at 0 violations, then run those five plus `test:integration:` app-status, promotion, helm-interrupt, then clean-machine and upgrade, then land the PRs one at a time. After that, promote the zero-violation constraints one at a time with `kore policy` (retention was rolled back only because the host was overloaded). Release PR #65 (0.5.0) awaits the user.
 
 ### Objective
 
@@ -1131,8 +1130,11 @@ keeping production-only scale and availability work explicitly scoped.
       no live test._
 - [x] Tool and component provenance is reviewable from the repository
       (`ops/inventory.spec.ts`, `kore ops inventory`).
-- [ ] Documentation contains no hidden manual remediation required for normal
-      operation.
+- [x] Documentation contains no hidden manual remediation required for normal
+      operation. _#113: every manual step in docs/operations, docs/guides and the
+      README is a kore command or a bold **Gap** naming its plan item, and
+      `diagnostics/operations-docs.spec.ts` fails on an unmarked kubectl, helm,
+      sops or mkcert mutation._
 - [ ] The first local-platform release is reproducible from a clean checkout.
 
 Production high availability, multi-cluster operation, and organization-specific
