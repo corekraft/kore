@@ -89,8 +89,12 @@ export function healthyReadinessOutput(
   if (args.some((arg) => arg.includes("policy\\.sigstore\\.dev/include"))) {
     return "true"; // the namespace admission label read back after enrollment
   }
+  const daemonSet = healthyDaemonSetOutput(args);
+  if (daemonSet !== undefined) {
+    return daemonSet;
+  }
   if (args.some((arg) => arg.startsWith("go-template="))) {
-    return healthyDaemonSetOutput(args) ?? "ready";
+    return "ready";
   }
   return undefined;
 }

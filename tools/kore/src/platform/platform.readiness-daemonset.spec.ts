@@ -113,3 +113,21 @@ test("a fully ready DaemonSet is ready and a rerun stays read-only", async () =>
     "readiness only reads",
   );
 });
+
+test("the status read uses a kubectl output format, never a template function", async () => {
+  const { repository, component } = await subject();
+  const { runner, calls } = cluster(healthy);
+
+  await readinessFailure(repository, runner, component);
+  const get = calls.find(([, ...args]) => args.includes("get"))!;
+  const output = get.slice(get.indexOf("get"));
+  assert.deepEqual(output.slice(-3), [
+    "daemonset/agent",
+    "--output",
+    "jsonpath={.status}",
+  ]);
+  assert.ok(
+    !get.some((arg) => arg.includes("{{") || arg.startsWith("go-template")),
+    "kubectl go-templates have no json function",
+  );
+});

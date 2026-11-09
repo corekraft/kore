@@ -24,7 +24,8 @@ export function healthyWebhookOutput(
 export function healthyDaemonSetOutput(
   args: readonly string[],
 ): string | undefined {
-  return args.some((arg) => arg.startsWith("daemonset/"))
+  return args.some((arg) => arg.startsWith("daemonset/")) &&
+    args.includes("jsonpath={.status}")
     ? JSON.stringify({
         desiredNumberScheduled: 1,
         numberReady: 1,

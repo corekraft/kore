@@ -10,7 +10,7 @@ import type { Runner } from "../runtime/index.js";
  * targets all nodes; one that must target none would need a catalog
  * declaration, so none passes silently.
  */
-const STATUS_TEMPLATE = "{{json .status}}";
+const STATUS_OUTPUT = "jsonpath={.status}"; // prints the status object as JSON; go-templates have no json function
 
 interface DaemonSetStatus {
   desiredNumberScheduled?: number;
@@ -54,13 +54,7 @@ export function withScheduledPods(
       await rollout.run(timeout);
       const result = await runner.run(
         "kubectl",
-        [
-          ...base,
-          "get",
-          resource,
-          "--output",
-          `go-template=${STATUS_TEMPLATE}`,
-        ],
+        [...base, "get", resource, "--output", STATUS_OUTPUT],
         { capture: true },
       );
       let status: DaemonSetStatus;
