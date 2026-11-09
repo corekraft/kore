@@ -32,6 +32,12 @@ const EXISTENCE_KINDS = [
   "clusterrole/",
   "clusterrolebinding/",
 ];
+/**
+ * `kubectl rollout status` reports a Deployment scaled to zero as rolled out,
+ * so a registry or verifier that is down on purpose or by accident would read
+ * as ready. A Deployment is also required to have an available replica.
+ */
+const AVAILABLE_TEMPLATE = "{{if .status.availableReplicas}}available{{end}}";
 /** Gatekeeper templates and constraints are proven by existing. */
 const GATEKEEPER_OBJECT =
   /^(constrainttemplate\.templates|[a-z0-9]+\.constraints)\.gatekeeper\.sh\//;
@@ -222,12 +228,44 @@ function checkFor(context: Context, resource: string): Check {
       },
     };
   }
-  return nativeCheck(context, "rollout complete", (timeout) => [
+  const rollout = nativeCheck(context, "rollout complete", (timeout) => [
     "rollout",
     "status",
     resource,
     `--timeout=${timeout}`,
   ]);
+  return resource.startsWith("deployment/")
+    ? withAvailableReplica(context, resource, rollout)
+    : rollout;
+}
+
+function withAvailableReplica(
+  { runner, base }: Context,
+  resource: string,
+  rollout: Check,
+): Check {
+  return {
+    condition: "rollout complete and a replica available",
+    run: async (timeout) => {
+      await rollout.run(timeout);
+      const result = await runner.run(
+        "kubectl",
+        [
+          ...base,
+          "get",
+          resource,
+          "--output",
+          `go-template=${AVAILABLE_TEMPLATE}`,
+        ],
+        { capture: true },
+      );
+      if (result.stdout.trim() !== "available") {
+        throw new Error(
+          `${resource} has no available replicas (scaled to zero or none passing readiness)`,
+        );
+      }
+    },
+  };
 }
 
 async function runChecks(

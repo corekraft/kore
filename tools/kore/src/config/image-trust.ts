@@ -4,11 +4,12 @@ import type { Repository } from "./types.js";
 export const imagePolicyComponent = "kore-image-policy";
 
 const githubIssuer = "https://token.actions.githubusercontent.com";
-// The only identity allowed to sign for Kore: a workflow of this repository
-// running on an exact release tag. Anything else (branches, pull requests,
+// The only identity allowed to sign for Kore: the release workflow of this
+// repository running on an exact release tag. Other workflows (checks, builds)
+// never sign. Anything else (branches, pull requests,
 // other repositories) is rejected, and so is every wildcard.
 const exactReleaseSubject =
-  /^https:\/\/github\.com\/corekraft\/kore\/\.github\/workflows\/[A-Za-z0-9._-]+\.ya?ml@refs\/tags\/v\d+\.\d+\.\d+(?:-[A-Za-z0-9.]+)?$/;
+  /^https:\/\/github\.com\/corekraft\/kore\/\.github\/workflows\/release\.yaml@refs\/tags\/v\d+\.\d+\.\d+(?:-[A-Za-z0-9.]+)?$/;
 const forbidden = ["subjectRegExp", "issuerRegExp", "subjectRegexp"];
 
 type Trust = Record<string, unknown>;
@@ -31,7 +32,7 @@ function keylessErrors(trust: Trust): string[] {
       .filter((s) => typeof s !== "string" || !exactReleaseSubject.test(s))
       .map(
         (s) =>
-          `image trust: subject ${String(s)} must be an exact corekraft/kore workflow on a release tag (https://github.com/corekraft/kore/.github/workflows/<file>.yaml@refs/tags/vX.Y.Z); wildcards, branches, and pull requests are not allowed`,
+          `image trust: subject ${String(s)} must be the exact corekraft/kore release workflow on a release tag (https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/vX.Y.Z); wildcards, branches, and pull requests are not allowed`,
       ),
     ...(trust.keyRef === undefined
       ? []

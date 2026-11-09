@@ -1,9 +1,16 @@
 import type { Runner } from "../runtime/index.js";
 
-/** What a healthy cluster answers to a webhook configuration read, if args are one. */
+/**
+ * What a healthy cluster answers to the read-only checks a Deployment and a
+ * webhook configuration are held to, if args are one of them: a Deployment has
+ * an available replica, and no Service-backed webhook is left unready.
+ */
 export function healthyWebhookOutput(
   args: readonly string[],
 ): string | undefined {
+  if (args.some((arg) => arg.includes("availableReplicas"))) {
+    return "available";
+  }
   return args.some((arg) =>
     /^(validating|mutating)webhookconfiguration\//.test(arg),
   )

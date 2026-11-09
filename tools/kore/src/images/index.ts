@@ -21,3 +21,6 @@ export {
 export type { RegistryCredential } from "./registry-auth.js";
 export { withRegistryClient } from "./registry-client.js";
 export { minikubeRegistrySessionArgs, shellQuote } from "./local-image-args.js";
+export { publishedDigest, withPublishSession } from "./local-publish.js";
+export { localSignArgs, minikubeImagePublishArgs } from "./local-image.js";
+export type { RegistryDependencies } from "./registry.js";

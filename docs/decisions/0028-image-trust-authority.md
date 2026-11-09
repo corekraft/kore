@@ -142,3 +142,30 @@ The trust model is unchanged: the signing identity stays the exact
 ## Refinement (2026-11-08): enrollment and mode
 
 [ADR 0032](0032-application-namespace-image-admission.md) supersedes "nothing labels a namespace": `kore app up` enrolls application namespaces, every policy carries the environment `trust.mode` (starting at `warn`), and Kore-placed upstream images have a separate policy.
+
+## Refinement (2026-11-08): denial is proven, and only `release.yaml` signs
+
+The plan's Step 7 exit criterion is that unsigned images and images signed by
+developer, pull-request, build-job, or other unauthorized identities are
+rejected.
+
+- **Only `release.yaml`.** Validation accepted any workflow file of
+  `corekraft/kore` on a release tag (`check.yml` runs in the same repository),
+  though this ADR names `release.yaml` as the only keyless signer. The subject
+  pattern now requires `workflows/release.yaml`. A subject for another workflow,
+  a branch, a pull request, another repository, or a mailbox identity fails
+  `kore validate`.
+- **Offline proof.** A render test (`image-trust-denial.spec.ts`) renders
+  `kore-platform-images` for `managed-example` and asserts the authority is
+  exactly the listed release subjects under the GitHub issuer, with no regexp,
+  and that a tests-only fixture of developer, `refs/heads/*`, `refs/pull/*`,
+  other-repository, and other-workflow identities is admitted by none of them.
+  For `local` the only authority is the key
+  `cosign-system/kore-local-signing-pub`. An opt-in upstream check
+  (`policy-controller-upstream.spec.ts`, `npm run test:upstream-charts`) renders
+  the pinned Policy Controller chart and requires `failurePolicy: Fail` on every
+  webhook.
+- **Live proof (opt-in).** `npm run test:integration:admission` pushes an
+  unsigned copy and a copy signed with a throwaway key into the local registry,
+  and server-dry-runs both in `reference`: both must be denied while the
+  kore-signed image is admitted. Not yet run against a cluster.

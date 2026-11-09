@@ -3,7 +3,34 @@ import { join } from "node:path";
 import type { Repository } from "../config/index.js";
 import { assertExpectedCluster, retainedResources } from "../cluster/index.js";
 import { imageForApplication, loadImageLock } from "../images/index.js";
+import { platformStatus } from "../platform/index.js";
 import type { Runner } from "../runtime/index.js";
+
+/**
+ * The components a new workload needs to be admitted: the registry that serves
+ * the image and its signature, and the Policy Controller webhook that verifies
+ * it. While either is unavailable admission denies new workloads (fail closed),
+ * so app status says so instead of reporting only Helm's view of the release.
+ */
+const admissionComponents = ["oci-registry", "policy-controller"] as const;
+
+async function degradedAdmission(
+  repository: Repository,
+  runner: Runner,
+): Promise<{ component: string; namespace: string; detail: string }[]> {
+  const components = await platformStatus(
+    repository,
+    runner,
+    admissionComponents,
+  );
+  return components
+    .filter(({ status }) => status !== "ready")
+    .map(({ name, namespace, detail }) => ({
+      component: name,
+      namespace,
+      detail,
+    }));
+}
 
 export async function appStatus(
   repository: Repository,
@@ -49,8 +76,11 @@ export async function appStatus(
     ],
     { capture: true },
   );
+  const degraded = await degradedAdmission(repository, runner);
   return {
     name,
+    status: degraded.length ? "degraded" : "ready",
+    degraded,
     image,
     resources: JSON.parse(resources.stdout),
     workload: JSON.parse(workload.stdout),
