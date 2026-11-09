@@ -146,6 +146,63 @@ export async function activateNamespace(
 }
 
 /**
+ * Crossplane composes a claim's connection Secret in the claim's namespace, so
+ * it gets the kore-owned `crossplane-postgresql-secrets` ClusterRole through a
+ * RoleBinding in each application namespace and nowhere else (ADR 0061). The
+ * namespace must already exist; platform namespaces, kore-system above all,
+ * are refused so Crossplane can never read the local signing key.
+ */
+export async function bindCrossplaneSecrets(
+  repository: Repository,
+  runner: Runner,
+  namespace: string,
+): Promise<void> {
+  const platform = new Set([
+    "kore-system",
+    "kube-system",
+    ...repository.catalog.components.map((component) => component.namespace),
+  ]);
+  if (platform.has(namespace)) {
+    throw new Error(
+      `refusing to grant Crossplane Secret access in platform namespace ${namespace}; only application namespaces are bound`,
+    );
+  }
+  await runner.run(
+    "kubectl",
+    [
+      "--context",
+      repository.environment.kubeContext,
+      "apply",
+      "--server-side",
+      "--field-manager=kore-app",
+      "--force-conflicts",
+      "--filename",
+      "-",
+    ],
+    {
+      capture: true,
+      input: JSON.stringify({
+        apiVersion: "rbac.authorization.k8s.io/v1",
+        kind: "RoleBinding",
+        metadata: { name: "crossplane-postgresql-secrets", namespace },
+        roleRef: {
+          apiGroup: "rbac.authorization.k8s.io",
+          kind: "ClusterRole",
+          name: "crossplane-postgresql-secrets",
+        },
+        subjects: [
+          {
+            kind: "ServiceAccount",
+            name: "crossplane",
+            namespace: "crossplane-system",
+          },
+        ],
+      }),
+    },
+  );
+}
+
+/**
  * Policy Controller reads an image's signatures with the Secret that the
  * kore-platform-images authority names in `source.signaturePullSecrets`, looked
  * up in the namespace of the workload being admitted and with no ServiceAccount

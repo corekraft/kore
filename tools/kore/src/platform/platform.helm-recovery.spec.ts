@@ -6,8 +6,16 @@ import { CommandError, type Runner } from "../runtime/index.js";
 import type { RunOptions, RunResult } from "../runtime/runner.js";
 import { reconcileComponent, recoverUndeployedRelease } from "./reconcile.js";
 
+const notFound = () =>
+  new CommandError("helm", ["history"], {
+    stdout: "",
+    stderr: "Error: release: not found",
+    code: 1,
+  });
+
 class HelmHistoryRunner implements Runner {
   calls: { command: string; args: readonly string[] }[] = [];
+  private uninstalled = false;
   constructor(private readonly history: RunResult | Error) {}
   async run(
     command: string,
@@ -15,7 +23,13 @@ class HelmHistoryRunner implements Runner {
     _options?: RunOptions,
   ): Promise<RunResult> {
     this.calls.push({ command, args });
+    if (args[0] === "uninstall") {
+      this.uninstalled = true;
+    }
     if (args[0] === "history") {
+      if (this.uninstalled) {
+        throw notFound();
+      }
       if (this.history instanceof Error) {
         throw this.history;
       }
@@ -110,6 +124,7 @@ test("any other helm history failure is rethrown, not treated as a missing relea
 class InterruptedInstallRunner implements Runner {
   calls: string[] = [];
   private upgrades = 0;
+  private uninstalled = false;
   constructor(
     private readonly failure: string,
     private readonly history = "uninstalling",
@@ -123,7 +138,13 @@ class InterruptedInstallRunner implements Runner {
         code: 1,
       });
     }
+    if (command === "helm" && args[0] === "uninstall") {
+      this.uninstalled = true;
+    }
     if (command === "helm" && args[0] === "history") {
+      if (this.uninstalled) {
+        throw notFound();
+      }
       return ok([{ revision: 1, status: this.history }]);
     }
     return { stdout: healthyWebhookOutput(args) ?? "", stderr: "", code: 0 };
@@ -141,7 +162,13 @@ for (const failure of [
     await reconcileComponent(repository, runner, component);
     assert.deepEqual(
       runner.calls.filter((call) => call.startsWith("helm")),
-      ["helm upgrade", "helm history", "helm uninstall", "helm upgrade"],
+      [
+        "helm upgrade",
+        "helm history",
+        "helm uninstall",
+        "helm history",
+        "helm upgrade",
+      ],
     );
   });
 }

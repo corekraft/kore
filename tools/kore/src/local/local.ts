@@ -1,7 +1,7 @@
 import type { Repository } from "../config/index.js";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { appUp } from "../app/index.js";
+import { appUp, type AppUpOptions } from "../app/index.js";
 import {
   loadImageLock,
   type ImageLockEntry,
@@ -26,7 +26,7 @@ export interface LocalLifecycleDependencies {
     runner: Runner,
     name: string,
     image?: LockedImage,
-    publicKey?: string,
+    options?: AppUpOptions,
   ) => Promise<void>;
   buildImage?: (
     repository: Repository,
@@ -97,7 +97,7 @@ export async function localUp(
       runner,
       application,
       built.image,
-      built.publicKey,
+      { publicKey: built.publicKey },
     );
   }
 }

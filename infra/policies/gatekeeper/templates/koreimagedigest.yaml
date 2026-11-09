@@ -1,0 +1,33 @@
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata: {name: koreimagedigest}
+spec:
+  crd:
+    spec:
+      names: {kind: KoreImageDigest}
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties: {exemptNamespaces: {type: array, items: {type: string}}}
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package kore.imagedigest
+        import future.keywords.in
+        exempt { input.review.object.metadata.namespace in input.parameters.exemptNamespaces }
+        podspec = input.review.object.spec { input.review.kind.kind == "Pod" }
+        podspec = input.review.object.spec.template.spec { input.review.kind.kind in {"Deployment", "StatefulSet", "DaemonSet", "Job"} }
+        podspec = input.review.object.spec.jobTemplate.spec.template.spec { input.review.kind.kind == "CronJob" }
+        pinned(image) { regex.match("@sha256:[a-f0-9]{64}$", image) }
+        violation[{"msg": msg}] {
+          not exempt
+          container := podspec.containers[_]
+          not pinned(container.image)
+          msg := sprintf("container %s image %s must be pinned by digest (@sha256:...)", [container.name, container.image])
+        }
+        violation[{"msg": msg}] {
+          not exempt
+          container := podspec.initContainers[_]
+          not pinned(container.image)
+          msg := sprintf("initContainer %s image %s must be pinned by digest (@sha256:...)", [container.name, container.image])
+        }

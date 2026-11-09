@@ -1,0 +1,10 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: img-init-tag-only, namespace: app}
+spec:
+  template:
+    spec:
+      initContainers:
+        - {name: migrate, image: "registry.example/migrate:latest"}
+      containers:
+        - {name: app, image: "registry.example/app@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
