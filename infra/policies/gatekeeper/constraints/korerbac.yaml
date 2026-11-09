@@ -63,4 +63,7 @@ spec:
       - "system:controller:generic-garbage-collector"
       - "system:controller:namespace-controller"
       - "system:controller:resourcequota-controller"
+    # Crossplane's connection-Secret ClusterRole is a permission set bound only by RoleBinding
+    # in application namespaces (ADR 0061); cluster-wide bindings of it are refused.
+    namespaceBoundSecretRoles: [crossplane-postgresql-secrets]
     bootstrapGroups: ["kore:bootstrap"]
