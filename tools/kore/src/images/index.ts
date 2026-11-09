@@ -7,7 +7,11 @@ export { renderedImages, unapprovedImages } from "./rendered-images.js";
 export { buildAndSignLocalImage } from "./local-image.js";
 export type { BuiltLocalImage } from "./local-image.js";
 export { localRegistryReference, stopRegistryForward } from "./registry.js";
-export { ensureLocalSigningPublicKey } from "./local-signer.js";
+export {
+  ensureLocalSigningPublicKey,
+  swapLocalSigningKey,
+  withLocalSigner,
+} from "./local-signer.js";
 export { verifiedRegistryAddress } from "./registry-service.js";
 export {
   ensureRegistryAuth,

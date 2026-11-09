@@ -15,7 +15,7 @@ export {
   renderedCrdNames,
 } from "./crd-ownership.js";
 export type { CrdClaims, CrdOwnership } from "./crd-ownership.js";
-export { noMatchPolicy, trustedSigners } from "./image-trust.js";
+export { localSigner, noMatchPolicy, trustedSigners } from "./image-trust.js";
 export {
   auditEvidence,
   evaluateAudit,

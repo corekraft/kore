@@ -16,6 +16,7 @@ Usage:
   kore tunnel start|stop --environment local
   kore tunnel status [--environment local] [--json]
   kore registry rotate-credentials --environment <name> --yes [--json]
+  kore signer swap-key --environment local --yes [--json]
   kore secrets sync --environment local
   kore trust install --environment local
   kore journal [--environment <name>] [--limit <n>] [--json]
@@ -48,6 +49,12 @@ Admission keeps reading signatures throughout (the proxy accepts the old and new
 read identity until the pull Secrets are replaced); afterwards the old
 passwords get 401. It prints no secret, requires --yes, and is safe to rerun
 after a failure.
+
+"signer swap-key" replaces the local cosign key pair and republishes only the
+public key to Policy Controller. Images signed with the old key are denied
+afterwards until they are signed again (kore app up signs again); the old key is
+never trusted alongside the new one. Local key authority only; a managed
+environment refuses. It requires --yes and is safe to rerun after a failure.
 
 "trust install" runs "mkcert -install" (which may prompt for your password)
 only when the mkcert CA is not already trusted on the host; on macOS it skips

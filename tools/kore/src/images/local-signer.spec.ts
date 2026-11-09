@@ -8,6 +8,7 @@ import {
   ensureLocalSigningPublicKey,
   localSigningPublicNamespace,
   localSigningPublicSecret,
+  swapLocalSigningKey,
 } from "./local-signer.js";
 
 const roots: string[] = [];
@@ -120,4 +121,104 @@ test("the key pair is ensured before the public Secret is applied", async () => 
   });
   expect(names.indexOf("check-key")).toBeGreaterThanOrEqual(0);
   expect(names.indexOf("check-key")).toBeLessThan(names.indexOf("apply"));
+});
+
+// A stateful fake cluster: one private key Secret, one public Secret.
+async function swapSetup() {
+  const { repository, calls } = await setup();
+  const state = { privateKey: "OLD", published: "" };
+  const runner: Runner = {
+    async run(command, args, options): Promise<RunResult> {
+      calls.push({ command, args, ...(options ? { options } : {}) });
+      let stdout = "";
+      if (command === "kubectl" && args.includes("config")) {
+        stdout = kubeconfig;
+      } else if (command === "kubectl" && args.includes("delete")) {
+        state.privateKey = "";
+      } else if (command === "cosign") {
+        state.privateKey = "NEW";
+      } else if (args.includes("--output=name")) {
+        stdout = state.privateKey ? "secret/kore-local-signing-key\n" : "";
+      } else if (args.some((a) => a.startsWith("--output=jsonpath={.data"))) {
+        stdout = Buffer.from(`PUBLIC-${state.privateKey}`).toString("base64");
+      } else if (args.includes("apply")) {
+        const secret = JSON.parse(options?.input ?? "{}");
+        state.published = Buffer.from(
+          secret.data["cosign.pub"],
+          "base64",
+        ).toString();
+      }
+      return { stdout, stderr: "", code: 0 };
+    },
+  };
+  state.published = "PUBLIC-OLD";
+  return { repository, runner, calls, state };
+}
+
+test("swapping the signing key publishes the new public key and the old one is no longer trusted", async () => {
+  const { repository, runner, state } = await swapSetup();
+
+  await swapLocalSigningKey(repository, runner, { yes: true });
+
+  expect(state.published).toBe("PUBLIC-NEW");
+  expect(state.privateKey).toBe("NEW");
+});
+
+test("the old private key is deleted before the new pair is generated, and the public Secret is applied last", async () => {
+  const { repository, runner, calls } = await swapSetup();
+
+  await swapLocalSigningKey(repository, runner, { yes: true });
+
+  const label = ({ command, args }: Call): string[] => {
+    if (command === "cosign") {
+      return ["generate"];
+    }
+    if (args.includes("delete")) {
+      return ["delete"];
+    }
+    return args.includes("apply") ? ["apply"] : [];
+  };
+  const steps = calls.flatMap(label);
+  expect(steps).toEqual(["delete", "generate", "apply"]);
+  const remove = calls.find(({ args }) => args.includes("delete"))!;
+  expect(remove.args).toEqual([
+    "--context",
+    "kore-local",
+    "--namespace",
+    "kore-system",
+    "delete",
+    "secret",
+    "kore-local-signing-key",
+    "--ignore-not-found",
+  ]);
+});
+
+test("swapping without --yes refuses and touches nothing", async () => {
+  const { repository, runner, calls } = await swapSetup();
+
+  await expect(
+    swapLocalSigningKey(repository, runner, { yes: false }),
+  ).rejects.toThrow(/--yes/);
+  expect(calls).toEqual([]);
+});
+
+test("a managed environment refuses a key swap because it never trusts the local key", async () => {
+  const { runner, calls } = await swapSetup();
+  const managed = await loadRepository("managed-example");
+
+  await expect(
+    swapLocalSigningKey(managed, runner, { yes: true }),
+  ).rejects.toThrow(/local/);
+  expect(calls).toEqual([]);
+});
+
+test("no private key material is read or streamed while swapping", async () => {
+  const { repository, runner, calls } = await swapSetup();
+
+  await swapLocalSigningKey(repository, runner, { yes: true });
+
+  for (const call of calls) {
+    const text = [...call.args, call.options?.input ?? ""].join(" ");
+    expect(text).not.toMatch(/cosign\.key|cosign\.password|-o yaml/);
+  }
 });

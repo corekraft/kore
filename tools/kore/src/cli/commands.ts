@@ -8,6 +8,7 @@ import { opsCommand } from "./commands-ops.js";
 import {
   localCommand,
   registryCommand,
+  signerCommand,
   secretsCommand,
   trustCommand,
   tunnelCommand,
@@ -44,6 +45,7 @@ export const COMMANDS: ReadonlyMap<string, CommandSpec> = new Map<
   ["data", { mutations: ["export", "restore"], run: dataCommand }],
   ["app", { mutations: ["up", "down"], run: appCommand }],
   ["local", { mutations: ["up", "down"], run: localCommand }],
+  ["signer", { mutations: ["swap-key"], run: signerCommand }],
   ["registry", { mutations: ["rotate-credentials"], run: registryCommand }],
   ["tunnel", { mutations: ["start", "stop"], run: tunnelCommand }],
   // Every secrets and trust action mutates, so each one needs --environment.

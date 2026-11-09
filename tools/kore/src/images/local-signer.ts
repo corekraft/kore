@@ -1,6 +1,7 @@
 import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { localSigner, trustedSigners } from "../config/index.js";
 import type { Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 
@@ -206,4 +207,46 @@ export async function withLocalSigner<T>(
       env,
     });
   });
+}
+
+/**
+ * Replaces the local signing key pair (ADR 0028's key authority, swapped in
+ * place). The old private key Secret is deleted first, then the normal path
+ * generates a new pair and republishes the public-key-only Secret, so the old
+ * public key stops being trusted the moment the new one is applied. Images
+ * signed with the old key are denied afterwards and must be signed again.
+ * Rerunning after a failure recovers: a missing private key is regenerated
+ * and the public Secret is rewritten from whatever key the cluster holds.
+ * Only the local environment trusts the local key; others refuse.
+ */
+export async function swapLocalSigningKey(
+  repository: Repository,
+  runner: Runner,
+  options: { yes: boolean },
+): Promise<void> {
+  if (!trustedSigners(repository).includes(localSigner)) {
+    throw new Error(
+      `environment ${repository.environment.name} does not trust the local signing key; a key swap applies only to a local key authority. Rotate a managed signer through its release pipeline`,
+    );
+  }
+  if (!options.yes) {
+    throw new Error(
+      "swapping the local signing key makes every image signed with the old key fail admission until it is signed again, and requires --yes",
+    );
+  }
+  await runner.run(
+    "kubectl",
+    [
+      "--context",
+      repository.environment.kubeContext,
+      "--namespace",
+      localSigningKeyNamespace,
+      "delete",
+      "secret",
+      localSigningKeySecret,
+      "--ignore-not-found",
+    ],
+    { capture: true },
+  );
+  await ensureLocalSigningPublicKey(repository, runner);
 }
