@@ -2,6 +2,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, expect, test, vi } from "vitest";
+
+// Enrollment is covered in enrollment.spec.ts and platform.enrollment-order.spec.ts.
+vi.mock("./enrollment.js", () => ({
+  enrollPlatformNamespaces: async () => undefined,
+}));
 import { loadRepository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 
