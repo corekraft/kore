@@ -2,7 +2,7 @@
 status: accepted
 summary: OPA gets the authenticated source principal from an x-forwarded-client-cert header that the Istio 1.31 ambient waypoint synthesizes from ztunnel's peer identity (opt-in Gateway annotation), and the Rego requires it; platform controller namespaces are exempt from the container-security constraint by name.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-09
 ---
 
 # ADR 0066: Peer identity reaches OPA through XFCC; platform namespaces are exempt from container security
@@ -60,3 +60,9 @@ Promotion evidence for container security means zero violations in what the
 constraint covers, not in third-party controllers. Giving those charts
 resource requests and probes through pinned values is a separate change that
 needs its own live proof, and would allow shrinking the exemption list.
+
+The first live rerun found no OPA decision, not a fail-open route. The mesh
+provider `opa-authorizer` (`failOpen: false`) matches the `CUSTOM` policy and
+the waypoint is unchanged; the authorizer runs two replicas and the spec read
+the logs of only one pod. The specs now read every replica and assert the
+protected request without a valid principal is denied with 403.

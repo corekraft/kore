@@ -54,6 +54,19 @@ export const opaNamespace = (repository: Repository): string =>
   repository.catalog.components.find((c) => c.name === "opa-authorizer")
     ?.namespace ?? "opa-system";
 
+// The authorizer runs several replicas and the protected request lands on any of
+// them, so decision logs are read from all pods. A selector also defaults to the
+// last 10 lines per pod, so the tail is unbounded. ADR 0066.
+export const decisionLogArguments = (opaNamespaceName: string): string[] => [
+  "--namespace",
+  opaNamespaceName,
+  "logs",
+  "--selector=app.kubernetes.io/name=opa-authorizer",
+  "--max-log-requests=10",
+  "--tail=-1",
+  "--since=2m",
+];
+
 export async function viaGateway(
   repository: Repository,
   runner: Runner,

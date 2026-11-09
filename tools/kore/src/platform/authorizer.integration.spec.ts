@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  decisionLogArguments,
   fakeCredential,
   live,
   opaNamespace,
@@ -17,20 +18,18 @@ test(
   live,
   async () => {
     const { repository, runner } = await setup();
-    await viaGateway(
+    const status = await viaGateway(
       repository,
       runner,
       "/api/protected",
       `Bearer ${fakeCredential}`,
     );
+    // A request with no valid principal or role must be denied, never allowed.
+    assert.equal(status, 403, "the protected request must be denied by OPA");
     const logs = await read(
       repository,
       runner,
-      "--namespace",
-      opaNamespace(repository),
-      "logs",
-      "deployment/opa-authorizer",
-      "--since=2m",
+      ...decisionLogArguments(opaNamespace(repository)),
     );
     const decisions = logs
       .split("\n")
@@ -75,11 +74,7 @@ test(
     const logs = await read(
       repository,
       runner,
-      "--namespace",
-      opaNamespace(repository),
-      "logs",
-      "deployment/opa-authorizer",
-      "--since=2m",
+      ...decisionLogArguments(opaNamespace(repository)),
     );
     assert.match(logs, /"result":false/, "the denial must be logged");
     assert.doesNotMatch(
