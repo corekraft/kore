@@ -542,6 +542,7 @@
           [
             "koreapplicationadmission.constraints.gatekeeper.sh",
             "korecontainersecurity.constraints.gatekeeper.sh",
+            "koreimagedigest.constraints.gatekeeper.sh",
             "koremeshenrollment.constraints.gatekeeper.sh",
             "korerbac.constraints.gatekeeper.sh",
             "koreretention.constraints.gatekeeper.sh",
@@ -555,6 +556,7 @@
           [
             "constrainttemplate.templates.gatekeeper.sh/koreapplicationadmission",
             "constrainttemplate.templates.gatekeeper.sh/korecontainersecurity",
+            "constrainttemplate.templates.gatekeeper.sh/koreimagedigest",
             "constrainttemplate.templates.gatekeeper.sh/koremeshenrollment",
             "constrainttemplate.templates.gatekeeper.sh/korerbac",
             "constrainttemplate.templates.gatekeeper.sh/koreretention",
@@ -562,6 +564,7 @@
             "constrainttemplate.templates.gatekeeper.sh/koreworkloadidentity",
             "crd/koreapplicationadmission.constraints.gatekeeper.sh",
             "crd/korecontainersecurity.constraints.gatekeeper.sh",
+            "crd/koreimagedigest.constraints.gatekeeper.sh",
             "crd/koremeshenrollment.constraints.gatekeeper.sh",
             "crd/korerbac.constraints.gatekeeper.sh",
             "crd/koreretention.constraints.gatekeeper.sh",
@@ -582,6 +585,7 @@
         "readiness":
           [
             "korecontainersecurity.constraints.gatekeeper.sh/kore-container-security",
+            "koreimagedigest.constraints.gatekeeper.sh/kore-image-digest",
             "koremeshenrollment.constraints.gatekeeper.sh/kore-mesh-enrollment",
             "korerbac.constraints.gatekeeper.sh/kore-rbac",
             "koreretention.constraints.gatekeeper.sh/kore-retention",
