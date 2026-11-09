@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import type { loadRepository } from "../config/index.js";
 import type { ProcessRunner } from "../runtime/index.js";
+import { readReferenceApiToken } from "./reference-token.js";
 
 type Repository = Awaited<ReturnType<typeof loadRepository>>;
 type HttpResult = { status: number; body: string };
@@ -96,12 +95,7 @@ export async function assertReferenceSmoke(
   repository: Repository,
   runner: ProcessRunner,
 ): Promise<void> {
-  const token = (
-    await readFile(
-      join(repository.root, ".kore/state/reference-api-token"),
-      "utf8",
-    )
-  ).trim();
+  const token = await readReferenceApiToken(repository, runner);
   await assertStrictMtls(repository, runner);
   const request = gatewayRequester(repository, runner);
   await assertHealthEndpoints(request);
