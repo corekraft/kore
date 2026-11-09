@@ -17,6 +17,15 @@ spec:
       port: {{ .Values.service.port }}
       targetPort: registry
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: oci-registry
+  namespace: {{ .Release.Namespace }}
+  labels: {app.kubernetes.io/name: oci-registry, app.kubernetes.io/managed-by: Helm}
+# Neither the registry nor the proxy calls the Kubernetes API.
+automountServiceAccountToken: false
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -31,7 +40,8 @@ spec:
     metadata:
       labels: {app.kubernetes.io/name: oci-registry}
     spec:
-      serviceAccountName: default
+      serviceAccountName: oci-registry
+      automountServiceAccountToken: false
       containers:
         # The registry listens on loopback only; the proxy is the sole way in
         # and enforces who may read and who may write (ADR 0034).

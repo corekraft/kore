@@ -1,4 +1,4 @@
-import { expect, test, vi } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 
 const localRegistryReferenceMock = vi.hoisted(() => vi.fn());
 vi.mock("../images/index.js", async (importOriginal) => ({
@@ -6,19 +6,21 @@ vi.mock("../images/index.js", async (importOriginal) => ({
   localRegistryReference: localRegistryReferenceMock,
 }));
 import { loadRepository } from "../config/index.js";
-import { appUp } from "./up.js";
+import { appUp, appUpRelease } from "./up.js";
+
+afterEach(removeReleaseLocks);
 import {
   healthyReadinessOutput,
   healthyRunner,
   lockedImage,
   passthroughRegistry,
   releaseNotFound,
+  releaseSigner,
+  removeReleaseLocks,
+  writeReleaseLock,
   type Call,
 } from "./app-fixtures.js";
 import type { RunOptions, RunResult, Runner } from "../runtime/index.js";
-
-const releaseSigner =
-  "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.4.0";
 
 class UnreadyPlatformRunner implements Runner {
   calls: string[] = [];
@@ -46,9 +48,14 @@ test("app up stops before installing resources when the platform is not ready", 
   const repository = await loadRepository("local");
   const runner = new UnreadyPlatformRunner();
 
-  await expect(appUp(repository, runner, "reference")).rejects.toThrow(
-    /platform.*ready|missing/i,
-  );
+  await expect(
+    appUpRelease(
+      repository,
+      runner,
+      "reference",
+      await writeReleaseLock(repository.root),
+    ),
+  ).rejects.toThrow(/platform.*ready|missing/i);
   expect(runner.calls.some((call) => call.includes(" upgrade "))).toBe(false);
 });
 
@@ -181,11 +188,11 @@ test("app up verifies keylessly against the locked signer when the image is not 
   const calls: Call[] = [];
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
 
-  await appUp(
+  await appUpRelease(
     repository,
     healthyRunner(calls),
     "reference",
-    lockedImage(releaseSigner),
+    await writeReleaseLock(repository.root),
   );
 
   const verify = calls.find((c) => c.command === "cosign");
@@ -255,11 +262,11 @@ test("app up on a managed provider deploys the locked reference without staging"
   const calls: Call[] = [];
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
 
-  await appUp(
+  await appUpRelease(
     repository,
     healthyRunner(calls),
     "reference",
-    lockedImage(releaseSigner),
+    await writeReleaseLock(repository.root),
   );
 
   expect(

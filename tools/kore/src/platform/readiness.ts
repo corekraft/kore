@@ -1,7 +1,7 @@
 import type { Component, Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { errorMessage } from "./probe.js";
-import { waitForGateway } from "./readiness-gateway.js";
+import { gatewayCheck } from "./readiness-gateway.js";
 import { assertIssuerReady, trustRemedy } from "./readiness-issuer.js";
 import {
   NOT_YET_THERE,
@@ -193,12 +193,9 @@ function checkFor(context: Context, resource: string): Check {
   if (WEBHOOK_CONFIGURATION.test(resource)) {
     return webhookCheck(context, resource);
   }
-  if (resource.startsWith("gateway/")) {
-    return {
-      condition: "Accepted, LoadBalancer address, Programmed, ResolvedRefs",
-      run: (timeout) =>
-        waitForGateway(context.runner, context.base, resource, timeout),
-    };
+  const network = gatewayCheck(context.runner, context.base, resource);
+  if (network) {
+    return network;
   }
   if (
     GATEKEEPER_OBJECT.test(resource) ||
