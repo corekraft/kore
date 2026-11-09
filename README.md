@@ -7,7 +7,8 @@ Helm, kubectl, OpenTofu, and Kubernetes controllers without taking ownership of
 their reconciliation loops.
 
 For the plans, decisions, and reference files behind this, start at
-[`docs/index.md`](docs/index.md).
+[`docs/index.md`](docs/index.md). To run the platform, start with the
+[operator guide](docs/guides/operator.md).
 
 ## Quick start
 

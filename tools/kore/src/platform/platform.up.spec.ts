@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 
+// Enrollment is covered in enrollment.spec.ts and platform.enrollment-order.spec.ts.
+vi.mock("./enrollment.js", () => ({
+  enrollPlatformNamespaces: async () => undefined,
+}));
+
 // Publishing the signing key is covered in platform.signing-key.spec.ts.
 vi.mock("../images/index.js", () => ({
   ensureLocalSigningPublicKey: async () => undefined,

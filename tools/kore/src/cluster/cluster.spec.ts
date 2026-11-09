@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "vitest";
+import { expect, test } from "vitest";
 import {
   assertExpectedCluster,
   clusterDestroy,
@@ -9,7 +9,7 @@ import {
   clusterStop,
 } from "./cluster.js";
 import { loadRepository } from "../config/index.js";
-import { RecordingRunner } from "../runtime/runner.js";
+import { CommandError, RecordingRunner } from "../runtime/runner.js";
 
 test("cluster start command pins profile, context inputs, runtime, and resources", async () => {
   const repository = await loadRepository("local");
@@ -167,6 +167,8 @@ test("cluster up starts the configured profile then validates its context", asyn
   const repository = await loadRepository("local");
   const runner = new RecordingRunner([
     { stdout: "", stderr: "", code: 0 },
+    { stdout: "ok", stderr: "", code: 0 },
+    { stdout: "kore-local=True\n", stderr: "", code: 0 },
     { stdout: '{"Host":"Running"}', stderr: "", code: 0 },
     { stdout: "kube-system", stderr: "", code: 0 },
   ]);
@@ -223,4 +225,85 @@ test("expected-cluster validation rejects a context pointing at another cluster"
     assertExpectedCluster(repository, runner),
     /did not identify the expected cluster/,
   );
+});
+
+test("cluster up waits for the API server and node before returning", async () => {
+  const repository = await loadRepository("local");
+  const calls: string[] = [];
+  let readyz = 0;
+  const runner = {
+    async run(command: string, args: readonly string[]) {
+      calls.push(`${command} ${args.join(" ")}`);
+      if (args.includes("--raw")) {
+        if (++readyz < 3) {
+          throw new CommandError(command, args, {
+            stdout: "",
+            stderr: "connection refused",
+            code: 1,
+          });
+        }
+        return { stdout: "ok", stderr: "", code: 0 };
+      }
+      if (args.some((arg) => arg.startsWith("jsonpath={range"))) {
+        return { stdout: "kore-local=True\n", stderr: "", code: 0 };
+      }
+      return { stdout: "kube-system", stderr: "", code: 0 };
+    },
+  };
+  await clusterUp(repository, runner, { sleep: async () => undefined });
+  const start = calls.findIndex((c) => c.startsWith("minikube start"));
+  const raw = calls.filter((c) => c.includes("get --raw /readyz"));
+  expect(raw).toHaveLength(3);
+  expect(raw[0]).toContain("--context kore-local");
+  expect(calls.findIndex((c) => c.includes("--raw"))).toBeGreaterThan(start);
+  const nodes = calls.findIndex((c) => c.includes("jsonpath={range"));
+  const assertNs = calls.findIndex((c) => c.includes("jsonpath={.metadata"));
+  expect(nodes).toBeGreaterThan(calls.lastIndexOf(raw[2] as string));
+  expect(assertNs).toBeGreaterThan(nodes);
+});
+
+test("cluster up times out naming the API server when readyz never passes", async () => {
+  const repository = await loadRepository("local");
+  let now = 0;
+  const runner = {
+    async run(command: string, args: readonly string[]) {
+      if (command === "kubectl") {
+        throw new CommandError(command, args, {
+          stdout: "",
+          stderr: "connection refused",
+          code: 1,
+        });
+      }
+      return { stdout: "", stderr: "", code: 0 };
+    },
+  };
+  await expect(
+    clusterUp(repository, runner, {
+      timeoutMs: 10_000,
+      now: () => now,
+      sleep: async (ms) => void (now += ms),
+    }),
+  ).rejects.toThrow(
+    /cluster kore-local.*API server \(\/readyz\).*connection refused/s,
+  );
+});
+
+test("cluster up times out naming the node that is not Ready", async () => {
+  const repository = await loadRepository("local");
+  let now = 0;
+  const runner = {
+    async run(_command: string, args: readonly string[]) {
+      if (args.some((arg) => arg.startsWith("jsonpath={range"))) {
+        return { stdout: "kore-local=False\n", stderr: "", code: 0 };
+      }
+      return { stdout: "ok", stderr: "", code: 0 };
+    },
+  };
+  await expect(
+    clusterUp(repository, runner, {
+      timeoutMs: 10_000,
+      now: () => now,
+      sleep: async (ms) => void (now += ms),
+    }),
+  ).rejects.toThrow(/node kore-local is not Ready/);
 });
