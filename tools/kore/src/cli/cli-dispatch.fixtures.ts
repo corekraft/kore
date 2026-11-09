@@ -68,6 +68,7 @@ export const diagnosticsModule = () => ({
 
 export const runtimeModule = () => ({
   ProcessRunner: class {},
+  withTransientRetry: (runner: unknown) => runner,
   readJournal: vi.fn(async () => (dispatch.push("readJournal"), [])),
   summarizeOperations: vi.fn(() => [
     {
@@ -116,6 +117,9 @@ export const securityModule = () => ({
 });
 
 export const tunnelModule = () => ({
+  ensureLocalTunnel: vi.fn(
+    async () => (dispatch.push("ensureLocalTunnel"), { status: "running" }),
+  ),
   startLocalTunnel: vi.fn(
     async () => (dispatch.push("startLocalTunnel"), { status: "running" }),
   ),

@@ -1,4 +1,7 @@
-import { healthyWebhookOutput } from "./webhook-fixtures.js";
+import {
+  healthyDaemonSetOutput,
+  healthyWebhookOutput,
+} from "./webhook-fixtures.js";
 
 /** A programmed Gateway with an address and resolved listeners. */
 export function healthyGatewayOutput(
@@ -24,5 +27,10 @@ export function healthyGatewayOutput(
 
 /** What a healthy cluster answers to any read-only readiness check, if args are one. */
 export function healthyClusterOutput(args: readonly string[]): string {
-  return healthyGatewayOutput(args) ?? healthyWebhookOutput(args) ?? "ready";
+  return (
+    healthyGatewayOutput(args) ??
+    healthyDaemonSetOutput(args) ??
+    healthyWebhookOutput(args) ??
+    "ready"
+  );
 }

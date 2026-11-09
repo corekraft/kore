@@ -40,7 +40,10 @@
       "type": "string",
       "pattern": "^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?(:\\d{1,5})?(/[a-z0-9._-]+)+$"
     },
-    "imageInventory": { "enum": ["audit", "enforce"] },
+    "imageInventory": {
+      "enum": ["audit", "enforce"],
+      "description": "Inventory mode and enrollment rule (ADR 0056): enforce labels every catalog platform namespace except enrollmentExemptions with policy.sigstore.dev/include before the inventory runs; audit labels none."
+    },
     "enrollmentExemptions": {
       "type": "object",
       "additionalProperties": { "type": "string", "minLength": 1 }

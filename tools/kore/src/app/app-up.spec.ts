@@ -95,7 +95,9 @@ test("app up verifies, installs, and waits for every workload deployment", async
   };
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
 
-  await appUp(repository, runner, "reference", image, "/tmp/kore.pub");
+  await appUp(repository, runner, "reference", image, {
+    publicKey: "/tmp/kore.pub",
+  });
 
   expect(
     calls.some(
@@ -134,13 +136,9 @@ test("app up fails before staging or installing when the local registry has no C
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
 
   await expect(
-    appUp(
-      repository,
-      healthyRunner(calls, "  "),
-      "reference",
-      lockedImage(),
-      "/tmp/kore.pub",
-    ),
+    appUp(repository, healthyRunner(calls, "  "), "reference", lockedImage(), {
+      publicKey: "/tmp/kore.pub",
+    }),
   ).rejects.toThrow(/no ClusterIP/);
   expect(
     calls.some((c) => c.command === "minikube" && c.args[0] === "ssh"),
@@ -159,7 +157,9 @@ test("app up does not install anything when image verification fails", async () 
   );
 
   await expect(
-    appUp(repository, runner, "reference", lockedImage(), "/tmp/kore.pub"),
+    appUp(repository, runner, "reference", lockedImage(), {
+      publicKey: "/tmp/kore.pub",
+    }),
   ).rejects.toThrow(/cosign failed/);
   expect(
     calls.some((c) => c.command === "minikube" && c.args[0] === "ssh"),
@@ -191,13 +191,9 @@ test("app up verifies the registry-resolved reference but deploys the staged clu
     async () => "127.0.0.1:30500/reference@" + lockedImage().digest,
   );
 
-  await appUp(
-    repository,
-    healthyRunner(calls),
-    "reference",
-    lockedImage(),
-    "/tmp/kore.pub",
-  );
+  await appUp(repository, healthyRunner(calls), "reference", lockedImage(), {
+    publicKey: "/tmp/kore.pub",
+  });
 
   const verify = calls.find((c) => c.command === "cosign");
   expect(verify?.args.at(-1)).toBe(
@@ -213,13 +209,9 @@ test("app up waits for databases and secrets before installing the workload", as
   const calls: Call[] = [];
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
 
-  await appUp(
-    repository,
-    healthyRunner(calls),
-    "reference",
-    lockedImage(),
-    "/tmp/kore.pub",
-  );
+  await appUp(repository, healthyRunner(calls), "reference", lockedImage(), {
+    publicKey: "/tmp/kore.pub",
+  });
 
   const lines = calls.map((c) => `${c.command} ${c.args.join(" ")}`);
   // Skip the platform readiness probes that run before the workload install.
@@ -279,7 +271,7 @@ test("app up fails with the fix when the registry Service is not at registry.add
       healthyRunner(calls, "10.99.1.2"),
       "reference",
       lockedImage(),
-      "/tmp/kore.pub",
+      { publicKey: "/tmp/kore.pub" },
     ),
   ).rejects.toThrow(
     /10\.99\.1\.2.*registry\.address 10\.96\.0\.50:5000.*kore platform up/s,
