@@ -83,7 +83,8 @@ upgrades nothing.
   leaves a lock that the next run recovers when its owner is gone; read
   `kore journal --environment local` for what was interrupted.
 - **A bad version bump:** revert the commit that changed the pin and rerun
-  `kore platform up`. **Gap:** there is no `kore` command that rolls a single
+  `kore platform up`. **Gap:** (plan Step 15, "Add upgrade tests from the
+  previously supported version catalog") there is no `kore` command that rolls a single
   release back; Helm's own `helm rollback` is outside Kore's tested paths, and a
   CRD-bearing controller may not be rolled back safely.
 - **Data:** restore the export with `kore data restore` into a fresh profile.

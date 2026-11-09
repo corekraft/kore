@@ -106,5 +106,5 @@ repository changes, which are reviewed and journaled:
 - Set `trust.mode: warn` for the image policy (see
   [signing and keys](signing-and-keys.md#break-glass-recovery)).
 
-Never edit constraints or webhook configurations with `kubectl`: the next
+Never edit constraints or webhook configurations by hand: the next
 `kore platform up` reverts a managed object, and the edit is in no journal.

@@ -26,7 +26,9 @@ The local key lives as long as the cluster. To rotate it:
 2. `kore local up --environment local` generates a new key, publishes its public
    half, and re-signs and redeploys every image.
 
-**Gap:** there is no in-place local key rotation that keeps the cluster. A fresh
+**Gap:** there is no in-place local key rotation that keeps the cluster (plan
+Step 15, "Document signing identity and key rotation, revocation, compromise
+response"; Step 7 holds the protected-signer work). A fresh
 key requires a fresh profile (or deleting the two Secrets by hand and rerunning
 `kore local up`, which is not a tested path).
 

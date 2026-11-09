@@ -124,6 +124,74 @@ test("a gap is marked in bold, so a missing command is never silently invented",
   }
 });
 
+const mutatingVerb =
+  "delete|apply|edit|patch|rollout|scale|replace|create|annotate|label|uninstall|upgrade|rollback|install|cordon|drain|restart|updatekeys";
+const manualMutation = new RegExp(
+  `\\bkubectl(?:\\s+--?[\\w-]+(?:[ =][^\\s-]\\S*)?)*\\s+(?:${mutatingVerb})\\b` +
+    `|\\bhelm\\s+(?:${mutatingVerb})\\b|\\bsops\\s+updatekeys\\b` +
+    `|\\bmkcert\\s+-(?:un)?install\\b` +
+    `|\\bdelet(?:e|ing) (?:the|both|all) (?:\\S+ ){0,3}Secrets?\\b`,
+  "i",
+);
+
+/** Blocks (blank-line or list-item separated) that tell a reader to mutate by hand but
+ * carry no plan-referenced Gap marker. Read-only `kubectl get` is not a
+ * mutation. */
+function unmarkedManualSteps(markdown: string): string[] {
+  return markdown
+    .split(/\n\s*\n|\n(?=\s*(?:[-*]|\d+\.) )/)
+    .filter((block) => !block.trimStart().startsWith("|"))
+    .map((block) => block.replace(/\s+/g, " "))
+    .filter((block) => manualMutation.test(block))
+    .filter((block) => !/\*\*Gap:\*\*[^]*\bplan Step \d+/.test(block));
+}
+
+const hiddenRemediationPages = [
+  ...pages,
+  "docs/operations/backups.md",
+  "docs/release-signer-controls.md",
+  "README.md",
+];
+
+test("a manual kubectl, helm, sops, or mkcert mutation is never hidden: it sits beside a Gap that names its plan step", () => {
+  const problems = hiddenRemediationPages.flatMap((page) =>
+    unmarkedManualSteps(read(page)).map((b) => `${page}: ${b.slice(0, 120)}`),
+  );
+  assert.deepEqual(problems, []);
+});
+
+test("the hidden-remediation check flags an unmarked mutation and accepts read-only and marked steps", () => {
+  assert.equal(
+    unmarkedManualSteps("Run `kubectl delete pod x` to recover.").length,
+    1,
+  );
+  assert.equal(
+    unmarkedManualSteps("Delete the `x` Secret and rerun.").length,
+    1,
+  );
+  assert.equal(
+    unmarkedManualSteps(
+      "2. For a quicker cut-off, `kubectl --context kore-local --namespace <ns> delete\nserviceaccount <name>` first.\n3. Review.",
+    ).length,
+    1,
+  );
+  assert.equal(
+    unmarkedManualSteps("Read it with `kubectl get pvc`.").length,
+    0,
+  );
+  assert.equal(
+    unmarkedManualSteps(
+      "`kubectl rollout restart x`. **Gap:** no command (plan Step 15).",
+    ).length,
+    0,
+  );
+  assert.equal(
+    unmarkedManualSteps("`kubectl rollout restart x`. **Gap:** no command.")
+      .length,
+    1,
+  );
+});
+
 test("the budget page states the warning threshold the status check uses", async () => {
   const { capacityWarningPercent } =
     await import("../platform/capacity-status.js");
