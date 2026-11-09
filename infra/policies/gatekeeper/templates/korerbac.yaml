@@ -63,20 +63,72 @@ spec:
           reads_secrets(rule)
           rule.resourceNames[_] == input.parameters.signingKeySecret
         }
-        covers_signing_namespace {
-          input.review.kind.kind == "ClusterRole"
+        # A ClusterRole is a risk only when bound so that a subject other than
+        # bootstrap automation or a platform controller can use it cluster-wide or in
+        # the signing namespace (ADR 0080). Bindings come from Gatekeeper's sync
+        # cache (the Config in constraints/sync); an unbound or aggregation-only role
+        # grants nothing by itself, and the built-in admin and edit roles that
+        # aggregate into it are governed where they are bound. Without the cache no
+        # binding is visible, so the sync Config is part of this policy.
+        allowed_subject(subject) {
+          bootstrap_subject(subject)
         }
-        covers_signing_namespace {
-          input.review.kind.kind == "Role"
-          input.review.object.metadata.namespace == input.parameters.signingNamespace
+        allowed_subject(subject) {
+          subject.kind == "ServiceAccount"
+          subject.namespace in input.parameters.exemptNamespaces
+        }
+        rbac := "rbac.authorization.k8s.io/v1"
+        exposed(role) {
+          binding := data.inventory.cluster[rbac].ClusterRoleBinding[_]
+          binding.roleRef.kind == "ClusterRole"
+          binding.roleRef.name == role
+          subject := binding.subjects[_]
+          not allowed_subject(subject)
+        }
+        exposed(role) {
+          binding := data.inventory.namespace[input.parameters.signingNamespace][rbac].RoleBinding[_]
+          binding.roleRef.kind == "ClusterRole"
+          binding.roleRef.name == role
+          subject := binding.subjects[_]
+          not allowed_subject(subject)
         }
         violation[{"msg": msg}] {
-          covers_signing_namespace
+          input.review.kind.kind == "ClusterRole"
           not input.review.object.metadata.name in input.parameters.allowedSecretRoles
           not input.review.object.metadata.name in input.parameters.namespaceBoundSecretRoles
           rule := input.review.object.rules[_]
           reaches_signing_key(rule)
-          msg := sprintf("%s %s can read the local signing key %s/%s; only the signing path and bootstrap automation may (scope it with resourceNames)", [input.review.kind.kind, input.review.object.metadata.name, input.parameters.signingNamespace, input.parameters.signingKeySecret])
+          exposed(input.review.object.metadata.name)
+          msg := sprintf("ClusterRole %s can read the local signing key %s/%s through a binding to a subject that is not bootstrap automation or a platform controller; scope it with resourceNames or remove the binding", [input.review.object.metadata.name, input.parameters.signingNamespace, input.parameters.signingKeySecret])
+        }
+        violation[{"msg": msg}] {
+          input.review.kind.kind == "Role"
+          input.review.object.metadata.namespace == input.parameters.signingNamespace
+          not input.review.object.metadata.name in input.parameters.allowedSecretRoles
+          not input.review.object.metadata.name in input.parameters.namespaceBoundSecretRoles
+          rule := input.review.object.rules[_]
+          reaches_signing_key(rule)
+          msg := sprintf("Role %s can read the local signing key %s/%s; only the signing path and bootstrap automation may (scope it with resourceNames)", [input.review.object.metadata.name, input.parameters.signingNamespace, input.parameters.signingKeySecret])
+        }
+        # The other direction: a binding that makes an existing secret-reading
+        # ClusterRole reachable is refused when it names a subject that is not allowed.
+        violation[{"msg": msg}] {
+          input.review.kind.kind in {"ClusterRoleBinding", "RoleBinding"}
+          binding_reaches_signing_namespace
+          input.review.object.roleRef.kind == "ClusterRole"
+          role := input.review.object.roleRef.name
+          not role in input.parameters.allowedSecretRoles
+          not role in input.parameters.namespaceBoundSecretRoles
+          rule := data.inventory.cluster[rbac].ClusterRole[role].rules[_]
+          reaches_signing_key(rule)
+          subject := input.review.object.subjects[_]
+          not allowed_subject(subject)
+          msg := sprintf("%s %s binds %s, which can read the local signing key %s/%s, to %s %s; only bootstrap automation and platform controllers may hold it", [input.review.kind.kind, input.review.object.metadata.name, role, input.parameters.signingNamespace, input.parameters.signingKeySecret, subject.kind, subject.name])
+        }
+        binding_reaches_signing_namespace { input.review.kind.kind == "ClusterRoleBinding" }
+        binding_reaches_signing_namespace {
+          input.review.kind.kind == "RoleBinding"
+          input.review.object.metadata.namespace == input.parameters.signingNamespace
         }
         # A ClusterRole in namespaceBoundSecretRoles is a permission set that may
         # be bound only by RoleBinding in application namespaces (ADR 0061); a
