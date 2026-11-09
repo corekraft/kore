@@ -252,6 +252,7 @@ test("policy releases prove the objects they apply, not the Gatekeeper controlle
   );
   assert.deepEqual(readiness("kore-policy-constraints"), [
     "korecontainersecurity.constraints.gatekeeper.sh/kore-container-security",
+    "koreimagedigest.constraints.gatekeeper.sh/kore-image-digest",
     "koremeshenrollment.constraints.gatekeeper.sh/kore-mesh-enrollment",
     "korerbac.constraints.gatekeeper.sh/kore-rbac",
     "koreretention.constraints.gatekeeper.sh/kore-retention",
@@ -260,6 +261,7 @@ test("policy releases prove the objects they apply, not the Gatekeeper controlle
   ]);
   for (const name of [
     "korecontainersecurity",
+    "koreimagedigest",
     "koremeshenrollment",
     "korerbac",
     "koreretention",

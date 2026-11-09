@@ -1,0 +1,18 @@
+kind: Suite
+apiVersion: test.gatekeeper.sh/v1alpha1
+tests:
+  - name: image-digest
+    template: ../templates/koreimagedigest.yaml
+    constraint: ../constraints/koreimagedigest.yaml
+    cases:
+      - {name: accepts-digest-pinned-image, object: objects/img-digest-pinned.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-tag-with-digest, object: objects/img-tag-and-digest.yaml, assertions: [{violations: 0}]}
+      - {name: rejects-tag-only-image, object: objects/img-tag-only.yaml, assertions: [{violations: 1, message: must be pinned by digest}]}
+      - {name: rejects-untagged-image, object: objects/img-untagged.yaml, assertions: [{violations: 1}]}
+      - {name: rejects-truncated-digest, object: objects/img-short-digest.yaml, assertions: [{violations: 1}]}
+      - {name: rejects-tag-only-init-container, object: objects/img-init-tag-only.yaml, assertions: [{violations: 1, message: migrate}]}
+      - {name: names-every-unpinned-container, object: objects/img-two-tag-only.yaml, assertions: [{violations: 2}]}
+      - {name: rejects-tag-only-pod, object: objects/img-pod-tag-only.yaml, assertions: [{violations: 1}]}
+      - {name: rejects-tag-only-cronjob, object: objects/img-cronjob-tag-only.yaml, assertions: [{violations: 1}]}
+      # Third-party controller namespaces are exempt by name, as for the other constraints; ADR 0073.
+      - {name: exempts-platform-namespace, object: objects/img-exempt-ns.yaml, assertions: [{violations: 0}]}
