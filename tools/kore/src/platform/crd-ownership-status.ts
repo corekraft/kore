@@ -2,6 +2,11 @@ import { crdOwners, type Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { capacityStatus, type CapacityStatus } from "./capacity-status.js";
 import { errorMessage } from "./probe.js";
+import {
+  tunnelHealthRow,
+  type TunnelDependencies,
+  type TunnelHealthRow,
+} from "../tunnel/index.js";
 import { platformStatus, type ComponentStatus } from "./status.js";
 
 // Docs: docs/decisions/0057-runtime-crd-ownership.md
@@ -104,12 +109,21 @@ export async function platformStatusReport(
   repository: Repository,
   runner: Runner,
   only?: readonly string[],
-): Promise<(ComponentStatus | CrdOwnershipStatus | CapacityStatus)[]> {
-  const rows: (ComponentStatus | CrdOwnershipStatus | CapacityStatus)[] =
-    await platformStatus(repository, runner, only);
+  tunnelDependencies: TunnelDependencies = {},
+): Promise<
+  (ComponentStatus | CrdOwnershipStatus | CapacityStatus | TunnelHealthRow)[]
+> {
+  const rows: (
+    ComponentStatus | CrdOwnershipStatus | CapacityStatus | TunnelHealthRow
+  )[] = await platformStatus(repository, runner, only);
   if (!only) {
     rows.push(await crdOwnershipStatus(repository, runner));
     rows.push(await capacityStatus(repository, runner));
+    // Host-side, read-only: the tunnel is not a cluster component (ADR 0060).
+    const tunnel = await tunnelHealthRow(repository, tunnelDependencies);
+    if (tunnel) {
+      rows.push(tunnel);
+    }
   }
   return rows;
 }

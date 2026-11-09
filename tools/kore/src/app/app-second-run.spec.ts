@@ -66,7 +66,9 @@ async function setup() {
 
 test("a first app up installs both releases, recording what they were deployed from", async () => {
   const { repository, calls, runner } = await setup();
-  await appUp(repository, runner, "reference", lockedImage(), "/tmp/kore.pub");
+  await appUp(repository, runner, "reference", lockedImage(), {
+    publicKey: "/tmp/kore.pub",
+  });
   expect(upgraded(calls)).toEqual(["reference-resources", "reference"]);
   for (const call of calls.filter(
     (c) => c.command === "helm" && c.args[0] === "upgrade",
@@ -80,17 +82,25 @@ test("a first app up installs both releases, recording what they were deployed f
 
 test("a second app up of unchanged desired state upgrades no release", async () => {
   const { repository, calls, runner } = await setup();
-  await appUp(repository, runner, "reference", lockedImage(), "/tmp/kore.pub");
+  await appUp(repository, runner, "reference", lockedImage(), {
+    publicKey: "/tmp/kore.pub",
+  });
   calls.length = 0;
-  await appUp(repository, runner, "reference", lockedImage(), "/tmp/kore.pub");
+  await appUp(repository, runner, "reference", lockedImage(), {
+    publicKey: "/tmp/kore.pub",
+  });
   expect(upgraded(calls)).toEqual([]);
 });
 
 test("a skipped app release is still awaited for readiness", async () => {
   const { repository, calls, runner } = await setup();
-  await appUp(repository, runner, "reference", lockedImage(), "/tmp/kore.pub");
+  await appUp(repository, runner, "reference", lockedImage(), {
+    publicKey: "/tmp/kore.pub",
+  });
   calls.length = 0;
-  await appUp(repository, runner, "reference", lockedImage(), "/tmp/kore.pub");
+  await appUp(repository, runner, "reference", lockedImage(), {
+    publicKey: "/tmp/kore.pub",
+  });
   expect(
     calls.some((c) => c.command === "kubectl" && c.args.includes("rollout")),
   ).toBe(true);
@@ -98,17 +108,23 @@ test("a skipped app release is still awaited for readiness", async () => {
 
 test("a new image digest upgrades only the workload release", async () => {
   const { repository, calls, runner } = await setup();
-  await appUp(repository, runner, "reference", lockedImage(), "/tmp/kore.pub");
+  await appUp(repository, runner, "reference", lockedImage(), {
+    publicKey: "/tmp/kore.pub",
+  });
   calls.length = 0;
   const next = { ...lockedImage(), digest: "sha256:" + "b".repeat(64) };
   next.reference = next.reference.replace(/@.*/, `@${next.digest}`);
-  await appUp(repository, runner, "reference", next, "/tmp/kore.pub");
+  await appUp(repository, runner, "reference", next, {
+    publicKey: "/tmp/kore.pub",
+  });
   expect(upgraded(calls)).toEqual(["reference"]);
 });
 
 test("a changed gateway hostname upgrades both app releases", async () => {
   const { repository, calls, runner } = await setup();
-  await appUp(repository, runner, "reference", lockedImage(), "/tmp/kore.pub");
+  await appUp(repository, runner, "reference", lockedImage(), {
+    publicKey: "/tmp/kore.pub",
+  });
   calls.length = 0;
   const moved = {
     ...repository,
@@ -120,6 +136,8 @@ test("a changed gateway hostname upgrades both app releases", async () => {
       },
     },
   };
-  await appUp(moved, runner, "reference", lockedImage(), "/tmp/kore.pub");
+  await appUp(moved, runner, "reference", lockedImage(), {
+    publicKey: "/tmp/kore.pub",
+  });
   expect(upgraded(calls)).toEqual(["reference-resources", "reference"]);
 });

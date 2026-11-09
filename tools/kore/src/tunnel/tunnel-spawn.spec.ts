@@ -24,6 +24,7 @@ test("starts the default detached Minikube tunnel and persists its child PID", a
     assert.deepEqual(
       await startLocalTunnel(repository, runner, {
         isPortOpen: async () => true,
+        listProcesses: async () => [],
       }),
       { status: "running", pid: 8765, port: 8443 },
     );
@@ -60,18 +61,22 @@ test("reports a spawn failure and terminates a tunnel that exits before opening 
   try {
     spawnMock.mockReturnValueOnce({ pid: undefined, unref: vi.fn() });
     await assert.rejects(
-      startLocalTunnel(repository, runner, { isPortOpen: async () => true }),
+      startLocalTunnel(repository, runner, {
+        isPortOpen: async () => true,
+        listProcesses: async () => [],
+      }),
       /could not start the Minikube tunnel process/,
     );
     spawnMock.mockReturnValueOnce({ pid: 8766, unref: vi.fn() });
     await assert.rejects(
       startLocalTunnel(repository, runner, {
         isPortOpen: async () => false,
+        listProcesses: async () => [],
         isProcessAlive: () => false,
       }),
       /did not expose local Gateway port/,
     );
-    assert.deepEqual(kill.mock.calls.at(-1), [8766, "SIGTERM"]);
+    assert.deepEqual(kill.mock.calls.at(-1), [-8766, "SIGTERM"]);
   } finally {
     spawnMock.mockReset();
     kill.mockRestore();
