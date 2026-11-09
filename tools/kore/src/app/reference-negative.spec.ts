@@ -21,6 +21,11 @@ interface Violation {
   msg: string;
 }
 
+// kore-workload-identity matches only activated application namespaces, so
+// gator needs the namespace object to evaluate its selector.
+const activatedNamespace =
+  "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: reference\n  labels:\n    istio.io/dataplane-mode: ambient\n    platform.kore.dev/activation-generation: g-0123456789ab\n";
+
 async function renderedWorkloads(): Promise<string> {
   const root = await findRoot();
   const { stdout } = await run("helm", [
@@ -39,6 +44,7 @@ async function renderedWorkloads(): Promise<string> {
     .map((doc) =>
       doc.replace(/^metadata:$/m, "metadata:\n  namespace: reference"),
     )
+    .concat(activatedNamespace)
     .join("\n---\n");
 }
 
