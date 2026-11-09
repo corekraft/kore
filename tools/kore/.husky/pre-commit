@@ -1,13 +1,14 @@
 #!/usr/bin/env sh
 
 repo_root="$(git rev-parse --show-toplevel)"
-"$repo_root/tools/kore/node_modules/.bin/lint-staged" \
+. "$repo_root/tools/kore/.husky/pinned.sh"
+pinned "$repo_root/tools/kore/node_modules/.bin/lint-staged" \
   --config "$repo_root/tools/kore/lint-staged.config.js" || exit 1
 
 staged="$(git diff --cached --name-only)"
 
 if printf '%s\n' "$staged" | grep -qE '^(\.claude|\.codex|skills)/'; then
-  node --test "$repo_root/.claude/hooks" "$repo_root/.claude/evals" || {
+  pinned node --test "$repo_root/.claude/hooks" "$repo_root/.claude/evals" || {
     echo "pre-commit: hook tests failed; run 'mise run test-hooks' and fix them" >&2
     exit 1
   }
@@ -18,11 +19,11 @@ fi
 # observability, policies, tofu) and apps/. infra/plans is prose no spec reads.
 if printf '%s\n' "$staged" |
   grep -qE '^(tools/kore/|apps/|infra/(apis|catalog|charts|environments|observability|policies|tofu)/)'; then
-  (cd "$repo_root/tools/kore" && npm run check --silent) || {
+  (cd "$repo_root/tools/kore" && pinned npm run check --silent) || {
     echo "pre-commit: typecheck failed; run 'npm run check' in tools/kore and fix the errors" >&2
     exit 1
   }
-  (cd "$repo_root/tools/kore" && npm run test:unit --silent) || {
+  (cd "$repo_root/tools/kore" && pinned npm run test:unit --silent) || {
     echo "pre-commit: unit tests failed; run 'npm run test:unit' in tools/kore and fix them" >&2
     exit 1
   }
