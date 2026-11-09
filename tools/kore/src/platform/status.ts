@@ -78,3 +78,6 @@ export async function platformStatus(
   }
   return result;
 }
+
+// Callers that read the inventory row by name need no second import.
+export { imageInventoryStatusName } from "./image-inventory.js";

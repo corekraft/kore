@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "vitest";
+import { test, vi } from "vitest";
 import { loadRepository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { openApplicationAdmission } from "./bootstrap.js";
@@ -87,4 +87,22 @@ test("enforce findings keep the gate closed and name the image", async () => {
   );
   assert.equal(applied.length, 1);
   assert.match(applied[0]!, /"state":"closed"/);
+});
+
+test("opening the gate reports the image inventory summary in the run log, findings included under audit", async () => {
+  const repository = await managedWithoutComponents();
+  repository.environment.imageInventory = "audit";
+  const write = vi
+    .spyOn(process.stderr, "write")
+    .mockImplementation(() => true);
+  try {
+    await openApplicationAdmission(repository, runnerWith([], true));
+    const lines = write.mock.calls.map((call) => String(call[0]));
+    assert.ok(
+      lines.some((line) => /^image inventory: audit: .*tag-only/.test(line)),
+      lines.join(""),
+    );
+  } finally {
+    write.mockRestore();
+  }
 });
