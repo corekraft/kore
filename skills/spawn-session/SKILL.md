@@ -20,8 +20,9 @@ The installed `herdr` binary is the authority for syntax; run `herdr --skill` on
    | Implementer, fixer, or verifier working from a written plan step or spec    | `claude-sonnet-5-5` |
    | Read files, summarize, run commands and report, small basic code changes    | `claude-haiku-5-5`  |
    | Independent judge or complex eval that must not be anchored on this session | `claude-opus-5-5`   |
+   | Retrospective over recent sessions (`/retro`)                               | `claude-opus-5-5`   |
 
-   The main session is the Opus orchestrator: it does the thinking, design, and final judgment itself. Minimize Opus elsewhere; spawn it only for the last row, and say why. Prefer Haiku whenever the task leaves no decisions open.
+   The main session is the Opus orchestrator: it does the thinking, design, and final judgment itself. Minimize Opus elsewhere; spawn it only for the last two rows, and say why. Prefer Haiku whenever the task leaves no decisions open.
 
 4. **Name it after its subject**, in the domain's own words: `image-trust-reader`, `gateway-tls-verifier`, `postgresql-api-fixer`. Never use letters, ordinals, or plan step numbers (`reader-a`, `verifier-2`, `step8-verifier`); the name alone must tell the user what the pane is about. Herdr rejects names over 32 characters (lowercase letters, digits, `-`, `_`; `invalid_agent_name`), so count the role suffix: `portability-validation-implementer` (33) fails, `portability-implementer` works. Pass the model after `--`: `herdr agent start gateway-tls-verifier --kind claude --pane <id> -- --model claude-sonnet-5-5`. A fresh pane can answer `agent_pane_busy` until its shell is ready; retry for a few seconds. Confirm the model in `herdr agent read <name>` (the status line names it).
 5. **Talk to it:** `herdr agent prompt <name> "<brief>" --wait --until working --timeout <ms>` and check the reply says `working`; `--timeout` without `--wait` is rejected, so never discard the prompt's output. Then `herdr agent read <name>`. Text sitting in a pane's input box after a turn (such as `commit this`) is Claude Code's suggested prompt, not the user's. For a slash command, `herdr pane send-text <id> "/clear"`, then `herdr agent send-keys <name> enter`.
@@ -31,4 +32,5 @@ Ask yourself:
 
 - Does the new session need context it cannot find in the repository? Then write it into the active plan's `Next:` line or the prompt, never only this session's scratchpad.
 - Is it waiting on an approval or a question? Ask the user before answering it.
+- Did a sibling branch from a parallel session merge since this branch's live run? Rebase and repeat the live run before merging: the merge-interaction bugs between parallel branches (a gate row in filtered status, a stale port-forward, a plain row rendering `[object Object]`) only showed up live.
 - Did I create this pane? Close only those, and only once their result is recorded.
