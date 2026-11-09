@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.2](https://github.com/corekraft/kore/compare/v0.3.1...v0.3.2) (2026-11-09)
+
+
+### Documentation
+
+* add platform vision board ([#49](https://github.com/corekraft/kore/issues/49)) ([0ed2575](https://github.com/corekraft/kore/commit/0ed25753a9b78b004d4506ffc19a1480783b98bb))
+* record fresh-profile, idempotency, and mirror evidence for step 7 ([#55](https://github.com/corekraft/kore/issues/55)) ([2f4af0c](https://github.com/corekraft/kore/commit/2f4af0c368576d6e742871505624746b364e73c6))
+
 ## [0.3.1](https://github.com/corekraft/kore/compare/v0.3.0...v0.3.1) (2026-11-09)
 
 
