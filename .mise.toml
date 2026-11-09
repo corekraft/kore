@@ -52,6 +52,10 @@ run = [
   "npm --prefix tools/kore run kore -- validate --environment managed-example",
 ]
 
+[tasks.validate-tofu]
+description = "Run tofu validate in every infra/tofu/stacks directory that holds .tf files (passes when there are none)"
+run = "infra/tofu/validate-stacks.sh"
+
 [tasks.test-opa]
 description = "Run colocated Rego policy specifications with the OPA CLI"
 run = "opa test infra/policies/opa/bundles/v1 -v"

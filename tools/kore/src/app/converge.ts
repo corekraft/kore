@@ -3,6 +3,7 @@ import type { LockedImage } from "../images/index.js";
 import type { Runner } from "../runtime/index.js";
 import {
   activateNamespace,
+  bindCrossplaneSecrets,
   enrollNamespace,
   installResources,
   installWorkload,
@@ -39,6 +40,7 @@ export async function converge(
   const charts = await resolveCharts(repository, name);
   await enrollNamespace(repository, runner, name);
   await activateNamespace(repository, runner, name, generation);
+  await bindCrossplaneSecrets(repository, runner, name);
   await cleanupInterruptedReleases(repository, runner, name);
   await installResources(repository, runner, name, charts);
   await waitForResources(repository, runner, name);

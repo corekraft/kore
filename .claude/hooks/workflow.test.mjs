@@ -50,6 +50,7 @@ test("the workflow runs every check the commit and stop hooks run, in order", ()
     "mise run test-gatekeeper",
     "mise run test-promtool",
     "mise run validate",
+    "mise run validate-tofu",
     "mise run kb-check -- --strict",
     "mise run scan",
   ]);
@@ -57,7 +58,7 @@ test("the workflow runs every check the commit and stop hooks run, in order", ()
 
 test("mise installs only the tools the checks need", () => {
   const text = check();
-  assert.match(text, /install_args: node npm opa gator helm promtool$/m);
+  assert.match(text, /install_args: node npm opa gator helm promtool opentofu$/m);
   assert.match(
     text,
     /install_args: trufflehog osv-scanner semgrep actionlint zizmor hadolint$/m,
