@@ -61,6 +61,9 @@ test("app down reports retained data in the application namespace and never dele
   const runner: Runner = {
     async run(command, args) {
       calls.push({ command, args });
+      if (command === "kubectl" && args.includes("persistentvolumes")) {
+        return { stdout: '{"items":[]}', stderr: "", code: 0 };
+      }
       if (command === "kubectl" && args.includes("pvc")) {
         return {
           stdout: "persistentvolumeclaim/reference-db-1\n",
