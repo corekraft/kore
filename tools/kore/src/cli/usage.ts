@@ -21,6 +21,8 @@ Usage:
   kore journal [--environment <name>] [--limit <n>] [--json]
   kore ops inventory|recovery [--environment local] [--json]
   kore ops upgrade-check|crd-check [--from <release-tag>] [--environment local] [--json]
+  kore policy record <constraint> --environment <name> --audit <file|-> [--json]
+  kore policy promote|rollback <constraint> --environment <name> [--json]
 
 "cluster destroy" refuses while data labeled platform.kore.dev/retention=Retain
 (databases) exists; --purge-data deletes it.
@@ -73,6 +75,15 @@ CRD owner, or an application contract change that breaks existing claims.
 "crd-check" renders each changed chart's CRDs at both versions (helm template,
 no cluster) and fails on a removed CRD, a dropped stored version, an unsafe
 storage-version move, or a rollback that cannot read the new version.
+
+"policy" edits Gatekeeper constraints in the repository and never touches a
+cluster; "kore platform up" applies the change. "record" stores the timestamp
+and violation count from "kubectl get <kind>.constraints.gatekeeper.sh <name>
+--output json" (a file, or - for stdin) as the environment's promotion evidence
+in infra/policies/gatekeeper/promotions/<constraint>.json. "promote" moves one
+dryrun constraint to deny only when that evidence shows zero violations and is
+under 14 days old. "rollback" sets one constraint back to dryrun and keeps its
+evidence. Review the resulting diff in a pull request.
 
 Every mutation requires --environment and is recorded in
 .kore/state/journal/<environment>.jsonl. Status, doctor, validate, render, ops,
