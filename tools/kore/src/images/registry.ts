@@ -29,18 +29,36 @@ function spawnPortForward(repository: Repository): number {
   return child.pid;
 }
 
-async function isPortOpen(): Promise<boolean> {
+/**
+ * Whether the forward on `port` answers an HTTP request. A port-forward whose
+ * registry pod was replaced still accepts connections until its first request,
+ * then exits, so an open port alone does not prove a working forward.
+ */
+export async function forwardResponds(
+  port: number,
+  timeoutMs = 3000,
+): Promise<boolean> {
   return await new Promise((resolve) => {
-    const socket = createConnection({ host: "127.0.0.1", port: 30500 });
+    const socket = createConnection({ host: "127.0.0.1", port });
+    const finish = (answered: boolean) => {
+      clearTimeout(timer);
+      socket.destroy();
+      resolve(answered);
+    };
+    const timer = setTimeout(() => finish(false), timeoutMs);
     socket.once("connect", () => {
-      socket.destroy();
-      resolve(true);
+      socket.write("GET /v2/ HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n");
     });
-    socket.once("error", () => {
-      socket.destroy();
-      resolve(false);
+    socket.once("data", (chunk: Buffer) => {
+      finish(chunk.toString("latin1").startsWith("HTTP/"));
     });
+    socket.once("error", () => finish(false));
+    socket.once("close", () => finish(false));
   });
+}
+
+async function isPortOpen(): Promise<boolean> {
+  return await forwardResponds(30500);
 }
 
 async function ensurePortForward(

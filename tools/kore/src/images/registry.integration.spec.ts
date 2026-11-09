@@ -135,8 +135,15 @@ test(
       "--timeout=180s",
     ]);
 
+    // The restart replaces the pod the forward was bound to; kore re-opens it
+    // the same way every command does before reaching the registry.
+    const reachable = async () =>
+      await localRegistryReference(repository, runner, "kore/x");
     const anonymous = await eventually(
-      async () => await status(runner, "GET", "/v2/"),
+      async () => {
+        await reachable();
+        return await status(runner, "GET", "/v2/");
+      },
       (response) => response.code === 401,
     );
     assert.equal(anonymous.code, 401, "anonymous pull must stay refused");
@@ -146,7 +153,10 @@ test(
       "anonymous push must stay refused",
     );
     const after = await eventually(
-      async () => await inventory(runner, read),
+      async () => {
+        await reachable();
+        return await inventory(runner, read);
+      },
       (entries) => entries.length >= before.length,
     );
     assert.deepEqual(after, before, "images and signatures must survive");

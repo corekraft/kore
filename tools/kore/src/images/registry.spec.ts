@@ -9,12 +9,20 @@ vi.mock("node:child_process", () => ({ spawn: spawnMock }));
 vi.mock("node:net", () => ({
   createConnection: vi.fn(() => {
     const connected = connectionOutcomes.shift() ?? false;
+    // A live forward accepts the connection and answers the probe request.
     return {
-      once(event: string, callback: () => void) {
-        if ((event === "connect") === connected) {
-          queueMicrotask(callback);
+      once(event: string, callback: (chunk?: Buffer) => void) {
+        if (connected && event === "connect") {
+          queueMicrotask(() => callback());
+        } else if (connected && event === "data") {
+          setTimeout(() => callback(Buffer.from("HTTP/1.1 401 \r\n")), 0);
+        } else if (!connected && event === "error") {
+          queueMicrotask(() => callback());
         }
         return this;
+      },
+      write() {
+        return true;
       },
       destroy() {},
     };
