@@ -97,6 +97,7 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0050-tenant-telemetry-isolation.md`](decisions/0050-tenant-telemetry-isolation.md) — refines ADR 0010 and 0019: shared backends, a Grafana per tenant, multi-tenant Loki and Tempo, a label-enforcing proxy for Prometheus, Mimir later. Read when changing telemetry access.
 - [`docs/decisions/0051-telemetry-retention-and-alerting.md`](decisions/0051-telemetry-retention-and-alerting.md) — refines ADR 0019: default and per-tenant retention, tenant alerts in each tenant's Grafana, Alertmanager for platform alerts only. Read when changing retention or alerting.
 - [`docs/decisions/0052-usage-metering-with-opencost.md`](decisions/0052-usage-metering-with-opencost.md) — usage per organization through OpenCost and platform counters, for visibility only. Read when changing usage reporting.
+- [`docs/decisions/0053-forensic-telemetry-archive.md`](decisions/0053-forensic-telemetry-archive.md) — refines ADR 0019, 0050, and 0051: every log record and span kept unsampled in a Quickwit archive on the object store, buffered through Kafka, fully indexed, write-once, with signed batch digests and audited, tenant-scoped access. Read when changing telemetry retention, sampling, or the archive.
 
 ## Reference
 

@@ -348,6 +348,33 @@ What a service gets without writing any instrumentation:
   Collectors themselves report into the platform organization's view, so
   operators watch the platform with the same tools tenants use.
 
+### Forensic Archive
+
+Beside the hot tier, every log record and every span is kept as evidence
+([ADR 0053](decisions/0053-forensic-telemetry-archive.md)).
+
+| Tier     | Holds                                                               | Kept for                           | Searched by                                |
+| -------- | ------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------ |
+| Hot      | Metrics, logs, and traces in Prometheus, Loki, Tempo                | Days: 14 for logs, 7 for traces    | Dashboards, alerts, and debugging          |
+| Forensic | Every log record and span, unsampled, with full body and attributes | Per tenant, years, with legal hold | Full text over every message and attribute |
+
+- **Written twice through a durable buffer.** The Collector buffers to disk and
+  sends everything to the hot tier and, through a Kafka topic per tenant, to
+  Quickwit, so an indexer outage loses nothing and the archive can be
+  replayed.
+- **Indexed on the object store.** Quickwit, licensed under Apache 2.0, keeps
+  one index per tenant root in the object store, with every message and
+  attribute searchable.
+- **Nothing sampled away.** Mesh tracing samples every request, and the archive
+  receives every span even where the hot tier samples.
+- **Tamper-evident.** Archive buckets are write-once for their retention, each
+  indexed batch has a signed digest, and gaps are reported.
+- **Private and audited.** Secrets are stripped before either tier, tenants can
+  mask personal data, every archive search is logged, and operators reach a
+  tenant's archive only through a logged break-glass path.
+- **Deletable by key.** Each tenant's archive is encrypted with its own key, so
+  destroying the key destroys the archive once no legal hold applies.
+
 ## The Portal: Backstage and Argo CD Out of the Box
 
 Every tenant root gets its own Backstage and its own Argo CD, composed by the
@@ -444,6 +471,7 @@ What exists or is in flight today, and what the vision adds.
 | Logs, metrics, traces via OpenTelemetry                                                                                    | In Plan 2, Step 11                                                                   |
 | Org-scoped telemetry: organization attributes, per-org queries, retention                                                  | New                                                                                  |
 | Default dashboards and alerts per service, routed to the organization                                                      | New                                                                                  |
+| Forensic telemetry archive: Quickwit on the object store, fed through Kafka                                                | New                                                                                  |
 | Tenancy API (`Organization`, `Service`)                                                                                    | New                                                                                  |
 | Quotas and per-organization limits                                                                                         | New                                                                                  |
 | Golden-path templates (static frontend, Kotlin BFF built with Jib)                                                         | New                                                                                  |
@@ -562,3 +590,7 @@ so earlier references still resolve.
     of traces by default with per-tenant overrides, tenant alerts in the
     tenant's Grafana, and Alertmanager for platform alerts only
     ([ADR 0051](decisions/0051-telemetry-retention-and-alerting.md)).
+17. **Forensic telemetry.** Decided: every log record and span kept unsampled
+    in a Quickwit archive on the object store, fed through Kafka, write-once
+    with signed batch digests
+    ([ADR 0053](decisions/0053-forensic-telemetry-archive.md)).
