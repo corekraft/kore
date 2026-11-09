@@ -143,6 +143,13 @@ mise exec -- npm --prefix tools/kore run kore -- cluster destroy --environment l
 
 `kore validate --environment <name>` also checks that every application has
 separate resources and workload charts with no provider-specific references.
+For an environment that declares a `platformMirror` (`managed-example`), it also
+checks that every approved platform image has a rewrite to that signed mirror at
+its approved digest.
+`kore validate --environment managed-example --platform-image-lock <file>`
+additionally checks a release's `platform-images.lock.json` (attached to the
+GitHub release as an asset) against the committed overlay and image policy
+([ADR 0044](docs/decisions/0044-managed-platform-images-from-the-mirror.md)).
 
 The catalog and environment files intentionally use JSON-compatible YAML. This
 makes schema failures deterministic before any cluster mutation while remaining
