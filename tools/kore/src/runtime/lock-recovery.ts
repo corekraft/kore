@@ -1,6 +1,6 @@
 import { open, rm, unlink } from "node:fs/promises";
 import { hostname } from "node:os";
-import { errorCode, readOwner, type LockOwner } from "./lock-owner.js";
+import { errorCode, readLock, type LockOwner } from "./lock-owner.js";
 
 // Clock and uptime readings differ by a little; only a clear gap proves a reboot.
 const BOOT_TOLERANCE_MS = 60_000;
@@ -17,7 +17,7 @@ export interface LockProbes {
 
 export type Verdict =
   | { dead: true; owner: LockOwner }
-  | { dead: false; reason: string; fix: string; live?: true };
+  | { dead: false; reason: string; fix: string; live?: true; gone?: true };
 
 export function refusal(
   environment: string,
@@ -35,8 +35,17 @@ export async function judge(
   lock: string,
   probes: LockProbes,
 ): Promise<Verdict> {
-  const current = await readOwner(lock);
+  const current = await readLock(lock);
   const manual = `If no kore process is running, remove it with: rm -rf ${lock}`;
+  if (current === "gone") {
+    // The holder released between the failed attempt and this read.
+    return {
+      dead: false,
+      reason: "the lock was released while it was being inspected",
+      fix: "Retry.",
+      gone: true,
+    };
+  }
   if (current === undefined) {
     return {
       dead: false,

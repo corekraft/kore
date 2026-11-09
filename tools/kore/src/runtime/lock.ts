@@ -130,6 +130,9 @@ async function acquireOrWait(
   const deadline = Date.now() + waitMs;
   while (!(await take())) {
     const verdict = await judge(lock, probes);
+    if (!verdict.dead && verdict.gone === true) {
+      continue;
+    }
     if (!verdict.dead && verdict.live === true && Date.now() < deadline) {
       await sleep(Math.min(pollMs, Math.max(deadline - Date.now(), 1)));
       continue;
