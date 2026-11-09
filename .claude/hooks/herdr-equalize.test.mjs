@@ -77,3 +77,28 @@ test("a single spawned pane needs no resize", (t) => {
   });
   assert.deepEqual(calls, []);
 });
+
+test("with spawned panes in two columns, only the rightmost column is equalized and nothing crashes", (t) => {
+  const calls = run(t, {
+    panes: [
+      pane("main", 0, 0, 100),
+      pane("mid", 50, 0, 100),
+      { pane_id: "a", rect: { x: 150, y: 0, width: 50, height: 70 } },
+      { pane_id: "b", rect: { x: 150, y: 70, width: 50, height: 30 } },
+    ],
+    splits: [
+      split("right", 0, 0.33),
+      split("right", 0, 0.5),
+      { direction: "down", ratio: 0.7, rect: { x: 150, y: 0, width: 50, height: 100 } },
+    ],
+  });
+  assert.deepEqual(calls, ["pane resize --pane b --direction up --amount 0.200000"]);
+});
+
+test("a layout whose splits don't match its panes is left alone", (t) => {
+  const calls = run(t, {
+    panes: [pane("main", 0, 0, 100), pane("a", 100, 0, 50), pane("b", 100, 50, 50)],
+    splits: [split("right", 0, 0.5)],
+  });
+  assert.deepEqual(calls, []);
+});

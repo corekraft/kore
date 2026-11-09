@@ -10,8 +10,16 @@ import { execFileSync } from "node:child_process";
 const herdr = (...args) => execFileSync("herdr", args, { encoding: "utf8" });
 const { layout } = JSON.parse(herdr("pane", "layout")).result;
 const byY = (a, b) => a.rect.y - b.rect.y;
-const panes = layout.panes.filter((p) => p.rect.x > 0).sort(byY);
-const splits = layout.splits.filter((s) => s.direction === "down").sort(byY);
+// Spawned sessions stack in the rightmost column; equalize only that column.
+const column = Math.max(...layout.panes.map((p) => p.rect.x));
+const panes = layout.panes.filter((p) => p.rect.x === column).sort(byY);
+const splits = layout.splits
+  .filter((s) => s.direction === "down" && s.rect.x === column)
+  .sort(byY);
+if (column === 0 || splits.length !== panes.length - 1) {
+  // No spawned column, or a layout this script doesn't understand: leave it.
+  process.exit(0);
+}
 
 for (let i = 0; i < panes.length - 1; i++) {
   const delta = 1 / (panes.length - i) - splits[i].ratio;
