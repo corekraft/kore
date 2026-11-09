@@ -117,7 +117,7 @@ test("plain output prints key-value pairs for objects and lines for lists", asyn
 });
 
 test("platform status keeps the inventory in --json and drops it from plain rows", async () => {
-  const { platformStatus } = await import("../platform/index.js");
+  const { platformStatusReport } = await import("../platform/index.js");
   const rows = [
     {
       name: "image-inventory",
@@ -127,7 +127,7 @@ test("platform status keeps the inventory in --json and drops it from plain rows
       inventory: { mode: "audit", images: [], unenrolledNamespaces: [] },
     },
   ];
-  vi.mocked(platformStatus).mockResolvedValue(rows as never);
+  vi.mocked(platformStatusReport).mockResolvedValue(rows as never);
   const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
   const write = vi
     .spyOn(process.stdout, "write")
