@@ -30,7 +30,7 @@ Recovery is **on demand**; there is no supervisor.
 - **Report.** `kore platform status` adds a read-only `local-tunnel` row and
   `kore app status` adds a `tunnel` field. Either is `degraded` for a `stale` or
   `missing` tunnel, and the detail names the remedy (`kore tunnel start
-  --environment local`). Status never starts a process.
+--environment local`). Status never starts a process.
 - **Recover.** `ensureLocalTunnel` is `startLocalTunnel` for a local
   environment: a healthy tunnel is returned untouched, a stale one is stopped and
   replaced, and exactly one new process is started. `kore app up` calls it after
@@ -63,6 +63,13 @@ Recovery is **on demand**; there is no supervisor.
   recycled PID could be signalled. The state file stores no process identity.
   Adding one (start time or command line) is a follow-up if this is ever seen.
 
+## Process group
+
+The tunnel is spawned detached, so it leads its own process group, and stop,
+stale replacement, and a failed start signal `-pid` (the group). Signalling
+only the leader left minikube's `ssh -L` child alive and holding the Gateway
+port. Group signalling still runs only while the recorded leader is alive.
+
 ## Verification
 
 Unit tests inject the spawn, liveness, port, and terminate seams. The live run
@@ -71,6 +78,8 @@ kills the tunnel with `kill "$(jq .pid .kore/state/local.tunnel.json)"` (or
 status` and `kore app status reference` to show `local-tunnel` degraded with the
 remedy, then runs `kore app up reference --environment local` (or `kore tunnel
 start --environment local`) and expects a new PID in the state file, one
-`minikube tunnel` process, and `curl -k https://127.0.0.1:8443/api` answering.
-Finally `kore platform stop` must leave no `minikube tunnel` process and no
-state file.
+`minikube tunnel` process, and `curl --cacert <kore CA> --resolve kore.local:8443:127.0.0.1
+https://kore.local:8443/api` answering (no `-k`: the Gateway routes by SNI, so a
+bare `https://127.0.0.1:8443` is refused with `000`).
+Finally `kore platform stop` must leave no `minikube tunnel` process, no
+`ssh -L 15021` child (`pgrep -f "ssh.*15021"` is empty), and no state file.

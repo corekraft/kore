@@ -22,6 +22,23 @@ export interface TunnelDependencies {
   isProcessAlive?: (pid: number) => boolean;
   isPortOpen?: (port: number) => Promise<boolean>;
   terminateProcess?: (pid: number) => void;
+  signalProcess?: (pid: number, signal: NodeJS.Signals) => void;
+}
+
+/**
+ * The tunnel is spawned as a process-group leader, because `minikube tunnel`
+ * starts an `ssh -L` child that holds the Gateway port; a negative pid
+ * signals the whole group so no child is orphaned.
+ */
+function terminateGroup(pid: number, dependencies: TunnelDependencies): void {
+  (
+    dependencies.terminateProcess ??
+    ((leader) =>
+      (dependencies.signalProcess ?? process.kill.bind(process))(
+        -leader,
+        "SIGTERM",
+      ))
+  )(pid);
 }
 
 export function tunnelStatePath(repository: Repository): string {
@@ -183,10 +200,7 @@ export async function startLocalTunnel(
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
-  (
-    dependencies.terminateProcess ??
-    ((processId) => process.kill(processId, "SIGTERM"))
-  )(pid);
+  terminateGroup(pid, dependencies);
   throw new Error(
     `Minikube tunnel did not expose local Gateway port ${repository.environment.gateway.port}`,
   );
@@ -200,9 +214,7 @@ export async function stopLocalTunnel(
   assertLocal(repository);
   const state = await readState(repository);
   if (state && (dependencies.isProcessAlive ?? processIsAlive)(state.pid)) {
-    (dependencies.terminateProcess ?? ((pid) => process.kill(pid, "SIGTERM")))(
-      state.pid,
-    );
+    terminateGroup(state.pid, dependencies);
   }
   await rm(tunnelStatePath(repository), { force: true });
 }

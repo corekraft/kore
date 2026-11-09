@@ -129,7 +129,15 @@ test("app status reports degraded with the remedy when the tunnel has exited, wi
   });
 
   assert.equal(status["status"], "degraded");
-  assert.deepEqual(status["degraded"], []);
+  const degraded = status["degraded"] as {
+    component: string;
+    detail: string;
+  }[];
+  assert.deepEqual(
+    degraded.map(({ component }) => component),
+    ["local-tunnel"],
+  );
+  assert.match(degraded[0]!.detail, /kore tunnel start --environment local/);
   const tunnel = status["tunnel"] as { status: string; detail: string };
   assert.equal(tunnel.status, "degraded");
   assert.match(tunnel.detail, /kore tunnel start --environment local/);

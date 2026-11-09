@@ -71,7 +71,7 @@ test("reports a spawn failure and terminates a tunnel that exits before opening 
       }),
       /did not expose local Gateway port/,
     );
-    assert.deepEqual(kill.mock.calls.at(-1), [8766, "SIGTERM"]);
+    assert.deepEqual(kill.mock.calls.at(-1), [-8766, "SIGTERM"]);
   } finally {
     spawnMock.mockReset();
     kill.mockRestore();

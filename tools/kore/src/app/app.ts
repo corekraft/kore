@@ -78,14 +78,21 @@ export async function appStatus(
     ],
     { capture: true },
   );
-  const degraded = await degradedAdmission(repository, runner);
+  const degraded: { component: string; namespace: string; detail: string }[] =
+    await degradedAdmission(repository, runner);
   // A dead tunnel leaves the application unreachable from the host; status
   // reports it with the remedy and never restarts it (read-only, ADR 0060).
   const tunnel = await tunnelHealthRow(repository, tunnelDependencies);
+  if (tunnel?.status === "degraded") {
+    degraded.push({
+      component: tunnel.name,
+      namespace: tunnel.namespace,
+      detail: tunnel.detail,
+    });
+  }
   return {
     name,
-    status:
-      degraded.length || tunnel?.status === "degraded" ? "degraded" : "ready",
+    status: degraded.length ? "degraded" : "ready",
     degraded,
     ...(tunnel && { tunnel }),
     image,
