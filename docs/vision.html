@@ -1380,7 +1380,7 @@
           <div class="stage">
             <div class="box">
               <span class="route">/</span><b>Static frontend</b>
-              <small>GitHub Pages, object storage, or in-cluster</small>
+              <small>Signed image in the cluster</small>
             </div>
             <div class="box bff">
               <span class="route">/api</span><b>BFF pods 1..N</b>
@@ -1411,8 +1411,13 @@
             <h3>Static frontend</h3>
             <ul class="points">
               <li>
-                A frontend is a static build plus a domain. Where it is hosted
-                is an environment choice.
+                <strong>In the cluster, as a signed image.</strong> Each
+                frontend release is a pinned static-server image with the build
+                inside, signed and deployed by digest. GitHub Pages or object
+                storage is a per-service escape hatch (<a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0044-static-frontends-as-signed-images.md"
+                  >ADR 0044</a
+                >).
               </li>
               <li>
                 <strong>Same site as its BFF.</strong> Serve
@@ -1463,9 +1468,13 @@
                 dedicated ServiceAccount.
               </li>
               <li>
-                <strong>Autoscaling needs a metrics source,</strong> which the
-                catalog does not have yet. Request-rate scaling and scale to
-                zero (KEDA) come later.
+                <strong>Autoscaling from chart values.</strong> metrics-server
+                first, as a catalog Helm release; a CPU-based autoscaler with at
+                least two replicas and no replica count in the chart; KEDA
+                after, and no scale to zero (<a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0046-autoscaling-metrics-server-then-keda.md"
+                  >ADR 0046</a
+                >).
               </li>
             </ul>
           </div>
@@ -1483,48 +1492,56 @@
           </div>
         </div>
         <div class="section-head">
-          <span class="eyebrow">Two Kotlin builds, one contract</span>
+          <span class="eyebrow"
+            >The Kotlin BFF: agent always, fast start from a build-time
+            cache</span
+          >
           <div class="split">
             <div class="tool">
-              <h3>Default: JVM on GraalVM</h3>
+              <h3>Golden path: JVM on GraalVM</h3>
               <dl class="facts">
                 <dt>Build</dt>
                 <dd>
                   Jib image with the OpenTelemetry Java agent and
                   <code>-javaagent</code>
                 </dd>
-                <dt>Telemetry</dt>
+                <dt>Training</dt>
                 <dd>
-                  The agent traces Spring, HTTP, JDBC, Kafka, and Redis clients
-                  with no code
+                  One run at build time, same JDK, flags, and agent, no secrets;
+                  stops after the Spring context refreshes
                 </dd>
                 <dt>Startup</dt>
                 <dd>
-                  Spring ahead-of-time processing and the JDK class data cache;
-                  expected to miss 1 s, to measure
+                  JDK AOT cache baked into the image plus Spring AOT; measured,
+                  with two warm replicas until it meets the budget
                 </dd>
               </dl>
             </div>
             <div class="tool">
-              <h3>When startup must be under 1 s: native image</h3>
+              <h3>Exception: native image</h3>
               <dl class="facts">
-                <dt>Build</dt>
-                <dd>
-                  GraalVM native image, packaged by Jib's native-image extension
-                </dd>
+                <dt>When</dt>
+                <dd>Only as a recorded exception</dd>
                 <dt>Telemetry</dt>
                 <dd>
                   OpenTelemetry Spring Boot starter; the Java agent cannot run
                   in a native image
                 </dd>
-                <dt>Startup</dt>
+                <dt>Why not CRaC</dt>
                 <dd>
-                  Fastest start and smallest memory, at the cost of longer
-                  builds
+                  It needs a CRaC-enabled JDK, not GraalVM, and its snapshot
+                  captures memory, secrets included
                 </dd>
               </dl>
             </div>
           </div>
+          <p class="lede">
+            Decided in
+            <a
+              href="https://github.com/corekraft/kore/blob/main/docs/decisions/0045-bff-jvm-with-agent-and-aot-cache.md"
+              >ADR 0045</a
+            >.
+          </p>
         </div>
       </section>
 
@@ -1738,8 +1755,7 @@
                 resource attributes, so the Kotlin BFF template exports from its
                 first deploy. On the JVM, the Java agent Jib bakes in traces
                 Spring, HTTP clients, JDBC, Kafka, and Redis clients with no
-                code; a native-image build uses the OpenTelemetry Spring Boot
-                starter, because the agent cannot run there.</span
+                code, in every BFF.</span
               >
             </li>
             <li>
@@ -2043,7 +2059,10 @@
                 <td><span class="pill new">New</span></td>
               </tr>
               <tr>
-                <td>Horizontal autoscaling (metrics source, HPA defaults)</td>
+                <td>
+                  Horizontal autoscaling: metrics-server and HPA defaults, then
+                  KEDA
+                </td>
                 <td><span class="pill new">New</span></td>
               </tr>
               <tr>
@@ -2330,32 +2349,42 @@
               >
             </div>
           </li>
-          <li>
+          <li class="decided">
             <div>
               <strong>Default static host</strong
               ><span
-                >GitHub Pages, object storage behind the Gateway, or an
-                in-cluster static server, and which is the default per
-                environment?</span
+                >In the cluster as a signed image, with GitHub Pages or object
+                storage as a per-service escape hatch.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0044-static-frontends-as-signed-images.md"
+                >Decided · ADR 0044</a
               >
             </div>
           </li>
-          <li>
+          <li class="decided">
             <div>
               <strong>BFF runtime</strong
               ><span
-                >Measure the Jib JVM image on GraalVM, with the Java agent and a
-                class data cache, against the budgets, and decide when a service
-                should build a native image instead.</span
+                >Always the JVM with the Java agent, started from a build-time
+                AOT cache; native image only by exception.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0045-bff-jvm-with-agent-and-aot-cache.md"
+                >Decided · ADR 0045</a
               >
             </div>
           </li>
-          <li>
+          <li class="decided">
             <div>
               <strong>Autoscaling source</strong
               ><span
-                >metrics-server for CPU-based HPA first, or straight to KEDA for
-                request-based scaling and scale to zero?</span
+                >metrics-server first, as a catalog Helm release, with
+                autoscaling defaults in chart values; KEDA after.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0046-autoscaling-metrics-server-then-keda.md"
+                >Decided · ADR 0046</a
               >
             </div>
           </li>

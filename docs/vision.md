@@ -173,7 +173,7 @@ hatch has to be recorded.
 ```mermaid
 graph LR
   U["Browser"] -->|"HTTPS, same site"| G["Gateway"]
-  G -->|"/"| FE["Static frontend: GitHub Pages, object storage, or in-cluster"]
+  G -->|"/"| FE["Static frontend: signed image in the cluster"]
   G -->|"/api"| BFF["BFF pods 1..N (HPA)"]
   BFF -->|"mTLS, workload identity"| SVC["Internal services"]
   BFF --> PG["Data claims: PostgreSQL, object store, Kafka, document, key-value"]
@@ -183,9 +183,11 @@ graph LR
 
 ### Static Frontend
 
-- A frontend is a static build artifact plus a domain. Where it is hosted is an
-  environment choice: GitHub Pages, any static host or object store, or a small
-  in-cluster static server running from a signed image.
+- **In the cluster, as a signed image.** Each frontend release is an image
+  built from a pinned static-server base with the build inside it, signed and
+  deployed by digest. GitHub Pages or object storage is a per-service escape
+  hatch whose files sit outside signature admission
+  ([ADR 0044](decisions/0044-static-frontends-as-signed-images.md)).
 - **Same site as its BFF.** The browser should reach the frontend and its BFF
   on one site, for example `auth.apps.corekraft.ca` and
   `auth.apps.corekraft.ca/api` through the Gateway, or
@@ -214,9 +216,8 @@ graph LR
   | Memory per replica   | under 256 MiB  |
   | Image size           | under 150 MB   |
 
-  The JVM build below is expected to miss the 1-second startup target.
-  Measurements decide whether a class data cache closes the gap, or whether a
-  service switches to a native image or keeps more warm replicas.
+  The template records measured startup with the agent and cache. Until it
+  meets the budget, autoscaling starts earlier and keeps at least two replicas.
 
 - **Kotlin on Spring Boot, built with Jib.** The template builds its image with
   Jib: no Dockerfile and no Docker daemon, reproducible layers, and the image
@@ -229,22 +230,25 @@ graph LR
   image and starts the JVM with `-javaagent`, so instrumentation is part of the
   signed digest rather than injected at admission. The agent is pinned by exact
   version and checksum, like every other dependency.
-- **Runs on GraalVM.** The default image runs on the GraalVM JDK as a regular
-  JVM, where the Java agent works. It starts faster with Spring's
-  ahead-of-time processing and the JDK's class data cache, checked against the
-  agent before it becomes the default.
-- **Native image when the budget demands it.** A service that must start in
-  under a second can build a GraalVM native image instead, packaged by Jib's
-  native-image extension. The Java agent cannot run inside a native image, so
-  that build exports telemetry through the OpenTelemetry Spring Boot starter,
-  which supports native images, and keeps the same OTLP contract.
+- **The JVM with the agent, started from a build-time cache.** The BFF always
+  runs on the GraalVM JDK as a JVM, where the agent works. The build runs the
+  application once as a training run, with the same JDK, flags, and agent and
+  no secrets, and bakes the resulting JDK AOT cache into the image beside
+  Spring's ahead-of-time processing, so every pod starts from it
+  ([ADR 0045](decisions/0045-bff-jvm-with-agent-and-aot-cache.md)).
+- **Native image is an exception.** The agent cannot run inside a GraalVM
+  native image, so a native build, with the OpenTelemetry Spring Boot starter
+  instead, is allowed only as a recorded exception.
 - **The contract stays language-neutral.** The platform asks only for a signed
   image, health and readiness endpoints, OTLP telemetry, resource requests,
   and a dedicated ServiceAccount. The existing Node reference app keeps
   satisfying the same contract.
-- **Autoscaling needs its prerequisites.** HPA needs resource requests and a
-  metrics source; the catalog has no metrics-server or equivalent yet. Scaling
-  on request rate, or to zero, is a later step (KEDA is a candidate).
+- **Autoscaling from chart values.** metrics-server comes first, as a catalog
+  Helm release. The workload chart creates a CPU-based HorizontalPodAutoscaler
+  with at least two replicas and a disruption budget, and leaves the replica
+  count out so Helm and Argo CD never fight it. KEDA follows for request-rate
+  scaling; BFFs do not scale to zero
+  ([ADR 0046](decisions/0046-autoscaling-metrics-server-then-keda.md)).
 
 ### Data and Capabilities
 
@@ -315,9 +319,7 @@ What a service gets without writing any instrumentation:
   endpoint and standard resource attributes in its environment, so the Kotlin
   BFF template exports from its first deploy. On the JVM, the OpenTelemetry
   Java agent that Jib bakes into the image traces Spring, HTTP clients, JDBC,
-  Kafka, and Redis clients with no code. A native-image build uses the
-  OpenTelemetry Spring Boot starter instead, because the agent cannot run
-  there.
+  Kafka, and Redis clients with no code, in every BFF.
 - **The platform stamps the organization.** The Collector adds tenant,
   organization, service, and environment attributes from namespace labels.
   It never trusts an organization a service reports about itself, so one tenant
@@ -438,7 +440,7 @@ What exists or is in flight today, and what the vision adds.
 | Quotas and per-organization limits                                                    | New                                                                                  |
 | Golden-path templates (static frontend, Kotlin BFF built with Jib)                    | New                                                                                  |
 | Static frontend hosting contract                                                      | New                                                                                  |
-| Horizontal autoscaling (metrics source, HPA defaults)                                 | New                                                                                  |
+| Horizontal autoscaling: metrics-server and HPA defaults, then KEDA                    | New                                                                                  |
 | Human identity and single sign-on: a Keycloak per tenant with groups per organization | New                                                                                  |
 | Developer portal: a Backstage per tenant with Kore plugins                            | New                                                                                  |
 | GitOps delivery of tenant services: an Argo CD per tenant                             | New, deferred in [Plan 1](../infra/plans/1-initialize.md#deferred-tooling) until now |
@@ -517,13 +519,15 @@ questions keep their numbers and link to their ADR.
 6. **Backstage tenancy.** Decided: one Backstage and one namespace-scoped Argo
    CD per tenant root, scoped inside by organization
    ([ADR 0041](decisions/0041-backstage-and-argo-cd-per-tenant.md)).
-7. **Default static host.** GitHub Pages, object storage behind the Gateway, or
-   an in-cluster static server, and which is the default per environment?
-8. **BFF runtime.** Measure the Jib JVM image on GraalVM, with the Java agent
-   and a class data cache, against the budgets above, and decide when a service
-   should build a native image instead.
-9. **Autoscaling source.** metrics-server for CPU-based HPA first, or straight
-   to KEDA for request-based scaling and scale to zero?
+7. **Default static host.** Decided: in the cluster as a signed image, with
+   GitHub Pages or object storage as a per-service escape hatch
+   ([ADR 0044](decisions/0044-static-frontends-as-signed-images.md)).
+8. **BFF runtime.** Decided: always the JVM with the Java agent, started from a
+   build-time AOT cache; native image only by exception
+   ([ADR 0045](decisions/0045-bff-jvm-with-agent-and-aot-cache.md)).
+9. **Autoscaling source.** Decided: metrics-server first, as a catalog Helm
+   release, with autoscaling defaults in chart values; KEDA after
+   ([ADR 0046](decisions/0046-autoscaling-metrics-server-then-keda.md)).
 10. **Usage and cost.** What is metered per organization, and is it for
     visibility only or also enforced?
 11. **Domain verification and DNS.** Decided: organizations at any level
