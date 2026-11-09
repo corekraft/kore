@@ -138,7 +138,7 @@ claim that the platform is ready.
 
 ## Step 7: Bootstrap Registry, Image Trust, Controllers, and CRD Ownership
 
-Next: digest-pin and approve the two Crossplane function packages (`function-go-templating`, `function-auto-ready`), which Helm does not render. Then roll managed workloads to the mirrored digests in the `v0.3.1` `platform-images.lock.json`, and decide how the lock reaches the repository. Still unproven live: Helm rolling back after kore's fail-fast cancel (ADR 0035).
+Next: cut the next release so the mirror copies the two Crossplane function packages, check its platform image lock with `kore validate --environment managed-example --platform-image-lock <lock>`, then add its exact tag subject to managed `trust.subjects`. After that, managed-example has nothing left to prove offline. The remaining Step 7 items need a managed cluster (see ADR 0044's gaps) or the local application admission gate.
 
 ### Objective
 
@@ -1000,6 +1000,31 @@ for each release against its exact tag identity
 The same digests fail with a `refs/heads/main` identity, because the certificate
 SAN names the tag. `managed-example` now trusts both tags, each as its own exact
 subject.
+
+### 2026-11-08 function pins, managed mirror, and fail-fast probe
+
+- **Function pins (#60).** `function-go-templating` and `function-auto-ready` are
+  pinned by digest and approved, and recorded as unsigned upstream. Live: both
+  Functions report Installed and Healthy with `@sha256` packages, and the app
+  and its database stay healthy.
+- **Managed mirror (#58,
+  [ADR 0044](../../docs/decisions/0044-managed-platform-images-from-the-mirror.md)).**
+  managed-example pulls every approved image from
+  `ghcr.io/corekraft/kore/mirror/*` at the approved digest. `kore validate`
+  rejects any missing or drifted rewrite. The real `v0.3.1` and `v0.3.2` locks
+  pass `--platform-image-lock`. Releases `v0.3.1` and `v0.3.2` mirrored and
+  signed all approved images.
+- **Fail-fast probe (#62, ADR 0035).** A throwaway branch set opa-authorizer's
+  memory to 4Mi. The runs went as follows:
+  - Before #62, the pod stuck in `ContainerCreating` with
+    `FailedCreatePodSandBox` events. Kore waited out Helm's 10 minutes with an
+    unnamed error.
+  - With #62, kore cancelled Helm after 70s. Its error named the pod,
+    `FailedCreatePodSandBox (x6)`, and the message tail "container init was
+    OOM-killed (memory limit too low?)".
+  - In both runs Helm rolled back after the cancel ("context canceled", then
+    "Rollback to N"). The old pods kept serving, and the next `local up`
+    converged with no recovery needed.
 
 ### 2026-11-08 fresh profile, idempotency, and platform mirror
 
