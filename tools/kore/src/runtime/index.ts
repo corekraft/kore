@@ -21,5 +21,10 @@ export {
   withTransientRetry,
 } from "./retry.js";
 export type { TransientRetryOptions } from "./retry.js";
+export { interruptingRunner } from "./interrupting-runner.js";
+export type {
+  Interruption,
+  InterruptingRunner,
+} from "./interrupting-runner.js";
 export { listHostProcesses, terminateMatching } from "./processes.js";
 export type { ProcessControl, ProcessEntry } from "./processes.js";
