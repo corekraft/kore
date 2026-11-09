@@ -1,25 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { loadRepository } from "../config/index.js";
-import { crashLoop, pod, Scenario, waiting } from "./fail-fast-fixtures.js";
-import { reconcileComponent } from "./reconcile.js";
-
-async function oci() {
-  const repository = await loadRepository("local");
-  const component = repository.catalog.components.find(
-    ({ name }) => name === "oci-registry",
-  )!;
-  return { repository, component };
-}
-
-async function reconcile(scenario: Scenario): Promise<void> {
-  const { repository, component } = await oci();
-  await reconcileComponent(repository, scenario, component, undefined, {
-    clock: scenario.clock,
-    intervalMs: 5000,
-    graceMs: 60000,
-  });
-}
+import {
+  crashLoop,
+  oci,
+  reconcile,
+  pod,
+  Scenario,
+  waiting,
+} from "./fail-fast-fixtures.js";
 
 test("a crash-looping container is named with its previous logs and helm is cancelled", async () => {
   const scenario = new Scenario(() => [pod({ containers: [crashLoop(3)] })]);

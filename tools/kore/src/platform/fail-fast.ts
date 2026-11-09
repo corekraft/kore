@@ -75,28 +75,49 @@ async function diagnosis(
   component: Component,
   finding: Finding,
 ): Promise<FailFastError> {
+  return new FailFastError(
+    `component ${component.name} failed: ${await describe(runner, base, finding)}`,
+  );
+}
+
+async function describe(
+  runner: Runner,
+  base: string[],
+  finding: Finding,
+): Promise<string> {
   const logs = await previousLogs(runner, base, finding);
   const where =
-    finding.subject === "scheduling"
+    finding.where ??
+    (finding.subject === "scheduling"
       ? `pod ${finding.pod}`
-      : `pod ${finding.pod} ${finding.subject}`;
+      : `pod ${finding.pod} ${finding.subject}`);
   const detail = finding.detail ? `: ${finding.detail}` : "";
-  return new FailFastError(
-    [
-      `component ${component.name} failed: ${where} ${finding.state}${detail}`,
-      ...(logs ? [`Previous logs (last ${LOG_LINES} lines):`, logs] : []),
-      finding.hint,
-    ].join("\n"),
-  );
+  return [
+    `${where} ${finding.state}${detail}`.replace(
+      /^(pod \S+ is stuck in \S+) /,
+      "$1: ",
+    ),
+    ...(logs ? [`Previous logs (last ${LOG_LINES} lines):`, logs] : []),
+    finding.hint,
+  ].join("\n");
+}
+
+/** What the watch saw at its latest look, kept for failures it did not cause. */
+interface Observation {
+  /** Aborted when the watch should stop looking. */
+  stop: AbortSignal;
+  base: string[];
+  findings: Finding[];
 }
 
 async function watchNamespace(
   runner: Runner,
   repository: Repository,
   component: Component,
-  stop: AbortSignal,
   options: WatchOptions,
+  observation: Observation,
 ): Promise<FailFastError | undefined> {
+  const stop = observation.stop;
   const clock = options.clock ?? realClock;
   const interval = options.intervalMs ?? 5000;
   const grace = options.graceMs ?? 60000;
@@ -106,6 +127,7 @@ async function watchNamespace(
     "--namespace",
     component.namespace,
   ];
+  observation.base = base;
   const firstSeen = new Map<string, number>();
   while (!stop.aborted) {
     await clock.sleep(interval, stop);
@@ -113,6 +135,7 @@ async function watchNamespace(
       return undefined;
     }
     const current = await findings(runner, base, component.name);
+    observation.findings = current;
     const now = clock.now();
     const keys = new Set(current.map(({ key }) => key));
     for (const key of firstSeen.keys()) {
@@ -123,12 +146,42 @@ async function watchNamespace(
     for (const finding of current) {
       const since = firstSeen.get(finding.key) ?? now;
       firstSeen.set(finding.key, since);
-      if (!finding.persists || now - since >= grace) {
+      if (
+        !finding.persists ||
+        now - since >= grace * (finding.slow ? 1.5 : 1)
+      ) {
         return await diagnosis(runner, base, component, finding);
       }
     }
   }
   return undefined;
+}
+
+/**
+ * When the command failed on its own (Helm's timeout), append what the watch
+ * last saw, so the error names a pod state it had already found. The error
+ * keeps its type: callers recover on `CommandError`.
+ */
+async function withObservation(
+  runner: Runner,
+  component: Component,
+  error: unknown,
+  observation: Observation,
+): Promise<unknown> {
+  if (!(error instanceof Error) || observation.findings.length === 0) {
+    return error;
+  }
+  const seen = await Promise.all(
+    observation.findings.map((finding) =>
+      describe(runner, observation.base, finding),
+    ),
+  );
+  error.message = [
+    error.message,
+    `The watch of ${component.namespace} last saw:`,
+    ...seen,
+  ].join("\n");
+  return error;
 }
 
 /**
@@ -148,12 +201,17 @@ export async function withFailFast<T>(
   const stop = new AbortController();
   const cancel = new AbortController();
   let failure: Error | undefined;
+  const observation: Observation = {
+    stop: stop.signal,
+    base: [],
+    findings: [],
+  };
   const watching = watchNamespace(
     runner,
     repository,
     component,
-    stop.signal,
     options,
+    observation,
   ).then(
     (found) => {
       if (found && !stop.signal.aborted) {
@@ -180,7 +238,7 @@ export async function withFailFast<T>(
     throw failure;
   }
   if ("error" in outcome) {
-    throw outcome.error;
+    throw await withObservation(runner, component, outcome.error, observation);
   }
   return outcome.value;
 }

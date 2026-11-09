@@ -7,7 +7,30 @@ const PERSISTING = new Set([
   "ImagePullBackOff",
   "ErrImagePull",
   "CreateContainerConfigError",
+  "CreateContainerError",
+  "RunContainerError",
 ]);
+/** Waiting reasons of a pod whose containers have not started yet. */
+const CREATING = new Set(["ContainerCreating", "PodInitializing"]);
+/** Events that say the kubelet cannot create the pod's sandbox or containers. */
+const CREATE_FAILURES = new Set([
+  "FailedCreatePodSandBox",
+  "FailedCreatePodContainer",
+  "Failed",
+]);
+const REPEATED_EVENTS = 3;
+
+const PERSISTING_HINTS: Record<string, string> = {
+  CreateContainerConfigError:
+    "Check the referenced Secrets, ConfigMaps, and env keys exist.",
+  CreateContainerError:
+    "Check the container's command, securityContext, and volume mounts, and the image's entrypoint.",
+  RunContainerError:
+    "Check the container's command and entrypoint, securityContext, runtime class, and volume mounts.",
+  ErrImagePull: "Check the image reference, its digest, and registry access.",
+};
+const SANDBOX_HINT =
+  "Check resources.limits, runtime class, CNI, or volume mounts (a too-low memory limit OOM-kills the sandbox).";
 
 interface ContainerStatus {
   name: string;
@@ -21,6 +44,7 @@ interface PodItem {
   metadata: { name: string; labels?: Record<string, string> };
   spec?: { nodeName?: string };
   status?: {
+    phase?: string;
     containerStatuses?: ContainerStatus[];
     initContainerStatuses?: ContainerStatus[];
   };
@@ -28,6 +52,9 @@ interface PodItem {
 interface EventItem {
   reason?: string;
   message?: string;
+  count?: number;
+  lastTimestamp?: string;
+  eventTime?: string;
   involvedObject?: { kind?: string; name?: string };
 }
 
@@ -43,6 +70,10 @@ export interface Finding {
   hint: string;
   /** Needs to persist past the grace period before it is fatal. */
   persists: boolean;
+  /** Full description of where the pod is stuck, replacing `pod <p> <subject>`. */
+  where?: string;
+  /** Needs 1.5x the grace period: the evidence is thinner (a lone event). */
+  slow?: boolean;
 }
 
 function terminatedSummary(status: ContainerStatus): string {
@@ -82,14 +113,11 @@ function containerFinding(
     };
   }
   if (PERSISTING.has(reason)) {
-    const config = reason === "CreateContainerConfigError";
     return {
       ...base,
       state: reason,
       detail: waiting.message ?? "",
-      hint: config
-        ? "Check the referenced Secrets, ConfigMaps, and env keys exist."
-        : "Check the image reference, its digest, and registry access.",
+      hint: PERSISTING_HINTS[reason] ?? PERSISTING_HINTS["ErrImagePull"]!,
       persists: true,
     };
   }
@@ -107,6 +135,88 @@ function podFindings(pod: PodItem): Finding[] {
     ),
   ];
   return found.flatMap((finding) => (finding ? [finding] : []));
+}
+
+/** The state a scheduled pod is stuck in before its containers run, if any. */
+function creatingState(pod: PodItem): string | undefined {
+  const statuses = [
+    ...(pod.status?.initContainerStatuses ?? []),
+    ...(pod.status?.containerStatuses ?? []),
+  ];
+  for (const status of statuses) {
+    const reason = status.state?.waiting?.reason;
+    if (reason && CREATING.has(reason)) {
+      return reason;
+    }
+  }
+  return pod.status?.phase === "Pending" ? "Pending" : undefined;
+}
+
+const MESSAGE_HEAD = 200;
+const MESSAGE_TAIL = 240;
+
+/** Drops per-attempt IDs and whitespace noise; keeps head and tail of a long message. */
+function tidyMessage(message: string): string {
+  const text = message
+    .replace(/\\?"?[0-9a-f]{64}\\?"?/g, "<id>")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.length <= MESSAGE_HEAD + MESSAGE_TAIL
+    ? text
+    : `${text.slice(0, MESSAGE_HEAD).trimEnd()} … ${text.slice(-MESSAGE_TAIL).trimStart()}`;
+}
+
+function recency(event: EventItem): string {
+  return event.lastTimestamp ?? event.eventTime ?? "";
+}
+
+/**
+ * The pod's latest create-failure event, with the occurrences of its reason
+ * summed. Kubelet puts a unique sandbox ID in each message, so attempts are
+ * separate events of count 1 rather than one event with a rising count.
+ */
+function createFailure(
+  pod: PodItem,
+  events: EventItem[],
+): { event: EventItem; count: number } | undefined {
+  const own = events.filter(
+    ({ involvedObject, reason }) =>
+      involvedObject?.kind === "Pod" &&
+      involvedObject.name === pod.metadata.name &&
+      reason !== undefined &&
+      CREATE_FAILURES.has(reason),
+  );
+  const latest = own.reduce<EventItem | undefined>(
+    (best, event) => (!best || recency(event) >= recency(best) ? event : best),
+    undefined,
+  );
+  if (!latest) {
+    return undefined;
+  }
+  const count = own
+    .filter(({ reason }) => reason === latest.reason)
+    .reduce((total, event) => total + Math.max(event.count ?? 1, 1), 0);
+  return { event: latest, count };
+}
+
+function createFinding(
+  pod: PodItem,
+  stuck: string,
+  failure: { event: EventItem; count: number },
+): Finding {
+  const { event, count } = failure;
+  const name = pod.metadata.name;
+  return {
+    key: `${name}/${event.reason}`,
+    pod: name,
+    subject: "creating",
+    where: `pod ${name} is stuck in ${stuck}`,
+    state: `${event.reason}${count > 1 ? ` (x${count})` : ""}`,
+    detail: JSON.stringify(tidyMessage(event.message ?? "")),
+    hint: SANDBOX_HINT,
+    persists: true,
+    slow: count < REPEATED_EVENTS,
+  };
 }
 
 /** The release's pods; unlabelled pods count because not every chart sets the label. */
@@ -150,20 +260,31 @@ export async function findings(
   const unscheduled = pods.filter(
     (pod) => !pod.spec?.nodeName && podFindings(pod).length === 0,
   );
+  const creating = pods.filter(
+    (pod) =>
+      pod.spec?.nodeName &&
+      podFindings(pod).length === 0 &&
+      creatingState(pod) !== undefined,
+  );
   const result = pods.flatMap(podFindings);
-  if (unscheduled.length > 0) {
+  if (unscheduled.length + creating.length > 0) {
     const events =
       (await kubectlJson<EventItem>(runner, base, [
         "get",
         "events",
-        "--field-selector",
-        "reason=FailedScheduling",
         "--output",
         "json",
       ])) ?? [];
+    for (const pod of creating) {
+      const event = createFailure(pod, events);
+      if (event) {
+        result.push(createFinding(pod, creatingState(pod)!, event));
+      }
+    }
     for (const pod of unscheduled) {
       const event = events.find(
-        ({ involvedObject }) =>
+        ({ involvedObject, reason }) =>
+          reason === "FailedScheduling" &&
           involvedObject?.kind === "Pod" &&
           involvedObject.name === pod.metadata.name,
       );
