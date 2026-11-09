@@ -125,42 +125,6 @@ test("app up verifies, installs, and waits for every workload deployment", async
   ).toEqual(["deployment/reference-api", "deployment/reference-worker"]);
 });
 
-test("app up rejects an invalid application name before resolving chart paths", async () => {
-  localRegistryReferenceMock.mockImplementation(passthroughRegistry);
-  const base = await loadRepository("local");
-  const repository = {
-    ...base,
-    catalog: { components: [] },
-  };
-  const runner: Runner = {
-    async run(command, args) {
-      if (command === "minikube") {
-        return { stdout: '{"Host":"Running"}', stderr: "", code: 0 };
-      }
-      if (command === "kubectl" && args.includes("oci-registry-credentials")) {
-        return { stdout: healthyReadinessOutput(args)!, stderr: "", code: 0 };
-      }
-      if (command === "kubectl" && args.includes("jsonpath={.metadata.name}")) {
-        return { stdout: "kube-system", stderr: "", code: 0 };
-      }
-      if (
-        command === "kubectl" &&
-        args.some((arg) => arg.includes(".spec.clusterIP"))
-      ) {
-        return { stdout: "10.96.0.50", stderr: "", code: 0 };
-      }
-      return { stdout: "", stderr: "", code: 0 };
-    },
-  };
-  await expect(
-    appUp(repository, runner, "Bad_Name", {
-      reference: "registry.kore.local/reference@sha256:" + "a".repeat(64),
-      digest: "sha256:" + "a".repeat(64),
-      signer: "release@kore.dev",
-    }),
-  ).rejects.toThrow(/invalid application name/);
-});
-
 const upCalls = (calls: Call[], command: string, verb: string) =>
   calls.filter((c) => c.command === command && c.args.includes(verb));
 

@@ -1,5 +1,5 @@
 import type { Repository } from "../config/index.js";
-import { platformStatus } from "../platform/index.js";
+import { assertAdmissionGateOpen, platformStatus } from "../platform/index.js";
 import type { Runner } from "../runtime/index.js";
 
 export function deploymentRolloutStatusArgs(name: string): string[] {
@@ -23,6 +23,17 @@ export async function assertPlatformReady(
       `platform is not ready: ${unavailable.map((component) => `${component.name} (${component.detail})`).join(", ")}`,
     );
   }
+}
+
+/**
+ * Refuses application admission unless the gate is open for the current
+ * platform generation (ADR 0054); returns the generation to activate under.
+ */
+export async function assertApplicationAdmission(
+  repository: Repository,
+  runner: Runner,
+): Promise<string> {
+  return await assertAdmissionGateOpen(repository, runner);
 }
 
 function namespaced(repository: Repository, name: string): string[] {

@@ -10,6 +10,7 @@ import {
   ensureRegistryAuth,
 } from "../images/index.js";
 import type { Runner } from "../runtime/index.js";
+import { ensureClosedAdmissionGate } from "./admission-gate.js";
 import { rewireRegistryService } from "./registry-rewire.js";
 import { reconcileComponent, reconcileIfNeeded } from "./reconcile.js";
 
@@ -29,6 +30,14 @@ async function ensureCluster(
     }
     await clusterUp(repository, runner);
   }
+}
+
+/** The internal foundation ends with the application admission gate closed (ADR 0054). */
+export async function closeApplicationAdmission(
+  repository: Repository,
+  runner: Runner,
+): Promise<void> {
+  await ensureClosedAdmissionGate(repository, runner);
 }
 
 export async function bootstrapControllers(

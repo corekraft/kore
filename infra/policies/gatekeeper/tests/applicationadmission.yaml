@@ -1,0 +1,25 @@
+kind: Suite
+apiVersion: test.gatekeeper.sh/v1alpha1
+tests:
+  - name: application-admission-closed
+    template: ../templates/koreapplicationadmission.yaml
+    constraint: constraints/applicationadmission-closed.yaml
+    cases:
+      - {name: rejects-application-pod-while-closed, object: objects/gate-pod-app.yaml, assertions: [{violations: 1, message: closed}]}
+      - {name: rejects-application-deployment-while-closed, object: objects/gate-deployment-app.yaml, assertions: [{violations: 1, message: closed}]}
+      - {name: rejects-application-claim-while-closed, object: objects/gate-claim-app.yaml, assertions: [{violations: 1, message: closed}]}
+      - {name: admits-platform-namespace-workload-while-closed, object: objects/gate-pod-platform.yaml, assertions: [{violations: 0}]}
+      - {name: rejects-namespace-activation-while-closed, object: objects/gate-namespace-active-current.yaml, assertions: [{violations: 1, message: closed}]}
+      - {name: rejects-namespace-activation-by-non-bootstrap, object: objects/gate-namespace-active-developer.yaml, assertions: [{violations: 2}]}
+      - {name: rejects-removing-activation-by-non-bootstrap, object: objects/gate-namespace-activation-removed.yaml, assertions: [{violations: 1, message: bootstrap}]}
+      - {name: admits-unrelated-namespace-update-by-developer, object: objects/gate-namespace-unrelated-update.yaml, assertions: [{violations: 0}]}
+      - {name: admits-namespace-without-activation, object: objects/gate-namespace-plain.yaml, assertions: [{violations: 0}]}
+      - {name: exempts-platform-namespace-metadata, object: objects/gate-namespace-platform-label.yaml, assertions: [{violations: 0}]}
+  - name: application-admission-open
+    template: ../templates/koreapplicationadmission.yaml
+    constraint: constraints/applicationadmission-open.yaml
+    cases:
+      - {name: admits-application-pod-once-open, object: objects/gate-pod-app.yaml, assertions: [{violations: 0}]}
+      - {name: admits-activation-by-bootstrap-for-current-generation, object: objects/gate-namespace-active-current.yaml, assertions: [{violations: 0}]}
+      - {name: rejects-activation-for-a-stale-generation, object: objects/gate-namespace-active-stale.yaml, assertions: [{violations: 1, message: stale}]}
+      - {name: rejects-activation-by-non-bootstrap-even-when-open, object: objects/gate-namespace-active-developer.yaml, assertions: [{violations: 1, message: bootstrap}]}

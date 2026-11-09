@@ -1,3 +1,5 @@
+import { loadRepository } from "../config/index.js";
+import { platformGeneration } from "../platform/admission-gate.js";
 import { healthyWebhookOutput } from "../platform/webhook-fixtures.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 
@@ -42,10 +44,28 @@ const registryCredentials = JSON.stringify({
   },
 });
 
+/** The generation of the local repository, which a gate must carry to be current. */
+export const localGeneration = platformGeneration(
+  await loadRepository("local"),
+);
+
+export function gateOutput(
+  state: string,
+  generation = localGeneration,
+): string {
+  return JSON.stringify({ spec: { parameters: { state, generation } } });
+}
+
 /** What a healthy cluster answers to the platform readiness probes, if any. */
 export function healthyReadinessOutput(
   args: readonly string[],
 ): string | undefined {
+  if (args.includes("koreapplicationadmission.constraints.gatekeeper.sh")) {
+    return gateOutput("open");
+  }
+  if (args.some((arg) => arg.includes("platform\\.kore\\.dev/activation"))) {
+    return localGeneration; // the activation label read back after activation
+  }
   if (args.includes("oci-registry-credentials")) {
     return registryCredentials;
   }

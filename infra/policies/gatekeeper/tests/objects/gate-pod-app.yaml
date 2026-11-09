@@ -1,0 +1,4 @@
+apiVersion: v1
+kind: Pod
+metadata: {name: api, namespace: reference}
+spec: {containers: [{name: api, image: "10.96.0.50:5000/reference@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]}

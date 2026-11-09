@@ -4,7 +4,10 @@ import { orderedComponents, type Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { startLocalTunnel, type TunnelDependencies } from "../tunnel/index.js";
 import { installLocalTrust } from "../security/index.js";
-import { bootstrapControllers } from "./bootstrap.js";
+import {
+  bootstrapControllers,
+  closeApplicationAdmission,
+} from "./bootstrap.js";
 import { reconcileConfiguration } from "./reconcile.js";
 
 async function writePlatformState(
@@ -66,5 +69,9 @@ export async function platformUp(
   if (local && !tunnelStarted) {
     await startLocalTunnel(repository, runner, tunnelDependencies);
   }
+  // The internal foundation ends with the application admission gate closed
+  // (ADR 0054). Opening it is the complete bootstrap generation's job (plan
+  // Step 13), after Steps 7 through 11 and trust closure pass.
+  await closeApplicationAdmission(repository, runner);
   await writePlatformState(repository, "ready");
 }

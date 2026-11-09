@@ -13,6 +13,7 @@ import {
   releaseMatchesFingerprint,
 } from "../platform/index.js";
 import type { Runner } from "../runtime/index.js";
+import { activationLabel } from "../platform/admission-gate.js";
 import { releaseArgs } from "./release.js";
 
 async function chart(
@@ -92,6 +93,56 @@ export async function enrollNamespace(
     );
   }
   await distributeSignatureCredential(repository, runner, name);
+}
+
+/**
+ * Activates the namespace for one platform generation (ADR 0054): the
+ * `activationLabel` names the generation of the open admission gate, so a
+ * namespace activated under an earlier generation is stale. The cluster policy
+ * lets only bootstrap automation set it. The label is read back and the release
+ * is refused when it is absent.
+ */
+export async function activateNamespace(
+  repository: Repository,
+  runner: Runner,
+  name: string,
+  generation: string,
+): Promise<void> {
+  await runner.run(
+    "kubectl",
+    [
+      "--context",
+      repository.environment.kubeContext,
+      "apply",
+      "--server-side",
+      "--field-manager=kore-activation",
+      "--force-conflicts",
+      "--filename",
+      "-",
+    ],
+    {
+      capture: true,
+      input: `apiVersion: v1\nkind: Namespace\nmetadata:\n  name: ${name}\n  labels:\n    ${activationLabel}: ${generation}\n`,
+    },
+  );
+  const { stdout } = await runner.run(
+    "kubectl",
+    [
+      "--context",
+      repository.environment.kubeContext,
+      "get",
+      "namespace",
+      name,
+      "--output",
+      `jsonpath={.metadata.labels.${activationLabel.replaceAll(".", "\\.")}}`,
+    ],
+    { capture: true },
+  );
+  if (stdout.trim() !== generation) {
+    throw new Error(
+      `namespace ${name} is not activated: label ${activationLabel}=${generation} is missing after apply. Rerun kore app up; if it persists, the admission policy is refusing the label because the gate is not open for generation ${generation}`,
+    );
+  }
 }
 
 /**
