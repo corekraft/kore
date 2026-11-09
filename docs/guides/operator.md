@@ -57,7 +57,7 @@ kore journal --environment local --limit 20     # recent mutations; flags interr
 ```
 
 Platform-wide rows, besides one per component: `registry-trust`,
-`image-inventory`, `crd-ownership`, `capacity` ([budgets](../operations/resource-budgets.md)),
+`image-inventory`, `crd-ownership`, `capacity` ([budgets](../operations/resource-budgets.md)), `backups` ([backups](../operations/backups.md)),
 and the admission gate. `status` is `ready`, `degraded`, or `missing`, and the
 detail names the cause. Application admission stays closed until every row that
 gates it is ready.

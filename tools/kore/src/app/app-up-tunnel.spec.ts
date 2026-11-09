@@ -1,4 +1,4 @@
-import { expect, test, vi } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 
 const localRegistryReferenceMock = vi.hoisted(() => vi.fn());
 vi.mock("../images/index.js", async (importOriginal) => ({
@@ -6,18 +6,23 @@ vi.mock("../images/index.js", async (importOriginal) => ({
   localRegistryReference: localRegistryReferenceMock,
 }));
 import { loadRepository } from "../config/index.js";
-import { appUp } from "./up.js";
+import { appUp, appUpRelease } from "./up.js";
 import {
   gateOutput,
   healthyRunner,
   lockedImage,
   passthroughRegistry,
+  removeReleaseLocks,
+  repositoryTrustingRelease,
+  writeReleaseLock,
   type Call,
 } from "./app-fixtures.js";
 
 // Docs: docs/decisions/0060-tunnel-recovery-on-demand.md
 // A dead tunnel is restarted by the command that needs the endpoint, after the
 // platform is proven ready and before any workload is installed.
+
+afterEach(removeReleaseLocks);
 
 const isInstall = (call: Call) =>
   call.command === "helm" && call.args[0] === "upgrade";
@@ -72,4 +77,32 @@ test("app up does not touch the tunnel while the gate is closed", async () => {
     ),
   ).rejects.toThrow(/closed/);
   expect(ensureTunnel).not.toHaveBeenCalled();
+});
+
+test("app up from the release lock restores the tunnel after admission and before verifying or deploying", async () => {
+  const repository = await repositoryTrustingRelease();
+  const calls: Call[] = [];
+  let atTunnel: Call[] = [];
+  localRegistryReferenceMock.mockImplementation(passthroughRegistry);
+
+  await appUpRelease(
+    repository,
+    healthyRunner(calls),
+    "reference",
+    await writeReleaseLock(repository.root),
+    {
+      ensureTunnel: async () => {
+        atTunnel = [...calls];
+      },
+    },
+  );
+
+  const gateRead = atTunnel.some((call) =>
+    call.args.includes("koreapplicationadmission.constraints.gatekeeper.sh"),
+  );
+  expect(gateRead).toBe(true);
+  expect(atTunnel.some((call) => call.command === "cosign")).toBe(false);
+  expect(atTunnel.some(isInstall)).toBe(false);
+  expect(calls.some((call) => call.command === "cosign")).toBe(true);
+  expect(calls.some(isInstall)).toBe(true);
 });

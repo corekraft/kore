@@ -36,3 +36,7 @@ export type { RegistryClient } from "./registry-client.js";
 export type { RegistryDependencies } from "./registry.js";
 export { rotateRegistryCredentials } from "./registry-rotation.js";
 export type { RotationResult } from "./registry-rotation.js";
+export {
+  assertReleaseAutomationImage,
+  isReleaseAutomationSigner,
+} from "./release-image.js";

@@ -66,13 +66,34 @@ test("an init container probe without a trusted main image is refused before any
   );
 });
 
+function podList(
+  pods: { name: string; image: string; deleting?: boolean }[],
+): string {
+  return JSON.stringify({
+    items: pods.map(({ name, image, deleting }) => ({
+      metadata: {
+        name,
+        ...(deleting ? { deletionTimestamp: "2026-11-09T10:56:23Z" } : {}),
+      },
+      spec: { containers: [{ image }] },
+    })),
+  });
+}
+
 test("the running pod is found by the image it runs, in the named namespace and context", async () => {
   const repository = await loadRepository("local");
   const calls: Call[] = [];
   const runner: Runner = {
     async run(command, args) {
       calls.push({ command, args });
-      return { stdout: "reference-abc\n", stderr: "", code: 0 };
+      return {
+        stdout: podList([
+          { name: "other", image: "other:1" },
+          { name: "reference-abc", image: source },
+        ]),
+        stderr: "",
+        code: 0,
+      };
     },
   };
 
@@ -88,14 +109,54 @@ test("the running pod is found by the image it runs, in the named namespace and 
     "reference",
   ]);
   assert.ok(args.includes("--field-selector=status.phase=Running"));
-  assert.ok(args.some((arg) => arg.includes(source)));
+});
+
+test("a terminating pod is never the probe target, because admission does not validate a pod already being deleted", async () => {
+  const repository = await loadRepository("local");
+  const runner: Runner = {
+    async run() {
+      return {
+        stdout: podList([
+          { name: "reference-api-old", image: source, deleting: true },
+          { name: "reference-api-new", image: source },
+        ]),
+        stderr: "",
+        code: 0,
+      };
+    },
+  };
+
+  assert.equal(
+    await runningPodWithImage(repository, runner, "reference", source),
+    "reference-api-new",
+  );
+});
+
+test("only terminating pods of the image fails with the fix instead of probing a pod admission ignores", async () => {
+  const repository = await loadRepository("local");
+  const runner: Runner = {
+    async run() {
+      return {
+        stdout: podList([
+          { name: "reference-api-old", image: source, deleting: true },
+        ]),
+        stderr: "",
+        code: 0,
+      };
+    },
+  };
+
+  await assert.rejects(
+    runningPodWithImage(repository, runner, "reference", source),
+    /kore app up reference/,
+  );
 });
 
 test("no running pod of the image fails with the fix instead of probing nothing", async () => {
   const repository = await loadRepository("local");
   const runner: Runner = {
     async run() {
-      return { stdout: "  \n", stderr: "", code: 0 };
+      return { stdout: podList([]), stderr: "", code: 0 };
     },
   };
 

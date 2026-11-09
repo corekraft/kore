@@ -5,6 +5,11 @@ tests:
     template: ../templates/koreworkloadidentity.yaml
     constraint: ../constraints/koreworkloadidentity.yaml
     cases:
-      - {name: rejects-default-service-account, object: objects/wi-default-sa.yaml, assertions: [{violations: 2}]}
-      - {name: accepts-dedicated-service-account, object: objects/wi-dedicated-sa.yaml, assertions: [{violations: 0}]}
-      - {name: exempts-system-namespaces, object: objects/wi-exempt-ns.yaml, assertions: [{violations: 0}]}
+      - {name: rejects-default-service-account, object: objects/wi-default-sa.yaml, inventory: [objects/wi-ns-app.yaml], assertions: [{violations: 2}]}
+      - {name: rejects-application-workload-without-explicit-automount-false, object: objects/wi-no-automount.yaml, inventory: [objects/wi-ns-app.yaml], assertions: [{violations: 1, message: automountServiceAccountToken}]}
+      - {name: accepts-dedicated-service-account, object: objects/wi-dedicated-sa.yaml, inventory: [objects/wi-ns-app.yaml], assertions: [{violations: 0}]}
+      - {name: does-not-match-system-namespaces, object: objects/wi-exempt-ns.yaml, inventory: [objects/wi-ns-kube-system.yaml], assertions: [{violations: 0}]}
+      - {name: does-not-match-platform-chart-namespaces, object: objects/wi-platform-chart.yaml, inventory: [objects/wi-ns-observability.yaml], assertions: [{violations: 0}]}
+      - {name: allows-istio-managed-waypoint-in-application-namespace, object: objects/wi-istio-waypoint.yaml, inventory: [objects/wi-ns-app.yaml], assertions: [{violations: 0}]}
+      - {name: rejects-pod-copying-only-the-managed-label, object: objects/wi-istio-lookalike.yaml, inventory: [objects/wi-ns-app.yaml], assertions: [{violations: 1}]}
+      - {name: rejects-pod-with-wrong-managed-label-value, object: objects/wi-istio-wrong-value.yaml, inventory: [objects/wi-ns-app.yaml], assertions: [{violations: 1}]}

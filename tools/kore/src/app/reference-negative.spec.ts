@@ -21,6 +21,11 @@ interface Violation {
   msg: string;
 }
 
+// kore-workload-identity matches only activated application namespaces, so
+// gator needs the namespace object to evaluate its selector.
+const activatedNamespace =
+  "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: reference\n  labels:\n    istio.io/dataplane-mode: ambient\n    platform.kore.dev/activation-generation: g-0123456789ab\n";
+
 async function renderedWorkloads(): Promise<string> {
   const root = await findRoot();
   const { stdout } = await run("helm", [
@@ -29,6 +34,9 @@ async function renderedWorkloads(): Promise<string> {
     join(root, "apps/reference/charts/workload"),
     "--set",
     "platform.gateway.hostname=kore.local",
+    // `app up` always deploys by digest (ADR 0073), so render the way it does.
+    "--set-string",
+    `image.digest=sha256:${"a".repeat(64)}`,
   ]);
   return stdout
     .split(/^---$/m)
@@ -36,6 +44,7 @@ async function renderedWorkloads(): Promise<string> {
     .map((doc) =>
       doc.replace(/^metadata:$/m, "metadata:\n  namespace: reference"),
     )
+    .concat(activatedNamespace)
     .join("\n---\n");
 }
 
@@ -123,4 +132,19 @@ test("a workload without a readiness probe is rejected", async () => {
 
   assert.ok(found.length > 0, "a missing readiness probe must be rejected");
   assert.match(found[0]!.msg, /readiness probe/);
+});
+
+test("a workload deployed by tag alone is rejected by the digest constraint", async () => {
+  const invalid = (await renderedWorkloads()).replaceAll(
+    /(image: "[^"@]+)@sha256:[a-f0-9]{64}"/g,
+    '$1:0.1.0"',
+  );
+
+  const found = await violations(invalid);
+
+  assert.ok(found.length > 0, "a tag-only image must be rejected");
+  assert.ok(
+    found.every(({ constraint }) => constraint === "kore-image-digest"),
+  );
+  assert.match(found[0]!.msg, /must be pinned by digest/);
 });

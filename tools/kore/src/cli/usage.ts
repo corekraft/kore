@@ -7,7 +7,7 @@ Usage:
   kore cluster status [--environment <name>] [--json]
   kore platform bootstrap|up|gate-check|stop|destroy --environment <name> [--yes] [--purge-data]
   kore platform status|render [--environment <name>] [--output <directory>] [--json]
-  kore app up <name> --environment <name>
+  kore app up <name> --environment <name> [--image-lock <release images.lock.json>]
   kore app down <name> --environment <name> [--json]
   kore app status <name> [--environment <name>] [--json]   (reports degraded when the registry or verifier is down)
   kore data export --environment <name> [--namespace reference] [--json]
@@ -22,6 +22,8 @@ Usage:
   kore journal [--environment <name>] [--limit <n>] [--json]
   kore ops inventory|recovery [--environment local] [--json]
   kore ops upgrade-check|crd-check [--from <release-tag>] [--environment local] [--json]
+  kore policy record <constraint> --environment <name> --audit <file|-> [--json]
+  kore policy promote|rollback <constraint> --environment <name> [--json]
 
 "cluster destroy" refuses while data labeled platform.kore.dev/retention=Retain
 (databases) exists; --purge-data deletes it.
@@ -38,6 +40,14 @@ an export still matches its manifest.
 verifies the digest, decrypts with "age --decrypt --identity" (--identity or
 SOPS_AGE_KEY_FILE; Kore never reads the key), and refuses a database that
 already holds tables unless --overwrite-data --yes replaces it.
+
+"app up" deploys only an image that release automation produced: the lock entry's
+signer must be a release workflow at a version tag, and cosign verifies that
+exact identity before Helm runs. Pass the images.lock.json attached to the
+release with --image-lock. A source build runs through "kore local up". Before
+installing it clears a failed or canceled earlier attempt (a release that never
+deployed is uninstalled, a canceled upgrade is rolled back) and refuses to
+uninstall a release whose claim holds retained data.
 
 "app down" uninstalls only the workload release and reports the retained data
 (claims and volumes) that remains; with --json it always prints
@@ -72,6 +82,15 @@ CRD owner, or an application contract change that breaks existing claims.
 "crd-check" renders each changed chart's CRDs at both versions (helm template,
 no cluster) and fails on a removed CRD, a dropped stored version, an unsafe
 storage-version move, or a rollback that cannot read the new version.
+
+"policy" edits Gatekeeper constraints in the repository and never touches a
+cluster; "kore platform up" applies the change. "record" stores the timestamp
+and violation count from "kubectl get <kind>.constraints.gatekeeper.sh <name>
+--output json" (a file, or - for stdin) as the environment's promotion evidence
+in infra/policies/gatekeeper/promotions/<constraint>.json. "promote" moves one
+dryrun constraint to deny only when that evidence shows zero violations and is
+under 14 days old. "rollback" sets one constraint back to dryrun and keeps its
+evidence. Review the resulting diff in a pull request.
 
 Every mutation requires --environment and is recorded in
 .kore/state/journal/<environment>.jsonl. Status, doctor, validate, render, ops,

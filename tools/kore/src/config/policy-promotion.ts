@@ -3,8 +3,8 @@ import { join } from "node:path";
 import type { Repository } from "./types.js";
 
 // Docs: docs/decisions/0059-identity-policy-evidence.md
-const constraintsDir = "infra/policies/gatekeeper/constraints";
-const promotionsDir = "infra/policies/gatekeeper/promotions";
+export const constraintsDir = "infra/policies/gatekeeper/constraints";
+export const promotionsDir = "infra/policies/gatekeeper/promotions";
 const actions = ["dryrun", "warn", "deny"] as const;
 const maxEvidenceAgeDays = 14;
 
@@ -95,7 +95,7 @@ const isEvidence = (value: unknown): value is AuditEvidence => {
   );
 };
 
-const isRecord = (value: unknown): value is PromotionRecord => {
+export const isRecord = (value: unknown): value is PromotionRecord => {
   const r = value as Partial<PromotionRecord> | null;
   return (
     typeof r?.constraint === "string" &&
@@ -107,7 +107,7 @@ const isRecord = (value: unknown): value is PromotionRecord => {
   );
 };
 
-function parseJson(text: string): unknown {
+export function parseJson(text: string): unknown {
   try {
     return JSON.parse(text);
   } catch (error) {
@@ -126,7 +126,7 @@ async function jsonFiles(dir: string): Promise<string[]> {
   }
 }
 
-function recordErrors(
+export function recordErrors(
   constraint: string,
   action: string,
   record: unknown,

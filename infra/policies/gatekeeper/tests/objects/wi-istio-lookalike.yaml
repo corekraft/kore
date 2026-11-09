@@ -1,0 +1,11 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: lookalike, namespace: app}
+spec:
+  template:
+    metadata:
+      labels:
+        gateway.istio.io/managed: istio.io-mesh-controller
+    spec:
+      serviceAccountName: lookalike
+      containers: [{name: app, image: invalid}]
