@@ -1,7 +1,11 @@
 import { spawn } from "node:child_process";
 import { connect } from "node:tls";
 import type { Repository } from "../config/index.js";
-import type { Runner } from "../runtime/index.js";
+import {
+  terminateMatching,
+  type ProcessControl,
+  type Runner,
+} from "../runtime/index.js";
 import { loadRegistryCa } from "./registry-tls.js";
 
 export interface RegistryDependencies {
@@ -107,4 +111,30 @@ export async function localRegistryReference(
     await loadRegistryCa(repository, runner),
   );
   return reference.replace(/^[^/]+/, "127.0.0.1:30500");
+}
+
+/**
+ * Terminates the registry port-forward `ensurePortForward` leaves running,
+ * matched by its full command line for this environment's kube context. A
+ * forward for another context, or any other kubectl, is untouched; with none
+ * running this does nothing.
+ */
+export async function stopRegistryForward(
+  repository: Repository,
+  control: ProcessControl = {},
+): Promise<number[]> {
+  const context = repository.environment.kubeContext;
+  return await terminateMatching(
+    ({ command }) => {
+      const argv = command.trim().split(/\s+/);
+      return (
+        /(?:^|\/)kubectl$/.test(argv[0] ?? "") &&
+        argv.slice(1).join(" ") ===
+          `--context ${context} --namespace kore-registry port-forward service/oci-registry 30500:5000`
+      );
+    },
+    (entry) =>
+      `stopped registry port-forward ${entry.pid} for context ${context}`,
+    control,
+  );
 }

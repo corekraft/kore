@@ -45,13 +45,9 @@ test.each([
     localRegistryReferenceMock.mockImplementation(passthroughRegistry);
 
     await expect(
-      appUp(
-        repository,
-        withGate(calls, gate),
-        "reference",
-        lockedImage(),
-        "/tmp/kore.pub",
-      ),
+      appUp(repository, withGate(calls, gate), "reference", lockedImage(), {
+        publicKey: "/tmp/kore.pub",
+      }),
     ).rejects.toThrow(message);
 
     // The gate read is the last thing app up does: no signature check, image
@@ -70,7 +66,7 @@ test("app up activates the namespace for the open gate's generation before insta
     withGate(calls, gateOutput("open")),
     "reference",
     lockedImage(),
-    "/tmp/kore.pub",
+    { publicKey: "/tmp/kore.pub" },
   );
 
   const text = calls.map((call) => `${call.command} ${call.args.join(" ")}`);
@@ -91,13 +87,9 @@ test("app up proceeds once platform up has opened the gate it left behind", asyn
   // The gate as `platform up` writes it when every component is ready.
   const opened = JSON.stringify(admissionGate(repository, "open"));
 
-  await appUp(
-    repository,
-    withGate(calls, opened),
-    "reference",
-    lockedImage(),
-    "/tmp/kore.pub",
-  );
+  await appUp(repository, withGate(calls, opened), "reference", lockedImage(), {
+    publicKey: "/tmp/kore.pub",
+  });
 
   expect(calls.some((call) => call.args[0] === "upgrade")).toBe(true);
 });

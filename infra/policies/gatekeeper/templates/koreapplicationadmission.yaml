@@ -13,6 +13,7 @@ spec:
             state: {type: string, enum: [closed, open]}
             platformNamespaces: {type: array, items: {type: string}}
             bootstrapGroups: {type: array, items: {type: string}}
+            controllerIdentities: {type: array, items: {type: string}}
   targets:
     - target: admission.k8s.gatekeeper.sh
       rego: |
@@ -23,7 +24,17 @@ spec:
         # anyone else, when the platform generation changes. A missing or
         # unrecognised state counts as closed.
         activation := "platform.kore.dev/activation-generation"
-        workloads := {"Pod", "Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob", "PostgreSQLInstance"}
+        workloads := {"Pod", "ReplicaSet", "ReplicationController", "Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob", "PostgreSQLInstance"}
+        # A closed gate stops new application mutations, not the cluster's own
+        # controllers keeping workloads that were admitted while it was open
+        # running (ADR 0067): replacing a Pod, syncing a Deployment's metadata.
+        # They are exempt by identity, never by owner reference, which anyone
+        # can forge. A PostgreSQLInstance claim is never exempt.
+        controller_kinds := {"Pod", "ReplicaSet", "ReplicationController", "Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob"}
+        controller {
+          input.review.kind.kind in controller_kinds
+          object.get(object.get(input.review, "userInfo", {}), "username", "") in object.get(input.parameters, "controllerIdentities", [])
+        }
         open { input.parameters.state == "open" }
         meta := object.get(input.review.object, "metadata", {})
         platform_namespace {
@@ -48,6 +59,7 @@ spec:
           input.review.kind.kind in workloads
           not platform_namespace
           not open
+          not controller
           msg := sprintf("application admission gate is closed (generation %s): %s %s/%s is refused until bootstrap opens the gate", [input.parameters.generation, input.review.kind.kind, meta.namespace, meta.name])
         }
         violation[{"msg": msg}] {

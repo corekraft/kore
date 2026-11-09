@@ -8,6 +8,10 @@ tests:
       - {name: rejects-application-pod-while-closed, object: objects/gate-pod-app.yaml, assertions: [{violations: 1, message: closed}]}
       - {name: rejects-application-deployment-while-closed, object: objects/gate-deployment-app.yaml, assertions: [{violations: 1, message: closed}]}
       - {name: rejects-application-claim-while-closed, object: objects/gate-claim-app.yaml, assertions: [{violations: 1, message: closed}]}
+      - {name: rejects-application-replicaset-while-closed, object: objects/gate-replicaset-app.yaml, assertions: [{violations: 1, message: closed}]}
+      - {name: rejects-developer-pod-with-forged-owner-while-closed, object: objects/gate-pod-forged-owner-by-developer.yaml, assertions: [{violations: 1, message: closed}]}
+      - {name: admits-controller-created-pod-of-an-existing-workload-while-closed, object: objects/gate-pod-by-controller.yaml, assertions: [{violations: 0}]}
+      - {name: rejects-claim-even-from-a-controller-identity-while-closed, object: objects/gate-claim-by-controller.yaml, assertions: [{violations: 1, message: closed}]}
       - {name: admits-platform-namespace-workload-while-closed, object: objects/gate-pod-platform.yaml, assertions: [{violations: 0}]}
       - {name: rejects-namespace-activation-while-closed, object: objects/gate-namespace-active-current.yaml, assertions: [{violations: 1, message: closed}]}
       - {name: rejects-namespace-activation-by-non-bootstrap, object: objects/gate-namespace-active-developer.yaml, assertions: [{violations: 2}]}

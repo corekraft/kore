@@ -1,0 +1,16 @@
+{
+  "title": "Kore Mesh Identity",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Mesh connections by source and destination principal",
+      "targets": [
+        {
+          "expr": "sum by (source_principal, destination_principal, destination_service) (rate(istio_tcp_connections_opened_total[5m]))",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        }
+      ],
+      "datasource": { "type": "prometheus", "uid": "prometheus" }
+    }
+  ]
+}

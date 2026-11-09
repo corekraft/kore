@@ -96,6 +96,18 @@ export const runtimeModule = () => ({
 });
 
 export const platformModule = () => ({
+  readinessFailureSummary: (evidence: {
+    failures: { requirement: string; name: string; detail: string }[];
+  }) =>
+    evidence.failures
+      .map((f) => `${f.requirement}: ${f.name} (${f.detail})`)
+      .join(", "),
+  closeGateIfDegraded: vi.fn(
+    async () => (
+      dispatch.push("closeGateIfDegraded"),
+      { closed: false, failures: [], evidence: {} }
+    ),
+  ),
   bootstrapControllers: vi.fn(
     async () => void dispatch.push("bootstrapControllers"),
   ),
@@ -117,6 +129,9 @@ export const securityModule = () => ({
 });
 
 export const tunnelModule = () => ({
+  ensureLocalTunnel: vi.fn(
+    async () => (dispatch.push("ensureLocalTunnel"), { status: "running" }),
+  ),
   startLocalTunnel: vi.fn(
     async () => (dispatch.push("startLocalTunnel"), { status: "running" }),
   ),

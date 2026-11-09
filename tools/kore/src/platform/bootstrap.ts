@@ -11,15 +11,15 @@ import {
   ensureRegistryTrust,
 } from "../images/index.js";
 import type { Runner } from "../runtime/index.js";
-import {
-  admissionGateStatusName,
-  closeExistingAdmissionGate,
-  ensureClosedAdmissionGate,
-  openAdmissionGate,
-} from "./admission-gate.js";
+import { closeExistingAdmissionGate } from "./admission-gate.js";
 import { rewireRegistryService } from "./registry-rewire.js";
+// The gate's open and close operations live in readiness-gate.ts.
+export {
+  closeGateIfDegraded,
+  openApplicationAdmission,
+} from "./readiness-gate.js";
+export type { GateCheckResult } from "./readiness-gate.js";
 import { reconcileComponent, reconcileIfNeeded } from "./reconcile.js";
-import { imageInventoryStatusName, platformStatus } from "./status.js";
 
 async function ensureCluster(
   repository: Repository,
@@ -48,34 +48,6 @@ export async function closeApplicationAdmission(
   runner: Runner,
 ): Promise<void> {
   await closeExistingAdmissionGate(repository, runner);
-}
-
-/**
- * Opens the gate only when every component's readiness passes in this run.
- * Plan Step 13's completion gate may replace this with richer evidence.
- */
-export async function openApplicationAdmission(
-  repository: Repository,
-  runner: Runner,
-): Promise<void> {
-  const rows = await platformStatus(repository, runner);
-  // Audit findings never fail the run, so the log is where a run shows them.
-  const inventory = rows.find(({ name }) => name === imageInventoryStatusName);
-  if (inventory) {
-    process.stderr.write(`image inventory: ${inventory.detail}\n`);
-  }
-  const unavailable = rows.filter(
-    (component) =>
-      component.name !== admissionGateStatusName &&
-      component.status !== "ready",
-  );
-  if (unavailable.length) {
-    await ensureClosedAdmissionGate(repository, runner);
-    throw new Error(
-      `the application admission gate stays closed: ${unavailable.map((component) => `${component.name} (${component.detail})`).join(", ")}. Fix the failing component and rerun kore platform up`,
-    );
-  }
-  await openAdmissionGate(repository, runner);
 }
 
 export async function bootstrapControllers(

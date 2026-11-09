@@ -1,0 +1,69 @@
+{
+  "$schema": "./schemas/recovery.schema.json",
+  "objectives":
+    [
+      {
+        "name": "retained-postgresql",
+        "components": ["kore-postgresql-api", "cloudnative-pg"],
+        "data": "PostgreSQL databases claimed with retentionPolicy Retain",
+        "environment": "local",
+        "protection": "data-export",
+        "schedule":
+          {
+            "kind": "on-demand",
+            "trigger": "kore data export before kore local down --prune, kore cluster destroy, or any upgrade; there is no local scheduler (ADR 0029)"
+          },
+        "rpoMinutes": 1440,
+        "rtoMinutes": 15,
+        "restoreTest": "tools/kore/src/ops/data-restore.integration.spec.ts"
+      },
+      {
+        "name": "telemetry-history",
+        "components":
+          [
+            "prometheus",
+            "loki",
+            "grafana",
+            "tempo",
+            "kore-observability-config"
+          ],
+        "data": "Metrics, logs, traces, and dashboards state",
+        "environment": "local",
+        "protection": "rebuild",
+        "schedule":
+          {
+            "kind": "on-demand",
+            "trigger": "kore local up recreates the stack"
+          },
+        "rpoMinutes": null,
+        "rtoMinutes": 30,
+        "reason": "Claims are labelled Delete and hold only derived telemetry with 72h retention; dashboards and datasources are declared in the repository."
+      },
+      {
+        "name": "platform-registry",
+        "components": ["oci-registry"],
+        "data": "Images pushed to the in-cluster registry",
+        "environment": "local",
+        "protection": "rebuild",
+        "schedule":
+          {
+            "kind": "on-demand",
+            "trigger": "kore app up rebuilds and republishes local images"
+          },
+        "rpoMinutes": null,
+        "rtoMinutes": 30,
+        "reason": "The claim is labelled Delete; every image is rebuilt from source or re-mirrored by digest from the release lock."
+      },
+      {
+        "name": "managed-postgresql",
+        "components": ["kore-postgresql-api", "cloudnative-pg"],
+        "data": "PostgreSQL databases on a managed cluster",
+        "environment": "managed",
+        "status": "planned",
+        "protection": "scheduled-backup",
+        "schedule": { "kind": "cron", "expression": "0 2 * * *" },
+        "rpoMinutes": 15,
+        "rtoMinutes": 60
+      }
+    ]
+}

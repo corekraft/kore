@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { Repository } from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
+import { declaredGateParameters } from "./admission-gate-schema.js";
 
 /**
  * The application admission gate (ADR 0054) is one Gatekeeper constraint of
@@ -17,6 +18,24 @@ export const admissionGateFieldManager = "kore-bootstrap-gate";
 export const activationLabel = "platform.kore.dev/activation-generation";
 export const bootstrapGroup = "kore:bootstrap";
 
+/**
+ * Kubernetes' own workload controllers. A closed gate refuses new application
+ * mutations but must not stop these replacing a Pod of a workload admitted
+ * while it was open (ADR 0067).
+ */
+export const controllerIdentities = [
+  "system:kube-controller-manager",
+  ...[
+    "replicaset-controller",
+    "replication-controller",
+    "deployment-controller",
+    "statefulset-controller",
+    "daemon-set-controller",
+    "job-controller",
+    "cronjob-controller",
+  ].map((name) => `system:serviceaccount:kube-system:${name}`),
+];
+
 const systemNamespaces = ["kube-system", "kube-public", "kube-node-lease"];
 
 export interface AdmissionGate {
@@ -32,6 +51,8 @@ export interface AdmissionGate {
       state: "closed" | "open";
       platformNamespaces: string[];
       bootstrapGroups: string[];
+      /** Controllers that keep already-admitted workloads running while closed. */
+      controllerIdentities: string[];
     };
   };
 }
@@ -69,10 +90,20 @@ export function admissionGate(
       enforcementAction: "dryrun",
       match: {
         kinds: [
-          { apiGroups: [""], kinds: ["Namespace", "Pod"] },
+          {
+            apiGroups: [""],
+            kinds: ["Namespace", "Pod", "ReplicationController"],
+          },
           {
             apiGroups: ["apps", "batch"],
-            kinds: ["Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob"],
+            kinds: [
+              "Deployment",
+              "ReplicaSet",
+              "StatefulSet",
+              "DaemonSet",
+              "Job",
+              "CronJob",
+            ],
           },
           { apiGroups: ["platform.kore.dev"], kinds: ["PostgreSQLInstance"] },
         ],
@@ -87,6 +118,7 @@ export function admissionGate(
           repository.environment.provider === "minikube"
             ? [bootstrapGroup, "system:masters"]
             : [bootstrapGroup],
+        controllerIdentities,
       },
     },
   };
@@ -101,6 +133,22 @@ async function writeGate(
   runner: Runner,
   state: "closed" | "open",
 ): Promise<void> {
+  const gate = admissionGate(repository, state);
+  const declared = await declaredGateParameters(repository, runner);
+  if (declared !== undefined && !declared.has("controllerIdentities")) {
+    if (state === "open") {
+      throw new Error(
+        `the KoreApplicationAdmission template in ${repository.environment.kubeContext} does not declare controllerIdentities yet: kore-policy-templates has not been applied or Gatekeeper has not regenerated the constraint CRD. The gate stays closed; rerun kore platform up --environment ${repository.environment.name}`,
+      );
+    }
+    // Closed with the parameters the old template declares: it still refuses
+    // every application mutation, and the run's own template update, followed
+    // by the final write, restores the controller exemption.
+    const { controllerIdentities: _omitted, ...parameters } =
+      gate.spec.parameters;
+    void _omitted;
+    gate.spec.parameters = parameters as AdmissionGate["spec"]["parameters"];
+  }
   await runner.run(
     "kubectl",
     [
@@ -112,7 +160,7 @@ async function writeGate(
       "--force-conflicts",
       "--filename=-",
     ],
-    { capture: true, input: JSON.stringify(admissionGate(repository, state)) },
+    { capture: true, input: JSON.stringify(gate) },
   );
 }
 
