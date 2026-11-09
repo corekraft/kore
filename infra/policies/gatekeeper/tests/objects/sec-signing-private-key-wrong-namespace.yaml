@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kore-local-signing-key
+  namespace: default
+  labels: {app.kubernetes.io/managed-by: kore-signing}
+type: Opaque
+data: {cosign.key: eA==, cosign.password: eA==, cosign.pub: eA==}

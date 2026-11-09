@@ -222,3 +222,44 @@ test("no private key material is read or streamed while swapping", async () => {
     expect(text).not.toMatch(/cosign\.key|cosign\.password|-o yaml/);
   }
 });
+
+test("the signing key Secret is labelled as kore's own after it exists, on a fresh and on an existing profile", async () => {
+  for (const generated of [false, true]) {
+    const { repository, calls } = await setup();
+    const runner: Runner = {
+      async run(command, args, options): Promise<RunResult> {
+        calls.push({ command, args, ...(options ? { options } : {}) });
+        let stdout = "";
+        if (command === "kubectl" && args.includes("config")) {
+          stdout = kubeconfig;
+        } else if (args.includes("--output=name")) {
+          stdout = generated ? "" : "secret/kore-local-signing-key\n";
+        } else if (args.some((a) => a.startsWith("--output=jsonpath={.data"))) {
+          stdout = Buffer.from("PUBLIC KEY").toString("base64");
+        }
+        return { stdout, stderr: "", code: 0 };
+      },
+    };
+
+    await ensureLocalSigningPublicKey(repository, runner);
+
+    const label = calls.findIndex(({ args }) => args.includes("label"));
+    expect(label).toBeGreaterThanOrEqual(0);
+    expect(calls[label]!.args).toEqual([
+      "--context",
+      "kore-local",
+      "--namespace",
+      "kore-system",
+      "label",
+      "secret",
+      "kore-local-signing-key",
+      "app.kubernetes.io/managed-by=kore-signing",
+      "--overwrite",
+    ]);
+    const cosign = calls.findIndex(({ command }) => command === "cosign");
+    if (generated) {
+      expect(cosign).toBeGreaterThanOrEqual(0);
+      expect(cosign).toBeLessThan(label);
+    }
+  }
+});
