@@ -186,4 +186,12 @@ test("platform status exits non-zero while the gate or any prerequisite is not r
     row("crd-ownership", "degraded"),
   ] as never);
   expect(await main(["platform", "status"])).toBe(0);
+
+  // A stale backup is an audit too: it never makes the platform unready.
+  vi.mocked(platformStatusReport).mockResolvedValue([
+    row("gatekeeper", "ready"),
+    row("application-admission-gate", "ready"),
+    row("backups", "degraded"),
+  ] as never);
+  expect(await main(["platform", "status"])).toBe(0);
 });

@@ -69,9 +69,11 @@ export async function platformCommand(
     const rows = await platformStatusReport(repository, runner);
     print(rows, json);
     // Success is never reported before the gate is open, nor while any
-    // prerequisite is unready (ADR 0067). CRD ownership is audit-only.
+    // prerequisite is unready (ADR 0067). CRD ownership and backup freshness
+    // are audit-only: neither is a prerequisite of admitting applications.
     return rows.some(
-      ({ name, status }) => name !== "crd-ownership" && status !== "ready",
+      ({ name, status }) =>
+        name !== "crd-ownership" && name !== "backups" && status !== "ready",
     )
       ? 1
       : 0;

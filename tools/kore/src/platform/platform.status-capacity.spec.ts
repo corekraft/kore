@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "vitest";
 import { loadRepository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
@@ -142,6 +145,13 @@ test("the check only reads, through the configured context", async () => {
 test("the platform status report includes the capacity row only when unfiltered", async () => {
   const repository = await loadRepository("local");
   repository.catalog.components = [];
+  // Keep the backups row away from the real checkout's .kore exports.
+  repository.root = await mkdtemp(join(tmpdir(), "kore-status-"));
+  await mkdir(join(repository.root, "infra", "catalog"), { recursive: true });
+  await writeFile(
+    join(repository.root, "infra", "catalog", "recovery.yaml"),
+    '{"objectives":[]}',
+  );
   const { runner } = cluster(node, []);
 
   const rows = await platformStatusReport(repository, runner);
