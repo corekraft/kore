@@ -14,6 +14,7 @@ import { stageLocalImage } from "./local-image.js";
 import {
   assertAppAdmissible,
   waitForResources,
+  waitForRoutes,
   waitForRollouts,
 } from "./readiness.js";
 import { verifyImage } from "./verify.js";
@@ -23,6 +24,8 @@ export interface AppUpOptions {
   publicKey?: string;
   /** Restores the local endpoint once the platform is proven ready (ADR 0060). */
   ensureTunnel?: () => Promise<unknown>;
+  /** Bound for each HTTPRoute wait; defaults to five minutes. */
+  routeTimeout?: string;
 }
 
 export async function converge(
@@ -46,4 +49,5 @@ export async function converge(
   await waitForResources(repository, runner, name);
   await installWorkload(repository, runner, name, charts, workloadImage);
   await waitForRollouts(repository, runner, name);
+  await waitForRoutes(repository, runner, name, options.routeTimeout);
 }
