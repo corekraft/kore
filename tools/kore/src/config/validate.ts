@@ -72,6 +72,12 @@ const environmentRules: Rule<Environment>[] = [
   ),
   rule("environment.kubeContext is required", (e) => !e.kubeContext),
   rule(
+    "environment.imageInventory must be audit or enforce",
+    (e) =>
+      e.imageInventory !== undefined &&
+      !["audit", "enforce"].includes(e.imageInventory),
+  ),
+  rule(
     "environment.cluster.cpus must be at least 2",
     (e) => (e.cluster?.cpus ?? 0) < 2,
   ),

@@ -2,6 +2,7 @@ import type { Repository } from "../config/index.js";
 import {
   admissionGateStatusName,
   assertAdmissionGateOpen,
+  imageInventoryStatusName,
   platformStatus,
 } from "../platform/index.js";
 import type { Runner } from "../runtime/index.js";
@@ -22,6 +23,8 @@ export async function assertPlatformReady(
   const unavailable = platform.filter(
     (component) =>
       component.name !== admissionGateStatusName &&
+      // The inventory is checked before the gate opens; the gate is the record.
+      component.name !== imageInventoryStatusName &&
       component.status !== "ready",
   );
   if (unavailable.length) {

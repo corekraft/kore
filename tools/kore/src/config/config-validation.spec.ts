@@ -18,6 +18,7 @@ test("validation reports invalid versions, component definitions, and missing va
       },
       environment: {
         ...base.environment,
+        enrollmentExemptions: {},
         name: "BAD_NAME",
         kubeContext: "",
         cluster: { ...base.environment.cluster, cpus: 1, memoryMB: 1 },
@@ -91,6 +92,7 @@ test("validation reports every rule violation exactly once, sorted", async () =>
     },
     environment: {
       ...base.environment,
+      enrollmentExemptions: {},
       name: "BAD_NAME",
       provider: "other",
       kubeContext: "",
@@ -152,7 +154,11 @@ test("validation reports malformed version sections and missing sections", async
   const message = await validationMessage((base) => ({
     ...base,
     versions: { kubernetes: "", images: {} },
-    environment: { ...base.environment, cluster: undefined },
+    environment: {
+      ...base.environment,
+      cluster: undefined,
+      enrollmentExemptions: {},
+    },
     catalog: {},
   }));
   assert.equal(

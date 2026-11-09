@@ -18,7 +18,7 @@ import {
 } from "./admission-gate.js";
 import { rewireRegistryService } from "./registry-rewire.js";
 import { reconcileComponent, reconcileIfNeeded } from "./reconcile.js";
-import { platformStatus } from "./status.js";
+import { imageInventoryStatusName, platformStatus } from "./status.js";
 
 async function ensureCluster(
   repository: Repository,
@@ -57,7 +57,13 @@ export async function openApplicationAdmission(
   repository: Repository,
   runner: Runner,
 ): Promise<void> {
-  const unavailable = (await platformStatus(repository, runner)).filter(
+  const rows = await platformStatus(repository, runner);
+  // Audit findings never fail the run, so the log is where a run shows them.
+  const inventory = rows.find(({ name }) => name === imageInventoryStatusName);
+  if (inventory) {
+    process.stderr.write(`image inventory: ${inventory.detail}\n`);
+  }
+  const unavailable = rows.filter(
     (component) =>
       component.name !== admissionGateStatusName &&
       component.status !== "ready",

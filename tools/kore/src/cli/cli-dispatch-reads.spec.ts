@@ -116,6 +116,32 @@ test("plain output prints key-value pairs for objects and lines for lists", asyn
   ]);
 });
 
+test("platform status keeps the inventory in --json and drops it from plain rows", async () => {
+  const { platformStatusReport } = await import("../platform/index.js");
+  const rows = [
+    {
+      name: "image-inventory",
+      namespace: "cluster",
+      status: "ready",
+      detail: "audit: 1 seed",
+      inventory: { mode: "audit", images: [], unenrolledNamespaces: [] },
+    },
+  ];
+  vi.mocked(platformStatusReport).mockResolvedValue(rows as never);
+  const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+  const write = vi
+    .spyOn(process.stdout, "write")
+    .mockImplementation(() => true);
+
+  await main(["platform", "status"]);
+  await main(["platform", "status", "--json"]);
+
+  expect(log.mock.calls.map((call) => call[0])).toEqual([
+    "image-inventory\tcluster\tready\taudit: 1 seed",
+  ]);
+  expect(String(write.mock.calls[0]![0])).toContain('"inventory"');
+});
+
 test("help prints usage and exits 0 for no command, help, and --help", async () => {
   const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
   for (const argv of [[], ["help"], ["--help"]]) {
