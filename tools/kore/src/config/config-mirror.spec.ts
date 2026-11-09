@@ -62,6 +62,12 @@ test("managed admission hands the mirror to the image policy and trusts the rele
     ),
     "v0.3.2 signed the mirror",
   );
+  assert.ok(
+    trust.subjects.includes(
+      "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.4.0",
+    ),
+    "v0.4.0 signed the mirror, including the Crossplane function packages",
+  );
 });
 
 test("the image policy chart admits the mirror beside the registry address", async () => {
