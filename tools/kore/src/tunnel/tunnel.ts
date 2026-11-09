@@ -56,8 +56,20 @@ export function isTunnelSshForward(
   profile: string,
   gatewayPort: number,
 ): boolean {
+  // Plain string checks: a RegExp built from the port is a dynamic pattern.
+  const tokens = command.split(/\s+/);
+  const specs = tokens.flatMap((token, index) => {
+    if (token === "-L") {
+      return [tokens[index + 1] ?? ""];
+    }
+    return token.startsWith("-L") ? [token.slice(2)] : [];
+  });
   const forwards = (port: number) =>
-    new RegExp(`(?:^|\\s)-L\\s*(?:[^\\s:]+:)?${port}:`).test(command);
+    specs.some((spec) => {
+      const parts = spec.split(":");
+      // [bind:]port:host:hostport
+      return parts.length >= 3 && parts.at(-3) === String(port);
+    });
   return (
     /(?:^|\/)ssh\s/.test(command) &&
     command.includes(`/.minikube/machines/${profile}/`) &&

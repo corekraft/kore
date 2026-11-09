@@ -47,6 +47,14 @@ test("ssh processes that do not match this profile's forward are untouched", asy
   expect(lines).toEqual([]);
 });
 
+test("forwards written attached or with a bind address still match", async () => {
+  const { signalled } = await run([
+    ours.replace("-L 8443:", "-L8443:"),
+    ours.replace("-L 15021:", "-L 127.0.0.1:15021:"),
+  ]);
+  expect(signalled).toEqual([100, 101]);
+});
+
 test("no orphans is a no-op", async () => {
   expect(await run([])).toEqual({ signalled: [], lines: [] });
 });
