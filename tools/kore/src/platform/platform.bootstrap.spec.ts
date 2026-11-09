@@ -81,7 +81,7 @@ test("platform stop removes managed tunnel state before stopping the cluster", a
     { stdout: "", stderr: "", code: 0 },
   ]);
   try {
-    await platformStop(repository, runner);
+    await platformStop(repository, runner, { listProcesses: async () => [] });
     assert.deepEqual(runner.calls.at(-1)?.args, [
       "stop",
       "--profile",

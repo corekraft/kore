@@ -4,7 +4,11 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Repository } from "../config/index.js";
 import { assertExpectedCluster } from "../cluster/index.js";
-import type { Runner } from "../runtime/index.js";
+import {
+  terminateMatching,
+  type ProcessControl,
+  type Runner,
+} from "../runtime/index.js";
 
 interface TunnelState {
   profile: string;
@@ -17,12 +21,11 @@ export interface TunnelStatus {
   port?: number;
 }
 
-export interface TunnelDependencies {
+export interface TunnelDependencies extends ProcessControl {
   spawnTunnel?: (profile: string) => number;
   isProcessAlive?: (pid: number) => boolean;
   isPortOpen?: (port: number) => Promise<boolean>;
   terminateProcess?: (pid: number) => void;
-  signalProcess?: (pid: number, signal: NodeJS.Signals) => void;
 }
 
 /**
@@ -39,6 +42,46 @@ function terminateGroup(pid: number, dependencies: TunnelDependencies): void {
         "SIGTERM",
       ))
   )(pid);
+}
+
+const ISTIO_STATUS_PORT = 15021;
+
+/**
+ * Whether a full command line is the `ssh -L` forward minikube starts for this
+ * profile's tunnel: the ssh binary, the profile's machine key, and the Gateway
+ * and status-port forwards. Matched on the whole line, never on a pid.
+ */
+export function isTunnelSshForward(
+  command: string,
+  profile: string,
+  gatewayPort: number,
+): boolean {
+  const forwards = (port: number) =>
+    new RegExp(`(?:^|\\s)-L\\s*(?:[^\\s:]+:)?${port}:`).test(command);
+  return (
+    /(?:^|\/)ssh\s/.test(command) &&
+    command.includes(`/.minikube/machines/${profile}/`) &&
+    forwards(gatewayPort) &&
+    forwards(ISTIO_STATUS_PORT)
+  );
+}
+
+/**
+ * Terminates `ssh -L` forwards that outlived a dead tunnel leader and may hold
+ * the Gateway port, reporting each. Foreign ssh processes never match.
+ */
+export async function stopOrphanedForwards(
+  repository: Repository,
+  dependencies: TunnelDependencies = {},
+): Promise<number[]> {
+  const profile = repository.environment.cluster.profile;
+  const port = repository.environment.gateway.port;
+  return await terminateMatching(
+    (entry) => isTunnelSshForward(entry.command, profile, port),
+    (entry) =>
+      `stopped orphaned minikube ssh forward ${entry.pid} for profile ${profile}`,
+    dependencies,
+  );
 }
 
 export function tunnelStatePath(repository: Repository): string {
@@ -151,6 +194,23 @@ export async function tunnelStatus(
     : { status: "stale", pid: state.pid };
 }
 
+async function replaceStale(
+  repository: Repository,
+  runner: Runner,
+  stalePid: number,
+  dependencies: TunnelDependencies,
+): Promise<void> {
+  await stopLocalTunnel(repository, runner, dependencies);
+  const isAlive = dependencies.isProcessAlive ?? processIsAlive;
+  const deadline = Date.now() + 3_000;
+  while (isAlive(stalePid) && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  if (isAlive(stalePid)) {
+    throw new Error(`could not stop stale Minikube tunnel process ${stalePid}`);
+  }
+}
+
 export async function startLocalTunnel(
   repository: Repository,
   runner: Runner,
@@ -163,17 +223,10 @@ export async function startLocalTunnel(
     return current;
   }
   if (current.status === "stale") {
-    await stopLocalTunnel(repository, runner, dependencies);
-    const isAlive = dependencies.isProcessAlive ?? processIsAlive;
-    const deadline = Date.now() + 3_000;
-    while (isAlive(current.pid!) && Date.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-    if (isAlive(current.pid!)) {
-      throw new Error(
-        `could not stop stale Minikube tunnel process ${current.pid}`,
-      );
-    }
+    await replaceStale(repository, runner, current.pid!, dependencies);
+  } else {
+    // No recorded tunnel: a crashed leader may still have left its ssh forward.
+    await stopOrphanedForwards(repository, dependencies);
   }
   const pid = (dependencies.spawnTunnel ?? spawnTunnel)(
     repository.environment.cluster.profile,
@@ -216,6 +269,7 @@ export async function stopLocalTunnel(
   if (state && (dependencies.isProcessAlive ?? processIsAlive)(state.pid)) {
     terminateGroup(state.pid, dependencies);
   }
+  await stopOrphanedForwards(repository, dependencies);
   await rm(tunnelStatePath(repository), { force: true });
 }
 
