@@ -4,13 +4,22 @@
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
   auditRules,
   parseTranscript,
+  repoTranscriptDirs,
   scan,
   summarizeError,
 } from "./retro-scan.mjs";
@@ -237,7 +246,7 @@ test("the CLI applies --since to a directory", () => {
     },
   );
   assert.equal(result.status, 0, result.stderr);
-  assert.equal(JSON.parse(result.stdout).sessions.count, 1);
+  assert.equal(JSON.parse(result.stdout).sessions.count, 2);
 });
 
 test("the CLI rejects an unknown flag with usage", () => {
@@ -248,11 +257,28 @@ test("the CLI rejects an unknown flag with usage", () => {
   assert.match(result.stderr, /Usage: node \.claude\/hooks\/retro-scan\.mjs/);
 });
 
-test("a session from the day of the last retrospective is not scanned, matching the session-start count", () => {
+test("a session from the day of the last retrospective is scanned, so no session falls in a gap", () => {
   const result = scan(all(), { ...options, since: "2026-11-01" });
   assert.deepEqual(
     result.sessions.list.map((session) => session.id),
-    ["bravo"],
+    ["alpha", "bravo"],
+  );
+});
+
+test("a session that ended just before local midnight of the marker day is left out", () => {
+  const stamp = new Date("2026-11-01T00:00:00").getTime();
+  const at = (ms) =>
+    JSON.stringify({ type: "user", timestamp: new Date(ms).toISOString() });
+  const result = scan(
+    [
+      { id: "before", text: at(stamp - 1) },
+      { id: "on", text: at(stamp) },
+    ],
+    { since: "2026-11-01" },
+  );
+  assert.deepEqual(
+    result.sessions.list.map((s) => s.id),
+    ["on"],
   );
 });
 
@@ -469,4 +495,81 @@ test("a failed tool call before an earlier human message does not taint a later 
     ].join("\n"),
   );
   assert.deepEqual(scan(sessions, options).corrections, []);
+});
+
+// --- transcript directories of a repository and its worktrees ---------------
+
+const encode = (path) => path.replace(/[^a-zA-Z0-9]/g, "-");
+
+function fakeProjects(t) {
+  const projects = mkdtempSync(join(tmpdir(), "kore-retro-projects-"));
+  t.after(() => rmSync(projects, { recursive: true, force: true }));
+  const session = (cwdPath, lines, name = "s") => {
+    const dir = join(projects, encode(cwdPath));
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, `${name}.jsonl`),
+      lines.map((l) => JSON.stringify(l)).join("\n") + "\n",
+    );
+    return dir;
+  };
+  return { projects, session };
+}
+
+const repo = {
+  main: "/w/kore",
+  worktrees: ["/w/kore", "/w/live/wt-a"],
+  branches: ["fix/known"],
+};
+
+test("transcript directories cover the main checkout and live worktrees by name", (t) => {
+  const { projects, session } = fakeProjects(t);
+  const main = session("/w/kore", [{ cwd: "/w/kore" }]);
+  const live = session("/w/live/wt-a", [{ cwd: "/w/live/wt-a" }]);
+  session("/w/other", [{ cwd: "/w/other", gitBranch: "feat/x" }]);
+  assert.deepEqual(
+    repoTranscriptDirs(projects, repo).sort(),
+    [live, main].sort(),
+  );
+});
+
+test("a removed worktree is found when its recorded cwd is inside the repository", (t) => {
+  const { projects, session } = fakeProjects(t);
+  const dir = session("/w/kore/.claude/worktrees/gone", [
+    { cwd: "/w/kore/.claude/worktrees/gone" },
+  ]);
+  assert.deepEqual(repoTranscriptDirs(projects, repo), [dir]);
+});
+
+test("a removed worktree outside the repository is found by a known branch", (t) => {
+  const { projects, session } = fakeProjects(t);
+  const dir = session("/j/tmp/wt-old", [
+    { cwd: "/j/tmp/wt-old", gitBranch: "fix/known" },
+  ]);
+  session("/j/tmp/wt-foreign", [
+    { cwd: "/j/tmp/wt-foreign", gitBranch: "fix/unknown" },
+  ]);
+  assert.deepEqual(repoTranscriptDirs(projects, repo), [dir]);
+});
+
+test("the default branch alone does not claim another repository's sessions", (t) => {
+  const { projects, session } = fakeProjects(t);
+  session("/elsewhere", [{ cwd: "/elsewhere", gitBranch: "main" }]);
+  assert.deepEqual(
+    repoTranscriptDirs(projects, { ...repo, branches: ["main", "fix/known"] }),
+    [],
+  );
+});
+
+test("a removed worktree on a deleted branch is found when its transcript names the main checkout", (t) => {
+  const { projects, session } = fakeProjects(t);
+  const dir = session("/j/tmp/wt-gone", [
+    { cwd: "/j/tmp/wt-gone", gitBranch: "fix/deleted" },
+    { note: "read /w/kore/AGENTS.md" },
+  ]);
+  assert.deepEqual(repoTranscriptDirs(projects, repo), [dir]);
+});
+
+test("a missing projects directory yields no directories", () => {
+  assert.deepEqual(repoTranscriptDirs("/nonexistent-kore-projects", repo), []);
 });

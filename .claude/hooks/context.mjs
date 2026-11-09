@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 
 const PLANS_DIR = "infra/plans";
 const RETRO_AFTER_SESSIONS = 5;
-const RETRO_MARKER = /^\W*Last retrospective: (\d{4}-\d{2}-\d{2})/m;
+const RETRO_MARKER = /^\W*Last retrospective: (\d{4}-\d{2}-\d{2})/gm;
 const FRONTMATTER = /^---\n([\s\S]*?)\n---\n/;
 const UPCOMING_STEPS = 3;
 
@@ -94,13 +94,27 @@ export function nextStep(planMarkdown) {
   return next;
 }
 
-/** The latest `Last retrospective:` date across all plans, or null. */
+/** The newest `Last retrospective:` date across every marker in every plan, or null. */
 export function lastRetrospective(plans) {
   const dates = Object.values(plans)
-    .map((markdown) => RETRO_MARKER.exec(markdown)?.[1])
-    .filter(Boolean)
+    .flatMap((markdown) =>
+      [...markdown.matchAll(RETRO_MARKER)].map((match) => match[1]),
+    )
     .sort();
   return dates.at(-1) ?? null;
+}
+
+/**
+ * Where the retrospective window opens, in epoch ms: local midnight at the
+ * start of the marker date (0 without one). The marker has day granularity, so
+ * the window is closed on the left: a session active at or after that instant
+ * is in the next retrospective. A session earlier on the marker day that the
+ * retrospective already reviewed is counted again, which is preferred to
+ * losing the sessions that ran later that day. Each transcript is one session,
+ * so none is counted twice.
+ */
+export function windowStart(date) {
+  return date ? new Date(`${date}T00:00:00`).getTime() : 0;
 }
 
 /** Open item counts per step heading, in plan order. */
@@ -288,11 +302,7 @@ function realDeps(root) {
         if (error?.code === "ENOENT") return 0;
         throw error;
       }
-      // The marker is a local date and the retrospective ran during it, so
-      // count only sessions active after that day ends.
-      const after = date
-        ? new Date(`${date}T00:00:00`).getTime() + 24 * 60 * 60 * 1000
-        : 0;
+      const after = windowStart(date);
       return names.filter(
         (name) =>
           name.endsWith(".jsonl") &&

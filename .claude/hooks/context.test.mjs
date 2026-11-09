@@ -17,6 +17,7 @@ import {
   restore,
   rules,
   upcomingSteps,
+  windowStart,
 } from "./context.mjs";
 
 const hook = fileURLToPath(new URL("./context.mjs", import.meta.url));
@@ -225,6 +226,23 @@ test("lastRetrospective returns the latest marker across plans, or null", () => 
   assert.equal(lastRetrospective({ "3-b.md": plan }), null);
 });
 
+test("lastRetrospective takes the newest marker within a plan, not the first", () => {
+  assert.equal(
+    lastRetrospective({
+      "3-b.md":
+        "Last retrospective: 2026-11-07\n\nlater\n\n- Last retrospective: 2026-11-08\n\nearlier: Last retrospective: 2026-10-01\n",
+    }),
+    "2026-11-08",
+  );
+});
+
+test("windowStart is local midnight of the marker day, so the marker day is inside the window", () => {
+  const start = windowStart("2026-11-08");
+  assert.equal(start, new Date("2026-11-08T00:00:00").getTime());
+  assert.ok(start - 1 < start);
+  assert.equal(windowStart(null), 0);
+});
+
 function briefDeps(sessions) {
   const calls = [];
   return {
@@ -323,7 +341,7 @@ test("cli: a fresh session counts earlier transcripts but not its own", (t) => {
   assert.doesNotMatch(run("current").stdout, /retro/);
 });
 
-test("cli: sessions from the day of the last retrospective do not count toward the next one", (t) => {
+test("cli: sessions from the day of the last retrospective count toward the next one, with no gap", (t) => {
   const root = mkdtempSync(join(tmpdir(), "kore-context-"));
   const config = mkdtempSync(join(tmpdir(), "kore-config-"));
   t.after(() => {
@@ -355,7 +373,7 @@ test("cli: sessions from the day of the last retrospective do not count toward t
       CLAUDE_CONFIG_DIR: config,
     },
   });
-  assert.doesNotMatch(result.stdout, /retro/);
+  assert.match(result.stdout, /6 sessions since the last retrospective/);
 });
 
 const fourSteps = `# Plan
