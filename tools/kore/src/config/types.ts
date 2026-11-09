@@ -27,6 +27,21 @@ export interface Component {
   values?: string[];
   readiness: string[];
   helm?: HelmOptions;
+  /** Probe fields a chart gives no value for, applied by a Helm post-renderer (ADR 0081). */
+  patches?: ProbePatch[];
+}
+
+/** A rendered workload container whose probe fields kore sets after Helm renders. */
+export interface ProbePatch {
+  target: { kind: string; name: string; container: string };
+  /** Why the chart cannot be tuned through its own values. */
+  reason: string;
+  probes: Partial<
+    Record<
+      "livenessProbe" | "readinessProbe" | "startupProbe",
+      Record<string, number>
+    >
+  >;
 }
 
 /** Per-component Helm behavior that is off unless the catalog opts in. */

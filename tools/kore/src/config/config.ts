@@ -22,6 +22,7 @@ export type {
   ComponentKind,
   Environment,
   Phase,
+  ProbePatch,
   ReadinessCapability,
   ReadinessManifest,
   ReadinessRequirement,

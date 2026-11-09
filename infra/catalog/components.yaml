@@ -144,7 +144,24 @@
           {
             "forceConflicts": true,
             "reason": "The controller's webhook reconciler (field manager `webhook`) co-owns the namespaceSelector and caBundle of the policy.sigstore.dev Mutating and ValidatingWebhookConfigurations after install, and the chart renders a namespaceSelector that no value can omit, so Helm 4 server-side apply conflicts on upgrade. Helm takes the fields back and the controller re-reconciles them."
-          }
+          },
+        "patches":
+          [
+            {
+              "target":
+                {
+                  "kind": "Deployment",
+                  "name": "policy-controller-webhook",
+                  "container": "policy-controller-webhook"
+                },
+              "reason": "Chart 0.10.8 hard-codes the webhook's httpGet probes (a standard kubelet probe with a k-kubelet-probe header) with a 1s period and the default 1s timeout; the chart has no probe values.",
+              "probes":
+                {
+                  "livenessProbe": { "timeoutSeconds": 5 },
+                  "readinessProbe": { "timeoutSeconds": 5 }
+                }
+            }
+          ]
       },
       {
         "name": "istio-base",
@@ -328,7 +345,26 @@
             "mutatingwebhookconfiguration/cnpg-mutating-webhook-configuration",
             "validatingwebhookconfiguration/cnpg-validating-webhook-configuration"
           ],
-        "values": ["infra/environments/common/values/cloudnative-pg.yaml"]
+        "values": ["infra/environments/common/values/cloudnative-pg.yaml"],
+        "patches":
+          [
+            {
+              "target":
+                {
+                  "kind": "Deployment",
+                  "name": "cloudnative-pg",
+                  "container": "manager"
+                },
+              "reason": "Chart 0.29.1 renders the operator's https :9443/readyz probes with the Kubernetes default 1s timeout and exposes no timeoutSeconds value; on a loaded host the kubelet's probe timed out and killed the healthy operator 25 times in 12 hours.",
+              "probes":
+                {
+                  "livenessProbe":
+                    { "timeoutSeconds": 5, "failureThreshold": 6 },
+                  "readinessProbe": { "timeoutSeconds": 5 },
+                  "startupProbe": { "timeoutSeconds": 5 }
+                }
+            }
+          ]
       },
       {
         "name": "opentelemetry-operator",
@@ -353,6 +389,24 @@
             "deployment/opentelemetry-operator",
             "mutatingwebhookconfiguration/opentelemetry-operator-mutation",
             "validatingwebhookconfiguration/opentelemetry-operator-validation"
+          ],
+        "patches":
+          [
+            {
+              "target":
+                {
+                  "kind": "Deployment",
+                  "name": "opentelemetry-operator",
+                  "container": "manager"
+                },
+              "reason": "Chart 0.129.0 hard-codes the manager's probes with only initialDelaySeconds and periodSeconds, so the Kubernetes default 1s timeout applies; a loaded host would restart the healthy operator.",
+              "probes":
+                {
+                  "livenessProbe":
+                    { "timeoutSeconds": 5, "failureThreshold": 6 },
+                  "readinessProbe": { "timeoutSeconds": 5 }
+                }
+            }
           ]
       },
       {

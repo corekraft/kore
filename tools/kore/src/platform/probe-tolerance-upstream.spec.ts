@@ -8,16 +8,10 @@ import { renderChart, yamlDocuments } from "./upstream-support.js";
 // is busy (cloudnative-pg restarted 25 times in 12 hours with a 1s probe).
 const floorSeconds = 5;
 
-// Only charts that give no knob for the probe belong here, each with the
-// reason. Remove an entry when a chart bump or a kore mechanism fixes it.
-const noChartKnob: Record<string, string> = {
-  "cloudnative-pg: Deployment/cloudnative-pg container manager":
-    "chart 0.29.1 templates the probe with only initialDelaySeconds; no timeoutSeconds value",
-  "opentelemetry-operator: Deployment/opentelemetry-operator container manager":
-    "chart 0.129.0 hard-codes the probe with only initialDelaySeconds and periodSeconds",
-  "policy-controller: Deployment/policy-controller-webhook container policy-controller-webhook":
-    "chart 0.10.8 hard-codes the Knative kubelet probe; no probe values",
-};
+// A chart that gives no knob for its probe is patched through the catalog's
+// `patches` (ADR 0081), not listed here. Add an entry, with the reason, only
+// when a probe cannot be patched either; the check reports a stale entry.
+const noChartKnob: Record<string, string> = {};
 
 // Opt-in: it renders every chart component with the local values, and fast
 // tests run offline (AGENTS.md). Run with `npm run test:upstream-charts` when
