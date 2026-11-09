@@ -172,16 +172,18 @@ async function componentIsInstalled(
 }
 
 /**
- * Whether the deployed revision was applied from the current desired state.
- * Helm cannot tell kore what values files and local chart contents it was given,
- * so kore records a digest of them in the revision description on every upgrade
- * (see desiredFingerprint). A missing or different description means drift.
- * A failure to read the history is not drift: it is reported, never swallowed.
+ * Whether the deployed revision of a release was applied from the given
+ * fingerprint. Helm cannot tell kore what values files and local chart contents
+ * it was given, so kore records a digest of them in the revision description on
+ * every upgrade (see argsFingerprint). A missing release, or a missing or
+ * different description, means drift. A failure to read the history is not
+ * drift: it is reported, never swallowed.
  */
-async function releaseMatchesDesiredState(
+export async function releaseMatchesFingerprint(
   repository: Repository,
   runner: Runner,
-  component: Component,
+  release: { name: string; namespace: string },
+  fingerprint: string,
 ): Promise<boolean> {
   let stdout: string;
   try {
@@ -189,9 +191,9 @@ async function releaseMatchesDesiredState(
       "helm",
       [
         "history",
-        component.name,
+        release.name,
         "--namespace",
-        component.namespace,
+        release.namespace,
         "--kube-context",
         repository.environment.kubeContext,
         "--output",
@@ -200,8 +202,14 @@ async function releaseMatchesDesiredState(
       { capture: true },
     ));
   } catch (error) {
+    if (
+      error instanceof CommandError &&
+      /release: not found/.test(error.result.stderr)
+    ) {
+      return false;
+    }
     throw new Error(
-      `cannot read the deployed state of release ${component.name} in ${component.namespace} (${repository.environment.kubeContext}) to check for drift: ${errorMessage(error)}. Check cluster access, then rerun.`,
+      `cannot read the deployed state of release ${release.name} in ${release.namespace} (${repository.environment.kubeContext}) to check for drift: ${errorMessage(error)}. Check cluster access, then rerun.`,
     );
   }
   const revisions = JSON.parse(stdout) as {
@@ -209,8 +217,19 @@ async function releaseMatchesDesiredState(
     description?: string;
   }[];
   const deployed = revisions.filter(({ status }) => status === "deployed");
-  return (
-    deployed.at(-1)?.description === desiredFingerprint(repository, component)
+  return deployed.at(-1)?.description === fingerprint;
+}
+
+async function releaseMatchesDesiredState(
+  repository: Repository,
+  runner: Runner,
+  component: Component,
+): Promise<boolean> {
+  return releaseMatchesFingerprint(
+    repository,
+    runner,
+    component,
+    desiredFingerprint(repository, component),
   );
 }
 
@@ -240,4 +259,37 @@ export async function reconcileIfNeeded(
     return;
   }
   await reconcileComponent(repository, runner, component, undefined, watch);
+}
+
+/**
+ * Reconciles a configuration component on every `kore local up`. A Helm release
+ * that is deployed from the current desired state is not upgraded, only
+ * awaited, so a second run of unchanged state changes no release. `afterApply`
+ * runs either way, since it carries steps (the local tunnel) that a skipped
+ * upgrade must not lose. Manifests are applied every time: a server-side apply
+ * is idempotent and their content is not fingerprinted.
+ */
+export async function reconcileConfiguration(
+  repository: Repository,
+  runner: Runner,
+  component: Component,
+  afterApply?: () => Promise<void>,
+  watch: WatchOptions = {},
+): Promise<void> {
+  if (
+    component.kind !== "manifest" &&
+    (await componentIsInstalled(repository, runner, component)) &&
+    (await releaseMatchesDesiredState(repository, runner, component))
+  ) {
+    await afterApply?.();
+    await withFailFast(
+      repository,
+      runner,
+      component,
+      (guarded) => waitFor(repository, guarded, component),
+      watch,
+    );
+    return;
+  }
+  await reconcileComponent(repository, runner, component, afterApply, watch);
 }

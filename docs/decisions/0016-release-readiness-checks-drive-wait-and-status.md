@@ -119,3 +119,32 @@ readiness resources of their own.
   visibly and is fixed with the pin.
 - The Deployment rollout checks stay: they report the workload, these report
   admission.
+
+## Refinement: a second reconcile of unchanged state upgrades nothing
+
+A live second `kore local up` right after a fresh one upgraded six releases that
+had not changed: `kore-image-policy`, `kore-local-tls`, `opa-authorizer` and
+`kore-platform-config` (configuration phase) and the app releases
+`reference-resources` and `reference`. The fingerprints were stable: the
+platform releases carried the same description on revisions 1 and 2. The
+fingerprint was never consulted. `platformUp` reconciled every configuration
+component unconditionally, and `kore app up` never recorded a fingerprint (its
+revisions read "Install complete" and "Upgrade complete").
+
+- Configuration Helm releases use the same check as resume: a release deployed
+  from the current fingerprint is awaited, not upgraded. The step that follows
+  an apply (starting the local tunnel once the Gateway exists) runs either way,
+  so a skipped upgrade cannot lose it. Configuration manifests are still applied
+  on every run: a server-side apply is idempotent, their content is not
+  fingerprinted, and skipping them because their CRDs exist (the resume rule)
+  would hide a changed policy template.
+- App releases fingerprint what kore hands Helm: the arguments (image digest,
+  registry address, gateway and secret-store settings) and the chart's content,
+  with the chart path made relative to the repository. The fingerprint is stored
+  as the revision description. A new image digest therefore upgrades only the
+  workload release; a changed gateway setting upgrades both.
+- The hash covers only arguments and repository files. Credentials and keys are
+  never Helm arguments, so none is hashed, printed or stored. A release that
+  does not exist yet reads as drift (`release: not found`) rather than an error.
+- Releases deployed before this change have no fingerprint and are upgraded once
+  more, then are stable.

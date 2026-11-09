@@ -8,7 +8,11 @@ vi.mock("../images/index.js", async (importOriginal) => ({
 import { loadRepository } from "../config/index.js";
 import { appUp } from "./up.js";
 import type { Runner } from "../runtime/index.js";
-import { healthyReadinessOutput, passthroughRegistry } from "./app-fixtures.js";
+import {
+  healthyReadinessOutput,
+  passthroughRegistry,
+  releaseNotFound,
+} from "./app-fixtures.js";
 
 test("app up enrolls the application namespace in the ambient mesh before any release installs", async () => {
   const repository = await loadRepository("local");
@@ -20,6 +24,7 @@ test("app up enrolls the application namespace in the ambient mesh before any re
   const runner: Runner = {
     async run(command, args, options) {
       calls.push({ command, args, input: options?.input });
+      releaseNotFound(command, args);
       if (command === "helm" && args[0] === "status") {
         return {
           stdout: '{"info":{"status":"deployed"}}',

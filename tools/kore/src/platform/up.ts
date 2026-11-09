@@ -5,7 +5,7 @@ import type { Runner } from "../runtime/index.js";
 import { startLocalTunnel, type TunnelDependencies } from "../tunnel/index.js";
 import { installLocalTrust } from "../security/index.js";
 import { bootstrapControllers } from "./bootstrap.js";
-import { reconcileComponent } from "./reconcile.js";
+import { reconcileConfiguration } from "./reconcile.js";
 
 async function writePlatformState(
   repository: Repository,
@@ -56,7 +56,7 @@ export async function platformUp(
             tunnelStarted = true;
           }
         : undefined;
-    await reconcileComponent(
+    await reconcileConfiguration(
       repository,
       runner,
       component,

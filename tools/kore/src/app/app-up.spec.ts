@@ -12,6 +12,7 @@ import {
   healthyRunner,
   lockedImage,
   passthroughRegistry,
+  releaseNotFound,
   type Call,
 } from "./app-fixtures.js";
 import type { RunOptions, RunResult, Runner } from "../runtime/index.js";
@@ -48,18 +49,21 @@ test("app up stops before installing resources when the platform is not ready", 
   expect(runner.calls.some((call) => call.includes(" upgrade "))).toBe(false);
 });
 
+const deployedStatus = {
+  stdout: '{"info":{"status":"deployed"}}',
+  stderr: "",
+  code: 0,
+};
+
 test("app up verifies, installs, and waits for every workload deployment", async () => {
   const repository = await loadRepository("local");
   const calls: { command: string; args: readonly string[] }[] = [];
   const runner: Runner = {
     async run(command, args) {
       calls.push({ command, args });
+      releaseNotFound(command, args);
       if (command === "helm" && args[0] === "status") {
-        return {
-          stdout: '{"info":{"status":"deployed"}}',
-          stderr: "",
-          code: 0,
-        };
+        return deployedStatus;
       }
       if (command === "kubectl" && healthyReadinessOutput(args) !== undefined) {
         return { stdout: healthyReadinessOutput(args)!, stderr: "", code: 0 };
