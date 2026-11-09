@@ -1888,8 +1888,9 @@
                 >
                 <code>kore</code> keeps the bootstrap, core, and observability
                 phases; the platform organization's Argo CD owns every
-                configuration-phase release except the image policy, deployed
-                from OCI artifacts by digest, and its health gates admission (<a
+                configuration-phase release except the image policy, as Helm
+                charts served from the platform registry over OCI, and its
+                health gates admission (<a
                   href="https://github.com/corekraft/kore/blob/main/docs/decisions/0043-platform-configuration-through-argo-cd.md"
                   >ADR 0043</a
                 >).

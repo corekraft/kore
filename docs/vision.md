@@ -388,8 +388,9 @@ organizations.
 - **The platform Argo CD owns platform configuration.** `kore` keeps installing
   the bootstrap, core, and observability phases through Helm, and installs the
   platform organization's Argo CD in core. That Argo CD owns every
-  configuration-phase release except the image policy, deployed from OCI
-  artifacts by digest, and its health gates application admission
+  configuration-phase release except the image policy, as Helm charts served
+  from the platform registry over OCI, and its health gates application
+  admission
   ([ADR 0043](decisions/0043-platform-configuration-through-argo-cd.md)).
 
 ### What Each View Shows
