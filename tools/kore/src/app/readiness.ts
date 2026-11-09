@@ -5,6 +5,7 @@ import {
   assertAdmissionGateOpen,
   imageInventoryStatusName,
   platformStatus,
+  waitForHTTPRoute,
 } from "../platform/index.js";
 import type { Runner } from "../runtime/index.js";
 
@@ -116,5 +117,62 @@ export async function waitForRollouts(
       [...scope, ...deploymentRolloutStatusArgs(deploymentName)],
       { capture: false },
     );
+  }
+}
+
+const MANIFEST_DOCUMENT = /^---\s*$/m;
+const HTTP_ROUTE = /^kind:\s*HTTPRoute\s*$/m;
+const ROUTE_NAME =
+  /^metadata:\s*(?:\{[^}]*?\bname:\s*"?([^",\s}]+)|\n(?:[ \t]+.*\n)*?[ \t]+name:\s*"?([^"\s]+))/m;
+
+function routeName(document: string): string | undefined {
+  const match = ROUTE_NAME.exec(document);
+  return match?.[1] ?? match?.[2];
+}
+
+/** The names of the HTTPRoutes a rendered Helm manifest declares, in order. */
+export function httpRouteNames(manifest: string): string[] {
+  return manifest
+    .split(MANIFEST_DOCUMENT)
+    .filter((document) => HTTP_ROUTE.test(document))
+    .flatMap((document) => routeName(document) ?? []);
+}
+
+/**
+ * Blocks until every HTTPRoute the application's releases rendered is Accepted
+ * and ResolvedRefs. The routes are read from the installed releases, so a
+ * chart may add, rename, or drop routes without a change here.
+ */
+export async function waitForRoutes(
+  repository: Repository,
+  runner: Runner,
+  name: string,
+  timeout = "5m",
+): Promise<void> {
+  const scope = namespaced(repository, name);
+  for (const release of [`${name}-resources`, name]) {
+    const { stdout } = await runner.run(
+      "helm",
+      [
+        "get",
+        "manifest",
+        release,
+        "--namespace",
+        name,
+        "--kube-context",
+        repository.environment.kubeContext,
+      ],
+      { capture: true },
+    );
+    for (const route of httpRouteNames(stdout)) {
+      const resource = `httproute/${route}`;
+      try {
+        await waitForHTTPRoute(runner, scope, resource, timeout);
+      } catch (error) {
+        throw new Error(
+          `${resource} in namespace ${name} is not ready: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
   }
 }
