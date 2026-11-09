@@ -159,6 +159,9 @@ test("retained resource discovery ignores unavailable APIs, trims, deduplicates,
   const runner = {
     async run() {
       query += 1;
+      if (query === 3) {
+        return { stdout: '{"items":[]}', stderr: "", code: 0 };
+      }
       if (query === 1) {
         return {
           stdout:

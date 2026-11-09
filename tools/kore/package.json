@@ -22,6 +22,7 @@
     "test:unit": "vitest run",
     "test:integration": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/cluster/*.integration.spec.js dist/src/platform/platform.integration.spec.js dist/src/platform/platform.*.integration.spec.js",
     "test:integration:admission": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/platform/admission-denial.integration.spec.js dist/src/platform/admission-outage.integration.spec.js",
+    "test:integration:storage": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/platform/storage-lifecycle.integration.spec.js",
     "test:integration:registry": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/images/registry.integration.spec.js",
     "prepare": "cd ../.. && husky tools/kore/.husky"
   },
