@@ -1,0 +1,5 @@
+apiVersion: v2
+name: admission-gate
+description: Kore bootstrap-only access to the application admission gate, namespace activation, and the local signing key
+type: application
+version: 0.1.0

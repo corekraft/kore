@@ -1,0 +1,4 @@
+apiVersion: platform.kore.dev/v1alpha1
+kind: PostgreSQLInstance
+metadata: {name: db, namespace: reference}
+spec: {}

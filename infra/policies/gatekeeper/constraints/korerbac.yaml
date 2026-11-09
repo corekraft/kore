@@ -5,6 +5,10 @@ spec:
   enforcementAction: dryrun
   match:
     kinds:
-      - {apiGroups: [rbac.authorization.k8s.io], kinds: [Role, RoleBinding, ClusterRoleBinding]}
+      - {apiGroups: [rbac.authorization.k8s.io], kinds: [Role, ClusterRole, RoleBinding, ClusterRoleBinding]}
   parameters:
     exemptNamespaces: [kube-system, cert-manager, gatekeeper-system, istio-system, cosign-system, crossplane-system, external-secrets, cnpg-system, opentelemetry-operator-system]
+    signingNamespace: kore-system
+    signingKeySecret: kore-local-signing-key
+    allowedSecretRoles: [kore-signing-key, external-secrets-controller, external-secrets-cert-controller]
+    bootstrapGroups: ["kore:bootstrap"]

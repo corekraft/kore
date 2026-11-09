@@ -52,6 +52,13 @@ environment and use the configured kube context, never the current kubectl
 context. Direct destruction requires `--yes`; retained claims additionally
 require `--purge-data`. `local down --prune` destroys without purging; `local down --prune --purge-data` opts into both.
 
+`kore app up <name> --environment <name>` is refused, before anything is verified
+or applied, until the application admission gate is open for the repository's
+platform generation ([ADR 0054](docs/decisions/0054-application-admission-gate-closed-at-foundation.md)).
+`kore platform up` closes the gate first and opens it only after every component is
+ready in that run; `platform status` reports it. The refusal names the gate's state and
+the remedy.
+
 `kore app down <name> --environment <name>` uninstalls only the workload release
 (rerunning it is safe) and keeps the application's resources release and data.
 It lists the retained claims and volumes that remain; a failed lookup is a

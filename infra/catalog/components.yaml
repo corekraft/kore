@@ -530,6 +530,7 @@
         "version": "local",
         "ownsCRDs":
           [
+            "koreapplicationadmission.constraints.gatekeeper.sh",
             "korecontainersecurity.constraints.gatekeeper.sh",
             "koremeshenrollment.constraints.gatekeeper.sh",
             "korerbac.constraints.gatekeeper.sh",
@@ -541,12 +542,14 @@
         "timeout": "5m",
         "readiness":
           [
+            "constrainttemplate.templates.gatekeeper.sh/koreapplicationadmission",
             "constrainttemplate.templates.gatekeeper.sh/korecontainersecurity",
             "constrainttemplate.templates.gatekeeper.sh/koremeshenrollment",
             "constrainttemplate.templates.gatekeeper.sh/korerbac",
             "constrainttemplate.templates.gatekeeper.sh/koreretention",
             "constrainttemplate.templates.gatekeeper.sh/koresecrets",
             "constrainttemplate.templates.gatekeeper.sh/koreworkloadidentity",
+            "crd/koreapplicationadmission.constraints.gatekeeper.sh",
             "crd/korecontainersecurity.constraints.gatekeeper.sh",
             "crd/koremeshenrollment.constraints.gatekeeper.sh",
             "crd/korerbac.constraints.gatekeeper.sh",
@@ -574,6 +577,18 @@
             "koresecrets.constraints.gatekeeper.sh/kore-secrets",
             "koreworkloadidentity.constraints.gatekeeper.sh/kore-workload-identity"
           ]
+      },
+      {
+        "name": "kore-admission-gate",
+        "phase": "configuration",
+        "namespace": "kore-system",
+        "kind": "local-chart",
+        "chart": "infra/charts/admission-gate",
+        "version": "local",
+        "ownsCRDs": [],
+        "dependencies": [],
+        "timeout": "2m",
+        "readiness": ["clusterrole/kore-admission-gate"]
       },
       {
         "name": "kore-local-tls",

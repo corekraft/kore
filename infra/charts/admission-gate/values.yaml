@@ -1,0 +1,7 @@
+# Groups that are bootstrap automation. Nothing else is granted access to the
+# gate, namespace activation metadata, or the local signing key (ADR 0054).
+bootstrapGroups:
+  - kore:bootstrap
+signingKey:
+  namespace: kore-system
+  secret: kore-local-signing-key

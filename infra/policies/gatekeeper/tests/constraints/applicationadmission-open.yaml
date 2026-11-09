@@ -1,0 +1,15 @@
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: KoreApplicationAdmission
+metadata: {name: kore-application-admission}
+spec:
+  enforcementAction: dryrun
+  match:
+    kinds:
+      - {apiGroups: [""], kinds: [Namespace, Pod]}
+      - {apiGroups: [apps, batch], kinds: [Deployment, StatefulSet, DaemonSet, Job, CronJob]}
+      - {apiGroups: [platform.kore.dev], kinds: [PostgreSQLInstance]}
+  parameters:
+    generation: g-0123456789ab
+    state: open
+    platformNamespaces: [kube-system, kore-system, cosign-system]
+    bootstrapGroups: [kore:bootstrap]

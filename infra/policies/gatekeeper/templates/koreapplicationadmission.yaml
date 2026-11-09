@@ -1,0 +1,75 @@
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata: {name: koreapplicationadmission}
+spec:
+  crd:
+    spec:
+      names: {kind: KoreApplicationAdmission}
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties:
+            generation: {type: string}
+            state: {type: string, enum: [closed, open]}
+            platformNamespaces: {type: array, items: {type: string}}
+            bootstrapGroups: {type: array, items: {type: string}}
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package kore.applicationadmission
+        import future.keywords.in
+        # The constraint is the application admission gate (ADR 0054): one per
+        # environment, created closed by bootstrap and replaced, never edited by
+        # anyone else, when the platform generation changes. A missing or
+        # unrecognised state counts as closed.
+        activation := "platform.kore.dev/activation-generation"
+        workloads := {"Pod", "Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob", "PostgreSQLInstance"}
+        open { input.parameters.state == "open" }
+        meta := object.get(input.review.object, "metadata", {})
+        platform_namespace {
+          input.review.kind.kind == "Namespace"
+          meta.name in input.parameters.platformNamespaces
+        }
+        platform_namespace {
+          input.review.kind.kind != "Namespace"
+          meta.namespace in input.parameters.platformNamespaces
+        }
+        label_of(obj) = value { value := object.get(object.get(object.get(obj, "metadata", {}), "labels", {}), activation, "") }
+        new_label := label_of(input.review.object)
+        # gator and the API server send a null oldObject on create.
+        old_label := label_of(input.review.oldObject) { is_object(object.get(input.review, "oldObject", null)) }
+        old_label := "" { not is_object(object.get(input.review, "oldObject", null)) }
+        changed { new_label != old_label }
+        bootstrap {
+          group := object.get(object.get(input.review, "userInfo", {}), "groups", [])[_]
+          group in input.parameters.bootstrapGroups
+        }
+        violation[{"msg": msg}] {
+          input.review.kind.kind in workloads
+          not platform_namespace
+          not open
+          msg := sprintf("application admission gate is closed (generation %s): %s %s/%s is refused until bootstrap opens the gate", [input.parameters.generation, input.review.kind.kind, meta.namespace, meta.name])
+        }
+        violation[{"msg": msg}] {
+          input.review.kind.kind == "Namespace"
+          not platform_namespace
+          changed
+          not bootstrap
+          msg := sprintf("only bootstrap automation may change %s on namespace %s", [activation, meta.name])
+        }
+        violation[{"msg": msg}] {
+          input.review.kind.kind == "Namespace"
+          not platform_namespace
+          changed
+          new_label != ""
+          not open
+          msg := sprintf("application admission gate is closed (generation %s): namespace %s cannot be activated", [input.parameters.generation, meta.name])
+        }
+        violation[{"msg": msg}] {
+          input.review.kind.kind == "Namespace"
+          not platform_namespace
+          changed
+          new_label != ""
+          new_label != input.parameters.generation
+          msg := sprintf("namespace %s names activation generation %s, but the gate is generation %s: the activation is stale", [meta.name, new_label, input.parameters.generation])
+        }

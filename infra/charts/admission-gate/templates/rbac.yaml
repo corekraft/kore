@@ -1,0 +1,67 @@
+# The application admission gate is the KoreApplicationAdmission constraint
+# kore-application-admission, and activation metadata is the namespace label
+# platform.kore.dev/activation-generation. Only bootstrap automation is bound
+# to the roles that write them.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kore-admission-gate
+rules:
+  - apiGroups: [constraints.gatekeeper.sh]
+    resources: [koreapplicationadmission]
+    verbs: [create]
+  - apiGroups: [constraints.gatekeeper.sh]
+    resources: [koreapplicationadmission]
+    resourceNames: [kore-application-admission]
+    verbs: [get, update, patch, delete]
+  - apiGroups: [""]
+    resources: [namespaces]
+    verbs: [get, list, watch, create, update, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kore-admission-gate
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kore-admission-gate
+subjects:
+{{- range .Values.bootstrapGroups }}
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: {{ . | quote }}
+{{- end }}
+---
+# The signing path: reading the local signing key is granted by name to the
+# bootstrap group alone. No other Role or binding in the namespace reaches it
+# (the kore-rbac policy audits for any that does).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kore-signing-key
+  namespace: {{ .Values.signingKey.namespace }}
+rules:
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: [create]
+  - apiGroups: [""]
+    resources: [secrets]
+    resourceNames: [{{ .Values.signingKey.secret | quote }}]
+    verbs: [get, update, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kore-signing-key
+  namespace: {{ .Values.signingKey.namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kore-signing-key
+subjects:
+{{- range .Values.bootstrapGroups }}
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: {{ . | quote }}
+{{- end }}

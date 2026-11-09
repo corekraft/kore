@@ -8,7 +8,12 @@ spec:
       validation:
         openAPIV3Schema:
           type: object
-          properties: {exemptNamespaces: {type: array, items: {type: string}}}
+          properties:
+            exemptNamespaces: {type: array, items: {type: string}}
+            signingNamespace: {type: string}
+            signingKeySecret: {type: string}
+            allowedSecretRoles: {type: array, items: {type: string}}
+            bootstrapGroups: {type: array, items: {type: string}}
   targets:
     - target: admission.k8s.gatekeeper.sh
       rego: |
@@ -36,4 +41,55 @@ spec:
           subject.kind == "ServiceAccount"
           not subject.namespace in input.parameters.exemptNamespaces
           msg := sprintf("ServiceAccount %s/%s must not be bound to cluster-admin", [subject.namespace, subject.name])
+        }
+        # The local signing key (ADR 0015) may be read only by the signing path and
+        # bootstrap automation (ADR 0054). Reading Secrets is granted by a Role in
+        # the key's namespace, by any ClusterRole, or through the built-in
+        # admin/edit roles; each is refused unless it is the named signing-path
+        # role, an allowlisted controller role, or bound only to bootstrap groups.
+        reads_secrets(rule) {
+          rule.resources[_] in {"secrets", "*"}
+          rule.verbs[_] in {"get", "list", "watch", "*"}
+        }
+        reaches_signing_key(rule) {
+          reads_secrets(rule)
+          not rule.resourceNames
+        }
+        reaches_signing_key(rule) {
+          reads_secrets(rule)
+          rule.resourceNames[_] == input.parameters.signingKeySecret
+        }
+        covers_signing_namespace {
+          input.review.kind.kind == "ClusterRole"
+        }
+        covers_signing_namespace {
+          input.review.kind.kind == "Role"
+          input.review.object.metadata.namespace == input.parameters.signingNamespace
+        }
+        violation[{"msg": msg}] {
+          covers_signing_namespace
+          not input.review.object.metadata.name in input.parameters.allowedSecretRoles
+          rule := input.review.object.rules[_]
+          reaches_signing_key(rule)
+          msg := sprintf("%s %s can read the local signing key %s/%s; only the signing path and bootstrap automation may (scope it with resourceNames)", [input.review.kind.kind, input.review.object.metadata.name, input.parameters.signingNamespace, input.parameters.signingKeySecret])
+        }
+        secret_reading_builtin { input.review.object.roleRef.name in {"admin", "edit"} }
+        violation[{"msg": msg}] {
+          input.review.kind.kind == "ClusterRoleBinding"
+          secret_reading_builtin
+          subject := input.review.object.subjects[_]
+          not bootstrap_subject(subject)
+          msg := sprintf("%s %s grants %s, which reads the local signing key %s/%s, to %s %s; only bootstrap groups may hold it cluster-wide", [input.review.kind.kind, input.review.object.metadata.name, input.review.object.roleRef.name, input.parameters.signingNamespace, input.parameters.signingKeySecret, subject.kind, subject.name])
+        }
+        violation[{"msg": msg}] {
+          input.review.kind.kind == "RoleBinding"
+          input.review.object.metadata.namespace == input.parameters.signingNamespace
+          secret_reading_builtin
+          subject := input.review.object.subjects[_]
+          not bootstrap_subject(subject)
+          msg := sprintf("RoleBinding %s grants %s in %s, which reads the local signing key %s, to %s %s; only bootstrap groups may hold it", [input.review.object.metadata.name, input.review.object.roleRef.name, input.parameters.signingNamespace, input.parameters.signingKeySecret, subject.kind, subject.name])
+        }
+        bootstrap_subject(subject) {
+          subject.kind == "Group"
+          subject.name in input.parameters.bootstrapGroups
         }

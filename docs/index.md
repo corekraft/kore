@@ -98,6 +98,7 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0051-telemetry-retention-and-alerting.md`](decisions/0051-telemetry-retention-and-alerting.md) — refines ADR 0019: default and per-tenant retention, tenant alerts in each tenant's Grafana, Alertmanager for platform alerts only. Read when changing retention or alerting.
 - [`docs/decisions/0052-usage-metering-with-opencost.md`](decisions/0052-usage-metering-with-opencost.md) — usage per organization through OpenCost and platform counters, for visibility only. Read when changing usage reporting.
 - [`docs/decisions/0053-forensic-telemetry-archive.md`](decisions/0053-forensic-telemetry-archive.md) — refines ADR 0019, 0050, and 0051: every log record and span kept unsampled in a Quickwit archive on the object store, buffered through Kafka, fully indexed, write-once, with signed batch digests and audited, tenant-scoped access. Read when changing telemetry retention, sampling, or the archive.
+- [`docs/decisions/0054-application-admission-gate-closed-at-foundation.md`](decisions/0054-application-admission-gate-closed-at-foundation.md) — refines ADR 0004, 0027, 0032, 0015: the admission gate is one Gatekeeper constraint per environment, closed at the start of each run and opened by `platform up` only when every component is ready; only bootstrap automation writes it, activates namespaces, or reads the local signing key; `kore app up` refuses until it is open. Read when changing bootstrap, app up, namespace activation, or key access.
 
 ## Reference
 

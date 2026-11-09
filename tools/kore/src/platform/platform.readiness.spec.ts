@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
-import { test } from "vitest";
+import { test, vi } from "vitest";
+// The admission gate is covered in platform.admission-gate.spec.ts.
+vi.mock("./admission-gate.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./admission-gate.js")>()),
+  closeExistingAdmissionGate: async () => undefined,
+  openAdmissionGate: async () => undefined,
+}));
 import { loadRepository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { RecordingRunner } from "../runtime/runner.js";

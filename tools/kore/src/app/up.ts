@@ -7,6 +7,7 @@ import {
 } from "../images/index.js";
 import type { Runner } from "../runtime/index.js";
 import {
+  activateNamespace,
   enrollNamespace,
   installResources,
   installWorkload,
@@ -14,6 +15,7 @@ import {
 } from "./install.js";
 import { stageLocalImage } from "./local-image.js";
 import {
+  assertApplicationAdmission,
   assertPlatformReady,
   waitForResources,
   waitForRollouts,
@@ -29,6 +31,8 @@ export async function appUp(
 ): Promise<void> {
   await assertExpectedCluster(repository, runner);
   await assertPlatformReady(repository, runner);
+  // Applications are admitted only through an open gate for this generation.
+  const generation = await assertApplicationAdmission(repository, runner);
   const image =
     imageOverride ??
     imageForApplication(await loadImageLock(repository.root), name);
@@ -36,6 +40,7 @@ export async function appUp(
   const workloadImage = await stageLocalImage(repository, runner, image);
   const charts = await resolveCharts(repository, name);
   await enrollNamespace(repository, runner, name);
+  await activateNamespace(repository, runner, name, generation);
   await installResources(repository, runner, name, charts);
   await waitForResources(repository, runner, name);
   await installWorkload(repository, runner, name, charts, workloadImage);

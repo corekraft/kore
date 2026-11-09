@@ -14,3 +14,15 @@ tests:
       - {name: accepts-view-binding-to-service-account, object: objects/rbac-crb-view-sa.yaml, assertions: [{violations: 0}]}
       - {name: ignores-cluster-admin-bound-to-users, object: objects/rbac-crb-admin-user.yaml, assertions: [{violations: 0}]}
       - {name: exempts-system-service-account-bindings, object: objects/rbac-crb-admin-exempt-sa.yaml, assertions: [{violations: 0}]}
+      - {name: rejects-signing-namespace-role-reading-all-secrets, object: objects/rbac-signing-role-secrets-all.yaml, assertions: [{violations: 1, message: signing key}]}
+      - {name: rejects-role-naming-the-signing-key, object: objects/rbac-signing-role-named.yaml, assertions: [{violations: 1, message: signing key}]}
+      - {name: accepts-the-signing-path-role, object: objects/rbac-signing-role-allowed.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-signing-namespace-role-for-another-secret, object: objects/rbac-signing-role-other-secret.yaml, assertions: [{violations: 0}]}
+      - {name: rejects-clusterrole-reading-secrets-cluster-wide, object: objects/rbac-clusterrole-secrets.yaml, assertions: [{violations: 1, message: signing key}]}
+      - {name: accepts-allowlisted-controller-clusterrole, object: objects/rbac-clusterrole-secrets-allowed.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-clusterrole-without-secret-access, object: objects/rbac-clusterrole-pods.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-secret-reading-role-outside-the-signing-namespace, object: objects/rbac-role-secrets-app-namespace.yaml, assertions: [{violations: 0}]}
+      - {name: rejects-secret-reading-builtin-role-in-signing-namespace-for-developers, object: objects/rbac-rb-edit-signing-namespace-user.yaml, assertions: [{violations: 1, message: signing key}]}
+      - {name: accepts-bootstrap-group-binding-in-signing-namespace, object: objects/rbac-rb-edit-signing-namespace-bootstrap.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-edit-binding-in-an-application-namespace, object: objects/rbac-rb-edit-app-namespace.yaml, assertions: [{violations: 0}]}
+      - {name: rejects-cluster-wide-edit-binding-for-developers, object: objects/rbac-crb-edit-user.yaml, assertions: [{violations: 1, message: signing key}]}

@@ -4,6 +4,7 @@ import {
   type Repository,
 } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
+import { admissionGateStatus } from "./admission-gate.js";
 import {
   assertOwnedCrdsExist,
   errorMessage,
@@ -58,5 +59,6 @@ export async function platformStatus(
   for (const component of orderedComponents(repository.catalog)) {
     result.push(await componentStatus(repository, runner, component));
   }
+  result.push(await admissionGateStatus(repository, runner));
   return result;
 }
