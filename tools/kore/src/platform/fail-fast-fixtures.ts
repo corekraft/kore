@@ -4,7 +4,26 @@ import {
   type RunResult,
   type Runner,
 } from "../runtime/index.js";
+import { loadRepository } from "../config/index.js";
 import type { WatchClock } from "./fail-fast.js";
+import { reconcileComponent } from "./reconcile.js";
+
+export async function oci() {
+  const repository = await loadRepository("local");
+  const component = repository.catalog.components.find(
+    ({ name }) => name === "oci-registry",
+  )!;
+  return { repository, component };
+}
+
+export async function reconcile(scenario: Scenario): Promise<void> {
+  const { repository, component } = await oci();
+  await reconcileComponent(repository, scenario, component, undefined, {
+    clock: scenario.clock,
+    intervalMs: 5000,
+    graceMs: 60000,
+  });
+}
 
 export interface Pod {
   name: string;
@@ -57,7 +76,31 @@ export interface FakeEvent {
   message: string;
   count?: number;
   pod?: string;
+  /** ISO time of the latest occurrence; later events are more recent. */
+  lastTimestamp?: string;
 }
+
+const hex = (seed: number) =>
+  (
+    seed.toString(16).padStart(2, "0") +
+    "c0b65595e60de7f99d7829ab2aea321ddcd5ef24649755d5707c665c262d724"
+  ).slice(0, 64);
+
+/** Live shape: each attempt carries its own sandbox ID, so every event has count 1. */
+export const liveSandboxOom = (attempt: number): FakeEvent => ({
+  reason: "FailedCreatePodSandBox",
+  count: 1,
+  lastTimestamp: `2026-11-08T10:00:${String(attempt).padStart(2, "0")}Z`,
+  message: `Failed to create pod sandbox: rpc error: code = Unknown desc = failed to start sandbox "${hex(attempt)}": failed to start sandbox container task "${hex(attempt)}": cannot start a container that has already stopped: unknown\n\n  context: runc create failed: unable to start container process: container init was OOM-killed (memory limit too low?)`,
+});
+
+/** Live shape when the CNI plugin is what fails. */
+export const liveCniFailure = (attempt: number): FakeEvent => ({
+  reason: "FailedCreatePodSandBox",
+  count: 1,
+  lastTimestamp: `2026-11-08T10:01:${String(attempt).padStart(2, "0")}Z`,
+  message: `Failed to create pod sandbox: rpc error: code = Unknown desc = failed to setup network for sandbox "${hex(attempt)}": plugin type="istio-cni" name="istio-cni" failed (add): unable to reach istio-cni node agent`,
+});
 
 /** The probe's event: a 4Mi limit OOM-kills the sandbox's init, over and over. */
 export const sandboxOom = (count: number): FakeEvent => ({
@@ -135,6 +178,7 @@ export class Scenario implements Runner {
             reason: event.reason,
             message: event.message,
             count: event.count ?? 1,
+            lastTimestamp: event.lastTimestamp,
             involvedObject: {
               kind: "Pod",
               name: event.pod ?? "oci-registry-x",

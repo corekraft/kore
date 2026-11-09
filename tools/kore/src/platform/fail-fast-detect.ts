@@ -53,6 +53,8 @@ interface EventItem {
   reason?: string;
   message?: string;
   count?: number;
+  lastTimestamp?: string;
+  eventTime?: string;
   involvedObject?: { kind?: string; name?: string };
 }
 
@@ -150,11 +152,33 @@ function creatingState(pod: PodItem): string | undefined {
   return pod.status?.phase === "Pending" ? "Pending" : undefined;
 }
 
-/** The pod's most telling create-failure event: the one repeated most. */
+const MESSAGE_HEAD = 200;
+const MESSAGE_TAIL = 240;
+
+/** Drops per-attempt IDs and whitespace noise; keeps head and tail of a long message. */
+function tidyMessage(message: string): string {
+  const text = message
+    .replace(/\\?"?[0-9a-f]{64}\\?"?/g, "<id>")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.length <= MESSAGE_HEAD + MESSAGE_TAIL
+    ? text
+    : `${text.slice(0, MESSAGE_HEAD).trimEnd()} … ${text.slice(-MESSAGE_TAIL).trimStart()}`;
+}
+
+function recency(event: EventItem): string {
+  return event.lastTimestamp ?? event.eventTime ?? "";
+}
+
+/**
+ * The pod's latest create-failure event, with the occurrences of its reason
+ * summed. Kubelet puts a unique sandbox ID in each message, so attempts are
+ * separate events of count 1 rather than one event with a rising count.
+ */
 function createFailure(
   pod: PodItem,
   events: EventItem[],
-): EventItem | undefined {
+): { event: EventItem; count: number } | undefined {
   const own = events.filter(
     ({ involvedObject, reason }) =>
       involvedObject?.kind === "Pod" &&
@@ -162,15 +186,25 @@ function createFailure(
       reason !== undefined &&
       CREATE_FAILURES.has(reason),
   );
-  return own.reduce<EventItem | undefined>(
-    (best, event) =>
-      !best || (event.count ?? 1) > (best.count ?? 1) ? event : best,
+  const latest = own.reduce<EventItem | undefined>(
+    (best, event) => (!best || recency(event) >= recency(best) ? event : best),
     undefined,
   );
+  if (!latest) {
+    return undefined;
+  }
+  const count = own
+    .filter(({ reason }) => reason === latest.reason)
+    .reduce((total, event) => total + Math.max(event.count ?? 1, 1), 0);
+  return { event: latest, count };
 }
 
-function createFinding(pod: PodItem, stuck: string, event: EventItem): Finding {
-  const count = event.count ?? 1;
+function createFinding(
+  pod: PodItem,
+  stuck: string,
+  failure: { event: EventItem; count: number },
+): Finding {
+  const { event, count } = failure;
   const name = pod.metadata.name;
   return {
     key: `${name}/${event.reason}`,
@@ -178,7 +212,7 @@ function createFinding(pod: PodItem, stuck: string, event: EventItem): Finding {
     subject: "creating",
     where: `pod ${name} is stuck in ${stuck}`,
     state: `${event.reason}${count > 1 ? ` (x${count})` : ""}`,
-    detail: JSON.stringify(event.message ?? ""),
+    detail: JSON.stringify(tidyMessage(event.message ?? "")),
     hint: SANDBOX_HINT,
     persists: true,
     slow: count < REPEATED_EVENTS,

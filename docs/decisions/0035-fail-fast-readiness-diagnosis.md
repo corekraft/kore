@@ -27,7 +27,7 @@ rules"). A failing run must fail fast and name the cause.
   wraps the Helm upgrade and the readiness waits of `reconcileComponent` and
   `reconcileIfNeeded`. Every 5s it runs read-only `kubectl get pods` (and
   `get events` when a pod is unscheduled) with `--context <environment context>
-  --namespace <component namespace>`. It never reads other namespaces, never
+--namespace <component namespace>`. It never reads other namespaces, never
   uses `--all-namespaces`, and never mutates.
 - **Scope to the release.** Pods labelled `app.kubernetes.io/instance=<release>`
   are examined; pods with no such label are also examined (not every chart sets
@@ -55,8 +55,25 @@ rules"). A failing run must fail fast and name the cause.
   join the persistent states at 60s. A single sandbox failure that clears, and
   normal pulling (a `Pulling` event without a failure), are never fatal. The
   error quotes the event: `pod <pod> is stuck in ContainerCreating:
-  FailedCreatePodSandBox (x15): "<message>"`, with a hint to check
+FailedCreatePodSandBox (x15): "<message>"`, with a hint to check
   `resources.limits`, runtime class, CNI, or volume mounts.
+- **Live result and what it corrected (2026-11-08).** The same probe, rerun
+  against this code, stopped in 98s instead of 648s, and Helm rolled back after
+  kore's cancel (revision 6 `context canceled`, revision 7 `Rollback to 5`), so
+  rollback after a fail-fast cancel is proven live. The first error was still
+  not enough to diagnose: kubelet puts a unique sandbox ID in every sandbox
+  failure message, so events never aggregate (each has count 1 and no series)
+  and no `(xN)` showed; and the message was cut before its tail, where
+  "container init was OOM-killed" sits. The watcher now (a) takes the pod's
+  most recent create-failure event by time, (b) reports N as the number of
+  matching events for that pod and reason, summing any count above 1, (c)
+  replaces 64-hex IDs (quoted or not) with `<id>` and collapses whitespace,
+  and (d) when still over about 440 characters keeps the head and the tail
+  joined by `…`, never cutting the end. A second live shape, `failed to setup
+network for sandbox "<id>": plugin type="istio-cni"...`, goes through the same
+  path. The operation journal still keeps only the first 200 characters of an
+  error's first line, so the journal entry shows the head only; the full error
+  is what the terminal prints.
 - **Helm failing first keeps the watch's last look.** When Helm or a readiness
   wait fails on its own, the watch has not cancelled it, but whatever findings
   it saw at its latest look (even short of the grace period) are appended to
@@ -66,7 +83,7 @@ rules"). A failing run must fail fast and name the cause.
   `ProcessRunner` sends SIGTERM when it aborts, and `withSignal` gives a block
   of commands one shared signal. On detection the signal is aborted once, kore
   waits for the command to exit, and throws `component <name> failed: pod <pod>
-  container <c> <state>: <reason/message>`, the last 20 lines of
+container <c> <state>: <reason/message>`, the last 20 lines of
   `kubectl logs --previous` for crash loops, and a fix hint. No other wrapper
   text is added, and the retry for never-deployed releases does not run.
 - **Rollback.** Helm traps SIGTERM, cancels its context, and with
