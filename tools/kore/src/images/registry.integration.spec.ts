@@ -240,3 +240,34 @@ test(
     ]);
   },
 );
+
+test(
+  "the read credential pulls but cannot push while the push credential can",
+  live,
+  async () => {
+    const repository = await loadRepository("local");
+    const runner = new ProcessRunner();
+    const read = await loadRegistryCredential(repository, runner, "read");
+    const push = await loadRegistryCredential(repository, runner, "push");
+    await localRegistryReference(repository, runner, "kore/x");
+    const upload = "/v2/kore-authorization-probe/blobs/uploads/";
+
+    assert.equal(
+      (await status(runner, "GET", "/v2/", read)).code,
+      200,
+      "the read credential must pull",
+    );
+    const refused = await status(runner, "POST", upload, read);
+    assert.equal(
+      refused.code,
+      403,
+      "the read credential must be refused a blob upload with 403, not 401",
+    );
+    const accepted = await status(runner, "POST", upload, push);
+    assert.equal(
+      accepted.code,
+      202,
+      "the push credential must start an upload",
+    );
+  },
+);
