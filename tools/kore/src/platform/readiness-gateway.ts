@@ -1,4 +1,5 @@
 import type { Runner } from "../runtime/index.js";
+import { routeProblem } from "./gateway-proof.js";
 import { pollUntil } from "./readiness-poll.js";
 
 interface Condition {
@@ -114,4 +115,47 @@ export async function waitForGateway(
           .join("; ")
       : undefined;
   });
+}
+
+/**
+ * Read-only HTTPRoute readiness: a controller has reported on the route, and
+ * every parent reports Accepted and ResolvedRefs. Failure names the unmet
+ * condition and its reason; `resource` is `httproute/<name>`, read in the
+ * component's namespace.
+ */
+export async function waitForHTTPRoute(
+  runner: Runner,
+  base: string[],
+  resource: string,
+  timeout: string,
+): Promise<void> {
+  await pollUntil(timeout, async () => {
+    const result = await runner.run(
+      "kubectl",
+      [...base, "get", resource, "--output", "json"],
+      { capture: true },
+    );
+    return routeProblem(JSON.parse(result.stdout) as Record<string, unknown>);
+  });
+}
+
+/** The readiness check for a `gateway/` or `httproute/` resource, if it is one. */
+export function gatewayCheck(
+  runner: Runner,
+  base: string[],
+  resource: string,
+): { condition: string; run: (timeout: string) => Promise<void> } | undefined {
+  if (resource.startsWith("gateway/")) {
+    return {
+      condition: "Accepted, LoadBalancer address, Programmed, ResolvedRefs",
+      run: (timeout) => waitForGateway(runner, base, resource, timeout),
+    };
+  }
+  if (resource.startsWith("httproute/")) {
+    return {
+      condition: "Accepted and ResolvedRefs",
+      run: (timeout) => waitForHTTPRoute(runner, base, resource, timeout),
+    };
+  }
+  return undefined;
 }

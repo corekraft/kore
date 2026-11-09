@@ -7,7 +7,11 @@ export { renderedImages, unapprovedImages } from "./rendered-images.js";
 export { buildAndSignLocalImage } from "./local-image.js";
 export type { BuiltLocalImage } from "./local-image.js";
 export { localRegistryReference, stopRegistryForward } from "./registry.js";
-export { ensureLocalSigningPublicKey } from "./local-signer.js";
+export {
+  ensureLocalSigningPublicKey,
+  swapLocalSigningKey,
+  withLocalSigner,
+} from "./local-signer.js";
 export { verifiedRegistryAddress } from "./registry-service.js";
 export {
   ensureRegistryAuth,
@@ -32,3 +36,7 @@ export type { RegistryClient } from "./registry-client.js";
 export type { RegistryDependencies } from "./registry.js";
 export { rotateRegistryCredentials } from "./registry-rotation.js";
 export type { RotationResult } from "./registry-rotation.js";
+export {
+  assertReleaseAutomationImage,
+  isReleaseAutomationSigner,
+} from "./release-image.js";

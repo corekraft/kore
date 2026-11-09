@@ -1,5 +1,6 @@
 import { crdOwners, type Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
+import { backupStatus, type BackupStatus } from "./backup-status.js";
 import { capacityStatus, type CapacityStatus } from "./capacity-status.js";
 import { errorMessage } from "./probe.js";
 import {
@@ -101,7 +102,7 @@ export async function crdOwnershipStatus(
 
 /**
  * `kore platform status` output: the gating rows of `platformStatus` plus the
- * audit-only CRD ownership row (ADR 0057) and capacity row (resource budgets). Bootstrap and `app up` call
+ * audit-only CRD ownership row (ADR 0057), capacity row (resource budgets), and backups row (ADR 0074). Bootstrap and `app up` call
  * `platformStatus` directly, so the audit never gates them. A filtered query
  * omits the platform-wide row.
  */
@@ -111,14 +112,29 @@ export async function platformStatusReport(
   only?: readonly string[],
   tunnelDependencies: TunnelDependencies = {},
 ): Promise<
-  (ComponentStatus | CrdOwnershipStatus | CapacityStatus | TunnelHealthRow)[]
+  (
+    | ComponentStatus
+    | CrdOwnershipStatus
+    | CapacityStatus
+    | BackupStatus
+    | TunnelHealthRow
+  )[]
 > {
   const rows: (
-    ComponentStatus | CrdOwnershipStatus | CapacityStatus | TunnelHealthRow
+    | ComponentStatus
+    | CrdOwnershipStatus
+    | CapacityStatus
+    | BackupStatus
+    | TunnelHealthRow
   )[] = await platformStatus(repository, runner, only);
   if (!only) {
     rows.push(await crdOwnershipStatus(repository, runner));
     rows.push(await capacityStatus(repository, runner));
+    // Host-side artifact metadata plus `kubectl get`; audit-only (ADR 0074).
+    const backups = await backupStatus(repository, runner);
+    if (backups) {
+      rows.push(backups);
+    }
     // Host-side, read-only: the tunnel is not a cluster component (ADR 0060).
     const tunnel = await tunnelHealthRow(repository, tunnelDependencies);
     if (tunnel) {

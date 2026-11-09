@@ -1,17 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import type { Repository } from "../config/index.js";
-import {
-  localRegistryReference,
-  localSignArgs,
-  minikubeImagePublishArgs,
-  publishedDigest,
-  verifiedRegistryAddress,
-  withPublishSession,
-  type RegistryClient,
-  type RegistryDependencies,
-} from "../images/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 
 // Docs: docs/decisions/0028-image-trust-authority.md
@@ -24,13 +11,11 @@ export interface AdmissionVerdict {
   detail: string;
 }
 
-/** Repositories the live specs write to; never used by an application. */
-const probeRepository = "kore-admission-probe";
 /** What the API server says when a webhook, or its absence, refuses a request. */
 const WEBHOOK_REFUSAL =
   /admission webhook|failed calling webhook|denied the request/i;
 
-function scope(repository: Repository, namespace: string): string[] {
+export function scope(repository: Repository, namespace: string): string[] {
   return [
     "--context",
     repository.environment.kubeContext,
@@ -49,7 +34,7 @@ export interface ProbeOptions {
 }
 
 /** Runs `kubectl`; a webhook refusal is a verdict, anything else is rethrown. */
-async function verdictOf(
+export async function verdictOf(
   runner: Runner,
   args: string[],
   input?: string,
@@ -116,10 +101,19 @@ export async function admissionVerdict(
   );
 }
 
+interface PodList {
+  items?: {
+    metadata?: { name?: string; deletionTimestamp?: string };
+    spec?: { containers?: { image?: string }[] };
+  }[];
+}
+
 /**
  * The name of a Running pod whose first container runs `image`, the target of
  * an ephemeral container probe. It is found by image so no label convention
- * is assumed.
+ * is assumed. A pod already being deleted is skipped: it stays Running through
+ * its grace period, but admission deliberately does not validate it, so a
+ * probe of it would be admitted whatever the image.
  */
 export async function runningPodWithImage(
   repository: Repository,
@@ -134,11 +128,17 @@ export async function runningPodWithImage(
       "get",
       "pods",
       "--field-selector=status.phase=Running",
-      `--output=jsonpath={.items[?(@.spec.containers[0].image=="${image}")].metadata.name}`,
+      "--output=json",
     ],
     { capture: true },
   );
-  const name = stdout.trim().split(/\s+/)[0] ?? "";
+  const list = JSON.parse(stdout) as PodList;
+  const name =
+    list.items?.find(
+      (pod) =>
+        pod.metadata?.deletionTimestamp === undefined &&
+        pod.spec?.containers?.[0]?.image === image,
+    )?.metadata?.name ?? "";
   if (name === "") {
     throw new Error(
       `no Running pod of ${image} in namespace ${namespace}; run \`kore app up ${namespace} --environment ${repository.environment.name}\` first so a signed workload is running`,
@@ -227,87 +227,6 @@ export function modifiedDigestReference(image: string): string {
   return `${repository}@sha256:${digest.slice(0, -1)}${replacement}`;
 }
 
-export interface UntrustedImages {
-  /** Pushed to the internal registry; nobody signed it. */
-  unsigned: string;
-  /** Signed with a throwaway key whose public half no policy trusts. */
-  foreignSigned: string;
-}
-
-export interface ProbeDependencies {
-  registry?: RegistryDependencies;
-  digest?: (repositoryPath: string, client: RegistryClient) => Promise<string>;
-}
-
-/**
- * Copies the already-staged `source` image into two probe repositories with
- * the push identity (a signature belongs to its repository, so a copy under a
- * new name carries none), then signs one of them with a key generated in a
- * temporary directory and deleted afterwards. The key never reaches the
- * cluster, the repository, or an argument other than its temporary path.
- */
-export async function publishUntrustedCopies(
-  repository: Repository,
-  runner: Runner,
-  source: string,
-  dependencies: ProbeDependencies = {},
-): Promise<UntrustedImages> {
-  const address = await verifiedRegistryAddress(repository, runner);
-  const digestOf = dependencies.digest ?? publishedDigest;
-  return await withPublishSession(repository, runner, async (session) => {
-    const published: Record<string, string> = {};
-    for (const name of ["unsigned", "foreign-signed"]) {
-      const path = `${probeRepository}/${name}`;
-      await runner.run(
-        "minikube",
-        minikubeImagePublishArgs(
-          repository.environment.cluster.profile,
-          source,
-          address,
-          `${path}:kore-local`,
-          session.credential.username,
-        ),
-        { capture: true, input: `${session.credential.password}\n` },
-      );
-      await localRegistryReference(
-        repository,
-        runner,
-        `${address}/${path}`,
-        dependencies.registry,
-      );
-      published[name] =
-        `${address}/${path}@${await digestOf(path, session.client)}`;
-    }
-    const foreign = published["foreign-signed"]!;
-    const directory = await mkdtemp(join(tmpdir(), "kore-throwaway-key-"));
-    try {
-      const env = { ...process.env, COSIGN_PASSWORD: "" };
-      await runner.run("cosign", ["generate-key-pair"], {
-        capture: true,
-        cwd: directory,
-        env,
-      });
-      await runner.run(
-        "cosign",
-        localSignArgs(
-          join(directory, "cosign.key"),
-          await localRegistryReference(
-            repository,
-            runner,
-            foreign,
-            dependencies.registry,
-          ),
-          session.client.caFile,
-        ),
-        { capture: true, env: { ...env, ...session.client.env } },
-      );
-    } finally {
-      await rm(directory, { force: true, recursive: true });
-    }
-    return { unsigned: published["unsigned"]!, foreignSigned: foreign };
-  });
-}
-
 /** Scales one Deployment; the caller waits for the result and restores it. */
 export async function scaleDeployment(
   repository: Repository,
@@ -327,3 +246,12 @@ export async function scaleDeployment(
     { capture: true },
   );
 }
+
+export {
+  publishSignedCopy,
+  publishUntrustedCopies,
+} from "./admission-probe-copies.js";
+export type {
+  ProbeDependencies,
+  UntrustedImages,
+} from "./admission-probe-copies.js";

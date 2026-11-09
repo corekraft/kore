@@ -1,0 +1,13 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: wrong-value, namespace: app}
+spec:
+  template:
+    metadata:
+      labels:
+        gateway.istio.io/managed: anything
+        gateway.networking.k8s.io/gateway-name: waypoint
+        gateway.networking.k8s.io/gateway-class-name: istio-waypoint
+    spec:
+      serviceAccountName: wrong-value
+      containers: [{name: app, image: invalid}]

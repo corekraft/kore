@@ -222,6 +222,29 @@ test("registry rotate-credentials without --yes still reaches the operation, whi
   expect(dispatch).toContain("rotateRegistryCredentials:false");
 });
 
+test("signer swap-key is a locked, journaled mutation that carries the consent flag", async () => {
+  await main([
+    "signer",
+    "swap-key",
+    "--environment",
+    "local",
+    "--yes",
+    "--json",
+  ]);
+
+  expect(dispatch).toEqual([
+    "lock",
+    "journal:signer swap-key:kore-local",
+    "swapLocalSigningKey:true",
+  ]);
+});
+
+test("signer swap-key without --yes still reaches the operation, which refuses", async () => {
+  await main(["signer", "swap-key", "--environment", "local"]);
+
+  expect(dispatch).toContain("swapLocalSigningKey:false");
+});
+
 test("platform gate-check fails naming the prerequisite after it closes the gate", async () => {
   const { closeGateIfDegraded } = await import("../platform/index.js");
   vi.mocked(closeGateIfDegraded).mockResolvedValueOnce({
@@ -259,9 +282,9 @@ test("platform gate-check requires an explicit environment", async () => {
 });
 
 test("app up hands the app domain a hook that restores the tunnel", async () => {
-  const { appUp } = await import("../app/index.js");
+  const { appUpRelease } = await import("../app/index.js");
   await main(["app", "up", "reference", "--environment", "local"]);
-  const options = vi.mocked(appUp).mock.calls.at(-1)?.[4] as
+  const options = vi.mocked(appUpRelease).mock.calls.at(-1)?.[4] as
     { ensureTunnel: () => Promise<unknown> } | undefined;
   expect(dispatch).not.toContain("ensureLocalTunnel");
   await options?.ensureTunnel();

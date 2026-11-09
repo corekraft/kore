@@ -53,6 +53,9 @@ environment and use the configured kube context, never the current kubectl
 context. Direct destruction requires `--yes`; retained claims additionally
 require `--purge-data`. `local down --prune` destroys without purging; `local down --prune --purge-data` opts into both.
 
+`kore app up` deploys only an image that release automation signed (`--image-lock <release images.lock.json>`);
+a source build runs through `kore local up` ([ADR 0063](docs/decisions/0063-lifecycle-resume-and-release-only-app-up.md)).
+
 `kore app up <name> --environment <name>` is refused, before anything is verified
 or applied, until the application admission gate is open for the repository's
 platform generation ([ADR 0054](docs/decisions/0054-application-admission-gate-closed-at-foundation.md)).
@@ -156,6 +159,21 @@ replaced), then waits until the proxy refuses the old passwords. It takes a few
 minutes, prints no secret, and is safe to rerun after a failure. See
 [ADR 0055](docs/decisions/0055-registry-credential-rotation.md).
 
+### Swapping the local signing key
+
+The local profile trusts one cosign key. To replace it:
+
+```sh
+mise exec -- npm --prefix tools/kore run kore -- signer swap-key --environment local --yes
+```
+
+The command deletes the old key pair, generates a new one, and republishes only
+the public key to Policy Controller, so the old key is never trusted beside the
+new one. Images signed with the old key are denied until they are signed again
+(`kore app up` signs again). Managed environments refuse: they trust release
+identities, not a key. Safe to rerun after a failure. The opt-in live proof is
+`npm --prefix tools/kore run test:integration:signer`.
+
 ### Storage classes
 
 The `platform-storage` release defines two StorageClasses. Both allow volume
@@ -237,18 +255,19 @@ recent operations and any that were interrupted.
 Run `kore --help` for every flag; the usage text in `tools/kore/src/cli/usage.ts`
 is the source of truth.
 
-| Command         | Does                                                                                                                               |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `kore doctor`   | Checks pinned tools and prerequisites. Read-only.                                                                                  |
-| `kore validate` | Validates catalogs, environments, and release ordering. Read-only.                                                                 |
-| `kore cluster`  | Starts, stops, destroys, or reports the Minikube profile.                                                                          |
-| `kore platform` | Bootstraps, reconciles, stops, destroys, renders, or reports platform releases.                                                    |
-| `kore app`      | Deploys, removes, or reports one application's resources and workload releases.                                                    |
-| `kore data`     | Exports retained CloudNativePG data as an age-encrypted, digest-manifested artifact, or restores it into a fresh profile.          |
-| `kore local`    | Brings the whole local environment up or down (`--prune` destroys it; `--prune --purge-data` also purges retained data).           |
-| `kore tunnel`   | Starts, stops, or reports the managed Minikube tunnel.                                                                             |
-| `kore registry` | Rotates the registry's push and read passwords and the enrolled pull Secrets (`rotate-credentials --yes`).                         |
-| `kore secrets`  | Syncs local secrets, including the generated API token, into the cluster.                                                          |
-| `kore trust`    | Installs the local certificate authority before the Gateway is configured.                                                         |
-| `kore ops`      | Offline checks: dependency inventory and integrity, recovery objectives, upgrade from the previous release, CRD safety. Read-only. |
-| `kore journal`  | Lists recent mutating operations and flags interrupted ones. Read-only.                                                            |
+| Command         | Does                                                                                                                                           |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kore doctor`   | Checks pinned tools and prerequisites. Read-only.                                                                                              |
+| `kore validate` | Validates catalogs, environments, and release ordering. Read-only.                                                                             |
+| `kore cluster`  | Starts, stops, destroys, or reports the Minikube profile.                                                                                      |
+| `kore platform` | Bootstraps, reconciles, stops, destroys, renders, or reports platform releases.                                                                |
+| `kore app`      | Deploys, removes, or reports one application's resources and workload releases.                                                                |
+| `kore data`     | Exports retained CloudNativePG data as an age-encrypted, digest-manifested artifact, or restores it into a fresh profile.                      |
+| `kore local`    | Brings the whole local environment up or down (`--prune` destroys it; `--prune --purge-data` also purges retained data).                       |
+| `kore tunnel`   | Starts, stops, or reports the managed Minikube tunnel.                                                                                         |
+| `kore registry` | Rotates the registry's push and read passwords and the enrolled pull Secrets (`rotate-credentials --yes`).                                     |
+| `kore secrets`  | Syncs local secrets, including the generated API token, into the cluster.                                                                      |
+| `kore trust`    | Installs the local certificate authority before the Gateway is configured.                                                                     |
+| `kore ops`      | Offline checks: dependency inventory and integrity, recovery objectives, upgrade from the previous release, CRD safety. Read-only.             |
+| `kore policy`   | Records audit evidence, promotes one Gatekeeper constraint from dryrun to deny on clean evidence, or rolls it back. Edits the repository only. |
+| `kore journal`  | Lists recent mutating operations and flags interrupted ones. Read-only.                                                                        |

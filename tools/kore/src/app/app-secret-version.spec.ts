@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { expect, test, vi } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 
 const localRegistryReferenceMock = vi.hoisted(() => vi.fn());
 vi.mock("../images/index.js", async (importOriginal) => ({
@@ -11,14 +11,19 @@ vi.mock("../images/index.js", async (importOriginal) => ({
 }));
 import { findRoot } from "../config/config.js";
 import { loadRepository } from "../config/index.js";
-import { appUp } from "./up.js";
+import { appUp, appUpRelease } from "./up.js";
 import {
   healthyRunner,
   lockedImage,
   passthroughRegistry,
+  removeReleaseLocks,
+  repositoryTrustingRelease,
+  writeReleaseLock,
   type Call,
 } from "./app-fixtures.js";
 import type { Runner } from "../runtime/index.js";
+
+afterEach(removeReleaseLocks);
 
 const run = promisify(execFile);
 const rotationId = "0123456789abcdef";
@@ -82,6 +87,24 @@ test("the workload release carries a one-way digest of the source rotation id", 
     .slice(0, 16);
   expect(workloadSet(calls)).toEqual([`secretVersion=${expected}`]);
   expect(workloadSet(calls)[0]).not.toContain(rotationId);
+});
+
+test("a release deploy carries the same secret version, so consumers roll on both paths", async () => {
+  const repository = await repositoryTrustingRelease();
+  localRegistryReferenceMock.mockImplementation(passthroughRegistry);
+  const calls: Call[] = [];
+  const lock = await writeReleaseLock(repository.root);
+  await appUpRelease(
+    repository,
+    withRotationId(calls, rotationId),
+    "reference",
+    lock,
+  );
+  const expected = createHash("sha256")
+    .update(rotationId)
+    .digest("hex")
+    .slice(0, 16);
+  expect(workloadSet(calls)).toEqual([`secretVersion=${expected}`]);
 });
 
 test("a source without a rotation id adds no secret version, so legacy releases do not churn", async () => {

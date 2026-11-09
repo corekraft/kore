@@ -5,9 +5,11 @@ import {
   dataCommand,
 } from "./commands-infra.js";
 import { opsCommand } from "./commands-ops.js";
+import { policyCommand } from "./commands-policy.js";
 import {
   localCommand,
   registryCommand,
+  signerCommand,
   secretsCommand,
   trustCommand,
   tunnelCommand,
@@ -33,6 +35,8 @@ export const COMMANDS: ReadonlyMap<string, CommandSpec> = new Map<
   ["validate", { mutations: [], noAction: true, run: validateCommand }],
   ["journal", { mutations: [], noAction: true, run: journalCommand }],
   ["ops", { mutations: [], run: opsCommand }],
+  // Edits the repository (desired state) only; the cluster follows `platform up`.
+  ["policy", { mutations: [], run: policyCommand }],
   ["cluster", { mutations: ["up", "stop", "destroy"], run: clusterCommand }],
   [
     "platform",
@@ -44,6 +48,7 @@ export const COMMANDS: ReadonlyMap<string, CommandSpec> = new Map<
   ["data", { mutations: ["export", "restore"], run: dataCommand }],
   ["app", { mutations: ["up", "down"], run: appCommand }],
   ["local", { mutations: ["up", "down"], run: localCommand }],
+  ["signer", { mutations: ["swap-key"], run: signerCommand }],
   ["registry", { mutations: ["rotate-credentials"], run: registryCommand }],
   ["tunnel", { mutations: ["start", "stop"], run: tunnelCommand }],
   // Every secrets and trust action mutates, so each one needs --environment.

@@ -7,7 +7,7 @@ Usage:
   kore cluster status [--environment <name>] [--json]
   kore platform bootstrap|up|gate-check|stop|destroy --environment <name> [--yes] [--purge-data]
   kore platform status|render [--environment <name>] [--output <directory>] [--json]
-  kore app up <name> --environment <name>
+  kore app up <name> --environment <name> [--image-lock <release images.lock.json>]
   kore app down <name> --environment <name> [--json]
   kore app status <name> [--environment <name>] [--json]   (reports degraded when the registry or verifier is down)
   kore data export --environment <name> [--namespace reference] [--json]
@@ -16,11 +16,14 @@ Usage:
   kore tunnel start|stop --environment local
   kore tunnel status [--environment local] [--json]
   kore registry rotate-credentials --environment <name> --yes [--json]
+  kore signer swap-key --environment local --yes [--json]
   kore secrets sync --environment local [--rotate --yes]
   kore trust install --environment local
   kore journal [--environment <name>] [--limit <n>] [--json]
   kore ops inventory|recovery [--environment local] [--json]
   kore ops upgrade-check|crd-check [--from <release-tag>] [--environment local] [--json]
+  kore policy record <constraint> --environment <name> --audit <file|-> [--json]
+  kore policy promote|rollback <constraint> --environment <name> [--json]
 
 "cluster destroy" refuses while data labeled platform.kore.dev/retention=Retain
 (databases) exists; --purge-data deletes it.
@@ -38,6 +41,14 @@ verifies the digest, decrypts with "age --decrypt --identity" (--identity or
 SOPS_AGE_KEY_FILE; Kore never reads the key), and refuses a database that
 already holds tables unless --overwrite-data --yes replaces it.
 
+"app up" deploys only an image that release automation produced: the lock entry's
+signer must be a release workflow at a version tag, and cosign verifies that
+exact identity before Helm runs. Pass the images.lock.json attached to the
+release with --image-lock. A source build runs through "kore local up". Before
+installing it clears a failed or canceled earlier attempt (a release that never
+deployed is uninstalled, a canceled upgrade is rolled back) and refuses to
+uninstall a release whose claim holds retained data.
+
 "app down" uninstalls only the workload release and reports the retained data
 (claims and volumes) that remains; with --json it always prints
 { name, retained: [...], warnings? }.
@@ -48,6 +59,12 @@ Admission keeps reading signatures throughout (the proxy accepts the old and new
 read identity until the pull Secrets are replaced); afterwards the old
 passwords get 401. It prints no secret, requires --yes, and is safe to rerun
 after a failure.
+
+"signer swap-key" replaces the local cosign key pair and republishes only the
+public key to Policy Controller. Images signed with the old key are denied
+afterwards until they are signed again (kore app up signs again); the old key is
+never trusted alongside the new one. Local key authority only; a managed
+environment refuses. It requires --yes and is safe to rerun after a failure.
 
 "trust install" runs "mkcert -install" (which may prompt for your password)
 only when the mkcert CA is not already trusted on the host; on macOS it skips
@@ -65,6 +82,15 @@ CRD owner, or an application contract change that breaks existing claims.
 "crd-check" renders each changed chart's CRDs at both versions (helm template,
 no cluster) and fails on a removed CRD, a dropped stored version, an unsafe
 storage-version move, or a rollback that cannot read the new version.
+
+"policy" edits Gatekeeper constraints in the repository and never touches a
+cluster; "kore platform up" applies the change. "record" stores the timestamp
+and violation count from "kubectl get <kind>.constraints.gatekeeper.sh <name>
+--output json" (a file, or - for stdin) as the environment's promotion evidence
+in infra/policies/gatekeeper/promotions/<constraint>.json. "promote" moves one
+dryrun constraint to deny only when that evidence shows zero violations and is
+under 14 days old. "rollback" sets one constraint back to dryrun and keeps its
+evidence. Review the resulting diff in a pull request.
 
 Every mutation requires --environment and is recorded in
 .kore/state/journal/<environment>.jsonl. Status, doctor, validate, render, ops,
