@@ -32,9 +32,9 @@
         "chart": "infra/charts/oci-registry",
         "version": "local",
         "ownsCRDs": [],
-        "dependencies": ["kore-gateway-api"],
+        "dependencies": ["kore-gateway-api", "cert-manager"],
         "timeout": "10m",
-        "readiness": ["deployment/oci-registry"]
+        "readiness": ["deployment/oci-registry", "certificate/oci-registry-tls"]
       },
       {
         "name": "kore-storage",
@@ -129,7 +129,7 @@
             "clusterimagepolicies.policy.sigstore.dev",
             "trustroots.policy.sigstore.dev"
           ],
-        "dependencies": ["kore-gateway-api"],
+        "dependencies": ["kore-gateway-api", "oci-registry"],
         "timeout": "10m",
         "values": ["infra/environments/common/values/policy-controller.yaml"],
         "readiness":

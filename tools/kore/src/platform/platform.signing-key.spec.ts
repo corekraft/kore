@@ -11,6 +11,10 @@ vi.mock("../images/index.js", () => ({
   ensureRegistryAuth: async () => {
     events.push("registry-auth");
   },
+  ensureRegistryTrust: async () => {
+    events.push("registry-trust");
+  },
+  registryTrustProblem: async () => undefined,
 }));
 vi.mock("../cluster/index.js", () => ({
   assertExpectedCluster: async () => undefined,
@@ -57,4 +61,17 @@ test("registry credentials exist before the registry release starts, in every en
       events.indexOf("reconcile:oci-registry"),
     );
   }
+});
+
+test("the registry CA reaches the clients right after the registry is issued and before Policy Controller starts", async () => {
+  events.length = 0;
+  const repository = await loadRepository("local");
+
+  await bootstrapControllers(repository, new RecordingRunner());
+
+  const issued = events.indexOf("reconcile:oci-registry");
+  const trust = events.indexOf("registry-trust");
+  expect(trust).toBeGreaterThan(issued);
+  expect(trust).toBeLessThan(events.indexOf("reconcile:policy-controller"));
+  expect(events.indexOf("reconcile:cert-manager")).toBeLessThan(issued);
 });

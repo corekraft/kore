@@ -48,7 +48,7 @@ test("local image load stages the source-built image into the selected Minikube 
   ]);
 });
 
-test("Minikube publishes the staged image over HTTP with a stdin login and no password argument", () => {
+test("Minikube publishes the staged image over TLS with a stdin login and no password argument", () => {
   const args = minikubeImagePublishArgs(
     "kore-local",
     "kore-local/reference:kore-local",
@@ -66,9 +66,7 @@ test("Minikube publishes the staged image over HTTP with a stdin login and no pa
   ]);
   const script = args[5] ?? "";
   expect(script).toContain("--password-stdin");
-  expect(script).toContain(
-    "nerdctl --insecure-registry --namespace k8s.io push",
-  );
+  expect(script).toContain("nerdctl --namespace k8s.io push");
   expect(script).toContain("10.102.17.251:5000/reference:kore-local");
   expect(script).not.toMatch(/--password(?!-stdin)/);
 });

@@ -1,0 +1,72 @@
+{{- /*
+  Transport TLS for the registry proxy (ADR 0058). A namespace-scoped
+  self-signed Issuer signs a kore-owned CA, and a CA Issuer backed by that
+  CA signs the serving certificate. The CA private key lives only in the
+  oci-registry-ca Secret and is never read by kore; kore reads the public
+  ca.crt from oci-registry-tls and distributes it to every client.
+  The address kore derives from registry.address (ADR 0031) is a SAN, so
+  clients that dial the pinned ClusterIP verify it; 127.0.0.1 covers the
+  host's port-forward.
+*/ -}}
+{{- $address := .Values.platform.registry.address | default "" }}
+{{- $host := regexReplaceAll ":[0-9]+$" $address "" }}
+{{- $isIP := regexMatch "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$" $host }}
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: oci-registry-selfsigned
+  namespace: {{ .Release.Namespace }}
+  labels: {app.kubernetes.io/managed-by: Helm}
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: oci-registry-ca
+  namespace: {{ .Release.Namespace }}
+  labels: {app.kubernetes.io/managed-by: Helm}
+spec:
+  isCA: true
+  commonName: kore-registry-ca
+  secretName: oci-registry-ca
+  duration: {{ .Values.tls.duration }}
+  privateKey: {algorithm: ECDSA, size: 256, rotationPolicy: Never}
+  issuerRef: {name: oci-registry-selfsigned, kind: Issuer}
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: oci-registry-ca
+  namespace: {{ .Release.Namespace }}
+  labels: {app.kubernetes.io/managed-by: Helm}
+spec:
+  ca:
+    secretName: oci-registry-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: oci-registry-tls
+  namespace: {{ .Release.Namespace }}
+  labels: {app.kubernetes.io/managed-by: Helm}
+spec:
+  secretName: oci-registry-tls
+  duration: {{ .Values.tls.duration }}
+  usages: [server auth, digital signature, key encipherment]
+  privateKey: {algorithm: ECDSA, size: 256, rotationPolicy: Never}
+  dnsNames:
+    - oci-registry
+    - oci-registry.{{ .Release.Namespace }}
+    - oci-registry.{{ .Release.Namespace }}.svc
+    - oci-registry.{{ .Release.Namespace }}.svc.cluster.local
+    - localhost
+    {{- if and $host (not $isIP) }}
+    - {{ $host | quote }}
+    {{- end }}
+  ipAddresses:
+    - "127.0.0.1"
+    {{- if and $host $isIP }}
+    - {{ $host | quote }}
+    {{- end }}
+  issuerRef: {name: oci-registry-ca, kind: Issuer}

@@ -75,6 +75,7 @@ spec:
           volumeMounts:
             - {name: proxy-config, mountPath: /etc/nginx/conf.d/default.conf, subPath: default.conf, readOnly: true}
             - {name: auth, mountPath: /etc/nginx/auth, readOnly: true}
+            - {name: tls, mountPath: /etc/nginx/tls, readOnly: true}
       volumes:
         - name: data
           persistentVolumeClaim: {claimName: oci-registry}
@@ -83,6 +84,10 @@ spec:
         # Hashes only; kore generates it and streams it through stdin.
         - name: auth
           secret: {secretName: oci-registry-auth}
+        # Issued by cert-manager from the kore-owned CA (ADR 0058); the pod
+        # waits here until the certificate exists, so it never serves plain HTTP.
+        - name: tls
+          secret: {secretName: oci-registry-tls}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

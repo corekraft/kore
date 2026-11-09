@@ -19,6 +19,8 @@ vi.mock("../cluster/index.js", () => ({
 vi.mock("../images/index.js", () => ({
   ensureLocalSigningPublicKey: async () => undefined,
   ensureRegistryAuth: async () => undefined,
+  ensureRegistryTrust: async () => undefined,
+  registryTrustProblem: async () => undefined,
 }));
 vi.mock("./registry-rewire.js", () => ({
   rewireRegistryService: async () => false,

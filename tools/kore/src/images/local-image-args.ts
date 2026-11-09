@@ -45,7 +45,7 @@ export function minikubeRegistrySessionArgs(
     // Read exactly one line: minikube's native SSH client never closes stdin,
     // so a login that reads to end of input would hang forever.
     "IFS= read -r p",
-    `printf '%s' "$p" | nerdctl --insecure-registry login --username ${shellQuote(username)} --password-stdin ${shellQuote(registryAddress)} >/dev/null`,
+    `printf '%s' "$p" | nerdctl login --username ${shellQuote(username)} --password-stdin ${shellQuote(registryAddress)} >/dev/null`,
     "unset p",
     ...commands,
   ].join("\n");
@@ -76,7 +76,7 @@ export function minikubeImagePublishArgs(
   const destination = `${registryAddress}/${repositoryPath}`;
   return minikubeRegistrySessionArgs(profile, registryAddress, username, [
     `nerdctl --namespace k8s.io tag ${shellQuote(tag)} ${shellQuote(destination)}`,
-    `nerdctl --insecure-registry --namespace k8s.io push ${shellQuote(destination)}`,
+    `nerdctl --namespace k8s.io push ${shellQuote(destination)}`,
   ]);
 }
 
@@ -111,8 +111,13 @@ export function imageDigestFromRegistryHead(
  * (its new-bundle path is keyless-only), and cosign 3 defaults to bundles, so
  * the legacy format is requested explicitly. A signing config cannot be
  * combined with it; the local flow has no transparency log anyway (ADR 0032).
+ * The registry is TLS-only and cosign verifies it against its CA (ADR 0058).
  */
-export function localSignArgs(key: string, reference: string): string[] {
+export function localSignArgs(
+  key: string,
+  reference: string,
+  registryCaFile: string,
+): string[] {
   return [
     "sign",
     "--key",
@@ -120,8 +125,47 @@ export function localSignArgs(key: string, reference: string): string[] {
     "--new-bundle-format=false",
     "--use-signing-config=false",
     "--tlog-upload=false",
-    "--allow-http-registry",
+    "--registry-cacert",
+    registryCaFile,
     "--yes",
     reference,
+  ];
+}
+
+/**
+ * Installs the registry CA for containerd and nerdctl on the node (ADR 0058).
+ * containerd reads `certs.d/<address>/hosts.toml` on every pull, so no restart
+ * is needed. The certificate is public, so it travels in the command, base64
+ * encoded; rewriting identical files is harmless.
+ */
+export function minikubeCaTrustArgs(
+  profile: string,
+  registryAddress: string,
+  caPem: string,
+): string[] {
+  if (!/^[A-Za-z0-9][A-Za-z0-9.-]*(?::\d{1,5})?$/.test(registryAddress)) {
+    throw new Error(`local registry has an invalid registry address`);
+  }
+  const directory = `/etc/containerd/certs.d/${registryAddress}`;
+  const hosts = [
+    `server = "https://${registryAddress}"`,
+    "",
+    `[host."https://${registryAddress}"]`,
+    `  capabilities = ["pull", "resolve", "push"]`,
+    `  ca = "ca.crt"`,
+    "",
+  ].join("\n");
+  const script = [
+    "set -e",
+    `mkdir -p ${shellQuote(directory)}`,
+    `printf '%s' ${shellQuote(Buffer.from(caPem).toString("base64"))} | base64 -d > ${shellQuote(`${directory}/ca.crt`)}`,
+    `printf '%s' ${shellQuote(hosts)} > ${shellQuote(`${directory}/hosts.toml`)}`,
+  ].join("\n");
+  return [
+    "ssh",
+    "--profile",
+    profile,
+    "--",
+    `sudo sh -c ${shellQuote(script)}`,
   ];
 }

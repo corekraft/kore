@@ -8,6 +8,7 @@ import {
 import {
   ensureLocalSigningPublicKey,
   ensureRegistryAuth,
+  ensureRegistryTrust,
 } from "../images/index.js";
 import type { Runner } from "../runtime/index.js";
 import {
@@ -105,9 +106,18 @@ export async function bootstrapControllers(
       ))
     ) {
       await reconcileComponent(repository, runner, component);
+      await ensureRegistryTrust(repository, runner);
       continue;
     }
     await reconcileIfNeeded(repository, runner, component);
+    // The CA exists once the registry's certificate is issued. Clients that
+    // live in the cluster (the node's containerd, Policy Controller) get it
+    // before anything that depends on the registry runs (ADR 0058), and it is
+    // reapplied unchanged on every run, so an existing profile migrates from
+    // HTTP to HTTPS with no manual step.
+    if (component.name === "oci-registry") {
+      await ensureRegistryTrust(repository, runner);
+    }
   }
   if (repository.environment.provider === "minikube") {
     // Policy Controller is ready; kore-image-policy (configuration phase)

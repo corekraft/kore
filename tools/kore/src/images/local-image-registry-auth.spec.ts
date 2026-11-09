@@ -14,11 +14,14 @@ import { buildAndSignLocalImage } from "./local-image.js";
 
 const registryReference = vi.hoisted(() => vi.fn());
 vi.mock("./registry.js", () => ({ localRegistryReference: registryReference }));
+const registryHead = vi.hoisted(() => vi.fn());
+vi.mock("./registry-https.js", () => ({ registryHead }));
 
 const roots: string[] = [];
 afterEach(async () => {
   vi.unstubAllGlobals();
   registryReference.mockReset();
+  registryHead.mockReset();
   await Promise.all(
     roots.splice(0).map((root) => rm(root, { force: true, recursive: true })),
   );
@@ -33,7 +36,7 @@ async function testRepository(): Promise<Repository> {
 test("the push credential reaches the node only on stdin and never in an argument", async () => {
   const repository = await testRepository();
   const { runner, calls } = fakeRunner();
-  stubRegistry(registryReference);
+  stubRegistry(registryReference, registryHead);
 
   await buildAndSignLocalImage(repository, runner, "reference", entry);
 
@@ -48,7 +51,7 @@ test("the push credential reaches the node only on stdin and never in an argumen
 test("the node keeps its login in memory-backed storage and removes it afterwards", async () => {
   const repository = await testRepository();
   const { runner, calls } = fakeRunner();
-  stubRegistry(registryReference);
+  stubRegistry(registryReference, registryHead);
 
   await buildAndSignLocalImage(repository, runner, "reference", entry);
 
@@ -62,7 +65,7 @@ test("the node keeps its login in memory-backed storage and removes it afterward
 test("cosign signs with the push credential through a helper whose files hold no secret", async () => {
   const repository = await testRepository();
   const { runner, calls } = fakeRunner();
-  stubRegistry(registryReference);
+  stubRegistry(registryReference, registryHead);
 
   await buildAndSignLocalImage(repository, runner, "reference", entry);
 
@@ -79,10 +82,7 @@ test("cosign signs with the push credential through a helper whose files hold no
 test("the digest lookup authenticates and a rejected credential is reported actionably", async () => {
   const repository = await testRepository();
   const { runner } = fakeRunner();
-  const fetchMock = vi
-    .fn()
-    .mockResolvedValue(new Response(null, { status: 401 }));
-  vi.stubGlobal("fetch", fetchMock);
+  registryHead.mockResolvedValue({ status: 401, digest: "" });
   registryReference.mockImplementation(
     async (_repo, _runner, reference) => reference,
   );
@@ -90,10 +90,13 @@ test("the digest lookup authenticates and a rejected credential is reported acti
   await expect(
     buildAndSignLocalImage(repository, runner, "reference", entry),
   ).rejects.toThrow(/HTTP 401/);
-  const headers = fetchMock.mock.calls[0]?.[1]?.headers as Record<
+  const [url, headers, ca] = registryHead.mock.calls[0] as [
     string,
-    string
-  >;
+    Record<string, string>,
+    string,
+  ];
+  expect(url).toMatch(/^https:\/\/127\.0\.0\.1:30500\//);
+  expect(ca).toContain("BEGIN CERTIFICATE");
   expect(headers["Authorization"]).toBe(
     `Basic ${encodeBase64(`kore-push:${pushPassword}`)}`,
   );
@@ -104,7 +107,7 @@ test("the node reads exactly one password line, so the login never waits for end
   // command that reads stdin to EOF hangs forever (2026-11-08 live run).
   const repository = await testRepository();
   const { runner, calls } = fakeRunner();
-  stubRegistry(registryReference);
+  stubRegistry(registryReference, registryHead);
 
   await buildAndSignLocalImage(repository, runner, "reference", entry);
 
@@ -124,7 +127,7 @@ test("credentialed node sessions use the external ssh client, which neither echo
   // into captured output (and so into error messages), and never closes stdin.
   const repository = await testRepository();
   const { runner, calls } = fakeRunner();
-  stubRegistry(registryReference);
+  stubRegistry(registryReference, registryHead);
 
   await buildAndSignLocalImage(repository, runner, "reference", entry);
 
@@ -136,7 +139,7 @@ test("credentialed node sessions use the external ssh client, which neither echo
 test("a failed publish never carries the push password in its error, even if the node echoed it", async () => {
   const repository = await testRepository();
   const { runner } = fakeRunner();
-  stubRegistry(registryReference);
+  stubRegistry(registryReference, registryHead);
   const echoing: typeof runner = {
     async run(command, args, options) {
       if (args.some((a) => a.includes("push"))) {

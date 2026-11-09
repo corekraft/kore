@@ -27,7 +27,11 @@ test("app up rejects an invalid application name before resolving chart paths", 
       if (command === "minikube") {
         return { stdout: '{"Host":"Running"}', stderr: "", code: 0 };
       }
-      if (command === "kubectl" && args.includes("oci-registry-credentials")) {
+      if (
+        command === "kubectl" &&
+        (args.includes("oci-registry-credentials") ||
+          args.includes("oci-registry-tls"))
+      ) {
         return { stdout: healthyReadinessOutput(args)!, stderr: "", code: 0 };
       }
       if (

@@ -203,7 +203,7 @@ test("bootstrap recreates a deployed registry whose Service drifted from the pin
     { stdout: "10.99.1.2", stderr: "", code: 0 },
   ]);
 
-  await bootstrapControllers(repository, runner);
+  await bootstrapControllers(repository, withHealthyWebhooks(runner));
 
   const kinds = runner.calls.map(({ command, args }) =>
     command === "helm" ? `helm ${args[0]}` : `${command} ${args.join(" ")}`,
