@@ -15,6 +15,9 @@ spec:
   selector: {matchLabels: {app.kubernetes.io/name: reference-{{ $component }}}}
   template:
     metadata:
+      {{- if $.Values.secretVersion }}
+      annotations: {platform.kore.dev/secret-version: {{ $.Values.secretVersion | quote }}}
+      {{- end }}
       labels: {app.kubernetes.io/name: reference-{{ $component }}, app.kubernetes.io/part-of: reference, platform.kore.dev/service-account: reference-{{ $component }}, istio.io/dataplane-mode: ambient}
     spec:
       serviceAccountName: reference-{{ $component }}

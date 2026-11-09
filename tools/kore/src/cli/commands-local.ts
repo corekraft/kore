@@ -1,4 +1,7 @@
-import { rotateRegistryCredentials } from "../images/index.js";
+import {
+  rotateRegistryCredentials,
+  swapLocalSigningKey,
+} from "../images/index.js";
 import { localDown, localUp } from "../local/index.js";
 import { installLocalTrust, syncLocalSecrets } from "../security/index.js";
 import {
@@ -43,8 +46,21 @@ export async function secretsCommand(context: CommandContext): Promise<number> {
   return await context.mutate(
     `secrets ${context.action ?? ""}`,
     async (runner) => {
-      const count = await syncLocalSecrets(context.repository, runner);
-      print({ status: "synced", files: count }, context.json);
+      const rotate = boolFlag(context.parsed, "rotate");
+      const count = await syncLocalSecrets(context.repository, runner, {
+        rotate,
+        yes: boolFlag(context.parsed, "yes"),
+      });
+      print(
+        rotate
+          ? {
+              status: "rotated",
+              files: count,
+              next: "run kore local up to restart the consumers onto the new token",
+            }
+          : { status: "synced", files: count },
+        context.json,
+      );
       return 0;
     },
   );
@@ -65,6 +81,17 @@ export async function trustCommand(context: CommandContext): Promise<number> {
       return 0;
     },
   );
+}
+
+export async function signerCommand(context: CommandContext): Promise<number> {
+  return await mutateAction(context, {
+    "swap-key": async (_context, runner) => {
+      await swapLocalSigningKey(context.repository, runner, {
+        yes: boolFlag(context.parsed, "yes"),
+      });
+      return print({ status: "swapped" }, context.json);
+    },
+  });
 }
 
 export async function registryCommand(

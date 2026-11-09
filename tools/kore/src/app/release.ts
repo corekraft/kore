@@ -6,8 +6,9 @@ export function releaseArgs(
   name: string,
   release: string,
   chartPath: string,
-  image?: LockedImage,
+  extras: { image?: LockedImage; secretVersion?: string } = {},
 ): string[] {
+  const { image, secretVersion } = extras;
   const args = [
     "upgrade",
     "--install",
@@ -34,6 +35,9 @@ export function releaseArgs(
     "--set-string",
     `platform.otlpEndpoint=${repository.environment.telemetry.otlpEndpoint}`,
   ];
+  if (secretVersion) {
+    args.push("--set-string", `secretVersion=${secretVersion}`);
+  }
   if (image) {
     args.push(...imageReleaseArgs(repository, name, image));
   }
