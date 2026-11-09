@@ -51,6 +51,11 @@ spec:
         old_label := label_of(input.review.oldObject) { is_object(object.get(input.review, "oldObject", null)) }
         old_label := "" { not is_object(object.get(input.review, "oldObject", null)) }
         changed { new_label != old_label }
+        # A Gatekeeper audit review carries neither userInfo nor oldObject, so it
+        # cannot say who wrote a label. Writer attribution is an admission-time
+        # check only; an activated namespace seen by audit is judged by the
+        # generation rule below.
+        attributable { object.get(object.get(input.review, "userInfo", {}), "username", "") != "" }
         bootstrap {
           group := object.get(object.get(input.review, "userInfo", {}), "groups", [])[_]
           group in input.parameters.bootstrapGroups
@@ -65,6 +70,7 @@ spec:
         violation[{"msg": msg}] {
           input.review.kind.kind == "Namespace"
           not platform_namespace
+          attributable
           changed
           not bootstrap
           msg := sprintf("only bootstrap automation may change %s on namespace %s", [activation, meta.name])

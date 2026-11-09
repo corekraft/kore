@@ -92,6 +92,24 @@ async function ensureSigningKey(
       },
     );
   }
+  // cosign creates the Secret without labels. The ownership label is what lets
+  // the secrets policy recognise this one exact Secret as kore's own key
+  // material; it is applied on every run so an existing profile converges too.
+  await runner.run(
+    "kubectl",
+    [
+      "--context",
+      kubeContext,
+      "--namespace",
+      localSigningKeyNamespace,
+      "label",
+      "secret",
+      localSigningKeySecret,
+      "app.kubernetes.io/managed-by=kore-signing",
+      "--overwrite",
+    ],
+    { capture: true },
+  );
 }
 
 async function readPublicKey(

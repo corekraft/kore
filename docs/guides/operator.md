@@ -81,6 +81,15 @@ and `--rotate --yes` replaces it). `kore trust install --environment local` trus
 local certificate authority on the host (it may prompt for your password). Never
 put plaintext secrets in files or Helm values.
 
+Grafana's admin login is the `grafana-admin` Secret in the `observability`
+namespace (keys `admin-user`, `admin-password`). External Secrets generates the
+password once in the cluster; nothing is stored in git or values. Read it when
+you need it: `kubectl --context kore-local -n observability get secret
+grafana-admin -o jsonpath='{.data.admin-password}' | base64 -d`. Grafana only
+reads the environment password when it first creates its database, so every
+`kore local up` also sets the admin password from that Secret inside the pod
+(ADR 0080); an existing profile needs no manual step.
+
 ## What is not automated
 
 **Gap:** there is no scheduled backup, no in-place Kubernetes upgrade, no
