@@ -40,6 +40,7 @@ vi.mock("./reconcile.js", () => ({
   },
 }));
 vi.mock("./status.js", () => ({
+  imageInventoryStatusName: "image-inventory",
   platformStatus: async () =>
     control.unready
       ? [
