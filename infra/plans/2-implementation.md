@@ -138,7 +138,7 @@ claim that the platform is ready.
 
 ## Step 7: Bootstrap Registry, Image Trust, Controllers, and CRD Ownership
 
-Next: the remaining local item is removing the registry clients' plain-HTTP fallback (TLS for the internal registry). The rest of Step 7 needs a managed cluster: enrolling platform namespaces (ADR 0056 keeps managed-example's gate closed until then), rolling platform workloads to the signed mirror, and binding the signer to the release identity (ADR 0044's gaps).
+Next: every remaining Step 7 item needs a managed cluster or the protected release pipeline; none is local. Managed cluster: build namespace enrollment (labelling; ADR 0056 keeps managed-example's gate closed until then), roll every platform workload, registry and verifier included, from its seed or external reference to the signed digest in `platform-images.lock.json` (nothing consumes the lock yet), then prove the two exit criteria (signed internal digests only; no seed exception or external reference left). Release pipeline: digest-pin the two tag-pinned Crossplane function packages in the mirror, and bind the signer to the exact release identity or a KMS key in place of `local-kore-key` (ADR 0044's gaps).
 
 ### Objective
 
@@ -173,7 +173,7 @@ through 11 also converge.
 - [x] Install Gateway API CRDs before Istio resources that consume them.
 - [x] Install cert-manager and wait for its deployments and webhook.
 - [x] Install OPA Gatekeeper without enforcing Kore constraints.
-- [ ] Install a persistent `oci-registry` infrastructure release and verify push,
+- [x] Install a persistent `oci-registry` infrastructure release and verify push,
       pull, restart, storage retention, authentication, authorization, and bounded
       readiness behavior.
       _Partial: the `kore-standard` PVC is labelled `platform.kore.dev/retention=Delete`,
@@ -189,7 +189,12 @@ through 11 also converge.
       signatures survive a pod restart with anonymous access still 401, and after
       rotation the old password gets 401 while the new one pushes and a signed image
       is still admitted. Since #70 the read credential gets 403 on a push, live.
-      Still open: clients still fall back to plain HTTP._
+      Since #74 ([ADR 0058](../../docs/decisions/0058-registry-transport-tls.md)), the
+      registry serves TLS only, at the nginx proxy, from a kore-owned cert-manager
+      CA, and every client verifies it. Live 2026-11-08 on an existing profile: one
+      `local up` migrated with no manual step, a request without the CA fails
+      verification, plain HTTP gets nginx 400, the registry (4/4) and admission
+      (5/5) specs pass, and a second run reissued and restarted nothing._
 - [x] Install Sigstore Policy Controller and its CRDs/webhook from an explicitly
       allowlisted, digest-pinned seed artifact without enabling enforcement yet.
       _Its controller and lease-cleanup images are digest-pinned seeds in
