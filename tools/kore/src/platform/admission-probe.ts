@@ -101,10 +101,19 @@ export async function admissionVerdict(
   );
 }
 
+interface PodList {
+  items?: {
+    metadata?: { name?: string; deletionTimestamp?: string };
+    spec?: { containers?: { image?: string }[] };
+  }[];
+}
+
 /**
  * The name of a Running pod whose first container runs `image`, the target of
  * an ephemeral container probe. It is found by image so no label convention
- * is assumed.
+ * is assumed. A pod already being deleted is skipped: it stays Running through
+ * its grace period, but admission deliberately does not validate it, so a
+ * probe of it would be admitted whatever the image.
  */
 export async function runningPodWithImage(
   repository: Repository,
@@ -119,11 +128,17 @@ export async function runningPodWithImage(
       "get",
       "pods",
       "--field-selector=status.phase=Running",
-      `--output=jsonpath={.items[?(@.spec.containers[0].image=="${image}")].metadata.name}`,
+      "--output=json",
     ],
     { capture: true },
   );
-  const name = stdout.trim().split(/\s+/)[0] ?? "";
+  const list = JSON.parse(stdout) as PodList;
+  const name =
+    list.items?.find(
+      (pod) =>
+        pod.metadata?.deletionTimestamp === undefined &&
+        pod.spec?.containers?.[0]?.image === image,
+    )?.metadata?.name ?? "";
   if (name === "") {
     throw new Error(
       `no Running pod of ${image} in namespace ${namespace}; run \`kore app up ${namespace} --environment ${repository.environment.name}\` first so a signed workload is running`,
