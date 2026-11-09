@@ -32,14 +32,37 @@ datasources:
           type: loki,
           uid: loki,
           url: "http://loki:3100",
-          access: proxy
+          access: proxy,
+          jsonData:
+            {
+              derivedFields:
+                [
+                  {
+                    name: trace_id,
+                    datasourceUid: tempo,
+                    matcherType: label,
+                    matcherRegex: trace_id,
+                    url: "${__value.raw}"
+                  }
+                ]
+            }
         }
       - {
           name: Tempo,
           type: tempo,
           uid: tempo,
           url: "http://tempo:3200",
-          access: proxy
+          access: proxy,
+          jsonData:
+            {
+              tracesToLogsV2:
+                {
+                  datasourceUid: loki,
+                  filterByTraceID: true,
+                  spanStartTimeShift: "-5m",
+                  spanEndTimeShift: "5m"
+                }
+            }
         }
 # The reference dashboard is owned by the kore-observability-config chart and
 # mounted from its ConfigMap; no dashboard JSON is duplicated here.

@@ -17,6 +17,7 @@ import {
   platformUp,
   readinessFailureSummary,
 } from "../platform/index.js";
+import { ensureLocalTunnel } from "../tunnel/index.js";
 import { mutateAction } from "./context.js";
 import type { CommandContext } from "./context.js";
 import { boolFlag, stringFlag } from "./flags.js";
@@ -123,7 +124,9 @@ export async function appCommand(context: CommandContext): Promise<number> {
     context,
     {
       up: async (_context, mutationRunner) =>
-        await appUp(repository, mutationRunner, name),
+        await appUp(repository, mutationRunner, name, undefined, {
+          ensureTunnel: () => ensureLocalTunnel(repository, mutationRunner),
+        }),
       down: async (_context, mutationRunner) => {
         const { retained, warnings } = await appDown(
           repository,
