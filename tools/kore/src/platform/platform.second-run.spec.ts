@@ -4,6 +4,11 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, test, vi } from "vitest";
 
+// Enrollment is covered in enrollment.spec.ts and platform.enrollment-order.spec.ts.
+vi.mock("./enrollment.js", () => ({
+  enrollPlatformNamespaces: async () => undefined,
+}));
+
 vi.mock("../images/index.js", () => ({
   ensureLocalSigningPublicKey: async () => undefined,
 }));
