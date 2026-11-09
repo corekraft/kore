@@ -138,7 +138,7 @@ claim that the platform is ready.
 
 ## Step 7: Bootstrap Registry, Image Trust, Controllers, and CRD Ownership
 
-Next: merge the open platform image digest pins (`feat/platform-image-pins`) and registry auth (`feat/registry-auth`, ADR 0034) work. Then run `kore local up` (`SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt`) to check live: the 69 newly owned CRDs are `Established`, the webhook readiness checks pass, digest-pinned charts pull, and the registry refuses anonymous push and pull. Cut a release and confirm the `mirror` job pushes linked, public `mirror/*` packages.
+Next: digest-pin and approve the two Crossplane function packages (`function-go-templating`, `function-auto-ready`), which Helm does not render. Then roll managed workloads to the mirrored digests in the `v0.3.1` `platform-images.lock.json`, and decide how the lock reaches the repository. Still unproven live: Helm rolling back after kore's fail-fast cancel (ADR 0035).
 
 ### Objective
 
@@ -176,11 +176,15 @@ through 11 also converge.
 - [ ] Install a persistent `oci-registry` infrastructure release and verify push,
       pull, restart, storage retention, authentication, authorization, and bounded
       readiness behavior.
-      _Partial: the `oci-registry` release has a `kore-standard` PVC labelled
-      `platform.kore.dev/retention=Delete`, because its contents are rebuildable
-      cache rather than retained data, and a `/v2/` readiness probe. It has no
-      authentication or authorization and is exposed as an unauthenticated NodePort
-      (clients fall back from HTTPS to plain HTTP)._
+      _Partial: the `kore-standard` PVC is labelled `platform.kore.dev/retention=Delete`,
+      since the registry holds rebuildable cache. Since #46
+      ([ADR 0034](../../docs/decisions/0034-registry-authentication-and-authorization.md)),
+      an nginx proxy fronts the registry, which listens on loopback only. The
+      Service is ClusterIP and readiness is a TCP check. Live on a fresh profile:
+      anonymous push and pull get 401, and kore pushes and signs with the push
+      identity. Read-only enforcement (403 on a write) was proven only in Docker.
+      Not yet checked live: a pod restart with auth on, and rotation (credentials
+      are reused and never rotated). Clients still fall back to plain HTTP._
 - [x] Install Sigstore Policy Controller and its CRDs/webhook from an explicitly
       allowlisted, digest-pinned seed artifact without enabling enforcement yet.
       _Its controller and lease-cleanup images are digest-pinned seeds in
@@ -210,14 +214,19 @@ through 11 also converge.
       into the internal registry, verifies recorded upstream digests and provenance,
       signs internal digests with Cosign, verifies each signature, and emits an
       immutable image lock manifest.
-      _Partial: `release.yaml` signs the reference image keylessly on each release
-      tag (proven on `v0.1.1` and `v0.2.0`). Its `mirror` job (#43,
-      [ADR 0033](../../docs/decisions/0033-platform-image-mirror.md)) checks the
-      upstream digest and provenance, copies the image to
-      `ghcr.io/corekraft/kore/mirror/*`, signs and verifies it, and emits
-      `platform-images.lock.json`. It covers only the 3 seed images and has not run
-      on a tag yet. The other platform images are still tag-pinned through their
-      charts._
+      _Partial: proven on tag `v0.3.1` (run 42538355127,
+      [ADR 0033](../../docs/decisions/0033-platform-image-mirror.md)). The job mirrored
+      all 36 approved images (seeds plus approved) to
+      `ghcr.io/corekraft/kore/mirror/*` with digests identical to upstream. 10 had
+      their upstream signatures verified with an exact identity, and 26 are
+      recorded as unsigned upstream. Each mirror is signed keylessly and
+      verified, and `platform-images.lock.json` was emitted. An independent
+      check pulled all 36 anonymously and verified each against the exact
+      `v0.3.1` identity; a `refs/heads/main` identity is rejected. The `v0.3.0`
+      run was denied by GHCR on the first new package. #52 now seeds a labelled
+      `kore-link` tag so the package is created linked to this repository.
+      Remaining: the two Crossplane function packages are still tag-pinned, and
+      nothing consumes the lock yet._
 - [ ] Bind the accepted Cosign authority to an exact protected automation identity
       or KMS/HSM key. Grant developers, pull-request workflows, ordinary build jobs,
       cluster workloads, and registry administrators no signing permission.
@@ -257,10 +266,14 @@ CRD ownership is decided in
       _Partial: every CRD a pinned chart renders is declared once (69 were added in
       #42), and `npm run test:upstream-charts` checks this on each chart bump. CRDs a
       controller installs at runtime (Crossplane, Gatekeeper hooks) are not checked.
-      The longer readiness wait for 69 more CRDs has not run live._
+      On the fresh profile (2026-11-08) all 118 CRDs were Established._
 - [x] The release graph is acyclic and produces a deterministic order.
-- [ ] All CRDs are established before their custom resources are submitted.
-- [ ] All controller deployments, daemon sets, and webhooks report ready.
+- [x] All CRDs are established before their custom resources are submitted.
+      _Each component waits for its owned CRDs to be Established before the next
+      phase starts. A fresh-profile `local up` converged on its first run._
+- [x] All controller deployments, daemon sets, and webhooks report ready.
+      _On the fresh profile, `platform status` reported all 30 components ready, and
+      every webhook service entry had a `caBundle` (#44)._
 - [x] The registry persists images and signatures across platform stop and resume
       (2026-11-08).
 - [ ] Every managed foundation workload installed in this step uses an internal
@@ -273,7 +286,10 @@ CRD ownership is decided in
       and is reported as degraded without weakening policy.
 - [ ] The internal foundation phase finishes with no active seed exception or
       external image reference and leaves the application admission gate closed.
-- [ ] A second reconciliation produces no unintended release changes.
+- [x] A second reconciliation produces no unintended release changes.
+      _Since #53, configuration and app releases skip Helm when their fingerprint
+      matches. Live, two consecutive `local up` runs: the second upgraded 0 releases
+      in 121s._
 - [x] Failure identifies the component and readiness condition that timed out
       (`component <c> failed to become ready: <resource> not ready (<condition>)
 within <timeout>: <reason>`).
@@ -984,6 +1000,33 @@ for each release against its exact tag identity
 The same digests fail with a `refs/heads/main` identity, because the certificate
 SAN names the tag. `managed-example` now trusts both tags, each as its own exact
 subject.
+
+### 2026-11-08 fresh profile, idempotency, and platform mirror
+
+- **Fresh profile.** After `local down --prune --purge-data`, `kore local up`
+  converged on its first run in 14m50s, with no stall. Results:
+  - every pod Running and every platform image pinned by digest, except the two
+    Crossplane function packages;
+  - the registry refuses anonymous push and pull;
+  - the app is signed, verified and admitted, and `busybox` is denied;
+  - all 118 CRDs are Established and every webhook has a `caBundle`;
+  - the fresh database and its migration run;
+  - the `Kore Reference` dashboard returned metrics (32 rows), logs (94) and
+    traces (20).
+- **Idempotency.** The second run upgraded 6 unchanged releases. The four
+  configuration releases never consulted their fingerprint, and the app releases
+  never recorded one. #53 fixed both. Live: the next run upgraded the two app
+  releases once, and the run after that upgraded nothing.
+- **Earlier failures on the way.** The fail-fast (#50) and rollout or smoke (#51)
+  checks now catch these classes:
+  - the registry's debug server already held port 5001;
+  - the Loki gateway's anti-affinity deadlocked on one node, in both
+    directions;
+  - minikube's native SSH client never closed stdin, so the node login hung, and
+    it echoed the push password into a kore error. The credentials were rotated,
+    and kore now redacts them.
+- **Mirror.** Tag `v0.3.1` mirrored and signed all 36 approved images. All of
+  them pull anonymously and verify against the exact tag identity.
 
 ### 2026-11-08 image admission in enforce mode
 
