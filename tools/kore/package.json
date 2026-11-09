@@ -24,6 +24,7 @@
     "test:e2e:clean-machine": "bash scripts/clean-machine-e2e.sh",
     "test:integration": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/cluster/*.integration.spec.js dist/src/platform/platform.integration.spec.js dist/src/platform/platform.*.integration.spec.js",
     "test:integration:admission": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/platform/admission-denial.integration.spec.js dist/src/platform/admission-outage.integration.spec.js",
+    "test:integration:signer": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/platform/signer-swap.integration.spec.js",
     "test:integration:identity": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/platform/identity.integration.spec.js dist/src/platform/authorizer.integration.spec.js",
     "test:integration:policy": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/platform/policy-promotion.integration.spec.js",
     "test:integration:ops": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/ops/*.integration.spec.js",

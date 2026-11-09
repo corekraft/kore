@@ -1,4 +1,7 @@
-import { rotateRegistryCredentials } from "../images/index.js";
+import {
+  rotateRegistryCredentials,
+  swapLocalSigningKey,
+} from "../images/index.js";
 import { localDown, localUp } from "../local/index.js";
 import { installLocalTrust, syncLocalSecrets } from "../security/index.js";
 import {
@@ -65,6 +68,17 @@ export async function trustCommand(context: CommandContext): Promise<number> {
       return 0;
     },
   );
+}
+
+export async function signerCommand(context: CommandContext): Promise<number> {
+  return await mutateAction(context, {
+    "swap-key": async (_context, runner) => {
+      await swapLocalSigningKey(context.repository, runner, {
+        yes: boolFlag(context.parsed, "yes"),
+      });
+      return print({ status: "swapped" }, context.json);
+    },
+  });
 }
 
 export async function registryCommand(

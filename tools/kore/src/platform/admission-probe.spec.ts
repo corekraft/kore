@@ -6,6 +6,7 @@ import { CommandError, type Runner } from "../runtime/index.js";
 import {
   admissionVerdict,
   deployedImage,
+  publishSignedCopy,
   publishUntrustedCopies,
   scaleDeployment,
 } from "./admission-probe.js";
@@ -192,6 +193,41 @@ test("untrusted copies are pushed with the push identity and one is signed with 
       "no secret appears in an argument",
     );
   }
+});
+
+test("a signed copy is pushed under its own probe repository and signed with the cluster's local key, never a file key", async () => {
+  const repository = await loadRepository("local");
+  const calls: Call[] = [];
+  const runner = healthyRunner(calls);
+
+  const signed = await publishSignedCopy(
+    repository,
+    runner,
+    source,
+    "swapped",
+    {
+      registry: { isPortOpen: async () => true },
+      digest: async () => copiedDigest,
+    },
+  );
+
+  assert.equal(
+    signed,
+    `10.96.0.50:5000/kore-admission-probe/swapped@${copiedDigest}`,
+  );
+  const sign = calls.find(
+    ({ command, args }) => command === "cosign" && args[0] === "sign",
+  )!;
+  assert.match(
+    sign.args.join(" "),
+    /k8s:\/\/kore-system\/kore-local-signing-key/,
+  );
+  assert.match(sign.args.join(" "), /kore-admission-probe\/swapped@sha256:d+/);
+  assert.equal(
+    calls.filter(({ command }) => command === "cosign").length,
+    1,
+    "no throwaway key is generated",
+  );
 });
 
 test("scaling names the environment context and namespace, never the current context", async () => {
