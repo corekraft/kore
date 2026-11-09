@@ -425,6 +425,30 @@
             "checked": "2026-11-08",
             "provenance": { "signed": false }
           }
+      },
+      {
+        "image": "xpkg.crossplane.io/crossplane-contrib/function-go-templating:v0.13.2@sha256:20198cb6ea5b4b8a48042343410ec9031e5ec43431d874364ecd3eac8e861290",
+        "name": "function-go-templating",
+        "component": "kore-crossplane-functions",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest xpkg.crossplane.io/crossplane-contrib/function-go-templating:v0.13.2 resolves to this digest. Crossplane Function package (an OCI image). No cosign signature published (cosign verify: no signatures found).",
+            "checked": "2026-11-08",
+            "provenance": { "signed": false }
+          }
+      },
+      {
+        "image": "xpkg.crossplane.io/crossplane-contrib/function-auto-ready:v0.7.3@sha256:cce8799e19a8f25fb84e1f8dd8855021fdbe8cd7a12a5c22a0c0c345476ae9fe",
+        "name": "function-auto-ready",
+        "component": "kore-crossplane-functions",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest xpkg.crossplane.io/crossplane-contrib/function-auto-ready:v0.7.3 resolves to this digest. Crossplane Function package (an OCI image). No cosign signature published (cosign verify: no signatures found).",
+            "checked": "2026-11-08",
+            "provenance": { "signed": false }
+          }
       }
     ]
 }

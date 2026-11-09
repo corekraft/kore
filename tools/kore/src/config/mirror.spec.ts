@@ -98,3 +98,19 @@ test("a digest carried beside the repository, in a tag or digest field, is check
   assert.match(errors.join("\n"), /alpha.*differs/);
   assert.match(errors.join("\n"), /beta.*differs/);
 });
+
+test("a package field in a plain manifest counts as a rewrite and its digest is checked", () => {
+  const manifest = (digest: string): string =>
+    `spec: { package: ${MIRROR}/alpha:v1@${digest} }`;
+  const input = (text: string): string[] =>
+    mirrorRewriteErrors({
+      approved: [approved("alpha", A)],
+      mirror: MIRROR,
+      overlays: [],
+      manifests: [text],
+      exempt: {},
+    });
+  assert.deepEqual(input(manifest(A)), []);
+  assert.match(input(manifest(B)).join("\n"), /alpha.*digest.*differs/);
+  assert.match(input("spec: {}").join("\n"), /alpha: no managed rewrite/);
+});

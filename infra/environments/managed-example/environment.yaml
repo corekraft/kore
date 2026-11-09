@@ -25,6 +25,10 @@
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },
   "telemetry":
     { "otlpEndpoint": "http://otel-collector.observability.svc:4318" },
+  "componentSources":
+    {
+      "kore-crossplane-functions": "infra/environments/managed-example/manifests/crossplane-functions"
+    },
   "componentValues":
     {
       "otel-collector":

@@ -107,7 +107,11 @@ export function manifestSource(
   repository: Repository,
   component: Component,
 ): string {
-  const expanded = expandVersions(repository, component.source!);
+  const expanded = expandVersions(
+    repository,
+    repository.environment.componentSources?.[component.name] ??
+      component.source!,
+  );
   return /^https?:\/\//.test(expanded)
     ? expanded
     : absolute(repository, expanded);

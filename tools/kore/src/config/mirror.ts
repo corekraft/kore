@@ -1,5 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { manifestImages } from "../images/manifest-images.js";
 import type { ApprovedEntry } from "./approved.js";
 import type { Repository } from "./types.js";
 
@@ -18,6 +19,8 @@ export interface MirrorRewriteInput {
   mirror: string;
   /** Parsed values overlays of the environment. */
   overlays: unknown[];
+  /** Text of the environment's plain manifests (image and package fields). */
+  manifests?: string[];
   /** Approved images with no managed rewrite yet, each with its reason. */
   exempt: Record<string, string>;
 }
@@ -64,11 +67,21 @@ function rewritesIn(value: unknown, mirror: string): Rewrite[] {
   return [...own, ...children.flatMap((child) => rewritesIn(child, mirror))];
 }
 
+/** Rewrites in a plain manifest: each image or package reference is one. */
+function manifestRewrites(mirror: string): (text: string) => Rewrite[] {
+  return (text) =>
+    manifestImages(text).flatMap((ref) => {
+      const name = nameOf(ref, mirror);
+      return name ? [{ name, digests: ref.match(sha) ?? [] }] : [];
+    });
+}
+
 export function mirrorRewriteErrors(input: MirrorRewriteInput): string[] {
   const approved = new Map(input.approved.map((entry) => [entry.name, entry]));
-  const rewrites = input.overlays.flatMap((overlay) =>
-    rewritesIn(overlay, input.mirror),
-  );
+  const rewrites = [
+    ...input.overlays.flatMap((overlay) => rewritesIn(overlay, input.mirror)),
+    ...(input.manifests ?? []).flatMap(manifestRewrites(input.mirror)),
+  ];
   const rewritten = new Set(rewrites.map((rewrite) => rewrite.name));
   const drift = rewrites.flatMap(({ name, digests }) => {
     const pinned = approved.get(name)?.image.split("@")[1];
@@ -116,6 +129,25 @@ export const unmirroredImages: Record<string, string> = {
     "chosen by the local PostgreSQL composition's image table; no managed composition exists yet",
 };
 
+/** The YAML text under an environment's own manifest source directory. */
+function manifestText(
+  repository: Repository,
+): (source: string) => Promise<string[]> {
+  return async (source) => {
+    const root = join(repository.root, source);
+    try {
+      const names = await readdir(root, { recursive: true });
+      return await Promise.all(
+        names
+          .filter((name) => /\.ya?ml$/.test(name))
+          .map(async (name) => readFile(join(root, name), "utf8")),
+      );
+    } catch {
+      return []; // a missing directory is reported elsewhere
+    }
+  };
+}
+
 /** Overlay and approved-list problems of an environment that declares a mirror. */
 export async function managedMirrorErrors(
   repository: Repository,
@@ -139,10 +171,16 @@ export async function managedMirrorErrors(
       }
     }),
   );
+  const manifests = await Promise.all(
+    Object.values(repository.environment.componentSources ?? {}).map(
+      manifestText(repository),
+    ),
+  );
   return mirrorRewriteErrors({
     approved,
     mirror,
     overlays,
+    manifests: manifests.flat(),
     exempt: unmirroredImages,
   });
 }

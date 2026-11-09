@@ -278,3 +278,24 @@ test("validation rejects ownsCRDs entries that are not <plural>.<group>", async 
     /odd: ownsCRDs entry shared\.example must look like <plural>\.<group>/,
   );
 });
+
+test("an environment source must be a manifest component's existing directory", async () => {
+  const message = await validationMessage((base) => ({
+    ...base,
+    environment: {
+      ...base.environment,
+      componentSources: {
+        "kore-crossplane-functions": "infra/missing-dir",
+        loki: "infra/apis",
+      },
+    },
+  }));
+  assert.match(
+    message,
+    /kore-crossplane-functions: environment source does not exist: infra\/missing-dir/,
+  );
+  assert.match(
+    message,
+    /environment component source for a non-manifest component: loki/,
+  );
+});

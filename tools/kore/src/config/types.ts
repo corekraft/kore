@@ -71,6 +71,12 @@ export interface Environment {
   secrets: { storeName: string; sourceNamespace: string };
   telemetry: { otlpEndpoint: string };
   componentValues?: Record<string, string[]>;
+  /**
+   * A manifest component's own source directory in this environment, used in
+   * place of the catalog `source` (ADR 0044): Function packages are not Helm
+   * values, so a managed environment keeps its own copy with mirror references.
+   */
+  componentSources?: Record<string, string>;
 }
 
 /**
