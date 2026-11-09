@@ -26,7 +26,9 @@ GitOps.
 
 - **One Backstage and one Argo CD per tenant root.** The `Organization` API
   composes both when it creates a tenant root, in a platform namespace for that
-  tenant. The platform organization gets its own pair for operators.
+  tenant, alongside the tenant's own Keycloak
+  ([ADR 0040](0040-keycloak-human-identity.md)). The platform organization gets
+  its own set for operators.
 - **Scoped inside by organization.** Backstage permission policies and Argo CD
   RBAC key on the sub-organization groups in the token
   ([ADR 0040](0040-keycloak-human-identity.md)). Argo CD has an AppProject per

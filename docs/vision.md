@@ -29,7 +29,7 @@ Markdown file is the source; update both together.
 | **Static frontends, small backends**             | Frontends are static builds hosted anywhere static. Each one gets a small, stateless backend for frontend (BFF) that holds its secrets and scales horizontally.         | [ADR 0009](decisions/0009-encrypted-secrets-through-external-secrets.md), [ADR 0006](decisions/0006-istio-ambient-gateway-api.md)                                                                                    |
 | **Organizations are tenants**                    | An organization is one tenant. It can hold sub-organizations (an umbrella of companies), and each one hosts its own services under its own domains.                     | New: tenancy API                                                                                                                                                                                                     |
 | **Every dependency, scoped to the organization** | Object storage, a durable message bus, document, relational, and key-value stores are claims against platform APIs, isolated by organization.                           | [ADR 0008](decisions/0008-crossplane-postgresql-platform-api.md), [ADR 0003](decisions/0003-separate-claims-and-retain-data.md)                                                                                      |
-| **A developer portal out of the box**            | Every tenant gets its own Backstage and Argo CD, wired to the tenancy model and Keycloak: each organization sees its own catalog and delivers its services from git.    | New: portal, GitOps delivery                                                                                                                                                                                         |
+| **A developer portal out of the box**            | Every tenant gets its own Backstage, Argo CD, and Keycloak, wired to the tenancy model: each organization sees its own catalog and delivers its services from git.      | New: portal, GitOps delivery                                                                                                                                                                                         |
 | **Business and developer platform**              | Business users manage companies, members, domains, and usage. Developers ship, observe, and operate services. Both views read the same model.                           | New: human identity, usage                                                                                                                                                                                           |
 | **Observed from the first request**              | Logs, metrics, and traces from every service, data store, and platform component reach org-scoped backends with no setup. Dashboards and alerts come with each service. | [ADR 0010](decisions/0010-opentelemetry-collector-ingestion.md), [ADR 0019](decisions/0019-telemetry-pipeline-wiring.md)                                                                                             |
 | **Secure and verified by default**               | Signed digests only, mesh identity, mutual TLS, policy, and encrypted secrets come with every service. A tenant cannot opt out.                                         | [ADR 0005](decisions/0005-release-automation-signed-image-trust.md), [ADR 0007](decisions/0007-workload-identity-and-layered-authorization.md), [ADR 0017](decisions/0017-gatekeeper-policy-families-audit-first.md) |
@@ -334,8 +334,8 @@ What a service gets without writing any instrumentation:
 
 Every tenant root gets its own Backstage and its own Argo CD, composed by the
 `Organization` API, and the platform organization gets a pair for operators
-([ADR 0041](decisions/0041-backstage-and-argo-cd-per-tenant.md)). People sign
-in through Keycloak, whose groups mirror the organization tree
+([ADR 0041](decisions/0041-backstage-and-argo-cd-per-tenant.md)). Each tenant
+root also gets its own Keycloak, whose groups mirror the organization tree
 ([ADR 0040](decisions/0040-keycloak-human-identity.md)). Organizations use Kore
 through them without a terminal, and each user sees only their own
 organizations.
@@ -411,32 +411,32 @@ Principles for the portal:
 
 What exists or is in flight today, and what the vision adds.
 
-| Capability                                                                | Status                                                                               |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Networking, TLS, Gateway API                                              | In [Plan 2](../infra/plans/2-implementation.md), Step 8                              |
-| Workload identity, mTLS, authorization                                    | In Plan 2, Step 9                                                                    |
-| Signed image trust and registry                                           | In Plan 2, Step 7                                                                    |
-| Encrypted secrets via External Secrets                                    | In Plan 2, Step 8                                                                    |
-| PostgreSQL platform API with retention                                    | In Plan 2, Step 10                                                                   |
-| Logs, metrics, traces via OpenTelemetry                                   | In Plan 2, Step 11                                                                   |
-| Org-scoped telemetry: organization attributes, per-org queries, retention | New                                                                                  |
-| Default dashboards and alerts per service, routed to the organization     | New                                                                                  |
-| Tenancy API (`Organization`, `Service`)                                   | New                                                                                  |
-| Quotas and per-organization limits                                        | New                                                                                  |
-| Golden-path templates (static frontend, Kotlin BFF built with Jib)        | New                                                                                  |
-| Static frontend hosting contract                                          | New                                                                                  |
-| Horizontal autoscaling (metrics source, HPA defaults)                     | New                                                                                  |
-| Human identity and single sign-on: Keycloak with groups per organization  | New                                                                                  |
-| Developer portal: a Backstage per tenant with Kore plugins                | New                                                                                  |
-| GitOps delivery of tenant services: an Argo CD per tenant                 | New, deferred in [Plan 1](../infra/plans/1-initialize.md#deferred-tooling) until now |
-| Object storage (S3 API)                                                   | New                                                                                  |
-| Durable message bus (Kafka)                                               | New, deferred in Plan 1 until now                                                    |
-| Document store (MongoDB protocol)                                         | New                                                                                  |
-| Key-value store (Redis protocol)                                          | New                                                                                  |
-| Organization scoping and quotas for every data service                    | New                                                                                  |
-| Organization domains, service hostnames, and DNS automation               | New                                                                                  |
-| Usage metering                                                            | New                                                                                  |
-| Multi-cluster mesh and management                                         | Deferred in Plan 1                                                                   |
+| Capability                                                                            | Status                                                                               |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Networking, TLS, Gateway API                                                          | In [Plan 2](../infra/plans/2-implementation.md), Step 8                              |
+| Workload identity, mTLS, authorization                                                | In Plan 2, Step 9                                                                    |
+| Signed image trust and registry                                                       | In Plan 2, Step 7                                                                    |
+| Encrypted secrets via External Secrets                                                | In Plan 2, Step 8                                                                    |
+| PostgreSQL platform API with retention                                                | In Plan 2, Step 10                                                                   |
+| Logs, metrics, traces via OpenTelemetry                                               | In Plan 2, Step 11                                                                   |
+| Org-scoped telemetry: organization attributes, per-org queries, retention             | New                                                                                  |
+| Default dashboards and alerts per service, routed to the organization                 | New                                                                                  |
+| Tenancy API (`Organization`, `Service`)                                               | New                                                                                  |
+| Quotas and per-organization limits                                                    | New                                                                                  |
+| Golden-path templates (static frontend, Kotlin BFF built with Jib)                    | New                                                                                  |
+| Static frontend hosting contract                                                      | New                                                                                  |
+| Horizontal autoscaling (metrics source, HPA defaults)                                 | New                                                                                  |
+| Human identity and single sign-on: a Keycloak per tenant with groups per organization | New                                                                                  |
+| Developer portal: a Backstage per tenant with Kore plugins                            | New                                                                                  |
+| GitOps delivery of tenant services: an Argo CD per tenant                             | New, deferred in [Plan 1](../infra/plans/1-initialize.md#deferred-tooling) until now |
+| Object storage (S3 API)                                                               | New                                                                                  |
+| Durable message bus (Kafka)                                                           | New, deferred in Plan 1 until now                                                    |
+| Document store (MongoDB protocol)                                                     | New                                                                                  |
+| Key-value store (Redis protocol)                                                      | New                                                                                  |
+| Organization scoping and quotas for every data service                                | New                                                                                  |
+| Organization domains, service hostnames, and DNS automation                           | New                                                                                  |
+| Usage metering                                                                        | New                                                                                  |
+| Multi-cluster mesh and management                                                     | Deferred in Plan 1                                                                   |
 
 ## Horizons
 
@@ -498,8 +498,8 @@ questions keep their numbers and link to their ADR.
    workloads ([ADR 0041](decisions/0041-backstage-and-argo-cd-per-tenant.md)).
    Should a platform Argo CD also take over platform components after
    bootstrap, replacing Helm and the catalog for them?
-5. **Human identity.** Decided: Keycloak, one realm, an organization per tenant
-   root, and nested groups per sub-organization owned by the `Organization` API
+5. **Human identity.** Decided: a Keycloak per tenant root with one realm and
+   nested groups per sub-organization, owned by the `Organization` API
    ([ADR 0040](decisions/0040-keycloak-human-identity.md)).
 6. **Backstage tenancy.** Decided: one Backstage and one namespace-scoped Argo
    CD per tenant root, scoped inside by organization

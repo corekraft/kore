@@ -849,9 +849,9 @@
           <article class="tile">
             <h3>A developer portal out of the box</h3>
             <p>
-              Every tenant gets its own Backstage and Argo CD, wired to the
-              tenancy model and Keycloak: each organization sees its own catalog
-              and delivers from git.
+              Every tenant gets its own Backstage, Argo CD, and Keycloak, wired
+              to the tenancy model: each organization sees its own catalog and
+              delivers from git.
             </p>
             <div class="chips">
               <span class="pill new">New: portal, GitOps</span>
@@ -1778,8 +1778,8 @@
             organization gets a pair for operators (<a
               href="https://github.com/corekraft/kore/blob/main/docs/decisions/0041-backstage-and-argo-cd-per-tenant.md"
               >ADR 0041</a
-            >). People sign in through Keycloak, whose groups mirror the
-            organization tree (<a
+            >). Each tenant root also gets its own Keycloak, whose groups mirror
+            the organization tree (<a
               href="https://github.com/corekraft/kore/blob/main/docs/decisions/0040-keycloak-human-identity.md"
               >ADR 0040</a
             >). Organizations use Kore through them without a terminal, and each
@@ -2013,8 +2013,8 @@
               </tr>
               <tr>
                 <td>
-                  Human identity and single sign-on: Keycloak with groups per
-                  organization
+                  Human identity and single sign-on: a Keycloak per tenant with
+                  groups per organization
                 </td>
                 <td><span class="pill new">New</span></td>
               </tr>
@@ -2266,9 +2266,8 @@
             <div>
               <strong>Human identity</strong
               ><span
-                >Keycloak, one realm, an organization per tenant root, and
-                nested groups per sub-organization owned by the Organization
-                API.</span
+                >A Keycloak per tenant root with one realm and nested groups per
+                sub-organization, owned by the Organization API.</span
               ><a
                 class="pill plan"
                 href="https://github.com/corekraft/kore/blob/main/docs/decisions/0040-keycloak-human-identity.md"
