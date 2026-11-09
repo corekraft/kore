@@ -33,3 +33,18 @@ test_keeps_decision_context_visible if {
 test_masks_nothing_when_no_credentials_present if {
   count(log.mask) == 0 with input as {"attributes":{"request":{"http":{"path":"/x","headers":{}}}}}
 }
+
+test_keeps_trace_headers_for_decision_correlation if {
+  correlated := {"attributes":{"request":{"http":{
+    "path":"/api/protected",
+    "headers":{
+      "authorization":"Bearer secret-token",
+      "traceparent":"00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01",
+      "x-request-id":"6f1a",
+    },
+  }}}}
+  masked := log.mask with input as correlated
+  "/input/attributes/request/http/headers/authorization" in masked
+  not "/input/attributes/request/http/headers/traceparent" in masked
+  not "/input/attributes/request/http/headers/x-request-id" in masked
+}

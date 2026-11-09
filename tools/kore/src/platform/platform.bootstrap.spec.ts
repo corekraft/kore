@@ -81,7 +81,7 @@ test("platform stop removes managed tunnel state before stopping the cluster", a
     { stdout: "", stderr: "", code: 0 },
   ]);
   try {
-    await platformStop(repository, runner);
+    await platformStop(repository, runner, { listProcesses: async () => [] });
     assert.deepEqual(runner.calls.at(-1)?.args, [
       "stop",
       "--profile",
@@ -133,6 +133,12 @@ test("controller bootstrap creates a missing Minikube profile", async () => {
       }
       if (command === "kubectl" && args.includes("jsonpath={.metadata.name}")) {
         return { stdout: "kube-system", stderr: "", code: 0 };
+      }
+      if (
+        command === "kubectl" &&
+        args.some((arg) => arg.startsWith("jsonpath={range"))
+      ) {
+        return { stdout: "kore-local=True\n", stderr: "", code: 0 };
       }
       return { stdout: "", stderr: "", code: 0 };
     },

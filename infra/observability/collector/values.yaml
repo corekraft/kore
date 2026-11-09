@@ -117,6 +117,13 @@
           "http": {}
         }
       },
+      "otlp/loopback": {
+        "protocols": {
+          "http": {
+            "endpoint": "127.0.0.1:4319"
+          }
+        }
+      },
       "k8s_cluster": {
         "auth_type": "serviceAccount",
         "collection_interval": "30s",
@@ -250,7 +257,8 @@
       "pipelines": {
         "metrics": {
           "receivers": [
-            "otlp"
+            "otlp",
+            "otlp/loopback"
           ],
           "processors": [
             "memory_limiter",
@@ -282,7 +290,8 @@
         },
         "logs": {
           "receivers": [
-            "otlp"
+            "otlp",
+            "otlp/loopback"
           ],
           "processors": [
             "memory_limiter",
@@ -297,7 +306,8 @@
         },
         "traces": {
           "receivers": [
-            "otlp"
+            "otlp",
+            "otlp/loopback"
           ],
           "processors": [
             "memory_limiter",

@@ -9,6 +9,7 @@ import {
   pollUntil,
   timeoutMilliseconds,
 } from "./readiness-poll.js";
+import { withScheduledPods } from "./readiness-daemonset.js";
 import { WEBHOOK_CONFIGURATION, waitForWebhook } from "./readiness-webhook.js";
 
 const TLS_READY_TEMPLATE =
@@ -234,8 +235,11 @@ function checkFor(context: Context, resource: string): Check {
     resource,
     `--timeout=${timeout}`,
   ]);
-  return resource.startsWith("deployment/")
-    ? withAvailableReplica(context, resource, rollout)
+  if (resource.startsWith("deployment/")) {
+    return withAvailableReplica(context, resource, rollout);
+  }
+  return resource.startsWith("daemonset/")
+    ? withScheduledPods(context, resource, rollout)
     : rollout;
 }
 

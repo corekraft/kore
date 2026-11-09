@@ -36,7 +36,9 @@ test("app up verifies and pulls with the read-only identity, never the push cred
   };
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
 
-  await appUp(repository, runner, "reference", lockedImage(), "/tmp/kore.pub");
+  await appUp(repository, runner, "reference", lockedImage(), {
+    publicKey: "/tmp/kore.pub",
+  });
 
   expect(envs[0]?.["KORE_REGISTRY_USERNAME"]).toBe("kore-read");
   expect(envs[0]?.["KORE_REGISTRY_PASSWORD"]).toBe(readPassword);

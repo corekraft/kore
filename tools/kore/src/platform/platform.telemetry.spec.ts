@@ -252,7 +252,7 @@ test("both Collector releases use the renamed component names the pinned chart e
   const agentText = await readText(agent);
   for (const text of [gatewayText, agentText]) {
     assert.doesNotMatch(text, /"(filelog|k8sattributes|otlphttp)(\/[\w-]+)?"/);
-    assert.doesNotMatch(text, /"otlp\/[\w-]+"/);
+    assert.doesNotMatch(text, /"otlp\/(?!loopback")[\w-]+"/);
   }
   const base = (await readJson(gateway)).config;
   assert.ok(base.processors.k8s_attributes);
@@ -282,5 +282,21 @@ test("the OpenTelemetry operator manager has bounded requests and limits", async
   ]) {
     assert.ok(bound.cpu);
     assert.ok(bound.memory);
+  }
+});
+
+test("the Collector accepts port-forwarded OTLP/HTTP on a loopback-only receiver, leaving the pod-IP receiver as it is", async () => {
+  const config = (await readJson(gateway)).config;
+  assert.deepEqual(config.receivers["otlp/loopback"], {
+    protocols: { http: { endpoint: "127.0.0.1:4319" } },
+  });
+  assert.deepEqual(config.receivers.otlp, {
+    protocols: { grpc: {}, http: {} },
+  });
+  for (const signal of ["metrics", "logs", "traces"]) {
+    assert.deepEqual(config.service.pipelines[signal].receivers, [
+      "otlp",
+      "otlp/loopback",
+    ]);
   }
 });
