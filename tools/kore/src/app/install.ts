@@ -1,5 +1,5 @@
 import { access } from "node:fs/promises";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import type { Repository } from "../config/index.js";
 import {
   koreManagesRegistryAuth,
@@ -8,6 +8,10 @@ import {
   registryPullSecret,
   type LockedImage,
 } from "../images/index.js";
+import {
+  argsFingerprint,
+  releaseMatchesFingerprint,
+} from "../platform/index.js";
 import type { Runner } from "../runtime/index.js";
 import { releaseArgs } from "./release.js";
 
@@ -136,17 +140,53 @@ async function distributeSignatureCredential(
   );
 }
 
+/**
+ * Upgrades an app release unless it is already deployed from the same desired
+ * state: the Helm arguments (which carry the image digest, the registry address
+ * and the gateway settings) and the chart's content. The fingerprint is stored
+ * as the revision description, like a platform component's. Returns whether it
+ * upgraded.
+ */
+async function installRelease(
+  repository: Repository,
+  runner: Runner,
+  name: string,
+  target: { release: string; chartPath: string; image?: LockedImage },
+): Promise<boolean> {
+  const { release, chartPath, image } = target;
+  const args = releaseArgs(repository, name, release, chartPath, image);
+  const fingerprint = argsFingerprint(
+    args.map((arg) =>
+      arg === chartPath ? relative(repository.root, chartPath) : arg,
+    ),
+    chartPath,
+  );
+  if (
+    await releaseMatchesFingerprint(
+      repository,
+      runner,
+      { name: release, namespace: name },
+      fingerprint,
+    )
+  ) {
+    return false;
+  }
+  await runner.run("helm", [...args, "--description", fingerprint], {
+    capture: false,
+  });
+  return true;
+}
+
 export async function installResources(
   repository: Repository,
   runner: Runner,
   name: string,
   charts: Charts,
 ): Promise<void> {
-  await runner.run(
-    "helm",
-    releaseArgs(repository, name, `${name}-resources`, charts.resources),
-    { capture: false },
-  );
+  await installRelease(repository, runner, name, {
+    release: `${name}-resources`,
+    chartPath: charts.resources,
+  });
 }
 
 export async function installWorkload(
@@ -156,9 +196,9 @@ export async function installWorkload(
   charts: Charts,
   image: LockedImage,
 ): Promise<void> {
-  await runner.run(
-    "helm",
-    releaseArgs(repository, name, name, charts.workload, image),
-    { capture: false },
-  );
+  await installRelease(repository, runner, name, {
+    release: name,
+    chartPath: charts.workload,
+    image,
+  });
 }

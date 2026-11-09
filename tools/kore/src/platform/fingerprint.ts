@@ -17,18 +17,19 @@ function chartFiles(directory: string): string[] {
 }
 
 /**
- * A digest of everything kore would hand Helm for a component: the chart,
- * version, --set/--set-string arguments, the content of each values file, and,
- * for a local chart, the content of every file in the chart directory. Paths
- * are made relative so another checkout of the same content yields the same
- * digest. Kore stores it as the Helm revision description on upgrade, so the
- * release itself is the single owner of what it was deployed from.
+ * A digest of everything kore hands Helm for a release: the arguments, the
+ * content of each `--values` file and, when a chart directory is given, the
+ * content of every file in it. Paths are made relative so another checkout of
+ * the same content yields the same digest. Only content that kore reproduces
+ * from the repository goes in; a secret is never an argument, so none is hashed
+ * or printed here. Kore stores the digest as the Helm revision description on
+ * upgrade, so the release itself is the single owner of what it was deployed
+ * from.
  */
-export function desiredFingerprint(
-  repository: Repository,
-  component: Component,
+export function argsFingerprint(
+  args: readonly string[],
+  chartDirectory?: string,
 ): string {
-  const args = helmUpgradeArgs(repository, component);
   const hash = createHash("sha256");
   const part = (label: string, value: string | Buffer) =>
     hash.update(`${label}\0${value.length}\0`).update(value).update("\0");
@@ -43,14 +44,28 @@ export function desiredFingerprint(
     }
     part("arg", arg);
   });
-  if (component.kind === "local-chart") {
-    const chart = absolute(repository, component.chart!);
-    if (existsSync(chart) && statSync(chart).isDirectory()) {
-      for (const file of chartFiles(chart)) {
-        part("file", relative(chart, file));
-        part("content", readFileSync(file));
-      }
+  if (
+    chartDirectory !== undefined &&
+    existsSync(chartDirectory) &&
+    statSync(chartDirectory).isDirectory()
+  ) {
+    for (const file of chartFiles(chartDirectory)) {
+      part("file", relative(chartDirectory, file));
+      part("content", readFileSync(file));
     }
   }
   return `${prefix}${hash.digest("hex")}`;
+}
+
+/** The fingerprint of a platform component's Helm release. */
+export function desiredFingerprint(
+  repository: Repository,
+  component: Component,
+): string {
+  return argsFingerprint(
+    helmUpgradeArgs(repository, component),
+    component.kind === "local-chart"
+      ? absolute(repository, component.chart!)
+      : undefined,
+  );
 }

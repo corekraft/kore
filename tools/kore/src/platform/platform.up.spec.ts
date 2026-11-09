@@ -176,6 +176,20 @@ test("platform up upgrades an already-installed configuration release", async ()
           code: 0,
         };
       }
+      if (command === "helm" && args[0] === "history") {
+        // Deployed from older desired state than the repository holds now.
+        return {
+          stdout: JSON.stringify([
+            {
+              revision: 1,
+              status: "deployed",
+              description: "kore desired-state sha256:stale",
+            },
+          ]),
+          stderr: "",
+          code: 0,
+        };
+      }
       if (command === "mkcert" && args.includes("-CAROOT")) {
         return { stdout: "/tmp/mkcert", stderr: "", code: 0 };
       }

@@ -1,5 +1,5 @@
 import { healthyWebhookOutput } from "../platform/webhook-fixtures.js";
-import type { Runner } from "../runtime/index.js";
+import { CommandError, type Runner } from "../runtime/index.js";
 
 export const digest = "sha256:" + "a".repeat(64);
 
@@ -68,6 +68,20 @@ export function healthyReadinessOutput(
   return undefined;
 }
 
+/** What Helm answers for the history of a release that was never installed. */
+export function releaseNotFound(
+  command: string,
+  args: readonly string[],
+): void {
+  if (command === "helm" && args[0] === "history") {
+    throw new CommandError(command, args, {
+      stdout: "",
+      stderr: "Error: release: not found",
+      code: 1,
+    });
+  }
+}
+
 /** Records every call and answers like a healthy local cluster. */
 export function healthyRunner(
   calls: Call[],
@@ -77,6 +91,7 @@ export function healthyRunner(
   return {
     async run(command, args) {
       calls.push({ command, args });
+      releaseNotFound(command, args);
       if (fail?.({ command, args })) {
         throw new Error(`${command} failed`);
       }
