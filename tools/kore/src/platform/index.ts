@@ -8,6 +8,7 @@ export { platformUp } from "./up.js";
 export { argsFingerprint } from "./fingerprint.js";
 export { releaseMatchesFingerprint } from "./reconcile.js";
 export {
+  admissionGateStatusName,
   assertAdmissionGateOpen,
   ensureClosedAdmissionGate,
   platformGeneration,

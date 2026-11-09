@@ -10,9 +10,15 @@ import {
   ensureRegistryAuth,
 } from "../images/index.js";
 import type { Runner } from "../runtime/index.js";
-import { ensureClosedAdmissionGate } from "./admission-gate.js";
+import {
+  admissionGateStatusName,
+  closeExistingAdmissionGate,
+  ensureClosedAdmissionGate,
+  openAdmissionGate,
+} from "./admission-gate.js";
 import { rewireRegistryService } from "./registry-rewire.js";
 import { reconcileComponent, reconcileIfNeeded } from "./reconcile.js";
+import { platformStatus } from "./status.js";
 
 async function ensureCluster(
   repository: Repository,
@@ -32,12 +38,37 @@ async function ensureCluster(
   }
 }
 
-/** The internal foundation ends with the application admission gate closed (ADR 0054). */
+/**
+ * Starts a run with the application admission gate closed (ADR 0054), so a
+ * failed or interrupted run, or a changed catalog, never leaves an open gate.
+ */
 export async function closeApplicationAdmission(
   repository: Repository,
   runner: Runner,
 ): Promise<void> {
-  await ensureClosedAdmissionGate(repository, runner);
+  await closeExistingAdmissionGate(repository, runner);
+}
+
+/**
+ * Opens the gate only when every component's readiness passes in this run.
+ * Plan Step 13's completion gate may replace this with richer evidence.
+ */
+export async function openApplicationAdmission(
+  repository: Repository,
+  runner: Runner,
+): Promise<void> {
+  const unavailable = (await platformStatus(repository, runner)).filter(
+    (component) =>
+      component.name !== admissionGateStatusName &&
+      component.status !== "ready",
+  );
+  if (unavailable.length) {
+    await ensureClosedAdmissionGate(repository, runner);
+    throw new Error(
+      `the application admission gate stays closed: ${unavailable.map((component) => `${component.name} (${component.detail})`).join(", ")}. Fix the failing component and rerun kore platform up`,
+    );
+  }
+  await openAdmissionGate(repository, runner);
 }
 
 export async function bootstrapControllers(
@@ -45,6 +76,7 @@ export async function bootstrapControllers(
   runner: Runner,
 ): Promise<void> {
   await ensureCluster(repository, runner);
+  await closeApplicationAdmission(repository, runner);
   for (const component of orderedComponents(repository.catalog)) {
     if (
       component.phase === "configuration" ||

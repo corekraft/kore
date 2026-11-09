@@ -1,6 +1,6 @@
 ---
 status: accepted
-summary: The application admission gate is one Gatekeeper constraint per environment, created closed for the current platform generation at the end of the internal foundation; only bootstrap automation may write it, activate namespaces, or read the local signing key, and kore app up refuses until the gate is open.
+summary: The application admission gate is one Gatekeeper constraint per environment, closed at the start of every bootstrap run and opened for the current platform generation only when every component is ready in that run; only bootstrap automation may write it, activate namespaces, or read the local signing key, and kore app up refuses until it is open.
 date: 2026-11-08
 last-verified: 2026-11-08
 ---
@@ -32,12 +32,20 @@ closed when the foundation finishes. Steps 11 to 13 open it.
   environment name and the catalog's components. Any change to what the
   catalog installs moves the generation, so a gate or activation made earlier
   is stale until bootstrap revalidates. `kore` computes it; nothing is stored.
-- **Born closed.** `kore platform up` applies the gate, closed and for the
-  current generation, as its last step, server-side under the field manager
-  `kore-bootstrap-gate`, which is its only writer. It never opens it, so a run
-  that stops early or a rerun after a change leaves it closed. The gate is not in
-  the constraints directory: its state is runtime state with one owner, not
-  repository desired state.
+- **Closed first, opened only when ready.** Every `kore platform up` and
+  `kore platform bootstrap` closes an existing gate that is open or for another
+  generation right after the cluster is confirmed, before any component is
+  touched. `kore platform up` opens it for the current generation as its last
+  step, and only after all phases completed and `platform status` finds every
+  component ready in that same run; otherwise the gate stays closed and the run
+  fails naming the components. A fresh cluster has no gate until that point.
+  The gate is written server-side under the field manager `kore-bootstrap-gate`,
+  its only writer, and is not in the constraints directory: its state is runtime
+  state with one owner, not repository desired state. This opener is local and
+  readiness-gated; plan Step 13's Completion Gate may replace it with a versioned
+  readiness manifest and auditable evidence. `kore platform status` reports the
+  gate as a row: open and current is ready; closed, stale (a different
+  generation), or missing is not.
 - **What it refuses.** While closed (or for another generation): Pods,
   Deployments, StatefulSets, DaemonSets, Jobs, CronJobs and `PostgreSQLInstance`
   claims outside the platform namespaces, and any namespace activation. A
@@ -71,8 +79,9 @@ closed when the foundation finishes. Steps 11 to 13 open it.
 
 ## Consequences
 
-- Until plan Step 13 opens the gate, `kore app up` and therefore the
-  application step of `kore local up` stop with the closed-gate error.
+- `kore local up` converges: platform up opens the gate after readiness, then
+  `kore app up` activates the namespace. If a component is unready the gate stays
+  closed and `kore app up` refuses with the closed-gate error.
 - Gatekeeper's webhook fails open by default (`failurePolicy: Ignore`), so the
   cluster policy has teeth only after the audit period, once that policy is
   `Fail` with the platform namespaces exempt. Until then the `kore` check is the

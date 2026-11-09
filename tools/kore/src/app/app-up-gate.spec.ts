@@ -7,6 +7,7 @@ vi.mock("../images/index.js", async (importOriginal) => ({
 }));
 import { loadRepository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
+import { admissionGate } from "../platform/admission-gate.js";
 import { appUp } from "./up.js";
 import {
   gateOutput,
@@ -81,4 +82,22 @@ test("app up activates the namespace for the open gate's generation before insta
   );
   expect(activated).toBeGreaterThan(-1);
   expect(activated).toBeLessThan(firstRelease);
+});
+
+test("app up proceeds once platform up has opened the gate it left behind", async () => {
+  const repository = await loadRepository("local");
+  const calls: Call[] = [];
+  localRegistryReferenceMock.mockImplementation(passthroughRegistry);
+  // The gate as `platform up` writes it when every component is ready.
+  const opened = JSON.stringify(admissionGate(repository, "open"));
+
+  await appUp(
+    repository,
+    withGate(calls, opened),
+    "reference",
+    lockedImage(),
+    "/tmp/kore.pub",
+  );
+
+  expect(calls.some((call) => call.args[0] === "upgrade")).toBe(true);
 });

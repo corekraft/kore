@@ -7,6 +7,13 @@ import { afterEach, test, vi } from "vitest";
 vi.mock("../images/index.js", () => ({
   ensureLocalSigningPublicKey: async () => undefined,
 }));
+// The admission gate is covered in platform.admission-gate.spec.ts.
+vi.mock("./admission-gate.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./admission-gate.js")>()),
+  closeExistingAdmissionGate: async () => undefined,
+  openAdmissionGate: async () => undefined,
+}));
+vi.mock("./status.js", () => ({ platformStatus: async () => [] }));
 import { loadRepository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import type { RunResult } from "../runtime/runner.js";

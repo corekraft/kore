@@ -51,7 +51,10 @@ export function platformGeneration(repository: Repository): string {
   return `g-${digest.slice(0, 12)}`;
 }
 
-export function closedAdmissionGate(repository: Repository): AdmissionGate {
+export function admissionGate(
+  repository: Repository,
+  state: "closed" | "open",
+): AdmissionGate {
   const platformNamespaces = [
     ...new Set([
       ...systemNamespaces,
@@ -76,7 +79,7 @@ export function closedAdmissionGate(repository: Repository): AdmissionGate {
       },
       parameters: {
         generation: platformGeneration(repository),
-        state: "closed",
+        state,
         platformNamespaces,
         // The local kubeconfig identity is the Minikube admin certificate, so
         // locally bootstrap is also system:masters (ADR 0054).
@@ -89,10 +92,14 @@ export function closedAdmissionGate(repository: Repository): AdmissionGate {
   };
 }
 
-/** Creates the gate closed, or closes it again; the one write kore makes to it. */
-export async function ensureClosedAdmissionGate(
+export function closedAdmissionGate(repository: Repository): AdmissionGate {
+  return admissionGate(repository, "closed");
+}
+
+async function writeGate(
   repository: Repository,
   runner: Runner,
+  state: "closed" | "open",
 ): Promise<void> {
   await runner.run(
     "kubectl",
@@ -105,8 +112,46 @@ export async function ensureClosedAdmissionGate(
       "--force-conflicts",
       "--filename=-",
     ],
-    { capture: true, input: JSON.stringify(closedAdmissionGate(repository)) },
+    { capture: true, input: JSON.stringify(admissionGate(repository, state)) },
   );
+}
+
+/** Creates the gate closed, or closes it again. */
+export async function ensureClosedAdmissionGate(
+  repository: Repository,
+  runner: Runner,
+): Promise<void> {
+  await writeGate(repository, runner, "closed");
+}
+
+/**
+ * Opens the gate for the current generation. Callers must have proved every
+ * platform prerequisite ready in the same run (ADR 0054).
+ */
+export async function openAdmissionGate(
+  repository: Repository,
+  runner: Runner,
+): Promise<void> {
+  await writeGate(repository, runner, "open");
+}
+
+/**
+ * Closes an existing gate that is open or belongs to another generation, at the
+ * start of a run. An absent gate (a fresh cluster) is left for the end of the
+ * run to create.
+ */
+export async function closeExistingAdmissionGate(
+  repository: Repository,
+  runner: Runner,
+): Promise<void> {
+  const gate = await readAdmissionGate(repository, runner);
+  if (
+    gate !== undefined &&
+    (gate.state !== "closed" ||
+      gate.generation !== platformGeneration(repository))
+  ) {
+    await ensureClosedAdmissionGate(repository, runner);
+  }
 }
 
 export interface AdmissionGateState {
@@ -187,4 +232,47 @@ export async function assertAdmissionGateOpen(
     );
   }
   return current;
+}
+
+export const admissionGateStatusName = "application-admission-gate";
+
+export interface GateStatus {
+  name: string;
+  namespace: string;
+  status: "ready" | "missing" | "degraded";
+  detail: string;
+}
+
+/** The gate as a status row: ready only when open for the current generation. */
+export async function admissionGateStatus(
+  repository: Repository,
+  runner: Runner,
+): Promise<GateStatus> {
+  const identity = { name: admissionGateStatusName, namespace: "cluster" };
+  const current = platformGeneration(repository);
+  let gate: AdmissionGateState | undefined;
+  try {
+    gate = await readAdmissionGate(repository, runner);
+  } catch (error) {
+    return {
+      ...identity,
+      status: "missing",
+      detail: `gate could not be read: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+  if (gate === undefined) {
+    return { ...identity, status: "missing", detail: "gate does not exist" };
+  }
+  if (gate.generation !== current) {
+    return {
+      ...identity,
+      status: "degraded",
+      detail: `stale: gate is generation ${gate.generation || "(none)"}, repository is ${current}`,
+    };
+  }
+  return {
+    ...identity,
+    status: gate.state === "open" ? "ready" : "degraded",
+    detail: `${gate.state === "open" ? "open" : "closed"} for generation ${current}`,
+  };
 }

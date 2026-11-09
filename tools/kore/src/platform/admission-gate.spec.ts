@@ -3,6 +3,7 @@ import { loadRepository } from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 import {
   activationLabel,
+  admissionGateStatus,
   assertAdmissionGateOpen,
   closedAdmissionGate,
   ensureClosedAdmissionGate,
@@ -175,4 +176,35 @@ test("reading the gate never mutates the cluster", async () => {
   expect(calls[0]?.args).toContain("get");
   expect(calls[0]?.args).toContain("--context");
   expect(calls.flatMap((call) => call.args)).not.toContain("apply");
+});
+
+test("status reports an open gate for the current generation as ready", async () => {
+  const repository = await loadRepository("local");
+  const generation = platformGeneration(repository);
+  const row = await admissionGateStatus(
+    repository,
+    gateRunner([], liveGate("open", generation)),
+  );
+  expect(row).toMatchObject({ status: "ready" });
+  expect(row.detail).toContain(`open for generation ${generation}`);
+});
+
+test("status reports a closed gate, a stale gate, and a missing gate as not ready", async () => {
+  const repository = await loadRepository("local");
+  const generation = platformGeneration(repository);
+  const closed = await admissionGateStatus(
+    repository,
+    gateRunner([], liveGate("closed", generation)),
+  );
+  expect(closed).toMatchObject({ status: "degraded" });
+  expect(closed.detail).toContain("closed");
+  const stale = await admissionGateStatus(
+    repository,
+    gateRunner([], liveGate("open", "g-000000000000")),
+  );
+  expect(stale).toMatchObject({ status: "degraded" });
+  expect(stale.detail).toMatch(/stale.*g-000000000000/);
+  expect(await admissionGateStatus(repository, gateRunner([]))).toMatchObject({
+    status: "missing",
+  });
 });

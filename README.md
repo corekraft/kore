@@ -55,7 +55,8 @@ require `--purge-data`. `local down --prune` destroys without purging; `local do
 `kore app up <name> --environment <name>` is refused, before anything is verified
 or applied, until the application admission gate is open for the repository's
 platform generation ([ADR 0054](docs/decisions/0054-application-admission-gate-closed-at-foundation.md)).
-`kore platform up` finishes with the gate closed; the error names the gate's state and
+`kore platform up` closes the gate first and opens it only after every component is
+ready in that run; `platform status` reports it. The refusal names the gate's state and
 the remedy.
 
 `kore app down <name> --environment <name>` uninstalls only the workload release

@@ -1,5 +1,9 @@
 import type { Repository } from "../config/index.js";
-import { assertAdmissionGateOpen, platformStatus } from "../platform/index.js";
+import {
+  admissionGateStatusName,
+  assertAdmissionGateOpen,
+  platformStatus,
+} from "../platform/index.js";
 import type { Runner } from "../runtime/index.js";
 
 export function deploymentRolloutStatusArgs(name: string): string[] {
@@ -16,7 +20,9 @@ export async function assertPlatformReady(
 ): Promise<void> {
   const platform = await platformStatus(repository, runner);
   const unavailable = platform.filter(
-    (component) => component.status !== "ready",
+    (component) =>
+      component.name !== admissionGateStatusName &&
+      component.status !== "ready",
   );
   if (unavailable.length) {
     throw new Error(
