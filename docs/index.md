@@ -86,6 +86,7 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0039-service-sharing-by-owner-grant.md`](decisions/0039-service-sharing-by-owner-grant.md) — services are shared within a tenant only by owner grant, which parents can block; only operators grant across tenants. Read when changing service-to-service access.
 - [`docs/decisions/0040-keycloak-human-identity.md`](decisions/0040-keycloak-human-identity.md) — each tenant root gets its own Keycloak, composed by the `Organization` API, with one realm and nested groups per sub-organization. Read when changing sign-in or group-based access.
 - [`docs/decisions/0041-backstage-and-argo-cd-per-tenant.md`](decisions/0041-backstage-and-argo-cd-per-tenant.md) — refines ADR 0002 and 0011 for tenant workloads: one Backstage and one namespace-scoped Argo CD per tenant root, scoped by organization. Read when changing the portal or tenant delivery.
+- [`docs/decisions/0042-organization-domains-by-delegation.md`](decisions/0042-organization-domains-by-delegation.md) — organizations delegate zones under any TLD to the platform's DNS, services are subdomains inside them, and each organization gets one default zone under a per-environment platform domain. Read when changing hostnames, DNS, or certificates.
 
 ## Reference
 

@@ -93,7 +93,7 @@ How it maps onto what Kore already does:
 
 | Concept      | Platform API (proposed)                                                                                            | Composes into                                                                                                                                                                                                                                                              |
 | ------------ | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Organization | `Organization.platform.kore.dev`, with a `parent` field and its domains                                            | RBAC groups, ResourceQuota and LimitRange defaults, verified domains and a service base, Gatekeeper parameters                                                                                                                                                             |
+| Organization | `Organization.platform.kore.dev`, with a `parent` field and its domains                                            | RBAC groups, ResourceQuota and LimitRange defaults, delegated zones, a default zone, and a service base, Gatekeeper parameters                                                                                                                                             |
 | Service      | `Service.platform.kore.dev`, owned by one organization, with its hostnames                                         | A namespace per environment with ambient enrollment and image admission ([ADR 0025](decisions/0025-application-namespace-ambient-enrollment.md), [ADR 0032](decisions/0032-application-namespace-image-admission.md)); routes, certificates, and DNS records for its hosts |
 | Capability   | Data claims such as `PostgreSQLInstance`, and the other [data services](#data-services-scoped-to-the-organization) | Unchanged: services claim capabilities, and environments choose the implementation                                                                                                                                                                                         |
 
@@ -104,57 +104,65 @@ reconciles it itself.
 
 ## Domains and Hosts
 
-An organization owns its domains, and its services live under them. With
-`corekraft.ca` as the organization's domain and `apps.corekraft.ca` as its
-service base, a service named `auth` is served at `auth.apps.corekraft.ca`.
+Organizations bring their own domains by delegating a zone to the platform's
+DNS, and services are subdomains inside those zones
+([ADR 0042](decisions/0042-organization-domains-by-delegation.md)). With
+`apps.corekraft.ca` delegated and chosen as the service base, a service named
+`auth` is served at `auth.apps.corekraft.ca`.
 
-| Host                     | Owner                  | Comes from                            |
-| ------------------------ | ---------------------- | ------------------------------------- |
-| `corekraft.ca`           | Organization Corekraft | A verified domain                     |
-| `apps.corekraft.ca`      | Organization Corekraft | The service base it chose             |
-| `auth.apps.corekraft.ca` | Service `auth`         | Default host: service name, then base |
-| `login.corekraft.ca`     | Service `auth`         | An extra host under a verified domain |
+| Host                               | Owner                  | Comes from                                   |
+| ---------------------------------- | ---------------------- | -------------------------------------------- |
+| `apps.corekraft.ca`                | Organization Corekraft | A zone delegated to the platform's DNS       |
+| `auth.apps.corekraft.ca`           | Service `auth`         | Default host: service name, then base        |
+| `login.apps.corekraft.ca`          | Service `auth`         | An extra host inside the organization's zone |
+| `auth.corekraft.<platform domain>` | Service `auth`         | The organization's default zone              |
+| `tracking.apps.acme-freight.eu`    | Service `tracking`     | A sub-organization's own zone, another TLD   |
 
-- **Organizations hold domains.** An organization registers the domains it
-  owns, such as `corekraft.ca`, and proves ownership with a DNS TXT record
-  before any service can use them. It also names a base for its services, such
-  as `apps.corekraft.ca`.
-- **Services are subdomains.** A service gets `<service>.<base>` by default. It
-  can ask for other hosts under any domain its organization owns, such as
-  `login.corekraft.ca`, or the apex `corekraft.ca` for a marketing site.
-- **Sub-organizations get a slice.** A sub-organization uses its parent's
-  domains or is given a subdomain of its own, such as `retail.acme.com`, as the
-  base for its services. Like other policy, a sub-organization's domains only
-  narrow what its parent allows.
-- **One owner per hostname.** A hostname belongs to exactly one service, and
-  only under a verified domain that the service's organization or one of its
-  ancestors owns. Admission rejects a route for any other host, so one tenant
-  can never claim another tenant's name.
-- **A platform default until a domain is added.** An organization that has not
-  added a domain gets hosts under a platform-owned domain, such as
-  `auth.corekraft.<platform domain>`. That domain belongs on the Public Suffix
-  List, as `github.io` does, so browsers treat each organization as its own
-  site and cookies cannot cross between tenants.
+- **Domains come by delegation.** An organization delegates a whole domain,
+  such as `corekraft.ca`, or a subdomain, such as `apps.corekraft.ca`, to the
+  platform's DNS with NS records. A working delegation is the proof of
+  control, and the platform then writes every record itself.
+- **Any organization, any TLD.** Companies under one umbrella often use
+  unrelated domains, so an organization at any level may delegate zones under
+  any TLD. A parent may restrict which domains its subtree uses; it does not
+  require them to sit under its own.
+- **Services are subdomains.** Each organization names a service base inside
+  one of its zones, and a service gets `<service>.<base>` by default. Other
+  hosts are allowed only inside the organization's own zones. Serving a
+  domain's apex means delegating the whole domain.
+- **One owner per hostname.** A hostname belongs to exactly one service, inside
+  its organization's zones. Admission rejects any other host, so one tenant can
+  never claim another tenant's name.
+- **One default zone per organization.** Before delegating anything, every
+  organization gets `<organization>.<platform domain>`. The platform domain is
+  a per-environment setting, separate from any organization's domain and still
+  to be chosen; locally it is `kore.local`. It goes on the Public Suffix List,
+  as `github.io` does, before outside tenants arrive, so browsers treat each
+  organization as its own site.
+- **A lapsed delegation has a grace period.** No new routes are admitted, the
+  organization is alerted, existing hosts keep serving for seven days, and then
+  their routes are removed.
 - **Host-only cookies.** Every service under `corekraft.ca` shares one site. A
   BFF sets host-only cookies and never `Domain=corekraft.ca`, which would send
   its session to every other service under the domain.
 
 Upstream controllers deliver it, and Kore coordinates them:
 
+- **Delegation check.** The `Organization` API checks each zone's NS records
+  through a Crossplane function, as the PostgreSQL API composes today.
+- **DNS records.** ExternalDNS writes records inside delegated zones, in the
+  DNS provider the environment names
+  ([ADR 0012](decisions/0012-environment-overlays-hold-provider-specifics.md));
+  locally, hosts resolve the way `kore.local` does today.
 - **Routing.** Each service's `HTTPRoute` lists its hostnames, and the Gateway
   accepts them ([ADR 0006](decisions/0006-istio-ambient-gateway-api.md)).
-- **Certificates.** cert-manager issues a certificate for each host through
-  ACME, and locally from the local issuer
+- **Certificates.** cert-manager issues certificates for each zone, including
+  DNS-01 wildcards, and locally from the local issuer
   ([ADR 0013](decisions/0013-local-tls-before-gateway.md)). A wildcard such as
   `*.apps.corekraft.ca` covers one label only, so `api.auth.apps.corekraft.ca`
   needs its own certificate.
-- **DNS records.** A DNS controller, with ExternalDNS as the candidate, writes
-  records to the DNS provider the environment names. The provider is an
-  environment setting ([ADR
-  0012](decisions/0012-environment-overlays-hold-provider-specifics.md));
-  locally, hosts resolve the way `kore.local` does today.
 - **Ownership policy.** A Gatekeeper constraint checks every hostname against
-  the organization's verified domains, starting in audit mode
+  the organization's zones, starting in audit mode
   ([ADR 0017](decisions/0017-gatekeeper-policy-families-audit-first.md)).
 
 ## The Golden Path: Frontend, BFF, Data
@@ -513,11 +521,13 @@ questions keep their numbers and link to their ADR.
    to KEDA for request-based scaling and scale to zero?
 10. **Usage and cost.** What is metered per organization, and is it for
     visibility only or also enforced?
-11. **Domain verification and DNS.** Which controller checks the TXT record
-    and writes DNS records (ExternalDNS is the candidate), and what happens to
-    a service's hosts when a domain stops verifying or is removed?
-12. **Platform default domain.** Which domain hosts organizations that have not
-    added their own, and is it registered on the Public Suffix List?
+11. **Domain verification and DNS.** Decided: organizations at any level
+    delegate zones under any TLD, services are subdomains inside them, and
+    ExternalDNS writes the records
+    ([ADR 0042](decisions/0042-organization-domains-by-delegation.md)).
+12. **Platform default domain.** Decided: every organization gets one default
+    zone under a per-environment platform domain, still to be chosen
+    ([ADR 0042](decisions/0042-organization-domains-by-delegation.md)).
 13. **Data isolation tiers.** For each data service, what does the shared tier
     share, when does an organization get a dedicated instance, and who
     decides?

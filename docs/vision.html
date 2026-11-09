@@ -426,10 +426,12 @@
         list-style: none;
         display: grid;
         gap: 14px;
+        align-content: start;
       }
       .rules li {
         display: grid;
         gap: 2px;
+        align-content: start;
       }
       .rules strong {
         font-family: var(--display);
@@ -1125,8 +1127,9 @@
                   <code>parent</code> field and its domains
                 </td>
                 <td>
-                  RBAC groups, ResourceQuota and LimitRange defaults, verified
-                  domains and a service base, Gatekeeper parameters
+                  RBAC groups, ResourceQuota and LimitRange defaults, delegated
+                  zones, a default zone, and a service base, Gatekeeper
+                  parameters
                 </td>
               </tr>
               <tr>
@@ -1174,12 +1177,16 @@
         <div class="section-head">
           <span class="eyebrow">Domains and hosts</span>
           <h2 id="domains">
-            Organizations own domains; services are subdomains
+            Organizations delegate zones; services are subdomains
           </h2>
           <p class="lede">
-            With <code>corekraft.ca</code> as the organization's domain and
-            <code>apps.corekraft.ca</code> as its service base, a service named
-            <code>auth</code> is served at <code>auth.apps.corekraft.ca</code>.
+            Organizations bring their own domains by delegating a zone to the
+            platform's DNS, and services are subdomains inside those zones (<a
+              href="https://github.com/corekraft/kore/blob/main/docs/decisions/0042-organization-domains-by-delegation.md"
+              >ADR 0042</a
+            >). With <code>apps.corekraft.ca</code> delegated and chosen as the
+            service base, a service named <code>auth</code> is served at
+            <code>auth.apps.corekraft.ca</code>.
           </p>
         </div>
         <div
@@ -1193,7 +1200,7 @@
           ><span class="dot">.</span
           ><span class="label-part dom"
             ><b>corekraft.ca</b
-            ><small>Verified organization domain</small></span
+            ><small>Organization domain, any TLD</small></span
           >
         </div>
         <div class="table-scroll">
@@ -1207,14 +1214,9 @@
             </thead>
             <tbody>
               <tr>
-                <td><code>corekraft.ca</code></td>
-                <td>Organization Corekraft</td>
-                <td>A verified domain</td>
-              </tr>
-              <tr>
                 <td><code>apps.corekraft.ca</code></td>
                 <td>Organization Corekraft</td>
-                <td>The service base it chose</td>
+                <td>A zone delegated to the platform's DNS</td>
               </tr>
               <tr>
                 <td><code>auth.apps.corekraft.ca</code></td>
@@ -1222,9 +1224,19 @@
                 <td>Default host: service name, then base</td>
               </tr>
               <tr>
-                <td><code>login.corekraft.ca</code></td>
+                <td><code>login.apps.corekraft.ca</code></td>
                 <td>Service <code>auth</code></td>
-                <td>An extra host under a verified domain</td>
+                <td>An extra host inside the organization's zone</td>
+              </tr>
+              <tr>
+                <td><code>auth.corekraft.&lt;platform domain&gt;</code></td>
+                <td>Service <code>auth</code></td>
+                <td>The organization's default zone</td>
+              </tr>
+              <tr>
+                <td><code>tracking.apps.acme-freight.eu</code></td>
+                <td>Service <code>tracking</code></td>
+                <td>A sub-organization's own zone, another TLD</td>
               </tr>
             </tbody>
           </table>
@@ -1232,52 +1244,59 @@
         <div class="split">
           <ul class="rules">
             <li>
-              <strong>Organizations hold domains.</strong
+              <strong>Domains come by delegation.</strong
               ><span
-                >An organization registers the domains it owns, such as
-                <code>corekraft.ca</code>, and proves ownership with a DNS TXT
-                record before any service can use them. It also names a base for
-                its services, such as <code>apps.corekraft.ca</code>.</span
+                >An organization delegates a whole domain, such as
+                <code>corekraft.ca</code>, or a subdomain, such as
+                <code>apps.corekraft.ca</code>, to the platform's DNS with NS
+                records. A working delegation is the proof of control, and the
+                platform writes every record itself.</span
+              >
+            </li>
+            <li>
+              <strong>Any organization, any TLD.</strong
+              ><span
+                >Companies under one umbrella often use unrelated domains, so an
+                organization at any level may delegate zones under any TLD. A
+                parent may restrict which domains its subtree uses, without
+                requiring its own.</span
               >
             </li>
             <li>
               <strong>Services are subdomains.</strong
               ><span
                 >A service gets <code>&lt;service&gt;.&lt;base&gt;</code> by
-                default. It can ask for other hosts under any domain its
-                organization owns, such as <code>login.corekraft.ca</code>, or
-                the apex <code>corekraft.ca</code> for a marketing site.</span
+                default; other hosts are allowed only inside the organization's
+                own zones. Serving a domain's apex means delegating the whole
+                domain.</span
               >
             </li>
             <li>
-              <strong>Sub-organizations get a slice.</strong
+              <strong>One owner per hostname.</strong
               ><span
-                >A sub-organization uses its parent's domains or is given a
-                subdomain of its own, such as <code>retail.acme.com</code>, as
-                its service base. Its domains only narrow what its parent
-                allows.</span
+                >A hostname belongs to exactly one service, inside its
+                organization's zones. Admission rejects any other host, so one
+                tenant can never claim another tenant's name.</span
               >
             </li>
           </ul>
           <ul class="rules">
             <li>
-              <strong>One owner per hostname.</strong
+              <strong>One default zone per organization.</strong
               ><span
-                >A hostname belongs to exactly one service, and only under a
-                verified domain its organization or an ancestor owns. Admission
-                rejects any other host, so one tenant can never claim another
-                tenant's name.</span
+                >Before delegating anything, every organization gets
+                <code>&lt;organization&gt;.&lt;platform domain&gt;</code>. The
+                platform domain is a per-environment setting, still to be
+                chosen; locally it is <code>kore.local</code>. It goes on the
+                Public Suffix List before outside tenants arrive.</span
               >
             </li>
             <li>
-              <strong>A platform default until a domain is added.</strong
+              <strong>A lapsed delegation has a grace period.</strong
               ><span
-                >Organizations without a domain get hosts under a platform-owned
-                domain, such as
-                <code>auth.corekraft.&lt;platform domain&gt;</code>. That domain
-                belongs on the Public Suffix List, as
-                <code>github.io</code> does, so each organization is its own
-                site to browsers and cookies cannot cross between tenants.</span
+                >No new routes are admitted, the organization is alerted,
+                existing hosts keep serving for seven days, and then their
+                routes are removed.</span
               >
             </li>
             <li>
@@ -1295,6 +1314,19 @@
           <h3>Delivered by upstream controllers</h3>
           <ul class="points">
             <li>
+              <strong>Delegation check.</strong> The
+              <code>Organization</code> API checks each zone's NS records
+              through a Crossplane function, as the PostgreSQL API composes
+              today.
+            </li>
+            <li>
+              <strong>DNS records.</strong> ExternalDNS writes records inside
+              delegated zones, in the DNS provider the environment names (<a
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0012-environment-overlays-hold-provider-specifics.md"
+                >ADR 0012</a
+              >).
+            </li>
+            <li>
               <strong>Routing.</strong> Each service's
               <code>HTTPRoute</code> lists its hostnames, and the Gateway
               accepts them (<a
@@ -1303,27 +1335,18 @@
               >).
             </li>
             <li>
-              <strong>Certificates.</strong> cert-manager issues a certificate
-              for each host through ACME, and locally from the local issuer (<a
+              <strong>Certificates.</strong> cert-manager issues certificates
+              for each zone, including DNS-01 wildcards, and locally from the
+              local issuer (<a
                 href="https://github.com/corekraft/kore/blob/main/docs/decisions/0013-local-tls-before-gateway.md"
                 >ADR 0013</a
               >). A wildcard such as <code>*.apps.corekraft.ca</code> covers one
-              label only, so <code>api.auth.apps.corekraft.ca</code> needs its
-              own certificate.
-            </li>
-            <li>
-              <strong>DNS records.</strong> A DNS controller, with ExternalDNS
-              as the candidate, writes records to the DNS provider the
-              environment names (<a
-                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0012-environment-overlays-hold-provider-specifics.md"
-                >ADR 0012</a
-              >). Locally, hosts resolve the way <code>kore.local</code> does
-              today.
+              label only.
             </li>
             <li>
               <strong>Ownership policy.</strong> A Gatekeeper constraint checks
-              every hostname against the organization's verified domains,
-              starting in audit mode (<a
+              every hostname against the organization's zones, starting in audit
+              mode (<a
                 href="https://github.com/corekraft/kore/blob/main/docs/decisions/0017-gatekeeper-policy-families-audit-first.md"
                 >ADR 0017</a
               >).
@@ -2326,22 +2349,30 @@
               >
             </div>
           </li>
-          <li>
+          <li class="decided">
             <div>
               <strong>Domain verification and DNS</strong
               ><span
-                >Which controller checks the TXT record and writes DNS records
-                (ExternalDNS is the candidate), and what happens to a service's
-                hosts when a domain stops verifying?</span
+                >Organizations at any level delegate zones under any TLD,
+                services are subdomains inside them, and ExternalDNS writes the
+                records.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0042-organization-domains-by-delegation.md"
+                >Decided · ADR 0042</a
               >
             </div>
           </li>
-          <li>
+          <li class="decided">
             <div>
               <strong>Platform default domain</strong
               ><span
-                >Which domain hosts organizations that have not added their own,
-                and is it registered on the Public Suffix List?</span
+                >Every organization gets one default zone under a
+                per-environment platform domain, still to be chosen.</span
+              ><a
+                class="pill plan"
+                href="https://github.com/corekraft/kore/blob/main/docs/decisions/0042-organization-domains-by-delegation.md"
+                >Decided · ADR 0042</a
               >
             </div>
           </li>

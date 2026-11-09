@@ -2,7 +2,7 @@
 status: accepted
 summary: Within a tenant a service is shared only by an explicit grant from its owner, which a parent organization can block but not force; across tenants only an operator can grant access.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-09
 ---
 
 # ADR 0039: Share services by owner grant
