@@ -20,8 +20,11 @@ repository.
 ## Decision
 
 - **Object store: SeaweedFS.** It is Apache 2.0, light enough for Minikube,
-  installed from its Helm chart, and supports per-bucket S3 identities. Rook
-  Ceph was too heavy for local use, and Garage covers less of the S3 API.
+  and installed from its Helm chart. Its documentation lists bucket-scoped
+  identities, bucket policies, IAM users and policies, STS with Kubernetes
+  service accounts, bucket versioning, S3 Object Lock with retention and legal
+  hold, and SSE-S3, SSE-KMS, and SSE-C encryption. Rook Ceph was too heavy for
+  local use, and Garage covers less of the S3 API.
 - **Kafka: Strimzi.** Topics and users are Kubernetes resources, which fits
   organization-prefixed topics and per-service ACLs
   ([ADR 0048](0048-data-service-tenancy-tiers.md)).
@@ -39,8 +42,13 @@ repository.
 - FerretDB needs a PostgreSQL image with the DocumentDB extension, pinned,
   signed, and recorded like every other image, and its MongoDB compatibility
   gaps are documented for services.
-- SeaweedFS's S3 coverage is checked against what services need before the
-  object store API is published.
+- SeaweedFS does not implement bucket replication, event notifications,
+  static website hosting, lifecycle transitions, S3 Select, or MFA delete, so
+  the object store API does not offer them.
+- Its documentation labels SSE-KMS and SSE-C "(Enterprise)" without saying what
+  that means, and SeaweedFS also sells an enterprise edition. Which features
+  the Apache 2.0 edition includes is confirmed before the object store API is
+  published, and nothing in the platform may depend on the enterprise edition.
 - The Valkey operator or chart is chosen and pinned during implementation.
 - Each implementation enters the catalog with its own readiness checks and
   compatibility evidence.

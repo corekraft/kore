@@ -41,8 +41,11 @@ Apache 2.0, with no commercial-use restriction.
   ([ADR 0049](0049-data-store-implementations.md)), shared or the tenant's
   dedicated store ([ADR 0048](0048-data-service-tenancy-tiers.md)). Every
   message and attribute is searchable.
-- **Tamper-evident.** Archive buckets are write-once for their retention
-  period, and each indexed batch has a digest that is signed and recorded, as
+- **Tamper-evident.** Archive buckets are created with S3 Object Lock and
+  versioning enabled and a default retention in COMPLIANCE mode, which
+  SeaweedFS documents as refusing deletion or change by any user, root
+  included, until retention ends. Each indexed batch has a digest that is
+  signed and recorded, as
   data exports are ([ADR 0029](0029-local-export-and-restore.md)). Gaps in the
   sequence are detected and reported.
 - **Secrets never enter.** The Collector strips secrets and tokens before
@@ -53,8 +56,8 @@ Apache 2.0, with no commercial-use restriction.
   break-glass path.
 - **Retention per tenant, with legal hold.** Each tenant sets its archive
   retention within its quota, a legal hold blocks deletion, and each tenant's
-  archive is encrypted with its own key so that deleting the key destroys the
-  archive.
+  archive lives in its own bucket encrypted with SSE-KMS under its own key, so
+  destroying the key destroys the archive.
 
 ## Consequences
 
@@ -63,9 +66,20 @@ Apache 2.0, with no commercial-use restriction.
   ([ADR 0052](0052-usage-metering-with-opencost.md)).
 - Kafka, the object store, and Quickwit become prerequisites of the telemetry
   pipeline, so they must be installed before the observability phase.
-- Whether SeaweedFS supports write-once object locking, and how per-tenant
-  encryption keys are held, is checked before implementation; without object
-  locking the archive needs another write-once store.
+- Object Lock can be enabled only when a bucket is created, so the
+  `Organization` API creates each tenant's archive bucket with it from the
+  start.
+- SeaweedFS's enforcement of COMPLIANCE mode is documented, not yet proven: a
+  test must show that deleting or overwriting a locked object is refused
+  before the archive is trusted.
+- Quickwit deletes splits when it merges them or applies retention. In a
+  versioned bucket that adds a delete marker and the locked version stays
+  until its retention ends, so merged data costs storage twice for the lock
+  period, and deleted splits remain recoverable as evidence. Quickwit's
+  behaviour against a locked bucket is tested before implementation.
+- Per-tenant SSE-KMS keys need a key service. SeaweedFS supports AWS KMS,
+  Google Cloud KMS, and OpenBao or Vault; locally that means OpenBao, which
+  Plan 1 deferred, so adding it needs its own ADR.
 - Metrics are not archived here; long-term metrics come with Mimir.
 - Quickwit enters the catalog with its own readiness checks and compatibility
   evidence, and its release activity is reviewed at each upgrade.

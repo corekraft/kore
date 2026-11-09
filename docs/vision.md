@@ -367,8 +367,10 @@ Beside the hot tier, every log record and every span is kept as evidence
   attribute searchable.
 - **Nothing sampled away.** Mesh tracing samples every request, and the archive
   receives every span even where the hot tier samples.
-- **Tamper-evident.** Archive buckets are write-once for their retention, each
-  indexed batch has a signed digest, and gaps are reported.
+- **Tamper-evident.** Each tenant's archive bucket uses S3 Object Lock in
+  compliance mode, so no one, root included, can delete or change it before
+  retention ends. Each indexed batch has a signed digest, and gaps are
+  reported.
 - **Private and audited.** Secrets are stripped before either tier, tenants can
   mask personal data, every archive search is logged, and operators reach a
   tenant's archive only through a logged break-glass path.
