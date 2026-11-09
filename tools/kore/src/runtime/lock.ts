@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { readFileSync, rmSync } from "node:fs";
 import { link, mkdir, open, rm } from "node:fs/promises";
 import { hostname, uptime } from "node:os";
 import { join } from "node:path";
@@ -23,6 +24,24 @@ export interface LockOptions {
   bootTime?: () => number;
   /** Receives a message when a stale lock was recovered. Defaults to stderr. */
   onRecover?: (message: string) => void;
+  /** How long to wait for a live holder to finish. Defaults to 0 (fail at once). */
+  waitMs?: number;
+  /** Interval between attempts while waiting. Defaults to 1000 ms. */
+  pollMs?: number;
+}
+
+/**
+ * Exported by a lock holder as `<environment>:<token>`, so a kore call made
+ * while the lock is held (in this process or a child) nests instead of
+ * deadlocking on the lock its own caller holds.
+ */
+export const HELD_LOCK_ENV = "KORE_HELD_ENVIRONMENT_LOCK";
+
+export interface HeldLock {
+  /** Releases the lock if it is still ours. Safe to call more than once. */
+  release: () => Promise<void>;
+  /** Synchronous release for `process.on("exit")`, where nothing can be awaited. */
+  releaseSync: () => void;
 }
 
 /** Creates the lock with `link` so it appears atomically with its owner record. */
@@ -74,29 +93,101 @@ async function recoverStale(
   return recovered;
 }
 
+/** Whether this process was handed the environment's lock by its holder. */
+export async function inheritsLock(lock: string, environment: string) {
+  const [name, token] = (process.env[HELD_LOCK_ENV] ?? "").split(":");
+  return (
+    name === environment &&
+    token !== undefined &&
+    (await readOwner(lock))?.token === token
+  );
+}
+
+function readOwnerSync(lock: string): { token?: string } | undefined {
+  try {
+    return JSON.parse(readFileSync(lock, "utf8")) as { token?: string };
+  } catch {
+    return undefined;
+  }
+}
+
+const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
+
+/** Takes the lock, waiting for a live holder or recovering a provably dead one. */
+async function acquireOrWait(
+  environment: string,
+  paths: LockPaths,
+  probes: LockProbes,
+  options: LockOptions,
+  take: () => Promise<boolean>,
+): Promise<void> {
+  const onRecover =
+    options.onRecover ??
+    ((message: string) => process.stderr.write(`${message}\n`));
+  const waitMs = options.waitMs ?? 0;
+  const pollMs = options.pollMs ?? 1000;
+  const lock = paths.lock;
+  const deadline = Date.now() + waitMs;
+  while (!(await take())) {
+    const verdict = await judge(lock, probes);
+    if (!verdict.dead && verdict.gone === true) {
+      continue;
+    }
+    if (!verdict.dead && verdict.live === true && Date.now() < deadline) {
+      await sleep(Math.min(pollMs, Math.max(deadline - Date.now(), 1)));
+      continue;
+    }
+    if (!verdict.dead && verdict.live === true && waitMs > 0) {
+      throw refusal(
+        environment,
+        lock,
+        `${verdict.reason}; waited ${waitMs} ms`,
+        verdict.fix,
+      );
+    }
+    const recovered = await recoverStale(environment, paths, probes, take);
+    onRecover(
+      `recovered stale lock ${lock} left by pid ${recovered.pid} (acquired ${recovered.acquiredAt}); the previous mutation was interrupted, so check \`kore journal\` before trusting the environment state`,
+    );
+    break;
+  }
+}
+
 /**
- * Runs `operation` while holding the environment's lock.
+ * Takes the environment's lock and returns a handle that releases it.
  *
  * The lock is a file created with `link`, so it appears atomically with its
  * owner record. A lock is recovered only when its owner is provably dead on this
  * host: the pid is gone, or the lock predates the host's boot (which survives
- * pid reuse). Anything unprovable (live owner, other host, legacy directory
- * lock, malformed record) is refused, because breaking a live lock is worse
- * than asking for manual removal.
+ * pid reuse). Anything unprovable (other host, legacy directory lock,
+ * malformed record) is refused at once, because breaking a live lock is worse
+ * than asking for manual removal. A live holder is waited for up to
+ * `options.waitMs`, then refused naming the holder.
+ *
+ * While held, the token is exported in `HELD_LOCK_ENV`, so nested kore calls
+ * (in this process or children it spawns) pass through. This is for a caller
+ * that runs kore on its own behalf, such as an integration spec; kore's own
+ * `withEnvironmentLock` does not export it, so concurrent in-process
+ * mutations still exclude each other.
  */
-export async function withEnvironmentLock<T>(
+export async function holdEnvironmentLock(
   root: string,
   environment: string,
-  operation: () => Promise<T>,
   options: LockOptions = {},
-): Promise<T> {
+): Promise<HeldLock> {
+  return await takeLock(root, environment, options, true);
+}
+
+async function takeLock(
+  root: string,
+  environment: string,
+  options: LockOptions,
+  exportToken: boolean,
+): Promise<HeldLock> {
   const probes: LockProbes = {
     isAlive: options.isProcessAlive ?? processAlive,
     bootTime: options.bootTime ?? (() => Date.now() - uptime() * 1000),
   };
-  const onRecover =
-    options.onRecover ??
-    ((message: string) => process.stderr.write(`${message}\n`));
   const base = join(root, ".kore", "locks");
   const lock = join(base, `${environment}.lock`);
   const paths: LockPaths = { lock, recovery: `${lock}.recovery` };
@@ -111,19 +202,62 @@ export async function withEnvironmentLock<T>(
   const staging = join(base, `${environment}.${owner.token}.tmp`);
   const take = () => acquire(lock, staging, owner);
 
-  if (!(await take())) {
-    const recovered = await recoverStale(environment, paths, probes, take);
-    onRecover(
-      `recovered stale lock ${lock} left by pid ${recovered.pid} (acquired ${recovered.acquiredAt}); the previous mutation was interrupted, so check \`kore journal\` before trusting the environment state`,
-    );
-  }
+  await acquireOrWait(environment, paths, probes, options, take);
 
+  const previous = process.env[HELD_LOCK_ENV];
+  if (exportToken) {
+    process.env[HELD_LOCK_ENV] = `${environment}:${owner.token}`;
+  }
+  let released = false;
+  const restoreEnv = () => {
+    if (exportToken) {
+      if (previous === undefined) {
+        delete process.env[HELD_LOCK_ENV];
+      } else {
+        process.env[HELD_LOCK_ENV] = previous;
+      }
+    }
+  };
+  return {
+    release: async () => {
+      if (released) {
+        return;
+      }
+      released = true;
+      restoreEnv();
+      // Only remove the lock if it is still ours.
+      if ((await readOwner(lock))?.token === owner.token) {
+        await rm(lock, { force: true });
+      }
+    },
+    releaseSync: () => {
+      if (released) {
+        return;
+      }
+      released = true;
+      restoreEnv();
+      if (readOwnerSync(lock)?.token === owner.token) {
+        rmSync(lock, { force: true });
+      }
+    },
+  };
+}
+
+/** Runs `operation` while holding the environment's lock (see `holdEnvironmentLock`). */
+export async function withEnvironmentLock<T>(
+  root: string,
+  environment: string,
+  operation: () => Promise<T>,
+  options: LockOptions = {},
+): Promise<T> {
+  const lock = join(root, ".kore", "locks", `${environment}.lock`);
+  if (await inheritsLock(lock, environment)) {
+    return await operation();
+  }
+  const held = await takeLock(root, environment, options, false);
   try {
     return await operation();
   } finally {
-    // Only remove the lock if it is still ours.
-    if ((await readOwner(lock))?.token === owner.token) {
-      await rm(lock, { force: true });
-    }
+    await held.release();
   }
 }
