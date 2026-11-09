@@ -76,6 +76,112 @@ flowchart TD
 Steps 8 through 11 may be implemented in parallel only after Step 7 is complete.
 Each must pass independently before Step 12 begins.
 
+## Where each open item can be done
+
+Every unchecked item sits in exactly one class, by what its completion needs.
+Where an item is partly local, the note says which part is. The handoff updates
+this section when items are ticked (as of 2026-11-08: 101 local, 13 managed
+cluster, 8 release pipeline).
+
+### Local
+
+Built and proven on the local Minikube profile (`kore local up`), or offline
+(tests, validate, render, docs).
+
+- Step 6: Repeating cluster creation.
+- Step 8 (all 12): Issue a test certificate; Add readiness and end-to-end tests;
+  Order local bootstrap explicitly; Start and supervise the local Minikube tunnel;
+  Add regression tests for missing issuer; and the seven exit criteria, from A test
+  `HTTPRoute` to Application manifests contain no Minikube-specific values.
+- Step 9 (16): Verify Istio produces the expected SPIFFE principal; Define the
+  application namespace enrollment contract for Sigstore Policy Controller (no
+  longer blocked, Step 7 selected it); Define environment-specific trusted release
+  automation identities (the per-environment list and its offline tests are local;
+  the real release identity is Step 7's binding); Verify that registry membership
+  alone grants no trust; Verify the OPA decision receives authenticated source and
+  destination workload principals; Test allow, deny, authorizer-unavailable;
+  Promote constraints individually; and nine exit criteria, from Workloads using
+  the namespace default ServiceAccount to Every application namespace is enrolled.
+- Step 10 (8): Grant Crossplane only the RBAC; Implement retained-data discovery;
+  and six exit criteria, from Disposable and retained claims to Cluster destroy is
+  blocked.
+- Step 11 (7): Add synthetic telemetry tests; and six exit criteria, from
+  Applications use only the documented OTLP endpoint to No application sends
+  telemetry directly.
+- Platform Bootstrap Completion Gate (13): all eight work items, from Define one
+  versioned readiness manifest to Ensure interrupted or failed bootstrap (RBAC and
+  admission are proven locally with impersonated non-administrator identities); and
+  five exit criteria, from Every infrastructure tool required to `kore platform up`
+  and bootstrap status cannot report success.
+- Step 12 (10): Add smoke tests; Add negative tests; Add image-admission tests
+  (local proves admit, unsigned, tag-only, modified digest, and unauthorized-key
+  rejection with a stand-in key; the real release identity is Step 7's binding);
+  and seven exit criteria, from The application starts without provider-specific
+  templates to All Gatekeeper constraints intended for the MVP.
+- Step 13 (12): Make `kore platform up` own the complete bootstrap generation; Make
+  `kore app up` accept only a release-automation-produced image lock entry
+  (offline tests with a fixture lock; the published `v0.3.1` lock exists); Resume
+  from partial failure; Clean up failed or canceled releases; Add a clean-machine
+  end-to-end test (a fresh Minikube profile is local; a truly clean host is a CI
+  runner); and seven exit criteria, from One command creates and validates to
+  Destructive operations preserve.
+- Step 14 (7): Add offline render, schema, composition, and policy tests; Test
+  controller restart, OPA outage; Test registry outage, signature-verifier outage
+  (signer rotation needs a second signing identity, so only the key swap is local);
+  Verify status reports degraded capabilities; Environment selection changes
+  implementations; Offline provider validation runs in ordinary CI; Recoverable
+  failures converge.
+- Step 15 (15): Document support windows; Add upgrade tests; Add backup schedules;
+  Validate CRD conversion; Document registry backup; Document signing identity and
+  key rotation; Document trust roots; Document policy change review; Define resource
+  budgets; Publish operator, contributor; and five exit criteria, from A supported
+  upgrade path to Documentation contains no hidden manual remediation.
+
+### Managed cluster
+
+Needs a real non-Minikube cluster (managed Kubernetes or a VPS).
+
+- Step 7 (4): Roll every managed platform workload (the registry and verifier move
+  from seed to signed digest; needs the mirror-only image path, since local images
+  are pull `Never`); Enroll all managed platform namespaces (labelling is
+  buildable, but the managed-example gate only opens on a cluster); Every managed
+  foundation workload installed in this step uses an internal digest-qualified
+  image; The internal foundation phase finishes with no active seed exception.
+- Platform Bootstrap Completion Gate (1): The registry contains every managed
+  platform image (depends on the Step 7 roll; the mirror is in GHCR, not Minikube).
+- Step 14 (8): Define the provider OpenTofu stack (the stack is offline
+  `tofu validate`/plan; applying needs the provider account); Preserve the platform
+  registry contract when a provider-managed OCI registry substitutes; Prove with
+  provider IAM that only the protected release workload can sign; Define a managed
+  PostgreSQL Crossplane composition (authoring and the offline contract test are
+  local; readiness needs a managed database service); Run an authorized live
+  portability test; Application source and charts are identical between local and
+  provider environments (offline render diff is local; the live run needs the
+  provider); The managed PostgreSQL composition produces the same readiness and
+  Secret interface; Provider support is documented only after an authorized live
+  test passes.
+
+### Release pipeline and repository settings
+
+Needs a tagged release, GitHub settings, or the protected CI identity.
+
+- Step 7 (2): Implement protected release automation that mirrors approved platform
+  images (a rerun on a new tag; the Crossplane function packages were mirrored in `v0.4.0`);
+  Bind the accepted Cosign authority to an exact protected automation identity or
+  KMS/HSM key (workflow identity, environment protection, and registry permissions).
+- Step 9 (1): Every container, init container, and ephemeral container is rejected
+  unless its digest is signed by the environment-authorized release automation
+  identity (rejection of unsigned and unauthorized signers is local; only the
+  release identity is not).
+- Step 12 (2): Publish the candidate to the platform registry, promote and
+  Cosign-sign (signing only through protected release automation); All application
+  images are pulled from the platform registry by digest and verified at admission
+  against the authorized release automation identity.
+- Step 15 (3): Add artifact integrity checks, dependency inventory, and automated
+  vulnerability reporting (an offline inventory is local; scheduled reporting needs
+  CI and repository settings); Tag the first versioned local-platform release; The
+  first local-platform release is reproducible from a clean checkout.
+
 ## Step 6: Repository and Local Cluster Foundation
 
 ### Objective
@@ -291,7 +397,7 @@ CRD ownership is decided in
 
 - [x] Every controller and CRD has exactly one catalog owner.
       _Every CRD a pinned chart renders is declared once, checked by `npm run
-    test:upstream-charts`. Since #72
+test:upstream-charts`. Since #72
       ([ADR 0057](../../docs/decisions/0057-runtime-crd-ownership.md)) runtime CRDs are
       owned by API group, validate rejects overlapping claims, and `platform status`
       audits the cluster: live, "all 119 CRDs have exactly one catalog owner" (it
