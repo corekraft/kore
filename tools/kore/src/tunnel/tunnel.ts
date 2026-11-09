@@ -4,11 +4,14 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Repository } from "../config/index.js";
 import { assertExpectedCluster } from "../cluster/index.js";
-import {
-  terminateMatching,
-  type ProcessControl,
-  type Runner,
-} from "../runtime/index.js";
+import { stopOrphanedForwards } from "./tunnel-processes.js";
+
+export {
+  isTunnelLeader,
+  isTunnelSshForward,
+  stopOrphanedForwards,
+} from "./tunnel-processes.js";
+import { type ProcessControl, type Runner } from "../runtime/index.js";
 
 interface TunnelState {
   profile: string;
@@ -34,66 +37,21 @@ export interface TunnelDependencies extends ProcessControl {
  * signals the whole group so no child is orphaned.
  */
 function terminateGroup(pid: number, dependencies: TunnelDependencies): void {
-  (
-    dependencies.terminateProcess ??
-    ((leader) =>
-      (dependencies.signalProcess ?? process.kill.bind(process))(
-        -leader,
-        "SIGTERM",
-      ))
-  )(pid);
-}
-
-const ISTIO_STATUS_PORT = 15021;
-
-/**
- * Whether a full command line is the `ssh -L` forward minikube starts for this
- * profile's tunnel: the ssh binary, the profile's machine key, and the Gateway
- * and status-port forwards. Matched on the whole line, never on a pid.
- */
-export function isTunnelSshForward(
-  command: string,
-  profile: string,
-  gatewayPort: number,
-): boolean {
-  // Plain string checks: a RegExp built from the port is a dynamic pattern.
-  const tokens = command.split(/\s+/);
-  const specs = tokens.flatMap((token, index) => {
-    if (token === "-L") {
-      return [tokens[index + 1] ?? ""];
+  try {
+    (
+      dependencies.terminateProcess ??
+      ((leader) =>
+        (dependencies.signalProcess ?? process.kill.bind(process))(
+          -leader,
+          "SIGTERM",
+        ))
+    )(pid);
+  } catch (error) {
+    // A group that is already gone is the state the caller wanted.
+    if ((error as NodeJS.ErrnoException).code !== "ESRCH") {
+      throw error;
     }
-    return token.startsWith("-L") ? [token.slice(2)] : [];
-  });
-  const forwards = (port: number) =>
-    specs.some((spec) => {
-      const parts = spec.split(":");
-      // [bind:]port:host:hostport
-      return parts.length >= 3 && parts.at(-3) === String(port);
-    });
-  return (
-    /(?:^|\/)ssh\s/.test(command) &&
-    command.includes(`/.minikube/machines/${profile}/`) &&
-    forwards(gatewayPort) &&
-    forwards(ISTIO_STATUS_PORT)
-  );
-}
-
-/**
- * Terminates `ssh -L` forwards that outlived a dead tunnel leader and may hold
- * the Gateway port, reporting each. Foreign ssh processes never match.
- */
-export async function stopOrphanedForwards(
-  repository: Repository,
-  dependencies: TunnelDependencies = {},
-): Promise<number[]> {
-  const profile = repository.environment.cluster.profile;
-  const port = repository.environment.gateway.port;
-  return await terminateMatching(
-    (entry) => isTunnelSshForward(entry.command, profile, port),
-    (entry) =>
-      `stopped orphaned minikube ssh forward ${entry.pid} for profile ${profile}`,
-    dependencies,
-  );
+  }
 }
 
 export function tunnelStatePath(repository: Repository): string {
@@ -244,6 +202,7 @@ export async function startLocalTunnel(
     repository.environment.cluster.profile,
   );
   const deadline = Date.now() + 15_000;
+  let exitedEarly = false;
   while (Date.now() < deadline) {
     if (
       await (dependencies.isPortOpen ?? portIsOpen)(
@@ -261,13 +220,17 @@ export async function startLocalTunnel(
       };
     }
     if (!(dependencies.isProcessAlive ?? processIsAlive)(pid)) {
+      exitedEarly = true;
       break;
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   terminateGroup(pid, dependencies);
   throw new Error(
-    `Minikube tunnel did not expose local Gateway port ${repository.environment.gateway.port}`,
+    `Minikube tunnel did not expose local Gateway port ${repository.environment.gateway.port}` +
+      (exitedEarly
+        ? `: the spawned tunnel process ${pid} exited early (minikube allows one tunnel per profile; stop any other \`minikube tunnel --profile ${repository.environment.cluster.profile}\` and retry)`
+        : ""),
   );
 }
 

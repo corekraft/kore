@@ -81,10 +81,22 @@ ADR reverses the earlier "recorded PID only" cleanup:
 - **Match by command line.** On stop, destroy, stale replacement, and a start
   with no recorded tunnel, kore lists host processes (`ps`) and terminates each
   whose full command line is an `ssh` with this profile's machine key under
-  `/.minikube/machines/<profile>/` and `-L` forwards for the Gateway port and
-  15021. Matching is on the command line, never on a pid. Another profile, a
+  `/.minikube/machines/<profile>/` and `-L` forwards for the Gateway port and 15021. Matching is on the command line, never on a pid. Another profile, a
   longer profile name, or any other ssh does not match. Each kill is reported
   in one line; nothing to kill prints nothing.
+- **Unrecorded leaders.** The profile is shared by every checkout of the
+  repository, but each checkout keeps its own `.kore/state`, so one checkout
+  can see no record while another's `minikube tunnel --profile <profile>` is
+  running. Minikube allows one tunnel per profile: killing only that leader's
+  ssh left it alive, the new spawn exited at once, and the port stayed dead. The
+  same cleanup therefore also terminates a `minikube tunnel` whose `--profile`
+  or `-p` token is exactly this profile, and reports it. A group that is
+  already gone (`ESRCH`) counts as stopped, so a failed start reports why the
+  port never opened, not a bare `kill ESRCH`.
+- **Seams in unit tests.** `terminateMatching` resolves its default listing
+  inside `runtime/processes.ts`, so the test setup wraps it as well as
+  `listHostProcesses`. Replacing the export alone let unit tests SIGTERM a
+  live tunnel's ssh forward.
 - **Not matched: the ssh port.** The profile's ssh port is known only from the
   cluster (`docker port`/`minikube ssh-host`), and cleanup runs when the
   cluster may be stopped, so the key path is the profile identity instead.
@@ -109,6 +121,9 @@ start --environment local`) and expects a new PID in the state file, one
 `minikube tunnel` process, and `curl --cacert <kore CA> --resolve kore.local:8443:127.0.0.1
 https://kore.local:8443/api` answering (no `-k`: the Gateway routes by SNI, so a
 bare `https://127.0.0.1:8443` is refused with `000`).
+With a tunnel started from another checkout, `kore tunnel start` from this one
+must report the foreign leader stopped and leave exactly one `minikube tunnel`
+answering on 8443.
 Finally `kore platform stop` must leave no `minikube tunnel` process, no
 `ssh -L 15021` child (`pgrep -f "ssh.*15021"` is empty), no `kubectl ...
 port-forward service/oci-registry` process, and no state file. Kill the leader
