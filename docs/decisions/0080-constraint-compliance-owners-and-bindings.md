@@ -68,3 +68,15 @@ reset-admin-password --password-from-stdin` in the pod right after Grafana is
 - Every run resets the Grafana admin password to the Secret's value; this is
   idempotent and also corrects a password changed by hand in the UI.
 - Gatekeeper caches three RBAC kinds, a small memory cost.
+
+## Refinement: admin-equivalent groups (2026-11-09)
+
+The first live audit with binding evaluation left two kore-rbac violations: the
+Crossplane chart's `crossplane-admin` ClusterRoleBinding to Group
+`crossplane:masters`. That group is Crossplane's cluster-admin convention, like
+`system:masters`: it has no members unless a cluster admin issues a client
+certificate or impersonation for it. kore-rbac now accepts groups listed in
+`adminEquivalentGroups` (only `crossplane:masters`) for cluster-wide bindings,
+through a helper separate from the platform-controller allowance. The
+signing-namespace RoleBinding rule stays bootstrap-only. Gator cases prove a
+lookalike group (`crossplane:viewers`) is still rejected.
