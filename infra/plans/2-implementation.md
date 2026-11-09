@@ -80,7 +80,7 @@ Each must pass independently before Step 12 begins.
 
 Every unchecked item sits in exactly one class, by what its completion needs.
 Where an item is partly local, the note says which part is. The handoff updates
-this section when items are ticked (as of 2026-11-09: 24 local, 13 managed
+this section when items are ticked (as of 2026-11-09: 22 local, 13 managed
 cluster, 8 release pipeline).
 
 ### Local
@@ -88,8 +88,6 @@ cluster, 8 release pipeline).
 Built and proven on the local Minikube profile (`kore local up`), or offline
 (tests, validate, render, docs).
 
-- Step 8 (1): Reconciliation and certificate or Secret rotation (waits on PR #110
-  and its live two-checkout and rotate runs).
 - Step 9 (1): Bootstrap and system controllers remain operational under enforcing
   policy (needs more constraints promoted, one at a time, with PR #105's commands).
 - Step 10 (1): Cluster destroy is blocked while retained data lacks a purge or
@@ -113,12 +111,13 @@ Built and proven on the local Minikube profile (`kore local up`), or offline
   or account for retained data.
 - Step 14 (2): Test controller restart, OPA outage, and the rest (interrupted Helm
   upgrade and partial reconciliation are offline only); Test registry outage,
-  signature-verifier outage, signer rotation (waits on PR #107 and its live run).
-- Step 15 (5): Add upgrade tests (live upgrade from a previous tag is unwritten);
-  Add backup schedules (objectives and restore test done; no schedule or managed
-  target); and three exit criteria: A supported upgrade path passes; Policy and
-  identity changes have tested rollback (policy done, identity waits on #107);
-  Documentation contains no hidden manual remediation.
+  signature-verifier outage, signer rotation (outages and the local key swap pass
+  live; interrupted image promotion and the partially closed trust loop are
+  untested).
+- Step 15 (4): Add upgrade tests (live upgrade from a previous tag is unwritten);
+  Add backup schedules (local objective and audit-only `backups` row done, ADR
+  0074; no managed target); and two exit criteria: A supported upgrade path
+  passes; Documentation contains no hidden manual remediation.
 
 ### Managed cluster
 
@@ -231,7 +230,7 @@ claim that the platform is ready.
 
 ## Step 7: Bootstrap Registry, Image Trust, Controllers, and CRD Ownership
 
-Next: land the open PRs and prove them live, then do Step 7's managed work. PR #107 (signer swap-key; its `signer` suite passed 1 of 1 on a combined branch) and PR #110 (one owner for the token source; the two-checkout, rotate, and up runs are pending) are open; the ephemeral-container case in the `admission` suite failed once on 2026-11-09 and passed on rerun, and is under investigation; `images.lock.json` still holds a `local-kore-key` entry; release PR #65 (0.5.0) awaits the user. Every remaining Step 7 item needs a managed cluster or the protected release pipeline (see "Where each open item can be done").
+Next: Step 7's managed work needs a managed cluster or the protected release pipeline, so start with the 22 local items in "Where each open item can be done". The first is the live upgrade test from the previous tag (Step 15), then promoting constraints one at a time with `kore policy` (Steps 9 and 12). Every PR through #111 is merged and proven on kore-local (2026-11-09 combined batch). `infra/catalog/images.lock.json` still carries a local `local-kore-key` entry, because no release has published an application `images.lock.json` yet (Step 7). Release PR #65 (0.5.0) awaits the user.
 
 ### Objective
 
@@ -531,10 +530,12 @@ The Istio CNI AppArmor deprecation warning did not cause this failure.
       (offline: `secret-materialization.spec.ts`, `render-redaction.spec.ts`,
       `journal-redaction.spec.ts`, `gateway-proof.spec.ts`; hooks `secret-path`
       and `sops-plaintext`).
-- [ ] Reconciliation and certificate or Secret rotation do not require manual
+- [x] Reconciliation and certificate or Secret rotation do not require manual
       cluster changes. _Certificate re-issue and reconciliation are proven live.
-      Secret rotation waits on PR #110 (one owner for the token source, consumers
-      roll on rotation), whose two-checkout and rotate runs are pending._
+      Secret rotation (#110, ADR 0075): on 2026-11-09 an `up` from a second
+      checkout left the token source alone (reference 8/8 from both checkouts),
+      and `kore secrets sync --rotate --yes` plus `kore local up` rolled
+      `reference-api` onto the new token (reference 8/8)._
 - [x] Application manifests contain no Minikube-specific values
       (`app/reference-contract.spec.ts`).
 
@@ -629,9 +630,11 @@ OPA into an identity issuer or a signature verifier.
       (`identity` suite, 2026-11-09).
 - [ ] Every container, init container, and ephemeral container is rejected unless
       its digest is signed by the environment-authorized release automation identity.
-      _Init containers pass live. The ephemeral-container case failed once in the
-      2026-11-09 `admission` run and passed on rerun; the flake is under
-      investigation. The release identity is Step 7's binding._
+      _Init and ephemeral containers pass live. The one ephemeral failure on
+      2026-11-09 was a probe bug, not a fail-open: the probe picked a terminating
+      pod, which Policy Controller skips by design. #111 fixed it, and `admission`
+      passed 6 of 6 straight after a deployment roll. The release identity is Step
+      7's binding._
 
 ## Step 10: Storage and PostgreSQL Platform API
 
@@ -969,13 +972,13 @@ whether it joins the public surface before Step 15 documentation.
 ### Exit Criteria
 
 - [x] One command creates and validates the complete local platform (`kore local
-  up` converged four times on 2026-11-09, `platform status` ready apart from the
+up` converged four times on 2026-11-09, `platform status` ready apart from the
       audit-only `backups` row).
 - [ ] A partial or degraded bootstrap cannot report success or allow application
       claims or workloads to be applied.
 - [x] Platform creation does not install applications.
 - [x] One command installs and validates the reference application (`kore app up
-  reference` rolled out `reference-api`; `reference` suite 8 of 8, 2026-11-09).
+reference` rolled out `reference-api`; `reference` suite 8 of 8, 2026-11-09).
 - [ ] Status reports the deployed digest, verified signer identity, registry, and
       namespace image-enforcement state without exposing credentials.
 - [x] Repeating platform and application reconciliation is idempotent (2026-11-09:
@@ -1041,9 +1044,9 @@ failures have automated detection and recovery paths.
 - [ ] Test registry outage, signature-verifier outage, signer rotation, interrupted
       image promotion, and recovery from a partially closed bootstrap trust loop.
       _Registry and verifier outages pass live (`admission-outage.integration.spec.ts`
-      in the `resilience` suite, 2026-11-09). The signer key swap awaits PR #107 and
-      its `signer` live suite, which passed 1 of 1 on a combined branch but is not
-      on main._
+      in the `resilience` suite, 2026-11-09). The local signer key swap (#107,
+      `kore signer swap-key`) passed its `signer` suite 1 of 1. Interrupted image
+      promotion and the partially closed trust loop have no live test yet._
 - [x] Verify status reports degraded capabilities without corrupting healthy state
       (`resilience-status.spec.ts`; `resilience` suite: the outage degrades only its
       component and recovers; `telemetry` suite: status is read-only).
@@ -1119,9 +1122,13 @@ keeping production-only scale and availability work explicitly scoped.
       (`ops` suite 1 of 1, 2026-11-09: retained PostgreSQL restores inside its
       recovery time objective; the registry and telemetry are rebuilt, not
       restored).
-- [ ] Policy and identity changes have tested rollback procedures.
-      _Policy: the `policy` live suite promoted a constraint and rolled it back
-      (2026-11-09). Identity: the signer key swap awaits PR #107._
+- [x] Policy and identity changes have tested rollback procedures.
+      _Policy: the `policy` live suite promoted `kore-workload-identity`, saw a
+      default-ServiceAccount workload rejected, rolled back, and saw it admitted
+      (2026-11-09, ADR 0072). Identity: `kore signer swap-key` (#107) replaces the
+      trusted key, and the `signer` suite proves the old key denied and the new key
+      admitted. Token rotation (#110) rolls its consumers. OPA bundle rollback has
+      no live test._
 - [x] Tool and component provenance is reviewable from the repository
       (`ops/inventory.spec.ts`, `kore ops inventory`).
 - [ ] Documentation contains no hidden manual remediation required for normal
