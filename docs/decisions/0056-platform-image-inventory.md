@@ -63,7 +63,46 @@ refuses on any non-ready row, so an enforce finding keeps the gate closed.
 - Local still shows its seeds and upstream digests on every `platform status`
   without failing.
 - Widening the exemption is an explicit, reviewed edit to the environment file.
-- The check only observes: it does not label namespaces. Enrollment of the
-  platform namespaces is still a separate mutation; until it exists an
-  `enforce` environment reports them unenrolled and stays closed.
+- Enrollment is built (see Amendment); an `enforce` environment's namespaces
+  are labelled before the inventory reads them.
 - `app up` ignores this row after the gate is open; the gate is the record.
+
+## Amendment: enrollment follows the inventory mode
+
+Enrollment is the mutation that makes the check above pass, and it follows the
+same `environment.imageInventory` value, so there is one switch:
+
+- `enforce` (`managed-example`): `kore platform up` labels every
+  catalog-managed platform namespace except `enrollmentExemptions` with
+  `policy.sigstore.dev/include=true`, before the inventory runs and before the
+  gate decision.
+- `audit` (`local`): no namespace is labelled. Local runs approved upstream
+  digests that its policies would reject without a mirror, so labelling would
+  deny its own pods. The check keeps reporting unenrolled namespaces.
+
+The schema documents the rule on `imageInventory`, and validation already
+rejects any other value and any exemption for a namespace the catalog does not
+manage or without a reason.
+
+**Owner.** Helm keeps creating the namespaces (`--create-namespace`, and the
+`platform-config` chart for `kore-system`); neither renders the label, so Helm
+never claims it. kore applies a minimal Namespace with server-side apply under
+its own field manager, `kore-enrollment`, and so owns exactly that one label.
+Server-side apply makes removal exact: dropping the field from a later apply
+releases it. Each run reads the namespaces with their managed fields, applies
+only those that differ, and re-applies without the label to any namespace that
+`kore-enrollment` owns the label on but that is no longer desired, because it
+left the catalog, became exempt, or the environment moved to `audit`. A label
+owned by another manager (application namespaces belong to `kore-app`) is never
+touched. A desired namespace that does not exist fails the run, naming it.
+
+**Order.** `platformUp` enrolls after every phase, so Policy Controller and the
+image policies are ready and its own release (and the verifier's namespace,
+exempt anyway) is never verified by itself, and immediately before
+`openApplicationAdmission` reads the inventory. A rerun upgrades releases in
+already-enrolled namespaces, so their images must already be signed approved
+digests; an unsigned image is denied there, which is the intent.
+
+The runner never labels in audit, never labels an exemption, and issues no
+change on a second run; `enrollment.spec.ts` and
+`platform.enrollment-order.spec.ts` fake the runner to prove it.

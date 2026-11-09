@@ -1,32 +1,11 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import { orderedComponents, type Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { startLocalTunnel, type TunnelDependencies } from "../tunnel/index.js";
 import { installLocalTrust } from "../security/index.js";
 import { bootstrapControllers, openApplicationAdmission } from "./bootstrap.js";
+import { enrollPlatformNamespaces } from "./enrollment.js";
+import { writePlatformState } from "./platform-state.js";
 import { reconcileConfiguration } from "./reconcile.js";
-
-async function writePlatformState(
-  repository: Repository,
-  status: string,
-): Promise<void> {
-  const directory = join(repository.root, ".kore", "state");
-  await mkdir(directory, { recursive: true });
-  await writeFile(
-    join(directory, `${repository.environment.name}.json`),
-    JSON.stringify(
-      {
-        environment: repository.environment.name,
-        context: repository.environment.kubeContext,
-        status,
-        reconciledAt: new Date().toISOString(),
-      },
-      null,
-      2,
-    ),
-  );
-}
 
 export async function platformUp(
   repository: Repository,
@@ -66,6 +45,10 @@ export async function platformUp(
   if (local && !tunnelStarted) {
     await startLocalTunnel(repository, runner, tunnelDependencies);
   }
+  // Every phase is done, so Policy Controller and the image policies are ready:
+  // enforce environments enroll their namespaces now, before the inventory
+  // judges them (ADR 0056).
+  await enrollPlatformNamespaces(repository, runner);
   // Bootstrap closed the gate first; it opens only if every component is ready
   // after all phases of this run (ADR 0054).
   await openApplicationAdmission(repository, runner);

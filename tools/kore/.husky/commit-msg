@@ -1,10 +1,11 @@
 #!/usr/bin/env sh
 
 repo_root="$(git rev-parse --show-toplevel)"
+. "$repo_root/tools/kore/.husky/pinned.sh"
 case "$1" in
   /*) commit_msg_file="$1" ;;
   *) commit_msg_file="$repo_root/$1" ;;
 esac
-"$repo_root/tools/kore/node_modules/.bin/commitlint" \
+pinned "$repo_root/tools/kore/node_modules/.bin/commitlint" \
   --config "$repo_root/tools/kore/commitlint.config.js" \
   --edit "$commit_msg_file"

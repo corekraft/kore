@@ -17,7 +17,7 @@ export interface LockProbes {
 
 export type Verdict =
   | { dead: true; owner: LockOwner }
-  | { dead: false; reason: string; fix: string };
+  | { dead: false; reason: string; fix: string; live?: true };
 
 export function refusal(
   environment: string,
@@ -58,6 +58,7 @@ export async function judge(
       dead: false,
       reason: `held by running pid ${current.pid}`,
       fix: "Wait for it to finish, or stop that process.",
+      live: true,
     };
   }
   return { dead: true, owner: current };
