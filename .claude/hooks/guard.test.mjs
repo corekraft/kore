@@ -263,10 +263,27 @@ test("cli: malformed input fails open", () => {
   assert.equal(result.status, 0);
 });
 
-test("cli: finishes well under the 200 ms budget", () => {
-  const start = performance.now();
-  run({ tool_name: "Bash", tool_input: { command: "git status" } });
-  assert.ok(performance.now() - start < 200, "hook startup exceeded 200 ms");
+const median = (xs) => [...xs].sort((x, y) => x - y)[Math.floor(xs.length / 2)];
+const timeMs = (fn, runs = 5) =>
+  median(
+    Array.from({ length: runs }, () => {
+      const start = performance.now();
+      fn();
+      return performance.now() - start;
+    }),
+  );
+
+test("cli: the guard adds at most 150 ms to the bare node startup", () => {
+  // Measured against the same node binary, so a slow or loaded machine
+  // raises the baseline instead of failing the guard's own budget.
+  const baseline = timeMs(() => spawnSync("node", ["-e", "0"]));
+  const guard = timeMs(() =>
+    run({ tool_name: "Bash", tool_input: { command: "git status" } }),
+  );
+  assert.ok(
+    guard <= baseline + 150,
+    `guard median ${guard.toFixed(0)} ms exceeds node baseline ${baseline.toFixed(0)} ms + 150 ms`,
+  );
 });
 
 test("unquoted-glob: an unquoted --include or --exclude glob blocks, since zsh fails the whole command when it matches nothing", () => {
