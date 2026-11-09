@@ -4,38 +4,30 @@ import test from "node:test";
 import { loadRepository, type Repository } from "../config/index.js";
 import { assertExpectedCluster } from "../cluster/index.js";
 import { ProcessRunner, type Runner } from "../runtime/index.js";
+import { postOtlp, withForward } from "./otlp-forward.js";
 import { platformStatus } from "./status.js";
 
 // Docs: docs/decisions/0019-telemetry-pipeline-wiring.md
 // Live and opt-in: needs a converged local profile. It posts one synthetic
 // OTLP/HTTP trace, log record, and counter to the Collector's documented
 // endpoint, then reads each signal back from its backend. Everything goes
-// through the API server's Service proxy, so no image, port-forward, or Pod is
-// created and no Secret is read. The synthetic signals expire with the
+// through the API server's Service proxy, except the OTLP POST: the proxy cannot
+// set a Content-Type, so a short-lived port-forward to the Collector carries it.
+// No image or Pod is created and no Secret is read. The synthetic signals expire with the
 // backends' bounded retention; there is nothing to delete.
 
 const namespace = "observability";
 const serviceName = "kore-telemetry-proof";
 
-type Proxy = (service: string, path: string, body?: string) => Promise<string>;
+type Proxy = (service: string, path: string) => Promise<string>;
 
 function proxy(repository: Repository, runner: Runner): Proxy {
-  return async (service, path, body) => {
+  return async (service, path) => {
     const raw = `/api/v1/namespaces/${namespace}/services/${service}/proxy${path}`;
     const { stdout } = await runner.run(
       "kubectl",
-      [
-        "--context",
-        repository.environment.kubeContext,
-        ...(body === undefined
-          ? ["get", "--raw", raw]
-          : ["create", "--raw", raw, "--filename", "-"]),
-      ],
-      {
-        capture: true,
-        cwd: repository.root,
-        ...(body === undefined ? {} : { input: body }),
-      },
+      ["--context", repository.environment.kubeContext, "get", "--raw", raw],
+      { capture: true, cwd: repository.root },
     );
     return stdout;
   };
@@ -197,13 +189,19 @@ test(
     const payloads = syntheticPayloads(traceId, marker);
 
     // The documented endpoint is the Collector's OTLP/HTTP port.
-    for (const signal of ["traces", "logs", "metrics"] as const) {
-      await call(
-        "http:otel-collector:4318",
-        `/v1/${signal}`,
-        JSON.stringify(payloads[signal]),
-      );
-    }
+    await withForward(
+      {
+        context: repository.environment.kubeContext,
+        namespace,
+        target: "service/otel-collector",
+        remotePort: 4318,
+      },
+      async (port) => {
+        for (const signal of ["traces", "logs", "metrics"] as const) {
+          await postOtlp(port, signal, payloads[signal]);
+        }
+      },
+    );
 
     const trace = await until("Tempo to return the trace", async () => {
       const body = await call("http:tempo:3200", `/api/traces/${traceId}`);
