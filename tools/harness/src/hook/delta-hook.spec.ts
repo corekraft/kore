@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { run } from "../cli/index.js";
 import { testHarness } from "../cli/cli-support.js";
 import {
+  CommandError,
   nodeFileSystem,
   ProcessRunner,
   systemClock,
@@ -115,15 +116,31 @@ describe("hook delta", () => {
 
     const second = await hook(root, event);
     expect(second.code).toBe(0);
-    const output = JSON.parse(second.out).hookSpecificOutput;
-    expect(output.hookEventName).toBe("UserPromptSubmit");
-    expect(output.additionalContext).toMatch(/main advanced 1 commit/);
-    expect(output.additionalContext).toMatch(/ticked: Build it\./);
-    expect(output.additionalContext).toMatch(/lock taken: local\.lock/);
+    expect(second.out).toBe(
+      JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: "UserPromptSubmit",
+          additionalContext:
+            "Changed since your last turn: main advanced 1 commit: feat: build it | 6-plan.md ticked: Build it. | lock taken: local.lock",
+        },
+      }),
+    );
+    expect(second.err).toBe("");
 
     expect((await hook(root, event)).out).toBe("");
   });
 
+  it("fails open with one stderr line when the repository root cannot be resolved", async () => {
+    const h = testHarness();
+    h.deps.root = () => Promise.reject(new CommandError("no repo root here"));
+    h.deps.stdin = () => Promise.resolve('{"session_id":"sess-1"}');
+    expect(await run(["hook", "delta"], h.deps)).toBe(0);
+    expect(h.out()).toBe("");
+    expect(h.err()).toBe("[hook:delta] failed open: no repo root here\n");
+  });
+});
+
+describe("hook delta housekeeping", () => {
   it("deletes other sessions' snapshots older than 14 days and keeps the current one", async () => {
     const { root } = repoFixture();
     const dir = join(root, ".git", "kore-delta");

@@ -59,7 +59,7 @@ export class MemoryFs implements FileSystem {
     return Promise.resolve();
   }
   mtimeMs(path: string): Promise<number> {
-    return this.files.has(path)
+    return this.files.has(this.rel(path))
       ? Promise.resolve(0)
       : Promise.reject(
           Object.assign(new Error(`ENOENT: ${path}`), { code: "ENOENT" }),

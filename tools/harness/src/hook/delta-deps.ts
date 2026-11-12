@@ -2,10 +2,10 @@
 // plain files through the injected filesystem.
 
 import { join, resolve } from "node:path";
+import { readPlans } from "../plan/index.js";
 import type { CliDeps } from "../runtime/index.js";
 import type { DeltaDeps, JournalEntry, Snapshot } from "./delta.js";
 
-const PLANS_DIR = "infra/plans";
 const JOURNAL_DIR = ".kore/state/journal";
 const LOCKS_DIR = ".kore/locks";
 
@@ -30,20 +30,6 @@ async function readDir(deps: CliDeps, dir: string): Promise<string[]> {
     }
     throw error;
   }
-}
-
-async function readPlans(
-  deps: CliDeps,
-  root: string,
-): Promise<Record<string, string>> {
-  const dir = join(root, PLANS_DIR);
-  const plans: Record<string, string> = {};
-  for (const name of await readDir(deps, dir)) {
-    if (name.endsWith(".md")) {
-      plans[name] = await deps.fs.readFile(join(dir, name));
-    }
-  }
-  return plans;
 }
 
 function parseEntries(text: string): JournalEntry[] {
@@ -143,7 +129,7 @@ export function realDeltaDeps(deps: CliDeps, root: string): DeltaDeps {
         .split("\n")
         .filter(Boolean);
     },
-    readPlans: () => readPlans(deps, root),
+    readPlans: () => readPlans(deps),
     listLocks: () => readDir(deps, join(root, LOCKS_DIR)),
     readJournals: () => readJournals(deps, root),
     ...snapshotStore(deps, git, root),
