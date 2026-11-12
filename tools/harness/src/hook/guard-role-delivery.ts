@@ -3,7 +3,13 @@
 // the merge tool exists (plan 11 Step 5). The owner approved enforcing these guards on
 // #190 and #191 (2026-11-12), so every rule blocks.
 import { isAbsolute, relative, resolve } from "node:path";
-import { readOnly, writes, WRITE_TOOLS } from "./guard-role-writes.js";
+import {
+  harnessAllowed,
+  HARNESS,
+  readOnly,
+  writes,
+  WRITE_TOOLS,
+} from "./guard-role-writes.js";
 import { commandOf, splitSegments } from "./guard-shell.js";
 import { block, type Finding } from "./guard-verdict.js";
 
@@ -35,12 +41,56 @@ const merges = (segment: readonly string[]): boolean => {
   );
 };
 
-/** An interpreter given inline code, which can write anything. */
+/** An interpreter given inline code, or an editor told to work in place, which can write anything. */
 function runsInline(segment: readonly string[]): boolean {
   const { name, args } = commandOf(segment);
   return (
     (name === "node" && args.some((a) => ["-e", "--eval", "-p"].includes(a))) ||
-    (/^python3?$/.test(name) && args.includes("-c"))
+    (/^python3?$/.test(name) && args.includes("-c")) ||
+    (name === "perl" && args.some((a) => /^-\w*[eEip]/.test(a))) ||
+    (name === "ruby" && args.includes("-e")) ||
+    (/^g?awk$/.test(name) &&
+      args.some((a) => a === "inplace" || a === "--in-place"))
+  );
+}
+
+/** Reads every role here may run: each prints or checks, and none writes a file. */
+const READS = [
+  "plan active",
+  "idea list",
+  "idea show",
+  "flow report",
+  "ledger list",
+  "guardrail status",
+  "flag audit",
+  "skill audit",
+  "session tier",
+];
+/** The orchestrator also launches and collects panes, and finishes the ideas it drives to an outcome. */
+const ORCHESTRATOR_HARNESS = [
+  ...READS,
+  "session spawn",
+  "session wait",
+  "session close",
+  "session equalize",
+  "idea sync",
+  "outcome record",
+  "outcome close",
+];
+
+/** A harness command the role may not run: it writes, or it is not on the role's list. */
+function harnessRefused(role: string, segment: readonly string[]): boolean {
+  const { name, args } = commandOf(segment);
+  if (name !== "node" || !(args[0] ?? "").endsWith("harness.mjs")) {
+    return false;
+  }
+  return !(
+    HARNESS.test(args[0] ?? "") &&
+    harnessAllowed(
+      name,
+      args,
+      role === "orchestrator" ? ORCHESTRATOR_HARNESS : READS,
+    )
   );
 }
 
@@ -91,7 +141,9 @@ export function checkDeliveryBash(
     return noMerge(role, `\`${merging.join(" ")}\``);
   }
   if (REPORTING_ROLES.has(role)) {
-    const changing = segments.find((s) => writes(s) || runsInline(s));
+    const changing = segments.find(
+      (s) => writes(s) || runsInline(s) || harnessRefused(role, s),
+    );
     return changing === undefined
       ? null
       : readOnly(`\`${changing.join(" ")}\``);

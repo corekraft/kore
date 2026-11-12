@@ -70,13 +70,98 @@ describe("role-read-only: the judge and orchestrator never change files", () => 
         "gh pr checks 12",
         "git diff main...HEAD 2>/dev/null",
         "git log --oneline -5",
-        "node skills/bin/harness.mjs session wait a",
         "node skills/bin/harness.mjs plan active > /dev/null",
+        "node skills/bin/harness.mjs flag audit",
+        "node skills/bin/harness.mjs session tier writer",
       ]) {
         allowed(await bash(role, command));
       }
     });
   }
+
+  it("blocks inline scripts in perl and ruby and an in-place awk", async () => {
+    for (const role of ["judge", "orchestrator"]) {
+      for (const command of [
+        "perl -pi -e 's/a/b/' a.ts",
+        "perl -e 'print 1'",
+        "ruby -e 'puts 1'",
+        "awk -i inplace '{print}' a.ts",
+        "gawk -i inplace '{print}' a.ts",
+      ]) {
+        blocked(await bash(role, command), "role-read-only");
+      }
+    }
+  });
+});
+
+describe("role-read-only: the harness is allowlisted per role", () => {
+  const MUTATING = [
+    "flag activate remote-thing --environment local",
+    "plan tick --item x",
+    "plan next --text x",
+    "adr new --title x",
+    "adr supersede --old 1 --new 2",
+    "idea new --title x",
+    "ledger record --kind outcome",
+    "hook guard",
+    "session spawn --role writer --name a --brief b",
+  ];
+
+  it("blocks the judge from every command that changes a file or launches a pane", async () => {
+    for (const rest of [
+      ...MUTATING,
+      "session wait a",
+      "session close a",
+      "outcome record --idea 1",
+      "outcome close --idea 1",
+      "idea sync --idea 1",
+    ]) {
+      blocked(
+        await bash("judge", `node skills/bin/harness.mjs ${rest}`),
+        "role-read-only",
+      );
+    }
+  });
+
+  it("blocks the orchestrator from commands outside its job", async () => {
+    for (const rest of MUTATING.filter((c) => !c.startsWith("session"))) {
+      blocked(
+        await bash("orchestrator", `node skills/bin/harness.mjs ${rest}`),
+        "role-read-only",
+      );
+    }
+  });
+
+  it("lets the orchestrator run the session commands and the outcome and idea commands its job needs", async () => {
+    for (const rest of [
+      "session spawn --role writer --name a --brief b --worktree --no-wait",
+      "session wait a",
+      "session close a",
+      "session tier writer",
+      "session equalize",
+      "idea sync --idea 1",
+      "outcome record --idea 1 --kind verification",
+      "outcome close --idea 1",
+      "idea show --idea 1",
+    ]) {
+      allowed(
+        await bash("orchestrator", `node skills/bin/harness.mjs ${rest}`),
+      );
+    }
+  });
+
+  it("does not trust another path to a harness bundle or a prefix of an allowed command", async () => {
+    for (const role of ["judge", "orchestrator"]) {
+      blocked(
+        await bash(role, "node /tmp/x/skills/bin/harness.mjs plan active"),
+        "role-read-only",
+      );
+      blocked(
+        await bash(role, "node skills/bin/harness.mjs plan tick-all"),
+        "role-read-only",
+      );
+    }
+  });
 });
 
 describe("role-worktree: a writer works only in its own worktree", () => {

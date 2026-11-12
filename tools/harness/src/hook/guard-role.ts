@@ -8,7 +8,12 @@
 // enforcing the plan 11 role guards on 2026-11-12, which ADR 0080 requires a
 // person to do. A new capability for a role needs a guard case first.
 import { checkDelivery, DELIVERY_ROLES } from "./guard-role-delivery.js";
-import { readOnly, writes, WRITE_TOOLS } from "./guard-role-writes.js";
+import {
+  harnessAllowed,
+  readOnly,
+  writes,
+  WRITE_TOOLS,
+} from "./guard-role-writes.js";
 import { commandOf, splitSegments } from "./guard-shell.js";
 import { block, type Finding } from "./guard-verdict.js";
 
@@ -28,7 +33,6 @@ const noCode = (what: string): Finding =>
       "Instead, ask a reader to look at the code and summarize it.",
   );
 
-const HARNESS = /^(\.\/)?skills\/bin\/harness\.mjs$/;
 const PR_READS = ["view", "list", "status", "checks"];
 const ISSUE_READS = ["view", "list", "status"];
 
@@ -42,16 +46,6 @@ const HARNESS_READS = [
 ];
 /** The concierge also files and mirrors ideas, the one way a request enters the queue. */
 const CONCIERGE_HARNESS = [...HARNESS_READS, "idea new", "idea sync"];
-
-/** The command is the harness bundle and its `<domain> <command>` is on the role's list; anything else, even a prefix match, is not. */
-const harnessAllowed = (
-  name: string,
-  args: readonly string[],
-  allowed: readonly string[],
-): boolean =>
-  name === "node" &&
-  HARNESS.test(args[0] ?? "") &&
-  allowed.includes(`${args[1] ?? ""} ${args[2] ?? ""}`);
 
 const READ_UTILITIES = new Set([
   "cat",

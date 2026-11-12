@@ -6624,6 +6624,8 @@ function writes(segment) {
   const verb = args.find((arg) => !arg.startsWith("-"));
   return redirectsToFile(segment) || WRITERS.has(name) || name === "sed" && args.some((arg) => /^-\w*i/.test(arg)) || name === "git" && verb !== void 0 && WRITING_GIT.has(verb) || name === "gh" && args[0] === "pr" && args[1] !== void 0 && WRITING_GH.has(args[1]);
 }
+var HARNESS2 = /^(\.\/)?skills\/bin\/harness\.mjs$/;
+var harnessAllowed = (name, args, allowed) => name === "node" && HARNESS2.test(args[0] ?? "") && allowed.includes(`${args[1] ?? ""} ${args[2] ?? ""}`);
 
 // src/hook/guard-role-delivery.ts
 var REPORTING_ROLES = /* @__PURE__ */ new Set(["orchestrator", "judge"]);
@@ -6643,7 +6645,39 @@ var merges = (segment) => {
 };
 function runsInline(segment) {
   const { name, args } = commandOf(segment);
-  return name === "node" && args.some((a) => ["-e", "--eval", "-p"].includes(a)) || /^python3?$/.test(name) && args.includes("-c");
+  return name === "node" && args.some((a) => ["-e", "--eval", "-p"].includes(a)) || /^python3?$/.test(name) && args.includes("-c") || name === "perl" && args.some((a) => /^-\w*[eEip]/.test(a)) || name === "ruby" && args.includes("-e") || /^g?awk$/.test(name) && args.some((a) => a === "inplace" || a === "--in-place");
+}
+var READS = [
+  "plan active",
+  "idea list",
+  "idea show",
+  "flow report",
+  "ledger list",
+  "guardrail status",
+  "flag audit",
+  "skill audit",
+  "session tier"
+];
+var ORCHESTRATOR_HARNESS = [
+  ...READS,
+  "session spawn",
+  "session wait",
+  "session close",
+  "session equalize",
+  "idea sync",
+  "outcome record",
+  "outcome close"
+];
+function harnessRefused(role, segment) {
+  const { name, args } = commandOf(segment);
+  if (name !== "node" || !(args[0] ?? "").endsWith("harness.mjs")) {
+    return false;
+  }
+  return !(HARNESS2.test(args[0] ?? "") && harnessAllowed(
+    name,
+    args,
+    role === "orchestrator" ? ORCHESTRATOR_HARNESS : READS
+  ));
 }
 var SCRATCH = ["/tmp/", "/private/tmp/", "/var/folders/", "/dev/"];
 var PATHS = /(?:~|\.\.|\/)[\w.@~/-]*/g;
@@ -6674,7 +6708,9 @@ function checkDeliveryBash(role, command, root3) {
     return noMerge(role, `\`${merging.join(" ")}\``);
   }
   if (REPORTING_ROLES.has(role)) {
-    const changing = segments.find((s) => writes(s) || runsInline(s));
+    const changing = segments.find(
+      (s) => writes(s) || runsInline(s) || harnessRefused(role, s)
+    );
     return changing === void 0 ? null : readOnly(`\`${changing.join(" ")}\``);
   }
   for (const segment of segments) {
@@ -6708,7 +6744,6 @@ var noCode = (what) => block(
   "role-no-code",
   `${what} reads code, and the concierge answers from plans, issues and the ledger. Instead, ask a reader to look at the code and summarize it.`
 );
-var HARNESS2 = /^(\.\/)?skills\/bin\/harness\.mjs$/;
 var PR_READS = ["view", "list", "status", "checks"];
 var ISSUE_READS = ["view", "list", "status"];
 var HARNESS_READS = [
@@ -6719,7 +6754,6 @@ var HARNESS_READS = [
   "ledger list"
 ];
 var CONCIERGE_HARNESS = [...HARNESS_READS, "idea new", "idea sync"];
-var harnessAllowed = (name, args, allowed) => name === "node" && HARNESS2.test(args[0] ?? "") && allowed.includes(`${args[1] ?? ""} ${args[2] ?? ""}`);
 var READ_UTILITIES = /* @__PURE__ */ new Set([
   "cat",
   "head",

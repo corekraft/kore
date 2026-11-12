@@ -83,3 +83,14 @@ export function writes(segment: readonly string[]): boolean {
       WRITING_GH.has(args[1]))
   );
 }
+
+export const HARNESS = /^(\.\/)?skills\/bin\/harness\.mjs$/;
+/** The command is the harness bundle and its `<domain> <command>` is on the role's list; anything else, even a prefix match, is not. */
+export const harnessAllowed = (
+  name: string,
+  args: readonly string[],
+  allowed: readonly string[],
+): boolean =>
+  name === "node" &&
+  HARNESS.test(args[0] ?? "") &&
+  allowed.includes(`${args[1] ?? ""} ${args[2] ?? ""}`);

@@ -25,6 +25,15 @@ function tiers(): Map<string, { family: string; effort?: string }> {
       });
     }
   }
+  // A refinement row ("- Writer: Haiku, medium.") overrides the table's tier.
+  for (const line of adr.split("\n")) {
+    const row = /^- (\w+): (Haiku|Sonnet|Opus), (low|medium|high|max)\.$/.exec(
+      line,
+    );
+    if (row?.[1] && row[2]) {
+      rows.set(row[1].toLowerCase(), { family: row[2], effort: row[3] ?? "" });
+    }
+  }
   return rows;
 }
 
