@@ -3,6 +3,7 @@ import { test } from "vitest";
 import { loadRepository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { readinessFailure } from "./readiness.js";
+import { retryBudget } from "./readiness-poll.js";
 
 // A loaded host (k3d's own VM during install) can make one `kubectl wait`
 // miss its 3s bound. #119 is the broader fix; this retries only that timeout.
@@ -80,4 +81,43 @@ test("a healthy status check stays at the short bound with one call", async () =
     undefined,
   );
   assert.deepEqual(timeouts, ["--timeout=3s"]);
+});
+
+test("one status run spends the 15s retry once, however many components are not ready", async () => {
+  const { repository, runner, component, timeouts } = await subject(
+    Array<string>(20).fill(timedOut),
+  );
+  const budget = retryBudget();
+
+  const first = await readinessFailure(repository, runner, component, budget);
+  const second = await readinessFailure(repository, runner, component, budget);
+  const third = await readinessFailure(repository, runner, component, budget);
+
+  for (const failure of [first, second, third]) {
+    assert.match(failure ?? "", /not ready/);
+  }
+  assert.deepEqual(timeouts, [
+    "--timeout=3s",
+    "--timeout=15s",
+    "--timeout=3s",
+    "--timeout=3s",
+  ]);
+});
+
+test("a not-ready Deployment costs 3s plus one 15s retry for the whole status run", async () => {
+  const { repository, runner, component, timeouts } = await subject(
+    Array<string>(20).fill(timedOut),
+  );
+  const budget = retryBudget();
+  const deployment = {
+    ...component,
+    readiness: ["deployment/web"],
+    ownsCRDs: [],
+  };
+
+  for (let i = 0; i < 4; i++) {
+    await readinessFailure(repository, runner, deployment, budget);
+  }
+
+  assert.equal(timeouts.filter((t) => t === "--timeout=15s").length, 1);
 });

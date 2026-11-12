@@ -166,3 +166,23 @@ test("a NodePort Service without an assigned node port is not published", async 
     /gateway\/edge .*LoadBalancer address or node port/s,
   );
 });
+
+test("a NodePort Service on a different node port than configured is not published, and both ports are reported", async () => {
+  const { repository, component: c } = await component();
+  const { runner } = cluster(
+    route([]),
+    true,
+    JSON.stringify({
+      items: [
+        {
+          spec: { type: "NodePort", ports: [{ port: 8443, nodePort: 31111 }] },
+        },
+      ],
+    }),
+  );
+
+  await assert.rejects(
+    reconcileComponent(repository, runner, c),
+    /gateway\/edge .*node port 31111.*configured node port 30443/s,
+  );
+});

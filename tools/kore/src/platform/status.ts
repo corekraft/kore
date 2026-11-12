@@ -16,7 +16,11 @@ import {
   type ImageInventory,
 } from "./image-inventory.js";
 import { gatedReleaseProblem } from "./gated-release.js";
-import { readinessFailure } from "./readiness.js";
+import {
+  readinessFailure,
+  retryBudget,
+  type RetryBudget,
+} from "./readiness.js";
 import { registryTrustProblem } from "../images/index.js";
 
 export interface ComponentStatus {
@@ -32,6 +36,7 @@ async function componentStatus(
   repository: Repository,
   runner: Runner,
   component: Component,
+  budget: RetryBudget,
 ): Promise<ComponentStatus> {
   const identity = { name: component.name, namespace: component.namespace };
   if (componentGatedOff(repository.environment, component)) {
@@ -64,7 +69,7 @@ async function componentStatus(
   } catch (error) {
     return { ...identity, status: "missing", detail: errorMessage(error) };
   }
-  const failure = await readinessFailure(repository, runner, component);
+  const failure = await readinessFailure(repository, runner, component, budget);
   return failure
     ? { ...identity, status: "degraded", detail: failure }
     : { ...identity, status: "ready", detail: "installed and ready" };
@@ -77,11 +82,12 @@ export async function platformStatus(
   only?: readonly string[],
 ): Promise<ComponentStatus[]> {
   const result: ComponentStatus[] = [];
+  const budget = retryBudget();
   for (const component of orderedComponents(repository.catalog)) {
     if (only && !only.includes(component.name)) {
       continue;
     }
-    result.push(await componentStatus(repository, runner, component));
+    result.push(await componentStatus(repository, runner, component, budget));
   }
   // The gate and the inventory are platform-wide rows, not components: a
   // filtered query omits them.

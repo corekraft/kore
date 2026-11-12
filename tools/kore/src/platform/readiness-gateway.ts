@@ -1,6 +1,14 @@
+import type { Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { routeProblem } from "./gateway-proof.js";
 import { pollUntil } from "./readiness-poll.js";
+
+/** What a gateway check reads from: the repository, runner and kubectl scope. */
+export interface GatewayContext {
+  repository: Repository;
+  runner: Runner;
+  base: string[];
+}
 
 interface Condition {
   type: string;
@@ -46,11 +54,24 @@ function holds(conditions: Condition[], type: string): string | undefined {
   return found?.status === "True" ? undefined : describe(found, type);
 }
 
-async function isPublished(
+/**
+ * The node port the environment configures for the Gateway Service: the one
+ * its load balancer maps the Gateway host port to, which the overlay's
+ * `gateway.service.nodePort` must equal (gateway-service.spec.ts).
+ */
+function configuredNodePort(repository: Repository): number | undefined {
+  const { k3d, gateway } = repository.environment;
+  return k3d?.ports.find(({ hostPort }) => hostPort === gateway.port)
+    ?.loadBalancerPort;
+}
+
+/** Undefined once the Service is published; otherwise why it is not. */
+async function unpublished(
+  repository: Repository,
   runner: Runner,
   base: string[],
   name: string,
-): Promise<boolean> {
+): Promise<string | undefined> {
   const result = await runner.run(
     "kubectl",
     [
@@ -70,15 +91,27 @@ async function isPublished(
       status?: { loadBalancer?: { ingress?: unknown[] } };
     }[];
   };
-  // A LoadBalancer Service is published once it has an address. A NodePort
-  // Service never gets one: the environment's own load balancer reaches it on
-  // the node port, so an assigned node port is the readiness signal.
-  return (parsed.items ?? []).some(
-    (item) =>
-      (item.status?.loadBalancer?.ingress ?? []).length > 0 ||
-      (item.spec?.type === "NodePort" &&
-        (item.spec.ports ?? []).some(({ nodePort }) => nodePort !== undefined)),
-  );
+  const items = parsed.items ?? [];
+  // A LoadBalancer Service is published once it has an address.
+  if (items.some((i) => (i.status?.loadBalancer?.ingress ?? []).length > 0)) {
+    return undefined;
+  }
+  // A NodePort Service never gets one: the environment's own load balancer
+  // reaches it on the configured node port, so that port must be assigned.
+  const expected = configuredNodePort(repository);
+  const assigned = items
+    .filter((i) => i.spec?.type === "NodePort")
+    .flatMap((i) => i.spec?.ports ?? [])
+    .flatMap(({ nodePort }) => (nodePort === undefined ? [] : [nodePort]));
+  if (
+    assigned.length > 0 &&
+    (expected === undefined || assigned.includes(expected))
+  ) {
+    return undefined;
+  }
+  return assigned.length > 0
+    ? `Service has node port ${assigned.join(", ")} but the configured node port ${expected} is not assigned`
+    : "Service has no LoadBalancer address or node port";
 }
 
 /**
@@ -87,6 +120,7 @@ async function isPublished(
  * `timeout` and fails with the condition reason the controller reported.
  */
 export async function waitForGateway(
+  repository: Repository,
   runner: Runner,
   base: string[],
   resource: string,
@@ -97,12 +131,13 @@ export async function waitForGateway(
     holds((await gatewayStatus(runner, base, resource)).conditions, "Accepted"),
   );
   await pollUntil(timeout, async () => {
-    if (await isPublished(runner, base, name)) {
+    const reason = await unpublished(repository, runner, base, name);
+    if (reason === undefined) {
       return undefined;
     }
     const { conditions } = await gatewayStatus(runner, base, resource);
     const programmed = conditions.find(({ type }) => type === "Programmed");
-    return `Service has no LoadBalancer address or node port; ${describe(programmed, "Programmed")}`;
+    return `${reason}; ${describe(programmed, "Programmed")}`;
   });
   await pollUntil(timeout, async () =>
     holds(
@@ -150,15 +185,15 @@ export async function waitForHTTPRoute(
 
 /** The readiness check for a `gateway/` or `httproute/` resource, if it is one. */
 export function gatewayCheck(
-  runner: Runner,
-  base: string[],
+  { repository, runner, base }: GatewayContext,
   resource: string,
 ): { condition: string; run: (timeout: string) => Promise<void> } | undefined {
   if (resource.startsWith("gateway/")) {
     return {
       condition:
         "Accepted, LoadBalancer address or node port, Programmed, ResolvedRefs",
-      run: (timeout) => waitForGateway(runner, base, resource, timeout),
+      run: (timeout) =>
+        waitForGateway(repository, runner, base, resource, timeout),
     };
   }
   if (resource.startsWith("httproute/")) {
