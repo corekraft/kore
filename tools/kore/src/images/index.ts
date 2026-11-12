@@ -34,7 +34,6 @@ export {
   writeK3dRegistriesConfig,
 } from "./k3d-registry-trust.js";
 export { withRegistryClient } from "./registry-client.js";
-export { shellQuote } from "./local-image-args.js";
 export {
   publishedDigest,
   publishImageCopy,
