@@ -4,7 +4,7 @@
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { test } from "node:test";
+import { test } from "./node-test-shim.mjs";
 import { fileURLToPath } from "node:url";
 
 import { findings, format, run, slug } from "./kb-check.mjs";

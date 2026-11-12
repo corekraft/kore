@@ -13,7 +13,7 @@ import {
 import { cpSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "node:test";
+import { test } from "./node-test-shim.mjs";
 import { fileURLToPath } from "node:url";
 
 import { linkProblems } from "./skill-links.mjs";

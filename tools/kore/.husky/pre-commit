@@ -8,7 +8,7 @@ pinned "$repo_root/tools/kore/node_modules/.bin/lint-staged" \
 staged="$(git diff --cached --name-only)"
 
 if printf '%s\n' "$staged" | grep -qE '^(\.claude|\.codex|skills)/'; then
-  pinned node --test "$repo_root/.claude/hooks" "$repo_root/.claude/evals" || {
+  (cd "$repo_root/tools/harness" && pinned npm run test:hooks --silent) || {
     echo "pre-commit: hook tests failed; run 'mise run test-hooks' and fix them" >&2
     exit 1
   }
