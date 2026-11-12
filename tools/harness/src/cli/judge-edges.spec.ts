@@ -28,6 +28,10 @@ function pr(overrides: Record<string, unknown>, runView?: FakeResponse) {
         result: { stdout: "/repo/.git\n" },
       },
       {
+        match: (c, a) => c === "git" && a[0] === "remote",
+        result: { stdout: "https://github.com/corekraft/kore.git\n" },
+      },
+      {
         match: (c, a) => c === "gh" && a[1] === "view" && a[0] === "pr",
         result: { stdout: JSON.stringify(view) },
       },
@@ -122,8 +126,19 @@ describe("judge precheck readable output and errors", () => {
   it("reports unreadable gh output as a JSON error under --json", async () => {
     const h = testHarness({
       env: { KORE_ROOT: "/repo" },
-      responses: [{ match: () => true, result: { stdout: "garbage" } }],
+      responses: [
+        {
+          match: (c, a) => c === "git" && a.includes("--git-common-dir"),
+          result: { stdout: "/repo/.git\n" },
+        },
+        {
+          match: (c, a) => c === "git" && a[0] === "remote",
+          result: { stdout: "https://github.com/corekraft/kore.git\n" },
+        },
+        { match: () => true, result: { stdout: "garbage" } },
+      ],
     });
+    h.deps.bundleUrl = BUNDLE;
     expect(await run(["judge", "precheck", "7", "--json"], h.deps)).toBe(1);
     expect(JSON.parse(h.err().split("\n")[0] ?? "").error).toContain(
       "unreadable",

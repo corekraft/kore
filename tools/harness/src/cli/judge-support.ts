@@ -3,6 +3,7 @@ import { testHarness } from "./cli-support.js";
 import type { FakeResponse } from "../runtime/runner-support.js";
 
 /** Where the harness bundle sits in the fake checkout; the judge finds the ledger from here. */
+export const REPO = "corekraft/kore";
 export const BUNDLE = "file:///repo/skills/bin/harness.mjs";
 export const LEDGER = "/repo/.kore/state/ledger.jsonl";
 export const RUN_URL =
@@ -24,6 +25,10 @@ export interface Scenario {
   steps?: { name: string; conclusion: string }[];
   diff?: string;
   git?: boolean;
+  /** The origin remote of the main checkout. */
+  remote?: string;
+  /** Answers that win over the defaults, for example a refused merge. */
+  first?: FakeResponse[];
 }
 
 export const passing = [
@@ -54,6 +59,7 @@ export const REVIEW_OK: Comment = { body: "principles-review: No violations." };
 
 export function scenario(s: Scenario = {}) {
   const responses: FakeResponse[] = [
+    ...(s.first ?? []),
     {
       match: (c: string, a: readonly string[]) =>
         c === "git" && a.includes("--git-common-dir"),
@@ -61,6 +67,12 @@ export function scenario(s: Scenario = {}) {
         s.git === false
           ? { code: 128, stderr: "fatal: not a git repository" }
           : { stdout: "/repo/.git\n" },
+    },
+    {
+      match: (c, a) => c === "git" && a[0] === "remote",
+      result: {
+        stdout: `${s.remote ?? "https://github.com/corekraft/kore.git"}\n`,
+      },
     },
     {
       match: (c, a) => c === "gh" && a[0] === "pr" && a[1] === "view",

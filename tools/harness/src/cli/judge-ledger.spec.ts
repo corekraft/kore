@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { run } from "./cli.js";
 import { testHarness } from "./cli-support.js";
 import {
+  BUNDLE,
   LEDGER,
   REVIEWER,
   passing,
@@ -18,7 +19,11 @@ describe("judge precheck recording and usage", () => {
     await precheck(h);
     expect(verbs(h)).toEqual(["gh pr view", "gh pr diff", "gh run view"]);
     const git = h.runner.calls.filter((c) => c.command === "git");
-    expect(git.map((c) => c.args.slice(0, 1).join(" "))).toEqual(["rev-parse"]);
+    expect(git.map((c) => c.args.slice(0, 1).join(" "))).toEqual([
+      "rev-parse",
+      "remote",
+      "rev-parse",
+    ]);
   });
 
   it("records a precheck ledger event with the pattern and verdict", async () => {
@@ -59,8 +64,19 @@ describe("judge precheck recording and usage", () => {
   it("names the gh failure when the PR cannot be read", async () => {
     const h = testHarness({
       env: { KORE_ROOT: "/repo" },
-      responses: [{ match: () => true, result: { code: 1, stderr: "no PR" } }],
+      responses: [
+        {
+          match: (c, a) => c === "git" && a.includes("--git-common-dir"),
+          result: { stdout: "/repo/.git\n" },
+        },
+        {
+          match: (c, a) => c === "git" && a[0] === "remote",
+          result: { stdout: "https://github.com/corekraft/kore.git\n" },
+        },
+        { match: () => true, result: { code: 1, stderr: "no PR" } },
+      ],
     });
+    h.deps.bundleUrl = BUNDLE;
     expect(await run(["judge", "precheck", "42"], h.deps)).toBe(1);
     expect(h.err()).toContain("gh auth status");
     expect(h.files.has(LEDGER)).toBe(false);
@@ -103,11 +119,33 @@ describe("judge precheck reruns and ledger failures", () => {
     ]);
   });
 
-  it("still prints the report when no ledger can be opened", async () => {
+  it("names the missing main checkout and runs no gh command without it", async () => {
     const h = scenario({ git: false });
-    const code = await precheck(h);
-    expect(JSON.parse(h.out().split("\n")[0] ?? "")).toMatchObject({ pr: 42 });
-    expect(code).toBe(1);
+    expect(await precheck(h)).toBe(1);
+    expect(h.err()).toContain("main checkout");
+    expect(verbs(h)).toEqual([]);
+  });
+
+  it("names the repository on every gh call, from the main checkout's origin", async () => {
+    const h = scenario({ remote: "git@github.com:acme/widgets.git" });
+    await precheck(h);
+    const gh = h.runner.calls.filter((c) => c.command === "gh");
+    expect(gh.length).toBeGreaterThan(0);
+    for (const call of gh) {
+      expect(call.args.join(" ")).toContain("--repo acme/widgets");
+    }
+  });
+
+  it("ignores GH_REPO and refuses an origin that is not on GitHub", async () => {
+    const stray = scenario({ env: { GH_REPO: "evil/repo" } });
+    await precheck(stray);
+    for (const call of stray.runner.calls.filter((c) => c.command === "gh")) {
+      expect(call.args.join(" ")).toContain("--repo corekraft/kore");
+    }
+    const odd = scenario({ remote: "https://example.com/x/y.git" });
+    expect(await precheck(odd)).toBe(1);
+    expect(odd.err()).toContain("not a GitHub repository");
+    expect(verbs(odd)).toEqual([]);
   });
 });
 

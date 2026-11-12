@@ -1,9 +1,10 @@
 // Role bounds for the delivery roles (ADR 0078): the orchestrator and judge change no
-// file, only the writer does and only inside its own worktree, and nobody merges until
-// the merge tool exists (plan 11 Step 5). The orchestrator and judge run under the
-// shared read allowlist in guard-role-allow.ts, so a write form nobody listed is
-// refused by default. The owner approved enforcing these guards on
-// #190 and #191 (2026-11-12), so every rule blocks.
+// file, only the writer does and only inside its own worktree, and the only merge is the
+// judge's `harness judge merge`, which re-runs the precheck first (plan 11 Step 5). A
+// session with no role, such as the person's, is not bound here and keeps `gh pr merge`.
+// The orchestrator and judge run under the shared read allowlist in guard-role-allow.ts,
+// so a write form nobody listed is refused by default. The owner approved enforcing these
+// guards on #190 and #191 (2026-11-12), so every rule blocks.
 import { isAbsolute, relative, resolve } from "node:path";
 import {
   changesShell,
@@ -17,6 +18,13 @@ import {
   WRITE_TOOLS,
 } from "./guard-role-writes.js";
 import { readMayRun } from "./guard-role-allow.js";
+import {
+  mergesPr,
+  runsJudgeTool,
+  withSubstitutions,
+} from "./guard-role-merge.js";
+import { pushesByTracking, pushesToMain } from "./guard-role-push.js";
+import { takesRoute, takesWriterRoute } from "./guard-role-routes.js";
 import { commandOf, splitSegments } from "./guard-shell.js";
 import { block, type Finding } from "./guard-verdict.js";
 
@@ -27,8 +35,8 @@ export const DELIVERY_ROLES = new Set([...REPORTING_ROLES, "writer"]);
 const noMerge = (role: string, what: string): Finding =>
   block(
     "role-no-merge",
-    `${what} merges, but the ${role} may not: the merge tool does not exist yet (plan 11 Step 5), so no role merges. ` +
-      "Instead, report the verdict; the judge reports safe or sends the change back, and the operator merges.",
+    `${what} merges or pushes to main, but the ${role} may not merge by hand: the merge tool re-runs the precheck and merges only when it passes. ` +
+      "Instead, the judge runs `harness judge merge <pr>` or `harness judge send-back <pr> --reason <why>`; every other role reports and leaves the merge to the judge.",
   );
 
 const outsideWorktree = (what: string, root: string): Finding =>
@@ -37,16 +45,6 @@ const outsideWorktree = (what: string, root: string): Finding =>
     `${what} reaches outside this worktree (${root}), and a writer works only in the worktree it was launched in. ` +
       "Instead, make the change inside the worktree, or report that it needs another piece of work.",
   );
-
-const MERGE_API = /\/pulls\/\d+\/merge\b/;
-const merges = (segment: readonly string[]): boolean => {
-  const { name, args } = commandOf(segment);
-  return (
-    name === "gh" &&
-    ((args[0] === "pr" && args[1] === "merge") ||
-      (args[0] === "api" && args.some((arg) => MERGE_API.test(arg))))
-  );
-};
 
 /** An interpreter given inline code, or an editor told to work in place, which can write anything. */
 function runsInline(segment: readonly string[]): boolean {
@@ -85,8 +83,17 @@ const ORCHESTRATOR_HARNESS = [
   "outcome close",
 ];
 
-/** The judge also runs its precheck, which reads GitHub and appends one event to the shared ledger (never a path of its choosing). */
-const JUDGE_HARNESS = [...READS, "judge precheck"];
+/**
+ * The judge also runs its precheck, which reads GitHub and appends one event to the
+ * shared ledger, and the merge tool and send-back, which write only through gh and that
+ * same ledger (never a path of its choosing).
+ */
+const JUDGE_HARNESS = [
+  ...READS,
+  "judge precheck",
+  "judge merge",
+  "judge send-back",
+];
 
 /** The harness commands each delivery role may run; any other role gets the reads. */
 const HARNESS_BY_ROLE: Record<string, readonly string[]> = {
@@ -149,7 +156,23 @@ function harnessRefused(role: string, segment: readonly string[]): boolean {
 }
 
 const SCRATCH = ["/tmp/", "/private/tmp/", "/var/folders/", "/dev/"];
-const PATHS = /(?:~|\.\.|\/)[\w.@~/-]*/g;
+/**
+ * Paths in a word: an absolute or home path that starts the word or follows a character no
+ * path holds (`=`, `>`, `(`, a quote), and any `..` segment. A slash inside a word (`feat/x`
+ * in a branch name) does not start a path, so an ordinary branch push is not read as an
+ * absolute one.
+ */
+const ABSOLUTE = /(?:^|[^\w.@~/-])((?:~|\/)[\w.@~/-]*)/g;
+const PARENT = /[\w.@~/-]*\.\.[\w.@~/-]*/g;
+
+/** The paths a word names. */
+function pathsIn(word: string): string[] {
+  const text = word.replace(/^(?:\d*>>?|&>>?)/, "");
+  return [
+    ...[...text.matchAll(ABSOLUTE)].flatMap((m) => (m[1] ? [m[1]] : [])),
+    ...(text.match(PARENT) ?? []).filter((p) => p.split("/").includes("..")),
+  ];
+}
 
 /** Whether a path is outside the worktree and not scratch space in tmp. */
 function outside(root: string, path: string): boolean {
@@ -179,9 +202,7 @@ function escapes(segment: readonly string[], root: string): string | undefined {
   if (!writes(segment) && !runsInline(segment)) {
     return undefined;
   }
-  return segment
-    .flatMap((word) => word.replace(/^(?:\d*>>?|&>>?)/, "").match(PATHS) ?? [])
-    .find((path) => outside(root, path));
+  return segment.flatMap(pathsIn).find((path) => outside(root, path));
 }
 
 export function checkDeliveryBash(
@@ -190,9 +211,23 @@ export function checkDeliveryBash(
   root: string,
 ): Finding {
   const segments = splitSegments(command);
-  const merging = segments.find(merges);
+  // A command substituted into another still runs, so the merge checks read it too.
+  const merging = withSubstitutions(command).find(
+    (s) =>
+      mergesPr(s) ||
+      pushesToMain(s) ||
+      takesRoute(s) ||
+      // Only the writer has the full shell; the read-only roles' allowlist refuses these anyway.
+      (!REPORTING_ROLES.has(role) && takesWriterRoute(s)) ||
+      // A reporting role never pushes at all (read-only below), so only the writer needs the branch read.
+      (!REPORTING_ROLES.has(role) && pushesByTracking(s, root)),
+  );
   if (merging !== undefined) {
     return noMerge(role, `\`${merging.join(" ")}\``);
+  }
+  const judging = segments.find((s) => runsJudgeTool(s, HARNESS));
+  if (judging !== undefined && role !== "judge") {
+    return noMerge(role, `\`${judging.join(" ")}\``);
   }
   if (REPORTING_ROLES.has(role)) {
     if (SUBSTITUTION.test(command)) {

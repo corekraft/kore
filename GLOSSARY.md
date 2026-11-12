@@ -78,7 +78,8 @@ _Avoid_: Implementer, coder
 
 **Judge**:
 An agent that decides whether a change is a safe delivery under its declared
-safety pattern, and sends it back to the orchestrator when it is not.
+safety pattern, merges it through the merge tool, and sends it back to the
+orchestrator with the reason when it is not.
 _Avoid_: Reviewer, approver
 
 **Tool**:

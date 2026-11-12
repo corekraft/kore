@@ -213,8 +213,9 @@ repository root; `mise run kb-check` keeps this list complete.
   are the `role-*` guard rules in `tools/harness/src/hook/guard-role.ts`.
 - [`.github/pull_request_template.md`](../.github/pull_request_template.md) —
   the PR body, with the one `Safety pattern:` field and the linked idea that
-  `harness judge precheck <pr>` reads before it reads the diff. Read when
-  opening a PR or changing the judge's precheck.
+  `harness judge precheck <pr>` reads before it reads the diff, and
+  `harness judge merge <pr>` re-runs before it squash-merges. Read when
+  opening a PR or changing the judge's precheck or merge tool.
 - [`.claude/evals/`](../.claude/evals/) — skill-triggering, review and role
   boundary evals (`--kind boundary`, opt-in). Read when changing a skill
   description, the review agent or a role's bounds.

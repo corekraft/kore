@@ -15,6 +15,8 @@ export class JudgeError extends Error {}
 export interface Report {
   pr: number;
   ok: boolean;
+  /** The head commit the verdict covers; the merge tool merges only this one. */
+  head?: string;
   pattern: Pattern | undefined;
   idea: string | undefined;
   declaration: { ok: boolean; reason?: string };
@@ -32,10 +34,14 @@ const FIX =
 async function gh(
   { deps }: CommandContext,
   root: string,
+  repo: string,
   args: string[],
   pr: number,
 ): Promise<string> {
-  const done = await deps.runner.run("gh", args, { cwd: root });
+  // The repository is named, never taken from the working directory or GH_REPO.
+  const done = await deps.runner.run("gh", [...args, "--repo", repo], {
+    cwd: root,
+  });
   if (done.code !== 0) {
     throw new JudgeError(
       `gh ${args.slice(0, 2).join(" ")} failed for PR #${pr}: ${done.stderr.trim()}. ${FIX}`,
@@ -44,14 +50,16 @@ async function gh(
   return done.stdout;
 }
 
-async function readPr(
+export async function readPr(
   context: CommandContext,
   root: string,
+  repo: string,
   pr: number,
 ): Promise<PrView> {
   const out = await gh(
     context,
     root,
+    repo,
     [
       "pr",
       "view",
@@ -75,10 +83,11 @@ async function readPr(
 export async function precheck(
   context: CommandContext,
   root: string,
+  repo: string,
   pr: number,
   reviewers: readonly string[],
 ): Promise<Report> {
-  const view = await readPr(context, root, pr);
+  const view = await readPr(context, root, repo, pr);
   const declaration = parseDeclaration(view.body);
   if (!declaration.ok) {
     return {
@@ -89,13 +98,20 @@ export async function precheck(
       declaration: { ok: false, reason: declaration.reason },
     };
   }
-  const diff = await gh(context, root, ["pr", "diff", String(pr)], pr);
-  const checks = await gatherChecks(context.deps.runner, root, view, reviewers);
+  const diff = await gh(context, root, repo, ["pr", "diff", String(pr)], pr);
+  const checks = await gatherChecks(
+    context.deps.runner,
+    root,
+    repo,
+    view,
+    reviewers,
+  );
   const files = parseDiff(diff);
   const hints = hintsFor(declaration.pattern, files);
   const verdict = assess(declaration.pattern, hints, files);
   return {
     pr,
+    head: view.headSha,
     ok:
       verdict.patternMatches &&
       Object.values(checks).every((c) => c.result === "pass"),

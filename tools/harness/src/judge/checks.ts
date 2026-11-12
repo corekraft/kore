@@ -158,6 +158,7 @@ function review(view: PrView, reviewers: readonly string[]): Check {
 async function coverage(
   runner: Runner,
   root: string,
+  repo: string,
   pr: PrView,
 ): Promise<Check> {
   const url = pr.rollup.find((c) => c.name === CI_JOB)?.url ?? "";
@@ -168,9 +169,13 @@ async function coverage(
       detail: "no CI run on the PR to read coverage out of",
     };
   }
-  const done = await runner.run("gh", ["run", "view", run, "--json", "jobs"], {
-    cwd: root,
-  });
+  const done = await runner.run(
+    "gh",
+    ["run", "view", run, "--repo", repo, "--json", "jobs"],
+    {
+      cwd: root,
+    },
+  );
   if (done.code !== 0) {
     return { result: "missing", detail: `gh run view ${run} failed` };
   }
@@ -214,13 +219,14 @@ async function coverage(
 export async function gatherChecks(
   runner: Runner,
   root: string,
+  repo: string,
   view: PrView,
   reviewers: readonly string[],
 ): Promise<Checks> {
   return {
     ci: job(view, CI_JOB),
     scan: job(view, SCAN_JOB),
-    coverage: await coverage(runner, root, view),
+    coverage: await coverage(runner, root, repo, view),
     principlesReview: review(view, reviewers),
   };
 }
