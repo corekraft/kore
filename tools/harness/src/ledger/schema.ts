@@ -12,6 +12,7 @@ export const KINDS = [
   "pane.closed",
   "issue.opened",
   "issue.labelled",
+  "issue.closed",
   "pr.opened",
   "pr.merged",
 ] as const;
@@ -24,6 +25,7 @@ const TOOL_KINDS: readonly Kind[] = ["tool.start", "tool.end"];
 const NUMBER_KINDS: readonly Kind[] = [
   "issue.opened",
   "issue.labelled",
+  "issue.closed",
   "pr.opened",
   "pr.merged",
 ];

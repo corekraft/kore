@@ -180,14 +180,14 @@ function headings(markdown) {
       fence = opener === fence ? null : fence ?? opener;
       continue;
     }
-    const text2 = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(line2)?.[1];
-    if (text2 === void 0) {
+    const text3 = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(line2)?.[1];
+    if (text3 === void 0) {
       continue;
     }
-    const base = headingSlug(text2);
+    const base = headingSlug(text3);
     const count = seen.get(base) ?? 0;
     seen.set(base, count + 1);
-    found.push({ text: text2, anchor: count > 0 ? `${base}-${count}` : base });
+    found.push({ text: text3, anchor: count > 0 ? `${base}-${count}` : base });
   }
   return found;
 }
@@ -241,13 +241,13 @@ var Adrs = class {
     ];
     const entry = `- [\`${path}\`](decisions/${file}) \u2014 ${input.summary}`;
     const index = this.insert(indexText, next, entry);
-    const report = {
+    const report2 = {
       dryRun,
       number,
       files: [
         {
           path,
-          lines: body.slice(0, -1).map((text2, i) => ({ number: i + 1, text: text2 }))
+          lines: body.slice(0, -1).map((text3, i) => ({ number: i + 1, text: text3 }))
         },
         { path: INDEX, lines: [{ number: index.line, text: entry }] }
       ]
@@ -256,7 +256,7 @@ var Adrs = class {
       await this.fs.writeFile(this.abs(path), body.join("\n"));
       await this.fs.writeFile(this.abs(INDEX), index.text);
     }
-    return report;
+    return report2;
   }
   async readIndex() {
     if (!await this.fs.exists(this.abs(INDEX))) {
@@ -265,8 +265,8 @@ var Adrs = class {
     return this.fs.readFile(this.abs(INDEX));
   }
   /** Puts the entry before the first later-numbered ADR line, else after the last one. */
-  insert(text2, next, entry) {
-    const lines = text2.split("\n");
+  insert(text3, next, entry) {
+    const lines = text3.split("\n");
     const start = lines.indexOf("## Decisions");
     if (start === -1) {
       throw new AdrError(
@@ -406,9 +406,9 @@ var Supersession = class {
       files: [
         {
           path: oldAdr.path,
-          lines: changed.map((text2, i) => ({
+          lines: changed.map((text3, i) => ({
             number: oldAdr.statusLine + 1 + i,
-            text: text2
+            text: text3
           }))
         }
       ]
@@ -458,9 +458,9 @@ var Supersession = class {
 
 // src/adr/commands.ts
 var REQUIRED = ["title", "summary", "status", "source"];
-function describe(report) {
-  const verb = report.dryRun ? "Would write" : "Wrote";
-  return `${report.files.map(
+function describe(report2) {
+  const verb = report2.dryRun ? "Would write" : "Wrote";
+  return `${report2.files.map(
     (f) => `${verb} ${f.path} (lines ${f.lines[0]?.number}-${f.lines.at(-1)?.number})`
   ).join("\n")}
 `;
@@ -508,12 +508,12 @@ var newAdr = {
     );
     const refines = typeof options["refines"] === "string" ? options["refines"].trim() : void 0;
     const root2 = await repoRoot(deps);
-    const report = await new Adrs(deps.fs, deps.clock, root2).create(
+    const report2 = await new Adrs(deps.fs, deps.clock, root2).create(
       { title, summary, status, source, ...refines ? { refines } : {} },
       options["dry-run"] === true
     );
-    deps.stdout(json ? `${JSON.stringify(report)}
-` : describe(report));
+    deps.stdout(json ? `${JSON.stringify(report2)}
+` : describe(report2));
     return 0;
   })
 };
@@ -522,15 +522,15 @@ var supersede = {
   options: { old: "string", new: "string", "dry-run": "boolean" },
   run: ({ json, options, deps }) => withAdrErrors(json, deps, async () => {
     const root2 = await repoRoot(deps);
-    const report = await new Supersession(deps.fs, root2).supersede(
+    const report2 = await new Supersession(deps.fs, root2).supersede(
       requiredFlag(options, "old", "number"),
       requiredFlag(options, "new", "number"),
       options["dry-run"] === true
     );
-    const verb = report.dryRun ? "Would set" : "Set";
+    const verb = report2.dryRun ? "Would set" : "Set";
     deps.stdout(
-      json ? `${JSON.stringify(report)}
-` : `${verb} ${report.files[0]?.path} to status superseded, superseded-by ADR ${report.new}
+      json ? `${JSON.stringify(report2)}
+` : `${verb} ${report2.files[0]?.path} to status superseded, superseded-by ADR ${report2.new}
 `
     );
     return 0;
@@ -560,8 +560,8 @@ var REQUIRED2 = [
   ["safety-pattern", "safetyPattern"],
   ["date", "date"]
 ];
-function frontmatter(text2) {
-  const lines = text2.split("\n");
+function frontmatter(text3) {
+  const lines = text3.split("\n");
   if (lines[0] !== "---") {
     return null;
   }
@@ -577,7 +577,7 @@ function frontmatter(text2) {
   }
   return null;
 }
-function parseIdea(path, text2) {
+function parseIdea(path, text3) {
   const file = path.slice(path.lastIndexOf("/") + 1);
   const name = IDEA_FILE.exec(file);
   if (name?.[1] === void 0 || name[2] === void 0) {
@@ -585,7 +585,7 @@ function parseIdea(path, text2) {
       `${path} is not named NNNN-slug.md; rename it to a four-digit number and a lowercase slug.`
     );
   }
-  const keys = frontmatter(text2);
+  const keys = frontmatter(text3);
   if (keys === null) {
     throw new IdeaError(
       `${path} has no frontmatter; start it with --- and the idea fields (see \`harness idea new --help\`).`
@@ -598,7 +598,7 @@ function parseIdea(path, text2) {
     );
   }
   const get = (key) => keys.get(key) ?? "";
-  const heading = /^# Idea \d{4}: (.+)$/m.exec(text2)?.[1];
+  const heading = /^# Idea \d{4}: (.+)$/m.exec(text3)?.[1];
   const record2 = {
     number: name[1],
     slug: name[2],
@@ -619,16 +619,16 @@ function parseIdea(path, text2) {
   return record2;
 }
 function scalar(flag, value) {
-  const text2 = (value ?? "").replace(/\s+/g, " ").trim();
-  if (text2 === "") {
+  const text3 = (value ?? "").replace(/\s+/g, " ").trim();
+  if (text3 === "") {
     throw new IdeaError(`Missing --${flag}; pass a non-empty value.`);
   }
-  if (/^[[{|>&*!-]/.test(text2)) {
+  if (/^[[{|>&*!-]/.test(text3)) {
     throw new IdeaError(
-      `--${flag} must not start with "${text2.slice(0, 1)}"; frontmatter holds plain text, so reword it.`
+      `--${flag} must not start with "${text3.slice(0, 1)}"; frontmatter holds plain text, so reword it.`
     );
   }
-  return text2;
+  return text3;
 }
 function renderIdea(number, date, idea) {
   const lines = [
@@ -709,20 +709,20 @@ var IdeaRepository = class {
       const taken = names2.map((n) => Number(n.slice(0, 4)));
       const number = String(Math.max(0, ...taken) + 1).padStart(4, "0");
       const path = `${DIR}/${number}-${slug}.md`;
-      const text2 = renderIdea(
+      const text3 = renderIdea(
         number,
         this.clock.now().toISOString().slice(0, 10),
         idea
       );
       try {
-        await this.fs.createFile(this.abs(path), text2);
+        await this.fs.createFile(this.abs(path), text3);
       } catch (error) {
         if (error.code === "EEXIST") {
           continue;
         }
         throw error;
       }
-      const record2 = parseIdea(path, text2);
+      const record2 = parseIdea(path, text3);
       await this.ensureIndexed(record2);
       return { created: true, record: record2 };
     }
@@ -921,8 +921,261 @@ var ideaCommands = {
   show
 };
 
-// src/cli/ledger-commands.ts
-import { dirname as dirname3, resolve as resolve2 } from "node:path";
+// src/flow/stages.ts
+var STAGES = [
+  "refine",
+  "challenge",
+  "await approval",
+  "orchestrate",
+  "write",
+  "judge",
+  "merge",
+  "verify",
+  "outcome"
+];
+var ROLE_STAGES = {
+  refiner: { stage: "refine" },
+  challenger: { stage: "challenge" },
+  orchestrator: { stage: "orchestrate" },
+  writer: { stage: "write" },
+  judge: { stage: "judge" },
+  // A verifier checks the merged change; earlier events are not verification.
+  verifier: { stage: "verify", after: "pr.merged" }
+};
+var MAIN_SESSION_STAGE = "orchestrate";
+var APPROVAL_LABEL = "ready-for-agent";
+var GITHUB_STAGES = {
+  "issue.opened": "await approval",
+  "issue.closed": "outcome",
+  "pr.opened": "merge",
+  "pr.merged": "merge"
+};
+var MIN_COMPLETED_IDEAS = 3;
+
+// src/flow/report.ts
+var REPORT_VERSION = 1;
+var STATE_AFTER = {
+  "session.start": "active",
+  "tool.start": "active",
+  "tool.end": "active",
+  "pane.spawned": "active",
+  "pane.busy": "active",
+  "pane.waiting": "waiting",
+  "pane.closed": "closed",
+  "session.stop": "closed"
+};
+var time = (event) => Date.parse(event.occurredAt);
+function uncovered(span, holes) {
+  const sorted = holes.map(([a, b]) => [Math.max(a, span[0]), Math.min(b, span[1])]).filter(([a, b]) => b > a).sort((x, y) => x[0] - y[0]);
+  let free = span[1] - span[0];
+  let reached = span[0];
+  for (const [a, b] of sorted) {
+    const from = Math.max(a, reached);
+    if (b > from) {
+      free -= b - from;
+      reached = b;
+    }
+  }
+  return free;
+}
+function roleOf(event) {
+  for (const name of [event.agent, event.pane, event.session]) {
+    const role = name?.split("-").at(-1);
+    if (role !== void 0 && Object.hasOwn(ROLE_STAGES, role)) {
+      return ROLE_STAGES[role];
+    }
+  }
+  return void 0;
+}
+function attribute(events) {
+  const byActor = /* @__PURE__ */ new Map();
+  const actors = (e) => [e.pane && `pane:${e.pane}`, e.session && `session:${e.session}`].filter(
+    (a) => typeof a === "string"
+  );
+  for (const event of events) {
+    if (event.idea !== void 0) {
+      for (const actor of actors(event)) {
+        byActor.set(actor, event.idea);
+      }
+    }
+  }
+  const result = /* @__PURE__ */ new Map();
+  for (const event of events) {
+    const own2 = event.kind.startsWith("issue.") ? `#${event.number}` : void 0;
+    const inherited = actors(event).map((a) => byActor.get(a)).find((i) => i !== void 0);
+    result.set(event.id, event.idea ?? own2 ?? inherited);
+  }
+  return result;
+}
+var Tally = class {
+  totals = new Map(
+    STAGES.map((stage) => [
+      stage,
+      { stage, activeSeconds: 0, waitingSeconds: 0, events: 0 }
+    ])
+  );
+  add(stage, field2, ms) {
+    this.totals.get(stage)[field2] += ms / 1e3;
+  }
+  count(stage) {
+    this.totals.get(stage).events += 1;
+  }
+};
+function actorTime(tally, events) {
+  const byActor = /* @__PURE__ */ new Map();
+  for (const item of events) {
+    const key = item.event.pane ?? item.event.session;
+    if (key !== void 0) {
+      byActor.set(key, [...byActor.get(key) ?? [], item]);
+    }
+  }
+  const lifetimes = [];
+  for (const items of byActor.values()) {
+    items.sort((a, b) => time(a.event) - time(b.event));
+    let closedAt;
+    for (let i = 0; i < items.length - 1; i += 1) {
+      const current = items[i];
+      const next = items[i + 1];
+      const state = STATE_AFTER[current.event.kind];
+      if (closedAt === void 0 && state === "closed") {
+        closedAt = time(current.event);
+      }
+      if (closedAt === void 0 && state !== void 0 && state !== "closed") {
+        tally.add(
+          current.stage,
+          state === "active" ? "activeSeconds" : "waitingSeconds",
+          time(next.event) - time(current.event)
+        );
+      }
+    }
+    const first = items[0];
+    const last = items.at(-1);
+    if (first.stage !== "orchestrate") {
+      lifetimes.push([time(first.event), closedAt ?? time(last.event)]);
+    }
+  }
+  return lifetimes;
+}
+function firstTime(events, match) {
+  return events.filter(match).map(time).sort((a, b) => a - b)[0];
+}
+function githubWaits(tally, events, holes, asOf) {
+  const closed = firstTime(events, (e) => e.kind === "issue.closed");
+  const waits = [
+    [
+      "await approval",
+      firstTime(events, (e) => e.kind === "issue.opened"),
+      firstTime(
+        events,
+        (e) => e.kind === "issue.labelled" && e.label === APPROVAL_LABEL
+      )
+    ],
+    [
+      "merge",
+      firstTime(events, (e) => e.kind === "pr.opened"),
+      firstTime(events, (e) => e.kind === "pr.merged")
+    ]
+  ];
+  for (const [stage, start, end] of waits) {
+    if (start !== void 0) {
+      const stop = end ?? closed ?? asOf;
+      if (stop > start) {
+        tally.add(stage, "waitingSeconds", uncovered([start, stop], holes));
+      }
+    }
+  }
+}
+function stageOf(event, mergedAt) {
+  const github = GITHUB_STAGES[event.kind];
+  if (github !== void 0) {
+    return github;
+  }
+  if (event.kind === "issue.labelled") {
+    return event.label === APPROVAL_LABEL ? "await approval" : void 0;
+  }
+  const role = roleOf(event);
+  if (role !== void 0) {
+    const gate = role.after === "pr.merged" ? mergedAt : void 0;
+    const open = role.after === void 0 || gate !== void 0 && time(event) >= gate;
+    return open ? role.stage : void 0;
+  }
+  return event.pane === void 0 && event.source === "claude" ? MAIN_SESSION_STAGE : void 0;
+}
+function roundShare(share) {
+  return Math.round(share * 1e4) / 1e4;
+}
+function groupByIdea(events) {
+  const ideaOf = attribute(events);
+  const byIdea = /* @__PURE__ */ new Map();
+  let unattributed = 0;
+  for (const event of events) {
+    const idea = ideaOf.get(event.id);
+    if (idea === void 0) {
+      unattributed += 1;
+    } else {
+      byIdea.set(idea, [...byIdea.get(idea) ?? [], event]);
+    }
+  }
+  return { byIdea, unattributed };
+}
+function chargeIdea(tally, own2, asOf) {
+  const mergedAt = firstTime(own2, (e) => e.kind === "pr.merged");
+  const mapped = [];
+  for (const event of own2) {
+    const stage = stageOf(event, mergedAt);
+    if (stage !== void 0) {
+      tally.count(stage);
+      mapped.push({ event, stage });
+    }
+  }
+  githubWaits(tally, own2, actorTime(tally, mapped), asOf);
+  return own2.length - mapped.length;
+}
+function nameBottleneck(stages, completed, minCompletedIdeas) {
+  const waiting = stages.reduce((sum, s) => sum + s.waitingSeconds, 0);
+  const worst = stages.reduce(
+    (a, b) => b.waitingSeconds > a.waitingSeconds ? b : a
+  );
+  if (completed < minCompletedIdeas) {
+    return {
+      bottleneck: null,
+      bottleneckNote: `Not enough data: ${completed} of ${minCompletedIdeas} completed ideas needed to name a bottleneck.`
+    };
+  }
+  if (waiting === 0) {
+    return {
+      bottleneck: null,
+      bottleneckNote: "No waiting time recorded, so there is no bottleneck."
+    };
+  }
+  return {
+    bottleneck: {
+      stage: worst.stage,
+      waitingSeconds: worst.waitingSeconds,
+      share: roundShare(worst.waitingSeconds / waiting)
+    }
+  };
+}
+function buildReport(events, { asOf, minCompletedIdeas }) {
+  const { byIdea, unattributed } = groupByIdea(events);
+  const tally = new Tally();
+  let unmapped = unattributed;
+  let completed = 0;
+  for (const own2 of byIdea.values()) {
+    unmapped += chargeIdea(tally, own2, asOf.getTime());
+    completed += own2.some((e) => e.kind === "issue.closed") ? 1 : 0;
+  }
+  const stages = [...tally.totals.values()];
+  return {
+    version: REPORT_VERSION,
+    asOf: asOf.toISOString(),
+    ideas: { total: byIdea.size, completed },
+    minCompletedIdeas,
+    stages,
+    ...nameBottleneck(stages, completed, minCompletedIdeas),
+    unmappedEvents: unmapped
+  };
+}
 
 // src/ledger/schema.ts
 var SOURCES = ["claude", "herdr", "github"];
@@ -937,6 +1190,7 @@ var KINDS = [
   "pane.closed",
   "issue.opened",
   "issue.labelled",
+  "issue.closed",
   "pr.opened",
   "pr.merged"
 ];
@@ -945,6 +1199,7 @@ var TOOL_KINDS = ["tool.start", "tool.end"];
 var NUMBER_KINDS = [
   "issue.opened",
   "issue.labelled",
+  "issue.closed",
   "pr.opened",
   "pr.merged"
 ];
@@ -976,11 +1231,11 @@ function isTimestamp(value) {
   if (!TIMESTAMP.test(value)) {
     return false;
   }
-  const time = new Date(value);
-  if (Number.isNaN(time.getTime())) {
+  const time2 = new Date(value);
+  if (Number.isNaN(time2.getTime())) {
     return false;
   }
-  return time.toISOString().slice(0, 10) === value.slice(0, 10);
+  return time2.toISOString().slice(0, 10) === value.slice(0, 10);
 }
 function bad(field2, problem) {
   return {
@@ -1117,10 +1372,10 @@ var Ledger = class {
     return { ok: true, event };
   }
   async list(filter) {
-    const text2 = await this.read();
+    const text3 = await this.read();
     const events = [];
     let skipped = 0;
-    for (const line2 of text2.split("\n")) {
+    for (const line2 of text3.split("\n")) {
       if (line2 === "") {
         continue;
       }
@@ -1159,6 +1414,7 @@ function matches(event, filter) {
 }
 
 // src/cli/ledger-commands.ts
+import { dirname as dirname3, resolve as resolve2 } from "node:path";
 var DEFAULT_LEDGER = ".kore/state/ledger.jsonl";
 var EVENT_FLAGS = [
   "id",
@@ -1223,15 +1479,15 @@ async function eventInput(context) {
       )
     };
   }
-  const text2 = await context.deps.stdin();
-  if (text2.trim() === "") {
+  const text3 = await context.deps.stdin();
+  if (text3.trim() === "") {
     return {
       error: "No event given. Pass --source, --kind and --occurred-at, or one JSON event on stdin.",
       code: 2
     };
   }
   try {
-    return { input: JSON.parse(text2) };
+    return { input: JSON.parse(text3) };
   } catch {
     return { error: "Invalid event: stdin is not valid JSON." };
   }
@@ -1270,17 +1526,17 @@ var record = {
 };
 function filterFrom(options) {
   const filter = {};
-  const text2 = (name) => {
+  const text3 = (name) => {
     const value = options[name];
     return typeof value === "string" ? value : void 0;
   };
   for (const name of ["session", "pane", "idea"]) {
-    const value = text2(name);
+    const value = text3(name);
     if (value !== void 0) {
       filter[name] = value;
     }
   }
-  const source = text2("source");
+  const source = text3("source");
   if (source !== void 0) {
     if (!SOURCES.includes(source)) {
       return {
@@ -1289,7 +1545,7 @@ function filterFrom(options) {
     }
     filter.source = source;
   }
-  const kind = text2("kind");
+  const kind = text3("kind");
   if (kind !== void 0) {
     if (!KINDS.includes(kind)) {
       return { error: `Invalid --kind "${kind}". Kinds: ${KINDS.join(", ")}.` };
@@ -1297,7 +1553,7 @@ function filterFrom(options) {
     filter.kind = kind;
   }
   for (const name of ["since", "until"]) {
-    const value = text2(name);
+    const value = text3(name);
     if (value !== void 0) {
       if (!isTimestamp(value)) {
         return {
@@ -1353,6 +1609,90 @@ var list2 = {
 };
 var ledgerCommands = { record, list: list2 };
 
+// src/cli/flow-commands.ts
+function parseFlags({ options, deps }) {
+  const min = options["min-ideas"];
+  let minCompletedIdeas = MIN_COMPLETED_IDEAS;
+  if (min !== void 0) {
+    minCompletedIdeas = typeof min === "string" ? Number(min) : Number.NaN;
+    if (!/^\d+$/.test(String(min)) || minCompletedIdeas < 1) {
+      return {
+        error: `Invalid --min-ideas "${String(min)}". Use a whole number of at least 1.`
+      };
+    }
+  }
+  const given = options["as-of"];
+  if (given === void 0) {
+    return { asOf: deps.clock.now(), minCompletedIdeas };
+  }
+  if (typeof given !== "string" || !isTimestamp(given)) {
+    return {
+      error: `Invalid --as-of "${String(given)}". Use an ISO 8601 UTC time such as 2026-01-02T03:04:05Z.`
+    };
+  }
+  return { asOf: new Date(given), minCompletedIdeas };
+}
+var seconds = (value) => `${Math.round(value)}s`;
+function text2(report2) {
+  const rows = report2.stages.map(
+    (s) => [
+      s.stage.padEnd(15),
+      `active ${seconds(s.activeSeconds)}`.padEnd(16),
+      `waiting ${seconds(s.waitingSeconds)}`.padEnd(17),
+      `${s.events} events`
+    ].join(" ")
+  );
+  const lines = [
+    `Flow report as of ${report2.asOf}: ${report2.ideas.completed} of ${report2.ideas.total} ideas completed`,
+    ...rows,
+    `Unmapped events: ${report2.unmappedEvents}`,
+    report2.bottleneck === null ? report2.bottleneckNote ?? "No bottleneck." : `Bottleneck: ${report2.bottleneck.stage} (${Math.round(report2.bottleneck.share * 100)}% of waiting)`
+  ];
+  if (report2.skippedLines > 0) {
+    lines.push(`skipped ${report2.skippedLines} malformed ledger line(s)`);
+  }
+  return `${lines.join("\n")}
+`;
+}
+var report = {
+  summary: `map ledger events to stages; per stage active, waiting and event counts, and the bottleneck (--min-ideas N, default ${MIN_COMPLETED_IDEAS}; --as-of TIME; --ledger PATH; --json shape version ${REPORT_VERSION})`,
+  options: { "min-ideas": "string", "as-of": "string", ledger: "string" },
+  async run(context) {
+    const flags = parseFlags(context);
+    const { deps, json } = context;
+    const fail2 = (message, code) => {
+      deps.stderr(
+        json ? `${JSON.stringify({ error: message })}
+` : `${message}
+`
+      );
+      return code;
+    };
+    if ("error" in flags) {
+      return fail2(flags.error, 2);
+    }
+    const opened = await openLedger(context);
+    if ("error" in opened) {
+      return fail2(opened.error, 1);
+    }
+    const { events, skipped } = await opened.ledger.list({});
+    const printed = {
+      ...buildReport(events, flags),
+      skippedLines: skipped
+    };
+    deps.stdout(json ? `${JSON.stringify(printed)}
+` : text2(printed));
+    return 0;
+  }
+};
+var flowCommands = { report };
+
+// src/cli/measurement.ts
+var measurement = {
+  ledger: ledgerCommands,
+  flow: flowCommands
+};
+
 // src/plan/parser.ts
 var FRONTMATTER = /^---\n([\s\S]*?)\n---\n/;
 var UPCOMING_STEPS = 3;
@@ -1384,9 +1724,9 @@ function listItemSpans(markdown) {
   return items;
 }
 function listItems(markdown) {
-  return listItemSpans(markdown).map(({ heading, text: text2 }) => ({
+  return listItemSpans(markdown).map(({ heading, text: text3 }) => ({
     heading,
-    text: text2
+    text: text3
   }));
 }
 function openItems(markdown) {
@@ -1567,8 +1907,8 @@ function totalsEdits(lines, range, className, date) {
     managed: managed - (lower.startsWith("managed") ? 1 : 0),
     release: release - (lower.startsWith("release") ? 1 : 0)
   };
-  const text2 = `as of ${date}: ${next.local} local, ${next.managed} managed${match[3]}cluster, ${next.release} release${match[5]}pipeline`;
-  const changed = intro.replace(TOTALS, text2).split("\n");
+  const text3 = `as of ${date}: ${next.local} local, ${next.managed} managed${match[3]}cluster, ${next.release} release${match[5]}pipeline`;
+  const changed = intro.replace(TOTALS, text3).split("\n");
   const before = intro.split("\n");
   const edits = [];
   for (const [i, line2] of changed.entries()) {
@@ -1650,17 +1990,17 @@ function segmentsOf(raw) {
   pieces.push([from, bodyEnd]);
   let exit = false;
   return pieces.map(([a, b]) => {
-    const text2 = raw.slice(a, b);
-    const start = a + (text2.length - text2.trimStart().length);
-    const end = b - (text2.length - text2.trimEnd().length);
+    const text3 = raw.slice(a, b);
+    const start = a + (text3.length - text3.trimStart().length);
+    const end = b - (text3.length - text3.trimEnd().length);
     const lead = LEAD.exec(raw.slice(start, end))?.[0];
     exit ||= lead !== void 0;
     return { start, end, itemStart: start + (lead?.length ?? 0), exit };
   });
 }
-function words(text2) {
+function words(text3) {
   return new Set(
-    (text2.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => w.length >= 4)
+    (text3.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => w.length >= 4)
   );
 }
 function score(item, segment) {
@@ -1684,13 +2024,13 @@ function lowered(raw, segment) {
   const shown = /^\d+$/.test(word) ? String(count) : NUMBERS[count] ?? word;
   const noun = count === 1 ? "criterion" : "criteria";
   const [, , gap1, gap2, gap3] = lead;
-  const text2 = `and ${shown}${gap1}exit${gap2}${noun}:${gap3}`;
-  return raw.slice(0, segment.start) + text2 + raw.slice(segment.start + lead[0].length);
+  const text3 = `and ${shown}${gap1}exit${gap2}${noun}:${gap3}`;
+  return raw.slice(0, segment.start) + text3 + raw.slice(segment.start + lead[0].length);
 }
 function sharedNote(raw, segments, index) {
   for (const [i, segment] of segments.entries()) {
-    const text2 = raw.slice(segment.itemStart, segment.end);
-    const note = /\([^)]*\b(both|all)\b[^)]*\)/i.exec(text2);
+    const text3 = raw.slice(segment.itemStart, segment.end);
+    const note = /\([^)]*\b(both|all)\b[^)]*\)/i.exec(text3);
     const covered = note?.[1]?.toLowerCase() === "all" || index === i || index === i - 1;
     if (note !== null && covered) {
       return note[0];
@@ -1786,8 +2126,8 @@ function listEdits(lines, step, itemText, date) {
 
 // src/plan/tick.ts
 var OPEN = "- [ ]";
-function normalize(text2) {
-  return text2.replace(/\s+/g, " ").trim();
+function normalize(text3) {
+  return text3.replace(/\s+/g, " ").trim();
 }
 function choosePlan(plans, requested) {
   const names2 = Object.keys(plans);
@@ -1861,8 +2201,8 @@ function toChanges(lines, edits) {
     after: edit.lines
   }));
 }
-function describe4(file, step, text2, dryRun, changes) {
-  const head = `${dryRun ? "Would tick" : "Ticked"} ${step}: ${text2} in ${file}`;
+function describe4(file, step, text3, dryRun, changes) {
+  const head = `${dryRun ? "Would tick" : "Ticked"} ${step}: ${text3} in ${file}`;
   const body = changes.flatMap((c) => [
     `  line ${c.line}:`,
     ...c.before.map((l) => `  - ${l}`),
@@ -1878,9 +2218,9 @@ async function tick(deps, json, item, planOption, dryRun) {
   const lines = markdown.split("\n");
   const span = chooseItem(markdown, item);
   const step = span.heading.split(":")[0] ?? span.heading;
-  const text2 = normalize(span.text.slice(OPEN.length));
+  const text3 = normalize(span.text.slice(OPEN.length));
   const date = localDate(deps.clock.now());
-  const lists = listEdits(lines, step, text2, date);
+  const lists = listEdits(lines, step, text3, date);
   if ("error" in lists) {
     throw new CommandError(lists.error);
   }
@@ -1894,8 +2234,8 @@ async function tick(deps, json, item, planOption, dryRun) {
     );
   }
   deps.stdout(
-    json ? `${JSON.stringify({ plan: file, item: { step, text: text2 }, dryRun, written: !dryRun, changes })}
-` : describe4(file, step, text2, dryRun, changes)
+    json ? `${JSON.stringify({ plan: file, item: { step, text: text3 }, dryRun, written: !dryRun, changes })}
+` : describe4(file, step, text3, dryRun, changes)
   );
   return 0;
 }
@@ -2235,9 +2575,9 @@ var equalizeCommand = {
 `);
       return 1;
     }
-    const text2 = result.status === "skipped" ? `Skipped: ${result.reason}.` : "Equalized.";
+    const text3 = result.status === "skipped" ? `Skipped: ${result.reason}.` : "Equalized.";
     deps.stdout(json ? `${JSON.stringify(result)}
-` : `${text2}
+` : `${text3}
 `);
     return 0;
   }
@@ -2284,8 +2624,8 @@ function overBudgets(descriptionChars, bodyLines) {
 function countLines(body) {
   return body === "" ? 0 : body.replace(/\n$/, "").split("\n").length;
 }
-function auditSkill(directory, text2) {
-  const source = text2.replaceAll("\r\n", "\n");
+function auditSkill(directory, text3) {
+  const source = text3.replaceAll("\r\n", "\n");
   if (!source.startsWith("---\n")) {
     return invalid(directory, "missing frontmatter");
   }
@@ -2342,15 +2682,15 @@ function detail(row) {
   }
   return row.verdict === "invalid" ? ` (${row.reason ?? ""})` : "";
 }
-function renderReport(report) {
-  const width = Math.max(4, ...report.skills.map((s) => s.name.length));
+function renderReport(report2) {
+  const width = Math.max(4, ...report2.skills.map((s) => s.name.length));
   const lines = [
     `${"NAME".padEnd(width)}  DESC  BODY  VERDICT`,
-    ...report.skills.map(
+    ...report2.skills.map(
       (s) => `${s.name.padEnd(width)}  ${String(s.descriptionChars).padStart(4)}  ${String(s.bodyLines).padStart(4)}  ${s.verdict}${detail(s)}`
     ),
     "",
-    `${report.summary.ok} ok, ${report.summary["over-budget"]} over-budget, ${report.summary.invalid} invalid`
+    `${report2.summary.ok} ok, ${report2.summary["over-budget"]} over-budget, ${report2.summary.invalid} invalid`
   ];
   return `${lines.join("\n")}
 `;
@@ -2363,9 +2703,9 @@ var audit = {
   options: { strict: "boolean" },
   async run({ json, options, deps }) {
     const skillsDir = join4(await deps.root(), SKILLS_DIR);
-    let report;
+    let report2;
     try {
-      report = await auditSkills(deps.fs, skillsDir);
+      report2 = await auditSkills(deps.fs, skillsDir);
     } catch (error) {
       if (error.code === "ENOENT") {
         throw new CommandError(
@@ -2374,9 +2714,9 @@ var audit = {
       }
       throw error;
     }
-    deps.stdout(json ? `${JSON.stringify(report)}
-` : renderReport(report));
-    const failing = report.summary["over-budget"] + report.summary.invalid > 0;
+    deps.stdout(json ? `${JSON.stringify(report2)}
+` : renderReport(report2));
+    const failing = report2.summary["over-budget"] + report2.summary.invalid > 0;
     return options["strict"] === true && failing ? 1 : 0;
   }
 };
@@ -2401,7 +2741,7 @@ var domains = {
   session,
   skill,
   idea: ideaCommands,
-  ledger: ledgerCommands
+  ...measurement
 };
 
 // src/cli/cli.ts
@@ -2542,7 +2882,7 @@ async function run(argv, deps) {
 }
 
 // src/main.ts
-var stderr = (text2) => process.stderr.write(text2);
+var stderr = (text3) => process.stderr.write(text3);
 var root;
 try {
   process.exitCode = await run(process.argv.slice(2), {
@@ -2564,7 +2904,7 @@ try {
       import.meta.url,
       (path) => nodeFileSystem.exists(path)
     ),
-    stdout: (text2) => process.stdout.write(text2),
+    stdout: (text3) => process.stdout.write(text3),
     stderr
   });
 } catch (error) {
