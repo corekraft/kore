@@ -268,6 +268,16 @@ describe("a bounded role cannot start a command with an environment assignment",
     "KORE_ROOT=/tmp/other node skills/bin/harness.mjs idea list",
     "env KORE_ROOT=/tmp/other node skills/bin/harness.mjs idea list",
     "echo ok && PAGER=x git log",
+    "export KORE_ROOT=/x; node skills/bin/harness.mjs idea list",
+    "export KORE_ROOT=/x && node skills/bin/harness.mjs idea list",
+    "declare -x KORE_ROOT=/x; node skills/bin/harness.mjs idea list",
+    "typeset -x PAGER=x; git log",
+    "readonly PAGER=x; git log",
+    "set -a; git log",
+    "unset HOME; git log",
+    "alias git='gh issue close 1 #'; git log",
+    "source ./env.sh; git log",
+    ". ./env.sh; git log",
   ];
   const finding = (role: string) =>
     ["concierge", "challenger"].includes(role)
@@ -285,6 +295,7 @@ describe("a bounded role cannot start a command with an environment assignment",
   it("a variable name inside an argument is not an assignment", async () => {
     allowed(await bash("reader", "grep KORE_ROOT=x README.md"));
     allowed(await bash("refiner", "echo KORE_ROOT=x"));
+    allowed(await bash("reader", "grep export README.md"));
   });
 });
 

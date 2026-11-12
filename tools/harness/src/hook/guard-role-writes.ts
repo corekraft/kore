@@ -89,6 +89,24 @@ export function writes(segment: readonly string[]): boolean {
 export const PREFIXED =
   /^(?:[A-Za-z_][A-Za-z0-9_]*=|(?:sudo|env|time|command|nohup|exec)$)/;
 
+/** Builtins that change the shell's environment, aliases or options, or load a file into it, so a later segment runs with a variable such as KORE_ROOT that the guard never sees. */
+const SHELL_STATE = new Set([
+  "export",
+  "declare",
+  "typeset",
+  "readonly",
+  "local",
+  "set",
+  "unset",
+  "alias",
+  "source",
+  ".",
+]);
+
+/** A segment whose command changes shell state or sources a file. */
+export const changesShell = (segment: readonly string[]): boolean =>
+  SHELL_STATE.has(segment[0] ?? "");
+
 export const HARNESS = /^(\.\/)?skills\/bin\/harness\.mjs$/;
 /** `--ledger <path>` makes a harness command append to any file, so a bounded role never passes it. */
 const namesLedger = (args: readonly string[]): boolean =>

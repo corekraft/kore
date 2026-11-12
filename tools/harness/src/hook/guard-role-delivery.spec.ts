@@ -258,6 +258,14 @@ describe("role-read-only: the judge precheck", () => {
         "time node skills/bin/harness.mjs plan active",
         "command node skills/bin/harness.mjs plan active",
         "cd /tmp && KORE_ROOT=/x node skills/bin/harness.mjs plan active",
+        "export KORE_ROOT=/x; node skills/bin/harness.mjs judge precheck 42",
+        "export KORE_ROOT=/x && node skills/bin/harness.mjs judge precheck 42",
+        "declare -x KORE_ROOT=/x; node skills/bin/harness.mjs judge precheck 42",
+        "typeset -x KORE_ROOT=/x; node skills/bin/harness.mjs plan active",
+        "source ./env.sh; node skills/bin/harness.mjs plan active",
+        ". ./env.sh && node skills/bin/harness.mjs plan active",
+        "alias node='echo'; node skills/bin/harness.mjs plan active",
+        "unset KORE_ROOT; node skills/bin/harness.mjs plan active",
       ]) {
         blocked(await bash(role, command), "role-read-only");
       }
@@ -266,5 +274,6 @@ describe("role-read-only: the judge precheck", () => {
 
   it("still lets a writer set a variable for a test run, since no harness allowlist applies to it", async () => {
     allowed(await bash("writer", "KORE_TEST_WORKERS=2 npx vitest run"));
+    allowed(await bash("judge", "grep export README.md"));
   });
 });

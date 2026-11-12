@@ -6891,6 +6891,19 @@ function writes(segment) {
   return redirectsToFile(segment) || WRITERS.has(name) || name === "sed" && args.some((arg) => /^-\w*i/.test(arg)) || name === "git" && verb !== void 0 && WRITING_GIT.has(verb) || name === "gh" && args[0] === "pr" && args[1] !== void 0 && WRITING_GH.has(args[1]);
 }
 var PREFIXED = /^(?:[A-Za-z_][A-Za-z0-9_]*=|(?:sudo|env|time|command|nohup|exec)$)/;
+var SHELL_STATE = /* @__PURE__ */ new Set([
+  "export",
+  "declare",
+  "typeset",
+  "readonly",
+  "local",
+  "set",
+  "unset",
+  "alias",
+  "source",
+  "."
+]);
+var changesShell = (segment) => SHELL_STATE.has(segment[0] ?? "");
 var HARNESS2 = /^(\.\/)?skills\/bin\/harness\.mjs$/;
 var namesLedger = (args) => args.some((arg) => arg === "--ledger" || arg.startsWith("--ledger="));
 var harnessAllowed = (name, args, allowed) => name === "node" && HARNESS2.test(args[0] ?? "") && !namesLedger(args) && allowed.includes(`${args[1] ?? ""} ${args[2] ?? ""}`);
@@ -6979,10 +6992,12 @@ function checkDeliveryBash(role, command, root3) {
     return noMerge(role, `\`${merging.join(" ")}\``);
   }
   if (REPORTING_ROLES.has(role)) {
-    const prefixed = segments.find((s) => PREFIXED.test(s[0] ?? ""));
+    const prefixed = segments.find(
+      (s) => PREFIXED.test(s[0] ?? "") || changesShell(s)
+    );
     if (prefixed !== void 0) {
       return readOnly(
-        `\`${prefixed.join(" ")}\`, which sets an environment variable,`
+        `\`${prefixed.join(" ")}\`, which sets an environment variable or changes shell state,`
       );
     }
     const changing = segments.find(
@@ -7157,9 +7172,11 @@ function checkBash(role, command) {
     return NO_CODE_ROLES.has(role) ? noCode("A command substitution", role) : readOnly("A command substitution");
   }
   const segments = splitSegments(command);
-  const prefixed = segments.find((segment) => PREFIXED2.test(segment[0] ?? ""));
+  const prefixed = segments.find(
+    (segment) => PREFIXED2.test(segment[0] ?? "") || changesShell(segment)
+  );
   if (prefixed !== void 0) {
-    const what = `\`${prefixed.join(" ")}\`, which sets an environment variable,`;
+    const what = `\`${prefixed.join(" ")}\`, which sets an environment variable or changes shell state,`;
     return NO_CODE_ROLES.has(role) ? noCode(what, role) : readOnly(what);
   }
   const writer = segments.find(writes);

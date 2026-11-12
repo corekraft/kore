@@ -4,6 +4,7 @@
 // #190 and #191 (2026-11-12), so every rule blocks.
 import { isAbsolute, relative, resolve } from "node:path";
 import {
+  changesShell,
   harnessAllowed,
   HARNESS,
   PREFIXED,
@@ -149,10 +150,12 @@ export function checkDeliveryBash(
   }
   if (REPORTING_ROLES.has(role)) {
     // A variable such as KORE_ROOT moves where the harness writes, past its allowlist.
-    const prefixed = segments.find((s) => PREFIXED.test(s[0] ?? ""));
+    const prefixed = segments.find(
+      (s) => PREFIXED.test(s[0] ?? "") || changesShell(s),
+    );
     if (prefixed !== undefined) {
       return readOnly(
-        `\`${prefixed.join(" ")}\`, which sets an environment variable,`,
+        `\`${prefixed.join(" ")}\`, which sets an environment variable or changes shell state,`,
       );
     }
     const changing = segments.find(
