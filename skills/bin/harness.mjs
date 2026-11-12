@@ -625,7 +625,8 @@ var GuardrailError = class extends Error {
 };
 var MissingInventoryError = class extends GuardrailError {
 };
-var FIELDS = ["rule", "kind", "mode", "owner"];
+var FIELDS = ["rule", "kind", "mode", "owner", "deny"];
+var PERMISSION = /^(Bash|Read|Edit|Write)\(.+\)$/;
 var RULE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 var fail = (problem) => {
   throw new GuardrailError(
@@ -656,7 +657,26 @@ function entry(raw, index) {
   if (typeof owner !== "string" || owner.trim() === "") {
     fail(`${where}.owner must name the module that implements the rule`);
   }
+  if (fields["deny"] !== void 0) {
+    checkDeny(where, fields["deny"], kind);
+  }
   return fields;
+}
+function checkDeny(where, deny2, kind) {
+  const patterns = Array.isArray(deny2) ? deny2 : [];
+  if (patterns.length === 0 || !patterns.every((p) => typeof p === "string" && PERMISSION.test(p))) {
+    fail(
+      `${where}.deny must be a non-empty list of permission rules such as "Bash(helm uninstall:*)"`
+    );
+  }
+  for (const pattern of patterns) {
+    const bash = pattern.startsWith("Bash(");
+    if (bash ? kind === "file" : kind === "bash") {
+      fail(
+        `${where}.deny holds ${pattern}, which does not fit its kind "${kind}"`
+      );
+    }
+  }
 }
 function parseInventory(text10) {
   let value;
@@ -684,6 +704,64 @@ function modeOf(inventory, rule) {
 }
 function auditRuleNames(inventory) {
   return inventory.guardrails.filter((g) => g.mode === "audit").map((g) => g.rule).sort();
+}
+
+// src/guardrail/deny.ts
+function denyRules(inventory) {
+  return inventory.guardrails.flatMap(
+    (g) => g.deny === void 0 ? [] : [{ rule: g.rule, mode: g.mode, patterns: g.deny }]
+  );
+}
+function denyList(inventory) {
+  return denyRules(inventory).filter((r) => r.mode === "enforce").flatMap((r) => [...r.patterns]);
+}
+var escape = (text10) => text10.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
+function bashRegex(body) {
+  const prefix = body.endsWith(":*");
+  const source = (prefix ? body.slice(0, -2) : body).split("*").map(escape).join(".*");
+  return new RegExp(`^${source}${prefix ? "(?: .*)?" : ""}$`);
+}
+function pathRegex(body) {
+  const source = body.replace(/^\.\//, "").split("**").map((part) => part.split("*").map(escape).join("[^/]*")).join(".*");
+  return new RegExp(`^${source}$`);
+}
+function denyMatches(pattern, tool, subject) {
+  const open2 = pattern.indexOf("(");
+  if (open2 < 0 || pattern.slice(0, open2) !== tool || !pattern.endsWith(")")) {
+    return false;
+  }
+  const body = pattern.slice(open2 + 1, -1);
+  return (tool === "Bash" ? bashRegex(body) : pathRegex(body)).test(subject);
+}
+function parseSettings(text10) {
+  try {
+    return JSON.parse(text10);
+  } catch {
+    throw new GuardrailError(
+      ".claude/settings.json is not JSON. Restore it from git, then rerun."
+    );
+  }
+}
+function denyDrift(inventory, settingsText) {
+  const permissions = parseSettings(settingsText).permissions;
+  const actual = Array.isArray(permissions?.deny) ? permissions.deny : [];
+  const expected = denyList(inventory);
+  const problems = [
+    ...expected.filter((p) => !actual.includes(p)).map((p) => `${p} is missing from the settings deny list`),
+    ...actual.filter((p) => !expected.includes(p)).map(
+      (p) => `${p} is in the settings deny list but not generated from an enforced inventory rule`
+    )
+  ];
+  if (problems.length === 0 && actual.join("\n") !== expected.join("\n")) {
+    problems.push("the settings deny list is in a different order");
+  }
+  return problems;
+}
+function settingsWithDeny(settingsText, deny2) {
+  const settings = parseSettings(settingsText);
+  settings.permissions = { ...settings.permissions, deny: deny2 };
+  return `${JSON.stringify(settings, null, 2)}
+`;
 }
 
 // src/guardrail/read.ts
@@ -721,6 +799,7 @@ async function findInventory(readFile2, start) {
 }
 
 // src/guardrail/commands.ts
+var SETTINGS_PATH = ".claude/settings.json";
 var status = {
   summary: "list each guardrail with its kind, mode and owner",
   async run({ json, deps }) {
@@ -752,7 +831,58 @@ var status = {
     }
   }
 };
-var guardrailCommands = { status };
+var deny = {
+  summary: "print the settings deny list generated from the enforced deny rules; --check fails when settings differ, --write regenerates them",
+  options: { check: "boolean", write: "boolean" },
+  async run({ json, options, deps }) {
+    const report3 = (problems, message) => {
+      deps.stdout(json ? `${JSON.stringify({ problems })}
+` : "");
+      deps.stderr(`${message}
+`);
+      return 1;
+    };
+    try {
+      if (options["check"] === true && options["write"] === true) {
+        throw new GuardrailError(
+          "--check and --write cannot be used together. Instead, run one, then the other."
+        );
+      }
+      const root3 = await deps.root();
+      const inventory = await readInventory((p) => deps.fs.readFile(p), root3);
+      const list3 = denyList(inventory);
+      const path = `${root3}/${SETTINGS_PATH}`;
+      if (options["write"] === true) {
+        await deps.fs.writeFile(
+          path,
+          settingsWithDeny(await deps.fs.readFile(path), list3)
+        );
+      } else if (options["check"] === true) {
+        const problems = denyDrift(inventory, await deps.fs.readFile(path));
+        return problems.length === 0 ? 0 : report3(
+          problems,
+          `${SETTINGS_PATH}: ${problems.join("; ")}. The inventory owns the deny list. Instead of editing settings, change ${INVENTORY_PATH}, then run \`guardrail deny --write\`.`
+        );
+      }
+      deps.stdout(
+        json ? `${JSON.stringify({ deny: list3 })}
+` : list3.map((p) => `${p}
+`).join("")
+      );
+      return 0;
+    } catch (error) {
+      if (error instanceof GuardrailError) {
+        return report3([error.message], error.message);
+      }
+      if (error.code === "ENOENT") {
+        const message = `${SETTINGS_PATH} is missing. Restore it from git, then rerun.`;
+        return report3([message], message);
+      }
+      throw error;
+    }
+  }
+};
+var guardrailCommands = { status, deny };
 
 // src/flow/stages.ts
 var STAGES = [
@@ -5375,6 +5505,19 @@ function checkGuardrailBash(name, args, segment) {
   );
 }
 
+// src/hook/guard-deny.ts
+function checkDenyAudit(tool, subject, ctx) {
+  return ctx.denyRules.filter((r) => r.mode === "audit").flatMap((r) => {
+    const pattern = r.patterns.find((p) => denyMatches(p, tool, subject));
+    return pattern === void 0 ? [] : [
+      warn(
+        r.rule,
+        `${subject} matches the deny pattern ${pattern}, which is in audit mode, so this call is allowed with a warning. Instead, avoid it unless the user asked for it; a person promotes the rule to enforce once the audit shows it is safe.`
+      )
+    ];
+  });
+}
+
 // src/hook/guard-shell.ts
 import { basename } from "node:path";
 var OPERATORS = /* @__PURE__ */ new Set([";", "&&", "||", "|", "&", "\n"]);
@@ -5763,7 +5906,8 @@ async function checkBashSegment(segment, ctx) {
     checkIdeaIssueBody(name, args),
     checkIdeaIssueClose(name, args),
     checkAppendOnly(name, args, segment, ctx.root),
-    checkGuardrailBash(name, args, segment)
+    checkGuardrailBash(name, args, segment),
+    ...checkDenyAudit("Bash", text10, ctx)
   ];
 }
 var UNQUOTED_GLOB = /(?:^|\s)--(include|exclude)=([^\s'"]*\*[^\s'"]*)/;
@@ -5934,7 +6078,7 @@ async function checkWrite(tool, input, relative3, ctx) {
   ];
   return weigh(findings2.map((finding2) => applyMode(finding2, ctx)));
 }
-async function evaluateFile(tool, input, relative3, ctx) {
+async function fileRules(tool, input, relative3, ctx) {
   if (SECRET_PATH.test(relative3)) {
     return applyMode(secretBlock(), ctx);
   }
@@ -5942,6 +6086,23 @@ async function evaluateFile(tool, input, relative3, ctx) {
     return allow;
   }
   return await checkWrite(tool, input, relative3, ctx);
+}
+async function evaluateFile(tool, input, relative3, ctx) {
+  const verdict = await fileRules(tool, input, relative3, ctx);
+  const audited = checkDenyAudit(tool, relative3, ctx);
+  if (verdict.action === "block" || audited.length === 0) {
+    return verdict;
+  }
+  const extra = weigh(audited);
+  if (verdict.action !== "warn" || extra.action !== "warn") {
+    return extra;
+  }
+  return {
+    ...verdict,
+    message: `${verdict.message}
+${extra.message}`,
+    rules: [...verdict.rules ?? [verdict.rule], ...extra.rules ?? []]
+  };
 }
 
 // src/hook/guard-role.ts
@@ -6345,7 +6506,8 @@ async function guard(payload, deps) {
   const verdict = await evaluate(payload, {
     root: root3,
     readFile: readFile2,
-    modeOf: (rule) => inventory ? modeOf(inventory, rule) : "enforce"
+    modeOf: (rule) => inventory ? modeOf(inventory, rule) : "enforce",
+    denyRules: inventory ? denyRules(inventory) : []
   });
   await started;
   if (verdict.action === "block") {

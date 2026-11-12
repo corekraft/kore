@@ -162,6 +162,7 @@ describe("hook guard faults", () => {
 const absent = {
   root: "/repo",
   modeOf: (rule: string) => modeOf(committedInventory, rule),
+  denyRules: [],
   readFile: () =>
     Promise.reject(Object.assign(new Error("ENOENT"), { code: "ENOENT" })),
 };
@@ -185,6 +186,7 @@ describe("guard evaluation edges", () => {
     const denied = {
       root: "/repo",
       modeOf: absent.modeOf,
+      denyRules: [],
       readFile: () =>
         Promise.reject(Object.assign(new Error("EACCES"), { code: "EACCES" })),
     };

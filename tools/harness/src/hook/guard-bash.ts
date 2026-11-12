@@ -1,6 +1,7 @@
 // Bash rules: split a command into segments and check each one. A block in any
 // segment wins; otherwise the first warning stands.
 import { checkGuardrailBash } from "./guard-guardrails.js";
+import { checkDenyAudit } from "./guard-deny.js";
 import { checkAppendOnly } from "./guard-append-only.js";
 import {
   checkContext,
@@ -76,6 +77,7 @@ async function checkBashSegment(
     checkIdeaIssueClose(name, args),
     checkAppendOnly(name, args, segment, ctx.root),
     checkGuardrailBash(name, args, segment),
+    ...checkDenyAudit("Bash", text, ctx),
   ];
 }
 

@@ -97,7 +97,9 @@ A harness rule that blocks or gates an unsafe action. Changing one may be
 automatic, but turning a changed one on needs a person's approval. The
 guardrail inventory (`.claude/guardrails.yaml`) lists each guard rule with its
 kind, mode (`audit` warns and records a ledger event; `enforce` blocks) and
-owner.
+owner. A deny rule is a guardrail too: its permission patterns are generated
+into the settings deny list when it enforces, and the guard warns on a match
+when it audits, since a settings deny cannot warn.
 _Avoid_: Check, policy
 
 **Toil**:

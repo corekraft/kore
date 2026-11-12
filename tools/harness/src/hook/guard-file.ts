@@ -2,6 +2,7 @@
 // coverage-threshold. Audit mode (warn): append-only, idea-outcome,
 // flag-activation, image-digest, guardrail-demotion.
 import { INVENTORY_PATH } from "../guardrail/index.js";
+import { checkDenyAudit } from "./guard-deny.js";
 import { checkGuardrailDemotion } from "./guard-guardrails.js";
 import { appendOnlyWarn, isAppendOnly } from "./guard-append-only.js";
 import {
@@ -227,7 +228,7 @@ async function checkWrite(
   return weigh(findings.map((finding) => applyMode(finding, ctx)));
 }
 
-export async function evaluateFile(
+async function fileRules(
   tool: string,
   input: Input,
   relative: string,
@@ -240,4 +241,26 @@ export async function evaluateFile(
     return allow;
   }
   return await checkWrite(tool, input, relative, ctx);
+}
+
+export async function evaluateFile(
+  tool: string,
+  input: Input,
+  relative: string,
+  ctx: GuardContext,
+): Promise<Verdict> {
+  const verdict = await fileRules(tool, input, relative, ctx);
+  const audited = checkDenyAudit(tool, relative, ctx);
+  if (verdict.action === "block" || audited.length === 0) {
+    return verdict;
+  }
+  const extra = weigh(audited);
+  if (verdict.action !== "warn" || extra.action !== "warn") {
+    return extra;
+  }
+  return {
+    ...verdict,
+    message: `${verdict.message}\n${extra.message}`,
+    rules: [...(verdict.rules ?? [verdict.rule]), ...(extra.rules ?? [])],
+  };
 }

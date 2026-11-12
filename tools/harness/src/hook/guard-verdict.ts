@@ -1,4 +1,4 @@
-import type { Mode } from "../guardrail/index.js";
+import type { DenyRule, Mode } from "../guardrail/index.js";
 
 /** What the guard decides about one tool call. */
 export type Verdict =
@@ -37,6 +37,8 @@ export interface GuardContext {
   readFile(path: string): Promise<string>;
   /** A rule's mode from the guardrail inventory. */
   modeOf(rule: string): Mode;
+  /** The inventory's deny rules; those in audit mode warn here, since a settings deny cannot. */
+  denyRules: readonly DenyRule[];
 }
 
 /** A finding as its rule's mode decides it: enforce blocks, audit warns. */

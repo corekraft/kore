@@ -18,6 +18,12 @@ export interface Guardrail {
   mode: Mode;
   /** The module that implements the rule. */
   owner: string;
+  /**
+   * A deny rule: the Claude Code permission patterns it stands for. In enforce
+   * mode they are generated into the settings deny list; in audit mode the
+   * guard warns on a match instead, since a settings deny cannot warn.
+   */
+  deny?: readonly string[];
 }
 
 export interface Inventory {
@@ -29,7 +35,8 @@ export class GuardrailError extends Error {}
 /** The inventory file is absent, as opposed to present and invalid. */
 export class MissingInventoryError extends GuardrailError {}
 
-const FIELDS = ["rule", "kind", "mode", "owner"];
+const FIELDS = ["rule", "kind", "mode", "owner", "deny"];
+const PERMISSION = /^(Bash|Read|Edit|Write)\(.+\)$/;
 const RULE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 const fail = (problem: string): never => {
@@ -62,7 +69,30 @@ function entry(raw: unknown, index: number): Guardrail {
   if (typeof owner !== "string" || owner.trim() === "") {
     fail(`${where}.owner must name the module that implements the rule`);
   }
+  if (fields["deny"] !== undefined) {
+    checkDeny(where, fields["deny"], kind as GuardrailKind);
+  }
   return fields as unknown as Guardrail;
+}
+
+function checkDeny(where: string, deny: unknown, kind: GuardrailKind): void {
+  const patterns = Array.isArray(deny) ? (deny as unknown[]) : [];
+  if (
+    patterns.length === 0 ||
+    !patterns.every((p) => typeof p === "string" && PERMISSION.test(p))
+  ) {
+    fail(
+      `${where}.deny must be a non-empty list of permission rules such as "Bash(helm uninstall:*)"`,
+    );
+  }
+  for (const pattern of patterns as string[]) {
+    const bash = pattern.startsWith("Bash(");
+    if (bash ? kind === "file" : kind === "bash") {
+      fail(
+        `${where}.deny holds ${pattern}, which does not fit its kind "${kind}"`,
+      );
+    }
+  }
 }
 
 /** Schema-checks the inventory text, which stays JSON-compatible YAML. */
