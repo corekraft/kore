@@ -16,6 +16,10 @@ var nodeFileSystem = {
     await mkdir(dirname(path), { recursive: true });
     await writeFile(path, content);
   },
+  async createFile(path, content) {
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, content, { flag: "wx" });
+  },
   async exists(path) {
     try {
       await stat(path);
@@ -158,14 +162,14 @@ function headings(markdown) {
       fence = opener === fence ? null : fence ?? opener;
       continue;
     }
-    const text = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(line)?.[1];
-    if (text === void 0) {
+    const text2 = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(line)?.[1];
+    if (text2 === void 0) {
       continue;
     }
-    const base = headingSlug(text);
+    const base = headingSlug(text2);
     const count = seen.get(base) ?? 0;
     seen.set(base, count + 1);
-    found.push({ text, anchor: count > 0 ? `${base}-${count}` : base });
+    found.push({ text: text2, anchor: count > 0 ? `${base}-${count}` : base });
   }
   return found;
 }
@@ -225,7 +229,7 @@ var Adrs = class {
       files: [
         {
           path,
-          lines: body.slice(0, -1).map((text, i) => ({ number: i + 1, text }))
+          lines: body.slice(0, -1).map((text2, i) => ({ number: i + 1, text: text2 }))
         },
         { path: INDEX, lines: [{ number: index.line, text: entry }] }
       ]
@@ -243,8 +247,8 @@ var Adrs = class {
     return this.fs.readFile(this.abs(INDEX));
   }
   /** Puts the entry before the first later-numbered ADR line, else after the last one. */
-  insert(text, next, entry) {
-    const lines = text.split("\n");
+  insert(text2, next, entry) {
+    const lines = text2.split("\n");
     const start = lines.indexOf("## Decisions");
     if (start === -1) {
       throw new AdrError(
@@ -377,6 +381,386 @@ var newAdr = {
 };
 var adrCommands = { new: newAdr };
 
+// src/idea/record.ts
+var SAFETY_PATTERNS = [
+  "no-behaviour-change",
+  "feature-flagged",
+  "dark-launched",
+  "branch-by-abstraction",
+  "expand-contract"
+];
+var IdeaError = class extends Error {
+};
+var IDEA_FILE = /^(\d{4})-([a-z0-9]+(?:-[a-z0-9]+)*)\.md$/;
+var REQUIRED2 = [
+  ["summary", "summary"],
+  ["hypothesis", "hypothesis"],
+  ["expected-outcome", "expectedOutcome"],
+  ["measurement", "measurement"],
+  ["safety-pattern", "safetyPattern"],
+  ["date", "date"]
+];
+function frontmatter(text2) {
+  const lines = text2.split("\n");
+  if (lines[0] !== "---") {
+    return null;
+  }
+  const keys = /* @__PURE__ */ new Map();
+  for (const line of lines.slice(1)) {
+    if (line === "---") {
+      return keys;
+    }
+    const match = /^([A-Za-z][\w-]*):\s*(.*)$/.exec(line);
+    if (match?.[1] !== void 0) {
+      keys.set(match[1], (match[2] ?? "").trim());
+    }
+  }
+  return null;
+}
+function parseIdea(path, text2) {
+  const file = path.slice(path.lastIndexOf("/") + 1);
+  const name = IDEA_FILE.exec(file);
+  if (name?.[1] === void 0 || name[2] === void 0) {
+    throw new IdeaError(
+      `${path} is not named NNNN-slug.md; rename it to a four-digit number and a lowercase slug.`
+    );
+  }
+  const keys = frontmatter(text2);
+  if (keys === null) {
+    throw new IdeaError(
+      `${path} has no frontmatter; start it with --- and the idea fields (see \`harness idea new --help\`).`
+    );
+  }
+  const missing = REQUIRED2.filter(([key]) => !keys.get(key)).map(([k]) => k);
+  if (missing.length > 0) {
+    throw new IdeaError(
+      `${path} is missing frontmatter ${missing.join(", ")}; add each as a key: value line.`
+    );
+  }
+  const get = (key) => keys.get(key) ?? "";
+  const heading = /^# Idea \d{4}: (.+)$/m.exec(text2)?.[1];
+  const record = {
+    number: name[1],
+    slug: name[2],
+    path,
+    title: heading ?? get("summary"),
+    summary: get("summary"),
+    hypothesis: get("hypothesis"),
+    expectedOutcome: get("expected-outcome"),
+    measurement: get("measurement"),
+    safetyPattern: get("safety-pattern"),
+    date: get("date")
+  };
+  for (const key of ["outcome", "issue", "parent"]) {
+    if (get(key) !== "") {
+      record[key] = get(key);
+    }
+  }
+  return record;
+}
+function scalar(flag, value) {
+  const text2 = (value ?? "").replace(/\s+/g, " ").trim();
+  if (text2 === "") {
+    throw new IdeaError(`Missing --${flag}; pass a non-empty value.`);
+  }
+  if (/^[[{|>&*!-]/.test(text2)) {
+    throw new IdeaError(
+      `--${flag} must not start with "${text2.slice(0, 1)}"; frontmatter holds plain text, so reword it.`
+    );
+  }
+  return text2;
+}
+function renderIdea(number, date, idea) {
+  const lines = [
+    "---",
+    `summary: ${idea.summary}`,
+    `hypothesis: ${idea.hypothesis}`,
+    `expected-outcome: ${idea.expectedOutcome}`,
+    `measurement: ${idea.measurement}`,
+    `safety-pattern: ${idea.safetyPattern}`,
+    `date: ${date}`
+  ];
+  if (idea.issue !== void 0) {
+    lines.push(`issue: ${idea.issue}`);
+  }
+  if (idea.parent !== void 0) {
+    lines.push(`parent: ${idea.parent}`);
+  }
+  lines.push("---", "", `# Idea ${number}: ${idea.title}`, "");
+  return lines.join("\n");
+}
+
+// src/idea/repository.ts
+var INDEX2 = "docs/index.md";
+var DIR = "docs/ideas";
+var ATTEMPTS = 3;
+var HEADING = "## Ideas";
+var NEXT_SECTION = "## Operations and Guides";
+var IdeaRepository = class {
+  constructor(fs, clock, root2) {
+    this.fs = fs;
+    this.clock = clock;
+    this.root = root2;
+  }
+  fs;
+  clock;
+  root;
+  async list() {
+    return await Promise.all((await this.listNames()).map((n) => this.read(n)));
+  }
+  /** Finds an idea by number (`1` or `0001`), slug, or file stem. */
+  async get(ref) {
+    const wanted = /^\d+$/.test(ref) ? ref.padStart(4, "0") : ref;
+    const name = (await this.listNames()).find((n) => {
+      const [, number, slug] = IDEA_FILE.exec(n) ?? [];
+      return wanted === number || wanted === slug || `${number}-${slug}` === wanted;
+    });
+    if (name === void 0) {
+      throw new IdeaError(
+        `No idea matches "${ref}". Run \`harness idea list\` to see the ideas, or \`harness idea new\` to create one.`
+      );
+    }
+    return await this.read(name);
+  }
+  /**
+   * Creates the next numbered idea and indexes it; an existing slug is returned untouched.
+   * The file is created exclusively, so a competing writer's file is never overwritten:
+   * on a collision the listing is read again and the call retries.
+   */
+  async create(slug, idea) {
+    if (!await this.fs.exists(this.abs(INDEX2))) {
+      throw new IdeaError(
+        `${INDEX2} not found under ${this.root}; set CLAUDE_PROJECT_DIR to the repository root.`
+      );
+    }
+    if (!SAFETY_PATTERNS.some((p) => p === idea.safetyPattern)) {
+      throw new IdeaError(
+        `--safety-pattern "${idea.safetyPattern}" is not recognised; use one of ${SAFETY_PATTERNS.join(", ")}.`
+      );
+    }
+    for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
+      const names2 = await this.listNames();
+      const existing = names2.find((n) => IDEA_FILE.exec(n)?.[2] === slug);
+      if (existing !== void 0) {
+        const record2 = await this.read(existing);
+        await this.ensureIndexed(record2);
+        return { created: false, record: record2 };
+      }
+      const taken = names2.map((n) => Number(n.slice(0, 4)));
+      const number = String(Math.max(0, ...taken) + 1).padStart(4, "0");
+      const path = `${DIR}/${number}-${slug}.md`;
+      const text2 = renderIdea(
+        number,
+        this.clock.now().toISOString().slice(0, 10),
+        idea
+      );
+      try {
+        await this.fs.createFile(this.abs(path), text2);
+      } catch (error) {
+        if (error.code === "EEXIST") {
+          continue;
+        }
+        throw error;
+      }
+      const record = parseIdea(path, text2);
+      await this.ensureIndexed(record);
+      return { created: true, record };
+    }
+    throw new IdeaError(
+      `Another writer keeps creating ideas in ${DIR}; rerun \`harness idea new\` once it finishes.`
+    );
+  }
+  abs(path) {
+    return `${this.root}/${path}`;
+  }
+  async read(name) {
+    const path = `${DIR}/${name}`;
+    return parseIdea(path, await this.fs.readFile(this.abs(path)));
+  }
+  /** Lists the idea in the index unless an entry already points at it, so a rerun repairs a half-finished create. */
+  async ensureIndexed(record) {
+    const index = await this.fs.readFile(this.abs(INDEX2));
+    if (!index.includes(`](${record.path.replace(/^docs\//, "")})`)) {
+      await this.fs.writeFile(
+        this.abs(INDEX2),
+        addEntry(index, record.path, record.summary)
+      );
+    }
+  }
+  async listNames() {
+    return await this.fs.exists(this.abs(DIR)) ? (await this.fs.readdir(this.abs(DIR))).filter((f) => IDEA_FILE.test(f)).sort() : [];
+  }
+};
+function addEntry(index, path, summary) {
+  const entry = `- [\`${path}\`](${path.replace(/^docs\//, "")}) \u2014 ${summary}`;
+  const lines = index.split("\n");
+  const start = lines.indexOf(HEADING);
+  if (start === -1) {
+    const next = lines.indexOf(NEXT_SECTION);
+    const at = next === -1 ? lines.length : next;
+    const block = [HEADING, "", entry, ""];
+    if (next === -1 && lines.at(-1) === "") {
+      lines.splice(lines.length - 1, 0, "", ...block.slice(0, -1));
+    } else {
+      lines.splice(at, 0, ...block);
+    }
+    return lines.join("\n");
+  }
+  let end = lines.findIndex((l, i) => i > start && l.startsWith("## "));
+  if (end === -1) {
+    end = lines.length;
+  }
+  while (end > start + 1 && lines[end - 1] === "") {
+    end--;
+  }
+  lines.splice(end, 0, entry);
+  return lines.join("\n");
+}
+
+// src/idea/commands.ts
+var FAILED = 1;
+var SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+async function repository({ deps }) {
+  const root2 = await deps.root().catch((cause) => {
+    throw new IdeaError(cause instanceof Error ? cause.message : String(cause));
+  });
+  return new IdeaRepository(deps.fs, deps.clock, root2);
+}
+async function guarded({ json, deps }, action) {
+  try {
+    await action();
+    return 0;
+  } catch (error) {
+    if (!(error instanceof IdeaError)) {
+      throw error;
+    }
+    const prefix = json ? `${JSON.stringify({ error: error.message })}
+` : "";
+    deps.stderr(`${prefix}${error.message}
+`);
+    return FAILED;
+  }
+}
+function text(options, key) {
+  const value = options[key];
+  return typeof value === "string" ? value : void 0;
+}
+function slugOf(title) {
+  return title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60).replace(/-+$/, "");
+}
+function describe2(record) {
+  const lines = [
+    `Idea ${record.number}: ${record.title}`,
+    `Date: ${record.date}`,
+    `Summary: ${record.summary}`,
+    `Hypothesis: ${record.hypothesis}`,
+    `Expected outcome: ${record.expectedOutcome}`,
+    `Measurement: ${record.measurement}`,
+    `Safety pattern: ${record.safetyPattern}`
+  ];
+  for (const [label, value] of [
+    ["Outcome", record.outcome],
+    ["Issue", record.issue],
+    ["Parent", record.parent]
+  ]) {
+    if (value !== void 0) {
+      lines.push(`${label}: ${value}`);
+    }
+  }
+  lines.push(`File: ${record.path}`);
+  return `${lines.join("\n")}
+`;
+}
+function parseNewIdea(options) {
+  const title = scalar("title", text(options, "title"));
+  const slug = text(options, "slug") ?? slugOf(title);
+  if (!SLUG.test(slug)) {
+    throw new IdeaError(
+      `Slug "${slug}" is invalid; use lowercase letters, digits and single hyphens, e.g. cache-probe-results.`
+    );
+  }
+  const idea = {
+    title,
+    summary: scalar("summary", text(options, "summary") ?? title),
+    hypothesis: scalar("hypothesis", text(options, "hypothesis")),
+    expectedOutcome: scalar(
+      "expected-outcome",
+      text(options, "expected-outcome")
+    ),
+    measurement: scalar("measurement", text(options, "measurement")),
+    safetyPattern: scalar("safety-pattern", text(options, "safety-pattern"))
+  };
+  for (const key of ["issue", "parent"]) {
+    const value = text(options, key);
+    if (value !== void 0) {
+      idea[key] = scalar(key, value);
+    }
+  }
+  return { slug, idea };
+}
+var create = {
+  summary: "create the next numbered idea record and index it (--title --hypothesis --expected-outcome --measurement --safety-pattern [--slug] [--summary] [--issue] [--parent])",
+  options: {
+    title: "string",
+    slug: "string",
+    summary: "string",
+    hypothesis: "string",
+    "expected-outcome": "string",
+    measurement: "string",
+    "safety-pattern": "string",
+    issue: "string",
+    parent: "string"
+  },
+  run(context) {
+    return guarded(context, async () => {
+      const { slug, idea } = parseNewIdea(context.options);
+      const { created, record } = await (await repository(context)).create(slug, idea);
+      context.deps.stdout(
+        context.json ? `${JSON.stringify({ created, ...record })}
+` : `${created ? "Created" : "Already exists:"} ${record.path}
+`
+      );
+    });
+  }
+};
+var show = {
+  summary: "print one idea record (--idea <number or slug>)",
+  options: { idea: "string" },
+  run(context) {
+    return guarded(context, async () => {
+      const ref = text(context.options, "idea");
+      if (ref === void 0 || ref.trim() === "") {
+        throw new IdeaError(
+          "Missing --idea; run `harness idea show --idea <number or slug>`, or `harness idea list` to see the ideas."
+        );
+      }
+      const record = await (await repository(context)).get(ref.trim());
+      context.deps.stdout(
+        context.json ? `${JSON.stringify(record)}
+` : describe2(record)
+      );
+    });
+  }
+};
+var list = {
+  summary: "list every idea record in number order",
+  run(context) {
+    return guarded(context, async () => {
+      const records = await (await repository(context)).list();
+      context.deps.stdout(
+        context.json ? `${JSON.stringify(records)}
+` : records.map((r) => `${r.number} ${r.outcome ?? "open"} ${r.title}
+`).join("")
+      );
+    });
+  }
+};
+var ideaCommands = {
+  new: create,
+  list,
+  show
+};
+
 // src/plan/active.ts
 import { join as join2 } from "node:path";
 
@@ -387,8 +771,8 @@ function planNumber(name) {
   return Number.parseInt(name, 10);
 }
 function planStatus(markdown) {
-  const frontmatter = FRONTMATTER.exec(markdown)?.[1];
-  return frontmatter === void 0 ? void 0 : /^status: *(\S*) *$/m.exec(frontmatter)?.[1];
+  const frontmatter2 = FRONTMATTER.exec(markdown)?.[1];
+  return frontmatter2 === void 0 ? void 0 : /^status: *(\S*) *$/m.exec(frontmatter2)?.[1];
 }
 function listItems(markdown) {
   const items = [];
@@ -495,7 +879,7 @@ async function readPlans(deps) {
   }
   return plans;
 }
-function describe2(plan) {
+function describe3(plan) {
   const open = plan.open.map((o) => `${o.step} (${o.count})`).join(", ");
   const lines = [`${plan.file}${plan.default ? " (default)" : ""}`];
   lines.push(`  Open items: ${open || "none"}`);
@@ -534,7 +918,7 @@ var planActive = {
 `
       );
     } else {
-      deps.stdout(`${listed.map(describe2).join("\n")}
+      deps.stdout(`${listed.map(describe3).join("\n")}
 `);
     }
     return 0;
@@ -673,8 +1057,8 @@ function sessionNameError(name) {
 
 // src/session/spawn.ts
 var USAGE_ERROR = 2;
-var FAILED = 1;
-var REQUIRED2 = ["role", "model", "effort", "name", "brief"];
+var FAILED2 = 1;
+var REQUIRED3 = ["role", "model", "effort", "name", "brief"];
 function paneIdOf(stdout) {
   try {
     const parsed = JSON.parse(stdout);
@@ -686,7 +1070,7 @@ function paneIdOf(stdout) {
 }
 function check({ deps, options }) {
   const usage2 = (error) => ({ error, code: USAGE_ERROR });
-  const missing = REQUIRED2.find((flag) => typeof options[flag] !== "string");
+  const missing = REQUIRED3.find((flag) => typeof options[flag] !== "string");
   if (missing !== void 0) {
     return usage2(`Missing --${missing}.`);
   }
@@ -704,13 +1088,13 @@ function check({ deps, options }) {
   if (deps.env.HERDR_ENV !== "1") {
     return {
       error: "Not inside Herdr (HERDR_ENV is not 1). Run this from a Herdr pane; no session was started.",
-      code: FAILED
+      code: FAILED2
     };
   }
   if (callerPane === void 0 || callerPane === "") {
     return {
       error: "HERDR_PANE_ID is not set, so the session cannot broadcast back. Run this from a Herdr pane.",
-      code: FAILED
+      code: FAILED2
     };
   }
   return { values: given, callerPane };
@@ -799,16 +1183,16 @@ async function spawn2(context) {
   const { callerPane } = checked;
   const taken = await nameTakenError(deps, name);
   if (taken !== void 0) {
-    return fail2(FAILED, taken);
+    return fail2(FAILED2, taken);
   }
   const paneId = await splitPane(deps, callerPane);
   if (typeof paneId !== "string") {
-    return fail2(FAILED, paneId.error);
+    return fail2(FAILED2, paneId.error);
   }
   const leftOpen = `The pane ${paneId} was left open; close it with \`herdr pane close ${paneId}\`.`;
   const equalized = await equalize(deps.runner, callerPane);
   if (equalized.status === "failed") {
-    return fail2(FAILED, `${equalized.reason}. ${leftOpen}`);
+    return fail2(FAILED2, `${equalized.reason}. ${leftOpen}`);
   }
   const launchError = await launch(deps, {
     ...checked.values,
@@ -817,7 +1201,7 @@ async function spawn2(context) {
     leftOpen
   });
   if (launchError !== void 0) {
-    return fail2(FAILED, launchError);
+    return fail2(FAILED2, launchError);
   }
   deps.stdout(
     json ? `${JSON.stringify({ name, paneId, model, role, effort })}
@@ -856,9 +1240,9 @@ var equalizeCommand = {
 `);
       return 1;
     }
-    const text = result.status === "skipped" ? `Skipped: ${result.reason}.` : "Equalized.";
+    const text2 = result.status === "skipped" ? `Skipped: ${result.reason}.` : "Equalized.";
     deps.stdout(json ? `${JSON.stringify(result)}
-` : `${text}
+` : `${text2}
 `);
     return 0;
   }
@@ -884,8 +1268,8 @@ function invalid(name, reason) {
     reason
   };
 }
-function field(frontmatter, key) {
-  const line = frontmatter.split("\n").find((l) => l.startsWith(`${key}:`));
+function field(frontmatter2, key) {
+  const line = frontmatter2.split("\n").find((l) => l.startsWith(`${key}:`));
   const value = line?.slice(key.length + 1).trim();
   if (value === void 0 || value === "") {
     return void 0;
@@ -905,8 +1289,8 @@ function overBudgets(descriptionChars, bodyLines) {
 function countLines(body) {
   return body === "" ? 0 : body.replace(/\n$/, "").split("\n").length;
 }
-function auditSkill(directory, text) {
-  const source = text.replaceAll("\r\n", "\n");
+function auditSkill(directory, text2) {
+  const source = text2.replaceAll("\r\n", "\n");
   if (!source.startsWith("---\n")) {
     return invalid(directory, "missing frontmatter");
   }
@@ -915,12 +1299,12 @@ function auditSkill(directory, text) {
     return invalid(directory, "unterminated frontmatter");
   }
   const end = close.index + 3;
-  const frontmatter = source.slice(4, end);
-  const name = field(frontmatter, "name");
+  const frontmatter2 = source.slice(4, end);
+  const name = field(frontmatter2, "name");
   if (name === void 0) {
     return invalid(directory, "missing name");
   }
-  const description = field(frontmatter, "description");
+  const description = field(frontmatter2, "description");
   if (description === void 0) {
     return invalid(directory, "missing description");
   }
@@ -1020,7 +1404,8 @@ var domains = {
   plan: { active: planActive },
   adr: adrCommands,
   session,
-  skill
+  skill,
+  idea: ideaCommands
 };
 
 // src/cli/cli.ts
@@ -1153,7 +1538,7 @@ async function run(argv, deps) {
 }
 
 // src/main.ts
-var stderr = (text) => process.stderr.write(text);
+var stderr = (text2) => process.stderr.write(text2);
 var root;
 try {
   process.exitCode = await run(process.argv.slice(2), {
@@ -1167,7 +1552,7 @@ try {
     ),
     env: process.env,
     cwd: process.cwd(),
-    stdout: (text) => process.stdout.write(text),
+    stdout: (text2) => process.stdout.write(text2),
     stderr
   });
 } catch (error) {

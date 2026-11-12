@@ -30,6 +30,24 @@ const adrFrontmatter = [
   "",
 ].join("\n");
 
+const ideaFields = {
+  summary: "Tries A.",
+  hypothesis: "A makes B faster.",
+  "expected-outcome": "B is 20 percent faster.",
+  measurement: "Compare B duration before and after.",
+  "safety-pattern": "feature-flagged",
+  date: "2026-11-11",
+};
+
+/** An idea file; pass null to drop a field or a string to set it. */
+function ideaFile(changes = {}, body = "# Idea 0001: A\n") {
+  const fields = { ...ideaFields, ...changes };
+  const lines = Object.entries(fields)
+    .filter(([, value]) => value !== null)
+    .map(([key, value]) => `${key}: ${value}`);
+  return ["---", ...lines, "---", "", body].join("\n");
+}
+
 const usage = [
   "const usage = `kore",
   "",
@@ -61,6 +79,10 @@ function cleanTree(overrides = {}) {
       "",
       "- [`docs/decisions/0001-a.md`](decisions/0001-a.md) — decides A. Read when …",
       "",
+      "## Ideas",
+      "",
+      "- [`docs/ideas/0001-a.md`](ideas/0001-a.md) — tries A.",
+      "",
       "## Skills",
       "",
       "- [`skills/tdd/SKILL.md`](../skills/tdd/SKILL.md) — test first. Read when coding.",
@@ -68,6 +90,7 @@ function cleanTree(overrides = {}) {
     ].join("\n"),
     "infra/plans/1-a.md": `${planFrontmatter}# Plan A\n\n## Step 1: Do It\n\n- [x] done\n`,
     "docs/decisions/0001-a.md": `${adrFrontmatter}# ADR 0001: A\n\nFrom [Step 1](../../infra/plans/1-a.md#step-1-do-it).\n`,
+    "docs/ideas/0001-a.md": ideaFile(),
     "skills/tdd/SKILL.md": "# TDD\n\nSee [rules](references/rules.md).\n",
     "skills/tdd/references/rules.md": "# Rules\n",
     "tools/kore/src/cli/cli.ts": `// Docs: infra/plans/1-a.md#step-1-do-it\n${usage}\n`,
@@ -171,8 +194,8 @@ test("an index entry whose file is missing is reported", () => {
     "- [`infra/plans/9-gone.md`](../infra/plans/9-gone.md) — gone. Read when …\n";
   const found = check(tree).filter((f) => f.file === "docs/index.md");
   assert.deepEqual(found.map(format), [
-    "docs/index.md:14: link target infra/plans/9-gone.md does not exist; point the link at an existing file or remove it",
-    "docs/index.md:14: index entry infra/plans/9-gone.md names a missing file; remove the entry or restore the file",
+    "docs/index.md:18: link target infra/plans/9-gone.md does not exist; point the link at an existing file or remove it",
+    "docs/index.md:18: index entry infra/plans/9-gone.md names a missing file; remove the entry or restore the file",
   ]);
 });
 
@@ -414,4 +437,144 @@ test("staleness is skipped for a document with no valid last-verified date, whic
     "skills/tdd/SKILL.md": "2026-12-01",
   });
   assert.ok(lines.every((line) => !line.startsWith("stale:")));
+});
+
+const idea = (changes, body) => ({
+  "docs/ideas/0001-a.md": ideaFile(changes, body),
+});
+
+test("a valid idea, with or without an outcome, reports nothing", () => {
+  assert.deepEqual(
+    messages(cleanTree(idea({ issue: "185", parent: "#127" }))),
+    [],
+  );
+  assert.deepEqual(messages(cleanTree(idea({ outcome: "refuted" }))), []);
+});
+
+test("an idea missing a required field is reported with the field named", () => {
+  for (const key of Object.keys(ideaFields)) {
+    assert.deepEqual(messages(cleanTree(idea({ [key]: null }))), [
+      `docs/ideas/0001-a.md:1: frontmatter ${key} is missing; add a ${key}: line`,
+    ]);
+  }
+});
+
+test("an idea with no frontmatter is reported", () => {
+  const tree = cleanTree({ "docs/ideas/0001-a.md": "# Idea 0001: A\n" });
+  assert.deepEqual(messages(tree), [
+    "docs/ideas/0001-a.md:1: frontmatter is missing; start the file with --- and the idea fields (summary, hypothesis, expected-outcome, measurement, safety-pattern, date) ---",
+  ]);
+});
+
+test("an idea with an unknown safety pattern, outcome, or date is reported", () => {
+  const out = messages(
+    cleanTree(
+      idea({
+        "safety-pattern": "yolo",
+        outcome: "great",
+        date: "yesterday",
+      }),
+    ),
+  ).join("\n");
+  assert.match(
+    out,
+    /frontmatter safety-pattern is yolo; use one of no-behaviour-change, feature-flagged, dark-launched, branch-by-abstraction, expand-contract/,
+  );
+  assert.match(
+    out,
+    /frontmatter outcome is great; use one of confirmed, refuted, inconclusive/,
+  );
+  assert.match(out, /frontmatter date is yesterday; use a YYYY-MM-DD date/);
+});
+
+test("an idea's status is workflow state: the file has none, and a closed idea is one with an outcome", () => {
+  const out = messages(cleanTree(idea({ status: "open" })));
+  assert.equal(out.length, 1);
+  assert.match(
+    out[0],
+    /frontmatter status is workflow state; the GitHub issue owns it, so remove the line/,
+  );
+});
+
+test("an idea carrying workflow state is reported: approval, label, assignee", () => {
+  for (const key of [
+    "status",
+    "approval",
+    "approved",
+    "label",
+    "labels",
+    "assignee",
+    "assignees",
+    "state",
+  ]) {
+    const out = messages(cleanTree(idea({ [key]: "x" })));
+    assert.equal(out.length, 1, key);
+    assert.match(
+      out[0],
+      new RegExp(
+        `frontmatter ${key} is workflow state; the GitHub issue owns it, so remove the line`,
+      ),
+    );
+  }
+});
+
+test("an idea's issue and parent links must be well formed, and a parent idea must exist", () => {
+  const out = messages(cleanTree(idea({ issue: "soon", parent: "0042" }))).join(
+    "\n",
+  );
+  assert.match(
+    out,
+    /frontmatter issue is soon; use an issue number such as 185 or #185/,
+  );
+  assert.match(out, /frontmatter parent is 0042; idea 0042 does not exist/);
+  assert.deepEqual(
+    messages(
+      cleanTree(
+        idea({
+          parent: "0001-a",
+          issue: "https://github.com/corekraft/kore/issues/1",
+        }),
+      ),
+    ),
+    [],
+  );
+});
+
+test("an idea file must be named NNNN-slug.md", () => {
+  const tree = cleanTree({ "docs/ideas/a.md": ideaFile() });
+  assert.ok(
+    messages(tree).includes(
+      "docs/ideas/a.md:1: idea file is not named NNNN-slug.md; rename it to a four-digit number and a lowercase slug",
+    ),
+  );
+});
+
+test("an idea missing from the index is reported", () => {
+  const tree = cleanTree({
+    "docs/ideas/0002-b.md": ideaFile({}, "# Idea 0002: B\n"),
+  });
+  assert.deepEqual(messages(tree), [
+    "docs/index.md:1: docs/ideas/0002-b.md is not in the index; add an entry under its ## heading",
+  ]);
+});
+
+test("an idea's frontmatter must be flat scalars", () => {
+  const tree = cleanTree(idea({ hypothesis: "[a, b]" }));
+  assert.match(
+    messages(tree).join("\n"),
+    /frontmatter hypothesis is not a scalar string/,
+  );
+});
+
+test("two idea files sharing a number are reported on the later file, naming the earlier one", () => {
+  const tree = cleanTree({
+    "docs/ideas/0001-b.md": ideaFile({}, "# Idea 0001: B\n"),
+    "docs/index.md": cleanTree()["docs/index.md"].replace(
+      "- [`docs/ideas/0001-a.md`](ideas/0001-a.md) — tries A.",
+      "- [`docs/ideas/0001-a.md`](ideas/0001-a.md) — tries A.\n- [`docs/ideas/0001-b.md`](ideas/0001-b.md) — tries B.",
+    ),
+  });
+  assert.deepEqual(messages(tree), [
+    "docs/ideas/0001-b.md:1: idea number 0001 is also used by docs/ideas/0001-a.md; renumber it to the next free number",
+  ]);
 });

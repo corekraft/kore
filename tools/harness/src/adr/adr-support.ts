@@ -58,6 +58,14 @@ export class MemoryFs implements FileSystem {
     this.files.set(this.rel(path), content);
     return Promise.resolve();
   }
+  createFile(path: string, content: string): Promise<void> {
+    if (this.files.has(this.rel(path))) {
+      return Promise.reject(
+        Object.assign(new Error(`EEXIST ${path}`), { code: "EEXIST" }),
+      );
+    }
+    return this.writeFile(path, content);
+  }
   exists(path: string): Promise<boolean> {
     return Promise.resolve(this.files.has(this.rel(path)));
   }

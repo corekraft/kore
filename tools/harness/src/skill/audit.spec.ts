@@ -39,6 +39,7 @@ function harness(
           ? Promise.resolve(files[rel(path)] ?? "")
           : Promise.reject(new Error(`ENOENT ${path}`)),
       writeFile: () => Promise.resolve(),
+      createFile: () => Promise.resolve(),
       exists: (path) => Promise.resolve(rel(path) in files),
       readdir: (path) =>
         rel(path) === "skills" && !missingSkills

@@ -32,7 +32,7 @@ effect against the plan 8 baseline.
 - [ ] Record an outcome from its source (live run, journal, eval history,
       experiment comparison) into the markdown and post it to the issue with
       its `outcome:*` label.
-- [ ] Teach kb-check the idea frontmatter.
+- [x] Teach kb-check the idea frontmatter.
 
 ### Exit Criteria
 

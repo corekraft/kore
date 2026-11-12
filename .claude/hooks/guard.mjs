@@ -250,6 +250,18 @@ const appendOnlyWarn = (path) =>
       `.kore/state/journal/*.jsonl by kore. Instead, append through the owning script (eval.mjs, kore); never edit, truncate, move, or remove it by hand.`,
   );
 
+// Outcome records: written by the outcome tool (ticket #187), never typed into an
+// idea by hand (ADR 0079). Audit mode (warn) first, per ADR 0080.
+const IDEA_PATH = /^docs\/ideas\/[^/]+\.md$/;
+const HAND_WRITTEN_OUTCOME = /^(?:#{1,6}[ \t]+outcome\b|outcome:)/im;
+
+const ideaOutcomeWarn = (path) =>
+  warn(
+    "idea-outcome",
+    `${path} is an idea record: its outcome is written by the outcome tool, never by hand. ` +
+      "That tool arrives with ticket #187. Instead, leave the outcome out of the file for now and note the result on the idea's issue.",
+  );
+
 const TRUNCATING_REDIRECT = /^(?:\d*|&)>(?!>)(.*)$/;
 
 // Removing or moving these directories removes every journal inside them.
@@ -346,6 +358,12 @@ function checkFile(tool, input, relative, ctx) {
 
   if (tool !== "Read") {
     if (isAppendOnly(relative)) return appendOnlyWarn(relative);
+
+    if (IDEA_PATH.test(relative)) {
+      const text =
+        tool === "Edit" ? (input.new_string ?? "") : (input.content ?? "");
+      if (HAND_WRITTEN_OUTCOME.test(text)) return ideaOutcomeWarn(relative);
+    }
 
     if (loadSopsPatterns(ctx).some((pattern) => pattern.test(relative))) {
       const encrypted = tool === "Write" && /^sops:/m.test(input.content ?? "");
