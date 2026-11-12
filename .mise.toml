@@ -28,7 +28,23 @@ run = "npm --prefix tools/kore run build"
 
 [tasks.test]
 description = "Run tests that do not require a cluster"
-run = "npm --prefix tools/kore test && npm --prefix apps/reference test"
+run = "npm --prefix tools/kore test && npm --prefix apps/reference test && npm --prefix tools/harness test"
+
+[tasks.harness-build]
+description = "Bundle the harness CLI into skills/bin/harness.mjs (committed; rerun after changing tools/harness/src)"
+run = "npm --prefix tools/harness run build"
+
+[tasks.harness-test]
+description = "Run the harness unit tests with the coverage threshold"
+run = "npm --prefix tools/harness test"
+
+[tasks.harness-lint]
+description = "Typecheck and lint the harness with warnings denied"
+run = ["npm --prefix tools/harness run check", "npm --prefix tools/harness run lint"]
+
+[tasks.harness-format]
+description = "Check harness formatting; pass nothing to check, or run `mise run format <files>` to fix"
+run = "npm --prefix tools/harness run format:check"
 
 [tasks.format]
 description = "Format files with the pinned prettier: mise run format <files>"
@@ -82,7 +98,7 @@ run = [
 
 [tasks.scan-vulns]
 description = "Scan npm lockfiles for known vulnerabilities with OSV-Scanner (queries the OSV API); add each new lockfile here"
-run = "osv-scanner scan source -L tools/kore/package-lock.json"
+run = "osv-scanner scan source -L tools/kore/package-lock.json -L tools/harness/package-lock.json"
 
 [tasks.scan-sast]
 description = "Run the committed Semgrep rules (infra/policies/semgrep) over source; offline, no telemetry; tests are not scanned"

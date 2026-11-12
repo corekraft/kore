@@ -1,8 +1,8 @@
-// Skill links: report any skill in `skills/` that a harness directory does not
+// Skill links: report any skill (a `skills/` directory with a SKILL.md) in `skills/` that a harness directory does not
 // link by its relative path. Plan: infra/plans/3-agent-harness.md (Step 9).
 // Node standard library only.
 
-import { readdirSync, readlinkSync } from "node:fs";
+import { existsSync, readdirSync, readlinkSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 
 const HARNESSES = [".claude", ".codex"];
@@ -10,7 +10,11 @@ const HARNESSES = [".claude", ".codex"];
 /** Problems with the skill links under root, each with its fix; empty when all are correct. */
 export function linkProblems(root) {
   const skills = readdirSync(join(root, "skills"), { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
+    .filter(
+      (entry) =>
+        entry.isDirectory() &&
+        existsSync(join(root, "skills", entry.name, "SKILL.md")),
+    )
     .map((entry) => entry.name)
     .sort();
   const problems = [];
