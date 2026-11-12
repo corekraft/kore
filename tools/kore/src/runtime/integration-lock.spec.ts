@@ -27,6 +27,8 @@ function fakeProcess() {
 }
 
 test("the test process takes no lock unless integration specs are opted into", async () => {
+  // The live quick start runs this suite with the variable already set.
+  delete process.env.KORE_RUN_INTEGRATION;
   const { root, lock } = await newRoot("off");
   await holdIntegrationLock({ root: async () => root });
   await expect(access(lock)).rejects.toThrow();
