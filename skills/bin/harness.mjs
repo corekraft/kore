@@ -256,14 +256,14 @@ function headings(markdown) {
       fence = opener === fence ? null : fence ?? opener;
       continue;
     }
-    const text10 = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(line2)?.[1];
-    if (text10 === void 0) {
+    const text9 = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(line2)?.[1];
+    if (text9 === void 0) {
       continue;
     }
-    const base = headingSlug(text10);
+    const base = headingSlug(text9);
     const count3 = seen.get(base) ?? 0;
     seen.set(base, count3 + 1);
-    found.push({ text: text10, anchor: count3 > 0 ? `${base}-${count3}` : base });
+    found.push({ text: text9, anchor: count3 > 0 ? `${base}-${count3}` : base });
   }
   return found;
 }
@@ -323,7 +323,7 @@ var Adrs = class {
       files: [
         {
           path,
-          lines: body.slice(0, -1).map((text10, i) => ({ number: i + 1, text: text10 }))
+          lines: body.slice(0, -1).map((text9, i) => ({ number: i + 1, text: text9 }))
         },
         { path: INDEX, lines: [{ number: index.line, text: entry2 }] }
       ]
@@ -341,8 +341,8 @@ var Adrs = class {
     return this.fs.readFile(this.abs(INDEX));
   }
   /** Puts the entry before the first later-numbered ADR line, else after the last one. */
-  insert(text10, next, entry2) {
-    const lines2 = text10.split("\n");
+  insert(text9, next, entry2) {
+    const lines2 = text9.split("\n");
     const start = lines2.indexOf("## Decisions");
     if (start === -1) {
       throw new AdrError(
@@ -482,9 +482,9 @@ var Supersession = class {
       files: [
         {
           path: oldAdr.path,
-          lines: changed.map((text10, i) => ({
+          lines: changed.map((text9, i) => ({
             number: oldAdr.statusLine + 1 + i,
-            text: text10
+            text: text9
           }))
         }
       ]
@@ -503,15 +503,15 @@ var Supersession = class {
     return (adr.lines[adr.statusLine] ?? "").slice("status:".length).trim();
   }
   async find(number, replacement) {
-    const matches2 = (await this.fs.readdir(this.abs(DECISIONS))).filter(
+    const matches3 = (await this.fs.readdir(this.abs(DECISIONS))).filter(
       (f) => f.startsWith(`${number}-`) && f.endsWith(".md") && f.length > number.length + 4
     ).sort();
-    if (matches2.length > 1) {
+    if (matches3.length > 1) {
       throw new AdrError(
-        `ADR ${number} matches more than one file: ${matches2.map((f) => `${DECISIONS}/${f}`).join(", ")}; renumber one so each ADR number is unique, then retry.`
+        `ADR ${number} matches more than one file: ${matches3.map((f) => `${DECISIONS}/${f}`).join(", ")}; renumber one so each ADR number is unique, then retry.`
       );
     }
-    const file = matches2[0];
+    const file = matches3[0];
     if (file === void 0) {
       throw new AdrError(
         `ADR ${number} does not exist; ${replacement ? "create it first with `harness adr new`" : "check the number against docs/decisions/"}.`
@@ -625,7 +625,8 @@ var GuardrailError = class extends Error {
 };
 var MissingInventoryError = class extends GuardrailError {
 };
-var FIELDS = ["rule", "kind", "mode", "owner"];
+var FIELDS = ["rule", "kind", "mode", "owner", "deny"];
+var PERMISSION = /^(Bash|Read|Edit|Write)\(.+\)$/;
 var RULE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 var fail = (problem) => {
   throw new GuardrailError(
@@ -656,12 +657,37 @@ function entry(raw, index) {
   if (typeof owner !== "string" || owner.trim() === "") {
     fail(`${where}.owner must name the module that implements the rule`);
   }
+  if (fields["deny"] !== void 0) {
+    checkDeny(where, fields["deny"], kind);
+  }
   return fields;
 }
-function parseInventory(text10) {
+function checkDeny(where, deny2, kind) {
+  const patterns = Array.isArray(deny2) ? deny2 : [];
+  if (patterns.length === 0 || !patterns.every((p) => typeof p === "string" && PERMISSION.test(p))) {
+    fail(
+      `${where}.deny must be a non-empty list of permission rules such as "Bash(helm uninstall:*)"`
+    );
+  }
+  for (const pattern of patterns) {
+    const bash = pattern.startsWith("Bash(");
+    const body = pattern.slice(pattern.indexOf("(") + 1, -1);
+    if (bash && body.endsWith(":*") && body.slice(0, -2).includes("*")) {
+      fail(
+        `${where}.deny holds ${pattern}, which mixes a mid-pattern * with a trailing :*. Claude Code reads that as a literal prefix, so the rule matches less than it appears to. Instead, drop the :* and end the pattern with *`
+      );
+    }
+    if (bash ? kind === "file" : kind === "bash") {
+      fail(
+        `${where}.deny holds ${pattern}, which does not fit its kind "${kind}"`
+      );
+    }
+  }
+}
+function parseInventory(text9) {
   let value;
   try {
-    value = JSON.parse(text10);
+    value = JSON.parse(text9);
   } catch {
     return fail("is not JSON-compatible YAML");
   }
@@ -686,12 +712,96 @@ function auditRuleNames(inventory) {
   return inventory.guardrails.filter((g) => g.mode === "audit").map((g) => g.rule).sort();
 }
 
+// src/guardrail/deny.ts
+function denyRules(inventory) {
+  return inventory.guardrails.flatMap(
+    (g) => g.deny === void 0 ? [] : [{ rule: g.rule, mode: g.mode, patterns: g.deny }]
+  );
+}
+function denyList(inventory) {
+  return denyRules(inventory).filter((r) => r.mode === "enforce").flatMap((r) => [...r.patterns]);
+}
+function items(pattern, path) {
+  const found = [];
+  for (let i = 0; i < pattern.length; i++) {
+    const char = pattern.charAt(i);
+    if (char !== "*") {
+      found.push({ literal: char });
+    } else if (path && pattern.charAt(i + 1) === "*") {
+      found.push({ crossesSlash: true });
+      i++;
+    } else {
+      found.push({ crossesSlash: !path });
+    }
+  }
+  return found;
+}
+function matches(pattern, text9) {
+  let row = Array.from({ length: text9.length + 1 }, (_, j) => j === 0);
+  for (const item of pattern) {
+    const next = Array.from({ length: text9.length + 1 }, () => false);
+    for (let j = 0; j <= text9.length; j++) {
+      next[j] = "literal" in item ? j > 0 && row[j - 1] === true && text9[j - 1] === item.literal : row[j] === true || j > 0 && next[j - 1] === true && (item.crossesSlash || text9[j - 1] !== "/");
+    }
+    row = next;
+  }
+  return row[text9.length] === true;
+}
+function bashMatches(body, command) {
+  if (!body.endsWith(":*")) {
+    return matches(items(body, false), command);
+  }
+  const prefix = body.slice(0, -2);
+  return matches(items(prefix, false), command) || matches(items(`${prefix} *`, false), command);
+}
+function denyMatches(pattern, tool, subject) {
+  const open2 = pattern.indexOf("(");
+  if (open2 < 0 || pattern.slice(0, open2) !== tool || !pattern.endsWith(")")) {
+    return false;
+  }
+  const body = pattern.slice(open2 + 1, -1);
+  return tool === "Bash" ? bashMatches(body, subject) : matches(items(body.replace(/^\.\//, ""), true), subject);
+}
+function parseSettings(text9) {
+  try {
+    return JSON.parse(text9);
+  } catch {
+    throw new GuardrailError(
+      ".claude/settings.json is not JSON. Restore it from git, then rerun."
+    );
+  }
+}
+function settingsDeny(settingsText) {
+  const permissions2 = parseSettings(settingsText).permissions;
+  return Array.isArray(permissions2?.deny) ? permissions2.deny : [];
+}
+function denyDrift(inventory, settingsText) {
+  const actual = settingsDeny(settingsText);
+  const expected = denyList(inventory);
+  const problems = [
+    ...expected.filter((p) => !actual.includes(p)).map((p) => `${p} is missing from the settings deny list`),
+    ...actual.filter((p) => !expected.includes(p)).map(
+      (p) => `${p} is in the settings deny list but not generated from an enforced inventory rule`
+    )
+  ];
+  if (problems.length === 0 && actual.join("\n") !== expected.join("\n")) {
+    problems.push("the settings deny list is in a different order");
+  }
+  return problems;
+}
+function settingsWithDeny(settingsText, deny2) {
+  const settings = parseSettings(settingsText);
+  settings.permissions = { ...settings.permissions, deny: deny2 };
+  return `${JSON.stringify(settings, null, 2)}
+`;
+}
+
 // src/guardrail/read.ts
 import { dirname as dirname4 } from "node:path";
 async function readInventory(readFile2, root3) {
-  let text10;
+  let text9;
   try {
-    text10 = await readFile2(`${root3}/${INVENTORY_PATH}`);
+    text9 = await readFile2(`${root3}/${INVENTORY_PATH}`);
   } catch (error) {
     if (error.code !== "ENOENT") {
       throw error;
@@ -700,7 +810,7 @@ async function readInventory(readFile2, root3) {
       `${INVENTORY_PATH} is missing, so no guard rule has a declared mode. Restore it from git, then rerun.`
     );
   }
-  return parseInventory(text10);
+  return parseInventory(text9);
 }
 async function findInventory(readFile2, start) {
   let dir = start;
@@ -721,6 +831,7 @@ async function findInventory(readFile2, start) {
 }
 
 // src/guardrail/commands.ts
+var SETTINGS_PATH = ".claude/settings.json";
 var status = {
   summary: "list each guardrail with its kind, mode and owner",
   async run({ json, deps }) {
@@ -752,7 +863,75 @@ var status = {
     }
   }
 };
-var guardrailCommands = { status };
+async function writeDeny(deps, path, list3, allowRemoval) {
+  const current = await deps.fs.readFile(path);
+  const leaving = settingsDeny(current).filter((p) => !list3.includes(p));
+  if (leaving.length > 0) {
+    deps.stderr(
+      `${SETTINGS_PATH}: these patterns would leave the deny list: ${leaving.join(", ")}.
+`
+    );
+    if (!allowRemoval) {
+      throw new GuardrailError(
+        "Removing a deny rule weakens the guard. Instead, restore the rule in the inventory, or rerun with --allow-removal once the user has approved it."
+      );
+    }
+  }
+  await deps.fs.writeFile(path, settingsWithDeny(current, list3));
+}
+var deny = {
+  summary: "print the settings deny list generated from the enforced deny rules; --check fails when settings differ, --write regenerates them",
+  options: {
+    check: "boolean",
+    write: "boolean",
+    "allow-removal": "boolean"
+  },
+  async run({ json, options, deps }) {
+    const report3 = (problems, message) => {
+      deps.stdout(json ? `${JSON.stringify({ problems })}
+` : "");
+      deps.stderr(`${message}
+`);
+      return 1;
+    };
+    try {
+      if (options["check"] === true && options["write"] === true) {
+        throw new GuardrailError(
+          "--check and --write cannot be used together. Instead, run one, then the other."
+        );
+      }
+      const root3 = await deps.root();
+      const inventory = await readInventory((p) => deps.fs.readFile(p), root3);
+      const list3 = denyList(inventory);
+      const path = `${root3}/${SETTINGS_PATH}`;
+      if (options["write"] === true) {
+        await writeDeny(deps, path, list3, options["allow-removal"] === true);
+      } else if (options["check"] === true) {
+        const problems = denyDrift(inventory, await deps.fs.readFile(path));
+        return problems.length === 0 ? 0 : report3(
+          problems,
+          `${SETTINGS_PATH}: ${problems.join("; ")}. The inventory owns the deny list. Instead of editing settings, change ${INVENTORY_PATH}, then run \`guardrail deny --write\`.`
+        );
+      }
+      deps.stdout(
+        json ? `${JSON.stringify({ deny: list3 })}
+` : list3.map((p) => `${p}
+`).join("")
+      );
+      return 0;
+    } catch (error) {
+      if (error instanceof GuardrailError) {
+        return report3([error.message], error.message);
+      }
+      if (error.code === "ENOENT") {
+        const message = `${SETTINGS_PATH} is missing. Restore it from git, then rerun.`;
+        return report3([message], message);
+      }
+      throw error;
+    }
+  }
+};
+var guardrailCommands = { status, deny };
 
 // src/flow/stages.ts
 var STAGES = [
@@ -1208,12 +1387,12 @@ function roleOf(event) {
   }
   return void 0;
 }
-function chargeActor(tally, items) {
+function chargeActor(tally, items2) {
   const spans = [];
   let closed = false;
-  let start = time(items[0].event);
-  let life = newLife(items[0].event, tally.window);
-  items.forEach(({ event, stage }, i) => {
+  let start = time(items2[0].event);
+  let life = newLife(items2[0].event, tally.window);
+  items2.forEach(({ event, stage }, i) => {
     const at = time(event);
     if (closed && (event.kind === "pane.spawned" || event.kind === "session.start")) {
       closed = false;
@@ -1234,8 +1413,8 @@ function chargeActor(tally, items) {
     if (state === "closed") {
       closed = true;
       spans.push([start, at]);
-    } else if (state !== void 0 && i < items.length - 1) {
-      const next = time(items[i + 1].event);
+    } else if (state !== void 0 && i < items2.length - 1) {
+      const next = time(items2[i + 1].event);
       tally.add(stage, state === "active" ? "activeMs" : "waitingMs", at, next);
       tally.present(stage, at, next);
       if (state === "waiting") {
@@ -1245,7 +1424,7 @@ function chargeActor(tally, items) {
     }
   });
   if (!closed) {
-    spans.push([start, time(items.at(-1).event)]);
+    spans.push([start, time(items2.at(-1).event)]);
   }
   return spans;
 }
@@ -1258,10 +1437,10 @@ function actorTime(tally, events) {
     }
   }
   const lifetimes = [];
-  for (const items of byActor.values()) {
-    items.sort((x, y) => time(x.event) - time(y.event));
-    const spans = chargeActor(tally, items);
-    if (items[0].stage !== "orchestrate") {
+  for (const items2 of byActor.values()) {
+    items2.sort((x, y) => time(x.event) - time(y.event));
+    const spans = chargeActor(tally, items2);
+    if (items2[0].stage !== "orchestrate") {
       lifetimes.push(...spans);
     }
   }
@@ -1443,10 +1622,10 @@ function parseCost(file, cost) {
     }
   };
 }
-function parseHarnessConfig(text10, file) {
+function parseHarnessConfig(text9, file) {
   let value;
   try {
-    value = JSON.parse(text10);
+    value = JSON.parse(text9);
   } catch {
     return { error: `Invalid ${file}: it is not valid JSON. Fix the syntax.` };
   }
@@ -1709,8 +1888,8 @@ function parseEvent(input, mode) {
 // src/ledger/github-poll.ts
 var LIMIT = 1e3;
 var describe2 = (code, stdout, stderr2) => {
-  const text10 = `${stderr2}${stdout}`.trim();
-  return text10 === "" ? `exit code ${code}` : `exit code ${code}: ${text10}`;
+  const text9 = `${stderr2}${stdout}`.trim();
+  return text9 === "" ? `exit code ${code}` : `exit code ${code}: ${text9}`;
 };
 var RATE_LIMITED = /rate limit|HTTP 403|HTTP 429/i;
 async function resetTime(gh) {
@@ -1755,9 +1934,9 @@ function closedIssue(raw) {
   const first = Array.isArray(refs) ? count(asRecord(refs[0])["number"]) : void 0;
   return first === void 0 ? void 0 : `#${first}`;
 }
-function fromItems(items, openedKind, mergedKind, mergedField = "mergedAt") {
+function fromItems(items2, openedKind, mergedKind, mergedField = "mergedAt") {
   const out = [];
-  for (const item of items) {
+  for (const item of items2) {
     const raw = asRecord(item);
     const number = count(raw["number"]);
     const opened = when(raw["createdAt"]);
@@ -1783,9 +1962,9 @@ function fromItems(items, openedKind, mergedKind, mergedField = "mergedAt") {
   }
   return out;
 }
-function fromLabelEvents(items) {
+function fromLabelEvents(items2) {
   const out = [];
-  for (const item of items) {
+  for (const item of items2) {
     const raw = asRecord(item);
     const id = count(raw["id"]);
     const number = count(asRecord(raw["issue"])["number"]);
@@ -1918,8 +2097,8 @@ var STATUS_KIND = {
   done: "pane.waiting"
 };
 function describe3(code, stdout, stderr2) {
-  const text10 = `${stderr2}${stdout}`.trim();
-  return text10 === "" ? `exit code ${code}` : `exit code ${code}: ${text10}`;
+  const text9 = `${stderr2}${stdout}`.trim();
+  return text9 === "" ? `exit code ${code}` : `exit code ${code}: ${text9}`;
 }
 function toSeen(entry2) {
   if (typeof entry2 !== "object" || entry2 === null) {
@@ -2065,17 +2244,17 @@ var Ledger = class {
     return { ok: true, event };
   }
   async list(filter) {
-    const text10 = await this.read();
+    const text9 = await this.read();
     const events = [];
     let skipped = 0;
-    for (const line2 of text10.split("\n")) {
+    for (const line2 of text9.split("\n")) {
       if (line2 === "") {
         continue;
       }
       const event = parseLine(line2);
       if (event === void 0) {
         skipped += 1;
-      } else if (matches(event, filter)) {
+      } else if (matches2(event, filter)) {
         events.push(event);
       }
     }
@@ -2102,7 +2281,7 @@ function parseLine(line2) {
   const parsed = parseEvent(value, "stored");
   return parsed.ok ? parsed.event : void 0;
 }
-function matches(event, filter) {
+function matches2(event, filter) {
   return (filter.session === void 0 || event.session === filter.session) && (filter.pane === void 0 || event.pane === filter.pane) && (filter.idea === void 0 || event.idea === filter.idea) && (filter.source === void 0 || event.source === filter.source) && (filter.kind === void 0 || event.kind === filter.kind) && (filter.since === void 0 || Date.parse(event.occurredAt) >= Date.parse(filter.since)) && (filter.until === void 0 || Date.parse(event.occurredAt) < Date.parse(filter.until));
 }
 
@@ -2161,15 +2340,15 @@ async function eventInput(context2) {
       )
     };
   }
-  const text10 = await context2.deps.stdin();
-  if (text10.trim() === "") {
+  const text9 = await context2.deps.stdin();
+  if (text9.trim() === "") {
     return {
       error: "No event given. Pass --source, --kind and --occurred-at, or one JSON event on stdin.",
       code: 2
     };
   }
   try {
-    return { input: JSON.parse(text10) };
+    return { input: JSON.parse(text9) };
   } catch {
     return { error: "Invalid event: stdin is not valid JSON." };
   }
@@ -2208,17 +2387,17 @@ var record = {
 };
 function filterFrom(options) {
   const filter = {};
-  const text10 = (name) => {
+  const text9 = (name) => {
     const value = options[name];
     return typeof value === "string" ? value : void 0;
   };
   for (const name of ["session", "pane", "idea"]) {
-    const value = text10(name);
+    const value = text9(name);
     if (value !== void 0) {
       filter[name] = value;
     }
   }
-  const source = text10("source");
+  const source = text9("source");
   if (source !== void 0) {
     if (!SOURCES.includes(source)) {
       return {
@@ -2227,7 +2406,7 @@ function filterFrom(options) {
     }
     filter.source = source;
   }
-  const kind = text10("kind");
+  const kind = text9("kind");
   if (kind !== void 0) {
     if (!KINDS2.includes(kind)) {
       return { error: `Invalid --kind "${kind}". Kinds: ${KINDS2.join(", ")}.` };
@@ -2235,7 +2414,7 @@ function filterFrom(options) {
     filter.kind = kind;
   }
   for (const name of ["since", "until"]) {
-    const value = text10(name);
+    const value = text9(name);
     if (value !== void 0) {
       if (!isTimestamp(value)) {
         return {
@@ -2592,8 +2771,8 @@ var REQUIRED2 = [
   ["safety-pattern", "safetyPattern"],
   ["date", "date"]
 ];
-function frontmatter(text10) {
-  const lines2 = text10.split("\n");
+function frontmatter(text9) {
+  const lines2 = text9.split("\n");
   if (lines2[0] !== "---") {
     return null;
   }
@@ -2609,7 +2788,7 @@ function frontmatter(text10) {
   }
   return null;
 }
-function parseIdea(path, text10) {
+function parseIdea(path, text9) {
   const file = path.slice(path.lastIndexOf("/") + 1);
   const name = IDEA_FILE.exec(file);
   if (name?.[1] === void 0 || name[2] === void 0) {
@@ -2617,7 +2796,7 @@ function parseIdea(path, text10) {
       `${path} is not named NNNN-slug.md; rename it to a four-digit number and a lowercase slug.`
     );
   }
-  const keys = frontmatter(text10);
+  const keys = frontmatter(text9);
   if (keys === null) {
     throw new IdeaError(
       `${path} has no frontmatter; start it with --- and the idea fields (see \`harness idea new --help\`).`
@@ -2630,7 +2809,7 @@ function parseIdea(path, text10) {
     );
   }
   const get = (key) => keys.get(key) ?? "";
-  const heading = /^# Idea \d{4}: (.+)$/m.exec(text10)?.[1];
+  const heading = /^# Idea \d{4}: (.+)$/m.exec(text9)?.[1];
   const record4 = {
     number: name[1],
     slug: name[2],
@@ -2651,16 +2830,16 @@ function parseIdea(path, text10) {
   return record4;
 }
 function scalar(flag, value) {
-  const text10 = (value ?? "").replace(/\s+/g, " ").trim();
-  if (text10 === "") {
+  const text9 = (value ?? "").replace(/\s+/g, " ").trim();
+  if (text9 === "") {
     throw new IdeaError(`Missing --${flag}; pass a non-empty value.`);
   }
-  if (/^[[{|>&*!-]/.test(text10)) {
+  if (/^[[{|>&*!-]/.test(text9)) {
     throw new IdeaError(
-      `--${flag} must not start with "${text10.slice(0, 1)}"; frontmatter holds plain text, so reword it.`
+      `--${flag} must not start with "${text9.slice(0, 1)}"; frontmatter holds plain text, so reword it.`
     );
   }
-  return text10;
+  return text9;
 }
 function renderIdea(number, date, idea) {
   const lines2 = [
@@ -2681,8 +2860,8 @@ function renderIdea(number, date, idea) {
   lines2.push("---", "", `# Idea ${number}: ${idea.title}`, "");
   return lines2.join("\n");
 }
-function withIssue(text10, issue) {
-  const lines2 = text10.split("\n");
+function withIssue(text9, issue) {
+  const lines2 = text9.split("\n");
   const end = lines2.indexOf("---", 1);
   if (lines2[0] !== "---" || end === -1) {
     throw new IdeaError("The idea has no frontmatter to record the issue in.");
@@ -2706,18 +2885,18 @@ function outcomeRange(lines2) {
   const end = lines2.findIndex((l, i) => i > start && /^#{1,2} /.test(l));
   return [start, end === -1 ? lines2.length : end];
 }
-function outcomeSection(text10) {
-  const lines2 = text10.split("\n");
+function outcomeSection(text9) {
+  const lines2 = text9.split("\n");
   const range = outcomeRange(lines2);
   return range === void 0 ? void 0 : lines2.slice(...range).join("\n").replace(/\r/g, "").trim();
 }
-function withoutOutcome(text10) {
-  const lines2 = text10.split("\n");
+function withoutOutcome(text9) {
+  const lines2 = text9.split("\n");
   const range = outcomeRange(lines2);
-  return range === void 0 ? text10 : [...lines2.slice(0, range[0]), ...lines2.slice(range[1])].join("\n").trimEnd();
+  return range === void 0 ? text9 : [...lines2.slice(0, range[0]), ...lines2.slice(range[1])].join("\n").trimEnd();
 }
-function withOutcome(text10, result, section) {
-  const lines2 = text10.split("\n");
+function withOutcome(text9, result, section) {
+  const lines2 = text9.split("\n");
   const end = lines2.indexOf("---", 1);
   if (lines2[0] !== "---" || end === -1) {
     throw new IdeaError(
@@ -2790,20 +2969,20 @@ var IdeaRepository = class {
       const taken = names3.map((n) => Number(n.slice(0, 4)));
       const number = String(Math.max(0, ...taken) + 1).padStart(4, "0");
       const path = `${DIR}/${number}-${slug2}.md`;
-      const text10 = renderIdea(
+      const text9 = renderIdea(
         number,
         this.clock.now().toISOString().slice(0, 10),
         idea
       );
       try {
-        await this.fs.createFile(this.abs(path), text10);
+        await this.fs.createFile(this.abs(path), text9);
       } catch (error) {
         if (error.code === "EEXIST") {
           continue;
         }
         throw error;
       }
-      const record4 = parseIdea(path, text10);
+      const record4 = parseIdea(path, text9);
       await this.ensureIndexed(record4);
       return { created: true, record: record4 };
     }
@@ -2879,12 +3058,12 @@ function addEntry(index, path, summary) {
 // src/idea/sync.ts
 var NOT_FOUND = /could not resolve to an issue|issue .*not found|no issue/i;
 var ISSUE_URL = /https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/issues\/(\d+)/;
-function prose(text10) {
-  const lines2 = withoutOutcome(text10).split("\n");
+function prose(text9) {
+  const lines2 = withoutOutcome(text9).split("\n");
   const at = lines2.findIndex((l) => /^# Idea \d{4}: /.test(l));
   return (at === -1 ? "" : lines2.slice(at + 1).join("\n")).trim();
 }
-function renderBody(record4, text10) {
+function renderBody(record4, text9) {
   const sections = [
     `<!-- Generated by \`harness idea sync\` from ${record4.path}. Edit that file; changes made here are overwritten. -->`,
     `## Summary
@@ -2903,7 +3082,7 @@ ${record4.measurement}`,
 
 ${record4.safetyPattern}`
   ];
-  const extra = prose(text10);
+  const extra = prose(text9);
   if (extra !== "") {
     sections.push(extra);
   }
@@ -2982,8 +3161,8 @@ async function reconcile(gh, record4, body, at) {
   }
   return { action: "updated", issue };
 }
-async function syncIssue(runner, root3, record4, text10, recordLink) {
-  const body = renderBody(record4, text10);
+async function syncIssue(runner, root3, record4, text9, recordLink) {
+  const body = renderBody(record4, text9);
   const gh = async (args, input) => await runner.run("gh", args, {
     cwd: root3,
     ...input === void 0 ? {} : { input }
@@ -3447,9 +3626,9 @@ var challenge = {
 var ENVIRONMENTS = "infra/environments";
 var FlagError = class extends Error {
 };
-function parse(path, text10) {
+function parse(path, text9) {
   try {
-    const value = JSON.parse(text10);
+    const value = JSON.parse(text9);
     if (typeof value === "object" && value !== null && !Array.isArray(value)) {
       return value;
     }
@@ -3490,8 +3669,8 @@ async function readOverlay(fs, root3, environment) {
       `No environment "${environment}" has an overlay at ${path}. Environments: ${(await environments(fs, root3)).join(", ") || "none"}.`
     );
   }
-  const text10 = await fs.readFile(`${root3}/${path}`);
-  const features = parse(path, text10)["features"] ?? {};
+  const text9 = await fs.readFile(`${root3}/${path}`);
+  const features = parse(path, text9)["features"] ?? {};
   const valid = typeof features === "object" && features !== null && Object.values(features).every((v) => typeof v === "boolean");
   if (!valid) {
     throw new FlagError(
@@ -3501,21 +3680,21 @@ async function readOverlay(fs, root3, environment) {
   return {
     environment,
     path,
-    text: text10,
+    text: text9,
     features
   };
 }
-function featuresSpan(text10) {
-  const key = /["']?features["']?\s*:\s*\{/.exec(text10);
+function featuresSpan(text9) {
+  const key = /["']?features["']?\s*:\s*\{/.exec(text9);
   if (key === null) {
     return void 0;
   }
   const open2 = key.index + key[0].length - 1;
   let depth = 0;
-  for (let i = open2; i < text10.length; i++) {
-    if (text10[i] === "{") {
+  for (let i = open2; i < text9.length; i++) {
+    if (text9[i] === "{") {
       depth += 1;
-    } else if (text10[i] === "}") {
+    } else if (text9[i] === "}") {
       depth -= 1;
     }
     if (depth === 0) {
@@ -3535,9 +3714,9 @@ function withFlagOn(overlay, flag) {
     );
   }
   const end = span[0] + entry2.index + entry2[0].length;
-  const text10 = `${overlay.text.slice(0, end - "false".length)}true${overlay.text.slice(end)}`;
-  parse(overlay.path, text10);
-  return text10;
+  const text9 = `${overlay.text.slice(0, end - "false".length)}true${overlay.text.slice(end)}`;
+  parse(overlay.path, text9);
+  return text9;
 }
 
 // src/flag/proof.ts
@@ -3736,7 +3915,7 @@ function planStatus(markdown) {
   return frontmatter3 === void 0 ? void 0 : /^status: *(\S*) *$/m.exec(frontmatter3)?.[1];
 }
 function listItemSpans(markdown) {
-  const items = [];
+  const items2 = [];
   let heading = "";
   let current = null;
   for (const [index, line2] of markdown.split("\n").entries()) {
@@ -3745,7 +3924,7 @@ function listItemSpans(markdown) {
     }
     if (line2.startsWith("- ")) {
       current = { heading, text: line2.trim(), line: index, end: index + 1 };
-      items.push(current);
+      items2.push(current);
     } else if (current && /^\s+\S/.test(line2)) {
       current.text += ` ${line2.trim()}`;
       current.end = index + 1;
@@ -3753,12 +3932,12 @@ function listItemSpans(markdown) {
       current = null;
     }
   }
-  return items;
+  return items2;
 }
 function listItems(markdown) {
-  return listItemSpans(markdown).map(({ heading, text: text10 }) => ({
+  return listItemSpans(markdown).map(({ heading, text: text9 }) => ({
     heading,
-    text: text10
+    text: text9
   }));
 }
 function openItems(markdown) {
@@ -3939,8 +4118,8 @@ function trimCommon(edit, lines2) {
 }
 
 // src/plan/plan-edit.ts
-function normalize(text10) {
-  return text10.replace(/\s+/g, " ").trim();
+function normalize(text9) {
+  return text9.replace(/\s+/g, " ").trim();
 }
 function choosePlan(plans, requested) {
   const names3 = Object.keys(plans);
@@ -4023,13 +4202,13 @@ function currentHeading(lines2, markdown) {
   }
   return index;
 }
-function insertion(lines2, heading, text10) {
+function insertion(lines2, heading, text9) {
   const blank = (lines2[heading + 1] ?? "").trim() === "";
   const start = blank ? heading + 2 : heading + 1;
   return {
     start,
     end: start,
-    lines: blank ? [`${NEXT} ${text10}`, ""] : ["", `${NEXT} ${text10}`, ""]
+    lines: blank ? [`${NEXT} ${text9}`, ""] : ["", `${NEXT} ${text9}`, ""]
   };
 }
 function withInsertion(lines2, removed, added) {
@@ -4076,8 +4255,8 @@ var planNext = {
   async run({ json, deps, options }) {
     const raw = options["text"];
     const plan2 = options["plan"];
-    const text10 = typeof raw === "string" ? normalize(raw) : "";
-    if (text10 === "") {
+    const text9 = typeof raw === "string" ? normalize(raw) : "";
+    if (text9 === "") {
       throw new CommandError(
         'Missing --text "<line>": say the first concrete action and any state the files cannot show.'
       );
@@ -4089,7 +4268,7 @@ var planNext = {
       edits: (lines2, markdown) => withInsertion(
         lines2,
         removals(lines2),
-        insertion(lines2, currentHeading(lines2, markdown), text10)
+        insertion(lines2, currentHeading(lines2, markdown), text9)
       ),
       unchanged: `Next: already reads that way`
     });
@@ -4137,8 +4316,8 @@ function totalsEdits(lines2, range, className, date) {
     managed: managed - (lower.startsWith("managed") ? 1 : 0),
     release: release - (lower.startsWith("release") ? 1 : 0)
   };
-  const text10 = `as of ${date}: ${next.local} local, ${next.managed} managed${match[3]}cluster, ${next.release} release${match[5]}pipeline`;
-  const changed = intro.replace(TOTALS, text10).split("\n");
+  const text9 = `as of ${date}: ${next.local} local, ${next.managed} managed${match[3]}cluster, ${next.release} release${match[5]}pipeline`;
+  const changed = intro.replace(TOTALS, text9).split("\n");
   const before2 = intro.split("\n");
   const edits = [];
   for (const [i, line2] of changed.entries()) {
@@ -4220,17 +4399,17 @@ function segmentsOf(raw) {
   pieces.push([from, bodyEnd]);
   let exit = false;
   return pieces.map(([a, b]) => {
-    const text10 = raw.slice(a, b);
-    const start = a + (text10.length - text10.trimStart().length);
-    const end = b - (text10.length - text10.trimEnd().length);
+    const text9 = raw.slice(a, b);
+    const start = a + (text9.length - text9.trimStart().length);
+    const end = b - (text9.length - text9.trimEnd().length);
     const lead = LEAD.exec(raw.slice(start, end))?.[0];
     exit ||= lead !== void 0;
     return { start, end, itemStart: start + (lead?.length ?? 0), exit };
   });
 }
-function words(text10) {
+function words(text9) {
   return new Set(
-    (text10.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => w.length >= 4)
+    (text9.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => w.length >= 4)
   );
 }
 function score(item, segment) {
@@ -4254,13 +4433,13 @@ function lowered(raw, segment) {
   const shown = /^\d+$/.test(word) ? String(count3) : NUMBERS[count3] ?? word;
   const noun = count3 === 1 ? "criterion" : "criteria";
   const [, , gap1, gap2, gap3] = lead;
-  const text10 = `and ${shown}${gap1}exit${gap2}${noun}:${gap3}`;
-  return raw.slice(0, segment.start) + text10 + raw.slice(segment.start + lead[0].length);
+  const text9 = `and ${shown}${gap1}exit${gap2}${noun}:${gap3}`;
+  return raw.slice(0, segment.start) + text9 + raw.slice(segment.start + lead[0].length);
 }
 function sharedNote(raw, segments, index) {
   for (const [i, segment] of segments.entries()) {
-    const text10 = raw.slice(segment.itemStart, segment.end);
-    const note = /\([^)]*\b(both|all)\b[^)]*\)/i.exec(text10);
+    const text9 = raw.slice(segment.itemStart, segment.end);
+    const note = /\([^)]*\b(both|all)\b[^)]*\)/i.exec(text9);
     const covered = note?.[1]?.toLowerCase() === "all" || index === i || index === i - 1;
     if (note !== null && covered) {
       return note[0];
@@ -4384,9 +4563,9 @@ function tickEdit(lines2, item) {
     lines: [`- [x]${first.slice(OPEN.length)}`]
   };
 }
-function describe6(file, step, text10, dryRun, changes) {
+function describe6(file, step, text9, dryRun, changes) {
   return renderChanges(
-    `${dryRun ? "Would tick" : "Ticked"} ${step}: ${text10} in ${file}`,
+    `${dryRun ? "Would tick" : "Ticked"} ${step}: ${text9} in ${file}`,
     changes
   );
 }
@@ -4397,9 +4576,9 @@ async function tick(deps, json, item, planOption, dryRun) {
   const lines2 = markdown.split("\n");
   const span = chooseItem(markdown, item);
   const step = span.heading.split(":")[0] ?? span.heading;
-  const text10 = normalize(span.text.slice(OPEN.length));
+  const text9 = normalize(span.text.slice(OPEN.length));
   const date = localDate(deps.clock.now());
-  const lists = listEdits(lines2, step, text10, date);
+  const lists = listEdits(lines2, step, text9, date);
   if ("error" in lists) {
     throw new CommandError(lists.error);
   }
@@ -4413,8 +4592,8 @@ async function tick(deps, json, item, planOption, dryRun) {
     );
   }
   deps.stdout(
-    json ? `${JSON.stringify({ plan: file, item: { step, text: text10 }, dryRun, written: !dryRun, changes })}
-` : describe6(file, step, text10, dryRun, changes)
+    json ? `${JSON.stringify({ plan: file, item: { step, text: text9 }, dryRun, written: !dryRun, changes })}
+` : describe6(file, step, text9, dryRun, changes)
   );
   return 0;
 }
@@ -4466,16 +4645,16 @@ function recentStages(events) {
 }
 async function ideas({ deps }) {
   const repository2 = new IdeaRepository(deps.fs, deps.clock, await deps.root());
-  const items = (await repository2.list()).map((record4) => ({
+  const items2 = (await repository2.list()).map((record4) => ({
     number: record4.number,
     title: record4.title,
     state: record4.outcome ?? "open"
   }));
   const byState = {};
-  for (const { state } of items) {
+  for (const { state } of items2) {
     byState[state] = (byState[state] ?? 0) + 1;
   }
-  return { byState, items };
+  return { byState, items: items2 };
 }
 var statusCommand = {
   summary: "report open plan items, ideas by state and recent ledger stages; read-only, for the concierge",
@@ -4941,10 +5120,10 @@ function usageOf(raw) {
     return void 0;
   }
 }
-function advance(state, text10) {
-  const end = text10.lastIndexOf("\n") + 1;
+function advance(state, text9) {
+  const end = text9.lastIndexOf("\n") + 1;
   let { total, lastId, lastTokens } = state;
-  for (const raw of text10.slice(0, end).split("\n")) {
+  for (const raw of text9.slice(0, end).split("\n")) {
     const usage2 = usageOf(raw);
     if (usage2 === void 0) {
       continue;
@@ -4954,15 +5133,15 @@ function advance(state, text10) {
     lastTokens = usage2.tokens;
   }
   return {
-    offset: state.offset + Buffer.byteLength(text10.slice(0, end)),
+    offset: state.offset + Buffer.byteLength(text9.slice(0, end)),
     total,
     ...lastId === void 0 ? {} : { lastId },
     ...lastTokens === void 0 ? {} : { lastTokens }
   };
 }
-function parseState(text10) {
+function parseState(text9) {
   try {
-    const value = JSON.parse(text10);
+    const value = JSON.parse(text9);
     const { offset, total, lastId, lastTokens } = value;
     return typeof offset === "number" && typeof total === "number" && Number.isSafeInteger(offset) && offset >= 0 && total >= 0 ? {
       offset,
@@ -5288,22 +5467,22 @@ function isProtectedDir(arg, root3) {
   }
   return PROTECTED_DIRS.has(path);
 }
-function truncatedTarget(segment, matches2) {
+function truncatedTarget(segment, matches3) {
   for (let i = 0; i < segment.length; i++) {
     const match = TRUNCATING_REDIRECT.exec(segment[i]);
     if (!match) {
       continue;
     }
     const target = (match[1].replace(/^\|/, "") || segment[i + 1]) ?? "";
-    if (matches2(target)) {
+    if (matches3(target)) {
       return target;
     }
   }
   return void 0;
 }
 var inPlace = (arg) => /^-[A-Za-z]*i/.test(arg) || arg.startsWith("--in-place");
-function rewrittenPath(name, args, matches2) {
-  const rewrites = (candidates) => candidates.find((arg) => matches2(arg));
+function rewrittenPath(name, args, matches3) {
+  const rewrites = (candidates) => candidates.find((arg) => matches3(arg));
   const operands = args.filter((arg) => !arg.startsWith("-"));
   const appends = args.some((arg) => arg === "-a" || arg === "--append");
   if (["rm", "mv", "truncate"].includes(name) || name === "sed" && args.some(inPlace)) {
@@ -5326,17 +5505,45 @@ function checkAppendOnly(name, args, segment, root3) {
   const path = writtenPath(name, args, segment, isAppendOnly);
   return path ? appendOnlyWarn(path) : null;
 }
-function writtenPath(name, args, segment, matches2) {
-  return truncatedTarget(segment, matches2) ?? rewrittenPath(name, args, matches2);
+function writtenPath(name, args, segment, matches3) {
+  return truncatedTarget(segment, matches3) ?? rewrittenPath(name, args, matches3);
 }
 
 // src/hook/guard-guardrails.ts
-var text7 = (value) => typeof value === "string" ? value : "";
 var ENTRY = /"rule"\s*:\s*"([a-z0-9-]+)"[^}]*?"mode"\s*:\s*"(audit|enforce)"/g;
+var OBJECT = /\{[^{}]*"rule"\s*:\s*"([a-z0-9-]+)"[^{}]*\}/g;
+var DENY = /"deny"\s*:\s*\[([^\]]*)\]/;
 var MODE = /"mode"\s*:\s*"(audit|enforce)"/g;
 var modes = (source) => new Map(
   [...source.matchAll(ENTRY)].map((m) => [m[1], m[2]])
 );
+function denies(source) {
+  const found = /* @__PURE__ */ new Map();
+  for (const [object, rule] of source.matchAll(OBJECT)) {
+    const list3 = DENY.exec(object)?.[1];
+    if (list3 !== void 0) {
+      found.set(
+        rule,
+        [...list3.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((m) => m[1])
+      );
+    }
+  }
+  return found;
+}
+var PERMISSION2 = /"((?:Bash|Read|Edit|Write)\([^"]*\))"/g;
+var permissions = (source) => [...source.matchAll(PERMISSION2)].map((m) => m[1]);
+function weakened(previous, after) {
+  const was = denies(previous);
+  if (was.size === 0) {
+    const kept = permissions(after);
+    return permissions(previous).filter((p) => !kept.includes(p));
+  }
+  const now = denies(after);
+  return [...was].filter(([rule, patterns]) => {
+    const kept = now.get(rule);
+    return kept === void 0 || patterns.some((p) => !kept.includes(p));
+  }).map(([rule]) => rule);
+}
 var count2 = (source, mode) => [...source.matchAll(MODE)].filter((m) => m[1] === mode).length;
 function demoted(previous, after) {
   const was = modes(previous);
@@ -5347,32 +5554,82 @@ function demoted(previous, after) {
   const unnamed = was.size === 0 && modes(after).size === 0;
   return unnamed && count2(after, "audit") > count2(previous, "audit") && count2(previous, "enforce") > count2(after, "enforce") ? ["a rule"] : [];
 }
-function checkGuardrailDemotion(tool, input, relative3, previous) {
+function checkGuardrailDemotion(relative3, previous, after) {
   if (relative3 !== INVENTORY_PATH) {
     return null;
   }
-  const after = text7(tool === "Edit" ? input["new_string"] : input["content"]);
   const rules2 = demoted(previous, after);
-  if (rules2.length === 0) {
+  const weak = weakened(previous, after);
+  if (rules2.length === 0 && weak.length === 0) {
     return null;
   }
+  const problems = [
+    ...rules2.length > 0 ? [`turns ${rules2.join(", ")} from enforce to audit by hand`] : [],
+    ...weak.length > 0 ? [
+      `removes, narrows or renames deny patterns (${weak.join(", ")}) by hand`
+    ] : []
+  ];
   return warn(
     "guardrail-demotion",
-    `${relative3} turns ${rules2.join(", ")} from enforce to audit by hand. A person approves a guardrail's mode (ADR 0080). Instead, leave the mode and ask the user to approve the change, or promote a rule from audit to enforce.`
+    `${relative3} ${problems.join(" and ")}. A person approves a guardrail's mode and deny patterns (ADR 0080). Instead, leave them and ask the user to approve the change, or promote a rule from audit to enforce.`
   );
 }
-var INVENTORY_TARGET = /(^|[/\s>'"=])\.claude\/guardrails\.yaml$/;
+var PROTECTED_TARGET = /(^|[/\s>'"=])\.claude\/(guardrails\.yaml|settings\.json)$/;
 function checkGuardrailBash(name, args, segment) {
   const path = writtenPath(
     name,
     args,
     segment,
-    (p) => INVENTORY_TARGET.test(p)
+    (p) => PROTECTED_TARGET.test(p)
   );
   return path === void 0 ? null : warn(
     "guardrail-demotion",
-    `${INVENTORY_PATH} is rewritten by a command, whose effect on each rule's mode cannot be checked. Instead, edit it with the Edit tool so a change from enforce to audit is checked, and leave demotions to a person (ADR 0080).`
+    `${path.replace(/^.*(?=\.claude\/)/, "")} is rewritten by a command, whose effect on a rule's mode or deny patterns cannot be checked. Instead, edit it with the Edit tool so a weakening is checked, and leave demotions to a person (ADR 0080).`
   );
+}
+function checkDenyRemovalBash(name, args) {
+  const words2 = [name, ...args];
+  const at = words2.indexOf("guardrail");
+  return words2[at + 1] === "deny" && words2.includes("--allow-removal") ? warn(
+    "guardrail-demotion",
+    "guardrail deny --allow-removal removes deny patterns from .claude/settings.json. A person approves a guardrail's deny patterns (ADR 0080). Instead, run it without --allow-removal, or ask the user to approve the removal first."
+  ) : null;
+}
+var SETTINGS_PATH2 = ".claude/settings.json";
+var denyOf = (source) => {
+  try {
+    const deny2 = JSON.parse(source).permissions?.deny;
+    return Array.isArray(deny2) ? deny2 : [];
+  } catch {
+    return void 0;
+  }
+};
+function checkSettingsDenyRemoval(relative3, previous, after, ctx) {
+  if (relative3 !== SETTINGS_PATH2) {
+    return null;
+  }
+  const was = denyOf(previous);
+  const now = denyOf(after);
+  const known = new Set(ctx.denyRules.flatMap((r) => [...r.patterns]));
+  const kept = permissions(after);
+  const removed = was !== void 0 && now !== void 0 ? was.filter((p) => !now.includes(p)) : permissions(previous).filter((p) => known.has(p) && !kept.includes(p));
+  return removed.length === 0 ? null : warn(
+    "guardrail-demotion",
+    `${relative3} removes or narrows the deny patterns ${removed.join(", ")} by hand. The inventory owns the deny list and a person approves removing a pattern (ADR 0080). Instead, leave them, and ask the user to approve the change in the inventory, then run \`guardrail deny --write\`.`
+  );
+}
+
+// src/hook/guard-deny.ts
+function checkDenyAudit(tool, subject, ctx) {
+  return ctx.denyRules.filter((r) => r.mode === "audit").flatMap((r) => {
+    const pattern = r.patterns.find((p) => denyMatches(p, tool, subject));
+    return pattern === void 0 ? [] : [
+      warn(
+        r.rule,
+        `${subject} matches the deny pattern ${pattern}, which is in audit mode, so this call is allowed with a warning. Instead, avoid it unless the user asked for it; a person promotes the rule to enforce once the audit shows it is safe.`
+      )
+    ];
+  });
 }
 
 // src/hook/guard-shell.ts
@@ -5712,14 +5969,14 @@ var secretBlock = () => block(
   "Key and token material under .kore/ must not be read or written directly. Instead, use a kore command that streams the secret through stdin, or ask the user to handle it."
 );
 async function loadSopsPatterns(ctx) {
-  let text10;
+  let text9;
   try {
-    text10 = await ctx.readFile(`${ctx.root}/.sops.yaml`);
+    text9 = await ctx.readFile(`${ctx.root}/.sops.yaml`);
   } catch {
     return [];
   }
   const patterns = [];
-  for (const match of text10.matchAll(/path_regex:\s*(.+)$/gm)) {
+  for (const match of text9.matchAll(/path_regex:\s*(.+)$/gm)) {
     const source = match[1].trim().replace(/^['"]|['"]$/g, "");
     try {
       patterns.push(new RegExp(source));
@@ -5734,8 +5991,8 @@ var sopsBlock = (path) => block(
 );
 
 // src/hook/guard-bash.ts
-async function sopsWrite(name, segment, text10, ctx) {
-  const writes2 = text10.includes(">") || ["tee", "cp", "mv", "sed"].includes(name);
+async function sopsWrite(name, segment, text9, ctx) {
+  const writes2 = text9.includes(">") || ["tee", "cp", "mv", "sed"].includes(name);
   if (name === "sops" || !writes2) {
     return null;
   }
@@ -5751,19 +6008,21 @@ async function checkBashSegment(segment, ctx) {
   if (!name) {
     return [];
   }
-  const text10 = segment.join(" ");
-  if (!SECRET_SAFE.has(name) && !isKore(name, args) && SECRET_PATH.test(text10)) {
+  const text9 = segment.join(" ");
+  if (!SECRET_SAFE.has(name) && !isKore(name, args) && SECRET_PATH.test(text9)) {
     return [secretBlock()];
   }
   return [
-    await sopsWrite(name, segment, text10, ctx),
+    await sopsWrite(name, segment, text9, ctx),
     checkDestructive(name, args),
     checkContext(name, args),
     checkNoVerify(name, args),
     checkIdeaIssueBody(name, args),
     checkIdeaIssueClose(name, args),
     checkAppendOnly(name, args, segment, ctx.root),
-    checkGuardrailBash(name, args, segment)
+    checkGuardrailBash(name, args, segment),
+    checkDenyRemovalBash(name, args),
+    ...checkDenyAudit("Bash", text9, ctx)
   ];
 }
 var UNQUOTED_GLOB = /(?:^|\s)--(include|exclude)=([^\s'"]*\*[^\s'"]*)/;
@@ -5778,10 +6037,10 @@ function unquotedGlob(command) {
   );
 }
 function zshWords(command) {
-  const text10 = shellText(command).replace(/\$?\(\([^)]*\)\)/g, "");
-  const words2 = rawWords(text10);
+  const text9 = shellText(command).replace(/\$?\(\([^)]*\)\)/g, "");
+  const words2 = rawWords(text9);
   const glob = words2.find((w) => w.glob && !w.text.includes("${"));
-  const equals = text10.includes("[[") ? void 0 : words2.find((w) => w.equals);
+  const equals = text9.includes("[[") ? void 0 : words2.find((w) => w.equals);
   return [
     glob ? warn(
       "bare-glob",
@@ -5803,11 +6062,11 @@ async function evaluateBash(command, ctx) {
 }
 
 // src/hook/guard-file.ts
-var text8 = (value) => typeof value === "string" ? value : "";
-var written = (tool, input) => text8(tool === "Edit" ? input["new_string"] : input["content"]);
+var text7 = (value) => typeof value === "string" ? value : "";
+var written = (tool, input) => text7(tool === "Edit" ? input["new_string"] : input["content"]);
 async function before(tool, input, relative3, ctx, rethrow) {
   if (tool === "Edit") {
-    return text8(input["old_string"]);
+    return text7(input["old_string"]);
   }
   try {
     return await ctx.readFile(`${ctx.root}/${relative3}`);
@@ -5817,6 +6076,27 @@ async function before(tool, input, relative3, ctx, rethrow) {
     }
     return "";
   }
+}
+var GUARDED_FILES = [INVENTORY_PATH, ".claude/settings.json"];
+async function guardedChange(tool, input, relative3, ctx) {
+  if (!GUARDED_FILES.includes(relative3)) {
+    return { previous: "", after: "" };
+  }
+  if (tool !== "Edit") {
+    return {
+      previous: await before(tool, input, relative3, ctx, false),
+      after: written(tool, input)
+    };
+  }
+  const old = text7(input["old_string"]);
+  const replacement = text7(input["new_string"]);
+  const disk = await before("Write", input, relative3, ctx, false);
+  const at = old === "" ? -1 : disk.indexOf(old);
+  if (at < 0) {
+    return { previous: old, after: replacement };
+  }
+  const after = input["replace_all"] === true ? disk.split(old).join(replacement) : disk.slice(0, at) + replacement + disk.slice(at + old.length);
+  return { previous: disk, after };
 }
 var THRESHOLD = /\b(statements|branches|functions|lines)\s*:\s*(\d+(?:\.\d+)?)/g;
 function thresholds(source) {
@@ -5911,7 +6191,7 @@ async function checkSopsPath(tool, input, relative3, ctx) {
   if (!patterns.some((pattern) => pattern.test(relative3))) {
     return null;
   }
-  const encrypted = tool === "Write" && /^sops:/m.test(text8(input["content"]));
+  const encrypted = tool === "Write" && /^sops:/m.test(text7(input["content"]));
   return encrypted ? null : sopsBlock(relative3);
 }
 async function checkWrite(tool, input, relative3, ctx) {
@@ -5919,22 +6199,19 @@ async function checkWrite(tool, input, relative3, ctx) {
     return applyMode(appendOnlyWarn(relative3), ctx) ?? allow;
   }
   const ideaOutcome = IDEA_PATH.test(relative3) && HAND_WRITTEN_OUTCOME.test(written(tool, input)) ? ideaOutcomeWarn(relative3) : null;
+  const guarded4 = await guardedChange(tool, input, relative3, ctx);
   const findings2 = [
     await checkFlagOn(tool, input, relative3, ctx),
     ideaOutcome,
     await checkSopsPath(tool, input, relative3, ctx),
     await checkCoverageThreshold(tool, input, relative3, ctx),
     checkImageDigest(tool, input, relative3),
-    checkGuardrailDemotion(
-      tool,
-      input,
-      relative3,
-      relative3 === INVENTORY_PATH ? await before(tool, input, relative3, ctx, false) : ""
-    )
+    checkGuardrailDemotion(relative3, guarded4.previous, guarded4.after),
+    checkSettingsDenyRemoval(relative3, guarded4.previous, guarded4.after, ctx)
   ];
   return weigh(findings2.map((finding2) => applyMode(finding2, ctx)));
 }
-async function evaluateFile(tool, input, relative3, ctx) {
+async function fileRules(tool, input, relative3, ctx) {
   if (SECRET_PATH.test(relative3)) {
     return applyMode(secretBlock(), ctx);
   }
@@ -5942,6 +6219,23 @@ async function evaluateFile(tool, input, relative3, ctx) {
     return allow;
   }
   return await checkWrite(tool, input, relative3, ctx);
+}
+async function evaluateFile(tool, input, relative3, ctx) {
+  const verdict = await fileRules(tool, input, relative3, ctx);
+  const audited = checkDenyAudit(tool, relative3, ctx);
+  if (verdict.action === "block" || audited.length === 0) {
+    return verdict;
+  }
+  const extra = weigh(audited);
+  if (verdict.action !== "warn" || extra.action !== "warn") {
+    return extra;
+  }
+  return {
+    ...verdict,
+    message: `${verdict.message}
+${extra.message}`,
+    rules: [...verdict.rules ?? [verdict.rule], ...extra.rules ?? []]
+  };
 }
 
 // src/hook/guard-role.ts
@@ -6345,7 +6639,8 @@ async function guard(payload, deps) {
   const verdict = await evaluate(payload, {
     root: root3,
     readFile: readFile2,
-    modeOf: (rule) => inventory ? modeOf(inventory, rule) : "enforce"
+    modeOf: (rule) => inventory ? modeOf(inventory, rule) : "enforce",
+    denyRules: inventory ? denyRules(inventory) : []
   });
   await started;
   if (verdict.action === "block") {
@@ -6371,12 +6666,12 @@ async function guard(payload, deps) {
 
 // src/hook/io.ts
 async function readPayload(deps) {
-  const text10 = await deps.stdin();
-  if (text10.trim() === "") {
+  const text9 = await deps.stdin();
+  if (text9.trim() === "") {
     return void 0;
   }
   try {
-    return JSON.parse(text10);
+    return JSON.parse(text9);
   } catch {
     return void 0;
   }
@@ -6422,10 +6717,10 @@ import { createHash } from "node:crypto";
 // src/hook/retro-transcript.ts
 var MAX_ERROR = 120;
 var MIN_CORRECTION_WORDS = 4;
-function parseTranscript(id, text10) {
+function parseTranscript(id, text9) {
   const events = [];
   let skipped = 0;
-  text10.split("\n").forEach((raw, index) => {
+  text9.split("\n").forEach((raw, index) => {
     if (raw.trim() === "") {
       return;
     }
@@ -6445,8 +6740,8 @@ var ERROR_WORDS = /\b(errors?|fail(ed|ure|ures)?|fatal|not found|no such|denied|
 var SHELL_PREFIX = /^(\(eval\):\d+:|zsh:|bash:|sh:)/;
 var NOT_OUTPUT_ERROR = /^(- |#|import |export |\|)/;
 var looksLikeError = (line2) => !NOT_OUTPUT_ERROR.test(line2) && (ERROR_WORDS.test(line2) || SHELL_PREFIX.test(line2));
-function summarizeError(text10) {
-  const lines2 = text10.replace(/<\/?tool_use_error>/g, "").split("\n").map((line2) => line2.trim()).filter(Boolean);
+function summarizeError(text9) {
+  const lines2 = text9.replace(/<\/?tool_use_error>/g, "").split("\n").map((line2) => line2.trim()).filter(Boolean);
   let head = lines2[0] ?? "";
   let prefix = "";
   if (/^Exit code \d+$/.test(head)) {
@@ -6486,13 +6781,13 @@ function humanText(event) {
   if (notTyped || event.origin && event.origin.kind !== "human") {
     return null;
   }
-  const text10 = typedText(event.message?.content);
-  return text10.trim() === "" || INJECTED.test(text10) ? null : text10;
+  const text9 = typedText(event.message?.content);
+  return text9.trim() === "" || INJECTED.test(text9) ? null : text9;
 }
 var CORRECTION_WORD = /\b(no|not|dont|don't|don’t|stop|instead|wrong|again|actually|should|never)\b/i;
-var readsAsCorrection = (text10) => CORRECTION_WORD.test(text10);
-var ownWords = (text10) => text10.replace(/<pasted_content[^>]*>[\s\S]*?<\/pasted_content[^>]*>/g, " ").replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, " ");
-var phrasesOf = (text10) => text10.split(/[.!?;\n]+/).map(
+var readsAsCorrection = (text9) => CORRECTION_WORD.test(text9);
+var ownWords = (text9) => text9.replace(/<pasted_content[^>]*>[\s\S]*?<\/pasted_content[^>]*>/g, " ").replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, " ");
+var phrasesOf = (text9) => text9.split(/[.!?;\n]+/).map(
   (part) => part.toLowerCase().replace(/['’`]/g, "").replace(/[^a-z0-9]+/g, " ").trim()
 ).filter((phrase) => phrase.split(" ").length >= MIN_CORRECTION_WORDS);
 function timestamps(session2) {
@@ -6503,7 +6798,7 @@ function timestamps(session2) {
 // src/hook/retro-session.ts
 var GUARD_TAG = /\[guard:([a-z0-9-]+)\]/g;
 var SLASH_COMMAND = /<command-name>\/?([a-z0-9:-]+)<\/command-name>/;
-var tagsIn = (text10) => [...text10.matchAll(GUARD_TAG)].map((match) => match[1] ?? "");
+var tagsIn = (text9) => [...text9.matchAll(GUARD_TAG)].map((match) => match[1] ?? "");
 var SessionAnalysis = class {
   guards = {};
   failures = [];
@@ -6552,12 +6847,12 @@ var SessionAnalysis = class {
   }
   toolFailure(block2) {
     this.failedSinceHuman = true;
-    const text10 = resultText(block2);
-    const tags = new Set(tagsIn(text10));
+    const text9 = resultText(block2);
+    const tags = new Set(tagsIn(text9));
     if (tags.size === 0) {
       this.failures.push({
         tool: this.calls.get(block2.tool_use_id ?? "") ?? "unknown",
-        error: summarizeError(text10)
+        error: summarizeError(text9)
       });
     }
     for (const tag of tags) {
@@ -6575,12 +6870,12 @@ var SessionAnalysis = class {
     }
   }
   human(event) {
-    const text10 = humanText(event);
-    if (text10 === null) {
+    const text9 = humanText(event);
+    if (text9 === null) {
       return;
     }
     this.ordered.push({ kind: "human" });
-    const own2 = ownWords(text10);
+    const own2 = ownWords(text9);
     if (this.failedSinceHuman || readsAsCorrection(own2)) {
       for (const phrase of phrasesOf(own2)) {
         this.phrases.push({ phrase, line: event.line });
@@ -6753,7 +7048,7 @@ var Tally2 = class {
   }
 };
 function scan(inputs, { since, knownSkills = [], auditRules: audit3 = [] } = {}) {
-  const included = inputs.map(({ id, text: text10 }) => parseTranscript(id, text10)).map((session2) => ({ session: session2, ...timestamps(session2) })).filter(
+  const included = inputs.map(({ id, text: text9 }) => parseTranscript(id, text9)).map((session2) => ({ session: session2, ...timestamps(session2) })).filter(
     ({ last }) => last !== null && Date.parse(last) >= windowStart(since)
   ).sort((a, b) => (a.first ?? "").localeCompare(b.first ?? ""));
   const tally = new Tally2(audit3, knownSkills);
@@ -6883,9 +7178,9 @@ import { homedir } from "node:os";
 import { join as join9 } from "node:path";
 var JOURNAL_DIR = ".kore/state/journal";
 var isMissing = (error) => error.code === "ENOENT";
-function parseEntries(text10) {
+function parseEntries(text9) {
   const entries = [];
-  for (const line2 of text10.split("\n")) {
+  for (const line2 of text9.split("\n")) {
     try {
       const entry2 = JSON.parse(line2);
       if (entry2 && typeof entry2 === "object") {
@@ -6909,13 +7204,13 @@ async function readJournals(fs, root3) {
   }
   const journals = {};
   for (const name of names3) {
-    let text10;
+    let text9;
     try {
-      text10 = await fs.readFile(join9(dir, name));
+      text9 = await fs.readFile(join9(dir, name));
     } catch {
       continue;
     }
-    journals[name.slice(0, -".jsonl".length)] = parseEntries(text10);
+    journals[name.slice(0, -".jsonl".length)] = parseEntries(text9);
   }
   return journals;
 }
@@ -6960,9 +7255,9 @@ var context = hookCommand(
     if (Array.isArray(payload)) {
       return {};
     }
-    let text10;
+    let text9;
     try {
-      text10 = await restore(
+      text9 = await restore(
         payload,
         realContextDeps(deps, await deps.root())
       );
@@ -6972,11 +7267,11 @@ var context = hookCommand(
       }
       throw error;
     }
-    return text10 === "" ? {} : {
+    return text9 === "" ? {} : {
       stdout: JSON.stringify({
         hookSpecificOutput: {
           hookEventName: "SessionStart",
-          additionalContext: text10
+          additionalContext: text9
         }
       })
     };
@@ -7007,9 +7302,9 @@ async function readDir(deps, dir) {
     throw error;
   }
 }
-function parseEntries2(text10) {
+function parseEntries2(text9) {
   const entries = [];
-  for (const line2 of text10.split("\n")) {
+  for (const line2 of text9.split("\n")) {
     try {
       const entry2 = JSON.parse(line2);
       if (entry2 !== null && typeof entry2 === "object") {
@@ -7114,16 +7409,16 @@ function lastOperation2(entries) {
 function planItems(plans) {
   const result = {};
   for (const name of activePlans(plans)) {
-    const items = {};
-    for (const { text: text10 } of listItems(plans[name] ?? "")) {
-      const match = /^- \[( |x)\] (.*)$/.exec(text10);
+    const items2 = {};
+    for (const { text: text9 } of listItems(plans[name] ?? "")) {
+      const match = /^- \[( |x)\] (.*)$/.exec(text9);
       if (match === null) {
         continue;
       }
       const title = (match[2] ?? "").replaceAll("**", "").slice(0, MAX_ITEM_CHARS);
-      items[title] = match[1] === "x";
+      items2[title] = match[1] === "x";
     }
-    result[name] = items;
+    result[name] = items2;
   }
   return result;
 }
@@ -7158,11 +7453,11 @@ function operationLine(environment, operation) {
 }
 function planLines(before2, after) {
   const lines2 = [];
-  for (const [plan2, items] of Object.entries(after.plans)) {
+  for (const [plan2, items2] of Object.entries(after.plans)) {
     const old = before2.plans[plan2];
     const ticked = [];
     const added = [];
-    for (const [title, checked] of Object.entries(items)) {
+    for (const [title, checked] of Object.entries(items2)) {
       if (old === void 0 || !(title in old)) {
         if (old !== void 0) {
           added.push(title);
@@ -7216,8 +7511,8 @@ function describeChanges(before2, after, subjects) {
   if (lines2.length === 0) {
     return "";
   }
-  const text10 = `Changed since your last turn: ${lines2.join(" | ")}`;
-  return text10.length <= MAX_CHARS ? text10 : `${text10.slice(0, MAX_CHARS - 3)}...`;
+  const text9 = `Changed since your last turn: ${lines2.join(" | ")}`;
+  return text9.length <= MAX_CHARS ? text9 : `${text9.slice(0, MAX_CHARS - 3)}...`;
 }
 async function prune(currentId, deps) {
   try {
@@ -7315,14 +7610,14 @@ function contextPercent(input) {
   return Math.round(used / window.context_window_size * 100);
 }
 function colored(percent) {
-  const text10 = `ctx ${percent}%`;
+  const text9 = `ctx ${percent}%`;
   if (percent >= RED_AT) {
-    return `\x1B[31m${text10}\x1B[0m`;
+    return `\x1B[31m${text9}\x1B[0m`;
   }
   if (percent >= AMBER_AT) {
-    return `\x1B[33m${text10}\x1B[0m`;
+    return `\x1B[33m${text9}\x1B[0m`;
   }
-  return text10;
+  return text9;
 }
 function statusLine(input, plans) {
   const parts = [];
@@ -7343,9 +7638,9 @@ function statusLine(input, plans) {
   }
   return parts.join(" \xB7 ");
 }
-var text9 = (value) => typeof value === "string" && value !== "" ? value : void 0;
+var text8 = (value) => typeof value === "string" && value !== "" ? value : void 0;
 function projectOf(input, deps) {
-  return text9(deps.env["CLAUDE_PROJECT_DIR"]) ?? text9(input.workspace?.project_dir) ?? text9(input.cwd) ?? deps.cwd;
+  return text8(deps.env["CLAUDE_PROJECT_DIR"]) ?? text8(input.workspace?.project_dir) ?? text8(input.cwd) ?? deps.cwd;
 }
 var UNREADABLE = "plans?";
 var statusline = hookCommand(
@@ -7466,9 +7761,9 @@ async function readTranscripts(fs, dirs) {
       (n) => n.endsWith(".jsonl")
     )) {
       const id = basename2(name, ".jsonl");
-      const text10 = await fs.readFile(join11(dir, name));
-      if (text10.length >= (byId.get(id)?.text.length ?? -1)) {
-        byId.set(id, { id, text: text10 });
+      const text9 = await fs.readFile(join11(dir, name));
+      if (text9.length >= (byId.get(id)?.text.length ?? -1)) {
+        byId.set(id, { id, text: text9 });
       }
     }
   }
@@ -7663,11 +7958,11 @@ function addEntry2(stack, indent, body) {
   parent[key] = value;
   return /^[|>]/.test(value) ? indent : null;
 }
-function parseWorkflow(text10) {
+function parseWorkflow(text9) {
   const rootNode = {};
   const stack = [{ indent: -1, node: rootNode }];
   let skipAbove = null;
-  for (const raw of text10.split("\n")) {
+  for (const raw of text9.split("\n")) {
     const line2 = raw.replace(/(^|\s)#.*$/, "");
     const indent = line2.length - line2.trimStart().length;
     if (line2.trim() === "" || skipAbove !== null && indent > skipAbove) {
@@ -7683,17 +7978,17 @@ function parseWorkflow(text10) {
   }
   return rootNode;
 }
-function writeScopes(permissions) {
-  if (permissions === void 0) {
+function writeScopes(permissions2) {
+  if (permissions2 === void 0) {
     return null;
   }
-  if (isMap(permissions)) {
-    return Object.entries(permissions).filter(([, level]) => level === "write").map(([scope]) => scope);
+  if (isMap(permissions2)) {
+    return Object.entries(permissions2).filter(([, level]) => level === "write").map(([scope]) => scope);
   }
-  if (permissions === "write-all") {
+  if (permissions2 === "write-all") {
     return ["write-all"];
   }
-  return [...permissions.matchAll(/([\w-]+)\s*:\s*write\b/g)].map(
+  return [...permissions2.matchAll(/([\w-]+)\s*:\s*write\b/g)].map(
     (m) => m[1]
   );
 }
@@ -7736,8 +8031,8 @@ function jobProblems(file, name, job) {
   }
   return problems;
 }
-function fileProblems(file, text10) {
-  const workflow = parseWorkflow(text10);
+function fileProblems(file, text9) {
+  const workflow = parseWorkflow(text9);
   const problems = [];
   const top = writeScopes(workflow["permissions"]);
   if (top === null || top.length > 0) {
@@ -7761,7 +8056,7 @@ function fileProblems(file, text10) {
 }
 function permissionProblems(files) {
   return Object.entries(files).flatMap(
-    ([file, text10]) => fileProblems(file, text10)
+    ([file, text9]) => fileProblems(file, text9)
   );
 }
 async function workflowProblems(fs, root3) {
@@ -7797,8 +8092,8 @@ function slug(heading) {
 function proseLines(markdown) {
   const lines2 = [];
   let fence = null;
-  markdown.split("\n").forEach((text10, index) => {
-    const opener = /^\s*(```|~~~)/.exec(text10);
+  markdown.split("\n").forEach((text9, index) => {
+    const opener = /^\s*(```|~~~)/.exec(text9);
     if (fence) {
       if (opener && opener[1] === fence) {
         fence = null;
@@ -7809,15 +8104,15 @@ function proseLines(markdown) {
       fence = opener[1] ?? null;
       return;
     }
-    lines2.push({ line: index + 1, text: text10.replace(/`[^`]*`/g, "") });
+    lines2.push({ line: index + 1, text: text9.replace(/`[^`]*`/g, "") });
   });
   return lines2;
 }
 function anchors(markdown) {
   const seen = /* @__PURE__ */ new Map();
   const result = [];
-  for (const { text: text10 } of proseLines(markdown)) {
-    const match = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(text10);
+  for (const { text: text9 } of proseLines(markdown)) {
+    const match = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(text9);
     if (!match) {
       continue;
     }
@@ -7846,15 +8141,15 @@ function frontmatter2(file, markdown) {
   const keys = /* @__PURE__ */ new Map();
   const errors = [];
   for (let index = 1; index < lines2.length; index++) {
-    const text10 = lines2[index] ?? "";
-    if (text10 === "---") {
+    const text9 = lines2[index] ?? "";
+    if (text9 === "---") {
       return { keys, errors };
     }
-    const match = /^([A-Za-z][\w-]*):\s*(.*)$/.exec(text10);
+    const match = /^([A-Za-z][\w-]*):\s*(.*)$/.exec(text9);
     if (match?.[2] && !/^[[{|>&*!-]/.test(match[2])) {
       keys.set(match[1] ?? "", { value: match[2].trim(), line: index + 1 });
     } else {
-      const key = match ? match[1] : text10.trim();
+      const key = match ? match[1] : text9.trim();
       errors.push(
         finding(
           file,
@@ -8163,9 +8458,9 @@ function ideaNumbers(files) {
   }
   return { ideas: ideas2, problems };
 }
-function linkProblems2(tree, file, text10) {
+function linkProblems2(tree, file, text9) {
   const problems = [];
-  for (const { line: line2, text: prose2 } of proseLines(text10)) {
+  for (const { line: line2, text: prose2 } of proseLines(text9)) {
     for (const [, raw = ""] of prose2.matchAll(LINK)) {
       if (isExternal(raw)) {
         continue;
@@ -8194,17 +8489,17 @@ function linkProblems2(tree, file, text10) {
 function markdownProblems(tree, ideas2) {
   const problems = [];
   for (const file of tree.files.filter((name) => name.endsWith(".md"))) {
-    const text10 = tree.deps.read(file);
-    if (text10 === null) {
+    const text9 = tree.deps.read(file);
+    if (text9 === null) {
       continue;
     }
-    problems.push(...linkProblems2(tree, file, text10));
+    problems.push(...linkProblems2(tree, file, text9));
     if (PLAN.test(file) || ADR2.test(file)) {
       problems.push(
-        ...checkFrontmatter(file, text10, (path) => tree.exists(path))
+        ...checkFrontmatter(file, text9, (path) => tree.exists(path))
       );
     } else if (IDEA.test(file)) {
-      problems.push(...checkIdea(file, text10, ideas2));
+      problems.push(...checkIdea(file, text9, ideas2));
     }
   }
   return problems;
@@ -8223,11 +8518,11 @@ function indexProblems(tree) {
   }
   const problems = [];
   const listed = /* @__PURE__ */ new Set();
-  for (const { line: line2, text: text10 } of proseLines(index)) {
-    if (!text10.startsWith("- [")) {
+  for (const { line: line2, text: text9 } of proseLines(index)) {
+    if (!text9.startsWith("- [")) {
       continue;
     }
-    const raw = /\]\(([^)\s#]+)/.exec(text10)?.[1];
+    const raw = /\]\(([^)\s#]+)/.exec(text9)?.[1];
     if (raw === void 0 || isExternal(raw)) {
       continue;
     }
@@ -8265,11 +8560,11 @@ var TRAILING = /[.,;:)]+$/;
 function markerProblems(tree) {
   const problems = [];
   for (const file of tree.files.filter((name) => !name.endsWith(".md"))) {
-    const text10 = tree.deps.read(file);
-    if (text10 === null) {
+    const text9 = tree.deps.read(file);
+    if (text9 === null) {
       continue;
     }
-    text10.split("\n").forEach((line2, position) => {
+    text9.split("\n").forEach((line2, position) => {
       const match = MARKER2.exec(line2);
       if (!match) {
         return;
@@ -8369,19 +8664,19 @@ function dependenciesOf(deps) {
     paths.add(path);
   };
   for (const file of files) {
-    const text10 = deps.read(file);
-    if (text10 === null) {
+    const text9 = deps.read(file);
+    if (text9 === null) {
       continue;
     }
     if (PLAN.test(file) || ADR2.test(file)) {
-      for (const target of linkTargets(file, text10)) {
+      for (const target of linkTargets(file, text9)) {
         depend(file, target);
       }
     }
     if (file.endsWith(".md")) {
       continue;
     }
-    for (const line2 of text10.split("\n")) {
+    for (const line2 of text9.split("\n")) {
       const path = (MARKER2.exec(line2)?.[2] ?? "").replace(/[.,;:)]+$/, "");
       if (PLAN.test(path) || ADR2.test(path)) {
         depend(path, file);
@@ -8390,9 +8685,9 @@ function dependenciesOf(deps) {
   }
   return dependencies;
 }
-function linkTargets(file, text10) {
+function linkTargets(file, text9) {
   const targets = [];
-  for (const { text: prose2 } of proseLines(text10)) {
+  for (const { text: prose2 } of proseLines(text9)) {
     for (const [, raw = ""] of prose2.matchAll(LINK)) {
       const [pathPart] = raw.split("#", 1);
       const target = isExternal(raw) || !pathPart ? null : resolve7(file, decodeURI(pathPart));
@@ -8550,8 +8845,8 @@ function overBudgets(descriptionChars, bodyLines) {
 function countLines(body) {
   return body === "" ? 0 : body.replace(/\n$/, "").split("\n").length;
 }
-function auditSkill(directory, text10) {
-  const source = text10.replaceAll("\r\n", "\n");
+function auditSkill(directory, text9) {
+  const source = text9.replaceAll("\r\n", "\n");
   if (!source.startsWith("---\n")) {
     return invalid(directory, "missing frontmatter");
   }
@@ -9323,8 +9618,8 @@ async function resolveTier(deps, role, flags) {
 var DEFAULT_TIMEOUT_MS = 60 * 60 * 1e3;
 var POLL_MS = 2e3;
 var MARKER3 = /^[ \t]*(?:[●⏺][ \t]+)?RESULT: (done|blocked)[ \t\r]*$/gm;
-function findResult(text10) {
-  const last = [...text10.matchAll(MARKER3)].at(-1)?.[1];
+function findResult(text9) {
+  const last = [...text9.matchAll(MARKER3)].at(-1)?.[1];
   return last === "done" || last === "blocked" ? last : void 0;
 }
 function parseTimeout(value) {
@@ -9706,9 +10001,9 @@ var equalizeCommand = {
 `);
       return 1;
     }
-    const text10 = result.status === "skipped" ? `Skipped: ${result.reason}.` : "Equalized.";
+    const text9 = result.status === "skipped" ? `Skipped: ${result.reason}.` : "Equalized.";
     deps.stdout(json ? `${JSON.stringify(result)}
-` : `${text10}
+` : `${text9}
 `);
     return 0;
   }
@@ -9907,7 +10202,7 @@ async function run2(argv, deps) {
 }
 
 // src/main.ts
-var stderr = (text10) => process.stderr.write(text10);
+var stderr = (text9) => process.stderr.write(text9);
 var root2;
 try {
   process.exitCode = await run2(process.argv.slice(2), {
@@ -9923,7 +10218,7 @@ try {
       import.meta.url,
       (path) => nodeFileSystem.exists(path)
     ),
-    stdout: (text10) => process.stdout.write(text10),
+    stdout: (text9) => process.stdout.write(text9),
     stderr
   });
 } catch (error) {

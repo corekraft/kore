@@ -2,7 +2,11 @@
 // coverage-threshold. Audit mode (warn): append-only, idea-outcome,
 // flag-activation, image-digest, guardrail-demotion.
 import { INVENTORY_PATH } from "../guardrail/index.js";
-import { checkGuardrailDemotion } from "./guard-guardrails.js";
+import { checkDenyAudit } from "./guard-deny.js";
+import {
+  checkGuardrailDemotion,
+  checkSettingsDenyRemoval,
+} from "./guard-guardrails.js";
 import { appendOnlyWarn, isAppendOnly } from "./guard-append-only.js";
 import {
   SECRET_PATH,
@@ -49,6 +53,43 @@ async function before(
     }
     return "";
   }
+}
+
+const GUARDED_FILES = [INVENTORY_PATH, ".claude/settings.json"];
+
+/**
+ * A guarded file's text on disk and as the change would leave it: the content of
+ * a Write, or the disk text with an Edit's old_string replaced (every
+ * occurrence with replace_all). An Edit whose old_string is not on disk would
+ * fail, so only its snippets are compared.
+ */
+async function guardedChange(
+  tool: string,
+  input: Input,
+  relative: string,
+  ctx: GuardContext,
+): Promise<{ previous: string; after: string }> {
+  if (!GUARDED_FILES.includes(relative)) {
+    return { previous: "", after: "" };
+  }
+  if (tool !== "Edit") {
+    return {
+      previous: await before(tool, input, relative, ctx, false),
+      after: written(tool, input),
+    };
+  }
+  const old = text(input["old_string"]);
+  const replacement = text(input["new_string"]);
+  const disk = await before("Write", input, relative, ctx, false);
+  const at = old === "" ? -1 : disk.indexOf(old);
+  if (at < 0) {
+    return { previous: old, after: replacement };
+  }
+  const after =
+    input["replace_all"] === true
+      ? disk.split(old).join(replacement)
+      : disk.slice(0, at) + replacement + disk.slice(at + old.length);
+  return { previous: disk, after };
 }
 
 const THRESHOLD =
@@ -209,25 +250,20 @@ async function checkWrite(
       ? ideaOutcomeWarn(relative)
       : null;
   // Each finding takes its own rule's mode before they are weighed: a block wins over any warning.
+  const guarded = await guardedChange(tool, input, relative, ctx);
   const findings = [
     await checkFlagOn(tool, input, relative, ctx),
     ideaOutcome,
     await checkSopsPath(tool, input, relative, ctx),
     await checkCoverageThreshold(tool, input, relative, ctx),
     checkImageDigest(tool, input, relative),
-    checkGuardrailDemotion(
-      tool,
-      input,
-      relative,
-      relative === INVENTORY_PATH
-        ? await before(tool, input, relative, ctx, false)
-        : "",
-    ),
+    checkGuardrailDemotion(relative, guarded.previous, guarded.after),
+    checkSettingsDenyRemoval(relative, guarded.previous, guarded.after, ctx),
   ];
   return weigh(findings.map((finding) => applyMode(finding, ctx)));
 }
 
-export async function evaluateFile(
+async function fileRules(
   tool: string,
   input: Input,
   relative: string,
@@ -240,4 +276,26 @@ export async function evaluateFile(
     return allow;
   }
   return await checkWrite(tool, input, relative, ctx);
+}
+
+export async function evaluateFile(
+  tool: string,
+  input: Input,
+  relative: string,
+  ctx: GuardContext,
+): Promise<Verdict> {
+  const verdict = await fileRules(tool, input, relative, ctx);
+  const audited = checkDenyAudit(tool, relative, ctx);
+  if (verdict.action === "block" || audited.length === 0) {
+    return verdict;
+  }
+  const extra = weigh(audited);
+  if (verdict.action !== "warn" || extra.action !== "warn") {
+    return extra;
+  }
+  return {
+    ...verdict,
+    message: `${verdict.message}\n${extra.message}`,
+    rules: [...(verdict.rules ?? [verdict.rule]), ...(extra.rules ?? [])],
+  };
 }

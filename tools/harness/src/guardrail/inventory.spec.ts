@@ -83,7 +83,9 @@ describe("the committed inventory", () => {
       ...source.matchAll(/\b(?:block|warn)\(\s*"([a-z0-9-]+)"/g),
     ].map((m) => m[1] ?? "");
     const byName = (a: string, b: string) => a.localeCompare(b);
-    expect(inventory.guardrails.map((g) => g.rule).sort(byName)).toEqual(
+    // A deny rule's code is a Claude Code permission rule or the guard's generic matcher, not a block() call.
+    const coded = inventory.guardrails.filter((g) => g.deny === undefined);
+    expect(coded.map((g) => g.rule).sort(byName)).toEqual(
       [...new Set(named)].sort(byName),
     );
   });

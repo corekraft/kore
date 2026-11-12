@@ -12,6 +12,7 @@ import { asCall, evaluate } from "./guard-evaluate.js";
 import {
   GuardrailError,
   modeOf,
+  denyRules,
   findInventory,
   type Inventory,
 } from "../guardrail/index.js";
@@ -51,6 +52,7 @@ export async function guard(
     root,
     readFile,
     modeOf: (rule) => (inventory ? modeOf(inventory, rule) : "enforce"),
+    denyRules: inventory ? denyRules(inventory) : [],
   });
   await started;
 

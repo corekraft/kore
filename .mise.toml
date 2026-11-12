@@ -60,8 +60,8 @@ description = "Format files with the pinned prettier: mise run format <files>"
 run = "tools/kore/node_modules/.bin/prettier --write"
 
 [tasks.test-hooks]
-description = "Run the hook, status line and eval grading tests under harness vitest; check skill links and workflow permissions with the harness hooks; then kb-check in warn mode"
-run = ["npm --prefix tools/harness run test:hooks", "node skills/bin/harness.mjs hook skill-links --strict", "node skills/bin/harness.mjs hook workflow-permissions --strict", "node skills/bin/harness.mjs hook kb-check"]
+description = "Run the hook, status line and eval grading tests under harness vitest; check skill links and workflow permissions with the harness hooks, and that the settings deny list is the one the inventory generates; then kb-check in warn mode"
+run = ["npm --prefix tools/harness run test:hooks", "node skills/bin/harness.mjs hook skill-links --strict", "node skills/bin/harness.mjs hook workflow-permissions --strict", "node skills/bin/harness.mjs guardrail deny --check", "node skills/bin/harness.mjs hook kb-check"]
 
 [tasks.kb-check]
 description = "Check knowledge-base links, index, frontmatter, and Docs: markers, then print the skill budget audit (never fails); pass -- --strict to fail on findings"
