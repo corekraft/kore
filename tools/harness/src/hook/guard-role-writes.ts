@@ -49,9 +49,10 @@ const WRITING_GH = new Set(["merge", "close", "edit", "checkout"]);
 export const readOnly = (what: string): Finding =>
   block(
     "role-read-only",
-    `${what} changes files, and the concierge, reader, orchestrator and judge never write. ` +
+    `${what} changes files, and the concierge, reader, refiner, challenger, orchestrator and judge never write. ` +
       "Instead, report what needs changing: the concierge files it as an idea, the reader returns it in its summary, " +
-      "the orchestrator hands it to a writer and the judge sends the change back.",
+      "the orchestrator hands it to a writer, the judge sends the change back, the refiner files an idea with `idea new` " +
+      "and the challenger records a round with `idea challenge`.",
   );
 
 const FD_OPERATOR = /^(?:\d*>>?|&>>?)$/;

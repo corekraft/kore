@@ -56,12 +56,12 @@ effect against the plan 8 baseline.
 
 ### Work
 
-- [ ] Add the Refiner (Sonnet, medium) and Challenger (Opus) agent
+- [x] Add the Refiner (Sonnet, medium) and Challenger (Opus) agent
       definitions.
-- [ ] The concierge routes raw requests to the Refiner. The Challenger reviews
+- [x] The concierge routes raw requests to the Refiner. The Challenger reviews
       each refined idea, at most two rounds, then the idea goes to a person
       with any open objections listed.
-- [ ] The Challenger also reviews new ADRs and plans.
+- [x] The Challenger also reviews new ADRs and plans.
 
 ### Exit Criteria
 

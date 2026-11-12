@@ -58,6 +58,11 @@ outcomes, wrong safety patterns and conflicts with recorded decisions, before a
 person approves it. It never reviews code.
 _Avoid_: Critic, reviewer
 
+**Challenge round**:
+One pass of the Challenger over an idea, recorded as a comment on the idea's
+issue and counted from there. An idea gets at most two; after the second it goes
+to a person with the open objections listed.
+
 **Orchestrator**:
 The agent that breaks an idea into work and drives it to an outcome, without
 being interrupted.

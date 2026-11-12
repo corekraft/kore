@@ -18,19 +18,21 @@ import {
 import { commandOf, splitSegments } from "./guard-shell.js";
 import { block, type Finding } from "./guard-verdict.js";
 
-const READ_ONLY_ROLES = new Set(["concierge", "reader"]);
+const READ_ONLY_ROLES = new Set(["concierge", "reader", "challenger"]);
+/** Roles that answer from plans, ADRs, ideas and issues and never read code. */
+const NO_CODE_ROLES = new Set(["concierge", "challenger"]);
 const FILE_TOOLS = new Set(["Read", "Grep", "Glob"]);
 
-/** Paths the concierge may read: what status is answered from, never code. */
+/** Paths the concierge and the challenger may read: plans, ADRs and ideas, never code. */
 const CONCIERGE_PATHS = /^(infra\/plans\/|docs\/|GLOSSARY\.md$|README\.md$)/;
 
 const rolePrefix = (root: string, path: string): string =>
   path.startsWith(`${root}/`) ? path.slice(root.length + 1) : path;
 
-const noCode = (what: string): Finding =>
+const noCode = (what: string, role: string): Finding =>
   block(
     "role-no-code",
-    `${what} reads code, and the concierge answers from plans, issues and the ledger. ` +
+    `${what} reads code, and the ${role} works from plans, ADRs, ideas, issues and the ledger. ` +
       "Instead, ask a reader to look at the code and summarize it.",
   );
 
@@ -47,6 +49,8 @@ const HARNESS_READS = [
 ];
 /** The concierge also files and mirrors ideas, the one way a request enters the queue. */
 const CONCIERGE_HARNESS = [...HARNESS_READS, "idea new", "idea sync"];
+/** The challenger records its rounds through the idea tool, which posts them on the issue. */
+const CHALLENGER_HARNESS = [...HARNESS_READS, "idea challenge"];
 
 const READ_UTILITIES = new Set([
   "cat",
@@ -132,11 +136,15 @@ function ghMayRun(args: readonly string[], patches: boolean): boolean {
   );
 }
 
-/** What the concierge's shell may run: allowlisted harness commands and status queries, never anything that shows code. */
-function conciergeMayRun(segment: readonly string[]): boolean {
+/** What a no-code role's shell may run: its allowlisted harness commands and status queries, never anything that shows code. */
+function noCodeMayRun(role: string, segment: readonly string[]): boolean {
   const { name, args } = commandOf(segment);
   return (
-    harnessAllowed(name, args, CONCIERGE_HARNESS) ||
+    harnessAllowed(
+      name,
+      args,
+      role === "challenger" ? CHALLENGER_HARNESS : CONCIERGE_HARNESS,
+    ) ||
     harnessStatus(name, args) ||
     (name === "gh" && ghMayRun(args, false)) ||
     (name === "git" && conciergeGit(args)) ||
@@ -189,8 +197,8 @@ function readerMayRun(segment: readonly string[]): boolean {
 function checkBash(role: string, command: string): Finding {
   // A substitution runs a command the segment check never sees.
   if (/\$\(|`|<\(|>\(/.test(command)) {
-    return role === "concierge"
-      ? noCode("A command substitution")
+    return NO_CODE_ROLES.has(role)
+      ? noCode("A command substitution", role)
       : readOnly("A command substitution");
   }
   const segments = splitSegments(command);
@@ -198,9 +206,9 @@ function checkBash(role: string, command: string): Finding {
   if (writer !== undefined) {
     return readOnly(`\`${writer.join(" ")}\``);
   }
-  if (role === "concierge") {
-    const stray = segments.find((segment) => !conciergeMayRun(segment));
-    return stray === undefined ? null : noCode(`\`${stray.join(" ")}\``);
+  if (NO_CODE_ROLES.has(role)) {
+    const stray = segments.find((segment) => !noCodeMayRun(role, segment));
+    return stray === undefined ? null : noCode(`\`${stray.join(" ")}\``, role);
   }
   const unknown = segments.find((segment) => !readerMayRun(segment));
   return unknown === undefined
@@ -229,11 +237,11 @@ export function checkRole(
   if (tool === "Bash" && typeof input["command"] === "string") {
     return checkBash(agentType, input["command"]);
   }
-  if (agentType === "concierge" && FILE_TOOLS.has(tool)) {
+  if (NO_CODE_ROLES.has(agentType) && FILE_TOOLS.has(tool)) {
     const path = input["file_path"] ?? input["path"];
     const readable =
       typeof path === "string" && CONCIERGE_PATHS.test(rolePrefix(root, path));
-    return readable ? null : noCode(tool);
+    return readable ? null : noCode(tool, agentType);
   }
   return null;
 }

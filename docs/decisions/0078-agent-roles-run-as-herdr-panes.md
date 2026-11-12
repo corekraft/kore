@@ -29,7 +29,7 @@ The delivery loop has these roles, each an agent definition under
 | ------------ | -------------- | --------------------------------------------------------- |
 | Concierge    | Haiku, low     | Talks to the person; answers status; files ideas.         |
 | Refiner      | Sonnet, medium | Turns a raw request into an idea.                         |
-| Challenger   | Opus           | Attacks ideas, ADRs and plans; never code.                |
+| Challenger   | Opus, high     | Attacks ideas, ADRs and plans; never code.                |
 | Orchestrator | Haiku, high    | Drives approved ideas to outcomes.                        |
 | Reader       | Haiku, low     | Reads and summarizes.                                     |
 | Writer       | Haiku          | Changes files for one piece of work, in its own worktree. |
