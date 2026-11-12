@@ -5,6 +5,7 @@ import {
   SAFETY_PATTERNS,
   parseIdea,
   renderIdea,
+  withIssue,
   type IdeaRecord,
   type NewIdea,
 } from "./record.js";
@@ -97,6 +98,19 @@ export class IdeaRepository {
     }
     throw new IdeaError(
       `Another writer keeps creating ideas in ${DIR}; rerun \`harness idea new\` once it finishes.`,
+    );
+  }
+
+  /** The raw markdown of an idea. */
+  async source(record: IdeaRecord): Promise<string> {
+    return await this.fs.readFile(this.abs(record.path));
+  }
+
+  /** Records the idea's issue link in its frontmatter, touching nothing else. */
+  async recordIssue(record: IdeaRecord, issue: string): Promise<void> {
+    await this.fs.writeFile(
+      this.abs(record.path),
+      withIssue(await this.source(record), issue),
     );
   }
 

@@ -1,7 +1,7 @@
 import { run } from "../cli/index.js";
 import type { CliDeps } from "../runtime/index.js";
 import { MemoryFileSystem } from "../runtime/filesystem-support.js";
-import { FakeRunner } from "../runtime/runner-support.js";
+import { FakeRunner, type FakeResponse } from "../runtime/runner-support.js";
 
 export const ROOT = "/repo";
 
@@ -21,6 +21,7 @@ export const INDEX = [
 /** A fake repository at ROOT; `files` are keyed by repository-relative path. */
 export function harness(
   files: Record<string, string> = { "docs/index.md": INDEX },
+  responses: readonly FakeResponse[] = [],
 ) {
   const fs = new MemoryFileSystem(
     ROOT,
@@ -28,8 +29,9 @@ export function harness(
   );
   const out: string[] = [];
   const err: string[] = [];
+  const runner = new FakeRunner(responses);
   const deps: CliDeps = {
-    runner: new FakeRunner(),
+    runner,
     clock: { now: () => new Date("2026-03-04T05:06:07.000Z") },
     root: () => Promise.resolve(ROOT),
     env: {},
@@ -43,6 +45,7 @@ export function harness(
   const paths = () => [...fs.files.keys()].map((k) => k.slice(ROOT.length + 1));
   return {
     deps,
+    runner,
     fs,
     out: () => out.join(""),
     err: () => err.join(""),
