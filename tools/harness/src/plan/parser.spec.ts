@@ -100,3 +100,17 @@ describe("plan parser", () => {
     expect(activePlans({ "1-a.md": "- [x] done\n" })).toEqual([]);
   });
 });
+
+describe("plan parser Next: paragraphs", () => {
+  it("ends the Next: line at a list item and ignores Next: inside a code fence", () => {
+    expect(
+      nextStep("## Step 1: A\n\nNext: go\n- [ ] one\n- [ ] two\n")?.text,
+    ).toBe("go");
+    expect(
+      nextStep("## Step 1: A\n\n```\nNext: fenced\n```\n\n- [ ] one\n"),
+    ).toBeNull();
+    expect(nextStep("## Step 1: A\n\nNext: go\n```\nmore\n```\n")?.text).toBe(
+      "go",
+    );
+  });
+});

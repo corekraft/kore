@@ -162,3 +162,35 @@ describe("harness plan clear-next", () => {
     expect(after).not.toContain("Next:");
   });
 });
+
+describe("harness plan next and code fences", () => {
+  const FENCED =
+    "## Step 1: A\n\nNext: real\n\n```\nNext: example in a fence\n```\n\n- [ ] one\n";
+
+  it("leaves a Next: line inside a code fence untouched when setting and clearing", async () => {
+    const h = plan(FENCED);
+    await run(["plan", "next", "--text", "new"], h.deps);
+    expect(h.files[PLAN]).toContain("Next: new\n");
+    expect(h.files[PLAN]).toContain("```\nNext: example in a fence\n```");
+    expect(h.files[PLAN]).not.toContain("Next: real");
+    await run(["plan", "clear-next"], h.deps);
+    expect(h.files[PLAN]).toContain("```\nNext: example in a fence\n```");
+    expect(nextLines(h.files[PLAN] ?? "")).toEqual([
+      "Next: example in a fence",
+    ]);
+  });
+
+  it("stops removing a Next: line at a code fence", async () => {
+    const h = plan("## Step 1: A\n\nNext: real\n```\ncode\n```\n\n- [ ] one\n");
+    await run(["plan", "clear-next"], h.deps);
+    expect(h.files[PLAN]).toContain("```\ncode\n```");
+    expect(h.files[PLAN]).not.toContain("Next: real");
+  });
+
+  it("does not leave two blank lines when replacing a Next: line directly under its heading", async () => {
+    const h = plan("## Step 1: A\nNext: old\n\n- [ ] one\n");
+    await run(["plan", "next", "--text", "new"], h.deps);
+    expect(h.files[PLAN]).not.toContain("\n\n\n");
+    expect(h.files[PLAN]).toContain("## Step 1: A\n\nNext: new\n\n- [ ] one");
+  });
+});

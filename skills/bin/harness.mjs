@@ -2196,22 +2196,42 @@ function openCounts(markdown) {
     count
   }));
 }
-function nextStep(markdown) {
+var FENCE = /^\s*(```|~~~)/;
+var LIST_MARKER = /^\s*([-*+]|\d+\.)\s/;
+function nextBlocks(markdown) {
+  const lines = markdown.split("\n");
+  const blocks = [];
   let heading = "";
-  let next = null;
-  for (const line2 of markdown.split("\n")) {
-    if (next) {
-      if (!line2.trim() || line2.startsWith("#")) {
-        break;
-      }
-      next.text += ` ${line2.trim()}`;
-    } else if (line2.startsWith("## ")) {
+  let fenced = false;
+  let open = null;
+  for (const [index, line2] of lines.entries()) {
+    const fence = FENCE.test(line2);
+    const stops = fence || !line2.trim() || line2.startsWith("#") || LIST_MARKER.test(line2);
+    if (open && !fenced && !stops) {
+      open.text += ` ${line2.trim()}`;
+      open.end = index + 1;
+      continue;
+    }
+    open = null;
+    if (fence) {
+      fenced = !fenced;
+    } else if (!fenced && line2.startsWith("## ")) {
       heading = line2.slice(3).trim();
-    } else if (line2.startsWith("Next:")) {
-      next = { step: heading, text: line2.slice(5).trim() };
+    } else if (!fenced && line2.startsWith("Next:")) {
+      open = {
+        step: heading,
+        text: line2.slice(5).trim(),
+        line: index,
+        end: index + 1
+      };
+      blocks.push(open);
     }
   }
-  return next;
+  return blocks;
+}
+function nextStep(markdown) {
+  const first = nextBlocks(markdown)[0];
+  return first ? { step: first.step, text: first.text } : null;
 }
 function upcomingSteps(markdown) {
   const open = [...openSteps(markdown).keys()];
@@ -2391,29 +2411,16 @@ function renderChanges(head, changes) {
 
 // src/plan/next.ts
 var NEXT = "Next:";
-var LIST_MARKER = /^\s*([-*+]|\d+\.)\s/;
-function removal(lines, index) {
-  let end = index + 1;
-  while (end < lines.length && (lines[end] ?? "").trim() !== "" && !(lines[end] ?? "").startsWith("#") && !LIST_MARKER.test(lines[end] ?? "")) {
-    end++;
-  }
-  const blankBefore = index > 0 && (lines[index - 1] ?? "").trim() === "";
-  if (blankBefore && end < lines.length && (lines[end] ?? "").trim() === "") {
-    end++;
-  }
-  return { start: index, end, lines: [] };
-}
 function removals(lines) {
-  const edits = [];
-  let covered = 0;
-  for (const [index, line2] of lines.entries()) {
-    if (index >= covered && line2.startsWith(NEXT)) {
-      const edit = removal(lines, index);
-      covered = edit.end;
-      edits.push(edit);
-    }
-  }
-  return edits;
+  return nextBlocks(lines.join("\n")).map(({ line: line2, end }) => {
+    const blankBefore = line2 > 0 && (lines[line2 - 1] ?? "").trim() === "";
+    const blankAfter = end < lines.length && (lines[end] ?? "").trim() === "";
+    return {
+      start: line2,
+      end: blankBefore && blankAfter ? end + 1 : end,
+      lines: []
+    };
+  });
 }
 function currentHeading(lines, markdown) {
   const open = openCounts(markdown).map((c) => c.step);
@@ -2431,18 +2438,22 @@ function currentHeading(lines, markdown) {
 }
 function insertion(lines, heading, text3) {
   const blank = (lines[heading + 1] ?? "").trim() === "";
-  return blank ? { start: heading + 2, end: heading + 2, lines: [`${NEXT} ${text3}`, ""] } : {
-    start: heading + 1,
-    end: heading + 1,
-    lines: ["", `${NEXT} ${text3}`, ""]
+  const start = blank ? heading + 2 : heading + 1;
+  return {
+    start,
+    end: start,
+    lines: blank ? [`${NEXT} ${text3}`, ""] : ["", `${NEXT} ${text3}`, ""]
   };
 }
-function withInsertion(removed, added) {
+function withInsertion(lines, removed, added) {
   const merged = removed.find((r) => r.start === added.start);
+  const end = merged?.end ?? added.start;
+  const followedByBlank = (lines[end] ?? "").trim() === "";
+  const inserted = followedByBlank && added.lines.at(-1) === "" ? added.lines.slice(0, -1) : added.lines;
   return merged ? [
     ...removed.filter((r) => r !== merged),
-    { start: merged.start, end: merged.end, lines: added.lines }
-  ] : [...removed, added];
+    { start: merged.start, end: merged.end, lines: inserted }
+  ] : [...removed, { ...added, lines: inserted }];
 }
 async function write(deps, json, options) {
   const plans = await readPlans(deps);
@@ -2489,6 +2500,7 @@ var planNext = {
       dryRun: options["dry-run"] === true,
       headline: (file, dry) => `${dry ? "Would set" : "Set"} Next: in ${file}`,
       edits: (lines, markdown) => withInsertion(
+        lines,
         removals(lines),
         insertion(lines, currentHeading(lines, markdown), text3)
       ),

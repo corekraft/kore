@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { CommandError, type CliDeps, type Command } from "../runtime/index.js";
 import { type Edit } from "./edits.js";
-import { nextStep, openCounts } from "./parser.js";
+import { nextBlocks, nextStep, openCounts } from "./parser.js";
 import {
   apply,
   choosePlan,
@@ -12,37 +12,18 @@ import {
 import { PLANS_DIR, readPlans } from "./store.js";
 
 const NEXT = "Next:";
-const LIST_MARKER = /^\s*([-*+]|\d+\.)\s/;
 
-/** The `Next:` paragraph at `index`, plus the blank line after it when a blank line precedes it. */
-function removal(lines: string[], index: number): Edit {
-  let end = index + 1;
-  while (
-    end < lines.length &&
-    (lines[end] ?? "").trim() !== "" &&
-    !(lines[end] ?? "").startsWith("#") &&
-    !LIST_MARKER.test(lines[end] ?? "")
-  ) {
-    end++;
-  }
-  const blankBefore = index > 0 && (lines[index - 1] ?? "").trim() === "";
-  if (blankBefore && end < lines.length && (lines[end] ?? "").trim() === "") {
-    end++;
-  }
-  return { start: index, end, lines: [] };
-}
-
+/** Removals of every `Next:` paragraph, each with the blank line after it when a blank line precedes it. */
 function removals(lines: string[]): Edit[] {
-  const edits: Edit[] = [];
-  let covered = 0;
-  for (const [index, line] of lines.entries()) {
-    if (index >= covered && line.startsWith(NEXT)) {
-      const edit = removal(lines, index);
-      covered = edit.end;
-      edits.push(edit);
-    }
-  }
-  return edits;
+  return nextBlocks(lines.join("\n")).map(({ line, end }) => {
+    const blankBefore = line > 0 && (lines[line - 1] ?? "").trim() === "";
+    const blankAfter = end < lines.length && (lines[end] ?? "").trim() === "";
+    return {
+      start: line,
+      end: blankBefore && blankAfter ? end + 1 : end,
+      lines: [],
+    };
+  });
 }
 
 /** Index of the `##` heading of the current step: where the `Next:` line is, else the first step with open items. */
@@ -63,23 +44,29 @@ function currentHeading(lines: string[], markdown: string): number {
 
 function insertion(lines: string[], heading: number, text: string): Edit {
   const blank = (lines[heading + 1] ?? "").trim() === "";
-  return blank
-    ? { start: heading + 2, end: heading + 2, lines: [`${NEXT} ${text}`, ""] }
-    : {
-        start: heading + 1,
-        end: heading + 1,
-        lines: ["", `${NEXT} ${text}`, ""],
-      };
+  const start = blank ? heading + 2 : heading + 1;
+  return {
+    start,
+    end: start,
+    lines: blank ? [`${NEXT} ${text}`, ""] : ["", `${NEXT} ${text}`, ""],
+  };
 }
 
-function withInsertion(removed: Edit[], added: Edit): Edit[] {
+/** Put the insertion where a removal begins (replacing it), never leaving two blank lines in a row. */
+function withInsertion(lines: string[], removed: Edit[], added: Edit): Edit[] {
   const merged = removed.find((r) => r.start === added.start);
+  const end = merged?.end ?? added.start;
+  const followedByBlank = (lines[end] ?? "").trim() === "";
+  const inserted =
+    followedByBlank && added.lines.at(-1) === ""
+      ? added.lines.slice(0, -1)
+      : added.lines;
   return merged
     ? [
         ...removed.filter((r) => r !== merged),
-        { start: merged.start, end: merged.end, lines: added.lines },
+        { start: merged.start, end: merged.end, lines: inserted },
       ]
-    : [...removed, added];
+    : [...removed, { ...added, lines: inserted }];
 }
 
 async function write(
@@ -138,6 +125,7 @@ export const planNext: Command = {
       headline: (file, dry) => `${dry ? "Would set" : "Set"} Next: in ${file}`,
       edits: (lines, markdown) =>
         withInsertion(
+          lines,
           removals(lines),
           insertion(lines, currentHeading(lines, markdown), text),
         ),
