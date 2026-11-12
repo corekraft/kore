@@ -19,3 +19,5 @@ Propose changes only. Never edit hooks, settings, skills, `AGENTS.md`, or memory
    - a block or repeated failure that hit legitimate work: a false positive in the guard.
 3. **Quote evidence only for those findings.** Open a transcript just at the `session` and `line` the scan names. Never read the rest, and never paste transcript content back.
 4. **Rank** by how often it occurred, keep the list short, and end with it, each item with a short quote. The calling thread asks the user which to accept, records them in `infra/plans/3-agent-harness.md` or an ADR, and sets `Last retrospective:` to today; this read-only run cannot.
+
+Step 1 is a tool. Steps 2 to 4 are judgement: which change fits a finding and which proposals are worth a human's time are not something a script can decide.
