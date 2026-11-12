@@ -92,7 +92,6 @@ describe("the committed inventory", () => {
     expect(auditRuleNames(inventory)).toEqual([
       "append-only",
       "bare-glob",
-      "equals-word",
       "flag-activation",
       "guardrail-demotion",
       "idea-issue-body",

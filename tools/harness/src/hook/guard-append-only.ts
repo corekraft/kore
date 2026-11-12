@@ -28,7 +28,10 @@ function isProtectedDir(arg: string, root: string): boolean {
   return PROTECTED_DIRS.has(path);
 }
 
-function truncatedTarget(segment: string[]): string | undefined {
+function truncatedTarget(
+  segment: string[],
+  matches: (path: string) => boolean,
+): string | undefined {
   for (let i = 0; i < segment.length; i++) {
     const match = TRUNCATING_REDIRECT.exec(segment[i] as string);
     if (!match) {
@@ -36,7 +39,7 @@ function truncatedTarget(segment: string[]): string | undefined {
     }
     const target =
       ((match[1] as string).replace(/^\|/, "") || segment[i + 1]) ?? "";
-    if (isAppendOnly(target)) {
+    if (matches(target)) {
       return target;
     }
   }
@@ -46,9 +49,13 @@ function truncatedTarget(segment: string[]): string | undefined {
 const inPlace = (arg: string): boolean =>
   /^-[A-Za-z]*i/.test(arg) || arg.startsWith("--in-place");
 
-function rewrittenPath(name: string, args: string[]): string | undefined {
+function rewrittenPath(
+  name: string,
+  args: string[],
+  matches: (path: string) => boolean,
+): string | undefined {
   const rewrites = (candidates: string[]) =>
-    candidates.find((arg) => isAppendOnly(arg));
+    candidates.find((arg) => matches(arg));
   const operands = args.filter((arg) => !arg.startsWith("-"));
   const appends = args.some((arg) => arg === "-a" || arg === "--append");
   if (
@@ -77,10 +84,18 @@ export function checkAppendOnly(
       return appendOnlyWarn(dir);
     }
   }
-  const target = truncatedTarget(segment);
-  if (target !== undefined) {
-    return appendOnlyWarn(target);
-  }
-  const path = rewrittenPath(name, args);
+  const path = writtenPath(name, args, segment, isAppendOnly);
   return path ? appendOnlyWarn(path) : null;
+}
+
+/** The path a command rewrites, truncates, moves or removes, when it matches. */
+export function writtenPath(
+  name: string,
+  args: string[],
+  segment: string[],
+  matches: (path: string) => boolean,
+): string | undefined {
+  return (
+    truncatedTarget(segment, matches) ?? rewrittenPath(name, args, matches)
+  );
 }

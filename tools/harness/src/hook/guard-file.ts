@@ -15,9 +15,9 @@ import {
   applyMode,
   block,
   warn,
+  weigh,
   type Finding,
   type GuardContext,
-  type Hit,
   type Verdict,
 } from "./guard-verdict.js";
 
@@ -223,20 +223,8 @@ async function checkWrite(
         ? await before(tool, input, relative, ctx, false)
         : "",
     ),
-  ]
-    .map((finding) => applyMode(finding, ctx))
-    .filter((finding): finding is Hit => finding !== null);
-  const blocked = findings.find((finding) => finding.action === "block");
-  if (blocked) {
-    return blocked;
-  }
-  const [first, ...rest] = findings;
-  return first
-    ? {
-        ...first,
-        message: [first, ...rest].map((finding) => finding.message).join("\n"),
-      }
-    : allow;
+  ];
+  return weigh(findings.map((finding) => applyMode(finding, ctx)));
 }
 
 export async function evaluateFile(
