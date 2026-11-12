@@ -201,6 +201,7 @@
         "readiness":
           [
             "crd/agentgatewaybackends.agentgateway.dev",
+            "crd/agentgatewaymodels.agentgateway.dev",
             "crd/agentgatewayparameters.agentgateway.dev",
             "crd/agentgatewaypolicies.agentgateway.dev"
           ]
