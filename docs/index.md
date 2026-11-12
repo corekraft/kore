@@ -148,6 +148,7 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0081-agentgateway-replaces-istio-ingress.md`](decisions/0081-agentgateway-replaces-istio-ingress.md) — refines ADR 0006: agentgateway serves Gateway API ingress, Istio ambient ztunnel keeps identity and mTLS, and the resource saving is measured afterwards. Read when changing ingress.
 - [`docs/decisions/0082-harness-package-bundled-for-skills.md`](decisions/0082-harness-package-bundled-for-skills.md) — refines ADR 0001: harness tools are a TypeScript package at tools/harness, bundled to a committed skills/bin/harness.mjs, talking to kore only through its CLI output. Read before adding a harness tool or hook.
 - [`docs/decisions/0083-k3d-publishes-through-the-node-containerd-client.md`](decisions/0083-k3d-publishes-through-the-node-containerd-client.md) — refines ADR 0034 and 0015: on k3d, publish with the node's `ctr` through `docker exec`, credential on stdin held in a tmpfs hosts.toml, no node shell. Read before changing the k3d push path.
+- [`docs/decisions/0084-k3d-registry-trust-through-a-mounted-ca-directory.md`](decisions/0084-k3d-registry-trust-through-a-mounted-ca-directory.md) — refines ADRs 0058 and 0076: on k3d nodes trust the registry CA through a registries.yaml and a host CA directory mounted at create, with a restart fallback. Read when changing registry trust on k3d.
 
 ## Operations and Guides
 

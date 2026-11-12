@@ -55,9 +55,9 @@ plan 8.
 ### Work
 
 - [x] Replace `minikube image load` with `k3d image import`.
-- [ ] Replace `minikube ssh` CA installation with `registries.yaml` set at
-      cluster create.
-- [ ] Keep Kore's in-cluster TLS registry as the only registry. Progress:
+- [x] Replace `minikube ssh` CA installation with `registries.yaml` set at
+      cluster create (ADR 0084; live proof in #149).
+- [x] Keep Kore's in-cluster TLS registry as the only registry. Progress:
       publishing without a node shell is done ([ADR 0083](../../docs/decisions/0083-k3d-publishes-through-the-node-containerd-client.md));
       CA trust and the live proof remain.
 
