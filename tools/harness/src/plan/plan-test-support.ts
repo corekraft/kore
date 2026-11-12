@@ -10,7 +10,10 @@ export function planHarness(files: Record<string, string>) {
   const writes: string[] = [];
   const deps: CliDeps = {
     runner: new FakeRunner(),
-    clock: { now: () => new Date("2026-01-02T12:00:00.000Z") },
+    clock: {
+      now: () => new Date("2026-01-02T12:00:00.000Z"),
+      sleep: () => Promise.resolve(),
+    },
     fs: {
       readFile: (path) => {
         const key = path.slice(ROOT.length + 1);

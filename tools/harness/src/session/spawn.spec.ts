@@ -3,6 +3,7 @@ import { testHarness } from "../cli/cli-support.js";
 import { run } from "../cli/index.js";
 import {
   INSIDE,
+  gitCommon,
   herdrCalls,
   layoutOf,
   nameFree,
@@ -15,7 +16,7 @@ describe("session spawn placement", () => {
   it("splits the caller right for the first spawned pane, without stealing focus", async () => {
     const h = testHarness({
       env: INSIDE,
-      responses: [nameFree, layoutOf(), splitReturns("w3:p9")],
+      responses: [gitCommon, nameFree, layoutOf(), splitReturns("w3:p9")],
     });
     expect(await run(spawnArgs, h.deps)).toBe(0);
     const split = herdrCalls(h).find((c) => c.includes("pane split"));
@@ -28,6 +29,7 @@ describe("session spawn placement", () => {
     const h = testHarness({
       env: INSIDE,
       responses: [
+        gitCommon,
         nameFree,
         layoutOf(pane("w3:p6", 100, 0), pane("w3:p7", 100, 50)),
         splitReturns("w3:p9"),
@@ -43,7 +45,7 @@ describe("session spawn placement", () => {
   it("equalizes the column after the split, before launching the agent", async () => {
     const h = testHarness({
       env: INSIDE,
-      responses: [nameFree, layoutOf(), splitReturns("w3:p9")],
+      responses: [gitCommon, nameFree, layoutOf(), splitReturns("w3:p9")],
     });
     await run(spawnArgs, h.deps);
     const kinds = herdrCalls(h).map((c) => c.split(" ").slice(1, 3).join(" "));
@@ -57,7 +59,7 @@ describe("session spawn launch", () => {
   it("starts claude with the role, model and effort in the new pane under the given name", async () => {
     const h = testHarness({
       env: INSIDE,
-      responses: [nameFree, layoutOf(), splitReturns("w3:p9")],
+      responses: [gitCommon, nameFree, layoutOf(), splitReturns("w3:p9")],
     });
     await run(spawnArgs, h.deps);
     expect(herdrCalls(h)).toContain(
@@ -68,7 +70,7 @@ describe("session spawn launch", () => {
   it("prompts with a brief carrying the fresh caller pane id, the name and the exact broadcast", async () => {
     const h = testHarness({
       env: { HERDR_ENV: "1", HERDR_PANE_ID: "w3:p42" },
-      responses: [nameFree, layoutOf(), splitReturns("w3:p9")],
+      responses: [gitCommon, nameFree, layoutOf(), splitReturns("w3:p9")],
     });
     await run(spawnArgs, h.deps);
     const prompt = h.runner.calls.find((c) => c.args[1] === "prompt");
@@ -96,7 +98,7 @@ describe("session spawn launch", () => {
   it("reports the session name, pane id and model as JSON", async () => {
     const h = testHarness({
       env: INSIDE,
-      responses: [nameFree, layoutOf(), splitReturns("w3:p9")],
+      responses: [gitCommon, nameFree, layoutOf(), splitReturns("w3:p9")],
     });
     expect(await run([...spawnArgs, "--json"], h.deps)).toBe(0);
     expect(JSON.parse(h.out())).toEqual({
@@ -105,13 +107,17 @@ describe("session spawn launch", () => {
       model: "claude-sonnet-5-5",
       role: "writer",
       effort: "high",
+      modelCheck: {
+        status: "unverified",
+        reason: expect.stringContaining("Sonnet 5.5") as unknown,
+      },
     });
   });
 
   it("prints a human line without --json", async () => {
     const h = testHarness({
       env: INSIDE,
-      responses: [nameFree, layoutOf(), splitReturns("w3:p9")],
+      responses: [gitCommon, nameFree, layoutOf(), splitReturns("w3:p9")],
     });
     await run(spawnArgs, h.deps);
     expect(h.out()).toContain("image-trust-writer");

@@ -111,6 +111,12 @@ describe("systemClock", () => {
     const before = Date.now();
     expect(systemClock.now().getTime()).toBeGreaterThanOrEqual(before);
   });
+
+  it("sleeps for at least the requested time", async () => {
+    const before = Date.now();
+    await systemClock.sleep(20);
+    expect(Date.now() - before).toBeGreaterThanOrEqual(15);
+  });
 });
 
 describe("localDate", () => {

@@ -63,16 +63,23 @@ function resolve(domain: string, name: string | undefined): Resolved {
   return { command };
 }
 
-type Parsed = { options: Record<string, string | boolean> } | { error: string };
+type Parsed =
+  | { options: Record<string, string | boolean>; operand?: string }
+  | { error: string };
 
 /** Parses the tokens left after domain and command against the command's declared flags. */
 function parseOptions(command: Command, tokens: readonly string[]): Parsed {
   const spec = command.options ?? {};
   const options: Record<string, string | boolean> = {};
+  let operand: string | undefined;
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i] ?? "";
     if (!token.startsWith("--")) {
-      return { error: `Unexpected argument "${token}".` };
+      if (command.operand === undefined || operand !== undefined) {
+        return { error: `Unexpected argument "${token}".` };
+      }
+      operand = token;
+      continue;
     }
     const [name = "", inline] = token.slice(2).split(/=(.*)/s, 2);
     const kind = own(spec, name);
@@ -92,7 +99,7 @@ function parseOptions(command: Command, tokens: readonly string[]): Parsed {
     }
     options[name] = value;
   }
-  return { options };
+  return operand === undefined ? { options } : { options, operand };
 }
 
 async function execute(
@@ -159,6 +166,7 @@ export async function run(
   return await execute(resolved.command, {
     json,
     options: parsed.options,
+    operand: parsed.operand,
     deps,
   });
 }

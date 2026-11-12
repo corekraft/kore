@@ -50,7 +50,10 @@ describe("harness adr new source, root and date", () => {
       const f = fixture();
       const deps = {
         ...f.deps,
-        clock: { now: () => new Date("2026-11-11T20:00:00Z") },
+        clock: {
+          now: () => new Date("2026-11-11T20:00:00Z"),
+          sleep: () => Promise.resolve(),
+        },
       };
       await run(NEW, deps);
       expect(

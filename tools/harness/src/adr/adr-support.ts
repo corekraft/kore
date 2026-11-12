@@ -106,7 +106,10 @@ export function fixture(extra: Record<string, string> = {}) {
   const err: string[] = [];
   const deps: CliDeps = {
     runner: new FakeRunner(),
-    clock: { now: () => new Date(2026, 10, 11, 23, 59, 59) },
+    clock: {
+      now: () => new Date(2026, 10, 11, 23, 59, 59),
+      sleep: () => Promise.resolve(),
+    },
     root: () => Promise.resolve(ROOT),
     env: {},
     cwd: "/repo",

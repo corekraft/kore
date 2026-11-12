@@ -28,6 +28,8 @@ export interface CommandContext {
   json: boolean;
   /** Parsed flags, as the command declared them in `options`. */
   options: Record<string, string | boolean>;
+  /** The one positional argument, for a command that declares an `operand`. */
+  operand?: string | undefined;
   deps: CliDeps;
 }
 
@@ -35,5 +37,7 @@ export interface Command {
   summary: string;
   /** Flags beyond the global --json and --help; a "string" flag takes a value. */
   options?: Record<string, "string" | "boolean">;
+  /** Names the one positional argument the command takes, such as "name". */
+  operand?: string;
   run(context: CommandContext): Promise<number>;
 }

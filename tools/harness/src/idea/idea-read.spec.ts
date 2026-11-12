@@ -136,7 +136,10 @@ describe("harness idea from a subdirectory", () => {
       const out: string[] = [];
       const deps = {
         runner: new FakeRunner(),
-        clock: { now: () => new Date("2026-03-04T00:00:00.000Z") },
+        clock: {
+          now: () => new Date("2026-03-04T00:00:00.000Z"),
+          sleep: () => Promise.resolve(),
+        },
         fs: nodeFileSystem,
         root: () => Promise.resolve(root),
         env: {},

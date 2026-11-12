@@ -108,7 +108,10 @@ describe("harness plan tick output", () => {
     process.env["TZ"] = "America/Los_Angeles";
     try {
       const h = plan();
-      h.deps.clock = { now: () => new Date("2026-03-02T07:59:00Z") };
+      h.deps.clock = {
+        now: () => new Date("2026-03-02T07:59:00Z"),
+        sleep: () => Promise.resolve(),
+      };
       await run(["plan", "tick", "--item", "Ship the gamma"], h.deps);
       expect(h.files[PLAN]).toContain("(as of 2026-03-01: 2 local");
     } finally {
