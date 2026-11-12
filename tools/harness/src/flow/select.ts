@@ -37,7 +37,7 @@ export function select(
     const first = Math.min(...own.map(time));
     if (
       (ideas === null || ideas.includes(idea)) &&
-      first <= window[1] &&
+      first < window[1] &&
       reach(own, waits) >= window[0]
     ) {
       kept.set(idea, { own, waits });

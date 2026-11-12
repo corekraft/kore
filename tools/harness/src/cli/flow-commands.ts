@@ -48,7 +48,34 @@ function parseIdeas(given: string | boolean): string[] | { error: string } {
       error: `Invalid --idea "${String(given)}". Use issue numbers such as #12 or 12,13.`,
     };
   }
-  return ideas.map((n) => `#${String(n)}`);
+  return ideas.map((n) => `#${Number(n)}`);
+}
+
+type Times = { asOf?: Date; since?: Date; until?: Date } | { error: string };
+
+function parseTimes(options: CommandContext["options"]): Times {
+  const asOf = parseTime(options, "as-of");
+  const since = parseTime(options, "since");
+  const until = parseTime(options, "until");
+  if (asOf !== undefined && "error" in asOf) {
+    return asOf;
+  }
+  if (since !== undefined && "error" in since) {
+    return since;
+  }
+  if (until !== undefined && "error" in until) {
+    return until;
+  }
+  if (since !== undefined && until !== undefined && since > until) {
+    return {
+      error: `Invalid --since ${since.toISOString()}: it is after --until ${until.toISOString()}. Swap them.`,
+    };
+  }
+  return {
+    ...(asOf === undefined ? {} : { asOf }),
+    ...(since === undefined ? {} : { since }),
+    ...(until === undefined ? {} : { until }),
+  };
 }
 
 function parseFlags({ options, deps }: CommandContext): Parsed {
@@ -62,31 +89,21 @@ function parseFlags({ options, deps }: CommandContext): Parsed {
       };
     }
   }
-  const asOf = parseTime(options, "as-of");
-  const since = parseTime(options, "since");
-  const until = parseTime(options, "until");
-  for (const time of [asOf, since, until]) {
-    if (time !== undefined && "error" in time) {
-      return time;
-    }
+  const times = parseTimes(options);
+  if ("error" in times) {
+    return times;
   }
-  const sinceAt = since as Date | undefined;
-  const untilAt = until as Date | undefined;
-  if (sinceAt !== undefined && untilAt !== undefined && sinceAt > untilAt) {
-    return {
-      error: `Invalid --since ${sinceAt.toISOString()}: it is after --until ${untilAt.toISOString()}. Swap them.`,
-    };
-  }
+  const { asOf, since, until } = times;
   const idea =
     options.idea === undefined ? undefined : parseIdeas(options.idea);
   if (idea !== undefined && "error" in idea) {
     return idea;
   }
   return {
-    asOf: (asOf as Date | undefined) ?? deps.clock.now(),
+    asOf: asOf ?? deps.clock.now(),
     minCompletedIdeas,
-    ...(sinceAt === undefined ? {} : { since: sinceAt }),
-    ...(untilAt === undefined ? {} : { until: untilAt }),
+    ...(since === undefined ? {} : { since }),
+    ...(until === undefined ? {} : { until }),
     ...(idea === undefined ? {} : { ideas: idea }),
   };
 }

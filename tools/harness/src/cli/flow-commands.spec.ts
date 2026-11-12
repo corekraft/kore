@@ -197,6 +197,15 @@ describe("flow report range and ideas", () => {
     });
   });
 
+  it("reads an idea written with leading zeros as the same issue", async () => {
+    const { h, argv } = seeded(["--json", "--idea", "#002"]);
+    expect(await run(argv, h.deps)).toBe(0);
+    expect(JSON.parse(h.out())).toMatchObject({
+      scope: { ideas: ["#2"] },
+      ideas: { total: 1 },
+    });
+  });
+
   it("reports only the time range and says so", async () => {
     const { h, argv } = seeded([
       "--json",
@@ -215,7 +224,9 @@ describe("flow report range and ideas", () => {
       ideas: { total: 1 },
     });
   });
+});
 
+describe("flow report scope text and flags", () => {
   it("states the range and ideas in plain text", async () => {
     const { h, argv } = seeded([
       "--since",

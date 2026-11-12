@@ -164,6 +164,14 @@ describe("flow report time range toil and ideas", () => {
     ).toEqual({ peak: 1, average: 0.5 });
   });
 
+  it("does not cover an idea that first appears exactly at the range end", () => {
+    const r = report([at(10, "issue.opened", { number: 1 })], {
+      since: 0,
+      until: 10,
+    });
+    expect(r.ideas.total).toBe(0);
+  });
+
   it("counts an event at the range start but not one at the range end", () => {
     const events = [
       at(10, "issue.opened", { number: 1 }),

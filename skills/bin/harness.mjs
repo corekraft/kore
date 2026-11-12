@@ -731,7 +731,7 @@ function select(byIdea, { ideas }, window, asOf) {
   for (const [idea, own2] of byIdea) {
     const waits = githubSpans(own2, asOf);
     const first = Math.min(...own2.map(time));
-    if ((ideas === null || ideas.includes(idea)) && first <= window[1] && reach(own2, waits) >= window[0]) {
+    if ((ideas === null || ideas.includes(idea)) && first < window[1] && reach(own2, waits) >= window[0]) {
       kept.set(idea, { own: own2, waits });
     }
   }
@@ -1976,7 +1976,31 @@ function parseIdeas(given) {
       error: `Invalid --idea "${String(given)}". Use issue numbers such as #12 or 12,13.`
     };
   }
-  return ideas.map((n) => `#${String(n)}`);
+  return ideas.map((n) => `#${Number(n)}`);
+}
+function parseTimes(options) {
+  const asOf = parseTime(options, "as-of");
+  const since = parseTime(options, "since");
+  const until = parseTime(options, "until");
+  if (asOf !== void 0 && "error" in asOf) {
+    return asOf;
+  }
+  if (since !== void 0 && "error" in since) {
+    return since;
+  }
+  if (until !== void 0 && "error" in until) {
+    return until;
+  }
+  if (since !== void 0 && until !== void 0 && since > until) {
+    return {
+      error: `Invalid --since ${since.toISOString()}: it is after --until ${until.toISOString()}. Swap them.`
+    };
+  }
+  return {
+    ...asOf === void 0 ? {} : { asOf },
+    ...since === void 0 ? {} : { since },
+    ...until === void 0 ? {} : { until }
+  };
 }
 function parseFlags({ options, deps }) {
   const min = options["min-ideas"];
@@ -1989,21 +2013,11 @@ function parseFlags({ options, deps }) {
       };
     }
   }
-  const asOf = parseTime(options, "as-of");
-  const since = parseTime(options, "since");
-  const until = parseTime(options, "until");
-  for (const time2 of [asOf, since, until]) {
-    if (time2 !== void 0 && "error" in time2) {
-      return time2;
-    }
+  const times = parseTimes(options);
+  if ("error" in times) {
+    return times;
   }
-  const sinceAt = since;
-  const untilAt = until;
-  if (sinceAt !== void 0 && untilAt !== void 0 && sinceAt > untilAt) {
-    return {
-      error: `Invalid --since ${sinceAt.toISOString()}: it is after --until ${untilAt.toISOString()}. Swap them.`
-    };
-  }
+  const { asOf, since, until } = times;
   const idea = options.idea === void 0 ? void 0 : parseIdeas(options.idea);
   if (idea !== void 0 && "error" in idea) {
     return idea;
@@ -2011,8 +2025,8 @@ function parseFlags({ options, deps }) {
   return {
     asOf: asOf ?? deps.clock.now(),
     minCompletedIdeas,
-    ...sinceAt === void 0 ? {} : { since: sinceAt },
-    ...untilAt === void 0 ? {} : { until: untilAt },
+    ...since === void 0 ? {} : { since },
+    ...until === void 0 ? {} : { until },
     ...idea === void 0 ? {} : { ideas: idea }
   };
 }
