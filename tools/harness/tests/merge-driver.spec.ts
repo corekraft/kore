@@ -5,11 +5,13 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { cleanGitEnv } from "../src/testing/git-env.js";
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -19,33 +21,40 @@ const driverConfig = "tools/harness/merge-driver.sh %O %A %B %P %Y";
 let repo = "";
 
 // The shared config of the repository this test file lives in. Nothing here
-// may change it: a leak once flipped core.bare and added a merge driver.
-const realConfig = join(
+// may change core.bare or add the merge driver: leaks once did both. Only those
+// keys are compared, since other worktrees change the rest of the file.
+const realConfig = resolve(
+  here,
   execFileSync("git", ["-C", here, "rev-parse", "--git-common-dir"], {
     encoding: "utf8",
-    env: Object.fromEntries(
-      Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
-    ),
+    env: cleanGitEnv(),
   }).trim(),
   "config",
 );
-const realConfigBefore = readFileSync(resolve(here, realConfig), "utf8");
 
-// A git hook exports GIT_DIR and GIT_INDEX_FILE; inherited, they would point
-// these commands at the real repository instead of the fixture.
-const env = Object.fromEntries(
-  Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
-);
+function guardedKeys(configFile: string): string {
+  const value = (...args: string[]) =>
+    spawnSync("git", ["config", "--file", configFile, ...args], {
+      encoding: "utf8",
+      env: cleanGitEnv(),
+    }).stdout;
+  return `${value("--get", "core.bare")}|${value("--get-regexp", "^merge\\.harness-bundle\\.")}`;
+}
+
+const realKeysBefore = guardedKeys(realConfig);
 
 function git(...args: string[]): string {
   return execFileSync("git", ["-C", repo, ...args], {
     encoding: "utf8",
-    env,
+    env: cleanGitEnv(),
   }).trim();
 }
 
 function tryGit(...args: string[]) {
-  return spawnSync("git", ["-C", repo, ...args], { encoding: "utf8", env });
+  return spawnSync("git", ["-C", repo, ...args], {
+    encoding: "utf8",
+    env: cleanGitEnv(),
+  });
 }
 
 function write(path: string, text: string): void {
@@ -65,7 +74,7 @@ function build(): void {
     ["--prefix", "tools/harness", "run", "build", "--silent"],
     {
       cwd: repo,
-      env,
+      env: cleanGitEnv(),
     },
   );
 }
@@ -75,11 +84,9 @@ function commit(message: string): void {
   git("commit", "-q", "-m", message);
 }
 
-// After every test has run, the real config must be exactly as it was.
+// After every test has run, the guarded keys of the real config are unchanged.
 afterAll(() => {
-  const after = readFileSync(resolve(here, realConfig), "utf8");
-  expect(after).toBe(realConfigBefore);
-  expect(/^\s*bare\s*=\s*true/m.test(after)).toBe(false);
+  expect(guardedKeys(realConfig)).toBe(realKeysBefore);
 });
 
 beforeEach(() => {
@@ -174,12 +181,130 @@ describe("harness bundle merge driver", () => {
     expect(result.stderr).toContain("npm ci --prefix tools/harness");
     expect(read("skills/bin/harness.mjs")).toContain("<<<<<<<");
   });
+});
 
-  it("never changes the real repository config, core.bare included", () => {
+describe("harness bundle merge driver isolation", () => {
+  it("keeps the real repository's core.bare and driver keys unchanged", () => {
     git("config", "merge.harness-bundle.driver", driverConfig);
     tryGit("merge", "--no-edit", "feature");
-    expect(readFileSync(resolve(here, realConfig), "utf8")).toBe(
-      realConfigBefore,
+    expect(guardedKeys(realConfig)).toBe(realKeysBefore);
+  });
+
+  it("cannot leak into the repository a hook points GIT_DIR at", () => {
+    // A throwaway repo stands in for the real one a git hook would export.
+    const victim = mkdtempSync(join(tmpdir(), "merge-driver-victim-"));
+    const victimGit = (...args: string[]) =>
+      execFileSync("git", ["-C", victim, ...args], {
+        encoding: "utf8",
+        env: cleanGitEnv(),
+      }).trim();
+    victimGit("init", "-q", "-b", "main");
+    victimGit("config", "core.bare", "false");
+    const before = guardedKeys(join(victim, ".git", "config"));
+    const head = victimGit("rev-parse", "--git-dir");
+    const saved = {
+      dir: process.env.GIT_DIR,
+      index: process.env.GIT_INDEX_FILE,
+    };
+    process.env.GIT_DIR = join(victim, head);
+    process.env.GIT_INDEX_FILE = join(victim, ".git", "index");
+    try {
+      git("config", "merge.harness-bundle.driver", driverConfig);
+      tryGit("merge", "--no-edit", "feature");
+      write("tools/harness/src/a.txt", "changed in the fixture\n");
+      build();
+    } finally {
+      for (const [key, value] of [
+        ["GIT_DIR", saved.dir],
+        ["GIT_INDEX_FILE", saved.index],
+      ] as const) {
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+    }
+    const after = guardedKeys(join(victim, ".git", "config"));
+    const commits = spawnSync(
+      "git",
+      ["-C", victim, "rev-parse", "-q", "--verify", "HEAD"],
+      {
+        encoding: "utf8",
+        env: cleanGitEnv(),
+      },
     );
+    rmSync(victim, { recursive: true, force: true });
+    expect(after).toBe(before);
+    expect(commits.status).not.toBe(0);
+  });
+});
+
+describe("harness bundle merge driver failures", () => {
+  it("leaves markers and a non-zero result when the rebuild fails", () => {
+    git("config", "merge.harness-bundle.driver", driverConfig);
+    git("switch", "-q", "feature");
+    write(
+      "tools/harness/package.json",
+      JSON.stringify({
+        name: "fixture",
+        private: true,
+        scripts: { build: "exit 1" },
+      }),
+    );
+    commit("break the build");
+    git("switch", "-q", "main");
+    const result = tryGit("merge", "--no-edit", "feature");
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("left skills/bin/harness.mjs conflicted");
+    expect(read("skills/bin/harness.mjs")).toContain("<<<<<<<");
+    expect(git("status", "--porcelain")).toContain("UU skills/bin/harness.mjs");
+  });
+
+  it("rebuilds the bundle from the merged sources on a cherry-pick", () => {
+    git("config", "merge.harness-bundle.driver", driverConfig);
+    const result = tryGit("cherry-pick", "feature");
+    expect(result.status, result.stderr).toBe(0);
+    expect(read("skills/bin/harness.mjs")).toBe(merged);
+    expect(git("status", "--porcelain")).toBe("");
+  });
+
+  it("fails with an install hint when mise is not installed", () => {
+    git("config", "merge.harness-bundle.driver", driverConfig);
+    const tools = mkdtempSync(join(tmpdir(), "merge-driver-path-"));
+    for (const name of [
+      "bash",
+      "sh",
+      "env",
+      "git",
+      "tar",
+      "mktemp",
+      "rm",
+      "cp",
+      "mkdir",
+      "grep",
+      "cat",
+      "dirname",
+      "uname",
+    ]) {
+      const found = spawnSync("which", [name], {
+        encoding: "utf8",
+      }).stdout.trim();
+      if (found) {
+        symlinkSync(found, join(tools, name));
+      }
+    }
+    const result = spawnSync(
+      "git",
+      ["-C", repo, "merge", "--no-edit", "feature"],
+      {
+        encoding: "utf8",
+        env: { ...cleanGitEnv(), PATH: tools },
+      },
+    );
+    rmSync(tools, { recursive: true, force: true });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("mise is not installed");
+    expect(read("skills/bin/harness.mjs")).toContain("<<<<<<<");
   });
 });

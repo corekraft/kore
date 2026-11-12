@@ -103,6 +103,13 @@ Limits:
   cannot identify such as `git revert` or `git stash pop`), it leaves the bundle
   with ordinary conflict markers: resolve the sources, then run
   `mise run harness-build`.
+- The driver rebuilds from a default three-way merge of the two commits. It
+  does not see merge options: `git merge -X ours`/`-X theirs`, `-s ours`, an
+  octopus merge or a custom strategy can merge the sources differently than the
+  bundle was built from. After one of those, run `mise run harness-build` and
+  amend; `mise run harness-check` (and CI) report a stale bundle.
+- The driver builds through `mise exec -- npm` and fails with an install hint
+  when mise is missing.
 - Without the driver registered the bundle conflicts as before; resolve it by
   rebuilding, never by hand.
 

@@ -11,7 +11,6 @@ set -euo pipefail
 base_file="$1"
 ours_file="$2"
 theirs_file="$3"
-root="$(git rev-parse --show-toplevel)"
 
 # On any failure, fall back to a plain text merge so the bundle carries conflict
 # markers. Git marks the path unmerged, and a stale copy of one side can never
@@ -27,6 +26,15 @@ finish() {
 }
 work=""
 trap finish EXIT
+
+root="$(git rev-parse --show-toplevel)"
+
+# Build through the pinned toolchain, as the husky hooks do; never fall back to
+# an unpinned npm on PATH.
+if ! command -v mise >/dev/null 2>&1; then
+  echo "harness-bundle merge driver: mise is not installed; install it from https://mise.jdx.dev and run 'mise install'." >&2
+  exit 1
+fi
 
 if [ ! -d "$root/tools/harness/node_modules" ]; then
   echo "harness-bundle merge driver: tools/harness/node_modules is missing; run \`npm ci --prefix tools/harness\` and merge again." >&2
@@ -79,5 +87,5 @@ if [ -d "$root/tools/harness/node_modules" ]; then
   ln -s "$root/tools/harness/node_modules" "$work/tools/harness/node_modules"
 fi
 
-npm --prefix "$work/tools/harness" run build --silent >&2
+(cd "$root" && mise exec -- npm --prefix "$work/tools/harness" run build --silent >&2)
 cp "$work/skills/bin/harness.mjs" "$ours_file"
