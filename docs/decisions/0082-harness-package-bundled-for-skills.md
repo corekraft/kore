@@ -45,3 +45,14 @@ A skill becomes a short description plus tool calls. Any clone, worktree or
 pane can run the tools without `npm ci`. The repository carries a generated
 file, kept honest by the CI check. A second package means a second set of
 toolchain pins to upgrade together.
+
+## Note: merging the bundle (2026-11-12)
+
+A committed generated file conflicts whenever two branches change the harness.
+The decision above holds; a git merge driver (`harness-bundle`, set in
+`.gitattributes`, registered per clone by `mise run setup-merge-driver`)
+rebuilds the bundle from the merged sources during a local merge, rebase or
+cherry-pick. GitHub's server-side merge runs no custom drivers, so a PR that
+conflicts there still needs a local rebase, which the driver makes automatic.
+CI still fails on a stale bundle. See the
+[contributor guide](../guides/contributor.md#the-harness-bundle-and-merges).
