@@ -1,6 +1,7 @@
 // Shared by the role guards: which commands change files, and the read-only
 // finding. Owner approval to enforce the plan 11 role guards is recorded on
 // #190 and #191 (2026-11-12).
+import { basename } from "node:path";
 import { commandOf } from "./guard-shell.js";
 import { block, type Finding } from "./guard-verdict.js";
 
@@ -55,7 +56,8 @@ export const readOnly = (what: string): Finding =>
       "and the challenger records a round with `idea challenge`.",
   );
 
-const FD_OPERATOR = /^(?:\d*>>?|&>>?)$/;
+/** Output redirects and the read-write `<>`, which opens a file for writing without truncating it. */
+const FD_OPERATOR = /^(?:\d*>>?|&>>?|\d*<>)$/;
 const harmless = (target: string | undefined): boolean =>
   target === "/dev/null" || target === "&1" || target === "&2";
 
@@ -65,7 +67,7 @@ const redirectsToFile = (segment: readonly string[]): boolean =>
     if (FD_OPERATOR.test(word)) {
       return !harmless(segment[index + 1]);
     }
-    const joined = /^(?:\d*>>?|&>>?)(.+)$/.exec(word);
+    const joined = /^(?:\d*>>?|&>>?|\d*<>)(.+)$/.exec(word);
     return joined !== null && !harmless(joined[1]);
   });
 
@@ -158,7 +160,9 @@ const CONSTRUCT_WORDS = new Set([
 export const wrapsCommands = (segment: readonly string[]): boolean => {
   const first = segment[0] ?? "";
   return (
-    /^[({]/.test(first) || RUNS_OTHERS.has(first) || CONSTRUCT_WORDS.has(first)
+    /^[({]/.test(first) ||
+    RUNS_OTHERS.has(basename(first)) ||
+    CONSTRUCT_WORDS.has(first)
   );
 };
 
