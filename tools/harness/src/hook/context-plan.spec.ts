@@ -113,4 +113,13 @@ describe("context on the shared plan parser, active plans and retrospectives", (
     expect(start - 1).toBeLessThan(start);
     expect(windowStart(undefined)).toBe(0);
   });
+
+  it("nextStep ends a Next: paragraph at a list item, which the shared parser stops at", () => {
+    const markdown =
+      "## Step 1: A\n\nNext: do this first\n- [ ] item\n  wrapped\n";
+    expect(nextStep(markdown)).toEqual({
+      step: "Step 1: A",
+      text: "do this first",
+    });
+  });
 });

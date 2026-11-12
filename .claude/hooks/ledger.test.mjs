@@ -120,6 +120,7 @@ import {
   readFileSync,
   rmSync,
   symlinkSync,
+  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -356,7 +357,15 @@ test(
   "the context hook records nothing, so its behaviour no longer depends on the ledger",
   async (t) => {
     const dir = project(t, { expect: 1 });
-    runHook("context.mjs", [], { session_id: "s1", source: "startup" }, dir);
+    mkdirSync(join(dir, "infra", "plans"), { recursive: true });
+    writeFileSync(join(dir, "AGENTS.md"), "# AGENTS.md\n");
+    const result = runHook(
+      "context.mjs",
+      [],
+      { session_id: "s1", source: "startup" },
+      dir,
+    );
+    assert.equal(result.status, 0, result.stderr);
     await onlySentinel(dir);
   },
   TIMEOUT,

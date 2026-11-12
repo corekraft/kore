@@ -2,8 +2,6 @@
 // context on stdout, fail-open for bad input, a visible fault for a broken hook.
 // Docs: infra/plans/4-knowledge.md#step-4-upward-context
 
-import { writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { run } from "../cli/index.js";
 import { testHarness } from "../cli/cli-support.js";
@@ -15,7 +13,6 @@ import {
   context,
   repoPlan as plan,
   repository,
-  temp,
 } from "./context-run-support.js";
 
 afterEach(cleanTemps);
@@ -64,9 +61,8 @@ describe("harness hook context, failing open", () => {
     }
   });
 
-  it("without a plans directory the rules are still restored", async () => {
-    const root = temp("kore-context-");
-    writeFileSync(join(root, "AGENTS.md"), agents);
+  it("with an empty plans directory the rules are still restored", async () => {
+    const root = repository({ "AGENTS.md": agents });
     const result = await context(root, JSON.stringify({ source: "compact" }));
     expect(result.code).toBe(0);
     expect(additional(result)).toMatch(/One owner per resource/);

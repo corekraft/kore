@@ -65,10 +65,10 @@ Each step reports its effect against the plan 8 baseline.
 
 ### Work
 
-- [ ] Port `guard`, `context`, `delta`, `feedback`, `kb-check`, `retro-scan`,
+- [x] Port `guard`, `context`, `delta`, `feedback`, `kb-check`, `retro-scan`,
       `skill-links` and `workflow-permissions` into harness domains, pinning
       each with its existing tests first.
-- [ ] Point `.claude/settings.json` at `node skills/bin/harness.mjs hook
+- [x] Point `.claude/settings.json` at `node skills/bin/harness.mjs hook
 <name>`.
 - [ ] Remove `.claude/hooks/*.mjs` once each is ported.
 
