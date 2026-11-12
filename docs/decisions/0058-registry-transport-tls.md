@@ -14,7 +14,10 @@ proxy authenticated but carried basic-auth credentials over plain HTTP) and
 [ADR 0031](0031-registry-address-platform-variable.md) (the pinned address is
 now also a certificate SAN).
 
-> Refined by [ADR 0084](0084-k3d-registry-trust-through-a-mounted-ca-directory.md): on k3d, nodes trust the CA through a mounted directory.
+> Refined by [ADR 0084](0084-k3d-registry-trust-through-a-mounted-ca-directory.md): on k3d, nodes trust the CA through a mounted directory
+> (`registries.yaml` and `ca_file`), and [ADR 0083](0083-k3d-publishes-through-the-node-containerd-client.md)
+> publishes with `ctr`. Together they replace the Clients bullet's node containerd and
+> nerdctl `certs.d` path on k3d.
 
 ## Context
 
@@ -75,5 +78,5 @@ and no setting turns that off. The server therefore has to be the closed door.
 - Managed environments with an in-cluster registry must deliver the CA to their
   nodes themselves.
 - Live checks are listed in the plan note: containerd honoring `certs.d` on the
-  pinned k3s node, `SSL_CERT_DIR` working in the 0.13.1 image, and the
+  pinned Minikube node, `SSL_CERT_DIR` working in the 0.13.1 image, and the
   first-run migration.

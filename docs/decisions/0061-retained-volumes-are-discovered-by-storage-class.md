@@ -11,6 +11,8 @@ Source: [`infra/plans/2-implementation.md` § Step 10](../../infra/plans/2-imple
 
 Refines: [ADR 0020](0020-postgresql-api-scoped-rbac-status-and-retention.md), [ADR 0003](0003-separate-claims-and-retain-data.md)
 
+> Refined by [ADR 0076](0076-k3d-replaces-minikube.md): the local environment runs on k3d, not Minikube.
+
 ## Context
 
 ADR 0020 found retained data through labeled `PostgreSQLInstance` claims and

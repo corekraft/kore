@@ -47,9 +47,9 @@ its environment and the configured kube context.
    real age recipient in `.sops.yaml`). Skip only when nothing is retained.
 4. **Tooling.** Update the host tools with `mise install`; the `kore` command
    itself is the checked-out `tools/kore`, rebuilt by each `npm run kore`.
-5. **Kubernetes.** A new `cluster.kubernetesVersion` does not change a running
-   profile. **Gap:** no test proves that `kore cluster up` upgrades an existing
-   k3d profile's Kubernetes version; the supported path is `kore local down
+5. **Kubernetes.** A new `images.k3s` pin does not change a running k3d
+   cluster. **Gap:** no test proves that `kore cluster up` upgrades an existing
+   k3d cluster's Kubernetes version; the supported path is `kore local down
 --prune` (with `--purge-data` only after a verified export) and a fresh
    `kore local up`.
 6. **CRDs and controllers, then charts.** `kore platform up --environment
