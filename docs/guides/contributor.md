@@ -237,6 +237,16 @@ stage.
 | `unmappedEvents`    | Events with no stage or no idea, left out of every stage.                                                  |
 | `skippedLines`      | Ledger lines that were not valid events.                                                                   |
 
+## Status
+
+`node skills/bin/harness.mjs status --json` is the concierge's one read-only
+status call. It never writes, and prints `{ plans, ideas, ledger }`: `plans`
+is the `plan active` list with open items per step; `ideas` is
+`{ byState, items }`, where a state is `open` until an outcome closes the idea
+as `success` or `failure`; `ledger` is `{ recent, skipped }`, the ten latest
+stage events (`{ occurredAt, stage, kind, number?, idea? }`) newest first.
+Of the bounded roles, only the concierge may run it.
+
 ## Rules that bite
 
 - External processes run only through the injected runner; mutations name their

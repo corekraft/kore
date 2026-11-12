@@ -13,7 +13,9 @@ function usage(): string {
   const lines = ["Usage: harness <domain> <command> [--json]", "", "Commands:"];
   for (const [domain, commands] of Object.entries(domains)) {
     for (const [name, command] of Object.entries(commands)) {
-      lines.push(`  harness ${domain} ${name}  ${command.summary}`);
+      lines.push(
+        `  harness ${[domain, name].filter(Boolean).join(" ")}  ${command.summary}`,
+      );
     }
   }
   lines.push(
@@ -55,6 +57,10 @@ function resolve(domain: string, name: string | undefined): Resolved {
     };
   }
   if (name === undefined) {
+    const only = own(commands, "");
+    if (only !== undefined) {
+      return { command: only };
+    }
     return {
       error: `Missing command for domain "${domain}". Commands: ${names(commands)}.`,
     };
