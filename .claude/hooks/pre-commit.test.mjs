@@ -55,7 +55,7 @@ function commit(files, failing = [], { withMise = true } = {}) {
     );
     script(
       join(bin, "node"),
-      `echo "node $*" >> "${log}"\ncase " ${failing.join(" ")} " in *" node "*) exit 1;; esac`,
+      `echo "node $*" >> "${log}"\ncase " ${failing.join(" ")} " in *" node "*) exit 1;; esac\ncase " $* " in *" hook workflow-permissions "*) case " ${failing.join(" ")} " in *" node:workflow-permissions "*) exit 1;; esac;; esac`,
     );
     if (withMise) {
       script(
@@ -104,9 +104,9 @@ test("every tool the hook runs goes through the pinned toolchain", () => {
   const tools = lines.filter((l) => !l.startsWith("mise "));
   assert.deepEqual(
     tools.map((l) => l.split(" ")[0]),
-    ["lint-staged", "run", "node", "run", "run"],
+    ["lint-staged", "run", "node", "node", "run", "run"],
   );
-  assert.equal(lines.length, 10);
+  assert.equal(lines.length, 12);
   for (const [i, l] of lines.entries()) {
     if (i % 2 === 0) assert.match(l, /^mise exec -- /);
   }
@@ -229,6 +229,40 @@ test("a wrong skill link blocks the commit with one actionable line", () => {
     result.stderr,
     /^pre-commit: skill links are wrong; run 'node skills\/bin\/harness\.mjs hook skill-links --strict' and fix them\n$/,
   );
+});
+
+test("staging a workflow, skill, .claude or .codex file checks workflow permissions strictly with the harness hook", () => {
+  for (const file of [
+    ".github/workflows/a.yml",
+    "skills/a/SKILL.md",
+    ".claude/a.json",
+    ".codex/a.toml",
+  ]) {
+    const result = commit([file]);
+    assert.equal(result.status, 0, file);
+    assert.match(
+      result.calls,
+      /^node .*\/skills\/bin\/harness\.mjs hook workflow-permissions --strict$/m,
+      file,
+    );
+  }
+});
+
+test("a wrong workflow permission blocks the commit with one actionable line", () => {
+  const result = commit(
+    [".github/workflows/a.yml"],
+    ["node:workflow-permissions"],
+  );
+  assert.notEqual(result.status, 0);
+  assert.match(
+    result.stderr,
+    /^pre-commit: workflow permissions are wrong; run 'node skills\/bin\/harness\.mjs hook workflow-permissions --strict' and fix them\n$/,
+  );
+});
+
+test("staging nothing under .github/workflows, skills, .claude or .codex does not check workflow permissions", () => {
+  const result = commit(["tools/kore/src/a.ts"]);
+  assert.doesNotMatch(result.calls, /workflow-permissions/);
 });
 
 test("staging nothing under skills, .claude or .codex does not check skill links", () => {

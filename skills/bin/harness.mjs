@@ -3945,6 +3945,155 @@ async function linkProblems(fs, root2) {
   return problems;
 }
 
+// src/hook/workflow-permissions.ts
+import { join as join6 } from "node:path";
+var RELEASE = "release.yaml";
+var SIGNING_JOBS = ["release", "mirror"];
+var SIGNING_SCOPES = ["id-token", "packages"];
+var TAG_GATE = "github.ref_type == 'tag'";
+var PR_TRIGGERS = ["pull_request", "pull_request_target"];
+var isMap = (value) => typeof value === "object" && value !== null;
+function addEntry2(stack, indent, body) {
+  const match = /^["']?([^:"']+)["']?:\s*(.*)$/.exec(body);
+  if (!match) {
+    return null;
+  }
+  const key = match[1];
+  while (stack[stack.length - 1].indent >= indent) {
+    stack.pop();
+  }
+  const parent = stack[stack.length - 1].node;
+  const value = match[2].trim();
+  if (value === "") {
+    const child = {};
+    parent[key] = child;
+    stack.push({ indent, node: child });
+    return null;
+  }
+  parent[key] = value;
+  return /^[|>]/.test(value) ? indent : null;
+}
+function parseWorkflow(text5) {
+  const rootNode = {};
+  const stack = [{ indent: -1, node: rootNode }];
+  let skipAbove = null;
+  for (const raw of text5.split("\n")) {
+    const line2 = raw.replace(/(^|\s)#.*$/, "");
+    const indent = line2.length - line2.trimStart().length;
+    if (line2.trim() === "" || skipAbove !== null && indent > skipAbove) {
+      continue;
+    }
+    skipAbove = null;
+    const body = line2.trim();
+    if (body.startsWith("-")) {
+      skipAbove = indent - 1;
+      continue;
+    }
+    skipAbove = addEntry2(stack, indent, body);
+  }
+  return rootNode;
+}
+function writeScopes(permissions) {
+  if (permissions === void 0) {
+    return null;
+  }
+  if (isMap(permissions)) {
+    return Object.entries(permissions).filter(([, level]) => level === "write").map(([scope]) => scope);
+  }
+  if (permissions === "write-all") {
+    return ["write-all"];
+  }
+  return [...permissions.matchAll(/([\w-]+)\s*:\s*write\b/g)].map(
+    (m) => m[1]
+  );
+}
+function triggers(on) {
+  if (isMap(on)) {
+    return Object.keys(on);
+  }
+  return String(on ?? "").replace(/[[\]]/g, "").split(",").map((t) => t.trim()).filter(Boolean);
+}
+function jobProblems(file, name, job) {
+  const scopes = isMap(job) ? writeScopes(job["permissions"]) : null;
+  if (scopes === null || !isMap(job)) {
+    return [
+      `${file}: job ${name} needs explicit permissions; add \`permissions: {}\` or the read scopes it uses`
+    ];
+  }
+  const isRelease = file === RELEASE;
+  const signing = scopes.filter((s) => SIGNING_SCOPES.includes(s));
+  const allowedSigner = isRelease && SIGNING_JOBS.includes(name);
+  const problems = [];
+  if (!allowedSigner) {
+    for (const scope of signing) {
+      problems.push(
+        `${file}: job ${name} requests ${scope}: write; only the ${SIGNING_JOBS.join(" and ")} jobs of ${RELEASE} may sign or push, so drop it`
+      );
+    }
+  }
+  const gate = job["if"];
+  if (allowedSigner && signing.length > 0 && !(typeof gate === "string" && gate.includes(TAG_GATE))) {
+    problems.push(
+      `${file}: signing job ${name} must run only for tags; add \`if: ${TAG_GATE}\``
+    );
+  }
+  if (!isRelease) {
+    for (const scope of scopes.filter((s) => !SIGNING_SCOPES.includes(s))) {
+      problems.push(
+        `${file}: job ${name} requests ${scope}: write; only ${RELEASE} may write, so drop it`
+      );
+    }
+  }
+  return problems;
+}
+function fileProblems(file, text5) {
+  const workflow = parseWorkflow(text5);
+  const problems = [];
+  const top = writeScopes(workflow["permissions"]);
+  if (top === null || top.length > 0) {
+    problems.push(
+      `${file}: top-level permissions must be present and read-only; add \`permissions: {}\` or \`contents: read\``
+    );
+  }
+  const jobs = isMap(workflow["jobs"]) ? workflow["jobs"] : {};
+  for (const [name, job] of Object.entries(jobs)) {
+    problems.push(...jobProblems(file, name, job));
+  }
+  if (file === RELEASE) {
+    const on = triggers(workflow["on"] ?? workflow["true"]);
+    for (const trigger of on.filter((t) => PR_TRIGGERS.includes(t))) {
+      problems.push(
+        `${file}: must not run on ${trigger}; a pull request could mint a trusted signature, so remove the trigger`
+      );
+    }
+  }
+  return problems;
+}
+function permissionProblems(files) {
+  return Object.entries(files).flatMap(
+    ([file, text5]) => fileProblems(file, text5)
+  );
+}
+async function workflowProblems(fs, root2) {
+  const dir = join6(root2, ".github", "workflows");
+  let entries;
+  try {
+    entries = await fs.readdir(dir);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      throw new CommandError(
+        `No workflows directory at ${dir}. Run from the repository, or set CLAUDE_PROJECT_DIR to its root.`
+      );
+    }
+    throw error;
+  }
+  const files = {};
+  for (const entry of entries.filter((f) => /\.ya?ml$/.test(f)).sort()) {
+    files[entry] = await fs.readFile(join6(dir, entry));
+  }
+  return permissionProblems(files);
+}
+
 // src/hook/index.ts
 var skillLinks = hookCommand(
   "skill-links",
@@ -3955,7 +4104,19 @@ var skillLinks = hookCommand(
 ` };
   }
 );
-var hook = { "skill-links": skillLinks };
+var workflowPermissions = hookCommand(
+  "workflow-permissions",
+  "report workflows whose token permissions break the signer guard",
+  async ({ deps }) => {
+    const problems = await workflowProblems(deps.fs, await deps.root());
+    return problems.length === 0 ? {} : { code: 1, stderr: `${problems.join("\n")}
+` };
+  }
+);
+var hook = {
+  "skill-links": skillLinks,
+  "workflow-permissions": workflowPermissions
+};
 
 // src/session/equalize.ts
 var byY = (a, b) => a.rect.y - b.rect.y;
@@ -4085,7 +4246,7 @@ function fail(deps, json, code, message) {
 }
 
 // src/session/registry.ts
-import { join as join6, resolve as resolve4 } from "node:path";
+import { join as join7, resolve as resolve4 } from "node:path";
 var STATE_DIR = ".kore/state/sessions";
 function isRecord(value) {
   if (typeof value !== "object" || value === null) {
@@ -4112,7 +4273,7 @@ var SessionRegistry = class _SessionRegistry {
     return new _SessionRegistry(deps.fs, resolve4(main, STATE_DIR));
   }
   file(name) {
-    return join6(this.dir, `${name}.json`);
+    return join7(this.dir, `${name}.json`);
   }
   async read(name) {
     const path = this.file(name);
@@ -4172,7 +4333,7 @@ var SessionRegistry = class _SessionRegistry {
 };
 
 // src/session/worktree.ts
-import { join as join7 } from "node:path";
+import { join as join8 } from "node:path";
 var removeCommands = (worktree) => `\`git worktree remove ${worktree.path}\` and \`git branch -D ${worktree.branch}\``;
 var removeHint = (worktree) => `The worktree ${worktree.path} was left behind; remove it with ${removeCommands(worktree)}.`;
 var closeHint = (worktree) => `Remove its worktree once its branch is merged: ${removeCommands(worktree)}.`;
@@ -4183,7 +4344,7 @@ async function create2(deps, name, branch) {
       error: "Cannot find the main checkout to create the worktree in. Run inside the repository or set KORE_ROOT to its root. No pane was split."
     };
   }
-  const worktree = { path: join7(main, ".claude", "worktrees", name), branch };
+  const worktree = { path: join8(main, ".claude", "worktrees", name), branch };
   const add = await deps.runner.run(
     "git",
     ["worktree", "add", "-b", branch, worktree.path, "HEAD"],
@@ -4195,7 +4356,7 @@ async function create2(deps, name, branch) {
     };
   }
   const install = await deps.runner.run("npm", ["ci"], {
-    cwd: join7(worktree.path, "tools", "kore")
+    cwd: join8(worktree.path, "tools", "kore")
   });
   if (install.code !== 0) {
     return {
@@ -4760,7 +4921,7 @@ var session = {
 };
 
 // src/skill/index.ts
-import { join as join8 } from "node:path";
+import { join as join9 } from "node:path";
 
 // src/skill/audit.ts
 var DESCRIPTION_BUDGET = 200;
@@ -4874,7 +5035,7 @@ var audit = {
   summary: "report each skill's description and body against its budgets",
   options: { strict: "boolean" },
   async run({ json, options, deps }) {
-    const skillsDir = join8(await deps.root(), SKILLS_DIR);
+    const skillsDir = join9(await deps.root(), SKILLS_DIR);
     let report2;
     try {
       report2 = await auditSkills(deps.fs, skillsDir);
