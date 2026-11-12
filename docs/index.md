@@ -10,6 +10,8 @@ repository root; `mise run kb-check` keeps this list complete.
   enforce. Read at the start of any change.
 - [`README.md`](../README.md) — what Kore does and how to run each `kore`
   command. Read before running or changing a command.
+- [`GLOSSARY.md`](../GLOSSARY.md) — the canonical terms for the delivery loop,
+  agent roles and self-improvement. Read before naming a domain, role or idea.
 - [`docs/vision.md`](vision.md) — where Kore is going: a multi-tenant
   business and developer platform of organizations, sub-organizations, and
   services on their own domains, with static frontends, autoscaled backends for
@@ -43,6 +45,28 @@ repository root; `mise run kb-check` keeps this list complete.
   active: one cohesive class per domain responsibility, constructor-injected
   repository and runner, and the lint rules that enforce it. Read before
   restructuring a domain under `tools/kore/src`.
+- [`infra/plans/8-harness-measurement.md`](../infra/plans/8-harness-measurement.md) —
+  active: the `tools/harness` package, the stage-event ledger, and the flow
+  report that names the delivery loop's bottleneck, with a baseline. Read before
+  changing how sessions, panes or GitHub events are recorded.
+- [`infra/plans/9-k3d-local-cluster.md`](../infra/plans/9-k3d-local-cluster.md) —
+  active: replace Minikube with k3d and delete the tunnel domain. Read before
+  changing the local cluster, image import, or local storage.
+- [`infra/plans/10-tools-first-skills.md`](../infra/plans/10-tools-first-skills.md) —
+  active: move deterministic skill and hook steps into the harness package and
+  hold skills to a length budget. Read before writing or changing a skill or
+  hook.
+- [`infra/plans/11-agent-delivery-loop.md`](../infra/plans/11-agent-delivery-loop.md) —
+  active: delivery on autopilot from idea to outcome, with role agents in Herdr
+  panes, feature flags, and a safety-pattern judge. Read before changing agent
+  roles, ideas, flags, or merging.
+- [`infra/plans/12-self-improving-loop.md`](../infra/plans/12-self-improving-loop.md) —
+  active: automatic retro, auto-approved and auto-reverted harness ideas, and
+  guardrails that need approval to enforce. Read before changing retro or a
+  guardrail.
+- [`infra/plans/13-agentgateway-ingress.md`](../infra/plans/13-agentgateway-ingress.md) —
+  active: agentgateway replaces Istio ingress on k3d, with ztunnel kept. Read
+  before changing ingress or the Gateway.
 
 ## Decisions
 
@@ -116,6 +140,13 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0065-restart-readiness-and-transient-kubectl-retry.md`](decisions/0065-restart-readiness-and-transient-kubectl-retry.md) — refines 0035: after a Minikube start kore waits for /readyz and a Ready node before any apply, and one runner layer retries mutating kubectl commands on transient stderr with bounded backoff and in-memory stdin replay. Read when changing cluster start, kubectl retries, or readiness waits.
 - [`docs/decisions/0067-platform-readiness-manifest-and-evidence.md`](decisions/0067-platform-readiness-manifest-and-evidence.md) — refines ADR 0054 and 0056: a versioned readiness manifest, evidence recorded before the gate opens, `platform gate-check` that only closes, controllers exempt while closed, promotion to deny left to the live gate spec. Read when changing what opens the gate.
 - [`docs/decisions/0075-token-source-has-one-owner-and-rotation-rolls-consumers.md`](decisions/0075-token-source-has-one-owner-and-rotation-rolls-consumers.md) — refines ADR 0009: the cluster's reference token source is created once and never overwritten by another checkout, `secrets sync --rotate --yes` replaces it, and a one-way rotation marker in the pod template rolls consumers. Read when changing token or secret-source handling.
+- [`docs/decisions/0076-k3d-replaces-minikube.md`](decisions/0076-k3d-replaces-minikube.md) — refines ADRs 0012, 0015, 0060 and 0065: the local environment runs on k3d; its load balancer replaces the tunnel, local-path replaces minikube-hostpath, and Kore keeps its own registry. Read when changing the local cluster.
+- [`docs/decisions/0077-live-proof-gates-activation-not-merge.md`](decisions/0077-live-proof-gates-activation-not-merge.md) — refines "It just works": every change declares a safety pattern, and live proof gates turning a flagged change on, not merging it, except for cluster-facing no-behaviour-change changes. Read when changing merge rules or feature flags.
+- [`docs/decisions/0078-agent-roles-run-as-herdr-panes.md`](decisions/0078-agent-roles-run-as-herdr-panes.md) — each delivery-loop role is an agent definition with its default tier, launched in its own Herdr pane by one parameterized claude command, in bypass mode bounded by guards. Read when adding a role or changing tiers.
+- [`docs/decisions/0079-idea-and-outcome-records.md`](decisions/0079-idea-and-outcome-records.md) — an idea is a markdown record in docs/ideas that owns content and outcome, mirrored one way to a GitHub issue that owns workflow state. Read when changing ideas, outcomes, or the issue sync.
+- [`docs/decisions/0080-guardrails-change-freely-activate-with-approval.md`](decisions/0080-guardrails-change-freely-activate-with-approval.md) — refines "Audit before enforce": harness ideas are auto-approved when reversible and measurable, and a changed guardrail lands in audit mode until a person approves enforcing it. Read before changing a guardrail.
+- [`docs/decisions/0081-agentgateway-replaces-istio-ingress.md`](decisions/0081-agentgateway-replaces-istio-ingress.md) — refines ADR 0006: agentgateway serves Gateway API ingress, Istio ambient ztunnel keeps identity and mTLS, and the resource saving is measured afterwards. Read when changing ingress.
+- [`docs/decisions/0082-harness-package-bundled-for-skills.md`](decisions/0082-harness-package-bundled-for-skills.md) — refines ADR 0001: harness tools are a TypeScript package at tools/harness, bundled to a committed skills/bin/harness.mjs, talking to kore only through its CLI output. Read before adding a harness tool or hook.
 
 ## Operations and Guides
 
