@@ -14,7 +14,7 @@ import {
   type LedgerEvent,
 } from "../ledger/index.js";
 import { CommandError, mainRoot, type CliDeps } from "../runtime/index.js";
-import { readTokens } from "./feedback-tokens.js";
+import { readTokens, tokenStateFile } from "./feedback-tokens.js";
 import type { HookResult } from "./io.js";
 
 interface Project {
@@ -261,12 +261,16 @@ async function recordEvent(
   }
 }
 
-/** Records the stop, then the session's tokens so far when its transcript can say. */
+/** Records the stop, then the session's tokens so far when they grew since the last stop. */
 async function recordStop(deps: CliDeps, call: Call): Promise<void> {
   await recordEvent(deps, "session.stop", call);
-  const tokens = await readTokens(deps.fs, call.transcript_path);
-  if (tokens > 0) {
-    await recordEvent(deps, "token.usage", call, undefined, { tokens });
+  const { total, grew } = await readTokens(
+    deps.fs,
+    call.transcript_path,
+    tokenStateFile(call.session_id),
+  );
+  if (grew && total > 0) {
+    await recordEvent(deps, "token.usage", call, undefined, { tokens: total });
   }
 }
 

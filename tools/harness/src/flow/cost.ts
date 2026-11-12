@@ -30,7 +30,7 @@ export type CostMetric =
       /** The most recently closed idea, whose value is `current`. */
       currentIdea: string;
       current: number;
-      /** Mean over the last `trailingIdeas` closed ideas, the current one included. */
+      /** Mean over the `trailingIdeas` closed ideas before the current one. */
       trailingAverage: number;
       maxIncrease: number;
       worsened: boolean;
@@ -71,17 +71,18 @@ function metric(
   trailing: number,
   { maxIncrease }: Threshold,
 ): CostMetric {
-  if (values.length < trailing) {
+  // The baseline is the N ideas before the latest, so the latest never dampens itself.
+  if (values.length < trailing + 1) {
     return {
       status: "insufficient history",
       closedIdeas: values.length,
-      needed: trailing,
+      needed: trailing + 1,
     };
   }
-  const last = values.slice(-trailing);
-  const current = last[last.length - 1] as (typeof last)[number];
+  const current = values[values.length - 1] as (typeof values)[number];
+  const before = values.slice(-(trailing + 1), -1);
   const trailingAverage =
-    last.reduce((sum, v) => sum + v.value, 0) / last.length;
+    before.reduce((sum, v) => sum + v.value, 0) / before.length;
   return {
     status: "ok",
     currentIdea: current.idea,

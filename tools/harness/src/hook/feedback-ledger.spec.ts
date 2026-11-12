@@ -147,6 +147,98 @@ describe("hook feedback records token usage at stop", () => {
   });
 });
 
+const TRANSCRIPT = "/home/t/inc.jsonl";
+const turn = (id: string, input: number, output: number) =>
+  `${JSON.stringify({
+    type: "assistant",
+    message: {
+      id,
+      content: [{ type: "text", text: "private words" }],
+      usage: { input_tokens: input, output_tokens: output },
+    },
+  })}\n`;
+
+/** One session whose transcript grows between stops; counts what each stop reads. */
+function session() {
+  const h = testHarness({
+    env: { CLAUDE_PROJECT_DIR: root, KORE_ROOT: root },
+  });
+  const reads: { offset: number; bytes: number }[] = [];
+  const fs = h.deps.fs;
+  const readFrom = fs.readFrom.bind(fs);
+  fs.readFrom = async (path, offset) => {
+    const text = await readFrom(path, offset);
+    if (path === TRANSCRIPT) {
+      reads.push({ offset, bytes: Buffer.byteLength(text) });
+    }
+    return text;
+  };
+  const readFile = fs.readFile.bind(fs);
+  fs.readFile = (path) => {
+    if (path === TRANSCRIPT) {
+      throw new Error("the whole transcript must not be read");
+    }
+    return readFile(path);
+  };
+  h.deps.stdin = () =>
+    Promise.resolve(
+      JSON.stringify({ session_id: "s1", transcript_path: TRANSCRIPT }),
+    );
+  return {
+    reads,
+    append: (text: string) =>
+      h.files.set(TRANSCRIPT, (h.files.get(TRANSCRIPT) ?? "") + text),
+    async stop() {
+      await run(["hook", "feedback", "stop"], h.deps);
+      return ledgerEvents(h.files).filter((e) => e["kind"] === "token.usage");
+    },
+  };
+}
+
+describe("hook feedback reads the transcript incrementally", () => {
+  it("reads only the bytes added since the last stop and keeps the running total", async () => {
+    const s = session();
+    const first = turn("m1", 100, 50);
+    s.append(first);
+    expect((await s.stop()).map((e) => e["tokens"])).toEqual([150]);
+    const next = turn("m2", 20, 5) + turn("m3", 1, 1);
+    s.append(next);
+    expect((await s.stop()).map((e) => e["tokens"])).toEqual([150, 177]);
+    expect(s.reads).toEqual([
+      { offset: 0, bytes: Buffer.byteLength(first) },
+      { offset: Buffer.byteLength(first), bytes: Buffer.byteLength(next) },
+    ]);
+  });
+
+  it("costs the same on a huge transcript as on a small one: a stop with nothing new reads nothing and records nothing", async () => {
+    const s = session();
+    s.append(
+      Array.from({ length: 5000 }, (_, i) => turn(`m${i}`, 1, 1)).join(""),
+    );
+    expect(await s.stop()).toHaveLength(1);
+    const again = await s.stop();
+    expect(again).toHaveLength(1);
+    expect(s.reads.at(-1)?.bytes).toBe(0);
+  });
+
+  it("leaves a half-written last line for the next stop", async () => {
+    const s = session();
+    const whole = turn("m2", 10, 10);
+    s.append(turn("m1", 1, 1) + whole.slice(0, 30));
+    expect((await s.stop()).map((e) => e["tokens"])).toEqual([2]);
+    s.append(whole.slice(30));
+    expect((await s.stop()).map((e) => e["tokens"])).toEqual([2, 22]);
+  });
+
+  it("counts a message once when its later copy arrives after a stop", async () => {
+    const s = session();
+    s.append(turn("m1", 10, 5));
+    await s.stop();
+    s.append(turn("m1", 10, 40));
+    expect((await s.stop()).map((e) => e["tokens"])).toEqual([15, 50]);
+  });
+});
+
 describe("hook feedback ledger recording is best effort", () => {
   it("records nothing without a session id", async () => {
     const result = await hook("post-edit", { tool_name: "Bash" });

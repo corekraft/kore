@@ -81,6 +81,20 @@ var nodeFileSystem = {
     } finally {
       await file.close();
     }
+  },
+  async readFrom(path, offset) {
+    const file = await open(path, "r");
+    try {
+      const { size } = await file.stat();
+      if (offset >= size) {
+        return "";
+      }
+      const buffer = Buffer.alloc(size - offset);
+      const { bytesRead } = await file.read(buffer, 0, buffer.length, offset);
+      return buffer.toString("utf8", 0, bytesRead);
+    } finally {
+      await file.close();
+    }
   }
 };
 
@@ -959,16 +973,16 @@ function costOf(own2) {
   return { tokens, measured, sessions };
 }
 function metric(values, trailing, { maxIncrease }) {
-  if (values.length < trailing) {
+  if (values.length < trailing + 1) {
     return {
       status: "insufficient history",
       closedIdeas: values.length,
-      needed: trailing
+      needed: trailing + 1
     };
   }
-  const last = values.slice(-trailing);
-  const current = last[last.length - 1];
-  const trailingAverage = last.reduce((sum, v) => sum + v.value, 0) / last.length;
+  const current = values[values.length - 1];
+  const before = values.slice(-(trailing + 1), -1);
+  const trailingAverage = before.reduce((sum, v) => sum + v.value, 0) / before.length;
   return {
     status: "ok",
     currentIdea: current.idea,
@@ -2310,7 +2324,7 @@ function metricLine(label, metric2, trailing) {
     return `${label}: insufficient history, ${metric2.closedIdeas} of ${metric2.needed} closed ideas`;
   }
   const average = Math.round(metric2.trailingAverage * 100) / 100;
-  return `${label}: ${metric2.currentIdea} ${metric2.current}, trailing average of ${trailing} ideas ${average}${metric2.worsened ? " (worsened)" : ""}`;
+  return `${label}: ${metric2.currentIdea} ${metric2.current}, average of the ${trailing} ideas before it ${average}${metric2.worsened ? " (worsened)" : ""}`;
 }
 function text(report3) {
   const rows = report3.stages.map(
@@ -2356,7 +2370,7 @@ async function loadCost({ deps }) {
   return parseHarnessConfig(await deps.fs.readFile(file), HARNESS_CONFIG);
 }
 var report = {
-  summary: `map ledger events to stages; per stage active, waiting, event counts, toil (starting, stopping, waiting, retrying), work in progress (peak and average ideas open), lead time (first event to outcome; median and max), tokens and sessions per closed idea with a trailing average over the last N closed ideas and a worsened flag (--trailing N, default 5, else cost.trailingIdeas; thresholds in ${HARNESS_CONFIG}), and the bottleneck (--min-ideas N, default ${MIN_COMPLETED_IDEAS}; --as-of TIME; --since TIME (inclusive) and --until TIME (exclusive) clip time at those edges and count only ideas open then, with lead time only for ideas whose outcome falls inside; --idea N|#N[,...] covers only those issues; --ledger PATH; --json is one object, version ${REPORT_VERSION}: version, asOf, scope, ideas, minCompletedIdeas, stages, leadTime, metrics, bottleneck, bottleneckNote, unmappedEvents, skippedLines)`,
+  summary: `map ledger events to stages; per stage active, waiting, event counts, toil (starting, stopping, waiting, retrying), work in progress (peak and average ideas open), lead time (first event to outcome; median and max), tokens and sessions per closed idea with a trailing average over the N closed ideas before the latest and a worsened flag (--trailing N, default 5, else cost.trailingIdeas; thresholds in ${HARNESS_CONFIG}), and the bottleneck (--min-ideas N, default ${MIN_COMPLETED_IDEAS}; --as-of TIME; --since TIME (inclusive) and --until TIME (exclusive) clip time at those edges and count only ideas open then, with lead time only for ideas whose outcome falls inside; --idea N|#N[,...] covers only those issues; --ledger PATH; --json is one object, version ${REPORT_VERSION}: version, asOf, scope, ideas, minCompletedIdeas, stages, leadTime, metrics, bottleneck, bottleneckNote, unmappedEvents, skippedLines)`,
   options: {
     "min-ideas": "string",
     trailing: "string",
@@ -4734,38 +4748,83 @@ async function update(sessionId, deps) {
 }
 
 // src/hook/feedback.ts
-import { tmpdir } from "node:os";
-import { join as join7 } from "node:path";
+import { tmpdir as tmpdir2 } from "node:os";
+import { join as join8 } from "node:path";
 
 // src/hook/feedback-tokens.ts
-function transcriptTokens(text6) {
-  const byMessage = /* @__PURE__ */ new Map();
-  text6.split("\n").forEach((raw, index) => {
-    try {
-      const value = JSON.parse(raw);
-      const usage2 = value.message?.usage;
-      if (value.type !== "assistant" || usage2 === void 0) {
-        return;
-      }
-      const count2 = (key) => {
-        const n = usage2[key];
-        return typeof n === "number" && Number.isFinite(n) && n > 0 ? n : 0;
-      };
-      const id = typeof value.message?.id === "string" ? value.message.id : `line-${index}`;
-      byMessage.set(
-        id,
-        count2("input_tokens") + count2("output_tokens") + count2("cache_creation_input_tokens")
-      );
-    } catch {
-    }
-  });
-  return [...byMessage.values()].reduce((sum, n) => sum + n, 0);
-}
-async function readTokens(fs, path) {
+import { tmpdir } from "node:os";
+import { join as join7 } from "node:path";
+var tokenStateFile = (session2) => join7(
+  tmpdir(),
+  `kore-tokens-${(typeof session2 === "string" ? session2 : "default").replace(/[^\w.-]/g, "_")}.json`
+);
+var EMPTY = { offset: 0, total: 0 };
+function usageOf(raw) {
   try {
-    return typeof path === "string" && path !== "" ? transcriptTokens(await fs.readFile(path)) : 0;
+    const value = JSON.parse(raw);
+    const usage2 = value.message?.usage;
+    if (value.type !== "assistant" || usage2 === void 0) {
+      return void 0;
+    }
+    const count2 = (key) => {
+      const n = usage2[key];
+      return typeof n === "number" && Number.isFinite(n) && n > 0 ? n : 0;
+    };
+    const id = value.message?.id;
+    return {
+      ...typeof id === "string" ? { id } : {},
+      tokens: count2("input_tokens") + count2("output_tokens") + count2("cache_creation_input_tokens")
+    };
   } catch {
-    return 0;
+    return void 0;
+  }
+}
+function advance(state, text6) {
+  const end = text6.lastIndexOf("\n") + 1;
+  let { total, lastId, lastTokens } = state;
+  for (const raw of text6.slice(0, end).split("\n")) {
+    const usage2 = usageOf(raw);
+    if (usage2 === void 0) {
+      continue;
+    }
+    total += usage2.id !== void 0 && usage2.id === lastId ? usage2.tokens - (lastTokens ?? 0) : usage2.tokens;
+    lastId = usage2.id;
+    lastTokens = usage2.tokens;
+  }
+  return {
+    offset: state.offset + Buffer.byteLength(text6.slice(0, end)),
+    total,
+    ...lastId === void 0 ? {} : { lastId },
+    ...lastTokens === void 0 ? {} : { lastTokens }
+  };
+}
+function parseState(text6) {
+  try {
+    const value = JSON.parse(text6);
+    const { offset, total, lastId, lastTokens } = value;
+    return typeof offset === "number" && typeof total === "number" && Number.isSafeInteger(offset) && offset >= 0 && total >= 0 ? {
+      offset,
+      total,
+      ...typeof lastId === "string" ? { lastId } : {},
+      ...typeof lastTokens === "number" ? { lastTokens } : {}
+    } : EMPTY;
+  } catch {
+    return EMPTY;
+  }
+}
+async function readTokens(fs, path, stateFile) {
+  try {
+    if (typeof path !== "string" || path === "") {
+      return { total: 0, grew: false };
+    }
+    const before = await fs.readFile(stateFile).then(parseState, () => EMPTY);
+    const after = advance(before, await fs.readFrom(path, before.offset));
+    if (after.offset !== before.offset) {
+      await fs.writeFile(stateFile, JSON.stringify(after));
+    }
+    return { total: after.total, grew: after.total !== before.total };
+  } catch {
+    return { total: 0, grew: false };
   }
 }
 
@@ -4934,21 +4993,25 @@ async function recordEvent(deps, kind, call, outcome, extra = {}) {
       deps.fs,
       deps.clock,
       deps.ids,
-      join7(main, DEFAULT_LEDGER)
+      join8(main, DEFAULT_LEDGER)
     ).record(event);
   } catch {
   }
 }
 async function recordStop(deps, call) {
   await recordEvent(deps, "session.stop", call);
-  const tokens = await readTokens(deps.fs, call.transcript_path);
-  if (tokens > 0) {
-    await recordEvent(deps, "token.usage", call, void 0, { tokens });
+  const { total, grew } = await readTokens(
+    deps.fs,
+    call.transcript_path,
+    tokenStateFile(call.session_id)
+  );
+  if (grew && total > 0) {
+    await recordEvent(deps, "token.usage", call, void 0, { tokens: total });
   }
 }
 function feedbackDeps(deps, root3, call) {
-  const marker = (project) => join7(
-    tmpdir(),
+  const marker = (project) => join8(
+    tmpdir2(),
     `kore-${project === HARNESS.project ? "harness" : "ts"}-changed-${typeof call.session_id === "string" ? call.session_id : "default"}`
   );
   return {
@@ -5044,7 +5107,7 @@ function hookCommand(name, summary, handler, { flags = {}, payload = true, opera
 
 // src/hook/retro-hook.ts
 import { homedir } from "node:os";
-import { join as join9 } from "node:path";
+import { join as join10 } from "node:path";
 
 // src/hook/retro-scan.ts
 import { createHash } from "node:crypto";
@@ -5419,7 +5482,7 @@ function scan(inputs, { since, knownSkills = [], auditRules: audit3 = [] } = {})
 }
 
 // src/hook/retro-transcripts.ts
-import { basename, join as join8, sep } from "node:path";
+import { basename, join as join9, sep } from "node:path";
 var PROBE_BYTES = 256 * 1024;
 var DEFAULT_BRANCHES = /* @__PURE__ */ new Set(["main", "master", "HEAD"]);
 var encodePath = (path) => path.replace(/[^a-zA-Z0-9]/g, "-");
@@ -5447,7 +5510,7 @@ async function repoTranscriptDirs(fs, projectsDir, { main, worktrees, branches }
     for (const file of files) {
       let head;
       try {
-        head = await fs.readHead(join8(dir, file), PROBE_BYTES);
+        head = await fs.readHead(join9(dir, file), PROBE_BYTES);
       } catch {
         continue;
       }
@@ -5465,7 +5528,7 @@ async function repoTranscriptDirs(fs, projectsDir, { main, worktrees, branches }
   }
   const found = [];
   for (const name of entries) {
-    const dir = join8(projectsDir, name);
+    const dir = join9(projectsDir, name);
     if (await fs.isDirectory(dir) && (names3.has(basename(dir)) || await belongs(dir))) {
       found.push(dir);
     }
@@ -5484,7 +5547,7 @@ async function defaultDirs(fs, runner, root3, home) {
     "--path-format=absolute",
     "--git-common-dir"
   ])).trim();
-  const main = worktrees[0] ?? (common ? join8(common, "..") : root3);
+  const main = worktrees[0] ?? (common ? join9(common, "..") : root3);
   const refs = await git(runner, root3, [
     "for-each-ref",
     "--format=%(refname:short)",
@@ -5492,7 +5555,7 @@ async function defaultDirs(fs, runner, root3, home) {
     "refs/remotes"
   ]);
   const branches = refs.split("\n").filter(Boolean).map((name) => name.replace(/^origin\//, ""));
-  return await repoTranscriptDirs(fs, join8(home, ".claude", "projects"), {
+  return await repoTranscriptDirs(fs, join9(home, ".claude", "projects"), {
     main,
     worktrees: worktrees.length > 0 ? worktrees : [main],
     branches
@@ -5505,7 +5568,7 @@ async function readTranscripts(fs, dirs) {
       (n) => n.endsWith(".jsonl")
     )) {
       const id = basename(name, ".jsonl");
-      const text6 = await fs.readFile(join8(dir, name));
+      const text6 = await fs.readFile(join9(dir, name));
       if (text6.length >= (byId.get(id)?.text.length ?? -1)) {
         byId.set(id, { id, text: text6 });
       }
@@ -5519,7 +5582,7 @@ var GUARD_SOURCE = ".claude/hooks/guard.mjs";
 var USAGE = "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD]\n--since keeps sessions active at or after local midnight of that date, like the session-start count.";
 var isMissing = (error) => error.code === "ENOENT";
 async function skillNames(fs, root3) {
-  const dir = join9(root3, "skills");
+  const dir = join10(root3, "skills");
   let entries;
   try {
     entries = await fs.readdir(dir);
@@ -5531,7 +5594,7 @@ async function skillNames(fs, root3) {
   }
   const names3 = [];
   for (const entry of entries) {
-    if (await fs.isDirectory(join9(dir, entry)) && await fs.exists(join9(dir, entry, "SKILL.md"))) {
+    if (await fs.isDirectory(join10(dir, entry)) && await fs.exists(join10(dir, entry, "SKILL.md"))) {
       names3.push(entry);
     }
   }
@@ -5560,7 +5623,7 @@ ${USAGE}
   }
 }
 async function readGuardSource(fs, root3) {
-  const path = join9(root3, GUARD_SOURCE);
+  const path = join10(root3, GUARD_SOURCE);
   try {
     return await fs.readFile(path);
   } catch (error) {
@@ -5616,10 +5679,10 @@ var retroScan = hookCommand(
 );
 
 // src/hook/skill-links.ts
-import { isAbsolute, join as join10 } from "node:path";
+import { isAbsolute, join as join11 } from "node:path";
 var HARNESSES = [".claude", ".codex"];
 async function skillNames2(fs, root3) {
-  const skillsDir = join10(root3, "skills");
+  const skillsDir = join11(root3, "skills");
   let entries;
   try {
     entries = await fs.readdir(skillsDir);
@@ -5633,7 +5696,7 @@ async function skillNames2(fs, root3) {
   }
   const skills = [];
   for (const entry of entries) {
-    if (await fs.exists(join10(root3, "skills", entry, "SKILL.md"))) {
+    if (await fs.exists(join11(root3, "skills", entry, "SKILL.md"))) {
       skills.push(entry);
     }
   }
@@ -5657,7 +5720,7 @@ async function linkProblems(fs, root3) {
     for (const skill2 of skills) {
       const link = `${harness}/skills/${skill2}`;
       const expected = `../../skills/${skill2}`;
-      const found = await targetOf(fs, join10(root3, link));
+      const found = await targetOf(fs, join11(root3, link));
       if ("code" in found) {
         problems.push(
           found.code === "EINVAL" ? `${link} is a directory or file, not a link; replace it with a link to ${expected}` : `${link} is missing; link it to ${expected}`
@@ -5677,7 +5740,7 @@ async function linkProblems(fs, root3) {
 }
 
 // src/hook/workflow-permissions.ts
-import { join as join11 } from "node:path";
+import { join as join12 } from "node:path";
 var RELEASE = "release.yaml";
 var SIGNING_JOBS = ["release", "mirror"];
 var SIGNING_SCOPES = ["id-token", "packages"];
@@ -5806,7 +5869,7 @@ function permissionProblems(files) {
   );
 }
 async function workflowProblems(fs, root3) {
-  const dir = join11(root3, ".github", "workflows");
+  const dir = join12(root3, ".github", "workflows");
   let entries;
   try {
     entries = await fs.readdir(dir);
@@ -5820,7 +5883,7 @@ async function workflowProblems(fs, root3) {
   }
   const files = {};
   for (const entry of entries.filter((f) => /\.ya?ml$/.test(f)).sort()) {
-    files[entry] = await fs.readFile(join11(dir, entry));
+    files[entry] = await fs.readFile(join12(dir, entry));
   }
   return permissionProblems(files);
 }
@@ -6005,7 +6068,7 @@ function fail2(deps, json, code, message) {
 }
 
 // src/session/registry.ts
-import { join as join12, resolve as resolve5 } from "node:path";
+import { join as join13, resolve as resolve5 } from "node:path";
 var STATE_DIR = ".kore/state/sessions";
 function isRecord(value) {
   if (typeof value !== "object" || value === null) {
@@ -6032,7 +6095,7 @@ var SessionRegistry = class _SessionRegistry {
     return new _SessionRegistry(deps.fs, resolve5(main, STATE_DIR));
   }
   file(name) {
-    return join12(this.dir, `${name}.json`);
+    return join13(this.dir, `${name}.json`);
   }
   async read(name) {
     const path = this.file(name);
@@ -6092,7 +6155,7 @@ var SessionRegistry = class _SessionRegistry {
 };
 
 // src/session/worktree.ts
-import { join as join13 } from "node:path";
+import { join as join14 } from "node:path";
 var removeCommands = (worktree) => `\`git worktree remove ${worktree.path}\` and \`git branch -D ${worktree.branch}\``;
 var removeHint = (worktree) => `The worktree ${worktree.path} was left behind; remove it with ${removeCommands(worktree)}.`;
 var closeHint = (worktree) => `Remove its worktree once its branch is merged: ${removeCommands(worktree)}.`;
@@ -6103,7 +6166,7 @@ async function create2(deps, name, branch) {
       error: "Cannot find the main checkout to create the worktree in. Run inside the repository or set KORE_ROOT to its root. No pane was split."
     };
   }
-  const worktree = { path: join13(main, ".claude", "worktrees", name), branch };
+  const worktree = { path: join14(main, ".claude", "worktrees", name), branch };
   const add = await deps.runner.run(
     "git",
     ["worktree", "add", "-b", branch, worktree.path, "HEAD"],
@@ -6115,7 +6178,7 @@ async function create2(deps, name, branch) {
     };
   }
   const install = await deps.runner.run("npm", ["ci"], {
-    cwd: join13(worktree.path, "tools", "kore")
+    cwd: join14(worktree.path, "tools", "kore")
   });
   if (install.code !== 0) {
     return {
@@ -6515,7 +6578,7 @@ function check({ deps, options }) {
 }
 
 // src/session/spawn-finish.ts
-import { join as join14 } from "node:path";
+import { join as join15 } from "node:path";
 async function recordLaunch(deps, record3) {
   try {
     const main = await mainRoot(deps);
@@ -6526,7 +6589,7 @@ async function recordLaunch(deps, record3) {
       deps.fs,
       deps.clock,
       deps.ids,
-      join14(main, DEFAULT_LEDGER)
+      join15(main, DEFAULT_LEDGER)
     ).record({
       source: "herdr",
       kind: "session.launch",
@@ -6718,7 +6781,7 @@ var session = {
 };
 
 // src/skill/index.ts
-import { join as join15 } from "node:path";
+import { join as join16 } from "node:path";
 
 // src/skill/audit.ts
 var DESCRIPTION_BUDGET = 200;
@@ -6832,7 +6895,7 @@ var audit2 = {
   summary: "report each skill's description and body against its budgets",
   options: { strict: "boolean" },
   async run({ json, options, deps }) {
-    const skillsDir = join15(await deps.root(), SKILLS_DIR);
+    const skillsDir = join16(await deps.root(), SKILLS_DIR);
     let report3;
     try {
       report3 = await auditSkills(deps.fs, skillsDir);

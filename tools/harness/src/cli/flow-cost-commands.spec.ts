@@ -15,8 +15,6 @@ function seeded(extra: string[] = []) {
 }
 
 describe("flow report cost metrics", () => {
-  const CONFIG = "/repo/.claude/harness.json";
-
   function costed(extra: string[] = []) {
     const { h, argv } = seeded(["--json", ...extra]);
     return { h, argv };
@@ -31,29 +29,40 @@ describe("flow report cost metrics", () => {
       tokensPerIdea: {
         status: "insufficient history",
         closedIdeas: 0,
-        needed: 5,
+        needed: 6,
       },
       sessionsPerIdea: {
         status: "insufficient history",
         closedIdeas: 3,
-        needed: 5,
+        needed: 6,
       },
     });
   });
 
   it("takes N from --trailing and shows the numbers in the human report", async () => {
-    const { h, argv } = seeded(["--trailing", "3"]);
+    const { h, argv } = seeded(["--trailing", "2"]);
     expect(await run(argv, h.deps)).toBe(0);
     expect(h.out()).toContain(
       "Tokens per idea: insufficient history, 0 of 3 closed ideas",
     );
-    expect(h.out()).toContain("Sessions per idea: #3 0");
+    expect(h.out()).toContain(
+      "Sessions per idea: #3 0, average of the 2 ideas before it 0",
+    );
     const insufficient = seeded();
     await run(insufficient.argv, insufficient.h.deps);
     expect(insufficient.h.out()).toContain(
-      "Sessions per idea: insufficient history, 3 of 5 closed ideas",
+      "Sessions per idea: insufficient history, 3 of 6 closed ideas",
     );
   });
+});
+
+describe("flow report cost metrics config", () => {
+  const CONFIG = "/repo/.claude/harness.json";
+
+  function costed(extra: string[] = []) {
+    const { h, argv } = seeded(["--json", ...extra]);
+    return { h, argv };
+  }
 
   it("takes N and thresholds from the harness config", async () => {
     const { h, argv } = costed();

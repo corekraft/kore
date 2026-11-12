@@ -27,6 +27,15 @@ describe("nodeFileSystem", () => {
     expect(await nodeFileSystem.readHead(file, 100)).toBe("abcdefghij");
   });
 
+  it("reads a file from a byte offset without reading what precedes it", async () => {
+    const file = join(temp(), "log.txt");
+    writeFileSync(file, "abcdéfghij");
+    expect(await nodeFileSystem.readFrom(file, 0)).toBe("abcdéfghij");
+    expect(await nodeFileSystem.readFrom(file, 6)).toBe("fghij");
+    expect(await nodeFileSystem.readFrom(file, 11)).toBe("");
+    expect(await nodeFileSystem.readFrom(file, 500)).toBe("");
+  });
+
   it("rejects reading the head of a missing file", async () => {
     await expect(
       nodeFileSystem.readHead(join(temp(), "none"), 4),

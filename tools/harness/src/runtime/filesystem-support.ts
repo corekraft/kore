@@ -54,6 +54,12 @@ export class MemoryFileSystem implements FileSystem {
     return (await this.readFile(path)).slice(0, bytes);
   }
 
+  async readFrom(path: string, offset: number): Promise<string> {
+    return Buffer.from(await this.readFile(path))
+      .subarray(offset)
+      .toString("utf8");
+  }
+
   readlink(path: string): Promise<string> {
     return Promise.reject(new Error(`ENOENT: ${path}`));
   }

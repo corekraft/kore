@@ -48,14 +48,14 @@ describe("flow report cost metrics", () => {
     ...costed(3, 2000, 3, [100, 200, 600]),
   ];
 
-  it("gives each closed idea's tokens and sessions, trailing averages and a worsened flag", () => {
-    const { metrics } = report(events, { trailingIdeas: 3 });
-    expect(metrics.trailingIdeas).toBe(3);
+  it("compares the latest closed idea with the average of the N closed ideas before it", () => {
+    const { metrics } = report(events, { trailingIdeas: 2 });
+    expect(metrics.trailingIdeas).toBe(2);
     expect(metrics.tokensPerIdea).toEqual({
       status: "ok",
       currentIdea: "#3",
       current: 600,
-      trailingAverage: (300 + 200 + 600) / 3,
+      trailingAverage: (300 + 200) / 2,
       maxIncrease: 0.25,
       worsened: true,
     });
@@ -63,16 +63,37 @@ describe("flow report cost metrics", () => {
       status: "ok",
       currentIdea: "#3",
       current: 3,
-      trailingAverage: 2,
+      trailingAverage: 1.5,
       maxIncrease: 0.25,
       worsened: true,
     });
   });
 
-  it("counts a session's cumulative tokens once, using its latest usage", () => {
-    const { metrics } = report(costed(1, 0, 1, [50, 120, 400]), {
-      trailingIdeas: 1,
+  it("flags a single bad idea that its own weight would have hidden in the average", () => {
+    const steady = [100, 100, 100].flatMap((tokens, i) =>
+      costed(i + 1, i * 1000, 1, [tokens]),
+    );
+    // 130 is 30% over the 100 before it; averaged with itself the baseline
+    // would be 107.5 and 130 would pass a 25% threshold.
+    const { metrics } = report([...steady, ...costed(4, 3000, 1, [130])], {
+      trailingIdeas: 3,
     });
+    expect(metrics.tokensPerIdea).toMatchObject({
+      current: 130,
+      trailingAverage: 100,
+      worsened: true,
+    });
+    const flat = report([...steady, ...costed(4, 3000, 1, [125])], {
+      trailingIdeas: 3,
+    });
+    expect(flat.metrics.tokensPerIdea).toMatchObject({ worsened: false });
+  });
+
+  it("counts a session's cumulative tokens once, using its latest usage", () => {
+    const { metrics } = report(
+      [...costed(1, 0, 1, [100]), ...costed(2, 1000, 1, [50, 120, 400])],
+      { trailingIdeas: 1 },
+    );
     expect(metrics.tokensPerIdea).toMatchObject({ current: 400 });
   });
 });
@@ -86,27 +107,27 @@ describe("flow report cost metric windows", () => {
 
   it("is not worsened at or below the threshold", () => {
     const { metrics } = report(events, {
-      trailingIdeas: 3,
-      tokensPerIdea: { maxIncrease: 0.7 },
-      sessionsPerIdea: { maxIncrease: 0.5 },
+      trailingIdeas: 2,
+      tokensPerIdea: { maxIncrease: 1.5 },
+      sessionsPerIdea: { maxIncrease: 1 },
     });
     expect(metrics.tokensPerIdea).toMatchObject({
-      maxIncrease: 0.7,
+      maxIncrease: 1.5,
       worsened: false,
     });
     expect(metrics.sessionsPerIdea).toMatchObject({ worsened: false });
   });
 
-  it("averages only the last N closed ideas", () => {
-    const { metrics } = report(events, { trailingIdeas: 2 });
+  it("averages only the N closed ideas just before the latest", () => {
+    const { metrics } = report(events, { trailingIdeas: 1 });
     expect(metrics.sessionsPerIdea).toMatchObject({
       current: 3,
-      trailingAverage: 2.5,
+      trailingAverage: 2,
     });
   });
 
-  it("reports insufficient history below N closed ideas, never zero", () => {
-    const { metrics } = report(events, { trailingIdeas: 4 });
+  it("reports insufficient history without N closed ideas before the latest, never zero", () => {
+    const { metrics } = report(events, { trailingIdeas: 3 });
     const expected = {
       status: "insufficient history",
       closedIdeas: 3,
@@ -120,7 +141,7 @@ describe("flow report cost metric windows", () => {
     expect(report(events).metrics.trailingIdeas).toBe(5);
     expect(report(events).metrics.tokensPerIdea).toMatchObject({
       status: "insufficient history",
-      needed: 5,
+      needed: 6,
     });
   });
 
@@ -135,8 +156,9 @@ describe("flow report cost metric windows", () => {
     expect(metrics.tokensPerIdea).toMatchObject({
       status: "insufficient history",
       closedIdeas: 0,
+      needed: 2,
     });
-    expect(metrics.sessionsPerIdea).toMatchObject({ current: 0 });
+    expect(metrics.sessionsPerIdea).toMatchObject({ closedIdeas: 1 });
   });
 
   it("keeps cost events out of stage time and the unmapped count", () => {
@@ -147,7 +169,7 @@ describe("flow report cost metric windows", () => {
   it("ignores ideas that are still open", () => {
     const { metrics } = report(
       [...events, at(3000, "issue.opened", { number: 4 })],
-      { trailingIdeas: 3 },
+      { trailingIdeas: 2 },
     );
     expect(metrics.sessionsPerIdea).toMatchObject({ currentIdea: "#3" });
   });
