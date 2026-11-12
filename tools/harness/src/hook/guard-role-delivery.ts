@@ -108,7 +108,9 @@ const HERDR_READS = [
   "pane current",
 ];
 
-const FINISH_LINE = /^\[herdr:[\w.-]+\] finished: RESULT .+$/;
+/** The exact line session/brief.ts tells a session to send: the outcome is done or blocked, and the pane is `$HERDR_PANE_ID` or a literal id. Free text would let a role instruct another pane. */
+const FINISH_LINE =
+  /^\[herdr:[\w.-]+\] finished: RESULT (?:done|blocked); summary in pane (?:\$HERDR_PANE_ID|[\w:]+)$/;
 
 /** The finish broadcast every brief ends with: `herdr pane send-text <pane> "[herdr:<name>] finished: RESULT ..."`, then `herdr pane send-keys <pane> enter`. Nothing else goes through send-text or send-keys. */
 function herdrFinish(args: readonly string[]): boolean {

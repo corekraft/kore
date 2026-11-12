@@ -7766,7 +7766,7 @@ var HERDR_READS = [
   "pane read",
   "pane current"
 ];
-var FINISH_LINE = /^\[herdr:[\w.-]+\] finished: RESULT .+$/;
+var FINISH_LINE = /^\[herdr:[\w.-]+\] finished: RESULT (?:done|blocked); summary in pane (?:\$HERDR_PANE_ID|[\w:]+)$/;
 function herdrFinish(args) {
   const [group, verb, pane, text10, ...rest] = args;
   if (group !== "pane" || pane === void 0 || pane.startsWith("-")) {
