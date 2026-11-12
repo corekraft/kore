@@ -153,6 +153,64 @@ describe("the inventory protects its deny patterns", () => {
   });
 });
 
+describe("the inventory protects a pattern edited on its own", () => {
+  it.each([
+    [
+      "narrowing a pattern",
+      '"Bash(helm uninstall:*)"',
+      '"Bash(helm uninstall kore:*)"',
+      /Bash\(helm uninstall:\*\)/,
+    ],
+    [
+      "removing a pattern",
+      '"Bash(kubectl delete ns:*)",',
+      "",
+      /Bash\(kubectl delete ns:\*\)/,
+    ],
+    [
+      "removing a Read pattern from a list",
+      '"Read(./docs/a/**)", "Bash(b:*)"',
+      '"Bash(b:*)"',
+      /Read\(\.\/docs\/a\/\*\*\)/,
+    ],
+  ])("warns, naming the pattern, on %s", async (_, from, to, message) => {
+    const result = await guard(
+      {
+        session_id: "s1",
+        tool_name: "Edit",
+        tool_input: {
+          file_path: "/repo/.claude/guardrails.yaml",
+          old_string: from,
+          new_string: to,
+        },
+      },
+      committedInventoryText,
+    );
+    expect(result.code).toBe(0);
+    expect(result.out).toMatch(/guard:guardrail-demotion/);
+    expect(result.out).toMatch(message);
+    expect(auditEvents(result.events)).toMatchObject([
+      { label: "guardrail-demotion" },
+    ]);
+  });
+
+  it("allows adding a pattern beside the old one", async () => {
+    const result = await guard(
+      {
+        session_id: "s1",
+        tool_name: "Edit",
+        tool_input: {
+          file_path: "/repo/.claude/guardrails.yaml",
+          old_string: '"Bash(helm uninstall:*)"',
+          new_string: '"Bash(helm uninstall:*)", "Bash(helm delete:*)"',
+        },
+      },
+      committedInventoryText,
+    );
+    expect(result).toMatchObject({ code: 0, out: "", err: "" });
+  });
+});
+
 describe("the inventory keeps its deny patterns once guarded or untouched", () => {
   it("blocks the weakening once a person promotes guardrail-demotion", async () => {
     const result = await guard(

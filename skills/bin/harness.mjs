@@ -772,8 +772,8 @@ function parseSettings(text10) {
   }
 }
 function settingsDeny(settingsText) {
-  const permissions = parseSettings(settingsText).permissions;
-  return Array.isArray(permissions?.deny) ? permissions.deny : [];
+  const permissions2 = parseSettings(settingsText).permissions;
+  return Array.isArray(permissions2?.deny) ? permissions2.deny : [];
 }
 function denyDrift(inventory, settingsText) {
   const actual = settingsDeny(settingsText);
@@ -5531,9 +5531,16 @@ function denies(source) {
   }
   return found;
 }
+var PERMISSION2 = /"((?:Bash|Read|Edit|Write)\([^"]*\))"/g;
+var permissions = (source) => [...source.matchAll(PERMISSION2)].map((m) => m[1]);
 function weakened(previous, after) {
+  const was = denies(previous);
+  if (was.size === 0) {
+    const kept = permissions(after);
+    return permissions(previous).filter((p) => !kept.includes(p));
+  }
   const now = denies(after);
-  return [...denies(previous)].filter(([rule, patterns]) => {
+  return [...was].filter(([rule, patterns]) => {
     const kept = now.get(rule);
     return kept === void 0 || patterns.some((p) => !kept.includes(p));
   }).map(([rule]) => rule);
@@ -5561,7 +5568,7 @@ function checkGuardrailDemotion(tool, input, relative3, previous) {
   const problems = [
     ...rules2.length > 0 ? [`turns ${rules2.join(", ")} from enforce to audit by hand`] : [],
     ...weak.length > 0 ? [
-      `removes, narrows or renames the deny patterns of ${weak.join(", ")} by hand`
+      `removes, narrows or renames deny patterns (${weak.join(", ")}) by hand`
     ] : []
   ];
   return warn(
@@ -5580,6 +5587,38 @@ function checkGuardrailBash(name, args, segment) {
   return path === void 0 ? null : warn(
     "guardrail-demotion",
     `${INVENTORY_PATH} is rewritten by a command, whose effect on each rule's mode cannot be checked. Instead, edit it with the Edit tool so a change from enforce to audit is checked, and leave demotions to a person (ADR 0080).`
+  );
+}
+function checkDenyRemovalBash(name, args) {
+  const words2 = [name, ...args];
+  const at = words2.indexOf("guardrail");
+  return words2[at + 1] === "deny" && words2.includes("--allow-removal") ? warn(
+    "guardrail-demotion",
+    "guardrail deny --allow-removal removes deny patterns from .claude/settings.json. A person approves a guardrail's deny patterns (ADR 0080). Instead, run it without --allow-removal, or ask the user to approve the removal first."
+  ) : null;
+}
+var SETTINGS_PATH2 = ".claude/settings.json";
+var denyOf = (source) => {
+  try {
+    const deny2 = JSON.parse(source).permissions?.deny;
+    return Array.isArray(deny2) ? deny2 : void 0;
+  } catch {
+    return void 0;
+  }
+};
+function checkSettingsDenyRemoval(tool, input, relative3, previous, ctx) {
+  if (relative3 !== SETTINGS_PATH2) {
+    return null;
+  }
+  const after = text7(tool === "Edit" ? input["new_string"] : input["content"]);
+  const was = tool === "Write" ? denyOf(previous) : void 0;
+  const now = tool === "Write" ? denyOf(after) : void 0;
+  const known = new Set(ctx.denyRules.flatMap((r) => [...r.patterns]));
+  const kept = permissions(after);
+  const removed = was !== void 0 && now !== void 0 ? was.filter((p) => !now.includes(p)) : permissions(previous).filter((p) => known.has(p) && !kept.includes(p));
+  return removed.length === 0 ? null : warn(
+    "guardrail-demotion",
+    `${relative3} removes or narrows the deny patterns ${removed.join(", ")} by hand. The inventory owns the deny list and a person approves removing a pattern (ADR 0080). Instead, leave them, and ask the user to approve the change in the inventory, then run \`guardrail deny --write\`.`
   );
 }
 
@@ -5985,6 +6024,7 @@ async function checkBashSegment(segment, ctx) {
     checkIdeaIssueClose(name, args),
     checkAppendOnly(name, args, segment, ctx.root),
     checkGuardrailBash(name, args, segment),
+    checkDenyRemovalBash(name, args),
     ...checkDenyAudit("Bash", text10, ctx)
   ];
 }
@@ -6152,6 +6192,13 @@ async function checkWrite(tool, input, relative3, ctx) {
       input,
       relative3,
       relative3 === INVENTORY_PATH ? await before(tool, input, relative3, ctx, false) : ""
+    ),
+    checkSettingsDenyRemoval(
+      tool,
+      input,
+      relative3,
+      relative3 === ".claude/settings.json" ? await before(tool, input, relative3, ctx, false) : "",
+      ctx
     )
   ];
   return weigh(findings2.map((finding2) => applyMode(finding2, ctx)));
@@ -7923,17 +7970,17 @@ function parseWorkflow(text10) {
   }
   return rootNode;
 }
-function writeScopes(permissions) {
-  if (permissions === void 0) {
+function writeScopes(permissions2) {
+  if (permissions2 === void 0) {
     return null;
   }
-  if (isMap(permissions)) {
-    return Object.entries(permissions).filter(([, level]) => level === "write").map(([scope]) => scope);
+  if (isMap(permissions2)) {
+    return Object.entries(permissions2).filter(([, level]) => level === "write").map(([scope]) => scope);
   }
-  if (permissions === "write-all") {
+  if (permissions2 === "write-all") {
     return ["write-all"];
   }
-  return [...permissions.matchAll(/([\w-]+)\s*:\s*write\b/g)].map(
+  return [...permissions2.matchAll(/([\w-]+)\s*:\s*write\b/g)].map(
     (m) => m[1]
   );
 }

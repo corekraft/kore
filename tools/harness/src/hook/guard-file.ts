@@ -3,7 +3,10 @@
 // flag-activation, image-digest, guardrail-demotion.
 import { INVENTORY_PATH } from "../guardrail/index.js";
 import { checkDenyAudit } from "./guard-deny.js";
-import { checkGuardrailDemotion } from "./guard-guardrails.js";
+import {
+  checkGuardrailDemotion,
+  checkSettingsDenyRemoval,
+} from "./guard-guardrails.js";
 import { appendOnlyWarn, isAppendOnly } from "./guard-append-only.js";
 import {
   SECRET_PATH,
@@ -223,6 +226,15 @@ async function checkWrite(
       relative === INVENTORY_PATH
         ? await before(tool, input, relative, ctx, false)
         : "",
+    ),
+    checkSettingsDenyRemoval(
+      tool,
+      input,
+      relative,
+      relative === ".claude/settings.json"
+        ? await before(tool, input, relative, ctx, false)
+        : "",
+      ctx,
     ),
   ];
   return weigh(findings.map((finding) => applyMode(finding, ctx)));
