@@ -14,15 +14,64 @@ export interface NormalizedImage {
 const imageField = /^[ \t]*-?[ \t]*image:[ \t]*["']?([^"'\s#]+)/gm;
 const imageArgument = /^\s*-\s*--[\w-]*image=["']?([^"'\s]+)/gm;
 const imageEnvironment =
-  /name:\s*["']?\w*IMAGE\w*["']?\s+value:\s*["']?([^"'\s]+)/g;
+  /name:\s*["']?(\w*IMAGE\w*)["']?\s+value:\s*["']?([^"'\s]+)/g;
+const imagePart = /^(\w*)_IMAGE_(REGISTRY|REPOSITORY|TAG)$/;
 const embeddedImage = /"image":\s*"([^"\s]+)"/g;
 const helmTestHook = /helm\.sh\/hook"?:\s*"?[^\n]*\btest\b/;
 
+interface Reference {
+  index: number;
+  ref: string;
+}
+
+/**
+ * Environment values: one whole image each, except a controller that builds the
+ * image it deploys from `<P>_IMAGE_REGISTRY`, `<P>_IMAGE_REPOSITORY` and
+ * `<P>_IMAGE_TAG`, which are joined into one reference.
+ */
+function environmentReferences(document: string): Reference[] {
+  const values = [...document.matchAll(imageEnvironment)].map((match) => ({
+    index: match.index,
+    name: match[1]!,
+    value: match[2]!,
+  }));
+  const parts = new Map<string, Record<string, string>>();
+  for (const { name, value } of values) {
+    const [, prefix, part] = imagePart.exec(name) ?? [];
+    if (prefix !== undefined && part !== undefined) {
+      parts.set(prefix, { ...parts.get(prefix), [part]: value });
+    }
+  }
+  const joined = new Set(
+    [...parts].flatMap(([prefix, p]) =>
+      p["REGISTRY"] && p["REPOSITORY"] && p["TAG"] ? [prefix] : [],
+    ),
+  );
+  const emitted = new Set<string>();
+  return values.flatMap(({ index, name, value }): Reference[] => {
+    const prefix = imagePart.exec(name)?.[1];
+    if (prefix === undefined || !joined.has(prefix)) {
+      return [{ index, ref: value }];
+    }
+    if (emitted.has(prefix)) {
+      return [];
+    }
+    emitted.add(prefix);
+    const p = parts.get(prefix)!;
+    return [{ index, ref: `${p["REGISTRY"]}/${p["REPOSITORY"]}:${p["TAG"]}` }];
+  });
+}
+
 function referencesIn(document: string): string[] {
-  return [imageField, imageArgument, imageEnvironment, embeddedImage]
-    .flatMap((pattern) => [...document.matchAll(pattern)])
+  const direct = [imageField, imageArgument, embeddedImage].flatMap((pattern) =>
+    [...document.matchAll(pattern)].map((match) => ({
+      index: match.index,
+      ref: match[1]!,
+    })),
+  );
+  return [...direct, ...environmentReferences(document)]
     .sort((a, b) => a.index - b.index)
-    .map((match) => match[1]!)
+    .map(({ ref }) => ref)
     .filter((ref) => !ref.includes("{{"));
 }
 

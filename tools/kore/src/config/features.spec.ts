@@ -3,9 +3,26 @@ import { test } from "vitest";
 import { loadRepository, validateRepository } from "./config.js";
 import { featureEnabled, featureHelmArgs } from "./features.js";
 import { helmTemplateArgs } from "../platform/helm.js";
+import type { Repository } from "./types.js";
+
+/** The repository without the catalog's own gated components. */
+async function ungated(name: string): Promise<Repository> {
+  const base = await loadRepository(name);
+  return {
+    ...base,
+    catalog: {
+      ...base.catalog,
+      components: base.catalog.components.map((c) => {
+        const plain = { ...c };
+        delete plain.featureFlag;
+        return plain;
+      }),
+    },
+  };
+}
 
 async function featuresMessage(features: unknown): Promise<string> {
-  const base = await loadRepository("local");
+  const base = await ungated("local");
   try {
     await validateRepository({
       ...base,
@@ -18,7 +35,10 @@ async function featuresMessage(features: unknown): Promise<string> {
 }
 
 test("an overlay without a features map validates, with every flag off", async () => {
-  const base = await loadRepository("managed-example");
+  const loaded = await ungated("managed-example");
+  const { features: _declared, ...rest } = loaded.environment;
+  const base: Repository = { ...loaded, environment: rest };
+  await validateRepository(base);
   assert.equal(base.environment.features, undefined);
   assert.equal(featureEnabled(base.environment, "agent-loop"), false);
   assert.deepEqual(featureHelmArgs(base.environment), []);
@@ -89,6 +109,9 @@ test("the managed-example overlay validates with and without flags", async () =>
   await validateRepository(base);
   await validateRepository({
     ...base,
-    environment: { ...base.environment, features: { "agent-loop": false } },
+    environment: {
+      ...base.environment,
+      features: { "agent-loop": false, "ingress-agentgateway": false },
+    },
   });
 });

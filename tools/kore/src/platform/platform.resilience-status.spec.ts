@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, test } from "vitest";
-import { loadRepository, type Repository } from "../config/index.js";
+import {
+  enabledComponents,
+  loadRepository,
+  type Repository,
+} from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { platformStatus } from "./status.js";
 import { healthyClusterOutput } from "./resilience-fixtures.js";
+import { gatedOffReleaseAbsent } from "./webhook-fixtures.js";
 
 // Docs: docs/decisions/0035-fail-fast-readiness-diagnosis.md
 // Offline proof that a controller outage is reported per component: the broken
@@ -15,7 +20,7 @@ const MUTATING =
 
 /** Resources the deployment-style readiness checks name, e.g. `deployment/istiod`. */
 function workloadChecks(repository: Repository): [string, string][] {
-  return repository.catalog.components.flatMap((component) =>
+  return enabledComponents(repository).flatMap((component) =>
     component.readiness
       .filter((check) => /^(deployment|daemonset)\//.test(check))
       .map((check): [string, string] => [component.name, check]),
@@ -31,6 +36,7 @@ function clusterWith(down: string | undefined, mode: "zero" | "stuck") {
   const runner: Runner = {
     async run(command, args) {
       calls.push(`${command} ${args.join(" ")}`);
+      gatedOffReleaseAbsent(command, args);
       if (command === "helm") {
         return {
           stdout: JSON.stringify({ info: { status: "deployed" } }),
@@ -77,7 +83,9 @@ describe.each(["zero", "stuck"] as const)("a controller %s", (mode) => {
 
       const rows = await platformStatus(repository, runner, names);
 
-      const broken = rows.filter(({ status }) => status !== "ready");
+      const broken = rows.filter(
+        ({ status }) => status !== "ready" && status !== "gated-off",
+      );
       assert.deepEqual(
         broken.map(({ name }) => name),
         [owner],
@@ -99,7 +107,14 @@ test("the same status run is fully ready once the controller is back", async () 
   const rows = await platformStatus(repository, runner, names);
 
   assert.deepEqual(
-    rows.filter(({ status }) => status !== "ready").map(({ name }) => name),
+    rows
+      .filter(({ status }) => status !== "ready" && status !== "gated-off")
+      .map(({ name }) => name),
     [],
+  );
+  assert.deepEqual(
+    rows.filter(({ status }) => status === "gated-off").map(({ name }) => name),
+    ["agentgateway-crds", "agentgateway"],
+    "the components the local feature flag gates off report gated-off, not ready",
   );
 });

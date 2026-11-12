@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { loadRepository, type Repository } from "../config/index.js";
+import {
+  enabledComponents,
+  loadRepository,
+  type Repository,
+} from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { imageInventory, imageInventoryStatus } from "./image-inventory.js";
+import { gatedOffReleaseAbsent } from "./webhook-fixtures.js";
 
 // Docs: infra/plans/2-implementation.md#step-7-bootstrap-registry-image-trust-controllers-and-crd-ownership
 // Docs: docs/decisions/0056-platform-image-inventory.md
@@ -19,7 +24,7 @@ interface PodSpec {
 const label = { "policy.sigstore.dev/include": "true" };
 
 function names(repository: Repository): string[] {
-  return [...new Set(repository.catalog.components.map((c) => c.namespace))];
+  return [...new Set(enabledComponents(repository).map((c) => c.namespace))];
 }
 
 function cluster(
@@ -30,6 +35,7 @@ function cluster(
   const calls: string[] = [];
   const runner: Runner = {
     async run(command, args) {
+      gatedOffReleaseAbsent(command, args);
       calls.push(`${command} ${args.join(" ")}`);
       const joined = args.join(" ");
       if (command !== "kubectl") {

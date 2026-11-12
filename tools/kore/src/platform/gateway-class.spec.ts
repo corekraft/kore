@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { test } from "vitest";
 import {
+  enabledComponents,
   gatewayClassName,
   ingressFlag,
   type Repository,
@@ -70,11 +71,13 @@ test("with the flag on only the Gateway class changes", async () => {
   );
 });
 
-test("no agentgateway release is issued with the flag off", async () => {
-  const repository = await loadRepository("local");
-  assert.ok(
-    !repository.catalog.components.some((c) => /agentgateway/.test(c.name)),
-  );
+test("no agentgateway release is issued with the flag off, and both are with it on", async () => {
+  const released = async (on: boolean) =>
+    enabledComponents(await localWith({ [ingressFlag]: on }))
+      .map((c) => c.name)
+      .filter((name) => /agentgateway/.test(name));
+  assert.deepEqual(await released(false), []);
+  assert.deepEqual(await released(true), ["agentgateway-crds", "agentgateway"]);
 });
 
 test("the chart template does not hard-code a GatewayClass", async () => {

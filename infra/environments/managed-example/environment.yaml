@@ -28,6 +28,7 @@
       "hostname": "REQUIRED",
       "port": 443
     },
+  "features": { "ingress-agentgateway": false },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },
   "telemetry":
     { "otlpEndpoint": "http://otel-collector.observability.svc:4318" },
@@ -64,6 +65,8 @@
         ["infra/environments/managed-example/values/mirror/gatekeeper.yaml"],
       "grafana":
         ["infra/environments/managed-example/values/mirror/grafana.yaml"],
+      "agentgateway":
+        ["infra/environments/managed-example/values/mirror/agentgateway.yaml"],
       "istiod":
         ["infra/environments/managed-example/values/mirror/istiod.yaml"],
       "istio-cni":

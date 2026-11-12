@@ -181,6 +181,47 @@
           ]
       },
       {
+        "name": "agentgateway-crds",
+        "phase": "bootstrap",
+        "namespace": "agentgateway-system",
+        "kind": "helm",
+        "repository": "oci://cr.agentgateway.dev/charts/agentgateway-crds",
+        "chart": "agentgateway-crds",
+        "version": "agentgateway",
+        "featureFlag": "ingress-agentgateway",
+        "ownsCRDs":
+          [
+            "agentgatewaybackends.agentgateway.dev",
+            "agentgatewaymodels.agentgateway.dev",
+            "agentgatewayparameters.agentgateway.dev",
+            "agentgatewaypolicies.agentgateway.dev"
+          ],
+        "dependencies": ["kore-gateway-api"],
+        "timeout": "10m",
+        "readiness":
+          [
+            "crd/agentgatewaybackends.agentgateway.dev",
+            "crd/agentgatewayparameters.agentgateway.dev",
+            "crd/agentgatewaypolicies.agentgateway.dev"
+          ]
+      },
+      {
+        "name": "agentgateway",
+        "phase": "core",
+        "namespace": "agentgateway-system",
+        "kind": "helm",
+        "repository": "oci://cr.agentgateway.dev/charts/agentgateway",
+        "chart": "agentgateway",
+        "version": "agentgateway",
+        "featureFlag": "ingress-agentgateway",
+        "ownsCRDs": [],
+        "dependencies":
+          ["agentgateway-crds", "kore-gateway-api", "cert-manager"],
+        "timeout": "10m",
+        "values": ["infra/environments/common/values/agentgateway.yaml"],
+        "readiness": ["deployment/agentgateway"]
+      },
+      {
         "name": "istiod",
         "phase": "core",
         "namespace": "istio-system",

@@ -53,6 +53,12 @@
         "components": ["istio-base", "istiod", "istio-cni", "ztunnel"]
       },
       {
+        "name": "agentgateway-ingress",
+        "step": 8,
+        "capability": "controller",
+        "components": ["agentgateway-crds", "agentgateway"]
+      },
+      {
         "name": "secrets",
         "step": 8,
         "capability": "controller",
