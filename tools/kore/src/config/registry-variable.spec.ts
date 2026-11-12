@@ -1,4 +1,4 @@
-import { loadMinikubeLocal } from "./minikube-local-support.js";
+import { loadMinikubeLocal } from "./minikube-local.fixtures.js";
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { loadRepository, validateRepository } from "./config.js";

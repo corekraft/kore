@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { registryTlsSecret } from "../images/registry-tls-fixtures.js";
-import { loadMinikubeLocal } from "../config/minikube-local-support.js";
+import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import { platformGeneration } from "../platform/admission-gate.js";
 import {
   gatedOffReleaseAbsent,

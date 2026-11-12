@@ -1,4 +1,4 @@
-import { loadMinikubeLocal } from "../config/minikube-local-support.js";
+import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import assert from "node:assert/strict";
 import { copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";

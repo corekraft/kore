@@ -1,4 +1,4 @@
-import { loadMinikubeLocal } from "../config/minikube-local-support.js";
+import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import { expect, test } from "vitest";
 import { type Repository } from "../config/index.js";
 import { fakeRunner } from "./local-image-fixtures.js";

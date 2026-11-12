@@ -43,6 +43,29 @@ export class CommandError extends Error {
 // Bash exposes the piped kubeconfig as /dev/fd/N, which stays open across exec.
 const feedKubeconfig = 'KUBECONFIG=<(cat) exec "$0" "$@"';
 
+/**
+ * Reports a failure of the bash wrapper as the caller's own command: the
+ * original command and arguments, and ENOENT when bash could not find it.
+ */
+function unwrapped(
+  error: unknown,
+  command: string,
+  args: readonly string[],
+): unknown {
+  if (!(error instanceof CommandError)) {
+    return error;
+  }
+  if (error.result.code === 127 && /not found/i.test(error.result.stderr)) {
+    return Object.assign(new Error(`spawn ${command} ENOENT`), {
+      code: "ENOENT",
+      errno: -2,
+      syscall: `spawn ${command}`,
+      path: command,
+    });
+  }
+  return new CommandError(command, args, error.result);
+}
+
 export class ProcessRunner implements Runner {
   async run(
     command: string,
@@ -54,10 +77,15 @@ export class ProcessRunner implements Runner {
     }
     if (options.kubeconfig !== undefined) {
       const { kubeconfig, ...rest } = options;
-      return await this.run("bash", ["-c", feedKubeconfig, command, ...args], {
-        ...rest,
-        input: kubeconfig,
-      });
+      try {
+        return await this.run(
+          "bash",
+          ["-c", feedKubeconfig, command, ...args],
+          { ...rest, input: kubeconfig },
+        );
+      } catch (error) {
+        throw unwrapped(error, command, args);
+      }
     }
     return await new Promise((resolve, reject) => {
       const child = spawn(command, [...args], {

@@ -1,4 +1,4 @@
-import { loadMinikubeLocal } from "../config/minikube-local-support.js";
+import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

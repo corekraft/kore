@@ -1,4 +1,4 @@
-import { loadMinikubeLocal } from "../config/minikube-local-support.js";
+import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import { withHealthyWebhooks } from "./webhook-fixtures.js";
 import { desiredFingerprint } from "./fingerprint.js";
 import assert from "node:assert/strict";

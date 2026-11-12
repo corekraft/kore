@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "vitest";
 import { loadRepository, validateRepository } from "./config.js";
-import { loadMinikubeLocal } from "./minikube-local-support.js";
+import { loadMinikubeLocal } from "./minikube-local.fixtures.js";
 import { minikubeCluster } from "./minikube-cluster.js";
 import type { Environment } from "./types.js";
 

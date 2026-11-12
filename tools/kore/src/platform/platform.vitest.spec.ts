@@ -1,4 +1,4 @@
-import { loadMinikubeLocal } from "../config/minikube-local-support.js";
+import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { platformUp } from "./up.js";

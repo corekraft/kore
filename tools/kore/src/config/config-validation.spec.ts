@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { test } from "vitest";
 import { readinessFor } from "./readiness-fixtures.js";
 import { loadRepository, validateRepository } from "./config.js";
-import { loadMinikubeLocal } from "./minikube-local-support.js";
+import { loadMinikubeLocal } from "./minikube-local.fixtures.js";
 import { minikubeCluster } from "./minikube-cluster.js";
 
 test("validation reports invalid versions, component definitions, and missing value files", async () => {
@@ -214,14 +214,9 @@ test("every catalog component declares at least one readiness check", async () =
 });
 
 test("the components schema requires at least one readiness check", async () => {
+  const file = "../../../../infra/catalog/schemas/components.schema.json";
   const schema = JSON.parse(
-    await readFile(
-      new URL(
-        "../../../../infra/catalog/schemas/components.schema.json",
-        import.meta.url,
-      ),
-      "utf8",
-    ),
+    await readFile(new URL(file, import.meta.url), "utf8"),
   );
   assert.equal(
     schema.properties.components.items.properties.readiness.minItems,

@@ -184,6 +184,6 @@ test("a refused destroy leaves the registry trust directory in place", async () 
       { yes: false, purgeData: false },
       home,
     ),
-  ).rejects.toThrow();
+  ).rejects.toThrow(/requires --yes/);
   expect(existsSync(mine)).toBe(true);
 });

@@ -1,4 +1,4 @@
-import { loadMinikubeLocal } from "../config/minikube-local-support.js";
+import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -99,11 +99,7 @@ test("cosign is pinned to the configured context through an in-memory kubeconfig
   const repository = await testRepository();
   const { runner, calls } = fakeRunner();
   stubRegistry(registryReference, registryHead);
-  const before = new Set(
-    (await readdir(tmpdir())).filter((name) =>
-      name.startsWith("kore-kubeconfig"),
-    ),
-  );
+  const before = new Set(await readdir(tmpdir()));
 
   await buildAndSignLocalImage(repository, runner, "reference", entry);
 
@@ -115,10 +111,14 @@ test("cosign is pinned to the configured context through an in-memory kubeconfig
     expect(call.options?.env?.KUBECONFIG).toBeUndefined();
     expect(JSON.stringify(call.args)).not.toContain("kubeconfig");
   }
-  const after = (await readdir(tmpdir())).filter((name) =>
-    name.startsWith("kore-kubeconfig"),
-  );
-  expect(after.filter((name) => !before.has(name))).toEqual([]);
+  const created = (await readdir(tmpdir())).filter((name) => !before.has(name));
+  for (const name of created) {
+    for (const file of await filesUnder(join(tmpdir(), name))) {
+      expect(await readFile(file, "utf8").catch(() => "")).not.toContain(
+        minifiedKubeconfig.trim(),
+      );
+    }
+  }
 });
 
 test("build and sign accepts a kubeconfig that embeds credentials because it never reaches disk", async () => {

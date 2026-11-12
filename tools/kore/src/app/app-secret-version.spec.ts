@@ -1,4 +1,4 @@
-import { loadMinikubeLocal } from "../config/minikube-local-support.js";
+import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { join } from "node:path";

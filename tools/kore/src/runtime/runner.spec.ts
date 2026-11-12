@@ -120,3 +120,25 @@ test("ProcessRunner refuses a kubeconfig together with stdin input", async () =>
     }),
   ).rejects.toThrow(/kubeconfig.*input/);
 });
+
+test("a failing command run with a kubeconfig reports the command and arguments the caller asked for, not the bash wrapper", async () => {
+  const error = await new ProcessRunner()
+    .run("sh", ["-c", "exit 3"], { kubeconfig: "k" })
+    .catch((caught: unknown) => caught);
+
+  expect(error).toBeInstanceOf(CommandError);
+  const failure = error as CommandError;
+  expect(failure.command).toBe("sh");
+  expect(failure.args).toEqual(["-c", "exit 3"]);
+  expect(failure.result.code).toBe(3);
+  expect(failure.message).not.toContain("<(cat)");
+});
+
+test("a missing command run with a kubeconfig fails with ENOENT like a missing command without one", async () => {
+  const error = await new ProcessRunner()
+    .run("kore-no-such-cosign", ["sign"], { kubeconfig: "k" })
+    .catch((caught: unknown) => caught);
+
+  expect(error).toMatchObject({ code: "ENOENT" });
+  expect((error as Error).message).toContain("kore-no-such-cosign");
+});

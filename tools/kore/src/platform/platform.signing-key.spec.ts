@@ -1,4 +1,4 @@
-import { loadMinikubeLocal } from "../config/minikube-local-support.js";
+import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import { expect, test, vi } from "vitest";
 import { loadRepository } from "../config/index.js";
 import { RecordingRunner } from "../runtime/runner.js";

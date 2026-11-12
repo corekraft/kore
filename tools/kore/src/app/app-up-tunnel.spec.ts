@@ -1,4 +1,4 @@
-import { loadMinikubeLocal } from "../config/minikube-local-support.js";
+import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import { afterEach, expect, test, vi } from "vitest";
 
 const localRegistryReferenceMock = vi.hoisted(() => vi.fn());
