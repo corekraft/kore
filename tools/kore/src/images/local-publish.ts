@@ -104,7 +104,7 @@ export async function publishToLocalRegistry(
   entry: ImageLockEntry,
   imageTag: string,
   session: Pick<PublishSession, "credential" | "ca">,
-): Promise<string> {
+): Promise<{ address: string; repositoryPath: string }> {
   const address = await verifiedRegistryAddress(repository, runner);
   const separator = entry.image.indexOf("/");
   if (separator < 1) {
@@ -119,7 +119,7 @@ export async function publishToLocalRegistry(
     { tag: imageTag, address, target: `${repositoryPath}:kore-local` },
     session,
   );
-  return repositoryPath;
+  return { address, repositoryPath };
 }
 
 export async function publishedDigest(

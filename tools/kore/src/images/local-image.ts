@@ -106,7 +106,7 @@ async function buildAndSign(
   const imageTag = `kore-local/${application}:kore-local`;
   await localRegistryReference(repository, runner, `${entry.image}:kore-local`);
   await loadLocalImage(repository, runner, application, imageTag);
-  const repositoryPath = await publishToLocalRegistry(
+  const { address, repositoryPath } = await publishToLocalRegistry(
     repository,
     runner,
     entry,
@@ -115,7 +115,9 @@ async function buildAndSign(
   );
   const digest = await publishedDigest(repositoryPath, session.client);
   const image: LockedImage = {
-    reference: `${entry.image}@${digest}`,
+    // The deployed name is the registry address the nodes pull from and the
+    // image policy matches, not the host the release lock records.
+    reference: `${address}/${repositoryPath}@${digest}`,
     digest,
     signer: "local-kore-key",
   };

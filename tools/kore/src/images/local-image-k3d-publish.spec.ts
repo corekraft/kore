@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, expect, test, vi } from "vitest";
 import { loadRepository, type Repository } from "../config/index.js";
 import {
+  digest,
   encodeBase64,
   entry,
   fakeRunner,
@@ -78,6 +79,21 @@ test("k3d publishes through the node's containerd client with docker exec, and n
   ]);
   expect(publish.args.join(" ")).toContain("ctr");
   expect(publish.args.join(" ")).toContain("push");
+});
+
+test("the built image is named by the registry address the nodes and the image policy use, not the release lock's host", async () => {
+  const { runner } = fakeRunner();
+  stubRegistry(registryReference, registryHead);
+
+  const built = await buildAndSignLocalImage(
+    await k3dRepository(),
+    runner,
+    "reference",
+    entry,
+  );
+
+  expect(entry.image).toBe("registry.kore.local:30500/reference");
+  expect(built.image.reference).toBe(`10.96.0.50:5000/reference@${digest}`);
 });
 
 test("the k3d push credential travels only on stdin, never in an argument", async () => {
