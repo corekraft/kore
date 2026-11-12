@@ -181,10 +181,11 @@ test("the controller install waits for its Deployment, and the CRDs wait for the
   assert.ok(
     after.some(
       (c) =>
+        c.includes("rollout status") &&
         c.includes("deployment/agentgateway") &&
-        c.includes("agentgateway-system"),
+        c.includes("--namespace agentgateway-system"),
     ),
-    "readiness waits on deployment/agentgateway in agentgateway-system",
+    "readiness waits for the rollout of deployment/agentgateway in agentgateway-system",
   );
   const crds = calls.findIndex((c) =>
     c.startsWith("helm upgrade --install agentgateway-crds "),
@@ -232,7 +233,7 @@ test("an unready agentgateway controller names the pod and container, never a ba
   assert.equal(scenario.aborts, 1, "helm is cancelled, not waited out");
 });
 
-test("a failed agentgateway Helm install names the component and the namespace to inspect", async () => {
+test("a failed agentgateway Helm install names the component and Helm's own error", async () => {
   const repository = await local(true);
   const target = component(repository, "agentgateway");
   const runner: Runner = {
@@ -249,7 +250,7 @@ test("a failed agentgateway Helm install names the component and the namespace t
   };
   await assert.rejects(
     reconcileComponent(repository, runner, target),
-    /component agentgateway failed to become ready: .*(manifest unreachable|helm)/s,
+    /component agentgateway failed to become ready: .*manifest unreachable/s,
   );
 });
 

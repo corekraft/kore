@@ -134,7 +134,9 @@ live evidence row is still open. Namespace treatment of `agentgateway-system`:
 enrolled in image admission by default (no `enrollmentExemptions` entry);
 `KoreContainerSecurity` covers it (no exemption); `KoreMeshEnrollment` exempts it
 until enrolled, because the controller only serves xDS to data planes that run in
-the Gateway namespace, each with an offline Gatekeeper fixture.
+the Gateway namespace. The exemption and the container-security coverage have
+offline Gatekeeper fixtures; the live run records whether the namespace carries
+the ambient label and which rules the chart's pods violate in `dryrun`.
 
 | Image                              | Tag    | Index digest                                                              | Signature                                                                                 |
 | ---------------------------------- | ------ | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
