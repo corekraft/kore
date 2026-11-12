@@ -5,6 +5,7 @@
       "node": "26.13.0",
       "npm": "12.2.2",
       "minikube": "1.39.0",
+      "k3d": "5.9.0",
       "kubectl": "1.37.2",
       "helm": "4.3.1",
       "yq": "4.54.2",
@@ -50,6 +51,7 @@
       "oci-registry-proxy": "nginxinc/nginx-unprivileged:1.31.7-alpine3.24@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e",
       "policy-controller": "ghcr.io/sigstore/policy-controller/policy-controller:v0.13.1@sha256:0bcd60beb93f4427c29cf3a669743caf58490e98ded4380c33c09f092734a6ab",
       "policy-controller-kubectl": "cgr.dev/chainguard/kubectl:latest-dev@sha256:3562a8854a81a77e39eb34cd87106345d1122432f88d74ea2dd4c9595883c033",
+      "k3s": "rancher/k3s:v1.37.2-k3s1@sha256:21ea6e0fac4e3930c2ce8aa40ddd41a8b18cb3e9a0222c030dc005e7e88c4332",
       "reference": "kore/reference:0.1.0"
     }
 }

@@ -11,6 +11,7 @@ test("repository toolchain pins are declared in the local mise profile", async (
     'node = "26.13.0"',
     'npm = "12.2.2"',
     'minikube = "1.39.0"',
+    'k3d = "5.9.0"',
     'kubectl = "1.37.2"',
     'helm = "4.3.1"',
     'yq = "4.54.2"',
@@ -30,6 +31,16 @@ test("repository toolchain pins are declared in the local mise profile", async (
 test("the repository tool catalog pins Cosign for image verification", async () => {
   const repository = await loadRepository("local");
   assert.equal(repository.versions.tools.cosign, "3.1.4");
+});
+
+test("the tool catalog pins k3d and the k3s image matches the local Kubernetes version", async () => {
+  const repository = await loadRepository("local");
+  assert.equal(repository.versions.tools.k3d, "5.9.0");
+  assert.equal(repository.versions.tools.minikube, "1.39.0");
+  assert.equal(
+    repository.versions.images.k3s?.split("@")[0],
+    `rancher/k3s:v${repository.versions.kubernetes}-k3s1`,
+  );
 });
 
 test("the repository tool catalog pins crane for mirroring by digest", async () => {
