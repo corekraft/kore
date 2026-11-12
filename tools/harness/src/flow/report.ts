@@ -79,7 +79,7 @@ function chargeActor(
   const spans: Span[] = [];
   let closed = false;
   let start = time((items[0] as (typeof items)[number]).event);
-  let life = newLife();
+  let life = newLife((items[0] as (typeof items)[number]).event);
   items.forEach(({ event, stage }, i) => {
     const at = time(event);
     if (
@@ -88,7 +88,7 @@ function chargeActor(
     ) {
       closed = false;
       start = at;
-      life = newLife();
+      life = newLife(event);
     }
     const state = STATE_AFTER[event.kind];
     if (closed) {
@@ -112,6 +112,7 @@ function chargeActor(
         next - at,
       );
       if (state === "waiting") {
+        life.waits.push([at, next]);
         tally.addToil(stage, "waiting", next - at);
       }
     }

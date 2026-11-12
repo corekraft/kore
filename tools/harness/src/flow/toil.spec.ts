@@ -74,6 +74,35 @@ describe("flow report toil per stage", () => {
   });
 });
 
+describe("flow report toil kinds do not overlap", () => {
+  it("does not count time a pane waited on a person as starting or retrying", () => {
+    const events = [
+      at(0, "pane.spawned", own),
+      at(2, "pane.waiting", own),
+      at(12, "pane.busy", own),
+      at(14, "tool.start", { ...own, tool: "Bash" }),
+      at(15, "tool.end", { ...own, tool: "Bash", outcome: "failure" }),
+      at(16, "pane.waiting", own),
+      at(26, "pane.busy", own),
+      at(30, "tool.start", { ...own, tool: "Bash" }),
+    ];
+    expect(toil(events, "write")).toEqual({
+      ...ZERO,
+      startingSeconds: 4,
+      waitingSeconds: 20,
+      retryingSeconds: 5,
+    });
+  });
+
+  it("counts no starting for a life that began at a pane going busy", () => {
+    const events = [
+      at(0, "pane.busy", own),
+      at(9, "tool.start", { ...own, tool: "Read" }),
+    ];
+    expect(toil(events, "write").startingSeconds).toBe(0);
+  });
+});
+
 describe("flow report toil edge cases", () => {
   it("counts starting to a first tool event even when it is a tool end", () => {
     const events = [
@@ -118,12 +147,51 @@ describe("flow report toil edge cases", () => {
       at(40, "pane.busy", own),
       at(45, "pane.closed", own),
     ];
-    expect(toil(events, "write")).toEqual({
+    const combined = toil(events, "write");
+    // The 30s wait sits inside the last-tool-to-close gap, so stopping keeps only 5s.
+    expect(combined).toEqual({
       startingSeconds: 4,
-      stoppingSeconds: 35,
+      stoppingSeconds: 5,
       waitingSeconds: 30,
       retryingSeconds: 3,
     });
+    expect(Object.values(combined).reduce((a, b) => a + b, 0)).toBeLessThan(45);
     expect(toil(events, "judge")).toEqual(ZERO);
+  });
+});
+
+function stageOf(r: FlowReport, name: string) {
+  return r.stages.find((s) => s.stage === name) as FlowReport["stages"][number];
+}
+
+describe("flow report reused panes", () => {
+  it("measures each spawn-to-close life of a reused pane, not the gap between them", () => {
+    const judge = "idea-judge";
+    const o = { pane: judge, idea: "#1" };
+    const r = buildReport(
+      [
+        at(0, "pane.spawned", o),
+        at(2, "tool.start", { ...o, tool: "Read" }),
+        at(4, "tool.end", { ...o, tool: "Read", outcome: "success" }),
+        at(10, "pane.closed", o),
+        at(100, "pane.spawned", o),
+        at(103, "tool.start", { ...o, tool: "Read" }),
+        at(104, "tool.end", { ...o, tool: "Read", outcome: "success" }),
+        at(130, "pane.closed", o),
+        at(0, "pr.opened", { number: 5, idea: "#1" }),
+        at(200, "pr.merged", { number: 5, idea: "#1" }),
+      ],
+      { asOf: new Date(T0 + 1_000_000), minCompletedIdeas: 1 },
+    );
+    // Each life is charged on its own: starting 2s and 3s, stopping 6s and 26s, never the gap.
+    expect(stageOf(r, "judge").toil).toEqual({
+      startingSeconds: 5,
+      stoppingSeconds: 32,
+      waitingSeconds: 0,
+      retryingSeconds: 0,
+    });
+    expect(stageOf(r, "judge").activeSeconds).toBe(40);
+    // Only the two lives, 10s and 30s, are carved out of the 200s PR wait.
+    expect(stageOf(r, "merge").waitingSeconds).toBe(160);
   });
 });

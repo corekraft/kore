@@ -1237,18 +1237,21 @@ function uncovered(span, holes) {
 }
 
 // src/flow/toil.ts
-var newLife = () => ({
+var newLife = (first) => ({
+  began: first.kind === "pane.spawned" || first.kind === "session.start",
   lastToolAt: void 0,
-  failed: void 0
+  failed: void 0,
+  waits: []
 });
 function chargeToil(add, event, at, start, life) {
+  const gap = (from, to) => uncovered([from, to], life.waits);
   const isTool = event.kind === "tool.start" || event.kind === "tool.end";
-  if (isTool && life.lastToolAt === void 0) {
-    add("starting", at - start);
+  if (isTool && life.lastToolAt === void 0 && life.began) {
+    add("starting", gap(start, at));
   }
   if (event.kind === "tool.start") {
     if (life.failed !== void 0 && life.failed.tool === event.tool) {
-      add("retrying", at - life.failed.at);
+      add("retrying", gap(life.failed.at, at));
     }
     life.failed = void 0;
     life.lastToolAt = at;
@@ -1256,7 +1259,7 @@ function chargeToil(add, event, at, start, life) {
     life.lastToolAt = at;
     life.failed = event.outcome === "failure" ? { tool: event.tool, at } : void 0;
   } else if ((event.kind === "pane.closed" || event.kind === "session.stop") && life.lastToolAt !== void 0) {
-    add("stopping", at - life.lastToolAt);
+    add("stopping", gap(life.lastToolAt, at));
   }
 }
 
@@ -1328,13 +1331,13 @@ function chargeActor(tally, items) {
   const spans = [];
   let closed = false;
   let start = time(items[0].event);
-  let life = newLife();
+  let life = newLife(items[0].event);
   items.forEach(({ event, stage }, i) => {
     const at = time(event);
     if (closed && (event.kind === "pane.spawned" || event.kind === "session.start")) {
       closed = false;
       start = at;
-      life = newLife();
+      life = newLife(event);
     }
     const state = STATE_AFTER[event.kind];
     if (closed) {
@@ -1358,6 +1361,7 @@ function chargeActor(tally, items) {
         next - at
       );
       if (state === "waiting") {
+        life.waits.push([at, next]);
         tally.addToil(stage, "waiting", next - at);
       }
     }

@@ -84,21 +84,6 @@ describe("flow report pane roles and states", () => {
     });
   });
 
-  it("measures each spawn-to-close life of a reused pane, not the gap between them", () => {
-    const pane = "idea-judge";
-    const r = report([
-      at(0, "pane.spawned", { pane, idea: "#1" }),
-      at(10, "pane.closed", { pane, idea: "#1" }),
-      at(100, "pane.spawned", { pane, idea: "#1" }),
-      at(130, "pane.closed", { pane, idea: "#1" }),
-      at(0, "pr.opened", { number: 5, idea: "#1" }),
-      at(200, "pr.merged", { number: 5, idea: "#1" }),
-    ]);
-    expect(stage(r, "judge").activeSeconds).toBe(40);
-    // Only the two lives, 10s and 30s, are carved out of the 200s PR wait.
-    expect(stage(r, "merge").waitingSeconds).toBe(160);
-  });
-
   it("counts no time after a pane closes", () => {
     const pane = "idea-writer";
     const r = report([

@@ -82,8 +82,10 @@ Toil is time an agent spent not advancing work, per stage, in seconds under
 each stage's `toil`: `startingSeconds` (a session or pane start to its first
 tool call), `stoppingSeconds` (its last tool event to close), `waitingSeconds`
 (a pane waiting on a person) and `retryingSeconds` (a failed `tool.end` to the
-next `tool.start` of the same tool). Toil overlaps active and waiting time; it
-is a breakdown, not an addition. Each life of a reused pane counts on its own.
+next `tool.start` of the same tool). Toil overlaps active time, but the kinds never overlap each other: starting,
+stopping and retrying leave out time the pane waited on a person, and starting
+counts only for a life that began at `pane.spawned` or `session.start`. Each
+life of a reused pane counts on its own.
 
 Known limits until plan 8 Step 3 lands its producers: nothing records
 `issue.closed` or the `idea` link on PR events yet, so real ledgers show no
