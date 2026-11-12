@@ -33,6 +33,7 @@
     { "otlpEndpoint": "http://otel-collector.observability.svc:4318" },
   "componentValues":
     {
+      "istio-cni": ["infra/environments/local/values/istio-cni.yaml"],
       "prometheus": ["infra/environments/local/values/prometheus.yaml"],
       "loki": ["infra/environments/local/values/loki.yaml"],
       "tempo": ["infra/environments/local/values/tempo.yaml"],

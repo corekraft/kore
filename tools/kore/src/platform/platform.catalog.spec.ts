@@ -238,3 +238,18 @@ test("only the Crossplane Functions release declares Function packages", async (
   assert.match(functions, /name: function-go-templating/);
   assert.match(functions, /name: function-auto-ready/);
 });
+
+test("local istio-cni reads and writes the CNI directories k3s uses", async () => {
+  const repository = await loadRepository("local");
+  assert.deepEqual(repository.environment.componentValues?.["istio-cni"], [
+    "infra/environments/local/values/istio-cni.yaml",
+  ]);
+  const values = JSON.parse(
+    await readFile(
+      join(repository.root, "infra/environments/local/values/istio-cni.yaml"),
+      "utf8",
+    ),
+  );
+  assert.equal(values.cniConfDir, "/var/lib/rancher/k3s/agent/etc/cni/net.d");
+  assert.equal(values.cniBinDir, "/var/lib/rancher/k3s/data/cni");
+});
