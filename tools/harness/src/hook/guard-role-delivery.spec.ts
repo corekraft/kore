@@ -247,4 +247,24 @@ describe("role-read-only: the judge precheck", () => {
       );
     }
   });
+
+  it("blocks a judge or orchestrator command that sets an environment variable, such as KORE_ROOT", async () => {
+    for (const role of ["judge", "orchestrator"]) {
+      for (const command of [
+        "KORE_ROOT=/anywhere node skills/bin/harness.mjs judge precheck 42",
+        "KORE_ROOT=/anywhere node skills/bin/harness.mjs ledger list",
+        "env KORE_ROOT=/anywhere node skills/bin/harness.mjs plan active",
+        "sudo node skills/bin/harness.mjs plan active",
+        "time node skills/bin/harness.mjs plan active",
+        "command node skills/bin/harness.mjs plan active",
+        "cd /tmp && KORE_ROOT=/x node skills/bin/harness.mjs plan active",
+      ]) {
+        blocked(await bash(role, command), "role-read-only");
+      }
+    }
+  });
+
+  it("still lets a writer set a variable for a test run, since no harness allowlist applies to it", async () => {
+    allowed(await bash("writer", "KORE_TEST_WORKERS=2 npx vitest run"));
+  });
 });

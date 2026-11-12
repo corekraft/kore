@@ -123,11 +123,13 @@ describe("hintsFor flags and structure", () => {
   it("expand-contract: additive diffs expand, removals contract", () => {
     expect(hintsFor("expand-contract", parseDiff(edit("a.ts", 2, 0)))).toEqual({
       removedLines: 0,
+      netRemovedLines: 0,
       deletedFiles: [],
       additiveOnly: true,
     });
     expect(hintsFor("expand-contract", parseDiff(removal("old.ts")))).toEqual({
       removedLines: 1,
+      netRemovedLines: 1,
       deletedFiles: ["old.ts"],
       additiveOnly: false,
     });
@@ -188,5 +190,37 @@ describe("hintsFor reads the features object of an overlay", () => {
       edit("tools/kore/src/a.ts", 1, 0).replace("+new", '+  "x": true,'),
     );
     expect(hintsFor("feature-flagged", other)).toMatchObject({ flags: [] });
+  });
+});
+
+describe("hintsFor expand-contract counts net removals", () => {
+  it("treats replacing a line as additive: nothing is removed without a replacement", () => {
+    expect(
+      hintsFor("expand-contract", parseDiff(edit("a.ts", 1, 1))),
+    ).toMatchObject({
+      removedLines: 1,
+      netRemovedLines: 0,
+      additiveOnly: true,
+    });
+  });
+
+  it("counts a hunk that removes more than it adds", () => {
+    expect(
+      hintsFor("expand-contract", parseDiff(edit("a.ts", 1, 3))),
+    ).toMatchObject({
+      netRemovedLines: 2,
+      additiveOnly: false,
+    });
+  });
+
+  it("leaves the generated bundle out of the removed lines", () => {
+    const diff = parseDiff(
+      [edit("skills/bin/harness.mjs", 5, 500), edit("a.ts", 2, 0)].join("\n"),
+    );
+    expect(hintsFor("expand-contract", diff)).toMatchObject({
+      removedLines: 0,
+      netRemovedLines: 0,
+      additiveOnly: true,
+    });
   });
 });

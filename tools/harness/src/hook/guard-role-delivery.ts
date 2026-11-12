@@ -6,6 +6,7 @@ import { isAbsolute, relative, resolve } from "node:path";
 import {
   harnessAllowed,
   HARNESS,
+  PREFIXED,
   readOnly,
   writes,
   WRITE_TOOLS,
@@ -95,20 +96,8 @@ function harnessRefused(role: string, segment: readonly string[]): boolean {
   if (name !== "node" || !(args[0] ?? "").endsWith("harness.mjs")) {
     return false;
   }
-  return (
-    !(
-      HARNESS.test(args[0] ?? "") &&
-      harnessAllowed(name, args, harnessFor(role))
-    ) || choosesLedger(args)
-  );
-}
-
-/** `judge precheck --ledger <path>` would let the judge append to any file; it writes only the shared ledger. */
-function choosesLedger(args: readonly string[]): boolean {
-  return (
-    args[1] === "judge" &&
-    args[2] === "precheck" &&
-    args.some((a) => a === "--ledger" || a.startsWith("--ledger="))
+  return !(
+    HARNESS.test(args[0] ?? "") && harnessAllowed(name, args, harnessFor(role))
   );
 }
 
@@ -159,6 +148,13 @@ export function checkDeliveryBash(
     return noMerge(role, `\`${merging.join(" ")}\``);
   }
   if (REPORTING_ROLES.has(role)) {
+    // A variable such as KORE_ROOT moves where the harness writes, past its allowlist.
+    const prefixed = segments.find((s) => PREFIXED.test(s[0] ?? ""));
+    if (prefixed !== undefined) {
+      return readOnly(
+        `\`${prefixed.join(" ")}\`, which sets an environment variable,`,
+      );
+    }
     const changing = segments.find(
       (s) => writes(s) || runsInline(s) || harnessRefused(role, s),
     );

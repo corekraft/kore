@@ -60,8 +60,16 @@ function flagChanges(files: readonly ChangedFile[]): FlagChange[] {
 const deletedFiles = (files: readonly ChangedFile[]) =>
   files.filter((f) => f.deleted).map((f) => f.path);
 
+/** The bundle is built from the sources, so its removed lines say nothing about the change. */
+const GENERATED = new Set(["skills/bin/harness.mjs"]);
+const authored = (files: readonly ChangedFile[]) =>
+  files.filter((f) => !GENERATED.has(f.path));
+
 const removedLines = (files: readonly ChangedFile[]) =>
-  files.reduce((sum, f) => sum + f.removed, 0);
+  authored(files).reduce((sum, f) => sum + f.removed, 0);
+
+const netRemovedLines = (files: readonly ChangedFile[]) =>
+  authored(files).reduce((sum, f) => sum + f.netRemoved, 0);
 
 const BUILDERS: Record<Pattern, (files: readonly ChangedFile[]) => Hints> = {
   "no-behaviour-change": (files) => {
@@ -94,11 +102,13 @@ const BUILDERS: Record<Pattern, (files: readonly ChangedFile[]) => Hints> = {
     return { deletedFiles: deleted, oldPathRetained: deleted.length === 0 };
   },
   "expand-contract": (files) => {
-    const removed = removedLines(files);
+    const net = netRemovedLines(files);
+    const deleted = deletedFiles(files);
     return {
-      removedLines: removed,
-      deletedFiles: deletedFiles(files),
-      additiveOnly: removed === 0,
+      removedLines: removedLines(files),
+      netRemovedLines: net,
+      deletedFiles: deleted,
+      additiveOnly: net === 0 && deleted.length === 0,
     };
   },
 };

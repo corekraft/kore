@@ -57,7 +57,7 @@ async function readPr(
       "view",
       String(pr),
       "--json",
-      "body,comments,commits,statusCheckRollup",
+      "body,comments,commits,headRefOid,statusCheckRollup",
     ],
     pr,
   );

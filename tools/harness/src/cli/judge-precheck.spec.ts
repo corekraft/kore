@@ -69,7 +69,10 @@ describe("judge precheck hints and options", () => {
     ["feature-flagged", ["flagPresentAndOff", "flags"]],
     ["dark-launched", ["flagOnlyInLocal", "flags"]],
     ["branch-by-abstraction", ["deletedFiles", "oldPathRetained"]],
-    ["expand-contract", ["additiveOnly", "deletedFiles", "removedLines"]],
+    [
+      "expand-contract",
+      ["additiveOnly", "deletedFiles", "netRemovedLines", "removedLines"],
+    ],
   ])("emits the %s hint keys in the JSON", async (pattern, keys) => {
     const h = scenario({ body: `Safety pattern: ${pattern}` });
     await precheck(h);

@@ -23,6 +23,7 @@ describe("parsePrView", () => {
       body: "",
       comments: [],
       headCommittedAt: undefined,
+      headSha: "",
       rollup: [],
     });
   });

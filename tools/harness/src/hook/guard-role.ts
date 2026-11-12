@@ -15,6 +15,7 @@ import {
   readOnly,
   writes,
   WRITE_TOOLS,
+  PREFIXED,
 } from "./guard-role-writes.js";
 import { commandOf, splitSegments } from "./guard-shell.js";
 import { block, type Finding } from "./guard-verdict.js";
@@ -225,10 +226,6 @@ function readerMayRun(role: string, segment: readonly string[]): boolean {
     (READ_UTILITIES.has(name) && utilityMayRun(name, args))
   );
 }
-
-/** A segment that starts with `VAR=value` or an `env`-style wrapper: git and the harness read variables such as GIT_EXTERNAL_DIFF, PAGER and KORE_ROOT to run a program or move the ledger. */
-const PREFIXED =
-  /^(?:[A-Za-z_][A-Za-z0-9_]*=|(?:sudo|env|time|command|nohup|exec)$)/;
 
 function checkBash(role: string, command: string): Finding {
   // A substitution runs a command the segment check never sees.

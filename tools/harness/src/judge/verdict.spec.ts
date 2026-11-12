@@ -56,6 +56,29 @@ describe("assess: a hint that contradicts the pattern fails it", () => {
     expect(assessed("branch-by-abstraction", gone).patternMatches).toBe(false);
   });
 
+  it("expand-contract is a mismatch when the diff removes without replacing", () => {
+    const r = assessed("expand-contract", file("a.ts", "-old\n-older"));
+    expect(r.patternMatches).toBe(false);
+    expect(r.patternMismatch).toContain("expand-contract");
+    const gone = [
+      "diff --git a/old.ts b/old.ts",
+      "deleted file mode 100644",
+      "--- a/old.ts",
+      "+++ /dev/null",
+      "@@ -1 +0,0 @@",
+      "-x",
+    ].join("\n");
+    expect(assessed("expand-contract", gone).patternMatches).toBe(false);
+  });
+
+  it("expand-contract matches an additive diff and ignores the generated bundle", () => {
+    const diff = [
+      file("a.ts", "+new"),
+      file("skills/bin/harness.mjs", "-a\n-b\n-c"),
+    ].join("\n");
+    expect(assessed("expand-contract", diff).patternMatches).toBe(true);
+  });
+
   it("matching hints leave no mismatch reason", () => {
     const r = assessed("feature-flagged", overlay(false));
     expect(r.patternMatches).toBe(true);

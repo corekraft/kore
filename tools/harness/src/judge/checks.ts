@@ -32,6 +32,8 @@ export interface PrView {
   comments: PrComment[];
   /** When the newest commit on the PR was made; undefined when the PR lists none. */
   headCommittedAt: string | undefined;
+  /** The commit the PR's branch points at now. */
+  headSha: string;
   rollup: { name: string; status: string; conclusion: string; url: string }[];
 }
 
@@ -60,6 +62,7 @@ export function parsePrView(stdout: string): PrView | undefined {
         ),
         createdAt: text(c["createdAt"]),
       })),
+      headSha: text(view["headRefOid"]),
       headCommittedAt: list("commits")
         .map((c) => text(c["committedDate"]))
         .filter((d) => d !== "")
@@ -95,6 +98,24 @@ function job(view: PrView, name: string): Check {
     : { result, detail: `${name}: ${found.conclusion || found.status}` };
 }
 
+const NAMED_HEAD = /\bhead\s+([0-9a-f]{7,40})\b/i;
+
+/**
+ * Whether a review covers the PR's current head. A review that names a commit
+ * (`head <sha>`) is current only if that is the head; otherwise it must be newer
+ * than the head commit.
+ */
+function current(view: PrView, comment: PrComment): boolean {
+  const named = NAMED_HEAD.exec(comment.body)?.[1]?.toLowerCase();
+  if (named !== undefined) {
+    return view.headSha.toLowerCase().startsWith(named);
+  }
+  return (
+    view.headCommittedAt !== undefined &&
+    Date.parse(comment.createdAt) > Date.parse(view.headCommittedAt)
+  );
+}
+
 /**
  * The newest `principles-review:` comment from a known reviewer, made after the head
  * commit, decides. A review from anyone else, or from before the head commit, is not
@@ -116,23 +137,19 @@ function review(view: PrView, reviewers: readonly string[]): Check {
         "no known reviewer identity; rerun with `--reviewer <login>` naming who posts principles-review verdicts",
     };
   }
-  const head = view.headCommittedAt;
   const trusted = reviews
-    .filter(
-      (c) =>
-        reviewers.includes(c.author) &&
-        head !== undefined &&
-        Date.parse(c.createdAt) > Date.parse(head),
-    )
+    .filter((c) => reviewers.includes(c.author) && current(view, c))
     .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
     .at(-1);
   if (trusted === undefined) {
     return {
       result: "unverified",
-      detail: `no principles-review comment from ${reviewers.join(" or ")} newer than the head commit; rerun the review on the current head`,
+      detail: `no principles-review comment from ${reviewers.join(" or ")} for the current head (name it as "head <sha>", or post it after the head commit); rerun the review on the current head`,
     };
   }
-  const verdict = REVIEW.exec(trusted.body)?.[1]?.trim() ?? "";
+  const verdict = (REVIEW.exec(trusted.body)?.[1] ?? "")
+    .replace(/\s*\(?\bhead\s+[0-9a-f]{7,40}\)?\s*$/i, "")
+    .trim();
   return /^no violations\.?$/i.test(verdict)
     ? { result: "pass" }
     : { result: "fail", detail: verdict };

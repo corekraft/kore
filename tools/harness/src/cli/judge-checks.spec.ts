@@ -96,6 +96,41 @@ describe("judge precheck principles-review trust", () => {
     expect(verdict(h)?.result).toBe("unverified");
     expect(verdict(h)?.detail).toContain("head commit");
   });
+});
+
+describe("judge precheck principles-review head commit", () => {
+  const review = (comments: Comment[]) => scenario({ comments });
+  const verdict = (h: Harness) =>
+    (
+      report(h)["checks"] as Record<string, { result: string; detail?: string }>
+    )["principlesReview"];
+
+  it("trusts a review that names the head commit even when the clock says it is old", async () => {
+    const h = scenario({
+      comments: [
+        {
+          ...REVIEW_OK,
+          body: "principles-review: No violations. (head abc1234)",
+          createdAt: "2025-12-30T00:00:00Z",
+        },
+      ],
+    });
+    expect(await precheck(h)).toBe(0);
+  });
+
+  it("does not trust a review that names a different commit, however new", async () => {
+    const h = scenario({
+      comments: [
+        {
+          ...REVIEW_OK,
+          body: "principles-review: No violations. (head 1111111)",
+          createdAt: "2026-02-01T00:00:00Z",
+        },
+      ],
+    });
+    expect(await precheck(h)).toBe(1);
+    expect(verdict(h)?.result).toBe("unverified");
+  });
 
   it("reports unverified, naming --reviewer, when no reviewer identity is given", async () => {
     const h = scenario();

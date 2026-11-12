@@ -85,6 +85,10 @@ export function writes(segment: readonly string[]): boolean {
   );
 }
 
+/** A segment that starts with `VAR=value` or an `env`-style wrapper: git and the harness read variables such as GIT_EXTERNAL_DIFF, PAGER and KORE_ROOT to run a program or move the ledger. */
+export const PREFIXED =
+  /^(?:[A-Za-z_][A-Za-z0-9_]*=|(?:sudo|env|time|command|nohup|exec)$)/;
+
 export const HARNESS = /^(\.\/)?skills\/bin\/harness\.mjs$/;
 /** `--ledger <path>` makes a harness command append to any file, so a bounded role never passes it. */
 const namesLedger = (args: readonly string[]): boolean =>

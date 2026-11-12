@@ -34,7 +34,10 @@ const MISMATCH: Record<Pattern, (hints: Hints) => string | undefined> = {
     h["oldPathRetained"] === true
       ? undefined
       : `branch-by-abstraction, but the diff deletes the old path: ${(h["deletedFiles"] as string[]).join(", ")}`,
-  "expand-contract": () => undefined,
+  "expand-contract": (h) =>
+    h["additiveOnly"] === true
+      ? undefined
+      : `expand-contract, but the diff removes ${String(h["netRemovedLines"])} line(s) without replacing them and deletes ${(h["deletedFiles"] as string[]).length} file(s); that is a contract step, declare it only once the expand step is proven`,
 };
 
 const UNVERIFIED: Record<Pattern, string[]> = {

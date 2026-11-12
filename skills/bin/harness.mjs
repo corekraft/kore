@@ -492,12 +492,12 @@ var Supersession = class {
   }
   alreadySuperseded(old, next, adr) {
     const line2 = frontmatterLine(adr.lines, "superseded-by");
-    const current = (adr.lines[line2] ?? "").slice("superseded-by:".length).trim();
-    const chained = /(\d{4})-[^/]*\.md$/.exec(current)?.[1];
+    const current2 = (adr.lines[line2] ?? "").slice("superseded-by:".length).trim();
+    const chained = /(\d{4})-[^/]*\.md$/.exec(current2)?.[1];
     if (chained === void 0) {
       return `ADR ${old} is already superseded; fix its superseded-by line by hand.`;
     }
-    return `ADR ${old} is already superseded by ${current}; to replace that ADR instead, run \`harness adr supersede --old ${chained} --new ${next}\`.`;
+    return `ADR ${old} is already superseded by ${current2}; to replace that ADR instead, run \`harness adr supersede --old ${chained} --new ${next}\`.`;
   }
   status(adr) {
     return (adr.lines[adr.statusLine] ?? "").slice("status:".length).trim();
@@ -864,8 +864,8 @@ var status = {
   }
 };
 async function writeDeny(deps, path, list3, allowRemoval) {
-  const current = await deps.fs.readFile(path);
-  const leaving = settingsDeny(current).filter((p) => !list3.includes(p));
+  const current2 = await deps.fs.readFile(path);
+  const leaving = settingsDeny(current2).filter((p) => !list3.includes(p));
   if (leaving.length > 0) {
     deps.stderr(
       `${SETTINGS_PATH}: these patterns would leave the deny list: ${leaving.join(", ")}.
@@ -877,7 +877,7 @@ async function writeDeny(deps, path, list3, allowRemoval) {
       );
     }
   }
-  await deps.fs.writeFile(path, settingsWithDeny(current, list3));
+  await deps.fs.writeFile(path, settingsWithDeny(current2, list3));
 }
 var deny = {
   summary: "print the settings deny list generated from the enforced deny rules; --check fails when settings differ, --write regenerates them",
@@ -1297,16 +1297,16 @@ function metric(values, trailing, { maxIncrease }) {
       needed: trailing + 1
     };
   }
-  const current = values[values.length - 1];
+  const current2 = values[values.length - 1];
   const before2 = values.slice(-(trailing + 1), -1);
   const trailingAverage = before2.reduce((sum, v) => sum + v.value, 0) / before2.length;
   return {
     status: "ok",
-    currentIdea: current.idea,
-    current: current.value,
+    currentIdea: current2.idea,
+    current: current2.value,
     trailingAverage,
     maxIncrease,
-    worsened: current.value > trailingAverage * (1 + maxIncrease)
+    worsened: current2.value > trailingAverage * (1 + maxIncrease)
   };
 }
 function costMetrics(byIdea, window, options) {
@@ -3141,8 +3141,8 @@ async function reconcile(gh2, record5, body, at) {
     }
     throw failure(`gh could not read issue ${issue}`, view.stderr);
   }
-  const current = parseView(view.stdout, issue);
-  if (current.title.trim() === title && normal(current.body) === normal(body)) {
+  const current2 = parseView(view.stdout, issue);
+  if (current2.title.trim() === title && normal(current2.body) === normal(body)) {
     return { action: "unchanged", issue };
   }
   const edit = await gh2(
@@ -3989,19 +3989,19 @@ function planStatus(markdown) {
 function listItemSpans(markdown) {
   const items2 = [];
   let heading = "";
-  let current = null;
+  let current2 = null;
   for (const [index, line2] of markdown.split("\n").entries()) {
     if (line2.startsWith("## ")) {
       heading = line2.slice(3).trim();
     }
     if (line2.startsWith("- ")) {
-      current = { heading, text: line2.trim(), line: index, end: index + 1 };
-      items2.push(current);
-    } else if (current && /^\s+\S/.test(line2)) {
-      current.text += ` ${line2.trim()}`;
-      current.end = index + 1;
+      current2 = { heading, text: line2.trim(), line: index, end: index + 1 };
+      items2.push(current2);
+    } else if (current2 && /^\s+\S/.test(line2)) {
+      current2.text += ` ${line2.trim()}`;
+      current2.end = index + 1;
     } else {
-      current = null;
+      current2 = null;
     }
   }
   return items2;
@@ -4070,9 +4070,9 @@ function nextStep(markdown) {
 }
 function upcomingSteps(markdown) {
   const open2 = [...openSteps(markdown).keys()];
-  const current = nextStep(markdown)?.step ?? open2[0];
+  const current2 = nextStep(markdown)?.step ?? open2[0];
   const headings2 = markdown.split("\n").filter((line2) => line2.startsWith("## ")).map((line2) => line2.slice(3).trim());
-  const after = headings2.slice(headings2.indexOf(current ?? "") + 1);
+  const after = headings2.slice(headings2.indexOf(current2 ?? "") + 1);
   return after.filter((heading) => open2.includes(heading)).slice(0, UPCOMING_STEPS);
 }
 function activePlans(plans) {
@@ -4827,6 +4827,7 @@ function parsePrView(stdout) {
         ),
         createdAt: text5(c["createdAt"])
       })),
+      headSha: text5(view["headRefOid"]),
       headCommittedAt: list3("commits").map((c) => text5(c["committedDate"])).filter((d) => d !== "").sort().at(-1),
       rollup: list3("statusCheckRollup").map((c) => ({
         name: text5(c["name"]),
@@ -4853,6 +4854,14 @@ function job(view, name) {
   const result = fromConclusion(found.status, found.conclusion);
   return result === "pass" ? { result } : { result, detail: `${name}: ${found.conclusion || found.status}` };
 }
+var NAMED_HEAD = /\bhead\s+([0-9a-f]{7,40})\b/i;
+function current(view, comment) {
+  const named = NAMED_HEAD.exec(comment.body)?.[1]?.toLowerCase();
+  if (named !== void 0) {
+    return view.headSha.toLowerCase().startsWith(named);
+  }
+  return view.headCommittedAt !== void 0 && Date.parse(comment.createdAt) > Date.parse(view.headCommittedAt);
+}
 function review(view, reviewers) {
   const reviews = view.comments.filter((c) => REVIEW.test(c.body));
   if (reviews.length === 0) {
@@ -4867,17 +4876,14 @@ function review(view, reviewers) {
       detail: "no known reviewer identity; rerun with `--reviewer <login>` naming who posts principles-review verdicts"
     };
   }
-  const head = view.headCommittedAt;
-  const trusted = reviews.filter(
-    (c) => reviewers.includes(c.author) && head !== void 0 && Date.parse(c.createdAt) > Date.parse(head)
-  ).sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)).at(-1);
+  const trusted = reviews.filter((c) => reviewers.includes(c.author) && current(view, c)).sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)).at(-1);
   if (trusted === void 0) {
     return {
       result: "unverified",
-      detail: `no principles-review comment from ${reviewers.join(" or ")} newer than the head commit; rerun the review on the current head`
+      detail: `no principles-review comment from ${reviewers.join(" or ")} for the current head (name it as "head <sha>", or post it after the head commit); rerun the review on the current head`
     };
   }
-  const verdict = REVIEW.exec(trusted.body)?.[1]?.trim() ?? "";
+  const verdict = (REVIEW.exec(trusted.body)?.[1] ?? "").replace(/\s*\(?\bhead\s+[0-9a-f]{7,40}\)?\s*$/i, "").trim();
   return /^no violations\.?$/i.test(verdict) ? { result: "pass" } : { result: "fail", detail: verdict };
 }
 async function coverage(runner, root3, pr) {
@@ -4938,37 +4944,61 @@ async function gatherChecks(runner, root3, view, reviewers) {
 }
 
 // src/judge/diff.ts
+var Hunk = class {
+  added = 0;
+  removed = 0;
+  plus() {
+    this.added += 1;
+  }
+  minus() {
+    this.removed += 1;
+  }
+  end(file) {
+    if (file !== void 0) {
+      file.netRemoved += Math.max(0, this.removed - this.added);
+    }
+    this.added = 0;
+    this.removed = 0;
+  }
+};
 function parseDiff(text10) {
   const files = [];
-  let current;
+  let current2;
   let inHunk = false;
+  const hunk = new Hunk();
   for (const line2 of text10.split("\n")) {
     const header = /^diff --git a\/(.+?) b\/(.+)$/.exec(line2);
     if (header?.[2] !== void 0) {
-      current = {
+      hunk.end(current2);
+      current2 = {
         path: header[2],
         deleted: false,
         added: [],
         removed: 0,
+        netRemoved: 0,
         after: []
       };
-      files.push(current);
+      files.push(current2);
       inHunk = false;
-    } else if (current === void 0) {
+    } else if (current2 === void 0) {
       continue;
     } else if (line2.startsWith("@@")) {
+      hunk.end(current2);
       inHunk = true;
     } else if (!inHunk && line2.startsWith("deleted file mode")) {
-      current.deleted = true;
+      current2.deleted = true;
     } else if (inHunk && line2.startsWith("+")) {
-      current.added.push(line2.slice(1));
-      current.after.push({ added: true, text: line2.slice(1) });
+      current2.added.push(line2.slice(1));
+      current2.after.push({ added: true, text: line2.slice(1) });
+      hunk.plus();
     } else if (inHunk && line2.startsWith("-")) {
-      current.removed += 1;
+      current2.removed += 1;
+      hunk.minus();
     } else if (inHunk && line2.startsWith(" ")) {
-      current.after.push({ added: false, text: line2.slice(1) });
+      current2.after.push({ added: false, text: line2.slice(1) });
     }
   }
+  hunk.end(current2);
   return files;
 }
 
@@ -5013,7 +5043,10 @@ function flagChanges(files) {
   });
 }
 var deletedFiles = (files) => files.filter((f) => f.deleted).map((f) => f.path);
-var removedLines = (files) => files.reduce((sum, f) => sum + f.removed, 0);
+var GENERATED = /* @__PURE__ */ new Set(["skills/bin/harness.mjs"]);
+var authored = (files) => files.filter((f) => !GENERATED.has(f.path));
+var removedLines = (files) => authored(files).reduce((sum, f) => sum + f.removed, 0);
+var netRemovedLines = (files) => authored(files).reduce((sum, f) => sum + f.netRemoved, 0);
 var BUILDERS = {
   "no-behaviour-change": (files) => {
     const behaviouralPaths = files.map((f) => f.path).filter((p) => !NOT_BEHAVIOUR.test(p));
@@ -5042,11 +5075,13 @@ var BUILDERS = {
     return { deletedFiles: deleted, oldPathRetained: deleted.length === 0 };
   },
   "expand-contract": (files) => {
-    const removed = removedLines(files);
+    const net = netRemovedLines(files);
+    const deleted = deletedFiles(files);
     return {
-      removedLines: removed,
-      deletedFiles: deletedFiles(files),
-      additiveOnly: removed === 0
+      removedLines: removedLines(files),
+      netRemovedLines: net,
+      deletedFiles: deleted,
+      additiveOnly: net === 0 && deleted.length === 0
     };
   }
 };
@@ -5064,7 +5099,7 @@ var MISMATCH = {
   "feature-flagged": (h) => h["flagPresentAndOff"] === true ? void 0 : "feature-flagged, but the diff adds no flag that is off in an environment overlay",
   "dark-launched": (h) => h["flagOnlyInLocal"] === true ? void 0 : "dark-launched, but the diff adds no flag that is on only in the local overlay",
   "branch-by-abstraction": (h) => h["oldPathRetained"] === true ? void 0 : `branch-by-abstraction, but the diff deletes the old path: ${h["deletedFiles"].join(", ")}`,
-  "expand-contract": () => void 0
+  "expand-contract": (h) => h["additiveOnly"] === true ? void 0 : `expand-contract, but the diff removes ${String(h["netRemovedLines"])} line(s) without replacing them and deletes ${h["deletedFiles"].length} file(s); that is a contract step, declare it only once the expand step is proven`
 };
 var UNVERIFIED = {
   "no-behaviour-change": ["behaviour equivalence not verified"],
@@ -5107,7 +5142,7 @@ async function readPr(context2, root3, pr) {
       "view",
       String(pr),
       "--json",
-      "body,comments,commits,statusCheckRollup"
+      "body,comments,commits,headRefOid,statusCheckRollup"
     ],
     pr
   );
@@ -6367,14 +6402,14 @@ var WordScanner = class {
     return i;
   }
   plain(char, next) {
-    const current = this.start();
+    const current2 = this.start();
     if (char === "*" || char === "?") {
-      current.glob = true;
+      current2.glob = true;
     }
-    if (char === "=" && current.text === "" && /[^\s]/.test(next ?? " ")) {
-      current.equals = true;
+    if (char === "=" && current2.text === "" && /[^\s]/.test(next ?? " ")) {
+      current2.equals = true;
     }
-    current.text += char;
+    current2.text += char;
   }
 };
 function rawWords(command) {
@@ -6855,6 +6890,7 @@ function writes(segment) {
   const verb = args.find((arg) => !arg.startsWith("-"));
   return redirectsToFile(segment) || WRITERS.has(name) || name === "sed" && args.some((arg) => /^-\w*i/.test(arg)) || name === "git" && verb !== void 0 && WRITING_GIT.has(verb) || name === "gh" && args[0] === "pr" && args[1] !== void 0 && WRITING_GH.has(args[1]);
 }
+var PREFIXED = /^(?:[A-Za-z_][A-Za-z0-9_]*=|(?:sudo|env|time|command|nohup|exec)$)/;
 var HARNESS2 = /^(\.\/)?skills\/bin\/harness\.mjs$/;
 var namesLedger = (args) => args.some((arg) => arg === "--ledger" || arg.startsWith("--ledger="));
 var harnessAllowed = (name, args, allowed) => name === "node" && HARNESS2.test(args[0] ?? "") && !namesLedger(args) && allowed.includes(`${args[1] ?? ""} ${args[2] ?? ""}`);
@@ -6912,10 +6948,7 @@ function harnessRefused(role, segment) {
   if (name !== "node" || !(args[0] ?? "").endsWith("harness.mjs")) {
     return false;
   }
-  return !(HARNESS2.test(args[0] ?? "") && harnessAllowed(name, args, harnessFor(role))) || choosesLedger(args);
-}
-function choosesLedger(args) {
-  return args[1] === "judge" && args[2] === "precheck" && args.some((a) => a === "--ledger" || a.startsWith("--ledger="));
+  return !(HARNESS2.test(args[0] ?? "") && harnessAllowed(name, args, harnessFor(role)));
 }
 var SCRATCH = ["/tmp/", "/private/tmp/", "/var/folders/", "/dev/"];
 var PATHS = /(?:~|\.\.|\/)[\w.@~/-]*/g;
@@ -6946,6 +6979,12 @@ function checkDeliveryBash(role, command, root3) {
     return noMerge(role, `\`${merging.join(" ")}\``);
   }
   if (REPORTING_ROLES.has(role)) {
+    const prefixed = segments.find((s) => PREFIXED.test(s[0] ?? ""));
+    if (prefixed !== void 0) {
+      return readOnly(
+        `\`${prefixed.join(" ")}\`, which sets an environment variable,`
+      );
+    }
     const changing = segments.find(
       (s) => writes(s) || runsInline(s) || harnessRefused(role, s)
     );
@@ -7112,7 +7151,6 @@ function readerMayRun(role, segment) {
     role === "refiner" ? REFINER_HARNESS : HARNESS_READS
   ) || name === "gh" && ghMayRun(args, true) || READ_UTILITIES.has(name) && utilityMayRun(name, args);
 }
-var PREFIXED = /^(?:[A-Za-z_][A-Za-z0-9_]*=|(?:sudo|env|time|command|nohup|exec)$)/;
 function checkBash(role, command) {
   if (/\$\(|`|<\(|>\(/.test(command)) {
     return NO_CODE_ROLES.has(role) ? noCode("A command substitution", role) : readOnly("A command substitution");
@@ -7775,7 +7813,7 @@ async function readJournals(fs, root3) {
   }
   return journals;
 }
-async function sessionsSince(deps, root3, date, current) {
+async function sessionsSince(deps, root3, date, current2) {
   const config = deps.env["CLAUDE_CONFIG_DIR"] || join9(homedir(), ".claude");
   const dir = join9(config, "projects", root3.replace(/[^a-zA-Z0-9]/g, "-"));
   let names3;
@@ -7790,7 +7828,7 @@ async function sessionsSince(deps, root3, date, current) {
   const after = windowStart(date ?? void 0);
   let count3 = 0;
   for (const name of names3) {
-    if (name.endsWith(".jsonl") && name !== `${current}.jsonl` && await deps.fs.mtimeMs(join9(dir, name)) >= after) {
+    if (name.endsWith(".jsonl") && name !== `${current2}.jsonl` && await deps.fs.mtimeMs(join9(dir, name)) >= after) {
       count3 += 1;
     }
   }
@@ -7801,7 +7839,7 @@ function realContextDeps(deps, root3) {
     readJournals: () => readJournals(deps.fs, root3),
     readAgents: () => deps.fs.readFile(join9(root3, "AGENTS.md")),
     readPlans: () => readPlans(deps),
-    sessionsSince: (date, current) => sessionsSince(deps, root3, date, current)
+    sessionsSince: (date, current2) => sessionsSince(deps, root3, date, current2)
   };
 }
 

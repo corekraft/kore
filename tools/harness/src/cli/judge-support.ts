@@ -17,6 +17,7 @@ export interface Scenario {
   rollup?: unknown[];
   comments?: Comment[];
   committedAt?: string;
+  headSha?: string;
   steps?: { name: string; conclusion: string }[];
   diff?: string;
   git?: boolean;
@@ -59,6 +60,7 @@ export function scenario(s: Scenario = {}) {
         stdout: JSON.stringify({
           body: s.body ?? "Safety pattern: no-behaviour-change\nIdea: #193",
           statusCheckRollup: s.rollup ?? passing,
+          headRefOid: s.headSha ?? "abc1234def5678abc1234def5678abc1234def56",
           commits: [
             { committedDate: "2025-12-31T00:00:00Z" },
             { committedDate: s.committedAt ?? "2026-01-01T00:00:00Z" },
