@@ -128,4 +128,21 @@ plan 8.
 
 ## Results
 
-Not started.
+Live proof in progress on scratch branch `scratch/k3d-live-proof` (issue #149);
+no suite has passed yet. No Minikube baseline exists (#134 closed as not
+planned), so only k3d load is recorded.
+
+- Machine: 12 CPUs, Docker VM 11.68 GiB. Before the first `kore local up`:
+  load average 4.22 (1 min), 73.8% idle CPU, no containers running.
+- Run 1 (fresh profile) failed naming its cause: `oci-registry` PVC unbound
+  because the local-path provisioner rejects `Immediate` binding ("no node was
+  specified"). Fixed on #269: `kore-standard` and `kore-retained` use
+  `WaitForFirstConsumer`.
+- `kore local down --prune` left `~/.kore/k3d/kore-local` behind. Fixed on #266:
+  deleting the cluster removes that directory only.
+- Run 2 (fresh profile) reached `istio-cni`, then k3s exited with
+  `Transaction commit failed` after kine (embedded SQLite) logged "Slow SQL"
+  while sibling sessions held the host at load average 166-192. This needs a
+  design decision (a datastore for a loaded host, such as embedded etcd via
+  `--cluster-init`, recorded as an ADR) and a quiet host before a rerun.
+- Safety pattern: expand and contract. Not yet proven live.
