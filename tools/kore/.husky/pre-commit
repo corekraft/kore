@@ -8,7 +8,7 @@ pinned "$repo_root/tools/kore/node_modules/.bin/lint-staged" \
 staged="$(git diff --cached --name-only)"
 
 if printf '%s\n' "$staged" | grep -qE '^(\.claude|\.codex|skills)/'; then
-  (cd "$repo_root/tools/harness" && pinned npm run test:hooks --silent) || {
+  (cd "$repo_root/tools/harness" && pinned node "$repo_root/tools/kore/.husky/test-lock.mjs" npm run test:hooks --silent) || {
     echo "pre-commit: hook tests failed; run 'mise run test-hooks' and fix them" >&2
     exit 1
   }
@@ -26,6 +26,10 @@ if printf '%s\n' "$staged" | grep -qE '^(\.github/workflows|\.claude|\.codex|ski
   }
 fi
 
+# Every test run below goes through test-lock.mjs: one host-wide lock under the
+# main checkout's .kore/state, so commits in many worktrees queue their tests
+# instead of multiplying vitest workers beside a live cluster.
+
 # The kore specs read the CLI source and config (tools/kore/), and the files the
 # repository specs scan or render: infra/ (apis, catalog, charts, environments,
 # observability, policies, tofu) and apps/. infra/plans is prose no spec reads.
@@ -41,7 +45,7 @@ if printf '%s\n' "$staged" |
   related="$(printf '%s\n' "$plan" | sed 1d)"
   case "$(printf '%s\n' "$plan" | sed -n 1p)" in
   full)
-    (cd "$repo_root/tools/kore" && pinned npm run test:unit --silent) || {
+    (cd "$repo_root/tools/kore" && pinned node "$repo_root/tools/kore/.husky/test-lock.mjs" npm run test:unit --silent) || {
       echo "pre-commit: unit tests failed; run 'npm run test:unit' in tools/kore and fix them" >&2
       exit 1
     }
@@ -49,7 +53,7 @@ if printf '%s\n' "$staged" |
   related)
     # shellcheck disable=SC2086
     (cd "$repo_root/tools/kore" && IFS='
-' && set -f && pinned npm run test:related --silent -- $related) || {
+' && set -f && pinned node "$repo_root/tools/kore/.husky/test-lock.mjs" npm run test:related --silent -- $related) || {
       echo "pre-commit: related unit tests failed; run 'npm run test:related -- <files>' in tools/kore, or 'npm run test:unit' for all, and fix them" >&2
       exit 1
     }
@@ -68,7 +72,7 @@ if printf '%s\n' "$staged" | grep -qE '^(tools/harness/|skills/bin/harness\.mjs$
   related="$(printf '%s\n' "$plan" | sed 1d)"
   case "$(printf '%s\n' "$plan" | sed -n 1p)" in
   full)
-    (cd "$repo_root/tools/harness" && pinned npm run test:unit --silent) || {
+    (cd "$repo_root/tools/harness" && pinned node "$repo_root/tools/kore/.husky/test-lock.mjs" npm run test:unit --silent) || {
       echo "pre-commit: harness unit tests failed; run 'npm run test:unit' in tools/harness and fix them" >&2
       exit 1
     }
@@ -76,7 +80,7 @@ if printf '%s\n' "$staged" | grep -qE '^(tools/harness/|skills/bin/harness\.mjs$
   related)
     # shellcheck disable=SC2086
     (cd "$repo_root/tools/harness" && IFS='
-' && set -f && pinned npm run test:related --silent -- $related) || {
+' && set -f && pinned node "$repo_root/tools/kore/.husky/test-lock.mjs" npm run test:related --silent -- $related) || {
       echo "pre-commit: harness related tests failed; run 'npm run test:related -- <files>' in tools/harness, or 'npm run test:unit' for all, and fix them" >&2
       exit 1
     }

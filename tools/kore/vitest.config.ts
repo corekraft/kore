@@ -1,7 +1,10 @@
 import { defineConfig } from "vitest/config";
+import { testWorkers } from "./.husky/test-workers.mjs";
 
 export default defineConfig({
   test: {
+    // One cap for every unit path; see .husky/test-workers.mjs.
+    maxWorkers: testWorkers(),
     setupFiles: ["src/test-setup-support.ts"],
     include: ["src/**/*.spec.ts"],
     exclude: ["**/*.integration.spec.ts", "dist/**"],

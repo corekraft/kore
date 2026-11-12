@@ -26,6 +26,10 @@ const helper = fileURLToPath(
   new URL("../../tools/kore/.husky/pinned.sh", import.meta.url),
 );
 
+const testLock = fileURLToPath(
+  new URL("../../tools/kore/.husky/test-lock.mjs", import.meta.url),
+);
+
 const related = fileURLToPath(
   new URL("../../tools/kore/.husky/related-tests.mjs", import.meta.url),
 );
@@ -53,6 +57,7 @@ function commit(files, failing = [], { withMise = true, seed = {} } = {}) {
     copyFileSync(hook, join(root, "hook.sh"));
     copyFileSync(helper, join(root, "tools/kore/.husky/pinned.sh"));
     copyFileSync(related, join(root, "tools/kore/.husky/related-tests.mjs"));
+    copyFileSync(testLock, join(root, "tools/kore/.husky/test-lock.mjs"));
     for (const [path, content] of Object.entries(seed)) {
       mkdirSync(dirname(join(root, path)), { recursive: true });
       writeFileSync(join(root, path), content);
@@ -65,7 +70,7 @@ function commit(files, failing = [], { withMise = true, seed = {} } = {}) {
     );
     script(
       join(bin, "node"),
-      `echo "node $*" >> "${log}"\ncase "$1" in *related-tests.mjs) exec "${process.execPath}" "$@";; esac\ncase " ${failing.join(" ")} " in *" node "*) exit 1;; esac\ncase " $* " in *" hook workflow-permissions "*) case " ${failing.join(" ")} " in *" node:workflow-permissions "*) exit 1;; esac;; esac`,
+      `echo "node $*" >> "${log}"\ncase "$1" in *related-tests.mjs|*test-lock.mjs) exec "${process.execPath}" "$@";; esac\ncase " ${failing.join(" ")} " in *" node "*) exit 1;; esac\ncase " $* " in *" hook workflow-permissions "*) case " ${failing.join(" ")} " in *" node:workflow-permissions "*) exit 1;; esac;; esac`,
     );
     if (withMise) {
       script(
@@ -114,11 +119,26 @@ test("every tool the hook runs goes through the pinned toolchain", () => {
   const tools = lines.filter((l) => !l.startsWith("mise "));
   assert.deepEqual(
     tools.map((l) => l.split(" ")[0]),
-    ["lint-staged", "run", "node", "node", "run", "node", "run"],
+    // Each test run goes through the host-wide test lock (a node call).
+    [
+      "lint-staged",
+      "node",
+      "run",
+      "node",
+      "node",
+      "run",
+      "node",
+      "node",
+      "run",
+    ],
   );
-  assert.equal(lines.length, 14);
+  assert.equal(lines.length, 16);
+  // Every tool call follows a mise exec, except the test command the lock
+  // starts, which inherits the pinned PATH from the call before it.
   for (const [i, l] of lines.entries()) {
-    if (i % 2 === 0) assert.match(l, /^mise exec -- /);
+    if (l.startsWith("mise ") || lines[i - 1]?.includes("test-lock.mjs"))
+      continue;
+    assert.match(lines[i - 1] ?? "", /^mise exec -- /);
   }
 });
 

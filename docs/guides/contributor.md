@@ -43,6 +43,16 @@ mise exec -- npm --prefix tools/kore install
    ruleset requires before merge; run them locally with `mise run test`. The
    Stop hook only typechecks.
 
+   Unit runs are capped so a busy host stays usable. Both packages' vitest
+   configs read `tools/kore/.husky/test-workers.mjs`: a quarter of the CPUs,
+   at least two, or `KORE_TEST_WORKERS` (a positive whole number; CI sets its
+   own). The hook also runs its tests under a host-wide lock
+   (`tools/kore/.husky/test-lock.mjs`, `.kore/state/test.lock` in the main
+   checkout), so commits in many worktrees queue and print `waiting for another
+worktree's tests (pid N)`. It waits up to 15 minutes
+   (`KORE_TEST_LOCK_WAIT_MS`), breaks a lock whose pid is gone, and on timeout
+   names the holder and the file to remove.
+
 ## Where things live
 
 | Change                                | Look at                                                                             |
