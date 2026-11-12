@@ -92,7 +92,7 @@ effect against the plan 8 baseline.
 - [ ] The judge agent verifies the diff matches the declared pattern and
       merges through the merge tool, or sends the change back to the
       orchestrator with the reason.
-- [ ] Add a `main` ruleset requiring `check` and `scan`, after asking the
+- [x] Add a `main` ruleset requiring `check` and `scan`, after asking the
       operator.
 
 ### Exit Criteria

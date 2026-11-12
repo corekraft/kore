@@ -75,6 +75,21 @@ admin read access); each should print what the comment says.
      --jq '.[] | select(.target == "branch") | {name, enforcement}'
    ```
 
+   The `main` ruleset (id `26788821`, target `~DEFAULT_BRANCH`, enforcement
+   `active`) holds four rules: `deletion`, `non_fast_forward`, a squash-only
+   `pull_request` rule, and `required_status_checks` for `check` and `scan`
+   from the GitHub Actions app (id `15368`), non-strict. The checks are
+   required so the judge and merge tool cannot merge a change whose CI or
+   scans have not passed; non-strict means a branch need not be up to date,
+   which avoids a re-run per merge. The repository owner bypasses it. A legacy
+   branch-protection rule on `main` also requires `check`; it is redundant and
+   `scan` is enforced only by the ruleset.
+
+   ```sh
+   gh api repos/corekraft/kore/rulesets/26788821 \
+     --jq '{enforcement, rules: [.rules[] | {type, checks: .parameters.required_status_checks}]}'
+   ```
+
 5. **Environment protection (not relied on today).** The signing jobs declare no
    `environment:`, so there is nothing to protect yet; the check below should
    list none, or only environments with required reviewers and a `v*` tag
