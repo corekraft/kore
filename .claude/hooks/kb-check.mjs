@@ -12,6 +12,9 @@
 // Stale plans and ADRs (older last-verified than a file they depend on) are
 // listed as warnings only; --strict ignores them.
 // Plan: infra/plans/5-self-maintenance.md#step-5-stale-documents
+// It then prints the bundled `skill audit` report (budgets) as information
+// only: over-budget skills and a failing audit never change the exit code.
+// Plan: infra/plans/8-harness-measurement.md#step-2-skill-budget-audit
 
 import { execFileSync } from "node:child_process";
 import { readFileSync, statSync } from "node:fs";
@@ -570,6 +573,15 @@ export function format(problem) {
   return `${problem.file}:${problem.line}: ${problem.message}; ${problem.fix}`;
 }
 
+/** The bundled harness's skill audit report, in warn mode: never --strict. */
+function runAudit(root) {
+  return execFileSync(
+    process.execPath,
+    [posix.join(root, "skills/bin/harness.mjs"), "skill", "audit"],
+    { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+  );
+}
+
 /** Tracked and untracked-but-not-ignored regular files under root. */
 function realDeps(root) {
   return {
@@ -607,6 +619,25 @@ function realDeps(root) {
 
 /** Print findings through log and return the exit code: 1 only for findings under --strict. */
 export function run(argv, deps, log) {
+  const status = runChecks(argv, deps, log);
+  if (deps.audit) printAudit(deps.audit, log);
+  return status;
+}
+
+/** Print the skill audit's report; a failing audit is noted and never fatal. */
+function printAudit(audit, log) {
+  let report;
+  try {
+    report = audit();
+  } catch (error) {
+    log(`skill audit: not run (${error?.message ?? error})`);
+    return;
+  }
+  log("skill audit:");
+  for (const line of report.trimEnd().split("\n")) log(`  ${line}`.trimEnd());
+}
+
+function runChecks(argv, deps, log) {
   const strict = argv.includes("--strict");
   const problems = findings(deps);
   for (const problem of problems) log(format(problem));
@@ -643,5 +674,9 @@ export function run(argv, deps, log) {
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const root = fileURLToPath(new URL("../..", import.meta.url));
-  process.exitCode = run(process.argv.slice(2), realDeps(root), console.log);
+  process.exitCode = run(
+    process.argv.slice(2),
+    { ...realDeps(root), audit: () => runAudit(root) },
+    console.log,
+  );
 }

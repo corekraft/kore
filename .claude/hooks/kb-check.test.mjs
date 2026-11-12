@@ -349,6 +349,55 @@ test("cli: runs against the repository and exits 0 in warn mode", () => {
   );
 });
 
+// Skill audit: kb-check prints the bundled audit's report, never fails on it.
+// Plan: infra/plans/8-harness-measurement.md#step-2-skill-budget-audit
+
+const auditReport = [
+  "NAME   DESC  BODY  VERDICT",
+  "big      10    42  over-budget (body)",
+  "",
+].join("\n");
+
+function runAudited(tree, argv, audit) {
+  const lines = [];
+  const deps = { ...fakeDeps(tree), audit };
+  const status = run(argv, deps, (line) => lines.push(line));
+  return { status, lines };
+}
+
+test("the skill audit report is printed after kb-check's own output", () => {
+  const { lines } = runAudited(cleanTree(), [], () => auditReport);
+  assert.deepEqual(lines, [
+    "kb-check: clean",
+    "skill audit:",
+    "  NAME   DESC  BODY  VERDICT",
+    "  big      10    42  over-budget (body)",
+  ]);
+});
+
+test("a skill over budget leaves the exit code unchanged, strict mode included", () => {
+  for (const argv of [[], ["--strict"]]) {
+    assert.equal(runAudited(cleanTree(), argv, () => auditReport).status, 0);
+    assert.equal(
+      runAudited(brokenTree(), argv, () => auditReport).status,
+      argv.length ? 1 : 0,
+    );
+  }
+});
+
+test("an audit that fails to run is noted and does not change the exit code", () => {
+  for (const argv of [[], ["--strict"]]) {
+    const { status, lines } = runAudited(cleanTree(), argv, () => {
+      throw new Error("spawn failed");
+    });
+    assert.equal(status, 0);
+    assert.deepEqual(lines, [
+      "kb-check: clean",
+      "skill audit: not run (spawn failed)",
+    ]);
+  }
+});
+
 // Staleness: a document last verified before a file it depends on changed.
 // Docs: infra/plans/5-self-maintenance.md#step-5-stale-documents
 

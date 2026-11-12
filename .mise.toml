@@ -60,7 +60,7 @@ description = "Run tests for the agent harness: hooks, status line, skill links,
 run = ["node --test .claude/hooks .claude/evals", "node .claude/hooks/kb-check.mjs"]
 
 [tasks.kb-check]
-description = "Check knowledge-base links, index, frontmatter, and Docs: markers; pass -- --strict to fail on findings"
+description = "Check knowledge-base links, index, frontmatter, and Docs: markers, then print the skill budget audit (never fails); pass -- --strict to fail on findings"
 run = "node .claude/hooks/kb-check.mjs"
 
 [tasks.eval-harness]
