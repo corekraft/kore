@@ -6017,32 +6017,81 @@ var noCode = (what) => block(
   "role-no-code",
   `${what} reads code, and the concierge answers from plans, issues and the ledger. Instead, ask a reader to look at the code and summarize it.`
 );
-var redirectsToFile = (segment) => segment.some((word) => {
-  const target = /^(?:\d*>>?|&>>?)(.*)$/.exec(word);
-  return target !== null && target[1] !== "/dev/null" && target[1] !== "&1" && target[1] !== "&2" && word !== "2>&1";
+var FD_OPERATOR = /^(?:\d*>>?|&>>?)$/;
+var harmless = (target) => target === "/dev/null" || target === "&1" || target === "&2";
+var redirectsToFile = (segment) => segment.some((word, index) => {
+  if (FD_OPERATOR.test(word)) {
+    return !harmless(segment[index + 1]);
+  }
+  const joined = /^(?:\d*>>?|&>>?)(.+)$/.exec(word);
+  return joined !== null && !harmless(joined[1]);
 });
 function writes(segment) {
   const { name, args } = commandOf(segment);
   const verb = args.find((arg) => !arg.startsWith("-"));
   return redirectsToFile(segment) || WRITERS.has(name) || name === "sed" && args.some((arg) => /^-\w*i/.test(arg)) || name === "git" && verb !== void 0 && WRITING_GIT.has(verb) || name === "gh" && args[0] === "pr" && args[1] !== void 0 && WRITING_GH.has(args[1]);
 }
+var HARNESS2 = /^(\.\/)?skills\/bin\/harness\.mjs$/;
+var PR_READS = ["view", "list", "status", "checks"];
+var ISSUE_READS = ["view", "list", "status"];
+var READ_UTILITIES = /* @__PURE__ */ new Set([
+  "cat",
+  "head",
+  "tail",
+  "ls",
+  "grep",
+  "rg",
+  "wc",
+  "sort",
+  "uniq",
+  "diff",
+  "stat",
+  "file",
+  "tree",
+  "basename",
+  "dirname",
+  "jq",
+  "date",
+  "echo",
+  "pwd",
+  "sed"
+]);
+var isHarness = (name, args) => name === "node" && HARNESS2.test(args[0] ?? "");
+function mayQuery(name, args, patches) {
+  if (name === "gh") {
+    const [group, verb2] = args;
+    return group === "issue" && ISSUE_READS.includes(verb2 ?? "") || group === "label" && verb2 === "list" || group === "pr" && PR_READS.includes(verb2 ?? "") || patches && group === "pr" && verb2 === "diff";
+  }
+  const verb = args.find((arg) => !arg.startsWith("-"));
+  const shows = args.some(
+    (arg) => /^(-p|-u|--patch|--stat|--cc|-c)$/.test(arg)
+  );
+  const verbs = patches ? [
+    "log",
+    "status",
+    "show",
+    "diff",
+    "blame",
+    "ls-files",
+    "grep",
+    "rev-parse"
+  ] : ["log", "status"];
+  return name === "git" && verbs.includes(verb ?? "") && (patches || !shows);
+}
 function conciergeMayRun(segment) {
   const { name, args } = commandOf(segment);
-  if (name === "node") {
-    return args[0]?.endsWith("skills/bin/harness.mjs") === true;
-  }
-  if (name === "gh") {
-    const [group, verb] = args;
-    return group === "issue" || group === "label" || group === "pr" && verb !== void 0 && ["view", "list", "status", "checks"].includes(verb);
-  }
-  if (name === "git") {
-    const verb = args.find((arg) => !arg.startsWith("-"));
-    const patch = args.some(
-      (arg) => /^(-p|-u|--patch|--stat|--cc|-c)$/.test(arg)
+  return isHarness(name, args) || mayQuery(name, args, false) || ["date", "echo", "pwd"].includes(name);
+}
+function readerMayRun(segment) {
+  const { name, args } = commandOf(segment);
+  if (name === "find") {
+    return !args.some(
+      (arg) => ["-delete", "-exec", "-execdir", "-ok", "-okdir", "-fprint"].includes(
+        arg
+      )
     );
-    return (verb === "log" || verb === "status") && !patch;
   }
-  return name === "date" || name === "echo" || name === "pwd";
+  return isHarness(name, args) || READ_UTILITIES.has(name) || mayQuery(name, args, true);
 }
 function checkBash(role, command) {
   if (/\$\(|`|<\(|>\(/.test(command)) {
@@ -6053,11 +6102,14 @@ function checkBash(role, command) {
   if (writer !== void 0) {
     return readOnly(`\`${writer.join(" ")}\``);
   }
-  const stray = role === "concierge" ? segments.find((segment) => !conciergeMayRun(segment)) : void 0;
-  if (stray !== void 0) {
-    return noCode(`\`${stray.join(" ")}\``);
+  if (role === "concierge") {
+    const stray = segments.find((segment) => !conciergeMayRun(segment));
+    return stray === void 0 ? null : noCode(`\`${stray.join(" ")}\``);
   }
-  return null;
+  const unknown = segments.find((segment) => !readerMayRun(segment));
+  return unknown === void 0 ? null : readOnly(
+    `\`${unknown.join(" ")}\`, which is not a known read-only command,`
+  );
 }
 function checkRole(agentType, tool, input, root3) {
   if (typeof agentType !== "string" || !READ_ONLY_ROLES.has(agentType)) {

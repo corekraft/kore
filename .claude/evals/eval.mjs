@@ -559,7 +559,7 @@ export function formatTrend(rows) {
 }
 
 /** A role's model and effort from its agent definition's frontmatter, the one place they live. */
-function readTier(root, role) {
+export function readTier(root, role) {
   const text = readFileSync(join(root, ".claude/agents", `${role}.md`), "utf8");
   const frontmatter = /^---\n([\s\S]*?)\n---/.exec(text)?.[1] ?? "";
   const field = (key) =>

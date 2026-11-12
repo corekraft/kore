@@ -15,6 +15,7 @@ import {
   EVAL_MODEL,
   SKILL_SAMPLES,
   gradeBoundary,
+  readTier,
   selectedKinds,
   gradeDeny,
   gradeReview,
@@ -775,4 +776,13 @@ test("a boundary case that the role breaks is a miss, and the history keeps its 
     samples: 1,
     costUsd: 0.03,
   });
+});
+
+test("the eval reads each role's tier from the committed definition, the same one spawn reads", () => {
+  const root = new URL("../..", import.meta.url).pathname;
+  for (const role of ["concierge", "reader"])
+    assert.deepEqual(readTier(root, role), {
+      model: "claude-haiku-5-5",
+      effort: "low",
+    });
 });

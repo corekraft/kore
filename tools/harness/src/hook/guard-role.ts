@@ -70,16 +70,18 @@ const noCode = (what: string): Finding =>
       "Instead, ask a reader to look at the code and summarize it.",
   );
 
+const FD_OPERATOR = /^(?:\d*>>?|&>>?)$/;
+const harmless = (target: string | undefined): boolean =>
+  target === "/dev/null" || target === "&1" || target === "&2";
+
+/** Whether a word redirects output somewhere other than /dev/null or another stream, joined to its target or followed by it. */
 const redirectsToFile = (segment: readonly string[]): boolean =>
-  segment.some((word) => {
-    const target = /^(?:\d*>>?|&>>?)(.*)$/.exec(word);
-    return (
-      target !== null &&
-      target[1] !== "/dev/null" &&
-      target[1] !== "&1" &&
-      target[1] !== "&2" &&
-      word !== "2>&1"
-    );
+  segment.some((word, index) => {
+    if (FD_OPERATOR.test(word)) {
+      return !harmless(segment[index + 1]);
+    }
+    const joined = /^(?:\d*>>?|&>>?)(.+)$/.exec(word);
+    return joined !== null && !harmless(joined[1]);
   });
 
 /** Whether a command writes: a writer, `sed -i`, writing git or gh verbs, or a redirect to a file. */
@@ -98,30 +100,95 @@ function writes(segment: readonly string[]): boolean {
   );
 }
 
-/** What the concierge's shell may run: the harness, issue and status commands. */
-function conciergeMayRun(segment: readonly string[]): boolean {
-  const { name, args } = commandOf(segment);
-  if (name === "node") {
-    return args[0]?.endsWith("skills/bin/harness.mjs") === true;
-  }
+const HARNESS = /^(\.\/)?skills\/bin\/harness\.mjs$/;
+const PR_READS = ["view", "list", "status", "checks"];
+const ISSUE_READS = ["view", "list", "status"];
+const READ_UTILITIES = new Set([
+  "cat",
+  "head",
+  "tail",
+  "ls",
+  "grep",
+  "rg",
+  "wc",
+  "sort",
+  "uniq",
+  "diff",
+  "stat",
+  "file",
+  "tree",
+  "basename",
+  "dirname",
+  "jq",
+  "date",
+  "echo",
+  "pwd",
+  "sed",
+]);
+
+/** The command is the harness, run from the repository's own bundle. */
+const isHarness = (name: string, args: readonly string[]): boolean =>
+  name === "node" && HARNESS.test(args[0] ?? "");
+
+/** The read-only `gh` and `git` verbs a bounded role may run; `patches` also allows output that shows code. */
+function mayQuery(
+  name: string,
+  args: readonly string[],
+  patches: boolean,
+): boolean {
   if (name === "gh") {
     const [group, verb] = args;
     return (
-      group === "issue" ||
-      group === "label" ||
-      (group === "pr" &&
-        verb !== undefined &&
-        ["view", "list", "status", "checks"].includes(verb))
+      (group === "issue" && ISSUE_READS.includes(verb ?? "")) ||
+      (group === "label" && verb === "list") ||
+      (group === "pr" && PR_READS.includes(verb ?? "")) ||
+      (patches && group === "pr" && verb === "diff")
     );
   }
-  if (name === "git") {
-    const verb = args.find((arg) => !arg.startsWith("-"));
-    const patch = args.some((arg) =>
-      /^(-p|-u|--patch|--stat|--cc|-c)$/.test(arg),
+  const verb = args.find((arg) => !arg.startsWith("-"));
+  const shows = args.some((arg) =>
+    /^(-p|-u|--patch|--stat|--cc|-c)$/.test(arg),
+  );
+  const verbs = patches
+    ? [
+        "log",
+        "status",
+        "show",
+        "diff",
+        "blame",
+        "ls-files",
+        "grep",
+        "rev-parse",
+      ]
+    : ["log", "status"];
+  return name === "git" && verbs.includes(verb ?? "") && (patches || !shows);
+}
+
+/** What the concierge's shell may run: the harness and status queries, never anything that shows code. */
+function conciergeMayRun(segment: readonly string[]): boolean {
+  const { name, args } = commandOf(segment);
+  return (
+    isHarness(name, args) ||
+    mayQuery(name, args, false) ||
+    ["date", "echo", "pwd"].includes(name)
+  );
+}
+
+/** What the reader's shell may run: read utilities, queries and the harness; find may not delete or execute. */
+function readerMayRun(segment: readonly string[]): boolean {
+  const { name, args } = commandOf(segment);
+  if (name === "find") {
+    return !args.some((arg) =>
+      ["-delete", "-exec", "-execdir", "-ok", "-okdir", "-fprint"].includes(
+        arg,
+      ),
     );
-    return (verb === "log" || verb === "status") && !patch;
   }
-  return name === "date" || name === "echo" || name === "pwd";
+  return (
+    isHarness(name, args) ||
+    READ_UTILITIES.has(name) ||
+    mayQuery(name, args, true)
+  );
 }
 
 function checkBash(role: string, command: string): Finding {
@@ -136,14 +203,16 @@ function checkBash(role: string, command: string): Finding {
   if (writer !== undefined) {
     return readOnly(`\`${writer.join(" ")}\``);
   }
-  const stray =
-    role === "concierge"
-      ? segments.find((segment) => !conciergeMayRun(segment))
-      : undefined;
-  if (stray !== undefined) {
-    return noCode(`\`${stray.join(" ")}\``);
+  if (role === "concierge") {
+    const stray = segments.find((segment) => !conciergeMayRun(segment));
+    return stray === undefined ? null : noCode(`\`${stray.join(" ")}\``);
   }
-  return null;
+  const unknown = segments.find((segment) => !readerMayRun(segment));
+  return unknown === undefined
+    ? null
+    : readOnly(
+        `\`${unknown.join(" ")}\`, which is not a known read-only command,`,
+      );
 }
 
 /** The role bounds for one tool call; null when the session has no bounded role or the call is within it. */

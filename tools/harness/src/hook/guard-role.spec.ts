@@ -43,6 +43,8 @@ describe("role guard: neither the concierge nor the reader can write files", () 
         "git push",
         "git checkout main",
         "gh pr merge 1 --squash",
+        "echo hi >notes.md",
+        "echo hi 1> notes.md",
       ]) {
         blocked(await bash(role, command), "role-read-only");
       }
@@ -53,8 +55,32 @@ describe("role guard: neither the concierge nor the reader can write files", () 
         await bash(role, "node skills/bin/harness.mjs plan status 2>/dev/null"),
       );
       allowed(await bash(role, "gh issue list --label ready-for-agent"));
+      allowed(
+        await bash(role, "node skills/bin/harness.mjs plan status > /dev/null"),
+      );
+      allowed(await bash(role, "date 2> /dev/null"));
     });
   }
+});
+
+describe("role guard: commands that are not known read-only", () => {
+  it("are blocked for both roles, whichever rule names them", async () => {
+    for (const role of ["concierge", "reader"]) {
+      for (const command of [
+        "gh pr create --title x",
+        "gh pr comment 1 --body x",
+        "gh issue create --title x",
+        "gh api -X POST repos/corekraft/kore/issues",
+        'node -e \'require("fs").writeFileSync("a","b")\'',
+        'python3 -c \'open("a","w")\'',
+        "find . -name x -delete",
+        "node /tmp/x/skills/bin/harness.mjs plan status",
+      ]) {
+        const result = await bash(role, command);
+        assert.equal(result.action, "block", `${role}: ${command}`);
+      }
+    }
+  });
 });
 
 describe("role guard: what it does not cover", () => {
@@ -132,7 +158,6 @@ describe("role guard: the concierge cannot read code", () => {
       "node skills/bin/harness.mjs plan status",
       "node skills/bin/harness.mjs idea new --title x",
       "gh issue list --label ready-for-agent",
-      "gh issue create --title x --body y",
       "gh pr view 12",
       "git log --oneline -5",
       "git status",
