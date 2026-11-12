@@ -407,6 +407,11 @@
         "ownsCRDs": [],
         "dependencies": ["kore-storage", "istiod"],
         "timeout": "2m",
+        "helm":
+          {
+            "wait": false,
+            "reason": "The tempo-storage claim uses WaitForFirstConsumer and binds when Tempo starts; Tempo's own readiness proves the volume."
+          },
         "readiness":
           [
             "configmap/kore-prometheus-rules",

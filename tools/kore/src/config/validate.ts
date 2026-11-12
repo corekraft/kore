@@ -130,6 +130,11 @@ const componentRules: Rule<ComponentContext>[] = [
       component.helm?.forceConflicts === true && !component.helm.reason?.trim(),
   ),
   rule(
+    ({ component }) => `${component.name}: helm.wait false requires a reason`,
+    ({ component }) =>
+      component.helm?.wait === false && !component.helm.reason?.trim(),
+  ),
+  rule(
     ({ component }) =>
       `${component.name}: helm options do not apply to a manifest component`,
     ({ component }) => component.kind === "manifest" && !!component.helm,

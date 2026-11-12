@@ -106,8 +106,7 @@ test("the components schema requires a reason when forceConflicts is true", asyn
   );
   const helm = schema.properties.components.items.properties.helm;
   assert.equal(helm.additionalProperties, false);
-  assert.deepEqual(helm.required, ["forceConflicts"]);
-  assert.deepEqual(helm.if.properties.forceConflicts, { const: true });
+  assert.deepEqual(helm.if.anyOf[0].properties.forceConflicts, { const: true });
   assert.deepEqual(helm.then.required, ["reason"]);
 });
 

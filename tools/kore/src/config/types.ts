@@ -41,8 +41,14 @@ export interface HelmOptions {
    * Upgrade with server-side apply `--force-conflicts`, for a release whose
    * controller co-owns fields of the release's own objects.
    */
-  forceConflicts: boolean;
-  /** Why Helm must take the fields back; required when forceConflicts is set. */
+  forceConflicts?: boolean;
+  /**
+   * `false` makes Helm wait for hooks only, not for the release's resources, for
+   * a resources-only release whose claim binds when its consumer starts. The
+   * consumer's own readiness check proves the volume.
+   */
+  wait?: false;
+  /** Why; required when forceConflicts is set or wait is false. */
   reason?: string;
 }
 

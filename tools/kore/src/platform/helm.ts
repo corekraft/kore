@@ -76,7 +76,7 @@ export function helmUpgradeArgs(
     "--create-namespace",
     "--kube-context",
     repository.environment.kubeContext,
-    "--wait",
+    component.helm?.wait === false ? "--wait=hookOnly" : "--wait",
     "--timeout",
     component.timeout,
     "--rollback-on-failure",
