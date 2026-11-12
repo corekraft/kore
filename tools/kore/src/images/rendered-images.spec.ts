@@ -160,3 +160,45 @@ test("unapprovedImages rejects a new digest of an approved repository, which is 
     `docker.io/istio/pilot:1.31.5@${digest("c")}: not in the approved image list`,
   ]);
 });
+
+test("renderedImages joins an image the chart passes as registry, repository and tag environment values", () => {
+  const manifest = `
+kind: Deployment
+spec:
+  template:
+    spec:
+      containers:
+        - name: controller
+          env:
+            - name: AGW_PROXY_IMAGE_REGISTRY
+              value: cr.agentgateway.dev
+            - name: AGW_PROXY_IMAGE_REPOSITORY
+              value: agentgateway
+            - name: AGW_PROXY_IMAGE_TAG
+              value: "v1.7.0@${digest("6")}"
+`;
+  expect(renderedImages(manifest)).toEqual([
+    `cr.agentgateway.dev/agentgateway:v1.7.0@${digest("6")}`,
+  ]);
+});
+
+test("a tag-only proxy image assembled from environment values still fails the pin check", () => {
+  const manifest = `
+kind: Deployment
+spec:
+  template:
+    spec:
+      containers:
+        - name: controller
+          env:
+            - name: AGW_PROXY_IMAGE_REGISTRY
+              value: cr.agentgateway.dev
+            - name: AGW_PROXY_IMAGE_REPOSITORY
+              value: agentgateway
+            - name: AGW_PROXY_IMAGE_TAG
+              value: v1.7.0
+`;
+  expect(unapprovedImages(renderedImages(manifest), [])).toEqual([
+    "cr.agentgateway.dev/agentgateway:v1.7.0: not pinned by digest",
+  ]);
+});

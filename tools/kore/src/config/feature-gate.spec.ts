@@ -4,12 +4,28 @@ import { loadRepository, validateRepository } from "./config.js";
 import { enabledComponents } from "./features.js";
 import type { Repository } from "./types.js";
 
+/** The local repository without the catalog's own gated components. */
+async function ungatedRepository(): Promise<Repository> {
+  const base = await loadRepository("local");
+  return {
+    ...base,
+    catalog: {
+      ...base.catalog,
+      components: base.catalog.components.map((c) => {
+        const plain = { ...c };
+        delete plain.featureFlag;
+        return plain;
+      }),
+    },
+  };
+}
+
 /** Gates a leaf component: nothing in the catalog depends on it. */
 async function gatedRepository(
   features: Record<string, boolean> | undefined,
   flag = "agent-ingress",
 ): Promise<Repository> {
-  const base = await loadRepository("local");
+  const base = await ungatedRepository();
   const needed = new Set(
     base.catalog.components.flatMap((c) => c.dependencies),
   );
@@ -65,7 +81,7 @@ test("a flag that is off leaves the component out of the enabled set; on keeps i
 });
 
 test("components without a flag are all enabled", async () => {
-  const base = await loadRepository("local");
+  const base = await ungatedRepository();
   assert.equal(enabledComponents(base).length, base.catalog.components.length);
 });
 
@@ -89,7 +105,18 @@ test("a gated component may depend on another gated component with the same flag
   const repository = await gatedRepository({ "agent-ingress": false });
   const [first, ...rest] = repository.catalog.components;
   const needed = new Set(rest.flatMap((c) => c.dependencies));
-  const second = rest.find((c) => !needed.has(c.name))!;
+  const byName = new Map(rest.map((c) => [c.name, c]));
+  const ancestors = new Set<string>();
+  const visit = (name: string): void => {
+    if (!ancestors.has(name)) {
+      ancestors.add(name);
+      byName.get(name)?.dependencies.forEach(visit);
+    }
+  };
+  first!.dependencies.forEach(visit);
+  const second = rest.find(
+    (c) => !needed.has(c.name) && !ancestors.has(c.name),
+  )!;
   repository.catalog.components = repository.catalog.components.map((c) =>
     c === second
       ? {

@@ -19,7 +19,7 @@ the outcome is measured on k3d.
 ### Work
 
 - [x] Record the decision in ADR 0081.
-- [ ] Pin the agentgateway chart and images, mirror them, and add them to the
+- [x] Pin the agentgateway chart and images, mirror them, and add them to the
       platform image inventory, with compatibility evidence.
 - [ ] Record the current ingress resource use on k3d as the comparison point.
 

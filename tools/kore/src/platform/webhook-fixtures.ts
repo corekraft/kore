@@ -1,5 +1,29 @@
 import { registryTlsSecret } from "../images/registry-tls-fixtures.js";
-import type { Runner } from "../runtime/index.js";
+import { CommandError, type Runner } from "../runtime/index.js";
+
+/** Releases the local catalog gates off, so a healthy cluster never has them. */
+const gatedOffReleases = ["agentgateway", "agentgateway-crds"];
+
+/**
+ * What Helm answers for the status of a gated-off release: not found. Throws
+ * for those and returns for everything else, so a fake runner calls it first.
+ */
+export function gatedOffReleaseAbsent(
+  command: string,
+  args: readonly string[],
+): void {
+  if (
+    command === "helm" &&
+    args[0] === "status" &&
+    gatedOffReleases.includes(args[1] ?? "")
+  ) {
+    throw new CommandError(command, args, {
+      stdout: "",
+      stderr: "Error: release: not found",
+      code: 1,
+    });
+  }
+}
 
 /**
  * What a healthy cluster answers to the read-only checks a Deployment and a
@@ -37,6 +61,7 @@ export function healthyDaemonSetOutput(
 export function withHealthyWebhooks(runner: Runner): Runner {
   return {
     async run(command, args, options) {
+      gatedOffReleaseAbsent(command, args);
       // The CA cert-manager issued answers the registry trust read (ADR 0058).
       const trust = args.includes("oci-registry-tls")
         ? registryTlsSecret

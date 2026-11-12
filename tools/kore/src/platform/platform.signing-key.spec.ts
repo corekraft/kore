@@ -1,6 +1,7 @@
 import { expect, test, vi } from "vitest";
 import { loadRepository } from "../config/index.js";
 import { RecordingRunner } from "../runtime/runner.js";
+import { withHealthyWebhooks } from "./webhook-fixtures.js";
 
 const events = vi.hoisted(() => [] as string[]);
 
@@ -33,7 +34,10 @@ test("the public signing key Secret exists once Policy Controller is installed a
   events.length = 0;
   const repository = await loadRepository("local");
 
-  await bootstrapControllers(repository, new RecordingRunner());
+  await bootstrapControllers(
+    repository,
+    withHealthyWebhooks(new RecordingRunner()),
+  );
 
   expect(events.at(-1)).toBe("public-key");
   expect(events).toContain("reconcile:policy-controller");
@@ -44,7 +48,10 @@ test("managed environments never publish the local signing key", async () => {
   events.length = 0;
   const repository = await loadRepository("managed-example");
 
-  await bootstrapControllers(repository, new RecordingRunner());
+  await bootstrapControllers(
+    repository,
+    withHealthyWebhooks(new RecordingRunner()),
+  );
 
   expect(events).not.toContain("public-key");
 });
@@ -54,7 +61,10 @@ test("registry credentials exist before the registry release starts, in every en
     events.length = 0;
     const repository = await loadRepository(name);
 
-    await bootstrapControllers(repository, new RecordingRunner());
+    await bootstrapControllers(
+      repository,
+      withHealthyWebhooks(new RecordingRunner()),
+    );
 
     expect(events.indexOf("registry-auth"), name).toBeGreaterThanOrEqual(0);
     expect(events.indexOf("registry-auth"), name).toBeLessThan(
@@ -67,7 +77,10 @@ test("the registry CA reaches the clients right after the registry is issued and
   events.length = 0;
   const repository = await loadRepository("local");
 
-  await bootstrapControllers(repository, new RecordingRunner());
+  await bootstrapControllers(
+    repository,
+    withHealthyWebhooks(new RecordingRunner()),
+  );
 
   const issued = events.indexOf("reconcile:oci-registry");
   const trust = events.indexOf("registry-trust");

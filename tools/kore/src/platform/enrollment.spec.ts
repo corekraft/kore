@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { loadRepository, type Repository } from "../config/index.js";
+import {
+  enabledComponents,
+  loadRepository,
+  type Repository,
+} from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 import { enrollPlatformNamespaces } from "./enrollment.js";
 
@@ -62,7 +66,7 @@ const applies = (calls: Call[]) =>
 const appliedName = ({ input }: Call) => /name: (\S+)/.exec(input)![1]!;
 
 function namespaces(repository: Repository): string[] {
-  return [...new Set(repository.catalog.components.map((c) => c.namespace))];
+  return [...new Set(enabledComponents(repository).map((c) => c.namespace))];
 }
 
 async function enforce() {

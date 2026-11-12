@@ -71,6 +71,7 @@ import {
 } from "./admission-gate-support.js";
 import { platformGeneration, readAdmissionGate } from "./admission-gate.js";
 import { platformUp } from "./up.js";
+import { gatedOffReleaseAbsent } from "./webhook-fixtures.js";
 
 interface Gate {
   generation: string;
@@ -81,7 +82,8 @@ interface Gate {
 function cluster(initial?: Gate) {
   const box: { gate: Gate | undefined } = { gate: initial };
   const runner: Runner = {
-    async run(_command, args, options) {
+    async run(command, args, options) {
+      gatedOffReleaseAbsent(command, args);
       if (args.includes("apply")) {
         const object = JSON.parse(options?.input ?? "{}") as {
           kind: string;

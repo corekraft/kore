@@ -5,6 +5,7 @@ import { registryTlsSecret } from "../images/registry-tls-fixtures.js";
 import { loadRepository } from "../config/index.js";
 import { platformGeneration } from "../platform/admission-gate.js";
 import {
+  gatedOffReleaseAbsent,
   healthyDaemonSetOutput,
   healthyWebhookOutput,
 } from "../platform/webhook-fixtures.js";
@@ -107,6 +108,7 @@ export function releaseNotFound(
   command: string,
   args: readonly string[],
 ): void {
+  gatedOffReleaseAbsent(command, args);
   if (command === "helm" && args[0] === "history") {
     throw new CommandError(command, args, {
       stdout: "",

@@ -198,6 +198,40 @@
           }
       },
       {
+        "image": "cr.agentgateway.dev/controller:v1.7.0@sha256:87c1363bf0cbc7fdb375866e592294114c8763097d2d0c9fc45fcb1fe00a4ab8",
+        "name": "agentgateway-controller",
+        "component": "agentgateway",
+        "evidence":
+          {
+            "method": "cosign-keyless",
+            "source": "cosign verify --certificate-oidc-issuer https://token.actions.githubusercontent.com --certificate-identity https://github.com/agentgateway/agentgateway/.github/workflows/release.yml@refs/tags/v1.7.0: verified at this index digest (crane digest cr.agentgateway.dev/controller:v1.7.0), Rekor entry verified. Control plane image the chart deploys.",
+            "checked": "2026-11-11",
+            "provenance":
+              {
+                "signed": true,
+                "issuer": "https://token.actions.githubusercontent.com",
+                "identity": "https://github.com/agentgateway/agentgateway/.github/workflows/release.yml@refs/tags/v1.7.0"
+              }
+          }
+      },
+      {
+        "image": "cr.agentgateway.dev/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b",
+        "name": "agentgateway-proxy",
+        "component": "agentgateway",
+        "evidence":
+          {
+            "method": "cosign-keyless",
+            "source": "cosign verify --certificate-oidc-issuer https://token.actions.githubusercontent.com --certificate-identity https://github.com/agentgateway/agentgateway/.github/workflows/release.yml@refs/tags/v1.7.0: verified at this index digest (crane digest cr.agentgateway.dev/agentgateway:v1.7.0), Rekor entry verified. Data plane image the controller deploys for each Gateway (chart value proxy.image).",
+            "checked": "2026-11-11",
+            "provenance":
+              {
+                "signed": true,
+                "issuer": "https://token.actions.githubusercontent.com",
+                "identity": "https://github.com/agentgateway/agentgateway/.github/workflows/release.yml@refs/tags/v1.7.0"
+              }
+          }
+      },
+      {
         "image": "docker.io/istio/install-cni:1.31.4-distroless@sha256:f80f8bd86001494329d62544da21d75570eef4582f6e95f431296f3bc13b9629",
         "name": "istio-install-cni",
         "component": "istio-cni",
