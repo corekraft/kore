@@ -27,7 +27,7 @@ shows the last mutations and any that were interrupted. Commands are written as
 
 ## Minikube overlays lose host Gateway access
 
-No overlay in the repository uses Minikube since #146, and `kore tunnel` is gone. A Minikube overlay has no host access to the Gateway until plan 9 Step 6 (#157) retires Minikube. A `minikube tunnel` (or its `ssh -L` forward) left over from an earlier version must be stopped by hand, for example `pkill -f "minikube tunnel"`.
+No overlay in the repository uses Minikube since #146, and the tunnel command is gone. A Minikube overlay has no host access to the Gateway until plan 9 Step 6 (#157) retires Minikube. A `minikube tunnel` (or its `ssh -L` forward) left over from an earlier version must be stopped by hand, for example `pkill -f "minikube tunnel"`.
 
 ## When nothing else works
 
