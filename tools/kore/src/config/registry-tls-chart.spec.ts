@@ -32,6 +32,14 @@ test("the proxy tells the registry the client scheme is https, so upload URLs a 
   assert.doesNotMatch(conf, /X-Forwarded-Proto\s+(\$scheme|http);/);
 });
 
+test("the registry pod rolls when its proxy configuration changes", async () => {
+  const all = await chart("templates/all.yaml");
+  assert.match(
+    all,
+    /checksum\/proxy-config:\s*\{\{\s*include \(print \$\.Template\.BasePath "\/proxy-config\.yaml"\) \. \| sha256sum/,
+  );
+});
+
 test("the serving certificate is issued by a kore-owned CA whose key stays in the cluster", async () => {
   const tls = await chart("templates/tls.yaml");
   assert.match(tls, /kind: Issuer[\s\S]*selfSigned/);
