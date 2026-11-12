@@ -1,3 +1,4 @@
+export { CommandError } from "./errors.js";
 export { systemClock, type Clock } from "./clock.js";
 export { nodeFileSystem, type FileSystem } from "./filesystem.js";
 export {

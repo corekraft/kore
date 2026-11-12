@@ -1,7 +1,13 @@
-import type { CliDeps, Command } from "../runtime/index.js";
+import {
+  CommandError,
+  type CliDeps,
+  type Command,
+  type CommandContext,
+} from "../runtime/index.js";
 import { domains } from "./domains.js";
 
 const USAGE_ERROR = 2;
+const FAILURE = 1;
 
 function usage(): string {
   const lines = ["Usage: harness <domain> <command> [--json]", "", "Commands:"];
@@ -89,6 +95,23 @@ function parseOptions(command: Command, tokens: readonly string[]): Parsed {
   return { options };
 }
 
+async function execute(
+  command: Command,
+  context: CommandContext,
+): Promise<number> {
+  try {
+    return await command.run(context);
+  } catch (error) {
+    if (!(error instanceof CommandError)) {
+      throw error;
+    }
+    const { json, deps } = context;
+    const prefix = json ? `${JSON.stringify({ error: error.message })}\n` : "";
+    deps.stderr(`${prefix}${error.message}\n`);
+    return FAILURE;
+  }
+}
+
 /** Dispatches `<domain> <command> [flags]` and returns the process exit code. */
 export async function run(
   argv: readonly string[],
@@ -123,5 +146,9 @@ export async function run(
   if ("error" in parsed) {
     return fail(deps, json, parsed.error);
   }
-  return await resolved.command.run({ json, options: parsed.options, deps });
+  return await execute(resolved.command, {
+    json,
+    options: parsed.options,
+    deps,
+  });
 }

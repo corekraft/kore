@@ -48,13 +48,13 @@ and uses it first to measure the delivery loop. Terms follow
 
 ### Work
 
-- [ ] Add a `skill` domain whose `audit` command reports every skill whose
+- [x] Add a `skill` domain whose `audit` command reports every skill whose
       description exceeds 200 characters or whose body exceeds 25 lines.
 - [ ] Run it from kb-check in warn mode.
 
 ### Exit Criteria
 
-- `node skills/bin/harness.mjs skill audit --json` lists each skill with its
+- [x] `node skills/bin/harness.mjs skill audit --json` lists each skill with its
   description length, body length and verdict.
 
 ## Step 3: Stage Event Ledger

@@ -2,6 +2,7 @@ import pkg from "../../package.json" with { type: "json" };
 import { adrCommands } from "../adr/index.js";
 import { planActive } from "../plan/index.js";
 import { session } from "../session/index.js";
+import { skill } from "../skill/index.js";
 import type { Command } from "../runtime/index.js";
 
 const version: Command = {
@@ -22,4 +23,5 @@ export const domains: Record<string, Record<string, Command>> = {
   plan: { active: planActive },
   adr: adrCommands,
   session,
+  skill,
 };

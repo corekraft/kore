@@ -1,3 +1,93 @@
+// src/runtime/errors.ts
+var CommandError = class extends Error {
+};
+
+// src/runtime/clock.ts
+var systemClock = {
+  now: () => /* @__PURE__ */ new Date()
+};
+
+// src/runtime/filesystem.ts
+import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
+var nodeFileSystem = {
+  readFile: (path) => readFile(path, "utf8"),
+  async writeFile(path, content) {
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, content);
+  },
+  async exists(path) {
+    try {
+      await stat(path);
+      return true;
+    } catch (error) {
+      if (error.code === "ENOENT") {
+        return false;
+      }
+      throw error;
+    }
+  },
+  readdir: (path) => readdir(path)
+};
+
+// src/runtime/runner.ts
+import { spawn } from "node:child_process";
+var ProcessRunner = class {
+  async run(command, args, options = {}) {
+    return await new Promise((resolve3) => {
+      const child = spawn(command, [...args], {
+        ...options.cwd === void 0 ? {} : { cwd: options.cwd },
+        stdio: [
+          options.input === void 0 ? "ignore" : "pipe",
+          "pipe",
+          "pipe"
+        ]
+      });
+      let stdout = "";
+      let stderr2 = "";
+      child.stdout?.on("data", (chunk) => {
+        stdout += chunk.toString();
+      });
+      child.stderr?.on("data", (chunk) => {
+        stderr2 += chunk.toString();
+      });
+      child.on("error", (error) => {
+        resolve3({ stdout, stderr: error.message, code: 127 });
+      });
+      child.on("close", (code) => {
+        resolve3({ stdout, stderr: stderr2, code: code ?? 1 });
+      });
+      if (options.input !== void 0) {
+        child.stdin?.end(options.input);
+      }
+    });
+  }
+};
+
+// src/runtime/root.ts
+import { dirname as dirname2, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+var PLANS = "infra/plans";
+async function resolveRoot(env, moduleUrl, exists) {
+  const fromEnv = env.CLAUDE_PROJECT_DIR;
+  if (fromEnv !== void 0 && fromEnv !== "") {
+    if (await exists(join(fromEnv, PLANS))) {
+      return fromEnv;
+    }
+    throw new Error(
+      `CLAUDE_PROJECT_DIR is "${fromEnv}" but it has no ${PLANS}. Point it at the repository root or unset it.`
+    );
+  }
+  const bundle = fileURLToPath(moduleUrl);
+  const root2 = resolve(dirname2(bundle), "../..");
+  if (await exists(join(root2, PLANS))) {
+    return root2;
+  }
+  throw new Error(
+    `Cannot find the repo root: ${bundle} is not at <root>/skills/bin and CLAUDE_PROJECT_DIR is unset. Run the committed skills/bin/harness.mjs or set CLAUDE_PROJECT_DIR to the repository root.`
+  );
+}
+
 // package.json
 var package_default = {
   name: "@corekraft/harness",
@@ -288,7 +378,7 @@ var newAdr = {
 var adrCommands = { new: newAdr };
 
 // src/plan/active.ts
-import { join } from "node:path";
+import { join as join2 } from "node:path";
 
 // src/plan/parser.ts
 var FRONTMATTER = /^---\n([\s\S]*?)\n---\n/;
@@ -390,7 +480,7 @@ async function readPlans(deps) {
   const root2 = await deps.root();
   let names2;
   try {
-    names2 = (await deps.fs.readdir(join(root2, PLANS_DIR))).filter(
+    names2 = (await deps.fs.readdir(join2(root2, PLANS_DIR))).filter(
       (n) => n.endsWith(".md")
     );
   } catch (error) {
@@ -401,7 +491,7 @@ async function readPlans(deps) {
   }
   const plans = {};
   for (const name of names2) {
-    plans[name] = await deps.fs.readFile(join(root2, PLANS_DIR, name));
+    plans[name] = await deps.fs.readFile(join2(root2, PLANS_DIR, name));
   }
   return plans;
 }
@@ -691,7 +781,7 @@ async function launch(deps, { role, model, effort, name, brief, paneId, callerPa
   ]);
   return prompt.code === 0 ? void 0 : `herdr agent prompt failed: ${describeFailure(prompt)}. Session ${name} is running in pane ${paneId} without its brief.`;
 }
-async function spawn(context) {
+async function spawn2(context) {
   const { json, deps } = context;
   const fail2 = (code, message) => {
     deps.stderr(
@@ -748,7 +838,7 @@ var spawnCommand = {
     brief: "string",
     "no-wait": "boolean"
   },
-  run: spawn
+  run: spawn2
 };
 var equalizeCommand = {
   summary: "equalize the heights of the spawned panes (run after closing one)",
@@ -778,6 +868,141 @@ var session = {
   equalize: equalizeCommand
 };
 
+// src/skill/index.ts
+import { join as join3 } from "node:path";
+
+// src/skill/audit.ts
+var DESCRIPTION_BUDGET = 200;
+var BODY_BUDGET = 25;
+function invalid(name, reason) {
+  return {
+    name,
+    directory: name,
+    descriptionChars: 0,
+    bodyLines: 0,
+    verdict: "invalid",
+    reason
+  };
+}
+function field(frontmatter, key) {
+  const line = frontmatter.split("\n").find((l) => l.startsWith(`${key}:`));
+  const value = line?.slice(key.length + 1).trim();
+  if (value === void 0 || value === "") {
+    return void 0;
+  }
+  return value.replace(/^(["'])(.*)\1$/, "$2");
+}
+function overBudgets(descriptionChars, bodyLines) {
+  const over = [];
+  if (descriptionChars > DESCRIPTION_BUDGET) {
+    over.push("description");
+  }
+  if (bodyLines > BODY_BUDGET) {
+    over.push("body");
+  }
+  return over;
+}
+function countLines(body) {
+  return body === "" ? 0 : body.replace(/\n$/, "").split("\n").length;
+}
+function auditSkill(directory, text) {
+  const source = text.replaceAll("\r\n", "\n");
+  if (!source.startsWith("---\n")) {
+    return invalid(directory, "missing frontmatter");
+  }
+  const close = /\n---[ \t]*(\n|$)/.exec(source.slice(3));
+  if (close === null) {
+    return invalid(directory, "unterminated frontmatter");
+  }
+  const end = close.index + 3;
+  const frontmatter = source.slice(4, end);
+  const name = field(frontmatter, "name");
+  if (name === void 0) {
+    return invalid(directory, "missing name");
+  }
+  const description = field(frontmatter, "description");
+  if (description === void 0) {
+    return invalid(directory, "missing description");
+  }
+  if (/^[>|][+-]?$/.test(description)) {
+    return invalid(directory, "multi-line description");
+  }
+  const bodyLines = countLines(source.slice(end + close[0].length));
+  const over = overBudgets(description.length, bodyLines);
+  const row = {
+    name,
+    directory,
+    descriptionChars: description.length,
+    bodyLines,
+    verdict: over.length > 0 ? "over-budget" : "ok"
+  };
+  return over.length > 0 ? { ...row, over } : row;
+}
+async function auditSkills(fs, skillsDir) {
+  const rows = [];
+  for (const directory of await fs.readdir(skillsDir)) {
+    const path = `${skillsDir}/${directory}/SKILL.md`;
+    if (await fs.exists(path)) {
+      rows.push(auditSkill(directory, await fs.readFile(path)));
+    }
+  }
+  rows.sort((a, b) => a.name.localeCompare(b.name, "en"));
+  const summary = {
+    ok: 0,
+    "over-budget": 0,
+    invalid: 0
+  };
+  for (const row of rows) {
+    summary[row.verdict] += 1;
+  }
+  return { skills: rows, summary };
+}
+function detail(row) {
+  if (row.verdict === "over-budget") {
+    return ` (${(row.over ?? []).join(", ")})`;
+  }
+  return row.verdict === "invalid" ? ` (${row.reason ?? ""})` : "";
+}
+function renderReport(report) {
+  const width = Math.max(4, ...report.skills.map((s) => s.name.length));
+  const lines = [
+    `${"NAME".padEnd(width)}  DESC  BODY  VERDICT`,
+    ...report.skills.map(
+      (s) => `${s.name.padEnd(width)}  ${String(s.descriptionChars).padStart(4)}  ${String(s.bodyLines).padStart(4)}  ${s.verdict}${detail(s)}`
+    ),
+    "",
+    `${report.summary.ok} ok, ${report.summary["over-budget"]} over-budget, ${report.summary.invalid} invalid`
+  ];
+  return `${lines.join("\n")}
+`;
+}
+
+// src/skill/index.ts
+var SKILLS_DIR = "skills";
+var audit = {
+  summary: "report each skill's description and body against its budgets",
+  options: { strict: "boolean" },
+  async run({ json, options, deps }) {
+    const skillsDir = join3(await deps.root(), SKILLS_DIR);
+    let report;
+    try {
+      report = await auditSkills(deps.fs, skillsDir);
+    } catch (error) {
+      if (error.code === "ENOENT") {
+        throw new CommandError(
+          `No skills directory at ${skillsDir}. Run from the repository, or set CLAUDE_PROJECT_DIR to its root.`
+        );
+      }
+      throw error;
+    }
+    deps.stdout(json ? `${JSON.stringify(report)}
+` : renderReport(report));
+    const failing = report.summary["over-budget"] + report.summary.invalid > 0;
+    return options["strict"] === true && failing ? 1 : 0;
+  }
+};
+var skill = { audit };
+
 // src/cli/domains.ts
 var version = {
   summary: "print the harness version",
@@ -794,11 +1019,13 @@ var domains = {
   harness: { version },
   plan: { active: planActive },
   adr: adrCommands,
-  session
+  session,
+  skill
 };
 
 // src/cli/cli.ts
 var USAGE_ERROR2 = 2;
+var FAILURE = 1;
 function usage() {
   const lines = ["Usage: harness <domain> <command> [--json]", "", "Commands:"];
   for (const [domain, commands] of Object.entries(domains)) {
@@ -829,7 +1056,7 @@ function own(table, key) {
 function names(commands) {
   return Object.keys(commands).join(", ");
 }
-function resolve(domain, name) {
+function resolve2(domain, name) {
   const commands = own(domains, domain);
   if (commands === void 0) {
     return {
@@ -877,6 +1104,21 @@ function parseOptions(command, tokens) {
   }
   return { options };
 }
+async function execute(command, context) {
+  try {
+    return await command.run(context);
+  } catch (error) {
+    if (!(error instanceof CommandError)) {
+      throw error;
+    }
+    const { json, deps } = context;
+    const prefix = json ? `${JSON.stringify({ error: error.message })}
+` : "";
+    deps.stderr(`${prefix}${error.message}
+`);
+    return FAILURE;
+  }
+}
 async function run(argv, deps) {
   const json = argv.includes("--json");
   const help = argv.includes("--help") || argv.includes("-h");
@@ -895,7 +1137,7 @@ async function run(argv, deps) {
   const rest = argv.filter(
     (token, i) => !words.includes(i) && token !== "--json" && token !== "--help" && token !== "-h"
   );
-  const resolved = resolve(domain, name);
+  const resolved = resolve2(domain, name);
   if ("error" in resolved) {
     return fail(deps, json, resolved.error);
   }
@@ -903,93 +1145,11 @@ async function run(argv, deps) {
   if ("error" in parsed) {
     return fail(deps, json, parsed.error);
   }
-  return await resolved.command.run({ json, options: parsed.options, deps });
-}
-
-// src/runtime/clock.ts
-var systemClock = {
-  now: () => /* @__PURE__ */ new Date()
-};
-
-// src/runtime/filesystem.ts
-import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
-var nodeFileSystem = {
-  readFile: (path) => readFile(path, "utf8"),
-  async writeFile(path, content) {
-    await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, content);
-  },
-  async exists(path) {
-    try {
-      await stat(path);
-      return true;
-    } catch (error) {
-      if (error.code === "ENOENT") {
-        return false;
-      }
-      throw error;
-    }
-  },
-  readdir: (path) => readdir(path)
-};
-
-// src/runtime/runner.ts
-import { spawn as spawn2 } from "node:child_process";
-var ProcessRunner = class {
-  async run(command, args, options = {}) {
-    return await new Promise((resolve3) => {
-      const child = spawn2(command, [...args], {
-        ...options.cwd === void 0 ? {} : { cwd: options.cwd },
-        stdio: [
-          options.input === void 0 ? "ignore" : "pipe",
-          "pipe",
-          "pipe"
-        ]
-      });
-      let stdout = "";
-      let stderr2 = "";
-      child.stdout?.on("data", (chunk) => {
-        stdout += chunk.toString();
-      });
-      child.stderr?.on("data", (chunk) => {
-        stderr2 += chunk.toString();
-      });
-      child.on("error", (error) => {
-        resolve3({ stdout, stderr: error.message, code: 127 });
-      });
-      child.on("close", (code) => {
-        resolve3({ stdout, stderr: stderr2, code: code ?? 1 });
-      });
-      if (options.input !== void 0) {
-        child.stdin?.end(options.input);
-      }
-    });
-  }
-};
-
-// src/runtime/root.ts
-import { dirname as dirname2, join as join2, resolve as resolve2 } from "node:path";
-import { fileURLToPath } from "node:url";
-var PLANS = "infra/plans";
-async function resolveRoot(env, moduleUrl, exists) {
-  const fromEnv = env.CLAUDE_PROJECT_DIR;
-  if (fromEnv !== void 0 && fromEnv !== "") {
-    if (await exists(join2(fromEnv, PLANS))) {
-      return fromEnv;
-    }
-    throw new Error(
-      `CLAUDE_PROJECT_DIR is "${fromEnv}" but it has no ${PLANS}. Point it at the repository root or unset it.`
-    );
-  }
-  const bundle = fileURLToPath(moduleUrl);
-  const root2 = resolve2(dirname2(bundle), "../..");
-  if (await exists(join2(root2, PLANS))) {
-    return root2;
-  }
-  throw new Error(
-    `Cannot find the repo root: ${bundle} is not at <root>/skills/bin and CLAUDE_PROJECT_DIR is unset. Run the committed skills/bin/harness.mjs or set CLAUDE_PROJECT_DIR to the repository root.`
-  );
+  return await execute(resolved.command, {
+    json,
+    options: parsed.options,
+    deps
+  });
 }
 
 // src/main.ts
