@@ -91,6 +91,21 @@ describe("harness flag activate", () => {
 });
 
 describe("harness flag activate reruns", () => {
+  it("turns on only the exact flag when another flag's name starts with it", async () => {
+    const h = repository({
+      "docs/ideas/0001-proof.md": provenIdea(),
+      [OVERLAY]: overlay({
+        "ingress-agentgateway-extra": false,
+        "ingress-agentgateway": false,
+      }),
+    });
+    await run(activate(), h.deps);
+    expect(JSON.parse(h.get(OVERLAY) ?? "").features).toEqual({
+      "ingress-agentgateway-extra": false,
+      "ingress-agentgateway": true,
+    });
+  });
+
   it("repairs a missing event on rerun when the overlay was already written", async () => {
     const h = repository({ "docs/ideas/0001-proof.md": provenIdea() });
     const before = h.fs.appendFile.bind(h.fs);

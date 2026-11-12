@@ -109,21 +109,22 @@ function featuresSpan(text: string): [number, number] | undefined {
   return undefined;
 }
 
+/** A flag entry written as false: optional quote, the whole name, the same quote, then the colon. */
+const FALSE_ENTRY = /(["']?)([a-z][a-z0-9-]*)\1(\s*:\s*)false\b/g;
+
 /** The overlay text with one flag set to true and every other byte unchanged. */
 export function withFlagOn(overlay: Overlay, flag: string): string {
   const span = featuresSpan(overlay.text);
-  const escaped = flag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const entry = new RegExp(`(["']?)${escaped}\\1(\\s*:\\s*)false`);
   const block = span === undefined ? "" : overlay.text.slice(...span);
-  if (span === undefined || !entry.test(block)) {
+  // Compares the captured key by string equality, so a flag named as a prefix of another never matches it.
+  const entry = [...block.matchAll(FALSE_ENTRY)].find((m) => m[2] === flag);
+  if (span === undefined || entry === undefined) {
     throw new FlagError(
       `${overlay.path} does not write ${flag} as false inside its features map, so the tool cannot edit it safely. Set it to false by hand, then rerun.`,
     );
   }
-  const text =
-    overlay.text.slice(0, span[0]) +
-    block.replace(entry, "$1" + flag + "$1$2true") +
-    overlay.text.slice(span[1]);
+  const end = span[0] + entry.index + entry[0].length;
+  const text = `${overlay.text.slice(0, end - "false".length)}true${overlay.text.slice(end)}`;
   parse(overlay.path, text);
   return text;
 }

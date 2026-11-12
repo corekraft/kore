@@ -2861,17 +2861,18 @@ function featuresSpan(text6) {
   }
   return void 0;
 }
+var FALSE_ENTRY = /(["']?)([a-z][a-z0-9-]*)\1(\s*:\s*)false\b/g;
 function withFlagOn(overlay, flag) {
   const span = featuresSpan(overlay.text);
-  const escaped = flag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const entry = new RegExp(`(["']?)${escaped}\\1(\\s*:\\s*)false`);
   const block = span === void 0 ? "" : overlay.text.slice(...span);
-  if (span === void 0 || !entry.test(block)) {
+  const entry = [...block.matchAll(FALSE_ENTRY)].find((m) => m[2] === flag);
+  if (span === void 0 || entry === void 0) {
     throw new FlagError(
       `${overlay.path} does not write ${flag} as false inside its features map, so the tool cannot edit it safely. Set it to false by hand, then rerun.`
     );
   }
-  const text6 = overlay.text.slice(0, span[0]) + block.replace(entry, "$1" + flag + "$1$2true") + overlay.text.slice(span[1]);
+  const end = span[0] + entry.index + entry[0].length;
+  const text6 = `${overlay.text.slice(0, end - "false".length)}true${overlay.text.slice(end)}`;
   parse(overlay.path, text6);
   return text6;
 }
