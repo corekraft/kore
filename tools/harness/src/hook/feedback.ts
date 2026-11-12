@@ -7,15 +7,10 @@
 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  DEFAULT_LEDGER,
-  Ledger,
-  type Kind,
-  type LedgerEvent,
-} from "../ledger/index.js";
-import { CommandError, mainRoot, type CliDeps } from "../runtime/index.js";
+import { CommandError, type CliDeps } from "../runtime/index.js";
 import { readTokens, tokenStateFile } from "./feedback-tokens.js";
 import type { HookResult } from "./io.js";
+import { recordEvent } from "./ledger-event.js";
 
 interface Project {
   bin: string;
@@ -62,7 +57,7 @@ export function bound(output: string, command: string): string {
   return `${lines.slice(0, MAX_LINES).join("\n")}\n... ${cut} more lines cut. Run \`${command}\` to see all.`;
 }
 
-interface Call {
+export interface Call {
   tool_name?: unknown;
   tool_input?: { file_path?: unknown };
   stop_hook_active?: unknown;
@@ -215,50 +210,6 @@ export async function stop(
     HARNESS,
     "The harness typecheck failed after your TypeScript changes. Fix it before finishing.",
   );
-}
-
-/**
- * Appends one Claude event to the ledger. Best effort by contract: a missing
- * ledger root or a rejected event never changes a hook's verdict or output.
- */
-async function recordEvent(
-  deps: CliDeps,
-  kind: Kind,
-  call: Call,
-  outcome?: "success" | "failure",
-  extra: Partial<LedgerEvent> = {},
-): Promise<void> {
-  try {
-    const session = call.session_id;
-    if (typeof session !== "string" || session === "") {
-      return;
-    }
-    const main = await mainRoot(deps);
-    if (main === undefined) {
-      return;
-    }
-    const pane = deps.env["HERDR_PANE_ID"];
-    const event: Partial<LedgerEvent> = {
-      source: "claude",
-      kind,
-      occurredAt: deps.clock.now().toISOString(),
-      session,
-      ...(typeof pane === "string" && pane !== "" ? { pane } : {}),
-      ...(kind.startsWith("tool.") && typeof call.tool_name === "string"
-        ? { tool: call.tool_name }
-        : {}),
-      ...(outcome === undefined ? {} : { outcome }),
-      ...extra,
-    };
-    await new Ledger(
-      deps.fs,
-      deps.clock,
-      deps.ids,
-      join(main, DEFAULT_LEDGER),
-    ).record(event);
-  } catch {
-    // Recording is best effort by contract.
-  }
 }
 
 /** Records the stop, then the session's tokens so far when they grew since the last stop. */

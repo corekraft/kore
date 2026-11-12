@@ -1,6 +1,7 @@
 // Delta: what changed between a session's turns, as UserPromptSubmit context.
 // Plan: infra/plans/6-agent-primitives.md#step-3-what-changed-between-turns
 
+import { cleanGitEnv } from "../testing/git-env.js";
 import { spawnSync } from "node:child_process";
 import {
   existsSync,
@@ -25,9 +26,7 @@ import { planText } from "./delta-support.js";
 
 // Under a git hook GIT_DIR and friends are set and would aim the fixture's git
 // calls at the real repository.
-const cleanEnv = Object.fromEntries(
-  Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_")),
-) as Record<string, string>;
+const cleanEnv = cleanGitEnv();
 
 // ProcessRunner children inherit process.env, so drop GIT_* for each test.
 const savedGit: Record<string, string> = {};

@@ -94,3 +94,20 @@ describe("hook I/O", () => {
     });
   });
 });
+
+describe("hook I/O faults", () => {
+  it("exits with the hook's fault code, saying failed rather than failed open, so a broken hook stays visible", async () => {
+    const h = testHarness();
+    h.deps.stdin = () => Promise.resolve("");
+    const code = await hookCommand(
+      "demo",
+      "demo hook",
+      () => Promise.reject(new Error("boom")),
+      { faultCode: 1 },
+    ).run({ json: false, options: {}, deps: h.deps });
+    expect(code).toBe(1);
+    expect(h.err()).toBe(
+      "[hook:demo] failed: boom (unexpected; fixing it is on the harness)\n",
+    );
+  });
+});

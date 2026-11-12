@@ -116,6 +116,8 @@ Single-context: `GLOSSARY.md` at the root, ADRs in `docs/decisions/`. See
 
 ## Enforcement
 
-_Enforced_ and _Audited_ rules are checked by `.claude/hooks/` and
+_Enforced_ and _Audited_ rules are checked by `.claude/hooks/`, by the harness
+hooks in `tools/harness/src/hook/` (run as
+`node skills/bin/harness.mjs hook <name>`, for example `hook guard`), and by
 `.claude/settings.json`; workflows live in `skills/`. All other rules are
 guidance.

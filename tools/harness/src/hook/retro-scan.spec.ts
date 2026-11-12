@@ -2,7 +2,6 @@
 // retro skill interprets.
 // Docs: infra/plans/5-self-maintenance.md#step-2-deterministic-retrospective-scan
 
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   auditRules,
@@ -12,6 +11,8 @@ import {
   summarizeError,
   windowStart,
 } from "./retro-scan.js";
+import { nodeFileSystem } from "../runtime/index.js";
+import { readGuardSource } from "./retro-hook.js";
 import { all, fixture, options, repo } from "./retro-scan-support.js";
 
 describe("retro scan report", () => {
@@ -215,8 +216,8 @@ describe("retro scan audit rules", () => {
     expect(rules.audit).toHaveLength(3);
   });
 
-  it("reads the audit-mode rules from the guard's warn calls", () => {
-    const guardSource = readFileSync(`${repo}/.claude/hooks/guard.mjs`, "utf8");
+  it("reads the audit-mode rules from the guard's warn calls", async () => {
+    const guardSource = await readGuardSource(nodeFileSystem, repo);
     expect(auditRules(guardSource)).toEqual([
       "append-only",
       "bare-glob",

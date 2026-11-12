@@ -14,8 +14,14 @@ import { hookCommand, type HookResult } from "./io.js";
 import { auditRules, lastRetrospective, scan } from "./retro-scan.js";
 import { defaultDirs, readTranscripts } from "./retro-transcripts.js";
 
-/** Where the guard's `warn("<rule>", ...)` calls name the audit-mode rules; repoint it when the guard moves. */
-const GUARD_SOURCE = ".claude/hooks/guard.mjs";
+/**
+ * Where the guard's rules live: its `warn("<rule>", ...)` calls name the
+ * audit-mode rules. The guard is the `guard.ts` and `guard-*.ts` modules (not
+ * their specs or support) in this directory; repoint it when the guard moves.
+ */
+const GUARD_DIR = "tools/harness/src/hook";
+const GUARD_MODULE = /^guard(?:-[a-z-]+)?\.ts$/;
+const GUARD_NOT_RULES = /(?:\.spec|-support)\.ts$/;
 const USAGE =
   "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD]\n--since keeps sessions active at or after local midnight of that date, like the session-start count.";
 
@@ -79,19 +85,30 @@ async function transcripts(
   }
 }
 
-/** The guard's source, which names the audit-mode rules; a missing file is an expected error with its fix. */
-async function readGuardSource(fs: FileSystem, root: string): Promise<string> {
-  const path = join(root, GUARD_SOURCE);
+/** The guard's source, which names the audit-mode rules; a missing directory is an expected error with its fix. */
+export async function readGuardSource(
+  fs: FileSystem,
+  root: string,
+): Promise<string> {
+  const dir = join(root, GUARD_DIR);
+  let names: string[];
   try {
-    return await fs.readFile(path);
+    names = await fs.readdir(dir);
   } catch (error) {
     if (!isMissing(error)) {
       throw error;
     }
     throw new CommandError(
-      `Cannot read the guard source at ${path}, which lists the audit-mode rules. Point GUARD_SOURCE in tools/harness/src/hook/retro-hook.ts at where the guard now lives.`,
+      `Cannot read the guard source in ${dir}, which lists the audit-mode rules. Point GUARD_DIR in tools/harness/src/hook/retro-hook.ts at where the guard now lives.`,
     );
   }
+  const modules = names
+    .filter((name) => GUARD_MODULE.test(name) && !GUARD_NOT_RULES.test(name))
+    .sort();
+  const sources = await Promise.all(
+    modules.map((name) => fs.readFile(join(dir, name))),
+  );
+  return sources.join("\n");
 }
 
 async function report(

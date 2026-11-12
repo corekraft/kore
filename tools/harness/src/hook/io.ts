@@ -35,12 +35,19 @@ export interface HookShape {
   payload?: boolean;
   /** Names the one positional argument, such as the feedback hook's mode. */
   operand?: string;
+  /**
+   * The exit code when the hook itself breaks, instead of failing open with 0.
+   * A hook that enforces (the guard) sets 1, which the host treats as
+   * non-blocking but shows, so a broken enforcer is never silent.
+   */
+  faultCode?: number;
 }
 
 /**
  * Wraps a hook as a command. The host speaks stdin JSON, exit code, stdout and
  * stderr. A hook that breaks unexpectedly fails open: it reports on stderr and
- * exits 0, so a harness fault never blocks the session. A check that must not
+ * exits 0, so a harness fault never blocks the session, unless it declares a
+ * `faultCode`. A check that must not
  * pass when it cannot run (mise, CI) adds --strict, which exits 1 instead. A
  * hook with flags of its own declares them in `flags`; one that ignores the
  * host's JSON sets `payload: false`, so a run by hand never waits on stdin.
@@ -49,7 +56,7 @@ export function hookCommand(
   name: string,
   summary: string,
   handler: (context: HookContext) => Promise<HookResult>,
-  { flags = {}, payload = true, operand }: HookShape = {},
+  { flags = {}, payload = true, operand, faultCode = 0 }: HookShape = {},
 ): Command {
   return {
     summary,
@@ -70,11 +77,11 @@ export function hookCommand(
           error instanceof CommandError
             ? ""
             : " (unexpected; fixing it is on the harness)";
-        const strict = options["strict"] === true;
+        const code = options["strict"] === true ? 1 : faultCode;
         deps.stderr(
-          `[hook:${name}] ${strict ? "failed" : "failed open"}: ${reason}${hint}\n`,
+          `[hook:${name}] ${code === 0 ? "failed open" : "failed"}: ${reason}${hint}\n`,
         );
-        return strict ? 1 : 0;
+        return code;
       }
       if (result.stdout) {
         deps.stdout(result.stdout);
