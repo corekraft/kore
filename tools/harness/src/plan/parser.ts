@@ -92,23 +92,58 @@ export function openCounts(markdown: string): StepCount[] {
   }));
 }
 
-/** The plan's `Next:` line and the step it sits under, or null. */
-export function nextStep(markdown: string): NextStep | null {
+export interface NextBlock extends NextStep {
+  /** Zero-based index of the `Next:` line. */
+  line: number;
+  /** Zero-based index one past the paragraph's last wrapped line. */
+  end: number;
+}
+
+const FENCE = /^\s*(```|~~~)/;
+const LIST_MARKER = /^\s*([-*+]|\d+\.)\s/;
+
+/**
+ * Every `Next:` paragraph with the step it sits under. A paragraph runs to the
+ * next blank line, heading, list item or code fence; lines inside a code fence
+ * are never read.
+ */
+export function nextBlocks(markdown: string): NextBlock[] {
+  const lines = markdown.split("\n");
+  const blocks: NextBlock[] = [];
   let heading = "";
-  let next: NextStep | null = null;
-  for (const line of markdown.split("\n")) {
-    if (next) {
-      if (!line.trim() || line.startsWith("#")) {
-        break;
-      }
-      next.text += ` ${line.trim()}`;
-    } else if (line.startsWith("## ")) {
+  let fenced = false;
+  let open: NextBlock | null = null;
+  for (const [index, line] of lines.entries()) {
+    const fence = FENCE.test(line);
+    const stops =
+      fence || !line.trim() || line.startsWith("#") || LIST_MARKER.test(line);
+    if (open && !fenced && !stops) {
+      open.text += ` ${line.trim()}`;
+      open.end = index + 1;
+      continue;
+    }
+    open = null;
+    if (fence) {
+      fenced = !fenced;
+    } else if (!fenced && line.startsWith("## ")) {
       heading = line.slice(3).trim();
-    } else if (line.startsWith("Next:")) {
-      next = { step: heading, text: line.slice(5).trim() };
+    } else if (!fenced && line.startsWith("Next:")) {
+      open = {
+        step: heading,
+        text: line.slice(5).trim(),
+        line: index,
+        end: index + 1,
+      };
+      blocks.push(open);
     }
   }
-  return next;
+  return blocks;
+}
+
+/** The plan's first `Next:` line and the step it sits under, or null. */
+export function nextStep(markdown: string): NextStep | null {
+  const first = nextBlocks(markdown)[0];
+  return first ? { step: first.step, text: first.text } : null;
 }
 
 /**

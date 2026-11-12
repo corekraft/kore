@@ -2204,22 +2204,42 @@ function openCounts(markdown) {
     count
   }));
 }
-function nextStep(markdown) {
+var FENCE = /^\s*(```|~~~)/;
+var LIST_MARKER = /^\s*([-*+]|\d+\.)\s/;
+function nextBlocks(markdown) {
+  const lines = markdown.split("\n");
+  const blocks = [];
   let heading = "";
-  let next = null;
-  for (const line2 of markdown.split("\n")) {
-    if (next) {
-      if (!line2.trim() || line2.startsWith("#")) {
-        break;
-      }
-      next.text += ` ${line2.trim()}`;
-    } else if (line2.startsWith("## ")) {
+  let fenced = false;
+  let open = null;
+  for (const [index, line2] of lines.entries()) {
+    const fence = FENCE.test(line2);
+    const stops = fence || !line2.trim() || line2.startsWith("#") || LIST_MARKER.test(line2);
+    if (open && !fenced && !stops) {
+      open.text += ` ${line2.trim()}`;
+      open.end = index + 1;
+      continue;
+    }
+    open = null;
+    if (fence) {
+      fenced = !fenced;
+    } else if (!fenced && line2.startsWith("## ")) {
       heading = line2.slice(3).trim();
-    } else if (line2.startsWith("Next:")) {
-      next = { step: heading, text: line2.slice(5).trim() };
+    } else if (!fenced && line2.startsWith("Next:")) {
+      open = {
+        step: heading,
+        text: line2.slice(5).trim(),
+        line: index,
+        end: index + 1
+      };
+      blocks.push(open);
     }
   }
-  return next;
+  return blocks;
+}
+function nextStep(markdown) {
+  const first = nextBlocks(markdown)[0];
+  return first ? { step: first.step, text: first.text } : null;
 }
 function upcomingSteps(markdown) {
   const open = [...openSteps(markdown).keys()];
@@ -2320,7 +2340,7 @@ var planActive = {
   }
 };
 
-// src/plan/tick.ts
+// src/plan/next.ts
 import { join as join3 } from "node:path";
 
 // src/plan/edits.ts
@@ -2338,6 +2358,181 @@ function trimCommon(edit, lines) {
   const after = edit.lines.slice(head, edit.lines.length - tail);
   return kept.start === kept.end && after.length === 0 ? null : { ...kept, lines: after };
 }
+
+// src/plan/plan-edit.ts
+function normalize(text3) {
+  return text3.replace(/\s+/g, " ").trim();
+}
+function choosePlan(plans, requested) {
+  const names2 = Object.keys(plans);
+  if (requested !== void 0) {
+    const named = /^\d+$/.test(requested) ? names2.filter((n) => n.startsWith(`${requested}-`)) : [];
+    if (named.length > 1) {
+      throw new CommandError(
+        `Plan number "${requested}" is shared by ${named.join(" and ")}. Rename one so each plan number is unique.`
+      );
+    }
+    const name = named[0];
+    if (name === void 0) {
+      throw new CommandError(
+        `No plan numbered "${requested}" in ${PLANS_DIR}. Run \`harness plan active\` to list the plans.`
+      );
+    }
+    return name;
+  }
+  const active = activePlans(plans);
+  if (active.length === 0) {
+    throw new CommandError(
+      `No active plan: no file in ${PLANS_DIR} has "status: active". Name one with --plan N.`
+    );
+  }
+  if (active.length > 1) {
+    throw new CommandError(
+      `${active.length} plans are active (${active.join(", ")}), so there is no single default. Pass --plan N.`
+    );
+  }
+  return active[0] ?? "";
+}
+function apply(lines, edits) {
+  const out = [...lines];
+  for (const edit of [...edits].sort((a, b) => b.start - a.start)) {
+    out.splice(edit.start, edit.end - edit.start, ...edit.lines);
+  }
+  return out;
+}
+function toChanges(lines, edits) {
+  return edits.flatMap((edit) => trimCommon(edit, lines) ?? []).sort((a, b) => a.start - b.start).map((edit) => ({
+    line: edit.start + 1,
+    before: lines.slice(edit.start, edit.end),
+    after: edit.lines
+  }));
+}
+function renderChanges(head, changes) {
+  const body = changes.flatMap((c) => [
+    `  line ${c.line}:`,
+    ...c.before.map((l) => `  - ${l}`),
+    ...c.after.map((l) => `  + ${l}`)
+  ]);
+  return `${[head, ...body].join("\n")}
+`;
+}
+
+// src/plan/next.ts
+var NEXT = "Next:";
+function removals(lines) {
+  return nextBlocks(lines.join("\n")).map(({ line: line2, end }) => {
+    const blankBefore = line2 > 0 && (lines[line2 - 1] ?? "").trim() === "";
+    const blankAfter = end < lines.length && (lines[end] ?? "").trim() === "";
+    return {
+      start: line2,
+      end: blankBefore && blankAfter ? end + 1 : end,
+      lines: []
+    };
+  });
+}
+function currentHeading(lines, markdown) {
+  const open = openCounts(markdown).map((c) => c.step);
+  const held = nextStep(markdown)?.step.split(":")[0];
+  const step = held !== void 0 && open.includes(held) ? held : open[0];
+  const index = lines.findIndex(
+    (l) => l.startsWith("## ") && l.slice(3).trim().split(":")[0] === step
+  );
+  if (step === void 0 || index < 0) {
+    throw new CommandError(
+      "The plan has no open item, so there is no current step to put a Next: line under. Add an unchecked item, or use `harness plan clear-next`."
+    );
+  }
+  return index;
+}
+function insertion(lines, heading, text3) {
+  const blank = (lines[heading + 1] ?? "").trim() === "";
+  const start = blank ? heading + 2 : heading + 1;
+  return {
+    start,
+    end: start,
+    lines: blank ? [`${NEXT} ${text3}`, ""] : ["", `${NEXT} ${text3}`, ""]
+  };
+}
+function withInsertion(lines, removed, added) {
+  const merged = removed.find((r) => r.start === added.start);
+  const end = merged?.end ?? added.start;
+  const followedByBlank = (lines[end] ?? "").trim() === "";
+  const inserted = followedByBlank && added.lines.at(-1) === "" ? added.lines.slice(0, -1) : added.lines;
+  return merged ? [
+    ...removed.filter((r) => r !== merged),
+    { start: merged.start, end: merged.end, lines: inserted }
+  ] : [...removed, { ...added, lines: inserted }];
+}
+async function write(deps, json, options) {
+  const plans = await readPlans(deps);
+  const name = choosePlan(plans, options.planOption);
+  const markdown = plans[name] ?? "";
+  const lines = markdown.split("\n");
+  const edits = options.edits(lines, markdown);
+  const changes = toChanges(lines, edits);
+  const file = `${PLANS_DIR}/${name}`;
+  const written = !options.dryRun && changes.length > 0;
+  if (written) {
+    await deps.fs.writeFile(
+      join3(await deps.root(), file),
+      apply(lines, edits).join("\n")
+    );
+  }
+  if (json) {
+    deps.stdout(
+      `${JSON.stringify({ plan: file, dryRun: options.dryRun, written, changes })}
+`
+    );
+  } else if (changes.length === 0) {
+    deps.stdout(`${options.unchanged} in ${file}
+`);
+  } else {
+    deps.stdout(renderChanges(options.headline(file, options.dryRun), changes));
+  }
+  return 0;
+}
+var planNext = {
+  summary: 'set the single Next: line under the current step (--text "<line>" [--plan N] [--dry-run]) and remove any other, reporting every changed line',
+  options: { plan: "string", text: "string", "dry-run": "boolean" },
+  async run({ json, deps, options }) {
+    const raw = options["text"];
+    const plan2 = options["plan"];
+    const text3 = typeof raw === "string" ? normalize(raw) : "";
+    if (text3 === "") {
+      throw new CommandError(
+        'Missing --text "<line>": say the first concrete action and any state the files cannot show.'
+      );
+    }
+    return await write(deps, json, {
+      planOption: typeof plan2 === "string" ? plan2 : void 0,
+      dryRun: options["dry-run"] === true,
+      headline: (file, dry) => `${dry ? "Would set" : "Set"} Next: in ${file}`,
+      edits: (lines, markdown) => withInsertion(
+        lines,
+        removals(lines),
+        insertion(lines, currentHeading(lines, markdown), text3)
+      ),
+      unchanged: `Next: already reads that way`
+    });
+  }
+};
+var planClearNext = {
+  summary: "remove the Next: line ([--plan N] [--dry-run]) and report every changed line",
+  options: { plan: "string", "dry-run": "boolean" },
+  async run({ json, deps, options }) {
+    const plan2 = options["plan"];
+    return await write(deps, json, {
+      planOption: typeof plan2 === "string" ? plan2 : void 0,
+      dryRun: options["dry-run"] === true,
+      headline: (file, dry) => `${dry ? "Would clear" : "Cleared"} Next: in ${file}`,
+      edits: (lines) => removals(lines),
+      unchanged: "No Next: line to clear"
+    });
+  }
+};
+
+// src/plan/tick.ts
+import { join as join4 } from "node:path";
 
 // src/plan/totals.ts
 var TOTALS = /as of \d{4}-\d{2}-\d{2}: (\d+) local, (\d+) managed(\s+)cluster, (\d+) release(\s+)pipeline/;
@@ -2582,39 +2777,6 @@ function listEdits(lines, step, itemText, date) {
 
 // src/plan/tick.ts
 var OPEN = "- [ ]";
-function normalize(text3) {
-  return text3.replace(/\s+/g, " ").trim();
-}
-function choosePlan(plans, requested) {
-  const names2 = Object.keys(plans);
-  if (requested !== void 0) {
-    const named = /^\d+$/.test(requested) ? names2.filter((n) => n.startsWith(`${requested}-`)) : [];
-    if (named.length > 1) {
-      throw new CommandError(
-        `Plan number "${requested}" is shared by ${named.join(" and ")}. Rename one so each plan number is unique.`
-      );
-    }
-    const name = named[0];
-    if (name === void 0) {
-      throw new CommandError(
-        `No plan numbered "${requested}" in ${PLANS_DIR}. Run \`harness plan active\` to list the plans.`
-      );
-    }
-    return name;
-  }
-  const active = activePlans(plans);
-  if (active.length === 0) {
-    throw new CommandError(
-      `No active plan to tick in: no file in ${PLANS_DIR} has "status: active". Name one with --plan N.`
-    );
-  }
-  if (active.length > 1) {
-    throw new CommandError(
-      `${active.length} plans are active (${active.join(", ")}), so there is no single default. Pass --plan N.`
-    );
-  }
-  return active[0] ?? "";
-}
 function chooseItem(markdown, wanted) {
   const needle = normalize(wanted);
   const checkbox = listItemSpans(markdown).filter(
@@ -2643,29 +2805,11 @@ function tickEdit(lines, item) {
     lines: [`- [x]${first.slice(OPEN.length)}`]
   };
 }
-function apply(lines, edits) {
-  const out = [...lines];
-  for (const edit of [...edits].sort((a, b) => b.start - a.start)) {
-    out.splice(edit.start, edit.end - edit.start, ...edit.lines);
-  }
-  return out;
-}
-function toChanges(lines, edits) {
-  return edits.flatMap((edit) => trimCommon(edit, lines) ?? []).sort((a, b) => a.start - b.start).map((edit) => ({
-    line: edit.start + 1,
-    before: lines.slice(edit.start, edit.end),
-    after: edit.lines
-  }));
-}
 function describe5(file, step, text3, dryRun, changes) {
-  const head = `${dryRun ? "Would tick" : "Ticked"} ${step}: ${text3} in ${file}`;
-  const body = changes.flatMap((c) => [
-    `  line ${c.line}:`,
-    ...c.before.map((l) => `  - ${l}`),
-    ...c.after.map((l) => `  + ${l}`)
-  ]);
-  return `${[head, ...body].join("\n")}
-`;
+  return renderChanges(
+    `${dryRun ? "Would tick" : "Ticked"} ${step}: ${text3} in ${file}`,
+    changes
+  );
 }
 async function tick(deps, json, item, planOption, dryRun) {
   const plans = await readPlans(deps);
@@ -2685,7 +2829,7 @@ async function tick(deps, json, item, planOption, dryRun) {
   const file = `${PLANS_DIR}/${name}`;
   if (!dryRun) {
     await deps.fs.writeFile(
-      join3(await deps.root(), file),
+      join4(await deps.root(), file),
       apply(lines, edits).join("\n")
     );
   }
@@ -3608,7 +3752,12 @@ var version = {
 };
 var domains = {
   harness: { version },
-  plan: { active: planActive, tick: planTick },
+  plan: {
+    active: planActive,
+    tick: planTick,
+    next: planNext,
+    "clear-next": planClearNext
+  },
   adr: adrCommands,
   session,
   skill,
