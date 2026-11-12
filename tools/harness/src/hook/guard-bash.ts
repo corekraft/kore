@@ -100,7 +100,7 @@ function unquotedGlob(command: string): Finding {
 // that matches nothing fails with "no matches found", and a word starting
 // with = is expanded as a command lookup ("== not found"). One finding per rule.
 function zshWords(command: string): Finding[] {
-  const text = shellText(command).replace(/\$\(\([^)]*\)\)/g, "");
+  const text = shellText(command).replace(/\$?\(\([^)]*\)\)/g, "");
   const words = rawWords(text);
   const glob = words.find((w) => w.glob && !w.text.includes("${"));
   const equals = text.includes("[[") ? undefined : words.find((w) => w.equals);

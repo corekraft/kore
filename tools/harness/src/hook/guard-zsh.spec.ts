@@ -96,6 +96,8 @@ it("equals-word: quoted words, assignments, lone =, and [[ ]] tests pass", async
     '[ "$a" = "$b" ]',
     '[[ "$a" == "$b" ]] && echo same',
     "git log --format==%H",
+    "(( a == b ))",
+    "if (( n == 0 )); then :; fi",
   ]) {
     assert.equal((await bash(command)).action, "allow", command);
   }

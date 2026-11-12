@@ -5829,7 +5829,7 @@ function unquotedGlob(command) {
   );
 }
 function zshWords(command) {
-  const text8 = shellText(command).replace(/\$\(\([^)]*\)\)/g, "");
+  const text8 = shellText(command).replace(/\$?\(\([^)]*\)\)/g, "");
   const words2 = rawWords(text8);
   const glob = words2.find((w) => w.glob && !w.text.includes("${"));
   const equals = text8.includes("[[") ? void 0 : words2.find((w) => w.equals);

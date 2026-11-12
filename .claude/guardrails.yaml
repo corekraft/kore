@@ -16,6 +16,6 @@
     { "rule": "idea-issue-close", "kind": "bash", "mode": "audit", "owner": "tools/harness/src/hook/guard-commands.ts" },
     { "rule": "bare-glob", "kind": "bash", "mode": "audit", "owner": "tools/harness/src/hook/guard-bash.ts" },
     { "rule": "equals-word", "kind": "bash", "mode": "enforce", "owner": "tools/harness/src/hook/guard-bash.ts" },
-    { "rule": "guardrail-demotion", "kind": "file", "mode": "audit", "owner": "tools/harness/src/hook/guard-guardrails.ts" }
+    { "rule": "guardrail-demotion", "kind": "bash-and-file", "mode": "audit", "owner": "tools/harness/src/hook/guard-guardrails.ts" }
   ]
 }
