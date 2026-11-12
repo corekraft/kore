@@ -1,3 +1,4 @@
+import { openSharedLedger } from "../ledger/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
 import {
   denyDrift,
@@ -5,24 +6,57 @@ import {
   settingsDeny as currentDeny,
   settingsWithDeny,
 } from "./deny.js";
-import { GuardrailError, INVENTORY_PATH } from "./inventory.js";
+import { GuardrailError, INVENTORY_PATH, type Inventory } from "./inventory.js";
 import { readInventory } from "./read.js";
+import { REQUEST_KIND, pendingRequests, type Pending } from "./requests.js";
 
 const SETTINGS_PATH = ".claude/settings.json";
 
+/** The requests for a person's approval that are still waiting; none when the ledger cannot be opened. */
+async function waiting(
+  context: CommandContext,
+  inventory: Inventory,
+): Promise<Map<string, Pending>> {
+  const ledger = await openSharedLedger(
+    context.deps,
+    typeof context.options["ledger"] === "string"
+      ? context.options["ledger"]
+      : undefined,
+  );
+  if (ledger === undefined) {
+    return new Map();
+  }
+  const { events } = await ledger.list({ kind: REQUEST_KIND });
+  return pendingRequests(inventory, events);
+}
+
 const status: Command = {
-  summary: "list each guardrail with its kind, mode and owner",
-  async run({ json, deps }) {
+  summary:
+    "list each guardrail with its kind, mode and owner, and the request waiting for a person's approval, if any",
+  options: { ledger: "string" },
+  async run(context) {
+    const { json, deps } = context;
     try {
-      const { guardrails } = await readInventory(
+      const inventory = await readInventory(
         (path) => deps.fs.readFile(path),
         await deps.root(),
       );
+      const pending = await waiting(context, inventory);
+      const guardrails = inventory.guardrails.map((g) => {
+        const request = pending.get(g.rule);
+        return request === undefined ? g : { ...g, pending: request };
+      });
       if (json) {
         deps.stdout(`${JSON.stringify({ guardrails })}\n`);
       } else {
         for (const g of guardrails) {
-          deps.stdout(`${g.rule}\t${g.kind}\t${g.mode}\t${g.owner}\n`);
+          const request =
+            "pending" in g
+              ? `\tpending: ${g.pending.to} (idea ${g.pending.idea})`
+              : "";
+          deps.stdout(
+            `${g.rule}\t${g.kind}\t${g.mode}\t${g.owner}${request}\n`,
+          );
         }
       }
       return 0;

@@ -22,3 +22,14 @@ export {
 } from "./deny.js";
 export { findInventory, readInventory } from "./read.js";
 export { guardrailCommands } from "./commands.js";
+export {
+  REQUEST_KIND,
+  TARGETS,
+  direction,
+  isTarget,
+  pendingRequests,
+  requestLabel,
+  type Pending,
+  type Target,
+} from "./requests.js";
+export { marker, renderRequest } from "./request-comment.js";

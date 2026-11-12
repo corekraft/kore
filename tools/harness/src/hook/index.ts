@@ -24,6 +24,8 @@ const guardHook = hookCommand(
   { faultCode: 1 },
 );
 
+export { ruleEvidence } from "./retro-hook.js";
+
 /** The hooks the host runs as `harness hook <name>`; each is a command in this domain. */
 export const hook: Record<string, Command> = {
   context,

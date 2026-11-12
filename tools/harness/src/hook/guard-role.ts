@@ -13,6 +13,7 @@ import { checkDelivery, DELIVERY_ROLES } from "./guard-role-delivery.js";
 import {
   changesShell,
   harnessAllowed,
+  harnessGuardrailStatus,
   harnessStatus,
   readOnly,
   writes,
@@ -101,6 +102,7 @@ function noCodeMayRun(role: string, segment: readonly string[]): boolean {
       role === "challenger" ? CHALLENGER_HARNESS : CONCIERGE_HARNESS,
     ) ||
     harnessStatus(name, args) ||
+    (role === "concierge" && harnessGuardrailStatus(name, args)) ||
     (name === "gh" && ghMayRun(args, false)) ||
     (name === "git" && conciergeGit(args)) ||
     ["date", "echo", "pwd"].includes(name)

@@ -18,6 +18,26 @@ describe("role guard: the concierge's status tool", () => {
     assert.equal(stray.action, "block");
   });
 
+  it("the concierge may read guardrail status, and no other guardrail command may", async () => {
+    for (const words of ["guardrail status", "guardrail status --json"]) {
+      allowed(await bash("concierge", harness(words)));
+      for (const role of ["reader", "challenger"]) {
+        const result = await bash(role, harness(words));
+        assert.equal(result.action, "block", `${role}: ${words}`);
+      }
+    }
+    for (const words of [
+      "guardrail request --rule image-digest --to enforce --idea 1",
+      "guardrail deny --write",
+      "guardrail status --ledger /tmp/x",
+      "guardrail status extra",
+      "guardrail status --json extra",
+    ]) {
+      const result = await bash("concierge", harness(words));
+      assert.equal(result.action, "block", words);
+    }
+  });
+
   it("the concierge has no path to message the orchestrator", async () => {
     for (const command of [
       'herdr pane send-text w3:p1 "hello"',

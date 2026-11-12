@@ -96,6 +96,28 @@ async function auditRules(deps: CliDeps, root: string): Promise<string[]> {
   }
 }
 
+/** One rule's retro-scan row: the same transcripts, window and classification the retrospective uses. */
+export async function ruleEvidence(
+  deps: CliDeps,
+  rule: string,
+  { dir, since }: Args = { dir: undefined, since: undefined },
+) {
+  const root = await deps.root();
+  const found = await transcripts(deps, root, dir);
+  if (typeof found === "string") {
+    throw new CommandError(found.trim());
+  }
+  const effective =
+    since ??
+    (dir ? undefined : (lastRetrospective(await readPlans(deps)) ?? undefined));
+  const row = scan(found.inputs, { since: effective, auditRules: [rule] }).rules
+    .audit[0];
+  if (row === undefined) {
+    throw new CommandError(`The retro scan reported nothing for ${rule}.`);
+  }
+  return row;
+}
+
 async function report(
   deps: CliDeps,
   { dir, since }: Args,
