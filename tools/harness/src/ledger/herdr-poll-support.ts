@@ -31,6 +31,7 @@ export function setup() {
   let tick = 0;
   const clock = {
     now: () => new Date(Date.UTC(2026, 0, 2, 3, 0, tick++)),
+    sleep: () => Promise.resolve(),
   };
   let n = 0;
   const ledger = new Ledger(fs, clock, { next: () => `id-${++n}` }, PATH);
