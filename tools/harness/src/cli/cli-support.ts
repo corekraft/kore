@@ -1,5 +1,6 @@
 import { FakeRunner, type FakeResponse } from "../runtime/runner-support.js";
 import type { CliDeps } from "../runtime/index.js";
+import { MemoryFileSystem } from "../runtime/memory-filesystem-support.js";
 
 export interface TestHarness {
   deps: CliDeps;
@@ -22,7 +23,10 @@ export function testHarness(
   const out: string[] = [];
   const err: string[] = [];
   const runner = new FakeRunner(options.responses);
-  const files = new Map(Object.entries(options.files ?? {}));
+  const memory = new MemoryFileSystem();
+  for (const [path, content] of Object.entries(options.files ?? {})) {
+    memory.files.set(path, content);
+  }
   let time = Date.parse("2026-01-02T03:04:05.000Z");
   const deps: CliDeps = {
     runner,
@@ -33,26 +37,7 @@ export function testHarness(
         return Promise.resolve();
       },
     },
-    fs: {
-      readFile: (path) => {
-        const content = files.get(path);
-        return content === undefined
-          ? Promise.reject(new Error(`ENOENT: ${path}`))
-          : Promise.resolve(content);
-      },
-      writeFile: (path, content) => {
-        files.set(path, content);
-        return Promise.resolve();
-      },
-      createFile: () => Promise.resolve(),
-      appendFile: () => Promise.resolve(),
-      remove: (path) => {
-        files.delete(path);
-        return Promise.resolve();
-      },
-      exists: (path) => Promise.resolve(files.has(path)),
-      readdir: () => Promise.resolve([]),
-    },
+    fs: memory,
     root: () => Promise.resolve("/repo"),
     env: options.env ?? {},
     cwd: "/work/tree",
@@ -63,7 +48,7 @@ export function testHarness(
   };
   return {
     deps,
-    files,
+    files: memory.files,
     runner,
     out: () => out.join(""),
     err: () => err.join(""),

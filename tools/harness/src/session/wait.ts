@@ -1,5 +1,6 @@
 import type { CliDeps, CommandContext } from "../runtime/index.js";
 import { describeFailure } from "./equalize.js";
+import { sessionNameError } from "./names.js";
 import { FAILED, USAGE_ERROR, fail } from "./output.js";
 import { SessionRegistry, type SessionRecord } from "./registry.js";
 
@@ -108,6 +109,10 @@ export async function wait(context: CommandContext): Promise<number> {
       USAGE_ERROR,
       "Missing the session name: session wait <name>.",
     );
+  }
+  const nameError = sessionNameError(name);
+  if (nameError !== undefined) {
+    return fail(deps, json, USAGE_ERROR, nameError);
   }
   const timeout = parseTimeout(options.timeout);
   if (typeof timeout !== "number") {

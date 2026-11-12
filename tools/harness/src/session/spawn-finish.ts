@@ -17,7 +17,7 @@ export async function finish(
   { registry, record, modelCheck, timeoutMs }: Finish,
 ): Promise<number> {
   const { name, paneId, callerPane, model, role, effort } = record;
-  await registry.write(record);
+  await registry.create(record);
   const verdict =
     modelCheck.status === "verified"
       ? "model verified"

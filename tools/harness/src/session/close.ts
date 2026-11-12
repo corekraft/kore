@@ -1,7 +1,11 @@
 import type { CommandContext } from "../runtime/index.js";
 import { describeFailure, equalize } from "./equalize.js";
+import { sessionNameError } from "./names.js";
 import { FAILED, USAGE_ERROR, fail } from "./output.js";
 import { SessionRegistry, type SessionRecord } from "./registry.js";
+
+const NOT_IN_HERDR =
+  "Not inside Herdr (HERDR_ENV is not 1 or HERDR_PANE_ID is unset). Run this from the Herdr pane that spawned the session.";
 
 /** Why this caller may not close the session, or undefined when it may. */
 function refuse(record: SessionRecord, callerPane: string): string | undefined {
@@ -17,6 +21,31 @@ function refuse(record: SessionRecord, callerPane: string): string | undefined {
     : undefined;
 }
 
+/** Marks the session closed, rebalances the column and reports. */
+async function finishClose(
+  { json, deps }: CommandContext,
+  registry: SessionRegistry,
+  record: SessionRecord,
+  callerPane: string,
+): Promise<number> {
+  const { name } = record;
+  await registry.write({ ...record, closedAt: deps.clock.now().toISOString() });
+  const equalized = await equalize(deps.runner, callerPane);
+  const note =
+    equalized.status === "failed"
+      ? `Closed, but equalizing failed: ${equalized.reason}`
+      : undefined;
+  if (note !== undefined) {
+    deps.stderr(`${note}\n`);
+  }
+  deps.stdout(
+    json
+      ? `${JSON.stringify({ name, paneId: record.paneId, closed: true, equalize: equalized })}\n`
+      : `Closed ${name} (pane ${record.paneId}).\n`,
+  );
+  return 0;
+}
+
 /** `session close <name>`: close a pane only if this caller created it and its result is recorded. */
 export async function close(context: CommandContext): Promise<number> {
   const { json, deps } = context;
@@ -29,14 +58,13 @@ export async function close(context: CommandContext): Promise<number> {
       "Missing the session name: session close <name>.",
     );
   }
+  const nameError = sessionNameError(name);
+  if (nameError !== undefined) {
+    return fail(deps, json, USAGE_ERROR, nameError);
+  }
   const callerPane = deps.env.HERDR_PANE_ID;
   if (deps.env.HERDR_ENV !== "1" || !callerPane) {
-    return fail(
-      deps,
-      json,
-      FAILED,
-      "Not inside Herdr (HERDR_ENV is not 1 or HERDR_PANE_ID is unset). Run this from the Herdr pane that spawned the session.",
-    );
+    return fail(deps, json, FAILED, NOT_IN_HERDR);
   }
   const registry = await SessionRegistry.open(deps);
   const record = await registry.read(name);
@@ -65,19 +93,5 @@ export async function close(context: CommandContext): Promise<number> {
       `herdr pane close ${record.paneId} failed: ${describeFailure(closed)}`,
     );
   }
-  await registry.write({ ...record, closedAt: deps.clock.now().toISOString() });
-  const equalized = await equalize(deps.runner, callerPane);
-  const note =
-    equalized.status === "failed"
-      ? `Closed, but equalizing failed: ${equalized.reason}`
-      : undefined;
-  if (note !== undefined) {
-    deps.stderr(`${note}\n`);
-  }
-  deps.stdout(
-    json
-      ? `${JSON.stringify({ name, paneId: record.paneId, closed: true, equalize: equalized })}\n`
-      : `Closed ${name} (pane ${record.paneId}).\n`,
-  );
-  return 0;
+  return await finishClose(context, registry, record, callerPane);
 }

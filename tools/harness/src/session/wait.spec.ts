@@ -188,3 +188,15 @@ describe("session wait recording", () => {
     ).toBe(0);
   });
 });
+
+describe("session wait name validation", () => {
+  it.each(["Bad Name", "../escape", "a/b"])(
+    "rejects the name %j before touching git or the registry",
+    async (name) => {
+      const h = testHarness({ env: INSIDE, responses: [gitCommon] });
+      expect(await run(["session", "wait", name], h.deps)).toBe(2);
+      expect(h.err()).toContain("Session name");
+      expect(h.runner.calls).toEqual([]);
+    },
+  );
+});

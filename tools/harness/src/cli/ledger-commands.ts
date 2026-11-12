@@ -1,4 +1,4 @@
-import { dirname, resolve } from "node:path";
+import { resolve } from "node:path";
 import {
   KINDS,
   Ledger,
@@ -10,7 +10,11 @@ import {
   type ListFilter,
   type Source,
 } from "../ledger/index.js";
-import type { Command, CommandContext } from "../runtime/index.js";
+import {
+  mainRoot,
+  type Command,
+  type CommandContext,
+} from "../runtime/index.js";
 
 /** Relative to the main checkout root: the git-ignored state directory shared with the kore journal. */
 const DEFAULT_LEDGER = ".kore/state/ledger.jsonl";
@@ -55,24 +59,8 @@ async function ledgerPath({
   if (typeof given === "string") {
     return resolve(deps.cwd, given);
   }
-  const override = deps.env["KORE_ROOT"];
-  if (override !== undefined && override !== "") {
-    return resolve(deps.cwd, override, DEFAULT_LEDGER);
-  }
-  // Anchored on this checkout's root, not the working directory.
-  const checkout = await deps.root().catch(() => undefined);
-  if (checkout === undefined) {
-    return undefined;
-  }
-  const git = await deps.runner.run(
-    "git",
-    ["rev-parse", "--path-format=absolute", "--git-common-dir"],
-    { cwd: checkout },
-  );
-  const common = git.stdout.trim();
-  return git.code === 0 && common !== ""
-    ? resolve(dirname(common), DEFAULT_LEDGER)
-    : undefined;
+  const main = await mainRoot(deps);
+  return main === undefined ? undefined : resolve(main, DEFAULT_LEDGER);
 }
 
 export async function openLedger(context: CommandContext): Promise<Opened> {

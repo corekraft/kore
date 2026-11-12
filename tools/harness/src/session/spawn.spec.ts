@@ -101,12 +101,16 @@ describe("session spawn launch", () => {
       responses: [gitCommon, nameFree, layoutOf(), splitReturns("w3:p9")],
     });
     expect(await run([...spawnArgs, "--json"], h.deps)).toBe(0);
-    expect(JSON.parse(h.out())).toMatchObject({
+    expect(JSON.parse(h.out())).toEqual({
       name: "image-trust-writer",
       paneId: "w3:p9",
       model: "claude-sonnet-5-5",
       role: "writer",
       effort: "high",
+      modelCheck: {
+        status: "unverified",
+        reason: expect.stringContaining("Sonnet 5.5") as unknown,
+      },
     });
   });
 

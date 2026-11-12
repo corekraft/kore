@@ -5,7 +5,7 @@ var CommandError = class extends Error {
 // src/runtime/clock.ts
 var systemClock = {
   now: () => /* @__PURE__ */ new Date(),
-  sleep: (ms) => new Promise((resolve5) => setTimeout(resolve5, ms))
+  sleep: (ms) => new Promise((resolve6) => setTimeout(resolve6, ms))
 };
 function localDate(date) {
   const two = (n) => String(n).padStart(2, "0");
@@ -60,7 +60,7 @@ var nodeFileSystem = {
 import { spawn } from "node:child_process";
 var ProcessRunner = class {
   async run(command, args, options = {}) {
-    return await new Promise((resolve5) => {
+    return await new Promise((resolve6) => {
       const child = spawn(command, [...args], {
         ...options.cwd === void 0 ? {} : { cwd: options.cwd },
         stdio: [
@@ -78,10 +78,10 @@ var ProcessRunner = class {
         stderr2 += chunk.toString();
       });
       child.on("error", (error) => {
-        resolve5({ stdout, stderr: error.message, code: 127 });
+        resolve6({ stdout, stderr: error.message, code: 127 });
       });
       child.on("close", (code) => {
-        resolve5({ stdout, stderr: stderr2, code: code ?? 1 });
+        resolve6({ stdout, stderr: stderr2, code: code ?? 1 });
       });
       if (options.input !== void 0) {
         child.stdin?.end(options.input);
@@ -90,8 +90,28 @@ var ProcessRunner = class {
   }
 };
 
+// src/runtime/main-root.ts
+import { dirname as dirname2, resolve } from "node:path";
+async function mainRoot(deps) {
+  const checkout = await deps.root().catch(() => void 0);
+  const override = deps.env["KORE_ROOT"];
+  if (override !== void 0 && override !== "") {
+    return resolve(deps.cwd, override);
+  }
+  if (checkout === void 0) {
+    return void 0;
+  }
+  const git = await deps.runner.run(
+    "git",
+    ["rev-parse", "--path-format=absolute", "--git-common-dir"],
+    { cwd: checkout }
+  );
+  const common = git.stdout.trim();
+  return git.code === 0 && common !== "" ? dirname2(common) : void 0;
+}
+
 // src/runtime/root.ts
-import { dirname as dirname2, join, resolve } from "node:path";
+import { dirname as dirname3, join, resolve as resolve2 } from "node:path";
 import { fileURLToPath } from "node:url";
 var PLANS = "infra/plans";
 async function resolveRoot(env, moduleUrl, exists) {
@@ -105,7 +125,7 @@ async function resolveRoot(env, moduleUrl, exists) {
     );
   }
   const bundle = fileURLToPath(moduleUrl);
-  const root2 = resolve(dirname2(bundle), "../..");
+  const root2 = resolve2(dirname3(bundle), "../..");
   if (await exists(join(root2, PLANS))) {
     return root2;
   }
@@ -356,8 +376,8 @@ function frontmatterLine(lines, key) {
   if (lines[0] !== "---") {
     return -1;
   }
-  const close = lines.indexOf("---", 1);
-  const end = close === -1 ? lines.length : close;
+  const close2 = lines.indexOf("---", 1);
+  const end = close2 === -1 ? lines.length : close2;
   return lines.findIndex((l, i) => i > 0 && i < end && l.startsWith(`${key}:`));
 }
 var Supersession = class {
@@ -923,7 +943,7 @@ var ideaCommands = {
 };
 
 // src/cli/ledger-commands.ts
-import { dirname as dirname3, resolve as resolve2 } from "node:path";
+import { resolve as resolve3 } from "node:path";
 
 // src/ledger/schema.ts
 var SOURCES = ["claude", "herdr", "github"];
@@ -1185,23 +1205,10 @@ async function ledgerPath({
 }) {
   const given = options["ledger"];
   if (typeof given === "string") {
-    return resolve2(deps.cwd, given);
+    return resolve3(deps.cwd, given);
   }
-  const override = deps.env["KORE_ROOT"];
-  if (override !== void 0 && override !== "") {
-    return resolve2(deps.cwd, override, DEFAULT_LEDGER);
-  }
-  const checkout = await deps.root().catch(() => void 0);
-  if (checkout === void 0) {
-    return void 0;
-  }
-  const git = await deps.runner.run(
-    "git",
-    ["rev-parse", "--path-format=absolute", "--git-common-dir"],
-    { cwd: checkout }
-  );
-  const common = git.stdout.trim();
-  return git.code === 0 && common !== "" ? resolve2(dirname3(common), DEFAULT_LEDGER) : void 0;
+  const main = await mainRoot(deps);
+  return main === void 0 ? void 0 : resolve3(main, DEFAULT_LEDGER);
 }
 async function openLedger(context) {
   const path = await ledgerPath(context);
@@ -2005,6 +2012,37 @@ async function equalize(runner, callerPane) {
   return { status: "equalized" };
 }
 
+// src/session/names.ts
+var MAX_LENGTH = 32;
+var ORDINALS = /* @__PURE__ */ new Set([
+  "first",
+  "second",
+  "third",
+  "fourth",
+  "fifth",
+  "sixth",
+  "seventh",
+  "eighth",
+  "ninth",
+  "tenth"
+]);
+var EXAMPLE = "name it for its subject, such as image-trust-reader";
+function isPlaceholderSegment(segment) {
+  return /^[a-z]$/.test(segment) || /^\d{1,2}$/.test(segment) || /^step\d+$/.test(segment) || /^\d+(st|nd|rd|th)$/.test(segment) || ORDINALS.has(segment);
+}
+function sessionNameError(name) {
+  if (!/^[a-z0-9_-]+$/.test(name)) {
+    return `Session name "${name}" must use only lowercase letters, digits, "-" and "_"; ${EXAMPLE}.`;
+  }
+  if (name.length > MAX_LENGTH) {
+    return `Session name "${name}" is ${name.length} characters, but Herdr allows at most ${MAX_LENGTH}; shorten it, for example by dropping the role suffix.`;
+  }
+  if (name.split(/[-_]/).some(isPlaceholderSegment)) {
+    return `Session name "${name}" uses a letter, ordinal or step number; ${EXAMPLE}.`;
+  }
+  return void 0;
+}
+
 // src/session/output.ts
 var USAGE_ERROR = 2;
 var FAILED2 = 1;
@@ -2018,7 +2056,7 @@ function fail(deps, json, code, message) {
 }
 
 // src/session/registry.ts
-import { dirname as dirname4, join as join4, resolve as resolve3 } from "node:path";
+import { join as join4, resolve as resolve4 } from "node:path";
 var STATE_DIR = ".kore/state/sessions";
 function isRecord(value) {
   if (typeof value !== "object" || value === null) {
@@ -2034,20 +2072,15 @@ var SessionRegistry = class _SessionRegistry {
   }
   fs;
   dir;
-  /** Resolves the main checkout from git's common dir, the way every worktree shares it. */
+  /** Keeps state in the main checkout, shared by every worktree (see `mainRoot`). */
   static async open(deps) {
-    const git = await deps.runner.run(
-      "git",
-      ["rev-parse", "--path-format=absolute", "--git-common-dir"],
-      { cwd: deps.cwd }
-    );
-    const common = git.stdout.trim();
-    if (git.code !== 0 || common === "") {
+    const main = await mainRoot(deps);
+    if (main === void 0) {
       throw new CommandError(
-        `Cannot find the main checkout to keep session state in: git rev-parse --git-common-dir failed in ${deps.cwd}. Run this inside the repository.`
+        "Cannot find the main checkout to keep session state in. Run inside the repository or set KORE_ROOT to its root."
       );
     }
-    return new _SessionRegistry(deps.fs, resolve3(dirname4(common), STATE_DIR));
+    return new _SessionRegistry(deps.fs, resolve4(main, STATE_DIR));
   }
   file(name) {
     return join4(this.dir, `${name}.json`);
@@ -2080,9 +2113,37 @@ var SessionRegistry = class _SessionRegistry {
 `
     );
   }
+  /** Why `name` cannot be spawned again: its record exists and is not closed. Undefined when free. */
+  async unavailable(name) {
+    const existing = await this.read(name);
+    return existing === void 0 || existing.closedAt !== void 0 ? void 0 : `A session record for ${name} (pane ${existing.paneId}) already exists and is not closed; run \`session wait ${name}\` then \`session close ${name}\`, or pick another name. No pane was split.`;
+  }
+  /** Records a new session; refuses to replace one that is not closed, even under a race. */
+  async create(record2) {
+    const content = `${JSON.stringify(record2, null, 2)}
+`;
+    try {
+      await this.fs.createFile(this.file(record2.name), content);
+    } catch (error) {
+      if (error.code !== "EEXIST") {
+        throw error;
+      }
+      const reason = await this.unavailable(record2.name);
+      if (reason !== void 0) {
+        throw new CommandError(
+          reason.replace(
+            " No pane was split.",
+            ` Pane ${record2.paneId} is running unrecorded; close it with \`herdr pane close ${record2.paneId}\`.`
+          )
+        );
+      }
+      await this.write(record2);
+    }
+  }
 };
 
 // src/session/close.ts
+var NOT_IN_HERDR = "Not inside Herdr (HERDR_ENV is not 1 or HERDR_PANE_ID is unset). Run this from the Herdr pane that spawned the session.";
 function refuse(record2, callerPane) {
   const { name, paneId } = record2;
   if (record2.closedAt !== void 0) {
@@ -2092,6 +2153,22 @@ function refuse(record2, callerPane) {
     return `Session ${name} was spawned from pane ${record2.callerPane}, not ${callerPane}; only that pane may close it.`;
   }
   return record2.result === void 0 ? `Session ${name} has no recorded result, so pane ${paneId} stays open. Run \`session wait ${name}\` first.` : void 0;
+}
+async function finishClose({ json, deps }, registry, record2, callerPane) {
+  const { name } = record2;
+  await registry.write({ ...record2, closedAt: deps.clock.now().toISOString() });
+  const equalized = await equalize(deps.runner, callerPane);
+  const note = equalized.status === "failed" ? `Closed, but equalizing failed: ${equalized.reason}` : void 0;
+  if (note !== void 0) {
+    deps.stderr(`${note}
+`);
+  }
+  deps.stdout(
+    json ? `${JSON.stringify({ name, paneId: record2.paneId, closed: true, equalize: equalized })}
+` : `Closed ${name} (pane ${record2.paneId}).
+`
+  );
+  return 0;
 }
 async function close(context) {
   const { json, deps } = context;
@@ -2104,14 +2181,13 @@ async function close(context) {
       "Missing the session name: session close <name>."
     );
   }
+  const nameError = sessionNameError(name);
+  if (nameError !== void 0) {
+    return fail(deps, json, USAGE_ERROR, nameError);
+  }
   const callerPane = deps.env.HERDR_PANE_ID;
   if (deps.env.HERDR_ENV !== "1" || !callerPane) {
-    return fail(
-      deps,
-      json,
-      FAILED2,
-      "Not inside Herdr (HERDR_ENV is not 1 or HERDR_PANE_ID is unset). Run this from the Herdr pane that spawned the session."
-    );
+    return fail(deps, json, FAILED2, NOT_IN_HERDR);
   }
   const registry = await SessionRegistry.open(deps);
   const record2 = await registry.read(name);
@@ -2140,19 +2216,7 @@ async function close(context) {
       `herdr pane close ${record2.paneId} failed: ${describeFailure(closed)}`
     );
   }
-  await registry.write({ ...record2, closedAt: deps.clock.now().toISOString() });
-  const equalized = await equalize(deps.runner, callerPane);
-  const note = equalized.status === "failed" ? `Closed, but equalizing failed: ${equalized.reason}` : void 0;
-  if (note !== void 0) {
-    deps.stderr(`${note}
-`);
-  }
-  deps.stdout(
-    json ? `${JSON.stringify({ name, paneId: record2.paneId, closed: true, equalize: equalized })}
-` : `Closed ${name} (pane ${record2.paneId}).
-`
-  );
-  return 0;
+  return await finishClose(context, registry, record2, callerPane);
 }
 
 // src/session/models.ts
@@ -2291,37 +2355,6 @@ async function launch(deps, { role, model, effort, name, brief, paneId, callerPa
   };
 }
 
-// src/session/names.ts
-var MAX_LENGTH = 32;
-var ORDINALS = /* @__PURE__ */ new Set([
-  "first",
-  "second",
-  "third",
-  "fourth",
-  "fifth",
-  "sixth",
-  "seventh",
-  "eighth",
-  "ninth",
-  "tenth"
-]);
-var EXAMPLE = "name it for its subject, such as image-trust-reader";
-function isPlaceholderSegment(segment) {
-  return /^[a-z]$/.test(segment) || /^\d{1,2}$/.test(segment) || /^step\d+$/.test(segment) || /^\d+(st|nd|rd|th)$/.test(segment) || ORDINALS.has(segment);
-}
-function sessionNameError(name) {
-  if (!/^[a-z0-9_-]+$/.test(name)) {
-    return `Session name "${name}" must use only lowercase letters, digits, "-" and "_"; ${EXAMPLE}.`;
-  }
-  if (name.length > MAX_LENGTH) {
-    return `Session name "${name}" is ${name.length} characters, but Herdr allows at most ${MAX_LENGTH}; shorten it, for example by dropping the role suffix.`;
-  }
-  if (name.split(/[-_]/).some(isPlaceholderSegment)) {
-    return `Session name "${name}" uses a letter, ordinal or step number; ${EXAMPLE}.`;
-  }
-  return void 0;
-}
-
 // src/session/wait.ts
 var DEFAULT_TIMEOUT_MS = 60 * 60 * 1e3;
 var POLL_MS = 2e3;
@@ -2396,6 +2429,10 @@ async function wait(context) {
       "Missing the session name: session wait <name>."
     );
   }
+  const nameError = sessionNameError(name);
+  if (nameError !== void 0) {
+    return fail(deps, json, USAGE_ERROR, nameError);
+  }
   const timeout = parseTimeout(options.timeout);
   if (typeof timeout !== "number") {
     return fail(deps, json, USAGE_ERROR, timeout.error);
@@ -2422,7 +2459,7 @@ async function wait(context) {
 // src/session/spawn-finish.ts
 async function finish({ json, deps, options }, { registry, record: record2, modelCheck, timeoutMs }) {
   const { name, paneId, callerPane, model, role, effort } = record2;
-  await registry.write(record2);
+  await registry.create(record2);
   const verdict = modelCheck.status === "verified" ? "model verified" : `model unverified: ${modelCheck.reason}`;
   if (options["no-wait"] === true) {
     deps.stdout(
@@ -2465,6 +2502,11 @@ function check({ deps, options }) {
   const nameError = sessionNameError(given.name);
   if (nameError !== void 0) {
     return usage2(nameError);
+  }
+  if (findResult(given.brief) !== void 0) {
+    return usage2(
+      'The brief has a line that is only a RESULT marker, which would end the wait early. Describe the marker in words instead, such as "end with the word RESULT, a colon, then done or blocked".'
+    );
   }
   const timeoutMs = parseTimeout(options.timeout);
   if (typeof timeoutMs !== "number") {
@@ -2527,7 +2569,7 @@ async function spawn2(context) {
   const { name, model, role, effort } = checked.values;
   const { callerPane } = checked;
   const registry = await SessionRegistry.open(deps);
-  const taken = await nameTakenError(deps, name);
+  const taken = await registry.unavailable(name) ?? await nameTakenError(deps, name);
   if (taken !== void 0) {
     return fail(deps, json, FAILED2, taken);
   }
@@ -2567,7 +2609,7 @@ async function spawn2(context) {
 
 // src/session/index.ts
 var spawnCommand = {
-  summary: "start a Claude session in a Herdr pane and wait for its result (--role --model --effort --name --brief --no-wait --timeout ms)",
+  summary: "start a Claude session in a Herdr pane (--role --model --effort --name --brief --timeout ms); it waits for the result unless --no-wait, the normal pattern: spawn with --no-wait, then run `session wait <name>` in the background",
   options: {
     role: "string",
     model: "string",
@@ -2810,7 +2852,7 @@ function own(table, key) {
 function names(commands) {
   return Object.keys(commands).join(", ");
 }
-function resolve4(domain, name) {
+function resolve5(domain, name) {
   const commands = own(domains, domain);
   if (commands === void 0) {
     return {
@@ -2904,7 +2946,7 @@ async function run(argv, deps) {
       `Put "${early}" after the command: harness <domain> <command> [flags].`
     );
   }
-  const resolved = resolve4(domain, name);
+  const resolved = resolve5(domain, name);
   if ("error" in resolved) {
     return fail2(deps, json, resolved.error);
   }

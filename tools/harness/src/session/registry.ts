@@ -1,5 +1,5 @@
-import { dirname, join, resolve } from "node:path";
-import { CommandError } from "../runtime/index.js";
+import { join, resolve } from "node:path";
+import { CommandError, mainRoot } from "../runtime/index.js";
 import type { CliDeps, FileSystem } from "../runtime/index.js";
 
 export interface SessionResult {
@@ -46,20 +46,15 @@ export class SessionRegistry {
     private readonly dir: string,
   ) {}
 
-  /** Resolves the main checkout from git's common dir, the way every worktree shares it. */
+  /** Keeps state in the main checkout, shared by every worktree (see `mainRoot`). */
   static async open(deps: CliDeps): Promise<SessionRegistry> {
-    const git = await deps.runner.run(
-      "git",
-      ["rev-parse", "--path-format=absolute", "--git-common-dir"],
-      { cwd: deps.cwd },
-    );
-    const common = git.stdout.trim();
-    if (git.code !== 0 || common === "") {
+    const main = await mainRoot(deps);
+    if (main === undefined) {
       throw new CommandError(
-        `Cannot find the main checkout to keep session state in: git rev-parse --git-common-dir failed in ${deps.cwd}. Run this inside the repository.`,
+        "Cannot find the main checkout to keep session state in. Run inside the repository or set KORE_ROOT to its root.",
       );
     }
-    return new SessionRegistry(deps.fs, resolve(dirname(common), STATE_DIR));
+    return new SessionRegistry(deps.fs, resolve(main, STATE_DIR));
   }
 
   private file(name: string): string {
@@ -93,5 +88,35 @@ export class SessionRegistry {
       this.file(record.name),
       `${JSON.stringify(record, null, 2)}\n`,
     );
+  }
+
+  /** Why `name` cannot be spawned again: its record exists and is not closed. Undefined when free. */
+  async unavailable(name: string): Promise<string | undefined> {
+    const existing = await this.read(name);
+    return existing === undefined || existing.closedAt !== undefined
+      ? undefined
+      : `A session record for ${name} (pane ${existing.paneId}) already exists and is not closed; run \`session wait ${name}\` then \`session close ${name}\`, or pick another name. No pane was split.`;
+  }
+
+  /** Records a new session; refuses to replace one that is not closed, even under a race. */
+  async create(record: SessionRecord): Promise<void> {
+    const content = `${JSON.stringify(record, null, 2)}\n`;
+    try {
+      await this.fs.createFile(this.file(record.name), content);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
+        throw error;
+      }
+      const reason = await this.unavailable(record.name);
+      if (reason !== undefined) {
+        throw new CommandError(
+          reason.replace(
+            " No pane was split.",
+            ` Pane ${record.paneId} is running unrecorded; close it with \`herdr pane close ${record.paneId}\`.`,
+          ),
+        );
+      }
+      await this.write(record);
+    }
   }
 }

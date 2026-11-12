@@ -6,7 +6,7 @@ import { wait } from "./wait.js";
 
 const spawnCommand: Command = {
   summary:
-    "start a Claude session in a Herdr pane and wait for its result (--role --model --effort --name --brief --no-wait --timeout ms)",
+    "start a Claude session in a Herdr pane (--role --model --effort --name --brief --timeout ms); it waits for the result unless --no-wait, the normal pattern: spawn with --no-wait, then run `session wait <name>` in the background",
   options: {
     role: "string",
     model: "string",

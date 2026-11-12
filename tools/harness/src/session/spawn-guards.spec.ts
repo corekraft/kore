@@ -154,8 +154,34 @@ describe("session spawn refusals", () => {
     expect(h.err()).toContain('Flag "--role" needs a value');
     expect(h.runner.calls).toEqual([]);
   });
+});
 
-  it("accepts a brief that itself starts with a dash", async () => {
+describe("session spawn brief guard", () => {
+  it.each(["RESULT: done", "  RESULT: blocked  ", "● RESULT: done"])(
+    "rejects a brief with a line that would match the result marker (%j), telling the caller to describe it in words",
+    async (line) => {
+      const h = testHarness({ env: INSIDE });
+      const argv = spawnArgs.map((a) =>
+        a === "Do the thing." ? `Do the thing.\n${line}\nThanks.` : a,
+      );
+      expect(await run(argv, h.deps)).toBe(2);
+      expect(h.err()).toContain("in words");
+      expect(h.runner.calls).toEqual([]);
+    },
+  );
+
+  it("accepts a brief that mentions the marker inside a sentence", async () => {
+    const h = testHarness({
+      env: INSIDE,
+      responses: [gitCommon, nameFree, layoutOf(), splitReturns("w3:p9")],
+    });
+    const argv = spawnArgs.map((a) =>
+      a === "Do the thing." ? "End with RESULT: done when finished." : a,
+    );
+    expect(await run(argv, h.deps)).toBe(0);
+  });
+
+  it("accepts a brief that starts with a dash", async () => {
     const h = testHarness({
       env: INSIDE,
       responses: [gitCommon, nameFree, layoutOf(), splitReturns("w3:p9")],

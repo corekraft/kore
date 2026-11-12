@@ -9,4 +9,5 @@ export {
   type Runner,
 } from "./runner.js";
 export type { CliDeps, Command, CommandContext } from "./command.js";
+export { mainRoot } from "./main-root.js";
 export { resolveRoot } from "./root.js";

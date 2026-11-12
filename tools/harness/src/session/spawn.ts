@@ -10,7 +10,7 @@ import { sessionNameError } from "./names.js";
 import { FAILED, USAGE_ERROR, fail } from "./output.js";
 import { SessionRegistry } from "./registry.js";
 import { finish } from "./spawn-finish.js";
-import { parseTimeout } from "./wait.js";
+import { findResult, parseTimeout } from "./wait.js";
 
 const REQUIRED = ["role", "model", "effort", "name", "brief"] as const;
 
@@ -42,6 +42,11 @@ function check({ deps, options }: CommandContext): Checked {
   const nameError = sessionNameError(given.name);
   if (nameError !== undefined) {
     return usage(nameError);
+  }
+  if (findResult(given.brief) !== undefined) {
+    return usage(
+      'The brief has a line that is only a RESULT marker, which would end the wait early. Describe the marker in words instead, such as "end with the word RESULT, a colon, then done or blocked".',
+    );
   }
   const timeoutMs = parseTimeout(options.timeout);
   if (typeof timeoutMs !== "number") {
@@ -124,7 +129,8 @@ export async function spawn(context: CommandContext): Promise<number> {
   const { callerPane } = checked;
   const registry = await SessionRegistry.open(deps);
 
-  const taken = await nameTakenError(deps, name);
+  const taken =
+    (await registry.unavailable(name)) ?? (await nameTakenError(deps, name));
   if (taken !== undefined) {
     return fail(deps, json, FAILED, taken);
   }

@@ -118,3 +118,15 @@ describe("session close refusals and recording", () => {
     expect(herdrCalls(h)).toEqual([]);
   });
 });
+
+describe("session close name validation", () => {
+  it.each(["Bad Name", "../escape", "a/b"])(
+    "rejects the name %j before touching git or the registry",
+    async (name) => {
+      const h = testHarness({ env: INSIDE, responses: [gitCommon] });
+      expect(await run(["session", "close", name], h.deps)).toBe(2);
+      expect(h.err()).toContain("Session name");
+      expect(h.runner.calls).toEqual([]);
+    },
+  );
+});

@@ -145,3 +145,62 @@ describe("session spawn records and waits", () => {
     expect(herdrCalls(h).some((c) => c.includes("pane read"))).toBe(false);
   });
 });
+
+describe("session spawn record safety", () => {
+  const live = {
+    name: "image-trust-writer",
+    paneId: "w3:p4",
+    callerPane: "w3:p1",
+    model: "claude-sonnet-5-5",
+  };
+
+  it("refuses a name whose record is not closed, before splitting any pane", async () => {
+    const h = testHarness({
+      env: INSIDE,
+      files: { [stateFile("image-trust-writer")]: JSON.stringify(live) },
+      responses: base,
+    });
+    expect(await run(spawnArgs, h.deps)).toBe(1);
+    expect(h.err()).toContain("session close");
+    expect(herdrCalls(h).some((c) => c.includes("pane split"))).toBe(false);
+  });
+
+  it("reuses the name of a closed session", async () => {
+    const closed = { ...live, closedAt: "2026-01-01T00:00:00.000Z" };
+    const h = testHarness({
+      env: INSIDE,
+      files: { [stateFile("image-trust-writer")]: JSON.stringify(closed) },
+      responses: base,
+    });
+    expect(await run(spawnArgs, h.deps)).toBe(0);
+    const stored = JSON.parse(
+      h.files.get(stateFile("image-trust-writer")) ?? "null",
+    ) as { paneId: string };
+    expect(stored.paneId).toBe("w3:p9");
+  });
+
+  it("never overwrites a record that appeared after the early check", async () => {
+    const h = testHarness({ env: INSIDE, responses: base });
+    const create = h.deps.fs.createFile.bind(h.deps.fs);
+    h.deps.fs.createFile = async (path, content) => {
+      h.files.set(path, JSON.stringify(live));
+      return await create(path, content);
+    };
+    expect(await run(spawnArgs, h.deps)).toBe(1);
+    expect(h.err()).toContain("w3:p9");
+    expect(h.err()).toContain("herdr pane close w3:p9");
+    const stored = JSON.parse(
+      h.files.get(stateFile("image-trust-writer")) ?? "null",
+    ) as { paneId: string };
+    expect(stored.paneId).toBe("w3:p4");
+  });
+});
+
+describe("session usage", () => {
+  it("documents --no-wait plus a background `session wait` as the way to run sessions in parallel", async () => {
+    const h = testHarness();
+    await run(["--help"], h.deps);
+    expect(h.out()).toMatch(/session spawn .*--no-wait.*session wait/s);
+    expect(h.out()).toContain("session close");
+  });
+});
