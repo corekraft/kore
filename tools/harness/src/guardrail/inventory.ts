@@ -87,6 +87,14 @@ function checkDeny(where: string, deny: unknown, kind: GuardrailKind): void {
   }
   for (const pattern of patterns as string[]) {
     const bash = pattern.startsWith("Bash(");
+    const body = pattern.slice(pattern.indexOf("(") + 1, -1);
+    if (bash && body.endsWith(":*") && body.slice(0, -2).includes("*")) {
+      fail(
+        `${where}.deny holds ${pattern}, which mixes a mid-pattern * with a trailing :*. ` +
+          "Claude Code reads that as a literal prefix, so the rule matches less than it appears to. " +
+          "Instead, drop the :* and end the pattern with *",
+      );
+    }
     if (bash ? kind === "file" : kind === "bash") {
       fail(
         `${where}.deny holds ${pattern}, which does not fit its kind "${kind}"`,

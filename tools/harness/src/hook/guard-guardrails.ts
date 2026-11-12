@@ -1,6 +1,6 @@
 // The guardrail inventory protects itself: an edit that turns an enforced rule
-// into audit weakens the guard, and turning a rule's mode needs a person's
-// approval (ADR 0080). Audit mode (warn) until the owner approves enforcing it;
+// into audit, or removes, narrows or renames a deny pattern, weakens the guard,
+// and changing either needs a person's approval (ADR 0080). Audit mode (warn) until the owner approves enforcing it;
 // promoting this rule is a one-line mode edit in the inventory.
 import { INVENTORY_PATH } from "../guardrail/index.js";
 import { writtenPath } from "./guard-append-only.js";
@@ -14,12 +14,45 @@ const text = (value: unknown): string =>
 // A one-line entry: the rule name, then its mode.
 const ENTRY =
   /"rule"\s*:\s*"([a-z0-9-]+)"[^}]*?"mode"\s*:\s*"(audit|enforce)"/g;
+// A one-line entry as a whole, to read its deny patterns.
+const OBJECT = /\{[^{}]*"rule"\s*:\s*"([a-z0-9-]+)"[^{}]*\}/g;
+const DENY = /"deny"\s*:\s*\[([^\]]*)\]/;
 const MODE = /"mode"\s*:\s*"(audit|enforce)"/g;
 
 const modes = (source: string): Map<string, string> =>
   new Map(
     [...source.matchAll(ENTRY)].map((m) => [m[1] as string, m[2] as string]),
   );
+
+/** Each rule's deny patterns; a rule without a deny list is absent. */
+function denies(source: string): Map<string, string[]> {
+  const found = new Map<string, string[]>();
+  for (const [object, rule] of source.matchAll(OBJECT)) {
+    const list = DENY.exec(object)?.[1];
+    if (list !== undefined) {
+      found.set(
+        rule as string,
+        [...list.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((m) => m[1] as string),
+      );
+    }
+  }
+  return found;
+}
+
+/**
+ * Deny rules the change weakens: an entry removed or renamed, or a pattern it
+ * no longer holds verbatim. A pattern that changed cannot be told narrower
+ * from different, so it counts; adding a pattern does not.
+ */
+function weakened(previous: string, after: string): string[] {
+  const now = denies(after);
+  return [...denies(previous)]
+    .filter(([rule, patterns]) => {
+      const kept = now.get(rule);
+      return kept === undefined || patterns.some((p) => !kept.includes(p));
+    })
+    .map(([rule]) => rule);
+}
 
 const count = (source: string, mode: string): number =>
   [...source.matchAll(MODE)].filter((m) => m[1] === mode).length;
@@ -52,13 +85,24 @@ export function checkGuardrailDemotion(
   }
   const after = text(tool === "Edit" ? input["new_string"] : input["content"]);
   const rules = demoted(previous, after);
-  if (rules.length === 0) {
+  const weak = weakened(previous, after);
+  if (rules.length === 0 && weak.length === 0) {
     return null;
   }
+  const problems = [
+    ...(rules.length > 0
+      ? [`turns ${rules.join(", ")} from enforce to audit by hand`]
+      : []),
+    ...(weak.length > 0
+      ? [
+          `removes, narrows or renames the deny patterns of ${weak.join(", ")} by hand`,
+        ]
+      : []),
+  ];
   return warn(
     "guardrail-demotion",
-    `${relative} turns ${rules.join(", ")} from enforce to audit by hand. A person approves a guardrail's mode (ADR 0080). ` +
-      "Instead, leave the mode and ask the user to approve the change, or promote a rule from audit to enforce.",
+    `${relative} ${problems.join(" and ")}. A person approves a guardrail's mode and deny patterns (ADR 0080). ` +
+      "Instead, leave them and ask the user to approve the change, or promote a rule from audit to enforce.",
   );
 }
 

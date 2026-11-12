@@ -1,5 +1,10 @@
-import type { Command } from "../runtime/index.js";
-import { denyDrift, denyList, settingsWithDeny } from "./deny.js";
+import type { Command, CommandContext } from "../runtime/index.js";
+import {
+  denyDrift,
+  denyList,
+  settingsDeny as currentDeny,
+  settingsWithDeny,
+} from "./deny.js";
 import { GuardrailError, INVENTORY_PATH } from "./inventory.js";
 import { readInventory } from "./read.js";
 
@@ -33,10 +38,37 @@ const status: Command = {
   },
 };
 
+/** Regenerates the settings deny list; a pattern that would leave it needs --allow-removal. */
+async function writeDeny(
+  deps: CommandContext["deps"],
+  path: string,
+  list: string[],
+  allowRemoval: boolean,
+): Promise<void> {
+  const current = await deps.fs.readFile(path);
+  const leaving = currentDeny(current).filter((p) => !list.includes(p));
+  if (leaving.length > 0) {
+    deps.stderr(
+      `${SETTINGS_PATH}: these patterns would leave the deny list: ${leaving.join(", ")}.\n`,
+    );
+    if (!allowRemoval) {
+      throw new GuardrailError(
+        "Removing a deny rule weakens the guard. Instead, restore the rule in the inventory, " +
+          "or rerun with --allow-removal once the user has approved it.",
+      );
+    }
+  }
+  await deps.fs.writeFile(path, settingsWithDeny(current, list));
+}
+
 const deny: Command = {
   summary:
     "print the settings deny list generated from the enforced deny rules; --check fails when settings differ, --write regenerates them",
-  options: { check: "boolean", write: "boolean" },
+  options: {
+    check: "boolean",
+    write: "boolean",
+    "allow-removal": "boolean",
+  },
   async run({ json, options, deps }) {
     const report = (problems: string[], message: string): number => {
       deps.stdout(json ? `${JSON.stringify({ problems })}\n` : "");
@@ -54,10 +86,7 @@ const deny: Command = {
       const list = denyList(inventory);
       const path = `${root}/${SETTINGS_PATH}`;
       if (options["write"] === true) {
-        await deps.fs.writeFile(
-          path,
-          settingsWithDeny(await deps.fs.readFile(path), list),
-        );
+        await writeDeny(deps, path, list, options["allow-removal"] === true);
       } else if (options["check"] === true) {
         const problems = denyDrift(inventory, await deps.fs.readFile(path));
         return problems.length === 0

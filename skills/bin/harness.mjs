@@ -671,6 +671,12 @@ function checkDeny(where, deny2, kind) {
   }
   for (const pattern of patterns) {
     const bash = pattern.startsWith("Bash(");
+    const body = pattern.slice(pattern.indexOf("(") + 1, -1);
+    if (bash && body.endsWith(":*") && body.slice(0, -2).includes("*")) {
+      fail(
+        `${where}.deny holds ${pattern}, which mixes a mid-pattern * with a trailing :*. Claude Code reads that as a literal prefix, so the rule matches less than it appears to. Instead, drop the :* and end the pattern with *`
+      );
+    }
     if (bash ? kind === "file" : kind === "bash") {
       fail(
         `${where}.deny holds ${pattern}, which does not fit its kind "${kind}"`
@@ -742,9 +748,12 @@ function parseSettings(text10) {
     );
   }
 }
-function denyDrift(inventory, settingsText) {
+function settingsDeny(settingsText) {
   const permissions = parseSettings(settingsText).permissions;
-  const actual = Array.isArray(permissions?.deny) ? permissions.deny : [];
+  return Array.isArray(permissions?.deny) ? permissions.deny : [];
+}
+function denyDrift(inventory, settingsText) {
+  const actual = settingsDeny(settingsText);
   const expected = denyList(inventory);
   const problems = [
     ...expected.filter((p) => !actual.includes(p)).map((p) => `${p} is missing from the settings deny list`),
@@ -831,9 +840,29 @@ var status = {
     }
   }
 };
+async function writeDeny(deps, path, list3, allowRemoval) {
+  const current = await deps.fs.readFile(path);
+  const leaving = settingsDeny(current).filter((p) => !list3.includes(p));
+  if (leaving.length > 0) {
+    deps.stderr(
+      `${SETTINGS_PATH}: these patterns would leave the deny list: ${leaving.join(", ")}.
+`
+    );
+    if (!allowRemoval) {
+      throw new GuardrailError(
+        "Removing a deny rule weakens the guard. Instead, restore the rule in the inventory, or rerun with --allow-removal once the user has approved it."
+      );
+    }
+  }
+  await deps.fs.writeFile(path, settingsWithDeny(current, list3));
+}
 var deny = {
   summary: "print the settings deny list generated from the enforced deny rules; --check fails when settings differ, --write regenerates them",
-  options: { check: "boolean", write: "boolean" },
+  options: {
+    check: "boolean",
+    write: "boolean",
+    "allow-removal": "boolean"
+  },
   async run({ json, options, deps }) {
     const report3 = (problems, message) => {
       deps.stdout(json ? `${JSON.stringify({ problems })}
@@ -853,10 +882,7 @@ var deny = {
       const list3 = denyList(inventory);
       const path = `${root3}/${SETTINGS_PATH}`;
       if (options["write"] === true) {
-        await deps.fs.writeFile(
-          path,
-          settingsWithDeny(await deps.fs.readFile(path), list3)
-        );
+        await writeDeny(deps, path, list3, options["allow-removal"] === true);
       } else if (options["check"] === true) {
         const problems = denyDrift(inventory, await deps.fs.readFile(path));
         return problems.length === 0 ? 0 : report3(
@@ -5463,10 +5489,32 @@ function writtenPath(name, args, segment, matches2) {
 // src/hook/guard-guardrails.ts
 var text7 = (value) => typeof value === "string" ? value : "";
 var ENTRY = /"rule"\s*:\s*"([a-z0-9-]+)"[^}]*?"mode"\s*:\s*"(audit|enforce)"/g;
+var OBJECT = /\{[^{}]*"rule"\s*:\s*"([a-z0-9-]+)"[^{}]*\}/g;
+var DENY = /"deny"\s*:\s*\[([^\]]*)\]/;
 var MODE = /"mode"\s*:\s*"(audit|enforce)"/g;
 var modes = (source) => new Map(
   [...source.matchAll(ENTRY)].map((m) => [m[1], m[2]])
 );
+function denies(source) {
+  const found = /* @__PURE__ */ new Map();
+  for (const [object, rule] of source.matchAll(OBJECT)) {
+    const list3 = DENY.exec(object)?.[1];
+    if (list3 !== void 0) {
+      found.set(
+        rule,
+        [...list3.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((m) => m[1])
+      );
+    }
+  }
+  return found;
+}
+function weakened(previous, after) {
+  const now = denies(after);
+  return [...denies(previous)].filter(([rule, patterns]) => {
+    const kept = now.get(rule);
+    return kept === void 0 || patterns.some((p) => !kept.includes(p));
+  }).map(([rule]) => rule);
+}
 var count2 = (source, mode) => [...source.matchAll(MODE)].filter((m) => m[1] === mode).length;
 function demoted(previous, after) {
   const was = modes(previous);
@@ -5483,12 +5531,19 @@ function checkGuardrailDemotion(tool, input, relative3, previous) {
   }
   const after = text7(tool === "Edit" ? input["new_string"] : input["content"]);
   const rules2 = demoted(previous, after);
-  if (rules2.length === 0) {
+  const weak = weakened(previous, after);
+  if (rules2.length === 0 && weak.length === 0) {
     return null;
   }
+  const problems = [
+    ...rules2.length > 0 ? [`turns ${rules2.join(", ")} from enforce to audit by hand`] : [],
+    ...weak.length > 0 ? [
+      `removes, narrows or renames the deny patterns of ${weak.join(", ")} by hand`
+    ] : []
+  ];
   return warn(
     "guardrail-demotion",
-    `${relative3} turns ${rules2.join(", ")} from enforce to audit by hand. A person approves a guardrail's mode (ADR 0080). Instead, leave the mode and ask the user to approve the change, or promote a rule from audit to enforce.`
+    `${relative3} ${problems.join(" and ")}. A person approves a guardrail's mode and deny patterns (ADR 0080). Instead, leave them and ask the user to approve the change, or promote a rule from audit to enforce.`
   );
 }
 var INVENTORY_TARGET = /(^|[/\s>'"=])\.claude\/guardrails\.yaml$/;

@@ -61,7 +61,14 @@ describe("a deny rule in audit mode", () => {
       withMode("audit"),
       "/repo",
     );
-    expect(result.out).toMatch(/deny-example-read/);
+    expect(result.code).toBe(0);
+    expect(result.err).toBe("");
+    const output = JSON.parse(result.out).hookSpecificOutput;
+    expect(output.additionalContext).toMatch(/deny-example-read/);
+    expect(output.permissionDecision).toBeUndefined();
+    expect(auditEvents(result.events)).toMatchObject([
+      { label: "deny-example-read" },
+    ]);
   });
 });
 

@@ -21,12 +21,12 @@
     { "rule": "bare-glob", "kind": "bash", "mode": "audit", "owner": "tools/harness/src/hook/guard-bash.ts" },
     { "rule": "equals-word", "kind": "bash", "mode": "enforce", "owner": "tools/harness/src/hook/guard-bash.ts" },
     { "rule": "guardrail-demotion", "kind": "bash-and-file", "mode": "audit", "owner": "tools/harness/src/hook/guard-guardrails.ts" },
-    { "rule": "deny-cluster-delete", "kind": "bash", "mode": "enforce", "owner": ".claude/settings.json", "deny": ["Bash(minikube delete:*)", "Bash(k3d cluster delete:*)", "Bash(k3d * cluster delete*)", "Bash(k3d cluster * delete*)"] },
-    { "rule": "deny-iac-destroy", "kind": "bash", "mode": "enforce", "owner": ".claude/settings.json", "deny": ["Bash(tofu destroy:*)", "Bash(terraform destroy:*)"] },
-    { "rule": "deny-helm-uninstall", "kind": "bash", "mode": "enforce", "owner": ".claude/settings.json", "deny": ["Bash(helm uninstall:*)"] },
-    { "rule": "deny-namespace-delete", "kind": "bash", "mode": "enforce", "owner": ".claude/settings.json", "deny": ["Bash(kubectl delete namespace:*)", "Bash(kubectl delete ns:*)"] },
-    { "rule": "deny-kore-destroy", "kind": "bash", "mode": "enforce", "owner": ".claude/settings.json", "deny": ["Bash(kore * destroy)", "Bash(kore * destroy *)", "Bash(./bin/kore * destroy)", "Bash(./bin/kore * destroy *)"] },
-    { "rule": "deny-read-keys", "kind": "file", "mode": "enforce", "owner": ".claude/settings.json", "deny": ["Read(./.kore/keys/**)"] },
-    { "rule": "deny-read-tokens", "kind": "file", "mode": "enforce", "owner": ".claude/settings.json", "deny": ["Read(./.kore/state/*token*)"] }
+    { "rule": "deny-cluster-delete", "kind": "bash", "mode": "enforce", "owner": "tools/harness/src/guardrail/deny.ts", "deny": ["Bash(minikube delete:*)", "Bash(k3d cluster delete:*)", "Bash(k3d * cluster delete*)", "Bash(k3d cluster * delete*)"] },
+    { "rule": "deny-iac-destroy", "kind": "bash", "mode": "enforce", "owner": "tools/harness/src/guardrail/deny.ts", "deny": ["Bash(tofu destroy:*)", "Bash(terraform destroy:*)"] },
+    { "rule": "deny-helm-uninstall", "kind": "bash", "mode": "enforce", "owner": "tools/harness/src/guardrail/deny.ts", "deny": ["Bash(helm uninstall:*)"] },
+    { "rule": "deny-namespace-delete", "kind": "bash", "mode": "enforce", "owner": "tools/harness/src/guardrail/deny.ts", "deny": ["Bash(kubectl delete namespace:*)", "Bash(kubectl delete ns:*)"] },
+    { "rule": "deny-kore-destroy", "kind": "bash", "mode": "enforce", "owner": "tools/harness/src/guardrail/deny.ts", "deny": ["Bash(kore * destroy)", "Bash(kore * destroy *)", "Bash(./bin/kore * destroy)", "Bash(./bin/kore * destroy *)"] },
+    { "rule": "deny-read-keys", "kind": "file", "mode": "enforce", "owner": "tools/harness/src/guardrail/deny.ts", "deny": ["Read(./.kore/keys/**)"] },
+    { "rule": "deny-read-tokens", "kind": "file", "mode": "enforce", "owner": "tools/harness/src/guardrail/deny.ts", "deny": ["Read(./.kore/state/*token*)"] }
   ]
 }

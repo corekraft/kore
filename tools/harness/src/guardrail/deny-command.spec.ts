@@ -79,11 +79,35 @@ describe("guardrail deny --check", () => {
 
 describe("guardrail deny --write", () => {
   it("regenerates the list in settings and keeps every other key", async () => {
-    const result = await deny(["Bash(hand:*)"], ["--write"]);
+    const result = await deny(["Bash(hand:*)"], ["--write", "--allow-removal"]);
     expect(result.code).toBe(0);
     expect(JSON.parse(result.files.get(SETTINGS) ?? "")).toEqual({
       permissions: { allow: ["Bash(ls)"], deny: generated },
     });
+  });
+
+  it("refuses to shrink settings, naming each pattern that would leave", async () => {
+    const hand = ["Bash(hand:*)", ...generated.slice(0, 3)];
+    const result = await deny(hand, ["--write"]);
+    expect(result.code).toBe(1);
+    expect(result.err).toMatch(/Bash\(hand:\*\)/);
+    expect(result.err).toMatch(/--allow-removal/);
+    expect(result.files.get(SETTINGS)).toBe(settings(hand));
+  });
+
+  it("removes patterns with --allow-removal and says which left", async () => {
+    const result = await deny(["Bash(hand:*)"], ["--write", "--allow-removal"]);
+    expect(result.code).toBe(0);
+    expect(result.err).toMatch(/Bash\(hand:\*\)/);
+  });
+
+  it("needs no confirmation when settings only gain patterns", async () => {
+    const result = await deny(generated.slice(0, 3), ["--write"]);
+    expect(result.code).toBe(0);
+    expect(result.err).toBe("");
+    expect(
+      JSON.parse(result.files.get(SETTINGS) ?? "").permissions.deny,
+    ).toEqual(generated);
   });
 
   it("refuses --check and --write together", async () => {

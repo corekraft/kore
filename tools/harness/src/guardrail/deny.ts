@@ -73,17 +73,20 @@ function parseSettings(text: string): unknown {
   }
 }
 
+/** The deny patterns the settings hold today. */
+export function settingsDeny(settingsText: string): string[] {
+  const permissions = (
+    parseSettings(settingsText) as { permissions?: { deny?: unknown } }
+  ).permissions;
+  return Array.isArray(permissions?.deny) ? (permissions.deny as string[]) : [];
+}
+
 /** Problems with the settings deny list against the generated one; none when it is untouched. */
 export function denyDrift(
   inventory: Inventory,
   settingsText: string,
 ): string[] {
-  const permissions = (
-    parseSettings(settingsText) as { permissions?: { deny?: unknown } }
-  ).permissions;
-  const actual = Array.isArray(permissions?.deny)
-    ? (permissions.deny as string[])
-    : [];
+  const actual = settingsDeny(settingsText);
   const expected = denyList(inventory);
   const problems = [
     ...expected

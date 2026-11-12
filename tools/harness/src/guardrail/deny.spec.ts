@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { GuardrailError, parseInventory } from "./inventory.js";
 import { denyDrift, denyList, denyMatches, settingsWithDeny } from "./deny.js";
@@ -70,12 +70,26 @@ describe("the generated deny list", () => {
   });
 });
 
+describe("the committed deny rules", () => {
+  it("name the module that generates them as their owner, and it exists", () => {
+    for (const g of committedInventory.guardrails.filter((r) => r.deny)) {
+      expect(g.owner).toBe("tools/harness/src/guardrail/deny.ts");
+      expect(existsSync(`${repo}${g.owner}`)).toBe(true);
+    }
+  });
+});
+
 describe("deny rules in the inventory", () => {
   it.each([
     ["an empty deny list", rule({ deny: [] }), /deny/],
     ["a pattern that is not a permission rule", rule({ deny: ["x"] }), /deny/],
     ["a Bash pattern on a file rule", rule({ kind: "file" }), /kind/],
     ["a Read pattern on a bash rule", rule({ deny: ["Read(a)"] }), /kind/],
+    [
+      "a mid-pattern wildcard with a trailing :*",
+      rule({ deny: ["Bash(k3d * cluster:*)"] }),
+      /:\*/,
+    ],
   ])("rejects %s", (_, bad, message) => {
     expect(() => inventory(bad)).toThrow(GuardrailError);
     expect(() => inventory(bad)).toThrow(message);
