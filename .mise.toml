@@ -109,6 +109,10 @@ run = "osv-scanner scan source -L tools/kore/package-lock.json -L tools/harness/
 description = "Run the committed Semgrep rules (infra/policies/semgrep) over source; offline, no telemetry; tests are not scanned"
 run = "semgrep scan --metrics=off --disable-version-check --config infra/policies/semgrep/kore-node.yaml --error --exclude '*.spec.ts' --exclude '*.test.ts' --exclude '*.test.mjs' --exclude node_modules tools/kore/src tools/harness/src apps .claude"
 
+[tasks.scan-sast-audit]
+description = "Report the audit-mode Semgrep rules (kore-audit.yaml) over the harness; never fails the build"
+run = "semgrep scan --metrics=off --disable-version-check --config infra/policies/semgrep/kore-audit.yaml --exclude '*.spec.ts' --exclude '*.test.ts' --exclude node_modules tools/harness/src"
+
 [tasks.scan-sast-test]
 description = "Run the Semgrep rule tests beside the rules"
 run = "semgrep --test --metrics=off --disable-version-check infra/policies/semgrep"
@@ -123,4 +127,4 @@ run = "hadolint apps/reference/Dockerfile"
 
 [tasks.scan]
 description = "Run every security and quality scan"
-depends = ["scan-secrets", "scan-vulns", "scan-sast-test", "scan-sast", "scan-workflows", "scan-dockerfiles"]
+depends = ["scan-secrets", "scan-vulns", "scan-sast-test", "scan-sast", "scan-sast-audit", "scan-workflows", "scan-dockerfiles"]
