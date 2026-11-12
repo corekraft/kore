@@ -30,14 +30,14 @@ test("a component without the helm option waits for its resources", async () => 
   );
 });
 
-test("a component that opts out waits for hooks only and still rolls back on failure", async () => {
+test("a component that opts out waits for hooks only and never sets rollback-on-failure, which would restore the wait", async () => {
   const { repository, component: config } = await component(
     "kore-observability-config",
   );
   const args = helmUpgradeArgs(repository, { ...config, helm: noWait });
   assert.ok(args.includes("--wait=hookOnly"));
   assert.equal(args.includes("--wait"), false);
-  assert.ok(args.includes("--rollback-on-failure"));
+  assert.equal(args.includes("--rollback-on-failure"), false);
 });
 
 test("the observability config release does not wait on the Tempo claim", async () => {

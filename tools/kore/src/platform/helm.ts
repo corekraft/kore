@@ -79,7 +79,9 @@ export function helmUpgradeArgs(
     component.helm?.wait === false ? "--wait=hookOnly" : "--wait",
     "--timeout",
     component.timeout,
-    "--rollback-on-failure",
+    // Helm 4 turns --rollback-on-failure back into a resource wait, so a
+    // component that skips the wait cannot also roll back automatically.
+    ...(component.helm?.wait === false ? [] : ["--rollback-on-failure"]),
     ...(component.helm?.forceConflicts ? ["--force-conflicts"] : []),
     ...chartSelectionArgs(repository, component),
   ];

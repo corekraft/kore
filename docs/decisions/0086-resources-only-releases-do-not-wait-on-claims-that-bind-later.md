@@ -24,7 +24,9 @@ release timed out on every first run.
 
 The claim stays in the config release. A catalog component may set
 `helm: {wait: false, reason}`; `helmUpgradeArgs` then passes `--wait=hookOnly`,
-so Helm waits for hooks only and still rolls back a failed upgrade. Only
+so Helm waits for hooks only. It omits `--rollback-on-failure` for that
+component, because Helm 4 turns that flag back into a resource wait (seen live);
+a failed release is recovered by the existing failed-release handling. Only
 `kore-observability-config` sets it. Tempo keeps its normal wait and its
 `statefulset/tempo` readiness check, which cannot pass until the volume binds,
 so the volume is still proven before the platform is ready.
