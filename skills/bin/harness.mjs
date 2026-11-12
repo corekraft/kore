@@ -256,14 +256,14 @@ function headings(markdown) {
       fence = opener === fence ? null : fence ?? opener;
       continue;
     }
-    const text8 = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(line2)?.[1];
-    if (text8 === void 0) {
+    const text9 = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(line2)?.[1];
+    if (text9 === void 0) {
       continue;
     }
-    const base = headingSlug(text8);
+    const base = headingSlug(text9);
     const count3 = seen.get(base) ?? 0;
     seen.set(base, count3 + 1);
-    found.push({ text: text8, anchor: count3 > 0 ? `${base}-${count3}` : base });
+    found.push({ text: text9, anchor: count3 > 0 ? `${base}-${count3}` : base });
   }
   return found;
 }
@@ -323,7 +323,7 @@ var Adrs = class {
       files: [
         {
           path,
-          lines: body.slice(0, -1).map((text8, i) => ({ number: i + 1, text: text8 }))
+          lines: body.slice(0, -1).map((text9, i) => ({ number: i + 1, text: text9 }))
         },
         { path: INDEX, lines: [{ number: index.line, text: entry2 }] }
       ]
@@ -341,8 +341,8 @@ var Adrs = class {
     return this.fs.readFile(this.abs(INDEX));
   }
   /** Puts the entry before the first later-numbered ADR line, else after the last one. */
-  insert(text8, next, entry2) {
-    const lines2 = text8.split("\n");
+  insert(text9, next, entry2) {
+    const lines2 = text9.split("\n");
     const start = lines2.indexOf("## Decisions");
     if (start === -1) {
       throw new AdrError(
@@ -482,9 +482,9 @@ var Supersession = class {
       files: [
         {
           path: oldAdr.path,
-          lines: changed.map((text8, i) => ({
+          lines: changed.map((text9, i) => ({
             number: oldAdr.statusLine + 1 + i,
-            text: text8
+            text: text9
           }))
         }
       ]
@@ -658,10 +658,10 @@ function entry(raw, index) {
   }
   return fields;
 }
-function parseInventory(text8) {
+function parseInventory(text9) {
   let value;
   try {
-    value = JSON.parse(text8);
+    value = JSON.parse(text9);
   } catch {
     return fail("is not JSON-compatible YAML");
   }
@@ -689,9 +689,9 @@ function auditRuleNames(inventory) {
 // src/guardrail/read.ts
 import { dirname as dirname4 } from "node:path";
 async function readInventory(readFile2, root3) {
-  let text8;
+  let text9;
   try {
-    text8 = await readFile2(`${root3}/${INVENTORY_PATH}`);
+    text9 = await readFile2(`${root3}/${INVENTORY_PATH}`);
   } catch (error) {
     if (error.code !== "ENOENT") {
       throw error;
@@ -700,7 +700,7 @@ async function readInventory(readFile2, root3) {
       `${INVENTORY_PATH} is missing, so no guard rule has a declared mode. Restore it from git, then rerun.`
     );
   }
-  return parseInventory(text8);
+  return parseInventory(text9);
 }
 async function findInventory(readFile2, start) {
   let dir = start;
@@ -1442,10 +1442,10 @@ function parseCost(file, cost) {
     }
   };
 }
-function parseHarnessConfig(text8, file) {
+function parseHarnessConfig(text9, file) {
   let value;
   try {
-    value = JSON.parse(text8);
+    value = JSON.parse(text9);
   } catch {
     return { error: `Invalid ${file}: it is not valid JSON. Fix the syntax.` };
   }
@@ -1700,8 +1700,8 @@ function parseEvent(input, mode) {
 // src/ledger/github-poll.ts
 var LIMIT = 1e3;
 var describe2 = (code, stdout, stderr2) => {
-  const text8 = `${stderr2}${stdout}`.trim();
-  return text8 === "" ? `exit code ${code}` : `exit code ${code}: ${text8}`;
+  const text9 = `${stderr2}${stdout}`.trim();
+  return text9 === "" ? `exit code ${code}` : `exit code ${code}: ${text9}`;
 };
 var RATE_LIMITED = /rate limit|HTTP 403|HTTP 429/i;
 async function resetTime(gh) {
@@ -1909,8 +1909,8 @@ var STATUS_KIND = {
   done: "pane.waiting"
 };
 function describe3(code, stdout, stderr2) {
-  const text8 = `${stderr2}${stdout}`.trim();
-  return text8 === "" ? `exit code ${code}` : `exit code ${code}: ${text8}`;
+  const text9 = `${stderr2}${stdout}`.trim();
+  return text9 === "" ? `exit code ${code}` : `exit code ${code}: ${text9}`;
 }
 function toSeen(entry2) {
   if (typeof entry2 !== "object" || entry2 === null) {
@@ -2056,10 +2056,10 @@ var Ledger = class {
     return { ok: true, event };
   }
   async list(filter) {
-    const text8 = await this.read();
+    const text9 = await this.read();
     const events = [];
     let skipped = 0;
-    for (const line2 of text8.split("\n")) {
+    for (const line2 of text9.split("\n")) {
       if (line2 === "") {
         continue;
       }
@@ -2152,15 +2152,15 @@ async function eventInput(context2) {
       )
     };
   }
-  const text8 = await context2.deps.stdin();
-  if (text8.trim() === "") {
+  const text9 = await context2.deps.stdin();
+  if (text9.trim() === "") {
     return {
       error: "No event given. Pass --source, --kind and --occurred-at, or one JSON event on stdin.",
       code: 2
     };
   }
   try {
-    return { input: JSON.parse(text8) };
+    return { input: JSON.parse(text9) };
   } catch {
     return { error: "Invalid event: stdin is not valid JSON." };
   }
@@ -2199,17 +2199,17 @@ var record = {
 };
 function filterFrom(options) {
   const filter = {};
-  const text8 = (name) => {
+  const text9 = (name) => {
     const value = options[name];
     return typeof value === "string" ? value : void 0;
   };
   for (const name of ["session", "pane", "idea"]) {
-    const value = text8(name);
+    const value = text9(name);
     if (value !== void 0) {
       filter[name] = value;
     }
   }
-  const source = text8("source");
+  const source = text9("source");
   if (source !== void 0) {
     if (!SOURCES.includes(source)) {
       return {
@@ -2218,7 +2218,7 @@ function filterFrom(options) {
     }
     filter.source = source;
   }
-  const kind = text8("kind");
+  const kind = text9("kind");
   if (kind !== void 0) {
     if (!KINDS2.includes(kind)) {
       return { error: `Invalid --kind "${kind}". Kinds: ${KINDS2.join(", ")}.` };
@@ -2226,7 +2226,7 @@ function filterFrom(options) {
     filter.kind = kind;
   }
   for (const name of ["since", "until"]) {
-    const value = text8(name);
+    const value = text9(name);
     if (value !== void 0) {
       if (!isTimestamp(value)) {
         return {
@@ -2583,8 +2583,8 @@ var REQUIRED2 = [
   ["safety-pattern", "safetyPattern"],
   ["date", "date"]
 ];
-function frontmatter(text8) {
-  const lines2 = text8.split("\n");
+function frontmatter(text9) {
+  const lines2 = text9.split("\n");
   if (lines2[0] !== "---") {
     return null;
   }
@@ -2600,7 +2600,7 @@ function frontmatter(text8) {
   }
   return null;
 }
-function parseIdea(path, text8) {
+function parseIdea(path, text9) {
   const file = path.slice(path.lastIndexOf("/") + 1);
   const name = IDEA_FILE.exec(file);
   if (name?.[1] === void 0 || name[2] === void 0) {
@@ -2608,7 +2608,7 @@ function parseIdea(path, text8) {
       `${path} is not named NNNN-slug.md; rename it to a four-digit number and a lowercase slug.`
     );
   }
-  const keys = frontmatter(text8);
+  const keys = frontmatter(text9);
   if (keys === null) {
     throw new IdeaError(
       `${path} has no frontmatter; start it with --- and the idea fields (see \`harness idea new --help\`).`
@@ -2621,7 +2621,7 @@ function parseIdea(path, text8) {
     );
   }
   const get = (key) => keys.get(key) ?? "";
-  const heading = /^# Idea \d{4}: (.+)$/m.exec(text8)?.[1];
+  const heading = /^# Idea \d{4}: (.+)$/m.exec(text9)?.[1];
   const record4 = {
     number: name[1],
     slug: name[2],
@@ -2642,16 +2642,16 @@ function parseIdea(path, text8) {
   return record4;
 }
 function scalar(flag, value) {
-  const text8 = (value ?? "").replace(/\s+/g, " ").trim();
-  if (text8 === "") {
+  const text9 = (value ?? "").replace(/\s+/g, " ").trim();
+  if (text9 === "") {
     throw new IdeaError(`Missing --${flag}; pass a non-empty value.`);
   }
-  if (/^[[{|>&*!-]/.test(text8)) {
+  if (/^[[{|>&*!-]/.test(text9)) {
     throw new IdeaError(
-      `--${flag} must not start with "${text8.slice(0, 1)}"; frontmatter holds plain text, so reword it.`
+      `--${flag} must not start with "${text9.slice(0, 1)}"; frontmatter holds plain text, so reword it.`
     );
   }
-  return text8;
+  return text9;
 }
 function renderIdea(number, date, idea) {
   const lines2 = [
@@ -2672,8 +2672,8 @@ function renderIdea(number, date, idea) {
   lines2.push("---", "", `# Idea ${number}: ${idea.title}`, "");
   return lines2.join("\n");
 }
-function withIssue(text8, issue) {
-  const lines2 = text8.split("\n");
+function withIssue(text9, issue) {
+  const lines2 = text9.split("\n");
   const end = lines2.indexOf("---", 1);
   if (lines2[0] !== "---" || end === -1) {
     throw new IdeaError("The idea has no frontmatter to record the issue in.");
@@ -2697,18 +2697,18 @@ function outcomeRange(lines2) {
   const end = lines2.findIndex((l, i) => i > start && /^#{1,2} /.test(l));
   return [start, end === -1 ? lines2.length : end];
 }
-function outcomeSection(text8) {
-  const lines2 = text8.split("\n");
+function outcomeSection(text9) {
+  const lines2 = text9.split("\n");
   const range = outcomeRange(lines2);
   return range === void 0 ? void 0 : lines2.slice(...range).join("\n").replace(/\r/g, "").trim();
 }
-function withoutOutcome(text8) {
-  const lines2 = text8.split("\n");
+function withoutOutcome(text9) {
+  const lines2 = text9.split("\n");
   const range = outcomeRange(lines2);
-  return range === void 0 ? text8 : [...lines2.slice(0, range[0]), ...lines2.slice(range[1])].join("\n").trimEnd();
+  return range === void 0 ? text9 : [...lines2.slice(0, range[0]), ...lines2.slice(range[1])].join("\n").trimEnd();
 }
-function withOutcome(text8, result, section) {
-  const lines2 = text8.split("\n");
+function withOutcome(text9, result, section) {
+  const lines2 = text9.split("\n");
   const end = lines2.indexOf("---", 1);
   if (lines2[0] !== "---" || end === -1) {
     throw new IdeaError(
@@ -2781,20 +2781,20 @@ var IdeaRepository = class {
       const taken = names3.map((n) => Number(n.slice(0, 4)));
       const number = String(Math.max(0, ...taken) + 1).padStart(4, "0");
       const path = `${DIR}/${number}-${slug2}.md`;
-      const text8 = renderIdea(
+      const text9 = renderIdea(
         number,
         this.clock.now().toISOString().slice(0, 10),
         idea
       );
       try {
-        await this.fs.createFile(this.abs(path), text8);
+        await this.fs.createFile(this.abs(path), text9);
       } catch (error) {
         if (error.code === "EEXIST") {
           continue;
         }
         throw error;
       }
-      const record4 = parseIdea(path, text8);
+      const record4 = parseIdea(path, text9);
       await this.ensureIndexed(record4);
       return { created: true, record: record4 };
     }
@@ -2870,12 +2870,12 @@ function addEntry(index, path, summary) {
 // src/idea/sync.ts
 var NOT_FOUND = /could not resolve to an issue|issue .*not found|no issue/i;
 var ISSUE_URL = /https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/issues\/(\d+)/;
-function prose(text8) {
-  const lines2 = withoutOutcome(text8).split("\n");
+function prose(text9) {
+  const lines2 = withoutOutcome(text9).split("\n");
   const at = lines2.findIndex((l) => /^# Idea \d{4}: /.test(l));
   return (at === -1 ? "" : lines2.slice(at + 1).join("\n")).trim();
 }
-function renderBody(record4, text8) {
+function renderBody(record4, text9) {
   const sections = [
     `<!-- Generated by \`harness idea sync\` from ${record4.path}. Edit that file; changes made here are overwritten. -->`,
     `## Summary
@@ -2894,7 +2894,7 @@ ${record4.measurement}`,
 
 ${record4.safetyPattern}`
   ];
-  const extra = prose(text8);
+  const extra = prose(text9);
   if (extra !== "") {
     sections.push(extra);
   }
@@ -2973,8 +2973,8 @@ async function reconcile(gh, record4, body, at) {
   }
   return { action: "updated", issue };
 }
-async function syncIssue(runner, root3, record4, text8, recordLink) {
-  const body = renderBody(record4, text8);
+async function syncIssue(runner, root3, record4, text9, recordLink) {
+  const body = renderBody(record4, text9);
   const gh = async (args, input) => await runner.run("gh", args, {
     cwd: root3,
     ...input === void 0 ? {} : { input }
@@ -3230,9 +3230,9 @@ var ideaCommands = {
 var ENVIRONMENTS = "infra/environments";
 var FlagError = class extends Error {
 };
-function parse(path, text8) {
+function parse(path, text9) {
   try {
-    const value = JSON.parse(text8);
+    const value = JSON.parse(text9);
     if (typeof value === "object" && value !== null && !Array.isArray(value)) {
       return value;
     }
@@ -3273,8 +3273,8 @@ async function readOverlay(fs, root3, environment) {
       `No environment "${environment}" has an overlay at ${path}. Environments: ${(await environments(fs, root3)).join(", ") || "none"}.`
     );
   }
-  const text8 = await fs.readFile(`${root3}/${path}`);
-  const features = parse(path, text8)["features"] ?? {};
+  const text9 = await fs.readFile(`${root3}/${path}`);
+  const features = parse(path, text9)["features"] ?? {};
   const valid = typeof features === "object" && features !== null && Object.values(features).every((v) => typeof v === "boolean");
   if (!valid) {
     throw new FlagError(
@@ -3284,21 +3284,21 @@ async function readOverlay(fs, root3, environment) {
   return {
     environment,
     path,
-    text: text8,
+    text: text9,
     features
   };
 }
-function featuresSpan(text8) {
-  const key = /["']?features["']?\s*:\s*\{/.exec(text8);
+function featuresSpan(text9) {
+  const key = /["']?features["']?\s*:\s*\{/.exec(text9);
   if (key === null) {
     return void 0;
   }
   const open2 = key.index + key[0].length - 1;
   let depth = 0;
-  for (let i = open2; i < text8.length; i++) {
-    if (text8[i] === "{") {
+  for (let i = open2; i < text9.length; i++) {
+    if (text9[i] === "{") {
       depth += 1;
-    } else if (text8[i] === "}") {
+    } else if (text9[i] === "}") {
       depth -= 1;
     }
     if (depth === 0) {
@@ -3318,9 +3318,9 @@ function withFlagOn(overlay, flag) {
     );
   }
   const end = span[0] + entry2.index + entry2[0].length;
-  const text8 = `${overlay.text.slice(0, end - "false".length)}true${overlay.text.slice(end)}`;
-  parse(overlay.path, text8);
-  return text8;
+  const text9 = `${overlay.text.slice(0, end - "false".length)}true${overlay.text.slice(end)}`;
+  parse(overlay.path, text9);
+  return text9;
 }
 
 // src/flag/proof.ts
@@ -3936,9 +3936,9 @@ function listItemSpans(markdown) {
   return items;
 }
 function listItems(markdown) {
-  return listItemSpans(markdown).map(({ heading, text: text8 }) => ({
+  return listItemSpans(markdown).map(({ heading, text: text9 }) => ({
     heading,
-    text: text8
+    text: text9
   }));
 }
 function openItems(markdown) {
@@ -4116,8 +4116,8 @@ function trimCommon(edit, lines2) {
 }
 
 // src/plan/plan-edit.ts
-function normalize(text8) {
-  return text8.replace(/\s+/g, " ").trim();
+function normalize(text9) {
+  return text9.replace(/\s+/g, " ").trim();
 }
 function choosePlan(plans, requested) {
   const names3 = Object.keys(plans);
@@ -4200,13 +4200,13 @@ function currentHeading(lines2, markdown) {
   }
   return index;
 }
-function insertion(lines2, heading, text8) {
+function insertion(lines2, heading, text9) {
   const blank = (lines2[heading + 1] ?? "").trim() === "";
   const start = blank ? heading + 2 : heading + 1;
   return {
     start,
     end: start,
-    lines: blank ? [`${NEXT} ${text8}`, ""] : ["", `${NEXT} ${text8}`, ""]
+    lines: blank ? [`${NEXT} ${text9}`, ""] : ["", `${NEXT} ${text9}`, ""]
   };
 }
 function withInsertion(lines2, removed, added) {
@@ -4253,8 +4253,8 @@ var planNext = {
   async run({ json, deps, options }) {
     const raw = options["text"];
     const plan2 = options["plan"];
-    const text8 = typeof raw === "string" ? normalize(raw) : "";
-    if (text8 === "") {
+    const text9 = typeof raw === "string" ? normalize(raw) : "";
+    if (text9 === "") {
       throw new CommandError(
         'Missing --text "<line>": say the first concrete action and any state the files cannot show.'
       );
@@ -4266,7 +4266,7 @@ var planNext = {
       edits: (lines2, markdown) => withInsertion(
         lines2,
         removals(lines2),
-        insertion(lines2, currentHeading(lines2, markdown), text8)
+        insertion(lines2, currentHeading(lines2, markdown), text9)
       ),
       unchanged: `Next: already reads that way`
     });
@@ -4314,8 +4314,8 @@ function totalsEdits(lines2, range, className, date) {
     managed: managed - (lower.startsWith("managed") ? 1 : 0),
     release: release - (lower.startsWith("release") ? 1 : 0)
   };
-  const text8 = `as of ${date}: ${next.local} local, ${next.managed} managed${match[3]}cluster, ${next.release} release${match[5]}pipeline`;
-  const changed = intro.replace(TOTALS, text8).split("\n");
+  const text9 = `as of ${date}: ${next.local} local, ${next.managed} managed${match[3]}cluster, ${next.release} release${match[5]}pipeline`;
+  const changed = intro.replace(TOTALS, text9).split("\n");
   const before2 = intro.split("\n");
   const edits = [];
   for (const [i, line2] of changed.entries()) {
@@ -4397,17 +4397,17 @@ function segmentsOf(raw) {
   pieces.push([from, bodyEnd]);
   let exit = false;
   return pieces.map(([a, b]) => {
-    const text8 = raw.slice(a, b);
-    const start = a + (text8.length - text8.trimStart().length);
-    const end = b - (text8.length - text8.trimEnd().length);
+    const text9 = raw.slice(a, b);
+    const start = a + (text9.length - text9.trimStart().length);
+    const end = b - (text9.length - text9.trimEnd().length);
     const lead = LEAD.exec(raw.slice(start, end))?.[0];
     exit ||= lead !== void 0;
     return { start, end, itemStart: start + (lead?.length ?? 0), exit };
   });
 }
-function words(text8) {
+function words(text9) {
   return new Set(
-    (text8.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => w.length >= 4)
+    (text9.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => w.length >= 4)
   );
 }
 function score(item, segment) {
@@ -4431,13 +4431,13 @@ function lowered(raw, segment) {
   const shown = /^\d+$/.test(word) ? String(count3) : NUMBERS[count3] ?? word;
   const noun = count3 === 1 ? "criterion" : "criteria";
   const [, , gap1, gap2, gap3] = lead;
-  const text8 = `and ${shown}${gap1}exit${gap2}${noun}:${gap3}`;
-  return raw.slice(0, segment.start) + text8 + raw.slice(segment.start + lead[0].length);
+  const text9 = `and ${shown}${gap1}exit${gap2}${noun}:${gap3}`;
+  return raw.slice(0, segment.start) + text9 + raw.slice(segment.start + lead[0].length);
 }
 function sharedNote(raw, segments, index) {
   for (const [i, segment] of segments.entries()) {
-    const text8 = raw.slice(segment.itemStart, segment.end);
-    const note = /\([^)]*\b(both|all)\b[^)]*\)/i.exec(text8);
+    const text9 = raw.slice(segment.itemStart, segment.end);
+    const note = /\([^)]*\b(both|all)\b[^)]*\)/i.exec(text9);
     const covered = note?.[1]?.toLowerCase() === "all" || index === i || index === i - 1;
     if (note !== null && covered) {
       return note[0];
@@ -4561,9 +4561,9 @@ function tickEdit(lines2, item) {
     lines: [`- [x]${first.slice(OPEN.length)}`]
   };
 }
-function describe6(file, step, text8, dryRun, changes) {
+function describe6(file, step, text9, dryRun, changes) {
   return renderChanges(
-    `${dryRun ? "Would tick" : "Ticked"} ${step}: ${text8} in ${file}`,
+    `${dryRun ? "Would tick" : "Ticked"} ${step}: ${text9} in ${file}`,
     changes
   );
 }
@@ -4574,9 +4574,9 @@ async function tick(deps, json, item, planOption, dryRun) {
   const lines2 = markdown.split("\n");
   const span = chooseItem(markdown, item);
   const step = span.heading.split(":")[0] ?? span.heading;
-  const text8 = normalize(span.text.slice(OPEN.length));
+  const text9 = normalize(span.text.slice(OPEN.length));
   const date = localDate(deps.clock.now());
-  const lists = listEdits(lines2, step, text8, date);
+  const lists = listEdits(lines2, step, text9, date);
   if ("error" in lists) {
     throw new CommandError(lists.error);
   }
@@ -4590,8 +4590,8 @@ async function tick(deps, json, item, planOption, dryRun) {
     );
   }
   deps.stdout(
-    json ? `${JSON.stringify({ plan: file, item: { step, text: text8 }, dryRun, written: !dryRun, changes })}
-` : describe6(file, step, text8, dryRun, changes)
+    json ? `${JSON.stringify({ plan: file, item: { step, text: text9 }, dryRun, written: !dryRun, changes })}
+` : describe6(file, step, text9, dryRun, changes)
   );
   return 0;
 }
@@ -4648,10 +4648,10 @@ function usageOf(raw) {
     return void 0;
   }
 }
-function advance(state, text8) {
-  const end = text8.lastIndexOf("\n") + 1;
+function advance(state, text9) {
+  const end = text9.lastIndexOf("\n") + 1;
   let { total, lastId, lastTokens } = state;
-  for (const raw of text8.slice(0, end).split("\n")) {
+  for (const raw of text9.slice(0, end).split("\n")) {
     const usage2 = usageOf(raw);
     if (usage2 === void 0) {
       continue;
@@ -4661,15 +4661,15 @@ function advance(state, text8) {
     lastTokens = usage2.tokens;
   }
   return {
-    offset: state.offset + Buffer.byteLength(text8.slice(0, end)),
+    offset: state.offset + Buffer.byteLength(text9.slice(0, end)),
     total,
     ...lastId === void 0 ? {} : { lastId },
     ...lastTokens === void 0 ? {} : { lastTokens }
   };
 }
-function parseState(text8) {
+function parseState(text9) {
   try {
-    const value = JSON.parse(text8);
+    const value = JSON.parse(text9);
     const { offset, total, lastId, lastTokens } = value;
     return typeof offset === "number" && typeof total === "number" && Number.isSafeInteger(offset) && offset >= 0 && total >= 0 ? {
       offset,
@@ -5419,14 +5419,14 @@ var secretBlock = () => block(
   "Key and token material under .kore/ must not be read or written directly. Instead, use a kore command that streams the secret through stdin, or ask the user to handle it."
 );
 async function loadSopsPatterns(ctx) {
-  let text8;
+  let text9;
   try {
-    text8 = await ctx.readFile(`${ctx.root}/.sops.yaml`);
+    text9 = await ctx.readFile(`${ctx.root}/.sops.yaml`);
   } catch {
     return [];
   }
   const patterns = [];
-  for (const match of text8.matchAll(/path_regex:\s*(.+)$/gm)) {
+  for (const match of text9.matchAll(/path_regex:\s*(.+)$/gm)) {
     const source = match[1].trim().replace(/^['"]|['"]$/g, "");
     try {
       patterns.push(new RegExp(source));
@@ -5441,8 +5441,8 @@ var sopsBlock = (path) => block(
 );
 
 // src/hook/guard-bash.ts
-async function sopsWrite(name, segment, text8, ctx) {
-  const writes2 = text8.includes(">") || ["tee", "cp", "mv", "sed"].includes(name);
+async function sopsWrite(name, segment, text9, ctx) {
+  const writes2 = text9.includes(">") || ["tee", "cp", "mv", "sed"].includes(name);
   if (name === "sops" || !writes2) {
     return null;
   }
@@ -5458,12 +5458,12 @@ async function checkBashSegment(segment, ctx) {
   if (!name) {
     return [];
   }
-  const text8 = segment.join(" ");
-  if (!SECRET_SAFE.has(name) && !isKore(name, args) && SECRET_PATH.test(text8)) {
+  const text9 = segment.join(" ");
+  if (!SECRET_SAFE.has(name) && !isKore(name, args) && SECRET_PATH.test(text9)) {
     return [secretBlock()];
   }
   return [
-    await sopsWrite(name, segment, text8, ctx),
+    await sopsWrite(name, segment, text9, ctx),
     checkDestructive(name, args),
     checkContext(name, args),
     checkNoVerify(name, args),
@@ -5485,10 +5485,10 @@ function unquotedGlob(command) {
   );
 }
 function zshWords(command) {
-  const text8 = shellText(command).replace(/\$?\(\([^)]*\)\)/g, "");
-  const words2 = rawWords(text8);
+  const text9 = shellText(command).replace(/\$?\(\([^)]*\)\)/g, "");
+  const words2 = rawWords(text9);
   const glob = words2.find((w) => w.glob && !w.text.includes("${"));
-  const equals = text8.includes("[[") ? void 0 : words2.find((w) => w.equals);
+  const equals = text9.includes("[[") ? void 0 : words2.find((w) => w.equals);
   return [
     glob ? warn(
       "bare-glob",
@@ -6043,12 +6043,12 @@ async function guard(payload, deps) {
 
 // src/hook/io.ts
 async function readPayload(deps) {
-  const text8 = await deps.stdin();
-  if (text8.trim() === "") {
+  const text9 = await deps.stdin();
+  if (text9.trim() === "") {
     return void 0;
   }
   try {
-    return JSON.parse(text8);
+    return JSON.parse(text9);
   } catch {
     return void 0;
   }
@@ -6094,10 +6094,10 @@ import { createHash } from "node:crypto";
 // src/hook/retro-transcript.ts
 var MAX_ERROR = 120;
 var MIN_CORRECTION_WORDS = 4;
-function parseTranscript(id, text8) {
+function parseTranscript(id, text9) {
   const events = [];
   let skipped = 0;
-  text8.split("\n").forEach((raw, index) => {
+  text9.split("\n").forEach((raw, index) => {
     if (raw.trim() === "") {
       return;
     }
@@ -6117,8 +6117,8 @@ var ERROR_WORDS = /\b(errors?|fail(ed|ure|ures)?|fatal|not found|no such|denied|
 var SHELL_PREFIX = /^(\(eval\):\d+:|zsh:|bash:|sh:)/;
 var NOT_OUTPUT_ERROR = /^(- |#|import |export |\|)/;
 var looksLikeError = (line2) => !NOT_OUTPUT_ERROR.test(line2) && (ERROR_WORDS.test(line2) || SHELL_PREFIX.test(line2));
-function summarizeError(text8) {
-  const lines2 = text8.replace(/<\/?tool_use_error>/g, "").split("\n").map((line2) => line2.trim()).filter(Boolean);
+function summarizeError(text9) {
+  const lines2 = text9.replace(/<\/?tool_use_error>/g, "").split("\n").map((line2) => line2.trim()).filter(Boolean);
   let head = lines2[0] ?? "";
   let prefix = "";
   if (/^Exit code \d+$/.test(head)) {
@@ -6158,13 +6158,13 @@ function humanText(event) {
   if (notTyped || event.origin && event.origin.kind !== "human") {
     return null;
   }
-  const text8 = typedText(event.message?.content);
-  return text8.trim() === "" || INJECTED.test(text8) ? null : text8;
+  const text9 = typedText(event.message?.content);
+  return text9.trim() === "" || INJECTED.test(text9) ? null : text9;
 }
 var CORRECTION_WORD = /\b(no|not|dont|don't|don’t|stop|instead|wrong|again|actually|should|never)\b/i;
-var readsAsCorrection = (text8) => CORRECTION_WORD.test(text8);
-var ownWords = (text8) => text8.replace(/<pasted_content[^>]*>[\s\S]*?<\/pasted_content[^>]*>/g, " ").replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, " ");
-var phrasesOf = (text8) => text8.split(/[.!?;\n]+/).map(
+var readsAsCorrection = (text9) => CORRECTION_WORD.test(text9);
+var ownWords = (text9) => text9.replace(/<pasted_content[^>]*>[\s\S]*?<\/pasted_content[^>]*>/g, " ").replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, " ");
+var phrasesOf = (text9) => text9.split(/[.!?;\n]+/).map(
   (part) => part.toLowerCase().replace(/['’`]/g, "").replace(/[^a-z0-9]+/g, " ").trim()
 ).filter((phrase) => phrase.split(" ").length >= MIN_CORRECTION_WORDS);
 function timestamps(session2) {
@@ -6175,7 +6175,7 @@ function timestamps(session2) {
 // src/hook/retro-session.ts
 var GUARD_TAG = /\[guard:([a-z0-9-]+)\]/g;
 var SLASH_COMMAND = /<command-name>\/?([a-z0-9:-]+)<\/command-name>/;
-var tagsIn = (text8) => [...text8.matchAll(GUARD_TAG)].map((match) => match[1] ?? "");
+var tagsIn = (text9) => [...text9.matchAll(GUARD_TAG)].map((match) => match[1] ?? "");
 var SessionAnalysis = class {
   guards = {};
   failures = [];
@@ -6224,12 +6224,12 @@ var SessionAnalysis = class {
   }
   toolFailure(block2) {
     this.failedSinceHuman = true;
-    const text8 = resultText(block2);
-    const tags = new Set(tagsIn(text8));
+    const text9 = resultText(block2);
+    const tags = new Set(tagsIn(text9));
     if (tags.size === 0) {
       this.failures.push({
         tool: this.calls.get(block2.tool_use_id ?? "") ?? "unknown",
-        error: summarizeError(text8)
+        error: summarizeError(text9)
       });
     }
     for (const tag of tags) {
@@ -6247,12 +6247,12 @@ var SessionAnalysis = class {
     }
   }
   human(event) {
-    const text8 = humanText(event);
-    if (text8 === null) {
+    const text9 = humanText(event);
+    if (text9 === null) {
       return;
     }
     this.ordered.push({ kind: "human" });
-    const own2 = ownWords(text8);
+    const own2 = ownWords(text9);
     if (this.failedSinceHuman || readsAsCorrection(own2)) {
       for (const phrase of phrasesOf(own2)) {
         this.phrases.push({ phrase, line: event.line });
@@ -6425,7 +6425,7 @@ var Tally2 = class {
   }
 };
 function scan(inputs, { since, knownSkills = [], auditRules: audit3 = [] } = {}) {
-  const included = inputs.map(({ id, text: text8 }) => parseTranscript(id, text8)).map((session2) => ({ session: session2, ...timestamps(session2) })).filter(
+  const included = inputs.map(({ id, text: text9 }) => parseTranscript(id, text9)).map((session2) => ({ session: session2, ...timestamps(session2) })).filter(
     ({ last }) => last !== null && Date.parse(last) >= windowStart(since)
   ).sort((a, b) => (a.first ?? "").localeCompare(b.first ?? ""));
   const tally = new Tally2(audit3, knownSkills);
@@ -6555,9 +6555,9 @@ import { homedir } from "node:os";
 import { join as join9 } from "node:path";
 var JOURNAL_DIR = ".kore/state/journal";
 var isMissing = (error) => error.code === "ENOENT";
-function parseEntries(text8) {
+function parseEntries(text9) {
   const entries = [];
-  for (const line2 of text8.split("\n")) {
+  for (const line2 of text9.split("\n")) {
     try {
       const entry2 = JSON.parse(line2);
       if (entry2 && typeof entry2 === "object") {
@@ -6581,13 +6581,13 @@ async function readJournals(fs, root3) {
   }
   const journals = {};
   for (const name of names3) {
-    let text8;
+    let text9;
     try {
-      text8 = await fs.readFile(join9(dir, name));
+      text9 = await fs.readFile(join9(dir, name));
     } catch {
       continue;
     }
-    journals[name.slice(0, -".jsonl".length)] = parseEntries(text8);
+    journals[name.slice(0, -".jsonl".length)] = parseEntries(text9);
   }
   return journals;
 }
@@ -6632,9 +6632,9 @@ var context = hookCommand(
     if (Array.isArray(payload)) {
       return {};
     }
-    let text8;
+    let text9;
     try {
-      text8 = await restore(
+      text9 = await restore(
         payload,
         realContextDeps(deps, await deps.root())
       );
@@ -6644,11 +6644,11 @@ var context = hookCommand(
       }
       throw error;
     }
-    return text8 === "" ? {} : {
+    return text9 === "" ? {} : {
       stdout: JSON.stringify({
         hookSpecificOutput: {
           hookEventName: "SessionStart",
-          additionalContext: text8
+          additionalContext: text9
         }
       })
     };
@@ -6679,9 +6679,9 @@ async function readDir(deps, dir) {
     throw error;
   }
 }
-function parseEntries2(text8) {
+function parseEntries2(text9) {
   const entries = [];
-  for (const line2 of text8.split("\n")) {
+  for (const line2 of text9.split("\n")) {
     try {
       const entry2 = JSON.parse(line2);
       if (entry2 !== null && typeof entry2 === "object") {
@@ -6787,8 +6787,8 @@ function planItems(plans) {
   const result = {};
   for (const name of activePlans(plans)) {
     const items = {};
-    for (const { text: text8 } of listItems(plans[name] ?? "")) {
-      const match = /^- \[( |x)\] (.*)$/.exec(text8);
+    for (const { text: text9 } of listItems(plans[name] ?? "")) {
+      const match = /^- \[( |x)\] (.*)$/.exec(text9);
       if (match === null) {
         continue;
       }
@@ -6888,8 +6888,8 @@ function describeChanges(before2, after, subjects) {
   if (lines2.length === 0) {
     return "";
   }
-  const text8 = `Changed since your last turn: ${lines2.join(" | ")}`;
-  return text8.length <= MAX_CHARS ? text8 : `${text8.slice(0, MAX_CHARS - 3)}...`;
+  const text9 = `Changed since your last turn: ${lines2.join(" | ")}`;
+  return text9.length <= MAX_CHARS ? text9 : `${text9.slice(0, MAX_CHARS - 3)}...`;
 }
 async function prune(currentId, deps) {
   try {
@@ -6987,14 +6987,14 @@ function contextPercent(input) {
   return Math.round(used / window.context_window_size * 100);
 }
 function colored(percent) {
-  const text8 = `ctx ${percent}%`;
+  const text9 = `ctx ${percent}%`;
   if (percent >= RED_AT) {
-    return `\x1B[31m${text8}\x1B[0m`;
+    return `\x1B[31m${text9}\x1B[0m`;
   }
   if (percent >= AMBER_AT) {
-    return `\x1B[33m${text8}\x1B[0m`;
+    return `\x1B[33m${text9}\x1B[0m`;
   }
-  return text8;
+  return text9;
 }
 function statusLine(input, plans) {
   const parts = [];
@@ -7015,6 +7015,11 @@ function statusLine(input, plans) {
   }
   return parts.join(" \xB7 ");
 }
+var text8 = (value) => typeof value === "string" && value !== "" ? value : void 0;
+function projectOf(input, deps) {
+  return text8(deps.env["CLAUDE_PROJECT_DIR"]) ?? text8(input.workspace?.project_dir) ?? text8(input.cwd) ?? deps.cwd;
+}
+var UNREADABLE = "plans?";
 var statusline = hookCommand(
   "statusline",
   "print one status line from the host's JSON: context use, the active plan, its Next: step and open items",
@@ -7025,7 +7030,18 @@ var statusline = hookCommand(
     if (Array.isArray(payload)) {
       return {};
     }
-    const line2 = statusLine(payload, await readPlans(deps));
+    const input = payload;
+    const root3 = projectOf(input, deps);
+    let line2;
+    try {
+      line2 = statusLine(
+        input,
+        await readPlans({ ...deps, root: () => Promise.resolve(root3) })
+      );
+    } catch {
+      const percent = contextPercent(input);
+      line2 = [percent === null ? null : colored(percent), UNREADABLE].filter((part) => part !== null).join(" \xB7 ");
+    }
     return line2 === "" ? {} : { stdout: `${line2}
 ` };
   }
@@ -7122,9 +7138,9 @@ async function readTranscripts(fs, dirs) {
       (n) => n.endsWith(".jsonl")
     )) {
       const id = basename2(name, ".jsonl");
-      const text8 = await fs.readFile(join11(dir, name));
-      if (text8.length >= (byId.get(id)?.text.length ?? -1)) {
-        byId.set(id, { id, text: text8 });
+      const text9 = await fs.readFile(join11(dir, name));
+      if (text9.length >= (byId.get(id)?.text.length ?? -1)) {
+        byId.set(id, { id, text: text9 });
       }
     }
   }
@@ -7319,11 +7335,11 @@ function addEntry2(stack, indent, body) {
   parent[key] = value;
   return /^[|>]/.test(value) ? indent : null;
 }
-function parseWorkflow(text8) {
+function parseWorkflow(text9) {
   const rootNode = {};
   const stack = [{ indent: -1, node: rootNode }];
   let skipAbove = null;
-  for (const raw of text8.split("\n")) {
+  for (const raw of text9.split("\n")) {
     const line2 = raw.replace(/(^|\s)#.*$/, "");
     const indent = line2.length - line2.trimStart().length;
     if (line2.trim() === "" || skipAbove !== null && indent > skipAbove) {
@@ -7392,8 +7408,8 @@ function jobProblems(file, name, job) {
   }
   return problems;
 }
-function fileProblems(file, text8) {
-  const workflow = parseWorkflow(text8);
+function fileProblems(file, text9) {
+  const workflow = parseWorkflow(text9);
   const problems = [];
   const top = writeScopes(workflow["permissions"]);
   if (top === null || top.length > 0) {
@@ -7417,7 +7433,7 @@ function fileProblems(file, text8) {
 }
 function permissionProblems(files) {
   return Object.entries(files).flatMap(
-    ([file, text8]) => fileProblems(file, text8)
+    ([file, text9]) => fileProblems(file, text9)
   );
 }
 async function workflowProblems(fs, root3) {
@@ -7453,8 +7469,8 @@ function slug(heading) {
 function proseLines(markdown) {
   const lines2 = [];
   let fence = null;
-  markdown.split("\n").forEach((text8, index) => {
-    const opener = /^\s*(```|~~~)/.exec(text8);
+  markdown.split("\n").forEach((text9, index) => {
+    const opener = /^\s*(```|~~~)/.exec(text9);
     if (fence) {
       if (opener && opener[1] === fence) {
         fence = null;
@@ -7465,15 +7481,15 @@ function proseLines(markdown) {
       fence = opener[1] ?? null;
       return;
     }
-    lines2.push({ line: index + 1, text: text8.replace(/`[^`]*`/g, "") });
+    lines2.push({ line: index + 1, text: text9.replace(/`[^`]*`/g, "") });
   });
   return lines2;
 }
 function anchors(markdown) {
   const seen = /* @__PURE__ */ new Map();
   const result = [];
-  for (const { text: text8 } of proseLines(markdown)) {
-    const match = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(text8);
+  for (const { text: text9 } of proseLines(markdown)) {
+    const match = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(text9);
     if (!match) {
       continue;
     }
@@ -7502,15 +7518,15 @@ function frontmatter2(file, markdown) {
   const keys = /* @__PURE__ */ new Map();
   const errors = [];
   for (let index = 1; index < lines2.length; index++) {
-    const text8 = lines2[index] ?? "";
-    if (text8 === "---") {
+    const text9 = lines2[index] ?? "";
+    if (text9 === "---") {
       return { keys, errors };
     }
-    const match = /^([A-Za-z][\w-]*):\s*(.*)$/.exec(text8);
+    const match = /^([A-Za-z][\w-]*):\s*(.*)$/.exec(text9);
     if (match?.[2] && !/^[[{|>&*!-]/.test(match[2])) {
       keys.set(match[1] ?? "", { value: match[2].trim(), line: index + 1 });
     } else {
-      const key = match ? match[1] : text8.trim();
+      const key = match ? match[1] : text9.trim();
       errors.push(
         finding(
           file,
@@ -7819,9 +7835,9 @@ function ideaNumbers(files) {
   }
   return { ideas, problems };
 }
-function linkProblems2(tree, file, text8) {
+function linkProblems2(tree, file, text9) {
   const problems = [];
-  for (const { line: line2, text: prose2 } of proseLines(text8)) {
+  for (const { line: line2, text: prose2 } of proseLines(text9)) {
     for (const [, raw = ""] of prose2.matchAll(LINK)) {
       if (isExternal(raw)) {
         continue;
@@ -7850,17 +7866,17 @@ function linkProblems2(tree, file, text8) {
 function markdownProblems(tree, ideas) {
   const problems = [];
   for (const file of tree.files.filter((name) => name.endsWith(".md"))) {
-    const text8 = tree.deps.read(file);
-    if (text8 === null) {
+    const text9 = tree.deps.read(file);
+    if (text9 === null) {
       continue;
     }
-    problems.push(...linkProblems2(tree, file, text8));
+    problems.push(...linkProblems2(tree, file, text9));
     if (PLAN.test(file) || ADR2.test(file)) {
       problems.push(
-        ...checkFrontmatter(file, text8, (path) => tree.exists(path))
+        ...checkFrontmatter(file, text9, (path) => tree.exists(path))
       );
     } else if (IDEA.test(file)) {
-      problems.push(...checkIdea(file, text8, ideas));
+      problems.push(...checkIdea(file, text9, ideas));
     }
   }
   return problems;
@@ -7879,11 +7895,11 @@ function indexProblems(tree) {
   }
   const problems = [];
   const listed = /* @__PURE__ */ new Set();
-  for (const { line: line2, text: text8 } of proseLines(index)) {
-    if (!text8.startsWith("- [")) {
+  for (const { line: line2, text: text9 } of proseLines(index)) {
+    if (!text9.startsWith("- [")) {
       continue;
     }
-    const raw = /\]\(([^)\s#]+)/.exec(text8)?.[1];
+    const raw = /\]\(([^)\s#]+)/.exec(text9)?.[1];
     if (raw === void 0 || isExternal(raw)) {
       continue;
     }
@@ -7921,11 +7937,11 @@ var TRAILING = /[.,;:)]+$/;
 function markerProblems(tree) {
   const problems = [];
   for (const file of tree.files.filter((name) => !name.endsWith(".md"))) {
-    const text8 = tree.deps.read(file);
-    if (text8 === null) {
+    const text9 = tree.deps.read(file);
+    if (text9 === null) {
       continue;
     }
-    text8.split("\n").forEach((line2, position) => {
+    text9.split("\n").forEach((line2, position) => {
       const match = MARKER.exec(line2);
       if (!match) {
         return;
@@ -8025,19 +8041,19 @@ function dependenciesOf(deps) {
     paths.add(path);
   };
   for (const file of files) {
-    const text8 = deps.read(file);
-    if (text8 === null) {
+    const text9 = deps.read(file);
+    if (text9 === null) {
       continue;
     }
     if (PLAN.test(file) || ADR2.test(file)) {
-      for (const target of linkTargets(file, text8)) {
+      for (const target of linkTargets(file, text9)) {
         depend(file, target);
       }
     }
     if (file.endsWith(".md")) {
       continue;
     }
-    for (const line2 of text8.split("\n")) {
+    for (const line2 of text9.split("\n")) {
       const path = (MARKER.exec(line2)?.[2] ?? "").replace(/[.,;:)]+$/, "");
       if (PLAN.test(path) || ADR2.test(path)) {
         depend(path, file);
@@ -8046,9 +8062,9 @@ function dependenciesOf(deps) {
   }
   return dependencies;
 }
-function linkTargets(file, text8) {
+function linkTargets(file, text9) {
   const targets = [];
-  for (const { text: prose2 } of proseLines(text8)) {
+  for (const { text: prose2 } of proseLines(text9)) {
     for (const [, raw = ""] of prose2.matchAll(LINK)) {
       const [pathPart] = raw.split("#", 1);
       const target = isExternal(raw) || !pathPart ? null : resolve6(file, decodeURI(pathPart));
@@ -8206,8 +8222,8 @@ function overBudgets(descriptionChars, bodyLines) {
 function countLines(body) {
   return body === "" ? 0 : body.replace(/\n$/, "").split("\n").length;
 }
-function auditSkill(directory, text8) {
-  const source = text8.replaceAll("\r\n", "\n");
+function auditSkill(directory, text9) {
+  const source = text9.replaceAll("\r\n", "\n");
   if (!source.startsWith("---\n")) {
     return invalid(directory, "missing frontmatter");
   }
@@ -8979,8 +8995,8 @@ async function resolveTier(deps, role, flags) {
 var DEFAULT_TIMEOUT_MS = 60 * 60 * 1e3;
 var POLL_MS = 2e3;
 var MARKER2 = /^[ \t]*(?:[●⏺][ \t]+)?RESULT: (done|blocked)[ \t\r]*$/gm;
-function findResult(text8) {
-  const last = [...text8.matchAll(MARKER2)].at(-1)?.[1];
+function findResult(text9) {
+  const last = [...text9.matchAll(MARKER2)].at(-1)?.[1];
   return last === "done" || last === "blocked" ? last : void 0;
 }
 function parseTimeout(value) {
@@ -9362,9 +9378,9 @@ var equalizeCommand = {
 `);
       return 1;
     }
-    const text8 = result.status === "skipped" ? `Skipped: ${result.reason}.` : "Equalized.";
+    const text9 = result.status === "skipped" ? `Skipped: ${result.reason}.` : "Equalized.";
     deps.stdout(json ? `${JSON.stringify(result)}
-` : `${text8}
+` : `${text9}
 `);
     return 0;
   }
@@ -9557,7 +9573,7 @@ async function run2(argv, deps) {
 }
 
 // src/main.ts
-var stderr = (text8) => process.stderr.write(text8);
+var stderr = (text9) => process.stderr.write(text9);
 var root2;
 try {
   process.exitCode = await run2(process.argv.slice(2), {
@@ -9573,7 +9589,7 @@ try {
       import.meta.url,
       (path) => nodeFileSystem.exists(path)
     ),
-    stdout: (text8) => process.stdout.write(text8),
+    stdout: (text9) => process.stdout.write(text9),
     stderr
   });
 } catch (error) {

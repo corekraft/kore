@@ -7,6 +7,7 @@
 // person's own.
 
 import { activePlans, nextStep, openCounts, readPlans } from "../plan/index.js";
+import type { CliDeps } from "../runtime/index.js";
 import { hookCommand } from "./io.js";
 
 const AMBER_AT = 40;
@@ -19,6 +20,8 @@ interface Usage {
 }
 
 interface StatusInput {
+  workspace?: { project_dir?: unknown };
+  cwd?: unknown;
   context_window?: {
     used_percentage?: unknown;
     context_window_size?: number;
@@ -78,6 +81,26 @@ export function statusLine(
   return parts.join(" · ");
 }
 
+const text = (value: unknown): string | undefined =>
+  typeof value === "string" && value !== "" ? value : undefined;
+
+/**
+ * The project whose plans to read. The status line runs in every project, so
+ * it never falls back to the repository the bundle sits in: the environment,
+ * then the host's workspace, then its cwd.
+ */
+function projectOf(input: StatusInput, deps: CliDeps): string {
+  return (
+    text(deps.env["CLAUDE_PROJECT_DIR"]) ??
+    text(input.workspace?.project_dir) ??
+    text(input.cwd) ??
+    deps.cwd
+  );
+}
+
+/** Marker for plans that exist but cannot be read; Claude Code may hide stderr for a status line. */
+const UNREADABLE = "plans?";
+
 export const statusline = hookCommand(
   "statusline",
   "print one status line from the host's JSON: context use, the active plan, its Next: step and open items",
@@ -88,7 +111,21 @@ export const statusline = hookCommand(
     if (Array.isArray(payload)) {
       return {};
     }
-    const line = statusLine(payload as StatusInput, await readPlans(deps));
+    const input = payload as StatusInput;
+    const root = projectOf(input, deps);
+    let line: string;
+    try {
+      // A project without infra/plans has no plan; readPlans already says so.
+      line = statusLine(
+        input,
+        await readPlans({ ...deps, root: () => Promise.resolve(root) }),
+      );
+    } catch {
+      const percent = contextPercent(input);
+      line = [percent === null ? null : colored(percent), UNREADABLE]
+        .filter((part) => part !== null)
+        .join(" · ");
+    }
     return line === "" ? {} : { stdout: `${line}\n` };
   },
 );

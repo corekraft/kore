@@ -100,17 +100,24 @@ describe("statusLine", () => {
   });
 });
 
-describe("hook statusline", () => {
-  async function runWith(stdin: string, files: Record<string, string> = {}) {
-    const h = testHarness({ files });
-    h.deps.stdin = () => Promise.resolve(stdin);
-    const code = await run(["hook", "statusline"], h.deps);
-    return { code, out: h.out(), err: h.err() };
-  }
+async function runWith(
+  stdin: string,
+  files: Record<string, string> = {},
+  env: Record<string, string> = {},
+) {
+  const h = testHarness({ files, env });
+  h.deps.stdin = () => Promise.resolve(stdin);
+  const code = await run(["hook", "statusline"], h.deps);
+  return { code, out: h.out(), err: h.err() };
+}
 
+describe("hook statusline", () => {
   it("prints one line from the session JSON and the plans under the project", async () => {
     const result = await runWith(
-      JSON.stringify({ context_window: { used_percentage: 20 } }),
+      JSON.stringify({
+        workspace: { project_dir: "/repo" },
+        context_window: { used_percentage: 20 },
+      }),
       { "/repo/infra/plans/3-agent-harness.md": plan },
     );
     expect(result).toEqual({
@@ -128,5 +135,59 @@ describe("hook statusline", () => {
 
   it("prints nothing when it knows nothing", async () => {
     expect(await runWith("{}")).toEqual({ code: 0, out: "", err: "" });
+  });
+});
+
+describe("hook statusline, in any project", () => {
+  const used = (extra: object = {}) =>
+    JSON.stringify({ context_window: { used_percentage: 20 }, ...extra });
+  const planAt = (root: string) => ({
+    [`${root}/infra/plans/3-agent-harness.md`]: plan,
+  });
+  const LINE = "ctx 20% · 3-agent-harness · Step 9 · 2 open\n";
+
+  it("takes the project from CLAUDE_PROJECT_DIR, then workspace.project_dir, then cwd", async () => {
+    const files = { ...planAt("/env"), ...planAt("/ws"), ...planAt("/cwd") };
+    const both = used({ workspace: { project_dir: "/ws" }, cwd: "/cwd" });
+    expect(
+      (await runWith(both, files, { CLAUDE_PROJECT_DIR: "/env" })).out,
+    ).toBe(LINE);
+    expect((await runWith(both, planAt("/ws"))).out).toBe(LINE);
+    expect((await runWith(used({ cwd: "/cwd" }), planAt("/cwd"))).out).toBe(
+      LINE,
+    );
+    // Not the repository the bundle sits in, which holds /repo/infra/plans.
+    expect(
+      (
+        await runWith(
+          used({ workspace: { project_dir: "/other" } }),
+          planAt("/repo"),
+        )
+      ).out,
+    ).toBe("ctx 20%\n");
+  });
+
+  it("still prints context use in a project without infra/plans", async () => {
+    const result = await runWith(
+      used({ workspace: { project_dir: "/none" } }),
+      {},
+      {
+        CLAUDE_PROJECT_DIR: "/also-none",
+      },
+    );
+    expect(result).toEqual({ code: 0, out: "ctx 20%\n", err: "" });
+  });
+
+  it("shows a short marker on stdout when the plans cannot be read", async () => {
+    const h = testHarness({ env: { CLAUDE_PROJECT_DIR: "/p" } });
+    h.deps.stdin = () => Promise.resolve(used());
+    h.deps.fs = {
+      ...h.deps.fs,
+      readdir: () =>
+        Promise.reject(Object.assign(new Error("no"), { code: "EACCES" })),
+    };
+    expect(await run(["hook", "statusline"], h.deps)).toBe(0);
+    expect(h.out()).toBe("ctx 20% · plans?\n");
+    expect(h.err()).toBe("");
   });
 });
