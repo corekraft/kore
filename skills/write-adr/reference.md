@@ -31,6 +31,6 @@ Consequences. `docs/decisions/0001-kore-typescript-cli.md` is the model.
   `--source` plan and heading slug, rejects `--status superseded`, and writes
   nothing on refusal.
 - `adr supersede` refuses a missing old or replacement ADR, an old ADR that is
-  already superseded, a superseded replacement, and an ADR superseding itself.
+  already superseded (naming the ADR that replaced it and the command to chain from it), a superseded replacement, an ADR superseding itself, and a number shared by two files (renumber one).
   It changes only the old ADR's `status:` line and adds its `superseded-by:`
   line; `--json` lists exactly those lines. The index is untouched.

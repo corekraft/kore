@@ -175,3 +175,42 @@ describe("harness adr supersede flag and file refusals", () => {
     });
   });
 });
+
+describe("harness adr supersede chains and duplicate numbers", () => {
+  it("names the current superseded-by path and the command to chain from it", async () => {
+    const f = fixture({
+      [OLD]: adrFile("0001", "first").replace(
+        "status: accepted",
+        "status: superseded\nsuperseded-by: docs/decisions/0003-third.md",
+      ),
+      "docs/decisions/0009-ninth.md": adrFile("0009", "ninth"),
+    });
+    const argv = ["adr", "supersede", "--old", "1", "--new", "9"];
+    expect(await run(argv, f.deps)).toBe(1);
+    expect(f.err()).toContain(
+      "already superseded by docs/decisions/0003-third.md; to replace that ADR instead, run `harness adr supersede --old 0003 --new 0009`",
+    );
+    expect(f.fs.writes).toEqual([]);
+  });
+
+  it("refuses a number shared by two files, listing both and saying to renumber", async () => {
+    const f = fixture({
+      "docs/decisions/0001-other.md": adrFile("0001", "other"),
+    });
+    expect(await run(SUPERSEDE, f.deps)).toBe(1);
+    expect(f.err()).toContain("ADR 0001 matches more than one file");
+    expect(f.err()).toContain("docs/decisions/0001-first.md");
+    expect(f.err()).toContain("docs/decisions/0001-other.md");
+    expect(f.err()).toContain("renumber one");
+    expect(f.fs.writes).toEqual([]);
+  });
+
+  it("refuses a duplicated replacement number too", async () => {
+    const f = fixture({
+      "docs/decisions/0003-other.md": adrFile("0003", "other"),
+    });
+    expect(await run(SUPERSEDE, f.deps)).toBe(1);
+    expect(f.err()).toContain("ADR 0003 matches more than one file");
+    expect(f.fs.writes).toEqual([]);
+  });
+});
