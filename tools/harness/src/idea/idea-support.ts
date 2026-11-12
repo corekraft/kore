@@ -34,6 +34,8 @@ export function harness(
     root: () => Promise.resolve(ROOT),
     env: {},
     cwd: "/work/tree",
+    ids: { next: () => "id-1" },
+    stdin: () => Promise.resolve(""),
     fs,
     stdout: (text) => out.push(text),
     stderr: (text) => err.push(text),

@@ -138,6 +138,16 @@ export async function run(
       token !== "--help" &&
       token !== "-h",
   );
+  const early = argv
+    .slice(0, words[1] ?? 0)
+    .find((t) => t.startsWith("-") && !["--json", "--help", "-h"].includes(t));
+  if (early !== undefined) {
+    return fail(
+      deps,
+      json,
+      `Put "${early}" after the command: harness <domain> <command> [flags].`,
+    );
+  }
   const resolved = resolve(domain, name);
   if ("error" in resolved) {
     return fail(deps, json, resolved.error);

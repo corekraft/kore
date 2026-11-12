@@ -1,4 +1,11 @@
-import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import {
+  appendFile,
+  mkdir,
+  readFile,
+  readdir,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { dirname } from "node:path";
 
 export interface FileSystem {
@@ -7,6 +14,11 @@ export interface FileSystem {
   writeFile(path: string, content: string): Promise<void>;
   /** Creates missing parent directories; rejects with code EEXIST when the file already exists. */
   createFile(path: string, content: string): Promise<void>;
+  /**
+   * Appends with a single write (O_APPEND), so concurrent writers each add whole
+   * content. Creates missing parent directories.
+   */
+  appendFile(path: string, content: string): Promise<void>;
   exists(path: string): Promise<boolean>;
   readdir(path: string): Promise<string[]>;
 }
@@ -20,6 +32,10 @@ export const nodeFileSystem: FileSystem = {
   async createFile(path, content) {
     await mkdir(dirname(path), { recursive: true });
     await writeFile(path, content, { flag: "wx" });
+  },
+  async appendFile(path, content) {
+    await mkdir(dirname(path), { recursive: true });
+    await appendFile(path, content);
   },
   async exists(path) {
     try {

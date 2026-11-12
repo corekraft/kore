@@ -33,6 +33,8 @@ function harness(
     root: () => Promise.resolve(ROOT),
     env: {},
     cwd: ROOT,
+    ids: { next: () => "id-1" },
+    stdin: () => Promise.resolve(""),
     fs: {
       readFile: (path) =>
         rel(path) in files
@@ -40,6 +42,7 @@ function harness(
           : Promise.reject(new Error(`ENOENT ${path}`)),
       writeFile: () => Promise.resolve(),
       createFile: () => Promise.resolve(),
+      appendFile: () => Promise.resolve(),
       exists: (path) => Promise.resolve(rel(path) in files),
       readdir: (path) =>
         rel(path) === "skills" && !missingSkills

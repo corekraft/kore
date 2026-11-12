@@ -141,6 +141,8 @@ describe("harness idea from a subdirectory", () => {
         root: () => Promise.resolve(root),
         env: {},
         cwd: join(root, "docs"),
+        ids: { next: () => "id-1" },
+        stdin: () => Promise.resolve(""),
         stdout: (t: string) => out.push(t),
         stderr: () => undefined,
       };

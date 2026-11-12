@@ -101,3 +101,14 @@ _Avoid_: Overhead, idle time
 The stage of the delivery loop that holds work longest, and so limits how fast
 ideas reach outcomes.
 _Avoid_: Slow step
+
+**Stage event**:
+A timestamped fact about one idea's journey through the delivery loop, such as
+a session starting, a pane going idle, or a pull request merging. It records
+that something happened, never what was said or changed.
+_Avoid_: Log line, telemetry, trace
+
+**Ledger**:
+The append-only record of every stage event, shared by all work in progress on
+a machine. It is written only through its tool and never edited by hand.
+_Avoid_: Log, journal, history

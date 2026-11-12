@@ -66,6 +66,12 @@ export class MemoryFs implements FileSystem {
     }
     return this.writeFile(path, content);
   }
+  appendFile(path: string, content: string): Promise<void> {
+    return this.writeFile(
+      path,
+      (this.files.get(this.rel(path)) ?? "") + content,
+    );
+  }
   exists(path: string): Promise<boolean> {
     return Promise.resolve(this.files.has(this.rel(path)));
   }
@@ -102,6 +108,8 @@ export function fixture(extra: Record<string, string> = {}) {
     cwd: "/repo",
     fs,
     stdout: (t) => out.push(t),
+    ids: { next: () => "id-1" },
+    stdin: () => Promise.resolve(""),
     stderr: (t) => err.push(t),
   };
   return { fs, deps, out: () => out.join(""), err: () => err.join("") };
