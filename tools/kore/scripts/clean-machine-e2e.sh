@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Clean-machine end-to-end test: tool installation through reference
 # application verification (plan Step 13). Opt-in: it creates and destroys a
-# Minikube profile, so it never runs unless KORE_RUN_CLEAN_MACHINE=1 is set.
+# local cluster, so it never runs unless KORE_RUN_CLEAN_MACHINE=1 is set.
 #
 # Run it on a host (or CI runner) with Docker and a checkout of this
 # repository and nothing else installed:
@@ -13,7 +13,7 @@
 set -euo pipefail
 
 if [ "${KORE_RUN_CLEAN_MACHINE:-}" != "1" ]; then
-  echo "skipped: set KORE_RUN_CLEAN_MACHINE=1 to create and destroy a local Minikube profile" >&2
+  echo "skipped: set KORE_RUN_CLEAN_MACHINE=1 to create and destroy the local k3d cluster" >&2
   exit 0
 fi
 

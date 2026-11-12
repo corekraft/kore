@@ -68,7 +68,9 @@ test(
       await assertDatabasePersistence(repository, runner);
     } finally {
       try {
-        await stopLocalTunnel(repository, runner);
+        if (repository.environment.provider === "minikube") {
+          await stopLocalTunnel(repository, runner);
+        }
       } finally {
         await clusterDestroy(repository, runner, {
           yes: true,

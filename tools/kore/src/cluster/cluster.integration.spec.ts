@@ -10,7 +10,7 @@ import {
 import { ProcessRunner } from "../runtime/index.js";
 
 test(
-  "Minikube create/inspect/stop/resume integration",
+  "k3d create/inspect/stop/resume integration",
   {
     concurrency: false,
     skip:
