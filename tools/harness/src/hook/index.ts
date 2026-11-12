@@ -1,7 +1,7 @@
 import type { Command } from "../runtime/index.js";
-import { realDeltaDeps } from "./delta-deps.js";
-import { update } from "./delta.js";
+import { delta } from "./delta-command.js";
 import { feedback } from "./feedback.js";
+import { guard } from "./guard.js";
 import { hookCommand } from "./io.js";
 import { retroScan } from "./retro-hook.js";
 import { linkProblems } from "./skill-links.js";
@@ -29,29 +29,6 @@ const workflowPermissions = hookCommand(
   },
 );
 
-const delta = hookCommand(
-  "delta",
-  "tell the agent what changed since its previous turn (UserPromptSubmit)",
-  async ({ deps, payload }) => {
-    const id = (payload as { session_id?: unknown } | null | undefined)
-      ?.session_id;
-    if (typeof id !== "string" || !/^[A-Za-z0-9_-]+$/.test(id)) {
-      return {};
-    }
-    const context = await update(id, realDeltaDeps(deps, await deps.root()));
-    return context === ""
-      ? {}
-      : {
-          stdout: JSON.stringify({
-            hookSpecificOutput: {
-              hookEventName: "UserPromptSubmit",
-              additionalContext: context,
-            },
-          }),
-        };
-  },
-);
-
 const feedbackHook = hookCommand(
   "feedback",
   "run the post-edit, stop or tool-failure feedback checks and record ledger events",
@@ -59,10 +36,17 @@ const feedbackHook = hookCommand(
   { operand: "mode" },
 );
 
+const guardHook = hookCommand(
+  "guard",
+  "block or warn on tool calls that break mechanically checkable rules (PreToolUse)",
+  ({ deps, payload }) => guard(payload, deps),
+);
+
 /** The hooks the host runs as `harness hook <name>`; each is a command in this domain. */
 export const hook: Record<string, Command> = {
   delta,
   feedback: feedbackHook,
+  guard: guardHook,
   "retro-scan": retroScan,
   "skill-links": skillLinks,
   "workflow-permissions": workflowPermissions,

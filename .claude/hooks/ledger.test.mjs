@@ -166,19 +166,22 @@ function project(t, { bundle = true, expect = 0 } = {}) {
   return dir;
 }
 
-function runHook(script, args, payload, dir) {
-  // The feedback hook is a harness hook; the others are still scripts.
+function runHook(script, args, payload, dir, { ledger = true } = {}) {
+  // The feedback and guard hooks are harness hooks; the others are still scripts.
+  const bundle = join(repo, "skills", "bin", "harness.mjs");
   const argv =
     script === "feedback.mjs"
       ? [join(dir, "skills", "bin", "harness.mjs"), "hook", "feedback", ...args]
-      : [join(hooks, script), ...args];
+      : script === "guard.mjs"
+        ? [bundle, "hook", "guard", ...args]
+        : [join(hooks, script), ...args];
   return spawnSync(process.execPath, argv, {
     input: JSON.stringify(payload),
     encoding: "utf8",
     env: {
       ...process.env,
       CLAUDE_PROJECT_DIR: dir,
-      KORE_ROOT: dir,
+      KORE_ROOT: ledger ? dir : "",
       HERDR_PANE_ID: "w9:p9",
     },
   });
@@ -358,7 +361,7 @@ test(
 );
 
 test(
-  "a missing bundle leaves the guard's verdict, stdout and stderr unchanged",
+  "a project with no ledger root leaves the guard's verdict, stdout and stderr unchanged",
   async (t) => {
     const bare = project(t, { bundle: false });
     const withBundle = project(t, { expect: 2 });
@@ -367,7 +370,7 @@ test(
       tool_name: "Bash",
       tool_input: { command: "k3d cluster delete x" },
     };
-    const a = runHook("guard.mjs", [], blocked, bare);
+    const a = runHook("guard.mjs", [], blocked, bare, { ledger: false });
     const b = runHook("guard.mjs", [], blocked, withBundle);
     assert.equal(a.status, 2);
     assert.match(a.stderr, /\[guard:destructive\]/);

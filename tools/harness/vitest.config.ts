@@ -3,6 +3,7 @@ import { testWorkers } from "../kore/.husky/test-workers.mjs";
 
 const bundleFiles = [
   "tests/bundle.spec.ts",
+  "tests/guard-bundle.spec.ts",
   "../../.claude/hooks/harness-bundle.test.mjs",
 ];
 

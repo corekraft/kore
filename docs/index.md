@@ -40,7 +40,7 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`infra/plans/6-agent-primitives.md`](../infra/plans/6-agent-primitives.md) —
   done: an operations journal `kore` owns, an append-only guard, and a hook
   that reports what changed between turns. Read before changing the runner,
-  `guard.mjs`, or context hooks.
+  the `guard` hook, or context hooks.
 - [`infra/plans/7-cohesive-domain-classes.md`](../infra/plans/7-cohesive-domain-classes.md) —
   active: one cohesive class per domain responsibility, constructor-injected
   repository and runner, and the lint rules that enforce it. Read before

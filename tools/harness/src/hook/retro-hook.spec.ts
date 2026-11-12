@@ -36,11 +36,25 @@ function repoRoot(
   const { skills = true, marker, guard = true } = parts;
   const root = temp();
   mkdirSync(join(root, "infra", "plans"), { recursive: true });
-  mkdirSync(join(root, ".claude", "hooks"), { recursive: true });
   if (guard) {
+    const dir = join(root, "tools", "harness", "src", "hook");
+    mkdirSync(dir, { recursive: true });
     writeFileSync(
-      join(root, ".claude", "hooks", "guard.mjs"),
-      'warn("image-digest", "x");\nwarn("sample-audit", "x");\nwarn("unquoted-glob", "x");\n',
+      join(dir, "guard-rules.ts"),
+      'warn("image-digest", "x");\nwarn("sample-audit", "x");\n',
+    );
+    writeFileSync(join(dir, "guard.ts"), 'warn("unquoted-glob", "x");\n');
+    writeFileSync(
+      join(dir, "guard-rules.spec.ts"),
+      'warn("only-in-a-spec", "x");\n',
+    );
+    writeFileSync(
+      join(dir, "guard-support.ts"),
+      'warn("only-in-support", "x");\n',
+    );
+    writeFileSync(
+      join(dir, "guardian.ts"),
+      'warn("not-a-guard-module", "x");\n',
     );
   }
   if (skills) {
@@ -209,7 +223,7 @@ describe("hook retro-scan warnings and faults", () => {
     expect(result.code).toBe(0);
     expect(result.out).toBe("");
     expect(result.err).toMatch(
-      /failed open: Cannot read the guard source at .*guard\.mjs.*Point GUARD_SOURCE in tools\/harness\/src\/hook\/retro-hook\.ts/,
+      /failed open: Cannot read the guard source in .*tools\/harness\/src\/hook.*Point GUARD_DIR in tools\/harness\/src\/hook\/retro-hook\.ts/,
     );
     expect(result.err).not.toMatch(/unexpected/);
   });

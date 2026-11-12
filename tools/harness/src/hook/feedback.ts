@@ -62,7 +62,7 @@ export function bound(output: string, command: string): string {
   return `${lines.slice(0, MAX_LINES).join("\n")}\n... ${cut} more lines cut. Run \`${command}\` to see all.`;
 }
 
-interface Call {
+export interface Call {
   tool_name?: unknown;
   tool_input?: { file_path?: unknown };
   stop_hook_active?: unknown;
@@ -221,7 +221,7 @@ export async function stop(
  * Appends one Claude event to the ledger. Best effort by contract: a missing
  * ledger root or a rejected event never changes a hook's verdict or output.
  */
-async function recordEvent(
+export async function recordEvent(
   deps: CliDeps,
   kind: Kind,
   call: Call,
