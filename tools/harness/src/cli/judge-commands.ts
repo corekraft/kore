@@ -5,6 +5,7 @@ import {
   failed,
   prNumber,
   record,
+  repoOf,
   reviewersOf,
 } from "./judge-shared.js";
 import { mergeCommands } from "./judge-merge-commands.js";
@@ -17,7 +18,13 @@ async function runPrecheck(context: CommandContext): Promise<number> {
   try {
     const pr = prNumber(context.operand, USAGE);
     const root = await deps.root();
-    const report = await precheck(context, root, pr, reviewersOf(context));
+    const report = await precheck(
+      context,
+      root,
+      await repoOf(context),
+      pr,
+      reviewersOf(context),
+    );
     deps.stdout(json ? `${JSON.stringify(report)}\n` : summary(report));
     await record(context, report);
     return report.ok ? 0 : FAILED;

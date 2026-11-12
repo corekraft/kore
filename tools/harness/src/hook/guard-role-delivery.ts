@@ -18,6 +18,12 @@ import {
   WRITE_TOOLS,
 } from "./guard-role-writes.js";
 import { readMayRun } from "./guard-role-allow.js";
+import {
+  mergesPr,
+  pushesByTracking,
+  pushesToMain,
+  runsJudgeTool,
+} from "./guard-role-merge.js";
 import { commandOf, splitSegments } from "./guard-shell.js";
 import { block, type Finding } from "./guard-verdict.js";
 
@@ -28,7 +34,7 @@ export const DELIVERY_ROLES = new Set([...REPORTING_ROLES, "writer"]);
 const noMerge = (role: string, what: string): Finding =>
   block(
     "role-no-merge",
-    `${what} merges, but the ${role} may not merge by hand: the merge tool re-runs the precheck and merges only when it passes. ` +
+    `${what} merges or pushes to main, but the ${role} may not merge by hand: the merge tool re-runs the precheck and merges only when it passes. ` +
       "Instead, the judge runs `harness judge merge <pr>` or `harness judge send-back <pr> --reason <why>`; every other role reports and leaves the merge to the judge.",
   );
 
@@ -38,28 +44,6 @@ const outsideWorktree = (what: string, root: string): Finding =>
     `${what} reaches outside this worktree (${root}), and a writer works only in the worktree it was launched in. ` +
       "Instead, make the change inside the worktree, or report that it needs another piece of work.",
   );
-
-/** The judge's own tools: the merge tool and the send-back that closes the loop with the orchestrator. */
-const JUDGE_TOOLS = ["merge", "send-back"];
-const runsJudgeTool = (segment: readonly string[]): boolean => {
-  const { name, args } = commandOf(segment);
-  return (
-    name === "node" &&
-    HARNESS.test(args[0] ?? "") &&
-    args[1] === "judge" &&
-    JUDGE_TOOLS.includes(args[2] ?? "")
-  );
-};
-
-const MERGE_API = /\/pulls\/\d+\/merge\b/;
-const merges = (segment: readonly string[]): boolean => {
-  const { name, args } = commandOf(segment);
-  return (
-    name === "gh" &&
-    ((args[0] === "pr" && args[1] === "merge") ||
-      (args[0] === "api" && args.some((arg) => MERGE_API.test(arg))))
-  );
-};
 
 /** An interpreter given inline code, or an editor told to work in place, which can write anything. */
 function runsInline(segment: readonly string[]): boolean {
@@ -212,11 +196,17 @@ export function checkDeliveryBash(
   root: string,
 ): Finding {
   const segments = splitSegments(command);
-  const merging = segments.find(merges);
+  const merging = segments.find(
+    (s) =>
+      mergesPr(s) ||
+      pushesToMain(s) ||
+      // A reporting role never pushes at all (read-only below), so only the writer needs the branch read.
+      (!REPORTING_ROLES.has(role) && pushesByTracking(s, root)),
+  );
   if (merging !== undefined) {
     return noMerge(role, `\`${merging.join(" ")}\``);
   }
-  const judging = segments.find(runsJudgeTool);
+  const judging = segments.find((s) => runsJudgeTool(s, HARNESS));
   if (judging !== undefined && role !== "judge") {
     return noMerge(role, `\`${judging.join(" ")}\``);
   }

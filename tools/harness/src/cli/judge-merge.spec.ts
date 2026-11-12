@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { run } from "./cli.js";
 import {
   LEDGER,
+  REPO,
   REVIEWER,
   kore,
   passing,
@@ -15,8 +16,6 @@ const merge = (h: Harness, ...extra: string[]) =>
     ["judge", "merge", "42", "--json", "--reviewer", REVIEWER, ...extra],
     h.deps,
   );
-const sendBack = (h: Harness, ...extra: string[]) =>
-  run(["judge", "send-back", "42", ...extra], h.deps);
 
 const ghCalls = (h: Harness) =>
   h.runner.calls.filter((c) => c.command === "gh").map((c) => c.args.join(" "));
@@ -31,57 +30,47 @@ const events = (h: Harness) =>
 
 const HEAD = "abc1234def5678abc1234def5678abc1234def56";
 
-const withMerge = (s: Scenario = {}): Harness => scenario(s);
-
 describe("judge merge squash-merges only when the precheck passes", () => {
-  it("squash-merges the verified head commit when every check passes", async () => {
-    const h = withMerge();
+  it("squash-merges the verified head commit of the named repository when every check passes", async () => {
+    const h = scenario();
     expect(await merge(h)).toBe(0);
     expect(merges(h)).toEqual([
-      `pr merge 42 --squash --match-head-commit ${HEAD}`,
+      `pr merge 42 --repo ${REPO} --squash --match-head-commit ${HEAD}`,
     ]);
     expect(JSON.parse(h.out())).toMatchObject({ pr: 42, merged: true });
   });
 
+  it("uses no other strategy: the one merge call is squash alone, and a strategy flag is refused", async () => {
+    const h = scenario();
+    expect(await merge(h)).toBe(0);
+    const [call] = merges(h);
+    expect(merges(h)).toHaveLength(1);
+    expect(call).toContain("--squash");
+    expect(call).not.toMatch(/--(merge|rebase|auto|admin|delete-branch)\b/);
+    const refused = scenario();
+    expect(await merge(refused, "--auto")).toBe(2);
+    expect(merges(refused)).toEqual([]);
+  });
+
+  it("names the repository on every gh call, never GH_REPO or the working directory", async () => {
+    const h = scenario({ env: { GH_REPO: "evil/repo" } });
+    await merge(h);
+    const calls = ghCalls(h);
+    expect(calls.length).toBeGreaterThan(3);
+    for (const call of calls) {
+      expect(call).toContain(`--repo ${REPO}`);
+      expect(call).not.toContain("evil/repo");
+    }
+  });
+
   it("re-runs the precheck before it merges", async () => {
-    const h = withMerge();
+    const h = scenario();
     await merge(h);
     const verbs = ghCalls(h).map((c) => c.split(" ").slice(0, 2).join(" "));
     expect(verbs.indexOf("pr view")).toBeLessThan(verbs.indexOf("pr merge"));
     expect(events(h)).toMatchObject([
       { kind: "precheck", label: "no-behaviour-change:pass" },
     ]);
-  });
-
-  it("never merges a PR with no declared pattern", async () => {
-    const h = withMerge({ body: "no pattern here" });
-    expect(await merge(h)).toBe(1);
-    expect(merges(h)).toEqual([]);
-    expect(h.err()).toContain("not merged");
-  });
-
-  it("never merges a PR whose diff does not match its declared pattern", async () => {
-    const h = withMerge({ diff: kore });
-    expect(await merge(h)).toBe(1);
-    expect(merges(h)).toEqual([]);
-    expect(JSON.parse(h.out())).toMatchObject({ merged: false });
-  });
-
-  it("never merges when a check is failing", async () => {
-    const h = withMerge({
-      rollup: [{ ...passing[0], conclusion: "FAILURE" }, passing[1]],
-    });
-    expect(await merge(h)).toBe(1);
-    expect(merges(h)).toEqual([]);
-  });
-
-  it("never merges with any other strategy or flag", async () => {
-    const h = withMerge();
-    await merge(h, "--auto");
-    for (const call of merges(h)) {
-      expect(call).toContain("--squash");
-      expect(call).not.toMatch(/--(merge|rebase|auto|admin)\b/);
-    }
   });
 
   it("names the gh failure when the merge is refused", async () => {
@@ -98,66 +87,64 @@ describe("judge merge squash-merges only when the precheck passes", () => {
   });
 
   it("asks for a PR number when none is given", async () => {
-    const h = withMerge();
+    const h = scenario();
     expect(await run(["judge", "merge"], h.deps)).toBe(1);
     expect(h.err()).toContain("harness judge merge <pr>");
     expect(h.runner.calls).toHaveLength(0);
   });
 });
 
-describe("judge send-back posts the reason on the queue and the ledger", () => {
-  it("comments the reason on the PR and records it in the ledger", async () => {
-    const h = withMerge();
-    expect(await sendBack(h, "--reason", "diff touches a chart")).toBe(0);
-    const comment = ghCalls(h).find((c) => c.startsWith("pr comment 42"));
-    expect(comment).toContain("diff touches a chart");
-    expect(events(h)).toMatchObject([
-      {
-        kind: "send-back",
-        source: "github",
-        number: 42,
-        label: "diff touches a chart",
-      },
-    ]);
-  });
+const FAILING_CI = [{ ...passing[0], conclusion: "FAILURE" }, passing[1]];
+const PENDING_CI = [
+  { ...passing[0], status: "IN_PROGRESS", conclusion: "" },
+  passing[1],
+];
+const CLUSTER_DIFF = [
+  "diff --git a/infra/charts/app/values.yaml b/infra/charts/app/values.yaml",
+  "--- a/infra/charts/app/values.yaml",
+  "+++ b/infra/charts/app/values.yaml",
+  "@@ -1 +1 @@",
+  "+replicas: 3",
+].join("\n");
 
-  it("never merges or reads anything else", async () => {
-    const h = withMerge();
-    await sendBack(h, "--reason", "no pattern declared");
-    expect(merges(h)).toEqual([]);
-    expect(ghCalls(h)).toHaveLength(1);
-  });
-
-  it("keeps the full reason in the comment and a trimmed one in the ledger", async () => {
-    const h = withMerge();
-    const reason = `${"long reason ".repeat(20)}\nsecond line`;
-    await sendBack(h, "--reason", reason);
-    expect(ghCalls(h)[0]).toContain("second line");
-    const label = String(events(h)[0]?.["label"]);
-    expect(label.length).toBeLessThanOrEqual(100);
-    expect(label.split("").every((ch) => ch.charCodeAt(0) >= 0x20)).toBe(true);
-  });
-
-  it("requires a reason and posts nothing without one", async () => {
-    const h = withMerge();
-    expect(await sendBack(h)).toBe(1);
-    expect(await sendBack(h, "--reason", "  ")).toBe(1);
-    expect(h.err()).toContain("--reason");
-    expect(h.runner.calls).toHaveLength(0);
-    expect(h.files.has(LEDGER)).toBe(false);
-  });
-
-  it("records nothing when the comment cannot be posted", async () => {
-    const h = scenario({
-      first: [
+/** Each way a PR is not safe to merge: the tool exits 1, says so, and issues no merge command. */
+const UNSAFE: [string, Scenario][] = [
+  ["no declared pattern", { body: "no pattern here" }],
+  ["a diff that does not match its pattern", { diff: kore }],
+  [
+    "a cluster-facing diff declared no-behaviour-change",
+    { diff: CLUSTER_DIFF },
+  ],
+  ["a failing check", { rollup: FAILING_CI }],
+  ["pending CI", { rollup: PENDING_CI }],
+  ["a missing principles-review", { comments: [] }],
+  [
+    "an unverified principles-review from someone else",
+    { comments: [{ body: "principles-review: No violations.", author: "x" }] },
+  ],
+  [
+    "a principles-review made before the head commit",
+    {
+      comments: [
         {
-          match: (c, a) => c === "gh" && a[1] === "comment",
-          result: { code: 1, stderr: "not found" },
+          body: "principles-review: No violations.",
+          createdAt: "2025-06-01T00:00:00Z",
         },
       ],
-    });
-    expect(await sendBack(h, "--reason", "no pattern")).toBe(1);
-    expect(h.err()).toContain("not found");
-    expect(h.files.has(LEDGER)).toBe(false);
+    },
+  ],
+  [
+    "a principles-review that found violations",
+    { comments: [{ body: "principles-review: 2 violations." }] },
+  ],
+];
+
+describe("judge merge never merges what the precheck does not pass", () => {
+  it.each(UNSAFE)("issues no merge command for %s", async (_name, s) => {
+    const h = scenario(s);
+    expect(await merge(h)).toBe(1);
+    expect(merges(h)).toEqual([]);
+    expect(h.err()).toContain("not merged");
+    expect(JSON.parse(h.out())).toMatchObject({ merged: false });
   });
 });

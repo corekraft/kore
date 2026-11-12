@@ -1,4 +1,11 @@
-import { JudgeError, precheck, summary } from "../judge/index.js";
+import {
+  JudgeError,
+  hasSentBack,
+  precheck,
+  readPr,
+  sendBackBody,
+  summary,
+} from "../judge/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
 import {
   FAILED,
@@ -6,6 +13,7 @@ import {
   openJudgeLedger,
   prNumber,
   record,
+  repoOf,
   reviewersOf,
 } from "./judge-shared.js";
 
@@ -24,7 +32,14 @@ async function runMerge(context: CommandContext): Promise<number> {
   try {
     const pr = prNumber(context.operand, MERGE_USAGE);
     const root = await deps.root();
-    const report = await precheck(context, root, pr, reviewersOf(context));
+    const repo = await repoOf(context);
+    const report = await precheck(
+      context,
+      root,
+      repo,
+      pr,
+      reviewersOf(context),
+    );
     await record(context, report);
     if (!report.ok || report.head === undefined || report.head === "") {
       deps.stdout(
@@ -43,6 +58,8 @@ async function runMerge(context: CommandContext): Promise<number> {
         "pr",
         "merge",
         String(pr),
+        "--repo",
+        repo,
         "--squash",
         "--match-head-commit",
         report.head,
@@ -88,34 +105,45 @@ async function runSendBack(context: CommandContext): Promise<number> {
       throw new JudgeError(`A send-back needs a reason. ${SEND_BACK_USAGE}`);
     }
     const root = await deps.root();
+    const repo = await repoOf(context);
     const ledger = await openJudgeLedger(context);
-    const done = await deps.runner.run(
-      "gh",
-      [
-        "pr",
-        "comment",
-        String(pr),
-        "--body",
-        `Sent back by the judge: ${reason}`,
-      ],
-      { cwd: root },
-    );
-    if (done.code !== 0) {
-      throw new JudgeError(
-        `gh pr comment failed for PR #${pr}: ${done.stderr.trim()}. Check \`gh auth status\` and the PR number, then rerun \`harness judge send-back ${pr}\`.`,
+    const view = await readPr(context, root, repo, pr);
+    if (!hasSentBack(view, reason)) {
+      const done = await deps.runner.run(
+        "gh",
+        [
+          "pr",
+          "comment",
+          String(pr),
+          "--repo",
+          repo,
+          "--body",
+          sendBackBody(reason, view.headSha),
+        ],
+        { cwd: root },
       );
+      if (done.code !== 0) {
+        throw new JudgeError(
+          `gh pr comment failed for PR #${pr}: ${done.stderr.trim()}. Check \`gh auth status\` and the PR number, then rerun \`harness judge send-back ${pr}\`.`,
+        );
+      }
     }
-    const event = await ledger.record({
-      source: "github",
-      kind: "send-back",
-      occurredAt: deps.clock.now().toISOString(),
-      number: pr,
-      label: labelFor(reason),
-    });
-    if (!event.ok) {
-      throw new JudgeError(
-        `The reason was posted on PR #${pr}, but its ledger event was rejected: ${event.message} Fix the ledger; do not post the reason twice.`,
-      );
+    const label = labelFor(reason);
+    const logged = await ledger.list({ kind: "send-back" });
+    const newest = logged.events.filter((e) => e.number === pr).at(-1);
+    if (newest?.label !== label) {
+      const event = await ledger.record({
+        source: "github",
+        kind: "send-back",
+        occurredAt: deps.clock.now().toISOString(),
+        number: pr,
+        label,
+      });
+      if (!event.ok) {
+        throw new JudgeError(
+          `The reason is on PR #${pr}, but its ledger event was rejected: ${event.message} Fix the ledger, then rerun \`harness judge send-back ${pr}\`; the comment is not posted twice.`,
+        );
+      }
     }
     deps.stdout(`PR #${pr}: sent back with the reason on the queue\n`);
     return 0;

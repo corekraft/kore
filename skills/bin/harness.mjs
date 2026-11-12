@@ -145,13 +145,13 @@ async function mainRoot(deps) {
   if (checkout === void 0) {
     return void 0;
   }
-  const git3 = await deps.runner.run(
+  const git4 = await deps.runner.run(
     "git",
     ["rev-parse", "--path-format=absolute", "--git-common-dir"],
     { cwd: checkout }
   );
-  const common = git3.stdout.trim();
-  return git3.code === 0 && common !== "" ? dirname2(common) : void 0;
+  const common = git4.stdout.trim();
+  return git4.code === 0 && common !== "" ? dirname2(common) : void 0;
 }
 function withoutGitEnv(env) {
   return Object.fromEntries(
@@ -165,13 +165,13 @@ async function bundleMainRoot(deps) {
     return void 0;
   }
   const checkout = resolve(dirname2(fileURLToPath(deps.bundleUrl)), "../..");
-  const git3 = await deps.runner.run(
+  const git4 = await deps.runner.run(
     "git",
     ["rev-parse", "--path-format=absolute", "--git-common-dir"],
     { cwd: checkout, env: withoutGitEnv(deps.env) }
   );
-  const common = git3.stdout.trim();
-  return git3.code === 0 && common !== "" ? dirname2(common) : void 0;
+  const common = git4.stdout.trim();
+  return git4.code === 0 && common !== "" ? dirname2(common) : void 0;
 }
 
 // src/runtime/root.ts
@@ -5504,7 +5504,7 @@ function review(view, reviewers) {
   const verdict = (REVIEW.exec(trusted.body)?.[1] ?? "").replace(/\s*\(?\bhead\s+[0-9a-f]{7,40}\)?\s*$/i, "").trim();
   return /^no violations\.?$/i.test(verdict) ? { result: "pass" } : { result: "fail", detail: verdict };
 }
-async function coverage(runner, root3, pr) {
+async function coverage(runner, root3, repo, pr) {
   const url = pr.rollup.find((c) => c.name === CI_JOB)?.url ?? "";
   const run3 = /\/actions\/runs\/(\d+)/.exec(url)?.[1];
   if (run3 === void 0) {
@@ -5513,9 +5513,13 @@ async function coverage(runner, root3, pr) {
       detail: "no CI run on the PR to read coverage out of"
     };
   }
-  const done = await runner.run("gh", ["run", "view", run3, "--json", "jobs"], {
-    cwd: root3
-  });
+  const done = await runner.run(
+    "gh",
+    ["run", "view", run3, "--repo", repo, "--json", "jobs"],
+    {
+      cwd: root3
+    }
+  );
   if (done.code !== 0) {
     return { result: "missing", detail: `gh run view ${run3} failed` };
   }
@@ -5552,11 +5556,11 @@ async function coverage(runner, root3, pr) {
     };
   }
 }
-async function gatherChecks(runner, root3, view, reviewers) {
+async function gatherChecks(runner, root3, repo, view, reviewers) {
   return {
     ci: job(view, CI_JOB),
     scan: job(view, SCAN_JOB),
-    coverage: await coverage(runner, root3, view),
+    coverage: await coverage(runner, root3, repo, view),
     principlesReview: review(view, reviewers)
   };
 }
@@ -5742,8 +5746,10 @@ function assess(pattern, hints, files) {
 var JudgeError = class extends Error {
 };
 var FIX3 = "Check `gh auth status` and the PR number, then rerun `harness judge precheck <pr>`.";
-async function gh({ deps }, root3, args, pr) {
-  const done = await deps.runner.run("gh", args, { cwd: root3 });
+async function gh({ deps }, root3, repo, args, pr) {
+  const done = await deps.runner.run("gh", [...args, "--repo", repo], {
+    cwd: root3
+  });
   if (done.code !== 0) {
     throw new JudgeError(
       `gh ${args.slice(0, 2).join(" ")} failed for PR #${pr}: ${done.stderr.trim()}. ${FIX3}`
@@ -5751,10 +5757,11 @@ async function gh({ deps }, root3, args, pr) {
   }
   return done.stdout;
 }
-async function readPr(context2, root3, pr) {
+async function readPr(context2, root3, repo, pr) {
   const out = await gh(
     context2,
     root3,
+    repo,
     [
       "pr",
       "view",
@@ -5770,8 +5777,8 @@ async function readPr(context2, root3, pr) {
   }
   return view;
 }
-async function precheck(context2, root3, pr, reviewers) {
-  const view = await readPr(context2, root3, pr);
+async function precheck(context2, root3, repo, pr, reviewers) {
+  const view = await readPr(context2, root3, repo, pr);
   const declaration = parseDeclaration(view.body);
   if (!declaration.ok) {
     return {
@@ -5782,8 +5789,14 @@ async function precheck(context2, root3, pr, reviewers) {
       declaration: { ok: false, reason: declaration.reason }
     };
   }
-  const diff = await gh(context2, root3, ["pr", "diff", String(pr)], pr);
-  const checks = await gatherChecks(context2.deps.runner, root3, view, reviewers);
+  const diff = await gh(context2, root3, repo, ["pr", "diff", String(pr)], pr);
+  const checks = await gatherChecks(
+    context2.deps.runner,
+    root3,
+    repo,
+    view,
+    reviewers
+  );
   const files = parseDiff(diff);
   const hints = hintsFor(declaration.pattern, files);
   const verdict = assess(declaration.pattern, hints, files);
@@ -5825,6 +5838,13 @@ ${report3.declaration.reason ?? ""}
     ""
   ].join("\n");
 }
+
+// src/judge/send-back.ts
+var PREFIX = "Sent back by the judge: ";
+var sendBackBody = (reason, head) => `${PREFIX}${reason}
+
+head ${head}`;
+var hasSentBack = (view, reason) => view.comments.some((c) => c.body === sendBackBody(reason, view.headSha));
 
 // src/cli/judge-shared.ts
 import { resolve as resolve4 } from "node:path";
@@ -5887,6 +5907,25 @@ function failed(context2, error) {
   );
   return FAILED5;
 }
+var REMOTE = /github\.com[:/]([\w.-]+\/[\w.-]+?)(?:\.git)?\/?$/;
+async function repoOf({ deps }) {
+  const main = await bundleMainRoot(deps);
+  if (main === void 0) {
+    throw new JudgeError(
+      "Cannot find the main checkout from the harness bundle's location, so there is no repository to name. Run the committed skills/bin/harness.mjs from inside the repository."
+    );
+  }
+  const done = await deps.runner.run("git", ["remote", "get-url", "origin"], {
+    cwd: main
+  });
+  const repo = REMOTE.exec(done.stdout.trim())?.[1];
+  if (done.code !== 0 || repo === void 0) {
+    throw new JudgeError(
+      `The main checkout's origin remote is not a GitHub repository (${done.stdout.trim() || done.stderr.trim() || "no origin"}). Set it with \`git remote set-url origin <url>\`, then rerun.`
+    );
+  }
+  return repo;
+}
 
 // src/cli/judge-merge-commands.ts
 var MERGE_USAGE = "Run `harness judge merge <pr> [--json] [--reviewer <login>[,<login>]]`.";
@@ -5897,7 +5936,14 @@ async function runMerge(context2) {
   try {
     const pr = prNumber(context2.operand, MERGE_USAGE);
     const root3 = await deps.root();
-    const report3 = await precheck(context2, root3, pr, reviewersOf(context2));
+    const repo = await repoOf(context2);
+    const report3 = await precheck(
+      context2,
+      root3,
+      repo,
+      pr,
+      reviewersOf(context2)
+    );
     await record2(context2, report3);
     if (!report3.ok || report3.head === void 0 || report3.head === "") {
       deps.stdout(
@@ -5916,6 +5962,8 @@ async function runMerge(context2) {
         "pr",
         "merge",
         String(pr),
+        "--repo",
+        repo,
         "--squash",
         "--match-head-commit",
         report3.head
@@ -5952,34 +6000,45 @@ async function runSendBack(context2) {
       throw new JudgeError(`A send-back needs a reason. ${SEND_BACK_USAGE}`);
     }
     const root3 = await deps.root();
+    const repo = await repoOf(context2);
     const ledger = await openJudgeLedger(context2);
-    const done = await deps.runner.run(
-      "gh",
-      [
-        "pr",
-        "comment",
-        String(pr),
-        "--body",
-        `Sent back by the judge: ${reason}`
-      ],
-      { cwd: root3 }
-    );
-    if (done.code !== 0) {
-      throw new JudgeError(
-        `gh pr comment failed for PR #${pr}: ${done.stderr.trim()}. Check \`gh auth status\` and the PR number, then rerun \`harness judge send-back ${pr}\`.`
+    const view = await readPr(context2, root3, repo, pr);
+    if (!hasSentBack(view, reason)) {
+      const done = await deps.runner.run(
+        "gh",
+        [
+          "pr",
+          "comment",
+          String(pr),
+          "--repo",
+          repo,
+          "--body",
+          sendBackBody(reason, view.headSha)
+        ],
+        { cwd: root3 }
       );
+      if (done.code !== 0) {
+        throw new JudgeError(
+          `gh pr comment failed for PR #${pr}: ${done.stderr.trim()}. Check \`gh auth status\` and the PR number, then rerun \`harness judge send-back ${pr}\`.`
+        );
+      }
     }
-    const event = await ledger.record({
-      source: "github",
-      kind: "send-back",
-      occurredAt: deps.clock.now().toISOString(),
-      number: pr,
-      label: labelFor(reason)
-    });
-    if (!event.ok) {
-      throw new JudgeError(
-        `The reason was posted on PR #${pr}, but its ledger event was rejected: ${event.message} Fix the ledger; do not post the reason twice.`
-      );
+    const label = labelFor(reason);
+    const logged = await ledger.list({ kind: "send-back" });
+    const newest = logged.events.filter((e) => e.number === pr).at(-1);
+    if (newest?.label !== label) {
+      const event = await ledger.record({
+        source: "github",
+        kind: "send-back",
+        occurredAt: deps.clock.now().toISOString(),
+        number: pr,
+        label
+      });
+      if (!event.ok) {
+        throw new JudgeError(
+          `The reason is on PR #${pr}, but its ledger event was rejected: ${event.message} Fix the ledger, then rerun \`harness judge send-back ${pr}\`; the comment is not posted twice.`
+        );
+      }
     }
     deps.stdout(`PR #${pr}: sent back with the reason on the queue
 `);
@@ -6010,7 +6069,13 @@ async function runPrecheck(context2) {
   try {
     const pr = prNumber(context2.operand, USAGE);
     const root3 = await deps.root();
-    const report3 = await precheck(context2, root3, pr, reviewersOf(context2));
+    const report3 = await precheck(
+      context2,
+      root3,
+      await repoOf(context2),
+      pr,
+      reviewersOf(context2)
+    );
     deps.stdout(json ? `${JSON.stringify(report3)}
 ` : summary(report3));
     await record2(context2, report3);
@@ -7835,26 +7900,175 @@ function readMayRun(segment, harness) {
 
 // src/hook/guard-role-delivery.ts
 import { isAbsolute, relative, resolve as resolve5 } from "node:path";
+
+// src/hook/guard-role-merge.ts
+import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { basename as basename3 } from "node:path";
+var WRAPPERS2 = /* @__PURE__ */ new Set(["sudo", "env", "time", "command", "nohup", "exec"]);
+var SHELLS = /* @__PURE__ */ new Set(["bash", "sh", "zsh", "dash", "ksh"]);
+var MAX_DEPTH = 5;
+var ENV_VALUED = /* @__PURE__ */ new Set(["-u", "-C", "-S", "--unset", "--chdir"]);
+var XARGS_VALUED = /* @__PURE__ */ new Set(["-I", "-n", "-P", "-L", "-s", "-E", "-d", "-a"]);
+var MAIN = "main";
+var isDash = (word) => word !== void 0 && word.startsWith("-");
+function unwrapped(segment) {
+  let rest = [...segment];
+  for (; ; ) {
+    const word = rest[0] ?? "";
+    const wrapper = WRAPPERS2.has(basename3(word));
+    if (!wrapper && !/^[A-Za-z_][A-Za-z0-9_]*=/.test(word)) {
+      return rest;
+    }
+    rest = rest.slice(1);
+    while (wrapper && basename3(word) === "env" && isDash(rest[0])) {
+      rest = rest.slice(ENV_VALUED.has(rest[0] ?? "") ? 2 : 1);
+    }
+  }
+}
+function shellScript(args) {
+  const at = args.findIndex((arg) => /^-[a-z]*c[a-z]*$/.test(arg));
+  return at < 0 ? void 0 : args[at + 1];
+}
+function xargsCommand(args) {
+  let at = 0;
+  while (isDash(args[at])) {
+    at += XARGS_VALUED.has(args[at] ?? "") ? 2 : 1;
+  }
+  return args.slice(at);
+}
+function expand(segment, depth = 0) {
+  const rest = unwrapped(segment);
+  const name = basename3(rest[0] ?? "");
+  const args = rest.slice(1);
+  const inner = (words2) => words2.length === 0 || depth >= MAX_DEPTH ? [] : expand(words2, depth + 1);
+  let script;
+  if (SHELLS.has(name)) {
+    script = shellScript(args);
+  } else if (name === "eval") {
+    script = args.join(" ");
+  }
+  if (script !== void 0) {
+    return [rest, ...splitSegments(script).flatMap(inner)];
+  }
+  return name === "xargs" ? [rest, ...inner(xargsCommand(args))] : [rest];
+}
+var MERGE_API = /\/pulls\/\d+\/merge\b/;
+var MERGE_MUTATION = /mergePullRequest|enablePullRequestAutoMerge/i;
+var withoutRepo = (args) => args.flatMap(
+  (arg, i) => ["-R", "--repo"].includes(args[i - 1] ?? "") || ["-R", "--repo"].includes(arg) || arg.startsWith("--repo=") ? [] : [arg]
+);
+function graphqlMerges(args) {
+  return args[0] === "api" && args[1] === "graphql" && (args.some((arg) => MERGE_MUTATION.test(arg)) || args.some((arg) => /(^|=)@/.test(arg)) || args.includes("--input"));
+}
+function ghMerges(line2) {
+  const { name, args } = commandOf(line2);
+  if (name !== "gh") {
+    return false;
+  }
+  const plain = withoutRepo(args);
+  return plain[0] === "pr" && plain[1] === "merge" || args[0] === "api" && args.some((arg) => MERGE_API.test(arg)) || graphqlMerges(args);
+}
+var cleanEnv = () => Object.fromEntries(
+  Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_"))
+);
+var git = (root3, args) => {
+  try {
+    return execFileSync("git", ["-C", root3, ...args], {
+      env: cleanEnv(),
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: 15e3
+    }).trim();
+  } catch {
+    return void 0;
+  }
+};
+var branchName = (ref) => ref.startsWith("refs/heads/") ? ref.slice("refs/heads/".length) : ref;
+function branchesOf(root3) {
+  const current2 = git(root3, ["symbolic-ref", "--short", "-q", "HEAD"]);
+  const merge = current2 === void 0 || current2 === "" ? void 0 : git(root3, ["config", "--get", `branch.${current2}.merge`]);
+  return {
+    current: current2 === "" ? void 0 : current2,
+    tracked: merge === void 0 || merge === "" ? void 0 : branchName(merge)
+  };
+}
+var GIT_VALUED = /* @__PURE__ */ new Set([
+  "-C",
+  "-c",
+  "--git-dir",
+  "--work-tree",
+  "--namespace"
+]);
+function pushArgs(line2) {
+  const { name, args } = commandOf(line2);
+  if (name !== "git") {
+    return void 0;
+  }
+  let at = 0;
+  while (isDash(args[at])) {
+    at += GIT_VALUED.has(args[at]) ? 2 : 1;
+  }
+  return args[at] === "push" ? args.slice(at + 1) : void 0;
+}
+var sendsToMain = (target) => target === MAIN || (target?.includes("*") ?? false);
+function refspecsOf(words2) {
+  return words2.filter((w) => !w.startsWith("-")).slice(1);
+}
+function namesMain(line2) {
+  const words2 = pushArgs(line2);
+  if (words2 === void 0) {
+    return false;
+  }
+  return words2.some((w) => w === "--all" || w === "--mirror") || refspecsOf(words2).some(
+    (spec) => sendsToMain(
+      branchName(
+        (spec.startsWith("+") ? spec.slice(1) : spec).split(":").at(-1) ?? ""
+      )
+    )
+  );
+}
+function tracksMain(line2, root3) {
+  const words2 = pushArgs(line2);
+  if (words2 === void 0) {
+    return false;
+  }
+  const refspecs = refspecsOf(words2);
+  const headOnly = refspecs.every((spec) => spec === "HEAD");
+  if (!headOnly) {
+    return false;
+  }
+  if (!existsSync(root3)) {
+    return false;
+  }
+  const { current: current2, tracked } = branchesOf(root3);
+  return current2 === void 0 || sendsToMain(current2) || sendsToMain(tracked);
+}
+var mergesPr = (segment) => expand(segment).some(ghMerges);
+var pushesToMain = (segment) => {
+  const lines3 = expand(segment);
+  const viaXargs = lines3.some(
+    (line2, at) => basename3(line2[0] ?? "") === "xargs" && lines3.slice(at + 1).some((inner) => pushArgs(inner) !== void 0)
+  );
+  return viaXargs || lines3.some(namesMain);
+};
+var pushesByTracking = (segment, root3) => expand(segment).some((line2) => tracksMain(line2, root3));
+var runsJudgeTool = (segment, harness) => expand(segment).some((line2) => {
+  const { name, args } = commandOf(line2);
+  return name === "node" && harness.test(args[0] ?? "") && args[1] === "judge" && ["merge", "send-back"].includes(args[2] ?? "");
+});
+
+// src/hook/guard-role-delivery.ts
 var REPORTING_ROLES = /* @__PURE__ */ new Set(["orchestrator", "judge"]);
 var DELIVERY_ROLES = /* @__PURE__ */ new Set([...REPORTING_ROLES, "writer"]);
 var noMerge = (role, what) => block(
   "role-no-merge",
-  `${what} merges, but the ${role} may not merge by hand: the merge tool re-runs the precheck and merges only when it passes. Instead, the judge runs \`harness judge merge <pr>\` or \`harness judge send-back <pr> --reason <why>\`; every other role reports and leaves the merge to the judge.`
+  `${what} merges or pushes to main, but the ${role} may not merge by hand: the merge tool re-runs the precheck and merges only when it passes. Instead, the judge runs \`harness judge merge <pr>\` or \`harness judge send-back <pr> --reason <why>\`; every other role reports and leaves the merge to the judge.`
 );
 var outsideWorktree = (what, root3) => block(
   "role-worktree",
   `${what} reaches outside this worktree (${root3}), and a writer works only in the worktree it was launched in. Instead, make the change inside the worktree, or report that it needs another piece of work.`
 );
-var JUDGE_TOOLS = ["merge", "send-back"];
-var runsJudgeTool = (segment) => {
-  const { name, args } = commandOf(segment);
-  return name === "node" && HARNESS2.test(args[0] ?? "") && args[1] === "judge" && JUDGE_TOOLS.includes(args[2] ?? "");
-};
-var MERGE_API = /\/pulls\/\d+\/merge\b/;
-var merges = (segment) => {
-  const { name, args } = commandOf(segment);
-  return name === "gh" && (args[0] === "pr" && args[1] === "merge" || args[0] === "api" && args.some((arg) => MERGE_API.test(arg)));
-};
 function runsInline(segment) {
   const { name, args } = commandOf(segment);
   return name === "node" && args.some((a) => ["-e", "--eval", "-p"].includes(a)) || /^python3?$/.test(name) && args.includes("-c") || name === "perl" && args.some((a) => /^-\w*[eEip]/.test(a)) || name === "ruby" && args.includes("-e") || /^g?awk$/.test(name) && args.some((a) => a === "inplace" || a === "--in-place");
@@ -7950,11 +8164,14 @@ function escapes(segment, root3) {
 }
 function checkDeliveryBash(role, command, root3) {
   const segments = splitSegments(command);
-  const merging = segments.find(merges);
+  const merging = segments.find(
+    (s) => mergesPr(s) || pushesToMain(s) || // A reporting role never pushes at all (read-only below), so only the writer needs the branch read.
+    !REPORTING_ROLES.has(role) && pushesByTracking(s, root3)
+  );
   if (merging !== void 0) {
     return noMerge(role, `\`${merging.join(" ")}\``);
   }
-  const judging = segments.find(runsJudgeTool);
+  const judging = segments.find((s) => runsJudgeTool(s, HARNESS2));
   if (judging !== void 0 && role !== "judge") {
     return noMerge(role, `\`${judging.join(" ")}\``);
   }
@@ -8845,8 +9062,8 @@ async function readJournals2(deps, root3) {
   }
   return journals;
 }
-function snapshotStore(deps, git3, root3) {
-  const dir = async () => join10(resolve7(root3, await git3("rev-parse", "--git-dir")), "kore-delta");
+function snapshotStore(deps, git4, root3) {
+  const dir = async () => join10(resolve7(root3, await git4("rev-parse", "--git-dir")), "kore-delta");
   const file = async (id) => join10(await dir(), `${id}.json`);
   return {
     async readSnapshot(id) {
@@ -8878,25 +9095,25 @@ function snapshotStore(deps, git3, root3) {
   };
 }
 function realDeltaDeps(deps, root3) {
-  const git3 = gitReader(deps, root3);
+  const git4 = gitReader(deps, root3);
   return {
     now: () => deps.clock.now().getTime(),
-    head: () => git3("rev-parse", "HEAD"),
-    branch: () => git3("rev-parse", "--abbrev-ref", "HEAD"),
+    head: () => git4("rev-parse", "HEAD"),
+    branch: () => git4("rev-parse", "--abbrev-ref", "HEAD"),
     async main() {
       try {
-        return await git3("rev-parse", "--verify", "--quiet", "main");
+        return await git4("rev-parse", "--verify", "--quiet", "main");
       } catch {
         return null;
       }
     },
     async commitsBetween(from, to) {
-      return (await git3("log", "--format=%s", `${from}..${to}`)).split("\n").filter(Boolean);
+      return (await git4("log", "--format=%s", `${from}..${to}`)).split("\n").filter(Boolean);
     },
     readPlans: () => readPlans(deps),
     listLocks: () => readDir(deps, join10(root3, LOCKS_DIR)),
     readJournals: () => readJournals2(deps, root3),
-    ...snapshotStore(deps, git3, root3)
+    ...snapshotStore(deps, git4, root3)
   };
 }
 
@@ -9189,7 +9406,7 @@ import { homedir as homedir2 } from "node:os";
 import { join as join12 } from "node:path";
 
 // src/hook/retro-transcripts.ts
-import { basename as basename3, join as join11, sep } from "node:path";
+import { basename as basename4, join as join11, sep } from "node:path";
 var PROBE_BYTES = 256 * 1024;
 var DEFAULT_BRANCHES = /* @__PURE__ */ new Set(["main", "master", "HEAD"]);
 var encodePath = (path) => path.replace(/[^a-zA-Z0-9]/g, "-");
@@ -9236,26 +9453,26 @@ async function repoTranscriptDirs(fs, projectsDir, { main, worktrees, branches }
   const found = [];
   for (const name of entries2) {
     const dir = join11(projectsDir, name);
-    if (await fs.isDirectory(dir) && (names3.has(basename3(dir)) || await belongs(dir))) {
+    if (await fs.isDirectory(dir) && (names3.has(basename4(dir)) || await belongs(dir))) {
       found.push(dir);
     }
   }
   return found.sort();
 }
-async function git(runner, cwd, args) {
+async function git2(runner, cwd, args) {
   const result = await runner.run("git", args, { cwd });
   return result.code === 0 ? result.stdout : "";
 }
 async function defaultDirs(fs, runner, root3, home) {
-  const listed = await git(runner, root3, ["worktree", "list", "--porcelain"]);
+  const listed = await git2(runner, root3, ["worktree", "list", "--porcelain"]);
   const worktrees = listed.split("\n").filter((line2) => line2.startsWith("worktree ")).map((line2) => line2.slice("worktree ".length));
-  const common = (await git(runner, root3, [
+  const common = (await git2(runner, root3, [
     "rev-parse",
     "--path-format=absolute",
     "--git-common-dir"
   ])).trim();
   const main = worktrees[0] ?? (common ? join11(common, "..") : root3);
-  const refs = await git(runner, root3, [
+  const refs = await git2(runner, root3, [
     "for-each-ref",
     "--format=%(refname:short)",
     "refs/heads",
@@ -9274,7 +9491,7 @@ async function readTranscripts(fs, dirs) {
     for (const name of (await fs.readdir(dir)).filter(
       (n) => n.endsWith(".jsonl")
     )) {
-      const id = basename3(name, ".jsonl");
+      const id = basename4(name, ".jsonl");
       const text10 = await fs.readFile(join11(dir, name));
       if (text10.length >= (byId.get(id)?.text.length ?? -1)) {
         byId.set(id, { id, text: text10 });
@@ -10466,7 +10683,7 @@ var skill = { audit: audit2 };
 // src/hook/kb-check.ts
 var ENOENT = "ENOENT";
 var EISDIR = "EISDIR";
-async function git2(deps, root3, args) {
+async function git3(deps, root3, args) {
   const result = await deps.runner.run("git", args, { cwd: root3 });
   if (result.code !== 0) {
     throw new CommandError(
@@ -10490,7 +10707,7 @@ async function flagAudit(deps, root3) {
   }
 }
 async function readTree(deps, root3) {
-  const listed = await git2(deps, root3, [
+  const listed = await git3(deps, root3, [
     "ls-files",
     "--cached",
     "--others",
@@ -10517,7 +10734,7 @@ async function kbCheck(strict, deps) {
   const kbDeps = {
     files: () => [...tree.keys()],
     read: (path) => tree.get(path) ?? null,
-    commitDate: async (path) => (await git2(deps, root3, ["log", "-1", "--format=%cs", "--", path])).trim() || null,
+    commitDate: async (path) => (await git3(deps, root3, ["log", "-1", "--format=%cs", "--", path])).trim() || null,
     audit: () => skillAudit(deps.fs, root3),
     flagAudit: () => flagAudit(deps, root3)
   };

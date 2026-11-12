@@ -79,3 +79,29 @@ export function failed(context: CommandContext, error: unknown): number {
   );
   return FAILED;
 }
+
+const REMOTE = /github\.com[:/]([\w.-]+\/[\w.-]+?)(?:\.git)?\/?$/;
+
+/**
+ * The `owner/name` every gh call names, read from the origin remote of the checkout that
+ * holds this bundle. Never GH_REPO and never the working directory: a judge run from
+ * another checkout or with a stray GH_REPO still acts on the repository it was built in.
+ */
+export async function repoOf({ deps }: CommandContext): Promise<string> {
+  const main = await bundleMainRoot(deps);
+  if (main === undefined) {
+    throw new JudgeError(
+      "Cannot find the main checkout from the harness bundle's location, so there is no repository to name. Run the committed skills/bin/harness.mjs from inside the repository.",
+    );
+  }
+  const done = await deps.runner.run("git", ["remote", "get-url", "origin"], {
+    cwd: main,
+  });
+  const repo = REMOTE.exec(done.stdout.trim())?.[1];
+  if (done.code !== 0 || repo === undefined) {
+    throw new JudgeError(
+      `The main checkout's origin remote is not a GitHub repository (${done.stdout.trim() || done.stderr.trim() || "no origin"}). Set it with \`git remote set-url origin <url>\`, then rerun.`,
+    );
+  }
+  return repo;
+}
