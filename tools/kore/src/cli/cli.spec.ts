@@ -27,11 +27,18 @@ test("validate reports portable applications for the selected environment", asyn
   }
 });
 
-test("tunnel status on the k3d local overlay names the load balancer, not a tunnel", async () => {
+test("the tunnel command no longer exists and usage does not mention it", async () => {
   await assert.rejects(
     main(["tunnel", "status", "--environment", "local", "--json"]),
-    /k3d.*load balancer.*no tunnel/is,
+    /unknown command: tunnel/,
   );
+  const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+  try {
+    await main(["help"]);
+    assert.doesNotMatch(String(log.mock.calls[0]?.[0]), /tunnel/i);
+  } finally {
+    log.mockRestore();
+  }
 });
 
 test("help prints usage without loading an environment", async () => {

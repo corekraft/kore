@@ -106,11 +106,9 @@ with an empty list when nothing is retained.
 
 The local Gateway answers on `https://kore.local:8443/` (or your route path).
 The k3d load balancer maps host port `8443` to the Gateway Service's node port
-(30443), so no tunnel process is needed and `kore tunnel` is not used for the
-`local` environment ([ADR 0085](docs/decisions/0085-k3d-gateway-answers-through-a-node-port.md)).
+(30443), so no tunnel process is needed ([ADR 0085](docs/decisions/0085-k3d-gateway-answers-through-a-node-port.md)).
 `platform up` waits for the Gateway Service to publish the configured node
-port before it reports the Gateway ready. `kore tunnel` remains only for the
-retired Minikube provider, until plan 9 Step 4 deletes it.
+port before it reports the Gateway ready.
 
 For the local profile, the focused cluster lifecycle commands are:
 
@@ -273,7 +271,6 @@ is the source of truth.
 | `kore app`      | Deploys, removes, or reports one application's resources and workload releases.                                                                |
 | `kore data`     | Exports retained CloudNativePG data as an age-encrypted, digest-manifested artifact, or restores it into a fresh profile.                      |
 | `kore local`    | Brings the whole local environment up or down (`--prune` destroys it; `--prune --purge-data` also purges retained data).                       |
-| `kore tunnel`   | Starts, stops, or reports the managed Minikube tunnel (Minikube only).                                                                         |
 | `kore registry` | Rotates the registry's push and read passwords and the enrolled pull Secrets (`rotate-credentials --yes`).                                     |
 | `kore secrets`  | Syncs local secrets, including the generated API token, into the cluster.                                                                      |
 | `kore trust`    | Installs the local certificate authority before the Gateway is configured.                                                                     |

@@ -18,7 +18,7 @@ export async function oci() {
 
 export async function reconcile(scenario: Scenario): Promise<void> {
   const { repository, component } = await oci();
-  await reconcileComponent(repository, scenario, component, undefined, {
+  await reconcileComponent(repository, scenario, component, {
     clock: scenario.clock,
     intervalMs: 5000,
     graceMs: 60000,

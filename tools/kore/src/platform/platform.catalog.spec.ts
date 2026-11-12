@@ -57,7 +57,7 @@ test("Gateway chart does not create its TLS certificate in the same release", as
   assert.doesNotMatch(gateway, /kind: Certificate/);
 });
 
-test("local Gateway uses a non-privileged HTTPS port so Minikube tunnel needs no sudo", async () => {
+test("local Gateway uses a non-privileged HTTPS port so no process needs sudo", async () => {
   const repository = await loadRepository("local");
   const values = await readFile(
     join(

@@ -61,9 +61,6 @@ vi.mock("./status.js", async () => {
 vi.mock("../security/index.js", () => ({
   installLocalTrust: async () => undefined,
 }));
-vi.mock("../tunnel/index.js", () => ({
-  startLocalTunnel: async () => undefined,
-}));
 
 import {
   currentGateParameters,

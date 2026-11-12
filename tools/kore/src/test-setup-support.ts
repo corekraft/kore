@@ -1,7 +1,7 @@
 import { vi } from "vitest";
 
 // No unit test may see, or signal, real host processes: unit tests run beside
-// a live cluster, and a real listing would SIGTERM the tunnel's ssh forward.
+// a live cluster, and a real listing would SIGTERM a real host process.
 // `terminateMatching` resolves its default listing inside its own module, so
 // replacing the `listHostProcesses` export alone does not reach it; wrap it
 // too. A test that injects its own `listProcesses` still sees that.

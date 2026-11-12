@@ -128,19 +128,6 @@ export const securityModule = () => ({
   installLocalTrust: vi.fn(async () => void dispatch.push("installLocalTrust")),
 });
 
-export const tunnelModule = () => ({
-  ensureLocalTunnel: vi.fn(
-    async () => (dispatch.push("ensureLocalTunnel"), { status: "running" }),
-  ),
-  startLocalTunnel: vi.fn(
-    async () => (dispatch.push("startLocalTunnel"), { status: "running" }),
-  ),
-  stopLocalTunnel: vi.fn(async () => void dispatch.push("stopLocalTunnel")),
-  tunnelStatus: vi.fn(
-    async () => (dispatch.push("tunnelStatus"), { status: "running" }),
-  ),
-});
-
 export const localModule = () => ({
   localDown: vi.fn(
     async (_repo, _runner, options) =>

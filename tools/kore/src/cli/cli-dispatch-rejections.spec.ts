@@ -25,9 +25,6 @@ vi.mock("../platform/index.js", async () =>
 vi.mock("../security/index.js", async () =>
   (await import("./cli-dispatch.fixtures.js")).securityModule(),
 );
-vi.mock("../tunnel/index.js", async () =>
-  (await import("./cli-dispatch.fixtures.js")).tunnelModule(),
-);
 vi.mock("../local/index.js", async () =>
   (await import("./cli-dispatch.fixtures.js")).localModule(),
 );
@@ -58,8 +55,8 @@ test("CLI rejects unknown commands, missing environments, and unsupported action
     main(["local", "restart", "--environment", "local"]),
   ).rejects.toThrow(/unknown local action/);
   await expect(
-    main(["tunnel", "restart", "--environment", "local"]),
-  ).rejects.toThrow(/unknown tunnel action/);
+    main(["tunnel", "status", "--environment", "local"]),
+  ).rejects.toThrow(/unknown command: tunnel/);
   await expect(
     main(["secrets", "rotate", "--environment", "local"]),
   ).rejects.toThrow(/unknown secrets action/);
@@ -90,7 +87,6 @@ test("unknown actions fail before taking the lock or writing a journal entry", a
     ["platform", "nope"],
     ["app", "restart", "reference"],
     ["local", "restart"],
-    ["tunnel", "restart"],
     ["secrets", "rotate"],
     ["trust", "remove"],
     ["registry", "rotate"],

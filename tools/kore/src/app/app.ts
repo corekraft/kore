@@ -4,7 +4,6 @@ import { deployedImage } from "./deployed.js";
 import { lockedImageForStatus } from "./image-source.js";
 import { platformStatus } from "../platform/index.js";
 import type { Runner } from "../runtime/index.js";
-import { tunnelHealthRow, type TunnelDependencies } from "../tunnel/index.js";
 
 /**
  * The components a new workload needs to be admitted: the registry that serves
@@ -36,7 +35,6 @@ export async function appStatus(
   repository: Repository,
   runner: Runner,
   name: string,
-  tunnelDependencies: TunnelDependencies = {},
 ): Promise<Record<string, unknown>> {
   await assertExpectedCluster(repository, runner);
   const image = await lockedImageForStatus(repository, name);
@@ -68,22 +66,10 @@ export async function appStatus(
   );
   const degraded: { component: string; namespace: string; detail: string }[] =
     await degradedAdmission(repository, runner);
-  // A dead tunnel leaves the application unreachable from the host; status
-  // reports it with the remedy and never restarts it (read-only, ADR 0060).
-  const tunnel = await tunnelHealthRow(repository, tunnelDependencies);
-  if (tunnel?.status === "degraded") {
-    degraded.push({
-      component: tunnel.name,
-      namespace: tunnel.namespace,
-      detail: tunnel.detail,
-    });
-  }
   return {
     name,
-    status:
-      degraded.length || tunnel?.status === "degraded" ? "degraded" : "ready",
+    status: degraded.length ? "degraded" : "ready",
     degraded,
-    ...(tunnel && { tunnel }),
     image,
     deployed: await deployedImage(repository, runner, name, image),
     resources: JSON.parse(resources.stdout),

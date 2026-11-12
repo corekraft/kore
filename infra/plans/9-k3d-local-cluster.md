@@ -75,14 +75,14 @@ plan 8.
 
 ### Work
 
-- [ ] Delete the `tunnel` domain, its commands, status row and specs.
+- [x] Delete the `tunnel` domain, its commands, status row and specs.
 - [x] Route Gateway traffic through the k3d load balancer.
       Progress: the overlay publishes the Gateway Service as a NodePort the
       load balancer maps from host 8443, and `platform up` starts no tunnel on
       k3d (#146, [ADR 0085](../../docs/decisions/0085-k3d-gateway-answers-through-a-node-port.md));
       #149 proved it live: the Gateway answered after a stop/start with no
       tunnel process.
-- [ ] Mark ADR 0060 superseded by ADR 0076.
+- [x] Mark ADR 0060 superseded by ADR 0076.
 
 ### Exit Criteria
 

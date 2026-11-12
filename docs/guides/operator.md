@@ -31,17 +31,16 @@ mise exec -- npm --prefix tools/kore install
 
 ## Start, stop, and remove
 
-| Goal                                  | Command                                                                        |
-| ------------------------------------- | ------------------------------------------------------------------------------ |
-| Check host tools                      | `kore doctor --environment local`                                              |
-| Check repository configuration        | `kore validate --environment local`                                            |
-| Bring everything up (idempotent)      | `kore local up --environment local`                                            |
-| Stop, keeping the cluster and data    | `kore local down --environment local`                                          |
-| Destroy the cluster, keep data        | `kore local down --environment local --prune` (refuses while data is retained) |
-| Destroy and purge retained data       | `kore local down --environment local --prune --purge-data`                     |
-| Reconcile the platform only           | `kore platform up --environment local`                                         |
-| Cluster lifecycle only                | `kore cluster status\|stop\|destroy --environment local`                       |
-| Tunnel for `https://kore.local:8443/` | `kore tunnel start\|status\|stop --environment local`                          |
+| Goal                               | Command                                                                        |
+| ---------------------------------- | ------------------------------------------------------------------------------ |
+| Check host tools                   | `kore doctor --environment local`                                              |
+| Check repository configuration     | `kore validate --environment local`                                            |
+| Bring everything up (idempotent)   | `kore local up --environment local`                                            |
+| Stop, keeping the cluster and data | `kore local down --environment local`                                          |
+| Destroy the cluster, keep data     | `kore local down --environment local --prune` (refuses while data is retained) |
+| Destroy and purge retained data    | `kore local down --environment local --prune --purge-data`                     |
+| Reconcile the platform only        | `kore platform up --environment local`                                         |
+| Cluster lifecycle only             | `kore cluster status\|stop\|destroy --environment local`                       |
 
 `local up` is the supported path. It converges from a fresh or an existing
 profile and a rerun upgrades nothing.

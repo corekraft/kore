@@ -4,7 +4,7 @@ import { expect, test } from "vitest";
 import { terminateMatching } from "./processes.js";
 
 // Unit tests run beside a live cluster: a default process listing that reached
-// the host would SIGTERM the real tunnel's ssh forward (a live run lost its
+// the host would SIGTERM a real host process (a live run once lost its
 // Gateway port this way).
 test("in unit tests, terminating by default listing never signals a real host process", async () => {
   const marker = `kore-isolation-${randomUUID()}`;

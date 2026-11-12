@@ -72,7 +72,7 @@ test("controller bootstrap resumes a deployed component without another Helm upg
   );
 });
 
-test("platform stop removes managed tunnel state before stopping the cluster", async () => {
+test("platform stop stops the cluster", async () => {
   const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-platform-stop-"));
   const repository = { ...base, root };
@@ -93,7 +93,7 @@ test("platform stop removes managed tunnel state before stopping the cluster", a
   }
 });
 
-test("platform destroy stops the tunnel before purging and deleting the cluster", async () => {
+test("platform destroy purges and then deletes the cluster", async () => {
   const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-platform-destroy-"));
   const repository = { ...base, root };

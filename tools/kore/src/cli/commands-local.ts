@@ -4,11 +4,6 @@ import {
 } from "../images/index.js";
 import { localDown, localUp } from "../local/index.js";
 import { installLocalTrust, syncLocalSecrets } from "../security/index.js";
-import {
-  startLocalTunnel,
-  stopLocalTunnel,
-  tunnelStatus,
-} from "../tunnel/index.js";
 import { mutateAction } from "./context.js";
 import type { CommandContext } from "./context.js";
 import { boolFlag } from "./flags.js";
@@ -23,22 +18,6 @@ export async function localCommand(context: CommandContext): Promise<number> {
         prune: boolFlag(context.parsed, "prune"),
         purgeData: boolFlag(context.parsed, "purge-data"),
       }),
-  });
-}
-
-export async function tunnelCommand(context: CommandContext): Promise<number> {
-  const { repository, json } = context;
-  if (context.action === "status") {
-    print(await tunnelStatus(repository), json);
-    return 0;
-  }
-  return await mutateAction(context, {
-    start: async (_context, runner) =>
-      print(await startLocalTunnel(repository, runner), json),
-    stop: async (_context, runner) => {
-      await stopLocalTunnel(repository, runner);
-      print({ status: "stopped" }, json);
-    },
   });
 }
 

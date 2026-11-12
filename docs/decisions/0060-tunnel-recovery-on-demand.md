@@ -1,5 +1,6 @@
 ---
-status: accepted
+status: superseded
+superseded-by: docs/decisions/0076-k3d-replaces-minikube.md
 summary: The local Minikube tunnel is recovered on demand by the commands that need the Gateway endpoint, and reported as degraded with a remedy by status; no supervisor process is added.
 date: 2026-11-08
 last-verified: 2026-11-08

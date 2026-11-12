@@ -5,9 +5,6 @@ import { RecordingRunner } from "../runtime/runner.js";
 import { platformDestroy, platformStop } from "./lifecycle.js";
 
 const stops = vi.hoisted(() => ({ calls: [] as string[] }));
-vi.mock("../tunnel/index.js", () => ({
-  stopLocalTunnel: async () => void stops.calls.push("tunnel"),
-}));
 vi.mock("../images/index.js", () => ({
   stopRegistryForward: async () => void stops.calls.push("registry-forward"),
 }));
@@ -16,23 +13,19 @@ vi.mock("../cluster/index.js", () => ({
   clusterDestroy: async () => void stops.calls.push("cluster-destroy"),
 }));
 
-test("platform stop terminates the tunnel and registry forward before stopping the cluster", async () => {
+test("platform stop ends the registry forward before stopping the cluster", async () => {
   stops.calls.length = 0;
   await platformStop(await loadMinikubeLocal(), new RecordingRunner());
-  expect(stops.calls).toEqual(["tunnel", "registry-forward", "cluster-stop"]);
+  expect(stops.calls).toEqual(["registry-forward", "cluster-stop"]);
 });
 
-test("platform destroy terminates the tunnel and registry forward before destroying", async () => {
+test("platform destroy ends the registry forward before destroying", async () => {
   stops.calls.length = 0;
   await platformDestroy(await loadMinikubeLocal(), new RecordingRunner(), {
     yes: true,
     purgeData: false,
   });
-  expect(stops.calls).toEqual([
-    "tunnel",
-    "registry-forward",
-    "cluster-destroy",
-  ]);
+  expect(stops.calls).toEqual(["registry-forward", "cluster-destroy"]);
 });
 
 async function k3dRepository() {
@@ -53,7 +46,7 @@ async function k3dRepository() {
   };
 }
 
-test("platform stop ends the registry forward on k3d, which has no tunnel", async () => {
+test("platform stop ends the registry forward on k3d", async () => {
   stops.calls.length = 0;
   await platformStop(await k3dRepository(), new RecordingRunner());
   expect(stops.calls).toEqual(["registry-forward", "cluster-stop"]);
