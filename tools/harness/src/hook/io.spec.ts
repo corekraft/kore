@@ -3,12 +3,16 @@ import { testHarness } from "../cli/cli-support.js";
 import { CommandError } from "../runtime/index.js";
 import { hookCommand, readPayload } from "./io.js";
 
-async function runHook(handler: Parameters<typeof hookCommand>[2], stdin = "") {
+async function runHook(
+  handler: Parameters<typeof hookCommand>[2],
+  stdin = "",
+  options: Record<string, string | boolean> = {},
+) {
   const h = testHarness();
   h.deps.stdin = () => Promise.resolve(stdin);
   const code = await hookCommand("demo", "demo hook", handler).run({
     json: false,
-    options: {},
+    options,
     deps: h.deps,
   });
   return { code, out: h.out(), err: h.err() };
@@ -57,6 +61,16 @@ describe("hook I/O", () => {
       out: "",
       err: "[hook:demo] failed open: no skills directory\n",
     });
+  });
+
+  it("exits 1 on a fault under --strict, so a check never passes unrun", async () => {
+    const result = await runHook(
+      () => Promise.reject(new CommandError("no skills directory")),
+      "",
+      { strict: true },
+    );
+    expect(result.code).toBe(1);
+    expect(result.err).toBe("[hook:demo] failed open: no skills directory\n");
   });
 
   it("fails open on an unexpected error and says the fault is the harness's", async () => {

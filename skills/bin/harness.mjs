@@ -3674,7 +3674,8 @@ async function readPayload(deps) {
 function hookCommand(name, summary, handler) {
   return {
     summary,
-    async run({ deps }) {
+    options: { strict: "boolean" },
+    async run({ deps, options }) {
       let result;
       try {
         result = await handler({ deps, payload: await readPayload(deps) });
@@ -3683,7 +3684,7 @@ function hookCommand(name, summary, handler) {
         const hint = error instanceof CommandError ? "" : " (unexpected; fixing it is on the harness)";
         deps.stderr(`[hook:${name}] failed open: ${reason}${hint}
 `);
-        return 0;
+        return options["strict"] === true ? 1 : 0;
       }
       if (result.stdout) {
         deps.stdout(result.stdout);
@@ -3711,7 +3712,9 @@ async function skillNames(fs, root2) {
 }
 async function targetOf(fs, path) {
   if (fs.readlink === void 0) {
-    throw new CommandError("This file system cannot read symbolic links.");
+    throw new CommandError(
+      "This file system cannot read symbolic links; run the hook with the node file system, or give the injected one a readlink method."
+    );
   }
   try {
     return { target: await fs.readlink(path) };

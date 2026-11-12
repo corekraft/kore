@@ -198,7 +198,7 @@ describe("hook skill-links on a file system that cannot read links", () => {
     const code = await run(["hook", "skill-links"], h.deps);
     expect(code).toBe(0);
     expect(h.err()).toBe(
-      "[hook:skill-links] failed open: This file system cannot read symbolic links.\n",
+      "[hook:skill-links] failed open: This file system cannot read symbolic links; run the hook with the node file system, or give the injected one a readlink method.\n",
     );
   });
 });

@@ -29,7 +29,8 @@ export async function readPayload(deps: CliDeps): Promise<unknown> {
 /**
  * Wraps a hook as a command. The host speaks stdin JSON, exit code, stdout and
  * stderr. A hook that breaks unexpectedly fails open: it reports on stderr and
- * exits 0, so a harness fault never blocks the session.
+ * exits 0, so a harness fault never blocks the session. A check that must not
+ * pass when it cannot run (mise, CI) adds --strict, which exits 1 instead.
  */
 export function hookCommand(
   name: string,
@@ -38,7 +39,8 @@ export function hookCommand(
 ): Command {
   return {
     summary,
-    async run({ deps }) {
+    options: { strict: "boolean" },
+    async run({ deps, options }) {
       let result: HookResult;
       try {
         result = await handler({ deps, payload: await readPayload(deps) });
@@ -49,7 +51,7 @@ export function hookCommand(
             ? ""
             : " (unexpected; fixing it is on the harness)";
         deps.stderr(`[hook:${name}] failed open: ${reason}${hint}\n`);
-        return 0;
+        return options["strict"] === true ? 1 : 0;
       }
       if (result.stdout) {
         deps.stdout(result.stdout);
