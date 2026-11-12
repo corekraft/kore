@@ -5,7 +5,7 @@ var CommandError = class extends Error {
 // src/runtime/clock.ts
 var systemClock = {
   now: () => /* @__PURE__ */ new Date(),
-  sleep: (ms) => new Promise((resolve10) => setTimeout(resolve10, ms))
+  sleep: (ms) => new Promise((resolve11) => setTimeout(resolve11, ms))
 };
 function localDate(date) {
   const two = (n) => String(n).padStart(2, "0");
@@ -102,9 +102,10 @@ var nodeFileSystem = {
 import { spawn } from "node:child_process";
 var ProcessRunner = class {
   async run(command, args, options = {}) {
-    return await new Promise((resolve10) => {
+    return await new Promise((resolve11) => {
       const child = spawn(command, [...args], {
         ...options.cwd === void 0 ? {} : { cwd: options.cwd },
+        ...options.env === void 0 ? {} : { env: options.env },
         stdio: [
           options.input === void 0 ? "ignore" : "pipe",
           "pipe",
@@ -120,10 +121,10 @@ var ProcessRunner = class {
         stderr2 += chunk.toString();
       });
       child.on("error", (error) => {
-        resolve10({ stdout, stderr: error.message, code: 127 });
+        resolve11({ stdout, stderr: error.message, code: 127 });
       });
       child.on("close", (code) => {
-        resolve10({ stdout, stderr: stderr2, code: code ?? 1 });
+        resolve11({ stdout, stderr: stderr2, code: code ?? 1 });
       });
       if (options.input !== void 0) {
         child.stdin?.end(options.input);
@@ -134,6 +135,7 @@ var ProcessRunner = class {
 
 // src/runtime/main-root.ts
 import { dirname as dirname2, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 async function mainRoot(deps) {
   const checkout = await deps.root().catch(() => void 0);
   const override = deps.env["KORE_ROOT"];
@@ -151,10 +153,30 @@ async function mainRoot(deps) {
   const common = git3.stdout.trim();
   return git3.code === 0 && common !== "" ? dirname2(common) : void 0;
 }
+function withoutGitEnv(env) {
+  return Object.fromEntries(
+    Object.entries(env).filter(
+      (entry2) => entry2[1] !== void 0 && !entry2[0].startsWith("GIT_")
+    )
+  );
+}
+async function bundleMainRoot(deps) {
+  if (deps.bundleUrl === void 0) {
+    return void 0;
+  }
+  const checkout = resolve(dirname2(fileURLToPath(deps.bundleUrl)), "../..");
+  const git3 = await deps.runner.run(
+    "git",
+    ["rev-parse", "--path-format=absolute", "--git-common-dir"],
+    { cwd: checkout, env: withoutGitEnv(deps.env) }
+  );
+  const common = git3.stdout.trim();
+  return git3.code === 0 && common !== "" ? dirname2(common) : void 0;
+}
 
 // src/runtime/root.ts
 import { dirname as dirname3, join, resolve as resolve2 } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath as fileURLToPath2 } from "node:url";
 var PLANS = "infra/plans";
 async function resolveRoot(env, moduleUrl, exists) {
   const fromEnv = env.CLAUDE_PROJECT_DIR;
@@ -166,7 +188,7 @@ async function resolveRoot(env, moduleUrl, exists) {
       `CLAUDE_PROJECT_DIR is "${fromEnv}" but it has no ${PLANS}. Point it at the repository root or unset it.`
     );
   }
-  const bundle = fileURLToPath(moduleUrl);
+  const bundle = fileURLToPath2(moduleUrl);
   const root3 = resolve2(dirname3(bundle), "../..");
   if (await exists(join(root3, PLANS))) {
     return root3;
@@ -236,8 +258,8 @@ function kebab(title) {
   }
   return slug2;
 }
-function checkSummary(summary) {
-  if (summary.includes("\n") || /^[[{|>&*!-]/.test(summary)) {
+function checkSummary(summary2) {
+  if (summary2.includes("\n") || /^[[{|>&*!-]/.test(summary2)) {
     throw new AdrError(
       "--summary must be one plain line that does not start with [ { | > & * ! or -; reword it as a sentence."
     );
@@ -256,14 +278,14 @@ function headings(markdown) {
       fence = opener === fence ? null : fence ?? opener;
       continue;
     }
-    const text9 = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(line2)?.[1];
-    if (text9 === void 0) {
+    const text10 = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(line2)?.[1];
+    if (text10 === void 0) {
       continue;
     }
-    const base = headingSlug(text9);
+    const base = headingSlug(text10);
     const count3 = seen.get(base) ?? 0;
     seen.set(base, count3 + 1);
-    found.push({ text: text9, anchor: count3 > 0 ? `${base}-${count3}` : base });
+    found.push({ text: text10, anchor: count3 > 0 ? `${base}-${count3}` : base });
   }
   return found;
 }
@@ -323,7 +345,7 @@ var Adrs = class {
       files: [
         {
           path,
-          lines: body.slice(0, -1).map((text9, i) => ({ number: i + 1, text: text9 }))
+          lines: body.slice(0, -1).map((text10, i) => ({ number: i + 1, text: text10 }))
         },
         { path: INDEX, lines: [{ number: index.line, text: entry2 }] }
       ]
@@ -341,27 +363,27 @@ var Adrs = class {
     return this.fs.readFile(this.abs(INDEX));
   }
   /** Puts the entry before the first later-numbered ADR line, else after the last one. */
-  insert(text9, next, entry2) {
-    const lines2 = text9.split("\n");
-    const start = lines2.indexOf("## Decisions");
+  insert(text10, next, entry2) {
+    const lines3 = text10.split("\n");
+    const start = lines3.indexOf("## Decisions");
     if (start === -1) {
       throw new AdrError(
         `${INDEX} has no "## Decisions" heading; add it above the ADR entries.`
       );
     }
-    let end = lines2.findIndex((l, i) => i > start && l.startsWith("## "));
+    let end = lines3.findIndex((l, i) => i > start && l.startsWith("## "));
     if (end === -1) {
-      end = lines2.length;
+      end = lines3.length;
     }
-    const at = this.position(lines2, start, end, next);
-    lines2.splice(at, 0, entry2);
-    return { text: lines2.join("\n"), line: at + 1 };
+    const at = this.position(lines3, start, end, next);
+    lines3.splice(at, 0, entry2);
+    return { text: lines3.join("\n"), line: at + 1 };
   }
   /** Index of the line to insert at: before the first later ADR entry, else after the last. */
-  position(lines2, start, end, next) {
+  position(lines3, start, end, next) {
     let last = -1;
     for (let i = start + 1; i < end; i++) {
-      const n = /\]\(decisions\/(\d{4})-/.exec(lines2[i] ?? "")?.[1];
+      const n = /\]\(decisions\/(\d{4})-/.exec(lines3[i] ?? "")?.[1];
       if (n === void 0) {
         continue;
       }
@@ -374,7 +396,7 @@ var Adrs = class {
       return last + 1;
     }
     let tail = end - 1;
-    while (tail > start && lines2[tail] === "") {
+    while (tail > start && lines3[tail] === "") {
       tail--;
     }
     return tail + 1;
@@ -427,13 +449,13 @@ function parseNumber(flag, value) {
   }
   return value.padStart(4, "0");
 }
-function frontmatterLine(lines2, key) {
-  if (lines2[0] !== "---") {
+function frontmatterLine(lines3, key) {
+  if (lines3[0] !== "---") {
     return -1;
   }
-  const close3 = lines2.indexOf("---", 1);
-  const end = close3 === -1 ? lines2.length : close3;
-  return lines2.findIndex((l, i) => i > 0 && i < end && l.startsWith(`${key}:`));
+  const close3 = lines3.indexOf("---", 1);
+  const end = close3 === -1 ? lines3.length : close3;
+  return lines3.findIndex((l, i) => i > 0 && i < end && l.startsWith(`${key}:`));
 }
 var Supersession = class {
   constructor(fs, root3) {
@@ -467,13 +489,13 @@ var Supersession = class {
       );
     }
     const changed = ["status: superseded", `superseded-by: ${newAdr2.path}`];
-    const lines2 = [
+    const lines3 = [
       ...oldAdr.lines.slice(0, oldAdr.statusLine),
       ...changed,
       ...oldAdr.lines.slice(oldAdr.statusLine + 1)
     ];
     if (!dryRun) {
-      await this.fs.writeFile(this.abs(oldAdr.path), lines2.join("\n"));
+      await this.fs.writeFile(this.abs(oldAdr.path), lines3.join("\n"));
     }
     return {
       dryRun,
@@ -482,9 +504,9 @@ var Supersession = class {
       files: [
         {
           path: oldAdr.path,
-          lines: changed.map((text9, i) => ({
+          lines: changed.map((text10, i) => ({
             number: oldAdr.statusLine + 1 + i,
-            text: text9
+            text: text10
           }))
         }
       ]
@@ -492,12 +514,12 @@ var Supersession = class {
   }
   alreadySuperseded(old, next, adr) {
     const line2 = frontmatterLine(adr.lines, "superseded-by");
-    const current = (adr.lines[line2] ?? "").slice("superseded-by:".length).trim();
-    const chained = /(\d{4})-[^/]*\.md$/.exec(current)?.[1];
+    const current2 = (adr.lines[line2] ?? "").slice("superseded-by:".length).trim();
+    const chained = /(\d{4})-[^/]*\.md$/.exec(current2)?.[1];
     if (chained === void 0) {
       return `ADR ${old} is already superseded; fix its superseded-by line by hand.`;
     }
-    return `ADR ${old} is already superseded by ${current}; to replace that ADR instead, run \`harness adr supersede --old ${chained} --new ${next}\`.`;
+    return `ADR ${old} is already superseded by ${current2}; to replace that ADR instead, run \`harness adr supersede --old ${chained} --new ${next}\`.`;
   }
   status(adr) {
     return (adr.lines[adr.statusLine] ?? "").slice("status:".length).trim();
@@ -518,14 +540,14 @@ var Supersession = class {
       );
     }
     const path = `${DECISIONS}/${file}`;
-    const lines2 = (await this.fs.readFile(this.abs(path))).split("\n");
-    const statusLine2 = frontmatterLine(lines2, "status");
+    const lines3 = (await this.fs.readFile(this.abs(path))).split("\n");
+    const statusLine2 = frontmatterLine(lines3, "status");
     if (statusLine2 === -1) {
       throw new AdrError(
         `${path} has no frontmatter status; add a "status:" line before superseding it.`
       );
     }
-    return { path, lines: lines2, statusLine: statusLine2 };
+    return { path, lines: lines3, statusLine: statusLine2 };
   }
   abs(path) {
     return `${this.root}/${path}`;
@@ -579,13 +601,13 @@ var newAdr = {
     "dry-run": "boolean"
   },
   run: ({ json, options, deps }) => withAdrErrors(json, deps, async () => {
-    const [title, summary, status2, source] = REQUIRED.map(
+    const [title, summary2, status2, source] = REQUIRED.map(
       (key) => requiredFlag(options, key, "text")
     );
     const refines = typeof options["refines"] === "string" ? options["refines"].trim() : void 0;
     const root3 = await repoRoot(deps);
     const report3 = await new Adrs(deps.fs, deps.clock, root3).create(
-      { title, summary, status: status2, source, ...refines ? { refines } : {} },
+      { title, summary: summary2, status: status2, source, ...refines ? { refines } : {} },
       options["dry-run"] === true
     );
     deps.stdout(json ? `${JSON.stringify(report3)}
@@ -684,10 +706,10 @@ function checkDeny(where, deny2, kind) {
     }
   }
 }
-function parseInventory(text9) {
+function parseInventory(text10) {
   let value;
   try {
-    value = JSON.parse(text9);
+    value = JSON.parse(text10);
   } catch {
     return fail("is not JSON-compatible YAML");
   }
@@ -736,16 +758,16 @@ function items(pattern, path) {
   }
   return found;
 }
-function matches(pattern, text9) {
-  let row = Array.from({ length: text9.length + 1 }, (_, j) => j === 0);
+function matches(pattern, text10) {
+  let row = Array.from({ length: text10.length + 1 }, (_, j) => j === 0);
   for (const item of pattern) {
-    const next = Array.from({ length: text9.length + 1 }, () => false);
-    for (let j = 0; j <= text9.length; j++) {
-      next[j] = "literal" in item ? j > 0 && row[j - 1] === true && text9[j - 1] === item.literal : row[j] === true || j > 0 && next[j - 1] === true && (item.crossesSlash || text9[j - 1] !== "/");
+    const next = Array.from({ length: text10.length + 1 }, () => false);
+    for (let j = 0; j <= text10.length; j++) {
+      next[j] = "literal" in item ? j > 0 && row[j - 1] === true && text10[j - 1] === item.literal : row[j] === true || j > 0 && next[j - 1] === true && (item.crossesSlash || text10[j - 1] !== "/");
     }
     row = next;
   }
-  return row[text9.length] === true;
+  return row[text10.length] === true;
 }
 function bashMatches(body, command) {
   if (!body.endsWith(":*")) {
@@ -762,9 +784,9 @@ function denyMatches(pattern, tool, subject) {
   const body = pattern.slice(open2 + 1, -1);
   return tool === "Bash" ? bashMatches(body, subject) : matches(items(body.replace(/^\.\//, ""), true), subject);
 }
-function parseSettings(text9) {
+function parseSettings(text10) {
   try {
-    return JSON.parse(text9);
+    return JSON.parse(text10);
   } catch {
     throw new GuardrailError(
       ".claude/settings.json is not JSON. Restore it from git, then rerun."
@@ -799,9 +821,9 @@ function settingsWithDeny(settingsText, deny2) {
 // src/guardrail/read.ts
 import { dirname as dirname4 } from "node:path";
 async function readInventory(readFile2, root3) {
-  let text9;
+  let text10;
   try {
-    text9 = await readFile2(`${root3}/${INVENTORY_PATH}`);
+    text10 = await readFile2(`${root3}/${INVENTORY_PATH}`);
   } catch (error) {
     if (error.code !== "ENOENT") {
       throw error;
@@ -810,7 +832,7 @@ async function readInventory(readFile2, root3) {
       `${INVENTORY_PATH} is missing, so no guard rule has a declared mode. Restore it from git, then rerun.`
     );
   }
-  return parseInventory(text9);
+  return parseInventory(text10);
 }
 async function findInventory(readFile2, start) {
   let dir = start;
@@ -864,8 +886,8 @@ var status = {
   }
 };
 async function writeDeny(deps, path, list3, allowRemoval) {
-  const current = await deps.fs.readFile(path);
-  const leaving = settingsDeny(current).filter((p) => !list3.includes(p));
+  const current2 = await deps.fs.readFile(path);
+  const leaving = settingsDeny(current2).filter((p) => !list3.includes(p));
   if (leaving.length > 0) {
     deps.stderr(
       `${SETTINGS_PATH}: these patterns would leave the deny list: ${leaving.join(", ")}.
@@ -877,7 +899,7 @@ async function writeDeny(deps, path, list3, allowRemoval) {
       );
     }
   }
-  await deps.fs.writeFile(path, settingsWithDeny(current, list3));
+  await deps.fs.writeFile(path, settingsWithDeny(current2, list3));
 }
 var deny = {
   summary: "print the settings deny list generated from the enforced deny rules; --check fails when settings differ, --write regenerates them",
@@ -1297,16 +1319,16 @@ function metric(values, trailing, { maxIncrease }) {
       needed: trailing + 1
     };
   }
-  const current = values[values.length - 1];
+  const current2 = values[values.length - 1];
   const before2 = values.slice(-(trailing + 1), -1);
   const trailingAverage = before2.reduce((sum, v) => sum + v.value, 0) / before2.length;
   return {
     status: "ok",
-    currentIdea: current.idea,
-    current: current.value,
+    currentIdea: current2.idea,
+    current: current2.value,
     trailingAverage,
     maxIncrease,
-    worsened: current.value > trailingAverage * (1 + maxIncrease)
+    worsened: current2.value > trailingAverage * (1 + maxIncrease)
   };
 }
 function costMetrics(byIdea, window, options) {
@@ -1622,10 +1644,10 @@ function parseCost(file, cost) {
     }
   };
 }
-function parseHarnessConfig(text9, file) {
+function parseHarnessConfig(text10, file) {
   let value;
   try {
-    value = JSON.parse(text9);
+    value = JSON.parse(text10);
   } catch {
     return { error: `Invalid ${file}: it is not valid JSON. Fix the syntax.` };
   }
@@ -1711,7 +1733,8 @@ var KINDS2 = [
   "token.usage",
   "session.launch",
   "guard.audit",
-  "challenge.round"
+  "challenge.round",
+  "precheck"
 ];
 var OUTCOMES = ["success", "failure"];
 var TOOL_KINDS = ["tool.start", "tool.end"];
@@ -1722,7 +1745,8 @@ var NUMBER_KINDS = [
   "pr.opened",
   "pr.merged",
   "outcome",
-  "challenge.round"
+  "challenge.round",
+  "precheck"
 ];
 var LAUNCH_KINDS = ["session.launch"];
 var TOKEN_KINDS = ["token.usage"];
@@ -1802,7 +1826,8 @@ var RULES = [
       "outcome",
       "flag.activated",
       "guard.audit",
-      "challenge.round"
+      "challenge.round",
+      "precheck"
     ]
   },
   {
@@ -1888,12 +1913,12 @@ function parseEvent(input, mode) {
 // src/ledger/github-poll.ts
 var LIMIT = 1e3;
 var describe2 = (code, stdout, stderr2) => {
-  const text9 = `${stderr2}${stdout}`.trim();
-  return text9 === "" ? `exit code ${code}` : `exit code ${code}: ${text9}`;
+  const text10 = `${stderr2}${stdout}`.trim();
+  return text10 === "" ? `exit code ${code}` : `exit code ${code}: ${text10}`;
 };
 var RATE_LIMITED = /rate limit|HTTP 403|HTTP 429/i;
-async function resetTime(gh) {
-  const found = await gh.runner.run("gh", ["api", "rate_limit"]);
+async function resetTime(gh2) {
+  const found = await gh2.runner.run("gh", ["api", "rate_limit"]);
   try {
     const parsed = JSON.parse(found.stdout);
     const core = asRecord(asRecord(asRecord(parsed)["resources"])["core"]);
@@ -1903,17 +1928,17 @@ async function resetTime(gh) {
     return void 0;
   }
 }
-async function rateLimited(gh, what) {
-  const reset = await resetTime(gh);
+async function rateLimited(gh2, what) {
+  const reset = await resetTime(gh2);
   const retry = reset === void 0 ? "Retry in a few minutes" : `Retry after ${reset}`;
   return `gh ${what} hit the GitHub rate limit. ${retry}; poll again then (gh api rate_limit shows the reset time).`;
 }
-async function query(gh, what, args) {
-  const found = await gh.runner.run("gh", args);
-  await gh.refresh();
+async function query(gh2, what, args) {
+  const found = await gh2.runner.run("gh", args);
+  await gh2.refresh();
   if (found.code !== 0) {
     if (RATE_LIMITED.test(`${found.stderr}${found.stdout}`)) {
-      return rateLimited(gh, what);
+      return rateLimited(gh2, what);
     }
     return `gh ${what} failed: ${describe2(found.code, found.stdout, found.stderr)}. Is gh installed and logged in (gh auth status)?`;
   }
@@ -1997,10 +2022,10 @@ async function pollGithub(deps) {
 var PAGE = 100;
 var MAX_PAGES = 3;
 var searchFrom = (field3, since) => since === void 0 ? [] : ["--search", `${field3}:>=${since.slice(0, 10)}`];
-async function fetchEvents(gh, repo, since) {
+async function fetchEvents(gh2, repo, since) {
   const events = [];
   for (let page = 1; page <= MAX_PAGES; page++) {
-    const got = await query(gh, "api issues/events", [
+    const got = await query(gh2, "api issues/events", [
       "api",
       `repos/${repo}/issues/events?per_page=${PAGE}&page=${page}`
     ]);
@@ -2016,10 +2041,10 @@ async function fetchEvents(gh, repo, since) {
   }
   return events;
 }
-async function fetchAll(gh, repo, since) {
+async function fetchAll(gh2, repo, since) {
   const flag = ["--repo", repo];
   const list3 = ["--state", "all", "--limit", String(LIMIT)];
-  const issues = await query(gh, "issue list", [
+  const issues = await query(gh2, "issue list", [
     "issue",
     "list",
     ...flag,
@@ -2032,7 +2057,7 @@ async function fetchAll(gh, repo, since) {
   if (typeof issues === "string") {
     return issues;
   }
-  const prs = await query(gh, "pr list", [
+  const prs = await query(gh2, "pr list", [
     "pr",
     "list",
     ...flag,
@@ -2044,7 +2069,7 @@ async function fetchAll(gh, repo, since) {
   if (typeof prs === "string") {
     return prs;
   }
-  const events = await fetchEvents(gh, repo, since);
+  const events = await fetchEvents(gh2, repo, since);
   if (typeof events === "string") {
     return events;
   }
@@ -2097,8 +2122,8 @@ var STATUS_KIND = {
   done: "pane.waiting"
 };
 function describe3(code, stdout, stderr2) {
-  const text9 = `${stderr2}${stdout}`.trim();
-  return text9 === "" ? `exit code ${code}` : `exit code ${code}: ${text9}`;
+  const text10 = `${stderr2}${stdout}`.trim();
+  return text10 === "" ? `exit code ${code}` : `exit code ${code}: ${text10}`;
 }
 function toSeen(entry2) {
   if (typeof entry2 !== "object" || entry2 === null) {
@@ -2244,10 +2269,10 @@ var Ledger = class {
     return { ok: true, event };
   }
   async list(filter) {
-    const text9 = await this.read();
+    const text10 = await this.read();
     const events = [];
     let skipped = 0;
-    for (const line2 of text9.split("\n")) {
+    for (const line2 of text10.split("\n")) {
       if (line2 === "") {
         continue;
       }
@@ -2340,15 +2365,15 @@ async function eventInput(context2) {
       )
     };
   }
-  const text9 = await context2.deps.stdin();
-  if (text9.trim() === "") {
+  const text10 = await context2.deps.stdin();
+  if (text10.trim() === "") {
     return {
       error: "No event given. Pass --source, --kind and --occurred-at, or one JSON event on stdin.",
       code: 2
     };
   }
   try {
-    return { input: JSON.parse(text9) };
+    return { input: JSON.parse(text10) };
   } catch {
     return { error: "Invalid event: stdin is not valid JSON." };
   }
@@ -2387,17 +2412,17 @@ var record = {
 };
 function filterFrom(options) {
   const filter = {};
-  const text9 = (name) => {
+  const text10 = (name) => {
     const value = options[name];
     return typeof value === "string" ? value : void 0;
   };
   for (const name of ["session", "pane", "idea"]) {
-    const value = text9(name);
+    const value = text10(name);
     if (value !== void 0) {
       filter[name] = value;
     }
   }
-  const source = text9("source");
+  const source = text10("source");
   if (source !== void 0) {
     if (!SOURCES.includes(source)) {
       return {
@@ -2406,7 +2431,7 @@ function filterFrom(options) {
     }
     filter.source = source;
   }
-  const kind = text9("kind");
+  const kind = text10("kind");
   if (kind !== void 0) {
     if (!KINDS2.includes(kind)) {
       return { error: `Invalid --kind "${kind}". Kinds: ${KINDS2.join(", ")}.` };
@@ -2414,7 +2439,7 @@ function filterFrom(options) {
     filter.kind = kind;
   }
   for (const name of ["since", "until"]) {
-    const value = text9(name);
+    const value = text10(name);
     if (value !== void 0) {
       if (!isTimestamp(value)) {
         return {
@@ -2663,7 +2688,7 @@ function text(report3) {
       `toil start ${seconds(s.toil.startingSeconds)} stop ${seconds(s.toil.stoppingSeconds)} wait ${seconds(s.toil.waitingSeconds)} retry ${seconds(s.toil.retryingSeconds)}`
     ].join(" ")
   );
-  const lines2 = [
+  const lines3 = [
     `Flow report as of ${report3.asOf}: ${report3.ideas.completed} of ${report3.ideas.total} ideas completed`,
     scopeLine(report3.scope),
     ...rows,
@@ -2682,9 +2707,9 @@ function text(report3) {
     report3.bottleneck === null ? report3.bottleneckNote ?? "No bottleneck." : `Bottleneck: ${report3.bottleneck.stage} (${Math.round(report3.bottleneck.share * 100)}% of waiting)`
   ];
   if (report3.skippedLines > 0) {
-    lines2.push(`skipped ${report3.skippedLines} malformed ledger line(s)`);
+    lines3.push(`skipped ${report3.skippedLines} malformed ledger line(s)`);
   }
-  return `${lines2.join("\n")}
+  return `${lines3.join("\n")}
 `;
 }
 async function loadCost({ deps }) {
@@ -2771,13 +2796,13 @@ var REQUIRED2 = [
   ["safety-pattern", "safetyPattern"],
   ["date", "date"]
 ];
-function frontmatter(text9) {
-  const lines2 = text9.split("\n");
-  if (lines2[0] !== "---") {
+function frontmatter(text10) {
+  const lines3 = text10.split("\n");
+  if (lines3[0] !== "---") {
     return null;
   }
   const keys = /* @__PURE__ */ new Map();
-  for (const line2 of lines2.slice(1)) {
+  for (const line2 of lines3.slice(1)) {
     if (line2 === "---") {
       return keys;
     }
@@ -2788,7 +2813,7 @@ function frontmatter(text9) {
   }
   return null;
 }
-function parseIdea(path, text9) {
+function parseIdea(path, text10) {
   const file = path.slice(path.lastIndexOf("/") + 1);
   const name = IDEA_FILE.exec(file);
   if (name?.[1] === void 0 || name[2] === void 0) {
@@ -2796,7 +2821,7 @@ function parseIdea(path, text9) {
       `${path} is not named NNNN-slug.md; rename it to a four-digit number and a lowercase slug.`
     );
   }
-  const keys = frontmatter(text9);
+  const keys = frontmatter(text10);
   if (keys === null) {
     throw new IdeaError(
       `${path} has no frontmatter; start it with --- and the idea fields (see \`harness idea new --help\`).`
@@ -2809,8 +2834,8 @@ function parseIdea(path, text9) {
     );
   }
   const get = (key) => keys.get(key) ?? "";
-  const heading = /^# Idea \d{4}: (.+)$/m.exec(text9)?.[1];
-  const record4 = {
+  const heading = /^# Idea \d{4}: (.+)$/m.exec(text10)?.[1];
+  const record5 = {
     number: name[1],
     slug: name[2],
     path,
@@ -2824,25 +2849,25 @@ function parseIdea(path, text9) {
   };
   for (const key of ["outcome", "issue", "parent"]) {
     if (get(key) !== "") {
-      record4[key] = get(key);
+      record5[key] = get(key);
     }
   }
-  return record4;
+  return record5;
 }
 function scalar(flag, value) {
-  const text9 = (value ?? "").replace(/\s+/g, " ").trim();
-  if (text9 === "") {
+  const text10 = (value ?? "").replace(/\s+/g, " ").trim();
+  if (text10 === "") {
     throw new IdeaError(`Missing --${flag}; pass a non-empty value.`);
   }
-  if (/^[[{|>&*!-]/.test(text9)) {
+  if (/^[[{|>&*!-]/.test(text10)) {
     throw new IdeaError(
-      `--${flag} must not start with "${text9.slice(0, 1)}"; frontmatter holds plain text, so reword it.`
+      `--${flag} must not start with "${text10.slice(0, 1)}"; frontmatter holds plain text, so reword it.`
     );
   }
-  return text9;
+  return text10;
 }
 function renderIdea(number, date, idea) {
-  const lines2 = [
+  const lines3 = [
     "---",
     `summary: ${idea.summary}`,
     `hypothesis: ${idea.hypothesis}`,
@@ -2852,59 +2877,59 @@ function renderIdea(number, date, idea) {
     `date: ${date}`
   ];
   if (idea.issue !== void 0) {
-    lines2.push(`issue: ${idea.issue}`);
+    lines3.push(`issue: ${idea.issue}`);
   }
   if (idea.parent !== void 0) {
-    lines2.push(`parent: ${idea.parent}`);
+    lines3.push(`parent: ${idea.parent}`);
   }
-  lines2.push("---", "", `# Idea ${number}: ${idea.title}`, "");
-  return lines2.join("\n");
+  lines3.push("---", "", `# Idea ${number}: ${idea.title}`, "");
+  return lines3.join("\n");
 }
-function withIssue(text9, issue) {
-  const lines2 = text9.split("\n");
-  const end = lines2.indexOf("---", 1);
-  if (lines2[0] !== "---" || end === -1) {
+function withIssue(text10, issue) {
+  const lines3 = text10.split("\n");
+  const end = lines3.indexOf("---", 1);
+  if (lines3[0] !== "---" || end === -1) {
     throw new IdeaError("The idea has no frontmatter to record the issue in.");
   }
-  const at = lines2.findIndex(
+  const at = lines3.findIndex(
     (l, i) => i > 0 && i < end && l.startsWith("issue:")
   );
   if (at === -1) {
-    lines2.splice(end, 0, `issue: ${issue}`);
+    lines3.splice(end, 0, `issue: ${issue}`);
   } else {
-    lines2[at] = `issue: ${issue}`;
+    lines3[at] = `issue: ${issue}`;
   }
-  return lines2.join("\n");
+  return lines3.join("\n");
 }
 var OUTCOME_HEADING = "## Outcome";
-function outcomeRange(lines2) {
-  const start = lines2.findIndex((l) => l.trimEnd() === OUTCOME_HEADING);
+function outcomeRange(lines3) {
+  const start = lines3.findIndex((l) => l.trimEnd() === OUTCOME_HEADING);
   if (start === -1) {
     return void 0;
   }
-  const end = lines2.findIndex((l, i) => i > start && /^#{1,2} /.test(l));
-  return [start, end === -1 ? lines2.length : end];
+  const end = lines3.findIndex((l, i) => i > start && /^#{1,2} /.test(l));
+  return [start, end === -1 ? lines3.length : end];
 }
-function outcomeSection(text9) {
-  const lines2 = text9.split("\n");
-  const range = outcomeRange(lines2);
-  return range === void 0 ? void 0 : lines2.slice(...range).join("\n").replace(/\r/g, "").trim();
+function outcomeSection(text10) {
+  const lines3 = text10.split("\n");
+  const range = outcomeRange(lines3);
+  return range === void 0 ? void 0 : lines3.slice(...range).join("\n").replace(/\r/g, "").trim();
 }
-function withoutOutcome(text9) {
-  const lines2 = text9.split("\n");
-  const range = outcomeRange(lines2);
-  return range === void 0 ? text9 : [...lines2.slice(0, range[0]), ...lines2.slice(range[1])].join("\n").trimEnd();
+function withoutOutcome(text10) {
+  const lines3 = text10.split("\n");
+  const range = outcomeRange(lines3);
+  return range === void 0 ? text10 : [...lines3.slice(0, range[0]), ...lines3.slice(range[1])].join("\n").trimEnd();
 }
-function withOutcome(text9, result, section) {
-  const lines2 = text9.split("\n");
-  const end = lines2.indexOf("---", 1);
-  if (lines2[0] !== "---" || end === -1) {
+function withOutcome(text10, result, section) {
+  const lines3 = text10.split("\n");
+  const end = lines3.indexOf("---", 1);
+  if (lines3[0] !== "---" || end === -1) {
     throw new IdeaError(
       "The idea has no frontmatter to record the outcome in."
     );
   }
-  lines2.splice(end, 0, `outcome: ${result}`);
-  return `${lines2.join("\n").trimEnd()}
+  lines3.splice(end, 0, `outcome: ${result}`);
+  return `${lines3.join("\n").trimEnd()}
 
 ${section.trim()}
 `;
@@ -2962,50 +2987,50 @@ var IdeaRepository = class {
       const names3 = await this.listNames();
       const existing = names3.find((n) => IDEA_FILE.exec(n)?.[2] === slug2);
       if (existing !== void 0) {
-        const record5 = await this.read(existing);
-        await this.ensureIndexed(record5);
-        return { created: false, record: record5 };
+        const record6 = await this.read(existing);
+        await this.ensureIndexed(record6);
+        return { created: false, record: record6 };
       }
       const taken = names3.map((n) => Number(n.slice(0, 4)));
       const number = String(Math.max(0, ...taken) + 1).padStart(4, "0");
       const path = `${DIR}/${number}-${slug2}.md`;
-      const text9 = renderIdea(
+      const text10 = renderIdea(
         number,
         this.clock.now().toISOString().slice(0, 10),
         idea
       );
       try {
-        await this.fs.createFile(this.abs(path), text9);
+        await this.fs.createFile(this.abs(path), text10);
       } catch (error) {
         if (error.code === "EEXIST") {
           continue;
         }
         throw error;
       }
-      const record4 = parseIdea(path, text9);
-      await this.ensureIndexed(record4);
-      return { created: true, record: record4 };
+      const record5 = parseIdea(path, text10);
+      await this.ensureIndexed(record5);
+      return { created: true, record: record5 };
     }
     throw new IdeaError(
       `Another writer keeps creating ideas in ${DIR}; rerun \`harness idea new\` once it finishes.`
     );
   }
   /** The raw markdown of an idea. */
-  async source(record4) {
-    return await this.fs.readFile(this.abs(record4.path));
+  async source(record5) {
+    return await this.fs.readFile(this.abs(record5.path));
   }
   /** Records the idea's issue link in its frontmatter, touching nothing else. */
-  async recordIssue(record4, issue) {
+  async recordIssue(record5, issue) {
     await this.fs.writeFile(
-      this.abs(record4.path),
-      withIssue(await this.source(record4), issue)
+      this.abs(record5.path),
+      withIssue(await this.source(record5), issue)
     );
   }
   /** Records the outcome in the idea's frontmatter and as its `## Outcome` section, touching nothing else. */
-  async recordOutcome(record4, result, section) {
+  async recordOutcome(record5, result, section) {
     await this.fs.writeFile(
-      this.abs(record4.path),
-      withOutcome(await this.source(record4), result, section)
+      this.abs(record5.path),
+      withOutcome(await this.source(record5), result, section)
     );
   }
   abs(path) {
@@ -3016,12 +3041,12 @@ var IdeaRepository = class {
     return parseIdea(path, await this.fs.readFile(this.abs(path)));
   }
   /** Lists the idea in the index unless an entry already points at it, so a rerun repairs a half-finished create. */
-  async ensureIndexed(record4) {
+  async ensureIndexed(record5) {
     const index = await this.fs.readFile(this.abs(INDEX2));
-    if (!index.includes(`](${record4.path.replace(/^docs\//, "")})`)) {
+    if (!index.includes(`](${record5.path.replace(/^docs\//, "")})`)) {
       await this.fs.writeFile(
         this.abs(INDEX2),
-        addEntry(index, record4.path, record4.summary)
+        addEntry(index, record5.path, record5.summary)
       );
     }
   }
@@ -3029,60 +3054,60 @@ var IdeaRepository = class {
     return await this.fs.exists(this.abs(DIR)) ? (await this.fs.readdir(this.abs(DIR))).filter((f) => IDEA_FILE.test(f)).sort() : [];
   }
 };
-function addEntry(index, path, summary) {
-  const entry2 = `- [\`${path}\`](${path.replace(/^docs\//, "")}) \u2014 ${summary}`;
-  const lines2 = index.split("\n");
-  const start = lines2.indexOf(HEADING);
+function addEntry(index, path, summary2) {
+  const entry2 = `- [\`${path}\`](${path.replace(/^docs\//, "")}) \u2014 ${summary2}`;
+  const lines3 = index.split("\n");
+  const start = lines3.indexOf(HEADING);
   if (start === -1) {
-    const next = lines2.indexOf(NEXT_SECTION);
-    const at = next === -1 ? lines2.length : next;
+    const next = lines3.indexOf(NEXT_SECTION);
+    const at = next === -1 ? lines3.length : next;
     const block2 = [HEADING, "", entry2, ""];
-    if (next === -1 && lines2.at(-1) === "") {
-      lines2.splice(lines2.length - 1, 0, "", ...block2.slice(0, -1));
+    if (next === -1 && lines3.at(-1) === "") {
+      lines3.splice(lines3.length - 1, 0, "", ...block2.slice(0, -1));
     } else {
-      lines2.splice(at, 0, ...block2);
+      lines3.splice(at, 0, ...block2);
     }
-    return lines2.join("\n");
+    return lines3.join("\n");
   }
-  let end = lines2.findIndex((l, i) => i > start && l.startsWith("## "));
+  let end = lines3.findIndex((l, i) => i > start && l.startsWith("## "));
   if (end === -1) {
-    end = lines2.length;
+    end = lines3.length;
   }
-  while (end > start + 1 && lines2[end - 1] === "") {
+  while (end > start + 1 && lines3[end - 1] === "") {
     end--;
   }
-  lines2.splice(end, 0, entry2);
-  return lines2.join("\n");
+  lines3.splice(end, 0, entry2);
+  return lines3.join("\n");
 }
 
 // src/idea/sync.ts
 var NOT_FOUND = /could not resolve to an issue|issue .*not found|no issue/i;
 var ISSUE_URL = /https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/issues\/(\d+)/;
-function prose(text9) {
-  const lines2 = withoutOutcome(text9).split("\n");
-  const at = lines2.findIndex((l) => /^# Idea \d{4}: /.test(l));
-  return (at === -1 ? "" : lines2.slice(at + 1).join("\n")).trim();
+function prose(text10) {
+  const lines3 = withoutOutcome(text10).split("\n");
+  const at = lines3.findIndex((l) => /^# Idea \d{4}: /.test(l));
+  return (at === -1 ? "" : lines3.slice(at + 1).join("\n")).trim();
 }
-function renderBody(record4, text9) {
+function renderBody(record5, text10) {
   const sections = [
-    `<!-- Generated by \`harness idea sync\` from ${record4.path}. Edit that file; changes made here are overwritten. -->`,
+    `<!-- Generated by \`harness idea sync\` from ${record5.path}. Edit that file; changes made here are overwritten. -->`,
     `## Summary
 
-${record4.summary}`,
+${record5.summary}`,
     `## Hypothesis
 
-${record4.hypothesis}`,
+${record5.hypothesis}`,
     `## Expected outcome
 
-${record4.expectedOutcome}`,
+${record5.expectedOutcome}`,
     `## Measurement
 
-${record4.measurement}`,
+${record5.measurement}`,
     `## Safety pattern
 
-${record4.safetyPattern}`
+${record5.safetyPattern}`
   ];
-  const extra = prose(text9);
+  const extra = prose(text10);
   if (extra !== "") {
     sections.push(extra);
   }
@@ -3103,11 +3128,11 @@ function failure(what, stderr2) {
   const hint = REPO_PROBLEM.test(stderr2) ? "Check the repository named above, then rerun `harness idea sync`." : fix;
   return new IdeaError(`${what}: ${stderr2.trim()}. ${hint}`);
 }
-async function resolveRepo(gh, recorded) {
+async function resolveRepo(gh2, recorded) {
   if (recorded !== void 0) {
     return recorded;
   }
-  const view = await gh(["repo", "view", "--json", "nameWithOwner"]);
+  const view = await gh2(["repo", "view", "--json", "nameWithOwner"]);
   let name;
   try {
     name = JSON.parse(view.stdout).nameWithOwner;
@@ -3120,10 +3145,10 @@ async function resolveRepo(gh, recorded) {
   return name;
 }
 var fix = "Check `gh auth status` and rerun `harness idea sync`.";
-async function reconcile(gh, record4, body, at) {
-  const title = record4.title.trim();
-  const issue = record4.issue ?? "";
-  const view = await gh([
+async function reconcile(gh2, record5, body, at) {
+  const title = record5.title.trim();
+  const issue = record5.issue ?? "";
+  const view = await gh2([
     "issue",
     "view",
     at.number,
@@ -3138,11 +3163,11 @@ async function reconcile(gh, record4, body, at) {
     }
     throw failure(`gh could not read issue ${issue}`, view.stderr);
   }
-  const current = parseView(view.stdout, issue);
-  if (current.title.trim() === title && normal(current.body) === normal(body)) {
+  const current2 = parseView(view.stdout, issue);
+  if (current2.title.trim() === title && normal(current2.body) === normal(body)) {
     return { action: "unchanged", issue };
   }
-  const edit = await gh(
+  const edit = await gh2(
     [
       "issue",
       "edit",
@@ -3161,31 +3186,31 @@ async function reconcile(gh, record4, body, at) {
   }
   return { action: "updated", issue };
 }
-async function syncIssue(runner, root3, record4, text9, recordLink) {
-  const body = renderBody(record4, text9);
-  const gh = async (args, input) => await runner.run("gh", args, {
+async function syncIssue(runner, root3, record5, text10, recordLink) {
+  const body = renderBody(record5, text10);
+  const gh2 = async (args, input) => await runner.run("gh", args, {
     cwd: root3,
     ...input === void 0 ? {} : { input }
   });
-  const at = record4.issue === void 0 ? void 0 : locate(record4.issue);
-  if (record4.issue !== void 0 && at === void 0) {
+  const at = record5.issue === void 0 ? void 0 : locate(record5.issue);
+  if (record5.issue !== void 0 && at === void 0) {
     throw new IdeaError(
-      `${record4.path} has issue "${record4.issue}", which is not an issue number or link; set it to e.g. 123 or https://github.com/<owner>/<repo>/issues/123.`
+      `${record5.path} has issue "${record5.issue}", which is not an issue number or link; set it to e.g. 123 or https://github.com/<owner>/<repo>/issues/123.`
     );
   }
-  const repo = await resolveRepo(gh, at?.repo);
-  const existing = at === void 0 ? void 0 : await reconcile(gh, record4, body, { number: at.number, repo });
+  const repo = await resolveRepo(gh2, at?.repo);
+  const existing = at === void 0 ? void 0 : await reconcile(gh2, record5, body, { number: at.number, repo });
   if (existing !== void 0) {
     return existing;
   }
-  const created = await gh(
+  const created = await gh2(
     [
       "issue",
       "create",
       "--repo",
       repo,
       "--title",
-      record4.title.trim(),
+      record5.title.trim(),
       "--body-file",
       "-"
     ],
@@ -3197,14 +3222,14 @@ async function syncIssue(runner, root3, record4, text9, recordLink) {
   }
   if (url === void 0) {
     throw new IdeaError(
-      `gh reported success but printed no issue link, so the issue may exist: check the repository's issues for "${record4.title.trim()}" in ${repo}, add \`issue: <url>\` to ${record4.path}, then rerun \`harness idea sync\`; otherwise a duplicate is created.`
+      `gh reported success but printed no issue link, so the issue may exist: check the repository's issues for "${record5.title.trim()}" in ${repo}, add \`issue: <url>\` to ${record5.path}, then rerun \`harness idea sync\`; otherwise a duplicate is created.`
     );
   }
   try {
     await recordLink(url);
   } catch (error) {
     throw new IdeaError(
-      `Created ${url} but could not record it in ${record4.path}: ${error instanceof Error ? error.message : String(error)}. Add \`issue: ${url}\` to its frontmatter, then rerun \`harness idea sync\`; otherwise a second issue is created.`
+      `Created ${url} but could not record it in ${record5.path}: ${error instanceof Error ? error.message : String(error)}. Add \`issue: ${url}\` to its frontmatter, then rerun \`harness idea sync\`; otherwise a second issue is created.`
     );
   }
   return { action: "created", issue: url };
@@ -3222,23 +3247,23 @@ function parseView(stdout, issue) {
     );
   }
 }
-async function issueTarget(runner, root3, record4) {
-  if (record4.issue === void 0) {
+async function issueTarget(runner, root3, record5) {
+  if (record5.issue === void 0) {
     throw new IdeaError(
-      `${record4.path} has no issue; run \`harness idea sync --idea ${record4.number}\` to create and link it first.`
+      `${record5.path} has no issue; run \`harness idea sync --idea ${record5.number}\` to create and link it first.`
     );
   }
-  const at = locate(record4.issue);
+  const at = locate(record5.issue);
   if (at === void 0) {
     throw new IdeaError(
-      `${record4.path} has issue "${record4.issue}", which is not an issue number or link; set it to e.g. 123 or https://github.com/<owner>/<repo>/issues/123.`
+      `${record5.path} has issue "${record5.issue}", which is not an issue number or link; set it to e.g. 123 or https://github.com/<owner>/<repo>/issues/123.`
     );
   }
-  const gh = async (args, input) => await runner.run("gh", args, {
+  const gh2 = async (args, input) => await runner.run("gh", args, {
     cwd: root3,
     ...input === void 0 ? {} : { input }
   });
-  return { number: at.number, repo: await resolveRepo(gh, at.repo) };
+  return { number: at.number, repo: await resolveRepo(gh2, at.repo) };
 }
 
 // src/idea/commands.ts
@@ -3272,27 +3297,27 @@ function text2(options, key) {
 function slugOf(title) {
   return title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60).replace(/-+$/, "");
 }
-function describe4(record4) {
-  const lines2 = [
-    `Idea ${record4.number}: ${record4.title}`,
-    `Date: ${record4.date}`,
-    `Summary: ${record4.summary}`,
-    `Hypothesis: ${record4.hypothesis}`,
-    `Expected outcome: ${record4.expectedOutcome}`,
-    `Measurement: ${record4.measurement}`,
-    `Safety pattern: ${record4.safetyPattern}`
+function describe4(record5) {
+  const lines3 = [
+    `Idea ${record5.number}: ${record5.title}`,
+    `Date: ${record5.date}`,
+    `Summary: ${record5.summary}`,
+    `Hypothesis: ${record5.hypothesis}`,
+    `Expected outcome: ${record5.expectedOutcome}`,
+    `Measurement: ${record5.measurement}`,
+    `Safety pattern: ${record5.safetyPattern}`
   ];
   for (const [label, value] of [
-    ["Outcome", record4.outcome],
-    ["Issue", record4.issue],
-    ["Parent", record4.parent]
+    ["Outcome", record5.outcome],
+    ["Issue", record5.issue],
+    ["Parent", record5.parent]
   ]) {
     if (value !== void 0) {
-      lines2.push(`${label}: ${value}`);
+      lines3.push(`${label}: ${value}`);
     }
   }
-  lines2.push(`File: ${record4.path}`);
-  return `${lines2.join("\n")}
+  lines3.push(`File: ${record5.path}`);
+  return `${lines3.join("\n")}
 `;
 }
 function parseNewIdea(options) {
@@ -3338,10 +3363,10 @@ var create = {
   run(context2) {
     return guarded(context2, async () => {
       const { slug: slug2, idea } = parseNewIdea(context2.options);
-      const { created, record: record4 } = await (await repository(context2)).create(slug2, idea);
+      const { created, record: record5 } = await (await repository(context2)).create(slug2, idea);
       context2.deps.stdout(
-        context2.json ? `${JSON.stringify({ created, ...record4 })}
-` : `${created ? "Created" : "Already exists:"} ${record4.path}
+        context2.json ? `${JSON.stringify({ created, ...record5 })}
+` : `${created ? "Created" : "Already exists:"} ${record5.path}
 `
       );
     });
@@ -3358,10 +3383,10 @@ var show = {
           "Missing --idea; run `harness idea show --idea <number or slug>`, or `harness idea list` to see the ideas."
         );
       }
-      const record4 = await (await repository(context2)).get(ref.trim());
+      const record5 = await (await repository(context2)).get(ref.trim());
       context2.deps.stdout(
-        context2.json ? `${JSON.stringify(record4)}
-` : describe4(record4)
+        context2.json ? `${JSON.stringify(record5)}
+` : describe4(record5)
       );
     });
   }
@@ -3391,16 +3416,16 @@ var sync = {
         );
       }
       const repo = await repository(context2);
-      const record4 = await repo.get(ref.trim());
+      const record5 = await repo.get(ref.trim());
       const result = await syncIssue(
         context2.deps.runner,
         await context2.deps.root(),
-        record4,
-        await repo.source(record4),
-        (url) => repo.recordIssue(record4, url)
+        record5,
+        await repo.source(record5),
+        (url) => repo.recordIssue(record5, url)
       );
       context2.deps.stdout(
-        context2.json ? `${JSON.stringify({ idea: record4.number, ...result })}
+        context2.json ? `${JSON.stringify({ idea: record5.number, ...result })}
 ` : `Issue ${result.action}: ${result.issue}
 `
       );
@@ -3433,15 +3458,15 @@ function parseRounds(idea, comments, author) {
     if (comment.author !== author) {
       continue;
     }
-    const lines2 = comment.body.replace(/\r/g, "").split("\n");
-    const found = MARKER.exec((lines2[0] ?? "").trim());
+    const lines3 = comment.body.replace(/\r/g, "").split("\n");
+    const found = MARKER.exec((lines3[0] ?? "").trim());
     if (found?.[1] !== idea || found[2] === void 0) {
       continue;
     }
     rounds.push({
       url: comment.url,
       round: Number(found[2]),
-      objections: lines2.filter((line2) => line2.startsWith("- ")).map((line2) => line2.slice(2).trim()).filter((line2) => line2 !== "")
+      objections: lines3.filter((line2) => line2.startsWith("- ")).map((line2) => line2.slice(2).trim()).filter((line2) => line2 !== "")
     });
   }
   return rounds.sort((a, b) => a.round - b.round);
@@ -3493,8 +3518,8 @@ function issueComments(stdout, issue) {
     );
   }
 }
-async function ghUser(gh) {
-  const whoami = await gh(["api", "user", "--jq", ".login"]);
+async function ghUser(gh2) {
+  const whoami = await gh2(["api", "user", "--jq", ".login"]);
   const user = whoami.stdout.trim();
   if (whoami.code !== 0 || user === "") {
     throw new IdeaError(
@@ -3519,8 +3544,8 @@ function duplicatePost(duplicate, issue) {
   const [keep, ...extra] = duplicate.urls;
   return `Challenge round ${duplicate.round} on ${issue} was posted twice and both comments are still on the issue: ${duplicate.urls.join(" and ")}. Another challenge ran at the same time. Keep ${keep} and delete ${extra.join(" and ")}; the round is recorded once. Do not rerun for this round.`;
 }
-async function readComments(gh, target, issue, unreadable) {
-  const view = await gh([
+async function readComments(gh2, target, issue, unreadable) {
+  const view = await gh2([
     "issue",
     "view",
     target.number,
@@ -3537,8 +3562,8 @@ async function readComments(gh, target, issue, unreadable) {
   }
   return issueComments(view.stdout, issue);
 }
-async function postRound(gh, target, issue, body, round2) {
-  const post = await gh(
+async function postRound(gh2, target, issue, body, round2) {
+  const post = await gh2(
     [
       "issue",
       "comment",
@@ -3557,31 +3582,31 @@ async function postRound(gh, target, issue, body, round2) {
   }
 }
 async function challengeIdea(ctx, ref, objections) {
-  const record4 = await ctx.repo.get(ref);
-  const target = await issueTarget(ctx.runner, ctx.root, record4);
+  const record5 = await ctx.repo.get(ref);
+  const target = await issueTarget(ctx.runner, ctx.root, record5);
   const issue = `https://github.com/${target.repo}/issues/${target.number}`;
-  const gh = (args, input) => ctx.runner.run("gh", args, {
+  const gh2 = (args, input) => ctx.runner.run("gh", args, {
     cwd: ctx.root,
     ...input === void 0 ? {} : { input }
   });
-  const comments = (unreadable) => readComments(gh, target, issue, unreadable);
-  const user = await ghUser(gh);
+  const comments = (unreadable) => readComments(gh2, target, issue, unreadable);
+  const user = await ghUser(gh2);
   const rounds = distinctRounds(
-    parseRounds(record4.number, await comments(), user)
+    parseRounds(record5.number, await comments(), user)
   );
   if (rounds.length >= MAX_ROUNDS) {
-    throw roundLimit(record4.number, rounds, issue);
+    throw roundLimit(record5.number, rounds, issue);
   }
   const round2 = rounds.length + 1;
   await postRound(
-    gh,
+    gh2,
     target,
     issue,
-    renderRound(record4.number, round2, objections),
+    renderRound(record5.number, round2, objections),
     round2
   );
   const posted = parseRounds(
-    record4.number,
+    record5.number,
     await comments(
       (detail2) => `Round ${round2} was posted on ${issue}, but gh could not read the issue again to check for a duplicate: ${detail2}. Do not rerun, which would post another round; check the issue by hand.`
     ),
@@ -3589,7 +3614,7 @@ async function challengeIdea(ctx, ref, objections) {
   );
   const duplicate = duplicateRounds(posted).find((d) => d.round === round2);
   return {
-    idea: record4.number,
+    idea: record5.number,
     round: round2,
     objections: [...objections],
     issue,
@@ -3695,9 +3720,9 @@ var challenge = {
 var ENVIRONMENTS = "infra/environments";
 var FlagError = class extends Error {
 };
-function parse(path, text9) {
+function parse(path, text10) {
   try {
-    const value = JSON.parse(text9);
+    const value = JSON.parse(text10);
     if (typeof value === "object" && value !== null && !Array.isArray(value)) {
       return value;
     }
@@ -3738,8 +3763,8 @@ async function readOverlay(fs, root3, environment) {
       `No environment "${environment}" has an overlay at ${path}. Environments: ${(await environments(fs, root3)).join(", ") || "none"}.`
     );
   }
-  const text9 = await fs.readFile(`${root3}/${path}`);
-  const features = parse(path, text9)["features"] ?? {};
+  const text10 = await fs.readFile(`${root3}/${path}`);
+  const features = parse(path, text10)["features"] ?? {};
   const valid = typeof features === "object" && features !== null && Object.values(features).every((v) => typeof v === "boolean");
   if (!valid) {
     throw new FlagError(
@@ -3749,21 +3774,21 @@ async function readOverlay(fs, root3, environment) {
   return {
     environment,
     path,
-    text: text9,
+    text: text10,
     features
   };
 }
-function featuresSpan(text9) {
-  const key = /["']?features["']?\s*:\s*\{/.exec(text9);
+function featuresSpan(text10) {
+  const key = /["']?features["']?\s*:\s*\{/.exec(text10);
   if (key === null) {
     return void 0;
   }
   const open2 = key.index + key[0].length - 1;
   let depth = 0;
-  for (let i = open2; i < text9.length; i++) {
-    if (text9[i] === "{") {
+  for (let i = open2; i < text10.length; i++) {
+    if (text10[i] === "{") {
       depth += 1;
-    } else if (text9[i] === "}") {
+    } else if (text10[i] === "}") {
       depth -= 1;
     }
     if (depth === 0) {
@@ -3783,9 +3808,9 @@ function withFlagOn(overlay, flag) {
     );
   }
   const end = span[0] + entry2.index + entry2[0].length;
-  const text9 = `${overlay.text.slice(0, end - "false".length)}true${overlay.text.slice(end)}`;
-  parse(overlay.path, text9);
-  return text9;
+  const text10 = `${overlay.text.slice(0, end - "false".length)}true${overlay.text.slice(end)}`;
+  parse(overlay.path, text10);
+  return text10;
 }
 
 // src/flag/proof.ts
@@ -3807,14 +3832,14 @@ function lines(section) {
   return found;
 }
 async function findProof(repo, flag, environment) {
-  for (const record4 of await repo.list()) {
-    const section = outcomeSection(await repo.source(record4));
+  for (const record5 of await repo.list()) {
+    const section = outcomeSection(await repo.source(record5));
     if (section === void 0) {
       continue;
     }
     const fields = lines(section);
     if (fields.get("Result") === "confirmed" && fields.get("Kind") === "verification" && fields.get("Source") === "live-run" && fields.get("Flag") === flag && fields.get("Environment") === environment) {
-      return { idea: record4.number, path: record4.path };
+      return { idea: record5.number, path: record5.path };
     }
   }
   return void 0;
@@ -3953,10 +3978,10 @@ async function auditFlags(context2) {
     );
     return 0;
   }
-  const lines2 = unproven.map(unprovenLine);
+  const lines3 = unproven.map(unprovenLine);
   deps.stderr(
     json ? `${JSON.stringify({ unproven })}
-` : `${lines2.join("\n")}
+` : `${lines3.join("\n")}
 `
   );
   return FAILED3;
@@ -3986,27 +4011,27 @@ function planStatus(markdown) {
 function listItemSpans(markdown) {
   const items2 = [];
   let heading = "";
-  let current = null;
+  let current2 = null;
   for (const [index, line2] of markdown.split("\n").entries()) {
     if (line2.startsWith("## ")) {
       heading = line2.slice(3).trim();
     }
     if (line2.startsWith("- ")) {
-      current = { heading, text: line2.trim(), line: index, end: index + 1 };
-      items2.push(current);
-    } else if (current && /^\s+\S/.test(line2)) {
-      current.text += ` ${line2.trim()}`;
-      current.end = index + 1;
+      current2 = { heading, text: line2.trim(), line: index, end: index + 1 };
+      items2.push(current2);
+    } else if (current2 && /^\s+\S/.test(line2)) {
+      current2.text += ` ${line2.trim()}`;
+      current2.end = index + 1;
     } else {
-      current = null;
+      current2 = null;
     }
   }
   return items2;
 }
 function listItems(markdown) {
-  return listItemSpans(markdown).map(({ heading, text: text9 }) => ({
+  return listItemSpans(markdown).map(({ heading, text: text10 }) => ({
     heading,
-    text: text9
+    text: text10
   }));
 }
 function openItems(markdown) {
@@ -4031,12 +4056,12 @@ function openCounts(markdown) {
 var FENCE = /^\s*(```|~~~)/;
 var LIST_MARKER = /^\s*([-*+]|\d+\.)\s/;
 function nextBlocks(markdown) {
-  const lines2 = markdown.split("\n");
+  const lines3 = markdown.split("\n");
   const blocks = [];
   let heading = "";
   let fenced = false;
   let open2 = null;
-  for (const [index, line2] of lines2.entries()) {
+  for (const [index, line2] of lines3.entries()) {
     const fence = FENCE.test(line2);
     const stops = fence || !line2.trim() || line2.startsWith("#") || LIST_MARKER.test(line2);
     if (open2 && !fenced && !stops) {
@@ -4067,9 +4092,9 @@ function nextStep(markdown) {
 }
 function upcomingSteps(markdown) {
   const open2 = [...openSteps(markdown).keys()];
-  const current = nextStep(markdown)?.step ?? open2[0];
+  const current2 = nextStep(markdown)?.step ?? open2[0];
   const headings2 = markdown.split("\n").filter((line2) => line2.startsWith("## ")).map((line2) => line2.slice(3).trim());
-  const after = headings2.slice(headings2.indexOf(current ?? "") + 1);
+  const after = headings2.slice(headings2.indexOf(current2 ?? "") + 1);
   return after.filter((heading) => open2.includes(heading)).slice(0, UPCOMING_STEPS);
 }
 function activePlans(plans) {
@@ -4120,15 +4145,15 @@ async function readPlans(deps) {
 // src/plan/active.ts
 function describe5(plan2) {
   const open2 = plan2.open.map((o) => `${o.step} (${o.count})`).join(", ");
-  const lines2 = [`${plan2.file}${plan2.default ? " (default)" : ""}`];
-  lines2.push(`  Open items: ${open2 || "none"}`);
+  const lines3 = [`${plan2.file}${plan2.default ? " (default)" : ""}`];
+  lines3.push(`  Open items: ${open2 || "none"}`);
   if (plan2.next) {
-    lines2.push(`  Next (${plan2.next.step}): ${plan2.next.text}`);
+    lines3.push(`  Next (${plan2.next.step}): ${plan2.next.text}`);
   }
   if (plan2.upcoming.length > 0) {
-    lines2.push(`  Upcoming: ${plan2.upcoming.join("; ")}`);
+    lines3.push(`  Upcoming: ${plan2.upcoming.join("; ")}`);
   }
-  return lines2.join("\n");
+  return lines3.join("\n");
 }
 async function readActivePlans(deps) {
   const plans = await readPlans(deps);
@@ -4171,8 +4196,8 @@ var planActive = {
 import { join as join4 } from "node:path";
 
 // src/plan/edits.ts
-function trimCommon(edit, lines2) {
-  const before2 = lines2.slice(edit.start, edit.end);
+function trimCommon(edit, lines3) {
+  const before2 = lines3.slice(edit.start, edit.end);
   let head = 0;
   while (head < before2.length && head < edit.lines.length && before2[head] === edit.lines[head]) {
     head++;
@@ -4187,8 +4212,8 @@ function trimCommon(edit, lines2) {
 }
 
 // src/plan/plan-edit.ts
-function normalize(text9) {
-  return text9.replace(/\s+/g, " ").trim();
+function normalize(text10) {
+  return text10.replace(/\s+/g, " ").trim();
 }
 function choosePlan(plans, requested) {
   const names3 = Object.keys(plans);
@@ -4220,17 +4245,17 @@ function choosePlan(plans, requested) {
   }
   return active[0] ?? "";
 }
-function apply(lines2, edits) {
-  const out = [...lines2];
+function apply(lines3, edits) {
+  const out = [...lines3];
   for (const edit of [...edits].sort((a, b) => b.start - a.start)) {
     out.splice(edit.start, edit.end - edit.start, ...edit.lines);
   }
   return out;
 }
-function toChanges(lines2, edits) {
-  return edits.flatMap((edit) => trimCommon(edit, lines2) ?? []).sort((a, b) => a.start - b.start).map((edit) => ({
+function toChanges(lines3, edits) {
+  return edits.flatMap((edit) => trimCommon(edit, lines3) ?? []).sort((a, b) => a.start - b.start).map((edit) => ({
     line: edit.start + 1,
-    before: lines2.slice(edit.start, edit.end),
+    before: lines3.slice(edit.start, edit.end),
     after: edit.lines
   }));
 }
@@ -4246,10 +4271,10 @@ function renderChanges(head, changes) {
 
 // src/plan/next.ts
 var NEXT = "Next:";
-function removals(lines2) {
-  return nextBlocks(lines2.join("\n")).map(({ line: line2, end }) => {
-    const blankBefore = line2 > 0 && (lines2[line2 - 1] ?? "").trim() === "";
-    const blankAfter = end < lines2.length && (lines2[end] ?? "").trim() === "";
+function removals(lines3) {
+  return nextBlocks(lines3.join("\n")).map(({ line: line2, end }) => {
+    const blankBefore = line2 > 0 && (lines3[line2 - 1] ?? "").trim() === "";
+    const blankAfter = end < lines3.length && (lines3[end] ?? "").trim() === "";
     return {
       start: line2,
       end: blankBefore && blankAfter ? end + 1 : end,
@@ -4257,11 +4282,11 @@ function removals(lines2) {
     };
   });
 }
-function currentHeading(lines2, markdown) {
+function currentHeading(lines3, markdown) {
   const open2 = openCounts(markdown).map((c) => c.step);
   const held = nextStep(markdown)?.step.split(":")[0];
   const step = held !== void 0 && open2.includes(held) ? held : open2[0];
-  const index = lines2.findIndex(
+  const index = lines3.findIndex(
     (l) => l.startsWith("## ") && l.slice(3).trim().split(":")[0] === step
   );
   if (step === void 0 || index < 0) {
@@ -4271,19 +4296,19 @@ function currentHeading(lines2, markdown) {
   }
   return index;
 }
-function insertion(lines2, heading, text9) {
-  const blank = (lines2[heading + 1] ?? "").trim() === "";
+function insertion(lines3, heading, text10) {
+  const blank = (lines3[heading + 1] ?? "").trim() === "";
   const start = blank ? heading + 2 : heading + 1;
   return {
     start,
     end: start,
-    lines: blank ? [`${NEXT} ${text9}`, ""] : ["", `${NEXT} ${text9}`, ""]
+    lines: blank ? [`${NEXT} ${text10}`, ""] : ["", `${NEXT} ${text10}`, ""]
   };
 }
-function withInsertion(lines2, removed, added) {
+function withInsertion(lines3, removed, added) {
   const merged = removed.find((r) => r.start === added.start);
   const end = merged?.end ?? added.start;
-  const followedByBlank = (lines2[end] ?? "").trim() === "";
+  const followedByBlank = (lines3[end] ?? "").trim() === "";
   const inserted = followedByBlank && added.lines.at(-1) === "" ? added.lines.slice(0, -1) : added.lines;
   return merged ? [
     ...removed.filter((r) => r !== merged),
@@ -4294,15 +4319,15 @@ async function write(deps, json, options) {
   const plans = await readPlans(deps);
   const name = choosePlan(plans, options.planOption);
   const markdown = plans[name] ?? "";
-  const lines2 = markdown.split("\n");
-  const edits = options.edits(lines2, markdown);
-  const changes = toChanges(lines2, edits);
+  const lines3 = markdown.split("\n");
+  const edits = options.edits(lines3, markdown);
+  const changes = toChanges(lines3, edits);
   const file = `${PLANS_DIR}/${name}`;
   const written2 = !options.dryRun && changes.length > 0;
   if (written2) {
     await deps.fs.writeFile(
       join4(await deps.root(), file),
-      apply(lines2, edits).join("\n")
+      apply(lines3, edits).join("\n")
     );
   }
   if (json) {
@@ -4324,8 +4349,8 @@ var planNext = {
   async run({ json, deps, options }) {
     const raw = options["text"];
     const plan2 = options["plan"];
-    const text9 = typeof raw === "string" ? normalize(raw) : "";
-    if (text9 === "") {
+    const text10 = typeof raw === "string" ? normalize(raw) : "";
+    if (text10 === "") {
       throw new CommandError(
         'Missing --text "<line>": say the first concrete action and any state the files cannot show.'
       );
@@ -4334,10 +4359,10 @@ var planNext = {
       planOption: typeof plan2 === "string" ? plan2 : void 0,
       dryRun: options["dry-run"] === true,
       headline: (file, dry) => `${dry ? "Would set" : "Set"} Next: in ${file}`,
-      edits: (lines2, markdown) => withInsertion(
-        lines2,
-        removals(lines2),
-        insertion(lines2, currentHeading(lines2, markdown), text9)
+      edits: (lines3, markdown) => withInsertion(
+        lines3,
+        removals(lines3),
+        insertion(lines3, currentHeading(lines3, markdown), text10)
       ),
       unchanged: `Next: already reads that way`
     });
@@ -4352,7 +4377,7 @@ var planClearNext = {
       planOption: typeof plan2 === "string" ? plan2 : void 0,
       dryRun: options["dry-run"] === true,
       headline: (file, dry) => `${dry ? "Would clear" : "Cleared"} Next: in ${file}`,
-      edits: (lines2) => removals(lines2),
+      edits: (lines3) => removals(lines3),
       unchanged: "No Next: line to clear"
     });
   }
@@ -4363,12 +4388,12 @@ import { join as join5 } from "node:path";
 
 // src/plan/totals.ts
 var TOTALS = /as of \d{4}-\d{2}-\d{2}: (\d+) local, (\d+) managed(\s+)cluster, (\d+) release(\s+)pipeline/;
-function totalsEdits(lines2, range, className, date) {
-  const firstClass = lines2.findIndex(
+function totalsEdits(lines3, range, className, date) {
+  const firstClass = lines3.findIndex(
     (l, i) => i > range[0] && i < range[1] && l.startsWith("### ")
   );
   const introEnd = firstClass < 0 ? range[1] : firstClass;
-  const intro = lines2.slice(range[0], introEnd).join("\n");
+  const intro = lines3.slice(range[0], introEnd).join("\n");
   const match = TOTALS.exec(intro);
   if (match === null) {
     return /\bas of\b/.test(intro) ? "The open-item totals line is not in the form `as of YYYY-MM-DD: N local, N managed cluster, N release pipeline`, so it cannot be recounted. Fix its wording, or tick the item by hand." : [];
@@ -4385,8 +4410,8 @@ function totalsEdits(lines2, range, className, date) {
     managed: managed - (lower.startsWith("managed") ? 1 : 0),
     release: release - (lower.startsWith("release") ? 1 : 0)
   };
-  const text9 = `as of ${date}: ${next.local} local, ${next.managed} managed${match[3]}cluster, ${next.release} release${match[5]}pipeline`;
-  const changed = intro.replace(TOTALS, text9).split("\n");
+  const text10 = `as of ${date}: ${next.local} local, ${next.managed} managed${match[3]}cluster, ${next.release} release${match[5]}pipeline`;
+  const changed = intro.replace(TOTALS, text10).split("\n");
   const before2 = intro.split("\n");
   const edits = [];
   for (const [i, line2] of changed.entries()) {
@@ -4416,35 +4441,35 @@ var NUMBERS = [
 ];
 var MIN_SCORE = 0.6;
 var MARGIN = 0.15;
-function sectionRange(lines2) {
-  const start = lines2.indexOf(SECTION);
+function sectionRange(lines3) {
+  const start = lines3.indexOf(SECTION);
   if (start < 0) {
     return null;
   }
-  const next = lines2.findIndex((l, i) => i > start && l.startsWith("## "));
-  return [start, next < 0 ? lines2.length : next];
+  const next = lines3.findIndex((l, i) => i > start && l.startsWith("## "));
+  return [start, next < 0 ? lines3.length : next];
 }
-function entriesIn(lines2, from, to) {
-  const entries = [];
+function entriesIn(lines3, from, to) {
+  const entries2 = [];
   for (let i = from; i < to; i++) {
-    const line2 = lines2[i] ?? "";
+    const line2 = lines3[i] ?? "";
     const step = HEADER.exec(line2)?.[1];
     if (step === void 0) {
       continue;
     }
     let end = i + 1;
-    while (end < to && /^\s+\S/.test(lines2[end] ?? "")) {
+    while (end < to && /^\s+\S/.test(lines3[end] ?? "")) {
       end++;
     }
-    entries.push({
+    entries2.push({
       start: i,
       end,
       step,
-      raw: lines2.slice(i, end).join("\n")
+      raw: lines3.slice(i, end).join("\n")
     });
     i = end - 1;
   }
-  return entries;
+  return entries2;
 }
 function segmentsOf(raw) {
   const bodyStart = HEADER.exec(raw)?.[0].length ?? 0;
@@ -4468,17 +4493,17 @@ function segmentsOf(raw) {
   pieces.push([from, bodyEnd]);
   let exit = false;
   return pieces.map(([a, b]) => {
-    const text9 = raw.slice(a, b);
-    const start = a + (text9.length - text9.trimStart().length);
-    const end = b - (text9.length - text9.trimEnd().length);
+    const text10 = raw.slice(a, b);
+    const start = a + (text10.length - text10.trimStart().length);
+    const end = b - (text10.length - text10.trimEnd().length);
     const lead = LEAD.exec(raw.slice(start, end))?.[0];
     exit ||= lead !== void 0;
     return { start, end, itemStart: start + (lead?.length ?? 0), exit };
   });
 }
-function words(text9) {
+function words(text10) {
   return new Set(
-    (text9.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => w.length >= 4)
+    (text10.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => w.length >= 4)
   );
 }
 function score(item, segment) {
@@ -4502,13 +4527,13 @@ function lowered(raw, segment) {
   const shown = /^\d+$/.test(word) ? String(count3) : NUMBERS[count3] ?? word;
   const noun = count3 === 1 ? "criterion" : "criteria";
   const [, , gap1, gap2, gap3] = lead;
-  const text9 = `and ${shown}${gap1}exit${gap2}${noun}:${gap3}`;
-  return raw.slice(0, segment.start) + text9 + raw.slice(segment.start + lead[0].length);
+  const text10 = `and ${shown}${gap1}exit${gap2}${noun}:${gap3}`;
+  return raw.slice(0, segment.start) + text10 + raw.slice(segment.start + lead[0].length);
 }
 function sharedNote(raw, segments, index) {
   for (const [i, segment] of segments.entries()) {
-    const text9 = raw.slice(segment.itemStart, segment.end);
-    const note = /\([^)]*\b(both|all)\b[^)]*\)/i.exec(text9);
+    const text10 = raw.slice(segment.itemStart, segment.end);
+    const note = /\([^)]*\b(both|all)\b[^)]*\)/i.exec(text10);
     const covered = note?.[1]?.toLowerCase() === "all" || index === i || index === i - 1;
     if (note !== null && covered) {
       return note[0];
@@ -4529,18 +4554,18 @@ function without(raw, segments, index) {
   const others = segments.filter((s) => s.exit && s !== target).length;
   return target.exit && lead !== void 0 && others > 0 ? lowered(cut, lead) : cut;
 }
-function classOf(lines2, entry2, from) {
+function classOf(lines3, entry2, from) {
   for (let i = entry2.start; i >= from; i--) {
-    const heading = /^### (.+)$/.exec(lines2[i] ?? "")?.[1];
+    const heading = /^### (.+)$/.exec(lines3[i] ?? "")?.[1];
     if (heading !== void 0) {
       return heading;
     }
   }
   return "";
 }
-function locate2(entries, step, itemText) {
+function locate2(entries2, step, itemText) {
   const item = words(itemText);
-  const scored = entries.flatMap(
+  const scored = entries2.flatMap(
     (entry2) => segmentsOf(entry2.raw).map((segment, index, all) => ({
       entry: entry2,
       all,
@@ -4558,20 +4583,20 @@ function locate2(entries, step, itemText) {
   }
   return best;
 }
-function listEdits(lines2, step, itemText, date) {
-  const range = sectionRange(lines2);
+function listEdits(lines3, step, itemText, date) {
+  const range = sectionRange(lines3);
   if (range === null) {
     return { edits: [] };
   }
-  const entries = entriesIn(lines2, range[0], range[1]).filter(
+  const entries2 = entriesIn(lines3, range[0], range[1]).filter(
     (e) => e.step === step
   );
-  if (entries.length === 0) {
+  if (entries2.length === 0) {
     return {
       error: `The open-item lists have no entry for ${step}. Add the item to its list, or tick it by hand.`
     };
   }
-  const best = locate2(entries, step, itemText);
+  const best = locate2(entries2, step, itemText);
   if ("error" in best) {
     return best;
   }
@@ -4588,12 +4613,12 @@ function listEdits(lines2, step, itemText, date) {
   ).split("\n");
   const entryEdit = trimCommon(
     { start: best.entry.start, end: best.entry.end, lines: replaced },
-    lines2
+    lines3
   );
   const totals = totalsEdits(
-    lines2,
+    lines3,
     range,
-    classOf(lines2, best.entry, range[0]),
+    classOf(lines3, best.entry, range[0]),
     date
   );
   if (typeof totals === "string") {
@@ -4624,17 +4649,17 @@ function chooseItem(markdown, wanted) {
     `"${wanted}" matches no open item.${done} Run \`harness plan active\` to see the open items.`
   );
 }
-function tickEdit(lines2, item) {
-  const first = lines2[item.line] ?? "";
+function tickEdit(lines3, item) {
+  const first = lines3[item.line] ?? "";
   return {
     start: item.line,
     end: item.line + 1,
     lines: [`- [x]${first.slice(OPEN.length)}`]
   };
 }
-function describe6(file, step, text9, dryRun, changes) {
+function describe6(file, step, text10, dryRun, changes) {
   return renderChanges(
-    `${dryRun ? "Would tick" : "Ticked"} ${step}: ${text9} in ${file}`,
+    `${dryRun ? "Would tick" : "Ticked"} ${step}: ${text10} in ${file}`,
     changes
   );
 }
@@ -4642,27 +4667,27 @@ async function tick(deps, json, item, planOption, dryRun) {
   const plans = await readPlans(deps);
   const name = choosePlan(plans, planOption);
   const markdown = plans[name] ?? "";
-  const lines2 = markdown.split("\n");
+  const lines3 = markdown.split("\n");
   const span = chooseItem(markdown, item);
   const step = span.heading.split(":")[0] ?? span.heading;
-  const text9 = normalize(span.text.slice(OPEN.length));
+  const text10 = normalize(span.text.slice(OPEN.length));
   const date = localDate(deps.clock.now());
-  const lists = listEdits(lines2, step, text9, date);
+  const lists = listEdits(lines3, step, text10, date);
   if ("error" in lists) {
     throw new CommandError(lists.error);
   }
-  const edits = [tickEdit(lines2, span), ...lists.edits];
-  const changes = toChanges(lines2, edits);
+  const edits = [tickEdit(lines3, span), ...lists.edits];
+  const changes = toChanges(lines3, edits);
   const file = `${PLANS_DIR}/${name}`;
   if (!dryRun) {
     await deps.fs.writeFile(
       join5(await deps.root(), file),
-      apply(lines2, edits).join("\n")
+      apply(lines3, edits).join("\n")
     );
   }
   deps.stdout(
-    json ? `${JSON.stringify({ plan: file, item: { step, text: text9 }, dryRun, written: !dryRun, changes })}
-` : describe6(file, step, text9, dryRun, changes)
+    json ? `${JSON.stringify({ plan: file, item: { step, text: text10 }, dryRun, written: !dryRun, changes })}
+` : describe6(file, step, text10, dryRun, changes)
   );
   return 0;
 }
@@ -4714,10 +4739,10 @@ function recentStages(events) {
 }
 async function ideas({ deps }) {
   const repository2 = new IdeaRepository(deps.fs, deps.clock, await deps.root());
-  const items2 = (await repository2.list()).map((record4) => ({
-    number: record4.number,
-    title: record4.title,
-    state: record4.outcome ?? "open"
+  const items2 = (await repository2.list()).map((record5) => ({
+    number: record5.number,
+    title: record5.title,
+    state: record5.outcome ?? "open"
   }));
   const byState = {};
   for (const { state } of items2) {
@@ -4743,19 +4768,548 @@ var statusCommand = {
 `);
       return 0;
     }
-    const lines2 = status2.plans.map(
+    const lines3 = status2.plans.map(
       (plan2) => `${plan2.file}: ${plan2.open.map((o) => `${o.step} (${o.count})`).join(", ") || "no open items"}`
     );
-    lines2.push(
+    lines3.push(
       `Ideas: ${Object.entries(status2.ideas.byState).map(([state, count3]) => `${count3} ${state}`).join(", ") || "none"}`
     );
     for (const r of status2.ledger.recent) {
-      lines2.push(`${r.occurredAt} ${r.stage} ${r.kind}`);
+      lines3.push(`${r.occurredAt} ${r.stage} ${r.kind}`);
     }
-    context2.deps.stdout(`${lines2.join("\n")}
+    context2.deps.stdout(`${lines3.join("\n")}
 `);
     return 0;
   }
+};
+
+// src/cli/judge-commands.ts
+import { resolve as resolve4 } from "node:path";
+
+// src/judge/declaration.ts
+var PATTERNS = [
+  "no-behaviour-change",
+  "feature-flagged",
+  "dark-launched",
+  "branch-by-abstraction",
+  "expand-contract"
+];
+var FIELD = "Safety pattern:";
+var FIX2 = `Add exactly one \`${FIELD} <pattern>\` line to the PR body (see .github/pull_request_template.md), where <pattern> is one of ${PATTERNS.join(", ")}.`;
+var FIELDS2 = {
+  pattern: /^\s*Safety pattern:\s*(.*?)\s*$/i,
+  idea: /^\s*Idea:\s*(.*?)\s*$/i
+};
+function lines2(body, field3) {
+  const visible = body.replace(/<!--[\s\S]*?-->/g, "");
+  const found = [];
+  for (const line2 of visible.split("\n")) {
+    const match = FIELDS2[field3].exec(line2);
+    if (match?.[1] !== void 0) {
+      found.push(match[1].replace(/^`|`$/g, "").trim());
+    }
+  }
+  return found;
+}
+var isPattern = (value) => PATTERNS.includes(value);
+function parseDeclaration(body) {
+  const declared = lines2(body, "pattern");
+  if (declared.length !== 1) {
+    return {
+      ok: false,
+      reason: declared.length === 0 ? `The PR declares no safety pattern. ${FIX2}` : `The PR declares ${declared.length} safety patterns; declare exactly one. ${FIX2}`
+    };
+  }
+  const value = declared[0] ?? "";
+  if (!isPattern(value)) {
+    return {
+      ok: false,
+      reason: value === "" ? `The \`${FIELD}\` field is blank. ${FIX2}` : `Unknown safety pattern "${value}". ${FIX2}`
+    };
+  }
+  const idea = lines2(body, "idea")[0];
+  return { ok: true, pattern: value, idea: idea === "" ? void 0 : idea };
+}
+
+// src/judge/checks.ts
+var CI_JOB = "check";
+var SCAN_JOB = "scan";
+var COVERAGE_STEPS = ["Unit tests", "Harness tests"];
+var REVIEW = /^\s*principles-review:\s*(.*)$/im;
+function text5(value) {
+  return typeof value === "string" ? value : "";
+}
+function parsePrView(stdout) {
+  try {
+    const view = JSON.parse(stdout);
+    const list3 = (key) => Array.isArray(view[key]) ? view[key] : [];
+    return {
+      body: text5(view["body"]),
+      comments: list3("comments").map((c) => ({
+        body: text5(c["body"]),
+        author: text5(
+          c["author"]?.["login"]
+        ),
+        createdAt: text5(c["createdAt"])
+      })),
+      headSha: text5(view["headRefOid"]),
+      headCommittedAt: list3("commits").map((c) => text5(c["committedDate"])).filter((d) => d !== "").sort().at(-1),
+      rollup: list3("statusCheckRollup").map((c) => ({
+        name: text5(c["name"]),
+        status: text5(c["status"]),
+        conclusion: text5(c["conclusion"]),
+        url: text5(c["detailsUrl"])
+      }))
+    };
+  } catch {
+    return void 0;
+  }
+}
+function fromConclusion(status2, conclusion2) {
+  if (status2.toUpperCase() !== "COMPLETED") {
+    return "pending";
+  }
+  return conclusion2.toUpperCase() === "SUCCESS" ? "pass" : "fail";
+}
+function job(view, name) {
+  const found = view.rollup.find((c) => c.name === name);
+  if (found === void 0) {
+    return { result: "missing", detail: `no "${name}" check on the PR` };
+  }
+  const result = fromConclusion(found.status, found.conclusion);
+  return result === "pass" ? { result } : { result, detail: `${name}: ${found.conclusion || found.status}` };
+}
+var NAMED_HEAD = /\bhead\s+([0-9a-f]{7,40})\b/i;
+function current(view, comment) {
+  const named = NAMED_HEAD.exec(comment.body)?.[1]?.toLowerCase();
+  if (named !== void 0) {
+    return view.headSha.toLowerCase().startsWith(named);
+  }
+  return view.headCommittedAt !== void 0 && Date.parse(comment.createdAt) > Date.parse(view.headCommittedAt);
+}
+function review(view, reviewers) {
+  const reviews = view.comments.filter((c) => REVIEW.test(c.body));
+  if (reviews.length === 0) {
+    return {
+      result: "missing",
+      detail: "no `principles-review:` comment; run the principles-review agent and post its verdict as `principles-review: No violations.` or `principles-review: <n> violations`"
+    };
+  }
+  if (reviewers.length === 0) {
+    return {
+      result: "unverified",
+      detail: "no known reviewer identity; rerun with `--reviewer <login>` naming who posts principles-review verdicts"
+    };
+  }
+  const trusted = reviews.filter((c) => reviewers.includes(c.author) && current(view, c)).sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)).at(-1);
+  if (trusted === void 0) {
+    return {
+      result: "unverified",
+      detail: `no principles-review comment from ${reviewers.join(" or ")} for the current head (name it as "head <sha>", or post it after the head commit); rerun the review on the current head`
+    };
+  }
+  const verdict = (REVIEW.exec(trusted.body)?.[1] ?? "").replace(/\s*\(?\bhead\s+[0-9a-f]{7,40}\)?\s*$/i, "").trim();
+  return /^no violations\.?$/i.test(verdict) ? { result: "pass" } : { result: "fail", detail: verdict };
+}
+async function coverage(runner, root3, pr) {
+  const url = pr.rollup.find((c) => c.name === CI_JOB)?.url ?? "";
+  const run3 = /\/actions\/runs\/(\d+)/.exec(url)?.[1];
+  if (run3 === void 0) {
+    return {
+      result: "missing",
+      detail: "no CI run on the PR to read coverage out of"
+    };
+  }
+  const done = await runner.run("gh", ["run", "view", run3, "--json", "jobs"], {
+    cwd: root3
+  });
+  if (done.code !== 0) {
+    return { result: "missing", detail: `gh run view ${run3} failed` };
+  }
+  try {
+    const parsed = JSON.parse(done.stdout);
+    const jobs = Array.isArray(parsed.jobs) ? parsed.jobs : [];
+    const steps = jobs.flatMap(
+      (j) => j.name === CI_JOB && Array.isArray(j.steps) ? j.steps : []
+    );
+    const found = COVERAGE_STEPS.map((name) => ({
+      name,
+      step: steps.find((s) => s.name === name)
+    }));
+    const absent = found.find((f) => f.step === void 0);
+    if (absent !== void 0) {
+      return {
+        result: "missing",
+        detail: `no "${absent.name}" step in run ${run3}`
+      };
+    }
+    const bad3 = found.find((f) => f.step?.conclusion !== "success");
+    if (bad3 === void 0) {
+      return { result: "pass" };
+    }
+    const concluded = bad3.step?.conclusion ?? "";
+    return {
+      result: concluded === "" ? "pending" : "fail",
+      detail: `${bad3.name}: ${concluded === "" ? "not finished" : concluded}`
+    };
+  } catch {
+    return {
+      result: "missing",
+      detail: `gh run view ${run3} returned unreadable output`
+    };
+  }
+}
+async function gatherChecks(runner, root3, view, reviewers) {
+  return {
+    ci: job(view, CI_JOB),
+    scan: job(view, SCAN_JOB),
+    coverage: await coverage(runner, root3, view),
+    principlesReview: review(view, reviewers)
+  };
+}
+
+// src/judge/diff.ts
+var Hunk = class {
+  added = 0;
+  removed = 0;
+  plus() {
+    this.added += 1;
+  }
+  minus() {
+    this.removed += 1;
+  }
+  end(file) {
+    if (file !== void 0) {
+      file.netRemoved += Math.max(0, this.removed - this.added);
+    }
+    this.added = 0;
+    this.removed = 0;
+  }
+};
+function parseDiff(text10) {
+  const files = [];
+  let current2;
+  let inHunk = false;
+  const hunk = new Hunk();
+  for (const line2 of text10.split("\n")) {
+    const header = /^diff --git a\/(.+?) b\/(.+)$/.exec(line2);
+    if (header?.[2] !== void 0) {
+      hunk.end(current2);
+      current2 = {
+        path: header[2],
+        deleted: false,
+        added: [],
+        removed: 0,
+        netRemoved: 0,
+        after: []
+      };
+      files.push(current2);
+      inHunk = false;
+    } else if (current2 === void 0) {
+      continue;
+    } else if (line2.startsWith("@@")) {
+      hunk.end(current2);
+      inHunk = true;
+    } else if (!inHunk && line2.startsWith("deleted file mode")) {
+      current2.deleted = true;
+    } else if (inHunk && line2.startsWith("+")) {
+      current2.added.push(line2.slice(1));
+      current2.after.push({ added: true, text: line2.slice(1) });
+      hunk.plus();
+    } else if (inHunk && line2.startsWith("-")) {
+      current2.removed += 1;
+      hunk.minus();
+    } else if (inHunk && line2.startsWith(" ")) {
+      current2.after.push({ added: false, text: line2.slice(1) });
+    }
+  }
+  hunk.end(current2);
+  return files;
+}
+
+// src/judge/hints.ts
+var OVERLAY = /^infra\/environments\/([^/]+)\/environment\.yaml$/;
+var ENTRY = /"?([\w.-]+)"?\s*:\s*(true|false)\b/g;
+var INLINE = /^\s*"?features"?\s*:\s*\{(.*)\}\s*,?\s*$/;
+var OPEN2 = /^\s*"?features"?\s*:\s*\{(.*)$/;
+var CLOSE = /^[^"]*\}/;
+var NOT_BEHAVIOUR = /(\.md$|\.spec\.[cm]?[jt]sx?$|\.test\.[cm]?[jt]sx?$|^docs\/)/;
+function entries(text10, environment) {
+  return [...text10.matchAll(ENTRY)].flatMap(
+    (m) => m[1] === void 0 ? [] : [{ flag: m[1], environment, value: m[2] === "true" }]
+  );
+}
+function overlayFlags(file, environment) {
+  const found = [];
+  let inside = false;
+  for (const { added, text: text10 } of file.after) {
+    const inline = INLINE.exec(text10);
+    if (inline?.[1] !== void 0) {
+      inside = false;
+      found.push(...added ? entries(inline[1], environment) : []);
+    } else if (OPEN2.test(text10)) {
+      inside = true;
+      const rest = OPEN2.exec(text10)?.[1] ?? "";
+      found.push(...added ? entries(rest, environment) : []);
+    } else if (inside) {
+      if (CLOSE.test(text10)) {
+        inside = false;
+      } else if (added) {
+        found.push(...entries(text10, environment));
+      }
+    }
+  }
+  return found;
+}
+function flagChanges(files) {
+  return files.flatMap((file) => {
+    const environment = OVERLAY.exec(file.path)?.[1];
+    return environment === void 0 ? [] : overlayFlags(file, environment);
+  });
+}
+var deletedFiles = (files) => files.filter((f) => f.deleted).map((f) => f.path);
+var GENERATED = /* @__PURE__ */ new Set(["skills/bin/harness.mjs"]);
+var authored = (files) => files.filter((f) => !GENERATED.has(f.path));
+var removedLines = (files) => authored(files).reduce((sum, f) => sum + f.removed, 0);
+var netRemovedLines = (files) => authored(files).reduce((sum, f) => sum + f.netRemoved, 0);
+var BUILDERS = {
+  "no-behaviour-change": (files) => {
+    const behaviouralPaths = files.map((f) => f.path).filter((p) => !NOT_BEHAVIOUR.test(p));
+    return {
+      behaviouralPaths,
+      noBehaviouralDiff: behaviouralPaths.length === 0
+    };
+  },
+  "feature-flagged": (files) => {
+    const flags = flagChanges(files);
+    return {
+      flags,
+      flagPresentAndOff: flags.length > 0 && flags.every((f) => !f.value)
+    };
+  },
+  "dark-launched": (files) => {
+    const flags = flagChanges(files);
+    const on = flags.filter((f) => f.value);
+    return {
+      flags,
+      flagOnlyInLocal: on.length > 0 && on.every((f) => f.environment === "local")
+    };
+  },
+  "branch-by-abstraction": (files) => {
+    const deleted = deletedFiles(files);
+    return { deletedFiles: deleted, oldPathRetained: deleted.length === 0 };
+  },
+  "expand-contract": (files) => {
+    const net = netRemovedLines(files);
+    const deleted = deletedFiles(files);
+    return {
+      removedLines: removedLines(files),
+      netRemovedLines: net,
+      deletedFiles: deleted,
+      additiveOnly: net === 0 && deleted.length === 0
+    };
+  }
+};
+function hintsFor(pattern, files) {
+  return BUILDERS[pattern](files);
+}
+
+// src/judge/verdict.ts
+var CLUSTER = /^(apps|infra|catalog)\/|(^|\/)charts?\//;
+function clusterFacing(files) {
+  return files.some((f) => CLUSTER.test(f.path) && !NOT_BEHAVIOUR.test(f.path));
+}
+var MISMATCH = {
+  "no-behaviour-change": (h) => h["noBehaviouralDiff"] === true ? void 0 : `no-behaviour-change, but the diff changes behaviour in: ${h["behaviouralPaths"].join(", ")}`,
+  "feature-flagged": (h) => h["flagPresentAndOff"] === true ? void 0 : "feature-flagged, but the diff adds no flag that is off in an environment overlay",
+  "dark-launched": (h) => h["flagOnlyInLocal"] === true ? void 0 : "dark-launched, but the diff adds no flag that is on only in the local overlay",
+  "branch-by-abstraction": (h) => h["oldPathRetained"] === true ? void 0 : `branch-by-abstraction, but the diff deletes the old path: ${h["deletedFiles"].join(", ")}`,
+  "expand-contract": (h) => h["additiveOnly"] === true ? void 0 : `expand-contract, but the diff removes ${String(h["netRemovedLines"])} line(s) without replacing them and deletes ${h["deletedFiles"].length} file(s); that is a contract step, declare it only once the expand step is proven`
+};
+var UNVERIFIED = {
+  "no-behaviour-change": ["behaviour equivalence not verified"],
+  "feature-flagged": ["gating not verified"],
+  "dark-launched": ["gating not verified"],
+  "branch-by-abstraction": ["abstraction seam not verified"],
+  "expand-contract": ["compatibility of both steps not verified"]
+};
+function assess(pattern, hints, files) {
+  const mismatch = MISMATCH[pattern](hints);
+  const cluster = clusterFacing(files);
+  const live = pattern === "no-behaviour-change" ? "cluster-facing: live run required before merge" : "cluster-facing: live proof required before the flag turns on";
+  return {
+    patternMatches: mismatch === void 0,
+    ...mismatch === void 0 ? {} : { patternMismatch: mismatch },
+    clusterFacing: cluster,
+    unverified: [...UNVERIFIED[pattern], ...cluster ? [live] : []]
+  };
+}
+
+// src/judge/precheck.ts
+var JudgeError = class extends Error {
+};
+var FIX3 = "Check `gh auth status` and the PR number, then rerun `harness judge precheck <pr>`.";
+async function gh({ deps }, root3, args, pr) {
+  const done = await deps.runner.run("gh", args, { cwd: root3 });
+  if (done.code !== 0) {
+    throw new JudgeError(
+      `gh ${args.slice(0, 2).join(" ")} failed for PR #${pr}: ${done.stderr.trim()}. ${FIX3}`
+    );
+  }
+  return done.stdout;
+}
+async function readPr(context2, root3, pr) {
+  const out = await gh(
+    context2,
+    root3,
+    [
+      "pr",
+      "view",
+      String(pr),
+      "--json",
+      "body,comments,commits,headRefOid,statusCheckRollup"
+    ],
+    pr
+  );
+  const view = parsePrView(out);
+  if (view === void 0) {
+    throw new JudgeError(`gh returned unreadable output for PR #${pr}. ${FIX3}`);
+  }
+  return view;
+}
+async function precheck(context2, root3, pr, reviewers) {
+  const view = await readPr(context2, root3, pr);
+  const declaration = parseDeclaration(view.body);
+  if (!declaration.ok) {
+    return {
+      pr,
+      ok: false,
+      pattern: void 0,
+      idea: void 0,
+      declaration: { ok: false, reason: declaration.reason }
+    };
+  }
+  const diff = await gh(context2, root3, ["pr", "diff", String(pr)], pr);
+  const checks = await gatherChecks(context2.deps.runner, root3, view, reviewers);
+  const files = parseDiff(diff);
+  const hints = hintsFor(declaration.pattern, files);
+  const verdict = assess(declaration.pattern, hints, files);
+  return {
+    pr,
+    ok: verdict.patternMatches && Object.values(checks).every((c) => c.result === "pass"),
+    pattern: declaration.pattern,
+    idea: declaration.idea,
+    declaration: { ok: true },
+    checks,
+    hints,
+    ...verdict
+  };
+}
+function summary(report3) {
+  const head = `PR #${report3.pr}: ${report3.ok ? "ready for the judge" : "not ready"}`;
+  if (report3.checks === void 0) {
+    return `${head}
+${report3.declaration.reason ?? ""}
+`;
+  }
+  const checks = Object.entries(report3.checks).map(
+    ([name, c]) => `${name}: ${c.result}${c.detail === void 0 ? "" : ` (${c.detail})`}`
+  );
+  const hints = Object.entries(report3.hints ?? {}).map(
+    ([k, v]) => `${k}: ${JSON.stringify(v)}`
+  );
+  const mismatch = report3.patternMismatch === void 0 ? [] : [`pattern mismatch: ${report3.patternMismatch}`];
+  const unverified = (report3.unverified ?? []).map((u) => `unverified: ${u}`);
+  return [
+    head,
+    `pattern: ${report3.pattern ?? "none"}${report3.idea === void 0 ? "" : ` (idea ${report3.idea})`}`,
+    ...checks,
+    ...hints.map((h) => `hint ${h}`),
+    ...mismatch,
+    `cluster-facing: ${report3.clusterFacing === true}`,
+    ...unverified,
+    ""
+  ].join("\n");
+}
+
+// src/cli/judge-commands.ts
+var FAILED4 = 1;
+var USAGE = "Run `harness judge precheck <pr> [--json] [--reviewer <login>[,<login>]]`.";
+function prNumber(operand) {
+  if (operand === void 0 || !/^\d+$/.test(operand) || Number(operand) < 1) {
+    throw new JudgeError(`Missing or invalid PR number. ${USAGE}`);
+  }
+  return Number(operand);
+}
+async function openJudgeLedger({ deps }) {
+  const main = await bundleMainRoot(deps);
+  if (main === void 0) {
+    throw new JudgeError(
+      "Cannot find the main checkout from the harness bundle's location, so there is no ledger to record to. Run the committed skills/bin/harness.mjs from inside the repository."
+    );
+  }
+  return new Ledger(
+    deps.fs,
+    deps.clock,
+    deps.ids,
+    resolve4(main, DEFAULT_LEDGER)
+  );
+}
+async function record2(context2, report3) {
+  const ledger = await openJudgeLedger(context2);
+  const { deps } = context2;
+  const idea = report3.idea;
+  const label = `${report3.pattern ?? "none"}:${report3.ok ? "pass" : "fail"}`;
+  const logged = await ledger.list({ kind: "precheck" });
+  const newest = logged.events.filter((e) => e.number === report3.pr).at(-1);
+  if (newest?.label === label) {
+    return;
+  }
+  const event = await ledger.record({
+    source: "github",
+    kind: "precheck",
+    occurredAt: deps.clock.now().toISOString(),
+    number: report3.pr,
+    label,
+    ...idea !== void 0 && /^[\w.:/#@-]{1,128}$/.test(idea) ? { idea } : {}
+  });
+  if (!event.ok) {
+    throw new JudgeError(
+      `The precheck ran, but its ledger event was rejected: ${event.message} Fix the ledger, then rerun \`harness judge precheck ${report3.pr}\`.`
+    );
+  }
+}
+async function runPrecheck(context2) {
+  const { deps, json } = context2;
+  try {
+    const pr = prNumber(context2.operand);
+    const root3 = await deps.root();
+    const reviewers = String(context2.options["reviewer"] ?? "").split(",").map((r) => r.trim()).filter((r) => r !== "");
+    const report3 = await precheck(context2, root3, pr, reviewers);
+    deps.stdout(json ? `${JSON.stringify(report3)}
+` : summary(report3));
+    await record2(context2, report3);
+    return report3.ok ? 0 : FAILED4;
+  } catch (error) {
+    if (!(error instanceof JudgeError)) {
+      throw error;
+    }
+    deps.stderr(
+      `${json ? `${JSON.stringify({ error: error.message })}
+` : ""}${error.message}
+`
+    );
+    return FAILED4;
+  }
+}
+var precheckCommand = {
+  summary: "read-only on GitHub; report a PR's declared safety pattern, pattern hints from its diff, and its CI, scan, coverage and principles-review results; fails when no single valid pattern is declared or a check is not passing; records a precheck ledger event at the shared ledger; principles-review counts only from a named reviewer, made after the head commit (<pr> [--reviewer <login>[,<login>]])",
+  operand: "pr",
+  options: { reviewer: "string" },
+  run: runPrecheck
+};
+var judgeCommands = {
+  precheck: precheckCommand
 };
 
 // src/outcome/model.ts
@@ -4768,7 +5322,7 @@ var OUTCOME_SOURCES = [
 ];
 var RESULTS = ["confirmed", "refuted", "inconclusive"];
 var labelFor = (result) => `outcome:${result}`;
-var markerFor2 = (record4) => `<!-- harness outcome idea ${record4.number} -->`;
+var markerFor2 = (record5) => `<!-- harness outcome idea ${record5.number} -->`;
 function choice(flag, allowed, value) {
   if (value === void 0 || value.trim() === "") {
     throw new IdeaError(
@@ -4783,7 +5337,7 @@ function choice(flag, allowed, value) {
   }
   return found;
 }
-function text5(flag, value, hint) {
+function text6(flag, value, hint) {
   const trimmed = (value ?? "").trim();
   if (trimmed === "") {
     throw new IdeaError(`Missing --${flag}; ${hint}.`);
@@ -4794,33 +5348,33 @@ function parseOutcome(options) {
   const kind = choice("kind", OUTCOME_KINDS, options.kind);
   const source = choice("source", OUTCOME_SOURCES, options.source);
   const result = choice("result", RESULTS, options.result);
-  const evidence = text5(
+  const evidence = text6(
     "evidence",
     options.evidence,
     "name the run, journal entry, eval record or comparison it was measured on"
   ).replace(/\s+/g, " ");
-  const summary = text5(
+  const summary2 = text6(
     "summary",
     options.summary,
     "state what was observed against the idea's expected outcome"
   );
-  if (summary.includes("<!--") || options.evidence?.includes("<!--") === true) {
+  if (summary2.includes("<!--") || options.evidence?.includes("<!--") === true) {
     throw new IdeaError(
       "--summary and --evidence must not contain an HTML comment; it could forge the marker that tells a rerun the outcome is posted, so reword it."
     );
   }
-  if (/^- [A-Za-z]+:/m.test(summary)) {
+  if (/^- [A-Za-z]+:/m.test(summary2)) {
     throw new IdeaError(
       '--summary must not start a line with "- Name:"; it could override a recorded field such as Flag or Result, so reword it.'
     );
   }
-  if (/^#/m.test(summary)) {
+  if (/^#/m.test(summary2)) {
     throw new IdeaError(
       "--summary must not start a line with #; it would open a new section in the idea, so reword it."
     );
   }
   const flag = parseFlag(kind, source, options.flag, options.environment);
-  return { kind, source, result, evidence, summary, ...flag };
+  return { kind, source, result, evidence, summary: summary2, ...flag };
 }
 var FLAG_NAME = /^[a-z][a-z0-9-]*$/;
 function parseFlag(kind, source, name, environment) {
@@ -4868,24 +5422,24 @@ function renderSection(outcome, date) {
     outcome.summary
   ].join("\n");
 }
-function followUpOf(record4, result) {
+function followUpOf(record5, result) {
   return {
     // The number keeps the slug unique when long slugs share a prefix.
-    slug: `follow-up-${record4.number}-${record4.slug}`.slice(0, 60).replace(/-+$/, ""),
+    slug: `follow-up-${record5.number}-${record5.slug}`.slice(0, 60).replace(/-+$/, ""),
     idea: {
-      title: `Follow up: ${record4.title}`,
-      summary: `Follow up on idea ${record4.number} after a ${result} outcome`,
-      hypothesis: `After a ${result} outcome on idea ${record4.number}, revisit: ${record4.hypothesis}`,
-      expectedOutcome: record4.expectedOutcome,
-      measurement: record4.measurement,
-      safetyPattern: record4.safetyPattern,
-      parent: record4.number
+      title: `Follow up: ${record5.title}`,
+      summary: `Follow up on idea ${record5.number} after a ${result} outcome`,
+      hypothesis: `After a ${result} outcome on idea ${record5.number}, revisit: ${record5.hypothesis}`,
+      expectedOutcome: record5.expectedOutcome,
+      measurement: record5.measurement,
+      safetyPattern: record5.safetyPattern,
+      parent: record5.number
     }
   };
 }
 
 // src/outcome/publish.ts
-var FIX2 = "Check `gh auth status`, then rerun `harness outcome close`.";
+var FIX4 = "Check `gh auth status`, then rerun `harness outcome close`.";
 function names(value, key) {
   return Array.isArray(value) ? value.flatMap((v) => {
     const found = v?.[key];
@@ -4902,7 +5456,7 @@ function parseView2(stdout, target) {
     };
   } catch {
     throw new IdeaError(
-      `gh returned unreadable output for issue ${target.number}; ${FIX2}`
+      `gh returned unreadable output for issue ${target.number}; ${FIX4}`
     );
   }
 }
@@ -4917,7 +5471,7 @@ function missingLabel(stderr2, wanted, repo, idea) {
   return /not found/i.test(stderr2) && stderr2.includes(wanted) ? `The label "${wanted}" does not exist on ${repo}; create it with \`gh label create ${wanted} --repo ${repo}\`, then rerun \`harness outcome close --idea ${idea}\`.` : void 0;
 }
 async function publishOutcome(runner, root3, target, outcome) {
-  const gh = async (args, input, explain) => {
+  const gh2 = async (args, input, explain) => {
     const done = await runner.run("gh", args, {
       cwd: root3,
       ...input === void 0 ? {} : { input }
@@ -4928,14 +5482,14 @@ async function publishOutcome(runner, root3, target, outcome) {
         throw new IdeaError(reason);
       }
       throw new IdeaError(
-        `gh ${args.slice(0, 2).join(" ")} failed for issue ${target.number}: ${done.stderr.trim()}. ${FIX2}`
+        `gh ${args.slice(0, 2).join(" ")} failed for issue ${target.number}: ${done.stderr.trim()}. ${FIX4}`
       );
     }
     return done.stdout;
   };
   const at = ["--repo", target.repo];
   const view = parseView2(
-    await gh([
+    await gh2([
       "issue",
       "view",
       target.number,
@@ -4953,7 +5507,7 @@ async function publishOutcome(runner, root3, target, outcome) {
   const wanted = labelFor(outcome.result);
   const flags = labelFlags(view.labels, wanted);
   if (flags.length > 0) {
-    await gh(
+    await gh2(
       ["issue", "edit", target.number, ...at, ...flags],
       void 0,
       (stderr2) => missingLabel(stderr2, wanted, target.repo, outcome.idea)
@@ -4961,41 +5515,41 @@ async function publishOutcome(runner, root3, target, outcome) {
     published.labelled = true;
   }
   if (!view.comments.some((body) => body.includes(outcome.marker))) {
-    await gh(
+    await gh2(
       ["issue", "comment", target.number, ...at, "--body-file", "-"],
       outcome.comment
     );
     published.commented = true;
   }
   if (view.open) {
-    await gh(["issue", "close", target.number, ...at]);
+    await gh2(["issue", "close", target.number, ...at]);
     published.closed = true;
   }
   return published;
 }
 
 // src/outcome/outcome.ts
-async function finish(ctx, record4, result, target) {
+async function finish(ctx, record5, result, target) {
   let followUp;
   if (result !== "confirmed") {
-    const next = followUpOf(record4, result);
+    const next = followUpOf(record5, result);
     followUp = (await ctx.repo.create(next.slug, next.idea)).record.path;
   }
-  const section = outcomeSection(await ctx.repo.source(record4)) ?? "";
+  const section = outcomeSection(await ctx.repo.source(record5)) ?? "";
   const comment = [
-    markerFor2(record4),
+    markerFor2(record5),
     section,
     ...followUp === void 0 ? [] : [`Follow-up idea: ${followUp}`]
   ].join("\n\n");
   const published = await publishOutcome(ctx.runner, ctx.root, target, {
-    idea: record4.number,
+    idea: record5.number,
     result,
-    marker: markerFor2(record4),
+    marker: markerFor2(record5),
     comment: `${comment}
 `
   });
   return {
-    idea: record4.number,
+    idea: record5.number,
     result,
     issue: `https://github.com/${target.repo}/issues/${target.number}`,
     ...followUp === void 0 ? {} : { followUp },
@@ -5003,42 +5557,42 @@ async function finish(ctx, record4, result, target) {
   };
 }
 async function recordOutcome(ctx, ref, outcome) {
-  const record4 = await ctx.repo.get(ref);
-  if (record4.outcome !== void 0) {
+  const record5 = await ctx.repo.get(ref);
+  if (record5.outcome !== void 0) {
     throw new IdeaError(
-      `${record4.path} already has an outcome (${record4.outcome}); an outcome is recorded once. Run \`harness outcome close --idea ${record4.number}\` to finish publishing it.`
+      `${record5.path} already has an outcome (${record5.outcome}); an outcome is recorded once. Run \`harness outcome close --idea ${record5.number}\` to finish publishing it.`
     );
   }
-  const target = await issueTarget(ctx.runner, ctx.root, record4);
+  const target = await issueTarget(ctx.runner, ctx.root, record5);
   const date = ctx.clock.now().toISOString().slice(0, 10);
   await ctx.repo.recordOutcome(
-    record4,
+    record5,
     outcome.result,
     renderSection(outcome, date)
   );
-  return await finish(ctx, record4, outcome.result, target);
+  return await finish(ctx, record5, outcome.result, target);
 }
 async function closeOutcome(ctx, ref) {
-  const record4 = await ctx.repo.get(ref);
-  const recorded = record4.outcome;
+  const record5 = await ctx.repo.get(ref);
+  const recorded = record5.outcome;
   if (recorded === void 0) {
     throw new IdeaError(
-      `${record4.path} has no recorded outcome, so its issue stays open. Run \`harness outcome record --idea ${record4.number} --kind <experiment|usage|verification> --source <live-run|journal|eval-history|comparison> --evidence <reference> --result <confirmed|refuted|inconclusive> --summary <text>\`.`
+      `${record5.path} has no recorded outcome, so its issue stays open. Run \`harness outcome record --idea ${record5.number} --kind <experiment|usage|verification> --source <live-run|journal|eval-history|comparison> --evidence <reference> --result <confirmed|refuted|inconclusive> --summary <text>\`.`
     );
   }
   const result = RESULTS.find((r) => r === recorded);
-  if (result === void 0 || outcomeSection(await ctx.repo.source(record4)) === void 0) {
+  if (result === void 0 || outcomeSection(await ctx.repo.source(record5)) === void 0) {
     throw new IdeaError(
-      `${record4.path} has an outcome line "${recorded}" that the outcome tool did not write (it needs one of ${RESULTS.join(", ")} and an ## Outcome section). Remove it and run \`harness outcome record --idea ${record4.number}\`.`
+      `${record5.path} has an outcome line "${recorded}" that the outcome tool did not write (it needs one of ${RESULTS.join(", ")} and an ## Outcome section). Remove it and run \`harness outcome record --idea ${record5.number}\`.`
     );
   }
-  const target = await issueTarget(ctx.runner, ctx.root, record4);
-  return await finish(ctx, record4, result, target);
+  const target = await issueTarget(ctx.runner, ctx.root, record5);
+  return await finish(ctx, record5, result, target);
 }
 
 // src/cli/outcome-commands.ts
-var FAILED4 = 1;
-function text6(options, key) {
+var FAILED5 = 1;
+function text7(options, key) {
   const value = options[key];
   return typeof value === "string" ? value : void 0;
 }
@@ -5054,11 +5608,11 @@ async function guarded3({ json, deps }, action) {
 ` : "";
     deps.stderr(`${prefix}${error.message}
 `);
-    return FAILED4;
+    return FAILED5;
   }
 }
 function ideaRef(context2, verb) {
-  const ref = text6(context2.options, "idea")?.trim();
+  const ref = text7(context2.options, "idea")?.trim();
   if (ref === void 0 || ref === "") {
     throw new IdeaError(
       `Missing --idea; run \`harness outcome ${verb} --idea <number or slug>\`, or \`harness idea list\` to see the ideas.`
@@ -5090,13 +5644,13 @@ async function conclusion(context2, verb) {
     ctx,
     ref,
     parseOutcome({
-      kind: text6(context2.options, "kind"),
-      source: text6(context2.options, "source"),
-      result: text6(context2.options, "result"),
-      evidence: text6(context2.options, "evidence"),
-      summary: text6(context2.options, "summary"),
-      flag: text6(context2.options, "flag"),
-      environment: text6(context2.options, "environment")
+      kind: text7(context2.options, "kind"),
+      source: text7(context2.options, "source"),
+      result: text7(context2.options, "result"),
+      evidence: text7(context2.options, "evidence"),
+      summary: text7(context2.options, "summary"),
+      flag: text7(context2.options, "flag"),
+      environment: text7(context2.options, "environment")
     })
   ) : await closeOutcome(ctx, ref);
   const logged = await ledger.list({ idea: done.idea, kind: "outcome" });
@@ -5122,7 +5676,7 @@ Follow-up idea: ${done.followUp}`}
 `
   );
 }
-var record2 = {
+var record3 = {
   summary: `record an idea's measured outcome in its markdown, post it to the issue with one outcome:* label, close the issue, and open a follow-up idea when refuted or inconclusive (--idea --kind ${OUTCOME_KINDS.join("|")} --source ${OUTCOME_SOURCES.join("|")} --evidence <reference> --result ${RESULTS.join("|")} --summary <text> [--flag <name> --environment <env>, only on a live-run verification] [--ledger])`,
   options: {
     idea: "string",
@@ -5146,7 +5700,7 @@ var close = {
     return guarded3(context2, () => conclusion(context2, "close"));
   }
 };
-var outcomeCommands = { record: record2, close };
+var outcomeCommands = { record: record3, close };
 
 // src/cli/records.ts
 var records = {
@@ -5154,7 +5708,8 @@ var records = {
   outcome: outcomeCommands,
   flag: flagCommands,
   // `harness status`: the one command of its domain, so it takes no command word.
-  status: { "": statusCommand }
+  status: { "": statusCommand },
+  judge: judgeCommands
 };
 
 // src/hook/feedback.ts
@@ -5189,10 +5744,10 @@ function usageOf(raw) {
     return void 0;
   }
 }
-function advance(state, text9) {
-  const end = text9.lastIndexOf("\n") + 1;
+function advance(state, text10) {
+  const end = text10.lastIndexOf("\n") + 1;
   let { total, lastId, lastTokens } = state;
-  for (const raw of text9.slice(0, end).split("\n")) {
+  for (const raw of text10.slice(0, end).split("\n")) {
     const usage2 = usageOf(raw);
     if (usage2 === void 0) {
       continue;
@@ -5202,15 +5757,15 @@ function advance(state, text9) {
     lastTokens = usage2.tokens;
   }
   return {
-    offset: state.offset + Buffer.byteLength(text9.slice(0, end)),
+    offset: state.offset + Buffer.byteLength(text10.slice(0, end)),
     total,
     ...lastId === void 0 ? {} : { lastId },
     ...lastTokens === void 0 ? {} : { lastTokens }
   };
 }
-function parseState(text9) {
+function parseState(text10) {
   try {
-    const value = JSON.parse(text9);
+    const value = JSON.parse(text10);
     const { offset, total, lastId, lastTokens } = value;
     return typeof offset === "number" && typeof total === "number" && Number.isSafeInteger(offset) && offset >= 0 && total >= 0 ? {
       offset,
@@ -5305,12 +5860,12 @@ function isHarnessSource(filePath, root3) {
 }
 var MAX_LINES = 40;
 function bound(output, command) {
-  const lines2 = output.split("\n");
-  if (lines2.length <= MAX_LINES) {
+  const lines3 = output.split("\n");
+  if (lines3.length <= MAX_LINES) {
     return output;
   }
-  const cut = lines2.length - MAX_LINES;
-  return `${lines2.slice(0, MAX_LINES).join("\n")}
+  const cut = lines3.length - MAX_LINES;
+  return `${lines3.slice(0, MAX_LINES).join("\n")}
 ... ${cut} more lines cut. Run \`${command}\` to see all.`;
 }
 var asCall = (payload) => typeof payload === "object" && payload !== null ? payload : {};
@@ -5579,12 +6134,12 @@ function writtenPath(name, args, segment, matches3) {
 }
 
 // src/hook/guard-guardrails.ts
-var ENTRY = /"rule"\s*:\s*"([a-z0-9-]+)"[^}]*?"mode"\s*:\s*"(audit|enforce)"/g;
+var ENTRY2 = /"rule"\s*:\s*"([a-z0-9-]+)"[^}]*?"mode"\s*:\s*"(audit|enforce)"/g;
 var OBJECT = /\{[^{}]*"rule"\s*:\s*"([a-z0-9-]+)"[^{}]*\}/g;
 var DENY = /"deny"\s*:\s*\[([^\]]*)\]/;
 var MODE = /"mode"\s*:\s*"(audit|enforce)"/g;
 var modes = (source) => new Map(
-  [...source.matchAll(ENTRY)].map((m) => [m[1], m[2]])
+  [...source.matchAll(ENTRY2)].map((m) => [m[1], m[2]])
 );
 function denies(source) {
   const found = /* @__PURE__ */ new Map();
@@ -5883,14 +6438,14 @@ var WordScanner = class {
     return i;
   }
   plain(char, next) {
-    const current = this.start();
+    const current2 = this.start();
     if (char === "*" || char === "?") {
-      current.glob = true;
+      current2.glob = true;
     }
-    if (char === "=" && current.text === "" && /[^\s]/.test(next ?? " ")) {
-      current.equals = true;
+    if (char === "=" && current2.text === "" && /[^\s]/.test(next ?? " ")) {
+      current2.equals = true;
     }
-    current.text += char;
+    current2.text += char;
   }
 };
 function rawWords(command) {
@@ -6036,14 +6591,14 @@ var secretBlock = () => block(
   "Key and token material under .kore/ must not be read or written directly. Instead, use a kore command that streams the secret through stdin, or ask the user to handle it."
 );
 async function loadSopsPatterns(ctx) {
-  let text9;
+  let text10;
   try {
-    text9 = await ctx.readFile(`${ctx.root}/.sops.yaml`);
+    text10 = await ctx.readFile(`${ctx.root}/.sops.yaml`);
   } catch {
     return [];
   }
   const patterns = [];
-  for (const match of text9.matchAll(/path_regex:\s*(.+)$/gm)) {
+  for (const match of text10.matchAll(/path_regex:\s*(.+)$/gm)) {
     const source = match[1].trim().replace(/^['"]|['"]$/g, "");
     try {
       patterns.push(new RegExp(source));
@@ -6058,8 +6613,8 @@ var sopsBlock = (path) => block(
 );
 
 // src/hook/guard-bash.ts
-async function sopsWrite(name, segment, text9, ctx) {
-  const writes2 = text9.includes(">") || ["tee", "cp", "mv", "sed"].includes(name);
+async function sopsWrite(name, segment, text10, ctx) {
+  const writes2 = text10.includes(">") || ["tee", "cp", "mv", "sed"].includes(name);
   if (name === "sops" || !writes2) {
     return null;
   }
@@ -6075,12 +6630,12 @@ async function checkBashSegment(segment, ctx) {
   if (!name) {
     return [];
   }
-  const text9 = segment.join(" ");
-  if (!SECRET_SAFE.has(name) && !isKore(name, args) && SECRET_PATH.test(text9)) {
+  const text10 = segment.join(" ");
+  if (!SECRET_SAFE.has(name) && !isKore(name, args) && SECRET_PATH.test(text10)) {
     return [secretBlock()];
   }
   return [
-    await sopsWrite(name, segment, text9, ctx),
+    await sopsWrite(name, segment, text10, ctx),
     checkDestructive(name, args),
     checkContext(name, args),
     checkNoVerify(name, args),
@@ -6089,7 +6644,7 @@ async function checkBashSegment(segment, ctx) {
     checkAppendOnly(name, args, segment, ctx.root),
     checkGuardrailBash(name, args, segment),
     checkDenyRemovalBash(name, args),
-    ...checkDenyAudit("Bash", text9, ctx)
+    ...checkDenyAudit("Bash", text10, ctx)
   ];
 }
 var UNQUOTED_GLOB = /(?:^|\s)--(include|exclude)=([^\s'"]*\*[^\s'"]*)/;
@@ -6104,10 +6659,10 @@ function unquotedGlob(command) {
   );
 }
 function zshWords(command) {
-  const text9 = shellText(command).replace(/\$?\(\([^)]*\)\)/g, "");
-  const words2 = rawWords(text9);
+  const text10 = shellText(command).replace(/\$?\(\([^)]*\)\)/g, "");
+  const words2 = rawWords(text10);
   const glob = words2.find((w) => w.glob && !w.text.includes("${"));
-  const equals = text9.includes("[[") ? void 0 : words2.find((w) => w.equals);
+  const equals = text10.includes("[[") ? void 0 : words2.find((w) => w.equals);
   return [
     glob ? warn(
       "bare-glob",
@@ -6129,11 +6684,11 @@ async function evaluateBash(command, ctx) {
 }
 
 // src/hook/guard-file.ts
-var text7 = (value) => typeof value === "string" ? value : "";
-var written = (tool, input) => text7(tool === "Edit" ? input["new_string"] : input["content"]);
+var text8 = (value) => typeof value === "string" ? value : "";
+var written = (tool, input) => text8(tool === "Edit" ? input["new_string"] : input["content"]);
 async function before(tool, input, relative3, ctx, rethrow) {
   if (tool === "Edit") {
-    return text7(input["old_string"]);
+    return text8(input["old_string"]);
   }
   try {
     return await ctx.readFile(`${ctx.root}/${relative3}`);
@@ -6155,8 +6710,8 @@ async function guardedChange(tool, input, relative3, ctx) {
       after: written(tool, input)
     };
   }
-  const old = text7(input["old_string"]);
-  const replacement = text7(input["new_string"]);
+  const old = text8(input["old_string"]);
+  const replacement = text8(input["new_string"]);
   const disk = await before("Write", input, relative3, ctx, false);
   const at = old === "" ? -1 : disk.indexOf(old);
   if (at < 0) {
@@ -6258,7 +6813,7 @@ async function checkSopsPath(tool, input, relative3, ctx) {
   if (!patterns.some((pattern) => pattern.test(relative3))) {
     return null;
   }
-  const encrypted = tool === "Write" && /^sops:/m.test(text7(input["content"]));
+  const encrypted = tool === "Write" && /^sops:/m.test(text8(input["content"]));
   return encrypted ? null : sopsBlock(relative3);
 }
 async function checkWrite(tool, input, relative3, ctx) {
@@ -6306,10 +6861,10 @@ ${extra.message}`,
 }
 
 // src/hook/guard-role.ts
-import { isAbsolute as isAbsolute2, relative as relative2, resolve as resolve5 } from "node:path";
+import { isAbsolute as isAbsolute2, relative as relative2, resolve as resolve6 } from "node:path";
 
 // src/hook/guard-role-delivery.ts
-import { isAbsolute, relative, resolve as resolve4 } from "node:path";
+import { isAbsolute, relative, resolve as resolve5 } from "node:path";
 
 // src/hook/guard-role-writes.ts
 var WRITE_TOOLS = /* @__PURE__ */ new Set(["Write", "Edit", "NotebookEdit"]);
@@ -6369,6 +6924,65 @@ function writes(segment) {
   const verb = args.find((arg) => !arg.startsWith("-"));
   return redirectsToFile(segment) || WRITERS.has(name) || name === "sed" && args.some((arg) => /^-\w*i/.test(arg)) || name === "git" && verb !== void 0 && WRITING_GIT.has(verb) || name === "gh" && args[0] === "pr" && args[1] !== void 0 && WRITING_GH.has(args[1]);
 }
+var PREFIXED = /^(?:[A-Za-z_][A-Za-z0-9_]*=|(?:sudo|env|time|command|nohup|exec)$)/;
+var SHELL_STATE = /* @__PURE__ */ new Set([
+  "export",
+  "declare",
+  "typeset",
+  "readonly",
+  "local",
+  "set",
+  "unset",
+  "alias",
+  "source",
+  "."
+]);
+var changesShell = (segment) => SHELL_STATE.has(segment[0] ?? "");
+var SUBSTITUTION = /\$\(|`|<\(|>\(/;
+var RUNS_OTHERS = /* @__PURE__ */ new Set([
+  "eval",
+  "builtin",
+  "bash",
+  "sh",
+  "zsh",
+  "dash",
+  "ksh",
+  "fish",
+  "xargs",
+  "timeout",
+  "nice",
+  "ionice",
+  "setsid",
+  "stdbuf",
+  "watch",
+  "parallel",
+  "doas",
+  "su",
+  "chroot"
+]);
+var CONSTRUCT_WORDS = /* @__PURE__ */ new Set([
+  "if",
+  "then",
+  "elif",
+  "else",
+  "fi",
+  "for",
+  "while",
+  "until",
+  "do",
+  "done",
+  "case",
+  "esac",
+  "select",
+  "function",
+  "!",
+  "[[",
+  "coproc"
+]);
+var wrapsCommands = (segment) => {
+  const first = segment[0] ?? "";
+  return /^[({]/.test(first) || RUNS_OTHERS.has(first) || CONSTRUCT_WORDS.has(first);
+};
 var HARNESS2 = /^(\.\/)?skills\/bin\/harness\.mjs$/;
 var namesLedger = (args) => args.some((arg) => arg === "--ledger" || arg.startsWith("--ledger="));
 var harnessAllowed = (name, args, allowed) => name === "node" && HARNESS2.test(args[0] ?? "") && !namesLedger(args) && allowed.includes(`${args[1] ?? ""} ${args[2] ?? ""}`);
@@ -6415,7 +7029,12 @@ var ORCHESTRATOR_HARNESS = [
   "outcome record",
   "outcome close"
 ];
-var harnessFor = (role) => role === "orchestrator" ? ORCHESTRATOR_HARNESS : READS;
+var JUDGE_HARNESS = [...READS, "judge precheck"];
+var HARNESS_BY_ROLE = {
+  orchestrator: ORCHESTRATOR_HARNESS,
+  judge: JUDGE_HARNESS
+};
+var harnessFor = (role) => HARNESS_BY_ROLE[role] ?? READS;
 function harnessRefused(role, segment) {
   const { name, args } = commandOf(segment);
   if (name !== "node" || !(args[0] ?? "").endsWith("harness.mjs")) {
@@ -6429,7 +7048,7 @@ function outside(root3, path) {
   if (path.startsWith("~")) {
     return true;
   }
-  const full = resolve4(root3, path);
+  const full = resolve5(root3, path);
   const from = relative(root3, full);
   const within = from === "" || !from.startsWith("..") && !isAbsolute(from);
   return !within && !SCRATCH.some((dir) => full.startsWith(dir) || `${full}/` === dir);
@@ -6452,6 +7071,23 @@ function checkDeliveryBash(role, command, root3) {
     return noMerge(role, `\`${merging.join(" ")}\``);
   }
   if (REPORTING_ROLES.has(role)) {
+    if (SUBSTITUTION.test(command)) {
+      return readOnly("A command or process substitution");
+    }
+    const wrapping = segments.find(wrapsCommands);
+    if (wrapping !== void 0) {
+      return readOnly(
+        `\`${wrapping.join(" ")}\`, which wraps or launches other commands,`
+      );
+    }
+    const prefixed = segments.find(
+      (s) => PREFIXED.test(s[0] ?? "") || changesShell(s)
+    );
+    if (prefixed !== void 0) {
+      return readOnly(
+        `\`${prefixed.join(" ")}\`, which sets an environment variable or changes shell state,`
+      );
+    }
     const changing = segments.find(
       (s) => writes(s) || runsInline(s) || harnessRefused(role, s)
     );
@@ -6490,7 +7126,7 @@ var NO_CODE_ROLES = /* @__PURE__ */ new Set(["concierge", "challenger"]);
 var FILE_TOOLS = /* @__PURE__ */ new Set(["Read", "Grep", "Glob"]);
 var CONCIERGE_PATHS = /^(infra\/plans\/|docs\/|GLOSSARY\.md$|README\.md$)/;
 function insideRoot(root3, path) {
-  const from = relative2(root3, resolve5(root3, path));
+  const from = relative2(root3, resolve6(root3, path));
   return from.startsWith("..") || isAbsolute2(from) ? void 0 : from;
 }
 function readable(root3, input) {
@@ -6618,15 +7254,17 @@ function readerMayRun(role, segment) {
     role === "refiner" ? REFINER_HARNESS : HARNESS_READS
   ) || name === "gh" && ghMayRun(args, true) || READ_UTILITIES.has(name) && utilityMayRun(name, args);
 }
-var PREFIXED = /^(?:[A-Za-z_][A-Za-z0-9_]*=|(?:sudo|env|time|command|nohup|exec)$)/;
+var PREFIXED2 = /^(?:[A-Za-z_][A-Za-z0-9_]*=|(?:sudo|env|time|command|nohup|exec)$)/;
 function checkBash(role, command) {
   if (/\$\(|`|<\(|>\(/.test(command)) {
     return NO_CODE_ROLES.has(role) ? noCode("A command substitution", role) : readOnly("A command substitution");
   }
   const segments = splitSegments(command);
-  const prefixed = segments.find((segment) => PREFIXED.test(segment[0] ?? ""));
+  const prefixed = segments.find(
+    (segment) => PREFIXED2.test(segment[0] ?? "") || changesShell(segment)
+  );
   if (prefixed !== void 0) {
-    const what = `\`${prefixed.join(" ")}\`, which sets an environment variable,`;
+    const what = `\`${prefixed.join(" ")}\`, which sets an environment variable or changes shell state,`;
     return NO_CODE_ROLES.has(role) ? noCode(what, role) : readOnly(what);
   }
   const writer = segments.find(writes);
@@ -6733,19 +7371,19 @@ async function guard(payload, deps) {
 
 // src/hook/io.ts
 async function readPayload(deps) {
-  const text9 = await deps.stdin();
-  if (text9.trim() === "") {
+  const text10 = await deps.stdin();
+  if (text10.trim() === "") {
     return void 0;
   }
   try {
-    return JSON.parse(text9);
+    return JSON.parse(text10);
   } catch {
     return void 0;
   }
 }
-function hookCommand(name, summary, handler, { flags = {}, payload = true, operand, faultCode = 0 } = {}) {
+function hookCommand(name, summary2, handler, { flags = {}, payload = true, operand, faultCode = 0 } = {}) {
   return {
-    summary,
+    summary: summary2,
     options: { ...flags, strict: "boolean" },
     ...operand === void 0 ? {} : { operand },
     async run({ deps, options, operand: given }) {
@@ -6784,10 +7422,10 @@ import { createHash } from "node:crypto";
 // src/hook/retro-transcript.ts
 var MAX_ERROR = 120;
 var MIN_CORRECTION_WORDS = 4;
-function parseTranscript(id, text9) {
+function parseTranscript(id, text10) {
   const events = [];
   let skipped = 0;
-  text9.split("\n").forEach((raw, index) => {
+  text10.split("\n").forEach((raw, index) => {
     if (raw.trim() === "") {
       return;
     }
@@ -6807,13 +7445,13 @@ var ERROR_WORDS = /\b(errors?|fail(ed|ure|ures)?|fatal|not found|no such|denied|
 var SHELL_PREFIX = /^(\(eval\):\d+:|zsh:|bash:|sh:)/;
 var NOT_OUTPUT_ERROR = /^(- |#|import |export |\|)/;
 var looksLikeError = (line2) => !NOT_OUTPUT_ERROR.test(line2) && (ERROR_WORDS.test(line2) || SHELL_PREFIX.test(line2));
-function summarizeError(text9) {
-  const lines2 = text9.replace(/<\/?tool_use_error>/g, "").split("\n").map((line2) => line2.trim()).filter(Boolean);
-  let head = lines2[0] ?? "";
+function summarizeError(text10) {
+  const lines3 = text10.replace(/<\/?tool_use_error>/g, "").split("\n").map((line2) => line2.trim()).filter(Boolean);
+  let head = lines3[0] ?? "";
   let prefix = "";
   if (/^Exit code \d+$/.test(head)) {
     prefix = head;
-    head = lines2.slice(1).find(looksLikeError) ?? "";
+    head = lines3.slice(1).find(looksLikeError) ?? "";
   }
   const normalized = head.replace(/'[^']*'|"[^"]*"/g, "<q>").replace(/(^|[\s(=])\/[^\s)]*/g, "$1<path>").replace(/(^|\s)\S*\*\S*/g, "$1<glob>").replace(/\b\d+\b/g, "N");
   const joined = prefix && normalized ? `${prefix}: ${normalized}` : prefix || normalized;
@@ -6848,13 +7486,13 @@ function humanText(event) {
   if (notTyped || event.origin && event.origin.kind !== "human") {
     return null;
   }
-  const text9 = typedText(event.message?.content);
-  return text9.trim() === "" || INJECTED.test(text9) ? null : text9;
+  const text10 = typedText(event.message?.content);
+  return text10.trim() === "" || INJECTED.test(text10) ? null : text10;
 }
 var CORRECTION_WORD = /\b(no|not|dont|don't|don’t|stop|instead|wrong|again|actually|should|never)\b/i;
-var readsAsCorrection = (text9) => CORRECTION_WORD.test(text9);
-var ownWords = (text9) => text9.replace(/<pasted_content[^>]*>[\s\S]*?<\/pasted_content[^>]*>/g, " ").replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, " ");
-var phrasesOf = (text9) => text9.split(/[.!?;\n]+/).map(
+var readsAsCorrection = (text10) => CORRECTION_WORD.test(text10);
+var ownWords = (text10) => text10.replace(/<pasted_content[^>]*>[\s\S]*?<\/pasted_content[^>]*>/g, " ").replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, " ");
+var phrasesOf = (text10) => text10.split(/[.!?;\n]+/).map(
   (part) => part.toLowerCase().replace(/['’`]/g, "").replace(/[^a-z0-9]+/g, " ").trim()
 ).filter((phrase) => phrase.split(" ").length >= MIN_CORRECTION_WORDS);
 function timestamps(session2) {
@@ -6865,7 +7503,7 @@ function timestamps(session2) {
 // src/hook/retro-session.ts
 var GUARD_TAG = /\[guard:([a-z0-9-]+)\]/g;
 var SLASH_COMMAND = /<command-name>\/?([a-z0-9:-]+)<\/command-name>/;
-var tagsIn = (text9) => [...text9.matchAll(GUARD_TAG)].map((match) => match[1] ?? "");
+var tagsIn = (text10) => [...text10.matchAll(GUARD_TAG)].map((match) => match[1] ?? "");
 var SessionAnalysis = class {
   guards = {};
   failures = [];
@@ -6914,12 +7552,12 @@ var SessionAnalysis = class {
   }
   toolFailure(block2) {
     this.failedSinceHuman = true;
-    const text9 = resultText(block2);
-    const tags = new Set(tagsIn(text9));
+    const text10 = resultText(block2);
+    const tags = new Set(tagsIn(text10));
     if (tags.size === 0) {
       this.failures.push({
         tool: this.calls.get(block2.tool_use_id ?? "") ?? "unknown",
-        error: summarizeError(text9)
+        error: summarizeError(text10)
       });
     }
     for (const tag of tags) {
@@ -6937,12 +7575,12 @@ var SessionAnalysis = class {
     }
   }
   human(event) {
-    const text9 = humanText(event);
-    if (text9 === null) {
+    const text10 = humanText(event);
+    if (text10 === null) {
       return;
     }
     this.ordered.push({ kind: "human" });
-    const own2 = ownWords(text9);
+    const own2 = ownWords(text10);
     if (this.failedSinceHuman || readsAsCorrection(own2)) {
       for (const phrase of phrasesOf(own2)) {
         this.phrases.push({ phrase, line: event.line });
@@ -7115,7 +7753,7 @@ var Tally2 = class {
   }
 };
 function scan(inputs, { since, knownSkills = [], auditRules: audit3 = [] } = {}) {
-  const included = inputs.map(({ id, text: text9 }) => parseTranscript(id, text9)).map((session2) => ({ session: session2, ...timestamps(session2) })).filter(
+  const included = inputs.map(({ id, text: text10 }) => parseTranscript(id, text10)).map((session2) => ({ session: session2, ...timestamps(session2) })).filter(
     ({ last }) => last !== null && Date.parse(last) >= windowStart(since)
   ).sort((a, b) => (a.first ?? "").localeCompare(b.first ?? ""));
   const tally = new Tally2(audit3, knownSkills);
@@ -7150,12 +7788,12 @@ var RETRO_AFTER_SESSIONS = 5;
 function rules(agentsMarkdown) {
   return listItems(agentsMarkdown).map((item) => item.text);
 }
-function lastOperation(entries) {
-  const start = entries.findLast((entry2) => entry2.kind === "start");
+function lastOperation(entries2) {
+  const start = entries2.findLast((entry2) => entry2.kind === "start");
   if (!start) {
     return null;
   }
-  const end = entries.findLast(
+  const end = entries2.findLast(
     (entry2) => entry2.kind === "end" && entry2.op === start.op
   );
   return {
@@ -7167,7 +7805,7 @@ function lastOperation(entries) {
 }
 var show2 = (value) => typeof value === "string" || typeof value === "number" ? String(value) : JSON.stringify(value) ?? "";
 function environmentLines(journals) {
-  const lines2 = [];
+  const lines3 = [];
   for (const environment of Object.keys(journals).sort()) {
     const last = lastOperation(journals[environment] ?? []);
     if (!last) {
@@ -7176,47 +7814,47 @@ function environmentLines(journals) {
     const date = show2(last.ts).slice(0, 10);
     const label = `Environment ${environment}: last operation \`${show2(last.command)}\``;
     if (last.outcome === null) {
-      lines2.push(
+      lines3.push(
         `${label} was interrupted (started ${date}, no end recorded).`
       );
     } else if (last.outcome === "failed") {
       const reason = last.error ? `: ${show2(last.error)}` : "";
-      lines2.push(`${label} failed on ${date}${reason}.`);
+      lines3.push(`${label} failed on ${date}${reason}.`);
     } else {
-      lines2.push(`${label} ${show2(last.outcome)} on ${date}.`);
+      lines3.push(`${label} ${show2(last.outcome)} on ${date}.`);
     }
   }
-  return lines2;
+  return lines3;
 }
 async function brief(event, deps) {
   const plans = await deps.readPlans();
-  const lines2 = [];
+  const lines3 = [];
   for (const plan2 of activePlans(plans)) {
     const markdown = plans[plan2] ?? "";
-    lines2.push(`Session brief from ${PLANS_DIR2}/${plan2}:`);
+    lines3.push(`Session brief from ${PLANS_DIR2}/${plan2}:`);
     const counts = openCounts(markdown).map(({ step, count: count3 }) => `${step} (${count3})`).join(", ");
     if (counts) {
-      lines2.push(`Open items: ${counts}.`);
+      lines3.push(`Open items: ${counts}.`);
     }
     const next = nextStep(markdown);
     if (next) {
-      lines2.push(`Next (${next.step}): ${next.text}`);
+      lines3.push(`Next (${next.step}): ${next.text}`);
     }
     const upcoming = upcomingSteps(markdown);
     if (upcoming.length > 0) {
-      lines2.push(`Upcoming: ${upcoming.join("; ")}.`);
+      lines3.push(`Upcoming: ${upcoming.join("; ")}.`);
     }
   }
-  lines2.push(...environmentLines(await deps.readJournals()));
+  lines3.push(...environmentLines(await deps.readJournals()));
   const since = lastRetrospective(plans);
   const id = typeof event.session_id === "string" ? event.session_id : void 0;
   const sessions = await deps.sessionsSince(since, id);
   if (sessions >= RETRO_AFTER_SESSIONS) {
-    lines2.push(
+    lines3.push(
       since ? `${sessions} sessions since the last retrospective (${since}); run /retro.` : `${sessions} sessions without a recorded retrospective; run /retro.`
     );
   }
-  return lines2.join("\n");
+  return lines3.join("\n");
 }
 async function restore(event, deps) {
   if (event.source === "startup" || event.source === "clear") {
@@ -7245,18 +7883,18 @@ import { homedir } from "node:os";
 import { join as join9 } from "node:path";
 var JOURNAL_DIR = ".kore/state/journal";
 var isMissing = (error) => error.code === "ENOENT";
-function parseEntries(text9) {
-  const entries = [];
-  for (const line2 of text9.split("\n")) {
+function parseEntries(text10) {
+  const entries2 = [];
+  for (const line2 of text10.split("\n")) {
     try {
       const entry2 = JSON.parse(line2);
       if (entry2 && typeof entry2 === "object") {
-        entries.push(entry2);
+        entries2.push(entry2);
       }
     } catch {
     }
   }
-  return entries;
+  return entries2;
 }
 async function readJournals(fs, root3) {
   const dir = join9(root3, JOURNAL_DIR);
@@ -7271,17 +7909,17 @@ async function readJournals(fs, root3) {
   }
   const journals = {};
   for (const name of names3) {
-    let text9;
+    let text10;
     try {
-      text9 = await fs.readFile(join9(dir, name));
+      text10 = await fs.readFile(join9(dir, name));
     } catch {
       continue;
     }
-    journals[name.slice(0, -".jsonl".length)] = parseEntries(text9);
+    journals[name.slice(0, -".jsonl".length)] = parseEntries(text10);
   }
   return journals;
 }
-async function sessionsSince(deps, root3, date, current) {
+async function sessionsSince(deps, root3, date, current2) {
   const config = deps.env["CLAUDE_CONFIG_DIR"] || join9(homedir(), ".claude");
   const dir = join9(config, "projects", root3.replace(/[^a-zA-Z0-9]/g, "-"));
   let names3;
@@ -7296,7 +7934,7 @@ async function sessionsSince(deps, root3, date, current) {
   const after = windowStart(date ?? void 0);
   let count3 = 0;
   for (const name of names3) {
-    if (name.endsWith(".jsonl") && name !== `${current}.jsonl` && await deps.fs.mtimeMs(join9(dir, name)) >= after) {
+    if (name.endsWith(".jsonl") && name !== `${current2}.jsonl` && await deps.fs.mtimeMs(join9(dir, name)) >= after) {
       count3 += 1;
     }
   }
@@ -7307,7 +7945,7 @@ function realContextDeps(deps, root3) {
     readJournals: () => readJournals(deps.fs, root3),
     readAgents: () => deps.fs.readFile(join9(root3, "AGENTS.md")),
     readPlans: () => readPlans(deps),
-    sessionsSince: (date, current) => sessionsSince(deps, root3, date, current)
+    sessionsSince: (date, current2) => sessionsSince(deps, root3, date, current2)
   };
 }
 
@@ -7322,9 +7960,9 @@ var context = hookCommand(
     if (Array.isArray(payload)) {
       return {};
     }
-    let text9;
+    let text10;
     try {
-      text9 = await restore(
+      text10 = await restore(
         payload,
         realContextDeps(deps, await deps.root())
       );
@@ -7334,11 +7972,11 @@ var context = hookCommand(
       }
       throw error;
     }
-    return text9 === "" ? {} : {
+    return text10 === "" ? {} : {
       stdout: JSON.stringify({
         hookSpecificOutput: {
           hookEventName: "SessionStart",
-          additionalContext: text9
+          additionalContext: text10
         }
       })
     };
@@ -7347,7 +7985,7 @@ var context = hookCommand(
 );
 
 // src/hook/delta-deps.ts
-import { join as join10, resolve as resolve6 } from "node:path";
+import { join as join10, resolve as resolve7 } from "node:path";
 var JOURNAL_DIR2 = ".kore/state/journal";
 var LOCKS_DIR = ".kore/locks";
 function gitReader(deps, root3) {
@@ -7369,18 +8007,18 @@ async function readDir(deps, dir) {
     throw error;
   }
 }
-function parseEntries2(text9) {
-  const entries = [];
-  for (const line2 of text9.split("\n")) {
+function parseEntries2(text10) {
+  const entries2 = [];
+  for (const line2 of text10.split("\n")) {
     try {
       const entry2 = JSON.parse(line2);
       if (entry2 !== null && typeof entry2 === "object") {
-        entries.push(entry2);
+        entries2.push(entry2);
       }
     } catch {
     }
   }
-  return entries;
+  return entries2;
 }
 async function readJournals2(deps, root3) {
   const dir = join10(root3, JOURNAL_DIR2);
@@ -7399,7 +8037,7 @@ async function readJournals2(deps, root3) {
   return journals;
 }
 function snapshotStore(deps, git3, root3) {
-  const dir = async () => join10(resolve6(root3, await git3("rev-parse", "--git-dir")), "kore-delta");
+  const dir = async () => join10(resolve7(root3, await git3("rev-parse", "--git-dir")), "kore-delta");
   const file = async (id) => join10(await dir(), `${id}.json`);
   return {
     async readSnapshot(id) {
@@ -7458,12 +8096,12 @@ var MAX_CHARS = 600;
 var MAX_ITEM_CHARS = 60;
 var MAX_SUBJECTS = 3;
 var SNAPSHOT_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1e3;
-function lastOperation2(entries) {
-  const start = entries.findLast((entry2) => entry2.kind === "start");
+function lastOperation2(entries2) {
+  const start = entries2.findLast((entry2) => entry2.kind === "start");
   if (start === void 0) {
     return null;
   }
-  const end = entries.findLast(
+  const end = entries2.findLast(
     (entry2) => entry2.kind === "end" && entry2.op === start.op
   );
   return {
@@ -7477,8 +8115,8 @@ function planItems(plans) {
   const result = {};
   for (const name of activePlans(plans)) {
     const items2 = {};
-    for (const { text: text9 } of listItems(plans[name] ?? "")) {
-      const match = /^- \[( |x)\] (.*)$/.exec(text9);
+    for (const { text: text10 } of listItems(plans[name] ?? "")) {
+      const match = /^- \[( |x)\] (.*)$/.exec(text10);
       if (match === null) {
         continue;
       }
@@ -7491,10 +8129,10 @@ function planItems(plans) {
 }
 async function snapshot(deps) {
   const journal = {};
-  for (const [environment, entries] of Object.entries(
+  for (const [environment, entries2] of Object.entries(
     await deps.readJournals()
   )) {
-    const last = lastOperation2(entries);
+    const last = lastOperation2(entries2);
     if (last !== null) {
       journal[environment] = last;
     }
@@ -7519,7 +8157,7 @@ function operationLine(environment, operation) {
   return `${environment}: ${command} finished ${operation.outcome}`;
 }
 function planLines(before2, after) {
-  const lines2 = [];
+  const lines3 = [];
   for (const [plan2, items2] of Object.entries(after.plans)) {
     const old = before2.plans[plan2];
     const ticked = [];
@@ -7534,13 +8172,13 @@ function planLines(before2, after) {
       }
     }
     if (ticked.length > 0) {
-      lines2.push(`${plan2} ticked: ${ticked.join("; ")}`);
+      lines3.push(`${plan2} ticked: ${ticked.join("; ")}`);
     }
     if (added.length > 0) {
-      lines2.push(`${plan2} added: ${added.join("; ")}`);
+      lines3.push(`${plan2} added: ${added.join("; ")}`);
     }
   }
-  return lines2;
+  return lines3;
 }
 function mainLine(before2, after, subjects) {
   if (before2.main === after.main || after.main === null) {
@@ -7568,18 +8206,18 @@ function journalLines(before2, after) {
   }).map(([environment, operation]) => operationLine(environment, operation));
 }
 function describeChanges(before2, after, subjects) {
-  const lines2 = [
+  const lines3 = [
     ...mainLine(before2, after, subjects),
     ...before2.branch === after.branch ? [] : [`branch changed from ${before2.branch} to ${after.branch}.`],
     ...planLines(before2, after),
     ...lockLines(before2, after),
     ...journalLines(before2, after)
   ];
-  if (lines2.length === 0) {
+  if (lines3.length === 0) {
     return "";
   }
-  const text9 = `Changed since your last turn: ${lines2.join(" | ")}`;
-  return text9.length <= MAX_CHARS ? text9 : `${text9.slice(0, MAX_CHARS - 3)}...`;
+  const text10 = `Changed since your last turn: ${lines3.join(" | ")}`;
+  return text10.length <= MAX_CHARS ? text10 : `${text10.slice(0, MAX_CHARS - 3)}...`;
 }
 async function prune(currentId, deps) {
   try {
@@ -7645,7 +8283,7 @@ var delta = hookCommand(
 
 // src/hook/record.ts
 var STARTS = /* @__PURE__ */ new Set(["startup", "clear", "resume"]);
-var record3 = hookCommand(
+var record4 = hookCommand(
   "record",
   "record a ledger event for the session; mode: session-start (SessionStart, no matcher)",
   async ({ deps, payload, operand }) => {
@@ -7677,14 +8315,14 @@ function contextPercent(input) {
   return Math.round(used / window.context_window_size * 100);
 }
 function colored(percent) {
-  const text9 = `ctx ${percent}%`;
+  const text10 = `ctx ${percent}%`;
   if (percent >= RED_AT) {
-    return `\x1B[31m${text9}\x1B[0m`;
+    return `\x1B[31m${text10}\x1B[0m`;
   }
   if (percent >= AMBER_AT) {
-    return `\x1B[33m${text9}\x1B[0m`;
+    return `\x1B[33m${text10}\x1B[0m`;
   }
-  return text9;
+  return text10;
 }
 function statusLine(input, plans) {
   const parts = [];
@@ -7705,9 +8343,9 @@ function statusLine(input, plans) {
   }
   return parts.join(" \xB7 ");
 }
-var text8 = (value) => typeof value === "string" && value !== "" ? value : void 0;
+var text9 = (value) => typeof value === "string" && value !== "" ? value : void 0;
 function projectOf(input, deps) {
-  return text8(deps.env["CLAUDE_PROJECT_DIR"]) ?? text8(input.workspace?.project_dir) ?? text8(input.cwd) ?? deps.cwd;
+  return text9(deps.env["CLAUDE_PROJECT_DIR"]) ?? text9(input.workspace?.project_dir) ?? text9(input.cwd) ?? deps.cwd;
 }
 var UNREADABLE = "plans?";
 var statusline = hookCommand(
@@ -7780,14 +8418,14 @@ async function repoTranscriptDirs(fs, projectsDir, { main, worktrees, branches }
     }
     return false;
   };
-  let entries;
+  let entries2;
   try {
-    entries = await fs.readdir(projectsDir);
+    entries2 = await fs.readdir(projectsDir);
   } catch {
     return [];
   }
   const found = [];
-  for (const name of entries) {
+  for (const name of entries2) {
     const dir = join11(projectsDir, name);
     if (await fs.isDirectory(dir) && (names3.has(basename2(dir)) || await belongs(dir))) {
       found.push(dir);
@@ -7828,9 +8466,9 @@ async function readTranscripts(fs, dirs) {
       (n) => n.endsWith(".jsonl")
     )) {
       const id = basename2(name, ".jsonl");
-      const text9 = await fs.readFile(join11(dir, name));
-      if (text9.length >= (byId.get(id)?.text.length ?? -1)) {
-        byId.set(id, { id, text: text9 });
+      const text10 = await fs.readFile(join11(dir, name));
+      if (text10.length >= (byId.get(id)?.text.length ?? -1)) {
+        byId.set(id, { id, text: text10 });
       }
     }
   }
@@ -7838,13 +8476,13 @@ async function readTranscripts(fs, dirs) {
 }
 
 // src/hook/retro-hook.ts
-var USAGE = "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD]\n--since keeps sessions active at or after local midnight of that date, like the session-start count.";
+var USAGE2 = "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD]\n--since keeps sessions active at or after local midnight of that date, like the session-start count.";
 var isMissing2 = (error) => error.code === "ENOENT";
 async function skillNames(fs, root3) {
   const dir = join12(root3, "skills");
-  let entries;
+  let entries2;
   try {
-    entries = await fs.readdir(dir);
+    entries2 = await fs.readdir(dir);
   } catch (error) {
     if (isMissing2(error)) {
       return void 0;
@@ -7852,7 +8490,7 @@ async function skillNames(fs, root3) {
     throw error;
   }
   const names3 = [];
-  for (const entry2 of entries) {
+  for (const entry2 of entries2) {
     if (await fs.isDirectory(join12(dir, entry2)) && await fs.exists(join12(dir, entry2, "SKILL.md"))) {
       names3.push(entry2);
     }
@@ -7871,13 +8509,13 @@ async function transcripts(deps, root3, dir) {
     const inputs = await readTranscripts(deps.fs, dirs);
     if (!dir && inputs.length === 0) {
       return `No transcripts found for this repository or its worktrees. Pass --dir <transcripts>.
-${USAGE}
+${USAGE2}
 `;
     }
     return { inputs };
   } catch {
     return `Cannot read transcripts in ${dirs.join(", ") || "any project directory"}. Pass --dir <transcripts>.
-${USAGE}
+${USAGE2}
 `;
   }
 }
@@ -7924,7 +8562,7 @@ var retroScan = hookCommand(
   async ({ deps, options }) => {
     const since = options["since"];
     if (typeof since === "string" && !/^\d{4}-\d{2}-\d{2}$/.test(since)) {
-      return { code: 2, stderr: `${USAGE}
+      return { code: 2, stderr: `${USAGE2}
 ` };
     }
     const dir = options["dir"];
@@ -7941,9 +8579,9 @@ import { isAbsolute as isAbsolute3, join as join13 } from "node:path";
 var HARNESSES = [".claude", ".codex"];
 async function skillNames2(fs, root3) {
   const skillsDir = join13(root3, "skills");
-  let entries;
+  let entries2;
   try {
-    entries = await fs.readdir(skillsDir);
+    entries2 = await fs.readdir(skillsDir);
   } catch (error) {
     if (error.code === "ENOENT") {
       throw new CommandError(
@@ -7953,7 +8591,7 @@ async function skillNames2(fs, root3) {
     throw error;
   }
   const skills = [];
-  for (const entry2 of entries) {
+  for (const entry2 of entries2) {
     if (await fs.exists(join13(root3, "skills", entry2, "SKILL.md"))) {
       skills.push(entry2);
     }
@@ -8025,11 +8663,11 @@ function addEntry2(stack, indent, body) {
   parent[key] = value;
   return /^[|>]/.test(value) ? indent : null;
 }
-function parseWorkflow(text9) {
+function parseWorkflow(text10) {
   const rootNode = {};
   const stack = [{ indent: -1, node: rootNode }];
   let skipAbove = null;
-  for (const raw of text9.split("\n")) {
+  for (const raw of text10.split("\n")) {
     const line2 = raw.replace(/(^|\s)#.*$/, "");
     const indent = line2.length - line2.trimStart().length;
     if (line2.trim() === "" || skipAbove !== null && indent > skipAbove) {
@@ -8065,9 +8703,9 @@ function triggers(on) {
   }
   return String(on ?? "").replace(/[[\]]/g, "").split(",").map((t) => t.trim()).filter(Boolean);
 }
-function jobProblems(file, name, job) {
-  const scopes = isMap(job) ? writeScopes(job["permissions"]) : null;
-  if (scopes === null || !isMap(job)) {
+function jobProblems(file, name, job2) {
+  const scopes = isMap(job2) ? writeScopes(job2["permissions"]) : null;
+  if (scopes === null || !isMap(job2)) {
     return [
       `${file}: job ${name} needs explicit permissions; add \`permissions: {}\` or the read scopes it uses`
     ];
@@ -8083,7 +8721,7 @@ function jobProblems(file, name, job) {
       );
     }
   }
-  const gate = job["if"];
+  const gate = job2["if"];
   if (allowedSigner && signing.length > 0 && !(typeof gate === "string" && gate.includes(TAG_GATE))) {
     problems.push(
       `${file}: signing job ${name} must run only for tags; add \`if: ${TAG_GATE}\``
@@ -8098,8 +8736,8 @@ function jobProblems(file, name, job) {
   }
   return problems;
 }
-function fileProblems(file, text9) {
-  const workflow = parseWorkflow(text9);
+function fileProblems(file, text10) {
+  const workflow = parseWorkflow(text10);
   const problems = [];
   const top = writeScopes(workflow["permissions"]);
   if (top === null || top.length > 0) {
@@ -8108,8 +8746,8 @@ function fileProblems(file, text9) {
     );
   }
   const jobs = isMap(workflow["jobs"]) ? workflow["jobs"] : {};
-  for (const [name, job] of Object.entries(jobs)) {
-    problems.push(...jobProblems(file, name, job));
+  for (const [name, job2] of Object.entries(jobs)) {
+    problems.push(...jobProblems(file, name, job2));
   }
   if (file === RELEASE) {
     const on = triggers(workflow["on"] ?? workflow["true"]);
@@ -8123,14 +8761,14 @@ function fileProblems(file, text9) {
 }
 function permissionProblems(files) {
   return Object.entries(files).flatMap(
-    ([file, text9]) => fileProblems(file, text9)
+    ([file, text10]) => fileProblems(file, text10)
   );
 }
 async function workflowProblems(fs, root3) {
   const dir = join14(root3, ".github", "workflows");
-  let entries;
+  let entries2;
   try {
-    entries = await fs.readdir(dir);
+    entries2 = await fs.readdir(dir);
   } catch (error) {
     if (error.code === "ENOENT") {
       throw new CommandError(
@@ -8140,7 +8778,7 @@ async function workflowProblems(fs, root3) {
     throw error;
   }
   const files = {};
-  for (const entry2 of entries.filter((f) => /\.ya?ml$/.test(f)).sort()) {
+  for (const entry2 of entries2.filter((f) => /\.ya?ml$/.test(f)).sort()) {
     files[entry2] = await fs.readFile(join14(dir, entry2));
   }
   return permissionProblems(files);
@@ -8157,10 +8795,10 @@ function slug(heading) {
   return heading.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu, "").trim().replace(/\s/g, "-");
 }
 function proseLines(markdown) {
-  const lines2 = [];
+  const lines3 = [];
   let fence = null;
-  markdown.split("\n").forEach((text9, index) => {
-    const opener = /^\s*(```|~~~)/.exec(text9);
+  markdown.split("\n").forEach((text10, index) => {
+    const opener = /^\s*(```|~~~)/.exec(text10);
     if (fence) {
       if (opener && opener[1] === fence) {
         fence = null;
@@ -8171,15 +8809,15 @@ function proseLines(markdown) {
       fence = opener[1] ?? null;
       return;
     }
-    lines2.push({ line: index + 1, text: text9.replace(/`[^`]*`/g, "") });
+    lines3.push({ line: index + 1, text: text10.replace(/`[^`]*`/g, "") });
   });
-  return lines2;
+  return lines3;
 }
 function anchors(markdown) {
   const seen = /* @__PURE__ */ new Map();
   const result = [];
-  for (const { text: text9 } of proseLines(markdown)) {
-    const match = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(text9);
+  for (const { text: text10 } of proseLines(markdown)) {
+    const match = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(text10);
     if (!match) {
       continue;
     }
@@ -8190,7 +8828,7 @@ function anchors(markdown) {
   }
   return result;
 }
-function resolve7(from, target) {
+function resolve8(from, target) {
   const joined = posix.normalize(posix.join(posix.dirname(from), target));
   if (joined === ".." || joined.startsWith("../")) {
     return null;
@@ -8201,22 +8839,22 @@ function isExternal(target) {
   return /^[a-z][a-z0-9+.-]*:/i.test(target) || target.startsWith("//");
 }
 function frontmatter2(file, markdown) {
-  const lines2 = markdown.split("\n");
-  if (lines2[0] !== "---") {
+  const lines3 = markdown.split("\n");
+  if (lines3[0] !== "---") {
     return null;
   }
   const keys = /* @__PURE__ */ new Map();
   const errors = [];
-  for (let index = 1; index < lines2.length; index++) {
-    const text9 = lines2[index] ?? "";
-    if (text9 === "---") {
+  for (let index = 1; index < lines3.length; index++) {
+    const text10 = lines3[index] ?? "";
+    if (text10 === "---") {
       return { keys, errors };
     }
-    const match = /^([A-Za-z][\w-]*):\s*(.*)$/.exec(text9);
+    const match = /^([A-Za-z][\w-]*):\s*(.*)$/.exec(text10);
     if (match?.[2] && !/^[[{|>&*!-]/.test(match[2])) {
       keys.set(match[1] ?? "", { value: match[2].trim(), line: index + 1 });
     } else {
-      const key = match ? match[1] : text9.trim();
+      const key = match ? match[1] : text10.trim();
       errors.push(
         finding(
           file,
@@ -8525,15 +9163,15 @@ function ideaNumbers(files) {
   }
   return { ideas: ideas2, problems };
 }
-function linkProblems2(tree, file, text9) {
+function linkProblems2(tree, file, text10) {
   const problems = [];
-  for (const { line: line2, text: prose2 } of proseLines(text9)) {
+  for (const { line: line2, text: prose2 } of proseLines(text10)) {
     for (const [, raw = ""] of prose2.matchAll(LINK)) {
       if (isExternal(raw)) {
         continue;
       }
       const [pathPart = "", anchor] = raw.split("#", 2);
-      const target = pathPart ? resolve7(file, decodeURI(pathPart)) : file;
+      const target = pathPart ? resolve8(file, decodeURI(pathPart)) : file;
       if (target === null || !tree.exists(target)) {
         problems.push(
           finding(
@@ -8556,17 +9194,17 @@ function linkProblems2(tree, file, text9) {
 function markdownProblems(tree, ideas2) {
   const problems = [];
   for (const file of tree.files.filter((name) => name.endsWith(".md"))) {
-    const text9 = tree.deps.read(file);
-    if (text9 === null) {
+    const text10 = tree.deps.read(file);
+    if (text10 === null) {
       continue;
     }
-    problems.push(...linkProblems2(tree, file, text9));
+    problems.push(...linkProblems2(tree, file, text10));
     if (PLAN.test(file) || ADR2.test(file)) {
       problems.push(
-        ...checkFrontmatter(file, text9, (path) => tree.exists(path))
+        ...checkFrontmatter(file, text10, (path) => tree.exists(path))
       );
     } else if (IDEA.test(file)) {
-      problems.push(...checkIdea(file, text9, ideas2));
+      problems.push(...checkIdea(file, text10, ideas2));
     }
   }
   return problems;
@@ -8585,15 +9223,15 @@ function indexProblems(tree) {
   }
   const problems = [];
   const listed = /* @__PURE__ */ new Set();
-  for (const { line: line2, text: text9 } of proseLines(index)) {
-    if (!text9.startsWith("- [")) {
+  for (const { line: line2, text: text10 } of proseLines(index)) {
+    if (!text10.startsWith("- [")) {
       continue;
     }
-    const raw = /\]\(([^)\s#]+)/.exec(text9)?.[1];
+    const raw = /\]\(([^)\s#]+)/.exec(text10)?.[1];
     if (raw === void 0 || isExternal(raw)) {
       continue;
     }
-    const target = resolve7(INDEX3, decodeURI(raw));
+    const target = resolve8(INDEX3, decodeURI(raw));
     if (target) {
       listed.add(target);
     }
@@ -8627,11 +9265,11 @@ var TRAILING = /[.,;:)]+$/;
 function markerProblems(tree) {
   const problems = [];
   for (const file of tree.files.filter((name) => !name.endsWith(".md"))) {
-    const text9 = tree.deps.read(file);
-    if (text9 === null) {
+    const text10 = tree.deps.read(file);
+    if (text10 === null) {
       continue;
     }
-    text9.split("\n").forEach((line2, position) => {
+    text10.split("\n").forEach((line2, position) => {
       const match = MARKER2.exec(line2);
       if (!match) {
         return;
@@ -8731,19 +9369,19 @@ function dependenciesOf(deps) {
     paths.add(path);
   };
   for (const file of files) {
-    const text9 = deps.read(file);
-    if (text9 === null) {
+    const text10 = deps.read(file);
+    if (text10 === null) {
       continue;
     }
     if (PLAN.test(file) || ADR2.test(file)) {
-      for (const target of linkTargets(file, text9)) {
+      for (const target of linkTargets(file, text10)) {
         depend(file, target);
       }
     }
     if (file.endsWith(".md")) {
       continue;
     }
-    for (const line2 of text9.split("\n")) {
+    for (const line2 of text10.split("\n")) {
       const path = (MARKER2.exec(line2)?.[2] ?? "").replace(/[.,;:)]+$/, "");
       if (PLAN.test(path) || ADR2.test(path)) {
         depend(path, file);
@@ -8752,12 +9390,12 @@ function dependenciesOf(deps) {
   }
   return dependencies;
 }
-function linkTargets(file, text9) {
+function linkTargets(file, text10) {
   const targets = [];
-  for (const { text: prose2 } of proseLines(text9)) {
+  for (const { text: prose2 } of proseLines(text10)) {
     for (const [, raw = ""] of prose2.matchAll(LINK)) {
       const [pathPart] = raw.split("#", 1);
-      const target = isExternal(raw) || !pathPart ? null : resolve7(file, decodeURI(pathPart));
+      const target = isExternal(raw) || !pathPart ? null : resolve8(file, decodeURI(pathPart));
       if (target !== null) {
         targets.push(target);
       }
@@ -8912,8 +9550,8 @@ function overBudgets(descriptionChars, bodyLines) {
 function countLines(body) {
   return body === "" ? 0 : body.replace(/\n$/, "").split("\n").length;
 }
-function auditSkill(directory, text9) {
-  const source = text9.replaceAll("\r\n", "\n");
+function auditSkill(directory, text10) {
+  const source = text10.replaceAll("\r\n", "\n");
   if (!source.startsWith("---\n")) {
     return invalid(directory, "missing frontmatter");
   }
@@ -8954,15 +9592,15 @@ async function auditSkills(fs, skillsDir) {
     }
   }
   rows.sort((a, b) => a.name.localeCompare(b.name, "en"));
-  const summary = {
+  const summary2 = {
     ok: 0,
     "over-budget": 0,
     invalid: 0
   };
   for (const row of rows) {
-    summary[row.verdict] += 1;
+    summary2[row.verdict] += 1;
   }
-  return { skills: rows, summary };
+  return { skills: rows, summary: summary2 };
 }
 function detail(row) {
   if (row.verdict === "over-budget") {
@@ -8972,7 +9610,7 @@ function detail(row) {
 }
 function renderReport(report3) {
   const width = Math.max(4, ...report3.skills.map((s) => s.name.length));
-  const lines2 = [
+  const lines3 = [
     `${"NAME".padEnd(width)}  DESC  BODY  VERDICT`,
     ...report3.skills.map(
       (s) => `${s.name.padEnd(width)}  ${String(s.descriptionChars).padStart(4)}  ${String(s.bodyLines).padStart(4)}  ${s.verdict}${detail(s)}`
@@ -8980,7 +9618,7 @@ function renderReport(report3) {
     "",
     `${report3.summary.ok} ok, ${report3.summary["over-budget"]} over-budget, ${report3.summary.invalid} invalid`
   ];
-  return `${lines2.join("\n")}
+  return `${lines3.join("\n")}
 `;
 }
 
@@ -9066,7 +9704,7 @@ async function readTree(deps, root3) {
 async function kbCheck(strict, deps) {
   const root3 = await deps.root();
   const tree = await readTree(deps, root3);
-  const lines2 = [];
+  const lines3 = [];
   const kbDeps = {
     files: () => [...tree.keys()],
     read: (path) => tree.get(path) ?? null,
@@ -9077,9 +9715,9 @@ async function kbCheck(strict, deps) {
   const code = await run(
     strict ? ["--strict"] : [],
     kbDeps,
-    (line2) => lines2.push(line2)
+    (line2) => lines3.push(line2)
   );
-  return { code, stdout: lines2.map((line2) => `${line2}
+  return { code, stdout: lines3.map((line2) => `${line2}
 `).join("") };
 }
 
@@ -9128,7 +9766,7 @@ var hook = {
   feedback: feedbackHook,
   guard: guardHook,
   "kb-check": kbCheckHook,
-  record: record3,
+  record: record4,
   "retro-scan": retroScan,
   "skill-links": skillLinks,
   statusline,
@@ -9252,7 +9890,7 @@ function sessionNameError(name) {
 
 // src/session/output.ts
 var USAGE_ERROR = 2;
-var FAILED5 = 1;
+var FAILED6 = 1;
 function fail3(deps, json, code, message) {
   deps.stderr(
     `${json ? `${JSON.stringify({ error: message })}
@@ -9263,14 +9901,14 @@ function fail3(deps, json, code, message) {
 }
 
 // src/session/registry.ts
-import { join as join16, resolve as resolve8 } from "node:path";
+import { join as join16, resolve as resolve9 } from "node:path";
 var STATE_DIR = ".kore/state/sessions";
 function isRecord(value) {
   if (typeof value !== "object" || value === null) {
     return false;
   }
-  const record4 = value;
-  return typeof record4.name === "string" && typeof record4.paneId === "string" && typeof record4.callerPane === "string" && typeof record4.model === "string";
+  const record5 = value;
+  return typeof record5.name === "string" && typeof record5.paneId === "string" && typeof record5.callerPane === "string" && typeof record5.model === "string";
 }
 var SessionRegistry = class _SessionRegistry {
   constructor(fs, dir) {
@@ -9287,7 +9925,7 @@ var SessionRegistry = class _SessionRegistry {
         "Cannot find the main checkout to keep session state in. Run inside the repository or set KORE_ROOT to its root."
       );
     }
-    return new _SessionRegistry(deps.fs, resolve8(main, STATE_DIR));
+    return new _SessionRegistry(deps.fs, resolve9(main, STATE_DIR));
   }
   file(name) {
     return join16(this.dir, `${name}.json`);
@@ -9313,10 +9951,10 @@ var SessionRegistry = class _SessionRegistry {
     }
     return parsed;
   }
-  async write(record4) {
+  async write(record5) {
     await this.fs.writeFile(
-      this.file(record4.name),
-      `${JSON.stringify(record4, null, 2)}
+      this.file(record5.name),
+      `${JSON.stringify(record5, null, 2)}
 `
     );
   }
@@ -9326,25 +9964,25 @@ var SessionRegistry = class _SessionRegistry {
     return existing === void 0 || existing.closedAt !== void 0 ? void 0 : `A session record for ${name} (pane ${existing.paneId}) already exists and is not closed; run \`session wait ${name}\` then \`session close ${name}\`, or pick another name. No pane was split.`;
   }
   /** Records a new session; refuses to replace one that is not closed, even under a race. */
-  async create(record4) {
-    const content = `${JSON.stringify(record4, null, 2)}
+  async create(record5) {
+    const content = `${JSON.stringify(record5, null, 2)}
 `;
     try {
-      await this.fs.createFile(this.file(record4.name), content);
+      await this.fs.createFile(this.file(record5.name), content);
     } catch (error) {
       if (error.code !== "EEXIST") {
         throw error;
       }
-      const reason = await this.unavailable(record4.name);
+      const reason = await this.unavailable(record5.name);
       if (reason !== void 0) {
         throw new CommandError(
           reason.replace(
             " No pane was split.",
-            ` Pane ${record4.paneId} is running unrecorded; close it with \`herdr pane close ${record4.paneId}\`.`
+            ` Pane ${record5.paneId} is running unrecorded; close it with \`herdr pane close ${record5.paneId}\`.`
           )
         );
       }
-      await this.write(record4);
+      await this.write(record5);
     }
   }
 };
@@ -9396,29 +10034,29 @@ async function place(deps, options, name) {
 
 // src/session/close.ts
 var NOT_IN_HERDR = "Not inside Herdr (HERDR_ENV is not 1 or HERDR_PANE_ID is unset). Run this from the Herdr pane that spawned the session.";
-function refuse(record4, callerPane) {
-  const { name, paneId } = record4;
-  if (record4.closedAt !== void 0) {
+function refuse(record5, callerPane) {
+  const { name, paneId } = record5;
+  if (record5.closedAt !== void 0) {
     return `Session ${name} is already closed (pane ${paneId}).`;
   }
-  if (record4.callerPane !== callerPane) {
-    return `Session ${name} was spawned from pane ${record4.callerPane}, not ${callerPane}; only that pane may close it.`;
+  if (record5.callerPane !== callerPane) {
+    return `Session ${name} was spawned from pane ${record5.callerPane}, not ${callerPane}; only that pane may close it.`;
   }
-  return record4.result === void 0 ? `Session ${name} has no recorded result, so pane ${paneId} stays open. Run \`session wait ${name}\` first.` : void 0;
+  return record5.result === void 0 ? `Session ${name} has no recorded result, so pane ${paneId} stays open. Run \`session wait ${name}\` first.` : void 0;
 }
-async function finishClose({ json, deps }, registry, record4, callerPane) {
-  const { name } = record4;
-  await registry.write({ ...record4, closedAt: deps.clock.now().toISOString() });
+async function finishClose({ json, deps }, registry, record5, callerPane) {
+  const { name } = record5;
+  await registry.write({ ...record5, closedAt: deps.clock.now().toISOString() });
   const equalized = await equalize(deps.runner, callerPane);
   const note = equalized.status === "failed" ? `Closed, but equalizing failed: ${equalized.reason}` : void 0;
   if (note !== void 0) {
     deps.stderr(`${note}
 `);
   }
-  const hint = record4.worktree === void 0 ? void 0 : closeHint(record4.worktree);
+  const hint = record5.worktree === void 0 ? void 0 : closeHint(record5.worktree);
   deps.stdout(
-    json ? `${JSON.stringify({ name, paneId: record4.paneId, closed: true, equalize: equalized, ...hint === void 0 ? {} : { hint } })}
-` : `Closed ${name} (pane ${record4.paneId}).${hint === void 0 ? "" : ` ${hint}`}
+    json ? `${JSON.stringify({ name, paneId: record5.paneId, closed: true, equalize: equalized, ...hint === void 0 ? {} : { hint } })}
+` : `Closed ${name} (pane ${record5.paneId}).${hint === void 0 ? "" : ` ${hint}`}
 `
   );
   return 0;
@@ -9440,36 +10078,36 @@ async function close2(context2) {
   }
   const callerPane = deps.env.HERDR_PANE_ID;
   if (deps.env.HERDR_ENV !== "1" || !callerPane) {
-    return fail3(deps, json, FAILED5, NOT_IN_HERDR);
+    return fail3(deps, json, FAILED6, NOT_IN_HERDR);
   }
   const registry = await SessionRegistry.open(deps);
-  const record4 = await registry.read(name);
-  if (record4 === void 0) {
+  const record5 = await registry.read(name);
+  if (record5 === void 0) {
     return fail3(
       deps,
       json,
-      FAILED5,
+      FAILED6,
       `This tool did not create a session named ${name}, so it will not close one. Close it yourself with \`herdr pane close <pane-id>\` if you are sure.`
     );
   }
-  const refusal = refuse(record4, callerPane);
+  const refusal = refuse(record5, callerPane);
   if (refusal !== void 0) {
-    return fail3(deps, json, FAILED5, refusal);
+    return fail3(deps, json, FAILED6, refusal);
   }
   const closed = await deps.runner.run("herdr", [
     "pane",
     "close",
-    record4.paneId
+    record5.paneId
   ]);
   if (closed.code !== 0) {
     return fail3(
       deps,
       json,
-      FAILED5,
-      `herdr pane close ${record4.paneId} failed: ${describeFailure(closed)}`
+      FAILED6,
+      `herdr pane close ${record5.paneId} failed: ${describeFailure(closed)}`
     );
   }
-  return await finishClose(context2, registry, record4, callerPane);
+  return await finishClose(context2, registry, record5, callerPane);
 }
 
 // src/session/models.ts
@@ -9685,8 +10323,8 @@ async function resolveTier(deps, role, flags) {
 var DEFAULT_TIMEOUT_MS = 60 * 60 * 1e3;
 var POLL_MS = 2e3;
 var MARKER3 = /^[ \t]*(?:[●⏺][ \t]+)?RESULT: (done|blocked)[ \t\r]*$/gm;
-function findResult(text9) {
-  const last = [...text9.matchAll(MARKER3)].at(-1)?.[1];
+function findResult(text10) {
+  const last = [...text10.matchAll(MARKER3)].at(-1)?.[1];
   return last === "done" || last === "blocked" ? last : void 0;
 }
 function parseTimeout(value) {
@@ -9699,42 +10337,42 @@ function parseTimeout(value) {
 function seconds2(ms) {
   return `${ms / 1e3} seconds`;
 }
-async function waitForResult(deps, registry, record4, timeoutMs) {
+async function waitForResult(deps, registry, record5, timeoutMs) {
   const done = (outcome) => ({
-    name: record4.name,
-    paneId: record4.paneId,
-    model: record4.model,
+    name: record5.name,
+    paneId: record5.paneId,
+    model: record5.model,
     outcome,
-    summary: `pane ${record4.paneId}`
+    summary: `pane ${record5.paneId}`
   });
-  if (record4.result !== void 0) {
-    return done(record4.result.outcome);
+  if (record5.result !== void 0) {
+    return done(record5.result.outcome);
   }
   const deadline = deps.clock.now().getTime() + timeoutMs;
   for (; ; ) {
     const read = await deps.runner.run("herdr", [
       "pane",
       "read",
-      record4.paneId,
+      record5.paneId,
       "--source",
       "recent-unwrapped"
     ]);
     if (read.code !== 0) {
       return {
-        error: `herdr pane read ${record4.paneId} failed: ${describeFailure(read)}`
+        error: `herdr pane read ${record5.paneId} failed: ${describeFailure(read)}`
       };
     }
     const outcome = findResult(read.stdout);
     if (outcome !== void 0) {
       await registry.write({
-        ...record4,
+        ...record5,
         result: { outcome, at: deps.clock.now().toISOString() }
       });
       return done(outcome);
     }
     if (deps.clock.now().getTime() + POLL_MS > deadline) {
       return {
-        error: `Session ${record4.name} printed no "RESULT: done" or "RESULT: blocked" line in pane ${record4.paneId} within ${seconds2(timeoutMs)}. It may still be working; run \`session wait ${record4.name}\` again or read the pane.`
+        error: `Session ${record5.name} printed no "RESULT: done" or "RESULT: blocked" line in pane ${record5.paneId} within ${seconds2(timeoutMs)}. It may still be working; run \`session wait ${record5.name}\` again or read the pane.`
       };
     }
     await deps.clock.sleep(POLL_MS);
@@ -9764,18 +10402,18 @@ async function wait(context2) {
     return fail3(deps, json, USAGE_ERROR, timeout.error);
   }
   const registry = await SessionRegistry.open(deps);
-  const record4 = await registry.read(name);
-  if (record4 === void 0) {
+  const record5 = await registry.read(name);
+  if (record5 === void 0) {
     return fail3(
       deps,
       json,
-      FAILED5,
+      FAILED6,
       `No session named ${name} was spawned by this tool; start it with \`session spawn\`.`
     );
   }
-  const result = await waitForResult(deps, registry, record4, timeout);
+  const result = await waitForResult(deps, registry, record5, timeout);
   if ("error" in result) {
-    return fail3(deps, json, FAILED5, result.error);
+    return fail3(deps, json, FAILED6, result.error);
   }
   deps.stdout(json ? `${JSON.stringify(result)}
 ` : formatWait(result));
@@ -9789,13 +10427,13 @@ function herdrCaller(deps) {
   if (deps.env.HERDR_ENV !== "1") {
     return {
       error: "Not inside Herdr (HERDR_ENV is not 1). Run this from a Herdr pane; no session was started.",
-      code: FAILED5
+      code: FAILED6
     };
   }
   if (callerPane === void 0 || callerPane === "") {
     return {
       error: "HERDR_PANE_ID is not set, so the session cannot broadcast back. Run this from a Herdr pane.",
-      code: FAILED5
+      code: FAILED6
     };
   }
   return callerPane;
@@ -9850,7 +10488,7 @@ async function check({
 
 // src/session/spawn-finish.ts
 import { join as join19 } from "node:path";
-async function recordLaunch(deps, record4) {
+async function recordLaunch(deps, record5) {
   try {
     const main = await mainRoot(deps);
     if (main === void 0) {
@@ -9864,20 +10502,20 @@ async function recordLaunch(deps, record4) {
     ).record({
       source: "herdr",
       kind: "session.launch",
-      occurredAt: record4.createdAt,
-      pane: record4.paneId,
-      agent: record4.name,
-      role: record4.role,
-      tier: record4.model
+      occurredAt: record5.createdAt,
+      pane: record5.paneId,
+      agent: record5.name,
+      role: record5.role,
+      tier: record5.model
     });
   } catch {
   }
 }
-async function finish2({ json, deps, options }, { registry, record: record4, modelCheck, timeoutMs }) {
-  const { name, paneId, callerPane, model, role, effort, worktree } = record4;
+async function finish2({ json, deps, options }, { registry, record: record5, modelCheck, timeoutMs }) {
+  const { name, paneId, callerPane, model, role, effort, worktree } = record5;
   const extra = worktree === void 0 ? {} : { worktree };
-  await registry.create(record4);
-  await recordLaunch(deps, record4);
+  await registry.create(record5);
+  await recordLaunch(deps, record5);
   const verdict = modelCheck.status === "verified" ? "model verified" : `model unverified: ${modelCheck.reason}`;
   if (options["no-wait"] === true) {
     deps.stdout(
@@ -9887,9 +10525,9 @@ async function finish2({ json, deps, options }, { registry, record: record4, mod
     );
     return 0;
   }
-  const result = await waitForResult(deps, registry, record4, timeoutMs);
+  const result = await waitForResult(deps, registry, record5, timeoutMs);
   if ("error" in result) {
-    return fail3(deps, json, FAILED5, result.error);
+    return fail3(deps, json, FAILED6, result.error);
   }
   deps.stdout(
     json ? `${JSON.stringify({ ...result, role, effort, ...extra, modelCheck })}
@@ -9953,20 +10591,20 @@ async function spawn2(context2) {
   const registry = await SessionRegistry.open(deps);
   const taken = await registry.unavailable(name) ?? await nameTakenError(deps, name);
   if (taken !== void 0) {
-    return fail3(deps, json, FAILED5, taken);
+    return fail3(deps, json, FAILED6, taken);
   }
   const placed = await place(deps, context2.options, name);
   if ("error" in placed) {
-    return fail3(deps, json, FAILED5, placed.error);
+    return fail3(deps, json, FAILED6, placed.error);
   }
   const paneId = await splitPane(deps, callerPane, placed.cwd);
   if (typeof paneId !== "string") {
-    return fail3(deps, json, FAILED5, `${paneId.error}${placed.left}`);
+    return fail3(deps, json, FAILED6, `${paneId.error}${placed.left}`);
   }
   const leftOpen = `The pane ${paneId} was left open; close it with \`herdr pane close ${paneId}\`.${placed.left}`;
   const equalized = await equalize(deps.runner, callerPane);
   if (equalized.status === "failed") {
-    return fail3(deps, json, FAILED5, `${equalized.reason}. ${leftOpen}`);
+    return fail3(deps, json, FAILED6, `${equalized.reason}. ${leftOpen}`);
   }
   const modelCheck = await launch(deps, {
     ...checked.values,
@@ -9975,7 +10613,7 @@ async function spawn2(context2) {
     leftOpen
   });
   if ("error" in modelCheck) {
-    return fail3(deps, json, FAILED5, modelCheck.error);
+    return fail3(deps, json, FAILED6, modelCheck.error);
   }
   return await finish2(context2, {
     registry,
@@ -10068,9 +10706,9 @@ var equalizeCommand = {
 `);
       return 1;
     }
-    const text9 = result.status === "skipped" ? `Skipped: ${result.reason}.` : "Equalized.";
+    const text10 = result.status === "skipped" ? `Skipped: ${result.reason}.` : "Equalized.";
     deps.stdout(json ? `${JSON.stringify(result)}
-` : `${text9}
+` : `${text10}
 `);
     return 0;
   }
@@ -10121,21 +10759,21 @@ var domains = {
 var USAGE_ERROR2 = 2;
 var FAILURE = 1;
 function usage() {
-  const lines2 = ["Usage: harness <domain> <command> [--json]", "", "Commands:"];
+  const lines3 = ["Usage: harness <domain> <command> [--json]", "", "Commands:"];
   for (const [domain, commands] of Object.entries(domains)) {
     for (const [name, command] of Object.entries(commands)) {
-      lines2.push(
+      lines3.push(
         `  harness ${[domain, name].filter(Boolean).join(" ")}  ${command.summary}`
       );
     }
   }
-  lines2.push(
+  lines3.push(
     "",
     "Flags:",
     "  --json  print machine-readable output",
     "  --help  show this usage"
   );
-  return `${lines2.join("\n")}
+  return `${lines3.join("\n")}
 `;
 }
 function fail4(deps, json, message, code = USAGE_ERROR2) {
@@ -10152,7 +10790,7 @@ function own(table, key) {
 function names2(commands) {
   return Object.keys(commands).join(", ");
 }
-function resolve9(domain, name) {
+function resolve10(domain, name) {
   const commands = own(domains, domain);
   if (commands === void 0) {
     return {
@@ -10252,7 +10890,7 @@ async function run2(argv, deps) {
       failure2
     );
   }
-  const resolved = resolve9(domain, name);
+  const resolved = resolve10(domain, name);
   if ("error" in resolved) {
     return fail4(deps, json, resolved.error, failure2);
   }
@@ -10269,7 +10907,7 @@ async function run2(argv, deps) {
 }
 
 // src/main.ts
-var stderr = (text9) => process.stderr.write(text9);
+var stderr = (text10) => process.stderr.write(text10);
 var root2;
 try {
   process.exitCode = await run2(process.argv.slice(2), {
@@ -10277,6 +10915,7 @@ try {
     clock: systemClock,
     fs: nodeFileSystem,
     ids: systemIds,
+    bundleUrl: import.meta.url,
     env: process.env,
     cwd: process.cwd(),
     stdin: () => readStdin(process.stdin),
@@ -10285,7 +10924,7 @@ try {
       import.meta.url,
       (path) => nodeFileSystem.exists(path)
     ),
-    stdout: (text9) => process.stdout.write(text9),
+    stdout: (text10) => process.stdout.write(text10),
     stderr
   });
 } catch (error) {

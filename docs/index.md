@@ -210,6 +210,10 @@ repository root; `mise run kb-check` keeps this list complete.
   role agents; their tier is the only copy
   ([ADR 0078](decisions/0078-agent-roles-run-as-herdr-panes.md)). Their bounds
   are the `role-*` guard rules in `tools/harness/src/hook/guard-role.ts`.
+- [`.github/pull_request_template.md`](../.github/pull_request_template.md) —
+  the PR body, with the one `Safety pattern:` field and the linked idea that
+  `harness judge precheck <pr>` reads before it reads the diff. Read when
+  opening a PR or changing the judge's precheck.
 - [`.claude/evals/`](../.claude/evals/) — skill-triggering, review and role
   boundary evals (`--kind boundary`, opt-in). Read when changing a skill
   description, the review agent or a role's bounds.

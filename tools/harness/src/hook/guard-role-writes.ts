@@ -85,6 +85,83 @@ export function writes(segment: readonly string[]): boolean {
   );
 }
 
+/** Same pattern as `PREFIXED` in guard-role.ts, shared here so the delivery guard can use it without a circular import; the contract step removes that copy. A segment that starts with `VAR=value` or an `env`-style wrapper: git and the harness read variables such as GIT_EXTERNAL_DIFF, PAGER and KORE_ROOT to run a program or move the ledger. */
+export const PREFIXED =
+  /^(?:[A-Za-z_][A-Za-z0-9_]*=|(?:sudo|env|time|command|nohup|exec)$)/;
+
+/** Builtins that change the shell's environment, aliases or options, or load a file into it, so a later segment runs with a variable such as KORE_ROOT that the guard never sees. */
+const SHELL_STATE = new Set([
+  "export",
+  "declare",
+  "typeset",
+  "readonly",
+  "local",
+  "set",
+  "unset",
+  "alias",
+  "source",
+  ".",
+]);
+
+/** A segment whose command changes shell state or sources a file. */
+export const changesShell = (segment: readonly string[]): boolean =>
+  SHELL_STATE.has(segment[0] ?? "");
+
+/** A command substitution or process substitution runs a command the segment check never sees. */
+export const SUBSTITUTION = /\$\(|`|<\(|>\(/;
+
+/** Commands that run another command line, or an interpreter on a string, past the segment check. */
+const RUNS_OTHERS = new Set([
+  "eval",
+  "builtin",
+  "bash",
+  "sh",
+  "zsh",
+  "dash",
+  "ksh",
+  "fish",
+  "xargs",
+  "timeout",
+  "nice",
+  "ionice",
+  "setsid",
+  "stdbuf",
+  "watch",
+  "parallel",
+  "doas",
+  "su",
+  "chroot",
+]);
+
+/** Subshells, groups and control keywords: they wrap commands the segment check would not look inside. */
+const CONSTRUCT_WORDS = new Set([
+  "if",
+  "then",
+  "elif",
+  "else",
+  "fi",
+  "for",
+  "while",
+  "until",
+  "do",
+  "done",
+  "case",
+  "esac",
+  "select",
+  "function",
+  "!",
+  "[[",
+  "coproc",
+]);
+
+/** A segment that wraps or launches other command lines instead of running one plain command. */
+export const wrapsCommands = (segment: readonly string[]): boolean => {
+  const first = segment[0] ?? "";
+  return (
+    /^[({]/.test(first) || RUNS_OTHERS.has(first) || CONSTRUCT_WORDS.has(first)
+  );
+};
+
 export const HARNESS = /^(\.\/)?skills\/bin\/harness\.mjs$/;
 /** `--ledger <path>` makes a harness command append to any file, so a bounded role never passes it. */
 const namesLedger = (args: readonly string[]): boolean =>

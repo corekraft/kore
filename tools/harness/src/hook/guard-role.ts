@@ -10,6 +10,7 @@
 import { isAbsolute, relative, resolve } from "node:path";
 import { checkDelivery, DELIVERY_ROLES } from "./guard-role-delivery.js";
 import {
+  changesShell,
   harnessAllowed,
   harnessStatus,
   readOnly,
@@ -238,9 +239,11 @@ function checkBash(role: string, command: string): Finding {
       : readOnly("A command substitution");
   }
   const segments = splitSegments(command);
-  const prefixed = segments.find((segment) => PREFIXED.test(segment[0] ?? ""));
+  const prefixed = segments.find(
+    (segment) => PREFIXED.test(segment[0] ?? "") || changesShell(segment),
+  );
   if (prefixed !== undefined) {
-    const what = `\`${prefixed.join(" ")}\`, which sets an environment variable,`;
+    const what = `\`${prefixed.join(" ")}\`, which sets an environment variable or changes shell state,`;
     return NO_CODE_ROLES.has(role) ? noCode(what, role) : readOnly(what);
   }
   const writer = segments.find(writes);

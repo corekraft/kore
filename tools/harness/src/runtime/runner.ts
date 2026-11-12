@@ -3,6 +3,8 @@ import { spawn } from "node:child_process";
 export interface RunOptions {
   cwd?: string;
   input?: string;
+  /** The child's whole environment; the parent's when omitted. */
+  env?: Record<string, string>;
 }
 export interface RunResult {
   stdout: string;
@@ -27,6 +29,7 @@ export class ProcessRunner implements Runner {
     return await new Promise((resolve) => {
       const child = spawn(command, [...args], {
         ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
+        ...(options.env === undefined ? {} : { env: options.env }),
         stdio: [
           options.input === undefined ? "ignore" : "pipe",
           "pipe",

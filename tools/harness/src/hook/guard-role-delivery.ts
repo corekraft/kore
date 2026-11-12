@@ -4,8 +4,12 @@
 // #190 and #191 (2026-11-12), so every rule blocks.
 import { isAbsolute, relative, resolve } from "node:path";
 import {
+  changesShell,
   harnessAllowed,
+  SUBSTITUTION,
+  wrapsCommands,
   HARNESS,
+  PREFIXED,
   readOnly,
   writes,
   WRITE_TOOLS,
@@ -78,8 +82,16 @@ const ORCHESTRATOR_HARNESS = [
   "outcome close",
 ];
 
+/** The judge also runs its precheck, which reads GitHub and appends one event to the shared ledger (never a path of its choosing). */
+const JUDGE_HARNESS = [...READS, "judge precheck"];
+
+/** The harness commands each delivery role may run; any other role gets the reads. */
+const HARNESS_BY_ROLE: Record<string, readonly string[]> = {
+  orchestrator: ORCHESTRATOR_HARNESS,
+  judge: JUDGE_HARNESS,
+};
 const harnessFor = (role: string): readonly string[] =>
-  role === "orchestrator" ? ORCHESTRATOR_HARNESS : READS;
+  HARNESS_BY_ROLE[role] ?? READS;
 
 /** A harness command the role may not run: it writes, or it is not on the role's list. */
 function harnessRefused(role: string, segment: readonly string[]): boolean {
@@ -139,6 +151,24 @@ export function checkDeliveryBash(
     return noMerge(role, `\`${merging.join(" ")}\``);
   }
   if (REPORTING_ROLES.has(role)) {
+    if (SUBSTITUTION.test(command)) {
+      return readOnly("A command or process substitution");
+    }
+    const wrapping = segments.find(wrapsCommands);
+    if (wrapping !== undefined) {
+      return readOnly(
+        `\`${wrapping.join(" ")}\`, which wraps or launches other commands,`,
+      );
+    }
+    // A variable such as KORE_ROOT moves where the harness writes, past its allowlist.
+    const prefixed = segments.find(
+      (s) => PREFIXED.test(s[0] ?? "") || changesShell(s),
+    );
+    if (prefixed !== undefined) {
+      return readOnly(
+        `\`${prefixed.join(" ")}\`, which sets an environment variable or changes shell state,`,
+      );
+    }
     const changing = segments.find(
       (s) => writes(s) || runsInline(s) || harnessRefused(role, s),
     );

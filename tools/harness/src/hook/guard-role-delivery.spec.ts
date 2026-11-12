@@ -214,3 +214,110 @@ describe("role-worktree: a writer works only in its own worktree", () => {
     }
   });
 });
+
+describe("role-read-only: the judge precheck", () => {
+  it("lets the judge run its precheck, and not the orchestrator", async () => {
+    allowed(
+      await bash(
+        "judge",
+        "node skills/bin/harness.mjs judge precheck 42 --json",
+      ),
+    );
+    blocked(
+      await bash(
+        "orchestrator",
+        "node skills/bin/harness.mjs judge precheck 42",
+      ),
+      "role-read-only",
+    );
+  });
+
+  it("blocks the judge from choosing where the precheck writes with --ledger", async () => {
+    for (const flag of [
+      "--ledger AGENTS.md",
+      "--ledger=AGENTS.md",
+      "--json --ledger /tmp/x",
+    ]) {
+      blocked(
+        await bash(
+          "judge",
+          `node skills/bin/harness.mjs judge precheck 42 ${flag}`,
+        ),
+        "role-read-only",
+      );
+    }
+  });
+
+  it("blocks a judge or orchestrator command that sets an environment variable, such as KORE_ROOT", async () => {
+    for (const role of ["judge", "orchestrator"]) {
+      for (const command of [
+        "KORE_ROOT=/anywhere node skills/bin/harness.mjs judge precheck 42",
+        "KORE_ROOT=/anywhere node skills/bin/harness.mjs ledger list",
+        "env KORE_ROOT=/anywhere node skills/bin/harness.mjs plan active",
+        "sudo node skills/bin/harness.mjs plan active",
+        "time node skills/bin/harness.mjs plan active",
+        "command node skills/bin/harness.mjs plan active",
+        "cd /tmp && KORE_ROOT=/x node skills/bin/harness.mjs plan active",
+        "export KORE_ROOT=/x; node skills/bin/harness.mjs judge precheck 42",
+        "export KORE_ROOT=/x && node skills/bin/harness.mjs judge precheck 42",
+        "declare -x KORE_ROOT=/x; node skills/bin/harness.mjs judge precheck 42",
+        "typeset -x KORE_ROOT=/x; node skills/bin/harness.mjs plan active",
+        "source ./env.sh; node skills/bin/harness.mjs plan active",
+        ". ./env.sh && node skills/bin/harness.mjs plan active",
+        "alias node='echo'; node skills/bin/harness.mjs plan active",
+        "unset KORE_ROOT; node skills/bin/harness.mjs plan active",
+      ]) {
+        blocked(await bash(role, command), "role-read-only");
+      }
+    }
+  });
+
+  it("still lets a writer set a variable for a test run, since no harness allowlist applies to it", async () => {
+    allowed(await bash("writer", "KORE_TEST_WORKERS=2 npx vitest run"));
+    allowed(await bash("judge", "grep export README.md"));
+  });
+});
+
+describe("role-read-only: the judge and orchestrator run plain commands only", () => {
+  const H = "node skills/bin/harness.mjs judge precheck 42";
+  const SHELL_FORMS = [
+    `( export KORE_ROOT=/x; ${H} )`,
+    `(export KORE_ROOT=/x; ${H})`,
+    `{ export KORE_ROOT=/x; ${H}; }`,
+    `echo $(KORE_ROOT=/x ${H})`,
+    `echo \`${H}\``,
+    `cat <(${H})`,
+    `eval 'export KORE_ROOT=/x'; ${H}`,
+    `builtin export KORE_ROOT=/x; ${H}`,
+    `bash -c 'KORE_ROOT=/x ${H}'`,
+    `sh -c 'KORE_ROOT=/x ${H}'`,
+    `zsh -c 'KORE_ROOT=/x ${H}'`,
+    `echo 42 | xargs env KORE_ROOT=/x node skills/bin/harness.mjs judge precheck`,
+    `timeout 5 env KORE_ROOT=/x ${H}`,
+    `nice ${H}`,
+    `if true; then export KORE_ROOT=/x; fi; ${H}`,
+    `! export KORE_ROOT=/x; ${H}`,
+    `for i in 1; do export KORE_ROOT=/x; done; ${H}`,
+    `while true; do ${H}; done`,
+  ];
+
+  for (const role of ["judge", "orchestrator"]) {
+    it(`${role}: every shell form that could hide an environment change is blocked`, async () => {
+      for (const command of SHELL_FORMS) {
+        blocked(await bash(role, command), "role-read-only");
+      }
+    });
+  }
+
+  it("ordinary judge commands still pass", async () => {
+    for (const command of [
+      `${H} --reviewer r --json`,
+      "node skills/bin/harness.mjs ledger list",
+      "gh pr view 42 --json body",
+      "git log --oneline -5",
+      "gh pr checks 42 && git status",
+    ]) {
+      allowed(await bash("judge", command));
+    }
+  });
+});
