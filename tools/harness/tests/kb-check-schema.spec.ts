@@ -5,10 +5,7 @@ import { describe, expect, it } from "vitest";
 import { SAFETY_PATTERNS } from "../src/idea/index.js";
 
 const kbCheck = readFileSync(
-  resolve(
-    dirname(fileURLToPath(import.meta.url)),
-    "../../../.claude/hooks/kb-check.mjs",
-  ),
+  resolve(dirname(fileURLToPath(import.meta.url)), "../src/kb/idea-checks.ts"),
   "utf8",
 );
 

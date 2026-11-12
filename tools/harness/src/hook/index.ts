@@ -4,30 +4,11 @@ import { feedback } from "./feedback.js";
 import { guard } from "./guard.js";
 import { hookCommand } from "./io.js";
 import { retroScan } from "./retro-hook.js";
-import { linkProblems } from "./skill-links.js";
-import { workflowProblems } from "./workflow-permissions.js";
-
-const skillLinks = hookCommand(
-  "skill-links",
-  "report skills a harness directory does not link by relative path",
-  async ({ deps }) => {
-    const problems = await linkProblems(deps.fs, await deps.root());
-    return problems.length === 0
-      ? {}
-      : { code: 1, stderr: `${problems.join("\n")}\n` };
-  },
-);
-
-const workflowPermissions = hookCommand(
-  "workflow-permissions",
-  "report workflows whose token permissions break the signer guard",
-  async ({ deps }) => {
-    const problems = await workflowProblems(deps.fs, await deps.root());
-    return problems.length === 0
-      ? {}
-      : { code: 1, stderr: `${problems.join("\n")}\n` };
-  },
-);
+import {
+  kbCheckHook,
+  skillLinks,
+  workflowPermissions,
+} from "./repository-checks.js";
 
 const feedbackHook = hookCommand(
   "feedback",
@@ -48,6 +29,7 @@ export const hook: Record<string, Command> = {
   delta,
   feedback: feedbackHook,
   guard: guardHook,
+  "kb-check": kbCheckHook,
   "retro-scan": retroScan,
   "skill-links": skillLinks,
   "workflow-permissions": workflowPermissions,
