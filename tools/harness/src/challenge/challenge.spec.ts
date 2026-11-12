@@ -156,7 +156,7 @@ describe("harness idea challenge integrity", () => {
     expect(await round(h, ["mine"])).toBe(0);
   });
 
-  it("names the gh user it could not determine", async () => {
+  it("refuses to post when the gh user cannot be determined", async () => {
     const { h } = await linked();
     const inner = h.runner.run.bind(h.runner);
     h.runner.run = (c, a, o) =>
@@ -164,8 +164,18 @@ describe("harness idea challenge integrity", () => {
         ? Promise.resolve({ stdout: "", stderr: "not logged in", code: 1 })
         : inner(c, a, o);
     expect(await round(h, ["a"])).toBe(1);
+    expect(h.err()).toContain("could not name the authenticated user");
     expect(h.err()).toContain("gh auth status");
     expect(ghWrites(h)).toHaveLength(0);
+  });
+
+  it("counts a leftover duplicate as one round and does not fail a clean later post", async () => {
+    const { h, issue } = await linked({
+      comments: [marker("0001", 1), marker("0001", 1)],
+    });
+    expect(await round(h, ["next"])).toBe(0);
+    expect(h.out()).toContain("round 2 of 2");
+    expect(issue.comments).toHaveLength(3);
   });
 });
 

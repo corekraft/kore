@@ -2,7 +2,9 @@ import { IdeaError, issueTarget } from "../idea/index.js";
 import type { IdeaRepository } from "../idea/index.js";
 import type { Runner } from "../runtime/index.js";
 import {
+  distinctRounds,
   duplicateRounds,
+  type DuplicateRound,
   MAX_ROUNDS,
   parseRounds,
   renderRound,
@@ -74,7 +76,7 @@ async function ghUser(
   const user = whoami.stdout.trim();
   if (whoami.code !== 0 || user === "") {
     throw new IdeaError(
-      `gh could not name the authenticated user: ${whoami.stderr.trim()}. ${FIX}`,
+      `gh could not name the authenticated user${whoami.stderr.trim() === "" ? "" : `: ${whoami.stderr.trim()}`}. ${FIX}`,
     );
   }
   return user;
@@ -94,12 +96,9 @@ function roundLimit(idea: string, rounds: readonly Round[], issue: string) {
   );
 }
 
-function duplicatePost(
-  duplicate: { round: number; urls: string[] },
-  issue: string,
-) {
+function duplicatePost(duplicate: DuplicateRound, issue: string) {
   return new IdeaError(
-    `Challenge round ${duplicate.round} on ${issue} was posted twice, by comments ${duplicate.urls.join(" and ")}: another challenge ran at the same time. Delete the one that should not count, then rerun \`harness idea challenge\` if a round is still needed.`,
+    `Challenge round ${duplicate.round} on ${issue} was posted twice and both comments are still on the issue:  ${duplicate.urls.join(" and ")}. Another challenge ran at the same time. Delete the one that should not count, then rerun \`harness idea challenge\` if a round is still needed.`,
   );
 }
 
@@ -142,7 +141,9 @@ export async function challengeIdea(
     return issueComments(view.stdout, issue);
   };
   const user = await ghUser(gh);
-  const rounds = parseRounds(record.number, await comments(), user);
+  const rounds = distinctRounds(
+    parseRounds(record.number, await comments(), user),
+  );
   if (rounds.length >= MAX_ROUNDS) {
     throw roundLimit(record.number, rounds, issue);
   }
@@ -164,9 +165,9 @@ export async function challengeIdea(
       `gh could not post round ${round} on ${issue}: ${post.stderr.trim()}. ${FIX}`,
     );
   }
-  const [duplicate] = duplicateRounds(
+  const duplicate = duplicateRounds(
     parseRounds(record.number, await comments(), user),
-  );
+  ).find((d) => d.round === round);
   if (duplicate !== undefined) {
     throw duplicatePost(duplicate, issue);
   }

@@ -3449,6 +3449,11 @@ function parseRounds(idea, comments, author) {
 function parseObjections(input) {
   return input.split("\n").map((line2) => line2.replace(/^\s*[-*]\s+/, "").trim()).filter((line2) => line2 !== "");
 }
+function distinctRounds(rounds) {
+  return rounds.filter(
+    (r, i) => rounds.findIndex((o) => o.round === r.round) === i
+  );
+}
 function duplicateRounds(rounds) {
   const byNumber2 = /* @__PURE__ */ new Map();
   for (const r of rounds) {
@@ -3493,7 +3498,7 @@ async function ghUser(gh) {
   const user = whoami.stdout.trim();
   if (whoami.code !== 0 || user === "") {
     throw new IdeaError(
-      `gh could not name the authenticated user: ${whoami.stderr.trim()}. ${FIX}`
+      `gh could not name the authenticated user${whoami.stderr.trim() === "" ? "" : `: ${whoami.stderr.trim()}`}. ${FIX}`
     );
   }
   return user;
@@ -3512,7 +3517,7 @@ ${open2.map((o) => `- ${o}`).join("\n")}`
 }
 function duplicatePost(duplicate, issue) {
   return new IdeaError(
-    `Challenge round ${duplicate.round} on ${issue} was posted twice, by comments ${duplicate.urls.join(" and ")}: another challenge ran at the same time. Delete the one that should not count, then rerun \`harness idea challenge\` if a round is still needed.`
+    `Challenge round ${duplicate.round} on ${issue} was posted twice and both comments are still on the issue:  ${duplicate.urls.join(" and ")}. Another challenge ran at the same time. Delete the one that should not count, then rerun \`harness idea challenge\` if a round is still needed.`
   );
 }
 async function challengeIdea(ctx, ref, objections) {
@@ -3541,7 +3546,9 @@ async function challengeIdea(ctx, ref, objections) {
     return issueComments(view.stdout, issue);
   };
   const user = await ghUser(gh);
-  const rounds = parseRounds(record4.number, await comments(), user);
+  const rounds = distinctRounds(
+    parseRounds(record4.number, await comments(), user)
+  );
   if (rounds.length >= MAX_ROUNDS) {
     throw roundLimit(record4.number, rounds, issue);
   }
@@ -3563,9 +3570,9 @@ async function challengeIdea(ctx, ref, objections) {
       `gh could not post round ${round2} on ${issue}: ${post.stderr.trim()}. ${FIX}`
     );
   }
-  const [duplicate] = duplicateRounds(
+  const duplicate = duplicateRounds(
     parseRounds(record4.number, await comments(), user)
-  );
+  ).find((d) => d.round === round2);
   if (duplicate !== void 0) {
     throw duplicatePost(duplicate, issue);
   }

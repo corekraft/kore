@@ -5,7 +5,9 @@ export {
   type Context,
 } from "./challenge.js";
 export {
+  distinctRounds,
   duplicateRounds,
+  type DuplicateRound,
   MAX_ROUNDS,
   parseObjections,
   parseRounds,

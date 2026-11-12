@@ -74,10 +74,21 @@ export function parseObjections(input: string): string[] {
     .filter((line) => line !== "");
 }
 
+/** A round number claimed by more than one comment. */
+export interface DuplicateRound {
+  round: number;
+  urls: string[];
+}
+
+/** One entry per round number, so a duplicate post counts as a single round. */
+export function distinctRounds(rounds: readonly Round[]): Round[] {
+  return rounds.filter(
+    (r, i) => rounds.findIndex((o) => o.round === r.round) === i,
+  );
+}
+
 /** The round numbers recorded more than once, each with the comments that claim it. */
-export function duplicateRounds(
-  rounds: readonly Round[],
-): { round: number; urls: string[] }[] {
+export function duplicateRounds(rounds: readonly Round[]): DuplicateRound[] {
   const byNumber = new Map<number, string[]>();
   for (const r of rounds) {
     byNumber.set(r.round, [...(byNumber.get(r.round) ?? []), r.url]);
