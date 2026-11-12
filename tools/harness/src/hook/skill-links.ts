@@ -33,11 +33,6 @@ async function targetOf(
   fs: FileSystem,
   path: string,
 ): Promise<{ target: string } | { code: "EINVAL" | "ENOENT" }> {
-  if (fs.readlink === undefined) {
-    throw new CommandError(
-      "This file system cannot read symbolic links; run the hook with the node file system, or give the injected one a readlink method.",
-    );
-  }
   try {
     return { target: await fs.readlink(path) };
   } catch (error) {

@@ -3694,9 +3694,12 @@ function hookCommand(name, summary, handler) {
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
         const hint = error instanceof CommandError ? "" : " (unexpected; fixing it is on the harness)";
-        deps.stderr(`[hook:${name}] failed open: ${reason}${hint}
-`);
-        return options["strict"] === true ? 1 : 0;
+        const strict = options["strict"] === true;
+        deps.stderr(
+          `[hook:${name}] ${strict ? "failed" : "failed open"}: ${reason}${hint}
+`
+        );
+        return strict ? 1 : 0;
       }
       if (result.stdout) {
         deps.stdout(result.stdout);
@@ -3734,11 +3737,6 @@ async function skillNames(fs, root2) {
   return skills.sort();
 }
 async function targetOf(fs, path) {
-  if (fs.readlink === void 0) {
-    throw new CommandError(
-      "This file system cannot read symbolic links; run the hook with the node file system, or give the injected one a readlink method."
-    );
-  }
   try {
     return { target: await fs.readlink(path) };
   } catch (error) {
@@ -4876,15 +4874,16 @@ async function run(argv, deps) {
   const rest = argv.filter(
     (token, i) => !words2.includes(i) && token !== "--json" && token !== "--help" && token !== "-h"
   );
+  const failure2 = domain === "hook" ? FAILURE : USAGE_ERROR2;
   const early = argv.slice(0, words2[1] ?? 0).find((t) => t.startsWith("-") && !["--json", "--help", "-h"].includes(t));
   if (early !== void 0) {
     return fail2(
       deps,
       json,
-      `Put "${early}" after the command: harness <domain> <command> [flags].`
+      `Put "${early}" after the command: harness <domain> <command> [flags].`,
+      failure2
     );
   }
-  const failure2 = domain === "hook" ? FAILURE : USAGE_ERROR2;
   const resolved = resolve5(domain, name);
   if ("error" in resolved) {
     return fail2(deps, json, resolved.error, failure2);

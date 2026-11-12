@@ -50,8 +50,11 @@ export function hookCommand(
           error instanceof CommandError
             ? ""
             : " (unexpected; fixing it is on the harness)";
-        deps.stderr(`[hook:${name}] failed open: ${reason}${hint}\n`);
-        return options["strict"] === true ? 1 : 0;
+        const strict = options["strict"] === true;
+        deps.stderr(
+          `[hook:${name}] ${strict ? "failed" : "failed open"}: ${reason}${hint}\n`,
+        );
+        return strict ? 1 : 0;
       }
       if (result.stdout) {
         deps.stdout(result.stdout);

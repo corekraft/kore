@@ -150,6 +150,9 @@ export async function run(
       token !== "--help" &&
       token !== "-h",
   );
+  // Exit 1, not the usage error 2, for a hook: exit 2 from a PreToolUse hook
+  // blocks every tool call, so a typo in settings.json must never stop the session.
+  const failure = domain === "hook" ? FAILURE : USAGE_ERROR;
   const early = argv
     .slice(0, words[1] ?? 0)
     .find((t) => t.startsWith("-") && !["--json", "--help", "-h"].includes(t));
@@ -158,11 +161,9 @@ export async function run(
       deps,
       json,
       `Put "${early}" after the command: harness <domain> <command> [flags].`,
+      failure,
     );
   }
-  // Exit 1, not the usage error 2, for a hook: exit 2 from a PreToolUse hook
-  // blocks every tool call, so a typo in settings.json must never stop the session.
-  const failure = domain === "hook" ? FAILURE : USAGE_ERROR;
   const resolved = resolve(domain, name);
   if ("error" in resolved) {
     return fail(deps, json, resolved.error, failure);

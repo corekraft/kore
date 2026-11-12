@@ -90,12 +90,11 @@ describe("hook skill-links reports", () => {
     rmSync(join(root, ".codex/skills/adr"));
     symlinkSync(join(root, "skills/adr"), join(root, ".codex/skills/adr"));
 
-    const result = await hook(root);
-    expect(result.code).toBe(1);
-    expect(result.err).toBe(
-      ".codex/skills/adr links to an absolute path; relink it to ../../skills/adr\n",
-    );
-    expect(result.out).toBe("");
+    expect(await hook(root)).toEqual({
+      code: 1,
+      out: "",
+      err: ".codex/skills/adr links to an absolute path; relink it to ../../skills/adr\n",
+    });
   });
 
   it("reports a skill missing from a harness, and not a complete harness", async () => {
@@ -104,9 +103,11 @@ describe("hook skill-links reports", () => {
     link(root, ".claude", "adr");
     link(root, ".codex", "tdd");
 
-    expect((await hook(root)).err).toBe(
-      ".codex/skills/adr is missing; link it to ../../skills/adr\n",
-    );
+    expect(await hook(root)).toEqual({
+      code: 1,
+      out: "",
+      err: ".codex/skills/adr is missing; link it to ../../skills/adr\n",
+    });
   });
 
   it("reports a link to the wrong skill", async () => {
@@ -117,9 +118,11 @@ describe("hook skill-links reports", () => {
     link(root, ".claude", "adr");
     symlinkSync("../../skills/tdd", join(root, ".codex/skills/adr"));
 
-    expect((await hook(root)).err).toBe(
-      ".codex/skills/adr links to ../../skills/tdd; relink it to ../../skills/adr\n",
-    );
+    expect(await hook(root)).toEqual({
+      code: 1,
+      out: "",
+      err: ".codex/skills/adr links to ../../skills/tdd; relink it to ../../skills/adr\n",
+    });
   });
 
   it("reports a copied skill directory as not a link", async () => {
@@ -132,9 +135,11 @@ describe("hook skill-links reports", () => {
       recursive: true,
     });
 
-    expect((await hook(root)).err).toBe(
-      ".codex/skills/adr is a directory or file, not a link; replace it with a link to ../../skills/adr\n",
-    );
+    expect(await hook(root)).toEqual({
+      code: 1,
+      out: "",
+      err: ".codex/skills/adr is a directory or file, not a link; replace it with a link to ../../skills/adr\n",
+    });
   });
 });
 
@@ -174,38 +179,53 @@ describe("hook skill-links tolerates and fails open", () => {
 });
 
 describe("hook dispatcher", () => {
-  it("names the valid hooks when the name is unknown", async () => {
+  // Exit 1, not the usage error 2: a PreToolUse hook that exits 2 blocks every
+  // tool call, so a typo in settings.json must never stop the session.
+  async function dispatch(argv: string[]) {
     const h = testHarness();
+    const code = await run(argv, h.deps);
+    return { code, out: h.out(), err: h.err() };
+  }
 
-    const code = await run(["hook", "nope"], h.deps);
+  it("names the valid hooks when the name is unknown", async () => {
+    expect(await dispatch(["hook", "nope"])).toEqual({
+      code: 1,
+      out: "",
+      err: expect.stringContaining(
+        'Unknown command "nope" for domain "hook". Commands: skill-links.',
+      ),
+    });
+  });
 
-    // Exit 1, not the usage error 2: a PreToolUse hook that exits 2 blocks every
-    // tool call, so a typo in settings.json must never stop the session.
-    expect(code).toBe(1);
-    expect(h.err()).toContain('Unknown command "nope" for domain "hook"');
-    expect(h.err()).toContain("Commands: skill-links.");
+  it("exits 1, not 2, for a missing name, an unknown flag, or a flag before the name", async () => {
+    const cases: [string[], string][] = [
+      [["hook"], 'Missing command for domain "hook"'],
+      [["hook", "skill-links", "--nope"], 'Unknown flag "--nope"'],
+      [["hook", "--strict", "skill-links"], 'Put "--strict" after the command'],
+    ];
+    for (const [argv, message] of cases) {
+      expect(await dispatch(argv)).toEqual({
+        code: 1,
+        out: "",
+        err: expect.stringContaining(message),
+      });
+    }
   });
 });
 
-describe("hook skill-links on a file system that cannot read links", () => {
-  it("fails open, saying so", async () => {
+describe("hook skill-links when the file system fails", () => {
+  it("fails open, flagging a read fault as the harness's to fix", async () => {
     const h = testHarness();
     h.deps.fs = {
       ...h.deps.fs,
       readdir: () => Promise.resolve(["tdd"]),
       exists: () => Promise.resolve(true),
+      readlink: () =>
+        Promise.reject(Object.assign(new Error("denied"), { code: "EACCES" })),
     };
-    const code = await run(["hook", "skill-links"], h.deps);
-    expect(code).toBe(0);
+    expect(await run(["hook", "skill-links"], h.deps)).toBe(0);
     expect(h.err()).toBe(
-      "[hook:skill-links] failed open: This file system cannot read symbolic links; run the hook with the node file system, or give the injected one a readlink method.\n",
+      "[hook:skill-links] failed open: denied (unexpected; fixing it is on the harness)\n",
     );
-  });
-
-  it("exits 1, not 2, for an unknown flag or a missing hook name", async () => {
-    for (const argv of [["hook"], ["hook", "skill-links", "--nope"]]) {
-      const h = testHarness();
-      expect(await run(argv, h.deps)).toBe(1);
-    }
   });
 });

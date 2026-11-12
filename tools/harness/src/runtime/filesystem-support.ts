@@ -35,6 +35,10 @@ export class MemoryFileSystem implements FileSystem {
     return Promise.resolve();
   }
 
+  readlink(path: string): Promise<string> {
+    return Promise.reject(new Error(`ENOENT: ${path}`));
+  }
+
   remove(path: string): Promise<void> {
     this.files.delete(path);
     return Promise.resolve();

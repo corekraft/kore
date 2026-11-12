@@ -250,10 +250,11 @@ still work. It also closes the exit criteria above that need a live session.
 ### Work
 
 - [x] **Relative skill links.** `.claude/skills/*` and `.codex/skills/*` link to
-      `../../skills/<name>`, never an absolute path. A `skill-links` test in
-      `mise run test-hooks` checks every skill in `skills/` is linked from both
-      harness directories, and the pre-commit hook runs it when `skills/`,
-      `.claude/`, or `.codex/` changes.
+      `../../skills/<name>`, never an absolute path. The harness hook
+      `node skills/bin/harness.mjs hook skill-links --strict` (a harness spec
+      covers it; `mise run test-hooks` and the pre-commit hook run it) checks every
+      skill in `skills/` is linked from both harness directories. The pre-commit
+      hook runs it when `skills/`, `.claude/`, or `.codex/` changes.
 - [x] **Codex skill metadata.** `skills/test-driven-development/agents/openai.yaml`
       carries the trigger from `SKILL.md`, not a placeholder.
 - [x] **`session-brief`.** `context.mjs` also runs on `startup` and `clear`, and

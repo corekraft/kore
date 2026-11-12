@@ -69,20 +69,28 @@ describe("hook I/O", () => {
       "",
       { strict: true },
     );
-    expect(result.code).toBe(1);
-    expect(result.err).toBe("[hook:demo] failed open: no skills directory\n");
+    expect(result).toEqual({
+      code: 1,
+      out: "",
+      err: "[hook:demo] failed: no skills directory\n",
+    });
   });
 
   it("fails open on an unexpected error and says the fault is the harness's", async () => {
     const result = await runHook(() => Promise.reject(new TypeError("boom")));
-    expect(result.code).toBe(0);
-    expect(result.err).toBe(
-      "[hook:demo] failed open: boom (unexpected; fixing it is on the harness)\n",
-    );
+    expect(result).toEqual({
+      code: 0,
+      out: "",
+      err: "[hook:demo] failed open: boom (unexpected; fixing it is on the harness)\n",
+    });
   });
 
   it("fails open on a thrown non-error value", async () => {
     const result = await runHook(() => Promise.reject("odd"));
-    expect(result.err).toMatch(/failed open: odd/);
+    expect(result).toEqual({
+      code: 0,
+      out: "",
+      err: "[hook:demo] failed open: odd (unexpected; fixing it is on the harness)\n",
+    });
   });
 });

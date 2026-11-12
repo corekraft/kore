@@ -53,7 +53,10 @@ function commit(files, failing = [], { withMise = true } = {}) {
       join(root, "tools/kore/node_modules/.bin/lint-staged"),
       `echo "lint-staged" >> "${log}"`,
     );
-    script(join(bin, "node"), `echo "node $*" >> "${log}"`);
+    script(
+      join(bin, "node"),
+      `echo "node $*" >> "${log}"\ncase " ${failing.join(" ")} " in *" node "*) exit 1;; esac`,
+    );
     if (withMise) {
       script(
         join(bin, "mise"),
@@ -101,9 +104,9 @@ test("every tool the hook runs goes through the pinned toolchain", () => {
   const tools = lines.filter((l) => !l.startsWith("mise "));
   assert.deepEqual(
     tools.map((l) => l.split(" ")[0]),
-    ["lint-staged", "run", "run", "run"],
+    ["lint-staged", "run", "node", "run", "run"],
   );
-  assert.equal(lines.length, 8);
+  assert.equal(lines.length, 10);
   for (const [i, l] of lines.entries()) {
     if (i % 2 === 0) assert.match(l, /^mise exec -- /);
   }
@@ -204,7 +207,33 @@ test("staging a .claude file runs the hook tests under harness vitest, not node 
   const result = commit([".claude/hooks/a.mjs"]);
   assert.equal(result.status, 0);
   assert.match(result.npmCalls, /^harness run test:hooks/m);
-  assert.doesNotMatch(result.calls, /node /);
+  assert.doesNotMatch(result.calls, /node --test/);
+});
+
+test("staging a skill, .claude or .codex file checks the skill links strictly with the harness hook", () => {
+  for (const file of ["skills/a/SKILL.md", ".claude/a.json", ".codex/a.toml"]) {
+    const result = commit([file]);
+    assert.equal(result.status, 0, file);
+    assert.match(
+      result.calls,
+      /^node .*\/skills\/bin\/harness\.mjs hook skill-links --strict$/m,
+      file,
+    );
+  }
+});
+
+test("a wrong skill link blocks the commit with one actionable line", () => {
+  const result = commit(["skills/a/SKILL.md"], ["node"]);
+  assert.notEqual(result.status, 0);
+  assert.match(
+    result.stderr,
+    /^pre-commit: skill links are wrong; run 'node skills\/bin\/harness\.mjs hook skill-links --strict' and fix them\n$/,
+  );
+});
+
+test("staging nothing under skills, .claude or .codex does not check skill links", () => {
+  const result = commit(["tools/kore/src/a.ts"]);
+  assert.doesNotMatch(result.calls, /skill-links/);
 });
 
 test("failing hook tests block the commit with one actionable line", () => {
