@@ -149,9 +149,17 @@ planned), so only k3d load is recorded.
   `/etc/cni/net.d` and `/opt/cni/bin`, which k3s does not use. Fixed on #266 by
   a local overlay pointing at `/var/lib/rancher/k3s/agent/etc/cni/net.d` and
   `/var/lib/rancher/k3s/data/cni`.
-- Run 4 (resume of the existing profile): istio-cni and ztunnel converged, then
-  `kore-observability-config` failed: the `tempo-storage` claim is created by a
-  chart with no consumer, so with `WaitForFirstConsumer` it stays Pending and
-  Helm `--wait` times out. Blocked on a design decision: where the Tempo claim
-  lives, or whether a release may skip waiting on a claim.
+- Run 4 (resume): `kore-observability-config` timed out on the `tempo-storage`
+  claim. Owner decision, ADR 0086: the claim stays in that release and the
+  release sets `helm.wait: false` (`--wait=hookOnly`); Tempo's readiness proves
+  the volume. Live run 5 showed Helm 4 turns `--rollback-on-failure` back into a
+  resource wait, so that flag is omitted for the opt-out component (fixed, ADR
+  0086 updated).
+- Run 6 (resume, quiet host, load 2 to 14 during installs): the observability
+  phase converged, then `local up` stopped at the local image signer:
+  `kubeconfig context k3d-kore-local embeds credentials`. k3d writes client
+  certificate data inline, and `minifiedKubeconfig` (ADR 0015) refuses any
+  kubeconfig with `-data`, so the signer cannot give cosign a pinned context.
+  Blocked on a design decision about how cosign reaches the cluster without
+  writing credentials to disk.
 - Safety pattern: expand and contract. Not yet proven live.
