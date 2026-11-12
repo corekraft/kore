@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { assertExpectedCluster } from "../cluster/index.js";
-import { loadRepository, type Repository } from "../config/index.js";
+import {
+  enabledComponents,
+  loadRepository,
+  type Repository,
+} from "../config/index.js";
 import { findRoot } from "../config/config.js";
 import { ProcessRunner, type Runner } from "../runtime/index.js";
 import { scaleDeployment } from "./admission-probe.js";
@@ -94,7 +98,7 @@ async function session() {
   const repository = await loadRepository("local", await findRoot());
   const runner = new ProcessRunner();
   await assertExpectedCluster(repository, runner);
-  const names = repository.catalog.components.map(({ name }) => name);
+  const names = enabledComponents(repository).map(({ name }) => name);
   assert.deepEqual(
     await brokenComponents(repository, runner, names),
     [],
