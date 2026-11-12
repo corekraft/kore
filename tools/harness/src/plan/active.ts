@@ -1,4 +1,5 @@
-import type { CliDeps, Command } from "../cli/index.js";
+import { join } from "node:path";
+import type { CliDeps, Command } from "../runtime/index.js";
 import {
   activePlans,
   nextStep,
@@ -19,10 +20,13 @@ export interface ActivePlan {
   upcoming: string[];
 }
 
-async function readPlans(fs: CliDeps["fs"]): Promise<Record<string, string>> {
+async function readPlans(deps: CliDeps): Promise<Record<string, string>> {
+  const root = await deps.root();
   let names: string[];
   try {
-    names = (await fs.readdir(PLANS_DIR)).filter((n) => n.endsWith(".md"));
+    names = (await deps.fs.readdir(join(root, PLANS_DIR))).filter((n) =>
+      n.endsWith(".md"),
+    );
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
       return {};
@@ -31,7 +35,7 @@ async function readPlans(fs: CliDeps["fs"]): Promise<Record<string, string>> {
   }
   const plans: Record<string, string> = {};
   for (const name of names) {
-    plans[name] = await fs.readFile(`${PLANS_DIR}/${name}`);
+    plans[name] = await deps.fs.readFile(join(root, PLANS_DIR, name));
   }
   return plans;
 }
@@ -52,7 +56,7 @@ function describe(plan: ActivePlan): string {
 export const planActive: Command = {
   summary: "list the active plans, flagging the default (highest-numbered)",
   async run({ json, deps }) {
-    const plans = await readPlans(deps.fs);
+    const plans = await readPlans(deps);
     const names = activePlans(plans);
     const listed: ActivePlan[] = names.map((name, index) => {
       const markdown = plans[name] ?? "";

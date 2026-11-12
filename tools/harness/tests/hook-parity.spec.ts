@@ -16,7 +16,8 @@ afterAll(() => rmSync(temp, { recursive: true, force: true }));
 const front = (status: string) =>
   `---\nstatus: ${status}\nsummary: A plan.\nlast-verified: 2026-11-07\n---\n\n`;
 
-// The fixtures of .claude/hooks/context.test.mjs for activePlans.
+// Plan sets shaped like the cases in .claude/hooks/context.test.mjs for activePlans
+// (frontmatter, legacy without frontmatter, none active); not the hook's own fixtures.
 const fixtures: Record<string, Record<string, string>> = {
   frontmatter: {
     "1-initialize.md": `${front("done")}## Step 1: A\n\n- [ ] stale box\n`,
@@ -45,11 +46,8 @@ async function harnessPlans(root: string): Promise<string[]> {
   const deps: CliDeps = {
     runner: new FakeRunner(),
     clock: { now: () => new Date(0) },
-    fs: {
-      ...nodeFileSystem,
-      readdir: (p) => nodeFileSystem.readdir(join(root, p)),
-      readFile: (p) => nodeFileSystem.readFile(join(root, p)),
-    },
+    fs: nodeFileSystem,
+    root: () => Promise.resolve(root),
     stdout: (t) => (out += t),
     stderr: () => undefined,
   };
@@ -71,4 +69,11 @@ describe("plan active parity with the context hook", () => {
       expect(await harnessPlans(root)).toEqual(hookPlans(root));
     },
   );
+
+  it("picks the same plans, in the same order, over the real infra/plans", async () => {
+    const repo = resolve(here, "../../..");
+    const plans = await harnessPlans(repo);
+    expect(plans.length).toBeGreaterThan(0);
+    expect(plans).toEqual(hookPlans(repo));
+  });
 });

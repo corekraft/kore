@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { run, type CliDeps } from "../cli/index.js";
 import { FakeRunner } from "../runtime/runner-support.js";
 
+const ROOT = "/repo";
+
 function harness(files: Record<string, string>) {
   const out: string[] = [];
   const err: string[] = [];
@@ -9,14 +11,16 @@ function harness(files: Record<string, string>) {
     runner: new FakeRunner(),
     clock: { now: () => new Date("2026-01-02T03:04:05.000Z") },
     fs: {
-      readFile: (path) =>
-        path in files
-          ? Promise.resolve(files[path] ?? "")
-          : Promise.reject(new Error(`ENOENT ${path}`)),
+      readFile: (path) => {
+        const key = path.slice(ROOT.length + 1);
+        return path.startsWith(`${ROOT}/`) && key in files
+          ? Promise.resolve(files[key] ?? "")
+          : Promise.reject(new Error(`ENOENT ${path}`));
+      },
       writeFile: () => Promise.resolve(),
       exists: () => Promise.resolve(true),
       readdir: (path) =>
-        path === "infra/plans"
+        path === `${ROOT}/infra/plans`
           ? Promise.resolve(
               Object.keys(files).map((f) => f.slice("infra/plans/".length)),
             )
@@ -24,6 +28,7 @@ function harness(files: Record<string, string>) {
               Object.assign(new Error("ENOENT"), { code: "ENOENT" }),
             ),
     },
+    root: () => Promise.resolve(ROOT),
     stdout: (text) => out.push(text),
     stderr: (text) => err.push(text),
   };

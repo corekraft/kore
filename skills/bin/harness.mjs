@@ -29,6 +29,9 @@ var package_default = {
   }
 };
 
+// src/plan/active.ts
+import { join } from "node:path";
+
 // src/plan/parser.ts
 var FRONTMATTER = /^---\n([\s\S]*?)\n---\n/;
 var UPCOMING_STEPS = 3;
@@ -125,10 +128,13 @@ function activePlans(plans) {
 
 // src/plan/active.ts
 var PLANS_DIR = "infra/plans";
-async function readPlans(fs) {
+async function readPlans(deps) {
+  const root2 = await deps.root();
   let names2;
   try {
-    names2 = (await fs.readdir(PLANS_DIR)).filter((n) => n.endsWith(".md"));
+    names2 = (await deps.fs.readdir(join(root2, PLANS_DIR))).filter(
+      (n) => n.endsWith(".md")
+    );
   } catch (error) {
     if (error.code === "ENOENT") {
       return {};
@@ -137,7 +143,7 @@ async function readPlans(fs) {
   }
   const plans = {};
   for (const name of names2) {
-    plans[name] = await fs.readFile(`${PLANS_DIR}/${name}`);
+    plans[name] = await deps.fs.readFile(join(root2, PLANS_DIR, name));
   }
   return plans;
 }
@@ -156,7 +162,7 @@ function describe(plan) {
 var planActive = {
   summary: "list the active plans, flagging the default (highest-numbered)",
   async run({ json, deps }) {
-    const plans = await readPlans(deps.fs);
+    const plans = await readPlans(deps);
     const names2 = activePlans(plans);
     const listed = names2.map((name, index) => {
       const markdown = plans[name] ?? "";
@@ -312,7 +318,7 @@ var nodeFileSystem = {
 import { spawn } from "node:child_process";
 var ProcessRunner = class {
   async run(command, args, options = {}) {
-    return await new Promise((resolve2) => {
+    return await new Promise((resolve3) => {
       const child = spawn(command, [...args], {
         ...options.cwd === void 0 ? {} : { cwd: options.cwd },
         stdio: [
@@ -322,18 +328,18 @@ var ProcessRunner = class {
         ]
       });
       let stdout = "";
-      let stderr = "";
+      let stderr2 = "";
       child.stdout?.on("data", (chunk) => {
         stdout += chunk.toString();
       });
       child.stderr?.on("data", (chunk) => {
-        stderr += chunk.toString();
+        stderr2 += chunk.toString();
       });
       child.on("error", (error) => {
-        resolve2({ stdout, stderr: error.message, code: 127 });
+        resolve3({ stdout, stderr: error.message, code: 127 });
       });
       child.on("close", (code) => {
-        resolve2({ stdout, stderr, code: code ?? 1 });
+        resolve3({ stdout, stderr: stderr2, code: code ?? 1 });
       });
       if (options.input !== void 0) {
         child.stdin?.end(options.input);
@@ -342,11 +348,48 @@ var ProcessRunner = class {
   }
 };
 
+// src/runtime/root.ts
+import { dirname as dirname2, join as join2, resolve as resolve2 } from "node:path";
+import { fileURLToPath } from "node:url";
+var PLANS = "infra/plans";
+async function resolveRoot(env, moduleUrl, exists) {
+  const fromEnv = env.CLAUDE_PROJECT_DIR;
+  if (fromEnv !== void 0 && fromEnv !== "") {
+    if (await exists(join2(fromEnv, PLANS))) {
+      return fromEnv;
+    }
+    throw new Error(
+      `CLAUDE_PROJECT_DIR is "${fromEnv}" but it has no ${PLANS}. Point it at the repository root or unset it.`
+    );
+  }
+  const bundle = fileURLToPath(moduleUrl);
+  const root2 = resolve2(dirname2(bundle), "../..");
+  if (await exists(join2(root2, PLANS))) {
+    return root2;
+  }
+  throw new Error(
+    `Cannot find the repo root: ${bundle} is not at <root>/skills/bin and CLAUDE_PROJECT_DIR is unset. Run the committed skills/bin/harness.mjs or set CLAUDE_PROJECT_DIR to the repository root.`
+  );
+}
+
 // src/main.ts
-process.exitCode = await run(process.argv.slice(2), {
-  runner: new ProcessRunner(),
-  clock: systemClock,
-  fs: nodeFileSystem,
-  stdout: (text) => process.stdout.write(text),
-  stderr: (text) => process.stderr.write(text)
-});
+var stderr = (text) => process.stderr.write(text);
+var root;
+try {
+  process.exitCode = await run(process.argv.slice(2), {
+    runner: new ProcessRunner(),
+    clock: systemClock,
+    fs: nodeFileSystem,
+    root: () => root ??= resolveRoot(
+      process.env,
+      import.meta.url,
+      (path) => nodeFileSystem.exists(path)
+    ),
+    stdout: (text) => process.stdout.write(text),
+    stderr
+  });
+} catch (error) {
+  stderr(`${error instanceof Error ? error.message : String(error)}
+`);
+  process.exitCode = 1;
+}

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { FakeRunner } from "../runtime/runner-support.js";
-import { run, type CliDeps } from "./cli.js";
+import type { CliDeps } from "../runtime/index.js";
+import { run } from "./cli.js";
 
 function harness() {
   const out: string[] = [];
@@ -14,6 +15,7 @@ function harness() {
       exists: () => Promise.resolve(false),
       readdir: () => Promise.resolve([]),
     },
+    root: () => Promise.resolve("/repo"),
     stdout: (text) => out.push(text),
     stderr: (text) => err.push(text),
   };
