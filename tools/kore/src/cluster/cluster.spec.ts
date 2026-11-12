@@ -8,7 +8,7 @@ import {
   clusterStatus,
   clusterStop,
 } from "./cluster.js";
-import { loadRepository } from "../config/index.js";
+import { loadRepository, minikubeCluster } from "../config/index.js";
 import { CommandError, RecordingRunner } from "../runtime/runner.js";
 
 test("cluster start command pins profile, context inputs, runtime, and resources", async () => {
@@ -40,7 +40,7 @@ test("cluster start command pins profile, context inputs, runtime, and resources
 
 test("cluster start omits the service range when none is declared", async () => {
   const { environment } = await loadRepository("local");
-  const { serviceCidr: _drop, ...cluster } = environment.cluster;
+  const { serviceCidr: _drop, ...cluster } = minikubeCluster(environment);
   assert.equal(
     clusterStartArgs({ ...environment, cluster }).includes(
       "--service-cluster-ip-range",

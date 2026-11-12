@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "vitest";
 import { loadRepository, validateRepository } from "./config.js";
+import { minikubeCluster } from "./minikube-cluster.js";
 import type { Environment } from "./types.js";
 
 const k3d = {
@@ -34,7 +35,7 @@ async function k3dMessage(
   return "";
 }
 
-test("a k3d overlay with a cluster block, context, CIDR and port mappings validates", async () => {
+test("a k3d overlay with a k3d block, context, CIDR and port mappings validates", async () => {
   assert.equal(await k3dMessage((e) => e), "");
 });
 
@@ -169,19 +170,53 @@ test("a k3d overlay without a pinned k3s image fails before any cluster is touch
   );
 });
 
-test("a managed overlay validates unchanged and rejects a k3d block", async () => {
+test("a managed overlay still validates and rejects a k3d block", async () => {
   const base = await loadRepository("managed-example");
-  const run = (environment: Environment) =>
-    validateRepository({ ...base, environment });
-  const unchanged = await run(base.environment).then(
-    () => "",
-    (error: Error) => error.message,
-  );
-  assert.doesNotMatch(unchanged, /k3d/);
+  await validateRepository(base);
   await assert.rejects(
-    run({ ...base.environment, k3d } as unknown as Environment),
+    validateRepository({
+      ...base,
+      environment: { ...base.environment, k3d } as unknown as Environment,
+    }),
     /environment\.k3d is only valid when provider is k3d/,
   );
+});
+
+test("a minikube overlay rejects a k3d block", async () => {
+  const base = await loadRepository("local");
+  await assert.rejects(
+    validateRepository({
+      ...base,
+      seeds: { seeds: [] },
+      approved: { images: [] },
+      environment: { ...base.environment, k3d } as unknown as Environment,
+    }),
+    /environment\.k3d is only valid when provider is k3d, not minikube/,
+  );
+});
+
+test("a bad k3d.serviceCidr is reported exactly once", async () => {
+  const message = await k3dMessage((e) => ({
+    ...e,
+    k3d: { ...k3d, serviceCidr: "not-a-cidr" },
+  }));
+  assert.equal(message.split("serviceCidr must be").length - 1, 1);
+});
+
+test("a k3d overlay cannot reach Minikube settings and says so", async () => {
+  const base = await loadRepository("local");
+  const { cluster: _cluster, ...rest } = base.environment;
+  const k3dEnvironment = {
+    ...rest,
+    provider: "k3d",
+    kubeContext: "k3d-kore-local",
+    k3d,
+  } as unknown as Environment;
+  assert.throws(
+    () => minikubeCluster(k3dEnvironment),
+    /environment local has no Minikube cluster settings; it is a k3d overlay/,
+  );
+  assert.equal(minikubeCluster(base.environment).profile, "kore-local");
 });
 
 test("the environment schema accepts k3d, managed and minikube providers", async () => {

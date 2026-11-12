@@ -74,9 +74,9 @@ export interface Environment {
   kubeContext: string;
   /**
    * Minikube settings. Minikube-only: a k3d overlay declares `k3d` instead and
-   * validation rejects this block there (ADR 0083).
+   * validation rejects this block there. Read it through `minikubeCluster`.
    */
-  cluster: {
+  cluster?: {
     profile: string;
     kubernetesVersion: string;
     driver: string;

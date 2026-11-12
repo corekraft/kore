@@ -1,4 +1,5 @@
 import type { Repository } from "../config/index.js";
+import { minikubeCluster } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import type { ImageLockEntry } from "./image-lock.js";
 import {
@@ -56,7 +57,7 @@ export async function publishToLocalRegistry(
     runner.run(
       "minikube",
       minikubeImagePublishArgs(
-        repository.environment.cluster.profile,
+        minikubeCluster(repository.environment).profile,
         imageTag,
         address,
         `${repositoryPath}:kore-local`,

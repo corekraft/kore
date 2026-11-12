@@ -2,6 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Repository } from "../config/index.js";
+import { minikubeCluster } from "../config/index.js";
 import {
   localRegistryReference,
   localSignArgs,
@@ -48,7 +49,7 @@ async function pushProbeCopy(
   await runner.run(
     "minikube",
     minikubeImagePublishArgs(
-      repository.environment.cluster.profile,
+      minikubeCluster(repository.environment).profile,
       copy.source,
       copy.address,
       `${path}:kore-local`,

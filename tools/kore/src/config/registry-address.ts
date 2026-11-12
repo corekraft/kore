@@ -176,7 +176,7 @@ export function registryAddressErrors(repository: Repository): string[] {
     .registry?.address;
   const plan = parseAddress(declared);
   return [
-    ...(cidrText !== undefined && cidr === undefined
+    ...(cidrText !== undefined && cidr === undefined && !k3d
       ? [
           `${cidrField} must be an IPv4 CIDR such as 10.96.0.0/12, got ${cidrText}`,
         ]

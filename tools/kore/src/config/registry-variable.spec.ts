@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { loadRepository, validateRepository } from "./config.js";
+import { minikubeCluster } from "./minikube-cluster.js";
 import { registryPlan } from "./registry-address.js";
 import type { Repository } from "./types.js";
 
@@ -49,7 +50,7 @@ test("a malformed address is rejected", async () => {
 
 test("an in-cluster IP address needs a declared service range", async () => {
   const base = await loadRepository("local");
-  const { serviceCidr: _drop, ...cluster } = base.environment.cluster;
+  const { serviceCidr: _drop, ...cluster } = minikubeCluster(base.environment);
   await assert.rejects(
     validateRepository({
       ...base,
