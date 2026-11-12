@@ -196,14 +196,14 @@ test("cluster lifecycle rejects unmanaged providers and mismatched start profile
   );
   await assert.rejects(
     clusterStop(managed, new RecordingRunner()),
-    /only available for Minikube/,
+    /only available for Minikube and k3d/,
   );
   await assert.rejects(
     clusterDestroy(managed, new RecordingRunner(), {
       yes: true,
       purgeData: true,
     }),
-    /only available for Minikube/,
+    /only available for Minikube and k3d/,
   );
   const mismatched = {
     ...base,

@@ -108,7 +108,9 @@ export async function localDown(
   options: { prune: boolean; purgeData: boolean },
   dependencies: LocalLifecycleDependencies = {},
 ): Promise<void> {
-  assertLocalMinikube(repository);
+  if (repository.environment.provider !== "k3d") {
+    assertLocalMinikube(repository);
+  }
   if (options.purgeData && !options.prune) {
     throw new Error(
       "--purge-data requires --prune; local down only destroys the cluster with --prune",

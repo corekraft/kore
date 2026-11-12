@@ -41,8 +41,9 @@ plan 8.
 - [ ] Keep the readiness wait from ADR 0065 against the k3s API server.
       Progress: `clusterUp` creates or starts the k3d cluster, then runs the
       wait against the configured context; `clusterStatus` and
-      `assertExpectedCluster` handle k3d (#138). Stop and delete follow in
-      their own tickets, which tick this step.
+      `assertExpectedCluster` handle k3d (#138). `clusterStop` and
+      `clusterDestroy` handle k3d with the same consent and data gates (#143);
+      the lifecycle rewrite item ticks with the live proof.
 
 ### Exit Criteria
 

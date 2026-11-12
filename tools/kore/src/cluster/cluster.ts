@@ -8,6 +8,11 @@ import {
   clusterStatusK3d,
   clusterUpK3d,
 } from "./k3d-cluster.js";
+import {
+  clusterStopK3d,
+  deleteK3dCluster,
+  k3dDestroyIsNoop,
+} from "./k3d-lifecycle.js";
 import { purgeRetainedResources, retainedResources } from "./retained.js";
 
 import { ClusterUnavailableError } from "./cluster-unavailable.js";
@@ -171,8 +176,13 @@ export async function clusterStop(
   repository: Repository,
   runner: Runner,
 ): Promise<void> {
+  if (repository.environment.provider === "k3d") {
+    return await clusterStopK3d(repository, runner);
+  }
   if (repository.environment.provider !== "minikube") {
-    throw new Error("cluster stop is only available for Minikube environments");
+    throw new Error(
+      "cluster stop is only available for Minikube and k3d environments",
+    );
   }
   await assertExpectedCluster(repository, runner);
   await runner.run(
@@ -187,10 +197,14 @@ export async function clusterDestroy(
   runner: Runner,
   options: { yes: boolean; purgeData: boolean },
 ): Promise<void> {
-  if (repository.environment.provider !== "minikube") {
+  const { provider } = repository.environment;
+  if (provider !== "minikube" && provider !== "k3d") {
     throw new Error(
-      "cluster destroy is only available for Minikube environments",
+      "cluster destroy is only available for Minikube and k3d environments",
     );
+  }
+  if (provider === "k3d" && (await k3dDestroyIsNoop(repository, runner))) {
+    return;
   }
   let clusterVerified = true;
   try {
@@ -218,6 +232,9 @@ export async function clusterDestroy(
   }
   if (options.purgeData && clusterVerified) {
     await purgeRetainedResources(repository, runner);
+  }
+  if (provider === "k3d") {
+    return await deleteK3dCluster(repository, runner);
   }
   await runner.run(
     "minikube",

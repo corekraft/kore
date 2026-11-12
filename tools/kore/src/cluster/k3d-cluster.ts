@@ -125,7 +125,7 @@ export async function k3dClusterInfo(
 }
 
 /** Runs k3d; a binary that cannot be spawned is the install remedy. */
-async function runK3d(
+export async function runK3d(
   runner: Runner,
   args: readonly string[],
   options: Parameters<Runner["run"]>[2],
@@ -191,7 +191,7 @@ function drift(entry: Record<string, unknown>, cluster: K3dCluster): string[] {
   return differences;
 }
 
-function contextRemedy(clusterName: string): string {
+export function contextRemedy(clusterName: string): string {
   return `set environment.kubeContext to ${k3dContext(clusterName)}; check \`kubectl config get-contexts\` for the contexts this machine has`;
 }
 
@@ -201,7 +201,7 @@ function unavailable(clusterName: string, state: K3dState): Error {
   );
 }
 
-async function listOrUnavailable(
+export async function listOrUnavailable(
   environment: Environment,
   runner: Runner,
 ): Promise<K3dClusterInfo> {
