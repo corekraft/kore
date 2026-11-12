@@ -256,14 +256,14 @@ function headings(markdown) {
       fence = opener === fence ? null : fence ?? opener;
       continue;
     }
-    const text7 = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(line2)?.[1];
-    if (text7 === void 0) {
+    const text8 = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(line2)?.[1];
+    if (text8 === void 0) {
       continue;
     }
-    const base = headingSlug(text7);
-    const count2 = seen.get(base) ?? 0;
-    seen.set(base, count2 + 1);
-    found.push({ text: text7, anchor: count2 > 0 ? `${base}-${count2}` : base });
+    const base = headingSlug(text8);
+    const count3 = seen.get(base) ?? 0;
+    seen.set(base, count3 + 1);
+    found.push({ text: text8, anchor: count3 > 0 ? `${base}-${count3}` : base });
   }
   return found;
 }
@@ -323,7 +323,7 @@ var Adrs = class {
       files: [
         {
           path,
-          lines: body.slice(0, -1).map((text7, i) => ({ number: i + 1, text: text7 }))
+          lines: body.slice(0, -1).map((text8, i) => ({ number: i + 1, text: text8 }))
         },
         { path: INDEX, lines: [{ number: index.line, text: entry2 }] }
       ]
@@ -341,8 +341,8 @@ var Adrs = class {
     return this.fs.readFile(this.abs(INDEX));
   }
   /** Puts the entry before the first later-numbered ADR line, else after the last one. */
-  insert(text7, next, entry2) {
-    const lines2 = text7.split("\n");
+  insert(text8, next, entry2) {
+    const lines2 = text8.split("\n");
     const start = lines2.indexOf("## Decisions");
     if (start === -1) {
       throw new AdrError(
@@ -482,9 +482,9 @@ var Supersession = class {
       files: [
         {
           path: oldAdr.path,
-          lines: changed.map((text7, i) => ({
+          lines: changed.map((text8, i) => ({
             number: oldAdr.statusLine + 1 + i,
-            text: text7
+            text: text8
           }))
         }
       ]
@@ -623,6 +623,8 @@ var MODES = ["audit", "enforce"];
 var KINDS = ["bash", "file", "bash-and-file"];
 var GuardrailError = class extends Error {
 };
+var MissingInventoryError = class extends GuardrailError {
+};
 var FIELDS = ["rule", "kind", "mode", "owner"];
 var RULE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 var fail = (problem) => {
@@ -656,10 +658,10 @@ function entry(raw, index) {
   }
   return fields;
 }
-function parseInventory(text7) {
+function parseInventory(text8) {
   let value;
   try {
-    value = JSON.parse(text7);
+    value = JSON.parse(text8);
   } catch {
     return fail("is not JSON-compatible YAML");
   }
@@ -685,19 +687,37 @@ function auditRuleNames(inventory) {
 }
 
 // src/guardrail/read.ts
+import { dirname as dirname4 } from "node:path";
 async function readInventory(readFile2, root3) {
-  let text7;
+  let text8;
   try {
-    text7 = await readFile2(`${root3}/${INVENTORY_PATH}`);
+    text8 = await readFile2(`${root3}/${INVENTORY_PATH}`);
   } catch (error) {
     if (error.code !== "ENOENT") {
       throw error;
     }
-    throw new GuardrailError(
+    throw new MissingInventoryError(
       `${INVENTORY_PATH} is missing, so no guard rule has a declared mode. Restore it from git, then rerun.`
     );
   }
-  return parseInventory(text7);
+  return parseInventory(text8);
+}
+async function findInventory(readFile2, start) {
+  let dir = start;
+  for (; ; ) {
+    try {
+      return await readInventory(readFile2, dir);
+    } catch (error) {
+      const parent = dirname4(dir);
+      if (!(error instanceof MissingInventoryError)) {
+        throw error;
+      }
+      if (parent === dir) {
+        return await readInventory(readFile2, start);
+      }
+      dir = parent;
+    }
+  }
 }
 
 // src/guardrail/commands.ts
@@ -1422,10 +1442,10 @@ function parseCost(file, cost) {
     }
   };
 }
-function parseHarnessConfig(text7, file) {
+function parseHarnessConfig(text8, file) {
   let value;
   try {
-    value = JSON.parse(text7);
+    value = JSON.parse(text8);
   } catch {
     return { error: `Invalid ${file}: it is not valid JSON. Fix the syntax.` };
   }
@@ -1680,8 +1700,8 @@ function parseEvent(input, mode) {
 // src/ledger/github-poll.ts
 var LIMIT = 1e3;
 var describe2 = (code, stdout, stderr2) => {
-  const text7 = `${stderr2}${stdout}`.trim();
-  return text7 === "" ? `exit code ${code}` : `exit code ${code}: ${text7}`;
+  const text8 = `${stderr2}${stdout}`.trim();
+  return text8 === "" ? `exit code ${code}` : `exit code ${code}: ${text8}`;
 };
 var RATE_LIMITED = /rate limit|HTTP 403|HTTP 429/i;
 async function resetTime(gh) {
@@ -1889,8 +1909,8 @@ var STATUS_KIND = {
   done: "pane.waiting"
 };
 function describe3(code, stdout, stderr2) {
-  const text7 = `${stderr2}${stdout}`.trim();
-  return text7 === "" ? `exit code ${code}` : `exit code ${code}: ${text7}`;
+  const text8 = `${stderr2}${stdout}`.trim();
+  return text8 === "" ? `exit code ${code}` : `exit code ${code}: ${text8}`;
 }
 function toSeen(entry2) {
   if (typeof entry2 !== "object" || entry2 === null) {
@@ -2036,10 +2056,10 @@ var Ledger = class {
     return { ok: true, event };
   }
   async list(filter) {
-    const text7 = await this.read();
+    const text8 = await this.read();
     const events = [];
     let skipped = 0;
-    for (const line2 of text7.split("\n")) {
+    for (const line2 of text8.split("\n")) {
       if (line2 === "") {
         continue;
       }
@@ -2132,15 +2152,15 @@ async function eventInput(context) {
       )
     };
   }
-  const text7 = await context.deps.stdin();
-  if (text7.trim() === "") {
+  const text8 = await context.deps.stdin();
+  if (text8.trim() === "") {
     return {
       error: "No event given. Pass --source, --kind and --occurred-at, or one JSON event on stdin.",
       code: 2
     };
   }
   try {
-    return { input: JSON.parse(text7) };
+    return { input: JSON.parse(text8) };
   } catch {
     return { error: "Invalid event: stdin is not valid JSON." };
   }
@@ -2179,17 +2199,17 @@ var record = {
 };
 function filterFrom(options) {
   const filter = {};
-  const text7 = (name) => {
+  const text8 = (name) => {
     const value = options[name];
     return typeof value === "string" ? value : void 0;
   };
   for (const name of ["session", "pane", "idea"]) {
-    const value = text7(name);
+    const value = text8(name);
     if (value !== void 0) {
       filter[name] = value;
     }
   }
-  const source = text7("source");
+  const source = text8("source");
   if (source !== void 0) {
     if (!SOURCES.includes(source)) {
       return {
@@ -2198,7 +2218,7 @@ function filterFrom(options) {
     }
     filter.source = source;
   }
-  const kind = text7("kind");
+  const kind = text8("kind");
   if (kind !== void 0) {
     if (!KINDS2.includes(kind)) {
       return { error: `Invalid --kind "${kind}". Kinds: ${KINDS2.join(", ")}.` };
@@ -2206,7 +2226,7 @@ function filterFrom(options) {
     filter.kind = kind;
   }
   for (const name of ["since", "until"]) {
-    const value = text7(name);
+    const value = text8(name);
     if (value !== void 0) {
       if (!isTimestamp(value)) {
         return {
@@ -2563,8 +2583,8 @@ var REQUIRED2 = [
   ["safety-pattern", "safetyPattern"],
   ["date", "date"]
 ];
-function frontmatter(text7) {
-  const lines2 = text7.split("\n");
+function frontmatter(text8) {
+  const lines2 = text8.split("\n");
   if (lines2[0] !== "---") {
     return null;
   }
@@ -2580,7 +2600,7 @@ function frontmatter(text7) {
   }
   return null;
 }
-function parseIdea(path, text7) {
+function parseIdea(path, text8) {
   const file = path.slice(path.lastIndexOf("/") + 1);
   const name = IDEA_FILE.exec(file);
   if (name?.[1] === void 0 || name[2] === void 0) {
@@ -2588,7 +2608,7 @@ function parseIdea(path, text7) {
       `${path} is not named NNNN-slug.md; rename it to a four-digit number and a lowercase slug.`
     );
   }
-  const keys = frontmatter(text7);
+  const keys = frontmatter(text8);
   if (keys === null) {
     throw new IdeaError(
       `${path} has no frontmatter; start it with --- and the idea fields (see \`harness idea new --help\`).`
@@ -2601,7 +2621,7 @@ function parseIdea(path, text7) {
     );
   }
   const get = (key) => keys.get(key) ?? "";
-  const heading = /^# Idea \d{4}: (.+)$/m.exec(text7)?.[1];
+  const heading = /^# Idea \d{4}: (.+)$/m.exec(text8)?.[1];
   const record3 = {
     number: name[1],
     slug: name[2],
@@ -2622,16 +2642,16 @@ function parseIdea(path, text7) {
   return record3;
 }
 function scalar(flag, value) {
-  const text7 = (value ?? "").replace(/\s+/g, " ").trim();
-  if (text7 === "") {
+  const text8 = (value ?? "").replace(/\s+/g, " ").trim();
+  if (text8 === "") {
     throw new IdeaError(`Missing --${flag}; pass a non-empty value.`);
   }
-  if (/^[[{|>&*!-]/.test(text7)) {
+  if (/^[[{|>&*!-]/.test(text8)) {
     throw new IdeaError(
-      `--${flag} must not start with "${text7.slice(0, 1)}"; frontmatter holds plain text, so reword it.`
+      `--${flag} must not start with "${text8.slice(0, 1)}"; frontmatter holds plain text, so reword it.`
     );
   }
-  return text7;
+  return text8;
 }
 function renderIdea(number, date, idea) {
   const lines2 = [
@@ -2652,8 +2672,8 @@ function renderIdea(number, date, idea) {
   lines2.push("---", "", `# Idea ${number}: ${idea.title}`, "");
   return lines2.join("\n");
 }
-function withIssue(text7, issue) {
-  const lines2 = text7.split("\n");
+function withIssue(text8, issue) {
+  const lines2 = text8.split("\n");
   const end = lines2.indexOf("---", 1);
   if (lines2[0] !== "---" || end === -1) {
     throw new IdeaError("The idea has no frontmatter to record the issue in.");
@@ -2677,18 +2697,18 @@ function outcomeRange(lines2) {
   const end = lines2.findIndex((l, i) => i > start && /^#{1,2} /.test(l));
   return [start, end === -1 ? lines2.length : end];
 }
-function outcomeSection(text7) {
-  const lines2 = text7.split("\n");
+function outcomeSection(text8) {
+  const lines2 = text8.split("\n");
   const range = outcomeRange(lines2);
   return range === void 0 ? void 0 : lines2.slice(...range).join("\n").replace(/\r/g, "").trim();
 }
-function withoutOutcome(text7) {
-  const lines2 = text7.split("\n");
+function withoutOutcome(text8) {
+  const lines2 = text8.split("\n");
   const range = outcomeRange(lines2);
-  return range === void 0 ? text7 : [...lines2.slice(0, range[0]), ...lines2.slice(range[1])].join("\n").trimEnd();
+  return range === void 0 ? text8 : [...lines2.slice(0, range[0]), ...lines2.slice(range[1])].join("\n").trimEnd();
 }
-function withOutcome(text7, result, section) {
-  const lines2 = text7.split("\n");
+function withOutcome(text8, result, section) {
+  const lines2 = text8.split("\n");
   const end = lines2.indexOf("---", 1);
   if (lines2[0] !== "---" || end === -1) {
     throw new IdeaError(
@@ -2761,20 +2781,20 @@ var IdeaRepository = class {
       const taken = names3.map((n) => Number(n.slice(0, 4)));
       const number = String(Math.max(0, ...taken) + 1).padStart(4, "0");
       const path = `${DIR}/${number}-${slug2}.md`;
-      const text7 = renderIdea(
+      const text8 = renderIdea(
         number,
         this.clock.now().toISOString().slice(0, 10),
         idea
       );
       try {
-        await this.fs.createFile(this.abs(path), text7);
+        await this.fs.createFile(this.abs(path), text8);
       } catch (error) {
         if (error.code === "EEXIST") {
           continue;
         }
         throw error;
       }
-      const record3 = parseIdea(path, text7);
+      const record3 = parseIdea(path, text8);
       await this.ensureIndexed(record3);
       return { created: true, record: record3 };
     }
@@ -2850,12 +2870,12 @@ function addEntry(index, path, summary) {
 // src/idea/sync.ts
 var NOT_FOUND = /could not resolve to an issue|issue .*not found|no issue/i;
 var ISSUE_URL = /https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/issues\/(\d+)/;
-function prose(text7) {
-  const lines2 = withoutOutcome(text7).split("\n");
+function prose(text8) {
+  const lines2 = withoutOutcome(text8).split("\n");
   const at = lines2.findIndex((l) => /^# Idea \d{4}: /.test(l));
   return (at === -1 ? "" : lines2.slice(at + 1).join("\n")).trim();
 }
-function renderBody(record3, text7) {
+function renderBody(record3, text8) {
   const sections = [
     `<!-- Generated by \`harness idea sync\` from ${record3.path}. Edit that file; changes made here are overwritten. -->`,
     `## Summary
@@ -2874,7 +2894,7 @@ ${record3.measurement}`,
 
 ${record3.safetyPattern}`
   ];
-  const extra = prose(text7);
+  const extra = prose(text8);
   if (extra !== "") {
     sections.push(extra);
   }
@@ -2953,8 +2973,8 @@ async function reconcile(gh, record3, body, at) {
   }
   return { action: "updated", issue };
 }
-async function syncIssue(runner, root3, record3, text7, recordLink) {
-  const body = renderBody(record3, text7);
+async function syncIssue(runner, root3, record3, text8, recordLink) {
+  const body = renderBody(record3, text8);
   const gh = async (args, input) => await runner.run("gh", args, {
     cwd: root3,
     ...input === void 0 ? {} : { input }
@@ -3210,9 +3230,9 @@ var ideaCommands = {
 var ENVIRONMENTS = "infra/environments";
 var FlagError = class extends Error {
 };
-function parse(path, text7) {
+function parse(path, text8) {
   try {
-    const value = JSON.parse(text7);
+    const value = JSON.parse(text8);
     if (typeof value === "object" && value !== null && !Array.isArray(value)) {
       return value;
     }
@@ -3253,8 +3273,8 @@ async function readOverlay(fs, root3, environment) {
       `No environment "${environment}" has an overlay at ${path}. Environments: ${(await environments(fs, root3)).join(", ") || "none"}.`
     );
   }
-  const text7 = await fs.readFile(`${root3}/${path}`);
-  const features = parse(path, text7)["features"] ?? {};
+  const text8 = await fs.readFile(`${root3}/${path}`);
+  const features = parse(path, text8)["features"] ?? {};
   const valid = typeof features === "object" && features !== null && Object.values(features).every((v) => typeof v === "boolean");
   if (!valid) {
     throw new FlagError(
@@ -3264,21 +3284,21 @@ async function readOverlay(fs, root3, environment) {
   return {
     environment,
     path,
-    text: text7,
+    text: text8,
     features
   };
 }
-function featuresSpan(text7) {
-  const key = /["']?features["']?\s*:\s*\{/.exec(text7);
+function featuresSpan(text8) {
+  const key = /["']?features["']?\s*:\s*\{/.exec(text8);
   if (key === null) {
     return void 0;
   }
   const open2 = key.index + key[0].length - 1;
   let depth = 0;
-  for (let i = open2; i < text7.length; i++) {
-    if (text7[i] === "{") {
+  for (let i = open2; i < text8.length; i++) {
+    if (text8[i] === "{") {
       depth += 1;
-    } else if (text7[i] === "}") {
+    } else if (text8[i] === "}") {
       depth -= 1;
     }
     if (depth === 0) {
@@ -3298,9 +3318,9 @@ function withFlagOn(overlay, flag) {
     );
   }
   const end = span[0] + entry2.index + entry2[0].length;
-  const text7 = `${overlay.text.slice(0, end - "false".length)}true${overlay.text.slice(end)}`;
-  parse(overlay.path, text7);
-  return text7;
+  const text8 = `${overlay.text.slice(0, end - "false".length)}true${overlay.text.slice(end)}`;
+  parse(overlay.path, text8);
+  return text8;
 }
 
 // src/flag/proof.ts
@@ -3916,9 +3936,9 @@ function listItemSpans(markdown) {
   return items;
 }
 function listItems(markdown) {
-  return listItemSpans(markdown).map(({ heading, text: text7 }) => ({
+  return listItemSpans(markdown).map(({ heading, text: text8 }) => ({
     heading,
-    text: text7
+    text: text8
   }));
 }
 function openItems(markdown) {
@@ -3935,9 +3955,9 @@ function openSteps(markdown) {
   return counts;
 }
 function openCounts(markdown) {
-  return [...openSteps(markdown)].map(([heading, count2]) => ({
+  return [...openSteps(markdown)].map(([heading, count3]) => ({
     step: heading.split(":")[0] ?? heading,
-    count: count2
+    count: count3
   }));
 }
 var FENCE = /^\s*(```|~~~)/;
@@ -4096,8 +4116,8 @@ function trimCommon(edit, lines2) {
 }
 
 // src/plan/plan-edit.ts
-function normalize(text7) {
-  return text7.replace(/\s+/g, " ").trim();
+function normalize(text8) {
+  return text8.replace(/\s+/g, " ").trim();
 }
 function choosePlan(plans, requested) {
   const names3 = Object.keys(plans);
@@ -4180,13 +4200,13 @@ function currentHeading(lines2, markdown) {
   }
   return index;
 }
-function insertion(lines2, heading, text7) {
+function insertion(lines2, heading, text8) {
   const blank = (lines2[heading + 1] ?? "").trim() === "";
   const start = blank ? heading + 2 : heading + 1;
   return {
     start,
     end: start,
-    lines: blank ? [`${NEXT} ${text7}`, ""] : ["", `${NEXT} ${text7}`, ""]
+    lines: blank ? [`${NEXT} ${text8}`, ""] : ["", `${NEXT} ${text8}`, ""]
   };
 }
 function withInsertion(lines2, removed, added) {
@@ -4233,8 +4253,8 @@ var planNext = {
   async run({ json, deps, options }) {
     const raw = options["text"];
     const plan2 = options["plan"];
-    const text7 = typeof raw === "string" ? normalize(raw) : "";
-    if (text7 === "") {
+    const text8 = typeof raw === "string" ? normalize(raw) : "";
+    if (text8 === "") {
       throw new CommandError(
         'Missing --text "<line>": say the first concrete action and any state the files cannot show.'
       );
@@ -4246,7 +4266,7 @@ var planNext = {
       edits: (lines2, markdown) => withInsertion(
         lines2,
         removals(lines2),
-        insertion(lines2, currentHeading(lines2, markdown), text7)
+        insertion(lines2, currentHeading(lines2, markdown), text8)
       ),
       unchanged: `Next: already reads that way`
     });
@@ -4294,8 +4314,8 @@ function totalsEdits(lines2, range, className, date) {
     managed: managed - (lower.startsWith("managed") ? 1 : 0),
     release: release - (lower.startsWith("release") ? 1 : 0)
   };
-  const text7 = `as of ${date}: ${next.local} local, ${next.managed} managed${match[3]}cluster, ${next.release} release${match[5]}pipeline`;
-  const changed = intro.replace(TOTALS, text7).split("\n");
+  const text8 = `as of ${date}: ${next.local} local, ${next.managed} managed${match[3]}cluster, ${next.release} release${match[5]}pipeline`;
+  const changed = intro.replace(TOTALS, text8).split("\n");
   const before2 = intro.split("\n");
   const edits = [];
   for (const [i, line2] of changed.entries()) {
@@ -4377,17 +4397,17 @@ function segmentsOf(raw) {
   pieces.push([from, bodyEnd]);
   let exit = false;
   return pieces.map(([a, b]) => {
-    const text7 = raw.slice(a, b);
-    const start = a + (text7.length - text7.trimStart().length);
-    const end = b - (text7.length - text7.trimEnd().length);
+    const text8 = raw.slice(a, b);
+    const start = a + (text8.length - text8.trimStart().length);
+    const end = b - (text8.length - text8.trimEnd().length);
     const lead = LEAD.exec(raw.slice(start, end))?.[0];
     exit ||= lead !== void 0;
     return { start, end, itemStart: start + (lead?.length ?? 0), exit };
   });
 }
-function words(text7) {
+function words(text8) {
   return new Set(
-    (text7.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => w.length >= 4)
+    (text8.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => w.length >= 4)
   );
 }
 function score(item, segment) {
@@ -4407,17 +4427,17 @@ function lowered(raw, segment) {
   if (parsed < 1) {
     return raw;
   }
-  const count2 = parsed - 1;
-  const shown = /^\d+$/.test(word) ? String(count2) : NUMBERS[count2] ?? word;
-  const noun = count2 === 1 ? "criterion" : "criteria";
+  const count3 = parsed - 1;
+  const shown = /^\d+$/.test(word) ? String(count3) : NUMBERS[count3] ?? word;
+  const noun = count3 === 1 ? "criterion" : "criteria";
   const [, , gap1, gap2, gap3] = lead;
-  const text7 = `and ${shown}${gap1}exit${gap2}${noun}:${gap3}`;
-  return raw.slice(0, segment.start) + text7 + raw.slice(segment.start + lead[0].length);
+  const text8 = `and ${shown}${gap1}exit${gap2}${noun}:${gap3}`;
+  return raw.slice(0, segment.start) + text8 + raw.slice(segment.start + lead[0].length);
 }
 function sharedNote(raw, segments, index) {
   for (const [i, segment] of segments.entries()) {
-    const text7 = raw.slice(segment.itemStart, segment.end);
-    const note = /\([^)]*\b(both|all)\b[^)]*\)/i.exec(text7);
+    const text8 = raw.slice(segment.itemStart, segment.end);
+    const note = /\([^)]*\b(both|all)\b[^)]*\)/i.exec(text8);
     const covered = note?.[1]?.toLowerCase() === "all" || index === i || index === i - 1;
     if (note !== null && covered) {
       return note[0];
@@ -4541,9 +4561,9 @@ function tickEdit(lines2, item) {
     lines: [`- [x]${first.slice(OPEN.length)}`]
   };
 }
-function describe6(file, step, text7, dryRun, changes) {
+function describe6(file, step, text8, dryRun, changes) {
   return renderChanges(
-    `${dryRun ? "Would tick" : "Ticked"} ${step}: ${text7} in ${file}`,
+    `${dryRun ? "Would tick" : "Ticked"} ${step}: ${text8} in ${file}`,
     changes
   );
 }
@@ -4554,9 +4574,9 @@ async function tick(deps, json, item, planOption, dryRun) {
   const lines2 = markdown.split("\n");
   const span = chooseItem(markdown, item);
   const step = span.heading.split(":")[0] ?? span.heading;
-  const text7 = normalize(span.text.slice(OPEN.length));
+  const text8 = normalize(span.text.slice(OPEN.length));
   const date = localDate(deps.clock.now());
-  const lists = listEdits(lines2, step, text7, date);
+  const lists = listEdits(lines2, step, text8, date);
   if ("error" in lists) {
     throw new CommandError(lists.error);
   }
@@ -4570,8 +4590,8 @@ async function tick(deps, json, item, planOption, dryRun) {
     );
   }
   deps.stdout(
-    json ? `${JSON.stringify({ plan: file, item: { step, text: text7 }, dryRun, written: !dryRun, changes })}
-` : describe6(file, step, text7, dryRun, changes)
+    json ? `${JSON.stringify({ plan: file, item: { step, text: text8 }, dryRun, written: !dryRun, changes })}
+` : describe6(file, step, text8, dryRun, changes)
   );
   return 0;
 }
@@ -4619,9 +4639,9 @@ async function readDir(deps, dir) {
     throw error;
   }
 }
-function parseEntries(text7) {
+function parseEntries(text8) {
   const entries = [];
-  for (const line2 of text7.split("\n")) {
+  for (const line2 of text8.split("\n")) {
     try {
       const entry2 = JSON.parse(line2);
       if (entry2 !== null && typeof entry2 === "object") {
@@ -4727,8 +4747,8 @@ function planItems(plans) {
   const result = {};
   for (const name of activePlans(plans)) {
     const items = {};
-    for (const { text: text7 } of listItems(plans[name] ?? "")) {
-      const match = /^- \[( |x)\] (.*)$/.exec(text7);
+    for (const { text: text8 } of listItems(plans[name] ?? "")) {
+      const match = /^- \[( |x)\] (.*)$/.exec(text8);
       if (match === null) {
         continue;
       }
@@ -4828,8 +4848,8 @@ function describeChanges(before2, after, subjects) {
   if (lines2.length === 0) {
     return "";
   }
-  const text7 = `Changed since your last turn: ${lines2.join(" | ")}`;
-  return text7.length <= MAX_CHARS ? text7 : `${text7.slice(0, MAX_CHARS - 3)}...`;
+  const text8 = `Changed since your last turn: ${lines2.join(" | ")}`;
+  return text8.length <= MAX_CHARS ? text8 : `${text8.slice(0, MAX_CHARS - 3)}...`;
 }
 async function prune(currentId, deps) {
   try {
@@ -4874,12 +4894,12 @@ async function update(sessionId, deps) {
 
 // src/hook/io.ts
 async function readPayload(deps) {
-  const text7 = await deps.stdin();
-  if (text7.trim() === "") {
+  const text8 = await deps.stdin();
+  if (text8.trim() === "") {
     return void 0;
   }
   try {
-    return JSON.parse(text7);
+    return JSON.parse(text8);
   } catch {
     return void 0;
   }
@@ -4959,23 +4979,23 @@ function usageOf(raw) {
     if (value.type !== "assistant" || usage2 === void 0) {
       return void 0;
     }
-    const count2 = (key) => {
+    const count3 = (key) => {
       const n = usage2[key];
       return typeof n === "number" && Number.isFinite(n) && n > 0 ? n : 0;
     };
     const id = value.message?.id;
     return {
       ...typeof id === "string" ? { id } : {},
-      tokens: count2("input_tokens") + count2("output_tokens") + count2("cache_creation_input_tokens")
+      tokens: count3("input_tokens") + count3("output_tokens") + count3("cache_creation_input_tokens")
     };
   } catch {
     return void 0;
   }
 }
-function advance(state, text7) {
-  const end = text7.lastIndexOf("\n") + 1;
+function advance(state, text8) {
+  const end = text8.lastIndexOf("\n") + 1;
   let { total, lastId, lastTokens } = state;
-  for (const raw of text7.slice(0, end).split("\n")) {
+  for (const raw of text8.slice(0, end).split("\n")) {
     const usage2 = usageOf(raw);
     if (usage2 === void 0) {
       continue;
@@ -4985,15 +5005,15 @@ function advance(state, text7) {
     lastTokens = usage2.tokens;
   }
   return {
-    offset: state.offset + Buffer.byteLength(text7.slice(0, end)),
+    offset: state.offset + Buffer.byteLength(text8.slice(0, end)),
     total,
     ...lastId === void 0 ? {} : { lastId },
     ...lastTokens === void 0 ? {} : { lastTokens }
   };
 }
-function parseState(text7) {
+function parseState(text8) {
   try {
-    const value = JSON.parse(text7);
+    const value = JSON.parse(text8);
     const { offset, total, lastId, lastTokens } = value;
     return typeof offset === "number" && typeof total === "number" && Number.isSafeInteger(offset) && offset >= 0 && total >= 0 ? {
       offset,
@@ -5680,14 +5700,14 @@ var secretBlock = () => block(
   "Key and token material under .kore/ must not be read or written directly. Instead, use a kore command that streams the secret through stdin, or ask the user to handle it."
 );
 async function loadSopsPatterns(ctx) {
-  let text7;
+  let text8;
   try {
-    text7 = await ctx.readFile(`${ctx.root}/.sops.yaml`);
+    text8 = await ctx.readFile(`${ctx.root}/.sops.yaml`);
   } catch {
     return [];
   }
   const patterns = [];
-  for (const match of text7.matchAll(/path_regex:\s*(.+)$/gm)) {
+  for (const match of text8.matchAll(/path_regex:\s*(.+)$/gm)) {
     const source = match[1].trim().replace(/^['"]|['"]$/g, "");
     try {
       patterns.push(new RegExp(source));
@@ -5702,8 +5722,8 @@ var sopsBlock = (path) => block(
 );
 
 // src/hook/guard-bash.ts
-async function sopsWrite(name, segment, text7, ctx) {
-  const writes = text7.includes(">") || ["tee", "cp", "mv", "sed"].includes(name);
+async function sopsWrite(name, segment, text8, ctx) {
+  const writes = text8.includes(">") || ["tee", "cp", "mv", "sed"].includes(name);
   if (name === "sops" || !writes) {
     return null;
   }
@@ -5719,11 +5739,11 @@ async function checkBashSegment(segment, ctx) {
   if (!name) {
     return null;
   }
-  const text7 = segment.join(" ");
-  if (!SECRET_SAFE.has(name) && !isKore(name, args) && SECRET_PATH.test(text7)) {
+  const text8 = segment.join(" ");
+  if (!SECRET_SAFE.has(name) && !isKore(name, args) && SECRET_PATH.test(text8)) {
     return secretBlock();
   }
-  return await sopsWrite(name, segment, text7, ctx) ?? checkDestructive(name, args) ?? checkContext(name, args) ?? checkNoVerify(name, args) ?? checkIdeaIssueBody(name, args) ?? checkIdeaIssueClose(name, args) ?? checkAppendOnly(name, args, segment, ctx.root);
+  return await sopsWrite(name, segment, text8, ctx) ?? checkDestructive(name, args) ?? checkContext(name, args) ?? checkNoVerify(name, args) ?? checkIdeaIssueBody(name, args) ?? checkIdeaIssueClose(name, args) ?? checkAppendOnly(name, args, segment, ctx.root);
 }
 var UNQUOTED_GLOB = /(?:^|\s)--(include|exclude)=([^\s'"]*\*[^\s'"]*)/;
 function unquotedGlob(command) {
@@ -5737,45 +5757,70 @@ function unquotedGlob(command) {
   );
 }
 function zshWords(command) {
-  const text7 = shellText(command).replace(/\$\(\([^)]*\)\)/g, "");
-  for (const word of rawWords(text7)) {
-    if (word.glob && !word.text.includes("${")) {
-      return warn(
-        "bare-glob",
-        `${word.text} is an unquoted glob; zsh fails the whole command with "no matches found" when it matches no file. Instead, quote it ('${word.text}') unless it must expand, and check that it matches.`
-      );
-    }
-    if (word.equals && !text7.includes("[[")) {
-      return warn(
-        "equals-word",
-        `${word.text} starts with an unquoted =, which zsh expands as a command lookup ("${word.text.slice(1)} not found"). Instead, quote it: '${word.text}'.`
-      );
-    }
-  }
-  return null;
+  const text8 = shellText(command).replace(/\$\(\([^)]*\)\)/g, "");
+  const words2 = rawWords(text8);
+  const glob = words2.find((w) => w.glob && !w.text.includes("${"));
+  const equals = text8.includes("[[") ? void 0 : words2.find((w) => w.equals);
+  return [
+    glob ? warn(
+      "bare-glob",
+      `${glob.text} is an unquoted glob; zsh fails the whole command with "no matches found" when it matches no file. Instead, quote it ('${glob.text}') unless it must expand, and check that it matches.`
+    ) : null,
+    equals ? warn(
+      "equals-word",
+      `${equals.text} starts with an unquoted =, which zsh expands as a command lookup ("${equals.text.slice(1)} not found"). Instead, quote it: '${equals.text}'.`
+    ) : null
+  ];
 }
 async function evaluateBash(command, ctx) {
   const glob = applyMode(unquotedGlob(command), ctx);
-  if (glob?.action === "block") {
-    return glob;
-  }
-  let warning = null;
+  const segments = [];
   for (const segment of splitSegments(command)) {
-    const result = applyMode(await checkBashSegment(segment, ctx), ctx);
-    if (result?.action === "block") {
-      return result;
-    }
-    warning ??= result;
+    segments.push(applyMode(await checkBashSegment(segment, ctx), ctx));
   }
-  return warning ?? glob ?? applyMode(zshWords(command), ctx) ?? allow;
+  const zsh = zshWords(command).map((finding2) => applyMode(finding2, ctx));
+  const found = [glob, ...segments, ...zsh];
+  return found.find((finding2) => finding2?.action === "block") ?? [...segments, glob, ...zsh].find((finding2) => finding2 !== null) ?? allow;
+}
+
+// src/hook/guard-guardrails.ts
+var text6 = (value) => typeof value === "string" ? value : "";
+var ENTRY = /"rule"\s*:\s*"([a-z0-9-]+)"[^}]*?"mode"\s*:\s*"(audit|enforce)"/g;
+var MODE = /"mode"\s*:\s*"(audit|enforce)"/g;
+var modes = (source) => new Map(
+  [...source.matchAll(ENTRY)].map((m) => [m[1], m[2]])
+);
+var count2 = (source, mode) => [...source.matchAll(MODE)].filter((m) => m[1] === mode).length;
+function demoted(previous, after) {
+  const was = modes(previous);
+  const named = [...modes(after)].filter(([rule, mode]) => mode === "audit" && was.get(rule) === "enforce").map(([rule]) => rule);
+  if (named.length > 0) {
+    return named;
+  }
+  const unnamed = was.size === 0 && modes(after).size === 0;
+  return unnamed && count2(after, "audit") > count2(previous, "audit") && count2(previous, "enforce") > count2(after, "enforce") ? ["a rule"] : [];
+}
+function checkGuardrailDemotion(tool, input, relative, previous) {
+  if (relative !== INVENTORY_PATH) {
+    return null;
+  }
+  const after = text6(tool === "Edit" ? input["new_string"] : input["content"]);
+  const rules = demoted(previous, after);
+  if (rules.length === 0) {
+    return null;
+  }
+  return warn(
+    "guardrail-demotion",
+    `${relative} turns ${rules.join(", ")} from enforce to audit by hand. A person approves a guardrail's mode (ADR 0080). Instead, leave the mode and ask the user to approve the change, or promote a rule from audit to enforce.`
+  );
 }
 
 // src/hook/guard-file.ts
-var text6 = (value) => typeof value === "string" ? value : "";
-var written = (tool, input) => text6(tool === "Edit" ? input["new_string"] : input["content"]);
+var text7 = (value) => typeof value === "string" ? value : "";
+var written = (tool, input) => text7(tool === "Edit" ? input["new_string"] : input["content"]);
 async function before(tool, input, relative, ctx, rethrow) {
   if (tool === "Edit") {
-    return text6(input["old_string"]);
+    return text7(input["old_string"]);
   }
   try {
     return await ctx.readFile(`${ctx.root}/${relative}`);
@@ -5879,31 +5924,36 @@ async function checkSopsPath(tool, input, relative, ctx) {
   if (!patterns.some((pattern) => pattern.test(relative))) {
     return null;
   }
-  const encrypted = tool === "Write" && /^sops:/m.test(text6(input["content"]));
+  const encrypted = tool === "Write" && /^sops:/m.test(text7(input["content"]));
   return encrypted ? null : sopsBlock(relative);
 }
 async function checkWrite(tool, input, relative, ctx) {
   if (isAppendOnly(relative)) {
-    return appendOnlyWarn(relative);
+    return applyMode(appendOnlyWarn(relative), ctx) ?? allow;
   }
-  const flagOn = await checkFlagOn(tool, input, relative, ctx);
-  if (IDEA_PATH.test(relative) && HAND_WRITTEN_OUTCOME.test(written(tool, input))) {
-    return ideaOutcomeWarn(relative);
+  const ideaOutcome = IDEA_PATH.test(relative) && HAND_WRITTEN_OUTCOME.test(written(tool, input)) ? ideaOutcomeWarn(relative) : null;
+  const findings2 = [
+    await checkFlagOn(tool, input, relative, ctx),
+    ideaOutcome,
+    await checkSopsPath(tool, input, relative, ctx),
+    await checkCoverageThreshold(tool, input, relative, ctx),
+    checkImageDigest(tool, input, relative),
+    checkGuardrailDemotion(
+      tool,
+      input,
+      relative,
+      relative === INVENTORY_PATH ? await before(tool, input, relative, ctx, false) : ""
+    )
+  ].map((finding2) => applyMode(finding2, ctx)).filter((finding2) => finding2 !== null);
+  const blocked = findings2.find((finding2) => finding2.action === "block");
+  if (blocked) {
+    return blocked;
   }
-  const sops = await checkSopsPath(tool, input, relative, ctx);
-  if (sops !== null) {
-    return sops;
-  }
-  const coverage = await checkCoverageThreshold(tool, input, relative, ctx);
-  if (coverage !== null) {
-    return coverage;
-  }
-  const tagged = checkImageDigest(tool, input, relative);
-  if (flagOn !== null && tagged !== null) {
-    return { ...flagOn, message: `${flagOn.message}
-${tagged.message}` };
-  }
-  return flagOn ?? tagged;
+  const [first, ...rest] = findings2;
+  return first ? {
+    ...first,
+    message: [first, ...rest].map((finding2) => finding2.message).join("\n")
+  } : allow;
 }
 async function evaluateFile(tool, input, relative, ctx) {
   if (SECRET_PATH.test(relative)) {
@@ -5912,7 +5962,7 @@ async function evaluateFile(tool, input, relative, ctx) {
   if (tool === "Read") {
     return allow;
   }
-  return applyMode(await checkWrite(tool, input, relative, ctx), ctx) ?? allow;
+  return await checkWrite(tool, input, relative, ctx);
 }
 
 // src/hook/guard.ts
@@ -5943,7 +5993,7 @@ async function guard(payload, deps) {
   let inventory;
   let problem = "";
   try {
-    inventory = await readInventory(readFile2, root3);
+    inventory = await findInventory(readFile2, root3);
   } catch (error) {
     if (!(error instanceof GuardrailError)) {
       throw error;
@@ -5988,10 +6038,10 @@ import { createHash } from "node:crypto";
 // src/hook/retro-transcript.ts
 var MAX_ERROR = 120;
 var MIN_CORRECTION_WORDS = 4;
-function parseTranscript(id, text7) {
+function parseTranscript(id, text8) {
   const events = [];
   let skipped = 0;
-  text7.split("\n").forEach((raw, index) => {
+  text8.split("\n").forEach((raw, index) => {
     if (raw.trim() === "") {
       return;
     }
@@ -6011,8 +6061,8 @@ var ERROR_WORDS = /\b(errors?|fail(ed|ure|ures)?|fatal|not found|no such|denied|
 var SHELL_PREFIX = /^(\(eval\):\d+:|zsh:|bash:|sh:)/;
 var NOT_OUTPUT_ERROR = /^(- |#|import |export |\|)/;
 var looksLikeError = (line2) => !NOT_OUTPUT_ERROR.test(line2) && (ERROR_WORDS.test(line2) || SHELL_PREFIX.test(line2));
-function summarizeError(text7) {
-  const lines2 = text7.replace(/<\/?tool_use_error>/g, "").split("\n").map((line2) => line2.trim()).filter(Boolean);
+function summarizeError(text8) {
+  const lines2 = text8.replace(/<\/?tool_use_error>/g, "").split("\n").map((line2) => line2.trim()).filter(Boolean);
   let head = lines2[0] ?? "";
   let prefix = "";
   if (/^Exit code \d+$/.test(head)) {
@@ -6052,13 +6102,13 @@ function humanText(event) {
   if (notTyped || event.origin && event.origin.kind !== "human") {
     return null;
   }
-  const text7 = typedText(event.message?.content);
-  return text7.trim() === "" || INJECTED.test(text7) ? null : text7;
+  const text8 = typedText(event.message?.content);
+  return text8.trim() === "" || INJECTED.test(text8) ? null : text8;
 }
 var CORRECTION_WORD = /\b(no|not|dont|don't|don’t|stop|instead|wrong|again|actually|should|never)\b/i;
-var readsAsCorrection = (text7) => CORRECTION_WORD.test(text7);
-var ownWords = (text7) => text7.replace(/<pasted_content[^>]*>[\s\S]*?<\/pasted_content[^>]*>/g, " ").replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, " ");
-var phrasesOf = (text7) => text7.split(/[.!?;\n]+/).map(
+var readsAsCorrection = (text8) => CORRECTION_WORD.test(text8);
+var ownWords = (text8) => text8.replace(/<pasted_content[^>]*>[\s\S]*?<\/pasted_content[^>]*>/g, " ").replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, " ");
+var phrasesOf = (text8) => text8.split(/[.!?;\n]+/).map(
   (part) => part.toLowerCase().replace(/['’`]/g, "").replace(/[^a-z0-9]+/g, " ").trim()
 ).filter((phrase) => phrase.split(" ").length >= MIN_CORRECTION_WORDS);
 function timestamps(session2) {
@@ -6069,7 +6119,7 @@ function timestamps(session2) {
 // src/hook/retro-session.ts
 var GUARD_TAG = /\[guard:([a-z0-9-]+)\]/g;
 var SLASH_COMMAND = /<command-name>\/?([a-z0-9:-]+)<\/command-name>/;
-var tagsIn = (text7) => [...text7.matchAll(GUARD_TAG)].map((match) => match[1] ?? "");
+var tagsIn = (text8) => [...text8.matchAll(GUARD_TAG)].map((match) => match[1] ?? "");
 var SessionAnalysis = class {
   guards = {};
   failures = [];
@@ -6118,12 +6168,12 @@ var SessionAnalysis = class {
   }
   toolFailure(block2) {
     this.failedSinceHuman = true;
-    const text7 = resultText(block2);
-    const tags = new Set(tagsIn(text7));
+    const text8 = resultText(block2);
+    const tags = new Set(tagsIn(text8));
     if (tags.size === 0) {
       this.failures.push({
         tool: this.calls.get(block2.tool_use_id ?? "") ?? "unknown",
-        error: summarizeError(text7)
+        error: summarizeError(text8)
       });
     }
     for (const tag of tags) {
@@ -6141,12 +6191,12 @@ var SessionAnalysis = class {
     }
   }
   human(event) {
-    const text7 = humanText(event);
-    if (text7 === null) {
+    const text8 = humanText(event);
+    if (text8 === null) {
       return;
     }
     this.ordered.push({ kind: "human" });
-    const own2 = ownWords(text7);
+    const own2 = ownWords(text8);
     if (this.failedSinceHuman || readsAsCorrection(own2)) {
       for (const phrase of phrasesOf(own2)) {
         this.phrases.push({ phrase, line: event.line });
@@ -6273,9 +6323,9 @@ var Tally2 = class {
     }
   }
   failures() {
-    return [...this.failureCounts].map(([key, count2]) => {
+    return [...this.failureCounts].map(([key, count3]) => {
       const [tool = "", error = ""] = key.split("\0");
-      return { tool, error, count: count2 };
+      return { tool, error, count: count3 };
     }).sort((a, b) => b.count - a.count).slice(0, 10);
   }
   /** Phrases from the same messages are one correction, so identical evidence merges. */
@@ -6319,7 +6369,7 @@ var Tally2 = class {
   }
 };
 function scan(inputs, { since, knownSkills = [], auditRules: audit3 = [] } = {}) {
-  const included = inputs.map(({ id, text: text7 }) => parseTranscript(id, text7)).map((session2) => ({ session: session2, ...timestamps(session2) })).filter(
+  const included = inputs.map(({ id, text: text8 }) => parseTranscript(id, text8)).map((session2) => ({ session: session2, ...timestamps(session2) })).filter(
     ({ last }) => last !== null && Date.parse(last) >= windowStart(since)
   ).sort((a, b) => (a.first ?? "").localeCompare(b.first ?? ""));
   const tally = new Tally2(audit3, knownSkills);
@@ -6435,9 +6485,9 @@ async function readTranscripts(fs, dirs) {
       (n) => n.endsWith(".jsonl")
     )) {
       const id = basename2(name, ".jsonl");
-      const text7 = await fs.readFile(join10(dir, name));
-      if (text7.length >= (byId.get(id)?.text.length ?? -1)) {
-        byId.set(id, { id, text: text7 });
+      const text8 = await fs.readFile(join10(dir, name));
+      if (text8.length >= (byId.get(id)?.text.length ?? -1)) {
+        byId.set(id, { id, text: text8 });
       }
     }
   }
@@ -6632,11 +6682,11 @@ function addEntry2(stack, indent, body) {
   parent[key] = value;
   return /^[|>]/.test(value) ? indent : null;
 }
-function parseWorkflow(text7) {
+function parseWorkflow(text8) {
   const rootNode = {};
   const stack = [{ indent: -1, node: rootNode }];
   let skipAbove = null;
-  for (const raw of text7.split("\n")) {
+  for (const raw of text8.split("\n")) {
     const line2 = raw.replace(/(^|\s)#.*$/, "");
     const indent = line2.length - line2.trimStart().length;
     if (line2.trim() === "" || skipAbove !== null && indent > skipAbove) {
@@ -6705,8 +6755,8 @@ function jobProblems(file, name, job) {
   }
   return problems;
 }
-function fileProblems(file, text7) {
-  const workflow = parseWorkflow(text7);
+function fileProblems(file, text8) {
+  const workflow = parseWorkflow(text8);
   const problems = [];
   const top = writeScopes(workflow["permissions"]);
   if (top === null || top.length > 0) {
@@ -6730,7 +6780,7 @@ function fileProblems(file, text7) {
 }
 function permissionProblems(files) {
   return Object.entries(files).flatMap(
-    ([file, text7]) => fileProblems(file, text7)
+    ([file, text8]) => fileProblems(file, text8)
   );
 }
 async function workflowProblems(fs, root3) {
@@ -6766,8 +6816,8 @@ function slug(heading) {
 function proseLines(markdown) {
   const lines2 = [];
   let fence = null;
-  markdown.split("\n").forEach((text7, index) => {
-    const opener = /^\s*(```|~~~)/.exec(text7);
+  markdown.split("\n").forEach((text8, index) => {
+    const opener = /^\s*(```|~~~)/.exec(text8);
     if (fence) {
       if (opener && opener[1] === fence) {
         fence = null;
@@ -6778,22 +6828,22 @@ function proseLines(markdown) {
       fence = opener[1] ?? null;
       return;
     }
-    lines2.push({ line: index + 1, text: text7.replace(/`[^`]*`/g, "") });
+    lines2.push({ line: index + 1, text: text8.replace(/`[^`]*`/g, "") });
   });
   return lines2;
 }
 function anchors(markdown) {
   const seen = /* @__PURE__ */ new Map();
   const result = [];
-  for (const { text: text7 } of proseLines(markdown)) {
-    const match = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(text7);
+  for (const { text: text8 } of proseLines(markdown)) {
+    const match = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(text8);
     if (!match) {
       continue;
     }
     const base = slug(match[1] ?? "");
-    const count2 = seen.get(base) ?? 0;
-    seen.set(base, count2 + 1);
-    result.push(count2 ? `${base}-${count2}` : base);
+    const count3 = seen.get(base) ?? 0;
+    seen.set(base, count3 + 1);
+    result.push(count3 ? `${base}-${count3}` : base);
   }
   return result;
 }
@@ -6815,15 +6865,15 @@ function frontmatter2(file, markdown) {
   const keys = /* @__PURE__ */ new Map();
   const errors = [];
   for (let index = 1; index < lines2.length; index++) {
-    const text7 = lines2[index] ?? "";
-    if (text7 === "---") {
+    const text8 = lines2[index] ?? "";
+    if (text8 === "---") {
       return { keys, errors };
     }
-    const match = /^([A-Za-z][\w-]*):\s*(.*)$/.exec(text7);
+    const match = /^([A-Za-z][\w-]*):\s*(.*)$/.exec(text8);
     if (match?.[2] && !/^[[{|>&*!-]/.test(match[2])) {
       keys.set(match[1] ?? "", { value: match[2].trim(), line: index + 1 });
     } else {
-      const key = match ? match[1] : text7.trim();
+      const key = match ? match[1] : text8.trim();
       errors.push(
         finding(
           file,
@@ -7132,9 +7182,9 @@ function ideaNumbers(files) {
   }
   return { ideas, problems };
 }
-function linkProblems2(tree, file, text7) {
+function linkProblems2(tree, file, text8) {
   const problems = [];
-  for (const { line: line2, text: prose2 } of proseLines(text7)) {
+  for (const { line: line2, text: prose2 } of proseLines(text8)) {
     for (const [, raw = ""] of prose2.matchAll(LINK)) {
       if (isExternal(raw)) {
         continue;
@@ -7163,17 +7213,17 @@ function linkProblems2(tree, file, text7) {
 function markdownProblems(tree, ideas) {
   const problems = [];
   for (const file of tree.files.filter((name) => name.endsWith(".md"))) {
-    const text7 = tree.deps.read(file);
-    if (text7 === null) {
+    const text8 = tree.deps.read(file);
+    if (text8 === null) {
       continue;
     }
-    problems.push(...linkProblems2(tree, file, text7));
+    problems.push(...linkProblems2(tree, file, text8));
     if (PLAN.test(file) || ADR2.test(file)) {
       problems.push(
-        ...checkFrontmatter(file, text7, (path) => tree.exists(path))
+        ...checkFrontmatter(file, text8, (path) => tree.exists(path))
       );
     } else if (IDEA.test(file)) {
-      problems.push(...checkIdea(file, text7, ideas));
+      problems.push(...checkIdea(file, text8, ideas));
     }
   }
   return problems;
@@ -7192,11 +7242,11 @@ function indexProblems(tree) {
   }
   const problems = [];
   const listed = /* @__PURE__ */ new Set();
-  for (const { line: line2, text: text7 } of proseLines(index)) {
-    if (!text7.startsWith("- [")) {
+  for (const { line: line2, text: text8 } of proseLines(index)) {
+    if (!text8.startsWith("- [")) {
       continue;
     }
-    const raw = /\]\(([^)\s#]+)/.exec(text7)?.[1];
+    const raw = /\]\(([^)\s#]+)/.exec(text8)?.[1];
     if (raw === void 0 || isExternal(raw)) {
       continue;
     }
@@ -7234,11 +7284,11 @@ var TRAILING = /[.,;:)]+$/;
 function markerProblems(tree) {
   const problems = [];
   for (const file of tree.files.filter((name) => !name.endsWith(".md"))) {
-    const text7 = tree.deps.read(file);
-    if (text7 === null) {
+    const text8 = tree.deps.read(file);
+    if (text8 === null) {
       continue;
     }
-    text7.split("\n").forEach((line2, position) => {
+    text8.split("\n").forEach((line2, position) => {
       const match = MARKER.exec(line2);
       if (!match) {
         return;
@@ -7338,19 +7388,19 @@ function dependenciesOf(deps) {
     paths.add(path);
   };
   for (const file of files) {
-    const text7 = deps.read(file);
-    if (text7 === null) {
+    const text8 = deps.read(file);
+    if (text8 === null) {
       continue;
     }
     if (PLAN.test(file) || ADR2.test(file)) {
-      for (const target of linkTargets(file, text7)) {
+      for (const target of linkTargets(file, text8)) {
         depend(file, target);
       }
     }
     if (file.endsWith(".md")) {
       continue;
     }
-    for (const line2 of text7.split("\n")) {
+    for (const line2 of text8.split("\n")) {
       const path = (MARKER.exec(line2)?.[2] ?? "").replace(/[.,;:)]+$/, "");
       if (PLAN.test(path) || ADR2.test(path)) {
         depend(path, file);
@@ -7359,9 +7409,9 @@ function dependenciesOf(deps) {
   }
   return dependencies;
 }
-function linkTargets(file, text7) {
+function linkTargets(file, text8) {
   const targets = [];
-  for (const { text: prose2 } of proseLines(text7)) {
+  for (const { text: prose2 } of proseLines(text8)) {
     for (const [, raw = ""] of prose2.matchAll(LINK)) {
       const [pathPart] = raw.split("#", 1);
       const target = isExternal(raw) || !pathPart ? null : resolve5(file, decodeURI(pathPart));
@@ -7507,8 +7557,8 @@ function overBudgets(descriptionChars, bodyLines) {
 function countLines(body) {
   return body === "" ? 0 : body.replace(/\n$/, "").split("\n").length;
 }
-function auditSkill(directory, text7) {
-  const source = text7.replaceAll("\r\n", "\n");
+function auditSkill(directory, text8) {
+  const source = text8.replaceAll("\r\n", "\n");
   if (!source.startsWith("---\n")) {
     return invalid(directory, "missing frontmatter");
   }
@@ -8225,8 +8275,8 @@ async function launch(deps, { role, model, effort, name, brief, paneId, callerPa
 var DEFAULT_TIMEOUT_MS = 60 * 60 * 1e3;
 var POLL_MS = 2e3;
 var MARKER2 = /^[ \t]*(?:[●⏺][ \t]+)?RESULT: (done|blocked)[ \t\r]*$/gm;
-function findResult(text7) {
-  const last = [...text7.matchAll(MARKER2)].at(-1)?.[1];
+function findResult(text8) {
+  const last = [...text8.matchAll(MARKER2)].at(-1)?.[1];
   return last === "done" || last === "blocked" ? last : void 0;
 }
 function parseTimeout(value) {
@@ -8552,9 +8602,9 @@ var equalizeCommand = {
 `);
       return 1;
     }
-    const text7 = result.status === "skipped" ? `Skipped: ${result.reason}.` : "Equalized.";
+    const text8 = result.status === "skipped" ? `Skipped: ${result.reason}.` : "Equalized.";
     deps.stdout(json ? `${JSON.stringify(result)}
-` : `${text7}
+` : `${text8}
 `);
     return 0;
   }
@@ -8746,7 +8796,7 @@ async function run2(argv, deps) {
 }
 
 // src/main.ts
-var stderr = (text7) => process.stderr.write(text7);
+var stderr = (text8) => process.stderr.write(text8);
 var root2;
 try {
   process.exitCode = await run2(process.argv.slice(2), {
@@ -8762,7 +8812,7 @@ try {
       import.meta.url,
       (path) => nodeFileSystem.exists(path)
     ),
-    stdout: (text7) => process.stdout.write(text7),
+    stdout: (text8) => process.stdout.write(text8),
     stderr
   });
 } catch (error) {

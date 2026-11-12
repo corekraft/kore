@@ -94,6 +94,7 @@ describe("the committed inventory", () => {
       "bare-glob",
       "equals-word",
       "flag-activation",
+      "guardrail-demotion",
       "idea-issue-body",
       "idea-issue-close",
       "idea-outcome",

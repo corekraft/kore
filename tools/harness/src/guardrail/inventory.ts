@@ -26,6 +26,9 @@ export interface Inventory {
 
 export class GuardrailError extends Error {}
 
+/** The inventory file is absent, as opposed to present and invalid. */
+export class MissingInventoryError extends GuardrailError {}
+
 const FIELDS = ["rule", "kind", "mode", "owner"];
 const RULE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 

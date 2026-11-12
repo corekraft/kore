@@ -4,13 +4,17 @@
 // Contract: reads the tool call as JSON on stdin. Exit 2 with the reason on
 // stderr blocks the call. A warning is returned as additionalContext. Malformed
 // input fails open, because a broken guard must not stop all work.
+//
+// The root is CLAUDE_PROJECT_DIR, else the payload's cwd. The guardrail
+// inventory (.claude/guardrails.yaml) is found from that root, walking up
+// through its parents when the root is a subdirectory of the repository.
 import { evaluateBash } from "./guard-bash.js";
 import { evaluateFile } from "./guard-file.js";
 import { allow, type GuardContext, type Verdict } from "./guard-verdict.js";
 import {
   GuardrailError,
   modeOf,
-  readInventory,
+  findInventory,
   type Inventory,
 } from "../guardrail/index.js";
 import type { Call } from "./feedback.js";
@@ -72,7 +76,7 @@ export async function guard(
   let inventory: Inventory | undefined;
   let problem = "";
   try {
-    inventory = await readInventory(readFile, root);
+    inventory = await findInventory(readFile, root);
   } catch (error) {
     if (!(error instanceof GuardrailError)) {
       throw error;

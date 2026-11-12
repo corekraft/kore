@@ -15,6 +15,7 @@
     { "rule": "idea-issue-body", "kind": "bash", "mode": "audit", "owner": "tools/harness/src/hook/guard-commands.ts" },
     { "rule": "idea-issue-close", "kind": "bash", "mode": "audit", "owner": "tools/harness/src/hook/guard-commands.ts" },
     { "rule": "bare-glob", "kind": "bash", "mode": "audit", "owner": "tools/harness/src/hook/guard-bash.ts" },
-    { "rule": "equals-word", "kind": "bash", "mode": "audit", "owner": "tools/harness/src/hook/guard-bash.ts" }
+    { "rule": "equals-word", "kind": "bash", "mode": "audit", "owner": "tools/harness/src/hook/guard-bash.ts" },
+    { "rule": "guardrail-demotion", "kind": "file", "mode": "audit", "owner": "tools/harness/src/hook/guard-guardrails.ts" }
   ]
 }
