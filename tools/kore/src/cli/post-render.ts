@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Docs: docs/decisions/0088-declarative-probe-patches-through-a-helm-post-renderer.md
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import type { ProbePatch } from "../config/index.js";
 import { applyProbePatches } from "../platform/patches.js";
@@ -22,7 +22,20 @@ export function postRender(manifests: string, args: string[]): string {
   return applyProbePatches(manifests, patches as ProbePatch[]);
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+// Node resolves import.meta.url to the real path, so a symlinked checkout needs
+// the same resolution for argv[1], or the entry would write nothing and exit 0.
+function isEntry(): boolean {
+  try {
+    return (
+      import.meta.url ===
+      pathToFileURL(realpathSync(process.argv[1] ?? "")).href
+    );
+  } catch {
+    return false;
+  }
+}
+
+if (isEntry()) {
   try {
     process.stdout.write(
       postRender(readFileSync(0, "utf8"), process.argv.slice(2)),

@@ -1,4 +1,4 @@
-import type { ProbePatch } from "../config/index.js";
+import { probeNames, type ProbePatch } from "../config/index.js";
 
 // Docs: docs/decisions/0088-declarative-probe-patches-through-a-helm-post-renderer.md
 
@@ -16,8 +16,7 @@ import type { ProbePatch } from "../config/index.js";
 
 export type { ProbePatch };
 
-const probeNames = ["livenessProbe", "readinessProbe", "startupProbe"] as const;
-type ProbeName = (typeof probeNames)[number];
+type ProbeName = "livenessProbe" | "readinessProbe" | "startupProbe";
 
 const indentOf = (line: string) => line.length - line.trimStart().length;
 const blank = (line: string) => line.trim() === "";
@@ -148,7 +147,7 @@ function patchDocument(doc: string[], patch: ProbePatch): boolean {
     if (own === undefined || unquote(own) !== patch.target.container) {
       continue;
     }
-    for (const probe of probeNames) {
+    for (const probe of probeNames as ProbeName[]) {
       const fields = patch.probes[probe];
       if (fields) {
         setFields(item, probe, fields, dash, describe(patch));
