@@ -1,0 +1,7 @@
+{
+  "cost": {
+    "trailingIdeas": 5,
+    "tokensPerIdea": { "maxIncrease": 0.25 },
+    "sessionsPerIdea": { "maxIncrease": 0.25 }
+  }
+}
