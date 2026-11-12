@@ -277,3 +277,47 @@ describe("role-read-only: the judge precheck", () => {
     allowed(await bash("judge", "grep export README.md"));
   });
 });
+
+describe("role-read-only: the judge and orchestrator run plain commands only", () => {
+  const H = "node skills/bin/harness.mjs judge precheck 42";
+  const SHELL_FORMS = [
+    `( export KORE_ROOT=/x; ${H} )`,
+    `(export KORE_ROOT=/x; ${H})`,
+    `{ export KORE_ROOT=/x; ${H}; }`,
+    `echo $(KORE_ROOT=/x ${H})`,
+    `echo \`${H}\``,
+    `cat <(${H})`,
+    `eval 'export KORE_ROOT=/x'; ${H}`,
+    `builtin export KORE_ROOT=/x; ${H}`,
+    `bash -c 'KORE_ROOT=/x ${H}'`,
+    `sh -c 'KORE_ROOT=/x ${H}'`,
+    `zsh -c 'KORE_ROOT=/x ${H}'`,
+    `echo 42 | xargs env KORE_ROOT=/x node skills/bin/harness.mjs judge precheck`,
+    `timeout 5 env KORE_ROOT=/x ${H}`,
+    `nice ${H}`,
+    `if true; then export KORE_ROOT=/x; fi; ${H}`,
+    `! export KORE_ROOT=/x; ${H}`,
+    `for i in 1; do export KORE_ROOT=/x; done; ${H}`,
+    `while true; do ${H}; done`,
+  ];
+
+  for (const role of ["judge", "orchestrator"]) {
+    it(`${role}: every shell form that could hide an environment change is blocked`, async () => {
+      for (const command of SHELL_FORMS) {
+        blocked(await bash(role, command), "role-read-only");
+      }
+    });
+  }
+
+  it("ordinary judge commands still pass", async () => {
+    for (const command of [
+      `${H} --reviewer r --json`,
+      "node skills/bin/harness.mjs ledger list",
+      "gh pr view 42 --json body",
+      "git log --oneline -5",
+      "gh pr checks 42 && git status",
+    ]) {
+      allowed(await bash("judge", command));
+    }
+  });
+});

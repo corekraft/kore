@@ -6,6 +6,8 @@ import { isAbsolute, relative, resolve } from "node:path";
 import {
   changesShell,
   harnessAllowed,
+  SUBSTITUTION,
+  wrapsCommands,
   HARNESS,
   PREFIXED,
   readOnly,
@@ -149,6 +151,15 @@ export function checkDeliveryBash(
     return noMerge(role, `\`${merging.join(" ")}\``);
   }
   if (REPORTING_ROLES.has(role)) {
+    if (SUBSTITUTION.test(command)) {
+      return readOnly("A command or process substitution");
+    }
+    const wrapping = segments.find(wrapsCommands);
+    if (wrapping !== undefined) {
+      return readOnly(
+        `\`${wrapping.join(" ")}\`, which wraps or launches other commands,`,
+      );
+    }
     // A variable such as KORE_ROOT moves where the harness writes, past its allowlist.
     const prefixed = segments.find(
       (s) => PREFIXED.test(s[0] ?? "") || changesShell(s),

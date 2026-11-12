@@ -5,7 +5,7 @@ var CommandError = class extends Error {
 // src/runtime/clock.ts
 var systemClock = {
   now: () => /* @__PURE__ */ new Date(),
-  sleep: (ms) => new Promise((resolve10) => setTimeout(resolve10, ms))
+  sleep: (ms) => new Promise((resolve11) => setTimeout(resolve11, ms))
 };
 function localDate(date) {
   const two = (n) => String(n).padStart(2, "0");
@@ -102,9 +102,10 @@ var nodeFileSystem = {
 import { spawn } from "node:child_process";
 var ProcessRunner = class {
   async run(command, args, options = {}) {
-    return await new Promise((resolve10) => {
+    return await new Promise((resolve11) => {
       const child = spawn(command, [...args], {
         ...options.cwd === void 0 ? {} : { cwd: options.cwd },
+        ...options.env === void 0 ? {} : { env: options.env },
         stdio: [
           options.input === void 0 ? "ignore" : "pipe",
           "pipe",
@@ -120,10 +121,10 @@ var ProcessRunner = class {
         stderr2 += chunk.toString();
       });
       child.on("error", (error) => {
-        resolve10({ stdout, stderr: error.message, code: 127 });
+        resolve11({ stdout, stderr: error.message, code: 127 });
       });
       child.on("close", (code) => {
-        resolve10({ stdout, stderr: stderr2, code: code ?? 1 });
+        resolve11({ stdout, stderr: stderr2, code: code ?? 1 });
       });
       if (options.input !== void 0) {
         child.stdin?.end(options.input);
@@ -134,6 +135,18 @@ var ProcessRunner = class {
 
 // src/runtime/main-root.ts
 import { dirname as dirname2, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+// src/testing/git-env.ts
+function cleanGitEnv(env = process.env) {
+  return Object.fromEntries(
+    Object.entries(env).filter(
+      (entry2) => entry2[1] !== void 0 && !entry2[0].startsWith("GIT_")
+    )
+  );
+}
+
+// src/runtime/main-root.ts
 async function mainRoot(deps) {
   const checkout = await deps.root().catch(() => void 0);
   const override = deps.env["KORE_ROOT"];
@@ -151,10 +164,23 @@ async function mainRoot(deps) {
   const common = git3.stdout.trim();
   return git3.code === 0 && common !== "" ? dirname2(common) : void 0;
 }
+async function bundleMainRoot(deps) {
+  if (deps.bundleUrl === void 0) {
+    return void 0;
+  }
+  const checkout = resolve(dirname2(fileURLToPath(deps.bundleUrl)), "../..");
+  const git3 = await deps.runner.run(
+    "git",
+    ["rev-parse", "--path-format=absolute", "--git-common-dir"],
+    { cwd: checkout, env: cleanGitEnv(deps.env) }
+  );
+  const common = git3.stdout.trim();
+  return git3.code === 0 && common !== "" ? dirname2(common) : void 0;
+}
 
 // src/runtime/root.ts
 import { dirname as dirname3, join, resolve as resolve2 } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath as fileURLToPath2 } from "node:url";
 var PLANS = "infra/plans";
 async function resolveRoot(env, moduleUrl, exists) {
   const fromEnv = env.CLAUDE_PROJECT_DIR;
@@ -166,7 +192,7 @@ async function resolveRoot(env, moduleUrl, exists) {
       `CLAUDE_PROJECT_DIR is "${fromEnv}" but it has no ${PLANS}. Point it at the repository root or unset it.`
     );
   }
-  const bundle = fileURLToPath(moduleUrl);
+  const bundle = fileURLToPath2(moduleUrl);
   const root3 = resolve2(dirname3(bundle), "../..");
   if (await exists(join(root3, PLANS))) {
     return root3;
@@ -4761,6 +4787,9 @@ var statusCommand = {
   }
 };
 
+// src/cli/judge-commands.ts
+import { resolve as resolve4 } from "node:path";
+
 // src/judge/declaration.ts
 var PATTERNS = [
   "no-behaviour-change",
@@ -5216,20 +5245,31 @@ function prNumber(operand) {
   }
   return Number(operand);
 }
-async function record2(context2, report3) {
-  const opened = await openLedger(context2);
-  if ("error" in opened) {
-    throw new JudgeError(opened.error);
+async function openJudgeLedger({ deps }) {
+  const main = await bundleMainRoot(deps);
+  if (main === void 0) {
+    throw new JudgeError(
+      "Cannot find the main checkout from the harness bundle's location, so there is no ledger to record to. Run the committed skills/bin/harness.mjs from inside the repository."
+    );
   }
+  return new Ledger(
+    deps.fs,
+    deps.clock,
+    deps.ids,
+    resolve4(main, DEFAULT_LEDGER)
+  );
+}
+async function record2(context2, report3) {
+  const ledger = await openJudgeLedger(context2);
   const { deps } = context2;
   const idea = report3.idea;
   const label = `${report3.pattern ?? "none"}:${report3.ok ? "pass" : "fail"}`;
-  const logged = await opened.ledger.list({ kind: "precheck" });
+  const logged = await ledger.list({ kind: "precheck" });
   const newest = logged.events.filter((e) => e.number === report3.pr).at(-1);
   if (newest?.label === label) {
     return;
   }
-  const event = await opened.ledger.record({
+  const event = await ledger.record({
     source: "github",
     kind: "precheck",
     occurredAt: deps.clock.now().toISOString(),
@@ -6827,10 +6867,10 @@ ${extra.message}`,
 }
 
 // src/hook/guard-role.ts
-import { isAbsolute as isAbsolute2, relative as relative2, resolve as resolve5 } from "node:path";
+import { isAbsolute as isAbsolute2, relative as relative2, resolve as resolve6 } from "node:path";
 
 // src/hook/guard-role-delivery.ts
-import { isAbsolute, relative, resolve as resolve4 } from "node:path";
+import { isAbsolute, relative, resolve as resolve5 } from "node:path";
 
 // src/hook/guard-role-writes.ts
 var WRITE_TOOLS = /* @__PURE__ */ new Set(["Write", "Edit", "NotebookEdit"]);
@@ -6904,6 +6944,51 @@ var SHELL_STATE = /* @__PURE__ */ new Set([
   "."
 ]);
 var changesShell = (segment) => SHELL_STATE.has(segment[0] ?? "");
+var SUBSTITUTION = /\$\(|`|<\(|>\(/;
+var RUNS_OTHERS = /* @__PURE__ */ new Set([
+  "eval",
+  "builtin",
+  "bash",
+  "sh",
+  "zsh",
+  "dash",
+  "ksh",
+  "fish",
+  "xargs",
+  "timeout",
+  "nice",
+  "ionice",
+  "setsid",
+  "stdbuf",
+  "watch",
+  "parallel",
+  "doas",
+  "su",
+  "chroot"
+]);
+var CONSTRUCT_WORDS = /* @__PURE__ */ new Set([
+  "if",
+  "then",
+  "elif",
+  "else",
+  "fi",
+  "for",
+  "while",
+  "until",
+  "do",
+  "done",
+  "case",
+  "esac",
+  "select",
+  "function",
+  "!",
+  "[[",
+  "coproc"
+]);
+var wrapsCommands = (segment) => {
+  const first = segment[0] ?? "";
+  return /^[({]/.test(first) || RUNS_OTHERS.has(first) || CONSTRUCT_WORDS.has(first);
+};
 var HARNESS2 = /^(\.\/)?skills\/bin\/harness\.mjs$/;
 var namesLedger = (args) => args.some((arg) => arg === "--ledger" || arg.startsWith("--ledger="));
 var harnessAllowed = (name, args, allowed) => name === "node" && HARNESS2.test(args[0] ?? "") && !namesLedger(args) && allowed.includes(`${args[1] ?? ""} ${args[2] ?? ""}`);
@@ -6969,7 +7054,7 @@ function outside(root3, path) {
   if (path.startsWith("~")) {
     return true;
   }
-  const full = resolve4(root3, path);
+  const full = resolve5(root3, path);
   const from = relative(root3, full);
   const within = from === "" || !from.startsWith("..") && !isAbsolute(from);
   return !within && !SCRATCH.some((dir) => full.startsWith(dir) || `${full}/` === dir);
@@ -6992,6 +7077,15 @@ function checkDeliveryBash(role, command, root3) {
     return noMerge(role, `\`${merging.join(" ")}\``);
   }
   if (REPORTING_ROLES.has(role)) {
+    if (SUBSTITUTION.test(command)) {
+      return readOnly("A command or process substitution");
+    }
+    const wrapping = segments.find(wrapsCommands);
+    if (wrapping !== void 0) {
+      return readOnly(
+        `\`${wrapping.join(" ")}\`, which wraps or launches other commands,`
+      );
+    }
     const prefixed = segments.find(
       (s) => PREFIXED.test(s[0] ?? "") || changesShell(s)
     );
@@ -7038,7 +7132,7 @@ var NO_CODE_ROLES = /* @__PURE__ */ new Set(["concierge", "challenger"]);
 var FILE_TOOLS = /* @__PURE__ */ new Set(["Read", "Grep", "Glob"]);
 var CONCIERGE_PATHS = /^(infra\/plans\/|docs\/|GLOSSARY\.md$|README\.md$)/;
 function insideRoot(root3, path) {
-  const from = relative2(root3, resolve5(root3, path));
+  const from = relative2(root3, resolve6(root3, path));
   return from.startsWith("..") || isAbsolute2(from) ? void 0 : from;
 }
 function readable(root3, input) {
@@ -7897,7 +7991,7 @@ var context = hookCommand(
 );
 
 // src/hook/delta-deps.ts
-import { join as join10, resolve as resolve6 } from "node:path";
+import { join as join10, resolve as resolve7 } from "node:path";
 var JOURNAL_DIR2 = ".kore/state/journal";
 var LOCKS_DIR = ".kore/locks";
 function gitReader(deps, root3) {
@@ -7949,7 +8043,7 @@ async function readJournals2(deps, root3) {
   return journals;
 }
 function snapshotStore(deps, git3, root3) {
-  const dir = async () => join10(resolve6(root3, await git3("rev-parse", "--git-dir")), "kore-delta");
+  const dir = async () => join10(resolve7(root3, await git3("rev-parse", "--git-dir")), "kore-delta");
   const file = async (id) => join10(await dir(), `${id}.json`);
   return {
     async readSnapshot(id) {
@@ -8740,7 +8834,7 @@ function anchors(markdown) {
   }
   return result;
 }
-function resolve7(from, target) {
+function resolve8(from, target) {
   const joined = posix.normalize(posix.join(posix.dirname(from), target));
   if (joined === ".." || joined.startsWith("../")) {
     return null;
@@ -9083,7 +9177,7 @@ function linkProblems2(tree, file, text10) {
         continue;
       }
       const [pathPart = "", anchor] = raw.split("#", 2);
-      const target = pathPart ? resolve7(file, decodeURI(pathPart)) : file;
+      const target = pathPart ? resolve8(file, decodeURI(pathPart)) : file;
       if (target === null || !tree.exists(target)) {
         problems.push(
           finding(
@@ -9143,7 +9237,7 @@ function indexProblems(tree) {
     if (raw === void 0 || isExternal(raw)) {
       continue;
     }
-    const target = resolve7(INDEX3, decodeURI(raw));
+    const target = resolve8(INDEX3, decodeURI(raw));
     if (target) {
       listed.add(target);
     }
@@ -9307,7 +9401,7 @@ function linkTargets(file, text10) {
   for (const { text: prose2 } of proseLines(text10)) {
     for (const [, raw = ""] of prose2.matchAll(LINK)) {
       const [pathPart] = raw.split("#", 1);
-      const target = isExternal(raw) || !pathPart ? null : resolve7(file, decodeURI(pathPart));
+      const target = isExternal(raw) || !pathPart ? null : resolve8(file, decodeURI(pathPart));
       if (target !== null) {
         targets.push(target);
       }
@@ -9813,7 +9907,7 @@ function fail3(deps, json, code, message) {
 }
 
 // src/session/registry.ts
-import { join as join16, resolve as resolve8 } from "node:path";
+import { join as join16, resolve as resolve9 } from "node:path";
 var STATE_DIR = ".kore/state/sessions";
 function isRecord(value) {
   if (typeof value !== "object" || value === null) {
@@ -9837,7 +9931,7 @@ var SessionRegistry = class _SessionRegistry {
         "Cannot find the main checkout to keep session state in. Run inside the repository or set KORE_ROOT to its root."
       );
     }
-    return new _SessionRegistry(deps.fs, resolve8(main, STATE_DIR));
+    return new _SessionRegistry(deps.fs, resolve9(main, STATE_DIR));
   }
   file(name) {
     return join16(this.dir, `${name}.json`);
@@ -10702,7 +10796,7 @@ function own(table, key) {
 function names2(commands) {
   return Object.keys(commands).join(", ");
 }
-function resolve9(domain, name) {
+function resolve10(domain, name) {
   const commands = own(domains, domain);
   if (commands === void 0) {
     return {
@@ -10802,7 +10896,7 @@ async function run2(argv, deps) {
       failure2
     );
   }
-  const resolved = resolve9(domain, name);
+  const resolved = resolve10(domain, name);
   if ("error" in resolved) {
     return fail4(deps, json, resolved.error, failure2);
   }
@@ -10827,6 +10921,7 @@ try {
     clock: systemClock,
     fs: nodeFileSystem,
     ids: systemIds,
+    bundleUrl: import.meta.url,
     env: process.env,
     cwd: process.cwd(),
     stdin: () => readStdin(process.stdin),

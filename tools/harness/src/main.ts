@@ -18,6 +18,7 @@ try {
     clock: systemClock,
     fs: nodeFileSystem,
     ids: systemIds,
+    bundleUrl: import.meta.url,
     env: process.env,
     cwd: process.cwd(),
     stdin: () => readStdin(process.stdin),

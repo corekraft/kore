@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { run } from "./cli.js";
 import { testHarness } from "./cli-support.js";
+import { BUNDLE } from "./judge-support.js";
 import type { FakeResponse } from "../runtime/runner-support.js";
 
 const URL = "https://github.com/corekraft/kore/actions/runs/9/job/1";
@@ -19,9 +20,13 @@ function pr(overrides: Record<string, unknown>, runView?: FakeResponse) {
     comments: [],
     ...overrides,
   };
-  return testHarness({
-    env: { KORE_ROOT: "/repo" },
+  const h = testHarness({
+    env: {},
     responses: [
+      {
+        match: (c, a) => c === "git" && a.includes("--git-common-dir"),
+        result: { stdout: "/repo/.git\n" },
+      },
       {
         match: (c, a) => c === "gh" && a[1] === "view" && a[0] === "pr",
         result: { stdout: JSON.stringify(view) },
@@ -33,6 +38,8 @@ function pr(overrides: Record<string, unknown>, runView?: FakeResponse) {
       ...(runView === undefined ? [] : [runView]),
     ],
   });
+  h.deps.bundleUrl = BUNDLE;
+  return h;
 }
 
 const view = (result: FakeResponse["result"]): FakeResponse => ({

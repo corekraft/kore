@@ -2,6 +2,8 @@ import { run } from "./cli.js";
 import { testHarness } from "./cli-support.js";
 import type { FakeResponse } from "../runtime/runner-support.js";
 
+/** Where the harness bundle sits in the fake checkout; the judge finds the ledger from here. */
+export const BUNDLE = "file:///repo/skills/bin/harness.mjs";
 export const LEDGER = "/repo/.kore/state/ledger.jsonl";
 export const RUN_URL =
   "https://github.com/corekraft/kore/actions/runs/777/job/1";
@@ -18,6 +20,7 @@ export interface Scenario {
   comments?: Comment[];
   committedAt?: string;
   headSha?: string;
+  env?: Record<string, string>;
   steps?: { name: string; conclusion: string }[];
   diff?: string;
   git?: boolean;
@@ -51,9 +54,14 @@ export const REVIEW_OK: Comment = { body: "principles-review: No violations." };
 
 export function scenario(s: Scenario = {}) {
   const responses: FakeResponse[] = [
-    ...(s.git === false
-      ? [{ match: (c: string) => c === "git", result: { code: 128 } }]
-      : []),
+    {
+      match: (c: string, a: readonly string[]) =>
+        c === "git" && a.includes("--git-common-dir"),
+      result:
+        s.git === false
+          ? { code: 128, stderr: "fatal: not a git repository" }
+          : { stdout: "/repo/.git\n" },
+    },
     {
       match: (c, a) => c === "gh" && a[0] === "pr" && a[1] === "view",
       result: {
@@ -94,10 +102,9 @@ export function scenario(s: Scenario = {}) {
       },
     },
   ];
-  return testHarness({
-    env: s.git === false ? {} : { KORE_ROOT: "/repo" },
-    responses,
-  });
+  const h = testHarness({ env: s.env ?? {}, responses });
+  h.deps.bundleUrl = BUNDLE;
+  return h;
 }
 
 export type Harness = ReturnType<typeof scenario>;
@@ -109,7 +116,9 @@ export const precheck = (h: Harness, ...extra: string[]) =>
   );
 
 export const verbs = (h: Harness) =>
-  h.runner.calls.map((c) => `${c.command} ${c.args.slice(0, 2).join(" ")}`);
+  h.runner.calls
+    .filter((c) => c.command === "gh")
+    .map((c) => `${c.command} ${c.args.slice(0, 2).join(" ")}`);
 
 export const report = (h: Harness) =>
   JSON.parse(h.out()) as Record<string, unknown>;

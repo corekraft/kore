@@ -15,6 +15,11 @@ export interface CliDeps {
    */
   root(): Promise<string>;
   ids: IdSource;
+  /**
+   * `import.meta.url` of the running bundle. A command that must not be steered by the
+   * environment finds the checkout from it instead of from KORE_ROOT or CLAUDE_PROJECT_DIR.
+   */
+  bundleUrl?: string;
   env: Readonly<Record<string, string | undefined>>;
   /** The process working directory (a worktree's own checkout, not the repository root). */
   cwd: string;

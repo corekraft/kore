@@ -107,6 +107,61 @@ const SHELL_STATE = new Set([
 export const changesShell = (segment: readonly string[]): boolean =>
   SHELL_STATE.has(segment[0] ?? "");
 
+/** A command substitution or process substitution runs a command the segment check never sees. */
+export const SUBSTITUTION = /\$\(|`|<\(|>\(/;
+
+/** Commands that run another command line, or an interpreter on a string, past the segment check. */
+const RUNS_OTHERS = new Set([
+  "eval",
+  "builtin",
+  "bash",
+  "sh",
+  "zsh",
+  "dash",
+  "ksh",
+  "fish",
+  "xargs",
+  "timeout",
+  "nice",
+  "ionice",
+  "setsid",
+  "stdbuf",
+  "watch",
+  "parallel",
+  "doas",
+  "su",
+  "chroot",
+]);
+
+/** Subshells, groups and control keywords: they wrap commands the segment check would not look inside. */
+const CONSTRUCT_WORDS = new Set([
+  "if",
+  "then",
+  "elif",
+  "else",
+  "fi",
+  "for",
+  "while",
+  "until",
+  "do",
+  "done",
+  "case",
+  "esac",
+  "select",
+  "function",
+  "!",
+  "[[",
+  "coproc",
+]);
+
+/** A segment that wraps or launches other command lines instead of running one plain command. */
+export const wrapsCommands = (segment: readonly string[]): boolean => {
+  const first = segment[0] ?? "";
+  return (
+    /^[({]/.test(first) || RUNS_OTHERS.has(first) || CONSTRUCT_WORDS.has(first)
+  );
+};
+
 export const HARNESS = /^(\.\/)?skills\/bin\/harness\.mjs$/;
 /** `--ledger <path>` makes a harness command append to any file, so a bounded role never passes it. */
 const namesLedger = (args: readonly string[]): boolean =>

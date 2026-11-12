@@ -1,5 +1,10 @@
-import { openLedger } from "./ledger-commands.js";
-import type { Command, CommandContext } from "../runtime/index.js";
+import { resolve } from "node:path";
+import { DEFAULT_LEDGER, Ledger } from "../ledger/index.js";
+import {
+  bundleMainRoot,
+  type Command,
+  type CommandContext,
+} from "../runtime/index.js";
 import { JudgeError, precheck, summary, type Report } from "../judge/index.js";
 
 const FAILED = 1;
@@ -13,21 +18,37 @@ function prNumber(operand: string | undefined): number {
   return Number(operand);
 }
 
-async function record(context: CommandContext, report: Report): Promise<void> {
-  const opened = await openLedger(context);
-  if ("error" in opened) {
-    throw new JudgeError(opened.error);
+/**
+ * The shared ledger of the checkout that holds this bundle. The judge may not choose it:
+ * KORE_ROOT, CLAUDE_PROJECT_DIR and any --ledger are ignored or refused.
+ */
+async function openJudgeLedger({ deps }: CommandContext): Promise<Ledger> {
+  const main = await bundleMainRoot(deps);
+  if (main === undefined) {
+    throw new JudgeError(
+      "Cannot find the main checkout from the harness bundle's location, so there is no ledger to record to. Run the committed skills/bin/harness.mjs from inside the repository.",
+    );
   }
+  return new Ledger(
+    deps.fs,
+    deps.clock,
+    deps.ids,
+    resolve(main, DEFAULT_LEDGER),
+  );
+}
+
+async function record(context: CommandContext, report: Report): Promise<void> {
+  const ledger = await openJudgeLedger(context);
   const { deps } = context;
   const idea = report.idea;
   const label = `${report.pattern ?? "none"}:${report.ok ? "pass" : "fail"}`;
-  const logged = await opened.ledger.list({ kind: "precheck" });
+  const logged = await ledger.list({ kind: "precheck" });
   const newest = logged.events.filter((e) => e.number === report.pr).at(-1);
   // Only a change from the PR's newest verdict is news; pass, fail, pass records all three.
   if (newest?.label === label) {
     return;
   }
-  const event = await opened.ledger.record({
+  const event = await ledger.record({
     source: "github",
     kind: "precheck",
     occurredAt: deps.clock.now().toISOString(),
