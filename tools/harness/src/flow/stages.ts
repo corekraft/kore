@@ -42,6 +42,7 @@ export const APPROVAL_LABEL = "ready-for-agent";
 export const GITHUB_STAGES: Readonly<Partial<Record<Kind, Stage>>> = {
   "issue.opened": "await approval",
   "issue.closed": "outcome",
+  outcome: "outcome",
   "pr.opened": "merge",
   "pr.merged": "merge",
 };

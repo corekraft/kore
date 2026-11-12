@@ -15,6 +15,7 @@ export const KINDS = [
   "issue.closed",
   "pr.opened",
   "pr.merged",
+  "outcome",
 ] as const;
 export type Kind = (typeof KINDS)[number];
 
@@ -28,6 +29,7 @@ const NUMBER_KINDS: readonly Kind[] = [
   "issue.closed",
   "pr.opened",
   "pr.merged",
+  "outcome",
 ];
 
 export const SCHEMA_VERSION = 1;
@@ -151,7 +153,7 @@ const RULES: readonly Rule[] = [
     field: "label",
     check: isText(LABEL),
     hint: "must be 1-100 characters with no control characters",
-    kinds: ["issue.labelled"],
+    kinds: ["issue.labelled", "outcome"],
   },
   {
     field: "number",

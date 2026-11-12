@@ -22,6 +22,21 @@ describe("ledger event schema", () => {
     expect(parseEvent({ ...closed, number: 7 }, "input").ok).toBe(true);
   });
 
+  it("accepts an outcome event with its label and issue number, and requires both", () => {
+    const outcome = { ...base, source: "github", kind: "outcome" };
+    expect(rejected(outcome).field).toBe("label");
+    expect(rejected({ ...outcome, label: "outcome:refuted" }).field).toBe(
+      "number",
+    );
+    expect(
+      parseEvent(
+        { ...outcome, idea: "0001", label: "outcome:refuted", number: 7 },
+        "input",
+      ).ok,
+    ).toBe(true);
+    expect(KINDS).toContain("outcome");
+  });
+
   it("accepts a minimal event and keeps only the fields it was given", () => {
     const result = parseEvent(base, "input");
     expect(result).toEqual({ ok: true, event: base });

@@ -253,7 +253,7 @@ const appendOnlyWarn = (path) =>
       `Instead, append through the owning script (eval.mjs, kore, harness ledger); never edit, truncate, move, or remove it by hand.`,
   );
 
-// Outcome records: written by the outcome tool (ticket #187), never typed into an
+// Outcome records: written by `harness outcome record`, never typed into an
 // idea by hand (ADR 0079). Audit mode (warn) first, per ADR 0080.
 const IDEA_PATH = /^docs\/ideas\/[^/]+\.md$/;
 const HAND_WRITTEN_OUTCOME = /^(?:#{1,6}[ \t]+outcome\b|outcome:)/im;
@@ -262,7 +262,7 @@ const ideaOutcomeWarn = (path) =>
   warn(
     "idea-outcome",
     `${path} is an idea record: its outcome is written by the outcome tool, never by hand. ` +
-      "That tool arrives with ticket #187. Instead, leave the outcome out of the file for now and note the result on the idea's issue.",
+      "Instead, run `harness outcome record --idea <number or slug> --kind <experiment|usage|verification> --source <live-run|journal|eval-history|comparison> --evidence <reference> --result <confirmed|refuted|inconclusive> --summary <text>`.",
   );
 
 // Idea issue bodies: rendered from docs/ideas by `harness idea sync` (ADR 0079), the only
@@ -278,6 +278,37 @@ function checkIdeaIssueBody(name, args) {
     "Issue titles and bodies for ideas are rendered from docs/ideas and overwritten by the next sync. " +
       "Instead, edit the idea's markdown and run `harness idea sync --idea <number or slug>`; " +
       "use labels, assignees and comments for anything workflow-related.",
+  );
+}
+
+// Closing an idea's issue and its outcome labels belong to `harness outcome` (ADR 0079): the
+// tool refuses to close without a recorded outcome and keeps exactly one outcome label. The
+// guard cannot tell which issues are ideas, so it warns on any such call. Audit mode (warn).
+const OUTCOME_LABEL = /(^|,)outcome:/;
+
+function labelValues(args, flag) {
+  return args.flatMap((arg, i) =>
+    arg.startsWith(`${flag}=`)
+      ? [arg.slice(flag.length + 1)]
+      : arg === flag && args[i + 1] !== undefined
+        ? [args[i + 1]]
+        : [],
+  );
+}
+
+function checkIdeaIssueClose(name, args) {
+  if (name !== "gh" || args[0] !== "issue") return null;
+  const closing = args[1] === "close";
+  const labelling =
+    args[1] === "edit" &&
+    ["--add-label", "-l"].some((flag) =>
+      labelValues(args, flag).some((v) => OUTCOME_LABEL.test(v)),
+    );
+  if (!closing && !labelling) return null;
+  return warn(
+    "idea-issue-close",
+    "An idea's issue closes, and takes its outcome:* label, only through the outcome tool, which refuses to close without a recorded outcome. " +
+      "Instead, run `harness outcome record` to record the outcome, or `harness outcome close --idea <number or slug>` to finish closing one already recorded.",
   );
 }
 
@@ -350,6 +381,7 @@ function checkBashSegment(segment, ctx) {
     checkContext(name, args) ??
     checkNoVerify(name, args) ??
     checkIdeaIssueBody(name, args) ??
+    checkIdeaIssueClose(name, args) ??
     checkAppendOnly(name, args, segment, ctx.root)
   );
 }

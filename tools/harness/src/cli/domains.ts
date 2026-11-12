@@ -1,7 +1,7 @@
 import pkg from "../../package.json" with { type: "json" };
 import { adrCommands } from "../adr/index.js";
-import { ideaCommands } from "../idea/index.js";
 import { measurement } from "./measurement.js";
+import { records } from "./records.js";
 import {
   planActive,
   planClearNext,
@@ -36,6 +36,6 @@ export const domains: Record<string, Record<string, Command>> = {
   adr: adrCommands,
   session,
   skill,
-  idea: ideaCommands,
+  ...records,
   ...measurement,
 };

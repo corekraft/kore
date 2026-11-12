@@ -286,6 +286,27 @@ function checkIdea(file, markdown, ideas) {
       );
     }
   }
+  const heading = markdown
+    .split("\n")
+    .findIndex((l) => /^## Outcome\s*$/.test(l));
+  const outcome = keys.get("outcome");
+  if (outcome && heading === -1) {
+    bad(
+      "outcome",
+      "frontmatter outcome has no ## Outcome section",
+      "run `harness outcome record --idea " +
+        `${Number(IDEA_NAME.exec(file)?.[1] ?? 0)}\`, or remove the line`,
+    );
+  } else if (!outcome && heading !== -1) {
+    problems.push(
+      finding(
+        file,
+        heading + 1,
+        "## Outcome section has no frontmatter outcome line",
+        "the outcome tool writes both; run `harness outcome record`, or remove the section",
+      ),
+    );
+  }
   if (!IDEA_NAME.test(file)) {
     problems.push(
       finding(

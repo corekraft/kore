@@ -24,7 +24,9 @@ export class MemoryFileSystem implements FileSystem {
   readFile(path: string): Promise<string> {
     const text = this.files.get(this.checked(path));
     return text === undefined
-      ? Promise.reject(new Error(`ENOENT: ${path}`))
+      ? Promise.reject(
+          Object.assign(new Error(`ENOENT: ${path}`), { code: "ENOENT" }),
+        )
       : Promise.resolve(text);
   }
 

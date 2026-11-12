@@ -6,6 +6,7 @@ import {
   parseIdea,
   renderIdea,
   withIssue,
+  withOutcome,
   type IdeaRecord,
   type NewIdea,
 } from "./record.js";
@@ -111,6 +112,18 @@ export class IdeaRepository {
     await this.fs.writeFile(
       this.abs(record.path),
       withIssue(await this.source(record), issue),
+    );
+  }
+
+  /** Records the outcome in the idea's frontmatter and as its `## Outcome` section, touching nothing else. */
+  async recordOutcome(
+    record: IdeaRecord,
+    result: string,
+    section: string,
+  ): Promise<void> {
+    await this.fs.writeFile(
+      this.abs(record.path),
+      withOutcome(await this.source(record), result, section),
     );
   }
 

@@ -165,3 +165,56 @@ export function withIssue(text: string, issue: string): string {
   }
   return lines.join("\n");
 }
+
+const OUTCOME_HEADING = "## Outcome";
+
+/** The line range of the `## Outcome` section, up to the next heading; tolerant of CRLF and trailing spaces. */
+function outcomeRange(lines: string[]): [number, number] | undefined {
+  const start = lines.findIndex((l) => l.trimEnd() === OUTCOME_HEADING);
+  if (start === -1) {
+    return undefined;
+  }
+  const end = lines.findIndex((l, i) => i > start && /^#{1,2} /.test(l));
+  return [start, end === -1 ? lines.length : end];
+}
+
+/** The recorded `## Outcome` section, or undefined when the idea has none. */
+export function outcomeSection(text: string): string | undefined {
+  const lines = text.split("\n");
+  const range = outcomeRange(lines);
+  return range === undefined
+    ? undefined
+    : lines
+        .slice(...range)
+        .join("\n")
+        .replace(/\r/g, "")
+        .trim();
+}
+
+/** The markdown without its `## Outcome` section: what the issue body renders from. */
+export function withoutOutcome(text: string): string {
+  const lines = text.split("\n");
+  const range = outcomeRange(lines);
+  return range === undefined
+    ? text
+    : [...lines.slice(0, range[0]), ...lines.slice(range[1])]
+        .join("\n")
+        .trimEnd();
+}
+
+/** Sets the `outcome:` frontmatter line and appends the outcome section; the rest of the file is untouched. */
+export function withOutcome(
+  text: string,
+  result: string,
+  section: string,
+): string {
+  const lines = text.split("\n");
+  const end = lines.indexOf("---", 1);
+  if (lines[0] !== "---" || end === -1) {
+    throw new IdeaError(
+      "The idea has no frontmatter to record the outcome in.",
+    );
+  }
+  lines.splice(end, 0, `outcome: ${result}`);
+  return `${lines.join("\n").trimEnd()}\n\n${section.trim()}\n`;
+}

@@ -546,18 +546,13 @@ const outcomeWarned = (result, label) => {
   assert.match(result.message, /\[guard:idea-outcome\]/, label);
   assert.match(
     result.message,
-    /#187/,
-    `${label}: names the ticket that adds the tool`,
-  );
-  assert.doesNotMatch(
-    result.message,
-    /harness outcome/,
-    `${label}: names no command that does not exist yet`,
+    /harness outcome record/,
+    `${label}: names the tool that owns the outcome`,
   );
   assert.match(result.message, /Instead/, `${label}: offers the fix`);
 };
 
-test("idea-outcome: hand-written outcome sections or fields in an idea warn, naming the ticket that adds the tool", () => {
+test("idea-outcome: hand-written outcome sections or fields in an idea warn, naming the outcome tool", () => {
   outcomeWarned(
     write(`/repo/${IDEA_FILE}`, "---\nstatus: closed\noutcome: refuted\n---\n"),
     "Write outcome field",
@@ -613,6 +608,39 @@ test("idea-issue-body: label, assignee and read commands are not warned", () => 
     "gh issue view 186 --json body",
     "gh issue comment 186 --body 'note'",
     "gh pr edit 12 --body 'x'",
+  ]) {
+    assert.equal(bash(command).action, "allow", command);
+  }
+});
+
+const closeWarned = (result, label) => {
+  assert.equal(result.action, "warn", `${label}: ${JSON.stringify(result)}`);
+  assert.equal(result.rule, "idea-issue-close", label);
+  assert.match(result.message, /\[guard:idea-issue-close\]/, label);
+  assert.match(result.message, /harness outcome close/, label);
+  assert.match(result.message, /Instead/, label);
+};
+
+test("idea-issue-close: closing an issue or setting an outcome label by hand warns and names the outcome tool", () => {
+  for (const command of [
+    "gh issue close 186",
+    "gh issue close 186 --reason completed --repo corekraft/kore",
+    "gh issue edit 186 --add-label outcome:confirmed",
+    "gh issue edit 186 --add-label=outcome:refuted",
+    "gh issue edit 186 -l outcome:confirmed",
+    "gh issue edit 186 --add-label ready-for-agent,outcome:inconclusive",
+  ]) {
+    closeWarned(bash(command), command);
+  }
+});
+
+test("idea-issue-close: other label edits, reads and comments are not warned", () => {
+  for (const command of [
+    "gh issue edit 186 --add-label ready-for-agent",
+    "gh issue edit 186 --remove-label needs-triage",
+    "gh issue view 186",
+    "gh issue comment 186 --body 'note'",
+    "gh pr close 12",
   ]) {
     assert.equal(bash(command).action, "allow", command);
   }
