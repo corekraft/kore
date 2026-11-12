@@ -86,7 +86,7 @@ test("cluster up on an absent k3d cluster lists, creates with the pinned flags, 
     "create",
     "kore-local",
     "--image",
-    repository.versions.images?.["k3s"],
+    "rancher/k3s:v1.37.2-k3s1@sha256:21ea6e0fac4e3930c2ce8aa40ddd41a8b18cb3e9a0222c030dc005e7e88c4332",
     "--servers",
     "1",
     "--agents",
@@ -229,6 +229,27 @@ test("an unreadable k3d list names the failing command instead of treating the c
     },
   };
   await expect(clusterUp(repository, runner, fast)).rejects.toThrow(
-    /k3d cluster list .*not.*JSON|unreadable/i,
+    /k3d cluster list --output json printed unreadable output, not JSON/,
   );
+});
+
+test("a failing k3d list is reported as the unavailable error naming the remedy, in status and expected-cluster checks", async () => {
+  const repository = await k3dRepository();
+  const runner: Runner = {
+    async run(command, args) {
+      throw new CommandError(command, args, {
+        stdout: "",
+        stderr: "docker not running",
+        code: 1,
+      });
+    },
+  };
+  for (const act of [
+    () => clusterStatus(repository, runner),
+    () => assertExpectedCluster(repository, runner),
+  ]) {
+    const error: unknown = await act().catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(ClusterUnavailableError);
+    expect((error as Error).message).toMatch(/kore-local.*install k3d/);
+  }
 });

@@ -54,7 +54,7 @@ async function nodeProblem(
 
 function statusCommand({ environment }: Repository): string {
   return environment.provider === "k3d"
-    ? `k3d cluster list ${environment.k3d?.clusterName ?? environment.name}`
+    ? `k3d cluster list ${environment.k3d?.clusterName ?? ""}`
     : `minikube status --profile ${minikubeCluster(environment).profile}`;
 }
 

@@ -119,7 +119,7 @@ export async function clusterUp(
   }
   if (environment.provider !== "minikube") {
     throw new Error(
-      "cluster up only manages Minikube environments; provision managed clusters with OpenTofu",
+      "cluster up only manages Minikube and k3d environments; provision managed clusters with OpenTofu",
     );
   }
   if (minikubeCluster(environment).profile !== environment.kubeContext) {

@@ -1,5 +1,5 @@
 import type { Environment, K3dCluster, Repository } from "../config/index.js";
-import type { Runner } from "../runtime/index.js";
+import { CommandError, type Runner } from "../runtime/index.js";
 import { ClusterUnavailableError } from "./cluster-unavailable.js";
 import { type ReadinessOptions, waitForClusterReady } from "./readiness.js";
 
@@ -103,10 +103,27 @@ export async function k3dClusterInfo(
   return { state: running > 0 ? "running" : "stopped", detail };
 }
 
-function unavailable(clusterName: string, state: string): Error {
+function unavailable(clusterName: string, state: K3dState): Error {
   return new ClusterUnavailableError(
     `k3d cluster ${clusterName} is ${state}; run \`kore local up\` to create or start it`,
   );
+}
+
+async function listOrUnavailable(
+  environment: Environment,
+  runner: Runner,
+): Promise<K3dClusterInfo> {
+  try {
+    return await k3dClusterInfo(environment, runner);
+  } catch (error) {
+    if (!(error instanceof CommandError)) {
+      throw error;
+    }
+    throw new ClusterUnavailableError(
+      `k3d cluster ${k3dCluster(environment).clusterName} is unavailable because \`k3d cluster list\` failed; install k3d (mise install) and check that Docker is running`,
+      { cause: error },
+    );
+  }
 }
 
 export async function assertExpectedK3dCluster(
@@ -120,20 +137,9 @@ export async function assertExpectedK3dCluster(
       `refusing unexpected cluster/context pair: ${k3dContext(clusterName)} != ${environment.kubeContext}`,
     );
   }
-  let info;
-  try {
-    info = await k3dClusterInfo(environment, runner);
-  } catch (error) {
-    throw new ClusterUnavailableError(
-      `k3d cluster ${clusterName} is unavailable; run \`kore local up\` once k3d works`,
-      { cause: error },
-    );
-  }
+  const info = await listOrUnavailable(environment, runner);
   if (info.state !== "running") {
-    throw unavailable(
-      clusterName,
-      info.state === "absent" ? "absent" : "stopped",
-    );
+    throw unavailable(clusterName, info.state);
   }
   const result = await runner.run(
     "kubectl",
@@ -162,7 +168,9 @@ export async function clusterUpK3d(
 ): Promise<void> {
   const { clusterName } = k3dCluster(repository.environment);
   if (k3dContext(clusterName) !== repository.environment.kubeContext) {
-    throw new Error("k3d cluster and expected context must match");
+    throw new Error(
+      `refusing unexpected cluster/context pair: ${k3dContext(clusterName)} != ${repository.environment.kubeContext}; set environment.kubeContext to ${k3dContext(clusterName)}`,
+    );
   }
   const { state } = await k3dClusterInfo(repository.environment, runner);
   if (state === "absent") {
@@ -186,7 +194,7 @@ export async function clusterStatusK3d(
 ): Promise<Record<string, unknown>> {
   const { environment } = repository;
   const { clusterName } = k3dCluster(environment);
-  const info = await k3dClusterInfo(environment, runner);
+  const info = await listOrUnavailable(environment, runner);
   if (info.state !== "running") {
     throw unavailable(clusterName, info.state);
   }
