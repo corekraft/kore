@@ -59,3 +59,30 @@ export async function pollUntil(
     await pause();
   }
 }
+
+const KUBECTL_WAIT_TIMED_OUT = /timed out waiting for the condition/i;
+
+/**
+ * Runs `attempt` at each bound in turn and returns the last failure's message,
+ * or undefined when one passes. It moves to the next, longer bound only when
+ * `kubectl wait` timed out, so a missing resource or a failed condition is
+ * reported at once while a slow API server on a loaded host gets another try.
+ */
+export async function failureAcrossBounds(
+  bounds: string[],
+  attempt: (bound: string) => Promise<void>,
+): Promise<string | undefined> {
+  let failure: string | undefined;
+  for (const bound of bounds) {
+    try {
+      await attempt(bound);
+      return undefined;
+    } catch (error) {
+      failure = errorMessage(error);
+      if (!KUBECTL_WAIT_TIMED_OUT.test(failure)) {
+        return failure;
+      }
+    }
+  }
+  return failure;
+}

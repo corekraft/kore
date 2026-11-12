@@ -5,6 +5,7 @@ import { gatewayCheck } from "./readiness-gateway.js";
 import { assertIssuerReady, trustRemedy } from "./readiness-issuer.js";
 import {
   NOT_YET_THERE,
+  failureAcrossBounds,
   pause,
   pollUntil,
   timeoutMilliseconds,
@@ -44,6 +45,8 @@ const GATEKEEPER_OBJECT =
   /^(constrainttemplate\.templates|[a-z0-9]+\.constraints)\.gatekeeper\.sh\//;
 /** Bound for each read-only check `kore status` evaluates. */
 const STATUS_TIMEOUT = "3s";
+/** The one longer bound after a 3s wait timed out on a loaded host (#119). */
+const STATUS_RETRY_TIMEOUT = "15s";
 
 interface Context {
   repository: Repository;
@@ -323,10 +326,8 @@ export async function readinessFailure(
   runner: Runner,
   component: Component,
 ): Promise<string | undefined> {
-  try {
-    await runChecks(repository, runner, component, STATUS_TIMEOUT, true);
-    return undefined;
-  } catch (error) {
-    return errorMessage(error);
-  }
+  return await failureAcrossBounds(
+    [STATUS_TIMEOUT, STATUS_RETRY_TIMEOUT],
+    (bound) => runChecks(repository, runner, component, bound, true),
+  );
 }

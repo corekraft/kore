@@ -162,4 +162,16 @@ planned), so only k3d load is recorded.
   kubeconfig with `-data`, so the signer cannot give cosign a pinned context.
   Blocked on a design decision about how cosign reaches the cluster without
   writing credentials to disk.
+- Run 7 (fresh profile, quiet host, load rising to 25-30 from k3d's own VM
+  during install): converged through the reference app's image push after four
+  more fixes on #266 (cosign kubeconfig through a file descriptor, ADR 0087;
+  registry `X-Forwarded-Proto` and a pod roll on proxy config change; the
+  locally built image named by the registry address; a digest name for the
+  pushed image in the node). The first fresh run then stopped at the admission
+  gate: `kore status`'s read-only wait is `STATUS_TIMEOUT = "3s"`
+  (`tools/kore/src/platform/readiness.ts`), and `kubectl wait --for=condition=Established
+crd/fakes.generators.external-secrets.io --timeout=3s` missed it under load.
+  Targeted fix: that one wait retries once at 15s, only when kubectl reports a
+  timeout. The broader fix is PR #119 (probe and status-wait tolerance), which
+  stays unmerged.
 - Safety pattern: expand and contract. Not yet proven live.
