@@ -93,7 +93,9 @@ the gate, never opens it, when a prerequisite is unhealthy; running workloads ar
 
 `platform status` also lists cluster CRDs that no catalog component owns, or more than one,
 as degraded; this is an audit and never fails `platform up`
-([ADR 0057](docs/decisions/0057-runtime-crd-ownership.md)).
+([ADR 0057](docs/decisions/0057-runtime-crd-ownership.md)). CRDs in a group the
+environment declares in `providerOwnedCRDGroups` (k3s's own on k3d) count as
+provider-owned ([ADR 0088](docs/decisions/0088-provider-owned-crd-groups.md)).
 
 `kore app down <name> --environment <name>` uninstalls only the workload release
 (rerunning it is safe) and keeps the application's resources release and data.

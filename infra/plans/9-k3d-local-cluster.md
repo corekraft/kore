@@ -237,7 +237,9 @@ variable, the clean-machine status check judges platform components only).
   #292 (post-renderer).
 - **crd-ownership on k3d:** `addons.k3s.cattle.io`,
   `etcdsnapshotfiles.k3s.cattle.io`, `helmchartconfigs.helm.cattle.io` and
-  `helmcharts.helm.cattle.io` ship with k3s and no catalog component owns them;
-  the row is audit-only. Tracked in #291 (provider-owned CRD groups).
+  `helmcharts.helm.cattle.io` ship with k3s and no catalog component owns them.
+  The local overlay declares `k3s.cattle.io` and `helm.cattle.io` in
+  `providerOwnedCRDGroups`, so the row counts them as provider-owned (#291,
+  ADR 0088); a live `kore status` on k3d confirms it is healthy.
 - **backups row** reports degraded on a fresh install with retained data and no
   export, by design; `kore data export` clears it.

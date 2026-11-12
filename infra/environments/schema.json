@@ -90,6 +90,11 @@
       "type": "object",
       "additionalProperties": { "type": "string", "minLength": 1 }
     },
+    "providerOwnedCRDGroups": {
+      "type": "object",
+      "description": "API groups whose CRDs the environment's provider ships (ADR 0088): group to reason. The CRD ownership status counts them as provider-owned; a catalog component may not also own the group.",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
     "features": {
       "type": "object",
       "description": "Feature flags (ADR 0077): flag name to boolean, off unless true. Passed into local chart values as features.<name>.",

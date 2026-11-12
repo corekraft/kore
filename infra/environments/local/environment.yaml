@@ -12,6 +12,11 @@
   "registry": { "address": "10.96.0.50:5000" },
   "features": { "ingress-agentgateway": false },
   "imageInventory": "audit",
+  "providerOwnedCRDGroups":
+    {
+      "k3s.cattle.io": "k3s ships its addon and etcd-snapshot CRDs; the provider owns them (ADR 0088).",
+      "helm.cattle.io": "k3s's bundled Helm controller ships these CRDs; the provider owns them (ADR 0088)."
+    },
   "enrollmentExemptions":
     {
       "cosign-system": "Enrolling the verifier's own namespace deadlocks its webhook (ADR 0056).",

@@ -122,6 +122,13 @@ export interface Environment {
    */
   enrollmentExemptions?: Record<string, string>;
   /**
+   * API groups whose CRDs the environment's provider ships (k3s installs
+   * `k3s.cattle.io` and `helm.cattle.io`), each with its reason (ADR 0088).
+   * The CRD ownership status counts them as owned by the provider, not Kore.
+   * Validation rejects a group a catalog component also owns.
+   */
+  providerOwnedCRDGroups?: Record<string, string>;
+  /**
    * Feature flags: flag name to boolean, off unless set true (ADR 0077). Read
    * by the CLI and passed into local chart values as `features.<name>`.
    */

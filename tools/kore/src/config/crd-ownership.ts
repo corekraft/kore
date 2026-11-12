@@ -129,3 +129,49 @@ export function crdGroupErrors(components: CrdClaims[]): string[] {
   }
   return errors;
 }
+
+/**
+ * Whether a CRD sits in a group the environment declares provider-owned
+ * (ADR 0088): k3s ships its own CRDs, and no catalog component owns them.
+ */
+export function providerOwnsCrd(
+  providerGroups: Record<string, string> | undefined,
+  crd: string,
+): boolean {
+  return Object.hasOwn(providerGroups ?? {}, crdGroup(crd));
+}
+
+/**
+ * Problems with the environment's provider-owned groups: each must be an API
+ * group with a reason, and none may also be owned by a catalog component, so
+ * a resource keeps exactly one owner.
+ */
+export function providerCrdGroupErrors(
+  providerGroups: Record<string, string> | undefined,
+  components: CrdClaims[],
+): string[] {
+  return Object.entries(providerGroups ?? {}).flatMap(([group, reason]) => {
+    const prefix = `environment.providerOwnedCRDGroups: ${group}`;
+    if (!crdName.test(`x.${group}`)) {
+      return [`${prefix} must be an API group such as widgets.example.com`];
+    }
+    const errors: string[] = [];
+    if (typeof reason !== "string" || reason.trim() === "") {
+      errors.push(`${prefix} needs a reason`);
+    }
+    const owners = components
+      .filter(
+        (c) =>
+          (c.ownsCRDGroups ?? []).includes(group) ||
+          c.ownsCRDs.some((crd) => crdGroup(crd) === group),
+      )
+      .map((c) => c.name)
+      .sort();
+    if (owners.length > 0) {
+      errors.push(
+        `${prefix} is also owned by ${owners.join(" and ")}; a group has one owner`,
+      );
+    }
+    return errors;
+  });
+}
