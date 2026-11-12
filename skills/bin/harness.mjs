@@ -1740,7 +1740,8 @@ var KINDS2 = [
   "session.launch",
   "guard.audit",
   "challenge.round",
-  "precheck"
+  "precheck",
+  "send-back"
 ];
 var OUTCOMES = ["success", "failure"];
 var TOOL_KINDS = ["tool.start", "tool.end"];
@@ -1752,7 +1753,8 @@ var NUMBER_KINDS = [
   "pr.merged",
   "outcome",
   "challenge.round",
-  "precheck"
+  "precheck",
+  "send-back"
 ];
 var LAUNCH_KINDS = ["session.launch"];
 var TOKEN_KINDS = ["token.usage"];
@@ -1833,7 +1835,8 @@ var RULES = [
       "flag.activated",
       "guard.audit",
       "challenge.round",
-      "precheck"
+      "precheck",
+      "send-back"
     ]
   },
   {
@@ -5376,9 +5379,6 @@ var statusCommand = {
   }
 };
 
-// src/cli/judge-commands.ts
-import { resolve as resolve4 } from "node:path";
-
 // src/judge/declaration.ts
 var PATTERNS = [
   "no-behaviour-change",
@@ -5789,6 +5789,7 @@ async function precheck(context2, root3, pr, reviewers) {
   const verdict = assess(declaration.pattern, hints, files);
   return {
     pr,
+    head: view.headSha,
     ok: verdict.patternMatches && Object.values(checks).every((c) => c.result === "pass"),
     pattern: declaration.pattern,
     idea: declaration.idea,
@@ -5825,16 +5826,18 @@ ${report3.declaration.reason ?? ""}
   ].join("\n");
 }
 
-// src/cli/judge-commands.ts
+// src/cli/judge-shared.ts
+import { resolve as resolve4 } from "node:path";
 var FAILED5 = 1;
-var USAGE = "Run `harness judge precheck <pr> [--json] [--reviewer <login>[,<login>]]`.";
-function prNumber(operand) {
+function prNumber(operand, usage2) {
   if (operand === void 0 || !/^\d+$/.test(operand) || Number(operand) < 1) {
-    throw new JudgeError(`Missing or invalid PR number. ${USAGE}`);
+    throw new JudgeError(`Missing or invalid PR number. ${usage2}`);
   }
   return Number(operand);
 }
-async function openJudgeLedger({ deps }) {
+async function openJudgeLedger({
+  deps
+}) {
   const main = await bundleMainRoot(deps);
   if (main === void 0) {
     throw new JudgeError(
@@ -5872,27 +5875,148 @@ async function record2(context2, report3) {
     );
   }
 }
+var reviewersOf = (context2) => String(context2.options["reviewer"] ?? "").split(",").map((r) => r.trim()).filter((r) => r !== "");
+function failed(context2, error) {
+  if (!(error instanceof JudgeError)) {
+    throw error;
+  }
+  context2.deps.stderr(
+    `${context2.json ? `${JSON.stringify({ error: error.message })}
+` : ""}${error.message}
+`
+  );
+  return FAILED5;
+}
+
+// src/cli/judge-merge-commands.ts
+var MERGE_USAGE = "Run `harness judge merge <pr> [--json] [--reviewer <login>[,<login>]]`.";
+var SEND_BACK_USAGE = 'Run `harness judge send-back <pr> --reason "<why>"`.';
+var LABEL_MAX = 100;
+async function runMerge(context2) {
+  const { deps, json } = context2;
+  try {
+    const pr = prNumber(context2.operand, MERGE_USAGE);
+    const root3 = await deps.root();
+    const report3 = await precheck(context2, root3, pr, reviewersOf(context2));
+    await record2(context2, report3);
+    if (!report3.ok || report3.head === void 0 || report3.head === "") {
+      deps.stdout(
+        json ? `${JSON.stringify({ ...report3, merged: false })}
+` : summary(report3)
+      );
+      deps.stderr(
+        `PR #${pr} was not merged: the precheck did not pass. Fix what it reports, or send the change back with \`harness judge send-back ${pr} --reason <why>\`.
+`
+      );
+      return FAILED5;
+    }
+    const done = await deps.runner.run(
+      "gh",
+      [
+        "pr",
+        "merge",
+        String(pr),
+        "--squash",
+        "--match-head-commit",
+        report3.head
+      ],
+      { cwd: root3 }
+    );
+    if (done.code !== 0) {
+      throw new JudgeError(
+        `gh pr merge failed for PR #${pr}: ${done.stderr.trim()}. If the head moved, rerun \`harness judge merge ${pr}\` to verify the new commit.`
+      );
+    }
+    deps.stdout(
+      json ? `${JSON.stringify({ pr, merged: true, head: report3.head })}
+` : `PR #${pr}: squash-merged at ${report3.head}
+`
+    );
+    return 0;
+  } catch (error) {
+    return failed(context2, error);
+  }
+}
+function labelFor(reason) {
+  const line2 = reason.split("").map(
+    (ch) => ch.charCodeAt(0) < 32 || ch.charCodeAt(0) === 127 ? " " : ch
+  ).join("").replace(/\s+/g, " ").trim();
+  return line2.length <= LABEL_MAX ? line2 : `${line2.slice(0, LABEL_MAX - 1)}\u2026`;
+}
+async function runSendBack(context2) {
+  const { deps } = context2;
+  try {
+    const pr = prNumber(context2.operand, SEND_BACK_USAGE);
+    const reason = String(context2.options["reason"] ?? "").trim();
+    if (reason === "") {
+      throw new JudgeError(`A send-back needs a reason. ${SEND_BACK_USAGE}`);
+    }
+    const root3 = await deps.root();
+    const ledger = await openJudgeLedger(context2);
+    const done = await deps.runner.run(
+      "gh",
+      [
+        "pr",
+        "comment",
+        String(pr),
+        "--body",
+        `Sent back by the judge: ${reason}`
+      ],
+      { cwd: root3 }
+    );
+    if (done.code !== 0) {
+      throw new JudgeError(
+        `gh pr comment failed for PR #${pr}: ${done.stderr.trim()}. Check \`gh auth status\` and the PR number, then rerun \`harness judge send-back ${pr}\`.`
+      );
+    }
+    const event = await ledger.record({
+      source: "github",
+      kind: "send-back",
+      occurredAt: deps.clock.now().toISOString(),
+      number: pr,
+      label: labelFor(reason)
+    });
+    if (!event.ok) {
+      throw new JudgeError(
+        `The reason was posted on PR #${pr}, but its ledger event was rejected: ${event.message} Fix the ledger; do not post the reason twice.`
+      );
+    }
+    deps.stdout(`PR #${pr}: sent back with the reason on the queue
+`);
+    return 0;
+  } catch (error) {
+    return failed(context2, error);
+  }
+}
+var mergeCommands = {
+  merge: {
+    summary: "mutates; re-runs the precheck and squash-merges the verified head commit only when it passes; with no declared pattern, a mismatching diff or a failing check it merges nothing (<pr> [--json] [--reviewer <login>[,<login>]])",
+    operand: "pr",
+    options: { reviewer: "string" },
+    run: runMerge
+  },
+  "send-back": {
+    summary: "posts the reason as a comment on the PR, the orchestrator's queue, and records a send-back event at the shared ledger (<pr> --reason <why>)",
+    operand: "pr",
+    options: { reason: "string" },
+    run: runSendBack
+  }
+};
+
+// src/cli/judge-commands.ts
+var USAGE = "Run `harness judge precheck <pr> [--json] [--reviewer <login>[,<login>]]`.";
 async function runPrecheck(context2) {
   const { deps, json } = context2;
   try {
-    const pr = prNumber(context2.operand);
+    const pr = prNumber(context2.operand, USAGE);
     const root3 = await deps.root();
-    const reviewers = String(context2.options["reviewer"] ?? "").split(",").map((r) => r.trim()).filter((r) => r !== "");
-    const report3 = await precheck(context2, root3, pr, reviewers);
+    const report3 = await precheck(context2, root3, pr, reviewersOf(context2));
     deps.stdout(json ? `${JSON.stringify(report3)}
 ` : summary(report3));
     await record2(context2, report3);
     return report3.ok ? 0 : FAILED5;
   } catch (error) {
-    if (!(error instanceof JudgeError)) {
-      throw error;
-    }
-    deps.stderr(
-      `${json ? `${JSON.stringify({ error: error.message })}
-` : ""}${error.message}
-`
-    );
-    return FAILED5;
+    return failed(context2, error);
   }
 }
 var precheckCommand = {
@@ -5902,7 +6026,8 @@ var precheckCommand = {
   run: runPrecheck
 };
 var judgeCommands = {
-  precheck: precheckCommand
+  precheck: precheckCommand,
+  ...mergeCommands
 };
 
 // src/outcome/model.ts
@@ -5914,7 +6039,7 @@ var OUTCOME_SOURCES = [
   "comparison"
 ];
 var RESULTS = ["confirmed", "refuted", "inconclusive"];
-var labelFor = (result) => `outcome:${result}`;
+var labelFor2 = (result) => `outcome:${result}`;
 var markerFor2 = (record5) => `<!-- harness outcome idea ${record5.number} -->`;
 function choice(flag, allowed, value) {
   if (value === void 0 || value.trim() === "") {
@@ -6097,7 +6222,7 @@ async function publishOutcome(runner, root3, target, outcome) {
     labelled: false,
     closed: false
   };
-  const wanted = labelFor(outcome.result);
+  const wanted = labelFor2(outcome.result);
   const flags = labelFlags(view.labels, wanted);
   if (flags.length > 0) {
     await gh2(
@@ -6253,7 +6378,7 @@ async function conclusion(context2, verb) {
       kind: "outcome",
       occurredAt: deps.clock.now().toISOString(),
       idea: done.idea,
-      label: labelFor(done.result),
+      label: labelFor2(done.result),
       number: Number(/(\d+)$/.exec(done.issue)?.[1])
     });
     if (!event.ok) {
@@ -7714,12 +7839,17 @@ var REPORTING_ROLES = /* @__PURE__ */ new Set(["orchestrator", "judge"]);
 var DELIVERY_ROLES = /* @__PURE__ */ new Set([...REPORTING_ROLES, "writer"]);
 var noMerge = (role, what) => block(
   "role-no-merge",
-  `${what} merges, but the ${role} may not: the merge tool does not exist yet (plan 11 Step 5), so no role merges. Instead, report the verdict; the judge reports safe or sends the change back, and the operator merges.`
+  `${what} merges, but the ${role} may not merge by hand: the merge tool re-runs the precheck and merges only when it passes. Instead, the judge runs \`harness judge merge <pr>\` or \`harness judge send-back <pr> --reason <why>\`; every other role reports and leaves the merge to the judge.`
 );
 var outsideWorktree = (what, root3) => block(
   "role-worktree",
   `${what} reaches outside this worktree (${root3}), and a writer works only in the worktree it was launched in. Instead, make the change inside the worktree, or report that it needs another piece of work.`
 );
+var JUDGE_TOOLS = ["merge", "send-back"];
+var runsJudgeTool = (segment) => {
+  const { name, args } = commandOf(segment);
+  return name === "node" && HARNESS2.test(args[0] ?? "") && args[1] === "judge" && JUDGE_TOOLS.includes(args[2] ?? "");
+};
 var MERGE_API = /\/pulls\/\d+\/merge\b/;
 var merges = (segment) => {
   const { name, args } = commandOf(segment);
@@ -7750,7 +7880,12 @@ var ORCHESTRATOR_HARNESS = [
   "outcome record",
   "outcome close"
 ];
-var JUDGE_HARNESS = [...READS, "judge precheck"];
+var JUDGE_HARNESS = [
+  ...READS,
+  "judge precheck",
+  "judge merge",
+  "judge send-back"
+];
 var HARNESS_BY_ROLE = {
   orchestrator: ORCHESTRATOR_HARNESS,
   judge: JUDGE_HARNESS
@@ -7818,6 +7953,10 @@ function checkDeliveryBash(role, command, root3) {
   const merging = segments.find(merges);
   if (merging !== void 0) {
     return noMerge(role, `\`${merging.join(" ")}\``);
+  }
+  const judging = segments.find(runsJudgeTool);
+  if (judging !== void 0 && role !== "judge") {
+    return noMerge(role, `\`${judging.join(" ")}\``);
   }
   if (REPORTING_ROLES.has(role)) {
     if (SUBSTITUTION.test(command)) {
@@ -10110,8 +10249,8 @@ async function run(argv, deps, log) {
   if (!audit3) {
     return status2;
   }
-  const failed = await printAudit(audit3, log);
-  if (failed) {
+  const failed2 = await printAudit(audit3, log);
+  if (failed2) {
     const strict = argv.includes("--strict");
     log(
       strict ? "kb-check: skill audit failed" : "kb-check: skill audit failed (warn mode; --strict fails on it)"

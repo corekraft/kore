@@ -24,6 +24,8 @@ export interface Scenario {
   steps?: { name: string; conclusion: string }[];
   diff?: string;
   git?: boolean;
+  /** Answers that win over the defaults, for example a refused merge. */
+  first?: FakeResponse[];
 }
 
 export const passing = [
@@ -54,6 +56,7 @@ export const REVIEW_OK: Comment = { body: "principles-review: No violations." };
 
 export function scenario(s: Scenario = {}) {
   const responses: FakeResponse[] = [
+    ...(s.first ?? []),
     {
       match: (c: string, a: readonly string[]) =>
         c === "git" && a.includes("--git-common-dir"),

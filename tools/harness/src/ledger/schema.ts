@@ -22,6 +22,7 @@ export const KINDS = [
   "guard.audit",
   "challenge.round",
   "precheck",
+  "send-back",
 ] as const;
 export type Kind = (typeof KINDS)[number];
 
@@ -38,6 +39,7 @@ const NUMBER_KINDS: readonly Kind[] = [
   "outcome",
   "challenge.round",
   "precheck",
+  "send-back",
 ];
 
 const LAUNCH_KINDS: readonly Kind[] = ["session.launch"];
@@ -180,6 +182,7 @@ const RULES: readonly Rule[] = [
       "guard.audit",
       "challenge.round",
       "precheck",
+      "send-back",
     ],
   },
   {

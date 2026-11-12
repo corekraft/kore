@@ -15,6 +15,8 @@ export class JudgeError extends Error {}
 export interface Report {
   pr: number;
   ok: boolean;
+  /** The head commit the verdict covers; the merge tool merges only this one. */
+  head?: string;
   pattern: Pattern | undefined;
   idea: string | undefined;
   declaration: { ok: boolean; reason?: string };
@@ -96,6 +98,7 @@ export async function precheck(
   const verdict = assess(declaration.pattern, hints, files);
   return {
     pr,
+    head: view.headSha,
     ok:
       verdict.patternMatches &&
       Object.values(checks).every((c) => c.result === "pass"),
