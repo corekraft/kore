@@ -85,3 +85,42 @@ describe("harness dispatch", () => {
     expect(JSON.parse(h.out())).toHaveProperty("version");
   });
 });
+
+describe("harness dispatch hardening", () => {
+  it.each([
+    [["constructor", "version"], 'Unknown domain "constructor"'],
+    [["harness", "constructor"], 'Unknown command "constructor"'],
+    [["__proto__", "x"], 'Unknown domain "__proto__"'],
+  ])(
+    "treats inherited object keys %j as unknown, not a crash",
+    async (argv, message) => {
+      const h = harness();
+      expect(await run(argv, h.deps)).toBe(2);
+      expect(h.err()).toContain(message);
+    },
+  );
+
+  it("rejects extra words after the command and runs nothing", async () => {
+    const h = harness();
+    expect(await run(["harness", "version", "extra"], h.deps)).toBe(2);
+    expect(h.err()).toContain('Unexpected argument "extra"');
+    expect(h.err()).toContain("Usage: harness");
+    expect(h.out()).toBe("");
+  });
+
+  it("under --json, usage errors also print an error object on stderr", async () => {
+    const h = harness();
+    expect(await run(["nope", "--json"], h.deps)).toBe(2);
+    const line = h.err().split("\n")[0] ?? "";
+    expect(JSON.parse(line)).toEqual({
+      error: 'Unknown domain "nope". Domains: harness.',
+    });
+    expect(h.err()).toContain("Usage: harness");
+  });
+
+  it("without --json, usage errors print no JSON", async () => {
+    const h = harness();
+    await run(["nope"], h.deps);
+    expect(h.err().startsWith("{")).toBe(false);
+  });
+});

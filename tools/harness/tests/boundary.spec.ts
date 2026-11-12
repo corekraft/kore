@@ -2,6 +2,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { hasNonLiteralLoad, importSpecifiers } from "./import-scan-support.js";
 
 const src = resolve(dirname(fileURLToPath(import.meta.url)), "../src");
 
@@ -14,13 +15,39 @@ function sources(dir: string): string[] {
   });
 }
 
+function isKore(spec: string): boolean {
+  return (
+    /(^|\/)tools\/kore|(^|\/)kore\/src/.test(spec) ||
+    /^(\.\.\/)+kore\//.test(spec)
+  );
+}
+
+function relative(file: string): string {
+  return file.slice(src.length + 1);
+}
+
 describe("harness boundary", () => {
-  it("imports nothing from tools/kore/src", () => {
+  it("imports nothing from tools/kore/src, by any import form", () => {
     const offenders = sources(src).filter((f) =>
-      /from\s+["'][^"']*(tools\/kore|\.\.\/kore\/|kore\/src)/.test(
-        readFileSync(f, "utf8"),
-      ),
+      importSpecifiers(readFileSync(f, "utf8")).some(isKore),
     );
+    expect(offenders).toEqual([]);
+  });
+
+  it("loads only literal specifiers", () => {
+    expect(
+      sources(src).filter((f) => hasNonLiteralLoad(readFileSync(f, "utf8"))),
+    ).toEqual([]);
+  });
+
+  it("reaches another domain only through its index.js (ADR 0082)", () => {
+    const offenders = sources(src)
+      .filter((f) => !f.endsWith(".spec.ts") && !f.endsWith("-support.ts"))
+      .flatMap((f) =>
+        importSpecifiers(readFileSync(f, "utf8"))
+          .filter((spec) => /^\.\.\/(?!\.)[^/]+\/(?!index\.js$)/.test(spec))
+          .map((spec) => `${relative(f)} -> ${spec}`),
+      );
     expect(offenders).toEqual([]);
   });
 

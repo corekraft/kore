@@ -3,7 +3,13 @@
 // Plan: infra/plans/3-agent-harness.md (Step 9).
 
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { cpSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -24,6 +30,9 @@ function fixture(t) {
     ".codex/skills",
   ]) {
     mkdirSync(join(root, dir), { recursive: true });
+  }
+  for (const skill of ["tdd", "adr"]) {
+    writeFileSync(join(root, "skills", skill, "SKILL.md"), "---\n---\n");
   }
   return root;
 }
@@ -83,4 +92,15 @@ test("a copied skill directory in place of a link is reported as not a link", (t
   assert.deepEqual(linkProblems(root), [
     ".codex/skills/adr is a directory or file, not a link; replace it with a link to ../../skills/adr",
   ]);
+});
+
+test("a skills/ directory without SKILL.md, such as bin, is not a skill and needs no link", (t) => {
+  const root = fixture(t);
+  mkdirSync(join(root, "skills/bin"));
+  for (const harness of [".claude", ".codex"]) {
+    symlinkSync("../../skills/tdd", join(root, harness, "skills/tdd"));
+    symlinkSync("../../skills/adr", join(root, harness, "skills/adr"));
+  }
+
+  assert.deepEqual(linkProblems(root), []);
 });

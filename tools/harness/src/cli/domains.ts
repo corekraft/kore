@@ -1,7 +1,5 @@
 import pkg from "../../package.json" with { type: "json" };
-import type { Clock } from "../runtime/clock.js";
-import type { FileSystem } from "../runtime/filesystem.js";
-import type { Runner } from "../runtime/runner.js";
+import type { Clock, FileSystem, Runner } from "../runtime/index.js";
 
 export interface CliDeps {
   runner: Runner;

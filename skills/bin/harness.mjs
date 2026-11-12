@@ -63,53 +63,62 @@ function usage() {
   return `${lines.join("\n")}
 `;
 }
-function fail(deps, message) {
-  deps.stderr(`${message}
+function fail(deps, json, message) {
+  const prefix = json ? `${JSON.stringify({ error: message })}
+` : "";
+  deps.stderr(`${prefix}${message}
 
 ${usage()}`);
   return USAGE_ERROR;
 }
+function own(table, key) {
+  return Object.hasOwn(table, key) ? table[key] : void 0;
+}
 function names(commands) {
   return Object.keys(commands).join(", ");
+}
+function resolve(domain, name, extra) {
+  const commands = own(domains, domain);
+  if (commands === void 0) {
+    return {
+      error: `Unknown domain "${domain}". Domains: ${Object.keys(domains).join(", ")}.`
+    };
+  }
+  if (name === void 0) {
+    return {
+      error: `Missing command for domain "${domain}". Commands: ${names(commands)}.`
+    };
+  }
+  const command = own(commands, name);
+  if (command === void 0) {
+    return {
+      error: `Unknown command "${name}" for domain "${domain}". Commands: ${names(commands)}.`
+    };
+  }
+  if (extra.length > 0) {
+    return { error: `Unexpected argument "${extra[0]}".` };
+  }
+  return { command };
 }
 async function run(argv, deps) {
   const flags = argv.filter((a) => a.startsWith("-"));
   const words = argv.filter((a) => !a.startsWith("-"));
+  const json = flags.includes("--json");
   const unknown = flags.find((f) => !["--json", "--help", "-h"].includes(f));
   if (unknown !== void 0) {
-    return fail(deps, `Unknown flag "${unknown}".`);
+    return fail(deps, json, `Unknown flag "${unknown}".`);
   }
+  const [domain, name, ...extra] = words;
   const help = flags.includes("--help") || flags.includes("-h");
-  const [domain, name] = words;
-  if (domain === void 0) {
+  if (domain === void 0 || help && own(domains, domain) !== void 0) {
     deps.stdout(usage());
     return 0;
   }
-  const commands = domains[domain];
-  if (commands === void 0) {
-    return fail(
-      deps,
-      `Unknown domain "${domain}". Domains: ${Object.keys(domains).join(", ")}.`
-    );
+  const resolved = resolve(domain, name, extra);
+  if ("error" in resolved) {
+    return fail(deps, json, resolved.error);
   }
-  if (help) {
-    deps.stdout(usage());
-    return 0;
-  }
-  if (name === void 0) {
-    return fail(
-      deps,
-      `Missing command for domain "${domain}". Commands: ${names(commands)}.`
-    );
-  }
-  const command = commands[name];
-  if (command === void 0) {
-    return fail(
-      deps,
-      `Unknown command "${name}" for domain "${domain}". Commands: ${names(commands)}.`
-    );
-  }
-  return await command.run({ json: flags.includes("--json"), deps });
+  return await resolved.command.run({ json, deps });
 }
 
 // src/runtime/clock.ts
@@ -144,7 +153,7 @@ var nodeFileSystem = {
 import { spawn } from "node:child_process";
 var ProcessRunner = class {
   async run(command, args, options = {}) {
-    return await new Promise((resolve) => {
+    return await new Promise((resolve2) => {
       const child = spawn(command, [...args], {
         ...options.cwd === void 0 ? {} : { cwd: options.cwd },
         stdio: [
@@ -162,10 +171,10 @@ var ProcessRunner = class {
         stderr += chunk.toString();
       });
       child.on("error", (error) => {
-        resolve({ stdout, stderr: error.message, code: 127 });
+        resolve2({ stdout, stderr: error.message, code: 127 });
       });
       child.on("close", (code) => {
-        resolve({ stdout, stderr, code: code ?? 1 });
+        resolve2({ stdout, stderr, code: code ?? 1 });
       });
       if (options.input !== void 0) {
         child.stdin?.end(options.input);

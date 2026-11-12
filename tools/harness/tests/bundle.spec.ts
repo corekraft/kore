@@ -9,6 +9,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { hasNonLiteralLoad, importSpecifiers } from "./import-scan-support.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -68,11 +69,11 @@ describe("bundled harness", () => {
     );
   });
 
-  it("imports only Node built-ins at runtime", () => {
-    const imports = [
-      ...readFileSync(bundle, "utf8").matchAll(/from\s*"([^"]+)"/g),
-    ].map((m) => m[1]);
-    expect(imports.length).toBeGreaterThan(0);
-    expect(imports.filter((i) => !i?.startsWith("node:"))).toEqual([]);
+  it("loads only Node built-ins, by any import form, with no dynamic loads", () => {
+    const code = readFileSync(bundle, "utf8");
+    const specs = importSpecifiers(code);
+    expect(specs.length).toBeGreaterThan(0);
+    expect(specs.filter((spec) => !spec.startsWith("node:"))).toEqual([]);
+    expect(hasNonLiteralLoad(code)).toBe(false);
   });
 });
