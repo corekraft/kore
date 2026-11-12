@@ -288,17 +288,29 @@ describe("a bounded role cannot start a command with an environment assignment",
   });
 });
 
-describe("git options that run a program are refused for the reader and refiner", () => {
-  for (const role of ["reader", "refiner"]) {
-    it(`${role}: --ext-diff, --textconv and --config-env are blocked`, async () => {
-      for (const command of [
-        "git diff --ext-diff HEAD~1",
-        "git log -p --textconv",
-        "git --config-env=core.pager=X log",
-        "git show --ext-diff HEAD",
-      ]) {
-        blocked(await bash(role, command), "role-read-only");
+describe("git options that run a program are refused for every bounded role", () => {
+  const PROGRAM_OPTIONS = [
+    "git diff --ext-diff HEAD~1",
+    "git log -p --textconv",
+    "git --config-env=core.pager=X log",
+    "git show --ext-diff HEAD",
+    "git -c core.pager=x log",
+    "git -c diff.external=x diff HEAD~1",
+  ];
+
+  for (const role of ["reader", "refiner", "concierge", "challenger"]) {
+    it(`${role}: each is blocked`, async () => {
+      const rule = ["concierge", "challenger"].includes(role)
+        ? "role-no-code"
+        : "role-read-only";
+      for (const command of PROGRAM_OPTIONS) {
+        blocked(await bash(role, command), rule);
       }
+    });
+  }
+
+  for (const role of ["reader", "refiner"]) {
+    it(`${role}: a plain git diff still passes`, async () => {
       allowed(await bash(role, "git diff HEAD~1"));
     });
   }
