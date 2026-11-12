@@ -7959,6 +7959,35 @@ function expand(segment, depth = 0) {
   }
   return name === "xargs" ? [rest, ...inner(xargsCommand(args))] : [rest];
 }
+function substituted(command) {
+  const found = [];
+  for (let i = 0; i < command.length; i++) {
+    const char = command[i];
+    if (char === "`") {
+      const close3 = command.indexOf("`", i + 1);
+      const end = close3 < 0 ? command.length : close3;
+      const inner = command.slice(i + 1, end);
+      found.push(inner, ...substituted(inner));
+      i = end;
+    } else if ("$<>".includes(char ?? "") && command[i + 1] === "(") {
+      let depth = 1;
+      let j = i + 2;
+      while (j < command.length && depth > 0) {
+        if (command[j] === "(") {
+          depth++;
+        } else if (command[j] === ")") {
+          depth--;
+        }
+        j++;
+      }
+      const inner = command.slice(i + 2, depth === 0 ? j - 1 : j);
+      found.push(inner, ...substituted(inner));
+      i = j - 1;
+    }
+  }
+  return found;
+}
+var withSubstitutions = (command) => [command, ...substituted(command)].flatMap(splitSegments);
 var MERGE_API = /\/pulls\/\d+\/merge\b|\/merges\b|\/merge-upstream\b/;
 var MERGE_MUTATION = /mergePullRequest|enablePullRequestAutoMerge/i;
 var withoutRepo = (args) => args.flatMap(
@@ -8137,7 +8166,7 @@ function configWrite(line2) {
 }
 function authToken(line2) {
   const { name, args } = commandOf(line2);
-  return name === "gh" && args[0] === "auth" && (args[1] === "token" || args[1] === "status" && args.some((a) => a === "-t" || a === "--show-token"));
+  return name === "gh" && args[0] === "auth" && (args[1] === "token" || args[1] === "git-credential" || args[1] === "status" && args.some((a) => a === "-t" || a === "--show-token"));
 }
 function graphqlExpands(line2) {
   const { name, args } = commandOf(line2);
@@ -8261,7 +8290,7 @@ function escapes(segment, root3) {
 }
 function checkDeliveryBash(role, command, root3) {
   const segments = splitSegments(command);
-  const merging = segments.find(
+  const merging = withSubstitutions(command).find(
     (s) => mergesPr(s) || pushesToMain(s) || takesRoute(s) || // Only the writer has the full shell; the read-only roles' allowlist refuses these anyway.
     !REPORTING_ROLES.has(role) && takesWriterRoute(s) || // A reporting role never pushes at all (read-only below), so only the writer needs the branch read.
     !REPORTING_ROLES.has(role) && pushesByTracking(s, root3)

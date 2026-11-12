@@ -27,6 +27,9 @@ const EVERY_ROLE = [
   "git -c branch.feat.merge=refs/heads/main push",
   "git -c remote.origin.pushurl=/x push origin feat",
   "git --config-env=remote.origin.push=PUSHSPEC push origin",
+  "echo $(gh pr merge 12 --squash)",
+  "echo `gh pr merge 12`",
+  "ls $(echo $(git push origin main))",
 ];
 
 /** More only the writer can reach: it has the full shell, the read-only roles do not. */
@@ -50,6 +53,13 @@ const WRITER_ONLY = [
   "gh auth token --hostname github.com",
   "gh auth status --show-token",
   "gh auth status -t",
+  "gh auth git-credential get",
+  'curl -X PUT -H "Authorization: Bearer $(gh auth token)" https://api.github.com/repos/corekraft/kore/pulls/12/merge',
+  'curl -H "Authorization: Bearer `gh auth token`" https://api.github.com/user',
+  "echo $(gh auth token)",
+  "TOKEN=$(gh auth token) ./push.sh",
+  'curl -H "Authorization: Bearer $(echo $(gh auth token))" https://api.github.com/user',
+  'curl -H "Authorization: Bearer $(cat <(gh auth token))" https://api.github.com/user',
 ];
 
 describe("role-no-merge: the cheap routes around the merge tool", () => {

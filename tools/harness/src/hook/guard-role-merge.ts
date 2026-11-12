@@ -78,6 +78,40 @@ export function expand(segment: readonly string[], depth = 0): string[][] {
 }
 
 /** REST routes that merge: a pull request, a branch into a branch, or an upstream into a fork. */
+/** The command text inside each `$(...)`, `<(...)`, `>(...)` and pair of backticks, nested ones included. */
+export function substituted(command: string): string[] {
+  const found: string[] = [];
+  for (let i = 0; i < command.length; i++) {
+    const char = command[i];
+    if (char === "`") {
+      const close = command.indexOf("`", i + 1);
+      const end = close < 0 ? command.length : close;
+      const inner = command.slice(i + 1, end);
+      found.push(inner, ...substituted(inner));
+      i = end;
+    } else if ("$<>".includes(char ?? "") && command[i + 1] === "(") {
+      let depth = 1;
+      let j = i + 2;
+      while (j < command.length && depth > 0) {
+        if (command[j] === "(") {
+          depth++;
+        } else if (command[j] === ")") {
+          depth--;
+        }
+        j++;
+      }
+      const inner = command.slice(i + 2, depth === 0 ? j - 1 : j);
+      found.push(inner, ...substituted(inner));
+      i = j - 1;
+    }
+  }
+  return found;
+}
+
+/** The command's segments, and those of every command substituted into it: a token or a merge hidden in `$(...)` is still run. */
+export const withSubstitutions = (command: string): string[][] =>
+  [command, ...substituted(command)].flatMap(splitSegments);
+
 const MERGE_API = /\/pulls\/\d+\/merge\b|\/merges\b|\/merge-upstream\b/;
 const MERGE_MUTATION = /mergePullRequest|enablePullRequestAutoMerge/i;
 

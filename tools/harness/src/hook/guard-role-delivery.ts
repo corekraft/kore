@@ -18,7 +18,11 @@ import {
   WRITE_TOOLS,
 } from "./guard-role-writes.js";
 import { readMayRun } from "./guard-role-allow.js";
-import { mergesPr, runsJudgeTool } from "./guard-role-merge.js";
+import {
+  mergesPr,
+  runsJudgeTool,
+  withSubstitutions,
+} from "./guard-role-merge.js";
 import { pushesByTracking, pushesToMain } from "./guard-role-push.js";
 import { takesRoute, takesWriterRoute } from "./guard-role-routes.js";
 import { commandOf, splitSegments } from "./guard-shell.js";
@@ -207,7 +211,8 @@ export function checkDeliveryBash(
   root: string,
 ): Finding {
   const segments = splitSegments(command);
-  const merging = segments.find(
+  // A command substituted into another still runs, so the merge checks read it too.
+  const merging = withSubstitutions(command).find(
     (s) =>
       mergesPr(s) ||
       pushesToMain(s) ||

@@ -76,13 +76,14 @@ function configWrite(line: readonly string[]): boolean {
   );
 }
 
-/** `gh auth token` and `gh auth status --show-token`, which print the credential a script could use against the API. */
+/** `gh auth token`, `gh auth status --show-token` and `gh auth git-credential`, which print the credential a script could use against the API. */
 function authToken(line: readonly string[]): boolean {
   const { name, args } = commandOf(line);
   return (
     name === "gh" &&
     args[0] === "auth" &&
     (args[1] === "token" ||
+      args[1] === "git-credential" ||
       (args[1] === "status" &&
         args.some((a) => a === "-t" || a === "--show-token")))
   );
