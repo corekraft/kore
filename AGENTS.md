@@ -89,6 +89,23 @@ the plans and ADRs record why. Find them through
 - **Record significant decisions** as ADRs; when a step refines an earlier
   decision, record why.
 
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues on `corekraft/kore`, through `gh`. See
+`docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`,
+`ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `GLOSSARY.md` at the root, ADRs in `docs/decisions/`. See
+`docs/agents/domain.md`.
+
 ## Enforcement
 
 _Enforced_ and _Audited_ rules are checked by `.claude/hooks/` and
