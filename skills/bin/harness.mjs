@@ -2220,27 +2220,36 @@ async function close(context) {
 }
 
 // src/session/models.ts
-var DISPLAY_NAMES = {
-  "claude-fable-5-2": "Fable 5.2",
-  "claude-opus-5-5": "Opus 5.5",
-  "claude-sonnet-5-5": "Sonnet 5.5",
-  "claude-haiku-5-5": "Haiku 5.5"
+var MODELS = {
+  "claude-fable-5-2": {
+    name: "Fable 5.2",
+    pattern: /(?<![\w.])Fable 5\.2(?![\w.])/
+  },
+  "claude-opus-5-5": {
+    name: "Opus 5.5",
+    pattern: /(?<![\w.])Opus 5\.5(?![\w.])/
+  },
+  "claude-sonnet-5-5": {
+    name: "Sonnet 5.5",
+    pattern: /(?<![\w.])Sonnet 5\.5(?![\w.])/
+  },
+  "claude-haiku-5-5": {
+    name: "Haiku 5.5",
+    pattern: /(?<![\w.])Haiku 5\.5(?![\w.])/
+  }
 };
 function displayName(model) {
-  return Object.hasOwn(DISPLAY_NAMES, model) ? DISPLAY_NAMES[model] : void 0;
+  return Object.hasOwn(MODELS, model) ? MODELS[model]?.name : void 0;
 }
-function mentions(text2, name) {
-  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`(?<![\\w.])${escaped}(?![\\w.])`).test(text2);
-}
-function modelOnScreen(expected, screen) {
-  if (mentions(screen, expected)) {
+function modelOnScreen(model, screen) {
+  const expected = Object.hasOwn(MODELS, model) ? MODELS[model] : void 0;
+  if (expected?.pattern.test(screen) === true) {
     return { status: "verified" };
   }
-  const seen = Object.values(DISPLAY_NAMES).find(
-    (name) => mentions(screen, name)
+  const seen = Object.values(MODELS).find(
+    ({ pattern }) => pattern.test(screen)
   );
-  return seen === void 0 ? { status: "none" } : { status: "mismatch", seen };
+  return seen === void 0 ? { status: "none" } : { status: "mismatch", seen: seen.name };
 }
 
 // src/session/agent-start.ts
@@ -2280,7 +2289,7 @@ async function checkModel(deps, name, model) {
       "--source",
       "visible"
     ]);
-    const seen = modelOnScreen(expected, read.code === 0 ? read.stdout : "");
+    const seen = modelOnScreen(model, read.code === 0 ? read.stdout : "");
     if (seen.status === "verified") {
       return { status: "verified" };
     }

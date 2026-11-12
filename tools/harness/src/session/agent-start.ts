@@ -56,7 +56,7 @@ export async function checkModel(
       "--source",
       "visible",
     ]);
-    const seen = modelOnScreen(expected, read.code === 0 ? read.stdout : "");
+    const seen = modelOnScreen(model, read.code === 0 ? read.stdout : "");
     if (seen.status === "verified") {
       return { status: "verified" };
     }
