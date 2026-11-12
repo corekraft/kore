@@ -5,7 +5,7 @@ var CommandError = class extends Error {
 // src/runtime/clock.ts
 var systemClock = {
   now: () => /* @__PURE__ */ new Date(),
-  sleep: (ms) => new Promise((resolve9) => setTimeout(resolve9, ms))
+  sleep: (ms) => new Promise((resolve10) => setTimeout(resolve10, ms))
 };
 function localDate(date) {
   const two = (n) => String(n).padStart(2, "0");
@@ -102,7 +102,7 @@ var nodeFileSystem = {
 import { spawn } from "node:child_process";
 var ProcessRunner = class {
   async run(command, args, options = {}) {
-    return await new Promise((resolve9) => {
+    return await new Promise((resolve10) => {
       const child = spawn(command, [...args], {
         ...options.cwd === void 0 ? {} : { cwd: options.cwd },
         stdio: [
@@ -120,10 +120,10 @@ var ProcessRunner = class {
         stderr2 += chunk.toString();
       });
       child.on("error", (error) => {
-        resolve9({ stdout, stderr: error.message, code: 127 });
+        resolve10({ stdout, stderr: error.message, code: 127 });
       });
       child.on("close", (code) => {
-        resolve9({ stdout, stderr: stderr2, code: code ?? 1 });
+        resolve10({ stdout, stderr: stderr2, code: code ?? 1 });
       });
       if (options.input !== void 0) {
         child.stdin?.end(options.input);
@@ -3412,7 +3412,7 @@ async function round(context2) {
   }
   deps.stdout(
     context2.json ? `${JSON.stringify(done)}
-` : `Challenge round ${done.round} of 2 posted on ${done.issue}: ${done.objections.length === 0 ? "no open objections" : `${done.objections.length} open objection${done.objections.length === 1 ? "" : "s"}`}
+` : `Challenge round ${done.round} of ${MAX_ROUNDS} posted on ${done.issue}: ${done.objections.length === 0 ? "no open objections" : `${done.objections.length} open objection${done.objections.length === 1 ? "" : "s"}`}
 `
   );
 }
@@ -5048,12 +5048,12 @@ function relativeTo(filePath, root3) {
   return filePath.startsWith(prefix) ? filePath.slice(prefix.length) : filePath;
 }
 function isTrackedSource(filePath, root3) {
-  const relative2 = relativeTo(filePath, root3);
-  return relative2.startsWith(KORE_SOURCE_DIR) && relative2.endsWith(".ts");
+  const relative3 = relativeTo(filePath, root3);
+  return relative3.startsWith(KORE_SOURCE_DIR) && relative3.endsWith(".ts");
 }
 function isHarnessSource(filePath, root3) {
-  const relative2 = relativeTo(filePath, root3);
-  return HARNESS_SOURCE_DIRS.some((dir) => relative2.startsWith(dir)) && relative2.endsWith(".ts");
+  const relative3 = relativeTo(filePath, root3);
+  return HARNESS_SOURCE_DIRS.some((dir) => relative3.startsWith(dir)) && relative3.endsWith(".ts");
 }
 var MAX_LINES = 40;
 function bound(output, command) {
@@ -5347,8 +5347,8 @@ function demoted(previous, after) {
   const unnamed = was.size === 0 && modes(after).size === 0;
   return unnamed && count2(after, "audit") > count2(previous, "audit") && count2(previous, "enforce") > count2(after, "enforce") ? ["a rule"] : [];
 }
-function checkGuardrailDemotion(tool, input, relative2, previous) {
-  if (relative2 !== INVENTORY_PATH) {
+function checkGuardrailDemotion(tool, input, relative3, previous) {
+  if (relative3 !== INVENTORY_PATH) {
     return null;
   }
   const after = text7(tool === "Edit" ? input["new_string"] : input["content"]);
@@ -5358,7 +5358,7 @@ function checkGuardrailDemotion(tool, input, relative2, previous) {
   }
   return warn(
     "guardrail-demotion",
-    `${relative2} turns ${rules2.join(", ")} from enforce to audit by hand. A person approves a guardrail's mode (ADR 0080). Instead, leave the mode and ask the user to approve the change, or promote a rule from audit to enforce.`
+    `${relative3} turns ${rules2.join(", ")} from enforce to audit by hand. A person approves a guardrail's mode (ADR 0080). Instead, leave the mode and ask the user to approve the change, or promote a rule from audit to enforce.`
   );
 }
 var INVENTORY_TARGET = /(^|[/\s>'"=])\.claude\/guardrails\.yaml$/;
@@ -5805,12 +5805,12 @@ async function evaluateBash(command, ctx) {
 // src/hook/guard-file.ts
 var text8 = (value) => typeof value === "string" ? value : "";
 var written = (tool, input) => text8(tool === "Edit" ? input["new_string"] : input["content"]);
-async function before(tool, input, relative2, ctx, rethrow) {
+async function before(tool, input, relative3, ctx, rethrow) {
   if (tool === "Edit") {
     return text8(input["old_string"]);
   }
   try {
-    return await ctx.readFile(`${ctx.root}/${relative2}`);
+    return await ctx.readFile(`${ctx.root}/${relative3}`);
   } catch (error) {
     if (rethrow && error?.code !== "ENOENT") {
       throw error;
@@ -5851,11 +5851,11 @@ function flagsOn(source, previous) {
   const off = flagsIn(previous, FLAG_OFF);
   return new Set([...flagsIn(source, FLAG_ON)].filter((name) => off.has(name)));
 }
-async function checkFlagOn(tool, input, relative2, ctx) {
-  if (!OVERLAY_PATH.test(relative2)) {
+async function checkFlagOn(tool, input, relative3, ctx) {
+  if (!OVERLAY_PATH.test(relative3)) {
     return null;
   }
-  const previous = await before(tool, input, relative2, ctx, true);
+  const previous = await before(tool, input, relative3, ctx, true);
   const after = written(tool, input);
   const already = flagsIn(FEATURES_BLOCK.exec(previous)?.[0] ?? "", FLAG_ON);
   const added = [...flagsOn(after, previous)].filter(
@@ -5869,11 +5869,11 @@ async function checkFlagOn(tool, input, relative2, ctx) {
   }
   return warn(
     "flag-activation",
-    `${relative2} turns on flag ${added[0]} by hand. A flag turns on only with a recorded live proof. Instead, record a confirmed live-run verification outcome (\`harness outcome record --kind verification --source live-run --flag <name> --environment <env> ...\`), then run \`harness flag activate <flag> --environment <env>\`.`
+    `${relative3} turns on flag ${added[0]} by hand. A flag turns on only with a recorded live proof. Instead, record a confirmed live-run verification outcome (\`harness outcome record --kind verification --source live-run --flag <name> --environment <env> ...\`), then run \`harness flag activate <flag> --environment <env>\`.`
   );
 }
-function checkImageDigest(tool, input, relative2) {
-  if (!relative2.startsWith("apps/") && !relative2.startsWith("infra/environments/")) {
+function checkImageDigest(tool, input, relative3) {
+  if (!relative3.startsWith("apps/") && !relative3.startsWith("infra/environments/")) {
     return null;
   }
   const tagged = [...written(tool, input).matchAll(IMAGE_LINE)].filter(
@@ -5893,11 +5893,11 @@ var ideaOutcomeWarn = (path) => warn(
   "idea-outcome",
   `${path} is an idea record: its outcome is written by the outcome tool, never by hand. Instead, run \`harness outcome record --idea <number or slug> --kind <experiment|usage|verification> --source <live-run|journal|eval-history|comparison> --evidence <reference> --result <confirmed|refuted|inconclusive> --summary <text>\`.`
 );
-async function checkCoverageThreshold(tool, input, relative2, ctx) {
-  if (relative2 !== "tools/kore/vitest.config.ts") {
+async function checkCoverageThreshold(tool, input, relative3, ctx) {
+  if (relative3 !== "tools/kore/vitest.config.ts") {
     return null;
   }
-  const previous = await before(tool, input, relative2, ctx, false);
+  const previous = await before(tool, input, relative3, ctx, false);
   if (!lowersThresholds(previous, written(tool, input))) {
     return null;
   }
@@ -5906,43 +5906,46 @@ async function checkCoverageThreshold(tool, input, relative2, ctx) {
     "Coverage thresholds only go up. Instead, add tests for the uncovered code and leave the thresholds unchanged."
   );
 }
-async function checkSopsPath(tool, input, relative2, ctx) {
+async function checkSopsPath(tool, input, relative3, ctx) {
   const patterns = await loadSopsPatterns(ctx);
-  if (!patterns.some((pattern) => pattern.test(relative2))) {
+  if (!patterns.some((pattern) => pattern.test(relative3))) {
     return null;
   }
   const encrypted = tool === "Write" && /^sops:/m.test(text8(input["content"]));
-  return encrypted ? null : sopsBlock(relative2);
+  return encrypted ? null : sopsBlock(relative3);
 }
-async function checkWrite(tool, input, relative2, ctx) {
-  if (isAppendOnly(relative2)) {
-    return applyMode(appendOnlyWarn(relative2), ctx) ?? allow;
+async function checkWrite(tool, input, relative3, ctx) {
+  if (isAppendOnly(relative3)) {
+    return applyMode(appendOnlyWarn(relative3), ctx) ?? allow;
   }
-  const ideaOutcome = IDEA_PATH.test(relative2) && HAND_WRITTEN_OUTCOME.test(written(tool, input)) ? ideaOutcomeWarn(relative2) : null;
+  const ideaOutcome = IDEA_PATH.test(relative3) && HAND_WRITTEN_OUTCOME.test(written(tool, input)) ? ideaOutcomeWarn(relative3) : null;
   const findings2 = [
-    await checkFlagOn(tool, input, relative2, ctx),
+    await checkFlagOn(tool, input, relative3, ctx),
     ideaOutcome,
-    await checkSopsPath(tool, input, relative2, ctx),
-    await checkCoverageThreshold(tool, input, relative2, ctx),
-    checkImageDigest(tool, input, relative2),
+    await checkSopsPath(tool, input, relative3, ctx),
+    await checkCoverageThreshold(tool, input, relative3, ctx),
+    checkImageDigest(tool, input, relative3),
     checkGuardrailDemotion(
       tool,
       input,
-      relative2,
-      relative2 === INVENTORY_PATH ? await before(tool, input, relative2, ctx, false) : ""
+      relative3,
+      relative3 === INVENTORY_PATH ? await before(tool, input, relative3, ctx, false) : ""
     )
   ];
   return weigh(findings2.map((finding2) => applyMode(finding2, ctx)));
 }
-async function evaluateFile(tool, input, relative2, ctx) {
-  if (SECRET_PATH.test(relative2)) {
+async function evaluateFile(tool, input, relative3, ctx) {
+  if (SECRET_PATH.test(relative3)) {
     return applyMode(secretBlock(), ctx);
   }
   if (tool === "Read") {
     return allow;
   }
-  return await checkWrite(tool, input, relative2, ctx);
+  return await checkWrite(tool, input, relative3, ctx);
 }
+
+// src/hook/guard-role.ts
+import { isAbsolute as isAbsolute2, relative as relative2, resolve as resolve5 } from "node:path";
 
 // src/hook/guard-role-delivery.ts
 import { isAbsolute, relative, resolve as resolve4 } from "node:path";
@@ -6006,11 +6009,12 @@ function writes(segment) {
   return redirectsToFile(segment) || WRITERS.has(name) || name === "sed" && args.some((arg) => /^-\w*i/.test(arg)) || name === "git" && verb !== void 0 && WRITING_GIT.has(verb) || name === "gh" && args[0] === "pr" && args[1] !== void 0 && WRITING_GH.has(args[1]);
 }
 var HARNESS2 = /^(\.\/)?skills\/bin\/harness\.mjs$/;
-var harnessAllowed = (name, args, allowed) => name === "node" && HARNESS2.test(args[0] ?? "") && allowed.includes(`${args[1] ?? ""} ${args[2] ?? ""}`);
+var namesLedger = (args) => args.some((arg) => arg === "--ledger" || arg.startsWith("--ledger="));
+var harnessAllowed = (name, args, allowed) => name === "node" && HARNESS2.test(args[0] ?? "") && !namesLedger(args) && allowed.includes(`${args[1] ?? ""} ${args[2] ?? ""}`);
 var harnessStatus = (name, args) => name === "node" && HARNESS2.test(args[0] ?? "") && args[1] === "status" && args.length <= 3 && (args[2] === void 0 || args[2] === "--json");
 
 // src/hook/guard-role-delivery.ts
-var REPORTING_ROLES = /* @__PURE__ */ new Set(["orchestrator", "judge", "refiner"]);
+var REPORTING_ROLES = /* @__PURE__ */ new Set(["orchestrator", "judge"]);
 var DELIVERY_ROLES = /* @__PURE__ */ new Set([...REPORTING_ROLES, "writer"]);
 var noMerge = (role, what) => block(
   "role-no-merge",
@@ -6050,12 +6054,7 @@ var ORCHESTRATOR_HARNESS = [
   "outcome record",
   "outcome close"
 ];
-var REFINER_HARNESS = [...READS, "idea new", "idea sync"];
-var HARNESS_BY_ROLE = {
-  orchestrator: ORCHESTRATOR_HARNESS,
-  refiner: REFINER_HARNESS
-};
-var harnessFor = (role) => HARNESS_BY_ROLE[role] ?? READS;
+var harnessFor = (role) => role === "orchestrator" ? ORCHESTRATOR_HARNESS : READS;
 function harnessRefused(role, segment) {
   const { name, args } = commandOf(segment);
   if (name !== "node" || !(args[0] ?? "").endsWith("harness.mjs")) {
@@ -6120,11 +6119,29 @@ function checkDelivery(role, tool, input, root3) {
 }
 
 // src/hook/guard-role.ts
-var READ_ONLY_ROLES = /* @__PURE__ */ new Set(["concierge", "reader", "challenger"]);
+var READ_ONLY_ROLES = /* @__PURE__ */ new Set([
+  "concierge",
+  "reader",
+  "refiner",
+  "challenger"
+]);
 var NO_CODE_ROLES = /* @__PURE__ */ new Set(["concierge", "challenger"]);
 var FILE_TOOLS = /* @__PURE__ */ new Set(["Read", "Grep", "Glob"]);
 var CONCIERGE_PATHS = /^(infra\/plans\/|docs\/|GLOSSARY\.md$|README\.md$)/;
-var rolePrefix = (root3, path) => path.startsWith(`${root3}/`) ? path.slice(root3.length + 1) : path;
+function insideRoot(root3, path) {
+  const from = relative2(root3, resolve5(root3, path));
+  return from.startsWith("..") || isAbsolute2(from) ? void 0 : from;
+}
+function readable(root3, input) {
+  const path = input["file_path"] ?? input["path"];
+  const pattern = input["pattern"];
+  const glob = input["glob"];
+  const climbs = [pattern, glob].some(
+    (value) => typeof value === "string" && (value.split("/").includes("..") || value.startsWith("/"))
+  );
+  const inside = typeof path === "string" ? insideRoot(root3, path) : void 0;
+  return !climbs && inside !== void 0 && CONCIERGE_PATHS.test(inside);
+}
 var noCode = (what, role) => block(
   "role-no-code",
   `${what} reads code, and the ${role} works from plans, ADRs, ideas, issues and the ledger. Instead, ask a reader to look at the code and summarize it.`
@@ -6139,6 +6156,7 @@ var HARNESS_READS = [
   "ledger list"
 ];
 var CONCIERGE_HARNESS = [...HARNESS_READS, "idea new", "idea sync"];
+var REFINER_HARNESS = [...HARNESS_READS, "idea new", "idea sync"];
 var CHALLENGER_HARNESS = [...HARNESS_READS, "idea challenge"];
 var READ_UTILITIES = /* @__PURE__ */ new Set([
   "cat",
@@ -6213,7 +6231,7 @@ var READER_GIT = [
   "grep",
   "rev-parse"
 ];
-function readerMayRun(segment) {
+function readerMayRun(role, segment) {
   const { name, args } = commandOf(segment);
   if (name === "find") {
     return !args.some(
@@ -6233,7 +6251,11 @@ function readerMayRun(segment) {
   if (name === "git") {
     return READER_GIT.includes(args.find((arg) => !arg.startsWith("-")) ?? "") && !gitWrites(args);
   }
-  return harnessAllowed(name, args, HARNESS_READS) || name === "gh" && ghMayRun(args, true) || READ_UTILITIES.has(name) && utilityMayRun(name, args);
+  return harnessAllowed(
+    name,
+    args,
+    role === "refiner" ? REFINER_HARNESS : HARNESS_READS
+  ) || name === "gh" && ghMayRun(args, true) || READ_UTILITIES.has(name) && utilityMayRun(name, args);
 }
 function checkBash(role, command) {
   if (/\$\(|`|<\(|>\(/.test(command)) {
@@ -6248,7 +6270,7 @@ function checkBash(role, command) {
     const stray = segments.find((segment) => !noCodeMayRun(role, segment));
     return stray === void 0 ? null : noCode(`\`${stray.join(" ")}\``, role);
   }
-  const unknown = segments.find((segment) => !readerMayRun(segment));
+  const unknown = segments.find((segment) => !readerMayRun(role, segment));
   return unknown === void 0 ? null : readOnly(
     `\`${unknown.join(" ")}\`, which is not a known read-only command,`
   );
@@ -6267,9 +6289,7 @@ function checkRole(agentType, tool, input, root3) {
     return checkBash(agentType, input["command"]);
   }
   if (NO_CODE_ROLES.has(agentType) && FILE_TOOLS.has(tool)) {
-    const path = input["file_path"] ?? input["path"];
-    const readable = typeof path === "string" && CONCIERGE_PATHS.test(rolePrefix(root3, path));
-    return readable ? null : noCode(tool, agentType);
+    return readable(root3, input) ? null : noCode(tool, agentType);
   }
   return null;
 }
@@ -6290,8 +6310,8 @@ async function evaluate(payload, ctx) {
   const filePath = input.file_path;
   if ((tool === "Read" || tool === "Write" || tool === "Edit") && typeof filePath === "string") {
     const prefix = `${ctx.root}/`;
-    const relative2 = filePath.startsWith(prefix) ? filePath.slice(prefix.length) : filePath;
-    return await evaluateFile(tool, input, relative2, ctx);
+    const relative3 = filePath.startsWith(prefix) ? filePath.slice(prefix.length) : filePath;
+    return await evaluateFile(tool, input, relative3, ctx);
   }
   return allow;
 }
@@ -6959,7 +6979,7 @@ var context = hookCommand(
 );
 
 // src/hook/delta-deps.ts
-import { join as join10, resolve as resolve5 } from "node:path";
+import { join as join10, resolve as resolve6 } from "node:path";
 var JOURNAL_DIR2 = ".kore/state/journal";
 var LOCKS_DIR = ".kore/locks";
 function gitReader(deps, root3) {
@@ -7011,7 +7031,7 @@ async function readJournals2(deps, root3) {
   return journals;
 }
 function snapshotStore(deps, git3, root3) {
-  const dir = async () => join10(resolve5(root3, await git3("rev-parse", "--git-dir")), "kore-delta");
+  const dir = async () => join10(resolve6(root3, await git3("rev-parse", "--git-dir")), "kore-delta");
   const file = async (id) => join10(await dir(), `${id}.json`);
   return {
     async readSnapshot(id) {
@@ -7549,7 +7569,7 @@ var retroScan = hookCommand(
 );
 
 // src/hook/skill-links.ts
-import { isAbsolute as isAbsolute2, join as join13 } from "node:path";
+import { isAbsolute as isAbsolute3, join as join13 } from "node:path";
 var HARNESSES = [".claude", ".codex"];
 async function skillNames2(fs, root3) {
   const skillsDir = join13(root3, "skills");
@@ -7595,7 +7615,7 @@ async function linkProblems(fs, root3) {
         problems.push(
           found.code === "EINVAL" ? `${link} is a directory or file, not a link; replace it with a link to ${expected}` : `${link} is missing; link it to ${expected}`
         );
-      } else if (isAbsolute2(found.target)) {
+      } else if (isAbsolute3(found.target)) {
         problems.push(
           `${link} links to an absolute path; relink it to ${expected}`
         );
@@ -7802,7 +7822,7 @@ function anchors(markdown) {
   }
   return result;
 }
-function resolve6(from, target) {
+function resolve7(from, target) {
   const joined = posix.normalize(posix.join(posix.dirname(from), target));
   if (joined === ".." || joined.startsWith("../")) {
     return null;
@@ -8145,7 +8165,7 @@ function linkProblems2(tree, file, text10) {
         continue;
       }
       const [pathPart = "", anchor] = raw.split("#", 2);
-      const target = pathPart ? resolve6(file, decodeURI(pathPart)) : file;
+      const target = pathPart ? resolve7(file, decodeURI(pathPart)) : file;
       if (target === null || !tree.exists(target)) {
         problems.push(
           finding(
@@ -8205,7 +8225,7 @@ function indexProblems(tree) {
     if (raw === void 0 || isExternal(raw)) {
       continue;
     }
-    const target = resolve6(INDEX3, decodeURI(raw));
+    const target = resolve7(INDEX3, decodeURI(raw));
     if (target) {
       listed.add(target);
     }
@@ -8369,7 +8389,7 @@ function linkTargets(file, text10) {
   for (const { text: prose2 } of proseLines(text10)) {
     for (const [, raw = ""] of prose2.matchAll(LINK)) {
       const [pathPart] = raw.split("#", 1);
-      const target = isExternal(raw) || !pathPart ? null : resolve6(file, decodeURI(pathPart));
+      const target = isExternal(raw) || !pathPart ? null : resolve7(file, decodeURI(pathPart));
       if (target !== null) {
         targets.push(target);
       }
@@ -8875,7 +8895,7 @@ function fail3(deps, json, code, message) {
 }
 
 // src/session/registry.ts
-import { join as join16, resolve as resolve7 } from "node:path";
+import { join as join16, resolve as resolve8 } from "node:path";
 var STATE_DIR = ".kore/state/sessions";
 function isRecord(value) {
   if (typeof value !== "object" || value === null) {
@@ -8899,7 +8919,7 @@ var SessionRegistry = class _SessionRegistry {
         "Cannot find the main checkout to keep session state in. Run inside the repository or set KORE_ROOT to its root."
       );
     }
-    return new _SessionRegistry(deps.fs, resolve7(main, STATE_DIR));
+    return new _SessionRegistry(deps.fs, resolve8(main, STATE_DIR));
   }
   file(name) {
     return join16(this.dir, `${name}.json`);
@@ -9764,7 +9784,7 @@ function own(table, key) {
 function names2(commands) {
   return Object.keys(commands).join(", ");
 }
-function resolve8(domain, name) {
+function resolve9(domain, name) {
   const commands = own(domains, domain);
   if (commands === void 0) {
     return {
@@ -9864,7 +9884,7 @@ async function run2(argv, deps) {
       failure2
     );
   }
-  const resolved = resolve8(domain, name);
+  const resolved = resolve9(domain, name);
   if ("error" in resolved) {
     return fail4(deps, json, resolved.error, failure2);
   }

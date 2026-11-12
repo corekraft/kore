@@ -7,6 +7,7 @@
 // These rules enforce from the start, not in audit mode: the owner approved
 // enforcing the plan 11 role guards on 2026-11-12, which ADR 0080 requires a
 // person to do. A new capability for a role needs a guard case first.
+import { isAbsolute, relative, resolve } from "node:path";
 import { checkDelivery, DELIVERY_ROLES } from "./guard-role-delivery.js";
 import {
   harnessAllowed,
@@ -18,7 +19,12 @@ import {
 import { commandOf, splitSegments } from "./guard-shell.js";
 import { block, type Finding } from "./guard-verdict.js";
 
-const READ_ONLY_ROLES = new Set(["concierge", "reader", "challenger"]);
+const READ_ONLY_ROLES = new Set([
+  "concierge",
+  "reader",
+  "refiner",
+  "challenger",
+]);
 /** Roles that answer from plans, ADRs, ideas and issues and never read code. */
 const NO_CODE_ROLES = new Set(["concierge", "challenger"]);
 const FILE_TOOLS = new Set(["Read", "Grep", "Glob"]);
@@ -26,8 +32,25 @@ const FILE_TOOLS = new Set(["Read", "Grep", "Glob"]);
 /** Paths the concierge and the challenger may read: plans, ADRs and ideas, never code. */
 const CONCIERGE_PATHS = /^(infra\/plans\/|docs\/|GLOSSARY\.md$|README\.md$)/;
 
-const rolePrefix = (root: string, path: string): string =>
-  path.startsWith(`${root}/`) ? path.slice(root.length + 1) : path;
+/** The path relative to the repository with `..` resolved, or undefined when it leaves the repository. */
+function insideRoot(root: string, path: string): string | undefined {
+  const from = relative(root, resolve(root, path));
+  return from.startsWith("..") || isAbsolute(from) ? undefined : from;
+}
+
+/** Whether a file tool call stays in the folders a no-code role may read; a glob pattern may not climb or be absolute. */
+function readable(root: string, input: Record<string, unknown>): boolean {
+  const path = input["file_path"] ?? input["path"];
+  const pattern = input["pattern"];
+  const glob = input["glob"];
+  const climbs = [pattern, glob].some(
+    (value) =>
+      typeof value === "string" &&
+      (value.split("/").includes("..") || value.startsWith("/")),
+  );
+  const inside = typeof path === "string" ? insideRoot(root, path) : undefined;
+  return !climbs && inside !== undefined && CONCIERGE_PATHS.test(inside);
+}
 
 const noCode = (what: string, role: string): Finding =>
   block(
@@ -50,6 +73,8 @@ const HARNESS_READS = [
 /** The concierge also files and mirrors ideas, the one way a request enters the queue. */
 const CONCIERGE_HARNESS = [...HARNESS_READS, "idea new", "idea sync"];
 /** The challenger records its rounds through the idea tool, which posts them on the issue. */
+/** The refiner files and mirrors the idea it refined, the one thing it produces. */
+const REFINER_HARNESS = [...HARNESS_READS, "idea new", "idea sync"];
 const CHALLENGER_HARNESS = [...HARNESS_READS, "idea challenge"];
 
 const READ_UTILITIES = new Set([
@@ -164,7 +189,7 @@ const READER_GIT = [
 ];
 
 /** What the reader's shell may run: read utilities, queries and allowlisted harness commands; find may not delete, execute or write. */
-function readerMayRun(segment: readonly string[]): boolean {
+function readerMayRun(role: string, segment: readonly string[]): boolean {
   const { name, args } = commandOf(segment);
   if (name === "find") {
     return !args.some((arg) =>
@@ -188,7 +213,11 @@ function readerMayRun(segment: readonly string[]): boolean {
     );
   }
   return (
-    harnessAllowed(name, args, HARNESS_READS) ||
+    harnessAllowed(
+      name,
+      args,
+      role === "refiner" ? REFINER_HARNESS : HARNESS_READS,
+    ) ||
     (name === "gh" && ghMayRun(args, true)) ||
     (READ_UTILITIES.has(name) && utilityMayRun(name, args))
   );
@@ -210,7 +239,7 @@ function checkBash(role: string, command: string): Finding {
     const stray = segments.find((segment) => !noCodeMayRun(role, segment));
     return stray === undefined ? null : noCode(`\`${stray.join(" ")}\``, role);
   }
-  const unknown = segments.find((segment) => !readerMayRun(segment));
+  const unknown = segments.find((segment) => !readerMayRun(role, segment));
   return unknown === undefined
     ? null
     : readOnly(
@@ -238,10 +267,7 @@ export function checkRole(
     return checkBash(agentType, input["command"]);
   }
   if (NO_CODE_ROLES.has(agentType) && FILE_TOOLS.has(tool)) {
-    const path = input["file_path"] ?? input["path"];
-    const readable =
-      typeof path === "string" && CONCIERGE_PATHS.test(rolePrefix(root, path));
-    return readable ? null : noCode(tool, agentType);
+    return readable(root, input) ? null : noCode(tool, agentType);
   }
   return null;
 }

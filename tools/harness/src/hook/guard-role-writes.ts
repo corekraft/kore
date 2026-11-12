@@ -86,7 +86,11 @@ export function writes(segment: readonly string[]): boolean {
 }
 
 export const HARNESS = /^(\.\/)?skills\/bin\/harness\.mjs$/;
-/** The command is the harness bundle and its `<domain> <command>` is on the role's list; anything else, even a prefix match, is not. */
+/** `--ledger <path>` makes a harness command append to any file, so a bounded role never passes it. */
+const namesLedger = (args: readonly string[]): boolean =>
+  args.some((arg) => arg === "--ledger" || arg.startsWith("--ledger="));
+
+/** The command is the harness bundle and its `<domain> <command>` is on the role's list and names no --ledger; anything else, even a prefix match, is not. */
 export const harnessAllowed = (
   name: string,
   args: readonly string[],
@@ -94,6 +98,7 @@ export const harnessAllowed = (
 ): boolean =>
   name === "node" &&
   HARNESS.test(args[0] ?? "") &&
+  !namesLedger(args) &&
   allowed.includes(`${args[1] ?? ""} ${args[2] ?? ""}`);
 
 /** `harness status`, a domain with no command word: bare or with `--json` only. A separate check, so no other role's allowlist can match it. */

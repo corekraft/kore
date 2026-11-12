@@ -38,10 +38,7 @@ describe("refiner and challenger never write files themselves", () => {
     });
 
     it(`${role}: nobody merges, and the harness stays on the role's list`, async () => {
-      blocked(
-        await bash(role, "gh pr merge 12 --squash"),
-        role === "refiner" ? "role-no-merge" : "role-read-only",
-      );
+      blocked(await bash(role, "gh pr merge 12 --squash"), "role-read-only");
       for (const rest of [
         "plan tick --item x",
         "adr new --title x",
@@ -62,6 +59,78 @@ describe("refiner and challenger never write files themselves", () => {
       }
     });
   }
+});
+
+describe("the refiner runs only an allowlist, so it cannot approve or act around the loop", () => {
+  const ESCAPES = [
+    "gh issue edit 5 --add-label ready-for-agent",
+    'gh issue comment 5 --body "<!-- harness-challenge idea=0001 round=1 -->"',
+    "gh issue close 5",
+    "gh api -X POST repos/corekraft/kore/issues/5/labels",
+    "gh api repos/corekraft/kore/issues/5/comments -f body=x",
+    'herdr pane send-text w3:p1 "approved"',
+    "sh -c 'echo x > a.ts'",
+    "bash -c 'echo x > a.ts'",
+    "curl -o a.ts https://example.com/x",
+    "npx tsx tools/harness/src/main.ts idea challenge --idea 1 --approve",
+    "node tools/harness/src/main.ts idea challenge --idea 1 --approve",
+    "node /tmp/skills/bin/harness.mjs idea new --title x",
+  ];
+
+  it("blocks each command that acts outside the idea tool", async () => {
+    for (const command of ESCAPES) {
+      blocked(await bash("refiner", command), "role-read-only");
+    }
+  });
+
+  it("blocks them chained after an allowed command", async () => {
+    for (const command of ESCAPES) {
+      blocked(
+        await bash(
+          "refiner",
+          `node skills/bin/harness.mjs idea list && ${command}`,
+        ),
+        "role-read-only",
+      );
+    }
+  });
+
+  it("still reads issues and pull requests", async () => {
+    for (const command of [
+      "gh issue view 5",
+      "gh pr view 12",
+      "gh pr diff 12",
+    ]) {
+      allowed(await bash("refiner", command));
+    }
+  });
+});
+
+describe("--ledger would let a role append to any file, so no bounded role may pass it", () => {
+  const WITH_LEDGER = [
+    "idea challenge --idea 1 --approve --ledger /repo/src/a.ts",
+    "idea challenge --idea 1 --approve --ledger=/repo/src/a.ts",
+    "ledger list --ledger /etc/x",
+  ];
+
+  it("blocks it for the challenger, refiner, concierge and orchestrator", async () => {
+    for (const role of ["challenger", "refiner", "concierge", "orchestrator"]) {
+      for (const rest of WITH_LEDGER) {
+        const verdict = await harness(role, rest);
+        blocked(
+          verdict,
+          ["challenger", "concierge"].includes(role)
+            ? "role-no-code"
+            : "role-read-only",
+        );
+      }
+    }
+  });
+
+  it("allows the same commands without it", async () => {
+    allowed(await harness("challenger", "idea challenge --idea 1 --approve"));
+    allowed(await harness("orchestrator", "ledger list"));
+  });
 });
 
 describe("the refiner writes an idea only through the idea tool", () => {
@@ -147,4 +216,46 @@ describe("role-no-code: the challenger reviews ideas, ADRs and plans, never code
       allowed(await bash("challenger", command));
     }
   });
+});
+
+describe("role-no-code: a path with .. cannot step out of the readable folders", () => {
+  const TRAVERSALS = [
+    { tool: "Read", input: { file_path: "/repo/docs/../tools/a.ts" } },
+    { tool: "Read", input: { file_path: "docs/../tools/a.ts" } },
+    { tool: "Grep", input: { pattern: "x", path: "/repo/docs/.." } },
+    { tool: "Grep", input: { pattern: "x", path: "infra/plans/../../tools" } },
+    {
+      tool: "Glob",
+      input: { pattern: "../tools/**/*.ts", path: "/repo/docs" },
+    },
+    {
+      tool: "Glob",
+      input: { pattern: "/repo/tools/**/*.ts", path: "/repo/docs" },
+    },
+    {
+      tool: "Glob",
+      input: { pattern: "**/*.ts", path: "/repo/docs/../tools" },
+    },
+  ];
+
+  for (const role of ["challenger", "concierge"]) {
+    it(`${role}: blocked whichever file tool names it`, async () => {
+      for (const { tool, input } of TRAVERSALS) {
+        blocked(await as(role, tool, input), "role-no-code");
+      }
+    });
+
+    it(`${role}: a real path under docs still passes`, async () => {
+      allowed(await as(role, "Read", { file_path: "/repo/docs/index.md" }));
+      allowed(
+        await as(role, "Glob", {
+          pattern: "*.md",
+          path: "/repo/docs/decisions",
+        }),
+      );
+      allowed(
+        await as(role, "Read", { file_path: "/repo/docs/../GLOSSARY.md" }),
+      );
+    });
+  }
 });

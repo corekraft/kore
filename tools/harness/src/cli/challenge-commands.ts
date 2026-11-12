@@ -1,5 +1,6 @@
 import {
   challengeIdea,
+  MAX_ROUNDS,
   parseObjections,
   RoundLimit,
 } from "../challenge/index.js";
@@ -71,7 +72,7 @@ async function round(context: CommandContext): Promise<void> {
   deps.stdout(
     context.json
       ? `${JSON.stringify(done)}\n`
-      : `Challenge round ${done.round} of 2 posted on ${done.issue}: ${
+      : `Challenge round ${done.round} of ${MAX_ROUNDS} posted on ${done.issue}: ${
           done.objections.length === 0
             ? "no open objections"
             : `${done.objections.length} open objection${done.objections.length === 1 ? "" : "s"}`

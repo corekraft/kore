@@ -29,7 +29,7 @@ The delivery loop has these roles, each an agent definition under
 | ------------ | -------------- | --------------------------------------------------------- |
 | Concierge    | Haiku, low     | Talks to the person; answers status; files ideas.         |
 | Refiner      | Sonnet, medium | Turns a raw request into an idea.                         |
-| Challenger   | Opus, high     | Attacks ideas, ADRs and plans; never code.                |
+| Challenger   | Opus           | Attacks ideas, ADRs and plans; never code.                |
 | Orchestrator | Haiku, high    | Drives approved ideas to outcomes.                        |
 | Reader       | Haiku, low     | Reads and summarizes.                                     |
 | Writer       | Haiku          | Changes files for one piece of work, in its own worktree. |
@@ -67,3 +67,15 @@ definitions.
 
 Medium matches the judge. A writer that escalates after two judge send-backs
 keeps this effort and changes only its model.
+
+## Refinement: the challenger's effort is explicit
+
+The table gives the challenger only a model, which would make `session spawn`
+refuse it for the same reason as the writer. Issue #192 added its definition
+and pinned the effort here, leaving the table as accepted.
+
+- Challenger: Opus, high.
+
+High, because the challenger exists to find what a cheaper pass misses in an
+idea, ADR or plan, and it runs once or twice per idea, so the extra cost is
+small next to a flawed idea reaching a writer.

@@ -13,8 +13,8 @@ import {
 import { commandOf, splitSegments } from "./guard-shell.js";
 import { block, type Finding } from "./guard-verdict.js";
 
-/** Roles that read and report: they may run the harness and gh/git queries but change no file. The refiner's one write is the idea tool's. */
-const REPORTING_ROLES = new Set(["orchestrator", "judge", "refiner"]);
+/** Roles that read and report: they may run the harness and gh/git queries but change no file. */
+const REPORTING_ROLES = new Set(["orchestrator", "judge"]);
 export const DELIVERY_ROLES = new Set([...REPORTING_ROLES, "writer"]);
 
 const noMerge = (role: string, what: string): Finding =>
@@ -78,16 +78,8 @@ const ORCHESTRATOR_HARNESS = [
   "outcome close",
 ];
 
-/** The refiner also files and mirrors the idea it refined, the one thing it produces. */
-const REFINER_HARNESS = [...READS, "idea new", "idea sync"];
-
-const HARNESS_BY_ROLE: Readonly<Record<string, readonly string[]>> = {
-  orchestrator: ORCHESTRATOR_HARNESS,
-  refiner: REFINER_HARNESS,
-};
-
 const harnessFor = (role: string): readonly string[] =>
-  HARNESS_BY_ROLE[role] ?? READS;
+  role === "orchestrator" ? ORCHESTRATOR_HARNESS : READS;
 
 /** A harness command the role may not run: it writes, or it is not on the role's list. */
 function harnessRefused(role: string, segment: readonly string[]): boolean {
