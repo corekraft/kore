@@ -8,54 +8,18 @@
 // The root is CLAUDE_PROJECT_DIR, else the payload's cwd. The guardrail
 // inventory (.claude/guardrails.yaml) is found from that root, walking up
 // through its parents when the root is a subdirectory of the repository.
-import { evaluateBash } from "./guard-bash.js";
-import { evaluateFile } from "./guard-file.js";
-import { allow, type GuardContext, type Verdict } from "./guard-verdict.js";
+import { asCall, evaluate } from "./guard-evaluate.js";
 import {
   GuardrailError,
   modeOf,
   findInventory,
   type Inventory,
 } from "../guardrail/index.js";
-import type { Call } from "./feedback.js";
 import { recordEvent } from "./ledger-event.js";
 import type { CliDeps } from "../runtime/index.js";
 import type { HookResult } from "./io.js";
 
-interface GuardCall extends Call {
-  tool_input?: Record<string, unknown> & { file_path?: unknown };
-}
-
-const asCall = (payload: unknown): GuardCall =>
-  typeof payload === "object" && payload !== null ? (payload as GuardCall) : {};
-
-/** Decide on one tool call. */
-export async function evaluate(
-  payload: unknown,
-  ctx: GuardContext,
-): Promise<Verdict> {
-  const call = asCall(payload);
-  const tool = call.tool_name;
-  const input = call.tool_input ?? {};
-
-  if (tool === "Bash" && typeof input["command"] === "string") {
-    return await evaluateBash(input["command"], ctx);
-  }
-
-  const filePath = input.file_path;
-  if (
-    (tool === "Read" || tool === "Write" || tool === "Edit") &&
-    typeof filePath === "string"
-  ) {
-    const prefix = `${ctx.root}/`;
-    const relative = filePath.startsWith(prefix)
-      ? filePath.slice(prefix.length)
-      : filePath;
-    return await evaluateFile(tool, input, relative, ctx);
-  }
-
-  return allow;
-}
+export { evaluate };
 
 /** Runs the guard against the payload the host sent; a block exits 2. */
 export async function guard(

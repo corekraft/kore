@@ -2,11 +2,12 @@ import type { Command } from "../runtime/index.js";
 import { close } from "./close.js";
 import { equalize } from "./equalize.js";
 import { spawn } from "./spawn.js";
+import { tier } from "./tier.js";
 import { wait } from "./wait.js";
 
 const spawnCommand: Command = {
   summary:
-    "start a Claude session in a Herdr pane (--role --model --effort --name --brief --timeout ms; --worktree [--branch b] runs it in a new git worktree under .claude/worktrees); it waits for the result unless --no-wait, the normal pattern: spawn with --no-wait, then run `session wait <name>` in the background",
+    "start a Claude session in a Herdr pane (--role --name --brief [--model --effort, default from .claude/agents/<role>.md] --timeout ms; --worktree [--branch b] runs it in a new git worktree under .claude/worktrees); it waits for the result unless --no-wait, the normal pattern: spawn with --no-wait, then run `session wait <name>` in the background",
   options: {
     role: "string",
     model: "string",
@@ -36,6 +37,13 @@ const closeCommand: Command = {
   run: close,
 };
 
+const tierCommand: Command = {
+  summary:
+    "print the model and effort a role launches at, from .claude/agents/<role>.md (<role>; read-only)",
+  operand: "role",
+  run: tier,
+};
+
 const equalizeCommand: Command = {
   summary: "equalize the heights of the spawned panes (run after closing one)",
   async run({ json, deps }) {
@@ -63,5 +71,6 @@ export const session: Record<string, Command> = {
   spawn: spawnCommand,
   wait: waitCommand,
   close: closeCommand,
+  tier: tierCommand,
   equalize: equalizeCommand,
 };

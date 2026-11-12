@@ -8,6 +8,8 @@
     { "rule": "helm-context", "kind": "bash", "mode": "enforce", "owner": "tools/harness/src/hook/guard-commands.ts" },
     { "rule": "no-verify", "kind": "bash", "mode": "enforce", "owner": "tools/harness/src/hook/guard-commands.ts" },
     { "rule": "coverage-threshold", "kind": "file", "mode": "enforce", "owner": "tools/harness/src/hook/guard-file.ts" },
+    { "rule": "role-read-only", "kind": "bash-and-file", "mode": "enforce", "owner": "tools/harness/src/hook/guard-role.ts" },
+    { "rule": "role-no-code", "kind": "bash-and-file", "mode": "enforce", "owner": "tools/harness/src/hook/guard-role.ts" },
     { "rule": "append-only", "kind": "bash-and-file", "mode": "audit", "owner": "tools/harness/src/hook/guard-append-only.ts" },
     { "rule": "flag-activation", "kind": "file", "mode": "audit", "owner": "tools/harness/src/hook/guard-file.ts" },
     { "rule": "image-digest", "kind": "file", "mode": "audit", "owner": "tools/harness/src/hook/guard-file.ts" },

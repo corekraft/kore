@@ -1033,12 +1033,12 @@ var Tally = class {
     ];
   }
   /** Charges milliseconds the caller already clipped to the window. */
-  addMs(stage, field2, ms) {
-    this.totals.get(stage)[field2] += ms;
+  addMs(stage, field3, ms) {
+    this.totals.get(stage)[field3] += ms;
   }
   /** Charges the part of `[from, to]` inside the window. */
-  add(stage, field2, from, to) {
-    this.totals.get(stage)[field2] += clipMs(
+  add(stage, field3, from, to) {
+    this.totals.get(stage)[field3] += clipMs(
       this.window,
       from,
       to
@@ -1584,11 +1584,11 @@ function isTimestamp(value) {
   }
   return time2.toISOString().slice(0, 10) === value.slice(0, 10);
 }
-function bad2(field2, problem) {
+function bad2(field3, problem) {
   return {
     ok: false,
-    field: field2,
-    message: `Invalid event: field "${field2}" ${problem}.`
+    field: field3,
+    message: `Invalid event: field "${field3}" ${problem}.`
   };
 }
 var isText = (pattern) => (value) => typeof value === "string" && pattern.test(value);
@@ -1643,9 +1643,9 @@ function checkShape(input, mode) {
     }
   }
   if (mode === "input") {
-    for (const field2 of ["recordedAt", "schema"]) {
-      if (raw[field2] !== void 0) {
-        return bad2(field2, "is set by the ledger, not the caller");
+    for (const field3 of ["recordedAt", "schema"]) {
+      if (raw[field3] !== void 0) {
+        return bad2(field3, "is set by the ledger, not the caller");
       }
     }
   }
@@ -1662,10 +1662,10 @@ function checkCore(raw, mode) {
     return bad2("kind", `must be one of ${KINDS2.join(", ")}`);
   }
   const times = mode === "stored" ? ["occurredAt", "recordedAt"] : ["occurredAt"];
-  for (const field2 of times) {
-    const value = raw[field2];
+  for (const field3 of times) {
+    const value = raw[field3];
     if (typeof value !== "string" || !isTimestamp(value)) {
-      return bad2(field2, TIME_HINT);
+      return bad2(field3, TIME_HINT);
     }
   }
   return void 0;
@@ -1808,7 +1808,7 @@ async function pollGithub(deps) {
 }
 var PAGE = 100;
 var MAX_PAGES = 3;
-var searchFrom = (field2, since) => since === void 0 ? [] : ["--search", `${field2}:>=${since.slice(0, 10)}`];
+var searchFrom = (field3, since) => since === void 0 ? [] : ["--search", `${field3}:>=${since.slice(0, 10)}`];
 async function fetchEvents(gh, repo, since) {
   const events = [];
   for (let page = 1; page <= MAX_PAGES; page++) {
@@ -2165,9 +2165,9 @@ async function eventInput(context) {
     return { error: "Invalid event: stdin is not valid JSON." };
   }
 }
-function reject({ json, deps }, message, field2, code = 1) {
+function reject({ json, deps }, message, field3, code = 1) {
   deps.stderr(
-    json ? `${JSON.stringify({ error: message, field: field2 })}
+    json ? `${JSON.stringify({ error: message, field: field3 })}
 ` : `${message}
 `
   );
@@ -5786,8 +5786,8 @@ var sopsBlock = (path) => block(
 
 // src/hook/guard-bash.ts
 async function sopsWrite(name, segment, text8, ctx) {
-  const writes = text8.includes(">") || ["tee", "cp", "mv", "sed"].includes(name);
-  if (name === "sops" || !writes) {
+  const writes2 = text8.includes(">") || ["tee", "cp", "mv", "sed"].includes(name);
+  if (name === "sops" || !writes2) {
     return null;
   }
   const patterns = await loadSopsPatterns(ctx);
@@ -5995,12 +5995,221 @@ async function evaluateFile(tool, input, relative, ctx) {
   return await checkWrite(tool, input, relative, ctx);
 }
 
-// src/hook/guard.ts
+// src/hook/guard-role.ts
+var READ_ONLY_ROLES = /* @__PURE__ */ new Set(["concierge", "reader"]);
+var WRITE_TOOLS = /* @__PURE__ */ new Set(["Write", "Edit", "NotebookEdit"]);
+var FILE_TOOLS = /* @__PURE__ */ new Set(["Read", "Grep", "Glob"]);
+var WRITERS = /* @__PURE__ */ new Set([
+  "tee",
+  "cp",
+  "mv",
+  "rm",
+  "rmdir",
+  "mkdir",
+  "touch",
+  "chmod",
+  "chown",
+  "ln",
+  "truncate",
+  "dd",
+  "install"
+]);
+var WRITING_GIT = /* @__PURE__ */ new Set([
+  "add",
+  "commit",
+  "push",
+  "apply",
+  "am",
+  "checkout",
+  "switch",
+  "restore",
+  "reset",
+  "merge",
+  "rebase",
+  "cherry-pick",
+  "revert",
+  "stash",
+  "clean",
+  "rm",
+  "mv",
+  "worktree",
+  "tag",
+  "branch"
+]);
+var WRITING_GH = /* @__PURE__ */ new Set(["merge", "close", "edit", "checkout"]);
+var CONCIERGE_PATHS = /^(infra\/plans\/|docs\/|GLOSSARY\.md$|README\.md$)/;
+var rolePrefix = (root3, path) => path.startsWith(`${root3}/`) ? path.slice(root3.length + 1) : path;
+var readOnly = (what) => block(
+  "role-read-only",
+  `${what} changes files, and the concierge and reader never write. Instead, report what needs changing: the concierge files it as an idea, the reader returns it in its summary.`
+);
+var noCode = (what) => block(
+  "role-no-code",
+  `${what} reads code, and the concierge answers from plans, issues and the ledger. Instead, ask a reader to look at the code and summarize it.`
+);
+var FD_OPERATOR = /^(?:\d*>>?|&>>?)$/;
+var harmless = (target) => target === "/dev/null" || target === "&1" || target === "&2";
+var redirectsToFile = (segment) => segment.some((word, index) => {
+  if (FD_OPERATOR.test(word)) {
+    return !harmless(segment[index + 1]);
+  }
+  const joined = /^(?:\d*>>?|&>>?)(.+)$/.exec(word);
+  return joined !== null && !harmless(joined[1]);
+});
+function writes(segment) {
+  const { name, args } = commandOf(segment);
+  const verb = args.find((arg) => !arg.startsWith("-"));
+  return redirectsToFile(segment) || WRITERS.has(name) || name === "sed" && args.some((arg) => /^-\w*i/.test(arg)) || name === "git" && verb !== void 0 && WRITING_GIT.has(verb) || name === "gh" && args[0] === "pr" && args[1] !== void 0 && WRITING_GH.has(args[1]);
+}
+var HARNESS2 = /^(\.\/)?skills\/bin\/harness\.mjs$/;
+var PR_READS = ["view", "list", "status", "checks"];
+var ISSUE_READS = ["view", "list", "status"];
+var HARNESS_READS = [
+  "plan active",
+  "idea list",
+  "idea show",
+  "flow report",
+  "ledger list"
+];
+var CONCIERGE_HARNESS = [...HARNESS_READS, "idea new", "idea sync"];
+var harnessAllowed = (name, args, allowed) => name === "node" && HARNESS2.test(args[0] ?? "") && allowed.includes(`${args[1] ?? ""} ${args[2] ?? ""}`);
+var READ_UTILITIES = /* @__PURE__ */ new Set([
+  "cat",
+  "head",
+  "tail",
+  "ls",
+  "grep",
+  "rg",
+  "wc",
+  "sort",
+  "diff",
+  "stat",
+  "file",
+  "tree",
+  "basename",
+  "dirname",
+  "jq",
+  "date",
+  "echo",
+  "pwd"
+]);
+var hasShortO = (args) => args.some((arg) => /^-[a-zA-Z]*o/.test(arg));
+function utilityMayRun(name, args) {
+  switch (name) {
+    case "sort":
+      return !(hasShortO(args) || args.some(
+        (arg) => arg.startsWith("--output") || arg.startsWith("--compress-program")
+      ));
+    case "tree":
+      return !hasShortO(args);
+    case "rg":
+      return !args.some((arg) => arg === "--pre" || arg.startsWith("--pre="));
+    case "file":
+      return !args.some(
+        (arg) => /^-[a-zA-Z]*C/.test(arg) || arg === "--compile"
+      );
+    default:
+      return true;
+  }
+}
+var gitWrites = (args) => args.some(
+  (arg) => arg.startsWith("--output") || arg.startsWith("--open-files-in-pager") || arg.startsWith("-O")
+);
+var CONCIERGE_GIT_FLAGS = {
+  log: /^(--|--oneline|--graph|--decorate|--no-decorate|--all|--no-merges|--merges|--first-parent|--abbrev-commit|--since=.+|--until=.+|--author=.+|--grep=.+|--format=.+|--pretty=.+|--date=.+|--max-count=.+|-n|-\d+)$/,
+  status: /^(-s|--short|-b|--branch|--porcelain|--porcelain=.+|--long)$/
+};
+function conciergeGit(args) {
+  const [verb = "", ...rest] = args;
+  const flags = CONCIERGE_GIT_FLAGS[verb];
+  return flags !== void 0 && rest.every((arg) => !arg.startsWith("-") || flags.test(arg));
+}
+function ghMayRun(args, patches) {
+  const [group, verb] = args;
+  return group === "issue" && ISSUE_READS.includes(verb ?? "") || group === "label" && verb === "list" || group === "pr" && PR_READS.includes(verb ?? "") || patches && group === "pr" && verb === "diff";
+}
+function conciergeMayRun(segment) {
+  const { name, args } = commandOf(segment);
+  return harnessAllowed(name, args, CONCIERGE_HARNESS) || name === "gh" && ghMayRun(args, false) || name === "git" && conciergeGit(args) || ["date", "echo", "pwd"].includes(name);
+}
+var READER_GIT = [
+  "log",
+  "status",
+  "show",
+  "diff",
+  "blame",
+  "ls-files",
+  "grep",
+  "rev-parse"
+];
+function readerMayRun(segment) {
+  const { name, args } = commandOf(segment);
+  if (name === "find") {
+    return !args.some(
+      (arg) => [
+        "-delete",
+        "-exec",
+        "-execdir",
+        "-ok",
+        "-okdir",
+        "-fprint",
+        "-fprint0",
+        "-fprintf",
+        "-fls"
+      ].includes(arg)
+    );
+  }
+  if (name === "git") {
+    return READER_GIT.includes(args.find((arg) => !arg.startsWith("-")) ?? "") && !gitWrites(args);
+  }
+  return harnessAllowed(name, args, HARNESS_READS) || name === "gh" && ghMayRun(args, true) || READ_UTILITIES.has(name) && utilityMayRun(name, args);
+}
+function checkBash(role, command) {
+  if (/\$\(|`|<\(|>\(/.test(command)) {
+    return role === "concierge" ? noCode("A command substitution") : readOnly("A command substitution");
+  }
+  const segments = splitSegments(command);
+  const writer = segments.find(writes);
+  if (writer !== void 0) {
+    return readOnly(`\`${writer.join(" ")}\``);
+  }
+  if (role === "concierge") {
+    const stray = segments.find((segment) => !conciergeMayRun(segment));
+    return stray === void 0 ? null : noCode(`\`${stray.join(" ")}\``);
+  }
+  const unknown = segments.find((segment) => !readerMayRun(segment));
+  return unknown === void 0 ? null : readOnly(
+    `\`${unknown.join(" ")}\`, which is not a known read-only command,`
+  );
+}
+function checkRole(agentType, tool, input, root3) {
+  if (typeof agentType !== "string" || !READ_ONLY_ROLES.has(agentType)) {
+    return null;
+  }
+  if (WRITE_TOOLS.has(tool)) {
+    return readOnly(`${tool}`);
+  }
+  if (tool === "Bash" && typeof input["command"] === "string") {
+    return checkBash(agentType, input["command"]);
+  }
+  if (agentType === "concierge" && FILE_TOOLS.has(tool)) {
+    const path = input["file_path"] ?? input["path"];
+    const readable = typeof path === "string" && CONCIERGE_PATHS.test(rolePrefix(root3, path));
+    return readable ? null : noCode(tool);
+  }
+  return null;
+}
+
+// src/hook/guard-evaluate.ts
 var asCall2 = (payload) => typeof payload === "object" && payload !== null ? payload : {};
 async function evaluate(payload, ctx) {
   const call = asCall2(payload);
   const tool = call.tool_name;
   const input = call.tool_input ?? {};
+  const bounded = typeof tool === "string" ? checkRole(call.agent_type, tool, input, ctx.root) : null;
+  if (bounded !== null) {
+    return bounded;
+  }
   if (tool === "Bash" && typeof input["command"] === "string") {
     return await evaluateBash(input["command"], ctx);
   }
@@ -6012,6 +6221,8 @@ async function evaluate(payload, ctx) {
   }
   return allow;
 }
+
+// src/hook/guard.ts
 async function guard(payload, deps) {
   if (payload === void 0) {
     return {};
@@ -8301,6 +8512,57 @@ async function launch(deps, { role, model, effort, name, brief, paneId, callerPa
   };
 }
 
+// src/session/agent-definition.ts
+import { join as join17 } from "node:path";
+var FRONTMATTER2 = /^---\n([\s\S]*?)\n---/;
+function field2(frontmatter3, key) {
+  const line2 = frontmatter3.split("\n").find((l) => l.startsWith(`${key}:`));
+  const value = line2?.slice(key.length + 1).trim();
+  return value === void 0 || value === "" ? void 0 : value.replace(/^(["'])(.*)\1$/, "$2");
+}
+function parseDefinition(markdown) {
+  const frontmatter3 = FRONTMATTER2.exec(markdown)?.[1] ?? "";
+  const model = field2(frontmatter3, "model");
+  const effort = field2(frontmatter3, "effort");
+  const tools = field2(frontmatter3, "tools");
+  return {
+    ...model === void 0 ? {} : { model },
+    ...effort === void 0 ? {} : { effort },
+    ...tools === void 0 ? {} : { tools: tools.split(",").map((tool) => tool.trim()) }
+  };
+}
+var ROLE = /^[a-z][a-z0-9-]*$/;
+async function readTier(deps, role) {
+  if (!ROLE.test(role)) {
+    return {};
+  }
+  const path = join17(await deps.root(), ".claude/agents", `${role}.md`);
+  try {
+    return parseDefinition(await deps.fs.readFile(path));
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return {};
+    }
+    throw error;
+  }
+}
+async function resolveTier(deps, role, flags) {
+  const declared = await readTier(deps, role);
+  const model = flags.model ?? declared.model;
+  const effort = flags.effort ?? declared.effort;
+  for (const [flag, value] of [
+    ["model", model],
+    ["effort", effort]
+  ]) {
+    if (value === void 0) {
+      return {
+        error: `Missing --${flag}, and .claude/agents/${role}.md does not declare it. Pass --${flag} or add \`${flag}:\` to that definition's frontmatter.`
+      };
+    }
+  }
+  return { model, effort };
+}
+
 // src/session/wait.ts
 var DEFAULT_TIMEOUT_MS = 60 * 60 * 1e3;
 var POLL_MS = 2e3;
@@ -8403,10 +8665,29 @@ async function wait(context) {
 }
 
 // src/session/spawn-check.ts
-var REQUIRED3 = ["role", "model", "effort", "name", "brief"];
-function check({ deps, options }) {
+var REQUIRED3 = ["role", "name", "brief"];
+function herdrCaller(deps) {
+  const callerPane = deps.env.HERDR_PANE_ID;
+  if (deps.env.HERDR_ENV !== "1") {
+    return {
+      error: "Not inside Herdr (HERDR_ENV is not 1). Run this from a Herdr pane; no session was started.",
+      code: FAILED4
+    };
+  }
+  if (callerPane === void 0 || callerPane === "") {
+    return {
+      error: "HERDR_PANE_ID is not set, so the session cannot broadcast back. Run this from a Herdr pane.",
+      code: FAILED4
+    };
+  }
+  return callerPane;
+}
+async function check({
+  deps,
+  options
+}) {
   const usage2 = (error) => ({ error, code: USAGE_ERROR });
-  const missing = REQUIRED3.find((flag) => typeof options[flag] !== "string");
+  const missing = REQUIRED3.find((flag2) => typeof options[flag2] !== "string");
   if (missing !== void 0) {
     return usage2(`Missing --${missing}.`);
   }
@@ -8427,24 +8708,23 @@ function check({ deps, options }) {
   if (typeof timeoutMs !== "number") {
     return usage2(timeoutMs.error);
   }
-  const callerPane = deps.env.HERDR_PANE_ID;
-  if (deps.env.HERDR_ENV !== "1") {
-    return {
-      error: "Not inside Herdr (HERDR_ENV is not 1). Run this from a Herdr pane; no session was started.",
-      code: FAILED4
-    };
+  const callerPane = herdrCaller(deps);
+  if (typeof callerPane !== "string") {
+    return callerPane;
   }
-  if (callerPane === void 0 || callerPane === "") {
-    return {
-      error: "HERDR_PANE_ID is not set, so the session cannot broadcast back. Run this from a Herdr pane.",
-      code: FAILED4
-    };
+  const flag = (name) => typeof options[name] === "string" ? options[name] : void 0;
+  const tier2 = await resolveTier(deps, given.role, {
+    model: flag("model"),
+    effort: flag("effort")
+  });
+  if ("error" in tier2) {
+    return usage2(tier2.error);
   }
-  return { values: given, callerPane, timeoutMs };
+  return { values: { ...given, ...tier2 }, callerPane, timeoutMs };
 }
 
 // src/session/spawn-finish.ts
-import { join as join17 } from "node:path";
+import { join as join18 } from "node:path";
 async function recordLaunch(deps, record3) {
   try {
     const main = await mainRoot(deps);
@@ -8455,7 +8735,7 @@ async function recordLaunch(deps, record3) {
       deps.fs,
       deps.clock,
       deps.ids,
-      join17(main, DEFAULT_LEDGER)
+      join18(main, DEFAULT_LEDGER)
     ).record({
       source: "herdr",
       kind: "session.launch",
@@ -8539,7 +8819,7 @@ async function nameTakenError(deps, name) {
 }
 async function spawn2(context) {
   const { json, deps } = context;
-  const checked = check(context);
+  const checked = await check(context);
   if ("error" in checked) {
     return fail3(deps, json, checked.code, checked.error);
   }
@@ -8589,9 +8869,35 @@ async function spawn2(context) {
   });
 }
 
+// src/session/tier.ts
+async function tier({
+  json,
+  deps,
+  operand
+}) {
+  if (operand === void 0 || operand === "") {
+    return fail3(
+      deps,
+      json,
+      USAGE_ERROR,
+      "Missing the role: run `session tier <role>`."
+    );
+  }
+  const found = await resolveTier(deps, operand, {});
+  if ("error" in found) {
+    return fail3(deps, json, USAGE_ERROR, found.error);
+  }
+  deps.stdout(
+    json ? `${JSON.stringify({ role: operand, ...found })}
+` : `${operand}: ${found.model}, effort ${found.effort}
+`
+  );
+  return 0;
+}
+
 // src/session/index.ts
 var spawnCommand = {
-  summary: "start a Claude session in a Herdr pane (--role --model --effort --name --brief --timeout ms; --worktree [--branch b] runs it in a new git worktree under .claude/worktrees); it waits for the result unless --no-wait, the normal pattern: spawn with --no-wait, then run `session wait <name>` in the background",
+  summary: "start a Claude session in a Herdr pane (--role --name --brief [--model --effort, default from .claude/agents/<role>.md] --timeout ms; --worktree [--branch b] runs it in a new git worktree under .claude/worktrees); it waits for the result unless --no-wait, the normal pattern: spawn with --no-wait, then run `session wait <name>` in the background",
   options: {
     role: "string",
     model: "string",
@@ -8615,6 +8921,11 @@ var closeCommand = {
   summary: "close a spawned pane once its result is recorded (<name>; only the pane that spawned it)",
   operand: "name",
   run: close2
+};
+var tierCommand = {
+  summary: "print the model and effort a role launches at, from .claude/agents/<role>.md (<role>; read-only)",
+  operand: "role",
+  run: tier
 };
 var equalizeCommand = {
   summary: "equalize the heights of the spawned panes (run after closing one)",
@@ -8643,6 +8954,7 @@ var session = {
   spawn: spawnCommand,
   wait: waitCommand,
   close: closeCommand,
+  tier: tierCommand,
   equalize: equalizeCommand
 };
 

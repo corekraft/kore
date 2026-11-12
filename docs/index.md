@@ -200,8 +200,14 @@ repository root; `mise run kb-check` keeps this list complete.
   deny rules. Read before adding a hook or permission.
 - [`.claude/agents/principles-review.md`](../.claude/agents/principles-review.md)
   — the read-only review of a diff against AGENTS.md. Run before committing.
-- [`.claude/evals/`](../.claude/evals/) — skill-triggering and review evals.
-  Read when changing a skill description or the review agent.
+- [`.claude/agents/concierge.md`](../.claude/agents/concierge.md) and
+  [`reader.md`](../.claude/agents/reader.md) — the delivery loop's read-only
+  role agents; their tier is the only copy
+  ([ADR 0078](decisions/0078-agent-roles-run-as-herdr-panes.md)). Their bounds
+  are the `role-*` guard rules in `tools/harness/src/hook/guard-role.ts`.
+- [`.claude/evals/`](../.claude/evals/) — skill-triggering, review and role
+  boundary evals (`--kind boundary`, opt-in). Read when changing a skill
+  description, the review agent or a role's bounds.
 
 ## Skills
 

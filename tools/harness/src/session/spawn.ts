@@ -76,7 +76,7 @@ async function nameTakenError(
 /** `session spawn`: place, name and brief a Claude session in a new Herdr pane, then wait for its result unless --no-wait. */
 export async function spawn(context: CommandContext): Promise<number> {
   const { json, deps } = context;
-  const checked = check(context);
+  const checked = await check(context);
   if ("error" in checked) {
     return fail(deps, json, checked.code, checked.error);
   }

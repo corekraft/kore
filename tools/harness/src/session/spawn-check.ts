@@ -1,23 +1,53 @@
 import type { CommandContext } from "../runtime/index.js";
+import { resolveTier } from "./agent-definition.js";
 import { sessionNameError } from "./names.js";
 import { FAILED, USAGE_ERROR } from "./output.js";
 import { findResult, parseTimeout } from "./wait.js";
 
-const REQUIRED = ["role", "model", "effort", "name", "brief"] as const;
+const REQUIRED = ["role", "name", "brief"] as const;
 
-export type Values = Record<(typeof REQUIRED)[number], string>;
+/** Flags a role's agent definition can supply when the caller omits them. */
+const TIER = ["model", "effort"] as const;
+
+export type Values = Record<
+  (typeof REQUIRED)[number] | (typeof TIER)[number],
+  string
+>;
 export type Checked =
   | { values: Values; callerPane: string; timeoutMs: number }
   | { error: string; code: number };
 
+/** The pane to broadcast back to, or the refusal when not run from a Herdr pane. */
+function herdrCaller(deps: CommandContext["deps"]): string | Checked {
+  const callerPane = deps.env.HERDR_PANE_ID;
+  if (deps.env.HERDR_ENV !== "1") {
+    return {
+      error:
+        "Not inside Herdr (HERDR_ENV is not 1). Run this from a Herdr pane; no session was started.",
+      code: FAILED,
+    };
+  }
+  if (callerPane === undefined || callerPane === "") {
+    return {
+      error:
+        "HERDR_PANE_ID is not set, so the session cannot broadcast back. Run this from a Herdr pane.",
+      code: FAILED,
+    };
+  }
+  return callerPane;
+}
+
 /** Everything that can be refused is refused here, before any herdr call. */
-export function check({ deps, options }: CommandContext): Checked {
+export async function check({
+  deps,
+  options,
+}: CommandContext): Promise<Checked> {
   const usage = (error: string): Checked => ({ error, code: USAGE_ERROR });
   const missing = REQUIRED.find((flag) => typeof options[flag] !== "string");
   if (missing !== undefined) {
     return usage(`Missing --${missing}.`);
   }
-  const given = options as Values;
+  const given = options as Omit<Values, "model" | "effort">;
   const nameError = sessionNameError(given.name);
   if (nameError !== undefined) {
     return usage(nameError);
@@ -34,20 +64,19 @@ export function check({ deps, options }: CommandContext): Checked {
   if (typeof timeoutMs !== "number") {
     return usage(timeoutMs.error);
   }
-  const callerPane = deps.env.HERDR_PANE_ID;
-  if (deps.env.HERDR_ENV !== "1") {
-    return {
-      error:
-        "Not inside Herdr (HERDR_ENV is not 1). Run this from a Herdr pane; no session was started.",
-      code: FAILED,
-    };
+  const callerPane = herdrCaller(deps);
+  if (typeof callerPane !== "string") {
+    return callerPane;
   }
-  if (callerPane === undefined || callerPane === "") {
-    return {
-      error:
-        "HERDR_PANE_ID is not set, so the session cannot broadcast back. Run this from a Herdr pane.",
-      code: FAILED,
-    };
+  // A flag wins, which is how a writer escalates; the definition is the default.
+  const flag = (name: (typeof TIER)[number]) =>
+    typeof options[name] === "string" ? options[name] : undefined;
+  const tier = await resolveTier(deps, given.role, {
+    model: flag("model"),
+    effort: flag("effort"),
+  });
+  if ("error" in tier) {
+    return usage(tier.error);
   }
-  return { values: given, callerPane, timeoutMs };
+  return { values: { ...given, ...tier }, callerPane, timeoutMs };
 }
