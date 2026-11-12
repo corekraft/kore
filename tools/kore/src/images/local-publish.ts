@@ -21,7 +21,7 @@ const manifestAccept =
 
 /**
  * The k3d settings a local image operation needs. A provider other than k3d is
- * refused with the move to k3d; a k3d overlay without settings is told which
+ * refused with what a local image needs; a k3d overlay without settings is told which
  * setting to add.
  */
 export function requireK3d(
@@ -30,7 +30,7 @@ export function requireK3d(
   const { provider, k3d, name } = repository.environment;
   if (provider !== "k3d") {
     throw new Error(
-      `provider ${provider} is no longer a local provider; set environment.provider to k3d and add environment.k3d (ADR 0076)`,
+      `provider ${provider} is not a local provider; local images need environment.provider k3d and environment.k3d (ADR 0076)`,
     );
   }
   if (k3d === undefined) {

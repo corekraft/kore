@@ -1,7 +1,7 @@
-import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
+import { loadManagedLocal } from "../config/managed-local.fixtures.js";
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { minikubeCluster } from "../config/index.js";
+import { managedCluster } from "../config/index.js";
 import { doctor, doctorFailed } from "./doctor.js";
 import type { RunOptions, RunResult, Runner } from "../runtime/index.js";
 
@@ -14,35 +14,24 @@ class MismatchRunner implements Runner {
     if (command === "docker") {
       return { stdout: "0.0.0", stderr: "", code: 0 };
     }
-    if (command === "minikube" && _args[0] === "profile") {
-      return { stdout: `{"valid":[]}`, stderr: "", code: 0 };
-    }
     return { stdout: "0.0.0", stderr: "", code: 0 };
   }
 }
 
 test("doctor distinguishes optional version warnings from required failures", async () => {
-  const checks = await doctor(await loadMinikubeLocal(), new MismatchRunner());
+  const checks = await doctor(await loadManagedLocal(), new MismatchRunner());
   assert.equal(
-    checks.find(({ name }) => name === "tool:minikube")?.status,
+    checks.find(({ name }) => name === "tool:kubectl")?.status,
     "fail",
   );
   assert.equal(checks.find(({ name }) => name === "tool:sops")?.status, "warn");
 });
 
-test("doctor reports unavailable tools, daemon failures, and ambiguous profiles", async () => {
+test("doctor reports unavailable tools and daemon failures", async () => {
   const runner: Runner = {
     async run(command, args) {
       if (command === "docker" && args[0] === "info") {
         throw new Error("daemon is down");
-      }
-      if (command === "minikube" && args[0] === "profile") {
-        return {
-          stdout:
-            '{"valid":[{"Name":"kore-local"},{"Config":{"Name":"kore-local"}}]}',
-          stderr: "",
-          code: 0,
-        };
       }
       if (command === "tofu") {
         throw new Error("not installed");
@@ -50,37 +39,26 @@ test("doctor reports unavailable tools, daemon failures, and ambiguous profiles"
       return { stdout: "version v99.1.2", stderr: "", code: 0 };
     },
   };
-  const checks = await doctor(await loadMinikubeLocal(), runner);
+  const checks = await doctor(await loadManagedLocal(), runner);
 
   assert.equal(checks.find(({ name }) => name === "tool:tofu")?.status, "warn");
   assert.equal(
     checks.find(({ name }) => name === "container-runtime")?.status,
     "fail",
   );
-  assert.equal(
-    checks.find(({ name }) => name === "minikube-profile")?.status,
-    "fail",
-  );
   assert.equal(doctorFailed(checks), true);
 });
 
-test("doctor warns when Minikube profile listing fails and requires managed credentials", async () => {
-  const base = await loadMinikubeLocal();
+test("doctor requires managed credentials and checks no local cluster", async () => {
+  const base = await loadManagedLocal();
   const repository = {
     ...base,
-    environment: {
-      ...base.environment,
-      provider: "managed" as const,
-      kubeContext: "REQUIRED",
-    },
+    environment: { ...base.environment, kubeContext: "REQUIRED" },
   };
   const runner: Runner = {
     async run(command, args) {
       if (command === "docker" && args[0] === "info") {
         return { stdout: "", stderr: "", code: 0 };
-      }
-      if (command === "minikube" && args[0] === "profile") {
-        throw "profile command unavailable";
       }
       return { stdout: "unknown version", stderr: "", code: 0 };
     },
@@ -97,19 +75,16 @@ test("doctor warns when Minikube profile listing fails and requires managed cred
     },
   );
   assert.equal(
-    checks.find(({ name }) => name === "minikube-profile")?.status,
-    "warn",
+    checks.some(({ name }) => name === "k3d-cluster" || name === "tool:k3d"),
+    false,
   );
   assert.equal(doctorFailed(checks), true);
 });
 
-test("doctor reports checks in a fixed order with pass messages for matching tools and unambiguous profiles", async () => {
-  const repository = await loadMinikubeLocal();
+test("doctor reports checks in a fixed order with pass messages for matching tools", async () => {
+  const repository = await loadManagedLocal();
   const runner: Runner = {
-    async run(command, args) {
-      if (command === "minikube" && args[0] === "profile") {
-        return { stdout: "{}", stderr: "", code: 0 };
-      }
+    async run(command) {
       const pinned = repository.versions.tools[command] ?? "0.0.0";
       return { stdout: `v${pinned}`, stderr: "", code: 0 };
     },
@@ -117,51 +92,40 @@ test("doctor reports checks in a fixed order with pass messages for matching too
   const checks = await doctor(repository, runner);
   const names = checks.map(({ name }) => name);
 
-  assert.deepEqual(names.slice(-6), [
+  assert.deepEqual(names.slice(-5), [
     "container-runtime",
     "host:cpu",
     "host:memory",
     "host:disk",
     "credentials",
-    "minikube-profile",
   ]);
-  assert.ok(names.slice(0, -6).every((name) => name.startsWith("tool:")));
-  const minikube = checks.find(({ name }) => name === "tool:minikube");
-  assert.equal(minikube?.status, "pass");
+  assert.ok(names.slice(0, -5).every((name) => name.startsWith("tool:")));
+  const kubectl = checks.find(({ name }) => name === "tool:kubectl");
+  assert.equal(kubectl?.status, "pass");
   assert.equal(
-    minikube?.message,
-    `${repository.versions.tools["minikube"]} (pinned ${repository.versions.tools["minikube"]})`,
+    kubectl?.message,
+    `${repository.versions.tools["kubectl"]} (pinned ${repository.versions.tools["kubectl"]})`,
   );
   assert.deepEqual(
     checks.find(({ name }) => name === "credentials"),
     {
       name: "credentials",
       status: "pass",
-      required: false,
-      message: "local environment needs no cloud credentials",
-    },
-  );
-  assert.deepEqual(
-    checks.find(({ name }) => name === "minikube-profile"),
-    {
-      name: "minikube-profile",
-      status: "pass",
       required: true,
-      message: "profile name is unambiguous",
+      message: "managed context is configured",
     },
   );
 });
 
 test("doctor accepts a configured managed context and fails host checks that exceed the machine", async () => {
-  const base = await loadMinikubeLocal();
+  const base = await loadManagedLocal();
   const repository = {
     ...base,
     environment: {
       ...base.environment,
-      provider: "managed" as const,
       kubeContext: "prod-context",
       cluster: {
-        ...minikubeCluster(base.environment),
+        ...managedCluster(base.environment),
         cpus: 100000,
         memoryMB: 100000000,
         diskSize: "100000000g",

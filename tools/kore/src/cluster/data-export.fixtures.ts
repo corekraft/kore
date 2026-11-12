@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach } from "vitest";
 import type { Repository } from "../config/index.js";
-import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
+import { k3dRepository, list } from "./k3d-cluster.fixtures.js";
 import {
   CommandError,
   type RunOptions,
@@ -39,8 +39,8 @@ export class FakeRunner implements Runner {
     this.calls.push({ command, args, ...(options ? { options } : {}) });
     const ok = (stdout: string): RunResult => ({ stdout, stderr: "", code: 0 });
     const joined = args.join(" ");
-    if (command === "minikube") {
-      return ok("{}");
+    if (command === "k3d") {
+      return ok(list(1));
     }
     if (command === "age") {
       if (this.failAge) {
@@ -86,7 +86,7 @@ export function useExportRepository(): {
       `creation_rules:\n  - path_regex: infra/environments/local/secrets/.*\\.enc\\.yaml$\n    encrypted_regex: '^(data|stringData)$'\n    age: ${RECIPIENT}\n`,
     );
     state.repository = {
-      ...(await loadMinikubeLocal()),
+      ...(await k3dRepository()),
       root: state.root,
     };
   });

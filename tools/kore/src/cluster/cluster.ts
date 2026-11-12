@@ -1,7 +1,7 @@
-import type { Environment, Repository } from "../config/index.js";
-import { minikubeCluster } from "../config/index.js";
+import type { Repository } from "../config/index.js";
+import { managedCluster } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
-import { type ReadinessOptions, waitForClusterReady } from "./readiness.js";
+import type { ReadinessOptions } from "./readiness.js";
 import { hasVerifiedExport } from "./export-manifest.js";
 import {
   assertExpectedK3dCluster,
@@ -19,33 +19,6 @@ import { ClusterUnavailableError } from "./cluster-unavailable.js";
 
 export { ClusterUnavailableError };
 
-export function clusterStartArgs(environment: Environment): string[] {
-  const cluster = minikubeCluster(environment);
-  return [
-    "start",
-    "--profile",
-    cluster.profile,
-    "--kubernetes-version",
-    `v${cluster.kubernetesVersion.replace(/^v/, "")}`,
-    "--driver",
-    cluster.driver,
-    "--container-runtime",
-    cluster.containerRuntime,
-    "--cpus",
-    String(cluster.cpus),
-    "--memory",
-    String(cluster.memoryMB),
-    "--disk-size",
-    cluster.diskSize,
-    "--apiserver-names",
-    cluster.profile,
-    ...(cluster.serviceCidr
-      ? ["--service-cluster-ip-range", cluster.serviceCidr]
-      : []),
-    "--keep-context=false",
-  ];
-}
-
 export async function assertExpectedCluster(
   repository: Repository,
   runner: Runner,
@@ -54,46 +27,7 @@ export async function assertExpectedCluster(
   if (environment.provider === "k3d") {
     return await assertExpectedK3dCluster(repository, runner);
   }
-  if (environment.provider !== "minikube") {
-    await runner.run(
-      "kubectl",
-      [
-        "--context",
-        environment.kubeContext,
-        "get",
-        "namespace",
-        "kube-system",
-        "-o",
-        "name",
-      ],
-      { capture: true },
-    );
-    return;
-  }
-  if (minikubeCluster(environment).profile !== environment.kubeContext) {
-    throw new Error(
-      `refusing unexpected profile/context pair: ${minikubeCluster(environment).profile} != ${environment.kubeContext}`,
-    );
-  }
-  try {
-    await runner.run(
-      "minikube",
-      [
-        "status",
-        "--profile",
-        minikubeCluster(environment).profile,
-        "--output",
-        "json",
-      ],
-      { capture: true },
-    );
-  } catch (error) {
-    throw new ClusterUnavailableError(
-      `Minikube profile ${minikubeCluster(environment).profile} is unavailable`,
-      { cause: error },
-    );
-  }
-  const result = await runner.run(
+  await runner.run(
     "kubectl",
     [
       "--context",
@@ -102,15 +36,10 @@ export async function assertExpectedCluster(
       "namespace",
       "kube-system",
       "-o",
-      "jsonpath={.metadata.name}",
+      "name",
     ],
     { capture: true },
   );
-  if (result.stdout.trim() !== "kube-system") {
-    throw new Error(
-      `context ${environment.kubeContext} did not identify the expected cluster`,
-    );
-  }
 }
 
 export async function clusterUp(
@@ -123,20 +52,9 @@ export async function clusterUp(
   if (environment.provider === "k3d") {
     return await clusterUpK3d(repository, runner, readiness, home);
   }
-  if (environment.provider !== "minikube") {
-    throw new Error(
-      "cluster up only manages Minikube and k3d environments; provision managed clusters with OpenTofu",
-    );
-  }
-  if (minikubeCluster(environment).profile !== environment.kubeContext) {
-    throw new Error("Minikube profile and expected context must match");
-  }
-  await runner.run("minikube", clusterStartArgs(environment), {
-    capture: false,
-    cwd: repository.root,
-  });
-  await waitForClusterReady(repository, runner, readiness);
-  await assertExpectedCluster(repository, runner);
+  throw new Error(
+    "cluster up only manages k3d environments; provision managed clusters with OpenTofu",
+  );
 }
 
 export async function clusterStatus(
@@ -147,27 +65,14 @@ export async function clusterStatus(
   if (environment.provider === "k3d") {
     return await clusterStatusK3d(repository, runner);
   }
-  const result =
-    environment.provider === "minikube"
-      ? await runner.run(
-          "minikube",
-          [
-            "status",
-            "--profile",
-            minikubeCluster(environment).profile,
-            "--output",
-            "json",
-          ],
-          { capture: true },
-        )
-      : await runner.run(
-          "kubectl",
-          ["--context", environment.kubeContext, "cluster-info"],
-          { capture: true },
-        );
+  const result = await runner.run(
+    "kubectl",
+    ["--context", environment.kubeContext, "cluster-info"],
+    { capture: true },
+  );
   return {
     environment: environment.name,
-    profile: minikubeCluster(environment).profile,
+    profile: managedCluster(environment).profile,
     context: environment.kubeContext,
     status: result.stdout.trim(),
   };
@@ -180,17 +85,7 @@ export async function clusterStop(
   if (repository.environment.provider === "k3d") {
     return await clusterStopK3d(repository, runner);
   }
-  if (repository.environment.provider !== "minikube") {
-    throw new Error(
-      "cluster stop is only available for Minikube and k3d environments",
-    );
-  }
-  await assertExpectedCluster(repository, runner);
-  await runner.run(
-    "minikube",
-    ["stop", "--profile", minikubeCluster(repository.environment).profile],
-    { capture: false },
-  );
+  throw new Error("cluster stop is only available for k3d environments");
 }
 
 export async function clusterDestroy(
@@ -200,12 +95,10 @@ export async function clusterDestroy(
   home?: string,
 ): Promise<void> {
   const { provider } = repository.environment;
-  if (provider !== "minikube" && provider !== "k3d") {
-    throw new Error(
-      "cluster destroy is only available for Minikube and k3d environments",
-    );
+  if (provider !== "k3d") {
+    throw new Error("cluster destroy is only available for k3d environments");
   }
-  if (provider === "k3d" && (await k3dDestroyIsNoop(repository, runner))) {
+  if (await k3dDestroyIsNoop(repository, runner)) {
     return;
   }
   let clusterVerified = true;
@@ -235,17 +128,5 @@ export async function clusterDestroy(
   if (options.purgeData && clusterVerified) {
     await purgeRetainedResources(repository, runner);
   }
-  if (provider === "k3d") {
-    return await deleteK3dCluster(repository, runner, home);
-  }
-  await runner.run(
-    "minikube",
-    [
-      "delete",
-      "--profile",
-      minikubeCluster(repository.environment).profile,
-      "--purge=false",
-    ],
-    { capture: false },
-  );
+  return await deleteK3dCluster(repository, runner, home);
 }

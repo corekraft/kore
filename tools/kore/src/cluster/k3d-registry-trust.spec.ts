@@ -100,7 +100,7 @@ test("trust writes the public CA into the host directory after issuance and runs
   await ensureRegistryTrust(repository, runner, home);
   expect(await readFile(join(trustDirectory(), "ca.crt"), "utf8")).toBe(pem);
   expect(calls.map((c) => c.command).sort()).toEqual(["kubectl", "kubectl"]);
-  expect(JSON.stringify(calls)).not.toMatch(/ssh|exec|minikube|docker/);
+  expect(JSON.stringify(calls)).not.toMatch(/ssh|exec|docker/);
   expect(await readFile(join(trustDirectory(), "ca.crt"), "utf8")).not.toMatch(
     /PRIVATE KEY/,
   );

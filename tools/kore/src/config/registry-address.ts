@@ -161,7 +161,7 @@ function hardcodedErrors(repository: Repository, host: string): string[] {
 /**
  * registry.address is the one place the registry location is chosen. An IPv4
  * address means the environment provides the in-cluster registry, so it must
- * lie inside the Minikube service range; a hostname pins nothing.
+ * lie inside the cluster service range; a hostname pins nothing.
  */
 export function registryAddressErrors(repository: Repository): string[] {
   const { environment } = repository;
@@ -191,7 +191,7 @@ export function registryAddressErrors(repository: Repository): string[] {
           environment.cluster !== undefined &&
           !k3d
             ? [
-                `registry.address ${plan.address} is an in-cluster ClusterIP; set cluster.serviceCidr in environment ${environment.name} so Minikube is started with a range that contains it`,
+                `registry.address ${plan.address} is an in-cluster ClusterIP; set cluster.serviceCidr in environment ${environment.name} so the cluster is provisioned with a range that contains it`,
               ]
             : []),
           ...(plan.clusterIP !== undefined &&

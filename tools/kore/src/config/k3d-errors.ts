@@ -96,7 +96,7 @@ function portErrors(ports: unknown): string[] {
 
 /**
  * Schema errors for the provider-specific cluster block, found before any
- * cluster is touched. A k3d overlay carries `k3d`, never Minikube's `cluster`;
+ * cluster is touched. A k3d overlay carries `k3d`, never a managed environment's `cluster`;
  * every other provider carries no `k3d` block.
  */
 export function k3dErrors(
@@ -117,7 +117,7 @@ export function k3dErrors(
     ...(environment.cluster === undefined
       ? []
       : [
-          "environment.cluster is Minikube-only; remove it and use environment.k3d for provider k3d",
+          "environment.cluster is only valid for provider managed; remove it and use environment.k3d for provider k3d",
         ]),
     ...(!k3d || typeof k3d !== "object" || Array.isArray(k3d)
       ? ["environment.k3d is required when provider is k3d"]

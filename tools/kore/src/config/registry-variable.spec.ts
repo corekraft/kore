@@ -1,8 +1,8 @@
-import { loadMinikubeLocal } from "./minikube-local.fixtures.js";
+import { loadManagedLocal } from "./managed-local.fixtures.js";
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { loadRepository, validateRepository } from "./config.js";
-import { minikubeCluster } from "./minikube-cluster.js";
+import { managedCluster } from "./managed-cluster.js";
 import { registryPlan } from "./registry-address.js";
 import type { Repository } from "./types.js";
 
@@ -15,7 +15,7 @@ async function withAddress(name: string, address: string): Promise<Repository> {
 }
 
 test("local declares one registry address and derives the Service pin from it", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   assert.equal(repository.environment.registry.address, "10.96.0.50:5000");
   assert.deepEqual(registryPlan(repository.environment), {
     address: "10.96.0.50:5000",
@@ -33,12 +33,12 @@ test("a hostname address derives no Service pin", async () => {
 });
 
 test("an address outside the service range is rejected with the fix", async () => {
-  const minikube = await loadMinikubeLocal();
+  const managed = await loadManagedLocal();
   await assert.rejects(
     validateRepository({
-      ...minikube,
+      ...managed,
       environment: {
-        ...minikube.environment,
+        ...managed.environment,
         registry: { address: "10.200.0.50:5000" },
       },
     }),
@@ -60,8 +60,8 @@ test("a malformed address is rejected", async () => {
 });
 
 test("an in-cluster IP address needs a declared service range", async () => {
-  const base = await loadMinikubeLocal();
-  const { serviceCidr: _drop, ...cluster } = minikubeCluster(base.environment);
+  const base = await loadManagedLocal();
+  const { serviceCidr: _drop, ...cluster } = managedCluster(base.environment);
   await assert.rejects(
     validateRepository({
       ...base,
@@ -78,7 +78,7 @@ test("a hostname address needs no service range", async () => {
 });
 
 test("values files that hardcode the registry are rejected", async () => {
-  const base = await loadMinikubeLocal();
+  const base = await loadManagedLocal();
   for (const [component, values, pattern] of [
     [
       "oci-registry",

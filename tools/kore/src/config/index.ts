@@ -66,5 +66,5 @@ export {
   gatewayClassName,
   ingressFlag,
 } from "./features.js";
-export { minikubeCluster } from "./minikube-cluster.js";
-export type { MinikubeCluster } from "./minikube-cluster.js";
+export { managedCluster } from "./managed-cluster.js";
+export type { ManagedCluster } from "./managed-cluster.js";

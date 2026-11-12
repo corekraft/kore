@@ -5,22 +5,22 @@ import { buildAndSignLocalImage } from "./local-image.js";
 import { loadLocalImage } from "./local-image.js";
 import { publishImageCopy, requireK3d } from "./local-publish.js";
 
-// Docs: docs/decisions/0076-k3d-replaces-minikube.md
+// Docs: docs/decisions/0083-k3d-publishes-through-the-node-containerd-client.md
 
-const retired =
-  /provider minikube is no longer a local provider; set environment\.provider to k3d and add environment\.k3d \(ADR 0076\)/;
+const notLocal =
+  /provider managed is not a local provider; local images need environment\.provider k3d and environment\.k3d \(ADR 0076\)/;
 
-async function retiredOverlay(): Promise<Repository> {
+async function managedOverlay(): Promise<Repository> {
   const base = await loadRepository("local");
   return {
     ...base,
-    environment: { ...base.environment, provider: "minikube" },
+    environment: { ...base.environment, provider: "managed" },
   };
 }
 
-test("a retired provider is told to move to k3d, not to add a cluster name", async () => {
-  const repository = await retiredOverlay();
-  expect(() => requireK3d(repository)).toThrow(retired);
+test("a managed provider is told what a local image needs, not to add a cluster name", async () => {
+  const repository = await managedOverlay();
+  expect(() => requireK3d(repository)).toThrow(notLocal);
 });
 
 test("a k3d overlay without k3d settings is told to add the cluster name", async () => {
@@ -34,21 +34,21 @@ test("a k3d overlay without k3d settings is told to add the cluster name", async
 test("image build fails before any command when the provider is not k3d", async () => {
   const { runner, calls } = fakeRunner();
   await expect(
-    buildAndSignLocalImage(await retiredOverlay(), runner, "reference", {
+    buildAndSignLocalImage(await managedOverlay(), runner, "reference", {
       image: "registry.kore.local:30500/reference",
       digest: "sha256:" + "a".repeat(64),
       signer: "s",
     }),
-  ).rejects.toThrow(retired);
+  ).rejects.toThrow(notLocal);
   expect(calls).toEqual([]);
 });
 
 test("loading and publishing refuse a non-k3d provider with the same message", async () => {
   const { runner } = fakeRunner();
-  const repository = await retiredOverlay();
+  const repository = await managedOverlay();
   await expect(
     loadLocalImage(repository, runner, "reference", "t:kore-local"),
-  ).rejects.toThrow(retired);
+  ).rejects.toThrow(notLocal);
   await expect(
     publishImageCopy(
       repository,
@@ -56,5 +56,5 @@ test("loading and publishing refuse a non-k3d provider with the same message", a
       { tag: "t", address: "10.96.0.50:5000", target: "x:y" },
       { credential: { username: "kore-push", password: "p" }, ca: "CA" },
     ),
-  ).rejects.toThrow(retired);
+  ).rejects.toThrow(notLocal);
 });

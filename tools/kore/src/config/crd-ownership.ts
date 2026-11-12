@@ -153,7 +153,6 @@ export function providerOwnsCrd(
  */
 export const providerShippedCrdGroups: Record<string, readonly string[]> = {
   k3d: ["k3s.cattle.io", "helm.cattle.io"],
-  minikube: [],
   managed: [],
 };
 
