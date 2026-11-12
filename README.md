@@ -126,6 +126,22 @@ Retained data is every PersistentVolumeClaim or PostgreSQL instance labeled
 `platform.kore.dev/retention=Retain`. The `oci-registry` image store is
 rebuildable cache on `kore-standard`, so it never blocks a destroy.
 
+### Leaving Minikube
+
+Earlier versions ran the local environment on Minikube
+([ADR 0076](docs/decisions/0076-k3d-replaces-minikube.md)). Kore no longer
+supports it, and there is no migration: existing Minikube data is abandoned.
+An overlay with `provider: minikube` is rejected at validation. Delete the old
+profile once, by hand, when you no longer need it (Kore never does this for
+you):
+
+```sh
+minikube delete -p kore-local
+```
+
+If you want the data first, export it from the Minikube version you ran it on,
+then restore it into a fresh k3d profile with `kore data restore`.
+
 ### Export and restore retained data
 
 ```sh
@@ -268,7 +284,7 @@ is the source of truth.
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `kore doctor`   | Checks pinned tools and prerequisites. Read-only.                                                                                              |
 | `kore validate` | Validates catalogs, environments, and release ordering. Read-only.                                                                             |
-| `kore cluster`  | Starts, stops, destroys, or reports the k3d cluster (or Minikube profile).                                                                     |
+| `kore cluster`  | Starts, stops, destroys, or reports the k3d cluster.                                                                                           |
 | `kore platform` | Bootstraps, reconciles, stops, destroys, renders, or reports platform releases.                                                                |
 | `kore app`      | Deploys, removes, or reports one application's resources and workload releases.                                                                |
 | `kore data`     | Exports retained CloudNativePG data as an age-encrypted, digest-manifested artifact, or restores it into a fresh profile.                      |

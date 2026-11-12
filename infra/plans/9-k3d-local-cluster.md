@@ -109,23 +109,36 @@ and the clean-machine script (#157).
 ### Work
 
 - [ ] The operator runs `minikube delete -p kore-local` once, by hand.
-- [ ] Move the `minikube delete` deny rule to `k3d cluster delete`, and update
+- [x] Move the `minikube delete` deny rule to `k3d cluster delete`, and update
       the guard and its tests.
-      Progress: the guard, deny rule and eval cases now also block
-      `k3d cluster delete` (#133); the `minikube delete` rule stays until #157.
+      Progress: the guard, deny rule and eval cases blocked
+      `k3d cluster delete` from #133; #157 removed the `minikube delete` rule
+      (through the guardrail inventory and `guardrail deny --write
+  --allow-removal`) and its guard cases, as this step approved. The
+      `k3d cluster delete` rule stays.
 - [x] Remove the `minikube` provider value from the types, schema and validator,
       and the Minikube paths from the cluster, local and doctor code.
       Progress: done in #152; a `minikube` provider is now rejected with a
       message pointing at k3d. The pin, README, guides and guard stay to #157.
-- [ ] Remove Minikube from `.mise.toml`, the README, the guides and ADR
+- [x] Remove Minikube from `.mise.toml`, the README, the guides and ADR
       references that describe current behaviour.
+      Progress: done in #157, with the version catalog and compatibility
+      matrix. The README states that existing Minikube data is abandoned and
+      how to delete the old profile by hand. ADRs 0012, 0015, 0058 and 0065
+      now describe k3d; ADR 0076 stays accepted. ADR 0061 needed no wording
+      change (it names no Minikube behaviour); it gained a "Refined by ADR
+      0076" note. Retained-volume discovery on k3d is still the unticked
+      Step 5 proof.
 
 ### Exit Criteria
 
 - `grep -ri minikube tools/kore/src infra` finds nothing, apart from ADR
-  filenames and two recorded exceptions: the provider rejection in
-  `tools/kore/src/config/validate.ts` (and its spec), and the provider-name
-  detector in `tools/kore/src/diagnostics/portability.ts` (and its spec).
+  filenames, `infra/plans` (historical records) and three recorded exceptions:
+  the provider rejection in `tools/kore/src/config/validate.ts` (and its spec),
+  the provider-name detector in `tools/kore/src/diagnostics/portability.ts`
+  (and its spec), and the assertion in
+  `tools/kore/src/app/clean-machine-script.spec.ts` that the clean-machine
+  script names no Minikube.
 
 ## Step 7: Live Proof
 
@@ -231,6 +244,14 @@ primary list, two unit specs no longer assume an unset opt-in or lock
 variable, the clean-machine status check judges platform components only).
 
 ### Decisions and follow-ups
+
+- **Minikube retired (#157).** The tool pin, catalog entry, guard case, deny
+  rule, eval cases, README, guides and the clean-machine script (k3d only, with
+  `kore local down --prune --purge-data` as its teardown) no longer carry
+  Minikube. What remains by design: ADR filenames and history, the provider
+  rejection in `config/validate.ts`, and the provider-name detector in
+  `diagnostics/portability.ts` (both with their specs). The operator's one-time
+  `minikube delete -p kore-local` is still theirs to run and tick.
 
 - **k3s datastore stays SQLite (owner decision).** Known limit: kine (embedded
   SQLite) crashed twice with `Transaction commit failed` during fresh installs

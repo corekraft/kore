@@ -76,8 +76,6 @@ function deletesNamespace(args: string[]): boolean {
 
 function isDestructive(name: string, args: string[]): boolean {
   switch (name) {
-    case "minikube":
-      return firstPositional(args) === "delete";
     case "k3d":
       return deletesK3dCluster(args);
     case "tofu":

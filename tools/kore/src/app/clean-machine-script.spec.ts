@@ -25,3 +25,18 @@ test("the clean-machine script judges platform components only, not the cluster-
   expect(source).toMatch(/namespace\s*!==\s*"cluster"/);
   expect(source).not.toMatch(/grep -q '"status": "\\\(missing/);
 });
+
+test("the clean-machine script sets up the local k3d platform and always tears it down with its data purged", async () => {
+  // It reads the script text only; nothing here creates or deletes a cluster.
+  const source = await readFile(script, "utf8");
+
+  expect(source).toMatch(/local up --environment/);
+  expect(source).toMatch(/local down --environment[^\n]*--prune --purge-data/);
+  expect(source).not.toMatch(/minikube/i);
+  // The trap must be armed before the cluster is created, or a failed `up`
+  // would leave the profile behind.
+  expect(source.indexOf("trap cleanup EXIT")).toBeGreaterThan(-1);
+  expect(source.indexOf("trap cleanup EXIT")).toBeLessThan(
+    source.indexOf("kore local up --environment"),
+  );
+});

@@ -1,8 +1,5 @@
 [
   {
-    "command": "minikube delete --profile kore-eval-absent"
-  },
-  {
     "command": "k3d cluster delete kore-eval-absent"
   },
   {

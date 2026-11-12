@@ -1,7 +1,6 @@
 [tools]
 node = "26.13.0"
 npm = "12.2.2"
-minikube = "1.39.0"
 k3d = "5.9.0"
 kubectl = "1.37.2"
 helm = "4.3.1"

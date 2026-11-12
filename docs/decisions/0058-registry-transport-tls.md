@@ -14,6 +14,11 @@ proxy authenticated but carried basic-auth credentials over plain HTTP) and
 [ADR 0031](0031-registry-address-platform-variable.md) (the pinned address is
 now also a certificate SAN).
 
+> Refined by [ADR 0084](0084-k3d-registry-trust-through-a-mounted-ca-directory.md): on k3d, nodes trust the CA through a mounted directory
+> (`registries.yaml` and `ca_file`), and [ADR 0083](0083-k3d-publishes-through-the-node-containerd-client.md)
+> publishes with `ctr`. Together they replace the Clients bullet's node containerd and
+> nerdctl `certs.d` path on k3d.
+
 ## Context
 
 Clients reached the registry with `nerdctl --insecure-registry`, cosign
@@ -38,8 +43,8 @@ and no setting turns that off. The server therefore has to be the closed door.
   `certificate/oci-registry-tls`; `policy-controller` depends on `oci-registry`.
 - **Distribution.** After the registry release, `kore platform up` reads the CA
   and applies it (stdin, server-side) as ConfigMap `cosign-system/kore-registry-ca`,
-  and on Minikube writes `/etc/containerd/certs.d/<address>/{ca.crt,hosts.toml}`
-  through `minikube ssh`. That path is provider-specific, so it lives in the
+  and on k3d writes it into the host directory mounted into every node
+  at cluster create (ADR 0084). That path is provider-specific, so it lives in the
   environment path, not the chart. External (hostname) registries are the
   provider's to trust; kore distributes nothing.
 - **Clients.** Node containerd and nerdctl use `certs.d` (no

@@ -1,6 +1,6 @@
 ---
 status: accepted
-summary: After minikube starts a profile kore waits, bounded, for the API server's /readyz and a Ready node before any apply, and one runner layer retries mutating kubectl commands (apply, patch, label, annotate) that fail with a transient stderr, with capped exponential backoff and stdin replayed in memory; validation, authorization, and webhook denials fail at once, and exhausted retries name the cause.
+summary: After k3d starts a cluster kore waits, bounded, for the API server's /readyz and a Ready node before any apply, and one runner layer retries mutating kubectl commands (apply, patch, label, annotate) that fail with a transient stderr, with capped exponential backoff and stdin replayed in memory; validation, authorization, and webhook denials fail at once, and exhausted retries name the cause.
 date: 2026-11-08
 last-verified: 2026-11-08
 ---
@@ -13,9 +13,11 @@ Refines: [ADR 0035](0035-fail-fast-readiness-diagnosis.md). Failing fast still h
 
 Implements: the _It just works_ principle in [`AGENTS.md`](../../AGENTS.md): `kore local up` converges on the first run from a stopped profile.
 
+> Refined by [ADR 0076](0076-k3d-replaces-minikube.md): the local environment runs on k3d, not Minikube.
+
 ## Context
 
-Right after minikube restarted a stopped profile, `kubectl apply --server-side
+Right after Minikube restarted a stopped profile, `kubectl apply --server-side
 --filename=-` (registry credentials) failed with "context deadline exceeded
 (Client.Timeout ...)" / "error validating STDIN ... Please retry" while the API
 server and the cert-manager, policy-controller and gatekeeper webhooks were
@@ -24,7 +26,7 @@ still settling. A minute later everything was Ready, and kore printed no cause.
 ## Decision
 
 - **Wait before applying.** `clusterUp` calls `waitForClusterReady`
-  (`cluster/readiness.ts`) after `minikube start`: `kubectl get --raw /readyz`
+  (`cluster/readiness.ts`) after `k3d cluster start`: `kubectl get --raw /readyz`
   and then a Ready node, polled with the configured context for at most 180s.
   On timeout it fails naming what was not ready and that nothing was applied.
 - **Retry transient failures in one place.** `withTransientRetry`

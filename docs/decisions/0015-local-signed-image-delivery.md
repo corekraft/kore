@@ -1,11 +1,11 @@
 ---
 status: accepted
-summary: Locally, kore signs candidate images with a local Cosign key held as a cluster Secret and no Rekor entry, and deploys them by exact digest pulled into Minikube with imagePullPolicy Never.
+summary: Locally, kore signs candidate images with a local Cosign key held as a cluster Secret and no Rekor entry, and deploys them by exact digest imported into the k3d node with imagePullPolicy Never.
 date: 2026-09-30
 last-verified: 2026-11-08
 ---
 
-# ADR 0015: Deliver locally signed images by digest into Minikube
+# ADR 0015: Deliver locally signed images by digest into the local cluster
 
 Source: [`infra/plans/2-implementation.md` § Progress Record](../../infra/plans/2-implementation.md#progress-record)
 (Steps 7 and 12)
@@ -13,6 +13,8 @@ Source: [`infra/plans/2-implementation.md` § Progress Record](../../infra/plans
 Refines: [ADR 0005](0005-release-automation-signed-image-trust.md)
 
 > Refined by [ADR 0034](0034-registry-authentication-and-authorization.md): pushing, signing, and verifying now authenticate to the registry.
+
+> Refined by [ADR 0076](0076-k3d-replaces-minikube.md): the local environment runs on k3d, not Minikube.
 
 ## Context
 
@@ -40,7 +42,7 @@ flow.
 - A legacy key under `.kore/keys/local` is ignored; `kore` reports that it can
   be deleted and never deletes it.
 - Before Helm runs, `kore` verifies the signature and pulls the exact
-  digest-qualified reference into the Minikube node, then deploys with
+  digest-qualified reference into the k3d node (`k3d image import`), then deploys with
   `imagePullPolicy: Never`.
 - The local key is a distinct identity that managed environments never trust,
   and local builds never alter the release lock.

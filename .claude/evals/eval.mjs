@@ -484,7 +484,6 @@ function realClaude(root) {
 /** A detached worktree of HEAD in a temporary directory; remove() deletes it. */
 const STUBBED = [
   "kore",
-  "minikube",
   "k3d",
   "helm",
   "kubectl",

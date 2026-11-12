@@ -6,7 +6,7 @@ written as `kore ...` (see the [operator guide](operator.md)).
 
 ## The contract
 
-An application is provider-neutral: it knows nothing about Minikube or a cloud.
+An application is provider-neutral: it knows nothing about k3d or a cloud.
 It ships two Helm charts, kept separate so data outlives the workload
 ([ADR 0003](../decisions/0003-separate-claims-and-retain-data.md)):
 

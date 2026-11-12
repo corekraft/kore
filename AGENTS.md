@@ -17,14 +17,14 @@ the plans and ADRs record why. Find them through
   _Audited: `flag-activation`; kb-check reports `harness flag audit`._
 - **Desired state lives in the repository.** Catalogs, environment overlays,
   charts, and manifests are the source of truth. Kore coordinates upstream tools
-  (Minikube, Helm, kubectl, OpenTofu, controllers) and never reimplements their
+  (k3d, Helm, kubectl, OpenTofu, controllers) and never reimplements their
   reconciliation.
 - **One owner per resource.** Every resource has exactly one desired-state
   owner. Don't let two tools or two components manage the same thing.
 - **Pin everything.** Tools, dependencies, charts, images, providers, and policy
   bundles use exact versions. Upgrades are deliberate and recorded alongside
   their compatibility evidence.
-- **Applications stay provider-neutral.** Apps know nothing about Minikube or
+- **Applications stay provider-neutral.** Apps know nothing about k3d or
   any cloud; provider specifics belong to environments. Each app keeps its
   resources separate from its workload.
 - **Deploy what was verified.** Images are deployed by signed digest, never by

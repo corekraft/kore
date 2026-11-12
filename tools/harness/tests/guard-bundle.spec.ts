@@ -26,7 +26,7 @@ const run = (payload: unknown, input = JSON.stringify(payload)) =>
 it("cli: exits 2 and explains on stderr when blocking", () => {
   const result = run({
     tool_name: "Bash",
-    tool_input: { command: "minikube delete" },
+    tool_input: { command: "k3d cluster delete kore-local" },
   });
   assert.equal(result.status, 2);
   assert.match(result.stderr, /destructive/);
@@ -108,7 +108,7 @@ it("cli: the guard adds at most 150 ms to the bare node startup, recording its e
   const [baseline = 0, allowed = 0, blocked = 0] = timeInTurns([
     () => spawnSync("node", ["-e", "0"]),
     () => runRecording(call("git status")),
-    () => runRecording(call("minikube delete")),
+    () => runRecording(call("k3d cluster delete kore-local")),
   ]);
   for (const [path, ms] of [
     ["an allowed call", allowed],
