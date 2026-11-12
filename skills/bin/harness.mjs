@@ -6034,6 +6034,15 @@ function writes(segment) {
 var HARNESS2 = /^(\.\/)?skills\/bin\/harness\.mjs$/;
 var PR_READS = ["view", "list", "status", "checks"];
 var ISSUE_READS = ["view", "list", "status"];
+var HARNESS_READS = [
+  "plan active",
+  "idea list",
+  "idea show",
+  "flow report",
+  "ledger list"
+];
+var CONCIERGE_HARNESS = [...HARNESS_READS, "idea new", "idea sync"];
+var harnessAllowed = (name, args, allowed) => name === "node" && HARNESS2.test(args[0] ?? "") && allowed.includes(`${args[1] ?? ""} ${args[2] ?? ""}`);
 var READ_UTILITIES = /* @__PURE__ */ new Set([
   "cat",
   "head",
@@ -6043,7 +6052,6 @@ var READ_UTILITIES = /* @__PURE__ */ new Set([
   "rg",
   "wc",
   "sort",
-  "uniq",
   "diff",
   "stat",
   "file",
@@ -6053,45 +6061,78 @@ var READ_UTILITIES = /* @__PURE__ */ new Set([
   "jq",
   "date",
   "echo",
-  "pwd",
-  "sed"
+  "pwd"
 ]);
-var isHarness = (name, args) => name === "node" && HARNESS2.test(args[0] ?? "");
-function mayQuery(name, args, patches) {
-  if (name === "gh") {
-    const [group, verb2] = args;
-    return group === "issue" && ISSUE_READS.includes(verb2 ?? "") || group === "label" && verb2 === "list" || group === "pr" && PR_READS.includes(verb2 ?? "") || patches && group === "pr" && verb2 === "diff";
+var hasShortO = (args) => args.some((arg) => /^-[a-zA-Z]*o/.test(arg));
+function utilityMayRun(name, args) {
+  switch (name) {
+    case "sort":
+      return !(hasShortO(args) || args.some(
+        (arg) => arg.startsWith("--output") || arg.startsWith("--compress-program")
+      ));
+    case "tree":
+      return !hasShortO(args);
+    case "rg":
+      return !args.some((arg) => arg === "--pre" || arg.startsWith("--pre="));
+    case "file":
+      return !args.some(
+        (arg) => /^-[a-zA-Z]*C/.test(arg) || arg === "--compile"
+      );
+    default:
+      return true;
   }
-  const verb = args.find((arg) => !arg.startsWith("-"));
-  const shows = args.some(
-    (arg) => /^(-p|-u|--patch|--stat|--cc|-c)$/.test(arg)
-  );
-  const verbs = patches ? [
-    "log",
-    "status",
-    "show",
-    "diff",
-    "blame",
-    "ls-files",
-    "grep",
-    "rev-parse"
-  ] : ["log", "status"];
-  return name === "git" && verbs.includes(verb ?? "") && (patches || !shows);
+}
+var gitWrites = (args) => args.some(
+  (arg) => arg.startsWith("--output") || arg.startsWith("--open-files-in-pager") || arg.startsWith("-O")
+);
+var CONCIERGE_GIT_FLAGS = {
+  log: /^(--|--oneline|--graph|--decorate|--no-decorate|--all|--no-merges|--merges|--first-parent|--abbrev-commit|--since=.+|--until=.+|--author=.+|--grep=.+|--format=.+|--pretty=.+|--date=.+|--max-count=.+|-n|-\d+)$/,
+  status: /^(-s|--short|-b|--branch|--porcelain|--porcelain=.+|--long)$/
+};
+function conciergeGit(args) {
+  const [verb = "", ...rest] = args;
+  const flags = CONCIERGE_GIT_FLAGS[verb];
+  return flags !== void 0 && rest.every((arg) => !arg.startsWith("-") || flags.test(arg));
+}
+function ghMayRun(args, patches) {
+  const [group, verb] = args;
+  return group === "issue" && ISSUE_READS.includes(verb ?? "") || group === "label" && verb === "list" || group === "pr" && PR_READS.includes(verb ?? "") || patches && group === "pr" && verb === "diff";
 }
 function conciergeMayRun(segment) {
   const { name, args } = commandOf(segment);
-  return isHarness(name, args) || mayQuery(name, args, false) || ["date", "echo", "pwd"].includes(name);
+  return harnessAllowed(name, args, CONCIERGE_HARNESS) || name === "gh" && ghMayRun(args, false) || name === "git" && conciergeGit(args) || ["date", "echo", "pwd"].includes(name);
 }
+var READER_GIT = [
+  "log",
+  "status",
+  "show",
+  "diff",
+  "blame",
+  "ls-files",
+  "grep",
+  "rev-parse"
+];
 function readerMayRun(segment) {
   const { name, args } = commandOf(segment);
   if (name === "find") {
     return !args.some(
-      (arg) => ["-delete", "-exec", "-execdir", "-ok", "-okdir", "-fprint"].includes(
-        arg
-      )
+      (arg) => [
+        "-delete",
+        "-exec",
+        "-execdir",
+        "-ok",
+        "-okdir",
+        "-fprint",
+        "-fprint0",
+        "-fprintf",
+        "-fls"
+      ].includes(arg)
     );
   }
-  return isHarness(name, args) || READ_UTILITIES.has(name) || mayQuery(name, args, true);
+  if (name === "git") {
+    return READER_GIT.includes(args.find((arg) => !arg.startsWith("-")) ?? "") && !gitWrites(args);
+  }
+  return harnessAllowed(name, args, HARNESS_READS) || name === "gh" && ghMayRun(args, true) || READ_UTILITIES.has(name) && utilityMayRun(name, args);
 }
 function checkBash(role, command) {
   if (/\$\(|`|<\(|>\(/.test(command)) {
@@ -8640,14 +8681,14 @@ async function check({
     return callerPane;
   }
   const flag = (name) => typeof options[name] === "string" ? options[name] : void 0;
-  const tier = await resolveTier(deps, given.role, {
+  const tier2 = await resolveTier(deps, given.role, {
     model: flag("model"),
     effort: flag("effort")
   });
-  if ("error" in tier) {
-    return usage2(tier.error);
+  if ("error" in tier2) {
+    return usage2(tier2.error);
   }
-  return { values: { ...given, ...tier }, callerPane, timeoutMs };
+  return { values: { ...given, ...tier2 }, callerPane, timeoutMs };
 }
 
 // src/session/spawn-finish.ts
@@ -8796,6 +8837,32 @@ async function spawn2(context) {
   });
 }
 
+// src/session/tier.ts
+async function tier({
+  json,
+  deps,
+  operand
+}) {
+  if (operand === void 0 || operand === "") {
+    return fail3(
+      deps,
+      json,
+      USAGE_ERROR,
+      "Missing the role: run `session tier <role>`."
+    );
+  }
+  const found = await resolveTier(deps, operand, {});
+  if ("error" in found) {
+    return fail3(deps, json, USAGE_ERROR, found.error);
+  }
+  deps.stdout(
+    json ? `${JSON.stringify({ role: operand, ...found })}
+` : `${operand}: ${found.model}, effort ${found.effort}
+`
+  );
+  return 0;
+}
+
 // src/session/index.ts
 var spawnCommand = {
   summary: "start a Claude session in a Herdr pane (--role --name --brief [--model --effort, default from .claude/agents/<role>.md] --timeout ms; --worktree [--branch b] runs it in a new git worktree under .claude/worktrees); it waits for the result unless --no-wait, the normal pattern: spawn with --no-wait, then run `session wait <name>` in the background",
@@ -8822,6 +8889,11 @@ var closeCommand = {
   summary: "close a spawned pane once its result is recorded (<name>; only the pane that spawned it)",
   operand: "name",
   run: close2
+};
+var tierCommand = {
+  summary: "print the model and effort a role launches at, from .claude/agents/<role>.md (<role>; read-only)",
+  operand: "role",
+  run: tier
 };
 var equalizeCommand = {
   summary: "equalize the heights of the spawned panes (run after closing one)",
@@ -8850,6 +8922,7 @@ var session = {
   spawn: spawnCommand,
   wait: waitCommand,
   close: closeCommand,
+  tier: tierCommand,
   equalize: equalizeCommand
 };
 

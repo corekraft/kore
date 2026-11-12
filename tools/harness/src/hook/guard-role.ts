@@ -3,6 +3,10 @@
 // concierge and the reader from writing files, and the concierge from reading
 // code. The host names the role as `agent_type` when a session starts with
 // `claude --agent <role>`; a session without one is not bounded here.
+//
+// These rules enforce from the start, not in audit mode: the owner approved
+// enforcing the plan 11 role guards on 2026-11-12, which ADR 0080 requires a
+// person to do. A new capability for a role needs a guard case first.
 import { commandOf, splitSegments } from "./guard-shell.js";
 import { block, type Finding } from "./guard-verdict.js";
 
@@ -103,6 +107,28 @@ function writes(segment: readonly string[]): boolean {
 const HARNESS = /^(\.\/)?skills\/bin\/harness\.mjs$/;
 const PR_READS = ["view", "list", "status", "checks"];
 const ISSUE_READS = ["view", "list", "status"];
+
+/** The harness commands both roles may run; each is read-only. */
+const HARNESS_READS = [
+  "plan active",
+  "idea list",
+  "idea show",
+  "flow report",
+  "ledger list",
+];
+/** The concierge also files and mirrors ideas, the one way a request enters the queue. */
+const CONCIERGE_HARNESS = [...HARNESS_READS, "idea new", "idea sync"];
+
+/** The command is the harness bundle and its `<domain> <command>` is on the role's list; anything else, even a prefix match, is not. */
+const harnessAllowed = (
+  name: string,
+  args: readonly string[],
+  allowed: readonly string[],
+): boolean =>
+  name === "node" &&
+  HARNESS.test(args[0] ?? "") &&
+  allowed.includes(`${args[1] ?? ""} ${args[2] ?? ""}`);
+
 const READ_UTILITIES = new Set([
   "cat",
   "head",
@@ -112,7 +138,6 @@ const READ_UTILITIES = new Set([
   "rg",
   "wc",
   "sort",
-  "uniq",
   "diff",
   "stat",
   "file",
@@ -123,71 +148,121 @@ const READ_UTILITIES = new Set([
   "date",
   "echo",
   "pwd",
-  "sed",
 ]);
 
-/** The command is the harness, run from the repository's own bundle. */
-const isHarness = (name: string, args: readonly string[]): boolean =>
-  name === "node" && HARNESS.test(args[0] ?? "");
+/** Short-option clusters such as -o and -ro: -o names an output file for sort and tree. */
+const hasShortO = (args: readonly string[]): boolean =>
+  args.some((arg) => /^-[a-zA-Z]*o/.test(arg));
 
-/** The read-only `gh` and `git` verbs a bounded role may run; `patches` also allows output that shows code. */
-function mayQuery(
-  name: string,
-  args: readonly string[],
-  patches: boolean,
-): boolean {
-  if (name === "gh") {
-    const [group, verb] = args;
-    return (
-      (group === "issue" && ISSUE_READS.includes(verb ?? "")) ||
-      (group === "label" && verb === "list") ||
-      (group === "pr" && PR_READS.includes(verb ?? "")) ||
-      (patches && group === "pr" && verb === "diff")
-    );
+/** A read utility's options that write a file or run a program. */
+function utilityMayRun(name: string, args: readonly string[]): boolean {
+  switch (name) {
+    case "sort":
+      return !(
+        hasShortO(args) ||
+        args.some(
+          (arg) =>
+            arg.startsWith("--output") || arg.startsWith("--compress-program"),
+        )
+      );
+    case "tree":
+      return !hasShortO(args);
+    case "rg":
+      return !args.some((arg) => arg === "--pre" || arg.startsWith("--pre="));
+    case "file":
+      return !args.some(
+        (arg) => /^-[a-zA-Z]*C/.test(arg) || arg === "--compile",
+      );
+    default:
+      return true;
   }
-  const verb = args.find((arg) => !arg.startsWith("-"));
-  const shows = args.some((arg) =>
-    /^(-p|-u|--patch|--stat|--cc|-c)$/.test(arg),
-  );
-  const verbs = patches
-    ? [
-        "log",
-        "status",
-        "show",
-        "diff",
-        "blame",
-        "ls-files",
-        "grep",
-        "rev-parse",
-      ]
-    : ["log", "status"];
-  return name === "git" && verbs.includes(verb ?? "") && (patches || !shows);
 }
 
-/** What the concierge's shell may run: the harness and status queries, never anything that shows code. */
+/** Options that make a read-only `git` verb write a file or run a program. */
+const gitWrites = (args: readonly string[]): boolean =>
+  args.some(
+    (arg) =>
+      arg.startsWith("--output") ||
+      arg.startsWith("--open-files-in-pager") ||
+      arg.startsWith("-O"),
+  );
+
+/** The only options the concierge's `git log` and `git status` take: none prints changed lines. */
+const CONCIERGE_GIT_FLAGS: Record<string, RegExp> = {
+  log: /^(--|--oneline|--graph|--decorate|--no-decorate|--all|--no-merges|--merges|--first-parent|--abbrev-commit|--since=.+|--until=.+|--author=.+|--grep=.+|--format=.+|--pretty=.+|--date=.+|--max-count=.+|-n|-\d+)$/,
+  status: /^(-s|--short|-b|--branch|--porcelain|--porcelain=.+|--long)$/,
+};
+
+function conciergeGit(args: readonly string[]): boolean {
+  const [verb = "", ...rest] = args;
+  const flags = CONCIERGE_GIT_FLAGS[verb];
+  return (
+    flags !== undefined &&
+    rest.every((arg) => !arg.startsWith("-") || flags.test(arg))
+  );
+}
+
+/** The read-only `gh` verbs a bounded role may run; `patches` also allows output that shows code. */
+function ghMayRun(args: readonly string[], patches: boolean): boolean {
+  const [group, verb] = args;
+  return (
+    (group === "issue" && ISSUE_READS.includes(verb ?? "")) ||
+    (group === "label" && verb === "list") ||
+    (group === "pr" && PR_READS.includes(verb ?? "")) ||
+    (patches && group === "pr" && verb === "diff")
+  );
+}
+
+/** What the concierge's shell may run: allowlisted harness commands and status queries, never anything that shows code. */
 function conciergeMayRun(segment: readonly string[]): boolean {
   const { name, args } = commandOf(segment);
   return (
-    isHarness(name, args) ||
-    mayQuery(name, args, false) ||
+    harnessAllowed(name, args, CONCIERGE_HARNESS) ||
+    (name === "gh" && ghMayRun(args, false)) ||
+    (name === "git" && conciergeGit(args)) ||
     ["date", "echo", "pwd"].includes(name)
   );
 }
 
-/** What the reader's shell may run: read utilities, queries and the harness; find may not delete or execute. */
+const READER_GIT = [
+  "log",
+  "status",
+  "show",
+  "diff",
+  "blame",
+  "ls-files",
+  "grep",
+  "rev-parse",
+];
+
+/** What the reader's shell may run: read utilities, queries and allowlisted harness commands; find may not delete, execute or write. */
 function readerMayRun(segment: readonly string[]): boolean {
   const { name, args } = commandOf(segment);
   if (name === "find") {
     return !args.some((arg) =>
-      ["-delete", "-exec", "-execdir", "-ok", "-okdir", "-fprint"].includes(
-        arg,
-      ),
+      [
+        "-delete",
+        "-exec",
+        "-execdir",
+        "-ok",
+        "-okdir",
+        "-fprint",
+        "-fprint0",
+        "-fprintf",
+        "-fls",
+      ].includes(arg),
+    );
+  }
+  if (name === "git") {
+    return (
+      READER_GIT.includes(args.find((arg) => !arg.startsWith("-")) ?? "") &&
+      !gitWrites(args)
     );
   }
   return (
-    isHarness(name, args) ||
-    READ_UTILITIES.has(name) ||
-    mayQuery(name, args, true)
+    harnessAllowed(name, args, HARNESS_READS) ||
+    (name === "gh" && ghMayRun(args, true)) ||
+    (READ_UTILITIES.has(name) && utilityMayRun(name, args))
   );
 }
 

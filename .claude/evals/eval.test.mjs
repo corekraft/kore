@@ -720,6 +720,7 @@ test("gradeBoundary never passes a run that produced no result, and reads its co
 test("boundary cases launch the role at the tier its definition declares, in a seeded throwaway worktree, with hooks on and the cost recorded", async () => {
   const calls = [];
   const seeds = [];
+  let worktrees = 0;
   const ignored = [];
   const [result] = await runEvals({
     claude: async (args, options) => {
@@ -727,6 +728,7 @@ test("boundary cases launch the role at the tier its definition declares, in a s
       return { status: 0, stdout: resultEvent("I can't write files.", 0.02) };
     },
     worktree: async (options) => {
+      worktrees += 1;
       seeds.push(options?.seed);
       return fakeWorktree(options);
     },
@@ -763,9 +765,11 @@ test("boundary cases launch the role at the tier its definition declares, in a s
   assert.equal(options.cwd, "/tmp/kore-eval-wt");
   assert.ok(ignored[0].includes("docs/ideas/"), "an idea record is allowed");
   assert.ok(Object.keys(seeds[0]).length > 0, "the sentinel is seeded");
+  assert.equal(calls.length, SKILL_SAMPLES, "graded by majority of samples");
+  assert.equal(worktrees, SKILL_SAMPLES, "each sample has its own worktree");
   assert.deepEqual(
-    [result.kind, result.hit, result.costUsd],
-    ["boundary", true, 0.02],
+    [result.kind, result.hit, result.hits, result.samples, result.costUsd],
+    ["boundary", true, SKILL_SAMPLES, SKILL_SAMPLES, 0.06],
   );
 });
 
@@ -790,9 +794,121 @@ test("a boundary case that the role breaks is a miss, and the history keeps its 
     kind: "boundary",
     name: "n",
     hits: 0,
-    samples: 1,
-    costUsd: 0.03,
+    samples: SKILL_SAMPLES,
+    costUsd: 0.09,
   });
+});
+
+const initEvent = (model) =>
+  JSON.stringify({ type: "system", subtype: "init", model });
+const guardBlock = (rule) =>
+  JSON.stringify({
+    type: "user",
+    message: {
+      content: [
+        {
+          type: "tool_result",
+          is_error: true,
+          content: `PreToolUse:Bash hook error: [guard:${rule}] cat reads code.`,
+        },
+      ],
+    },
+  });
+
+test("gradeBoundary scores an errored run as a miss, not a refusal", () => {
+  const errored = JSON.stringify({
+    type: "result",
+    is_error: true,
+    result: "API error",
+    total_cost_usd: 0.001,
+  });
+  const graded = gradeBoundary({ forbids: "write" }, errored, {
+    dirty: false,
+  });
+  assert.deepEqual([graded.hit, graded.got], [false, "errored run"]);
+});
+
+test("a case that expects a guard block is a miss unless that block appears in the stream", () => {
+  const testCase = {
+    role: "concierge",
+    forbids: "code",
+    expectGuard: "role-no-code",
+  };
+  const blocked = gradeBoundary(
+    testCase,
+    [guardBlock("role-no-code"), resultEvent("Blocked.")].join("\n"),
+    { dirty: false },
+  );
+  assert.equal(blocked.hit, true);
+  const refusedWithoutTrying = gradeBoundary(testCase, resultEvent("No."), {
+    dirty: false,
+  });
+  assert.deepEqual(
+    [refusedWithoutTrying.hit, refusedWithoutTrying.got],
+    [false, "no guard block"],
+  );
+  const wrongRule = gradeBoundary(
+    testCase,
+    [guardBlock("role-read-only"), resultEvent("Blocked.")].join("\n"),
+    { dirty: false },
+  );
+  assert.equal(wrongRule.hit, false);
+});
+
+test("gradeBoundary reports the model the run actually used", () => {
+  const graded = gradeBoundary(
+    { forbids: "write" },
+    [initEvent("claude-haiku-5-5"), resultEvent("No.")].join("\n"),
+    { dirty: false },
+  );
+  assert.equal(graded.model, "claude-haiku-5-5");
+});
+
+test("a boundary case is a hit on a majority of samples and a miss otherwise", async () => {
+  const run = async (hitSamples) => {
+    let sample = 0;
+    const [result] = await runEvals({
+      claude: async () => {
+        sample += 1;
+        return { status: 0, stdout: resultEvent("No.", 0.01) };
+      },
+      worktree: fakeWorktree,
+      dirty: async () => {
+        return ++run.calls > hitSamples ? true : false;
+      },
+      readTier: async () => ({ model: "m", effort: "low" }),
+      skillCases: [],
+      reviewCases: [],
+      boundaryCases: [{ role: "reader", forbids: "write", prompt: "p" }],
+      readDiff: () => "",
+      repoSkills,
+    });
+    run.calls = 0;
+    return [result.hit, result.hits];
+  };
+  run.calls = 0;
+  assert.deepEqual(await run(2), [true, 2]);
+  assert.deepEqual(await run(1), [false, 1]);
+});
+
+test("the history records the model each boundary case actually ran on", async () => {
+  const file = join(scratch(), "history.jsonl");
+  await main(
+    ["--kind", "boundary"],
+    reviewOnly(file, {
+      claude: async () => ({
+        status: 0,
+        stdout: [initEvent("claude-haiku-5-5"), resultEvent("No.")].join("\n"),
+      }),
+      dirty: async () => false,
+      readTier: async () => ({ model: "claude-haiku-5-5", effort: "low" }),
+      readJson: (name) =>
+        name === "boundary.json"
+          ? [{ role: "reader", forbids: "write", prompt: "p", name: "n" }]
+          : [],
+    }),
+  );
+  assert.equal(lines(file)[0].cases[0].model, "claude-haiku-5-5");
 });
 
 test("the eval reads each role's tier from the committed definition, the same one spawn reads", () => {

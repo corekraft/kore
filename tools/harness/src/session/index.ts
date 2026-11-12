@@ -2,6 +2,7 @@ import type { Command } from "../runtime/index.js";
 import { close } from "./close.js";
 import { equalize } from "./equalize.js";
 import { spawn } from "./spawn.js";
+import { tier } from "./tier.js";
 import { wait } from "./wait.js";
 
 const spawnCommand: Command = {
@@ -36,6 +37,13 @@ const closeCommand: Command = {
   run: close,
 };
 
+const tierCommand: Command = {
+  summary:
+    "print the model and effort a role launches at, from .claude/agents/<role>.md (<role>; read-only)",
+  operand: "role",
+  run: tier,
+};
+
 const equalizeCommand: Command = {
   summary: "equalize the heights of the spawned panes (run after closing one)",
   async run({ json, deps }) {
@@ -63,5 +71,6 @@ export const session: Record<string, Command> = {
   spawn: spawnCommand,
   wait: waitCommand,
   close: closeCommand,
+  tier: tierCommand,
   equalize: equalizeCommand,
 };
