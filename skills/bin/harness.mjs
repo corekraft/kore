@@ -29,6 +29,164 @@ var package_default = {
   }
 };
 
+// src/plan/parser.ts
+var FRONTMATTER = /^---\n([\s\S]*?)\n---\n/;
+var UPCOMING_STEPS = 3;
+function planNumber(name) {
+  return Number.parseInt(name, 10);
+}
+function planStatus(markdown) {
+  const frontmatter = FRONTMATTER.exec(markdown)?.[1];
+  return frontmatter === void 0 ? void 0 : /^status: *(\S*) *$/m.exec(frontmatter)?.[1];
+}
+function listItems(markdown) {
+  const items = [];
+  let heading = "";
+  let current = null;
+  for (const line of markdown.split("\n")) {
+    if (line.startsWith("## ")) {
+      heading = line.slice(3).trim();
+    }
+    if (line.startsWith("- ")) {
+      current = { heading, text: line.trim() };
+      items.push(current);
+    } else if (current && /^\s+\S/.test(line)) {
+      current.text += ` ${line.trim()}`;
+    } else {
+      current = null;
+    }
+  }
+  return items;
+}
+function openItems(markdown) {
+  return listItems(markdown).filter((item) => item.text.startsWith("- [ ]")).map((item) => `${item.heading}: ${item.text}`);
+}
+function openSteps(markdown) {
+  const counts = /* @__PURE__ */ new Map();
+  for (const item of listItems(markdown)) {
+    if (!item.text.startsWith("- [ ]")) {
+      continue;
+    }
+    counts.set(item.heading, (counts.get(item.heading) ?? 0) + 1);
+  }
+  return counts;
+}
+function openCounts(markdown) {
+  return [...openSteps(markdown)].map(([heading, count]) => ({
+    step: heading.split(":")[0] ?? heading,
+    count
+  }));
+}
+function nextStep(markdown) {
+  let heading = "";
+  let next = null;
+  for (const line of markdown.split("\n")) {
+    if (next) {
+      if (!line.trim() || line.startsWith("#")) {
+        break;
+      }
+      next.text += ` ${line.trim()}`;
+    } else if (line.startsWith("## ")) {
+      heading = line.slice(3).trim();
+    } else if (line.startsWith("Next:")) {
+      next = { step: heading, text: line.slice(5).trim() };
+    }
+  }
+  return next;
+}
+function upcomingSteps(markdown) {
+  const open = [...openSteps(markdown).keys()];
+  const current = nextStep(markdown)?.step ?? open[0];
+  const headings = markdown.split("\n").filter((line) => line.startsWith("## ")).map((line) => line.slice(3).trim());
+  const after = headings.slice(headings.indexOf(current ?? "") + 1);
+  return after.filter((heading) => open.includes(heading)).slice(0, UPCOMING_STEPS);
+}
+function activePlans(plans) {
+  const active = [];
+  let legacy;
+  const byNumber = Object.keys(plans).sort(
+    (a, b) => planNumber(b) - planNumber(a)
+  );
+  for (const name of byNumber) {
+    const markdown = plans[name] ?? "";
+    if (!FRONTMATTER.test(markdown)) {
+      if (legacy === void 0 && openItems(markdown).length > 0) {
+        legacy = name;
+      }
+    } else if (planStatus(markdown) === "active") {
+      active.push(name);
+    }
+  }
+  if (legacy !== void 0) {
+    active.push(legacy);
+  }
+  return active.sort((a, b) => planNumber(b) - planNumber(a));
+}
+
+// src/plan/active.ts
+var PLANS_DIR = "infra/plans";
+async function readPlans(fs) {
+  let names2;
+  try {
+    names2 = (await fs.readdir(PLANS_DIR)).filter((n) => n.endsWith(".md"));
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return {};
+    }
+    throw error;
+  }
+  const plans = {};
+  for (const name of names2) {
+    plans[name] = await fs.readFile(`${PLANS_DIR}/${name}`);
+  }
+  return plans;
+}
+function describe(plan) {
+  const open = plan.open.map((o) => `${o.step} (${o.count})`).join(", ");
+  const lines = [`${plan.file}${plan.default ? " (default)" : ""}`];
+  lines.push(`  Open items: ${open || "none"}`);
+  if (plan.next) {
+    lines.push(`  Next (${plan.next.step}): ${plan.next.text}`);
+  }
+  if (plan.upcoming.length > 0) {
+    lines.push(`  Upcoming: ${plan.upcoming.join("; ")}`);
+  }
+  return lines.join("\n");
+}
+var planActive = {
+  summary: "list the active plans, flagging the default (highest-numbered)",
+  async run({ json, deps }) {
+    const plans = await readPlans(deps.fs);
+    const names2 = activePlans(plans);
+    const listed = names2.map((name, index) => {
+      const markdown = plans[name] ?? "";
+      return {
+        file: `${PLANS_DIR}/${name}`,
+        name,
+        default: index === 0,
+        open: openCounts(markdown),
+        next: nextStep(markdown),
+        upcoming: upcomingSteps(markdown)
+      };
+    });
+    if (json) {
+      deps.stdout(
+        `${JSON.stringify({ default: names2[0] ?? null, plans: listed })}
+`
+      );
+    } else if (listed.length === 0) {
+      deps.stdout(
+        `No active plan: no file in ${PLANS_DIR} has "status: active" in its frontmatter.
+`
+      );
+    } else {
+      deps.stdout(`${listed.map(describe).join("\n")}
+`);
+    }
+    return 0;
+  }
+};
+
 // src/cli/domains.ts
 var version = {
   summary: "print the harness version",
@@ -42,7 +200,8 @@ var version = {
   }
 };
 var domains = {
-  harness: { version }
+  harness: { version },
+  plan: { active: planActive }
 };
 
 // src/cli/cli.ts
