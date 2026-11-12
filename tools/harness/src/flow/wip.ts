@@ -8,8 +8,6 @@ export interface Wip {
   average: number;
 }
 
-export const NO_WIP: Wip = { peak: 0, average: 0 };
-
 const roundAverage = (value: number) => Math.round(value * 10_000) / 10_000;
 
 /**

@@ -1862,12 +1862,12 @@ function parseFlags({ options, deps }) {
   }
   return { asOf: new Date(given), minCompletedIdeas };
 }
+var seconds = (value) => `${Math.round(value)}s`;
 var leadLine = ({
   ideas,
   medianSeconds,
   maxSeconds
 }) => medianSeconds === null || maxSeconds === null ? "Lead time: no completed ideas" : `Lead time: ${ideas.length} ideas, median ${seconds(medianSeconds)}, max ${seconds(maxSeconds)}`;
-var seconds = (value) => `${Math.round(value)}s`;
 function text(report2) {
   const rows = report2.stages.map(
     (s) => [

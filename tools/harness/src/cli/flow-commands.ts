@@ -39,6 +39,8 @@ function parseFlags({ options, deps }: CommandContext): Parsed {
   return { asOf: new Date(given), minCompletedIdeas };
 }
 
+const seconds = (value: number) => `${Math.round(value)}s`;
+
 const leadLine = ({
   ideas,
   medianSeconds,
@@ -47,8 +49,6 @@ const leadLine = ({
   medianSeconds === null || maxSeconds === null
     ? "Lead time: no completed ideas"
     : `Lead time: ${ideas.length} ideas, median ${seconds(medianSeconds)}, max ${seconds(maxSeconds)}`;
-
-const seconds = (value: number) => `${Math.round(value)}s`;
 
 function text(report: Printed): string {
   const rows = report.stages.map((s) =>

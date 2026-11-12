@@ -92,7 +92,9 @@ once: `peak` is the most at one moment and `average` is idea-seconds over the
 seconds of the report's range, the earliest to the latest time any stage holds
 an idea, so stages compare on one scale. An idea is open in a stage from its
 first event or charged time there to the last, once however many panes it ran
-there; ideas that close and open at the same instant do not overlap. Lead time
+there; ideas that close and open at the same instant do not overlap. The interval is one
+span, so an idea that leaves a stage and returns counts as open between, and a
+stage reached only by single events (no duration) shows `wip` 0. Lead time
 (`leadTime`) runs from an idea's first event, of any kind, to its first
 `issue.closed`, in seconds per idea, with `medianSeconds` and `maxSeconds`
 (both `null` when none); ideas without an outcome are left out.
