@@ -92,7 +92,7 @@ and uses it first to measure the delivery loop. Terms follow
 
 - `node skills/bin/harness.mjs flow report --json` names a bottleneck from
   real ledger data.
-  Demonstrated with the baseline (#163).
+  To be demonstrated with the baseline (#163).
 
 ## Step 5: Baseline
 
