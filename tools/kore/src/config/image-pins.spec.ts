@@ -6,9 +6,8 @@ import { componentValues, findRoot, loadRepository } from "./config.js";
 
 const DIGEST = /@sha256:[0-9a-f]{64}$/;
 
-// Entries allowed without a digest: the locally built reference image, and the
-// k3s node image, which k3d pulls by exact tag and no chart or manifest deploys.
-const NOT_YET_DIGEST_PINNED = new Set(["reference", "k3s"]);
+// The locally built reference image is the only entry allowed without a digest.
+const NOT_YET_DIGEST_PINNED = new Set(["reference"]);
 
 test("every platform image in the version catalog is pinned tag@sha256 digest", async () => {
   const repository = await loadRepository("local");

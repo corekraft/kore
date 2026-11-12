@@ -14,7 +14,7 @@ on a live cluster.
 | -------------------------------- | ------------------------ | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Kubernetes                       | 1.37.2                   | 2026-11-07 | Minikube 1.39 supported release                                                                                                                                                                     |
 | k3d                              | 5.9.0                    | 2026-11-11 | Local cluster tool for plan 9; mise-pinned and mirrored in `versions.yaml`; Minikube 1.39.0 stays pinned until the cutover; live run required                                                       |
-| k3s image                        | rancher/k3s:v1.37.2-k3s1 | 2026-11-11 | Same Kubernetes 1.37.2 as kubectl and Minikube; tag exists on Docker Hub; evidence below; live run required                                                                                         |
+| k3s image                        | rancher/k3s:v1.37.2-k3s1 | 2026-11-11 | Same Kubernetes 1.37.2 as kubectl and Minikube; pinned by index digest (see note); evidence below; live run required                                                                                |
 | Helm                             | 4.3.1                    | 2026-11-07 | Chart rendering and release client                                                                                                                                                                  |
 | OpenTofu provider hashicorp/null | 3.2.4                    | 2026-11-09 | Offline `tofu validate` of `infra/tofu/stacks/managed-example` only; no credentials, never applied; OpenTofu 1.13.9                                                                                 |
 | Gateway API                      | 1.7.0                    | 2026-11-07 | Standard channel, `gateway.networking.k8s.io/v1`; 1.7 breaking changes are experimental-only                                                                                                        |
@@ -50,7 +50,7 @@ on a live cluster.
 | OPA Envoy image                  | 1.22.2-envoy             | 2026-11-07 | `opa-authorizer` renders; same OPA release as the toolchain CLI; policies pass `test-opa`                                                                                                           |
 | Reference base image             | node:26.13.0-alpine3.24  | 2026-11-07 | Latest Node LTS on Alpine                                                                                                                                                                           |
 
-k3s `v1.37.2-k3s1` (pinned by exact tag in `versions.yaml` `images.k3s`; k3d
+k3s `v1.37.2-k3s1` (pinned by tag and index digest `sha256:21ea6e0fac4e3930c2ce8aa40ddd41a8b18cb3e9a0222c030dc005e7e88c4332`, resolved with `crane digest` on 2026-11-11, in `versions.yaml` `images.k3s`; k3d
 5.9.0 is the latest k3d release, resolved 2026-11-11) tracks the same upstream
 Kubernetes 1.37.2 as the pinned kubectl and Minikube. Evidence per component
 against that version, all unchanged pins and offline-only (a live `kore local up`

@@ -38,7 +38,7 @@ test("the tool catalog pins k3d and the k3s image matches the local Kubernetes v
   assert.equal(repository.versions.tools.k3d, "5.9.0");
   assert.equal(repository.versions.tools.minikube, "1.39.0");
   assert.equal(
-    repository.versions.images.k3s,
+    repository.versions.images.k3s?.split("@")[0],
     `rancher/k3s:v${repository.versions.kubernetes}-k3s1`,
   );
 });
