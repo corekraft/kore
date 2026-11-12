@@ -13,8 +13,6 @@ Usage:
   kore data export --environment <name> [--namespace reference] [--json]
   kore data restore --environment <name> --from <file> [--identity <age-key-file>] [--overwrite-data --yes] [--json]
   kore local up|down --environment local [--prune [--purge-data]]
-  kore tunnel start|stop --environment local
-  kore tunnel status [--environment local] [--json]
   kore registry rotate-credentials --environment <name> --yes [--json]
   kore signer swap-key --environment local --yes [--json]
   kore secrets sync --environment local [--rotate --yes]

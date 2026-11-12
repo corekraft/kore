@@ -1,6 +1,6 @@
 [
   {
-    "prompt": "Add a --json flag to the kore tunnel status command.",
+    "prompt": "Add a --json flag to the kore journal command.",
     "expect": "add-command"
   },
   {

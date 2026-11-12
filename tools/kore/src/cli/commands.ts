@@ -12,7 +12,6 @@ import {
   signerCommand,
   secretsCommand,
   trustCommand,
-  tunnelCommand,
 } from "./commands-local.js";
 import {
   doctorCommand,
@@ -50,7 +49,6 @@ export const COMMANDS: ReadonlyMap<string, CommandSpec> = new Map<
   ["local", { mutations: ["up", "down"], run: localCommand }],
   ["signer", { mutations: ["swap-key"], run: signerCommand }],
   ["registry", { mutations: ["rotate-credentials"], run: registryCommand }],
-  ["tunnel", { mutations: ["start", "stop"], run: tunnelCommand }],
   // Every secrets and trust action mutates, so each one needs --environment.
   [
     "secrets",

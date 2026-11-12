@@ -28,16 +28,15 @@ vi.mock("./status.js", async () => {
 });
 
 import { platformUp } from "./up.js";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import type { RunOptions, RunResult, Runner } from "../runtime/index.js";
 import { RecordingRunner } from "../runtime/runner.js";
 import { tmpdir } from "node:os";
-import { tunnelStatePath } from "../tunnel/tunnel.js";
 
-test("local platform configuration starts the managed Minikube tunnel", async () => {
+test("local platform up starts no host process and runs no tunnel command", async () => {
   const base = await loadMinikubeLocal();
-  const root = await mkdtemp(join(tmpdir(), "kore-platform-tunnel-"));
+  const root = await mkdtemp(join(tmpdir(), "kore-platform-no-host-process-"));
   const repository = { ...base, root };
   repository.catalog.components = [];
   const runner = new RecordingRunner([
@@ -57,14 +56,13 @@ test("local platform configuration starts the managed Minikube tunnel", async ()
     { stdout: "kube-system", stderr: "", code: 0 },
   ]);
   try {
-    await platformUp(repository, runner, {
-      spawnTunnel: () => 4321,
-      isProcessAlive: () => true,
-      isPortOpen: async () => true,
-    });
-    assert.deepEqual(
-      await readFile(tunnelStatePath(repository), "utf8").then(JSON.parse),
-      { profile: "kore-local", pid: 4321 },
+    await platformUp(repository, runner);
+    assert.equal(
+      runner.calls.some(
+        ({ command, args }) =>
+          command === "ssh" || (command === "minikube" && args[0] === "tunnel"),
+      ),
+      false,
     );
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -117,7 +115,7 @@ function indexOfCall(calls: Call[], match: (call: Call) => boolean): number {
   return calls.findIndex(match);
 }
 
-test("local platform up starts its tunnel before waiting for Gateway programming", async () => {
+test("local platform up waits for Gateway programming after applying the configuration", async () => {
   const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-platform-order-"));
   const platformConfig = base.catalog.components.find(
@@ -133,23 +131,12 @@ test("local platform up starts its tunnel before waiting for Gateway programming
   };
   const calls: Call[] = [];
   try {
-    await platformUp(repository, gatewayOrderRunner(calls), {
-      spawnTunnel: () => {
-        calls.push({ command: "managed-tunnel", args: [] });
-        return 4321;
-      },
-      isProcessAlive: () => true,
-      isPortOpen: async () => true,
-    });
+    await platformUp(repository, gatewayOrderRunner(calls));
 
     const issuerReady = indexOfCall(
       calls,
       ({ command, args }) =>
         command === "kubectl" && args.includes("clusterissuer/kore-local-ca"),
-    );
-    const tunnelStarted = indexOfCall(
-      calls,
-      ({ command }) => command === "managed-tunnel",
     );
     const configurationApplied = indexOfCall(
       calls,
@@ -165,8 +152,7 @@ test("local platform up starts its tunnel before waiting for Gateway programming
     );
     assert.ok(issuerReady >= 0);
     assert.ok(configurationApplied > issuerReady);
-    assert.ok(tunnelStarted > configurationApplied);
-    assert.ok(gatewayProgrammed > tunnelStarted);
+    assert.ok(gatewayProgrammed > configurationApplied);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -222,11 +208,7 @@ test("platform up upgrades an already-installed configuration release", async ()
     },
   };
   try {
-    await platformUp(repository, runner, {
-      spawnTunnel: () => 4321,
-      isProcessAlive: () => true,
-      isPortOpen: async () => true,
-    });
+    await platformUp(repository, runner);
     assert.ok(
       calls.some(
         ({ command, args }) =>

@@ -22,9 +22,6 @@ vi.mock("./registry-rewire.js", () => ({
 vi.mock("../security/index.js", () => ({
   installLocalTrust: async () => undefined,
 }));
-vi.mock("../tunnel/index.js", () => ({
-  startLocalTunnel: async () => undefined,
-}));
 import {
   loadRepository,
   type Component,

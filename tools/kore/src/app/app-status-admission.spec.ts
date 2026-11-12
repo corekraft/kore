@@ -1,13 +1,12 @@
 import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import assert from "node:assert/strict";
-import { copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vitest";
 
 import type { Runner } from "../runtime/index.js";
 import { healthyWebhookOutput } from "../platform/webhook-fixtures.js";
-import { tunnelStatePath, type TunnelDependencies } from "../tunnel/tunnel.js";
 import { appStatus } from "./app.js";
 
 // Docs: docs/decisions/0035-fail-fast-readiness-diagnosis.md
@@ -16,10 +15,6 @@ import { appStatus } from "./app.js";
 
 async function statusWith(
   down: "none" | "registry" | "verifier",
-  tunnel: TunnelDependencies = {
-    isProcessAlive: () => true,
-    isPortOpen: async () => true,
-  },
 ): Promise<{ status: Record<string, unknown>; calls: string[] }> {
   const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-app-status-admission-"));
@@ -29,11 +24,6 @@ async function statusWith(
     join(root, "infra/catalog/images.lock.json"),
   );
   const repository = { ...base, root };
-  await mkdir(join(root, ".kore", "state"), { recursive: true });
-  await writeFile(
-    tunnelStatePath(repository),
-    JSON.stringify({ profile: "kore-local", pid: 4321 }),
-  );
   const calls: string[] = [];
   const runner: Runner = {
     async run(command, args) {
@@ -66,7 +56,7 @@ async function statusWith(
   };
   try {
     return {
-      status: await appStatus(repository, runner, "reference", tunnel),
+      status: await appStatus(repository, runner, "reference"),
       calls,
     };
   } finally {
@@ -122,25 +112,11 @@ test("app status stays read-only while reporting degraded", async () => {
   assert.deepEqual(mutating, []);
 });
 
-test("app status reports degraded with the remedy when the tunnel has exited, without restarting it", async () => {
-  const { status, calls } = await statusWith("none", {
-    isProcessAlive: () => false,
-    isPortOpen: async () => false,
-    spawnTunnel: () => assert.fail("status must not start a tunnel"),
-  });
+test("app status has no tunnel entry and starts no host process", async () => {
+  const { status, calls } = await statusWith("none");
 
-  assert.equal(status["status"], "degraded");
-  const degraded = status["degraded"] as {
-    component: string;
-    detail: string;
-  }[];
-  assert.deepEqual(
-    degraded.map(({ component }) => component),
-    ["local-tunnel"],
-  );
-  assert.match(degraded[0]!.detail, /kore tunnel start --environment local/);
-  const tunnel = status["tunnel"] as { status: string; detail: string };
-  assert.equal(tunnel.status, "degraded");
-  assert.match(tunnel.detail, /kore tunnel start --environment local/);
-  assert.ok(!calls.some((call) => call.startsWith("minikube tunnel")));
+  assert.equal(status["status"], "ready");
+  assert.ok(!("tunnel" in status));
+  assert.deepEqual(status["degraded"], []);
+  assert.ok(!calls.some((call) => /tunnel/.test(call)));
 });

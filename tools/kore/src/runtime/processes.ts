@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
-// Docs: docs/decisions/0060-tunnel-recovery-on-demand.md
+// Docs: docs/decisions/0076-k3d-replaces-minikube.md
 
 export interface ProcessEntry {
   pid: number;

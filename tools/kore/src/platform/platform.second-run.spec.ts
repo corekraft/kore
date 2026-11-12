@@ -132,16 +132,8 @@ async function upOnly(name: string, stale = false) {
       ? "kore desired-state sha256:stale"
       : desiredFingerprint(repository, component);
   const { calls, runner } = cluster(() => fingerprint);
-  const tunnel: string[] = [];
-  await platformUp(repository, runner, {
-    spawnTunnel: () => {
-      tunnel.push("started");
-      return 4321;
-    },
-    isProcessAlive: () => true,
-    isPortOpen: async () => true,
-  });
-  return { calls, tunnel };
+  await platformUp(repository, runner);
+  return { calls };
 }
 
 const upgrades = (calls: { command: string; args: readonly string[] }[]) =>
@@ -159,10 +151,9 @@ for (const name of configurationReleases) {
   });
 }
 
-test("an unchanged Gateway release still starts the tunnel and waits for the Gateway", async () => {
-  const { calls, tunnel } = await upOnly("kore-platform-config");
+test("an unchanged Gateway release still waits for the Gateway", async () => {
+  const { calls } = await upOnly("kore-platform-config");
   assert.deepEqual(upgrades(calls), []);
-  assert.deepEqual(tunnel, ["started"]);
   assert.ok(
     calls.some(
       (c) => c.command === "kubectl" && c.args.includes("gateway/kore-gateway"),

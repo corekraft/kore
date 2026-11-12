@@ -29,7 +29,6 @@ vi.mock("./status.js", async () => {
 
 import { loadRepository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
-import { tunnelStatePath } from "../tunnel/tunnel.js";
 import { platformUp } from "./up.js";
 
 type Call = { command: string; args: readonly string[] };
@@ -107,18 +106,9 @@ test("platform up on k3d programs the Gateway with no tunnel and no Minikube com
     },
   };
   const calls: Call[] = [];
-  const spawned: string[] = [];
   try {
-    await platformUp(repository, k3dRunner(calls), {
-      spawnTunnel: () => {
-        spawned.push("tunnel");
-        return 1;
-      },
-      isProcessAlive: () => true,
-      isPortOpen: async () => true,
-    });
+    await platformUp(repository, k3dRunner(calls));
 
-    assert.deepEqual(spawned, []);
     assert.deepEqual(
       calls.filter(({ command }) => command === "minikube"),
       [],
@@ -130,11 +120,9 @@ test("platform up on k3d programs the Gateway with no tunnel and no Minikube com
       ),
       "the Gateway is still awaited",
     );
-    await assert.rejects(
-      import("node:fs/promises").then((fs) =>
-        fs.readFile(tunnelStatePath(repository), "utf8"),
-      ),
-      /ENOENT/,
+    assert.deepEqual(
+      calls.filter(({ command }) => command === "ssh"),
+      [],
     );
   } finally {
     await rm(root, { recursive: true, force: true });

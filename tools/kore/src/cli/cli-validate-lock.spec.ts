@@ -25,9 +25,6 @@ vi.mock("../platform/index.js", async () =>
 vi.mock("../security/index.js", async () =>
   (await import("./cli-dispatch.fixtures.js")).securityModule(),
 );
-vi.mock("../tunnel/index.js", async () =>
-  (await import("./cli-dispatch.fixtures.js")).tunnelModule(),
-);
 vi.mock("../local/index.js", async () =>
   (await import("./cli-dispatch.fixtures.js")).localModule(),
 );

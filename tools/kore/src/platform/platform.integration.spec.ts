@@ -3,7 +3,6 @@ import test from "node:test";
 import { loadRepository } from "../config/index.js";
 import { clusterDestroy } from "../cluster/index.js";
 import { ProcessRunner } from "../runtime/index.js";
-import { stopLocalTunnel } from "../tunnel/index.js";
 import { assertDatabasePersistence } from "./platform.database.integration.spec.js";
 import { assertReferenceSmoke } from "./platform.reference-smoke.integration.spec.js";
 
@@ -67,16 +66,10 @@ test(
       await assertReferenceSmoke(repository, runner);
       await assertDatabasePersistence(repository, runner);
     } finally {
-      try {
-        if (repository.environment.provider === "minikube") {
-          await stopLocalTunnel(repository, runner);
-        }
-      } finally {
-        await clusterDestroy(repository, runner, {
-          yes: true,
-          purgeData: true,
-        });
-      }
+      await clusterDestroy(repository, runner, {
+        yes: true,
+        purgeData: true,
+      });
     }
   },
 );

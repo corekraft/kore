@@ -23,8 +23,6 @@ import { verifyImage } from "./verify.js";
 export interface AppUpOptions {
   /** Verify against this public key instead of the image's signer key. */
   publicKey?: string;
-  /** Restores the local endpoint once the platform is proven ready (ADR 0060). */
-  ensureTunnel?: () => Promise<unknown>;
   /** Bound for each HTTPRoute wait; defaults to five minutes. */
   routeTimeout?: string;
 }
@@ -38,7 +36,6 @@ export async function converge(
 ): Promise<void> {
   // Applications are admitted only through an open gate for this generation.
   const generation = await assertAppAdmissible(repository, runner);
-  await options.ensureTunnel?.();
   await verifyImage(repository, runner, image, options.publicKey);
   const workloadImage = await stageLocalImage(repository, runner, image);
   const charts = await resolveCharts(repository, name);

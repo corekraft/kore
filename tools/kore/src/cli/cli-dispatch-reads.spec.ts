@@ -22,9 +22,6 @@ vi.mock("../platform/index.js", async () =>
 vi.mock("../security/index.js", async () =>
   (await import("./cli-dispatch.fixtures.js")).securityModule(),
 );
-vi.mock("../tunnel/index.js", async () =>
-  (await import("./cli-dispatch.fixtures.js")).tunnelModule(),
-);
 vi.mock("../local/index.js", async () =>
   (await import("./cli-dispatch.fixtures.js")).localModule(),
 );
@@ -46,14 +43,12 @@ test("read-only CLI commands dispatch doctor, validation, and status", async () 
   expect(await main(["cluster", "status", "--json"])).toBe(0);
   expect(await main(["platform", "status", "--json"])).toBe(0);
   expect(await main(["app", "status", "reference", "--json"])).toBe(0);
-  expect(await main(["tunnel", "status", "--json"])).toBe(0);
   expect(dispatch).toEqual([
     "validatePortability",
     "doctor",
     "clusterStatus",
     "platformStatusReport",
     "appStatus",
-    "tunnelStatus",
   ]);
 });
 
@@ -103,11 +98,9 @@ test("journal prints tab-separated lines and an interrupted notice without --jso
 
 test("plain output prints key-value pairs for objects and lines for lists", async () => {
   const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
-  await main(["tunnel", "status"]);
   await main(["platform", "status"]);
   await main(["validate"]);
   expect(log.mock.calls.map((call) => call[0])).toEqual([
-    "status: running",
     "environment: local",
     "components: 1",
     'order: ["gateway"]',

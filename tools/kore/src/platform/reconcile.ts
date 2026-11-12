@@ -85,12 +85,10 @@ export async function reconcileComponent(
   repository: Repository,
   runner: Runner,
   component: Component,
-  afterApply?: () => Promise<void>,
   watch: WatchOptions = {},
 ): Promise<void> {
   try {
     await applyComponent(repository, runner, component, watch);
-    await afterApply?.();
     await withFailFast(
       repository,
       runner,
@@ -216,22 +214,19 @@ export async function reconcileIfNeeded(
     );
     return;
   }
-  await reconcileComponent(repository, runner, component, undefined, watch);
+  await reconcileComponent(repository, runner, component, watch);
 }
 
 /**
  * Reconciles a configuration component on every `kore local up`. A Helm release
  * that is deployed from the current desired state is not upgraded, only
- * awaited, so a second run of unchanged state changes no release. `afterApply`
- * runs either way, since it carries steps (the local tunnel) that a skipped
- * upgrade must not lose. Manifests are applied every time: a server-side apply
+ * awaited, so a second run of unchanged state changes no release. Manifests are applied every time: a server-side apply
  * is idempotent and their content is not fingerprinted.
  */
 export async function reconcileConfiguration(
   repository: Repository,
   runner: Runner,
   component: Component,
-  afterApply?: () => Promise<void>,
   watch: WatchOptions = {},
 ): Promise<void> {
   if (
@@ -239,7 +234,6 @@ export async function reconcileConfiguration(
     (await componentIsInstalled(repository, runner, component)) &&
     (await releaseMatchesDesiredState(repository, runner, component))
   ) {
-    await afterApply?.();
     await withFailFast(
       repository,
       runner,
@@ -249,5 +243,5 @@ export async function reconcileConfiguration(
     );
     return;
   }
-  await reconcileComponent(repository, runner, component, afterApply, watch);
+  await reconcileComponent(repository, runner, component, watch);
 }

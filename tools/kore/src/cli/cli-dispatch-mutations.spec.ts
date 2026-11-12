@@ -25,9 +25,6 @@ vi.mock("../platform/index.js", async () =>
 vi.mock("../security/index.js", async () =>
   (await import("./cli-dispatch.fixtures.js")).securityModule(),
 );
-vi.mock("../tunnel/index.js", async () =>
-  (await import("./cli-dispatch.fixtures.js")).tunnelModule(),
-);
 vi.mock("../local/index.js", async () =>
   (await import("./cli-dispatch.fixtures.js")).localModule(),
 );
@@ -168,19 +165,11 @@ test("application and local CLI commands dispatch deploy and teardown actions", 
   ]);
 });
 
-test("tunnel, secret, and trust CLI mutations dispatch their operations", async () => {
-  await main(["tunnel", "start", "--environment", "local", "--json"]);
-  await main(["tunnel", "stop", "--environment", "local", "--json"]);
+test("secret and trust CLI mutations dispatch their operations", async () => {
   await main(["secrets", "sync", "--environment", "local", "--json"]);
   await main(["trust", "install", "--environment", "local", "--json"]);
 
   expect(dispatch).toEqual([
-    "lock",
-    "journal:tunnel start:kore-local",
-    "startLocalTunnel",
-    "lock",
-    "journal:tunnel stop:kore-local",
-    "stopLocalTunnel",
     "lock",
     "journal:secrets sync:kore-local",
     "syncLocalSecrets",
@@ -281,12 +270,8 @@ test("platform gate-check requires an explicit environment", async () => {
   );
 });
 
-test("app up hands the app domain a hook that restores the tunnel", async () => {
+test("app up hands the app domain no tunnel hook", async () => {
   const { appUpRelease } = await import("../app/index.js");
   await main(["app", "up", "reference", "--environment", "local"]);
-  const options = vi.mocked(appUpRelease).mock.calls.at(-1)?.[4] as
-    { ensureTunnel: () => Promise<unknown> } | undefined;
-  expect(dispatch).not.toContain("ensureLocalTunnel");
-  await options?.ensureTunnel();
-  expect(dispatch).toContain("ensureLocalTunnel");
+  expect(vi.mocked(appUpRelease).mock.calls.at(-1)?.[4]).toBeUndefined();
 });
