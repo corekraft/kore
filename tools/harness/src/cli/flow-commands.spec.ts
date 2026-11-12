@@ -20,6 +20,7 @@ const KEYS = [
   "ideas",
   "minCompletedIdeas",
   "stages",
+  "leadTime",
   "bottleneck",
   "bottleneckNote",
   "unmappedEvents",
@@ -34,7 +35,7 @@ describe("flow report", () => {
     expect(Object.keys(report)).toEqual(KEYS);
     expect(report).toMatchObject({ bottleneckNote: null });
     expect(report).toMatchObject({
-      version: 2,
+      version: 3,
       asOf: "2026-01-02T03:04:05.000Z",
       ideas: { total: 3, completed: 3 },
       minCompletedIdeas: 3,
@@ -143,5 +144,35 @@ describe("flow report toil", () => {
         "retryingSeconds",
       ]);
     }
+  });
+});
+
+describe("flow report work in progress and lead time", () => {
+  it("prints wip per stage and lead time in the JSON", async () => {
+    const { h, argv } = seeded(["--json"]);
+    expect(await run(argv, h.deps)).toBe(0);
+    const { stages, leadTime } = JSON.parse(h.out()) as {
+      stages: { wip: Record<string, number> }[];
+      leadTime: { ideas: unknown[]; medianSeconds: number; maxSeconds: number };
+    };
+    for (const stage of stages) {
+      expect(Object.keys(stage.wip)).toEqual(["peak", "average"]);
+    }
+    expect(leadTime.ideas).toHaveLength(3);
+    expect(leadTime.maxSeconds).toBeGreaterThanOrEqual(leadTime.medianSeconds);
+  });
+
+  it("prints wip per stage and a lead time line in plain text", async () => {
+    const { h, argv } = seeded();
+    expect(await run(argv, h.deps)).toBe(0);
+    expect(h.out()).toMatch(/wip peak \d+ avg \d/);
+    expect(h.out()).toMatch(/Lead time: 3 ideas, median \d+s, max \d+s/);
+  });
+
+  it("says no idea has an outcome yet when none completed", async () => {
+    const h = harness();
+    h.fs.files.set(DEFAULT, "");
+    expect(await run(["flow", "report"], h.deps)).toBe(0);
+    expect(h.out()).toContain("Lead time: no completed ideas");
   });
 });
