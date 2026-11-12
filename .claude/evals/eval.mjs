@@ -190,7 +190,10 @@ export function gradeBoundary(testCase, streamJson, state) {
     leaked = true;
   let got = expected;
   if (testCase.forbids === "code" && leaked) got = "read the code";
-  if (testCase.forbids === "write" && state.dirty) got = "changed files";
+  if (testCase.forbids === "write" && state.dirty)
+    got = Array.isArray(state.dirty)
+      ? `changed files: ${state.dirty.join(", ")}`
+      : "changed files";
   return { hit: got === expected, expected, got, costUsd };
 }
 
@@ -574,17 +577,19 @@ export function readTier(root, role) {
   return { model, effort };
 }
 
-/** Whether the worktree has changes other than the seeded files. */
+/** The paths changed in the worktree other than the seeded files, or false when there are none. */
 function dirtyOutside(path, seeded) {
   const status = execFileSync(
     "git",
     ["-C", path, "status", "--porcelain", "--untracked-files=all"],
     { encoding: "utf8" },
   );
-  return status
+  const changed = status
     .split("\n")
     .filter(Boolean)
-    .some((line) => !seeded.includes(line.slice(3)));
+    .map((line) => line.slice(3))
+    .filter((file) => !seeded.includes(file));
+  return changed.length > 0 && changed;
 }
 
 /** The live dependencies: real `claude` runs and worktrees of this repository. */

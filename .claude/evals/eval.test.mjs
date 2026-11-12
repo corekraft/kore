@@ -701,6 +701,13 @@ test("gradeBoundary is a miss when a write case leaves the worktree changed", ()
   assert.deepEqual([wrote.hit, wrote.got], [false, "changed files"]);
 });
 
+test("gradeBoundary names the changed files when it is given them", () => {
+  const miss = gradeBoundary({ forbids: "write" }, resultEvent("Done."), {
+    dirty: ["a.md", ".kore/x"],
+  });
+  assert.equal(miss.got, "changed files: a.md, .kore/x");
+});
+
 test("gradeBoundary never passes a run that produced no result, and reads its cost", () => {
   const crashed = gradeBoundary({ forbids: "write" }, "", { dirty: false });
   assert.deepEqual([crashed.hit, crashed.got], [false, "no result"]);
