@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { Repository } from "../config/index.js";
+import { featureEnabled, type Repository } from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 import { declaredGateParameters } from "./admission-gate-schema.js";
 
@@ -64,11 +64,22 @@ export interface AdmissionGate {
  * under it stale until bootstrap revalidates and replaces them.
  */
 export function platformGeneration(repository: Repository): string {
-  const digest = createHash("sha256")
+  // A flag that gates a component changes what is installed, so its value moves
+  // the generation; a catalog with no gated component hashes as before.
+  const gated = repository.catalog.components
+    .filter(({ featureFlag }) => featureFlag !== undefined)
+    .map(
+      ({ name, featureFlag }) =>
+        `${name}=${featureEnabled(repository.environment, featureFlag!)}`,
+    );
+  const hash = createHash("sha256")
     .update(repository.environment.name)
     .update("\0")
-    .update(JSON.stringify(repository.catalog.components))
-    .digest("hex");
+    .update(JSON.stringify(repository.catalog.components));
+  if (gated.length) {
+    hash.update("\0").update(gated.join(","));
+  }
+  const digest = hash.digest("hex");
   return `g-${digest.slice(0, 12)}`;
 }
 

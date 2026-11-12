@@ -32,6 +32,11 @@
           },
           "namespace": { "type": "string", "minLength": 1 },
           "kind": { "enum": ["helm", "local-chart", "manifest"] },
+          "featureFlag": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "description": "A flag in the environment overlay's features map; the component is installed only when it is true."
+          },
           "ownsCRDGroups": {
             "type": "array",
             "items": { "type": "string", "minLength": 1 }

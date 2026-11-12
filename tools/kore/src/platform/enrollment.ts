@@ -1,4 +1,5 @@
 import type { Repository } from "../config/index.js";
+import { managedNamespaces } from "./gated-release.js";
 import type { Runner } from "../runtime/index.js";
 import { enrollmentLabel } from "./image-inventory.js";
 
@@ -57,11 +58,11 @@ export async function enrollPlatformNamespaces(
   repository: Repository,
   runner: Runner,
 ): Promise<void> {
-  const { environment, catalog } = repository;
+  const { environment } = repository;
   const exempt = environment.enrollmentExemptions ?? {};
   const desired =
     environment.imageInventory === "enforce"
-      ? [...new Set(catalog.components.map((c) => c.namespace))]
+      ? (await managedNamespaces(repository, runner))
           .filter((namespace) => !(namespace in exempt))
           .sort()
       : [];

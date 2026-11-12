@@ -1,4 +1,4 @@
-import { orderedComponents, type Repository } from "../config/index.js";
+import { enabledComponents, type Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { startLocalTunnel, type TunnelDependencies } from "../tunnel/index.js";
 import { installLocalTrust } from "../security/index.js";
@@ -18,7 +18,7 @@ export async function platformUp(
     await installLocalTrust(repository, runner);
   }
   let tunnelStarted = false;
-  for (const component of orderedComponents(repository.catalog)) {
+  for (const component of enabledComponents(repository)) {
     if (
       component.phase !== "configuration" &&
       component.phase !== "enforcement"

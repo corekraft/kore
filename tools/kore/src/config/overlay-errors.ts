@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { componentGatedOff } from "./features.js";
 import { exists } from "./files.js";
 import type { Component, Environment, Repository } from "./types.js";
 
@@ -23,6 +24,57 @@ function featureErrors(environment: Environment): string[] {
       ? []
       : [`environment.features.${flag} must be true or false`]),
   ]);
+}
+
+/** A gated component must reference a flag the environment declares. */
+function featureFlagErrors(
+  environment: Environment,
+  components: Component[],
+): string[] {
+  const declared = new Set(Object.keys(environment.features ?? {}));
+  return components.flatMap(({ name, kind, featureFlag }) => {
+    if (featureFlag === undefined) {
+      return [];
+    }
+    // A manifest has no release to look up, so a flag turned off after install
+    // could not be detected; refuse it until that is designed.
+    if (kind === "manifest") {
+      return [
+        `${name}: featureFlag is not supported on a manifest component; gate a helm or local-chart component instead`,
+      ];
+    }
+    if (!flagName.test(featureFlag)) {
+      return [
+        `${name}: featureFlag ${featureFlag} must be lowercase letters, digits and hyphens, starting with a letter`,
+      ];
+    }
+    return declared.has(featureFlag)
+      ? []
+      : [
+          `${name}: featureFlag ${featureFlag} is not declared in environment.features; add "${featureFlag}": false to the ${environment.name} environment overlay`,
+        ];
+  });
+}
+
+/** An enabled component cannot depend on one its flag gates off. */
+function gatedDependencyErrors(
+  environment: Environment,
+  components: Component[],
+): string[] {
+  const byName = new Map(components.map((c) => [c.name, c]));
+  return components.flatMap((component) => {
+    if (componentGatedOff(environment, component)) {
+      return [];
+    }
+    return component.dependencies.flatMap((dependency) => {
+      const target = byName.get(dependency);
+      return target && componentGatedOff(environment, target)
+        ? [
+            `${component.name}: depends on ${dependency}, which feature ${target.featureFlag} gates off; gate ${component.name} with the same flag or drop the dependency`,
+          ]
+        : [];
+    });
+  });
 }
 
 function unknownOverlayErrors(
@@ -91,6 +143,8 @@ export async function overlayErrors(repository: Repository): Promise<string[]> {
   );
   return [
     ...featureErrors(environment),
+    ...featureFlagErrors(environment, components),
+    ...gatedDependencyErrors(environment, components),
     ...unknownOverlayErrors(environment, names),
     ...(await componentSourceErrors(repository, manifests)),
     ...(

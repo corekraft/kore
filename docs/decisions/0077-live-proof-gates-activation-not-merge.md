@@ -41,3 +41,34 @@ AGENTS.md's "It just works" rule is rewritten in the step that adds feature
 flags, not before, so no change can merge unproven without a flag to hold it.
 The judge checks the declared pattern against the diff. Activation becomes an
 explicit, audited event with live evidence attached.
+
+## Refinement: a catalog component can be gated by a flag
+
+A flag that only reaches chart values cannot hold back a whole component, which
+the dark-launch pattern needs when a new controller is cataloged before it is
+proven. A catalog component may set `featureFlag: <name>`, a flag declared in
+the environment's `features:` map.
+
+- Validation fails, naming the component, when the environment does not declare
+  the flag (set it to `false` to keep the component off).
+- A gated component is validated, pinned and rendered like any other. With the
+  flag off, `kore local up` and `kore platform up` issue no command for it and
+  `kore platform status` reports it as `gated-off`, not `missing`. A gated-off
+  component is not a readiness prerequisite, so it never holds the admission
+  gate shut. Turning the flag on installs it in its normal dependency order.
+- Components without `featureFlag` behave exactly as before.
+- An enabled component may not depend on a gated-off one; validation rejects
+  it. Namespace enrollment and the image inventory skip a gated-off
+  component's namespace, since nothing creates it.
+- Only Helm and local-chart components can be gated: validation rejects a
+  `featureFlag` on a manifest component, whose leftover install could not be
+  detected.
+- A flag turned off after install leaves a release nothing owns. For a gated-off
+  Helm component, status does a read-only `helm status`: a remaining release
+  reports `degraded` with the uninstall command and the option to turn the flag
+  back on, `up` fails fast with the same message before installing anything,
+  and enrollment and the image inventory keep covering its namespace while the
+  release exists.
+- A gated-off status does not fail `kore platform status`. A readiness
+  requirement whose components are all gated off is recorded `skipped`, not
+  `ready`. The platform generation includes each gating flag's value.

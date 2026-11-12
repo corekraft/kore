@@ -1,4 +1,5 @@
 import {
+  componentGatedOff,
   orderedComponents,
   type Component,
   type Repository,
@@ -14,13 +15,14 @@ import {
   imageInventoryStatus,
   type ImageInventory,
 } from "./image-inventory.js";
+import { gatedReleaseProblem } from "./gated-release.js";
 import { readinessFailure } from "./readiness.js";
 import { registryTrustProblem } from "../images/index.js";
 
 export interface ComponentStatus {
   name: string;
   namespace: string;
-  status: "ready" | "missing" | "degraded";
+  status: "ready" | "missing" | "degraded" | "gated-off";
   detail: string;
   /** Present on the image-inventory row: every inventoried image and finding. */
   inventory?: ImageInventory;
@@ -32,6 +34,16 @@ async function componentStatus(
   component: Component,
 ): Promise<ComponentStatus> {
   const identity = { name: component.name, namespace: component.namespace };
+  if (componentGatedOff(repository.environment, component)) {
+    const problem = await gatedReleaseProblem(repository, runner, component);
+    return problem
+      ? { ...identity, status: "degraded", detail: problem }
+      : {
+          ...identity,
+          status: "gated-off",
+          detail: `gated off: feature ${component.featureFlag} is off in ${repository.environment.name}`,
+        };
+  }
   try {
     if (component.kind === "manifest") {
       await assertOwnedCrdsExist(repository, runner, component);

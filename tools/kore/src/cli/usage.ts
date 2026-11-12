@@ -6,7 +6,7 @@ Usage:
   kore cluster up|stop|destroy --environment <name> [--yes] [--purge-data]
   kore cluster status [--environment <name>] [--json]
   kore platform bootstrap|up|gate-check|stop|destroy --environment <name> [--yes] [--purge-data]
-  kore platform status|render [--environment <name>] [--output <directory>] [--json]
+  kore platform status|render [--environment <name>] [--output <directory>] [--json]   (a component gated off by its catalog featureFlag reports gated-off)
   kore app up <name> --environment <name> [--image-lock <release images.lock.json>]
   kore app down <name> --environment <name> [--json]
   kore app status <name> [--environment <name>] [--json]   (reports degraded when the registry or verifier is down)

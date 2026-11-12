@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { loadRepository, type Repository } from "../config/index.js";
-import type { Runner } from "../runtime/index.js";
+import { CommandError, type Runner } from "../runtime/index.js";
 import { enrollPlatformNamespaces } from "./enrollment.js";
 
 // Docs: docs/decisions/0056-platform-image-inventory.md
@@ -22,6 +22,13 @@ function cluster(existing: Existing[]) {
   const calls: Call[] = [];
   const runner: Runner = {
     async run(command, args, options) {
+      if (command === "helm") {
+        throw new CommandError(command, args, {
+          stdout: "",
+          stderr: "Error: release: not found",
+          code: 1,
+        });
+      }
       assert.equal(command, "kubectl");
       calls.push({ args: [...args], input: options?.input ?? "" });
       if (args.includes("get")) {
@@ -166,4 +173,28 @@ test("a platform namespace that does not exist fails with the fix", async () => 
     enrollPlatformNamespaces(repository, runner),
     /namespace .* does not exist.*kore platform up/s,
   );
+});
+
+test("enforce never labels the namespace of a component its feature flag gates off", async () => {
+  const repository = await enforce();
+  const gated = repository.catalog.components.find(
+    (c) =>
+      !(c.namespace in repository.environment.enrollmentExemptions!) &&
+      repository.catalog.components.every(
+        (other) => other === c || other.namespace !== c.namespace,
+      ),
+  )!;
+  repository.catalog.components = repository.catalog.components.map((c) =>
+    c === gated ? { ...c, featureFlag: "gated" } : c,
+  );
+  repository.environment.features = { gated: false };
+  const { runner, calls } = cluster(
+    namespaces(repository)
+      .filter((name) => name !== gated.namespace)
+      .map((name) => ({ name })),
+  );
+
+  await enrollPlatformNamespaces(repository, runner);
+
+  assert.ok(!applies(calls).map(appliedName).includes(gated.namespace));
 });

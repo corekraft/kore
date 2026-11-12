@@ -53,6 +53,8 @@ export type {
 export { approvedImageList } from "./approved.js";
 export type { ApprovedEntry } from "./approved.js";
 export {
+  componentGatedOff,
+  enabledComponents,
   featureEnabled,
   featureHelmArgs,
   gatewayClassName,

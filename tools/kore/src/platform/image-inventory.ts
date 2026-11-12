@@ -1,6 +1,7 @@
 import type { Repository } from "../config/index.js";
 import { approvedImageList } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
+import { managedNamespaces } from "./gated-release.js";
 
 /**
  * Read-only inventory of the images that run in the catalog-managed platform
@@ -43,12 +44,6 @@ export interface ImageInventoryStatus {
 }
 
 const digestOf = /@(sha256:[0-9a-f]{64})$/;
-
-function platformNamespaces(repository: Repository): string[] {
-  return [
-    ...new Set(repository.catalog.components.map((c) => c.namespace)),
-  ].sort();
-}
 
 /** Registry prefixes whose digests are internal: the mirror and the registry. */
 function internalPrefixes(repository: Repository): string[] {
@@ -120,7 +115,7 @@ export async function imageInventory(
   repository: Repository,
   runner: Runner,
 ): Promise<ImageInventory> {
-  const namespaces = new Set(platformNamespaces(repository));
+  const namespaces = new Set(await managedNamespaces(repository, runner));
   const exempt = repository.environment.enrollmentExemptions ?? {};
   const pods = await kubectlJson<PodList>(repository, runner, [
     "pods",

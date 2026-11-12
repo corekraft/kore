@@ -22,6 +22,12 @@ export interface Component {
   ownsCRDs: string[];
   /** API groups whose CRDs this component's controller installs at runtime. */
   ownsCRDGroups?: string[];
+  /**
+   * Feature flag from the environment overlay's `features:` map. When the
+   * flag is off the component is validated and rendered but never installed;
+   * status reports it as gated off.
+   */
+  featureFlag?: string;
   dependencies: string[];
   timeout: string;
   values?: string[];
