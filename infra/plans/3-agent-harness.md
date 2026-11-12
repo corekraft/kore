@@ -457,6 +457,31 @@ Left alone: two `Exit code 137` kills (too little detail), two `secret-path`
 blocks (no location to judge them by), and `append-only` and `image-digest`
 stay in audit mode.
 
+### Retrospective 2026-11-12
+
+Last retrospective: 2026-11-12
+
+The fourth retrospective covered 196 sessions (2026-11-08 to 2026-11-12). It
+was run with both the repository's `retro` skill (the `retro-scan` counts) and
+the `mattpocock-skills:retro` categories (navigation, automated checks, coding
+standards, tool economy, information access). It looked most closely at
+2026-11-12, when parallel writers delivered about 50 tickets of plans 8 to 13.
+Two reversible fixes landed with it:
+
+- **`session spawn` presses enter once when a pasted brief does not submit.**
+  The orchestrator noted "Writer prompts not submitting: fixed by sending
+  enter", and a writer met the same Herdr paste race. If `herdr agent prompt`
+  does not reach `working`, `session spawn` sends one enter and waits again.
+  The error names both attempts.
+- **`retro-scan` counts only folders that hold a `SKILL.md`.** It reported
+  `skills.unused: ["bin"]` because `skills/bin` holds the harness bundle. It
+  now reports `[]`.
+
+The other findings went to the owner as proposals and questions in the
+retrospective PR. They cover commit-hook load, conflicts from the committed
+bundle, recurring review findings, the one-bug-per-run live proof,
+`equals-word` promotion, and the orchestrator bypassing `session spawn`.
+
 ## Out of Scope
 
 - Reimplementing the guards inside the `kore` CLI. The CLI already enforces

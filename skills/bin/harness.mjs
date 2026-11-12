@@ -5234,7 +5234,7 @@ async function skillNames(fs, root3) {
   }
   const names3 = [];
   for (const entry of entries) {
-    if (await fs.isDirectory(join8(dir, entry))) {
+    if (await fs.isDirectory(join8(dir, entry)) && await fs.exists(join8(dir, entry, "SKILL.md"))) {
       names3.push(entry);
     }
   }
@@ -6057,8 +6057,21 @@ async function launch(deps, { role, model, effort, name, brief, paneId, callerPa
     "--timeout",
     "5000"
   ]);
-  return prompt.code === 0 ? checked : {
-    error: `herdr agent prompt failed: ${describeFailure(prompt)}. Session ${name} is running in pane ${paneId} without its brief.`
+  if (prompt.code === 0) {
+    return checked;
+  }
+  await deps.runner.run("herdr", ["agent", "send-keys", name, "enter"]);
+  const retried = await deps.runner.run("herdr", [
+    "agent",
+    "wait",
+    name,
+    "--until",
+    "working",
+    "--timeout",
+    "5000"
+  ]);
+  return retried.code === 0 ? checked : {
+    error: `herdr agent prompt failed: ${describeFailure(prompt)}; pressing enter did not start it either: ${describeFailure(retried)}. Session ${name} is running in pane ${paneId} without its brief.`
   };
 }
 
