@@ -12,6 +12,10 @@ if printf '%s\n' "$staged" | grep -qE '^(\.claude|\.codex|skills)/'; then
     echo "pre-commit: hook tests failed; run 'mise run test-hooks' and fix them" >&2
     exit 1
   }
+  pinned node "$repo_root/skills/bin/harness.mjs" hook skill-links --strict </dev/null || {
+    echo "pre-commit: skill links are wrong; run 'node skills/bin/harness.mjs hook skill-links --strict' and fix them" >&2
+    exit 1
+  }
 fi
 
 # The kore specs read the CLI source and config (tools/kore/), and the files the

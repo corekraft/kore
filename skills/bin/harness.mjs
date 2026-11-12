@@ -25,6 +25,7 @@ import {
   readFile,
   readdir,
   rm,
+  readlink,
   stat,
   writeFile
 } from "node:fs/promises";
@@ -55,7 +56,8 @@ var nodeFileSystem = {
     }
   },
   readdir: (path) => readdir(path),
-  remove: (path) => rm(path, { force: true })
+  remove: (path) => rm(path, { force: true }),
+  readlink: (path) => readlink(path)
 };
 
 // src/runtime/runner.ts
@@ -122,7 +124,7 @@ async function resolveRoot(env, moduleUrl, exists) {
     if (await exists(join(fromEnv, PLANS))) {
       return fromEnv;
     }
-    throw new Error(
+    throw new CommandError(
       `CLAUDE_PROJECT_DIR is "${fromEnv}" but it has no ${PLANS}. Point it at the repository root or unset it.`
     );
   }
@@ -131,9 +133,21 @@ async function resolveRoot(env, moduleUrl, exists) {
   if (await exists(join(root2, PLANS))) {
     return root2;
   }
-  throw new Error(
+  throw new CommandError(
     `Cannot find the repo root: ${bundle} is not at <root>/skills/bin and CLAUDE_PROJECT_DIR is unset. Run the committed skills/bin/harness.mjs or set CLAUDE_PROJECT_DIR to the repository root.`
   );
+}
+
+// src/runtime/stdin.ts
+async function readStdin(stream) {
+  if (stream.isTTY === true) {
+    return "";
+  }
+  const parts = [];
+  for await (const chunk of stream) {
+    parts.push(Buffer.from(chunk));
+  }
+  return Buffer.concat(parts).toString("utf8");
 }
 
 // package.json
@@ -3657,6 +3671,120 @@ var planTick = {
   }
 };
 
+// src/hook/io.ts
+async function readPayload(deps) {
+  const text5 = await deps.stdin();
+  if (text5.trim() === "") {
+    return void 0;
+  }
+  try {
+    return JSON.parse(text5);
+  } catch {
+    return void 0;
+  }
+}
+function hookCommand(name, summary, handler) {
+  return {
+    summary,
+    options: { strict: "boolean" },
+    async run({ deps, options }) {
+      let result;
+      try {
+        result = await handler({ deps, payload: await readPayload(deps) });
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        const hint = error instanceof CommandError ? "" : " (unexpected; fixing it is on the harness)";
+        const strict = options["strict"] === true;
+        deps.stderr(
+          `[hook:${name}] ${strict ? "failed" : "failed open"}: ${reason}${hint}
+`
+        );
+        return strict ? 1 : 0;
+      }
+      if (result.stdout) {
+        deps.stdout(result.stdout);
+      }
+      if (result.stderr) {
+        deps.stderr(result.stderr);
+      }
+      return result.code ?? 0;
+    }
+  };
+}
+
+// src/hook/skill-links.ts
+import { isAbsolute, join as join5 } from "node:path";
+var HARNESSES = [".claude", ".codex"];
+async function skillNames(fs, root2) {
+  const skillsDir = join5(root2, "skills");
+  let entries;
+  try {
+    entries = await fs.readdir(skillsDir);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      throw new CommandError(
+        `No skills directory at ${skillsDir}. Run from the repository, or set CLAUDE_PROJECT_DIR to its root.`
+      );
+    }
+    throw error;
+  }
+  const skills = [];
+  for (const entry of entries) {
+    if (await fs.exists(join5(root2, "skills", entry, "SKILL.md"))) {
+      skills.push(entry);
+    }
+  }
+  return skills.sort();
+}
+async function targetOf(fs, path) {
+  try {
+    return { target: await fs.readlink(path) };
+  } catch (error) {
+    const code = error.code;
+    if (code === "EINVAL" || code === "ENOENT") {
+      return { code };
+    }
+    throw error;
+  }
+}
+async function linkProblems(fs, root2) {
+  const skills = await skillNames(fs, root2);
+  const problems = [];
+  for (const harness of HARNESSES) {
+    for (const skill2 of skills) {
+      const link = `${harness}/skills/${skill2}`;
+      const expected = `../../skills/${skill2}`;
+      const found = await targetOf(fs, join5(root2, link));
+      if ("code" in found) {
+        problems.push(
+          found.code === "EINVAL" ? `${link} is a directory or file, not a link; replace it with a link to ${expected}` : `${link} is missing; link it to ${expected}`
+        );
+      } else if (isAbsolute(found.target)) {
+        problems.push(
+          `${link} links to an absolute path; relink it to ${expected}`
+        );
+      } else if (found.target !== expected) {
+        problems.push(
+          `${link} links to ${found.target}; relink it to ${expected}`
+        );
+      }
+    }
+  }
+  return problems;
+}
+
+// src/hook/index.ts
+var skillLinks = hookCommand(
+  "skill-links",
+  "report skills a harness directory does not link by relative path",
+  async ({ deps }) => {
+    const problems = await linkProblems(deps.fs, await deps.root());
+    return problems.length === 0 ? {} : { code: 1, stderr: `${problems.join("\n")}
+` };
+  }
+);
+var hook = { "skill-links": skillLinks };
+
 // src/session/equalize.ts
 var byY = (a, b) => a.rect.y - b.rect.y;
 function describeFailure(result) {
@@ -3785,7 +3913,7 @@ function fail(deps, json, code, message) {
 }
 
 // src/session/registry.ts
-import { join as join5, resolve as resolve4 } from "node:path";
+import { join as join6, resolve as resolve4 } from "node:path";
 var STATE_DIR = ".kore/state/sessions";
 function isRecord(value) {
   if (typeof value !== "object" || value === null) {
@@ -3812,7 +3940,7 @@ var SessionRegistry = class _SessionRegistry {
     return new _SessionRegistry(deps.fs, resolve4(main, STATE_DIR));
   }
   file(name) {
-    return join5(this.dir, `${name}.json`);
+    return join6(this.dir, `${name}.json`);
   }
   async read(name) {
     const path = this.file(name);
@@ -3872,7 +4000,7 @@ var SessionRegistry = class _SessionRegistry {
 };
 
 // src/session/worktree.ts
-import { join as join6 } from "node:path";
+import { join as join7 } from "node:path";
 var removeCommands = (worktree) => `\`git worktree remove ${worktree.path}\` and \`git branch -D ${worktree.branch}\``;
 var removeHint = (worktree) => `The worktree ${worktree.path} was left behind; remove it with ${removeCommands(worktree)}.`;
 var closeHint = (worktree) => `Remove its worktree once its branch is merged: ${removeCommands(worktree)}.`;
@@ -3883,7 +4011,7 @@ async function create2(deps, name, branch) {
       error: "Cannot find the main checkout to create the worktree in. Run inside the repository or set KORE_ROOT to its root. No pane was split."
     };
   }
-  const worktree = { path: join6(main, ".claude", "worktrees", name), branch };
+  const worktree = { path: join7(main, ".claude", "worktrees", name), branch };
   const add = await deps.runner.run(
     "git",
     ["worktree", "add", "-b", branch, worktree.path, "HEAD"],
@@ -3895,7 +4023,7 @@ async function create2(deps, name, branch) {
     };
   }
   const install = await deps.runner.run("npm", ["ci"], {
-    cwd: join6(worktree.path, "tools", "kore")
+    cwd: join7(worktree.path, "tools", "kore")
   });
   if (install.code !== 0) {
     return {
@@ -4460,7 +4588,7 @@ var session = {
 };
 
 // src/skill/index.ts
-import { join as join7 } from "node:path";
+import { join as join8 } from "node:path";
 
 // src/skill/audit.ts
 var DESCRIPTION_BUDGET = 200;
@@ -4574,7 +4702,7 @@ var audit = {
   summary: "report each skill's description and body against its budgets",
   options: { strict: "boolean" },
   async run({ json, options, deps }) {
-    const skillsDir = join7(await deps.root(), SKILLS_DIR);
+    const skillsDir = join8(await deps.root(), SKILLS_DIR);
     let report2;
     try {
       report2 = await auditSkills(deps.fs, skillsDir);
@@ -4593,6 +4721,13 @@ var audit = {
   }
 };
 var skill = { audit };
+
+// src/cli/host.ts
+var hostDomains = {
+  hook,
+  session,
+  skill
+};
 
 // src/cli/domains.ts
 var version = {
@@ -4615,8 +4750,7 @@ var domains = {
     "clear-next": planClearNext
   },
   adr: adrCommands,
-  session,
-  skill,
+  ...hostDomains,
   ...records,
   ...measurement
 };
@@ -4640,13 +4774,13 @@ function usage() {
   return `${lines.join("\n")}
 `;
 }
-function fail2(deps, json, message) {
+function fail2(deps, json, message, code = USAGE_ERROR2) {
   const prefix = json ? `${JSON.stringify({ error: message })}
 ` : "";
   deps.stderr(`${prefix}${message}
 
 ${usage()}`);
-  return USAGE_ERROR2;
+  return code;
 }
 function own(table, key) {
   return Object.hasOwn(table, key) ? table[key] : void 0;
@@ -4740,21 +4874,23 @@ async function run(argv, deps) {
   const rest = argv.filter(
     (token, i) => !words2.includes(i) && token !== "--json" && token !== "--help" && token !== "-h"
   );
+  const failure2 = domain === "hook" ? FAILURE : USAGE_ERROR2;
   const early = argv.slice(0, words2[1] ?? 0).find((t) => t.startsWith("-") && !["--json", "--help", "-h"].includes(t));
   if (early !== void 0) {
     return fail2(
       deps,
       json,
-      `Put "${early}" after the command: harness <domain> <command> [flags].`
+      `Put "${early}" after the command: harness <domain> <command> [flags].`,
+      failure2
     );
   }
   const resolved = resolve5(domain, name);
   if ("error" in resolved) {
-    return fail2(deps, json, resolved.error);
+    return fail2(deps, json, resolved.error, failure2);
   }
   const parsed = parseOptions(resolved.command, rest);
   if ("error" in parsed) {
-    return fail2(deps, json, parsed.error);
+    return fail2(deps, json, parsed.error, failure2);
   }
   return await execute(resolved.command, {
     json,
@@ -4775,13 +4911,7 @@ try {
     ids: systemIds,
     env: process.env,
     cwd: process.cwd(),
-    stdin: async () => {
-      const chunks = [];
-      for await (const chunk of process.stdin) {
-        chunks.push(Buffer.from(chunk));
-      }
-      return Buffer.concat(chunks).toString("utf8");
-    },
+    stdin: () => readStdin(process.stdin),
     root: () => root ??= resolveRoot(
       process.env,
       import.meta.url,

@@ -8,8 +8,7 @@ import {
   planNext,
   planTick,
 } from "../plan/index.js";
-import { session } from "../session/index.js";
-import { skill } from "../skill/index.js";
+import { hostDomains } from "./host.js";
 import type { Command } from "../runtime/index.js";
 
 const version: Command = {
@@ -34,8 +33,7 @@ export const domains: Record<string, Record<string, Command>> = {
     "clear-next": planClearNext,
   },
   adr: adrCommands,
-  session,
-  skill,
+  ...hostDomains,
   ...records,
   ...measurement,
 };

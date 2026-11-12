@@ -11,3 +11,4 @@ export {
 export type { CliDeps, Command, CommandContext } from "./command.js";
 export { mainRoot } from "./main-root.js";
 export { resolveRoot } from "./root.js";
+export { readStdin, type StdinStream } from "./stdin.js";

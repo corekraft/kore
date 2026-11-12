@@ -47,6 +47,7 @@ function harness(
       createFile: () => Promise.resolve(),
       appendFile: () => Promise.resolve(),
       remove: () => Promise.resolve(),
+      readlink: () => Promise.reject(new Error("ENOENT")),
       exists: (path) => Promise.resolve(rel(path) in files),
       readdir: (path) =>
         rel(path) === "skills" && !missingSkills

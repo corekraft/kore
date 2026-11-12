@@ -50,4 +50,8 @@ export class MemoryFileSystem implements FileSystem {
         .map((f) => f.slice(prefix.length).split("/")[0] ?? ""),
     );
   }
+
+  readlink(path: string): Promise<string> {
+    return Promise.reject(new Error(`ENOENT: ${path}`));
+  }
 }

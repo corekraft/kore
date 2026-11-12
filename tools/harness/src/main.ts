@@ -2,6 +2,7 @@ import { run } from "./cli/index.js";
 import {
   ProcessRunner,
   nodeFileSystem,
+  readStdin,
   resolveRoot,
   systemClock,
   systemIds,
@@ -19,13 +20,7 @@ try {
     ids: systemIds,
     env: process.env,
     cwd: process.cwd(),
-    stdin: async () => {
-      const chunks: Buffer[] = [];
-      for await (const chunk of process.stdin) {
-        chunks.push(Buffer.from(chunk as Uint8Array));
-      }
-      return Buffer.concat(chunks).toString("utf8");
-    },
+    stdin: () => readStdin(process.stdin),
     root: () =>
       (root ??= resolveRoot(process.env, import.meta.url, (path) =>
         nodeFileSystem.exists(path),

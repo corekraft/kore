@@ -4,6 +4,7 @@ import {
   readFile,
   readdir,
   rm,
+  readlink,
   stat,
   writeFile,
 } from "node:fs/promises";
@@ -24,6 +25,8 @@ export interface FileSystem {
   readdir(path: string): Promise<string[]>;
   /** Deletes a file; succeeds when it is already gone. */
   remove(path: string): Promise<void>;
+  /** The link's target as written; rejects with EINVAL for a non-link and ENOENT for a missing path. */
+  readlink(path: string): Promise<string>;
 }
 
 export const nodeFileSystem: FileSystem = {
@@ -53,4 +56,5 @@ export const nodeFileSystem: FileSystem = {
   },
   readdir: (path) => readdir(path),
   remove: (path) => rm(path, { force: true }),
+  readlink: (path) => readlink(path),
 };

@@ -30,6 +30,7 @@ export function planHarness(files: Record<string, string>) {
       createFile: () => Promise.resolve(),
       appendFile: () => Promise.resolve(),
       remove: () => Promise.resolve(),
+      readlink: () => Promise.reject(new Error("ENOENT")),
       exists: () => Promise.resolve(true),
       readdir: (path) =>
         path === `${ROOT}/infra/plans`
