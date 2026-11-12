@@ -72,16 +72,27 @@ class GhRunner implements Runner {
 }
 
 /** Canned `gh` JSON. Titles and bodies are included on purpose: they must never be stored. */
-export const issue = (number: number, createdAt: string) => ({
+export const issue = (
+  number: number,
+  createdAt: string,
+  closedAt?: string,
+) => ({
   number,
   createdAt,
+  closedAt: closedAt ?? null,
   title: "secret title",
   body: "secret body",
 });
-export const pr = (number: number, createdAt: string, mergedAt?: string) => ({
+export const pr = (
+  number: number,
+  createdAt: string,
+  mergedAt?: string,
+  closes: number[] = [],
+) => ({
   number,
   createdAt,
   mergedAt: mergedAt ?? null,
+  closingIssuesReferences: closes.map((n) => ({ number: n })),
   title: "secret title",
   body: "secret body",
 });
