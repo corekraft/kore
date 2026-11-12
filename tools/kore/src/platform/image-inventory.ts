@@ -1,5 +1,5 @@
 import type { Repository } from "../config/index.js";
-import { approvedImageList } from "../config/index.js";
+import { approvedImageList, enabledComponents } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 
 /**
@@ -46,7 +46,7 @@ const digestOf = /@(sha256:[0-9a-f]{64})$/;
 
 function platformNamespaces(repository: Repository): string[] {
   return [
-    ...new Set(repository.catalog.components.map((c) => c.namespace)),
+    ...new Set(enabledComponents(repository).map((c) => c.namespace)),
   ].sort();
 }
 

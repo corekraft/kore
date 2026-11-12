@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { componentGatedOff } from "./features.js";
 import { exists } from "./files.js";
 import type { Component, Environment, Repository } from "./types.js";
 
@@ -45,6 +46,27 @@ function featureFlagErrors(
       : [
           `${name}: featureFlag ${featureFlag} is not declared in environment.features; add "${featureFlag}": false to the ${environment.name} environment overlay`,
         ];
+  });
+}
+
+/** An enabled component cannot depend on one its flag gates off. */
+function gatedDependencyErrors(
+  environment: Environment,
+  components: Component[],
+): string[] {
+  const byName = new Map(components.map((c) => [c.name, c]));
+  return components.flatMap((component) => {
+    if (componentGatedOff(environment, component)) {
+      return [];
+    }
+    return component.dependencies.flatMap((dependency) => {
+      const target = byName.get(dependency);
+      return target && componentGatedOff(environment, target)
+        ? [
+            `${component.name}: depends on ${dependency}, which feature ${target.featureFlag} gates off; gate ${component.name} with the same flag or drop the dependency`,
+          ]
+        : [];
+    });
   });
 }
 
@@ -115,6 +137,7 @@ export async function overlayErrors(repository: Repository): Promise<string[]> {
   return [
     ...featureErrors(environment),
     ...featureFlagErrors(environment, components),
+    ...gatedDependencyErrors(environment, components),
     ...unknownOverlayErrors(environment, names),
     ...(await componentSourceErrors(repository, manifests)),
     ...(

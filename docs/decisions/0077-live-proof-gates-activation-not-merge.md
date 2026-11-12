@@ -57,3 +57,6 @@ the environment's `features:` map.
   component is not a readiness prerequisite, so it never holds the admission
   gate shut. Turning the flag on installs it in its normal dependency order.
 - Components without `featureFlag` behave exactly as before.
+- An enabled component may not depend on a gated-off one; validation rejects
+  it. Namespace enrollment and the image inventory skip a gated-off
+  component's namespace, since nothing creates it.

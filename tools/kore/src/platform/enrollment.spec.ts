@@ -167,3 +167,27 @@ test("a platform namespace that does not exist fails with the fix", async () => 
     /namespace .* does not exist.*kore platform up/s,
   );
 });
+
+test("enforce never labels the namespace of a component its feature flag gates off", async () => {
+  const repository = await enforce();
+  const gated = repository.catalog.components.find(
+    (c) =>
+      !(c.namespace in repository.environment.enrollmentExemptions!) &&
+      repository.catalog.components.every(
+        (other) => other === c || other.namespace !== c.namespace,
+      ),
+  )!;
+  repository.catalog.components = repository.catalog.components.map((c) =>
+    c === gated ? { ...c, featureFlag: "gated" } : c,
+  );
+  repository.environment.features = { gated: false };
+  const { runner, calls } = cluster(
+    namespaces(repository)
+      .filter((name) => name !== gated.namespace)
+      .map((name) => ({ name })),
+  );
+
+  await enrollPlatformNamespaces(repository, runner);
+
+  assert.ok(!applies(calls).map(appliedName).includes(gated.namespace));
+});

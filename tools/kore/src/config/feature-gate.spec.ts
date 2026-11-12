@@ -4,17 +4,24 @@ import { loadRepository, validateRepository } from "./config.js";
 import { enabledComponents } from "./features.js";
 import type { Repository } from "./types.js";
 
+/** Gates a leaf component: nothing in the catalog depends on it. */
 async function gatedRepository(
   features: Record<string, boolean> | undefined,
   flag = "agent-ingress",
 ): Promise<Repository> {
   const base = await loadRepository("local");
-  const [first, ...rest] = base.catalog.components;
+  const needed = new Set(
+    base.catalog.components.flatMap((c) => c.dependencies),
+  );
+  const leaf = base.catalog.components.find((c) => !needed.has(c.name))!;
   return {
     ...base,
     catalog: {
       ...base.catalog,
-      components: [{ ...first!, featureFlag: flag }, ...rest],
+      components: [
+        { ...leaf, featureFlag: flag },
+        ...base.catalog.components.filter((c) => c !== leaf),
+      ],
     },
     environment: { ...base.environment, ...(features ? { features } : {}) },
   };
@@ -60,4 +67,37 @@ test("a flag that is off leaves the component out of the enabled set; on keeps i
 test("components without a flag are all enabled", async () => {
   const base = await loadRepository("local");
   assert.equal(enabledComponents(base).length, base.catalog.components.length);
+});
+
+test("an enabled component may not depend on a component its flag gates off", async () => {
+  const repository = await gatedRepository({ "agent-ingress": false });
+  const gated = repository.catalog.components[0]!;
+  const dependent = repository.catalog.components[1]!;
+  repository.catalog.components[1] = {
+    ...dependent,
+    dependencies: [...dependent.dependencies, gated.name],
+  };
+  await assert.rejects(
+    validateRepository(repository),
+    new RegExp(
+      `${dependent.name}: depends on ${gated.name}, which feature agent-ingress gates off`,
+    ),
+  );
+});
+
+test("a gated component may depend on another gated component with the same flag", async () => {
+  const repository = await gatedRepository({ "agent-ingress": false });
+  const [first, ...rest] = repository.catalog.components;
+  const needed = new Set(rest.flatMap((c) => c.dependencies));
+  const second = rest.find((c) => !needed.has(c.name))!;
+  repository.catalog.components = repository.catalog.components.map((c) =>
+    c === second
+      ? {
+          ...c,
+          featureFlag: "agent-ingress",
+          dependencies: [...c.dependencies, first!.name],
+        }
+      : c,
+  );
+  await validateRepository(repository);
 });

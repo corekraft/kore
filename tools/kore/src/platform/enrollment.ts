@@ -1,4 +1,4 @@
-import type { Repository } from "../config/index.js";
+import { enabledComponents, type Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { enrollmentLabel } from "./image-inventory.js";
 
@@ -57,11 +57,11 @@ export async function enrollPlatformNamespaces(
   repository: Repository,
   runner: Runner,
 ): Promise<void> {
-  const { environment, catalog } = repository;
+  const { environment } = repository;
   const exempt = environment.enrollmentExemptions ?? {};
   const desired =
     environment.imageInventory === "enforce"
-      ? [...new Set(catalog.components.map((c) => c.namespace))]
+      ? [...new Set(enabledComponents(repository).map((c) => c.namespace))]
           .filter((namespace) => !(namespace in exempt))
           .sort()
       : [];
