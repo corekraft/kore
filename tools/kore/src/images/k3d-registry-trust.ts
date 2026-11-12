@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rename, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -57,7 +57,10 @@ export async function writeK3dRegistryCa(
   ca: string,
 ): Promise<void> {
   await mkdir(directory, { recursive: true });
-  await writeFile(join(directory, registryCaFile), ca);
+  // Rename is atomic, so a node never reads a half-written CA.
+  const temporary = join(directory, `${registryCaFile}.tmp`);
+  await writeFile(temporary, ca);
+  await rename(temporary, join(directory, registryCaFile));
 }
 
 /** The `k3d cluster create` flags that mount the trust directory and registries.yaml. */

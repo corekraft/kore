@@ -298,18 +298,20 @@ export async function clusterUpK3d(
       );
     }
   }
+  if (state !== "running" && koreManagesRegistryAuth(repository)) {
+    // Both create and start bind-mount these files; a missing source would
+    // become a Docker-created directory.
+    await writeK3dRegistriesConfig(
+      k3dTrustDirectory(clusterName, home),
+      registryAddress(repository),
+    );
+  }
   if (state === "absent") {
-    const trustDirectory = k3dTrustDirectory(clusterName, home);
-    if (koreManagesRegistryAuth(repository)) {
-      await writeK3dRegistriesConfig(
-        trustDirectory,
-        registryAddress(repository),
-      );
-    }
-    await runK3d(runner, k3dCreateArgs(repository, trustDirectory), {
-      capture: false,
-      cwd: repository.root,
-    });
+    await runK3d(
+      runner,
+      k3dCreateArgs(repository, k3dTrustDirectory(clusterName, home)),
+      { capture: false, cwd: repository.root },
+    );
   } else if (state === "stopped") {
     await runK3d(runner, k3dStartArgs(clusterName), {
       capture: false,

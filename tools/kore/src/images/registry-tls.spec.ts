@@ -1,4 +1,7 @@
-import { expect, test } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterAll, expect, test } from "vitest";
 import { loadRepository } from "../config/index.js";
 import type { Runner, RunOptions } from "../runtime/index.js";
 import {
@@ -8,6 +11,9 @@ import {
 } from "./registry-tls.js";
 
 // Docs: docs/decisions/0058-registry-transport-tls.md
+
+const home = mkdtempSync(join(tmpdir(), "kore-registry-tls-"));
+afterAll(() => rmSync(home, { recursive: true, force: true }));
 
 const pem = "-----BEGIN CERTIFICATE-----\nQUJD\n-----END CERTIFICATE-----\n";
 const b64 = (value: string) => Buffer.from(value).toString("base64");
@@ -60,7 +66,7 @@ test("a Secret that holds no PEM certificate is rejected, not trusted", async ()
 test("trust distribution publishes only the public CA: a ConfigMap for Policy Controller and the node's containerd directory", async () => {
   const repository = await loadRepository("local");
   const { runner, calls } = runnerWith({ ca: pem });
-  await ensureRegistryTrust(repository, runner);
+  await ensureRegistryTrust(repository, runner, home);
 
   const apply = calls.find((c) => c.args.includes("apply"))!;
   const items = (
@@ -91,7 +97,7 @@ test("trust distribution publishes only the public CA: a ConfigMap for Policy Co
 test("the node host entry names the CA and never skips verification", async () => {
   const repository = await loadRepository("local");
   const { runner, calls } = runnerWith({ ca: pem });
-  await ensureRegistryTrust(repository, runner);
+  await ensureRegistryTrust(repository, runner, home);
   const script = calls.find((c) => c.command === "minikube")!.args.join(" ");
   expect(script).toContain('server = "https://10.96.0.50:5000"');
   expect(script).toContain('ca = "ca.crt"');
@@ -102,8 +108,8 @@ test("trust is reapplied identically on a second run so nothing is reissued", as
   const repository = await loadRepository("local");
   const first = runnerWith({ ca: pem });
   const second = runnerWith({ ca: pem });
-  await ensureRegistryTrust(repository, first.runner);
-  await ensureRegistryTrust(repository, second.runner);
+  await ensureRegistryTrust(repository, first.runner, home);
+  await ensureRegistryTrust(repository, second.runner, home);
   expect(second.calls.map((c) => c.args)).toEqual(
     first.calls.map((c) => c.args),
   );
@@ -116,7 +122,7 @@ test("trust is reapplied identically on a second run so nothing is reissued", as
 test("an external registry is the provider's to trust: kore distributes nothing", async () => {
   const repository = await loadRepository("managed-example");
   const { runner, calls } = runnerWith({ ca: pem });
-  await ensureRegistryTrust(repository, runner);
+  await ensureRegistryTrust(repository, runner, home);
   expect(calls).toEqual([]);
 });
 

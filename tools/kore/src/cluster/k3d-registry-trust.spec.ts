@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, test } from "vitest";
@@ -22,6 +22,20 @@ beforeEach(async () => {
 });
 afterEach(async () => {
   await rm(home, { recursive: true, force: true });
+});
+
+const caRunner = (ca: string): Runner => ({
+  async run(_command, args) {
+    return {
+      stdout: args.includes("oci-registry-tls")
+        ? JSON.stringify({
+            data: { "ca.crt": Buffer.from(ca).toString("base64") },
+          })
+        : "",
+      stderr: "",
+      code: 0,
+    };
+  },
 });
 
 const trustDirectory = () =>
@@ -90,4 +104,54 @@ test("trust writes the public CA into the host directory after issuance and runs
   expect(await readFile(join(trustDirectory(), "ca.crt"), "utf8")).not.toMatch(
     /PRIVATE KEY/,
   );
+});
+
+test("cluster up writes registries.yaml before starting a stopped cluster, so Docker never creates the mount source as a directory", async () => {
+  const repository = await k3dRepository();
+  const { runner } = fakeRunner(0);
+  let atStart = "";
+  const watching: Runner = {
+    async run(command, args, options) {
+      if (command === "k3d" && args[1] === "start") {
+        atStart = await readFile(
+          join(trustDirectory(), "registries.yaml"),
+          "utf8",
+        );
+      }
+      return runner.run(command, args, options);
+    },
+  };
+  await clusterUp(repository, watching, fast, home);
+  expect(atStart).toContain("ca_file: /etc/kore/registry-ca/ca.crt");
+});
+
+test("the CA is replaced atomically: a second write swaps the content and leaves no temporary file", async () => {
+  const repository = await k3dRepository();
+  const second = pem.replace("QUJD", "REVG");
+  for (const ca of [pem, second]) {
+    await ensureRegistryTrust(repository, caRunner(ca), home);
+  }
+  expect(await readFile(join(trustDirectory(), "ca.crt"), "utf8")).toBe(second);
+  expect(await readdir(trustDirectory())).toEqual(["ca.crt"]);
+});
+
+test("an external registry gets no trust mounts and writes no files on k3d", async () => {
+  const base = await k3dRepository();
+  const repository = {
+    ...base,
+    environment: {
+      ...base.environment,
+      registry: { address: "registry.example.com" },
+    },
+  };
+  expect(
+    k3dCreateArgs(repository, trustDirectory()).filter((arg) =>
+      arg.startsWith("--volume"),
+    ),
+  ).toEqual([]);
+  const { runner, calls } = fakeRunner(undefined);
+  await clusterUp(repository, runner, fast, home);
+  await ensureRegistryTrust(repository, caRunner(pem), home);
+  expect(await readdir(home)).toEqual([]);
+  expect(text(calls).some((line) => line.includes("--volume"))).toBe(false);
 });
