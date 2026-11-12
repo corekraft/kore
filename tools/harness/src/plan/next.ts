@@ -12,6 +12,7 @@ import {
 import { PLANS_DIR, readPlans } from "./store.js";
 
 const NEXT = "Next:";
+const LIST_MARKER = /^\s*([-*+]|\d+\.)\s/;
 
 /** The `Next:` paragraph at `index`, plus the blank line after it when a blank line precedes it. */
 function removal(lines: string[], index: number): Edit {
@@ -19,7 +20,8 @@ function removal(lines: string[], index: number): Edit {
   while (
     end < lines.length &&
     (lines[end] ?? "").trim() !== "" &&
-    !(lines[end] ?? "").startsWith("#")
+    !(lines[end] ?? "").startsWith("#") &&
+    !LIST_MARKER.test(lines[end] ?? "")
   ) {
     end++;
   }

@@ -151,4 +151,14 @@ describe("harness plan clear-next", () => {
     expect(h.writes).toEqual([]);
     expect(h.out()).toContain("No Next:");
   });
+
+  it("keeps a list that follows a Next: line with no blank line between", async () => {
+    const h = plan(
+      "## Step 1: A\n\nNext: old\n- [ ] one\n- [ ] two\n\n## Step 2: B\n\n- [ ] x\n",
+    );
+    await run(["plan", "clear-next"], h.deps);
+    const after = h.files[PLAN] ?? "";
+    expect(after).toContain("- [ ] one\n- [ ] two");
+    expect(after).not.toContain("Next:");
+  });
 });

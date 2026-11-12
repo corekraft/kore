@@ -40,7 +40,7 @@ export function choosePlan(
   const active = activePlans(plans);
   if (active.length === 0) {
     throw new CommandError(
-      `No active plan to tick in: no file in ${PLANS_DIR} has "status: active". Name one with --plan N.`,
+      `No active plan: no file in ${PLANS_DIR} has "status: active". Name one with --plan N.`,
     );
   }
   if (active.length > 1) {

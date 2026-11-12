@@ -2355,7 +2355,7 @@ function choosePlan(plans, requested) {
   const active = activePlans(plans);
   if (active.length === 0) {
     throw new CommandError(
-      `No active plan to tick in: no file in ${PLANS_DIR} has "status: active". Name one with --plan N.`
+      `No active plan: no file in ${PLANS_DIR} has "status: active". Name one with --plan N.`
     );
   }
   if (active.length > 1) {
@@ -2391,9 +2391,10 @@ function renderChanges(head, changes) {
 
 // src/plan/next.ts
 var NEXT = "Next:";
+var LIST_MARKER = /^\s*([-*+]|\d+\.)\s/;
 function removal(lines, index) {
   let end = index + 1;
-  while (end < lines.length && (lines[end] ?? "").trim() !== "" && !(lines[end] ?? "").startsWith("#")) {
+  while (end < lines.length && (lines[end] ?? "").trim() !== "" && !(lines[end] ?? "").startsWith("#") && !LIST_MARKER.test(lines[end] ?? "")) {
     end++;
   }
   const blankBefore = index > 0 && (lines[index - 1] ?? "").trim() === "";
