@@ -7648,13 +7648,15 @@ var hasShortO = (args) => args.some((arg) => /^-[a-zA-Z]*o/.test(arg));
 function utilityMayRun(name, args) {
   switch (name) {
     case "sort":
-      return !(hasShortO(args) || args.some(
-        (arg) => arg.startsWith("--output") || arg.startsWith("--compress-program")
-      ));
+      return !(hasShortO(args) || args.some((arg) => /^--(ou|com)/.test(arg)));
     case "tree":
-      return !hasShortO(args);
+      return !(hasShortO(args) || args.some((arg) => arg.startsWith("--ou")));
+    case "date":
+      return !args.some((arg) => /^-[a-zA-Z]*s|^--s/.test(arg));
     case "rg":
-      return !args.some((arg) => arg === "--pre" || arg.startsWith("--pre="));
+      return !args.some(
+        (arg) => arg === "--pre" || arg.startsWith("--pre=") || arg === "--hostname-bin" || arg.startsWith("--hostname-bin=")
+      );
     case "file":
       return !args.some(
         (arg) => /^-[a-zA-Z]*C/.test(arg) || arg === "--compile"
@@ -7664,7 +7666,8 @@ function utilityMayRun(name, args) {
   }
 }
 var gitWrites = (args) => args.some(
-  (arg) => arg.startsWith("--output") || arg.startsWith("--open-files-in-pager") || arg.startsWith("--ext-diff") || arg.startsWith("--textconv") || arg.startsWith("--config-env") || arg.startsWith("-O")
+  // git accepts any unambiguous prefix of a long option, so match prefixes.
+  (arg) => /^--(ou|op|ex|tex|con|git-dir|work-tree|namespace)/.test(arg) || arg.startsWith("-O")
 );
 function ghMayRun(args, patches) {
   const [group, verb] = args;

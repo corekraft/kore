@@ -32,10 +32,18 @@ describe("role-read-only: the judge and orchestrator run an allowlist, not a blo
     "curl -o a http://x",
     "sort -o a b",
     "tar xf a.tar",
+    "sort --out=s.txt a",
+    "sort --out x a",
+    "sort --compress-prog=sh a",
+    "date -s 1",
+    "git grep --open-files-in-pa=sh x",
+    "git log --out=x",
+    "git --exec-path=/tmp log",
+    "git --git-dir=/tmp log",
     "sqlite3 a.db 'create table t(x)'",
   ];
   for (const role of ["judge", "orchestrator"]) {
-    it(`${role}: every form the old blocklist missed is blocked`, async () => {
+    it(`${role}: refuses every unlisted write or launch form`, async () => {
       for (const command of FORMS) {
         blocked(await bash(role, command), "role-read-only");
       }
