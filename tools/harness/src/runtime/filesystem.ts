@@ -34,6 +34,8 @@ export interface FileSystem {
   isDirectory(path: string): Promise<boolean>;
   /** The first `bytes` bytes of a file as text, without reading the rest. */
   readHead(path: string, bytes: number): Promise<string>;
+  /** The file's text from byte `offset` to its end, without reading what precedes it; empty at or past the end. */
+  readFrom(path: string, offset: number): Promise<string>;
 }
 
 export const nodeFileSystem: FileSystem = {
@@ -82,6 +84,20 @@ export const nodeFileSystem: FileSystem = {
     try {
       const buffer = Buffer.alloc(bytes);
       const { bytesRead } = await file.read(buffer, 0, bytes, 0);
+      return buffer.toString("utf8", 0, bytesRead);
+    } finally {
+      await file.close();
+    }
+  },
+  async readFrom(path, offset) {
+    const file = await open(path, "r");
+    try {
+      const { size } = await file.stat();
+      if (offset >= size) {
+        return "";
+      }
+      const buffer = Buffer.alloc(size - offset);
+      const { bytesRead } = await file.read(buffer, 0, buffer.length, offset);
       return buffer.toString("utf8", 0, bytesRead);
     } finally {
       await file.close();

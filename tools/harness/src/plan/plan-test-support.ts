@@ -34,6 +34,7 @@ export function planHarness(files: Record<string, string>) {
       mtimeMs: () => Promise.resolve(0),
       isDirectory: () => Promise.resolve(false),
       readHead: () => Promise.reject(new Error("ENOENT")),
+      readFrom: () => Promise.reject(new Error("ENOENT")),
       exists: () => Promise.resolve(true),
       readdir: (path) =>
         path === `${ROOT}/infra/plans`

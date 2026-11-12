@@ -167,3 +167,33 @@ describe("ledger event schema, stored events", () => {
     expect(rejected({ ...stored, id: undefined }, "stored").field).toBe("id");
   });
 });
+
+describe("ledger event schema cost events", () => {
+  it("accepts a token usage event and requires a positive whole token count", () => {
+    const usage = { ...base, kind: "token.usage", session: "s1" };
+    expect(rejected(usage).field).toBe("tokens");
+    expect(rejected({ ...usage, tokens: 0 }).field).toBe("tokens");
+    expect(rejected({ ...usage, tokens: 1.5 }).field).toBe("tokens");
+    expect(parseEvent({ ...usage, tokens: 1200 }, "input").ok).toBe(true);
+    expect(KINDS).toContain("token.usage");
+  });
+
+  it("accepts a session launch event and requires its role and tier", () => {
+    const launch = { ...base, source: "herdr", kind: "session.launch" };
+    expect(rejected(launch).field).toBe("role");
+    expect(rejected({ ...launch, role: "writer" }).field).toBe("tier");
+    expect(
+      parseEvent(
+        { ...launch, role: "writer", tier: "claude-opus-5-5" },
+        "input",
+      ).ok,
+    ).toBe(true);
+    expect(KINDS).toContain("session.launch");
+  });
+
+  it("refuses tokens, role and tier on other kinds", () => {
+    expect(rejected({ ...base, tokens: 5 }).field).toBe("tokens");
+    expect(rejected({ ...base, role: "writer" }).field).toBe("role");
+    expect(rejected({ ...base, tier: "x" }).field).toBe("tier");
+  });
+});

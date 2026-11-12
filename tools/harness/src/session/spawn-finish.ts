@@ -1,4 +1,10 @@
-import type { CommandContext } from "../runtime/index.js";
+import { join } from "node:path";
+import { DEFAULT_LEDGER, Ledger } from "../ledger/index.js";
+import {
+  mainRoot,
+  type CliDeps,
+  type CommandContext,
+} from "../runtime/index.js";
 import type { ModelCheck } from "./models.js";
 import { FAILED, fail } from "./output.js";
 import type { SessionRecord, SessionRegistry } from "./registry.js";
@@ -11,6 +17,32 @@ interface Finish {
   timeoutMs: number;
 }
 
+/** Appends a session.launch event for the session. Best effort: a ledger problem never fails the spawn. */
+async function recordLaunch(deps: CliDeps, record: SessionRecord) {
+  try {
+    const main = await mainRoot(deps);
+    if (main === undefined) {
+      return;
+    }
+    await new Ledger(
+      deps.fs,
+      deps.clock,
+      deps.ids,
+      join(main, DEFAULT_LEDGER),
+    ).record({
+      source: "herdr",
+      kind: "session.launch",
+      occurredAt: record.createdAt,
+      pane: record.paneId,
+      agent: record.name,
+      role: record.role,
+      tier: record.model,
+    });
+  } catch {
+    // The ledger is a measurement; it never gates a spawn.
+  }
+}
+
 /** Records the spawned session, then reports it or, without --no-wait, waits for its result. */
 export async function finish(
   { json, deps, options }: CommandContext,
@@ -19,6 +51,7 @@ export async function finish(
   const { name, paneId, callerPane, model, role, effort, worktree } = record;
   const extra = worktree === undefined ? {} : { worktree };
   await registry.create(record);
+  await recordLaunch(deps, record);
   const verdict =
     modelCheck.status === "verified"
       ? "model verified"

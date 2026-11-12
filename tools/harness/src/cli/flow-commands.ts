@@ -1,11 +1,16 @@
 import {
+  DEFAULT_COST,
+  HARNESS_CONFIG,
   MIN_COMPLETED_IDEAS,
   REPORT_VERSION,
   buildReport,
+  parseHarnessConfig,
+  type CostMetric,
   type FlowReport,
   type Scope,
   type ScopeOptions,
 } from "../flow/index.js";
+import { join } from "node:path";
 import { isTimestamp } from "../ledger/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
 import { openLedger } from "./ledger-commands.js";
@@ -19,6 +24,8 @@ interface Printed extends FlowReport {
 interface Flags extends ScopeOptions {
   asOf: Date;
   minCompletedIdeas: number;
+  /** From --trailing; the harness config, then five, decide when absent. */
+  trailingIdeas?: number;
 }
 
 type Parsed = Flags | { error: string };
@@ -89,6 +96,12 @@ function parseFlags({ options, deps }: CommandContext): Parsed {
       };
     }
   }
+  const trailing = options["trailing"];
+  if (trailing !== undefined && !/^[1-9]\d{0,8}$/.test(String(trailing))) {
+    return {
+      error: `Invalid --trailing "${String(trailing)}". Use a whole number of at least 1.`,
+    };
+  }
   const times = parseTimes(options);
   if ("error" in times) {
     return times;
@@ -102,6 +115,7 @@ function parseFlags({ options, deps }: CommandContext): Parsed {
   return {
     asOf: asOf ?? deps.clock.now(),
     minCompletedIdeas,
+    ...(trailing === undefined ? {} : { trailingIdeas: Number(trailing) }),
     ...(since === undefined ? {} : { since }),
     ...(until === undefined ? {} : { until }),
     ...(idea === undefined ? {} : { ideas: idea }),
@@ -131,6 +145,14 @@ const leadLine = ({
     ? "Lead time: no completed ideas"
     : `Lead time: ${ideas.length} ideas, median ${seconds(medianSeconds)}, max ${seconds(maxSeconds)}`;
 
+function metricLine(label: string, metric: CostMetric, trailing: number) {
+  if (metric.status === "insufficient history") {
+    return `${label}: insufficient history, ${metric.closedIdeas} of ${metric.needed} closed ideas`;
+  }
+  const average = Math.round(metric.trailingAverage * 100) / 100;
+  return `${label}: ${metric.currentIdea} ${metric.current}, average of the ${trailing} ideas before it ${average}${metric.worsened ? " (worsened)" : ""}`;
+}
+
 function text(report: Printed): string {
   const rows = report.stages.map((s) =>
     [
@@ -147,6 +169,16 @@ function text(report: Printed): string {
     scopeLine(report.scope),
     ...rows,
     leadLine(report.leadTime),
+    metricLine(
+      "Tokens per idea",
+      report.metrics.tokensPerIdea,
+      report.metrics.trailingIdeas,
+    ),
+    metricLine(
+      "Sessions per idea",
+      report.metrics.sessionsPerIdea,
+      report.metrics.trailingIdeas,
+    ),
     `Unmapped events: ${report.unmappedEvents}`,
     report.bottleneck === null
       ? (report.bottleneckNote ?? "No bottleneck.")
@@ -158,10 +190,21 @@ function text(report: Printed): string {
   return `${lines.join("\n")}\n`;
 }
 
+/** The cost settings from the harness config; defaults when the checkout has none. */
+async function loadCost({ deps }: CommandContext) {
+  const root = await deps.root().catch(() => undefined);
+  const file = root === undefined ? undefined : join(root, HARNESS_CONFIG);
+  if (file === undefined || !(await deps.fs.exists(file))) {
+    return { cost: DEFAULT_COST };
+  }
+  return parseHarnessConfig(await deps.fs.readFile(file), HARNESS_CONFIG);
+}
+
 const report: Command = {
-  summary: `map ledger events to stages; per stage active, waiting, event counts, toil (starting, stopping, waiting, retrying), work in progress (peak and average ideas open), lead time (first event to outcome; median and max), and the bottleneck (--min-ideas N, default ${MIN_COMPLETED_IDEAS}; --as-of TIME; --since TIME (inclusive) and --until TIME (exclusive) clip time at those edges and count only ideas open then, with lead time only for ideas whose outcome falls inside; --idea N|#N[,...] covers only those issues; --ledger PATH; --json is one object, version ${REPORT_VERSION}: version, asOf, scope, ideas, minCompletedIdeas, stages, leadTime, bottleneck, bottleneckNote, unmappedEvents, skippedLines)`,
+  summary: `map ledger events to stages; per stage active, waiting, event counts, toil (starting, stopping, waiting, retrying), work in progress (peak and average ideas open), lead time (first event to outcome; median and max), tokens and sessions per closed idea with a trailing average over the N closed ideas before the latest and a worsened flag (--trailing N, default 5, else cost.trailingIdeas; thresholds in ${HARNESS_CONFIG}), and the bottleneck (--min-ideas N, default ${MIN_COMPLETED_IDEAS}; --as-of TIME; --since TIME (inclusive) and --until TIME (exclusive) clip time at those edges and count only ideas open then, with lead time only for ideas whose outcome falls inside; --idea N|#N[,...] covers only those issues; --ledger PATH; --json is one object, version ${REPORT_VERSION}: version, asOf, scope, ideas, minCompletedIdeas, stages, leadTime, metrics, bottleneck, bottleneckNote, unmappedEvents, skippedLines)`,
   options: {
     "min-ideas": "string",
+    trailing: "string",
     "as-of": "string",
     since: "string",
     until: "string",
@@ -180,13 +223,25 @@ const report: Command = {
     if ("error" in flags) {
       return fail(flags.error, 2);
     }
+    const cost = await loadCost(context);
+    if ("error" in cost) {
+      return fail(cost.error, 1);
+    }
     const opened = await openLedger(context);
     if ("error" in opened) {
       return fail(opened.error, 1);
     }
     const { events, skipped } = await opened.ledger.list({});
     const printed: Printed = {
-      ...buildReport(events, flags),
+      ...buildReport(events, {
+        ...flags,
+        cost: {
+          ...cost.cost,
+          ...(flags.trailingIdeas === undefined
+            ? {}
+            : { trailingIdeas: flags.trailingIdeas }),
+        },
+      }),
       skippedLines: skipped,
     };
     deps.stdout(json ? `${JSON.stringify(printed)}\n` : text(printed));

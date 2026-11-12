@@ -124,3 +124,41 @@ describe("session spawn launch", () => {
     expect(h.out()).toContain("w3:p9");
   });
 });
+
+describe("session spawn ledger", () => {
+  const LEDGER = "/main/.kore/state/ledger.jsonl";
+
+  it("records a session.launch event with the role and the model tier, from the spawn itself", async () => {
+    const h = testHarness({
+      env: INSIDE,
+      responses: [gitCommon, nameFree, layoutOf(), splitReturns("w3:p9")],
+    });
+    await run(spawnArgs, h.deps);
+    const [line] = (h.files.get(LEDGER) ?? "").split("\n").filter(Boolean);
+    expect(JSON.parse(line ?? "{}")).toMatchObject({
+      source: "herdr",
+      kind: "session.launch",
+      pane: "w3:p9",
+      agent: "image-trust-writer",
+      role: "writer",
+      tier: "claude-sonnet-5-5",
+    });
+  });
+
+  it("does not record a launch when the spawn fails before the agent starts", async () => {
+    const h = testHarness({
+      env: INSIDE,
+      responses: [
+        gitCommon,
+        nameFree,
+        layoutOf(),
+        {
+          match: (_c, a) => a[1] === "split",
+          result: { code: 1, stderr: "no" },
+        },
+      ],
+    });
+    expect(await run(spawnArgs, h.deps)).not.toBe(0);
+    expect(h.files.get(LEDGER)).toBeUndefined();
+  });
+});

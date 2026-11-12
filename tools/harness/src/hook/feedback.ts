@@ -14,6 +14,7 @@ import {
   type LedgerEvent,
 } from "../ledger/index.js";
 import { CommandError, mainRoot, type CliDeps } from "../runtime/index.js";
+import { readTokens, tokenStateFile } from "./feedback-tokens.js";
 import type { HookResult } from "./io.js";
 
 interface Project {
@@ -67,6 +68,7 @@ interface Call {
   stop_hook_active?: unknown;
   session_id?: unknown;
   cwd?: unknown;
+  transcript_path?: unknown;
 }
 
 const asCall = (payload: unknown): Call =>
@@ -224,6 +226,7 @@ async function recordEvent(
   kind: Kind,
   call: Call,
   outcome?: "success" | "failure",
+  extra: Partial<LedgerEvent> = {},
 ): Promise<void> {
   try {
     const session = call.session_id;
@@ -245,6 +248,7 @@ async function recordEvent(
         ? { tool: call.tool_name }
         : {}),
       ...(outcome === undefined ? {} : { outcome }),
+      ...extra,
     };
     await new Ledger(
       deps.fs,
@@ -254,6 +258,19 @@ async function recordEvent(
     ).record(event);
   } catch {
     // Recording is best effort by contract.
+  }
+}
+
+/** Records the stop, then the session's tokens so far when they grew since the last stop. */
+async function recordStop(deps: CliDeps, call: Call): Promise<void> {
+  await recordEvent(deps, "session.stop", call);
+  const { total, grew } = await readTokens(
+    deps.fs,
+    call.transcript_path,
+    tokenStateFile(call.session_id),
+  );
+  if (grew && total > 0) {
+    await recordEvent(deps, "token.usage", call, undefined, { tokens: total });
   }
 }
 
@@ -310,7 +327,7 @@ export async function feedback(
   if (mode === "post-edit") {
     recorded = recordEvent(deps, "tool.end", call, "success");
   } else if (!call.stop_hook_active) {
-    recorded = recordEvent(deps, "session.stop", call);
+    recorded = recordStop(deps, call);
   }
   const checks = feedbackDeps(deps, root, call);
   try {

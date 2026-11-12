@@ -32,6 +32,9 @@ const EVENT_FLAGS = [
   "outcome",
   "label",
   "number",
+  "tokens",
+  "role",
+  "tier",
 ] as const;
 
 const STRING_FLAGS = (names: readonly string[]) =>
@@ -82,7 +85,8 @@ async function eventInput(context: CommandContext): Promise<Input> {
         given.map((f) => {
           const value = String(context.options[f]);
           // A number flag arrives as text; anything but digits is left for the schema to reject.
-          const isCount = f === "number" && /^\d+$/.test(value);
+          const isCount =
+            (f === "number" || f === "tokens") && /^\d+$/.test(value);
           return [camel(f), isCount ? Number(value) : value];
         }),
       ),

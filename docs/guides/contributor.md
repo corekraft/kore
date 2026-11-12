@@ -149,6 +149,35 @@ stage reached only by single events (no duration) shows `wip` 0. Lead time
 `issue.closed`, in seconds per idea, with `medianSeconds` and `maxSeconds`
 (both `null` when none); ideas without an outcome are left out.
 
+Cost metrics (`metrics`, report version 5) are tokens and sessions per closed
+idea, from ledger events only: `token.usage` (recorded by the Stop hook from the
+session transcript, as the session's cumulative input, output and cache-creation
+tokens so far; cache reads are left out and a session counts its latest value
+once) and `session.launch` (recorded by `session spawn` with the `role` and the
+model `tier`). The hook reads the transcript incrementally: it keeps the byte
+offset it reached, with the running total, in a per-session state file in the
+temp directory, reads only what was added since, leaves a half-written last
+line for the next stop, and records a `token.usage` only when the total grew.
+Losing the state file costs one full read, not a wrong count. Only numbers are
+read or stored.
+
+Each of `tokensPerIdea` and `sessionsPerIdea` gives `currentIdea` and `current`
+(the most recently closed idea), `trailingAverage` over the N closed ideas
+before it (never including it, so one bad idea cannot dampen its own flag), the
+`maxIncrease` threshold and `worsened`, true when `current` exceeds that average
+by more than `maxIncrease` (0.25 means above 125%). Without N closed ideas
+before the latest, so with fewer than N+1 closed, a metric is
+`{"status": "insufficient history", "closedIdeas", "needed"}` (`needed` is N+1),
+never zero. An idea with no `token.usage` is not measured, so it is left out of
+the tokens metric rather than counted as zero. Cost events are neither stage
+time nor unmapped. Only ideas inside `--since`/`--until`/`--idea` count, so a
+narrow scope shortens the history. N is `--trailing N`, else
+`cost.trailingIdeas` in `.claude/harness.json`, else 5. The file is committed
+with the defaults, optional if removed, and checked before any report; its keys
+are `cost.trailingIdeas`, `cost.tokensPerIdea.maxIncrease` and
+`cost.sessionsPerIdea.maxIncrease` (default 0.25 each), and a bad one fails with
+the file, the key and the fix. The human report prints the same numbers.
+
 Known limits until plan 8 Step 3 lands its producers: nothing records
 `issue.closed` or the `idea` link on PR events yet, so real ledgers show no
 completed ideas and the report says "Not enough data". A label other than

@@ -3,11 +3,14 @@ export {
   buildReport,
   type Bottleneck,
   type FlowReport,
-  type LeadTime,
   type Scope,
   type ScopeOptions,
   type StageTotals,
   type Toil,
-  type Wip,
 } from "./report.js";
+export { DEFAULT_COST } from "./cost.js";
+export { HARNESS_CONFIG, parseHarnessConfig } from "./cost-config.js";
 export { MIN_COMPLETED_IDEAS, STAGES, type Stage } from "./stages.js";
+export type { CostMetric, CostMetrics, CostOptions } from "./cost.js";
+export type { LeadTime } from "./idea-metrics.js";
+export type { Wip } from "./wip.js";

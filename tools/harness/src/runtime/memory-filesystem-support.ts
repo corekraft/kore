@@ -70,6 +70,14 @@ export class MemoryFileSystem implements FileSystem {
     return (await this.readFile(path)).slice(0, bytes);
   }
 
+  async readFrom(path: string, offset: number): Promise<string> {
+    const content = this.files.get(path);
+    if (content === undefined) {
+      throw Object.assign(new Error(`ENOENT: ${path}`), { code: "ENOENT" });
+    }
+    return Buffer.from(content).subarray(offset).toString("utf8");
+  }
+
   readlink(path: string): Promise<string> {
     return Promise.reject(new Error(`ENOENT: ${path}`));
   }

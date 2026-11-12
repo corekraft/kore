@@ -51,6 +51,7 @@ function harness(
       mtimeMs: () => Promise.resolve(0),
       isDirectory: () => Promise.resolve(false),
       readHead: () => Promise.reject(new Error("ENOENT")),
+      readFrom: () => Promise.reject(new Error("ENOENT")),
       exists: (path) => Promise.resolve(rel(path) in files),
       readdir: (path) =>
         rel(path) === "skills" && !missingSkills

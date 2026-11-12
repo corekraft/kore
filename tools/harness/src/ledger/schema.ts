@@ -17,6 +17,8 @@ export const KINDS = [
   "pr.merged",
   "outcome",
   "flag.activated",
+  "token.usage",
+  "session.launch",
 ] as const;
 export type Kind = (typeof KINDS)[number];
 
@@ -32,6 +34,9 @@ const NUMBER_KINDS: readonly Kind[] = [
   "pr.merged",
   "outcome",
 ];
+
+const LAUNCH_KINDS: readonly Kind[] = ["session.launch"];
+const TOKEN_KINDS: readonly Kind[] = ["token.usage"];
 
 export const SCHEMA_VERSION = 1;
 
@@ -50,6 +55,12 @@ export interface EventInput {
   outcome?: Outcome;
   label?: string;
   number?: number;
+  /** token.usage: the session's cumulative tokens so far. */
+  tokens?: number;
+  /** session.launch: the role the session was launched as. */
+  role?: string;
+  /** session.launch: the model tier the session was launched on. */
+  tier?: string;
 }
 
 export interface LedgerEvent extends EventInput {
@@ -93,6 +104,9 @@ const ALLOWED = new Set<string>([
   "outcome",
   "label",
   "number",
+  "tokens",
+  "role",
+  "tier",
 ]);
 
 /** Whether a value passes the ledger's name rule (session, pane, agent and similar fields). */
@@ -162,6 +176,14 @@ const RULES: readonly Rule[] = [
     hint: "must be a positive integer",
     kinds: NUMBER_KINDS,
   },
+  {
+    field: "tokens",
+    check: (v) => Number.isSafeInteger(v) && (v as number) >= 1,
+    hint: "must be a positive integer",
+    kinds: TOKEN_KINDS,
+  },
+  { field: "role", check: isText(NAME), hint: NAME_HINT, kinds: LAUNCH_KINDS },
+  { field: "tier", check: isText(NAME), hint: NAME_HINT, kinds: LAUNCH_KINDS },
 ];
 
 function checkShape(input: unknown, mode: ParseMode): Failure | undefined {
