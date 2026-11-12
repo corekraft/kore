@@ -50,6 +50,8 @@ async function harnessPlans(root: string): Promise<string[]> {
     env: {},
     cwd: "/repo",
     root: () => Promise.resolve(root),
+    ids: { next: () => "id-1" },
+    stdin: () => Promise.resolve(""),
     stdout: (t) => (out += t),
     stderr: () => undefined,
   };

@@ -1,5 +1,6 @@
 import type { Clock } from "./clock.js";
 import type { FileSystem } from "./filesystem.js";
+import type { IdSource } from "./ids.js";
 import type { Runner } from "./runner.js";
 
 /** Everything a command may touch; real adapters in main.ts, fakes in specs. */
@@ -13,9 +14,12 @@ export interface CliDeps {
    * outside a repository; rejects with a named error when it cannot be found.
    */
   root(): Promise<string>;
+  ids: IdSource;
   env: Readonly<Record<string, string | undefined>>;
   /** The process working directory (a worktree's own checkout, not the repository root). */
   cwd: string;
+  /** Reads all of standard input as text. */
+  stdin(): Promise<string>;
   stdout(text: string): void;
   stderr(text: string): void;
 }

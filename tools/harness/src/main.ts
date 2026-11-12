@@ -4,6 +4,7 @@ import {
   nodeFileSystem,
   resolveRoot,
   systemClock,
+  systemIds,
 } from "./runtime/index.js";
 
 const stderr = (text: string) => process.stderr.write(text);
@@ -15,12 +16,20 @@ try {
     runner: new ProcessRunner(),
     clock: systemClock,
     fs: nodeFileSystem,
+    ids: systemIds,
+    env: process.env,
+    cwd: process.cwd(),
+    stdin: async () => {
+      const chunks: Buffer[] = [];
+      for await (const chunk of process.stdin) {
+        chunks.push(Buffer.from(chunk as Uint8Array));
+      }
+      return Buffer.concat(chunks).toString("utf8");
+    },
     root: () =>
       (root ??= resolveRoot(process.env, import.meta.url, (path) =>
         nodeFileSystem.exists(path),
       )),
-    env: process.env,
-    cwd: process.cwd(),
     stdout: (text) => process.stdout.write(text),
     stderr,
   });

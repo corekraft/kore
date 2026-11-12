@@ -61,7 +61,7 @@ and uses it first to measure the delivery loop. Terms follow
 
 ### Work
 
-- [ ] Add a `ledger` domain: an append-only JSONL ledger with a schema for
+- [x] Add a `ledger` domain: an append-only JSONL ledger with a schema for
       stage events (source, session, pane, idea, stage, kind, time).
 - [ ] Record Claude session events (start, stop, tool start and end) from the
       existing hooks through the harness.

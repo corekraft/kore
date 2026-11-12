@@ -19,6 +19,7 @@ function harness(files: Record<string, string>) {
       },
       writeFile: () => Promise.resolve(),
       createFile: () => Promise.resolve(),
+      appendFile: () => Promise.resolve(),
       exists: () => Promise.resolve(true),
       readdir: (path) =>
         path === `${ROOT}/infra/plans`
@@ -33,6 +34,8 @@ function harness(files: Record<string, string>) {
     cwd: "/repo",
     root: () => Promise.resolve(ROOT),
     stdout: (text) => out.push(text),
+    ids: { next: () => "id-1" },
+    stdin: () => Promise.resolve(""),
     stderr: (text) => err.push(text),
   };
   return { deps, out: () => out.join(""), err: () => err.join("") };

@@ -7,8 +7,21 @@ var systemClock = {
   now: () => /* @__PURE__ */ new Date()
 };
 
+// src/runtime/ids.ts
+import { randomUUID } from "node:crypto";
+var systemIds = {
+  next: () => randomUUID()
+};
+
 // src/runtime/filesystem.ts
-import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import {
+  appendFile,
+  mkdir,
+  readFile,
+  readdir,
+  stat,
+  writeFile
+} from "node:fs/promises";
 import { dirname } from "node:path";
 var nodeFileSystem = {
   readFile: (path) => readFile(path, "utf8"),
@@ -19,6 +32,10 @@ var nodeFileSystem = {
   async createFile(path, content) {
     await mkdir(dirname(path), { recursive: true });
     await writeFile(path, content, { flag: "wx" });
+  },
+  async appendFile(path, content) {
+    await mkdir(dirname(path), { recursive: true });
+    await appendFile(path, content);
   },
   async exists(path) {
     try {
@@ -38,7 +55,7 @@ var nodeFileSystem = {
 import { spawn } from "node:child_process";
 var ProcessRunner = class {
   async run(command, args, options = {}) {
-    return await new Promise((resolve3) => {
+    return await new Promise((resolve4) => {
       const child = spawn(command, [...args], {
         ...options.cwd === void 0 ? {} : { cwd: options.cwd },
         stdio: [
@@ -56,10 +73,10 @@ var ProcessRunner = class {
         stderr2 += chunk.toString();
       });
       child.on("error", (error) => {
-        resolve3({ stdout, stderr: error.message, code: 127 });
+        resolve4({ stdout, stderr: error.message, code: 127 });
       });
       child.on("close", (code) => {
-        resolve3({ stdout, stderr: stderr2, code: code ?? 1 });
+        resolve4({ stdout, stderr: stderr2, code: code ?? 1 });
       });
       if (options.input !== void 0) {
         child.stdin?.end(options.input);
@@ -156,13 +173,13 @@ function headings(markdown) {
   const seen = /* @__PURE__ */ new Map();
   const found = [];
   let fence = null;
-  for (const line of markdown.split("\n")) {
-    const opener = /^\s*(```|~~~)/.exec(line)?.[1] ?? null;
+  for (const line2 of markdown.split("\n")) {
+    const opener = /^\s*(```|~~~)/.exec(line2)?.[1] ?? null;
     if (fence !== null || opener !== null) {
       fence = opener === fence ? null : fence ?? opener;
       continue;
     }
-    const text2 = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(line)?.[1];
+    const text2 = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(line2)?.[1];
     if (text2 === void 0) {
       continue;
     }
@@ -406,11 +423,11 @@ function frontmatter(text2) {
     return null;
   }
   const keys = /* @__PURE__ */ new Map();
-  for (const line of lines.slice(1)) {
-    if (line === "---") {
+  for (const line2 of lines.slice(1)) {
+    if (line2 === "---") {
       return keys;
     }
-    const match = /^([A-Za-z][\w-]*):\s*(.*)$/.exec(line);
+    const match = /^([A-Za-z][\w-]*):\s*(.*)$/.exec(line2);
     if (match?.[1] !== void 0) {
       keys.set(match[1], (match[2] ?? "").trim());
     }
@@ -439,7 +456,7 @@ function parseIdea(path, text2) {
   }
   const get = (key) => keys.get(key) ?? "";
   const heading = /^# Idea \d{4}: (.+)$/m.exec(text2)?.[1];
-  const record = {
+  const record2 = {
     number: name[1],
     slug: name[2],
     path,
@@ -453,10 +470,10 @@ function parseIdea(path, text2) {
   };
   for (const key of ["outcome", "issue", "parent"]) {
     if (get(key) !== "") {
-      record[key] = get(key);
+      record2[key] = get(key);
     }
   }
-  return record;
+  return record2;
 }
 function scalar(flag, value) {
   const text2 = (value ?? "").replace(/\s+/g, " ").trim();
@@ -542,9 +559,9 @@ var IdeaRepository = class {
       const names2 = await this.listNames();
       const existing = names2.find((n) => IDEA_FILE.exec(n)?.[2] === slug);
       if (existing !== void 0) {
-        const record2 = await this.read(existing);
-        await this.ensureIndexed(record2);
-        return { created: false, record: record2 };
+        const record3 = await this.read(existing);
+        await this.ensureIndexed(record3);
+        return { created: false, record: record3 };
       }
       const taken = names2.map((n) => Number(n.slice(0, 4)));
       const number = String(Math.max(0, ...taken) + 1).padStart(4, "0");
@@ -562,9 +579,9 @@ var IdeaRepository = class {
         }
         throw error;
       }
-      const record = parseIdea(path, text2);
-      await this.ensureIndexed(record);
-      return { created: true, record };
+      const record2 = parseIdea(path, text2);
+      await this.ensureIndexed(record2);
+      return { created: true, record: record2 };
     }
     throw new IdeaError(
       `Another writer keeps creating ideas in ${DIR}; rerun \`harness idea new\` once it finishes.`
@@ -578,12 +595,12 @@ var IdeaRepository = class {
     return parseIdea(path, await this.fs.readFile(this.abs(path)));
   }
   /** Lists the idea in the index unless an entry already points at it, so a rerun repairs a half-finished create. */
-  async ensureIndexed(record) {
+  async ensureIndexed(record2) {
     const index = await this.fs.readFile(this.abs(INDEX2));
-    if (!index.includes(`](${record.path.replace(/^docs\//, "")})`)) {
+    if (!index.includes(`](${record2.path.replace(/^docs\//, "")})`)) {
       await this.fs.writeFile(
         this.abs(INDEX2),
-        addEntry(index, record.path, record.summary)
+        addEntry(index, record2.path, record2.summary)
       );
     }
   }
@@ -648,26 +665,26 @@ function text(options, key) {
 function slugOf(title) {
   return title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60).replace(/-+$/, "");
 }
-function describe2(record) {
+function describe2(record2) {
   const lines = [
-    `Idea ${record.number}: ${record.title}`,
-    `Date: ${record.date}`,
-    `Summary: ${record.summary}`,
-    `Hypothesis: ${record.hypothesis}`,
-    `Expected outcome: ${record.expectedOutcome}`,
-    `Measurement: ${record.measurement}`,
-    `Safety pattern: ${record.safetyPattern}`
+    `Idea ${record2.number}: ${record2.title}`,
+    `Date: ${record2.date}`,
+    `Summary: ${record2.summary}`,
+    `Hypothesis: ${record2.hypothesis}`,
+    `Expected outcome: ${record2.expectedOutcome}`,
+    `Measurement: ${record2.measurement}`,
+    `Safety pattern: ${record2.safetyPattern}`
   ];
   for (const [label, value] of [
-    ["Outcome", record.outcome],
-    ["Issue", record.issue],
-    ["Parent", record.parent]
+    ["Outcome", record2.outcome],
+    ["Issue", record2.issue],
+    ["Parent", record2.parent]
   ]) {
     if (value !== void 0) {
       lines.push(`${label}: ${value}`);
     }
   }
-  lines.push(`File: ${record.path}`);
+  lines.push(`File: ${record2.path}`);
   return `${lines.join("\n")}
 `;
 }
@@ -714,10 +731,10 @@ var create = {
   run(context) {
     return guarded(context, async () => {
       const { slug, idea } = parseNewIdea(context.options);
-      const { created, record } = await (await repository(context)).create(slug, idea);
+      const { created, record: record2 } = await (await repository(context)).create(slug, idea);
       context.deps.stdout(
-        context.json ? `${JSON.stringify({ created, ...record })}
-` : `${created ? "Created" : "Already exists:"} ${record.path}
+        context.json ? `${JSON.stringify({ created, ...record2 })}
+` : `${created ? "Created" : "Already exists:"} ${record2.path}
 `
       );
     });
@@ -734,10 +751,10 @@ var show = {
           "Missing --idea; run `harness idea show --idea <number or slug>`, or `harness idea list` to see the ideas."
         );
       }
-      const record = await (await repository(context)).get(ref.trim());
+      const record2 = await (await repository(context)).get(ref.trim());
       context.deps.stdout(
-        context.json ? `${JSON.stringify(record)}
-` : describe2(record)
+        context.json ? `${JSON.stringify(record2)}
+` : describe2(record2)
       );
     });
   }
@@ -761,6 +778,438 @@ var ideaCommands = {
   show
 };
 
+// src/cli/ledger-commands.ts
+import { dirname as dirname3, resolve as resolve2 } from "node:path";
+
+// src/ledger/schema.ts
+var SOURCES = ["claude", "herdr", "github"];
+var KINDS = [
+  "session.start",
+  "session.stop",
+  "tool.start",
+  "tool.end",
+  "pane.spawned",
+  "pane.busy",
+  "pane.waiting",
+  "pane.closed",
+  "issue.opened",
+  "issue.labelled",
+  "pr.opened",
+  "pr.merged"
+];
+var OUTCOMES = ["success", "failure"];
+var TOOL_KINDS = ["tool.start", "tool.end"];
+var NUMBER_KINDS = [
+  "issue.opened",
+  "issue.labelled",
+  "pr.opened",
+  "pr.merged"
+];
+var SCHEMA_VERSION = 1;
+var NAME = /^[\w.:/#@-]{1,128}$/;
+var TOOL = /^[\w.:-]{1,100}$/;
+var LABEL = /^[^\p{Cc}]{1,100}$/u;
+var TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
+var NAME_HINT = "must be 1-128 letters, digits or . _ : / # @ -";
+var TIME_HINT = "must be an ISO 8601 UTC time such as 2026-01-02T03:04:05.000Z";
+var ALLOWED = /* @__PURE__ */ new Set([
+  "schema",
+  "id",
+  "source",
+  "kind",
+  "occurredAt",
+  "recordedAt",
+  "session",
+  "pane",
+  "agent",
+  "idea",
+  "stage",
+  "tool",
+  "outcome",
+  "label",
+  "number"
+]);
+function isTimestamp(value) {
+  if (!TIMESTAMP.test(value)) {
+    return false;
+  }
+  const time = new Date(value);
+  if (Number.isNaN(time.getTime())) {
+    return false;
+  }
+  return time.toISOString().slice(0, 10) === value.slice(0, 10);
+}
+function bad(field2, problem) {
+  return {
+    ok: false,
+    field: field2,
+    message: `Invalid event: field "${field2}" ${problem}.`
+  };
+}
+var isText = (pattern) => (value) => typeof value === "string" && pattern.test(value);
+var RULES = [
+  { field: "id", check: isText(NAME), hint: NAME_HINT },
+  { field: "session", check: isText(NAME), hint: NAME_HINT },
+  { field: "pane", check: isText(NAME), hint: NAME_HINT },
+  { field: "agent", check: isText(NAME), hint: NAME_HINT },
+  { field: "idea", check: isText(NAME), hint: NAME_HINT },
+  { field: "stage", check: isText(NAME), hint: NAME_HINT },
+  {
+    field: "tool",
+    check: isText(TOOL),
+    hint: "must be a tool name of letters, digits or . _ : -",
+    kinds: TOOL_KINDS
+  },
+  {
+    field: "outcome",
+    check: (v) => OUTCOMES.includes(v),
+    hint: `must be one of ${OUTCOMES.join(", ")}`,
+    kinds: ["tool.end"]
+  },
+  {
+    field: "label",
+    check: isText(LABEL),
+    hint: "must be 1-100 characters with no control characters",
+    kinds: ["issue.labelled"]
+  },
+  {
+    field: "number",
+    check: (v) => Number.isSafeInteger(v) && v >= 1,
+    hint: "must be a positive integer",
+    kinds: NUMBER_KINDS
+  }
+];
+function checkShape(input, mode) {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) {
+    return bad("event", "must be a JSON object");
+  }
+  const raw = input;
+  for (const key of Object.keys(raw)) {
+    if (!ALLOWED.has(key) && raw[key] !== void 0) {
+      return bad(key, "is not a ledger field and is never stored");
+    }
+  }
+  if (mode === "input") {
+    for (const field2 of ["recordedAt", "schema"]) {
+      if (raw[field2] !== void 0) {
+        return bad(field2, "is set by the ledger, not the caller");
+      }
+    }
+  }
+  return void 0;
+}
+function checkCore(raw, mode) {
+  if (mode === "stored" && raw["schema"] !== SCHEMA_VERSION) {
+    return bad("schema", `must be ${SCHEMA_VERSION}`);
+  }
+  if (!SOURCES.includes(raw["source"])) {
+    return bad("source", `must be one of ${SOURCES.join(", ")}`);
+  }
+  if (!KINDS.includes(raw["kind"])) {
+    return bad("kind", `must be one of ${KINDS.join(", ")}`);
+  }
+  const times = mode === "stored" ? ["occurredAt", "recordedAt"] : ["occurredAt"];
+  for (const field2 of times) {
+    const value = raw[field2];
+    if (typeof value !== "string" || !isTimestamp(value)) {
+      return bad(field2, TIME_HINT);
+    }
+  }
+  return void 0;
+}
+function checkRule(rule, raw, mode) {
+  const value = raw[rule.field];
+  const kind = raw["kind"];
+  const applies = rule.kinds === void 0 || rule.kinds.includes(kind);
+  if (value === void 0) {
+    const needed = rule.kinds !== void 0 && applies || rule.field === "id" && mode === "stored";
+    return needed ? bad(rule.field, `is required on ${kind} events`) : void 0;
+  }
+  if (!applies) {
+    return bad(
+      rule.field,
+      `is only allowed on ${rule.kinds?.join(" and ")} events`
+    );
+  }
+  return rule.check(value) ? void 0 : bad(rule.field, rule.hint);
+}
+function parseEvent(input, mode) {
+  const failure = checkShape(input, mode) ?? checkCore(input, mode) ?? RULES.map((rule) => checkRule(rule, input, mode)).find(Boolean);
+  if (failure !== void 0) {
+    return failure;
+  }
+  const event = Object.fromEntries(
+    Object.entries(input).filter(([, value]) => value !== void 0)
+  );
+  return { ok: true, event };
+}
+
+// src/ledger/ledger.ts
+var Ledger = class {
+  constructor(fs, clock, ids, path) {
+    this.fs = fs;
+    this.clock = clock;
+    this.ids = ids;
+    this.path = path;
+  }
+  fs;
+  clock;
+  ids;
+  path;
+  /** Validates one event, then appends it as one line with a single write. */
+  async record(input) {
+    const parsed = parseEvent(input, "input");
+    if (!parsed.ok) {
+      return parsed;
+    }
+    const given = parsed.event;
+    const event = {
+      ...given,
+      schema: SCHEMA_VERSION,
+      id: given.id ?? this.ids.next(),
+      recordedAt: this.clock.now().toISOString()
+    };
+    await this.fs.appendFile(this.path, `${JSON.stringify(event)}
+`);
+    return { ok: true, event };
+  }
+  async list(filter) {
+    const text2 = await this.read();
+    const events = [];
+    let skipped = 0;
+    for (const line2 of text2.split("\n")) {
+      if (line2 === "") {
+        continue;
+      }
+      const event = parseLine(line2);
+      if (event === void 0) {
+        skipped += 1;
+      } else if (matches(event, filter)) {
+        events.push(event);
+      }
+    }
+    return { events, skipped };
+  }
+  async read() {
+    try {
+      return await this.fs.readFile(this.path);
+    } catch (error) {
+      if (error.code === "ENOENT") {
+        return "";
+      }
+      throw error;
+    }
+  }
+};
+function parseLine(line2) {
+  let value;
+  try {
+    value = JSON.parse(line2);
+  } catch {
+    return void 0;
+  }
+  const parsed = parseEvent(value, "stored");
+  return parsed.ok ? parsed.event : void 0;
+}
+function matches(event, filter) {
+  return (filter.session === void 0 || event.session === filter.session) && (filter.pane === void 0 || event.pane === filter.pane) && (filter.idea === void 0 || event.idea === filter.idea) && (filter.source === void 0 || event.source === filter.source) && (filter.kind === void 0 || event.kind === filter.kind) && (filter.since === void 0 || Date.parse(event.occurredAt) >= Date.parse(filter.since)) && (filter.until === void 0 || Date.parse(event.occurredAt) < Date.parse(filter.until));
+}
+
+// src/cli/ledger-commands.ts
+var DEFAULT_LEDGER = ".kore/state/ledger.jsonl";
+var EVENT_FLAGS = [
+  "id",
+  "source",
+  "kind",
+  "occurred-at",
+  "session",
+  "pane",
+  "agent",
+  "idea",
+  "stage",
+  "tool",
+  "outcome",
+  "label",
+  "number"
+];
+var STRING_FLAGS = (names2) => Object.fromEntries(names2.map((n) => [n, "string"]));
+var camel = (flag) => flag.replace(/-(\w)/g, (_, c) => c.toUpperCase());
+var NO_ROOT = "Cannot find the main checkout root for the shared ledger. Run inside the repository, set KORE_ROOT to its root, or pass --ledger <path>.";
+async function ledgerPath({
+  deps,
+  options
+}) {
+  const given = options["ledger"];
+  if (typeof given === "string") {
+    return resolve2(deps.cwd, given);
+  }
+  const override = deps.env["KORE_ROOT"];
+  if (override !== void 0 && override !== "") {
+    return resolve2(deps.cwd, override, DEFAULT_LEDGER);
+  }
+  const checkout = await deps.root().catch(() => void 0);
+  if (checkout === void 0) {
+    return void 0;
+  }
+  const git = await deps.runner.run(
+    "git",
+    ["rev-parse", "--path-format=absolute", "--git-common-dir"],
+    { cwd: checkout }
+  );
+  const common = git.stdout.trim();
+  return git.code === 0 && common !== "" ? resolve2(dirname3(common), DEFAULT_LEDGER) : void 0;
+}
+async function openLedger(context) {
+  const path = await ledgerPath(context);
+  if (path === void 0) {
+    return { error: NO_ROOT };
+  }
+  const { deps } = context;
+  return { ledger: new Ledger(deps.fs, deps.clock, deps.ids, path) };
+}
+async function eventInput(context) {
+  const given = EVENT_FLAGS.filter((f) => context.options[f] !== void 0);
+  if (given.length > 0) {
+    return {
+      input: Object.fromEntries(
+        given.map((f) => {
+          const value = String(context.options[f]);
+          const isCount = f === "number" && /^\d+$/.test(value);
+          return [camel(f), isCount ? Number(value) : value];
+        })
+      )
+    };
+  }
+  const text2 = await context.deps.stdin();
+  if (text2.trim() === "") {
+    return {
+      error: "No event given. Pass --source, --kind and --occurred-at, or one JSON event on stdin.",
+      code: 2
+    };
+  }
+  try {
+    return { input: JSON.parse(text2) };
+  } catch {
+    return { error: "Invalid event: stdin is not valid JSON." };
+  }
+}
+function reject({ json, deps }, message, field2, code = 1) {
+  deps.stderr(
+    json ? `${JSON.stringify({ error: message, field: field2 })}
+` : `${message}
+`
+  );
+  return code;
+}
+var record = {
+  summary: "append one validated event, from flags or JSON on stdin, to the stage ledger",
+  options: STRING_FLAGS([...EVENT_FLAGS, "ledger"]),
+  async run(context) {
+    const given = await eventInput(context);
+    if ("error" in given) {
+      return reject(context, given.error, "event", given.code);
+    }
+    const opened = await openLedger(context);
+    if ("error" in opened) {
+      return reject(context, opened.error, "ledger");
+    }
+    const result = await opened.ledger.record(given.input);
+    if (!result.ok) {
+      return reject(context, result.message, result.field);
+    }
+    context.deps.stdout(
+      context.json ? `${JSON.stringify({ event: result.event })}
+` : `recorded ${result.event.id} ${result.event.kind}
+`
+    );
+    return 0;
+  }
+};
+function filterFrom(options) {
+  const filter = {};
+  const text2 = (name) => {
+    const value = options[name];
+    return typeof value === "string" ? value : void 0;
+  };
+  for (const name of ["session", "pane", "idea"]) {
+    const value = text2(name);
+    if (value !== void 0) {
+      filter[name] = value;
+    }
+  }
+  const source = text2("source");
+  if (source !== void 0) {
+    if (!SOURCES.includes(source)) {
+      return {
+        error: `Invalid --source "${source}". Sources: ${SOURCES.join(", ")}.`
+      };
+    }
+    filter.source = source;
+  }
+  const kind = text2("kind");
+  if (kind !== void 0) {
+    if (!KINDS.includes(kind)) {
+      return { error: `Invalid --kind "${kind}". Kinds: ${KINDS.join(", ")}.` };
+    }
+    filter.kind = kind;
+  }
+  for (const name of ["since", "until"]) {
+    const value = text2(name);
+    if (value !== void 0) {
+      if (!isTimestamp(value)) {
+        return {
+          error: `Invalid --${name} "${value}". Use an ISO 8601 UTC time such as 2026-01-02T03:04:05Z.`
+        };
+      }
+      filter[name] = value;
+    }
+  }
+  return { filter };
+}
+function line(event) {
+  const where = [event.session, event.pane, event.idea].filter(
+    (v) => v !== void 0
+  );
+  return [event.occurredAt, event.source, event.kind, ...where].join(" ");
+}
+var list2 = {
+  summary: "list stage events, filtered by session, pane, idea, source, kind and time range (--since inclusive, --until exclusive, on occurredAt)",
+  options: STRING_FLAGS([
+    "session",
+    "pane",
+    "idea",
+    "source",
+    "kind",
+    "since",
+    "until",
+    "ledger"
+  ]),
+  async run(context) {
+    const parsed = filterFrom(context.options);
+    if ("error" in parsed) {
+      return reject(context, parsed.error, "filter", 2);
+    }
+    const opened = await openLedger(context);
+    if ("error" in opened) {
+      return reject(context, opened.error, "ledger");
+    }
+    const { events, skipped } = await opened.ledger.list(parsed.filter);
+    if (context.json) {
+      context.deps.stdout(`${JSON.stringify({ events, skipped })}
+`);
+      return 0;
+    }
+    context.deps.stdout(events.map((e) => `${line(e)}
+`).join(""));
+    if (skipped > 0) {
+      context.deps.stdout(`skipped ${skipped} malformed ledger line(s)
+`);
+    }
+    return 0;
+  }
+};
+var ledgerCommands = { record, list: list2 };
+
 // src/plan/active.ts
 import { join as join2 } from "node:path";
 
@@ -778,15 +1227,15 @@ function listItems(markdown) {
   const items = [];
   let heading = "";
   let current = null;
-  for (const line of markdown.split("\n")) {
-    if (line.startsWith("## ")) {
-      heading = line.slice(3).trim();
+  for (const line2 of markdown.split("\n")) {
+    if (line2.startsWith("## ")) {
+      heading = line2.slice(3).trim();
     }
-    if (line.startsWith("- ")) {
-      current = { heading, text: line.trim() };
+    if (line2.startsWith("- ")) {
+      current = { heading, text: line2.trim() };
       items.push(current);
-    } else if (current && /^\s+\S/.test(line)) {
-      current.text += ` ${line.trim()}`;
+    } else if (current && /^\s+\S/.test(line2)) {
+      current.text += ` ${line2.trim()}`;
     } else {
       current = null;
     }
@@ -815,16 +1264,16 @@ function openCounts(markdown) {
 function nextStep(markdown) {
   let heading = "";
   let next = null;
-  for (const line of markdown.split("\n")) {
+  for (const line2 of markdown.split("\n")) {
     if (next) {
-      if (!line.trim() || line.startsWith("#")) {
+      if (!line2.trim() || line2.startsWith("#")) {
         break;
       }
-      next.text += ` ${line.trim()}`;
-    } else if (line.startsWith("## ")) {
-      heading = line.slice(3).trim();
-    } else if (line.startsWith("Next:")) {
-      next = { step: heading, text: line.slice(5).trim() };
+      next.text += ` ${line2.trim()}`;
+    } else if (line2.startsWith("## ")) {
+      heading = line2.slice(3).trim();
+    } else if (line2.startsWith("Next:")) {
+      next = { step: heading, text: line2.slice(5).trim() };
     }
   }
   return next;
@@ -832,7 +1281,7 @@ function nextStep(markdown) {
 function upcomingSteps(markdown) {
   const open = [...openSteps(markdown).keys()];
   const current = nextStep(markdown)?.step ?? open[0];
-  const headings2 = markdown.split("\n").filter((line) => line.startsWith("## ")).map((line) => line.slice(3).trim());
+  const headings2 = markdown.split("\n").filter((line2) => line2.startsWith("## ")).map((line2) => line2.slice(3).trim());
   const after = headings2.slice(headings2.indexOf(current ?? "") + 1);
   return after.filter((heading) => open.includes(heading)).slice(0, UPCOMING_STEPS);
 }
@@ -1269,8 +1718,8 @@ function invalid(name, reason) {
   };
 }
 function field(frontmatter2, key) {
-  const line = frontmatter2.split("\n").find((l) => l.startsWith(`${key}:`));
-  const value = line?.slice(key.length + 1).trim();
+  const line2 = frontmatter2.split("\n").find((l) => l.startsWith(`${key}:`));
+  const value = line2?.slice(key.length + 1).trim();
   if (value === void 0 || value === "") {
     return void 0;
   }
@@ -1405,7 +1854,8 @@ var domains = {
   adr: adrCommands,
   session,
   skill,
-  idea: ideaCommands
+  idea: ideaCommands,
+  ledger: ledgerCommands
 };
 
 // src/cli/cli.ts
@@ -1441,7 +1891,7 @@ function own(table, key) {
 function names(commands) {
   return Object.keys(commands).join(", ");
 }
-function resolve2(domain, name) {
+function resolve3(domain, name) {
   const commands = own(domains, domain);
   if (commands === void 0) {
     return {
@@ -1522,7 +1972,15 @@ async function run(argv, deps) {
   const rest = argv.filter(
     (token, i) => !words.includes(i) && token !== "--json" && token !== "--help" && token !== "-h"
   );
-  const resolved = resolve2(domain, name);
+  const early = argv.slice(0, words[1] ?? 0).find((t) => t.startsWith("-") && !["--json", "--help", "-h"].includes(t));
+  if (early !== void 0) {
+    return fail(
+      deps,
+      json,
+      `Put "${early}" after the command: harness <domain> <command> [flags].`
+    );
+  }
+  const resolved = resolve3(domain, name);
   if ("error" in resolved) {
     return fail(deps, json, resolved.error);
   }
@@ -1545,13 +2003,21 @@ try {
     runner: new ProcessRunner(),
     clock: systemClock,
     fs: nodeFileSystem,
+    ids: systemIds,
+    env: process.env,
+    cwd: process.cwd(),
+    stdin: async () => {
+      const chunks = [];
+      for await (const chunk of process.stdin) {
+        chunks.push(Buffer.from(chunk));
+      }
+      return Buffer.concat(chunks).toString("utf8");
+    },
     root: () => root ??= resolveRoot(
       process.env,
       import.meta.url,
       (path) => nodeFileSystem.exists(path)
     ),
-    env: process.env,
-    cwd: process.cwd(),
     stdout: (text2) => process.stdout.write(text2),
     stderr
   });

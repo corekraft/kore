@@ -1,6 +1,7 @@
 import pkg from "../../package.json" with { type: "json" };
 import { adrCommands } from "../adr/index.js";
 import { ideaCommands } from "../idea/index.js";
+import { ledgerCommands } from "./ledger-commands.js";
 import { planActive } from "../plan/index.js";
 import { session } from "../session/index.js";
 import { skill } from "../skill/index.js";
@@ -26,4 +27,5 @@ export const domains: Record<string, Record<string, Command>> = {
   session,
   skill,
   idea: ideaCommands,
+  ledger: ledgerCommands,
 };

@@ -44,6 +44,11 @@ export class MemoryFileSystem implements FileSystem {
     return Promise.resolve();
   }
 
+  appendFile(path: string, content: string): Promise<void> {
+    this.files.set(this.checked(path), (this.files.get(path) ?? "") + content);
+    return Promise.resolve();
+  }
+
   exists(path: string): Promise<boolean> {
     const dir = `${this.checked(path)}/`;
     return Promise.resolve(

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { nodeFileSystem } from "./filesystem.js";
 import { systemClock } from "./clock.js";
+import { systemIds } from "./ids.js";
 import { ProcessRunner } from "./runner.js";
 import { FakeRunner } from "./runner-support.js";
 
@@ -87,6 +88,21 @@ describe("nodeFileSystem", () => {
     await expect(
       nodeFileSystem.exists(join(dir, "f", "child")),
     ).rejects.toThrow();
+  });
+});
+
+describe("nodeFileSystem.appendFile", () => {
+  it("creates the file and parents, then appends", async () => {
+    const file = join(await tempDir(), "a", "log.jsonl");
+    await nodeFileSystem.appendFile(file, "one\n");
+    await nodeFileSystem.appendFile(file, "two\n");
+    expect(await nodeFileSystem.readFile(file)).toBe("one\ntwo\n");
+  });
+});
+
+describe("systemIds", () => {
+  it("returns a different id each call", () => {
+    expect(systemIds.next()).not.toBe(systemIds.next());
   });
 });
 
