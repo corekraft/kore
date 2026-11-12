@@ -1,5 +1,5 @@
-// Plan-file parser shared by `plan active` and, later, the context hook port.
-// Behaviour mirrors .claude/hooks/context.mjs; pure functions over Markdown text.
+// Plan-file parser shared by `plan active`, `plan next`, `plan tick` and the
+// context hook; pure functions over Markdown text.
 
 const FRONTMATTER = /^---\n([\s\S]*?)\n---\n/;
 const UPCOMING_STEPS = 3;

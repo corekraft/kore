@@ -120,6 +120,7 @@ import {
   readFileSync,
   rmSync,
   symlinkSync,
+  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -167,14 +168,16 @@ function project(t, { bundle = true, expect = 0 } = {}) {
 }
 
 function runHook(script, args, payload, dir, { ledger = true } = {}) {
-  // The feedback and guard hooks are harness hooks; the others are still scripts.
+  // The feedback, guard and context hooks are harness hooks; the others are still scripts.
   const bundle = join(repo, "skills", "bin", "harness.mjs");
   const argv =
     script === "feedback.mjs"
       ? [join(dir, "skills", "bin", "harness.mjs"), "hook", "feedback", ...args]
       : script === "guard.mjs"
         ? [bundle, "hook", "guard", ...args]
-        : [join(hooks, script), ...args];
+        : script === "context.mjs"
+          ? [bundle, "hook", "context", ...args]
+          : [join(hooks, script), ...args];
   return spawnSync(process.execPath, argv, {
     input: JSON.stringify(payload),
     encoding: "utf8",
@@ -354,7 +357,15 @@ test(
   "the context hook records nothing, so its behaviour no longer depends on the ledger",
   async (t) => {
     const dir = project(t, { expect: 1 });
-    runHook("context.mjs", [], { session_id: "s1", source: "startup" }, dir);
+    mkdirSync(join(dir, "infra", "plans"), { recursive: true });
+    writeFileSync(join(dir, "AGENTS.md"), "# AGENTS.md\n");
+    const result = runHook(
+      "context.mjs",
+      [],
+      { session_id: "s1", source: "startup" },
+      dir,
+    );
+    assert.equal(result.status, 0, result.stderr);
     await onlySentinel(dir);
   },
   TIMEOUT,

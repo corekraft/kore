@@ -1,4 +1,5 @@
 import type { Command } from "../runtime/index.js";
+import { context } from "./context-command.js";
 import { delta } from "./delta-command.js";
 import { feedback } from "./feedback.js";
 import { guard } from "./guard.js";
@@ -26,6 +27,7 @@ const guardHook = hookCommand(
 
 /** The hooks the host runs as `harness hook <name>`; each is a command in this domain. */
 export const hook: Record<string, Command> = {
+  context,
   delta,
   feedback: feedbackHook,
   guard: guardHook,
