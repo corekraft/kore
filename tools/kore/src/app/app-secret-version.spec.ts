@@ -1,4 +1,4 @@
-import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
+import { loadRepository } from "../config/index.js";
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { join } from "node:path";
@@ -70,7 +70,7 @@ function workloadSet(calls: Call[]): string[] {
 }
 
 test("the workload release carries a one-way digest of the source rotation id", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
   const calls: Call[] = [];
   await appUp(
@@ -109,7 +109,7 @@ test("a release deploy carries the same secret version, so consumers roll on bot
 });
 
 test("a source without a rotation id adds no secret version, so legacy releases do not churn", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
   const calls: Call[] = [];
   await appUp(

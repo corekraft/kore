@@ -1,4 +1,4 @@
-import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
+import { loadRepository } from "../config/index.js";
 import { afterEach, test, expect, vi } from "vitest";
 
 const localRegistryReferenceMock = vi.hoisted(() => vi.fn());
@@ -26,7 +26,7 @@ test.each(["appUp", "appUpRelease"] as const)(
   async (path) => {
     const repository =
       path === "appUp"
-        ? await loadMinikubeLocal()
+        ? await loadRepository("local")
         : await repositoryTrustingRelease();
     const calls: Call[] = [];
     const inputs: string[] = [];

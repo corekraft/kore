@@ -1,4 +1,4 @@
-import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
+import { loadRepository } from "../config/index.js";
 import { mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -31,7 +31,7 @@ afterEach(async () => {
 async function testRepository(): Promise<Repository> {
   const root = await mkdtemp(join(tmpdir(), "kore-local-image-"));
   roots.push(root);
-  return { ...(await loadMinikubeLocal()), root };
+  return { ...(await loadRepository("local")), root };
 }
 
 test("the push credential reaches the node only on stdin and never in an argument", async () => {
@@ -42,11 +42,11 @@ test("the push credential reaches the node only on stdin and never in an argumen
   await buildAndSignLocalImage(repository, runner, "reference", entry);
 
   const publish = calls.find((c) => c.args.some((a) => a.includes("push")))!;
-  expect(publish.options?.input).toBe(`${pushPassword}\n`);
-  const script = publish.args.join(" ");
-  expect(script).toContain("--password-stdin");
-  expect(script).toContain("kore-push");
-  expect(JSON.stringify(calls.map((c) => c.args))).not.toContain(pushPassword);
+  const basic = encodeBase64(`kore-push:${pushPassword}`);
+  expect(publish.options?.input).toBe(`${basic}\n`);
+  const everyArgument = JSON.stringify(calls.map((c) => c.args));
+  expect(everyArgument).not.toContain(pushPassword);
+  expect(everyArgument).not.toContain(basic);
 });
 
 test("the node keeps its login in memory-backed storage and removes it afterwards", async () => {
@@ -104,9 +104,7 @@ test("the digest lookup authenticates and a rejected credential is reported acti
   );
 });
 
-test("the node reads exactly one password line, so the login never waits for end of input", async () => {
-  // minikube's native SSH client forwards stdin but never closes it, so a
-  // command that reads stdin to EOF hangs forever (2026-11-08 live run).
+test("the node reads exactly one credential line, so the publish never waits for end of input", async () => {
   const repository = await testRepository();
   const { runner, calls } = fakeRunner();
   stubRegistry(registryReference, registryHead);
@@ -115,18 +113,11 @@ test("the node reads exactly one password line, so the login never waits for end
 
   const script = calls
     .find((c) => c.args.some((a) => a.includes("push")))!
-    .args.join(" ")
-    .replaceAll("'\\''", "'");
+    .args.join(" ");
   expect(script).toMatch(/IFS= read -r \w+/);
-  expect(script).toMatch(
-    /printf '%s' "\$\w+" \| nerdctl [^\n]*login [^\n]*--password-stdin/,
-  );
-  expect(script).not.toMatch(/^nerdctl [^\n]*login[^\n]*--password-stdin/m);
 });
 
-test("credentialed node sessions use the external ssh client, which neither echoes stdin nor holds it open", async () => {
-  // minikube's native SSH client allocates a terminal that echoes the password
-  // into captured output (and so into error messages), and never closes stdin.
+test("credentialed node sessions go through docker exec on the node, never a node shell", async () => {
   const repository = await testRepository();
   const { runner, calls } = fakeRunner();
   stubRegistry(registryReference, registryHead);
@@ -134,8 +125,10 @@ test("credentialed node sessions use the external ssh client, which neither echo
   await buildAndSignLocalImage(repository, runner, "reference", entry);
 
   const publish = calls.find((c) => c.args.some((a) => a.includes("push")))!;
-  const dashdash = publish.args.indexOf("--");
-  expect(publish.args.slice(0, dashdash)).toContain("--native-ssh=false");
+  expect(publish.command).toBe("docker");
+  expect(publish.args[0]).toBe("exec");
+  const commands = calls.map(({ command }) => command);
+  expect(commands).not.toContain("ssh");
 });
 
 test("a failed publish never carries the push password in its error, even if the node echoed it", async () => {
@@ -146,7 +139,7 @@ test("a failed publish never carries the push password in its error, even if the
     async run(command, args, options) {
       if (args.some((a) => a.includes("push"))) {
         throw new Error(
-          `minikube ssh failed (1): ${pushPassword}\n${pushPassword}`,
+          `docker exec failed (1): ${pushPassword}\n${pushPassword}`,
         );
       }
       return runner.run(command, args, options);

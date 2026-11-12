@@ -69,7 +69,7 @@ test("the charts render identically in every environment except the gateway host
 
 test("chart sources hold no provider-specific templates, values, or hostnames", async () => {
   const provider =
-    /minikube|nodeport|loadbalancer|hostpath|storageclassname|ingressclass|\.amazonaws\.|\.azure\.|gke\.|hcloud|digitalocean|kore\.local|127\.0\.0\.1/i;
+    /k3d|nodeport|loadbalancer|hostpath|storageclassname|ingressclass|\.amazonaws\.|\.azure\.|gke\.|hcloud|digitalocean|kore\.local|127\.0\.0\.1/i;
   for (const name of ["workload", "resources"] as const) {
     for (const file of await files(await chartPath(name))) {
       assert.doesNotMatch(

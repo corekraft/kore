@@ -1,4 +1,4 @@
-import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
+import { loadRepository } from "../config/index.js";
 import { expect, test, vi } from "vitest";
 
 const localRegistryReferenceMock = vi.hoisted(() => vi.fn());
@@ -10,11 +10,7 @@ vi.mock("../images/index.js", async (importOriginal) => ({
 import { appUp } from "./up.js";
 import { bindCrossplaneSecrets } from "./install.js";
 import type { Runner } from "../runtime/index.js";
-import {
-  healthyReadinessOutput,
-  passthroughRegistry,
-  releaseNotFound,
-} from "./app-fixtures.js";
+import { healthyRunner, passthroughRegistry } from "./app-fixtures.js";
 
 interface Recorded {
   command: string;
@@ -23,35 +19,13 @@ interface Recorded {
 }
 
 test("app up binds Crossplane's Secret role in the application namespace before the claim installs", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   const calls: Recorded[] = [];
+  const inner = healthyRunner([]);
   const runner: Runner = {
     async run(command, args, options) {
       calls.push({ command, args, input: options?.input });
-      releaseNotFound(command, args);
-      if (command === "helm" && args[0] === "status") {
-        return {
-          stdout: '{"info":{"status":"deployed"}}',
-          stderr: "",
-          code: 0,
-        };
-      }
-      if (command === "kubectl" && healthyReadinessOutput(args) !== undefined) {
-        return { stdout: healthyReadinessOutput(args)!, stderr: "", code: 0 };
-      }
-      if (
-        command === "kubectl" &&
-        args.some((arg) => arg.includes("spec.clusterIP"))
-      ) {
-        return { stdout: "10.96.0.50", stderr: "", code: 0 };
-      }
-      if (command === "kubectl" && args.includes("--output=name")) {
-        return { stdout: "deployment/reference-api\n", stderr: "", code: 0 };
-      }
-      if (command === "kubectl" && args.includes("namespace")) {
-        return { stdout: "kube-system", stderr: "", code: 0 };
-      }
-      return { stdout: "", stderr: "", code: 0 };
+      return await inner.run(command, args, options);
     },
   };
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
@@ -95,7 +69,7 @@ test("app up binds Crossplane's Secret role in the application namespace before 
 });
 
 test("Crossplane's Secret role is never bound in kore-system or another platform namespace", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   for (const namespace of ["kore-system", "crossplane-system", "kube-system"]) {
     const calls: Recorded[] = [];
     const runner: Runner = {

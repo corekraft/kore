@@ -1,4 +1,5 @@
-import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
+import { list } from "../cluster/k3d-cluster.fixtures.js";
+import { loadRepository } from "../config/index.js";
 import assert from "node:assert/strict";
 import {
   mkdtemp,
@@ -31,6 +32,9 @@ class SourceRunner implements Runner {
     args: readonly string[],
     options?: RunOptions,
   ): Promise<RunResult> {
+    if (command === "k3d") {
+      return { stdout: list(1), stderr: "", code: 0 };
+    }
     this.calls.push({ command, args, ...(options ? { options } : {}) });
     const ok = (stdout: string): RunResult => ({ stdout, stderr: "", code: 0 });
     if (command === "kubectl" && args.includes("jsonpath={.metadata.name}")) {
@@ -69,7 +73,7 @@ async function checkout(): Promise<{ root: string; tokenPath: string }> {
 }
 
 test("a checkout never overwrites a token source that already exists in the cluster", async () => {
-  const base = await loadMinikubeLocal();
+  const base = await loadRepository("local");
   const { root, tokenPath } = await checkout();
   try {
     const runner = new SourceRunner(true);
@@ -82,7 +86,7 @@ test("a checkout never overwrites a token source that already exists in the clus
 });
 
 test("a checkout whose local token differs from the cluster still leaves the source alone", async () => {
-  const base = await loadMinikubeLocal();
+  const base = await loadRepository("local");
   const { root, tokenPath } = await checkout();
   try {
     await writeFile(tokenPath, `${"b".repeat(64)}\n`, { mode: 0o600 });
@@ -96,7 +100,7 @@ test("a checkout whose local token differs from the cluster still leaves the sou
 });
 
 test("creating the source records a rotation id that is not the token", async () => {
-  const base = await loadMinikubeLocal();
+  const base = await loadRepository("local");
   const { root, tokenPath } = await checkout();
   try {
     const runner = new SourceRunner(false);
@@ -116,7 +120,7 @@ test("creating the source records a rotation id that is not the token", async ()
 });
 
 test("rotation replaces the existing source with a new token and a new rotation id", async () => {
-  const base = await loadMinikubeLocal();
+  const base = await loadRepository("local");
   const { root, tokenPath } = await checkout();
   try {
     await writeFile(tokenPath, `${"b".repeat(64)}\n`, { mode: 0o600 });
@@ -141,7 +145,7 @@ test("rotation replaces the existing source with a new token and a new rotation 
 });
 
 test("rotation without consent fails before any command runs or token changes", async () => {
-  const base = await loadMinikubeLocal();
+  const base = await loadRepository("local");
   const { root, tokenPath } = await checkout();
   try {
     const runner = new SourceRunner(true);

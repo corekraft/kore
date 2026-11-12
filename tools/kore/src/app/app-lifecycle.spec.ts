@@ -1,4 +1,5 @@
-import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
+import { list } from "../cluster/k3d-cluster.fixtures.js";
+import { loadRepository } from "../config/index.js";
 import { expect, test } from "vitest";
 import { copyFile, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -8,10 +9,13 @@ import { appStatus, appDown } from "./app.js";
 import type { Runner } from "../runtime/index.js";
 
 test("app down uninstalls the named workload release", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   const calls: { command: string; args: readonly string[] }[] = [];
   const runner: Runner = {
     async run(command, args) {
+      if (command === "k3d") {
+        return { stdout: list(1), stderr: "", code: 0 };
+      }
       calls.push({ command, args });
       if (command === "kubectl") {
         return { stdout: "kube-system", stderr: "", code: 0 };
@@ -29,7 +33,7 @@ test("app down uninstalls the named workload release", async () => {
       "reference",
       "--namespace=reference",
       "--kube-context",
-      "kore-local",
+      "k3d-kore-local",
       "--ignore-not-found",
       "--wait",
       "--timeout=10m",
@@ -38,9 +42,12 @@ test("app down uninstalls the named workload release", async () => {
 });
 
 test("app down warns instead of failing when the retained-data query fails", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   const runner: Runner = {
     async run(command, args) {
+      if (command === "k3d") {
+        return { stdout: list(1), stderr: "", code: 0 };
+      }
       if (command === "kubectl" && args.includes("-l")) {
         throw new Error("Unable to connect to the server");
       }
@@ -57,10 +64,13 @@ test("app down warns instead of failing when the retained-data query fails", asy
 });
 
 test("app down reports retained data in the application namespace and never deletes it", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   const calls: { command: string; args: readonly string[] }[] = [];
   const runner: Runner = {
     async run(command, args) {
+      if (command === "k3d") {
+        return { stdout: list(1), stderr: "", code: 0 };
+      }
       calls.push({ command, args });
       if (command === "kubectl" && args.includes("persistentvolumes")) {
         return { stdout: '{"items":[]}', stderr: "", code: 0 };
@@ -111,7 +121,7 @@ test("app down reports retained data in the application namespace and never dele
 });
 
 test("app status reports locked image provenance", async () => {
-  const base = await loadMinikubeLocal();
+  const base = await loadRepository("local");
   const root = await mkdtemp(join(tmpdir(), "kore-app-status-"));
   await mkdir(join(root, "infra/catalog"), { recursive: true });
   await copyFile(
@@ -121,6 +131,9 @@ test("app status reports locked image provenance", async () => {
   const repository = { ...base, root };
   const runner: Runner = {
     async run(command, _args) {
+      if (command === "k3d") {
+        return { stdout: list(1), stderr: "", code: 0 };
+      }
       if (command === "kubectl") {
         return { stdout: "kube-system", stderr: "", code: 0 };
       }
@@ -149,7 +162,7 @@ test("app status reports locked image provenance", async () => {
 });
 
 test("app status prefers the local image lock when present", async () => {
-  const base = await loadMinikubeLocal();
+  const base = await loadRepository("local");
   const root = await mkdtemp(join(tmpdir(), "kore-app-status-local-lock-"));
   await mkdir(join(root, ".kore/state"), { recursive: true });
   await copyFile(
@@ -158,6 +171,9 @@ test("app status prefers the local image lock when present", async () => {
   );
   const runner: Runner = {
     async run(command) {
+      if (command === "k3d") {
+        return { stdout: list(1), stderr: "", code: 0 };
+      }
       if (command === "kubectl") {
         return { stdout: "kube-system", stderr: "", code: 0 };
       }

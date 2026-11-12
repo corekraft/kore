@@ -3,10 +3,6 @@ import { loadRepository } from "../config/index.js";
 import { imageReleaseArgs, localImagePullPolicyArgs } from "./release.js";
 import { verifyLockedImageArgs, localPublicKeyPath } from "./verify.js";
 import {
-  localMinikubeImageReference,
-  minikubeImagePullArgs,
-} from "./local-image.js";
-import {
   deploymentListArgs,
   deploymentRolloutStatusArgs,
 } from "./readiness.js";
@@ -99,38 +95,6 @@ test("image reference helpers reject missing immutable digest and local registry
   expect(() => imageReleaseArgs({} as never, "reference", image)).toThrow(
     /must include a digest/,
   );
-  expect(() => localMinikubeImageReference("invalid", "10.0.0.1")).toThrow(
-    /reference and registry address are required/,
-  );
-  expect(() => localMinikubeImageReference("registry/image:dev", "  ")).toThrow(
-    /reference and registry address are required/,
-  );
-});
-
-test("Minikube stages the locked digest under the registry service reference", () => {
-  const reference = localMinikubeImageReference(
-    "registry.kore.local:30500/reference@sha256:" + "a".repeat(64),
-    "10.102.135.66:5000",
-  );
-  expect(reference).toBe(
-    "10.102.135.66:5000/reference@sha256:" + "a".repeat(64),
-  );
-  const args = minikubeImagePullArgs(
-    "kore-local",
-    reference,
-    "10.102.135.66:5000",
-    "kore-read",
-  );
-  expect(args.slice(0, 5)).toEqual([
-    "ssh",
-    "--profile",
-    "kore-local",
-    "--native-ssh=false",
-    "--",
-  ]);
-  expect(args[5]).toContain("--password-stdin");
-  expect(args[5]).toContain("nerdctl --namespace k8s.io pull");
-  expect(args[5]).toContain(reference);
 });
 
 test("local workload releases never pull the already-loaded image", () => {

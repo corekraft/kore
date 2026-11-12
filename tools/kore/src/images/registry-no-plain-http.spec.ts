@@ -2,9 +2,11 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, test } from "vitest";
 import { verifyLockedImageArgs } from "../app/verify.js";
-import { minikubeImagePullArgs } from "../app/local-image.js";
-import { localSignArgs, minikubeImagePublishArgs } from "./local-image-args.js";
-import { minikubeRegistrySessionArgs } from "./local-image-args.js";
+import {
+  k3dImagePublishArgs,
+  k3dRegistrySessionArgs,
+  localSignArgs,
+} from "./local-image-args.js";
 
 // Docs: docs/decisions/0058-registry-transport-tls.md
 
@@ -17,22 +19,8 @@ const image = {
 
 test("no node command skips TLS verification or allows plain HTTP", () => {
   const all = [
-    ...minikubeImagePublishArgs(
-      "p",
-      "t",
-      "10.96.0.50:5000",
-      "x:y",
-      "kore-push",
-    ),
-    ...minikubeImagePullArgs(
-      "p",
-      "10.96.0.50:5000/x:y",
-      "10.96.0.50:5000",
-      "kore-read",
-    ),
-    ...minikubeRegistrySessionArgs("p", "10.96.0.50:5000", "kore-read", [
-      "nerdctl pull x",
-    ]),
+    ...k3dImagePublishArgs("p", "t", "10.96.0.50:5000", "x:y", "CA"),
+    ...k3dRegistrySessionArgs("p", "10.96.0.50:5000", "CA", ["ctr pull x"]),
   ].join(" ");
   expect(all).not.toMatch(/insecure|allow-http|skip[-_]verify|plain-?http/i);
 });

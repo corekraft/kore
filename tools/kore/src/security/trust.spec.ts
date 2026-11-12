@@ -1,4 +1,5 @@
-import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
+import { list } from "../cluster/k3d-cluster.fixtures.js";
+import { loadRepository } from "../config/index.js";
 import assert from "node:assert/strict";
 import { test } from "vitest";
 
@@ -30,11 +31,12 @@ function recordingRunner(): { runner: Runner; calls: Call[] } {
       args: readonly string[],
       options?: RunOptions,
     ): Promise<RunResult> {
+      if (command === "k3d") {
+        return { stdout: list(1), stderr: "", code: 0 };
+      }
       calls.push({ command, args, ...(options ? { options } : {}) });
       let stdout = "";
-      if (command === "minikube") {
-        stdout = "{}";
-      } else if (args.includes("jsonpath={.metadata.name}")) {
+      if (args.includes("jsonpath={.metadata.name}")) {
         stdout = "kube-system";
       } else if (command === "mkcert" && args[0] === "-CAROOT") {
         stdout = "/tmp";
@@ -55,7 +57,7 @@ function appliedInputs(calls: Call[]): string[] {
 
 test("local trust installation hands the gateway namespace to Helm ownership", async () => {
   const { runner, calls } = recordingRunner();
-  await installLocalTrust(await loadMinikubeLocal(), runner);
+  await installLocalTrust(await loadRepository("local"), runner);
   assert.ok(
     appliedInputs(calls).some(
       (input) =>
@@ -68,7 +70,7 @@ test("local trust installation hands the gateway namespace to Helm ownership", a
 
 test("local trust installation builds the CA secret from the mkcert root for cert-manager", async () => {
   const { runner, calls } = recordingRunner();
-  await installLocalTrust(await loadMinikubeLocal(), runner);
+  await installLocalTrust(await loadRepository("local"), runner);
   const create = calls.find(({ args }) => args.includes("create"));
   assert.ok(create);
   assert.ok(create.args.includes("cert-manager"));
@@ -78,7 +80,7 @@ test("local trust installation builds the CA secret from the mkcert root for cer
 
 test("local trust installation applies the issuer then waits for it to be ready", async () => {
   const { runner, calls } = recordingRunner();
-  await installLocalTrust(await loadMinikubeLocal(), runner);
+  await installLocalTrust(await loadRepository("local"), runner);
   const issuer = calls.findIndex(({ options }) =>
     options?.input?.includes("name: kore-local-ca"),
   );
@@ -91,7 +93,7 @@ test("local trust installation applies the issuer then waits for it to be ready"
 });
 
 test("trust installation rejects managed environments before side effects", async () => {
-  const base = await loadMinikubeLocal();
+  const base = await loadRepository("local");
   const repository = {
     ...base,
     environment: { ...base.environment, provider: "managed" as const },
@@ -105,17 +107,17 @@ test("trust installation rejects managed environments before side effects", asyn
   };
   await assert.rejects(
     installLocalTrust(repository, runner),
-    /only valid for a local \(k3d or Minikube\) environment/,
+    /only valid for a local k3d environment/,
   );
   assert.equal(calls, 0);
 });
 
 test("trust installation fails closed when mkcert does not expose a CA root", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   const runner: Runner = {
     async run(command: string, args: readonly string[]): Promise<RunResult> {
-      if (command === "minikube") {
-        return { stdout: "{}", stderr: "", code: 0 };
+      if (command === "k3d") {
+        return { stdout: list(1), stderr: "", code: 0 };
       }
       if (command === "kubectl" && args.includes("jsonpath={.metadata.name}")) {
         return { stdout: "kube-system", stderr: "", code: 0 };
@@ -158,6 +160,9 @@ function trustRunner(caRoot: string, verifyFails: boolean | Error = false) {
   const { runner, calls } = recordingRunner();
   const wrapped: Runner = {
     async run(command, args, options) {
+      if (command === "k3d") {
+        return { stdout: list(1), stderr: "", code: 0 };
+      }
       if (command === "mkcert" && args[0] === "-CAROOT") {
         calls.push({ command, args });
         return { stdout: caRoot, stderr: "", code: 0 };
@@ -187,7 +192,7 @@ test("mkcert -install is skipped when the CA files exist and macOS already trust
   const caRoot = await caRootWithFiles(["rootCA.pem", "rootCA-key.pem"]);
   try {
     const { runner, calls } = trustRunner(caRoot);
-    await installLocalTrust(await loadMinikubeLocal(), runner, {
+    await installLocalTrust(await loadRepository("local"), runner, {
       platform: "darwin",
     });
     assert.equal(installed(calls), false);
@@ -207,7 +212,7 @@ test("mkcert -install still runs when the host trust check fails", async () => {
   const caRoot = await caRootWithFiles(["rootCA.pem", "rootCA-key.pem"]);
   try {
     const { runner, calls } = trustRunner(caRoot, true);
-    await installLocalTrust(await loadMinikubeLocal(), runner, {
+    await installLocalTrust(await loadRepository("local"), runner, {
       platform: "darwin",
     });
     assert.equal(installed(calls), true);
@@ -220,7 +225,7 @@ test("mkcert -install still runs when the CA key is missing", async () => {
   const caRoot = await caRootWithFiles(["rootCA.pem"]);
   try {
     const { runner, calls } = trustRunner(caRoot);
-    await installLocalTrust(await loadMinikubeLocal(), runner, {
+    await installLocalTrust(await loadRepository("local"), runner, {
       platform: "darwin",
     });
     assert.equal(installed(calls), true);
@@ -237,7 +242,7 @@ test("mkcert -install always runs on hosts without a supported trust check", asy
   const caRoot = await caRootWithFiles(["rootCA.pem", "rootCA-key.pem"]);
   try {
     const { runner, calls } = trustRunner(caRoot);
-    await installLocalTrust(await loadMinikubeLocal(), runner, {
+    await installLocalTrust(await loadRepository("local"), runner, {
       platform: "linux",
     });
     assert.equal(installed(calls), true);
@@ -258,7 +263,7 @@ test("a missing security binary is rethrown rather than treated as untrusted", a
     });
     const { runner, calls } = trustRunner(caRoot, spawnError);
     await assert.rejects(
-      installLocalTrust(await loadMinikubeLocal(), runner, {
+      installLocalTrust(await loadRepository("local"), runner, {
         platform: "darwin",
       }),
       /spawn security ENOENT/,
@@ -275,7 +280,7 @@ test("an unreadable CA file is rethrown rather than treated as untrusted", async
     await chmod(caRoot, 0o000);
     const { runner, calls } = trustRunner(caRoot);
     await assert.rejects(
-      installLocalTrust(await loadMinikubeLocal(), runner, {
+      installLocalTrust(await loadRepository("local"), runner, {
         platform: "darwin",
       }),
       { code: "EACCES" },

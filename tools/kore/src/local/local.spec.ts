@@ -16,8 +16,6 @@ import { localDown, localUp } from "./local.js";
 import {
   imageDigestFromRegistryHead,
   localDockerBuildArgs,
-  minikubeImageLoadArgs,
-  minikubeImagePublishArgs,
 } from "../images/local-image-args.js";
 
 test("local image build uses the application Dockerfile and context", () => {
@@ -34,42 +32,6 @@ test("local image build uses the application Dockerfile and context", () => {
     "127.0.0.1:30500/reference:kore-local",
     "/repo/apps/reference",
   ]);
-});
-
-test("local image load stages the source-built image into the selected Minikube node", () => {
-  expect(
-    minikubeImageLoadArgs("kore-local", "kore-local/reference:kore-local"),
-  ).toEqual([
-    "image",
-    "load",
-    "--profile",
-    "kore-local",
-    "--daemon",
-    "kore-local/reference:kore-local",
-  ]);
-});
-
-test("Minikube publishes the staged image over TLS with a stdin login and no password argument", () => {
-  const args = minikubeImagePublishArgs(
-    "kore-local",
-    "kore-local/reference:kore-local",
-    "10.102.17.251:5000",
-    "reference:kore-local",
-    "kore-push",
-  );
-
-  expect(args.slice(0, 5)).toEqual([
-    "ssh",
-    "--profile",
-    "kore-local",
-    "--native-ssh=false",
-    "--",
-  ]);
-  const script = args[5] ?? "";
-  expect(script).toContain("--password-stdin");
-  expect(script).toContain("nerdctl --namespace k8s.io push");
-  expect(script).toContain("10.102.17.251:5000/reference:kore-local");
-  expect(script).not.toMatch(/--password(?!-stdin)/);
 });
 
 test("local image digest comes from the registry manifest response header", () => {

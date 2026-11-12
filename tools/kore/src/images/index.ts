@@ -34,13 +34,13 @@ export {
   writeK3dRegistriesConfig,
 } from "./k3d-registry-trust.js";
 export { withRegistryClient } from "./registry-client.js";
-export { minikubeRegistrySessionArgs, shellQuote } from "./local-image-args.js";
+export { shellQuote } from "./local-image-args.js";
 export {
   publishedDigest,
   publishImageCopy,
   withPublishSession,
 } from "./local-publish.js";
-export { localSignArgs, minikubeImagePublishArgs } from "./local-image.js";
+export { localSignArgs } from "./local-image.js";
 export type { RegistryClient } from "./registry-client.js";
 export type { RegistryDependencies } from "./registry.js";
 export { rotateRegistryCredentials } from "./registry-rotation.js";

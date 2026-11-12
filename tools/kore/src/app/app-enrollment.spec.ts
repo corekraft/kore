@@ -1,4 +1,5 @@
-import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
+import { list } from "../cluster/k3d-cluster.fixtures.js";
+import { loadRepository } from "../config/index.js";
 import { expect, test, vi } from "vitest";
 
 const localRegistryReferenceMock = vi.hoisted(() => vi.fn());
@@ -16,7 +17,7 @@ import {
 } from "./app-fixtures.js";
 
 test("app up enrolls the application namespace in the ambient mesh before any release installs", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   const calls: {
     command: string;
     args: readonly string[];
@@ -24,6 +25,9 @@ test("app up enrolls the application namespace in the ambient mesh before any re
   }[] = [];
   const runner: Runner = {
     async run(command, args, options) {
+      if (command === "k3d") {
+        return { stdout: list(1), stderr: "", code: 0 };
+      }
       calls.push({ command, args, input: options?.input });
       releaseNotFound(command, args);
       if (command === "helm" && args[0] === "status") {

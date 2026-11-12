@@ -1,4 +1,5 @@
-import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
+import { list } from "../cluster/k3d-cluster.fixtures.js";
+import { loadRepository } from "../config/index.js";
 import { expect, test, vi } from "vitest";
 
 const localRegistryReferenceMock = vi.hoisted(() => vi.fn());
@@ -18,15 +19,15 @@ import type { Runner } from "../runtime/index.js";
 
 test("app up rejects an invalid application name before resolving chart paths", async () => {
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
-  const base = await loadMinikubeLocal();
+  const base = await loadRepository("local");
   const repository = {
     ...base,
     catalog: { components: [] },
   };
   const runner: Runner = {
     async run(command, args) {
-      if (command === "minikube") {
-        return { stdout: '{"Host":"Running"}', stderr: "", code: 0 };
+      if (command === "k3d") {
+        return { stdout: list(1), stderr: "", code: 0 };
       }
       if (
         command === "kubectl" &&

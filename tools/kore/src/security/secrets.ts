@@ -239,7 +239,7 @@ export async function syncLocalSecrets(
   }
   if (!isLocalProvider(repository.environment)) {
     throw new Error(
-      "local SOPS synchronization is only valid for a local (k3d or Minikube) environment",
+      "local SOPS synchronization is only valid for a local k3d environment",
     );
   }
   await assertExpectedCluster(repository, runner);

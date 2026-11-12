@@ -1,4 +1,5 @@
-import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
+import { list } from "../cluster/k3d-cluster.fixtures.js";
+import { loadRepository } from "../config/index.js";
 import assert from "node:assert/strict";
 import { copyFile, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -16,7 +17,7 @@ import { appStatus } from "./app.js";
 async function statusWith(
   down: "none" | "registry" | "verifier",
 ): Promise<{ status: Record<string, unknown>; calls: string[] }> {
-  const base = await loadMinikubeLocal();
+  const base = await loadRepository("local");
   const root = await mkdtemp(join(tmpdir(), "kore-app-status-admission-"));
   await mkdir(join(root, "infra/catalog"), { recursive: true });
   await copyFile(
@@ -27,6 +28,9 @@ async function statusWith(
   const calls: string[] = [];
   const runner: Runner = {
     async run(command, args) {
+      if (command === "k3d") {
+        return { stdout: list(1), stderr: "", code: 0 };
+      }
       const joined = args.join(" ");
       calls.push(`${command} ${joined}`);
       const ok = (stdout: string) => ({ stdout, stderr: "", code: 0 });

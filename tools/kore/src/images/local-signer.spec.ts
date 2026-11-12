@@ -1,4 +1,3 @@
-import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -21,16 +20,16 @@ afterEach(async () => {
 
 const kubeconfig = `apiVersion: v1
 kind: Config
-current-context: kore-local
+current-context: k3d-kore-local
 clusters:
-  - name: kore-local
-    cluster: {server: "https://192.168.49.2:8443", certificate-authority: /home/u/.minikube/ca.crt}
+  - name: k3d-kore-local
+    cluster: {server: "https://0.0.0.0:6443", certificate-authority-data: Q0E=}
 contexts:
-  - name: kore-local
-    context: {cluster: kore-local, user: kore-local}
+  - name: k3d-kore-local
+    context: {cluster: k3d-kore-local, user: admin@k3d-kore-local}
 users:
-  - name: kore-local
-    user: {client-certificate: /home/u/.minikube/client.crt, client-key: /home/u/.minikube/client.key}
+  - name: admin@k3d-kore-local
+    user: {client-certificate-data: Q0VSVA==, client-key-data: S0VZ}
 `;
 
 type Call = { command: string; args: readonly string[]; options?: RunOptions };
@@ -42,7 +41,7 @@ async function setup(): Promise<{
 }> {
   const root = await mkdtemp(join(tmpdir(), "kore-signer-"));
   roots.push(root);
-  const repository = { ...(await loadMinikubeLocal()), root };
+  const repository = { ...(await loadRepository("local")), root };
   const calls: Call[] = [];
   const runner: Runner = {
     async run(command, args, options): Promise<RunResult> {
@@ -70,7 +69,7 @@ test("the public key is published as a single-entry Secret in the policy-control
   expect(apply.command).toBe("kubectl");
   expect(apply.args).toEqual([
     "--context",
-    "kore-local",
+    "k3d-kore-local",
     "apply",
     "--server-side",
     "--field-manager=kore-signing",
@@ -184,7 +183,7 @@ test("the old private key is deleted before the new pair is generated, and the p
   const remove = calls.find(({ args }) => args.includes("delete"))!;
   expect(remove.args).toEqual([
     "--context",
-    "kore-local",
+    "k3d-kore-local",
     "--namespace",
     "kore-system",
     "delete",

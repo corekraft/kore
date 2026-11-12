@@ -1,4 +1,4 @@
-import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
+import { loadRepository } from "../config/index.js";
 import { expect, test, vi } from "vitest";
 
 const localRegistryReferenceMock = vi.hoisted(() => vi.fn());
@@ -60,7 +60,7 @@ const upgraded = (calls: Call[]) =>
 
 async function setup() {
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   const calls: Call[] = [];
   return { repository, calls, runner: statefulCluster(calls) };
 }

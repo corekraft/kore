@@ -1,12 +1,10 @@
 import { join } from "node:path";
 import type { ImageLockEntry, LockedImage } from "./image-lock.js";
 import type { Repository } from "../config/index.js";
-import { minikubeCluster } from "../config/index.js";
 import {
   localDockerBuildArgs,
   k3dImageImportArgs,
   localSignArgs,
-  minikubeImageLoadArgs,
 } from "./local-image-args.js";
 import { withLocalSigner, type LocalSigner } from "./local-signer.js";
 import { localRegistryReference } from "./registry.js";
@@ -25,8 +23,6 @@ export {
   k3dImagePublishArgs,
   k3dRegistrySessionArgs,
   localSignArgs,
-  minikubeImageLoadArgs,
-  minikubeImagePublishArgs,
 } from "./local-image-args.js";
 
 export interface BuiltLocalImage {
@@ -46,26 +42,15 @@ export async function loadLocalImage(
     localDockerBuildArgs(join(repository.root, "apps", application), imageTag),
     { capture: false, cwd: repository.root },
   );
-  if (repository.environment.provider === "k3d") {
-    const { k3d } = repository.environment;
-    if (k3d === undefined) {
-      throw new Error(
-        `environment ${repository.environment.name} is a k3d overlay without environment.k3d settings; add environment.k3d.clusterName so the built image can be imported`,
-      );
-    }
-    await runner.run("k3d", k3dImageImportArgs(k3d.clusterName, imageTag), {
-      capture: false,
-    });
-    return;
+  const { k3d } = repository.environment;
+  if (repository.environment.provider !== "k3d" || k3d === undefined) {
+    throw new Error(
+      `environment ${repository.environment.name} is not a k3d overlay with environment.k3d settings; add environment.k3d.clusterName so the built image can be imported`,
+    );
   }
-  await runner.run(
-    "minikube",
-    minikubeImageLoadArgs(
-      minikubeCluster(repository.environment).profile,
-      imageTag,
-    ),
-    { capture: false },
-  );
+  await runner.run("k3d", k3dImageImportArgs(k3d.clusterName, imageTag), {
+    capture: false,
+  });
 }
 
 async function signImage(
