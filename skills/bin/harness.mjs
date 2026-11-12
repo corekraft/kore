@@ -6170,7 +6170,7 @@ function checkRole(agentType, tool, input, root3) {
   return null;
 }
 
-// src/hook/guard.ts
+// src/hook/guard-evaluate.ts
 var asCall2 = (payload) => typeof payload === "object" && payload !== null ? payload : {};
 async function evaluate(payload, ctx) {
   const call = asCall2(payload);
@@ -6191,6 +6191,8 @@ async function evaluate(payload, ctx) {
   }
   return allow;
 }
+
+// src/hook/guard.ts
 async function guard(payload, deps) {
   if (payload === void 0) {
     return {};
