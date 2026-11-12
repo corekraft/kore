@@ -137,13 +137,19 @@ and uses it first to measure the delivery loop. Terms follow
 Toil is 0 in every stage.
 
 - **Bottleneck:** `await approval`, 342087 waiting seconds, 88.36% of all
-  waiting. Ideas wait on a person to apply `ready-for-agent`, not on agents.
+  waiting. Every ticket was labelled `ready-for-agent` when it was published,
+  so this is not a person's approval. It is tickets waiting for their blockers
+  to merge and for the orchestrator to spawn a writer; the stage mapping does
+  not tell those apart from approval.
 - **Limits of this baseline:** only GitHub events attribute to an idea.
   Claude session and pane events carry no idea (the ledger records a pane id and
   session id, never the issue, and pane ids are reused), so refine, challenge,
-  orchestrate, write, judge and verify show no active time, and "merge" is the
-  wait between PR opened and merged. Plans 10 to 12 compare only the stages that
-  carry data; closing the pane-to-idea join is for a later step.
+  orchestrate, write, judge and verify show no active time. The "merge" stage
+  is PR opened to PR merged, so it includes the orchestrator's review and fix
+  rounds. The `await approval` reading cannot yet separate blocked from
+  ready-and-unclaimed; the next step is to separate them. Plans 10 to 12
+  compare only the stages that carry data; closing the pane-to-idea join is for
+  a later step.
 - **Joins added for this baseline** (design choice, flagged in the PR):
   `ledger poll-github` records `issue.closed` at GitHub's `closedAt`, and gives
   `pr.opened` and `pr.merged` the `idea` of the first issue the PR closes
