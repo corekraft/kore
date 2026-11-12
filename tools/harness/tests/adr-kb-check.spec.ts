@@ -42,3 +42,20 @@ describe("harness adr new against kb-check", () => {
     expect(await kbFindings(f.fs)).not.toEqual([]);
   });
 });
+
+describe("harness adr supersede against kb-check", () => {
+  it("leaves the superseded chain valid with no hand edits", async () => {
+    const f = fixture();
+    expect(await run(NEW, f.deps)).toBe(0);
+    const argv = ["adr", "supersede", "--old", "3", "--new", "4"];
+    expect(await run(argv, f.deps)).toBe(0);
+    expect(await kbFindings(f.fs)).toEqual([]);
+  });
+
+  it("the check does notice a dangling superseded-by (the fixture is not vacuous)", async () => {
+    const f = fixture();
+    await run(["adr", "supersede", "--old", "1", "--new", "3"], f.deps);
+    f.fs.files.delete("docs/decisions/0003-third.md");
+    expect(await kbFindings(f.fs)).not.toEqual([]);
+  });
+});

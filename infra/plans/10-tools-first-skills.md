@@ -25,10 +25,10 @@ Each step reports its effect against the plan 8 baseline.
 
 ### Work
 
-- [ ] Add an `adr` domain: `new` picks the next number, writes the file name
+- [x] Add an `adr` domain: `new` picks the next number, writes the file name
       and frontmatter, and adds the index entry; `supersede` updates the old
       ADR.
-- [ ] Shrink `skills/write-adr/SKILL.md` to judgement plus tool calls.
+- [x] Shrink `skills/write-adr/SKILL.md` to judgement plus tool calls.
 
 ### Exit Criteria
 

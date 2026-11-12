@@ -308,7 +308,7 @@ var Adrs = class {
   checkStatus(status) {
     if (status === "superseded") {
       throw new AdrError(
-        "--status superseded cannot be written by adr new, which has no superseded-by to record; create the ADR as proposed or accepted, then run `harness adr supersede` (planned, not built yet) or add superseded-by by hand."
+        "--status superseded cannot be written by adr new, which has no superseded-by to record; create the ADR as proposed or accepted, then run `harness adr supersede`."
       );
     }
     if (!STATUSES.includes(status)) {
@@ -341,6 +341,107 @@ var Adrs = class {
   }
 };
 
+// src/adr/supersede.ts
+function parseNumber(flag, value) {
+  if (!/^\d{1,4}$/.test(value)) {
+    throw new AdrError(
+      `--${flag} must be an ADR number such as 12 or 0012; got "${value}".`
+    );
+  }
+  return value.padStart(4, "0");
+}
+function frontmatterLine(lines, key) {
+  if (lines[0] !== "---") {
+    return -1;
+  }
+  const close = lines.indexOf("---", 1);
+  const end = close === -1 ? lines.length : close;
+  return lines.findIndex((l, i) => i > 0 && i < end && l.startsWith(`${key}:`));
+}
+var Supersession = class {
+  constructor(fs, root2) {
+    this.fs = fs;
+    this.root = root2;
+  }
+  fs;
+  root;
+  async supersede(oldFlag, newFlag, dryRun) {
+    const old = parseNumber("old", oldFlag);
+    const next = parseNumber("new", newFlag);
+    if (old === next) {
+      throw new AdrError(
+        `ADR ${old} cannot supersede itself; pass the replacing ADR's number as --new.`
+      );
+    }
+    const oldAdr = await this.find(old, false);
+    const newAdr2 = await this.find(next, true);
+    const oldStatus = this.status(oldAdr);
+    if (oldStatus === "superseded") {
+      throw new AdrError(
+        `ADR ${old} is already superseded; point the ADR that replaced it at ${next} by hand if the chain changed.`
+      );
+    }
+    if (frontmatterLine(oldAdr.lines, "superseded-by") !== -1) {
+      throw new AdrError(
+        `${oldAdr.path} already has superseded-by although its status is ${oldStatus}; fix the frontmatter by hand.`
+      );
+    }
+    if (this.status(newAdr2) === "superseded") {
+      throw new AdrError(
+        `ADR ${next} is itself superseded; use the ADR that replaced it as --new.`
+      );
+    }
+    const changed = ["status: superseded", `superseded-by: ${newAdr2.path}`];
+    const lines = [
+      ...oldAdr.lines.slice(0, oldAdr.statusLine),
+      ...changed,
+      ...oldAdr.lines.slice(oldAdr.statusLine + 1)
+    ];
+    if (!dryRun) {
+      await this.fs.writeFile(this.abs(oldAdr.path), lines.join("\n"));
+    }
+    return {
+      dryRun,
+      old,
+      new: next,
+      files: [
+        {
+          path: oldAdr.path,
+          lines: changed.map((text2, i) => ({
+            number: oldAdr.statusLine + 1 + i,
+            text: text2
+          }))
+        }
+      ]
+    };
+  }
+  status(adr) {
+    return (adr.lines[adr.statusLine] ?? "").slice("status:".length).trim();
+  }
+  async find(number, replacement) {
+    const file = (await this.fs.readdir(this.abs(DECISIONS))).find(
+      (f) => new RegExp(`^${number}-.+\\.md$`).test(f)
+    );
+    if (file === void 0) {
+      throw new AdrError(
+        `ADR ${number} does not exist; ${replacement ? "create it first with `harness adr new`" : "check the number against docs/decisions/"}.`
+      );
+    }
+    const path = `${DECISIONS}/${file}`;
+    const lines = (await this.fs.readFile(this.abs(path))).split("\n");
+    const statusLine = frontmatterLine(lines, "status");
+    if (statusLine === -1) {
+      throw new AdrError(
+        `${path} has no frontmatter status; add a "status:" line before superseding it.`
+      );
+    }
+    return { path, lines, statusLine };
+  }
+  abs(path) {
+    return `${this.root}/${path}`;
+  }
+};
+
 // src/adr/commands.ts
 var REQUIRED = ["title", "summary", "status", "source"];
 function describe(report) {
@@ -349,6 +450,33 @@ function describe(report) {
     (f) => `${verb} ${f.path} (lines ${f.lines[0]?.number}-${f.lines.at(-1)?.number})`
   ).join("\n")}
 `;
+}
+function requiredFlag(options, key, hint) {
+  const v = options[key];
+  if (typeof v !== "string" || v.trim() === "") {
+    throw new AdrError(`--${key} is required; pass --${key} <${hint}>.`);
+  }
+  return v.trim();
+}
+function repoRoot(deps) {
+  return deps.root().catch((cause) => {
+    throw new AdrError(cause instanceof Error ? cause.message : String(cause));
+  });
+}
+async function withAdrErrors(json, deps, body) {
+  try {
+    return await body();
+  } catch (error) {
+    if (!(error instanceof AdrError)) {
+      throw error;
+    }
+    deps.stderr(
+      json ? `${JSON.stringify({ error: error.message })}
+` : `${error.message}
+`
+    );
+    return 1;
+  }
 }
 var newAdr = {
   summary: "create the next ADR and its index entry (--title --summary --status --source [--refines] [--dry-run])",
@@ -360,43 +488,44 @@ var newAdr = {
     refines: "string",
     "dry-run": "boolean"
   },
-  async run({ json, options, deps }) {
-    try {
-      const value = (key) => {
-        const v = options[key];
-        if (typeof v !== "string" || v.trim() === "") {
-          throw new AdrError(`--${key} is required; pass --${key} <text>.`);
-        }
-        return v.trim();
-      };
-      const [title, summary, status, source] = REQUIRED.map(value);
-      const refines = typeof options["refines"] === "string" ? options["refines"].trim() : void 0;
-      const root2 = await deps.root().catch((cause) => {
-        throw new AdrError(
-          cause instanceof Error ? cause.message : String(cause)
-        );
-      });
-      const report = await new Adrs(deps.fs, deps.clock, root2).create(
-        { title, summary, status, source, ...refines ? { refines } : {} },
-        options["dry-run"] === true
-      );
-      deps.stdout(json ? `${JSON.stringify(report)}
+  run: ({ json, options, deps }) => withAdrErrors(json, deps, async () => {
+    const [title, summary, status, source] = REQUIRED.map(
+      (key) => requiredFlag(options, key, "text")
+    );
+    const refines = typeof options["refines"] === "string" ? options["refines"].trim() : void 0;
+    const root2 = await repoRoot(deps);
+    const report = await new Adrs(deps.fs, deps.clock, root2).create(
+      { title, summary, status, source, ...refines ? { refines } : {} },
+      options["dry-run"] === true
+    );
+    deps.stdout(json ? `${JSON.stringify(report)}
 ` : describe(report));
-      return 0;
-    } catch (error) {
-      if (!(error instanceof AdrError)) {
-        throw error;
-      }
-      deps.stderr(
-        json ? `${JSON.stringify({ error: error.message })}
-` : `${error.message}
-`
-      );
-      return 1;
-    }
-  }
+    return 0;
+  })
 };
-var adrCommands = { new: newAdr };
+var supersede = {
+  summary: "mark an ADR superseded by another (--old N --new M [--dry-run])",
+  options: { old: "string", new: "string", "dry-run": "boolean" },
+  run: ({ json, options, deps }) => withAdrErrors(json, deps, async () => {
+    const root2 = await repoRoot(deps);
+    const report = await new Supersession(deps.fs, root2).supersede(
+      requiredFlag(options, "old", "number"),
+      requiredFlag(options, "new", "number"),
+      options["dry-run"] === true
+    );
+    const verb = report.dryRun ? "Would set" : "Set";
+    deps.stdout(
+      json ? `${JSON.stringify(report)}
+` : `${verb} ${report.files[0]?.path} to status superseded, superseded-by ADR ${report.new}
+`
+    );
+    return 0;
+  })
+};
+var adrCommands = {
+  new: newAdr,
+  supersede
+};
 
 // src/idea/record.ts
 var SAFETY_PATTERNS = [

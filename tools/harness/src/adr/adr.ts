@@ -209,7 +209,7 @@ export class Adrs {
   private checkStatus(status: string): void {
     if (status === "superseded") {
       throw new AdrError(
-        "--status superseded cannot be written by adr new, which has no superseded-by to record; create the ADR as proposed or accepted, then run `harness adr supersede` (planned, not built yet) or add superseded-by by hand.",
+        "--status superseded cannot be written by adr new, which has no superseded-by to record; create the ADR as proposed or accepted, then run `harness adr supersede`.",
       );
     }
     if (!(STATUSES as readonly string[]).includes(status)) {
