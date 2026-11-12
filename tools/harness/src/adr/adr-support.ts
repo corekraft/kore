@@ -90,6 +90,8 @@ export function fixture(extra: Record<string, string> = {}) {
     runner: new FakeRunner(),
     clock: { now: () => new Date(2026, 10, 11, 23, 59, 59) },
     root: () => Promise.resolve(ROOT),
+    env: {},
+    cwd: "/repo",
     fs,
     stdout: (t) => out.push(t),
     stderr: (t) => err.push(t),

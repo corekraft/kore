@@ -28,6 +28,8 @@ function harness(files: Record<string, string>) {
               Object.assign(new Error("ENOENT"), { code: "ENOENT" }),
             ),
     },
+    env: {},
+    cwd: "/repo",
     root: () => Promise.resolve(ROOT),
     stdout: (text) => out.push(text),
     stderr: (text) => err.push(text),

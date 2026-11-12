@@ -451,6 +451,333 @@ var planActive = {
   }
 };
 
+// src/session/equalize.ts
+var byY = (a, b) => a.rect.y - b.rect.y;
+function describeFailure(result) {
+  return (result.stderr || result.stdout).trim() || `exit code ${result.code}`;
+}
+async function readLayout(runner, callerPane) {
+  const result = await runner.run("herdr", [
+    "pane",
+    "layout",
+    "--pane",
+    callerPane
+  ]);
+  if (result.code !== 0) {
+    return {
+      error: `herdr pane layout failed: ${describeFailure(result)}`
+    };
+  }
+  try {
+    const parsed = JSON.parse(result.stdout);
+    const layout = parsed.result?.layout;
+    if (layout !== void 0) {
+      return { layout };
+    }
+  } catch {
+  }
+  return {
+    error: `herdr pane layout returned no layout (.result.layout): ${result.stdout.trim()}`
+  };
+}
+function spawnedColumn(layout, callerPane) {
+  const caller = layout.panes.find((p) => p.pane_id === callerPane);
+  const column = Math.max(...layout.panes.map((p) => p.rect.x));
+  if (caller === void 0 || column <= caller.rect.x) {
+    return [];
+  }
+  return layout.panes.filter((p) => p.rect.x === column).sort(byY);
+}
+async function equalize(runner, callerPane) {
+  const read = await readLayout(runner, callerPane);
+  if ("error" in read) {
+    return { status: "failed", reason: read.error };
+  }
+  const { layout } = read;
+  const panes = spawnedColumn(layout, callerPane);
+  const column = panes[0]?.rect.x;
+  if (column === void 0) {
+    return {
+      status: "skipped",
+      reason: "no spawned column right of the caller"
+    };
+  }
+  const splits = layout.splits.filter((s) => s.direction === "down" && s.rect.x === column).sort(byY);
+  if (splits.length !== panes.length - 1) {
+    return {
+      status: "skipped",
+      reason: "layout splits do not match the spawned panes"
+    };
+  }
+  for (const [i, split] of splits.entries()) {
+    const delta = 1 / (panes.length - i) - split.ratio;
+    if (Math.abs(delta) <= 5e-4) {
+      continue;
+    }
+    const [pane, direction] = delta < 0 ? [panes[i + 1], "up"] : [panes[i], "down"];
+    const resize = await runner.run("herdr", [
+      "pane",
+      "resize",
+      "--pane",
+      pane.pane_id,
+      "--direction",
+      direction,
+      "--amount",
+      Math.abs(delta).toFixed(6)
+    ]);
+    if (resize.code !== 0) {
+      return {
+        status: "failed",
+        reason: `herdr pane resize failed: ${describeFailure(resize)}`
+      };
+    }
+  }
+  return { status: "equalized" };
+}
+
+// src/session/brief.ts
+function broadcastCommand(name, callerPane) {
+  return `herdr pane send-text ${callerPane} "[herdr:${name}] finished: RESULT <done|blocked>; summary in pane $HERDR_PANE_ID" && herdr pane send-keys ${callerPane} enter`;
+}
+function buildBrief({ task, name, callerPane }) {
+  return [
+    task,
+    "",
+    `You are ${name}; your session name is ${name}.`,
+    `When you finish, broadcast to pane \`${callerPane}\`. Print your summary and a final line with the word RESULT, a colon, then done or blocked. Then, as your very last action, run this one line with the outcome word (done or blocked) in place of <done|blocked>; it expands your own $HERDR_PANE_ID, and must carry no secrets or output beyond the outcome word:`,
+    "",
+    broadcastCommand(name, callerPane)
+  ].join("\n");
+}
+
+// src/session/names.ts
+var MAX_LENGTH = 32;
+var ORDINALS = /* @__PURE__ */ new Set([
+  "first",
+  "second",
+  "third",
+  "fourth",
+  "fifth",
+  "sixth",
+  "seventh",
+  "eighth",
+  "ninth",
+  "tenth"
+]);
+var EXAMPLE = "name it for its subject, such as image-trust-reader";
+function isPlaceholderSegment(segment) {
+  return /^[a-z]$/.test(segment) || /^\d{1,2}$/.test(segment) || /^step\d+$/.test(segment) || /^\d+(st|nd|rd|th)$/.test(segment) || ORDINALS.has(segment);
+}
+function sessionNameError(name) {
+  if (!/^[a-z0-9_-]+$/.test(name)) {
+    return `Session name "${name}" must use only lowercase letters, digits, "-" and "_"; ${EXAMPLE}.`;
+  }
+  if (name.length > MAX_LENGTH) {
+    return `Session name "${name}" is ${name.length} characters, but Herdr allows at most ${MAX_LENGTH}; shorten it, for example by dropping the role suffix.`;
+  }
+  if (name.split(/[-_]/).some(isPlaceholderSegment)) {
+    return `Session name "${name}" uses a letter, ordinal or step number; ${EXAMPLE}.`;
+  }
+  return void 0;
+}
+
+// src/session/spawn.ts
+var USAGE_ERROR = 2;
+var FAILED = 1;
+var REQUIRED2 = ["role", "model", "effort", "name", "brief"];
+function paneIdOf(stdout) {
+  try {
+    const parsed = JSON.parse(stdout);
+    const id = parsed.result?.pane?.pane_id;
+    return typeof id === "string" ? id : void 0;
+  } catch {
+    return void 0;
+  }
+}
+function check({ deps, options }) {
+  const usage2 = (error) => ({ error, code: USAGE_ERROR });
+  const missing = REQUIRED2.find((flag) => typeof options[flag] !== "string");
+  if (missing !== void 0) {
+    return usage2(`Missing --${missing}.`);
+  }
+  const given = options;
+  const nameError = sessionNameError(given.name);
+  if (nameError !== void 0) {
+    return usage2(nameError);
+  }
+  if (options["no-wait"] !== true) {
+    return usage2(
+      "Waiting for the session's result is not supported yet; pass --no-wait and wait for its broadcast."
+    );
+  }
+  const callerPane = deps.env.HERDR_PANE_ID;
+  if (deps.env.HERDR_ENV !== "1") {
+    return {
+      error: "Not inside Herdr (HERDR_ENV is not 1). Run this from a Herdr pane; no session was started.",
+      code: FAILED
+    };
+  }
+  if (callerPane === void 0 || callerPane === "") {
+    return {
+      error: "HERDR_PANE_ID is not set, so the session cannot broadcast back. Run this from a Herdr pane.",
+      code: FAILED
+    };
+  }
+  return { values: given, callerPane };
+}
+async function splitPane(deps, callerPane) {
+  const read = await readLayout(deps.runner, callerPane);
+  if ("error" in read) {
+    return { error: `${read.error}. No pane was split.` };
+  }
+  const last = spawnedColumn(read.layout, callerPane).at(-1);
+  const where = last === void 0 ? ["--current", "--direction", "right"] : [last.pane_id, "--direction", "down"];
+  const split = await deps.runner.run("herdr", [
+    "pane",
+    "split",
+    ...where,
+    "--cwd",
+    deps.cwd,
+    "--no-focus"
+  ]);
+  if (split.code !== 0) {
+    return { error: `herdr pane split failed: ${describeFailure(split)}` };
+  }
+  const paneId = paneIdOf(split.stdout);
+  return paneId ?? {
+    error: `herdr pane split did not return a pane id (.result.pane.pane_id): ${split.stdout.trim()}`
+  };
+}
+async function nameTakenError(deps, name) {
+  const found = await deps.runner.run("herdr", ["agent", "get", name]);
+  if (found.code === 0) {
+    return `A session named ${name} already exists; pick another name or close that session first. No pane was split.`;
+  }
+  if (`${found.stdout}${found.stderr}`.includes("agent_not_found")) {
+    return void 0;
+  }
+  return `herdr agent get failed: ${describeFailure(found)}. No pane was split.`;
+}
+async function launch(deps, { role, model, effort, name, brief, paneId, callerPane, leftOpen }) {
+  const start = await deps.runner.run("herdr", [
+    "agent",
+    "start",
+    name,
+    "--kind",
+    "claude",
+    "--pane",
+    paneId,
+    "--",
+    "--agent",
+    role,
+    "--model",
+    model,
+    "--effort",
+    effort
+  ]);
+  if (start.code !== 0) {
+    return `herdr agent start failed: ${describeFailure(start)}. ${leftOpen}`;
+  }
+  const prompt = await deps.runner.run("herdr", [
+    "agent",
+    "prompt",
+    name,
+    buildBrief({ task: brief, name, callerPane }),
+    "--wait",
+    "--until",
+    "working",
+    "--timeout",
+    "5000"
+  ]);
+  return prompt.code === 0 ? void 0 : `herdr agent prompt failed: ${describeFailure(prompt)}. Session ${name} is running in pane ${paneId} without its brief.`;
+}
+async function spawn(context) {
+  const { json, deps } = context;
+  const fail2 = (code, message) => {
+    deps.stderr(
+      `${json ? `${JSON.stringify({ error: message })}
+` : ""}${message}
+`
+    );
+    return code;
+  };
+  const checked = check(context);
+  if ("error" in checked) {
+    return fail2(checked.code, checked.error);
+  }
+  const { name, model, role, effort } = checked.values;
+  const { callerPane } = checked;
+  const taken = await nameTakenError(deps, name);
+  if (taken !== void 0) {
+    return fail2(FAILED, taken);
+  }
+  const paneId = await splitPane(deps, callerPane);
+  if (typeof paneId !== "string") {
+    return fail2(FAILED, paneId.error);
+  }
+  const leftOpen = `The pane ${paneId} was left open; close it with \`herdr pane close ${paneId}\`.`;
+  const equalized = await equalize(deps.runner, callerPane);
+  if (equalized.status === "failed") {
+    return fail2(FAILED, `${equalized.reason}. ${leftOpen}`);
+  }
+  const launchError = await launch(deps, {
+    ...checked.values,
+    paneId,
+    callerPane,
+    leftOpen
+  });
+  if (launchError !== void 0) {
+    return fail2(FAILED, launchError);
+  }
+  deps.stdout(
+    json ? `${JSON.stringify({ name, paneId, model, role, effort })}
+` : `Spawned ${name} (${model}) in pane ${paneId}; it will broadcast to ${callerPane} when it finishes.
+`
+  );
+  return 0;
+}
+
+// src/session/index.ts
+var spawnCommand = {
+  summary: "start a Claude session in a Herdr pane (--role --model --effort --name --brief --no-wait)",
+  options: {
+    role: "string",
+    model: "string",
+    effort: "string",
+    name: "string",
+    brief: "string",
+    "no-wait": "boolean"
+  },
+  run: spawn
+};
+var equalizeCommand = {
+  summary: "equalize the heights of the spawned panes (run after closing one)",
+  async run({ json, deps }) {
+    const callerPane = deps.env.HERDR_PANE_ID;
+    if (deps.env.HERDR_ENV !== "1" || !callerPane) {
+      deps.stderr(
+        "Not inside Herdr (HERDR_ENV is not 1 or HERDR_PANE_ID is unset). Run this from a Herdr pane.\n"
+      );
+      return 1;
+    }
+    const result = await equalize(deps.runner, callerPane);
+    if (result.status === "failed") {
+      deps.stderr(`${result.reason}
+`);
+      return 1;
+    }
+    const text = result.status === "skipped" ? `Skipped: ${result.reason}.` : "Equalized.";
+    deps.stdout(json ? `${JSON.stringify(result)}
+` : `${text}
+`);
+    return 0;
+  }
+};
+var session = {
+  spawn: spawnCommand,
+  equalize: equalizeCommand
+};
+
 // src/cli/domains.ts
 var version = {
   summary: "print the harness version",
@@ -466,11 +793,12 @@ var version = {
 var domains = {
   harness: { version },
   plan: { active: planActive },
-  adr: adrCommands
+  adr: adrCommands,
+  session
 };
 
 // src/cli/cli.ts
-var USAGE_ERROR = 2;
+var USAGE_ERROR2 = 2;
 function usage() {
   const lines = ["Usage: harness <domain> <command> [--json]", "", "Commands:"];
   for (const [domain, commands] of Object.entries(domains)) {
@@ -493,7 +821,7 @@ function fail(deps, json, message) {
   deps.stderr(`${prefix}${message}
 
 ${usage()}`);
-  return USAGE_ERROR;
+  return USAGE_ERROR2;
 }
 function own(table, key) {
   return Object.hasOwn(table, key) ? table[key] : void 0;
@@ -607,11 +935,11 @@ var nodeFileSystem = {
 };
 
 // src/runtime/runner.ts
-import { spawn } from "node:child_process";
+import { spawn as spawn2 } from "node:child_process";
 var ProcessRunner = class {
   async run(command, args, options = {}) {
     return await new Promise((resolve3) => {
-      const child = spawn(command, [...args], {
+      const child = spawn2(command, [...args], {
         ...options.cwd === void 0 ? {} : { cwd: options.cwd },
         stdio: [
           options.input === void 0 ? "ignore" : "pipe",
@@ -677,6 +1005,8 @@ try {
       import.meta.url,
       (path) => nodeFileSystem.exists(path)
     ),
+    env: process.env,
+    cwd: process.cwd(),
     stdout: (text) => process.stdout.write(text),
     stderr
   });

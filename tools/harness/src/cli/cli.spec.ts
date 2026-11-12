@@ -1,26 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { FakeRunner } from "../runtime/runner-support.js";
-import type { CliDeps } from "../runtime/index.js";
+import { testHarness } from "./cli-support.js";
 import { run } from "./cli.js";
 
-function harness() {
-  const out: string[] = [];
-  const err: string[] = [];
-  const deps: CliDeps = {
-    runner: new FakeRunner(),
-    clock: { now: () => new Date("2026-01-02T03:04:05.000Z") },
-    fs: {
-      readFile: () => Promise.resolve(""),
-      writeFile: () => Promise.resolve(),
-      exists: () => Promise.resolve(false),
-      readdir: () => Promise.resolve([]),
-    },
-    root: () => Promise.resolve("/repo"),
-    stdout: (text) => out.push(text),
-    stderr: (text) => err.push(text),
-  };
-  return { deps, out: () => out.join(""), err: () => err.join("") };
-}
+const harness = testHarness;
 
 describe("harness dispatch", () => {
   it.each([[["--help"]], [["-h"]], [[]]])(
@@ -115,7 +97,9 @@ describe("harness dispatch hardening", () => {
     expect(await run(["nope", "--json"], h.deps)).toBe(2);
     const line = h.err().split("\n")[0] ?? "";
     expect(JSON.parse(line)).toEqual({
-      error: 'Unknown domain "nope". Domains: harness, plan, adr.',
+      error: expect.stringMatching(
+        /^Unknown domain "nope"\. Domains: harness(, \w+)*\.$/,
+      ) as unknown,
     });
     expect(h.err()).toContain("Usage: harness");
   });

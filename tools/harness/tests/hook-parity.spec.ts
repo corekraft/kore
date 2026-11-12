@@ -47,6 +47,8 @@ async function harnessPlans(root: string): Promise<string[]> {
     runner: new FakeRunner(),
     clock: { now: () => new Date(0) },
     fs: nodeFileSystem,
+    env: {},
+    cwd: "/repo",
     root: () => Promise.resolve(root),
     stdout: (t) => (out += t),
     stderr: () => undefined,
