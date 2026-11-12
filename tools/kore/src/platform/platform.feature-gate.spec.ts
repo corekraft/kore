@@ -30,7 +30,7 @@ import {
   type Component,
   type Repository,
 } from "../config/index.js";
-import type { Runner } from "../runtime/index.js";
+import { CommandError, type Runner } from "../runtime/index.js";
 import { bootstrapControllers } from "./bootstrap.js";
 import { platformUp } from "./up.js";
 import { platformStatus } from "./status.js";
@@ -77,6 +77,17 @@ function fake() {
     async run(command, args) {
       calls.push(`${command} ${args.join(" ")}`);
       let stdout = "";
+      if (
+        command === "helm" &&
+        args[0] === "status" &&
+        args[1]!.startsWith("gated-")
+      ) {
+        throw new CommandError(command, args, {
+          stdout: "",
+          stderr: "Error: release: not found",
+          code: 1,
+        });
+      }
       if (command === "helm") {
         stdout = args[0] === "history" ? "[]" : deployed;
       }
@@ -91,7 +102,11 @@ test("with the flag off, bootstrap issues no command that mentions the gated com
   const { runner, calls } = fake();
   await bootstrapControllers(repository, runner);
   assert.ok(calls.some((c) => c.includes("sibling")));
-  assert.equal(calls.filter((c) => c.includes("gated-")).length, 0);
+  assert.equal(
+    calls.filter((c) => c.includes("gated-") && !c.startsWith("helm status "))
+      .length,
+    0,
+  );
 });
 
 test("with the flag on, bootstrap touches the gated component", async () => {
@@ -106,7 +121,11 @@ test("platform up with the flag off never installs the gated component", async (
   const { runner, calls } = fake();
   repository.readiness = { ...repository.readiness, requirements: [] };
   await platformUp(repository, runner);
-  assert.equal(calls.filter((c) => c.includes("gated-")).length, 0);
+  assert.equal(
+    calls.filter((c) => c.includes("gated-") && !c.startsWith("helm status "))
+      .length,
+    0,
+  );
 });
 
 test("status reports a gated-off component as gated off, not missing, and runs no command for it", async () => {
@@ -116,7 +135,7 @@ test("status reports a gated-off component as gated off, not missing, and runs n
   assert.equal(rows.length, 1);
   assert.equal(rows[0]!.status, "gated-off");
   assert.match(rows[0]!.detail, /agent-ingress/);
-  assert.equal(calls.length, 0);
+  assert.ok(calls.every((c) => c.startsWith("helm status gated-core ")));
 });
 
 test("a gated-on component is probed like any other", async () => {

@@ -26,7 +26,8 @@ export interface RequirementResult {
   name: string;
   step: number;
   capability: string;
-  status: "ready" | "failed";
+  /** `skipped` when every component is gated off by its feature flag. */
+  status: "ready" | "failed" | "skipped";
   checks: PrerequisiteResult[];
 }
 
@@ -46,6 +47,17 @@ export interface ReadinessEvidence {
   failures: ReadinessFailure[];
 }
 
+/** `skipped` only when the requirement names components and every one is gated off. */
+function requirementStatus(
+  named: number,
+  checks: PrerequisiteResult[],
+): RequirementResult["status"] {
+  if (named > 0 && checks.length === 0) {
+    return "skipped";
+  }
+  return checks.every(({ status }) => status === "ready") ? "ready" : "failed";
+}
+
 /**
  * Evaluates the manifest against status rows read in this run. A prerequisite
  * with no row is missing, so an incomplete status read can never open the gate.
@@ -63,10 +75,11 @@ export function evaluateReadiness(
   const requirements: RequirementResult[] =
     repository.readiness.requirements.map((requirement) => {
       // A component its feature flag gates off is not a prerequisite.
-      const checks = [
+      const names = [
         ...(requirement.components ?? []),
         ...(requirement.platformChecks ?? []),
-      ].flatMap((name): PrerequisiteResult[] => {
+      ];
+      const checks = names.flatMap((name): PrerequisiteResult[] => {
         const row = byName.get(name);
         if (row?.status === "gated-off") {
           return [];
@@ -85,9 +98,7 @@ export function evaluateReadiness(
         name: requirement.name,
         step: requirement.step,
         capability: requirement.capability,
-        status: checks.every(({ status }) => status === "ready")
-          ? "ready"
-          : "failed",
+        status: requirementStatus(names.length, checks),
         checks,
       };
     });

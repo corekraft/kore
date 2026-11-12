@@ -60,3 +60,12 @@ the environment's `features:` map.
 - An enabled component may not depend on a gated-off one; validation rejects
   it. Namespace enrollment and the image inventory skip a gated-off
   component's namespace, since nothing creates it.
+- A flag turned off after install leaves a release nothing owns. For a gated-off
+  Helm component, status does a read-only `helm status`: a remaining release
+  reports `degraded` with the uninstall command and the option to turn the flag
+  back on, `up` fails fast with the same message before installing anything,
+  and enrollment and the image inventory keep covering its namespace while the
+  release exists.
+- A gated-off status does not fail `kore platform status`. A readiness
+  requirement whose components are all gated off is recorded `skipped`, not
+  `ready`. The platform generation includes each gating flag's value.

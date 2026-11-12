@@ -12,6 +12,7 @@ import {
 } from "../images/index.js";
 import type { Runner } from "../runtime/index.js";
 import { closeExistingAdmissionGate } from "./admission-gate.js";
+import { assertNoOrphanedReleases } from "./gated-release.js";
 import { rewireRegistryService } from "./registry-rewire.js";
 // The gate's open and close operations live in readiness-gate.ts.
 export {
@@ -56,6 +57,7 @@ export async function bootstrapControllers(
 ): Promise<void> {
   await ensureCluster(repository, runner);
   await closeApplicationAdmission(repository, runner);
+  await assertNoOrphanedReleases(repository, runner);
   for (const component of enabledComponents(repository)) {
     if (
       component.phase === "configuration" ||

@@ -195,3 +195,25 @@ test("platform status exits non-zero while the gate or any prerequisite is not r
   ] as never);
   expect(await main(["platform", "status"])).toBe(0);
 });
+
+test("platform status does not fail for a gated-off row, but still fails for a degraded one", async () => {
+  const { platformStatusReport } = await import("../platform/index.js");
+  vi.spyOn(console, "log").mockImplementation(() => undefined);
+  const row = (name: string, status: string) => ({
+    name,
+    namespace: "cluster",
+    status,
+    detail: "x",
+  });
+  vi.mocked(platformStatusReport).mockResolvedValue([
+    row("gatekeeper", "ready"),
+    row("agentgateway", "gated-off"),
+  ] as never);
+  expect(await main(["platform", "status"])).toBe(0);
+
+  vi.mocked(platformStatusReport).mockResolvedValue([
+    row("agentgateway", "gated-off"),
+    row("gatekeeper", "degraded"),
+  ] as never);
+  expect(await main(["platform", "status"])).toBe(1);
+});

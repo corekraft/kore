@@ -73,7 +73,10 @@ export async function platformCommand(
     // are audit-only: neither is a prerequisite of admitting applications.
     return rows.some(
       ({ name, status }) =>
-        name !== "crd-ownership" && name !== "backups" && status !== "ready",
+        name !== "crd-ownership" &&
+        name !== "backups" &&
+        status !== "ready" &&
+        status !== "gated-off",
     )
       ? 1
       : 0;

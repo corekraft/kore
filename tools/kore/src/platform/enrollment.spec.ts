@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { loadRepository, type Repository } from "../config/index.js";
-import type { Runner } from "../runtime/index.js";
+import { CommandError, type Runner } from "../runtime/index.js";
 import { enrollPlatformNamespaces } from "./enrollment.js";
 
 // Docs: docs/decisions/0056-platform-image-inventory.md
@@ -22,6 +22,13 @@ function cluster(existing: Existing[]) {
   const calls: Call[] = [];
   const runner: Runner = {
     async run(command, args, options) {
+      if (command === "helm") {
+        throw new CommandError(command, args, {
+          stdout: "",
+          stderr: "Error: release: not found",
+          code: 1,
+        });
+      }
       assert.equal(command, "kubectl");
       calls.push({ args: [...args], input: options?.input ?? "" });
       if (args.includes("get")) {
