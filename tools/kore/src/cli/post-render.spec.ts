@@ -51,7 +51,7 @@ test("the post-renderer refuses a missing or malformed patch argument", () => {
   );
 });
 
-test("the post-renderer entry runs when started through a symlink", async () => {
+test("the post-renderer entry runs when started through a symlink", async (context) => {
   const { execFileSync } = await import("node:child_process");
   const { existsSync, mkdtempSync, rmSync, symlinkSync } =
     await import("node:fs");
@@ -62,6 +62,9 @@ test("the post-renderer entry runs when started through a symlink", async () => 
     "../../dist/src/cli/post-render.js",
   );
   if (!existsSync(built)) {
+    context.skip(
+      "tools/kore/dist is not built; run `npm run build` (npm test builds first)",
+    );
     return;
   }
   const directory = mkdtempSync(join(tmpdir(), "kore-post-render-"));

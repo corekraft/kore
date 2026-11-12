@@ -129,3 +129,28 @@ spec:
     /httpGet: \{path: \/health, port: health\}\n {12}timeoutSeconds: 5\n$/,
   );
 });
+
+test("a probe written in flow style fails with guidance, not a missing-probe error", () => {
+  const flow = `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  template:
+    spec:
+      containers:
+      - name: app
+        livenessProbe: {httpGet: {path: /h, port: 80}}
+`;
+  assert.throws(
+    () =>
+      applyProbePatches(flow, [
+        {
+          target: { kind: "Deployment", name: "web", container: "app" },
+          reason: "r",
+          probes: { livenessProbe: { timeoutSeconds: 5 } },
+        },
+      ]),
+    /Deployment\/web container app livenessProbe is written in flow style; Kore patches block-style probes only\. Check the chart version or its values/,
+  );
+});

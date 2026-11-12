@@ -1,5 +1,5 @@
 #!/bin/sh
-# Helm post-renderer entry (ADR 0088): the rendered manifests arrive on stdin,
+# Helm post-renderer entry (ADR 0089): the rendered manifests arrive on stdin,
 # the catalog's probe patches as the one argument. The patcher is kore's own
 # Node entry point, built into tools/kore/dist; it uses only the standard library.
 set -eu

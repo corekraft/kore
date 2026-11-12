@@ -54,13 +54,22 @@ test("a component with patches renders and upgrades through the kore-patch post-
   }
 });
 
-test("a component without patches has no post-renderer and no plugin directory", async () => {
-  const { repository, component: istiod } = await component("istiod");
-  assert.equal(
-    helmTemplateArgs(repository, istiod).includes("--post-renderer"),
-    false,
+test("every component without patches renders and upgrades with no post-renderer and no plugin directory", async () => {
+  const { repository } = await component("istiod");
+  const plain = repository.catalog.components.filter(
+    (c) => c.kind !== "manifest" && !c.patches,
   );
-  assert.equal(helmEnv(repository, istiod), undefined);
+  assert.ok(plain.length > 10, "the catalog has many unpatched charts");
+  for (const c of plain) {
+    for (const args of [
+      helmTemplateArgs(repository, c),
+      helmUpgradeArgs(repository, c),
+    ]) {
+      assert.equal(args.includes("--post-renderer"), false, c.name);
+      assert.equal(args.includes("--post-renderer-args"), false, c.name);
+    }
+    assert.equal(helmEnv(repository, c), undefined, c.name);
+  }
 });
 
 test("helm finds the kore-patch plugin in the repository, not in the user's plugin directory", async () => {
@@ -113,6 +122,48 @@ test("validation rejects a patch with no reason, an unknown field, or a non-inte
     bad({ ...patch, probes: { lifeProbe: { timeoutSeconds: 5 } } }),
     /cloudnative-pg: patches\[0\] lifeProbe is not a probe/,
   );
+});
+
+test("a patch must be a well-formed object with only known keys and a sound probe", async () => {
+  const { repository, component: cnpg } = await component("cloudnative-pg");
+  const bad = (changed: unknown) =>
+    validated(repository, { ...cnpg, patches: [changed as ProbePatch] });
+  for (const [probes, message] of [
+    [
+      { livenessProbe: null },
+      /livenessProbe must be an object of probe fields/,
+    ],
+    [{ livenessProbe: {} }, /livenessProbe sets no field/],
+    [{ livenessProbe: 5 }, /livenessProbe must be an object of probe fields/],
+    [{ livenessProbe: [1] }, /livenessProbe must be an object of probe fields/],
+  ] as const) {
+    await assert.rejects(
+      bad({ ...patch, probes }),
+      new RegExp(`cloudnative-pg: patches\\[0\\] ${message.source}`),
+    );
+  }
+  await assert.rejects(
+    bad({ ...patch, extra: 1 }),
+    /cloudnative-pg: patches\[0\] has unknown key extra/,
+  );
+  await assert.rejects(
+    bad({ ...patch, target: { ...patch.target, port: 1 } }),
+    /cloudnative-pg: patches\[0\] target has unknown key port/,
+  );
+  await assert.rejects(
+    bad({ ...patch, probes: { livenessProbe: { successThreshold: 2 } } }),
+    /cloudnative-pg: patches\[0\] livenessProbe.successThreshold must be 1/,
+  );
+  await assert.rejects(
+    bad({ ...patch, probes: { startupProbe: { successThreshold: 3 } } }),
+    /cloudnative-pg: patches\[0\] startupProbe.successThreshold must be 1/,
+  );
+  await validated(repository, {
+    ...cnpg,
+    patches: [
+      { ...patch, probes: { readinessProbe: { successThreshold: 2 } } },
+    ],
+  });
 });
 
 test("a manifest component cannot carry patches", async () => {

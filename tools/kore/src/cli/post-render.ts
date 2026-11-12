@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// Docs: docs/decisions/0088-declarative-probe-patches-through-a-helm-post-renderer.md
+// Docs: docs/decisions/0089-declarative-probe-patches-through-a-helm-post-renderer.md
 import { readFileSync, realpathSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import type { ProbePatch } from "../config/index.js";
-import { applyProbePatches } from "../platform/patches.js";
+import { applyProbePatches } from "../platform/index.js";
 
 /** The Helm post-renderer: patches the manifest stream with the catalog's probe patches. */
 export function postRender(manifests: string, args: string[]): string {

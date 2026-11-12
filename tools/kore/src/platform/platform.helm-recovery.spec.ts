@@ -47,9 +47,12 @@ const ok = (revisions: { revision: number; status: string }[]): RunResult => ({
 
 async function policyController() {
   const repository = await loadRepository("local");
-  const component = repository.catalog.components.find(
-    ({ name }) => name === "policy-controller",
-  )!;
+  // Patches would add a diagnostic `helm template` to a failed upgrade; these
+  // specs are about the release history, so they use the component unpatched.
+  const { patches: _patches, ...component } =
+    repository.catalog.components.find(
+      ({ name }) => name === "policy-controller",
+    )!;
   return { repository, component };
 }
 

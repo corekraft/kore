@@ -1,6 +1,6 @@
 import { probeNames, type ProbePatch } from "../config/index.js";
 
-// Docs: docs/decisions/0088-declarative-probe-patches-through-a-helm-post-renderer.md
+// Docs: docs/decisions/0089-declarative-probe-patches-through-a-helm-post-renderer.md
 
 /**
  * Declarative probe patches for charts that give no value for a probe field.
@@ -97,6 +97,11 @@ function setFields(
   label: string,
 ): void {
   const at = item.findIndex((_, i) => keyText(item, i, dash) === `${probe}:`);
+  if (item.some((_, i) => keyText(item, i, dash)?.startsWith(`${probe}: `))) {
+    throw new Error(
+      `patch target ${label} ${probe} is written in flow style; Kore patches block-style probes only. Check the chart version or its values`,
+    );
+  }
   if (at < 0) {
     throw new Error(`patch target ${label} has no ${probe}`);
   }

@@ -7,6 +7,7 @@ import {
   helmEnv,
   helmUpgradeArgs,
   manifestSource,
+  patchFailure,
   withAbsoluteChart,
 } from "./helm.js";
 import {
@@ -85,6 +86,12 @@ async function applyComponent(
       throw error;
     }
     if (!(await recoverUndeployedRelease(repository, runner, component))) {
+      const patchProblem = await patchFailure(repository, runner, component);
+      if (patchProblem) {
+        throw new Error(
+          `${patchProblem}; helm hid it as "plugin exited with error"`,
+        );
+      }
       throw error;
     }
     await upgrade();

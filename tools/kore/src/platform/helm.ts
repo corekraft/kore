@@ -11,6 +11,8 @@ import {
   type Component,
   type Repository,
 } from "../config/index.js";
+import type { Runner } from "../runtime/index.js";
+import { applyProbePatches } from "./patches.js";
 
 /** The Helm post-renderer plugin kept in the repository. */
 const PATCH_PLUGIN = "kore-patch";
@@ -164,4 +166,47 @@ export function manifestSource(
   return /^https?:\/\//.test(expanded)
     ? expanded
     : absolute(repository, expanded);
+}
+
+function withoutPostRenderer(args: string[]): string[] {
+  const at = args.indexOf("--post-renderer");
+  return at < 0 ? args : [...args.slice(0, at), ...args.slice(at + 4)];
+}
+
+/**
+ * Helm hides a failing post-renderer as "plugin exited with error". When a helm
+ * call fails for a component with patches, render the chart without the
+ * post-renderer and apply the patches in-process, so the patcher's own error
+ * (a moved target, a flow-style probe) is what gets reported. Returns undefined
+ * when the patches are not the cause or the chart cannot be rendered. The
+ * upgrade output streams to the terminal, so the error text cannot be matched.
+ */
+export async function patchFailure(
+  repository: Repository,
+  runner: Runner,
+  component: Component,
+): Promise<string | undefined> {
+  if (!component.patches?.length) {
+    return undefined;
+  }
+  try {
+    const { stdout } = await runner.run(
+      "helm",
+      withAbsoluteChart(
+        repository,
+        component,
+        withoutPostRenderer(helmTemplateArgs(repository, component)),
+      ),
+      { capture: true, cwd: repository.root },
+    );
+    if (stdout.trim() === "") {
+      return undefined;
+    }
+    applyProbePatches(stdout, component.patches);
+    return undefined;
+  } catch (error) {
+    return error instanceof Error && error.message.startsWith("patch target ")
+      ? error.message
+      : undefined;
+  }
 }

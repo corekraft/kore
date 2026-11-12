@@ -5,9 +5,9 @@ date: 2026-11-12
 last-verified: 2026-11-12
 ---
 
-# ADR 0088: Declarative probe patches through a Helm post-renderer
+# ADR 0089: Declarative probe patches through a Helm post-renderer
 
-Source: [`infra/plans/2-implementation.md`](../../infra/plans/2-implementation.md)
+Source: [`infra/plans/9-k3d-local-cluster.md`](../../infra/plans/9-k3d-local-cluster.md)
 
 ## Context
 
@@ -28,8 +28,10 @@ it now.
 - A catalog component may list `patches`: each names a `target` (`kind`,
   `name`, `container`), a required `reason`, and the `probes` fields to set
   (`livenessProbe`, `readinessProbe`, `startupProbe`; integer fields only).
-  The schema and `kore validate` check them before any cluster is touched; a
-  manifest component cannot carry patches.
+  The schema and `kore validate` check them before any cluster is touched: a
+  patch and its target accept only known keys, each probe is a non-empty plain
+  object of positive integers, `successThreshold` must be 1 for liveness and
+  startup probes, and a manifest component cannot carry patches.
 - Helm applies them through its own `--post-renderer`. Helm 4 takes a
   post-renderer by plugin name, so Kore keeps the plugin in
   `infra/helm-plugins/kore-patch` and sets `HELM_PLUGINS` to that directory for
@@ -44,7 +46,11 @@ it now.
   gets no post-renderer and no `HELM_PLUGINS`, so it renders unchanged.
 - Only the listed fields of a probe the chart already renders are set. A
   missing workload, container, or probe fails the render, so a chart bump
-  cannot silently drop a patch. Probes written in flow style are refused.
+  cannot silently drop a patch. A probe written in flow style is refused with a
+  message to check the chart version or its values.
+- When a Helm call fails for a component with patches, Kore renders the chart
+  without the post-renderer and applies the patches in-process, and reports the
+  patcher's own error, because Helm hides it as "plugin exited with error".
 - Patched now: policy-controller's `policy-controller-webhook` liveness and
   readiness probes, `timeoutSeconds` 5.
 
@@ -52,12 +58,13 @@ it now.
 
 - The post-renderer runs from `tools/kore/dist`, so the CLI must be built (it
   already is for `kore`); a missing build fails with a message.
-- Helm shows only "plugin exited with error" for a failed patch. The cause is
-  the catalog target, which the upstream chart spec reports when a chart bump
-  moves it.
+- Helm shows only "plugin exited with error" for a failed patch; the
+  in-process diagnosis above names the cause, and the upstream chart spec
+  reports a moved target on a chart bump.
 - The patcher edits block-style YAML text, not a parsed document, and is
   deliberately limited to probe integer fields.
 - `HELM_PLUGINS` replaces the user's plugin directory for those calls only.
-- The change alters what runs in a cluster, so it needs a live run on k3d
-  (`resilience` passing first time under the suite's load) before its flag is
-  activated, per AGENTS.md.
+- There is no feature flag. The patch applies on the next `kore local up` or
+  `kore platform up`, so the change is not flag-gated: a k3d live run, with
+  `resilience` passing first time under the suite's load, gates merging, not
+  flag activation (ADR 0077: nothing would gate it afterwards).
