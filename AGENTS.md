@@ -9,12 +9,12 @@ the plans and ADRs record why. Find them through
 - **It just works.** `kore local up` converges on the first run, from a fresh
   or an existing profile. A change to what runs in a cluster (images, chart
   values, ports, probes, scheduling, readiness) declares a safety pattern and
-  merges behind a flag; live proof gates turning the flag on, not merging. Only
+  may merge before a live run; live proof gates turning its flag on. Only
   `harness flag activate` turns a flag on, after a recorded live-run
   verification outcome for that flag and environment. A cluster-facing
   `no-behaviour-change` has no flag, so it needs a live run before merge. When a
   run does fail, it fails fast and names the cause, never just a timeout.
-  _Audited: `flag-activation`, `harness flag audit`._
+  _Audited: `flag-activation`; kb-check reports `harness flag audit`._
 - **Desired state lives in the repository.** Catalogs, environment overlays,
   charts, and manifests are the source of truth. Kore coordinates upstream tools
   (Minikube, Helm, kubectl, OpenTofu, controllers) and never reimplements their
@@ -79,8 +79,9 @@ the plans and ADRs record why. Find them through
 - **Fast tests need no cluster.** Fake the process runner and inspect its
   commands. Clean up temporary state.
 - **Live tests are opt-in.** Anything that creates or destroys a cluster runs
-  only when requested, never in ordinary runs. A cluster-facing change still
-  needs a live run before merge (see _It just works_).
+  only when requested, never in ordinary runs. A cluster-facing `no-behaviour-change`
+  still needs a live run before merge; any other needs one before its flag turns
+  on (see _It just works_).
 - **Coverage only goes up.** _Enforced: `coverage-threshold`._
 - **Policies have tests too,** kept beside the policies they verify.
 

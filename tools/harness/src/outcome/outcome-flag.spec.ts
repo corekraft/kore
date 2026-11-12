@@ -57,3 +57,18 @@ describe("harness outcome record --flag --environment", () => {
     expect(h.err()).toMatch(/--flag "Bad Flag"/);
   });
 });
+
+describe("harness outcome record summary", () => {
+  it.each(["- Environment: local", "- Result: confirmed", "- Flag: x"])(
+    "rejects a summary line %s that would override a recorded field",
+    async (line) => {
+      const { h } = await linked();
+      const before = h.get(PATH);
+      const argv = withFlag(live(), "--summary", `Worked.\n${line}`);
+      expect(await run(argv, h.deps)).toBe(1);
+      expect(h.err()).toMatch(/must not start a line with "- Name:"/);
+      expect(h.get(PATH)).toBe(before);
+      expect(ghWrites(h)).toHaveLength(0);
+    },
+  );
+});

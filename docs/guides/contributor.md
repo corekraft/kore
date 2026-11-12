@@ -70,8 +70,9 @@ Dark launch means on only in `local`.
 3. `node skills/bin/harness.mjs flag activate <name> --environment <env>` edits
    the overlay only when that confirmed outcome exists, and records a
    `flag.activated` ledger event. Without proof it refuses and changes nothing.
-4. `flag audit` fails when any flag is on without proof. CI runs it through
-   `kb-check --strict`; the `flag-activation` guard warns on a hand edit.
+4. `flag audit` exits 1 when any flag is on without proof. `kb-check` runs it
+   and reports a warning, which never fails `--strict` (ADR 0080: audit before
+   enforce); the `flag-activation` guard also warns on a hand edit.
 5. Removing the flag, its overlay entries and its gated code is the contract step of
    expand-contract, after the outcome is confirmed.
 

@@ -2803,7 +2803,14 @@ function notADirectory(error) {
   throw error;
 }
 async function environments(fs, root3) {
-  const names3 = await fs.readdir(`${root3}/${ENVIRONMENTS}`).catch(() => []);
+  const names3 = await fs.readdir(`${root3}/${ENVIRONMENTS}`).catch((error) => {
+    if (error.code === "ENOENT") {
+      return [];
+    }
+    throw new FlagError(
+      `Cannot read ${ENVIRONMENTS} (${error instanceof Error ? error.message : String(error)}); fix its permissions, then rerun.`
+    );
+  });
   const found = [];
   for (const name of [...names3].sort()) {
     const overlay = `${root3}/${ENVIRONMENTS}/${name}/environment.yaml`;
@@ -2870,11 +2877,18 @@ function withFlagOn(overlay, flag) {
 }
 
 // src/flag/proof.ts
+function fieldBlock(section) {
+  const body = section.split("\n").slice(1);
+  const start = body.findIndex((line2) => line2.trim() !== "");
+  const rest = start === -1 ? [] : body.slice(start);
+  const end = rest.findIndex((line2) => line2.trim() === "");
+  return end === -1 ? rest : rest.slice(0, end);
+}
 function lines(section) {
   const found = /* @__PURE__ */ new Map();
-  for (const line2 of section.split("\n")) {
+  for (const line2 of fieldBlock(section)) {
     const match = /^- ([A-Za-z]+): (.*)$/.exec(line2);
-    if (match?.[1] !== void 0) {
+    if (match?.[1] !== void 0 && !found.has(match[1])) {
       found.set(match[1], (match[2] ?? "").trim());
     }
   }
@@ -2975,13 +2989,14 @@ async function activateFlag(context) {
   const label = `${flag}@${environment}`;
   const logged = await opened.ledger.list({ kind: "flag.activated" });
   const recorded = logged.events.some((e) => e.label === label);
-  if (overlay.features[flag] !== true) {
+  const turningOn = overlay.features[flag] !== true;
+  if (turningOn) {
     await deps.fs.writeFile(
       `${base}/${overlay.path}`,
       withFlagOn(overlay, flag)
     );
   }
-  if (!recorded) {
+  if (turningOn || !recorded) {
     await recordActivation(
       opened.ledger,
       context,
@@ -3034,7 +3049,7 @@ var activate = {
   run: (context) => guarded2(context, () => activateFlag(context))
 };
 var audit = {
-  summary: "fail when any flag in any environment overlay is on without a confirmed live-run verification outcome; runs in CI through kb-check",
+  summary: "fail when any flag in any environment overlay is on without a confirmed live-run verification outcome; kb-check reports it as a warning (audit mode, ADR 0080)",
   run: (context) => guarded2(context, () => auditFlags(context))
 };
 var flagCommands = { activate, audit };
@@ -3088,6 +3103,11 @@ function parseOutcome(options) {
   if (summary.includes("<!--") || options.evidence?.includes("<!--") === true) {
     throw new IdeaError(
       "--summary and --evidence must not contain an HTML comment; it could forge the marker that tells a rerun the outcome is posted, so reword it."
+    );
+  }
+  if (/^- [A-Za-z]+:/m.test(summary)) {
+    throw new IdeaError(
+      '--summary must not start a line with "- Name:"; it could override a recorded field such as Flag or Result, so reword it.'
     );
   }
   if (/^#/m.test(summary)) {

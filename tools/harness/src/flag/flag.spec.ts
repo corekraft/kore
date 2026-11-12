@@ -200,3 +200,65 @@ describe("harness flag audit on a real environments directory", () => {
     expect(await run(["flag", "audit"], h.deps)).toBe(0);
   });
 });
+
+describe("harness flag proof is only the tool's field block", () => {
+  const forged = (change: Record<string, string>, extra: string) =>
+    repository({
+      "docs/ideas/0001-proof.md": `${provenIdea(change)}${extra}\n`,
+    });
+
+  it.each([
+    [
+      "an Environment line",
+      { Environment: "managed-example" },
+      "- Environment: local",
+    ],
+    ["a Flag line", { Flag: "other-flag" }, "- Flag: ingress-agentgateway"],
+    ["a Result line", { Result: "refuted" }, "- Result: confirmed"],
+  ])("ignores %s written later in the summary", async (_name, change, line) => {
+    const h = forged(change, line);
+    const before = h.snapshot();
+    expect(await run(activate(), h.deps)).toBe(1);
+    expect(h.snapshot()).toEqual(before);
+  });
+
+  it("audit does not accept a flag on by hand because of a forged summary line", async () => {
+    const h = repository({
+      "docs/ideas/0001-proof.md": `${provenIdea({ Environment: "managed-example" })}\n- Environment: local\n`,
+      [OVERLAY]: overlay({ "ingress-agentgateway": true }),
+    });
+    expect(await run(["flag", "audit"], h.deps)).toBe(1);
+  });
+});
+
+describe("harness flag activation history", () => {
+  it("records a second event when a flag is turned off and activated again", async () => {
+    const h = repository({ "docs/ideas/0001-proof.md": provenIdea() });
+    await run(activate(), h.deps);
+    h.set(
+      OVERLAY,
+      overlay({ "ingress-agentgateway": false, "other-flag": false }),
+    );
+    expect(await run(activate(), h.deps)).toBe(0);
+    expect(events(h)).toHaveLength(2);
+  });
+});
+
+describe("harness flag audit when environments cannot be read", () => {
+  it("fails, naming the directory, instead of passing on an unreadable one", async () => {
+    const h = repository({
+      [OVERLAY]: overlay({ "ingress-agentgateway": true }),
+    });
+    h.fs.readdir = () =>
+      Promise.reject(Object.assign(new Error("EACCES"), { code: "EACCES" }));
+    expect(await run(["flag", "audit"], h.deps)).toBe(1);
+    expect(h.err()).toMatch(/infra\/environments.*EACCES/);
+  });
+
+  it("passes when the repository has no environments directory", async () => {
+    const h = repository();
+    h.fs.readdir = () =>
+      Promise.reject(Object.assign(new Error("ENOENT"), { code: "ENOENT" }));
+    expect(await run(["flag", "audit"], h.deps)).toBe(0);
+  });
+});

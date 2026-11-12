@@ -153,7 +153,7 @@ repository root; `mise run kb-check` keeps this list complete.
 ## Operations and Guides
 
 - [`docs/guides/operator.md`](guides/operator.md) — running the local platform: start, stop, status, and where each recurring task is documented. Read first when operating Kore.
-- [`docs/guides/contributor.md`](guides/contributor.md) — the change loop: tests first, the checks to run, where each kind of change lives. Read before your first change.
+- [`docs/guides/contributor.md`](guides/contributor.md) — the change loop: tests first, the checks to run, where each kind of change lives, and feature flag activation. Read before your first change.
 - [`docs/guides/troubleshooting.md`](guides/troubleshooting.md) — symptom to cause to fix, by status row and error. Read when a command or the platform fails.
 - [`docs/guides/application-onboarding.md`](guides/application-onboarding.md) — the contract an application meets and the steps to deploy one. Read before adding an application.
 - [`docs/operations/support-and-upgrades.md`](operations/support-and-upgrades.md) — support window, upgrade order, rollback, and the gaps. Read before upgrading a pin or Kore.

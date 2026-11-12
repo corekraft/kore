@@ -37,7 +37,16 @@ export async function environments(
   fs: FileSystem,
   root: string,
 ): Promise<string[]> {
-  const names = await fs.readdir(`${root}/${ENVIRONMENTS}`).catch(() => []);
+  const names = await fs
+    .readdir(`${root}/${ENVIRONMENTS}`)
+    .catch((error: unknown) => {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        return [];
+      }
+      throw new FlagError(
+        `Cannot read ${ENVIRONMENTS} (${error instanceof Error ? error.message : String(error)}); fix its permissions, then rerun.`,
+      );
+    });
   const found: string[] = [];
   for (const name of [...names].sort()) {
     // A file beside the environment directories (schema.json) is not an environment.

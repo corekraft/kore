@@ -449,6 +449,26 @@ function checkFlagOn(tool, input, relative, ctx) {
   );
 }
 
+function checkImageDigest(tool, input, relative) {
+  if (
+    !relative.startsWith("apps/") &&
+    !relative.startsWith("infra/environments/")
+  ) {
+    return null;
+  }
+  const text =
+    tool === "Edit" ? (input.new_string ?? "") : (input.content ?? "");
+  const tagged = [...text.matchAll(IMAGE_LINE)].filter(
+    (m) => !m[1].includes("@sha256:"),
+  );
+  if (tagged.length === 0) return null;
+  return warn(
+    "image-digest",
+    `${tagged[0][1]} is not pinned by digest. Images are deployed by signed digest, never by tag. ` +
+      "Instead, reference it as name@sha256:<digest> from the release lock.",
+  );
+}
+
 function checkFile(tool, input, relative, ctx) {
   if (SECRET_PATH.test(relative)) return secretBlock();
 
@@ -456,7 +476,6 @@ function checkFile(tool, input, relative, ctx) {
     if (isAppendOnly(relative)) return appendOnlyWarn(relative);
 
     const flagOn = checkFlagOn(tool, input, relative, ctx);
-    if (flagOn !== null) return flagOn;
 
     if (IDEA_PATH.test(relative)) {
       const text =
@@ -492,23 +511,11 @@ function checkFile(tool, input, relative, ctx) {
       }
     }
 
-    if (
-      relative.startsWith("apps/") ||
-      relative.startsWith("infra/environments/")
-    ) {
-      const text =
-        tool === "Edit" ? (input.new_string ?? "") : (input.content ?? "");
-      const tagged = [...text.matchAll(IMAGE_LINE)].filter(
-        (m) => !m[1].includes("@sha256:"),
-      );
-      if (tagged.length > 0) {
-        return warn(
-          "image-digest",
-          `${tagged[0][1]} is not pinned by digest. Images are deployed by signed digest, never by tag. ` +
-            "Instead, reference it as name@sha256:<digest> from the release lock.",
-        );
-      }
+    const tagged = checkImageDigest(tool, input, relative);
+    if (flagOn !== null && tagged !== null) {
+      return { ...flagOn, message: `${flagOn.message}\n${tagged.message}` };
     }
+    if (flagOn !== null || tagged !== null) return flagOn ?? tagged;
   }
   return null;
 }

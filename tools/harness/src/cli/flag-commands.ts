@@ -106,14 +106,15 @@ async function activateFlag(context: CommandContext): Promise<number> {
   const label = `${flag}@${environment}`;
   const logged = await opened.ledger.list({ kind: "flag.activated" });
   const recorded = logged.events.some((e) => e.label === label);
-  if (overlay.features[flag] !== true) {
+  // A turn-on records its event; a rerun on a flag already on only repairs a missing one.
+  const turningOn = overlay.features[flag] !== true;
+  if (turningOn) {
     await deps.fs.writeFile(
       `${base}/${overlay.path}`,
       withFlagOn(overlay, flag),
     );
   }
-  // A rerun repairs an activation whose event was rejected, and records nothing twice.
-  if (!recorded) {
+  if (turningOn || !recorded) {
     await recordActivation(
       opened.ledger,
       context,
@@ -171,7 +172,7 @@ const activate: Command = {
 
 const audit: Command = {
   summary:
-    "fail when any flag in any environment overlay is on without a confirmed live-run verification outcome; runs in CI through kb-check",
+    "fail when any flag in any environment overlay is on without a confirmed live-run verification outcome; kb-check reports it as a warning (audit mode, ADR 0080)",
   run: (context) => guarded(context, () => auditFlags(context)),
 };
 

@@ -81,6 +81,11 @@ export function parseOutcome(options: {
       "--summary and --evidence must not contain an HTML comment; it could forge the marker that tells a rerun the outcome is posted, so reword it.",
     );
   }
+  if (/^- [A-Za-z]+:/m.test(summary)) {
+    throw new IdeaError(
+      '--summary must not start a line with "- Name:"; it could override a recorded field such as Flag or Result, so reword it.',
+    );
+  }
   if (/^#/m.test(summary)) {
     throw new IdeaError(
       "--summary must not start a line with #; it would open a new section in the idea, so reword it.",

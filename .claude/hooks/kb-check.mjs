@@ -4,7 +4,7 @@
 // missing or invalid frontmatter, `Docs:`/`Plan:`/`ADR:` comment markers that
 // do not resolve, and top-level `kore` commands that README.md does not mention.
 // Idea records under docs/ideas get their own frontmatter checks (ADR 0079).
-// It also runs the bundled `flag audit`: a flag on without live proof is a finding (ADR 0077).
+// It also runs the bundled `flag audit`: a flag on without live proof is a warning, never a failure (ADR 0077, 0080).
 // Docs: infra/plans/4-knowledge.md#step-3-knowledge-health-check
 // Node standard library only.
 //
@@ -604,7 +604,7 @@ function runAudit(root) {
   );
 }
 
-/** The bundled harness's flag audit: empty when every flag that is on has live proof, else its report. */
+/** The bundled harness's flag audit as warning lines: none when every flag that is on has live proof. */
 function runFlagAudit(root) {
   try {
     execFileSync(
@@ -612,11 +612,16 @@ function runFlagAudit(root) {
       [posix.join(root, "skills/bin/harness.mjs"), "flag", "audit"],
       { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
     );
-    return "";
+    return [];
   } catch (error) {
     // Exit 1 is the audit's own report; any other failure means it could not run.
-    if (error?.status === 1 && error.stderr) return String(error.stderr).trim();
-    return `flag audit could not run (${error?.message ?? error}); run \`mise run harness-build\``;
+    if (error?.status === 1 && error.stderr) {
+      return String(error.stderr).trim().split("\n");
+    }
+    const reason = String(error?.message ?? error).split("\n")[0];
+    return [
+      `flag audit could not run (${reason}); run \`mise run harness-build\``,
+    ];
   }
 }
 
@@ -675,23 +680,9 @@ function printAudit(audit, log) {
   for (const line of report.trimEnd().split("\n")) log(`  ${line}`.trimEnd());
 }
 
-/** Flags on without recorded live proof (ADR 0077), one finding per reported line. */
-function flagProblems(deps) {
-  const report = deps.flagAudit?.() ?? "";
-  return report
-    .split("\n")
-    .filter((line) => line.trim() !== "")
-    .map((line) => ({
-      file: "infra/environments",
-      line: 1,
-      message: line.trim(),
-      fix: "run `harness flag audit`; turn the flag off, or record a live-run verification outcome and use `harness flag activate`",
-    }));
-}
-
 function runChecks(argv, deps, log) {
   const strict = argv.includes("--strict");
-  const problems = [...findings(deps), ...flagProblems(deps)];
+  const problems = findings(deps);
   for (const problem of problems) log(format(problem));
   // Staleness is warn-only for now: it never changes the exit code, even --strict.
   const stale = staleDocuments(deps);
@@ -700,14 +691,23 @@ function runChecks(argv, deps, log) {
       `stale: ${item.document} was last verified ${item.verified}, but ${item.path} changed ${item.date}; re-read it and update last-verified`,
     );
   }
+  // Flags on without proof (ADR 0077) are warn-only for now, like staleness (ADR 0080).
+  const flags = deps.flagAudit?.() ?? [];
+  for (const line of flags) log(`flag: ${line}`);
   const staleNote = () => {
-    if (stale.length === 0) return;
-    log(
-      `kb-check: ${stale.length} stale ${stale.length === 1 ? "document" : "documents"} (warn only)`,
-    );
+    if (stale.length > 0) {
+      log(
+        `kb-check: ${stale.length} stale ${stale.length === 1 ? "document" : "documents"} (warn only)`,
+      );
+    }
+    if (flags.length > 0) {
+      log(
+        `kb-check: ${flags.length} flag audit ${flags.length === 1 ? "warning" : "warnings"} (warn only)`,
+      );
+    }
   };
   if (problems.length === 0) {
-    if (stale.length === 0) {
+    if (stale.length === 0 && flags.length === 0) {
       log("kb-check: clean");
     } else {
       staleNote();

@@ -688,3 +688,14 @@ test("flag-activation: leaving flags off, other booleans and other files are not
     assert.equal(result.action, "allow", JSON.stringify(result));
   }
 });
+
+test("flag-activation: an image tag in the same edit is reported too, not hidden", () => {
+  const result = edit(
+    `/repo/${OVERLAY_FILE}`,
+    '"features": { "a-b": false }',
+    '"features": { "a-b": true }, "image": "registry/app:latest"\n  image: registry/app:latest',
+  );
+  assert.equal(result.action, "warn");
+  assert.match(result.message, /guard:flag-activation/);
+  assert.match(result.message, /guard:image-digest/);
+});
