@@ -62,9 +62,7 @@ export function checkGuardrailDemotion(
   );
 }
 
-const INVENTORY_TARGET = new RegExp(
-  `(^|[/\\s>'"=])${INVENTORY_PATH.replaceAll(".", "\\.")}$`,
-);
+const INVENTORY_TARGET = /(^|[/\s>'"=])\.claude\/guardrails\.yaml$/;
 
 /**
  * A Bash command that rewrites the inventory (sed -i, a redirect, tee, cp, mv).

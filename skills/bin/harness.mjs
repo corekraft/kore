@@ -5412,9 +5412,7 @@ function checkGuardrailDemotion(tool, input, relative, previous) {
     `${relative} turns ${rules.join(", ")} from enforce to audit by hand. A person approves a guardrail's mode (ADR 0080). Instead, leave the mode and ask the user to approve the change, or promote a rule from audit to enforce.`
   );
 }
-var INVENTORY_TARGET = new RegExp(
-  `(^|[/\\s>'"=])${INVENTORY_PATH.replaceAll(".", "\\.")}$`
-);
+var INVENTORY_TARGET = /(^|[/\s>'"=])\.claude\/guardrails\.yaml$/;
 function checkGuardrailBash(name, args, segment) {
   const path = writtenPath(
     name,
