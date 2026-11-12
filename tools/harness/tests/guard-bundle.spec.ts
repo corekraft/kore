@@ -6,13 +6,14 @@ import { join } from "node:path";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, it } from "vitest";
+import { cleanGitEnv } from "../src/testing/git-env.js";
 
 // The guard as the host runs it: the committed bundle as a real process.
 const here = dirname(fileURLToPath(import.meta.url));
 const bundle = resolve(here, "../../../skills/bin/harness.mjs");
 
 // A project directory in the environment would move the guard's root off the payload's cwd.
-const { CLAUDE_PROJECT_DIR: _project, ...inherited } = process.env;
+const { CLAUDE_PROJECT_DIR: _project, ...inherited } = cleanGitEnv();
 
 const run = (payload: unknown, input = JSON.stringify(payload)) =>
   spawnSync("node", [bundle, "hook", "guard"], {
@@ -62,14 +63,20 @@ it("cli: malformed input fails open", () => {
 
 const median = (xs: number[]) =>
   [...xs].sort((x, y) => x - y)[Math.floor(xs.length / 2)] as number;
-const timeMs = (fn: () => void, runs = 5) =>
-  median(
-    Array.from({ length: runs }, () => {
-      const start = performance.now();
-      fn();
-      return performance.now() - start;
-    }),
-  );
+const elapsed = (fn: () => void): number => {
+  const start = performance.now();
+  fn();
+  return performance.now() - start;
+};
+
+/** Median time of each function, sampled in turn so they all see the same host load. */
+const timeInTurns = (fns: (() => void)[], rounds = 9): number[] => {
+  const samples = fns.map((): number[] => []);
+  for (let round = 0; round < rounds; round++) {
+    fns.forEach((fn, i) => samples[i]?.push(elapsed(fn)));
+  }
+  return samples.map(median);
+};
 
 // The real path: a session id, no KORE_ROOT, so each recording asks git for the
 // main checkout's root, as the host's hook does. The ledger lands in a temporary repository.
@@ -87,17 +94,21 @@ const runRecording = (payload: unknown) => {
 
 it("cli: the guard adds at most 150 ms to the bare node startup, recording its events", () => {
   mkdirSync(join(project, "infra", "plans"), { recursive: true });
-  execFileSync("git", ["init", "-q", project]);
-  // Measured against the same node binary, so a slow or loaded machine
-  // raises the baseline instead of failing the guard's own budget.
-  const baseline = timeMs(() => spawnSync("node", ["-e", "0"]));
+  execFileSync("git", ["-C", project, "init", "-q"], {
+    env: cleanGitEnv(),
+  });
+  // Measured against the same node binary, sampled in turn with it, so a slow
+  // or loaded machine raises the baseline instead of failing the guard's own budget.
   const call = (command: string) => ({
     session_id: "timing",
     tool_name: "Bash",
     tool_input: { command },
   });
-  const allowed = timeMs(() => runRecording(call("git status")));
-  const blocked = timeMs(() => runRecording(call("minikube delete")));
+  const [baseline = 0, allowed = 0, blocked = 0] = timeInTurns([
+    () => spawnSync("node", ["-e", "0"]),
+    () => runRecording(call("git status")),
+    () => runRecording(call("minikube delete")),
+  ]);
   for (const [path, ms] of [
     ["an allowed call", allowed],
     ["a blocked call", blocked],
