@@ -13,6 +13,9 @@ export interface CliDeps {
    * outside a repository; rejects with a named error when it cannot be found.
    */
   root(): Promise<string>;
+  env: Readonly<Record<string, string | undefined>>;
+  /** The process working directory (a worktree's own checkout, not the repository root). */
+  cwd: string;
   stdout(text: string): void;
   stderr(text: string): void;
 }

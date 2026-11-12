@@ -19,6 +19,8 @@ try {
       (root ??= resolveRoot(process.env, import.meta.url, (path) =>
         nodeFileSystem.exists(path),
       )),
+    env: process.env,
+    cwd: process.cwd(),
     stdout: (text) => process.stdout.write(text),
     stderr,
   });
