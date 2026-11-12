@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import {
   KINDS,
   Ledger,
+  pollGithub,
   pollHerdr,
   SOURCES,
   isTimestamp,
@@ -256,8 +257,59 @@ const pollHerdrCommand: Command = {
   },
 };
 
+const DEFAULT_REPO = "corekraft/kore";
+
+const pollGithubCommand: Command = {
+  summary:
+    "list issues, label events and PRs through gh and append issue.opened, issue.labelled, pr.opened and pr.merged (numbers, labels and GitHub times only, no titles or bodies); --since defaults to the latest recorded GitHub event, --repo to corekraft/kore; re-polling appends nothing, and one poll runs at a time",
+  options: STRING_FLAGS(["ledger", "since", "repo"]),
+  async run(context) {
+    const since = context.options["since"];
+    if (typeof since === "string" && !isTimestamp(since)) {
+      return reject(
+        context,
+        `Invalid --since "${since}". Use an ISO 8601 UTC time such as 2026-01-02T03:04:05Z.`,
+        "since",
+        2,
+      );
+    }
+    const repo = context.options["repo"];
+    if (typeof repo === "string" && !/^[\w.-]+\/[\w.-]+$/.test(repo)) {
+      return reject(
+        context,
+        `Invalid --repo "${repo}". Use owner/name, such as ${DEFAULT_REPO}.`,
+        "repo",
+        2,
+      );
+    }
+    const opened = await openLedger(context);
+    if ("error" in opened) {
+      return reject(context, opened.error, "ledger");
+    }
+    const { runner, clock, fs } = context.deps;
+    const result = await pollGithub({
+      ledger: opened.ledger,
+      runner,
+      clock,
+      fs,
+      repo: typeof repo === "string" ? repo : DEFAULT_REPO,
+      ...(typeof since === "string" ? { since } : {}),
+    });
+    if (!result.ok) {
+      return reject(context, result.message, "github");
+    }
+    context.deps.stdout(
+      context.json
+        ? `${JSON.stringify({ recorded: result.recorded, events: result.events })}\n`
+        : `recorded ${result.recorded} github event(s)\n`,
+    );
+    return 0;
+  },
+};
+
 export const ledgerCommands: Record<string, Command> = {
   record,
   list,
   "poll-herdr": pollHerdrCommand,
+  "poll-github": pollGithubCommand,
 };

@@ -208,9 +208,9 @@ function headings(markdown) {
       continue;
     }
     const base = headingSlug(text3);
-    const count = seen.get(base) ?? 0;
-    seen.set(base, count + 1);
-    found.push({ text: text3, anchor: count > 0 ? `${base}-${count}` : base });
+    const count2 = seen.get(base) ?? 0;
+    seen.set(base, count2 + 1);
+    found.push({ text: text3, anchor: count2 > 0 ? `${base}-${count2}` : base });
   }
   return found;
 }
@@ -1708,6 +1708,140 @@ function parseEvent(input, mode) {
   return { ok: true, event };
 }
 
+// src/ledger/github-poll.ts
+var LIMIT = "1000";
+var describe3 = (code, stdout, stderr2) => {
+  const text3 = `${stderr2}${stdout}`.trim();
+  return text3 === "" ? `exit code ${code}` : `exit code ${code}: ${text3}`;
+};
+async function query(runner, what, args) {
+  const found = await runner.run("gh", args);
+  if (found.code !== 0) {
+    return `gh ${what} failed: ${describe3(found.code, found.stdout, found.stderr)}. Is gh installed and logged in (gh auth status)?`;
+  }
+  let value;
+  try {
+    value = JSON.parse(found.stdout);
+  } catch {
+    return `gh ${what} did not print JSON. Run it by hand and check the gh version.`;
+  }
+  return Array.isArray(value) ? value : `gh ${what} printed no JSON list; the gh version may have changed its output.`;
+}
+var asRecord = (value) => typeof value === "object" && value !== null ? value : {};
+var when = (value) => typeof value === "string" && isTimestamp(value) ? value : void 0;
+var count = (value) => Number.isSafeInteger(value) && value >= 1 ? value : void 0;
+function fromItems(items, openedKind, mergedKind) {
+  const out = [];
+  for (const item of items) {
+    const raw = asRecord(item);
+    const number = count(raw["number"]);
+    const opened = when(raw["createdAt"]);
+    const merged = when(raw["mergedAt"]);
+    if (number === void 0) {
+      continue;
+    }
+    const at = (kind, occurredAt, id) => out.push({ id, source: "github", kind, occurredAt, number });
+    if (opened !== void 0) {
+      at(openedKind, opened, `github:${openedKind}:${number}`);
+    }
+    if (mergedKind !== void 0 && merged !== void 0) {
+      at(mergedKind, merged, `github:${mergedKind}:${number}`);
+    }
+  }
+  return out;
+}
+function fromLabelEvents(items) {
+  const out = [];
+  for (const item of items) {
+    const raw = asRecord(item);
+    const id = count(raw["id"]);
+    const number = count(asRecord(raw["issue"])["number"]);
+    const occurredAt = when(raw["created_at"]);
+    const label = asRecord(raw["label"])["name"];
+    if (raw["event"] === "labeled" && id !== void 0 && number !== void 0 && occurredAt !== void 0 && typeof label === "string") {
+      out.push({
+        id: `github:issue.labelled:${id}`,
+        source: "github",
+        kind: "issue.labelled",
+        occurredAt,
+        number,
+        label
+      });
+    }
+  }
+  return out;
+}
+async function pollGithub(deps) {
+  const held = await acquire(deps.fs, deps.clock, `${deps.ledger.path}.lock`);
+  if (!held.ok) {
+    return { ok: false, message: held.message };
+  }
+  try {
+    return await poll(deps);
+  } finally {
+    await held.release();
+  }
+}
+async function fetchAll(runner, repo) {
+  const flag = ["--repo", repo];
+  const list3 = ["--state", "all", "--limit", LIMIT];
+  const issues = await query(runner, "issue list", [
+    "issue",
+    "list",
+    ...flag,
+    ...list3,
+    "--json",
+    "number,createdAt"
+  ]);
+  const prs = await query(runner, "pr list", [
+    "pr",
+    "list",
+    ...flag,
+    ...list3,
+    "--json",
+    "number,createdAt,mergedAt"
+  ]);
+  const pages = await query(runner, "api issues/events", [
+    "api",
+    "--paginate",
+    "--slurp",
+    `repos/${repo}/issues/events`
+  ]);
+  const failed = [issues, prs, pages].find((a) => typeof a === "string");
+  return typeof failed === "string" ? failed : {
+    issues,
+    prs,
+    pages
+  };
+}
+async function poll(deps) {
+  const { events: known } = await deps.ledger.list({ source: "github" });
+  const have = new Set(known.map((e) => e.id));
+  const since = deps.since ?? known.map((e) => e.occurredAt).reduce(
+    (latest, t) => latest === void 0 || Date.parse(t) > Date.parse(latest) ? t : latest,
+    void 0
+  );
+  const fetched = await fetchAll(deps.runner, deps.repo);
+  if (typeof fetched === "string") {
+    return { ok: false, message: fetched };
+  }
+  const { issues, prs, pages } = fetched;
+  const planned = [
+    ...fromItems(issues, "issue.opened"),
+    ...fromItems(prs, "pr.opened", "pr.merged"),
+    ...fromLabelEvents(pages.flat())
+  ].filter(
+    (e) => !have.has(e.id ?? "") && (since === void 0 || Date.parse(e.occurredAt) >= Date.parse(since))
+  ).sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt));
+  for (const input of planned) {
+    const result = await deps.ledger.record(input);
+    if (!result.ok) {
+      return { ok: false, message: result.message };
+    }
+  }
+  return { ok: true, recorded: planned.length, events: planned };
+}
+
 // src/ledger/herdr-poll.ts
 var PANE_KINDS = [
   "pane.spawned",
@@ -1721,7 +1855,7 @@ var STATUS_KIND = {
   blocked: "pane.waiting",
   done: "pane.waiting"
 };
-function describe3(code, stdout, stderr2) {
+function describe4(code, stdout, stderr2) {
   const text3 = `${stderr2}${stdout}`.trim();
   return text3 === "" ? `exit code ${code}` : `exit code ${code}: ${text3}`;
 }
@@ -1742,7 +1876,7 @@ async function listAgents(runner) {
   const found = await runner.run("herdr", ["agent", "list"]);
   if (found.code !== 0) {
     return {
-      message: `herdr agent list failed: ${describe3(found.code, found.stdout, found.stderr)}. Is the herdr server running?`
+      message: `herdr agent list failed: ${describe4(found.code, found.stdout, found.stderr)}. Is the herdr server running?`
     };
   }
   let value;
@@ -1787,7 +1921,7 @@ async function pollHerdr(deps) {
     return { ok: false, message: held.message };
   }
   try {
-    return await poll(deps);
+    return await poll2(deps);
   } finally {
     await held.release();
   }
@@ -1822,7 +1956,7 @@ function plan(listed, last, observedAt) {
   }
   return planned;
 }
-async function poll(deps) {
+async function poll2(deps) {
   const observedAt = deps.clock.now().toISOString();
   const listed = await listAgents(deps.runner);
   if ("message" in listed) {
@@ -2116,10 +2250,58 @@ var pollHerdrCommand = {
     return 0;
   }
 };
+var DEFAULT_REPO = "corekraft/kore";
+var pollGithubCommand = {
+  summary: "list issues, label events and PRs through gh and append issue.opened, issue.labelled, pr.opened and pr.merged (numbers, labels and GitHub times only, no titles or bodies); --since defaults to the latest recorded GitHub event, --repo to corekraft/kore; re-polling appends nothing, and one poll runs at a time",
+  options: STRING_FLAGS(["ledger", "since", "repo"]),
+  async run(context) {
+    const since = context.options["since"];
+    if (typeof since === "string" && !isTimestamp(since)) {
+      return reject(
+        context,
+        `Invalid --since "${since}". Use an ISO 8601 UTC time such as 2026-01-02T03:04:05Z.`,
+        "since",
+        2
+      );
+    }
+    const repo = context.options["repo"];
+    if (typeof repo === "string" && !/^[\w.-]+\/[\w.-]+$/.test(repo)) {
+      return reject(
+        context,
+        `Invalid --repo "${repo}". Use owner/name, such as ${DEFAULT_REPO}.`,
+        "repo",
+        2
+      );
+    }
+    const opened = await openLedger(context);
+    if ("error" in opened) {
+      return reject(context, opened.error, "ledger");
+    }
+    const { runner, clock, fs } = context.deps;
+    const result = await pollGithub({
+      ledger: opened.ledger,
+      runner,
+      clock,
+      fs,
+      repo: typeof repo === "string" ? repo : DEFAULT_REPO,
+      ...typeof since === "string" ? { since } : {}
+    });
+    if (!result.ok) {
+      return reject(context, result.message, "github");
+    }
+    context.deps.stdout(
+      context.json ? `${JSON.stringify({ recorded: result.recorded, events: result.events })}
+` : `recorded ${result.recorded} github event(s)
+`
+    );
+    return 0;
+  }
+};
 var ledgerCommands = {
   record,
   list: list2,
-  "poll-herdr": pollHerdrCommand
+  "poll-herdr": pollHerdrCommand,
+  "poll-github": pollGithubCommand
 };
 
 // src/cli/flow-commands.ts
@@ -2257,9 +2439,9 @@ function openSteps(markdown) {
   return counts;
 }
 function openCounts(markdown) {
-  return [...openSteps(markdown)].map(([heading, count]) => ({
+  return [...openSteps(markdown)].map(([heading, count2]) => ({
     step: heading.split(":")[0] ?? heading,
-    count
+    count: count2
   }));
 }
 var FENCE = /^\s*(```|~~~)/;
@@ -2352,7 +2534,7 @@ async function readPlans(deps) {
 }
 
 // src/plan/active.ts
-function describe4(plan2) {
+function describe5(plan2) {
   const open = plan2.open.map((o) => `${o.step} (${o.count})`).join(", ");
   const lines = [`${plan2.file}${plan2.default ? " (default)" : ""}`];
   lines.push(`  Open items: ${open || "none"}`);
@@ -2391,7 +2573,7 @@ var planActive = {
 `
       );
     } else {
-      deps.stdout(`${listed.map(describe4).join("\n")}
+      deps.stdout(`${listed.map(describe5).join("\n")}
 `);
     }
     return 0;
@@ -2729,9 +2911,9 @@ function lowered(raw, segment) {
   if (parsed < 1) {
     return raw;
   }
-  const count = parsed - 1;
-  const shown = /^\d+$/.test(word) ? String(count) : NUMBERS[count] ?? word;
-  const noun = count === 1 ? "criterion" : "criteria";
+  const count2 = parsed - 1;
+  const shown = /^\d+$/.test(word) ? String(count2) : NUMBERS[count2] ?? word;
+  const noun = count2 === 1 ? "criterion" : "criteria";
   const [, , gap1, gap2, gap3] = lead;
   const text3 = `and ${shown}${gap1}exit${gap2}${noun}:${gap3}`;
   return raw.slice(0, segment.start) + text3 + raw.slice(segment.start + lead[0].length);
@@ -2863,7 +3045,7 @@ function tickEdit(lines, item) {
     lines: [`- [x]${first.slice(OPEN.length)}`]
   };
 }
-function describe5(file, step, text3, dryRun, changes) {
+function describe6(file, step, text3, dryRun, changes) {
   return renderChanges(
     `${dryRun ? "Would tick" : "Ticked"} ${step}: ${text3} in ${file}`,
     changes
@@ -2893,7 +3075,7 @@ async function tick(deps, json, item, planOption, dryRun) {
   }
   deps.stdout(
     json ? `${JSON.stringify({ plan: file, item: { step, text: text3 }, dryRun, written: !dryRun, changes })}
-` : describe5(file, step, text3, dryRun, changes)
+` : describe6(file, step, text3, dryRun, changes)
   );
   return 0;
 }
