@@ -182,6 +182,35 @@ describe("flow report time range toil and ideas", () => {
   });
 });
 
+describe("flow report range edges and wip", () => {
+  it("does not stretch an idea's open interval to an edge it only touches", () => {
+    const pane = "x-writer";
+    const events = [
+      at(0, "pane.spawned", { pane, idea: "#1" }),
+      at(60, "pane.closed", { pane, idea: "#1" }),
+      at(100, "pane.spawned", { pane, idea: "#1" }),
+      at(120, "pane.busy", { pane, idea: "#1" }),
+    ];
+    const r = report(events, { since: 0, until: 100 });
+    expect(stage(r, "write").wip).toEqual({ peak: 1, average: 0.6 });
+  });
+
+  it("measures wip over the ledger's end when only --since is given", () => {
+    const [a, b] = ["x-writer", "y-writer"];
+    const events = [
+      at(0, "pane.spawned", { pane: a, idea: "#1" }),
+      at(100, "pane.closed", { pane: a, idea: "#1" }),
+      at(50, "pane.spawned", { pane: b, idea: "#2" }),
+      at(200, "pane.closed", { pane: b, idea: "#2" }),
+    ];
+    // Range is since (50) to the latest time held (200): 200 idea-seconds over 150.
+    expect(stage(report(events, { since: 50 }), "write").wip).toEqual({
+      peak: 2,
+      average: 1.3333,
+    });
+  });
+});
+
 describe("flow report range and ideas together", () => {
   it("applies both: the named ideas, clipped to the range", () => {
     const r = report(TWO, { since: 1020, until: 1070, ideas: ["#2"] });

@@ -64,7 +64,12 @@ export class Tally {
       Math.max(from, this.window[0]),
       Math.min(to, this.window[1]),
     ];
-    if (clipped[1] >= clipped[0]) {
+    // A point must lie inside the window; a span must overlap it, not just touch an edge.
+    const kept =
+      from === to
+        ? from >= this.window[0] && from < this.window[1]
+        : clipped[1] > clipped[0];
+    if (kept) {
       this.current.set(stage, widen(this.current.get(stage), clipped));
     }
   }

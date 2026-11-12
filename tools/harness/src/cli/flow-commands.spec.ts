@@ -256,8 +256,10 @@ describe("flow report scope text and flags", () => {
       "--since",
     ],
   ])("rejects a bad flag %j before reading the ledger", async (flags, name) => {
-    const h = harness();
+    // With no shared ledger to locate, reading it would fail with a different message.
+    const h = harness("", { commonDir: undefined });
     expect(await run(["flow", "report", ...flags], h.deps)).toBe(2);
-    expect(h.err()).toContain(name);
+    expect(h.err()).toContain(`Invalid ${name}`);
+    expect(h.err()).not.toContain("main checkout root");
   });
 });
