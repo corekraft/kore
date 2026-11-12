@@ -87,17 +87,17 @@ stage.
 
 `--json` prints one object, `version` 1; any field change bumps `version`:
 
-| Field               | Meaning                                                                         |
-| ------------------- | ------------------------------------------------------------------------------- |
-| `version`           | Shape version, `1`.                                                             |
-| `asOf`              | Time open waits are measured to.                                                |
-| `ideas`             | `{ total, completed }`; completed means the issue closed.                       |
-| `minCompletedIdeas` | Completed ideas needed before a bottleneck is named.                            |
-| `stages`            | Nine entries in loop order: `{ stage, activeSeconds, waitingSeconds, events }`. |
-| `bottleneck`        | `{ stage, waitingSeconds, share }` (share 0 to 1), or `null`.                   |
-| `bottleneckNote`    | Why `bottleneck` is `null`: not enough completed ideas, or no waiting recorded. |
-| `unmappedEvents`    | Events with no stage or no idea, left out of every stage.                       |
-| `skippedLines`      | Ledger lines that were not valid events.                                        |
+| Field               | Meaning                                                                                                    |
+| ------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `version`           | Shape version, `1`.                                                                                        |
+| `asOf`              | Time open waits are measured to.                                                                           |
+| `ideas`             | `{ total, completed }`; completed means the issue closed.                                                  |
+| `minCompletedIdeas` | Completed ideas needed before a bottleneck is named.                                                       |
+| `stages`            | Nine entries in loop order: `{ stage, activeSeconds, waitingSeconds, events }`.                            |
+| `bottleneck`        | `{ stage, waitingSeconds, share }` (share 0 to 1), or `null`.                                              |
+| `bottleneckNote`    | Always present: why `bottleneck` is `null` (too few completed ideas, or no waiting recorded), else `null`. |
+| `unmappedEvents`    | Events with no stage or no idea, left out of every stage.                                                  |
+| `skippedLines`      | Ledger lines that were not valid events.                                                                   |
 
 ## Rules that bite
 

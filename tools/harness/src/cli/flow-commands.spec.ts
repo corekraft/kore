@@ -14,21 +14,25 @@ function seeded(extra: string[] = []) {
   return { h, argv: ["flow", "report", ...extra] };
 }
 
+const KEYS = [
+  "version",
+  "asOf",
+  "ideas",
+  "minCompletedIdeas",
+  "stages",
+  "bottleneck",
+  "bottleneckNote",
+  "unmappedEvents",
+  "skippedLines",
+];
+
 describe("flow report", () => {
   it("prints the versioned JSON shape with the named bottleneck", async () => {
     const { h, argv } = seeded(["--json"]);
     expect(await run(argv, h.deps)).toBe(0);
     const report = JSON.parse(h.out()) as Record<string, unknown>;
-    expect(Object.keys(report)).toEqual([
-      "version",
-      "asOf",
-      "ideas",
-      "minCompletedIdeas",
-      "stages",
-      "bottleneck",
-      "unmappedEvents",
-      "skippedLines",
-    ]);
+    expect(Object.keys(report)).toEqual(KEYS);
+    expect(report).toMatchObject({ bottleneckNote: null });
     expect(report).toMatchObject({
       version: 1,
       asOf: "2026-01-02T03:04:05.000Z",
@@ -53,6 +57,18 @@ describe("flow report", () => {
       "Not enough data: 3 of 4 completed ideas needed to name a bottleneck.",
     );
     expect(h.out()).not.toContain("Bottleneck:");
+  });
+
+  it("emits the same keys when there is not enough data", async () => {
+    const { h, argv } = seeded(["--json", "--min-ideas", "4"]);
+    await run(argv, h.deps);
+    const report = JSON.parse(h.out()) as Record<string, unknown>;
+    expect(Object.keys(report)).toEqual(KEYS);
+    expect(report).toMatchObject({
+      bottleneck: null,
+      bottleneckNote:
+        "Not enough data: 3 of 4 completed ideas needed to name a bottleneck.",
+    });
   });
 
   it("reports an empty or missing ledger without inventing a bottleneck", async () => {

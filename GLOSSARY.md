@@ -98,8 +98,9 @@ retrying.
 _Avoid_: Overhead, idle time
 
 **Bottleneck**:
-The stage of the delivery loop that holds work longest, and so limits how fast
-ideas reach outcomes.
+The stage of the delivery loop with the largest share of waiting time, waiting
+on a person included, and so the one that limits how fast ideas reach
+outcomes.
 _Avoid_: Slow step
 
 **Stage event**:
@@ -112,3 +113,18 @@ _Avoid_: Log line, telemetry, trace
 The append-only record of every stage event, shared by all work in progress on
 a machine. It is written only through its tool and never edited by hand.
 _Avoid_: Log, journal, history
+
+**Flow**:
+How ideas move through the delivery loop's stages, from refine to outcome,
+measured from the ledger as active time, waiting time and event count per stage.
+The flow report maps stage events to stages and names the bottleneck.
+_Avoid_: Pipeline, throughput
+
+**Unmapped event**:
+A stage event the flow report cannot place in a stage or attribute to an idea,
+such as a label that is not the approval label or a pane with no role. It is
+counted but left out of every stage.
+
+**Completed idea**:
+An idea whose issue has closed, which is its outcome. The flow report names a
+bottleneck only once enough ideas have completed.

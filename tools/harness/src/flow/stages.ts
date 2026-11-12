@@ -21,7 +21,7 @@ export type Stage = (typeof STAGES)[number];
 
 /** A pane (or session) whose name ends in `-<role>` works that stage. */
 export const ROLE_STAGES: Readonly<
-  Record<string, { stage: Stage; after?: Kind }>
+  Record<string, { stage: Stage; after?: "pr.merged" }>
 > = {
   refiner: { stage: "refine" },
   challenger: { stage: "challenge" },

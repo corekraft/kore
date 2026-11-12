@@ -952,41 +952,7 @@ var GITHUB_STAGES = {
 };
 var MIN_COMPLETED_IDEAS = 3;
 
-// src/flow/report.ts
-var REPORT_VERSION = 1;
-var STATE_AFTER = {
-  "session.start": "active",
-  "tool.start": "active",
-  "tool.end": "active",
-  "pane.spawned": "active",
-  "pane.busy": "active",
-  "pane.waiting": "waiting",
-  "pane.closed": "closed",
-  "session.stop": "closed"
-};
-var time = (event) => Date.parse(event.occurredAt);
-function uncovered(span, holes) {
-  const sorted = holes.map(([a, b]) => [Math.max(a, span[0]), Math.min(b, span[1])]).filter(([a, b]) => b > a).sort((x, y) => x[0] - y[0]);
-  let free = span[1] - span[0];
-  let reached = span[0];
-  for (const [a, b] of sorted) {
-    const from = Math.max(a, reached);
-    if (b > from) {
-      free -= b - from;
-      reached = b;
-    }
-  }
-  return free;
-}
-function roleOf(event) {
-  for (const name of [event.agent, event.pane, event.session]) {
-    const role = name?.split("-").at(-1);
-    if (role !== void 0 && Object.hasOwn(ROLE_STAGES, role)) {
-      return ROLE_STAGES[role];
-    }
-  }
-  return void 0;
-}
+// src/flow/attribution.ts
 function attribute(events) {
   const byActor = /* @__PURE__ */ new Map();
   const actors = (e) => [e.pane && `pane:${e.pane}`, e.session && `session:${e.session}`].filter(
@@ -1007,20 +973,100 @@ function attribute(events) {
   }
   return result;
 }
+
+// src/flow/intervals.ts
+function uncovered(span, holes) {
+  const sorted = holes.map(([a, b]) => [Math.max(a, span[0]), Math.min(b, span[1])]).filter(([a, b]) => b > a).sort((x, y) => x[0] - y[0]);
+  let free = span[1] - span[0];
+  let reached = span[0];
+  for (const [a, b] of sorted) {
+    const from = Math.max(a, reached);
+    if (b > from) {
+      free -= b - from;
+      reached = b;
+    }
+  }
+  return free;
+}
+
+// src/flow/report.ts
+var REPORT_VERSION = 1;
+var STATE_AFTER = {
+  "session.start": "active",
+  "tool.start": "active",
+  "tool.end": "active",
+  "pane.spawned": "active",
+  "pane.busy": "active",
+  "pane.waiting": "waiting",
+  "pane.closed": "closed",
+  "session.stop": "closed"
+};
+var time = (event) => Date.parse(event.occurredAt);
+function roleOf(event) {
+  for (const name of [event.agent, event.pane, event.session]) {
+    const role = name?.split("-").at(-1);
+    if (role !== void 0 && Object.hasOwn(ROLE_STAGES, role)) {
+      return ROLE_STAGES[role];
+    }
+  }
+  return void 0;
+}
 var Tally = class {
   totals = new Map(
-    STAGES.map((stage) => [
-      stage,
-      { stage, activeSeconds: 0, waitingSeconds: 0, events: 0 }
-    ])
+    STAGES.map((stage) => [stage, { activeMs: 0, waitingMs: 0, events: 0 }])
   );
   add(stage, field2, ms) {
-    this.totals.get(stage)[field2] += ms / 1e3;
+    this.totals.get(stage)[field2] += ms;
   }
   count(stage) {
     this.totals.get(stage).events += 1;
   }
+  /** Stages in loop order, with milliseconds converted to seconds. */
+  stages() {
+    return STAGES.map((stage) => {
+      const { activeMs, waitingMs, events } = this.totals.get(
+        stage
+      );
+      return {
+        stage,
+        activeSeconds: activeMs / 1e3,
+        waitingSeconds: waitingMs / 1e3,
+        events
+      };
+    });
+  }
 };
+function chargeActor(tally, items) {
+  const spans = [];
+  let closed = false;
+  let start = time(items[0].event);
+  items.forEach(({ event, stage }, i) => {
+    const at = time(event);
+    if (closed && (event.kind === "pane.spawned" || event.kind === "session.start")) {
+      closed = false;
+      start = at;
+    }
+    const state = STATE_AFTER[event.kind];
+    if (closed) {
+      return;
+    }
+    if (state === "closed") {
+      closed = true;
+      spans.push([start, at]);
+    } else if (state !== void 0 && i < items.length - 1) {
+      const next = time(items[i + 1].event);
+      tally.add(
+        stage,
+        state === "active" ? "activeMs" : "waitingMs",
+        next - at
+      );
+    }
+  });
+  if (!closed) {
+    spans.push([start, time(items.at(-1).event)]);
+  }
+  return spans;
+}
 function actorTime(tally, events) {
   const byActor = /* @__PURE__ */ new Map();
   for (const item of events) {
@@ -1031,27 +1077,10 @@ function actorTime(tally, events) {
   }
   const lifetimes = [];
   for (const items of byActor.values()) {
-    items.sort((a, b) => time(a.event) - time(b.event));
-    let closedAt;
-    for (let i = 0; i < items.length - 1; i += 1) {
-      const current = items[i];
-      const next = items[i + 1];
-      const state = STATE_AFTER[current.event.kind];
-      if (closedAt === void 0 && state === "closed") {
-        closedAt = time(current.event);
-      }
-      if (closedAt === void 0 && state !== void 0 && state !== "closed") {
-        tally.add(
-          current.stage,
-          state === "active" ? "activeSeconds" : "waitingSeconds",
-          time(next.event) - time(current.event)
-        );
-      }
-    }
-    const first = items[0];
-    const last = items.at(-1);
-    if (first.stage !== "orchestrate") {
-      lifetimes.push([time(first.event), closedAt ?? time(last.event)]);
+    items.sort((x, y) => time(x.event) - time(y.event));
+    const spans = chargeActor(tally, items);
+    if (items[0].stage !== "orchestrate") {
+      lifetimes.push(...spans);
     }
   }
   return lifetimes;
@@ -1080,7 +1109,7 @@ function githubWaits(tally, events, holes, asOf) {
     if (start !== void 0) {
       const stop = end ?? closed ?? asOf;
       if (stop > start) {
-        tally.add(stage, "waitingSeconds", uncovered([start, stop], holes));
+        tally.add(stage, "waitingMs", uncovered([start, stop], holes));
       }
     }
   }
@@ -1131,10 +1160,11 @@ function chargeIdea(tally, own2, asOf) {
   githubWaits(tally, own2, actorTime(tally, mapped), asOf);
   return own2.length - mapped.length;
 }
-function nameBottleneck(stages, completed, minCompletedIdeas) {
-  const waiting = stages.reduce((sum, s) => sum + s.waitingSeconds, 0);
-  const worst = stages.reduce(
-    (a, b) => b.waitingSeconds > a.waitingSeconds ? b : a
+function nameBottleneck(tally, completed, minCompletedIdeas) {
+  const stages = [...tally.totals.entries()];
+  const totalMs = stages.reduce((sum, [, s]) => sum + s.waitingMs, 0);
+  const [stage, worst] = stages.reduce(
+    (a, b) => b[1].waitingMs > a[1].waitingMs ? b : a
   );
   if (completed < minCompletedIdeas) {
     return {
@@ -1142,7 +1172,7 @@ function nameBottleneck(stages, completed, minCompletedIdeas) {
       bottleneckNote: `Not enough data: ${completed} of ${minCompletedIdeas} completed ideas needed to name a bottleneck.`
     };
   }
-  if (waiting === 0) {
+  if (totalMs === 0) {
     return {
       bottleneck: null,
       bottleneckNote: "No waiting time recorded, so there is no bottleneck."
@@ -1150,10 +1180,11 @@ function nameBottleneck(stages, completed, minCompletedIdeas) {
   }
   return {
     bottleneck: {
-      stage: worst.stage,
-      waitingSeconds: worst.waitingSeconds,
-      share: roundShare(worst.waitingSeconds / waiting)
-    }
+      stage,
+      waitingSeconds: worst.waitingMs / 1e3,
+      share: roundShare(worst.waitingMs / totalMs)
+    },
+    bottleneckNote: null
   };
 }
 function buildReport(events, { asOf, minCompletedIdeas }) {
@@ -1165,14 +1196,13 @@ function buildReport(events, { asOf, minCompletedIdeas }) {
     unmapped += chargeIdea(tally, own2, asOf.getTime());
     completed += own2.some((e) => e.kind === "issue.closed") ? 1 : 0;
   }
-  const stages = [...tally.totals.values()];
   return {
     version: REPORT_VERSION,
     asOf: asOf.toISOString(),
     ideas: { total: byIdea.size, completed },
     minCompletedIdeas,
-    stages,
-    ...nameBottleneck(stages, completed, minCompletedIdeas),
+    stages: tally.stages(),
+    ...nameBottleneck(tally, completed, minCompletedIdeas),
     unmappedEvents: unmapped
   };
 }

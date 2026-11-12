@@ -47,7 +47,9 @@ describe("flow report stage mapping", () => {
     ]);
     expect(stage(r, name)).toMatchObject({ activeSeconds: 30, events: 2 });
   });
+});
 
+describe("flow report pane roles and states", () => {
   it("maps a pane by its agent role or session name when the pane id has none", () => {
     const r = report([
       at(0, "pane.spawned", { pane: "w3:p2", agent: "judge", idea: "#1" }),
@@ -74,6 +76,21 @@ describe("flow report stage mapping", () => {
       waitingSeconds: 60,
       events: 5,
     });
+  });
+
+  it("measures each spawn-to-close life of a reused pane, not the gap between them", () => {
+    const pane = "idea-judge";
+    const r = report([
+      at(0, "pane.spawned", { pane, idea: "#1" }),
+      at(10, "pane.closed", { pane, idea: "#1" }),
+      at(100, "pane.spawned", { pane, idea: "#1" }),
+      at(130, "pane.closed", { pane, idea: "#1" }),
+      at(0, "pr.opened", { number: 5, idea: "#1" }),
+      at(200, "pr.merged", { number: 5, idea: "#1" }),
+    ]);
+    expect(stage(r, "judge").activeSeconds).toBe(40);
+    // Only the two lives, 10s and 30s, are carved out of the 200s PR wait.
+    expect(stage(r, "merge").waitingSeconds).toBe(160);
   });
 
   it("counts no time after a pane closes", () => {
@@ -219,7 +236,7 @@ describe("flow report bottleneck", () => {
       3,
     );
     expect(r.bottleneck?.share).toBeGreaterThan(0.5);
-    expect(r.bottleneckNote).toBeUndefined();
+    expect(r.bottleneckNote).toBeNull();
   });
 
   it("names merge when pull requests wait longer than approvals", () => {
@@ -242,6 +259,25 @@ describe("flow report bottleneck", () => {
       1,
     );
     expect(r.bottleneck).toMatchObject({ stage: "write", share: 1 });
+  });
+});
+
+describe("flow report bottleneck ties and gaps", () => {
+  it("names the earlier stage on an exact tie, summing whole milliseconds", () => {
+    const r = report(
+      [
+        at(0, "issue.opened", { number: 1 }),
+        at(0.3, "issue.labelled", { number: 1, label: "ready-for-agent" }),
+        at(0, "pr.opened", { number: 5, idea: "#2" }),
+        at(0.1, "pr.merged", { number: 5, idea: "#2" }),
+        at(0, "pr.opened", { number: 6, idea: "#3" }),
+        at(0.2, "pr.merged", { number: 6, idea: "#3" }),
+        at(1, "issue.closed", { number: 1 }),
+      ],
+      1,
+    );
+    expect(stage(r, "merge").waitingSeconds).toBe(0.3);
+    expect(r.bottleneck?.stage).toBe("await approval");
   });
 
   it("names no bottleneck below the minimum number of completed ideas", () => {
