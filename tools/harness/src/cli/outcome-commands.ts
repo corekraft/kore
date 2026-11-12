@@ -80,6 +80,8 @@ async function conclusion(context: CommandContext, verb: "record" | "close") {
             result: text(context.options, "result"),
             evidence: text(context.options, "evidence"),
             summary: text(context.options, "summary"),
+            flag: text(context.options, "flag"),
+            environment: text(context.options, "environment"),
           }),
         )
       : await closeOutcome(ctx, ref);
@@ -108,7 +110,7 @@ async function conclusion(context: CommandContext, verb: "record" | "close") {
 }
 
 const record: Command = {
-  summary: `record an idea's measured outcome in its markdown, post it to the issue with one outcome:* label, close the issue, and open a follow-up idea when refuted or inconclusive (--idea --kind ${OUTCOME_KINDS.join("|")} --source ${OUTCOME_SOURCES.join("|")} --evidence <reference> --result ${RESULTS.join("|")} --summary <text> [--ledger])`,
+  summary: `record an idea's measured outcome in its markdown, post it to the issue with one outcome:* label, close the issue, and open a follow-up idea when refuted or inconclusive (--idea --kind ${OUTCOME_KINDS.join("|")} --source ${OUTCOME_SOURCES.join("|")} --evidence <reference> --result ${RESULTS.join("|")} --summary <text> [--flag <name> --environment <env>, only on a live-run verification] [--ledger])`,
   options: {
     idea: "string",
     kind: "string",
@@ -116,6 +118,8 @@ const record: Command = {
     evidence: "string",
     result: "string",
     summary: "string",
+    flag: "string",
+    environment: "string",
     ledger: "string",
   },
   run(context) {

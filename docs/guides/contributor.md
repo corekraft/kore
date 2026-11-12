@@ -52,10 +52,28 @@ mise exec -- npm --prefix tools/kore install
 - Live specs (`*.integration.spec.ts`) create or destroy clusters. They run only
   when asked, with `KORE_RUN_INTEGRATION=1` through the scripts in
   `tools/kore/package.json` (`test:integration`, `test:integration:admission`,
-  `test:integration:registry`). A change to what runs in a cluster needs a live
-  run before merge.
+  `test:integration:registry`). A cluster-facing `no-behaviour-change` needs a live
+  run before merge; any other cluster-facing change merges behind a flag and
+  needs the live run before the flag turns on (see Feature flags).
 - Upstream chart and container checks are opt-in too (`test:upstream-charts`,
   `test:container-smoke`).
+
+## Feature flags
+
+Flags are the `features:` map in `infra/environments/<env>/environment.yaml`,
+off by default ([ADR 0077](../decisions/0077-live-proof-gates-activation-not-merge.md)).
+Dark launch means on only in `local`.
+
+1. Merge the change with its flag `false`.
+2. Prove it live, then record the proof:
+   `node skills/bin/harness.mjs outcome record --idea <n> --kind verification --source live-run --result confirmed --flag <name> --environment <env> --evidence <run> --summary <text>`.
+3. `node skills/bin/harness.mjs flag activate <name> --environment <env>` edits
+   the overlay only when that confirmed outcome exists, and records a
+   `flag.activated` ledger event. Without proof it refuses and changes nothing.
+4. `flag audit` fails when any flag is on without proof. CI runs it through
+   `kb-check --strict`; the `flag-activation` guard warns on a hand edit.
+5. Removing the flag, its overlay entries and its gated code is the contract step of
+   expand-contract, after the outcome is confirmed.
 
 ## Flow report
 

@@ -2,7 +2,7 @@
 status: accepted
 summary: Live proof of a cluster-facing change gates turning it on in an environment, not merging it, except for changes declared no-behaviour-change.
 date: 2026-11-11
-last-verified: 2026-11-11
+last-verified: 2026-11-12
 ---
 
 # ADR 0077: Live proof gates activation, not merge

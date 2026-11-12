@@ -218,6 +218,7 @@ test("the audit-mode rules are read from the guard's warn calls", () => {
     "append-only",
     "bare-glob",
     "equals-word",
+    "flag-activation",
     "idea-issue-body",
     "idea-issue-close",
     "idea-outcome",

@@ -75,8 +75,8 @@ effect against the plan 8 baseline.
 - [x] Add a schema-validated `features:` map to environment overlays, off by
       default, read by `kore` and chart values
       ([ADR 0077](../../docs/decisions/0077-live-proof-gates-activation-not-merge.md)).
-- [ ] Require recorded live proof before a flag turns on in an environment.
-- [ ] Rewrite the "It just works" rule in AGENTS.md: live proof gates
+- [x] Require recorded live proof before a flag turns on in an environment.
+- [x] Rewrite the "It just works" rule in AGENTS.md: live proof gates
       activation, except for cluster-facing `no-behaviour-change` changes.
 
 ### Exit Criteria

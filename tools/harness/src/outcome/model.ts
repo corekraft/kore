@@ -16,6 +16,8 @@ export interface Outcome {
   result: Result;
   evidence: string;
   summary: string;
+  /** Set when the outcome proves a flag live in an environment (ADR 0077). */
+  flag?: { name: string; environment: string };
 }
 
 export const labelFor = (result: Result) => `outcome:${result}`;
@@ -58,6 +60,8 @@ export function parseOutcome(options: {
   result?: string | undefined;
   evidence?: string | undefined;
   summary?: string | undefined;
+  flag?: string | undefined;
+  environment?: string | undefined;
 }): Outcome {
   const kind = choice("kind", OUTCOME_KINDS, options.kind);
   const source = choice("source", OUTCOME_SOURCES, options.source);
@@ -82,7 +86,45 @@ export function parseOutcome(options: {
       "--summary must not start a line with #; it would open a new section in the idea, so reword it.",
     );
   }
-  return { kind, source, result, evidence, summary };
+  const flag = parseFlag(kind, source, options.flag, options.environment);
+  return { kind, source, result, evidence, summary, ...flag };
+}
+
+const FLAG_NAME = /^[a-z][a-z0-9-]*$/;
+
+/** The flag an outcome proves: both --flag and --environment, and only on a live-run verification. */
+function parseFlag(
+  kind: Outcome["kind"],
+  source: Outcome["source"],
+  name: string | undefined,
+  environment: string | undefined,
+): Pick<Outcome, "flag"> {
+  const given = [name, environment].map((v) => (v ?? "").trim());
+  if (given.every((v) => v === "")) {
+    return {};
+  }
+  for (const [flag, value] of [
+    ["flag", given[0]],
+    ["environment", given[1]],
+  ] as const) {
+    if (value === "") {
+      const other = flag === "flag" ? "environment" : "flag";
+      throw new IdeaError(
+        `Missing --${flag}; a flag outcome names both --flag and --environment (got only --${other}).`,
+      );
+    }
+    if (!FLAG_NAME.test(value ?? "")) {
+      throw new IdeaError(
+        `--${flag} "${value}" must be lowercase letters, digits and hyphens, starting with a letter.`,
+      );
+    }
+  }
+  if (kind !== "verification" || source !== "live-run") {
+    throw new IdeaError(
+      `--flag proves a flag only on --kind verification with --source live-run (got ${kind} from ${source}); a different outcome cannot activate it.`,
+    );
+  }
+  return { flag: { name: given[0] ?? "", environment: given[1] ?? "" } };
 }
 
 /** The `## Outcome` section the idea file carries. */
@@ -93,6 +135,12 @@ export function renderSection(outcome: Outcome, date: string): string {
     `- Result: ${outcome.result}`,
     `- Kind: ${outcome.kind}`,
     `- Source: ${outcome.source}`,
+    ...(outcome.flag === undefined
+      ? []
+      : [
+          `- Flag: ${outcome.flag.name}`,
+          `- Environment: ${outcome.flag.environment}`,
+        ]),
     `- Evidence: ${outcome.evidence}`,
     `- Recorded: ${date}`,
     "",

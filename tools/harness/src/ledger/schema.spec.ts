@@ -36,6 +36,20 @@ describe("ledger event schema", () => {
     ).toBe(true);
     expect(KINDS).toContain("outcome");
   });
+});
+
+describe("ledger event schema flag activation", () => {
+  it("accepts a flag activation event with its flag and environment label, and requires it", () => {
+    const activation = { ...base, source: "claude", kind: "flag.activated" };
+    expect(rejected(activation).field).toBe("label");
+    expect(
+      parseEvent(
+        { ...activation, label: "ingress-agentgateway@local" },
+        "input",
+      ).ok,
+    ).toBe(true);
+    expect(KINDS).toContain("flag.activated");
+  });
 
   it("accepts a minimal event and keeps only the fields it was given", () => {
     const result = parseEvent(base, "input");

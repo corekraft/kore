@@ -4,6 +4,7 @@
 // missing or invalid frontmatter, `Docs:`/`Plan:`/`ADR:` comment markers that
 // do not resolve, and top-level `kore` commands that README.md does not mention.
 // Idea records under docs/ideas get their own frontmatter checks (ADR 0079).
+// It also runs the bundled `flag audit`: a flag on without live proof is a finding (ADR 0077).
 // Docs: infra/plans/4-knowledge.md#step-3-knowledge-health-check
 // Node standard library only.
 //
@@ -603,6 +604,20 @@ function runAudit(root) {
   );
 }
 
+/** The bundled harness's flag audit: empty when every flag that is on has live proof, else its report. */
+function runFlagAudit(root) {
+  try {
+    execFileSync(
+      process.execPath,
+      [posix.join(root, "skills/bin/harness.mjs"), "flag", "audit"],
+      { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+    );
+    return "";
+  } catch (error) {
+    return String(error?.stderr || error?.message || error).trim();
+  }
+}
+
 /** Tracked and untracked-but-not-ignored regular files under root. */
 function realDeps(root) {
   return {
@@ -658,9 +673,23 @@ function printAudit(audit, log) {
   for (const line of report.trimEnd().split("\n")) log(`  ${line}`.trimEnd());
 }
 
+/** Flags on without recorded live proof (ADR 0077), one finding per reported line. */
+function flagProblems(deps) {
+  const report = deps.flagAudit?.() ?? "";
+  return report
+    .split("\n")
+    .filter((line) => line.trim() !== "")
+    .map((line) => ({
+      file: "infra/environments",
+      line: 1,
+      message: line.trim(),
+      fix: "run `harness flag audit`; turn the flag off, or record a live-run verification outcome and use `harness flag activate`",
+    }));
+}
+
 function runChecks(argv, deps, log) {
   const strict = argv.includes("--strict");
-  const problems = findings(deps);
+  const problems = [...findings(deps), ...flagProblems(deps)];
   for (const problem of problems) log(format(problem));
   // Staleness is warn-only for now: it never changes the exit code, even --strict.
   const stale = staleDocuments(deps);
@@ -697,7 +726,11 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const root = fileURLToPath(new URL("../..", import.meta.url));
   process.exitCode = run(
     process.argv.slice(2),
-    { ...realDeps(root), audit: () => runAudit(root) },
+    {
+      ...realDeps(root),
+      audit: () => runAudit(root),
+      flagAudit: () => runFlagAudit(root),
+    },
     console.log,
   );
 }
