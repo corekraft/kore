@@ -32,7 +32,10 @@ export function harness(stdin = "", options: Options = {}) {
   let n = 0;
   const deps: CliDeps = {
     runner,
-    clock: { now: () => new Date("2026-01-02T03:04:05.000Z") },
+    clock: {
+      now: () => new Date("2026-01-02T03:04:05.000Z"),
+      sleep: () => Promise.resolve(),
+    },
     fs,
     root: () => Promise.resolve(root),
     ids: { next: () => `id-${++n}` },

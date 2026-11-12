@@ -10,7 +10,7 @@ function setup() {
   let n = 0;
   const ledger = new Ledger(
     fs,
-    { now: () => new Date(RECORDED) },
+    { now: () => new Date(RECORDED), sleep: () => Promise.resolve() },
     { next: () => `id-${++n}` },
     PATH,
   );

@@ -4,7 +4,8 @@ var CommandError = class extends Error {
 
 // src/runtime/clock.ts
 var systemClock = {
-  now: () => /* @__PURE__ */ new Date()
+  now: () => /* @__PURE__ */ new Date(),
+  sleep: (ms) => new Promise((resolve5) => setTimeout(resolve5, ms))
 };
 function localDate(date) {
   const two = (n) => String(n).padStart(2, "0");
@@ -23,7 +24,6 @@ import {
   mkdir,
   readFile,
   readdir,
-  rm,
   stat,
   writeFile
 } from "node:fs/promises";
@@ -53,15 +53,14 @@ var nodeFileSystem = {
       throw error;
     }
   },
-  readdir: (path) => readdir(path),
-  remove: (path) => rm(path, { force: true })
+  readdir: (path) => readdir(path)
 };
 
 // src/runtime/runner.ts
 import { spawn } from "node:child_process";
 var ProcessRunner = class {
   async run(command, args, options = {}) {
-    return await new Promise((resolve4) => {
+    return await new Promise((resolve5) => {
       const child = spawn(command, [...args], {
         ...options.cwd === void 0 ? {} : { cwd: options.cwd },
         stdio: [
@@ -79,10 +78,10 @@ var ProcessRunner = class {
         stderr2 += chunk.toString();
       });
       child.on("error", (error) => {
-        resolve4({ stdout, stderr: error.message, code: 127 });
+        resolve5({ stdout, stderr: error.message, code: 127 });
       });
       child.on("close", (code) => {
-        resolve4({ stdout, stderr: stderr2, code: code ?? 1 });
+        resolve5({ stdout, stderr: stderr2, code: code ?? 1 });
       });
       if (options.input !== void 0) {
         child.stdin?.end(options.input);
@@ -182,14 +181,14 @@ function headings(markdown) {
       fence = opener === fence ? null : fence ?? opener;
       continue;
     }
-    const text3 = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(line2)?.[1];
-    if (text3 === void 0) {
+    const text2 = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(line2)?.[1];
+    if (text2 === void 0) {
       continue;
     }
-    const base = headingSlug(text3);
+    const base = headingSlug(text2);
     const count = seen.get(base) ?? 0;
     seen.set(base, count + 1);
-    found.push({ text: text3, anchor: count > 0 ? `${base}-${count}` : base });
+    found.push({ text: text2, anchor: count > 0 ? `${base}-${count}` : base });
   }
   return found;
 }
@@ -243,13 +242,13 @@ var Adrs = class {
     ];
     const entry = `- [\`${path}\`](decisions/${file}) \u2014 ${input.summary}`;
     const index = this.insert(indexText, next, entry);
-    const report2 = {
+    const report = {
       dryRun,
       number,
       files: [
         {
           path,
-          lines: body.slice(0, -1).map((text3, i) => ({ number: i + 1, text: text3 }))
+          lines: body.slice(0, -1).map((text2, i) => ({ number: i + 1, text: text2 }))
         },
         { path: INDEX, lines: [{ number: index.line, text: entry }] }
       ]
@@ -258,7 +257,7 @@ var Adrs = class {
       await this.fs.writeFile(this.abs(path), body.join("\n"));
       await this.fs.writeFile(this.abs(INDEX), index.text);
     }
-    return report2;
+    return report;
   }
   async readIndex() {
     if (!await this.fs.exists(this.abs(INDEX))) {
@@ -267,8 +266,8 @@ var Adrs = class {
     return this.fs.readFile(this.abs(INDEX));
   }
   /** Puts the entry before the first later-numbered ADR line, else after the last one. */
-  insert(text3, next, entry) {
-    const lines = text3.split("\n");
+  insert(text2, next, entry) {
+    const lines = text2.split("\n");
     const start = lines.indexOf("## Decisions");
     if (start === -1) {
       throw new AdrError(
@@ -408,9 +407,9 @@ var Supersession = class {
       files: [
         {
           path: oldAdr.path,
-          lines: changed.map((text3, i) => ({
+          lines: changed.map((text2, i) => ({
             number: oldAdr.statusLine + 1 + i,
-            text: text3
+            text: text2
           }))
         }
       ]
@@ -460,9 +459,9 @@ var Supersession = class {
 
 // src/adr/commands.ts
 var REQUIRED = ["title", "summary", "status", "source"];
-function describe(report2) {
-  const verb = report2.dryRun ? "Would write" : "Wrote";
-  return `${report2.files.map(
+function describe(report) {
+  const verb = report.dryRun ? "Would write" : "Wrote";
+  return `${report.files.map(
     (f) => `${verb} ${f.path} (lines ${f.lines[0]?.number}-${f.lines.at(-1)?.number})`
   ).join("\n")}
 `;
@@ -510,12 +509,12 @@ var newAdr = {
     );
     const refines = typeof options["refines"] === "string" ? options["refines"].trim() : void 0;
     const root2 = await repoRoot(deps);
-    const report2 = await new Adrs(deps.fs, deps.clock, root2).create(
+    const report = await new Adrs(deps.fs, deps.clock, root2).create(
       { title, summary, status, source, ...refines ? { refines } : {} },
       options["dry-run"] === true
     );
-    deps.stdout(json ? `${JSON.stringify(report2)}
-` : describe(report2));
+    deps.stdout(json ? `${JSON.stringify(report)}
+` : describe(report));
     return 0;
   })
 };
@@ -524,15 +523,15 @@ var supersede = {
   options: { old: "string", new: "string", "dry-run": "boolean" },
   run: ({ json, options, deps }) => withAdrErrors(json, deps, async () => {
     const root2 = await repoRoot(deps);
-    const report2 = await new Supersession(deps.fs, root2).supersede(
+    const report = await new Supersession(deps.fs, root2).supersede(
       requiredFlag(options, "old", "number"),
       requiredFlag(options, "new", "number"),
       options["dry-run"] === true
     );
-    const verb = report2.dryRun ? "Would set" : "Set";
+    const verb = report.dryRun ? "Would set" : "Set";
     deps.stdout(
-      json ? `${JSON.stringify(report2)}
-` : `${verb} ${report2.files[0]?.path} to status superseded, superseded-by ADR ${report2.new}
+      json ? `${JSON.stringify(report)}
+` : `${verb} ${report.files[0]?.path} to status superseded, superseded-by ADR ${report.new}
 `
     );
     return 0;
@@ -562,8 +561,8 @@ var REQUIRED2 = [
   ["safety-pattern", "safetyPattern"],
   ["date", "date"]
 ];
-function frontmatter(text3) {
-  const lines = text3.split("\n");
+function frontmatter(text2) {
+  const lines = text2.split("\n");
   if (lines[0] !== "---") {
     return null;
   }
@@ -579,7 +578,7 @@ function frontmatter(text3) {
   }
   return null;
 }
-function parseIdea(path, text3) {
+function parseIdea(path, text2) {
   const file = path.slice(path.lastIndexOf("/") + 1);
   const name = IDEA_FILE.exec(file);
   if (name?.[1] === void 0 || name[2] === void 0) {
@@ -587,7 +586,7 @@ function parseIdea(path, text3) {
       `${path} is not named NNNN-slug.md; rename it to a four-digit number and a lowercase slug.`
     );
   }
-  const keys = frontmatter(text3);
+  const keys = frontmatter(text2);
   if (keys === null) {
     throw new IdeaError(
       `${path} has no frontmatter; start it with --- and the idea fields (see \`harness idea new --help\`).`
@@ -600,7 +599,7 @@ function parseIdea(path, text3) {
     );
   }
   const get = (key) => keys.get(key) ?? "";
-  const heading = /^# Idea \d{4}: (.+)$/m.exec(text3)?.[1];
+  const heading = /^# Idea \d{4}: (.+)$/m.exec(text2)?.[1];
   const record2 = {
     number: name[1],
     slug: name[2],
@@ -621,16 +620,16 @@ function parseIdea(path, text3) {
   return record2;
 }
 function scalar(flag, value) {
-  const text3 = (value ?? "").replace(/\s+/g, " ").trim();
-  if (text3 === "") {
+  const text2 = (value ?? "").replace(/\s+/g, " ").trim();
+  if (text2 === "") {
     throw new IdeaError(`Missing --${flag}; pass a non-empty value.`);
   }
-  if (/^[[{|>&*!-]/.test(text3)) {
+  if (/^[[{|>&*!-]/.test(text2)) {
     throw new IdeaError(
-      `--${flag} must not start with "${text3.slice(0, 1)}"; frontmatter holds plain text, so reword it.`
+      `--${flag} must not start with "${text2.slice(0, 1)}"; frontmatter holds plain text, so reword it.`
     );
   }
-  return text3;
+  return text2;
 }
 function renderIdea(number, date, idea) {
   const lines = [
@@ -649,22 +648,6 @@ function renderIdea(number, date, idea) {
     lines.push(`parent: ${idea.parent}`);
   }
   lines.push("---", "", `# Idea ${number}: ${idea.title}`, "");
-  return lines.join("\n");
-}
-function withIssue(text2, issue) {
-  const lines = text2.split("\n");
-  const end = lines.indexOf("---", 1);
-  if (lines[0] !== "---" || end === -1) {
-    throw new IdeaError("The idea has no frontmatter to record the issue in.");
-  }
-  const at = lines.findIndex(
-    (l, i) => i > 0 && i < end && l.startsWith("issue:")
-  );
-  if (at === -1) {
-    lines.splice(end, 0, `issue: ${issue}`);
-  } else {
-    lines[at] = `issue: ${issue}`;
-  }
   return lines.join("\n");
 }
 
@@ -727,36 +710,25 @@ var IdeaRepository = class {
       const taken = names2.map((n) => Number(n.slice(0, 4)));
       const number = String(Math.max(0, ...taken) + 1).padStart(4, "0");
       const path = `${DIR}/${number}-${slug}.md`;
-      const text3 = renderIdea(
+      const text2 = renderIdea(
         number,
         this.clock.now().toISOString().slice(0, 10),
         idea
       );
       try {
-        await this.fs.createFile(this.abs(path), text3);
+        await this.fs.createFile(this.abs(path), text2);
       } catch (error) {
         if (error.code === "EEXIST") {
           continue;
         }
         throw error;
       }
-      const record2 = parseIdea(path, text3);
+      const record2 = parseIdea(path, text2);
       await this.ensureIndexed(record2);
       return { created: true, record: record2 };
     }
     throw new IdeaError(
       `Another writer keeps creating ideas in ${DIR}; rerun \`harness idea new\` once it finishes.`
-    );
-  }
-  /** The raw markdown of an idea. */
-  async source(record2) {
-    return await this.fs.readFile(this.abs(record2.path));
-  }
-  /** Records the idea's issue link in its frontmatter, touching nothing else. */
-  async recordIssue(record2, issue) {
-    await this.fs.writeFile(
-      this.abs(record2.path),
-      withIssue(await this.source(record2), issue)
     );
   }
   abs(path) {
@@ -804,174 +776,6 @@ function addEntry(index, path, summary) {
   }
   lines.splice(end, 0, entry);
   return lines.join("\n");
-}
-
-// src/idea/sync.ts
-var NOT_FOUND = /could not resolve to an issue|issue .*not found|no issue/i;
-var ISSUE_URL = /https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/issues\/(\d+)/;
-function prose(text2) {
-  const lines = text2.split("\n");
-  const at = lines.findIndex((l) => /^# Idea \d{4}: /.test(l));
-  return (at === -1 ? "" : lines.slice(at + 1).join("\n")).trim();
-}
-function renderBody(record2, text2) {
-  const sections = [
-    `<!-- Generated by \`harness idea sync\` from ${record2.path}. Edit that file; changes made here are overwritten. -->`,
-    `## Summary
-
-${record2.summary}`,
-    `## Hypothesis
-
-${record2.hypothesis}`,
-    `## Expected outcome
-
-${record2.expectedOutcome}`,
-    `## Measurement
-
-${record2.measurement}`,
-    `## Safety pattern
-
-${record2.safetyPattern}`
-  ];
-  const extra = prose(text2);
-  if (extra !== "") {
-    sections.push(extra);
-  }
-  return `${sections.join("\n\n")}
-`;
-}
-var normal = (value) => value.replace(/\r\n/g, "\n").trimEnd();
-function locate(issue) {
-  const url = ISSUE_URL.exec(issue);
-  if (url?.[1] !== void 0 && url[2] !== void 0) {
-    return { number: url[2], repo: url[1] };
-  }
-  const bare = /^#?(\d+)$/.exec(issue.trim());
-  return bare?.[1] === void 0 ? void 0 : { number: bare[1] };
-}
-var REPO_PROBLEM = /repositor/i;
-function failure(what, stderr2) {
-  const hint = REPO_PROBLEM.test(stderr2) ? "Check the repository named above, then rerun `harness idea sync`." : fix;
-  return new IdeaError(`${what}: ${stderr2.trim()}. ${hint}`);
-}
-async function resolveRepo(gh, recorded) {
-  if (recorded !== void 0) {
-    return recorded;
-  }
-  const view = await gh(["repo", "view", "--json", "nameWithOwner"]);
-  let name;
-  try {
-    name = JSON.parse(view.stdout).nameWithOwner;
-  } catch {
-    name = void 0;
-  }
-  if (view.code !== 0 || typeof name !== "string" || name === "") {
-    throw failure("gh could not tell which repository this is", view.stderr);
-  }
-  return name;
-}
-var fix = "Check `gh auth status` and rerun `harness idea sync`.";
-async function reconcile(gh, record2, body, at) {
-  const title = record2.title.trim();
-  const issue = record2.issue ?? "";
-  const view = await gh([
-    "issue",
-    "view",
-    at.number,
-    "--repo",
-    at.repo,
-    "--json",
-    "title,body"
-  ]);
-  if (view.code !== 0) {
-    if (NOT_FOUND.test(view.stderr)) {
-      return void 0;
-    }
-    throw failure(`gh could not read issue ${issue}`, view.stderr);
-  }
-  const current = parseView(view.stdout, issue);
-  if (current.title.trim() === title && normal(current.body) === normal(body)) {
-    return { action: "unchanged", issue };
-  }
-  const edit = await gh(
-    [
-      "issue",
-      "edit",
-      at.number,
-      "--repo",
-      at.repo,
-      "--title",
-      title,
-      "--body-file",
-      "-"
-    ],
-    body
-  );
-  if (edit.code !== 0) {
-    throw failure(`gh could not update issue ${issue}`, edit.stderr);
-  }
-  return { action: "updated", issue };
-}
-async function syncIssue(runner, root2, record2, text2, recordLink) {
-  const body = renderBody(record2, text2);
-  const gh = async (args, input) => await runner.run("gh", args, {
-    cwd: root2,
-    ...input === void 0 ? {} : { input }
-  });
-  const at = record2.issue === void 0 ? void 0 : locate(record2.issue);
-  if (record2.issue !== void 0 && at === void 0) {
-    throw new IdeaError(
-      `${record2.path} has issue "${record2.issue}", which is not an issue number or link; set it to e.g. 123 or https://github.com/<owner>/<repo>/issues/123.`
-    );
-  }
-  const repo = await resolveRepo(gh, at?.repo);
-  const existing = at === void 0 ? void 0 : await reconcile(gh, record2, body, { number: at.number, repo });
-  if (existing !== void 0) {
-    return existing;
-  }
-  const created = await gh(
-    [
-      "issue",
-      "create",
-      "--repo",
-      repo,
-      "--title",
-      record2.title.trim(),
-      "--body-file",
-      "-"
-    ],
-    body
-  );
-  const url = ISSUE_URL.exec(created.stdout)?.[0];
-  if (created.code !== 0) {
-    throw failure("gh could not create the issue", created.stderr);
-  }
-  if (url === void 0) {
-    throw new IdeaError(
-      `gh reported success but printed no issue link, so the issue may exist: check the repository's issues for "${record2.title.trim()}" in ${repo}, add \`issue: <url>\` to ${record2.path}, then rerun \`harness idea sync\`; otherwise a duplicate is created.`
-    );
-  }
-  try {
-    await recordLink(url);
-  } catch (error) {
-    throw new IdeaError(
-      `Created ${url} but could not record it in ${record2.path}: ${error instanceof Error ? error.message : String(error)}. Add \`issue: ${url}\` to its frontmatter, then rerun \`harness idea sync\`; otherwise a second issue is created.`
-    );
-  }
-  return { action: "created", issue: url };
-}
-function parseView(stdout, issue) {
-  try {
-    const parsed = JSON.parse(stdout);
-    return {
-      title: typeof parsed.title === "string" ? parsed.title : "",
-      body: typeof parsed.body === "string" ? parsed.body : ""
-    };
-  } catch {
-    throw new IdeaError(
-      `gh returned unreadable output for issue ${issue}; rerun \`harness idea sync\`.`
-    );
-  }
 }
 
 // src/idea/commands.ts
@@ -1112,355 +916,14 @@ var list = {
     });
   }
 };
-var sync = {
-  summary: "mirror one idea to its GitHub issue, creating it when missing and editing only when the body changed (--idea <number or slug>)",
-  options: { idea: "string" },
-  run(context) {
-    return guarded(context, async () => {
-      const ref = text(context.options, "idea");
-      if (ref === void 0 || ref.trim() === "") {
-        throw new IdeaError(
-          "Missing --idea; run `harness idea sync --idea <number or slug>`, or `harness idea list` to see the ideas."
-        );
-      }
-      const repo = await repository(context);
-      const record2 = await repo.get(ref.trim());
-      const result = await syncIssue(
-        context.deps.runner,
-        await context.deps.root(),
-        record2,
-        await repo.source(record2),
-        (url) => repo.recordIssue(record2, url)
-      );
-      context.deps.stdout(
-        context.json ? `${JSON.stringify({ idea: record2.number, ...result })}
-` : `Issue ${result.action}: ${result.issue}
-`
-      );
-    });
-  }
-};
 var ideaCommands = {
   new: create,
   list,
-  show,
-  sync
+  show
 };
 
-// src/flow/stages.ts
-var STAGES = [
-  "refine",
-  "challenge",
-  "await approval",
-  "orchestrate",
-  "write",
-  "judge",
-  "merge",
-  "verify",
-  "outcome"
-];
-var ROLE_STAGES = {
-  refiner: { stage: "refine" },
-  challenger: { stage: "challenge" },
-  orchestrator: { stage: "orchestrate" },
-  writer: { stage: "write" },
-  judge: { stage: "judge" },
-  // A verifier checks the merged change; earlier events are not verification.
-  verifier: { stage: "verify", after: "pr.merged" }
-};
-var MAIN_SESSION_STAGE = "orchestrate";
-var APPROVAL_LABEL = "ready-for-agent";
-var GITHUB_STAGES = {
-  "issue.opened": "await approval",
-  "issue.closed": "outcome",
-  "pr.opened": "merge",
-  "pr.merged": "merge"
-};
-var MIN_COMPLETED_IDEAS = 3;
-
-// src/flow/attribution.ts
-function attribute(events) {
-  const byActor = /* @__PURE__ */ new Map();
-  const actors = (e) => [e.pane && `pane:${e.pane}`, e.session && `session:${e.session}`].filter(
-    (a) => typeof a === "string"
-  );
-  for (const event of events) {
-    if (event.idea !== void 0) {
-      for (const actor of actors(event)) {
-        byActor.set(actor, event.idea);
-      }
-    }
-  }
-  const result = /* @__PURE__ */ new Map();
-  for (const event of events) {
-    const own2 = event.kind.startsWith("issue.") ? `#${event.number}` : void 0;
-    const inherited = actors(event).map((a) => byActor.get(a)).find((i) => i !== void 0);
-    result.set(event.id, event.idea ?? own2 ?? inherited);
-  }
-  return result;
-}
-
-// src/flow/intervals.ts
-function uncovered(span, holes) {
-  const sorted = holes.map(([a, b]) => [Math.max(a, span[0]), Math.min(b, span[1])]).filter(([a, b]) => b > a).sort((x, y) => x[0] - y[0]);
-  let free = span[1] - span[0];
-  let reached = span[0];
-  for (const [a, b] of sorted) {
-    const from = Math.max(a, reached);
-    if (b > from) {
-      free -= b - from;
-      reached = b;
-    }
-  }
-  return free;
-}
-
-// src/flow/report.ts
-var REPORT_VERSION = 1;
-var STATE_AFTER = {
-  "session.start": "active",
-  "tool.start": "active",
-  "tool.end": "active",
-  "pane.spawned": "active",
-  "pane.busy": "active",
-  "pane.waiting": "waiting",
-  "pane.closed": "closed",
-  "session.stop": "closed"
-};
-var time = (event) => Date.parse(event.occurredAt);
-function roleOf(event) {
-  for (const name of [event.agent, event.pane, event.session]) {
-    const role = name?.split("-").at(-1);
-    if (role !== void 0 && Object.hasOwn(ROLE_STAGES, role)) {
-      return ROLE_STAGES[role];
-    }
-  }
-  return void 0;
-}
-var Tally = class {
-  totals = new Map(
-    STAGES.map((stage) => [stage, { activeMs: 0, waitingMs: 0, events: 0 }])
-  );
-  add(stage, field2, ms) {
-    this.totals.get(stage)[field2] += ms;
-  }
-  count(stage) {
-    this.totals.get(stage).events += 1;
-  }
-  /** Stages in loop order, with milliseconds converted to seconds. */
-  stages() {
-    return STAGES.map((stage) => {
-      const { activeMs, waitingMs, events } = this.totals.get(
-        stage
-      );
-      return {
-        stage,
-        activeSeconds: activeMs / 1e3,
-        waitingSeconds: waitingMs / 1e3,
-        events
-      };
-    });
-  }
-};
-function chargeActor(tally, items) {
-  const spans = [];
-  let closed = false;
-  let start = time(items[0].event);
-  items.forEach(({ event, stage }, i) => {
-    const at = time(event);
-    if (closed && (event.kind === "pane.spawned" || event.kind === "session.start")) {
-      closed = false;
-      start = at;
-    }
-    const state = STATE_AFTER[event.kind];
-    if (closed) {
-      return;
-    }
-    if (state === "closed") {
-      closed = true;
-      spans.push([start, at]);
-    } else if (state !== void 0 && i < items.length - 1) {
-      const next = time(items[i + 1].event);
-      tally.add(
-        stage,
-        state === "active" ? "activeMs" : "waitingMs",
-        next - at
-      );
-    }
-  });
-  if (!closed) {
-    spans.push([start, time(items.at(-1).event)]);
-  }
-  return spans;
-}
-function actorTime(tally, events) {
-  const byActor = /* @__PURE__ */ new Map();
-  for (const item of events) {
-    const key = item.event.pane ?? item.event.session;
-    if (key !== void 0) {
-      byActor.set(key, [...byActor.get(key) ?? [], item]);
-    }
-  }
-  const lifetimes = [];
-  for (const items of byActor.values()) {
-    items.sort((x, y) => time(x.event) - time(y.event));
-    const spans = chargeActor(tally, items);
-    if (items[0].stage !== "orchestrate") {
-      lifetimes.push(...spans);
-    }
-  }
-  return lifetimes;
-}
-function firstTime(events, match) {
-  return events.filter(match).map(time).sort((a, b) => a - b)[0];
-}
-function githubWaits(tally, events, holes, asOf) {
-  const closed = firstTime(events, (e) => e.kind === "issue.closed");
-  const waits = [
-    [
-      "await approval",
-      firstTime(events, (e) => e.kind === "issue.opened"),
-      firstTime(
-        events,
-        (e) => e.kind === "issue.labelled" && e.label === APPROVAL_LABEL
-      )
-    ],
-    [
-      "merge",
-      firstTime(events, (e) => e.kind === "pr.opened"),
-      firstTime(events, (e) => e.kind === "pr.merged")
-    ]
-  ];
-  for (const [stage, start, end] of waits) {
-    if (start !== void 0) {
-      const stop = end ?? closed ?? asOf;
-      if (stop > start) {
-        tally.add(stage, "waitingMs", uncovered([start, stop], holes));
-      }
-    }
-  }
-}
-function stageOf(event, mergedAt) {
-  const github = GITHUB_STAGES[event.kind];
-  if (github !== void 0) {
-    return github;
-  }
-  if (event.kind === "issue.labelled") {
-    return event.label === APPROVAL_LABEL ? "await approval" : void 0;
-  }
-  const role = roleOf(event);
-  if (role !== void 0) {
-    const gate = role.after === "pr.merged" ? mergedAt : void 0;
-    const open = role.after === void 0 || gate !== void 0 && time(event) >= gate;
-    return open ? role.stage : void 0;
-  }
-  return event.pane === void 0 && event.source === "claude" ? MAIN_SESSION_STAGE : void 0;
-}
-function roundShare(share) {
-  return Math.round(share * 1e4) / 1e4;
-}
-function groupByIdea(events) {
-  const ideaOf = attribute(events);
-  const byIdea = /* @__PURE__ */ new Map();
-  let unattributed = 0;
-  for (const event of events) {
-    const idea = ideaOf.get(event.id);
-    if (idea === void 0) {
-      unattributed += 1;
-    } else {
-      byIdea.set(idea, [...byIdea.get(idea) ?? [], event]);
-    }
-  }
-  return { byIdea, unattributed };
-}
-function chargeIdea(tally, own2, asOf) {
-  const mergedAt = firstTime(own2, (e) => e.kind === "pr.merged");
-  const mapped = [];
-  for (const event of own2) {
-    const stage = stageOf(event, mergedAt);
-    if (stage !== void 0) {
-      tally.count(stage);
-      mapped.push({ event, stage });
-    }
-  }
-  githubWaits(tally, own2, actorTime(tally, mapped), asOf);
-  return own2.length - mapped.length;
-}
-function nameBottleneck(tally, completed, minCompletedIdeas) {
-  const stages = [...tally.totals.entries()];
-  const totalMs = stages.reduce((sum, [, s]) => sum + s.waitingMs, 0);
-  const [stage, worst] = stages.reduce(
-    (a, b) => b[1].waitingMs > a[1].waitingMs ? b : a
-  );
-  if (completed < minCompletedIdeas) {
-    return {
-      bottleneck: null,
-      bottleneckNote: `Not enough data: ${completed} of ${minCompletedIdeas} completed ideas needed to name a bottleneck.`
-    };
-  }
-  if (totalMs === 0) {
-    return {
-      bottleneck: null,
-      bottleneckNote: "No waiting time recorded, so there is no bottleneck."
-    };
-  }
-  return {
-    bottleneck: {
-      stage,
-      waitingSeconds: worst.waitingMs / 1e3,
-      share: roundShare(worst.waitingMs / totalMs)
-    },
-    bottleneckNote: null
-  };
-}
-function buildReport(events, { asOf, minCompletedIdeas }) {
-  const { byIdea, unattributed } = groupByIdea(events);
-  const tally = new Tally();
-  let unmapped = unattributed;
-  let completed = 0;
-  for (const own2 of byIdea.values()) {
-    unmapped += chargeIdea(tally, own2, asOf.getTime());
-    completed += own2.some((e) => e.kind === "issue.closed") ? 1 : 0;
-  }
-  return {
-    version: REPORT_VERSION,
-    asOf: asOf.toISOString(),
-    ideas: { total: byIdea.size, completed },
-    minCompletedIdeas,
-    stages: tally.stages(),
-    ...nameBottleneck(tally, completed, minCompletedIdeas),
-    unmappedEvents: unmapped
-  };
-}
-
-// src/ledger/poll-lock.ts
-var STALE_LOCK_MS = 6e4;
-var isExists = (error) => error.code === "EEXIST";
-async function isStale(fs, clock, path) {
-  const taken = Date.parse(await fs.readFile(path).catch(() => ""));
-  return Number.isNaN(taken) || clock.now().getTime() - taken > STALE_LOCK_MS;
-}
-async function acquire(fs, clock, path) {
-  const busy = {
-    ok: false,
-    message: `Another poll holds ${path}. Wait for it, or delete the file if no poll is running.`
-  };
-  for (const attempt of [0, 1]) {
-    try {
-      await fs.createFile(path, clock.now().toISOString());
-      return { ok: true, release: () => fs.remove(path) };
-    } catch (error) {
-      if (!isExists(error)) {
-        throw error;
-      }
-    }
-    if (attempt === 1 || !await isStale(fs, clock, path)) {
-      return busy;
-    }
-    await fs.remove(path);
-  }
-  return busy;
-}
+// src/cli/ledger-commands.ts
+import { dirname as dirname3, resolve as resolve2 } from "node:path";
 
 // src/ledger/schema.ts
 var SOURCES = ["claude", "herdr", "github"];
@@ -1475,7 +938,6 @@ var KINDS = [
   "pane.closed",
   "issue.opened",
   "issue.labelled",
-  "issue.closed",
   "pr.opened",
   "pr.merged"
 ];
@@ -1484,7 +946,6 @@ var TOOL_KINDS = ["tool.start", "tool.end"];
 var NUMBER_KINDS = [
   "issue.opened",
   "issue.labelled",
-  "issue.closed",
   "pr.opened",
   "pr.merged"
 ];
@@ -1512,18 +973,15 @@ var ALLOWED = /* @__PURE__ */ new Set([
   "label",
   "number"
 ]);
-function isName(value) {
-  return typeof value === "string" && NAME.test(value);
-}
 function isTimestamp(value) {
   if (!TIMESTAMP.test(value)) {
     return false;
   }
-  const time2 = new Date(value);
-  if (Number.isNaN(time2.getTime())) {
+  const time = new Date(value);
+  if (Number.isNaN(time.getTime())) {
     return false;
   }
-  return time2.toISOString().slice(0, 10) === value.slice(0, 10);
+  return time.toISOString().slice(0, 10) === value.slice(0, 10);
 }
 function bad(field2, problem) {
   return {
@@ -1620,144 +1078,14 @@ function checkRule(rule, raw, mode) {
   return rule.check(value) ? void 0 : bad(rule.field, rule.hint);
 }
 function parseEvent(input, mode) {
-  const failure2 = checkShape(input, mode) ?? checkCore(input, mode) ?? RULES.map((rule) => checkRule(rule, input, mode)).find(Boolean);
-  if (failure2 !== void 0) {
-    return failure2;
+  const failure = checkShape(input, mode) ?? checkCore(input, mode) ?? RULES.map((rule) => checkRule(rule, input, mode)).find(Boolean);
+  if (failure !== void 0) {
+    return failure;
   }
   const event = Object.fromEntries(
     Object.entries(input).filter(([, value]) => value !== void 0)
   );
   return { ok: true, event };
-}
-
-// src/ledger/herdr-poll.ts
-var PANE_KINDS = [
-  "pane.spawned",
-  "pane.busy",
-  "pane.waiting",
-  "pane.closed"
-];
-var STATUS_KIND = {
-  working: "pane.busy",
-  idle: "pane.waiting",
-  blocked: "pane.waiting",
-  done: "pane.waiting"
-};
-function describe3(code, stdout, stderr2) {
-  const text3 = `${stderr2}${stdout}`.trim();
-  return text3 === "" ? `exit code ${code}` : `exit code ${code}: ${text3}`;
-}
-function toSeen(entry) {
-  if (typeof entry !== "object" || entry === null) {
-    return void 0;
-  }
-  const raw = entry;
-  const pane = raw["pane_id"];
-  const status = STATUS_KIND[String(raw["agent_status"])];
-  const agent = [raw["name"], raw["agent"]].find(isName) ?? "unknown";
-  if (!isName(pane) || status === void 0) {
-    return void 0;
-  }
-  return { pane, agent, status };
-}
-async function listAgents(runner) {
-  const found = await runner.run("herdr", ["agent", "list"]);
-  if (found.code !== 0) {
-    return {
-      message: `herdr agent list failed: ${describe3(found.code, found.stdout, found.stderr)}. Is the herdr server running?`
-    };
-  }
-  let value;
-  try {
-    value = JSON.parse(found.stdout);
-  } catch {
-    return {
-      message: "herdr agent list did not print JSON. Run `herdr agent list` by hand and check the herdr version."
-    };
-  }
-  const agents = value?.result?.agents;
-  if (!Array.isArray(agents)) {
-    return {
-      message: "herdr agent list printed no agent list (.result.agents); the herdr version may have changed its output."
-    };
-  }
-  const present = /* @__PURE__ */ new Set();
-  for (const entry of agents) {
-    const pane = entry?.pane_id;
-    if (typeof pane === "string") {
-      present.add(pane);
-    }
-  }
-  return { seen: agents.map(toSeen).filter((s) => s !== void 0), present };
-}
-async function lastRecorded(ledger) {
-  const { events } = await ledger.list({ source: "herdr" });
-  const last = /* @__PURE__ */ new Map();
-  for (const event of events) {
-    if (event.pane !== void 0 && PANE_KINDS.includes(event.kind)) {
-      last.set(event.pane, {
-        kind: event.kind,
-        ...event.agent === void 0 ? {} : { agent: event.agent }
-      });
-    }
-  }
-  return last;
-}
-async function pollHerdr(deps) {
-  const held = await acquire(deps.fs, deps.clock, `${deps.ledger.path}.lock`);
-  if (!held.ok) {
-    return { ok: false, message: held.message };
-  }
-  try {
-    return await poll(deps);
-  } finally {
-    await held.release();
-  }
-}
-function plan(listed, last, observedAt) {
-  const planned = [];
-  const event = (kind, pane, agent) => planned.push({
-    source: "herdr",
-    kind,
-    occurredAt: observedAt,
-    pane,
-    agent
-  });
-  for (const { pane, agent, status } of listed.seen) {
-    const recorded = last.get(pane);
-    const open = recorded !== void 0 && recorded.kind !== "pane.closed";
-    if (open && recorded.agent !== void 0 && recorded.agent !== agent) {
-      event("pane.closed", pane, recorded.agent);
-    }
-    const sameAgent = open && (recorded.agent ?? agent) === agent;
-    if (!sameAgent) {
-      event("pane.spawned", pane, agent);
-    }
-    if (!sameAgent || recorded.kind !== status) {
-      event(status, pane, agent);
-    }
-  }
-  for (const [pane, state] of last) {
-    if (state.kind !== "pane.closed" && !listed.present.has(pane)) {
-      event("pane.closed", pane, state.agent ?? "unknown");
-    }
-  }
-  return planned;
-}
-async function poll(deps) {
-  const observedAt = deps.clock.now().toISOString();
-  const listed = await listAgents(deps.runner);
-  if ("message" in listed) {
-    return { ok: false, message: listed.message };
-  }
-  const planned = plan(listed, await lastRecorded(deps.ledger), observedAt);
-  for (const input of planned) {
-    const result = await deps.ledger.record(input);
-    if (!result.ok) {
-      return { ok: false, message: result.message };
-    }
-  }
-  return { ok: true, recorded: planned.length, events: planned };
 }
 
 // src/ledger/ledger.ts
@@ -1790,10 +1118,10 @@ var Ledger = class {
     return { ok: true, event };
   }
   async list(filter) {
-    const text3 = await this.read();
+    const text2 = await this.read();
     const events = [];
     let skipped = 0;
-    for (const line2 of text3.split("\n")) {
+    for (const line2 of text2.split("\n")) {
       if (line2 === "") {
         continue;
       }
@@ -1832,7 +1160,6 @@ function matches(event, filter) {
 }
 
 // src/cli/ledger-commands.ts
-import { dirname as dirname3, resolve as resolve2 } from "node:path";
 var DEFAULT_LEDGER = ".kore/state/ledger.jsonl";
 var EVENT_FLAGS = [
   "id",
@@ -1897,15 +1224,15 @@ async function eventInput(context) {
       )
     };
   }
-  const text3 = await context.deps.stdin();
-  if (text3.trim() === "") {
+  const text2 = await context.deps.stdin();
+  if (text2.trim() === "") {
     return {
       error: "No event given. Pass --source, --kind and --occurred-at, or one JSON event on stdin.",
       code: 2
     };
   }
   try {
-    return { input: JSON.parse(text3) };
+    return { input: JSON.parse(text2) };
   } catch {
     return { error: "Invalid event: stdin is not valid JSON." };
   }
@@ -1944,17 +1271,17 @@ var record = {
 };
 function filterFrom(options) {
   const filter = {};
-  const text3 = (name) => {
+  const text2 = (name) => {
     const value = options[name];
     return typeof value === "string" ? value : void 0;
   };
   for (const name of ["session", "pane", "idea"]) {
-    const value = text3(name);
+    const value = text2(name);
     if (value !== void 0) {
       filter[name] = value;
     }
   }
-  const source = text3("source");
+  const source = text2("source");
   if (source !== void 0) {
     if (!SOURCES.includes(source)) {
       return {
@@ -1963,7 +1290,7 @@ function filterFrom(options) {
     }
     filter.source = source;
   }
-  const kind = text3("kind");
+  const kind = text2("kind");
   if (kind !== void 0) {
     if (!KINDS.includes(kind)) {
       return { error: `Invalid --kind "${kind}". Kinds: ${KINDS.join(", ")}.` };
@@ -1971,7 +1298,7 @@ function filterFrom(options) {
     filter.kind = kind;
   }
   for (const name of ["since", "until"]) {
-    const value = text3(name);
+    const value = text2(name);
     if (value !== void 0) {
       if (!isTimestamp(value)) {
         return {
@@ -2025,121 +1352,7 @@ var list2 = {
     return 0;
   }
 };
-var pollHerdrCommand = {
-  summary: "read herdr's agent panes once and append only the changes (pane.spawned, pane.busy, pane.waiting, pane.closed) to the ledger; pane.closed means the pane no longer hosts an agent; safe to repeat from a wait loop, and one poll runs at a time",
-  options: STRING_FLAGS(["ledger"]),
-  async run(context) {
-    const opened = await openLedger(context);
-    if ("error" in opened) {
-      return reject(context, opened.error, "ledger");
-    }
-    const { runner, clock, fs } = context.deps;
-    const result = await pollHerdr({
-      ledger: opened.ledger,
-      runner,
-      clock,
-      fs
-    });
-    if (!result.ok) {
-      return reject(context, result.message, "herdr");
-    }
-    context.deps.stdout(
-      context.json ? `${JSON.stringify({ recorded: result.recorded, events: result.events })}
-` : `recorded ${result.recorded} herdr event(s)
-`
-    );
-    return 0;
-  }
-};
-var ledgerCommands = {
-  record,
-  list: list2,
-  "poll-herdr": pollHerdrCommand
-};
-
-// src/cli/flow-commands.ts
-function parseFlags({ options, deps }) {
-  const min = options["min-ideas"];
-  let minCompletedIdeas = MIN_COMPLETED_IDEAS;
-  if (min !== void 0) {
-    minCompletedIdeas = typeof min === "string" ? Number(min) : Number.NaN;
-    if (!/^\d+$/.test(String(min)) || minCompletedIdeas < 1) {
-      return {
-        error: `Invalid --min-ideas "${String(min)}". Use a whole number of at least 1.`
-      };
-    }
-  }
-  const given = options["as-of"];
-  if (given === void 0) {
-    return { asOf: deps.clock.now(), minCompletedIdeas };
-  }
-  if (typeof given !== "string" || !isTimestamp(given)) {
-    return {
-      error: `Invalid --as-of "${String(given)}". Use an ISO 8601 UTC time such as 2026-01-02T03:04:05Z.`
-    };
-  }
-  return { asOf: new Date(given), minCompletedIdeas };
-}
-var seconds = (value) => `${Math.round(value)}s`;
-function text2(report2) {
-  const rows = report2.stages.map(
-    (s) => [
-      s.stage.padEnd(15),
-      `active ${seconds(s.activeSeconds)}`.padEnd(16),
-      `waiting ${seconds(s.waitingSeconds)}`.padEnd(17),
-      `${s.events} events`
-    ].join(" ")
-  );
-  const lines = [
-    `Flow report as of ${report2.asOf}: ${report2.ideas.completed} of ${report2.ideas.total} ideas completed`,
-    ...rows,
-    `Unmapped events: ${report2.unmappedEvents}`,
-    report2.bottleneck === null ? report2.bottleneckNote ?? "No bottleneck." : `Bottleneck: ${report2.bottleneck.stage} (${Math.round(report2.bottleneck.share * 100)}% of waiting)`
-  ];
-  if (report2.skippedLines > 0) {
-    lines.push(`skipped ${report2.skippedLines} malformed ledger line(s)`);
-  }
-  return `${lines.join("\n")}
-`;
-}
-var report = {
-  summary: `map ledger events to stages; per stage active, waiting and event counts, and the bottleneck (--min-ideas N, default ${MIN_COMPLETED_IDEAS}; --as-of TIME; --ledger PATH; --json is one object, version ${REPORT_VERSION}: version, asOf, ideas, minCompletedIdeas, stages, bottleneck, bottleneckNote, unmappedEvents, skippedLines)`,
-  options: { "min-ideas": "string", "as-of": "string", ledger: "string" },
-  async run(context) {
-    const flags = parseFlags(context);
-    const { deps, json } = context;
-    const fail2 = (message, code) => {
-      deps.stderr(
-        json ? `${JSON.stringify({ error: message })}
-` : `${message}
-`
-      );
-      return code;
-    };
-    if ("error" in flags) {
-      return fail2(flags.error, 2);
-    }
-    const opened = await openLedger(context);
-    if ("error" in opened) {
-      return fail2(opened.error, 1);
-    }
-    const { events, skipped } = await opened.ledger.list({});
-    const printed = {
-      ...buildReport(events, flags),
-      skippedLines: skipped
-    };
-    deps.stdout(json ? `${JSON.stringify(printed)}
-` : text2(printed));
-    return 0;
-  }
-};
-var flowCommands = { report };
-
-// src/cli/measurement.ts
-var measurement = {
-  ledger: ledgerCommands,
-  flow: flowCommands
-};
+var ledgerCommands = { record, list: list2 };
 
 // src/plan/parser.ts
 var FRONTMATTER = /^---\n([\s\S]*?)\n---\n/;
@@ -2172,9 +1385,9 @@ function listItemSpans(markdown) {
   return items;
 }
 function listItems(markdown) {
-  return listItemSpans(markdown).map(({ heading, text: text3 }) => ({
+  return listItemSpans(markdown).map(({ heading, text: text2 }) => ({
     heading,
-    text: text3
+    text: text2
   }));
 }
 function openItems(markdown) {
@@ -2266,15 +1479,15 @@ async function readPlans(deps) {
 }
 
 // src/plan/active.ts
-function describe4(plan2) {
-  const open = plan2.open.map((o) => `${o.step} (${o.count})`).join(", ");
-  const lines = [`${plan2.file}${plan2.default ? " (default)" : ""}`];
+function describe3(plan) {
+  const open = plan.open.map((o) => `${o.step} (${o.count})`).join(", ");
+  const lines = [`${plan.file}${plan.default ? " (default)" : ""}`];
   lines.push(`  Open items: ${open || "none"}`);
-  if (plan2.next) {
-    lines.push(`  Next (${plan2.next.step}): ${plan2.next.text}`);
+  if (plan.next) {
+    lines.push(`  Next (${plan.next.step}): ${plan.next.text}`);
   }
-  if (plan2.upcoming.length > 0) {
-    lines.push(`  Upcoming: ${plan2.upcoming.join("; ")}`);
+  if (plan.upcoming.length > 0) {
+    lines.push(`  Upcoming: ${plan.upcoming.join("; ")}`);
   }
   return lines.join("\n");
 }
@@ -2305,7 +1518,7 @@ var planActive = {
 `
       );
     } else {
-      deps.stdout(`${listed.map(describe4).join("\n")}
+      deps.stdout(`${listed.map(describe3).join("\n")}
 `);
     }
     return 0;
@@ -2355,8 +1568,8 @@ function totalsEdits(lines, range, className, date) {
     managed: managed - (lower.startsWith("managed") ? 1 : 0),
     release: release - (lower.startsWith("release") ? 1 : 0)
   };
-  const text3 = `as of ${date}: ${next.local} local, ${next.managed} managed${match[3]}cluster, ${next.release} release${match[5]}pipeline`;
-  const changed = intro.replace(TOTALS, text3).split("\n");
+  const text2 = `as of ${date}: ${next.local} local, ${next.managed} managed${match[3]}cluster, ${next.release} release${match[5]}pipeline`;
+  const changed = intro.replace(TOTALS, text2).split("\n");
   const before = intro.split("\n");
   const edits = [];
   for (const [i, line2] of changed.entries()) {
@@ -2438,17 +1651,17 @@ function segmentsOf(raw) {
   pieces.push([from, bodyEnd]);
   let exit = false;
   return pieces.map(([a, b]) => {
-    const text3 = raw.slice(a, b);
-    const start = a + (text3.length - text3.trimStart().length);
-    const end = b - (text3.length - text3.trimEnd().length);
+    const text2 = raw.slice(a, b);
+    const start = a + (text2.length - text2.trimStart().length);
+    const end = b - (text2.length - text2.trimEnd().length);
     const lead = LEAD.exec(raw.slice(start, end))?.[0];
     exit ||= lead !== void 0;
     return { start, end, itemStart: start + (lead?.length ?? 0), exit };
   });
 }
-function words(text3) {
+function words(text2) {
   return new Set(
-    (text3.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => w.length >= 4)
+    (text2.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => w.length >= 4)
   );
 }
 function score(item, segment) {
@@ -2472,13 +1685,13 @@ function lowered(raw, segment) {
   const shown = /^\d+$/.test(word) ? String(count) : NUMBERS[count] ?? word;
   const noun = count === 1 ? "criterion" : "criteria";
   const [, , gap1, gap2, gap3] = lead;
-  const text3 = `and ${shown}${gap1}exit${gap2}${noun}:${gap3}`;
-  return raw.slice(0, segment.start) + text3 + raw.slice(segment.start + lead[0].length);
+  const text2 = `and ${shown}${gap1}exit${gap2}${noun}:${gap3}`;
+  return raw.slice(0, segment.start) + text2 + raw.slice(segment.start + lead[0].length);
 }
 function sharedNote(raw, segments, index) {
   for (const [i, segment] of segments.entries()) {
-    const text3 = raw.slice(segment.itemStart, segment.end);
-    const note = /\([^)]*\b(both|all)\b[^)]*\)/i.exec(text3);
+    const text2 = raw.slice(segment.itemStart, segment.end);
+    const note = /\([^)]*\b(both|all)\b[^)]*\)/i.exec(text2);
     const covered = note?.[1]?.toLowerCase() === "all" || index === i || index === i - 1;
     if (note !== null && covered) {
       return note[0];
@@ -2508,7 +1721,7 @@ function classOf(lines, entry, from) {
   }
   return "";
 }
-function locate2(entries, step, itemText) {
+function locate(entries, step, itemText) {
   const item = words(itemText);
   const scored = entries.flatMap(
     (entry) => segmentsOf(entry.raw).map((segment, index, all) => ({
@@ -2520,8 +1733,8 @@ function locate2(entries, step, itemText) {
   );
   scored.sort((a, b) => b.score - a.score);
   const [best, runnerUp] = scored;
-  const close = runnerUp !== void 0 && runnerUp.score >= MIN_SCORE && (best?.score ?? 0) - runnerUp.score <= MARGIN;
-  if (best === void 0 || best.score < MIN_SCORE || close) {
+  const close2 = runnerUp !== void 0 && runnerUp.score >= MIN_SCORE && (best?.score ?? 0) - runnerUp.score <= MARGIN;
+  if (best === void 0 || best.score < MIN_SCORE || close2) {
     return {
       error: `Cannot tell which list entry under ${step} holds this item. Reword the list entry to share words with the item, or tick it by hand.`
     };
@@ -2541,7 +1754,7 @@ function listEdits(lines, step, itemText, date) {
       error: `The open-item lists have no entry for ${step}. Add the item to its list, or tick it by hand.`
     };
   }
-  const best = locate2(entries, step, itemText);
+  const best = locate(entries, step, itemText);
   if ("error" in best) {
     return best;
   }
@@ -2574,8 +1787,8 @@ function listEdits(lines, step, itemText, date) {
 
 // src/plan/tick.ts
 var OPEN = "- [ ]";
-function normalize(text3) {
-  return text3.replace(/\s+/g, " ").trim();
+function normalize(text2) {
+  return text2.replace(/\s+/g, " ").trim();
 }
 function choosePlan(plans, requested) {
   const names2 = Object.keys(plans);
@@ -2649,8 +1862,8 @@ function toChanges(lines, edits) {
     after: edit.lines
   }));
 }
-function describe5(file, step, text3, dryRun, changes) {
-  const head = `${dryRun ? "Would tick" : "Ticked"} ${step}: ${text3} in ${file}`;
+function describe4(file, step, text2, dryRun, changes) {
+  const head = `${dryRun ? "Would tick" : "Ticked"} ${step}: ${text2} in ${file}`;
   const body = changes.flatMap((c) => [
     `  line ${c.line}:`,
     ...c.before.map((l) => `  - ${l}`),
@@ -2666,9 +1879,9 @@ async function tick(deps, json, item, planOption, dryRun) {
   const lines = markdown.split("\n");
   const span = chooseItem(markdown, item);
   const step = span.heading.split(":")[0] ?? span.heading;
-  const text3 = normalize(span.text.slice(OPEN.length));
+  const text2 = normalize(span.text.slice(OPEN.length));
   const date = localDate(deps.clock.now());
-  const lists = listEdits(lines, step, text3, date);
+  const lists = listEdits(lines, step, text2, date);
   if ("error" in lists) {
     throw new CommandError(lists.error);
   }
@@ -2682,8 +1895,8 @@ async function tick(deps, json, item, planOption, dryRun) {
     );
   }
   deps.stdout(
-    json ? `${JSON.stringify({ plan: file, item: { step, text: text3 }, dryRun, written: !dryRun, changes })}
-` : describe5(file, step, text3, dryRun, changes)
+    json ? `${JSON.stringify({ plan: file, item: { step, text: text2 }, dryRun, written: !dryRun, changes })}
+` : describe4(file, step, text2, dryRun, changes)
   );
   return 0;
 }
@@ -2692,7 +1905,7 @@ var planTick = {
   options: { plan: "string", item: "string", "dry-run": "boolean" },
   async run({ json, deps, options }) {
     const item = options["item"];
-    const plan2 = options["plan"];
+    const plan = options["plan"];
     if (typeof item !== "string" || item.trim() === "") {
       throw new CommandError(
         'Missing --item "<text>": say which open item to tick.'
@@ -2702,7 +1915,7 @@ var planTick = {
       deps,
       json,
       item,
-      typeof plan2 === "string" ? plan2 : void 0,
+      typeof plan === "string" ? plan : void 0,
       options["dry-run"] === true
     );
   }
@@ -2792,6 +2005,236 @@ async function equalize(runner, callerPane) {
   return { status: "equalized" };
 }
 
+// src/session/output.ts
+var USAGE_ERROR = 2;
+var FAILED2 = 1;
+function fail(deps, json, code, message) {
+  deps.stderr(
+    `${json ? `${JSON.stringify({ error: message })}
+` : ""}${message}
+`
+  );
+  return code;
+}
+
+// src/session/registry.ts
+import { dirname as dirname4, join as join4, resolve as resolve3 } from "node:path";
+var STATE_DIR = ".kore/state/sessions";
+function isRecord(value) {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const record2 = value;
+  return typeof record2.name === "string" && typeof record2.paneId === "string" && typeof record2.callerPane === "string" && typeof record2.model === "string";
+}
+var SessionRegistry = class _SessionRegistry {
+  constructor(fs, dir) {
+    this.fs = fs;
+    this.dir = dir;
+  }
+  fs;
+  dir;
+  /** Resolves the main checkout from git's common dir, the way every worktree shares it. */
+  static async open(deps) {
+    const git = await deps.runner.run(
+      "git",
+      ["rev-parse", "--path-format=absolute", "--git-common-dir"],
+      { cwd: deps.cwd }
+    );
+    const common = git.stdout.trim();
+    if (git.code !== 0 || common === "") {
+      throw new CommandError(
+        `Cannot find the main checkout to keep session state in: git rev-parse --git-common-dir failed in ${deps.cwd}. Run this inside the repository.`
+      );
+    }
+    return new _SessionRegistry(deps.fs, resolve3(dirname4(common), STATE_DIR));
+  }
+  file(name) {
+    return join4(this.dir, `${name}.json`);
+  }
+  async read(name) {
+    const path = this.file(name);
+    if (!await this.fs.exists(path)) {
+      return void 0;
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(await this.fs.readFile(path));
+    } catch (error) {
+      if (!(error instanceof SyntaxError)) {
+        throw error;
+      }
+      parsed = void 0;
+    }
+    if (!isRecord(parsed)) {
+      throw new CommandError(
+        `Session state ${path} is not a valid session record; delete it and spawn the session again.`
+      );
+    }
+    return parsed;
+  }
+  async write(record2) {
+    await this.fs.writeFile(
+      this.file(record2.name),
+      `${JSON.stringify(record2, null, 2)}
+`
+    );
+  }
+};
+
+// src/session/close.ts
+function refuse(record2, callerPane) {
+  const { name, paneId } = record2;
+  if (record2.closedAt !== void 0) {
+    return `Session ${name} is already closed (pane ${paneId}).`;
+  }
+  if (record2.callerPane !== callerPane) {
+    return `Session ${name} was spawned from pane ${record2.callerPane}, not ${callerPane}; only that pane may close it.`;
+  }
+  return record2.result === void 0 ? `Session ${name} has no recorded result, so pane ${paneId} stays open. Run \`session wait ${name}\` first.` : void 0;
+}
+async function close(context) {
+  const { json, deps } = context;
+  const name = context.operand;
+  if (name === void 0) {
+    return fail(
+      deps,
+      json,
+      USAGE_ERROR,
+      "Missing the session name: session close <name>."
+    );
+  }
+  const callerPane = deps.env.HERDR_PANE_ID;
+  if (deps.env.HERDR_ENV !== "1" || !callerPane) {
+    return fail(
+      deps,
+      json,
+      FAILED2,
+      "Not inside Herdr (HERDR_ENV is not 1 or HERDR_PANE_ID is unset). Run this from the Herdr pane that spawned the session."
+    );
+  }
+  const registry = await SessionRegistry.open(deps);
+  const record2 = await registry.read(name);
+  if (record2 === void 0) {
+    return fail(
+      deps,
+      json,
+      FAILED2,
+      `This tool did not create a session named ${name}, so it will not close one. Close it yourself with \`herdr pane close <pane-id>\` if you are sure.`
+    );
+  }
+  const refusal = refuse(record2, callerPane);
+  if (refusal !== void 0) {
+    return fail(deps, json, FAILED2, refusal);
+  }
+  const closed = await deps.runner.run("herdr", [
+    "pane",
+    "close",
+    record2.paneId
+  ]);
+  if (closed.code !== 0) {
+    return fail(
+      deps,
+      json,
+      FAILED2,
+      `herdr pane close ${record2.paneId} failed: ${describeFailure(closed)}`
+    );
+  }
+  await registry.write({ ...record2, closedAt: deps.clock.now().toISOString() });
+  const equalized = await equalize(deps.runner, callerPane);
+  const note = equalized.status === "failed" ? `Closed, but equalizing failed: ${equalized.reason}` : void 0;
+  if (note !== void 0) {
+    deps.stderr(`${note}
+`);
+  }
+  deps.stdout(
+    json ? `${JSON.stringify({ name, paneId: record2.paneId, closed: true, equalize: equalized })}
+` : `Closed ${name} (pane ${record2.paneId}).
+`
+  );
+  return 0;
+}
+
+// src/session/models.ts
+var DISPLAY_NAMES = {
+  "claude-fable-5-2": "Fable 5.2",
+  "claude-opus-5-5": "Opus 5.5",
+  "claude-sonnet-5-5": "Sonnet 5.5",
+  "claude-haiku-5-5": "Haiku 5.5"
+};
+function displayName(model) {
+  return Object.hasOwn(DISPLAY_NAMES, model) ? DISPLAY_NAMES[model] : void 0;
+}
+function mentions(text2, name) {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?<![\\w.])${escaped}(?![\\w.])`).test(text2);
+}
+function modelOnScreen(expected, screen) {
+  if (mentions(screen, expected)) {
+    return { status: "verified" };
+  }
+  const seen = Object.values(DISPLAY_NAMES).find(
+    (name) => mentions(screen, name)
+  );
+  return seen === void 0 ? { status: "none" } : { status: "mismatch", seen };
+}
+
+// src/session/agent-start.ts
+var BUSY_BOUND_MS = 1e4;
+var MODEL_BOUND_MS = 5e3;
+var RETRY_MS = 500;
+async function startAgent(deps, args) {
+  const deadline = deps.clock.now().getTime() + BUSY_BOUND_MS;
+  for (; ; ) {
+    const start = await deps.runner.run("herdr", args);
+    if (start.code === 0) {
+      return void 0;
+    }
+    if (!`${start.stdout}${start.stderr}`.includes("agent_pane_busy")) {
+      return `herdr agent start failed: ${describeFailure(start)}`;
+    }
+    if (deps.clock.now().getTime() >= deadline) {
+      return `herdr agent start failed: agent_pane_busy for ${BUSY_BOUND_MS / 1e3} seconds; the pane's shell never became ready (${describeFailure(start)})`;
+    }
+    await deps.clock.sleep(RETRY_MS);
+  }
+}
+async function checkModel(deps, name, model) {
+  const expected = displayName(model);
+  if (expected === void 0) {
+    return {
+      status: "unverified",
+      reason: `No display name is known for ${model}, so the pane's model could not be confirmed.`
+    };
+  }
+  const deadline = deps.clock.now().getTime() + MODEL_BOUND_MS;
+  for (; ; ) {
+    const read = await deps.runner.run("herdr", [
+      "agent",
+      "read",
+      name,
+      "--source",
+      "visible"
+    ]);
+    const seen = modelOnScreen(expected, read.code === 0 ? read.stdout : "");
+    if (seen.status === "verified") {
+      return { status: "verified" };
+    }
+    if (seen.status === "mismatch") {
+      return {
+        mismatch: `Session ${name} runs "${seen.seen}" but ${model} ("${expected}") was requested.`
+      };
+    }
+    if (deps.clock.now().getTime() >= deadline) {
+      return {
+        status: "unverified",
+        reason: `The pane showed no model name, such as "${expected}", within ${MODEL_BOUND_MS / 1e3} seconds, so ${model} could not be confirmed.`
+      };
+    }
+    await deps.clock.sleep(RETRY_MS);
+  }
+}
+
 // src/session/brief.ts
 function broadcastCommand(name, callerPane) {
   return `herdr pane send-text ${callerPane} "[herdr:${name}] finished: RESULT <done|blocked>; summary in pane $HERDR_PANE_ID" && herdr pane send-keys ${callerPane} enter`;
@@ -2805,6 +2248,47 @@ function buildBrief({ task, name, callerPane }) {
     "",
     broadcastCommand(name, callerPane)
   ].join("\n");
+}
+
+// src/session/launch.ts
+async function launch(deps, { role, model, effort, name, brief, paneId, callerPane, leftOpen }) {
+  const started = await startAgent(deps, [
+    "agent",
+    "start",
+    name,
+    "--kind",
+    "claude",
+    "--pane",
+    paneId,
+    "--",
+    "--agent",
+    role,
+    "--model",
+    model,
+    "--effort",
+    effort
+  ]);
+  if (started !== void 0) {
+    return { error: `${started}. ${leftOpen}` };
+  }
+  const checked = await checkModel(deps, name, model);
+  if ("mismatch" in checked) {
+    return { error: `${checked.mismatch} ${leftOpen}` };
+  }
+  const prompt = await deps.runner.run("herdr", [
+    "agent",
+    "prompt",
+    name,
+    buildBrief({ task: brief, name, callerPane }),
+    "--wait",
+    "--until",
+    "working",
+    "--timeout",
+    "5000"
+  ]);
+  return prompt.code === 0 ? checked : {
+    error: `herdr agent prompt failed: ${describeFailure(prompt)}. Session ${name} is running in pane ${paneId} without its brief.`
+  };
 }
 
 // src/session/names.ts
@@ -2838,9 +2322,129 @@ function sessionNameError(name) {
   return void 0;
 }
 
+// src/session/wait.ts
+var DEFAULT_TIMEOUT_MS = 60 * 60 * 1e3;
+var POLL_MS = 2e3;
+var MARKER = /^[ \t]*(?:[●⏺][ \t]+)?RESULT: (done|blocked)[ \t\r]*$/gm;
+function findResult(text2) {
+  const last = [...text2.matchAll(MARKER)].at(-1)?.[1];
+  return last === "done" || last === "blocked" ? last : void 0;
+}
+function parseTimeout(value) {
+  if (value === void 0) {
+    return DEFAULT_TIMEOUT_MS;
+  }
+  const ms = typeof value === "string" ? Number(value) : Number.NaN;
+  return Number.isInteger(ms) && ms > 0 ? ms : { error: "--timeout must be a positive whole number of milliseconds." };
+}
+function seconds(ms) {
+  return `${ms / 1e3} seconds`;
+}
+async function waitForResult(deps, registry, record2, timeoutMs) {
+  const done = (outcome) => ({
+    name: record2.name,
+    paneId: record2.paneId,
+    model: record2.model,
+    outcome,
+    summary: `pane ${record2.paneId}`
+  });
+  if (record2.result !== void 0) {
+    return done(record2.result.outcome);
+  }
+  const deadline = deps.clock.now().getTime() + timeoutMs;
+  for (; ; ) {
+    const read = await deps.runner.run("herdr", [
+      "pane",
+      "read",
+      record2.paneId,
+      "--source",
+      "recent-unwrapped"
+    ]);
+    if (read.code !== 0) {
+      return {
+        error: `herdr pane read ${record2.paneId} failed: ${describeFailure(read)}`
+      };
+    }
+    const outcome = findResult(read.stdout);
+    if (outcome !== void 0) {
+      await registry.write({
+        ...record2,
+        result: { outcome, at: deps.clock.now().toISOString() }
+      });
+      return done(outcome);
+    }
+    if (deps.clock.now().getTime() + POLL_MS > deadline) {
+      return {
+        error: `Session ${record2.name} printed no "RESULT: done" or "RESULT: blocked" line in pane ${record2.paneId} within ${seconds(timeoutMs)}. It may still be working; run \`session wait ${record2.name}\` again or read the pane.`
+      };
+    }
+    await deps.clock.sleep(POLL_MS);
+  }
+}
+function formatWait(result) {
+  return `${result.name} (${result.model}) finished: RESULT ${result.outcome}; summary in ${result.summary}.
+`;
+}
+async function wait(context) {
+  const { json, deps, options } = context;
+  const name = context.operand;
+  if (name === void 0) {
+    return fail(
+      deps,
+      json,
+      USAGE_ERROR,
+      "Missing the session name: session wait <name>."
+    );
+  }
+  const timeout = parseTimeout(options.timeout);
+  if (typeof timeout !== "number") {
+    return fail(deps, json, USAGE_ERROR, timeout.error);
+  }
+  const registry = await SessionRegistry.open(deps);
+  const record2 = await registry.read(name);
+  if (record2 === void 0) {
+    return fail(
+      deps,
+      json,
+      FAILED2,
+      `No session named ${name} was spawned by this tool; start it with \`session spawn\`.`
+    );
+  }
+  const result = await waitForResult(deps, registry, record2, timeout);
+  if ("error" in result) {
+    return fail(deps, json, FAILED2, result.error);
+  }
+  deps.stdout(json ? `${JSON.stringify(result)}
+` : formatWait(result));
+  return 0;
+}
+
+// src/session/spawn-finish.ts
+async function finish({ json, deps, options }, { registry, record: record2, modelCheck, timeoutMs }) {
+  const { name, paneId, callerPane, model, role, effort } = record2;
+  await registry.write(record2);
+  const verdict = modelCheck.status === "verified" ? "model verified" : `model unverified: ${modelCheck.reason}`;
+  if (options["no-wait"] === true) {
+    deps.stdout(
+      json ? `${JSON.stringify({ name, paneId, model, role, effort, modelCheck })}
+` : `Spawned ${name} (${model}; ${verdict}) in pane ${paneId}; it will broadcast to ${callerPane} when it finishes. Collect its result with \`session wait ${name}\`.
+`
+    );
+    return 0;
+  }
+  const result = await waitForResult(deps, registry, record2, timeoutMs);
+  if ("error" in result) {
+    return fail(deps, json, FAILED2, result.error);
+  }
+  deps.stdout(
+    json ? `${JSON.stringify({ ...result, role, effort, modelCheck })}
+` : `${formatWait(result).trimEnd()} (${verdict}).
+`
+  );
+  return 0;
+}
+
 // src/session/spawn.ts
-var USAGE_ERROR = 2;
-var FAILED2 = 1;
 var REQUIRED3 = ["role", "model", "effort", "name", "brief"];
 function paneIdOf(stdout) {
   try {
@@ -2862,10 +2466,9 @@ function check({ deps, options }) {
   if (nameError !== void 0) {
     return usage2(nameError);
   }
-  if (options["no-wait"] !== true) {
-    return usage2(
-      "Waiting for the session's result is not supported yet; pass --no-wait and wait for its broadcast."
-    );
+  const timeoutMs = parseTimeout(options.timeout);
+  if (typeof timeoutMs !== "number") {
+    return usage2(timeoutMs.error);
   }
   const callerPane = deps.env.HERDR_PANE_ID;
   if (deps.env.HERDR_ENV !== "1") {
@@ -2880,7 +2483,7 @@ function check({ deps, options }) {
       code: FAILED2
     };
   }
-  return { values: given, callerPane };
+  return { values: given, callerPane, timeoutMs };
 }
 async function splitPane(deps, callerPane) {
   const read = await readLayout(deps.runner, callerPane);
@@ -2915,97 +2518,77 @@ async function nameTakenError(deps, name) {
   }
   return `herdr agent get failed: ${describeFailure(found)}. No pane was split.`;
 }
-async function launch(deps, { role, model, effort, name, brief, paneId, callerPane, leftOpen }) {
-  const start = await deps.runner.run("herdr", [
-    "agent",
-    "start",
-    name,
-    "--kind",
-    "claude",
-    "--pane",
-    paneId,
-    "--",
-    "--agent",
-    role,
-    "--model",
-    model,
-    "--effort",
-    effort
-  ]);
-  if (start.code !== 0) {
-    return `herdr agent start failed: ${describeFailure(start)}. ${leftOpen}`;
-  }
-  const prompt = await deps.runner.run("herdr", [
-    "agent",
-    "prompt",
-    name,
-    buildBrief({ task: brief, name, callerPane }),
-    "--wait",
-    "--until",
-    "working",
-    "--timeout",
-    "5000"
-  ]);
-  return prompt.code === 0 ? void 0 : `herdr agent prompt failed: ${describeFailure(prompt)}. Session ${name} is running in pane ${paneId} without its brief.`;
-}
 async function spawn2(context) {
   const { json, deps } = context;
-  const fail2 = (code, message) => {
-    deps.stderr(
-      `${json ? `${JSON.stringify({ error: message })}
-` : ""}${message}
-`
-    );
-    return code;
-  };
   const checked = check(context);
   if ("error" in checked) {
-    return fail2(checked.code, checked.error);
+    return fail(deps, json, checked.code, checked.error);
   }
   const { name, model, role, effort } = checked.values;
   const { callerPane } = checked;
+  const registry = await SessionRegistry.open(deps);
   const taken = await nameTakenError(deps, name);
   if (taken !== void 0) {
-    return fail2(FAILED2, taken);
+    return fail(deps, json, FAILED2, taken);
   }
   const paneId = await splitPane(deps, callerPane);
   if (typeof paneId !== "string") {
-    return fail2(FAILED2, paneId.error);
+    return fail(deps, json, FAILED2, paneId.error);
   }
   const leftOpen = `The pane ${paneId} was left open; close it with \`herdr pane close ${paneId}\`.`;
   const equalized = await equalize(deps.runner, callerPane);
   if (equalized.status === "failed") {
-    return fail2(FAILED2, `${equalized.reason}. ${leftOpen}`);
+    return fail(deps, json, FAILED2, `${equalized.reason}. ${leftOpen}`);
   }
-  const launchError = await launch(deps, {
+  const modelCheck = await launch(deps, {
     ...checked.values,
     paneId,
     callerPane,
     leftOpen
   });
-  if (launchError !== void 0) {
-    return fail2(FAILED2, launchError);
+  if ("error" in modelCheck) {
+    return fail(deps, json, FAILED2, modelCheck.error);
   }
-  deps.stdout(
-    json ? `${JSON.stringify({ name, paneId, model, role, effort })}
-` : `Spawned ${name} (${model}) in pane ${paneId}; it will broadcast to ${callerPane} when it finishes.
-`
-  );
-  return 0;
+  return await finish(context, {
+    registry,
+    modelCheck,
+    record: {
+      name,
+      paneId,
+      callerPane,
+      model,
+      role,
+      effort,
+      createdAt: deps.clock.now().toISOString()
+    },
+    timeoutMs: checked.timeoutMs
+  });
 }
 
 // src/session/index.ts
 var spawnCommand = {
-  summary: "start a Claude session in a Herdr pane (--role --model --effort --name --brief --no-wait)",
+  summary: "start a Claude session in a Herdr pane and wait for its result (--role --model --effort --name --brief --no-wait --timeout ms)",
   options: {
     role: "string",
     model: "string",
     effort: "string",
     name: "string",
     brief: "string",
-    "no-wait": "boolean"
+    "no-wait": "boolean",
+    timeout: "string"
   },
   run: spawn2
+};
+var waitCommand = {
+  summary: "wait for a spawned session's RESULT line and print its outcome (<name> --timeout ms)",
+  operand: "name",
+  options: { timeout: "string" },
+  run: wait
+};
+var closeCommand = {
+  summary: "close a spawned pane once its result is recorded (<name>; only the pane that spawned it)",
+  operand: "name",
+  run: close
 };
 var equalizeCommand = {
   summary: "equalize the heights of the spawned panes (run after closing one)",
@@ -3023,20 +2606,22 @@ var equalizeCommand = {
 `);
       return 1;
     }
-    const text3 = result.status === "skipped" ? `Skipped: ${result.reason}.` : "Equalized.";
+    const text2 = result.status === "skipped" ? `Skipped: ${result.reason}.` : "Equalized.";
     deps.stdout(json ? `${JSON.stringify(result)}
-` : `${text3}
+` : `${text2}
 `);
     return 0;
   }
 };
 var session = {
   spawn: spawnCommand,
+  wait: waitCommand,
+  close: closeCommand,
   equalize: equalizeCommand
 };
 
 // src/skill/index.ts
-import { join as join4 } from "node:path";
+import { join as join5 } from "node:path";
 
 // src/skill/audit.ts
 var DESCRIPTION_BUDGET = 200;
@@ -3072,16 +2657,16 @@ function overBudgets(descriptionChars, bodyLines) {
 function countLines(body) {
   return body === "" ? 0 : body.replace(/\n$/, "").split("\n").length;
 }
-function auditSkill(directory, text3) {
-  const source = text3.replaceAll("\r\n", "\n");
+function auditSkill(directory, text2) {
+  const source = text2.replaceAll("\r\n", "\n");
   if (!source.startsWith("---\n")) {
     return invalid(directory, "missing frontmatter");
   }
-  const close = /\n---[ \t]*(\n|$)/.exec(source.slice(3));
-  if (close === null) {
+  const close2 = /\n---[ \t]*(\n|$)/.exec(source.slice(3));
+  if (close2 === null) {
     return invalid(directory, "unterminated frontmatter");
   }
-  const end = close.index + 3;
+  const end = close2.index + 3;
   const frontmatter2 = source.slice(4, end);
   const name = field(frontmatter2, "name");
   if (name === void 0) {
@@ -3094,7 +2679,7 @@ function auditSkill(directory, text3) {
   if (/^[>|][+-]?$/.test(description)) {
     return invalid(directory, "multi-line description");
   }
-  const bodyLines = countLines(source.slice(end + close[0].length));
+  const bodyLines = countLines(source.slice(end + close2[0].length));
   const over = overBudgets(description.length, bodyLines);
   const row = {
     name,
@@ -3130,15 +2715,15 @@ function detail(row) {
   }
   return row.verdict === "invalid" ? ` (${row.reason ?? ""})` : "";
 }
-function renderReport(report2) {
-  const width = Math.max(4, ...report2.skills.map((s) => s.name.length));
+function renderReport(report) {
+  const width = Math.max(4, ...report.skills.map((s) => s.name.length));
   const lines = [
     `${"NAME".padEnd(width)}  DESC  BODY  VERDICT`,
-    ...report2.skills.map(
+    ...report.skills.map(
       (s) => `${s.name.padEnd(width)}  ${String(s.descriptionChars).padStart(4)}  ${String(s.bodyLines).padStart(4)}  ${s.verdict}${detail(s)}`
     ),
     "",
-    `${report2.summary.ok} ok, ${report2.summary["over-budget"]} over-budget, ${report2.summary.invalid} invalid`
+    `${report.summary.ok} ok, ${report.summary["over-budget"]} over-budget, ${report.summary.invalid} invalid`
   ];
   return `${lines.join("\n")}
 `;
@@ -3150,10 +2735,10 @@ var audit = {
   summary: "report each skill's description and body against its budgets",
   options: { strict: "boolean" },
   async run({ json, options, deps }) {
-    const skillsDir = join4(await deps.root(), SKILLS_DIR);
-    let report2;
+    const skillsDir = join5(await deps.root(), SKILLS_DIR);
+    let report;
     try {
-      report2 = await auditSkills(deps.fs, skillsDir);
+      report = await auditSkills(deps.fs, skillsDir);
     } catch (error) {
       if (error.code === "ENOENT") {
         throw new CommandError(
@@ -3162,9 +2747,9 @@ var audit = {
       }
       throw error;
     }
-    deps.stdout(json ? `${JSON.stringify(report2)}
-` : renderReport(report2));
-    const failing = report2.summary["over-budget"] + report2.summary.invalid > 0;
+    deps.stdout(json ? `${JSON.stringify(report)}
+` : renderReport(report));
+    const failing = report.summary["over-budget"] + report.summary.invalid > 0;
     return options["strict"] === true && failing ? 1 : 0;
   }
 };
@@ -3189,7 +2774,7 @@ var domains = {
   session,
   skill,
   idea: ideaCommands,
-  ...measurement
+  ledger: ledgerCommands
 };
 
 // src/cli/cli.ts
@@ -3211,7 +2796,7 @@ function usage() {
   return `${lines.join("\n")}
 `;
 }
-function fail(deps, json, message) {
+function fail2(deps, json, message) {
   const prefix = json ? `${JSON.stringify({ error: message })}
 ` : "";
   deps.stderr(`${prefix}${message}
@@ -3225,7 +2810,7 @@ function own(table, key) {
 function names(commands) {
   return Object.keys(commands).join(", ");
 }
-function resolve3(domain, name) {
+function resolve4(domain, name) {
   const commands = own(domains, domain);
   if (commands === void 0) {
     return {
@@ -3248,10 +2833,15 @@ function resolve3(domain, name) {
 function parseOptions(command, tokens) {
   const spec = command.options ?? {};
   const options = {};
+  let operand;
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i] ?? "";
     if (!token.startsWith("--")) {
-      return { error: `Unexpected argument "${token}".` };
+      if (command.operand === void 0 || operand !== void 0) {
+        return { error: `Unexpected argument "${token}".` };
+      }
+      operand = token;
+      continue;
     }
     const [name = "", inline] = token.slice(2).split(/=(.*)/s, 2);
     const kind = own(spec, name);
@@ -3271,7 +2861,7 @@ function parseOptions(command, tokens) {
     }
     options[name] = value;
   }
-  return { options };
+  return operand === void 0 ? { options } : { options, operand };
 }
 async function execute(command, context) {
   try {
@@ -3308,29 +2898,30 @@ async function run(argv, deps) {
   );
   const early = argv.slice(0, words2[1] ?? 0).find((t) => t.startsWith("-") && !["--json", "--help", "-h"].includes(t));
   if (early !== void 0) {
-    return fail(
+    return fail2(
       deps,
       json,
       `Put "${early}" after the command: harness <domain> <command> [flags].`
     );
   }
-  const resolved = resolve3(domain, name);
+  const resolved = resolve4(domain, name);
   if ("error" in resolved) {
-    return fail(deps, json, resolved.error);
+    return fail2(deps, json, resolved.error);
   }
   const parsed = parseOptions(resolved.command, rest);
   if ("error" in parsed) {
-    return fail(deps, json, parsed.error);
+    return fail2(deps, json, parsed.error);
   }
   return await execute(resolved.command, {
     json,
     options: parsed.options,
+    operand: parsed.operand,
     deps
   });
 }
 
 // src/main.ts
-var stderr = (text3) => process.stderr.write(text3);
+var stderr = (text2) => process.stderr.write(text2);
 var root;
 try {
   process.exitCode = await run(process.argv.slice(2), {
@@ -3352,7 +2943,7 @@ try {
       import.meta.url,
       (path) => nodeFileSystem.exists(path)
     ),
-    stdout: (text3) => process.stdout.write(text3),
+    stdout: (text2) => process.stdout.write(text2),
     stderr
   });
 } catch (error) {

@@ -1,5 +1,5 @@
 import type { CliDeps, CommandContext } from "../runtime/index.js";
-import { buildBrief } from "./brief.js";
+import { launch } from "./launch.js";
 import {
   describeFailure,
   equalize,
@@ -7,14 +7,17 @@ import {
   spawnedColumn,
 } from "./equalize.js";
 import { sessionNameError } from "./names.js";
+import { FAILED, USAGE_ERROR, fail } from "./output.js";
+import { SessionRegistry } from "./registry.js";
+import { finish } from "./spawn-finish.js";
+import { parseTimeout } from "./wait.js";
 
-const USAGE_ERROR = 2;
-const FAILED = 1;
 const REQUIRED = ["role", "model", "effort", "name", "brief"] as const;
 
 type Values = Record<(typeof REQUIRED)[number], string>;
 type Checked =
-  { values: Values; callerPane: string } | { error: string; code: number };
+  | { values: Values; callerPane: string; timeoutMs: number }
+  | { error: string; code: number };
 
 function paneIdOf(stdout: string): string | undefined {
   try {
@@ -40,10 +43,9 @@ function check({ deps, options }: CommandContext): Checked {
   if (nameError !== undefined) {
     return usage(nameError);
   }
-  if (options["no-wait"] !== true) {
-    return usage(
-      "Waiting for the session's result is not supported yet; pass --no-wait and wait for its broadcast.",
-    );
+  const timeoutMs = parseTimeout(options.timeout);
+  if (typeof timeoutMs !== "number") {
+    return usage(timeoutMs.error);
   }
   const callerPane = deps.env.HERDR_PANE_ID;
   if (deps.env.HERDR_ENV !== "1") {
@@ -60,7 +62,7 @@ function check({ deps, options }: CommandContext): Checked {
       code: FAILED,
     };
   }
-  return { values: given, callerPane };
+  return { values: given, callerPane, timeoutMs };
 }
 
 /** Splits right for the first spawned pane, else down on the bottom-most one. */
@@ -111,95 +113,52 @@ async function nameTakenError(
   return `herdr agent get failed: ${describeFailure(found)}. No pane was split.`;
 }
 
-interface Launch extends Values {
-  paneId: string;
-  callerPane: string;
-  leftOpen: string;
-}
-
-/** Starts claude in the pane and delivers the brief; an error message, or undefined on success. */
-async function launch(
-  deps: CliDeps,
-  { role, model, effort, name, brief, paneId, callerPane, leftOpen }: Launch,
-): Promise<string | undefined> {
-  const start = await deps.runner.run("herdr", [
-    "agent",
-    "start",
-    name,
-    "--kind",
-    "claude",
-    "--pane",
-    paneId,
-    "--",
-    "--agent",
-    role,
-    "--model",
-    model,
-    "--effort",
-    effort,
-  ]);
-  if (start.code !== 0) {
-    return `herdr agent start failed: ${describeFailure(start)}. ${leftOpen}`;
-  }
-  const prompt = await deps.runner.run("herdr", [
-    "agent",
-    "prompt",
-    name,
-    buildBrief({ task: brief, name, callerPane }),
-    "--wait",
-    "--until",
-    "working",
-    "--timeout",
-    "5000",
-  ]);
-  return prompt.code === 0
-    ? undefined
-    : `herdr agent prompt failed: ${describeFailure(prompt)}. Session ${name} is running in pane ${paneId} without its brief.`;
-}
-
-/** `session spawn`: place, name and brief a Claude session in a new Herdr pane (no-wait path). */
+/** `session spawn`: place, name and brief a Claude session in a new Herdr pane, then wait for its result unless --no-wait. */
 export async function spawn(context: CommandContext): Promise<number> {
   const { json, deps } = context;
-  const fail = (code: number, message: string): number => {
-    deps.stderr(
-      `${json ? `${JSON.stringify({ error: message })}\n` : ""}${message}\n`,
-    );
-    return code;
-  };
   const checked = check(context);
   if ("error" in checked) {
-    return fail(checked.code, checked.error);
+    return fail(deps, json, checked.code, checked.error);
   }
   const { name, model, role, effort } = checked.values;
   const { callerPane } = checked;
+  const registry = await SessionRegistry.open(deps);
 
   const taken = await nameTakenError(deps, name);
   if (taken !== undefined) {
-    return fail(FAILED, taken);
+    return fail(deps, json, FAILED, taken);
   }
   const paneId = await splitPane(deps, callerPane);
   if (typeof paneId !== "string") {
-    return fail(FAILED, paneId.error);
+    return fail(deps, json, FAILED, paneId.error);
   }
   const leftOpen = `The pane ${paneId} was left open; close it with \`herdr pane close ${paneId}\`.`;
   const equalized = await equalize(deps.runner, callerPane);
   if (equalized.status === "failed") {
-    return fail(FAILED, `${equalized.reason}. ${leftOpen}`);
+    return fail(deps, json, FAILED, `${equalized.reason}. ${leftOpen}`);
   }
 
-  const launchError = await launch(deps, {
+  const modelCheck = await launch(deps, {
     ...checked.values,
     paneId,
     callerPane,
     leftOpen,
   });
-  if (launchError !== undefined) {
-    return fail(FAILED, launchError);
+  if ("error" in modelCheck) {
+    return fail(deps, json, FAILED, modelCheck.error);
   }
-  deps.stdout(
-    json
-      ? `${JSON.stringify({ name, paneId, model, role, effort })}\n`
-      : `Spawned ${name} (${model}) in pane ${paneId}; it will broadcast to ${callerPane} when it finishes.\n`,
-  );
-  return 0;
+  return await finish(context, {
+    registry,
+    modelCheck,
+    record: {
+      name,
+      paneId,
+      callerPane,
+      model,
+      role,
+      effort,
+      createdAt: deps.clock.now().toISOString(),
+    },
+    timeoutMs: checked.timeoutMs,
+  });
 }

@@ -45,7 +45,7 @@ async function harnessPlans(root: string): Promise<string[]> {
   let out = "";
   const deps: CliDeps = {
     runner: new FakeRunner(),
-    clock: { now: () => new Date(0) },
+    clock: { now: () => new Date(0), sleep: () => Promise.resolve() },
     fs: nodeFileSystem,
     env: {},
     cwd: "/repo",

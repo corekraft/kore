@@ -3,6 +3,7 @@ import { testHarness } from "../cli/cli-support.js";
 import { run } from "../cli/index.js";
 import {
   INSIDE,
+  gitCommon,
   herdrCalls,
   layoutOf,
   nameFree,
@@ -15,7 +16,7 @@ describe("session spawn guards", () => {
   it("reads the layout for the caller's pane", async () => {
     const h = testHarness({
       env: INSIDE,
-      responses: [nameFree, layoutOf(), splitReturns("w3:p9")],
+      responses: [gitCommon, nameFree, layoutOf(), splitReturns("w3:p9")],
     });
     await run(spawnArgs, h.deps);
     expect(herdrCalls(h)).toContain("herdr pane layout --pane w3:p1");
@@ -25,6 +26,7 @@ describe("session spawn guards", () => {
     const h = testHarness({
       env: { HERDR_ENV: "1", HERDR_PANE_ID: "w3:p7" },
       responses: [
+        gitCommon,
         nameFree,
         layoutOf(pane("w3:p6", 100, 0), pane("w3:p7", 100, 50)),
         splitReturns("w3:p9"),
@@ -40,6 +42,7 @@ describe("session spawn guards", () => {
     const h = testHarness({
       env: INSIDE,
       responses: [
+        gitCommon,
         nameFree,
         {
           match: (_c, a) => a[1] === "layout",
@@ -55,7 +58,7 @@ describe("session spawn guards", () => {
   it("fails naming the pane when equalizing fails, and starts no agent", async () => {
     const h = testHarness({
       env: INSIDE,
-      responses: [nameFree, layoutOf(), splitReturns("w3:p9")],
+      responses: [gitCommon, nameFree, layoutOf(), splitReturns("w3:p9")],
     });
     // The second layout read (inside equalize) fails.
     let reads = 0;
@@ -75,7 +78,7 @@ describe("session spawn guards", () => {
 
 describe("session spawn name guard", () => {
   it("refuses a name already in use before reading the layout or splitting", async () => {
-    const h = testHarness({ env: INSIDE });
+    const h = testHarness({ env: INSIDE, responses: [gitCommon] });
     expect(await run(spawnArgs, h.deps)).toBe(1);
     expect(h.err()).toContain("image-trust-writer");
     expect(h.err()).toContain("already");
@@ -86,6 +89,7 @@ describe("session spawn name guard", () => {
     const h = testHarness({
       env: INSIDE,
       responses: [
+        gitCommon,
         {
           match: (_c, a) => a[1] === "get",
           result: { code: 1, stderr: "socket closed" },
@@ -151,18 +155,10 @@ describe("session spawn refusals", () => {
     expect(h.runner.calls).toEqual([]);
   });
 
-  it("asks for --no-wait until waiting exists, without any herdr call", async () => {
-    const h = testHarness({ env: INSIDE });
-    const argv = spawnArgs.filter((a) => a !== "--no-wait");
-    expect(await run(argv, h.deps)).toBe(2);
-    expect(h.err()).toContain("--no-wait");
-    expect(h.runner.calls).toEqual([]);
-  });
-
   it("accepts a brief that itself starts with a dash", async () => {
     const h = testHarness({
       env: INSIDE,
-      responses: [nameFree, layoutOf(), splitReturns("w3:p9")],
+      responses: [gitCommon, nameFree, layoutOf(), splitReturns("w3:p9")],
     });
     const argv = spawnArgs.map((a) => (a === "Do the thing." ? "--fix it" : a));
     expect(await run(argv, h.deps)).toBe(0);
@@ -174,6 +170,7 @@ describe("session spawn failures", () => {
     const h = testHarness({
       env: INSIDE,
       responses: [
+        gitCommon,
         nameFree,
         layoutOf(),
         {
@@ -191,6 +188,7 @@ describe("session spawn failures", () => {
     const h = testHarness({
       env: INSIDE,
       responses: [
+        gitCommon,
         nameFree,
         layoutOf(),
         { match: (_c, a) => a[1] === "split", result: { stdout: "oops" } },
@@ -204,6 +202,7 @@ describe("session spawn failures", () => {
     const h = testHarness({
       env: INSIDE,
       responses: [
+        gitCommon,
         nameFree,
         layoutOf(),
         splitReturns("w3:p9"),
@@ -222,6 +221,7 @@ describe("session spawn failures", () => {
     const h = testHarness({
       env: INSIDE,
       responses: [
+        gitCommon,
         nameFree,
         layoutOf(),
         splitReturns("w3:p9"),
@@ -238,7 +238,10 @@ describe("session spawn failures", () => {
 
 describe("session equalize", () => {
   it("reads the layout and reports, so closing a pane can rebalance the column", async () => {
-    const h = testHarness({ env: INSIDE, responses: [nameFree, layoutOf()] });
+    const h = testHarness({
+      env: INSIDE,
+      responses: [gitCommon, nameFree, layoutOf()],
+    });
     expect(await run(["session", "equalize", "--json"], h.deps)).toBe(0);
     expect(herdrCalls(h)).toEqual(["herdr pane layout --pane w3:p1"]);
     expect(JSON.parse(h.out())).toEqual({
@@ -248,7 +251,10 @@ describe("session equalize", () => {
   });
 
   it("prints a human line without --json", async () => {
-    const h = testHarness({ env: INSIDE, responses: [nameFree, layoutOf()] });
+    const h = testHarness({
+      env: INSIDE,
+      responses: [gitCommon, nameFree, layoutOf()],
+    });
     await run(["session", "equalize"], h.deps);
     expect(h.out()).toContain("Skipped");
   });

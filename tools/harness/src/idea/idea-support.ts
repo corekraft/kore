@@ -31,7 +31,10 @@ export function harness(
   const runner = new FakeRunner();
   const deps: CliDeps = {
     runner,
-    clock: { now: () => new Date("2026-03-04T05:06:07.000Z") },
+    clock: {
+      now: () => new Date("2026-03-04T05:06:07.000Z"),
+      sleep: () => Promise.resolve(),
+    },
     root: () => Promise.resolve(ROOT),
     env: {},
     cwd: "/work/tree",
