@@ -62,7 +62,7 @@ mise exec -- npm --prefix tools/kore install
 `node skills/bin/harness.mjs flow report [--json]` reads the stage ledger
 (`.kore/state/ledger.jsonl`, shared by every worktree) and reports, per stage of
 the delivery loop, active seconds, waiting seconds (waiting on a person counts),
-event count and toil, then names the bottleneck: the stage with the largest share of
+event count, toil, work in progress and lead time, then names the bottleneck: the stage with the largest share of
 all waiting. Flags: `--min-ideas N` (default 3), `--as-of TIME`, `--ledger PATH`.
 
 The stage rules are one table, `tools/harness/src/flow/stages.ts`. An event
@@ -87,6 +87,18 @@ stopping and retrying leave out time the pane waited on a person, and starting
 counts only for a life that began at `pane.spawned` or `session.start`. Each
 life of a reused pane counts on its own.
 
+Work in progress (`wip`, per stage) is how many ideas were open in the stage at
+once: `peak` is the most at one moment and `average` is idea-seconds over the
+seconds of the report's range, the earliest to the latest time any stage holds
+an idea, so stages compare on one scale. An idea is open in a stage from its
+first event or charged time there to the last, once however many panes it ran
+there; ideas that close and open at the same instant do not overlap. The interval is one
+span, so an idea that leaves a stage and returns counts as open between, and a
+stage reached only by single events (no duration) shows `wip` 0. Lead time
+(`leadTime`) runs from an idea's first event, of any kind, to its first
+`issue.closed`, in seconds per idea, with `medianSeconds` and `maxSeconds`
+(both `null` when none); ideas without an outcome are left out.
+
 Known limits until plan 8 Step 3 lands its producers: nothing records
 `issue.closed` or the `idea` link on PR events yet, so real ledgers show no
 completed ideas and the report says "Not enough data". A label other than
@@ -94,15 +106,16 @@ completed ideas and the report says "Not enough data". A label other than
 last event is charged no time past it. Equal waiting ties go to the earlier
 stage.
 
-`--json` prints one object, `version` 2; any field change bumps `version`:
+`--json` prints one object, `version` 3; any field change bumps `version`:
 
 | Field               | Meaning                                                                                                    |
 | ------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `version`           | Shape version, `2`.                                                                                        |
+| `version`           | Shape version, `3`.                                                                                        |
 | `asOf`              | Time open waits are measured to.                                                                           |
 | `ideas`             | `{ total, completed }`; completed means the issue closed.                                                  |
 | `minCompletedIdeas` | Completed ideas needed before a bottleneck is named.                                                       |
-| `stages`            | Nine entries in loop order: `{ stage, activeSeconds, waitingSeconds, events, toil }`.                      |
+| `stages`            | Nine entries in loop order: `{ stage, activeSeconds, waitingSeconds, events, toil, wip }`.                 |
+| `leadTime`          | `{ ideas: [{ idea, seconds }], medianSeconds, maxSeconds }`, completed ideas only.                         |
 | `bottleneck`        | `{ stage, waitingSeconds, share }` (share 0 to 1), or `null`.                                              |
 | `bottleneckNote`    | Always present: why `bottleneck` is `null` (too few completed ideas, or no waiting recorded), else `null`. |
 | `unmappedEvents`    | Events with no stage or no idea, left out of every stage.                                                  |

@@ -660,6 +660,36 @@ function chargeToil(add, event, at, start, life) {
   }
 }
 
+// src/flow/wip.ts
+var roundAverage = (value) => Math.round(value * 1e4) / 1e4;
+function wipOf(spans, range) {
+  const edges = spans.filter(([from, to]) => to > from).flatMap(([from, to]) => [
+    [from, 1],
+    [to, -1]
+  ]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  let open = 0;
+  let peak = 0;
+  let ideaMs = 0;
+  let last = range[0];
+  for (const [time2, step] of edges) {
+    ideaMs += open * (time2 - last);
+    last = time2;
+    open += step;
+    peak = Math.max(peak, open);
+  }
+  const length = range[1] - range[0];
+  return { peak, average: length > 0 ? roundAverage(ideaMs / length) : 0 };
+}
+var widen = (into, span) => into === void 0 ? [span[0], span[1]] : [Math.min(into[0], span[0]), Math.max(into[1], span[1])];
+function median(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length === 0) {
+    return null;
+  }
+  return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
 // src/flow/tally.ts
 var emptyMillis = () => ({
   activeMs: 0,
@@ -671,6 +701,31 @@ var Tally = class {
   totals = new Map(
     STAGES.map((stage) => [stage, emptyMillis()])
   );
+  /** One open interval per idea per stage, from `present` calls between `beginIdea` and `endIdea`. */
+  open = new Map(
+    STAGES.map((stage) => [stage, []])
+  );
+  current = /* @__PURE__ */ new Map();
+  beginIdea() {
+    this.current = /* @__PURE__ */ new Map();
+  }
+  /** The idea was in `stage` from `from` to `to`; its open interval grows to hold it. */
+  present(stage, from, to) {
+    this.current.set(stage, widen(this.current.get(stage), [from, to]));
+  }
+  endIdea() {
+    for (const [stage, span] of this.current) {
+      this.open.get(stage).push(span);
+    }
+  }
+  /** The shortest span holding every idea's open interval in every stage. */
+  range() {
+    const all = [...this.open.values()].flat();
+    return all.length === 0 ? [0, 0] : [
+      Math.min(...all.map(([from]) => from)),
+      Math.max(...all.map(([, to]) => to))
+    ];
+  }
   add(stage, field2, ms) {
     this.totals.get(stage)[field2] += ms;
   }
@@ -682,6 +737,7 @@ var Tally = class {
   }
   /** Stages in loop order, with milliseconds converted to seconds. */
   stages() {
+    const range = this.range();
     return STAGES.map((stage) => {
       const { activeMs, waitingMs, events, toilMs } = this.totals.get(
         stage
@@ -696,14 +752,15 @@ var Tally = class {
           stoppingSeconds: toilMs.stopping / 1e3,
           waitingSeconds: toilMs.waiting / 1e3,
           retryingSeconds: toilMs.retrying / 1e3
-        }
+        },
+        wip: wipOf(this.open.get(stage), range)
       };
     });
   }
 };
 
 // src/flow/report.ts
-var REPORT_VERSION = 2;
+var REPORT_VERSION = 3;
 var STATE_AFTER = {
   "session.start": "active",
   "tool.start": "active",
@@ -757,6 +814,7 @@ function chargeActor(tally, items) {
         state === "active" ? "activeMs" : "waitingMs",
         next - at
       );
+      tally.present(stage, at, next);
       if (state === "waiting") {
         life.waits.push([at, next]);
         tally.addToil(stage, "waiting", next - at);
@@ -810,6 +868,7 @@ function githubWaits(tally, events, holes, asOf) {
     if (start !== void 0) {
       const stop = end ?? closed ?? asOf;
       if (stop > start) {
+        tally.present(stage, start, stop);
         tally.add(stage, "waitingMs", uncovered([start, stop], holes));
       }
     }
@@ -849,17 +908,39 @@ function groupByIdea(events) {
   return { byIdea, unattributed };
 }
 function chargeIdea(tally, own2, asOf) {
+  tally.beginIdea();
   const mergedAt = firstTime(own2, (e) => e.kind === "pr.merged");
   const mapped = [];
   for (const event of own2) {
     const stage = stageOf(event, mergedAt);
     if (stage !== void 0) {
       tally.count(stage);
+      tally.present(stage, time(event), time(event));
       mapped.push({ event, stage });
     }
   }
   githubWaits(tally, own2, actorTime(tally, mapped), asOf);
+  tally.endIdea();
   return own2.length - mapped.length;
+}
+function leadTime(byIdea) {
+  const ideas = [];
+  for (const [idea, own2] of byIdea) {
+    const outcome = firstTime(own2, (e) => e.kind === "issue.closed");
+    if (outcome !== void 0) {
+      const first = Math.min(...own2.map(time));
+      ideas.push({ idea, seconds: (outcome - first) / 1e3 });
+    }
+  }
+  ideas.sort(
+    (a, b) => a.idea.localeCompare(b.idea, void 0, { numeric: true })
+  );
+  const seconds3 = ideas.map((i) => i.seconds);
+  return {
+    ideas,
+    medianSeconds: median(seconds3),
+    maxSeconds: seconds3.length === 0 ? null : Math.max(...seconds3)
+  };
 }
 function nameBottleneck(tally, completed, minCompletedIdeas) {
   const stages = [...tally.totals.entries()];
@@ -903,6 +984,7 @@ function buildReport(events, { asOf, minCompletedIdeas }) {
     ideas: { total: byIdea.size, completed },
     minCompletedIdeas,
     stages: tally.stages(),
+    leadTime: leadTime(byIdea),
     ...nameBottleneck(tally, completed, minCompletedIdeas),
     unmappedEvents: unmapped
   };
@@ -1781,6 +1863,11 @@ function parseFlags({ options, deps }) {
   return { asOf: new Date(given), minCompletedIdeas };
 }
 var seconds = (value) => `${Math.round(value)}s`;
+var leadLine = ({
+  ideas,
+  medianSeconds,
+  maxSeconds
+}) => medianSeconds === null || maxSeconds === null ? "Lead time: no completed ideas" : `Lead time: ${ideas.length} ideas, median ${seconds(medianSeconds)}, max ${seconds(maxSeconds)}`;
 function text(report2) {
   const rows = report2.stages.map(
     (s) => [
@@ -1788,12 +1875,14 @@ function text(report2) {
       `active ${seconds(s.activeSeconds)}`.padEnd(16),
       `waiting ${seconds(s.waitingSeconds)}`.padEnd(17),
       `${s.events} events`.padEnd(11),
+      `wip peak ${s.wip.peak} avg ${s.wip.average}`.padEnd(20),
       `toil start ${seconds(s.toil.startingSeconds)} stop ${seconds(s.toil.stoppingSeconds)} wait ${seconds(s.toil.waitingSeconds)} retry ${seconds(s.toil.retryingSeconds)}`
     ].join(" ")
   );
   const lines = [
     `Flow report as of ${report2.asOf}: ${report2.ideas.completed} of ${report2.ideas.total} ideas completed`,
     ...rows,
+    leadLine(report2.leadTime),
     `Unmapped events: ${report2.unmappedEvents}`,
     report2.bottleneck === null ? report2.bottleneckNote ?? "No bottleneck." : `Bottleneck: ${report2.bottleneck.stage} (${Math.round(report2.bottleneck.share * 100)}% of waiting)`
   ];
@@ -1804,7 +1893,7 @@ function text(report2) {
 `;
 }
 var report = {
-  summary: `map ledger events to stages; per stage active, waiting, event counts and toil (starting, stopping, waiting, retrying), and the bottleneck (--min-ideas N, default ${MIN_COMPLETED_IDEAS}; --as-of TIME; --ledger PATH; --json is one object, version ${REPORT_VERSION}: version, asOf, ideas, minCompletedIdeas, stages, bottleneck, bottleneckNote, unmappedEvents, skippedLines)`,
+  summary: `map ledger events to stages; per stage active, waiting, event counts, toil (starting, stopping, waiting, retrying), work in progress (peak and average ideas open), lead time (first event to outcome; median and max), and the bottleneck (--min-ideas N, default ${MIN_COMPLETED_IDEAS}; --as-of TIME; --ledger PATH; --json is one object, version ${REPORT_VERSION}: version, asOf, ideas, minCompletedIdeas, stages, leadTime, bottleneck, bottleneckNote, unmappedEvents, skippedLines)`,
   options: { "min-ideas": "string", "as-of": "string", ledger: "string" },
   async run(context) {
     const flags = parseFlags(context);

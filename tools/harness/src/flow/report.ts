@@ -10,16 +10,26 @@ import { attribute } from "./attribution.js";
 import { uncovered, type Span } from "./intervals.js";
 import { chargeToil, newLife } from "./toil.js";
 import { Tally, type StageTotals } from "./tally.js";
+import { median } from "./wip.js";
 
-export const REPORT_VERSION = 2;
+export const REPORT_VERSION = 3;
 
 export type { StageTotals, Toil } from "./tally.js";
+export type { Wip } from "./wip.js";
 
 export interface Bottleneck {
   stage: Stage;
   waitingSeconds: number;
   /** The stage's waiting seconds over all stages' waiting seconds, 0 to 1. */
   share: number;
+}
+
+/** Seconds from each completed idea's first event to its outcome event. */
+export interface LeadTime {
+  ideas: { idea: string; seconds: number }[];
+  /** Null when no idea has an outcome. */
+  medianSeconds: number | null;
+  maxSeconds: number | null;
 }
 
 /** The `flow report --json` shape; `version` changes when a field does. */
@@ -29,6 +39,7 @@ export interface FlowReport {
   ideas: { total: number; completed: number };
   minCompletedIdeas: number;
   stages: StageTotals[];
+  leadTime: LeadTime;
   bottleneck: Bottleneck | null;
   /** Why `bottleneck` is null; null when one is named. */
   bottleneckNote: string | null;
@@ -111,6 +122,7 @@ function chargeActor(
         state === "active" ? "activeMs" : "waitingMs",
         next - at,
       );
+      tally.present(stage, at, next);
       if (state === "waiting") {
         life.waits.push([at, next]);
         tally.addToil(stage, "waiting", next - at);
@@ -181,6 +193,7 @@ function githubWaits(
     if (start !== undefined) {
       const stop = end ?? closed ?? asOf;
       if (stop > start) {
+        tally.present(stage, start, stop);
         tally.add(stage, "waitingMs", uncovered([start, stop], holes));
       }
     }
@@ -228,17 +241,41 @@ function groupByIdea(events: LedgerEvent[]) {
 
 /** Charges one idea's events to the tally; returns how many it could not map. */
 function chargeIdea(tally: Tally, own: LedgerEvent[], asOf: number): number {
+  tally.beginIdea();
   const mergedAt = firstTime(own, (e) => e.kind === "pr.merged");
   const mapped: { event: LedgerEvent; stage: Stage }[] = [];
   for (const event of own) {
     const stage = stageOf(event, mergedAt);
     if (stage !== undefined) {
       tally.count(stage);
+      tally.present(stage, time(event), time(event));
       mapped.push({ event, stage });
     }
   }
   githubWaits(tally, own, actorTime(tally, mapped), asOf);
+  tally.endIdea();
   return own.length - mapped.length;
+}
+
+/** Each completed idea's first event to its first issue.closed, with median and maximum. */
+function leadTime(byIdea: Map<string, LedgerEvent[]>): LeadTime {
+  const ideas: LeadTime["ideas"] = [];
+  for (const [idea, own] of byIdea) {
+    const outcome = firstTime(own, (e) => e.kind === "issue.closed");
+    if (outcome !== undefined) {
+      const first = Math.min(...own.map(time));
+      ideas.push({ idea, seconds: (outcome - first) / 1000 });
+    }
+  }
+  ideas.sort((a, b) =>
+    a.idea.localeCompare(b.idea, undefined, { numeric: true }),
+  );
+  const seconds = ideas.map((i) => i.seconds);
+  return {
+    ideas,
+    medianSeconds: median(seconds),
+    maxSeconds: seconds.length === 0 ? null : Math.max(...seconds),
+  };
 }
 
 function nameBottleneck(
@@ -293,6 +330,7 @@ export function buildReport(
     ideas: { total: byIdea.size, completed },
     minCompletedIdeas,
     stages: tally.stages(),
+    leadTime: leadTime(byIdea),
     ...nameBottleneck(tally, completed, minCompletedIdeas),
     unmappedEvents: unmapped,
   };

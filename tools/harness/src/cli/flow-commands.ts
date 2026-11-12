@@ -41,6 +41,15 @@ function parseFlags({ options, deps }: CommandContext): Parsed {
 
 const seconds = (value: number) => `${Math.round(value)}s`;
 
+const leadLine = ({
+  ideas,
+  medianSeconds,
+  maxSeconds,
+}: FlowReport["leadTime"]) =>
+  medianSeconds === null || maxSeconds === null
+    ? "Lead time: no completed ideas"
+    : `Lead time: ${ideas.length} ideas, median ${seconds(medianSeconds)}, max ${seconds(maxSeconds)}`;
+
 function text(report: Printed): string {
   const rows = report.stages.map((s) =>
     [
@@ -48,12 +57,14 @@ function text(report: Printed): string {
       `active ${seconds(s.activeSeconds)}`.padEnd(16),
       `waiting ${seconds(s.waitingSeconds)}`.padEnd(17),
       `${s.events} events`.padEnd(11),
+      `wip peak ${s.wip.peak} avg ${s.wip.average}`.padEnd(20),
       `toil start ${seconds(s.toil.startingSeconds)} stop ${seconds(s.toil.stoppingSeconds)} wait ${seconds(s.toil.waitingSeconds)} retry ${seconds(s.toil.retryingSeconds)}`,
     ].join(" "),
   );
   const lines = [
     `Flow report as of ${report.asOf}: ${report.ideas.completed} of ${report.ideas.total} ideas completed`,
     ...rows,
+    leadLine(report.leadTime),
     `Unmapped events: ${report.unmappedEvents}`,
     report.bottleneck === null
       ? (report.bottleneckNote ?? "No bottleneck.")
@@ -66,7 +77,7 @@ function text(report: Printed): string {
 }
 
 const report: Command = {
-  summary: `map ledger events to stages; per stage active, waiting, event counts and toil (starting, stopping, waiting, retrying), and the bottleneck (--min-ideas N, default ${MIN_COMPLETED_IDEAS}; --as-of TIME; --ledger PATH; --json is one object, version ${REPORT_VERSION}: version, asOf, ideas, minCompletedIdeas, stages, bottleneck, bottleneckNote, unmappedEvents, skippedLines)`,
+  summary: `map ledger events to stages; per stage active, waiting, event counts, toil (starting, stopping, waiting, retrying), work in progress (peak and average ideas open), lead time (first event to outcome; median and max), and the bottleneck (--min-ideas N, default ${MIN_COMPLETED_IDEAS}; --as-of TIME; --ledger PATH; --json is one object, version ${REPORT_VERSION}: version, asOf, ideas, minCompletedIdeas, stages, leadTime, bottleneck, bottleneckNote, unmappedEvents, skippedLines)`,
   options: { "min-ideas": "string", "as-of": "string", ledger: "string" },
   async run(context) {
     const flags = parseFlags(context);
