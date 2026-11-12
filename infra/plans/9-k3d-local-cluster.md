@@ -240,6 +240,7 @@ variable, the clean-machine status check judges platform components only).
   `helmcharts.helm.cattle.io` ship with k3s and no catalog component owns them.
   The local overlay declares `k3s.cattle.io` and `helm.cattle.io` in
   `providerOwnedCRDGroups`, so the row counts them as provider-owned (#291,
-  ADR 0088); a live `kore status` on k3d confirms it is healthy.
+  ADR 0088). A live `kore status` on k3d is still to confirm the row is
+  healthy.
 - **backups row** reports degraded on a fresh install with retained data and no
   export, by design; `kore data export` clears it.

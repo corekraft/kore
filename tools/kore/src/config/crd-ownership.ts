@@ -67,6 +67,12 @@ export function checkCrdOwnership(components: CrdOwnership[]): string[] {
   return errors;
 }
 
+/** Whether a string is a valid API group, such as widgets.example.com. */
+function isApiGroup(group: string): boolean {
+  // A CRD name is <plural>.<group>, so prefix a plural to reuse the CRD pattern.
+  return crdName.test(`x.${group}`);
+}
+
 /** The API group of a CRD name: everything after the plural. */
 function crdGroup(crd: string): string {
   return crd.slice(crd.indexOf(".") + 1);
@@ -101,7 +107,7 @@ export function crdGroupErrors(components: CrdClaims[]): string[] {
   const claimed = new Map<string, string>();
   for (const { name, ownsCRDGroups = [] } of components) {
     for (const group of ownsCRDGroups) {
-      if (!crdName.test(`x.${group}`)) {
+      if (!isApiGroup(group)) {
         errors.push(
           `${name}: ownsCRDGroups entry ${group} must be an API group such as widgets.example.com`,
         );
@@ -152,7 +158,7 @@ export function providerCrdGroupErrors(
 ): string[] {
   return Object.entries(providerGroups ?? {}).flatMap(([group, reason]) => {
     const prefix = `environment.providerOwnedCRDGroups: ${group}`;
-    if (!crdName.test(`x.${group}`)) {
+    if (!isApiGroup(group)) {
       return [`${prefix} must be an API group such as widgets.example.com`];
     }
     const errors: string[] = [];
