@@ -41,6 +41,13 @@ git, and audit-before-enforce.
   access. Rule tests sit beside the rules and run under `semgrep --test`. Test
   files are not scanned. Kubernetes and Helm manifests are covered by the OPA
   and Gatekeeper policies, so no Semgrep Kubernetes ruleset is added.
+- **Audit-mode rules.** `infra/policies/semgrep/kore-audit.yaml` holds rules
+  that report but never fail: `scan-sast-audit` runs them at severity INFO
+  without `--error`, so the blocking `scan-sast` never loads them. A rule moves
+  to `kore-node.yaml` at severity ERROR once the repository is clean of it.
+  `kore-harness-process-cwd` flags `process.cwd()` in `tools/harness/src`
+  outside `runtime/main-root.ts` and `runtime/root.ts`, the shared root
+  resolver.
 - **Workflows and Dockerfiles.** actionlint checks syntax and expressions;
   zizmor audits security (permissions, injection, pinning) offline. They
   overlap little. hadolint lints the one Dockerfile.

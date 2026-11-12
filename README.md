@@ -260,7 +260,9 @@ unprotected tag push mints a trusted signature. See
 in history and tracked files), OSV-Scanner (npm lockfiles), Semgrep with the
 committed rules in `infra/policies/semgrep`, actionlint and zizmor (workflows),
 and hadolint (Dockerfiles). Run one with `mise run scan-secrets`, `scan-vulns`,
-`scan-sast`, `scan-workflows`, or `scan-dockerfiles`. CI fails on any finding.
+`scan-sast`, `scan-workflows`, or `scan-dockerfiles`. CI fails on any finding,
+except the audit-mode Semgrep rules in `infra/policies/semgrep/kore-audit.yaml`
+(`mise run scan-sast-audit`), which report and never fail.
 The scans cover both npm packages, `tools/kore` and `tools/harness`. CI also
 fails on a stale `skills/bin/harness.mjs`; fix it with `mise run harness-build`
 (check locally with `mise run harness-check`).

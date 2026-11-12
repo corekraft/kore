@@ -61,6 +61,7 @@ test("each scanner has its own task and the aggregate scan runs them all", async
     "scan-vulns",
     "scan-sast",
     "scan-sast-test",
+    "scan-sast-audit",
     "scan-workflows",
     "scan-dockerfiles",
   ];
@@ -147,4 +148,25 @@ test("every tracked npm lockfile is scanned for vulnerabilities", async () => {
 test("the SAST scan covers the harness source", async () => {
   const block = taskBlock(await read(".mise.toml"), "scan-sast");
   assert.match(block, /\btools\/harness\/src\b/);
+});
+
+test("the audit-mode SAST scan reports harness findings but never fails the build", async () => {
+  const block = taskBlock(await read(".mise.toml"), "scan-sast-audit");
+  assert.match(block, /kore-audit\.yaml/);
+  assert.match(block, /\btools\/harness\/src\b/);
+  assert.match(block, /--metrics=off/);
+  assert.doesNotMatch(block, /--error/);
+  assert.doesNotMatch(
+    taskBlock(await read(".mise.toml"), "scan-sast"),
+    /kore-audit/,
+  );
+});
+
+test("the audit rule flags process.cwd outside the shared root resolver", async () => {
+  const rules = await read("infra/policies/semgrep/kore-audit.yaml");
+  assert.match(rules, /id: kore-harness-process-cwd/);
+  assert.match(rules, /severity: INFO/);
+  assert.match(rules, /process\.cwd\(\)/);
+  assert.match(rules, /runtime\/main-root\.ts/);
+  assert.match(rules, /runtime\/root\.ts/);
 });

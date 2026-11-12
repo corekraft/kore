@@ -1,0 +1,18 @@
+# Audit-mode rules: `mise run scan-sast-audit` reports them and never fails the
+# build (no --error, severity INFO). Promote a rule to kore-node.yaml, at
+# severity ERROR, once the repository is clean of it.
+rules:
+  - id: kore-harness-process-cwd
+    languages: [typescript, javascript]
+    severity: INFO
+    message: >-
+      process.cwd() depends on where the harness was launched, so a command can
+      report on the wrong checkout. Take the root from the shared resolver
+      (runtime/main-root.ts, runtime/root.ts) or from the injected deps.cwd.
+    pattern: process.cwd()
+    paths:
+      exclude:
+        - "runtime/main-root.ts"
+        - "runtime/root.ts"
+    metadata:
+      category: correctness
