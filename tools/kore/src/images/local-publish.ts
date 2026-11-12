@@ -4,6 +4,7 @@ import type { Runner } from "../runtime/index.js";
 import type { ImageLockEntry } from "./image-lock.js";
 import {
   imageDigestFromRegistryHead,
+  k3dImagePublishArgs,
   minikubeImagePublishArgs,
 } from "./local-image-args.js";
 import {
@@ -22,6 +23,7 @@ const manifestAccept =
 
 export interface PublishSession {
   credential: RegistryCredential;
+  ca: string;
   client: RegistryClient;
 }
 
@@ -34,7 +36,65 @@ export async function withPublishSession<T>(
   const credential = await loadRegistryCredential(repository, runner, "push");
   const ca = await loadRegistryCa(repository, runner);
   return await withRegistryClient(credential, ca, (client) =>
-    action({ credential, client }),
+    action({ credential, ca, client }),
+  );
+}
+
+/**
+ * Pushes the image `copy.tag` (already in the cluster's nodes) to
+ * `<address>/<copy.target>` with the push identity, by the provider's
+ * transport: the node's containerd client on k3d (ADR 0083), nerdctl over
+ * Minikube's ssh otherwise (ADR 0034).
+ */
+export async function publishImageCopy(
+  repository: Repository,
+  runner: Runner,
+  copy: { tag: string; address: string; target: string },
+  { credential, ca }: Pick<PublishSession, "credential" | "ca">,
+): Promise<void> {
+  if (!/^[a-z][a-z0-9-]*$/.test(credential.username)) {
+    throw new Error(
+      `local registry has an invalid username; the push identity must be lowercase letters, digits and hyphens`,
+    );
+  }
+  if (repository.environment.provider === "k3d") {
+    const { k3d } = repository.environment;
+    if (k3d === undefined) {
+      throw new Error(
+        `environment ${repository.environment.name} is a k3d overlay without environment.k3d settings; add environment.k3d.clusterName so the image can be published`,
+      );
+    }
+    // The node reads base64(user:password) from stdin for its Basic header.
+    const basic = Buffer.from(
+      `${credential.username}:${credential.password}`,
+    ).toString("base64");
+    await withSecretsRedacted([credential.password, basic], () =>
+      runner.run(
+        "docker",
+        k3dImagePublishArgs(
+          k3d.clusterName,
+          copy.tag,
+          copy.address,
+          copy.target,
+          ca,
+        ),
+        { capture: true, input: `${basic}\n` },
+      ),
+    );
+    return;
+  }
+  await withSecretsRedacted([credential.password], () =>
+    runner.run(
+      "minikube",
+      minikubeImagePublishArgs(
+        minikubeCluster(repository.environment).profile,
+        copy.tag,
+        copy.address,
+        copy.target,
+        credential.username,
+      ),
+      { capture: true, input: `${credential.password}\n` },
+    ),
   );
 }
 
@@ -43,7 +103,7 @@ export async function publishToLocalRegistry(
   runner: Runner,
   entry: ImageLockEntry,
   imageTag: string,
-  credential: RegistryCredential,
+  session: Pick<PublishSession, "credential" | "ca">,
 ): Promise<string> {
   const address = await verifiedRegistryAddress(repository, runner);
   const separator = entry.image.indexOf("/");
@@ -53,18 +113,11 @@ export async function publishToLocalRegistry(
   const repositoryPath = entry.image
     .slice(separator + 1)
     .replace(/:[^/:]+$/, "");
-  await withSecretsRedacted([credential.password], () =>
-    runner.run(
-      "minikube",
-      minikubeImagePublishArgs(
-        minikubeCluster(repository.environment).profile,
-        imageTag,
-        address,
-        `${repositoryPath}:kore-local`,
-        credential.username,
-      ),
-      { capture: true, input: `${credential.password}\n` },
-    ),
+  await publishImageCopy(
+    repository,
+    runner,
+    { tag: imageTag, address, target: `${repositoryPath}:kore-local` },
+    session,
   );
   return repositoryPath;
 }

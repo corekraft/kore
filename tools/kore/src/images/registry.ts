@@ -102,7 +102,7 @@ export async function localRegistryReference(
   reference: string,
   dependencies: RegistryDependencies = {},
 ): Promise<string> {
-  if (repository.environment.provider !== "minikube") {
+  if (!["minikube", "k3d"].includes(repository.environment.provider)) {
     return reference;
   }
   await ensurePortForward(

@@ -214,3 +214,29 @@ test("default local registry setup fails if kubectl cannot start", async () => {
     connectionOutcomes.length = 0;
   }
 });
+
+test("a k3d environment starts the registry port forward for its own context", async () => {
+  let forwardedContext = "";
+  let portChecks = 0;
+
+  const reference = await localRegistryReference(
+    {
+      environment: {
+        provider: "k3d",
+        kubeContext: "k3d-kore-local",
+      },
+    } as never,
+    {} as Runner,
+    "10.96.0.50:5000/reference:kore-local",
+    {
+      spawnPortForward: (repository) => {
+        forwardedContext = repository.environment.kubeContext;
+        return 1;
+      },
+      isPortOpen: async () => portChecks++ > 0,
+    },
+  );
+
+  expect(forwardedContext).toBe("k3d-kore-local");
+  expect(reference).toBe("127.0.0.1:30500/reference:kore-local");
+});

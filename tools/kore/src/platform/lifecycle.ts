@@ -11,6 +11,8 @@ export async function platformStop(
 ): Promise<void> {
   if (repository.environment.provider === "minikube") {
     await stopLocalTunnel(repository, runner, processes);
+  }
+  if (repository.environment.provider !== "managed") {
     await stopRegistryForward(repository, processes);
   }
   await clusterStop(repository, runner);
@@ -24,6 +26,8 @@ export async function platformDestroy(
 ): Promise<void> {
   if (repository.environment.provider === "minikube") {
     await stopLocalTunnel(repository, runner, processes);
+  }
+  if (repository.environment.provider !== "managed") {
     await stopRegistryForward(repository, processes);
   }
   await clusterDestroy(repository, runner, options);
