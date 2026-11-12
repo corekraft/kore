@@ -50,7 +50,9 @@ describe("session spawn --worktree", () => {
     await run(spawnArgs, h.deps);
     expect(h.runner.calls.some((c) => c.args[0] === "worktree")).toBe(false);
   });
+});
 
+describe("session spawn --worktree failures", () => {
   it("fails before splitting when the worktree cannot be created", async () => {
     const h = testHarness({
       env: INSIDE,
@@ -80,6 +82,20 @@ describe("session spawn --worktree", () => {
     });
     expect(await run(args, h.deps)).toBe(1);
     expect(h.err()).toContain(`git worktree remove ${WORKTREE}`);
+  });
+
+  it("names the worktree to remove when npm ci fails, and splits no pane", async () => {
+    const h = testHarness({
+      env: INSIDE,
+      responses: [
+        { match: (c) => c === "npm", result: { code: 1, stderr: "offline" } },
+        ...responses(),
+      ],
+    });
+    expect(await run(args, h.deps)).toBe(1);
+    expect(h.err()).toContain("offline");
+    expect(h.err()).toContain(`git worktree remove ${WORKTREE}`);
+    expect(herdrCalls(h).some((c) => c.includes("pane split"))).toBe(false);
   });
 
   it("reports the worktree in JSON", async () => {
