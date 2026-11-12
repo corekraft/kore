@@ -117,10 +117,11 @@ export async function clusterUp(
   repository: Repository,
   runner: Runner,
   readiness: ReadinessOptions = {},
+  home?: string,
 ): Promise<void> {
   const { environment } = repository;
   if (environment.provider === "k3d") {
-    return await clusterUpK3d(repository, runner, readiness);
+    return await clusterUpK3d(repository, runner, readiness, home);
   }
   if (environment.provider !== "minikube") {
     throw new Error(

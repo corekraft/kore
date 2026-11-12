@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { loadRepository } from "../config/index.js";
 import type { Repository } from "../config/index.js";
 import type { RunResult, Runner } from "../runtime/index.js";
@@ -87,3 +90,24 @@ export const text = (calls: { command: string; args: readonly string[] }[]) =>
   calls.map((call) => `${call.command} ${call.args.join(" ")}`);
 
 export const fast = { sleep: async () => undefined };
+
+/** A throwaway home for the k3d trust directory; removed when the worker exits. */
+export const testHome = mkdtempSync(join(tmpdir(), "kore-k3d-home-"));
+process.on("exit", () => rmSync(testHome, { recursive: true, force: true }));
+
+/** The registry trust volumes `k3d cluster create` receives under `testHome`. */
+export const trustVolumeArgs = (): string[] => {
+  const directory = join(
+    testHome,
+    ".kore",
+    "k3d",
+    "kore-local",
+    "registry-trust",
+  );
+  return [
+    "--volume",
+    `${directory}:/etc/kore/registry-ca@all`,
+    "--volume",
+    `${directory}/registries.yaml:/etc/rancher/k3s/registries.yaml@all`,
+  ];
+};

@@ -1,4 +1,11 @@
 import type { Environment, K3dCluster, Repository } from "../config/index.js";
+import {
+  k3dTrustDirectory,
+  koreManagesRegistryAuth,
+  k3dTrustVolumeArgs,
+  registryAddress,
+  writeK3dRegistriesConfig,
+} from "../images/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 import { ClusterUnavailableError } from "./cluster-unavailable.js";
 import { type ReadinessOptions, waitForClusterReady } from "./readiness.js";
@@ -48,9 +55,17 @@ export function k3dContext(clusterName: string): string {
  * The `k3d cluster create` arguments: the pinned image, Traefik and ServiceLB
  * disabled (Kore owns the gateway), the overlay service CIDR, the load
  * balancer port mappings, and kubeconfig flags that add the cluster's context
- * without switching the person's current one.
+ * without switching the person's current one. When Kore provides the
+ * registry, the host trust directory is mounted into every node with the k3s
+ * registry configuration, so nodes verify the registry's TLS (ADR 0084); no
+ * k3d registry is created.
  */
-export function k3dCreateArgs(repository: Repository): string[] {
+export function k3dCreateArgs(
+  repository: Repository,
+  trustDirectory: string = k3dTrustDirectory(
+    k3dCluster(repository.environment).clusterName,
+  ),
+): string[] {
   const cluster = k3dCluster(repository.environment);
   const image = repository.versions.images?.["k3s"];
   if (image === undefined) {
@@ -78,6 +93,9 @@ export function k3dCreateArgs(repository: Repository): string[] {
       "--port",
       `${port.hostPort}:${port.loadBalancerPort}@loadbalancer`,
     ]),
+    ...(koreManagesRegistryAuth(repository)
+      ? k3dTrustVolumeArgs(trustDirectory)
+      : []),
     "--kubeconfig-update-default=true",
     "--kubeconfig-switch-context=false",
     ...k3dWaitArgs,
@@ -260,6 +278,7 @@ export async function clusterUpK3d(
   repository: Repository,
   runner: Runner,
   readiness: ReadinessOptions,
+  home?: string,
 ): Promise<void> {
   const { clusterName } = k3dCluster(repository.environment);
   if (k3dContext(clusterName) !== repository.environment.kubeContext) {
@@ -279,11 +298,20 @@ export async function clusterUpK3d(
       );
     }
   }
+  if (state !== "running" && koreManagesRegistryAuth(repository)) {
+    // Both create and start bind-mount these files; a missing source would
+    // become a Docker-created directory.
+    await writeK3dRegistriesConfig(
+      k3dTrustDirectory(clusterName, home),
+      registryAddress(repository),
+    );
+  }
   if (state === "absent") {
-    await runK3d(runner, k3dCreateArgs(repository), {
-      capture: false,
-      cwd: repository.root,
-    });
+    await runK3d(
+      runner,
+      k3dCreateArgs(repository, k3dTrustDirectory(clusterName, home)),
+      { capture: false, cwd: repository.root },
+    );
   } else if (state === "stopped") {
     await runK3d(runner, k3dStartArgs(clusterName), {
       capture: false,

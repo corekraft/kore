@@ -12,11 +12,16 @@ import {
   fast,
   k3dRepository,
   ok,
+  testHome,
   text,
+  trustVolumeArgs,
 } from "./k3d-cluster.fixtures.js";
 
-const create =
-  "k3d cluster create kore-local --image rancher/k3s:v1.37.2-k3s1@sha256:21ea6e0fac4e3930c2ce8aa40ddd41a8b18cb3e9a0222c030dc005e7e88c4332 --servers 1 --agents 0 --k3s-arg --disable=traefik@server:* --k3s-arg --disable=servicelb@server:* --k3s-arg --service-cidr=10.96.0.0/12@server:* --port 8443:443@loadbalancer --kubeconfig-update-default=true --kubeconfig-switch-context=false --wait --timeout 300s";
+const create = [
+  "k3d cluster create kore-local --image rancher/k3s:v1.37.2-k3s1@sha256:21ea6e0fac4e3930c2ce8aa40ddd41a8b18cb3e9a0222c030dc005e7e88c4332 --servers 1 --agents 0 --k3s-arg --disable=traefik@server:* --k3s-arg --disable=servicelb@server:* --k3s-arg --service-cidr=10.96.0.0/12@server:* --port 8443:443@loadbalancer",
+  ...trustVolumeArgs(),
+  "--kubeconfig-update-default=true --kubeconfig-switch-context=false --wait --timeout 300s",
+].join(" ");
 const readiness = [
   "kubectl --context k3d-kore-local get --raw /readyz",
   expect.stringContaining("kubectl --context k3d-kore-local get nodes -o"),
@@ -27,7 +32,7 @@ const listCommand = "k3d cluster list --output json";
 
 test("cluster up issues exactly this ordered command list when the cluster is absent", async () => {
   const { runner, calls } = fakeRunner(undefined);
-  await clusterUp(await k3dRepository(), runner, fast);
+  await clusterUp(await k3dRepository(), runner, fast, testHome);
   expect(text(calls)).toEqual([
     listCommand,
     create,
@@ -39,7 +44,7 @@ test("cluster up issues exactly this ordered command list when the cluster is ab
 
 test("cluster up issues exactly this ordered command list when the cluster is stopped", async () => {
   const { runner, calls } = fakeRunner(0);
-  await clusterUp(await k3dRepository(), runner, fast);
+  await clusterUp(await k3dRepository(), runner, fast, testHome);
   expect(text(calls)).toEqual([
     listCommand,
     "k3d cluster start kore-local --wait --timeout 300s",
@@ -51,7 +56,7 @@ test("cluster up issues exactly this ordered command list when the cluster is st
 
 test("cluster up issues exactly this ordered command list when the cluster is running", async () => {
   const { runner, calls } = fakeRunner(1);
-  await clusterUp(await k3dRepository(), runner, fast);
+  await clusterUp(await k3dRepository(), runner, fast, testHome);
   expect(text(calls)).toEqual([
     listCommand,
     ...readiness,
@@ -92,7 +97,7 @@ test("a cluster with some nodes stopped is stopped, so up starts it", async () =
         },
       },
     };
-    await clusterUp(matching, runner, fast);
+    await clusterUp(matching, runner, fast, testHome);
     expect(text(calls)).toContain(
       "k3d cluster start kore-local --wait --timeout 300s",
     );
@@ -124,9 +129,12 @@ test("an existing cluster that differs from the overlay fails naming the recreat
   ] as const) {
     for (const running of [0, 1]) {
       const { runner, calls } = fakeRunner(running, false, overrides);
-      const error: unknown = await clusterUp(repository, runner, fast).catch(
-        (caught: unknown) => caught,
-      );
+      const error: unknown = await clusterUp(
+        repository,
+        runner,
+        fast,
+        testHome,
+      ).catch((caught: unknown) => caught);
       expect((error as Error).message).toMatch(mentions);
       expect((error as Error).message).toMatch(
         /kore local down --prune.*kore local up/s,
@@ -150,7 +158,7 @@ test("extra load-balancer mappings such as the random API port do not count as d
       { role: "server", args: ["--service-cidr=10.43.0.0/16"] },
     ],
   });
-  await clusterUp(await k3dRepository(), runner, fast);
+  await clusterUp(await k3dRepository(), runner, fast, testHome);
   expect(text(calls).some((line) => line.includes("get --raw /readyz"))).toBe(
     true,
   );
@@ -164,7 +172,7 @@ test("a missing k3d binary raises the unavailable error telling the person to in
     },
   };
   for (const act of [
-    () => clusterUp(repository, runner, fast),
+    () => clusterUp(repository, runner, fast, testHome),
     () => clusterStatus(repository, runner),
     () => assertExpectedCluster(repository, runner),
   ]) {
@@ -186,9 +194,9 @@ test("a k3d create that cannot spawn raises the install error too", async () => 
       });
     },
   };
-  await expect(clusterUp(repository, runner, fast)).rejects.toBeInstanceOf(
-    ClusterUnavailableError,
-  );
+  await expect(
+    clusterUp(repository, runner, fast, testHome),
+  ).rejects.toBeInstanceOf(ClusterUnavailableError);
 });
 
 test("a failing k3d list on the up path is the unavailable error, not a raw command error", async () => {
@@ -202,7 +210,7 @@ test("a failing k3d list on the up path is the unavailable error, not a raw comm
       });
     },
   };
-  await expect(clusterUp(repository, runner, fast)).rejects.toBeInstanceOf(
-    ClusterUnavailableError,
-  );
+  await expect(
+    clusterUp(repository, runner, fast, testHome),
+  ).rejects.toBeInstanceOf(ClusterUnavailableError);
 });

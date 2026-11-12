@@ -13,14 +13,16 @@ import {
   k3dRepository,
   list,
   ok,
+  testHome,
   text,
+  trustVolumeArgs,
 } from "./k3d-cluster.fixtures.js";
 
 test("cluster up on an absent k3d cluster lists, creates with the pinned flags, then waits for readiness", async () => {
   const repository = await k3dRepository();
   const { runner, calls } = fakeRunner(undefined);
 
-  await clusterUp(repository, runner, fast);
+  await clusterUp(repository, runner, fast, testHome);
 
   const create = calls.find((call) => call.args[1] === "create");
   expect(create?.command).toBe("k3d");
@@ -42,6 +44,7 @@ test("cluster up on an absent k3d cluster lists, creates with the pinned flags, 
     "--service-cidr=10.96.0.0/12@server:*",
     "--port",
     "8443:443@loadbalancer",
+    ...trustVolumeArgs(),
     "--kubeconfig-update-default=true",
     "--kubeconfig-switch-context=false",
     "--wait",
@@ -59,7 +62,7 @@ test("cluster up on a stopped k3d cluster starts it and waits for readiness with
   const repository = await k3dRepository();
   const { runner, calls } = fakeRunner(0);
 
-  await clusterUp(repository, runner, fast);
+  await clusterUp(repository, runner, fast, testHome);
 
   const lines = text(calls);
   expect(lines).toContain("k3d cluster start kore-local --wait --timeout 300s");
@@ -75,7 +78,7 @@ test("cluster up on a running k3d cluster neither creates nor starts it but stil
   const repository = await k3dRepository();
   const { runner, calls } = fakeRunner(1);
 
-  await clusterUp(repository, runner, fast);
+  await clusterUp(repository, runner, fast, testHome);
 
   const lines = text(calls);
   expect(lines.some((line) => /cluster (create|start)/.test(line))).toBe(false);
@@ -86,7 +89,7 @@ test("a k3d environment never issues a Minikube command or uses the current cont
   const repository = await k3dRepository();
   for (const running of [undefined, 0, 1]) {
     const { runner, calls } = fakeRunner(running);
-    await clusterUp(repository, runner, fast);
+    await clusterUp(repository, runner, fast, testHome);
     await clusterStatus(repository, runner);
     expect(calls.some((call) => call.command === "minikube")).toBe(false);
     for (const call of calls.filter((c) => c.command === "kubectl")) {
@@ -101,11 +104,16 @@ test("a readiness timeout after create names what was not ready and says nothing
   let now = 0;
 
   await expect(
-    clusterUp(repository, runner, {
-      timeoutMs: 10_000,
-      now: () => now,
-      sleep: async (ms) => void (now += ms),
-    }),
+    clusterUp(
+      repository,
+      runner,
+      {
+        timeoutMs: 10_000,
+        now: () => now,
+        sleep: async (ms) => void (now += ms),
+      },
+      testHome,
+    ),
   ).rejects.toThrow(
     /k3d-kore-local.*API server \(\/readyz\).*connection refused.*Nothing was applied.*k3d cluster list kore-local/s,
   );
@@ -175,7 +183,7 @@ test("an unreadable k3d list names the failing command instead of treating the c
       return ok("not json");
     },
   };
-  await expect(clusterUp(repository, runner, fast)).rejects.toThrow(
+  await expect(clusterUp(repository, runner, fast, testHome)).rejects.toThrow(
     /k3d cluster list --output json printed unreadable output, not JSON/,
   );
 });

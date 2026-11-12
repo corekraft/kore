@@ -1,6 +1,7 @@
 import type { Repository } from "../config/index.js";
 import { minikubeCluster } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
+import { k3dTrustDirectory, writeK3dRegistryCa } from "./k3d-registry-trust.js";
 import { minikubeCaTrustArgs } from "./local-image-args.js";
 import {
   koreManagesRegistryAuth,
@@ -83,14 +84,16 @@ export async function registryTrustProblem(
 
 /**
  * Hands the public CA to the clients that live in the cluster. Policy
- * Controller reads it from a ConfigMap, and on Minikube the node's containerd
- * (and nerdctl) trust it through certs.d. Reapplying identical content is a
+ * Controller reads it from a ConfigMap; on Minikube the node's containerd
+ * (and nerdctl) trust it through certs.d, and on k3d the CA is written to the
+ * host directory the nodes mount (ADR 0084), so no node is entered. Reapplying identical content is a
  * no-op, so a second run reissues and restarts nothing. An external registry
  * is the provider's to trust, so kore distributes nothing for it.
  */
 export async function ensureRegistryTrust(
   repository: Repository,
   runner: Runner,
+  home?: string,
 ): Promise<void> {
   if (!koreManagesRegistryAuth(repository)) {
     return;
@@ -142,5 +145,9 @@ export async function ensureRegistryTrust(
       ),
       { capture: true },
     );
+  }
+  const k3d = repository.environment.k3d;
+  if (repository.environment.provider === "k3d" && k3d !== undefined) {
+    await writeK3dRegistryCa(k3dTrustDirectory(k3d.clusterName, home), ca);
   }
 }

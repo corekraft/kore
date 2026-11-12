@@ -28,6 +28,11 @@ export {
   loadRegistryCa,
   registryTrustProblem,
 } from "./registry-tls.js";
+export {
+  k3dTrustDirectory,
+  k3dTrustVolumeArgs,
+  writeK3dRegistriesConfig,
+} from "./k3d-registry-trust.js";
 export { withRegistryClient } from "./registry-client.js";
 export { minikubeRegistrySessionArgs, shellQuote } from "./local-image-args.js";
 export {
