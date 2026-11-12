@@ -22,7 +22,7 @@ const USAGE =
 const isMissing = (error: unknown): boolean =>
   (error as NodeJS.ErrnoException).code === "ENOENT";
 
-/** The skill names under skills/, or undefined when there is no skills directory. */
+/** The folders under skills/ that hold a SKILL.md, or undefined when there is no skills directory. */
 async function skillNames(
   fs: FileSystem,
   root: string,
@@ -39,7 +39,10 @@ async function skillNames(
   }
   const names: string[] = [];
   for (const entry of entries) {
-    if (await fs.isDirectory(join(dir, entry))) {
+    if (
+      (await fs.isDirectory(join(dir, entry))) &&
+      (await fs.exists(join(dir, entry, "SKILL.md")))
+    ) {
       names.push(entry);
     }
   }

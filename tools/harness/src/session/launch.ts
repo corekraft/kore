@@ -54,9 +54,23 @@ export async function launch(
     "--timeout",
     "5000",
   ]);
-  return prompt.code === 0
+  if (prompt.code === 0) {
+    return checked;
+  }
+  // A pasted brief sometimes sits unsubmitted in the input box; one enter submits it.
+  await deps.runner.run("herdr", ["agent", "send-keys", name, "enter"]);
+  const retried = await deps.runner.run("herdr", [
+    "agent",
+    "wait",
+    name,
+    "--until",
+    "working",
+    "--timeout",
+    "5000",
+  ]);
+  return retried.code === 0
     ? checked
     : {
-        error: `herdr agent prompt failed: ${describeFailure(prompt)}. Session ${name} is running in pane ${paneId} without its brief.`,
+        error: `herdr agent prompt failed: ${describeFailure(prompt)}; pressing enter did not start it either: ${describeFailure(retried)}. Session ${name} is running in pane ${paneId} without its brief.`,
       };
 }

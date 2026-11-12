@@ -45,7 +45,10 @@ function repoRoot(
   }
   if (skills) {
     mkdirSync(join(root, "skills", "alpha-skill"), { recursive: true });
+    writeFileSync(join(root, "skills", "alpha-skill", "SKILL.md"), "---\n");
     writeFileSync(join(root, "skills", "README.md"), "not a skill\n");
+    // A folder without SKILL.md, like skills/bin, is not a skill.
+    mkdirSync(join(root, "skills", "bin"), { recursive: true });
   }
   if (marker) {
     writeFileSync(

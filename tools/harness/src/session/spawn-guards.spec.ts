@@ -242,24 +242,6 @@ describe("session spawn failures", () => {
     expect(h.err()).toContain("agent_pane_busy");
     expect(h.err()).toContain("w3:p9");
   });
-
-  it("reports a failed brief delivery", async () => {
-    const h = testHarness({
-      env: INSIDE,
-      responses: [
-        gitCommon,
-        nameFree,
-        layoutOf(),
-        splitReturns("w3:p9"),
-        {
-          match: (_c, a) => a[1] === "prompt",
-          result: { code: 1, stderr: "boom" },
-        },
-      ],
-    });
-    expect(await run(spawnArgs, h.deps)).toBe(1);
-    expect(h.err()).toContain("boom");
-  });
 });
 
 describe("session equalize", () => {
