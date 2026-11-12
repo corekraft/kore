@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { modeOf } from "../guardrail/index.js";
+import { committedInventory } from "../testing/guardrail-support.js";
 import { evaluate } from "./guard.js";
 
 export const root = "/repo";
@@ -19,6 +21,7 @@ const files: Record<string, string> = {
 };
 const ctx = {
   root,
+  modeOf: (rule: string) => modeOf(committedInventory, rule),
   readFile: (path: string): Promise<string> => {
     const text = files[path];
     return text === undefined

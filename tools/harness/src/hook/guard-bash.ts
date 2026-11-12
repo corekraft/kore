@@ -24,6 +24,7 @@ import {
 } from "./guard-shell.js";
 import {
   allow,
+  applyMode,
   block,
   warn,
   type Finding,
@@ -94,43 +95,45 @@ function unquotedGlob(command: string): Finding {
 
 // zsh pitfalls beyond --include/--exclude, in audit mode (warn): a bare glob
 // that matches nothing fails with "no matches found", and a word starting
-// with = is expanded as a command lookup ("== not found").
-function zshWords(command: string): Finding {
+// with = is expanded as a command lookup ("== not found"). One finding per rule.
+function zshWords(command: string): Finding[] {
   const text = shellText(command).replace(/\$\(\([^)]*\)\)/g, "");
-  for (const word of rawWords(text)) {
-    if (word.glob && !word.text.includes("${")) {
-      return warn(
-        "bare-glob",
-        `${word.text} is an unquoted glob; zsh fails the whole command with "no matches found" when it matches no file. ` +
-          `Instead, quote it ('${word.text}') unless it must expand, and check that it matches.`,
-      );
-    }
-    if (word.equals && !text.includes("[[")) {
-      return warn(
-        "equals-word",
-        `${word.text} starts with an unquoted =, which zsh expands as a command lookup ("${word.text.slice(1)} not found"). ` +
-          `Instead, quote it: '${word.text}'.`,
-      );
-    }
-  }
-  return null;
+  const words = rawWords(text);
+  const glob = words.find((w) => w.glob && !w.text.includes("${"));
+  const equals = text.includes("[[") ? undefined : words.find((w) => w.equals);
+  return [
+    glob
+      ? warn(
+          "bare-glob",
+          `${glob.text} is an unquoted glob; zsh fails the whole command with "no matches found" when it matches no file. ` +
+            `Instead, quote it ('${glob.text}') unless it must expand, and check that it matches.`,
+        )
+      : null,
+    equals
+      ? warn(
+          "equals-word",
+          `${equals.text} starts with an unquoted =, which zsh expands as a command lookup ("${equals.text.slice(1)} not found"). ` +
+            `Instead, quote it: '${equals.text}'.`,
+        )
+      : null,
+  ];
 }
 
 export async function evaluateBash(
   command: string,
   ctx: GuardContext,
 ): Promise<Verdict> {
-  const glob = unquotedGlob(command);
-  if (glob) {
-    return glob;
-  }
-  let warning: Finding = null;
+  const glob = applyMode(unquotedGlob(command), ctx);
+  const segments: Finding[] = [];
   for (const segment of splitSegments(command)) {
-    const result = await checkBashSegment(segment, ctx);
-    if (result?.action === "block") {
-      return result;
-    }
-    warning ??= result;
+    segments.push(applyMode(await checkBashSegment(segment, ctx), ctx));
   }
-  return warning ?? zshWords(command) ?? allow;
+  const zsh = zshWords(command).map((finding) => applyMode(finding, ctx));
+  // Each finding takes its own rule's mode first; any block wins over any warning.
+  const found = [glob, ...segments, ...zsh];
+  return (
+    found.find((finding) => finding?.action === "block") ??
+    [...segments, glob, ...zsh].find((finding) => finding !== null) ??
+    allow
+  );
 }

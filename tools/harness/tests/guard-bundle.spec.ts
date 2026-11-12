@@ -10,7 +10,8 @@ import { cleanGitEnv } from "../src/testing/git-env.js";
 
 // The guard as the host runs it: the committed bundle as a real process.
 const here = dirname(fileURLToPath(import.meta.url));
-const bundle = resolve(here, "../../../skills/bin/harness.mjs");
+const checkout = resolve(here, "../../..");
+const bundle = resolve(checkout, "skills/bin/harness.mjs");
 
 // A project directory in the environment would move the guard's root off the payload's cwd.
 const { CLAUDE_PROJECT_DIR: _project, ...inherited } = cleanGitEnv();
@@ -43,9 +44,9 @@ it("cli: exits 0 silently when allowing", () => {
 it("cli: warns through additionalContext without blocking", () => {
   const result = run({
     tool_name: "Write",
-    cwd: "/repo",
+    cwd: checkout,
     tool_input: {
-      file_path: "/repo/apps/web/d.yaml",
+      file_path: `${checkout}/apps/web/d.yaml`,
       content: "image: web:1\n",
     },
   });

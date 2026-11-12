@@ -89,7 +89,10 @@ _Avoid_: Tooling, scaffolding
 
 **Guardrail**:
 A harness rule that blocks or gates an unsafe action. Changing one may be
-automatic, but turning a changed one on needs a person's approval.
+automatic, but turning a changed one on needs a person's approval. The
+guardrail inventory (`.claude/guardrails.yaml`) lists each guard rule with its
+kind, mode (`audit` warns and records a ledger event; `enforce` blocks) and
+owner.
 _Avoid_: Check, policy
 
 **Toil**:

@@ -19,6 +19,7 @@ export const KINDS = [
   "flag.activated",
   "token.usage",
   "session.launch",
+  "guard.audit",
 ] as const;
 export type Kind = (typeof KINDS)[number];
 
@@ -168,7 +169,7 @@ const RULES: readonly Rule[] = [
     field: "label",
     check: isText(LABEL),
     hint: "must be 1-100 characters with no control characters",
-    kinds: ["issue.labelled", "outcome", "flag.activated"],
+    kinds: ["issue.labelled", "outcome", "flag.activated", "guard.audit"],
   },
   {
     field: "number",

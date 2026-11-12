@@ -1,6 +1,8 @@
 // File rules for Read, Write and Edit. Blocks: secret-path, sops-plaintext,
 // coverage-threshold. Audit mode (warn): append-only, idea-outcome,
-// flag-activation, image-digest.
+// flag-activation, image-digest, guardrail-demotion.
+import { INVENTORY_PATH } from "../guardrail/index.js";
+import { checkGuardrailDemotion } from "./guard-guardrails.js";
 import { appendOnlyWarn, isAppendOnly } from "./guard-append-only.js";
 import {
   SECRET_PATH,
@@ -10,10 +12,12 @@ import {
 } from "./guard-secrets.js";
 import {
   allow,
+  applyMode,
   block,
   warn,
   type Finding,
   type GuardContext,
+  type Hit,
   type Verdict,
 } from "./guard-verdict.js";
 
@@ -196,30 +200,43 @@ async function checkWrite(
   input: Input,
   relative: string,
   ctx: GuardContext,
-): Promise<Finding> {
+): Promise<Verdict> {
   if (isAppendOnly(relative)) {
-    return appendOnlyWarn(relative);
+    return applyMode(appendOnlyWarn(relative), ctx) ?? allow;
   }
-  const flagOn = await checkFlagOn(tool, input, relative, ctx);
-  if (
-    IDEA_PATH.test(relative) &&
-    HAND_WRITTEN_OUTCOME.test(written(tool, input))
-  ) {
-    return ideaOutcomeWarn(relative);
+  const ideaOutcome =
+    IDEA_PATH.test(relative) && HAND_WRITTEN_OUTCOME.test(written(tool, input))
+      ? ideaOutcomeWarn(relative)
+      : null;
+  // Each finding takes its own rule's mode before they are weighed: a block wins over any warning.
+  const findings = [
+    await checkFlagOn(tool, input, relative, ctx),
+    ideaOutcome,
+    await checkSopsPath(tool, input, relative, ctx),
+    await checkCoverageThreshold(tool, input, relative, ctx),
+    checkImageDigest(tool, input, relative),
+    checkGuardrailDemotion(
+      tool,
+      input,
+      relative,
+      relative === INVENTORY_PATH
+        ? await before(tool, input, relative, ctx, false)
+        : "",
+    ),
+  ]
+    .map((finding) => applyMode(finding, ctx))
+    .filter((finding): finding is Hit => finding !== null);
+  const blocked = findings.find((finding) => finding.action === "block");
+  if (blocked) {
+    return blocked;
   }
-  const sops = await checkSopsPath(tool, input, relative, ctx);
-  if (sops !== null) {
-    return sops;
-  }
-  const coverage = await checkCoverageThreshold(tool, input, relative, ctx);
-  if (coverage !== null) {
-    return coverage;
-  }
-  const tagged = checkImageDigest(tool, input, relative);
-  if (flagOn !== null && tagged !== null) {
-    return { ...flagOn, message: `${flagOn.message}\n${tagged.message}` };
-  }
-  return flagOn ?? tagged;
+  const [first, ...rest] = findings;
+  return first
+    ? {
+        ...first,
+        message: [first, ...rest].map((finding) => finding.message).join("\n"),
+      }
+    : allow;
 }
 
 export async function evaluateFile(
@@ -229,10 +246,10 @@ export async function evaluateFile(
   ctx: GuardContext,
 ): Promise<Verdict> {
   if (SECRET_PATH.test(relative)) {
-    return secretBlock();
+    return applyMode(secretBlock(), ctx);
   }
   if (tool === "Read") {
     return allow;
   }
-  return (await checkWrite(tool, input, relative, ctx)) ?? allow;
+  return await checkWrite(tool, input, relative, ctx);
 }

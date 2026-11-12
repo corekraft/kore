@@ -1,0 +1,21 @@
+{
+  "guardrails": [
+    { "rule": "secret-path", "kind": "bash-and-file", "mode": "enforce", "owner": "tools/harness/src/hook/guard-secrets.ts" },
+    { "rule": "sops-plaintext", "kind": "bash-and-file", "mode": "enforce", "owner": "tools/harness/src/hook/guard-secrets.ts" },
+    { "rule": "unquoted-glob", "kind": "bash", "mode": "enforce", "owner": "tools/harness/src/hook/guard-bash.ts" },
+    { "rule": "destructive", "kind": "bash", "mode": "enforce", "owner": "tools/harness/src/hook/guard-commands.ts" },
+    { "rule": "kubectl-context", "kind": "bash", "mode": "enforce", "owner": "tools/harness/src/hook/guard-commands.ts" },
+    { "rule": "helm-context", "kind": "bash", "mode": "enforce", "owner": "tools/harness/src/hook/guard-commands.ts" },
+    { "rule": "no-verify", "kind": "bash", "mode": "enforce", "owner": "tools/harness/src/hook/guard-commands.ts" },
+    { "rule": "coverage-threshold", "kind": "file", "mode": "enforce", "owner": "tools/harness/src/hook/guard-file.ts" },
+    { "rule": "append-only", "kind": "bash-and-file", "mode": "audit", "owner": "tools/harness/src/hook/guard-append-only.ts" },
+    { "rule": "flag-activation", "kind": "file", "mode": "audit", "owner": "tools/harness/src/hook/guard-file.ts" },
+    { "rule": "image-digest", "kind": "file", "mode": "audit", "owner": "tools/harness/src/hook/guard-file.ts" },
+    { "rule": "idea-outcome", "kind": "file", "mode": "audit", "owner": "tools/harness/src/hook/guard-file.ts" },
+    { "rule": "idea-issue-body", "kind": "bash", "mode": "audit", "owner": "tools/harness/src/hook/guard-commands.ts" },
+    { "rule": "idea-issue-close", "kind": "bash", "mode": "audit", "owner": "tools/harness/src/hook/guard-commands.ts" },
+    { "rule": "bare-glob", "kind": "bash", "mode": "audit", "owner": "tools/harness/src/hook/guard-bash.ts" },
+    { "rule": "equals-word", "kind": "bash", "mode": "audit", "owner": "tools/harness/src/hook/guard-bash.ts" },
+    { "rule": "guardrail-demotion", "kind": "file", "mode": "audit", "owner": "tools/harness/src/hook/guard-guardrails.ts" }
+  ]
+}

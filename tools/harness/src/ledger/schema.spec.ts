@@ -197,3 +197,20 @@ describe("ledger event schema cost events", () => {
     expect(rejected({ ...base, tier: "x" }).field).toBe("tier");
   });
 });
+
+describe("guard.audit events", () => {
+  const audit = {
+    source: "claude",
+    kind: "guard.audit",
+    occurredAt: "2026-01-02T03:04:05.000Z",
+    session: "s1",
+  };
+
+  it("carry the rule name as their label", () => {
+    expect(parseEvent({ ...audit, label: "bare-glob" }, "input").ok).toBe(true);
+  });
+
+  it("are refused without a rule name", () => {
+    expect(parseEvent(audit, "input").ok).toBe(false);
+  });
+});
