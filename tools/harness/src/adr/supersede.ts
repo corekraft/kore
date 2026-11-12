@@ -112,7 +112,12 @@ export class Supersession {
 
   private async find(number: string, replacement: boolean): Promise<LoadedAdr> {
     const matches = (await this.fs.readdir(this.abs(DECISIONS)))
-      .filter((f) => new RegExp(`^${number}-.+\\.md$`).test(f))
+      .filter(
+        (f) =>
+          f.startsWith(`${number}-`) &&
+          f.endsWith(".md") &&
+          f.length > number.length + 4,
+      )
       .sort();
     if (matches.length > 1) {
       throw new AdrError(

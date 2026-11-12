@@ -426,7 +426,9 @@ var Supersession = class {
     return (adr.lines[adr.statusLine] ?? "").slice("status:".length).trim();
   }
   async find(number, replacement) {
-    const matches2 = (await this.fs.readdir(this.abs(DECISIONS))).filter((f) => new RegExp(`^${number}-.+\\.md$`).test(f)).sort();
+    const matches2 = (await this.fs.readdir(this.abs(DECISIONS))).filter(
+      (f) => f.startsWith(`${number}-`) && f.endsWith(".md") && f.length > number.length + 4
+    ).sort();
     if (matches2.length > 1) {
       throw new AdrError(
         `ADR ${number} matches more than one file: ${matches2.map((f) => `${DECISIONS}/${f}`).join(", ")}; renumber one so each ADR number is unique, then retry.`
