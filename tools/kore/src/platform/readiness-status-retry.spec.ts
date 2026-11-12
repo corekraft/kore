@@ -121,3 +121,32 @@ test("a not-ready Deployment costs 3s plus one 15s retry for the whole status ru
 
   assert.equal(timeouts.filter((t) => t === "--timeout=15s").length, 1);
 });
+
+test("a slow but ready component does not spend the retry budget", async () => {
+  const { repository, runner, component, timeouts } = await subject([timedOut]);
+  const budget = retryBudget();
+
+  // First component: 3s times out, the 15s retry passes (runner succeeds).
+  assert.equal(
+    await readinessFailure(repository, runner, component, budget),
+    undefined,
+  );
+  assert.equal(budget.spent, false);
+  assert.deepEqual(timeouts, ["--timeout=3s", "--timeout=15s"]);
+});
+
+test("a ready-but-slow component after a broken one still keeps its retry only while the budget is unspent", async () => {
+  const { repository, runner, component, timeouts } = await subject([
+    timedOut,
+    timedOut,
+    timedOut,
+    "",
+  ]);
+  const budget = retryBudget();
+
+  await readinessFailure(repository, runner, component, budget);
+  assert.equal(budget.spent, true);
+  await readinessFailure(repository, runner, component, budget);
+
+  assert.deepEqual(timeouts, ["--timeout=3s", "--timeout=15s", "--timeout=3s"]);
+});

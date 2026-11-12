@@ -76,9 +76,10 @@ export function retryBudget(): RetryBudget {
  * or undefined when one passes. It moves to the next, longer bound only when
  * `kubectl wait` timed out, so a missing resource or a failed condition is
  * reported at once while a slow API server on a loaded host gets another try.
- * The longer bounds are one shared budget: the first timeout in a status run
- * spends it, and every later component stays at the first bound, so a run with
- * many not-ready components costs one retry, not one each.
+ * The longer bounds are one shared budget, spent only when the retry also
+ * fails: a ready-but-slow component passes on its retry and leaves the budget
+ * for the next one, while a broken component spends it, so every later one
+ * stays at the first bound. A run costs at most one failed retry.
  */
 export async function failureAcrossBounds(
   bounds: string[],
@@ -87,17 +88,17 @@ export async function failureAcrossBounds(
 ): Promise<string | undefined> {
   let failure: string | undefined;
   for (const [index, bound] of bounds.entries()) {
-    if (index > 0) {
-      if (budget.spent) {
-        return failure;
-      }
-      budget.spent = true;
+    if (index > 0 && budget.spent) {
+      return failure;
     }
     try {
       await attempt(bound);
       return undefined;
     } catch (error) {
       failure = errorMessage(error);
+      if (index > 0) {
+        budget.spent = true;
+      }
       if (!KUBECTL_WAIT_TIMED_OUT.test(failure)) {
         return failure;
       }
