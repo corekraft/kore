@@ -4293,11 +4293,11 @@ function addEntry2(stack, indent, body) {
   parent[key] = value;
   return /^[|>]/.test(value) ? indent : null;
 }
-function parseWorkflow(text5) {
+function parseWorkflow(text6) {
   const rootNode = {};
   const stack = [{ indent: -1, node: rootNode }];
   let skipAbove = null;
-  for (const raw of text5.split("\n")) {
+  for (const raw of text6.split("\n")) {
     const line2 = raw.replace(/(^|\s)#.*$/, "");
     const indent = line2.length - line2.trimStart().length;
     if (line2.trim() === "" || skipAbove !== null && indent > skipAbove) {
@@ -4366,8 +4366,8 @@ function jobProblems(file, name, job) {
   }
   return problems;
 }
-function fileProblems(file, text5) {
-  const workflow = parseWorkflow(text5);
+function fileProblems(file, text6) {
+  const workflow = parseWorkflow(text6);
   const problems = [];
   const top = writeScopes(workflow["permissions"]);
   if (top === null || top.length > 0) {
@@ -4391,11 +4391,11 @@ function fileProblems(file, text5) {
 }
 function permissionProblems(files) {
   return Object.entries(files).flatMap(
-    ([file, text5]) => fileProblems(file, text5)
+    ([file, text6]) => fileProblems(file, text6)
   );
 }
-async function workflowProblems(fs, root2) {
-  const dir = join6(root2, ".github", "workflows");
+async function workflowProblems(fs, root3) {
+  const dir = join6(root3, ".github", "workflows");
   let entries;
   try {
     entries = await fs.readdir(dir);
