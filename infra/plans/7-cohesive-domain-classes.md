@@ -169,6 +169,11 @@ one worktree each.
 
 ## Results
 
+Paused: this plan resumes as the first workload of
+[plan 11 § Step 7](11-agent-delivery-loop.md#step-7-first-workload). Its
+conventions also apply to `tools/harness`
+([ADR 0082](../../docs/decisions/0082-harness-package-bundled-for-skills.md)).
+
 Not started. The size-ratchet refactors on `build/lint-size-rules`
 (70 lines per function, 300 lines per file) are in flight. They split long
 functions into named module-level steps, and Step 3 turns those steps into
