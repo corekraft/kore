@@ -46,8 +46,8 @@ The `ingress-agentgateway` flag, off in `local`, selects the platform Gateway's
 GatewayClass: `kore` derives `gateway.className` (`istio` off, `agentgateway`
 on) when rendering `kore-platform-config`.
 
-A catalog component may set `featureFlag: <name>` to be gated by one of these
-flags. Validation fails, naming the component, when the environment does not
+A Helm or local-chart catalog component may set `featureFlag: <name>` to be
+gated by one of these flags; validation rejects it on a manifest component. Validation fails, naming the component, when the environment does not
 declare the flag in `features:` (set it `false` to keep the component off), or
 when an enabled component depends on a gated-off one. A gated-off component is
 validated, pinned and rendered like any other, but `kore local up` and

@@ -101,3 +101,19 @@ test("a gated component may depend on another gated component with the same flag
   );
   await validateRepository(repository);
 });
+
+test("a manifest component cannot be gated, and the error says so and how to proceed", async () => {
+  const repository = await gatedRepository({ "agent-ingress": false });
+  const manifest = repository.catalog.components.find(
+    (c) => c.kind === "manifest",
+  )!;
+  repository.catalog.components = repository.catalog.components.map((c) =>
+    c === manifest ? { ...c, featureFlag: "agent-ingress" } : c,
+  );
+  await assert.rejects(
+    validateRepository(repository),
+    new RegExp(
+      `${manifest.name}: featureFlag is not supported on a manifest component; gate a helm or local-chart component instead`,
+    ),
+  );
+});

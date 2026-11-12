@@ -60,6 +60,9 @@ the environment's `features:` map.
 - An enabled component may not depend on a gated-off one; validation rejects
   it. Namespace enrollment and the image inventory skip a gated-off
   component's namespace, since nothing creates it.
+- Only Helm and local-chart components can be gated: validation rejects a
+  `featureFlag` on a manifest component, whose leftover install could not be
+  detected.
 - A flag turned off after install leaves a release nothing owns. For a gated-off
   Helm component, status does a read-only `helm status`: a remaining release
   reports `degraded` with the uninstall command and the option to turn the flag

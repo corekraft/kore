@@ -6,7 +6,8 @@ import { errorMessage, helmReleaseStatus } from "./probe.js";
 /**
  * A flag turned off after install leaves a release no desired state owns. This
  * read-only check (`helm status`) names it and the fix. Only Helm components
- * are checked: a manifest component has no release to look up. Any failure
+ * are checked: validation refuses a flag on a manifest component, which has no
+ * release to look up. Any failure
  * other than "release: not found" is a problem too, never a clean gated-off.
  */
 export async function gatedReleaseProblem(
@@ -51,7 +52,7 @@ export async function orphanedGatedComponents(
   return orphans;
 }
 
-/** Fails fast, before any mutation, while a gated-off release remains. */
+/** Fails while a gated-off release remains, before any component is installed. */
 export async function assertNoOrphanedReleases(
   repository: Repository,
   runner: Runner,

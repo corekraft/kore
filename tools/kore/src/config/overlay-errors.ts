@@ -32,9 +32,16 @@ function featureFlagErrors(
   components: Component[],
 ): string[] {
   const declared = new Set(Object.keys(environment.features ?? {}));
-  return components.flatMap(({ name, featureFlag }) => {
+  return components.flatMap(({ name, kind, featureFlag }) => {
     if (featureFlag === undefined) {
       return [];
+    }
+    // A manifest has no release to look up, so a flag turned off after install
+    // could not be detected; refuse it until that is designed.
+    if (kind === "manifest") {
+      return [
+        `${name}: featureFlag is not supported on a manifest component; gate a helm or local-chart component instead`,
+      ];
     }
     if (!flagName.test(featureFlag)) {
       return [
