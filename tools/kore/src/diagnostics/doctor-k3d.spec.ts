@@ -98,6 +98,23 @@ test("doctor reports a running k3d cluster as passing and a stopped one as a war
   assert.match(check?.message ?? "", /stopped/);
 });
 
+/** Exactly the tools a k3d overlay checks; a pinned tool with no provider must not appear. */
+const EXPECTED = [
+  "tool:node",
+  "tool:npm",
+  "tool:k3d",
+  "tool:kubectl",
+  "tool:helm",
+  "tool:yq",
+  "tool:sops",
+  "tool:age",
+  "tool:mkcert",
+  "tool:tofu",
+  "tool:opa",
+  "tool:cosign",
+  "tool:docker",
+];
+
 test("doctor on k3d checks the pinned k3d and docker and no host sizing", async () => {
   const commands: string[] = [];
   const { repository, runner } = await fixture({ commands });
@@ -105,6 +122,10 @@ test("doctor on k3d checks the pinned k3d and docker and no host sizing", async 
   assert.equal(byName(checks, "tool:k3d")?.status, "pass");
   assert.equal(byName(checks, "tool:docker")?.status, "pass");
   assert.equal(byName(checks, "host:cpu"), undefined);
+  const tools = checks
+    .map(({ name }) => name)
+    .filter((name) => name.startsWith("tool:"));
+  assert.deepEqual(tools, EXPECTED);
 });
 
 test("doctor only reads: it never creates, starts, stops or deletes a cluster", async () => {

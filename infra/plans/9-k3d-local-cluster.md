@@ -101,9 +101,10 @@ plan 8.
 
 ## Step 6: Retire Minikube
 
-The Minikube path is now unit-tested only: no live suite runs on Minikube any
-more (#134 recorded no Minikube baseline), so a Minikube regression would show
-in unit specs and nowhere else until the code is removed.
+No live suite runs on Minikube any more (#134 recorded no Minikube baseline),
+and #152 removed the Minikube provider from the CLI code: a `minikube` provider
+is rejected at validation. What remains is the tool pin, the docs, the guard
+and the clean-machine script (#157).
 
 ### Work
 
@@ -121,7 +122,10 @@ in unit specs and nowhere else until the code is removed.
 
 ### Exit Criteria
 
-- `grep -ri minikube tools/kore/src infra` finds nothing.
+- `grep -ri minikube tools/kore/src infra` finds nothing, apart from ADR
+  filenames and two recorded exceptions: the provider rejection in
+  `tools/kore/src/config/validate.ts` (and its spec), and the provider-name
+  detector in `tools/kore/src/diagnostics/portability.ts` (and its spec).
 
 ## Step 7: Live Proof
 

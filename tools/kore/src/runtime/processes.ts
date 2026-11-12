@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
-// Docs: docs/decisions/0085-k3d-gateway-answers-through-a-node-port.md
+// Docs: docs/decisions/0083-k3d-publishes-through-the-node-containerd-client.md
 
 export interface ProcessEntry {
   pid: number;

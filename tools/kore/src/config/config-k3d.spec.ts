@@ -4,13 +4,26 @@ import { test } from "vitest";
 import { loadRepository, validateRepository } from "./config.js";
 import { loadManagedLocal } from "./managed-local.fixtures.js";
 import { managedCluster } from "./managed-cluster.js";
-import type { Environment } from "./types.js";
+import type { Environment, Repository } from "./types.js";
 
 const k3d = {
   clusterName: "kore-local",
   serviceCidr: "10.96.0.0/12",
   ports: [{ hostPort: 8443, loadBalancerPort: 443 }],
 } as const;
+
+async function validationError(repository: Repository): Promise<string> {
+  try {
+    await validateRepository({
+      ...repository,
+      seeds: { seeds: [] },
+      approved: { images: [] },
+    });
+  } catch (error) {
+    return (error as Error).message;
+  }
+  return "";
+}
 
 async function k3dMessage(
   mutate: (environment: Record<string, unknown>) => Record<string, unknown>,
@@ -173,12 +186,17 @@ test("a managed overlay still validates and rejects a k3d block", async () => {
   );
 });
 
-test("a minikube provider is rejected and told to move to k3d", async () => {
-  const message = await k3dMessage((e) => ({ ...e, provider: "minikube" }));
-  assert.match(
+test("a minikube-shaped overlay is rejected with the one step that fixes it", async () => {
+  const base = await loadManagedLocal();
+  const message = await validationError({
+    ...base,
+    environment: { ...base.environment, provider: "minikube" },
+  } as unknown as Repository);
+  assert.equal(
     message,
-    /environment\.provider minikube is no longer supported; set environment\.provider to k3d and add environment\.k3d \(ADR 0076\)/,
+    "environment.provider minikube is no longer supported; set environment.provider to k3d, add environment.k3d and remove environment.cluster (ADR 0076)",
   );
+  assert.doesNotMatch(message, /remove environment\.k3d/);
 });
 
 test("a bad k3d.serviceCidr is reported exactly once", async () => {

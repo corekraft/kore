@@ -70,7 +70,7 @@ const environmentRules: Rule<Environment>[] = [
     (e) =>
       // The type no longer allows minikube; an old overlay can still carry it.
       (e.provider as string) === "minikube"
-        ? "environment.provider minikube is no longer supported; set environment.provider to k3d and add environment.k3d (ADR 0076)"
+        ? "environment.provider minikube is no longer supported; set environment.provider to k3d, add environment.k3d and remove environment.cluster (ADR 0076)"
         : "environment.provider must be k3d or managed",
     (e) => !["k3d", "managed"].includes(e.provider),
   ),
