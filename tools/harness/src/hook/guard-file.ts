@@ -55,6 +55,43 @@ async function before(
   }
 }
 
+const GUARDED_FILES = [INVENTORY_PATH, ".claude/settings.json"];
+
+/**
+ * A guarded file's text on disk and as the change would leave it: the content of
+ * a Write, or the disk text with an Edit's old_string replaced (every
+ * occurrence with replace_all). An Edit whose old_string is not on disk would
+ * fail, so only its snippets are compared.
+ */
+async function guardedChange(
+  tool: string,
+  input: Input,
+  relative: string,
+  ctx: GuardContext,
+): Promise<{ previous: string; after: string }> {
+  if (!GUARDED_FILES.includes(relative)) {
+    return { previous: "", after: "" };
+  }
+  if (tool !== "Edit") {
+    return {
+      previous: await before(tool, input, relative, ctx, false),
+      after: written(tool, input),
+    };
+  }
+  const old = text(input["old_string"]);
+  const replacement = text(input["new_string"]);
+  const disk = await before("Write", input, relative, ctx, false);
+  const at = old === "" ? -1 : disk.indexOf(old);
+  if (at < 0) {
+    return { previous: old, after: replacement };
+  }
+  const after =
+    input["replace_all"] === true
+      ? disk.split(old).join(replacement)
+      : disk.slice(0, at) + replacement + disk.slice(at + old.length);
+  return { previous: disk, after };
+}
+
 const THRESHOLD =
   /\b(statements|branches|functions|lines)\s*:\s*(\d+(?:\.\d+)?)/g;
 
@@ -213,29 +250,15 @@ async function checkWrite(
       ? ideaOutcomeWarn(relative)
       : null;
   // Each finding takes its own rule's mode before they are weighed: a block wins over any warning.
+  const guarded = await guardedChange(tool, input, relative, ctx);
   const findings = [
     await checkFlagOn(tool, input, relative, ctx),
     ideaOutcome,
     await checkSopsPath(tool, input, relative, ctx),
     await checkCoverageThreshold(tool, input, relative, ctx),
     checkImageDigest(tool, input, relative),
-    checkGuardrailDemotion(
-      tool,
-      input,
-      relative,
-      relative === INVENTORY_PATH
-        ? await before(tool, input, relative, ctx, false)
-        : "",
-    ),
-    checkSettingsDenyRemoval(
-      tool,
-      input,
-      relative,
-      relative === ".claude/settings.json"
-        ? await before(tool, input, relative, ctx, false)
-        : "",
-      ctx,
-    ),
+    checkGuardrailDemotion(relative, guarded.previous, guarded.after),
+    checkSettingsDenyRemoval(relative, guarded.previous, guarded.after, ctx),
   ];
   return weigh(findings.map((finding) => applyMode(finding, ctx)));
 }

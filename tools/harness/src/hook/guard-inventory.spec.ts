@@ -159,7 +159,7 @@ describe("the inventory protects a pattern edited on its own", () => {
       "narrowing a pattern",
       '"Bash(helm uninstall:*)"',
       '"Bash(helm uninstall kore:*)"',
-      /Bash\(helm uninstall:\*\)/,
+      /deny-helm-uninstall/,
     ],
     [
       "removing a pattern",

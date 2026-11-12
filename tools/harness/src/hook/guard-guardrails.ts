@@ -6,11 +6,6 @@ import { INVENTORY_PATH } from "../guardrail/index.js";
 import { writtenPath } from "./guard-append-only.js";
 import { warn, type Finding, type GuardContext } from "./guard-verdict.js";
 
-type Input = Record<string, unknown>;
-
-const text = (value: unknown): string =>
-  typeof value === "string" ? value : "";
-
 // A one-line entry: the rule name, then its mode.
 const ENTRY =
   /"rule"\s*:\s*"([a-z0-9-]+)"[^}]*?"mode"\s*:\s*"(audit|enforce)"/g;
@@ -87,15 +82,13 @@ function demoted(previous: string, after: string): string[] {
 }
 
 export function checkGuardrailDemotion(
-  tool: string,
-  input: Input,
   relative: string,
   previous: string,
+  after: string,
 ): Finding {
   if (relative !== INVENTORY_PATH) {
     return null;
   }
-  const after = text(tool === "Edit" ? input["new_string"] : input["content"]);
   const rules = demoted(previous, after);
   const weak = weakened(previous, after);
   if (rules.length === 0 && weak.length === 0) {
@@ -118,11 +111,13 @@ export function checkGuardrailDemotion(
   );
 }
 
-const INVENTORY_TARGET = /(^|[/\s>'"=])\.claude\/guardrails\.yaml$/;
+const PROTECTED_TARGET =
+  /(^|[/\s>'"=])\.claude\/(guardrails\.yaml|settings\.json)$/;
 
 /**
- * A Bash command that rewrites the inventory (sed -i, a redirect, tee, cp, mv).
- * A command's effect cannot be read, so any rewrite warns, not only a demotion.
+ * A Bash command that rewrites the inventory or the settings deny list (sed -i,
+ * a redirect, tee, cp, mv). A command's effect cannot be read, so any rewrite
+ * warns, not only a demotion.
  */
 export function checkGuardrailBash(
   name: string,
@@ -130,14 +125,14 @@ export function checkGuardrailBash(
   segment: string[],
 ): Finding {
   const path = writtenPath(name, args, segment, (p) =>
-    INVENTORY_TARGET.test(p),
+    PROTECTED_TARGET.test(p),
   );
   return path === undefined
     ? null
     : warn(
         "guardrail-demotion",
-        `${INVENTORY_PATH} is rewritten by a command, whose effect on each rule's mode cannot be checked. ` +
-          "Instead, edit it with the Edit tool so a change from enforce to audit is checked, and leave demotions to a person (ADR 0080).",
+        `${path.replace(/^.*(?=\.claude\/)/, "")} is rewritten by a command, whose effect on a rule's mode or deny patterns cannot be checked. ` +
+          "Instead, edit it with the Edit tool so a weakening is checked, and leave demotions to a person (ADR 0080).",
       );
 }
 
@@ -159,34 +154,33 @@ export function checkDenyRemovalBash(name: string, args: string[]): Finding {
 
 const SETTINGS_PATH = ".claude/settings.json";
 
+/** The deny list of a settings file: empty when it has none, absent when the text is not JSON. */
 const denyOf = (source: string): string[] | undefined => {
   try {
     const deny = (JSON.parse(source) as { permissions?: { deny?: unknown } })
       .permissions?.deny;
-    return Array.isArray(deny) ? (deny as string[]) : undefined;
+    return Array.isArray(deny) ? (deny as string[]) : [];
   } catch {
     return undefined;
   }
 };
 
 /**
- * An Edit or Write of settings.json that drops or narrows a deny pattern. A
- * Write is compared deny list to deny list; an Edit only shows a snippet, so
- * it counts the inventory's own patterns, which tells deny from allow.
+ * A change to settings.json that drops or narrows a deny pattern, judged as the
+ * whole file before and after. When either side is not JSON, the patterns of
+ * the inventory are compared as quoted text instead.
  */
 export function checkSettingsDenyRemoval(
-  tool: string,
-  input: Input,
   relative: string,
   previous: string,
+  after: string,
   ctx: GuardContext,
 ): Finding {
   if (relative !== SETTINGS_PATH) {
     return null;
   }
-  const after = text(tool === "Edit" ? input["new_string"] : input["content"]);
-  const was = tool === "Write" ? denyOf(previous) : undefined;
-  const now = tool === "Write" ? denyOf(after) : undefined;
+  const was = denyOf(previous);
+  const now = denyOf(after);
   const known = new Set(ctx.denyRules.flatMap((r) => [...r.patterns]));
   const kept = permissions(after);
   const removed =
