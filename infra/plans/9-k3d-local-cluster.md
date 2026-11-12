@@ -217,21 +217,22 @@ stops a tunnel only on Minikube, the persistence spec polls through an empty
 primary list, two unit specs no longer assume an unset opt-in or lock
 variable, the clean-machine status check judges platform components only).
 
-### Open items
+### Decisions and follow-ups
 
-- **k3s datastore under load:** kine (embedded SQLite) crashed twice with
-  `Transaction commit failed` during fresh installs while the host load was
-  100+ (one run with other sessions busy, one with a 186 load spike). Four
-  later fresh runs on a quieter host did not crash, so no etcd ADR is written;
-  embedded etcd (`--cluster-init`) remains the fallback if it recurs.
+- **k3s datastore stays SQLite (owner decision).** Known limit: kine (embedded
+  SQLite) crashed twice with `Transaction commit failed` during fresh installs
+  while the host load was above 100 (one run with other sessions busy, one with
+  a 186 load spike); four later fresh runs on a quieter host did not crash.
+  The documented fallback, if it recurs, is embedded etcd (`--cluster-init`),
+  recorded as an ADR at that point. `kore doctor` reports no host load or
+  memory for k3d, so this is documentation only.
 - **policy-controller probes:** the upstream chart (0.10.8) exposes no probe
-  settings and its webhook probes use a 1s timeout, so the controller can be
-  restarted under load and admission briefly has no endpoint. A fix needs a
-  post-renderer (#119's approach) and an owner decision.
-- **crd-ownership is degraded on k3d:** `addons.k3s.cattle.io`,
+  settings and its webhook probes use a 1s timeout, so under load the
+  controller can be restarted and admission briefly has no endpoint. Tracked in
+  #292 (post-renderer).
+- **crd-ownership on k3d:** `addons.k3s.cattle.io`,
   `etcdsnapshotfiles.k3s.cattle.io`, `helmchartconfigs.helm.cattle.io` and
-  `helmcharts.helm.cattle.io` ship with k3s and no catalog component owns them.
-  The row is audit-only. It needs an owner decision (a provider-owned CRD group
-  in the overlay, or an audit exemption).
+  `helmcharts.helm.cattle.io` ship with k3s and no catalog component owns them;
+  the row is audit-only. Tracked in #291 (provider-owned CRD groups).
 - **backups row** reports degraded on a fresh install with retained data and no
   export, by design; `kore data export` clears it.
