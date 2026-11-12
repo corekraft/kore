@@ -3,6 +3,7 @@ import {
   componentValues,
   componentVersion,
   expandVersions,
+  featureHelmArgs,
   noMatchPolicy,
   registryConsumers,
   registryHelmArgs,
@@ -41,6 +42,9 @@ function chartSelectionArgs(
   }
   if (registryConsumers.includes(component.name)) {
     args.push(...registryHelmArgs(repository.environment, component.name));
+  }
+  if (component.kind === "local-chart") {
+    args.push(...featureHelmArgs(repository.environment));
   }
   if (component.name === "policy-controller") {
     args.push(

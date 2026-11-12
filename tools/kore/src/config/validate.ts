@@ -1,8 +1,7 @@
-import { join } from "node:path";
-import { exists } from "./files.js";
 import { registryAddressErrors } from "./registry-address.js";
 import { policyErrors } from "./policy-validation.js";
 import { crdGroupErrors, crdNameFormatErrors } from "./crd-ownership.js";
+import { overlayErrors } from "./overlay-errors.js";
 import { imageListErrors } from "./approved.js";
 import { orderedComponents, readinessErrors } from "./order.js";
 import type {
@@ -198,38 +197,6 @@ function dependencyErrors(
   );
 }
 
-function unknownOverlayErrors(
-  environment: Environment,
-  names: Set<string>,
-): string[] {
-  return Object.keys(environment.componentValues ?? {})
-    .filter((componentName) => !names.has(componentName))
-    .map(
-      (componentName) =>
-        `unknown environment component values: ${componentName}`,
-    );
-}
-
-async function componentSourceErrors(
-  repository: Repository,
-  manifests: Set<string>,
-): Promise<string[]> {
-  const sources = Object.entries(repository.environment.componentSources ?? {});
-  const present = await Promise.all(
-    sources.map(([, path]) => exists(join(repository.root, path))),
-  );
-  return sources.flatMap(([component, path], index) => [
-    ...(manifests.has(component)
-      ? []
-      : [
-          `environment component source for a non-manifest component: ${component}`,
-        ]),
-    ...(present[index]
-      ? []
-      : [`${component}: environment source does not exist: ${path}`]),
-  ]);
-}
-
 function cycleErrors(catalog: Catalog): string[] {
   try {
     orderedComponents(catalog);
@@ -237,30 +204,6 @@ function cycleErrors(catalog: Catalog): string[] {
   } catch (error) {
     return [String(error instanceof Error ? error.message : error)];
   }
-}
-
-async function missingValueFileErrors(
-  repository: Repository,
-  component: Component,
-): Promise<string[]> {
-  const candidates = [
-    ...(component.values ?? []).map((path) => ({
-      path,
-      message: `${component.name}: values file does not exist: ${path}`,
-    })),
-    ...(repository.environment.componentValues?.[component.name] ?? []).map(
-      (path) => ({
-        path,
-        message: `${component.name}: environment values file does not exist: ${path}`,
-      }),
-    ),
-  ];
-  const present = await Promise.all(
-    candidates.map(({ path }) => exists(join(repository.root, path))),
-  );
-  return candidates
-    .filter((_, index) => !present[index])
-    .map(({ message }) => message);
 }
 
 export async function validateRepository(
@@ -282,25 +225,12 @@ export async function validateRepository(
       crdNameFormatErrors(component.name, component.ownsCRDs ?? []),
     ),
     ...dependencyErrors(components, names),
-    ...unknownOverlayErrors(environment, names),
-    ...(await componentSourceErrors(
-      repository,
-      new Set(
-        components.filter((c) => c.kind === "manifest").map((c) => c.name),
-      ),
-    )),
+    ...(await overlayErrors(repository)),
     ...cycleErrors(catalog),
     ...(await imageListErrors(repository)),
     ...(await policyErrors(repository)),
     ...readinessErrors(repository),
     ...registryAddressErrors(repository),
-    ...(
-      await Promise.all(
-        components.map((component) =>
-          missingValueFileErrors(repository, component),
-        ),
-      )
-    ).flat(),
   ];
   if (errors.length) {
     throw new Error([...new Set(errors)].sort().join("\n"));

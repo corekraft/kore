@@ -72,7 +72,7 @@ effect against the plan 8 baseline.
 
 ### Work
 
-- [ ] Add a schema-validated `features:` map to environment overlays, off by
+- [x] Add a schema-validated `features:` map to environment overlays, off by
       default, read by `kore` and chart values
       ([ADR 0077](../../docs/decisions/0077-live-proof-gates-activation-not-merge.md)).
 - [ ] Require recorded live proof before a flag turns on in an environment.
