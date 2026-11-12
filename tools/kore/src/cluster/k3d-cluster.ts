@@ -294,6 +294,25 @@ export async function clusterUpK3d(
   await assertExpectedK3dCluster(repository, runner);
 }
 
+/** Stops the configured k3d cluster; its volumes and data are kept. */
+export async function clusterStopK3d(
+  repository: Repository,
+  runner: Runner,
+): Promise<void> {
+  await assertExpectedK3dCluster(repository, runner);
+  const { clusterName } = k3dCluster(repository.environment);
+  await runK3d(runner, ["cluster", "stop", clusterName], { capture: false });
+}
+
+/** Deletes the configured k3d cluster. Callers apply the consent and data gates first. */
+export async function deleteK3dCluster(
+  repository: Repository,
+  runner: Runner,
+): Promise<void> {
+  const { clusterName } = k3dCluster(repository.environment);
+  await runK3d(runner, ["cluster", "delete", clusterName], { capture: false });
+}
+
 export async function clusterStatusK3d(
   repository: Repository,
   runner: Runner,

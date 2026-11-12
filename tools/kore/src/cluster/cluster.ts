@@ -6,7 +6,11 @@ import { hasVerifiedExport } from "./export-manifest.js";
 import {
   assertExpectedK3dCluster,
   clusterStatusK3d,
+  clusterStopK3d,
   clusterUpK3d,
+  deleteK3dCluster,
+  k3dCluster,
+  k3dContext,
 } from "./k3d-cluster.js";
 import { purgeRetainedResources, retainedResources } from "./retained.js";
 
@@ -171,8 +175,13 @@ export async function clusterStop(
   repository: Repository,
   runner: Runner,
 ): Promise<void> {
+  if (repository.environment.provider === "k3d") {
+    return await clusterStopK3d(repository, runner);
+  }
   if (repository.environment.provider !== "minikube") {
-    throw new Error("cluster stop is only available for Minikube environments");
+    throw new Error(
+      "cluster stop is only available for Minikube and k3d environments",
+    );
   }
   await assertExpectedCluster(repository, runner);
   await runner.run(
@@ -187,10 +196,20 @@ export async function clusterDestroy(
   runner: Runner,
   options: { yes: boolean; purgeData: boolean },
 ): Promise<void> {
-  if (repository.environment.provider !== "minikube") {
+  const { provider } = repository.environment;
+  if (provider !== "minikube" && provider !== "k3d") {
     throw new Error(
-      "cluster destroy is only available for Minikube environments",
+      "cluster destroy is only available for Minikube and k3d environments",
     );
+  }
+  if (provider === "k3d") {
+    // A wrong cluster/context pair is a config error, never "unverified data".
+    const { clusterName } = k3dCluster(repository.environment);
+    if (k3dContext(clusterName) !== repository.environment.kubeContext) {
+      throw new Error(
+        `refusing unexpected cluster/context pair: ${k3dContext(clusterName)} != ${repository.environment.kubeContext}; set environment.kubeContext to ${k3dContext(clusterName)}`,
+      );
+    }
   }
   let clusterVerified = true;
   try {
@@ -218,6 +237,9 @@ export async function clusterDestroy(
   }
   if (options.purgeData && clusterVerified) {
     await purgeRetainedResources(repository, runner);
+  }
+  if (provider === "k3d") {
+    return await deleteK3dCluster(repository, runner);
   }
   await runner.run(
     "minikube",
