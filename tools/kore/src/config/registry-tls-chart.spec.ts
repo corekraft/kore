@@ -26,6 +26,12 @@ test("the proxy serves TLS only: no listener answers plain HTTP", async () => {
   assert.doesNotMatch(conf, /error_page 497/, "no http-to-https redirect");
 });
 
+test("the proxy tells the registry the client scheme is https, so upload URLs a client follows are not plain HTTP", async () => {
+  const conf = await chart("templates/proxy-config.yaml");
+  assert.match(conf, /proxy_set_header\s+X-Forwarded-Proto\s+https;/);
+  assert.doesNotMatch(conf, /X-Forwarded-Proto\s+(\$scheme|http);/);
+});
+
 test("the serving certificate is issued by a kore-owned CA whose key stays in the cluster", async () => {
   const tls = await chart("templates/tls.yaml");
   assert.match(tls, /kind: Issuer[\s\S]*selfSigned/);
