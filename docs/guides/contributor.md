@@ -8,7 +8,12 @@ this page is the short path through them.
 ```sh
 mise install
 mise exec -- npm --prefix tools/kore install
+mise exec -- npm --prefix tools/harness ci
+mise run setup-merge-driver
 ```
+
+`setup-merge-driver` registers the `harness-bundle` git merge driver in your
+clone's `.git/config`; see [The harness bundle and merges](#the-harness-bundle-and-merges).
 
 ## The loop
 
@@ -75,6 +80,31 @@ worktree's tests (pid N)`. It waits up to 15 minutes
   needs the live run before the flag turns on (see Feature flags).
 - Upstream chart and container checks are opt-in too (`test:upstream-charts`,
   `test:container-smoke`).
+
+## The harness bundle and merges
+
+`skills/bin/harness.mjs` is generated from `tools/harness/src` and committed
+([ADR 0082](../decisions/0082-harness-package-bundled-for-skills.md)), so any
+two branches that change the harness both rewrite it and conflict on every
+merge. `.gitattributes` assigns the file the `harness-bundle` merge driver.
+After `mise run setup-merge-driver`, `git merge`, `git rebase` and
+`git cherry-pick` run `tools/harness/merge-driver.sh`, which merges the
+sources, rebuilds the bundle from the merged result and writes that as the
+result, so the bundle never needs a hand merge.
+
+Limits:
+
+- GitHub's server-side merge does not run custom drivers. A PR that conflicts
+  in the bundle on GitHub still needs `git fetch origin && git rebase origin/main`
+  locally; with the driver registered that rebase resolves the bundle by
+  itself. Then rerun the tests and `git push --force-with-lease`.
+- The driver needs `npm ci --prefix tools/harness`. When it cannot rebuild
+  (missing dependencies, conflicting harness sources, or an operation it
+  cannot identify such as `git revert` or `git stash pop`), it leaves the bundle
+  with ordinary conflict markers: resolve the sources, then run
+  `mise run harness-build`.
+- Without the driver registered the bundle conflicts as before; resolve it by
+  rebuilding, never by hand.
 
 ## Feature flags
 

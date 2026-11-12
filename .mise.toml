@@ -34,6 +34,10 @@ run = "npm --prefix tools/kore test && npm --prefix apps/reference test && npm -
 description = "Bundle the harness CLI into skills/bin/harness.mjs (committed; rerun after changing tools/harness/src)"
 run = "npm --prefix tools/harness run build"
 
+[tasks.setup-merge-driver]
+description = "Register the harness-bundle git merge driver in .git/config so merges and rebases rebuild skills/bin/harness.mjs instead of conflicting (run once per clone; needs `npm ci --prefix tools/harness`)"
+run = "git config --local merge.harness-bundle.name 'Rebuild skills/bin/harness.mjs from merged sources' && git config --local merge.harness-bundle.driver 'tools/harness/merge-driver.sh %O %A %B %P %Y'"
+
 [tasks.harness-test]
 description = "Run the harness unit tests with the coverage threshold"
 run = "npm --prefix tools/harness test"
