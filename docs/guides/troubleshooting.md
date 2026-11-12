@@ -25,6 +25,10 @@ shows the last mutations and any that were interrupted. Commands are written as
 | Secrets fail to sync                                           | The age identity is not found. Export `SOPS_AGE_KEY_FILE`; see [`infra/environments/local/secrets/README.md`](../../infra/environments/local/secrets/README.md).                                                                                        |
 | Registry authentication fails after a rotation was interrupted | Rerun `kore registry rotate-credentials --environment local --yes`; it resumes.                                                                                                                                                                         |
 
+## Minikube overlays lose host Gateway access
+
+No overlay in the repository uses Minikube since #146, and `kore tunnel` is gone. A Minikube overlay has no host access to the Gateway until plan 9 Step 6 (#157) retires Minikube. A `minikube tunnel` (or its `ssh -L` forward) left over from an earlier version must be stopped by hand, for example `pkill -f "minikube tunnel"`.
+
 ## When nothing else works
 
 Destroy the explicit local profile and start clean:
