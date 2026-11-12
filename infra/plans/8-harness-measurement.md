@@ -36,7 +36,7 @@ and uses it first to measure the delivery loop. Terms follow
       with no runtime dependencies. Commit the bundle.
 - [x] Add `mise run` tasks for the harness test, lint, format and build.
 - [x] Add a CI step that rebuilds the bundle and fails on any difference.
-- [ ] Wire the package into the commit hooks and the stop hook.
+- [x] Wire the package into the commit hooks and the stop hook.
 
 ### Exit Criteria
 
