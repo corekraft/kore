@@ -26,6 +26,13 @@ a component would give Kore ownership of something k3s reconciles.
   and validated offline: each key is an API group, each reason is non-blank, and a
   group a catalog component owns (by `ownsCRDs` or `ownsCRDGroups`) is rejected.
   Apps are unaffected.
+- Declarations are tied to the provider. Code keeps an allowlist of the groups
+  each provider ships (k3d: `k3s.cattle.io`, `helm.cattle.io`; minikube and
+  managed: none). Validation refuses any other group and tells the user to
+  claim it in a catalog component with `ownsCRDGroups` instead, so an overlay
+  cannot hand Kore-installed CRDs (for example `monitoring.coreos.com`) to a
+  provider that does not own them. A value that is not a map of group to reason
+  is refused too.
 - The local k3d overlay declares `k3s.cattle.io` and `helm.cattle.io`.
 - `crd-ownership` counts a CRD in a declared group as owned by the provider, not
   unowned. `--json` carries `crds.providerOwned`, and the ready detail says how

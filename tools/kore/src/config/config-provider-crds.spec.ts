@@ -50,24 +50,96 @@ test("a provider-owned group must carry a reason", async () => {
   );
 });
 
-test("a group a catalog component owns cannot also be provider-owned", async () => {
+test("a group named in a component's ownsCRDs cannot also be provider-owned", async () => {
   const base = await loadRepository("local");
-  const gatekeeper = base.catalog.components.find(
+  const component = base.catalog.components.find(
     (c) => c.name === "gatekeeper",
   )!;
-  const crd = gatekeeper.ownsCRDs[0]!;
-  const group = crd.slice(crd.indexOf(".") + 1);
+
+  await assert.rejects(
+    validateRepository({
+      ...base,
+      catalog: {
+        ...base.catalog,
+        components: base.catalog.components.map((c) =>
+          c === component
+            ? { ...c, ownsCRDs: [...c.ownsCRDs, "things.k3s.cattle.io"] }
+            : c,
+        ),
+      },
+    }),
+    /providerOwnedCRDGroups: k3s\.cattle\.io is also owned by gatekeeper/,
+  );
+});
+
+test("a group claimed through ownsCRDGroups is refused as an overlap", async () => {
+  const base = await loadRepository("local");
+
+  await assert.rejects(
+    validateRepository({
+      ...base,
+      catalog: {
+        ...base.catalog,
+        components: base.catalog.components.map((c) =>
+          c.name === "gatekeeper"
+            ? {
+                ...c,
+                ownsCRDGroups: [...(c.ownsCRDGroups ?? []), "helm.cattle.io"],
+              }
+            : c,
+        ),
+      },
+    }),
+    /providerOwnedCRDGroups: helm\.cattle\.io is also owned by gatekeeper/,
+  );
+});
+
+test("a k3d overlay may only declare the groups k3s ships, and is told to claim any other in a component", async () => {
+  const base = await loadRepository("local");
 
   await assert.rejects(
     validateRepository({
       ...base,
       environment: {
         ...base.environment,
-        providerOwnedCRDGroups: { [group]: "overlap" },
+        providerOwnedCRDGroups: {
+          ...base.environment.providerOwnedCRDGroups,
+          "monitoring.coreos.com": "widened",
+        },
       },
     }),
-    new RegExp(
-      `providerOwnedCRDGroups: ${group.replaceAll(".", "\\.")} is also owned by gatekeeper`,
-    ),
+    /providerOwnedCRDGroups: monitoring\.coreos\.com is not shipped by k3d; claim it in a catalog component with ownsCRDGroups instead/,
   );
+});
+
+test("a managed overlay declaring monitoring.coreos.com is refused", async () => {
+  const base = await loadRepository("managed-example");
+
+  await assert.rejects(
+    validateRepository({
+      ...base,
+      environment: {
+        ...base.environment,
+        providerOwnedCRDGroups: { "monitoring.coreos.com": "operator-owned" },
+      },
+    }),
+    /providerOwnedCRDGroups: monitoring\.coreos\.com is not shipped by managed; claim it in a catalog component with ownsCRDGroups instead/,
+  );
+});
+
+test("providerOwnedCRDGroups must be a map of API group to reason", async () => {
+  const base = await loadRepository("local");
+
+  for (const bad of [["k3s.cattle.io"], 3, "k3s.cattle.io"]) {
+    await assert.rejects(
+      validateRepository({
+        ...base,
+        environment: {
+          ...base.environment,
+          providerOwnedCRDGroups: bad as never,
+        },
+      }),
+      /environment\.providerOwnedCRDGroups must be a map of API group to reason/,
+    );
+  }
 });

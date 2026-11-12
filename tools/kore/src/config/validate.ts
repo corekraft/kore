@@ -82,6 +82,15 @@ const environmentRules: Rule<Environment>[] = [
       !["audit", "enforce"].includes(e.imageInventory),
   ),
   rule(
+    "environment.providerOwnedCRDGroups must be a map of API group to reason",
+    (e) => {
+      const groups: unknown = e.providerOwnedCRDGroups;
+      return (
+        groups !== undefined && (!isObject(groups) || Array.isArray(groups))
+      );
+    },
+  ),
+  rule(
     "environment.cluster.cpus must be at least 2",
     (e) => e.provider !== "k3d" && (e.cluster?.cpus ?? 0) < 2,
   ),
@@ -232,7 +241,11 @@ export async function validateRepository(
     ...duplicateErrors(components),
     ...crdOwnerErrors(components),
     ...crdGroupErrors(components),
-    ...providerCrdGroupErrors(environment.providerOwnedCRDGroups, components),
+    ...providerCrdGroupErrors(
+      environment.provider,
+      environment.providerOwnedCRDGroups,
+      components,
+    ),
     ...components.flatMap((component) =>
       crdNameFormatErrors(component.name, component.ownsCRDs ?? []),
     ),

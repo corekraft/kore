@@ -92,7 +92,10 @@
     },
     "providerOwnedCRDGroups": {
       "type": "object",
-      "description": "API groups whose CRDs the environment's provider ships (ADR 0088): group to reason. The CRD ownership status counts them as provider-owned; a catalog component may not also own the group.",
+      "description": "API groups whose CRDs the environment's provider ships (ADR 0088): group to reason. The CRD ownership status counts them as provider-owned; only groups the provider ships are allowed (k3d: k3s.cattle.io, helm.cattle.io), and a catalog component may not also own the group.",
+      "propertyNames": {
+        "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)+$"
+      },
       "additionalProperties": { "type": "string", "minLength": 1 }
     },
     "features": {

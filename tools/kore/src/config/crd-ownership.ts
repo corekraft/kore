@@ -148,20 +148,37 @@ export function providerOwnsCrd(
 }
 
 /**
+ * The CRD groups each provider ships itself (ADR 0088). Only these may be
+ * declared provider-owned; any other group belongs to a catalog component.
+ */
+export const providerShippedCrdGroups: Record<string, readonly string[]> = {
+  k3d: ["k3s.cattle.io", "helm.cattle.io"],
+  minikube: [],
+  managed: [],
+};
+
+/**
  * Problems with the environment's provider-owned groups: each must be an API
- * group with a reason, and none may also be owned by a catalog component, so
- * a resource keeps exactly one owner.
+ * group the provider ships, with a reason, and none may also be owned by a
+ * catalog component, so a resource keeps exactly one owner.
  */
 export function providerCrdGroupErrors(
+  provider: string,
   providerGroups: Record<string, string> | undefined,
   components: CrdClaims[],
 ): string[] {
+  const shipped = providerShippedCrdGroups[provider] ?? [];
   return Object.entries(providerGroups ?? {}).flatMap(([group, reason]) => {
     const prefix = `environment.providerOwnedCRDGroups: ${group}`;
     if (!isApiGroup(group)) {
       return [`${prefix} must be an API group such as widgets.example.com`];
     }
     const errors: string[] = [];
+    if (!shipped.includes(group)) {
+      errors.push(
+        `${prefix} is not shipped by ${provider}; claim it in a catalog component with ownsCRDGroups instead`,
+      );
+    }
     if (typeof reason !== "string" || reason.trim() === "") {
       errors.push(`${prefix} needs a reason`);
     }
