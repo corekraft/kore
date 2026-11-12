@@ -5,7 +5,7 @@ var CommandError = class extends Error {
 // src/runtime/clock.ts
 var systemClock = {
   now: () => /* @__PURE__ */ new Date(),
-  sleep: (ms) => new Promise((resolve6) => setTimeout(resolve6, ms))
+  sleep: (ms) => new Promise((resolve7) => setTimeout(resolve7, ms))
 };
 function localDate(date) {
   const two = (n) => String(n).padStart(2, "0");
@@ -57,14 +57,17 @@ var nodeFileSystem = {
   },
   readdir: (path) => readdir(path),
   remove: (path) => rm(path, { force: true }),
-  readlink: (path) => readlink(path)
+  readlink: (path) => readlink(path),
+  async mtimeMs(path) {
+    return (await stat(path)).mtimeMs;
+  }
 };
 
 // src/runtime/runner.ts
 import { spawn } from "node:child_process";
 var ProcessRunner = class {
   async run(command, args, options = {}) {
-    return await new Promise((resolve6) => {
+    return await new Promise((resolve7) => {
       const child = spawn(command, [...args], {
         ...options.cwd === void 0 ? {} : { cwd: options.cwd },
         stdio: [
@@ -82,10 +85,10 @@ var ProcessRunner = class {
         stderr2 += chunk.toString();
       });
       child.on("error", (error) => {
-        resolve6({ stdout, stderr: error.message, code: 127 });
+        resolve7({ stdout, stderr: error.message, code: 127 });
       });
       child.on("close", (code) => {
-        resolve6({ stdout, stderr: stderr2, code: code ?? 1 });
+        resolve7({ stdout, stderr: stderr2, code: code ?? 1 });
       });
       if (options.input !== void 0) {
         child.stdin?.end(options.input);
@@ -129,9 +132,9 @@ async function resolveRoot(env, moduleUrl, exists) {
     );
   }
   const bundle = fileURLToPath(moduleUrl);
-  const root3 = resolve2(dirname3(bundle), "../..");
-  if (await exists(join(root3, PLANS))) {
-    return root3;
+  const root2 = resolve2(dirname3(bundle), "../..");
+  if (await exists(join(root2, PLANS))) {
+    return root2;
   }
   throw new CommandError(
     `Cannot find the repo root: ${bundle} is not at <root>/skills/bin and CLAUDE_PROJECT_DIR is unset. Run the committed skills/bin/harness.mjs or set CLAUDE_PROJECT_DIR to the repository root.`
@@ -217,14 +220,14 @@ function headings(markdown) {
       fence = opener === fence ? null : fence ?? opener;
       continue;
     }
-    const text6 = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(line2)?.[1];
-    if (text6 === void 0) {
+    const text5 = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(line2)?.[1];
+    if (text5 === void 0) {
       continue;
     }
-    const base = headingSlug(text6);
+    const base = headingSlug(text5);
     const count2 = seen.get(base) ?? 0;
     seen.set(base, count2 + 1);
-    found.push({ text: text6, anchor: count2 > 0 ? `${base}-${count2}` : base });
+    found.push({ text: text5, anchor: count2 > 0 ? `${base}-${count2}` : base });
   }
   return found;
 }
@@ -233,10 +236,10 @@ function adrNumber(file) {
   return match?.[1] === void 0 ? null : Number(match[1]);
 }
 var Adrs = class {
-  constructor(fs, clock, root3) {
+  constructor(fs, clock, root2) {
     this.fs = fs;
     this.clock = clock;
-    this.root = root3;
+    this.root = root2;
   }
   fs;
   clock;
@@ -284,7 +287,7 @@ var Adrs = class {
       files: [
         {
           path,
-          lines: body.slice(0, -1).map((text6, i) => ({ number: i + 1, text: text6 }))
+          lines: body.slice(0, -1).map((text5, i) => ({ number: i + 1, text: text5 }))
         },
         { path: INDEX, lines: [{ number: index.line, text: entry }] }
       ]
@@ -302,27 +305,27 @@ var Adrs = class {
     return this.fs.readFile(this.abs(INDEX));
   }
   /** Puts the entry before the first later-numbered ADR line, else after the last one. */
-  insert(text6, next, entry) {
-    const lines2 = text6.split("\n");
-    const start = lines2.indexOf("## Decisions");
+  insert(text5, next, entry) {
+    const lines = text5.split("\n");
+    const start = lines.indexOf("## Decisions");
     if (start === -1) {
       throw new AdrError(
         `${INDEX} has no "## Decisions" heading; add it above the ADR entries.`
       );
     }
-    let end = lines2.findIndex((l, i) => i > start && l.startsWith("## "));
+    let end = lines.findIndex((l, i) => i > start && l.startsWith("## "));
     if (end === -1) {
-      end = lines2.length;
+      end = lines.length;
     }
-    const at = this.position(lines2, start, end, next);
-    lines2.splice(at, 0, entry);
-    return { text: lines2.join("\n"), line: at + 1 };
+    const at = this.position(lines, start, end, next);
+    lines.splice(at, 0, entry);
+    return { text: lines.join("\n"), line: at + 1 };
   }
   /** Index of the line to insert at: before the first later ADR entry, else after the last. */
-  position(lines2, start, end, next) {
+  position(lines, start, end, next) {
     let last = -1;
     for (let i = start + 1; i < end; i++) {
-      const n = /\]\(decisions\/(\d{4})-/.exec(lines2[i] ?? "")?.[1];
+      const n = /\]\(decisions\/(\d{4})-/.exec(lines[i] ?? "")?.[1];
       if (n === void 0) {
         continue;
       }
@@ -335,7 +338,7 @@ var Adrs = class {
       return last + 1;
     }
     let tail = end - 1;
-    while (tail > start && lines2[tail] === "") {
+    while (tail > start && lines[tail] === "") {
       tail--;
     }
     return tail + 1;
@@ -388,18 +391,18 @@ function parseNumber(flag, value) {
   }
   return value.padStart(4, "0");
 }
-function frontmatterLine(lines2, key) {
-  if (lines2[0] !== "---") {
+function frontmatterLine(lines, key) {
+  if (lines[0] !== "---") {
     return -1;
   }
-  const close3 = lines2.indexOf("---", 1);
-  const end = close3 === -1 ? lines2.length : close3;
-  return lines2.findIndex((l, i) => i > 0 && i < end && l.startsWith(`${key}:`));
+  const close3 = lines.indexOf("---", 1);
+  const end = close3 === -1 ? lines.length : close3;
+  return lines.findIndex((l, i) => i > 0 && i < end && l.startsWith(`${key}:`));
 }
 var Supersession = class {
-  constructor(fs, root3) {
+  constructor(fs, root2) {
     this.fs = fs;
-    this.root = root3;
+    this.root = root2;
   }
   fs;
   root;
@@ -428,13 +431,13 @@ var Supersession = class {
       );
     }
     const changed = ["status: superseded", `superseded-by: ${newAdr2.path}`];
-    const lines2 = [
+    const lines = [
       ...oldAdr.lines.slice(0, oldAdr.statusLine),
       ...changed,
       ...oldAdr.lines.slice(oldAdr.statusLine + 1)
     ];
     if (!dryRun) {
-      await this.fs.writeFile(this.abs(oldAdr.path), lines2.join("\n"));
+      await this.fs.writeFile(this.abs(oldAdr.path), lines.join("\n"));
     }
     return {
       dryRun,
@@ -443,9 +446,9 @@ var Supersession = class {
       files: [
         {
           path: oldAdr.path,
-          lines: changed.map((text6, i) => ({
+          lines: changed.map((text5, i) => ({
             number: oldAdr.statusLine + 1 + i,
-            text: text6
+            text: text5
           }))
         }
       ]
@@ -479,14 +482,14 @@ var Supersession = class {
       );
     }
     const path = `${DECISIONS}/${file}`;
-    const lines2 = (await this.fs.readFile(this.abs(path))).split("\n");
-    const statusLine = frontmatterLine(lines2, "status");
+    const lines = (await this.fs.readFile(this.abs(path))).split("\n");
+    const statusLine = frontmatterLine(lines, "status");
     if (statusLine === -1) {
       throw new AdrError(
         `${path} has no frontmatter status; add a "status:" line before superseding it.`
       );
     }
-    return { path, lines: lines2, statusLine };
+    return { path, lines, statusLine };
   }
   abs(path) {
     return `${this.root}/${path}`;
@@ -544,8 +547,8 @@ var newAdr = {
       (key) => requiredFlag(options, key, "text")
     );
     const refines = typeof options["refines"] === "string" ? options["refines"].trim() : void 0;
-    const root3 = await repoRoot(deps);
-    const report2 = await new Adrs(deps.fs, deps.clock, root3).create(
+    const root2 = await repoRoot(deps);
+    const report2 = await new Adrs(deps.fs, deps.clock, root2).create(
       { title, summary, status, source, ...refines ? { refines } : {} },
       options["dry-run"] === true
     );
@@ -558,8 +561,8 @@ var supersede = {
   summary: "mark an ADR superseded by another (--old N --new M [--dry-run])",
   options: { old: "string", new: "string", "dry-run": "boolean" },
   run: ({ json, options, deps }) => withAdrErrors(json, deps, async () => {
-    const root3 = await repoRoot(deps);
-    const report2 = await new Supersession(deps.fs, root3).supersede(
+    const root2 = await repoRoot(deps);
+    const report2 = await new Supersession(deps.fs, root2).supersede(
       requiredFlag(options, "old", "number"),
       requiredFlag(options, "new", "number"),
       options["dry-run"] === true
@@ -1156,8 +1159,7 @@ var KINDS = [
   "issue.closed",
   "pr.opened",
   "pr.merged",
-  "outcome",
-  "flag.activated"
+  "outcome"
 ];
 var OUTCOMES = ["success", "failure"];
 var TOOL_KINDS = ["tool.start", "tool.end"];
@@ -1237,7 +1239,7 @@ var RULES = [
     field: "label",
     check: isText(LABEL),
     hint: "must be 1-100 characters with no control characters",
-    kinds: ["issue.labelled", "outcome", "flag.activated"]
+    kinds: ["issue.labelled", "outcome"]
   },
   {
     field: "number",
@@ -1314,8 +1316,8 @@ function parseEvent(input, mode) {
 // src/ledger/github-poll.ts
 var LIMIT = 1e3;
 var describe2 = (code, stdout, stderr2) => {
-  const text6 = `${stderr2}${stdout}`.trim();
-  return text6 === "" ? `exit code ${code}` : `exit code ${code}: ${text6}`;
+  const text5 = `${stderr2}${stdout}`.trim();
+  return text5 === "" ? `exit code ${code}` : `exit code ${code}: ${text5}`;
 };
 var RATE_LIMITED = /rate limit|HTTP 403|HTTP 429/i;
 async function resetTime(gh) {
@@ -1509,8 +1511,8 @@ var STATUS_KIND = {
   done: "pane.waiting"
 };
 function describe3(code, stdout, stderr2) {
-  const text6 = `${stderr2}${stdout}`.trim();
-  return text6 === "" ? `exit code ${code}` : `exit code ${code}: ${text6}`;
+  const text5 = `${stderr2}${stdout}`.trim();
+  return text5 === "" ? `exit code ${code}` : `exit code ${code}: ${text5}`;
 }
 function toSeen(entry) {
   if (typeof entry !== "object" || entry === null) {
@@ -1655,10 +1657,10 @@ var Ledger = class {
     return { ok: true, event };
   }
   async list(filter) {
-    const text6 = await this.read();
+    const text5 = await this.read();
     const events = [];
     let skipped = 0;
-    for (const line2 of text6.split("\n")) {
+    for (const line2 of text5.split("\n")) {
       if (line2 === "") {
         continue;
       }
@@ -1749,15 +1751,15 @@ async function eventInput(context) {
       )
     };
   }
-  const text6 = await context.deps.stdin();
-  if (text6.trim() === "") {
+  const text5 = await context.deps.stdin();
+  if (text5.trim() === "") {
     return {
       error: "No event given. Pass --source, --kind and --occurred-at, or one JSON event on stdin.",
       code: 2
     };
   }
   try {
-    return { input: JSON.parse(text6) };
+    return { input: JSON.parse(text5) };
   } catch {
     return { error: "Invalid event: stdin is not valid JSON." };
   }
@@ -1796,17 +1798,17 @@ var record = {
 };
 function filterFrom(options) {
   const filter = {};
-  const text6 = (name) => {
+  const text5 = (name) => {
     const value = options[name];
     return typeof value === "string" ? value : void 0;
   };
   for (const name of ["session", "pane", "idea"]) {
-    const value = text6(name);
+    const value = text5(name);
     if (value !== void 0) {
       filter[name] = value;
     }
   }
-  const source = text6("source");
+  const source = text5("source");
   if (source !== void 0) {
     if (!SOURCES.includes(source)) {
       return {
@@ -1815,7 +1817,7 @@ function filterFrom(options) {
     }
     filter.source = source;
   }
-  const kind = text6("kind");
+  const kind = text5("kind");
   if (kind !== void 0) {
     if (!KINDS.includes(kind)) {
       return { error: `Invalid --kind "${kind}". Kinds: ${KINDS.join(", ")}.` };
@@ -1823,7 +1825,7 @@ function filterFrom(options) {
     filter.kind = kind;
   }
   for (const name of ["since", "until"]) {
-    const value = text6(name);
+    const value = text5(name);
     if (value !== void 0) {
       if (!isTimestamp(value)) {
         return {
@@ -2058,7 +2060,7 @@ function text(report2) {
       `toil start ${seconds(s.toil.startingSeconds)} stop ${seconds(s.toil.stoppingSeconds)} wait ${seconds(s.toil.waitingSeconds)} retry ${seconds(s.toil.retryingSeconds)}`
     ].join(" ")
   );
-  const lines2 = [
+  const lines = [
     `Flow report as of ${report2.asOf}: ${report2.ideas.completed} of ${report2.ideas.total} ideas completed`,
     scopeLine(report2.scope),
     ...rows,
@@ -2067,9 +2069,9 @@ function text(report2) {
     report2.bottleneck === null ? report2.bottleneckNote ?? "No bottleneck." : `Bottleneck: ${report2.bottleneck.stage} (${Math.round(report2.bottleneck.share * 100)}% of waiting)`
   ];
   if (report2.skippedLines > 0) {
-    lines2.push(`skipped ${report2.skippedLines} malformed ledger line(s)`);
+    lines.push(`skipped ${report2.skippedLines} malformed ledger line(s)`);
   }
-  return `${lines2.join("\n")}
+  return `${lines.join("\n")}
 `;
 }
 var report = {
@@ -2137,13 +2139,13 @@ var REQUIRED2 = [
   ["safety-pattern", "safetyPattern"],
   ["date", "date"]
 ];
-function frontmatter(text6) {
-  const lines2 = text6.split("\n");
-  if (lines2[0] !== "---") {
+function frontmatter(text5) {
+  const lines = text5.split("\n");
+  if (lines[0] !== "---") {
     return null;
   }
   const keys = /* @__PURE__ */ new Map();
-  for (const line2 of lines2.slice(1)) {
+  for (const line2 of lines.slice(1)) {
     if (line2 === "---") {
       return keys;
     }
@@ -2154,7 +2156,7 @@ function frontmatter(text6) {
   }
   return null;
 }
-function parseIdea(path, text6) {
+function parseIdea(path, text5) {
   const file = path.slice(path.lastIndexOf("/") + 1);
   const name = IDEA_FILE.exec(file);
   if (name?.[1] === void 0 || name[2] === void 0) {
@@ -2162,7 +2164,7 @@ function parseIdea(path, text6) {
       `${path} is not named NNNN-slug.md; rename it to a four-digit number and a lowercase slug.`
     );
   }
-  const keys = frontmatter(text6);
+  const keys = frontmatter(text5);
   if (keys === null) {
     throw new IdeaError(
       `${path} has no frontmatter; start it with --- and the idea fields (see \`harness idea new --help\`).`
@@ -2175,7 +2177,7 @@ function parseIdea(path, text6) {
     );
   }
   const get = (key) => keys.get(key) ?? "";
-  const heading = /^# Idea \d{4}: (.+)$/m.exec(text6)?.[1];
+  const heading = /^# Idea \d{4}: (.+)$/m.exec(text5)?.[1];
   const record3 = {
     number: name[1],
     slug: name[2],
@@ -2196,19 +2198,19 @@ function parseIdea(path, text6) {
   return record3;
 }
 function scalar(flag, value) {
-  const text6 = (value ?? "").replace(/\s+/g, " ").trim();
-  if (text6 === "") {
+  const text5 = (value ?? "").replace(/\s+/g, " ").trim();
+  if (text5 === "") {
     throw new IdeaError(`Missing --${flag}; pass a non-empty value.`);
   }
-  if (/^[[{|>&*!-]/.test(text6)) {
+  if (/^[[{|>&*!-]/.test(text5)) {
     throw new IdeaError(
-      `--${flag} must not start with "${text6.slice(0, 1)}"; frontmatter holds plain text, so reword it.`
+      `--${flag} must not start with "${text5.slice(0, 1)}"; frontmatter holds plain text, so reword it.`
     );
   }
-  return text6;
+  return text5;
 }
 function renderIdea(number, date, idea) {
-  const lines2 = [
+  const lines = [
     "---",
     `summary: ${idea.summary}`,
     `hypothesis: ${idea.hypothesis}`,
@@ -2218,59 +2220,59 @@ function renderIdea(number, date, idea) {
     `date: ${date}`
   ];
   if (idea.issue !== void 0) {
-    lines2.push(`issue: ${idea.issue}`);
+    lines.push(`issue: ${idea.issue}`);
   }
   if (idea.parent !== void 0) {
-    lines2.push(`parent: ${idea.parent}`);
+    lines.push(`parent: ${idea.parent}`);
   }
-  lines2.push("---", "", `# Idea ${number}: ${idea.title}`, "");
-  return lines2.join("\n");
+  lines.push("---", "", `# Idea ${number}: ${idea.title}`, "");
+  return lines.join("\n");
 }
-function withIssue(text6, issue) {
-  const lines2 = text6.split("\n");
-  const end = lines2.indexOf("---", 1);
-  if (lines2[0] !== "---" || end === -1) {
+function withIssue(text5, issue) {
+  const lines = text5.split("\n");
+  const end = lines.indexOf("---", 1);
+  if (lines[0] !== "---" || end === -1) {
     throw new IdeaError("The idea has no frontmatter to record the issue in.");
   }
-  const at = lines2.findIndex(
+  const at = lines.findIndex(
     (l, i) => i > 0 && i < end && l.startsWith("issue:")
   );
   if (at === -1) {
-    lines2.splice(end, 0, `issue: ${issue}`);
+    lines.splice(end, 0, `issue: ${issue}`);
   } else {
-    lines2[at] = `issue: ${issue}`;
+    lines[at] = `issue: ${issue}`;
   }
-  return lines2.join("\n");
+  return lines.join("\n");
 }
 var OUTCOME_HEADING = "## Outcome";
-function outcomeRange(lines2) {
-  const start = lines2.findIndex((l) => l.trimEnd() === OUTCOME_HEADING);
+function outcomeRange(lines) {
+  const start = lines.findIndex((l) => l.trimEnd() === OUTCOME_HEADING);
   if (start === -1) {
     return void 0;
   }
-  const end = lines2.findIndex((l, i) => i > start && /^#{1,2} /.test(l));
-  return [start, end === -1 ? lines2.length : end];
+  const end = lines.findIndex((l, i) => i > start && /^#{1,2} /.test(l));
+  return [start, end === -1 ? lines.length : end];
 }
-function outcomeSection(text6) {
-  const lines2 = text6.split("\n");
-  const range = outcomeRange(lines2);
-  return range === void 0 ? void 0 : lines2.slice(...range).join("\n").replace(/\r/g, "").trim();
+function outcomeSection(text5) {
+  const lines = text5.split("\n");
+  const range = outcomeRange(lines);
+  return range === void 0 ? void 0 : lines.slice(...range).join("\n").replace(/\r/g, "").trim();
 }
-function withoutOutcome(text6) {
-  const lines2 = text6.split("\n");
-  const range = outcomeRange(lines2);
-  return range === void 0 ? text6 : [...lines2.slice(0, range[0]), ...lines2.slice(range[1])].join("\n").trimEnd();
+function withoutOutcome(text5) {
+  const lines = text5.split("\n");
+  const range = outcomeRange(lines);
+  return range === void 0 ? text5 : [...lines.slice(0, range[0]), ...lines.slice(range[1])].join("\n").trimEnd();
 }
-function withOutcome(text6, result, section) {
-  const lines2 = text6.split("\n");
-  const end = lines2.indexOf("---", 1);
-  if (lines2[0] !== "---" || end === -1) {
+function withOutcome(text5, result, section) {
+  const lines = text5.split("\n");
+  const end = lines.indexOf("---", 1);
+  if (lines[0] !== "---" || end === -1) {
     throw new IdeaError(
       "The idea has no frontmatter to record the outcome in."
     );
   }
-  lines2.splice(end, 0, `outcome: ${result}`);
-  return `${lines2.join("\n").trimEnd()}
+  lines.splice(end, 0, `outcome: ${result}`);
+  return `${lines.join("\n").trimEnd()}
 
 ${section.trim()}
 `;
@@ -2283,10 +2285,10 @@ var ATTEMPTS = 3;
 var HEADING = "## Ideas";
 var NEXT_SECTION = "## Operations and Guides";
 var IdeaRepository = class {
-  constructor(fs, clock, root3) {
+  constructor(fs, clock, root2) {
     this.fs = fs;
     this.clock = clock;
-    this.root = root3;
+    this.root = root2;
   }
   fs;
   clock;
@@ -2335,20 +2337,20 @@ var IdeaRepository = class {
       const taken = names3.map((n) => Number(n.slice(0, 4)));
       const number = String(Math.max(0, ...taken) + 1).padStart(4, "0");
       const path = `${DIR}/${number}-${slug}.md`;
-      const text6 = renderIdea(
+      const text5 = renderIdea(
         number,
         this.clock.now().toISOString().slice(0, 10),
         idea
       );
       try {
-        await this.fs.createFile(this.abs(path), text6);
+        await this.fs.createFile(this.abs(path), text5);
       } catch (error) {
         if (error.code === "EEXIST") {
           continue;
         }
         throw error;
       }
-      const record3 = parseIdea(path, text6);
+      const record3 = parseIdea(path, text5);
       await this.ensureIndexed(record3);
       return { created: true, record: record3 };
     }
@@ -2397,39 +2399,39 @@ var IdeaRepository = class {
 };
 function addEntry(index, path, summary) {
   const entry = `- [\`${path}\`](${path.replace(/^docs\//, "")}) \u2014 ${summary}`;
-  const lines2 = index.split("\n");
-  const start = lines2.indexOf(HEADING);
+  const lines = index.split("\n");
+  const start = lines.indexOf(HEADING);
   if (start === -1) {
-    const next = lines2.indexOf(NEXT_SECTION);
-    const at = next === -1 ? lines2.length : next;
+    const next = lines.indexOf(NEXT_SECTION);
+    const at = next === -1 ? lines.length : next;
     const block = [HEADING, "", entry, ""];
-    if (next === -1 && lines2.at(-1) === "") {
-      lines2.splice(lines2.length - 1, 0, "", ...block.slice(0, -1));
+    if (next === -1 && lines.at(-1) === "") {
+      lines.splice(lines.length - 1, 0, "", ...block.slice(0, -1));
     } else {
-      lines2.splice(at, 0, ...block);
+      lines.splice(at, 0, ...block);
     }
-    return lines2.join("\n");
+    return lines.join("\n");
   }
-  let end = lines2.findIndex((l, i) => i > start && l.startsWith("## "));
+  let end = lines.findIndex((l, i) => i > start && l.startsWith("## "));
   if (end === -1) {
-    end = lines2.length;
+    end = lines.length;
   }
-  while (end > start + 1 && lines2[end - 1] === "") {
+  while (end > start + 1 && lines[end - 1] === "") {
     end--;
   }
-  lines2.splice(end, 0, entry);
-  return lines2.join("\n");
+  lines.splice(end, 0, entry);
+  return lines.join("\n");
 }
 
 // src/idea/sync.ts
 var NOT_FOUND = /could not resolve to an issue|issue .*not found|no issue/i;
 var ISSUE_URL = /https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/issues\/(\d+)/;
-function prose(text6) {
-  const lines2 = withoutOutcome(text6).split("\n");
-  const at = lines2.findIndex((l) => /^# Idea \d{4}: /.test(l));
-  return (at === -1 ? "" : lines2.slice(at + 1).join("\n")).trim();
+function prose(text5) {
+  const lines = withoutOutcome(text5).split("\n");
+  const at = lines.findIndex((l) => /^# Idea \d{4}: /.test(l));
+  return (at === -1 ? "" : lines.slice(at + 1).join("\n")).trim();
 }
-function renderBody(record3, text6) {
+function renderBody(record3, text5) {
   const sections = [
     `<!-- Generated by \`harness idea sync\` from ${record3.path}. Edit that file; changes made here are overwritten. -->`,
     `## Summary
@@ -2448,7 +2450,7 @@ ${record3.measurement}`,
 
 ${record3.safetyPattern}`
   ];
-  const extra = prose(text6);
+  const extra = prose(text5);
   if (extra !== "") {
     sections.push(extra);
   }
@@ -2527,10 +2529,10 @@ async function reconcile(gh, record3, body, at) {
   }
   return { action: "updated", issue };
 }
-async function syncIssue(runner, root3, record3, text6, recordLink) {
-  const body = renderBody(record3, text6);
+async function syncIssue(runner, root2, record3, text5, recordLink) {
+  const body = renderBody(record3, text5);
   const gh = async (args, input) => await runner.run("gh", args, {
-    cwd: root3,
+    cwd: root2,
     ...input === void 0 ? {} : { input }
   });
   const at = record3.issue === void 0 ? void 0 : locate(record3.issue);
@@ -2588,7 +2590,7 @@ function parseView(stdout, issue) {
     );
   }
 }
-async function issueTarget(runner, root3, record3) {
+async function issueTarget(runner, root2, record3) {
   if (record3.issue === void 0) {
     throw new IdeaError(
       `${record3.path} has no issue; run \`harness idea sync --idea ${record3.number}\` to create and link it first.`
@@ -2601,7 +2603,7 @@ async function issueTarget(runner, root3, record3) {
     );
   }
   const gh = async (args, input) => await runner.run("gh", args, {
-    cwd: root3,
+    cwd: root2,
     ...input === void 0 ? {} : { input }
   });
   return { number: at.number, repo: await resolveRepo(gh, at.repo) };
@@ -2611,10 +2613,10 @@ async function issueTarget(runner, root3, record3) {
 var FAILED = 1;
 var SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 async function repository({ deps }) {
-  const root3 = await deps.root().catch((cause) => {
+  const root2 = await deps.root().catch((cause) => {
     throw new IdeaError(cause instanceof Error ? cause.message : String(cause));
   });
-  return new IdeaRepository(deps.fs, deps.clock, root3);
+  return new IdeaRepository(deps.fs, deps.clock, root2);
 }
 async function guarded({ json, deps }, action) {
   try {
@@ -2639,7 +2641,7 @@ function slugOf(title) {
   return title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60).replace(/-+$/, "");
 }
 function describe4(record3) {
-  const lines2 = [
+  const lines = [
     `Idea ${record3.number}: ${record3.title}`,
     `Date: ${record3.date}`,
     `Summary: ${record3.summary}`,
@@ -2654,11 +2656,11 @@ function describe4(record3) {
     ["Parent", record3.parent]
   ]) {
     if (value !== void 0) {
-      lines2.push(`${label}: ${value}`);
+      lines.push(`${label}: ${value}`);
     }
   }
-  lines2.push(`File: ${record3.path}`);
-  return `${lines2.join("\n")}
+  lines.push(`File: ${record3.path}`);
+  return `${lines.join("\n")}
 `;
 }
 function parseNewIdea(options) {
@@ -2780,281 +2782,6 @@ var ideaCommands = {
   sync
 };
 
-// src/flag/overlay.ts
-var ENVIRONMENTS = "infra/environments";
-var FlagError = class extends Error {
-};
-function parse(path, text6) {
-  try {
-    const value = JSON.parse(text6);
-    if (typeof value === "object" && value !== null && !Array.isArray(value)) {
-      return value;
-    }
-  } catch {
-  }
-  throw new FlagError(
-    `${path} is not a JSON object; environment overlays stay JSON-compatible YAML. Fix the syntax, then rerun.`
-  );
-}
-function notADirectory(error) {
-  if (error.code === "ENOTDIR") {
-    return false;
-  }
-  throw error;
-}
-async function environments(fs, root3) {
-  const names3 = await fs.readdir(`${root3}/${ENVIRONMENTS}`).catch((error) => {
-    if (error.code === "ENOENT") {
-      return [];
-    }
-    throw new FlagError(
-      `Cannot read ${ENVIRONMENTS} (${error instanceof Error ? error.message : String(error)}); fix its permissions, then rerun.`
-    );
-  });
-  const found = [];
-  for (const name of [...names3].sort()) {
-    const overlay = `${root3}/${ENVIRONMENTS}/${name}/environment.yaml`;
-    if (await fs.exists(overlay).catch(notADirectory)) {
-      found.push(name);
-    }
-  }
-  return found;
-}
-async function readOverlay(fs, root3, environment) {
-  const path = `${ENVIRONMENTS}/${environment}/environment.yaml`;
-  if (!(await environments(fs, root3)).includes(environment)) {
-    throw new FlagError(
-      `No environment "${environment}" has an overlay at ${path}. Environments: ${(await environments(fs, root3)).join(", ") || "none"}.`
-    );
-  }
-  const text6 = await fs.readFile(`${root3}/${path}`);
-  const features = parse(path, text6)["features"] ?? {};
-  const valid = typeof features === "object" && features !== null && Object.values(features).every((v) => typeof v === "boolean");
-  if (!valid) {
-    throw new FlagError(
-      `${path} has a features map that is not flag name to boolean (ADR 0077). Fix it, then rerun.`
-    );
-  }
-  return {
-    environment,
-    path,
-    text: text6,
-    features
-  };
-}
-function featuresSpan(text6) {
-  const key = /["']?features["']?\s*:\s*\{/.exec(text6);
-  if (key === null) {
-    return void 0;
-  }
-  const open = key.index + key[0].length - 1;
-  let depth = 0;
-  for (let i = open; i < text6.length; i++) {
-    if (text6[i] === "{") {
-      depth += 1;
-    } else if (text6[i] === "}") {
-      depth -= 1;
-    }
-    if (depth === 0) {
-      return [open, i + 1];
-    }
-  }
-  return void 0;
-}
-var FALSE_ENTRY = /(["']?)([a-z][a-z0-9-]*)\1(\s*:\s*)false\b/g;
-function withFlagOn(overlay, flag) {
-  const span = featuresSpan(overlay.text);
-  const block = span === void 0 ? "" : overlay.text.slice(...span);
-  const entry = [...block.matchAll(FALSE_ENTRY)].find((m) => m[2] === flag);
-  if (span === void 0 || entry === void 0) {
-    throw new FlagError(
-      `${overlay.path} does not write ${flag} as false inside its features map, so the tool cannot edit it safely. Set it to false by hand, then rerun.`
-    );
-  }
-  const end = span[0] + entry.index + entry[0].length;
-  const text6 = `${overlay.text.slice(0, end - "false".length)}true${overlay.text.slice(end)}`;
-  parse(overlay.path, text6);
-  return text6;
-}
-
-// src/flag/proof.ts
-function fieldBlock(section) {
-  const body = section.split("\n").slice(1);
-  const start = body.findIndex((line2) => line2.trim() !== "");
-  const rest = start === -1 ? [] : body.slice(start);
-  const end = rest.findIndex((line2) => line2.trim() === "");
-  return end === -1 ? rest : rest.slice(0, end);
-}
-function lines(section) {
-  const found = /* @__PURE__ */ new Map();
-  for (const line2 of fieldBlock(section)) {
-    const match = /^- ([A-Za-z]+): (.*)$/.exec(line2);
-    if (match?.[1] !== void 0 && !found.has(match[1])) {
-      found.set(match[1], (match[2] ?? "").trim());
-    }
-  }
-  return found;
-}
-async function findProof(repo, flag, environment) {
-  for (const record3 of await repo.list()) {
-    const section = outcomeSection(await repo.source(record3));
-    if (section === void 0) {
-      continue;
-    }
-    const fields = lines(section);
-    if (fields.get("Result") === "confirmed" && fields.get("Kind") === "verification" && fields.get("Source") === "live-run" && fields.get("Flag") === flag && fields.get("Environment") === environment) {
-      return { idea: record3.number, path: record3.path };
-    }
-  }
-  return void 0;
-}
-
-// src/cli/flag-commands.ts
-var FAILED2 = 1;
-function text3(options, key) {
-  const value = options[key];
-  return typeof value === "string" && value.trim() !== "" ? value.trim() : void 0;
-}
-async function guarded2({ json, deps }, action) {
-  try {
-    return await action();
-  } catch (error) {
-    if (!(error instanceof FlagError)) {
-      throw error;
-    }
-    const prefix = json ? `${JSON.stringify({ error: error.message })}
-` : "";
-    deps.stderr(`${prefix}${error.message}
-`);
-    return FAILED2;
-  }
-}
-async function root(context) {
-  return await context.deps.root().catch((cause) => {
-    throw new FlagError(cause instanceof Error ? cause.message : String(cause));
-  });
-}
-async function recordActivation(ledger, { deps }, flag, environment, idea) {
-  const event = await ledger.record({
-    source: "claude",
-    kind: "flag.activated",
-    occurredAt: deps.clock.now().toISOString(),
-    idea,
-    label: `${flag}@${environment}`
-  });
-  if (!event.ok) {
-    throw new FlagError(
-      `${flag} is on in ${environment}, but its ledger event was rejected: ${event.message} Fix the ledger, then rerun \`harness flag activate ${flag} --environment ${environment}\` to record it.`
-    );
-  }
-}
-function activationTarget(context) {
-  const flag = context.operand;
-  if (flag === void 0) {
-    throw new FlagError(
-      "Missing flag name; run `harness flag activate <flag> --environment <env>`."
-    );
-  }
-  const environment = text3(context.options, "environment");
-  if (environment === void 0) {
-    throw new FlagError(
-      "Missing --environment; run `harness flag activate <flag> --environment <env>`."
-    );
-  }
-  return { flag, environment };
-}
-async function activateFlag(context) {
-  const { deps, json } = context;
-  const { flag, environment } = activationTarget(context);
-  const base = await root(context);
-  const overlay = await readOverlay(deps.fs, base, environment);
-  if (!Object.hasOwn(overlay.features, flag)) {
-    throw new FlagError(
-      `${overlay.path} does not declare flag "${flag}". Declared: ${Object.keys(overlay.features).join(", ") || "none"}. Declare it as false first.`
-    );
-  }
-  const proof = await findProof(
-    new IdeaRepository(deps.fs, deps.clock, base),
-    flag,
-    environment
-  );
-  if (proof === void 0) {
-    throw new FlagError(
-      `No verification outcome records a live run of ${flag} in ${environment}, so ${overlay.path} is unchanged. Prove it live, then run \`harness outcome record --idea <number> --kind verification --source live-run --result confirmed --flag ${flag} --environment ${environment} --evidence <run> --summary <text>\`.`
-    );
-  }
-  const opened = await openLedger(context);
-  if ("error" in opened) {
-    throw new FlagError(opened.error);
-  }
-  const label = `${flag}@${environment}`;
-  const logged = await opened.ledger.list({ kind: "flag.activated" });
-  const recorded = logged.events.some((e) => e.label === label);
-  const turningOn = overlay.features[flag] !== true;
-  if (turningOn) {
-    await deps.fs.writeFile(
-      `${base}/${overlay.path}`,
-      withFlagOn(overlay, flag)
-    );
-  }
-  if (turningOn || !recorded) {
-    await recordActivation(
-      opened.ledger,
-      context,
-      flag,
-      environment,
-      proof.idea
-    );
-  }
-  deps.stdout(
-    json ? `${JSON.stringify({ flag, environment, idea: proof.idea, proof: proof.path })}
-` : `Flag ${flag} is on in ${environment}; proof: ${proof.path}
-`
-  );
-  return 0;
-}
-async function auditFlags(context) {
-  const { deps, json } = context;
-  const base = await root(context);
-  const repo = new IdeaRepository(deps.fs, deps.clock, base);
-  const unproven = [];
-  for (const environment of await environments(deps.fs, base)) {
-    const overlay = await readOverlay(deps.fs, base, environment);
-    for (const [flag, on] of Object.entries(overlay.features)) {
-      if (on && await findProof(repo, flag, environment) === void 0) {
-        unproven.push({ flag, environment, path: overlay.path });
-      }
-    }
-  }
-  if (unproven.length === 0) {
-    deps.stdout(
-      json ? `${JSON.stringify({ unproven })}
-` : "Flag audit passed: no flag is on without proof.\n"
-    );
-    return 0;
-  }
-  const lines2 = unproven.map(
-    (u) => `Flag ${u.flag} is on in ${u.environment} (${u.path}) with no verification outcome. Set it back to false, then turn it on with \`harness flag activate ${u.flag} --environment ${u.environment}\` once a live run is recorded.`
-  );
-  deps.stderr(
-    json ? `${JSON.stringify({ unproven })}
-` : `${lines2.join("\n")}
-`
-  );
-  return FAILED2;
-}
-var activate = {
-  summary: "turn a flag on in an environment overlay, only when a confirmed live-run verification outcome names that flag and environment; records a flag.activated ledger event (<flag> --environment <env> [--ledger])",
-  operand: "flag",
-  options: { environment: "string", ledger: "string" },
-  run: (context) => guarded2(context, () => activateFlag(context))
-};
-var audit = {
-  summary: "fail when any flag in any environment overlay is on without a confirmed live-run verification outcome; kb-check reports it as a warning (audit mode, ADR 0080)",
-  run: (context) => guarded2(context, () => auditFlags(context))
-};
-var flagCommands = { activate, audit };
-
 // src/outcome/model.ts
 var OUTCOME_KINDS = ["experiment", "usage", "verification"];
 var OUTCOME_SOURCES = [
@@ -3080,7 +2807,7 @@ function choice(flag, allowed, value) {
   }
   return found;
 }
-function text4(flag, value, hint) {
+function text3(flag, value, hint) {
   const trimmed = (value ?? "").trim();
   if (trimmed === "") {
     throw new IdeaError(`Missing --${flag}; ${hint}.`);
@@ -3091,12 +2818,12 @@ function parseOutcome(options) {
   const kind = choice("kind", OUTCOME_KINDS, options.kind);
   const source = choice("source", OUTCOME_SOURCES, options.source);
   const result = choice("result", RESULTS, options.result);
-  const evidence = text4(
+  const evidence = text3(
     "evidence",
     options.evidence,
     "name the run, journal entry, eval record or comparison it was measured on"
   ).replace(/\s+/g, " ");
-  const summary = text4(
+  const summary = text3(
     "summary",
     options.summary,
     "state what was observed against the idea's expected outcome"
@@ -3106,47 +2833,12 @@ function parseOutcome(options) {
       "--summary and --evidence must not contain an HTML comment; it could forge the marker that tells a rerun the outcome is posted, so reword it."
     );
   }
-  if (/^- [A-Za-z]+:/m.test(summary)) {
-    throw new IdeaError(
-      '--summary must not start a line with "- Name:"; it could override a recorded field such as Flag or Result, so reword it.'
-    );
-  }
   if (/^#/m.test(summary)) {
     throw new IdeaError(
       "--summary must not start a line with #; it would open a new section in the idea, so reword it."
     );
   }
-  const flag = parseFlag(kind, source, options.flag, options.environment);
-  return { kind, source, result, evidence, summary, ...flag };
-}
-var FLAG_NAME = /^[a-z][a-z0-9-]*$/;
-function parseFlag(kind, source, name, environment) {
-  const given = [name, environment].map((v) => (v ?? "").trim());
-  if (given.every((v) => v === "")) {
-    return {};
-  }
-  for (const [flag, value] of [
-    ["flag", given[0]],
-    ["environment", given[1]]
-  ]) {
-    if (value === "") {
-      const other = flag === "flag" ? "environment" : "flag";
-      throw new IdeaError(
-        `Missing --${flag}; a flag outcome names both --flag and --environment (got only --${other}).`
-      );
-    }
-    if (!FLAG_NAME.test(value ?? "")) {
-      throw new IdeaError(
-        `--${flag} "${value}" must be lowercase letters, digits and hyphens, starting with a letter.`
-      );
-    }
-  }
-  if (kind !== "verification" || source !== "live-run") {
-    throw new IdeaError(
-      `--flag proves a flag only on --kind verification with --source live-run (got ${kind} from ${source}); a different outcome cannot activate it.`
-    );
-  }
-  return { flag: { name: given[0] ?? "", environment: given[1] ?? "" } };
+  return { kind, source, result, evidence, summary };
 }
 function renderSection(outcome, date) {
   return [
@@ -3155,10 +2847,6 @@ function renderSection(outcome, date) {
     `- Result: ${outcome.result}`,
     `- Kind: ${outcome.kind}`,
     `- Source: ${outcome.source}`,
-    ...outcome.flag === void 0 ? [] : [
-      `- Flag: ${outcome.flag.name}`,
-      `- Environment: ${outcome.flag.environment}`
-    ],
     `- Evidence: ${outcome.evidence}`,
     `- Recorded: ${date}`,
     "",
@@ -3213,10 +2901,10 @@ function labelFlags(have, wanted) {
 function missingLabel(stderr2, wanted, repo, idea) {
   return /not found/i.test(stderr2) && stderr2.includes(wanted) ? `The label "${wanted}" does not exist on ${repo}; create it with \`gh label create ${wanted} --repo ${repo}\`, then rerun \`harness outcome close --idea ${idea}\`.` : void 0;
 }
-async function publishOutcome(runner, root3, target, outcome) {
+async function publishOutcome(runner, root2, target, outcome) {
   const gh = async (args, input, explain) => {
     const done = await runner.run("gh", args, {
-      cwd: root3,
+      cwd: root2,
       ...input === void 0 ? {} : { input }
     });
     if (done.code !== 0) {
@@ -3334,12 +3022,12 @@ async function closeOutcome(ctx, ref) {
 }
 
 // src/cli/outcome-commands.ts
-var FAILED3 = 1;
-function text5(options, key) {
+var FAILED2 = 1;
+function text4(options, key) {
   const value = options[key];
   return typeof value === "string" ? value : void 0;
 }
-async function guarded3({ json, deps }, action) {
+async function guarded2({ json, deps }, action) {
   try {
     await action();
     return 0;
@@ -3351,11 +3039,11 @@ async function guarded3({ json, deps }, action) {
 ` : "";
     deps.stderr(`${prefix}${error.message}
 `);
-    return FAILED3;
+    return FAILED2;
   }
 }
 function ideaRef(context, verb) {
-  const ref = text5(context.options, "idea")?.trim();
+  const ref = text4(context.options, "idea")?.trim();
   if (ref === void 0 || ref === "") {
     throw new IdeaError(
       `Missing --idea; run \`harness outcome ${verb} --idea <number or slug>\`, or \`harness idea list\` to see the ideas.`
@@ -3374,26 +3062,24 @@ async function conclusion(context, verb) {
   const ledger = await withLedger(context);
   const ref = ideaRef(context, verb);
   const { deps } = context;
-  const root3 = await deps.root().catch((cause) => {
+  const root2 = await deps.root().catch((cause) => {
     throw new IdeaError(cause instanceof Error ? cause.message : String(cause));
   });
   const ctx = {
-    repo: new IdeaRepository(deps.fs, deps.clock, root3),
+    repo: new IdeaRepository(deps.fs, deps.clock, root2),
     runner: deps.runner,
     clock: deps.clock,
-    root: root3
+    root: root2
   };
   const done = verb === "record" ? await recordOutcome(
     ctx,
     ref,
     parseOutcome({
-      kind: text5(context.options, "kind"),
-      source: text5(context.options, "source"),
-      result: text5(context.options, "result"),
-      evidence: text5(context.options, "evidence"),
-      summary: text5(context.options, "summary"),
-      flag: text5(context.options, "flag"),
-      environment: text5(context.options, "environment")
+      kind: text4(context.options, "kind"),
+      source: text4(context.options, "source"),
+      result: text4(context.options, "result"),
+      evidence: text4(context.options, "evidence"),
+      summary: text4(context.options, "summary")
     })
   ) : await closeOutcome(ctx, ref);
   const logged = await ledger.list({ idea: done.idea, kind: "outcome" });
@@ -3420,7 +3106,7 @@ Follow-up idea: ${done.followUp}`}
   );
 }
 var record2 = {
-  summary: `record an idea's measured outcome in its markdown, post it to the issue with one outcome:* label, close the issue, and open a follow-up idea when refuted or inconclusive (--idea --kind ${OUTCOME_KINDS.join("|")} --source ${OUTCOME_SOURCES.join("|")} --evidence <reference> --result ${RESULTS.join("|")} --summary <text> [--flag <name> --environment <env>, only on a live-run verification] [--ledger])`,
+  summary: `record an idea's measured outcome in its markdown, post it to the issue with one outcome:* label, close the issue, and open a follow-up idea when refuted or inconclusive (--idea --kind ${OUTCOME_KINDS.join("|")} --source ${OUTCOME_SOURCES.join("|")} --evidence <reference> --result ${RESULTS.join("|")} --summary <text> [--ledger])`,
   options: {
     idea: "string",
     kind: "string",
@@ -3428,19 +3114,17 @@ var record2 = {
     evidence: "string",
     result: "string",
     summary: "string",
-    flag: "string",
-    environment: "string",
     ledger: "string"
   },
   run(context) {
-    return guarded3(context, () => conclusion(context, "record"));
+    return guarded2(context, () => conclusion(context, "record"));
   }
 };
 var close = {
   summary: "finish closing an idea whose outcome is recorded (comment, one outcome:* label, close); refused with no gh call when no outcome is recorded (--idea [--ledger])",
   options: { idea: "string", ledger: "string" },
   run(context) {
-    return guarded3(context, () => conclusion(context, "close"));
+    return guarded2(context, () => conclusion(context, "close"));
   }
 };
 var outcomeCommands = { record: record2, close };
@@ -3448,8 +3132,7 @@ var outcomeCommands = { record: record2, close };
 // src/cli/records.ts
 var records = {
   idea: ideaCommands,
-  outcome: outcomeCommands,
-  flag: flagCommands
+  outcome: outcomeCommands
 };
 
 // src/plan/parser.ts
@@ -3483,9 +3166,9 @@ function listItemSpans(markdown) {
   return items;
 }
 function listItems(markdown) {
-  return listItemSpans(markdown).map(({ heading, text: text6 }) => ({
+  return listItemSpans(markdown).map(({ heading, text: text5 }) => ({
     heading,
-    text: text6
+    text: text5
   }));
 }
 function openItems(markdown) {
@@ -3510,12 +3193,12 @@ function openCounts(markdown) {
 var FENCE = /^\s*(```|~~~)/;
 var LIST_MARKER = /^\s*([-*+]|\d+\.)\s/;
 function nextBlocks(markdown) {
-  const lines2 = markdown.split("\n");
+  const lines = markdown.split("\n");
   const blocks = [];
   let heading = "";
   let fenced = false;
   let open = null;
-  for (const [index, line2] of lines2.entries()) {
+  for (const [index, line2] of lines.entries()) {
     const fence = FENCE.test(line2);
     const stops = fence || !line2.trim() || line2.startsWith("#") || LIST_MARKER.test(line2);
     if (open && !fenced && !stops) {
@@ -3577,10 +3260,10 @@ function activePlans(plans) {
 import { join as join2 } from "node:path";
 var PLANS_DIR = "infra/plans";
 async function readPlans(deps) {
-  const root3 = await deps.root();
+  const root2 = await deps.root();
   let names3;
   try {
-    names3 = (await deps.fs.readdir(join2(root3, PLANS_DIR))).filter(
+    names3 = (await deps.fs.readdir(join2(root2, PLANS_DIR))).filter(
       (n) => n.endsWith(".md")
     );
   } catch (error) {
@@ -3591,7 +3274,7 @@ async function readPlans(deps) {
   }
   const plans = {};
   for (const name of names3) {
-    plans[name] = await deps.fs.readFile(join2(root3, PLANS_DIR, name));
+    plans[name] = await deps.fs.readFile(join2(root2, PLANS_DIR, name));
   }
   return plans;
 }
@@ -3599,15 +3282,15 @@ async function readPlans(deps) {
 // src/plan/active.ts
 function describe5(plan2) {
   const open = plan2.open.map((o) => `${o.step} (${o.count})`).join(", ");
-  const lines2 = [`${plan2.file}${plan2.default ? " (default)" : ""}`];
-  lines2.push(`  Open items: ${open || "none"}`);
+  const lines = [`${plan2.file}${plan2.default ? " (default)" : ""}`];
+  lines.push(`  Open items: ${open || "none"}`);
   if (plan2.next) {
-    lines2.push(`  Next (${plan2.next.step}): ${plan2.next.text}`);
+    lines.push(`  Next (${plan2.next.step}): ${plan2.next.text}`);
   }
   if (plan2.upcoming.length > 0) {
-    lines2.push(`  Upcoming: ${plan2.upcoming.join("; ")}`);
+    lines.push(`  Upcoming: ${plan2.upcoming.join("; ")}`);
   }
-  return lines2.join("\n");
+  return lines.join("\n");
 }
 var planActive = {
   summary: "list the active plans, flagging the default (highest-numbered)",
@@ -3647,8 +3330,8 @@ var planActive = {
 import { join as join3 } from "node:path";
 
 // src/plan/edits.ts
-function trimCommon(edit, lines2) {
-  const before = lines2.slice(edit.start, edit.end);
+function trimCommon(edit, lines) {
+  const before = lines.slice(edit.start, edit.end);
   let head = 0;
   while (head < before.length && head < edit.lines.length && before[head] === edit.lines[head]) {
     head++;
@@ -3663,8 +3346,8 @@ function trimCommon(edit, lines2) {
 }
 
 // src/plan/plan-edit.ts
-function normalize(text6) {
-  return text6.replace(/\s+/g, " ").trim();
+function normalize(text5) {
+  return text5.replace(/\s+/g, " ").trim();
 }
 function choosePlan(plans, requested) {
   const names3 = Object.keys(plans);
@@ -3696,17 +3379,17 @@ function choosePlan(plans, requested) {
   }
   return active[0] ?? "";
 }
-function apply(lines2, edits) {
-  const out = [...lines2];
+function apply(lines, edits) {
+  const out = [...lines];
   for (const edit of [...edits].sort((a, b) => b.start - a.start)) {
     out.splice(edit.start, edit.end - edit.start, ...edit.lines);
   }
   return out;
 }
-function toChanges(lines2, edits) {
-  return edits.flatMap((edit) => trimCommon(edit, lines2) ?? []).sort((a, b) => a.start - b.start).map((edit) => ({
+function toChanges(lines, edits) {
+  return edits.flatMap((edit) => trimCommon(edit, lines) ?? []).sort((a, b) => a.start - b.start).map((edit) => ({
     line: edit.start + 1,
-    before: lines2.slice(edit.start, edit.end),
+    before: lines.slice(edit.start, edit.end),
     after: edit.lines
   }));
 }
@@ -3722,10 +3405,10 @@ function renderChanges(head, changes) {
 
 // src/plan/next.ts
 var NEXT = "Next:";
-function removals(lines2) {
-  return nextBlocks(lines2.join("\n")).map(({ line: line2, end }) => {
-    const blankBefore = line2 > 0 && (lines2[line2 - 1] ?? "").trim() === "";
-    const blankAfter = end < lines2.length && (lines2[end] ?? "").trim() === "";
+function removals(lines) {
+  return nextBlocks(lines.join("\n")).map(({ line: line2, end }) => {
+    const blankBefore = line2 > 0 && (lines[line2 - 1] ?? "").trim() === "";
+    const blankAfter = end < lines.length && (lines[end] ?? "").trim() === "";
     return {
       start: line2,
       end: blankBefore && blankAfter ? end + 1 : end,
@@ -3733,11 +3416,11 @@ function removals(lines2) {
     };
   });
 }
-function currentHeading(lines2, markdown) {
+function currentHeading(lines, markdown) {
   const open = openCounts(markdown).map((c) => c.step);
   const held = nextStep(markdown)?.step.split(":")[0];
   const step = held !== void 0 && open.includes(held) ? held : open[0];
-  const index = lines2.findIndex(
+  const index = lines.findIndex(
     (l) => l.startsWith("## ") && l.slice(3).trim().split(":")[0] === step
   );
   if (step === void 0 || index < 0) {
@@ -3747,19 +3430,19 @@ function currentHeading(lines2, markdown) {
   }
   return index;
 }
-function insertion(lines2, heading, text6) {
-  const blank = (lines2[heading + 1] ?? "").trim() === "";
+function insertion(lines, heading, text5) {
+  const blank = (lines[heading + 1] ?? "").trim() === "";
   const start = blank ? heading + 2 : heading + 1;
   return {
     start,
     end: start,
-    lines: blank ? [`${NEXT} ${text6}`, ""] : ["", `${NEXT} ${text6}`, ""]
+    lines: blank ? [`${NEXT} ${text5}`, ""] : ["", `${NEXT} ${text5}`, ""]
   };
 }
-function withInsertion(lines2, removed, added) {
+function withInsertion(lines, removed, added) {
   const merged = removed.find((r) => r.start === added.start);
   const end = merged?.end ?? added.start;
-  const followedByBlank = (lines2[end] ?? "").trim() === "";
+  const followedByBlank = (lines[end] ?? "").trim() === "";
   const inserted = followedByBlank && added.lines.at(-1) === "" ? added.lines.slice(0, -1) : added.lines;
   return merged ? [
     ...removed.filter((r) => r !== merged),
@@ -3770,15 +3453,15 @@ async function write(deps, json, options) {
   const plans = await readPlans(deps);
   const name = choosePlan(plans, options.planOption);
   const markdown = plans[name] ?? "";
-  const lines2 = markdown.split("\n");
-  const edits = options.edits(lines2, markdown);
-  const changes = toChanges(lines2, edits);
+  const lines = markdown.split("\n");
+  const edits = options.edits(lines, markdown);
+  const changes = toChanges(lines, edits);
   const file = `${PLANS_DIR}/${name}`;
   const written = !options.dryRun && changes.length > 0;
   if (written) {
     await deps.fs.writeFile(
       join3(await deps.root(), file),
-      apply(lines2, edits).join("\n")
+      apply(lines, edits).join("\n")
     );
   }
   if (json) {
@@ -3800,8 +3483,8 @@ var planNext = {
   async run({ json, deps, options }) {
     const raw = options["text"];
     const plan2 = options["plan"];
-    const text6 = typeof raw === "string" ? normalize(raw) : "";
-    if (text6 === "") {
+    const text5 = typeof raw === "string" ? normalize(raw) : "";
+    if (text5 === "") {
       throw new CommandError(
         'Missing --text "<line>": say the first concrete action and any state the files cannot show.'
       );
@@ -3810,10 +3493,10 @@ var planNext = {
       planOption: typeof plan2 === "string" ? plan2 : void 0,
       dryRun: options["dry-run"] === true,
       headline: (file, dry) => `${dry ? "Would set" : "Set"} Next: in ${file}`,
-      edits: (lines2, markdown) => withInsertion(
-        lines2,
-        removals(lines2),
-        insertion(lines2, currentHeading(lines2, markdown), text6)
+      edits: (lines, markdown) => withInsertion(
+        lines,
+        removals(lines),
+        insertion(lines, currentHeading(lines, markdown), text5)
       ),
       unchanged: `Next: already reads that way`
     });
@@ -3828,7 +3511,7 @@ var planClearNext = {
       planOption: typeof plan2 === "string" ? plan2 : void 0,
       dryRun: options["dry-run"] === true,
       headline: (file, dry) => `${dry ? "Would clear" : "Cleared"} Next: in ${file}`,
-      edits: (lines2) => removals(lines2),
+      edits: (lines) => removals(lines),
       unchanged: "No Next: line to clear"
     });
   }
@@ -3839,12 +3522,12 @@ import { join as join4 } from "node:path";
 
 // src/plan/totals.ts
 var TOTALS = /as of \d{4}-\d{2}-\d{2}: (\d+) local, (\d+) managed(\s+)cluster, (\d+) release(\s+)pipeline/;
-function totalsEdits(lines2, range, className, date) {
-  const firstClass = lines2.findIndex(
+function totalsEdits(lines, range, className, date) {
+  const firstClass = lines.findIndex(
     (l, i) => i > range[0] && i < range[1] && l.startsWith("### ")
   );
   const introEnd = firstClass < 0 ? range[1] : firstClass;
-  const intro = lines2.slice(range[0], introEnd).join("\n");
+  const intro = lines.slice(range[0], introEnd).join("\n");
   const match = TOTALS.exec(intro);
   if (match === null) {
     return /\bas of\b/.test(intro) ? "The open-item totals line is not in the form `as of YYYY-MM-DD: N local, N managed cluster, N release pipeline`, so it cannot be recounted. Fix its wording, or tick the item by hand." : [];
@@ -3861,8 +3544,8 @@ function totalsEdits(lines2, range, className, date) {
     managed: managed - (lower.startsWith("managed") ? 1 : 0),
     release: release - (lower.startsWith("release") ? 1 : 0)
   };
-  const text6 = `as of ${date}: ${next.local} local, ${next.managed} managed${match[3]}cluster, ${next.release} release${match[5]}pipeline`;
-  const changed = intro.replace(TOTALS, text6).split("\n");
+  const text5 = `as of ${date}: ${next.local} local, ${next.managed} managed${match[3]}cluster, ${next.release} release${match[5]}pipeline`;
+  const changed = intro.replace(TOTALS, text5).split("\n");
   const before = intro.split("\n");
   const edits = [];
   for (const [i, line2] of changed.entries()) {
@@ -3892,31 +3575,31 @@ var NUMBERS = [
 ];
 var MIN_SCORE = 0.6;
 var MARGIN = 0.15;
-function sectionRange(lines2) {
-  const start = lines2.indexOf(SECTION);
+function sectionRange(lines) {
+  const start = lines.indexOf(SECTION);
   if (start < 0) {
     return null;
   }
-  const next = lines2.findIndex((l, i) => i > start && l.startsWith("## "));
-  return [start, next < 0 ? lines2.length : next];
+  const next = lines.findIndex((l, i) => i > start && l.startsWith("## "));
+  return [start, next < 0 ? lines.length : next];
 }
-function entriesIn(lines2, from, to) {
+function entriesIn(lines, from, to) {
   const entries = [];
   for (let i = from; i < to; i++) {
-    const line2 = lines2[i] ?? "";
+    const line2 = lines[i] ?? "";
     const step = HEADER.exec(line2)?.[1];
     if (step === void 0) {
       continue;
     }
     let end = i + 1;
-    while (end < to && /^\s+\S/.test(lines2[end] ?? "")) {
+    while (end < to && /^\s+\S/.test(lines[end] ?? "")) {
       end++;
     }
     entries.push({
       start: i,
       end,
       step,
-      raw: lines2.slice(i, end).join("\n")
+      raw: lines.slice(i, end).join("\n")
     });
     i = end - 1;
   }
@@ -3944,17 +3627,17 @@ function segmentsOf(raw) {
   pieces.push([from, bodyEnd]);
   let exit = false;
   return pieces.map(([a, b]) => {
-    const text6 = raw.slice(a, b);
-    const start = a + (text6.length - text6.trimStart().length);
-    const end = b - (text6.length - text6.trimEnd().length);
+    const text5 = raw.slice(a, b);
+    const start = a + (text5.length - text5.trimStart().length);
+    const end = b - (text5.length - text5.trimEnd().length);
     const lead = LEAD.exec(raw.slice(start, end))?.[0];
     exit ||= lead !== void 0;
     return { start, end, itemStart: start + (lead?.length ?? 0), exit };
   });
 }
-function words(text6) {
+function words(text5) {
   return new Set(
-    (text6.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => w.length >= 4)
+    (text5.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => w.length >= 4)
   );
 }
 function score(item, segment) {
@@ -3978,13 +3661,13 @@ function lowered(raw, segment) {
   const shown = /^\d+$/.test(word) ? String(count2) : NUMBERS[count2] ?? word;
   const noun = count2 === 1 ? "criterion" : "criteria";
   const [, , gap1, gap2, gap3] = lead;
-  const text6 = `and ${shown}${gap1}exit${gap2}${noun}:${gap3}`;
-  return raw.slice(0, segment.start) + text6 + raw.slice(segment.start + lead[0].length);
+  const text5 = `and ${shown}${gap1}exit${gap2}${noun}:${gap3}`;
+  return raw.slice(0, segment.start) + text5 + raw.slice(segment.start + lead[0].length);
 }
 function sharedNote(raw, segments, index) {
   for (const [i, segment] of segments.entries()) {
-    const text6 = raw.slice(segment.itemStart, segment.end);
-    const note = /\([^)]*\b(both|all)\b[^)]*\)/i.exec(text6);
+    const text5 = raw.slice(segment.itemStart, segment.end);
+    const note = /\([^)]*\b(both|all)\b[^)]*\)/i.exec(text5);
     const covered = note?.[1]?.toLowerCase() === "all" || index === i || index === i - 1;
     if (note !== null && covered) {
       return note[0];
@@ -4005,9 +3688,9 @@ function without(raw, segments, index) {
   const others = segments.filter((s) => s.exit && s !== target).length;
   return target.exit && lead !== void 0 && others > 0 ? lowered(cut, lead) : cut;
 }
-function classOf(lines2, entry, from) {
+function classOf(lines, entry, from) {
   for (let i = entry.start; i >= from; i--) {
-    const heading = /^### (.+)$/.exec(lines2[i] ?? "")?.[1];
+    const heading = /^### (.+)$/.exec(lines[i] ?? "")?.[1];
     if (heading !== void 0) {
       return heading;
     }
@@ -4034,12 +3717,12 @@ function locate2(entries, step, itemText) {
   }
   return best;
 }
-function listEdits(lines2, step, itemText, date) {
-  const range = sectionRange(lines2);
+function listEdits(lines, step, itemText, date) {
+  const range = sectionRange(lines);
   if (range === null) {
     return { edits: [] };
   }
-  const entries = entriesIn(lines2, range[0], range[1]).filter(
+  const entries = entriesIn(lines, range[0], range[1]).filter(
     (e) => e.step === step
   );
   if (entries.length === 0) {
@@ -4064,12 +3747,12 @@ function listEdits(lines2, step, itemText, date) {
   ).split("\n");
   const entryEdit = trimCommon(
     { start: best.entry.start, end: best.entry.end, lines: replaced },
-    lines2
+    lines
   );
   const totals = totalsEdits(
-    lines2,
+    lines,
     range,
-    classOf(lines2, best.entry, range[0]),
+    classOf(lines, best.entry, range[0]),
     date
   );
   if (typeof totals === "string") {
@@ -4100,17 +3783,17 @@ function chooseItem(markdown, wanted) {
     `"${wanted}" matches no open item.${done} Run \`harness plan active\` to see the open items.`
   );
 }
-function tickEdit(lines2, item) {
-  const first = lines2[item.line] ?? "";
+function tickEdit(lines, item) {
+  const first = lines[item.line] ?? "";
   return {
     start: item.line,
     end: item.line + 1,
     lines: [`- [x]${first.slice(OPEN.length)}`]
   };
 }
-function describe6(file, step, text6, dryRun, changes) {
+function describe6(file, step, text5, dryRun, changes) {
   return renderChanges(
-    `${dryRun ? "Would tick" : "Ticked"} ${step}: ${text6} in ${file}`,
+    `${dryRun ? "Would tick" : "Ticked"} ${step}: ${text5} in ${file}`,
     changes
   );
 }
@@ -4118,27 +3801,27 @@ async function tick(deps, json, item, planOption, dryRun) {
   const plans = await readPlans(deps);
   const name = choosePlan(plans, planOption);
   const markdown = plans[name] ?? "";
-  const lines2 = markdown.split("\n");
+  const lines = markdown.split("\n");
   const span = chooseItem(markdown, item);
   const step = span.heading.split(":")[0] ?? span.heading;
-  const text6 = normalize(span.text.slice(OPEN.length));
+  const text5 = normalize(span.text.slice(OPEN.length));
   const date = localDate(deps.clock.now());
-  const lists = listEdits(lines2, step, text6, date);
+  const lists = listEdits(lines, step, text5, date);
   if ("error" in lists) {
     throw new CommandError(lists.error);
   }
-  const edits = [tickEdit(lines2, span), ...lists.edits];
-  const changes = toChanges(lines2, edits);
+  const edits = [tickEdit(lines, span), ...lists.edits];
+  const changes = toChanges(lines, edits);
   const file = `${PLANS_DIR}/${name}`;
   if (!dryRun) {
     await deps.fs.writeFile(
       join4(await deps.root(), file),
-      apply(lines2, edits).join("\n")
+      apply(lines, edits).join("\n")
     );
   }
   deps.stdout(
-    json ? `${JSON.stringify({ plan: file, item: { step, text: text6 }, dryRun, written: !dryRun, changes })}
-` : describe6(file, step, text6, dryRun, changes)
+    json ? `${JSON.stringify({ plan: file, item: { step, text: text5 }, dryRun, written: !dryRun, changes })}
+` : describe6(file, step, text5, dryRun, changes)
   );
   return 0;
 }
@@ -4163,14 +3846,301 @@ var planTick = {
   }
 };
 
+// src/hook/delta-deps.ts
+import { join as join5, resolve as resolve4 } from "node:path";
+var PLANS_DIR2 = "infra/plans";
+var JOURNAL_DIR = ".kore/state/journal";
+var LOCKS_DIR = ".kore/locks";
+function gitReader(deps, root2) {
+  return async (...args) => {
+    const result = await deps.runner.run("git", args, { cwd: root2 });
+    if (result.code !== 0) {
+      throw new Error(`git ${args.join(" ")} exited ${result.code}`);
+    }
+    return result.stdout.trim();
+  };
+}
+async function readDir(deps, dir) {
+  try {
+    return await deps.fs.readdir(dir);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  }
+}
+async function readPlans2(deps, root2) {
+  const dir = join5(root2, PLANS_DIR2);
+  const plans = {};
+  for (const name of await readDir(deps, dir)) {
+    if (name.endsWith(".md")) {
+      plans[name] = await deps.fs.readFile(join5(dir, name));
+    }
+  }
+  return plans;
+}
+function parseEntries(text5) {
+  const entries = [];
+  for (const line2 of text5.split("\n")) {
+    try {
+      const entry = JSON.parse(line2);
+      if (entry !== null && typeof entry === "object") {
+        entries.push(entry);
+      }
+    } catch {
+    }
+  }
+  return entries;
+}
+async function readJournals(deps, root2) {
+  const dir = join5(root2, JOURNAL_DIR);
+  const journals = {};
+  for (const name of await readDir(deps, dir)) {
+    if (!name.endsWith(".jsonl")) {
+      continue;
+    }
+    try {
+      journals[name.slice(0, -".jsonl".length)] = parseEntries(
+        await deps.fs.readFile(join5(dir, name))
+      );
+    } catch {
+    }
+  }
+  return journals;
+}
+function snapshotStore(deps, git, root2) {
+  const dir = async () => join5(resolve4(root2, await git("rev-parse", "--git-dir")), "kore-delta");
+  const file = async (id) => join5(await dir(), `${id}.json`);
+  return {
+    async readSnapshot(id) {
+      try {
+        return JSON.parse(await deps.fs.readFile(await file(id)));
+      } catch {
+        return null;
+      }
+    },
+    async writeSnapshot(id, snapshot2) {
+      await deps.fs.writeFile(await file(id), JSON.stringify(snapshot2));
+    },
+    async listSnapshots() {
+      const base = await dir();
+      const found = [];
+      for (const name of await readDir(deps, base)) {
+        if (name.endsWith(".json")) {
+          found.push({
+            id: name.slice(0, -".json".length),
+            mtimeMs: await deps.fs.mtimeMs(join5(base, name))
+          });
+        }
+      }
+      return found;
+    },
+    async removeSnapshot(id) {
+      await deps.fs.remove(await file(id));
+    }
+  };
+}
+function realDeltaDeps(deps, root2) {
+  const git = gitReader(deps, root2);
+  return {
+    now: () => deps.clock.now().getTime(),
+    head: () => git("rev-parse", "HEAD"),
+    branch: () => git("rev-parse", "--abbrev-ref", "HEAD"),
+    async main() {
+      try {
+        return await git("rev-parse", "--verify", "--quiet", "main");
+      } catch {
+        return null;
+      }
+    },
+    async commitsBetween(from, to) {
+      return (await git("log", "--format=%s", `${from}..${to}`)).split("\n").filter(Boolean);
+    },
+    readPlans: () => readPlans2(deps, root2),
+    listLocks: () => readDir(deps, join5(root2, LOCKS_DIR)),
+    readJournals: () => readJournals(deps, root2),
+    ...snapshotStore(deps, git, root2)
+  };
+}
+
+// src/hook/delta.ts
+var MAX_CHARS = 600;
+var MAX_ITEM_CHARS = 60;
+var MAX_SUBJECTS = 3;
+var SNAPSHOT_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1e3;
+function lastOperation(entries) {
+  const start = entries.findLast((entry) => entry.kind === "start");
+  if (start === void 0) {
+    return null;
+  }
+  const end = entries.findLast(
+    (entry) => entry.kind === "end" && entry.op === start.op
+  );
+  return {
+    op: start.op ?? "",
+    command: start.command ?? "",
+    outcome: end?.outcome ?? null,
+    ...end?.error ? { error: end.error } : {}
+  };
+}
+function planItems(plans) {
+  const result = {};
+  for (const name of activePlans(plans)) {
+    const items = {};
+    for (const { text: text5 } of listItems(plans[name] ?? "")) {
+      const match = /^- \[( |x)\] (.*)$/.exec(text5);
+      if (match === null) {
+        continue;
+      }
+      const title = (match[2] ?? "").replaceAll("**", "").slice(0, MAX_ITEM_CHARS);
+      items[title] = match[1] === "x";
+    }
+    result[name] = items;
+  }
+  return result;
+}
+async function snapshot(deps) {
+  const journal = {};
+  for (const [environment, entries] of Object.entries(
+    await deps.readJournals()
+  )) {
+    const last = lastOperation(entries);
+    if (last !== null) {
+      journal[environment] = last;
+    }
+  }
+  return {
+    head: await deps.head(),
+    branch: await deps.branch(),
+    main: await deps.main(),
+    plans: planItems(await deps.readPlans()),
+    locks: [...await deps.listLocks()].sort(),
+    journal
+  };
+}
+function operationLine(environment, operation) {
+  const command = `\`${operation.command}\``;
+  if (operation.outcome === null) {
+    return `${environment}: ${command} started`;
+  }
+  if (operation.outcome === "failed") {
+    return `${environment}: ${command} failed${operation.error ? `: ${operation.error}` : ""}`;
+  }
+  return `${environment}: ${command} finished ${operation.outcome}`;
+}
+function planLines(before, after) {
+  const lines = [];
+  for (const [plan2, items] of Object.entries(after.plans)) {
+    const old = before.plans[plan2];
+    const ticked = [];
+    const added = [];
+    for (const [title, checked] of Object.entries(items)) {
+      if (old === void 0 || !(title in old)) {
+        if (old !== void 0) {
+          added.push(title);
+        }
+      } else if (checked && old[title] !== true) {
+        ticked.push(title);
+      }
+    }
+    if (ticked.length > 0) {
+      lines.push(`${plan2} ticked: ${ticked.join("; ")}`);
+    }
+    if (added.length > 0) {
+      lines.push(`${plan2} added: ${added.join("; ")}`);
+    }
+  }
+  return lines;
+}
+function mainLine(before, after, subjects) {
+  if (before.main === after.main || after.main === null) {
+    return [];
+  }
+  const found = before.main === null ? [] : subjects(before.main, after.main);
+  if (found.length === 0) {
+    return [`main moved to ${after.main.slice(0, 7)}.`];
+  }
+  const shown = found.slice(0, MAX_SUBJECTS).join("; ");
+  const more = found.length > MAX_SUBJECTS ? "; ..." : "";
+  const plural = found.length === 1 ? "commit" : "commits";
+  return [`main advanced ${found.length} ${plural}: ${shown}${more}`];
+}
+function lockLines(before, after) {
+  return [
+    ...after.locks.filter((lock) => !before.locks.includes(lock)).map((lock) => `lock taken: ${lock}`),
+    ...before.locks.filter((lock) => !after.locks.includes(lock)).map((lock) => `lock released: ${lock}`)
+  ];
+}
+function journalLines(before, after) {
+  return Object.entries(after.journal).filter(([environment, operation]) => {
+    const old = before.journal[environment];
+    return old?.op !== operation.op || old.outcome !== operation.outcome;
+  }).map(([environment, operation]) => operationLine(environment, operation));
+}
+function describeChanges(before, after, subjects) {
+  const lines = [
+    ...mainLine(before, after, subjects),
+    ...before.branch === after.branch ? [] : [`branch changed from ${before.branch} to ${after.branch}.`],
+    ...planLines(before, after),
+    ...lockLines(before, after),
+    ...journalLines(before, after)
+  ];
+  if (lines.length === 0) {
+    return "";
+  }
+  const text5 = `Changed since your last turn: ${lines.join(" | ")}`;
+  return text5.length <= MAX_CHARS ? text5 : `${text5.slice(0, MAX_CHARS - 3)}...`;
+}
+async function prune(currentId, deps) {
+  try {
+    const cutoff = deps.now() - SNAPSHOT_MAX_AGE_MS;
+    for (const { id, mtimeMs } of await deps.listSnapshots()) {
+      if (id === currentId || mtimeMs >= cutoff) {
+        continue;
+      }
+      try {
+        await deps.removeSnapshot(id);
+      } catch {
+      }
+    }
+  } catch {
+  }
+}
+async function update(sessionId, deps) {
+  try {
+    const before = await deps.readSnapshot(sessionId);
+    const after = await snapshot(deps);
+    await deps.writeSnapshot(sessionId, after);
+    await prune(sessionId, deps);
+    if (before === null) {
+      return "";
+    }
+    const subjects = /* @__PURE__ */ new Map();
+    if (before.main !== after.main && before.main !== null && after.main !== null) {
+      subjects.set(
+        `${before.main}..${after.main}`,
+        await deps.commitsBetween(before.main, after.main)
+      );
+    }
+    return describeChanges(
+      before,
+      after,
+      (from, to) => subjects.get(`${from}..${to}`) ?? []
+    );
+  } catch {
+    return "";
+  }
+}
+
 // src/hook/io.ts
 async function readPayload(deps) {
-  const text6 = await deps.stdin();
-  if (text6.trim() === "") {
+  const text5 = await deps.stdin();
+  if (text5.trim() === "") {
     return void 0;
   }
   try {
-    return JSON.parse(text6);
+    return JSON.parse(text5);
   } catch {
     return void 0;
   }
@@ -4205,10 +4175,10 @@ function hookCommand(name, summary, handler) {
 }
 
 // src/hook/skill-links.ts
-import { isAbsolute, join as join5 } from "node:path";
+import { isAbsolute, join as join6 } from "node:path";
 var HARNESSES = [".claude", ".codex"];
-async function skillNames(fs, root3) {
-  const skillsDir = join5(root3, "skills");
+async function skillNames(fs, root2) {
+  const skillsDir = join6(root2, "skills");
   let entries;
   try {
     entries = await fs.readdir(skillsDir);
@@ -4222,7 +4192,7 @@ async function skillNames(fs, root3) {
   }
   const skills = [];
   for (const entry of entries) {
-    if (await fs.exists(join5(root3, "skills", entry, "SKILL.md"))) {
+    if (await fs.exists(join6(root2, "skills", entry, "SKILL.md"))) {
       skills.push(entry);
     }
   }
@@ -4239,14 +4209,14 @@ async function targetOf(fs, path) {
     throw error;
   }
 }
-async function linkProblems(fs, root3) {
-  const skills = await skillNames(fs, root3);
+async function linkProblems(fs, root2) {
+  const skills = await skillNames(fs, root2);
   const problems = [];
   for (const harness of HARNESSES) {
     for (const skill2 of skills) {
       const link = `${harness}/skills/${skill2}`;
       const expected = `../../skills/${skill2}`;
-      const found = await targetOf(fs, join5(root3, link));
+      const found = await targetOf(fs, join6(root2, link));
       if ("code" in found) {
         problems.push(
           found.code === "EINVAL" ? `${link} is a directory or file, not a link; replace it with a link to ${expected}` : `${link} is missing; link it to ${expected}`
@@ -4266,7 +4236,7 @@ async function linkProblems(fs, root3) {
 }
 
 // src/hook/workflow-permissions.ts
-import { join as join6 } from "node:path";
+import { join as join7 } from "node:path";
 var RELEASE = "release.yaml";
 var SIGNING_JOBS = ["release", "mirror"];
 var SIGNING_SCOPES = ["id-token", "packages"];
@@ -4293,11 +4263,11 @@ function addEntry2(stack, indent, body) {
   parent[key] = value;
   return /^[|>]/.test(value) ? indent : null;
 }
-function parseWorkflow(text6) {
+function parseWorkflow(text5) {
   const rootNode = {};
   const stack = [{ indent: -1, node: rootNode }];
   let skipAbove = null;
-  for (const raw of text6.split("\n")) {
+  for (const raw of text5.split("\n")) {
     const line2 = raw.replace(/(^|\s)#.*$/, "");
     const indent = line2.length - line2.trimStart().length;
     if (line2.trim() === "" || skipAbove !== null && indent > skipAbove) {
@@ -4366,8 +4336,8 @@ function jobProblems(file, name, job) {
   }
   return problems;
 }
-function fileProblems(file, text6) {
-  const workflow = parseWorkflow(text6);
+function fileProblems(file, text5) {
+  const workflow = parseWorkflow(text5);
   const problems = [];
   const top = writeScopes(workflow["permissions"]);
   if (top === null || top.length > 0) {
@@ -4391,11 +4361,11 @@ function fileProblems(file, text6) {
 }
 function permissionProblems(files) {
   return Object.entries(files).flatMap(
-    ([file, text6]) => fileProblems(file, text6)
+    ([file, text5]) => fileProblems(file, text5)
   );
 }
-async function workflowProblems(fs, root3) {
-  const dir = join6(root3, ".github", "workflows");
+async function workflowProblems(fs, root2) {
+  const dir = join7(root2, ".github", "workflows");
   let entries;
   try {
     entries = await fs.readdir(dir);
@@ -4409,7 +4379,7 @@ async function workflowProblems(fs, root3) {
   }
   const files = {};
   for (const entry of entries.filter((f) => /\.ya?ml$/.test(f)).sort()) {
-    files[entry] = await fs.readFile(join6(dir, entry));
+    files[entry] = await fs.readFile(join7(dir, entry));
   }
   return permissionProblems(files);
 }
@@ -4433,7 +4403,27 @@ var workflowPermissions = hookCommand(
 ` };
   }
 );
+var delta = hookCommand(
+  "delta",
+  "tell the agent what changed since its previous turn (UserPromptSubmit)",
+  async ({ deps, payload }) => {
+    const id = payload?.session_id;
+    if (typeof id !== "string" || !/^[A-Za-z0-9_-]+$/.test(id)) {
+      return {};
+    }
+    const context = await update(id, realDeltaDeps(deps, await deps.root()));
+    return context === "" ? {} : {
+      stdout: JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: "UserPromptSubmit",
+          additionalContext: context
+        }
+      })
+    };
+  }
+);
 var hook = {
+  delta,
   "skill-links": skillLinks,
   "workflow-permissions": workflowPermissions
 };
@@ -4497,11 +4487,11 @@ async function equalize(runner, callerPane) {
     };
   }
   for (const [i, split] of splits.entries()) {
-    const delta = 1 / (panes.length - i) - split.ratio;
-    if (Math.abs(delta) <= 5e-4) {
+    const delta2 = 1 / (panes.length - i) - split.ratio;
+    if (Math.abs(delta2) <= 5e-4) {
       continue;
     }
-    const [pane, direction] = delta < 0 ? [panes[i + 1], "up"] : [panes[i], "down"];
+    const [pane, direction] = delta2 < 0 ? [panes[i + 1], "up"] : [panes[i], "down"];
     const resize = await runner.run("herdr", [
       "pane",
       "resize",
@@ -4510,7 +4500,7 @@ async function equalize(runner, callerPane) {
       "--direction",
       direction,
       "--amount",
-      Math.abs(delta).toFixed(6)
+      Math.abs(delta2).toFixed(6)
     ]);
     if (resize.code !== 0) {
       return {
@@ -4555,7 +4545,7 @@ function sessionNameError(name) {
 
 // src/session/output.ts
 var USAGE_ERROR = 2;
-var FAILED4 = 1;
+var FAILED3 = 1;
 function fail(deps, json, code, message) {
   deps.stderr(
     `${json ? `${JSON.stringify({ error: message })}
@@ -4566,7 +4556,7 @@ function fail(deps, json, code, message) {
 }
 
 // src/session/registry.ts
-import { join as join7, resolve as resolve4 } from "node:path";
+import { join as join8, resolve as resolve5 } from "node:path";
 var STATE_DIR = ".kore/state/sessions";
 function isRecord(value) {
   if (typeof value !== "object" || value === null) {
@@ -4590,10 +4580,10 @@ var SessionRegistry = class _SessionRegistry {
         "Cannot find the main checkout to keep session state in. Run inside the repository or set KORE_ROOT to its root."
       );
     }
-    return new _SessionRegistry(deps.fs, resolve4(main, STATE_DIR));
+    return new _SessionRegistry(deps.fs, resolve5(main, STATE_DIR));
   }
   file(name) {
-    return join7(this.dir, `${name}.json`);
+    return join8(this.dir, `${name}.json`);
   }
   async read(name) {
     const path = this.file(name);
@@ -4653,7 +4643,7 @@ var SessionRegistry = class _SessionRegistry {
 };
 
 // src/session/worktree.ts
-import { join as join8 } from "node:path";
+import { join as join9 } from "node:path";
 var removeCommands = (worktree) => `\`git worktree remove ${worktree.path}\` and \`git branch -D ${worktree.branch}\``;
 var removeHint = (worktree) => `The worktree ${worktree.path} was left behind; remove it with ${removeCommands(worktree)}.`;
 var closeHint = (worktree) => `Remove its worktree once its branch is merged: ${removeCommands(worktree)}.`;
@@ -4664,7 +4654,7 @@ async function create2(deps, name, branch) {
       error: "Cannot find the main checkout to create the worktree in. Run inside the repository or set KORE_ROOT to its root. No pane was split."
     };
   }
-  const worktree = { path: join8(main, ".claude", "worktrees", name), branch };
+  const worktree = { path: join9(main, ".claude", "worktrees", name), branch };
   const add = await deps.runner.run(
     "git",
     ["worktree", "add", "-b", branch, worktree.path, "HEAD"],
@@ -4676,7 +4666,7 @@ async function create2(deps, name, branch) {
     };
   }
   const install = await deps.runner.run("npm", ["ci"], {
-    cwd: join8(worktree.path, "tools", "kore")
+    cwd: join9(worktree.path, "tools", "kore")
   });
   if (install.code !== 0) {
     return {
@@ -4743,7 +4733,7 @@ async function close2(context) {
   }
   const callerPane = deps.env.HERDR_PANE_ID;
   if (deps.env.HERDR_ENV !== "1" || !callerPane) {
-    return fail(deps, json, FAILED4, NOT_IN_HERDR);
+    return fail(deps, json, FAILED3, NOT_IN_HERDR);
   }
   const registry = await SessionRegistry.open(deps);
   const record3 = await registry.read(name);
@@ -4751,13 +4741,13 @@ async function close2(context) {
     return fail(
       deps,
       json,
-      FAILED4,
+      FAILED3,
       `This tool did not create a session named ${name}, so it will not close one. Close it yourself with \`herdr pane close <pane-id>\` if you are sure.`
     );
   }
   const refusal = refuse(record3, callerPane);
   if (refusal !== void 0) {
-    return fail(deps, json, FAILED4, refusal);
+    return fail(deps, json, FAILED3, refusal);
   }
   const closed = await deps.runner.run("herdr", [
     "pane",
@@ -4768,7 +4758,7 @@ async function close2(context) {
     return fail(
       deps,
       json,
-      FAILED4,
+      FAILED3,
       `herdr pane close ${record3.paneId} failed: ${describeFailure(closed)}`
     );
   }
@@ -4924,8 +4914,8 @@ async function launch(deps, { role, model, effort, name, brief, paneId, callerPa
 var DEFAULT_TIMEOUT_MS = 60 * 60 * 1e3;
 var POLL_MS = 2e3;
 var MARKER = /^[ \t]*(?:[●⏺][ \t]+)?RESULT: (done|blocked)[ \t\r]*$/gm;
-function findResult(text6) {
-  const last = [...text6.matchAll(MARKER)].at(-1)?.[1];
+function findResult(text5) {
+  const last = [...text5.matchAll(MARKER)].at(-1)?.[1];
   return last === "done" || last === "blocked" ? last : void 0;
 }
 function parseTimeout(value) {
@@ -5008,13 +4998,13 @@ async function wait(context) {
     return fail(
       deps,
       json,
-      FAILED4,
+      FAILED3,
       `No session named ${name} was spawned by this tool; start it with \`session spawn\`.`
     );
   }
   const result = await waitForResult(deps, registry, record3, timeout);
   if ("error" in result) {
-    return fail(deps, json, FAILED4, result.error);
+    return fail(deps, json, FAILED3, result.error);
   }
   deps.stdout(json ? `${JSON.stringify(result)}
 ` : formatWait(result));
@@ -5050,13 +5040,13 @@ function check({ deps, options }) {
   if (deps.env.HERDR_ENV !== "1") {
     return {
       error: "Not inside Herdr (HERDR_ENV is not 1). Run this from a Herdr pane; no session was started.",
-      code: FAILED4
+      code: FAILED3
     };
   }
   if (callerPane === void 0 || callerPane === "") {
     return {
       error: "HERDR_PANE_ID is not set, so the session cannot broadcast back. Run this from a Herdr pane.",
-      code: FAILED4
+      code: FAILED3
     };
   }
   return { values: given, callerPane, timeoutMs };
@@ -5078,7 +5068,7 @@ async function finish2({ json, deps, options }, { registry, record: record3, mod
   }
   const result = await waitForResult(deps, registry, record3, timeoutMs);
   if ("error" in result) {
-    return fail(deps, json, FAILED4, result.error);
+    return fail(deps, json, FAILED3, result.error);
   }
   deps.stdout(
     json ? `${JSON.stringify({ ...result, role, effort, ...extra, modelCheck })}
@@ -5142,20 +5132,20 @@ async function spawn2(context) {
   const registry = await SessionRegistry.open(deps);
   const taken = await registry.unavailable(name) ?? await nameTakenError(deps, name);
   if (taken !== void 0) {
-    return fail(deps, json, FAILED4, taken);
+    return fail(deps, json, FAILED3, taken);
   }
   const placed = await place(deps, context.options, name);
   if ("error" in placed) {
-    return fail(deps, json, FAILED4, placed.error);
+    return fail(deps, json, FAILED3, placed.error);
   }
   const paneId = await splitPane(deps, callerPane, placed.cwd);
   if (typeof paneId !== "string") {
-    return fail(deps, json, FAILED4, `${paneId.error}${placed.left}`);
+    return fail(deps, json, FAILED3, `${paneId.error}${placed.left}`);
   }
   const leftOpen = `The pane ${paneId} was left open; close it with \`herdr pane close ${paneId}\`.${placed.left}`;
   const equalized = await equalize(deps.runner, callerPane);
   if (equalized.status === "failed") {
-    return fail(deps, json, FAILED4, `${equalized.reason}. ${leftOpen}`);
+    return fail(deps, json, FAILED3, `${equalized.reason}. ${leftOpen}`);
   }
   const modelCheck = await launch(deps, {
     ...checked.values,
@@ -5164,7 +5154,7 @@ async function spawn2(context) {
     leftOpen
   });
   if ("error" in modelCheck) {
-    return fail(deps, json, FAILED4, modelCheck.error);
+    return fail(deps, json, FAILED3, modelCheck.error);
   }
   return await finish2(context, {
     registry,
@@ -5226,9 +5216,9 @@ var equalizeCommand = {
 `);
       return 1;
     }
-    const text6 = result.status === "skipped" ? `Skipped: ${result.reason}.` : "Equalized.";
+    const text5 = result.status === "skipped" ? `Skipped: ${result.reason}.` : "Equalized.";
     deps.stdout(json ? `${JSON.stringify(result)}
-` : `${text6}
+` : `${text5}
 `);
     return 0;
   }
@@ -5241,7 +5231,7 @@ var session = {
 };
 
 // src/skill/index.ts
-import { join as join9 } from "node:path";
+import { join as join10 } from "node:path";
 
 // src/skill/audit.ts
 var DESCRIPTION_BUDGET = 200;
@@ -5277,8 +5267,8 @@ function overBudgets(descriptionChars, bodyLines) {
 function countLines(body) {
   return body === "" ? 0 : body.replace(/\n$/, "").split("\n").length;
 }
-function auditSkill(directory, text6) {
-  const source = text6.replaceAll("\r\n", "\n");
+function auditSkill(directory, text5) {
+  const source = text5.replaceAll("\r\n", "\n");
   if (!source.startsWith("---\n")) {
     return invalid(directory, "missing frontmatter");
   }
@@ -5337,7 +5327,7 @@ function detail(row) {
 }
 function renderReport(report2) {
   const width = Math.max(4, ...report2.skills.map((s) => s.name.length));
-  const lines2 = [
+  const lines = [
     `${"NAME".padEnd(width)}  DESC  BODY  VERDICT`,
     ...report2.skills.map(
       (s) => `${s.name.padEnd(width)}  ${String(s.descriptionChars).padStart(4)}  ${String(s.bodyLines).padStart(4)}  ${s.verdict}${detail(s)}`
@@ -5345,17 +5335,17 @@ function renderReport(report2) {
     "",
     `${report2.summary.ok} ok, ${report2.summary["over-budget"]} over-budget, ${report2.summary.invalid} invalid`
   ];
-  return `${lines2.join("\n")}
+  return `${lines.join("\n")}
 `;
 }
 
 // src/skill/index.ts
 var SKILLS_DIR = "skills";
-var audit2 = {
+var audit = {
   summary: "report each skill's description and body against its budgets",
   options: { strict: "boolean" },
   async run({ json, options, deps }) {
-    const skillsDir = join9(await deps.root(), SKILLS_DIR);
+    const skillsDir = join10(await deps.root(), SKILLS_DIR);
     let report2;
     try {
       report2 = await auditSkills(deps.fs, skillsDir);
@@ -5373,7 +5363,7 @@ var audit2 = {
     return options["strict"] === true && failing ? 1 : 0;
   }
 };
-var skill = { audit: audit2 };
+var skill = { audit };
 
 // src/cli/host.ts
 var hostDomains = {
@@ -5412,19 +5402,19 @@ var domains = {
 var USAGE_ERROR2 = 2;
 var FAILURE = 1;
 function usage() {
-  const lines2 = ["Usage: harness <domain> <command> [--json]", "", "Commands:"];
+  const lines = ["Usage: harness <domain> <command> [--json]", "", "Commands:"];
   for (const [domain, commands] of Object.entries(domains)) {
     for (const [name, command] of Object.entries(commands)) {
-      lines2.push(`  harness ${domain} ${name}  ${command.summary}`);
+      lines.push(`  harness ${domain} ${name}  ${command.summary}`);
     }
   }
-  lines2.push(
+  lines.push(
     "",
     "Flags:",
     "  --json  print machine-readable output",
     "  --help  show this usage"
   );
-  return `${lines2.join("\n")}
+  return `${lines.join("\n")}
 `;
 }
 function fail2(deps, json, message, code = USAGE_ERROR2) {
@@ -5441,7 +5431,7 @@ function own(table, key) {
 function names2(commands) {
   return Object.keys(commands).join(", ");
 }
-function resolve5(domain, name) {
+function resolve6(domain, name) {
   const commands = own(domains, domain);
   if (commands === void 0) {
     return {
@@ -5537,7 +5527,7 @@ async function run(argv, deps) {
       failure2
     );
   }
-  const resolved = resolve5(domain, name);
+  const resolved = resolve6(domain, name);
   if ("error" in resolved) {
     return fail2(deps, json, resolved.error, failure2);
   }
@@ -5554,8 +5544,8 @@ async function run(argv, deps) {
 }
 
 // src/main.ts
-var stderr = (text6) => process.stderr.write(text6);
-var root2;
+var stderr = (text5) => process.stderr.write(text5);
+var root;
 try {
   process.exitCode = await run(process.argv.slice(2), {
     runner: new ProcessRunner(),
@@ -5565,12 +5555,12 @@ try {
     env: process.env,
     cwd: process.cwd(),
     stdin: () => readStdin(process.stdin),
-    root: () => root2 ??= resolveRoot(
+    root: () => root ??= resolveRoot(
       process.env,
       import.meta.url,
       (path) => nodeFileSystem.exists(path)
     ),
-    stdout: (text6) => process.stdout.write(text6),
+    stdout: (text5) => process.stdout.write(text5),
     stderr
   });
 } catch (error) {

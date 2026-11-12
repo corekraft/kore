@@ -51,6 +51,14 @@ export class MemoryFileSystem implements FileSystem {
     );
   }
 
+  mtimeMs(path: string): Promise<number> {
+    return this.files.has(path)
+      ? Promise.resolve(0)
+      : Promise.reject(
+          Object.assign(new Error(`ENOENT: ${path}`), { code: "ENOENT" }),
+        );
+  }
+
   readlink(path: string): Promise<string> {
     return Promise.reject(new Error(`ENOENT: ${path}`));
   }

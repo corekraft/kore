@@ -27,6 +27,8 @@ export interface FileSystem {
   remove(path: string): Promise<void>;
   /** The link's target as written; rejects with EINVAL for a non-link and ENOENT for a missing path. */
   readlink(path: string): Promise<string>;
+  /** The last-modified time in epoch milliseconds; rejects with ENOENT for a missing path. */
+  mtimeMs(path: string): Promise<number>;
 }
 
 export const nodeFileSystem: FileSystem = {
@@ -57,4 +59,7 @@ export const nodeFileSystem: FileSystem = {
   readdir: (path) => readdir(path),
   remove: (path) => rm(path, { force: true }),
   readlink: (path) => readlink(path),
+  async mtimeMs(path) {
+    return (await stat(path)).mtimeMs;
+  },
 };

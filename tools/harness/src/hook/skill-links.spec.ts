@@ -192,7 +192,7 @@ describe("hook dispatcher", () => {
       code: 1,
       out: "",
       err: expect.stringContaining(
-        'Unknown command "nope" for domain "hook". Commands: skill-links, workflow-permissions.',
+        'Unknown command "nope" for domain "hook". Commands: delta, skill-links, workflow-permissions.',
       ),
     });
   });

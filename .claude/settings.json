@@ -56,7 +56,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/delta.mjs\""
+            "command": "node \"$CLAUDE_PROJECT_DIR/skills/bin/harness.mjs\" hook delta"
           }
         ]
       }
