@@ -136,17 +136,6 @@ var ProcessRunner = class {
 // src/runtime/main-root.ts
 import { dirname as dirname2, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-
-// src/testing/git-env.ts
-function cleanGitEnv(env = process.env) {
-  return Object.fromEntries(
-    Object.entries(env).filter(
-      (entry2) => entry2[1] !== void 0 && !entry2[0].startsWith("GIT_")
-    )
-  );
-}
-
-// src/runtime/main-root.ts
 async function mainRoot(deps) {
   const checkout = await deps.root().catch(() => void 0);
   const override = deps.env["KORE_ROOT"];
@@ -164,6 +153,13 @@ async function mainRoot(deps) {
   const common = git3.stdout.trim();
   return git3.code === 0 && common !== "" ? dirname2(common) : void 0;
 }
+function withoutGitEnv(env) {
+  return Object.fromEntries(
+    Object.entries(env).filter(
+      (entry2) => entry2[1] !== void 0 && !entry2[0].startsWith("GIT_")
+    )
+  );
+}
 async function bundleMainRoot(deps) {
   if (deps.bundleUrl === void 0) {
     return void 0;
@@ -172,7 +168,7 @@ async function bundleMainRoot(deps) {
   const git3 = await deps.runner.run(
     "git",
     ["rev-parse", "--path-format=absolute", "--git-common-dir"],
-    { cwd: checkout, env: cleanGitEnv(deps.env) }
+    { cwd: checkout, env: withoutGitEnv(deps.env) }
   );
   const common = git3.stdout.trim();
   return git3.code === 0 && common !== "" ? dirname2(common) : void 0;
