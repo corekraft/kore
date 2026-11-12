@@ -3,7 +3,7 @@
 // Docs: AGENTS.md
 
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "./node-test-shim.mjs";
 
 import config from "../../tools/kore/lint-staged.config.js";
 

@@ -15,7 +15,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { test } from "node:test";
+import { test } from "./node-test-shim.mjs";
 import { fileURLToPath } from "node:url";
 
 const hook = fileURLToPath(
@@ -101,7 +101,7 @@ test("every tool the hook runs goes through the pinned toolchain", () => {
   const tools = lines.filter((l) => !l.startsWith("mise "));
   assert.deepEqual(
     tools.map((l) => l.split(" ")[0]),
-    ["lint-staged", "node", "run", "run"],
+    ["lint-staged", "run", "run", "run"],
   );
   assert.equal(lines.length, 8);
   for (const [i, l] of lines.entries()) {
@@ -178,7 +178,7 @@ test("staging only unrelated files runs no harness checks", () => {
     "skills/handoff/SKILL.md",
   ]);
   assert.equal(result.status, 0);
-  assert.doesNotMatch(result.npmCalls, /^harness /m);
+  assert.doesNotMatch(result.npmCalls, /^harness run (check|test:unit)/m);
 });
 
 test("a type-broken harness file blocks the commit with one actionable line and skips the harness tests", () => {
@@ -197,5 +197,21 @@ test("failing harness unit tests block the commit with one actionable line", () 
   assert.match(
     result.stderr,
     /^pre-commit: harness unit tests failed; run .+tools\/harness.+\n$/,
+  );
+});
+
+test("staging a .claude file runs the hook tests under harness vitest, not node --test", () => {
+  const result = commit([".claude/hooks/a.mjs"]);
+  assert.equal(result.status, 0);
+  assert.match(result.npmCalls, /^harness run test:hooks/m);
+  assert.doesNotMatch(result.calls, /node /);
+});
+
+test("failing hook tests block the commit with one actionable line", () => {
+  const result = commit([".claude/hooks/a.mjs"], ["harness:test:hooks"]);
+  assert.notEqual(result.status, 0);
+  assert.match(
+    result.stderr,
+    /^pre-commit: hook tests failed; run 'mise run test-hooks' and fix them\n$/,
   );
 });

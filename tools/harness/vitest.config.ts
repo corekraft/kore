@@ -2,7 +2,15 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    include: ["src/**/*.spec.ts", "tests/**/*.spec.ts"],
+    include: [
+      "src/**/*.spec.ts",
+      "tests/**/*.spec.ts",
+      // The hook, status line and eval-grading cases live beside their scripts.
+      "../../.claude/hooks/*.test.mjs",
+      "../../.claude/evals/*.test.mjs",
+    ],
+    // The hook cases spawn real processes and git; node:test never timed them.
+    testTimeout: 60_000,
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],

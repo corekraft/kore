@@ -9,7 +9,7 @@ description: Use before writing or changing any code or hook, including implemen
 
 ## The cycle
 
-1. **Red.** One test, one behavior, named after the guarantee it protects. For tests in `tools/kore`, fake the process runner. Run only that test: `npm --prefix tools/kore exec vitest run <file>`, or `node --test <file>` for hooks.
+1. **Red.** One test, one behavior, named after the guarantee it protects. For tests in `tools/kore`, fake the process runner. Run only that test: `npm --prefix tools/kore exec vitest run <file>`, or `npm --prefix tools/harness exec vitest run <file>` for hooks (their cases live in `.claude/hooks`).
 2. **Green.** Write the least code that makes it pass. Then run the wider suite.
 3. **Refactor** only while green, without adding behavior. For a bug, the first red test reproduces it.
 

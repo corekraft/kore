@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "./node-test-shim.mjs";
 
 import { bound, isHarnessSource, isTrackedSource, postEdit, postEditHarness, stop, stopHarness } from "./feedback.mjs";
 

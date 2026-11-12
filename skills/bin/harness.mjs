@@ -127,7 +127,8 @@ var package_default = {
     "format:check": 'prettier --check "src/**/*.ts" "tests/**/*.ts" package.json tsconfig.json .oxlintrc.json .prettierrc.json vitest.config.ts',
     lint: "oxlint --type-aware --deny-warnings src tests",
     test: "vitest run --coverage",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run",
+    "test:hooks": "vitest run .claude/"
   },
   devDependencies: {
     "@types/node": "26.6.6",
