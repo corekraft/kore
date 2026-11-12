@@ -1,6 +1,7 @@
 import { join, resolve } from "node:path";
 import { CommandError, mainRoot } from "../runtime/index.js";
 import type { CliDeps, FileSystem } from "../runtime/index.js";
+import type { Worktree } from "./worktree.js";
 
 export interface SessionResult {
   outcome: "done" | "blocked";
@@ -16,6 +17,8 @@ export interface SessionRecord {
   model: string;
   role: string;
   effort: string;
+  /** Set when spawned with --worktree: where it works and on which branch. */
+  worktree?: Worktree;
   createdAt: string;
   result?: SessionResult;
   closedAt?: string;

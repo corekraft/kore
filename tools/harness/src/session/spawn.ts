@@ -6,18 +6,11 @@ import {
   readLayout,
   spawnedColumn,
 } from "./equalize.js";
-import { sessionNameError } from "./names.js";
-import { FAILED, USAGE_ERROR, fail } from "./output.js";
+import { FAILED, fail } from "./output.js";
+import { check } from "./spawn-check.js";
 import { SessionRegistry } from "./registry.js";
 import { finish } from "./spawn-finish.js";
-import { findResult, parseTimeout } from "./wait.js";
-
-const REQUIRED = ["role", "model", "effort", "name", "brief"] as const;
-
-type Values = Record<(typeof REQUIRED)[number], string>;
-type Checked =
-  | { values: Values; callerPane: string; timeoutMs: number }
-  | { error: string; code: number };
+import { place } from "./worktree.js";
 
 function paneIdOf(stdout: string): string | undefined {
   try {
@@ -31,49 +24,11 @@ function paneIdOf(stdout: string): string | undefined {
   }
 }
 
-/** Everything that can be refused is refused here, before any herdr call. */
-function check({ deps, options }: CommandContext): Checked {
-  const usage = (error: string): Checked => ({ error, code: USAGE_ERROR });
-  const missing = REQUIRED.find((flag) => typeof options[flag] !== "string");
-  if (missing !== undefined) {
-    return usage(`Missing --${missing}.`);
-  }
-  const given = options as Values;
-  const nameError = sessionNameError(given.name);
-  if (nameError !== undefined) {
-    return usage(nameError);
-  }
-  if (findResult(given.brief) !== undefined) {
-    return usage(
-      'The brief has a line that is only a RESULT marker, which would end the wait early. Describe the marker in words instead, such as "end with the word RESULT, a colon, then done or blocked".',
-    );
-  }
-  const timeoutMs = parseTimeout(options.timeout);
-  if (typeof timeoutMs !== "number") {
-    return usage(timeoutMs.error);
-  }
-  const callerPane = deps.env.HERDR_PANE_ID;
-  if (deps.env.HERDR_ENV !== "1") {
-    return {
-      error:
-        "Not inside Herdr (HERDR_ENV is not 1). Run this from a Herdr pane; no session was started.",
-      code: FAILED,
-    };
-  }
-  if (callerPane === undefined || callerPane === "") {
-    return {
-      error:
-        "HERDR_PANE_ID is not set, so the session cannot broadcast back. Run this from a Herdr pane.",
-      code: FAILED,
-    };
-  }
-  return { values: given, callerPane, timeoutMs };
-}
-
 /** Splits right for the first spawned pane, else down on the bottom-most one. */
 async function splitPane(
   deps: CliDeps,
   callerPane: string,
+  cwd: string,
 ): Promise<string | { error: string }> {
   const read = await readLayout(deps.runner, callerPane);
   if ("error" in read) {
@@ -89,7 +44,7 @@ async function splitPane(
     "split",
     ...where,
     "--cwd",
-    deps.cwd,
+    cwd,
     "--no-focus",
   ]);
   if (split.code !== 0) {
@@ -134,11 +89,15 @@ export async function spawn(context: CommandContext): Promise<number> {
   if (taken !== undefined) {
     return fail(deps, json, FAILED, taken);
   }
-  const paneId = await splitPane(deps, callerPane);
-  if (typeof paneId !== "string") {
-    return fail(deps, json, FAILED, paneId.error);
+  const placed = await place(deps, context.options, name);
+  if ("error" in placed) {
+    return fail(deps, json, FAILED, placed.error);
   }
-  const leftOpen = `The pane ${paneId} was left open; close it with \`herdr pane close ${paneId}\`.`;
+  const paneId = await splitPane(deps, callerPane, placed.cwd);
+  if (typeof paneId !== "string") {
+    return fail(deps, json, FAILED, `${paneId.error}${placed.left}`);
+  }
+  const leftOpen = `The pane ${paneId} was left open; close it with \`herdr pane close ${paneId}\`.${placed.left}`;
   const equalized = await equalize(deps.runner, callerPane);
   if (equalized.status === "failed") {
     return fail(deps, json, FAILED, `${equalized.reason}. ${leftOpen}`);
@@ -163,6 +122,7 @@ export async function spawn(context: CommandContext): Promise<number> {
       model,
       role,
       effort,
+      ...(placed.worktree === undefined ? {} : { worktree: placed.worktree }),
       createdAt: deps.clock.now().toISOString(),
     },
     timeoutMs: checked.timeoutMs,

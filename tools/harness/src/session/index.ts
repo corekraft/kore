@@ -6,7 +6,7 @@ import { wait } from "./wait.js";
 
 const spawnCommand: Command = {
   summary:
-    "start a Claude session in a Herdr pane (--role --model --effort --name --brief --timeout ms); it waits for the result unless --no-wait, the normal pattern: spawn with --no-wait, then run `session wait <name>` in the background",
+    "start a Claude session in a Herdr pane (--role --model --effort --name --brief --timeout ms; --worktree [--branch b] runs it in a new git worktree under .claude/worktrees); it waits for the result unless --no-wait, the normal pattern: spawn with --no-wait, then run `session wait <name>` in the background",
   options: {
     role: "string",
     model: "string",
@@ -14,6 +14,8 @@ const spawnCommand: Command = {
     name: "string",
     brief: "string",
     "no-wait": "boolean",
+    worktree: "boolean",
+    branch: "string",
     timeout: "string",
   },
   run: spawn,
