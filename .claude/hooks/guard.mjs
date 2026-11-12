@@ -161,6 +161,12 @@ function checkDestructive(name, args) {
     );
   if (name === "minikube" && firstPositional(args) === "delete")
     return destructive();
+  if (name === "k3d") {
+    const positional = args.filter((arg) => !arg.startsWith("-"));
+    const clusterAt = positional.indexOf("cluster");
+    if (clusterAt >= 0 && positional.indexOf("delete", clusterAt) >= 0)
+      return destructive();
+  }
   if ((name === "tofu" || name === "terraform") && args.includes("destroy"))
     return destructive();
   if (name === "helm" && firstPositional(args) === "uninstall")

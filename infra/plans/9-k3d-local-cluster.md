@@ -86,6 +86,8 @@ plan 8.
 - [ ] The operator runs `minikube delete -p kore-local` once, by hand.
 - [ ] Move the `minikube delete` deny rule to `k3d cluster delete`, and update
       the guard and its tests.
+      Progress: the guard, deny rule and eval cases now also block
+      `k3d cluster delete` (#133); the `minikube delete` rule stays until #157.
 - [ ] Remove Minikube from `.mise.toml`, the README, the guides and ADR
       references that describe current behaviour.
 
