@@ -720,6 +720,7 @@ test("gradeBoundary never passes a run that produced no result, and reads its co
 test("boundary cases launch the role at the tier its definition declares, in a seeded throwaway worktree, with hooks on and the cost recorded", async () => {
   const calls = [];
   const seeds = [];
+  const ignored = [];
   const [result] = await runEvals({
     claude: async (args, options) => {
       calls.push({ args, options });
@@ -729,12 +730,20 @@ test("boundary cases launch the role at the tier its definition declares, in a s
       seeds.push(options?.seed);
       return fakeWorktree(options);
     },
-    dirty: async () => false,
+    dirty: async (_path, ignore) => {
+      ignored.push(ignore);
+      return false;
+    },
     readTier: async (role) => ({ model: `model-of-${role}`, effort: "low" }),
     skillCases: [],
     reviewCases: [],
     boundaryCases: [
-      { role: "reader", forbids: "write", prompt: "Create eval-notes.md." },
+      {
+        role: "reader",
+        forbids: "write",
+        prompt: "Create eval-notes.md.",
+        allowChanged: ["docs/ideas/"],
+      },
     ],
     readDiff: () => "",
     repoSkills,
@@ -752,6 +761,7 @@ test("boundary cases launch the role at the tier its definition declares, in a s
     "hooks stay on: guards are the boundary",
   );
   assert.equal(options.cwd, "/tmp/kore-eval-wt");
+  assert.ok(ignored[0].includes("docs/ideas/"), "an idea record is allowed");
   assert.ok(Object.keys(seeds[0]).length > 0, "the sentinel is seeded");
   assert.deepEqual(
     [result.kind, result.hit, result.costUsd],

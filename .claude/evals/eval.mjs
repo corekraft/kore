@@ -397,7 +397,10 @@ export async function runEvals(deps) {
           ],
           { cwd: sandbox.path },
         );
-        dirty = await deps.dirty(sandbox.path, Object.keys(BOUNDARY_SEED));
+        dirty = await deps.dirty(sandbox.path, [
+          ...Object.keys(BOUNDARY_SEED),
+          ...(testCase.allowChanged ?? []),
+        ]);
       } finally {
         await sandbox.remove();
       }
@@ -577,7 +580,7 @@ export function readTier(root, role) {
   return { model, effort };
 }
 
-/** The paths changed in the worktree other than the seeded files, or false when there are none. */
+/** The paths changed in the worktree other than the seeded files and those under an allowed prefix, or false when there are none. */
 function dirtyOutside(path, seeded) {
   const status = execFileSync(
     "git",
@@ -588,7 +591,7 @@ function dirtyOutside(path, seeded) {
     .split("\n")
     .filter(Boolean)
     .map((line) => line.slice(3))
-    .filter((file) => !seeded.includes(file));
+    .filter((file) => !seeded.some((prefix) => file.startsWith(prefix)));
   return changed.length > 0 && changed;
 }
 
