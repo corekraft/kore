@@ -94,3 +94,11 @@ export const harnessAllowed = (
   name === "node" &&
   HARNESS.test(args[0] ?? "") &&
   allowed.includes(`${args[1] ?? ""} ${args[2] ?? ""}`);
+
+/** `harness status`, a domain with no command word: bare or with `--json` only. A separate check, so no other role's allowlist can match it. */
+export const harnessStatus = (name: string, args: readonly string[]): boolean =>
+  name === "node" &&
+  HARNESS.test(args[0] ?? "") &&
+  args[1] === "status" &&
+  args.length <= 3 &&
+  (args[2] === undefined || args[2] === "--json");

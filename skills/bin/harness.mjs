@@ -870,11 +870,11 @@ function attribute(events) {
 
 // src/flow/scope.ts
 var byNumber = (a, b) => a.localeCompare(b, void 0, { numeric: true });
-function scopeOf({ since, until, ideas }) {
+function scopeOf({ since, until, ideas: ideas2 }) {
   return {
     since: since?.toISOString() ?? null,
     until: until?.toISOString() ?? null,
-    ideas: ideas === void 0 ? null : [...new Set(ideas)].sort(byNumber)
+    ideas: ideas2 === void 0 ? null : [...new Set(ideas2)].sort(byNumber)
   };
 }
 var windowOf = ({ since, until }) => [
@@ -902,12 +902,12 @@ function groupByIdea(events, window) {
 function reach(own2, waits) {
   return Math.max(...own2.map(time), ...waits.map(([, , stop2]) => stop2));
 }
-function select(byIdea, { ideas }, window, asOf) {
+function select(byIdea, { ideas: ideas2 }, window, asOf) {
   const kept = /* @__PURE__ */ new Map();
   for (const [idea, own2] of byIdea) {
     const waits = githubSpans(own2, asOf);
     const first = Math.min(...own2.map(time));
-    if ((ideas === null || ideas.includes(idea)) && first < window[1] && reach(own2, waits) >= window[0]) {
+    if ((ideas2 === null || ideas2.includes(idea)) && first < window[1] && reach(own2, waits) >= window[0]) {
       kept.set(idea, { own: own2, waits });
     }
   }
@@ -1160,20 +1160,20 @@ function costMetrics(byIdea, window, options) {
 // src/flow/idea-metrics.ts
 var firstClosed = (own2) => firstTime(own2, (e) => e.kind === "issue.closed");
 function leadTime(byIdea, window) {
-  const ideas = [];
+  const ideas2 = [];
   for (const [idea, own2] of byIdea) {
     const outcome = firstClosed(own2);
     if (outcome !== void 0 && inWindow(window, outcome)) {
       const first = Math.min(...own2.map(time));
-      ideas.push({ idea, seconds: (outcome - first) / 1e3 });
+      ideas2.push({ idea, seconds: (outcome - first) / 1e3 });
     }
   }
-  ideas.sort(
+  ideas2.sort(
     (a, b) => a.idea.localeCompare(b.idea, void 0, { numeric: true })
   );
-  const seconds3 = ideas.map((i) => i.seconds);
+  const seconds3 = ideas2.map((i) => i.seconds);
   return {
-    ideas,
+    ideas: ideas2,
     medianSeconds: median(seconds3),
     maxSeconds: seconds3.length === 0 ? null : Math.max(...seconds3)
   };
@@ -2375,13 +2375,13 @@ function parseTime(options, name) {
 }
 function parseIdeas(given) {
   const parts = typeof given === "string" ? given.split(",") : [""];
-  const ideas = parts.map((part) => /^#?(\d+)$/.exec(part.trim())?.[1]);
-  if (ideas.includes(void 0)) {
+  const ideas2 = parts.map((part) => /^#?(\d+)$/.exec(part.trim())?.[1]);
+  if (ideas2.includes(void 0)) {
     return {
       error: `Invalid --idea "${String(given)}". Use issue numbers such as #12 or 12,13.`
     };
   }
-  return ideas.map((n) => `#${Number(n)}`);
+  return ideas2.map((n) => `#${Number(n)}`);
 }
 function parseTimes(options) {
   const asOf = parseTime(options, "as-of");
@@ -2443,20 +2443,20 @@ function parseFlags({ options, deps }) {
   };
 }
 var seconds = (value) => `${Math.round(value)}s`;
-function scopeLine({ since, until, ideas }) {
+function scopeLine({ since, until, ideas: ideas2 }) {
   const range = [
     since === null ? void 0 : `from ${since}`,
     until === null ? void 0 : `until ${until}`
   ].filter((part) => part !== void 0);
-  const named = ideas === null ? [] : [`ideas ${ideas.join(", ")}`];
+  const named = ideas2 === null ? [] : [`ideas ${ideas2.join(", ")}`];
   const parts = [...range, ...named];
   return parts.length === 0 ? "Covering the whole ledger" : `Covering ${parts.join(", ")}`;
 }
 var leadLine = ({
-  ideas,
+  ideas: ideas2,
   medianSeconds,
   maxSeconds
-}) => medianSeconds === null || maxSeconds === null ? "Lead time: no completed ideas" : `Lead time: ${ideas.length} ideas, median ${seconds(medianSeconds)}, max ${seconds(maxSeconds)}`;
+}) => medianSeconds === null || maxSeconds === null ? "Lead time: no completed ideas" : `Lead time: ${ideas2.length} ideas, median ${seconds(medianSeconds)}, max ${seconds(maxSeconds)}`;
 function metricLine(label, metric2, trailing) {
   if (metric2.status === "insufficient history") {
     return `${label}: insufficient history, ${metric2.closedIdeas} of ${metric2.needed} closed ideas`;
@@ -3508,403 +3508,6 @@ var audit = {
 };
 var flagCommands = { activate, audit };
 
-// src/outcome/model.ts
-var OUTCOME_KINDS = ["experiment", "usage", "verification"];
-var OUTCOME_SOURCES = [
-  "live-run",
-  "journal",
-  "eval-history",
-  "comparison"
-];
-var RESULTS = ["confirmed", "refuted", "inconclusive"];
-var labelFor = (result) => `outcome:${result}`;
-var markerFor = (record4) => `<!-- harness outcome idea ${record4.number} -->`;
-function choice(flag, allowed, value) {
-  if (value === void 0 || value.trim() === "") {
-    throw new IdeaError(
-      `Missing --${flag}; pass one of ${allowed.join(", ")}.`
-    );
-  }
-  const found = allowed.find((a) => a === value.trim());
-  if (found === void 0) {
-    throw new IdeaError(
-      `--${flag} "${value}" is not recognised; use one of ${allowed.join(", ")}.`
-    );
-  }
-  return found;
-}
-function text4(flag, value, hint) {
-  const trimmed = (value ?? "").trim();
-  if (trimmed === "") {
-    throw new IdeaError(`Missing --${flag}; ${hint}.`);
-  }
-  return trimmed;
-}
-function parseOutcome(options) {
-  const kind = choice("kind", OUTCOME_KINDS, options.kind);
-  const source = choice("source", OUTCOME_SOURCES, options.source);
-  const result = choice("result", RESULTS, options.result);
-  const evidence = text4(
-    "evidence",
-    options.evidence,
-    "name the run, journal entry, eval record or comparison it was measured on"
-  ).replace(/\s+/g, " ");
-  const summary = text4(
-    "summary",
-    options.summary,
-    "state what was observed against the idea's expected outcome"
-  );
-  if (summary.includes("<!--") || options.evidence?.includes("<!--") === true) {
-    throw new IdeaError(
-      "--summary and --evidence must not contain an HTML comment; it could forge the marker that tells a rerun the outcome is posted, so reword it."
-    );
-  }
-  if (/^- [A-Za-z]+:/m.test(summary)) {
-    throw new IdeaError(
-      '--summary must not start a line with "- Name:"; it could override a recorded field such as Flag or Result, so reword it.'
-    );
-  }
-  if (/^#/m.test(summary)) {
-    throw new IdeaError(
-      "--summary must not start a line with #; it would open a new section in the idea, so reword it."
-    );
-  }
-  const flag = parseFlag(kind, source, options.flag, options.environment);
-  return { kind, source, result, evidence, summary, ...flag };
-}
-var FLAG_NAME = /^[a-z][a-z0-9-]*$/;
-function parseFlag(kind, source, name, environment) {
-  const given = [name, environment].map((v) => (v ?? "").trim());
-  if (given.every((v) => v === "")) {
-    return {};
-  }
-  for (const [flag, value] of [
-    ["flag", given[0]],
-    ["environment", given[1]]
-  ]) {
-    if (value === "") {
-      const other = flag === "flag" ? "environment" : "flag";
-      throw new IdeaError(
-        `Missing --${flag}; a flag outcome names both --flag and --environment (got only --${other}).`
-      );
-    }
-    if (!FLAG_NAME.test(value ?? "")) {
-      throw new IdeaError(
-        `--${flag} "${value}" must be lowercase letters, digits and hyphens, starting with a letter.`
-      );
-    }
-  }
-  if (kind !== "verification" || source !== "live-run") {
-    throw new IdeaError(
-      `--flag proves a flag only on --kind verification with --source live-run (got ${kind} from ${source}); a different outcome cannot activate it.`
-    );
-  }
-  return { flag: { name: given[0] ?? "", environment: given[1] ?? "" } };
-}
-function renderSection(outcome, date) {
-  return [
-    "## Outcome",
-    "",
-    `- Result: ${outcome.result}`,
-    `- Kind: ${outcome.kind}`,
-    `- Source: ${outcome.source}`,
-    ...outcome.flag === void 0 ? [] : [
-      `- Flag: ${outcome.flag.name}`,
-      `- Environment: ${outcome.flag.environment}`
-    ],
-    `- Evidence: ${outcome.evidence}`,
-    `- Recorded: ${date}`,
-    "",
-    outcome.summary
-  ].join("\n");
-}
-function followUpOf(record4, result) {
-  return {
-    // The number keeps the slug unique when long slugs share a prefix.
-    slug: `follow-up-${record4.number}-${record4.slug}`.slice(0, 60).replace(/-+$/, ""),
-    idea: {
-      title: `Follow up: ${record4.title}`,
-      summary: `Follow up on idea ${record4.number} after a ${result} outcome`,
-      hypothesis: `After a ${result} outcome on idea ${record4.number}, revisit: ${record4.hypothesis}`,
-      expectedOutcome: record4.expectedOutcome,
-      measurement: record4.measurement,
-      safetyPattern: record4.safetyPattern,
-      parent: record4.number
-    }
-  };
-}
-
-// src/outcome/publish.ts
-var FIX = "Check `gh auth status`, then rerun `harness outcome close`.";
-function names(value, key) {
-  return Array.isArray(value) ? value.flatMap((v) => {
-    const found = v?.[key];
-    return typeof found === "string" ? [found] : [];
-  }) : [];
-}
-function parseView2(stdout, target) {
-  try {
-    const view = JSON.parse(stdout);
-    return {
-      open: view["state"] !== "CLOSED",
-      labels: names(view["labels"], "name"),
-      comments: names(view["comments"], "body")
-    };
-  } catch {
-    throw new IdeaError(
-      `gh returned unreadable output for issue ${target.number}; ${FIX}`
-    );
-  }
-}
-function labelFlags(have, wanted) {
-  const stale = have.filter((l) => l.startsWith("outcome:") && l !== wanted);
-  return [
-    ...have.includes(wanted) ? [] : ["--add-label", wanted],
-    ...stale.flatMap((l) => ["--remove-label", l])
-  ];
-}
-function missingLabel(stderr2, wanted, repo, idea) {
-  return /not found/i.test(stderr2) && stderr2.includes(wanted) ? `The label "${wanted}" does not exist on ${repo}; create it with \`gh label create ${wanted} --repo ${repo}\`, then rerun \`harness outcome close --idea ${idea}\`.` : void 0;
-}
-async function publishOutcome(runner, root3, target, outcome) {
-  const gh = async (args, input, explain) => {
-    const done = await runner.run("gh", args, {
-      cwd: root3,
-      ...input === void 0 ? {} : { input }
-    });
-    if (done.code !== 0) {
-      const reason = explain?.(done.stderr);
-      if (reason !== void 0) {
-        throw new IdeaError(reason);
-      }
-      throw new IdeaError(
-        `gh ${args.slice(0, 2).join(" ")} failed for issue ${target.number}: ${done.stderr.trim()}. ${FIX}`
-      );
-    }
-    return done.stdout;
-  };
-  const at = ["--repo", target.repo];
-  const view = parseView2(
-    await gh([
-      "issue",
-      "view",
-      target.number,
-      ...at,
-      "--json",
-      "state,labels,comments"
-    ]),
-    target
-  );
-  const published = {
-    commented: false,
-    labelled: false,
-    closed: false
-  };
-  const wanted = labelFor(outcome.result);
-  const flags = labelFlags(view.labels, wanted);
-  if (flags.length > 0) {
-    await gh(
-      ["issue", "edit", target.number, ...at, ...flags],
-      void 0,
-      (stderr2) => missingLabel(stderr2, wanted, target.repo, outcome.idea)
-    );
-    published.labelled = true;
-  }
-  if (!view.comments.some((body) => body.includes(outcome.marker))) {
-    await gh(
-      ["issue", "comment", target.number, ...at, "--body-file", "-"],
-      outcome.comment
-    );
-    published.commented = true;
-  }
-  if (view.open) {
-    await gh(["issue", "close", target.number, ...at]);
-    published.closed = true;
-  }
-  return published;
-}
-
-// src/outcome/outcome.ts
-async function finish(ctx, record4, result, target) {
-  let followUp;
-  if (result !== "confirmed") {
-    const next = followUpOf(record4, result);
-    followUp = (await ctx.repo.create(next.slug, next.idea)).record.path;
-  }
-  const section = outcomeSection(await ctx.repo.source(record4)) ?? "";
-  const comment = [
-    markerFor(record4),
-    section,
-    ...followUp === void 0 ? [] : [`Follow-up idea: ${followUp}`]
-  ].join("\n\n");
-  const published = await publishOutcome(ctx.runner, ctx.root, target, {
-    idea: record4.number,
-    result,
-    marker: markerFor(record4),
-    comment: `${comment}
-`
-  });
-  return {
-    idea: record4.number,
-    result,
-    issue: `https://github.com/${target.repo}/issues/${target.number}`,
-    ...followUp === void 0 ? {} : { followUp },
-    published
-  };
-}
-async function recordOutcome(ctx, ref, outcome) {
-  const record4 = await ctx.repo.get(ref);
-  if (record4.outcome !== void 0) {
-    throw new IdeaError(
-      `${record4.path} already has an outcome (${record4.outcome}); an outcome is recorded once. Run \`harness outcome close --idea ${record4.number}\` to finish publishing it.`
-    );
-  }
-  const target = await issueTarget(ctx.runner, ctx.root, record4);
-  const date = ctx.clock.now().toISOString().slice(0, 10);
-  await ctx.repo.recordOutcome(
-    record4,
-    outcome.result,
-    renderSection(outcome, date)
-  );
-  return await finish(ctx, record4, outcome.result, target);
-}
-async function closeOutcome(ctx, ref) {
-  const record4 = await ctx.repo.get(ref);
-  const recorded = record4.outcome;
-  if (recorded === void 0) {
-    throw new IdeaError(
-      `${record4.path} has no recorded outcome, so its issue stays open. Run \`harness outcome record --idea ${record4.number} --kind <experiment|usage|verification> --source <live-run|journal|eval-history|comparison> --evidence <reference> --result <confirmed|refuted|inconclusive> --summary <text>\`.`
-    );
-  }
-  const result = RESULTS.find((r) => r === recorded);
-  if (result === void 0 || outcomeSection(await ctx.repo.source(record4)) === void 0) {
-    throw new IdeaError(
-      `${record4.path} has an outcome line "${recorded}" that the outcome tool did not write (it needs one of ${RESULTS.join(", ")} and an ## Outcome section). Remove it and run \`harness outcome record --idea ${record4.number}\`.`
-    );
-  }
-  const target = await issueTarget(ctx.runner, ctx.root, record4);
-  return await finish(ctx, record4, result, target);
-}
-
-// src/cli/outcome-commands.ts
-var FAILED3 = 1;
-function text5(options, key) {
-  const value = options[key];
-  return typeof value === "string" ? value : void 0;
-}
-async function guarded3({ json, deps }, action) {
-  try {
-    await action();
-    return 0;
-  } catch (error) {
-    if (!(error instanceof IdeaError)) {
-      throw error;
-    }
-    const prefix = json ? `${JSON.stringify({ error: error.message })}
-` : "";
-    deps.stderr(`${prefix}${error.message}
-`);
-    return FAILED3;
-  }
-}
-function ideaRef(context2, verb) {
-  const ref = text5(context2.options, "idea")?.trim();
-  if (ref === void 0 || ref === "") {
-    throw new IdeaError(
-      `Missing --idea; run \`harness outcome ${verb} --idea <number or slug>\`, or \`harness idea list\` to see the ideas.`
-    );
-  }
-  return ref;
-}
-async function withLedger(context2) {
-  const opened = await openLedger(context2);
-  if ("error" in opened) {
-    throw new IdeaError(opened.error);
-  }
-  return opened.ledger;
-}
-async function conclusion(context2, verb) {
-  const ledger = await withLedger(context2);
-  const ref = ideaRef(context2, verb);
-  const { deps } = context2;
-  const root3 = await deps.root().catch((cause) => {
-    throw new IdeaError(cause instanceof Error ? cause.message : String(cause));
-  });
-  const ctx = {
-    repo: new IdeaRepository(deps.fs, deps.clock, root3),
-    runner: deps.runner,
-    clock: deps.clock,
-    root: root3
-  };
-  const done = verb === "record" ? await recordOutcome(
-    ctx,
-    ref,
-    parseOutcome({
-      kind: text5(context2.options, "kind"),
-      source: text5(context2.options, "source"),
-      result: text5(context2.options, "result"),
-      evidence: text5(context2.options, "evidence"),
-      summary: text5(context2.options, "summary"),
-      flag: text5(context2.options, "flag"),
-      environment: text5(context2.options, "environment")
-    })
-  ) : await closeOutcome(ctx, ref);
-  const logged = await ledger.list({ idea: done.idea, kind: "outcome" });
-  if (logged.events.length === 0) {
-    const event = await ledger.record({
-      source: "github",
-      kind: "outcome",
-      occurredAt: deps.clock.now().toISOString(),
-      idea: done.idea,
-      label: labelFor(done.result),
-      number: Number(/(\d+)$/.exec(done.issue)?.[1])
-    });
-    if (!event.ok) {
-      throw new IdeaError(
-        `The outcome was published, but its ledger event was rejected: ${event.message} Fix the ledger, then rerun \`harness outcome close --idea ${done.idea}\` to record the event.`
-      );
-    }
-  }
-  deps.stdout(
-    context2.json ? `${JSON.stringify(done)}
-` : `Idea ${done.idea} ${done.result}; issue closed: ${done.issue}${done.followUp === void 0 ? "" : `
-Follow-up idea: ${done.followUp}`}
-`
-  );
-}
-var record2 = {
-  summary: `record an idea's measured outcome in its markdown, post it to the issue with one outcome:* label, close the issue, and open a follow-up idea when refuted or inconclusive (--idea --kind ${OUTCOME_KINDS.join("|")} --source ${OUTCOME_SOURCES.join("|")} --evidence <reference> --result ${RESULTS.join("|")} --summary <text> [--flag <name> --environment <env>, only on a live-run verification] [--ledger])`,
-  options: {
-    idea: "string",
-    kind: "string",
-    source: "string",
-    evidence: "string",
-    result: "string",
-    summary: "string",
-    flag: "string",
-    environment: "string",
-    ledger: "string"
-  },
-  run(context2) {
-    return guarded3(context2, () => conclusion(context2, "record"));
-  }
-};
-var close = {
-  summary: "finish closing an idea whose outcome is recorded (comment, one outcome:* label, close); refused with no gh call when no outcome is recorded (--idea [--ledger])",
-  options: { idea: "string", ledger: "string" },
-  run(context2) {
-    return guarded3(context2, () => conclusion(context2, "close"));
-  }
-};
-var outcomeCommands = { record: record2, close };
-
-// src/cli/records.ts
-var records = {
-  idea: ideaCommands,
-  outcome: outcomeCommands,
-  flag: flagCommands
-};
-
 // src/plan/parser.ts
 var FRONTMATTER = /^---\n([\s\S]*?)\n---\n/;
 var UPCOMING_STEPS = 3;
@@ -4062,22 +3665,25 @@ function describe5(plan2) {
   }
   return lines2.join("\n");
 }
+async function readActivePlans(deps) {
+  const plans = await readPlans(deps);
+  return activePlans(plans).map((name, index) => {
+    const markdown = plans[name] ?? "";
+    return {
+      file: `${PLANS_DIR}/${name}`,
+      name,
+      default: index === 0,
+      open: openCounts(markdown),
+      next: nextStep(markdown),
+      upcoming: upcomingSteps(markdown)
+    };
+  });
+}
 var planActive = {
   summary: "list the active plans, flagging the default (highest-numbered)",
   async run({ json, deps }) {
-    const plans = await readPlans(deps);
-    const names3 = activePlans(plans);
-    const listed = names3.map((name, index) => {
-      const markdown = plans[name] ?? "";
-      return {
-        file: `${PLANS_DIR}/${name}`,
-        name,
-        default: index === 0,
-        open: openCounts(markdown),
-        next: nextStep(markdown),
-        upcoming: upcomingSteps(markdown)
-      };
-    });
+    const listed = await readActivePlans(deps);
+    const names3 = listed.map((plan2) => plan2.name);
     if (json) {
       deps.stdout(
         `${JSON.stringify({ default: names3[0] ?? null, plans: listed })}
@@ -4614,6 +4220,476 @@ var planTick = {
       options["dry-run"] === true
     );
   }
+};
+
+// src/cli/status-command.ts
+var RECENT = 10;
+function stageOf2(event) {
+  return event.source === "github" ? GITHUB_STAGES[event.kind] : void 0;
+}
+function recentStages(events) {
+  return events.flatMap((event) => {
+    const stage = stageOf2(event);
+    if (stage === void 0) {
+      return [];
+    }
+    const recent = {
+      occurredAt: event.occurredAt,
+      stage,
+      kind: event.kind
+    };
+    if (event.number !== void 0) {
+      recent.number = event.number;
+    }
+    if (event.idea !== void 0) {
+      recent.idea = event.idea;
+    }
+    return [recent];
+  }).sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)).slice(0, RECENT);
+}
+async function ideas({ deps }) {
+  const repository2 = new IdeaRepository(deps.fs, deps.clock, await deps.root());
+  const items = (await repository2.list()).map((record4) => ({
+    number: record4.number,
+    title: record4.title,
+    state: record4.outcome ?? "open"
+  }));
+  const byState = {};
+  for (const { state } of items) {
+    byState[state] = (byState[state] ?? 0) + 1;
+  }
+  return { byState, items };
+}
+var statusCommand = {
+  summary: "report open plan items, ideas by state and recent ledger stages; read-only, for the concierge",
+  async run(context2) {
+    const opened = await openLedger(context2);
+    if ("error" in opened) {
+      throw new CommandError(opened.error);
+    }
+    const { events, skipped } = await opened.ledger.list({});
+    const status2 = {
+      plans: await readActivePlans(context2.deps),
+      ideas: await ideas(context2),
+      ledger: { recent: recentStages(events), skipped }
+    };
+    if (context2.json) {
+      context2.deps.stdout(`${JSON.stringify(status2)}
+`);
+      return 0;
+    }
+    const lines2 = status2.plans.map(
+      (plan2) => `${plan2.file}: ${plan2.open.map((o) => `${o.step} (${o.count})`).join(", ") || "no open items"}`
+    );
+    lines2.push(
+      `Ideas: ${Object.entries(status2.ideas.byState).map(([state, count3]) => `${count3} ${state}`).join(", ") || "none"}`
+    );
+    for (const r of status2.ledger.recent) {
+      lines2.push(`${r.occurredAt} ${r.stage} ${r.kind}`);
+    }
+    context2.deps.stdout(`${lines2.join("\n")}
+`);
+    return 0;
+  }
+};
+
+// src/outcome/model.ts
+var OUTCOME_KINDS = ["experiment", "usage", "verification"];
+var OUTCOME_SOURCES = [
+  "live-run",
+  "journal",
+  "eval-history",
+  "comparison"
+];
+var RESULTS = ["confirmed", "refuted", "inconclusive"];
+var labelFor = (result) => `outcome:${result}`;
+var markerFor = (record4) => `<!-- harness outcome idea ${record4.number} -->`;
+function choice(flag, allowed, value) {
+  if (value === void 0 || value.trim() === "") {
+    throw new IdeaError(
+      `Missing --${flag}; pass one of ${allowed.join(", ")}.`
+    );
+  }
+  const found = allowed.find((a) => a === value.trim());
+  if (found === void 0) {
+    throw new IdeaError(
+      `--${flag} "${value}" is not recognised; use one of ${allowed.join(", ")}.`
+    );
+  }
+  return found;
+}
+function text4(flag, value, hint) {
+  const trimmed = (value ?? "").trim();
+  if (trimmed === "") {
+    throw new IdeaError(`Missing --${flag}; ${hint}.`);
+  }
+  return trimmed;
+}
+function parseOutcome(options) {
+  const kind = choice("kind", OUTCOME_KINDS, options.kind);
+  const source = choice("source", OUTCOME_SOURCES, options.source);
+  const result = choice("result", RESULTS, options.result);
+  const evidence = text4(
+    "evidence",
+    options.evidence,
+    "name the run, journal entry, eval record or comparison it was measured on"
+  ).replace(/\s+/g, " ");
+  const summary = text4(
+    "summary",
+    options.summary,
+    "state what was observed against the idea's expected outcome"
+  );
+  if (summary.includes("<!--") || options.evidence?.includes("<!--") === true) {
+    throw new IdeaError(
+      "--summary and --evidence must not contain an HTML comment; it could forge the marker that tells a rerun the outcome is posted, so reword it."
+    );
+  }
+  if (/^- [A-Za-z]+:/m.test(summary)) {
+    throw new IdeaError(
+      '--summary must not start a line with "- Name:"; it could override a recorded field such as Flag or Result, so reword it.'
+    );
+  }
+  if (/^#/m.test(summary)) {
+    throw new IdeaError(
+      "--summary must not start a line with #; it would open a new section in the idea, so reword it."
+    );
+  }
+  const flag = parseFlag(kind, source, options.flag, options.environment);
+  return { kind, source, result, evidence, summary, ...flag };
+}
+var FLAG_NAME = /^[a-z][a-z0-9-]*$/;
+function parseFlag(kind, source, name, environment) {
+  const given = [name, environment].map((v) => (v ?? "").trim());
+  if (given.every((v) => v === "")) {
+    return {};
+  }
+  for (const [flag, value] of [
+    ["flag", given[0]],
+    ["environment", given[1]]
+  ]) {
+    if (value === "") {
+      const other = flag === "flag" ? "environment" : "flag";
+      throw new IdeaError(
+        `Missing --${flag}; a flag outcome names both --flag and --environment (got only --${other}).`
+      );
+    }
+    if (!FLAG_NAME.test(value ?? "")) {
+      throw new IdeaError(
+        `--${flag} "${value}" must be lowercase letters, digits and hyphens, starting with a letter.`
+      );
+    }
+  }
+  if (kind !== "verification" || source !== "live-run") {
+    throw new IdeaError(
+      `--flag proves a flag only on --kind verification with --source live-run (got ${kind} from ${source}); a different outcome cannot activate it.`
+    );
+  }
+  return { flag: { name: given[0] ?? "", environment: given[1] ?? "" } };
+}
+function renderSection(outcome, date) {
+  return [
+    "## Outcome",
+    "",
+    `- Result: ${outcome.result}`,
+    `- Kind: ${outcome.kind}`,
+    `- Source: ${outcome.source}`,
+    ...outcome.flag === void 0 ? [] : [
+      `- Flag: ${outcome.flag.name}`,
+      `- Environment: ${outcome.flag.environment}`
+    ],
+    `- Evidence: ${outcome.evidence}`,
+    `- Recorded: ${date}`,
+    "",
+    outcome.summary
+  ].join("\n");
+}
+function followUpOf(record4, result) {
+  return {
+    // The number keeps the slug unique when long slugs share a prefix.
+    slug: `follow-up-${record4.number}-${record4.slug}`.slice(0, 60).replace(/-+$/, ""),
+    idea: {
+      title: `Follow up: ${record4.title}`,
+      summary: `Follow up on idea ${record4.number} after a ${result} outcome`,
+      hypothesis: `After a ${result} outcome on idea ${record4.number}, revisit: ${record4.hypothesis}`,
+      expectedOutcome: record4.expectedOutcome,
+      measurement: record4.measurement,
+      safetyPattern: record4.safetyPattern,
+      parent: record4.number
+    }
+  };
+}
+
+// src/outcome/publish.ts
+var FIX = "Check `gh auth status`, then rerun `harness outcome close`.";
+function names(value, key) {
+  return Array.isArray(value) ? value.flatMap((v) => {
+    const found = v?.[key];
+    return typeof found === "string" ? [found] : [];
+  }) : [];
+}
+function parseView2(stdout, target) {
+  try {
+    const view = JSON.parse(stdout);
+    return {
+      open: view["state"] !== "CLOSED",
+      labels: names(view["labels"], "name"),
+      comments: names(view["comments"], "body")
+    };
+  } catch {
+    throw new IdeaError(
+      `gh returned unreadable output for issue ${target.number}; ${FIX}`
+    );
+  }
+}
+function labelFlags(have, wanted) {
+  const stale = have.filter((l) => l.startsWith("outcome:") && l !== wanted);
+  return [
+    ...have.includes(wanted) ? [] : ["--add-label", wanted],
+    ...stale.flatMap((l) => ["--remove-label", l])
+  ];
+}
+function missingLabel(stderr2, wanted, repo, idea) {
+  return /not found/i.test(stderr2) && stderr2.includes(wanted) ? `The label "${wanted}" does not exist on ${repo}; create it with \`gh label create ${wanted} --repo ${repo}\`, then rerun \`harness outcome close --idea ${idea}\`.` : void 0;
+}
+async function publishOutcome(runner, root3, target, outcome) {
+  const gh = async (args, input, explain) => {
+    const done = await runner.run("gh", args, {
+      cwd: root3,
+      ...input === void 0 ? {} : { input }
+    });
+    if (done.code !== 0) {
+      const reason = explain?.(done.stderr);
+      if (reason !== void 0) {
+        throw new IdeaError(reason);
+      }
+      throw new IdeaError(
+        `gh ${args.slice(0, 2).join(" ")} failed for issue ${target.number}: ${done.stderr.trim()}. ${FIX}`
+      );
+    }
+    return done.stdout;
+  };
+  const at = ["--repo", target.repo];
+  const view = parseView2(
+    await gh([
+      "issue",
+      "view",
+      target.number,
+      ...at,
+      "--json",
+      "state,labels,comments"
+    ]),
+    target
+  );
+  const published = {
+    commented: false,
+    labelled: false,
+    closed: false
+  };
+  const wanted = labelFor(outcome.result);
+  const flags = labelFlags(view.labels, wanted);
+  if (flags.length > 0) {
+    await gh(
+      ["issue", "edit", target.number, ...at, ...flags],
+      void 0,
+      (stderr2) => missingLabel(stderr2, wanted, target.repo, outcome.idea)
+    );
+    published.labelled = true;
+  }
+  if (!view.comments.some((body) => body.includes(outcome.marker))) {
+    await gh(
+      ["issue", "comment", target.number, ...at, "--body-file", "-"],
+      outcome.comment
+    );
+    published.commented = true;
+  }
+  if (view.open) {
+    await gh(["issue", "close", target.number, ...at]);
+    published.closed = true;
+  }
+  return published;
+}
+
+// src/outcome/outcome.ts
+async function finish(ctx, record4, result, target) {
+  let followUp;
+  if (result !== "confirmed") {
+    const next = followUpOf(record4, result);
+    followUp = (await ctx.repo.create(next.slug, next.idea)).record.path;
+  }
+  const section = outcomeSection(await ctx.repo.source(record4)) ?? "";
+  const comment = [
+    markerFor(record4),
+    section,
+    ...followUp === void 0 ? [] : [`Follow-up idea: ${followUp}`]
+  ].join("\n\n");
+  const published = await publishOutcome(ctx.runner, ctx.root, target, {
+    idea: record4.number,
+    result,
+    marker: markerFor(record4),
+    comment: `${comment}
+`
+  });
+  return {
+    idea: record4.number,
+    result,
+    issue: `https://github.com/${target.repo}/issues/${target.number}`,
+    ...followUp === void 0 ? {} : { followUp },
+    published
+  };
+}
+async function recordOutcome(ctx, ref, outcome) {
+  const record4 = await ctx.repo.get(ref);
+  if (record4.outcome !== void 0) {
+    throw new IdeaError(
+      `${record4.path} already has an outcome (${record4.outcome}); an outcome is recorded once. Run \`harness outcome close --idea ${record4.number}\` to finish publishing it.`
+    );
+  }
+  const target = await issueTarget(ctx.runner, ctx.root, record4);
+  const date = ctx.clock.now().toISOString().slice(0, 10);
+  await ctx.repo.recordOutcome(
+    record4,
+    outcome.result,
+    renderSection(outcome, date)
+  );
+  return await finish(ctx, record4, outcome.result, target);
+}
+async function closeOutcome(ctx, ref) {
+  const record4 = await ctx.repo.get(ref);
+  const recorded = record4.outcome;
+  if (recorded === void 0) {
+    throw new IdeaError(
+      `${record4.path} has no recorded outcome, so its issue stays open. Run \`harness outcome record --idea ${record4.number} --kind <experiment|usage|verification> --source <live-run|journal|eval-history|comparison> --evidence <reference> --result <confirmed|refuted|inconclusive> --summary <text>\`.`
+    );
+  }
+  const result = RESULTS.find((r) => r === recorded);
+  if (result === void 0 || outcomeSection(await ctx.repo.source(record4)) === void 0) {
+    throw new IdeaError(
+      `${record4.path} has an outcome line "${recorded}" that the outcome tool did not write (it needs one of ${RESULTS.join(", ")} and an ## Outcome section). Remove it and run \`harness outcome record --idea ${record4.number}\`.`
+    );
+  }
+  const target = await issueTarget(ctx.runner, ctx.root, record4);
+  return await finish(ctx, record4, result, target);
+}
+
+// src/cli/outcome-commands.ts
+var FAILED3 = 1;
+function text5(options, key) {
+  const value = options[key];
+  return typeof value === "string" ? value : void 0;
+}
+async function guarded3({ json, deps }, action) {
+  try {
+    await action();
+    return 0;
+  } catch (error) {
+    if (!(error instanceof IdeaError)) {
+      throw error;
+    }
+    const prefix = json ? `${JSON.stringify({ error: error.message })}
+` : "";
+    deps.stderr(`${prefix}${error.message}
+`);
+    return FAILED3;
+  }
+}
+function ideaRef(context2, verb) {
+  const ref = text5(context2.options, "idea")?.trim();
+  if (ref === void 0 || ref === "") {
+    throw new IdeaError(
+      `Missing --idea; run \`harness outcome ${verb} --idea <number or slug>\`, or \`harness idea list\` to see the ideas.`
+    );
+  }
+  return ref;
+}
+async function withLedger(context2) {
+  const opened = await openLedger(context2);
+  if ("error" in opened) {
+    throw new IdeaError(opened.error);
+  }
+  return opened.ledger;
+}
+async function conclusion(context2, verb) {
+  const ledger = await withLedger(context2);
+  const ref = ideaRef(context2, verb);
+  const { deps } = context2;
+  const root3 = await deps.root().catch((cause) => {
+    throw new IdeaError(cause instanceof Error ? cause.message : String(cause));
+  });
+  const ctx = {
+    repo: new IdeaRepository(deps.fs, deps.clock, root3),
+    runner: deps.runner,
+    clock: deps.clock,
+    root: root3
+  };
+  const done = verb === "record" ? await recordOutcome(
+    ctx,
+    ref,
+    parseOutcome({
+      kind: text5(context2.options, "kind"),
+      source: text5(context2.options, "source"),
+      result: text5(context2.options, "result"),
+      evidence: text5(context2.options, "evidence"),
+      summary: text5(context2.options, "summary"),
+      flag: text5(context2.options, "flag"),
+      environment: text5(context2.options, "environment")
+    })
+  ) : await closeOutcome(ctx, ref);
+  const logged = await ledger.list({ idea: done.idea, kind: "outcome" });
+  if (logged.events.length === 0) {
+    const event = await ledger.record({
+      source: "github",
+      kind: "outcome",
+      occurredAt: deps.clock.now().toISOString(),
+      idea: done.idea,
+      label: labelFor(done.result),
+      number: Number(/(\d+)$/.exec(done.issue)?.[1])
+    });
+    if (!event.ok) {
+      throw new IdeaError(
+        `The outcome was published, but its ledger event was rejected: ${event.message} Fix the ledger, then rerun \`harness outcome close --idea ${done.idea}\` to record the event.`
+      );
+    }
+  }
+  deps.stdout(
+    context2.json ? `${JSON.stringify(done)}
+` : `Idea ${done.idea} ${done.result}; issue closed: ${done.issue}${done.followUp === void 0 ? "" : `
+Follow-up idea: ${done.followUp}`}
+`
+  );
+}
+var record2 = {
+  summary: `record an idea's measured outcome in its markdown, post it to the issue with one outcome:* label, close the issue, and open a follow-up idea when refuted or inconclusive (--idea --kind ${OUTCOME_KINDS.join("|")} --source ${OUTCOME_SOURCES.join("|")} --evidence <reference> --result ${RESULTS.join("|")} --summary <text> [--flag <name> --environment <env>, only on a live-run verification] [--ledger])`,
+  options: {
+    idea: "string",
+    kind: "string",
+    source: "string",
+    evidence: "string",
+    result: "string",
+    summary: "string",
+    flag: "string",
+    environment: "string",
+    ledger: "string"
+  },
+  run(context2) {
+    return guarded3(context2, () => conclusion(context2, "record"));
+  }
+};
+var close = {
+  summary: "finish closing an idea whose outcome is recorded (comment, one outcome:* label, close); refused with no gh call when no outcome is recorded (--idea [--ledger])",
+  options: { idea: "string", ledger: "string" },
+  run(context2) {
+    return guarded3(context2, () => conclusion(context2, "close"));
+  }
+};
+var outcomeCommands = { record: record2, close };
+
+// src/cli/records.ts
+var records = {
+  idea: ideaCommands,
+  outcome: outcomeCommands,
+  flag: flagCommands,
+  // `harness status`: the one command of its domain, so it takes no command word.
+  status: { "": statusCommand }
 };
 
 // src/hook/feedback.ts
@@ -5714,6 +5790,7 @@ function writes(segment) {
 }
 var HARNESS2 = /^(\.\/)?skills\/bin\/harness\.mjs$/;
 var harnessAllowed = (name, args, allowed) => name === "node" && HARNESS2.test(args[0] ?? "") && allowed.includes(`${args[1] ?? ""} ${args[2] ?? ""}`);
+var harnessStatus = (name, args) => name === "node" && HARNESS2.test(args[0] ?? "") && args[1] === "status" && args.length <= 3 && (args[2] === void 0 || args[2] === "--json");
 
 // src/hook/guard-role-delivery.ts
 var REPORTING_ROLES = /* @__PURE__ */ new Set(["orchestrator", "judge"]);
@@ -5899,7 +5976,7 @@ function ghMayRun(args, patches) {
 }
 function conciergeMayRun(segment) {
   const { name, args } = commandOf(segment);
-  return harnessAllowed(name, args, CONCIERGE_HARNESS) || name === "gh" && ghMayRun(args, false) || name === "git" && conciergeGit(args) || ["date", "echo", "pwd"].includes(name);
+  return harnessAllowed(name, args, CONCIERGE_HARNESS) || harnessStatus(name, args) || name === "gh" && ghMayRun(args, false) || name === "git" && conciergeGit(args) || ["date", "echo", "pwd"].includes(name);
 }
 var READER_GIT = [
   "log",
@@ -7678,7 +7755,7 @@ function valueProblems2(file, keys) {
   }
   return problems;
 }
-function parentProblems(file, keys, ideas) {
+function parentProblems(file, keys, ideas2) {
   const parent = keys.get("parent");
   if (!parent || /^#\d+$/.test(parent.value)) {
     return [];
@@ -7695,7 +7772,7 @@ function parentProblems(file, keys, ideas) {
       )
     ];
   }
-  return ideas.has(number) ? [] : [
+  return ideas2.has(number) ? [] : [
     onKey(
       file,
       keys,
@@ -7731,7 +7808,7 @@ function outcomeProblems(file, markdown, keys) {
   }
   return [];
 }
-function checkIdea(file, markdown, ideas) {
+function checkIdea(file, markdown, ideas2) {
   const parsed = frontmatter2(file, markdown);
   if (!parsed) {
     return [
@@ -7747,7 +7824,7 @@ function checkIdea(file, markdown, ideas) {
   const problems = [
     ...parsed.errors,
     ...valueProblems2(file, keys),
-    ...parentProblems(file, keys, ideas),
+    ...parentProblems(file, keys, ideas2),
     ...outcomeProblems(file, markdown, keys)
   ];
   if (!IDEA_NAME.test(file)) {
@@ -7812,16 +7889,16 @@ function openTree(deps) {
   };
 }
 function ideaNumbers(files) {
-  const ideas = /* @__PURE__ */ new Map();
+  const ideas2 = /* @__PURE__ */ new Map();
   const problems = [];
   for (const file of files) {
     const number = IDEA_NAME.exec(file)?.[1];
     if (number === void 0) {
       continue;
     }
-    const first = ideas.get(number);
+    const first = ideas2.get(number);
     if (first === void 0) {
-      ideas.set(number, file);
+      ideas2.set(number, file);
     } else {
       problems.push(
         finding(
@@ -7833,7 +7910,7 @@ function ideaNumbers(files) {
       );
     }
   }
-  return { ideas, problems };
+  return { ideas: ideas2, problems };
 }
 function linkProblems2(tree, file, text9) {
   const problems = [];
@@ -7863,7 +7940,7 @@ function linkProblems2(tree, file, text9) {
   }
   return problems;
 }
-function markdownProblems(tree, ideas) {
+function markdownProblems(tree, ideas2) {
   const problems = [];
   for (const file of tree.files.filter((name) => name.endsWith(".md"))) {
     const text9 = tree.deps.read(file);
@@ -7876,7 +7953,7 @@ function markdownProblems(tree, ideas) {
         ...checkFrontmatter(file, text9, (path) => tree.exists(path))
       );
     } else if (IDEA.test(file)) {
-      problems.push(...checkIdea(file, text9, ideas));
+      problems.push(...checkIdea(file, text9, ideas2));
     }
   }
   return problems;
@@ -8014,10 +8091,10 @@ function readmeProblems(tree) {
 }
 function findings(deps) {
   const tree = openTree(deps);
-  const { ideas, problems } = ideaNumbers(tree.files);
+  const { ideas: ideas2, problems } = ideaNumbers(tree.files);
   return [
     ...problems,
-    ...markdownProblems(tree, ideas),
+    ...markdownProblems(tree, ideas2),
     ...indexProblems(tree),
     ...markerProblems(tree),
     ...readmeProblems(tree)
@@ -9434,7 +9511,9 @@ function usage() {
   const lines2 = ["Usage: harness <domain> <command> [--json]", "", "Commands:"];
   for (const [domain, commands] of Object.entries(domains)) {
     for (const [name, command] of Object.entries(commands)) {
-      lines2.push(`  harness ${domain} ${name}  ${command.summary}`);
+      lines2.push(
+        `  harness ${[domain, name].filter(Boolean).join(" ")}  ${command.summary}`
+      );
     }
   }
   lines2.push(
@@ -9468,6 +9547,10 @@ function resolve8(domain, name) {
     };
   }
   if (name === void 0) {
+    const only = own(commands, "");
+    if (only !== void 0) {
+      return { command: only };
+    }
     return {
       error: `Missing command for domain "${domain}". Commands: ${names2(commands)}.`
     };

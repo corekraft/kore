@@ -10,6 +10,7 @@
 import { checkDelivery, DELIVERY_ROLES } from "./guard-role-delivery.js";
 import {
   harnessAllowed,
+  harnessStatus,
   readOnly,
   writes,
   WRITE_TOOLS,
@@ -136,6 +137,7 @@ function conciergeMayRun(segment: readonly string[]): boolean {
   const { name, args } = commandOf(segment);
   return (
     harnessAllowed(name, args, CONCIERGE_HARNESS) ||
+    harnessStatus(name, args) ||
     (name === "gh" && ghMayRun(args, false)) ||
     (name === "git" && conciergeGit(args)) ||
     ["date", "echo", "pwd"].includes(name)

@@ -1,4 +1,4 @@
-import type { Command } from "../runtime/index.js";
+import type { CliDeps, Command } from "../runtime/index.js";
 import {
   activePlans,
   nextStep,
@@ -31,22 +31,27 @@ function describe(plan: ActivePlan): string {
   return lines.join("\n");
 }
 
+/** The active plans, highest-numbered first, each with its open items. */
+export async function readActivePlans(deps: CliDeps): Promise<ActivePlan[]> {
+  const plans = await readPlans(deps);
+  return activePlans(plans).map((name, index) => {
+    const markdown = plans[name] ?? "";
+    return {
+      file: `${PLANS_DIR}/${name}`,
+      name,
+      default: index === 0,
+      open: openCounts(markdown),
+      next: nextStep(markdown),
+      upcoming: upcomingSteps(markdown),
+    };
+  });
+}
+
 export const planActive: Command = {
   summary: "list the active plans, flagging the default (highest-numbered)",
   async run({ json, deps }) {
-    const plans = await readPlans(deps);
-    const names = activePlans(plans);
-    const listed: ActivePlan[] = names.map((name, index) => {
-      const markdown = plans[name] ?? "";
-      return {
-        file: `${PLANS_DIR}/${name}`,
-        name,
-        default: index === 0,
-        open: openCounts(markdown),
-        next: nextStep(markdown),
-        upcoming: upcomingSteps(markdown),
-      };
-    });
+    const listed = await readActivePlans(deps);
+    const names = listed.map((plan) => plan.name);
     if (json) {
       deps.stdout(
         `${JSON.stringify({ default: names[0] ?? null, plans: listed })}\n`,
