@@ -6,7 +6,7 @@ metadata:
 provisioner: {{ include "platform-storage.provisioner" . }}
 reclaimPolicy: Delete
 allowVolumeExpansion: true
-volumeBindingMode: Immediate
+volumeBindingMode: WaitForFirstConsumer
 ---
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
@@ -16,4 +16,4 @@ metadata:
 provisioner: {{ include "platform-storage.provisioner" . }}
 reclaimPolicy: Retain
 allowVolumeExpansion: true
-volumeBindingMode: Immediate
+volumeBindingMode: WaitForFirstConsumer
