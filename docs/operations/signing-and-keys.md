@@ -72,7 +72,7 @@ Signing key or release identity suspected compromised:
 ## Protected-pipeline controls
 
 Enforced in the repository: one signing workflow, tag-only signing, read-only
-tokens elsewhere (`.claude/hooks/workflow-permissions.test.mjs`, run by
+tokens elsewhere (`hook workflow-permissions` (`tools/harness/src/hook/workflow-permissions.spec.ts`), run by
 `mise run test-hooks`). Verified by hand against GitHub: tag ruleset, default
 token permissions, fork approval, collaborators, GHCR access (the checklist in
 the signer controls page). **Gap:** the real release identity is not yet bound

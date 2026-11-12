@@ -15,7 +15,7 @@ is the checklist for the part the repository cannot configure.
   repositories, and a test ties the committed subjects to the workflow's real
   `IDENTITY`
   (`tools/kore/src/config/image-trust.spec.ts`).
-- **Token permissions.** `.claude/hooks/workflow-permissions.test.mjs` (run by
+- **Token permissions.** `node skills/bin/harness.mjs hook workflow-permissions` (run by
   `mise run test-hooks`, so by the `check` workflow) fails when:
   - a workflow other than `release.yaml`, or a job other than `release` and
     `mirror`, requests `id-token: write` or `packages: write`;
