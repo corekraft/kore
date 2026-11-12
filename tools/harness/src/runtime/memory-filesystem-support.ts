@@ -33,6 +33,11 @@ export class MemoryFileSystem implements FileSystem {
     return Promise.resolve();
   }
 
+  remove(path: string): Promise<void> {
+    this.files.delete(path);
+    return Promise.resolve();
+  }
+
   exists(path: string): Promise<boolean> {
     return Promise.resolve(this.files.has(path));
   }

@@ -23,6 +23,7 @@ import {
   mkdir,
   readFile,
   readdir,
+  rm,
   stat,
   writeFile
 } from "node:fs/promises";
@@ -52,7 +53,8 @@ var nodeFileSystem = {
       throw error;
     }
   },
-  readdir: (path) => readdir(path)
+  readdir: (path) => readdir(path),
+  remove: (path) => rm(path, { force: true })
 };
 
 // src/runtime/runner.ts
@@ -1431,6 +1433,35 @@ function buildReport(events, { asOf, minCompletedIdeas }) {
   };
 }
 
+// src/ledger/poll-lock.ts
+var STALE_LOCK_MS = 6e4;
+var isExists = (error) => error.code === "EEXIST";
+async function isStale(fs, clock, path) {
+  const taken = Date.parse(await fs.readFile(path).catch(() => ""));
+  return Number.isNaN(taken) || clock.now().getTime() - taken > STALE_LOCK_MS;
+}
+async function acquire(fs, clock, path) {
+  const busy = {
+    ok: false,
+    message: `Another poll holds ${path}. Wait for it, or delete the file if no poll is running.`
+  };
+  for (const attempt of [0, 1]) {
+    try {
+      await fs.createFile(path, clock.now().toISOString());
+      return { ok: true, release: () => fs.remove(path) };
+    } catch (error) {
+      if (!isExists(error)) {
+        throw error;
+      }
+    }
+    if (attempt === 1 || !await isStale(fs, clock, path)) {
+      return busy;
+    }
+    await fs.remove(path);
+  }
+  return busy;
+}
+
 // src/ledger/schema.ts
 var SOURCES = ["claude", "herdr", "github"];
 var KINDS = [
@@ -1481,6 +1512,9 @@ var ALLOWED = /* @__PURE__ */ new Set([
   "label",
   "number"
 ]);
+function isName(value) {
+  return typeof value === "string" && NAME.test(value);
+}
 function isTimestamp(value) {
   if (!TIMESTAMP.test(value)) {
     return false;
@@ -1594,6 +1628,136 @@ function parseEvent(input, mode) {
     Object.entries(input).filter(([, value]) => value !== void 0)
   );
   return { ok: true, event };
+}
+
+// src/ledger/herdr-poll.ts
+var PANE_KINDS = [
+  "pane.spawned",
+  "pane.busy",
+  "pane.waiting",
+  "pane.closed"
+];
+var STATUS_KIND = {
+  working: "pane.busy",
+  idle: "pane.waiting",
+  blocked: "pane.waiting",
+  done: "pane.waiting"
+};
+function describe3(code, stdout, stderr2) {
+  const text3 = `${stderr2}${stdout}`.trim();
+  return text3 === "" ? `exit code ${code}` : `exit code ${code}: ${text3}`;
+}
+function toSeen(entry) {
+  if (typeof entry !== "object" || entry === null) {
+    return void 0;
+  }
+  const raw = entry;
+  const pane = raw["pane_id"];
+  const status = STATUS_KIND[String(raw["agent_status"])];
+  const agent = [raw["name"], raw["agent"]].find(isName) ?? "unknown";
+  if (!isName(pane) || status === void 0) {
+    return void 0;
+  }
+  return { pane, agent, status };
+}
+async function listAgents(runner) {
+  const found = await runner.run("herdr", ["agent", "list"]);
+  if (found.code !== 0) {
+    return {
+      message: `herdr agent list failed: ${describe3(found.code, found.stdout, found.stderr)}. Is the herdr server running?`
+    };
+  }
+  let value;
+  try {
+    value = JSON.parse(found.stdout);
+  } catch {
+    return {
+      message: "herdr agent list did not print JSON. Run `herdr agent list` by hand and check the herdr version."
+    };
+  }
+  const agents = value?.result?.agents;
+  if (!Array.isArray(agents)) {
+    return {
+      message: "herdr agent list printed no agent list (.result.agents); the herdr version may have changed its output."
+    };
+  }
+  const present = /* @__PURE__ */ new Set();
+  for (const entry of agents) {
+    const pane = entry?.pane_id;
+    if (typeof pane === "string") {
+      present.add(pane);
+    }
+  }
+  return { seen: agents.map(toSeen).filter((s) => s !== void 0), present };
+}
+async function lastRecorded(ledger) {
+  const { events } = await ledger.list({ source: "herdr" });
+  const last = /* @__PURE__ */ new Map();
+  for (const event of events) {
+    if (event.pane !== void 0 && PANE_KINDS.includes(event.kind)) {
+      last.set(event.pane, {
+        kind: event.kind,
+        ...event.agent === void 0 ? {} : { agent: event.agent }
+      });
+    }
+  }
+  return last;
+}
+async function pollHerdr(deps) {
+  const held = await acquire(deps.fs, deps.clock, `${deps.ledger.path}.lock`);
+  if (!held.ok) {
+    return { ok: false, message: held.message };
+  }
+  try {
+    return await poll(deps);
+  } finally {
+    await held.release();
+  }
+}
+function plan(listed, last, observedAt) {
+  const planned = [];
+  const event = (kind, pane, agent) => planned.push({
+    source: "herdr",
+    kind,
+    occurredAt: observedAt,
+    pane,
+    agent
+  });
+  for (const { pane, agent, status } of listed.seen) {
+    const recorded = last.get(pane);
+    const open = recorded !== void 0 && recorded.kind !== "pane.closed";
+    if (open && recorded.agent !== void 0 && recorded.agent !== agent) {
+      event("pane.closed", pane, recorded.agent);
+    }
+    const sameAgent = open && (recorded.agent ?? agent) === agent;
+    if (!sameAgent) {
+      event("pane.spawned", pane, agent);
+    }
+    if (!sameAgent || recorded.kind !== status) {
+      event(status, pane, agent);
+    }
+  }
+  for (const [pane, state] of last) {
+    if (state.kind !== "pane.closed" && !listed.present.has(pane)) {
+      event("pane.closed", pane, state.agent ?? "unknown");
+    }
+  }
+  return planned;
+}
+async function poll(deps) {
+  const observedAt = deps.clock.now().toISOString();
+  const listed = await listAgents(deps.runner);
+  if ("message" in listed) {
+    return { ok: false, message: listed.message };
+  }
+  const planned = plan(listed, await lastRecorded(deps.ledger), observedAt);
+  for (const input of planned) {
+    const result = await deps.ledger.record(input);
+    if (!result.ok) {
+      return { ok: false, message: result.message };
+    }
+  }
+  return { ok: true, recorded: planned.length, events: planned };
 }
 
 // src/ledger/ledger.ts
@@ -1861,7 +2025,37 @@ var list2 = {
     return 0;
   }
 };
-var ledgerCommands = { record, list: list2 };
+var pollHerdrCommand = {
+  summary: "read herdr's agent panes once and append only the changes (pane.spawned, pane.busy, pane.waiting, pane.closed) to the ledger; pane.closed means the pane no longer hosts an agent; safe to repeat from a wait loop, and one poll runs at a time",
+  options: STRING_FLAGS(["ledger"]),
+  async run(context) {
+    const opened = await openLedger(context);
+    if ("error" in opened) {
+      return reject(context, opened.error, "ledger");
+    }
+    const { runner, clock, fs } = context.deps;
+    const result = await pollHerdr({
+      ledger: opened.ledger,
+      runner,
+      clock,
+      fs
+    });
+    if (!result.ok) {
+      return reject(context, result.message, "herdr");
+    }
+    context.deps.stdout(
+      context.json ? `${JSON.stringify({ recorded: result.recorded, events: result.events })}
+` : `recorded ${result.recorded} herdr event(s)
+`
+    );
+    return 0;
+  }
+};
+var ledgerCommands = {
+  record,
+  list: list2,
+  "poll-herdr": pollHerdrCommand
+};
 
 // src/cli/flow-commands.ts
 function parseFlags({ options, deps }) {
@@ -2072,15 +2266,15 @@ async function readPlans(deps) {
 }
 
 // src/plan/active.ts
-function describe3(plan) {
-  const open = plan.open.map((o) => `${o.step} (${o.count})`).join(", ");
-  const lines = [`${plan.file}${plan.default ? " (default)" : ""}`];
+function describe4(plan2) {
+  const open = plan2.open.map((o) => `${o.step} (${o.count})`).join(", ");
+  const lines = [`${plan2.file}${plan2.default ? " (default)" : ""}`];
   lines.push(`  Open items: ${open || "none"}`);
-  if (plan.next) {
-    lines.push(`  Next (${plan.next.step}): ${plan.next.text}`);
+  if (plan2.next) {
+    lines.push(`  Next (${plan2.next.step}): ${plan2.next.text}`);
   }
-  if (plan.upcoming.length > 0) {
-    lines.push(`  Upcoming: ${plan.upcoming.join("; ")}`);
+  if (plan2.upcoming.length > 0) {
+    lines.push(`  Upcoming: ${plan2.upcoming.join("; ")}`);
   }
   return lines.join("\n");
 }
@@ -2111,7 +2305,7 @@ var planActive = {
 `
       );
     } else {
-      deps.stdout(`${listed.map(describe3).join("\n")}
+      deps.stdout(`${listed.map(describe4).join("\n")}
 `);
     }
     return 0;
@@ -2455,7 +2649,7 @@ function toChanges(lines, edits) {
     after: edit.lines
   }));
 }
-function describe4(file, step, text3, dryRun, changes) {
+function describe5(file, step, text3, dryRun, changes) {
   const head = `${dryRun ? "Would tick" : "Ticked"} ${step}: ${text3} in ${file}`;
   const body = changes.flatMap((c) => [
     `  line ${c.line}:`,
@@ -2489,7 +2683,7 @@ async function tick(deps, json, item, planOption, dryRun) {
   }
   deps.stdout(
     json ? `${JSON.stringify({ plan: file, item: { step, text: text3 }, dryRun, written: !dryRun, changes })}
-` : describe4(file, step, text3, dryRun, changes)
+` : describe5(file, step, text3, dryRun, changes)
   );
   return 0;
 }
@@ -2498,7 +2692,7 @@ var planTick = {
   options: { plan: "string", item: "string", "dry-run": "boolean" },
   async run({ json, deps, options }) {
     const item = options["item"];
-    const plan = options["plan"];
+    const plan2 = options["plan"];
     if (typeof item !== "string" || item.trim() === "") {
       throw new CommandError(
         'Missing --item "<text>": say which open item to tick.'
@@ -2508,7 +2702,7 @@ var planTick = {
       deps,
       json,
       item,
-      typeof plan === "string" ? plan : void 0,
+      typeof plan2 === "string" ? plan2 : void 0,
       options["dry-run"] === true
     );
   }

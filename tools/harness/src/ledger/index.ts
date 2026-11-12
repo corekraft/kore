@@ -1,3 +1,4 @@
+export { pollHerdr, type PollResult } from "./herdr-poll.js";
 export {
   Ledger,
   type ListFilter,
@@ -7,6 +8,7 @@ export {
 export {
   KINDS,
   SOURCES,
+  isName,
   isTimestamp,
   type Kind,
   type LedgerEvent,

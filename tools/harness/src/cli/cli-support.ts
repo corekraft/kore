@@ -26,6 +26,7 @@ export function testHarness(
       writeFile: () => Promise.resolve(),
       createFile: () => Promise.resolve(),
       appendFile: () => Promise.resolve(),
+      remove: () => Promise.resolve(),
       exists: () => Promise.resolve(false),
       readdir: () => Promise.resolve([]),
     },

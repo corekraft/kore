@@ -43,6 +43,7 @@ function harness(
       writeFile: () => Promise.resolve(),
       createFile: () => Promise.resolve(),
       appendFile: () => Promise.resolve(),
+      remove: () => Promise.resolve(),
       exists: (path) => Promise.resolve(rel(path) in files),
       readdir: (path) =>
         rel(path) === "skills" && !missingSkills
