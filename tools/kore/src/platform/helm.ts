@@ -4,6 +4,7 @@ import {
   componentVersion,
   expandVersions,
   featureHelmArgs,
+  gatewayClassName,
   noMatchPolicy,
   registryConsumers,
   registryHelmArgs,
@@ -45,6 +46,12 @@ function chartSelectionArgs(
   }
   if (component.kind === "local-chart") {
     args.push(...featureHelmArgs(repository.environment));
+  }
+  if (component.name === "kore-platform-config") {
+    args.push(
+      "--set-string",
+      `gateway.className=${gatewayClassName(repository.environment)}`,
+    );
   }
   if (component.name === "policy-controller") {
     args.push(

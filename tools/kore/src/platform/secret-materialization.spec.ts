@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { test } from "vitest";
 import { findRoot } from "../config/config.js";
-import { loadRepository } from "../config/index.js";
+import { gatewayClassName, loadRepository } from "../config/index.js";
 
 // Docs: docs/decisions/0013-local-tls-before-gateway.md
 // The platform-secrets store contract: the store the environment names is the
@@ -60,6 +60,7 @@ test("the workload reads the token from the Secret the ExternalSecret produces",
 });
 
 test("the rendered ExternalSecret and store carry no secret value", async () => {
+  const { environment } = await loadRepository("local");
   const docs = [
     ...(await render("apps/reference/charts/resources")),
     ...(await render(
@@ -69,6 +70,8 @@ test("the rendered ExternalSecret and store carry no secret value", async () => 
         await findRoot(),
         "infra/environments/local/values/platform-config.yaml",
       ),
+      "--set-string",
+      `gateway.className=${gatewayClassName(environment)}`,
     )),
   ];
   for (const doc of docs) {
@@ -86,6 +89,8 @@ test("the environment's store name is the ClusterSecretStore the platform-config
       repository.root,
       "infra/environments/local/values/platform-config.yaml",
     ),
+    "--set-string",
+    `gateway.className=${gatewayClassName(repository.environment)}`,
   );
   const store = docs.find((doc) => /^kind: ClusterSecretStore$/m.test(doc))!;
   assert.ok(store, "platform-config must render the ClusterSecretStore");

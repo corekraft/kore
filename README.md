@@ -42,6 +42,9 @@ set `true`. `kore` validates it with the rest of the overlay before any
 mutation and passes each flag to local charts as `features.<name>`, so charts
 and the CLI read one switch
 ([ADR 0077](docs/decisions/0077-live-proof-gates-activation-not-merge.md)).
+The `ingress-agentgateway` flag, off in `local`, selects the platform Gateway's
+GatewayClass: `kore` derives `gateway.className` (`istio` off, `agentgateway`
+on) when rendering `kore-platform-config`.
 
 Kore records per-machine image digests under ignored `.kore/` state and keeps its
 local-only signing key as the `kore-system/kore-local-signing-key` Secret, never
