@@ -7151,12 +7151,13 @@ function readerMayRun(role, segment) {
     role === "refiner" ? REFINER_HARNESS : HARNESS_READS
   ) || name === "gh" && ghMayRun(args, true) || READ_UTILITIES.has(name) && utilityMayRun(name, args);
 }
+var PREFIXED2 = /^(?:[A-Za-z_][A-Za-z0-9_]*=|(?:sudo|env|time|command|nohup|exec)$)/;
 function checkBash(role, command) {
   if (/\$\(|`|<\(|>\(/.test(command)) {
     return NO_CODE_ROLES.has(role) ? noCode("A command substitution", role) : readOnly("A command substitution");
   }
   const segments = splitSegments(command);
-  const prefixed = segments.find((segment) => PREFIXED.test(segment[0] ?? ""));
+  const prefixed = segments.find((segment) => PREFIXED2.test(segment[0] ?? ""));
   if (prefixed !== void 0) {
     const what = `\`${prefixed.join(" ")}\`, which sets an environment variable,`;
     return NO_CODE_ROLES.has(role) ? noCode(what, role) : readOnly(what);

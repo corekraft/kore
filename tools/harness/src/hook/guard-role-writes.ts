@@ -85,7 +85,7 @@ export function writes(segment: readonly string[]): boolean {
   );
 }
 
-/** A segment that starts with `VAR=value` or an `env`-style wrapper: git and the harness read variables such as GIT_EXTERNAL_DIFF, PAGER and KORE_ROOT to run a program or move the ledger. */
+/** Same pattern as `PREFIXED` in guard-role.ts, shared here so the delivery guard can use it without a circular import; the contract step removes that copy. A segment that starts with `VAR=value` or an `env`-style wrapper: git and the harness read variables such as GIT_EXTERNAL_DIFF, PAGER and KORE_ROOT to run a program or move the ledger. */
 export const PREFIXED =
   /^(?:[A-Za-z_][A-Za-z0-9_]*=|(?:sudo|env|time|command|nohup|exec)$)/;
 
