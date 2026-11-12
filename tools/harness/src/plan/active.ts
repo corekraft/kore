@@ -1,5 +1,4 @@
-import { join } from "node:path";
-import type { CliDeps, Command } from "../runtime/index.js";
+import type { Command } from "../runtime/index.js";
 import {
   activePlans,
   nextStep,
@@ -8,8 +7,7 @@ import {
   type NextStep,
   type StepCount,
 } from "./parser.js";
-
-const PLANS_DIR = "infra/plans";
+import { PLANS_DIR, readPlans } from "./store.js";
 
 export interface ActivePlan {
   file: string;
@@ -18,26 +16,6 @@ export interface ActivePlan {
   open: StepCount[];
   next: NextStep | null;
   upcoming: string[];
-}
-
-async function readPlans(deps: CliDeps): Promise<Record<string, string>> {
-  const root = await deps.root();
-  let names: string[];
-  try {
-    names = (await deps.fs.readdir(join(root, PLANS_DIR))).filter((n) =>
-      n.endsWith(".md"),
-    );
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return {};
-    }
-    throw error;
-  }
-  const plans: Record<string, string> = {};
-  for (const name of names) {
-    plans[name] = await deps.fs.readFile(join(root, PLANS_DIR, name));
-  }
-  return plans;
 }
 
 function describe(plan: ActivePlan): string {

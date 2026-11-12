@@ -1,5 +1,5 @@
 export { CommandError } from "./errors.js";
-export { systemClock, type Clock } from "./clock.js";
+export { localDate, systemClock, type Clock } from "./clock.js";
 export { systemIds, type IdSource } from "./ids.js";
 export { nodeFileSystem, type FileSystem } from "./filesystem.js";
 export {

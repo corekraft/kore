@@ -29,25 +29,41 @@ export function planStatus(markdown: string): string | undefined {
     : /^status: *(\S*) *$/m.exec(frontmatter)?.[1];
 }
 
-/** Group a Markdown list into items, joining wrapped lines. */
-export function listItems(markdown: string): ListItem[] {
-  const items: ListItem[] = [];
+export interface ItemSpan extends ListItem {
+  /** Zero-based index of the item's first line. */
+  line: number;
+  /** Zero-based index one past the item's last wrapped line. */
+  end: number;
+}
+
+/** Group a Markdown list into items, joining wrapped lines, with their line spans. */
+export function listItemSpans(markdown: string): ItemSpan[] {
+  const items: ItemSpan[] = [];
   let heading = "";
-  let current: ListItem | null = null;
-  for (const line of markdown.split("\n")) {
+  let current: ItemSpan | null = null;
+  for (const [index, line] of markdown.split("\n").entries()) {
     if (line.startsWith("## ")) {
       heading = line.slice(3).trim();
     }
     if (line.startsWith("- ")) {
-      current = { heading, text: line.trim() };
+      current = { heading, text: line.trim(), line: index, end: index + 1 };
       items.push(current);
     } else if (current && /^\s+\S/.test(line)) {
       current.text += ` ${line.trim()}`;
+      current.end = index + 1;
     } else {
       current = null;
     }
   }
   return items;
+}
+
+/** Group a Markdown list into items, joining wrapped lines. */
+export function listItems(markdown: string): ListItem[] {
+  return listItemSpans(markdown).map(({ heading, text }) => ({
+    heading,
+    text,
+  }));
 }
 
 /** Unchecked plan items, each prefixed with the step heading it belongs to. */

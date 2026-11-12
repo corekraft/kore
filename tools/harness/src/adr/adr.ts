@@ -1,4 +1,4 @@
-import type { Clock, FileSystem } from "../runtime/index.js";
+import { localDate, type Clock, type FileSystem } from "../runtime/index.js";
 
 export const DECISIONS = "docs/decisions";
 export const INDEX = "docs/index.md";
@@ -46,11 +46,6 @@ function checkSummary(summary: string): void {
       "--summary must be one plain line that does not start with [ { | > & * ! or -; reword it as a sentence.",
     );
   }
-}
-
-function localDate(date: Date): string {
-  const two = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())}`;
 }
 
 function headingSlug(heading: string): string {

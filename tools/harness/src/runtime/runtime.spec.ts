@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { nodeFileSystem } from "./filesystem.js";
-import { systemClock } from "./clock.js";
+import { localDate, systemClock } from "./clock.js";
 import { systemIds } from "./ids.js";
 import { ProcessRunner } from "./runner.js";
 import { FakeRunner } from "./runner-support.js";
@@ -110,5 +110,33 @@ describe("systemClock", () => {
   it("returns the current time", () => {
     const before = Date.now();
     expect(systemClock.now().getTime()).toBeGreaterThanOrEqual(before);
+  });
+});
+
+describe("localDate", () => {
+  function inZone(zone: string, run: () => void) {
+    const before = process.env["TZ"];
+    process.env["TZ"] = zone;
+    try {
+      run();
+    } finally {
+      if (before === undefined) {
+        delete process.env["TZ"];
+      } else {
+        process.env["TZ"] = before;
+      }
+    }
+  }
+
+  it("names the local calendar day just before midnight west of UTC, not the UTC day", () => {
+    inZone("America/Los_Angeles", () => {
+      expect(localDate(new Date("2026-03-02T07:59:00Z"))).toBe("2026-03-01");
+    });
+  });
+
+  it("names the local calendar day east of UTC", () => {
+    inZone("Pacific/Auckland", () => {
+      expect(localDate(new Date("2026-11-11T20:00:00Z"))).toBe("2026-11-12");
+    });
   });
 });
