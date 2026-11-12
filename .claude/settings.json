@@ -76,7 +76,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/feedback.mjs\" post-edit"
+            "command": "node \"$CLAUDE_PROJECT_DIR/skills/bin/harness.mjs\" hook feedback post-edit"
           }
         ]
       }
@@ -86,7 +86,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/feedback.mjs\" tool-failure"
+            "command": "node \"$CLAUDE_PROJECT_DIR/skills/bin/harness.mjs\" hook feedback tool-failure"
           }
         ]
       }
@@ -96,7 +96,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/feedback.mjs\" stop"
+            "command": "node \"$CLAUDE_PROJECT_DIR/skills/bin/harness.mjs\" hook feedback stop"
           }
         ]
       }

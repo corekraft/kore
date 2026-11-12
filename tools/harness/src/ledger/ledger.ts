@@ -8,6 +8,9 @@ import {
   type Source,
 } from "./schema.js";
 
+/** Relative to the main checkout root: the git-ignored state directory shared with the kore journal. */
+export const DEFAULT_LEDGER = ".kore/state/ledger.jsonl";
+
 export type RecordResult =
   | { ok: true; event: LedgerEvent }
   | { ok: false; field: string; message: string };

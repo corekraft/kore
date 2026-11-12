@@ -167,7 +167,12 @@ function project(t, { bundle = true, expect = 0 } = {}) {
 }
 
 function runHook(script, args, payload, dir) {
-  return spawnSync(process.execPath, [join(hooks, script), ...args], {
+  // The feedback hook is a harness hook; the others are still scripts.
+  const argv =
+    script === "feedback.mjs"
+      ? [join(dir, "skills", "bin", "harness.mjs"), "hook", "feedback", ...args]
+      : [join(hooks, script), ...args];
+  return spawnSync(process.execPath, argv, {
     input: JSON.stringify(payload),
     encoding: "utf8",
     env: {

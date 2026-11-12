@@ -1,6 +1,7 @@
 import type { Command } from "../runtime/index.js";
 import { realDeltaDeps } from "./delta-deps.js";
 import { update } from "./delta.js";
+import { feedback } from "./feedback.js";
 import { hookCommand } from "./io.js";
 import { retroScan } from "./retro-hook.js";
 import { linkProblems } from "./skill-links.js";
@@ -51,9 +52,17 @@ const delta = hookCommand(
   },
 );
 
+const feedbackHook = hookCommand(
+  "feedback",
+  "run the post-edit, stop or tool-failure feedback checks and record ledger events",
+  ({ deps, payload, operand }) => feedback(operand, payload, deps),
+  { operand: "mode" },
+);
+
 /** The hooks the host runs as `harness hook <name>`; each is a command in this domain. */
 export const hook: Record<string, Command> = {
   delta,
+  feedback: feedbackHook,
   "retro-scan": retroScan,
   "skill-links": skillLinks,
   "workflow-permissions": workflowPermissions,
