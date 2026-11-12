@@ -5,7 +5,7 @@ var CommandError = class extends Error {
 // src/runtime/clock.ts
 var systemClock = {
   now: () => /* @__PURE__ */ new Date(),
-  sleep: (ms) => new Promise((resolve7) => setTimeout(resolve7, ms))
+  sleep: (ms) => new Promise((resolve8) => setTimeout(resolve8, ms))
 };
 function localDate(date) {
   const two = (n) => String(n).padStart(2, "0");
@@ -102,7 +102,7 @@ var nodeFileSystem = {
 import { spawn } from "node:child_process";
 var ProcessRunner = class {
   async run(command, args, options = {}) {
-    return await new Promise((resolve7) => {
+    return await new Promise((resolve8) => {
       const child = spawn(command, [...args], {
         ...options.cwd === void 0 ? {} : { cwd: options.cwd },
         stdio: [
@@ -120,10 +120,10 @@ var ProcessRunner = class {
         stderr2 += chunk.toString();
       });
       child.on("error", (error) => {
-        resolve7({ stdout, stderr: error.message, code: 127 });
+        resolve8({ stdout, stderr: error.message, code: 127 });
       });
       child.on("close", (code) => {
-        resolve7({ stdout, stderr: stderr2, code: code ?? 1 });
+        resolve8({ stdout, stderr: stderr2, code: code ?? 1 });
       });
       if (options.input !== void 0) {
         child.stdin?.end(options.input);
@@ -143,13 +143,13 @@ async function mainRoot(deps) {
   if (checkout === void 0) {
     return void 0;
   }
-  const git2 = await deps.runner.run(
+  const git3 = await deps.runner.run(
     "git",
     ["rev-parse", "--path-format=absolute", "--git-common-dir"],
     { cwd: checkout }
   );
-  const common = git2.stdout.trim();
-  return git2.code === 0 && common !== "" ? dirname2(common) : void 0;
+  const common = git3.stdout.trim();
+  return git3.code === 0 && common !== "" ? dirname2(common) : void 0;
 }
 
 // src/runtime/root.ts
@@ -228,13 +228,13 @@ var STATUSES = ["proposed", "accepted"];
 var AdrError = class extends Error {
 };
 function kebab(title) {
-  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  if (slug === "") {
+  const slug2 = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  if (slug2 === "") {
     throw new AdrError(
       "--title needs at least one letter or digit; give the decision a short name."
     );
   }
-  return slug;
+  return slug2;
 }
 function checkSummary(summary) {
   if (summary.includes("\n") || /^[[{|>&*!-]/.test(summary)) {
@@ -283,7 +283,7 @@ var Adrs = class {
   async create(input, dryRun) {
     this.checkStatus(input.status);
     checkSummary(input.summary);
-    const slug = kebab(input.title);
+    const slug2 = kebab(input.title);
     const next = Math.max(
       0,
       ...(await this.fs.readdir(this.abs(DECISIONS))).map(
@@ -291,7 +291,7 @@ var Adrs = class {
       )
     ) + 1;
     const number = String(next).padStart(4, "0");
-    const file = `${number}-${slug}.md`;
+    const file = `${number}-${slug2}.md`;
     const path = `${DECISIONS}/${file}`;
     const indexText = await this.readIndex();
     const date = localDate(this.clock.now());
@@ -2606,8 +2606,8 @@ var IdeaRepository = class {
   async get(ref) {
     const wanted = /^\d+$/.test(ref) ? ref.padStart(4, "0") : ref;
     const name = (await this.listNames()).find((n) => {
-      const [, number, slug] = IDEA_FILE.exec(n) ?? [];
-      return wanted === number || wanted === slug || `${number}-${slug}` === wanted;
+      const [, number, slug2] = IDEA_FILE.exec(n) ?? [];
+      return wanted === number || wanted === slug2 || `${number}-${slug2}` === wanted;
     });
     if (name === void 0) {
       throw new IdeaError(
@@ -2621,7 +2621,7 @@ var IdeaRepository = class {
    * The file is created exclusively, so a competing writer's file is never overwritten:
    * on a collision the listing is read again and the call retries.
    */
-  async create(slug, idea) {
+  async create(slug2, idea) {
     if (!await this.fs.exists(this.abs(INDEX2))) {
       throw new IdeaError(
         `${INDEX2} not found under ${this.root}; set CLAUDE_PROJECT_DIR to the repository root.`
@@ -2634,7 +2634,7 @@ var IdeaRepository = class {
     }
     for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
       const names3 = await this.listNames();
-      const existing = names3.find((n) => IDEA_FILE.exec(n)?.[2] === slug);
+      const existing = names3.find((n) => IDEA_FILE.exec(n)?.[2] === slug2);
       if (existing !== void 0) {
         const record4 = await this.read(existing);
         await this.ensureIndexed(record4);
@@ -2642,7 +2642,7 @@ var IdeaRepository = class {
       }
       const taken = names3.map((n) => Number(n.slice(0, 4)));
       const number = String(Math.max(0, ...taken) + 1).padStart(4, "0");
-      const path = `${DIR}/${number}-${slug}.md`;
+      const path = `${DIR}/${number}-${slug2}.md`;
       const text7 = renderIdea(
         number,
         this.clock.now().toISOString().slice(0, 10),
@@ -2971,10 +2971,10 @@ function describe4(record3) {
 }
 function parseNewIdea(options) {
   const title = scalar("title", text2(options, "title"));
-  const slug = text2(options, "slug") ?? slugOf(title);
-  if (!SLUG.test(slug)) {
+  const slug2 = text2(options, "slug") ?? slugOf(title);
+  if (!SLUG.test(slug2)) {
     throw new IdeaError(
-      `Slug "${slug}" is invalid; use lowercase letters, digits and single hyphens, e.g. cache-probe-results.`
+      `Slug "${slug2}" is invalid; use lowercase letters, digits and single hyphens, e.g. cache-probe-results.`
     );
   }
   const idea = {
@@ -2994,7 +2994,7 @@ function parseNewIdea(options) {
       idea[key] = scalar(key, value);
     }
   }
-  return { slug, idea };
+  return { slug: slug2, idea };
 }
 var create = {
   summary: "create the next numbered idea record and index it (--title --hypothesis --expected-outcome --measurement --safety-pattern [--slug] [--summary] [--issue] [--parent])",
@@ -3011,8 +3011,8 @@ var create = {
   },
   run(context) {
     return guarded(context, async () => {
-      const { slug, idea } = parseNewIdea(context.options);
-      const { created, record: record3 } = await (await repository(context)).create(slug, idea);
+      const { slug: slug2, idea } = parseNewIdea(context.options);
+      const { created, record: record3 } = await (await repository(context)).create(slug2, idea);
       context.deps.stdout(
         context.json ? `${JSON.stringify({ created, ...record3 })}
 ` : `${created ? "Created" : "Already exists:"} ${record3.path}
@@ -3217,6 +3217,24 @@ async function findProof(repo, flag, environment) {
   return void 0;
 }
 
+// src/flag/audit.ts
+async function unprovenFlags(fs, clock, base) {
+  const repo = new IdeaRepository(fs, clock, base);
+  const unproven = [];
+  for (const environment of await environments(fs, base)) {
+    const overlay = await readOverlay(fs, base, environment);
+    for (const [flag, on] of Object.entries(overlay.features)) {
+      if (on && await findProof(repo, flag, environment) === void 0) {
+        unproven.push({ flag, environment, path: overlay.path });
+      }
+    }
+  }
+  return unproven;
+}
+function unprovenLine(u) {
+  return `Flag ${u.flag} is on in ${u.environment} (${u.path}) with no verification outcome. Set it back to false, then turn it on with \`harness flag activate ${u.flag} --environment ${u.environment}\` once a live run is recorded.`;
+}
+
 // src/cli/flag-commands.ts
 var FAILED2 = 1;
 function text3(options, key) {
@@ -3324,16 +3342,7 @@ async function activateFlag(context) {
 async function auditFlags(context) {
   const { deps, json } = context;
   const base = await root(context);
-  const repo = new IdeaRepository(deps.fs, deps.clock, base);
-  const unproven = [];
-  for (const environment of await environments(deps.fs, base)) {
-    const overlay = await readOverlay(deps.fs, base, environment);
-    for (const [flag, on] of Object.entries(overlay.features)) {
-      if (on && await findProof(repo, flag, environment) === void 0) {
-        unproven.push({ flag, environment, path: overlay.path });
-      }
-    }
-  }
+  const unproven = await unprovenFlags(deps.fs, deps.clock, base);
   if (unproven.length === 0) {
     deps.stdout(
       json ? `${JSON.stringify({ unproven })}
@@ -3341,9 +3350,7 @@ async function auditFlags(context) {
     );
     return 0;
   }
-  const lines2 = unproven.map(
-    (u) => `Flag ${u.flag} is on in ${u.environment} (${u.path}) with no verification outcome. Set it back to false, then turn it on with \`harness flag activate ${u.flag} --environment ${u.environment}\` once a live run is recorded.`
-  );
+  const lines2 = unproven.map(unprovenLine);
   deps.stderr(
     json ? `${JSON.stringify({ unproven })}
 ` : `${lines2.join("\n")}
@@ -3767,8 +3774,8 @@ function planNumber(name) {
   return Number.parseInt(name, 10);
 }
 function planStatus(markdown) {
-  const frontmatter2 = FRONTMATTER.exec(markdown)?.[1];
-  return frontmatter2 === void 0 ? void 0 : /^status: *(\S*) *$/m.exec(frontmatter2)?.[1];
+  const frontmatter3 = FRONTMATTER.exec(markdown)?.[1];
+  return frontmatter3 === void 0 ? void 0 : /^status: *(\S*) *$/m.exec(frontmatter3)?.[1];
 }
 function listItemSpans(markdown) {
   const items = [];
@@ -4523,8 +4530,8 @@ async function readJournals(deps, root3) {
   }
   return journals;
 }
-function snapshotStore(deps, git2, root3) {
-  const dir = async () => join6(resolve4(root3, await git2("rev-parse", "--git-dir")), "kore-delta");
+function snapshotStore(deps, git3, root3) {
+  const dir = async () => join6(resolve4(root3, await git3("rev-parse", "--git-dir")), "kore-delta");
   const file = async (id) => join6(await dir(), `${id}.json`);
   return {
     async readSnapshot(id) {
@@ -4556,25 +4563,25 @@ function snapshotStore(deps, git2, root3) {
   };
 }
 function realDeltaDeps(deps, root3) {
-  const git2 = gitReader(deps, root3);
+  const git3 = gitReader(deps, root3);
   return {
     now: () => deps.clock.now().getTime(),
-    head: () => git2("rev-parse", "HEAD"),
-    branch: () => git2("rev-parse", "--abbrev-ref", "HEAD"),
+    head: () => git3("rev-parse", "HEAD"),
+    branch: () => git3("rev-parse", "--abbrev-ref", "HEAD"),
     async main() {
       try {
-        return await git2("rev-parse", "--verify", "--quiet", "main");
+        return await git3("rev-parse", "--verify", "--quiet", "main");
       } catch {
         return null;
       }
     },
     async commitsBetween(from, to) {
-      return (await git2("log", "--format=%s", `${from}..${to}`)).split("\n").filter(Boolean);
+      return (await git3("log", "--format=%s", `${from}..${to}`)).split("\n").filter(Boolean);
     },
     readPlans: () => readPlans(deps),
     listLocks: () => readDir(deps, join6(root3, LOCKS_DIR)),
     readJournals: () => readJournals(deps, root3),
-    ...snapshotStore(deps, git2, root3)
+    ...snapshotStore(deps, git3, root3)
   };
 }
 
@@ -4999,13 +5006,13 @@ async function postEditFor(call, deps, project, tracked, formatFix) {
 ${details}`
     );
   }
-  const format = await deps.run(`${deps.root}/${project.bin}/prettier`, [
+  const format2 = await deps.run(`${deps.root}/${project.bin}/prettier`, [
     "--check",
     filePath
   ]);
-  if (format.status !== 0) {
+  if (format2.status !== 0) {
     const details = bound(
-      format.output,
+      format2.output,
       `${project.bin}/prettier --check ${filePath}`
     );
     return fail(
@@ -6621,7 +6628,931 @@ async function workflowProblems(fs, root3) {
   return permissionProblems(files);
 }
 
-// src/hook/index.ts
+// src/kb/markdown.ts
+import { posix } from "node:path";
+var DATE = /^\d{4}-\d{2}-\d{2}$/;
+var LINK = /\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
+function finding(file, line2, message, fix2) {
+  return { file, line: line2, message, fix: fix2 };
+}
+function slug(heading) {
+  return heading.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu, "").trim().replace(/\s/g, "-");
+}
+function proseLines(markdown) {
+  const lines2 = [];
+  let fence = null;
+  markdown.split("\n").forEach((text7, index) => {
+    const opener = /^\s*(```|~~~)/.exec(text7);
+    if (fence) {
+      if (opener && opener[1] === fence) {
+        fence = null;
+      }
+      return;
+    }
+    if (opener) {
+      fence = opener[1] ?? null;
+      return;
+    }
+    lines2.push({ line: index + 1, text: text7.replace(/`[^`]*`/g, "") });
+  });
+  return lines2;
+}
+function anchors(markdown) {
+  const seen = /* @__PURE__ */ new Map();
+  const result = [];
+  for (const { text: text7 } of proseLines(markdown)) {
+    const match = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(text7);
+    if (!match) {
+      continue;
+    }
+    const base = slug(match[1] ?? "");
+    const count2 = seen.get(base) ?? 0;
+    seen.set(base, count2 + 1);
+    result.push(count2 ? `${base}-${count2}` : base);
+  }
+  return result;
+}
+function resolve5(from, target) {
+  const joined = posix.normalize(posix.join(posix.dirname(from), target));
+  if (joined === ".." || joined.startsWith("../")) {
+    return null;
+  }
+  return joined.replace(/\/$/, "") || ".";
+}
+function isExternal(target) {
+  return /^[a-z][a-z0-9+.-]*:/i.test(target) || target.startsWith("//");
+}
+function frontmatter2(file, markdown) {
+  const lines2 = markdown.split("\n");
+  if (lines2[0] !== "---") {
+    return null;
+  }
+  const keys = /* @__PURE__ */ new Map();
+  const errors = [];
+  for (let index = 1; index < lines2.length; index++) {
+    const text7 = lines2[index] ?? "";
+    if (text7 === "---") {
+      return { keys, errors };
+    }
+    const match = /^([A-Za-z][\w-]*):\s*(.*)$/.exec(text7);
+    if (match?.[2] && !/^[[{|>&*!-]/.test(match[2])) {
+      keys.set(match[1] ?? "", { value: match[2].trim(), line: index + 1 });
+    } else {
+      const key = match ? match[1] : text7.trim();
+      errors.push(
+        finding(
+          file,
+          index + 1,
+          `frontmatter ${key} is not a scalar string`,
+          "use flat key: value lines only"
+        )
+      );
+    }
+  }
+  return null;
+}
+
+// src/kb/document-checks.ts
+var ADR = /^docs\/decisions\/[^/]+\.md$/;
+function valueProblems(file, keys, adr) {
+  const problems = [];
+  const statuses = adr ? ["proposed", "accepted", "superseded"] : ["active", "done"];
+  const status = keys.get("status");
+  if (status && !statuses.includes(status.value)) {
+    problems.push(
+      finding(
+        file,
+        status.line,
+        `frontmatter status is ${status.value}`,
+        `use one of ${statuses.join(", ")}`
+      )
+    );
+  }
+  for (const key of ["date", "last-verified"]) {
+    const entry = keys.get(key);
+    if (entry && (adr || key !== "date") && !DATE.test(entry.value)) {
+      problems.push(
+        finding(
+          file,
+          entry.line,
+          `frontmatter ${key} is ${entry.value}`,
+          "use a YYYY-MM-DD date"
+        )
+      );
+    }
+  }
+  return problems;
+}
+function checkFrontmatter(file, markdown, exists) {
+  const parsed = frontmatter2(file, markdown);
+  if (!parsed) {
+    return [
+      finding(
+        file,
+        1,
+        "frontmatter is missing",
+        "start the file with --- status, summary, and last-verified ---"
+      )
+    ];
+  }
+  const adr = ADR.test(file);
+  const required = adr ? ["status", "date", "summary", "last-verified"] : ["status", "summary", "last-verified"];
+  const { keys } = parsed;
+  if (adr && keys.get("status")?.value === "superseded") {
+    required.push("superseded-by");
+  }
+  const problems = [...parsed.errors, ...valueProblems(file, keys, adr)];
+  const replacement = keys.get("superseded-by");
+  if (adr && replacement && !exists(replacement.value)) {
+    problems.push(
+      finding(
+        file,
+        replacement.line,
+        `frontmatter superseded-by ${replacement.value} does not exist`,
+        "use the replacing ADR's path from the repository root"
+      )
+    );
+  }
+  problems.sort((a, b) => a.line - b.line);
+  for (const key of required) {
+    if (!keys.has(key)) {
+      problems.push(
+        finding(file, 1, `frontmatter ${key} is missing`, `add a ${key}: line`)
+      );
+    }
+  }
+  return problems;
+}
+
+// src/kb/idea-checks.ts
+var IDEA_NAME = /^docs\/ideas\/(\d{4})-[a-z0-9]+(?:-[a-z0-9]+)*\.md$/;
+var IDEA_REQUIRED = [
+  "summary",
+  "hypothesis",
+  "expected-outcome",
+  "measurement",
+  "safety-pattern",
+  "date"
+];
+var IDEA_OUTCOMES = ["confirmed", "refuted", "inconclusive"];
+var SAFETY_PATTERNS2 = [
+  "no-behaviour-change",
+  "feature-flagged",
+  "dark-launched",
+  "branch-by-abstraction",
+  "expand-contract"
+];
+var WORKFLOW_KEYS = [
+  "status",
+  "approval",
+  "approved",
+  "approved-by",
+  "label",
+  "labels",
+  "assignee",
+  "assignees",
+  "state"
+];
+var onKey = (file, keys, key, message, fix2) => finding(file, keys.get(key)?.line ?? 1, message, fix2);
+function valueProblems2(file, keys) {
+  const problems = [];
+  const bad3 = (key, message, fix2) => problems.push(onKey(file, keys, key, message, fix2));
+  const oneOf = (key, allowed) => {
+    const entry = keys.get(key);
+    if (entry && !allowed.includes(entry.value)) {
+      bad3(
+        key,
+        `frontmatter ${key} is ${entry.value}`,
+        `use one of ${allowed.join(", ")}`
+      );
+    }
+  };
+  oneOf("safety-pattern", SAFETY_PATTERNS2);
+  oneOf("outcome", IDEA_OUTCOMES);
+  const date = keys.get("date");
+  if (date && !DATE.test(date.value)) {
+    bad3("date", `frontmatter date is ${date.value}`, "use a YYYY-MM-DD date");
+  }
+  for (const key of WORKFLOW_KEYS.filter((name) => keys.has(name))) {
+    bad3(
+      key,
+      `frontmatter ${key} is workflow state`,
+      "the GitHub issue owns it, so remove the line"
+    );
+  }
+  const issue = keys.get("issue");
+  if (issue && !/^#?\d+$|^https:\/\/\S+$/.test(issue.value)) {
+    bad3(
+      "issue",
+      `frontmatter issue is ${issue.value}`,
+      "use an issue number such as 185 or #185, or its URL"
+    );
+  }
+  return problems;
+}
+function parentProblems(file, keys, ideas) {
+  const parent = keys.get("parent");
+  if (!parent || /^#\d+$/.test(parent.value)) {
+    return [];
+  }
+  const number = /^(\d{4})(?:-[a-z0-9-]+)?$/.exec(parent.value)?.[1];
+  if (number === void 0) {
+    return [
+      onKey(
+        file,
+        keys,
+        "parent",
+        `frontmatter parent is ${parent.value}`,
+        "use an idea number such as 0001, or an issue such as #127"
+      )
+    ];
+  }
+  return ideas.has(number) ? [] : [
+    onKey(
+      file,
+      keys,
+      "parent",
+      `frontmatter parent is ${parent.value}; idea ${number} does not exist`,
+      "use an existing idea's number or an issue such as #127"
+    )
+  ];
+}
+function outcomeProblems(file, markdown, keys) {
+  const heading = markdown.split("\n").findIndex((l) => /^## Outcome\s*$/.test(l));
+  const outcome = keys.get("outcome");
+  if (outcome && heading === -1) {
+    return [
+      onKey(
+        file,
+        keys,
+        "outcome",
+        "frontmatter outcome has no ## Outcome section",
+        `run \`harness outcome record --idea ${Number(IDEA_NAME.exec(file)?.[1] ?? 0)}\`, or remove the line`
+      )
+    ];
+  }
+  if (!outcome && heading !== -1) {
+    return [
+      finding(
+        file,
+        heading + 1,
+        "## Outcome section has no frontmatter outcome line",
+        "the outcome tool writes both; run `harness outcome record`, or remove the section"
+      )
+    ];
+  }
+  return [];
+}
+function checkIdea(file, markdown, ideas) {
+  const parsed = frontmatter2(file, markdown);
+  if (!parsed) {
+    return [
+      finding(
+        file,
+        1,
+        "frontmatter is missing",
+        `start the file with --- and the idea fields (${IDEA_REQUIRED.join(", ")}) ---`
+      )
+    ];
+  }
+  const { keys } = parsed;
+  const problems = [
+    ...parsed.errors,
+    ...valueProblems2(file, keys),
+    ...parentProblems(file, keys, ideas),
+    ...outcomeProblems(file, markdown, keys)
+  ];
+  if (!IDEA_NAME.test(file)) {
+    problems.push(
+      finding(
+        file,
+        1,
+        "idea file is not named NNNN-slug.md",
+        "rename it to a four-digit number and a lowercase slug"
+      )
+    );
+  }
+  problems.sort((a, b) => a.line - b.line);
+  for (const key of IDEA_REQUIRED.filter((name) => !keys.has(name))) {
+    problems.push(
+      finding(file, 1, `frontmatter ${key} is missing`, `add a ${key}: line`)
+    );
+  }
+  return problems;
+}
+
+// src/kb/findings.ts
+var INDEX3 = "docs/index.md";
+var CLI = "tools/kore/src/cli/cli.ts";
+var PLAN = /^infra\/plans\/[^/]+\.md$/;
+var ADR2 = /^docs\/decisions\/[^/]+\.md$/;
+var IDEA = /^docs\/ideas\/[^/]+\.md$/;
+var SKILL = /^skills\/[^/]+\/SKILL\.md$/;
+var MARKER = /^\s*(?:\/\/|#|\*|--|<!--)\s*(Docs|Plan|ADR):\s+([^\s#]+)(?:#(\S+))?/;
+function openTree(deps) {
+  const files = [...deps.files()].sort();
+  const tracked = new Set(files);
+  const anchorCache = /* @__PURE__ */ new Map();
+  const anchorsOf = (path) => {
+    let known = anchorCache.get(path);
+    if (!known) {
+      known = anchors(deps.read(path) ?? "");
+      anchorCache.set(path, known);
+    }
+    return known;
+  };
+  return {
+    deps,
+    files,
+    tracked,
+    exists: (path) => tracked.has(path) || path === "." || files.some((file) => file.startsWith(`${path}/`)),
+    anchorProblem(file, line2, label, target, anchor) {
+      if (!target.endsWith(".md") || !tracked.has(target)) {
+        return null;
+      }
+      const known = anchorsOf(target);
+      if (known.includes(anchor.toLowerCase())) {
+        return null;
+      }
+      return finding(
+        file,
+        line2,
+        `${label} #${anchor} is not a heading in ${target}`,
+        known.length ? `use one of its heading slugs, e.g. #${known[0]}` : "remove the anchor; the file has no headings"
+      );
+    }
+  };
+}
+function ideaNumbers(files) {
+  const ideas = /* @__PURE__ */ new Map();
+  const problems = [];
+  for (const file of files) {
+    const number = IDEA_NAME.exec(file)?.[1];
+    if (number === void 0) {
+      continue;
+    }
+    const first = ideas.get(number);
+    if (first === void 0) {
+      ideas.set(number, file);
+    } else {
+      problems.push(
+        finding(
+          file,
+          1,
+          `idea number ${number} is also used by ${first}`,
+          "renumber it to the next free number"
+        )
+      );
+    }
+  }
+  return { ideas, problems };
+}
+function linkProblems2(tree, file, text7) {
+  const problems = [];
+  for (const { line: line2, text: prose2 } of proseLines(text7)) {
+    for (const [, raw = ""] of prose2.matchAll(LINK)) {
+      if (isExternal(raw)) {
+        continue;
+      }
+      const [pathPart = "", anchor] = raw.split("#", 2);
+      const target = pathPart ? resolve5(file, decodeURI(pathPart)) : file;
+      if (target === null || !tree.exists(target)) {
+        problems.push(
+          finding(
+            file,
+            line2,
+            `link target ${target ?? pathPart} does not exist`,
+            "point the link at an existing file or remove it"
+          )
+        );
+        continue;
+      }
+      const problem = anchor ? tree.anchorProblem(file, line2, "link anchor", target, anchor) : null;
+      if (problem) {
+        problems.push(problem);
+      }
+    }
+  }
+  return problems;
+}
+function markdownProblems(tree, ideas) {
+  const problems = [];
+  for (const file of tree.files.filter((name) => name.endsWith(".md"))) {
+    const text7 = tree.deps.read(file);
+    if (text7 === null) {
+      continue;
+    }
+    problems.push(...linkProblems2(tree, file, text7));
+    if (PLAN.test(file) || ADR2.test(file)) {
+      problems.push(
+        ...checkFrontmatter(file, text7, (path) => tree.exists(path))
+      );
+    } else if (IDEA.test(file)) {
+      problems.push(...checkIdea(file, text7, ideas));
+    }
+  }
+  return problems;
+}
+function indexProblems(tree) {
+  const index = tree.tracked.has(INDEX3) ? tree.deps.read(INDEX3) : null;
+  if (index === null) {
+    return [
+      finding(
+        INDEX3,
+        1,
+        "the knowledge index is missing",
+        "create it with one entry per plan, ADR, and skill"
+      )
+    ];
+  }
+  const problems = [];
+  const listed = /* @__PURE__ */ new Set();
+  for (const { line: line2, text: text7 } of proseLines(index)) {
+    if (!text7.startsWith("- [")) {
+      continue;
+    }
+    const raw = /\]\(([^)\s#]+)/.exec(text7)?.[1];
+    if (raw === void 0 || isExternal(raw)) {
+      continue;
+    }
+    const target = resolve5(INDEX3, decodeURI(raw));
+    if (target) {
+      listed.add(target);
+    }
+    if (target === null || !tree.exists(target)) {
+      problems.push(
+        finding(
+          INDEX3,
+          line2,
+          `index entry ${target ?? raw} names a missing file`,
+          "remove the entry or restore the file"
+        )
+      );
+    }
+  }
+  for (const file of tree.files) {
+    const indexed = PLAN.test(file) || ADR2.test(file) || IDEA.test(file) || SKILL.test(file);
+    if (indexed && !listed.has(file)) {
+      problems.push(
+        finding(
+          INDEX3,
+          1,
+          `${file} is not in the index`,
+          "add an entry under its ## heading"
+        )
+      );
+    }
+  }
+  return problems;
+}
+var TRAILING = /[.,;:)]+$/;
+function markerProblems(tree) {
+  const problems = [];
+  for (const file of tree.files.filter((name) => !name.endsWith(".md"))) {
+    const text7 = tree.deps.read(file);
+    if (text7 === null) {
+      continue;
+    }
+    text7.split("\n").forEach((line2, position) => {
+      const match = MARKER.exec(line2);
+      if (!match) {
+        return;
+      }
+      const [, label = "", rawPath = "", anchor] = match;
+      const path = rawPath.replace(TRAILING, "");
+      if (!tree.exists(path)) {
+        problems.push(
+          finding(
+            file,
+            position + 1,
+            `${label}: path ${path} does not exist`,
+            "use a path from the repository root"
+          )
+        );
+        return;
+      }
+      const problem = anchor ? tree.anchorProblem(
+        file,
+        position + 1,
+        `${label}: anchor`,
+        path,
+        anchor.replace(TRAILING, "")
+      ) : null;
+      if (problem) {
+        problems.push(problem);
+      }
+    });
+  }
+  return problems;
+}
+function readmeProblems(tree) {
+  const cli = tree.tracked.has(CLI) ? tree.deps.read(CLI) : null;
+  const readme = tree.tracked.has("README.md") ? tree.deps.read("README.md") : null;
+  const problems = [];
+  if (cli === null || readme === null) {
+    return problems;
+  }
+  const seen = /* @__PURE__ */ new Set();
+  let inUsage = false;
+  cli.split("\n").forEach((line2, position) => {
+    if (/^\s*Usage:\s*$/.test(line2)) {
+      inUsage = true;
+      return;
+    }
+    if (!inUsage) {
+      return;
+    }
+    if (!line2.trim()) {
+      inUsage = false;
+      return;
+    }
+    const command = /^\s+kore\s+([a-z][\w-]*)/.exec(line2)?.[1];
+    if (!command || seen.has(command)) {
+      return;
+    }
+    seen.add(command);
+    if (!new RegExp(`\\bkore(?: --)? ${command}\\b`).test(readme)) {
+      problems.push(
+        finding(
+          CLI,
+          position + 1,
+          `kore ${command} is in the CLI usage text but README.md does not mention it`,
+          "document it in README.md"
+        )
+      );
+    }
+  });
+  return problems;
+}
+function findings(deps) {
+  const tree = openTree(deps);
+  const { ideas, problems } = ideaNumbers(tree.files);
+  return [
+    ...problems,
+    ...markdownProblems(tree, ideas),
+    ...indexProblems(tree),
+    ...markerProblems(tree),
+    ...readmeProblems(tree)
+  ];
+}
+
+// src/kb/stale.ts
+function dependenciesOf(deps) {
+  const files = [...deps.files()].sort();
+  const tracked = new Set(files);
+  const dependencies = /* @__PURE__ */ new Map();
+  const depend = (document, path) => {
+    if (path === document || !tracked.has(path)) {
+      return;
+    }
+    let paths = dependencies.get(document);
+    if (!paths) {
+      paths = /* @__PURE__ */ new Set();
+      dependencies.set(document, paths);
+    }
+    paths.add(path);
+  };
+  for (const file of files) {
+    const text7 = deps.read(file);
+    if (text7 === null) {
+      continue;
+    }
+    if (PLAN.test(file) || ADR2.test(file)) {
+      for (const target of linkTargets(file, text7)) {
+        depend(file, target);
+      }
+    }
+    if (file.endsWith(".md")) {
+      continue;
+    }
+    for (const line2 of text7.split("\n")) {
+      const path = (MARKER.exec(line2)?.[2] ?? "").replace(/[.,;:)]+$/, "");
+      if (PLAN.test(path) || ADR2.test(path)) {
+        depend(path, file);
+      }
+    }
+  }
+  return dependencies;
+}
+function linkTargets(file, text7) {
+  const targets = [];
+  for (const { text: prose2 } of proseLines(text7)) {
+    for (const [, raw = ""] of prose2.matchAll(LINK)) {
+      const [pathPart] = raw.split("#", 1);
+      const target = isExternal(raw) || !pathPart ? null : resolve5(file, decodeURI(pathPart));
+      if (target !== null) {
+        targets.push(target);
+      }
+    }
+  }
+  return targets;
+}
+async function staleDocuments(deps) {
+  const commitDate = deps.commitDate?.bind(deps);
+  if (!commitDate) {
+    return [];
+  }
+  const stale = [];
+  for (const [document, paths] of dependenciesOf(deps)) {
+    const verified = frontmatter2(document, deps.read(document) ?? "")?.keys.get(
+      "last-verified"
+    )?.value;
+    if (!verified || !DATE.test(verified)) {
+      continue;
+    }
+    let newest = null;
+    for (const path of [...paths].sort()) {
+      const date = await commitDate(path);
+      if (date && (newest === null || date > newest.date)) {
+        newest = { path, date };
+      }
+    }
+    if (newest && newest.date > verified) {
+      stale.push({ document, verified, ...newest });
+    }
+  }
+  return stale.sort((a, b) => a.document.localeCompare(b.document));
+}
+
+// src/kb/report.ts
+function format(problem) {
+  return `${problem.file}:${problem.line}: ${problem.message}; ${problem.fix}`;
+}
+async function run(argv, deps, log) {
+  const status = await runChecks(argv, deps, log);
+  const audit3 = deps.audit?.bind(deps);
+  if (audit3) {
+    await printAudit(audit3, log);
+  }
+  return status;
+}
+async function printAudit(audit3, log) {
+  let report3;
+  try {
+    report3 = await audit3();
+  } catch (error) {
+    log(
+      `skill audit: not run (${error instanceof Error ? error.message : String(error)})`
+    );
+    return;
+  }
+  log("skill audit:");
+  for (const line2 of report3.trimEnd().split("\n")) {
+    log(`  ${line2}`.trimEnd());
+  }
+}
+async function runChecks(argv, deps, log) {
+  const strict = argv.includes("--strict");
+  const problems = findings(deps);
+  for (const problem of problems) {
+    log(format(problem));
+  }
+  const stale = await staleDocuments(deps);
+  for (const item of stale) {
+    log(
+      `stale: ${item.document} was last verified ${item.verified}, but ${item.path} changed ${item.date}; re-read it and update last-verified`
+    );
+  }
+  const flags = await deps.flagAudit?.() ?? [];
+  for (const line2 of flags) {
+    log(`flag: ${line2}`);
+  }
+  const staleNote = () => {
+    if (stale.length > 0) {
+      log(
+        `kb-check: ${stale.length} stale ${stale.length === 1 ? "document" : "documents"} (warn only)`
+      );
+    }
+    if (flags.length > 0) {
+      log(
+        `kb-check: ${flags.length} flag audit ${flags.length === 1 ? "warning" : "warnings"} (warn only)`
+      );
+    }
+  };
+  if (problems.length === 0) {
+    if (stale.length === 0 && flags.length === 0) {
+      log("kb-check: clean");
+    } else {
+      staleNote();
+    }
+    return 0;
+  }
+  const noun = problems.length === 1 ? "finding" : "findings";
+  log(
+    strict ? `kb-check: ${problems.length} ${noun}` : `kb-check: ${problems.length} ${noun} (warn mode; --strict fails on them)`
+  );
+  staleNote();
+  return strict ? 1 : 0;
+}
+
+// src/skill/index.ts
+import { join as join14 } from "node:path";
+
+// src/skill/audit.ts
+var DESCRIPTION_BUDGET = 200;
+var BODY_BUDGET = 25;
+function invalid(name, reason) {
+  return {
+    name,
+    directory: name,
+    descriptionChars: 0,
+    bodyLines: 0,
+    verdict: "invalid",
+    reason
+  };
+}
+function field(frontmatter3, key) {
+  const line2 = frontmatter3.split("\n").find((l) => l.startsWith(`${key}:`));
+  const value = line2?.slice(key.length + 1).trim();
+  if (value === void 0 || value === "") {
+    return void 0;
+  }
+  return value.replace(/^(["'])(.*)\1$/, "$2");
+}
+function overBudgets(descriptionChars, bodyLines) {
+  const over = [];
+  if (descriptionChars > DESCRIPTION_BUDGET) {
+    over.push("description");
+  }
+  if (bodyLines > BODY_BUDGET) {
+    over.push("body");
+  }
+  return over;
+}
+function countLines(body) {
+  return body === "" ? 0 : body.replace(/\n$/, "").split("\n").length;
+}
+function auditSkill(directory, text7) {
+  const source = text7.replaceAll("\r\n", "\n");
+  if (!source.startsWith("---\n")) {
+    return invalid(directory, "missing frontmatter");
+  }
+  const close3 = /\n---[ \t]*(\n|$)/.exec(source.slice(3));
+  if (close3 === null) {
+    return invalid(directory, "unterminated frontmatter");
+  }
+  const end = close3.index + 3;
+  const frontmatter3 = source.slice(4, end);
+  const name = field(frontmatter3, "name");
+  if (name === void 0) {
+    return invalid(directory, "missing name");
+  }
+  const description = field(frontmatter3, "description");
+  if (description === void 0) {
+    return invalid(directory, "missing description");
+  }
+  if (/^[>|][+-]?$/.test(description)) {
+    return invalid(directory, "multi-line description");
+  }
+  const bodyLines = countLines(source.slice(end + close3[0].length));
+  const over = overBudgets(description.length, bodyLines);
+  const row = {
+    name,
+    directory,
+    descriptionChars: description.length,
+    bodyLines,
+    verdict: over.length > 0 ? "over-budget" : "ok"
+  };
+  return over.length > 0 ? { ...row, over } : row;
+}
+async function auditSkills(fs, skillsDir) {
+  const rows = [];
+  for (const directory of await fs.readdir(skillsDir)) {
+    const path = `${skillsDir}/${directory}/SKILL.md`;
+    if (await fs.exists(path)) {
+      rows.push(auditSkill(directory, await fs.readFile(path)));
+    }
+  }
+  rows.sort((a, b) => a.name.localeCompare(b.name, "en"));
+  const summary = {
+    ok: 0,
+    "over-budget": 0,
+    invalid: 0
+  };
+  for (const row of rows) {
+    summary[row.verdict] += 1;
+  }
+  return { skills: rows, summary };
+}
+function detail(row) {
+  if (row.verdict === "over-budget") {
+    return ` (${(row.over ?? []).join(", ")})`;
+  }
+  return row.verdict === "invalid" ? ` (${row.reason ?? ""})` : "";
+}
+function renderReport(report3) {
+  const width = Math.max(4, ...report3.skills.map((s) => s.name.length));
+  const lines2 = [
+    `${"NAME".padEnd(width)}  DESC  BODY  VERDICT`,
+    ...report3.skills.map(
+      (s) => `${s.name.padEnd(width)}  ${String(s.descriptionChars).padStart(4)}  ${String(s.bodyLines).padStart(4)}  ${s.verdict}${detail(s)}`
+    ),
+    "",
+    `${report3.summary.ok} ok, ${report3.summary["over-budget"]} over-budget, ${report3.summary.invalid} invalid`
+  ];
+  return `${lines2.join("\n")}
+`;
+}
+
+// src/skill/index.ts
+var SKILLS_DIR = "skills";
+async function skillReport(fs, root3) {
+  const skillsDir = join14(root3, SKILLS_DIR);
+  try {
+    return await auditSkills(fs, skillsDir);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      throw new CommandError(
+        `No skills directory at ${skillsDir}. Run from the repository, or set CLAUDE_PROJECT_DIR to its root.`
+      );
+    }
+    throw error;
+  }
+}
+async function skillAuditText(fs, root3) {
+  return renderReport(await skillReport(fs, root3));
+}
+var audit2 = {
+  summary: "report each skill's description and body against its budgets",
+  options: { strict: "boolean" },
+  async run({ json, options, deps }) {
+    const report3 = await skillReport(deps.fs, await deps.root());
+    deps.stdout(json ? `${JSON.stringify(report3)}
+` : renderReport(report3));
+    const failing = report3.summary["over-budget"] + report3.summary.invalid > 0;
+    return options["strict"] === true && failing ? 1 : 0;
+  }
+};
+var skill = { audit: audit2 };
+
+// src/hook/kb-check.ts
+var ENOENT = "ENOENT";
+var EISDIR = "EISDIR";
+async function git2(deps, root3, args) {
+  const result = await deps.runner.run("git", args, { cwd: root3 });
+  if (result.code !== 0) {
+    throw new CommandError(
+      `git ${args.join(" ")} failed: ${result.stderr.trim()}`
+    );
+  }
+  return result.stdout;
+}
+var reasonOf = (error) => (error instanceof Error ? error.message : String(error)).split("\n")[0] ?? "";
+async function flagAudit(deps, root3) {
+  try {
+    const unproven = await unprovenFlags(deps.fs, deps.clock, root3);
+    return unproven.map(unprovenLine);
+  } catch (error) {
+    if (error instanceof FlagError) {
+      return error.message.trim().split("\n");
+    }
+    return [
+      `flag audit could not run (${reasonOf(error)}); run \`node skills/bin/harness.mjs flag audit\` to see the cause`
+    ];
+  }
+}
+async function readTree(deps, root3) {
+  const listed = await git2(deps, root3, [
+    "ls-files",
+    "--cached",
+    "--others",
+    "--exclude-standard",
+    "-z"
+  ]);
+  const tree = /* @__PURE__ */ new Map();
+  for (const path of listed.split("\0").filter(Boolean)) {
+    try {
+      tree.set(path, await deps.fs.readFile(`${root3}/${path}`));
+    } catch (error) {
+      const code = error.code;
+      if (code !== ENOENT && code !== EISDIR) {
+        throw error;
+      }
+    }
+  }
+  return tree;
+}
+async function kbCheck(strict, deps) {
+  const root3 = await deps.root();
+  const tree = await readTree(deps, root3);
+  const lines2 = [];
+  const kbDeps = {
+    files: () => [...tree.keys()],
+    read: (path) => tree.get(path) ?? null,
+    commitDate: async (path) => (await git2(deps, root3, ["log", "-1", "--format=%cs", "--", path])).trim() || null,
+    audit: () => skillAuditText(deps.fs, root3),
+    flagAudit: () => flagAudit(deps, root3)
+  };
+  const code = await run(
+    strict ? ["--strict"] : [],
+    kbDeps,
+    (line2) => lines2.push(line2)
+  );
+  return { code, stdout: lines2.map((line2) => `${line2}
+`).join("") };
+}
+
+// src/hook/repository-checks.ts
 var skillLinks = hookCommand(
   "skill-links",
   "report skills a harness directory does not link by relative path",
@@ -6640,6 +7571,14 @@ var workflowPermissions = hookCommand(
 ` };
   }
 );
+var kbCheckHook = hookCommand(
+  "kb-check",
+  "report knowledge-base problems: links, the index, frontmatter, markers and README coverage; --strict exits 1 on findings",
+  ({ deps, options }) => kbCheck(options["strict"] === true, deps),
+  { payload: false, faultCode: 1 }
+);
+
+// src/hook/index.ts
 var feedbackHook = hookCommand(
   "feedback",
   "run the post-edit, stop or tool-failure feedback checks and record ledger events",
@@ -6656,6 +7595,7 @@ var hook = {
   delta,
   feedback: feedbackHook,
   guard: guardHook,
+  "kb-check": kbCheckHook,
   "retro-scan": retroScan,
   "skill-links": skillLinks,
   "workflow-permissions": workflowPermissions
@@ -6789,7 +7729,7 @@ function fail2(deps, json, code, message) {
 }
 
 // src/session/registry.ts
-import { join as join14, resolve as resolve5 } from "node:path";
+import { join as join15, resolve as resolve6 } from "node:path";
 var STATE_DIR = ".kore/state/sessions";
 function isRecord(value) {
   if (typeof value !== "object" || value === null) {
@@ -6813,10 +7753,10 @@ var SessionRegistry = class _SessionRegistry {
         "Cannot find the main checkout to keep session state in. Run inside the repository or set KORE_ROOT to its root."
       );
     }
-    return new _SessionRegistry(deps.fs, resolve5(main, STATE_DIR));
+    return new _SessionRegistry(deps.fs, resolve6(main, STATE_DIR));
   }
   file(name) {
-    return join14(this.dir, `${name}.json`);
+    return join15(this.dir, `${name}.json`);
   }
   async read(name) {
     const path = this.file(name);
@@ -6876,7 +7816,7 @@ var SessionRegistry = class _SessionRegistry {
 };
 
 // src/session/worktree.ts
-import { join as join15 } from "node:path";
+import { join as join16 } from "node:path";
 var removeCommands = (worktree) => `\`git worktree remove ${worktree.path}\` and \`git branch -D ${worktree.branch}\``;
 var removeHint = (worktree) => `The worktree ${worktree.path} was left behind; remove it with ${removeCommands(worktree)}.`;
 var closeHint = (worktree) => `Remove its worktree once its branch is merged: ${removeCommands(worktree)}.`;
@@ -6887,7 +7827,7 @@ async function create2(deps, name, branch) {
       error: "Cannot find the main checkout to create the worktree in. Run inside the repository or set KORE_ROOT to its root. No pane was split."
     };
   }
-  const worktree = { path: join15(main, ".claude", "worktrees", name), branch };
+  const worktree = { path: join16(main, ".claude", "worktrees", name), branch };
   const add = await deps.runner.run(
     "git",
     ["worktree", "add", "-b", branch, worktree.path, "HEAD"],
@@ -6899,7 +7839,7 @@ async function create2(deps, name, branch) {
     };
   }
   const install = await deps.runner.run("npm", ["ci"], {
-    cwd: join15(worktree.path, "tools", "kore")
+    cwd: join16(worktree.path, "tools", "kore")
   });
   if (install.code !== 0) {
     return {
@@ -7159,9 +8099,9 @@ async function launch(deps, { role, model, effort, name, brief, paneId, callerPa
 // src/session/wait.ts
 var DEFAULT_TIMEOUT_MS = 60 * 60 * 1e3;
 var POLL_MS = 2e3;
-var MARKER = /^[ \t]*(?:[●⏺][ \t]+)?RESULT: (done|blocked)[ \t\r]*$/gm;
+var MARKER2 = /^[ \t]*(?:[●⏺][ \t]+)?RESULT: (done|blocked)[ \t\r]*$/gm;
 function findResult(text7) {
-  const last = [...text7.matchAll(MARKER)].at(-1)?.[1];
+  const last = [...text7.matchAll(MARKER2)].at(-1)?.[1];
   return last === "done" || last === "blocked" ? last : void 0;
 }
 function parseTimeout(value) {
@@ -7299,7 +8239,7 @@ function check({ deps, options }) {
 }
 
 // src/session/spawn-finish.ts
-import { join as join16 } from "node:path";
+import { join as join17 } from "node:path";
 async function recordLaunch(deps, record3) {
   try {
     const main = await mainRoot(deps);
@@ -7310,7 +8250,7 @@ async function recordLaunch(deps, record3) {
       deps.fs,
       deps.clock,
       deps.ids,
-      join16(main, DEFAULT_LEDGER)
+      join17(main, DEFAULT_LEDGER)
     ).record({
       source: "herdr",
       kind: "session.launch",
@@ -7501,141 +8441,6 @@ var session = {
   equalize: equalizeCommand
 };
 
-// src/skill/index.ts
-import { join as join17 } from "node:path";
-
-// src/skill/audit.ts
-var DESCRIPTION_BUDGET = 200;
-var BODY_BUDGET = 25;
-function invalid(name, reason) {
-  return {
-    name,
-    directory: name,
-    descriptionChars: 0,
-    bodyLines: 0,
-    verdict: "invalid",
-    reason
-  };
-}
-function field(frontmatter2, key) {
-  const line2 = frontmatter2.split("\n").find((l) => l.startsWith(`${key}:`));
-  const value = line2?.slice(key.length + 1).trim();
-  if (value === void 0 || value === "") {
-    return void 0;
-  }
-  return value.replace(/^(["'])(.*)\1$/, "$2");
-}
-function overBudgets(descriptionChars, bodyLines) {
-  const over = [];
-  if (descriptionChars > DESCRIPTION_BUDGET) {
-    over.push("description");
-  }
-  if (bodyLines > BODY_BUDGET) {
-    over.push("body");
-  }
-  return over;
-}
-function countLines(body) {
-  return body === "" ? 0 : body.replace(/\n$/, "").split("\n").length;
-}
-function auditSkill(directory, text7) {
-  const source = text7.replaceAll("\r\n", "\n");
-  if (!source.startsWith("---\n")) {
-    return invalid(directory, "missing frontmatter");
-  }
-  const close3 = /\n---[ \t]*(\n|$)/.exec(source.slice(3));
-  if (close3 === null) {
-    return invalid(directory, "unterminated frontmatter");
-  }
-  const end = close3.index + 3;
-  const frontmatter2 = source.slice(4, end);
-  const name = field(frontmatter2, "name");
-  if (name === void 0) {
-    return invalid(directory, "missing name");
-  }
-  const description = field(frontmatter2, "description");
-  if (description === void 0) {
-    return invalid(directory, "missing description");
-  }
-  if (/^[>|][+-]?$/.test(description)) {
-    return invalid(directory, "multi-line description");
-  }
-  const bodyLines = countLines(source.slice(end + close3[0].length));
-  const over = overBudgets(description.length, bodyLines);
-  const row = {
-    name,
-    directory,
-    descriptionChars: description.length,
-    bodyLines,
-    verdict: over.length > 0 ? "over-budget" : "ok"
-  };
-  return over.length > 0 ? { ...row, over } : row;
-}
-async function auditSkills(fs, skillsDir) {
-  const rows = [];
-  for (const directory of await fs.readdir(skillsDir)) {
-    const path = `${skillsDir}/${directory}/SKILL.md`;
-    if (await fs.exists(path)) {
-      rows.push(auditSkill(directory, await fs.readFile(path)));
-    }
-  }
-  rows.sort((a, b) => a.name.localeCompare(b.name, "en"));
-  const summary = {
-    ok: 0,
-    "over-budget": 0,
-    invalid: 0
-  };
-  for (const row of rows) {
-    summary[row.verdict] += 1;
-  }
-  return { skills: rows, summary };
-}
-function detail(row) {
-  if (row.verdict === "over-budget") {
-    return ` (${(row.over ?? []).join(", ")})`;
-  }
-  return row.verdict === "invalid" ? ` (${row.reason ?? ""})` : "";
-}
-function renderReport(report3) {
-  const width = Math.max(4, ...report3.skills.map((s) => s.name.length));
-  const lines2 = [
-    `${"NAME".padEnd(width)}  DESC  BODY  VERDICT`,
-    ...report3.skills.map(
-      (s) => `${s.name.padEnd(width)}  ${String(s.descriptionChars).padStart(4)}  ${String(s.bodyLines).padStart(4)}  ${s.verdict}${detail(s)}`
-    ),
-    "",
-    `${report3.summary.ok} ok, ${report3.summary["over-budget"]} over-budget, ${report3.summary.invalid} invalid`
-  ];
-  return `${lines2.join("\n")}
-`;
-}
-
-// src/skill/index.ts
-var SKILLS_DIR = "skills";
-var audit2 = {
-  summary: "report each skill's description and body against its budgets",
-  options: { strict: "boolean" },
-  async run({ json, options, deps }) {
-    const skillsDir = join17(await deps.root(), SKILLS_DIR);
-    let report3;
-    try {
-      report3 = await auditSkills(deps.fs, skillsDir);
-    } catch (error) {
-      if (error.code === "ENOENT") {
-        throw new CommandError(
-          `No skills directory at ${skillsDir}. Run from the repository, or set CLAUDE_PROJECT_DIR to its root.`
-        );
-      }
-      throw error;
-    }
-    deps.stdout(json ? `${JSON.stringify(report3)}
-` : renderReport(report3));
-    const failing = report3.summary["over-budget"] + report3.summary.invalid > 0;
-    return options["strict"] === true && failing ? 1 : 0;
-  }
-};
-var skill = { audit: audit2 };
-
 // src/cli/host.ts
 var hostDomains = {
   hook,
@@ -7702,7 +8507,7 @@ function own(table, key) {
 function names2(commands) {
   return Object.keys(commands).join(", ");
 }
-function resolve6(domain, name) {
+function resolve7(domain, name) {
   const commands = own(domains, domain);
   if (commands === void 0) {
     return {
@@ -7770,7 +8575,7 @@ async function execute(command, context) {
     return FAILURE;
   }
 }
-async function run(argv, deps) {
+async function run2(argv, deps) {
   const json = argv.includes("--json");
   const help = argv.includes("--help") || argv.includes("-h");
   const words2 = [];
@@ -7798,7 +8603,7 @@ async function run(argv, deps) {
       failure2
     );
   }
-  const resolved = resolve6(domain, name);
+  const resolved = resolve7(domain, name);
   if ("error" in resolved) {
     return fail3(deps, json, resolved.error, failure2);
   }
@@ -7818,7 +8623,7 @@ async function run(argv, deps) {
 var stderr = (text7) => process.stderr.write(text7);
 var root2;
 try {
-  process.exitCode = await run(process.argv.slice(2), {
+  process.exitCode = await run2(process.argv.slice(2), {
     runner: new ProcessRunner(),
     clock: systemClock,
     fs: nodeFileSystem,

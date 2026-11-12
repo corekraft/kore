@@ -5,8 +5,9 @@ import type { Command, CommandContext } from "../runtime/index.js";
 import {
   FlagError,
   findProof,
-  environments,
   readOverlay,
+  unprovenFlags,
+  unprovenLine,
   withFlagOn,
 } from "../flag/index.js";
 
@@ -134,16 +135,7 @@ async function activateFlag(context: CommandContext): Promise<number> {
 async function auditFlags(context: CommandContext): Promise<number> {
   const { deps, json } = context;
   const base = await root(context);
-  const repo = new IdeaRepository(deps.fs, deps.clock, base);
-  const unproven: { flag: string; environment: string; path: string }[] = [];
-  for (const environment of await environments(deps.fs, base)) {
-    const overlay = await readOverlay(deps.fs, base, environment);
-    for (const [flag, on] of Object.entries(overlay.features)) {
-      if (on && (await findProof(repo, flag, environment)) === undefined) {
-        unproven.push({ flag, environment, path: overlay.path });
-      }
-    }
-  }
+  const unproven = await unprovenFlags(deps.fs, deps.clock, base);
   if (unproven.length === 0) {
     deps.stdout(
       json
@@ -152,10 +144,7 @@ async function auditFlags(context: CommandContext): Promise<number> {
     );
     return 0;
   }
-  const lines = unproven.map(
-    (u) =>
-      `Flag ${u.flag} is on in ${u.environment} (${u.path}) with no verification outcome. Set it back to false, then turn it on with \`harness flag activate ${u.flag} --environment ${u.environment}\` once a live run is recorded.`,
-  );
+  const lines = unproven.map(unprovenLine);
   deps.stderr(
     json ? `${JSON.stringify({ unproven })}\n` : `${lines.join("\n")}\n`,
   );

@@ -1,19 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { run } from "../src/cli/index.js";
+import { findings } from "../src/kb/index.js";
 import { NEW, fixture, type MemoryFs } from "../src/adr/adr-support.js";
 
-interface KbCheck {
-  findings(deps: {
-    files(): string[];
-    read(path: string): string | null;
-  }): { file: string; line: number; message: string }[];
-}
-
 async function kbFindings(fs: MemoryFs) {
-  const path = new URL("../../../.claude/hooks/kb-check.mjs", import.meta.url)
-    .href;
-  const kb = (await import(path)) as KbCheck;
-  return kb.findings({
+  return findings({
     files: () => [...fs.files.keys()],
     read: (p) => fs.files.get(p) ?? null,
   });
