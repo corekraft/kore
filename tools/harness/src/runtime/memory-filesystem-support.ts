@@ -3,6 +3,8 @@ import type { FileSystem } from "./filesystem.js";
 /** An in-memory FileSystem for tests; `files` is inspectable and seedable. */
 export class MemoryFileSystem implements FileSystem {
   readonly files = new Map<string, string>();
+  /** Symbolic links: path to the target as written. */
+  readonly links = new Map<string, string>();
 
   readFile(path: string): Promise<string> {
     const content = this.files.get(path);
@@ -48,6 +50,17 @@ export class MemoryFileSystem implements FileSystem {
       [...this.files.keys()]
         .filter((f) => f.startsWith(prefix))
         .map((f) => f.slice(prefix.length).split("/")[0] ?? ""),
+    );
+  }
+
+  readlink(path: string): Promise<string> {
+    const target = this.links.get(path);
+    if (target !== undefined) {
+      return Promise.resolve(target);
+    }
+    const code = this.files.has(path) ? "EINVAL" : "ENOENT";
+    return Promise.reject(
+      Object.assign(new Error(`${code}: ${path}`), { code }),
     );
   }
 }
