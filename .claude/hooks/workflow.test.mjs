@@ -43,6 +43,7 @@ test("the workflow runs every check the commit and stop hooks run, in order", ()
   const runs = [...check().matchAll(/^\s+run: (.+)$/gm)].map((m) => m[1]);
   assert.deepEqual(runs, [
     "npm ci --prefix tools/kore",
+    "npm ci --prefix tools/harness",
     "npm --prefix tools/kore run check",
     "mise run test",
     "mise run test-hooks",

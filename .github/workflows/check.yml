@@ -28,6 +28,8 @@ jobs:
           cache: true
       - name: Install CLI dependencies
         run: npm ci --prefix tools/kore
+      - name: Install harness dependencies
+        run: npm ci --prefix tools/harness
       - name: Typecheck
         run: npm --prefix tools/kore run check
       - name: Unit tests

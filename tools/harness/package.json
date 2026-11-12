@@ -1,0 +1,29 @@
+{
+  "name": "@corekraft/harness",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Agent harness tools: one bundled CLI that skills and hooks call",
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/main.ts --bundle --platform=node --format=esm --target=node26 --legal-comments=none --outfile=../../skills/bin/harness.mjs",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\" package.json tsconfig.json .oxlintrc.json .prettierrc.json vitest.config.ts",
+    "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\" package.json tsconfig.json .oxlintrc.json .prettierrc.json vitest.config.ts",
+    "lint": "oxlint --type-aware --deny-warnings src tests",
+    "test": "vitest run --coverage",
+    "test:unit": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.6",
+    "@vitest/coverage-v8": "5.1.0",
+    "esbuild": "0.28.2",
+    "oxlint": "1.92.0",
+    "oxlint-tsgolint": "7.0.2006",
+    "prettier": "3.9.10",
+    "typescript": "7.0.2",
+    "vitest": "5.1.0"
+  },
+  "engines": {
+    "node": ">=26.8.2"
+  }
+}

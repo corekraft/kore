@@ -1,0 +1,78 @@
+import { execFileSync } from "node:child_process";
+import {
+  cpSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+const here = dirname(fileURLToPath(import.meta.url));
+const harnessRoot = resolve(here, "..");
+const bundle = resolve(harnessRoot, "../../skills/bin/harness.mjs");
+const esbuild = resolve(harnessRoot, "node_modules/.bin/esbuild");
+
+let temp = "";
+beforeAll(() => {
+  temp = mkdtempSync(join(tmpdir(), "harness-bundle-"));
+  // Build the real bundle into a temp directory so a test never rewrites the
+  // committed file; the committed one is compared below.
+  execFileSync(
+    esbuild,
+    [
+      "src/main.ts",
+      "--bundle",
+      "--platform=node",
+      "--format=esm",
+      "--target=node26",
+      "--legal-comments=none",
+      `--outfile=${join(temp, "built", "harness.mjs")}`,
+      "--log-level=error",
+    ],
+    { cwd: harnessRoot },
+  );
+  cpSync(join(temp, "built", "harness.mjs"), join(temp, "harness.mjs"));
+});
+afterAll(() => rmSync(temp, { recursive: true, force: true }));
+
+function node(file: string, ...args: string[]) {
+  // cwd is a temp directory with no node_modules anywhere above it.
+  return execFileSync(process.execPath, [file, ...args], {
+    cwd: temp,
+    encoding: "utf8",
+  });
+}
+
+describe("bundled harness", () => {
+  it("runs --help from a directory with no node_modules", () => {
+    expect(readdirSync(temp)).not.toContain("node_modules");
+    expect(node(join(temp, "harness.mjs"), "--help")).toContain(
+      "Usage: harness",
+    );
+  });
+
+  it("the committed skills/bin/harness.mjs runs --help from a temp directory", () => {
+    expect(node(bundle, "--help")).toContain("Usage: harness");
+    expect(
+      JSON.parse(node(bundle, "harness", "version", "--json")),
+    ).toHaveProperty("version");
+  });
+
+  it("the committed bundle is current with the source", () => {
+    expect(readFileSync(bundle, "utf8")).toBe(
+      readFileSync(join(temp, "built", "harness.mjs"), "utf8"),
+    );
+  });
+
+  it("imports only Node built-ins at runtime", () => {
+    const imports = [
+      ...readFileSync(bundle, "utf8").matchAll(/from\s*"([^"]+)"/g),
+    ].map((m) => m[1]);
+    expect(imports.length).toBeGreaterThan(0);
+    expect(imports.filter((i) => !i?.startsWith("node:"))).toEqual([]);
+  });
+});

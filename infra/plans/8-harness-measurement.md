@@ -29,12 +29,12 @@ and uses it first to measure the delivery loop. Terms follow
 
 ### Work
 
-- [ ] Create `tools/harness` with the `tools/kore` toolchain: strict
+- [x] Create `tools/harness` with the `tools/kore` toolchain: strict
       TypeScript, oxlint `--deny-warnings`, prettier, vitest, v8 coverage with
       a threshold, and an injectable runner.
-- [ ] Pin esbuild as a dev dependency and bundle to `skills/bin/harness.mjs`
+- [x] Pin esbuild as a dev dependency and bundle to `skills/bin/harness.mjs`
       with no runtime dependencies. Commit the bundle.
-- [ ] Add `mise run` tasks for the harness test, lint, format and build.
+- [x] Add `mise run` tasks for the harness test, lint, format and build.
 - [ ] Add a CI step that rebuilds the bundle and fails on any difference.
 - [ ] Wire the package into the commit hooks and the stop hook.
 
