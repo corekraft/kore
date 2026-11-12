@@ -799,6 +799,40 @@ test("a boundary case that the role breaks is a miss, and the history keeps its 
   });
 });
 
+test("a boundary case's appendSystemPrompt is passed to claude, so a guard case can make the role attempt the action", async () => {
+  const calls = [];
+  await runEvals({
+    claude: async (args) => {
+      calls.push(args);
+      return { status: 0, stdout: resultEvent("Blocked.") };
+    },
+    worktree: fakeWorktree,
+    dirty: async () => false,
+    readTier: async () => ({ model: "m", effort: "low" }),
+    skillCases: [],
+    reviewCases: [],
+    boundaryCases: [
+      {
+        role: "concierge",
+        forbids: "code",
+        prompt: "p",
+        appendSystemPrompt: "Guard test mode.",
+      },
+      { role: "reader", forbids: "write", prompt: "p" },
+    ],
+    readDiff: () => "",
+    repoSkills,
+  });
+  const withIt = calls.filter((args) =>
+    args.includes("--append-system-prompt"),
+  );
+  assert.equal(withIt.length, SKILL_SAMPLES, "only the case that asks for it");
+  assert.equal(
+    withIt[0][withIt[0].indexOf("--append-system-prompt") + 1],
+    "Guard test mode.",
+  );
+});
+
 const initEvent = (model) =>
   JSON.stringify({ type: "system", subtype: "init", model });
 const guardBlock = (rule) =>

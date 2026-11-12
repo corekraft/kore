@@ -400,6 +400,9 @@ export async function runEvals(deps) {
           "--verbose",
           "--max-budget-usd",
           BOUNDARY_BUDGET_USD,
+          ...(testCase.appendSystemPrompt
+            ? ["--append-system-prompt", testCase.appendSystemPrompt]
+            : []),
           testCase.prompt,
         ],
         { cwd: sandbox.path },
