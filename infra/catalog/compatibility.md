@@ -132,11 +132,11 @@ ticket (#205); offline, the flag-on install order (`kore-gateway-api`,
 rerun that changes no release are proven by `RecordingRunner` specs, and the
 live evidence row is still open. Namespace treatment of `agentgateway-system`:
 enrolled in image admission by default (no `enrollmentExemptions` entry);
-`KoreContainerSecurity` covers it (no exemption); `KoreMeshEnrollment` exempts it
-until enrolled, because the controller only serves xDS to data planes that run in
-the Gateway namespace. The exemption and the container-security coverage have
-offline Gatekeeper fixtures; the live run records whether the namespace carries
-the ambient label and which rules the chart's pods violate in `dryrun`.
+`KoreContainerSecurity` covers it (no exemption); `KoreMeshEnrollment` covers it
+too (no exemption), so the namespace is enrolled in the ambient mesh and its
+controller's xDS reaches data planes through ztunnel. Both are proven offline by
+Gatekeeper fixtures; the live run (#149) proves the gateway with ztunnel and
+records the ambient label and which rules the chart's pods violate in `dryrun`.
 
 | Image                              | Tag    | Index digest                                                              | Signature                                                                                 |
 | ---------------------------------- | ------ | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |

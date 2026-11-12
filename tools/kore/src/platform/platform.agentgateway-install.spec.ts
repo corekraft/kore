@@ -164,7 +164,20 @@ test("with the flag on, the CRDs install before the controller, after their depe
   const order = upgrades(calls);
   const at = (name: string) => order.indexOf(name);
   assert.ok(at("agentgateway-crds") >= 0 && at("agentgateway") >= 0);
-  assert.ok(at("kore-gateway-api") < at("agentgateway-crds"));
+  const gatewayApi = calls.findIndex(
+    (c) =>
+      c.startsWith("kubectl") &&
+      c.includes(" apply ") &&
+      c.includes("standard-install.yaml"),
+  );
+  const crdsInstall = calls.findIndex((c) =>
+    c.startsWith("helm upgrade --install agentgateway-crds "),
+  );
+  assert.ok(gatewayApi >= 0, "the kore-gateway-api manifest is applied");
+  assert.ok(
+    gatewayApi < crdsInstall,
+    "the Gateway API CRDs are applied before the agentgateway CRDs",
+  );
   assert.ok(at("agentgateway-crds") < at("agentgateway"));
   assert.ok(at("cert-manager") < at("agentgateway"));
 });
@@ -216,7 +229,7 @@ test("an unready agentgateway controller names the pod and container, never a ba
     pod({
       name: "agentgateway-x",
       labels: { "app.kubernetes.io/instance": "agentgateway" },
-      containers: [crashLoop(3)],
+      containers: [{ ...crashLoop(3), name: "controller" }],
     }),
   ]);
   await assert.rejects(
@@ -226,7 +239,7 @@ test("an unready agentgateway controller names the pod and container, never a ba
       graceMs: 60000,
     }),
     (error: Error) =>
-      /component agentgateway failed: pod agentgateway-x container registry CrashLoopBackOff/.test(
+      /component agentgateway failed: pod agentgateway-x container controller CrashLoopBackOff/.test(
         error.message,
       ) && !/timed out/i.test(error.message),
   );
