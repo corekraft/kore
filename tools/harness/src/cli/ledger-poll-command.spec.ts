@@ -50,3 +50,51 @@ describe("ledger poll-herdr", () => {
     expect(JSON.parse(h.err())).toMatchObject({ field: "herdr" });
   });
 });
+
+describe("ledger poll-github", () => {
+  const gh = (code = 0, stdout = "[]") => {
+    const h = harness("", { env: { KORE_ROOT: "/repo" } });
+    const runner = new FakeRunner([
+      { match: (c) => c === "gh", result: { stdout, code } },
+    ]);
+    return { ...h, deps: { ...h.deps, runner }, runner };
+  };
+
+  it("reports the count and passes --repo to gh", async () => {
+    const h = gh();
+    expect(
+      await run(["ledger", "poll-github", "--repo", "acme/app"], h.deps),
+    ).toBe(0);
+    expect(h.out()).toBe("recorded 0 github event(s)\n");
+    expect(h.runner.calls[0]?.args).toContain("acme/app");
+  });
+
+  it("defaults the repository to corekraft/kore", async () => {
+    const h = gh();
+    await run(["ledger", "poll-github"], h.deps);
+    expect(h.runner.calls[0]?.args).toContain("corekraft/kore");
+  });
+
+  it("refuses a malformed --since before calling gh", async () => {
+    const h = gh();
+    expect(
+      await run(["ledger", "poll-github", "--since", "yesterday"], h.deps),
+    ).toBe(2);
+    expect(h.err()).toContain("Invalid --since");
+    expect(h.runner.calls).toHaveLength(0);
+  });
+
+  it("refuses a malformed --repo before calling gh", async () => {
+    const h = gh();
+    expect(await run(["ledger", "poll-github", "--repo", "nope"], h.deps)).toBe(
+      2,
+    );
+    expect(h.runner.calls).toHaveLength(0);
+  });
+
+  it("names the gh failure as JSON under --json", async () => {
+    const h = gh(1);
+    expect(await run(["ledger", "poll-github", "--json"], h.deps)).toBe(1);
+    expect(JSON.parse(h.err())).toMatchObject({ field: "github" });
+  });
+});
