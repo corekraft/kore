@@ -18,6 +18,11 @@ export function minikubeImageLoadArgs(profile: string, tag: string): string[] {
   return ["image", "load", "--profile", profile, "--daemon", tag];
 }
 
+/** Imports a locally built image into every node of a k3d cluster. */
+export function k3dImageImportArgs(clusterName: string, tag: string): string[] {
+  return ["image", "import", tag, "--cluster", clusterName];
+}
+
 /**
  * Runs registry commands inside the node. The password is read from stdin by
  * one line of stdin and piped to `nerdctl login --password-stdin`, which
