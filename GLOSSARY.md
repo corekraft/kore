@@ -116,7 +116,8 @@ _Avoid_: Log, journal, history
 
 **Flow**:
 How ideas move through the delivery loop's stages, from refine to outcome,
-measured from the ledger as active time, waiting time and event count per stage.
+measured from the ledger as active time, waiting time, toil and event count
+per stage.
 The flow report maps stage events to stages and names the bottleneck.
 _Avoid_: Pipeline, throughput
 

@@ -4,20 +4,16 @@ import {
   GITHUB_STAGES,
   MAIN_SESSION_STAGE,
   ROLE_STAGES,
-  STAGES,
   type Stage,
 } from "./stages.js";
 import { attribute } from "./attribution.js";
 import { uncovered, type Span } from "./intervals.js";
+import { chargeToil, newLife } from "./toil.js";
+import { Tally, type StageTotals } from "./tally.js";
 
-export const REPORT_VERSION = 1;
+export const REPORT_VERSION = 2;
 
-export interface StageTotals {
-  stage: Stage;
-  activeSeconds: number;
-  waitingSeconds: number;
-  events: number;
-}
+export type { StageTotals, Toil } from "./tally.js";
 
 export interface Bottleneck {
   stage: Stage;
@@ -71,42 +67,6 @@ function roleOf(event: LedgerEvent) {
   return undefined;
 }
 
-interface StageMillis {
-  activeMs: number;
-  waitingMs: number;
-  events: number;
-}
-
-/** Accumulates whole milliseconds per stage; seconds are derived once, at output. */
-class Tally {
-  readonly totals = new Map<Stage, StageMillis>(
-    STAGES.map((stage) => [stage, { activeMs: 0, waitingMs: 0, events: 0 }]),
-  );
-
-  add(stage: Stage, field: "activeMs" | "waitingMs", ms: number) {
-    (this.totals.get(stage) as StageMillis)[field] += ms;
-  }
-
-  count(stage: Stage) {
-    (this.totals.get(stage) as StageMillis).events += 1;
-  }
-
-  /** Stages in loop order, with milliseconds converted to seconds. */
-  stages(): StageTotals[] {
-    return STAGES.map((stage) => {
-      const { activeMs, waitingMs, events } = this.totals.get(
-        stage,
-      ) as StageMillis;
-      return {
-        stage,
-        activeSeconds: activeMs / 1000,
-        waitingSeconds: waitingMs / 1000,
-        events,
-      };
-    });
-  }
-}
-
 /**
  * Charges one actor's time between its events to the state it was in and returns
  * one span per spawn-to-close life. A close holds until the next spawn or session
@@ -119,6 +79,7 @@ function chargeActor(
   const spans: Span[] = [];
   let closed = false;
   let start = time((items[0] as (typeof items)[number]).event);
+  let life = newLife((items[0] as (typeof items)[number]).event);
   items.forEach(({ event, stage }, i) => {
     const at = time(event);
     if (
@@ -127,11 +88,19 @@ function chargeActor(
     ) {
       closed = false;
       start = at;
+      life = newLife(event);
     }
     const state = STATE_AFTER[event.kind];
     if (closed) {
       return;
     }
+    chargeToil(
+      (kind, ms) => tally.addToil(stage, kind, ms),
+      event,
+      at,
+      start,
+      life,
+    );
     if (state === "closed") {
       closed = true;
       spans.push([start, at]);
@@ -142,6 +111,10 @@ function chargeActor(
         state === "active" ? "activeMs" : "waitingMs",
         next - at,
       );
+      if (state === "waiting") {
+        life.waits.push([at, next]);
+        tally.addToil(stage, "waiting", next - at);
+      }
     }
   });
   if (!closed) {

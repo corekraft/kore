@@ -34,7 +34,7 @@ describe("flow report", () => {
     expect(Object.keys(report)).toEqual(KEYS);
     expect(report).toMatchObject({ bottleneckNote: null });
     expect(report).toMatchObject({
-      version: 1,
+      version: 2,
       asOf: "2026-01-02T03:04:05.000Z",
       ideas: { total: 3, completed: 3 },
       minCompletedIdeas: 3,
@@ -125,5 +125,23 @@ describe("flow report flags", () => {
     const h = harness("", { commonDir: undefined });
     expect(await run(["flow", "report"], h.deps)).toBe(1);
     expect(h.err()).toContain("main checkout root");
+  });
+});
+
+describe("flow report toil", () => {
+  it("prints toil of every kind under each stage in the JSON", async () => {
+    const { h, argv } = seeded(["--json"]);
+    expect(await run(argv, h.deps)).toBe(0);
+    const { stages } = JSON.parse(h.out()) as {
+      stages: { toil: Record<string, number> }[];
+    };
+    for (const stage of stages) {
+      expect(Object.keys(stage.toil)).toEqual([
+        "startingSeconds",
+        "stoppingSeconds",
+        "waitingSeconds",
+        "retryingSeconds",
+      ]);
+    }
   });
 });

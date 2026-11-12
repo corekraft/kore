@@ -1236,8 +1236,77 @@ function uncovered(span, holes) {
   return free;
 }
 
+// src/flow/toil.ts
+var newLife = (first) => ({
+  began: first.kind === "pane.spawned" || first.kind === "session.start",
+  lastToolAt: void 0,
+  failed: void 0,
+  waits: []
+});
+function chargeToil(add, event, at, start, life) {
+  const gap = (from, to) => uncovered([from, to], life.waits);
+  const isTool = event.kind === "tool.start" || event.kind === "tool.end";
+  if (isTool && life.lastToolAt === void 0 && life.began) {
+    add("starting", gap(start, at));
+  }
+  if (event.kind === "tool.start") {
+    if (life.failed !== void 0 && life.failed.tool === event.tool) {
+      add("retrying", gap(life.failed.at, at));
+    }
+    life.failed = void 0;
+    life.lastToolAt = at;
+  } else if (event.kind === "tool.end") {
+    life.lastToolAt = at;
+    life.failed = event.outcome === "failure" ? { tool: event.tool, at } : void 0;
+  } else if ((event.kind === "pane.closed" || event.kind === "session.stop") && life.lastToolAt !== void 0) {
+    add("stopping", gap(life.lastToolAt, at));
+  }
+}
+
+// src/flow/tally.ts
+var emptyMillis = () => ({
+  activeMs: 0,
+  waitingMs: 0,
+  events: 0,
+  toilMs: { starting: 0, stopping: 0, waiting: 0, retrying: 0 }
+});
+var Tally = class {
+  totals = new Map(
+    STAGES.map((stage) => [stage, emptyMillis()])
+  );
+  add(stage, field2, ms) {
+    this.totals.get(stage)[field2] += ms;
+  }
+  addToil(stage, kind, ms) {
+    this.totals.get(stage).toilMs[kind] += ms;
+  }
+  count(stage) {
+    this.totals.get(stage).events += 1;
+  }
+  /** Stages in loop order, with milliseconds converted to seconds. */
+  stages() {
+    return STAGES.map((stage) => {
+      const { activeMs, waitingMs, events, toilMs } = this.totals.get(
+        stage
+      );
+      return {
+        stage,
+        activeSeconds: activeMs / 1e3,
+        waitingSeconds: waitingMs / 1e3,
+        events,
+        toil: {
+          startingSeconds: toilMs.starting / 1e3,
+          stoppingSeconds: toilMs.stopping / 1e3,
+          waitingSeconds: toilMs.waiting / 1e3,
+          retryingSeconds: toilMs.retrying / 1e3
+        }
+      };
+    });
+  }
+};
+
 // src/flow/report.ts
-var REPORT_VERSION = 1;
+var REPORT_VERSION = 2;
 var STATE_AFTER = {
   "session.start": "active",
   "tool.start": "active",
@@ -1258,45 +1327,29 @@ function roleOf(event) {
   }
   return void 0;
 }
-var Tally = class {
-  totals = new Map(
-    STAGES.map((stage) => [stage, { activeMs: 0, waitingMs: 0, events: 0 }])
-  );
-  add(stage, field2, ms) {
-    this.totals.get(stage)[field2] += ms;
-  }
-  count(stage) {
-    this.totals.get(stage).events += 1;
-  }
-  /** Stages in loop order, with milliseconds converted to seconds. */
-  stages() {
-    return STAGES.map((stage) => {
-      const { activeMs, waitingMs, events } = this.totals.get(
-        stage
-      );
-      return {
-        stage,
-        activeSeconds: activeMs / 1e3,
-        waitingSeconds: waitingMs / 1e3,
-        events
-      };
-    });
-  }
-};
 function chargeActor(tally, items) {
   const spans = [];
   let closed = false;
   let start = time(items[0].event);
+  let life = newLife(items[0].event);
   items.forEach(({ event, stage }, i) => {
     const at = time(event);
     if (closed && (event.kind === "pane.spawned" || event.kind === "session.start")) {
       closed = false;
       start = at;
+      life = newLife(event);
     }
     const state = STATE_AFTER[event.kind];
     if (closed) {
       return;
     }
+    chargeToil(
+      (kind, ms) => tally.addToil(stage, kind, ms),
+      event,
+      at,
+      start,
+      life
+    );
     if (state === "closed") {
       closed = true;
       spans.push([start, at]);
@@ -1307,6 +1360,10 @@ function chargeActor(tally, items) {
         state === "active" ? "activeMs" : "waitingMs",
         next - at
       );
+      if (state === "waiting") {
+        life.waits.push([at, next]);
+        tally.addToil(stage, "waiting", next - at);
+      }
     }
   });
   if (!closed) {
@@ -2095,7 +2152,8 @@ function text2(report2) {
       s.stage.padEnd(15),
       `active ${seconds(s.activeSeconds)}`.padEnd(16),
       `waiting ${seconds(s.waitingSeconds)}`.padEnd(17),
-      `${s.events} events`
+      `${s.events} events`.padEnd(11),
+      `toil start ${seconds(s.toil.startingSeconds)} stop ${seconds(s.toil.stoppingSeconds)} wait ${seconds(s.toil.waitingSeconds)} retry ${seconds(s.toil.retryingSeconds)}`
     ].join(" ")
   );
   const lines = [
@@ -2111,7 +2169,7 @@ function text2(report2) {
 `;
 }
 var report = {
-  summary: `map ledger events to stages; per stage active, waiting and event counts, and the bottleneck (--min-ideas N, default ${MIN_COMPLETED_IDEAS}; --as-of TIME; --ledger PATH; --json is one object, version ${REPORT_VERSION}: version, asOf, ideas, minCompletedIdeas, stages, bottleneck, bottleneckNote, unmappedEvents, skippedLines)`,
+  summary: `map ledger events to stages; per stage active, waiting, event counts and toil (starting, stopping, waiting, retrying), and the bottleneck (--min-ideas N, default ${MIN_COMPLETED_IDEAS}; --as-of TIME; --ledger PATH; --json is one object, version ${REPORT_VERSION}: version, asOf, ideas, minCompletedIdeas, stages, bottleneck, bottleneckNote, unmappedEvents, skippedLines)`,
   options: { "min-ideas": "string", "as-of": "string", ledger: "string" },
   async run(context) {
     const flags = parseFlags(context);
