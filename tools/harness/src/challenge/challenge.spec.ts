@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { run } from "../cli/index.js";
 import {
+  GH_USER,
   LEDGER,
   ghWrites,
   linked,
@@ -95,6 +96,76 @@ describe("harness idea challenge", () => {
       rounds: 2,
       openObjections: ["b"],
     });
+  });
+});
+
+const marker = (idea: string, n: number) =>
+  `<!-- harness-challenge idea=${idea} round=${n} -->\nChallenge round ${n} of 2\n\n- x`;
+
+describe("harness idea challenge integrity", () => {
+  it("ignores a round marker posted by anyone but the authenticated gh user", async () => {
+    const { h, issue } = await linked({
+      comments: [marker("0001", 1), marker("0001", 2)],
+      authors: { 0: "mallory", 1: "mallory" },
+    });
+    expect(await round(h, ["mine"])).toBe(0);
+    expect(h.out()).toContain("round 1 of 2");
+    expect(issue.comments).toHaveLength(3);
+  });
+
+  it("does not let a forged marker use up the rounds", async () => {
+    const { h } = await linked({
+      comments: [marker("0001", 1), marker("0001", 2)],
+      authors: { 1: "mallory" },
+    });
+    expect(await round(h, ["mine"])).toBe(0);
+    expect(h.out()).toContain("round 2 of 2");
+  });
+
+  it("still counts rounds by the expected user and refuses a third", async () => {
+    const { h } = await linked({
+      comments: [marker("0001", 1), marker("0001", 2)],
+      authors: { 0: GH_USER, 1: GH_USER },
+    });
+    expect(await round(h, ["third"])).toBe(1);
+    expect(h.err()).toContain("limit of 2 challenge rounds");
+  });
+
+  it("reports a duplicate round number after posting, naming both comments", async () => {
+    const raced = await linked();
+    raced.issue.afterComment = (i) => {
+      if (i.comments.length === 1) {
+        i.comments.unshift(marker("0001", 1));
+      }
+    };
+    expect(await round(raced.h, ["mine"])).toBe(1);
+    const error = raced.h.err();
+    expect(error).toContain("round 1");
+    expect(error).toContain("#issuecomment-1");
+    expect(error).toContain("#issuecomment-2");
+  });
+
+  it("is not a duplicate when the same round number is from someone else", async () => {
+    const { h, issue } = await linked();
+    issue.afterComment = (i) => {
+      if (i.comments.length === 1) {
+        i.comments.unshift(marker("0001", 1));
+        i.authors = { 0: "mallory" };
+      }
+    };
+    expect(await round(h, ["mine"])).toBe(0);
+  });
+
+  it("names the gh user it could not determine", async () => {
+    const { h } = await linked();
+    const inner = h.runner.run.bind(h.runner);
+    h.runner.run = (c, a, o) =>
+      c === "gh" && a[0] === "api"
+        ? Promise.resolve({ stdout: "", stderr: "not logged in", code: 1 })
+        : inner(c, a, o);
+    expect(await round(h, ["a"])).toBe(1);
+    expect(h.err()).toContain("gh auth status");
+    expect(ghWrites(h)).toHaveLength(0);
   });
 });
 

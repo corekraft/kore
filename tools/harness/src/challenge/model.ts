@@ -6,6 +6,16 @@ export interface Round {
   round: number;
   /** The objections the Challenger still held after this round; empty when it approved. */
   objections: string[];
+  /** Where the round's comment lives, for naming it in a report. */
+  url: string;
+}
+
+/** One comment on the idea's issue, as `gh issue view --json comments` reports it. */
+export interface IssueComment {
+  body: string;
+  /** The login that wrote the comment; empty when gh did not say. */
+  author: string;
+  url: string;
 }
 
 const MARKER = /^<!-- harness-challenge idea=(\d{4}) round=(\d+) -->$/;
@@ -28,19 +38,24 @@ export function renderRound(
   return `${markerFor(idea, round)}\n## Challenge round ${round} of ${MAX_ROUNDS}\n\n${body}\n`;
 }
 
-/** The rounds recorded for one idea among an issue's comments, in round order. Only a comment that starts with the marker counts. */
+/** The rounds recorded for one idea among an issue's comments, in round order. Only a comment by `author` that starts with the marker counts. */
 export function parseRounds(
   idea: string,
-  comments: readonly string[],
+  comments: readonly IssueComment[],
+  author: string,
 ): Round[] {
   const rounds: Round[] = [];
   for (const comment of comments) {
-    const lines = comment.replace(/\r/g, "").split("\n");
+    if (comment.author !== author) {
+      continue;
+    }
+    const lines = comment.body.replace(/\r/g, "").split("\n");
     const found = MARKER.exec((lines[0] ?? "").trim());
     if (found?.[1] !== idea || found[2] === undefined) {
       continue;
     }
     rounds.push({
+      url: comment.url,
       round: Number(found[2]),
       objections: lines
         .filter((line) => line.startsWith("- "))
@@ -57,4 +72,17 @@ export function parseObjections(input: string): string[] {
     .split("\n")
     .map((line) => line.replace(/^\s*[-*]\s+/, "").trim())
     .filter((line) => line !== "");
+}
+
+/** The round numbers recorded more than once, each with the comments that claim it. */
+export function duplicateRounds(
+  rounds: readonly Round[],
+): { round: number; urls: string[] }[] {
+  const byNumber = new Map<number, string[]>();
+  for (const r of rounds) {
+    byNumber.set(r.round, [...(byNumber.get(r.round) ?? []), r.url]);
+  }
+  return [...byNumber]
+    .filter(([, urls]) => urls.length > 1)
+    .map(([round, urls]) => ({ round, urls }));
 }

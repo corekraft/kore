@@ -7,10 +7,17 @@ export const ISSUE = "https://github.com/corekraft/kore/issues/300";
 
 export type Harness = ReturnType<typeof harness>;
 
+/** The login the fake gh is authenticated as; comments without an author are by this user. */
+export const GH_USER = "kore-bot";
+
 export interface FakeIssue {
   state: "OPEN" | "CLOSED";
   labels: string[];
   comments: string[];
+  /** Author login per comment index; a missing entry means GH_USER. */
+  authors?: Record<number, string>;
+  /** Runs after a comment is posted, to simulate another writer racing the post. */
+  afterComment?: (issue: FakeIssue) => void;
 }
 
 /** A stateful gh: answers repo and issue views from `issue`, and applies comment, edit and close calls. */
@@ -27,17 +34,25 @@ export function fakeGh(h: Harness, issue: FakeIssue) {
     if (args[0] === "repo") {
       return ok(JSON.stringify({ nameWithOwner: "corekraft/kore" }));
     }
+    if (args[0] === "api" && args[1] === "user") {
+      return ok(`${GH_USER}\n`);
+    }
     switch (args[1]) {
       case "view":
         return ok(
           JSON.stringify({
             state: issue.state,
             labels: issue.labels.map((name) => ({ name })),
-            comments: issue.comments.map((body) => ({ body })),
+            comments: issue.comments.map((body, i) => ({
+              body,
+              author: { login: issue.authors?.[i] ?? GH_USER },
+              url: `${ISSUE}#issuecomment-${i + 1}`,
+            })),
           }),
         );
       case "comment":
         issue.comments.push(options?.input ?? "");
+        issue.afterComment?.(issue);
         return ok();
       case "edit":
         issue.labels = [
