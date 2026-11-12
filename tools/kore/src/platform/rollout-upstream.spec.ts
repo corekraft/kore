@@ -8,8 +8,8 @@ import {
 import { rolloutProblems } from "./rollout-feasibility.js";
 import { renderChart, yamlDocuments } from "./upstream-support.js";
 
-// The environment schema declares no node count; local is a single Minikube
-// node. Read it from the config here once an environment can declare it.
+// The environment schema declares no node count; local is a single k3d
+// server node. Read it from the config here once an environment can declare it.
 const localNodes = 1;
 
 /**

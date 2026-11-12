@@ -85,10 +85,10 @@ test("a failed operation journals the failure and rethrows it", async () => {
       { root: dir, environment: "local", command: "cluster up" },
       failing,
       async (runner) => {
-        await runner.run("minikube", ["start"]);
+        await runner.run("k3d", ["cluster", "start"]);
       },
     ),
-  ).rejects.toThrow("minikube start failed");
+  ).rejects.toThrow("k3d cluster start failed");
   const entries = await lines(dir);
   expect(entries[0]).not.toHaveProperty("context");
   expect(entries[1]).toMatchObject({ kind: "exec", code: 3 });

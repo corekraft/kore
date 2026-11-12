@@ -91,7 +91,7 @@ function k3dRunner(calls: Call[]): Runner {
   };
 }
 
-test("platform up on k3d programs the Gateway with no tunnel and no Minikube command", async () => {
+test("platform up on k3d programs the Gateway with no tunnel and no host process", async () => {
   const base = await loadRepository("local");
   const root = await mkdtemp(join(tmpdir(), "kore-platform-k3d-"));
   const platformConfig = base.catalog.components.find(
@@ -109,10 +109,6 @@ test("platform up on k3d programs the Gateway with no tunnel and no Minikube com
   try {
     await platformUp(repository, k3dRunner(calls));
 
-    assert.deepEqual(
-      calls.filter(({ command }) => command === "minikube"),
-      [],
-    );
     assert.ok(
       calls.some(
         ({ command, args }) =>

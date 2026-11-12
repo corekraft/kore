@@ -156,7 +156,7 @@ test("the local overlay values are applied to the kore-storage component", async
   );
 });
 
-test("no Minikube provisioner remains in the charts or the local overlay values", async () => {
+test("no hostpath provisioner remains in the charts or the local overlay values", async () => {
   const { root } = await loadRepository("local");
   const entries = [
     ...(await readdir(join(root, "infra/charts"), {
@@ -170,7 +170,7 @@ test("no Minikube provisioner remains in the charts or the local overlay values"
   const offenders: string[] = [];
   for (const entry of entries) {
     const file = join(entry.parentPath, entry.name);
-    if (/minikube-hostpath/i.test(await readFile(file, "utf8"))) {
+    if (/k8s\.io\/[a-z-]*hostpath/i.test(await readFile(file, "utf8"))) {
       offenders.push(file);
     }
   }

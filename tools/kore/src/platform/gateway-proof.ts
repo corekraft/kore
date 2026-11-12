@@ -212,10 +212,10 @@ export function secretKeys(secret: Json): string[] {
 }
 
 /**
- * Whether the host runs a tunnel that could be what answers the Gateway port:
- * a `minikube tunnel`, or the `ssh -L` forward it holds the port with. The
- * k3d load balancer publishes the port with neither, so any hit means the
- * endpoint is not answering through the load balancer. Undefined when none.
+ * Whether the host runs an `ssh -L` forward holding the Gateway port, which
+ * would answer in place of the load balancer. The k3d load balancer publishes
+ * the port without one, so any hit means the endpoint is not answering through
+ * the load balancer. Undefined when none.
  */
 export function tunnelProcessProblem(
   processes: { pid: number; command: string }[],
@@ -224,12 +224,6 @@ export function tunnelProcessProblem(
   for (const { pid, command } of processes) {
     const tokens = command.split(/\s+/).filter((token) => token !== "");
     const binary = tokens[0] ?? "";
-    if (
-      (binary === "minikube" || binary.endsWith("/minikube")) &&
-      tokens[1] === "tunnel"
-    ) {
-      return `a minikube tunnel is running (pid ${pid}); the load balancer must answer with no tunnel process`;
-    }
     const forwards = tokens.some(
       (token, index) =>
         (token === "-L" &&
@@ -237,12 +231,8 @@ export function tunnelProcessProblem(
         (token.startsWith("-L") &&
           token.slice(2).split(":").includes(String(port))),
     );
-    if (
-      (binary === "ssh" || binary.endsWith("/ssh")) &&
-      forwards &&
-      command.includes("/.minikube/")
-    ) {
-      return `a minikube ssh forward holds port ${port} (pid ${pid}); the load balancer must answer with no tunnel process`;
+    if ((binary === "ssh" || binary.endsWith("/ssh")) && forwards) {
+      return `an ssh forward holds port ${port} (pid ${pid}); the load balancer must answer with no tunnel process`;
     }
   }
   return undefined;

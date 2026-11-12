@@ -7,9 +7,9 @@ export const repository = {
   catalog: { components: [] },
   environment: {
     name: "local",
-    provider: "minikube",
-    kubeContext: "kore-local",
-    cluster: { profile: "kore-local" },
+    provider: "k3d",
+    kubeContext: "k3d-kore-local",
+    k3d: { clusterName: "kore-local" },
     gateway: { name: "kore-gateway" },
   },
 };

@@ -105,7 +105,7 @@ test("a CRD wait failure that is not a missing resource is not retried", async (
   assert.equal(waits, 1);
 });
 
-test("managed environments verify their cluster instead of starting Minikube", async () => {
+test("managed environments verify their cluster instead of starting a local cluster", async () => {
   const base = await loadRepository("managed-example");
   const repository = { ...base, catalog: { components: [] } };
   const runner = new RecordingRunner();
