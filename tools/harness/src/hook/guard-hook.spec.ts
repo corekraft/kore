@@ -6,7 +6,7 @@ import { modeOf, INVENTORY_PATH } from "../guardrail/index.js";
 import {
   committedInventory,
   committedInventoryText,
-} from "../guardrail/inventory-support.js";
+} from "../testing/guardrail-support.js";
 import { evaluate } from "./guard.js";
 
 // The hook as the host runs it, in process: exit code, stdout, stderr and the

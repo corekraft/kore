@@ -5,7 +5,7 @@ import { INVENTORY_PATH, type Mode } from "../guardrail/index.js";
 import {
   committedInventoryText,
   inventoryWith,
-} from "../guardrail/inventory-support.js";
+} from "../testing/guardrail-support.js";
 import { ledgerEvents } from "./feedback-support.js";
 
 async function guard(payload: unknown, inventory: string | undefined) {

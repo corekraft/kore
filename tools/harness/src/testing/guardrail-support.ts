@@ -1,6 +1,10 @@
 // The committed inventory, for specs that exercise the guard against today's modes.
 import { readFileSync } from "node:fs";
-import { INVENTORY_PATH, parseInventory, type Mode } from "./inventory.js";
+import {
+  INVENTORY_PATH,
+  parseInventory,
+  type Mode,
+} from "../guardrail/index.js";
 
 const repo = new URL("../../../../", import.meta.url).pathname;
 

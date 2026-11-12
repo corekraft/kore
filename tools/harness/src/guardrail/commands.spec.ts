@@ -5,7 +5,7 @@ import { INVENTORY_PATH } from "./index.js";
 import {
   committedInventory,
   committedInventoryText,
-} from "./inventory-support.js";
+} from "../testing/guardrail-support.js";
 
 const status = async (files: Record<string, string>, args: string[] = []) => {
   const h = testHarness({ files });
