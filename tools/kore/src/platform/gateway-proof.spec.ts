@@ -232,6 +232,24 @@ test("an ssh forward holding the Gateway port is a tunnel problem", () => {
   );
 });
 
+test("an ssh forward binding the Gateway port is reported with or without a bind address", () => {
+  for (const forward of [
+    "-L 8443:host:22",
+    "-L8443:host:22",
+    "-L 127.0.0.1:8443:host:22",
+    "-L127.0.0.1:8443:host:22",
+  ]) {
+    assert.match(
+      tunnelProcessProblem(
+        [{ pid: 7, command: `ssh ${forward} bastion` }],
+        8443,
+      ) ?? "",
+      /ssh forward.*pid 7/,
+      forward,
+    );
+  }
+});
+
 test("the k3d load balancer and unrelated processes are not a tunnel", () => {
   assert.equal(
     tunnelProcessProblem(
@@ -239,6 +257,10 @@ test("the k3d load balancer and unrelated processes are not a tunnel", () => {
         { pid: 1, command: "docker-proxy -proto tcp -host-port 8443" },
         { pid: 2, command: "ssh -L 5432:db:5432 bastion" },
         { pid: 3, command: "/usr/bin/vim tunnel-notes.txt" },
+        // Only the local bind port counts; 8443 here is the remote port.
+        { pid: 4, command: "ssh -L 9000:host:8443 bastion" },
+        { pid: 5, command: "ssh -L 127.0.0.1:9001:host:8443 bastion" },
+        { pid: 6, command: "ssh -L9002:host:8443 bastion" },
       ],
       8443,
     ),
