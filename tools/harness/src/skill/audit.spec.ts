@@ -31,6 +31,8 @@ function harness(
     runner: new FakeRunner(),
     clock: { now: () => new Date("2026-01-02T03:04:05.000Z") },
     root: () => Promise.resolve(ROOT),
+    env: {},
+    cwd: ROOT,
     fs: {
       readFile: (path) =>
         rel(path) in files
