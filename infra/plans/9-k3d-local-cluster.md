@@ -118,8 +118,8 @@ plan 8.
 
 ### Work
 
-- [ ] Run every opt-in integration suite on k3d.
-- [ ] Record the machine load before and after as the outcome of this change.
+- [x] Run every opt-in integration suite on k3d.
+- [x] Record the machine load before and after as the outcome of this change.
 
 ### Exit Criteria
 
@@ -128,59 +128,110 @@ plan 8.
 
 ## Results
 
-Live proof in progress on scratch branch `scratch/k3d-live-proof` (issue #149);
-no suite has passed yet. No Minikube baseline exists (#134 closed as not
-planned), so only k3d load is recorded.
+Live proof on scratch branch `scratch/k3d-live-proof` (issue #149), 12-CPU
+host, Docker VM 11.68 GiB, 2026-11-12. No Minikube baseline exists (#134 closed
+as not planned), so only k3d load is recorded.
 
-- Machine: 12 CPUs, Docker VM 11.68 GiB. Before the first `kore local up`:
-  load average 4.22 (1 min), 73.8% idle CPU, no containers running.
-- Run 1 (fresh profile) failed naming its cause: `oci-registry` PVC unbound
-  because the local-path provisioner rejects `Immediate` binding ("no node was
-  specified"). Fixed on #269: `kore-standard` and `kore-retained` use
-  `WaitForFirstConsumer`.
-- `kore local down --prune` left `~/.kore/k3d/kore-local` behind. Fixed on #266:
-  deleting the cluster removes that directory only.
-- Run 2 (fresh profile, loaded host at load average 166-192): k3s exited with
-  `Transaction commit failed` after kine (embedded SQLite) logged "Slow SQL".
-  Not reproduced on a quiet host, so no etcd ADR is written.
-- Run 3 (fresh profile, quiet host, load 1.7 to 2.6, k3s server container
-  2.8 GiB of the 11.68 GiB Docker VM, 83% idle CPU): k3s stayed up for 15
-  minutes. `istio-cni-node` never became ready because the chart defaults to
-  `/etc/cni/net.d` and `/opt/cni/bin`, which k3s does not use. Fixed on #266 by
-  a local overlay pointing at `/var/lib/rancher/k3s/agent/etc/cni/net.d` and
-  `/var/lib/rancher/k3s/data/cni`.
-- Run 4 (resume): `kore-observability-config` timed out on the `tempo-storage`
-  claim. Owner decision, ADR 0086: the claim stays in that release and the
-  release sets `helm.wait: false` (`--wait=hookOnly`); Tempo's readiness proves
-  the volume. Live run 5 showed Helm 4 turns `--rollback-on-failure` back into a
-  resource wait, so that flag is omitted for the opt-out component (fixed, ADR
-  0086 updated).
-- Run 6 (resume, quiet host, load 2 to 14 during installs): the observability
-  phase converged, then `local up` stopped at the local image signer:
-  `kubeconfig context k3d-kore-local embeds credentials`. k3d writes client
-  certificate data inline, and `minifiedKubeconfig` (ADR 0015) refuses any
-  kubeconfig with `-data`, so the signer cannot give cosign a pinned context.
-  Blocked on a design decision about how cosign reaches the cluster without
-  writing credentials to disk.
-- Run 7 (fresh profile, quiet host, load rising to 25-30 from k3d's own VM
-  during install): converged through the reference app's image push after four
-  more fixes on #266 (cosign kubeconfig through a file descriptor, ADR 0087;
-  registry `X-Forwarded-Proto` and a pod roll on proxy config change; the
-  locally built image named by the registry address; a digest name for the
-  pushed image in the node). The first fresh run then stopped at the admission
-  gate: `kore status`'s read-only wait is `STATUS_TIMEOUT = "3s"`
-  (`tools/kore/src/platform/readiness.ts`), and `kubectl wait --for=condition=Established
-crd/fakes.generators.external-secrets.io --timeout=3s` missed it under load.
-  Targeted fix: that one wait retries once at 15s, only when kubectl reports a
-  timeout. The broader fix is PR #119 (probe and status-wait tolerance), which
-  stays unmerged.
-- Run 8 (existing profile, resumed after the failed fresh run above): `kore local up`
-  converged in 631s, exit 0. This is the only passing rerun so far.
-- Run 9 (fresh profile, 2679s, load 20-30 with 15-40% idle CPU, then a spike to
-  186 for ten minutes): k3s exited with `Transaction commit failed` from kine
-  (embedded SQLite) at the end of the install, after 146 "Slow SQL" lines, and
-  Docker restarted it. `kore local up` then failed on the `reference-db` wait
-  because the API vanished. This is the second kine crash during a fresh
-  install, so the etcd decision (`--cluster-init`) is now needed; no ADR is
-  written yet and no suite has run.
-- Safety pattern: expand and contract. Not yet proven live.
+### Convergence
+
+- **Fresh profile, first run:** `kore local up` converged four times from an
+  absent cluster (1169s on a quiet host, 1225s, 1298s inside the README quick
+  start, 1376s); k3s restarted 0 times and logged at most 8 "Slow SQL" lines in
+  each converged run.
+- **Existing profile:** a rerun converged three times (252s, 235s, 631s), and
+  after a stop (`kore local down`, data kept) `kore local up` restored the
+  Gateway in 312s.
+- **Gateway after stop/start:** before the stop the Gateway answered on
+  `kore.local:8443` (HTTP 403 from the platform's authorizer, the expected
+  answer). While stopped, every k3d container was down and the port refused.
+  After `up` it answered again three times, with 0 tunnel processes; port 8443
+  is held only by Docker's forwarder.
+
+### Opt-in suites (one at a time, under the integration lock)
+
+| Suite                                       | Result                                                                                                                                         |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| storage                                     | 1/1                                                                                                                                            |
+| gateway                                     | 3/3                                                                                                                                            |
+| admission                                   | 6/6                                                                                                                                            |
+| signer                                      | 1/1                                                                                                                                            |
+| identity                                    | 7 passed, 1 skipped by design (needs `kore-workload-identity` promoted; the policy suite proves that round trip)                               |
+| policy                                      | 1/1                                                                                                                                            |
+| ops                                         | 1/1 (needs `KORE_OPS_AGE_IDENTITY`; skipped without it)                                                                                        |
+| registry                                    | 4/4                                                                                                                                            |
+| telemetry                                   | 3/3 (needs `reference` traffic first)                                                                                                          |
+| gate                                        | 1/1                                                                                                                                            |
+| reference                                   | 8/8                                                                                                                                            |
+| resilience                                  | 10/10 on the second run; the first run failed because the policy-controller webhook was restarted by its 1s probes under load (see Open items) |
+| docs                                        | 2/2                                                                                                                                            |
+| cluster                                     | 1/1 (destroys and recreates `kore-local`)                                                                                                      |
+| lifecycle                                   | 1/1                                                                                                                                            |
+| README quick start (platform default group) | 3/3                                                                                                                                            |
+| clean-machine                               | passed (1487s)                                                                                                                                 |
+
+Out of scope for #149: app-status, promotion, helm-interrupt and upgrade, to be
+proven when their own PRs (#114, #116, #117) land.
+
+Suite order matters and is not a defect: `signer` swaps the signing key, so the
+reference image needs a `kore local up` before `policy`; `telemetry` needs
+`reference` traffic first; `cluster` destroys the cluster, so `lifecycle` needs
+a fresh `up` after it.
+
+### Machine load (k3d only)
+
+- Idle host before the first `up`: load average 4.2, 73.8% idle CPU, no
+  containers.
+- Quiet fresh run (load 1.6 at the start): load average 5.8 on average, 9.6
+  peak; k3s server memory 3.7 GiB on average and 6.7 GiB peak of the 11.68 GiB
+  Docker VM, CPU up to about 11 cores during installs; host CPU 15-50% idle
+  during install, 50-76% idle once settled. The macOS host held 4-8 GiB of swap
+  throughout.
+- Between suites with the platform settled: k3s server about 0.7-3 cores and
+  5-7.7 GiB of memory; load average 7-16.
+
+### Safety pattern and fallbacks
+
+- Safety pattern: expand and contract. The k3d environment was added beside
+  Minikube (provider `k3d`), proven live, and Minikube is retired in Step 6.
+- ADR 0084 restart fallback: not needed. The CA is written after the node
+  starts, and a `crictl pull` without credentials reached the registry over TLS
+  and failed with `authorization failed`, not an x509 error.
+- ADR 0085 (Gateway NodePort): worked; the Gateway answers through the load
+  balancer with no tunnel.
+- ADR 0086 (resources-only releases do not wait on claims that bind later) and
+  ADR 0087 (cosign reads the pinned kubeconfig from a file descriptor) were
+  added during the proof.
+
+### Found live and fixed on this branch or #269
+
+`WaitForFirstConsumer` storage classes (local-path cannot bind without a node);
+prune removes `~/.kore/k3d/<cluster>`; istio-cni uses the k3s CNI directories;
+`helm.wait: false` for `kore-observability-config` (no rollback flag, because
+Helm 4 turns it back into a wait); cosign reads the kubeconfig through a file
+descriptor; the registry proxy sends `X-Forwarded-Proto: https` and the pod
+rolls on a proxy config change; the built image is named by the registry
+address and by digest in the node; the 3s status wait retries once at 15s
+(#119 is the broader fix, left unmerged); and spec fixes found by the live
+suites (resilience pre-check ignores gated-off components, the quick start
+stops a tunnel only on Minikube, the persistence spec polls through an empty
+primary list, two unit specs no longer assume an unset opt-in or lock
+variable, the clean-machine status check judges platform components only).
+
+### Open items
+
+- **k3s datastore under load:** kine (embedded SQLite) crashed twice with
+  `Transaction commit failed` during fresh installs while the host load was
+  100+ (one run with other sessions busy, one with a 186 load spike). Four
+  later fresh runs on a quieter host did not crash, so no etcd ADR is written;
+  embedded etcd (`--cluster-init`) remains the fallback if it recurs.
+- **policy-controller probes:** the upstream chart (0.10.8) exposes no probe
+  settings and its webhook probes use a 1s timeout, so the controller can be
+  restarted under load and admission briefly has no endpoint. A fix needs a
+  post-renderer (#119's approach) and an owner decision.
+- **crd-ownership is degraded on k3d:** `addons.k3s.cattle.io`,
+  `etcdsnapshotfiles.k3s.cattle.io`, `helmchartconfigs.helm.cattle.io` and
+  `helmcharts.helm.cattle.io` ship with k3s and no catalog component owns them.
+  The row is audit-only. It needs an owner decision (a provider-owned CRD group
+  in the overlay, or an audit exemption).
+- **backups row** reports degraded on a fresh install with retained data and no
+  export, by design; `kore data export` clears it.
