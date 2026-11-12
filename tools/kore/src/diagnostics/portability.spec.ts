@@ -151,7 +151,7 @@ async function applicationRoot(
 for (const name of ["k3d", "k3s", "local-path"]) {
   test(`portability validation rejects application templates that name ${name}`, async () => {
     const root = await applicationRoot(
-      "kore-k3d-",
+      "kore-provider-",
       `kind: PersistentVolumeClaim\nstorageClassName: ${name}\n`,
     );
     const repository = await loadRepository("managed-example");
@@ -161,6 +161,7 @@ for (const name of ["k3d", "k3s", "local-path"]) {
       (error: Error) =>
         error.message.includes(name) &&
         /provider-specific/.test(error.message) &&
+        /environment overlay/.test(error.message) &&
         /deployment\.yaml/.test(error.message),
     );
   });
@@ -175,6 +176,7 @@ for (const name of ["k3d", "k3s", "local-path"]) {
       validatePortability(repository, runner),
       (error: Error) =>
         /rendered.*provider-specific/.test(error.message) &&
+        /environment overlay/.test(error.message) &&
         error.message.includes(name),
     );
   });
