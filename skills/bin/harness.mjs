@@ -1526,7 +1526,11 @@ async function acquire(fs, clock, path) {
   for (const attempt of [0, 1]) {
     try {
       await fs.createFile(path, clock.now().toISOString());
-      return { ok: true, release: () => fs.remove(path) };
+      return {
+        ok: true,
+        refresh: () => fs.writeFile(path, clock.now().toISOString()),
+        release: () => fs.remove(path)
+      };
     } catch (error) {
       if (!isExists(error)) {
         throw error;
@@ -1714,9 +1718,30 @@ var describe3 = (code, stdout, stderr2) => {
   const text3 = `${stderr2}${stdout}`.trim();
   return text3 === "" ? `exit code ${code}` : `exit code ${code}: ${text3}`;
 };
-async function query(runner, what, args) {
-  const found = await runner.run("gh", args);
+var RATE_LIMITED = /rate limit|HTTP 403|HTTP 429/i;
+async function resetTime(gh) {
+  const found = await gh.runner.run("gh", ["api", "rate_limit"]);
+  try {
+    const parsed = JSON.parse(found.stdout);
+    const core = asRecord(asRecord(asRecord(parsed)["resources"])["core"]);
+    const reset = core["reset"];
+    return typeof reset === "number" && Number.isFinite(reset) ? new Date(reset * 1e3).toISOString() : void 0;
+  } catch {
+    return void 0;
+  }
+}
+async function rateLimited(gh, what) {
+  const reset = await resetTime(gh);
+  const retry = reset === void 0 ? "Retry in a few minutes" : `Retry after ${reset}`;
+  return `gh ${what} hit the GitHub rate limit. ${retry}; poll again then (gh api rate_limit shows the reset time).`;
+}
+async function query(gh, what, args) {
+  const found = await gh.runner.run("gh", args);
+  await gh.refresh();
   if (found.code !== 0) {
+    if (RATE_LIMITED.test(`${found.stderr}${found.stdout}`)) {
+      return rateLimited(gh, what);
+    }
     return `gh ${what} failed: ${describe3(found.code, found.stdout, found.stderr)}. Is gh installed and logged in (gh auth status)?`;
   }
   let value;
@@ -1725,7 +1750,8 @@ async function query(runner, what, args) {
   } catch {
     return `gh ${what} did not print JSON. Run it by hand and check the gh version.`;
   }
-  return Array.isArray(value) ? value : `gh ${what} printed no JSON list; the gh version may have changed its output.`;
+  const isObject = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
+  return Array.isArray(value) && value.every(isObject) ? value : `gh ${what} did not print a JSON list of objects; the gh version may have changed its output.`;
 }
 var asRecord = (value) => typeof value === "object" && value !== null ? value : {};
 var when = (value) => typeof value === "string" && isTimestamp(value) ? value : void 0;
@@ -1777,62 +1803,90 @@ async function pollGithub(deps) {
     return { ok: false, message: held.message };
   }
   try {
-    return await poll(deps);
+    return await poll(deps, () => held.refresh());
   } finally {
     await held.release();
   }
 }
-async function fetchAll(runner, repo) {
+var PAGE = 100;
+var MAX_PAGES = 3;
+var searchFrom = (field2, since) => since === void 0 ? [] : ["--search", `${field2}:>=${since.slice(0, 10)}`];
+async function fetchEvents(gh, repo, since) {
+  const events = [];
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const got = await query(gh, "api issues/events", [
+      "api",
+      `repos/${repo}/issues/events?per_page=${PAGE}&page=${page}`
+    ]);
+    if (typeof got === "string") {
+      return got;
+    }
+    events.push(...got);
+    const oldest = when(got.at(-1)?.["created_at"]);
+    const older = since !== void 0 && oldest !== void 0 && Date.parse(oldest) < Date.parse(since);
+    if (got.length < PAGE || older) {
+      break;
+    }
+  }
+  return events;
+}
+async function fetchAll(gh, repo, since) {
   const flag = ["--repo", repo];
   const list3 = ["--state", "all", "--limit", String(LIMIT)];
-  const issues = await query(runner, "issue list", [
+  const issues = await query(gh, "issue list", [
     "issue",
     "list",
     ...flag,
     ...list3,
+    ...searchFrom("created", since),
     "--json",
     "number,createdAt"
   ]);
-  const prs = await query(runner, "pr list", [
+  if (typeof issues === "string") {
+    return issues;
+  }
+  const prs = await query(gh, "pr list", [
     "pr",
     "list",
     ...flag,
     ...list3,
+    ...searchFrom("updated", since),
     "--json",
     "number,createdAt,mergedAt"
   ]);
-  const pages = await query(runner, "api issues/events", [
-    "api",
-    "--paginate",
-    "--slurp",
-    `repos/${repo}/issues/events?per_page=100`
-  ]);
-  const failed = [issues, prs, pages].find((a) => typeof a === "string") ?? ([issues, prs].some((a) => a.length >= LIMIT) ? `gh returned ${LIMIT} issues or PRs, the most one poll lists, so older ones may be missing. Poll a narrower repository, or raise LIMIT in github-poll.ts.` : void 0);
-  return typeof failed === "string" ? failed : {
-    issues,
-    prs,
-    pages
-  };
+  if (typeof prs === "string") {
+    return prs;
+  }
+  const events = await fetchEvents(gh, repo, since);
+  if (typeof events === "string") {
+    return events;
+  }
+  if ([issues, prs].some((a) => a.length >= LIMIT)) {
+    return `gh returned ${LIMIT} issues or PRs, the most one poll lists, so some may be missing. Pass a later --since, or raise LIMIT in github-poll.ts.`;
+  }
+  return { issues, prs, events };
 }
-async function poll(deps) {
+async function poll(deps, refresh) {
   const { events: known } = await deps.ledger.list({ source: "github" });
   const have = new Set(known.map((e) => e.id));
   const since = deps.since ?? known.map((e) => e.occurredAt).reduce(
     (latest, t) => latest === void 0 || Date.parse(t) > Date.parse(latest) ? t : latest,
     void 0
   );
-  const fetched = await fetchAll(deps.runner, deps.repo);
+  const fetched = await fetchAll(
+    { runner: deps.runner, refresh },
+    deps.repo,
+    since
+  );
   if (typeof fetched === "string") {
     return { ok: false, message: fetched };
   }
-  const { issues, prs, pages } = fetched;
+  const { issues, prs, events } = fetched;
   const planned = [
     ...fromItems(issues, "issue.opened"),
     ...fromItems(prs, "pr.opened", "pr.merged"),
-    ...fromLabelEvents(pages.flat())
-  ].filter(
-    (e) => !have.has(e.id ?? "") && (since === void 0 || Date.parse(e.occurredAt) >= Date.parse(since))
-  ).sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt));
+    ...fromLabelEvents(events)
+  ].filter((e) => !have.has(e.id ?? "")).sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt));
   for (const input of planned) {
     const result = await deps.ledger.record(input);
     if (!result.ok) {
@@ -2252,7 +2306,7 @@ var pollHerdrCommand = {
 };
 var DEFAULT_REPO = "corekraft/kore";
 var pollGithubCommand = {
-  summary: "list issues, label events and PRs through gh and append issue.opened, issue.labelled, pr.opened and pr.merged (numbers, labels and GitHub times only, no titles or bodies); --since defaults to the latest recorded GitHub event, --repo to corekraft/kore; re-polling appends nothing, and one poll runs at a time",
+  summary: "list issues, label events and PRs through gh and append issue.opened, issue.labelled, pr.opened and pr.merged (numbers, labels and GitHub times only, no titles or bodies); --since (default: the latest recorded GitHub event) only bounds what gh is asked for, since ids decide what is new; --repo to corekraft/kore; re-polling appends nothing, one poll runs at a time, and a rate limit is reported with its retry time",
   options: STRING_FLAGS(["ledger", "since", "repo"]),
   async run(context) {
     const since = context.options["since"];

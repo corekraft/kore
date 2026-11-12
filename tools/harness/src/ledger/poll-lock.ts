@@ -4,7 +4,13 @@ import type { Clock, FileSystem } from "../runtime/index.js";
 export const STALE_LOCK_MS = 60_000;
 
 export type Held =
-  { ok: true; release(): Promise<void> } | { ok: false; message: string };
+  | {
+      ok: true;
+      /** Stamps the lock with the current time, so a long poll is not mistaken for a dead one. */
+      refresh(): Promise<void>;
+      release(): Promise<void>;
+    }
+  | { ok: false; message: string };
 
 const isExists = (error: unknown) =>
   (error as NodeJS.ErrnoException).code === "EEXIST";
@@ -36,7 +42,11 @@ export async function acquire(
   for (const attempt of [0, 1]) {
     try {
       await fs.createFile(path, clock.now().toISOString());
-      return { ok: true, release: () => fs.remove(path) };
+      return {
+        ok: true,
+        refresh: () => fs.writeFile(path, clock.now().toISOString()),
+        release: () => fs.remove(path),
+      };
     } catch (error) {
       if (!isExists(error)) {
         throw error;

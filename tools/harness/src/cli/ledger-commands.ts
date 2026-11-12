@@ -261,7 +261,7 @@ const DEFAULT_REPO = "corekraft/kore";
 
 const pollGithubCommand: Command = {
   summary:
-    "list issues, label events and PRs through gh and append issue.opened, issue.labelled, pr.opened and pr.merged (numbers, labels and GitHub times only, no titles or bodies); --since defaults to the latest recorded GitHub event, --repo to corekraft/kore; re-polling appends nothing, and one poll runs at a time",
+    "list issues, label events and PRs through gh and append issue.opened, issue.labelled, pr.opened and pr.merged (numbers, labels and GitHub times only, no titles or bodies); --since (default: the latest recorded GitHub event) only bounds what gh is asked for, since ids decide what is new; --repo to corekraft/kore; re-polling appends nothing, one poll runs at a time, and a rate limit is reported with its retry time",
   options: STRING_FLAGS(["ledger", "since", "repo"]),
   async run(context) {
     const since = context.options["since"];

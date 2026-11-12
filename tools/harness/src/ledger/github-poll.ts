@@ -14,14 +14,52 @@ const describe = (code: number, stdout: string, stderr: string) => {
   return text === "" ? `exit code ${code}` : `exit code ${code}: ${text}`;
 };
 
-/** Runs one `gh` query and returns its JSON array, or a message naming what failed. */
+/** What every `gh` query needs: the runner, and a hook to keep the poll's lock fresh. */
+interface Gh {
+  runner: Runner;
+  refresh(): Promise<void>;
+}
+
+const RATE_LIMITED = /rate limit|HTTP 403|HTTP 429/i;
+
+/** The ISO time the core rate limit resets, or undefined when gh cannot say. */
+async function resetTime(gh: Gh): Promise<string | undefined> {
+  const found = await gh.runner.run("gh", ["api", "rate_limit"]);
+  try {
+    const parsed = JSON.parse(found.stdout) as unknown;
+    const core = asRecord(asRecord(asRecord(parsed)["resources"])["core"]);
+    const reset = core["reset"];
+    return typeof reset === "number" && Number.isFinite(reset)
+      ? new Date(reset * 1000).toISOString()
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function rateLimited(gh: Gh, what: string): Promise<string> {
+  const reset = await resetTime(gh);
+  const retry =
+    reset === undefined ? "Retry in a few minutes" : `Retry after ${reset}`;
+  return `gh ${what} hit the GitHub rate limit. ${retry}; poll again then (gh api rate_limit shows the reset time).`;
+}
+
+/**
+ * Runs one `gh` query and returns its JSON array of objects, or a message
+ * naming what failed. Anything but a list of objects is refused, so a changed
+ * `gh` output cannot be half-read. The lock is refreshed after every call.
+ */
 async function query(
-  runner: Runner,
+  gh: Gh,
   what: string,
   args: string[],
-): Promise<unknown[] | string> {
-  const found = await runner.run("gh", args);
+): Promise<Record<string, unknown>[] | string> {
+  const found = await gh.runner.run("gh", args);
+  await gh.refresh();
   if (found.code !== 0) {
+    if (RATE_LIMITED.test(`${found.stderr}${found.stdout}`)) {
+      return rateLimited(gh, what);
+    }
     return `gh ${what} failed: ${describe(found.code, found.stdout, found.stderr)}. Is gh installed and logged in (gh auth status)?`;
   }
   let value: unknown;
@@ -30,9 +68,11 @@ async function query(
   } catch {
     return `gh ${what} did not print JSON. Run it by hand and check the gh version.`;
   }
-  return Array.isArray(value)
-    ? value
-    : `gh ${what} printed no JSON list; the gh version may have changed its output.`;
+  const isObject = (v: unknown) =>
+    typeof v === "object" && v !== null && !Array.isArray(v);
+  return Array.isArray(value) && value.every(isObject)
+    ? (value as Record<string, unknown>[])
+    : `gh ${what} did not print a JSON list of objects; the gh version may have changed its output.`;
 }
 
 const asRecord = (value: unknown): Record<string, unknown> =>
@@ -125,67 +165,109 @@ export async function pollGithub(deps: {
     return { ok: false, message: held.message };
   }
   try {
-    return await poll(deps);
+    return await poll(deps, () => held.refresh());
   } finally {
     await held.release();
   }
 }
 
 interface Fetched {
-  issues: unknown[];
-  prs: unknown[];
-  pages: unknown[];
+  issues: Record<string, unknown>[];
+  prs: Record<string, unknown>[];
+  events: Record<string, unknown>[];
 }
 
-/** Every `gh` listing the poll needs, or the message of the first that failed. */
-async function fetchAll(
-  runner: Runner,
+const PAGE = 100;
+/** The events API serves at most 300 events: three pages. */
+const MAX_PAGES = 3;
+
+/** The day of `since`: gh search takes dates, and ids make the extra hours harmless. */
+const searchFrom = (field: string, since?: string): string[] =>
+  since === undefined ? [] : ["--search", `${field}:>=${since.slice(0, 10)}`];
+
+/**
+ * Label events, newest first, one page per call, stopping at a short page or
+ * at the first page whose oldest event is before `since`.
+ */
+async function fetchEvents(
+  gh: Gh,
   repo: string,
+  since?: string,
+): Promise<Record<string, unknown>[] | string> {
+  const events: Record<string, unknown>[] = [];
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const got = await query(gh, "api issues/events", [
+      "api",
+      `repos/${repo}/issues/events?per_page=${PAGE}&page=${page}`,
+    ]);
+    if (typeof got === "string") {
+      return got;
+    }
+    events.push(...got);
+    const oldest = when(got.at(-1)?.["created_at"]);
+    const older =
+      since !== undefined &&
+      oldest !== undefined &&
+      Date.parse(oldest) < Date.parse(since);
+    if (got.length < PAGE || older) {
+      break;
+    }
+  }
+  return events;
+}
+
+/** Every `gh` listing the poll needs, bounded by `since`, or the message of the first that failed. */
+async function fetchAll(
+  gh: Gh,
+  repo: string,
+  since?: string,
 ): Promise<Fetched | string> {
   const flag = ["--repo", repo];
   const list = ["--state", "all", "--limit", String(LIMIT)];
-  const issues = await query(runner, "issue list", [
+  const issues = await query(gh, "issue list", [
     "issue",
     "list",
     ...flag,
     ...list,
+    ...searchFrom("created", since),
     "--json",
     "number,createdAt",
   ]);
-  const prs = await query(runner, "pr list", [
+  if (typeof issues === "string") {
+    return issues;
+  }
+  // Updated, not created: a PR opened long ago and merged since must appear.
+  const prs = await query(gh, "pr list", [
     "pr",
     "list",
     ...flag,
     ...list,
+    ...searchFrom("updated", since),
     "--json",
     "number,createdAt,mergedAt",
   ]);
-  const pages = await query(runner, "api issues/events", [
-    "api",
-    "--paginate",
-    "--slurp",
-    `repos/${repo}/issues/events?per_page=100`,
-  ]);
-  const failed =
-    [issues, prs, pages].find((a) => typeof a === "string") ??
-    ([issues, prs].some((a) => (a as unknown[]).length >= LIMIT)
-      ? `gh returned ${LIMIT} issues or PRs, the most one poll lists, so older ones may be missing. Poll a narrower repository, or raise LIMIT in github-poll.ts.`
-      : undefined);
-  return typeof failed === "string"
-    ? failed
-    : {
-        issues: issues as unknown[],
-        prs: prs as unknown[],
-        pages: pages as unknown[],
-      };
+  if (typeof prs === "string") {
+    return prs;
+  }
+  const events = await fetchEvents(gh, repo, since);
+  if (typeof events === "string") {
+    return events;
+  }
+  if ([issues, prs].some((a) => a.length >= LIMIT)) {
+    return `gh returned ${LIMIT} issues or PRs, the most one poll lists, so some may be missing. Pass a later --since, or raise LIMIT in github-poll.ts.`;
+  }
+  return { issues, prs, events };
 }
 
-async function poll(deps: {
-  ledger: Ledger;
-  runner: Runner;
-  repo: string;
-  since?: string;
-}): Promise<GithubPollResult> {
+async function poll(
+  deps: {
+    ledger: Ledger;
+    runner: Runner;
+    repo: string;
+    since?: string;
+  },
+  refresh: () => Promise<void>,
+): Promise<GithubPollResult> {
   const { events: known } = await deps.ledger.list({ source: "github" });
   const have = new Set(known.map((e) => e.id));
   const since =
@@ -199,21 +281,22 @@ async function poll(deps: {
             : latest,
         undefined,
       );
-  const fetched = await fetchAll(deps.runner, deps.repo);
+  const fetched = await fetchAll(
+    { runner: deps.runner, refresh },
+    deps.repo,
+    since,
+  );
   if (typeof fetched === "string") {
     return { ok: false, message: fetched };
   }
-  const { issues, prs, pages } = fetched;
+  const { issues, prs, events } = fetched;
+  // `since` only bounded the fetch above: the ids alone decide what is new.
   const planned = [
     ...fromItems(issues, "issue.opened"),
     ...fromItems(prs, "pr.opened", "pr.merged"),
-    ...fromLabelEvents(pages.flat()),
+    ...fromLabelEvents(events),
   ]
-    .filter(
-      (e) =>
-        !have.has(e.id ?? "") &&
-        (since === undefined || Date.parse(e.occurredAt) >= Date.parse(since)),
-    )
+    .filter((e) => !have.has(e.id ?? ""))
     .sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt));
   for (const input of planned) {
     const result = await deps.ledger.record(input);
