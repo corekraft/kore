@@ -35,14 +35,14 @@ and uses it first to measure the delivery loop. Terms follow
 - [x] Pin esbuild as a dev dependency and bundle to `skills/bin/harness.mjs`
       with no runtime dependencies. Commit the bundle.
 - [x] Add `mise run` tasks for the harness test, lint, format and build.
-- [ ] Add a CI step that rebuilds the bundle and fails on any difference.
+- [x] Add a CI step that rebuilds the bundle and fails on any difference.
 - [ ] Wire the package into the commit hooks and the stop hook.
 
 ### Exit Criteria
 
 - `node skills/bin/harness.mjs --help` runs from a fresh clone without
   `npm ci`.
-- CI fails when the bundle is stale.
+- [x] CI fails when the bundle is stale.
 
 ## Step 2: Skill Budget Audit
 

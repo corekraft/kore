@@ -42,6 +42,11 @@ run = "npm --prefix tools/harness test"
 description = "Typecheck and lint the harness with warnings denied"
 run = ["npm --prefix tools/harness run check", "npm --prefix tools/harness run lint"]
 
+[tasks.harness-check]
+description = "CI gate: typecheck and lint the harness, then fail if skills/bin/harness.mjs is stale (run `mise run harness-build` to fix)"
+depends = ["harness-lint"]
+run = "tools/harness/check-bundle.sh"
+
 [tasks.harness-format]
 description = "Check harness formatting; pass nothing to check, or run `mise run format <files>` to fix"
 run = "npm --prefix tools/harness run format:check"
@@ -102,7 +107,7 @@ run = "osv-scanner scan source -L tools/kore/package-lock.json -L tools/harness/
 
 [tasks.scan-sast]
 description = "Run the committed Semgrep rules (infra/policies/semgrep) over source; offline, no telemetry; tests are not scanned"
-run = "semgrep scan --metrics=off --disable-version-check --config infra/policies/semgrep/kore-node.yaml --error --exclude '*.spec.ts' --exclude '*.test.ts' --exclude '*.test.mjs' --exclude node_modules tools/kore/src apps .claude"
+run = "semgrep scan --metrics=off --disable-version-check --config infra/policies/semgrep/kore-node.yaml --error --exclude '*.spec.ts' --exclude '*.test.ts' --exclude '*.test.mjs' --exclude node_modules tools/kore/src tools/harness/src apps .claude"
 
 [tasks.scan-sast-test]
 description = "Run the Semgrep rule tests beside the rules"

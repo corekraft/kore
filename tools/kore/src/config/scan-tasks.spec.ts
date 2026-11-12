@@ -143,3 +143,8 @@ test("every tracked npm lockfile is scanned for vulnerabilities", async () => {
     );
   }
 });
+
+test("the SAST scan covers the harness source", async () => {
+  const block = taskBlock(await read(".mise.toml"), "scan-sast");
+  assert.match(block, /\btools\/harness\/src\b/);
+});
