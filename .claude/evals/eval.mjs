@@ -342,7 +342,15 @@ function realClaude(root) {
 }
 
 /** A detached worktree of HEAD in a temporary directory; remove() deletes it. */
-const STUBBED = ["kore", "minikube", "helm", "kubectl", "tofu", "terraform"];
+const STUBBED = [
+  "kore",
+  "minikube",
+  "k3d",
+  "helm",
+  "kubectl",
+  "tofu",
+  "terraform",
+];
 const STUB = '#!/bin/sh\necho "eval stub: $(basename "$0") $*; nothing ran"\n';
 
 /**

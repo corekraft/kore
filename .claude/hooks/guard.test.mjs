@@ -94,6 +94,23 @@ test("helm-context: explicit context and offline subcommands pass", () => {
   allowed(bash("helm dependency update ./chart"));
 });
 
+test("destructive: k3d cluster delete is blocked in any argument order and for any cluster", () => {
+  blocked(bash("k3d cluster delete kore-local"), "destructive");
+  blocked(bash("k3d cluster delete --all"), "destructive");
+  blocked(bash("k3d cluster delete kore-local --all"), "destructive");
+  blocked(bash("k3d --verbose cluster delete other"), "destructive");
+  blocked(bash("k3d cluster --trace delete other"), "destructive");
+  blocked(bash("k3d cluster delete -c ./k3d.yaml"), "destructive");
+});
+
+test("destructive: non-destructive k3d operations pass", () => {
+  allowed(bash("k3d cluster list"));
+  allowed(bash("k3d cluster get kore-local"));
+  allowed(bash("k3d cluster start kore-local"));
+  allowed(bash("k3d cluster stop kore-local"));
+  allowed(bash("k3d image import kore:dev -c kore-local"));
+});
+
 test("destructive: cluster and infrastructure destruction is blocked", () => {
   blocked(bash("minikube delete"), "destructive");
   blocked(bash("minikube delete -p kore-local"), "destructive");

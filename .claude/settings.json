@@ -15,6 +15,9 @@
     ],
     "deny": [
       "Bash(minikube delete:*)",
+      "Bash(k3d cluster delete:*)",
+      "Bash(k3d * cluster delete:*)",
+      "Bash(k3d cluster * delete:*)",
       "Bash(tofu destroy:*)",
       "Bash(terraform destroy:*)",
       "Bash(helm uninstall:*)",
