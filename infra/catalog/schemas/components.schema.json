@@ -14,6 +14,19 @@
         "successThreshold": { "type": "integer", "minimum": 1 },
         "failureThreshold": { "type": "integer", "minimum": 1 }
       }
+    },
+    "probeFieldsSingleSuccess": {
+      "description": "Kubernetes requires successThreshold 1 for liveness and startup probes.",
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "initialDelaySeconds": { "type": "integer", "minimum": 1 },
+        "periodSeconds": { "type": "integer", "minimum": 1 },
+        "timeoutSeconds": { "type": "integer", "minimum": 1 },
+        "successThreshold": { "const": 1 },
+        "failureThreshold": { "type": "integer", "minimum": 1 }
+      }
     }
   },
   "properties": {
@@ -87,9 +100,13 @@
                   "minProperties": 1,
                   "additionalProperties": false,
                   "properties": {
-                    "livenessProbe": { "$ref": "#/$defs/probeFields" },
+                    "livenessProbe": {
+                      "$ref": "#/$defs/probeFieldsSingleSuccess"
+                    },
                     "readinessProbe": { "$ref": "#/$defs/probeFields" },
-                    "startupProbe": { "$ref": "#/$defs/probeFields" }
+                    "startupProbe": {
+                      "$ref": "#/$defs/probeFieldsSingleSuccess"
+                    }
                   }
                 }
               }

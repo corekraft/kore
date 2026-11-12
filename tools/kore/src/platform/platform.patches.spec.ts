@@ -228,3 +228,31 @@ test("the catalog patches only policy-controller's webhook probes with a timeout
   assert.ok((probes.livenessProbe?.timeoutSeconds ?? 0) >= 5);
   assert.ok((probes.readinessProbe?.timeoutSeconds ?? 0) >= 5);
 });
+
+test("the components schema pins successThreshold to 1 for liveness and startup probes, as kore validate does", async () => {
+  const { repository } = await component("istiod");
+  const schema = JSON.parse(
+    await readFile(
+      join(repository.root, "infra/catalog/schemas/components.schema.json"),
+      "utf8",
+    ),
+  );
+  const probes =
+    schema.properties.components.items.properties.patches.items.properties
+      .probes.properties;
+  const resolve = (ref: string) => schema.$defs[ref.split("/").at(-1)!];
+  for (const name of ["livenessProbe", "startupProbe"]) {
+    assert.deepEqual(
+      resolve(probes[name].$ref).properties.successThreshold,
+      { const: 1 },
+      name,
+    );
+  }
+  assert.deepEqual(
+    resolve(probes.readinessProbe.$ref).properties.successThreshold,
+    { type: "integer", minimum: 1 },
+  );
+  for (const name of Object.keys(probes)) {
+    assert.equal(resolve(probes[name].$ref).additionalProperties, false, name);
+  }
+});
