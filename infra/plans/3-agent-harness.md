@@ -262,7 +262,7 @@ still work. It also closes the exit criteria above that need a live session.
       plan's `Next:` line, and a retrospective reminder once five or more sessions
       have run since the latest `Last retrospective:` marker. Compaction behavior is
       unchanged.
-- [x] **`statusline`.** `.claude/statusline.mjs` shows context use, the active
+- [x] **`statusline`.** `harness hook statusline` shows context use, the active
       plan, and the `Next:` step. Context use turns amber at 40% and red at 50%, the
       edge of the range where the model works best. It is not registered in
       `.claude/settings.json`, because a project status line replaces each

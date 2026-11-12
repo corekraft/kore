@@ -70,7 +70,7 @@ Each step reports its effect against the plan 8 baseline.
       each with its existing tests first.
 - [x] Point `.claude/settings.json` at `node skills/bin/harness.mjs hook
 <name>`.
-- [ ] Remove `.claude/hooks/*.mjs` once each is ported.
+- [x] Remove `.claude/hooks/*.mjs` once each is ported.
 
 ### Exit Criteria
 
