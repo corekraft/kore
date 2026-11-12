@@ -108,7 +108,7 @@ and the clean-machine script (#157).
 
 ### Work
 
-- [ ] The operator runs `minikube delete -p kore-local` once, by hand.
+- [x] The operator runs `minikube delete -p kore-local` once, by hand.
 - [x] Move the `minikube delete` deny rule to `k3d cluster delete`, and update
       the guard and its tests.
       Progress: the guard, deny rule and eval cases blocked
