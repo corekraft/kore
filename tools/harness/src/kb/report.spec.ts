@@ -5,6 +5,7 @@
 import assert from "node:assert/strict";
 import { it } from "vitest";
 import { run } from "./index.js";
+import { CommandError } from "../runtime/index.js";
 import { cleanTree, fakeDeps, type Tree } from "./kb-support.js";
 
 async function runWith(tree: Tree, argv: string[]) {
@@ -44,19 +45,21 @@ it("a clean tree exits 0 in both modes and prints only the clean line", async ()
   }
 });
 
-// Skill audit: kb-check prints the bundled audit's report, never fails on it.
+// Skill audit: kb-check prints the audit's report; --strict fails on a skill over budget (ADR 0080).
 // Plan: infra/plans/8-harness-measurement.md#step-2-skill-budget-audit
 
-const auditReport = [
+const auditText = [
   "NAME   DESC  BODY  VERDICT",
   "big      10    42  over-budget (body)",
   "",
 ].join("\n");
+const overBudget = () => Promise.resolve({ text: auditText, failing: true });
+const withinBudget = () => Promise.resolve({ text: auditText, failing: false });
 
 async function runAudited(
   tree: Tree,
   argv: string[],
-  audit: () => Promise<string>,
+  audit: () => Promise<{ text: string; failing: boolean }>,
 ) {
   const lines: string[] = [];
   const deps = { ...fakeDeps(tree), audit };
@@ -65,9 +68,7 @@ async function runAudited(
 }
 
 it("the skill audit report is printed after kb-check's own output", async () => {
-  const { lines } = await runAudited(cleanTree(), [], () =>
-    Promise.resolve(auditReport),
-  );
+  const { lines } = await runAudited(cleanTree(), [], withinBudget);
   assert.deepEqual(lines, [
     "kb-check: clean",
     "skill audit:",
@@ -76,32 +77,48 @@ it("the skill audit report is printed after kb-check's own output", async () => 
   ]);
 });
 
-it("a skill over budget leaves the exit code unchanged, strict mode included", async () => {
+it("a skill over budget fails --strict and only warns otherwise", async () => {
+  const strict = await runAudited(cleanTree(), ["--strict"], overBudget);
+  assert.equal(strict.status, 1);
+  assert.ok(strict.lines.includes("kb-check: skill audit failed"));
+  const warn = await runAudited(cleanTree(), [], overBudget);
+  assert.equal(warn.status, 0);
+  assert.ok(
+    warn.lines.includes(
+      "kb-check: skill audit failed (warn mode; --strict fails on it)",
+    ),
+  );
+});
+
+it("skills within budget leave the exit code to the other checks", async () => {
   for (const argv of [[], ["--strict"]]) {
+    assert.equal((await runAudited(cleanTree(), argv, withinBudget)).status, 0);
     assert.equal(
-      (await runAudited(cleanTree(), argv, () => Promise.resolve(auditReport)))
-        .status,
-      0,
-    );
-    assert.equal(
-      (await runAudited(brokenTree(), argv, () => Promise.resolve(auditReport)))
-        .status,
+      (await runAudited(brokenTree(), argv, withinBudget)).status,
       argv.length ? 1 : 0,
     );
   }
 });
 
-it("an audit that fails to run is noted and does not change the exit code", async () => {
-  for (const argv of [[], ["--strict"]]) {
-    const { status, lines } = await runAudited(cleanTree(), argv, () => {
-      return Promise.reject(new Error("spawn failed"));
-    });
-    assert.equal(status, 0);
-    assert.deepEqual(lines, [
-      "kb-check: clean",
-      "skill audit: not run (spawn failed)",
-    ]);
-  }
+it("an audit that fails to run is noted, fails --strict (fail closed) and only warns otherwise", async () => {
+  const run1 = (argv: string[]) =>
+    runAudited(cleanTree(), argv, () =>
+      Promise.reject(new CommandError("spawn failed")),
+    );
+  const warn = await run1([]);
+  assert.equal(warn.status, 0);
+  assert.deepEqual(warn.lines, [
+    "kb-check: clean",
+    "skill audit: not run (spawn failed); run `node skills/bin/harness.mjs skill audit` to see the cause",
+    "kb-check: skill audit failed (warn mode; --strict fails on it)",
+  ]);
+  const strict = await run1(["--strict"]);
+  assert.equal(strict.status, 1);
+  assert.deepEqual(strict.lines, [
+    "kb-check: clean",
+    "skill audit: not run (spawn failed); run `node skills/bin/harness.mjs skill audit` to see the cause",
+    "kb-check: skill audit failed",
+  ]);
 });
 
 async function runFlagAudited(

@@ -4,7 +4,7 @@ import {
   type Command,
   type FileSystem,
 } from "../runtime/index.js";
-import { auditSkills, renderReport } from "./audit.js";
+import { auditSkills, renderReport, type AuditReport } from "./audit.js";
 
 const SKILLS_DIR = "skills";
 
@@ -22,12 +22,16 @@ async function skillReport(fs: FileSystem, root: string) {
   }
 }
 
-/** The text `skill audit` prints, for a caller that reports it beside its own output. */
-export async function skillAuditText(
+const isFailing = (report: AuditReport) =>
+  report.summary["over-budget"] + report.summary.invalid > 0;
+
+/** The text `skill audit` prints and whether it fails, for a caller that reports it beside its own output. */
+export async function skillAudit(
   fs: FileSystem,
   root: string,
-): Promise<string> {
-  return renderReport(await skillReport(fs, root));
+): Promise<{ text: string; failing: boolean }> {
+  const report = await skillReport(fs, root);
+  return { text: renderReport(report), failing: isFailing(report) };
 }
 
 const audit: Command = {
@@ -36,8 +40,7 @@ const audit: Command = {
   async run({ json, options, deps }) {
     const report = await skillReport(deps.fs, await deps.root());
     deps.stdout(json ? `${JSON.stringify(report)}\n` : renderReport(report));
-    const failing = report.summary["over-budget"] + report.summary.invalid > 0;
-    return options["strict"] === true && failing ? 1 : 0;
+    return options["strict"] === true && isFailing(report) ? 1 : 0;
   },
 };
 

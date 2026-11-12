@@ -30,7 +30,7 @@ clone's `.git/config`; see [The harness bundle and merges](#the-harness-bundle-a
    mise run test-opa
    mise run test-gatekeeper
    mise run test-promtool
-   mise run kb-check -- --strict
+   mise run kb-check -- --strict   # also fails a skill over its description or body budget
    mise run scan
    ```
 
