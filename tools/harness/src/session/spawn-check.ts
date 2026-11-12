@@ -37,6 +37,19 @@ function herdrCaller(deps: CommandContext["deps"]): string | Checked {
   return callerPane;
 }
 
+/** The worktree flags' refusal: --branch needs --worktree, and a writer has its own so concurrent writers cannot collide. */
+function worktreeError(
+  role: string,
+  options: Record<string, string | boolean | undefined>,
+): string | undefined {
+  if (options.branch !== undefined && options.worktree !== true) {
+    return "--branch only applies with --worktree.";
+  }
+  return role === "writer" && options.worktree !== true
+    ? "A writer needs its own worktree so concurrent writers cannot collide. Add --worktree."
+    : undefined;
+}
+
 /** Everything that can be refused is refused here, before any herdr call. */
 export async function check({
   deps,
@@ -57,8 +70,9 @@ export async function check({
       'The brief has a line that is only a RESULT marker, which would end the wait early. Describe the marker in words instead, such as "end with the word RESULT, a colon, then done or blocked".',
     );
   }
-  if (options.branch !== undefined && options.worktree !== true) {
-    return usage("--branch only applies with --worktree.");
+  const wrongWorktree = worktreeError(given.role, options);
+  if (wrongWorktree !== undefined) {
+    return usage(wrongWorktree);
   }
   const timeoutMs = parseTimeout(options.timeout);
   if (typeof timeoutMs !== "number") {

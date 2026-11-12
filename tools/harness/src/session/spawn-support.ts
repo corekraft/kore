@@ -70,7 +70,7 @@ export const spawnArgs = [
   "session",
   "spawn",
   "--role",
-  "writer",
+  "reader",
   "--model",
   "claude-sonnet-5-5",
   "--effort",

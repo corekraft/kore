@@ -2,7 +2,7 @@
 status: accepted
 summary: Each delivery-loop role is an agent definition with its default model and effort in frontmatter, launched in its own Herdr pane as one parameterized claude command, in bypass mode bounded by guards.
 date: 2026-11-11
-last-verified: 2026-11-11
+last-verified: 2026-11-12
 ---
 
 # ADR 0078: Agent roles run as Herdr panes from agent definitions
@@ -53,3 +53,17 @@ Guard coverage becomes load-bearing: an action the guards do not block, an
 autonomous pane can take. New guard cases are added before a role gains a new
 capability. Token spend and machine load scale with work in flight, and the
 ledger reports both.
+
+## Refinement: the writer's effort is explicit
+
+`session spawn` reads each role's model and effort from its agent definition
+and refuses a role that declares no effort, so the orchestrator never picks a
+tier. The table gives the writer only a model, which would make spawning a
+writer fail. The table stays as accepted; this refinement sets the writer's
+effort. A row here overrides the table's, and a test compares both with the
+definitions.
+
+- Writer: Haiku, medium.
+
+Medium matches the judge. A writer that escalates after two judge send-backs
+keeps this effort and changes only its model.

@@ -5,7 +5,7 @@ var CommandError = class extends Error {
 // src/runtime/clock.ts
 var systemClock = {
   now: () => /* @__PURE__ */ new Date(),
-  sleep: (ms) => new Promise((resolve8) => setTimeout(resolve8, ms))
+  sleep: (ms) => new Promise((resolve9) => setTimeout(resolve9, ms))
 };
 function localDate(date) {
   const two = (n) => String(n).padStart(2, "0");
@@ -102,7 +102,7 @@ var nodeFileSystem = {
 import { spawn } from "node:child_process";
 var ProcessRunner = class {
   async run(command, args, options = {}) {
-    return await new Promise((resolve8) => {
+    return await new Promise((resolve9) => {
       const child = spawn(command, [...args], {
         ...options.cwd === void 0 ? {} : { cwd: options.cwd },
         stdio: [
@@ -120,10 +120,10 @@ var ProcessRunner = class {
         stderr2 += chunk.toString();
       });
       child.on("error", (error) => {
-        resolve8({ stdout, stderr: error.message, code: 127 });
+        resolve9({ stdout, stderr: error.message, code: 127 });
       });
       child.on("close", (code) => {
-        resolve8({ stdout, stderr: stderr2, code: code ?? 1 });
+        resolve9({ stdout, stderr: stderr2, code: code ?? 1 });
       });
       if (options.input !== void 0) {
         child.stdin?.end(options.input);
@@ -5667,12 +5667,12 @@ function relativeTo(filePath, root3) {
   return filePath.startsWith(prefix) ? filePath.slice(prefix.length) : filePath;
 }
 function isTrackedSource(filePath, root3) {
-  const relative = relativeTo(filePath, root3);
-  return relative.startsWith(KORE_SOURCE_DIR) && relative.endsWith(".ts");
+  const relative2 = relativeTo(filePath, root3);
+  return relative2.startsWith(KORE_SOURCE_DIR) && relative2.endsWith(".ts");
 }
 function isHarnessSource(filePath, root3) {
-  const relative = relativeTo(filePath, root3);
-  return HARNESS_SOURCE_DIRS.some((dir) => relative.startsWith(dir)) && relative.endsWith(".ts");
+  const relative2 = relativeTo(filePath, root3);
+  return HARNESS_SOURCE_DIRS.some((dir) => relative2.startsWith(dir)) && relative2.endsWith(".ts");
 }
 var MAX_LINES = 40;
 function bound(output, command) {
@@ -5966,8 +5966,8 @@ function demoted(previous, after) {
   const unnamed = was.size === 0 && modes(after).size === 0;
   return unnamed && count2(after, "audit") > count2(previous, "audit") && count2(previous, "enforce") > count2(after, "enforce") ? ["a rule"] : [];
 }
-function checkGuardrailDemotion(tool, input, relative, previous) {
-  if (relative !== INVENTORY_PATH) {
+function checkGuardrailDemotion(tool, input, relative2, previous) {
+  if (relative2 !== INVENTORY_PATH) {
     return null;
   }
   const after = text6(tool === "Edit" ? input["new_string"] : input["content"]);
@@ -5977,7 +5977,7 @@ function checkGuardrailDemotion(tool, input, relative, previous) {
   }
   return warn(
     "guardrail-demotion",
-    `${relative} turns ${rules2.join(", ")} from enforce to audit by hand. A person approves a guardrail's mode (ADR 0080). Instead, leave the mode and ask the user to approve the change, or promote a rule from audit to enforce.`
+    `${relative2} turns ${rules2.join(", ")} from enforce to audit by hand. A person approves a guardrail's mode (ADR 0080). Instead, leave the mode and ask the user to approve the change, or promote a rule from audit to enforce.`
   );
 }
 var INVENTORY_TARGET = /(^|[/\s>'"=])\.claude\/guardrails\.yaml$/;
@@ -6424,12 +6424,12 @@ async function evaluateBash(command, ctx) {
 // src/hook/guard-file.ts
 var text7 = (value) => typeof value === "string" ? value : "";
 var written = (tool, input) => text7(tool === "Edit" ? input["new_string"] : input["content"]);
-async function before(tool, input, relative, ctx, rethrow) {
+async function before(tool, input, relative2, ctx, rethrow) {
   if (tool === "Edit") {
     return text7(input["old_string"]);
   }
   try {
-    return await ctx.readFile(`${ctx.root}/${relative}`);
+    return await ctx.readFile(`${ctx.root}/${relative2}`);
   } catch (error) {
     if (rethrow && error?.code !== "ENOENT") {
       throw error;
@@ -6470,11 +6470,11 @@ function flagsOn(source, previous) {
   const off = flagsIn(previous, FLAG_OFF);
   return new Set([...flagsIn(source, FLAG_ON)].filter((name) => off.has(name)));
 }
-async function checkFlagOn(tool, input, relative, ctx) {
-  if (!OVERLAY_PATH.test(relative)) {
+async function checkFlagOn(tool, input, relative2, ctx) {
+  if (!OVERLAY_PATH.test(relative2)) {
     return null;
   }
-  const previous = await before(tool, input, relative, ctx, true);
+  const previous = await before(tool, input, relative2, ctx, true);
   const after = written(tool, input);
   const already = flagsIn(FEATURES_BLOCK.exec(previous)?.[0] ?? "", FLAG_ON);
   const added = [...flagsOn(after, previous)].filter(
@@ -6488,11 +6488,11 @@ async function checkFlagOn(tool, input, relative, ctx) {
   }
   return warn(
     "flag-activation",
-    `${relative} turns on flag ${added[0]} by hand. A flag turns on only with a recorded live proof. Instead, record a confirmed live-run verification outcome (\`harness outcome record --kind verification --source live-run --flag <name> --environment <env> ...\`), then run \`harness flag activate <flag> --environment <env>\`.`
+    `${relative2} turns on flag ${added[0]} by hand. A flag turns on only with a recorded live proof. Instead, record a confirmed live-run verification outcome (\`harness outcome record --kind verification --source live-run --flag <name> --environment <env> ...\`), then run \`harness flag activate <flag> --environment <env>\`.`
   );
 }
-function checkImageDigest(tool, input, relative) {
-  if (!relative.startsWith("apps/") && !relative.startsWith("infra/environments/")) {
+function checkImageDigest(tool, input, relative2) {
+  if (!relative2.startsWith("apps/") && !relative2.startsWith("infra/environments/")) {
     return null;
   }
   const tagged = [...written(tool, input).matchAll(IMAGE_LINE)].filter(
@@ -6512,11 +6512,11 @@ var ideaOutcomeWarn = (path) => warn(
   "idea-outcome",
   `${path} is an idea record: its outcome is written by the outcome tool, never by hand. Instead, run \`harness outcome record --idea <number or slug> --kind <experiment|usage|verification> --source <live-run|journal|eval-history|comparison> --evidence <reference> --result <confirmed|refuted|inconclusive> --summary <text>\`.`
 );
-async function checkCoverageThreshold(tool, input, relative, ctx) {
-  if (relative !== "tools/kore/vitest.config.ts") {
+async function checkCoverageThreshold(tool, input, relative2, ctx) {
+  if (relative2 !== "tools/kore/vitest.config.ts") {
     return null;
   }
-  const previous = await before(tool, input, relative, ctx, false);
+  const previous = await before(tool, input, relative2, ctx, false);
   if (!lowersThresholds(previous, written(tool, input))) {
     return null;
   }
@@ -6525,48 +6525,49 @@ async function checkCoverageThreshold(tool, input, relative, ctx) {
     "Coverage thresholds only go up. Instead, add tests for the uncovered code and leave the thresholds unchanged."
   );
 }
-async function checkSopsPath(tool, input, relative, ctx) {
+async function checkSopsPath(tool, input, relative2, ctx) {
   const patterns = await loadSopsPatterns(ctx);
-  if (!patterns.some((pattern) => pattern.test(relative))) {
+  if (!patterns.some((pattern) => pattern.test(relative2))) {
     return null;
   }
   const encrypted = tool === "Write" && /^sops:/m.test(text7(input["content"]));
-  return encrypted ? null : sopsBlock(relative);
+  return encrypted ? null : sopsBlock(relative2);
 }
-async function checkWrite(tool, input, relative, ctx) {
-  if (isAppendOnly(relative)) {
-    return applyMode(appendOnlyWarn(relative), ctx) ?? allow;
+async function checkWrite(tool, input, relative2, ctx) {
+  if (isAppendOnly(relative2)) {
+    return applyMode(appendOnlyWarn(relative2), ctx) ?? allow;
   }
-  const ideaOutcome = IDEA_PATH.test(relative) && HAND_WRITTEN_OUTCOME.test(written(tool, input)) ? ideaOutcomeWarn(relative) : null;
+  const ideaOutcome = IDEA_PATH.test(relative2) && HAND_WRITTEN_OUTCOME.test(written(tool, input)) ? ideaOutcomeWarn(relative2) : null;
   const findings2 = [
-    await checkFlagOn(tool, input, relative, ctx),
+    await checkFlagOn(tool, input, relative2, ctx),
     ideaOutcome,
-    await checkSopsPath(tool, input, relative, ctx),
-    await checkCoverageThreshold(tool, input, relative, ctx),
-    checkImageDigest(tool, input, relative),
+    await checkSopsPath(tool, input, relative2, ctx),
+    await checkCoverageThreshold(tool, input, relative2, ctx),
+    checkImageDigest(tool, input, relative2),
     checkGuardrailDemotion(
       tool,
       input,
-      relative,
-      relative === INVENTORY_PATH ? await before(tool, input, relative, ctx, false) : ""
+      relative2,
+      relative2 === INVENTORY_PATH ? await before(tool, input, relative2, ctx, false) : ""
     )
   ];
   return weigh(findings2.map((finding2) => applyMode(finding2, ctx)));
 }
-async function evaluateFile(tool, input, relative, ctx) {
-  if (SECRET_PATH.test(relative)) {
+async function evaluateFile(tool, input, relative2, ctx) {
+  if (SECRET_PATH.test(relative2)) {
     return applyMode(secretBlock(), ctx);
   }
   if (tool === "Read") {
     return allow;
   }
-  return await checkWrite(tool, input, relative, ctx);
+  return await checkWrite(tool, input, relative2, ctx);
 }
 
-// src/hook/guard-role.ts
-var READ_ONLY_ROLES = /* @__PURE__ */ new Set(["concierge", "reader"]);
+// src/hook/guard-role-delivery.ts
+import { isAbsolute, relative, resolve as resolve5 } from "node:path";
+
+// src/hook/guard-role-writes.ts
 var WRITE_TOOLS = /* @__PURE__ */ new Set(["Write", "Edit", "NotebookEdit"]);
-var FILE_TOOLS = /* @__PURE__ */ new Set(["Read", "Grep", "Glob"]);
 var WRITERS = /* @__PURE__ */ new Set([
   "tee",
   "cp",
@@ -6605,15 +6606,9 @@ var WRITING_GIT = /* @__PURE__ */ new Set([
   "branch"
 ]);
 var WRITING_GH = /* @__PURE__ */ new Set(["merge", "close", "edit", "checkout"]);
-var CONCIERGE_PATHS = /^(infra\/plans\/|docs\/|GLOSSARY\.md$|README\.md$)/;
-var rolePrefix = (root3, path) => path.startsWith(`${root3}/`) ? path.slice(root3.length + 1) : path;
 var readOnly = (what) => block(
   "role-read-only",
-  `${what} changes files, and the concierge and reader never write. Instead, report what needs changing: the concierge files it as an idea, the reader returns it in its summary.`
-);
-var noCode = (what) => block(
-  "role-no-code",
-  `${what} reads code, and the concierge answers from plans, issues and the ledger. Instead, ask a reader to look at the code and summarize it.`
+  `${what} changes files, and the concierge, reader, orchestrator and judge never write. Instead, report what needs changing: the concierge files it as an idea, the reader returns it in its summary, the orchestrator hands it to a writer and the judge sends the change back.`
 );
 var FD_OPERATOR = /^(?:\d*>>?|&>>?)$/;
 var harmless = (target) => target === "/dev/null" || target === "&1" || target === "&2";
@@ -6630,6 +6625,125 @@ function writes(segment) {
   return redirectsToFile(segment) || WRITERS.has(name) || name === "sed" && args.some((arg) => /^-\w*i/.test(arg)) || name === "git" && verb !== void 0 && WRITING_GIT.has(verb) || name === "gh" && args[0] === "pr" && args[1] !== void 0 && WRITING_GH.has(args[1]);
 }
 var HARNESS2 = /^(\.\/)?skills\/bin\/harness\.mjs$/;
+var harnessAllowed = (name, args, allowed) => name === "node" && HARNESS2.test(args[0] ?? "") && allowed.includes(`${args[1] ?? ""} ${args[2] ?? ""}`);
+
+// src/hook/guard-role-delivery.ts
+var REPORTING_ROLES = /* @__PURE__ */ new Set(["orchestrator", "judge"]);
+var DELIVERY_ROLES = /* @__PURE__ */ new Set([...REPORTING_ROLES, "writer"]);
+var noMerge = (role, what) => block(
+  "role-no-merge",
+  `${what} merges, but the ${role} may not: the merge tool does not exist yet (plan 11 Step 5), so no role merges. Instead, report the verdict; the judge reports safe or sends the change back, and the operator merges.`
+);
+var outsideWorktree = (what, root3) => block(
+  "role-worktree",
+  `${what} reaches outside this worktree (${root3}), and a writer works only in the worktree it was launched in. Instead, make the change inside the worktree, or report that it needs another piece of work.`
+);
+var MERGE_API = /\/pulls\/\d+\/merge\b/;
+var merges = (segment) => {
+  const { name, args } = commandOf(segment);
+  return name === "gh" && (args[0] === "pr" && args[1] === "merge" || args[0] === "api" && args.some((arg) => MERGE_API.test(arg)));
+};
+function runsInline(segment) {
+  const { name, args } = commandOf(segment);
+  return name === "node" && args.some((a) => ["-e", "--eval", "-p"].includes(a)) || /^python3?$/.test(name) && args.includes("-c") || name === "perl" && args.some((a) => /^-\w*[eEip]/.test(a)) || name === "ruby" && args.includes("-e") || /^g?awk$/.test(name) && args.some((a) => a === "inplace" || a === "--in-place");
+}
+var READS = [
+  "plan active",
+  "idea list",
+  "idea show",
+  "flow report",
+  "ledger list",
+  "guardrail status",
+  "flag audit",
+  "skill audit",
+  "session tier"
+];
+var ORCHESTRATOR_HARNESS = [
+  ...READS,
+  "session spawn",
+  "session wait",
+  "session close",
+  "session equalize",
+  "idea sync",
+  "outcome record",
+  "outcome close"
+];
+function harnessRefused(role, segment) {
+  const { name, args } = commandOf(segment);
+  if (name !== "node" || !(args[0] ?? "").endsWith("harness.mjs")) {
+    return false;
+  }
+  return !(HARNESS2.test(args[0] ?? "") && harnessAllowed(
+    name,
+    args,
+    role === "orchestrator" ? ORCHESTRATOR_HARNESS : READS
+  ));
+}
+var SCRATCH = ["/tmp/", "/private/tmp/", "/var/folders/", "/dev/"];
+var PATHS = /(?:~|\.\.|\/)[\w.@~/-]*/g;
+function outside(root3, path) {
+  if (path.startsWith("~")) {
+    return true;
+  }
+  const full = resolve5(root3, path);
+  const from = relative(root3, full);
+  const within = from === "" || !from.startsWith("..") && !isAbsolute(from);
+  return !within && !SCRATCH.some((dir) => full.startsWith(dir) || `${full}/` === dir);
+}
+function escapes(segment, root3) {
+  const { name, args } = commandOf(segment);
+  const target = name === "git" ? args[args.indexOf("-C") + 1] : args[0];
+  if ((name === "cd" || name === "git" && args.includes("-C")) && target !== void 0 && outside(root3, target)) {
+    return target;
+  }
+  if (!writes(segment) && !runsInline(segment)) {
+    return void 0;
+  }
+  return segment.flatMap((word) => word.replace(/^(?:\d*>>?|&>>?)/, "").match(PATHS) ?? []).find((path) => outside(root3, path));
+}
+function checkDeliveryBash(role, command, root3) {
+  const segments = splitSegments(command);
+  const merging = segments.find(merges);
+  if (merging !== void 0) {
+    return noMerge(role, `\`${merging.join(" ")}\``);
+  }
+  if (REPORTING_ROLES.has(role)) {
+    const changing = segments.find(
+      (s) => writes(s) || runsInline(s) || harnessRefused(role, s)
+    );
+    return changing === void 0 ? null : readOnly(`\`${changing.join(" ")}\``);
+  }
+  for (const segment of segments) {
+    const path = escapes(segment, root3);
+    if (path !== void 0) {
+      return outsideWorktree(`\`${segment.join(" ")}\``, root3);
+    }
+  }
+  return null;
+}
+function checkDelivery(role, tool, input, root3) {
+  if (tool === "Bash" && typeof input["command"] === "string") {
+    return checkDeliveryBash(role, input["command"], root3);
+  }
+  if (!WRITE_TOOLS.has(tool)) {
+    return null;
+  }
+  if (REPORTING_ROLES.has(role)) {
+    return readOnly(tool);
+  }
+  const path = input["file_path"] ?? input["notebook_path"];
+  return typeof path === "string" && outside(root3, path) ? outsideWorktree(tool, root3) : null;
+}
+
+// src/hook/guard-role.ts
+var READ_ONLY_ROLES = /* @__PURE__ */ new Set(["concierge", "reader"]);
+var FILE_TOOLS = /* @__PURE__ */ new Set(["Read", "Grep", "Glob"]);
+var CONCIERGE_PATHS = /^(infra\/plans\/|docs\/|GLOSSARY\.md$|README\.md$)/;
+var rolePrefix = (root3, path) => path.startsWith(`${root3}/`) ? path.slice(root3.length + 1) : path;
+var noCode = (what) => block(
+  "role-no-code",
+  `${what} reads code, and the concierge answers from plans, issues and the ledger. Instead, ask a reader to look at the code and summarize it.`
+);
 var PR_READS = ["view", "list", "status", "checks"];
 var ISSUE_READS = ["view", "list", "status"];
 var HARNESS_READS = [
@@ -6640,7 +6754,6 @@ var HARNESS_READS = [
   "ledger list"
 ];
 var CONCIERGE_HARNESS = [...HARNESS_READS, "idea new", "idea sync"];
-var harnessAllowed = (name, args, allowed) => name === "node" && HARNESS2.test(args[0] ?? "") && allowed.includes(`${args[1] ?? ""} ${args[2] ?? ""}`);
 var READ_UTILITIES = /* @__PURE__ */ new Set([
   "cat",
   "head",
@@ -6751,6 +6864,9 @@ function checkBash(role, command) {
   );
 }
 function checkRole(agentType, tool, input, root3) {
+  if (typeof agentType === "string" && DELIVERY_ROLES.has(agentType)) {
+    return checkDelivery(agentType, tool, input, root3);
+  }
   if (typeof agentType !== "string" || !READ_ONLY_ROLES.has(agentType)) {
     return null;
   }
@@ -6784,8 +6900,8 @@ async function evaluate(payload, ctx) {
   const filePath = input.file_path;
   if ((tool === "Read" || tool === "Write" || tool === "Edit") && typeof filePath === "string") {
     const prefix = `${ctx.root}/`;
-    const relative = filePath.startsWith(prefix) ? filePath.slice(prefix.length) : filePath;
-    return await evaluateFile(tool, input, relative, ctx);
+    const relative2 = filePath.startsWith(prefix) ? filePath.slice(prefix.length) : filePath;
+    return await evaluateFile(tool, input, relative2, ctx);
   }
   return allow;
 }
@@ -7037,7 +7153,7 @@ var retroScan = hookCommand(
 );
 
 // src/hook/skill-links.ts
-import { isAbsolute, join as join13 } from "node:path";
+import { isAbsolute as isAbsolute2, join as join13 } from "node:path";
 var HARNESSES = [".claude", ".codex"];
 async function skillNames2(fs, root3) {
   const skillsDir = join13(root3, "skills");
@@ -7083,7 +7199,7 @@ async function linkProblems(fs, root3) {
         problems.push(
           found.code === "EINVAL" ? `${link} is a directory or file, not a link; replace it with a link to ${expected}` : `${link} is missing; link it to ${expected}`
         );
-      } else if (isAbsolute(found.target)) {
+      } else if (isAbsolute2(found.target)) {
         problems.push(
           `${link} links to an absolute path; relink it to ${expected}`
         );
@@ -7290,7 +7406,7 @@ function anchors(markdown) {
   }
   return result;
 }
-function resolve5(from, target) {
+function resolve6(from, target) {
   const joined = posix.normalize(posix.join(posix.dirname(from), target));
   if (joined === ".." || joined.startsWith("../")) {
     return null;
@@ -7633,7 +7749,7 @@ function linkProblems2(tree, file, text8) {
         continue;
       }
       const [pathPart = "", anchor] = raw.split("#", 2);
-      const target = pathPart ? resolve5(file, decodeURI(pathPart)) : file;
+      const target = pathPart ? resolve6(file, decodeURI(pathPart)) : file;
       if (target === null || !tree.exists(target)) {
         problems.push(
           finding(
@@ -7693,7 +7809,7 @@ function indexProblems(tree) {
     if (raw === void 0 || isExternal(raw)) {
       continue;
     }
-    const target = resolve5(INDEX3, decodeURI(raw));
+    const target = resolve6(INDEX3, decodeURI(raw));
     if (target) {
       listed.add(target);
     }
@@ -7857,7 +7973,7 @@ function linkTargets(file, text8) {
   for (const { text: prose2 } of proseLines(text8)) {
     for (const [, raw = ""] of prose2.matchAll(LINK)) {
       const [pathPart] = raw.split("#", 1);
-      const target = isExternal(raw) || !pathPart ? null : resolve5(file, decodeURI(pathPart));
+      const target = isExternal(raw) || !pathPart ? null : resolve6(file, decodeURI(pathPart));
       if (target !== null) {
         targets.push(target);
       }
@@ -8361,7 +8477,7 @@ function fail3(deps, json, code, message) {
 }
 
 // src/session/registry.ts
-import { join as join16, resolve as resolve6 } from "node:path";
+import { join as join16, resolve as resolve7 } from "node:path";
 var STATE_DIR = ".kore/state/sessions";
 function isRecord(value) {
   if (typeof value !== "object" || value === null) {
@@ -8385,7 +8501,7 @@ var SessionRegistry = class _SessionRegistry {
         "Cannot find the main checkout to keep session state in. Run inside the repository or set KORE_ROOT to its root."
       );
     }
-    return new _SessionRegistry(deps.fs, resolve6(main, STATE_DIR));
+    return new _SessionRegistry(deps.fs, resolve7(main, STATE_DIR));
   }
   file(name) {
     return join16(this.dir, `${name}.json`);
@@ -8898,6 +9014,12 @@ function herdrCaller(deps) {
   }
   return callerPane;
 }
+function worktreeError(role, options) {
+  if (options.branch !== void 0 && options.worktree !== true) {
+    return "--branch only applies with --worktree.";
+  }
+  return role === "writer" && options.worktree !== true ? "A writer needs its own worktree so concurrent writers cannot collide. Add --worktree." : void 0;
+}
 async function check({
   deps,
   options
@@ -8917,8 +9039,9 @@ async function check({
       'The brief has a line that is only a RESULT marker, which would end the wait early. Describe the marker in words instead, such as "end with the word RESULT, a colon, then done or blocked".'
     );
   }
-  if (options.branch !== void 0 && options.worktree !== true) {
-    return usage2("--branch only applies with --worktree.");
+  const wrongWorktree = worktreeError(given.role, options);
+  if (wrongWorktree !== void 0) {
+    return usage2(wrongWorktree);
   }
   const timeoutMs = parseTimeout(options.timeout);
   if (typeof timeoutMs !== "number") {
@@ -9241,7 +9364,7 @@ function own(table, key) {
 function names2(commands) {
   return Object.keys(commands).join(", ");
 }
-function resolve7(domain, name) {
+function resolve8(domain, name) {
   const commands = own(domains, domain);
   if (commands === void 0) {
     return {
@@ -9337,7 +9460,7 @@ async function run2(argv, deps) {
       failure2
     );
   }
-  const resolved = resolve7(domain, name);
+  const resolved = resolve8(domain, name);
   if ("error" in resolved) {
     return fail4(deps, json, resolved.error, failure2);
   }

@@ -63,7 +63,7 @@ describe("session spawn launch", () => {
     });
     await run(spawnArgs, h.deps);
     expect(herdrCalls(h)).toContain(
-      "herdr agent start image-trust-writer --kind claude --pane w3:p9 -- --agent writer --model claude-sonnet-5-5 --effort high",
+      "herdr agent start image-trust-writer --kind claude --pane w3:p9 -- --agent reader --model claude-sonnet-5-5 --effort high",
     );
   });
 
@@ -105,7 +105,7 @@ describe("session spawn launch", () => {
       name: "image-trust-writer",
       paneId: "w3:p9",
       model: "claude-sonnet-5-5",
-      role: "writer",
+      role: "reader",
       effort: "high",
       modelCheck: {
         status: "unverified",
@@ -140,7 +140,7 @@ describe("session spawn ledger", () => {
       kind: "session.launch",
       pane: "w3:p9",
       agent: "image-trust-writer",
-      role: "writer",
+      role: "reader",
       tier: "claude-sonnet-5-5",
     });
   });
