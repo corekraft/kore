@@ -2,12 +2,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Repository } from "../config/index.js";
-import { minikubeCluster } from "../config/index.js";
 import {
   localRegistryReference,
   localSignArgs,
-  minikubeImagePublishArgs,
   publishedDigest,
+  publishImageCopy,
   verifiedRegistryAddress,
   withLocalSigner,
   withPublishSession,
@@ -46,16 +45,11 @@ async function pushProbeCopy(
   dependencies: ProbeDependencies,
 ): Promise<string> {
   const path = `${probeRepository}/${copy.name}`;
-  await runner.run(
-    "minikube",
-    minikubeImagePublishArgs(
-      minikubeCluster(repository.environment).profile,
-      copy.source,
-      copy.address,
-      `${path}:kore-local`,
-      session.credential.username,
-    ),
-    { capture: true, input: `${session.credential.password}\n` },
+  await publishImageCopy(
+    repository,
+    runner,
+    { tag: copy.source, address: copy.address, target: `${path}:kore-local` },
+    session,
   );
   await localRegistryReference(
     repository,

@@ -40,22 +40,23 @@ export async function withPublishSession<T>(
   );
 }
 
-export async function publishToLocalRegistry(
+/**
+ * Pushes the image `copy.tag` (already in the cluster's nodes) to
+ * `<address>/<copy.target>` with the push identity, by the provider's
+ * transport: the node's containerd client on k3d (ADR 0083), nerdctl over
+ * Minikube's ssh otherwise (ADR 0034).
+ */
+export async function publishImageCopy(
   repository: Repository,
   runner: Runner,
-  entry: ImageLockEntry,
-  imageTag: string,
+  copy: { tag: string; address: string; target: string },
   { credential, ca }: Pick<PublishSession, "credential" | "ca">,
-): Promise<string> {
-  const address = await verifiedRegistryAddress(repository, runner);
-  const separator = entry.image.indexOf("/");
-  if (separator < 1) {
-    throw new Error("image repository path is unavailable");
+): Promise<void> {
+  if (!/^[a-z][a-z0-9-]*$/.test(credential.username)) {
+    throw new Error(
+      `local registry has an invalid username; the push identity must be lowercase letters, digits and hyphens`,
+    );
   }
-  const repositoryPath = entry.image
-    .slice(separator + 1)
-    .replace(/:[^/:]+$/, "");
-  const target = `${repositoryPath}:kore-local`;
   if (repository.environment.provider === "k3d") {
     const { k3d } = repository.environment;
     if (k3d === undefined) {
@@ -70,24 +71,53 @@ export async function publishToLocalRegistry(
     await withSecretsRedacted([credential.password, basic], () =>
       runner.run(
         "docker",
-        k3dImagePublishArgs(k3d.clusterName, imageTag, address, target, ca),
+        k3dImagePublishArgs(
+          k3d.clusterName,
+          copy.tag,
+          copy.address,
+          copy.target,
+          ca,
+        ),
         { capture: true, input: `${basic}\n` },
       ),
     );
-    return repositoryPath;
+    return;
   }
   await withSecretsRedacted([credential.password], () =>
     runner.run(
       "minikube",
       minikubeImagePublishArgs(
         minikubeCluster(repository.environment).profile,
-        imageTag,
-        address,
-        target,
+        copy.tag,
+        copy.address,
+        copy.target,
         credential.username,
       ),
       { capture: true, input: `${credential.password}\n` },
     ),
+  );
+}
+
+export async function publishToLocalRegistry(
+  repository: Repository,
+  runner: Runner,
+  entry: ImageLockEntry,
+  imageTag: string,
+  session: Pick<PublishSession, "credential" | "ca">,
+): Promise<string> {
+  const address = await verifiedRegistryAddress(repository, runner);
+  const separator = entry.image.indexOf("/");
+  if (separator < 1) {
+    throw new Error("image repository path is unavailable");
+  }
+  const repositoryPath = entry.image
+    .slice(separator + 1)
+    .replace(/:[^/:]+$/, "");
+  await publishImageCopy(
+    repository,
+    runner,
+    { tag: imageTag, address, target: `${repositoryPath}:kore-local` },
+    session,
   );
   return repositoryPath;
 }

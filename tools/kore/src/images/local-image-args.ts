@@ -106,7 +106,7 @@ export function k3dRegistrySessionArgs(
     "set -e",
     `[ -w /dev/shm ] || { echo "the k3d node has no writable /dev/shm for the registry credential" >&2; exit 1; }`,
     "d=$(mktemp -d -p /dev/shm)",
-    `trap 'rm -rf "$d"' EXIT`,
+    `trap 'rm -rf "$d"' EXIT INT TERM HUP`,
     `mkdir -p "$d"/${shellQuote(registryAddress)}`,
     `printf '%s' ${shellQuote(Buffer.from(caPem).toString("base64"))} | base64 -d > "$d"/${shellQuote(`${registryAddress}/ca.crt`)}`,
     `IFS= read -r t && [ -n "$t" ] || { echo "no registry credential was supplied on stdin" >&2; exit 1; }`,
@@ -133,7 +133,7 @@ export function k3dImagePublishArgs(
 ): string[] {
   const destination = `${registryAddress}/${repositoryPath}`;
   return k3dRegistrySessionArgs(clusterName, registryAddress, caPem, [
-    `ctr --namespace k8s.io images tag --force ${shellQuote(`docker.io/${tag}`)} ${shellQuote(destination)}`,
+    `ctr --namespace k8s.io images tag --force ${shellQuote(/^[^/]*[.:][^/]*\//.test(tag) ? tag : `docker.io/${tag}`)} ${shellQuote(destination)}`,
     `ctr --namespace k8s.io images push --hosts-dir "$d" ${shellQuote(destination)}`,
   ]);
 }

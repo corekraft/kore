@@ -11,6 +11,7 @@ import {
   stubRegistry,
 } from "./local-image-fixtures.js";
 import { buildAndSignLocalImage } from "./local-image.js";
+import { publishImageCopy } from "./local-publish.js";
 import {
   k3dImagePublishArgs,
   k3dRegistrySessionArgs,
@@ -146,4 +147,92 @@ test("the k3d session rejects a malformed address before running anything", () =
   expect(() =>
     k3dRegistrySessionArgs("kore-local", "bad address;", "CA", ["true"]),
   ).toThrow(/invalid registry address/);
+});
+
+test("the k3d publish command is pinned line by line", () => {
+  const args = k3dImagePublishArgs(
+    "kore-local",
+    "kore-local/reference:kore-local",
+    "10.96.0.50:5000",
+    "reference:kore-local",
+    "CA",
+  );
+  const hostsHead = [
+    'server = "https://10.96.0.50:5000"',
+    "",
+    '[host."https://10.96.0.50:5000"]',
+    '  capabilities = ["pull", "resolve", "push"]',
+    '  ca = "ca.crt"',
+    "",
+    '  [host."https://10.96.0.50:5000".header]',
+    '    Authorization = "Basic ',
+  ].join("\n");
+  expect(args.slice(0, 5)).toEqual([
+    "exec",
+    "--interactive",
+    "k3d-kore-local-server-0",
+    "sh",
+    "-c",
+  ]);
+  expect(args).toHaveLength(6);
+  expect(args[5]!.split("\n")).toEqual([
+    "set -e",
+    '[ -w /dev/shm ] || { echo "the k3d node has no writable /dev/shm for the registry credential" >&2; exit 1; }',
+    "d=$(mktemp -d -p /dev/shm)",
+    `trap 'rm -rf "$d"' EXIT INT TERM HUP`,
+    `mkdir -p "$d"/'10.96.0.50:5000'`,
+    `printf '%s' 'Q0E=' | base64 -d > "$d"/'10.96.0.50:5000/ca.crt'`,
+    `IFS= read -r t && [ -n "$t" ] || { echo "no registry credential was supplied on stdin" >&2; exit 1; }`,
+    ...`printf '%s%s"\\n' '${hostsHead}' "$t" > "$d"/'10.96.0.50:5000/hosts.toml'`.split(
+      "\n",
+    ),
+    "unset t",
+    `ctr --namespace k8s.io images tag --force 'docker.io/kore-local/reference:kore-local' '10.96.0.50:5000/reference:kore-local'`,
+    `ctr --namespace k8s.io images push --hosts-dir "$d" '10.96.0.50:5000/reference:kore-local'`,
+  ]);
+});
+
+test("the k3d node removes the credential on interrupt and termination too", () => {
+  const script = k3dImagePublishArgs(
+    "kore-local",
+    "kore-local/reference:kore-local",
+    "10.96.0.50:5000",
+    "reference:kore-local",
+    "CA",
+  )[5]!;
+  expect(script).toContain(`trap 'rm -rf "$d"' EXIT INT TERM HUP`);
+});
+
+test("a host-qualified source is tagged as it is, without a docker.io prefix", () => {
+  const script = k3dImagePublishArgs(
+    "kore-local",
+    "10.96.0.50:5000/reference@sha256:abc",
+    "10.96.0.50:5000",
+    "probe:kore-local",
+    "CA",
+  )[5]!;
+  expect(script).toContain(
+    "images tag --force '10.96.0.50:5000/reference@sha256:abc'",
+  );
+});
+
+test("a k3d username that would not be a valid registry user is rejected before the header is built", async () => {
+  const repository = await k3dRepository();
+  const { runner, calls } = fakeRunner();
+  await expect(
+    publishImageCopy(
+      repository,
+      runner,
+      {
+        tag: "t:kore-local",
+        address: "10.96.0.50:5000",
+        target: "x:kore-local",
+      },
+      {
+        credential: { username: "Bad User", password: pushPassword },
+        ca: "CA",
+      },
+    ),
+  ).rejects.toThrow(/invalid username/);
+  expect(calls).toHaveLength(0);
 });
