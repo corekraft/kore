@@ -5302,6 +5302,25 @@ function applyMode(finding2, ctx) {
   const action = ctx.modeOf(finding2.rule) === "audit" ? "warn" : "block";
   return { ...finding2, action };
 }
+function weigh(findings2) {
+  const hits = findings2.filter((finding2) => finding2 !== null);
+  const blocked = hits.find((hit) => hit.action === "block");
+  if (blocked) {
+    return blocked;
+  }
+  const warnings = hits.filter(
+    (hit, index) => hits.findIndex((h) => h.rule === hit.rule) === index
+  );
+  const [first] = warnings;
+  if (first === void 0) {
+    return allow;
+  }
+  return {
+    ...first,
+    message: warnings.map((hit) => hit.message).join("\n"),
+    rules: warnings.map((hit) => hit.rule)
+  };
+}
 
 // src/hook/guard-append-only.ts
 var APPEND_ONLY = /(^|[/\s>'"=])(\.claude\/evals\/history\.jsonl|\.kore\/state\/journal\/[^/\s'"]*\.jsonl|\.kore\/state\/ledger\.jsonl)$/;
@@ -5320,22 +5339,22 @@ function isProtectedDir(arg, root3) {
   }
   return PROTECTED_DIRS.has(path);
 }
-function truncatedTarget(segment) {
+function truncatedTarget(segment, matches2) {
   for (let i = 0; i < segment.length; i++) {
     const match = TRUNCATING_REDIRECT.exec(segment[i]);
     if (!match) {
       continue;
     }
     const target = (match[1].replace(/^\|/, "") || segment[i + 1]) ?? "";
-    if (isAppendOnly(target)) {
+    if (matches2(target)) {
       return target;
     }
   }
   return void 0;
 }
 var inPlace = (arg) => /^-[A-Za-z]*i/.test(arg) || arg.startsWith("--in-place");
-function rewrittenPath(name, args) {
-  const rewrites = (candidates) => candidates.find((arg) => isAppendOnly(arg));
+function rewrittenPath(name, args, matches2) {
+  const rewrites = (candidates) => candidates.find((arg) => matches2(arg));
   const operands = args.filter((arg) => !arg.startsWith("-"));
   const appends = args.some((arg) => arg === "-a" || arg === "--append");
   if (["rm", "mv", "truncate"].includes(name) || name === "sed" && args.some(inPlace)) {
@@ -5355,12 +5374,58 @@ function checkAppendOnly(name, args, segment, root3) {
       return appendOnlyWarn(dir);
     }
   }
-  const target = truncatedTarget(segment);
-  if (target !== void 0) {
-    return appendOnlyWarn(target);
-  }
-  const path = rewrittenPath(name, args);
+  const path = writtenPath(name, args, segment, isAppendOnly);
   return path ? appendOnlyWarn(path) : null;
+}
+function writtenPath(name, args, segment, matches2) {
+  return truncatedTarget(segment, matches2) ?? rewrittenPath(name, args, matches2);
+}
+
+// src/hook/guard-guardrails.ts
+var text6 = (value) => typeof value === "string" ? value : "";
+var ENTRY = /"rule"\s*:\s*"([a-z0-9-]+)"[^}]*?"mode"\s*:\s*"(audit|enforce)"/g;
+var MODE = /"mode"\s*:\s*"(audit|enforce)"/g;
+var modes = (source) => new Map(
+  [...source.matchAll(ENTRY)].map((m) => [m[1], m[2]])
+);
+var count2 = (source, mode) => [...source.matchAll(MODE)].filter((m) => m[1] === mode).length;
+function demoted(previous, after) {
+  const was = modes(previous);
+  const named = [...modes(after)].filter(([rule, mode]) => mode === "audit" && was.get(rule) === "enforce").map(([rule]) => rule);
+  if (named.length > 0) {
+    return named;
+  }
+  const unnamed = was.size === 0 && modes(after).size === 0;
+  return unnamed && count2(after, "audit") > count2(previous, "audit") && count2(previous, "enforce") > count2(after, "enforce") ? ["a rule"] : [];
+}
+function checkGuardrailDemotion(tool, input, relative, previous) {
+  if (relative !== INVENTORY_PATH) {
+    return null;
+  }
+  const after = text6(tool === "Edit" ? input["new_string"] : input["content"]);
+  const rules = demoted(previous, after);
+  if (rules.length === 0) {
+    return null;
+  }
+  return warn(
+    "guardrail-demotion",
+    `${relative} turns ${rules.join(", ")} from enforce to audit by hand. A person approves a guardrail's mode (ADR 0080). Instead, leave the mode and ask the user to approve the change, or promote a rule from audit to enforce.`
+  );
+}
+var INVENTORY_TARGET = new RegExp(
+  `(^|[/\\s>'"=])${INVENTORY_PATH.replaceAll(".", "\\.")}$`
+);
+function checkGuardrailBash(name, args, segment) {
+  const path = writtenPath(
+    name,
+    args,
+    segment,
+    (p) => INVENTORY_TARGET.test(p)
+  );
+  return path === void 0 ? null : warn(
+    "guardrail-demotion",
+    `${INVENTORY_PATH} is rewritten by a command, whose effect on each rule's mode cannot be checked. Instead, edit it with the Edit tool so a change from enforce to audit is checked, and leave demotions to a person (ADR 0080).`
+  );
 }
 
 // src/hook/guard-shell.ts
@@ -5737,13 +5802,22 @@ async function sopsWrite(name, segment, text8, ctx) {
 async function checkBashSegment(segment, ctx) {
   const { name, args } = commandOf(segment);
   if (!name) {
-    return null;
+    return [];
   }
   const text8 = segment.join(" ");
   if (!SECRET_SAFE.has(name) && !isKore(name, args) && SECRET_PATH.test(text8)) {
-    return secretBlock();
+    return [secretBlock()];
   }
-  return await sopsWrite(name, segment, text8, ctx) ?? checkDestructive(name, args) ?? checkContext(name, args) ?? checkNoVerify(name, args) ?? checkIdeaIssueBody(name, args) ?? checkIdeaIssueClose(name, args) ?? checkAppendOnly(name, args, segment, ctx.root);
+  return [
+    await sopsWrite(name, segment, text8, ctx),
+    checkDestructive(name, args),
+    checkContext(name, args),
+    checkNoVerify(name, args),
+    checkIdeaIssueBody(name, args),
+    checkIdeaIssueClose(name, args),
+    checkAppendOnly(name, args, segment, ctx.root),
+    checkGuardrailBash(name, args, segment)
+  ];
 }
 var UNQUOTED_GLOB = /(?:^|\s)--(include|exclude)=([^\s'"]*\*[^\s'"]*)/;
 function unquotedGlob(command) {
@@ -5773,46 +5847,12 @@ function zshWords(command) {
   ];
 }
 async function evaluateBash(command, ctx) {
-  const glob = applyMode(unquotedGlob(command), ctx);
-  const segments = [];
+  const found = [unquotedGlob(command)];
   for (const segment of splitSegments(command)) {
-    segments.push(applyMode(await checkBashSegment(segment, ctx), ctx));
+    found.push(...await checkBashSegment(segment, ctx));
   }
-  const zsh = zshWords(command).map((finding2) => applyMode(finding2, ctx));
-  const found = [glob, ...segments, ...zsh];
-  return found.find((finding2) => finding2?.action === "block") ?? [...segments, glob, ...zsh].find((finding2) => finding2 !== null) ?? allow;
-}
-
-// src/hook/guard-guardrails.ts
-var text6 = (value) => typeof value === "string" ? value : "";
-var ENTRY = /"rule"\s*:\s*"([a-z0-9-]+)"[^}]*?"mode"\s*:\s*"(audit|enforce)"/g;
-var MODE = /"mode"\s*:\s*"(audit|enforce)"/g;
-var modes = (source) => new Map(
-  [...source.matchAll(ENTRY)].map((m) => [m[1], m[2]])
-);
-var count2 = (source, mode) => [...source.matchAll(MODE)].filter((m) => m[1] === mode).length;
-function demoted(previous, after) {
-  const was = modes(previous);
-  const named = [...modes(after)].filter(([rule, mode]) => mode === "audit" && was.get(rule) === "enforce").map(([rule]) => rule);
-  if (named.length > 0) {
-    return named;
-  }
-  const unnamed = was.size === 0 && modes(after).size === 0;
-  return unnamed && count2(after, "audit") > count2(previous, "audit") && count2(previous, "enforce") > count2(after, "enforce") ? ["a rule"] : [];
-}
-function checkGuardrailDemotion(tool, input, relative, previous) {
-  if (relative !== INVENTORY_PATH) {
-    return null;
-  }
-  const after = text6(tool === "Edit" ? input["new_string"] : input["content"]);
-  const rules = demoted(previous, after);
-  if (rules.length === 0) {
-    return null;
-  }
-  return warn(
-    "guardrail-demotion",
-    `${relative} turns ${rules.join(", ")} from enforce to audit by hand. A person approves a guardrail's mode (ADR 0080). Instead, leave the mode and ask the user to approve the change, or promote a rule from audit to enforce.`
-  );
+  found.push(...zshWords(command));
+  return weigh(found.map((finding2) => applyMode(finding2, ctx)));
 }
 
 // src/hook/guard-file.ts
@@ -5944,16 +5984,8 @@ async function checkWrite(tool, input, relative, ctx) {
       relative,
       relative === INVENTORY_PATH ? await before(tool, input, relative, ctx, false) : ""
     )
-  ].map((finding2) => applyMode(finding2, ctx)).filter((finding2) => finding2 !== null);
-  const blocked = findings2.find((finding2) => finding2.action === "block");
-  if (blocked) {
-    return blocked;
-  }
-  const [first, ...rest] = findings2;
-  return first ? {
-    ...first,
-    message: [first, ...rest].map((finding2) => finding2.message).join("\n")
-  } : allow;
+  ];
+  return weigh(findings2.map((finding2) => applyMode(finding2, ctx)));
 }
 async function evaluateFile(tool, input, relative, ctx) {
   if (SECRET_PATH.test(relative)) {
@@ -6013,9 +6045,9 @@ async function guard(payload, deps) {
 ` };
   }
   if (verdict.action === "warn") {
-    await recordEvent(deps, "guard.audit", call, void 0, {
-      label: verdict.rule
-    });
+    for (const rule of verdict.rules ?? [verdict.rule]) {
+      await recordEvent(deps, "guard.audit", call, void 0, { label: rule });
+    }
     return {
       stdout: JSON.stringify({
         hookSpecificOutput: {

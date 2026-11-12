@@ -1,5 +1,6 @@
 // Bash rules: split a command into segments and check each one. A block in any
 // segment wins; otherwise the first warning stands.
+import { checkGuardrailBash } from "./guard-guardrails.js";
 import { checkAppendOnly } from "./guard-append-only.js";
 import {
   checkContext,
@@ -23,10 +24,10 @@ import {
   splitSegments,
 } from "./guard-shell.js";
 import {
-  allow,
   applyMode,
   block,
   warn,
+  weigh,
   type Finding,
   type GuardContext,
   type Verdict,
@@ -54,26 +55,28 @@ async function sopsWrite(
 async function checkBashSegment(
   segment: string[],
   ctx: GuardContext,
-): Promise<Finding> {
+): Promise<Finding[]> {
   const { name, args } = commandOf(segment);
   if (!name) {
-    return null;
+    return [];
   }
   const text = segment.join(" ");
 
   if (!SECRET_SAFE.has(name) && !isKore(name, args) && SECRET_PATH.test(text)) {
-    return secretBlock();
+    return [secretBlock()];
   }
 
-  return (
-    (await sopsWrite(name, segment, text, ctx)) ??
-    checkDestructive(name, args) ??
-    checkContext(name, args) ??
-    checkNoVerify(name, args) ??
-    checkIdeaIssueBody(name, args) ??
-    checkIdeaIssueClose(name, args) ??
-    checkAppendOnly(name, args, segment, ctx.root)
-  );
+  // Every check runs: each finding takes its own rule's mode, so a promoted rule can block past an audit one.
+  return [
+    await sopsWrite(name, segment, text, ctx),
+    checkDestructive(name, args),
+    checkContext(name, args),
+    checkNoVerify(name, args),
+    checkIdeaIssueBody(name, args),
+    checkIdeaIssueClose(name, args),
+    checkAppendOnly(name, args, segment, ctx.root),
+    checkGuardrailBash(name, args, segment),
+  ];
 }
 
 // An unquoted glob in --include/--exclude: zsh expands it and, when nothing
@@ -123,17 +126,11 @@ export async function evaluateBash(
   command: string,
   ctx: GuardContext,
 ): Promise<Verdict> {
-  const glob = applyMode(unquotedGlob(command), ctx);
-  const segments: Finding[] = [];
+  const found: Finding[] = [unquotedGlob(command)];
   for (const segment of splitSegments(command)) {
-    segments.push(applyMode(await checkBashSegment(segment, ctx), ctx));
+    found.push(...(await checkBashSegment(segment, ctx)));
   }
-  const zsh = zshWords(command).map((finding) => applyMode(finding, ctx));
-  // Each finding takes its own rule's mode first; any block wins over any warning.
-  const found = [glob, ...segments, ...zsh];
-  return (
-    found.find((finding) => finding?.action === "block") ??
-    [...segments, glob, ...zsh].find((finding) => finding !== null) ??
-    allow
-  );
+  found.push(...zshWords(command));
+  // Each finding takes its own rule's mode first; any block wins, else every warning is joined.
+  return weigh(found.map((finding) => applyMode(finding, ctx)));
 }

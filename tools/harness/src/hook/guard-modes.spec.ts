@@ -1,42 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { run } from "../cli/index.js";
-import { testHarness } from "../cli/cli-support.js";
-import { INVENTORY_PATH, type Mode } from "../guardrail/index.js";
-import {
-  committedInventoryText,
-  inventoryWith,
-} from "../testing/guardrail-support.js";
-import { ledgerEvents } from "./feedback-support.js";
-
-async function guard(
-  payload: unknown,
-  inventory: string | undefined,
-  project = "/repo",
-  extra: Record<string, string> = {},
-) {
-  const h = testHarness({
-    env: { CLAUDE_PROJECT_DIR: project, KORE_ROOT: "/repo" },
-    files: {
-      ...extra,
-      ...(inventory === undefined
-        ? {}
-        : { [`/repo/${INVENTORY_PATH}`]: inventory }),
-      "/repo/tools/kore/vitest.config.ts": "thresholds: { statements: 95 }",
-    },
-  });
-  h.deps.stdin = () => Promise.resolve(JSON.stringify(payload));
-  const code = await run(["hook", "guard"], h.deps);
-  return { code, out: h.out(), err: h.err(), events: ledgerEvents(h.files) };
-}
-
-const bash = (command: string) => ({
-  session_id: "s1",
-  tool_name: "Bash",
-  tool_input: { command },
-});
-const auditEvents = (events: Record<string, unknown>[]) =>
-  events.filter((e) => e["kind"] === "guard.audit");
-const modes = (m: Record<string, Mode>) => inventoryWith(m);
+import { committedInventoryText } from "../testing/guardrail-support.js";
+import { auditEvents, bash, guard, modes } from "./guard-modes-support.js";
 
 describe("a guardrail in audit mode", () => {
   it("warns and records a ledger event naming the rule and session, and never blocks", async () => {
@@ -169,13 +133,45 @@ describe("a promoted rule beats an audit warning in the same call", () => {
     expect(result.err).toMatch(/guard:equals-word/);
   });
 
-  it("still warns, once, when no rule blocks", async () => {
+  it("joins every warning and records one audit event per rule when no rule blocks", async () => {
     const result = await guard(
-      bash("ls *.nothing =foo"),
+      bash("ls *.nothing; gh issue edit 1 --body x"),
       committedInventoryText,
     );
     expect(result.code).toBe(0);
+    const context = JSON.parse(result.out).hookSpecificOutput.additionalContext;
+    expect(context).toMatch(/guard:idea-issue-body/);
+    expect(context).toMatch(/guard:bare-glob/);
+    expect(
+      auditEvents(result.events)
+        .map((e) => String(e["label"]))
+        .sort((a, b) => a.localeCompare(b)),
+    ).toEqual(["bare-glob", "idea-issue-body"]);
+  });
+
+  it("records the rule once when two segments trip it", async () => {
+    const result = await guard(
+      bash("gh issue edit 1 --body x; gh issue edit 2 --body y"),
+      committedInventoryText,
+    );
     expect(auditEvents(result.events)).toHaveLength(1);
+  });
+
+  it("blocks equals-word as declared, with no audit event", async () => {
+    const result = await guard(bash("echo =foo"), committedInventoryText);
+    expect(result.code).toBe(2);
+    expect(result.err).toMatch(/^\[guard:equals-word\] .*Instead/);
+    expect(auditEvents(result.events)).toEqual([]);
+  });
+
+  it("lets a promoted rule block past an earlier audit rule in the same segment", async () => {
+    const result = await guard(
+      bash("gh issue edit 1 --body x > .kore/state/ledger.jsonl"),
+      modes({ "append-only": "enforce" }),
+    );
+    expect(result.code).toBe(2);
+    expect(result.err).toMatch(/guard:append-only/);
+    expect(auditEvents(result.events)).toEqual([]);
   });
 });
 
@@ -209,90 +205,5 @@ describe("a promoted file rule beats an audit warning on the same write", () => 
     );
     expect(result.code).toBe(2);
     expect(result.err).toMatch(/guard:image-digest/);
-  });
-});
-
-describe("the inventory protects itself", () => {
-  const edit = (oldS: string, newS: string) => ({
-    session_id: "s1",
-    tool_name: "Edit",
-    tool_input: {
-      file_path: "/repo/.claude/guardrails.yaml",
-      old_string: oldS,
-      new_string: newS,
-    },
-  });
-  const line = (rule: string, mode: string) =>
-    `{ "rule": "${rule}", "kind": "bash", "mode": "${mode}", "owner": "x" }`;
-
-  it("warns, naming the rule, on an Edit that turns enforce into audit", async () => {
-    const result = await guard(
-      edit(line("no-verify", "enforce"), line("no-verify", "audit")),
-      committedInventoryText,
-    );
-    expect(result.code).toBe(0);
-    expect(result.out).toMatch(/guard:guardrail-demotion/);
-    expect(result.out).toMatch(/no-verify/);
-    expect(auditEvents(result.events)).toMatchObject([
-      { label: "guardrail-demotion" },
-    ]);
-  });
-
-  it("warns on an Edit of the mode alone", async () => {
-    const result = await guard(
-      edit('"mode": "enforce"', '"mode": "audit"'),
-      committedInventoryText,
-    );
-    expect(result.out).toMatch(/guard:guardrail-demotion/);
-  });
-
-  it("warns on a Write that demotes a rule the file enforces today", async () => {
-    const result = await guard(
-      {
-        session_id: "s1",
-        tool_name: "Write",
-        tool_input: {
-          file_path: "/repo/.claude/guardrails.yaml",
-          content: inventoryWith({ destructive: "audit" }),
-        },
-      },
-      committedInventoryText,
-    );
-    expect(result.out).toMatch(/guard:guardrail-demotion/);
-    expect(result.out).toMatch(/destructive/);
-  });
-
-  it("allows promoting, and edits that leave modes alone", async () => {
-    for (const payload of [
-      edit(line("bare-glob", "audit"), line("bare-glob", "enforce")),
-      edit(
-        line("bare-glob", "audit"),
-        line("bare-glob", "audit").replace('"x"', '"y"'),
-      ),
-    ]) {
-      const result = await guard(payload, committedInventoryText);
-      expect(result).toMatchObject({ code: 0, out: "", err: "" });
-      expect(auditEvents(result.events)).toEqual([]);
-    }
-  });
-
-  it("blocks the demotion once a person promotes the rule", async () => {
-    const result = await guard(
-      edit(line("no-verify", "enforce"), line("no-verify", "audit")),
-      modes({ "guardrail-demotion": "enforce" }),
-    );
-    expect(result.code).toBe(2);
-  });
-});
-
-describe("finding the inventory", () => {
-  it("walks up from the project directory to the repository's inventory", async () => {
-    const result = await guard(
-      bash("ls *.nothing"),
-      modes({ "bare-glob": "enforce" }),
-      "/repo/tools/harness",
-    );
-    expect(result.code).toBe(2);
-    expect(result.err).not.toMatch(/Every rule is enforcing/);
   });
 });

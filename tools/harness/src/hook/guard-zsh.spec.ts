@@ -73,13 +73,13 @@ it("bare-glob: special parameters like $? and $* are not globs", async () => {
   assert.equal((await bash("echo $? src/*.ts")).rule, "bare-glob");
 });
 
-it("equals-word: an unquoted word starting with = warns, since zsh expands it as a command lookup", async () => {
+it("equals-word: an unquoted word starting with = blocks, since zsh expands it as a command lookup", async () => {
   for (const [command, word] of [
     ["echo =====", "====="],
     ['[ "$a" == "$b" ] && echo same', "=="],
   ] as [string, string][]) {
     const result = await bash(command);
-    assert.equal(result.action, "warn", command);
+    assert.equal(result.action, "block", command);
     assert.equal(result.rule, "equals-word", command);
     assert.ok(
       result.message.includes(`'${word}'`),

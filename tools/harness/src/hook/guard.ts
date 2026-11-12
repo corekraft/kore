@@ -97,9 +97,9 @@ export async function guard(
   }
   if (verdict.action === "warn") {
     // A warning is an audit-mode rule firing; the ledger counts it for the retro.
-    await recordEvent(deps, "guard.audit", call, undefined, {
-      label: verdict.rule,
-    });
+    for (const rule of verdict.rules ?? [verdict.rule]) {
+      await recordEvent(deps, "guard.audit", call, undefined, { label: rule });
+    }
     return {
       stdout: JSON.stringify({
         hookSpecificOutput: {

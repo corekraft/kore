@@ -3,7 +3,13 @@ import type { Mode } from "../guardrail/index.js";
 /** What the guard decides about one tool call. */
 export type Verdict =
   | { action: "allow" }
-  | { action: "block" | "warn"; rule: string; message: string };
+  | {
+      action: "block" | "warn";
+      rule: string;
+      message: string;
+      /** A joined warning: every rule it names, so each is recorded. */
+      rules?: string[];
+    };
 
 /** A rule's decision to block or warn. */
 export type Hit = Exclude<Verdict, { action: "allow" }>;
@@ -40,4 +46,28 @@ export function applyMode<T extends Finding>(finding: T, ctx: GuardContext): T {
   }
   const action = ctx.modeOf(finding.rule) === "audit" ? "warn" : "block";
   return { ...finding, action };
+}
+
+/**
+ * Weighs findings that already carry their rule's mode: the first block wins;
+ * otherwise every warning is joined, one per rule, into one verdict.
+ */
+export function weigh(findings: readonly Finding[]): Verdict {
+  const hits = findings.filter((finding): finding is Hit => finding !== null);
+  const blocked = hits.find((hit) => hit.action === "block");
+  if (blocked) {
+    return blocked;
+  }
+  const warnings = hits.filter(
+    (hit, index) => hits.findIndex((h) => h.rule === hit.rule) === index,
+  );
+  const [first] = warnings;
+  if (first === undefined) {
+    return allow;
+  }
+  return {
+    ...first,
+    message: warnings.map((hit) => hit.message).join("\n"),
+    rules: warnings.map((hit) => hit.rule),
+  };
 }
