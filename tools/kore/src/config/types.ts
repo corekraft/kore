@@ -81,6 +81,11 @@ export interface Environment {
    * Validation rejects a namespace the catalog does not manage.
    */
   enrollmentExemptions?: Record<string, string>;
+  /**
+   * Feature flags: flag name to boolean, off unless set true (ADR 0077). Read
+   * by the CLI and passed into local chart values as `features.<name>`.
+   */
+  features?: Record<string, boolean>;
   gateway: { namespace: string; name: string; hostname: string; port: number };
   secrets: { storeName: string; sourceNamespace: string };
   telemetry: { otlpEndpoint: string };
