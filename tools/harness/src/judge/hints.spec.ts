@@ -1,0 +1,124 @@
+import { describe, expect, it } from "vitest";
+import { parseDiff } from "./diff.js";
+import { hintsFor } from "./hints.js";
+
+const overlay = (env: string, flag: string, value: boolean) =>
+  [
+    `diff --git a/infra/environments/${env}/environment.yaml b/infra/environments/${env}/environment.yaml`,
+    `--- a/infra/environments/${env}/environment.yaml`,
+    `+++ b/infra/environments/${env}/environment.yaml`,
+    "@@ -1,3 +1,4 @@",
+    '   "features": {',
+    `+    "${flag}": ${value},`,
+    "   }",
+  ].join("\n");
+
+const edit = (path: string, added: number, removed: number) =>
+  [
+    `diff --git a/${path} b/${path}`,
+    `--- a/${path}`,
+    `+++ b/${path}`,
+    "@@ -1,1 +1,1 @@",
+    ...Array.from({ length: removed }, () => "-old"),
+    ...Array.from({ length: added }, () => "+new"),
+  ].join("\n");
+
+const removal = (path: string) =>
+  [
+    `diff --git a/${path} b/${path}`,
+    "deleted file mode 100644",
+    `--- a/${path}`,
+    "+++ /dev/null",
+    "@@ -1,1 +0,0 @@",
+    "-old",
+  ].join("\n");
+
+describe("hintsFor", () => {
+  it("no-behaviour-change: a docs and test only diff has no behavioural diff", () => {
+    const diff = parseDiff(
+      [edit("docs/index.md", 1, 0), edit("src/a.spec.ts", 2, 0)].join("\n"),
+    );
+    expect(hintsFor("no-behaviour-change", diff)).toEqual({
+      behaviouralPaths: [],
+      noBehaviouralDiff: true,
+    });
+  });
+
+  it("no-behaviour-change: names the files that change behaviour", () => {
+    const diff = parseDiff(
+      [edit("docs/index.md", 1, 0), edit("tools/kore/src/a.ts", 1, 1)].join(
+        "\n",
+      ),
+    );
+    expect(hintsFor("no-behaviour-change", diff)).toEqual({
+      behaviouralPaths: ["tools/kore/src/a.ts"],
+      noBehaviouralDiff: false,
+    });
+  });
+
+  it("feature-flagged: reports a flag added and off", () => {
+    const diff = parseDiff(overlay("local", "gateway", false));
+    expect(hintsFor("feature-flagged", diff)).toEqual({
+      flags: [{ flag: "gateway", environment: "local", value: false }],
+      flagPresentAndOff: true,
+    });
+  });
+
+  it("feature-flagged: a flag turned on in the diff is not off", () => {
+    const diff = parseDiff(overlay("local", "gateway", true));
+    expect(hintsFor("feature-flagged", diff)).toMatchObject({
+      flagPresentAndOff: false,
+    });
+  });
+
+  it("feature-flagged: no flag in the diff is not present", () => {
+    const diff = parseDiff(edit("tools/kore/src/a.ts", 1, 0));
+    expect(hintsFor("feature-flagged", diff)).toEqual({
+      flags: [],
+      flagPresentAndOff: false,
+    });
+  });
+});
+
+describe("hintsFor flags and structure", () => {
+  it("dark-launched: on in local and off elsewhere", () => {
+    const diff = parseDiff(
+      [
+        overlay("local", "gateway", true),
+        overlay("prod", "gateway", false),
+      ].join("\n"),
+    );
+    expect(hintsFor("dark-launched", diff)).toMatchObject({
+      flagOnlyInLocal: true,
+    });
+  });
+
+  it("dark-launched: on outside local is not a dark launch", () => {
+    const diff = parseDiff(overlay("prod", "gateway", true));
+    expect(hintsFor("dark-launched", diff)).toMatchObject({
+      flagOnlyInLocal: false,
+    });
+  });
+
+  it("branch-by-abstraction: retains the old path unless a file is deleted", () => {
+    expect(
+      hintsFor("branch-by-abstraction", parseDiff(edit("a.ts", 3, 0))),
+    ).toEqual({ deletedFiles: [], oldPathRetained: true });
+    expect(
+      hintsFor("branch-by-abstraction", parseDiff(removal("old.ts"))),
+    ).toEqual({ deletedFiles: ["old.ts"], oldPathRetained: false });
+  });
+
+  it("expand-contract: additive diffs expand, removals contract", () => {
+    expect(hintsFor("expand-contract", parseDiff(edit("a.ts", 2, 0)))).toEqual({
+      removedLines: 0,
+      deletedFiles: [],
+      additiveOnly: true,
+    });
+    expect(hintsFor("expand-contract", parseDiff(removal("old.ts")))).toEqual({
+      removedLines: 1,
+      deletedFiles: ["old.ts"],
+      additiveOnly: false,
+    });
+  });
+});

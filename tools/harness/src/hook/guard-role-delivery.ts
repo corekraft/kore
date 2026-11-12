@@ -78,8 +78,16 @@ const ORCHESTRATOR_HARNESS = [
   "outcome close",
 ];
 
+/** The judge also runs its precheck, which only reads GitHub and appends one ledger event. */
+const JUDGE_HARNESS = [...READS, "judge precheck"];
+
+/** The harness commands each delivery role may run; any other role gets the reads. */
+const HARNESS_BY_ROLE: Record<string, readonly string[]> = {
+  orchestrator: ORCHESTRATOR_HARNESS,
+  judge: JUDGE_HARNESS,
+};
 const harnessFor = (role: string): readonly string[] =>
-  role === "orchestrator" ? ORCHESTRATOR_HARNESS : READS;
+  HARNESS_BY_ROLE[role] ?? READS;
 
 /** A harness command the role may not run: it writes, or it is not on the role's list. */
 function harnessRefused(role: string, segment: readonly string[]): boolean {

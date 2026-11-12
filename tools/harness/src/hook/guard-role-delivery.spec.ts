@@ -214,3 +214,21 @@ describe("role-worktree: a writer works only in its own worktree", () => {
     }
   });
 });
+
+describe("role-read-only: the judge precheck", () => {
+  it("lets the judge run its precheck, and not the orchestrator", async () => {
+    allowed(
+      await bash(
+        "judge",
+        "node skills/bin/harness.mjs judge precheck 42 --json",
+      ),
+    );
+    blocked(
+      await bash(
+        "orchestrator",
+        "node skills/bin/harness.mjs judge precheck 42",
+      ),
+      "role-read-only",
+    );
+  });
+});

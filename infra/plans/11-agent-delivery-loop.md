@@ -90,7 +90,7 @@ effect against the plan 8 baseline.
 
 ### Work
 
-- [ ] Add a `judge` domain whose precheck reports CI, scan, coverage and
+- [x] Add a `judge` domain whose precheck reports CI, scan, coverage and
       principles-review results, plus hints for the declared safety pattern.
 - [ ] The judge agent verifies the diff matches the declared pattern and
       merges through the merge tool, or sends the change back to the
