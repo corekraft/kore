@@ -45,11 +45,37 @@ export interface Catalog {
   components: Component[];
 }
 
+/**
+ * A k3d cluster. The k3s image is not a field: it resolves from the
+ * `versions.images.k3s` pin, so one pin owns it.
+ */
+export interface K3dCluster {
+  /** Cluster name; the kube context must be `k3d-<clusterName>`. */
+  clusterName: string;
+  /** Service ClusterIP range; an in-cluster registry address must lie inside it. */
+  serviceCidr: string;
+  /** Host ports published through the k3d load balancer. */
+  ports: K3dPort[];
+  /** Server nodes; one when unset. */
+  servers?: number;
+  /** Agent nodes; none when unset. */
+  agents?: number;
+}
+
+export interface K3dPort {
+  hostPort: number;
+  loadBalancerPort: number;
+}
+
 export interface Environment {
   $schema?: string;
   name: string;
-  provider: "minikube" | "managed";
+  provider: "k3d" | "minikube" | "managed";
   kubeContext: string;
+  /**
+   * Minikube settings. Minikube-only: a k3d overlay declares `k3d` instead and
+   * validation rejects this block there (ADR 0083).
+   */
   cluster: {
     profile: string;
     kubernetesVersion: string;
@@ -61,6 +87,8 @@ export interface Environment {
     /** Service ClusterIP range handed to Minikube; an in-cluster registry address must lie inside it. */
     serviceCidr?: string;
   };
+  /** The k3d cluster; required when provider is k3d, rejected otherwise. */
+  k3d?: K3dCluster;
   /** The one registry address (host[:port]) every consumer derives from. */
   registry: { address: string };
   /**

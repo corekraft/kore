@@ -1,6 +1,7 @@
 import { registryAddressErrors } from "./registry-address.js";
 import { policyErrors } from "./policy-validation.js";
 import { crdGroupErrors, crdNameFormatErrors } from "./crd-ownership.js";
+import { k3dErrors } from "./k3d-errors.js";
 import { overlayErrors } from "./overlay-errors.js";
 import { imageListErrors } from "./approved.js";
 import { orderedComponents, readinessErrors } from "./order.js";
@@ -66,8 +67,8 @@ const versionRules: Rule<Versions>[] = [
 const environmentRules: Rule<Environment>[] = [
   rule("environment.name is invalid", (e) => !name.test(e.name)),
   rule(
-    "environment.provider must be minikube or managed",
-    (e) => !["minikube", "managed"].includes(e.provider),
+    "environment.provider must be k3d, minikube or managed",
+    (e) => !["k3d", "minikube", "managed"].includes(e.provider),
   ),
   rule("environment.kubeContext is required", (e) => !e.kubeContext),
   rule(
@@ -78,11 +79,11 @@ const environmentRules: Rule<Environment>[] = [
   ),
   rule(
     "environment.cluster.cpus must be at least 2",
-    (e) => (e.cluster?.cpus ?? 0) < 2,
+    (e) => e.provider !== "k3d" && (e.cluster?.cpus ?? 0) < 2,
   ),
   rule(
     "environment.cluster.memoryMB must be at least 4096",
-    (e) => (e.cluster?.memoryMB ?? 0) < 4096,
+    (e) => e.provider !== "k3d" && (e.cluster?.memoryMB ?? 0) < 4096,
   ),
 ];
 
@@ -215,6 +216,7 @@ export async function validateRepository(
   const errors = [
     ...versionErrors(versions),
     ...check(environmentRules, environment),
+    ...k3dErrors(environment, versions),
     ...components.flatMap((component) =>
       check(componentRules, { component, versions }),
     ),

@@ -143,7 +143,7 @@ test("validation reports every rule violation exactly once, sorted", async () =>
       "environment.cluster.memoryMB must be at least 4096",
       "environment.kubeContext is required",
       "environment.name is invalid",
-      "environment.provider must be minikube or managed",
+      "environment.provider must be k3d, minikube or managed",
       "release dependency cycle includes: BAD_NAME, cyc-a, cyc-b",
       "tools.broken must be an exact semantic version",
       "unknown environment component values: ghost",
