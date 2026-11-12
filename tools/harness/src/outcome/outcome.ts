@@ -44,6 +44,7 @@ async function finish(
     ...(followUp === undefined ? [] : [`Follow-up idea: ${followUp}`]),
   ].join("\n\n");
   const published = await publishOutcome(ctx.runner, ctx.root, target, {
+    idea: record.number,
     result,
     marker: markerFor(record),
     comment: `${comment}\n`,

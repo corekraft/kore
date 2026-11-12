@@ -497,7 +497,26 @@ test("a valid idea, with or without an outcome, reports nothing", () => {
     messages(cleanTree(idea({ issue: "185", parent: "#127" }))),
     [],
   );
-  assert.deepEqual(messages(cleanTree(idea({ outcome: "refuted" }))), []);
+  assert.deepEqual(
+    messages(
+      cleanTree(
+        idea({ outcome: "refuted" }, "# Idea 0001: A\n\n## Outcome\n\nNo.\n"),
+      ),
+    ),
+    [],
+  );
+});
+
+test("an outcome line without its Outcome section, and a section without its line, are reported", () => {
+  assert.deepEqual(messages(cleanTree(idea({ outcome: "refuted" }))), [
+    "docs/ideas/0001-a.md:8: frontmatter outcome has no ## Outcome section; run `harness outcome record --idea 1`, or remove the line",
+  ]);
+  const withSection = "# Idea 0001: A\n\n## Outcome\n\nNo.\n";
+  const [problem] = messages(cleanTree(idea({}, withSection)));
+  assert.match(
+    problem,
+    /^docs\/ideas\/0001-a\.md:\d+: ## Outcome section has no frontmatter outcome line; /,
+  );
 });
 
 test("an idea missing a required field is reported with the field named", () => {

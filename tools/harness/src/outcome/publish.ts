@@ -45,6 +45,27 @@ function parseView(stdout: string, target: Target): View {
   }
 }
 
+/** The `gh issue edit` flags that leave exactly the wanted outcome label, none when it already does. */
+function labelFlags(have: string[], wanted: string): string[] {
+  const stale = have.filter((l) => l.startsWith("outcome:") && l !== wanted);
+  return [
+    ...(have.includes(wanted) ? [] : ["--add-label", wanted]),
+    ...stale.flatMap((l) => ["--remove-label", l]),
+  ];
+}
+
+/** The fix for a label the repository does not have, or undefined when gh failed for another reason. */
+function missingLabel(
+  stderr: string,
+  wanted: string,
+  repo: string,
+  idea: string,
+): string | undefined {
+  return /not found/i.test(stderr) && stderr.includes(wanted)
+    ? `The label "${wanted}" does not exist on ${repo}; create it with \`gh label create ${wanted} --repo ${repo}\`, then rerun \`harness outcome close --idea ${idea}\`.`
+    : undefined;
+}
+
 /**
  * Brings an idea's issue in line with its recorded outcome: one comment, exactly one
  * outcome label, closed. Each step is skipped when already done, so a rerun after a
@@ -54,14 +75,22 @@ export async function publishOutcome(
   runner: Runner,
   root: string,
   target: Target,
-  outcome: { result: Result; marker: string; comment: string },
+  outcome: { idea: string; result: Result; marker: string; comment: string },
 ): Promise<Published> {
-  const gh = async (args: string[], input?: string) => {
+  const gh = async (
+    args: string[],
+    input?: string,
+    explain?: (stderr: string) => string | undefined,
+  ) => {
     const done = await runner.run("gh", args, {
       cwd: root,
       ...(input === undefined ? {} : { input }),
     });
     if (done.code !== 0) {
+      const reason = explain?.(done.stderr);
+      if (reason !== undefined) {
+        throw new IdeaError(reason);
+      }
       throw new IdeaError(
         `gh ${args.slice(0, 2).join(" ")} failed for issue ${target.number}: ${done.stderr.trim()}. ${FIX}`,
       );
@@ -85,28 +114,22 @@ export async function publishOutcome(
     labelled: false,
     closed: false,
   };
+  const wanted = labelFor(outcome.result);
+  const flags = labelFlags(view.labels, wanted);
+  if (flags.length > 0) {
+    await gh(
+      ["issue", "edit", target.number, ...at, ...flags],
+      undefined,
+      (stderr) => missingLabel(stderr, wanted, target.repo, outcome.idea),
+    );
+    published.labelled = true;
+  }
   if (!view.comments.some((body) => body.includes(outcome.marker))) {
     await gh(
       ["issue", "comment", target.number, ...at, "--body-file", "-"],
       outcome.comment,
     );
     published.commented = true;
-  }
-  const wanted = labelFor(outcome.result);
-  const stale = view.labels.filter(
-    (l) => l.startsWith("outcome:") && l !== wanted,
-  );
-  const add = view.labels.includes(wanted) ? [] : [wanted];
-  if (add.length > 0 || stale.length > 0) {
-    await gh([
-      "issue",
-      "edit",
-      target.number,
-      ...at,
-      ...add.flatMap((l) => ["--add-label", l]),
-      ...stale.flatMap((l) => ["--remove-label", l]),
-    ]);
-    published.labelled = true;
   }
   if (view.open) {
     await gh(["issue", "close", target.number, ...at]);

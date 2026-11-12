@@ -59,11 +59,12 @@ export function harness(
   };
 }
 
-export const NEW = [
+/** `idea new` arguments for an idea of the given title. */
+export const newArgs = (title: string) => [
   "idea",
   "new",
   "--title",
-  "Cache the probe results",
+  title,
   "--hypothesis",
   "Caching probes cuts up time.",
   "--expected-outcome",
@@ -73,6 +74,8 @@ export const NEW = [
   "--safety-pattern",
   "feature-flagged",
 ];
+
+export const NEW = newArgs("Cache the probe results");
 
 export async function seeded() {
   const h = harness();

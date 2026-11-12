@@ -2613,13 +2613,27 @@ function parseView2(stdout, target) {
     );
   }
 }
+function labelFlags(have, wanted) {
+  const stale = have.filter((l) => l.startsWith("outcome:") && l !== wanted);
+  return [
+    ...have.includes(wanted) ? [] : ["--add-label", wanted],
+    ...stale.flatMap((l) => ["--remove-label", l])
+  ];
+}
+function missingLabel(stderr2, wanted, repo, idea) {
+  return /not found/i.test(stderr2) && stderr2.includes(wanted) ? `The label "${wanted}" does not exist on ${repo}; create it with \`gh label create ${wanted} --repo ${repo}\`, then rerun \`harness outcome close --idea ${idea}\`.` : void 0;
+}
 async function publishOutcome(runner, root2, target, outcome) {
-  const gh = async (args, input) => {
+  const gh = async (args, input, explain) => {
     const done = await runner.run("gh", args, {
       cwd: root2,
       ...input === void 0 ? {} : { input }
     });
     if (done.code !== 0) {
+      const reason = explain?.(done.stderr);
+      if (reason !== void 0) {
+        throw new IdeaError(reason);
+      }
       throw new IdeaError(
         `gh ${args.slice(0, 2).join(" ")} failed for issue ${target.number}: ${done.stderr.trim()}. ${FIX}`
       );
@@ -2643,28 +2657,22 @@ async function publishOutcome(runner, root2, target, outcome) {
     labelled: false,
     closed: false
   };
+  const wanted = labelFor(outcome.result);
+  const flags = labelFlags(view.labels, wanted);
+  if (flags.length > 0) {
+    await gh(
+      ["issue", "edit", target.number, ...at, ...flags],
+      void 0,
+      (stderr2) => missingLabel(stderr2, wanted, target.repo, outcome.idea)
+    );
+    published.labelled = true;
+  }
   if (!view.comments.some((body) => body.includes(outcome.marker))) {
     await gh(
       ["issue", "comment", target.number, ...at, "--body-file", "-"],
       outcome.comment
     );
     published.commented = true;
-  }
-  const wanted = labelFor(outcome.result);
-  const stale = view.labels.filter(
-    (l) => l.startsWith("outcome:") && l !== wanted
-  );
-  const add = view.labels.includes(wanted) ? [] : [wanted];
-  if (add.length > 0 || stale.length > 0) {
-    await gh([
-      "issue",
-      "edit",
-      target.number,
-      ...at,
-      ...add.flatMap((l) => ["--add-label", l]),
-      ...stale.flatMap((l) => ["--remove-label", l])
-    ]);
-    published.labelled = true;
   }
   if (view.open) {
     await gh(["issue", "close", target.number, ...at]);
@@ -2687,6 +2695,7 @@ async function finish(ctx, record3, result, target) {
     ...followUp === void 0 ? [] : [`Follow-up idea: ${followUp}`]
   ].join("\n\n");
   const published = await publishOutcome(ctx.runner, ctx.root, target, {
+    idea: record3.number,
     result,
     marker: markerFor(record3),
     comment: `${comment}
@@ -2807,7 +2816,7 @@ async function conclusion(context, verb) {
     });
     if (!event.ok) {
       throw new IdeaError(
-        `The outcome was published, but its ledger event was rejected: ${event.message}`
+        `The outcome was published, but its ledger event was rejected: ${event.message} Fix the ledger, then rerun \`harness outcome close --idea ${done.idea}\` to record the event.`
       );
     }
   }

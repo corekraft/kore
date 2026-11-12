@@ -50,6 +50,30 @@ describe("harness outcome record failing on gh", () => {
   });
 });
 
+describe("harness outcome with a missing label", () => {
+  it("names the missing label and the command that creates it, not an auth hint", async () => {
+    const { h, issue } = await linked();
+    const good = h.runner.run.bind(h.runner);
+    h.runner.run = (command, args, options) =>
+      command === "gh" && args[1] === "edit"
+        ? Promise.resolve({
+            stdout: "",
+            stderr: "failed to update: 'outcome:confirmed' not found",
+            code: 1,
+          })
+        : good(command, args, options);
+    expect(await run(record(), h.deps)).toBe(1);
+    expect(h.err()).toContain('The label "outcome:confirmed" does not exist');
+    expect(h.err()).toContain(
+      "gh label create outcome:confirmed --repo corekraft/kore",
+    );
+    expect(h.err()).toMatch(/harness outcome close --idea 0001/);
+    expect(h.err()).not.toMatch(/auth status/);
+    expect(issue.state).toBe("OPEN");
+    expect(issue.comments).toHaveLength(0);
+  });
+});
+
 describe("harness outcome close refusals", () => {
   it("refuses an outcome line the tool did not write, naming how to redo it", async () => {
     const { h } = await linked();

@@ -96,7 +96,7 @@ async function conclusion(context: CommandContext, verb: "record" | "close") {
     });
     if (!event.ok) {
       throw new IdeaError(
-        `The outcome was published, but its ledger event was rejected: ${event.message}`,
+        `The outcome was published, but its ledger event was rejected: ${event.message} Fix the ledger, then rerun \`harness outcome close --idea ${done.idea}\` to record the event.`,
       );
     }
   }

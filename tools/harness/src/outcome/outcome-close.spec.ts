@@ -46,13 +46,6 @@ describe("harness outcome close", () => {
     const lines = (h.get(".kore/state/ledger.jsonl") ?? "").trim().split("\n");
     expect(lines).toHaveLength(1);
   });
-
-  it("never closes through a hand-written outcome field it did not record", async () => {
-    const { h } = await linked();
-    expect(h.get(PATH)).not.toMatch(/^outcome:/m);
-    await run(CLOSE, h.deps);
-    expect(ghWrites(h)).toHaveLength(0);
-  });
 });
 
 describe("follow-up ideas", () => {
