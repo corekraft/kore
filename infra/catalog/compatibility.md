@@ -125,7 +125,16 @@ minimum, so conformance against 1.7.0 is proven by the install ticket. Istio
 grants RBAC to read Istio `ServiceEntry` and `WorkloadEntry`; `istio.autoEnabled`
 stays false, so no Gateway joins the mesh unless it opts in through
 `AgentgatewayParameters`. Istio keeps ztunnel for identity and mTLS. k3d and
-Kubernetes 1.37 evidence is added by the agentgateway install ticket.
+Kubernetes 1.37 evidence is added by the live run of the agentgateway install
+ticket (#205); offline, the flag-on install order (`kore-gateway-api`,
+`cert-manager`, `agentgateway-crds`, `agentgateway`), the readiness wait on
+`deployment/agentgateway`, the fail-fast naming of an unready controller and a
+rerun that changes no release are proven by `RecordingRunner` specs, and the
+live evidence row is still open. Namespace treatment of `agentgateway-system`:
+enrolled in image admission by default (no `enrollmentExemptions` entry);
+`KoreContainerSecurity` covers it (no exemption); `KoreMeshEnrollment` exempts it
+until enrolled, because the controller only serves xDS to data planes that run in
+the Gateway namespace, each with an offline Gatekeeper fixture.
 
 | Image                              | Tag    | Index digest                                                              | Signature                                                                                 |
 | ---------------------------------- | ------ | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |

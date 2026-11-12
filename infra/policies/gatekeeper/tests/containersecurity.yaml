@@ -23,3 +23,4 @@ tests:
       - {name: covers-kore-registry, object: objects/cs-covered-kore-registry.yaml, assertions: [{violations: 2}]}
       - {name: covers-opa-system, object: objects/cs-covered-opa-system.yaml, assertions: [{violations: 2}]}
       - {name: covers-cosign-system, object: objects/cs-covered-cosign-system.yaml, assertions: [{violations: 2}]}
+      - {name: covers-agentgateway-system, object: objects/cs-covered-agentgateway-system.yaml, assertions: [{violations: 2}]}

@@ -10,3 +10,6 @@ tests:
       - {name: rejects-non-ambient-dataplane-mode, object: objects/mesh-wrong-mode.yaml, assertions: [{violations: 1}]}
       - {name: exempts-system-namespaces, object: objects/mesh-system.yaml, assertions: [{violations: 0}]}
       - {name: exempts-platform-owned-namespaces-until-enrolled, object: objects/mesh-platform.yaml, assertions: [{violations: 0}]}
+      # agentgateway's controller namespace is exempt only until it is enrolled: the controller serves xDS to data planes that run in the Gateway namespace. An enrolled namespace is accepted either way. Plan 13, ADR 0081.
+      - {name: exempts-agentgateway-system-until-enrolled, object: objects/mesh-agentgateway-system.yaml, assertions: [{violations: 0}]}
+      - {name: accepts-enrolled-agentgateway-system, object: objects/mesh-agentgateway-system-enrolled.yaml, assertions: [{violations: 0}]}
