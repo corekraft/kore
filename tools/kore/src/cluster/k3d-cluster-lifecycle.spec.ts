@@ -1,3 +1,6 @@
+import { mkdirSync, existsSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { expect, test } from "vitest";
 import type { Runner } from "../runtime/index.js";
 import { clusterDestroy, clusterStop } from "./cluster.js";
@@ -149,4 +152,38 @@ test("stop on a stopped or absent cluster returns without error and stops nothin
     await clusterStop(await k3dRepository(), runner);
     expect(text(calls)).toEqual(["k3d cluster list --output json"]);
   }
+});
+
+test("destroy removes only this cluster's registry trust directory under the home", async () => {
+  const home = mkdtempSync(join(tmpdir(), "kore-k3d-destroy-home-"));
+  const mine = join(home, ".kore", "k3d", "kore-local", "registry-trust");
+  const other = join(home, ".kore", "k3d", "other-cluster");
+  mkdirSync(mine, { recursive: true });
+  mkdirSync(other, { recursive: true });
+  writeFileSync(join(mine, "ca.crt"), "public");
+  const { runner } = lifecycleRunner({ running: 1 });
+  await clusterDestroy(
+    await k3dRepository(),
+    runner,
+    { yes: true, purgeData: false },
+    home,
+  );
+  expect(existsSync(join(home, ".kore", "k3d", "kore-local"))).toBe(false);
+  expect(existsSync(other)).toBe(true);
+});
+
+test("a refused destroy leaves the registry trust directory in place", async () => {
+  const home = mkdtempSync(join(tmpdir(), "kore-k3d-destroy-home-"));
+  const mine = join(home, ".kore", "k3d", "kore-local", "registry-trust");
+  mkdirSync(mine, { recursive: true });
+  const { runner } = lifecycleRunner({ running: 1 });
+  await expect(
+    clusterDestroy(
+      await k3dRepository(),
+      runner,
+      { yes: false, purgeData: false },
+      home,
+    ),
+  ).rejects.toThrow();
+  expect(existsSync(mine)).toBe(true);
 });
