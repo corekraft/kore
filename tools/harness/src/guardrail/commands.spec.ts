@@ -28,6 +28,7 @@ describe("guardrail status", () => {
         mode: expect.stringMatching(/^(audit|enforce)$/),
         owner: expect.any(String),
         ...(g.deny === undefined ? {} : { deny: expect.any(Array) }),
+        ...(g.note === undefined ? {} : { note: expect.any(String) }),
       });
     }
   });

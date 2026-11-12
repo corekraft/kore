@@ -25,6 +25,28 @@ describe("guardrail inventory parsing", () => {
     expect(inventory.guardrails[0]).toEqual(entry());
   });
 
+  it("accepts a ruleset kind and a note saying why a rule has its mode", () => {
+    const inventory = parseInventory(
+      text(entry({ kind: "ruleset", note: "Starts in enforce: live today." })),
+    );
+    expect(inventory.guardrails[0]).toMatchObject({
+      kind: "ruleset",
+      note: "Starts in enforce: live today.",
+    });
+  });
+
+  it("rejects a blank note", () => {
+    expect(() => parseInventory(text(entry({ note: " " })))).toThrow(/note/);
+  });
+
+  it("rejects a deny list on a ruleset rule", () => {
+    expect(() =>
+      parseInventory(
+        text(entry({ kind: "ruleset", deny: ["Bash(helm uninstall:*)"] })),
+      ),
+    ).toThrow(/does not fit its kind/);
+  });
+
   it.each([
     ["not JSON", "guardrails: [", /JSON-compatible/],
     ["not an object", "[]", /guardrails/],
@@ -83,8 +105,11 @@ describe("the committed inventory", () => {
       ...source.matchAll(/\b(?:block|warn)\(\s*"([a-z0-9-]+)"/g),
     ].map((m) => m[1] ?? "");
     const byName = (a: string, b: string) => a.localeCompare(b);
-    // A deny rule's code is a Claude Code permission rule or the guard's generic matcher, not a block() call.
-    const coded = inventory.guardrails.filter((g) => g.deny === undefined);
+    // A deny rule's code is a Claude Code permission rule or the guard's generic matcher, and the
+    // ruleset's is `harness ruleset sync`; neither is a block() call.
+    const coded = inventory.guardrails.filter(
+      (g) => g.deny === undefined && g.kind !== "ruleset",
+    );
     expect(coded.map((g) => g.rule).sort(byName)).toEqual(
       [...new Set(named)].sort(byName),
     );

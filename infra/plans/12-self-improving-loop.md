@@ -61,7 +61,9 @@ weaken its own guardrails
 ### Work
 
 - [ ] Give every guardrail an audit mode: guard hooks, deny rules, the judge's
-      checklist, the merge tool and the `main` ruleset.
+      checklist, the merge tool and the `main` ruleset. (Done for the `main`
+      ruleset: `main` stays active and an audit rule syncs into a `main-candidate`
+      ruleset in `evaluate`, ADR 0090; deny rules, ADR 0080 and #299.)
 - [ ] Land changed guardrails in audit mode.
 - [ ] Ask a person to approve enforcing each one, presenting the idea and its
       outcome summarized.

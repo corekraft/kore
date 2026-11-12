@@ -99,7 +99,12 @@ guardrail inventory (`.claude/guardrails.yaml`) lists each guard rule with its
 kind, mode (`audit` warns and records a ledger event; `enforce` blocks) and
 owner. A deny rule is a guardrail too: its permission patterns are generated
 into the settings deny list when it enforces, and the guard warns on a match
-when it audits, since a settings deny cannot warn.
+when it audits, since a settings deny cannot warn. The `main` ruleset is a
+guardrail too, one inventory entry per rule (`main-ruleset-<rule>`): `main`
+stays active, an audit rule syncs into the `main-candidate` ruleset in GitHub's
+`evaluate` enforcement, and promoting it moves it into `main`
+(`harness ruleset sync`, ADR 0090). `harness ruleset insights` summarizes what
+the candidate would have blocked.
 _Avoid_: Check, policy
 
 **Toil**:

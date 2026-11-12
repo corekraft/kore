@@ -7,6 +7,7 @@ import {
   checkGuardrailDemotion,
   checkSettingsDenyRemoval,
 } from "./guard-guardrails.js";
+import { RULESET_FILE, checkRulesetWeakening } from "./guard-ruleset.js";
 import { appendOnlyWarn, isAppendOnly } from "./guard-append-only.js";
 import {
   SECRET_PATH,
@@ -56,6 +57,8 @@ async function before(
 }
 
 const GUARDED_FILES = [INVENTORY_PATH, ".claude/settings.json"];
+const guardedFile = (relative: string): boolean =>
+  GUARDED_FILES.includes(relative) || RULESET_FILE.test(relative);
 
 /**
  * A guarded file's text on disk and as the change would leave it: the content of
@@ -69,7 +72,7 @@ async function guardedChange(
   relative: string,
   ctx: GuardContext,
 ): Promise<{ previous: string; after: string }> {
-  if (!GUARDED_FILES.includes(relative)) {
+  if (!guardedFile(relative)) {
     return { previous: "", after: "" };
   }
   if (tool !== "Edit") {
@@ -259,6 +262,7 @@ async function checkWrite(
     checkImageDigest(tool, input, relative),
     checkGuardrailDemotion(relative, guarded.previous, guarded.after),
     checkSettingsDenyRemoval(relative, guarded.previous, guarded.after, ctx),
+    checkRulesetWeakening(relative, guarded.previous, guarded.after),
   ];
   return weigh(findings.map((finding) => applyMode(finding, ctx)));
 }
