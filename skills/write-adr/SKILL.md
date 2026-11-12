@@ -5,25 +5,20 @@ description: Use when choosing between two designs, changing what a plan in infr
 
 # Write an ADR
 
-## Checklist
+Write one when a choice between designs, or a change to a plan or an earlier
+decision, would otherwise be lost. Skip it for routine work the plan already
+says.
 
-1. **Number it.** List `docs/decisions/` and take the next four-digit number.
-2. **Name it.** File name `NNNN-short-kebab-title.md`.
-3. **Start with frontmatter.** Flat, JSON-compatible YAML, scalar strings only:
+1. **Create it:** `node skills/bin/harness.mjs adr new --title <t> --summary <one sentence> --status <proposed|accepted> --source <plan path>#<heading-slug> [--refines "ADR NNNN"] [--json]`.
+   It picks the number, writes the frontmatter and body skeleton, and adds the
+   `docs/index.md` entry. `accepted` means already implemented or agreed.
+2. **Fill in** Context, Decision and Consequences. Say why the decision changed
+   when it refines an earlier one. State the decision and its consequences, not
+   the implementation. Keep it short.
+3. **Replace an ADR:** `node skills/bin/harness.mjs adr supersede --old <N> --new <M> [--dry-run] [--json]`.
+   It marks the old one `superseded` and links the replacement.
+4. **Point, don't copy.** In the plan, replace prose that only restates the
+   decision with a one-line link to the ADR. Keep work items, exit criteria and
+   headings.
 
-   ```yaml
-   ---
-   status: accepted
-   summary: One sentence saying what this ADR decides.
-   date: 2026-11-07
-   last-verified: 2026-11-07
-   ---
-   ```
-
-   `status` is `proposed`, `accepted` (already implemented or agreed), or `superseded`. A superseded ADR adds `superseded-by:` with the replacing ADR's path from the repository root. Don't add `Status` or `Date` bullets.
-
-4. **Copy the body** of `docs/decisions/0001-kore-typescript-cli.md`: title `# ADR NNNN: <decision>`, a `Source:` line linking the plan section it came from (with its `#anchor`), then Context, Decision, Consequences.
-5. **Link what it refines.** Add a `Refines:` line naming the earlier ADR or plan step it changes, and say why in Context. When it replaces an ADR, set that ADR to `superseded` with `superseded-by:`.
-6. **Point, don't copy.** In the plan, replace prose that only restates the decision with a one-line link to the ADR. Keep work items, exit criteria, and headings.
-7. **Index it.** Add a one-line entry to `docs/index.md`.
-8. **Keep it short.** State the decision and its consequences, not the implementation.
+Format details and refusals: [reference.md](reference.md).
