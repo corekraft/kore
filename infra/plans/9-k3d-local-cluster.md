@@ -112,6 +112,10 @@ in unit specs and nowhere else until the code is removed.
       the guard and its tests.
       Progress: the guard, deny rule and eval cases now also block
       `k3d cluster delete` (#133); the `minikube delete` rule stays until #157.
+- [x] Remove the `minikube` provider value from the types, schema and validator,
+      and the Minikube paths from the cluster, local and doctor code.
+      Progress: done in #152; a `minikube` provider is now rejected with a
+      message pointing at k3d. The pin, README, guides and guard stay to #157.
 - [ ] Remove Minikube from `.mise.toml`, the README, the guides and ADR
       references that describe current behaviour.
 

@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "vitest";
 import { loadRepository, validateRepository } from "./config.js";
-import { loadMinikubeLocal } from "./minikube-local.fixtures.js";
-import { minikubeCluster } from "./minikube-cluster.js";
+import { loadManagedLocal } from "./managed-local.fixtures.js";
+import { managedCluster } from "./managed-cluster.js";
 import type { Environment } from "./types.js";
 
 const k3d = {
@@ -15,10 +15,9 @@ const k3d = {
 async function k3dMessage(
   mutate: (environment: Record<string, unknown>) => Record<string, unknown>,
 ): Promise<string> {
-  const base = await loadMinikubeLocal();
-  const { cluster: _cluster, ...rest } = base.environment;
+  const base = await loadRepository("local");
   const environment = mutate({
-    ...rest,
+    ...base.environment,
     provider: "k3d",
     kubeContext: "k3d-kore-local",
     k3d,
@@ -47,29 +46,20 @@ test("a k3d overlay may set one server and agents explicitly", async () => {
   );
 });
 
-test("a minikube overlay keeps validating beside k3d", async () => {
-  const base = await loadMinikubeLocal();
-  await validateRepository({
-    ...base,
-    seeds: { seeds: [] },
-    approved: { images: [] },
-  });
-});
-
 test("a k3d overlay without the k3d block fails and names the missing block", async () => {
   const message = await k3dMessage(({ k3d: _k3d, ...e }) => e);
   assert.match(message, /environment\.k3d is required when provider is k3d/);
 });
 
-test("a k3d overlay rejects a Minikube-only cluster block and says to remove it", async () => {
-  const base = await loadMinikubeLocal();
+test("a k3d overlay rejects a managed-only cluster block and says to remove it", async () => {
+  const base = await loadManagedLocal();
   const message = await k3dMessage((e) => ({
     ...e,
     cluster: base.environment.cluster,
   }));
   assert.match(
     message,
-    /environment\.cluster is Minikube-only; remove it and use environment\.k3d for provider k3d/,
+    /environment\.cluster is only valid for provider managed; remove it and use environment\.k3d for provider k3d/,
   );
 });
 
@@ -151,7 +141,7 @@ test("a k3d overlay's registry address must lie inside k3d.serviceCidr", async (
 });
 
 test("a k3d overlay without a pinned k3s image fails before any cluster is touched", async () => {
-  const base = await loadMinikubeLocal();
+  const base = await loadRepository("local");
   const { k3s: _k3s, ...images } = base.versions.images;
   const { cluster: _cluster, ...rest } = base.environment;
   await assert.rejects(
@@ -183,16 +173,11 @@ test("a managed overlay still validates and rejects a k3d block", async () => {
   );
 });
 
-test("a minikube overlay rejects a k3d block", async () => {
-  const base = await loadMinikubeLocal();
-  await assert.rejects(
-    validateRepository({
-      ...base,
-      seeds: { seeds: [] },
-      approved: { images: [] },
-      environment: { ...base.environment, k3d } as unknown as Environment,
-    }),
-    /environment\.k3d is only valid when provider is k3d, not minikube/,
+test("a minikube provider is rejected and told to move to k3d", async () => {
+  const message = await k3dMessage((e) => ({ ...e, provider: "minikube" }));
+  assert.match(
+    message,
+    /environment\.provider minikube is no longer supported; set environment\.provider to k3d and add environment\.k3d \(ADR 0076\)/,
   );
 });
 
@@ -204,34 +189,26 @@ test("a bad k3d.serviceCidr is reported exactly once", async () => {
   assert.equal(message.split("serviceCidr must be").length - 1, 1);
 });
 
-test("a k3d overlay cannot reach Minikube settings and says so", async () => {
-  const base = await loadMinikubeLocal();
-  const { cluster: _cluster, ...rest } = base.environment;
+test("a k3d overlay cannot reach managed-cluster settings and says so", async () => {
+  const base = await loadManagedLocal();
   const k3dEnvironment = {
-    ...rest,
-    provider: "k3d",
-    kubeContext: "k3d-kore-local",
-    k3d,
-  } as unknown as Environment;
+    ...(await loadRepository("local")).environment,
+  } as Environment;
   assert.throws(
-    () => minikubeCluster(k3dEnvironment),
-    /environment local has no Minikube cluster settings; it is a k3d overlay/,
+    () => managedCluster(k3dEnvironment),
+    /environment local has no cluster settings; it is a k3d overlay/,
   );
-  assert.equal(minikubeCluster(base.environment).profile, "kore-local");
+  assert.equal(managedCluster(base.environment).profile, "kore-local");
 });
 
-test("the environment schema accepts k3d, managed and minikube providers", async () => {
+test("the environment schema accepts only the k3d and managed providers", async () => {
   const schema = JSON.parse(
     await readFile(
       new URL("../../../../infra/environments/schema.json", import.meta.url),
       "utf8",
     ),
   ) as { properties: { provider: { enum: string[] } } };
-  assert.deepEqual(schema.properties.provider.enum, [
-    "k3d",
-    "minikube",
-    "managed",
-  ]);
+  assert.deepEqual(schema.properties.provider.enum, ["k3d", "managed"]);
 });
 
 test("a k3d overlay whose k3d block is not an object fails with the missing-block message", async () => {

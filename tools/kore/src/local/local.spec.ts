@@ -1,4 +1,5 @@
-import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
+import { loadRepository } from "../config/index.js";
+import { loadManagedLocal } from "../config/managed-local.fixtures.js";
 import {
   copyFile,
   mkdir,
@@ -43,7 +44,7 @@ test("local image digest comes from the registry manifest response header", () =
 });
 
 test("local up starts the platform before reconciling every locked application", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   const calls: string[] = [];
 
   await localUp(repository, {} as never, {
@@ -80,7 +81,7 @@ test("local up starts the platform before reconciling every locked application",
 });
 
 test("local down preserves cluster state unless pruning is explicitly requested", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   const calls: string[] = [];
 
   await localDown(
@@ -127,11 +128,7 @@ test("local down preserves cluster state unless pruning is explicitly requested"
 });
 
 test("local lifecycle refuses managed environments", async () => {
-  const base = await loadMinikubeLocal();
-  const repository = {
-    ...base,
-    environment: { ...base.environment, provider: "managed" as const },
-  };
+  const repository = await loadManagedLocal();
   await expect(localUp(repository, {} as never)).rejects.toThrow(
     /only manage k3d environments/,
   );
@@ -141,7 +138,7 @@ test("local lifecycle refuses managed environments", async () => {
 });
 
 test("purging retained data without --prune is refused before anything is touched", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   const calls: string[] = [];
   await expect(
     localDown(
@@ -162,7 +159,7 @@ test("purging retained data without --prune is refused before anything is touche
 });
 
 async function staleKeyRepository() {
-  const base = await loadMinikubeLocal();
+  const base = await loadRepository("local");
   const root = await mkdtemp(join(tmpdir(), "kore-local-stale-key-"));
   const state = join(root, ".kore/state");
   await mkdir(state, { recursive: true });

@@ -85,13 +85,12 @@ test("cluster up on a running k3d cluster neither creates nor starts it but stil
   expect(lines.some((line) => line.includes("get --raw /readyz"))).toBe(true);
 });
 
-test("a k3d environment never issues a Minikube command or uses the current context", async () => {
+test("a k3d environment never uses the current context", async () => {
   const repository = await k3dRepository();
   for (const running of [undefined, 0, 1]) {
     const { runner, calls } = fakeRunner(running);
     await clusterUp(repository, runner, fast, testHome);
     await clusterStatus(repository, runner);
-    expect(calls.some((call) => call.command === "minikube")).toBe(false);
     for (const call of calls.filter((c) => c.command === "kubectl")) {
       expect(call.args.slice(0, 2)).toEqual(["--context", "k3d-kore-local"]);
     }

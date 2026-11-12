@@ -43,7 +43,7 @@ test("restore verifies the digest, decrypts through age with the user's identity
     c.args.includes("--single-transaction"),
   );
   assert.ok(load);
-  assert.deepEqual(load.args.slice(0, 2), ["--context", "kore-local"]);
+  assert.deepEqual(load.args.slice(0, 2), ["--context", "k3d-kore-local"]);
   assert.equal(load.options?.input, PLAINTEXT);
   assert.ok(load.args.includes("-i"));
   assert.ok(load.args.includes("ON_ERROR_STOP=1"));

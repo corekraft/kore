@@ -1,5 +1,4 @@
 import type { Repository } from "../config/index.js";
-import { minikubeCluster } from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 
 export interface ReadinessOptions {
@@ -53,9 +52,7 @@ async function nodeProblem(
 }
 
 function statusCommand({ environment }: Repository): string {
-  return environment.provider === "k3d"
-    ? `k3d cluster list ${environment.k3d?.clusterName ?? ""}`
-    : `minikube status --profile ${minikubeCluster(environment).profile}`;
+  return `k3d cluster list ${environment.k3d?.clusterName ?? ""}`;
 }
 
 /**

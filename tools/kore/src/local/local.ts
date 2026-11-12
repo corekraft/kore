@@ -42,7 +42,7 @@ export interface LocalLifecycleDependencies {
 function assertLocal(repository: Repository): void {
   if (!isLocalProvider(repository.environment)) {
     throw new Error(
-      `local lifecycle commands only manage k3d environments (or Minikube until it is retired); environment ${repository.environment.name} is ${repository.environment.provider}`,
+      `local lifecycle commands only manage k3d environments; environment ${repository.environment.name} is ${repository.environment.provider}`,
     );
   }
 }

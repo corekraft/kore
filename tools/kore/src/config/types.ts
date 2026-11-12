@@ -97,11 +97,12 @@ export interface K3dPort {
 export interface Environment {
   $schema?: string;
   name: string;
-  provider: "k3d" | "minikube" | "managed";
+  provider: "k3d" | "managed";
   kubeContext: string;
   /**
-   * Minikube settings. Minikube-only: a k3d overlay declares `k3d` instead and
-   * validation rejects this block there. Read it through `minikubeCluster`.
+   * Cluster settings of a managed environment. A k3d overlay declares `k3d`
+   * instead and validation rejects this block there. Read it through
+   * `managedCluster`.
    */
   cluster?: {
     profile: string;
@@ -111,7 +112,7 @@ export interface Environment {
     cpus: number;
     memoryMB: number;
     diskSize: string;
-    /** Service ClusterIP range handed to Minikube; an in-cluster registry address must lie inside it. */
+    /** Service ClusterIP range of the cluster; an in-cluster registry address must lie inside it. */
     serviceCidr?: string;
   };
   /** The k3d cluster; required when provider is k3d, rejected otherwise. */

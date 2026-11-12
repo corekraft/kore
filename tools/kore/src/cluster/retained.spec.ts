@@ -1,4 +1,3 @@
-import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -6,75 +5,21 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vitest";
 import { clusterDestroy } from "./cluster.js";
+import {
+  fakeRunner,
+  k3dRepository,
+  list,
+  testHome,
+  text,
+} from "./k3d-cluster.fixtures.js";
 import { hasVerifiedExport } from "./export-manifest.js";
 import { purgeRetainedResources, retainedResources } from "./retained.js";
 
 import { CommandError } from "../runtime/index.js";
 import { RecordingRunner } from "../runtime/runner.js";
 
-function mockStdout(command: string, args: readonly string[]): string {
-  if (command === "minikube" && args[0] === "status") {
-    return '{"Host":"Running"}';
-  }
-  if (command === "kubectl" && args.includes("jsonpath={.metadata.name}")) {
-    return "kube-system";
-  }
-  return "";
-}
-
-test("retained data blocks cluster deletion", async () => {
-  const repository = await loadMinikubeLocal();
-  const runner = new RecordingRunner([
-    { stdout: "{}", stderr: "", code: 0 },
-    { stdout: "kube-system", stderr: "", code: 0 },
-    {
-      stdout: "postgresqlinstance.platform.kore.dev/reference-db\n",
-      stderr: "",
-      code: 0,
-    },
-    { stdout: "", stderr: "", code: 0 },
-  ]);
-  await assert.rejects(
-    clusterDestroy(repository, runner, { yes: true, purgeData: false }),
-    /destroy blocked by retained data/,
-  );
-  assert.equal(
-    runner.calls.some((call) => call.args.includes("delete")),
-    false,
-  );
-});
-
-test("purging retained data explicitly deletes retained claims before the profile", async () => {
-  const repository = await loadMinikubeLocal();
-  const runner = new RecordingRunner([
-    { stdout: "{}", stderr: "", code: 0 },
-    { stdout: "kube-system", stderr: "", code: 0 },
-    {
-      stdout: "postgresqlinstance.platform.kore.dev/reference-db\n",
-      stderr: "",
-      code: 0,
-    },
-    { stdout: "persistentvolumeclaim/reference-db-1\n", stderr: "", code: 0 },
-  ]);
-
-  await clusterDestroy(repository, runner, { yes: true, purgeData: true });
-  const deleteCalls = runner.calls.filter(
-    ({ command, args }) => command === "kubectl" && args.includes("delete"),
-  );
-  assert.equal(deleteCalls.length, 2);
-  assert.ok(
-    deleteCalls.every(
-      ({ args }) =>
-        args.includes("--all-namespaces") &&
-        args.includes("--ignore-not-found"),
-    ),
-  );
-  assert.equal(runner.calls.at(-1)?.command, "minikube");
-  assert.equal(runner.calls.at(-1)?.args[0], "delete");
-});
-
 test("purge tolerates a PostgreSQL CRD that was never installed", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await k3dRepository();
   const calls: { command: string; args: readonly string[] }[] = [];
   const runner = {
     async run(command: string, args: readonly string[]) {
@@ -88,15 +33,11 @@ test("purge tolerates a PostgreSQL CRD that was never installed", async () => {
           'the server doesn\'t have a resource type "postgresqlinstances"',
         );
       }
-      return {
-        stdout: mockStdout(command, args),
-        stderr: "",
-        code: 0,
-      };
+      return { stdout: "", stderr: "", code: 0 };
     },
   };
 
-  await clusterDestroy(repository, runner, { yes: true, purgeData: true });
+  await purgeRetainedResources(repository, runner);
 
   assert.ok(
     calls.some(
@@ -106,13 +47,11 @@ test("purge tolerates a PostgreSQL CRD that was never installed", async () => {
         args.includes("pvc"),
     ),
   );
-  assert.equal(calls.at(-1)?.command, "minikube");
-  assert.equal(calls.at(-1)?.args[0], "delete");
 });
 
 test("verified exports allow destroying an unreachable profile without purging data", async () => {
   const repository = {
-    ...(await loadMinikubeLocal()),
+    ...(await k3dRepository()),
     root: await mkdtemp(join(tmpdir(), "kore-retained-")),
   };
   const exportDirectory = join(
@@ -145,17 +84,22 @@ test("verified exports allow destroying an unreachable profile without purging d
       },
     }),
   );
-  const runner = new RecordingRunner();
+  const { runner, calls } = fakeRunner(0);
   try {
-    await clusterDestroy(repository, runner, { yes: true, purgeData: false });
+    await clusterDestroy(
+      repository,
+      runner,
+      { yes: true, purgeData: false },
+      testHome,
+    );
   } finally {
     await rm(repository.root, { recursive: true, force: true });
   }
-  assert.equal(runner.calls.at(-1)?.args[0], "delete");
+  assert.ok(text(calls).includes("k3d cluster delete kore-local"));
 });
 
 test("retained resource discovery ignores unavailable APIs, trims, deduplicates, and sorts", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await k3dRepository();
   let query = 0;
   const runner = {
     async run() {
@@ -185,7 +129,7 @@ test("retained resource discovery ignores unavailable APIs, trims, deduplicates,
 });
 
 test("a missing PostgreSQL CRD counts as no retained data", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await k3dRepository();
   let query = 0;
   const runner = {
     async run() {
@@ -208,7 +152,7 @@ test("an unreachable cluster blocks destroy instead of counting as no retained d
   // An isolated root: a real export under the repository's .kore/ would
   // legitimately unblock destroy and hide what this test protects.
   const repository = {
-    ...(await loadMinikubeLocal()),
+    ...(await k3dRepository()),
     root: await mkdtemp(join(tmpdir(), "kore-retained-")),
   };
   try {
@@ -216,6 +160,9 @@ test("an unreachable cluster blocks destroy instead of counting as no retained d
       calls: [] as string[][],
       async run(command: string, args: readonly string[]) {
         this.calls.push([command, ...args]);
+        if (command === "k3d" && args[1] === "list") {
+          return { stdout: list(1), stderr: "", code: 0 };
+        }
         if (command === "kubectl" && args.includes("get")) {
           throw new CommandError(command, args, {
             stdout: "",
@@ -246,7 +193,7 @@ test("an unreachable cluster blocks destroy instead of counting as no retained d
 
 test("export verification rejects malformed or mismatched manifests", async () => {
   const repository = {
-    ...(await loadMinikubeLocal()),
+    ...(await k3dRepository()),
     root: await mkdtemp(join(tmpdir(), "kore-retained-")),
   };
   const exportDirectory = join(
@@ -272,7 +219,7 @@ test("export verification rejects malformed or mismatched manifests", async () =
 });
 
 test("purge never waits on a claim that a running pod still mounts", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await k3dRepository();
   const runner = new RecordingRunner([]);
 
   await purgeRetainedResources(repository, runner);

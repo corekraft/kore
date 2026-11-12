@@ -1,7 +1,7 @@
 import { totalmem, cpus } from "node:os";
 import { statfs } from "node:fs/promises";
 import type { Repository } from "../config/index.js";
-import { minikubeCluster } from "../config/index.js";
+import { managedCluster } from "../config/index.js";
 import { k3dClusterInfo } from "../cluster/index.js";
 import type { Runner } from "../runtime/index.js";
 
@@ -16,7 +16,6 @@ export interface Check {
 const commands: Record<string, readonly string[]> = {
   node: ["--version"],
   npm: ["--version"],
-  minikube: ["version", "--short"],
   k3d: ["version"],
   kubectl: ["version", "--client=true", "-o", "json"],
   helm: ["version", "--short"],
@@ -31,11 +30,8 @@ const commands: Record<string, readonly string[]> = {
 };
 const alwaysRequired = ["node", "npm", "kubectl", "helm", "docker", "cosign"];
 
-/** The cluster tool each local provider needs; the other is not checked. */
-const providerTool: Record<string, string | undefined> = {
-  k3d: "k3d",
-  minikube: "minikube",
-};
+/** The cluster tool a local provider needs; a managed environment needs none. */
+const providerTool: Record<string, string | undefined> = { k3d: "k3d" };
 const clusterTools = Object.values(providerTool) as string[];
 
 function requiredTools(repository: Repository): Set<string> {
@@ -141,7 +137,7 @@ async function containerRuntimeCheck(runner: Runner): Promise<Check> {
 
 function hostCpuCheck(repository: Repository): Check {
   const cpuCount = cpus().length;
-  const wanted = minikubeCluster(repository.environment).cpus;
+  const wanted = managedCluster(repository.environment).cpus;
   return {
     name: "host:cpu",
     status: cpuCount >= wanted ? "pass" : "fail",
@@ -152,7 +148,7 @@ function hostCpuCheck(repository: Repository): Check {
 
 function hostMemoryCheck(repository: Repository): Check {
   const memoryMB = Math.floor(totalmem() / 1024 / 1024);
-  const wanted = minikubeCluster(repository.environment).memoryMB;
+  const wanted = managedCluster(repository.environment).memoryMB;
   return {
     name: "host:memory",
     status: memoryMB >= wanted ? "pass" : "fail",
@@ -165,7 +161,7 @@ async function hostDiskCheck(repository: Repository): Promise<Check> {
   const fs = await statfs(repository.root);
   const freeGB = Math.floor(Number(fs.bavail * fs.bsize) / 1024 ** 3);
   const requestedGB = Number.parseInt(
-    minikubeCluster(repository.environment).diskSize,
+    managedCluster(repository.environment).diskSize,
     10,
   );
   return {
@@ -195,43 +191,6 @@ function credentialsCheck(repository: Repository): Check {
       ? "managed environment credentials/context are not configured"
       : "managed context is configured",
   };
-}
-
-async function minikubeProfileCheck(
-  repository: Repository,
-  runner: Runner,
-): Promise<Check> {
-  try {
-    const result = await runner.run(
-      "minikube",
-      ["profile", "list", "-o", "json"],
-      { capture: true },
-    );
-    const profiles = JSON.parse(result.stdout) as {
-      valid?: { Name?: string; Config?: { Name?: string } }[];
-    };
-    const conflicting = (profiles.valid ?? []).filter(
-      (profile) =>
-        (profile.Name ?? profile.Config?.Name) ===
-        minikubeCluster(repository.environment).profile,
-    );
-    const unambiguous = conflicting.length <= 1;
-    return {
-      name: "minikube-profile",
-      status: unambiguous ? "pass" : "fail",
-      required: true,
-      message: unambiguous
-        ? "profile name is unambiguous"
-        : "multiple matching profiles found",
-    };
-  } catch {
-    return {
-      name: "minikube-profile",
-      status: "warn",
-      required: false,
-      message: "profile list unavailable; no running profile may exist",
-    };
-  }
 }
 
 async function k3dClusterCheck(
@@ -264,8 +223,8 @@ async function k3dClusterCheck(
 
 /**
  * Read-only: every probe is a version or list call, run before anything
- * mutates. A k3d overlay checks k3d, docker and the cluster; the Minikube
- * sizing and profile checks apply only where those settings exist.
+ * mutates. A k3d overlay checks k3d, docker and the cluster; the host sizing
+ * checks apply only to a managed environment, which declares its sizing.
  */
 export async function doctor(
   repository: Repository,
@@ -283,9 +242,7 @@ export async function doctor(
           await hostDiskCheck(repository),
         ]),
     credentialsCheck(repository),
-    k3d
-      ? await k3dClusterCheck(repository, runner)
-      : await minikubeProfileCheck(repository, runner),
+    ...(k3d ? [await k3dClusterCheck(repository, runner)] : []),
   ];
 }
 

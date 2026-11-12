@@ -32,7 +32,7 @@ test("export streams pg_dump from the CNPG primary into age and names the config
   const kubectl = runner.calls.filter((c) => c.command === "kubectl");
   assert.ok(kubectl.length > 0);
   for (const call of kubectl) {
-    assert.deepEqual(call.args.slice(0, 2), ["--context", "kore-local"]);
+    assert.deepEqual(call.args.slice(0, 2), ["--context", "k3d-kore-local"]);
   }
   const dump = runner.calls.find((c) => c.args.includes("pg_dump"));
   assert.ok(dump);

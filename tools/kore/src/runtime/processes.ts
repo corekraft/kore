@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
-// Docs: docs/decisions/0076-k3d-replaces-minikube.md
+// Docs: docs/decisions/0085-k3d-gateway-answers-through-a-node-port.md
 
 export interface ProcessEntry {
   pid: number;
