@@ -6,3 +6,5 @@ export {
   type RunResult,
   type Runner,
 } from "./runner.js";
+export type { CliDeps, Command, CommandContext } from "./command.js";
+export { resolveRoot } from "./root.js";

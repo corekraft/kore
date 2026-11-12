@@ -1,6 +1,5 @@
-import { domains, type CliDeps, type Command } from "./domains.js";
-
-export type { CliDeps };
+import type { CliDeps, Command } from "../runtime/index.js";
+import { domains } from "./domains.js";
 
 const USAGE_ERROR = 2;
 
