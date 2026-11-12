@@ -414,8 +414,8 @@ var Supersession = class {
     };
   }
   alreadySuperseded(old, next, adr) {
-    const line = frontmatterLine(adr.lines, "superseded-by");
-    const current = (adr.lines[line] ?? "").slice("superseded-by:".length).trim();
+    const line2 = frontmatterLine(adr.lines, "superseded-by");
+    const current = (adr.lines[line2] ?? "").slice("superseded-by:".length).trim();
     const chained = /(\d{4})-[^/]*\.md$/.exec(current)?.[1];
     if (chained === void 0) {
       return `ADR ${old} is already superseded; fix its superseded-by line by hand.`;
@@ -426,13 +426,13 @@ var Supersession = class {
     return (adr.lines[adr.statusLine] ?? "").slice("status:".length).trim();
   }
   async find(number, replacement) {
-    const matches = (await this.fs.readdir(this.abs(DECISIONS))).filter((f) => new RegExp(`^${number}-.+\\.md$`).test(f)).sort();
-    if (matches.length > 1) {
+    const matches2 = (await this.fs.readdir(this.abs(DECISIONS))).filter((f) => new RegExp(`^${number}-.+\\.md$`).test(f)).sort();
+    if (matches2.length > 1) {
       throw new AdrError(
-        `ADR ${number} matches more than one file: ${matches.map((f) => `${DECISIONS}/${f}`).join(", ")}; renumber one so each ADR number is unique, then retry.`
+        `ADR ${number} matches more than one file: ${matches2.map((f) => `${DECISIONS}/${f}`).join(", ")}; renumber one so each ADR number is unique, then retry.`
       );
     }
-    const file = matches[0];
+    const file = matches2[0];
     if (file === void 0) {
       throw new AdrError(
         `ADR ${number} does not exist; ${replacement ? "create it first with `harness adr new`" : "check the number against docs/decisions/"}.`
