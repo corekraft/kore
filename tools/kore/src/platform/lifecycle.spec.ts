@@ -33,3 +33,36 @@ test("platform destroy terminates the tunnel and registry forward before destroy
     "cluster-destroy",
   ]);
 });
+
+async function k3dRepository() {
+  const base = await loadRepository("local");
+  const { cluster: _cluster, ...environment } = base.environment;
+  return {
+    ...base,
+    environment: {
+      ...environment,
+      provider: "k3d" as const,
+      kubeContext: "k3d-kore-local",
+      k3d: {
+        clusterName: "kore-local",
+        serviceCidr: "10.96.0.0/12",
+        ports: [{ hostPort: 8443, loadBalancerPort: 443 }],
+      },
+    },
+  };
+}
+
+test("platform stop ends the registry forward on k3d, which has no tunnel", async () => {
+  stops.calls.length = 0;
+  await platformStop(await k3dRepository(), new RecordingRunner());
+  expect(stops.calls).toEqual(["registry-forward", "cluster-stop"]);
+});
+
+test("platform destroy ends the registry forward on k3d before destroying", async () => {
+  stops.calls.length = 0;
+  await platformDestroy(await k3dRepository(), new RecordingRunner(), {
+    yes: true,
+    purgeData: false,
+  });
+  expect(stops.calls).toEqual(["registry-forward", "cluster-destroy"]);
+});

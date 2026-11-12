@@ -22,6 +22,8 @@ export {
   imageDigestFromRegistryHead,
   k3dImageImportArgs,
   localDockerBuildArgs,
+  k3dImagePublishArgs,
+  k3dRegistrySessionArgs,
   localSignArgs,
   minikubeImageLoadArgs,
   minikubeImagePublishArgs,
@@ -108,7 +110,7 @@ async function buildAndSign(
     runner,
     entry,
     imageTag,
-    session.credential,
+    session,
   );
   const digest = await publishedDigest(repositoryPath, session.client);
   const image: LockedImage = {
