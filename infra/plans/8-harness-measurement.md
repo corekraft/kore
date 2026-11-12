@@ -72,8 +72,8 @@ and uses it first to measure the delivery loop. Terms follow
 
 ### Exit Criteria
 
-- A spawned pane that runs one task leaves a start, a tool sequence, a wait,
-  and a close in the ledger, each timestamped.
+- [x] A spawned pane that runs one task leaves a start, a tool sequence, a
+      wait, and a close in the ledger, each timestamped.
 
 ## Step 4: Flow Report and Bottleneck
 
