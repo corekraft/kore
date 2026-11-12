@@ -614,7 +614,9 @@ function runFlagAudit(root) {
     );
     return "";
   } catch (error) {
-    return String(error?.stderr || error?.message || error).trim();
+    // Exit 1 is the audit's own report; any other failure means it could not run.
+    if (error?.status === 1 && error.stderr) return String(error.stderr).trim();
+    return `flag audit could not run (${error?.message ?? error}); run \`mise run harness-build\``;
   }
 }
 

@@ -430,8 +430,8 @@ function checkFlagOn(tool, input, relative, ctx) {
   else {
     try {
       before = ctx.readFile(`${ctx.root}/${relative}`);
-    } catch {
-      before = "";
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
     }
   }
   const after =

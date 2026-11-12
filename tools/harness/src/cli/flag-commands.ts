@@ -57,13 +57,12 @@ async function recordActivation(
   });
   if (!event.ok) {
     throw new FlagError(
-      `${flag} is on in ${environment}, but its ledger event was rejected: ${event.message} Fix the ledger and record it with \`harness ledger record --source claude --kind flag.activated --label ${flag}@${environment}\`.`,
+      `${flag} is on in ${environment}, but its ledger event was rejected: ${event.message} Fix the ledger, then rerun \`harness flag activate ${flag} --environment ${environment}\` to record it.`,
     );
   }
 }
 
-async function activateFlag(context: CommandContext): Promise<number> {
-  const { deps, json } = context;
+function activationTarget(context: CommandContext) {
   const flag = context.operand;
   if (flag === undefined) {
     throw new FlagError(
@@ -76,20 +75,18 @@ async function activateFlag(context: CommandContext): Promise<number> {
       "Missing --environment; run `harness flag activate <flag> --environment <env>`.",
     );
   }
+  return { flag, environment };
+}
+
+async function activateFlag(context: CommandContext): Promise<number> {
+  const { deps, json } = context;
+  const { flag, environment } = activationTarget(context);
   const base = await root(context);
   const overlay = await readOverlay(deps.fs, base, environment);
   if (!Object.hasOwn(overlay.features, flag)) {
     throw new FlagError(
       `${overlay.path} does not declare flag "${flag}". Declared: ${Object.keys(overlay.features).join(", ") || "none"}. Declare it as false first.`,
     );
-  }
-  if (overlay.features[flag] === true) {
-    deps.stdout(
-      json
-        ? `${JSON.stringify({ flag, environment, already: true })}\n`
-        : `Flag ${flag} is already on in ${environment}; nothing changed.\n`,
-    );
-    return 0;
   }
   const proof = await findProof(
     new IdeaRepository(deps.fs, deps.clock, base),
@@ -106,8 +103,25 @@ async function activateFlag(context: CommandContext): Promise<number> {
   if ("error" in opened) {
     throw new FlagError(opened.error);
   }
-  await deps.fs.writeFile(`${base}/${overlay.path}`, withFlagOn(overlay, flag));
-  await recordActivation(opened.ledger, context, flag, environment, proof.idea);
+  const label = `${flag}@${environment}`;
+  const logged = await opened.ledger.list({ kind: "flag.activated" });
+  const recorded = logged.events.some((e) => e.label === label);
+  if (overlay.features[flag] !== true) {
+    await deps.fs.writeFile(
+      `${base}/${overlay.path}`,
+      withFlagOn(overlay, flag),
+    );
+  }
+  // A rerun repairs an activation whose event was rejected, and records nothing twice.
+  if (!recorded) {
+    await recordActivation(
+      opened.ledger,
+      context,
+      flag,
+      environment,
+      proof.idea,
+    );
+  }
   deps.stdout(
     json
       ? `${JSON.stringify({ flag, environment, idea: proof.idea, proof: proof.path })}\n`

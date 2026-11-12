@@ -1,4 +1,4 @@
-import { harness, INDEX } from "../testing/records-support.js";
+import { harness, INDEX } from "./records-support.js";
 
 export const LEDGER = "/repo/.kore/state/ledger.jsonl";
 export const OVERLAY = "infra/environments/local/environment.yaml";

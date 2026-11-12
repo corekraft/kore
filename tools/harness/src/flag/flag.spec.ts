@@ -8,7 +8,7 @@ import {
   overlay,
   provenIdea,
   repository,
-} from "./flag-support.js";
+} from "../testing/flag-support.js";
 
 const events = (h: ReturnType<typeof harness>) =>
   (h.get(".kore/state/ledger.jsonl") ?? "")
@@ -71,14 +71,37 @@ describe("harness flag activate", () => {
     );
   });
 
-  it("is idempotent: a flag already on reports so and records nothing again", async () => {
+  it("refuses a flag already on by hand with no proof, instead of calling it fine", async () => {
+    const h = repository({
+      [OVERLAY]: overlay({ "ingress-agentgateway": true }),
+    });
+    expect(await run(activate(), h.deps)).toBe(1);
+    expect(h.err()).toMatch(/no verification outcome/i);
+  });
+
+  it("is idempotent: a flag already on records its event once and never twice", async () => {
     const h = repository({
       "docs/ideas/0001-proof.md": provenIdea(),
       [OVERLAY]: overlay({ "ingress-agentgateway": true }),
     });
     expect(await run(activate(), h.deps)).toBe(0);
-    expect(h.out()).toMatch(/already on/);
-    expect(events(h)).toHaveLength(0);
+    expect(await run(activate(), h.deps)).toBe(0);
+    expect(events(h)).toHaveLength(1);
+  });
+});
+
+describe("harness flag activate reruns", () => {
+  it("repairs a missing event on rerun when the overlay was already written", async () => {
+    const h = repository({ "docs/ideas/0001-proof.md": provenIdea() });
+    const before = h.fs.appendFile.bind(h.fs);
+    h.fs.appendFile = () => Promise.reject(new Error("disk full"));
+    await expect(run(activate(), h.deps)).rejects.toThrow("disk full");
+    expect(
+      JSON.parse(h.get(OVERLAY) ?? "").features["ingress-agentgateway"],
+    ).toBe(true);
+    h.fs.appendFile = before;
+    expect(await run(activate(), h.deps)).toBe(0);
+    expect(events(h)).toHaveLength(1);
   });
 });
 
