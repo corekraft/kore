@@ -156,6 +156,8 @@ async function ledgerEvents(dir) {
   const file = join(dir, ".kore", "state", "ledger.jsonl");
   for (let i = 0; i < 100 && !existsSync(file); i++)
     await new Promise((r) => setTimeout(r, 50));
+  // Let any further detached recorders finish, so an absence assertion is real.
+  await new Promise((r) => setTimeout(r, 400));
   return existsSync(file)
     ? readFileSync(file, "utf8")
         .trim()
@@ -285,4 +287,18 @@ test("the read tool on a tracked source file is not linted now that the hook see
   );
   assert.equal(result.status, 0);
   assert.equal(result.stderr, "");
+});
+
+test("the pre-tool guard still allows tools it has no rule for, now that it sees every tool", (t) => {
+  const dir = project(t);
+  for (const tool_name of ["Task", "WebFetch", "mcp__x__y"]) {
+    const result = runHook(
+      "guard.mjs",
+      [],
+      { session_id: "s1", tool_name, tool_input: { url: "x" } },
+      dir,
+    );
+    assert.equal(result.status, 0, tool_name);
+    assert.equal(result.stdout, "", tool_name);
+  }
 });
