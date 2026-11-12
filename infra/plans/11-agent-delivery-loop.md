@@ -26,10 +26,10 @@ effect against the plan 8 baseline.
 
 ### Work
 
-- [ ] Add `idea` and `outcome` domains: create `docs/ideas/NNNN-slug.md`, list
+- [x] Add `idea` and `outcome` domains: create `docs/ideas/NNNN-slug.md`, list
       it in `docs/index.md`, and sync it one way to a GitHub issue
       ([ADR 0079](../../docs/decisions/0079-idea-and-outcome-records.md)).
-- [ ] Record an outcome from its source (live run, journal, eval history,
+- [x] Record an outcome from its source (live run, journal, eval history,
       experiment comparison) into the markdown and post it to the issue with
       its `outcome:*` label.
 - [x] Teach kb-check the idea frontmatter.

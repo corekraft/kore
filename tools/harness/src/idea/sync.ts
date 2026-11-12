@@ -1,5 +1,5 @@
 import type { Runner } from "../runtime/index.js";
-import { IdeaError, type IdeaRecord } from "./record.js";
+import { IdeaError, withoutOutcome, type IdeaRecord } from "./record.js";
 
 export type SyncAction = "created" | "updated" | "unchanged";
 
@@ -12,9 +12,9 @@ export interface SyncResult {
 const NOT_FOUND = /could not resolve to an issue|issue .*not found|no issue/i;
 const ISSUE_URL = /https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/issues\/(\d+)/;
 
-/** Everything in the markdown after its first heading: the author's own prose. */
+/** Everything in the markdown after its first heading: the author's own prose, never the recorded outcome. */
 function prose(text: string): string {
-  const lines = text.split("\n");
+  const lines = withoutOutcome(text).split("\n");
   const at = lines.findIndex((l) => /^# Idea \d{4}: /.test(l));
   return (at === -1 ? "" : lines.slice(at + 1).join("\n")).trim();
 }
@@ -211,4 +211,29 @@ function parseView(
       `gh returned unreadable output for issue ${issue}; rerun \`harness idea sync\`.`,
     );
   }
+}
+
+/** The issue an idea is linked to, resolving the repository when the link is a bare number. */
+export async function issueTarget(
+  runner: Runner,
+  root: string,
+  record: IdeaRecord,
+): Promise<{ number: string; repo: string }> {
+  if (record.issue === undefined) {
+    throw new IdeaError(
+      `${record.path} has no issue; run \`harness idea sync --idea ${record.number}\` to create and link it first.`,
+    );
+  }
+  const at = locate(record.issue);
+  if (at === undefined) {
+    throw new IdeaError(
+      `${record.path} has issue "${record.issue}", which is not an issue number or link; set it to e.g. 123 or https://github.com/<owner>/<repo>/issues/123.`,
+    );
+  }
+  const gh: Gh = async (args, input) =>
+    await runner.run("gh", args, {
+      cwd: root,
+      ...(input === undefined ? {} : { input }),
+    });
+  return { number: at.number, repo: await resolveRepo(gh, at.repo) };
 }
