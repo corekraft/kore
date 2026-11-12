@@ -1,13 +1,38 @@
 import { defineConfig } from "vitest/config";
 
+const bundleFiles = [
+  "tests/bundle.spec.ts",
+  "../../.claude/hooks/harness-bundle.test.mjs",
+];
+
 export default defineConfig({
   test: {
-    include: [
-      "src/**/*.spec.ts",
-      "tests/**/*.spec.ts",
-      // The hook, status line and eval-grading cases live beside their scripts.
-      "../../.claude/hooks/*.test.mjs",
-      "../../.claude/evals/*.test.mjs",
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "unit",
+          include: [
+            "src/**/*.spec.ts",
+            "tests/**/*.spec.ts",
+            // The hook, status line and eval-grading cases live beside their scripts.
+            "../../.claude/hooks/*.test.mjs",
+            "../../.claude/evals/*.test.mjs",
+          ],
+          exclude: bundleFiles,
+          sequence: { groupOrder: 0 },
+        },
+      },
+      {
+        // These rewrite and read the committed bundle, so they never overlap.
+        extends: true,
+        test: {
+          name: "bundle",
+          include: bundleFiles,
+          fileParallelism: false,
+          sequence: { groupOrder: 1 },
+        },
+      },
     ],
     // The hook cases spawn real processes and git; node:test never timed them.
     testTimeout: 60_000,
