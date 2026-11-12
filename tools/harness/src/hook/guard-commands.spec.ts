@@ -62,8 +62,8 @@ it("destructive: non-destructive k3d operations pass", async () => {
 });
 
 it("destructive: cluster and infrastructure destruction is blocked", async () => {
-  blocked(await bash("minikube delete"), "destructive");
-  blocked(await bash("minikube delete -p kore-local"), "destructive");
+  blocked(await bash("k3d cluster delete kore-local"), "destructive");
+  blocked(await bash("k3d cluster delete --all"), "destructive");
   blocked(await bash("tofu destroy"), "destructive");
   blocked(
     await bash("kubectl delete namespace apps --context kore-local"),
@@ -88,7 +88,7 @@ it("destructive: cluster and infrastructure destruction is blocked", async () =>
 });
 
 it("destructive: non-destructive siblings pass", async () => {
-  allowed(await bash("minikube status"));
+  allowed(await bash("k3d cluster list"));
   allowed(await bash("tofu plan"));
   allowed(await bash("kubectl delete pod a --context kore-local"));
   allowed(await bash("git commit -m 'feat: add destroy guard'"));

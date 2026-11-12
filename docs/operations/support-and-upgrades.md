@@ -21,8 +21,8 @@ narrow:
 - **Upgrade from the previous tag only.** An upgrade from older than the
   previous release tag is unsupported; recreate the profile instead (export
   data first, see [registry and data recovery](registry.md#data-export-and-restore)).
-- **Kubernetes** follows the newest minor Minikube supports
-  (`cluster.kubernetesVersion` in the environment overlay). No older minor is
+- **Kubernetes** follows the k3s image pinned in
+  `infra/catalog/versions.yaml` (`images.k3s`). No older minor is
   supported.
 - **Tag cadence.** Tags come from release-please
   ([README](../../README.md#releases)); each tag's `CHANGELOG.md` entry is the
@@ -49,7 +49,7 @@ its environment and the configured kube context.
    itself is the checked-out `tools/kore`, rebuilt by each `npm run kore`.
 5. **Kubernetes.** A new `cluster.kubernetesVersion` does not change a running
    profile. **Gap:** no test proves that `kore cluster up` upgrades an existing
-   Minikube profile's Kubernetes version; the supported path is `kore local down
+   k3d profile's Kubernetes version; the supported path is `kore local down
 --prune` (with `--purge-data` only after a verified export) and a fresh
    `kore local up`.
 6. **CRDs and controllers, then charts.** `kore platform up --environment

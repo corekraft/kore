@@ -21,7 +21,7 @@ describe("a guardrail in audit mode", () => {
 
   it("turns a rule that blocks today into a warning, with its event, when set to audit", async () => {
     const result = await guard(
-      bash("minikube delete"),
+      bash("k3d cluster delete kore-local"),
       modes({ destructive: "audit" }),
     );
     expect(result.code).toBe(0);
@@ -34,7 +34,7 @@ describe("a guardrail in audit mode", () => {
 
   it("lets a block in a later segment win over a demoted one", async () => {
     const result = await guard(
-      bash("minikube delete; git commit --no-verify -m x"),
+      bash("k3d cluster delete kore-local; git commit --no-verify -m x"),
       modes({ destructive: "audit" }),
     );
     expect(result.code).toBe(2);
@@ -82,7 +82,10 @@ describe("a guardrail in enforce mode", () => {
   });
 
   it("records no audit event when a rule blocks as declared", async () => {
-    const result = await guard(bash("minikube delete"), committedInventoryText);
+    const result = await guard(
+      bash("k3d cluster delete kore-local"),
+      committedInventoryText,
+    );
     expect(result.code).toBe(2);
     expect(auditEvents(result.events)).toEqual([]);
   });

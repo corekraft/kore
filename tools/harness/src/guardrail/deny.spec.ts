@@ -18,7 +18,6 @@ const inventory = (...rules: unknown[]) =>
 
 // Today's deny list, written out so a regeneration cannot quietly change it.
 const TODAY = [
-  "Bash(minikube delete:*)",
   "Bash(k3d cluster delete:*)",
   "Bash(k3d * cluster delete*)",
   "Bash(k3d cluster * delete*)",
@@ -127,9 +126,8 @@ describe("hand-editing the generated list", () => {
 
 describe("matching a deny pattern", () => {
   it.each([
-    ["Bash(minikube delete:*)", "Bash", "minikube delete", true],
-    ["Bash(minikube delete:*)", "Bash", "minikube delete -p x", true],
-    ["Bash(minikube delete:*)", "Bash", "minikube deletex", false],
+    ["Bash(k3d cluster delete:*)", "Bash", "k3d cluster delete a", true],
+    ["Bash(k3d cluster delete:*)", "Bash", "k3d cluster deletex", false],
     ["Bash(k3d * cluster delete*)", "Bash", "k3d -v cluster delete a", true],
     ["Bash(kore * destroy)", "Bash", "kore local destroy", true],
     ["Bash(kore * destroy)", "Bash", "kore local destroy --yes", false],

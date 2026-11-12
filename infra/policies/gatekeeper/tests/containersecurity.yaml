@@ -8,7 +8,7 @@ tests:
       - {name: rejects-privileged-container, object: objects/cs-privileged.yaml, assertions: [{violations: 1, message: must not be privileged}]}
       - {name: rejects-missing-requests-and-probe, object: objects/cs-no-requests-no-probe.yaml, assertions: [{violations: 2}]}
       - {name: accepts-compliant-container, object: objects/cs-compliant.yaml, assertions: [{violations: 0}]}
-      # Platform namespaces hold third-party controllers whose upstream charts set no CPU request or readiness probe (and minikube's kube-proxy is privileged). Each is exempt by name; see ADR 0066.
+      # Platform namespaces hold third-party controllers whose upstream charts set no CPU request or readiness probe. Each is exempt by name; see ADR 0066.
       - {name: exempts-kube-system, object: objects/cs-exempt-kube-system.yaml, assertions: [{violations: 0}]}
       - {name: exempts-cert-manager, object: objects/cs-exempt-cert-manager.yaml, assertions: [{violations: 0}]}
       - {name: exempts-gatekeeper-system, object: objects/cs-exempt-gatekeeper-system.yaml, assertions: [{violations: 0}]}

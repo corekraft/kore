@@ -47,7 +47,7 @@ const call = (command: string) => ({
 
 describe("hook guard", () => {
   it("blocks with exit 2 and records a tool start and a failed tool end", async () => {
-    const result = await guard(call("minikube delete"));
+    const result = await guard(call("k3d cluster delete kore-local"));
     expect(result.code).toBe(2);
     expect(result.err).toMatch(/^\[guard:destructive\] .*Instead/);
     expect(result.out).toBe("");
@@ -62,7 +62,7 @@ describe("hook guard", () => {
   it("asks git for the ledger root once per run, even for a block that records twice", async () => {
     const git: (readonly string[])[] = [];
     await guard(
-      call("minikube delete"),
+      call("k3d cluster delete kore-local"),
       { CLAUDE_PROJECT_DIR: "/repo" },
       undefined,
       undefined,
@@ -138,9 +138,9 @@ describe("hook guard faults", () => {
         createFile: refuse,
       };
     };
-    const normal = await guard(call("minikube delete"));
+    const normal = await guard(call("k3d cluster delete kore-local"));
     const result = await guard(
-      call("minikube delete"),
+      call("k3d cluster delete kore-local"),
       undefined,
       undefined,
       unwritable,

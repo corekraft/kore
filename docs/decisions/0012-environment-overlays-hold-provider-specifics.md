@@ -1,6 +1,6 @@
 ---
 status: accepted
-summary: Environment overlays select implementations and hold all Minikube and provider specifics; a provider-neutral managed-example environment validates portability offline.
+summary: Environment overlays select implementations and hold all local-cluster and provider specifics; a provider-neutral managed-example environment validates portability offline.
 date: 2026-09-13
 last-verified: 2026-11-08
 ---
@@ -9,6 +9,8 @@ last-verified: 2026-11-08
 
 Source: [`infra/plans/1-initialize.md` § Environment Overlay Rules](../../infra/plans/1-initialize.md#environment-overlay-rules)
 and [`infra/plans/2-implementation.md` § Step 14](../../infra/plans/2-implementation.md#step-14-portability-and-resilience-validation)
+
+> Refined by [ADR 0076](0076-k3d-replaces-minikube.md): the local environment runs on k3d, not Minikube.
 
 ## Context
 
@@ -24,7 +26,7 @@ environment to prove that.
 - An overlay may select implementations, sizes, endpoints, issuers, storage
   classes, compositions, and platform-owned parent references. It must not fork
   an application chart or change application source.
-- Minikube commands, profiles, tunnels, mounts, and local registry bootstrap
+- k3d commands, clusters, port mappings, mounts, and local registry bootstrap
   exist only in the local environment and `kore` adapters. Cloud names,
   regions, identities, and managed-resource settings exist only in their
   OpenTofu stack and overlay.
