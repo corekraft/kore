@@ -42,10 +42,10 @@ effect against the plan 8 baseline.
 
 ### Work
 
-- [ ] Add agent definitions for concierge, orchestrator, reader, writer and
+- [x] Add agent definitions for concierge, orchestrator, reader, writer and
       judge, each with its default tier in frontmatter
       ([ADR 0078](../../docs/decisions/0078-agent-roles-run-as-herdr-panes.md)).
-- [ ] Add guard cases for every capability a role gains, before it gains it.
+- [x] Add guard cases for every capability a role gains, before it gains it.
 
 ### Exit Criteria
 

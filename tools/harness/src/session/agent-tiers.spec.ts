@@ -45,7 +45,7 @@ describe("agent definitions match the ADR 0078 tier table", () => {
     );
   });
 
-  it.each(["concierge", "reader"])(
+  it.each(["concierge", "reader", "orchestrator", "writer", "judge"])(
     "%s has a definition whose model and effort are the table's",
     (role) => {
       const markdown = definitions().get(role);
@@ -75,10 +75,31 @@ describe("agent definitions match the ADR 0078 tier table", () => {
     }
   });
 
+  it("only the writer may edit files", () => {
+    for (const role of ["concierge", "reader", "orchestrator", "judge"]) {
+      const tools = parseDefinition(definitions().get(role) ?? "").tools ?? [];
+      expect(
+        tools.filter((t) => /^(Edit|Write|NotebookEdit)$/.test(t)),
+        role,
+      ).toEqual([]);
+    }
+  });
+
   it("pins each bounded role's tools, so widening one is a reviewed change", () => {
     const tools = (role: string) =>
       parseDefinition(definitions().get(role) ?? "").tools;
     expect(tools("concierge")).toEqual(["Bash"]);
     expect(tools("reader")).toEqual(["Read", "Grep", "Glob", "Bash"]);
+    expect(tools("orchestrator")).toEqual(["Bash", "Glob", "Grep", "Read"]);
+    expect(tools("judge")).toEqual(["Bash", "Glob", "Grep", "Read"]);
+    expect(tools("writer")).toEqual([
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Skill",
+      "Write",
+    ]);
   });
 });

@@ -32,8 +32,11 @@ The delivery loop has these roles, each an agent definition under
 | Challenger   | Opus           | Attacks ideas, ADRs and plans; never code.                |
 | Orchestrator | Haiku, high    | Drives approved ideas to outcomes.                        |
 | Reader       | Haiku, low     | Reads and summarizes.                                     |
-| Writer       | Haiku          | Changes files for one piece of work, in its own worktree. |
+| Writer       | Haiku, medium  | Changes files for one piece of work, in its own worktree. |
 | Judge        | Haiku, medium  | Decides whether a change is a safe delivery.              |
+
+The writer's effort is explicit, medium, because the spawn tool reads each role's model
+and effort from its definition and refuses a role that declares neither.
 
 Every role runs in its own Herdr pane, launched as
 `claude --agent <role> --model <model> --effort <effort>`. Escalation is the
