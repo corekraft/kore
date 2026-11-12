@@ -4771,11 +4771,15 @@ var PATTERNS = [
 ];
 var FIELD = "Safety pattern:";
 var FIX2 = `Add exactly one \`${FIELD} <pattern>\` line to the PR body (see .github/pull_request_template.md), where <pattern> is one of ${PATTERNS.join(", ")}.`;
-function lines2(body, label) {
+var FIELDS2 = {
+  pattern: /^\s*Safety pattern:\s*(.*?)\s*$/i,
+  idea: /^\s*Idea:\s*(.*?)\s*$/i
+};
+function lines2(body, field3) {
   const visible = body.replace(/<!--[\s\S]*?-->/g, "");
   const found = [];
   for (const line2 of visible.split("\n")) {
-    const match = new RegExp(`^\\s*${label}\\s*(.*?)\\s*$`, "i").exec(line2);
+    const match = FIELDS2[field3].exec(line2);
     if (match?.[1] !== void 0) {
       found.push(match[1].replace(/^`|`$/g, "").trim());
     }
@@ -4784,7 +4788,7 @@ function lines2(body, label) {
 }
 var isPattern = (value) => PATTERNS.includes(value);
 function parseDeclaration(body) {
-  const declared = lines2(body, FIELD);
+  const declared = lines2(body, "pattern");
   if (declared.length !== 1) {
     return {
       ok: false,
@@ -4798,7 +4802,7 @@ function parseDeclaration(body) {
       reason: value === "" ? `The \`${FIELD}\` field is blank. ${FIX2}` : `Unknown safety pattern "${value}". ${FIX2}`
     };
   }
-  const idea = lines2(body, "Idea:")[0];
+  const idea = lines2(body, "idea")[0];
   return { ok: true, pattern: value, idea: idea === "" ? void 0 : idea };
 }
 
