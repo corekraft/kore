@@ -1,9 +1,10 @@
-import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, test, vi } from "vitest";
-import { loadRepository, type Repository } from "../config/index.js";
+import { type Repository } from "../config/index.js";
 import {
   digest,
   entry,
@@ -37,7 +38,7 @@ async function testRepository(): Promise<Repository> {
     mkdtemp(join(tmpdir(), "kore-local-image-")),
   );
   roots.push(root);
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   return { ...repository, root };
 }
 
@@ -56,7 +57,7 @@ test("build and sign generates the key pair as a Kubernetes Secret through the c
   const publicKey = join(repository.root, ".kore/state/local-signing.pub");
   expect(result).toEqual({
     image: {
-      reference: `${entry.image}@${digest}`,
+      reference: `10.96.0.50:5000/reference@${digest}`,
       digest,
       signer: "local-kore-key",
     },
@@ -83,6 +84,7 @@ test("build and sign generates the key pair as a Kubernetes Secret through the c
     "config",
     "view",
     "--minify",
+    "--raw",
     "--context",
     kubeContext,
   ]);
@@ -93,32 +95,43 @@ test("build and sign generates the key pair as a Kubernetes Secret through the c
   expect(files.filter((file) => file.includes(".kore/keys"))).toEqual([]);
 });
 
-test("cosign is pinned to the configured context through a kubeconfig that is removed afterwards", async () => {
+test("cosign is pinned to the configured context through an in-memory kubeconfig, never a file", async () => {
   const repository = await testRepository();
   const { runner, calls } = fakeRunner();
   stubRegistry(registryReference, registryHead);
+  const before = new Set(await readdir(tmpdir()));
 
   await buildAndSignLocalImage(repository, runner, "reference", entry);
 
   const generate = calls.find(({ args }) => args[0] === "generate-key-pair")!;
   const sign = calls.find(({ args }) => args[0] === "sign")!;
-  const kubeconfig = generate.options?.env?.KUBECONFIG;
-  expect(kubeconfig).toBeTruthy();
-  expect(sign.options?.env?.KUBECONFIG).toBe(kubeconfig);
-  expect(kubeconfig?.startsWith(repository.root)).toBe(false);
-  await expect(stat(kubeconfig!)).rejects.toThrow(/ENOENT/);
+  expect(generate.options?.kubeconfig).toBe(minifiedKubeconfig);
+  expect(sign.options?.kubeconfig).toBe(minifiedKubeconfig);
+  for (const call of [generate, sign]) {
+    expect(call.options?.env?.KUBECONFIG).toBeUndefined();
+    expect(JSON.stringify(call.args)).not.toContain("kubeconfig");
+  }
+  const created = (await readdir(tmpdir())).filter((name) => !before.has(name));
+  for (const name of created) {
+    for (const file of await filesUnder(join(tmpdir(), name))) {
+      expect(await readFile(file, "utf8").catch(() => "")).not.toContain(
+        minifiedKubeconfig.trim(),
+      );
+    }
+  }
 });
 
-test("build and sign refuses a kubeconfig that embeds credentials", async () => {
+test("build and sign accepts a kubeconfig that embeds credentials because it never reaches disk", async () => {
   const repository = await testRepository();
-  const { runner, calls } = fakeRunner({
-    kubeconfig: `${minifiedKubeconfig}    client-key-data: c2VjcmV0\n`,
-  });
+  const embedded = `${minifiedKubeconfig}    client-key-data: c2VjcmV0\n`;
+  const { runner, calls } = fakeRunner({ kubeconfig: embedded });
+  stubRegistry(registryReference, registryHead);
 
-  await expect(
-    buildAndSignLocalImage(repository, runner, "reference", entry),
-  ).rejects.toThrow(/embeds credentials/);
-  expect(calls.some(({ command }) => command === "cosign")).toBe(false);
+  await buildAndSignLocalImage(repository, runner, "reference", entry);
+
+  const sign = calls.find(({ args }) => args[0] === "sign")!;
+  expect(sign.options?.kubeconfig).toBe(embedded);
+  expect(JSON.stringify(sign.args)).not.toContain("c2VjcmV0");
 });
 
 test("build and sign reuses the key Secret already in the cluster", async () => {

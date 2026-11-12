@@ -115,9 +115,14 @@ test("a kore call nested in a held lock runs instead of deadlocking, and leaves 
 });
 
 test("a nested call does not inherit the lock once the holder released it", async () => {
+  // A live run exports its held token to child processes; start from none.
+  const token = (): string | undefined =>
+    process.env.KORE_HELD_ENVIRONMENT_LOCK;
+  const ambient = token();
+  delete process.env.KORE_HELD_ENVIRONMENT_LOCK;
   const root = await mkdtemp(join(tmpdir(), "kore-lock-stale-token-"));
   const held = await holdEnvironmentLock(root, "local");
-  const inherited = process.env.KORE_HELD_ENVIRONMENT_LOCK;
+  const inherited = token();
   await held.release();
   expect(process.env.KORE_HELD_ENVIRONMENT_LOCK).toBeUndefined();
 
@@ -133,7 +138,11 @@ test("a nested call does not inherit the lock once the holder released it", asyn
       }),
     ).resolves.toBe(process.pid);
   } finally {
-    delete process.env.KORE_HELD_ENVIRONMENT_LOCK;
+    if (ambient === undefined) {
+      delete process.env.KORE_HELD_ENVIRONMENT_LOCK;
+    } else {
+      process.env.KORE_HELD_ENVIRONMENT_LOCK = ambient;
+    }
   }
 });
 

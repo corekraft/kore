@@ -27,23 +27,11 @@ test("validate reports portable applications for the selected environment", asyn
   }
 });
 
-test("tunnel status is a read-only local command", async () => {
-  const output: string[] = [];
-  const write = vi
-    .spyOn(process.stdout, "write")
-    .mockImplementation((chunk) => {
-      output.push(String(chunk));
-      return true;
-    });
-  try {
-    assert.equal(
-      await main(["tunnel", "status", "--environment", "local", "--json"]),
-      0,
-    );
-    assert.match(output.join(""), /"status":\s*"(?:missing|stale|running)"/);
-  } finally {
-    write.mockRestore();
-  }
+test("tunnel status on the k3d local overlay names the load balancer, not a tunnel", async () => {
+  await assert.rejects(
+    main(["tunnel", "status", "--environment", "local", "--json"]),
+    /k3d.*load balancer.*no tunnel/is,
+  );
 });
 
 test("help prints usage without loading an environment", async () => {

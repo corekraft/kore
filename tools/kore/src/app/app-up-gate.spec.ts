@@ -1,3 +1,4 @@
+import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import { expect, test, vi } from "vitest";
 
 const localRegistryReferenceMock = vi.hoisted(() => vi.fn());
@@ -5,7 +6,7 @@ vi.mock("../images/index.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../images/index.js")>()),
   localRegistryReference: localRegistryReferenceMock,
 }));
-import { loadRepository } from "../config/index.js";
+
 import type { Runner } from "../runtime/index.js";
 import { admissionGate } from "../platform/admission-gate.js";
 import { appUp } from "./up.js";
@@ -40,7 +41,7 @@ test.each([
 ])(
   "app up refuses before touching the cluster while the gate is %s",
   async (_name, gate, message) => {
-    const repository = await loadRepository("local");
+    const repository = await loadMinikubeLocal();
     const calls: Call[] = [];
     localRegistryReferenceMock.mockImplementation(passthroughRegistry);
 
@@ -57,7 +58,7 @@ test.each([
 );
 
 test("app up activates the namespace for the open gate's generation before installing any release", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const calls: Call[] = [];
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
 
@@ -81,7 +82,7 @@ test("app up activates the namespace for the open gate's generation before insta
 });
 
 test("app up proceeds once platform up has opened the gate it left behind", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const calls: Call[] = [];
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
   // The gate as `platform up` writes it when every component is ready.

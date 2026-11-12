@@ -50,13 +50,21 @@
           },
           "helm": {
             "type": "object",
-            "required": ["forceConflicts"],
             "additionalProperties": false,
             "properties": {
               "forceConflicts": { "type": "boolean" },
+              "wait": { "const": false },
               "reason": { "type": "string", "minLength": 1 }
             },
-            "if": { "properties": { "forceConflicts": { "const": true } } },
+            "if": {
+              "anyOf": [
+                {
+                  "required": ["forceConflicts"],
+                  "properties": { "forceConflicts": { "const": true } }
+                },
+                { "required": ["wait"] }
+              ]
+            },
             "then": { "required": ["reason"] }
           }
         }

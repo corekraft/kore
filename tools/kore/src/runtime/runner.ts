@@ -6,6 +6,12 @@ export interface RunOptions {
   env?: NodeJS.ProcessEnv;
   stdin?: "inherit" | "ignore";
   input?: string;
+  /**
+   * A kubeconfig held in memory and handed to the child as `KUBECONFIG=/dev/fd/N`
+   * through a pipe, so credentials in it never reach disk. The child reads the
+   * descriptor once; it cannot be combined with `input`.
+   */
+  kubeconfig?: string;
   /** Aborting terminates the running process (SIGTERM) and rejects the run. */
   signal?: AbortSignal;
 }
@@ -34,12 +40,53 @@ export class CommandError extends Error {
   }
 }
 
+// Bash exposes the piped kubeconfig as /dev/fd/N, which stays open across exec.
+const feedKubeconfig = 'KUBECONFIG=<(cat) exec "$0" "$@"';
+
+/**
+ * Reports a failure of the bash wrapper as the caller's own command: the
+ * original command and arguments, and ENOENT when bash could not find it.
+ */
+function unwrapped(
+  error: unknown,
+  command: string,
+  args: readonly string[],
+): unknown {
+  if (!(error instanceof CommandError)) {
+    return error;
+  }
+  if (error.result.code === 127 && /not found/i.test(error.result.stderr)) {
+    return Object.assign(new Error(`spawn ${command} ENOENT`), {
+      code: "ENOENT",
+      errno: -2,
+      syscall: `spawn ${command}`,
+      path: command,
+    });
+  }
+  return new CommandError(command, args, error.result);
+}
+
 export class ProcessRunner implements Runner {
   async run(
     command: string,
     args: readonly string[],
     options: RunOptions = {},
   ): Promise<RunResult> {
+    if (options.kubeconfig !== undefined && options.input !== undefined) {
+      throw new Error("a kubeconfig and stdin input cannot be combined");
+    }
+    if (options.kubeconfig !== undefined) {
+      const { kubeconfig, ...rest } = options;
+      try {
+        return await this.run(
+          "bash",
+          ["-c", feedKubeconfig, command, ...args],
+          { ...rest, input: kubeconfig },
+        );
+      } catch (error) {
+        throw unwrapped(error, command, args);
+      }
+    }
     return await new Promise((resolve, reject) => {
       const child = spawn(command, [...args], {
         cwd: options.cwd,

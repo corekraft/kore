@@ -1,3 +1,4 @@
+import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import { expect, test, vi } from "vitest";
 import { loadRepository } from "../config/index.js";
 import { RecordingRunner } from "../runtime/runner.js";
@@ -32,7 +33,7 @@ import { bootstrapControllers } from "./bootstrap.js";
 
 test("the public signing key Secret exists once Policy Controller is installed and before configuration starts", async () => {
   events.length = 0;
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
 
   await bootstrapControllers(
     repository,
@@ -75,7 +76,7 @@ test("registry credentials exist before the registry release starts, in every en
 
 test("the registry CA reaches the clients right after the registry is issued and before Policy Controller starts", async () => {
   events.length = 0;
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
 
   await bootstrapControllers(
     repository,

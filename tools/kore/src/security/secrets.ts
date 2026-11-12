@@ -2,7 +2,7 @@ import { readdir } from "node:fs/promises";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
-import type { Repository } from "../config/index.js";
+import { isLocalProvider, type Repository } from "../config/index.js";
 import { assertExpectedCluster } from "../cluster/index.js";
 import type { Runner } from "../runtime/index.js";
 
@@ -237,9 +237,9 @@ export async function syncLocalSecrets(
       "rotating the reference API token replaces the cluster's token; rerun with --rotate --yes, then run kore local up to restart the consumers",
     );
   }
-  if (repository.environment.provider !== "minikube") {
+  if (!isLocalProvider(repository.environment)) {
     throw new Error(
-      "local SOPS synchronization is only valid for a Minikube environment",
+      "local SOPS synchronization is only valid for a local (k3d or Minikube) environment",
     );
   }
   await assertExpectedCluster(repository, runner);

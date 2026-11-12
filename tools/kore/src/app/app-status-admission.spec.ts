@@ -1,9 +1,10 @@
+import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import assert from "node:assert/strict";
 import { copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vitest";
-import { loadRepository } from "../config/index.js";
+
 import type { Runner } from "../runtime/index.js";
 import { healthyWebhookOutput } from "../platform/webhook-fixtures.js";
 import { tunnelStatePath, type TunnelDependencies } from "../tunnel/tunnel.js";
@@ -20,7 +21,7 @@ async function statusWith(
     isPortOpen: async () => true,
   },
 ): Promise<{ status: Record<string, unknown>; calls: string[] }> {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-app-status-admission-"));
   await mkdir(join(root, "infra/catalog"), { recursive: true });
   await copyFile(

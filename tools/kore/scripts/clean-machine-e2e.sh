@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Clean-machine end-to-end test: tool installation through reference
 # application verification (plan Step 13). Opt-in: it creates and destroys a
-# Minikube profile, so it never runs unless KORE_RUN_CLEAN_MACHINE=1 is set.
+# local cluster, so it never runs unless KORE_RUN_CLEAN_MACHINE=1 is set.
 #
 # Run it on a host (or CI runner) with Docker and a checkout of this
 # repository and nothing else installed:
@@ -13,7 +13,7 @@
 set -euo pipefail
 
 if [ "${KORE_RUN_CLEAN_MACHINE:-}" != "1" ]; then
-  echo "skipped: set KORE_RUN_CLEAN_MACHINE=1 to create and destroy a local Minikube profile" >&2
+  echo "skipped: set KORE_RUN_CLEAN_MACHINE=1 to create and destroy the local k3d cluster" >&2
   exit 0
 fi
 
@@ -57,9 +57,22 @@ kore local up --environment "$environment"
 
 step "platform status: every component ready, admission gate open"
 platform_json="$(kore platform status --environment "$environment" --json)"
-if grep -q '"status": "\(missing\|degraded\)"' <<<"$platform_json"; then
-  echo "platform reports a missing or degraded component" >&2
-  echo "$platform_json" >&2
+# Only platform components count: the trailing rows for the cluster as a whole
+# (namespace "cluster": capacity and backups) have their own commands, and a
+# fresh install with retained data has no export yet.
+unready="$(mise exec -- node -e '
+  let json = "";
+  process.stdin.on("data", (chunk) => { json += chunk; });
+  process.stdin.on("end", () => {
+    const rows = JSON.parse(json).filter(
+      (row) => row.namespace !== "cluster" && ["missing", "degraded"].includes(row.status),
+    );
+    process.stdout.write(rows.map((row) => `${row.name}: ${row.status}`).join("\n"));
+  });
+' <<<"$platform_json")"
+if [ -n "$unready" ]; then
+  echo "platform reports a missing or degraded component:" >&2
+  echo "$unready" >&2
   exit 1
 fi
 

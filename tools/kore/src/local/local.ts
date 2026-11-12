@@ -1,4 +1,4 @@
-import type { Repository } from "../config/index.js";
+import { isLocalProvider, type Repository } from "../config/index.js";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { appUp, type AppUpOptions } from "../app/index.js";
@@ -39,10 +39,10 @@ export interface LocalLifecycleDependencies {
   platformDestroy?: typeof platformDestroy;
 }
 
-function assertLocalMinikube(repository: Repository): void {
-  if (repository.environment.provider !== "minikube") {
+function assertLocal(repository: Repository): void {
+  if (!isLocalProvider(repository.environment)) {
     throw new Error(
-      "local lifecycle commands only manage Minikube environments",
+      `local lifecycle commands only manage k3d environments (or Minikube until it is retired); environment ${repository.environment.name} is ${repository.environment.provider}`,
     );
   }
 }
@@ -52,7 +52,7 @@ export async function localUp(
   runner: Runner,
   dependencies: LocalLifecycleDependencies = {},
 ): Promise<void> {
-  assertLocalMinikube(repository);
+  assertLocal(repository);
   const lock = await loadImageLock(repository.root);
   await (dependencies.platformUp ?? platformUp)(repository, runner);
   await (dependencies.syncSecrets ?? syncLocalSecrets)(repository, runner);
@@ -108,9 +108,7 @@ export async function localDown(
   options: { prune: boolean; purgeData: boolean },
   dependencies: LocalLifecycleDependencies = {},
 ): Promise<void> {
-  if (repository.environment.provider !== "k3d") {
-    assertLocalMinikube(repository);
-  }
+  assertLocal(repository);
   if (options.purgeData && !options.prune) {
     throw new Error(
       "--purge-data requires --prune; local down only destroys the cluster with --prune",

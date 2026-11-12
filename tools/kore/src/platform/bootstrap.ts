@@ -1,5 +1,5 @@
 import type { Repository } from "../config/index.js";
-import { enabledComponents } from "../config/index.js";
+import { enabledComponents, isLocalProvider } from "../config/index.js";
 import {
   assertExpectedCluster,
   ClusterUnavailableError,
@@ -26,7 +26,7 @@ async function ensureCluster(
   repository: Repository,
   runner: Runner,
 ): Promise<void> {
-  if (repository.environment.provider !== "minikube") {
+  if (!isLocalProvider(repository.environment)) {
     await assertExpectedCluster(repository, runner);
     return;
   }
@@ -93,7 +93,7 @@ export async function bootstrapControllers(
       await ensureRegistryTrust(repository, runner);
     }
   }
-  if (repository.environment.provider === "minikube") {
+  if (isLocalProvider(repository.environment)) {
     // Policy Controller is ready; kore-image-policy (configuration phase)
     // references this public-key Secret, so it must exist first (ADR 0028).
     await ensureLocalSigningPublicKey(repository, runner);

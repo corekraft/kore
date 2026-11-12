@@ -1,9 +1,10 @@
+import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
 import { RecordingRunner } from "../runtime/runner.js";
-import { loadRepository } from "../config/index.js";
+
 import {
   startLocalTunnel,
   stopLocalTunnel,
@@ -15,7 +16,7 @@ const leader =
   "/opt/homebrew/bin/minikube tunnel --profile kore-local --cleanup=false";
 
 async function run(commands: string[]) {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const signalled: number[] = [];
   const lines: string[] = [];
   await stopOrphanedForwards(repository, {
@@ -65,7 +66,7 @@ test("other profiles' tunnels and unrelated minikube commands are untouched", as
 });
 
 test("starting clears a foreign tunnel leader before spawning a new one", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-tunnel-leader-"));
   const order: string[] = [];
   try {
@@ -90,7 +91,7 @@ test("starting clears a foreign tunnel leader before spawning a new one", async 
 });
 
 test("a tunnel that exits early surfaces the actionable error even when its group is already gone", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-tunnel-leader-"));
   try {
     const failure = startLocalTunnel(
@@ -116,7 +117,7 @@ test("a tunnel that exits early surfaces the actionable error even when its grou
 });
 
 test("stopping treats an already-gone recorded leader group as stopped", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-tunnel-leader-"));
   const repository = { ...base, root };
   await mkdir(join(root, ".kore", "state"), { recursive: true });
@@ -139,7 +140,7 @@ test("stopping treats an already-gone recorded leader group as stopped", async (
 });
 
 test("other kill failures are still raised", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-tunnel-leader-"));
   try {
     await expect(

@@ -1,4 +1,4 @@
-import type { Repository } from "../config/index.js";
+import { isLocalProvider, type Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 
 // cert-manager keeps ClusterIssuer CA Secrets in its cluster resource namespace.
@@ -7,7 +7,7 @@ const NOT_FOUND = /NotFound|not found/i;
 
 /** The actionable fix for a missing issuer, CA Secret, or issued TLS Secret. */
 export function trustRemedy(repository: Repository): string {
-  return repository.environment.provider === "minikube"
+  return isLocalProvider(repository.environment)
     ? `Run: kore trust install --environment ${repository.environment.name}`
     : "Create the ClusterIssuer and its CA Secret for this environment";
 }

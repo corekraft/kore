@@ -1,10 +1,11 @@
+import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import { describe, expect, it, vi } from "vitest";
-import { loadRepository } from "../config/index.js";
+
 import { platformUp } from "./up.js";
 
 describe("platform safety boundaries", () => {
   it("does not start Minikube when the configured context identifies another cluster", async () => {
-    const repository = await loadRepository("local");
+    const repository = await loadMinikubeLocal();
     const run = vi.fn(async (command: string, args: readonly string[]) => {
       if (command === "minikube" && args[0] === "status") {
         return { stdout: '{"Host":"Running"}', stderr: "", code: 0 };

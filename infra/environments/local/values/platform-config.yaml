@@ -3,10 +3,11 @@ gateway:
   hostname: kore.local
   port: 8443
   certificateSecret: kore-local-tls
+  service:
+    type: NodePort
+    nodePort: 30443
 issuer:
   name: kore-local-ca
 secrets:
   sourceNamespace: kore-secret-source
   storeName: platform-secrets
-storage:
-  provisioner: k8s.io/minikube-hostpath

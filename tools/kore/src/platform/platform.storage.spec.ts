@@ -1,6 +1,8 @@
 import { expect, test } from "vitest";
-import { readFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
+import { promisify } from "node:util";
 import { loadRepository } from "../config/index.js";
 
 async function documents(path: string): Promise<string[]> {
@@ -104,4 +106,74 @@ test("Tempo stores traces on a labelled claim instead of an unlabellable claim t
     ({ name }) => name === "tempo",
   );
   expect(component?.dependencies).toContain("kore-observability-config");
+});
+
+const execFileAsync = promisify(execFile);
+
+async function renderStorage(...values: string[]): Promise<string[]> {
+  const repository = await loadRepository("local");
+  const { stdout } = await execFileAsync("helm", [
+    "template",
+    "kore-storage",
+    join(repository.root, "infra/charts/platform-storage"),
+    ...values.flatMap((file) => ["--values", join(repository.root, file)]),
+  ]);
+  return stdout.split(/^---$/m).filter((doc) => doc.trim());
+}
+
+const localStorageValues =
+  "infra/environments/local/values/platform-storage.yaml";
+
+test("the local overlay renders kore-retained on the k3s local-path provisioner and keeps it after claim deletion", async () => {
+  const doc = storageClass(
+    await renderStorage(localStorageValues),
+    "kore-retained",
+  );
+
+  expect(doc).toMatch(/^provisioner: rancher\.io\/local-path$/m);
+  expect(doc).toMatch(/^reclaimPolicy: Retain$/m);
+});
+
+test("the local overlay renders kore-standard on local-path and deletes volumes with their claims", async () => {
+  const doc = storageClass(
+    await renderStorage(localStorageValues),
+    "kore-standard",
+  );
+
+  expect(doc).toMatch(/^provisioner: rancher\.io\/local-path$/m);
+  expect(doc).toMatch(/^reclaimPolicy: Delete$/m);
+});
+
+test("the chart refuses to render without an environment-chosen provisioner", async () => {
+  await expect(renderStorage()).rejects.toThrow(/storage\.provisioner/);
+});
+
+test("the local overlay values are applied to the kore-storage component", async () => {
+  const repository = await loadRepository("local");
+
+  expect(repository.environment.componentValues?.["kore-storage"]).toContain(
+    localStorageValues,
+  );
+});
+
+test("no Minikube provisioner remains in the charts or the local overlay values", async () => {
+  const { root } = await loadRepository("local");
+  const entries = [
+    ...(await readdir(join(root, "infra/charts"), {
+      recursive: true,
+      withFileTypes: true,
+    })),
+    ...(await readdir(join(root, "infra/environments/local/values"), {
+      withFileTypes: true,
+    })),
+  ].filter((entry) => entry.isFile());
+  const offenders: string[] = [];
+  for (const entry of entries) {
+    const file = join(entry.parentPath, entry.name);
+    if (/minikube-hostpath/i.test(await readFile(file, "utf8"))) {
+      offenders.push(file);
+    }
+  }
+
+  expect(offenders).toEqual([]);
 });

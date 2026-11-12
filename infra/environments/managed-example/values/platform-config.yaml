@@ -1,5 +1,5 @@
 environment: managed-example
-gateway: {hostname: REQUIRED, port: 443, certificateSecret: platform-gateway-tls}
-issuer: {name: managed-cluster-issuer}
-secrets: {sourceNamespace: external, storeName: platform-secrets}
-storage: {provisioner: managed.example/csi}
+gateway:
+  { hostname: REQUIRED, port: 443, certificateSecret: platform-gateway-tls }
+issuer: { name: managed-cluster-issuer }
+secrets: { sourceNamespace: external, storeName: platform-secrets }

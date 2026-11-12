@@ -1,3 +1,4 @@
+import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import { expect, test, vi } from "vitest";
 
 const localRegistryReferenceMock = vi.hoisted(() => vi.fn());
@@ -5,7 +6,7 @@ vi.mock("../images/index.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../images/index.js")>()),
   localRegistryReference: localRegistryReferenceMock,
 }));
-import { loadRepository } from "../config/index.js";
+
 import type { Runner } from "../runtime/index.js";
 import { httpRouteNames } from "./readiness.js";
 import { appUp } from "./up.js";
@@ -70,7 +71,7 @@ function cluster(
 }
 
 test("app up waits on each HTTPRoute the release rendered, after the rollout", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const calls: Call[] = [];
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
 
@@ -98,7 +99,7 @@ test("app up waits on each HTTPRoute the release rendered, after the rollout", a
 });
 
 test("app up fails naming the route and the unmet condition, not a bare timeout", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
   const unresolved = JSON.stringify({
     status: {
@@ -131,7 +132,7 @@ test("app up fails naming the route and the unmet condition, not a bare timeout"
 });
 
 test("an application that renders no HTTPRoute is not made to wait on one", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const calls: Call[] = [];
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
 

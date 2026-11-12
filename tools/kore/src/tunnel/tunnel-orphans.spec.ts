@@ -1,9 +1,10 @@
+import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
 import { RecordingRunner } from "../runtime/runner.js";
-import { loadRepository } from "../config/index.js";
+
 import {
   startLocalTunnel,
   stopLocalTunnel,
@@ -15,7 +16,7 @@ const key = "/Users/x/.minikube/machines/kore-local/id_rsa";
 const ours = `/usr/bin/ssh -N -o IdentitiesOnly=yes -i ${key} docker@127.0.0.1 -p 54321 -L 8443:10.96.0.9:443 -L 15021:10.96.0.9:15021`;
 
 async function run(commands: string[]) {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const signalled: number[] = [];
   const lines: string[] = [];
   await stopOrphanedForwards(repository, {
@@ -60,7 +61,7 @@ test("no orphans is a no-op", async () => {
 });
 
 test("stop terminates the orphaned forward even when the recorded leader is already dead", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-tunnel-orphan-"));
   const repository = { ...base, root };
   await mkdir(join(root, ".kore", "state"), { recursive: true });
@@ -83,7 +84,7 @@ test("stop terminates the orphaned forward even when the recorded leader is alre
 });
 
 test("starting with no recorded tunnel clears an orphan that may hold the Gateway port", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-tunnel-orphan-"));
   const repository = { ...base, root };
   const runner = new RecordingRunner([

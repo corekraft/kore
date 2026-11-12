@@ -132,9 +132,15 @@ export function k3dImagePublishArgs(
   caPem: string,
 ): string[] {
   const destination = `${registryAddress}/${repositoryPath}`;
+  const digestName = `${registryAddress}/${repositoryPath.replace(/:[^/:]+$/, "")}@`;
   return k3dRegistrySessionArgs(clusterName, registryAddress, caPem, [
     `ctr --namespace k8s.io images tag --force ${shellQuote(/^[^/]*[.:][^/]*\//.test(tag) ? tag : `docker.io/${tag}`)} ${shellQuote(destination)}`,
     `ctr --namespace k8s.io images push --hosts-dir "$d" ${shellQuote(destination)}`,
+    // CRI synthesizes a digest name only for pulled images, so a digest
+    // reference with pull policy Never needs its own name in the node.
+    `g=$(ctr --namespace k8s.io images ls "name==${destination}" | awk 'NR==2{print $3}')`,
+    `test -n "$g"`,
+    `ctr --namespace k8s.io images tag --force ${shellQuote(destination)} "${digestName}$g"`,
   ]);
 }
 

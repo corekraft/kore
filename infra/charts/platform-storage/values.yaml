@@ -1,2 +1,4 @@
+# The provisioner is chosen by the environment overlay; the chart names none so
+# it stays provider-neutral and refuses to render without one.
 storage:
-  provisioner: k8s.io/minikube-hostpath
+  provisioner: ""

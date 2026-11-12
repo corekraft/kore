@@ -31,7 +31,20 @@ function route(conditions: object[] | undefined): string {
   });
 }
 
-function cluster(routeJson: string, hasAddress = true) {
+const nodePortService = JSON.stringify({
+  items: [
+    {
+      spec: { type: "NodePort", ports: [{ port: 8443, nodePort: 30443 }] },
+      status: { loadBalancer: {} },
+    },
+  ],
+});
+
+function cluster(
+  routeJson: string,
+  hasAddress = true,
+  serviceJson: string = service,
+) {
   const calls: Call[] = [];
   const runner: Runner = {
     async run(command, args) {
@@ -41,7 +54,7 @@ function cluster(routeJson: string, hasAddress = true) {
         if (args.includes("httproute/web")) {
           stdout = routeJson;
         } else if (args.includes("service")) {
-          stdout = hasAddress ? service : JSON.stringify({ items: [] });
+          stdout = hasAddress ? serviceJson : JSON.stringify({ items: [] });
         } else if (args.includes("gateway/edge")) {
           stdout = gateway;
         }
@@ -122,4 +135,54 @@ test("a missing Gateway address stops the bootstrap before any route is read", a
     /gateway\/edge .*LoadBalancer address/s,
   );
   assert.ok(!calls.some(({ args }) => args.includes("httproute/web")));
+});
+
+test("a NodePort Gateway Service counts as published once its node port is assigned, with no LoadBalancer address", async () => {
+  const { repository, component: c } = await component();
+  const { runner } = cluster(
+    route([
+      { type: "Accepted", ...ready },
+      { type: "ResolvedRefs", ...ready },
+    ]),
+    true,
+    nodePortService,
+  );
+
+  await reconcileComponent(repository, runner, c);
+});
+
+test("a NodePort Service without an assigned node port is not published", async () => {
+  const { repository, component: c } = await component();
+  const { runner } = cluster(
+    route([]),
+    true,
+    JSON.stringify({
+      items: [{ spec: { type: "NodePort", ports: [{ port: 8443 }] } }],
+    }),
+  );
+
+  await assert.rejects(
+    reconcileComponent(repository, runner, c),
+    /gateway\/edge .*LoadBalancer address or node port/s,
+  );
+});
+
+test("a NodePort Service on a different node port than configured is not published, and both ports are reported", async () => {
+  const { repository, component: c } = await component();
+  const { runner } = cluster(
+    route([]),
+    true,
+    JSON.stringify({
+      items: [
+        {
+          spec: { type: "NodePort", ports: [{ port: 8443, nodePort: 31111 }] },
+        },
+      ],
+    }),
+  );
+
+  await assert.rejects(
+    reconcileComponent(repository, runner, c),
+    /gateway\/edge .*node port 31111.*configured node port 30443/s,
+  );
 });

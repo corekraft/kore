@@ -197,6 +197,7 @@ export async function clusterDestroy(
   repository: Repository,
   runner: Runner,
   options: { yes: boolean; purgeData: boolean },
+  home?: string,
 ): Promise<void> {
   const { provider } = repository.environment;
   if (provider !== "minikube" && provider !== "k3d") {
@@ -235,7 +236,7 @@ export async function clusterDestroy(
     await purgeRetainedResources(repository, runner);
   }
   if (provider === "k3d") {
-    return await deleteK3dCluster(repository, runner);
+    return await deleteK3dCluster(repository, runner, home);
   }
   await runner.run(
     "minikube",

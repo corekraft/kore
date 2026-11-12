@@ -1,3 +1,4 @@
+import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import assert from "node:assert/strict";
 import {
   mkdtemp,
@@ -10,7 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vitest";
-import { loadRepository } from "../config/index.js";
+
 import type { RunOptions, RunResult, Runner } from "../runtime/index.js";
 import { syncLocalSecrets } from "./secrets.js";
 
@@ -49,7 +50,7 @@ class SecretRunner implements Runner {
 }
 
 test("secret sync streams plaintext only through kubectl stdin", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-sops-secrets-"));
   const directory = join(root, "infra/environments/local/secrets");
   const fixture = join(directory, "test.enc.yaml");
@@ -75,7 +76,7 @@ test("secret sync streams plaintext only through kubectl stdin", async () => {
 });
 
 test("local secret sync generates and reuses a private API token after cluster prune", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-local-secrets-"));
   await mkdir(join(root, "infra/environments/local/secrets"), {
     recursive: true,
@@ -127,7 +128,7 @@ test("local secret sync generates and reuses a private API token after cluster p
 });
 
 test("local secret sync immediately retries an existing reference ExternalSecret", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-secret-reconcile-"));
   await mkdir(join(root, "infra/environments/local/secrets"), {
     recursive: true,
@@ -159,7 +160,7 @@ test("local secret sync immediately retries an existing reference ExternalSecret
 });
 
 test("secret sync rejects a corrupted persisted local API token", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-invalid-local-token-"));
   await mkdir(join(root, "infra/environments/local/secrets"), {
     recursive: true,
@@ -180,7 +181,7 @@ test("secret sync rejects a corrupted persisted local API token", async () => {
 });
 
 test("secret sync rejects managed environments before running commands", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const repository = {
     ...base,
     environment: { ...base.environment, provider: "managed" as const },
@@ -188,7 +189,7 @@ test("secret sync rejects managed environments before running commands", async (
   const runner = new SecretRunner();
   await assert.rejects(
     syncLocalSecrets(repository, runner),
-    /only valid for a Minikube environment/,
+    /only valid for a local \(k3d or Minikube\) environment/,
   );
   assert.equal(runner.calls.length, 0);
 });

@@ -1,3 +1,7 @@
+import { rm } from "node:fs/promises";
+import { homedir } from "node:os";
+import { dirname } from "node:path";
+import { k3dTrustDirectory } from "../images/index.js";
 import type { Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import {
@@ -38,11 +42,20 @@ export async function k3dDestroyIsNoop(
   return (await listOrUnavailable(environment, runner)).state === "absent";
 }
 
-/** Deletes the cluster; callers apply the consent and data gates first. */
+/**
+ * Deletes the cluster and its host registry-trust directory
+ * (`~/.kore/k3d/<cluster>`, public material only); callers apply the consent
+ * and data gates first.
+ */
 export async function deleteK3dCluster(
   repository: Repository,
   runner: Runner,
+  home: string = homedir(),
 ): Promise<void> {
   const { clusterName } = k3dCluster(repository.environment);
   await runK3d(runner, ["cluster", "delete", clusterName], { capture: false });
+  await rm(dirname(k3dTrustDirectory(clusterName, home)), {
+    recursive: true,
+    force: true,
+  });
 }

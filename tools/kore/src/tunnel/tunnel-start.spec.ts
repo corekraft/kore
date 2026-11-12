@@ -1,14 +1,15 @@
+import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test, vi } from "vitest";
-import { loadRepository } from "../config/index.js";
+
 import { startLocalTunnel, tunnelStatePath, tunnelStatus } from "./tunnel.js";
 import { RecordingRunner } from "../runtime/runner.js";
 
 test("starts a detached Minikube tunnel for the explicit profile", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-tunnel-"));
   const repository = { ...base, root };
   const runner = new RecordingRunner([
@@ -39,7 +40,7 @@ test("starts a detached Minikube tunnel for the explicit profile", async () => {
 });
 
 test("replaces a stale tunnel state instead of reusing its PID", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-tunnel-"));
   const repository = { ...base, root };
   await mkdir(join(root, ".kore", "state"), { recursive: true });
@@ -64,7 +65,7 @@ test("replaces a stale tunnel state instead of reusing its PID", async () => {
 });
 
 test("terminates a tunnel process when its Gateway port never opens", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-tunnel-start-failure-"));
   const repository = { ...base, root };
   const runner = new RecordingRunner([
@@ -90,7 +91,7 @@ test("terminates a tunnel process when its Gateway port never opens", async () =
 });
 
 test("stops a live stale process before starting its replacement", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-tunnel-replace-live-"));
   const repository = { ...base, root };
   await mkdir(join(root, ".kore", "state"), { recursive: true });
@@ -124,7 +125,7 @@ test("stops a live stale process before starting its replacement", async () => {
 });
 
 test("waits for a live stale tunnel process to exit before replacement", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-tunnel-wait-stale-"));
   const repository = { ...base, root };
   await mkdir(join(root, ".kore", "state"), { recursive: true });
@@ -166,7 +167,7 @@ test("waits for a live stale tunnel process to exit before replacement", async (
 });
 
 test("fails rather than replacing a stale tunnel whose process will not stop", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-tunnel-stuck-stale-"));
   const repository = { ...base, root };
   await mkdir(join(root, ".kore", "state"), { recursive: true });

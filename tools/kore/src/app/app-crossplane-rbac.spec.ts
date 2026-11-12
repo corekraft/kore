@@ -1,3 +1,4 @@
+import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import { expect, test, vi } from "vitest";
 
 const localRegistryReferenceMock = vi.hoisted(() => vi.fn());
@@ -5,7 +6,7 @@ vi.mock("../images/index.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../images/index.js")>()),
   localRegistryReference: localRegistryReferenceMock,
 }));
-import { loadRepository } from "../config/index.js";
+
 import { appUp } from "./up.js";
 import { bindCrossplaneSecrets } from "./install.js";
 import type { Runner } from "../runtime/index.js";
@@ -22,7 +23,7 @@ interface Recorded {
 }
 
 test("app up binds Crossplane's Secret role in the application namespace before the claim installs", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const calls: Recorded[] = [];
   const runner: Runner = {
     async run(command, args, options) {
@@ -94,7 +95,7 @@ test("app up binds Crossplane's Secret role in the application namespace before 
 });
 
 test("Crossplane's Secret role is never bound in kore-system or another platform namespace", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   for (const namespace of ["kore-system", "crossplane-system", "kube-system"]) {
     const calls: Recorded[] = [];
     const runner: Runner = {

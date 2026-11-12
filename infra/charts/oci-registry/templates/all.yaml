@@ -39,6 +39,10 @@ spec:
   template:
     metadata:
       labels: {app.kubernetes.io/name: oci-registry}
+      annotations:
+        # nginx does not reload and a subPath mount never refreshes, so a changed
+        # proxy configuration must replace the pod.
+        checksum/proxy-config: {{ include (print $.Template.BasePath "/proxy-config.yaml") . | sha256sum }}
     spec:
       serviceAccountName: oci-registry
       automountServiceAccountToken: false

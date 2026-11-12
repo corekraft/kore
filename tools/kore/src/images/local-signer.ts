@@ -17,6 +17,11 @@ export interface LocalSigner {
   key: string;
   publicKey: string;
   env: NodeJS.ProcessEnv;
+  /**
+   * The pinned kubeconfig, held in memory. Pass it as the runner's `kubeconfig`
+   * option on every cosign call so it arrives as a file descriptor (ADR 0087).
+   */
+  kubeconfig: string;
 }
 
 async function exists(path: string): Promise<boolean> {
@@ -57,15 +62,10 @@ async function minifiedKubeconfig(
   const kubeconfig = (
     await runner.run(
       "kubectl",
-      ["config", "view", "--minify", "--context", kubeContext],
+      ["config", "view", "--minify", "--raw", "--context", kubeContext],
       { capture: true },
     )
   ).stdout;
-  if (/(?:-data|token|password)\s*:/.test(kubeconfig)) {
-    throw new Error(
-      `kubeconfig context ${kubeContext} embeds credentials; reference certificate files instead so they are never copied to disk`,
-    );
-  }
   return kubeconfig;
 }
 
@@ -73,6 +73,7 @@ async function ensureSigningKey(
   runner: Runner,
   kubeContext: string,
   env: NodeJS.ProcessEnv,
+  kubeconfig: string,
   scratch: string,
 ): Promise<void> {
   const present = await runner.run(
@@ -87,6 +88,7 @@ async function ensureSigningKey(
       {
         capture: false,
         env,
+        kubeconfig,
         // cosign writes cosign.pub into its cwd; keep it out of the user's tree.
         cwd: scratch,
       },
@@ -159,24 +161,23 @@ async function applyPublicSecret(
 async function withKeyPair<T>(
   repository: Repository,
   runner: Runner,
-  action: (env: NodeJS.ProcessEnv, publicKeyBase64: string) => Promise<T>,
+  action: (
+    env: NodeJS.ProcessEnv,
+    publicKeyBase64: string,
+    kubeconfig: string,
+  ) => Promise<T>,
 ): Promise<T> {
   const kubeContext = repository.environment.kubeContext;
   await warnAboutLegacyKey(repository);
   const kubeconfig = await minifiedKubeconfig(runner, kubeContext);
-  const directory = await mkdtemp(join(tmpdir(), "kore-kubeconfig-"));
+  // Only cosign's public output lands here; the kubeconfig never does.
+  const directory = await mkdtemp(join(tmpdir(), "kore-cosign-"));
   try {
-    const kubeconfigPath = join(directory, "config");
-    await writeFile(kubeconfigPath, kubeconfig, { mode: 0o600 });
-    const env = {
-      ...process.env,
-      KUBECONFIG: kubeconfigPath,
-      COSIGN_PASSWORD: "",
-    };
-    await ensureSigningKey(runner, kubeContext, env, directory);
+    const env = { ...process.env, COSIGN_PASSWORD: "" };
+    await ensureSigningKey(runner, kubeContext, env, kubeconfig, directory);
     const publicKeyBase64 = await readPublicKey(runner, kubeContext);
     await applyPublicSecret(runner, kubeContext, publicKeyBase64);
-    return await action(env, publicKeyBase64);
+    return await action(env, publicKeyBase64, kubeconfig);
   } finally {
     await rm(directory, { force: true, recursive: true });
   }
@@ -191,22 +192,27 @@ export async function ensureLocalSigningPublicKey(
 }
 
 // Cosign resolves k8s:// references through the kubeconfig's current context,
-// so the configured context is pinned with a minified, credential-free
-// kubeconfig that only lives for the duration of the signing call.
+// so the configured context is pinned with a minified kubeconfig held in
+// memory and fed to each cosign process through a file descriptor (ADR 0087).
 export async function withLocalSigner<T>(
   repository: Repository,
   runner: Runner,
   action: (signer: LocalSigner) => Promise<T>,
 ): Promise<T> {
   const state = join(repository.root, ".kore", "state");
-  return await withKeyPair(repository, runner, async (env, publicKeyBase64) => {
-    const publicKey = await writePublicKey(publicKeyBase64, state);
-    return await action({
-      key: localSigningKeyReference,
-      publicKey,
-      env,
-    });
-  });
+  return await withKeyPair(
+    repository,
+    runner,
+    async (env, publicKeyBase64, kubeconfig) => {
+      const publicKey = await writePublicKey(publicKeyBase64, state);
+      return await action({
+        key: localSigningKeyReference,
+        publicKey,
+        env,
+        kubeconfig,
+      });
+    },
+  );
 }
 
 /**

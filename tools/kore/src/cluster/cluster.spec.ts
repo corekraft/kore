@@ -1,3 +1,4 @@
+import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import assert from "node:assert/strict";
 import { expect, test } from "vitest";
 import {
@@ -8,11 +9,11 @@ import {
   clusterStatus,
   clusterStop,
 } from "./cluster.js";
-import { loadRepository, minikubeCluster } from "../config/index.js";
+import { minikubeCluster } from "../config/index.js";
 import { CommandError, RecordingRunner } from "../runtime/runner.js";
 
 test("cluster start command pins profile, context inputs, runtime, and resources", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const args = clusterStartArgs(repository.environment);
   assert.deepEqual(args, [
     "start",
@@ -39,7 +40,7 @@ test("cluster start command pins profile, context inputs, runtime, and resources
 });
 
 test("cluster start omits the service range when none is declared", async () => {
-  const { environment } = await loadRepository("local");
+  const { environment } = await loadMinikubeLocal();
   const { serviceCidr: _drop, ...cluster } = minikubeCluster(environment);
   assert.equal(
     clusterStartArgs({ ...environment, cluster }).includes(
@@ -50,7 +51,7 @@ test("cluster start omits the service range when none is declared", async () => 
 });
 
 test("destroy requires explicit confirmation", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const runner = new RecordingRunner([
     { stdout: "{}", stderr: "", code: 0 },
     { stdout: "kube-system", stderr: "", code: 0 },
@@ -68,7 +69,7 @@ test("destroy requires explicit confirmation", async () => {
 });
 
 test("cluster stop uses flags supported by Minikube", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const runner = new RecordingRunner([
     { stdout: "{}", stderr: "", code: 0 },
     { stdout: "kube-system", stderr: "", code: 0 },
@@ -85,7 +86,7 @@ test("cluster stop uses flags supported by Minikube", async () => {
 });
 
 test("managed cluster status uses kubectl and reports its context", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const repository = {
     ...base,
     environment: {
@@ -112,7 +113,7 @@ test("managed cluster status uses kubectl and reports its context", async () => 
 });
 
 test("expected-cluster validation checks the configured managed context directly", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const repository = {
     ...base,
     environment: {
@@ -137,7 +138,7 @@ test("expected-cluster validation checks the configured managed context directly
 });
 
 test("expected-cluster checks reject mismatched contexts and unavailable profiles", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const mismatched = {
     ...base,
     environment: { ...base.environment, kubeContext: "other-context" },
@@ -164,7 +165,7 @@ test("expected-cluster checks reject mismatched contexts and unavailable profile
 });
 
 test("cluster up starts the configured profile then validates its context", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const runner = new RecordingRunner([
     { stdout: "", stderr: "", code: 0 },
     { stdout: "ok", stderr: "", code: 0 },
@@ -185,7 +186,7 @@ test("cluster up starts the configured profile then validates its context", asyn
 });
 
 test("cluster lifecycle rejects unmanaged providers and mismatched start profiles", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const managed = {
     ...base,
     environment: { ...base.environment, provider: "managed" as const },
@@ -216,7 +217,7 @@ test("cluster lifecycle rejects unmanaged providers and mismatched start profile
 });
 
 test("expected-cluster validation rejects a context pointing at another cluster", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const runner = new RecordingRunner([
     { stdout: '{"Host":"Running"}', stderr: "", code: 0 },
     { stdout: "default", stderr: "", code: 0 },
@@ -228,7 +229,7 @@ test("expected-cluster validation rejects a context pointing at another cluster"
 });
 
 test("cluster up waits for the API server and node before returning", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const calls: string[] = [];
   let readyz = 0;
   const runner = {
@@ -263,7 +264,7 @@ test("cluster up waits for the API server and node before returning", async () =
 });
 
 test("cluster up times out naming the API server when readyz never passes", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   let now = 0;
   const runner = {
     async run(command: string, args: readonly string[]) {
@@ -289,7 +290,7 @@ test("cluster up times out naming the API server when readyz never passes", asyn
 });
 
 test("cluster up times out naming the node that is not Ready", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   let now = 0;
   const runner = {
     async run(_command: string, args: readonly string[]) {

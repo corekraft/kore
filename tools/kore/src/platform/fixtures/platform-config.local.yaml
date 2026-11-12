@@ -18,6 +18,25 @@ metadata:
 
 
 ---
+# Source: platform-config/templates/gateway-service.yaml
+# Istio generates the Gateway's Service and merges this overlay into it. The
+# environment decides how the Service is published (an overlay that reaches the
+# Gateway through a node port, say); the chart names no provider.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kore-gateway-service
+  namespace: kore-system
+  labels: {app.kubernetes.io/managed-by: Helm}
+data:
+  service: |
+    spec:
+      type: NodePort
+      ports:
+        - port: 8443
+          nodePort: 30443
+
+---
 # Source: platform-config/templates/mesh-policy.yaml
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
@@ -69,6 +88,8 @@ metadata:
   namespace: kore-system
   labels: {app.kubernetes.io/managed-by: Helm}
 spec:
+  infrastructure:
+    parametersRef: {group: "", kind: ConfigMap, name: kore-gateway-service}
   gatewayClassName: istio
   listeners:
     - name: https

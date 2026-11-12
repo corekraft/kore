@@ -1,5 +1,9 @@
 import { createHash } from "node:crypto";
-import { featureEnabled, type Repository } from "../config/index.js";
+import {
+  featureEnabled,
+  isLocalProvider,
+  type Repository,
+} from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 import { declaredGateParameters } from "./admission-gate-schema.js";
 
@@ -123,12 +127,12 @@ export function admissionGate(
         generation: platformGeneration(repository),
         state,
         platformNamespaces,
-        // The local kubeconfig identity is the Minikube admin certificate, so
-        // locally bootstrap is also system:masters (ADR 0054).
-        bootstrapGroups:
-          repository.environment.provider === "minikube"
-            ? [bootstrapGroup, "system:masters"]
-            : [bootstrapGroup],
+        // The local kubeconfig identity is the cluster admin certificate
+        // (Minikube's, or k3d's k3s client certificate), so locally bootstrap
+        // is also system:masters (ADR 0054).
+        bootstrapGroups: isLocalProvider(repository.environment)
+          ? [bootstrapGroup, "system:masters"]
+          : [bootstrapGroup],
         controllerIdentities,
       },
     },

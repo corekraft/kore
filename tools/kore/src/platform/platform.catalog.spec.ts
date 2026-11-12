@@ -155,7 +155,7 @@ test("OpenTelemetry collector readiness targets the pinned chart deployment", as
   assert.deepEqual(collector.readiness, ["deployment/otel-collector"]);
 });
 
-test("local storage classes use binding compatible with the Minikube hostpath provisioner", async () => {
+test("local storage classes wait for the first consumer because the local-path provisioner cannot bind without a node", async () => {
   const repository = await loadRepository("local");
   const storage = await readFile(
     join(
@@ -166,9 +166,10 @@ test("local storage classes use binding compatible with the Minikube hostpath pr
   );
 
   assert.equal(
-    (storage.match(/volumeBindingMode: Immediate/g) ?? []).length,
+    (storage.match(/volumeBindingMode: WaitForFirstConsumer/g) ?? []).length,
     2,
   );
+  assert.doesNotMatch(storage, /volumeBindingMode: Immediate/);
 });
 
 test("local Loki configuration declares filesystem storage buckets", async () => {
@@ -237,4 +238,19 @@ test("only the Crossplane Functions release declares Function packages", async (
   );
   assert.match(functions, /name: function-go-templating/);
   assert.match(functions, /name: function-auto-ready/);
+});
+
+test("local istio-cni reads and writes the CNI directories k3s uses", async () => {
+  const repository = await loadRepository("local");
+  assert.deepEqual(repository.environment.componentValues?.["istio-cni"], [
+    "infra/environments/local/values/istio-cni.yaml",
+  ]);
+  const values = JSON.parse(
+    await readFile(
+      join(repository.root, "infra/environments/local/values/istio-cni.yaml"),
+      "utf8",
+    ),
+  );
+  assert.equal(values.cniConfDir, "/var/lib/rancher/k3s/agent/etc/cni/net.d");
+  assert.equal(values.cniBinDir, "/var/lib/rancher/k3s/data/cni");
 });

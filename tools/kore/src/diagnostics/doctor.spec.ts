@@ -1,6 +1,7 @@
+import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { loadRepository, minikubeCluster } from "../config/index.js";
+import { minikubeCluster } from "../config/index.js";
 import { doctor, doctorFailed } from "./doctor.js";
 import type { RunOptions, RunResult, Runner } from "../runtime/index.js";
 
@@ -21,10 +22,7 @@ class MismatchRunner implements Runner {
 }
 
 test("doctor distinguishes optional version warnings from required failures", async () => {
-  const checks = await doctor(
-    await loadRepository("local"),
-    new MismatchRunner(),
-  );
+  const checks = await doctor(await loadMinikubeLocal(), new MismatchRunner());
   assert.equal(
     checks.find(({ name }) => name === "tool:minikube")?.status,
     "fail",
@@ -52,7 +50,7 @@ test("doctor reports unavailable tools, daemon failures, and ambiguous profiles"
       return { stdout: "version v99.1.2", stderr: "", code: 0 };
     },
   };
-  const checks = await doctor(await loadRepository("local"), runner);
+  const checks = await doctor(await loadMinikubeLocal(), runner);
 
   assert.equal(checks.find(({ name }) => name === "tool:tofu")?.status, "warn");
   assert.equal(
@@ -67,7 +65,7 @@ test("doctor reports unavailable tools, daemon failures, and ambiguous profiles"
 });
 
 test("doctor warns when Minikube profile listing fails and requires managed credentials", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const repository = {
     ...base,
     environment: {
@@ -106,7 +104,7 @@ test("doctor warns when Minikube profile listing fails and requires managed cred
 });
 
 test("doctor reports checks in a fixed order with pass messages for matching tools and unambiguous profiles", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const runner: Runner = {
     async run(command, args) {
       if (command === "minikube" && args[0] === "profile") {
@@ -155,7 +153,7 @@ test("doctor reports checks in a fixed order with pass messages for matching too
 });
 
 test("doctor accepts a configured managed context and fails host checks that exceed the machine", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const repository = {
     ...base,
     environment: {

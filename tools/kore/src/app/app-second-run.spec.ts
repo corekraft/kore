@@ -1,3 +1,4 @@
+import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import { expect, test, vi } from "vitest";
 
 const localRegistryReferenceMock = vi.hoisted(() => vi.fn());
@@ -5,7 +6,7 @@ vi.mock("../images/index.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../images/index.js")>()),
   localRegistryReference: localRegistryReferenceMock,
 }));
-import { loadRepository } from "../config/index.js";
+
 import { CommandError, type Runner } from "../runtime/index.js";
 import { appUp } from "./up.js";
 import {
@@ -59,7 +60,7 @@ const upgraded = (calls: Call[]) =>
 
 async function setup() {
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const calls: Call[] = [];
   return { repository, calls, runner: statefulCluster(calls) };
 }

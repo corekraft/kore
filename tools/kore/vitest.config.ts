@@ -15,6 +15,7 @@ export default defineConfig({
         "src/**/*.spec.ts",
         "src/**/*.integration.spec.ts",
         "src/**/*-support.ts",
+        "src/**/*.fixtures.ts",
         "dist/**",
       ],
       reporter: ["text", "html"],

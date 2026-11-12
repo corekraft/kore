@@ -1,4 +1,8 @@
-import { enabledComponents, type Repository } from "../config/index.js";
+import {
+  enabledComponents,
+  isLocalProvider,
+  type Repository,
+} from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { startLocalTunnel, type TunnelDependencies } from "../tunnel/index.js";
 import { installLocalTrust } from "../security/index.js";
@@ -13,10 +17,12 @@ export async function platformUp(
   tunnelDependencies: TunnelDependencies = {},
 ): Promise<void> {
   await bootstrapControllers(repository, runner);
-  const local = repository.environment.provider === "minikube";
-  if (local) {
+  if (isLocalProvider(repository.environment)) {
     await installLocalTrust(repository, runner);
   }
+  // Only Minikube needs a host tunnel; the k3d load balancer publishes the
+  // Gateway port with no process of Kore's own (ADR 0076).
+  const needsTunnel = repository.environment.provider === "minikube";
   let tunnelStarted = false;
   for (const component of enabledComponents(repository)) {
     if (
@@ -29,7 +35,7 @@ export async function platformUp(
       resource.startsWith("gateway/"),
     );
     const startTunnelAfterApply =
-      local && !tunnelStarted && createsGateway
+      needsTunnel && !tunnelStarted && createsGateway
         ? async () => {
             await startLocalTunnel(repository, runner, tunnelDependencies);
             tunnelStarted = true;
@@ -42,7 +48,7 @@ export async function platformUp(
       startTunnelAfterApply,
     );
   }
-  if (local && !tunnelStarted) {
+  if (needsTunnel && !tunnelStarted) {
     await startLocalTunnel(repository, runner, tunnelDependencies);
   }
   // Every phase is done, so Policy Controller and the image policies are ready:

@@ -2,7 +2,8 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach } from "vitest";
-import { loadRepository, type Repository } from "../config/index.js";
+import type { Repository } from "../config/index.js";
+import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import {
   CommandError,
   type RunOptions,
@@ -85,7 +86,7 @@ export function useExportRepository(): {
       `creation_rules:\n  - path_regex: infra/environments/local/secrets/.*\\.enc\\.yaml$\n    encrypted_regex: '^(data|stringData)$'\n    age: ${RECIPIENT}\n`,
     );
     state.repository = {
-      ...(await loadRepository("local")),
+      ...(await loadMinikubeLocal()),
       root: state.root,
     };
   });

@@ -1,13 +1,14 @@
+import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import { expect, test } from "vitest";
 import { copyFile, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { loadRepository } from "../config/index.js";
+
 import { appStatus, appDown } from "./app.js";
 import type { Runner } from "../runtime/index.js";
 
 test("app down uninstalls the named workload release", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const calls: { command: string; args: readonly string[] }[] = [];
   const runner: Runner = {
     async run(command, args) {
@@ -37,7 +38,7 @@ test("app down uninstalls the named workload release", async () => {
 });
 
 test("app down warns instead of failing when the retained-data query fails", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const runner: Runner = {
     async run(command, args) {
       if (command === "kubectl" && args.includes("-l")) {
@@ -56,7 +57,7 @@ test("app down warns instead of failing when the retained-data query fails", asy
 });
 
 test("app down reports retained data in the application namespace and never deletes it", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const calls: { command: string; args: readonly string[] }[] = [];
   const runner: Runner = {
     async run(command, args) {
@@ -110,7 +111,7 @@ test("app down reports retained data in the application namespace and never dele
 });
 
 test("app status reports locked image provenance", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-app-status-"));
   await mkdir(join(root, "infra/catalog"), { recursive: true });
   await copyFile(
@@ -148,7 +149,7 @@ test("app status reports locked image provenance", async () => {
 });
 
 test("app status prefers the local image lock when present", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-app-status-local-lock-"));
   await mkdir(join(root, ".kore/state"), { recursive: true });
   await copyFile(

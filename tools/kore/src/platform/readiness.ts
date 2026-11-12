@@ -5,10 +5,13 @@ import { gatewayCheck } from "./readiness-gateway.js";
 import { assertIssuerReady, trustRemedy } from "./readiness-issuer.js";
 import {
   NOT_YET_THERE,
+  failureAcrossBounds,
   pause,
   pollUntil,
   timeoutMilliseconds,
+  type RetryBudget,
 } from "./readiness-poll.js";
+export { retryBudget, type RetryBudget } from "./readiness-poll.js";
 import { withScheduledPods } from "./readiness-daemonset.js";
 import { WEBHOOK_CONFIGURATION, waitForWebhook } from "./readiness-webhook.js";
 
@@ -44,6 +47,8 @@ const GATEKEEPER_OBJECT =
   /^(constrainttemplate\.templates|[a-z0-9]+\.constraints)\.gatekeeper\.sh\//;
 /** Bound for each read-only check `kore status` evaluates. */
 const STATUS_TIMEOUT = "3s";
+/** The one longer bound after a 3s wait timed out on a loaded host (#119). */
+const STATUS_RETRY_TIMEOUT = "15s";
 
 interface Context {
   repository: Repository;
@@ -193,7 +198,7 @@ function checkFor(context: Context, resource: string): Check {
   if (WEBHOOK_CONFIGURATION.test(resource)) {
     return webhookCheck(context, resource);
   }
-  const network = gatewayCheck(context.runner, context.base, resource);
+  const network = gatewayCheck(context, resource);
   if (network) {
     return network;
   }
@@ -322,11 +327,11 @@ export async function readinessFailure(
   repository: Repository,
   runner: Runner,
   component: Component,
+  budget?: RetryBudget,
 ): Promise<string | undefined> {
-  try {
-    await runChecks(repository, runner, component, STATUS_TIMEOUT, true);
-    return undefined;
-  } catch (error) {
-    return errorMessage(error);
-  }
+  return await failureAcrossBounds(
+    [STATUS_TIMEOUT, STATUS_RETRY_TIMEOUT],
+    (bound) => runChecks(repository, runner, component, bound, true),
+    budget,
+  );
 }

@@ -89,3 +89,56 @@ test("RecordingRunner records calls and consumes queued responses", async () => 
     { command: "second", args: [] },
   ]);
 });
+
+test("ProcessRunner hands a kubeconfig to the child through a file descriptor, never a file", async () => {
+  const result = await new ProcessRunner().run(
+    "sh",
+    ["-c", 'printf "%s|" "$KUBECONFIG"; cat "$KUBECONFIG"'],
+    { kubeconfig: "apiVersion: v1\n" },
+  );
+
+  const [path, content] = result.stdout.split("|");
+  expect(path).toMatch(/^\/dev\/fd\/\d+$/);
+  expect(content).toBe("apiVersion: v1\n");
+});
+
+test("ProcessRunner keeps the kubeconfig out of the arguments and the environment of the caller", async () => {
+  const before = process.env.KUBECONFIG;
+  const result = await new ProcessRunner().run("sh", ["-c", 'echo "$0 $*"'], {
+    kubeconfig: "secret-config",
+  });
+
+  expect(result.stdout).not.toContain("secret-config");
+  expect(process.env.KUBECONFIG).toBe(before);
+});
+
+test("ProcessRunner refuses a kubeconfig together with stdin input", async () => {
+  await expect(
+    new ProcessRunner().run("sh", ["-c", "true"], {
+      kubeconfig: "a",
+      input: "b",
+    }),
+  ).rejects.toThrow(/kubeconfig.*input/);
+});
+
+test("a failing command run with a kubeconfig reports the command and arguments the caller asked for, not the bash wrapper", async () => {
+  const error = await new ProcessRunner()
+    .run("sh", ["-c", "exit 3"], { kubeconfig: "k" })
+    .catch((caught: unknown) => caught);
+
+  expect(error).toBeInstanceOf(CommandError);
+  const failure = error as CommandError;
+  expect(failure.command).toBe("sh");
+  expect(failure.args).toEqual(["-c", "exit 3"]);
+  expect(failure.result.code).toBe(3);
+  expect(failure.message).not.toContain("<(cat)");
+});
+
+test("a missing command run with a kubeconfig fails with ENOENT like a missing command without one", async () => {
+  const error = await new ProcessRunner()
+    .run("kore-no-such-cosign", ["sign"], { kubeconfig: "k" })
+    .catch((caught: unknown) => caught);
+
+  expect(error).toMatchObject({ code: "ENOENT" });
+  expect((error as Error).message).toContain("kore-no-such-cosign");
+});

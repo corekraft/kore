@@ -1,9 +1,10 @@
+import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test, vi } from "vitest";
-import { loadRepository } from "../config/index.js";
+
 import { startLocalTunnel, tunnelStatePath } from "./tunnel.js";
 import { RecordingRunner } from "../runtime/runner.js";
 
@@ -11,7 +12,7 @@ const spawnMock = vi.hoisted(() => vi.fn());
 vi.mock("node:child_process", () => ({ spawn: spawnMock }));
 
 test("starts the default detached Minikube tunnel and persists its child PID", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-tunnel-default-spawn-"));
   const repository = { ...base, root };
   const runner = new RecordingRunner([
@@ -48,7 +49,7 @@ test("starts the default detached Minikube tunnel and persists its child PID", a
 });
 
 test("reports a spawn failure and terminates a tunnel that exits before opening its port", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-tunnel-default-failure-"));
   const repository = { ...base, root };
   const runner = new RecordingRunner([

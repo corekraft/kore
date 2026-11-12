@@ -1,7 +1,8 @@
+import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { retainedResources } from "./retained.js";
-import { loadRepository } from "../config/index.js";
+
 import { CommandError } from "../runtime/index.js";
 
 function volume(
@@ -33,7 +34,7 @@ function runnerWithVolumes(items: object[] | Error) {
 }
 
 test("a retained volume whose claim was already deleted still counts as retained data", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const runner = runnerWithVolumes([
     volume("pvc-orphan", "kore-retained", {
       namespace: "reference",
@@ -58,7 +59,7 @@ test("a retained volume whose claim was already deleted still counts as retained
 });
 
 test("namespace-scoped discovery reports only volumes last bound in that namespace", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const runner = runnerWithVolumes([
     volume("pvc-a", "kore-retained", { namespace: "reference", name: "db-1" }),
     volume("pvc-b", "kore-retained", { namespace: "other", name: "db-1" }),
@@ -76,7 +77,7 @@ test("namespace-scoped discovery reports only volumes last bound in that namespa
 });
 
 test("an unreadable volume list blocks destroy instead of counting as no retained data", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const unreachable = new CommandError("kubectl", ["get"], {
     stdout: "",
     stderr: "Unable to connect to the server: i/o timeout",

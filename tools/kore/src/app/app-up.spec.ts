@@ -1,3 +1,4 @@
+import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import { afterEach, expect, test, vi } from "vitest";
 
 const localRegistryReferenceMock = vi.hoisted(() => vi.fn());
@@ -5,7 +6,7 @@ vi.mock("../images/index.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../images/index.js")>()),
   localRegistryReference: localRegistryReferenceMock,
 }));
-import { loadRepository } from "../config/index.js";
+
 import { appUp, appUpRelease } from "./up.js";
 
 afterEach(removeReleaseLocks);
@@ -45,7 +46,7 @@ class UnreadyPlatformRunner implements Runner {
 }
 
 test("app up stops before installing resources when the platform is not ready", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const runner = new UnreadyPlatformRunner();
 
   await expect(
@@ -66,7 +67,7 @@ const deployedStatus = {
 };
 
 test("app up verifies, installs, and waits for every workload deployment", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const calls: { command: string; args: readonly string[] }[] = [];
   const runner: Runner = {
     async run(command, args) {
@@ -141,7 +142,7 @@ const upCalls = (calls: Call[], command: string, verb: string) =>
   calls.filter((c) => c.command === command && c.args.includes(verb));
 
 test("app up fails before staging or installing when the local registry has no ClusterIP", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const calls: Call[] = [];
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
 
@@ -157,7 +158,7 @@ test("app up fails before staging or installing when the local registry has no C
 });
 
 test("app up does not install anything when image verification fails", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const calls: Call[] = [];
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
   const runner = healthyRunner(
@@ -178,7 +179,7 @@ test("app up does not install anything when image verification fails", async () 
 });
 
 test("app up verifies keylessly against the locked signer when the image is not locally signed", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const repository = {
     ...base,
     imageTrustValues: {
@@ -201,7 +202,7 @@ test("app up verifies keylessly against the locked signer when the image is not 
 });
 
 test("app up verifies the registry-resolved reference but deploys the staged cluster-local reference", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const calls: Call[] = [];
   localRegistryReferenceMock.mockImplementation(
     async () => "127.0.0.1:30500/reference@" + lockedImage().digest,
@@ -221,7 +222,7 @@ test("app up verifies the registry-resolved reference but deploys the staged clu
 });
 
 test("app up waits for databases and secrets before installing the workload", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const calls: Call[] = [];
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
 
@@ -251,7 +252,7 @@ test("app up waits for databases and secrets before installing the workload", as
 });
 
 test("app up on a managed provider deploys the locked reference without staging", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const repository = {
     ...base,
     environment: { ...base.environment, provider: "managed" as const },
@@ -280,7 +281,7 @@ test("app up on a managed provider deploys the locked reference without staging"
 });
 
 test("app up fails with the fix when the registry Service is not at registry.address", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const calls: Call[] = [];
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
 
