@@ -240,14 +240,15 @@ const sopsBlock = (path) =>
 // Append-only records: written only by their owning script, never by hand.
 // Audit mode (warn).
 const APPEND_ONLY =
-  /(^|[/\s>'"=])(\.claude\/evals\/history\.jsonl|\.kore\/state\/journal\/[^/\s'"]*\.jsonl)$/;
+  /(^|[/\s>'"=])(\.claude\/evals\/history\.jsonl|\.kore\/state\/journal\/[^/\s'"]*\.jsonl|\.kore\/state\/ledger\.jsonl)$/;
 const isAppendOnly = (path) => APPEND_ONLY.test(path);
 
 const appendOnlyWarn = (path) =>
   warn(
     "append-only",
     `${path} is an append-only record: .claude/evals/history.jsonl is owned by eval.mjs, ` +
-      `.kore/state/journal/*.jsonl by kore. Instead, append through the owning script (eval.mjs, kore); never edit, truncate, move, or remove it by hand.`,
+      `.kore/state/journal/*.jsonl by kore, .kore/state/ledger.jsonl by the harness ledger tool (\`harness ledger record\`). ` +
+      `Instead, append through the owning script (eval.mjs, kore, harness ledger); never edit, truncate, move, or remove it by hand.`,
   );
 
 // Outcome records: written by the outcome tool (ticket #187), never typed into an
