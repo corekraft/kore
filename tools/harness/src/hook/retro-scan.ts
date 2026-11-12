@@ -38,14 +38,6 @@ type RuleStats = Record<Outcome, number> & {
   sessions: number;
 };
 
-/** Rules the guard runs in audit mode: the literal names passed to warn(). */
-export function auditRules(guardSource: string): string[] {
-  const names = [...guardSource.matchAll(/\bwarn\(\s*"([a-z0-9-]+)"/g)].map(
-    (match) => match[1] ?? "",
-  );
-  return [...new Set(names)].sort();
-}
-
 /** The latest `Last retrospective:` date across the plans, or null. */
 export function lastRetrospective(
   plans: Readonly<Record<string, string>>,

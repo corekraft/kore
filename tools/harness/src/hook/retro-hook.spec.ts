@@ -13,6 +13,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { run } from "../cli/index.js";
 import { testHarness } from "../cli/cli-support.js";
+import { INVENTORY_PATH } from "../guardrail/index.js";
 import { nodeFileSystem } from "../runtime/index.js";
 import { fixtures } from "./retro-scan-support.js";
 
@@ -29,7 +30,7 @@ const temp = (): string => {
   return dir;
 };
 
-/** A repository root with skills, a guard, and optionally a retrospective marker. */
+/** A repository root with skills, a guardrail inventory, and optionally a retrospective marker. */
 function repoRoot(
   parts: { skills?: boolean; marker?: string; guard?: boolean } = {},
 ): string {
@@ -37,24 +38,23 @@ function repoRoot(
   const root = temp();
   mkdirSync(join(root, "infra", "plans"), { recursive: true });
   if (guard) {
-    const dir = join(root, "tools", "harness", "src", "hook");
-    mkdirSync(dir, { recursive: true });
+    mkdirSync(join(root, ".claude"), { recursive: true });
+    const entry = (rule: string, mode: string) => ({
+      rule,
+      kind: "bash",
+      mode,
+      owner: "guard.ts",
+    });
     writeFileSync(
-      join(dir, "guard-rules.ts"),
-      'warn("image-digest", "x");\nwarn("sample-audit", "x");\n',
-    );
-    writeFileSync(join(dir, "guard.ts"), 'warn("unquoted-glob", "x");\n');
-    writeFileSync(
-      join(dir, "guard-rules.spec.ts"),
-      'warn("only-in-a-spec", "x");\n',
-    );
-    writeFileSync(
-      join(dir, "guard-support.ts"),
-      'warn("only-in-support", "x");\n',
-    );
-    writeFileSync(
-      join(dir, "guardian.ts"),
-      'warn("not-a-guard-module", "x");\n',
+      join(root, INVENTORY_PATH),
+      JSON.stringify({
+        guardrails: [
+          entry("image-digest", "audit"),
+          entry("sample-audit", "audit"),
+          entry("unquoted-glob", "audit"),
+          entry("enforced-rule", "enforce"),
+        ],
+      }),
     );
   }
   if (skills) {
@@ -218,12 +218,12 @@ describe("hook retro-scan warnings and faults", () => {
     });
   });
 
-  it("names the fix when the guard source is missing, and fails open without --strict", async () => {
+  it("names the fix when the guardrail inventory is missing, and fails open without --strict", async () => {
     const result = await retro(repoRoot({ guard: false }), ["--dir", fixtures]);
     expect(result.code).toBe(0);
     expect(result.out).toBe("");
     expect(result.err).toMatch(
-      /failed open: Cannot read the guard source in .*tools\/harness\/src\/hook.*Point GUARD_DIR in tools\/harness\/src\/hook\/retro-hook\.ts/,
+      /failed open: \.claude\/guardrails\.yaml is missing.*Restore it from git/,
     );
     expect(result.err).not.toMatch(/unexpected/);
   });
@@ -236,7 +236,7 @@ describe("hook retro-scan warnings and faults", () => {
     ]);
     expect(result.code).toBe(1);
     expect(result.err).toMatch(
-      /\[hook:retro-scan\] failed: Cannot read the guard source/,
+      /\[hook:retro-scan\] failed: \.claude\/guardrails\.yaml is missing/,
     );
   });
 });

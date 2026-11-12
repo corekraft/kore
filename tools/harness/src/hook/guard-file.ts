@@ -10,6 +10,7 @@ import {
 } from "./guard-secrets.js";
 import {
   allow,
+  applyMode,
   block,
   warn,
   type Finding,
@@ -229,10 +230,10 @@ export async function evaluateFile(
   ctx: GuardContext,
 ): Promise<Verdict> {
   if (SECRET_PATH.test(relative)) {
-    return secretBlock();
+    return applyMode(secretBlock(), ctx);
   }
   if (tool === "Read") {
     return allow;
   }
-  return (await checkWrite(tool, input, relative, ctx)) ?? allow;
+  return applyMode(await checkWrite(tool, input, relative, ctx), ctx) ?? allow;
 }

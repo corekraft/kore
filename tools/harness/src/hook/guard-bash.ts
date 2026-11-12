@@ -24,6 +24,7 @@ import {
 } from "./guard-shell.js";
 import {
   allow,
+  applyMode,
   block,
   warn,
   type Finding,
@@ -120,17 +121,17 @@ export async function evaluateBash(
   command: string,
   ctx: GuardContext,
 ): Promise<Verdict> {
-  const glob = unquotedGlob(command);
-  if (glob) {
+  const glob = applyMode(unquotedGlob(command), ctx);
+  if (glob?.action === "block") {
     return glob;
   }
   let warning: Finding = null;
   for (const segment of splitSegments(command)) {
-    const result = await checkBashSegment(segment, ctx);
+    const result = applyMode(await checkBashSegment(segment, ctx), ctx);
     if (result?.action === "block") {
       return result;
     }
     warning ??= result;
   }
-  return warning ?? zshWords(command) ?? allow;
+  return warning ?? glob ?? applyMode(zshWords(command), ctx) ?? allow;
 }

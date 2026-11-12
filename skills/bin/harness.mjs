@@ -315,8 +315,8 @@ var Adrs = class {
       "## Consequences",
       ""
     ];
-    const entry = `- [\`${path}\`](decisions/${file}) \u2014 ${input.summary}`;
-    const index = this.insert(indexText, next, entry);
+    const entry2 = `- [\`${path}\`](decisions/${file}) \u2014 ${input.summary}`;
+    const index = this.insert(indexText, next, entry2);
     const report3 = {
       dryRun,
       number,
@@ -325,7 +325,7 @@ var Adrs = class {
           path,
           lines: body.slice(0, -1).map((text7, i) => ({ number: i + 1, text: text7 }))
         },
-        { path: INDEX, lines: [{ number: index.line, text: entry }] }
+        { path: INDEX, lines: [{ number: index.line, text: entry2 }] }
       ]
     };
     if (!dryRun) {
@@ -341,7 +341,7 @@ var Adrs = class {
     return this.fs.readFile(this.abs(INDEX));
   }
   /** Puts the entry before the first later-numbered ADR line, else after the last one. */
-  insert(text7, next, entry) {
+  insert(text7, next, entry2) {
     const lines2 = text7.split("\n");
     const start = lines2.indexOf("## Decisions");
     if (start === -1) {
@@ -354,7 +354,7 @@ var Adrs = class {
       end = lines2.length;
     }
     const at = this.position(lines2, start, end, next);
-    lines2.splice(at, 0, entry);
+    lines2.splice(at, 0, entry2);
     return { text: lines2.join("\n"), line: at + 1 };
   }
   /** Index of the line to insert at: before the first later ADR entry, else after the last. */
@@ -382,15 +382,15 @@ var Adrs = class {
   abs(path) {
     return `${this.root}/${path}`;
   }
-  checkStatus(status) {
-    if (status === "superseded") {
+  checkStatus(status2) {
+    if (status2 === "superseded") {
       throw new AdrError(
         "--status superseded cannot be written by adr new, which has no superseded-by to record; create the ADR as proposed or accepted, then run `harness adr supersede`."
       );
     }
-    if (!STATUSES.includes(status)) {
+    if (!STATUSES.includes(status2)) {
       throw new AdrError(
-        `--status is "${status}"; use one of ${STATUSES.join(", ")}.`
+        `--status is "${status2}"; use one of ${STATUSES.join(", ")}.`
       );
     }
   }
@@ -579,13 +579,13 @@ var newAdr = {
     "dry-run": "boolean"
   },
   run: ({ json, options, deps }) => withAdrErrors(json, deps, async () => {
-    const [title, summary, status, source] = REQUIRED.map(
+    const [title, summary, status2, source] = REQUIRED.map(
       (key) => requiredFlag(options, key, "text")
     );
     const refines = typeof options["refines"] === "string" ? options["refines"].trim() : void 0;
     const root3 = await repoRoot(deps);
     const report3 = await new Adrs(deps.fs, deps.clock, root3).create(
-      { title, summary, status, source, ...refines ? { refines } : {} },
+      { title, summary, status: status2, source, ...refines ? { refines } : {} },
       options["dry-run"] === true
     );
     deps.stdout(json ? `${JSON.stringify(report3)}
@@ -616,6 +616,123 @@ var adrCommands = {
   new: newAdr,
   supersede
 };
+
+// src/guardrail/inventory.ts
+var INVENTORY_PATH = ".claude/guardrails.yaml";
+var MODES = ["audit", "enforce"];
+var KINDS = ["bash", "file", "bash-and-file"];
+var GuardrailError = class extends Error {
+};
+var FIELDS = ["rule", "kind", "mode", "owner"];
+var RULE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+var fail = (problem) => {
+  throw new GuardrailError(
+    `${INVENTORY_PATH}: ${problem}. Fix the inventory, then rerun.`
+  );
+};
+function entry(raw, index) {
+  const where = `guardrails[${index}]`;
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    return fail(`${where} must be an object`);
+  }
+  const fields = raw;
+  for (const key of Object.keys(fields)) {
+    if (!FIELDS.includes(key)) {
+      fail(`${where} has an unknown field "${key}"`);
+    }
+  }
+  const { rule, kind, mode, owner } = fields;
+  if (typeof rule !== "string" || !RULE.test(rule)) {
+    fail(`${where}.rule must be a lowercase kebab-case name`);
+  }
+  if (!KINDS.includes(kind)) {
+    fail(`${where}.kind must be one of ${KINDS.join(", ")}`);
+  }
+  if (!MODES.includes(mode)) {
+    fail(`${where}.mode must be audit or enforce`);
+  }
+  if (typeof owner !== "string" || owner.trim() === "") {
+    fail(`${where}.owner must name the module that implements the rule`);
+  }
+  return fields;
+}
+function parseInventory(text7) {
+  let value;
+  try {
+    value = JSON.parse(text7);
+  } catch {
+    return fail("is not JSON-compatible YAML");
+  }
+  const list3 = typeof value === "object" && value !== null ? value["guardrails"] : void 0;
+  if (!Array.isArray(list3)) {
+    return fail('must be an object with a "guardrails" list');
+  }
+  const guardrails = list3.map(entry);
+  const seen = /* @__PURE__ */ new Set();
+  for (const { rule } of guardrails) {
+    if (seen.has(rule)) {
+      fail(`${rule} must have exactly one entry, its owner's`);
+    }
+    seen.add(rule);
+  }
+  return { guardrails };
+}
+function modeOf(inventory, rule) {
+  return inventory.guardrails.find((g) => g.rule === rule)?.mode ?? "enforce";
+}
+function auditRuleNames(inventory) {
+  return inventory.guardrails.filter((g) => g.mode === "audit").map((g) => g.rule).sort();
+}
+
+// src/guardrail/read.ts
+async function readInventory(readFile2, root3) {
+  let text7;
+  try {
+    text7 = await readFile2(`${root3}/${INVENTORY_PATH}`);
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
+    throw new GuardrailError(
+      `${INVENTORY_PATH} is missing, so no guard rule has a declared mode. Restore it from git, then rerun.`
+    );
+  }
+  return parseInventory(text7);
+}
+
+// src/guardrail/commands.ts
+var status = {
+  summary: "list each guardrail with its kind, mode and owner",
+  async run({ json, deps }) {
+    try {
+      const { guardrails } = await readInventory(
+        (path) => deps.fs.readFile(path),
+        await deps.root()
+      );
+      if (json) {
+        deps.stdout(`${JSON.stringify({ guardrails })}
+`);
+      } else {
+        for (const g of guardrails) {
+          deps.stdout(`${g.rule}	${g.kind}	${g.mode}	${g.owner}
+`);
+        }
+      }
+      return 0;
+    } catch (error) {
+      if (!(error instanceof GuardrailError)) {
+        throw error;
+      }
+      deps.stderr(
+        `${json ? `${JSON.stringify({ error: error.message })}
+` : ""}${error.message}
+`
+      );
+      return 1;
+    }
+  }
+};
+var guardrailCommands = { status };
 
 // src/flow/stages.ts
 var STAGES = [
@@ -1375,7 +1492,7 @@ async function acquire(fs, clock, path) {
 
 // src/ledger/schema.ts
 var SOURCES = ["claude", "herdr", "github"];
-var KINDS = [
+var KINDS2 = [
   "session.start",
   "session.stop",
   "tool.start",
@@ -1392,7 +1509,8 @@ var KINDS = [
   "outcome",
   "flag.activated",
   "token.usage",
-  "session.launch"
+  "session.launch",
+  "guard.audit"
 ];
 var OUTCOMES = ["success", "failure"];
 var TOOL_KINDS = ["tool.start", "tool.end"];
@@ -1477,7 +1595,7 @@ var RULES = [
     field: "label",
     check: isText(LABEL),
     hint: "must be 1-100 characters with no control characters",
-    kinds: ["issue.labelled", "outcome", "flag.activated"]
+    kinds: ["issue.labelled", "outcome", "flag.activated", "guard.audit"]
   },
   {
     field: "number",
@@ -1520,8 +1638,8 @@ function checkCore(raw, mode) {
   if (!SOURCES.includes(raw["source"])) {
     return bad2("source", `must be one of ${SOURCES.join(", ")}`);
   }
-  if (!KINDS.includes(raw["kind"])) {
-    return bad2("kind", `must be one of ${KINDS.join(", ")}`);
+  if (!KINDS2.includes(raw["kind"])) {
+    return bad2("kind", `must be one of ${KINDS2.join(", ")}`);
   }
   const times = mode === "stored" ? ["occurredAt", "recordedAt"] : ["occurredAt"];
   for (const field2 of times) {
@@ -1774,18 +1892,18 @@ function describe3(code, stdout, stderr2) {
   const text7 = `${stderr2}${stdout}`.trim();
   return text7 === "" ? `exit code ${code}` : `exit code ${code}: ${text7}`;
 }
-function toSeen(entry) {
-  if (typeof entry !== "object" || entry === null) {
+function toSeen(entry2) {
+  if (typeof entry2 !== "object" || entry2 === null) {
     return void 0;
   }
-  const raw = entry;
+  const raw = entry2;
   const pane = raw["pane_id"];
-  const status = STATUS_KIND[String(raw["agent_status"])];
+  const status2 = STATUS_KIND[String(raw["agent_status"])];
   const agent = [raw["name"], raw["agent"]].find(isName) ?? "unknown";
-  if (!isName(pane) || status === void 0) {
+  if (!isName(pane) || status2 === void 0) {
     return void 0;
   }
-  return { pane, agent, status };
+  return { pane, agent, status: status2 };
 }
 async function listAgents(runner) {
   const found = await runner.run("herdr", ["agent", "list"]);
@@ -1809,8 +1927,8 @@ async function listAgents(runner) {
     };
   }
   const present = /* @__PURE__ */ new Set();
-  for (const entry of agents) {
-    const pane = entry?.pane_id;
+  for (const entry2 of agents) {
+    const pane = entry2?.pane_id;
     if (typeof pane === "string") {
       present.add(pane);
     }
@@ -1850,7 +1968,7 @@ function plan(listed, last, observedAt) {
     pane,
     agent
   });
-  for (const { pane, agent, status } of listed.seen) {
+  for (const { pane, agent, status: status2 } of listed.seen) {
     const recorded = last.get(pane);
     const open2 = recorded !== void 0 && recorded.kind !== "pane.closed";
     if (open2 && recorded.agent !== void 0 && recorded.agent !== agent) {
@@ -1860,8 +1978,8 @@ function plan(listed, last, observedAt) {
     if (!sameAgent) {
       event("pane.spawned", pane, agent);
     }
-    if (!sameAgent || recorded.kind !== status) {
-      event(status, pane, agent);
+    if (!sameAgent || recorded.kind !== status2) {
+      event(status2, pane, agent);
     }
   }
   for (const [pane, state] of last) {
@@ -2082,8 +2200,8 @@ function filterFrom(options) {
   }
   const kind = text7("kind");
   if (kind !== void 0) {
-    if (!KINDS.includes(kind)) {
-      return { error: `Invalid --kind "${kind}". Kinds: ${KINDS.join(", ")}.` };
+    if (!KINDS2.includes(kind)) {
+      return { error: `Invalid --kind "${kind}". Kinds: ${KINDS2.join(", ")}.` };
     }
     filter.kind = kind;
   }
@@ -2383,7 +2501,7 @@ var report = {
   async run(context) {
     const flags = parseFlags(context);
     const { deps, json } = context;
-    const fail4 = (message, code) => {
+    const fail5 = (message, code) => {
       deps.stderr(
         json ? `${JSON.stringify({ error: message })}
 ` : `${message}
@@ -2392,15 +2510,15 @@ var report = {
       return code;
     };
     if ("error" in flags) {
-      return fail4(flags.error, 2);
+      return fail5(flags.error, 2);
     }
     const cost = await loadCost(context);
     if ("error" in cost) {
-      return fail4(cost.error, 1);
+      return fail5(cost.error, 1);
     }
     const opened = await openLedger(context);
     if ("error" in opened) {
-      return fail4(opened.error, 1);
+      return fail5(opened.error, 1);
     }
     const { events, skipped } = await opened.ledger.list({});
     const printed = {
@@ -2704,13 +2822,13 @@ var IdeaRepository = class {
   }
 };
 function addEntry(index, path, summary) {
-  const entry = `- [\`${path}\`](${path.replace(/^docs\//, "")}) \u2014 ${summary}`;
+  const entry2 = `- [\`${path}\`](${path.replace(/^docs\//, "")}) \u2014 ${summary}`;
   const lines2 = index.split("\n");
   const start = lines2.indexOf(HEADING);
   if (start === -1) {
     const next = lines2.indexOf(NEXT_SECTION);
     const at = next === -1 ? lines2.length : next;
-    const block2 = [HEADING, "", entry, ""];
+    const block2 = [HEADING, "", entry2, ""];
     if (next === -1 && lines2.at(-1) === "") {
       lines2.splice(lines2.length - 1, 0, "", ...block2.slice(0, -1));
     } else {
@@ -2725,7 +2843,7 @@ function addEntry(index, path, summary) {
   while (end > start + 1 && lines2[end - 1] === "") {
     end--;
   }
-  lines2.splice(end, 0, entry);
+  lines2.splice(end, 0, entry2);
   return lines2.join("\n");
 }
 
@@ -3173,13 +3291,13 @@ var FALSE_ENTRY = /(["']?)([a-z][a-z0-9-]*)\1(\s*:\s*)false\b/g;
 function withFlagOn(overlay, flag) {
   const span = featuresSpan(overlay.text);
   const block2 = span === void 0 ? "" : overlay.text.slice(...span);
-  const entry = [...block2.matchAll(FALSE_ENTRY)].find((m) => m[2] === flag);
-  if (span === void 0 || entry === void 0) {
+  const entry2 = [...block2.matchAll(FALSE_ENTRY)].find((m) => m[2] === flag);
+  if (span === void 0 || entry2 === void 0) {
     throw new FlagError(
       `${overlay.path} does not write ${flag} as false inside its features map, so the tool cannot edit it safely. Set it to false by hand, then rerun.`
     );
   }
-  const end = span[0] + entry.index + entry[0].length;
+  const end = span[0] + entry2.index + entry2[0].length;
   const text7 = `${overlay.text.slice(0, end - "false".length)}true${overlay.text.slice(end)}`;
   parse(overlay.path, text7);
   return text7;
@@ -4320,8 +4438,8 @@ function without(raw, segments, index) {
   const others = segments.filter((s) => s.exit && s !== target).length;
   return target.exit && lead !== void 0 && others > 0 ? lowered(cut, lead) : cut;
 }
-function classOf(lines2, entry, from) {
-  for (let i = entry.start; i >= from; i--) {
+function classOf(lines2, entry2, from) {
+  for (let i = entry2.start; i >= from; i--) {
     const heading = /^### (.+)$/.exec(lines2[i] ?? "")?.[1];
     if (heading !== void 0) {
       return heading;
@@ -4332,11 +4450,11 @@ function classOf(lines2, entry, from) {
 function locate2(entries, step, itemText) {
   const item = words(itemText);
   const scored = entries.flatMap(
-    (entry) => segmentsOf(entry.raw).map((segment, index, all) => ({
-      entry,
+    (entry2) => segmentsOf(entry2.raw).map((segment, index, all) => ({
+      entry: entry2,
       all,
       index,
-      score: score(item, entry.raw.slice(segment.itemStart, segment.end))
+      score: score(item, entry2.raw.slice(segment.itemStart, segment.end))
     }))
   );
   scored.sort((a, b) => b.score - a.score);
@@ -4505,9 +4623,9 @@ function parseEntries(text7) {
   const entries = [];
   for (const line2 of text7.split("\n")) {
     try {
-      const entry = JSON.parse(line2);
-      if (entry !== null && typeof entry === "object") {
-        entries.push(entry);
+      const entry2 = JSON.parse(line2);
+      if (entry2 !== null && typeof entry2 === "object") {
+        entries.push(entry2);
       }
     } catch {
     }
@@ -4591,12 +4709,12 @@ var MAX_ITEM_CHARS = 60;
 var MAX_SUBJECTS = 3;
 var SNAPSHOT_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1e3;
 function lastOperation(entries) {
-  const start = entries.findLast((entry) => entry.kind === "start");
+  const start = entries.findLast((entry2) => entry2.kind === "start");
   if (start === void 0) {
     return null;
   }
   const end = entries.findLast(
-    (entry) => entry.kind === "end" && entry.op === start.op
+    (entry2) => entry2.kind === "end" && entry2.op === start.op
   );
   return {
     op: start.op ?? "",
@@ -4981,7 +5099,7 @@ function bound(output, command) {
 var asCall = (payload) => typeof payload === "object" && payload !== null ? payload : {};
 var isEdit = (call) => call.tool_name === void 0 || call.tool_name === "Write" || call.tool_name === "Edit";
 var OK = {};
-var fail = (message) => ({
+var fail2 = (message) => ({
   code: 2,
   stderr: `${message}
 `
@@ -5001,7 +5119,7 @@ async function postEditFor(call, deps, project, tracked, formatFix) {
       lint.output,
       `${project.bin}/oxlint --deny-warnings ${filePath}`
     );
-    return fail(
+    return fail2(
       `oxlint reported problems in ${filePath}. Fix them before continuing.
 ${details}`
     );
@@ -5015,7 +5133,7 @@ ${details}`
       format2.output,
       `${project.bin}/prettier --check ${filePath}`
     );
-    return fail(
+    return fail2(
       `${filePath} is not formatted. ${formatFix(filePath)}
 ${details}`
     );
@@ -5038,7 +5156,7 @@ async function stopFor(call, deps, project, message) {
       check2.output,
       `npm --prefix ${project.project} run check`
     );
-    return fail(`${message}
+    return fail2(`${message}
 ${details}`);
   }
   await deps.clear(project.project);
@@ -5115,11 +5233,11 @@ function feedbackDeps(deps, root3, call) {
     clear: (project) => deps.fs.remove(marker(project))
   };
 }
-var MODES = ["post-edit", "stop", "tool-failure"];
+var MODES2 = ["post-edit", "stop", "tool-failure"];
 async function feedback(mode, payload, deps) {
-  if (mode === void 0 || !MODES.includes(mode)) {
+  if (mode === void 0 || !MODES2.includes(mode)) {
     throw new CommandError(
-      `Unknown feedback mode "${mode ?? ""}". Modes: ${MODES.join(", ")}.`
+      `Unknown feedback mode "${mode ?? ""}". Modes: ${MODES2.join(", ")}.`
     );
   }
   if (payload === void 0) {
@@ -5157,6 +5275,13 @@ var warn = (rule, message) => ({
   message: `[guard:${rule}] ${message}`
 });
 var allow = { action: "allow" };
+function applyMode(finding2, ctx) {
+  if (finding2 === null) {
+    return finding2;
+  }
+  const action = ctx.modeOf(finding2.rule) === "audit" ? "warn" : "block";
+  return { ...finding2, action };
+}
 
 // src/hook/guard-append-only.ts
 var APPEND_ONLY = /(^|[/\s>'"=])(\.claude\/evals\/history\.jsonl|\.kore\/state\/journal\/[^/\s'"]*\.jsonl|\.kore\/state\/ledger\.jsonl)$/;
@@ -5630,19 +5755,19 @@ function zshWords(command) {
   return null;
 }
 async function evaluateBash(command, ctx) {
-  const glob = unquotedGlob(command);
-  if (glob) {
+  const glob = applyMode(unquotedGlob(command), ctx);
+  if (glob?.action === "block") {
     return glob;
   }
   let warning = null;
   for (const segment of splitSegments(command)) {
-    const result = await checkBashSegment(segment, ctx);
+    const result = applyMode(await checkBashSegment(segment, ctx), ctx);
     if (result?.action === "block") {
       return result;
     }
     warning ??= result;
   }
-  return warning ?? zshWords(command) ?? allow;
+  return warning ?? glob ?? applyMode(zshWords(command), ctx) ?? allow;
 }
 
 // src/hook/guard-file.ts
@@ -5782,12 +5907,12 @@ ${tagged.message}` };
 }
 async function evaluateFile(tool, input, relative, ctx) {
   if (SECRET_PATH.test(relative)) {
-    return secretBlock();
+    return applyMode(secretBlock(), ctx);
   }
   if (tool === "Read") {
     return allow;
   }
-  return await checkWrite(tool, input, relative, ctx) ?? allow;
+  return applyMode(await checkWrite(tool, input, relative, ctx), ctx) ?? allow;
 }
 
 // src/hook/guard.ts
@@ -5814,17 +5939,33 @@ async function guard(payload, deps) {
   const call = asCall2(payload);
   const root3 = deps.env["CLAUDE_PROJECT_DIR"] || (typeof call.cwd === "string" && call.cwd !== "" ? call.cwd : deps.cwd);
   const started = recordEvent(deps, "tool.start", call);
+  const readFile2 = (path) => deps.fs.readFile(path);
+  let inventory;
+  let problem = "";
+  try {
+    inventory = await readInventory(readFile2, root3);
+  } catch (error) {
+    if (!(error instanceof GuardrailError)) {
+      throw error;
+    }
+    problem = `
+[guard] Every rule is enforcing because ${error.message}`;
+  }
   const verdict = await evaluate(payload, {
     root: root3,
-    readFile: (path) => deps.fs.readFile(path)
+    readFile: readFile2,
+    modeOf: (rule) => inventory ? modeOf(inventory, rule) : "enforce"
   });
   await started;
   if (verdict.action === "block") {
     await recordEvent(deps, "tool.end", call, "failure");
-    return { code: 2, stderr: `${verdict.message}
+    return { code: 2, stderr: `${verdict.message}${problem}
 ` };
   }
   if (verdict.action === "warn") {
+    await recordEvent(deps, "guard.audit", call, void 0, {
+      label: verdict.rule
+    });
     return {
       stdout: JSON.stringify({
         hookSpecificOutput: {
@@ -6047,12 +6188,6 @@ var SessionAnalysis = class {
 // src/hook/retro-scan.ts
 var MIN_WARNINGS = 5;
 var RETRO_MARKER = /^\W*Last retrospective: (\d{4}-\d{2}-\d{2})/gm;
-function auditRules(guardSource) {
-  const names3 = [...guardSource.matchAll(/\bwarn\(\s*"([a-z0-9-]+)"/g)].map(
-    (match) => match[1] ?? ""
-  );
-  return [...new Set(names3)].sort();
-}
 function lastRetrospective(plans) {
   const dates = Object.values(plans).flatMap(
     (markdown) => [...markdown.matchAll(RETRO_MARKER)].map((match) => match[1] ?? "")
@@ -6118,9 +6253,9 @@ var Tally2 = class {
         continue;
       }
       seen.add(phrase);
-      const entry = this.phraseSessions.get(phrase) ?? [];
-      entry.push({ session: id, line: line2 });
-      this.phraseSessions.set(phrase, entry);
+      const entry2 = this.phraseSessions.get(phrase) ?? [];
+      entry2.push({ session: id, line: line2 });
+      this.phraseSessions.set(phrase, entry2);
     }
   }
   addWarnings(found) {
@@ -6163,11 +6298,11 @@ var Tally2 = class {
   }
   rules() {
     const audit3 = [...this.ruleStats].sort(([a], [b]) => a.localeCompare(b)).map(([rule, stats]) => {
-      let status = "insufficient-evidence";
+      let status2 = "insufficient-evidence";
       if (stats.warnings >= MIN_WARNINGS) {
-        status = stats.heeded === stats.warnings ? "promotable" : "not-promotable";
+        status2 = stats.heeded === stats.warnings ? "promotable" : "not-promotable";
       }
-      return { rule, status, ...stats };
+      return { rule, status: status2, ...stats };
     });
     return {
       promotable: audit3.filter((r) => r.status === "promotable").map((r) => r.rule),
@@ -6310,9 +6445,6 @@ async function readTranscripts(fs, dirs) {
 }
 
 // src/hook/retro-hook.ts
-var GUARD_DIR = "tools/harness/src/hook";
-var GUARD_MODULE = /^guard(?:-[a-z-]+)?\.ts$/;
-var GUARD_NOT_RULES = /(?:\.spec|-support)\.ts$/;
 var USAGE = "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD]\n--since keeps sessions active at or after local midnight of that date, like the session-start count.";
 var isMissing = (error) => error.code === "ENOENT";
 async function skillNames(fs, root3) {
@@ -6327,9 +6459,9 @@ async function skillNames(fs, root3) {
     throw error;
   }
   const names3 = [];
-  for (const entry of entries) {
-    if (await fs.isDirectory(join11(dir, entry)) && await fs.exists(join11(dir, entry, "SKILL.md"))) {
-      names3.push(entry);
+  for (const entry2 of entries) {
+    if (await fs.isDirectory(join11(dir, entry2)) && await fs.exists(join11(dir, entry2, "SKILL.md"))) {
+      names3.push(entry2);
     }
   }
   return names3;
@@ -6356,24 +6488,17 @@ ${USAGE}
 `;
   }
 }
-async function readGuardSource(fs, root3) {
-  const dir = join11(root3, GUARD_DIR);
-  let names3;
+async function auditRules(deps, root3) {
   try {
-    names3 = await fs.readdir(dir);
-  } catch (error) {
-    if (!isMissing(error)) {
-      throw error;
-    }
-    throw new CommandError(
-      `Cannot read the guard source in ${dir}, which lists the audit-mode rules. Point GUARD_DIR in tools/harness/src/hook/retro-hook.ts at where the guard now lives.`
+    return auditRuleNames(
+      await readInventory((p) => deps.fs.readFile(p), root3)
     );
+  } catch (error) {
+    if (error instanceof GuardrailError) {
+      throw new CommandError(error.message);
+    }
+    throw error;
   }
-  const modules = names3.filter((name) => GUARD_MODULE.test(name) && !GUARD_NOT_RULES.test(name)).sort();
-  const sources = await Promise.all(
-    modules.map((name) => fs.readFile(join11(dir, name)))
-  );
-  return sources.join("\n");
 }
 async function report2(deps, { dir, since }) {
   const root3 = await deps.root();
@@ -6387,14 +6512,14 @@ async function report2(deps, { dir, since }) {
   if (skills === void 0) {
     stderr2 += "No skills/ directory found; skills.unused will be empty.\n";
   }
-  const guardSource = await readGuardSource(deps.fs, root3);
+  const audit3 = await auditRules(deps, root3);
   if (effective === void 0 && !dir) {
     stderr2 += "No `Last retrospective:` date found; scanning all sessions. Pass --since to narrow.\n";
   }
   const result = scan(found.inputs, {
     since: effective,
     knownSkills: skills ?? [],
-    auditRules: auditRules(guardSource)
+    auditRules: audit3
   });
   const body = { since: effective ?? null, ...result };
   return { stdout: `${JSON.stringify(body, null, 2)}
@@ -6435,9 +6560,9 @@ async function skillNames2(fs, root3) {
     throw error;
   }
   const skills = [];
-  for (const entry of entries) {
-    if (await fs.exists(join12(root3, "skills", entry, "SKILL.md"))) {
-      skills.push(entry);
+  for (const entry2 of entries) {
+    if (await fs.exists(join12(root3, "skills", entry2, "SKILL.md"))) {
+      skills.push(entry2);
     }
   }
   return skills.sort();
@@ -6622,8 +6747,8 @@ async function workflowProblems(fs, root3) {
     throw error;
   }
   const files = {};
-  for (const entry of entries.filter((f) => /\.ya?ml$/.test(f)).sort()) {
-    files[entry] = await fs.readFile(join13(dir, entry));
+  for (const entry2 of entries.filter((f) => /\.ya?ml$/.test(f)).sort()) {
+    files[entry2] = await fs.readFile(join13(dir, entry2));
   }
   return permissionProblems(files);
 }
@@ -6717,25 +6842,25 @@ var ADR = /^docs\/decisions\/[^/]+\.md$/;
 function valueProblems(file, keys, adr) {
   const problems = [];
   const statuses = adr ? ["proposed", "accepted", "superseded"] : ["active", "done"];
-  const status = keys.get("status");
-  if (status && !statuses.includes(status.value)) {
+  const status2 = keys.get("status");
+  if (status2 && !statuses.includes(status2.value)) {
     problems.push(
       finding(
         file,
-        status.line,
-        `frontmatter status is ${status.value}`,
+        status2.line,
+        `frontmatter status is ${status2.value}`,
         `use one of ${statuses.join(", ")}`
       )
     );
   }
   for (const key of ["date", "last-verified"]) {
-    const entry = keys.get(key);
-    if (entry && (adr || key !== "date") && !DATE.test(entry.value)) {
+    const entry2 = keys.get(key);
+    if (entry2 && (adr || key !== "date") && !DATE.test(entry2.value)) {
       problems.push(
         finding(
           file,
-          entry.line,
-          `frontmatter ${key} is ${entry.value}`,
+          entry2.line,
+          `frontmatter ${key} is ${entry2.value}`,
           "use a YYYY-MM-DD date"
         )
       );
@@ -6818,11 +6943,11 @@ function valueProblems2(file, keys) {
   const problems = [];
   const bad3 = (key, message, fix2) => problems.push(onKey(file, keys, key, message, fix2));
   const oneOf = (key, allowed) => {
-    const entry = keys.get(key);
-    if (entry && !allowed.includes(entry.value)) {
+    const entry2 = keys.get(key);
+    if (entry2 && !allowed.includes(entry2.value)) {
       bad3(
         key,
-        `frontmatter ${key} is ${entry.value}`,
+        `frontmatter ${key} is ${entry2.value}`,
         `use one of ${allowed.join(", ")}`
       );
     }
@@ -7279,12 +7404,12 @@ function format(problem) {
   return `${problem.file}:${problem.line}: ${problem.message}; ${problem.fix}`;
 }
 async function run(argv, deps, log) {
-  const status = await runChecks(argv, deps, log);
+  const status2 = await runChecks(argv, deps, log);
   const audit3 = deps.audit?.bind(deps);
   if (audit3) {
     await printAudit(audit3, log);
   }
-  return status;
+  return status2;
 }
 async function printAudit(audit3, log) {
   let report3;
@@ -7719,7 +7844,7 @@ function sessionNameError(name) {
 // src/session/output.ts
 var USAGE_ERROR = 2;
 var FAILED4 = 1;
-function fail2(deps, json, code, message) {
+function fail3(deps, json, code, message) {
   deps.stderr(
     `${json ? `${JSON.stringify({ error: message })}
 ` : ""}${message}
@@ -7893,7 +8018,7 @@ async function close2(context) {
   const { json, deps } = context;
   const name = context.operand;
   if (name === void 0) {
-    return fail2(
+    return fail3(
       deps,
       json,
       USAGE_ERROR,
@@ -7902,16 +8027,16 @@ async function close2(context) {
   }
   const nameError = sessionNameError(name);
   if (nameError !== void 0) {
-    return fail2(deps, json, USAGE_ERROR, nameError);
+    return fail3(deps, json, USAGE_ERROR, nameError);
   }
   const callerPane = deps.env.HERDR_PANE_ID;
   if (deps.env.HERDR_ENV !== "1" || !callerPane) {
-    return fail2(deps, json, FAILED4, NOT_IN_HERDR);
+    return fail3(deps, json, FAILED4, NOT_IN_HERDR);
   }
   const registry = await SessionRegistry.open(deps);
   const record3 = await registry.read(name);
   if (record3 === void 0) {
-    return fail2(
+    return fail3(
       deps,
       json,
       FAILED4,
@@ -7920,7 +8045,7 @@ async function close2(context) {
   }
   const refusal = refuse(record3, callerPane);
   if (refusal !== void 0) {
-    return fail2(deps, json, FAILED4, refusal);
+    return fail3(deps, json, FAILED4, refusal);
   }
   const closed = await deps.runner.run("herdr", [
     "pane",
@@ -7928,7 +8053,7 @@ async function close2(context) {
     record3.paneId
   ]);
   if (closed.code !== 0) {
-    return fail2(
+    return fail3(
       deps,
       json,
       FAILED4,
@@ -8163,7 +8288,7 @@ async function wait(context) {
   const { json, deps, options } = context;
   const name = context.operand;
   if (name === void 0) {
-    return fail2(
+    return fail3(
       deps,
       json,
       USAGE_ERROR,
@@ -8172,16 +8297,16 @@ async function wait(context) {
   }
   const nameError = sessionNameError(name);
   if (nameError !== void 0) {
-    return fail2(deps, json, USAGE_ERROR, nameError);
+    return fail3(deps, json, USAGE_ERROR, nameError);
   }
   const timeout = parseTimeout(options.timeout);
   if (typeof timeout !== "number") {
-    return fail2(deps, json, USAGE_ERROR, timeout.error);
+    return fail3(deps, json, USAGE_ERROR, timeout.error);
   }
   const registry = await SessionRegistry.open(deps);
   const record3 = await registry.read(name);
   if (record3 === void 0) {
-    return fail2(
+    return fail3(
       deps,
       json,
       FAILED4,
@@ -8190,7 +8315,7 @@ async function wait(context) {
   }
   const result = await waitForResult(deps, registry, record3, timeout);
   if ("error" in result) {
-    return fail2(deps, json, FAILED4, result.error);
+    return fail3(deps, json, FAILED4, result.error);
   }
   deps.stdout(json ? `${JSON.stringify(result)}
 ` : formatWait(result));
@@ -8279,7 +8404,7 @@ async function finish2({ json, deps, options }, { registry, record: record3, mod
   }
   const result = await waitForResult(deps, registry, record3, timeoutMs);
   if ("error" in result) {
-    return fail2(deps, json, FAILED4, result.error);
+    return fail3(deps, json, FAILED4, result.error);
   }
   deps.stdout(
     json ? `${JSON.stringify({ ...result, role, effort, ...extra, modelCheck })}
@@ -8336,27 +8461,27 @@ async function spawn2(context) {
   const { json, deps } = context;
   const checked = check(context);
   if ("error" in checked) {
-    return fail2(deps, json, checked.code, checked.error);
+    return fail3(deps, json, checked.code, checked.error);
   }
   const { name, model, role, effort } = checked.values;
   const { callerPane } = checked;
   const registry = await SessionRegistry.open(deps);
   const taken = await registry.unavailable(name) ?? await nameTakenError(deps, name);
   if (taken !== void 0) {
-    return fail2(deps, json, FAILED4, taken);
+    return fail3(deps, json, FAILED4, taken);
   }
   const placed = await place(deps, context.options, name);
   if ("error" in placed) {
-    return fail2(deps, json, FAILED4, placed.error);
+    return fail3(deps, json, FAILED4, placed.error);
   }
   const paneId = await splitPane(deps, callerPane, placed.cwd);
   if (typeof paneId !== "string") {
-    return fail2(deps, json, FAILED4, `${paneId.error}${placed.left}`);
+    return fail3(deps, json, FAILED4, `${paneId.error}${placed.left}`);
   }
   const leftOpen = `The pane ${paneId} was left open; close it with \`herdr pane close ${paneId}\`.${placed.left}`;
   const equalized = await equalize(deps.runner, callerPane);
   if (equalized.status === "failed") {
-    return fail2(deps, json, FAILED4, `${equalized.reason}. ${leftOpen}`);
+    return fail3(deps, json, FAILED4, `${equalized.reason}. ${leftOpen}`);
   }
   const modelCheck = await launch(deps, {
     ...checked.values,
@@ -8365,7 +8490,7 @@ async function spawn2(context) {
     leftOpen
   });
   if ("error" in modelCheck) {
-    return fail2(deps, json, FAILED4, modelCheck.error);
+    return fail3(deps, json, FAILED4, modelCheck.error);
   }
   return await finish2(context, {
     registry,
@@ -8469,6 +8594,7 @@ var domains = {
     "clear-next": planClearNext
   },
   adr: adrCommands,
+  guardrail: guardrailCommands,
   ...hostDomains,
   ...records,
   ...measurement
@@ -8493,7 +8619,7 @@ function usage() {
   return `${lines2.join("\n")}
 `;
 }
-function fail3(deps, json, message, code = USAGE_ERROR2) {
+function fail4(deps, json, message, code = USAGE_ERROR2) {
   const prefix = json ? `${JSON.stringify({ error: message })}
 ` : "";
   deps.stderr(`${prefix}${message}
@@ -8596,7 +8722,7 @@ async function run2(argv, deps) {
   const failure2 = domain === "hook" ? FAILURE : USAGE_ERROR2;
   const early = argv.slice(0, words2[1] ?? 0).find((t) => t.startsWith("-") && !["--json", "--help", "-h"].includes(t));
   if (early !== void 0) {
-    return fail3(
+    return fail4(
       deps,
       json,
       `Put "${early}" after the command: harness <domain> <command> [flags].`,
@@ -8605,11 +8731,11 @@ async function run2(argv, deps) {
   }
   const resolved = resolve7(domain, name);
   if ("error" in resolved) {
-    return fail3(deps, json, resolved.error, failure2);
+    return fail4(deps, json, resolved.error, failure2);
   }
   const parsed = parseOptions(resolved.command, rest);
   if ("error" in parsed) {
-    return fail3(deps, json, parsed.error, failure2);
+    return fail4(deps, json, parsed.error, failure2);
   }
   return await execute(resolved.command, {
     json,

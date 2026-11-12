@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import { run } from "../cli/index.js";
 import { testHarness } from "../cli/cli-support.js";
 import { ledgerEvents } from "./feedback-support.js";
+import { modeOf, INVENTORY_PATH } from "../guardrail/index.js";
+import {
+  committedInventory,
+  committedInventoryText,
+} from "../guardrail/inventory-support.js";
 import { evaluate } from "./guard.js";
 
 // The hook as the host runs it, in process: exit code, stdout, stderr and the
@@ -16,7 +21,10 @@ async function guard(
   tweak: (h: ReturnType<typeof testHarness>) => void = () => undefined,
   gitCalls?: (readonly string[])[],
 ) {
-  const h = testHarness({ env });
+  const h = testHarness({
+    env,
+    files: { [`/repo/${INVENTORY_PATH}`]: committedInventoryText },
+  });
   h.deps.stdin = () => Promise.resolve(stdin);
   tweak(h);
   const code = await run(["hook", "guard"], h.deps);
@@ -121,8 +129,10 @@ describe("hook guard faults", () => {
   it("keeps a block's verdict and stderr when the ledger cannot be written", async () => {
     const unwritable = (h: ReturnType<typeof testHarness>) => {
       const refuse = () => Promise.reject(new Error("EACCES: ledger"));
+      const memory = h.deps.fs;
       h.deps.fs = {
-        ...h.deps.fs,
+        ...memory,
+        readFile: (path) => memory.readFile(path),
         appendFile: refuse,
         writeFile: refuse,
         createFile: refuse,
@@ -151,6 +161,7 @@ describe("hook guard faults", () => {
 
 const absent = {
   root: "/repo",
+  modeOf: (rule: string) => modeOf(committedInventory, rule),
   readFile: () =>
     Promise.reject(Object.assign(new Error("ENOENT"), { code: "ENOENT" })),
 };
@@ -173,6 +184,7 @@ describe("guard evaluation edges", () => {
   it("rethrows an unexpected read error so the hook fails open with its cause", async () => {
     const denied = {
       root: "/repo",
+      modeOf: absent.modeOf,
       readFile: () =>
         Promise.reject(Object.assign(new Error("EACCES"), { code: "EACCES" })),
     };

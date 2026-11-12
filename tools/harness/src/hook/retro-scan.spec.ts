@@ -4,16 +4,13 @@
 
 import { describe, expect, it } from "vitest";
 import {
-  auditRules,
   lastRetrospective,
   parseTranscript,
   scan,
   summarizeError,
   windowStart,
 } from "./retro-scan.js";
-import { nodeFileSystem } from "../runtime/index.js";
-import { readGuardSource } from "./retro-hook.js";
-import { all, fixture, options, repo } from "./retro-scan-support.js";
+import { all, fixture, options } from "./retro-scan-support.js";
 
 describe("retro scan report", () => {
   it("skips and counts a malformed transcript line instead of failing", () => {
@@ -214,20 +211,6 @@ describe("retro scan audit rules", () => {
       true,
     );
     expect(rules.audit).toHaveLength(3);
-  });
-
-  it("reads the audit-mode rules from the guard's warn calls", async () => {
-    const guardSource = await readGuardSource(nodeFileSystem, repo);
-    expect(auditRules(guardSource)).toEqual([
-      "append-only",
-      "bare-glob",
-      "equals-word",
-      "flag-activation",
-      "idea-issue-body",
-      "idea-issue-close",
-      "idea-outcome",
-      "image-digest",
-    ]);
   });
 });
 

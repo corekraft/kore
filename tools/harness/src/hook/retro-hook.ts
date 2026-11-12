@@ -9,19 +9,16 @@ import {
   type CliDeps,
   type FileSystem,
 } from "../runtime/index.js";
+import {
+  GuardrailError,
+  auditRuleNames,
+  readInventory,
+} from "../guardrail/index.js";
 import { readPlans } from "../plan/index.js";
 import { hookCommand, type HookResult } from "./io.js";
-import { auditRules, lastRetrospective, scan } from "./retro-scan.js";
+import { lastRetrospective, scan } from "./retro-scan.js";
 import { defaultDirs, readTranscripts } from "./retro-transcripts.js";
 
-/**
- * Where the guard's rules live: its `warn("<rule>", ...)` calls name the
- * audit-mode rules. The guard is the `guard.ts` and `guard-*.ts` modules (not
- * their specs or support) in this directory; repoint it when the guard moves.
- */
-const GUARD_DIR = "tools/harness/src/hook";
-const GUARD_MODULE = /^guard(?:-[a-z-]+)?\.ts$/;
-const GUARD_NOT_RULES = /(?:\.spec|-support)\.ts$/;
 const USAGE =
   "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD]\n--since keeps sessions active at or after local midnight of that date, like the session-start count.";
 
@@ -85,30 +82,18 @@ async function transcripts(
   }
 }
 
-/** The guard's source, which names the audit-mode rules; a missing directory is an expected error with its fix. */
-export async function readGuardSource(
-  fs: FileSystem,
-  root: string,
-): Promise<string> {
-  const dir = join(root, GUARD_DIR);
-  let names: string[];
+/** The audit-mode rules, from the guardrail inventory; a missing or invalid one is an expected error with its fix. */
+async function auditRules(deps: CliDeps, root: string): Promise<string[]> {
   try {
-    names = await fs.readdir(dir);
-  } catch (error) {
-    if (!isMissing(error)) {
-      throw error;
-    }
-    throw new CommandError(
-      `Cannot read the guard source in ${dir}, which lists the audit-mode rules. Point GUARD_DIR in tools/harness/src/hook/retro-hook.ts at where the guard now lives.`,
+    return auditRuleNames(
+      await readInventory((p) => deps.fs.readFile(p), root),
     );
+  } catch (error) {
+    if (error instanceof GuardrailError) {
+      throw new CommandError(error.message);
+    }
+    throw error;
   }
-  const modules = names
-    .filter((name) => GUARD_MODULE.test(name) && !GUARD_NOT_RULES.test(name))
-    .sort();
-  const sources = await Promise.all(
-    modules.map((name) => fs.readFile(join(dir, name))),
-  );
-  return sources.join("\n");
 }
 
 async function report(
@@ -128,7 +113,7 @@ async function report(
   if (skills === undefined) {
     stderr += "No skills/ directory found; skills.unused will be empty.\n";
   }
-  const guardSource = await readGuardSource(deps.fs, root);
+  const audit = await auditRules(deps, root);
   if (effective === undefined && !dir) {
     stderr +=
       "No `Last retrospective:` date found; scanning all sessions. Pass --since to narrow.\n";
@@ -136,7 +121,7 @@ async function report(
   const result = scan(found.inputs, {
     since: effective,
     knownSkills: skills ?? [],
-    auditRules: auditRules(guardSource),
+    auditRules: audit,
   });
   const body = { since: effective ?? null, ...result };
   return { stdout: `${JSON.stringify(body, null, 2)}\n`, stderr };
