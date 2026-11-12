@@ -57,7 +57,10 @@ export const read = (file_path: string) =>
 export const blocked = (result: Result, rule: string) => {
   assert.equal(result.action, "block", JSON.stringify(result));
   assert.equal(result.rule, rule);
-  assert.match(result.message, new RegExp(rule), "message names the rule");
+  assert.ok(
+    result.message.includes(`[guard:${rule}]`),
+    "message names the rule",
+  );
   assert.match(
     result.message,
     /Instead|instead/,

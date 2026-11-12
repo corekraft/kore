@@ -7,7 +7,8 @@
 import { evaluateBash } from "./guard-bash.js";
 import { evaluateFile } from "./guard-file.js";
 import { allow, type GuardContext, type Verdict } from "./guard-verdict.js";
-import { recordEvent, type Call } from "./feedback.js";
+import type { Call } from "./feedback.js";
+import { recordEvent } from "./ledger-event.js";
 import type { CliDeps } from "../runtime/index.js";
 import type { HookResult } from "./io.js";
 

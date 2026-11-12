@@ -14,11 +14,15 @@ async function guard(
   },
   stdin = JSON.stringify(payload),
   tweak: (h: ReturnType<typeof testHarness>) => void = () => undefined,
+  gitCalls?: (readonly string[])[],
 ) {
   const h = testHarness({ env });
   h.deps.stdin = () => Promise.resolve(stdin);
   tweak(h);
   const code = await run(["hook", "guard"], h.deps);
+  gitCalls?.push(
+    ...h.runner.calls.filter((c) => c.command === "git").map((c) => c.args),
+  );
   return {
     code,
     out: h.out(),
@@ -45,6 +49,18 @@ describe("hook guard", () => {
       ["tool.start", "Bash", undefined],
       ["tool.end", "Bash", "failure"],
     ]);
+  });
+
+  it("asks git for the ledger root once per run, even for a block that records twice", async () => {
+    const git: (readonly string[])[] = [];
+    await guard(
+      call("minikube delete"),
+      { CLAUDE_PROJECT_DIR: "/repo" },
+      undefined,
+      undefined,
+      git,
+    );
+    expect(git).toHaveLength(1);
   });
 
   it("allows silently and records only the tool start", async () => {

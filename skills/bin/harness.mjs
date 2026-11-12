@@ -4817,7 +4817,7 @@ var delta = hookCommand(
 
 // src/hook/feedback.ts
 import { tmpdir as tmpdir2 } from "node:os";
-import { join as join8 } from "node:path";
+import { join as join9 } from "node:path";
 
 // src/hook/feedback-tokens.ts
 import { tmpdir } from "node:os";
@@ -4893,6 +4893,48 @@ async function readTokens(fs, path, stateFile) {
     return { total: after.total, grew: after.total !== before2.total };
   } catch {
     return { total: 0, grew: false };
+  }
+}
+
+// src/hook/ledger-event.ts
+import { join as join8 } from "node:path";
+var ledgerRoots = /* @__PURE__ */ new WeakMap();
+function ledgerRoot(deps) {
+  let root3 = ledgerRoots.get(deps);
+  if (root3 === void 0) {
+    root3 = mainRoot(deps);
+    ledgerRoots.set(deps, root3);
+  }
+  return root3;
+}
+async function recordEvent(deps, kind, call, outcome, extra = {}) {
+  try {
+    const session2 = call.session_id;
+    if (typeof session2 !== "string" || session2 === "") {
+      return;
+    }
+    const main = await ledgerRoot(deps);
+    if (main === void 0) {
+      return;
+    }
+    const pane = deps.env["HERDR_PANE_ID"];
+    const event = {
+      source: "claude",
+      kind,
+      occurredAt: deps.clock.now().toISOString(),
+      session: session2,
+      ...typeof pane === "string" && pane !== "" ? { pane } : {},
+      ...kind.startsWith("tool.") && typeof call.tool_name === "string" ? { tool: call.tool_name } : {},
+      ...outcome === void 0 ? {} : { outcome },
+      ...extra
+    };
+    await new Ledger(
+      deps.fs,
+      deps.clock,
+      deps.ids,
+      join8(main, DEFAULT_LEDGER)
+    ).record(event);
+  } catch {
   }
 }
 
@@ -5036,36 +5078,6 @@ async function stop(payload, deps) {
     "The harness typecheck failed after your TypeScript changes. Fix it before finishing."
   );
 }
-async function recordEvent(deps, kind, call, outcome, extra = {}) {
-  try {
-    const session2 = call.session_id;
-    if (typeof session2 !== "string" || session2 === "") {
-      return;
-    }
-    const main = await mainRoot(deps);
-    if (main === void 0) {
-      return;
-    }
-    const pane = deps.env["HERDR_PANE_ID"];
-    const event = {
-      source: "claude",
-      kind,
-      occurredAt: deps.clock.now().toISOString(),
-      session: session2,
-      ...typeof pane === "string" && pane !== "" ? { pane } : {},
-      ...kind.startsWith("tool.") && typeof call.tool_name === "string" ? { tool: call.tool_name } : {},
-      ...outcome === void 0 ? {} : { outcome },
-      ...extra
-    };
-    await new Ledger(
-      deps.fs,
-      deps.clock,
-      deps.ids,
-      join8(main, DEFAULT_LEDGER)
-    ).record(event);
-  } catch {
-  }
-}
 async function recordStop(deps, call) {
   await recordEvent(deps, "session.stop", call);
   const { total, grew } = await readTokens(
@@ -5078,7 +5090,7 @@ async function recordStop(deps, call) {
   }
 }
 function feedbackDeps(deps, root3, call) {
-  const marker = (project) => join8(
+  const marker = (project) => join9(
     tmpdir2(),
     `kore-${project === HARNESS.project ? "harness" : "ts"}-changed-${typeof call.session_id === "string" ? call.session_id : "default"}`
   );
@@ -5544,10 +5556,9 @@ async function loadSopsPatterns(ctx) {
   }
   const patterns = [];
   for (const match of text7.matchAll(/path_regex:\s*(.+)$/gm)) {
+    const source = match[1].trim().replace(/^['"]|['"]$/g, "");
     try {
-      patterns.push(
-        new RegExp(match[1].trim().replace(/^['"]|['"]$/g, ""))
-      );
+      patterns.push(new RegExp(source));
     } catch {
     }
   }
@@ -5821,7 +5832,7 @@ async function guard(payload, deps) {
 
 // src/hook/retro-hook.ts
 import { homedir } from "node:os";
-import { join as join10 } from "node:path";
+import { join as join11 } from "node:path";
 
 // src/hook/retro-scan.ts
 import { createHash } from "node:crypto";
@@ -6196,7 +6207,7 @@ function scan(inputs, { since, knownSkills = [], auditRules: audit3 = [] } = {})
 }
 
 // src/hook/retro-transcripts.ts
-import { basename as basename2, join as join9, sep } from "node:path";
+import { basename as basename2, join as join10, sep } from "node:path";
 var PROBE_BYTES = 256 * 1024;
 var DEFAULT_BRANCHES = /* @__PURE__ */ new Set(["main", "master", "HEAD"]);
 var encodePath = (path) => path.replace(/[^a-zA-Z0-9]/g, "-");
@@ -6224,7 +6235,7 @@ async function repoTranscriptDirs(fs, projectsDir, { main, worktrees, branches }
     for (const file of files) {
       let head;
       try {
-        head = await fs.readHead(join9(dir, file), PROBE_BYTES);
+        head = await fs.readHead(join10(dir, file), PROBE_BYTES);
       } catch {
         continue;
       }
@@ -6242,7 +6253,7 @@ async function repoTranscriptDirs(fs, projectsDir, { main, worktrees, branches }
   }
   const found = [];
   for (const name of entries) {
-    const dir = join9(projectsDir, name);
+    const dir = join10(projectsDir, name);
     if (await fs.isDirectory(dir) && (names3.has(basename2(dir)) || await belongs(dir))) {
       found.push(dir);
     }
@@ -6261,7 +6272,7 @@ async function defaultDirs(fs, runner, root3, home) {
     "--path-format=absolute",
     "--git-common-dir"
   ])).trim();
-  const main = worktrees[0] ?? (common ? join9(common, "..") : root3);
+  const main = worktrees[0] ?? (common ? join10(common, "..") : root3);
   const refs = await git(runner, root3, [
     "for-each-ref",
     "--format=%(refname:short)",
@@ -6269,7 +6280,7 @@ async function defaultDirs(fs, runner, root3, home) {
     "refs/remotes"
   ]);
   const branches = refs.split("\n").filter(Boolean).map((name) => name.replace(/^origin\//, ""));
-  return await repoTranscriptDirs(fs, join9(home, ".claude", "projects"), {
+  return await repoTranscriptDirs(fs, join10(home, ".claude", "projects"), {
     main,
     worktrees: worktrees.length > 0 ? worktrees : [main],
     branches
@@ -6282,7 +6293,7 @@ async function readTranscripts(fs, dirs) {
       (n) => n.endsWith(".jsonl")
     )) {
       const id = basename2(name, ".jsonl");
-      const text7 = await fs.readFile(join9(dir, name));
+      const text7 = await fs.readFile(join10(dir, name));
       if (text7.length >= (byId.get(id)?.text.length ?? -1)) {
         byId.set(id, { id, text: text7 });
       }
@@ -6298,7 +6309,7 @@ var GUARD_NOT_RULES = /(?:\.spec|-support)\.ts$/;
 var USAGE = "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD]\n--since keeps sessions active at or after local midnight of that date, like the session-start count.";
 var isMissing = (error) => error.code === "ENOENT";
 async function skillNames(fs, root3) {
-  const dir = join10(root3, "skills");
+  const dir = join11(root3, "skills");
   let entries;
   try {
     entries = await fs.readdir(dir);
@@ -6310,7 +6321,7 @@ async function skillNames(fs, root3) {
   }
   const names3 = [];
   for (const entry of entries) {
-    if (await fs.isDirectory(join10(dir, entry)) && await fs.exists(join10(dir, entry, "SKILL.md"))) {
+    if (await fs.isDirectory(join11(dir, entry)) && await fs.exists(join11(dir, entry, "SKILL.md"))) {
       names3.push(entry);
     }
   }
@@ -6339,7 +6350,7 @@ ${USAGE}
   }
 }
 async function readGuardSource(fs, root3) {
-  const dir = join10(root3, GUARD_DIR);
+  const dir = join11(root3, GUARD_DIR);
   let names3;
   try {
     names3 = await fs.readdir(dir);
@@ -6353,7 +6364,7 @@ async function readGuardSource(fs, root3) {
   }
   const modules = names3.filter((name) => GUARD_MODULE.test(name) && !GUARD_NOT_RULES.test(name)).sort();
   const sources = await Promise.all(
-    modules.map((name) => fs.readFile(join10(dir, name)))
+    modules.map((name) => fs.readFile(join11(dir, name)))
   );
   return sources.join("\n");
 }
@@ -6401,10 +6412,10 @@ var retroScan = hookCommand(
 );
 
 // src/hook/skill-links.ts
-import { isAbsolute, join as join11 } from "node:path";
+import { isAbsolute, join as join12 } from "node:path";
 var HARNESSES = [".claude", ".codex"];
 async function skillNames2(fs, root3) {
-  const skillsDir = join11(root3, "skills");
+  const skillsDir = join12(root3, "skills");
   let entries;
   try {
     entries = await fs.readdir(skillsDir);
@@ -6418,7 +6429,7 @@ async function skillNames2(fs, root3) {
   }
   const skills = [];
   for (const entry of entries) {
-    if (await fs.exists(join11(root3, "skills", entry, "SKILL.md"))) {
+    if (await fs.exists(join12(root3, "skills", entry, "SKILL.md"))) {
       skills.push(entry);
     }
   }
@@ -6442,7 +6453,7 @@ async function linkProblems(fs, root3) {
     for (const skill2 of skills) {
       const link = `${harness}/skills/${skill2}`;
       const expected = `../../skills/${skill2}`;
-      const found = await targetOf(fs, join11(root3, link));
+      const found = await targetOf(fs, join12(root3, link));
       if ("code" in found) {
         problems.push(
           found.code === "EINVAL" ? `${link} is a directory or file, not a link; replace it with a link to ${expected}` : `${link} is missing; link it to ${expected}`
@@ -6462,7 +6473,7 @@ async function linkProblems(fs, root3) {
 }
 
 // src/hook/workflow-permissions.ts
-import { join as join12 } from "node:path";
+import { join as join13 } from "node:path";
 var RELEASE = "release.yaml";
 var SIGNING_JOBS = ["release", "mirror"];
 var SIGNING_SCOPES = ["id-token", "packages"];
@@ -6591,7 +6602,7 @@ function permissionProblems(files) {
   );
 }
 async function workflowProblems(fs, root3) {
-  const dir = join12(root3, ".github", "workflows");
+  const dir = join13(root3, ".github", "workflows");
   let entries;
   try {
     entries = await fs.readdir(dir);
@@ -6605,7 +6616,7 @@ async function workflowProblems(fs, root3) {
   }
   const files = {};
   for (const entry of entries.filter((f) => /\.ya?ml$/.test(f)).sort()) {
-    files[entry] = await fs.readFile(join12(dir, entry));
+    files[entry] = await fs.readFile(join13(dir, entry));
   }
   return permissionProblems(files);
 }
@@ -6778,7 +6789,7 @@ function fail2(deps, json, code, message) {
 }
 
 // src/session/registry.ts
-import { join as join13, resolve as resolve5 } from "node:path";
+import { join as join14, resolve as resolve5 } from "node:path";
 var STATE_DIR = ".kore/state/sessions";
 function isRecord(value) {
   if (typeof value !== "object" || value === null) {
@@ -6805,7 +6816,7 @@ var SessionRegistry = class _SessionRegistry {
     return new _SessionRegistry(deps.fs, resolve5(main, STATE_DIR));
   }
   file(name) {
-    return join13(this.dir, `${name}.json`);
+    return join14(this.dir, `${name}.json`);
   }
   async read(name) {
     const path = this.file(name);
@@ -6865,7 +6876,7 @@ var SessionRegistry = class _SessionRegistry {
 };
 
 // src/session/worktree.ts
-import { join as join14 } from "node:path";
+import { join as join15 } from "node:path";
 var removeCommands = (worktree) => `\`git worktree remove ${worktree.path}\` and \`git branch -D ${worktree.branch}\``;
 var removeHint = (worktree) => `The worktree ${worktree.path} was left behind; remove it with ${removeCommands(worktree)}.`;
 var closeHint = (worktree) => `Remove its worktree once its branch is merged: ${removeCommands(worktree)}.`;
@@ -6876,7 +6887,7 @@ async function create2(deps, name, branch) {
       error: "Cannot find the main checkout to create the worktree in. Run inside the repository or set KORE_ROOT to its root. No pane was split."
     };
   }
-  const worktree = { path: join14(main, ".claude", "worktrees", name), branch };
+  const worktree = { path: join15(main, ".claude", "worktrees", name), branch };
   const add = await deps.runner.run(
     "git",
     ["worktree", "add", "-b", branch, worktree.path, "HEAD"],
@@ -6888,7 +6899,7 @@ async function create2(deps, name, branch) {
     };
   }
   const install = await deps.runner.run("npm", ["ci"], {
-    cwd: join14(worktree.path, "tools", "kore")
+    cwd: join15(worktree.path, "tools", "kore")
   });
   if (install.code !== 0) {
     return {
@@ -7288,7 +7299,7 @@ function check({ deps, options }) {
 }
 
 // src/session/spawn-finish.ts
-import { join as join15 } from "node:path";
+import { join as join16 } from "node:path";
 async function recordLaunch(deps, record3) {
   try {
     const main = await mainRoot(deps);
@@ -7299,7 +7310,7 @@ async function recordLaunch(deps, record3) {
       deps.fs,
       deps.clock,
       deps.ids,
-      join15(main, DEFAULT_LEDGER)
+      join16(main, DEFAULT_LEDGER)
     ).record({
       source: "herdr",
       kind: "session.launch",
@@ -7491,7 +7502,7 @@ var session = {
 };
 
 // src/skill/index.ts
-import { join as join16 } from "node:path";
+import { join as join17 } from "node:path";
 
 // src/skill/audit.ts
 var DESCRIPTION_BUDGET = 200;
@@ -7605,7 +7616,7 @@ var audit2 = {
   summary: "report each skill's description and body against its budgets",
   options: { strict: "boolean" },
   async run({ json, options, deps }) {
-    const skillsDir = join16(await deps.root(), SKILLS_DIR);
+    const skillsDir = join17(await deps.root(), SKILLS_DIR);
     let report3;
     try {
       report3 = await auditSkills(deps.fs, skillsDir);
