@@ -114,7 +114,7 @@ and the clean-machine script (#157).
       Progress: the guard, deny rule and eval cases blocked
       `k3d cluster delete` from #133; #157 removed the `minikube delete` rule
       (through the guardrail inventory and `guardrail deny --write
-    --allow-removal`) and its guard cases, as this step approved. The
+  --allow-removal`) and its guard cases, as this step approved. The
       `k3d cluster delete` rule stays.
 - [x] Remove the `minikube` provider value from the types, schema and validator,
       and the Minikube paths from the cluster, local and doctor code.
@@ -133,9 +133,12 @@ and the clean-machine script (#157).
 ### Exit Criteria
 
 - `grep -ri minikube tools/kore/src infra` finds nothing, apart from ADR
-  filenames, `infra/plans` (historical records) and two recorded exceptions: the provider rejection in
-  `tools/kore/src/config/validate.ts` (and its spec), and the provider-name
-  detector in `tools/kore/src/diagnostics/portability.ts` (and its spec).
+  filenames, `infra/plans` (historical records) and three recorded exceptions:
+  the provider rejection in `tools/kore/src/config/validate.ts` (and its spec),
+  the provider-name detector in `tools/kore/src/diagnostics/portability.ts`
+  (and its spec), and the assertion in
+  `tools/kore/src/app/clean-machine-script.spec.ts` that the clean-machine
+  script names no Minikube.
 
 ## Step 7: Live Proof
 
