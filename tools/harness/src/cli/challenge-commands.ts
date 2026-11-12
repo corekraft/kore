@@ -69,6 +69,9 @@ async function round(context: CommandContext): Promise<void> {
       `Round ${done.round} was posted on ${done.issue}, but its ledger event was rejected: ${event.message} Fix the ledger; do not rerun, which would post another round.`,
     );
   }
+  if (done.duplicate !== undefined) {
+    throw new IdeaError(done.duplicate);
+  }
   deps.stdout(
     context.json
       ? `${JSON.stringify(done)}\n`

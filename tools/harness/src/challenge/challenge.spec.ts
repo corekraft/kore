@@ -1,11 +1,14 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { run } from "../cli/index.js";
 import {
+  GH_USER,
   LEDGER,
   ghWrites,
   linked,
   type Harness,
 } from "../outcome/outcome-support.js";
+import { issueComments } from "./challenge.js";
 import { MAX_ROUNDS } from "./index.js";
 
 const challenge = (extra: string[] = []) => [
@@ -98,6 +101,125 @@ describe("harness idea challenge", () => {
   });
 });
 
+const marker = (idea: string, n: number) =>
+  `<!-- harness-challenge idea=${idea} round=${n} -->\nChallenge round ${n} of 2\n\n- x`;
+
+describe("harness idea challenge integrity", () => {
+  it("ignores a round marker posted by anyone but the authenticated gh user", async () => {
+    const { h, issue } = await linked({
+      comments: [marker("0001", 1), marker("0001", 2)],
+      authors: { 0: "mallory", 1: "mallory" },
+    });
+    expect(await round(h, ["mine"])).toBe(0);
+    expect(h.out()).toContain("round 1 of 2");
+    expect(issue.comments).toHaveLength(3);
+  });
+
+  it("does not let a forged marker use up the rounds", async () => {
+    const { h } = await linked({
+      comments: [marker("0001", 1), marker("0001", 2)],
+      authors: { 1: "mallory" },
+    });
+    expect(await round(h, ["mine"])).toBe(0);
+    expect(h.out()).toContain("round 2 of 2");
+  });
+
+  it("still counts rounds by the expected user and refuses a third", async () => {
+    const { h } = await linked({
+      comments: [marker("0001", 1), marker("0001", 2)],
+      authors: { 0: GH_USER, 1: GH_USER },
+    });
+    expect(await round(h, ["third"])).toBe(1);
+    expect(h.err()).toContain("limit of 2 challenge rounds");
+  });
+
+  it("reports a duplicate round number after posting, naming both comments and which to keep", async () => {
+    const raced = await linked();
+    raced.issue.afterComment = (i) => {
+      if (i.comments.length === 1) {
+        i.comments.unshift(marker("0001", 1));
+      }
+    };
+    expect(await round(raced.h, ["mine"])).toBe(1);
+    const error = raced.h.err();
+    expect(error).toContain("round 1");
+    expect(error).toContain("#issuecomment-1");
+    expect(error).toContain("#issuecomment-2");
+    expect(error).toMatch(/keep .*#issuecomment-1/i);
+  });
+});
+
+describe("harness idea challenge duplicates", () => {
+  it("records the round in the ledger before reporting a duplicate, so the issue and ledger agree", async () => {
+    const raced = await linked();
+    raced.issue.afterComment = (i) => {
+      if (i.comments.length === 1) {
+        i.comments.unshift(marker("0001", 1));
+      }
+    };
+    expect(await round(raced.h, ["mine"])).toBe(1);
+    expect(
+      ledgerEvents(raced.h).filter((e) => e["kind"] === "challenge.round"),
+    ).toMatchObject([{ idea: "0001", stage: "challenge", number: 1 }]);
+    expect(
+      ghWrites(raced.h).filter((c) => c.args[1] === "comment"),
+    ).toHaveLength(1);
+  });
+
+  it("says not to rerun when the re-read after posting fails, and posts exactly once", async () => {
+    const { h, issue } = await linked();
+    const inner = h.runner.run.bind(h.runner);
+    let views = 0;
+    h.runner.run = (c, a, o) => {
+      if (c === "gh" && a[0] === "issue" && a[1] === "view" && ++views === 2) {
+        return Promise.resolve({ stdout: "", stderr: "rate limited", code: 1 });
+      }
+      return inner(c, a, o);
+    };
+    expect(await round(h, ["a"])).toBe(1);
+    const error = h.err();
+    expect(error).toContain("Round 1 was posted");
+    expect(error).toContain("rate limited");
+    expect(error).toContain("Do not rerun");
+    expect(error).not.toContain("then rerun");
+    expect(issue.comments).toHaveLength(1);
+    expect(ghWrites(h).filter((c) => c.args[1] === "comment")).toHaveLength(1);
+  });
+
+  it("is not a duplicate when the same round number is from someone else", async () => {
+    const { h, issue } = await linked();
+    issue.afterComment = (i) => {
+      if (i.comments.length === 1) {
+        i.comments.unshift(marker("0001", 1));
+        i.authors = { 0: "mallory" };
+      }
+    };
+    expect(await round(h, ["mine"])).toBe(0);
+  });
+
+  it("refuses to post when the gh user cannot be determined", async () => {
+    const { h } = await linked();
+    const inner = h.runner.run.bind(h.runner);
+    h.runner.run = (c, a, o) =>
+      c === "gh" && a[0] === "api"
+        ? Promise.resolve({ stdout: "", stderr: "not logged in", code: 1 })
+        : inner(c, a, o);
+    expect(await round(h, ["a"])).toBe(1);
+    expect(h.err()).toContain("could not name the authenticated user");
+    expect(h.err()).toContain("gh auth status");
+    expect(ghWrites(h)).toHaveLength(0);
+  });
+
+  it("counts a leftover duplicate as one round and does not fail a clean later post", async () => {
+    const { h, issue } = await linked({
+      comments: [marker("0001", 1), marker("0001", 1)],
+    });
+    expect(await round(h, ["next"])).toBe(0);
+    expect(h.out()).toContain("round 2 of 2");
+    expect(issue.comments).toHaveLength(3);
+  });
+});
+
 describe("harness idea challenge approvals", () => {
   it("records a round with no objections as an approval, and still counts it", async () => {
     const { h, issue } = await linked();
@@ -179,5 +301,22 @@ describe("harness idea challenge bookkeeping", () => {
     const after = h.snapshot();
     delete after[LEDGER.slice("/repo/".length)];
     expect(after).toEqual(before);
+  });
+});
+
+describe("issueComments on a captured gh payload", () => {
+  const captured = readFileSync(
+    new URL("fixtures/gh-issue-comments.json", import.meta.url),
+    "utf8",
+  );
+
+  it("reads the body, author login and url from `gh issue view --json comments`", () => {
+    expect(issueComments(captured, "https://example.test/issue")).toEqual([
+      {
+        body: expect.stringContaining("Live boundary eval run on main"),
+        author: "junners",
+        url: "https://github.com/corekraft/kore/issues/192#issuecomment-6836363558",
+      },
+    ]);
   });
 });
