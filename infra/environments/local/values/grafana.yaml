@@ -5,8 +5,8 @@ persistence:
     storageClassName: kore-standard,
     extraPvcLabels: { platform.kore.dev/retention: Delete }
   }
-# Minikube's hostpath provisioner creates writable directories; recursive chown
-# of existing hostpath data is denied by the container runtime.
+# The local-path provisioner creates writable directories; recursive chown
+# of existing volume data is denied by the container runtime.
 initChownData:
   enabled: false
 grafana.ini:

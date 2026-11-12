@@ -91,7 +91,7 @@ plan 8.
 
 ### Work
 
-- [ ] Point `platform-storage` at the k3s `local-path` provisioner.
+- [x] Point `platform-storage` at the k3s `local-path` provisioner.
 - [ ] Re-prove retained-volume discovery (ADR 0061).
 
 ### Exit Criteria

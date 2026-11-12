@@ -1,0 +1,3 @@
+# The k3s local-path provisioner backs both classes in the k3d cluster.
+storage:
+  provisioner: rancher.io/local-path

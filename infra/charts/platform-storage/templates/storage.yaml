@@ -3,17 +3,17 @@ kind: StorageClass
 metadata:
   name: kore-standard
   labels: {app.kubernetes.io/managed-by: Helm}
-provisioner: {{ .Values.storage.provisioner }}
+provisioner: {{ include "platform-storage.provisioner" . }}
 reclaimPolicy: Delete
 allowVolumeExpansion: true
-volumeBindingMode: Immediate
+volumeBindingMode: WaitForFirstConsumer
 ---
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
   name: kore-retained
   labels: {app.kubernetes.io/managed-by: Helm}
-provisioner: {{ .Values.storage.provisioner }}
+provisioner: {{ include "platform-storage.provisioner" . }}
 reclaimPolicy: Retain
 allowVolumeExpansion: true
-volumeBindingMode: Immediate
+volumeBindingMode: WaitForFirstConsumer

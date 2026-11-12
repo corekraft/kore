@@ -40,6 +40,7 @@
       "grafana": ["infra/environments/local/values/grafana.yaml"],
       "otel-collector": ["infra/environments/local/values/otel-collector.yaml"],
       "otel-agent": ["infra/environments/local/values/otel-agent.yaml"],
+      "kore-storage": ["infra/environments/local/values/platform-storage.yaml"],
       "kore-platform-config":
         ["infra/environments/local/values/platform-config.yaml"],
       "kore-local-tls":
