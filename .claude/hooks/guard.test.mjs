@@ -487,3 +487,48 @@ test("append-only: appending and reading the files is allowed", () => {
 test("append-only: a blocking rule in the same command still blocks", () => {
   blocked(bash(`rm ${HISTORY} && kubectl get pods`), "kubectl-context");
 });
+
+const IDEA_FILE = "docs/ideas/0001-a.md";
+
+const outcomeWarned = (result, label) => {
+  assert.equal(result.action, "warn", `${label}: ${JSON.stringify(result)}`);
+  assert.equal(result.rule, "idea-outcome", label);
+  assert.match(result.message, /\[guard:idea-outcome\]/, label);
+  assert.match(
+    result.message,
+    /#187/,
+    `${label}: names the ticket that adds the tool`,
+  );
+  assert.doesNotMatch(
+    result.message,
+    /harness outcome/,
+    `${label}: names no command that does not exist yet`,
+  );
+  assert.match(result.message, /Instead/, `${label}: offers the fix`);
+};
+
+test("idea-outcome: hand-written outcome sections or fields in an idea warn, naming the ticket that adds the tool", () => {
+  outcomeWarned(
+    write(`/repo/${IDEA_FILE}`, "---\nstatus: closed\noutcome: refuted\n---\n"),
+    "Write outcome field",
+  );
+  outcomeWarned(
+    edit(`/repo/${IDEA_FILE}`, "x", "## Outcome\n\nIt worked.\n"),
+    "Edit heading",
+  );
+  outcomeWarned(
+    edit(`/repo/${IDEA_FILE}`, "x", "### outcome\n"),
+    "Edit lowercase sub-heading",
+  );
+});
+
+test("idea-outcome: other idea edits and other files are not warned", () => {
+  for (const result of [
+    edit(`/repo/${IDEA_FILE}`, "a", "## Expected outcome\n"),
+    write(`/repo/${IDEA_FILE}`, "---\nexpected-outcome: faster\n---\n"),
+    write("/repo/docs/guides/x.md", "## Outcome\n"),
+    read(`/repo/${IDEA_FILE}`),
+  ]) {
+    assert.equal(result.action, "allow", JSON.stringify(result));
+  }
+});

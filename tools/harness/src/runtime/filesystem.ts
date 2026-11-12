@@ -5,6 +5,8 @@ export interface FileSystem {
   readFile(path: string): Promise<string>;
   /** Creates missing parent directories. */
   writeFile(path: string, content: string): Promise<void>;
+  /** Creates missing parent directories; rejects with code EEXIST when the file already exists. */
+  createFile(path: string, content: string): Promise<void>;
   exists(path: string): Promise<boolean>;
   readdir(path: string): Promise<string[]>;
 }
@@ -14,6 +16,10 @@ export const nodeFileSystem: FileSystem = {
   async writeFile(path, content) {
     await mkdir(dirname(path), { recursive: true });
     await writeFile(path, content);
+  },
+  async createFile(path, content) {
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, content, { flag: "wx" });
   },
   async exists(path) {
     try {

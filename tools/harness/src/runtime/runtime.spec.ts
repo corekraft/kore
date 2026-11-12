@@ -71,6 +71,16 @@ describe("nodeFileSystem", () => {
     expect(await nodeFileSystem.readdir(join(dir, "a"))).toEqual(["b.txt"]);
   });
 
+  it("createFile writes a new file with parents and refuses to overwrite one", async () => {
+    const dir = await tempDir();
+    const file = join(dir, "n", "f.txt");
+    await nodeFileSystem.createFile(file, "first");
+    await expect(
+      nodeFileSystem.createFile(file, "second"),
+    ).rejects.toMatchObject({ code: "EEXIST" });
+    expect(await nodeFileSystem.readFile(file)).toBe("first");
+  });
+
   it("rethrows errors other than a missing file from exists", async () => {
     const dir = await tempDir();
     await nodeFileSystem.writeFile(join(dir, "f"), "x");

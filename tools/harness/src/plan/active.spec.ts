@@ -18,6 +18,7 @@ function harness(files: Record<string, string>) {
           : Promise.reject(new Error(`ENOENT ${path}`));
       },
       writeFile: () => Promise.resolve(),
+      createFile: () => Promise.resolve(),
       exists: () => Promise.resolve(true),
       readdir: (path) =>
         path === `${ROOT}/infra/plans`

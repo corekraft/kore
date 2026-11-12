@@ -3,6 +3,7 @@
 // not resolve, index entries that are missing or stale, plans and ADRs with
 // missing or invalid frontmatter, `Docs:`/`Plan:`/`ADR:` comment markers that
 // do not resolve, and top-level `kore` commands that README.md does not mention.
+// Idea records under docs/ideas get their own frontmatter checks (ADR 0079).
 // Docs: infra/plans/4-knowledge.md#step-3-knowledge-health-check
 // Node standard library only.
 //
@@ -21,6 +22,8 @@ const INDEX = "docs/index.md";
 const CLI = "tools/kore/src/cli/cli.ts";
 const PLAN = /^infra\/plans\/[^/]+\.md$/;
 const ADR = /^docs\/decisions\/[^/]+\.md$/;
+const IDEA = /^docs\/ideas\/[^/]+\.md$/;
+const IDEA_NAME = /^docs\/ideas\/(\d{4})-[a-z0-9]+(?:-[a-z0-9]+)*\.md$/;
 const SKILL = /^skills\/[^/]+\/SKILL\.md$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const LINK = /\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
@@ -183,6 +186,122 @@ function checkFrontmatter(file, markdown, exists) {
   return problems;
 }
 
+const IDEA_REQUIRED = [
+  "summary",
+  "hypothesis",
+  "expected-outcome",
+  "measurement",
+  "safety-pattern",
+  "date",
+];
+const IDEA_OUTCOMES = ["confirmed", "refuted", "inconclusive"];
+const SAFETY_PATTERNS = [
+  "no-behaviour-change",
+  "feature-flagged",
+  "dark-launched",
+  "branch-by-abstraction",
+  "expand-contract",
+];
+// The GitHub issue owns workflow state (open or closed included); an idea is closed when it has an outcome, and its file never stores state.
+const WORKFLOW_KEYS = [
+  "status",
+  "approval",
+  "approved",
+  "approved-by",
+  "label",
+  "labels",
+  "assignee",
+  "assignees",
+  "state",
+];
+
+/** Frontmatter problems of one idea record; `ideas` holds the numbers of every idea file. */
+function checkIdea(file, markdown, ideas) {
+  const parsed = frontmatter(file, markdown);
+  if (!parsed) {
+    return [
+      finding(
+        file,
+        1,
+        "frontmatter is missing",
+        `start the file with --- and the idea fields (${IDEA_REQUIRED.join(", ")}) ---`,
+      ),
+    ];
+  }
+  const { keys } = parsed;
+  const problems = [...parsed.errors];
+  const bad = (key, message, fix) =>
+    problems.push(finding(file, keys.get(key).line, message, fix));
+  const oneOf = (key, allowed) => {
+    const entry = keys.get(key);
+    if (entry && !allowed.includes(entry.value)) {
+      bad(
+        key,
+        `frontmatter ${key} is ${entry.value}`,
+        `use one of ${allowed.join(", ")}`,
+      );
+    }
+  };
+  oneOf("safety-pattern", SAFETY_PATTERNS);
+  oneOf("outcome", IDEA_OUTCOMES);
+  if (keys.has("date") && !DATE.test(keys.get("date").value)) {
+    bad(
+      "date",
+      `frontmatter date is ${keys.get("date").value}`,
+      "use a YYYY-MM-DD date",
+    );
+  }
+  for (const key of WORKFLOW_KEYS.filter((name) => keys.has(name))) {
+    bad(
+      key,
+      `frontmatter ${key} is workflow state`,
+      "the GitHub issue owns it, so remove the line",
+    );
+  }
+  const issue = keys.get("issue");
+  if (issue && !/^#?\d+$|^https:\/\/\S+$/.test(issue.value)) {
+    bad(
+      "issue",
+      `frontmatter issue is ${issue.value}`,
+      "use an issue number such as 185 or #185, or its URL",
+    );
+  }
+  const parent = keys.get("parent");
+  if (parent && !/^#\d+$/.test(parent.value)) {
+    const number = /^(\d{4})(?:-[a-z0-9-]+)?$/.exec(parent.value)?.[1];
+    if (number === undefined) {
+      bad(
+        "parent",
+        `frontmatter parent is ${parent.value}`,
+        "use an idea number such as 0001, or an issue such as #127",
+      );
+    } else if (!ideas.has(number)) {
+      bad(
+        "parent",
+        `frontmatter parent is ${parent.value}; idea ${number} does not exist`,
+        "use an existing idea's number or an issue such as #127",
+      );
+    }
+  }
+  if (!IDEA_NAME.test(file)) {
+    problems.push(
+      finding(
+        file,
+        1,
+        "idea file is not named NNNN-slug.md",
+        "rename it to a four-digit number and a lowercase slug",
+      ),
+    );
+  }
+  problems.sort((a, b) => a.line - b.line);
+  for (const key of IDEA_REQUIRED.filter((name) => !keys.has(name))) {
+    problems.push(
+      finding(file, 1, `frontmatter ${key} is missing`, `add a ${key}: line`),
+    );
+  }
+  return problems;
+}
+
 /** Every knowledge-base problem in the tree, each with file, line, message, and fix. */
 export function findings(deps) {
   const files = [...deps.files()].sort();
@@ -214,6 +333,23 @@ export function findings(deps) {
 
   const problems = [];
   const markdown = files.filter((file) => file.endsWith(".md"));
+  const ideas = new Map();
+  for (const file of files) {
+    const number = IDEA_NAME.exec(file)?.[1];
+    if (number === undefined) continue;
+    if (!ideas.has(number)) {
+      ideas.set(number, file);
+    } else {
+      problems.push(
+        finding(
+          file,
+          1,
+          `idea number ${number} is also used by ${ideas.get(number)}`,
+          "renumber it to the next free number",
+        ),
+      );
+    }
+  }
 
   for (const file of markdown) {
     const text = deps.read(file);
@@ -248,6 +384,8 @@ export function findings(deps) {
     }
     if (PLAN.test(file) || ADR.test(file)) {
       problems.push(...checkFrontmatter(file, text, exists));
+    } else if (IDEA.test(file)) {
+      problems.push(...checkIdea(file, text, ideas));
     }
   }
 
@@ -281,7 +419,13 @@ export function findings(deps) {
       }
     }
     for (const file of files) {
-      if (!(PLAN.test(file) || ADR.test(file) || SKILL.test(file))) continue;
+      if (!(
+        PLAN.test(file) ||
+        ADR.test(file) ||
+        IDEA.test(file) ||
+        SKILL.test(file)
+      ))
+        continue;
       if (!listed.has(file)) {
         problems.push(
           finding(
