@@ -96,13 +96,13 @@ describe("pollGithub idempotence and --since", () => {
     expect(await t.summary()).toEqual(["pr.opened:9", "pr.merged:9"]);
   });
 
-  it("bounds the issue and PR lists by the latest recorded event, issues by creation and PRs by update", async () => {
+  it("bounds the issue and PR lists by the latest recorded event, issues and PRs by update", async () => {
     const t = setup();
     t.gh.issues = [issue(1, "2026-01-05T10:00:00Z")];
     await t.poll();
     await t.poll();
     const [issues, prs] = t.calls().slice(-3);
-    expect(issues).toContain("--search created:>=2026-01-05");
+    expect(issues).toContain("--search updated:>=2026-01-05");
     expect(prs).toContain("--search updated:>=2026-01-05");
   });
 
@@ -117,7 +117,7 @@ describe("pollGithub idempotence and --since", () => {
     t.gh.issues = [issue(1, "2026-01-05T10:00:00Z")];
     await t.poll();
     await t.poll("2026-01-06T00:00:00Z");
-    expect(t.calls().slice(-3)[0]).toContain("created:>=2026-01-06");
+    expect(t.calls().slice(-3)[0]).toContain("updated:>=2026-01-06");
   });
 
   it("uses since only to bound the fetch: whatever gh returns is recorded once, by id", async () => {

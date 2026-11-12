@@ -1379,17 +1379,30 @@ async function query(gh, what, args) {
 var asRecord = (value) => typeof value === "object" && value !== null ? value : {};
 var when = (value) => typeof value === "string" && isTimestamp(value) ? value : void 0;
 var count = (value) => Number.isSafeInteger(value) && value >= 1 ? value : void 0;
-function fromItems(items, openedKind, mergedKind) {
+function closedIssue(raw) {
+  const refs = raw["closingIssuesReferences"];
+  const first = Array.isArray(refs) ? count(asRecord(refs[0])["number"]) : void 0;
+  return first === void 0 ? void 0 : `#${first}`;
+}
+function fromItems(items, openedKind, mergedKind, mergedField = "mergedAt") {
   const out = [];
   for (const item of items) {
     const raw = asRecord(item);
     const number = count(raw["number"]);
     const opened = when(raw["createdAt"]);
-    const merged = when(raw["mergedAt"]);
+    const merged = when(raw[mergedField]);
     if (number === void 0) {
       continue;
     }
-    const at = (kind, occurredAt, id) => out.push({ id, source: "github", kind, occurredAt, number });
+    const idea = closedIssue(raw);
+    const at = (kind, occurredAt, id) => out.push({
+      id,
+      source: "github",
+      kind,
+      occurredAt,
+      number,
+      ...idea === void 0 ? {} : { idea }
+    });
     if (opened !== void 0) {
       at(openedKind, opened, `github:${openedKind}:${number}`);
     }
@@ -1461,9 +1474,10 @@ async function fetchAll(gh, repo, since) {
     "list",
     ...flag,
     ...list3,
-    ...searchFrom("created", since),
+    // Updated, not created: an issue opened long ago and closed since must appear.
+    ...searchFrom("updated", since),
     "--json",
-    "number,createdAt"
+    "number,createdAt,closedAt"
   ]);
   if (typeof issues === "string") {
     return issues;
@@ -1475,7 +1489,7 @@ async function fetchAll(gh, repo, since) {
     ...list3,
     ...searchFrom("updated", since),
     "--json",
-    "number,createdAt,mergedAt"
+    "number,createdAt,mergedAt,closingIssuesReferences"
   ]);
   if (typeof prs === "string") {
     return prs;
@@ -1506,7 +1520,7 @@ async function poll(deps, refresh) {
   }
   const { issues, prs, events } = fetched;
   const planned = [
-    ...fromItems(issues, "issue.opened"),
+    ...fromItems(issues, "issue.opened", "issue.closed", "closedAt"),
     ...fromItems(prs, "pr.opened", "pr.merged"),
     ...fromLabelEvents(events)
   ].filter((e) => !have.has(e.id ?? "")).sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt));

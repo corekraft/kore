@@ -89,23 +89,44 @@ const count = (value: unknown): number | undefined =>
     ? (value as number)
     : undefined;
 
+/**
+ * The idea a PR belongs to: the first issue GitHub says it closes (`Closes #n`),
+ * keyed like the issue's own events (`#n`). Issues carry no such field.
+ */
+function closedIssue(raw: Record<string, unknown>): string | undefined {
+  const refs = raw["closingIssuesReferences"];
+  const first = Array.isArray(refs)
+    ? count(asRecord(refs[0])["number"])
+    : undefined;
+  return first === undefined ? undefined : `#${first}`;
+}
+
 /** Only identifiers, labels, numbers and times are copied: never a title or body. */
 function fromItems(
   items: unknown[],
   openedKind: "issue.opened" | "pr.opened",
-  mergedKind?: "pr.merged",
+  mergedKind?: "pr.merged" | "issue.closed",
+  mergedField = "mergedAt",
 ): EventInput[] {
   const out: EventInput[] = [];
   for (const item of items) {
     const raw = asRecord(item);
     const number = count(raw["number"]);
     const opened = when(raw["createdAt"]);
-    const merged = when(raw["mergedAt"]);
+    const merged = when(raw[mergedField]);
     if (number === undefined) {
       continue;
     }
+    const idea = closedIssue(raw);
     const at = (kind: EventInput["kind"], occurredAt: string, id: string) =>
-      out.push({ id, source: "github", kind, occurredAt, number });
+      out.push({
+        id,
+        source: "github",
+        kind,
+        occurredAt,
+        number,
+        ...(idea === undefined ? {} : { idea }),
+      });
     if (opened !== undefined) {
       at(openedKind, opened, `github:${openedKind}:${number}`);
     }
@@ -229,9 +250,10 @@ async function fetchAll(
     "list",
     ...flag,
     ...list,
-    ...searchFrom("created", since),
+    // Updated, not created: an issue opened long ago and closed since must appear.
+    ...searchFrom("updated", since),
     "--json",
-    "number,createdAt",
+    "number,createdAt,closedAt",
   ]);
   if (typeof issues === "string") {
     return issues;
@@ -244,7 +266,7 @@ async function fetchAll(
     ...list,
     ...searchFrom("updated", since),
     "--json",
-    "number,createdAt,mergedAt",
+    "number,createdAt,mergedAt,closingIssuesReferences",
   ]);
   if (typeof prs === "string") {
     return prs;
@@ -292,7 +314,7 @@ async function poll(
   const { issues, prs, events } = fetched;
   // `since` only bounded the fetch above: the ids alone decide what is new.
   const planned = [
-    ...fromItems(issues, "issue.opened"),
+    ...fromItems(issues, "issue.opened", "issue.closed", "closedAt"),
     ...fromItems(prs, "pr.opened", "pr.merged"),
     ...fromLabelEvents(events),
   ]
