@@ -39,7 +39,10 @@ Kore's registry stays the only registry. No `--registry-*` flag is used and
 k3d creates none.
 
 The mounts are fixed at create, so a cluster created before this change has
-neither; `kore local down --prune` then `kore local up` recreates it.
+neither; `kore local down --prune` then `kore local up` recreates it. `kore local up`
+does not yet detect a missing mount, because `k3d cluster list` is not
+confirmed live to report volumes; adding that drift check is a gap for the live
+proof (#149).
 
 ## Fallback
 
