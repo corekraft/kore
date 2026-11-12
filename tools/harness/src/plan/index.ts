@@ -1,12 +1,15 @@
 export { planActive } from "./active.js";
+export { planTick } from "./tick.js";
 export {
   activePlans,
+  listItemSpans,
   listItems,
   nextStep,
   openCounts,
   openItems,
   planStatus,
   upcomingSteps,
+  type ItemSpan,
   type ListItem,
   type NextStep,
   type StepCount,

@@ -6,6 +6,10 @@ var CommandError = class extends Error {
 var systemClock = {
   now: () => /* @__PURE__ */ new Date()
 };
+function localDate(date) {
+  const two = (n) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())}`;
+}
 
 // src/runtime/ids.ts
 import { randomUUID } from "node:crypto";
@@ -161,10 +165,6 @@ function checkSummary(summary) {
       "--summary must be one plain line that does not start with [ { | > & * ! or -; reword it as a sentence."
     );
   }
-}
-function localDate(date) {
-  const two = (n) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())}`;
 }
 function headingSlug(heading) {
   return heading.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu, "").trim().replace(/\s/g, "-");
@@ -1210,9 +1210,6 @@ var list2 = {
 };
 var ledgerCommands = { record, list: list2 };
 
-// src/plan/active.ts
-import { join as join2 } from "node:path";
-
 // src/plan/parser.ts
 var FRONTMATTER = /^---\n([\s\S]*?)\n---\n/;
 var UPCOMING_STEPS = 3;
@@ -1223,24 +1220,31 @@ function planStatus(markdown) {
   const frontmatter2 = FRONTMATTER.exec(markdown)?.[1];
   return frontmatter2 === void 0 ? void 0 : /^status: *(\S*) *$/m.exec(frontmatter2)?.[1];
 }
-function listItems(markdown) {
+function listItemSpans(markdown) {
   const items = [];
   let heading = "";
   let current = null;
-  for (const line2 of markdown.split("\n")) {
+  for (const [index, line2] of markdown.split("\n").entries()) {
     if (line2.startsWith("## ")) {
       heading = line2.slice(3).trim();
     }
     if (line2.startsWith("- ")) {
-      current = { heading, text: line2.trim() };
+      current = { heading, text: line2.trim(), line: index, end: index + 1 };
       items.push(current);
     } else if (current && /^\s+\S/.test(line2)) {
       current.text += ` ${line2.trim()}`;
+      current.end = index + 1;
     } else {
       current = null;
     }
   }
   return items;
+}
+function listItems(markdown) {
+  return listItemSpans(markdown).map(({ heading, text: text2 }) => ({
+    heading,
+    text: text2
+  }));
 }
 function openItems(markdown) {
   return listItems(markdown).filter((item) => item.text.startsWith("- [ ]")).map((item) => `${item.heading}: ${item.text}`);
@@ -1307,7 +1311,8 @@ function activePlans(plans) {
   return active.sort((a, b) => planNumber(b) - planNumber(a));
 }
 
-// src/plan/active.ts
+// src/plan/store.ts
+import { join as join2 } from "node:path";
 var PLANS_DIR = "infra/plans";
 async function readPlans(deps) {
   const root2 = await deps.root();
@@ -1328,6 +1333,8 @@ async function readPlans(deps) {
   }
   return plans;
 }
+
+// src/plan/active.ts
 function describe3(plan) {
   const open = plan.open.map((o) => `${o.step} (${o.count})`).join(", ");
   const lines = [`${plan.file}${plan.default ? " (default)" : ""}`];
@@ -1371,6 +1378,402 @@ var planActive = {
 `);
     }
     return 0;
+  }
+};
+
+// src/plan/tick.ts
+import { join as join3 } from "node:path";
+
+// src/plan/edits.ts
+function trimCommon(edit, lines) {
+  const before = lines.slice(edit.start, edit.end);
+  let head = 0;
+  while (head < before.length && head < edit.lines.length && before[head] === edit.lines[head]) {
+    head++;
+  }
+  let tail = 0;
+  while (tail < before.length - head && tail < edit.lines.length - head && before[before.length - 1 - tail] === edit.lines[edit.lines.length - 1 - tail]) {
+    tail++;
+  }
+  const kept = { start: edit.start + head, end: edit.end - tail };
+  const after = edit.lines.slice(head, edit.lines.length - tail);
+  return kept.start === kept.end && after.length === 0 ? null : { ...kept, lines: after };
+}
+
+// src/plan/totals.ts
+var TOTALS = /as of \d{4}-\d{2}-\d{2}: (\d+) local, (\d+) managed(\s+)cluster, (\d+) release(\s+)pipeline/;
+function totalsEdits(lines, range, className, date) {
+  const firstClass = lines.findIndex(
+    (l, i) => i > range[0] && i < range[1] && l.startsWith("### ")
+  );
+  const introEnd = firstClass < 0 ? range[1] : firstClass;
+  const intro = lines.slice(range[0], introEnd).join("\n");
+  const match = TOTALS.exec(intro);
+  if (match === null) {
+    return /\bas of\b/.test(intro) ? "The open-item totals line is not in the form `as of YYYY-MM-DD: N local, N managed cluster, N release pipeline`, so it cannot be recounted. Fix its wording, or tick the item by hand." : [];
+  }
+  const lower = className.toLowerCase();
+  if (!["local", "managed", "release"].some((c) => lower.startsWith(c))) {
+    return `The list class "${className}" is not Local, Managed cluster or Release pipeline, so the totals cannot be recounted. Rename the heading, or tick the item by hand.`;
+  }
+  const [local, managed, release] = [match[1], match[2], match[4]].map(
+    Number
+  );
+  const next = {
+    local: local - (lower.startsWith("local") ? 1 : 0),
+    managed: managed - (lower.startsWith("managed") ? 1 : 0),
+    release: release - (lower.startsWith("release") ? 1 : 0)
+  };
+  const text2 = `as of ${date}: ${next.local} local, ${next.managed} managed${match[3]}cluster, ${next.release} release${match[5]}pipeline`;
+  const changed = intro.replace(TOTALS, text2).split("\n");
+  const before = intro.split("\n");
+  const edits = [];
+  for (const [i, line2] of changed.entries()) {
+    if (line2 !== before[i]) {
+      edits.push({ start: range[0] + i, end: range[0] + i + 1, lines: [line2] });
+    }
+  }
+  return edits;
+}
+
+// src/plan/lists.ts
+var SECTION = "## Where each open item can be done";
+var HEADER = /^- (.+?) \((\d+)\): /;
+var LEAD = /^and (\w+)(\s+)exit(\s+)(?:criterion|criteria):(\s+)/;
+var NUMBERS = [
+  "zero",
+  "one",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six",
+  "seven",
+  "eight",
+  "nine",
+  "ten"
+];
+var MIN_SCORE = 0.6;
+var MARGIN = 0.15;
+function sectionRange(lines) {
+  const start = lines.indexOf(SECTION);
+  if (start < 0) {
+    return null;
+  }
+  const next = lines.findIndex((l, i) => i > start && l.startsWith("## "));
+  return [start, next < 0 ? lines.length : next];
+}
+function entriesIn(lines, from, to) {
+  const entries = [];
+  for (let i = from; i < to; i++) {
+    const line2 = lines[i] ?? "";
+    const step = HEADER.exec(line2)?.[1];
+    if (step === void 0) {
+      continue;
+    }
+    let end = i + 1;
+    while (end < to && /^\s+\S/.test(lines[end] ?? "")) {
+      end++;
+    }
+    entries.push({
+      start: i,
+      end,
+      step,
+      raw: lines.slice(i, end).join("\n")
+    });
+    i = end - 1;
+  }
+  return entries;
+}
+function segmentsOf(raw) {
+  const bodyStart = HEADER.exec(raw)?.[0].length ?? 0;
+  const trimmed = raw.trimEnd();
+  const bodyEnd = trimmed.endsWith(".") ? trimmed.length - 1 : trimmed.length;
+  const pieces = [];
+  let depth = 0;
+  let from = bodyStart;
+  for (let i = bodyStart; i < bodyEnd; i++) {
+    const c = raw[i];
+    if (c === "(") {
+      depth++;
+    } else if (c === ")") {
+      depth--;
+    }
+    if (c === ";" && depth === 0) {
+      pieces.push([from, i]);
+      from = i + 1;
+    }
+  }
+  pieces.push([from, bodyEnd]);
+  let exit = false;
+  return pieces.map(([a, b]) => {
+    const text2 = raw.slice(a, b);
+    const start = a + (text2.length - text2.trimStart().length);
+    const end = b - (text2.length - text2.trimEnd().length);
+    const lead = LEAD.exec(raw.slice(start, end))?.[0];
+    exit ||= lead !== void 0;
+    return { start, end, itemStart: start + (lead?.length ?? 0), exit };
+  });
+}
+function words(text2) {
+  return new Set(
+    (text2.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => w.length >= 4)
+  );
+}
+function score(item, segment) {
+  const own2 = words(segment.replace(/\([^)]*\)/g, " "));
+  if (own2.size === 0) {
+    return 0;
+  }
+  return [...own2].filter((w) => item.has(w)).length / own2.size;
+}
+function lowered(raw, segment) {
+  const lead = LEAD.exec(raw.slice(segment.start, segment.end));
+  if (lead === null) {
+    return raw;
+  }
+  const word = lead[1] ?? "";
+  const parsed = /^\d+$/.test(word) ? Number(word) : NUMBERS.indexOf(word);
+  if (parsed < 1) {
+    return raw;
+  }
+  const count = parsed - 1;
+  const shown = /^\d+$/.test(word) ? String(count) : NUMBERS[count] ?? word;
+  const noun = count === 1 ? "criterion" : "criteria";
+  const [, , gap1, gap2, gap3] = lead;
+  const text2 = `and ${shown}${gap1}exit${gap2}${noun}:${gap3}`;
+  return raw.slice(0, segment.start) + text2 + raw.slice(segment.start + lead[0].length);
+}
+function sharedNote(raw, segments, index) {
+  for (const [i, segment] of segments.entries()) {
+    const text2 = raw.slice(segment.itemStart, segment.end);
+    const note = /\([^)]*\b(both|all)\b[^)]*\)/i.exec(text2);
+    const covered = note?.[1]?.toLowerCase() === "all" || index === i || index === i - 1;
+    if (note !== null && covered) {
+      return note[0];
+    }
+  }
+  return void 0;
+}
+function without(raw, segments, index) {
+  const target = segments[index];
+  if (target === void 0 || segments.length === 1) {
+    return null;
+  }
+  const next = segments[index + 1];
+  const previous = segments[index - 1];
+  const [from, to] = next === void 0 ? [previous?.end ?? 0, target.end] : [target.itemStart, next.start];
+  const cut = raw.slice(0, from) + raw.slice(to);
+  const lead = segments.find((s) => s.exit);
+  const others = segments.filter((s) => s.exit && s !== target).length;
+  return target.exit && lead !== void 0 && others > 0 ? lowered(cut, lead) : cut;
+}
+function classOf(lines, entry, from) {
+  for (let i = entry.start; i >= from; i--) {
+    const heading = /^### (.+)$/.exec(lines[i] ?? "")?.[1];
+    if (heading !== void 0) {
+      return heading;
+    }
+  }
+  return "";
+}
+function locate(entries, step, itemText) {
+  const item = words(itemText);
+  const scored = entries.flatMap(
+    (entry) => segmentsOf(entry.raw).map((segment, index, all) => ({
+      entry,
+      all,
+      index,
+      score: score(item, entry.raw.slice(segment.itemStart, segment.end))
+    }))
+  );
+  scored.sort((a, b) => b.score - a.score);
+  const [best, runnerUp] = scored;
+  const close = runnerUp !== void 0 && runnerUp.score >= MIN_SCORE && (best?.score ?? 0) - runnerUp.score <= MARGIN;
+  if (best === void 0 || best.score < MIN_SCORE || close) {
+    return {
+      error: `Cannot tell which list entry under ${step} holds this item. Reword the list entry to share words with the item, or tick it by hand.`
+    };
+  }
+  return best;
+}
+function listEdits(lines, step, itemText, date) {
+  const range = sectionRange(lines);
+  if (range === null) {
+    return { edits: [] };
+  }
+  const entries = entriesIn(lines, range[0], range[1]).filter(
+    (e) => e.step === step
+  );
+  if (entries.length === 0) {
+    return {
+      error: `The open-item lists have no entry for ${step}. Add the item to its list, or tick it by hand.`
+    };
+  }
+  const best = locate(entries, step, itemText);
+  if ("error" in best) {
+    return best;
+  }
+  const shared = sharedNote(best.entry.raw, best.all, best.index);
+  if (shared !== void 0) {
+    return {
+      error: `The note ${shared} in the ${step} list entry covers more than one item, so removing this one would leave it wrong. Edit the entry by hand, or reword the note.`
+    };
+  }
+  const rest = without(best.entry.raw, best.all, best.index);
+  const replaced = rest === null ? [] : rest.replace(
+    /^(- .+? \()(\d+)(\): )/,
+    (_, a, n, c) => `${a}${Number(n) - 1}${c}`
+  ).split("\n");
+  const entryEdit = trimCommon(
+    { start: best.entry.start, end: best.entry.end, lines: replaced },
+    lines
+  );
+  const totals = totalsEdits(
+    lines,
+    range,
+    classOf(lines, best.entry, range[0]),
+    date
+  );
+  if (typeof totals === "string") {
+    return { error: totals };
+  }
+  return { edits: [...entryEdit === null ? [] : [entryEdit], ...totals] };
+}
+
+// src/plan/tick.ts
+var OPEN = "- [ ]";
+function normalize(text2) {
+  return text2.replace(/\s+/g, " ").trim();
+}
+function choosePlan(plans, requested) {
+  const names2 = Object.keys(plans);
+  if (requested !== void 0) {
+    const named = /^\d+$/.test(requested) ? names2.filter((n) => n.startsWith(`${requested}-`)) : [];
+    if (named.length > 1) {
+      throw new CommandError(
+        `Plan number "${requested}" is shared by ${named.join(" and ")}. Rename one so each plan number is unique.`
+      );
+    }
+    const name = named[0];
+    if (name === void 0) {
+      throw new CommandError(
+        `No plan numbered "${requested}" in ${PLANS_DIR}. Run \`harness plan active\` to list the plans.`
+      );
+    }
+    return name;
+  }
+  const active = activePlans(plans);
+  if (active.length === 0) {
+    throw new CommandError(
+      `No active plan to tick in: no file in ${PLANS_DIR} has "status: active". Name one with --plan N.`
+    );
+  }
+  if (active.length > 1) {
+    throw new CommandError(
+      `${active.length} plans are active (${active.join(", ")}), so there is no single default. Pass --plan N.`
+    );
+  }
+  return active[0] ?? "";
+}
+function chooseItem(markdown, wanted) {
+  const needle = normalize(wanted);
+  const checkbox = listItemSpans(markdown).filter(
+    (i) => /^- \[[ xX]\]/.test(i.text)
+  );
+  const matching = checkbox.filter((i) => normalize(i.text).includes(needle));
+  const open = matching.filter((i) => i.text.startsWith(OPEN));
+  if (open.length === 1) {
+    return open[0];
+  }
+  if (open.length > 1) {
+    throw new CommandError(
+      `"${wanted}" matches ${open.length} open items. Use a longer, more specific part of the item text.`
+    );
+  }
+  const done = matching.length > 0 ? " It is already ticked." : "";
+  throw new CommandError(
+    `"${wanted}" matches no open item.${done} Run \`harness plan active\` to see the open items.`
+  );
+}
+function tickEdit(lines, item) {
+  const first = lines[item.line] ?? "";
+  return {
+    start: item.line,
+    end: item.line + 1,
+    lines: [`- [x]${first.slice(OPEN.length)}`]
+  };
+}
+function apply(lines, edits) {
+  const out = [...lines];
+  for (const edit of [...edits].sort((a, b) => b.start - a.start)) {
+    out.splice(edit.start, edit.end - edit.start, ...edit.lines);
+  }
+  return out;
+}
+function toChanges(lines, edits) {
+  return edits.flatMap((edit) => trimCommon(edit, lines) ?? []).sort((a, b) => a.start - b.start).map((edit) => ({
+    line: edit.start + 1,
+    before: lines.slice(edit.start, edit.end),
+    after: edit.lines
+  }));
+}
+function describe4(file, step, text2, dryRun, changes) {
+  const head = `${dryRun ? "Would tick" : "Ticked"} ${step}: ${text2} in ${file}`;
+  const body = changes.flatMap((c) => [
+    `  line ${c.line}:`,
+    ...c.before.map((l) => `  - ${l}`),
+    ...c.after.map((l) => `  + ${l}`)
+  ]);
+  return `${[head, ...body].join("\n")}
+`;
+}
+async function tick(deps, json, item, planOption, dryRun) {
+  const plans = await readPlans(deps);
+  const name = choosePlan(plans, planOption);
+  const markdown = plans[name] ?? "";
+  const lines = markdown.split("\n");
+  const span = chooseItem(markdown, item);
+  const step = span.heading.split(":")[0] ?? span.heading;
+  const text2 = normalize(span.text.slice(OPEN.length));
+  const date = localDate(deps.clock.now());
+  const lists = listEdits(lines, step, text2, date);
+  if ("error" in lists) {
+    throw new CommandError(lists.error);
+  }
+  const edits = [tickEdit(lines, span), ...lists.edits];
+  const changes = toChanges(lines, edits);
+  const file = `${PLANS_DIR}/${name}`;
+  if (!dryRun) {
+    await deps.fs.writeFile(
+      join3(await deps.root(), file),
+      apply(lines, edits).join("\n")
+    );
+  }
+  deps.stdout(
+    json ? `${JSON.stringify({ plan: file, item: { step, text: text2 }, dryRun, written: !dryRun, changes })}
+` : describe4(file, step, text2, dryRun, changes)
+  );
+  return 0;
+}
+var planTick = {
+  summary: 'tick one open item (--item "<text>" [--plan N] [--dry-run]), update the open-item lists and counts, and report every changed line',
+  options: { plan: "string", item: "string", "dry-run": "boolean" },
+  async run({ json, deps, options }) {
+    const item = options["item"];
+    const plan = options["plan"];
+    if (typeof item !== "string" || item.trim() === "") {
+      throw new CommandError(
+        'Missing --item "<text>": say which open item to tick.'
+      );
+    }
+    return await tick(
+      deps,
+      json,
+      item,
+      typeof plan === "string" ? plan : void 0,
+      options["dry-run"] === true
+    );
   }
 };
 
@@ -1702,7 +2105,7 @@ var session = {
 };
 
 // src/skill/index.ts
-import { join as join3 } from "node:path";
+import { join as join4 } from "node:path";
 
 // src/skill/audit.ts
 var DESCRIPTION_BUDGET = 200;
@@ -1816,7 +2219,7 @@ var audit = {
   summary: "report each skill's description and body against its budgets",
   options: { strict: "boolean" },
   async run({ json, options, deps }) {
-    const skillsDir = join3(await deps.root(), SKILLS_DIR);
+    const skillsDir = join4(await deps.root(), SKILLS_DIR);
     let report;
     try {
       report = await auditSkills(deps.fs, skillsDir);
@@ -1850,7 +2253,7 @@ var version = {
 };
 var domains = {
   harness: { version },
-  plan: { active: planActive },
+  plan: { active: planActive, tick: planTick },
   adr: adrCommands,
   session,
   skill,
@@ -1957,22 +2360,22 @@ async function execute(command, context) {
 async function run(argv, deps) {
   const json = argv.includes("--json");
   const help = argv.includes("--help") || argv.includes("-h");
-  const words = [];
+  const words2 = [];
   argv.forEach((token, i) => {
-    if (!token.startsWith("-") && words.length < 2) {
-      words.push(i);
+    if (!token.startsWith("-") && words2.length < 2) {
+      words2.push(i);
     }
   });
-  const domain = argv[words[0] ?? -1];
-  const name = argv[words[1] ?? -1];
+  const domain = argv[words2[0] ?? -1];
+  const name = argv[words2[1] ?? -1];
   if (domain === void 0 || help && own(domains, domain) !== void 0) {
     deps.stdout(usage());
     return 0;
   }
   const rest = argv.filter(
-    (token, i) => !words.includes(i) && token !== "--json" && token !== "--help" && token !== "-h"
+    (token, i) => !words2.includes(i) && token !== "--json" && token !== "--help" && token !== "-h"
   );
-  const early = argv.slice(0, words[1] ?? 0).find((t) => t.startsWith("-") && !["--json", "--help", "-h"].includes(t));
+  const early = argv.slice(0, words2[1] ?? 0).find((t) => t.startsWith("-") && !["--json", "--help", "-h"].includes(t));
   if (early !== void 0) {
     return fail(
       deps,

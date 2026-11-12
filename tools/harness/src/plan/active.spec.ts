@@ -1,48 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { run, type CliDeps } from "../cli/index.js";
-import { FakeRunner } from "../runtime/runner-support.js";
-
-const ROOT = "/repo";
-
-function harness(files: Record<string, string>) {
-  const out: string[] = [];
-  const err: string[] = [];
-  const deps: CliDeps = {
-    runner: new FakeRunner(),
-    clock: { now: () => new Date("2026-01-02T03:04:05.000Z") },
-    fs: {
-      readFile: (path) => {
-        const key = path.slice(ROOT.length + 1);
-        return path.startsWith(`${ROOT}/`) && key in files
-          ? Promise.resolve(files[key] ?? "")
-          : Promise.reject(new Error(`ENOENT ${path}`));
-      },
-      writeFile: () => Promise.resolve(),
-      createFile: () => Promise.resolve(),
-      appendFile: () => Promise.resolve(),
-      exists: () => Promise.resolve(true),
-      readdir: (path) =>
-        path === `${ROOT}/infra/plans`
-          ? Promise.resolve(
-              Object.keys(files).map((f) => f.slice("infra/plans/".length)),
-            )
-          : Promise.reject(
-              Object.assign(new Error("ENOENT"), { code: "ENOENT" }),
-            ),
-    },
-    env: {},
-    cwd: "/repo",
-    root: () => Promise.resolve(ROOT),
-    stdout: (text) => out.push(text),
-    ids: { next: () => "id-1" },
-    stdin: () => Promise.resolve(""),
-    stderr: (text) => err.push(text),
-  };
-  return { deps, out: () => out.join(""), err: () => err.join("") };
-}
-
-const active = (body: string) =>
-  `---\nstatus: active\nsummary: s\nlast-verified: 2026-11-11\n---\n\n${body}`;
+import { run } from "../cli/index.js";
+import {
+  activePlan as active,
+  planHarness as harness,
+} from "./plan-test-support.js";
 
 describe("harness plan active", () => {
   it("lists every active plan as JSON and flags the highest-numbered as the default", async () => {
