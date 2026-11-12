@@ -209,6 +209,7 @@ describe("hook workflow-permissions", () => {
     h.deps.fs = nodeFileSystem;
     h.deps.root = () => Promise.resolve(repo);
     expect(await run(["hook", "workflow-permissions"], h.deps)).toBe(0);
+    expect(h.out()).toBe("");
     expect(h.err()).toBe("");
     expect(
       await nodeFileSystem.exists(join(repo, ".github/workflows/release.yaml")),
@@ -255,8 +256,8 @@ describe("hook workflow-permissions fails open", () => {
     h.deps.fs = nodeFileSystem;
     h.deps.root = () => Promise.resolve(emptyRoot());
     expect(await run(["hook", "workflow-permissions"], h.deps)).toBe(0);
-    const result = { err: h.err() };
-    expect(result.err).toMatch(
+    expect(h.out()).toBe("");
+    expect(h.err()).toMatch(
       /^\[hook:workflow-permissions\] failed open: No workflows directory at .*workflows\. Run from the repository, or set CLAUDE_PROJECT_DIR to its root\.\n$/,
     );
   });
@@ -264,11 +265,15 @@ describe("hook workflow-permissions fails open", () => {
   it("fails closed under --strict when it cannot run", async () => {
     const h = testHarness();
     h.deps.fs = nodeFileSystem;
-    h.deps.root = () => Promise.resolve(emptyRoot());
+    const root = emptyRoot();
+    h.deps.root = () => Promise.resolve(root);
     expect(
       await run(["hook", "workflow-permissions", "--strict"], h.deps),
     ).toBe(1);
-    expect(h.err()).toContain("[hook:workflow-permissions] failed:");
+    expect(h.out()).toBe("");
+    expect(h.err()).toBe(
+      `[hook:workflow-permissions] failed: No workflows directory at ${join(root, ".github", "workflows")}. Run from the repository, or set CLAUDE_PROJECT_DIR to its root.\n`,
+    );
   });
 
   it("fails open when the root cannot be found", async () => {

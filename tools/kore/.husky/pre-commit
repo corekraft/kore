@@ -18,6 +18,14 @@ if printf '%s\n' "$staged" | grep -qE '^(\.claude|\.codex|skills)/'; then
   }
 fi
 
+# The signer guard reads every workflow, so check it when a workflow changes too.
+if printf '%s\n' "$staged" | grep -qE '^(\.github/workflows|\.claude|\.codex|skills)/'; then
+  pinned node "$repo_root/skills/bin/harness.mjs" hook workflow-permissions --strict </dev/null || {
+    echo "pre-commit: workflow permissions are wrong; run 'node skills/bin/harness.mjs hook workflow-permissions --strict' and fix them" >&2
+    exit 1
+  }
+fi
+
 # The kore specs read the CLI source and config (tools/kore/), and the files the
 # repository specs scan or render: infra/ (apis, catalog, charts, environments,
 # observability, policies, tofu) and apps/. infra/plans is prose no spec reads.
