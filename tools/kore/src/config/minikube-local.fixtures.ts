@@ -9,7 +9,12 @@ import type { Repository } from "./types.js";
  */
 export async function loadMinikubeLocal(start?: string): Promise<Repository> {
   const base = await loadRepository("local", start);
-  const { k3d: _k3d, ...environment } = base.environment;
+  // Minikube ships none of the k3s CRDs the k3d overlay declares provider-owned.
+  const {
+    k3d: _k3d,
+    providerOwnedCRDGroups: _providerOwned,
+    ...environment
+  } = base.environment;
   return {
     ...base,
     environment: {

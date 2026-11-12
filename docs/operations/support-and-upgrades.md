@@ -60,7 +60,8 @@ local` reconciles in catalog order: CRD-owning controllers first
    skipped; a changed one is upgraded with `helm upgrade --install`. Helm does
    not upgrade CRDs shipped in a chart's `crds/` directory; the catalog's
    `ownsCRDs` and `ownsCRDGroups` name who owns each, and `kore platform
-status` reports CRDs with no owner or several (ADR 0057).
+status` reports CRDs with no owner or several (ADR 0057); CRDs in an
+   environment's `providerOwnedCRDGroups` count as the provider's (ADR 0088).
    **Gap:** CRD conversion and rollback before a controller upgrade is not
    validated (plan Step 15); read the controller's own upgrade notes first.
 7. **Policy bundles.** Gatekeeper templates and constraints and the OPA bundle

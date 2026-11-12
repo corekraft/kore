@@ -1,4 +1,8 @@
-import { crdOwners, type Repository } from "../config/index.js";
+import {
+  crdOwners,
+  providerOwnsCrd,
+  type Repository,
+} from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { backupStatus, type BackupStatus } from "./backup-status.js";
 import { capacityStatus, type CapacityStatus } from "./capacity-status.js";
@@ -15,6 +19,8 @@ export interface CrdOwnershipFindings {
   unowned: string[];
   /** Cluster CRDs owned by more than one component. */
   multiple: { name: string; owners: string[] }[];
+  /** Cluster CRDs in a group the environment declares provider-owned (ADR 0088). */
+  providerOwned: string[];
 }
 
 export interface CrdOwnershipStatus {
@@ -23,6 +29,29 @@ export interface CrdOwnershipStatus {
   status: "ready" | "missing" | "degraded";
   detail: string;
   crds?: CrdOwnershipFindings;
+}
+
+/** Splits cluster CRDs into unowned, multiply owned and provider-owned. */
+function classifyCrds(
+  repository: Repository,
+  names: string[],
+): Pick<CrdOwnershipFindings, "unowned" | "multiple" | "providerOwned"> {
+  const unowned: string[] = [];
+  const multiple: CrdOwnershipFindings["multiple"] = [];
+  const providerOwned: string[] = [];
+  for (const name of names) {
+    if (providerOwnsCrd(repository.environment.providerOwnedCRDGroups, name)) {
+      providerOwned.push(name);
+      continue;
+    }
+    const owners = crdOwners(repository.catalog.components, name);
+    if (owners.length === 0) {
+      unowned.push(name);
+    } else if (owners.length > 1) {
+      multiple.push({ name, owners });
+    }
+  }
+  return { unowned, multiple, providerOwned };
 }
 
 /**
@@ -62,17 +91,8 @@ export async function crdOwnershipStatus(
       detail: `CRDs could not be listed: ${errorMessage(error)}`,
     };
   }
-  const unowned: string[] = [];
-  const multiple: CrdOwnershipFindings["multiple"] = [];
-  for (const name of names) {
-    const owners = crdOwners(repository.catalog.components, name);
-    if (owners.length === 0) {
-      unowned.push(name);
-    } else if (owners.length > 1) {
-      multiple.push({ name, owners });
-    }
-  }
-  const crds = { total: names.length, unowned, multiple };
+  const { unowned, multiple, providerOwned } = classifyCrds(repository, names);
+  const crds = { total: names.length, unowned, multiple, providerOwned };
   const problems = [
     ...unowned.map((name) => `${name} has no catalog owner`),
     ...multiple.map(
@@ -84,13 +104,16 @@ export async function crdOwnershipStatus(
     ? {
         ...identity,
         status: "ready",
-        detail: `all ${names.length} CRDs have exactly one catalog owner`,
+        detail:
+          providerOwned.length === 0
+            ? `all ${names.length} CRDs have exactly one catalog owner`
+            : `all ${names.length} CRDs have exactly one owner: ${names.length - providerOwned.length} catalog-owned, ${providerOwned.length} provider-owned`,
         crds,
       }
     : {
         ...identity,
         status: "degraded",
-        detail: `${problems.join("; ")}. Declare each in one component's ownsCRDs or ownsCRDGroups`,
+        detail: `${problems.join("; ")}. Declare each in one component's ownsCRDs or ownsCRDGroups, or in the environment's providerOwnedCRDGroups when the provider ships it`,
         crds,
       };
 }

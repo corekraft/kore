@@ -11,7 +11,7 @@ test("plain list rows print scalar fields and leave nested detail to --json", ()
           namespace: "cluster",
           status: "degraded",
           detail: "7 unowned",
-          crds: { total: 119, unowned: ["a"], multiple: [] },
+          crds: { total: 119, unowned: ["a"], multiple: [], providerOwned: [] },
         },
       ],
       false,

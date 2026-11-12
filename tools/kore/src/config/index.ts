@@ -10,6 +10,8 @@ export {
 } from "./config.js";
 export {
   checkCrdOwnership,
+  providerCrdGroupErrors,
+  providerOwnsCrd,
   crdGroupErrors,
   crdNameFormatErrors,
   crdOwners,

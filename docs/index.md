@@ -152,6 +152,7 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0085-k3d-gateway-answers-through-a-node-port.md`](decisions/0085-k3d-gateway-answers-through-a-node-port.md) — refines ADRs 0016 and 0076: on k3d the Gateway Service is a NodePort set by the overlay, the load balancer maps the host port to it, and readiness accepts an assigned node port. Read when changing how the local Gateway is published.
 - [`docs/decisions/0086-resources-only-releases-do-not-wait-on-claims-that-bind-later.md`](decisions/0086-resources-only-releases-do-not-wait-on-claims-that-bind-later.md) — A resources-only release that holds a WaitForFirstConsumer claim sets helm.wait false so Helm does not wait for the bind; the consumer's own readiness check proves the volume.
 - [`docs/decisions/0087-cosign-reads-the-pinned-kubeconfig-from-a-file-descriptor.md`](decisions/0087-cosign-reads-the-pinned-kubeconfig-from-a-file-descriptor.md) — Kore feeds the pinned kubeconfig to cosign from memory as KUBECONFIG=/dev/fd/N, so embedded k3d credentials never touch disk and the refusal of embedded credentials is no longer needed.
+- [`docs/decisions/0088-provider-owned-crd-groups.md`](decisions/0088-provider-owned-crd-groups.md) — refines ADR 0057: an environment declares `providerOwnedCRDGroups` (k3s's `k3s.cattle.io`, `helm.cattle.io` on k3d) and `crd-ownership` counts them as provider-owned. Read when a provider ships CRDs no component owns.
 
 ## Operations and Guides
 

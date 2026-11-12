@@ -1,6 +1,10 @@
 import { registryAddressErrors } from "./registry-address.js";
 import { policyErrors } from "./policy-validation.js";
-import { crdGroupErrors, crdNameFormatErrors } from "./crd-ownership.js";
+import {
+  crdGroupErrors,
+  crdNameFormatErrors,
+  providerCrdGroupErrors,
+} from "./crd-ownership.js";
 import { k3dErrors } from "./k3d-errors.js";
 import { overlayErrors } from "./overlay-errors.js";
 import { imageListErrors } from "./approved.js";
@@ -76,6 +80,15 @@ const environmentRules: Rule<Environment>[] = [
     (e) =>
       e.imageInventory !== undefined &&
       !["audit", "enforce"].includes(e.imageInventory),
+  ),
+  rule(
+    "environment.providerOwnedCRDGroups must be a map of API group to reason",
+    (e) => {
+      const groups: unknown = e.providerOwnedCRDGroups;
+      return (
+        groups !== undefined && (!isObject(groups) || Array.isArray(groups))
+      );
+    },
   ),
   rule(
     "environment.cluster.cpus must be at least 2",
@@ -228,6 +241,11 @@ export async function validateRepository(
     ...duplicateErrors(components),
     ...crdOwnerErrors(components),
     ...crdGroupErrors(components),
+    ...providerCrdGroupErrors(
+      environment.provider,
+      environment.providerOwnedCRDGroups,
+      components,
+    ),
     ...components.flatMap((component) =>
       crdNameFormatErrors(component.name, component.ownsCRDs ?? []),
     ),

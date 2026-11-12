@@ -46,7 +46,12 @@ test("CRDs owned by name or by a claimed group, each by one component, are ready
   const result = await crdOwnershipStatus(repository, runner);
 
   assert.equal(result.status, "ready", result.detail);
-  assert.deepEqual(result.crds, { total: 4, unowned: [], multiple: [] });
+  assert.deepEqual(result.crds, {
+    total: 4,
+    unowned: [],
+    multiple: [],
+    providerOwned: [],
+  });
 });
 
 test("a cluster CRD with no catalog owner is degraded and named", async () => {
@@ -147,4 +152,50 @@ test("the status report carries the CRD ownership row, a filtered query omits it
     undefined,
     "bootstrap and app up must not be gated by the audit",
   );
+});
+
+test("CRDs in a provider-owned group count as owned and are listed as provider-owned", async () => {
+  const repository = await loadRepository("local");
+  const { runner } = cluster(
+    crdList(
+      "addons.k3s.cattle.io",
+      "helmcharts.helm.cattle.io",
+      "configs.config.gatekeeper.sh",
+    ),
+  );
+
+  const result = await crdOwnershipStatus(repository, runner);
+
+  assert.equal(result.status, "ready", result.detail);
+  assert.deepEqual(result.crds, {
+    total: 3,
+    unowned: [],
+    multiple: [],
+    providerOwned: ["addons.k3s.cattle.io", "helmcharts.helm.cattle.io"],
+  });
+  assert.match(result.detail, /2 provider-owned/);
+});
+
+test("a CRD in an undeclared group is still unowned next to provider-owned ones", async () => {
+  const repository = await loadRepository("local");
+  const { runner } = cluster(
+    crdList("addons.k3s.cattle.io", "things.other.cattle.io"),
+  );
+
+  const result = await crdOwnershipStatus(repository, runner);
+
+  assert.equal(result.status, "degraded");
+  assert.deepEqual(result.crds?.unowned, ["things.other.cattle.io"]);
+  assert.deepEqual(result.crds?.providerOwned, ["addons.k3s.cattle.io"]);
+});
+
+test("an environment without provider-owned groups reports k3s CRDs as unowned", async () => {
+  const repository = await loadRepository("local");
+  delete repository.environment.providerOwnedCRDGroups;
+  const { runner } = cluster(crdList("addons.k3s.cattle.io"));
+
+  const result = await crdOwnershipStatus(repository, runner);
+
+  assert.equal(result.status, "degraded");
+  assert.deepEqual(result.crds?.unowned, ["addons.k3s.cattle.io"]);
 });
