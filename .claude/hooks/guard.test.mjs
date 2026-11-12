@@ -484,6 +484,56 @@ test("append-only: appending and reading the files is allowed", () => {
   allowed(edit("/repo/.claude/evals/other.jsonl", "a", "b"));
 });
 
+const LEDGER = ".kore/state/ledger.jsonl";
+
+test("append-only: Edit and Write on the ledger warn, naming the harness ledger tool as owner", () => {
+  for (const result of [
+    edit(`/repo/${LEDGER}`, "a", "b"),
+    write(`/repo/${LEDGER}`, "{}\n"),
+  ]) {
+    appendOnlyWarned(result, "ledger file tool");
+    assert.match(result.message, /harness ledger/, "names the ledger tool");
+  }
+});
+
+test("append-only: Bash that rewrites, truncates, moves, or removes the ledger warns", () => {
+  for (const command of [
+    `echo x > ${LEDGER}`,
+    `: > ${LEDGER}`,
+    `sed -i '' s/a/b/ ${LEDGER}`,
+    `truncate -s 0 ${LEDGER}`,
+    `mv ${LEDGER} /tmp/x`,
+    `mv /tmp/x ${LEDGER}`,
+    `rm ${LEDGER}`,
+    `rm -f /repo/${LEDGER}`,
+    `cp /tmp/x ${LEDGER}`,
+    `echo x | tee ${LEDGER}`,
+  ]) {
+    const result = bash(command);
+    appendOnlyWarned(result, command);
+    assert.match(
+      result.message,
+      /harness ledger/,
+      `${command}: names the tool`,
+    );
+  }
+});
+
+test("append-only: recording to and reading the ledger is allowed", () => {
+  for (const command of [
+    `echo x >> ${LEDGER}`,
+    `cat ${LEDGER}`,
+    `tail -n 5 ${LEDGER}`,
+    `grep stage ${LEDGER}`,
+    `cp ${LEDGER} /tmp/backup.jsonl`,
+    `node skills/bin/harness.mjs ledger record --source claude --stage build --kind start`,
+    `node skills/bin/harness.mjs ledger list`,
+  ]) {
+    allowed(bash(command));
+  }
+  allowed(read(`/repo/${LEDGER}`));
+});
+
 test("append-only: a blocking rule in the same command still blocks", () => {
   blocked(bash(`rm ${HISTORY} && kubectl get pods`), "kubectl-context");
 });
