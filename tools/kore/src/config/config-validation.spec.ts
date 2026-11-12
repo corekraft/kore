@@ -177,6 +177,7 @@ test("validation reports malformed version sections and missing sections", async
       "unknown environment component values: kore-image-policy",
       "unknown environment component values: kore-local-tls",
       "unknown environment component values: kore-platform-config",
+      "unknown environment component values: kore-storage",
       "unknown environment component values: loki",
       "unknown environment component values: otel-agent",
       "unknown environment component values: otel-collector",

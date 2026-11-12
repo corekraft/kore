@@ -155,7 +155,7 @@ test("OpenTelemetry collector readiness targets the pinned chart deployment", as
   assert.deepEqual(collector.readiness, ["deployment/otel-collector"]);
 });
 
-test("local storage classes use binding compatible with the Minikube hostpath provisioner", async () => {
+test("local storage classes use immediate binding for the local-path provisioner", async () => {
   const repository = await loadRepository("local");
   const storage = await readFile(
     join(
