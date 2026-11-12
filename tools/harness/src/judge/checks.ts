@@ -1,6 +1,12 @@
 import type { Runner } from "../runtime/index.js";
 
-export const RESULTS = ["pass", "fail", "pending", "missing"] as const;
+export const RESULTS = [
+  "pass",
+  "fail",
+  "pending",
+  "missing",
+  "unverified",
+] as const;
 export type CheckResult = (typeof RESULTS)[number];
 
 export interface Check {
@@ -15,17 +21,25 @@ export interface Checks {
   principlesReview: Check;
 }
 
+export interface PrComment {
+  body: string;
+  author: string;
+  createdAt: string;
+}
+
 export interface PrView {
   body: string;
-  comments: string[];
+  comments: PrComment[];
+  /** When the newest commit on the PR was made; undefined when the PR lists none. */
+  headCommittedAt: string | undefined;
   rollup: { name: string; status: string; conclusion: string; url: string }[];
 }
 
 /** The workflow job that holds CI, and the one that holds the scans. */
 const CI_JOB = "check";
 const SCAN_JOB = "scan";
-/** The CI step that runs the harness tests with the coverage threshold. */
-const COVERAGE_STEP = "Harness tests";
+/** The CI steps that run the suites with the coverage threshold: kore's and the harness's. */
+const COVERAGE_STEPS = ["Unit tests", "Harness tests"];
 const REVIEW = /^\s*principles-review:\s*(.*)$/im;
 
 function text(value: unknown): string {
@@ -39,7 +53,18 @@ export function parsePrView(stdout: string): PrView | undefined {
       Array.isArray(view[key]) ? (view[key] as Record<string, unknown>[]) : [];
     return {
       body: text(view["body"]),
-      comments: list("comments").map((c) => text(c["body"])),
+      comments: list("comments").map((c) => ({
+        body: text(c["body"]),
+        author: text(
+          (c["author"] as Record<string, unknown> | null)?.["login"],
+        ),
+        createdAt: text(c["createdAt"]),
+      })),
+      headCommittedAt: list("commits")
+        .map((c) => text(c["committedDate"]))
+        .filter((d) => d !== "")
+        .sort()
+        .at(-1),
       rollup: list("statusCheckRollup").map((c) => ({
         name: text(c["name"]),
         status: text(c["status"]),
@@ -70,22 +95,47 @@ function job(view: PrView, name: string): Check {
     : { result, detail: `${name}: ${found.conclusion || found.status}` };
 }
 
-/** The newest `principles-review:` comment decides; none at all is missing. */
-function review(view: PrView): Check {
-  const latest = [...view.comments]
-    .reverse()
-    .map((c) => REVIEW.exec(c)?.[1]?.trim())
-    .find((m) => m !== undefined);
-  if (latest === undefined) {
+/**
+ * The newest `principles-review:` comment from a known reviewer, made after the head
+ * commit, decides. A review from anyone else, or from before the head commit, is not
+ * trusted: the result is unverified, not a pass.
+ */
+function review(view: PrView, reviewers: readonly string[]): Check {
+  const reviews = view.comments.filter((c) => REVIEW.test(c.body));
+  if (reviews.length === 0) {
     return {
       result: "missing",
       detail:
         "no `principles-review:` comment; run the principles-review agent and post its verdict as `principles-review: No violations.` or `principles-review: <n> violations`",
     };
   }
-  return /^no violations\.?$/i.test(latest)
+  if (reviewers.length === 0) {
+    return {
+      result: "unverified",
+      detail:
+        "no known reviewer identity; rerun with `--reviewer <login>` naming who posts principles-review verdicts",
+    };
+  }
+  const head = view.headCommittedAt;
+  const trusted = reviews
+    .filter(
+      (c) =>
+        reviewers.includes(c.author) &&
+        head !== undefined &&
+        Date.parse(c.createdAt) > Date.parse(head),
+    )
+    .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
+    .at(-1);
+  if (trusted === undefined) {
+    return {
+      result: "unverified",
+      detail: `no principles-review comment from ${reviewers.join(" or ")} newer than the head commit; rerun the review on the current head`,
+    };
+  }
+  const verdict = REVIEW.exec(trusted.body)?.[1]?.trim() ?? "";
+  return /^no violations\.?$/i.test(verdict)
     ? { result: "pass" }
-    : { result: "fail", detail: latest };
+    : { result: "fail", detail: verdict };
 }
 
 async function coverage(
@@ -115,25 +165,26 @@ async function coverage(
         ? (j.steps as { name?: string; conclusion?: string }[])
         : [],
     );
-    const step = steps.find((s) => s.name === COVERAGE_STEP);
-    if (step === undefined) {
+    const found = COVERAGE_STEPS.map((name) => ({
+      name,
+      step: steps.find((s) => s.name === name),
+    }));
+    const absent = found.find((f) => f.step === undefined);
+    if (absent !== undefined) {
       return {
         result: "missing",
-        detail: `no "${COVERAGE_STEP}" step in run ${run}`,
+        detail: `no "${absent.name}" step in run ${run}`,
       };
     }
-    const result = fromConclusion(
-      step.conclusion === undefined || step.conclusion === ""
-        ? ""
-        : "COMPLETED",
-      step.conclusion ?? "",
-    );
-    return result === "pass"
-      ? { result }
-      : {
-          result,
-          detail: `${COVERAGE_STEP}: ${step.conclusion ?? "not finished"}`,
-        };
+    const bad = found.find((f) => f.step?.conclusion !== "success");
+    if (bad === undefined) {
+      return { result: "pass" };
+    }
+    const concluded = bad.step?.conclusion ?? "";
+    return {
+      result: concluded === "" ? "pending" : "fail",
+      detail: `${bad.name}: ${concluded === "" ? "not finished" : concluded}`,
+    };
   } catch {
     return {
       result: "missing",
@@ -147,11 +198,12 @@ export async function gatherChecks(
   runner: Runner,
   root: string,
   view: PrView,
+  reviewers: readonly string[],
 ): Promise<Checks> {
   return {
     ci: job(view, CI_JOB),
     scan: job(view, SCAN_JOB),
     coverage: await coverage(runner, root, view),
-    principlesReview: review(view),
+    principlesReview: review(view, reviewers),
   };
 }

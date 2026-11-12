@@ -231,4 +231,20 @@ describe("role-read-only: the judge precheck", () => {
       "role-read-only",
     );
   });
+
+  it("blocks the judge from choosing where the precheck writes with --ledger", async () => {
+    for (const flag of [
+      "--ledger AGENTS.md",
+      "--ledger=AGENTS.md",
+      "--json --ledger /tmp/x",
+    ]) {
+      blocked(
+        await bash(
+          "judge",
+          `node skills/bin/harness.mjs judge precheck 42 ${flag}`,
+        ),
+        "role-read-only",
+      );
+    }
+  });
 });

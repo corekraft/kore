@@ -4428,7 +4428,7 @@ function sectionRange(lines3) {
   return [start, next < 0 ? lines3.length : next];
 }
 function entriesIn(lines3, from, to) {
-  const entries = [];
+  const entries2 = [];
   for (let i = from; i < to; i++) {
     const line2 = lines3[i] ?? "";
     const step = HEADER.exec(line2)?.[1];
@@ -4439,7 +4439,7 @@ function entriesIn(lines3, from, to) {
     while (end < to && /^\s+\S/.test(lines3[end] ?? "")) {
       end++;
     }
-    entries.push({
+    entries2.push({
       start: i,
       end,
       step,
@@ -4447,7 +4447,7 @@ function entriesIn(lines3, from, to) {
     });
     i = end - 1;
   }
-  return entries;
+  return entries2;
 }
 function segmentsOf(raw) {
   const bodyStart = HEADER.exec(raw)?.[0].length ?? 0;
@@ -4541,9 +4541,9 @@ function classOf(lines3, entry2, from) {
   }
   return "";
 }
-function locate2(entries, step, itemText) {
+function locate2(entries2, step, itemText) {
   const item = words(itemText);
-  const scored = entries.flatMap(
+  const scored = entries2.flatMap(
     (entry2) => segmentsOf(entry2.raw).map((segment, index, all) => ({
       entry: entry2,
       all,
@@ -4566,15 +4566,15 @@ function listEdits(lines3, step, itemText, date) {
   if (range === null) {
     return { edits: [] };
   }
-  const entries = entriesIn(lines3, range[0], range[1]).filter(
+  const entries2 = entriesIn(lines3, range[0], range[1]).filter(
     (e) => e.step === step
   );
-  if (entries.length === 0) {
+  if (entries2.length === 0) {
     return {
       error: `The open-item lists have no entry for ${step}. Add the item to its list, or tick it by hand.`
     };
   }
-  const best = locate2(entries, step, itemText);
+  const best = locate2(entries2, step, itemText);
   if ("error" in best) {
     return best;
   }
@@ -4805,7 +4805,7 @@ function parseDeclaration(body) {
 // src/judge/checks.ts
 var CI_JOB = "check";
 var SCAN_JOB = "scan";
-var COVERAGE_STEP = "Harness tests";
+var COVERAGE_STEPS = ["Unit tests", "Harness tests"];
 var REVIEW = /^\s*principles-review:\s*(.*)$/im;
 function text5(value) {
   return typeof value === "string" ? value : "";
@@ -4816,7 +4816,14 @@ function parsePrView(stdout) {
     const list3 = (key) => Array.isArray(view[key]) ? view[key] : [];
     return {
       body: text5(view["body"]),
-      comments: list3("comments").map((c) => text5(c["body"])),
+      comments: list3("comments").map((c) => ({
+        body: text5(c["body"]),
+        author: text5(
+          c["author"]?.["login"]
+        ),
+        createdAt: text5(c["createdAt"])
+      })),
+      headCommittedAt: list3("commits").map((c) => text5(c["committedDate"])).filter((d) => d !== "").sort().at(-1),
       rollup: list3("statusCheckRollup").map((c) => ({
         name: text5(c["name"]),
         status: text5(c["status"]),
@@ -4842,15 +4849,32 @@ function job(view, name) {
   const result = fromConclusion(found.status, found.conclusion);
   return result === "pass" ? { result } : { result, detail: `${name}: ${found.conclusion || found.status}` };
 }
-function review(view) {
-  const latest = [...view.comments].reverse().map((c) => REVIEW.exec(c)?.[1]?.trim()).find((m) => m !== void 0);
-  if (latest === void 0) {
+function review(view, reviewers) {
+  const reviews = view.comments.filter((c) => REVIEW.test(c.body));
+  if (reviews.length === 0) {
     return {
       result: "missing",
       detail: "no `principles-review:` comment; run the principles-review agent and post its verdict as `principles-review: No violations.` or `principles-review: <n> violations`"
     };
   }
-  return /^no violations\.?$/i.test(latest) ? { result: "pass" } : { result: "fail", detail: latest };
+  if (reviewers.length === 0) {
+    return {
+      result: "unverified",
+      detail: "no known reviewer identity; rerun with `--reviewer <login>` naming who posts principles-review verdicts"
+    };
+  }
+  const head = view.headCommittedAt;
+  const trusted = reviews.filter(
+    (c) => reviewers.includes(c.author) && head !== void 0 && Date.parse(c.createdAt) > Date.parse(head)
+  ).sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)).at(-1);
+  if (trusted === void 0) {
+    return {
+      result: "unverified",
+      detail: `no principles-review comment from ${reviewers.join(" or ")} newer than the head commit; rerun the review on the current head`
+    };
+  }
+  const verdict = REVIEW.exec(trusted.body)?.[1]?.trim() ?? "";
+  return /^no violations\.?$/i.test(verdict) ? { result: "pass" } : { result: "fail", detail: verdict };
 }
 async function coverage(runner, root3, pr) {
   const url = pr.rollup.find((c) => c.name === CI_JOB)?.url ?? "";
@@ -4873,20 +4897,25 @@ async function coverage(runner, root3, pr) {
     const steps = jobs.flatMap(
       (j) => j.name === CI_JOB && Array.isArray(j.steps) ? j.steps : []
     );
-    const step = steps.find((s) => s.name === COVERAGE_STEP);
-    if (step === void 0) {
+    const found = COVERAGE_STEPS.map((name) => ({
+      name,
+      step: steps.find((s) => s.name === name)
+    }));
+    const absent = found.find((f) => f.step === void 0);
+    if (absent !== void 0) {
       return {
         result: "missing",
-        detail: `no "${COVERAGE_STEP}" step in run ${run3}`
+        detail: `no "${absent.name}" step in run ${run3}`
       };
     }
-    const result = fromConclusion(
-      step.conclusion === void 0 || step.conclusion === "" ? "" : "COMPLETED",
-      step.conclusion ?? ""
-    );
-    return result === "pass" ? { result } : {
-      result,
-      detail: `${COVERAGE_STEP}: ${step.conclusion ?? "not finished"}`
+    const bad3 = found.find((f) => f.step?.conclusion !== "success");
+    if (bad3 === void 0) {
+      return { result: "pass" };
+    }
+    const concluded = bad3.step?.conclusion ?? "";
+    return {
+      result: concluded === "" ? "pending" : "fail",
+      detail: `${bad3.name}: ${concluded === "" ? "not finished" : concluded}`
     };
   } catch {
     return {
@@ -4895,12 +4924,12 @@ async function coverage(runner, root3, pr) {
     };
   }
 }
-async function gatherChecks(runner, root3, view) {
+async function gatherChecks(runner, root3, view, reviewers) {
   return {
     ci: job(view, CI_JOB),
     scan: job(view, SCAN_JOB),
     coverage: await coverage(runner, root3, view),
-    principlesReview: review(view)
+    principlesReview: review(view, reviewers)
   };
 }
 
@@ -4912,7 +4941,13 @@ function parseDiff(text10) {
   for (const line2 of text10.split("\n")) {
     const header = /^diff --git a\/(.+?) b\/(.+)$/.exec(line2);
     if (header?.[2] !== void 0) {
-      current = { path: header[2], deleted: false, added: [], removed: 0 };
+      current = {
+        path: header[2],
+        deleted: false,
+        added: [],
+        removed: 0,
+        after: []
+      };
       files.push(current);
       inHunk = false;
     } else if (current === void 0) {
@@ -4923,8 +4958,11 @@ function parseDiff(text10) {
       current.deleted = true;
     } else if (inHunk && line2.startsWith("+")) {
       current.added.push(line2.slice(1));
+      current.after.push({ added: true, text: line2.slice(1) });
     } else if (inHunk && line2.startsWith("-")) {
       current.removed += 1;
+    } else if (inHunk && line2.startsWith(" ")) {
+      current.after.push({ added: false, text: line2.slice(1) });
     }
   }
   return files;
@@ -4932,18 +4970,42 @@ function parseDiff(text10) {
 
 // src/judge/hints.ts
 var OVERLAY = /^infra\/environments\/([^/]+)\/environment\.yaml$/;
-var FLAG_LINE = /^\s*"?([\w.-]+)"?\s*:\s*(true|false),?\s*$/;
+var ENTRY = /"?([\w.-]+)"?\s*:\s*(true|false)\b/g;
+var INLINE = /^\s*"?features"?\s*:\s*\{(.*)\}\s*,?\s*$/;
+var OPEN2 = /^\s*"?features"?\s*:\s*\{(.*)$/;
+var CLOSE = /^[^"]*\}/;
 var NOT_BEHAVIOUR = /(\.md$|\.spec\.[cm]?[jt]sx?$|\.test\.[cm]?[jt]sx?$|^docs\/)/;
+function entries(text10, environment) {
+  return [...text10.matchAll(ENTRY)].flatMap(
+    (m) => m[1] === void 0 ? [] : [{ flag: m[1], environment, value: m[2] === "true" }]
+  );
+}
+function overlayFlags(file, environment) {
+  const found = [];
+  let inside = false;
+  for (const { added, text: text10 } of file.after) {
+    const inline = INLINE.exec(text10);
+    if (inline?.[1] !== void 0) {
+      inside = false;
+      found.push(...added ? entries(inline[1], environment) : []);
+    } else if (OPEN2.test(text10)) {
+      inside = true;
+      const rest = OPEN2.exec(text10)?.[1] ?? "";
+      found.push(...added ? entries(rest, environment) : []);
+    } else if (inside) {
+      if (CLOSE.test(text10)) {
+        inside = false;
+      } else if (added) {
+        found.push(...entries(text10, environment));
+      }
+    }
+  }
+  return found;
+}
 function flagChanges(files) {
   return files.flatMap((file) => {
     const environment = OVERLAY.exec(file.path)?.[1];
-    if (environment === void 0) {
-      return [];
-    }
-    return file.added.flatMap((line2) => {
-      const match = FLAG_LINE.exec(line2);
-      return match?.[1] === void 0 ? [] : [{ flag: match[1], environment, value: match[2] === "true" }];
-    });
+    return environment === void 0 ? [] : overlayFlags(file, environment);
   });
 }
 var deletedFiles = (files) => files.filter((f) => f.deleted).map((f) => f.path);
@@ -4988,6 +5050,37 @@ function hintsFor(pattern, files) {
   return BUILDERS[pattern](files);
 }
 
+// src/judge/verdict.ts
+var CLUSTER = /^(apps|infra|catalog)\/|(^|\/)charts?\//;
+function clusterFacing(files) {
+  return files.some((f) => CLUSTER.test(f.path) && !NOT_BEHAVIOUR.test(f.path));
+}
+var MISMATCH = {
+  "no-behaviour-change": (h) => h["noBehaviouralDiff"] === true ? void 0 : `no-behaviour-change, but the diff changes behaviour in: ${h["behaviouralPaths"].join(", ")}`,
+  "feature-flagged": (h) => h["flagPresentAndOff"] === true ? void 0 : "feature-flagged, but the diff adds no flag that is off in an environment overlay",
+  "dark-launched": (h) => h["flagOnlyInLocal"] === true ? void 0 : "dark-launched, but the diff adds no flag that is on only in the local overlay",
+  "branch-by-abstraction": (h) => h["oldPathRetained"] === true ? void 0 : `branch-by-abstraction, but the diff deletes the old path: ${h["deletedFiles"].join(", ")}`,
+  "expand-contract": () => void 0
+};
+var UNVERIFIED = {
+  "no-behaviour-change": ["behaviour equivalence not verified"],
+  "feature-flagged": ["gating not verified"],
+  "dark-launched": ["gating not verified"],
+  "branch-by-abstraction": ["abstraction seam not verified"],
+  "expand-contract": ["compatibility of both steps not verified"]
+};
+function assess(pattern, hints, files) {
+  const mismatch = MISMATCH[pattern](hints);
+  const cluster = clusterFacing(files);
+  const live = pattern === "no-behaviour-change" ? "cluster-facing: live run required before merge" : "cluster-facing: live proof required before the flag turns on";
+  return {
+    patternMatches: mismatch === void 0,
+    ...mismatch === void 0 ? {} : { patternMismatch: mismatch },
+    clusterFacing: cluster,
+    unverified: [...UNVERIFIED[pattern], ...cluster ? [live] : []]
+  };
+}
+
 // src/judge/precheck.ts
 var JudgeError = class extends Error {
 };
@@ -5005,7 +5098,13 @@ async function readPr(context2, root3, pr) {
   const out = await gh(
     context2,
     root3,
-    ["pr", "view", String(pr), "--json", "body,comments,statusCheckRollup"],
+    [
+      "pr",
+      "view",
+      String(pr),
+      "--json",
+      "body,comments,commits,statusCheckRollup"
+    ],
     pr
   );
   const view = parsePrView(out);
@@ -5014,7 +5113,7 @@ async function readPr(context2, root3, pr) {
   }
   return view;
 }
-async function precheck(context2, root3, pr) {
+async function precheck(context2, root3, pr, reviewers) {
   const view = await readPr(context2, root3, pr);
   const declaration = parseDeclaration(view.body);
   if (!declaration.ok) {
@@ -5027,15 +5126,19 @@ async function precheck(context2, root3, pr) {
     };
   }
   const diff = await gh(context2, root3, ["pr", "diff", String(pr)], pr);
-  const checks = await gatherChecks(context2.deps.runner, root3, view);
+  const checks = await gatherChecks(context2.deps.runner, root3, view, reviewers);
+  const files = parseDiff(diff);
+  const hints = hintsFor(declaration.pattern, files);
+  const verdict = assess(declaration.pattern, hints, files);
   return {
     pr,
-    ok: Object.values(checks).every((c) => c.result === "pass"),
+    ok: verdict.patternMatches && Object.values(checks).every((c) => c.result === "pass"),
     pattern: declaration.pattern,
     idea: declaration.idea,
     declaration: { ok: true },
     checks,
-    hints: hintsFor(declaration.pattern, parseDiff(diff))
+    hints,
+    ...verdict
   };
 }
 function summary(report3) {
@@ -5051,18 +5154,23 @@ ${report3.declaration.reason ?? ""}
   const hints = Object.entries(report3.hints ?? {}).map(
     ([k, v]) => `${k}: ${JSON.stringify(v)}`
   );
+  const mismatch = report3.patternMismatch === void 0 ? [] : [`pattern mismatch: ${report3.patternMismatch}`];
+  const unverified = (report3.unverified ?? []).map((u) => `unverified: ${u}`);
   return [
     head,
     `pattern: ${report3.pattern ?? "none"}${report3.idea === void 0 ? "" : ` (idea ${report3.idea})`}`,
     ...checks,
     ...hints.map((h) => `hint ${h}`),
+    ...mismatch,
+    `cluster-facing: ${report3.clusterFacing === true}`,
+    ...unverified,
     ""
   ].join("\n");
 }
 
 // src/cli/judge-commands.ts
 var FAILED4 = 1;
-var USAGE = "Run `harness judge precheck <pr> [--json] [--ledger <path>]`.";
+var USAGE = "Run `harness judge precheck <pr> [--json] [--reviewer <login>[,<login>]]`.";
 function prNumber(operand) {
   if (operand === void 0 || !/^\d+$/.test(operand) || Number(operand) < 1) {
     throw new JudgeError(`Missing or invalid PR number. ${USAGE}`);
@@ -5078,7 +5186,8 @@ async function record2(context2, report3) {
   const idea = report3.idea;
   const label = `${report3.pattern ?? "none"}:${report3.ok ? "pass" : "fail"}`;
   const logged = await opened.ledger.list({ kind: "precheck" });
-  if (logged.events.some((e) => e.number === report3.pr && e.label === label)) {
+  const newest = logged.events.filter((e) => e.number === report3.pr).at(-1);
+  if (newest?.label === label) {
     return;
   }
   const event = await opened.ledger.record({
@@ -5100,7 +5209,8 @@ async function runPrecheck(context2) {
   try {
     const pr = prNumber(context2.operand);
     const root3 = await deps.root();
-    const report3 = await precheck(context2, root3, pr);
+    const reviewers = String(context2.options["reviewer"] ?? "").split(",").map((r) => r.trim()).filter((r) => r !== "");
+    const report3 = await precheck(context2, root3, pr, reviewers);
     deps.stdout(json ? `${JSON.stringify(report3)}
 ` : summary(report3));
     await record2(context2, report3);
@@ -5118,9 +5228,9 @@ async function runPrecheck(context2) {
   }
 }
 var precheckCommand = {
-  summary: "read-only on GitHub; report a PR's declared safety pattern, pattern hints from its diff, and its CI, scan, coverage and principles-review results; fails when no single valid pattern is declared or a check is not passing; records a precheck ledger event (<pr> [--ledger])",
+  summary: "read-only on GitHub; report a PR's declared safety pattern, pattern hints from its diff, and its CI, scan, coverage and principles-review results; fails when no single valid pattern is declared or a check is not passing; records a precheck ledger event at the shared ledger; principles-review counts only from a named reviewer, made after the head commit (<pr> [--reviewer <login>[,<login>]])",
   operand: "pr",
-  options: { ledger: "string" },
+  options: { reviewer: "string" },
   run: runPrecheck
 };
 var judgeCommands = {
@@ -5949,12 +6059,12 @@ function writtenPath(name, args, segment, matches3) {
 }
 
 // src/hook/guard-guardrails.ts
-var ENTRY = /"rule"\s*:\s*"([a-z0-9-]+)"[^}]*?"mode"\s*:\s*"(audit|enforce)"/g;
+var ENTRY2 = /"rule"\s*:\s*"([a-z0-9-]+)"[^}]*?"mode"\s*:\s*"(audit|enforce)"/g;
 var OBJECT = /\{[^{}]*"rule"\s*:\s*"([a-z0-9-]+)"[^{}]*\}/g;
 var DENY = /"deny"\s*:\s*\[([^\]]*)\]/;
 var MODE = /"mode"\s*:\s*"(audit|enforce)"/g;
 var modes = (source) => new Map(
-  [...source.matchAll(ENTRY)].map((m) => [m[1], m[2]])
+  [...source.matchAll(ENTRY2)].map((m) => [m[1], m[2]])
 );
 function denies(source) {
   const found = /* @__PURE__ */ new Map();
@@ -6798,7 +6908,10 @@ function harnessRefused(role, segment) {
   if (name !== "node" || !(args[0] ?? "").endsWith("harness.mjs")) {
     return false;
   }
-  return !(HARNESS2.test(args[0] ?? "") && harnessAllowed(name, args, harnessFor(role)));
+  return !(HARNESS2.test(args[0] ?? "") && harnessAllowed(name, args, harnessFor(role))) || choosesLedger(args);
+}
+function choosesLedger(args) {
+  return args[1] === "judge" && args[2] === "precheck" && args.some((a) => a === "--ledger" || a.startsWith("--ledger="));
 }
 var SCRATCH = ["/tmp/", "/private/tmp/", "/var/folders/", "/dev/"];
 var PATHS = /(?:~|\.\.|\/)[\w.@~/-]*/g;
@@ -7527,12 +7640,12 @@ var RETRO_AFTER_SESSIONS = 5;
 function rules(agentsMarkdown) {
   return listItems(agentsMarkdown).map((item) => item.text);
 }
-function lastOperation(entries) {
-  const start = entries.findLast((entry2) => entry2.kind === "start");
+function lastOperation(entries2) {
+  const start = entries2.findLast((entry2) => entry2.kind === "start");
   if (!start) {
     return null;
   }
-  const end = entries.findLast(
+  const end = entries2.findLast(
     (entry2) => entry2.kind === "end" && entry2.op === start.op
   );
   return {
@@ -7623,17 +7736,17 @@ import { join as join9 } from "node:path";
 var JOURNAL_DIR = ".kore/state/journal";
 var isMissing = (error) => error.code === "ENOENT";
 function parseEntries(text10) {
-  const entries = [];
+  const entries2 = [];
   for (const line2 of text10.split("\n")) {
     try {
       const entry2 = JSON.parse(line2);
       if (entry2 && typeof entry2 === "object") {
-        entries.push(entry2);
+        entries2.push(entry2);
       }
     } catch {
     }
   }
-  return entries;
+  return entries2;
 }
 async function readJournals(fs, root3) {
   const dir = join9(root3, JOURNAL_DIR);
@@ -7747,17 +7860,17 @@ async function readDir(deps, dir) {
   }
 }
 function parseEntries2(text10) {
-  const entries = [];
+  const entries2 = [];
   for (const line2 of text10.split("\n")) {
     try {
       const entry2 = JSON.parse(line2);
       if (entry2 !== null && typeof entry2 === "object") {
-        entries.push(entry2);
+        entries2.push(entry2);
       }
     } catch {
     }
   }
-  return entries;
+  return entries2;
 }
 async function readJournals2(deps, root3) {
   const dir = join10(root3, JOURNAL_DIR2);
@@ -7835,12 +7948,12 @@ var MAX_CHARS = 600;
 var MAX_ITEM_CHARS = 60;
 var MAX_SUBJECTS = 3;
 var SNAPSHOT_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1e3;
-function lastOperation2(entries) {
-  const start = entries.findLast((entry2) => entry2.kind === "start");
+function lastOperation2(entries2) {
+  const start = entries2.findLast((entry2) => entry2.kind === "start");
   if (start === void 0) {
     return null;
   }
-  const end = entries.findLast(
+  const end = entries2.findLast(
     (entry2) => entry2.kind === "end" && entry2.op === start.op
   );
   return {
@@ -7868,10 +7981,10 @@ function planItems(plans) {
 }
 async function snapshot(deps) {
   const journal = {};
-  for (const [environment, entries] of Object.entries(
+  for (const [environment, entries2] of Object.entries(
     await deps.readJournals()
   )) {
-    const last = lastOperation2(entries);
+    const last = lastOperation2(entries2);
     if (last !== null) {
       journal[environment] = last;
     }
@@ -8157,14 +8270,14 @@ async function repoTranscriptDirs(fs, projectsDir, { main, worktrees, branches }
     }
     return false;
   };
-  let entries;
+  let entries2;
   try {
-    entries = await fs.readdir(projectsDir);
+    entries2 = await fs.readdir(projectsDir);
   } catch {
     return [];
   }
   const found = [];
-  for (const name of entries) {
+  for (const name of entries2) {
     const dir = join11(projectsDir, name);
     if (await fs.isDirectory(dir) && (names3.has(basename2(dir)) || await belongs(dir))) {
       found.push(dir);
@@ -8219,9 +8332,9 @@ var USAGE2 = "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY
 var isMissing2 = (error) => error.code === "ENOENT";
 async function skillNames(fs, root3) {
   const dir = join12(root3, "skills");
-  let entries;
+  let entries2;
   try {
-    entries = await fs.readdir(dir);
+    entries2 = await fs.readdir(dir);
   } catch (error) {
     if (isMissing2(error)) {
       return void 0;
@@ -8229,7 +8342,7 @@ async function skillNames(fs, root3) {
     throw error;
   }
   const names3 = [];
-  for (const entry2 of entries) {
+  for (const entry2 of entries2) {
     if (await fs.isDirectory(join12(dir, entry2)) && await fs.exists(join12(dir, entry2, "SKILL.md"))) {
       names3.push(entry2);
     }
@@ -8318,9 +8431,9 @@ import { isAbsolute as isAbsolute3, join as join13 } from "node:path";
 var HARNESSES = [".claude", ".codex"];
 async function skillNames2(fs, root3) {
   const skillsDir = join13(root3, "skills");
-  let entries;
+  let entries2;
   try {
-    entries = await fs.readdir(skillsDir);
+    entries2 = await fs.readdir(skillsDir);
   } catch (error) {
     if (error.code === "ENOENT") {
       throw new CommandError(
@@ -8330,7 +8443,7 @@ async function skillNames2(fs, root3) {
     throw error;
   }
   const skills = [];
-  for (const entry2 of entries) {
+  for (const entry2 of entries2) {
     if (await fs.exists(join13(root3, "skills", entry2, "SKILL.md"))) {
       skills.push(entry2);
     }
@@ -8505,9 +8618,9 @@ function permissionProblems(files) {
 }
 async function workflowProblems(fs, root3) {
   const dir = join14(root3, ".github", "workflows");
-  let entries;
+  let entries2;
   try {
-    entries = await fs.readdir(dir);
+    entries2 = await fs.readdir(dir);
   } catch (error) {
     if (error.code === "ENOENT") {
       throw new CommandError(
@@ -8517,7 +8630,7 @@ async function workflowProblems(fs, root3) {
     throw error;
   }
   const files = {};
-  for (const entry2 of entries.filter((f) => /\.ya?ml$/.test(f)).sort()) {
+  for (const entry2 of entries2.filter((f) => /\.ya?ml$/.test(f)).sort()) {
     files[entry2] = await fs.readFile(join14(dir, entry2));
   }
   return permissionProblems(files);

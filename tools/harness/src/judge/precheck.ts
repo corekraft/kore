@@ -8,6 +8,7 @@ import {
 import { parseDeclaration, type Pattern } from "./declaration.js";
 import { parseDiff } from "./diff.js";
 import { hintsFor, type Hints } from "./hints.js";
+import { assess } from "./verdict.js";
 
 export class JudgeError extends Error {}
 
@@ -19,6 +20,10 @@ export interface Report {
   declaration: { ok: boolean; reason?: string };
   checks?: Checks;
   hints?: Hints;
+  patternMatches?: boolean;
+  patternMismatch?: string;
+  clusterFacing?: boolean;
+  unverified?: string[];
 }
 
 const FIX =
@@ -47,7 +52,13 @@ async function readPr(
   const out = await gh(
     context,
     root,
-    ["pr", "view", String(pr), "--json", "body,comments,statusCheckRollup"],
+    [
+      "pr",
+      "view",
+      String(pr),
+      "--json",
+      "body,comments,commits,statusCheckRollup",
+    ],
     pr,
   );
   const view = parsePrView(out);
@@ -65,6 +76,7 @@ export async function precheck(
   context: CommandContext,
   root: string,
   pr: number,
+  reviewers: readonly string[],
 ): Promise<Report> {
   const view = await readPr(context, root, pr);
   const declaration = parseDeclaration(view.body);
@@ -78,15 +90,21 @@ export async function precheck(
     };
   }
   const diff = await gh(context, root, ["pr", "diff", String(pr)], pr);
-  const checks = await gatherChecks(context.deps.runner, root, view);
+  const checks = await gatherChecks(context.deps.runner, root, view, reviewers);
+  const files = parseDiff(diff);
+  const hints = hintsFor(declaration.pattern, files);
+  const verdict = assess(declaration.pattern, hints, files);
   return {
     pr,
-    ok: Object.values(checks).every((c) => c.result === "pass"),
+    ok:
+      verdict.patternMatches &&
+      Object.values(checks).every((c) => c.result === "pass"),
     pattern: declaration.pattern,
     idea: declaration.idea,
     declaration: { ok: true },
     checks,
-    hints: hintsFor(declaration.pattern, parseDiff(diff)),
+    hints,
+    ...verdict,
   };
 }
 
@@ -102,11 +120,19 @@ export function summary(report: Report): string {
   const hints = Object.entries(report.hints ?? {}).map(
     ([k, v]) => `${k}: ${JSON.stringify(v)}`,
   );
+  const mismatch =
+    report.patternMismatch === undefined
+      ? []
+      : [`pattern mismatch: ${report.patternMismatch}`];
+  const unverified = (report.unverified ?? []).map((u) => `unverified: ${u}`);
   return [
     head,
     `pattern: ${report.pattern ?? "none"}${report.idea === undefined ? "" : ` (idea ${report.idea})`}`,
     ...checks,
     ...hints.map((h) => `hint ${h}`),
+    ...mismatch,
+    `cluster-facing: ${report.clusterFacing === true}`,
+    ...unverified,
     "",
   ].join("\n");
 }

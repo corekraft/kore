@@ -10,23 +10,50 @@ export interface FlagChange {
 export type Hints = Record<string, unknown>;
 
 const OVERLAY = /^infra\/environments\/([^/]+)\/environment\.yaml$/;
-const FLAG_LINE = /^\s*"?([\w.-]+)"?\s*:\s*(true|false),?\s*$/;
-const NOT_BEHAVIOUR =
+const ENTRY = /"?([\w.-]+)"?\s*:\s*(true|false)\b/g;
+const INLINE = /^\s*"?features"?\s*:\s*\{(.*)\}\s*,?\s*$/;
+const OPEN = /^\s*"?features"?\s*:\s*\{(.*)$/;
+const CLOSE = /^[^"]*\}/;
+export const NOT_BEHAVIOUR =
   /(\.md$|\.spec\.[cm]?[jt]sx?$|\.test\.[cm]?[jt]sx?$|^docs\/)/;
 
-/** Boolean entries added to an environment overlay, which is where a feature flag is declared. */
+function entries(text: string, environment: string): FlagChange[] {
+  return [...text.matchAll(ENTRY)].flatMap((m) =>
+    m[1] === undefined
+      ? []
+      : [{ flag: m[1], environment, value: m[2] === "true" }],
+  );
+}
+
+/** Flags added to the `features` object of an overlay, written inline or over several lines. */
+function overlayFlags(file: ChangedFile, environment: string): FlagChange[] {
+  const found: FlagChange[] = [];
+  let inside = false;
+  for (const { added, text } of file.after) {
+    const inline = INLINE.exec(text);
+    if (inline?.[1] !== undefined) {
+      inside = false;
+      found.push(...(added ? entries(inline[1], environment) : []));
+    } else if (OPEN.test(text)) {
+      inside = true;
+      const rest = OPEN.exec(text)?.[1] ?? "";
+      found.push(...(added ? entries(rest, environment) : []));
+    } else if (inside) {
+      if (CLOSE.test(text)) {
+        inside = false;
+      } else if (added) {
+        found.push(...entries(text, environment));
+      }
+    }
+  }
+  return found;
+}
+
+/** Flags a diff adds to the environment overlays, where a feature flag is declared. */
 function flagChanges(files: readonly ChangedFile[]): FlagChange[] {
   return files.flatMap((file) => {
     const environment = OVERLAY.exec(file.path)?.[1];
-    if (environment === undefined) {
-      return [];
-    }
-    return file.added.flatMap((line) => {
-      const match = FLAG_LINE.exec(line);
-      return match?.[1] === undefined
-        ? []
-        : [{ flag: match[1], environment, value: match[2] === "true" }];
-    });
+    return environment === undefined ? [] : overlayFlags(file, environment);
   });
 }
 

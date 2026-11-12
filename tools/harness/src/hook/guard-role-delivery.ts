@@ -78,7 +78,7 @@ const ORCHESTRATOR_HARNESS = [
   "outcome close",
 ];
 
-/** The judge also runs its precheck, which only reads GitHub and appends one ledger event. */
+/** The judge also runs its precheck, which reads GitHub and appends one event to the shared ledger (never a path of its choosing). */
 const JUDGE_HARNESS = [...READS, "judge precheck"];
 
 /** The harness commands each delivery role may run; any other role gets the reads. */
@@ -95,8 +95,20 @@ function harnessRefused(role: string, segment: readonly string[]): boolean {
   if (name !== "node" || !(args[0] ?? "").endsWith("harness.mjs")) {
     return false;
   }
-  return !(
-    HARNESS.test(args[0] ?? "") && harnessAllowed(name, args, harnessFor(role))
+  return (
+    !(
+      HARNESS.test(args[0] ?? "") &&
+      harnessAllowed(name, args, harnessFor(role))
+    ) || choosesLedger(args)
+  );
+}
+
+/** `judge precheck --ledger <path>` would let the judge append to any file; it writes only the shared ledger. */
+function choosesLedger(args: readonly string[]): boolean {
+  return (
+    args[1] === "judge" &&
+    args[2] === "precheck" &&
+    args.some((a) => a === "--ledger" || a.startsWith("--ledger="))
   );
 }
 

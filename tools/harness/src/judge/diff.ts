@@ -3,6 +3,8 @@ export interface ChangedFile {
   deleted: boolean;
   added: string[];
   removed: number;
+  /** The new side of every hunk in order: added lines and unchanged context. */
+  after: { added: boolean; text: string }[];
 }
 
 /** Splits a unified diff into the files it changes, with added lines and a removed-line count. */
@@ -13,7 +15,13 @@ export function parseDiff(text: string): ChangedFile[] {
   for (const line of text.split("\n")) {
     const header = /^diff --git a\/(.+?) b\/(.+)$/.exec(line);
     if (header?.[2] !== undefined) {
-      current = { path: header[2], deleted: false, added: [], removed: 0 };
+      current = {
+        path: header[2],
+        deleted: false,
+        added: [],
+        removed: 0,
+        after: [],
+      };
       files.push(current);
       inHunk = false;
     } else if (current === undefined) {
@@ -24,8 +32,11 @@ export function parseDiff(text: string): ChangedFile[] {
       current.deleted = true;
     } else if (inHunk && line.startsWith("+")) {
       current.added.push(line.slice(1));
+      current.after.push({ added: true, text: line.slice(1) });
     } else if (inHunk && line.startsWith("-")) {
       current.removed += 1;
+    } else if (inHunk && line.startsWith(" ")) {
+      current.after.push({ added: false, text: line.slice(1) });
     }
   }
   return files;

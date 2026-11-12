@@ -13,6 +13,17 @@ const overlay = (env: string, flag: string, value: boolean) =>
     "   }",
   ].join("\n");
 
+const inline = (env: string, line: string) =>
+  [
+    `diff --git a/infra/environments/${env}/environment.yaml b/infra/environments/${env}/environment.yaml`,
+    `--- a/infra/environments/${env}/environment.yaml`,
+    `+++ b/infra/environments/${env}/environment.yaml`,
+    "@@ -10,3 +10,3 @@",
+    '   "registry": { "address": "10.96.0.50:5000" },',
+    `+${line}`,
+    '   "imageInventory": "audit",',
+  ].join("\n");
+
 const edit = (path: string, added: number, removed: number) =>
   [
     `diff --git a/${path} b/${path}`,
@@ -120,5 +131,62 @@ describe("hintsFor flags and structure", () => {
       deletedFiles: ["old.ts"],
       additiveOnly: false,
     });
+  });
+});
+
+// The line copied from infra/environments/local/environment.yaml.
+const REAL_LINE = '  "features": { "ingress-agentgateway": false },';
+
+describe("hintsFor reads the features object of an overlay", () => {
+  it("reads the real inline overlay format", () => {
+    expect(
+      hintsFor("feature-flagged", parseDiff(inline("local", REAL_LINE))),
+    ).toEqual({
+      flags: [
+        { flag: "ingress-agentgateway", environment: "local", value: false },
+      ],
+      flagPresentAndOff: true,
+    });
+  });
+
+  it("reads several inline flags on one line", () => {
+    const line = '  "features": { "a": false, "b": true },';
+    expect(
+      hintsFor("feature-flagged", parseDiff(inline("local", line))),
+    ).toMatchObject({
+      flags: [
+        { flag: "a", environment: "local", value: false },
+        { flag: "b", environment: "local", value: true },
+      ],
+      flagPresentAndOff: false,
+    });
+  });
+
+  it("does not count a boolean outside the features object as a flag", () => {
+    const outside = inline("local", '  "imageInventory": true,');
+    expect(hintsFor("feature-flagged", parseDiff(outside))).toEqual({
+      flags: [],
+      flagPresentAndOff: false,
+    });
+    const after = parseDiff(
+      [
+        "diff --git a/infra/environments/local/environment.yaml b/infra/environments/local/environment.yaml",
+        "--- a/infra/environments/local/environment.yaml",
+        "+++ b/infra/environments/local/environment.yaml",
+        "@@ -1,5 +1,6 @@",
+        '   "features": {',
+        '     "a": false',
+        "   },",
+        '+  "enabled": true,',
+      ].join("\n"),
+    );
+    expect(hintsFor("feature-flagged", after)).toMatchObject({ flags: [] });
+  });
+
+  it("does not read a boolean in another file's features-like text", () => {
+    const other = parseDiff(
+      edit("tools/kore/src/a.ts", 1, 0).replace("+new", '+  "x": true,'),
+    );
+    expect(hintsFor("feature-flagged", other)).toMatchObject({ flags: [] });
   });
 });

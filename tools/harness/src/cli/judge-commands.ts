@@ -3,7 +3,8 @@ import type { Command, CommandContext } from "../runtime/index.js";
 import { JudgeError, precheck, summary, type Report } from "../judge/index.js";
 
 const FAILED = 1;
-const USAGE = "Run `harness judge precheck <pr> [--json] [--ledger <path>]`.";
+const USAGE =
+  "Run `harness judge precheck <pr> [--json] [--reviewer <login>[,<login>]]`.";
 
 function prNumber(operand: string | undefined): number {
   if (operand === undefined || !/^\d+$/.test(operand) || Number(operand) < 1) {
@@ -21,8 +22,9 @@ async function record(context: CommandContext, report: Report): Promise<void> {
   const idea = report.idea;
   const label = `${report.pattern ?? "none"}:${report.ok ? "pass" : "fail"}`;
   const logged = await opened.ledger.list({ kind: "precheck" });
-  // A rerun with the same verdict on the same PR adds nothing.
-  if (logged.events.some((e) => e.number === report.pr && e.label === label)) {
+  const newest = logged.events.filter((e) => e.number === report.pr).at(-1);
+  // Only a change from the PR's newest verdict is news; pass, fail, pass records all three.
+  if (newest?.label === label) {
     return;
   }
   const event = await opened.ledger.record({
@@ -45,7 +47,11 @@ async function runPrecheck(context: CommandContext): Promise<number> {
   try {
     const pr = prNumber(context.operand);
     const root = await deps.root();
-    const report = await precheck(context, root, pr);
+    const reviewers = String(context.options["reviewer"] ?? "")
+      .split(",")
+      .map((r) => r.trim())
+      .filter((r) => r !== "");
+    const report = await precheck(context, root, pr, reviewers);
     deps.stdout(json ? `${JSON.stringify(report)}\n` : summary(report));
     await record(context, report);
     return report.ok ? 0 : FAILED;
@@ -62,9 +68,9 @@ async function runPrecheck(context: CommandContext): Promise<number> {
 
 const precheckCommand: Command = {
   summary:
-    "read-only on GitHub; report a PR's declared safety pattern, pattern hints from its diff, and its CI, scan, coverage and principles-review results; fails when no single valid pattern is declared or a check is not passing; records a precheck ledger event (<pr> [--ledger])",
+    "read-only on GitHub; report a PR's declared safety pattern, pattern hints from its diff, and its CI, scan, coverage and principles-review results; fails when no single valid pattern is declared or a check is not passing; records a precheck ledger event at the shared ledger; principles-review counts only from a named reviewer, made after the head commit (<pr> [--reviewer <login>[,<login>]])",
   operand: "pr",
-  options: { ledger: "string" },
+  options: { reviewer: "string" },
   run: runPrecheck,
 };
 
