@@ -123,3 +123,84 @@ test("portability validation fails when an application chart does not render", a
     /reference.*bad template/i,
   );
 });
+
+async function applicationRoot(
+  prefix: string,
+  workloadTemplate: string,
+): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), prefix));
+  await mkdir(join(root, "apps/example/charts/resources"), { recursive: true });
+  await mkdir(join(root, "apps/example/charts/workload/templates"), {
+    recursive: true,
+  });
+  await writeFile(
+    join(root, "apps/example/charts/resources/Chart.yaml"),
+    "name: resources\n",
+  );
+  await writeFile(
+    join(root, "apps/example/charts/workload/Chart.yaml"),
+    "name: workload\n",
+  );
+  await writeFile(
+    join(root, "apps/example/charts/workload/templates/deployment.yaml"),
+    workloadTemplate,
+  );
+  return root;
+}
+
+for (const name of ["k3d", "k3s", "local-path"]) {
+  test(`portability validation rejects application templates that name ${name}`, async () => {
+    const root = await applicationRoot(
+      "kore-k3d-",
+      `kind: PersistentVolumeClaim\nstorageClassName: ${name}\n`,
+    );
+    const repository = await loadRepository("managed-example");
+
+    await assert.rejects(
+      validatePortability({ ...repository, root }, fakeRunner().runner),
+      (error: Error) =>
+        error.message.includes(name) &&
+        /provider-specific/.test(error.message) &&
+        /deployment\.yaml/.test(error.message),
+    );
+  });
+
+  test(`portability validation rejects rendered output that names ${name}`, async () => {
+    const repository = await loadRepository("managed-example");
+    const { runner } = fakeRunner(
+      `kind: PersistentVolumeClaim\nstorageClassName: ${name}\n`,
+    );
+
+    await assert.rejects(
+      validatePortability(repository, runner),
+      (error: Error) =>
+        /rendered.*provider-specific/.test(error.message) &&
+        error.message.includes(name),
+    );
+  });
+}
+
+test("portability validation does not flag k3d names in platform or environment manifests", async () => {
+  const root = await applicationRoot(
+    "kore-k3d-env-",
+    "kind: Deployment\nmetadata:\n  name: example\n",
+  );
+  await mkdir(join(root, "infra/environments/local"), { recursive: true });
+  await mkdir(join(root, "infra/platform"), { recursive: true });
+  await writeFile(
+    join(root, "infra/environments/local/storage.yaml"),
+    "provisioner: rancher.io/local-path\ncluster: k3d-kore\nimage: rancher/k3s\n",
+  );
+  await writeFile(
+    join(root, "infra/platform/storage.yaml"),
+    "storageClassName: local-path\n",
+  );
+  const repository = await loadRepository("managed-example");
+
+  const result = await validatePortability(
+    { ...repository, root },
+    fakeRunner().runner,
+  );
+
+  assert.deepEqual(result.applications, ["example"]);
+});
