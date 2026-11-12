@@ -1,5 +1,5 @@
 import type { Repository } from "../config/index.js";
-import { orderedComponents } from "../config/index.js";
+import { enabledComponents } from "../config/index.js";
 import {
   assertExpectedCluster,
   ClusterUnavailableError,
@@ -56,7 +56,7 @@ export async function bootstrapControllers(
 ): Promise<void> {
   await ensureCluster(repository, runner);
   await closeApplicationAdmission(repository, runner);
-  for (const component of orderedComponents(repository.catalog)) {
+  for (const component of enabledComponents(repository)) {
     if (
       component.phase === "configuration" ||
       component.phase === "enforcement"

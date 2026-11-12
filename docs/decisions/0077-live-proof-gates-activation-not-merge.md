@@ -41,3 +41,19 @@ AGENTS.md's "It just works" rule is rewritten in the step that adds feature
 flags, not before, so no change can merge unproven without a flag to hold it.
 The judge checks the declared pattern against the diff. Activation becomes an
 explicit, audited event with live evidence attached.
+
+## Refinement: a catalog component can be gated by a flag
+
+A flag that only reaches chart values cannot hold back a whole component, which
+the dark-launch pattern needs when a new controller is cataloged before it is
+proven. A catalog component may set `featureFlag: <name>`, a flag declared in
+the environment's `features:` map.
+
+- Validation fails, naming the component, when the environment does not declare
+  the flag (set it to `false` to keep the component off).
+- A gated component is validated, pinned and rendered like any other. With the
+  flag off, `kore local up` and `kore platform up` issue no command for it and
+  `kore platform status` reports it as `gated-off`, not `missing`. A gated-off
+  component is not a readiness prerequisite, so it never holds the admission
+  gate shut. Turning the flag on installs it in its normal dependency order.
+- Components without `featureFlag` behave exactly as before.

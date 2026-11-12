@@ -25,6 +25,29 @@ function featureErrors(environment: Environment): string[] {
   ]);
 }
 
+/** A gated component must reference a flag the environment declares. */
+function featureFlagErrors(
+  environment: Environment,
+  components: Component[],
+): string[] {
+  const declared = new Set(Object.keys(environment.features ?? {}));
+  return components.flatMap(({ name, featureFlag }) => {
+    if (featureFlag === undefined) {
+      return [];
+    }
+    if (!flagName.test(featureFlag)) {
+      return [
+        `${name}: featureFlag ${featureFlag} must be lowercase letters, digits and hyphens, starting with a letter`,
+      ];
+    }
+    return declared.has(featureFlag)
+      ? []
+      : [
+          `${name}: featureFlag ${featureFlag} is not declared in environment.features; add "${featureFlag}": false to the ${environment.name} environment overlay`,
+        ];
+  });
+}
+
 function unknownOverlayErrors(
   environment: Environment,
   names: Set<string>,
@@ -91,6 +114,7 @@ export async function overlayErrors(repository: Repository): Promise<string[]> {
   );
   return [
     ...featureErrors(environment),
+    ...featureFlagErrors(environment, components),
     ...unknownOverlayErrors(environment, names),
     ...(await componentSourceErrors(repository, manifests)),
     ...(

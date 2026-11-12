@@ -62,18 +62,24 @@ export function evaluateReadiness(
   );
   const requirements: RequirementResult[] =
     repository.readiness.requirements.map((requirement) => {
+      // A component its feature flag gates off is not a prerequisite.
       const checks = [
         ...(requirement.components ?? []),
         ...(requirement.platformChecks ?? []),
-      ].map((name): PrerequisiteResult => {
+      ].flatMap((name): PrerequisiteResult[] => {
         const row = byName.get(name);
-        return row
-          ? { name, status: row.status, detail: row.detail }
-          : {
-              name,
-              status: "missing",
-              detail: "no status was reported for this prerequisite",
-            };
+        if (row?.status === "gated-off") {
+          return [];
+        }
+        return [
+          row
+            ? { name, status: row.status, detail: row.detail }
+            : {
+                name,
+                status: "missing",
+                detail: "no status was reported for this prerequisite",
+              },
+        ];
       });
       return {
         name: requirement.name,

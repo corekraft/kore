@@ -28,7 +28,8 @@ export async function assertPlatformReady(
       component.name !== admissionGateStatusName &&
       // The inventory is checked before the gate opens; the gate is the record.
       component.name !== imageInventoryStatusName &&
-      component.status !== "ready",
+      component.status !== "ready" &&
+      component.status !== "gated-off",
   );
   if (unavailable.length) {
     throw new Error(
