@@ -1,16 +1,18 @@
 import type { Environment, Repository } from "../config/index.js";
 import { minikubeCluster } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
-import { waitForClusterReady, type ReadinessOptions } from "./readiness.js";
+import { type ReadinessOptions, waitForClusterReady } from "./readiness.js";
 import { hasVerifiedExport } from "./export-manifest.js";
+import {
+  assertExpectedK3dCluster,
+  clusterStatusK3d,
+  clusterUpK3d,
+} from "./k3d-cluster.js";
 import { purgeRetainedResources, retainedResources } from "./retained.js";
 
-export class ClusterUnavailableError extends Error {
-  constructor(message: string, options?: { cause?: unknown }) {
-    super(message, options);
-    this.name = "ClusterUnavailableError";
-  }
-}
+import { ClusterUnavailableError } from "./cluster-unavailable.js";
+
+export { ClusterUnavailableError };
 
 export function clusterStartArgs(environment: Environment): string[] {
   const cluster = minikubeCluster(environment);
@@ -44,6 +46,9 @@ export async function assertExpectedCluster(
   runner: Runner,
 ): Promise<void> {
   const { environment } = repository;
+  if (environment.provider === "k3d") {
+    return await assertExpectedK3dCluster(repository, runner);
+  }
   if (environment.provider !== "minikube") {
     await runner.run(
       "kubectl",
@@ -109,6 +114,9 @@ export async function clusterUp(
   readiness: ReadinessOptions = {},
 ): Promise<void> {
   const { environment } = repository;
+  if (environment.provider === "k3d") {
+    return await clusterUpK3d(repository, runner, readiness);
+  }
   if (environment.provider !== "minikube") {
     throw new Error(
       "cluster up only manages Minikube environments; provision managed clusters with OpenTofu",
@@ -130,6 +138,9 @@ export async function clusterStatus(
   runner: Runner,
 ): Promise<Record<string, unknown>> {
   const { environment } = repository;
+  if (environment.provider === "k3d") {
+    return await clusterStatusK3d(repository, runner);
+  }
   const result =
     environment.provider === "minikube"
       ? await runner.run(

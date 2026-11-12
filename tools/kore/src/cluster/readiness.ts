@@ -52,6 +52,12 @@ async function nodeProblem(
     : undefined;
 }
 
+function statusCommand({ environment }: Repository): string {
+  return environment.provider === "k3d"
+    ? `k3d cluster list ${environment.k3d?.clusterName ?? environment.name}`
+    : `minikube status --profile ${minikubeCluster(environment).profile}`;
+}
+
 /**
  * After a start (notably of a stopped profile) the API server, etcd and the
  * node settle for a while, and applies made earlier time out. Waits, bounded,
@@ -88,7 +94,7 @@ export async function waitForClusterReady(
       }
       if (now() + intervalMs > deadline) {
         throw new Error(
-          `cluster ${context} was started but the ${probe.name} was not ready within ${Math.round(timeoutMs / 1000)}s: ${problem.split("\n")[0]}. Nothing was applied; check \`minikube status --profile ${minikubeCluster(repository.environment).profile}\` and rerun.`,
+          `cluster ${context} was started but the ${probe.name} was not ready within ${Math.round(timeoutMs / 1000)}s: ${problem.split("\n")[0]}. Nothing was applied; check \`${statusCommand(repository)}\` and rerun.`,
         );
       }
       await sleep(intervalMs);
