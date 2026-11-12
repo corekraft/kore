@@ -61,8 +61,8 @@ mise exec -- npm --prefix tools/kore install
 
 `node skills/bin/harness.mjs flow report [--json]` reads the stage ledger
 (`.kore/state/ledger.jsonl`, shared by every worktree) and reports, per stage of
-the delivery loop, active seconds, waiting seconds (waiting on a person counts)
-and event count, then names the bottleneck: the stage with the largest share of
+the delivery loop, active seconds, waiting seconds (waiting on a person counts),
+event count and toil, then names the bottleneck: the stage with the largest share of
 all waiting. Flags: `--min-ideas N` (default 3), `--as-of TIME`, `--ledger PATH`.
 
 The stage rules are one table, `tools/harness/src/flow/stages.ts`. An event
@@ -78,6 +78,13 @@ is `outcome`. A pane is active from `pane.spawned` or `pane.busy` and waiting fr
 time a refine, challenge, write, judge or verify pane was alive, up to `--as-of`
 (default now).
 
+Toil is time an agent spent not advancing work, per stage, in seconds under
+each stage's `toil`: `startingSeconds` (a session or pane start to its first
+tool call), `stoppingSeconds` (its last tool event to close), `waitingSeconds`
+(a pane waiting on a person) and `retryingSeconds` (a failed `tool.end` to the
+next `tool.start` of the same tool). Toil overlaps active and waiting time; it
+is a breakdown, not an addition. Each life of a reused pane counts on its own.
+
 Known limits until plan 8 Step 3 lands its producers: nothing records
 `issue.closed` or the `idea` link on PR events yet, so real ledgers show no
 completed ideas and the report says "Not enough data". A label other than
@@ -85,15 +92,15 @@ completed ideas and the report says "Not enough data". A label other than
 last event is charged no time past it. Equal waiting ties go to the earlier
 stage.
 
-`--json` prints one object, `version` 1; any field change bumps `version`:
+`--json` prints one object, `version` 2; any field change bumps `version`:
 
 | Field               | Meaning                                                                                                    |
 | ------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `version`           | Shape version, `1`.                                                                                        |
+| `version`           | Shape version, `2`.                                                                                        |
 | `asOf`              | Time open waits are measured to.                                                                           |
 | `ideas`             | `{ total, completed }`; completed means the issue closed.                                                  |
 | `minCompletedIdeas` | Completed ideas needed before a bottleneck is named.                                                       |
-| `stages`            | Nine entries in loop order: `{ stage, activeSeconds, waitingSeconds, events }`.                            |
+| `stages`            | Nine entries in loop order: `{ stage, activeSeconds, waitingSeconds, events, toil }`.                      |
 | `bottleneck`        | `{ stage, waitingSeconds, share }` (share 0 to 1), or `null`.                                              |
 | `bottleneckNote`    | Always present: why `bottleneck` is `null` (too few completed ideas, or no waiting recorded), else `null`. |
 | `unmappedEvents`    | Events with no stage or no idea, left out of every stage.                                                  |

@@ -21,7 +21,7 @@ function stage(r: FlowReport, name: string) {
 describe("flow report stage mapping", () => {
   it("lists every stage in delivery order, zeroed, for an empty ledger", () => {
     const r = report([]);
-    expect(r.version).toBe(1);
+    expect(r.version).toBe(2);
     expect(r.stages.map((s) => s.stage)).toEqual([...STAGES]);
     expect(
       r.stages.every(
@@ -75,6 +75,12 @@ describe("flow report pane roles and states", () => {
       activeSeconds: 100,
       waitingSeconds: 60,
       events: 5,
+      toil: {
+        startingSeconds: 0,
+        stoppingSeconds: 0,
+        waitingSeconds: 60,
+        retryingSeconds: 0,
+      },
     });
   });
 

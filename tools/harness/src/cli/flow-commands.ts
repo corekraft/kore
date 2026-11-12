@@ -47,7 +47,8 @@ function text(report: Printed): string {
       s.stage.padEnd(15),
       `active ${seconds(s.activeSeconds)}`.padEnd(16),
       `waiting ${seconds(s.waitingSeconds)}`.padEnd(17),
-      `${s.events} events`,
+      `${s.events} events`.padEnd(11),
+      `toil start ${seconds(s.toil.startingSeconds)} stop ${seconds(s.toil.stoppingSeconds)} wait ${seconds(s.toil.waitingSeconds)} retry ${seconds(s.toil.retryingSeconds)}`,
     ].join(" "),
   );
   const lines = [
@@ -65,7 +66,7 @@ function text(report: Printed): string {
 }
 
 const report: Command = {
-  summary: `map ledger events to stages; per stage active, waiting and event counts, and the bottleneck (--min-ideas N, default ${MIN_COMPLETED_IDEAS}; --as-of TIME; --ledger PATH; --json is one object, version ${REPORT_VERSION}: version, asOf, ideas, minCompletedIdeas, stages, bottleneck, bottleneckNote, unmappedEvents, skippedLines)`,
+  summary: `map ledger events to stages; per stage active, waiting, event counts and toil (starting, stopping, waiting, retrying), and the bottleneck (--min-ideas N, default ${MIN_COMPLETED_IDEAS}; --as-of TIME; --ledger PATH; --json is one object, version ${REPORT_VERSION}: version, asOf, ideas, minCompletedIdeas, stages, bottleneck, bottleneckNote, unmappedEvents, skippedLines)`,
   options: { "min-ideas": "string", "as-of": "string", ledger: "string" },
   async run(context) {
     const flags = parseFlags(context);

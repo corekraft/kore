@@ -82,7 +82,8 @@ and uses it first to measure the delivery loop. Terms follow
 - [x] Add a `flow` domain that maps events to the stages refine, challenge,
       await approval, orchestrate, write, judge, merge, verify and outcome.
 - [ ] Report per stage: active time, waiting time, toil (start, stop, wait,
-      retry), work in progress, and lead time.
+      retry), work in progress, and lead time. (Toil landed in #160; tick when
+      #14 to #16 all land.)
 - [x] Name the bottleneck: the stage with the largest share of waiting,
       people included.
 
