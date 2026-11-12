@@ -27,9 +27,6 @@ vi.mock("../images/index.js", () => ({
   ensureRegistryTrust: async () => undefined,
   registryTrustProblem: async () => undefined,
 }));
-vi.mock("./registry-rewire.js", () => ({
-  rewireRegistryService: async () => false,
-}));
 vi.mock("./reconcile.js", () => ({
   reconcileIfNeeded: async (_r: unknown, _n: unknown, c: { name: string }) => {
     events.push(`bootstrap:${c.name}`);

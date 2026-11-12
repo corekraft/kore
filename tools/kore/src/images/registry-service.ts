@@ -39,7 +39,7 @@ export async function verifiedRegistryAddress(
   }
   if (live !== plan.clusterIP) {
     throw new Error(
-      `local OCI registry Service answers at ${live} but registry.address ${plan.address} in environment ${repository.environment.name} expects ${plan.clusterIP}; run \`kore platform up --env ${repository.environment.name}\` to recreate the Service at the configured address`,
+      `local OCI registry Service answers at ${live} but registry.address ${plan.address} in environment ${repository.environment.name} expects ${plan.clusterIP}; a Service's clusterIP cannot change in place, so delete it with \`kubectl --context ${repository.environment.kubeContext} --namespace kore-registry delete service oci-registry\` (the Deployment and stored images are kept), then run \`kore platform up --env ${repository.environment.name}\` to recreate it at the configured address`,
     );
   }
   return plan.address;

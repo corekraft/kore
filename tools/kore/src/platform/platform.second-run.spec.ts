@@ -1,4 +1,4 @@
-import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
+import { loadRepository } from "../config/index.js";
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -33,6 +33,7 @@ import type { Runner } from "../runtime/index.js";
 import type { RunResult } from "../runtime/runner.js";
 import { desiredFingerprint } from "./fingerprint.js";
 import { platformUp } from "./up.js";
+import { nodePortService, runningK3d } from "./k3d-fixtures.js";
 import { healthyWebhookOutput } from "./webhook-fixtures.js";
 
 const ok = (stdout = ""): RunResult => ({ stdout, stderr: "", code: 0 });
@@ -82,6 +83,9 @@ function cluster(description: (revision: number) => string) {
           ]),
         );
       }
+      if (command === "k3d") {
+        return runningK3d();
+      }
       if (command === "mkcert") {
         return ok("/tmp/mkcert");
       }
@@ -91,15 +95,7 @@ function cluster(description: (revision: number) => string) {
           return ok(webhook);
         }
         if (args.includes("service")) {
-          return ok(
-            JSON.stringify({
-              items: [
-                {
-                  status: { loadBalancer: { ingress: [{ ip: "127.0.0.1" }] } },
-                },
-              ],
-            }),
-          );
+          return ok(nodePortService);
         }
         if (args.some((arg) => arg.startsWith("gateway/"))) {
           return ok(healthyGateway);
@@ -115,7 +111,7 @@ function cluster(description: (revision: number) => string) {
 }
 
 async function upOnly(name: string, stale = false) {
-  const base = await loadMinikubeLocal();
+  const base = await loadRepository("local");
   const root = await mkdtemp(join(tmpdir(), "kore-second-run-"));
   temporary.push(root);
   const component = {

@@ -1,4 +1,4 @@
-import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
+import { loadRepository } from "../config/index.js";
 import { withHealthyWebhooks } from "./webhook-fixtures.js";
 import { desiredFingerprint } from "./fingerprint.js";
 import assert from "node:assert/strict";
@@ -9,7 +9,7 @@ vi.mock("./admission-gate.js", async (importOriginal) => ({
   closeExistingAdmissionGate: async () => undefined,
   openAdmissionGate: async () => undefined,
 }));
-import { minikubeCluster } from "../config/index.js";
+import { runningK3dCluster } from "./k3d-fixtures.js";
 import { bootstrapControllers } from "./bootstrap.js";
 import { platformStop, platformDestroy } from "./lifecycle.js";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -19,9 +19,9 @@ import { RecordingRunner } from "../runtime/runner.js";
 import { tmpdir } from "node:os";
 
 test("controller bootstrap reconciles controllers before shared Gateway configuration", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   const runner = new RecordingRunner([
-    { stdout: '{"Host":"Running"}', stderr: "", code: 0 },
+    { stdout: runningK3dCluster, stderr: "", code: 0 },
     { stdout: "kube-system", stderr: "", code: 0 },
   ]);
 
@@ -35,7 +35,7 @@ test("controller bootstrap reconciles controllers before shared Gateway configur
 });
 
 test("controller bootstrap resumes a deployed component without another Helm upgrade", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   const component = repository.catalog.components.find(
     ({ name }) => name === "kore-postgresql-rbac",
   )!;
@@ -43,7 +43,7 @@ test("controller bootstrap resumes a deployed component without another Helm upg
     { ...component, dependencies: [], readiness: [] },
   ];
   const runner = new RecordingRunner([
-    { stdout: '{"Host":"Running"}', stderr: "", code: 0 },
+    { stdout: runningK3dCluster, stderr: "", code: 0 },
     { stdout: "kube-system", stderr: "", code: 0 },
     {
       stdout: JSON.stringify({ info: { status: "deployed" } }),
@@ -72,88 +72,72 @@ test("controller bootstrap resumes a deployed component without another Helm upg
   );
 });
 
-test("platform stop stops the cluster", async () => {
-  const base = await loadMinikubeLocal();
-  const root = await mkdtemp(join(tmpdir(), "kore-platform-stop-"));
-  const repository = { ...base, root };
-  const runner = new RecordingRunner([
-    { stdout: "{}", stderr: "", code: 0 },
-    { stdout: "kube-system", stderr: "", code: 0 },
-    { stdout: "", stderr: "", code: 0 },
-  ]);
-  try {
-    await platformStop(repository, runner, { listProcesses: async () => [] });
-    assert.deepEqual(runner.calls.at(-1)?.args, [
-      "stop",
-      "--profile",
-      minikubeCluster(repository.environment).profile,
-    ]);
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
-});
-
-test("platform destroy purges and then deletes the cluster", async () => {
-  const base = await loadMinikubeLocal();
-  const root = await mkdtemp(join(tmpdir(), "kore-platform-destroy-"));
-  const repository = { ...base, root };
-  const runner = new RecordingRunner([
-    { stdout: "{}", stderr: "", code: 0 },
-    { stdout: "kube-system", stderr: "", code: 0 },
-    { stdout: "", stderr: "", code: 0 },
-    { stdout: "", stderr: "", code: 0 },
-    { stdout: "", stderr: "", code: 0 },
-    { stdout: "", stderr: "", code: 0 },
-  ]);
-  try {
-    await platformDestroy(repository, runner, { yes: true, purgeData: true });
-    assert.equal(runner.calls.at(-1)?.args[0], "delete");
-    assert.equal(
-      runner.calls.filter(({ args }) => args.includes("--selector")).length,
-      2,
-    );
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
-});
-
-test("controller bootstrap creates a missing Minikube profile", async () => {
-  const base = await loadMinikubeLocal();
-  const repository = {
-    ...base,
-    catalog: { components: [] },
-  };
-  let statusCalls = 0;
-  const runner: Runner = {
+function k3dLifecycleRunner(): Runner {
+  return {
     async run(command, args) {
-      if (command === "minikube" && args[0] === "status") {
-        statusCalls += 1;
-        if (statusCalls === 1) {
-          throw new Error("profile is stopped");
-        }
+      if (command === "k3d" && args[1] === "list") {
+        return { stdout: runningK3dCluster, stderr: "", code: 0 };
       }
-      if (command === "kubectl" && args.includes("jsonpath={.metadata.name}")) {
-        return { stdout: "kube-system", stderr: "", code: 0 };
-      }
-      if (
-        command === "kubectl" &&
-        args.some((arg) => arg.startsWith("jsonpath={range"))
-      ) {
-        return { stdout: "kore-local=True\n", stderr: "", code: 0 };
-      }
-      return { stdout: "", stderr: "", code: 0 };
+      const name = args.includes("jsonpath={.metadata.name}");
+      return { stdout: name ? "kube-system" : "", stderr: "", code: 0 };
+    },
+  };
+}
+
+test("platform stop stops the k3d cluster", async () => {
+  const repository = await loadRepository("local");
+  const calls: { command: string; args: readonly string[] }[] = [];
+  const runner: Runner = {
+    run: async (command, args, options) => {
+      calls.push({ command, args });
+      return await k3dLifecycleRunner().run(command, args, options);
     },
   };
 
-  await bootstrapControllers(repository, runner);
+  await platformStop(repository, runner, { listProcesses: async () => [] });
 
-  assert.equal(statusCalls, 2);
+  assert.deepEqual(calls.at(-1), {
+    command: "k3d",
+    args: ["cluster", "stop", "kore-local"],
+  });
+});
+
+test("platform destroy purges and then deletes the k3d cluster", async () => {
+  const repository = await loadRepository("local");
+  const home = await mkdtemp(join(tmpdir(), "kore-platform-destroy-home-"));
+  const previousHome = process.env["HOME"];
+  process.env["HOME"] = home;
+  const calls: { command: string; args: readonly string[] }[] = [];
+  const runner: Runner = {
+    run: async (command, args, options) => {
+      calls.push({ command, args });
+      return await k3dLifecycleRunner().run(command, args, options);
+    },
+  };
+  try {
+    await platformDestroy(repository, runner, { yes: true, purgeData: true });
+    assert.deepEqual(calls.at(-1), {
+      command: "k3d",
+      args: ["cluster", "delete", "kore-local"],
+    });
+    assert.equal(
+      calls.filter(({ args }) => args.includes("--selector")).length,
+      2,
+    );
+  } finally {
+    if (previousHome === undefined) {
+      delete process.env["HOME"];
+    } else {
+      process.env["HOME"] = previousHome;
+    }
+    await rm(home, { recursive: true, force: true });
+  }
 });
 
 test("controller bootstrap installs no shared composition, issuer, gateway, secret store, or OPA authorizer", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   const runner = new RecordingRunner([
-    { stdout: '{"Host":"Running"}', stderr: "", code: 0 },
+    { stdout: runningK3dCluster, stderr: "", code: 0 },
     { stdout: "kube-system", stderr: "", code: 0 },
   ]);
   await bootstrapControllers(repository, withHealthyWebhooks(runner));
@@ -192,39 +176,4 @@ test("controller bootstrap installs no shared composition, issuer, gateway, secr
     .map(({ args }) => args[2]);
   assert.equal(releases.includes("opa-authorizer"), false);
   assert.equal(releases.includes("kore-postgresql-api"), false);
-});
-
-test("bootstrap recreates a deployed registry whose Service drifted from the pin, without touching its data", async () => {
-  const repository = await loadMinikubeLocal();
-  const component = repository.catalog.components.find(
-    ({ name }) => name === "oci-registry",
-  )!;
-  repository.catalog.components = [
-    { ...component, dependencies: [], readiness: [] },
-  ];
-  const runner = new RecordingRunner([
-    { stdout: '{"Host":"Running"}', stderr: "", code: 0 },
-    { stdout: "kube-system", stderr: "", code: 0 },
-    { stdout: "", stderr: "", code: 0 }, // registry credentials: none yet
-    { stdout: "", stderr: "", code: 0 }, // registry credentials: applied
-    { stdout: "10.99.1.2", stderr: "", code: 0 },
-  ]);
-
-  await bootstrapControllers(repository, withHealthyWebhooks(runner));
-
-  const kinds = runner.calls.map(({ command, args }) =>
-    command === "helm" ? `helm ${args[0]}` : `${command} ${args.join(" ")}`,
-  );
-  const deleted = runner.calls.filter(({ args }) => args.includes("delete"));
-  assert.equal(deleted.length, 1);
-  assert.deepEqual(deleted[0]?.args.slice(-4), [
-    "delete",
-    "service",
-    "oci-registry",
-    "--ignore-not-found",
-  ]);
-  assert.ok(
-    kinds.indexOf("helm upgrade") >
-      runner.calls.findIndex(({ args }) => args.includes("delete")),
-  );
 });

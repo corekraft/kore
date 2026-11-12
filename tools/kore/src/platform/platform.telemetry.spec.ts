@@ -1,4 +1,4 @@
-import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
+import { loadRepository } from "../config/index.js";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -8,12 +8,12 @@ import { orderedComponents } from "../config/index.js";
 type Json = Record<string, any>; // oxlint-disable-line typescript/no-explicit-any
 
 async function readJson(path: string): Promise<Json> {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   return JSON.parse(await readFile(join(repository.root, path), "utf8"));
 }
 
 async function readText(path: string): Promise<string> {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   return readFile(join(repository.root, path), "utf8");
 }
 
@@ -63,7 +63,7 @@ test("Prometheus loads the platform rule files from the owning ConfigMap", async
 });
 
 test("observability config is installed before Prometheus and Grafana mount it", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   const order = orderedComponents(repository.catalog).map(({ name }) => name);
   const config = repository.catalog.components.find(
     ({ name }) => name === "kore-observability-config",
@@ -117,7 +117,7 @@ test("rule unit tests exist and run through a pinned promtool", async () => {
   const mise = await readText(".mise.toml");
   assert.match(mise, /promtool = "3\.16\.0"/);
   assert.match(mise, /\[tasks\.test-promtool\]/);
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   assert.equal(repository.versions.tools.promtool, "3.16.0");
   const tests = await readText(
     "infra/observability/config/tests/platform.test.yaml",
@@ -132,7 +132,7 @@ test("signals carry cluster, environment, and part-of attributes from environmen
       ({ key }: Json) => key === "app.kubernetes.io/part-of",
     ),
   );
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   const overlay = await readJson(
     "infra/environments/local/values/otel-collector.yaml",
   );
@@ -141,7 +141,10 @@ test("signals carry cluster, environment, and part-of attributes from environmen
   const byKey = Object.fromEntries(
     attributes.map(({ key, value }: Json) => [key, value]),
   );
-  assert.equal(byKey["k8s.cluster.name"], repository.environment.kubeContext);
+  assert.equal(
+    byKey["k8s.cluster.name"],
+    repository.environment.k3d?.clusterName,
+  );
   assert.equal(
     byKey["deployment.environment.name"],
     repository.environment.name,
@@ -217,7 +220,7 @@ test("Kubernetes sources run as separate pipelines with minimal RBAC", async () 
 });
 
 test("the node agent is its own release ordered after the gateway Collector", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   const order = orderedComponents(repository.catalog).map(({ name }) => name);
   const component = repository.catalog.components.find(
     ({ name }) => name === "otel-agent",
@@ -267,7 +270,7 @@ test("both Collector releases use the renamed component names the pinned chart e
 });
 
 test("the OpenTelemetry operator manager has bounded requests and limits", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   const component = repository.catalog.components.find(
     ({ name }) => name === "opentelemetry-operator",
   );

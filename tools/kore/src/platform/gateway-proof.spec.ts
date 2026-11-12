@@ -215,24 +215,15 @@ test("secretKeys lists sorted key names and never returns values", () => {
   assert.deepEqual(secretKeys({}), []);
 });
 
-test("a host process list with a minikube tunnel or its ssh forward is a tunnel problem", () => {
+test("an ssh forward holding the Gateway port is a tunnel problem", () => {
   assert.match(
     tunnelProcessProblem(
       [
         { pid: 10, command: "/usr/bin/node server.js" },
-        { pid: 11, command: "/opt/homebrew/bin/minikube tunnel -p kore-local" },
-      ],
-      8443,
-    ) ?? "",
-    /minikube tunnel.*pid 11/,
-  );
-  assert.match(
-    tunnelProcessProblem(
-      [
         {
           pid: 12,
           command:
-            "ssh -L 8443:10.0.0.1:8443 -L 15021:10.0.0.1:15021 -i /Users/x/.minikube/machines/kore-local/id_rsa docker@127.0.0.1",
+            "ssh -L 8443:10.0.0.1:8443 -L 15021:10.0.0.1:15021 -i /Users/x/.ssh/id_rsa docker@127.0.0.1",
         },
       ],
       8443,
@@ -241,13 +232,35 @@ test("a host process list with a minikube tunnel or its ssh forward is a tunnel 
   );
 });
 
+test("an ssh forward binding the Gateway port is reported with or without a bind address", () => {
+  for (const forward of [
+    "-L 8443:host:22",
+    "-L8443:host:22",
+    "-L 127.0.0.1:8443:host:22",
+    "-L127.0.0.1:8443:host:22",
+  ]) {
+    assert.match(
+      tunnelProcessProblem(
+        [{ pid: 7, command: `ssh ${forward} bastion` }],
+        8443,
+      ) ?? "",
+      /ssh forward.*pid 7/,
+      forward,
+    );
+  }
+});
+
 test("the k3d load balancer and unrelated processes are not a tunnel", () => {
   assert.equal(
     tunnelProcessProblem(
       [
         { pid: 1, command: "docker-proxy -proto tcp -host-port 8443" },
         { pid: 2, command: "ssh -L 5432:db:5432 bastion" },
-        { pid: 3, command: "/usr/bin/vim minikube-notes.txt tunnel" },
+        { pid: 3, command: "/usr/bin/vim tunnel-notes.txt" },
+        // Only the local bind port counts; 8443 here is the remote port.
+        { pid: 4, command: "ssh -L 9000:host:8443 bastion" },
+        { pid: 5, command: "ssh -L 127.0.0.1:9001:host:8443 bastion" },
+        { pid: 6, command: "ssh -L9002:host:8443 bastion" },
       ],
       8443,
     ),

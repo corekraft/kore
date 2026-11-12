@@ -16,9 +16,6 @@ vi.mock("./admission-gate.js", async (importOriginal) => ({
   openAdmissionGate: async () => undefined,
   assertAdmissionGateOpen: async () => "g",
 }));
-vi.mock("./registry-rewire.js", () => ({
-  rewireRegistryService: async () => false,
-}));
 vi.mock("../security/index.js", () => ({
   installLocalTrust: async () => undefined,
 }));

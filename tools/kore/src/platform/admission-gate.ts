@@ -128,7 +128,7 @@ export function admissionGate(
         state,
         platformNamespaces,
         // The local kubeconfig identity is the cluster admin certificate
-        // (Minikube's, or k3d's k3s client certificate), so locally bootstrap
+        // (the k3s client certificate of k3d), so locally bootstrap
         // is also system:masters (ADR 0054).
         bootstrapGroups: isLocalProvider(repository.environment)
           ? [bootstrapGroup, "system:masters"]

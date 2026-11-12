@@ -4,9 +4,7 @@ import { join } from "node:path";
 import { test } from "vitest";
 import { releaseArgs } from "../app/release.js";
 import { loadRepository, type Repository } from "../config/index.js";
-import { RecordingRunner } from "../runtime/runner.js";
 import { helmTemplateArgs, helmUpgradeArgs } from "./helm.js";
-import { rewireRegistryService } from "./registry-rewire.js";
 
 function component(repository: Repository, name: string) {
   const found = repository.catalog.components.find((c) => c.name === name);
@@ -124,16 +122,4 @@ test("changing only registry.address moves every derived consumer", async () => 
     assert.equal(value(b[key], "platform.registry.address"), "10.97.1.9:5000");
   }
   assert.equal(value(b.registry, "service.clusterIP"), "10.97.1.9");
-  const live = new RecordingRunner([
-    { stdout: "10.96.0.50", stderr: "", code: 0 },
-  ]);
-  assert.equal(await rewireRegistryService(after, live), true);
-  assert.ok(live.calls[1]?.args.includes("delete"));
-});
-
-test("a hostname registry is never rewired", async () => {
-  const repository = await loadRepository("managed-example");
-  const runner = new RecordingRunner();
-  assert.equal(await rewireRegistryService(repository, runner), false);
-  assert.equal(runner.calls.length, 0);
 });

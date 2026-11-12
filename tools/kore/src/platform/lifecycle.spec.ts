@@ -1,4 +1,4 @@
-import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
+import { loadRepository } from "../config/index.js";
 import { expect, test, vi } from "vitest";
 
 import { RecordingRunner } from "../runtime/runner.js";
@@ -15,13 +15,13 @@ vi.mock("../cluster/index.js", () => ({
 
 test("platform stop ends the registry forward before stopping the cluster", async () => {
   stops.calls.length = 0;
-  await platformStop(await loadMinikubeLocal(), new RecordingRunner());
+  await platformStop(await loadRepository("local"), new RecordingRunner());
   expect(stops.calls).toEqual(["registry-forward", "cluster-stop"]);
 });
 
 test("platform destroy ends the registry forward before destroying", async () => {
   stops.calls.length = 0;
-  await platformDestroy(await loadMinikubeLocal(), new RecordingRunner(), {
+  await platformDestroy(await loadRepository("local"), new RecordingRunner(), {
     yes: true,
     purgeData: false,
   });
@@ -29,7 +29,7 @@ test("platform destroy ends the registry forward before destroying", async () =>
 });
 
 async function k3dRepository() {
-  const base = await loadMinikubeLocal();
+  const base = await loadRepository("local");
   const { cluster: _cluster, ...environment } = base.environment;
   return {
     ...base,

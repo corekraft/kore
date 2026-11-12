@@ -1,4 +1,4 @@
-import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
+import { loadRepository } from "../config/index.js";
 import assert from "node:assert/strict";
 import { test } from "vitest";
 
@@ -23,7 +23,7 @@ function denied(stderr: string): CommandError {
 }
 
 test("a server dry run of an admitted pod reports admitted, creating nothing", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   const calls: Call[] = [];
   const runner: Runner = {
     async run(command, args, options) {
@@ -53,7 +53,7 @@ test("a server dry run of an admitted pod reports admitted, creating nothing", a
 });
 
 test("a webhook denial is reported as not admitted with the verifier's message", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   const runner: Runner = {
     async run() {
       throw denied(
@@ -74,7 +74,7 @@ test("a webhook denial is reported as not admitted with the verifier's message",
 });
 
 test("an unexpected failure is rethrown, never read as a denial", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   const runner: Runner = {
     async run() {
       throw new Error("spawn kubectl ENOENT");
@@ -88,7 +88,7 @@ test("an unexpected failure is rethrown, never read as a denial", async () => {
 });
 
 test("a failed dry run that is not an admission denial is not read as one", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   const runner: Runner = {
     async run() {
       throw denied("Unable to connect to the server: connection refused");
@@ -102,7 +102,7 @@ test("a failed dry run that is not an admission denial is not read as one", asyn
 });
 
 test("the deployed kore-signed image is read from the enrolled namespace", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   const calls: Call[] = [];
   const runner: Runner = {
     async run(command, args) {
@@ -117,7 +117,7 @@ test("the deployed kore-signed image is read from the enrolled namespace", async
 });
 
 test("no deployed image fails with the fix instead of probing nothing", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   const runner: Runner = {
     async run() {
       return { stdout: "", stderr: "", code: 0 };
@@ -131,7 +131,7 @@ test("no deployed image fails with the fix instead of probing nothing", async ()
 });
 
 test("untrusted copies are pushed with the push identity and one is signed with a throwaway key", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   const calls: Call[] = [];
   const inputs: string[] = [];
   const envs: NodeJS.ProcessEnv[] = [];
@@ -161,14 +161,20 @@ test("untrusted copies are pushed with the push identity and one is signed with 
     copies.foreignSigned,
     `10.96.0.50:5000/kore-admission-probe/foreign-signed@${copiedDigest}`,
   );
-  const pushes = calls.filter(({ command }) => command === "minikube");
+  const pushes = calls.filter(
+    ({ command, args }) => command === "docker" && args[0] === "exec",
+  );
   assert.equal(pushes.length, 2);
   for (const push of pushes) {
-    assert.match(push.args.join(" "), /nerdctl .*push/);
-    assert.match(push.args.join(" "), /kore-push/);
+    assert.match(push.args.join(" "), /ctr .*images push/);
+    assert.doesNotMatch(push.args.join(" "), /push-password/);
   }
   assert.ok(
-    inputs.every((input) => input.includes("push-password")),
+    inputs.every((input) =>
+      Buffer.from(input.trim(), "base64")
+        .toString()
+        .includes("kore-push:push-password"),
+    ),
     "the push password goes through stdin only",
   );
 
@@ -197,7 +203,7 @@ test("untrusted copies are pushed with the push identity and one is signed with 
 });
 
 test("a signed copy is pushed under its own probe repository and signed with the cluster's local key, never a file key", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   const calls: Call[] = [];
   const runner = healthyRunner(calls);
 
@@ -232,7 +238,7 @@ test("a signed copy is pushed under its own probe repository and signed with the
 });
 
 test("scaling names the environment context and namespace, never the current context", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   const calls: Call[] = [];
   const runner: Runner = {
     async run(command, args) {
@@ -260,7 +266,7 @@ test("scaling names the environment context and namespace, never the current con
 });
 
 test("a probe can name the ServiceAccount its pod uses, so identity policy can be probed", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   let body = "";
   const runner: Runner = {
     async run(_command, _args, options) {
@@ -277,7 +283,7 @@ test("a probe can name the ServiceAccount its pod uses, so identity policy can b
 });
 
 test("a probe without a ServiceAccount option leaves the pod spec unchanged", async () => {
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   let body = "";
   const runner: Runner = {
     async run(_command, _args, options) {

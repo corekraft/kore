@@ -13,14 +13,13 @@ import {
 import type { Runner } from "../runtime/index.js";
 import { closeExistingAdmissionGate } from "./admission-gate.js";
 import { assertNoOrphanedReleases } from "./gated-release.js";
-import { rewireRegistryService } from "./registry-rewire.js";
 // The gate's open and close operations live in readiness-gate.ts.
 export {
   closeGateIfDegraded,
   openApplicationAdmission,
 } from "./readiness-gate.js";
 export type { GateCheckResult } from "./readiness-gate.js";
-import { reconcileComponent, reconcileIfNeeded } from "./reconcile.js";
+import { reconcileIfNeeded } from "./reconcile.js";
 
 async function ensureCluster(
   repository: Repository,
@@ -69,19 +68,6 @@ export async function bootstrapControllers(
     // (ADR 0034). Existing credentials are reused, never rotated.
     if (component.name === "oci-registry") {
       await ensureRegistryAuth(repository, runner);
-    }
-    // A deployed release is normally only awaited, but a rewired registry
-    // Service must be recreated by Helm, so that release reconciles anyway.
-    if (
-      component.name === "oci-registry" &&
-      repository.environment.provider === "minikube" &&
-      (await rewireRegistryService(repository, runner, (message) =>
-        process.stderr.write(`${message}\n`),
-      ))
-    ) {
-      await reconcileComponent(repository, runner, component);
-      await ensureRegistryTrust(repository, runner);
-      continue;
     }
     await reconcileIfNeeded(repository, runner, component);
     // The CA exists once the registry's certificate is issued. Clients that

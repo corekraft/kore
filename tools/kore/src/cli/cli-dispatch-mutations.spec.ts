@@ -54,13 +54,13 @@ test("cluster CLI commands dispatch guarded mutations and destroy options", asyn
 
   expect(dispatch).toEqual([
     "lock",
-    "journal:cluster up:kore-local",
+    "journal:cluster up:k3d-kore-local",
     "clusterUp",
     "lock",
-    "journal:cluster stop:kore-local",
+    "journal:cluster stop:k3d-kore-local",
     "clusterStop",
     "lock",
-    "journal:cluster destroy:kore-local",
+    "journal:cluster destroy:k3d-kore-local",
     "clusterDestroy:true:true",
   ]);
 });
@@ -82,10 +82,10 @@ test("data CLI commands dispatch guarded export and restore", async () => {
 
   expect(dispatch).toEqual([
     "lock",
-    "journal:data export:kore-local",
+    "journal:data export:k3d-kore-local",
     "exportRetainedData:reference",
     "lock",
-    "journal:data restore:kore-local",
+    "journal:data restore:k3d-kore-local",
     "restoreRetainedData:pg.sql.age:/k:true:true",
   ]);
 });
@@ -115,19 +115,19 @@ test("platform CLI commands dispatch render and all lifecycle actions", async ()
   expect(dispatch).toEqual([
     "platformRender",
     "lock",
-    "journal:platform bootstrap:kore-local",
+    "journal:platform bootstrap:k3d-kore-local",
     "bootstrapControllers",
     "lock",
-    "journal:platform up:kore-local",
+    "journal:platform up:k3d-kore-local",
     "platformUp",
     "lock",
-    "journal:platform gate-check:kore-local",
+    "journal:platform gate-check:k3d-kore-local",
     "closeGateIfDegraded",
     "lock",
-    "journal:platform stop:kore-local",
+    "journal:platform stop:k3d-kore-local",
     "platformStop",
     "lock",
-    "journal:platform destroy:kore-local",
+    "journal:platform destroy:k3d-kore-local",
     "platformDestroy",
   ]);
 });
@@ -148,19 +148,19 @@ test("application and local CLI commands dispatch deploy and teardown actions", 
 
   expect(dispatch).toEqual([
     "lock",
-    "journal:app up reference:kore-local",
+    "journal:app up reference:k3d-kore-local",
     "appUp",
     "lock",
-    "journal:app down reference:kore-local",
+    "journal:app down reference:k3d-kore-local",
     "appDown",
     "lock",
-    "journal:local up:kore-local",
+    "journal:local up:k3d-kore-local",
     "localUp",
     "lock",
-    "journal:local down:kore-local",
+    "journal:local down:k3d-kore-local",
     "localDown:true:false",
     "lock",
-    "journal:local down:kore-local",
+    "journal:local down:k3d-kore-local",
     "localDown:true:true",
   ]);
 });
@@ -171,10 +171,10 @@ test("secret and trust CLI mutations dispatch their operations", async () => {
 
   expect(dispatch).toEqual([
     "lock",
-    "journal:secrets sync:kore-local",
+    "journal:secrets sync:k3d-kore-local",
     "syncLocalSecrets",
     "lock",
-    "journal:trust install:kore-local",
+    "journal:trust install:k3d-kore-local",
     "installLocalTrust",
   ]);
 });
@@ -200,7 +200,7 @@ test("registry rotate-credentials is a locked, journaled mutation that carries t
 
   expect(dispatch).toEqual([
     "lock",
-    "journal:registry rotate-credentials:kore-local",
+    "journal:registry rotate-credentials:k3d-kore-local",
     "rotateRegistryCredentials:true",
   ]);
 });
@@ -223,7 +223,7 @@ test("signer swap-key is a locked, journaled mutation that carries the consent f
 
   expect(dispatch).toEqual([
     "lock",
-    "journal:signer swap-key:kore-local",
+    "journal:signer swap-key:k3d-kore-local",
     "swapLocalSigningKey:true",
   ]);
 });

@@ -1,4 +1,3 @@
-import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import {
@@ -87,7 +86,7 @@ function cluster(
 const sha = (n: string) => `sha256:${n.repeat(64)}`;
 
 async function local() {
-  return await loadMinikubeLocal();
+  return await loadRepository("local");
 }
 
 test("an approved upstream digest is classified approved-upstream-digest, a seed as seed", async () => {
@@ -253,7 +252,7 @@ test("an unreadable cluster is degraded, never ready, and never mutates", async 
   assert.equal(status.status, "degraded");
   assert.match(status.detail, /connection refused/);
   assert.ok(calls.every((call) => /\bget\b/.test(call)));
-  assert.ok(calls.every((call) => call.includes("--context kore-local")));
+  assert.ok(calls.every((call) => call.includes("--context k3d-kore-local")));
 });
 
 test("exempt namespaces are not reported unenrolled but every other one is checked, and their images are still classified", async () => {
