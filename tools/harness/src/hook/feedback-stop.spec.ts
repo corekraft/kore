@@ -23,6 +23,22 @@ describe("hook feedback stop", () => {
     expect(marked(result.files, "ts")).toBe(false);
   });
 
+  it("runs no tests when both projects changed: the full suites belong to CI, related tests to the commit hook", async () => {
+    const result = await hook(
+      "stop",
+      { session_id: "s1" },
+      { marked: ["kore", "harness"] },
+    );
+    expect(result.code).toBe(0);
+    expect(result.calls).toEqual([
+      ["npm", "--prefix", "tools/kore", "run", "check", "--silent"],
+      ["npm", "--prefix", "tools/harness", "run", "check", "--silent"],
+    ]);
+    for (const call of result.calls) {
+      expect(call.join(" ")).not.toMatch(/vitest|test/);
+    }
+  });
+
   it("blocks ending the turn on a type error and keeps the marker", async () => {
     const result = await hook(
       "stop",

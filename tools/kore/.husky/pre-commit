@@ -29,16 +29,32 @@ fi
 # The kore specs read the CLI source and config (tools/kore/), and the files the
 # repository specs scan or render: infra/ (apis, catalog, charts, environments,
 # observability, policies, tofu) and apps/. infra/plans is prose no spec reads.
+# Only the specs related to the staged files run here; related-tests.mjs picks
+# them, and the full suite with coverage runs in CI before merge.
 if printf '%s\n' "$staged" |
   grep -qE '^(tools/kore/|apps/|infra/(apis|catalog|charts|environments|observability|policies|tofu)/)'; then
   (cd "$repo_root/tools/kore" && pinned npm run check --silent) || {
     echo "pre-commit: typecheck failed; run 'npm run check' in tools/kore and fix the errors" >&2
     exit 1
   }
-  (cd "$repo_root/tools/kore" && pinned npm run test:unit --silent) || {
-    echo "pre-commit: unit tests failed; run 'npm run test:unit' in tools/kore and fix them" >&2
-    exit 1
-  }
+  plan="$(printf '%s\n' "$staged" | pinned node "$repo_root/tools/kore/.husky/related-tests.mjs" kore)" || exit 1
+  related="$(printf '%s\n' "$plan" | sed 1d)"
+  case "$(printf '%s\n' "$plan" | sed -n 1p)" in
+  full)
+    (cd "$repo_root/tools/kore" && pinned npm run test:unit --silent) || {
+      echo "pre-commit: unit tests failed; run 'npm run test:unit' in tools/kore and fix them" >&2
+      exit 1
+    }
+    ;;
+  related)
+    # shellcheck disable=SC2086
+    (cd "$repo_root/tools/kore" && IFS='
+' && set -f && pinned npm run test:related --silent -- $related) || {
+      echo "pre-commit: related unit tests failed; run 'npm run test:related -- <files>' in tools/kore, or 'npm run test:unit' for all, and fix them" >&2
+      exit 1
+    }
+    ;;
+  esac
 fi
 
 # The harness has its own typecheck and tests; run them when its sources, tests,
@@ -48,8 +64,22 @@ if printf '%s\n' "$staged" | grep -qE '^(tools/harness/|skills/bin/harness\.mjs$
     echo "pre-commit: harness typecheck failed; run 'npm run check' in tools/harness and fix the errors" >&2
     exit 1
   }
-  (cd "$repo_root/tools/harness" && pinned npm run test:unit --silent) || {
-    echo "pre-commit: harness unit tests failed; run 'npm run test:unit' in tools/harness and fix them" >&2
-    exit 1
-  }
+  plan="$(printf '%s\n' "$staged" | pinned node "$repo_root/tools/kore/.husky/related-tests.mjs" harness)" || exit 1
+  related="$(printf '%s\n' "$plan" | sed 1d)"
+  case "$(printf '%s\n' "$plan" | sed -n 1p)" in
+  full)
+    (cd "$repo_root/tools/harness" && pinned npm run test:unit --silent) || {
+      echo "pre-commit: harness unit tests failed; run 'npm run test:unit' in tools/harness and fix them" >&2
+      exit 1
+    }
+    ;;
+  related)
+    # shellcheck disable=SC2086
+    (cd "$repo_root/tools/harness" && IFS='
+' && set -f && pinned npm run test:related --silent -- $related) || {
+      echo "pre-commit: harness related tests failed; run 'npm run test:related -- <files>' in tools/harness, or 'npm run test:unit' for all, and fix them" >&2
+      exit 1
+    }
+    ;;
+  esac
 fi
