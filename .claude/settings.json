@@ -38,7 +38,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/context.mjs\""
+            "command": "node \"$CLAUDE_PROJECT_DIR/skills/bin/harness.mjs\" hook context"
           }
         ]
       },

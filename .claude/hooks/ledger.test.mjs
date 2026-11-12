@@ -167,14 +167,16 @@ function project(t, { bundle = true, expect = 0 } = {}) {
 }
 
 function runHook(script, args, payload, dir, { ledger = true } = {}) {
-  // The feedback and guard hooks are harness hooks; the others are still scripts.
+  // The feedback, guard and context hooks are harness hooks; the others are still scripts.
   const bundle = join(repo, "skills", "bin", "harness.mjs");
   const argv =
     script === "feedback.mjs"
       ? [join(dir, "skills", "bin", "harness.mjs"), "hook", "feedback", ...args]
       : script === "guard.mjs"
         ? [bundle, "hook", "guard", ...args]
-        : [join(hooks, script), ...args];
+        : script === "context.mjs"
+          ? [bundle, "hook", "context", ...args]
+          : [join(hooks, script), ...args];
   return spawnSync(process.execPath, argv, {
     input: JSON.stringify(payload),
     encoding: "utf8",

@@ -6,15 +6,80 @@
 // Contract: reads the status line JSON on stdin and prints one line. Context use
 // turns amber at 40% and red at 50%. Prints nothing it cannot know. Fails open.
 
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import {
-  activePlan,
-  nextStep,
-  openItems,
-  readPlans,
-} from "./hooks/context.mjs";
+const PLANS_DIR = "infra/plans";
+
+// The plan reading this line needs, kept here until it moves to the harness
+// (#182); the context hook now reads plans through the harness plan parser.
+
+/** Group a Markdown list into items, joining wrapped lines. Returns [{heading, text}]. */
+function listItems(markdown) {
+  const items = [];
+  let heading = "";
+  let current = null;
+  for (const line of markdown.split("\n")) {
+    if (line.startsWith("## ")) heading = line.slice(3).trim();
+    if (line.startsWith("- ")) {
+      current = { heading, text: line.trim() };
+      items.push(current);
+    } else if (current && /^\s+\S/.test(line)) {
+      current.text += ` ${line.trim()}`;
+    } else {
+      current = null;
+    }
+  }
+  return items;
+}
+
+/** Unchecked plan items, each prefixed with the step heading it belongs to. */
+function openItems(planMarkdown) {
+  return listItems(planMarkdown)
+    .filter((item) => item.text.startsWith("- [ ]"))
+    .map((item) => `${item.heading}: ${item.text}`);
+}
+
+/** The highest-numbered plan file that still has open items, or null. */
+function activePlan(plans) {
+  const names = Object.keys(plans).sort(
+    (a, b) => Number.parseInt(b, 10) - Number.parseInt(a, 10),
+  );
+  return names.find((name) => openItems(plans[name]).length > 0) ?? null;
+}
+
+/** The plan's `Next:` line and the step it sits under, or null. */
+function nextStep(planMarkdown) {
+  let heading = "";
+  let next = null;
+  for (const line of planMarkdown.split("\n")) {
+    if (next) {
+      if (!line.trim() || line.startsWith("#")) break;
+      next.text += ` ${line.trim()}`;
+    } else if (line.startsWith("## ")) {
+      heading = line.slice(3).trim();
+    } else if (line.startsWith("Next:")) {
+      next = { step: heading, text: line.slice(5).trim() };
+    }
+  }
+  return next;
+}
+
+/** Every plan under root, keyed by file name; empty when there is no plans directory. */
+function readPlans(root) {
+  const dir = join(root, PLANS_DIR);
+  let names;
+  try {
+    names = readdirSync(dir).filter((name) => name.endsWith(".md"));
+  } catch (error) {
+    if (error?.code === "ENOENT") return {};
+    throw error;
+  }
+  return Object.fromEntries(
+    names.map((name) => [name, readFileSync(join(dir, name), "utf8")]),
+  );
+}
 
 const AMBER_AT = 40;
 const RED_AT = 50;
