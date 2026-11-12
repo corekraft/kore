@@ -262,11 +262,17 @@ still work. It also closes the exit criteria above that need a live session.
       plan's `Next:` line, and a retrospective reminder once five or more sessions
       have run since the latest `Last retrospective:` marker. Compaction behavior is
       unchanged.
-- [x] **`statusline`.** `.claude/statusline.mjs` shows context use, the active
+- [x] **`statusline`.** `harness hook statusline` shows context use, the active
       plan, and the `Next:` step. Context use turns amber at 40% and red at 50%, the
       edge of the range where the model works best. It is not registered in
       `.claude/settings.json`, because a project status line replaces each
-      person's own; each person opts in from their user settings.
+      person's own; each person opts in from their user settings with
+      `"statusLine": {"type": "command", "command": "node <repo>/skills/bin/harness.mjs hook statusline"}`.
+      A setting that still points at `.claude/statusline.mjs` now prints a blank
+      line; change it to the command above. The line reads plans under
+      `CLAUDE_PROJECT_DIR`, then the host's `workspace.project_dir`, then its
+      cwd, so it works in any project; with no `infra/plans` it shows context
+      use alone.
 - [x] **`handoff`.** A skill for leaving a thread mid-step: tick finished items in
       the active plan and write one `Next:` line under the current step. No
       transcript content.

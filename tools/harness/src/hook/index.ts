@@ -1,9 +1,8 @@
 import type { Command } from "../runtime/index.js";
-import { context } from "./context-command.js";
-import { delta } from "./delta-command.js";
 import { feedback } from "./feedback.js";
 import { guard } from "./guard.js";
 import { hookCommand } from "./io.js";
+import { context, delta, record, statusline } from "./session-hooks.js";
 import { retroScan } from "./retro-hook.js";
 import {
   kbCheckHook,
@@ -32,7 +31,9 @@ export const hook: Record<string, Command> = {
   feedback: feedbackHook,
   guard: guardHook,
   "kb-check": kbCheckHook,
+  record,
   "retro-scan": retroScan,
   "skill-links": skillLinks,
+  statusline,
   "workflow-permissions": workflowPermissions,
 };

@@ -1,7 +1,7 @@
 ---
-status: active
+status: done
 summary: Move the deterministic steps of skills and hooks into the harness package, so each skill is a short description plus tool calls.
-last-verified: 2026-11-11
+last-verified: 2026-11-12
 ---
 
 # Tools-First Skills Plan
@@ -70,7 +70,11 @@ Each step reports its effect against the plan 8 baseline.
       each with its existing tests first.
 - [x] Point `.claude/settings.json` at `node skills/bin/harness.mjs hook
 <name>`.
-- [ ] Remove `.claude/hooks/*.mjs` once each is ported.
+- [x] Remove `.claude/hooks/*.mjs` once each is ported. The `*.test.mjs`
+      files left in `.claude/hooks/` and `node-test-shim.mjs` are test tooling
+      for the commit, workflow and test-runner scripts, not hooks; they already
+      run under vitest. That narrower scope is the recorded outcome of #182's
+      "no tests" criterion.
 
 ### Exit Criteria
 

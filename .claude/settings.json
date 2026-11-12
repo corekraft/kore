@@ -46,7 +46,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/record.mjs\" session-start"
+            "command": "node \"$CLAUDE_PROJECT_DIR/skills/bin/harness.mjs\" hook record session-start"
           }
         ]
       }

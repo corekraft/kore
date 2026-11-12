@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { run } from "../cli/index.js";
 import { testHarness } from "../cli/cli-support.js";
 import { nodeFileSystem } from "../runtime/index.js";
+import { ledgerEvents } from "./feedback-support.js";
 import {
   additional,
   agents,
@@ -96,5 +97,19 @@ describe("harness hook context, failing open", () => {
     expect(await run(["hook", "context"], deps)).toBe(1);
     expect(h.err()).toMatch(/\[hook:context\] failed: denied/);
     expect(h.out()).toBe("");
+  });
+});
+
+describe("harness hook context, and the ledger", () => {
+  it("records nothing, so its behaviour never depends on the ledger", async () => {
+    const h = testHarness({
+      env: { KORE_ROOT: "/repo", CLAUDE_PROJECT_DIR: "/repo" },
+      files: { "/repo/AGENTS.md": agents, "/repo/infra/plans/3-p.md": plan },
+    });
+    h.deps.stdin = () =>
+      Promise.resolve(JSON.stringify({ session_id: "s1", source: "startup" }));
+    expect(await run(["hook", "context"], h.deps)).toBe(0);
+    expect(h.out()).not.toBe("");
+    expect(ledgerEvents(h.files)).toEqual([]);
   });
 });

@@ -212,3 +212,44 @@ describe("guard evaluation edges", () => {
     }
   });
 });
+
+describe("hook guard, ledger events", () => {
+  it("never records the tool input, only session, pane and tool", async () => {
+    const result = await guard(
+      {
+        session_id: "s1",
+        tool_name: "Grep",
+        tool_input: { pattern: "hunter2" },
+      },
+      {
+        CLAUDE_PROJECT_DIR: "/repo",
+        KORE_ROOT: "/repo",
+        HERDR_PANE_ID: "w9:p9",
+      },
+    );
+    expect(result.code).toBe(0);
+    const [event] = result.events;
+    expect([
+      event?.["kind"],
+      event?.["session"],
+      event?.["pane"],
+      event?.["tool"],
+    ]).toEqual(["tool.start", "s1", "w9:p9", "Grep"]);
+    expect(JSON.stringify(result.events)).not.toMatch(/hunter2/);
+  });
+
+  it("allows tools it has no rule for, silently, recording only their start", async () => {
+    for (const tool_name of ["Task", "WebFetch", "mcp__x__y"]) {
+      const result = await guard({
+        session_id: "s1",
+        tool_name,
+        tool_input: { url: "x" },
+      });
+      expect(result, tool_name).toMatchObject({ code: 0, out: "", err: "" });
+      expect(
+        result.events.map((e) => [e["kind"], e["tool"]]),
+        tool_name,
+      ).toEqual([["tool.start", tool_name]]);
+    }
+  });
+});

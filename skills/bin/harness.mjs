@@ -256,14 +256,14 @@ function headings(markdown) {
       fence = opener === fence ? null : fence ?? opener;
       continue;
     }
-    const text8 = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(line2)?.[1];
-    if (text8 === void 0) {
+    const text9 = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(line2)?.[1];
+    if (text9 === void 0) {
       continue;
     }
-    const base = headingSlug(text8);
+    const base = headingSlug(text9);
     const count3 = seen.get(base) ?? 0;
     seen.set(base, count3 + 1);
-    found.push({ text: text8, anchor: count3 > 0 ? `${base}-${count3}` : base });
+    found.push({ text: text9, anchor: count3 > 0 ? `${base}-${count3}` : base });
   }
   return found;
 }
@@ -323,7 +323,7 @@ var Adrs = class {
       files: [
         {
           path,
-          lines: body.slice(0, -1).map((text8, i) => ({ number: i + 1, text: text8 }))
+          lines: body.slice(0, -1).map((text9, i) => ({ number: i + 1, text: text9 }))
         },
         { path: INDEX, lines: [{ number: index.line, text: entry2 }] }
       ]
@@ -341,8 +341,8 @@ var Adrs = class {
     return this.fs.readFile(this.abs(INDEX));
   }
   /** Puts the entry before the first later-numbered ADR line, else after the last one. */
-  insert(text8, next, entry2) {
-    const lines2 = text8.split("\n");
+  insert(text9, next, entry2) {
+    const lines2 = text9.split("\n");
     const start = lines2.indexOf("## Decisions");
     if (start === -1) {
       throw new AdrError(
@@ -482,9 +482,9 @@ var Supersession = class {
       files: [
         {
           path: oldAdr.path,
-          lines: changed.map((text8, i) => ({
+          lines: changed.map((text9, i) => ({
             number: oldAdr.statusLine + 1 + i,
-            text: text8
+            text: text9
           }))
         }
       ]
@@ -519,13 +519,13 @@ var Supersession = class {
     }
     const path = `${DECISIONS}/${file}`;
     const lines2 = (await this.fs.readFile(this.abs(path))).split("\n");
-    const statusLine = frontmatterLine(lines2, "status");
-    if (statusLine === -1) {
+    const statusLine2 = frontmatterLine(lines2, "status");
+    if (statusLine2 === -1) {
       throw new AdrError(
         `${path} has no frontmatter status; add a "status:" line before superseding it.`
       );
     }
-    return { path, lines: lines2, statusLine };
+    return { path, lines: lines2, statusLine: statusLine2 };
   }
   abs(path) {
     return `${this.root}/${path}`;
@@ -658,10 +658,10 @@ function entry(raw, index) {
   }
   return fields;
 }
-function parseInventory(text8) {
+function parseInventory(text9) {
   let value;
   try {
-    value = JSON.parse(text8);
+    value = JSON.parse(text9);
   } catch {
     return fail("is not JSON-compatible YAML");
   }
@@ -689,9 +689,9 @@ function auditRuleNames(inventory) {
 // src/guardrail/read.ts
 import { dirname as dirname4 } from "node:path";
 async function readInventory(readFile2, root3) {
-  let text8;
+  let text9;
   try {
-    text8 = await readFile2(`${root3}/${INVENTORY_PATH}`);
+    text9 = await readFile2(`${root3}/${INVENTORY_PATH}`);
   } catch (error) {
     if (error.code !== "ENOENT") {
       throw error;
@@ -700,7 +700,7 @@ async function readInventory(readFile2, root3) {
       `${INVENTORY_PATH} is missing, so no guard rule has a declared mode. Restore it from git, then rerun.`
     );
   }
-  return parseInventory(text8);
+  return parseInventory(text9);
 }
 async function findInventory(readFile2, start) {
   let dir = start;
@@ -1442,10 +1442,10 @@ function parseCost(file, cost) {
     }
   };
 }
-function parseHarnessConfig(text8, file) {
+function parseHarnessConfig(text9, file) {
   let value;
   try {
-    value = JSON.parse(text8);
+    value = JSON.parse(text9);
   } catch {
     return { error: `Invalid ${file}: it is not valid JSON. Fix the syntax.` };
   }
@@ -1700,8 +1700,8 @@ function parseEvent(input, mode) {
 // src/ledger/github-poll.ts
 var LIMIT = 1e3;
 var describe2 = (code, stdout, stderr2) => {
-  const text8 = `${stderr2}${stdout}`.trim();
-  return text8 === "" ? `exit code ${code}` : `exit code ${code}: ${text8}`;
+  const text9 = `${stderr2}${stdout}`.trim();
+  return text9 === "" ? `exit code ${code}` : `exit code ${code}: ${text9}`;
 };
 var RATE_LIMITED = /rate limit|HTTP 403|HTTP 429/i;
 async function resetTime(gh) {
@@ -1909,8 +1909,8 @@ var STATUS_KIND = {
   done: "pane.waiting"
 };
 function describe3(code, stdout, stderr2) {
-  const text8 = `${stderr2}${stdout}`.trim();
-  return text8 === "" ? `exit code ${code}` : `exit code ${code}: ${text8}`;
+  const text9 = `${stderr2}${stdout}`.trim();
+  return text9 === "" ? `exit code ${code}` : `exit code ${code}: ${text9}`;
 }
 function toSeen(entry2) {
   if (typeof entry2 !== "object" || entry2 === null) {
@@ -2056,10 +2056,10 @@ var Ledger = class {
     return { ok: true, event };
   }
   async list(filter) {
-    const text8 = await this.read();
+    const text9 = await this.read();
     const events = [];
     let skipped = 0;
-    for (const line2 of text8.split("\n")) {
+    for (const line2 of text9.split("\n")) {
       if (line2 === "") {
         continue;
       }
@@ -2152,15 +2152,15 @@ async function eventInput(context2) {
       )
     };
   }
-  const text8 = await context2.deps.stdin();
-  if (text8.trim() === "") {
+  const text9 = await context2.deps.stdin();
+  if (text9.trim() === "") {
     return {
       error: "No event given. Pass --source, --kind and --occurred-at, or one JSON event on stdin.",
       code: 2
     };
   }
   try {
-    return { input: JSON.parse(text8) };
+    return { input: JSON.parse(text9) };
   } catch {
     return { error: "Invalid event: stdin is not valid JSON." };
   }
@@ -2199,17 +2199,17 @@ var record = {
 };
 function filterFrom(options) {
   const filter = {};
-  const text8 = (name) => {
+  const text9 = (name) => {
     const value = options[name];
     return typeof value === "string" ? value : void 0;
   };
   for (const name of ["session", "pane", "idea"]) {
-    const value = text8(name);
+    const value = text9(name);
     if (value !== void 0) {
       filter[name] = value;
     }
   }
-  const source = text8("source");
+  const source = text9("source");
   if (source !== void 0) {
     if (!SOURCES.includes(source)) {
       return {
@@ -2218,7 +2218,7 @@ function filterFrom(options) {
     }
     filter.source = source;
   }
-  const kind = text8("kind");
+  const kind = text9("kind");
   if (kind !== void 0) {
     if (!KINDS2.includes(kind)) {
       return { error: `Invalid --kind "${kind}". Kinds: ${KINDS2.join(", ")}.` };
@@ -2226,7 +2226,7 @@ function filterFrom(options) {
     filter.kind = kind;
   }
   for (const name of ["since", "until"]) {
-    const value = text8(name);
+    const value = text9(name);
     if (value !== void 0) {
       if (!isTimestamp(value)) {
         return {
@@ -2583,8 +2583,8 @@ var REQUIRED2 = [
   ["safety-pattern", "safetyPattern"],
   ["date", "date"]
 ];
-function frontmatter(text8) {
-  const lines2 = text8.split("\n");
+function frontmatter(text9) {
+  const lines2 = text9.split("\n");
   if (lines2[0] !== "---") {
     return null;
   }
@@ -2600,7 +2600,7 @@ function frontmatter(text8) {
   }
   return null;
 }
-function parseIdea(path, text8) {
+function parseIdea(path, text9) {
   const file = path.slice(path.lastIndexOf("/") + 1);
   const name = IDEA_FILE.exec(file);
   if (name?.[1] === void 0 || name[2] === void 0) {
@@ -2608,7 +2608,7 @@ function parseIdea(path, text8) {
       `${path} is not named NNNN-slug.md; rename it to a four-digit number and a lowercase slug.`
     );
   }
-  const keys = frontmatter(text8);
+  const keys = frontmatter(text9);
   if (keys === null) {
     throw new IdeaError(
       `${path} has no frontmatter; start it with --- and the idea fields (see \`harness idea new --help\`).`
@@ -2621,8 +2621,8 @@ function parseIdea(path, text8) {
     );
   }
   const get = (key) => keys.get(key) ?? "";
-  const heading = /^# Idea \d{4}: (.+)$/m.exec(text8)?.[1];
-  const record3 = {
+  const heading = /^# Idea \d{4}: (.+)$/m.exec(text9)?.[1];
+  const record4 = {
     number: name[1],
     slug: name[2],
     path,
@@ -2636,22 +2636,22 @@ function parseIdea(path, text8) {
   };
   for (const key of ["outcome", "issue", "parent"]) {
     if (get(key) !== "") {
-      record3[key] = get(key);
+      record4[key] = get(key);
     }
   }
-  return record3;
+  return record4;
 }
 function scalar(flag, value) {
-  const text8 = (value ?? "").replace(/\s+/g, " ").trim();
-  if (text8 === "") {
+  const text9 = (value ?? "").replace(/\s+/g, " ").trim();
+  if (text9 === "") {
     throw new IdeaError(`Missing --${flag}; pass a non-empty value.`);
   }
-  if (/^[[{|>&*!-]/.test(text8)) {
+  if (/^[[{|>&*!-]/.test(text9)) {
     throw new IdeaError(
-      `--${flag} must not start with "${text8.slice(0, 1)}"; frontmatter holds plain text, so reword it.`
+      `--${flag} must not start with "${text9.slice(0, 1)}"; frontmatter holds plain text, so reword it.`
     );
   }
-  return text8;
+  return text9;
 }
 function renderIdea(number, date, idea) {
   const lines2 = [
@@ -2672,8 +2672,8 @@ function renderIdea(number, date, idea) {
   lines2.push("---", "", `# Idea ${number}: ${idea.title}`, "");
   return lines2.join("\n");
 }
-function withIssue(text8, issue) {
-  const lines2 = text8.split("\n");
+function withIssue(text9, issue) {
+  const lines2 = text9.split("\n");
   const end = lines2.indexOf("---", 1);
   if (lines2[0] !== "---" || end === -1) {
     throw new IdeaError("The idea has no frontmatter to record the issue in.");
@@ -2697,18 +2697,18 @@ function outcomeRange(lines2) {
   const end = lines2.findIndex((l, i) => i > start && /^#{1,2} /.test(l));
   return [start, end === -1 ? lines2.length : end];
 }
-function outcomeSection(text8) {
-  const lines2 = text8.split("\n");
+function outcomeSection(text9) {
+  const lines2 = text9.split("\n");
   const range = outcomeRange(lines2);
   return range === void 0 ? void 0 : lines2.slice(...range).join("\n").replace(/\r/g, "").trim();
 }
-function withoutOutcome(text8) {
-  const lines2 = text8.split("\n");
+function withoutOutcome(text9) {
+  const lines2 = text9.split("\n");
   const range = outcomeRange(lines2);
-  return range === void 0 ? text8 : [...lines2.slice(0, range[0]), ...lines2.slice(range[1])].join("\n").trimEnd();
+  return range === void 0 ? text9 : [...lines2.slice(0, range[0]), ...lines2.slice(range[1])].join("\n").trimEnd();
 }
-function withOutcome(text8, result, section) {
-  const lines2 = text8.split("\n");
+function withOutcome(text9, result, section) {
+  const lines2 = text9.split("\n");
   const end = lines2.indexOf("---", 1);
   if (lines2[0] !== "---" || end === -1) {
     throw new IdeaError(
@@ -2774,50 +2774,50 @@ var IdeaRepository = class {
       const names3 = await this.listNames();
       const existing = names3.find((n) => IDEA_FILE.exec(n)?.[2] === slug2);
       if (existing !== void 0) {
-        const record4 = await this.read(existing);
-        await this.ensureIndexed(record4);
-        return { created: false, record: record4 };
+        const record5 = await this.read(existing);
+        await this.ensureIndexed(record5);
+        return { created: false, record: record5 };
       }
       const taken = names3.map((n) => Number(n.slice(0, 4)));
       const number = String(Math.max(0, ...taken) + 1).padStart(4, "0");
       const path = `${DIR}/${number}-${slug2}.md`;
-      const text8 = renderIdea(
+      const text9 = renderIdea(
         number,
         this.clock.now().toISOString().slice(0, 10),
         idea
       );
       try {
-        await this.fs.createFile(this.abs(path), text8);
+        await this.fs.createFile(this.abs(path), text9);
       } catch (error) {
         if (error.code === "EEXIST") {
           continue;
         }
         throw error;
       }
-      const record3 = parseIdea(path, text8);
-      await this.ensureIndexed(record3);
-      return { created: true, record: record3 };
+      const record4 = parseIdea(path, text9);
+      await this.ensureIndexed(record4);
+      return { created: true, record: record4 };
     }
     throw new IdeaError(
       `Another writer keeps creating ideas in ${DIR}; rerun \`harness idea new\` once it finishes.`
     );
   }
   /** The raw markdown of an idea. */
-  async source(record3) {
-    return await this.fs.readFile(this.abs(record3.path));
+  async source(record4) {
+    return await this.fs.readFile(this.abs(record4.path));
   }
   /** Records the idea's issue link in its frontmatter, touching nothing else. */
-  async recordIssue(record3, issue) {
+  async recordIssue(record4, issue) {
     await this.fs.writeFile(
-      this.abs(record3.path),
-      withIssue(await this.source(record3), issue)
+      this.abs(record4.path),
+      withIssue(await this.source(record4), issue)
     );
   }
   /** Records the outcome in the idea's frontmatter and as its `## Outcome` section, touching nothing else. */
-  async recordOutcome(record3, result, section) {
+  async recordOutcome(record4, result, section) {
     await this.fs.writeFile(
-      this.abs(record3.path),
-      withOutcome(await this.source(record3), result, section)
+      this.abs(record4.path),
+      withOutcome(await this.source(record4), result, section)
     );
   }
   abs(path) {
@@ -2828,12 +2828,12 @@ var IdeaRepository = class {
     return parseIdea(path, await this.fs.readFile(this.abs(path)));
   }
   /** Lists the idea in the index unless an entry already points at it, so a rerun repairs a half-finished create. */
-  async ensureIndexed(record3) {
+  async ensureIndexed(record4) {
     const index = await this.fs.readFile(this.abs(INDEX2));
-    if (!index.includes(`](${record3.path.replace(/^docs\//, "")})`)) {
+    if (!index.includes(`](${record4.path.replace(/^docs\//, "")})`)) {
       await this.fs.writeFile(
         this.abs(INDEX2),
-        addEntry(index, record3.path, record3.summary)
+        addEntry(index, record4.path, record4.summary)
       );
     }
   }
@@ -2870,31 +2870,31 @@ function addEntry(index, path, summary) {
 // src/idea/sync.ts
 var NOT_FOUND = /could not resolve to an issue|issue .*not found|no issue/i;
 var ISSUE_URL = /https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/issues\/(\d+)/;
-function prose(text8) {
-  const lines2 = withoutOutcome(text8).split("\n");
+function prose(text9) {
+  const lines2 = withoutOutcome(text9).split("\n");
   const at = lines2.findIndex((l) => /^# Idea \d{4}: /.test(l));
   return (at === -1 ? "" : lines2.slice(at + 1).join("\n")).trim();
 }
-function renderBody(record3, text8) {
+function renderBody(record4, text9) {
   const sections = [
-    `<!-- Generated by \`harness idea sync\` from ${record3.path}. Edit that file; changes made here are overwritten. -->`,
+    `<!-- Generated by \`harness idea sync\` from ${record4.path}. Edit that file; changes made here are overwritten. -->`,
     `## Summary
 
-${record3.summary}`,
+${record4.summary}`,
     `## Hypothesis
 
-${record3.hypothesis}`,
+${record4.hypothesis}`,
     `## Expected outcome
 
-${record3.expectedOutcome}`,
+${record4.expectedOutcome}`,
     `## Measurement
 
-${record3.measurement}`,
+${record4.measurement}`,
     `## Safety pattern
 
-${record3.safetyPattern}`
+${record4.safetyPattern}`
   ];
-  const extra = prose(text8);
+  const extra = prose(text9);
   if (extra !== "") {
     sections.push(extra);
   }
@@ -2932,9 +2932,9 @@ async function resolveRepo(gh, recorded) {
   return name;
 }
 var fix = "Check `gh auth status` and rerun `harness idea sync`.";
-async function reconcile(gh, record3, body, at) {
-  const title = record3.title.trim();
-  const issue = record3.issue ?? "";
+async function reconcile(gh, record4, body, at) {
+  const title = record4.title.trim();
+  const issue = record4.issue ?? "";
   const view = await gh([
     "issue",
     "view",
@@ -2973,20 +2973,20 @@ async function reconcile(gh, record3, body, at) {
   }
   return { action: "updated", issue };
 }
-async function syncIssue(runner, root3, record3, text8, recordLink) {
-  const body = renderBody(record3, text8);
+async function syncIssue(runner, root3, record4, text9, recordLink) {
+  const body = renderBody(record4, text9);
   const gh = async (args, input) => await runner.run("gh", args, {
     cwd: root3,
     ...input === void 0 ? {} : { input }
   });
-  const at = record3.issue === void 0 ? void 0 : locate(record3.issue);
-  if (record3.issue !== void 0 && at === void 0) {
+  const at = record4.issue === void 0 ? void 0 : locate(record4.issue);
+  if (record4.issue !== void 0 && at === void 0) {
     throw new IdeaError(
-      `${record3.path} has issue "${record3.issue}", which is not an issue number or link; set it to e.g. 123 or https://github.com/<owner>/<repo>/issues/123.`
+      `${record4.path} has issue "${record4.issue}", which is not an issue number or link; set it to e.g. 123 or https://github.com/<owner>/<repo>/issues/123.`
     );
   }
   const repo = await resolveRepo(gh, at?.repo);
-  const existing = at === void 0 ? void 0 : await reconcile(gh, record3, body, { number: at.number, repo });
+  const existing = at === void 0 ? void 0 : await reconcile(gh, record4, body, { number: at.number, repo });
   if (existing !== void 0) {
     return existing;
   }
@@ -2997,7 +2997,7 @@ async function syncIssue(runner, root3, record3, text8, recordLink) {
       "--repo",
       repo,
       "--title",
-      record3.title.trim(),
+      record4.title.trim(),
       "--body-file",
       "-"
     ],
@@ -3009,14 +3009,14 @@ async function syncIssue(runner, root3, record3, text8, recordLink) {
   }
   if (url === void 0) {
     throw new IdeaError(
-      `gh reported success but printed no issue link, so the issue may exist: check the repository's issues for "${record3.title.trim()}" in ${repo}, add \`issue: <url>\` to ${record3.path}, then rerun \`harness idea sync\`; otherwise a duplicate is created.`
+      `gh reported success but printed no issue link, so the issue may exist: check the repository's issues for "${record4.title.trim()}" in ${repo}, add \`issue: <url>\` to ${record4.path}, then rerun \`harness idea sync\`; otherwise a duplicate is created.`
     );
   }
   try {
     await recordLink(url);
   } catch (error) {
     throw new IdeaError(
-      `Created ${url} but could not record it in ${record3.path}: ${error instanceof Error ? error.message : String(error)}. Add \`issue: ${url}\` to its frontmatter, then rerun \`harness idea sync\`; otherwise a second issue is created.`
+      `Created ${url} but could not record it in ${record4.path}: ${error instanceof Error ? error.message : String(error)}. Add \`issue: ${url}\` to its frontmatter, then rerun \`harness idea sync\`; otherwise a second issue is created.`
     );
   }
   return { action: "created", issue: url };
@@ -3034,16 +3034,16 @@ function parseView(stdout, issue) {
     );
   }
 }
-async function issueTarget(runner, root3, record3) {
-  if (record3.issue === void 0) {
+async function issueTarget(runner, root3, record4) {
+  if (record4.issue === void 0) {
     throw new IdeaError(
-      `${record3.path} has no issue; run \`harness idea sync --idea ${record3.number}\` to create and link it first.`
+      `${record4.path} has no issue; run \`harness idea sync --idea ${record4.number}\` to create and link it first.`
     );
   }
-  const at = locate(record3.issue);
+  const at = locate(record4.issue);
   if (at === void 0) {
     throw new IdeaError(
-      `${record3.path} has issue "${record3.issue}", which is not an issue number or link; set it to e.g. 123 or https://github.com/<owner>/<repo>/issues/123.`
+      `${record4.path} has issue "${record4.issue}", which is not an issue number or link; set it to e.g. 123 or https://github.com/<owner>/<repo>/issues/123.`
     );
   }
   const gh = async (args, input) => await runner.run("gh", args, {
@@ -3084,26 +3084,26 @@ function text2(options, key) {
 function slugOf(title) {
   return title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60).replace(/-+$/, "");
 }
-function describe4(record3) {
+function describe4(record4) {
   const lines2 = [
-    `Idea ${record3.number}: ${record3.title}`,
-    `Date: ${record3.date}`,
-    `Summary: ${record3.summary}`,
-    `Hypothesis: ${record3.hypothesis}`,
-    `Expected outcome: ${record3.expectedOutcome}`,
-    `Measurement: ${record3.measurement}`,
-    `Safety pattern: ${record3.safetyPattern}`
+    `Idea ${record4.number}: ${record4.title}`,
+    `Date: ${record4.date}`,
+    `Summary: ${record4.summary}`,
+    `Hypothesis: ${record4.hypothesis}`,
+    `Expected outcome: ${record4.expectedOutcome}`,
+    `Measurement: ${record4.measurement}`,
+    `Safety pattern: ${record4.safetyPattern}`
   ];
   for (const [label, value] of [
-    ["Outcome", record3.outcome],
-    ["Issue", record3.issue],
-    ["Parent", record3.parent]
+    ["Outcome", record4.outcome],
+    ["Issue", record4.issue],
+    ["Parent", record4.parent]
   ]) {
     if (value !== void 0) {
       lines2.push(`${label}: ${value}`);
     }
   }
-  lines2.push(`File: ${record3.path}`);
+  lines2.push(`File: ${record4.path}`);
   return `${lines2.join("\n")}
 `;
 }
@@ -3150,10 +3150,10 @@ var create = {
   run(context2) {
     return guarded(context2, async () => {
       const { slug: slug2, idea } = parseNewIdea(context2.options);
-      const { created, record: record3 } = await (await repository(context2)).create(slug2, idea);
+      const { created, record: record4 } = await (await repository(context2)).create(slug2, idea);
       context2.deps.stdout(
-        context2.json ? `${JSON.stringify({ created, ...record3 })}
-` : `${created ? "Created" : "Already exists:"} ${record3.path}
+        context2.json ? `${JSON.stringify({ created, ...record4 })}
+` : `${created ? "Created" : "Already exists:"} ${record4.path}
 `
       );
     });
@@ -3170,10 +3170,10 @@ var show = {
           "Missing --idea; run `harness idea show --idea <number or slug>`, or `harness idea list` to see the ideas."
         );
       }
-      const record3 = await (await repository(context2)).get(ref.trim());
+      const record4 = await (await repository(context2)).get(ref.trim());
       context2.deps.stdout(
-        context2.json ? `${JSON.stringify(record3)}
-` : describe4(record3)
+        context2.json ? `${JSON.stringify(record4)}
+` : describe4(record4)
       );
     });
   }
@@ -3203,16 +3203,16 @@ var sync = {
         );
       }
       const repo = await repository(context2);
-      const record3 = await repo.get(ref.trim());
+      const record4 = await repo.get(ref.trim());
       const result = await syncIssue(
         context2.deps.runner,
         await context2.deps.root(),
-        record3,
-        await repo.source(record3),
-        (url) => repo.recordIssue(record3, url)
+        record4,
+        await repo.source(record4),
+        (url) => repo.recordIssue(record4, url)
       );
       context2.deps.stdout(
-        context2.json ? `${JSON.stringify({ idea: record3.number, ...result })}
+        context2.json ? `${JSON.stringify({ idea: record4.number, ...result })}
 ` : `Issue ${result.action}: ${result.issue}
 `
       );
@@ -3230,9 +3230,9 @@ var ideaCommands = {
 var ENVIRONMENTS = "infra/environments";
 var FlagError = class extends Error {
 };
-function parse(path, text8) {
+function parse(path, text9) {
   try {
-    const value = JSON.parse(text8);
+    const value = JSON.parse(text9);
     if (typeof value === "object" && value !== null && !Array.isArray(value)) {
       return value;
     }
@@ -3273,8 +3273,8 @@ async function readOverlay(fs, root3, environment) {
       `No environment "${environment}" has an overlay at ${path}. Environments: ${(await environments(fs, root3)).join(", ") || "none"}.`
     );
   }
-  const text8 = await fs.readFile(`${root3}/${path}`);
-  const features = parse(path, text8)["features"] ?? {};
+  const text9 = await fs.readFile(`${root3}/${path}`);
+  const features = parse(path, text9)["features"] ?? {};
   const valid = typeof features === "object" && features !== null && Object.values(features).every((v) => typeof v === "boolean");
   if (!valid) {
     throw new FlagError(
@@ -3284,21 +3284,21 @@ async function readOverlay(fs, root3, environment) {
   return {
     environment,
     path,
-    text: text8,
+    text: text9,
     features
   };
 }
-function featuresSpan(text8) {
-  const key = /["']?features["']?\s*:\s*\{/.exec(text8);
+function featuresSpan(text9) {
+  const key = /["']?features["']?\s*:\s*\{/.exec(text9);
   if (key === null) {
     return void 0;
   }
   const open2 = key.index + key[0].length - 1;
   let depth = 0;
-  for (let i = open2; i < text8.length; i++) {
-    if (text8[i] === "{") {
+  for (let i = open2; i < text9.length; i++) {
+    if (text9[i] === "{") {
       depth += 1;
-    } else if (text8[i] === "}") {
+    } else if (text9[i] === "}") {
       depth -= 1;
     }
     if (depth === 0) {
@@ -3318,9 +3318,9 @@ function withFlagOn(overlay, flag) {
     );
   }
   const end = span[0] + entry2.index + entry2[0].length;
-  const text8 = `${overlay.text.slice(0, end - "false".length)}true${overlay.text.slice(end)}`;
-  parse(overlay.path, text8);
-  return text8;
+  const text9 = `${overlay.text.slice(0, end - "false".length)}true${overlay.text.slice(end)}`;
+  parse(overlay.path, text9);
+  return text9;
 }
 
 // src/flag/proof.ts
@@ -3342,14 +3342,14 @@ function lines(section) {
   return found;
 }
 async function findProof(repo, flag, environment) {
-  for (const record3 of await repo.list()) {
-    const section = outcomeSection(await repo.source(record3));
+  for (const record4 of await repo.list()) {
+    const section = outcomeSection(await repo.source(record4));
     if (section === void 0) {
       continue;
     }
     const fields = lines(section);
     if (fields.get("Result") === "confirmed" && fields.get("Kind") === "verification" && fields.get("Source") === "live-run" && fields.get("Flag") === flag && fields.get("Environment") === environment) {
-      return { idea: record3.number, path: record3.path };
+      return { idea: record4.number, path: record4.path };
     }
   }
   return void 0;
@@ -3518,7 +3518,7 @@ var OUTCOME_SOURCES = [
 ];
 var RESULTS = ["confirmed", "refuted", "inconclusive"];
 var labelFor = (result) => `outcome:${result}`;
-var markerFor = (record3) => `<!-- harness outcome idea ${record3.number} -->`;
+var markerFor = (record4) => `<!-- harness outcome idea ${record4.number} -->`;
 function choice(flag, allowed, value) {
   if (value === void 0 || value.trim() === "") {
     throw new IdeaError(
@@ -3618,18 +3618,18 @@ function renderSection(outcome, date) {
     outcome.summary
   ].join("\n");
 }
-function followUpOf(record3, result) {
+function followUpOf(record4, result) {
   return {
     // The number keeps the slug unique when long slugs share a prefix.
-    slug: `follow-up-${record3.number}-${record3.slug}`.slice(0, 60).replace(/-+$/, ""),
+    slug: `follow-up-${record4.number}-${record4.slug}`.slice(0, 60).replace(/-+$/, ""),
     idea: {
-      title: `Follow up: ${record3.title}`,
-      summary: `Follow up on idea ${record3.number} after a ${result} outcome`,
-      hypothesis: `After a ${result} outcome on idea ${record3.number}, revisit: ${record3.hypothesis}`,
-      expectedOutcome: record3.expectedOutcome,
-      measurement: record3.measurement,
-      safetyPattern: record3.safetyPattern,
-      parent: record3.number
+      title: `Follow up: ${record4.title}`,
+      summary: `Follow up on idea ${record4.number} after a ${result} outcome`,
+      hypothesis: `After a ${result} outcome on idea ${record4.number}, revisit: ${record4.hypothesis}`,
+      expectedOutcome: record4.expectedOutcome,
+      measurement: record4.measurement,
+      safetyPattern: record4.safetyPattern,
+      parent: record4.number
     }
   };
 }
@@ -3725,27 +3725,27 @@ async function publishOutcome(runner, root3, target, outcome) {
 }
 
 // src/outcome/outcome.ts
-async function finish(ctx, record3, result, target) {
+async function finish(ctx, record4, result, target) {
   let followUp;
   if (result !== "confirmed") {
-    const next = followUpOf(record3, result);
+    const next = followUpOf(record4, result);
     followUp = (await ctx.repo.create(next.slug, next.idea)).record.path;
   }
-  const section = outcomeSection(await ctx.repo.source(record3)) ?? "";
+  const section = outcomeSection(await ctx.repo.source(record4)) ?? "";
   const comment = [
-    markerFor(record3),
+    markerFor(record4),
     section,
     ...followUp === void 0 ? [] : [`Follow-up idea: ${followUp}`]
   ].join("\n\n");
   const published = await publishOutcome(ctx.runner, ctx.root, target, {
-    idea: record3.number,
+    idea: record4.number,
     result,
-    marker: markerFor(record3),
+    marker: markerFor(record4),
     comment: `${comment}
 `
   });
   return {
-    idea: record3.number,
+    idea: record4.number,
     result,
     issue: `https://github.com/${target.repo}/issues/${target.number}`,
     ...followUp === void 0 ? {} : { followUp },
@@ -3753,37 +3753,37 @@ async function finish(ctx, record3, result, target) {
   };
 }
 async function recordOutcome(ctx, ref, outcome) {
-  const record3 = await ctx.repo.get(ref);
-  if (record3.outcome !== void 0) {
+  const record4 = await ctx.repo.get(ref);
+  if (record4.outcome !== void 0) {
     throw new IdeaError(
-      `${record3.path} already has an outcome (${record3.outcome}); an outcome is recorded once. Run \`harness outcome close --idea ${record3.number}\` to finish publishing it.`
+      `${record4.path} already has an outcome (${record4.outcome}); an outcome is recorded once. Run \`harness outcome close --idea ${record4.number}\` to finish publishing it.`
     );
   }
-  const target = await issueTarget(ctx.runner, ctx.root, record3);
+  const target = await issueTarget(ctx.runner, ctx.root, record4);
   const date = ctx.clock.now().toISOString().slice(0, 10);
   await ctx.repo.recordOutcome(
-    record3,
+    record4,
     outcome.result,
     renderSection(outcome, date)
   );
-  return await finish(ctx, record3, outcome.result, target);
+  return await finish(ctx, record4, outcome.result, target);
 }
 async function closeOutcome(ctx, ref) {
-  const record3 = await ctx.repo.get(ref);
-  const recorded = record3.outcome;
+  const record4 = await ctx.repo.get(ref);
+  const recorded = record4.outcome;
   if (recorded === void 0) {
     throw new IdeaError(
-      `${record3.path} has no recorded outcome, so its issue stays open. Run \`harness outcome record --idea ${record3.number} --kind <experiment|usage|verification> --source <live-run|journal|eval-history|comparison> --evidence <reference> --result <confirmed|refuted|inconclusive> --summary <text>\`.`
+      `${record4.path} has no recorded outcome, so its issue stays open. Run \`harness outcome record --idea ${record4.number} --kind <experiment|usage|verification> --source <live-run|journal|eval-history|comparison> --evidence <reference> --result <confirmed|refuted|inconclusive> --summary <text>\`.`
     );
   }
   const result = RESULTS.find((r) => r === recorded);
-  if (result === void 0 || outcomeSection(await ctx.repo.source(record3)) === void 0) {
+  if (result === void 0 || outcomeSection(await ctx.repo.source(record4)) === void 0) {
     throw new IdeaError(
-      `${record3.path} has an outcome line "${recorded}" that the outcome tool did not write (it needs one of ${RESULTS.join(", ")} and an ## Outcome section). Remove it and run \`harness outcome record --idea ${record3.number}\`.`
+      `${record4.path} has an outcome line "${recorded}" that the outcome tool did not write (it needs one of ${RESULTS.join(", ")} and an ## Outcome section). Remove it and run \`harness outcome record --idea ${record4.number}\`.`
     );
   }
-  const target = await issueTarget(ctx.runner, ctx.root, record3);
-  return await finish(ctx, record3, result, target);
+  const target = await issueTarget(ctx.runner, ctx.root, record4);
+  return await finish(ctx, record4, result, target);
 }
 
 // src/cli/outcome-commands.ts
@@ -3936,9 +3936,9 @@ function listItemSpans(markdown) {
   return items;
 }
 function listItems(markdown) {
-  return listItemSpans(markdown).map(({ heading, text: text8 }) => ({
+  return listItemSpans(markdown).map(({ heading, text: text9 }) => ({
     heading,
-    text: text8
+    text: text9
   }));
 }
 function openItems(markdown) {
@@ -4116,8 +4116,8 @@ function trimCommon(edit, lines2) {
 }
 
 // src/plan/plan-edit.ts
-function normalize(text8) {
-  return text8.replace(/\s+/g, " ").trim();
+function normalize(text9) {
+  return text9.replace(/\s+/g, " ").trim();
 }
 function choosePlan(plans, requested) {
   const names3 = Object.keys(plans);
@@ -4200,13 +4200,13 @@ function currentHeading(lines2, markdown) {
   }
   return index;
 }
-function insertion(lines2, heading, text8) {
+function insertion(lines2, heading, text9) {
   const blank = (lines2[heading + 1] ?? "").trim() === "";
   const start = blank ? heading + 2 : heading + 1;
   return {
     start,
     end: start,
-    lines: blank ? [`${NEXT} ${text8}`, ""] : ["", `${NEXT} ${text8}`, ""]
+    lines: blank ? [`${NEXT} ${text9}`, ""] : ["", `${NEXT} ${text9}`, ""]
   };
 }
 function withInsertion(lines2, removed, added) {
@@ -4253,8 +4253,8 @@ var planNext = {
   async run({ json, deps, options }) {
     const raw = options["text"];
     const plan2 = options["plan"];
-    const text8 = typeof raw === "string" ? normalize(raw) : "";
-    if (text8 === "") {
+    const text9 = typeof raw === "string" ? normalize(raw) : "";
+    if (text9 === "") {
       throw new CommandError(
         'Missing --text "<line>": say the first concrete action and any state the files cannot show.'
       );
@@ -4266,7 +4266,7 @@ var planNext = {
       edits: (lines2, markdown) => withInsertion(
         lines2,
         removals(lines2),
-        insertion(lines2, currentHeading(lines2, markdown), text8)
+        insertion(lines2, currentHeading(lines2, markdown), text9)
       ),
       unchanged: `Next: already reads that way`
     });
@@ -4314,8 +4314,8 @@ function totalsEdits(lines2, range, className, date) {
     managed: managed - (lower.startsWith("managed") ? 1 : 0),
     release: release - (lower.startsWith("release") ? 1 : 0)
   };
-  const text8 = `as of ${date}: ${next.local} local, ${next.managed} managed${match[3]}cluster, ${next.release} release${match[5]}pipeline`;
-  const changed = intro.replace(TOTALS, text8).split("\n");
+  const text9 = `as of ${date}: ${next.local} local, ${next.managed} managed${match[3]}cluster, ${next.release} release${match[5]}pipeline`;
+  const changed = intro.replace(TOTALS, text9).split("\n");
   const before2 = intro.split("\n");
   const edits = [];
   for (const [i, line2] of changed.entries()) {
@@ -4397,17 +4397,17 @@ function segmentsOf(raw) {
   pieces.push([from, bodyEnd]);
   let exit = false;
   return pieces.map(([a, b]) => {
-    const text8 = raw.slice(a, b);
-    const start = a + (text8.length - text8.trimStart().length);
-    const end = b - (text8.length - text8.trimEnd().length);
+    const text9 = raw.slice(a, b);
+    const start = a + (text9.length - text9.trimStart().length);
+    const end = b - (text9.length - text9.trimEnd().length);
     const lead = LEAD.exec(raw.slice(start, end))?.[0];
     exit ||= lead !== void 0;
     return { start, end, itemStart: start + (lead?.length ?? 0), exit };
   });
 }
-function words(text8) {
+function words(text9) {
   return new Set(
-    (text8.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => w.length >= 4)
+    (text9.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => w.length >= 4)
   );
 }
 function score(item, segment) {
@@ -4431,13 +4431,13 @@ function lowered(raw, segment) {
   const shown = /^\d+$/.test(word) ? String(count3) : NUMBERS[count3] ?? word;
   const noun = count3 === 1 ? "criterion" : "criteria";
   const [, , gap1, gap2, gap3] = lead;
-  const text8 = `and ${shown}${gap1}exit${gap2}${noun}:${gap3}`;
-  return raw.slice(0, segment.start) + text8 + raw.slice(segment.start + lead[0].length);
+  const text9 = `and ${shown}${gap1}exit${gap2}${noun}:${gap3}`;
+  return raw.slice(0, segment.start) + text9 + raw.slice(segment.start + lead[0].length);
 }
 function sharedNote(raw, segments, index) {
   for (const [i, segment] of segments.entries()) {
-    const text8 = raw.slice(segment.itemStart, segment.end);
-    const note = /\([^)]*\b(both|all)\b[^)]*\)/i.exec(text8);
+    const text9 = raw.slice(segment.itemStart, segment.end);
+    const note = /\([^)]*\b(both|all)\b[^)]*\)/i.exec(text9);
     const covered = note?.[1]?.toLowerCase() === "all" || index === i || index === i - 1;
     if (note !== null && covered) {
       return note[0];
@@ -4561,9 +4561,9 @@ function tickEdit(lines2, item) {
     lines: [`- [x]${first.slice(OPEN.length)}`]
   };
 }
-function describe6(file, step, text8, dryRun, changes) {
+function describe6(file, step, text9, dryRun, changes) {
   return renderChanges(
-    `${dryRun ? "Would tick" : "Ticked"} ${step}: ${text8} in ${file}`,
+    `${dryRun ? "Would tick" : "Ticked"} ${step}: ${text9} in ${file}`,
     changes
   );
 }
@@ -4574,9 +4574,9 @@ async function tick(deps, json, item, planOption, dryRun) {
   const lines2 = markdown.split("\n");
   const span = chooseItem(markdown, item);
   const step = span.heading.split(":")[0] ?? span.heading;
-  const text8 = normalize(span.text.slice(OPEN.length));
+  const text9 = normalize(span.text.slice(OPEN.length));
   const date = localDate(deps.clock.now());
-  const lists = listEdits(lines2, step, text8, date);
+  const lists = listEdits(lines2, step, text9, date);
   if ("error" in lists) {
     throw new CommandError(lists.error);
   }
@@ -4590,8 +4590,8 @@ async function tick(deps, json, item, planOption, dryRun) {
     );
   }
   deps.stdout(
-    json ? `${JSON.stringify({ plan: file, item: { step, text: text8 }, dryRun, written: !dryRun, changes })}
-` : describe6(file, step, text8, dryRun, changes)
+    json ? `${JSON.stringify({ plan: file, item: { step, text: text9 }, dryRun, written: !dryRun, changes })}
+` : describe6(file, step, text9, dryRun, changes)
   );
   return 0;
 }
@@ -4616,926 +4616,14 @@ var planTick = {
   }
 };
 
-// src/hook/retro-scan.ts
-import { createHash } from "node:crypto";
-
-// src/hook/retro-transcript.ts
-var MAX_ERROR = 120;
-var MIN_CORRECTION_WORDS = 4;
-function parseTranscript(id, text8) {
-  const events = [];
-  let skipped = 0;
-  text8.split("\n").forEach((raw, index) => {
-    if (raw.trim() === "") {
-      return;
-    }
-    try {
-      const value = JSON.parse(raw);
-      if (value === null || typeof value !== "object") {
-        throw new Error("not an object");
-      }
-      events.push({ ...value, line: index + 1 });
-    } catch {
-      skipped++;
-    }
-  });
-  return { id, events, skipped };
-}
-var ERROR_WORDS = /\b(errors?|fail(ed|ure|ures)?|fatal|not found|no such|denied|cannot|invalid|refused|no matches)\b/i;
-var SHELL_PREFIX = /^(\(eval\):\d+:|zsh:|bash:|sh:)/;
-var NOT_OUTPUT_ERROR = /^(- |#|import |export |\|)/;
-var looksLikeError = (line2) => !NOT_OUTPUT_ERROR.test(line2) && (ERROR_WORDS.test(line2) || SHELL_PREFIX.test(line2));
-function summarizeError(text8) {
-  const lines2 = text8.replace(/<\/?tool_use_error>/g, "").split("\n").map((line2) => line2.trim()).filter(Boolean);
-  let head = lines2[0] ?? "";
-  let prefix = "";
-  if (/^Exit code \d+$/.test(head)) {
-    prefix = head;
-    head = lines2.slice(1).find(looksLikeError) ?? "";
-  }
-  const normalized = head.replace(/'[^']*'|"[^"]*"/g, "<q>").replace(/(^|[\s(=])\/[^\s)]*/g, "$1<path>").replace(/(^|\s)\S*\*\S*/g, "$1<glob>").replace(/\b\d+\b/g, "N");
-  const joined = prefix && normalized ? `${prefix}: ${normalized}` : prefix || normalized;
-  return joined.slice(0, MAX_ERROR);
-}
-var blocksOf = (event) => Array.isArray(event.message?.content) ? event.message.content : [];
-function resultText(block2) {
-  const { content } = block2;
-  if (typeof content === "string") {
-    return content;
-  }
-  if (Array.isArray(content)) {
-    return content.map((part) => part?.text ?? "").join("\n");
-  }
-  return "";
-}
-var callSignature = (input = {}) => JSON.stringify(
-  input["command"] ?? input["new_string"] ?? input["content"] ?? input
-);
-var INJECTED = /^\s*<(command-|local-command|task-notification)/;
-function typedText(content) {
-  if (typeof content === "string") {
-    return content;
-  }
-  if (!Array.isArray(content)) {
-    return "";
-  }
-  return content.filter((block2) => block2.type === "text").map((block2) => block2.text).join("\n");
-}
-function humanText(event) {
-  const notTyped = event.type !== "user" || event.isSidechain || event.isMeta || event.isCompactSummary;
-  if (notTyped || event.origin && event.origin.kind !== "human") {
-    return null;
-  }
-  const text8 = typedText(event.message?.content);
-  return text8.trim() === "" || INJECTED.test(text8) ? null : text8;
-}
-var CORRECTION_WORD = /\b(no|not|dont|don't|don’t|stop|instead|wrong|again|actually|should|never)\b/i;
-var readsAsCorrection = (text8) => CORRECTION_WORD.test(text8);
-var ownWords = (text8) => text8.replace(/<pasted_content[^>]*>[\s\S]*?<\/pasted_content[^>]*>/g, " ").replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, " ");
-var phrasesOf = (text8) => text8.split(/[.!?;\n]+/).map(
-  (part) => part.toLowerCase().replace(/['’`]/g, "").replace(/[^a-z0-9]+/g, " ").trim()
-).filter((phrase) => phrase.split(" ").length >= MIN_CORRECTION_WORDS);
-function timestamps(session2) {
-  const stamps = session2.events.map((event) => event.timestamp).filter((stamp) => Boolean(stamp)).sort();
-  return { first: stamps[0] ?? null, last: stamps.at(-1) ?? null };
-}
-
-// src/hook/retro-session.ts
-var GUARD_TAG = /\[guard:([a-z0-9-]+)\]/g;
-var SLASH_COMMAND = /<command-name>\/?([a-z0-9:-]+)<\/command-name>/;
-var tagsIn = (text8) => [...text8.matchAll(GUARD_TAG)].map((match) => match[1] ?? "");
-var SessionAnalysis = class {
-  guards = {};
-  failures = [];
-  skills = /* @__PURE__ */ new Set();
-  slashCommands = [];
-  phrases = [];
-  warnings = [];
-  ordered = [];
-  calls = /* @__PURE__ */ new Map();
-  failedSinceHuman = false;
-  constructor(session2) {
-    for (const event of session2.events) {
-      for (const block2 of blocksOf(event)) {
-        this.block(event, block2);
-      }
-      this.attachment(event);
-      this.human(event);
-      this.slash(event);
-    }
-  }
-  bump(rule, key) {
-    const counts = this.guards[rule] ??= { blocks: 0, warnings: 0 };
-    counts[key]++;
-  }
-  block(event, block2) {
-    if (event.type === "assistant" && block2.type === "tool_use") {
-      this.toolUse(block2);
-    } else if (event.type === "user" && block2.type === "tool_result" && block2.is_error) {
-      this.toolFailure(block2);
-    }
-  }
-  toolUse(block2) {
-    const id = block2.id ?? "";
-    const name = block2.name ?? "";
-    this.calls.set(id, name);
-    this.ordered.push({
-      kind: "call",
-      id,
-      name,
-      signature: callSignature(block2.input)
-    });
-    const skill2 = block2.input?.["skill"];
-    if (name === "Skill" && typeof skill2 === "string" && skill2) {
-      this.skills.add(skill2);
-    }
-  }
-  toolFailure(block2) {
-    this.failedSinceHuman = true;
-    const text8 = resultText(block2);
-    const tags = new Set(tagsIn(text8));
-    if (tags.size === 0) {
-      this.failures.push({
-        tool: this.calls.get(block2.tool_use_id ?? "") ?? "unknown",
-        error: summarizeError(text8)
-      });
-    }
-    for (const tag of tags) {
-      this.bump(tag, "blocks");
-    }
-  }
-  attachment(event) {
-    const { attachment } = event;
-    if (event.type !== "attachment" || attachment?.type !== "hook_additional_context") {
-      return;
-    }
-    for (const rule of tagsIn([attachment.content].flat().join("\n"))) {
-      this.bump(rule, "warnings");
-      this.warnings.push({ rule, toolUseId: attachment.toolUseID });
-    }
-  }
-  human(event) {
-    const text8 = humanText(event);
-    if (text8 === null) {
-      return;
-    }
-    this.ordered.push({ kind: "human" });
-    const own2 = ownWords(text8);
-    if (this.failedSinceHuman || readsAsCorrection(own2)) {
-      for (const phrase of phrasesOf(own2)) {
-        this.phrases.push({ phrase, line: event.line });
-      }
-    }
-    this.failedSinceHuman = false;
-  }
-  slash(event) {
-    const content = event.message?.content;
-    if (typeof content !== "string" || event.type !== "user") {
-      return;
-    }
-    const match = SLASH_COMMAND.exec(content);
-    if (match) {
-      this.slashCommands.push(match[1] ?? "");
-    }
-  }
-  /** What the agent did after one warning: heeded, repeated, overridden, or unresolved. */
-  outcome(warning) {
-    const call = this.ordered.findIndex(
-      (item) => item.kind === "call" && item.id === warning.toolUseId
-    );
-    const warned = this.ordered[call];
-    if (warned?.kind !== "call") {
-      return "unresolved";
-    }
-    for (const item of this.ordered.slice(call + 1)) {
-      if (item.kind === "human") {
-        return "overridden";
-      }
-      if (item.name === warned.name) {
-        return item.signature === warned.signature ? "repeated" : "heeded";
-      }
-    }
-    return "unresolved";
-  }
-};
-
-// src/hook/retro-scan.ts
-var MIN_WARNINGS = 5;
-var RETRO_MARKER = /^\W*Last retrospective: (\d{4}-\d{2}-\d{2})/gm;
-function lastRetrospective(plans) {
-  const dates = Object.values(plans).flatMap(
-    (markdown) => [...markdown.matchAll(RETRO_MARKER)].map((match) => match[1] ?? "")
-  ).sort();
-  return dates.at(-1) ?? null;
-}
-function windowStart(date) {
-  return date ? (/* @__PURE__ */ new Date(`${date}T00:00:00`)).getTime() : 0;
-}
-var emptyStats = () => ({
-  warnings: 0,
-  sessions: 0,
-  heeded: 0,
-  overridden: 0,
-  repeated: 0,
-  unresolved: 0
-});
-var Tally2 = class {
-  constructor(audit3, knownSkills) {
-    this.knownSkills = knownSkills;
-    this.ruleStats = new Map(audit3.map((rule) => [rule, emptyStats()]));
-  }
-  knownSkills;
-  guards = {};
-  failureCounts = /* @__PURE__ */ new Map();
-  perSession = {};
-  loaded = /* @__PURE__ */ new Set();
-  phraseSessions = /* @__PURE__ */ new Map();
-  ruleStats;
-  add(id, found) {
-    this.addGuards(found);
-    for (const { tool, error } of found.failures) {
-      const key = `${tool}\0${error}`;
-      this.failureCounts.set(key, (this.failureCounts.get(key) ?? 0) + 1);
-    }
-    this.addSkills(id, found);
-    this.addPhrases(id, found);
-    this.addWarnings(found);
-  }
-  addGuards(found) {
-    for (const [rule, counts] of Object.entries(found.guards)) {
-      const total = this.guards[rule] ??= { blocks: 0, warnings: 0 };
-      total.blocks += counts.blocks;
-      total.warnings += counts.warnings;
-    }
-  }
-  addSkills(id, found) {
-    const used = /* @__PURE__ */ new Set([
-      ...found.skills,
-      ...found.slashCommands.filter((name) => this.knownSkills.includes(name))
-    ]);
-    for (const name of used) {
-      this.loaded.add(name);
-    }
-    if (used.size > 0) {
-      this.perSession[id] = [...used].sort();
-    }
-  }
-  addPhrases(id, found) {
-    const seen = /* @__PURE__ */ new Set();
-    for (const { phrase, line: line2 } of found.phrases) {
-      if (seen.has(phrase)) {
-        continue;
-      }
-      seen.add(phrase);
-      const entry2 = this.phraseSessions.get(phrase) ?? [];
-      entry2.push({ session: id, line: line2 });
-      this.phraseSessions.set(phrase, entry2);
-    }
-  }
-  addWarnings(found) {
-    const touched = /* @__PURE__ */ new Set();
-    for (const warning of found.warnings) {
-      const stats = this.ruleStats.get(warning.rule);
-      if (stats) {
-        stats.warnings++;
-        stats[found.outcome(warning)]++;
-        touched.add(stats);
-      }
-    }
-    for (const stats of touched) {
-      stats.sessions++;
-    }
-  }
-  failures() {
-    return [...this.failureCounts].map(([key, count3]) => {
-      const [tool = "", error = ""] = key.split("\0");
-      return { tool, error, count: count3 };
-    }).sort((a, b) => b.count - a.count).slice(0, 10);
-  }
-  /** Phrases from the same messages are one correction, so identical evidence merges. */
-  corrections() {
-    const byEvidence = /* @__PURE__ */ new Map();
-    for (const [phrase, evidence] of this.phraseSessions) {
-      if (evidence.length < 2) {
-        continue;
-      }
-      const key = JSON.stringify(evidence);
-      const group = byEvidence.get(key) ?? { phrases: [], evidence };
-      group.phrases.push(phrase);
-      byEvidence.set(key, group);
-    }
-    return [...byEvidence.values()].map(({ phrases, evidence }) => ({
-      id: createHash("sha1").update(phrases.sort().join("\n")).digest("hex").slice(0, 8),
-      sessions: evidence.length,
-      evidence
-    })).sort((a, b) => b.sessions - a.sessions);
-  }
-  rules() {
-    const audit3 = [...this.ruleStats].sort(([a], [b]) => a.localeCompare(b)).map(([rule, stats]) => {
-      let status2 = "insufficient-evidence";
-      if (stats.warnings >= MIN_WARNINGS) {
-        status2 = stats.heeded === stats.warnings ? "promotable" : "not-promotable";
-      }
-      return { rule, status: status2, ...stats };
-    });
-    return {
-      promotable: audit3.filter((r) => r.status === "promotable").map((r) => r.rule),
-      audit: audit3
-    };
-  }
-  sortedGuards() {
-    return Object.fromEntries(
-      Object.entries(this.guards).sort(([a], [b]) => a.localeCompare(b))
-    );
-  }
-  unused() {
-    return this.knownSkills.filter((name) => !this.loaded.has(name)).sort();
-  }
-};
-function scan(inputs, { since, knownSkills = [], auditRules: audit3 = [] } = {}) {
-  const included = inputs.map(({ id, text: text8 }) => parseTranscript(id, text8)).map((session2) => ({ session: session2, ...timestamps(session2) })).filter(
-    ({ last }) => last !== null && Date.parse(last) >= windowStart(since)
-  ).sort((a, b) => (a.first ?? "").localeCompare(b.first ?? ""));
-  const tally = new Tally2(audit3, knownSkills);
-  for (const { session: session2 } of included) {
-    tally.add(session2.id, new SessionAnalysis(session2));
-  }
-  const firsts = included.flatMap((item) => item.first ?? []).sort();
-  const lasts = included.flatMap((item) => item.last ?? []).sort();
-  return {
-    sessions: {
-      count: included.length,
-      first: firsts[0] ?? null,
-      last: lasts.at(-1) ?? null,
-      list: included.map(({ session: session2, first, last }) => ({
-        id: session2.id,
-        first,
-        last
-      }))
-    },
-    skippedLines: included.reduce((sum, item) => sum + item.session.skipped, 0),
-    guards: tally.sortedGuards(),
-    failures: tally.failures(),
-    skills: { perSession: tally.perSession, unused: tally.unused() },
-    corrections: tally.corrections(),
-    rules: tally.rules()
-  };
-}
-
-// src/hook/context.ts
-var PLANS_DIR2 = "infra/plans";
-var RETRO_AFTER_SESSIONS = 5;
-function rules(agentsMarkdown) {
-  return listItems(agentsMarkdown).map((item) => item.text);
-}
-function lastOperation(entries) {
-  const start = entries.findLast((entry2) => entry2.kind === "start");
-  if (!start) {
-    return null;
-  }
-  const end = entries.findLast(
-    (entry2) => entry2.kind === "end" && entry2.op === start.op
-  );
-  return {
-    command: start.command,
-    ts: start.ts,
-    outcome: end?.outcome ?? null,
-    error: end?.error
-  };
-}
-var show2 = (value) => typeof value === "string" || typeof value === "number" ? String(value) : JSON.stringify(value) ?? "";
-function environmentLines(journals) {
-  const lines2 = [];
-  for (const environment of Object.keys(journals).sort()) {
-    const last = lastOperation(journals[environment] ?? []);
-    if (!last) {
-      continue;
-    }
-    const date = show2(last.ts).slice(0, 10);
-    const label = `Environment ${environment}: last operation \`${show2(last.command)}\``;
-    if (last.outcome === null) {
-      lines2.push(
-        `${label} was interrupted (started ${date}, no end recorded).`
-      );
-    } else if (last.outcome === "failed") {
-      const reason = last.error ? `: ${show2(last.error)}` : "";
-      lines2.push(`${label} failed on ${date}${reason}.`);
-    } else {
-      lines2.push(`${label} ${show2(last.outcome)} on ${date}.`);
-    }
-  }
-  return lines2;
-}
-async function brief(event, deps) {
-  const plans = await deps.readPlans();
-  const lines2 = [];
-  for (const plan2 of activePlans(plans)) {
-    const markdown = plans[plan2] ?? "";
-    lines2.push(`Session brief from ${PLANS_DIR2}/${plan2}:`);
-    const counts = openCounts(markdown).map(({ step, count: count3 }) => `${step} (${count3})`).join(", ");
-    if (counts) {
-      lines2.push(`Open items: ${counts}.`);
-    }
-    const next = nextStep(markdown);
-    if (next) {
-      lines2.push(`Next (${next.step}): ${next.text}`);
-    }
-    const upcoming = upcomingSteps(markdown);
-    if (upcoming.length > 0) {
-      lines2.push(`Upcoming: ${upcoming.join("; ")}.`);
-    }
-  }
-  lines2.push(...environmentLines(await deps.readJournals()));
-  const since = lastRetrospective(plans);
-  const id = typeof event.session_id === "string" ? event.session_id : void 0;
-  const sessions = await deps.sessionsSince(since, id);
-  if (sessions >= RETRO_AFTER_SESSIONS) {
-    lines2.push(
-      since ? `${sessions} sessions since the last retrospective (${since}); run /retro.` : `${sessions} sessions without a recorded retrospective; run /retro.`
-    );
-  }
-  return lines2.join("\n");
-}
-async function restore(event, deps) {
-  if (event.source === "startup" || event.source === "clear") {
-    return brief(event, deps);
-  }
-  if (event.source !== "compact") {
-    return "";
-  }
-  const sections = [
-    "Context was compacted. Keep applying these AGENTS.md rules; hooks check only the parts marked Enforced or Audited:",
-    ...rules(await deps.readAgents())
-  ];
-  const plans = await deps.readPlans();
-  for (const plan2 of activePlans(plans)) {
-    sections.push(
-      "",
-      `Open plan items in ${PLANS_DIR2}/${plan2}:`,
-      ...openItems(plans[plan2] ?? "")
-    );
-  }
-  return sections.join("\n");
-}
-
-// src/hook/context-deps.ts
-import { homedir } from "node:os";
-import { join as join6 } from "node:path";
-var JOURNAL_DIR = ".kore/state/journal";
-var isMissing = (error) => error.code === "ENOENT";
-function parseEntries(text8) {
-  const entries = [];
-  for (const line2 of text8.split("\n")) {
-    try {
-      const entry2 = JSON.parse(line2);
-      if (entry2 && typeof entry2 === "object") {
-        entries.push(entry2);
-      }
-    } catch {
-    }
-  }
-  return entries;
-}
-async function readJournals(fs, root3) {
-  const dir = join6(root3, JOURNAL_DIR);
-  let names3;
-  try {
-    names3 = (await fs.readdir(dir)).filter((name) => name.endsWith(".jsonl"));
-  } catch (error) {
-    if (isMissing(error)) {
-      return {};
-    }
-    throw error;
-  }
-  const journals = {};
-  for (const name of names3) {
-    let text8;
-    try {
-      text8 = await fs.readFile(join6(dir, name));
-    } catch {
-      continue;
-    }
-    journals[name.slice(0, -".jsonl".length)] = parseEntries(text8);
-  }
-  return journals;
-}
-async function sessionsSince(deps, root3, date, current) {
-  const config = deps.env["CLAUDE_CONFIG_DIR"] || join6(homedir(), ".claude");
-  const dir = join6(config, "projects", root3.replace(/[^a-zA-Z0-9]/g, "-"));
-  let names3;
-  try {
-    names3 = await deps.fs.readdir(dir);
-  } catch (error) {
-    if (isMissing(error)) {
-      return 0;
-    }
-    throw error;
-  }
-  const after = windowStart(date ?? void 0);
-  let count3 = 0;
-  for (const name of names3) {
-    if (name.endsWith(".jsonl") && name !== `${current}.jsonl` && await deps.fs.mtimeMs(join6(dir, name)) >= after) {
-      count3 += 1;
-    }
-  }
-  return count3;
-}
-function realContextDeps(deps, root3) {
-  return {
-    readJournals: () => readJournals(deps.fs, root3),
-    readAgents: () => deps.fs.readFile(join6(root3, "AGENTS.md")),
-    readPlans: () => readPlans(deps),
-    sessionsSince: (date, current) => sessionsSince(deps, root3, date, current)
-  };
-}
-
-// src/hook/io.ts
-async function readPayload(deps) {
-  const text8 = await deps.stdin();
-  if (text8.trim() === "") {
-    return void 0;
-  }
-  try {
-    return JSON.parse(text8);
-  } catch {
-    return void 0;
-  }
-}
-function hookCommand(name, summary, handler, { flags = {}, payload = true, operand, faultCode = 0 } = {}) {
-  return {
-    summary,
-    options: { ...flags, strict: "boolean" },
-    ...operand === void 0 ? {} : { operand },
-    async run({ deps, options, operand: given }) {
-      let result;
-      try {
-        result = await handler({
-          deps,
-          options,
-          operand: given,
-          payload: payload ? await readPayload(deps) : void 0
-        });
-      } catch (error) {
-        const reason = error instanceof Error ? error.message : String(error);
-        const hint = error instanceof CommandError ? "" : " (unexpected; fixing it is on the harness)";
-        const code = options["strict"] === true ? 1 : faultCode;
-        deps.stderr(
-          `[hook:${name}] ${code === 0 ? "failed open" : "failed"}: ${reason}${hint}
-`
-        );
-        return code;
-      }
-      if (result.stdout) {
-        deps.stdout(result.stdout);
-      }
-      if (result.stderr) {
-        deps.stderr(result.stderr);
-      }
-      return result.code ?? 0;
-    }
-  };
-}
-
-// src/hook/context-command.ts
-var context = hookCommand(
-  "context",
-  "restate the rules and open plan items after compaction, or brief a fresh session (SessionStart)",
-  async ({ deps, payload }) => {
-    if (typeof payload !== "object" || payload === null) {
-      return {};
-    }
-    if (Array.isArray(payload)) {
-      return {};
-    }
-    let text8;
-    try {
-      text8 = await restore(
-        payload,
-        realContextDeps(deps, await deps.root())
-      );
-    } catch (error) {
-      if (error.code === "ENOENT") {
-        return {};
-      }
-      throw error;
-    }
-    return text8 === "" ? {} : {
-      stdout: JSON.stringify({
-        hookSpecificOutput: {
-          hookEventName: "SessionStart",
-          additionalContext: text8
-        }
-      })
-    };
-  },
-  { faultCode: 1 }
-);
-
-// src/hook/delta-deps.ts
-import { join as join7, resolve as resolve4 } from "node:path";
-var JOURNAL_DIR2 = ".kore/state/journal";
-var LOCKS_DIR = ".kore/locks";
-function gitReader(deps, root3) {
-  return async (...args) => {
-    const result = await deps.runner.run("git", args, { cwd: root3 });
-    if (result.code !== 0) {
-      throw new Error(`git ${args.join(" ")} exited ${result.code}`);
-    }
-    return result.stdout.trim();
-  };
-}
-async function readDir(deps, dir) {
-  try {
-    return await deps.fs.readdir(dir);
-  } catch (error) {
-    if (error.code === "ENOENT") {
-      return [];
-    }
-    throw error;
-  }
-}
-function parseEntries2(text8) {
-  const entries = [];
-  for (const line2 of text8.split("\n")) {
-    try {
-      const entry2 = JSON.parse(line2);
-      if (entry2 !== null && typeof entry2 === "object") {
-        entries.push(entry2);
-      }
-    } catch {
-    }
-  }
-  return entries;
-}
-async function readJournals2(deps, root3) {
-  const dir = join7(root3, JOURNAL_DIR2);
-  const journals = {};
-  for (const name of await readDir(deps, dir)) {
-    if (!name.endsWith(".jsonl")) {
-      continue;
-    }
-    try {
-      journals[name.slice(0, -".jsonl".length)] = parseEntries2(
-        await deps.fs.readFile(join7(dir, name))
-      );
-    } catch {
-    }
-  }
-  return journals;
-}
-function snapshotStore(deps, git3, root3) {
-  const dir = async () => join7(resolve4(root3, await git3("rev-parse", "--git-dir")), "kore-delta");
-  const file = async (id) => join7(await dir(), `${id}.json`);
-  return {
-    async readSnapshot(id) {
-      try {
-        return JSON.parse(await deps.fs.readFile(await file(id)));
-      } catch {
-        return null;
-      }
-    },
-    async writeSnapshot(id, snapshot2) {
-      await deps.fs.writeFile(await file(id), JSON.stringify(snapshot2));
-    },
-    async listSnapshots() {
-      const base = await dir();
-      const found = [];
-      for (const name of await readDir(deps, base)) {
-        if (name.endsWith(".json")) {
-          found.push({
-            id: name.slice(0, -".json".length),
-            mtimeMs: await deps.fs.mtimeMs(join7(base, name))
-          });
-        }
-      }
-      return found;
-    },
-    async removeSnapshot(id) {
-      await deps.fs.remove(await file(id));
-    }
-  };
-}
-function realDeltaDeps(deps, root3) {
-  const git3 = gitReader(deps, root3);
-  return {
-    now: () => deps.clock.now().getTime(),
-    head: () => git3("rev-parse", "HEAD"),
-    branch: () => git3("rev-parse", "--abbrev-ref", "HEAD"),
-    async main() {
-      try {
-        return await git3("rev-parse", "--verify", "--quiet", "main");
-      } catch {
-        return null;
-      }
-    },
-    async commitsBetween(from, to) {
-      return (await git3("log", "--format=%s", `${from}..${to}`)).split("\n").filter(Boolean);
-    },
-    readPlans: () => readPlans(deps),
-    listLocks: () => readDir(deps, join7(root3, LOCKS_DIR)),
-    readJournals: () => readJournals2(deps, root3),
-    ...snapshotStore(deps, git3, root3)
-  };
-}
-
-// src/hook/delta.ts
-var MAX_CHARS = 600;
-var MAX_ITEM_CHARS = 60;
-var MAX_SUBJECTS = 3;
-var SNAPSHOT_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1e3;
-function lastOperation2(entries) {
-  const start = entries.findLast((entry2) => entry2.kind === "start");
-  if (start === void 0) {
-    return null;
-  }
-  const end = entries.findLast(
-    (entry2) => entry2.kind === "end" && entry2.op === start.op
-  );
-  return {
-    op: start.op ?? "",
-    command: start.command ?? "",
-    outcome: end?.outcome ?? null,
-    ...end?.error ? { error: end.error } : {}
-  };
-}
-function planItems(plans) {
-  const result = {};
-  for (const name of activePlans(plans)) {
-    const items = {};
-    for (const { text: text8 } of listItems(plans[name] ?? "")) {
-      const match = /^- \[( |x)\] (.*)$/.exec(text8);
-      if (match === null) {
-        continue;
-      }
-      const title = (match[2] ?? "").replaceAll("**", "").slice(0, MAX_ITEM_CHARS);
-      items[title] = match[1] === "x";
-    }
-    result[name] = items;
-  }
-  return result;
-}
-async function snapshot(deps) {
-  const journal = {};
-  for (const [environment, entries] of Object.entries(
-    await deps.readJournals()
-  )) {
-    const last = lastOperation2(entries);
-    if (last !== null) {
-      journal[environment] = last;
-    }
-  }
-  return {
-    head: await deps.head(),
-    branch: await deps.branch(),
-    main: await deps.main(),
-    plans: planItems(await deps.readPlans()),
-    locks: [...await deps.listLocks()].sort(),
-    journal
-  };
-}
-function operationLine(environment, operation) {
-  const command = `\`${operation.command}\``;
-  if (operation.outcome === null) {
-    return `${environment}: ${command} started`;
-  }
-  if (operation.outcome === "failed") {
-    return `${environment}: ${command} failed${operation.error ? `: ${operation.error}` : ""}`;
-  }
-  return `${environment}: ${command} finished ${operation.outcome}`;
-}
-function planLines(before2, after) {
-  const lines2 = [];
-  for (const [plan2, items] of Object.entries(after.plans)) {
-    const old = before2.plans[plan2];
-    const ticked = [];
-    const added = [];
-    for (const [title, checked] of Object.entries(items)) {
-      if (old === void 0 || !(title in old)) {
-        if (old !== void 0) {
-          added.push(title);
-        }
-      } else if (checked && old[title] !== true) {
-        ticked.push(title);
-      }
-    }
-    if (ticked.length > 0) {
-      lines2.push(`${plan2} ticked: ${ticked.join("; ")}`);
-    }
-    if (added.length > 0) {
-      lines2.push(`${plan2} added: ${added.join("; ")}`);
-    }
-  }
-  return lines2;
-}
-function mainLine(before2, after, subjects) {
-  if (before2.main === after.main || after.main === null) {
-    return [];
-  }
-  const found = before2.main === null ? [] : subjects(before2.main, after.main);
-  if (found.length === 0) {
-    return [`main moved to ${after.main.slice(0, 7)}.`];
-  }
-  const shown = found.slice(0, MAX_SUBJECTS).join("; ");
-  const more = found.length > MAX_SUBJECTS ? "; ..." : "";
-  const plural = found.length === 1 ? "commit" : "commits";
-  return [`main advanced ${found.length} ${plural}: ${shown}${more}`];
-}
-function lockLines(before2, after) {
-  return [
-    ...after.locks.filter((lock) => !before2.locks.includes(lock)).map((lock) => `lock taken: ${lock}`),
-    ...before2.locks.filter((lock) => !after.locks.includes(lock)).map((lock) => `lock released: ${lock}`)
-  ];
-}
-function journalLines(before2, after) {
-  return Object.entries(after.journal).filter(([environment, operation]) => {
-    const old = before2.journal[environment];
-    return old?.op !== operation.op || old.outcome !== operation.outcome;
-  }).map(([environment, operation]) => operationLine(environment, operation));
-}
-function describeChanges(before2, after, subjects) {
-  const lines2 = [
-    ...mainLine(before2, after, subjects),
-    ...before2.branch === after.branch ? [] : [`branch changed from ${before2.branch} to ${after.branch}.`],
-    ...planLines(before2, after),
-    ...lockLines(before2, after),
-    ...journalLines(before2, after)
-  ];
-  if (lines2.length === 0) {
-    return "";
-  }
-  const text8 = `Changed since your last turn: ${lines2.join(" | ")}`;
-  return text8.length <= MAX_CHARS ? text8 : `${text8.slice(0, MAX_CHARS - 3)}...`;
-}
-async function prune(currentId, deps) {
-  try {
-    const cutoff = deps.now() - SNAPSHOT_MAX_AGE_MS;
-    for (const { id, mtimeMs } of await deps.listSnapshots()) {
-      if (id === currentId || mtimeMs >= cutoff) {
-        continue;
-      }
-      try {
-        await deps.removeSnapshot(id);
-      } catch {
-      }
-    }
-  } catch {
-  }
-}
-async function update(sessionId, deps) {
-  try {
-    const before2 = await deps.readSnapshot(sessionId);
-    const after = await snapshot(deps);
-    await deps.writeSnapshot(sessionId, after);
-    await prune(sessionId, deps);
-    if (before2 === null) {
-      return "";
-    }
-    const subjects = /* @__PURE__ */ new Map();
-    if (before2.main !== after.main && before2.main !== null && after.main !== null) {
-      subjects.set(
-        `${before2.main}..${after.main}`,
-        await deps.commitsBetween(before2.main, after.main)
-      );
-    }
-    return describeChanges(
-      before2,
-      after,
-      (from, to) => subjects.get(`${from}..${to}`) ?? []
-    );
-  } catch {
-    return "";
-  }
-}
-
-// src/hook/delta-command.ts
-var delta = hookCommand(
-  "delta",
-  "tell the agent what changed since its previous turn (UserPromptSubmit)",
-  async ({ deps, payload }) => {
-    const id = payload?.session_id;
-    if (typeof id !== "string" || !/^[A-Za-z0-9_-]+$/.test(id)) {
-      return {};
-    }
-    const context2 = await update(id, realDeltaDeps(deps, await deps.root()));
-    return context2 === "" ? {} : {
-      stdout: JSON.stringify({
-        hookSpecificOutput: {
-          hookEventName: "UserPromptSubmit",
-          additionalContext: context2
-        }
-      })
-    };
-  }
-);
-
 // src/hook/feedback.ts
 import { tmpdir as tmpdir2 } from "node:os";
-import { join as join10 } from "node:path";
+import { join as join8 } from "node:path";
 
 // src/hook/feedback-tokens.ts
 import { tmpdir } from "node:os";
-import { join as join8 } from "node:path";
-var tokenStateFile = (session2) => join8(
+import { join as join6 } from "node:path";
+var tokenStateFile = (session2) => join6(
   tmpdir(),
   `kore-tokens-${(typeof session2 === "string" ? session2 : "default").replace(/[^\w.-]/g, "_")}.json`
 );
@@ -5560,10 +4648,10 @@ function usageOf(raw) {
     return void 0;
   }
 }
-function advance(state, text8) {
-  const end = text8.lastIndexOf("\n") + 1;
+function advance(state, text9) {
+  const end = text9.lastIndexOf("\n") + 1;
   let { total, lastId, lastTokens } = state;
-  for (const raw of text8.slice(0, end).split("\n")) {
+  for (const raw of text9.slice(0, end).split("\n")) {
     const usage2 = usageOf(raw);
     if (usage2 === void 0) {
       continue;
@@ -5573,15 +4661,15 @@ function advance(state, text8) {
     lastTokens = usage2.tokens;
   }
   return {
-    offset: state.offset + Buffer.byteLength(text8.slice(0, end)),
+    offset: state.offset + Buffer.byteLength(text9.slice(0, end)),
     total,
     ...lastId === void 0 ? {} : { lastId },
     ...lastTokens === void 0 ? {} : { lastTokens }
   };
 }
-function parseState(text8) {
+function parseState(text9) {
   try {
-    const value = JSON.parse(text8);
+    const value = JSON.parse(text9);
     const { offset, total, lastId, lastTokens } = value;
     return typeof offset === "number" && typeof total === "number" && Number.isSafeInteger(offset) && offset >= 0 && total >= 0 ? {
       offset,
@@ -5610,7 +4698,7 @@ async function readTokens(fs, path, stateFile) {
 }
 
 // src/hook/ledger-event.ts
-import { join as join9 } from "node:path";
+import { join as join7 } from "node:path";
 var ledgerRoots = /* @__PURE__ */ new WeakMap();
 function ledgerRoot(deps) {
   let root3 = ledgerRoots.get(deps);
@@ -5645,7 +4733,7 @@ async function recordEvent(deps, kind, call, outcome, extra = {}) {
       deps.fs,
       deps.clock,
       deps.ids,
-      join9(main, DEFAULT_LEDGER)
+      join7(main, DEFAULT_LEDGER)
     ).record(event);
   } catch {
   }
@@ -5803,7 +4891,7 @@ async function recordStop(deps, call) {
   }
 }
 function feedbackDeps(deps, root3, call) {
-  const marker = (project) => join10(
+  const marker = (project) => join8(
     tmpdir2(),
     `kore-${project === HARNESS.project ? "harness" : "ts"}-changed-${typeof call.session_id === "string" ? call.session_id : "default"}`
   );
@@ -6331,14 +5419,14 @@ var secretBlock = () => block(
   "Key and token material under .kore/ must not be read or written directly. Instead, use a kore command that streams the secret through stdin, or ask the user to handle it."
 );
 async function loadSopsPatterns(ctx) {
-  let text8;
+  let text9;
   try {
-    text8 = await ctx.readFile(`${ctx.root}/.sops.yaml`);
+    text9 = await ctx.readFile(`${ctx.root}/.sops.yaml`);
   } catch {
     return [];
   }
   const patterns = [];
-  for (const match of text8.matchAll(/path_regex:\s*(.+)$/gm)) {
+  for (const match of text9.matchAll(/path_regex:\s*(.+)$/gm)) {
     const source = match[1].trim().replace(/^['"]|['"]$/g, "");
     try {
       patterns.push(new RegExp(source));
@@ -6353,8 +5441,8 @@ var sopsBlock = (path) => block(
 );
 
 // src/hook/guard-bash.ts
-async function sopsWrite(name, segment, text8, ctx) {
-  const writes2 = text8.includes(">") || ["tee", "cp", "mv", "sed"].includes(name);
+async function sopsWrite(name, segment, text9, ctx) {
+  const writes2 = text9.includes(">") || ["tee", "cp", "mv", "sed"].includes(name);
   if (name === "sops" || !writes2) {
     return null;
   }
@@ -6370,12 +5458,12 @@ async function checkBashSegment(segment, ctx) {
   if (!name) {
     return [];
   }
-  const text8 = segment.join(" ");
-  if (!SECRET_SAFE.has(name) && !isKore(name, args) && SECRET_PATH.test(text8)) {
+  const text9 = segment.join(" ");
+  if (!SECRET_SAFE.has(name) && !isKore(name, args) && SECRET_PATH.test(text9)) {
     return [secretBlock()];
   }
   return [
-    await sopsWrite(name, segment, text8, ctx),
+    await sopsWrite(name, segment, text9, ctx),
     checkDestructive(name, args),
     checkContext(name, args),
     checkNoVerify(name, args),
@@ -6397,10 +5485,10 @@ function unquotedGlob(command) {
   );
 }
 function zshWords(command) {
-  const text8 = shellText(command).replace(/\$?\(\([^)]*\)\)/g, "");
-  const words2 = rawWords(text8);
+  const text9 = shellText(command).replace(/\$?\(\([^)]*\)\)/g, "");
+  const words2 = rawWords(text9);
   const glob = words2.find((w) => w.glob && !w.text.includes("${"));
-  const equals = text8.includes("[[") ? void 0 : words2.find((w) => w.equals);
+  const equals = text9.includes("[[") ? void 0 : words2.find((w) => w.equals);
   return [
     glob ? warn(
       "bare-glob",
@@ -6564,7 +5652,7 @@ async function evaluateFile(tool, input, relative2, ctx) {
 }
 
 // src/hook/guard-role-delivery.ts
-import { isAbsolute, relative, resolve as resolve5 } from "node:path";
+import { isAbsolute, relative, resolve as resolve4 } from "node:path";
 
 // src/hook/guard-role-writes.ts
 var WRITE_TOOLS = /* @__PURE__ */ new Set(["Write", "Edit", "NotebookEdit"]);
@@ -6685,7 +5773,7 @@ function outside(root3, path) {
   if (path.startsWith("~")) {
     return true;
   }
-  const full = resolve5(root3, path);
+  const full = resolve4(root3, path);
   const from = relative(root3, full);
   const within = from === "" || !from.startsWith("..") && !isAbsolute(from);
   return !within && !SCRATCH.some((dir) => full.startsWith(dir) || `${full}/` === dir);
@@ -6953,6 +6041,1012 @@ async function guard(payload, deps) {
   return {};
 }
 
+// src/hook/io.ts
+async function readPayload(deps) {
+  const text9 = await deps.stdin();
+  if (text9.trim() === "") {
+    return void 0;
+  }
+  try {
+    return JSON.parse(text9);
+  } catch {
+    return void 0;
+  }
+}
+function hookCommand(name, summary, handler, { flags = {}, payload = true, operand, faultCode = 0 } = {}) {
+  return {
+    summary,
+    options: { ...flags, strict: "boolean" },
+    ...operand === void 0 ? {} : { operand },
+    async run({ deps, options, operand: given }) {
+      let result;
+      try {
+        result = await handler({
+          deps,
+          options,
+          operand: given,
+          payload: payload ? await readPayload(deps) : void 0
+        });
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        const hint = error instanceof CommandError ? "" : " (unexpected; fixing it is on the harness)";
+        const code = options["strict"] === true ? 1 : faultCode;
+        deps.stderr(
+          `[hook:${name}] ${code === 0 ? "failed open" : "failed"}: ${reason}${hint}
+`
+        );
+        return code;
+      }
+      if (result.stdout) {
+        deps.stdout(result.stdout);
+      }
+      if (result.stderr) {
+        deps.stderr(result.stderr);
+      }
+      return result.code ?? 0;
+    }
+  };
+}
+
+// src/hook/retro-scan.ts
+import { createHash } from "node:crypto";
+
+// src/hook/retro-transcript.ts
+var MAX_ERROR = 120;
+var MIN_CORRECTION_WORDS = 4;
+function parseTranscript(id, text9) {
+  const events = [];
+  let skipped = 0;
+  text9.split("\n").forEach((raw, index) => {
+    if (raw.trim() === "") {
+      return;
+    }
+    try {
+      const value = JSON.parse(raw);
+      if (value === null || typeof value !== "object") {
+        throw new Error("not an object");
+      }
+      events.push({ ...value, line: index + 1 });
+    } catch {
+      skipped++;
+    }
+  });
+  return { id, events, skipped };
+}
+var ERROR_WORDS = /\b(errors?|fail(ed|ure|ures)?|fatal|not found|no such|denied|cannot|invalid|refused|no matches)\b/i;
+var SHELL_PREFIX = /^(\(eval\):\d+:|zsh:|bash:|sh:)/;
+var NOT_OUTPUT_ERROR = /^(- |#|import |export |\|)/;
+var looksLikeError = (line2) => !NOT_OUTPUT_ERROR.test(line2) && (ERROR_WORDS.test(line2) || SHELL_PREFIX.test(line2));
+function summarizeError(text9) {
+  const lines2 = text9.replace(/<\/?tool_use_error>/g, "").split("\n").map((line2) => line2.trim()).filter(Boolean);
+  let head = lines2[0] ?? "";
+  let prefix = "";
+  if (/^Exit code \d+$/.test(head)) {
+    prefix = head;
+    head = lines2.slice(1).find(looksLikeError) ?? "";
+  }
+  const normalized = head.replace(/'[^']*'|"[^"]*"/g, "<q>").replace(/(^|[\s(=])\/[^\s)]*/g, "$1<path>").replace(/(^|\s)\S*\*\S*/g, "$1<glob>").replace(/\b\d+\b/g, "N");
+  const joined = prefix && normalized ? `${prefix}: ${normalized}` : prefix || normalized;
+  return joined.slice(0, MAX_ERROR);
+}
+var blocksOf = (event) => Array.isArray(event.message?.content) ? event.message.content : [];
+function resultText(block2) {
+  const { content } = block2;
+  if (typeof content === "string") {
+    return content;
+  }
+  if (Array.isArray(content)) {
+    return content.map((part) => part?.text ?? "").join("\n");
+  }
+  return "";
+}
+var callSignature = (input = {}) => JSON.stringify(
+  input["command"] ?? input["new_string"] ?? input["content"] ?? input
+);
+var INJECTED = /^\s*<(command-|local-command|task-notification)/;
+function typedText(content) {
+  if (typeof content === "string") {
+    return content;
+  }
+  if (!Array.isArray(content)) {
+    return "";
+  }
+  return content.filter((block2) => block2.type === "text").map((block2) => block2.text).join("\n");
+}
+function humanText(event) {
+  const notTyped = event.type !== "user" || event.isSidechain || event.isMeta || event.isCompactSummary;
+  if (notTyped || event.origin && event.origin.kind !== "human") {
+    return null;
+  }
+  const text9 = typedText(event.message?.content);
+  return text9.trim() === "" || INJECTED.test(text9) ? null : text9;
+}
+var CORRECTION_WORD = /\b(no|not|dont|don't|don’t|stop|instead|wrong|again|actually|should|never)\b/i;
+var readsAsCorrection = (text9) => CORRECTION_WORD.test(text9);
+var ownWords = (text9) => text9.replace(/<pasted_content[^>]*>[\s\S]*?<\/pasted_content[^>]*>/g, " ").replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, " ");
+var phrasesOf = (text9) => text9.split(/[.!?;\n]+/).map(
+  (part) => part.toLowerCase().replace(/['’`]/g, "").replace(/[^a-z0-9]+/g, " ").trim()
+).filter((phrase) => phrase.split(" ").length >= MIN_CORRECTION_WORDS);
+function timestamps(session2) {
+  const stamps = session2.events.map((event) => event.timestamp).filter((stamp) => Boolean(stamp)).sort();
+  return { first: stamps[0] ?? null, last: stamps.at(-1) ?? null };
+}
+
+// src/hook/retro-session.ts
+var GUARD_TAG = /\[guard:([a-z0-9-]+)\]/g;
+var SLASH_COMMAND = /<command-name>\/?([a-z0-9:-]+)<\/command-name>/;
+var tagsIn = (text9) => [...text9.matchAll(GUARD_TAG)].map((match) => match[1] ?? "");
+var SessionAnalysis = class {
+  guards = {};
+  failures = [];
+  skills = /* @__PURE__ */ new Set();
+  slashCommands = [];
+  phrases = [];
+  warnings = [];
+  ordered = [];
+  calls = /* @__PURE__ */ new Map();
+  failedSinceHuman = false;
+  constructor(session2) {
+    for (const event of session2.events) {
+      for (const block2 of blocksOf(event)) {
+        this.block(event, block2);
+      }
+      this.attachment(event);
+      this.human(event);
+      this.slash(event);
+    }
+  }
+  bump(rule, key) {
+    const counts = this.guards[rule] ??= { blocks: 0, warnings: 0 };
+    counts[key]++;
+  }
+  block(event, block2) {
+    if (event.type === "assistant" && block2.type === "tool_use") {
+      this.toolUse(block2);
+    } else if (event.type === "user" && block2.type === "tool_result" && block2.is_error) {
+      this.toolFailure(block2);
+    }
+  }
+  toolUse(block2) {
+    const id = block2.id ?? "";
+    const name = block2.name ?? "";
+    this.calls.set(id, name);
+    this.ordered.push({
+      kind: "call",
+      id,
+      name,
+      signature: callSignature(block2.input)
+    });
+    const skill2 = block2.input?.["skill"];
+    if (name === "Skill" && typeof skill2 === "string" && skill2) {
+      this.skills.add(skill2);
+    }
+  }
+  toolFailure(block2) {
+    this.failedSinceHuman = true;
+    const text9 = resultText(block2);
+    const tags = new Set(tagsIn(text9));
+    if (tags.size === 0) {
+      this.failures.push({
+        tool: this.calls.get(block2.tool_use_id ?? "") ?? "unknown",
+        error: summarizeError(text9)
+      });
+    }
+    for (const tag of tags) {
+      this.bump(tag, "blocks");
+    }
+  }
+  attachment(event) {
+    const { attachment } = event;
+    if (event.type !== "attachment" || attachment?.type !== "hook_additional_context") {
+      return;
+    }
+    for (const rule of tagsIn([attachment.content].flat().join("\n"))) {
+      this.bump(rule, "warnings");
+      this.warnings.push({ rule, toolUseId: attachment.toolUseID });
+    }
+  }
+  human(event) {
+    const text9 = humanText(event);
+    if (text9 === null) {
+      return;
+    }
+    this.ordered.push({ kind: "human" });
+    const own2 = ownWords(text9);
+    if (this.failedSinceHuman || readsAsCorrection(own2)) {
+      for (const phrase of phrasesOf(own2)) {
+        this.phrases.push({ phrase, line: event.line });
+      }
+    }
+    this.failedSinceHuman = false;
+  }
+  slash(event) {
+    const content = event.message?.content;
+    if (typeof content !== "string" || event.type !== "user") {
+      return;
+    }
+    const match = SLASH_COMMAND.exec(content);
+    if (match) {
+      this.slashCommands.push(match[1] ?? "");
+    }
+  }
+  /** What the agent did after one warning: heeded, repeated, overridden, or unresolved. */
+  outcome(warning) {
+    const call = this.ordered.findIndex(
+      (item) => item.kind === "call" && item.id === warning.toolUseId
+    );
+    const warned = this.ordered[call];
+    if (warned?.kind !== "call") {
+      return "unresolved";
+    }
+    for (const item of this.ordered.slice(call + 1)) {
+      if (item.kind === "human") {
+        return "overridden";
+      }
+      if (item.name === warned.name) {
+        return item.signature === warned.signature ? "repeated" : "heeded";
+      }
+    }
+    return "unresolved";
+  }
+};
+
+// src/hook/retro-scan.ts
+var MIN_WARNINGS = 5;
+var RETRO_MARKER = /^\W*Last retrospective: (\d{4}-\d{2}-\d{2})/gm;
+function lastRetrospective(plans) {
+  const dates = Object.values(plans).flatMap(
+    (markdown) => [...markdown.matchAll(RETRO_MARKER)].map((match) => match[1] ?? "")
+  ).sort();
+  return dates.at(-1) ?? null;
+}
+function windowStart(date) {
+  return date ? (/* @__PURE__ */ new Date(`${date}T00:00:00`)).getTime() : 0;
+}
+var emptyStats = () => ({
+  warnings: 0,
+  sessions: 0,
+  heeded: 0,
+  overridden: 0,
+  repeated: 0,
+  unresolved: 0
+});
+var Tally2 = class {
+  constructor(audit3, knownSkills) {
+    this.knownSkills = knownSkills;
+    this.ruleStats = new Map(audit3.map((rule) => [rule, emptyStats()]));
+  }
+  knownSkills;
+  guards = {};
+  failureCounts = /* @__PURE__ */ new Map();
+  perSession = {};
+  loaded = /* @__PURE__ */ new Set();
+  phraseSessions = /* @__PURE__ */ new Map();
+  ruleStats;
+  add(id, found) {
+    this.addGuards(found);
+    for (const { tool, error } of found.failures) {
+      const key = `${tool}\0${error}`;
+      this.failureCounts.set(key, (this.failureCounts.get(key) ?? 0) + 1);
+    }
+    this.addSkills(id, found);
+    this.addPhrases(id, found);
+    this.addWarnings(found);
+  }
+  addGuards(found) {
+    for (const [rule, counts] of Object.entries(found.guards)) {
+      const total = this.guards[rule] ??= { blocks: 0, warnings: 0 };
+      total.blocks += counts.blocks;
+      total.warnings += counts.warnings;
+    }
+  }
+  addSkills(id, found) {
+    const used = /* @__PURE__ */ new Set([
+      ...found.skills,
+      ...found.slashCommands.filter((name) => this.knownSkills.includes(name))
+    ]);
+    for (const name of used) {
+      this.loaded.add(name);
+    }
+    if (used.size > 0) {
+      this.perSession[id] = [...used].sort();
+    }
+  }
+  addPhrases(id, found) {
+    const seen = /* @__PURE__ */ new Set();
+    for (const { phrase, line: line2 } of found.phrases) {
+      if (seen.has(phrase)) {
+        continue;
+      }
+      seen.add(phrase);
+      const entry2 = this.phraseSessions.get(phrase) ?? [];
+      entry2.push({ session: id, line: line2 });
+      this.phraseSessions.set(phrase, entry2);
+    }
+  }
+  addWarnings(found) {
+    const touched = /* @__PURE__ */ new Set();
+    for (const warning of found.warnings) {
+      const stats = this.ruleStats.get(warning.rule);
+      if (stats) {
+        stats.warnings++;
+        stats[found.outcome(warning)]++;
+        touched.add(stats);
+      }
+    }
+    for (const stats of touched) {
+      stats.sessions++;
+    }
+  }
+  failures() {
+    return [...this.failureCounts].map(([key, count3]) => {
+      const [tool = "", error = ""] = key.split("\0");
+      return { tool, error, count: count3 };
+    }).sort((a, b) => b.count - a.count).slice(0, 10);
+  }
+  /** Phrases from the same messages are one correction, so identical evidence merges. */
+  corrections() {
+    const byEvidence = /* @__PURE__ */ new Map();
+    for (const [phrase, evidence] of this.phraseSessions) {
+      if (evidence.length < 2) {
+        continue;
+      }
+      const key = JSON.stringify(evidence);
+      const group = byEvidence.get(key) ?? { phrases: [], evidence };
+      group.phrases.push(phrase);
+      byEvidence.set(key, group);
+    }
+    return [...byEvidence.values()].map(({ phrases, evidence }) => ({
+      id: createHash("sha1").update(phrases.sort().join("\n")).digest("hex").slice(0, 8),
+      sessions: evidence.length,
+      evidence
+    })).sort((a, b) => b.sessions - a.sessions);
+  }
+  rules() {
+    const audit3 = [...this.ruleStats].sort(([a], [b]) => a.localeCompare(b)).map(([rule, stats]) => {
+      let status2 = "insufficient-evidence";
+      if (stats.warnings >= MIN_WARNINGS) {
+        status2 = stats.heeded === stats.warnings ? "promotable" : "not-promotable";
+      }
+      return { rule, status: status2, ...stats };
+    });
+    return {
+      promotable: audit3.filter((r) => r.status === "promotable").map((r) => r.rule),
+      audit: audit3
+    };
+  }
+  sortedGuards() {
+    return Object.fromEntries(
+      Object.entries(this.guards).sort(([a], [b]) => a.localeCompare(b))
+    );
+  }
+  unused() {
+    return this.knownSkills.filter((name) => !this.loaded.has(name)).sort();
+  }
+};
+function scan(inputs, { since, knownSkills = [], auditRules: audit3 = [] } = {}) {
+  const included = inputs.map(({ id, text: text9 }) => parseTranscript(id, text9)).map((session2) => ({ session: session2, ...timestamps(session2) })).filter(
+    ({ last }) => last !== null && Date.parse(last) >= windowStart(since)
+  ).sort((a, b) => (a.first ?? "").localeCompare(b.first ?? ""));
+  const tally = new Tally2(audit3, knownSkills);
+  for (const { session: session2 } of included) {
+    tally.add(session2.id, new SessionAnalysis(session2));
+  }
+  const firsts = included.flatMap((item) => item.first ?? []).sort();
+  const lasts = included.flatMap((item) => item.last ?? []).sort();
+  return {
+    sessions: {
+      count: included.length,
+      first: firsts[0] ?? null,
+      last: lasts.at(-1) ?? null,
+      list: included.map(({ session: session2, first, last }) => ({
+        id: session2.id,
+        first,
+        last
+      }))
+    },
+    skippedLines: included.reduce((sum, item) => sum + item.session.skipped, 0),
+    guards: tally.sortedGuards(),
+    failures: tally.failures(),
+    skills: { perSession: tally.perSession, unused: tally.unused() },
+    corrections: tally.corrections(),
+    rules: tally.rules()
+  };
+}
+
+// src/hook/context.ts
+var PLANS_DIR2 = "infra/plans";
+var RETRO_AFTER_SESSIONS = 5;
+function rules(agentsMarkdown) {
+  return listItems(agentsMarkdown).map((item) => item.text);
+}
+function lastOperation(entries) {
+  const start = entries.findLast((entry2) => entry2.kind === "start");
+  if (!start) {
+    return null;
+  }
+  const end = entries.findLast(
+    (entry2) => entry2.kind === "end" && entry2.op === start.op
+  );
+  return {
+    command: start.command,
+    ts: start.ts,
+    outcome: end?.outcome ?? null,
+    error: end?.error
+  };
+}
+var show2 = (value) => typeof value === "string" || typeof value === "number" ? String(value) : JSON.stringify(value) ?? "";
+function environmentLines(journals) {
+  const lines2 = [];
+  for (const environment of Object.keys(journals).sort()) {
+    const last = lastOperation(journals[environment] ?? []);
+    if (!last) {
+      continue;
+    }
+    const date = show2(last.ts).slice(0, 10);
+    const label = `Environment ${environment}: last operation \`${show2(last.command)}\``;
+    if (last.outcome === null) {
+      lines2.push(
+        `${label} was interrupted (started ${date}, no end recorded).`
+      );
+    } else if (last.outcome === "failed") {
+      const reason = last.error ? `: ${show2(last.error)}` : "";
+      lines2.push(`${label} failed on ${date}${reason}.`);
+    } else {
+      lines2.push(`${label} ${show2(last.outcome)} on ${date}.`);
+    }
+  }
+  return lines2;
+}
+async function brief(event, deps) {
+  const plans = await deps.readPlans();
+  const lines2 = [];
+  for (const plan2 of activePlans(plans)) {
+    const markdown = plans[plan2] ?? "";
+    lines2.push(`Session brief from ${PLANS_DIR2}/${plan2}:`);
+    const counts = openCounts(markdown).map(({ step, count: count3 }) => `${step} (${count3})`).join(", ");
+    if (counts) {
+      lines2.push(`Open items: ${counts}.`);
+    }
+    const next = nextStep(markdown);
+    if (next) {
+      lines2.push(`Next (${next.step}): ${next.text}`);
+    }
+    const upcoming = upcomingSteps(markdown);
+    if (upcoming.length > 0) {
+      lines2.push(`Upcoming: ${upcoming.join("; ")}.`);
+    }
+  }
+  lines2.push(...environmentLines(await deps.readJournals()));
+  const since = lastRetrospective(plans);
+  const id = typeof event.session_id === "string" ? event.session_id : void 0;
+  const sessions = await deps.sessionsSince(since, id);
+  if (sessions >= RETRO_AFTER_SESSIONS) {
+    lines2.push(
+      since ? `${sessions} sessions since the last retrospective (${since}); run /retro.` : `${sessions} sessions without a recorded retrospective; run /retro.`
+    );
+  }
+  return lines2.join("\n");
+}
+async function restore(event, deps) {
+  if (event.source === "startup" || event.source === "clear") {
+    return brief(event, deps);
+  }
+  if (event.source !== "compact") {
+    return "";
+  }
+  const sections = [
+    "Context was compacted. Keep applying these AGENTS.md rules; hooks check only the parts marked Enforced or Audited:",
+    ...rules(await deps.readAgents())
+  ];
+  const plans = await deps.readPlans();
+  for (const plan2 of activePlans(plans)) {
+    sections.push(
+      "",
+      `Open plan items in ${PLANS_DIR2}/${plan2}:`,
+      ...openItems(plans[plan2] ?? "")
+    );
+  }
+  return sections.join("\n");
+}
+
+// src/hook/context-deps.ts
+import { homedir } from "node:os";
+import { join as join9 } from "node:path";
+var JOURNAL_DIR = ".kore/state/journal";
+var isMissing = (error) => error.code === "ENOENT";
+function parseEntries(text9) {
+  const entries = [];
+  for (const line2 of text9.split("\n")) {
+    try {
+      const entry2 = JSON.parse(line2);
+      if (entry2 && typeof entry2 === "object") {
+        entries.push(entry2);
+      }
+    } catch {
+    }
+  }
+  return entries;
+}
+async function readJournals(fs, root3) {
+  const dir = join9(root3, JOURNAL_DIR);
+  let names3;
+  try {
+    names3 = (await fs.readdir(dir)).filter((name) => name.endsWith(".jsonl"));
+  } catch (error) {
+    if (isMissing(error)) {
+      return {};
+    }
+    throw error;
+  }
+  const journals = {};
+  for (const name of names3) {
+    let text9;
+    try {
+      text9 = await fs.readFile(join9(dir, name));
+    } catch {
+      continue;
+    }
+    journals[name.slice(0, -".jsonl".length)] = parseEntries(text9);
+  }
+  return journals;
+}
+async function sessionsSince(deps, root3, date, current) {
+  const config = deps.env["CLAUDE_CONFIG_DIR"] || join9(homedir(), ".claude");
+  const dir = join9(config, "projects", root3.replace(/[^a-zA-Z0-9]/g, "-"));
+  let names3;
+  try {
+    names3 = await deps.fs.readdir(dir);
+  } catch (error) {
+    if (isMissing(error)) {
+      return 0;
+    }
+    throw error;
+  }
+  const after = windowStart(date ?? void 0);
+  let count3 = 0;
+  for (const name of names3) {
+    if (name.endsWith(".jsonl") && name !== `${current}.jsonl` && await deps.fs.mtimeMs(join9(dir, name)) >= after) {
+      count3 += 1;
+    }
+  }
+  return count3;
+}
+function realContextDeps(deps, root3) {
+  return {
+    readJournals: () => readJournals(deps.fs, root3),
+    readAgents: () => deps.fs.readFile(join9(root3, "AGENTS.md")),
+    readPlans: () => readPlans(deps),
+    sessionsSince: (date, current) => sessionsSince(deps, root3, date, current)
+  };
+}
+
+// src/hook/context-command.ts
+var context = hookCommand(
+  "context",
+  "restate the rules and open plan items after compaction, or brief a fresh session (SessionStart)",
+  async ({ deps, payload }) => {
+    if (typeof payload !== "object" || payload === null) {
+      return {};
+    }
+    if (Array.isArray(payload)) {
+      return {};
+    }
+    let text9;
+    try {
+      text9 = await restore(
+        payload,
+        realContextDeps(deps, await deps.root())
+      );
+    } catch (error) {
+      if (error.code === "ENOENT") {
+        return {};
+      }
+      throw error;
+    }
+    return text9 === "" ? {} : {
+      stdout: JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: "SessionStart",
+          additionalContext: text9
+        }
+      })
+    };
+  },
+  { faultCode: 1 }
+);
+
+// src/hook/delta-deps.ts
+import { join as join10, resolve as resolve5 } from "node:path";
+var JOURNAL_DIR2 = ".kore/state/journal";
+var LOCKS_DIR = ".kore/locks";
+function gitReader(deps, root3) {
+  return async (...args) => {
+    const result = await deps.runner.run("git", args, { cwd: root3 });
+    if (result.code !== 0) {
+      throw new Error(`git ${args.join(" ")} exited ${result.code}`);
+    }
+    return result.stdout.trim();
+  };
+}
+async function readDir(deps, dir) {
+  try {
+    return await deps.fs.readdir(dir);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  }
+}
+function parseEntries2(text9) {
+  const entries = [];
+  for (const line2 of text9.split("\n")) {
+    try {
+      const entry2 = JSON.parse(line2);
+      if (entry2 !== null && typeof entry2 === "object") {
+        entries.push(entry2);
+      }
+    } catch {
+    }
+  }
+  return entries;
+}
+async function readJournals2(deps, root3) {
+  const dir = join10(root3, JOURNAL_DIR2);
+  const journals = {};
+  for (const name of await readDir(deps, dir)) {
+    if (!name.endsWith(".jsonl")) {
+      continue;
+    }
+    try {
+      journals[name.slice(0, -".jsonl".length)] = parseEntries2(
+        await deps.fs.readFile(join10(dir, name))
+      );
+    } catch {
+    }
+  }
+  return journals;
+}
+function snapshotStore(deps, git3, root3) {
+  const dir = async () => join10(resolve5(root3, await git3("rev-parse", "--git-dir")), "kore-delta");
+  const file = async (id) => join10(await dir(), `${id}.json`);
+  return {
+    async readSnapshot(id) {
+      try {
+        return JSON.parse(await deps.fs.readFile(await file(id)));
+      } catch {
+        return null;
+      }
+    },
+    async writeSnapshot(id, snapshot2) {
+      await deps.fs.writeFile(await file(id), JSON.stringify(snapshot2));
+    },
+    async listSnapshots() {
+      const base = await dir();
+      const found = [];
+      for (const name of await readDir(deps, base)) {
+        if (name.endsWith(".json")) {
+          found.push({
+            id: name.slice(0, -".json".length),
+            mtimeMs: await deps.fs.mtimeMs(join10(base, name))
+          });
+        }
+      }
+      return found;
+    },
+    async removeSnapshot(id) {
+      await deps.fs.remove(await file(id));
+    }
+  };
+}
+function realDeltaDeps(deps, root3) {
+  const git3 = gitReader(deps, root3);
+  return {
+    now: () => deps.clock.now().getTime(),
+    head: () => git3("rev-parse", "HEAD"),
+    branch: () => git3("rev-parse", "--abbrev-ref", "HEAD"),
+    async main() {
+      try {
+        return await git3("rev-parse", "--verify", "--quiet", "main");
+      } catch {
+        return null;
+      }
+    },
+    async commitsBetween(from, to) {
+      return (await git3("log", "--format=%s", `${from}..${to}`)).split("\n").filter(Boolean);
+    },
+    readPlans: () => readPlans(deps),
+    listLocks: () => readDir(deps, join10(root3, LOCKS_DIR)),
+    readJournals: () => readJournals2(deps, root3),
+    ...snapshotStore(deps, git3, root3)
+  };
+}
+
+// src/hook/delta.ts
+var MAX_CHARS = 600;
+var MAX_ITEM_CHARS = 60;
+var MAX_SUBJECTS = 3;
+var SNAPSHOT_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1e3;
+function lastOperation2(entries) {
+  const start = entries.findLast((entry2) => entry2.kind === "start");
+  if (start === void 0) {
+    return null;
+  }
+  const end = entries.findLast(
+    (entry2) => entry2.kind === "end" && entry2.op === start.op
+  );
+  return {
+    op: start.op ?? "",
+    command: start.command ?? "",
+    outcome: end?.outcome ?? null,
+    ...end?.error ? { error: end.error } : {}
+  };
+}
+function planItems(plans) {
+  const result = {};
+  for (const name of activePlans(plans)) {
+    const items = {};
+    for (const { text: text9 } of listItems(plans[name] ?? "")) {
+      const match = /^- \[( |x)\] (.*)$/.exec(text9);
+      if (match === null) {
+        continue;
+      }
+      const title = (match[2] ?? "").replaceAll("**", "").slice(0, MAX_ITEM_CHARS);
+      items[title] = match[1] === "x";
+    }
+    result[name] = items;
+  }
+  return result;
+}
+async function snapshot(deps) {
+  const journal = {};
+  for (const [environment, entries] of Object.entries(
+    await deps.readJournals()
+  )) {
+    const last = lastOperation2(entries);
+    if (last !== null) {
+      journal[environment] = last;
+    }
+  }
+  return {
+    head: await deps.head(),
+    branch: await deps.branch(),
+    main: await deps.main(),
+    plans: planItems(await deps.readPlans()),
+    locks: [...await deps.listLocks()].sort(),
+    journal
+  };
+}
+function operationLine(environment, operation) {
+  const command = `\`${operation.command}\``;
+  if (operation.outcome === null) {
+    return `${environment}: ${command} started`;
+  }
+  if (operation.outcome === "failed") {
+    return `${environment}: ${command} failed${operation.error ? `: ${operation.error}` : ""}`;
+  }
+  return `${environment}: ${command} finished ${operation.outcome}`;
+}
+function planLines(before2, after) {
+  const lines2 = [];
+  for (const [plan2, items] of Object.entries(after.plans)) {
+    const old = before2.plans[plan2];
+    const ticked = [];
+    const added = [];
+    for (const [title, checked] of Object.entries(items)) {
+      if (old === void 0 || !(title in old)) {
+        if (old !== void 0) {
+          added.push(title);
+        }
+      } else if (checked && old[title] !== true) {
+        ticked.push(title);
+      }
+    }
+    if (ticked.length > 0) {
+      lines2.push(`${plan2} ticked: ${ticked.join("; ")}`);
+    }
+    if (added.length > 0) {
+      lines2.push(`${plan2} added: ${added.join("; ")}`);
+    }
+  }
+  return lines2;
+}
+function mainLine(before2, after, subjects) {
+  if (before2.main === after.main || after.main === null) {
+    return [];
+  }
+  const found = before2.main === null ? [] : subjects(before2.main, after.main);
+  if (found.length === 0) {
+    return [`main moved to ${after.main.slice(0, 7)}.`];
+  }
+  const shown = found.slice(0, MAX_SUBJECTS).join("; ");
+  const more = found.length > MAX_SUBJECTS ? "; ..." : "";
+  const plural = found.length === 1 ? "commit" : "commits";
+  return [`main advanced ${found.length} ${plural}: ${shown}${more}`];
+}
+function lockLines(before2, after) {
+  return [
+    ...after.locks.filter((lock) => !before2.locks.includes(lock)).map((lock) => `lock taken: ${lock}`),
+    ...before2.locks.filter((lock) => !after.locks.includes(lock)).map((lock) => `lock released: ${lock}`)
+  ];
+}
+function journalLines(before2, after) {
+  return Object.entries(after.journal).filter(([environment, operation]) => {
+    const old = before2.journal[environment];
+    return old?.op !== operation.op || old.outcome !== operation.outcome;
+  }).map(([environment, operation]) => operationLine(environment, operation));
+}
+function describeChanges(before2, after, subjects) {
+  const lines2 = [
+    ...mainLine(before2, after, subjects),
+    ...before2.branch === after.branch ? [] : [`branch changed from ${before2.branch} to ${after.branch}.`],
+    ...planLines(before2, after),
+    ...lockLines(before2, after),
+    ...journalLines(before2, after)
+  ];
+  if (lines2.length === 0) {
+    return "";
+  }
+  const text9 = `Changed since your last turn: ${lines2.join(" | ")}`;
+  return text9.length <= MAX_CHARS ? text9 : `${text9.slice(0, MAX_CHARS - 3)}...`;
+}
+async function prune(currentId, deps) {
+  try {
+    const cutoff = deps.now() - SNAPSHOT_MAX_AGE_MS;
+    for (const { id, mtimeMs } of await deps.listSnapshots()) {
+      if (id === currentId || mtimeMs >= cutoff) {
+        continue;
+      }
+      try {
+        await deps.removeSnapshot(id);
+      } catch {
+      }
+    }
+  } catch {
+  }
+}
+async function update(sessionId, deps) {
+  try {
+    const before2 = await deps.readSnapshot(sessionId);
+    const after = await snapshot(deps);
+    await deps.writeSnapshot(sessionId, after);
+    await prune(sessionId, deps);
+    if (before2 === null) {
+      return "";
+    }
+    const subjects = /* @__PURE__ */ new Map();
+    if (before2.main !== after.main && before2.main !== null && after.main !== null) {
+      subjects.set(
+        `${before2.main}..${after.main}`,
+        await deps.commitsBetween(before2.main, after.main)
+      );
+    }
+    return describeChanges(
+      before2,
+      after,
+      (from, to) => subjects.get(`${from}..${to}`) ?? []
+    );
+  } catch {
+    return "";
+  }
+}
+
+// src/hook/delta-command.ts
+var delta = hookCommand(
+  "delta",
+  "tell the agent what changed since its previous turn (UserPromptSubmit)",
+  async ({ deps, payload }) => {
+    const id = payload?.session_id;
+    if (typeof id !== "string" || !/^[A-Za-z0-9_-]+$/.test(id)) {
+      return {};
+    }
+    const context2 = await update(id, realDeltaDeps(deps, await deps.root()));
+    return context2 === "" ? {} : {
+      stdout: JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: "UserPromptSubmit",
+          additionalContext: context2
+        }
+      })
+    };
+  }
+);
+
+// src/hook/record.ts
+var STARTS = /* @__PURE__ */ new Set(["startup", "clear", "resume"]);
+var record3 = hookCommand(
+  "record",
+  "record a ledger event for the session; mode: session-start (SessionStart, no matcher)",
+  async ({ deps, payload, operand }) => {
+    if (typeof payload !== "object" || payload === null) {
+      return {};
+    }
+    const call = payload;
+    if (operand === "session-start" && typeof call.source === "string" && STARTS.has(call.source)) {
+      await recordEvent(deps, "session.start", call);
+    }
+    return {};
+  },
+  { operand: "mode" }
+);
+
+// src/hook/statusline.ts
+var AMBER_AT = 40;
+var RED_AT = 50;
+function contextPercent(input) {
+  const window = input.context_window;
+  if (typeof window?.used_percentage === "number") {
+    return Math.round(window.used_percentage);
+  }
+  const usage2 = window?.current_usage;
+  if (!usage2 || !window?.context_window_size) {
+    return null;
+  }
+  const used = (usage2.input_tokens ?? 0) + (usage2.cache_creation_input_tokens ?? 0) + (usage2.cache_read_input_tokens ?? 0);
+  return Math.round(used / window.context_window_size * 100);
+}
+function colored(percent) {
+  const text9 = `ctx ${percent}%`;
+  if (percent >= RED_AT) {
+    return `\x1B[31m${text9}\x1B[0m`;
+  }
+  if (percent >= AMBER_AT) {
+    return `\x1B[33m${text9}\x1B[0m`;
+  }
+  return text9;
+}
+function statusLine(input, plans) {
+  const parts = [];
+  const percent = contextPercent(input);
+  if (percent !== null) {
+    parts.push(colored(percent));
+  }
+  const name = activePlans(plans)[0];
+  if (name !== void 0) {
+    const markdown = plans[name] ?? "";
+    parts.push(name.replace(/\.md$/, ""));
+    const next = nextStep(markdown);
+    if (next) {
+      parts.push(next.step.split(":")[0] ?? next.step);
+    }
+    const open2 = openCounts(markdown).reduce((sum, c) => sum + c.count, 0);
+    parts.push(`${open2} open`);
+  }
+  return parts.join(" \xB7 ");
+}
+var text8 = (value) => typeof value === "string" && value !== "" ? value : void 0;
+function projectOf(input, deps) {
+  return text8(deps.env["CLAUDE_PROJECT_DIR"]) ?? text8(input.workspace?.project_dir) ?? text8(input.cwd) ?? deps.cwd;
+}
+var UNREADABLE = "plans?";
+var statusline = hookCommand(
+  "statusline",
+  "print one status line from the host's JSON: context use, the active plan, its Next: step and open items",
+  async ({ deps, payload }) => {
+    if (typeof payload !== "object" || payload === null) {
+      return {};
+    }
+    if (Array.isArray(payload)) {
+      return {};
+    }
+    const input = payload;
+    const root3 = projectOf(input, deps);
+    let line2;
+    try {
+      line2 = statusLine(
+        input,
+        await readPlans({ ...deps, root: () => Promise.resolve(root3) })
+      );
+    } catch {
+      const percent = contextPercent(input);
+      line2 = [percent === null ? null : colored(percent), UNREADABLE].filter((part) => part !== null).join(" \xB7 ");
+    }
+    return line2 === "" ? {} : { stdout: `${line2}
+` };
+  }
+);
+
 // src/hook/retro-hook.ts
 import { homedir as homedir2 } from "node:os";
 import { join as join12 } from "node:path";
@@ -7044,9 +7138,9 @@ async function readTranscripts(fs, dirs) {
       (n) => n.endsWith(".jsonl")
     )) {
       const id = basename2(name, ".jsonl");
-      const text8 = await fs.readFile(join11(dir, name));
-      if (text8.length >= (byId.get(id)?.text.length ?? -1)) {
-        byId.set(id, { id, text: text8 });
+      const text9 = await fs.readFile(join11(dir, name));
+      if (text9.length >= (byId.get(id)?.text.length ?? -1)) {
+        byId.set(id, { id, text: text9 });
       }
     }
   }
@@ -7241,11 +7335,11 @@ function addEntry2(stack, indent, body) {
   parent[key] = value;
   return /^[|>]/.test(value) ? indent : null;
 }
-function parseWorkflow(text8) {
+function parseWorkflow(text9) {
   const rootNode = {};
   const stack = [{ indent: -1, node: rootNode }];
   let skipAbove = null;
-  for (const raw of text8.split("\n")) {
+  for (const raw of text9.split("\n")) {
     const line2 = raw.replace(/(^|\s)#.*$/, "");
     const indent = line2.length - line2.trimStart().length;
     if (line2.trim() === "" || skipAbove !== null && indent > skipAbove) {
@@ -7314,8 +7408,8 @@ function jobProblems(file, name, job) {
   }
   return problems;
 }
-function fileProblems(file, text8) {
-  const workflow = parseWorkflow(text8);
+function fileProblems(file, text9) {
+  const workflow = parseWorkflow(text9);
   const problems = [];
   const top = writeScopes(workflow["permissions"]);
   if (top === null || top.length > 0) {
@@ -7339,7 +7433,7 @@ function fileProblems(file, text8) {
 }
 function permissionProblems(files) {
   return Object.entries(files).flatMap(
-    ([file, text8]) => fileProblems(file, text8)
+    ([file, text9]) => fileProblems(file, text9)
   );
 }
 async function workflowProblems(fs, root3) {
@@ -7375,8 +7469,8 @@ function slug(heading) {
 function proseLines(markdown) {
   const lines2 = [];
   let fence = null;
-  markdown.split("\n").forEach((text8, index) => {
-    const opener = /^\s*(```|~~~)/.exec(text8);
+  markdown.split("\n").forEach((text9, index) => {
+    const opener = /^\s*(```|~~~)/.exec(text9);
     if (fence) {
       if (opener && opener[1] === fence) {
         fence = null;
@@ -7387,15 +7481,15 @@ function proseLines(markdown) {
       fence = opener[1] ?? null;
       return;
     }
-    lines2.push({ line: index + 1, text: text8.replace(/`[^`]*`/g, "") });
+    lines2.push({ line: index + 1, text: text9.replace(/`[^`]*`/g, "") });
   });
   return lines2;
 }
 function anchors(markdown) {
   const seen = /* @__PURE__ */ new Map();
   const result = [];
-  for (const { text: text8 } of proseLines(markdown)) {
-    const match = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(text8);
+  for (const { text: text9 } of proseLines(markdown)) {
+    const match = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(text9);
     if (!match) {
       continue;
     }
@@ -7424,15 +7518,15 @@ function frontmatter2(file, markdown) {
   const keys = /* @__PURE__ */ new Map();
   const errors = [];
   for (let index = 1; index < lines2.length; index++) {
-    const text8 = lines2[index] ?? "";
-    if (text8 === "---") {
+    const text9 = lines2[index] ?? "";
+    if (text9 === "---") {
       return { keys, errors };
     }
-    const match = /^([A-Za-z][\w-]*):\s*(.*)$/.exec(text8);
+    const match = /^([A-Za-z][\w-]*):\s*(.*)$/.exec(text9);
     if (match?.[2] && !/^[[{|>&*!-]/.test(match[2])) {
       keys.set(match[1] ?? "", { value: match[2].trim(), line: index + 1 });
     } else {
-      const key = match ? match[1] : text8.trim();
+      const key = match ? match[1] : text9.trim();
       errors.push(
         finding(
           file,
@@ -7741,9 +7835,9 @@ function ideaNumbers(files) {
   }
   return { ideas, problems };
 }
-function linkProblems2(tree, file, text8) {
+function linkProblems2(tree, file, text9) {
   const problems = [];
-  for (const { line: line2, text: prose2 } of proseLines(text8)) {
+  for (const { line: line2, text: prose2 } of proseLines(text9)) {
     for (const [, raw = ""] of prose2.matchAll(LINK)) {
       if (isExternal(raw)) {
         continue;
@@ -7772,17 +7866,17 @@ function linkProblems2(tree, file, text8) {
 function markdownProblems(tree, ideas) {
   const problems = [];
   for (const file of tree.files.filter((name) => name.endsWith(".md"))) {
-    const text8 = tree.deps.read(file);
-    if (text8 === null) {
+    const text9 = tree.deps.read(file);
+    if (text9 === null) {
       continue;
     }
-    problems.push(...linkProblems2(tree, file, text8));
+    problems.push(...linkProblems2(tree, file, text9));
     if (PLAN.test(file) || ADR2.test(file)) {
       problems.push(
-        ...checkFrontmatter(file, text8, (path) => tree.exists(path))
+        ...checkFrontmatter(file, text9, (path) => tree.exists(path))
       );
     } else if (IDEA.test(file)) {
-      problems.push(...checkIdea(file, text8, ideas));
+      problems.push(...checkIdea(file, text9, ideas));
     }
   }
   return problems;
@@ -7801,11 +7895,11 @@ function indexProblems(tree) {
   }
   const problems = [];
   const listed = /* @__PURE__ */ new Set();
-  for (const { line: line2, text: text8 } of proseLines(index)) {
-    if (!text8.startsWith("- [")) {
+  for (const { line: line2, text: text9 } of proseLines(index)) {
+    if (!text9.startsWith("- [")) {
       continue;
     }
-    const raw = /\]\(([^)\s#]+)/.exec(text8)?.[1];
+    const raw = /\]\(([^)\s#]+)/.exec(text9)?.[1];
     if (raw === void 0 || isExternal(raw)) {
       continue;
     }
@@ -7843,11 +7937,11 @@ var TRAILING = /[.,;:)]+$/;
 function markerProblems(tree) {
   const problems = [];
   for (const file of tree.files.filter((name) => !name.endsWith(".md"))) {
-    const text8 = tree.deps.read(file);
-    if (text8 === null) {
+    const text9 = tree.deps.read(file);
+    if (text9 === null) {
       continue;
     }
-    text8.split("\n").forEach((line2, position) => {
+    text9.split("\n").forEach((line2, position) => {
       const match = MARKER.exec(line2);
       if (!match) {
         return;
@@ -7947,19 +8041,19 @@ function dependenciesOf(deps) {
     paths.add(path);
   };
   for (const file of files) {
-    const text8 = deps.read(file);
-    if (text8 === null) {
+    const text9 = deps.read(file);
+    if (text9 === null) {
       continue;
     }
     if (PLAN.test(file) || ADR2.test(file)) {
-      for (const target of linkTargets(file, text8)) {
+      for (const target of linkTargets(file, text9)) {
         depend(file, target);
       }
     }
     if (file.endsWith(".md")) {
       continue;
     }
-    for (const line2 of text8.split("\n")) {
+    for (const line2 of text9.split("\n")) {
       const path = (MARKER.exec(line2)?.[2] ?? "").replace(/[.,;:)]+$/, "");
       if (PLAN.test(path) || ADR2.test(path)) {
         depend(path, file);
@@ -7968,9 +8062,9 @@ function dependenciesOf(deps) {
   }
   return dependencies;
 }
-function linkTargets(file, text8) {
+function linkTargets(file, text9) {
   const targets = [];
-  for (const { text: prose2 } of proseLines(text8)) {
+  for (const { text: prose2 } of proseLines(text9)) {
     for (const [, raw = ""] of prose2.matchAll(LINK)) {
       const [pathPart] = raw.split("#", 1);
       const target = isExternal(raw) || !pathPart ? null : resolve6(file, decodeURI(pathPart));
@@ -8128,8 +8222,8 @@ function overBudgets(descriptionChars, bodyLines) {
 function countLines(body) {
   return body === "" ? 0 : body.replace(/\n$/, "").split("\n").length;
 }
-function auditSkill(directory, text8) {
-  const source = text8.replaceAll("\r\n", "\n");
+function auditSkill(directory, text9) {
+  const source = text9.replaceAll("\r\n", "\n");
   if (!source.startsWith("---\n")) {
     return invalid(directory, "missing frontmatter");
   }
@@ -8344,8 +8438,10 @@ var hook = {
   feedback: feedbackHook,
   guard: guardHook,
   "kb-check": kbCheckHook,
+  record: record3,
   "retro-scan": retroScan,
   "skill-links": skillLinks,
+  statusline,
   "workflow-permissions": workflowPermissions
 };
 
@@ -8483,8 +8579,8 @@ function isRecord(value) {
   if (typeof value !== "object" || value === null) {
     return false;
   }
-  const record3 = value;
-  return typeof record3.name === "string" && typeof record3.paneId === "string" && typeof record3.callerPane === "string" && typeof record3.model === "string";
+  const record4 = value;
+  return typeof record4.name === "string" && typeof record4.paneId === "string" && typeof record4.callerPane === "string" && typeof record4.model === "string";
 }
 var SessionRegistry = class _SessionRegistry {
   constructor(fs, dir) {
@@ -8527,10 +8623,10 @@ var SessionRegistry = class _SessionRegistry {
     }
     return parsed;
   }
-  async write(record3) {
+  async write(record4) {
     await this.fs.writeFile(
-      this.file(record3.name),
-      `${JSON.stringify(record3, null, 2)}
+      this.file(record4.name),
+      `${JSON.stringify(record4, null, 2)}
 `
     );
   }
@@ -8540,25 +8636,25 @@ var SessionRegistry = class _SessionRegistry {
     return existing === void 0 || existing.closedAt !== void 0 ? void 0 : `A session record for ${name} (pane ${existing.paneId}) already exists and is not closed; run \`session wait ${name}\` then \`session close ${name}\`, or pick another name. No pane was split.`;
   }
   /** Records a new session; refuses to replace one that is not closed, even under a race. */
-  async create(record3) {
-    const content = `${JSON.stringify(record3, null, 2)}
+  async create(record4) {
+    const content = `${JSON.stringify(record4, null, 2)}
 `;
     try {
-      await this.fs.createFile(this.file(record3.name), content);
+      await this.fs.createFile(this.file(record4.name), content);
     } catch (error) {
       if (error.code !== "EEXIST") {
         throw error;
       }
-      const reason = await this.unavailable(record3.name);
+      const reason = await this.unavailable(record4.name);
       if (reason !== void 0) {
         throw new CommandError(
           reason.replace(
             " No pane was split.",
-            ` Pane ${record3.paneId} is running unrecorded; close it with \`herdr pane close ${record3.paneId}\`.`
+            ` Pane ${record4.paneId} is running unrecorded; close it with \`herdr pane close ${record4.paneId}\`.`
           )
         );
       }
-      await this.write(record3);
+      await this.write(record4);
     }
   }
 };
@@ -8610,29 +8706,29 @@ async function place(deps, options, name) {
 
 // src/session/close.ts
 var NOT_IN_HERDR = "Not inside Herdr (HERDR_ENV is not 1 or HERDR_PANE_ID is unset). Run this from the Herdr pane that spawned the session.";
-function refuse(record3, callerPane) {
-  const { name, paneId } = record3;
-  if (record3.closedAt !== void 0) {
+function refuse(record4, callerPane) {
+  const { name, paneId } = record4;
+  if (record4.closedAt !== void 0) {
     return `Session ${name} is already closed (pane ${paneId}).`;
   }
-  if (record3.callerPane !== callerPane) {
-    return `Session ${name} was spawned from pane ${record3.callerPane}, not ${callerPane}; only that pane may close it.`;
+  if (record4.callerPane !== callerPane) {
+    return `Session ${name} was spawned from pane ${record4.callerPane}, not ${callerPane}; only that pane may close it.`;
   }
-  return record3.result === void 0 ? `Session ${name} has no recorded result, so pane ${paneId} stays open. Run \`session wait ${name}\` first.` : void 0;
+  return record4.result === void 0 ? `Session ${name} has no recorded result, so pane ${paneId} stays open. Run \`session wait ${name}\` first.` : void 0;
 }
-async function finishClose({ json, deps }, registry, record3, callerPane) {
-  const { name } = record3;
-  await registry.write({ ...record3, closedAt: deps.clock.now().toISOString() });
+async function finishClose({ json, deps }, registry, record4, callerPane) {
+  const { name } = record4;
+  await registry.write({ ...record4, closedAt: deps.clock.now().toISOString() });
   const equalized = await equalize(deps.runner, callerPane);
   const note = equalized.status === "failed" ? `Closed, but equalizing failed: ${equalized.reason}` : void 0;
   if (note !== void 0) {
     deps.stderr(`${note}
 `);
   }
-  const hint = record3.worktree === void 0 ? void 0 : closeHint(record3.worktree);
+  const hint = record4.worktree === void 0 ? void 0 : closeHint(record4.worktree);
   deps.stdout(
-    json ? `${JSON.stringify({ name, paneId: record3.paneId, closed: true, equalize: equalized, ...hint === void 0 ? {} : { hint } })}
-` : `Closed ${name} (pane ${record3.paneId}).${hint === void 0 ? "" : ` ${hint}`}
+    json ? `${JSON.stringify({ name, paneId: record4.paneId, closed: true, equalize: equalized, ...hint === void 0 ? {} : { hint } })}
+` : `Closed ${name} (pane ${record4.paneId}).${hint === void 0 ? "" : ` ${hint}`}
 `
   );
   return 0;
@@ -8657,8 +8753,8 @@ async function close2(context2) {
     return fail3(deps, json, FAILED4, NOT_IN_HERDR);
   }
   const registry = await SessionRegistry.open(deps);
-  const record3 = await registry.read(name);
-  if (record3 === void 0) {
+  const record4 = await registry.read(name);
+  if (record4 === void 0) {
     return fail3(
       deps,
       json,
@@ -8666,24 +8762,24 @@ async function close2(context2) {
       `This tool did not create a session named ${name}, so it will not close one. Close it yourself with \`herdr pane close <pane-id>\` if you are sure.`
     );
   }
-  const refusal = refuse(record3, callerPane);
+  const refusal = refuse(record4, callerPane);
   if (refusal !== void 0) {
     return fail3(deps, json, FAILED4, refusal);
   }
   const closed = await deps.runner.run("herdr", [
     "pane",
     "close",
-    record3.paneId
+    record4.paneId
   ]);
   if (closed.code !== 0) {
     return fail3(
       deps,
       json,
       FAILED4,
-      `herdr pane close ${record3.paneId} failed: ${describeFailure(closed)}`
+      `herdr pane close ${record4.paneId} failed: ${describeFailure(closed)}`
     );
   }
-  return await finishClose(context2, registry, record3, callerPane);
+  return await finishClose(context2, registry, record4, callerPane);
 }
 
 // src/session/models.ts
@@ -8899,8 +8995,8 @@ async function resolveTier(deps, role, flags) {
 var DEFAULT_TIMEOUT_MS = 60 * 60 * 1e3;
 var POLL_MS = 2e3;
 var MARKER2 = /^[ \t]*(?:[●⏺][ \t]+)?RESULT: (done|blocked)[ \t\r]*$/gm;
-function findResult(text8) {
-  const last = [...text8.matchAll(MARKER2)].at(-1)?.[1];
+function findResult(text9) {
+  const last = [...text9.matchAll(MARKER2)].at(-1)?.[1];
   return last === "done" || last === "blocked" ? last : void 0;
 }
 function parseTimeout(value) {
@@ -8913,42 +9009,42 @@ function parseTimeout(value) {
 function seconds2(ms) {
   return `${ms / 1e3} seconds`;
 }
-async function waitForResult(deps, registry, record3, timeoutMs) {
+async function waitForResult(deps, registry, record4, timeoutMs) {
   const done = (outcome) => ({
-    name: record3.name,
-    paneId: record3.paneId,
-    model: record3.model,
+    name: record4.name,
+    paneId: record4.paneId,
+    model: record4.model,
     outcome,
-    summary: `pane ${record3.paneId}`
+    summary: `pane ${record4.paneId}`
   });
-  if (record3.result !== void 0) {
-    return done(record3.result.outcome);
+  if (record4.result !== void 0) {
+    return done(record4.result.outcome);
   }
   const deadline = deps.clock.now().getTime() + timeoutMs;
   for (; ; ) {
     const read = await deps.runner.run("herdr", [
       "pane",
       "read",
-      record3.paneId,
+      record4.paneId,
       "--source",
       "recent-unwrapped"
     ]);
     if (read.code !== 0) {
       return {
-        error: `herdr pane read ${record3.paneId} failed: ${describeFailure(read)}`
+        error: `herdr pane read ${record4.paneId} failed: ${describeFailure(read)}`
       };
     }
     const outcome = findResult(read.stdout);
     if (outcome !== void 0) {
       await registry.write({
-        ...record3,
+        ...record4,
         result: { outcome, at: deps.clock.now().toISOString() }
       });
       return done(outcome);
     }
     if (deps.clock.now().getTime() + POLL_MS > deadline) {
       return {
-        error: `Session ${record3.name} printed no "RESULT: done" or "RESULT: blocked" line in pane ${record3.paneId} within ${seconds2(timeoutMs)}. It may still be working; run \`session wait ${record3.name}\` again or read the pane.`
+        error: `Session ${record4.name} printed no "RESULT: done" or "RESULT: blocked" line in pane ${record4.paneId} within ${seconds2(timeoutMs)}. It may still be working; run \`session wait ${record4.name}\` again or read the pane.`
       };
     }
     await deps.clock.sleep(POLL_MS);
@@ -8978,8 +9074,8 @@ async function wait(context2) {
     return fail3(deps, json, USAGE_ERROR, timeout.error);
   }
   const registry = await SessionRegistry.open(deps);
-  const record3 = await registry.read(name);
-  if (record3 === void 0) {
+  const record4 = await registry.read(name);
+  if (record4 === void 0) {
     return fail3(
       deps,
       json,
@@ -8987,7 +9083,7 @@ async function wait(context2) {
       `No session named ${name} was spawned by this tool; start it with \`session spawn\`.`
     );
   }
-  const result = await waitForResult(deps, registry, record3, timeout);
+  const result = await waitForResult(deps, registry, record4, timeout);
   if ("error" in result) {
     return fail3(deps, json, FAILED4, result.error);
   }
@@ -9064,7 +9160,7 @@ async function check({
 
 // src/session/spawn-finish.ts
 import { join as join19 } from "node:path";
-async function recordLaunch(deps, record3) {
+async function recordLaunch(deps, record4) {
   try {
     const main = await mainRoot(deps);
     if (main === void 0) {
@@ -9078,20 +9174,20 @@ async function recordLaunch(deps, record3) {
     ).record({
       source: "herdr",
       kind: "session.launch",
-      occurredAt: record3.createdAt,
-      pane: record3.paneId,
-      agent: record3.name,
-      role: record3.role,
-      tier: record3.model
+      occurredAt: record4.createdAt,
+      pane: record4.paneId,
+      agent: record4.name,
+      role: record4.role,
+      tier: record4.model
     });
   } catch {
   }
 }
-async function finish2({ json, deps, options }, { registry, record: record3, modelCheck, timeoutMs }) {
-  const { name, paneId, callerPane, model, role, effort, worktree } = record3;
+async function finish2({ json, deps, options }, { registry, record: record4, modelCheck, timeoutMs }) {
+  const { name, paneId, callerPane, model, role, effort, worktree } = record4;
   const extra = worktree === void 0 ? {} : { worktree };
-  await registry.create(record3);
-  await recordLaunch(deps, record3);
+  await registry.create(record4);
+  await recordLaunch(deps, record4);
   const verdict = modelCheck.status === "verified" ? "model verified" : `model unverified: ${modelCheck.reason}`;
   if (options["no-wait"] === true) {
     deps.stdout(
@@ -9101,7 +9197,7 @@ async function finish2({ json, deps, options }, { registry, record: record3, mod
     );
     return 0;
   }
-  const result = await waitForResult(deps, registry, record3, timeoutMs);
+  const result = await waitForResult(deps, registry, record4, timeoutMs);
   if ("error" in result) {
     return fail3(deps, json, FAILED4, result.error);
   }
@@ -9282,9 +9378,9 @@ var equalizeCommand = {
 `);
       return 1;
     }
-    const text8 = result.status === "skipped" ? `Skipped: ${result.reason}.` : "Equalized.";
+    const text9 = result.status === "skipped" ? `Skipped: ${result.reason}.` : "Equalized.";
     deps.stdout(json ? `${JSON.stringify(result)}
-` : `${text8}
+` : `${text9}
 `);
     return 0;
   }
@@ -9477,7 +9573,7 @@ async function run2(argv, deps) {
 }
 
 // src/main.ts
-var stderr = (text8) => process.stderr.write(text8);
+var stderr = (text9) => process.stderr.write(text9);
 var root2;
 try {
   process.exitCode = await run2(process.argv.slice(2), {
@@ -9493,7 +9589,7 @@ try {
       import.meta.url,
       (path) => nodeFileSystem.exists(path)
     ),
-    stdout: (text8) => process.stdout.write(text8),
+    stdout: (text9) => process.stdout.write(text9),
     stderr
   });
 } catch (error) {
