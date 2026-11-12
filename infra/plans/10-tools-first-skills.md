@@ -69,7 +69,7 @@ Each step reports its effect against the plan 8 baseline.
       `skill-links` and `workflow-permissions` into harness domains, pinning
       each with its existing tests first.
 - [ ] Point `.claude/settings.json` at `node skills/bin/harness.mjs hook
-  <name>`.
+<name>`.
 - [ ] Remove `.claude/hooks/*.mjs` once each is ported.
 
 ### Exit Criteria
@@ -83,7 +83,7 @@ Each step reports its effect against the plan 8 baseline.
 - [x] Bring `add-command`, `add-policy`, `pin-upgrade`, `retro` and
       `test-driven-development` within the budget, adding tools where a step
       is deterministic.
-- [ ] Turn the skill budget audit from warn to fail.
+- [x] Turn the skill budget audit from warn to fail.
 
 ### Exit Criteria
 

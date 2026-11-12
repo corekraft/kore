@@ -1,13 +1,13 @@
 // Knowledge health check as a hook: `harness hook kb-check [--strict]`.
-// Warn mode prints findings and exits 0; --strict exits 1 when there are any.
-// Staleness, the flag audit and the skill audit are warnings or information
-// only, so they never change the exit code.
+// Warn mode prints findings and exits 0; --strict exits 1 when there are any,
+// or when a skill is over its budget (ADR 0080). Staleness and the flag audit
+// are warnings only, so they never change the exit code.
 // Docs: infra/plans/4-knowledge.md#step-3-knowledge-health-check
 
 import { FlagError, unprovenFlags, unprovenLine } from "../flag/index.js";
 import { run } from "../kb/index.js";
 import type { KbDeps } from "../kb/index.js";
-import { skillAuditText } from "../skill/index.js";
+import { skillAudit } from "../skill/index.js";
 import { CommandError, type CliDeps } from "../runtime/index.js";
 import type { HookResult } from "./io.js";
 
@@ -88,7 +88,7 @@ export async function kbCheck(
       (
         await git(deps, root, ["log", "-1", "--format=%cs", "--", path])
       ).trim() || null,
-    audit: () => skillAuditText(deps.fs, root),
+    audit: () => skillAudit(deps.fs, root),
     flagAudit: () => flagAudit(deps, root),
   };
   const code = await run(strict ? ["--strict"] : [], kbDeps, (line) =>

@@ -50,7 +50,7 @@ and uses it first to measure the delivery loop. Terms follow
 
 - [x] Add a `skill` domain whose `audit` command reports every skill whose
       description exceeds 200 characters or whose body exceeds 25 lines.
-- [x] Run it from kb-check in warn mode.
+- [x] Run it from kb-check in warn mode (plan 10 step 5 made `--strict` fail on it).
 
 ### Exit Criteria
 

@@ -32,6 +32,25 @@ describe("harness hook kb-check", () => {
     expect(h.out()).toMatch(/\nskill audit:\n {2}NAME/);
   });
 
+  const long = Array.from({ length: 40 }, (_, i) => `line ${i}`).join("\n");
+  it.each([
+    ["body", `---\nname: big\ndescription: d\n---\n${long}\n`],
+    [
+      "description",
+      `---\nname: big\ndescription: ${"d".repeat(250)}\n---\nok\n`,
+    ],
+  ])(
+    "--strict exits 1 for a skill over its %s budget, and warn mode exits 0",
+    async (_limit, text) => {
+      const tree = { ...CLEAN, "skills/big/SKILL.md": text };
+      const strict = repository(tree);
+      expect(await run(["hook", "kb-check", "--strict"], strict.deps)).toBe(1);
+      expect(strict.out()).toMatch(/big .*over-budget/);
+      expect(strict.out()).toMatch(/kb-check: skill audit failed\n/);
+      expect(await run(["hook", "kb-check"], repository(tree).deps)).toBe(0);
+    },
+  );
+
   it("warns on findings and exits 0, and --strict exits 1", async () => {
     const warn = repository(BROKEN);
     expect(await run(["hook", "kb-check"], warn.deps)).toBe(0);

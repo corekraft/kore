@@ -7697,8 +7697,16 @@ function format(problem) {
 async function run(argv, deps, log) {
   const status2 = await runChecks(argv, deps, log);
   const audit3 = deps.audit?.bind(deps);
-  if (audit3) {
-    await printAudit(audit3, log);
+  if (!audit3) {
+    return status2;
+  }
+  const failed = await printAudit(audit3, log);
+  if (failed) {
+    const strict = argv.includes("--strict");
+    log(
+      strict ? "kb-check: skill audit failed" : "kb-check: skill audit failed (warn mode; --strict fails on it)"
+    );
+    return strict ? 1 : status2;
   }
   return status2;
 }
@@ -7707,15 +7715,19 @@ async function printAudit(audit3, log) {
   try {
     report3 = await audit3();
   } catch (error) {
+    if (!(error instanceof CommandError)) {
+      throw error;
+    }
     log(
-      `skill audit: not run (${error instanceof Error ? error.message : String(error)})`
+      `skill audit: not run (${error.message}); run \`node skills/bin/harness.mjs skill audit\` to see the cause`
     );
-    return;
+    return true;
   }
   log("skill audit:");
-  for (const line2 of report3.trimEnd().split("\n")) {
+  for (const line2 of report3.text.trimEnd().split("\n")) {
     log(`  ${line2}`.trimEnd());
   }
+  return report3.failing;
 }
 async function runChecks(argv, deps, log) {
   const strict = argv.includes("--strict");
@@ -7885,8 +7897,10 @@ async function skillReport(fs, root3) {
     throw error;
   }
 }
-async function skillAuditText(fs, root3) {
-  return renderReport(await skillReport(fs, root3));
+var isFailing = (report3) => report3.summary["over-budget"] + report3.summary.invalid > 0;
+async function skillAudit(fs, root3) {
+  const report3 = await skillReport(fs, root3);
+  return { text: renderReport(report3), failing: isFailing(report3) };
 }
 var audit2 = {
   summary: "report each skill's description and body against its budgets",
@@ -7895,8 +7909,7 @@ var audit2 = {
     const report3 = await skillReport(deps.fs, await deps.root());
     deps.stdout(json ? `${JSON.stringify(report3)}
 ` : renderReport(report3));
-    const failing = report3.summary["over-budget"] + report3.summary.invalid > 0;
-    return options["strict"] === true && failing ? 1 : 0;
+    return options["strict"] === true && isFailing(report3) ? 1 : 0;
   }
 };
 var skill = { audit: audit2 };
@@ -7956,7 +7969,7 @@ async function kbCheck(strict, deps) {
     files: () => [...tree.keys()],
     read: (path) => tree.get(path) ?? null,
     commitDate: async (path) => (await git2(deps, root3, ["log", "-1", "--format=%cs", "--", path])).trim() || null,
-    audit: () => skillAuditText(deps.fs, root3),
+    audit: () => skillAudit(deps.fs, root3),
     flagAudit: () => flagAudit(deps, root3)
   };
   const code = await run(
