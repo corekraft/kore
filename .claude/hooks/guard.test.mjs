@@ -582,3 +582,38 @@ test("idea-outcome: other idea edits and other files are not warned", () => {
     assert.equal(result.action, "allow", JSON.stringify(result));
   }
 });
+
+const bodyWarned = (result, label) => {
+  assert.equal(result.action, "warn", `${label}: ${JSON.stringify(result)}`);
+  assert.equal(result.rule, "idea-issue-body", label);
+  assert.match(result.message, /\[guard:idea-issue-body\]/, label);
+  assert.match(result.message, /harness idea sync/, label);
+  assert.match(result.message, /Instead/, label);
+};
+
+test("idea-issue-body: editing an issue body by hand warns and names the sync tool", () => {
+  for (const command of [
+    "gh issue edit 186 --body 'new text'",
+    "gh issue edit 186 -b 'new text'",
+    "gh issue edit 186 --body-file notes.md",
+    "gh issue edit 186 -F notes.md",
+    "gh issue edit 186 --repo corekraft/kore --body=x",
+    "gh issue edit 186 --body-file -",
+    "gh issue edit 186 --title 'x'",
+    "gh issue edit 186 -t x",
+  ]) {
+    bodyWarned(bash(command), command);
+  }
+});
+
+test("idea-issue-body: label, assignee and read commands are not warned", () => {
+  for (const command of [
+    "gh issue edit 186 --add-label ready-for-agent",
+    "gh issue edit 186 --add-assignee junners",
+    "gh issue view 186 --json body",
+    "gh issue comment 186 --body 'note'",
+    "gh pr edit 12 --body 'x'",
+  ]) {
+    assert.equal(bash(command).action, "allow", command);
+  }
+});

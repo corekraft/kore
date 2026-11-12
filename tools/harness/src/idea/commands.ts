@@ -1,6 +1,7 @@
 import type { Command, CommandContext } from "../runtime/index.js";
 import { IdeaError, scalar, type IdeaRecord, type NewIdea } from "./record.js";
 import { IdeaRepository } from "./repository.js";
+import { syncIssue } from "./sync.js";
 
 const FAILED = 1;
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -162,8 +163,39 @@ const list: Command = {
   },
 };
 
+const sync: Command = {
+  summary:
+    "mirror one idea to its GitHub issue, creating it when missing and editing only when the body changed (--idea <number or slug>)",
+  options: { idea: "string" },
+  run(context) {
+    return guarded(context, async () => {
+      const ref = text(context.options, "idea");
+      if (ref === undefined || ref.trim() === "") {
+        throw new IdeaError(
+          "Missing --idea; run `harness idea sync --idea <number or slug>`, or `harness idea list` to see the ideas.",
+        );
+      }
+      const repo = await repository(context);
+      const record = await repo.get(ref.trim());
+      const result = await syncIssue(
+        context.deps.runner,
+        await context.deps.root(),
+        record,
+        await repo.source(record),
+        (url) => repo.recordIssue(record, url),
+      );
+      context.deps.stdout(
+        context.json
+          ? `${JSON.stringify({ idea: record.number, ...result })}\n`
+          : `Issue ${result.action}: ${result.issue}\n`,
+      );
+    });
+  },
+};
+
 export const ideaCommands: Record<string, Command> = {
   new: create,
   list,
   show,
+  sync,
 };

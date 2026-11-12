@@ -28,8 +28,9 @@ export function harness(
   );
   const out: string[] = [];
   const err: string[] = [];
+  const runner = new FakeRunner();
   const deps: CliDeps = {
-    runner: new FakeRunner(),
+    runner,
     clock: { now: () => new Date("2026-03-04T05:06:07.000Z") },
     root: () => Promise.resolve(ROOT),
     env: {},
@@ -43,6 +44,7 @@ export function harness(
   const paths = () => [...fs.files.keys()].map((k) => k.slice(ROOT.length + 1));
   return {
     deps,
+    runner,
     fs,
     out: () => out.join(""),
     err: () => err.join(""),

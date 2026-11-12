@@ -147,3 +147,21 @@ export function renderIdea(
   lines.push("---", "", `# Idea ${number}: ${idea.title}`, "");
   return lines.join("\n");
 }
+
+/** Sets the `issue:` frontmatter line, replacing any existing one; the rest of the file is untouched. */
+export function withIssue(text: string, issue: string): string {
+  const lines = text.split("\n");
+  const end = lines.indexOf("---", 1);
+  if (lines[0] !== "---" || end === -1) {
+    throw new IdeaError("The idea has no frontmatter to record the issue in.");
+  }
+  const at = lines.findIndex(
+    (l, i) => i > 0 && i < end && l.startsWith("issue:"),
+  );
+  if (at === -1) {
+    lines.splice(end, 0, `issue: ${issue}`);
+  } else {
+    lines[at] = `issue: ${issue}`;
+  }
+  return lines.join("\n");
+}
