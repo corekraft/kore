@@ -140,9 +140,18 @@ planned), so only k3d load is recorded.
   `WaitForFirstConsumer`.
 - `kore local down --prune` left `~/.kore/k3d/kore-local` behind. Fixed on #266:
   deleting the cluster removes that directory only.
-- Run 2 (fresh profile) reached `istio-cni`, then k3s exited with
-  `Transaction commit failed` after kine (embedded SQLite) logged "Slow SQL"
-  while sibling sessions held the host at load average 166-192. This needs a
-  design decision (a datastore for a loaded host, such as embedded etcd via
-  `--cluster-init`, recorded as an ADR) and a quiet host before a rerun.
+- Run 2 (fresh profile, loaded host at load average 166-192): k3s exited with
+  `Transaction commit failed` after kine (embedded SQLite) logged "Slow SQL".
+  Not reproduced on a quiet host, so no etcd ADR is written.
+- Run 3 (fresh profile, quiet host, load 1.7 to 2.6, k3s server container
+  2.8 GiB of the 11.68 GiB Docker VM, 83% idle CPU): k3s stayed up for 15
+  minutes. `istio-cni-node` never became ready because the chart defaults to
+  `/etc/cni/net.d` and `/opt/cni/bin`, which k3s does not use. Fixed on #266 by
+  a local overlay pointing at `/var/lib/rancher/k3s/agent/etc/cni/net.d` and
+  `/var/lib/rancher/k3s/data/cni`.
+- Run 4 (resume of the existing profile): istio-cni and ztunnel converged, then
+  `kore-observability-config` failed: the `tempo-storage` claim is created by a
+  chart with no consumer, so with `WaitForFirstConsumer` it stays Pending and
+  Helm `--wait` times out. Blocked on a design decision: where the Tempo claim
+  lives, or whether a release may skip waiting on a claim.
 - Safety pattern: expand and contract. Not yet proven live.
