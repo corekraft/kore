@@ -1,3 +1,4 @@
+import { loadMinikubeLocal } from "../config/minikube-local-support.js";
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -18,7 +19,7 @@ import {
 async function withState<T>(
   run: (repository: Awaited<ReturnType<typeof loadRepository>>) => Promise<T>,
 ): Promise<T> {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-tunnel-group-"));
   const repository = { ...base, root };
   await mkdir(join(root, ".kore", "state"), { recursive: true });

@@ -6,6 +6,7 @@ import {
   proofManifests,
   routeProblem,
   secretKeys,
+  tunnelProcessProblem,
 } from "./gateway-proof.js";
 
 const options = {
@@ -212,4 +213,44 @@ test("secretKeys lists sorted key names and never returns values", () => {
   const keys = secretKeys({ data: { B: "c2VjcmV0", A: "eA==" } });
   assert.deepEqual(keys, ["A", "B"]);
   assert.deepEqual(secretKeys({}), []);
+});
+
+test("a host process list with a minikube tunnel or its ssh forward is a tunnel problem", () => {
+  assert.match(
+    tunnelProcessProblem(
+      [
+        { pid: 10, command: "/usr/bin/node server.js" },
+        { pid: 11, command: "/opt/homebrew/bin/minikube tunnel -p kore-local" },
+      ],
+      8443,
+    ) ?? "",
+    /minikube tunnel.*pid 11/,
+  );
+  assert.match(
+    tunnelProcessProblem(
+      [
+        {
+          pid: 12,
+          command:
+            "ssh -L 8443:10.0.0.1:8443 -L 15021:10.0.0.1:15021 -i /Users/x/.minikube/machines/kore-local/id_rsa docker@127.0.0.1",
+        },
+      ],
+      8443,
+    ) ?? "",
+    /ssh forward.*pid 12/,
+  );
+});
+
+test("the k3d load balancer and unrelated processes are not a tunnel", () => {
+  assert.equal(
+    tunnelProcessProblem(
+      [
+        { pid: 1, command: "docker-proxy -proto tcp -host-port 8443" },
+        { pid: 2, command: "ssh -L 5432:db:5432 bastion" },
+        { pid: 3, command: "/usr/bin/vim minikube-notes.txt tunnel" },
+      ],
+      8443,
+    ),
+    undefined,
+  );
 });

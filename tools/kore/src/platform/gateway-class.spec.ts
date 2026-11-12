@@ -61,14 +61,15 @@ test("with the flag off the platform-config render is byte-identical to today", 
   assert.equal(render(repository), golden);
 });
 
-test("with the flag on only the Gateway class changes", async () => {
+test("with the flag on the Gateway class changes and the Istio-only Service overlay is not rendered", async () => {
   const off = render(await localWith({ [ingressFlag]: false }));
   const on = render(await localWith({ [ingressFlag]: true }));
   assert.match(off, /gatewayClassName: istio/);
-  assert.equal(
-    on,
-    off.replace("gatewayClassName: istio", "gatewayClassName: agentgateway"),
-  );
+  assert.match(off, /name: kore-gateway-service/);
+  assert.match(on, /gatewayClassName: agentgateway/);
+  // The overlay is an Istio parametersRef; agentgateway takes its own
+  // parameters resource, which the ingress plan adds when it replaces the Gateway.
+  assert.doesNotMatch(on, /kore-gateway-service|parametersRef/);
 });
 
 test("no agentgateway release is issued with the flag off, and both are with it on", async () => {

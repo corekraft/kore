@@ -2,6 +2,7 @@ import { totalmem, cpus } from "node:os";
 import { statfs } from "node:fs/promises";
 import type { Repository } from "../config/index.js";
 import { minikubeCluster } from "../config/index.js";
+import { k3dClusterInfo } from "../cluster/index.js";
 import type { Runner } from "../runtime/index.js";
 
 export type CheckStatus = "pass" | "warn" | "fail";
@@ -16,6 +17,7 @@ const commands: Record<string, readonly string[]> = {
   node: ["--version"],
   npm: ["--version"],
   minikube: ["version", "--short"],
+  k3d: ["version"],
   kubectl: ["version", "--client=true", "-o", "json"],
   helm: ["version", "--short"],
   yq: ["--version"],
@@ -27,15 +29,19 @@ const commands: Record<string, readonly string[]> = {
   opa: ["version"],
   docker: ["--version"],
 };
-const required = new Set([
-  "node",
-  "npm",
-  "minikube",
-  "kubectl",
-  "helm",
-  "docker",
-  "cosign",
-]);
+const alwaysRequired = ["node", "npm", "kubectl", "helm", "docker", "cosign"];
+
+/** The cluster tool each local provider needs; the other is not checked. */
+const providerTool: Record<string, string | undefined> = {
+  k3d: "k3d",
+  minikube: "minikube",
+};
+const clusterTools = Object.values(providerTool) as string[];
+
+function requiredTools(repository: Repository): Set<string> {
+  const tool = providerTool[repository.environment.provider];
+  return new Set(tool ? [...alwaysRequired, tool] : alwaysRequired);
+}
 
 function detectedVersion(output: string): string | undefined {
   return output.match(/v?(\d+\.\d+\.\d+)/)?.[1];
@@ -48,11 +54,22 @@ function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function toolStatus(tool: string, matches: boolean): CheckStatus {
+function toolStatus(
+  required: Set<string>,
+  tool: string,
+  matches: boolean,
+): CheckStatus {
   if (matches) {
     return "pass";
   }
   return required.has(tool) ? "fail" : "warn";
+}
+
+const installRemedy = "install the pinned version with `mise install`";
+
+function unavailableMessage(error: unknown): string {
+  const missing = (error as NodeJS.ErrnoException).code === "ENOENT";
+  return `not available: ${errorText(error)}${missing ? `; ${installRemedy}` : ""}`;
 }
 
 async function toolCheck(
@@ -60,6 +77,7 @@ async function toolCheck(
   expected: string,
   args: readonly string[],
   runner: Runner,
+  required: Set<string>,
 ): Promise<Check> {
   try {
     const result = await runner.run(tool, args, { capture: true });
@@ -68,7 +86,7 @@ async function toolCheck(
       actual !== undefined && majorMinor(actual) === majorMinor(expected);
     return {
       name: `tool:${tool}`,
-      status: toolStatus(tool, matches),
+      status: toolStatus(required, tool, matches),
       required: required.has(tool),
       message: matches
         ? `${actual} (pinned ${expected})`
@@ -79,7 +97,7 @@ async function toolCheck(
       name: `tool:${tool}`,
       status: required.has(tool) ? "fail" : "warn",
       required: required.has(tool),
-      message: `not available: ${errorText(error)}`,
+      message: unavailableMessage(error),
     };
   }
 }
@@ -89,10 +107,12 @@ async function toolChecks(
   runner: Runner,
 ): Promise<Check[]> {
   const checks: Check[] = [];
+  const required = requiredTools(repository);
   for (const [tool, expected] of Object.entries(repository.versions.tools)) {
     const args = commands[tool];
-    if (args) {
-      checks.push(await toolCheck(tool, expected, args, runner));
+    // A provider needs only its own cluster tool, so the other is not a finding.
+    if (args && (!clusterTools.includes(tool) || required.has(tool))) {
+      checks.push(await toolCheck(tool, expected, args, runner, required));
     }
   }
   return checks;
@@ -214,18 +234,58 @@ async function minikubeProfileCheck(
   }
 }
 
+async function k3dClusterCheck(
+  repository: Repository,
+  runner: Runner,
+): Promise<Check> {
+  const name = repository.environment.k3d?.clusterName ?? "(unset)";
+  const base = { name: "k3d-cluster", required: false } as const;
+  try {
+    const { state } = await k3dClusterInfo(repository.environment, runner);
+    if (state === "running") {
+      return { ...base, status: "pass", message: `${name} is running` };
+    }
+    return {
+      ...base,
+      status: "warn",
+      message:
+        state === "absent"
+          ? `${name} is absent; run \`kore local up\` to create it`
+          : `${name} is stopped; run \`kore local up\` to start it`,
+    };
+  } catch (error) {
+    return {
+      ...base,
+      status: "warn",
+      message: `k3d cluster ${name} could not be listed: ${errorText(error)}`,
+    };
+  }
+}
+
+/**
+ * Read-only: every probe is a version or list call, run before anything
+ * mutates. A k3d overlay checks k3d, docker and the cluster; the Minikube
+ * sizing and profile checks apply only where those settings exist.
+ */
 export async function doctor(
   repository: Repository,
   runner: Runner,
 ): Promise<Check[]> {
+  const k3d = repository.environment.provider === "k3d";
   return [
     ...(await toolChecks(repository, runner)),
     await containerRuntimeCheck(runner),
-    hostCpuCheck(repository),
-    hostMemoryCheck(repository),
-    await hostDiskCheck(repository),
+    ...(k3d
+      ? []
+      : [
+          hostCpuCheck(repository),
+          hostMemoryCheck(repository),
+          await hostDiskCheck(repository),
+        ]),
     credentialsCheck(repository),
-    await minikubeProfileCheck(repository, runner),
+    k3d
+      ? await k3dClusterCheck(repository, runner)
+      : await minikubeProfileCheck(repository, runner),
   ];
 }
 

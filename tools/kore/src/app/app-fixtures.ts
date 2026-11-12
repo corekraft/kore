@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { registryTlsSecret } from "../images/registry-tls-fixtures.js";
-import { loadRepository } from "../config/index.js";
+import { loadMinikubeLocal } from "../config/minikube-local-support.js";
 import { platformGeneration } from "../platform/admission-gate.js";
 import {
   gatedOffReleaseAbsent,
@@ -53,9 +53,7 @@ const registryCredentials = JSON.stringify({
 });
 
 /** The generation of the local repository, which a gate must carry to be current. */
-export const localGeneration = platformGeneration(
-  await loadRepository("local"),
-);
+export const localGeneration = platformGeneration(await loadMinikubeLocal());
 
 export function gateOutput(
   state: string,
@@ -209,8 +207,8 @@ export async function removeReleaseLocks(): Promise<void> {
  */
 export async function repositoryTrustingRelease(
   signer = releaseSigner,
-): Promise<Awaited<ReturnType<typeof loadRepository>>> {
-  const base = await loadRepository("local");
+): ReturnType<typeof loadMinikubeLocal> {
+  const base = await loadMinikubeLocal();
   return {
     ...base,
     imageTrustValues: {

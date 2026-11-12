@@ -1,3 +1,4 @@
+import { loadMinikubeLocal } from "../config/minikube-local-support.js";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -41,7 +42,7 @@ async function setup(): Promise<{
 }> {
   const root = await mkdtemp(join(tmpdir(), "kore-signer-"));
   roots.push(root);
-  const repository = { ...(await loadRepository("local")), root };
+  const repository = { ...(await loadMinikubeLocal()), root };
   const calls: Call[] = [];
   const runner: Runner = {
     async run(command, args, options): Promise<RunResult> {

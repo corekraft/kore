@@ -1,9 +1,10 @@
+import { loadMinikubeLocal } from "../config/minikube-local-support.js";
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vitest";
-import { loadRepository } from "../config/index.js";
+
 import {
   startLocalTunnel,
   stopLocalTunnel,
@@ -13,7 +14,7 @@ import {
 import { RecordingRunner } from "../runtime/runner.js";
 
 test("stops a managed tunnel and relies on process shutdown to clear routes", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-tunnel-"));
   const repository = { ...base, root };
   await mkdir(join(root, ".kore", "state"), { recursive: true });
@@ -37,7 +38,7 @@ test("stops a managed tunnel and relies on process shutdown to clear routes", as
 });
 
 test("rejects tunnel operations for managed environments", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const repository = {
     ...base,
     environment: { ...base.environment, provider: "managed" as const },
@@ -45,21 +46,21 @@ test("rejects tunnel operations for managed environments", async () => {
   const runner = new RecordingRunner();
   await assert.rejects(
     tunnelStatus(repository),
-    /only available for a Minikube/,
+    /manages a Minikube tunnel only/,
   );
   await assert.rejects(
     startLocalTunnel(repository, runner),
-    /only available for a Minikube/,
+    /manages a Minikube tunnel only/,
   );
   await assert.rejects(
     stopLocalTunnel(repository, runner),
-    /only available for a Minikube/,
+    /manages a Minikube tunnel only/,
   );
   assert.equal(runner.calls.length, 0);
 });
 
 test("removes stale tunnel state without signaling an exited process", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-tunnel-stop-stale-"));
   const repository = { ...base, root };
   await mkdir(join(root, ".kore", "state"), { recursive: true });

@@ -3,10 +3,11 @@ import { readFile } from "node:fs/promises";
 import { test } from "vitest";
 import { readinessFor } from "./readiness-fixtures.js";
 import { loadRepository, validateRepository } from "./config.js";
+import { loadMinikubeLocal } from "./minikube-local-support.js";
 import { minikubeCluster } from "./minikube-cluster.js";
 
 test("validation reports invalid versions, component definitions, and missing value files", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const component = base.catalog.components[0]!;
   const { chart: _chart, ...withoutChart } = component;
   await assert.rejects(
@@ -68,7 +69,7 @@ const sound = {
 async function validationMessage(
   mutate: (base: Awaited<ReturnType<typeof loadRepository>>) => unknown,
 ): Promise<string> {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   try {
     await validateRepository(
       mutate({
@@ -203,7 +204,7 @@ test("a component with no readiness check fails validation naming the component"
 });
 
 test("every catalog component declares at least one readiness check", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const unchecked = base.catalog.components
     .filter(({ readiness }) => readiness.length === 0)
     .map(({ name }) => name);
@@ -227,7 +228,7 @@ test("the components schema requires at least one readiness check", async () => 
 });
 
 test("storage and PostgreSQL RBAC releases prove the resources they own", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const readiness = (name: string) =>
     base.catalog.components.find((component) => component.name === name)
       ?.readiness;
@@ -242,7 +243,7 @@ test("storage and PostgreSQL RBAC releases prove the resources they own", async 
 });
 
 test("policy releases prove the objects they apply, not the Gatekeeper controller", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const readiness = (name: string) =>
     base.catalog.components.find((component) => component.name === name)
       ?.readiness ?? [];

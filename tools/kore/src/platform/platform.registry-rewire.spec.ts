@@ -1,3 +1,4 @@
+import { loadMinikubeLocal } from "../config/minikube-local-support.js";
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { loadRepository } from "../config/index.js";
@@ -7,7 +8,7 @@ import { rewireRegistryService } from "./registry-rewire.js";
 const lookup = (stdout: string) => ({ stdout, stderr: "", code: 0 });
 
 test("a registry Service on another clusterIP is deleted alone and reported", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const runner = new RecordingRunner([lookup("10.99.1.2")]);
   const messages: string[] = [];
 
@@ -37,14 +38,14 @@ test("a registry Service on another clusterIP is deleted alone and reported", as
 });
 
 test("a registry Service already on the pinned clusterIP is left alone", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const runner = new RecordingRunner([lookup("10.96.0.50")]);
   assert.equal(await rewireRegistryService(repository, runner), false);
   assert.equal(runner.calls.length, 1);
 });
 
 test("an absent registry Service is not an error and deletes nothing", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const runner = new RecordingRunner([lookup("")]);
   assert.equal(await rewireRegistryService(repository, runner), false);
   assert.equal(

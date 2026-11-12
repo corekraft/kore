@@ -1,4 +1,8 @@
-import { registryPlan, type Repository } from "../config/index.js";
+import {
+  isLocalProvider,
+  registryPlan,
+  type Repository,
+} from "../config/index.js";
 import type { LockedImage } from "../images/index.js";
 
 export function releaseArgs(
@@ -41,7 +45,7 @@ export function releaseArgs(
   if (image) {
     args.push(...imageReleaseArgs(repository, name, image));
   }
-  if (image && repository.environment.provider === "minikube") {
+  if (image && isLocalProvider(repository.environment)) {
     args.push(...localImagePullPolicyArgs());
   }
   return args;

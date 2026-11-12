@@ -1,3 +1,4 @@
+import { loadMinikubeLocal } from "../config/minikube-local-support.js";
 import {
   copyFile,
   mkdir,
@@ -10,7 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import { loadRepository } from "../config/index.js";
+
 import { localDown, localUp } from "./local.js";
 import {
   imageDigestFromRegistryHead,
@@ -80,7 +81,7 @@ test("local image digest comes from the registry manifest response header", () =
 });
 
 test("local up starts the platform before reconciling every locked application", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const calls: string[] = [];
 
   await localUp(repository, {} as never, {
@@ -117,7 +118,7 @@ test("local up starts the platform before reconciling every locked application",
 });
 
 test("local down preserves cluster state unless pruning is explicitly requested", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const calls: string[] = [];
 
   await localDown(
@@ -164,21 +165,21 @@ test("local down preserves cluster state unless pruning is explicitly requested"
 });
 
 test("local lifecycle refuses managed environments", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const repository = {
     ...base,
     environment: { ...base.environment, provider: "managed" as const },
   };
   await expect(localUp(repository, {} as never)).rejects.toThrow(
-    /only manage Minikube environments/,
+    /only manage k3d environments/,
   );
   await expect(
     localDown(repository, {} as never, { prune: false, purgeData: false }),
-  ).rejects.toThrow(/only manage Minikube environments/);
+  ).rejects.toThrow(/only manage k3d environments/);
 });
 
 test("purging retained data without --prune is refused before anything is touched", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const calls: string[] = [];
   await expect(
     localDown(
@@ -199,7 +200,7 @@ test("purging retained data without --prune is refused before anything is touche
 });
 
 async function staleKeyRepository() {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-local-stale-key-"));
   const state = join(root, ".kore/state");
   await mkdir(state, { recursive: true });

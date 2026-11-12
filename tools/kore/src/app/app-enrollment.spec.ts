@@ -1,3 +1,4 @@
+import { loadMinikubeLocal } from "../config/minikube-local-support.js";
 import { expect, test, vi } from "vitest";
 
 const localRegistryReferenceMock = vi.hoisted(() => vi.fn());
@@ -5,7 +6,7 @@ vi.mock("../images/index.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../images/index.js")>()),
   localRegistryReference: localRegistryReferenceMock,
 }));
-import { loadRepository } from "../config/index.js";
+
 import { appUp } from "./up.js";
 import type { Runner } from "../runtime/index.js";
 import {
@@ -15,7 +16,7 @@ import {
 } from "./app-fixtures.js";
 
 test("app up enrolls the application namespace in the ambient mesh before any release installs", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const calls: {
     command: string;
     args: readonly string[];

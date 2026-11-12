@@ -1,14 +1,15 @@
+import { loadMinikubeLocal } from "../config/minikube-local-support.js";
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "node:net";
 import { test } from "vitest";
-import { loadRepository } from "../config/index.js";
+
 import { tunnelStatePath, tunnelStatus } from "./tunnel.js";
 
 test("does not report the tunnel running when its local Gateway port is unreachable", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-tunnel-health-"));
   const repository = { ...base, root };
   await mkdir(join(root, ".kore", "state"), { recursive: true });
@@ -30,7 +31,7 @@ test("does not report the tunnel running when its local Gateway port is unreacha
 });
 
 test("treats malformed, mismatched, and invalid tunnel state as missing", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-tunnel-invalid-state-"));
   const repository = { ...base, root };
   const stateDirectory = join(root, ".kore", "state");
@@ -51,7 +52,7 @@ test("treats malformed, mismatched, and invalid tunnel state as missing", async 
 });
 
 test("checks tunnel status through the real loopback socket and process probes", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-tunnel-real-probes-"));
   const server = createServer();
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));

@@ -3,6 +3,9 @@ gateway:
   hostname: kore.local
   port: 8443
   certificateSecret: kore-local-tls
+  service:
+    type: NodePort
+    nodePort: 30443
 issuer:
   name: kore-local-ca
 secrets:

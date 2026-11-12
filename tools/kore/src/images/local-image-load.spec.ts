@@ -1,12 +1,13 @@
+import { loadMinikubeLocal } from "../config/minikube-local-support.js";
 import { expect, test } from "vitest";
-import { loadRepository, type Repository } from "../config/index.js";
+import { type Repository } from "../config/index.js";
 import { fakeRunner } from "./local-image-fixtures.js";
 import { k3dImageImportArgs, loadLocalImage } from "./local-image.js";
 
 const tag = "kore-local/reference:kore-local";
 
 async function k3dRepository(): Promise<Repository> {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const { cluster: _cluster, ...environment } = base.environment;
   return {
     ...base,
@@ -51,7 +52,7 @@ test("a k3d environment imports the built image with k3d and issues no minikube 
 
 test("a minikube environment still loads the built image with minikube", async () => {
   const { runner, calls } = fakeRunner();
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
 
   await loadLocalImage(repository, runner, "reference", tag);
 

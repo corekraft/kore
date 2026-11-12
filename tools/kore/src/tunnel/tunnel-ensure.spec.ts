@@ -1,10 +1,11 @@
+import { loadMinikubeLocal } from "../config/minikube-local-support.js";
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vitest";
 import { ClusterUnavailableError } from "../cluster/index.js";
-import { loadRepository } from "../config/index.js";
+
 import { CommandError, type Runner } from "../runtime/index.js";
 import {
   ensureLocalTunnel,
@@ -37,7 +38,7 @@ const stoppedProfile: Runner = {
 };
 
 async function fixture(pid?: number) {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-tunnel-ensure-"));
   const repository = { ...base, root };
   if (pid !== undefined) {

@@ -1,3 +1,4 @@
+import { loadMinikubeLocal } from "../config/minikube-local-support.js";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -7,7 +8,7 @@ import { test } from "vitest";
 import { clusterDestroy } from "./cluster.js";
 import { hasVerifiedExport } from "./export-manifest.js";
 import { purgeRetainedResources, retainedResources } from "./retained.js";
-import { loadRepository } from "../config/index.js";
+
 import { CommandError } from "../runtime/index.js";
 import { RecordingRunner } from "../runtime/runner.js";
 
@@ -22,7 +23,7 @@ function mockStdout(command: string, args: readonly string[]): string {
 }
 
 test("retained data blocks cluster deletion", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const runner = new RecordingRunner([
     { stdout: "{}", stderr: "", code: 0 },
     { stdout: "kube-system", stderr: "", code: 0 },
@@ -44,7 +45,7 @@ test("retained data blocks cluster deletion", async () => {
 });
 
 test("purging retained data explicitly deletes retained claims before the profile", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const runner = new RecordingRunner([
     { stdout: "{}", stderr: "", code: 0 },
     { stdout: "kube-system", stderr: "", code: 0 },
@@ -73,7 +74,7 @@ test("purging retained data explicitly deletes retained claims before the profil
 });
 
 test("purge tolerates a PostgreSQL CRD that was never installed", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const calls: { command: string; args: readonly string[] }[] = [];
   const runner = {
     async run(command: string, args: readonly string[]) {
@@ -111,7 +112,7 @@ test("purge tolerates a PostgreSQL CRD that was never installed", async () => {
 
 test("verified exports allow destroying an unreachable profile without purging data", async () => {
   const repository = {
-    ...(await loadRepository("local")),
+    ...(await loadMinikubeLocal()),
     root: await mkdtemp(join(tmpdir(), "kore-retained-")),
   };
   const exportDirectory = join(
@@ -154,7 +155,7 @@ test("verified exports allow destroying an unreachable profile without purging d
 });
 
 test("retained resource discovery ignores unavailable APIs, trims, deduplicates, and sorts", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   let query = 0;
   const runner = {
     async run() {
@@ -184,7 +185,7 @@ test("retained resource discovery ignores unavailable APIs, trims, deduplicates,
 });
 
 test("a missing PostgreSQL CRD counts as no retained data", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   let query = 0;
   const runner = {
     async run() {
@@ -207,7 +208,7 @@ test("an unreachable cluster blocks destroy instead of counting as no retained d
   // An isolated root: a real export under the repository's .kore/ would
   // legitimately unblock destroy and hide what this test protects.
   const repository = {
-    ...(await loadRepository("local")),
+    ...(await loadMinikubeLocal()),
     root: await mkdtemp(join(tmpdir(), "kore-retained-")),
   };
   try {
@@ -245,7 +246,7 @@ test("an unreachable cluster blocks destroy instead of counting as no retained d
 
 test("export verification rejects malformed or mismatched manifests", async () => {
   const repository = {
-    ...(await loadRepository("local")),
+    ...(await loadMinikubeLocal()),
     root: await mkdtemp(join(tmpdir(), "kore-retained-")),
   };
   const exportDirectory = join(
@@ -271,7 +272,7 @@ test("export verification rejects malformed or mismatched manifests", async () =
 });
 
 test("purge never waits on a claim that a running pod still mounts", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const runner = new RecordingRunner([]);
 
   await purgeRetainedResources(repository, runner);

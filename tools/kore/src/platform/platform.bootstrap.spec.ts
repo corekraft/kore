@@ -1,3 +1,4 @@
+import { loadMinikubeLocal } from "../config/minikube-local-support.js";
 import { withHealthyWebhooks } from "./webhook-fixtures.js";
 import { desiredFingerprint } from "./fingerprint.js";
 import assert from "node:assert/strict";
@@ -8,7 +9,7 @@ vi.mock("./admission-gate.js", async (importOriginal) => ({
   closeExistingAdmissionGate: async () => undefined,
   openAdmissionGate: async () => undefined,
 }));
-import { loadRepository, minikubeCluster } from "../config/index.js";
+import { minikubeCluster } from "../config/index.js";
 import { bootstrapControllers } from "./bootstrap.js";
 import { platformStop, platformDestroy } from "./lifecycle.js";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -18,7 +19,7 @@ import { RecordingRunner } from "../runtime/runner.js";
 import { tmpdir } from "node:os";
 
 test("controller bootstrap reconciles controllers before shared Gateway configuration", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const runner = new RecordingRunner([
     { stdout: '{"Host":"Running"}', stderr: "", code: 0 },
     { stdout: "kube-system", stderr: "", code: 0 },
@@ -34,7 +35,7 @@ test("controller bootstrap reconciles controllers before shared Gateway configur
 });
 
 test("controller bootstrap resumes a deployed component without another Helm upgrade", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const component = repository.catalog.components.find(
     ({ name }) => name === "kore-postgresql-rbac",
   )!;
@@ -72,7 +73,7 @@ test("controller bootstrap resumes a deployed component without another Helm upg
 });
 
 test("platform stop removes managed tunnel state before stopping the cluster", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-platform-stop-"));
   const repository = { ...base, root };
   const runner = new RecordingRunner([
@@ -93,7 +94,7 @@ test("platform stop removes managed tunnel state before stopping the cluster", a
 });
 
 test("platform destroy stops the tunnel before purging and deleting the cluster", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-platform-destroy-"));
   const repository = { ...base, root };
   const runner = new RecordingRunner([
@@ -117,7 +118,7 @@ test("platform destroy stops the tunnel before purging and deleting the cluster"
 });
 
 test("controller bootstrap creates a missing Minikube profile", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const repository = {
     ...base,
     catalog: { components: [] },
@@ -150,7 +151,7 @@ test("controller bootstrap creates a missing Minikube profile", async () => {
 });
 
 test("controller bootstrap installs no shared composition, issuer, gateway, secret store, or OPA authorizer", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const runner = new RecordingRunner([
     { stdout: '{"Host":"Running"}', stderr: "", code: 0 },
     { stdout: "kube-system", stderr: "", code: 0 },
@@ -194,7 +195,7 @@ test("controller bootstrap installs no shared composition, issuer, gateway, secr
 });
 
 test("bootstrap recreates a deployed registry whose Service drifted from the pin, without touching its data", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const component = repository.catalog.components.find(
     ({ name }) => name === "oci-registry",
   )!;

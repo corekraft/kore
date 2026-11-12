@@ -210,3 +210,40 @@ export function certificateProblem(
 export function secretKeys(secret: Json): string[] {
   return Object.keys((secret.data ?? {}) as Json).sort();
 }
+
+/**
+ * Whether the host runs a tunnel that could be what answers the Gateway port:
+ * a `minikube tunnel`, or the `ssh -L` forward it holds the port with. The
+ * k3d load balancer publishes the port with neither, so any hit means the
+ * endpoint is not answering through the load balancer. Undefined when none.
+ */
+export function tunnelProcessProblem(
+  processes: { pid: number; command: string }[],
+  port: number,
+): string | undefined {
+  for (const { pid, command } of processes) {
+    const tokens = command.split(/\s+/).filter((token) => token !== "");
+    const binary = tokens[0] ?? "";
+    if (
+      (binary === "minikube" || binary.endsWith("/minikube")) &&
+      tokens[1] === "tunnel"
+    ) {
+      return `a minikube tunnel is running (pid ${pid}); the load balancer must answer with no tunnel process`;
+    }
+    const forwards = tokens.some(
+      (token, index) =>
+        (token === "-L" &&
+          (tokens[index + 1] ?? "").split(":").includes(String(port))) ||
+        (token.startsWith("-L") &&
+          token.slice(2).split(":").includes(String(port))),
+    );
+    if (
+      (binary === "ssh" || binary.endsWith("/ssh")) &&
+      forwards &&
+      command.includes("/.minikube/")
+    ) {
+      return `a minikube ssh forward holds port ${port} (pid ${pid}); the load balancer must answer with no tunnel process`;
+    }
+  }
+  return undefined;
+}

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { loadRepository } from "../config/index.js";
-import { ProcessRunner } from "../runtime/index.js";
+import { listHostProcesses, ProcessRunner } from "../runtime/index.js";
 import {
   Cluster,
   conditionHolds,
@@ -16,13 +16,15 @@ import {
   proofManifests,
   routeProblem,
   secretKeys,
+  tunnelProcessProblem,
 } from "./gateway-proof.js";
 import type { ProofOptions } from "./gateway-proof.js";
 import { platformStatus, platformUp } from "./index.js";
 
 // Docs: docs/decisions/0013-local-tls-before-gateway.md
-// Live: needs a running local profile after `kore local up` and the minikube
-// tunnel it starts. Creates only a throwaway namespace, removed in `finally`;
+// Live: needs a running k3d cluster after `kore local up`; the k3d load balancer
+// answers on the Gateway port with no tunnel process. Creates only a throwaway
+// namespace, removed in `finally`;
 // no secret value is ever read or printed. Run with KORE_RUN_INTEGRATION=1
 // (`npm run test:integration:gateway`).
 
@@ -45,11 +47,26 @@ const routeReady = (cluster: Cluster, options: ProofOptions) =>
     (route) => routeProblem(route),
   );
 
+// The endpoint must answer through the load balancer alone: a tunnel left
+// running would answer the same request and hide a broken port mapping.
 const httpsLive = (cluster: Cluster, options: ProofOptions, root: string) =>
   eventually(
-    "the HTTPS endpoint",
-    () => httpsGet(cluster, options, root, "/livez"),
-    (result) => (result.status === 200 ? undefined : `status ${result.status}`),
+    "the HTTPS endpoint through the load balancer, with no tunnel process",
+    async () => {
+      const tunnel = tunnelProcessProblem(
+        await listHostProcesses(),
+        cluster.repository.environment.gateway.port,
+      );
+      return tunnel
+        ? { status: 0, body: tunnel }
+        : httpsGet(cluster, options, root, "/livez");
+    },
+    (result) => {
+      if (result.status === 200) {
+        return undefined;
+      }
+      return result.status === 0 ? result.body : `status ${result.status}`;
+    },
   );
 
 async function gatewayReady(cluster: Cluster): Promise<void> {

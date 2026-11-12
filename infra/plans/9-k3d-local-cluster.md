@@ -34,7 +34,9 @@ plan 8.
       `infra/environments/local/environment.yaml`.
       Progress: types, schema and validator accept `k3d` (with an
       `environment.k3d` block), `managed` and `minikube` (#136); the overlay
-      flips in #146, which ticks this item.
+      flips in #146 (ADR 0085), which ticks this item once the live proof
+      (#149) passes; `kore doctor` checks the pinned `k3d` and `docker` and the
+      cluster before anything mutates.
 - [ ] Rewrite `cluster/` for `k3d cluster create`, `start`, `stop` and
       `delete`, with Traefik and ServiceLB disabled and ports mapped through
       the k3d load balancer.
@@ -75,6 +77,10 @@ plan 8.
 
 - [ ] Delete the `tunnel` domain, its commands, status row and specs.
 - [ ] Route Gateway traffic through the k3d load balancer.
+      Progress: the overlay publishes the Gateway Service as a NodePort the
+      load balancer maps from host 8443, and `platform up` starts no tunnel on
+      k3d (#146, [ADR 0085](../../docs/decisions/0085-k3d-gateway-answers-through-a-node-port.md));
+      the item ticks once #149 proves it live.
 - [ ] Mark ADR 0060 superseded by ADR 0076.
 
 ### Exit Criteria

@@ -1,3 +1,4 @@
+import { loadMinikubeLocal } from "../config/minikube-local-support.js";
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 
@@ -25,7 +26,7 @@ vi.mock("./status.js", async () => {
       readyRows(repository),
   };
 });
-import { loadRepository } from "../config/index.js";
+
 import { platformUp } from "./up.js";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -35,7 +36,7 @@ import { tmpdir } from "node:os";
 import { tunnelStatePath } from "../tunnel/tunnel.js";
 
 test("local platform configuration starts the managed Minikube tunnel", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-platform-tunnel-"));
   const repository = { ...base, root };
   repository.catalog.components = [];
@@ -117,7 +118,7 @@ function indexOfCall(calls: Call[], match: (call: Call) => boolean): number {
 }
 
 test("local platform up starts its tunnel before waiting for Gateway programming", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-platform-order-"));
   const platformConfig = base.catalog.components.find(
     ({ name }) => name === "kore-platform-config",
@@ -172,7 +173,7 @@ test("local platform up starts its tunnel before waiting for Gateway programming
 });
 
 test("platform up upgrades an already-installed configuration release", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-platform-upgrade-"));
   const platformConfig = base.catalog.components.find(
     ({ name }) => name === "kore-platform-config",
@@ -240,7 +241,7 @@ test("platform up upgrades an already-installed configuration release", async ()
 });
 
 test("platform up refuses a profile whose Kubernetes context is unexpected", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const calls: { command: string; args: readonly string[] }[] = [];
   const runner: Runner = {
     async run(

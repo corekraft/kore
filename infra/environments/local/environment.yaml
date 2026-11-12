@@ -1,18 +1,13 @@
 {
   "$schema": "../schema.json",
   "name": "local",
-  "provider": "minikube",
-  "kubeContext": "kore-local",
-  "cluster":
+  "provider": "k3d",
+  "kubeContext": "k3d-kore-local",
+  "k3d":
     {
-      "profile": "kore-local",
-      "kubernetesVersion": "1.37.2",
-      "driver": "docker",
-      "containerRuntime": "containerd",
-      "cpus": 4,
-      "memoryMB": 8192,
-      "diskSize": "40g",
-      "serviceCidr": "10.96.0.0/12"
+      "clusterName": "kore-local",
+      "serviceCidr": "10.96.0.0/12",
+      "ports": [{ "hostPort": 8443, "loadBalancerPort": 30443 }]
     },
   "registry": { "address": "10.96.0.50:5000" },
   "features": { "ingress-agentgateway": false },

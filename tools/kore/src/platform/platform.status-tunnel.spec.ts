@@ -1,8 +1,9 @@
+import { loadMinikubeLocal } from "../config/minikube-local-support.js";
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 
 vi.mock("./status.js", () => ({ platformStatus: vi.fn(async () => []) }));
-import { loadRepository } from "../config/index.js";
+
 import type { Runner } from "../runtime/index.js";
 import { platformStatusReport } from "./crd-ownership-status.js";
 
@@ -10,7 +11,7 @@ import { platformStatusReport } from "./crd-ownership-status.js";
 // Status never restarts the tunnel; it reports the dead one with the remedy.
 
 test("platform status reports a dead local tunnel as degraded with the remedy, read-only", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const calls: string[] = [];
   const runner: Runner = {
     async run(command) {

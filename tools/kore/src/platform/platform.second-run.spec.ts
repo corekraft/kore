@@ -1,3 +1,4 @@
+import { loadMinikubeLocal } from "../config/minikube-local-support.js";
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -27,7 +28,7 @@ vi.mock("./status.js", async () => {
       readyRows(repository),
   };
 });
-import { loadRepository } from "../config/index.js";
+
 import type { Runner } from "../runtime/index.js";
 import type { RunResult } from "../runtime/runner.js";
 import { desiredFingerprint } from "./fingerprint.js";
@@ -114,7 +115,7 @@ function cluster(description: (revision: number) => string) {
 }
 
 async function upOnly(name: string, stale = false) {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-second-run-"));
   temporary.push(root);
   const component = {

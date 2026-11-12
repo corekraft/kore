@@ -1,9 +1,10 @@
+import { loadMinikubeLocal } from "../config/minikube-local-support.js";
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, test, vi } from "vitest";
-import { loadRepository, type Repository } from "../config/index.js";
+import { type Repository } from "../config/index.js";
 import {
   digest,
   entry,
@@ -37,7 +38,7 @@ async function testRepository(): Promise<Repository> {
     mkdtemp(join(tmpdir(), "kore-local-image-")),
   );
   roots.push(root);
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   return { ...repository, root };
 }
 

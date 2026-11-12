@@ -149,6 +149,7 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0082-harness-package-bundled-for-skills.md`](decisions/0082-harness-package-bundled-for-skills.md) — refines ADR 0001: harness tools are a TypeScript package at tools/harness, bundled to a committed skills/bin/harness.mjs, talking to kore only through its CLI output. Read before adding a harness tool or hook.
 - [`docs/decisions/0083-k3d-publishes-through-the-node-containerd-client.md`](decisions/0083-k3d-publishes-through-the-node-containerd-client.md) — refines ADR 0034 and 0015: on k3d, publish with the node's `ctr` through `docker exec`, credential on stdin held in a tmpfs hosts.toml, no node shell. Read before changing the k3d push path.
 - [`docs/decisions/0084-k3d-registry-trust-through-a-mounted-ca-directory.md`](decisions/0084-k3d-registry-trust-through-a-mounted-ca-directory.md) — refines ADRs 0058 and 0076: on k3d nodes trust the registry CA through a registries.yaml and a host CA directory mounted at create, with a restart fallback. Read when changing registry trust on k3d.
+- [`docs/decisions/0085-k3d-gateway-answers-through-a-node-port.md`](decisions/0085-k3d-gateway-answers-through-a-node-port.md) — refines ADRs 0016 and 0076: on k3d the Gateway Service is a NodePort set by the overlay, the load balancer maps the host port to it, and readiness accepts an assigned node port. Read when changing how the local Gateway is published.
 
 ## Operations and Guides
 

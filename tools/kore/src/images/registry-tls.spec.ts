@@ -1,3 +1,4 @@
+import { loadMinikubeLocal } from "../config/minikube-local-support.js";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -48,7 +49,7 @@ function runnerWith(options: { ca?: string; fail?: string } = {}) {
 }
 
 test("a missing CA fails closed with the command that issues it", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const { runner } = runnerWith();
   await expect(loadRegistryCa(repository, runner)).rejects.toThrow(
     /oci-registry-tls.*kore platform up --env local/s,
@@ -56,7 +57,7 @@ test("a missing CA fails closed with the command that issues it", async () => {
 });
 
 test("a Secret that holds no PEM certificate is rejected, not trusted", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const { runner } = runnerWith({ ca: "garbage" });
   await expect(loadRegistryCa(repository, runner)).rejects.toThrow(
     /not a PEM certificate/,
@@ -64,7 +65,7 @@ test("a Secret that holds no PEM certificate is rejected, not trusted", async ()
 });
 
 test("trust distribution publishes only the public CA: a ConfigMap for Policy Controller and the node's containerd directory", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const { runner, calls } = runnerWith({ ca: pem });
   await ensureRegistryTrust(repository, runner, home);
 
@@ -95,7 +96,7 @@ test("trust distribution publishes only the public CA: a ConfigMap for Policy Co
 });
 
 test("the node host entry names the CA and never skips verification", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const { runner, calls } = runnerWith({ ca: pem });
   await ensureRegistryTrust(repository, runner, home);
   const script = calls.find((c) => c.command === "minikube")!.args.join(" ");
@@ -105,7 +106,7 @@ test("the node host entry names the CA and never skips verification", async () =
 });
 
 test("trust is reapplied identically on a second run so nothing is reissued", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const first = runnerWith({ ca: pem });
   const second = runnerWith({ ca: pem });
   await ensureRegistryTrust(repository, first.runner, home);
@@ -127,7 +128,7 @@ test("an external registry is the provider's to trust: kore distributes nothing"
 });
 
 test("status reports a missing CA with the fix, and nothing when it is present", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   expect(await registryTrustProblem(repository, runnerWith().runner)).toMatch(
     /kore platform up --env local/,
   );

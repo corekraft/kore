@@ -1,3 +1,4 @@
+import { loadMinikubeLocal } from "../config/minikube-local-support.js";
 import { expect, test, vi } from "vitest";
 
 const localRegistryReferenceMock = vi.hoisted(() => vi.fn());
@@ -5,7 +6,7 @@ vi.mock("../images/index.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../images/index.js")>()),
   localRegistryReference: localRegistryReferenceMock,
 }));
-import { loadRepository } from "../config/index.js";
+
 import { platformGeneration } from "../platform/admission-gate.js";
 import { appUp } from "./up.js";
 import {
@@ -17,7 +18,7 @@ import type { Runner } from "../runtime/index.js";
 
 test("app up rejects an invalid application name before resolving chart paths", async () => {
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const repository = {
     ...base,
     catalog: { components: [] },

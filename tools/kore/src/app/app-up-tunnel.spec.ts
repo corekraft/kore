@@ -1,3 +1,4 @@
+import { loadMinikubeLocal } from "../config/minikube-local-support.js";
 import { afterEach, expect, test, vi } from "vitest";
 
 const localRegistryReferenceMock = vi.hoisted(() => vi.fn());
@@ -5,7 +6,7 @@ vi.mock("../images/index.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../images/index.js")>()),
   localRegistryReference: localRegistryReferenceMock,
 }));
-import { loadRepository } from "../config/index.js";
+
 import { appUp, appUpRelease } from "./up.js";
 import {
   gateOutput,
@@ -28,7 +29,7 @@ const isInstall = (call: Call) =>
   call.command === "helm" && call.args[0] === "upgrade";
 
 test("app up restores the tunnel after the platform checks and before installing", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const calls: Call[] = [];
   const order: string[] = [];
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
@@ -53,7 +54,7 @@ test("app up restores the tunnel after the platform checks and before installing
 });
 
 test("app up does not touch the tunnel while the gate is closed", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const ensureTunnel = vi.fn(async () => {});
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
   const inner = healthyRunner([]);

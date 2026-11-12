@@ -46,7 +46,7 @@ function holds(conditions: Condition[], type: string): string | undefined {
   return found?.status === "True" ? undefined : describe(found, type);
 }
 
-async function hasLoadBalancerAddress(
+async function isPublished(
   runner: Runner,
   base: string[],
   name: string,
@@ -65,15 +65,24 @@ async function hasLoadBalancerAddress(
     { capture: true },
   );
   const parsed = JSON.parse(result.stdout) as {
-    items?: { status?: { loadBalancer?: { ingress?: unknown[] } } }[];
+    items?: {
+      spec?: { type?: string; ports?: { nodePort?: number }[] };
+      status?: { loadBalancer?: { ingress?: unknown[] } };
+    }[];
   };
+  // A LoadBalancer Service is published once it has an address. A NodePort
+  // Service never gets one: the environment's own load balancer reaches it on
+  // the node port, so an assigned node port is the readiness signal.
   return (parsed.items ?? []).some(
-    (item) => (item.status?.loadBalancer?.ingress ?? []).length > 0,
+    (item) =>
+      (item.status?.loadBalancer?.ingress ?? []).length > 0 ||
+      (item.spec?.type === "NodePort" &&
+        (item.spec.ports ?? []).some(({ nodePort }) => nodePort !== undefined)),
   );
 }
 
 /**
- * Read-only Gateway readiness: Accepted, a LoadBalancer address on its Service,
+ * Read-only Gateway readiness: Accepted, a LoadBalancer address (or assigned node port) on its Service,
  * Programmed, then every listener's ResolvedRefs. Each step is bounded by
  * `timeout` and fails with the condition reason the controller reported.
  */
@@ -88,12 +97,12 @@ export async function waitForGateway(
     holds((await gatewayStatus(runner, base, resource)).conditions, "Accepted"),
   );
   await pollUntil(timeout, async () => {
-    if (await hasLoadBalancerAddress(runner, base, name)) {
+    if (await isPublished(runner, base, name)) {
       return undefined;
     }
     const { conditions } = await gatewayStatus(runner, base, resource);
     const programmed = conditions.find(({ type }) => type === "Programmed");
-    return `Service has no LoadBalancer address; ${describe(programmed, "Programmed")}`;
+    return `Service has no LoadBalancer address or node port; ${describe(programmed, "Programmed")}`;
   });
   await pollUntil(timeout, async () =>
     holds(
@@ -147,7 +156,8 @@ export function gatewayCheck(
 ): { condition: string; run: (timeout: string) => Promise<void> } | undefined {
   if (resource.startsWith("gateway/")) {
     return {
-      condition: "Accepted, LoadBalancer address, Programmed, ResolvedRefs",
+      condition:
+        "Accepted, LoadBalancer address or node port, Programmed, ResolvedRefs",
       run: (timeout) => waitForGateway(runner, base, resource, timeout),
     };
   }

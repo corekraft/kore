@@ -1,8 +1,9 @@
+import { loadMinikubeLocal } from "../config/minikube-local-support.js";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, test } from "vitest";
-import { loadRepository } from "../config/index.js";
+
 import type { Runner } from "../runtime/index.js";
 import { digest, releaseSigner } from "./app-fixtures.js";
 import { appStatus } from "./app.js";
@@ -23,7 +24,7 @@ async function statusFor(options: {
   deployedDigest?: string | undefined;
   enrolled?: string;
 }) {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-app-status-deployed-"));
   roots.push(root);
   const signer = options.signer ?? releaseSigner;

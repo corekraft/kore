@@ -1,5 +1,9 @@
 import { join } from "node:path";
-import { trustedSigners, type Repository } from "../config/index.js";
+import {
+  isLocalProvider,
+  trustedSigners,
+  type Repository,
+} from "../config/index.js";
 import {
   koreManagesRegistryAuth,
   loadRegistryCa,
@@ -40,7 +44,7 @@ function localPublicKey(
   repository: Repository,
   image: LockedImage,
 ): string | undefined {
-  return repository.environment.provider === "minikube" &&
+  return isLocalProvider(repository.environment) &&
     image.signer === "local-kore-key"
     ? localPublicKeyPath(repository.root)
     : undefined;
@@ -80,7 +84,7 @@ export async function verifyImage(
   };
   const publicKey = publicKeyOverride ?? localPublicKey(repository, image);
   if (
-    repository.environment.provider !== "minikube" ||
+    !isLocalProvider(repository.environment) ||
     !koreManagesRegistryAuth(repository)
   ) {
     await runner.run(

@@ -1,3 +1,4 @@
+import { loadMinikubeLocal } from "../config/minikube-local-support.js";
 import { afterEach, expect, test, vi } from "vitest";
 
 const localRegistryReferenceMock = vi.hoisted(() => vi.fn());
@@ -5,7 +6,7 @@ vi.mock("../images/index.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../images/index.js")>()),
   localRegistryReference: localRegistryReferenceMock,
 }));
-import { loadRepository } from "../config/index.js";
+
 import { appUp, appUpRelease } from "./up.js";
 import {
   healthyRunner,
@@ -27,7 +28,7 @@ const cosignCalls = (calls: Call[]) =>
 
 test("app up refuses a lock entry signed by the local developer key before any signature check or Helm call", async () => {
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const calls: Call[] = [];
   const lock = await writeReleaseLock(repository.root, "local-kore-key");
 
@@ -40,7 +41,7 @@ test("app up refuses a lock entry signed by the local developer key before any s
 });
 
 test("app up refuses the committed placeholder lock, which carries the local key", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const calls: Call[] = [];
   await expect(
     appUp(repository, healthyRunner(calls), "reference"),
@@ -74,7 +75,7 @@ test("app up deploys a release-automation lock entry offline, verifying its exac
 
 test("a local developer-signed image is accepted only on Minikube, from kore local up", async () => {
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const managed = {
     ...base,
     environment: { ...base.environment, provider: "managed" as const },
@@ -90,7 +91,7 @@ test("a local developer-signed image is accepted only on Minikube, from kore loc
 
 test("a release-signed entry from an identity the environment does not trust is refused on local with the remedy, before Helm", async () => {
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const calls: Call[] = [];
   const lock = await writeReleaseLock(repository.root);
 

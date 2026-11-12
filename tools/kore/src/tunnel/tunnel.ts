@@ -67,7 +67,7 @@ export function tunnelStatePath(repository: Repository): string {
 function assertLocal(repository: Repository): void {
   if (repository.environment.provider !== "minikube") {
     throw new Error(
-      "Minikube tunnel management is only available for a Minikube environment",
+      `kore tunnel manages a Minikube tunnel only; environment ${repository.environment.name} is a ${repository.environment.provider} overlay${repository.environment.provider === "k3d" ? ", where the k3d load balancer publishes the Gateway port and there is no tunnel process" : ""}`,
     );
   }
 }

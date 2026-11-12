@@ -1,3 +1,4 @@
+import { loadMinikubeLocal } from "../config/minikube-local-support.js";
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import {
@@ -86,7 +87,7 @@ function cluster(
 const sha = (n: string) => `sha256:${n.repeat(64)}`;
 
 async function local() {
-  return await loadRepository("local");
+  return await loadMinikubeLocal();
 }
 
 test("an approved upstream digest is classified approved-upstream-digest, a seed as seed", async () => {

@@ -1,7 +1,7 @@
 import { access, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Repository } from "../config/index.js";
+import { isLocalProvider, type Repository } from "../config/index.js";
 import { assertExpectedCluster } from "../cluster/index.js";
 import { CommandError } from "../runtime/index.js";
 import type { Runner } from "../runtime/index.js";
@@ -163,8 +163,10 @@ export async function installLocalTrust(
   runner: Runner,
   options: { platform?: NodeJS.Platform } = {},
 ): Promise<void> {
-  if (repository.environment.provider !== "minikube") {
-    throw new Error("local CA trust is only valid for a Minikube environment");
+  if (!isLocalProvider(repository.environment)) {
+    throw new Error(
+      "local CA trust is only valid for a local (k3d or Minikube) environment",
+    );
   }
   await assertExpectedCluster(repository, runner);
   await ensureNamespaces(repository, runner);

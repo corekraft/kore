@@ -1,3 +1,4 @@
+import { loadMinikubeLocal } from "../config/minikube-local-support.js";
 import { afterEach, test, expect, vi } from "vitest";
 
 const localRegistryReferenceMock = vi.hoisted(() => vi.fn());
@@ -5,7 +6,7 @@ vi.mock("../images/index.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../images/index.js")>()),
   localRegistryReference: localRegistryReferenceMock,
 }));
-import { loadRepository } from "../config/index.js";
+
 import type { Runner } from "../runtime/index.js";
 import { appUp, appUpRelease } from "./up.js";
 import {
@@ -25,7 +26,7 @@ test.each(["appUp", "appUpRelease"] as const)(
   async (path) => {
     const repository =
       path === "appUp"
-        ? await loadRepository("local")
+        ? await loadMinikubeLocal()
         : await repositoryTrustingRelease();
     const calls: Call[] = [];
     const inputs: string[] = [];

@@ -1,3 +1,4 @@
+import { loadMinikubeLocal } from "../config/minikube-local-support.js";
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { loadRepository, orderedComponents } from "../config/index.js";
@@ -12,7 +13,7 @@ import { RecordingRunner } from "../runtime/runner.js";
 import { tmpdir } from "node:os";
 
 test("the PostgreSQL connection secret is explicitly marked ready for Crossplane", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const composition = await (
     await import("node:fs/promises")
   ).readFile(
@@ -24,7 +25,7 @@ test("the PostgreSQL connection secret is explicitly marked ready for Crossplane
 });
 
 test("the local registry is bootstrapped before shared platform configuration", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const order = orderedComponents(repository.catalog).map(({ name }) => name);
 
   assert.ok(order.indexOf("oci-registry") >= 0);
@@ -34,7 +35,7 @@ test("the local registry is bootstrapped before shared platform configuration", 
 });
 
 test("the TLS certificate and complete TLS Secret are ready before Gateway configuration", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const order = orderedComponents(repository.catalog).map(({ name }) => name);
   const certificate = repository.catalog.components.find(
     ({ name }) => name === "kore-local-tls",
@@ -76,7 +77,7 @@ test("the TLS certificate and complete TLS Secret are ready before Gateway confi
 });
 
 test("helm construction always uses explicit context, namespace, pin, and timeout", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const component = repository.catalog.components.find(
     ({ name }) => name === "crossplane",
   )!;
@@ -92,7 +93,7 @@ test("helm construction always uses explicit context, namespace, pin, and timeou
 });
 
 test("render validation sends rendered manifests to kubectl over stdin", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   repository.catalog.components = [
     {
       ...repository.catalog.components.find(
@@ -150,7 +151,7 @@ test("managed environments select platform infrastructure through an overlay", a
 });
 
 test("manifest components apply nested manifest directories recursively", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const component = repository.catalog.components.find(
     ({ name }) => name === "kore-postgresql-api",
   )!;
@@ -162,7 +163,7 @@ test("manifest components apply nested manifest directories recursively", async 
 });
 
 test("retries an asynchronously-created CRD until it is established", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const component = repository.catalog.components.find(
     ({ name }) => name === "kore-postgresql-api",
   )!;
@@ -186,7 +187,7 @@ test("retries an asynchronously-created CRD until it is established", async () =
 });
 
 test("preserves CRD wait errors so an asynchronous NotFound is retried", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const component = repository.catalog.components.find(
     ({ name }) => name === "kore-postgresql-api",
   )!;
@@ -213,7 +214,7 @@ test("preserves CRD wait errors so an asynchronous NotFound is retried", async (
 });
 
 test("render validation checks manifest components without mutating the cluster", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const component = repository.catalog.components.find(
     ({ name }) => name === "kore-postgresql-api",
   )!;
@@ -229,7 +230,7 @@ test("render validation checks manifest components without mutating the cluster"
 });
 
 test("platform status reports a failed Helm release as degraded", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const component = repository.catalog.components.find(
     ({ name }) => name === "opa-authorizer",
   )!;
@@ -250,7 +251,7 @@ test("platform status reports a failed Helm release as degraded", async () => {
 });
 
 test("platform render writes rendered Helm manifests to an output directory", async () => {
-  const base = await loadRepository("local");
+  const base = await loadMinikubeLocal();
   const root = await mkdtemp(join(tmpdir(), "kore-platform-render-output-"));
   const repository = { ...base, root };
   const component = base.catalog.components.find(

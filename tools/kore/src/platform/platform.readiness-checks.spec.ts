@@ -1,6 +1,7 @@
+import { loadMinikubeLocal } from "../config/minikube-local-support.js";
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { loadRepository } from "../config/index.js";
+
 import type { Runner } from "../runtime/index.js";
 import { reconcileComponent } from "./reconcile.js";
 
@@ -26,7 +27,7 @@ function fakeCluster(handler: Handler): { runner: Runner; calls: Call[] } {
 }
 
 async function helmComponent(readiness: string[]) {
-  const repository = await loadRepository("local");
+  const repository = await loadMinikubeLocal();
   const component = repository.catalog.components.find(
     ({ kind }) => kind === "helm",
   )!;

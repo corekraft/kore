@@ -1,8 +1,9 @@
+import { loadMinikubeLocal } from "../config/minikube-local-support.js";
 import { mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, test, vi } from "vitest";
-import { loadRepository, type Repository } from "../config/index.js";
+import { type Repository } from "../config/index.js";
 import {
   encodeBase64,
   entry,
@@ -30,7 +31,7 @@ afterEach(async () => {
 async function testRepository(): Promise<Repository> {
   const root = await mkdtemp(join(tmpdir(), "kore-local-image-"));
   roots.push(root);
-  return { ...(await loadRepository("local")), root };
+  return { ...(await loadMinikubeLocal()), root };
 }
 
 test("the push credential reaches the node only on stdin and never in an argument", async () => {
