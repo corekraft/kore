@@ -4,6 +4,7 @@ import type { Repository } from "../config/index.js";
 import { minikubeCluster } from "../config/index.js";
 import {
   localDockerBuildArgs,
+  k3dImageImportArgs,
   localSignArgs,
   minikubeImageLoadArgs,
 } from "./local-image-args.js";
@@ -19,6 +20,7 @@ import type { Runner } from "../runtime/index.js";
 
 export {
   imageDigestFromRegistryHead,
+  k3dImageImportArgs,
   localDockerBuildArgs,
   localSignArgs,
   minikubeImageLoadArgs,
@@ -30,7 +32,8 @@ export interface BuiltLocalImage {
   publicKey: string;
 }
 
-async function loadIntoMinikube(
+/** Builds the image on the host and hands it to the cluster's nodes. */
+export async function loadLocalImage(
   repository: Repository,
   runner: Runner,
   application: string,
@@ -41,6 +44,18 @@ async function loadIntoMinikube(
     localDockerBuildArgs(join(repository.root, "apps", application), imageTag),
     { capture: false, cwd: repository.root },
   );
+  if (repository.environment.provider === "k3d") {
+    const { k3d } = repository.environment;
+    if (k3d === undefined) {
+      throw new Error(
+        `environment ${repository.environment.name} is a k3d overlay without environment.k3d settings; add environment.k3d.clusterName so the built image can be imported`,
+      );
+    }
+    await runner.run("k3d", k3dImageImportArgs(k3d.clusterName, imageTag), {
+      capture: false,
+    });
+    return;
+  }
   await runner.run(
     "minikube",
     minikubeImageLoadArgs(
@@ -87,7 +102,7 @@ async function buildAndSign(
 ): Promise<BuiltLocalImage> {
   const imageTag = `kore-local/${application}:kore-local`;
   await localRegistryReference(repository, runner, `${entry.image}:kore-local`);
-  await loadIntoMinikube(repository, runner, application, imageTag);
+  await loadLocalImage(repository, runner, application, imageTag);
   const repositoryPath = await publishToLocalRegistry(
     repository,
     runner,

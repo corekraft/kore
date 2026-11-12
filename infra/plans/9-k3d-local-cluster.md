@@ -49,7 +49,7 @@ plan 8.
 
 ### Work
 
-- [ ] Replace `minikube image load` with `k3d image import`.
+- [x] Replace `minikube image load` with `k3d image import`.
 - [ ] Replace `minikube ssh` CA installation with `registries.yaml` set at
       cluster create.
 - [ ] Keep Kore's in-cluster TLS registry as the only registry.
