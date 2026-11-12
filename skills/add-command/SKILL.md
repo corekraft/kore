@@ -19,3 +19,5 @@ Follow `AGENTS.md` and the `test-driven-development` skill. Write each failing t
    - If it fails partway and is run again, does it recover?
 5. **Keep docs in step.** Update the `usage` string in `cli/usage.ts` and the matching section of `README.md`.
 6. **Verify.** Run `mise run test` (typecheck, build, tests, coverage thresholds) and `npm --prefix tools/kore run lint`. Never lower the thresholds.
+
+Steps 2 and 6 are tools. Steps 1, 3, 4 and 5 are judgement: which domain owns the behavior and what the command mutates or destroys are design decisions.
