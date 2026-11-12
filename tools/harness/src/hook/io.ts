@@ -11,6 +11,8 @@ export interface HookContext {
   deps: CliDeps;
   /** The JSON the host sent on stdin; undefined when stdin was empty or not JSON. */
   payload: unknown;
+  /** The flags the hook declared, as parsed. */
+  options: Readonly<Record<string, string | boolean>>;
 }
 
 /** Parses stdin as JSON, treating empty or malformed input as no payload. */
@@ -26,24 +28,36 @@ export async function readPayload(deps: CliDeps): Promise<unknown> {
   }
 }
 
+export interface HookShape {
+  flags?: Record<string, "string" | "boolean">;
+  payload?: boolean;
+}
+
 /**
  * Wraps a hook as a command. The host speaks stdin JSON, exit code, stdout and
  * stderr. A hook that breaks unexpectedly fails open: it reports on stderr and
  * exits 0, so a harness fault never blocks the session. A check that must not
- * pass when it cannot run (mise, CI) adds --strict, which exits 1 instead.
+ * pass when it cannot run (mise, CI) adds --strict, which exits 1 instead. A
+ * hook with flags of its own declares them in `flags`; one that ignores the
+ * host's JSON sets `payload: false`, so a run by hand never waits on stdin.
  */
 export function hookCommand(
   name: string,
   summary: string,
   handler: (context: HookContext) => Promise<HookResult>,
+  { flags = {}, payload = true }: HookShape = {},
 ): Command {
   return {
     summary,
-    options: { strict: "boolean" },
+    options: { ...flags, strict: "boolean" },
     async run({ deps, options }) {
       let result: HookResult;
       try {
-        result = await handler({ deps, payload: await readPayload(deps) });
+        result = await handler({
+          deps,
+          options,
+          payload: payload ? await readPayload(deps) : undefined,
+        });
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
         const hint =

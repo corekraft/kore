@@ -2,6 +2,7 @@ import type { Command } from "../runtime/index.js";
 import { realDeltaDeps } from "./delta-deps.js";
 import { update } from "./delta.js";
 import { hookCommand } from "./io.js";
+import { retroScan } from "./retro-hook.js";
 import { linkProblems } from "./skill-links.js";
 import { workflowProblems } from "./workflow-permissions.js";
 
@@ -53,6 +54,7 @@ const delta = hookCommand(
 /** The hooks the host runs as `harness hook <name>`; each is a command in this domain. */
 export const hook: Record<string, Command> = {
   delta,
+  "retro-scan": retroScan,
   "skill-links": skillLinks,
   "workflow-permissions": workflowPermissions,
 };

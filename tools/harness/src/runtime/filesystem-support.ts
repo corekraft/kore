@@ -43,6 +43,17 @@ export class MemoryFileSystem implements FileSystem {
         );
   }
 
+  isDirectory(path: string): Promise<boolean> {
+    const dir = `${this.checked(path)}/`;
+    return Promise.resolve(
+      [...this.files.keys()].some((f) => f.startsWith(dir)),
+    );
+  }
+
+  async readHead(path: string, bytes: number): Promise<string> {
+    return (await this.readFile(path)).slice(0, bytes);
+  }
+
   readlink(path: string): Promise<string> {
     return Promise.reject(new Error(`ENOENT: ${path}`));
   }

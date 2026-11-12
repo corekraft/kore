@@ -23,6 +23,7 @@ import {
   appendFile,
   mkdir,
   readFile,
+  open,
   readdir,
   rm,
   readlink,
@@ -60,6 +61,26 @@ var nodeFileSystem = {
   readlink: (path) => readlink(path),
   async mtimeMs(path) {
     return (await stat(path)).mtimeMs;
+  },
+  async isDirectory(path) {
+    try {
+      return (await stat(path)).isDirectory();
+    } catch (error) {
+      if (error.code === "ENOENT") {
+        return false;
+      }
+      throw error;
+    }
+  },
+  async readHead(path, bytes) {
+    const file = await open(path, "r");
+    try {
+      const buffer = Buffer.alloc(bytes);
+      const { bytesRead } = await file.read(buffer, 0, bytes, 0);
+      return buffer.toString("utf8", 0, bytesRead);
+    } finally {
+      await file.close();
+    }
   }
 };
 
@@ -108,13 +129,13 @@ async function mainRoot(deps) {
   if (checkout === void 0) {
     return void 0;
   }
-  const git = await deps.runner.run(
+  const git2 = await deps.runner.run(
     "git",
     ["rev-parse", "--path-format=absolute", "--git-common-dir"],
     { cwd: checkout }
   );
-  const common = git.stdout.trim();
-  return git.code === 0 && common !== "" ? dirname2(common) : void 0;
+  const common = git2.stdout.trim();
+  return git2.code === 0 && common !== "" ? dirname2(common) : void 0;
 }
 
 // src/runtime/root.ts
@@ -281,7 +302,7 @@ var Adrs = class {
     ];
     const entry = `- [\`${path}\`](decisions/${file}) \u2014 ${input.summary}`;
     const index = this.insert(indexText, next, entry);
-    const report2 = {
+    const report3 = {
       dryRun,
       number,
       files: [
@@ -296,7 +317,7 @@ var Adrs = class {
       await this.fs.writeFile(this.abs(path), body.join("\n"));
       await this.fs.writeFile(this.abs(INDEX), index.text);
     }
-    return report2;
+    return report3;
   }
   async readIndex() {
     if (!await this.fs.exists(this.abs(INDEX))) {
@@ -498,9 +519,9 @@ var Supersession = class {
 
 // src/adr/commands.ts
 var REQUIRED = ["title", "summary", "status", "source"];
-function describe(report2) {
-  const verb = report2.dryRun ? "Would write" : "Wrote";
-  return `${report2.files.map(
+function describe(report3) {
+  const verb = report3.dryRun ? "Would write" : "Wrote";
+  return `${report3.files.map(
     (f) => `${verb} ${f.path} (lines ${f.lines[0]?.number}-${f.lines.at(-1)?.number})`
   ).join("\n")}
 `;
@@ -548,12 +569,12 @@ var newAdr = {
     );
     const refines = typeof options["refines"] === "string" ? options["refines"].trim() : void 0;
     const root3 = await repoRoot(deps);
-    const report2 = await new Adrs(deps.fs, deps.clock, root3).create(
+    const report3 = await new Adrs(deps.fs, deps.clock, root3).create(
       { title, summary, status, source, ...refines ? { refines } : {} },
       options["dry-run"] === true
     );
-    deps.stdout(json ? `${JSON.stringify(report2)}
-` : describe(report2));
+    deps.stdout(json ? `${JSON.stringify(report3)}
+` : describe(report3));
     return 0;
   })
 };
@@ -562,15 +583,15 @@ var supersede = {
   options: { old: "string", new: "string", "dry-run": "boolean" },
   run: ({ json, options, deps }) => withAdrErrors(json, deps, async () => {
     const root3 = await repoRoot(deps);
-    const report2 = await new Supersession(deps.fs, root3).supersede(
+    const report3 = await new Supersession(deps.fs, root3).supersede(
       requiredFlag(options, "old", "number"),
       requiredFlag(options, "new", "number"),
       options["dry-run"] === true
     );
-    const verb = report2.dryRun ? "Would set" : "Set";
+    const verb = report3.dryRun ? "Would set" : "Set";
     deps.stdout(
-      json ? `${JSON.stringify(report2)}
-` : `${verb} ${report2.files[0]?.path} to status superseded, superseded-by ADR ${report2.new}
+      json ? `${JSON.stringify(report3)}
+` : `${verb} ${report3.files[0]?.path} to status superseded, superseded-by ADR ${report3.new}
 `
     );
     return 0;
@@ -780,15 +801,15 @@ function wipOf(spans, range) {
     [from, 1],
     [to, -1]
   ]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-  let open = 0;
+  let open2 = 0;
   let peak = 0;
   let ideaMs = 0;
   let last = range[0];
   for (const [time2, step] of edges) {
-    ideaMs += open * (time2 - last);
+    ideaMs += open2 * (time2 - last);
     last = time2;
-    open += step;
-    peak = Math.max(peak, open);
+    open2 += step;
+    peak = Math.max(peak, open2);
   }
   const length = range[1] - range[0];
   return { peak, average: length > 0 ? roundAverage(ideaMs / length) : 0 };
@@ -1001,8 +1022,8 @@ function stageOf(event, mergedAt) {
   const role = roleOf(event);
   if (role !== void 0) {
     const gate = role.after === "pr.merged" ? mergedAt : void 0;
-    const open = role.after === void 0 || gate !== void 0 && time(event) >= gate;
-    return open ? role.stage : void 0;
+    const open2 = role.after === void 0 || gate !== void 0 && time(event) >= gate;
+    return open2 ? role.stage : void 0;
   }
   return event.pane === void 0 && event.source === "claude" ? MAIN_SESSION_STAGE : void 0;
 }
@@ -1593,11 +1614,11 @@ function plan(listed, last, observedAt) {
   });
   for (const { pane, agent, status } of listed.seen) {
     const recorded = last.get(pane);
-    const open = recorded !== void 0 && recorded.kind !== "pane.closed";
-    if (open && recorded.agent !== void 0 && recorded.agent !== agent) {
+    const open2 = recorded !== void 0 && recorded.kind !== "pane.closed";
+    if (open2 && recorded.agent !== void 0 && recorded.agent !== agent) {
       event("pane.closed", pane, recorded.agent);
     }
-    const sameAgent = open && (recorded.agent ?? agent) === agent;
+    const sameAgent = open2 && (recorded.agent ?? agent) === agent;
     if (!sameAgent) {
       event("pane.spawned", pane, agent);
     }
@@ -2050,8 +2071,8 @@ var leadLine = ({
   medianSeconds,
   maxSeconds
 }) => medianSeconds === null || maxSeconds === null ? "Lead time: no completed ideas" : `Lead time: ${ideas.length} ideas, median ${seconds(medianSeconds)}, max ${seconds(maxSeconds)}`;
-function text(report2) {
-  const rows = report2.stages.map(
+function text(report3) {
+  const rows = report3.stages.map(
     (s) => [
       s.stage.padEnd(15),
       `active ${seconds(s.activeSeconds)}`.padEnd(16),
@@ -2062,15 +2083,15 @@ function text(report2) {
     ].join(" ")
   );
   const lines2 = [
-    `Flow report as of ${report2.asOf}: ${report2.ideas.completed} of ${report2.ideas.total} ideas completed`,
-    scopeLine(report2.scope),
+    `Flow report as of ${report3.asOf}: ${report3.ideas.completed} of ${report3.ideas.total} ideas completed`,
+    scopeLine(report3.scope),
     ...rows,
-    leadLine(report2.leadTime),
-    `Unmapped events: ${report2.unmappedEvents}`,
-    report2.bottleneck === null ? report2.bottleneckNote ?? "No bottleneck." : `Bottleneck: ${report2.bottleneck.stage} (${Math.round(report2.bottleneck.share * 100)}% of waiting)`
+    leadLine(report3.leadTime),
+    `Unmapped events: ${report3.unmappedEvents}`,
+    report3.bottleneck === null ? report3.bottleneckNote ?? "No bottleneck." : `Bottleneck: ${report3.bottleneck.stage} (${Math.round(report3.bottleneck.share * 100)}% of waiting)`
   ];
-  if (report2.skippedLines > 0) {
-    lines2.push(`skipped ${report2.skippedLines} malformed ledger line(s)`);
+  if (report3.skippedLines > 0) {
+    lines2.push(`skipped ${report3.skippedLines} malformed ledger line(s)`);
   }
   return `${lines2.join("\n")}
 `;
@@ -2850,16 +2871,16 @@ function featuresSpan(text6) {
   if (key === null) {
     return void 0;
   }
-  const open = key.index + key[0].length - 1;
+  const open2 = key.index + key[0].length - 1;
   let depth = 0;
-  for (let i = open; i < text6.length; i++) {
+  for (let i = open2; i < text6.length; i++) {
     if (text6[i] === "{") {
       depth += 1;
     } else if (text6[i] === "}") {
       depth -= 1;
     }
     if (depth === 0) {
-      return [open, i + 1];
+      return [open2, i + 1];
     }
   }
   return void 0;
@@ -3517,28 +3538,28 @@ function nextBlocks(markdown) {
   const blocks = [];
   let heading = "";
   let fenced = false;
-  let open = null;
+  let open2 = null;
   for (const [index, line2] of lines2.entries()) {
     const fence = FENCE.test(line2);
     const stops = fence || !line2.trim() || line2.startsWith("#") || LIST_MARKER.test(line2);
-    if (open && !fenced && !stops) {
-      open.text += ` ${line2.trim()}`;
-      open.end = index + 1;
+    if (open2 && !fenced && !stops) {
+      open2.text += ` ${line2.trim()}`;
+      open2.end = index + 1;
       continue;
     }
-    open = null;
+    open2 = null;
     if (fence) {
       fenced = !fenced;
     } else if (!fenced && line2.startsWith("## ")) {
       heading = line2.slice(3).trim();
     } else if (!fenced && line2.startsWith("Next:")) {
-      open = {
+      open2 = {
         step: heading,
         text: line2.slice(5).trim(),
         line: index,
         end: index + 1
       };
-      blocks.push(open);
+      blocks.push(open2);
     }
   }
   return blocks;
@@ -3548,11 +3569,11 @@ function nextStep(markdown) {
   return first ? { step: first.step, text: first.text } : null;
 }
 function upcomingSteps(markdown) {
-  const open = [...openSteps(markdown).keys()];
-  const current = nextStep(markdown)?.step ?? open[0];
+  const open2 = [...openSteps(markdown).keys()];
+  const current = nextStep(markdown)?.step ?? open2[0];
   const headings2 = markdown.split("\n").filter((line2) => line2.startsWith("## ")).map((line2) => line2.slice(3).trim());
   const after = headings2.slice(headings2.indexOf(current ?? "") + 1);
-  return after.filter((heading) => open.includes(heading)).slice(0, UPCOMING_STEPS);
+  return after.filter((heading) => open2.includes(heading)).slice(0, UPCOMING_STEPS);
 }
 function activePlans(plans) {
   const active = [];
@@ -3601,9 +3622,9 @@ async function readPlans(deps) {
 
 // src/plan/active.ts
 function describe5(plan2) {
-  const open = plan2.open.map((o) => `${o.step} (${o.count})`).join(", ");
+  const open2 = plan2.open.map((o) => `${o.step} (${o.count})`).join(", ");
   const lines2 = [`${plan2.file}${plan2.default ? " (default)" : ""}`];
-  lines2.push(`  Open items: ${open || "none"}`);
+  lines2.push(`  Open items: ${open2 || "none"}`);
   if (plan2.next) {
     lines2.push(`  Next (${plan2.next.step}): ${plan2.next.text}`);
   }
@@ -3737,9 +3758,9 @@ function removals(lines2) {
   });
 }
 function currentHeading(lines2, markdown) {
-  const open = openCounts(markdown).map((c) => c.step);
+  const open2 = openCounts(markdown).map((c) => c.step);
   const held = nextStep(markdown)?.step.split(":")[0];
-  const step = held !== void 0 && open.includes(held) ? held : open[0];
+  const step = held !== void 0 && open2.includes(held) ? held : open2[0];
   const index = lines2.findIndex(
     (l) => l.startsWith("## ") && l.slice(3).trim().split(":")[0] === step
   );
@@ -4089,13 +4110,13 @@ function chooseItem(markdown, wanted) {
     (i) => /^- \[[ xX]\]/.test(i.text)
   );
   const matching = checkbox.filter((i) => normalize(i.text).includes(needle));
-  const open = matching.filter((i) => i.text.startsWith(OPEN));
-  if (open.length === 1) {
-    return open[0];
+  const open2 = matching.filter((i) => i.text.startsWith(OPEN));
+  if (open2.length === 1) {
+    return open2[0];
   }
-  if (open.length > 1) {
+  if (open2.length > 1) {
     throw new CommandError(
-      `"${wanted}" matches ${open.length} open items. Use a longer, more specific part of the item text.`
+      `"${wanted}" matches ${open2.length} open items. Use a longer, more specific part of the item text.`
     );
   }
   const done = matching.length > 0 ? " It is already ticked." : "";
@@ -4218,8 +4239,8 @@ async function readJournals(deps, root3) {
   }
   return journals;
 }
-function snapshotStore(deps, git, root3) {
-  const dir = async () => join5(resolve4(root3, await git("rev-parse", "--git-dir")), "kore-delta");
+function snapshotStore(deps, git2, root3) {
+  const dir = async () => join5(resolve4(root3, await git2("rev-parse", "--git-dir")), "kore-delta");
   const file = async (id) => join5(await dir(), `${id}.json`);
   return {
     async readSnapshot(id) {
@@ -4251,25 +4272,25 @@ function snapshotStore(deps, git, root3) {
   };
 }
 function realDeltaDeps(deps, root3) {
-  const git = gitReader(deps, root3);
+  const git2 = gitReader(deps, root3);
   return {
     now: () => deps.clock.now().getTime(),
-    head: () => git("rev-parse", "HEAD"),
-    branch: () => git("rev-parse", "--abbrev-ref", "HEAD"),
+    head: () => git2("rev-parse", "HEAD"),
+    branch: () => git2("rev-parse", "--abbrev-ref", "HEAD"),
     async main() {
       try {
-        return await git("rev-parse", "--verify", "--quiet", "main");
+        return await git2("rev-parse", "--verify", "--quiet", "main");
       } catch {
         return null;
       }
     },
     async commitsBetween(from, to) {
-      return (await git("log", "--format=%s", `${from}..${to}`)).split("\n").filter(Boolean);
+      return (await git2("log", "--format=%s", `${from}..${to}`)).split("\n").filter(Boolean);
     },
     readPlans: () => readPlans(deps),
     listLocks: () => readDir(deps, join5(root3, LOCKS_DIR)),
     readJournals: () => readJournals(deps, root3),
-    ...snapshotStore(deps, git, root3)
+    ...snapshotStore(deps, git2, root3)
   };
 }
 
@@ -4454,14 +4475,18 @@ async function readPayload(deps) {
     return void 0;
   }
 }
-function hookCommand(name, summary, handler) {
+function hookCommand(name, summary, handler, { flags = {}, payload = true } = {}) {
   return {
     summary,
-    options: { strict: "boolean" },
+    options: { ...flags, strict: "boolean" },
     async run({ deps, options }) {
       let result;
       try {
-        result = await handler({ deps, payload: await readPayload(deps) });
+        result = await handler({
+          deps,
+          options,
+          payload: payload ? await readPayload(deps) : void 0
+        });
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
         const hint = error instanceof CommandError ? "" : " (unexpected; fixing it is on the harness)";
@@ -4483,11 +4508,584 @@ function hookCommand(name, summary, handler) {
   };
 }
 
-// src/hook/skill-links.ts
-import { isAbsolute, join as join6 } from "node:path";
-var HARNESSES = [".claude", ".codex"];
+// src/hook/retro-hook.ts
+import { homedir } from "node:os";
+import { join as join7 } from "node:path";
+
+// src/hook/retro-scan.ts
+import { createHash } from "node:crypto";
+
+// src/hook/retro-transcript.ts
+var MAX_ERROR = 120;
+var MIN_CORRECTION_WORDS = 4;
+function parseTranscript(id, text6) {
+  const events = [];
+  let skipped = 0;
+  text6.split("\n").forEach((raw, index) => {
+    if (raw.trim() === "") {
+      return;
+    }
+    try {
+      const value = JSON.parse(raw);
+      if (value === null || typeof value !== "object") {
+        throw new Error("not an object");
+      }
+      events.push({ ...value, line: index + 1 });
+    } catch {
+      skipped++;
+    }
+  });
+  return { id, events, skipped };
+}
+var ERROR_WORDS = /\b(errors?|fail(ed|ure|ures)?|fatal|not found|no such|denied|cannot|invalid|refused|no matches)\b/i;
+var SHELL_PREFIX = /^(\(eval\):\d+:|zsh:|bash:|sh:)/;
+var NOT_OUTPUT_ERROR = /^(- |#|import |export |\|)/;
+var looksLikeError = (line2) => !NOT_OUTPUT_ERROR.test(line2) && (ERROR_WORDS.test(line2) || SHELL_PREFIX.test(line2));
+function summarizeError(text6) {
+  const lines2 = text6.replace(/<\/?tool_use_error>/g, "").split("\n").map((line2) => line2.trim()).filter(Boolean);
+  let head = lines2[0] ?? "";
+  let prefix = "";
+  if (/^Exit code \d+$/.test(head)) {
+    prefix = head;
+    head = lines2.slice(1).find(looksLikeError) ?? "";
+  }
+  const normalized = head.replace(/'[^']*'|"[^"]*"/g, "<q>").replace(/(^|[\s(=])\/[^\s)]*/g, "$1<path>").replace(/(^|\s)\S*\*\S*/g, "$1<glob>").replace(/\b\d+\b/g, "N");
+  const joined = prefix && normalized ? `${prefix}: ${normalized}` : prefix || normalized;
+  return joined.slice(0, MAX_ERROR);
+}
+var blocksOf = (event) => Array.isArray(event.message?.content) ? event.message.content : [];
+function resultText(block) {
+  const { content } = block;
+  if (typeof content === "string") {
+    return content;
+  }
+  if (Array.isArray(content)) {
+    return content.map((part) => part?.text ?? "").join("\n");
+  }
+  return "";
+}
+var callSignature = (input = {}) => JSON.stringify(
+  input["command"] ?? input["new_string"] ?? input["content"] ?? input
+);
+var INJECTED = /^\s*<(command-|local-command|task-notification)/;
+function typedText(content) {
+  if (typeof content === "string") {
+    return content;
+  }
+  if (!Array.isArray(content)) {
+    return "";
+  }
+  return content.filter((block) => block.type === "text").map((block) => block.text).join("\n");
+}
+function humanText(event) {
+  const notTyped = event.type !== "user" || event.isSidechain || event.isMeta || event.isCompactSummary;
+  if (notTyped || event.origin && event.origin.kind !== "human") {
+    return null;
+  }
+  const text6 = typedText(event.message?.content);
+  return text6.trim() === "" || INJECTED.test(text6) ? null : text6;
+}
+var CORRECTION_WORD = /\b(no|not|dont|don't|don’t|stop|instead|wrong|again|actually|should|never)\b/i;
+var readsAsCorrection = (text6) => CORRECTION_WORD.test(text6);
+var ownWords = (text6) => text6.replace(/<pasted_content[^>]*>[\s\S]*?<\/pasted_content[^>]*>/g, " ").replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, " ");
+var phrasesOf = (text6) => text6.split(/[.!?;\n]+/).map(
+  (part) => part.toLowerCase().replace(/['’`]/g, "").replace(/[^a-z0-9]+/g, " ").trim()
+).filter((phrase) => phrase.split(" ").length >= MIN_CORRECTION_WORDS);
+function timestamps(session2) {
+  const stamps = session2.events.map((event) => event.timestamp).filter((stamp) => Boolean(stamp)).sort();
+  return { first: stamps[0] ?? null, last: stamps.at(-1) ?? null };
+}
+
+// src/hook/retro-session.ts
+var GUARD_TAG = /\[guard:([a-z0-9-]+)\]/g;
+var SLASH_COMMAND = /<command-name>\/?([a-z0-9:-]+)<\/command-name>/;
+var tagsIn = (text6) => [...text6.matchAll(GUARD_TAG)].map((match) => match[1] ?? "");
+var SessionAnalysis = class {
+  guards = {};
+  failures = [];
+  skills = /* @__PURE__ */ new Set();
+  slashCommands = [];
+  phrases = [];
+  warnings = [];
+  ordered = [];
+  calls = /* @__PURE__ */ new Map();
+  failedSinceHuman = false;
+  constructor(session2) {
+    for (const event of session2.events) {
+      for (const block of blocksOf(event)) {
+        this.block(event, block);
+      }
+      this.attachment(event);
+      this.human(event);
+      this.slash(event);
+    }
+  }
+  bump(rule, key) {
+    const counts = this.guards[rule] ??= { blocks: 0, warnings: 0 };
+    counts[key]++;
+  }
+  block(event, block) {
+    if (event.type === "assistant" && block.type === "tool_use") {
+      this.toolUse(block);
+    } else if (event.type === "user" && block.type === "tool_result" && block.is_error) {
+      this.toolFailure(block);
+    }
+  }
+  toolUse(block) {
+    const id = block.id ?? "";
+    const name = block.name ?? "";
+    this.calls.set(id, name);
+    this.ordered.push({
+      kind: "call",
+      id,
+      name,
+      signature: callSignature(block.input)
+    });
+    const skill2 = block.input?.["skill"];
+    if (name === "Skill" && typeof skill2 === "string" && skill2) {
+      this.skills.add(skill2);
+    }
+  }
+  toolFailure(block) {
+    this.failedSinceHuman = true;
+    const text6 = resultText(block);
+    const tags = new Set(tagsIn(text6));
+    if (tags.size === 0) {
+      this.failures.push({
+        tool: this.calls.get(block.tool_use_id ?? "") ?? "unknown",
+        error: summarizeError(text6)
+      });
+    }
+    for (const tag of tags) {
+      this.bump(tag, "blocks");
+    }
+  }
+  attachment(event) {
+    const { attachment } = event;
+    if (event.type !== "attachment" || attachment?.type !== "hook_additional_context") {
+      return;
+    }
+    for (const rule of tagsIn([attachment.content].flat().join("\n"))) {
+      this.bump(rule, "warnings");
+      this.warnings.push({ rule, toolUseId: attachment.toolUseID });
+    }
+  }
+  human(event) {
+    const text6 = humanText(event);
+    if (text6 === null) {
+      return;
+    }
+    this.ordered.push({ kind: "human" });
+    const own2 = ownWords(text6);
+    if (this.failedSinceHuman || readsAsCorrection(own2)) {
+      for (const phrase of phrasesOf(own2)) {
+        this.phrases.push({ phrase, line: event.line });
+      }
+    }
+    this.failedSinceHuman = false;
+  }
+  slash(event) {
+    const content = event.message?.content;
+    if (typeof content !== "string" || event.type !== "user") {
+      return;
+    }
+    const match = SLASH_COMMAND.exec(content);
+    if (match) {
+      this.slashCommands.push(match[1] ?? "");
+    }
+  }
+  /** What the agent did after one warning: heeded, repeated, overridden, or unresolved. */
+  outcome(warning) {
+    const call = this.ordered.findIndex(
+      (item) => item.kind === "call" && item.id === warning.toolUseId
+    );
+    const warned = this.ordered[call];
+    if (warned?.kind !== "call") {
+      return "unresolved";
+    }
+    for (const item of this.ordered.slice(call + 1)) {
+      if (item.kind === "human") {
+        return "overridden";
+      }
+      if (item.name === warned.name) {
+        return item.signature === warned.signature ? "repeated" : "heeded";
+      }
+    }
+    return "unresolved";
+  }
+};
+
+// src/hook/retro-scan.ts
+var MIN_WARNINGS = 5;
+var RETRO_MARKER = /^\W*Last retrospective: (\d{4}-\d{2}-\d{2})/gm;
+function auditRules(guardSource) {
+  const names3 = [...guardSource.matchAll(/\bwarn\(\s*"([a-z0-9-]+)"/g)].map(
+    (match) => match[1] ?? ""
+  );
+  return [...new Set(names3)].sort();
+}
+function lastRetrospective(plans) {
+  const dates = Object.values(plans).flatMap(
+    (markdown) => [...markdown.matchAll(RETRO_MARKER)].map((match) => match[1] ?? "")
+  ).sort();
+  return dates.at(-1) ?? null;
+}
+function windowStart(date) {
+  return date ? (/* @__PURE__ */ new Date(`${date}T00:00:00`)).getTime() : 0;
+}
+var emptyStats = () => ({
+  warnings: 0,
+  sessions: 0,
+  heeded: 0,
+  overridden: 0,
+  repeated: 0,
+  unresolved: 0
+});
+var Tally2 = class {
+  constructor(audit3, knownSkills) {
+    this.knownSkills = knownSkills;
+    this.ruleStats = new Map(audit3.map((rule) => [rule, emptyStats()]));
+  }
+  knownSkills;
+  guards = {};
+  failureCounts = /* @__PURE__ */ new Map();
+  perSession = {};
+  loaded = /* @__PURE__ */ new Set();
+  phraseSessions = /* @__PURE__ */ new Map();
+  ruleStats;
+  add(id, found) {
+    this.addGuards(found);
+    for (const { tool, error } of found.failures) {
+      const key = `${tool}\0${error}`;
+      this.failureCounts.set(key, (this.failureCounts.get(key) ?? 0) + 1);
+    }
+    this.addSkills(id, found);
+    this.addPhrases(id, found);
+    this.addWarnings(found);
+  }
+  addGuards(found) {
+    for (const [rule, counts] of Object.entries(found.guards)) {
+      const total = this.guards[rule] ??= { blocks: 0, warnings: 0 };
+      total.blocks += counts.blocks;
+      total.warnings += counts.warnings;
+    }
+  }
+  addSkills(id, found) {
+    const used = /* @__PURE__ */ new Set([
+      ...found.skills,
+      ...found.slashCommands.filter((name) => this.knownSkills.includes(name))
+    ]);
+    for (const name of used) {
+      this.loaded.add(name);
+    }
+    if (used.size > 0) {
+      this.perSession[id] = [...used].sort();
+    }
+  }
+  addPhrases(id, found) {
+    const seen = /* @__PURE__ */ new Set();
+    for (const { phrase, line: line2 } of found.phrases) {
+      if (seen.has(phrase)) {
+        continue;
+      }
+      seen.add(phrase);
+      const entry = this.phraseSessions.get(phrase) ?? [];
+      entry.push({ session: id, line: line2 });
+      this.phraseSessions.set(phrase, entry);
+    }
+  }
+  addWarnings(found) {
+    const touched = /* @__PURE__ */ new Set();
+    for (const warning of found.warnings) {
+      const stats = this.ruleStats.get(warning.rule);
+      if (stats) {
+        stats.warnings++;
+        stats[found.outcome(warning)]++;
+        touched.add(stats);
+      }
+    }
+    for (const stats of touched) {
+      stats.sessions++;
+    }
+  }
+  failures() {
+    return [...this.failureCounts].map(([key, count2]) => {
+      const [tool = "", error = ""] = key.split("\0");
+      return { tool, error, count: count2 };
+    }).sort((a, b) => b.count - a.count).slice(0, 10);
+  }
+  /** Phrases from the same messages are one correction, so identical evidence merges. */
+  corrections() {
+    const byEvidence = /* @__PURE__ */ new Map();
+    for (const [phrase, evidence] of this.phraseSessions) {
+      if (evidence.length < 2) {
+        continue;
+      }
+      const key = JSON.stringify(evidence);
+      const group = byEvidence.get(key) ?? { phrases: [], evidence };
+      group.phrases.push(phrase);
+      byEvidence.set(key, group);
+    }
+    return [...byEvidence.values()].map(({ phrases, evidence }) => ({
+      id: createHash("sha1").update(phrases.sort().join("\n")).digest("hex").slice(0, 8),
+      sessions: evidence.length,
+      evidence
+    })).sort((a, b) => b.sessions - a.sessions);
+  }
+  rules() {
+    const audit3 = [...this.ruleStats].sort(([a], [b]) => a.localeCompare(b)).map(([rule, stats]) => {
+      let status = "insufficient-evidence";
+      if (stats.warnings >= MIN_WARNINGS) {
+        status = stats.heeded === stats.warnings ? "promotable" : "not-promotable";
+      }
+      return { rule, status, ...stats };
+    });
+    return {
+      promotable: audit3.filter((r) => r.status === "promotable").map((r) => r.rule),
+      audit: audit3
+    };
+  }
+  sortedGuards() {
+    return Object.fromEntries(
+      Object.entries(this.guards).sort(([a], [b]) => a.localeCompare(b))
+    );
+  }
+  unused() {
+    return this.knownSkills.filter((name) => !this.loaded.has(name)).sort();
+  }
+};
+function scan(inputs, { since, knownSkills = [], auditRules: audit3 = [] } = {}) {
+  const included = inputs.map(({ id, text: text6 }) => parseTranscript(id, text6)).map((session2) => ({ session: session2, ...timestamps(session2) })).filter(
+    ({ last }) => last !== null && Date.parse(last) >= windowStart(since)
+  ).sort((a, b) => (a.first ?? "").localeCompare(b.first ?? ""));
+  const tally = new Tally2(audit3, knownSkills);
+  for (const { session: session2 } of included) {
+    tally.add(session2.id, new SessionAnalysis(session2));
+  }
+  const firsts = included.flatMap((item) => item.first ?? []).sort();
+  const lasts = included.flatMap((item) => item.last ?? []).sort();
+  return {
+    sessions: {
+      count: included.length,
+      first: firsts[0] ?? null,
+      last: lasts.at(-1) ?? null,
+      list: included.map(({ session: session2, first, last }) => ({
+        id: session2.id,
+        first,
+        last
+      }))
+    },
+    skippedLines: included.reduce((sum, item) => sum + item.session.skipped, 0),
+    guards: tally.sortedGuards(),
+    failures: tally.failures(),
+    skills: { perSession: tally.perSession, unused: tally.unused() },
+    corrections: tally.corrections(),
+    rules: tally.rules()
+  };
+}
+
+// src/hook/retro-transcripts.ts
+import { basename, join as join6, sep } from "node:path";
+var PROBE_BYTES = 256 * 1024;
+var DEFAULT_BRANCHES = /* @__PURE__ */ new Set(["main", "master", "HEAD"]);
+var encodePath = (path) => path.replace(/[^a-zA-Z0-9]/g, "-");
+var insideOf = (path, base) => path === base || path.startsWith(base + sep);
+function lineBelongs(line2, roots, branches) {
+  try {
+    const event = JSON.parse(line2);
+    const cwdInside = typeof event.cwd === "string" && roots.some((root3) => insideOf(event.cwd, root3));
+    return cwdInside || branches.has(event.gitBranch);
+  } catch {
+    return false;
+  }
+}
+async function repoTranscriptDirs(fs, projectsDir, { main, worktrees, branches }) {
+  const roots = [.../* @__PURE__ */ new Set([main, ...worktrees])];
+  const names3 = new Set(roots.map(encodePath));
+  const branchSet = new Set(branches.filter((b) => !DEFAULT_BRANCHES.has(b)));
+  const belongs = async (dir) => {
+    let files;
+    try {
+      files = (await fs.readdir(dir)).filter((f) => f.endsWith(".jsonl"));
+    } catch {
+      return false;
+    }
+    for (const file of files) {
+      let head;
+      try {
+        head = await fs.readHead(join6(dir, file), PROBE_BYTES);
+      } catch {
+        continue;
+      }
+      if (head.includes(main) || head.split("\n").some((line2) => lineBelongs(line2, roots, branchSet))) {
+        return true;
+      }
+    }
+    return false;
+  };
+  let entries;
+  try {
+    entries = await fs.readdir(projectsDir);
+  } catch {
+    return [];
+  }
+  const found = [];
+  for (const name of entries) {
+    const dir = join6(projectsDir, name);
+    if (await fs.isDirectory(dir) && (names3.has(basename(dir)) || await belongs(dir))) {
+      found.push(dir);
+    }
+  }
+  return found.sort();
+}
+async function git(runner, cwd, args) {
+  const result = await runner.run("git", args, { cwd });
+  return result.code === 0 ? result.stdout : "";
+}
+async function defaultDirs(fs, runner, root3, home) {
+  const listed = await git(runner, root3, ["worktree", "list", "--porcelain"]);
+  const worktrees = listed.split("\n").filter((line2) => line2.startsWith("worktree ")).map((line2) => line2.slice("worktree ".length));
+  const common = (await git(runner, root3, [
+    "rev-parse",
+    "--path-format=absolute",
+    "--git-common-dir"
+  ])).trim();
+  const main = worktrees[0] ?? (common ? join6(common, "..") : root3);
+  const refs = await git(runner, root3, [
+    "for-each-ref",
+    "--format=%(refname:short)",
+    "refs/heads",
+    "refs/remotes"
+  ]);
+  const branches = refs.split("\n").filter(Boolean).map((name) => name.replace(/^origin\//, ""));
+  return await repoTranscriptDirs(fs, join6(home, ".claude", "projects"), {
+    main,
+    worktrees: worktrees.length > 0 ? worktrees : [main],
+    branches
+  });
+}
+async function readTranscripts(fs, dirs) {
+  const byId = /* @__PURE__ */ new Map();
+  for (const dir of dirs) {
+    for (const name of (await fs.readdir(dir)).filter(
+      (n) => n.endsWith(".jsonl")
+    )) {
+      const id = basename(name, ".jsonl");
+      const text6 = await fs.readFile(join6(dir, name));
+      if (text6.length >= (byId.get(id)?.text.length ?? -1)) {
+        byId.set(id, { id, text: text6 });
+      }
+    }
+  }
+  return [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
+}
+
+// src/hook/retro-hook.ts
+var GUARD_SOURCE = ".claude/hooks/guard.mjs";
+var USAGE = "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD]\n--since keeps sessions active at or after local midnight of that date, like the session-start count.";
+var isMissing = (error) => error.code === "ENOENT";
 async function skillNames(fs, root3) {
-  const skillsDir = join6(root3, "skills");
+  const dir = join7(root3, "skills");
+  let entries;
+  try {
+    entries = await fs.readdir(dir);
+  } catch (error) {
+    if (isMissing(error)) {
+      return void 0;
+    }
+    throw error;
+  }
+  const names3 = [];
+  for (const entry of entries) {
+    if (await fs.isDirectory(join7(dir, entry))) {
+      names3.push(entry);
+    }
+  }
+  return names3;
+}
+async function transcripts(deps, root3, dir) {
+  let dirs = [];
+  try {
+    dirs = dir ? [dir] : await defaultDirs(
+      deps.fs,
+      deps.runner,
+      root3,
+      deps.env["HOME"] ?? homedir()
+    );
+    const inputs = await readTranscripts(deps.fs, dirs);
+    if (!dir && inputs.length === 0) {
+      return `No transcripts found for this repository or its worktrees. Pass --dir <transcripts>.
+${USAGE}
+`;
+    }
+    return { inputs };
+  } catch {
+    return `Cannot read transcripts in ${dirs.join(", ") || "any project directory"}. Pass --dir <transcripts>.
+${USAGE}
+`;
+  }
+}
+async function readGuardSource(fs, root3) {
+  const path = join7(root3, GUARD_SOURCE);
+  try {
+    return await fs.readFile(path);
+  } catch (error) {
+    if (!isMissing(error)) {
+      throw error;
+    }
+    throw new CommandError(
+      `Cannot read the guard source at ${path}, which lists the audit-mode rules. Point GUARD_SOURCE in tools/harness/src/hook/retro-hook.ts at where the guard now lives.`
+    );
+  }
+}
+async function report2(deps, { dir, since }) {
+  const root3 = await deps.root();
+  const found = await transcripts(deps, root3, dir);
+  if (typeof found === "string") {
+    return { code: 2, stderr: found };
+  }
+  let stderr2 = "";
+  const effective = since ?? (dir ? void 0 : lastRetrospective(await readPlans(deps)) ?? void 0);
+  const skills = await skillNames(deps.fs, root3);
+  if (skills === void 0) {
+    stderr2 += "No skills/ directory found; skills.unused will be empty.\n";
+  }
+  const guardSource = await readGuardSource(deps.fs, root3);
+  if (effective === void 0 && !dir) {
+    stderr2 += "No `Last retrospective:` date found; scanning all sessions. Pass --since to narrow.\n";
+  }
+  const result = scan(found.inputs, {
+    since: effective,
+    knownSkills: skills ?? [],
+    auditRules: auditRules(guardSource)
+  });
+  const body = { since: effective ?? null, ...result };
+  return { stdout: `${JSON.stringify(body, null, 2)}
+`, stderr: stderr2 };
+}
+var retroScan = hookCommand(
+  "retro-scan",
+  "count guard blocks, failures, skills and repeated corrections over session transcripts (retro skill input)",
+  async ({ deps, options }) => {
+    const since = options["since"];
+    if (typeof since === "string" && !/^\d{4}-\d{2}-\d{2}$/.test(since)) {
+      return { code: 2, stderr: `${USAGE}
+` };
+    }
+    const dir = options["dir"];
+    return await report2(deps, {
+      dir: typeof dir === "string" ? dir : void 0,
+      since: typeof since === "string" ? since : void 0
+    });
+  },
+  { flags: { dir: "string", since: "string" }, payload: false }
+);
+
+// src/hook/skill-links.ts
+import { isAbsolute, join as join8 } from "node:path";
+var HARNESSES = [".claude", ".codex"];
+async function skillNames2(fs, root3) {
+  const skillsDir = join8(root3, "skills");
   let entries;
   try {
     entries = await fs.readdir(skillsDir);
@@ -4501,7 +5099,7 @@ async function skillNames(fs, root3) {
   }
   const skills = [];
   for (const entry of entries) {
-    if (await fs.exists(join6(root3, "skills", entry, "SKILL.md"))) {
+    if (await fs.exists(join8(root3, "skills", entry, "SKILL.md"))) {
       skills.push(entry);
     }
   }
@@ -4519,13 +5117,13 @@ async function targetOf(fs, path) {
   }
 }
 async function linkProblems(fs, root3) {
-  const skills = await skillNames(fs, root3);
+  const skills = await skillNames2(fs, root3);
   const problems = [];
   for (const harness of HARNESSES) {
     for (const skill2 of skills) {
       const link = `${harness}/skills/${skill2}`;
       const expected = `../../skills/${skill2}`;
-      const found = await targetOf(fs, join6(root3, link));
+      const found = await targetOf(fs, join8(root3, link));
       if ("code" in found) {
         problems.push(
           found.code === "EINVAL" ? `${link} is a directory or file, not a link; replace it with a link to ${expected}` : `${link} is missing; link it to ${expected}`
@@ -4545,7 +5143,7 @@ async function linkProblems(fs, root3) {
 }
 
 // src/hook/workflow-permissions.ts
-import { join as join7 } from "node:path";
+import { join as join9 } from "node:path";
 var RELEASE = "release.yaml";
 var SIGNING_JOBS = ["release", "mirror"];
 var SIGNING_SCOPES = ["id-token", "packages"];
@@ -4674,7 +5272,7 @@ function permissionProblems(files) {
   );
 }
 async function workflowProblems(fs, root3) {
-  const dir = join7(root3, ".github", "workflows");
+  const dir = join9(root3, ".github", "workflows");
   let entries;
   try {
     entries = await fs.readdir(dir);
@@ -4688,7 +5286,7 @@ async function workflowProblems(fs, root3) {
   }
   const files = {};
   for (const entry of entries.filter((f) => /\.ya?ml$/.test(f)).sort()) {
-    files[entry] = await fs.readFile(join7(dir, entry));
+    files[entry] = await fs.readFile(join9(dir, entry));
   }
   return permissionProblems(files);
 }
@@ -4733,6 +5331,7 @@ var delta = hookCommand(
 );
 var hook = {
   delta,
+  "retro-scan": retroScan,
   "skill-links": skillLinks,
   "workflow-permissions": workflowPermissions
 };
@@ -4865,7 +5464,7 @@ function fail(deps, json, code, message) {
 }
 
 // src/session/registry.ts
-import { join as join8, resolve as resolve5 } from "node:path";
+import { join as join10, resolve as resolve5 } from "node:path";
 var STATE_DIR = ".kore/state/sessions";
 function isRecord(value) {
   if (typeof value !== "object" || value === null) {
@@ -4892,7 +5491,7 @@ var SessionRegistry = class _SessionRegistry {
     return new _SessionRegistry(deps.fs, resolve5(main, STATE_DIR));
   }
   file(name) {
-    return join8(this.dir, `${name}.json`);
+    return join10(this.dir, `${name}.json`);
   }
   async read(name) {
     const path = this.file(name);
@@ -4952,7 +5551,7 @@ var SessionRegistry = class _SessionRegistry {
 };
 
 // src/session/worktree.ts
-import { join as join9 } from "node:path";
+import { join as join11 } from "node:path";
 var removeCommands = (worktree) => `\`git worktree remove ${worktree.path}\` and \`git branch -D ${worktree.branch}\``;
 var removeHint = (worktree) => `The worktree ${worktree.path} was left behind; remove it with ${removeCommands(worktree)}.`;
 var closeHint = (worktree) => `Remove its worktree once its branch is merged: ${removeCommands(worktree)}.`;
@@ -4963,7 +5562,7 @@ async function create2(deps, name, branch) {
       error: "Cannot find the main checkout to create the worktree in. Run inside the repository or set KORE_ROOT to its root. No pane was split."
     };
   }
-  const worktree = { path: join9(main, ".claude", "worktrees", name), branch };
+  const worktree = { path: join11(main, ".claude", "worktrees", name), branch };
   const add = await deps.runner.run(
     "git",
     ["worktree", "add", "-b", branch, worktree.path, "HEAD"],
@@ -4975,7 +5574,7 @@ async function create2(deps, name, branch) {
     };
   }
   const install = await deps.runner.run("npm", ["ci"], {
-    cwd: join9(worktree.path, "tools", "kore")
+    cwd: join11(worktree.path, "tools", "kore")
   });
   if (install.code !== 0) {
     return {
@@ -5540,7 +6139,7 @@ var session = {
 };
 
 // src/skill/index.ts
-import { join as join10 } from "node:path";
+import { join as join12 } from "node:path";
 
 // src/skill/audit.ts
 var DESCRIPTION_BUDGET = 200;
@@ -5634,15 +6233,15 @@ function detail(row) {
   }
   return row.verdict === "invalid" ? ` (${row.reason ?? ""})` : "";
 }
-function renderReport(report2) {
-  const width = Math.max(4, ...report2.skills.map((s) => s.name.length));
+function renderReport(report3) {
+  const width = Math.max(4, ...report3.skills.map((s) => s.name.length));
   const lines2 = [
     `${"NAME".padEnd(width)}  DESC  BODY  VERDICT`,
-    ...report2.skills.map(
+    ...report3.skills.map(
       (s) => `${s.name.padEnd(width)}  ${String(s.descriptionChars).padStart(4)}  ${String(s.bodyLines).padStart(4)}  ${s.verdict}${detail(s)}`
     ),
     "",
-    `${report2.summary.ok} ok, ${report2.summary["over-budget"]} over-budget, ${report2.summary.invalid} invalid`
+    `${report3.summary.ok} ok, ${report3.summary["over-budget"]} over-budget, ${report3.summary.invalid} invalid`
   ];
   return `${lines2.join("\n")}
 `;
@@ -5654,10 +6253,10 @@ var audit2 = {
   summary: "report each skill's description and body against its budgets",
   options: { strict: "boolean" },
   async run({ json, options, deps }) {
-    const skillsDir = join10(await deps.root(), SKILLS_DIR);
-    let report2;
+    const skillsDir = join12(await deps.root(), SKILLS_DIR);
+    let report3;
     try {
-      report2 = await auditSkills(deps.fs, skillsDir);
+      report3 = await auditSkills(deps.fs, skillsDir);
     } catch (error) {
       if (error.code === "ENOENT") {
         throw new CommandError(
@@ -5666,9 +6265,9 @@ var audit2 = {
       }
       throw error;
     }
-    deps.stdout(json ? `${JSON.stringify(report2)}
-` : renderReport(report2));
-    const failing = report2.summary["over-budget"] + report2.summary.invalid > 0;
+    deps.stdout(json ? `${JSON.stringify(report3)}
+` : renderReport(report3));
+    const failing = report3.summary["over-budget"] + report3.summary.invalid > 0;
     return options["strict"] === true && failing ? 1 : 0;
   }
 };
