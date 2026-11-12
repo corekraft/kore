@@ -42,7 +42,7 @@ async function flagAudit(deps: CliDeps, root: string): Promise<string[]> {
       return error.message.trim().split("\n");
     }
     return [
-      `flag audit could not run (${reasonOf(error)}); run \`mise run harness-build\``,
+      `flag audit could not run (${reasonOf(error)}); run \`node skills/bin/harness.mjs flag audit\` to see the cause`,
     ];
   }
 }

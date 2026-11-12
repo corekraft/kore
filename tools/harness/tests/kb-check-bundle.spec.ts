@@ -11,11 +11,14 @@ const here = dirname(fileURLToPath(import.meta.url));
 const repo = resolve(here, "../../..");
 const bundle = resolve(repo, "skills/bin/harness.mjs");
 
+// A project directory in the environment would point the check at another tree than the one under test.
+const { CLAUDE_PROJECT_DIR: _project, ...inherited } = cleanGitEnv();
+
 it("cli: runs against the repository and exits 0 in warn mode", () => {
   const warn = spawnSync("node", [bundle, "hook", "kb-check"], {
     cwd: repo,
     encoding: "utf8",
-    env: cleanGitEnv(),
+    env: inherited,
   });
   assert.equal(warn.status, 0, warn.stderr);
   assert.match(

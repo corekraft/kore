@@ -136,7 +136,7 @@ it("a flag audit that could not run is one warning line", async () => {
     ["--strict"],
     () =>
       Promise.resolve([
-        "flag audit could not run (spawn failed); run `mise run harness-build`",
+        "flag audit could not run (spawn failed); run `node skills/bin/harness.mjs flag audit` to see the cause",
       ]),
   );
   assert.equal(status, 0);

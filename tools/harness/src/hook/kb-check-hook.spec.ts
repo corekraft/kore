@@ -53,10 +53,10 @@ describe("harness hook kb-check", () => {
     ).toBe(true);
   });
 
-  it("fails open when git cannot list the files, and fails under --strict", async () => {
+  it("exits 1 and says it failed when git cannot list the files, so no check passes unrun", async () => {
     const open = repository(CLEAN, true);
-    expect(await run(["hook", "kb-check"], open.deps)).toBe(0);
-    expect(open.err()).toMatch(/\[hook:kb-check\] failed open: git ls-files/);
+    expect(await run(["hook", "kb-check"], open.deps)).toBe(1);
+    expect(open.err()).toMatch(/\[hook:kb-check\] failed: git ls-files/);
     const strict = repository(CLEAN, true);
     expect(await run(["hook", "kb-check", "--strict"], strict.deps)).toBe(1);
   });

@@ -30,5 +30,5 @@ export const kbCheckHook = hookCommand(
   "kb-check",
   "report knowledge-base problems: links, the index, frontmatter, markers and README coverage; --strict exits 1 on findings",
   ({ deps, options }) => kbCheck(options["strict"] === true, deps),
-  { payload: false },
+  { payload: false, faultCode: 1 },
 );

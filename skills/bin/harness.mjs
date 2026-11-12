@@ -7507,7 +7507,7 @@ async function flagAudit(deps, root3) {
       return error.message.trim().split("\n");
     }
     return [
-      `flag audit could not run (${reasonOf(error)}); run \`mise run harness-build\``
+      `flag audit could not run (${reasonOf(error)}); run \`node skills/bin/harness.mjs flag audit\` to see the cause`
     ];
   }
 }
@@ -7575,7 +7575,7 @@ var kbCheckHook = hookCommand(
   "kb-check",
   "report knowledge-base problems: links, the index, frontmatter, markers and README coverage; --strict exits 1 on findings",
   ({ deps, options }) => kbCheck(options["strict"] === true, deps),
-  { payload: false }
+  { payload: false, faultCode: 1 }
 );
 
 // src/hook/index.ts
