@@ -79,11 +79,11 @@ and uses it first to measure the delivery loop. Terms follow
 
 ### Work
 
-- [ ] Add a `flow` domain that maps events to the stages refine, challenge,
+- [x] Add a `flow` domain that maps events to the stages refine, challenge,
       await approval, orchestrate, write, judge, merge, verify and outcome.
 - [ ] Report per stage: active time, waiting time, toil (start, stop, wait,
       retry), work in progress, and lead time.
-- [ ] Name the bottleneck: the stage with the largest share of waiting,
+- [x] Name the bottleneck: the stage with the largest share of waiting,
       people included.
 
 ### Exit Criteria

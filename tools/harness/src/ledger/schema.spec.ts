@@ -16,6 +16,12 @@ function rejected(input: unknown, mode: "input" | "stored" = "input") {
 }
 
 describe("ledger event schema", () => {
+  it("accepts a closed issue and requires its number", () => {
+    const closed = { ...base, source: "github", kind: "issue.closed" };
+    expect(rejected(closed).field).toBe("number");
+    expect(parseEvent({ ...closed, number: 7 }, "input").ok).toBe(true);
+  });
+
   it("accepts a minimal event and keeps only the fields it was given", () => {
     const result = parseEvent(base, "input");
     expect(result).toEqual({ ok: true, event: base });

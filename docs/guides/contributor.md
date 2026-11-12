@@ -57,6 +57,48 @@ mise exec -- npm --prefix tools/kore install
 - Upstream chart and container checks are opt-in too (`test:upstream-charts`,
   `test:container-smoke`).
 
+## Flow report
+
+`node skills/bin/harness.mjs flow report [--json]` reads the stage ledger
+(`.kore/state/ledger.jsonl`, shared by every worktree) and reports, per stage of
+the delivery loop, active seconds, waiting seconds (waiting on a person counts)
+and event count, then names the bottleneck: the stage with the largest share of
+all waiting. Flags: `--min-ideas N` (default 3), `--as-of TIME`, `--ledger PATH`.
+
+The stage rules are one table, `tools/harness/src/flow/stages.ts`. An event
+joins an idea by issue number at read time: an issue event by its own number, a
+PR event by the `idea` (`#<issue>`) it closes, a pane or session event by the
+`idea` it carries on any event. Stages: an issue is in `await approval` from open
+until the `ready-for-agent` label; a pane or session named `...-<role>` works
+`refine`, `challenge`, `orchestrate`, `write`, `judge` or `verify` (verifier
+events count only after the PR merged); a claude session with no pane is the main
+session, `orchestrate`; a PR is in `merge` from open until merged; a closed issue
+is `outcome`. A pane is active from `pane.spawned` or `pane.busy` and waiting from
+`pane.waiting` until its next event. An open issue or PR is waiting, minus any
+time a refine, challenge, write, judge or verify pane was alive, up to `--as-of`
+(default now).
+
+Known limits until plan 8 Step 3 lands its producers: nothing records
+`issue.closed` or the `idea` link on PR events yet, so real ledgers show no
+completed ideas and the report says "Not enough data". A label other than
+`ready-for-agent` is counted as an unmapped event. A pane still waiting at its
+last event is charged no time past it. Equal waiting ties go to the earlier
+stage.
+
+`--json` prints one object, `version` 1; any field change bumps `version`:
+
+| Field               | Meaning                                                                                                    |
+| ------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `version`           | Shape version, `1`.                                                                                        |
+| `asOf`              | Time open waits are measured to.                                                                           |
+| `ideas`             | `{ total, completed }`; completed means the issue closed.                                                  |
+| `minCompletedIdeas` | Completed ideas needed before a bottleneck is named.                                                       |
+| `stages`            | Nine entries in loop order: `{ stage, activeSeconds, waitingSeconds, events }`.                            |
+| `bottleneck`        | `{ stage, waitingSeconds, share }` (share 0 to 1), or `null`.                                              |
+| `bottleneckNote`    | Always present: why `bottleneck` is `null` (too few completed ideas, or no waiting recorded), else `null`. |
+| `unmappedEvents`    | Events with no stage or no idea, left out of every stage.                                                  |
+| `skippedLines`      | Ledger lines that were not valid events.                                                                   |
+
 ## Rules that bite
 
 - External processes run only through the injected runner; mutations name their

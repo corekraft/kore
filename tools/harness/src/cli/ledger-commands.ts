@@ -39,7 +39,7 @@ const camel = (flag: string) =>
 const NO_ROOT =
   "Cannot find the main checkout root for the shared ledger. Run inside the repository, set KORE_ROOT to its root, or pass --ledger <path>.";
 
-type Opened = { ledger: Ledger } | { error: string };
+export type Opened = { ledger: Ledger } | { error: string };
 
 /**
  * One ledger is shared by every worktree: <main checkout root>/.kore/state/ledger.jsonl.
@@ -74,7 +74,7 @@ async function ledgerPath({
     : undefined;
 }
 
-async function openLedger(context: CommandContext): Promise<Opened> {
+export async function openLedger(context: CommandContext): Promise<Opened> {
   const path = await ledgerPath(context);
   if (path === undefined) {
     return { error: NO_ROOT };
