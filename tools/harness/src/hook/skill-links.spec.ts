@@ -14,10 +14,9 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { run, type CliDeps } from "../cli/index.js";
+import { run } from "../cli/index.js";
 import { testHarness } from "../cli/cli-support.js";
 import { nodeFileSystem } from "../runtime/index.js";
-import { FakeRunner } from "../runtime/runner-support.js";
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
 const temps: string[] = [];
@@ -44,23 +43,19 @@ function fixture(): string {
   return root;
 }
 
+function depsFor(root: string, stdin = "") {
+  const h = testHarness();
+  h.deps.fs = nodeFileSystem;
+  h.deps.root = () => Promise.resolve(root);
+  h.deps.cwd = root;
+  h.deps.stdin = () => Promise.resolve(stdin);
+  return h;
+}
+
 async function hook(root: string, stdin = "") {
-  let out = "";
-  let err = "";
-  const deps: CliDeps = {
-    runner: new FakeRunner(),
-    clock: { now: () => new Date(0) },
-    fs: nodeFileSystem,
-    env: {},
-    cwd: root,
-    root: () => Promise.resolve(root),
-    ids: { next: () => "id-1" },
-    stdin: () => Promise.resolve(stdin),
-    stdout: (t) => (out += t),
-    stderr: (t) => (err += t),
-  };
-  const code = await run(["hook", "skill-links"], deps);
-  return { code, out, err };
+  const h = depsFor(root, stdin);
+  const code = await run(["hook", "skill-links"], h.deps);
+  return { code, out: h.out(), err: h.err() };
 }
 
 const link = (root: string, harness: string, skill: string) =>
@@ -165,25 +160,13 @@ describe("hook skill-links reports", () => {
 
 describe("hook dispatcher", () => {
   it("names the valid hooks when the name is unknown", async () => {
-    let err = "";
-    const deps = {
-      runner: new FakeRunner(),
-      clock: { now: () => new Date(0) },
-      fs: nodeFileSystem,
-      env: {},
-      cwd: "/",
-      root: () => Promise.resolve("/"),
-      ids: { next: () => "id-1" },
-      stdin: () => Promise.resolve(""),
-      stdout: () => undefined,
-      stderr: (t: string) => (err += t),
-    } satisfies CliDeps;
+    const h = testHarness();
 
-    const code = await run(["hook", "nope"], deps);
+    const code = await run(["hook", "nope"], h.deps);
 
     expect(code).not.toBe(0);
-    expect(err).toContain('Unknown command "nope" for domain "hook"');
-    expect(err).toContain("Commands: skill-links.");
+    expect(h.err()).toContain('Unknown command "nope" for domain "hook"');
+    expect(h.err()).toContain("Commands: skill-links.");
   });
 });
 
