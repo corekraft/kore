@@ -3782,6 +3782,51 @@ var SessionRegistry = class _SessionRegistry {
   }
 };
 
+// src/session/worktree.ts
+import { join as join6 } from "node:path";
+var removeCommands = (worktree) => `\`git worktree remove ${worktree.path}\` and \`git branch -D ${worktree.branch}\``;
+var removeHint = (worktree) => `The worktree ${worktree.path} was left behind; remove it with ${removeCommands(worktree)}.`;
+var closeHint = (worktree) => `Remove its worktree once its branch is merged: ${removeCommands(worktree)}.`;
+async function create2(deps, name, branch) {
+  const main = await mainRoot(deps);
+  if (main === void 0) {
+    return {
+      error: "Cannot find the main checkout to create the worktree in. Run inside the repository or set KORE_ROOT to its root. No pane was split."
+    };
+  }
+  const worktree = { path: join6(main, ".claude", "worktrees", name), branch };
+  const add = await deps.runner.run(
+    "git",
+    ["worktree", "add", "-b", branch, worktree.path, "HEAD"],
+    { cwd: deps.cwd }
+  );
+  if (add.code !== 0) {
+    return {
+      error: `git worktree add failed: ${describeFailure(add)}. No pane was split. A previous spawn may have left the worktree or branch: run ${removeCommands(worktree)}, or pass --branch <other>.`
+    };
+  }
+  const install = await deps.runner.run("npm", ["ci"], {
+    cwd: join6(worktree.path, "tools", "kore")
+  });
+  if (install.code !== 0) {
+    return {
+      error: `npm ci failed in the new worktree: ${describeFailure(install)}. No pane was split. ${removeHint(worktree)}`
+    };
+  }
+  return worktree;
+}
+async function place(deps, options, name) {
+  if (options.worktree !== true) {
+    return { cwd: deps.cwd, left: "" };
+  }
+  const branch = typeof options.branch === "string" ? options.branch : name;
+  const worktree = await create2(deps, name, branch);
+  if ("error" in worktree) {
+    return worktree;
+  }
+  return { worktree, cwd: worktree.path, left: ` ${removeHint(worktree)}` };
+}
+
 // src/session/close.ts
 var NOT_IN_HERDR = "Not inside Herdr (HERDR_ENV is not 1 or HERDR_PANE_ID is unset). Run this from the Herdr pane that spawned the session.";
 function refuse(record3, callerPane) {
@@ -3803,9 +3848,10 @@ async function finishClose({ json, deps }, registry, record3, callerPane) {
     deps.stderr(`${note}
 `);
   }
+  const hint = record3.worktree === void 0 ? void 0 : closeHint(record3.worktree);
   deps.stdout(
-    json ? `${JSON.stringify({ name, paneId: record3.paneId, closed: true, equalize: equalized })}
-` : `Closed ${name} (pane ${record3.paneId}).
+    json ? `${JSON.stringify({ name, paneId: record3.paneId, closed: true, equalize: equalized, ...hint === void 0 ? {} : { hint } })}
+` : `Closed ${name} (pane ${record3.paneId}).${hint === void 0 ? "" : ` ${hint}`}
 `
   );
   return 0;
@@ -4105,42 +4151,8 @@ async function wait(context) {
   return 0;
 }
 
-// src/session/spawn-finish.ts
-async function finish2({ json, deps, options }, { registry, record: record3, modelCheck, timeoutMs }) {
-  const { name, paneId, callerPane, model, role, effort } = record3;
-  await registry.create(record3);
-  const verdict = modelCheck.status === "verified" ? "model verified" : `model unverified: ${modelCheck.reason}`;
-  if (options["no-wait"] === true) {
-    deps.stdout(
-      json ? `${JSON.stringify({ name, paneId, model, role, effort, modelCheck })}
-` : `Spawned ${name} (${model}; ${verdict}) in pane ${paneId}; it will broadcast to ${callerPane} when it finishes. Collect its result with \`session wait ${name}\`.
-`
-    );
-    return 0;
-  }
-  const result = await waitForResult(deps, registry, record3, timeoutMs);
-  if ("error" in result) {
-    return fail(deps, json, FAILED3, result.error);
-  }
-  deps.stdout(
-    json ? `${JSON.stringify({ ...result, role, effort, modelCheck })}
-` : `${formatWait(result).trimEnd()} (${verdict}).
-`
-  );
-  return 0;
-}
-
-// src/session/spawn.ts
+// src/session/spawn-check.ts
 var REQUIRED3 = ["role", "model", "effort", "name", "brief"];
-function paneIdOf(stdout) {
-  try {
-    const parsed = JSON.parse(stdout);
-    const id = parsed.result?.pane?.pane_id;
-    return typeof id === "string" ? id : void 0;
-  } catch {
-    return void 0;
-  }
-}
 function check({ deps, options }) {
   const usage2 = (error) => ({ error, code: USAGE_ERROR });
   const missing = REQUIRED3.find((flag) => typeof options[flag] !== "string");
@@ -4156,6 +4168,9 @@ function check({ deps, options }) {
     return usage2(
       'The brief has a line that is only a RESULT marker, which would end the wait early. Describe the marker in words instead, such as "end with the word RESULT, a colon, then done or blocked".'
     );
+  }
+  if (options.branch !== void 0 && options.worktree !== true) {
+    return usage2("--branch only applies with --worktree.");
   }
   const timeoutMs = parseTimeout(options.timeout);
   if (typeof timeoutMs !== "number") {
@@ -4176,7 +4191,44 @@ function check({ deps, options }) {
   }
   return { values: given, callerPane, timeoutMs };
 }
-async function splitPane(deps, callerPane) {
+
+// src/session/spawn-finish.ts
+async function finish2({ json, deps, options }, { registry, record: record3, modelCheck, timeoutMs }) {
+  const { name, paneId, callerPane, model, role, effort, worktree } = record3;
+  const extra = worktree === void 0 ? {} : { worktree };
+  await registry.create(record3);
+  const verdict = modelCheck.status === "verified" ? "model verified" : `model unverified: ${modelCheck.reason}`;
+  if (options["no-wait"] === true) {
+    deps.stdout(
+      json ? `${JSON.stringify({ name, paneId, model, role, effort, ...extra, modelCheck })}
+` : `Spawned ${name} (${model}; ${verdict}) in pane ${paneId}; it will broadcast to ${callerPane} when it finishes. Collect its result with \`session wait ${name}\`.
+`
+    );
+    return 0;
+  }
+  const result = await waitForResult(deps, registry, record3, timeoutMs);
+  if ("error" in result) {
+    return fail(deps, json, FAILED3, result.error);
+  }
+  deps.stdout(
+    json ? `${JSON.stringify({ ...result, role, effort, ...extra, modelCheck })}
+` : `${formatWait(result).trimEnd()} (${verdict}).
+`
+  );
+  return 0;
+}
+
+// src/session/spawn.ts
+function paneIdOf(stdout) {
+  try {
+    const parsed = JSON.parse(stdout);
+    const id = parsed.result?.pane?.pane_id;
+    return typeof id === "string" ? id : void 0;
+  } catch {
+    return void 0;
+  }
+}
+async function splitPane(deps, callerPane, cwd) {
   const read = await readLayout(deps.runner, callerPane);
   if ("error" in read) {
     return { error: `${read.error}. No pane was split.` };
@@ -4188,7 +4240,7 @@ async function splitPane(deps, callerPane) {
     "split",
     ...where,
     "--cwd",
-    deps.cwd,
+    cwd,
     "--no-focus"
   ]);
   if (split.code !== 0) {
@@ -4222,11 +4274,15 @@ async function spawn2(context) {
   if (taken !== void 0) {
     return fail(deps, json, FAILED3, taken);
   }
-  const paneId = await splitPane(deps, callerPane);
-  if (typeof paneId !== "string") {
-    return fail(deps, json, FAILED3, paneId.error);
+  const placed = await place(deps, context.options, name);
+  if ("error" in placed) {
+    return fail(deps, json, FAILED3, placed.error);
   }
-  const leftOpen = `The pane ${paneId} was left open; close it with \`herdr pane close ${paneId}\`.`;
+  const paneId = await splitPane(deps, callerPane, placed.cwd);
+  if (typeof paneId !== "string") {
+    return fail(deps, json, FAILED3, `${paneId.error}${placed.left}`);
+  }
+  const leftOpen = `The pane ${paneId} was left open; close it with \`herdr pane close ${paneId}\`.${placed.left}`;
   const equalized = await equalize(deps.runner, callerPane);
   if (equalized.status === "failed") {
     return fail(deps, json, FAILED3, `${equalized.reason}. ${leftOpen}`);
@@ -4250,6 +4306,7 @@ async function spawn2(context) {
       model,
       role,
       effort,
+      ...placed.worktree === void 0 ? {} : { worktree: placed.worktree },
       createdAt: deps.clock.now().toISOString()
     },
     timeoutMs: checked.timeoutMs
@@ -4258,7 +4315,7 @@ async function spawn2(context) {
 
 // src/session/index.ts
 var spawnCommand = {
-  summary: "start a Claude session in a Herdr pane (--role --model --effort --name --brief --timeout ms); it waits for the result unless --no-wait, the normal pattern: spawn with --no-wait, then run `session wait <name>` in the background",
+  summary: "start a Claude session in a Herdr pane (--role --model --effort --name --brief --timeout ms; --worktree [--branch b] runs it in a new git worktree under .claude/worktrees); it waits for the result unless --no-wait, the normal pattern: spawn with --no-wait, then run `session wait <name>` in the background",
   options: {
     role: "string",
     model: "string",
@@ -4266,6 +4323,8 @@ var spawnCommand = {
     name: "string",
     brief: "string",
     "no-wait": "boolean",
+    worktree: "boolean",
+    branch: "string",
     timeout: "string"
   },
   run: spawn2
@@ -4312,7 +4371,7 @@ var session = {
 };
 
 // src/skill/index.ts
-import { join as join6 } from "node:path";
+import { join as join7 } from "node:path";
 
 // src/skill/audit.ts
 var DESCRIPTION_BUDGET = 200;
@@ -4426,7 +4485,7 @@ var audit = {
   summary: "report each skill's description and body against its budgets",
   options: { strict: "boolean" },
   async run({ json, options, deps }) {
-    const skillsDir = join6(await deps.root(), SKILLS_DIR);
+    const skillsDir = join7(await deps.root(), SKILLS_DIR);
     let report2;
     try {
       report2 = await auditSkills(deps.fs, skillsDir);

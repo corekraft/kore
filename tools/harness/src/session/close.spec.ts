@@ -49,6 +49,36 @@ describe("session close", () => {
     });
   });
 
+  it("prints the worktree removal commands when the session had a worktree", async () => {
+    const worktree = { path: "/main/.claude/worktrees/x", branch: "feat/x" };
+    const h = testHarness({
+      env: INSIDE,
+      files: stateOf({ ...withResult, worktree }),
+      responses: [gitCommon, layoutOf()],
+    });
+    expect(await run(close, h.deps)).toBe(0);
+    const out = JSON.parse(h.out()) as { hint: string };
+    expect(out.hint).toContain("git worktree remove /main/.claude/worktrees/x");
+    expect(out.hint).toContain("git branch -D feat/x");
+    const human = testHarness({
+      env: INSIDE,
+      files: stateOf({ ...withResult, worktree }),
+      responses: [gitCommon, layoutOf()],
+    });
+    await run(["session", "close", "image-trust-writer"], human.deps);
+    expect(human.out()).toContain("git worktree remove");
+  });
+
+  it("prints no worktree hint for a session without one", async () => {
+    const h = testHarness({
+      env: INSIDE,
+      files: stateOf(withResult),
+      responses: [gitCommon, layoutOf()],
+    });
+    await run(close, h.deps);
+    expect(JSON.parse(h.out())).not.toHaveProperty("hint");
+  });
+
   it("refuses a pane this tool did not create, closing nothing", async () => {
     const h = testHarness({ env: INSIDE, responses: [gitCommon] });
     expect(await run(close, h.deps)).toBe(1);

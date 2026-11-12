@@ -16,7 +16,8 @@ export async function finish(
   { json, deps, options }: CommandContext,
   { registry, record, modelCheck, timeoutMs }: Finish,
 ): Promise<number> {
-  const { name, paneId, callerPane, model, role, effort } = record;
+  const { name, paneId, callerPane, model, role, effort, worktree } = record;
+  const extra = worktree === undefined ? {} : { worktree };
   await registry.create(record);
   const verdict =
     modelCheck.status === "verified"
@@ -25,7 +26,7 @@ export async function finish(
   if (options["no-wait"] === true) {
     deps.stdout(
       json
-        ? `${JSON.stringify({ name, paneId, model, role, effort, modelCheck })}\n`
+        ? `${JSON.stringify({ name, paneId, model, role, effort, ...extra, modelCheck })}\n`
         : `Spawned ${name} (${model}; ${verdict}) in pane ${paneId}; it will broadcast to ${callerPane} when it finishes. Collect its result with \`session wait ${name}\`.\n`,
     );
     return 0;
@@ -36,7 +37,7 @@ export async function finish(
   }
   deps.stdout(
     json
-      ? `${JSON.stringify({ ...result, role, effort, modelCheck })}\n`
+      ? `${JSON.stringify({ ...result, role, effort, ...extra, modelCheck })}\n`
       : `${formatWait(result).trimEnd()} (${verdict}).\n`,
   );
   return 0;

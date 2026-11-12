@@ -39,11 +39,11 @@ Each step reports its effect against the plan 8 baseline.
 
 ### Work
 
-- [ ] Add a `session` domain that launches
+- [x] Add a `session` domain that launches
       `claude --agent <role> --model <model> --effort <effort>` in a Herdr
       pane: split direction, pane naming, busy retry, worktree creation, and
       the anchored `RESULT` wait.
-- [ ] Shrink `skills/spawn-session/SKILL.md` from 46 lines to the budget.
+- [x] Shrink `skills/spawn-session/SKILL.md` from 46 lines to the budget.
 
 ### Exit Criteria
 
