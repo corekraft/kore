@@ -43,6 +43,8 @@
           "infra/environments/managed-example/values/otel-collector.yaml",
           "infra/environments/managed-example/values/mirror/otel-collector.yaml"
         ],
+      "kore-storage":
+        ["infra/environments/managed-example/values/platform-storage.yaml"],
       "kore-platform-config":
         ["infra/environments/managed-example/values/platform-config.yaml"],
       "kore-local-tls":

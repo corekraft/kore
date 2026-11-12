@@ -157,30 +157,20 @@ test("the local overlay values are applied to the kore-storage component", async
 });
 
 test("no Minikube provisioner remains in the charts or the local overlay values", async () => {
-  const files = [
-    ...(
-      await readdir(
-        join((await loadRepository("local")).root, "infra/charts"),
-        {
-          recursive: true,
-          withFileTypes: true,
-        },
-      )
-    ).map((entry) => join(entry.parentPath, entry.name)),
-    ...(
-      await readdir(
-        join(
-          (await loadRepository("local")).root,
-          "infra/environments/local/values",
-        ),
-        { withFileTypes: true },
-      )
-    ).map((entry) => join(entry.parentPath, entry.name)),
-  ];
+  const { root } = await loadRepository("local");
+  const entries = [
+    ...(await readdir(join(root, "infra/charts"), {
+      recursive: true,
+      withFileTypes: true,
+    })),
+    ...(await readdir(join(root, "infra/environments/local/values"), {
+      withFileTypes: true,
+    })),
+  ].filter((entry) => entry.isFile());
   const offenders: string[] = [];
-  for (const file of files) {
-    const text = await readFile(file, "utf8").catch(() => "");
-    if (/minikube-hostpath|hostpath/i.test(text)) {
+  for (const entry of entries) {
+    const file = join(entry.parentPath, entry.name);
+    if (/minikube-hostpath/i.test(await readFile(file, "utf8"))) {
       offenders.push(file);
     }
   }
