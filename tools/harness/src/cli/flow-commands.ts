@@ -65,7 +65,7 @@ function text(report: Printed): string {
 }
 
 const report: Command = {
-  summary: `map ledger events to stages; per stage active, waiting and event counts, and the bottleneck (--min-ideas N, default ${MIN_COMPLETED_IDEAS}; --as-of TIME; --ledger PATH; --json shape version ${REPORT_VERSION})`,
+  summary: `map ledger events to stages; per stage active, waiting and event counts, and the bottleneck (--min-ideas N, default ${MIN_COMPLETED_IDEAS}; --as-of TIME; --ledger PATH; --json is one object, version ${REPORT_VERSION}: version, asOf, ideas, minCompletedIdeas, stages, bottleneck, bottleneckNote, unmappedEvents, skippedLines)`,
   options: { "min-ideas": "string", "as-of": "string", ledger: "string" },
   async run(context) {
     const flags = parseFlags(context);

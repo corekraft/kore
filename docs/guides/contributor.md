@@ -78,6 +78,13 @@ is `outcome`. A pane is active from `pane.spawned` or `pane.busy` and waiting fr
 time a refine, challenge, write, judge or verify pane was alive, up to `--as-of`
 (default now).
 
+Known limits until plan 8 Step 3 lands its producers: nothing records
+`issue.closed` or the `idea` link on PR events yet, so real ledgers show no
+completed ideas and the report says "Not enough data". A label other than
+`ready-for-agent` is counted as an unmapped event. A pane still waiting at its
+last event is charged no time past it. Equal waiting ties go to the earlier
+stage.
+
 `--json` prints one object, `version` 1; any field change bumps `version`:
 
 | Field               | Meaning                                                                         |
