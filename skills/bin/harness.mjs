@@ -2988,7 +2988,7 @@ function fail(deps, json, code, message) {
 }
 
 // src/session/registry.ts
-import { join as join4, resolve as resolve4 } from "node:path";
+import { join as join5, resolve as resolve4 } from "node:path";
 var STATE_DIR = ".kore/state/sessions";
 function isRecord(value) {
   if (typeof value !== "object" || value === null) {
@@ -3015,7 +3015,7 @@ var SessionRegistry = class _SessionRegistry {
     return new _SessionRegistry(deps.fs, resolve4(main, STATE_DIR));
   }
   file(name) {
-    return join4(this.dir, `${name}.json`);
+    return join5(this.dir, `${name}.json`);
   }
   async read(name) {
     const path = this.file(name);
@@ -3604,7 +3604,7 @@ var session = {
 };
 
 // src/skill/index.ts
-import { join as join5 } from "node:path";
+import { join as join6 } from "node:path";
 
 // src/skill/audit.ts
 var DESCRIPTION_BUDGET = 200;
@@ -3718,7 +3718,7 @@ var audit = {
   summary: "report each skill's description and body against its budgets",
   options: { strict: "boolean" },
   async run({ json, options, deps }) {
-    const skillsDir = join5(await deps.root(), SKILLS_DIR);
+    const skillsDir = join6(await deps.root(), SKILLS_DIR);
     let report2;
     try {
       report2 = await auditSkills(deps.fs, skillsDir);

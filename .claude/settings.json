@@ -41,6 +41,14 @@
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/context.mjs\""
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/record.mjs\" session-start"
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
@@ -55,7 +63,6 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash|Read|Write|Edit",
         "hooks": [
           {
             "type": "command",
@@ -66,11 +73,20 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Write|Edit",
         "hooks": [
           {
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/feedback.mjs\" post-edit"
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/feedback.mjs\" tool-failure"
           }
         ]
       }
