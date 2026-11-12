@@ -6,12 +6,13 @@ import { hasVerifiedExport } from "./export-manifest.js";
 import {
   assertExpectedK3dCluster,
   clusterStatusK3d,
-  clusterStopK3d,
   clusterUpK3d,
-  deleteK3dCluster,
-  k3dCluster,
-  k3dContext,
 } from "./k3d-cluster.js";
+import {
+  clusterStopK3d,
+  deleteK3dCluster,
+  k3dDestroyIsNoop,
+} from "./k3d-lifecycle.js";
 import { purgeRetainedResources, retainedResources } from "./retained.js";
 
 import { ClusterUnavailableError } from "./cluster-unavailable.js";
@@ -202,14 +203,8 @@ export async function clusterDestroy(
       "cluster destroy is only available for Minikube and k3d environments",
     );
   }
-  if (provider === "k3d") {
-    // A wrong cluster/context pair is a config error, never "unverified data".
-    const { clusterName } = k3dCluster(repository.environment);
-    if (k3dContext(clusterName) !== repository.environment.kubeContext) {
-      throw new Error(
-        `refusing unexpected cluster/context pair: ${k3dContext(clusterName)} != ${repository.environment.kubeContext}; set environment.kubeContext to ${k3dContext(clusterName)}`,
-      );
-    }
+  if (provider === "k3d" && (await k3dDestroyIsNoop(repository, runner))) {
+    return;
   }
   let clusterVerified = true;
   try {

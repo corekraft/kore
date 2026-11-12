@@ -35,3 +35,23 @@ test("local down reaches the platform stop and destroy for a k3d environment", a
   );
   expect(calls).toEqual(["stop", "destroy:true:false"]);
 });
+
+test("local down --prune --purge-data passes purgeData through for k3d", async () => {
+  const base = await loadRepository("local");
+  const repository = {
+    ...base,
+    environment: { ...base.environment, provider: "k3d" as const },
+  };
+  const seen: { yes: boolean; purgeData: boolean }[] = [];
+  await localDown(
+    repository,
+    {} as never,
+    { prune: true, purgeData: true },
+    {
+      platformDestroy: async (_repository, _runner, options) => {
+        seen.push(options);
+      },
+    },
+  );
+  expect(seen).toEqual([{ yes: true, purgeData: true }]);
+});

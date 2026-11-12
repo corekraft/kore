@@ -16,7 +16,10 @@ const retainedPv = JSON.stringify({
 });
 
 /** The k3d fake, with kubectl answering the retained-data queries. */
-function lifecycleRunner(options: { running?: number; retained?: boolean }) {
+function lifecycleRunner(options: {
+  running?: number | undefined;
+  retained?: boolean;
+}) {
   const { runner: base, calls } = fakeRunner(options.running);
   const runner: Runner = {
     async run(command, args, runOptions) {
@@ -92,8 +95,16 @@ test("destroy with both opt-ins purges retained data and deletes the cluster", a
     yes: true,
     purgeData: true,
   });
-  expect(deletes(calls)).toEqual(["k3d cluster delete kore-local"]);
-  expect(text(calls).at(-1)).toBe("k3d cluster delete kore-local");
+  const order = text(calls).filter((line) => / delete /.test(line));
+  expect(order).toEqual([
+    expect.stringContaining(
+      "kubectl --context k3d-kore-local delete postgresqlinstances.platform.kore.dev",
+    ),
+    expect.stringContaining(
+      "kubectl --context k3d-kore-local delete pvc --all-namespaces",
+    ),
+    "k3d cluster delete kore-local",
+  ]);
 });
 
 test("destroy with --purge-data but no --yes still issues no delete", async () => {
@@ -117,5 +128,25 @@ test("destroy refuses a cluster/context mismatch even with both opt-ins", async 
   await expect(
     clusterDestroy(mismatched, runner, { yes: true, purgeData: true }),
   ).rejects.toThrow(/unexpected cluster\/context pair/);
-  expect(deletes(calls)).toEqual([]);
+  expect(calls).toEqual([]);
+});
+
+test("destroy on an absent cluster is a no-op: no data can exist and no delete is issued", async () => {
+  for (const options of [
+    { yes: true, purgeData: false },
+    { yes: true, purgeData: true },
+    { yes: false, purgeData: false },
+  ]) {
+    const { runner, calls } = lifecycleRunner({});
+    await clusterDestroy(await k3dRepository(), runner, options);
+    expect(text(calls)).toEqual(["k3d cluster list --output json"]);
+  }
+});
+
+test("stop on a stopped or absent cluster returns without error and stops nothing", async () => {
+  for (const running of [0, undefined]) {
+    const { runner, calls } = lifecycleRunner({ running });
+    await clusterStop(await k3dRepository(), runner);
+    expect(text(calls)).toEqual(["k3d cluster list --output json"]);
+  }
 });
