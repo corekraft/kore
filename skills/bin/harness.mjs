@@ -5,7 +5,7 @@ var CommandError = class extends Error {
 // src/runtime/clock.ts
 var systemClock = {
   now: () => /* @__PURE__ */ new Date(),
-  sleep: (ms) => new Promise((resolve6) => setTimeout(resolve6, ms))
+  sleep: (ms) => new Promise((resolve7) => setTimeout(resolve7, ms))
 };
 function localDate(date) {
   const two = (n) => String(n).padStart(2, "0");
@@ -57,14 +57,17 @@ var nodeFileSystem = {
   },
   readdir: (path) => readdir(path),
   remove: (path) => rm(path, { force: true }),
-  readlink: (path) => readlink(path)
+  readlink: (path) => readlink(path),
+  async mtimeMs(path) {
+    return (await stat(path)).mtimeMs;
+  }
 };
 
 // src/runtime/runner.ts
 import { spawn } from "node:child_process";
 var ProcessRunner = class {
   async run(command, args, options = {}) {
-    return await new Promise((resolve6) => {
+    return await new Promise((resolve7) => {
       const child = spawn(command, [...args], {
         ...options.cwd === void 0 ? {} : { cwd: options.cwd },
         stdio: [
@@ -82,10 +85,10 @@ var ProcessRunner = class {
         stderr2 += chunk.toString();
       });
       child.on("error", (error) => {
-        resolve6({ stdout, stderr: error.message, code: 127 });
+        resolve7({ stdout, stderr: error.message, code: 127 });
       });
       child.on("close", (code) => {
-        resolve6({ stdout, stderr: stderr2, code: code ?? 1 });
+        resolve7({ stdout, stderr: stderr2, code: code ?? 1 });
       });
       if (options.input !== void 0) {
         child.stdin?.end(options.input);
@@ -4163,6 +4166,282 @@ var planTick = {
   }
 };
 
+// src/hook/delta-deps.ts
+import { join as join5, resolve as resolve4 } from "node:path";
+var JOURNAL_DIR = ".kore/state/journal";
+var LOCKS_DIR = ".kore/locks";
+function gitReader(deps, root3) {
+  return async (...args) => {
+    const result = await deps.runner.run("git", args, { cwd: root3 });
+    if (result.code !== 0) {
+      throw new Error(`git ${args.join(" ")} exited ${result.code}`);
+    }
+    return result.stdout.trim();
+  };
+}
+async function readDir(deps, dir) {
+  try {
+    return await deps.fs.readdir(dir);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  }
+}
+function parseEntries(text6) {
+  const entries = [];
+  for (const line2 of text6.split("\n")) {
+    try {
+      const entry = JSON.parse(line2);
+      if (entry !== null && typeof entry === "object") {
+        entries.push(entry);
+      }
+    } catch {
+    }
+  }
+  return entries;
+}
+async function readJournals(deps, root3) {
+  const dir = join5(root3, JOURNAL_DIR);
+  const journals = {};
+  for (const name of await readDir(deps, dir)) {
+    if (!name.endsWith(".jsonl")) {
+      continue;
+    }
+    try {
+      journals[name.slice(0, -".jsonl".length)] = parseEntries(
+        await deps.fs.readFile(join5(dir, name))
+      );
+    } catch {
+    }
+  }
+  return journals;
+}
+function snapshotStore(deps, git, root3) {
+  const dir = async () => join5(resolve4(root3, await git("rev-parse", "--git-dir")), "kore-delta");
+  const file = async (id) => join5(await dir(), `${id}.json`);
+  return {
+    async readSnapshot(id) {
+      try {
+        return JSON.parse(await deps.fs.readFile(await file(id)));
+      } catch {
+        return null;
+      }
+    },
+    async writeSnapshot(id, snapshot2) {
+      await deps.fs.writeFile(await file(id), JSON.stringify(snapshot2));
+    },
+    async listSnapshots() {
+      const base = await dir();
+      const found = [];
+      for (const name of await readDir(deps, base)) {
+        if (name.endsWith(".json")) {
+          found.push({
+            id: name.slice(0, -".json".length),
+            mtimeMs: await deps.fs.mtimeMs(join5(base, name))
+          });
+        }
+      }
+      return found;
+    },
+    async removeSnapshot(id) {
+      await deps.fs.remove(await file(id));
+    }
+  };
+}
+function realDeltaDeps(deps, root3) {
+  const git = gitReader(deps, root3);
+  return {
+    now: () => deps.clock.now().getTime(),
+    head: () => git("rev-parse", "HEAD"),
+    branch: () => git("rev-parse", "--abbrev-ref", "HEAD"),
+    async main() {
+      try {
+        return await git("rev-parse", "--verify", "--quiet", "main");
+      } catch {
+        return null;
+      }
+    },
+    async commitsBetween(from, to) {
+      return (await git("log", "--format=%s", `${from}..${to}`)).split("\n").filter(Boolean);
+    },
+    readPlans: () => readPlans(deps),
+    listLocks: () => readDir(deps, join5(root3, LOCKS_DIR)),
+    readJournals: () => readJournals(deps, root3),
+    ...snapshotStore(deps, git, root3)
+  };
+}
+
+// src/hook/delta.ts
+var MAX_CHARS = 600;
+var MAX_ITEM_CHARS = 60;
+var MAX_SUBJECTS = 3;
+var SNAPSHOT_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1e3;
+function lastOperation(entries) {
+  const start = entries.findLast((entry) => entry.kind === "start");
+  if (start === void 0) {
+    return null;
+  }
+  const end = entries.findLast(
+    (entry) => entry.kind === "end" && entry.op === start.op
+  );
+  return {
+    op: start.op ?? "",
+    command: start.command ?? "",
+    outcome: end?.outcome ?? null,
+    ...end?.error ? { error: end.error } : {}
+  };
+}
+function planItems(plans) {
+  const result = {};
+  for (const name of activePlans(plans)) {
+    const items = {};
+    for (const { text: text6 } of listItems(plans[name] ?? "")) {
+      const match = /^- \[( |x)\] (.*)$/.exec(text6);
+      if (match === null) {
+        continue;
+      }
+      const title = (match[2] ?? "").replaceAll("**", "").slice(0, MAX_ITEM_CHARS);
+      items[title] = match[1] === "x";
+    }
+    result[name] = items;
+  }
+  return result;
+}
+async function snapshot(deps) {
+  const journal = {};
+  for (const [environment, entries] of Object.entries(
+    await deps.readJournals()
+  )) {
+    const last = lastOperation(entries);
+    if (last !== null) {
+      journal[environment] = last;
+    }
+  }
+  return {
+    head: await deps.head(),
+    branch: await deps.branch(),
+    main: await deps.main(),
+    plans: planItems(await deps.readPlans()),
+    locks: [...await deps.listLocks()].sort(),
+    journal
+  };
+}
+function operationLine(environment, operation) {
+  const command = `\`${operation.command}\``;
+  if (operation.outcome === null) {
+    return `${environment}: ${command} started`;
+  }
+  if (operation.outcome === "failed") {
+    return `${environment}: ${command} failed${operation.error ? `: ${operation.error}` : ""}`;
+  }
+  return `${environment}: ${command} finished ${operation.outcome}`;
+}
+function planLines(before, after) {
+  const lines2 = [];
+  for (const [plan2, items] of Object.entries(after.plans)) {
+    const old = before.plans[plan2];
+    const ticked = [];
+    const added = [];
+    for (const [title, checked] of Object.entries(items)) {
+      if (old === void 0 || !(title in old)) {
+        if (old !== void 0) {
+          added.push(title);
+        }
+      } else if (checked && old[title] !== true) {
+        ticked.push(title);
+      }
+    }
+    if (ticked.length > 0) {
+      lines2.push(`${plan2} ticked: ${ticked.join("; ")}`);
+    }
+    if (added.length > 0) {
+      lines2.push(`${plan2} added: ${added.join("; ")}`);
+    }
+  }
+  return lines2;
+}
+function mainLine(before, after, subjects) {
+  if (before.main === after.main || after.main === null) {
+    return [];
+  }
+  const found = before.main === null ? [] : subjects(before.main, after.main);
+  if (found.length === 0) {
+    return [`main moved to ${after.main.slice(0, 7)}.`];
+  }
+  const shown = found.slice(0, MAX_SUBJECTS).join("; ");
+  const more = found.length > MAX_SUBJECTS ? "; ..." : "";
+  const plural = found.length === 1 ? "commit" : "commits";
+  return [`main advanced ${found.length} ${plural}: ${shown}${more}`];
+}
+function lockLines(before, after) {
+  return [
+    ...after.locks.filter((lock) => !before.locks.includes(lock)).map((lock) => `lock taken: ${lock}`),
+    ...before.locks.filter((lock) => !after.locks.includes(lock)).map((lock) => `lock released: ${lock}`)
+  ];
+}
+function journalLines(before, after) {
+  return Object.entries(after.journal).filter(([environment, operation]) => {
+    const old = before.journal[environment];
+    return old?.op !== operation.op || old.outcome !== operation.outcome;
+  }).map(([environment, operation]) => operationLine(environment, operation));
+}
+function describeChanges(before, after, subjects) {
+  const lines2 = [
+    ...mainLine(before, after, subjects),
+    ...before.branch === after.branch ? [] : [`branch changed from ${before.branch} to ${after.branch}.`],
+    ...planLines(before, after),
+    ...lockLines(before, after),
+    ...journalLines(before, after)
+  ];
+  if (lines2.length === 0) {
+    return "";
+  }
+  const text6 = `Changed since your last turn: ${lines2.join(" | ")}`;
+  return text6.length <= MAX_CHARS ? text6 : `${text6.slice(0, MAX_CHARS - 3)}...`;
+}
+async function prune(currentId, deps) {
+  try {
+    const cutoff = deps.now() - SNAPSHOT_MAX_AGE_MS;
+    for (const { id, mtimeMs } of await deps.listSnapshots()) {
+      if (id === currentId || mtimeMs >= cutoff) {
+        continue;
+      }
+      try {
+        await deps.removeSnapshot(id);
+      } catch {
+      }
+    }
+  } catch {
+  }
+}
+async function update(sessionId, deps) {
+  try {
+    const before = await deps.readSnapshot(sessionId);
+    const after = await snapshot(deps);
+    await deps.writeSnapshot(sessionId, after);
+    await prune(sessionId, deps);
+    if (before === null) {
+      return "";
+    }
+    const subjects = /* @__PURE__ */ new Map();
+    if (before.main !== after.main && before.main !== null && after.main !== null) {
+      subjects.set(
+        `${before.main}..${after.main}`,
+        await deps.commitsBetween(before.main, after.main)
+      );
+    }
+    return describeChanges(
+      before,
+      after,
+      (from, to) => subjects.get(`${from}..${to}`) ?? []
+    );
+  } catch {
+    return "";
+  }
+}
+
 // src/hook/io.ts
 async function readPayload(deps) {
   const text6 = await deps.stdin();
@@ -4205,10 +4484,10 @@ function hookCommand(name, summary, handler) {
 }
 
 // src/hook/skill-links.ts
-import { isAbsolute, join as join5 } from "node:path";
+import { isAbsolute, join as join6 } from "node:path";
 var HARNESSES = [".claude", ".codex"];
 async function skillNames(fs, root3) {
-  const skillsDir = join5(root3, "skills");
+  const skillsDir = join6(root3, "skills");
   let entries;
   try {
     entries = await fs.readdir(skillsDir);
@@ -4222,7 +4501,7 @@ async function skillNames(fs, root3) {
   }
   const skills = [];
   for (const entry of entries) {
-    if (await fs.exists(join5(root3, "skills", entry, "SKILL.md"))) {
+    if (await fs.exists(join6(root3, "skills", entry, "SKILL.md"))) {
       skills.push(entry);
     }
   }
@@ -4246,7 +4525,7 @@ async function linkProblems(fs, root3) {
     for (const skill2 of skills) {
       const link = `${harness}/skills/${skill2}`;
       const expected = `../../skills/${skill2}`;
-      const found = await targetOf(fs, join5(root3, link));
+      const found = await targetOf(fs, join6(root3, link));
       if ("code" in found) {
         problems.push(
           found.code === "EINVAL" ? `${link} is a directory or file, not a link; replace it with a link to ${expected}` : `${link} is missing; link it to ${expected}`
@@ -4266,7 +4545,7 @@ async function linkProblems(fs, root3) {
 }
 
 // src/hook/workflow-permissions.ts
-import { join as join6 } from "node:path";
+import { join as join7 } from "node:path";
 var RELEASE = "release.yaml";
 var SIGNING_JOBS = ["release", "mirror"];
 var SIGNING_SCOPES = ["id-token", "packages"];
@@ -4395,7 +4674,7 @@ function permissionProblems(files) {
   );
 }
 async function workflowProblems(fs, root3) {
-  const dir = join6(root3, ".github", "workflows");
+  const dir = join7(root3, ".github", "workflows");
   let entries;
   try {
     entries = await fs.readdir(dir);
@@ -4409,7 +4688,7 @@ async function workflowProblems(fs, root3) {
   }
   const files = {};
   for (const entry of entries.filter((f) => /\.ya?ml$/.test(f)).sort()) {
-    files[entry] = await fs.readFile(join6(dir, entry));
+    files[entry] = await fs.readFile(join7(dir, entry));
   }
   return permissionProblems(files);
 }
@@ -4433,7 +4712,27 @@ var workflowPermissions = hookCommand(
 ` };
   }
 );
+var delta = hookCommand(
+  "delta",
+  "tell the agent what changed since its previous turn (UserPromptSubmit)",
+  async ({ deps, payload }) => {
+    const id = payload?.session_id;
+    if (typeof id !== "string" || !/^[A-Za-z0-9_-]+$/.test(id)) {
+      return {};
+    }
+    const context = await update(id, realDeltaDeps(deps, await deps.root()));
+    return context === "" ? {} : {
+      stdout: JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: "UserPromptSubmit",
+          additionalContext: context
+        }
+      })
+    };
+  }
+);
 var hook = {
+  delta,
   "skill-links": skillLinks,
   "workflow-permissions": workflowPermissions
 };
@@ -4497,11 +4796,11 @@ async function equalize(runner, callerPane) {
     };
   }
   for (const [i, split] of splits.entries()) {
-    const delta = 1 / (panes.length - i) - split.ratio;
-    if (Math.abs(delta) <= 5e-4) {
+    const delta2 = 1 / (panes.length - i) - split.ratio;
+    if (Math.abs(delta2) <= 5e-4) {
       continue;
     }
-    const [pane, direction] = delta < 0 ? [panes[i + 1], "up"] : [panes[i], "down"];
+    const [pane, direction] = delta2 < 0 ? [panes[i + 1], "up"] : [panes[i], "down"];
     const resize = await runner.run("herdr", [
       "pane",
       "resize",
@@ -4510,7 +4809,7 @@ async function equalize(runner, callerPane) {
       "--direction",
       direction,
       "--amount",
-      Math.abs(delta).toFixed(6)
+      Math.abs(delta2).toFixed(6)
     ]);
     if (resize.code !== 0) {
       return {
@@ -4566,7 +4865,7 @@ function fail(deps, json, code, message) {
 }
 
 // src/session/registry.ts
-import { join as join7, resolve as resolve4 } from "node:path";
+import { join as join8, resolve as resolve5 } from "node:path";
 var STATE_DIR = ".kore/state/sessions";
 function isRecord(value) {
   if (typeof value !== "object" || value === null) {
@@ -4590,10 +4889,10 @@ var SessionRegistry = class _SessionRegistry {
         "Cannot find the main checkout to keep session state in. Run inside the repository or set KORE_ROOT to its root."
       );
     }
-    return new _SessionRegistry(deps.fs, resolve4(main, STATE_DIR));
+    return new _SessionRegistry(deps.fs, resolve5(main, STATE_DIR));
   }
   file(name) {
-    return join7(this.dir, `${name}.json`);
+    return join8(this.dir, `${name}.json`);
   }
   async read(name) {
     const path = this.file(name);
@@ -4653,7 +4952,7 @@ var SessionRegistry = class _SessionRegistry {
 };
 
 // src/session/worktree.ts
-import { join as join8 } from "node:path";
+import { join as join9 } from "node:path";
 var removeCommands = (worktree) => `\`git worktree remove ${worktree.path}\` and \`git branch -D ${worktree.branch}\``;
 var removeHint = (worktree) => `The worktree ${worktree.path} was left behind; remove it with ${removeCommands(worktree)}.`;
 var closeHint = (worktree) => `Remove its worktree once its branch is merged: ${removeCommands(worktree)}.`;
@@ -4664,7 +4963,7 @@ async function create2(deps, name, branch) {
       error: "Cannot find the main checkout to create the worktree in. Run inside the repository or set KORE_ROOT to its root. No pane was split."
     };
   }
-  const worktree = { path: join8(main, ".claude", "worktrees", name), branch };
+  const worktree = { path: join9(main, ".claude", "worktrees", name), branch };
   const add = await deps.runner.run(
     "git",
     ["worktree", "add", "-b", branch, worktree.path, "HEAD"],
@@ -4676,7 +4975,7 @@ async function create2(deps, name, branch) {
     };
   }
   const install = await deps.runner.run("npm", ["ci"], {
-    cwd: join8(worktree.path, "tools", "kore")
+    cwd: join9(worktree.path, "tools", "kore")
   });
   if (install.code !== 0) {
     return {
@@ -5241,7 +5540,7 @@ var session = {
 };
 
 // src/skill/index.ts
-import { join as join9 } from "node:path";
+import { join as join10 } from "node:path";
 
 // src/skill/audit.ts
 var DESCRIPTION_BUDGET = 200;
@@ -5355,7 +5654,7 @@ var audit2 = {
   summary: "report each skill's description and body against its budgets",
   options: { strict: "boolean" },
   async run({ json, options, deps }) {
-    const skillsDir = join9(await deps.root(), SKILLS_DIR);
+    const skillsDir = join10(await deps.root(), SKILLS_DIR);
     let report2;
     try {
       report2 = await auditSkills(deps.fs, skillsDir);
@@ -5441,7 +5740,7 @@ function own(table, key) {
 function names2(commands) {
   return Object.keys(commands).join(", ");
 }
-function resolve5(domain, name) {
+function resolve6(domain, name) {
   const commands = own(domains, domain);
   if (commands === void 0) {
     return {
@@ -5537,7 +5836,7 @@ async function run(argv, deps) {
       failure2
     );
   }
-  const resolved = resolve5(domain, name);
+  const resolved = resolve6(domain, name);
   if ("error" in resolved) {
     return fail2(deps, json, resolved.error, failure2);
   }
