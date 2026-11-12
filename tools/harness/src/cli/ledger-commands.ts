@@ -2,6 +2,7 @@ import { dirname, resolve } from "node:path";
 import {
   KINDS,
   Ledger,
+  pollHerdr,
   SOURCES,
   isTimestamp,
   type Kind,
@@ -239,4 +240,31 @@ const list: Command = {
   },
 };
 
-export const ledgerCommands: Record<string, Command> = { record, list };
+const pollHerdrCommand: Command = {
+  summary:
+    "read herdr's agent panes once and append only the changes (pane.spawned, pane.busy, pane.waiting, pane.closed) to the ledger; safe to repeat from a wait loop",
+  options: STRING_FLAGS(["ledger"]),
+  async run(context) {
+    const opened = await openLedger(context);
+    if ("error" in opened) {
+      return reject(context, opened.error, "ledger");
+    }
+    const { runner, clock } = context.deps;
+    const result = await pollHerdr({ ledger: opened.ledger, runner, clock });
+    if (!result.ok) {
+      return reject(context, result.message, "herdr");
+    }
+    context.deps.stdout(
+      context.json
+        ? `${JSON.stringify({ recorded: result.recorded, events: result.events })}\n`
+        : `recorded ${result.recorded} herdr event(s)\n`,
+    );
+    return 0;
+  },
+};
+
+export const ledgerCommands: Record<string, Command> = {
+  record,
+  list,
+  "poll-herdr": pollHerdrCommand,
+};

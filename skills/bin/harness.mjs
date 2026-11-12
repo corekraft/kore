@@ -1207,6 +1207,119 @@ function buildReport(events, { asOf, minCompletedIdeas }) {
   };
 }
 
+// src/ledger/herdr-poll.ts
+var PANE_KINDS = [
+  "pane.spawned",
+  "pane.busy",
+  "pane.waiting",
+  "pane.closed"
+];
+var STATUS_KIND = {
+  working: "pane.busy",
+  idle: "pane.waiting",
+  blocked: "pane.waiting",
+  done: "pane.waiting"
+};
+function describe3(code, stdout, stderr2) {
+  const text3 = `${stderr2}${stdout}`.trim();
+  return text3 === "" ? `exit code ${code}` : `exit code ${code}: ${text3}`;
+}
+function toSeen(entry) {
+  if (typeof entry !== "object" || entry === null) {
+    return void 0;
+  }
+  const raw = entry;
+  const pane = raw["pane_id"];
+  const status = STATUS_KIND[String(raw["agent_status"])];
+  const agent = [raw["name"], raw["agent"]].find(
+    (v) => typeof v === "string" && v !== ""
+  );
+  if (typeof pane !== "string" || status === void 0 || agent === void 0) {
+    return void 0;
+  }
+  return { pane, agent, status };
+}
+async function listAgents(runner) {
+  const found = await runner.run("herdr", ["agent", "list"]);
+  if (found.code !== 0) {
+    return {
+      message: `herdr agent list failed: ${describe3(found.code, found.stdout, found.stderr)}. Is the herdr server running?`
+    };
+  }
+  let value;
+  try {
+    value = JSON.parse(found.stdout);
+  } catch {
+    return {
+      message: "herdr agent list did not print JSON. Run `herdr agent list` by hand and check the herdr version."
+    };
+  }
+  const agents = value?.result?.agents;
+  if (!Array.isArray(agents)) {
+    return {
+      message: "herdr agent list printed no agent list (.result.agents); the herdr version may have changed its output."
+    };
+  }
+  const present = /* @__PURE__ */ new Set();
+  for (const entry of agents) {
+    const pane = entry?.pane_id;
+    if (typeof pane === "string") {
+      present.add(pane);
+    }
+  }
+  return { seen: agents.map(toSeen).filter((s) => s !== void 0), present };
+}
+async function lastRecorded(ledger) {
+  const { events } = await ledger.list({ source: "herdr" });
+  const last = /* @__PURE__ */ new Map();
+  for (const event of events) {
+    if (event.pane !== void 0 && PANE_KINDS.includes(event.kind)) {
+      last.set(event.pane, {
+        kind: event.kind,
+        ...event.agent === void 0 ? {} : { agent: event.agent }
+      });
+    }
+  }
+  return last;
+}
+async function pollHerdr(deps) {
+  const observedAt = deps.clock.now().toISOString();
+  const listed = await listAgents(deps.runner);
+  if ("message" in listed) {
+    return { ok: false, message: listed.message };
+  }
+  const last = await lastRecorded(deps.ledger);
+  const planned = [];
+  const event = (kind, pane, agent) => ({
+    source: "herdr",
+    kind,
+    occurredAt: observedAt,
+    pane,
+    agent
+  });
+  for (const { pane, agent, status } of listed.seen) {
+    const before = last.get(pane)?.kind;
+    if (before === void 0 || before === "pane.closed") {
+      planned.push(event("pane.spawned", pane, agent));
+      planned.push(event(status, pane, agent));
+    } else if (before !== status) {
+      planned.push(event(status, pane, agent));
+    }
+  }
+  for (const [pane, state] of last) {
+    if (state.kind !== "pane.closed" && !listed.present.has(pane)) {
+      planned.push(event("pane.closed", pane, state.agent ?? "unknown"));
+    }
+  }
+  for (const input of planned) {
+    const result = await deps.ledger.record(input);
+    if (!result.ok) {
+      return { ok: false, message: result.message };
+    }
+  }
+  return { ok: true, recorded: planned.length, events: planned };
+}
+
 // src/ledger/schema.ts
 var SOURCES = ["claude", "herdr", "github"];
 var KINDS = [
@@ -1637,7 +1750,32 @@ var list2 = {
     return 0;
   }
 };
-var ledgerCommands = { record, list: list2 };
+var pollHerdrCommand = {
+  summary: "read herdr's agent panes once and append only the changes (pane.spawned, pane.busy, pane.waiting, pane.closed) to the ledger; safe to repeat from a wait loop",
+  options: STRING_FLAGS(["ledger"]),
+  async run(context) {
+    const opened = await openLedger(context);
+    if ("error" in opened) {
+      return reject(context, opened.error, "ledger");
+    }
+    const { runner, clock } = context.deps;
+    const result = await pollHerdr({ ledger: opened.ledger, runner, clock });
+    if (!result.ok) {
+      return reject(context, result.message, "herdr");
+    }
+    context.deps.stdout(
+      context.json ? `${JSON.stringify({ recorded: result.recorded, events: result.events })}
+` : `recorded ${result.recorded} herdr event(s)
+`
+    );
+    return 0;
+  }
+};
+var ledgerCommands = {
+  record,
+  list: list2,
+  "poll-herdr": pollHerdrCommand
+};
 
 // src/cli/flow-commands.ts
 function parseFlags({ options, deps }) {
@@ -1848,7 +1986,7 @@ async function readPlans(deps) {
 }
 
 // src/plan/active.ts
-function describe3(plan) {
+function describe4(plan) {
   const open = plan.open.map((o) => `${o.step} (${o.count})`).join(", ");
   const lines = [`${plan.file}${plan.default ? " (default)" : ""}`];
   lines.push(`  Open items: ${open || "none"}`);
@@ -1887,7 +2025,7 @@ var planActive = {
 `
       );
     } else {
-      deps.stdout(`${listed.map(describe3).join("\n")}
+      deps.stdout(`${listed.map(describe4).join("\n")}
 `);
     }
     return 0;
@@ -2231,7 +2369,7 @@ function toChanges(lines, edits) {
     after: edit.lines
   }));
 }
-function describe4(file, step, text3, dryRun, changes) {
+function describe5(file, step, text3, dryRun, changes) {
   const head = `${dryRun ? "Would tick" : "Ticked"} ${step}: ${text3} in ${file}`;
   const body = changes.flatMap((c) => [
     `  line ${c.line}:`,
@@ -2265,7 +2403,7 @@ async function tick(deps, json, item, planOption, dryRun) {
   }
   deps.stdout(
     json ? `${JSON.stringify({ plan: file, item: { step, text: text3 }, dryRun, written: !dryRun, changes })}
-` : describe4(file, step, text3, dryRun, changes)
+` : describe5(file, step, text3, dryRun, changes)
   );
   return 0;
 }

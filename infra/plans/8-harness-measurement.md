@@ -65,7 +65,7 @@ and uses it first to measure the delivery loop. Terms follow
       stage events (source, session, pane, idea, stage, kind, time).
 - [ ] Record Claude session events (start, stop, tool start and end) from the
       existing hooks through the harness.
-- [ ] Record Herdr pane events (spawned, busy, waiting, closed).
+- [x] Record Herdr pane events (spawned, busy, waiting, closed).
 - [ ] Record GitHub events (issue opened, labelled, PR opened, merged) by
       polling with `gh`.
 - [x] Guard the ledger as append-only.
