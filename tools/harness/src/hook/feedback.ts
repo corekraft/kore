@@ -304,13 +304,20 @@ export async function feedback(
     await recordEvent(deps, "tool.end", call, "failure");
     return OK;
   }
+  // Recording runs beside the checks, so resolving the ledger root (one git
+  // call when KORE_ROOT is unset) never adds to the hook's latency.
+  let recorded: Promise<void> = Promise.resolve();
   if (mode === "post-edit") {
-    await recordEvent(deps, "tool.end", call, "success");
+    recorded = recordEvent(deps, "tool.end", call, "success");
   } else if (!call.stop_hook_active) {
-    await recordEvent(deps, "session.stop", call);
+    recorded = recordEvent(deps, "session.stop", call);
   }
   const checks = feedbackDeps(deps, root, call);
-  return mode === "stop"
-    ? await stop(payload, checks)
-    : await postEdit(payload, checks);
+  try {
+    return mode === "stop"
+      ? await stop(payload, checks)
+      : await postEdit(payload, checks);
+  } finally {
+    await recorded;
+  }
 }

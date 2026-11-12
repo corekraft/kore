@@ -68,6 +68,7 @@ describe("hook feedback post-edit", () => {
       `${KORE_BIN}/prettier`,
     ]);
     expect(marked(result.files, "ts")).toBe(true);
+    expect(marked(result.files, "harness")).toBe(false);
   });
 
   it("reports a lint violation in the same turn with exit 2", async () => {
@@ -110,9 +111,8 @@ describe("hook feedback post-edit bounds reports", () => {
       },
     );
     expect(result.code).toBe(2);
-    expect(result.err).not.toMatch(/line 41/);
-    expect(result.err).toMatch(
-      /oxlint --deny-warnings \/repo\/tools\/kore\/src\/a\.ts/,
+    expect(result.err).toBe(
+      `oxlint reported problems in /repo/tools/kore/src/a.ts. Fix them before continuing.\n${lines(40)}\n... 460 more lines cut. Run \`tools/kore/node_modules/.bin/oxlint --deny-warnings /repo/tools/kore/src/a.ts\` to see all.\n`,
     );
   });
 
@@ -125,9 +125,8 @@ describe("hook feedback post-edit bounds reports", () => {
       },
     );
     expect(result.code).toBe(2);
-    expect(result.err).not.toMatch(/line 41/);
-    expect(result.err).toMatch(
-      /prettier --check \/repo\/tools\/kore\/src\/a\.ts/,
+    expect(result.err).toBe(
+      `/repo/tools/kore/src/a.ts is not formatted. Run \`tools/kore/node_modules/.bin/prettier --write /repo/tools/kore/src/a.ts\`.\n${lines(40)}\n... 460 more lines cut. Run \`tools/kore/node_modules/.bin/prettier --check /repo/tools/kore/src/a.ts\` to see all.\n`,
     );
   });
 });
@@ -156,7 +155,9 @@ describe("hook feedback post-edit on harness sources and other tools", () => {
       },
     );
     expect(result.code).toBe(2);
-    expect(result.err).toMatch(/no-shadow/);
+    expect(result.err).toBe(
+      "oxlint reported problems in /repo/tools/harness/src/a.ts. Fix them before continuing.\nno-shadow\n",
+    );
   });
 
   it("reports a harness formatting violation with the pinned fix", async () => {
@@ -168,8 +169,8 @@ describe("hook feedback post-edit on harness sources and other tools", () => {
       },
     );
     expect(result.code).toBe(2);
-    expect(result.err).toMatch(
-      /mise run format \/repo\/tools\/harness\/src\/a\.ts/,
+    expect(result.err).toBe(
+      "/repo/tools/harness/src/a.ts is not formatted. Run `mise run format /repo/tools/harness/src/a.ts`.\nneeds format\n",
     );
   });
 });

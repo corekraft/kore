@@ -54,8 +54,9 @@ describe("hook feedback stop", () => {
       { marked: ["kore"], responses: [failing("npm", lines(500), 2)] },
     );
     expect(result.code).toBe(2);
-    expect(result.err).not.toMatch(/line 41/);
-    expect(result.err).toMatch(/npm --prefix tools\/kore run check/);
+    expect(result.err).toBe(
+      `Typecheck failed after your TypeScript changes. Fix it before finishing.\n${lines(40)}\n... 460 more lines cut. Run \`npm --prefix tools/kore run check\` to see all.\n`,
+    );
   });
 });
 
@@ -80,8 +81,9 @@ describe("hook feedback stop on harness sources", () => {
       { marked: ["harness"], responses: [failing("npm", "TS2322", 2)] },
     );
     expect(result.code).toBe(2);
-    expect(result.err).toMatch(/TS2322/);
-    expect(result.err).toMatch(/harness/i);
+    expect(result.err).toBe(
+      "The harness typecheck failed after your TypeScript changes. Fix it before finishing.\nTS2322\n",
+    );
     expect(marked(result.files, "harness")).toBe(true);
   });
 });
