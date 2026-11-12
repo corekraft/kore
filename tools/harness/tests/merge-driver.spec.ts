@@ -10,7 +10,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const driver = resolve(here, "../merge-driver.sh");
@@ -74,6 +74,13 @@ function commit(message: string): void {
   git("add", "-A");
   git("commit", "-q", "-m", message);
 }
+
+// After every test has run, the real config must be exactly as it was.
+afterAll(() => {
+  const after = readFileSync(resolve(here, realConfig), "utf8");
+  expect(after).toBe(realConfigBefore);
+  expect(/^\s*bare\s*=\s*true/m.test(after)).toBe(false);
+});
 
 beforeEach(() => {
   repo = mkdtempSync(join(tmpdir(), "merge-driver-"));
