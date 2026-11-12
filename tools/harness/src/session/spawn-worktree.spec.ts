@@ -35,6 +35,8 @@ describe("session spawn --worktree", () => {
       `npm ci`,
       `herdr pane split --current --direction right --cwd ${WORKTREE} --no-focus`,
     ]);
+    const add = h.runner.calls.find((c) => c.args[0] === "worktree");
+    expect(add?.options?.cwd).toBe("/work/tree");
     const install = h.runner.calls.find((c) => c.command === "npm");
     expect(install?.options?.cwd).toBe(`${WORKTREE}/tools/kore`);
   });
@@ -49,6 +51,9 @@ describe("session spawn --worktree", () => {
     const h = testHarness({ env: INSIDE, responses: responses() });
     await run(spawnArgs, h.deps);
     expect(h.runner.calls.some((c) => c.args[0] === "worktree")).toBe(false);
+    expect(herdrCalls(h)).toContain(
+      "herdr pane split --current --direction right --cwd /work/tree --no-focus",
+    );
   });
 });
 
@@ -66,6 +71,9 @@ describe("session spawn --worktree failures", () => {
     });
     expect(await run(args, h.deps)).toBe(1);
     expect(h.err()).toContain("branch already exists");
+    expect(h.err()).toContain(`git worktree remove ${WORKTREE}`);
+    expect(h.err()).toContain("git branch -D image-trust-writer");
+    expect(h.err()).toContain("--branch <other>");
     expect(herdrCalls(h).some((c) => c.includes("pane split"))).toBe(false);
   });
 

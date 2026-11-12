@@ -8,14 +8,23 @@ export interface Worktree {
   branch: string;
 }
 
-/** The command to run when a spawn fails after its worktree exists. */
+const removeCommands = (worktree: Worktree): string =>
+  `\`git worktree remove ${worktree.path}\` and \`git branch -D ${worktree.branch}\``;
+
+/** What to run when a spawn fails after its worktree exists. */
 export const removeHint = (worktree: Worktree): string =>
-  `The worktree ${worktree.path} was left behind; remove it with \`git worktree remove ${worktree.path}\` and \`git branch -D ${worktree.branch}\`.`;
+  `The worktree ${worktree.path} was left behind; remove it with ${removeCommands(worktree)}.`;
+
+/** What to run once a closed session's worktree is no longer needed. */
+export const closeHint = (worktree: Worktree): string =>
+  `Remove its worktree once its branch is merged: ${removeCommands(worktree)}.`;
 
 /**
  * Creates a worktree on a new branch under the main checkout's
  * .claude/worktrees/<name> and installs the CLI's dependencies in it, so a
- * parallel writer's builds and edits never collide with the caller's.
+ * parallel writer's builds and edits never collide with the caller's. The
+ * path lives under the main checkout, but the branch starts from the HEAD of
+ * the caller's own directory.
  */
 async function create(
   deps: CliDeps,
@@ -33,11 +42,11 @@ async function create(
   const add = await deps.runner.run(
     "git",
     ["worktree", "add", "-b", branch, worktree.path, "HEAD"],
-    { cwd: main },
+    { cwd: deps.cwd },
   );
   if (add.code !== 0) {
     return {
-      error: `git worktree add failed: ${describeFailure(add)}. No pane was split.`,
+      error: `git worktree add failed: ${describeFailure(add)}. No pane was split. A previous spawn may have left the worktree or branch: run ${removeCommands(worktree)}, or pass --branch <other>.`,
     };
   }
   const install = await deps.runner.run("npm", ["ci"], {

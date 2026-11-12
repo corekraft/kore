@@ -3,6 +3,7 @@ import { describeFailure, equalize } from "./equalize.js";
 import { sessionNameError } from "./names.js";
 import { FAILED, USAGE_ERROR, fail } from "./output.js";
 import { SessionRegistry, type SessionRecord } from "./registry.js";
+import { closeHint } from "./worktree.js";
 
 const NOT_IN_HERDR =
   "Not inside Herdr (HERDR_ENV is not 1 or HERDR_PANE_ID is unset). Run this from the Herdr pane that spawned the session.";
@@ -38,10 +39,12 @@ async function finishClose(
   if (note !== undefined) {
     deps.stderr(`${note}\n`);
   }
+  const hint =
+    record.worktree === undefined ? undefined : closeHint(record.worktree);
   deps.stdout(
     json
-      ? `${JSON.stringify({ name, paneId: record.paneId, closed: true, equalize: equalized })}\n`
-      : `Closed ${name} (pane ${record.paneId}).\n`,
+      ? `${JSON.stringify({ name, paneId: record.paneId, closed: true, equalize: equalized, ...(hint === undefined ? {} : { hint }) })}\n`
+      : `Closed ${name} (pane ${record.paneId}).${hint === undefined ? "" : ` ${hint}`}\n`,
   );
   return 0;
 }

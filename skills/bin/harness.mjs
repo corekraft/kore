@@ -3782,6 +3782,51 @@ var SessionRegistry = class _SessionRegistry {
   }
 };
 
+// src/session/worktree.ts
+import { join as join6 } from "node:path";
+var removeCommands = (worktree) => `\`git worktree remove ${worktree.path}\` and \`git branch -D ${worktree.branch}\``;
+var removeHint = (worktree) => `The worktree ${worktree.path} was left behind; remove it with ${removeCommands(worktree)}.`;
+var closeHint = (worktree) => `Remove its worktree once its branch is merged: ${removeCommands(worktree)}.`;
+async function create2(deps, name, branch) {
+  const main = await mainRoot(deps);
+  if (main === void 0) {
+    return {
+      error: "Cannot find the main checkout to create the worktree in. Run inside the repository or set KORE_ROOT to its root. No pane was split."
+    };
+  }
+  const worktree = { path: join6(main, ".claude", "worktrees", name), branch };
+  const add = await deps.runner.run(
+    "git",
+    ["worktree", "add", "-b", branch, worktree.path, "HEAD"],
+    { cwd: deps.cwd }
+  );
+  if (add.code !== 0) {
+    return {
+      error: `git worktree add failed: ${describeFailure(add)}. No pane was split. A previous spawn may have left the worktree or branch: run ${removeCommands(worktree)}, or pass --branch <other>.`
+    };
+  }
+  const install = await deps.runner.run("npm", ["ci"], {
+    cwd: join6(worktree.path, "tools", "kore")
+  });
+  if (install.code !== 0) {
+    return {
+      error: `npm ci failed in the new worktree: ${describeFailure(install)}. No pane was split. ${removeHint(worktree)}`
+    };
+  }
+  return worktree;
+}
+async function place(deps, options, name) {
+  if (options.worktree !== true) {
+    return { cwd: deps.cwd, left: "" };
+  }
+  const branch = typeof options.branch === "string" ? options.branch : name;
+  const worktree = await create2(deps, name, branch);
+  if ("error" in worktree) {
+    return worktree;
+  }
+  return { worktree, cwd: worktree.path, left: ` ${removeHint(worktree)}` };
+}
+
 // src/session/close.ts
 var NOT_IN_HERDR = "Not inside Herdr (HERDR_ENV is not 1 or HERDR_PANE_ID is unset). Run this from the Herdr pane that spawned the session.";
 function refuse(record3, callerPane) {
@@ -3803,9 +3848,10 @@ async function finishClose({ json, deps }, registry, record3, callerPane) {
     deps.stderr(`${note}
 `);
   }
+  const hint = record3.worktree === void 0 ? void 0 : closeHint(record3.worktree);
   deps.stdout(
-    json ? `${JSON.stringify({ name, paneId: record3.paneId, closed: true, equalize: equalized })}
-` : `Closed ${name} (pane ${record3.paneId}).
+    json ? `${JSON.stringify({ name, paneId: record3.paneId, closed: true, equalize: equalized, ...hint === void 0 ? {} : { hint } })}
+` : `Closed ${name} (pane ${record3.paneId}).${hint === void 0 ? "" : ` ${hint}`}
 `
   );
   return 0;
@@ -4170,49 +4216,6 @@ async function finish2({ json, deps, options }, { registry, record: record3, mod
 `
   );
   return 0;
-}
-
-// src/session/worktree.ts
-import { join as join6 } from "node:path";
-var removeHint = (worktree) => `The worktree ${worktree.path} was left behind; remove it with \`git worktree remove ${worktree.path}\` and \`git branch -D ${worktree.branch}\`.`;
-async function create2(deps, name, branch) {
-  const main = await mainRoot(deps);
-  if (main === void 0) {
-    return {
-      error: "Cannot find the main checkout to create the worktree in. Run inside the repository or set KORE_ROOT to its root. No pane was split."
-    };
-  }
-  const worktree = { path: join6(main, ".claude", "worktrees", name), branch };
-  const add = await deps.runner.run(
-    "git",
-    ["worktree", "add", "-b", branch, worktree.path, "HEAD"],
-    { cwd: main }
-  );
-  if (add.code !== 0) {
-    return {
-      error: `git worktree add failed: ${describeFailure(add)}. No pane was split.`
-    };
-  }
-  const install = await deps.runner.run("npm", ["ci"], {
-    cwd: join6(worktree.path, "tools", "kore")
-  });
-  if (install.code !== 0) {
-    return {
-      error: `npm ci failed in the new worktree: ${describeFailure(install)}. No pane was split. ${removeHint(worktree)}`
-    };
-  }
-  return worktree;
-}
-async function place(deps, options, name) {
-  if (options.worktree !== true) {
-    return { cwd: deps.cwd, left: "" };
-  }
-  const branch = typeof options.branch === "string" ? options.branch : name;
-  const worktree = await create2(deps, name, branch);
-  if ("error" in worktree) {
-    return worktree;
-  }
-  return { worktree, cwd: worktree.path, left: ` ${removeHint(worktree)}` };
 }
 
 // src/session/spawn.ts
