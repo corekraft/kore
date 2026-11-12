@@ -189,6 +189,7 @@ var package_default = {
     lint: "oxlint --type-aware --deny-warnings src tests",
     test: "vitest run --coverage",
     "test:unit": "vitest run",
+    "test:related": "vitest related --run --passWithNoTests --maxWorkers=2",
     "test:hooks": "vitest run .claude/"
   },
   devDependencies: {

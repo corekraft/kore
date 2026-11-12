@@ -26,6 +26,10 @@ const helper = fileURLToPath(
   new URL("../../tools/kore/.husky/pinned.sh", import.meta.url),
 );
 
+const related = fileURLToPath(
+  new URL("../../tools/kore/.husky/related-tests.mjs", import.meta.url),
+);
+
 const cleanEnv = Object.fromEntries(
   Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_")),
 );
@@ -37,8 +41,9 @@ function script(path, body) {
 }
 
 // Stages `files` in a throwaway repo whose lint-staged and npm are fakes that
-// log their calls; `failing` names the npm scripts that exit non-zero.
-function commit(files, failing = [], { withMise = true } = {}) {
+// log their calls; `failing` names the npm scripts that exit non-zero. `seed`
+// maps extra repository paths (specs) to contents; they exist but stay unstaged.
+function commit(files, failing = [], { withMise = true, seed = {} } = {}) {
   const root = mkdtempSync(join(tmpdir(), "pre-commit-"));
   try {
     const opts = { cwd: root, env: cleanEnv, encoding: "utf8" };
@@ -47,6 +52,11 @@ function commit(files, failing = [], { withMise = true } = {}) {
     mkdirSync(join(root, "tools/harness"), { recursive: true });
     copyFileSync(hook, join(root, "hook.sh"));
     copyFileSync(helper, join(root, "tools/kore/.husky/pinned.sh"));
+    copyFileSync(related, join(root, "tools/kore/.husky/related-tests.mjs"));
+    for (const [path, content] of Object.entries(seed)) {
+      mkdirSync(dirname(join(root, path)), { recursive: true });
+      writeFileSync(join(root, path), content);
+    }
     const log = join(root, "calls.log");
     const bin = join(root, "bin");
     script(
@@ -55,7 +65,7 @@ function commit(files, failing = [], { withMise = true } = {}) {
     );
     script(
       join(bin, "node"),
-      `echo "node $*" >> "${log}"\ncase " ${failing.join(" ")} " in *" node "*) exit 1;; esac\ncase " $* " in *" hook workflow-permissions "*) case " ${failing.join(" ")} " in *" node:workflow-permissions "*) exit 1;; esac;; esac`,
+      `echo "node $*" >> "${log}"\ncase "$1" in *related-tests.mjs) exec "${process.execPath}" "$@";; esac\ncase " ${failing.join(" ")} " in *" node "*) exit 1;; esac\ncase " $* " in *" hook workflow-permissions "*) case " ${failing.join(" ")} " in *" node:workflow-permissions "*) exit 1;; esac;; esac`,
     );
     if (withMise) {
       script(
@@ -104,9 +114,9 @@ test("every tool the hook runs goes through the pinned toolchain", () => {
   const tools = lines.filter((l) => !l.startsWith("mise "));
   assert.deepEqual(
     tools.map((l) => l.split(" ")[0]),
-    ["lint-staged", "run", "node", "node", "run", "run"],
+    ["lint-staged", "run", "node", "node", "run", "node", "run"],
   );
-  assert.equal(lines.length, 12);
+  assert.equal(lines.length, 14);
   for (const [i, l] of lines.entries()) {
     if (i % 2 === 0) assert.match(l, /^mise exec -- /);
   }
@@ -119,22 +129,76 @@ test("a missing mise blocks the commit with one actionable line and runs nothing
   assert.equal(result.calls, "");
 });
 
+// A one-file change runs only the specs that import it; the full suite stays in CI.
+test("staging one kore source file runs only the tests related to it, with a small worker pool", () => {
+  const result = commit(["tools/kore/src/a.ts"]);
+  assert.equal(result.status, 0);
+  assert.match(result.calls, /run check/);
+  assert.match(
+    result.npmCalls,
+    /^kore run test:related --silent -- src\/a\.ts$/m,
+  );
+  assert.doesNotMatch(result.calls, /test:unit/);
+});
+
+// Config and shared test setup can change every spec, so they run the full suite.
 for (const file of [
-  "tools/kore/src/a.ts",
   "tools/kore/package.json",
-  "infra/catalog/x.json",
-  "infra/charts/c/values.yaml",
-  "infra/environments/local.json",
-  "infra/policies/p.rego",
-  "apps/reference/Dockerfile",
+  "tools/kore/package-lock.json",
+  "tools/kore/tsconfig.json",
+  "tools/kore/vitest.config.ts",
+  "tools/kore/src/test-setup-support.ts",
 ]) {
-  test(`staging ${file} runs the typecheck and the unit tests`, () => {
+  test(`staging ${file} runs the typecheck and the full kore unit suite`, () => {
     const result = commit([file]);
     assert.equal(result.status, 0);
     assert.match(result.calls, /run check/);
-    assert.match(result.calls, /run test:unit/);
+    assert.match(result.npmCalls, /^kore run test:unit/m);
+    assert.doesNotMatch(result.calls, /test:related/);
   });
 }
+
+// The repository specs read infra/ and apps/ by path, so a staged file there
+// runs the specs that name its directory, plus the specs that scan the tree.
+test("staging an infra file runs the specs that name its directory and the tree-wide specs", () => {
+  const result = commit(["infra/charts/c/values.yaml"], [], {
+    seed: {
+      "tools/kore/src/a/charts.spec.ts": 'join(root, "infra/charts/c")',
+      "tools/kore/src/a/catalog.spec.ts": 'join(root, "infra/catalog")',
+      "tools/kore/src/a/tree.spec.ts": 'join(root, "infra")',
+      "tools/kore/src/a/live.integration.spec.ts": 'join(root, "infra/charts")',
+    },
+  });
+  assert.equal(result.status, 0);
+  assert.match(result.calls, /run check/);
+  const line = result.npmCalls.match(/^kore run test:related .*$/m)?.[0] ?? "";
+  assert.match(line, /src\/a\/charts\.spec\.ts/);
+  assert.match(line, /src\/a\/tree\.spec\.ts/);
+  assert.doesNotMatch(line, /catalog\.spec|integration/);
+  assert.doesNotMatch(result.calls, /test:unit/);
+});
+
+test("staging an apps file runs the specs that name apps/", () => {
+  const result = commit(["apps/reference/Dockerfile"], [], {
+    seed: {
+      "tools/kore/src/a/ref.spec.ts": 'join(root, "apps/reference")',
+      "tools/kore/src/a/charts.spec.ts": 'join(root, "infra/charts")',
+    },
+  });
+  assert.equal(result.status, 0);
+  const line = result.npmCalls.match(/^kore run test:related .*$/m)?.[0] ?? "";
+  assert.match(line, /src\/a\/ref\.spec\.ts/);
+  assert.doesNotMatch(line, /charts\.spec/);
+});
+
+test("an infra file no spec reads still typechecks but runs no tests", () => {
+  const result = commit(["infra/policies/p.rego"], [], {
+    seed: { "tools/kore/src/a/charts.spec.ts": 'join(root, "infra/charts")' },
+  });
+  assert.equal(result.status, 0);
+  assert.match(result.calls, /run check/);
+  assert.doesNotMatch(result.calls, /test:(related|unit)/);
+});
 
 for (const file of ["README.md", "docs/index.md", "infra/plans/1.md"]) {
   test(`staging only ${file} runs neither the typecheck nor the unit tests`, () => {
@@ -151,26 +215,65 @@ test("a failing typecheck blocks the commit with one actionable line and skips t
   assert.doesNotMatch(result.calls, /test:unit/);
 });
 
-test("failing unit tests block the commit with one actionable line", () => {
-  const result = commit(["tools/kore/src/a.ts"], ["test:unit"]);
+test("a failing related test blocks the commit with one actionable line", () => {
+  const result = commit(["tools/kore/src/a.ts"], ["test:related"]);
+  assert.notEqual(result.status, 0);
+  assert.match(
+    result.stderr,
+    /^pre-commit: related unit tests failed; run 'npm run test:related -- .+' in tools\/kore.+\n$/,
+  );
+});
+
+test("a failing full unit suite blocks the commit with one actionable line", () => {
+  const result = commit(["tools/kore/package.json"], ["test:unit"]);
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /^pre-commit: unit tests failed; run .+\n$/);
 });
 
-// Harness sources and the committed bundle have their own typecheck and tests,
-// run from tools/harness; kore's checks stay out of it.
+// Harness sources run their typecheck and only the tests related to them, from
+// tools/harness; kore's checks stay out of it.
+for (const file of ["tools/harness/src/a.ts", "tools/harness/tests/a.ts"]) {
+  test(`staging ${file} runs the harness typecheck and only its related tests, not kore's`, () => {
+    const result = commit([file]);
+    assert.equal(result.status, 0);
+    assert.match(result.npmCalls, /^harness run check/m);
+    assert.match(
+      result.npmCalls,
+      new RegExp(
+        `^harness run test:related --silent -- ${file.slice(14)}$`,
+        "m",
+      ),
+    );
+    assert.doesNotMatch(result.npmCalls, /test:unit/);
+    assert.doesNotMatch(result.npmCalls, /^kore /m);
+  });
+}
+
+// The bundle specs read the committed bundle at runtime, so no import graph
+// links them to it.
+test("staging the committed bundle runs the harness typecheck and the bundle specs", () => {
+  const result = commit(["skills/bin/harness.mjs"]);
+  assert.equal(result.status, 0);
+  assert.match(result.npmCalls, /^harness run check/m);
+  const line =
+    result.npmCalls.match(/^harness run test:related .*$/m)?.[0] ?? "";
+  assert.match(line, /tests\/bundle\.spec\.ts/);
+  assert.match(line, /\.\.\/\.\.\/\.claude\/hooks\/harness-bundle\.test\.mjs/);
+  assert.doesNotMatch(result.npmCalls, /test:unit/);
+});
+
 for (const file of [
-  "tools/harness/src/a.ts",
-  "tools/harness/tests/a.ts",
   "tools/harness/package.json",
-  "skills/bin/harness.mjs",
+  "tools/harness/package-lock.json",
+  "tools/harness/tsconfig.json",
+  "tools/harness/vitest.config.ts",
 ]) {
-  test(`staging ${file} runs the harness typecheck and unit tests, not kore's`, () => {
+  test(`staging ${file} runs the harness typecheck and the full harness unit suite`, () => {
     const result = commit([file]);
     assert.equal(result.status, 0);
     assert.match(result.npmCalls, /^harness run check/m);
     assert.match(result.npmCalls, /^harness run test:unit/m);
-    assert.doesNotMatch(result.npmCalls, /^kore /m);
+    assert.doesNotMatch(result.npmCalls, /test:related/);
   });
 }
 
@@ -181,7 +284,10 @@ test("staging only unrelated files runs no harness checks", () => {
     "skills/handoff/SKILL.md",
   ]);
   assert.equal(result.status, 0);
-  assert.doesNotMatch(result.npmCalls, /^harness run (check|test:unit)/m);
+  assert.doesNotMatch(
+    result.npmCalls,
+    /^harness run (check|test:unit|test:related)/m,
+  );
 });
 
 test("a type-broken harness file blocks the commit with one actionable line and skips the harness tests", () => {
@@ -191,11 +297,20 @@ test("a type-broken harness file blocks the commit with one actionable line and 
     result.stderr,
     /^pre-commit: harness typecheck failed; run .+tools\/harness.+\n$/,
   );
-  assert.doesNotMatch(result.calls, /test:unit/);
+  assert.doesNotMatch(result.calls, /test:(unit|related)/);
 });
 
-test("failing harness unit tests block the commit with one actionable line", () => {
-  const result = commit(["tools/harness/src/a.ts"], ["harness:test:unit"]);
+test("a failing related harness test blocks the commit with one actionable line", () => {
+  const result = commit(["tools/harness/src/a.ts"], ["harness:test:related"]);
+  assert.notEqual(result.status, 0);
+  assert.match(
+    result.stderr,
+    /^pre-commit: harness related tests failed; run 'npm run test:related -- .+' in tools\/harness.+\n$/,
+  );
+});
+
+test("failing full harness unit tests block the commit with one actionable line", () => {
+  const result = commit(["tools/harness/package.json"], ["harness:test:unit"]);
   assert.notEqual(result.status, 0);
   assert.match(
     result.stderr,

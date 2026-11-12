@@ -33,7 +33,15 @@ mise exec -- npm --prefix tools/kore install
 
 4. **Commit** with a Conventional Commit, lowercase imperative subject
    (`feat(ci): guard release signer permissions`). Hooks run typecheck, lint,
-   format, and unit tests; `--no-verify` is blocked.
+   format, and only the unit tests related to the staged files (`vitest related`, two
+   workers); `--no-verify` is blocked. A staged config file
+   (`package.json`, `tsconfig.json`, `vitest.config.ts`, `package-lock.json`,
+   kore's `src/test-setup-support.ts`) runs the whole package suite instead.
+   Specs read `infra/` and `apps/` by path, so a staged file there runs the
+   specs that name its directory (`tools/kore/.husky/related-tests.mjs`). The
+   full suites with coverage thresholds run in CI `check`, which the `main`
+   ruleset requires before merge; run them locally with `mise run test`. The
+   Stop hook only typechecks.
 
 ## Where things live
 

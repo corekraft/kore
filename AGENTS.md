@@ -82,14 +82,17 @@ the plans and ADRs record why. Find them through
   only when requested, never in ordinary runs. A cluster-facing `no-behaviour-change`
   still needs a live run before merge; any other needs one before its flag turns
   on (see _It just works_).
-- **Coverage only goes up.** _Enforced: `coverage-threshold`._
+- **Coverage only goes up,** measured by the full suite in CI.
+  _Enforced: `coverage-threshold`._
 - **Policies have tests too,** kept beside the policies they verify.
 
 ## Changes
 
 - **Conventional Commits,** lowercase imperative subjects. Enforced on commit.
-- **Typecheck, lint, format, and test pass** before anything is committed.
-  _Enforced: commit hooks, stop hook._
+- **Typecheck, lint, format, and the tests related to the change pass** before
+  anything is committed; the full suites and coverage pass in CI `check` before
+  merge. _Enforced: commit hooks (related tests), stop hook (typecheck), CI
+  `check` (full suites)._
 - **Scans pass before merge:** `mise run scan`. Ignore narrowly, with a reason.
 - **Record significant decisions** as ADRs; when a step refines an earlier
   decision, record why.
