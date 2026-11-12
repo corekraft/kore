@@ -2,7 +2,14 @@ import type { Component, Repository } from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 import { FailFastError, withFailFast, type WatchOptions } from "./fail-fast.js";
 import { desiredFingerprint } from "./fingerprint.js";
-import { helmUpgradeArgs, manifestSource, withAbsoluteChart } from "./helm.js";
+import {
+  envOption,
+  helmEnv,
+  helmUpgradeArgs,
+  manifestSource,
+  patchFailure,
+  withAbsoluteChart,
+} from "./helm.js";
 import {
   assertOwnedCrdsExist,
   errorMessage,
@@ -62,7 +69,11 @@ async function applyComponent(
             "--description",
             desiredFingerprint(repository, component),
           ]),
-          { capture: false, cwd: repository.root },
+          {
+            capture: false,
+            cwd: repository.root,
+            ...envOption(helmEnv(repository, component)),
+          },
         ),
       watch,
     );
@@ -75,6 +86,12 @@ async function applyComponent(
       throw error;
     }
     if (!(await recoverUndeployedRelease(repository, runner, component))) {
+      const patchProblem = await patchFailure(repository, runner, component);
+      if (patchProblem) {
+        throw new Error(
+          `${patchProblem}; helm hid it as "plugin exited with error"`,
+        );
+      }
       throw error;
     }
     await upgrade();

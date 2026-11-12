@@ -2,6 +2,33 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "required": ["components"],
+  "$defs": {
+    "probeFields": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "initialDelaySeconds": { "type": "integer", "minimum": 1 },
+        "periodSeconds": { "type": "integer", "minimum": 1 },
+        "timeoutSeconds": { "type": "integer", "minimum": 1 },
+        "successThreshold": { "type": "integer", "minimum": 1 },
+        "failureThreshold": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "probeFieldsSingleSuccess": {
+      "description": "Kubernetes requires successThreshold 1 for liveness and startup probes.",
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "initialDelaySeconds": { "type": "integer", "minimum": 1 },
+        "periodSeconds": { "type": "integer", "minimum": 1 },
+        "timeoutSeconds": { "type": "integer", "minimum": 1 },
+        "successThreshold": { "const": 1 },
+        "failureThreshold": { "type": "integer", "minimum": 1 }
+      }
+    }
+  },
   "properties": {
     "components": {
       "type": "array",
@@ -47,6 +74,43 @@
             "type": "array",
             "minItems": 1,
             "items": { "type": "string", "minLength": 1 }
+          },
+          "patches": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["target", "reason", "probes"],
+              "additionalProperties": false,
+              "properties": {
+                "target": {
+                  "type": "object",
+                  "required": ["kind", "name", "container"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "enum": ["Deployment", "StatefulSet", "DaemonSet"]
+                    },
+                    "name": { "type": "string", "minLength": 1 },
+                    "container": { "type": "string", "minLength": 1 }
+                  }
+                },
+                "reason": { "type": "string", "minLength": 1 },
+                "probes": {
+                  "type": "object",
+                  "minProperties": 1,
+                  "additionalProperties": false,
+                  "properties": {
+                    "livenessProbe": {
+                      "$ref": "#/$defs/probeFieldsSingleSuccess"
+                    },
+                    "readinessProbe": { "$ref": "#/$defs/probeFields" },
+                    "startupProbe": {
+                      "$ref": "#/$defs/probeFieldsSingleSuccess"
+                    }
+                  }
+                }
+              }
+            }
           },
           "helm": {
             "type": "object",

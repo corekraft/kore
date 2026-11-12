@@ -153,6 +153,7 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0086-resources-only-releases-do-not-wait-on-claims-that-bind-later.md`](decisions/0086-resources-only-releases-do-not-wait-on-claims-that-bind-later.md) — A resources-only release that holds a WaitForFirstConsumer claim sets helm.wait false so Helm does not wait for the bind; the consumer's own readiness check proves the volume.
 - [`docs/decisions/0087-cosign-reads-the-pinned-kubeconfig-from-a-file-descriptor.md`](decisions/0087-cosign-reads-the-pinned-kubeconfig-from-a-file-descriptor.md) — Kore feeds the pinned kubeconfig to cosign from memory as KUBECONFIG=/dev/fd/N, so embedded k3d credentials never touch disk and the refusal of embedded credentials is no longer needed.
 - [`docs/decisions/0088-provider-owned-crd-groups.md`](decisions/0088-provider-owned-crd-groups.md) — refines ADR 0057: an environment declares `providerOwnedCRDGroups` (k3s's `k3s.cattle.io`, `helm.cattle.io` on k3d) and `crd-ownership` counts them as provider-owned. Read when a provider ships CRDs no component owns.
+- [`docs/decisions/0089-declarative-probe-patches-through-a-helm-post-renderer.md`](decisions/0089-declarative-probe-patches-through-a-helm-post-renderer.md) — A component's catalog patches set integer probe fields a chart gives no value for, applied by a repository-kept Helm post-renderer plugin so render and upgrade show the same output.
 
 ## Operations and Guides
 

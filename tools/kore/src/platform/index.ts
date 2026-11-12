@@ -4,6 +4,7 @@ export type { GateCheckResult } from "./bootstrap.js";
 export { readinessFailureSummary } from "./readiness-manifest.js";
 export { platformStop, platformDestroy } from "./lifecycle.js";
 export { platformRender } from "./render.js";
+export { applyProbePatches } from "./patches.js";
 export { platformStatusReport } from "./crd-ownership-status.js";
 export type { CrdOwnershipStatus } from "./crd-ownership-status.js";
 export { platformStatus } from "./status.js";

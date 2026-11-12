@@ -49,11 +49,13 @@ export type {
   Environment,
   K3dCluster,
   Phase,
+  ProbePatch,
   Repository,
   Seed,
   SeedManifest,
   Versions,
 } from "./config.js";
+export { patchableKinds, probeFields, probeNames } from "./patch-validation.js";
 export { approvedImageList } from "./approved.js";
 export type { ApprovedEntry } from "./approved.js";
 export {

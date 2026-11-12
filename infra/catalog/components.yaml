@@ -144,7 +144,24 @@
           {
             "forceConflicts": true,
             "reason": "The controller's webhook reconciler (field manager `webhook`) co-owns the namespaceSelector and caBundle of the policy.sigstore.dev Mutating and ValidatingWebhookConfigurations after install, and the chart renders a namespaceSelector that no value can omit, so Helm 4 server-side apply conflicts on upgrade. Helm takes the fields back and the controller re-reconciles them."
-          }
+          },
+        "patches":
+          [
+            {
+              "target":
+                {
+                  "kind": "Deployment",
+                  "name": "policy-controller-webhook",
+                  "container": "policy-controller-webhook"
+                },
+              "reason": "Chart 0.10.8 hard-codes the webhook's httpGet probes (a standard kubelet probe with a k-kubelet-probe header) with a 1s period and the default 1s timeout; the chart has no probe values. Under host load the kubelet restarts the pod and admission briefly has no endpoint.",
+              "probes":
+                {
+                  "livenessProbe": { "timeoutSeconds": 5 },
+                  "readinessProbe": { "timeoutSeconds": 5 }
+                }
+            }
+          ]
       },
       {
         "name": "istio-base",

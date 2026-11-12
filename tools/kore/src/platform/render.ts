@@ -8,7 +8,13 @@ import {
 } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { redactManifest } from "./render-redaction.js";
-import { helmTemplateArgs, manifestSource, withAbsoluteChart } from "./helm.js";
+import {
+  envOption,
+  helmEnv,
+  helmTemplateArgs,
+  manifestSource,
+  withAbsoluteChart,
+} from "./helm.js";
 
 async function validateManifest(
   repository: Repository,
@@ -42,7 +48,11 @@ async function renderChart(
       component,
       helmTemplateArgs(repository, component),
     ),
-    { capture: true, cwd: repository.root },
+    {
+      capture: true,
+      cwd: repository.root,
+      ...envOption(helmEnv(repository, component)),
+    },
   );
   if (target) {
     await writeFile(

@@ -1,10 +1,6 @@
 import { registryAddressErrors } from "./registry-address.js";
 import { policyErrors } from "./policy-validation.js";
-import {
-  crdGroupErrors,
-  crdNameFormatErrors,
-  providerCrdGroupErrors,
-} from "./crd-ownership.js";
+import { catalogErrors } from "./catalog-errors.js";
 import { k3dErrors } from "./k3d-errors.js";
 import { overlayErrors } from "./overlay-errors.js";
 import { imageListErrors } from "./approved.js";
@@ -240,15 +236,7 @@ export async function validateRepository(
     ),
     ...duplicateErrors(components),
     ...crdOwnerErrors(components),
-    ...crdGroupErrors(components),
-    ...providerCrdGroupErrors(
-      environment.provider,
-      environment.providerOwnedCRDGroups,
-      components,
-    ),
-    ...components.flatMap((component) =>
-      crdNameFormatErrors(component.name, component.ownsCRDs ?? []),
-    ),
+    ...catalogErrors(environment, components),
     ...dependencyErrors(components, names),
     ...(await overlayErrors(repository)),
     ...cycleErrors(catalog),

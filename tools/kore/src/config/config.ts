@@ -23,6 +23,7 @@ export type {
   Environment,
   K3dCluster,
   Phase,
+  ProbePatch,
   ReadinessCapability,
   ReadinessManifest,
   ReadinessRequirement,

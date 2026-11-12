@@ -233,8 +233,9 @@ variable, the clean-machine status check judges platform components only).
   memory for k3d, so this is documentation only.
 - **policy-controller probes:** the upstream chart (0.10.8) exposes no probe
   settings and its webhook probes use a 1s timeout, so under load the
-  controller can be restarted and admission briefly has no endpoint. Tracked in
-  #292 (post-renderer).
+  controller can be restarted and admission briefly has no endpoint. #292 patches
+  the probes to a 5s timeout through a Helm post-renderer (ADR 0089); the live
+  proof (`resilience` passing first time under the suite's load) remains.
 - **crd-ownership on k3d:** `addons.k3s.cattle.io`,
   `etcdsnapshotfiles.k3s.cattle.io`, `helmchartconfigs.helm.cattle.io` and
   `helmcharts.helm.cattle.io` ship with k3s and no catalog component owns them.
