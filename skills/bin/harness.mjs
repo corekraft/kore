@@ -5985,11 +5985,13 @@ async function runMerge(context2) {
     return failed(context2, error);
   }
 }
-function labelFor(reason) {
+function labelFor(reason, head) {
+  const tail = ` @${head.slice(0, 7)}`;
   const line2 = reason.split("").map(
     (ch) => ch.charCodeAt(0) < 32 || ch.charCodeAt(0) === 127 ? " " : ch
   ).join("").replace(/\s+/g, " ").trim();
-  return line2.length <= LABEL_MAX ? line2 : `${line2.slice(0, LABEL_MAX - 1)}\u2026`;
+  const room = LABEL_MAX - tail.length;
+  return `${line2.length <= room ? line2 : `${line2.slice(0, room - 1)}\u2026`}${tail}`;
 }
 async function runSendBack(context2) {
   const { deps } = context2;
@@ -6023,7 +6025,7 @@ async function runSendBack(context2) {
         );
       }
     }
-    const label = labelFor(reason);
+    const label = labelFor(reason, view.headSha);
     const logged = await ledger.list({ kind: "send-back" });
     const newest = logged.events.filter((e) => e.number === pr).at(-1);
     if (newest?.label !== label) {
@@ -7902,15 +7904,18 @@ function readMayRun(segment, harness) {
 import { isAbsolute, relative, resolve as resolve5 } from "node:path";
 
 // src/hook/guard-role-merge.ts
-import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
 import { basename as basename3 } from "node:path";
 var WRAPPERS2 = /* @__PURE__ */ new Set(["sudo", "env", "time", "command", "nohup", "exec"]);
 var SHELLS = /* @__PURE__ */ new Set(["bash", "sh", "zsh", "dash", "ksh"]);
-var MAX_DEPTH = 5;
-var ENV_VALUED = /* @__PURE__ */ new Set(["-u", "-C", "-S", "--unset", "--chdir"]);
-var XARGS_VALUED = /* @__PURE__ */ new Set(["-I", "-n", "-P", "-L", "-s", "-E", "-d", "-a"]);
 var MAIN = "main";
+var MAX_DEPTH = 5;
+var WRAPPER_VALUED = {
+  env: /* @__PURE__ */ new Set(["-u", "-C", "-S", "--unset", "--chdir"]),
+  sudo: /* @__PURE__ */ new Set(["-u", "-g", "-h", "-p", "-C", "-D", "-R", "-T", "-U"]),
+  time: /* @__PURE__ */ new Set(["-f", "-o", "--format", "--output"]),
+  exec: /* @__PURE__ */ new Set(["-a"])
+};
+var XARGS_VALUED = /* @__PURE__ */ new Set(["-I", "-n", "-P", "-L", "-s", "-E", "-d", "-a"]);
 var isDash = (word) => word !== void 0 && word.startsWith("-");
 function unwrapped(segment) {
   let rest = [...segment];
@@ -7921,8 +7926,9 @@ function unwrapped(segment) {
       return rest;
     }
     rest = rest.slice(1);
-    while (wrapper && basename3(word) === "env" && isDash(rest[0])) {
-      rest = rest.slice(ENV_VALUED.has(rest[0] ?? "") ? 2 : 1);
+    const valued = WRAPPER_VALUED[basename3(word)] ?? /* @__PURE__ */ new Set();
+    while (wrapper && isDash(rest[0])) {
+      rest = rest.slice(valued.has(rest[0] ?? "") ? 2 : 1);
     }
   }
 }
@@ -7953,7 +7959,7 @@ function expand(segment, depth = 0) {
   }
   return name === "xargs" ? [rest, ...inner(xargsCommand(args))] : [rest];
 }
-var MERGE_API = /\/pulls\/\d+\/merge\b/;
+var MERGE_API = /\/pulls\/\d+\/merge\b|\/merges\b|\/merge-upstream\b/;
 var MERGE_MUTATION = /mergePullRequest|enablePullRequestAutoMerge/i;
 var withoutRepo = (args) => args.flatMap(
   (arg, i) => ["-R", "--repo"].includes(args[i - 1] ?? "") || ["-R", "--repo"].includes(arg) || arg.startsWith("--repo=") ? [] : [arg]
@@ -7969,6 +7975,16 @@ function ghMerges(line2) {
   const plain = withoutRepo(args);
   return plain[0] === "pr" && plain[1] === "merge" || args[0] === "api" && args.some((arg) => MERGE_API.test(arg)) || graphqlMerges(args);
 }
+var mergesPr = (segment) => expand(segment).some(ghMerges);
+var runsJudgeTool = (segment, harness) => expand(segment).some((line2) => {
+  const { name, args } = commandOf(line2);
+  return name === "node" && harness.test(args[0] ?? "") && args[1] === "judge" && ["merge", "send-back"].includes(args[2] ?? "");
+});
+
+// src/hook/guard-role-push.ts
+import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { basename as basename4 } from "node:path";
 var cleanEnv = () => Object.fromEntries(
   Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_"))
 );
@@ -7993,27 +8009,43 @@ function branchesOf(root3) {
     tracked: merge === void 0 || merge === "" ? void 0 : branchName(merge)
   };
 }
-var GIT_VALUED = /* @__PURE__ */ new Set([
-  "-C",
-  "-c",
-  "--git-dir",
-  "--work-tree",
-  "--namespace"
-]);
-function pushArgs(line2) {
+var GIT_VALUED = /* @__PURE__ */ new Set(["-C", "--git-dir", "--work-tree", "--namespace"]);
+var GIT_CONFIG = /* @__PURE__ */ new Set(["-c", "--config-env"]);
+function gitCall(line2) {
   const { name, args } = commandOf(line2);
   if (name !== "git") {
     return void 0;
   }
+  const config = [];
   let at = 0;
   while (isDash(args[at])) {
-    at += GIT_VALUED.has(args[at]) ? 2 : 1;
+    const word = args[at];
+    const [flag = "", inline] = word.split(/=(.*)/s);
+    const value = GIT_CONFIG.has(flag) ? inline ?? args[at + 1] ?? "" : "";
+    if (GIT_CONFIG.has(flag)) {
+      config.push(value.split("=")[0] ?? "");
+    }
+    at += inline === void 0 && (GIT_VALUED.has(word) || GIT_CONFIG.has(word)) ? 2 : 1;
   }
-  return args[at] === "push" ? args.slice(at + 1) : void 0;
+  return { config, sub: args[at], args: args.slice(at + 1) };
+}
+var PUSH_KEY = /^(remote|push|branch)\./i;
+function pushArgs(line2) {
+  const call = gitCall(line2);
+  return call?.sub === "push" ? call.args : void 0;
+}
+function pushConfigured(line2) {
+  const call = gitCall(line2);
+  return call?.sub === "push" && call.config.some((key) => PUSH_KEY.test(key));
 }
 var sendsToMain = (target) => target === MAIN || (target?.includes("*") ?? false);
 function refspecsOf(words2) {
-  return words2.filter((w) => !w.startsWith("-")).slice(1);
+  const at = words2.indexOf("--repo");
+  const named = at >= 0 || words2.some((w) => w.startsWith("--repo="));
+  const positional = words2.filter(
+    (w, i) => !w.startsWith("-") && !(at >= 0 && i === at + 1)
+  );
+  return named ? positional : positional.slice(1);
 }
 function namesMain(line2) {
   const words2 = pushArgs(line2);
@@ -8044,19 +8076,76 @@ function tracksMain(line2, root3) {
   const { current: current2, tracked } = branchesOf(root3);
   return current2 === void 0 || sendsToMain(current2) || sendsToMain(tracked);
 }
-var mergesPr = (segment) => expand(segment).some(ghMerges);
 var pushesToMain = (segment) => {
   const lines3 = expand(segment);
   const viaXargs = lines3.some(
-    (line2, at) => basename3(line2[0] ?? "") === "xargs" && lines3.slice(at + 1).some((inner) => pushArgs(inner) !== void 0)
+    (line2, at) => basename4(line2[0] ?? "") === "xargs" && lines3.slice(at + 1).some((inner) => pushArgs(inner) !== void 0)
   );
-  return viaXargs || lines3.some(namesMain);
+  return viaXargs || lines3.some((line2) => namesMain(line2) || pushConfigured(line2));
 };
 var pushesByTracking = (segment, root3) => expand(segment).some((line2) => tracksMain(line2, root3));
-var runsJudgeTool = (segment, harness) => expand(segment).some((line2) => {
+
+// src/hook/guard-role-routes.ts
+var FIELD_FLAGS = /* @__PURE__ */ new Set(["-f", "-F", "--field", "--raw-field", "--input"]);
+var GH_MUTATES = /\/git\/(refs|commits|trees|tags)\b|\/contents\/|\/rulesets\b|\/branches\/[^/]+\/(protection|rename)\b/;
+function apiWrites(args) {
+  const at = args.findIndex((a) => a === "-X" || a === "--method");
+  const inline = args.find((a) => /^(-X|--method=)./.test(a));
+  const method = (at >= 0 ? args[at + 1] : inline?.replace(/^(-X|--method=)/, ""))?.toUpperCase();
+  if (method !== void 0) {
+    return method !== "GET";
+  }
+  return args.some(
+    (a) => FIELD_FLAGS.has(a) || /^--(field|raw-field)=/.test(a)
+  );
+}
+function ghRoute(line2) {
   const { name, args } = commandOf(line2);
-  return name === "node" && harness.test(args[0] ?? "") && args[1] === "judge" && ["merge", "send-back"].includes(args[2] ?? "");
-});
+  if (name !== "gh") {
+    return false;
+  }
+  return args[0] === "alias" && /^(set|import)$/.test(args[1] ?? "") || args[0] === "api" && apiWrites(args) && args.some((a) => GH_MUTATES.test(a));
+}
+var takesRoute = (segment) => expand(segment).some(ghRoute);
+var READ_FLAGS = /* @__PURE__ */ new Set([
+  "--get",
+  "--get-all",
+  "--get-regexp",
+  "--list",
+  "-l",
+  "--get-urlmatch"
+]);
+var WRITE_FLAGS = /* @__PURE__ */ new Set([
+  "--add",
+  "--unset",
+  "--unset-all",
+  "--replace-all",
+  "--rename-section",
+  "--remove-section",
+  "--edit",
+  "-e"
+]);
+function configWrite(line2) {
+  const call = gitCall(line2);
+  if (call?.sub !== "config" || call.args.some((a) => READ_FLAGS.has(a))) {
+    return false;
+  }
+  const words2 = call.args.filter((a) => !isDash(a));
+  const key = words2.find((w) => PUSH_KEY.test(w));
+  const keyAt = key === void 0 ? -1 : words2.indexOf(key);
+  return key !== void 0 && (words2.length > keyAt + 1 || call.args.some((a) => WRITE_FLAGS.has(a)));
+}
+function authToken(line2) {
+  const { name, args } = commandOf(line2);
+  return name === "gh" && args[0] === "auth" && (args[1] === "token" || args[1] === "status" && args.some((a) => a === "-t" || a === "--show-token"));
+}
+function graphqlExpands(line2) {
+  const { name, args } = commandOf(line2);
+  return name === "gh" && args[0] === "api" && args[1] === "graphql" && args.some((a) => a.includes("$"));
+}
+var takesWriterRoute = (segment) => expand(segment).some(
+  (line2) => configWrite(line2) || authToken(line2) || graphqlExpands(line2)
+);
 
 // src/hook/guard-role-delivery.ts
 var REPORTING_ROLES = /* @__PURE__ */ new Set(["orchestrator", "judge"]);
@@ -8141,7 +8230,15 @@ function harnessRefused(role, segment) {
   return !(HARNESS2.test(args[0] ?? "") && harnessAllowed(name, args, harnessFor(role)));
 }
 var SCRATCH = ["/tmp/", "/private/tmp/", "/var/folders/", "/dev/"];
-var PATHS = /(?:~|\.\.|\/)[\w.@~/-]*/g;
+var ABSOLUTE = /(?:^|[^\w.@~/-])((?:~|\/)[\w.@~/-]*)/g;
+var PARENT = /[\w.@~/-]*\.\.[\w.@~/-]*/g;
+function pathsIn(word) {
+  const text10 = word.replace(/^(?:\d*>>?|&>>?)/, "");
+  return [
+    ...[...text10.matchAll(ABSOLUTE)].flatMap((m) => m[1] ? [m[1]] : []),
+    ...(text10.match(PARENT) ?? []).filter((p) => p.split("/").includes(".."))
+  ];
+}
 function outside(root3, path) {
   if (path.startsWith("~")) {
     return true;
@@ -8160,12 +8257,13 @@ function escapes(segment, root3) {
   if (!writes(segment) && !runsInline(segment)) {
     return void 0;
   }
-  return segment.flatMap((word) => word.replace(/^(?:\d*>>?|&>>?)/, "").match(PATHS) ?? []).find((path) => outside(root3, path));
+  return segment.flatMap(pathsIn).find((path) => outside(root3, path));
 }
 function checkDeliveryBash(role, command, root3) {
   const segments = splitSegments(command);
   const merging = segments.find(
-    (s) => mergesPr(s) || pushesToMain(s) || // A reporting role never pushes at all (read-only below), so only the writer needs the branch read.
+    (s) => mergesPr(s) || pushesToMain(s) || takesRoute(s) || // Only the writer has the full shell; the read-only roles' allowlist refuses these anyway.
+    !REPORTING_ROLES.has(role) && takesWriterRoute(s) || // A reporting role never pushes at all (read-only below), so only the writer needs the branch read.
     !REPORTING_ROLES.has(role) && pushesByTracking(s, root3)
   );
   if (merging !== void 0) {
@@ -9406,7 +9504,7 @@ import { homedir as homedir2 } from "node:os";
 import { join as join12 } from "node:path";
 
 // src/hook/retro-transcripts.ts
-import { basename as basename4, join as join11, sep } from "node:path";
+import { basename as basename5, join as join11, sep } from "node:path";
 var PROBE_BYTES = 256 * 1024;
 var DEFAULT_BRANCHES = /* @__PURE__ */ new Set(["main", "master", "HEAD"]);
 var encodePath = (path) => path.replace(/[^a-zA-Z0-9]/g, "-");
@@ -9453,7 +9551,7 @@ async function repoTranscriptDirs(fs, projectsDir, { main, worktrees, branches }
   const found = [];
   for (const name of entries2) {
     const dir = join11(projectsDir, name);
-    if (await fs.isDirectory(dir) && (names3.has(basename4(dir)) || await belongs(dir))) {
+    if (await fs.isDirectory(dir) && (names3.has(basename5(dir)) || await belongs(dir))) {
       found.push(dir);
     }
   }
@@ -9491,7 +9589,7 @@ async function readTranscripts(fs, dirs) {
     for (const name of (await fs.readdir(dir)).filter(
       (n) => n.endsWith(".jsonl")
     )) {
-      const id = basename4(name, ".jsonl");
+      const id = basename5(name, ".jsonl");
       const text10 = await fs.readFile(join11(dir, name));
       if (text10.length >= (byId.get(id)?.text.length ?? -1)) {
         byId.set(id, { id, text: text10 });

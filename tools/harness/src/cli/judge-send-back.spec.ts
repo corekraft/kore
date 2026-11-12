@@ -30,7 +30,7 @@ describe("judge send-back posts the reason on the queue and the ledger", () => {
         kind: "send-back",
         source: "github",
         number: 42,
-        label: "diff touches a chart",
+        label: "diff touches a chart @abc1234",
       },
     ]);
   });
@@ -98,7 +98,7 @@ describe("judge send-back is safe to rerun", () => {
     expect(await sendBack(h, "--reason", "no pattern")).toBe(0);
     expect(comments(h)).toEqual([]);
     expect(events(h)).toMatchObject([
-      { kind: "send-back", label: "no pattern" },
+      { kind: "send-back", label: "no pattern @abc1234" },
     ]);
   });
 
@@ -113,7 +113,22 @@ describe("judge send-back is safe to rerun", () => {
     const other = scenario({ comments: [posted("no pattern")] });
     await sendBack(other, "--reason", "diff mismatch");
     expect(comments(other)).toHaveLength(1);
-    expect(events(other)).toMatchObject([{ label: "diff mismatch" }]);
+    expect(events(other)).toMatchObject([{ label: "diff mismatch @abc1234" }]);
+  });
+
+  it("writes an event for the same reason on a new head", async () => {
+    const first = scenario();
+    await sendBack(first, "--reason", "no pattern");
+    const next = scenario({
+      headSha: "fff1234def5678abc1234def5678abc1234def56",
+    });
+    next.files.set(LEDGER, first.files.get(LEDGER) ?? "");
+    await sendBack(next, "--reason", "no pattern");
+    expect(comments(next)).toHaveLength(1);
+    expect(events(next).map((e) => e["label"])).toEqual([
+      "no pattern @abc1234",
+      "no pattern @fff1234",
+    ]);
   });
 
   it("records a repeat reason after a different one", async () => {
@@ -123,6 +138,9 @@ describe("judge send-back is safe to rerun", () => {
       `${JSON.stringify({ id: "x", schema: 1, recordedAt: "2026-01-01T00:00:00.000Z", source: "github", kind: "send-back", occurredAt: "2026-01-01T00:00:00.000Z", number: 42, label: "other" })}\n`,
     );
     await sendBack(h, "--reason", "no pattern");
-    expect(events(h).map((e) => e["label"])).toEqual(["other", "no pattern"]);
+    expect(events(h).map((e) => e["label"])).toEqual([
+      "other",
+      "no pattern @abc1234",
+    ]);
   });
 });

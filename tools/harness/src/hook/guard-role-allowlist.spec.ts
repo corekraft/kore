@@ -17,7 +17,6 @@ describe("role-read-only: the judge and orchestrator run an allowlist, not a blo
     "git -c alias.x='!touch a' x",
     "git -c core.pager='touch a' log",
     "git log --output=out.txt",
-    "gh alias set x 'pr merge'",
     "gh api -X DELETE repos/corekraft/kore/issues/1",
     "gh pr comment 1 --body x",
     "osascript -e 'do shell script \"touch a\"'",

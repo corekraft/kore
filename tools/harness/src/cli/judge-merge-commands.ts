@@ -82,8 +82,9 @@ async function runMerge(context: CommandContext): Promise<number> {
   }
 }
 
-/** The ledger label for a reason: one line, no control characters, at most 100 characters. */
-function labelFor(reason: string): string {
+/** The ledger label for a reason on a head: one line, no control characters, within 100 characters, ending in `@<head>`. */
+function labelFor(reason: string, head: string): string {
+  const tail = ` @${head.slice(0, 7)}`;
   const line = reason
     .split("")
     .map((ch) =>
@@ -92,7 +93,8 @@ function labelFor(reason: string): string {
     .join("")
     .replace(/\s+/g, " ")
     .trim();
-  return line.length <= LABEL_MAX ? line : `${line.slice(0, LABEL_MAX - 1)}…`;
+  const room = LABEL_MAX - tail.length;
+  return `${line.length <= room ? line : `${line.slice(0, room - 1)}…`}${tail}`;
 }
 
 /** Posts the reason on the PR, where the orchestrator reads its queue, then records it. */
@@ -128,7 +130,7 @@ async function runSendBack(context: CommandContext): Promise<number> {
         );
       }
     }
-    const label = labelFor(reason);
+    const label = labelFor(reason, view.headSha);
     const logged = await ledger.list({ kind: "send-back" });
     const newest = logged.events.filter((e) => e.number === pr).at(-1);
     if (newest?.label !== label) {

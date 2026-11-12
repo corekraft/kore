@@ -18,12 +18,9 @@ import {
   WRITE_TOOLS,
 } from "./guard-role-writes.js";
 import { readMayRun } from "./guard-role-allow.js";
-import {
-  mergesPr,
-  pushesByTracking,
-  pushesToMain,
-  runsJudgeTool,
-} from "./guard-role-merge.js";
+import { mergesPr, runsJudgeTool } from "./guard-role-merge.js";
+import { pushesByTracking, pushesToMain } from "./guard-role-push.js";
+import { takesRoute, takesWriterRoute } from "./guard-role-routes.js";
 import { commandOf, splitSegments } from "./guard-shell.js";
 import { block, type Finding } from "./guard-verdict.js";
 
@@ -155,7 +152,23 @@ function harnessRefused(role: string, segment: readonly string[]): boolean {
 }
 
 const SCRATCH = ["/tmp/", "/private/tmp/", "/var/folders/", "/dev/"];
-const PATHS = /(?:~|\.\.|\/)[\w.@~/-]*/g;
+/**
+ * Paths in a word: an absolute or home path that starts the word or follows a character no
+ * path holds (`=`, `>`, `(`, a quote), and any `..` segment. A slash inside a word (`feat/x`
+ * in a branch name) does not start a path, so an ordinary branch push is not read as an
+ * absolute one.
+ */
+const ABSOLUTE = /(?:^|[^\w.@~/-])((?:~|\/)[\w.@~/-]*)/g;
+const PARENT = /[\w.@~/-]*\.\.[\w.@~/-]*/g;
+
+/** The paths a word names. */
+function pathsIn(word: string): string[] {
+  const text = word.replace(/^(?:\d*>>?|&>>?)/, "");
+  return [
+    ...[...text.matchAll(ABSOLUTE)].flatMap((m) => (m[1] ? [m[1]] : [])),
+    ...(text.match(PARENT) ?? []).filter((p) => p.split("/").includes("..")),
+  ];
+}
 
 /** Whether a path is outside the worktree and not scratch space in tmp. */
 function outside(root: string, path: string): boolean {
@@ -185,9 +198,7 @@ function escapes(segment: readonly string[], root: string): string | undefined {
   if (!writes(segment) && !runsInline(segment)) {
     return undefined;
   }
-  return segment
-    .flatMap((word) => word.replace(/^(?:\d*>>?|&>>?)/, "").match(PATHS) ?? [])
-    .find((path) => outside(root, path));
+  return segment.flatMap(pathsIn).find((path) => outside(root, path));
 }
 
 export function checkDeliveryBash(
@@ -200,6 +211,9 @@ export function checkDeliveryBash(
     (s) =>
       mergesPr(s) ||
       pushesToMain(s) ||
+      takesRoute(s) ||
+      // Only the writer has the full shell; the read-only roles' allowlist refuses these anyway.
+      (!REPORTING_ROLES.has(role) && takesWriterRoute(s)) ||
       // A reporting role never pushes at all (read-only below), so only the writer needs the branch read.
       (!REPORTING_ROLES.has(role) && pushesByTracking(s, root)),
   );
