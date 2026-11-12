@@ -50,6 +50,25 @@ export function weaker(was: unknown, now: unknown, path: string): string[] {
   return same(was, now) ? [] : [`${path} changes`];
 }
 
+/** The fields a ruleset body holds that the repository declares; GitHub adds others (id, timestamps, links). */
+export const RULESET_FIELDS = [
+  "name",
+  "target",
+  "enforcement",
+  "conditions",
+  "rules",
+  "bypass_actors",
+];
+
+/** The declared fields of a live ruleset, so what GitHub adds does not read as a change. */
+export const declaredFields = (live: Json): Json =>
+  Object.fromEntries(
+    Object.entries(live).filter(([key]) => RULESET_FIELDS.includes(key)),
+  );
+
+/** Fields compared on their own terms; every other field, such as `target`, weakens by changing at all. */
+const HANDLED = ["name", "enforcement", "rules", "conditions", "bypass_actors"];
+
 const typed = (body: Json): Map<string, unknown> =>
   new Map(
     ((body["rules"] as Json[] | undefined) ?? []).map((r) => [
@@ -84,5 +103,9 @@ export function weakenings(previous: Json, after: Json): Weakenings {
   const bypass = ((after["bypass_actors"] as unknown[] | undefined) ?? [])
     .filter((actor) => !had.some((h) => same(h, actor)))
     .map(() => "bypass_actors gains an actor");
-  return { removed, weaker: [...params, ...conditions, ...bypass] };
+  const others = [...new Set([...Object.keys(previous), ...Object.keys(after)])]
+    .filter((key) => !HANDLED.includes(key))
+    .filter((key) => !same(previous[key], after[key]))
+    .map((key) => `${key} changes`);
+  return { removed, weaker: [...params, ...conditions, ...bypass, ...others] };
 }

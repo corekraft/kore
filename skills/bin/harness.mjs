@@ -3769,6 +3769,18 @@ function weaker(was, now, path) {
   }
   return same(was, now) ? [] : [`${path} changes`];
 }
+var RULESET_FIELDS = [
+  "name",
+  "target",
+  "enforcement",
+  "conditions",
+  "rules",
+  "bypass_actors"
+];
+var declaredFields = (live) => Object.fromEntries(
+  Object.entries(live).filter(([key]) => RULESET_FIELDS.includes(key))
+);
+var HANDLED = ["name", "enforcement", "rules", "conditions", "bypass_actors"];
 var typed = (body) => new Map(
   (body["rules"] ?? []).map((r) => [
     String(r["type"]),
@@ -3789,7 +3801,8 @@ function weakenings(previous, after) {
   const conditions = same(previous["conditions"], after["conditions"]) ? [] : ["conditions change"];
   const had = previous["bypass_actors"] ?? [];
   const bypass = (after["bypass_actors"] ?? []).filter((actor) => !had.some((h) => same(h, actor))).map(() => "bypass_actors gains an actor");
-  return { removed, weaker: [...params, ...conditions, ...bypass] };
+  const others = [.../* @__PURE__ */ new Set([...Object.keys(previous), ...Object.keys(after)])].filter((key) => !HANDLED.includes(key)).filter((key) => !same(previous[key], after[key])).map((key) => `${key} changes`);
+  return { removed, weaker: [...params, ...conditions, ...bypass, ...others] };
 }
 
 // src/ruleset/lock.ts
@@ -3876,7 +3889,10 @@ function weakened(body, modes2, live) {
   const declared = body["rules"].filter(
     (r) => modes2(String(r["type"])) === "enforce"
   );
-  return weakenings(live, { ...body, rules: [...declared, ...kept] }).weaker;
+  return weakenings(declaredFields(live), {
+    ...body,
+    rules: [...declared, ...kept]
+  }).weaker;
 }
 function evaluateRefused(error, name, repo) {
   if (error instanceof GitHubError && /\b422\b/.test(error.stderr) && /enterprise|evaluate/i.test(error.stderr)) {

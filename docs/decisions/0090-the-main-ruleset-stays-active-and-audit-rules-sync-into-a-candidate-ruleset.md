@@ -37,7 +37,9 @@ rule while enforcing the rest.
   live `main` at all, `main` starts from the `enforce` rules.
 - **Promotion moves a rule.** On the sync after the candidate holds the declared
   rule and its mode is `enforce`, sync writes it into `main` as `active` and out of
-  the candidate, after a `--dry-run` and the operator's `--confirm`. The candidate
+  the candidate, after a `--dry-run` and the operator's `--confirm`. A tightened
+  rule held in the candidate can be promoted on the next `sync --confirm` with no
+  insights window in between; that is acceptable because it only tightens. The candidate
   is written first, so a refusal leaves `main` untouched. Demoting a rule to
   `audit` leaves its live version in `main`; removing it from `main` means removing
   it from the declared file.
@@ -48,7 +50,9 @@ rule while enforcing the rest.
   from the file. The dry run, the refusal and the JSON name each one, and sync sends
   nothing, not even to the candidate, without `--allow-removal`. A sync that changes
   anything live needs `--confirm`, which stands for the operator's agreement; the
-  guard warns on `--confirm` and on edits to the declared files.
+  guard warns on `--confirm` and on edits to the declared files. Any change to a
+  top-level field other than `rules`, `name` and `enforcement` (`target`, for
+  one: `branch` to `tag` would stop `main` protecting branches) counts too.
 - **If GitHub refuses `evaluate`** (HTTP 422, for example "requires GitHub
   Enterprise"), sync stops, says evaluate is unavailable on this plan, and
   changes nothing. Audit rules then wait; they are never enforced by default.

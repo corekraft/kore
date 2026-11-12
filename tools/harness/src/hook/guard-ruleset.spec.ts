@@ -7,6 +7,7 @@ const ruleset = (change: object = {}) =>
   JSON.stringify(
     {
       name: "main",
+      target: "branch",
       conditions: { ref_name: { include: ["~DEFAULT_BRANCH"] } },
       rules: [
         { type: "deletion" },
@@ -98,6 +99,12 @@ describe("the declared main ruleset is guarded against weakening", () => {
         }),
       ),
       /bypass_actors/,
+    ],
+    ["a changed target", write(ruleset({ target: "tag" })), /target changes/],
+    [
+      "a dropped target",
+      write(ruleset({ target: undefined })),
+      /target changes/,
     ],
     ["a file that is no longer JSON", write("{ not json"), /JSON/],
   ])("warns, naming what weakens, on %s", async (_, payload, named) => {

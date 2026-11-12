@@ -70,6 +70,18 @@ const WEAKER: [string, object, object, RegExp][] = [
     /bypass_actors gains an actor/,
   ],
   [
+    "a changed target, which would stop main protecting branches",
+    file({ rules: rules(PR), target: "tag" }),
+    liveMain(rules(PR), { bypass_actors: [ACTOR] }),
+    /target changes/,
+  ],
+  [
+    "a dropped target",
+    { ...file({ rules: rules(PR) }), target: undefined },
+    liveMain(rules(PR), { bypass_actors: [ACTOR] }),
+    /target changes/,
+  ],
+  [
     "changed conditions",
     file({
       rules: rules(PR),

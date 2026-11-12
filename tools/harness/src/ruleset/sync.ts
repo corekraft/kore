@@ -17,7 +17,7 @@ import {
 } from "./declared.js";
 import { GitHubError, GitHubRulesets } from "./github.js";
 import { destination } from "./support.js";
-import { weakenings } from "./weaken.js";
+import { declaredFields, weakenings } from "./weaken.js";
 import { withLock } from "./lock.js";
 
 async function declaredBody(context: CommandContext, target: string) {
@@ -102,7 +102,10 @@ function weakened(
   const declared = (body["rules"] as Json[]).filter(
     (r) => modes(String(r["type"])) === "enforce",
   );
-  return weakenings(live, { ...body, rules: [...declared, ...kept] }).weaker;
+  return weakenings(declaredFields(live), {
+    ...body,
+    rules: [...declared, ...kept],
+  }).weaker;
 }
 
 /** GitHub says the plan has no evaluate mode: stop rather than guess. */
