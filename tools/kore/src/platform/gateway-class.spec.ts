@@ -63,6 +63,7 @@ test("with the flag off the platform-config render is byte-identical to today", 
 test("with the flag on only the Gateway class changes", async () => {
   const off = render(await localWith({ [ingressFlag]: false }));
   const on = render(await localWith({ [ingressFlag]: true }));
+  assert.match(off, /gatewayClassName: istio/);
   assert.equal(
     on,
     off.replace("gatewayClassName: istio", "gatewayClassName: agentgateway"),

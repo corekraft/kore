@@ -5,7 +5,7 @@ metadata:
   namespace: kore-system
   labels: {app.kubernetes.io/managed-by: Helm}
 spec:
-  gatewayClassName: {{ required "gateway.className is derived by kore from the ingress feature flag" .Values.gateway.className }}
+  gatewayClassName: {{ required "set gateway.className, or render through kore, which derives it from the ingress-agentgateway feature flag" .Values.gateway.className }}
   listeners:
     - name: https
       hostname: {{ .Values.gateway.hostname | quote }}
