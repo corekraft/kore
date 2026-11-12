@@ -11,7 +11,7 @@ Propose changes only. Never edit hooks, settings, skills, `AGENTS.md`, or memory
 
 ## Procedure
 
-1. **Run the scan first:** `node .claude/hooks/retro-scan.mjs`. It covers the sessions since `Last retrospective:` in `infra/plans/3-agent-harness.md` and prints JSON counts: guard blocks and warnings per rule, failed tools, skills loaded, repeated corrections, `skills.unused`, and `rules.audit`.
+1. **Run the scan first:** `node skills/bin/harness.mjs hook retro-scan --strict`. It covers the sessions since `Last retrospective:` in `infra/plans/3-agent-harness.md` and prints JSON counts: guard blocks and warnings per rule, failed tools, skills loaded, repeated corrections, `skills.unused`, and `rules.audit`.
 2. **Turn each finding into a proposal**, smallest change first:
    - `rules.promotable` entry: promote that audit rule to enforce mode. `insufficient-evidence` or `not-promotable`: leave it.
    - `skills.unused` entry: archive the skill, or rewrite its description so it fires.

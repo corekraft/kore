@@ -2,6 +2,7 @@ import {
   appendFile,
   mkdir,
   readFile,
+  open,
   readdir,
   rm,
   readlink,
@@ -29,6 +30,10 @@ export interface FileSystem {
   readlink(path: string): Promise<string>;
   /** The last-modified time in epoch milliseconds; rejects with ENOENT for a missing path. */
   mtimeMs(path: string): Promise<number>;
+  /** Whether the path is a directory; false for a file or a missing path. */
+  isDirectory(path: string): Promise<boolean>;
+  /** The first `bytes` bytes of a file as text, without reading the rest. */
+  readHead(path: string, bytes: number): Promise<string>;
 }
 
 export const nodeFileSystem: FileSystem = {
@@ -61,5 +66,25 @@ export const nodeFileSystem: FileSystem = {
   readlink: (path) => readlink(path),
   async mtimeMs(path) {
     return (await stat(path)).mtimeMs;
+  },
+  async isDirectory(path) {
+    try {
+      return (await stat(path)).isDirectory();
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        return false;
+      }
+      throw error;
+    }
+  },
+  async readHead(path, bytes) {
+    const file = await open(path, "r");
+    try {
+      const buffer = Buffer.alloc(bytes);
+      const { bytesRead } = await file.read(buffer, 0, bytes, 0);
+      return buffer.toString("utf8", 0, bytesRead);
+    } finally {
+      await file.close();
+    }
   },
 };

@@ -69,6 +69,12 @@ export class MemoryFs implements FileSystem {
   readlink(path: string): Promise<string> {
     return Promise.reject(new Error(`ENOENT: ${path}`));
   }
+  isDirectory(): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+  readHead(path: string): Promise<string> {
+    return Promise.reject(new Error(`ENOENT: ${path}`));
+  }
 
   remove(path: string): Promise<void> {
     this.files.delete(this.rel(path));

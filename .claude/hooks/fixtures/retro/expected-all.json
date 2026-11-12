@@ -1,0 +1,125 @@
+{
+  "since": null,
+  "sessions": {
+    "count": 3,
+    "first": "2026-10-01T08:01:00.000Z",
+    "last": "2026-11-02T09:41:00.000Z",
+    "list": [
+      {
+        "id": "charlie",
+        "first": "2026-10-01T08:01:00.000Z",
+        "last": "2026-10-01T08:03:00.000Z"
+      },
+      {
+        "id": "alpha",
+        "first": "2026-11-01T10:01:00.000Z",
+        "last": "2026-11-01T10:36:00.000Z"
+      },
+      {
+        "id": "bravo",
+        "first": "2026-11-02T09:01:00.000Z",
+        "last": "2026-11-02T09:41:00.000Z"
+      }
+    ]
+  },
+  "skippedLines": 1,
+  "guards": {
+    "image-digest": {
+      "blocks": 0,
+      "warnings": 5
+    },
+    "kubectl-context": {
+      "blocks": 1,
+      "warnings": 0
+    },
+    "sample-audit": {
+      "blocks": 0,
+      "warnings": 2
+    },
+    "unquoted-glob": {
+      "blocks": 0,
+      "warnings": 5
+    }
+  },
+  "failures": [
+    {
+      "tool": "Edit",
+      "error": "String to replace not found in file.",
+      "count": 2
+    },
+    {
+      "tool": "Bash",
+      "error": "Exit code 1: (eval):N: no matches found: <glob>",
+      "count": 1
+    }
+  ],
+  "skills": {
+    "perSession": {
+      "charlie": [
+        "write-adr"
+      ],
+      "alpha": [
+        "test-driven-development"
+      ],
+      "bravo": [
+        "handoff"
+      ]
+    },
+    "unused": [
+      "alpha-skill"
+    ]
+  },
+  "corrections": [
+    {
+      "id": "f556c47a",
+      "sessions": 2,
+      "evidence": [
+        {
+          "session": "alpha",
+          "line": 1
+        },
+        {
+          "session": "bravo",
+          "line": 1
+        }
+      ]
+    }
+  ],
+  "rules": {
+    "promotable": [
+      "unquoted-glob"
+    ],
+    "audit": [
+      {
+        "rule": "image-digest",
+        "status": "not-promotable",
+        "warnings": 5,
+        "sessions": 2,
+        "heeded": 4,
+        "overridden": 1,
+        "repeated": 0,
+        "unresolved": 0
+      },
+      {
+        "rule": "sample-audit",
+        "status": "insufficient-evidence",
+        "warnings": 2,
+        "sessions": 1,
+        "heeded": 0,
+        "overridden": 0,
+        "repeated": 1,
+        "unresolved": 1
+      },
+      {
+        "rule": "unquoted-glob",
+        "status": "promotable",
+        "warnings": 5,
+        "sessions": 2,
+        "heeded": 5,
+        "overridden": 0,
+        "repeated": 0,
+        "unresolved": 0
+      }
+    ]
+  }
+}
