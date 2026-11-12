@@ -645,3 +645,57 @@ test("idea-issue-close: other label edits, reads and comments are not warned", (
     assert.equal(bash(command).action, "allow", command);
   }
 });
+
+const OVERLAY_FILE = "infra/environments/local/environment.yaml";
+const flagWarned = (result, label) => {
+  assert.equal(result.action, "warn", `${label}: ${JSON.stringify(result)}`);
+  assert.equal(result.rule, "flag-activation", label);
+  assert.match(result.message, /\[guard:flag-activation\]/, label);
+  assert.match(result.message, /harness flag activate/, label);
+  assert.match(result.message, /Instead/, label);
+};
+
+test("flag-activation: turning a flag on in an overlay by hand warns, naming the activation tool", () => {
+  flagWarned(
+    edit(
+      `/repo/${OVERLAY_FILE}`,
+      '"features": { "ingress-agentgateway": false }',
+      '"features": { "ingress-agentgateway": true }',
+    ),
+    "Edit false to true",
+  );
+  flagWarned(
+    edit(`/repo/${OVERLAY_FILE}`, "x", '"features": {\n  "a-b": true\n}'),
+    "Edit multi-line features",
+  );
+  flagWarned(
+    write(
+      `/repo/${OVERLAY_FILE}`,
+      '{ "name": "local", "features": { "ingress-agentgateway": true } }',
+    ),
+    "Write a features map with a flag on",
+  );
+});
+
+test("flag-activation: leaving flags off, other booleans and other files are not warned", () => {
+  for (const result of [
+    edit(`/repo/${OVERLAY_FILE}`, "a", '"features": { "x": false }'),
+    edit(`/repo/${OVERLAY_FILE}`, "a", '"other": { "enabled": true }'),
+    write(`/repo/${OVERLAY_FILE}`, '{ "name": "local", "features": {} }'),
+    write("/repo/docs/guides/x.md", '"features": { "x": true }'),
+    read(`/repo/${OVERLAY_FILE}`),
+  ]) {
+    assert.equal(result.action, "allow", JSON.stringify(result));
+  }
+});
+
+test("flag-activation: an image tag in the same edit is reported too, not hidden", () => {
+  const result = edit(
+    `/repo/${OVERLAY_FILE}`,
+    '"features": { "a-b": false }',
+    '"features": { "a-b": true }, "image": "registry/app:latest"\n  image: registry/app:latest',
+  );
+  assert.equal(result.action, "warn");
+  assert.match(result.message, /guard:flag-activation/);
+  assert.match(result.message, /guard:image-digest/);
+});

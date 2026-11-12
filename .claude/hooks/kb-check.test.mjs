@@ -646,3 +646,38 @@ test("two idea files sharing a number are reported on the later file, naming the
     "docs/ideas/0001-b.md:1: idea number 0001 is also used by docs/ideas/0001-a.md; renumber it to the next free number",
   ]);
 });
+
+function runFlagAudited(tree, argv, flagAudit) {
+  const lines = [];
+  const status = run(argv, { ...fakeDeps(tree), flagAudit }, (l) =>
+    lines.push(l),
+  );
+  return { status, lines };
+}
+
+test("a flag on without proof is reported as a warning that never fails --strict", () => {
+  const audit = () => [
+    "Flag x is on in local (infra/environments/local/environment.yaml) with no verification outcome.",
+  ];
+  for (const argv of [[], ["--strict"]]) {
+    const { status, lines } = runFlagAudited(cleanTree(), argv, audit);
+    assert.equal(status, 0, argv.join(" "));
+    assert.match(lines.join("\n"), /Flag x is on in local/);
+    assert.match(lines.join("\n"), /warn only/);
+    assert.doesNotMatch(lines.join("\n"), /kb-check: clean/);
+  }
+});
+
+test("a flag audit that could not run is one warning line", () => {
+  const { status, lines } = runFlagAudited(cleanTree(), ["--strict"], () => [
+    "flag audit could not run (spawn failed); run `mise run harness-build`",
+  ]);
+  assert.equal(status, 0);
+  assert.equal(lines.filter((l) => l.includes("could not run")).length, 1);
+});
+
+test("a clean flag audit leaves kb-check clean", () => {
+  const { status, lines } = runFlagAudited(cleanTree(), ["--strict"], () => []);
+  assert.equal(status, 0);
+  assert.deepEqual(lines, ["kb-check: clean"]);
+});

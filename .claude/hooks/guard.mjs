@@ -405,11 +405,77 @@ function lowersThresholds(before, after) {
 
 const IMAGE_LINE = /^\s*-?\s*image:\s*["']?([^\s"'#]+)/gm;
 
+// Feature flags: turned on only by `harness flag activate`, which requires a recorded live
+// proof (ADR 0077). Warns on any hand edit that sets a flag in an overlay's features map
+// to true. Audit mode (warn) first, per ADR 0080; `harness flag audit` is the CI backstop.
+const OVERLAY_PATH = /^infra\/environments\/[^/]+\/environment\.yaml$/;
+const FEATURES_BLOCK = /["']?features["']?\s*:\s*\{[^}]*\}/s;
+const FLAG_ON = /["']?([a-z][a-z0-9-]*)["']?\s*:\s*true\b/g;
+
+const flagsIn = (text, pattern) =>
+  new Set([...text.matchAll(pattern)].map((m) => m[1]));
+
+function flagsOn(text, before) {
+  const block = FEATURES_BLOCK.exec(text)?.[0];
+  if (block !== undefined) return flagsIn(block, FLAG_ON);
+  // An edit's snippet may lack the features key; only a flip from false counts.
+  const off = flagsIn(before, /["']?([a-z][a-z0-9-]*)["']?\s*:\s*false\b/g);
+  return new Set([...flagsIn(text, FLAG_ON)].filter((name) => off.has(name)));
+}
+
+function checkFlagOn(tool, input, relative, ctx) {
+  if (!OVERLAY_PATH.test(relative)) return null;
+  let before = "";
+  if (tool === "Edit") before = input.old_string ?? "";
+  else {
+    try {
+      before = ctx.readFile(`${ctx.root}/${relative}`);
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
+    }
+  }
+  const after =
+    tool === "Edit" ? (input.new_string ?? "") : (input.content ?? "");
+  const already = flagsIn(FEATURES_BLOCK.exec(before)?.[0] ?? "", FLAG_ON);
+  const added = [...flagsOn(after, before)].filter(
+    (name) => !already.has(name),
+  );
+  if (tool === "Write" && !FEATURES_BLOCK.test(after)) return null;
+  if (added.length === 0) return null;
+  return warn(
+    "flag-activation",
+    `${relative} turns on flag ${added[0]} by hand. A flag turns on only with a recorded live proof. ` +
+      "Instead, record a confirmed live-run verification outcome (`harness outcome record --kind verification --source live-run --flag <name> --environment <env> ...`), then run `harness flag activate <flag> --environment <env>`.",
+  );
+}
+
+function checkImageDigest(tool, input, relative) {
+  if (
+    !relative.startsWith("apps/") &&
+    !relative.startsWith("infra/environments/")
+  ) {
+    return null;
+  }
+  const text =
+    tool === "Edit" ? (input.new_string ?? "") : (input.content ?? "");
+  const tagged = [...text.matchAll(IMAGE_LINE)].filter(
+    (m) => !m[1].includes("@sha256:"),
+  );
+  if (tagged.length === 0) return null;
+  return warn(
+    "image-digest",
+    `${tagged[0][1]} is not pinned by digest. Images are deployed by signed digest, never by tag. ` +
+      "Instead, reference it as name@sha256:<digest> from the release lock.",
+  );
+}
+
 function checkFile(tool, input, relative, ctx) {
   if (SECRET_PATH.test(relative)) return secretBlock();
 
   if (tool !== "Read") {
     if (isAppendOnly(relative)) return appendOnlyWarn(relative);
+
+    const flagOn = checkFlagOn(tool, input, relative, ctx);
 
     if (IDEA_PATH.test(relative)) {
       const text =
@@ -445,23 +511,11 @@ function checkFile(tool, input, relative, ctx) {
       }
     }
 
-    if (
-      relative.startsWith("apps/") ||
-      relative.startsWith("infra/environments/")
-    ) {
-      const text =
-        tool === "Edit" ? (input.new_string ?? "") : (input.content ?? "");
-      const tagged = [...text.matchAll(IMAGE_LINE)].filter(
-        (m) => !m[1].includes("@sha256:"),
-      );
-      if (tagged.length > 0) {
-        return warn(
-          "image-digest",
-          `${tagged[0][1]} is not pinned by digest. Images are deployed by signed digest, never by tag. ` +
-            "Instead, reference it as name@sha256:<digest> from the release lock.",
-        );
-      }
+    const tagged = checkImageDigest(tool, input, relative);
+    if (flagOn !== null && tagged !== null) {
+      return { ...flagOn, message: `${flagOn.message}\n${tagged.message}` };
     }
+    if (flagOn !== null || tagged !== null) return flagOn ?? tagged;
   }
   return null;
 }
