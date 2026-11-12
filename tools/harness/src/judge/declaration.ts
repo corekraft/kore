@@ -14,12 +14,17 @@ export type Declaration =
 const FIELD = "Safety pattern:";
 const FIX = `Add exactly one \`${FIELD} <pattern>\` line to the PR body (see .github/pull_request_template.md), where <pattern> is one of ${PATTERNS.join(", ")}.`;
 
-function lines(body: string, label: string): string[] {
+const FIELDS = {
+  pattern: /^\s*Safety pattern:\s*(.*?)\s*$/i,
+  idea: /^\s*Idea:\s*(.*?)\s*$/i,
+};
+
+function lines(body: string, field: keyof typeof FIELDS): string[] {
   // Text inside an HTML comment is template guidance, not a declaration.
   const visible = body.replace(/<!--[\s\S]*?-->/g, "");
   const found: string[] = [];
   for (const line of visible.split("\n")) {
-    const match = new RegExp(`^\\s*${label}\\s*(.*?)\\s*$`, "i").exec(line);
+    const match = FIELDS[field].exec(line);
     if (match?.[1] !== undefined) {
       found.push(match[1].replace(/^`|`$/g, "").trim());
     }
@@ -32,7 +37,7 @@ const isPattern = (value: string): value is Pattern =>
 
 /** Reads the one safety pattern a PR body declares, and the idea it links to. */
 export function parseDeclaration(body: string): Declaration {
-  const declared = lines(body, FIELD);
+  const declared = lines(body, "pattern");
   if (declared.length !== 1) {
     return {
       ok: false,
@@ -52,6 +57,6 @@ export function parseDeclaration(body: string): Declaration {
           : `Unknown safety pattern "${value}". ${FIX}`,
     };
   }
-  const idea = lines(body, "Idea:")[0];
+  const idea = lines(body, "idea")[0];
   return { ok: true, pattern: value, idea: idea === "" ? undefined : idea };
 }
