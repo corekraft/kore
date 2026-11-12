@@ -18,7 +18,7 @@ async function featuresMessage(features: unknown): Promise<string> {
 }
 
 test("an overlay without a features map validates, with every flag off", async () => {
-  const base = await loadRepository("local");
+  const base = await loadRepository("managed-example");
   assert.equal(base.environment.features, undefined);
   assert.equal(featureEnabled(base.environment, "agent-loop"), false);
   assert.deepEqual(featureHelmArgs(base.environment), []);

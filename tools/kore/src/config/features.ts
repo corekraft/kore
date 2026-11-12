@@ -16,3 +16,13 @@ export function featureHelmArgs(
     .sort(([a], [b]) => a.localeCompare(b))
     .flatMap(([flag, on]) => ["--set", `features.${flag}=${on}`]);
 }
+
+/** The flag that selects agentgateway over Istio as the ingress GatewayClass. */
+export const ingressFlag = "ingress-agentgateway";
+
+/** The GatewayClass the platform Gateway uses, derived from the ingress flag. */
+export function gatewayClassName(
+  environment: Pick<Environment, "features">,
+): string {
+  return featureEnabled(environment, ingressFlag) ? "agentgateway" : "istio";
+}

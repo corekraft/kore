@@ -52,4 +52,9 @@ export type {
 } from "./config.js";
 export { approvedImageList } from "./approved.js";
 export type { ApprovedEntry } from "./approved.js";
-export { featureEnabled, featureHelmArgs } from "./features.js";
+export {
+  featureEnabled,
+  featureHelmArgs,
+  gatewayClassName,
+  ingressFlag,
+} from "./features.js";
