@@ -10,6 +10,8 @@ import { readFileSync } from "node:fs";
 import { basename } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { recordEvent } from "./ledger.mjs";
+
 const OPERATORS = new Set([";", "&&", "||", "|", "&", "\n"]);
 
 /** Split a shell command into segments of unquoted-word tokens. */
@@ -576,6 +578,7 @@ function main() {
     return 0;
   }
   const root = process.env.CLAUDE_PROJECT_DIR || call.cwd || process.cwd();
+  recordEvent("tool.start", call, { root });
   const result = evaluate(call, {
     root,
     readFile: (path) => readFileSync(path, "utf8"),

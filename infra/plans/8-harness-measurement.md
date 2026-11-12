@@ -63,7 +63,7 @@ and uses it first to measure the delivery loop. Terms follow
 
 - [x] Add a `ledger` domain: an append-only JSONL ledger with a schema for
       stage events (source, session, pane, idea, stage, kind, time).
-- [ ] Record Claude session events (start, stop, tool start and end) from the
+- [x] Record Claude session events (start, stop, tool start and end) from the
       existing hooks through the harness.
 - [x] Record Herdr pane events (spawned, busy, waiting, closed).
 - [ ] Record GitHub events (issue opened, labelled, PR opened, merged) by

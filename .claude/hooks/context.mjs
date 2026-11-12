@@ -14,6 +14,8 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { recordEvent } from "./ledger.mjs";
+
 const PLANS_DIR = "infra/plans";
 const RETRO_AFTER_SESSIONS = 5;
 const RETRO_MARKER = /^\W*Last retrospective: (\d{4}-\d{2}-\d{2})/gm;
@@ -323,6 +325,7 @@ function main() {
   if (typeof event !== "object" || event === null || Array.isArray(event))
     return 0;
   const root = process.env.CLAUDE_PROJECT_DIR || event.cwd || process.cwd();
+  recordEvent("session.start", event, { root });
   let context;
   try {
     context = restore(event, realDeps(root));
