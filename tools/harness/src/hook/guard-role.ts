@@ -8,6 +8,7 @@
 // enforcing the plan 11 role guards on 2026-11-12, which ADR 0080 requires a
 // person to do. A new capability for a role needs a guard case first.
 import { isAbsolute, relative, resolve } from "node:path";
+import { ghMayRun, readMayRun } from "./guard-role-allow.js";
 import { checkDelivery, DELIVERY_ROLES } from "./guard-role-delivery.js";
 import {
   changesShell,
@@ -60,9 +61,6 @@ const noCode = (what: string, role: string): Finding =>
       "Instead, ask a reader to look at the code and summarize it.",
   );
 
-const PR_READS = ["view", "list", "status", "checks"];
-const ISSUE_READS = ["view", "list", "status"];
-
 /** The harness commands both roles may run; each is read-only. */
 const HARNESS_READS = [
   "plan active",
@@ -77,67 +75,6 @@ const CONCIERGE_HARNESS = [...HARNESS_READS, "idea new", "idea sync"];
 /** The refiner files and mirrors the idea it refined, the one thing it produces. */
 const REFINER_HARNESS = [...HARNESS_READS, "idea new", "idea sync"];
 const CHALLENGER_HARNESS = [...HARNESS_READS, "idea challenge"];
-
-const READ_UTILITIES = new Set([
-  "cat",
-  "head",
-  "tail",
-  "ls",
-  "grep",
-  "rg",
-  "wc",
-  "sort",
-  "diff",
-  "stat",
-  "file",
-  "tree",
-  "basename",
-  "dirname",
-  "jq",
-  "date",
-  "echo",
-  "pwd",
-]);
-
-/** Short-option clusters such as -o and -ro: -o names an output file for sort and tree. */
-const hasShortO = (args: readonly string[]): boolean =>
-  args.some((arg) => /^-[a-zA-Z]*o/.test(arg));
-
-/** A read utility's options that write a file or run a program. */
-function utilityMayRun(name: string, args: readonly string[]): boolean {
-  switch (name) {
-    case "sort":
-      return !(
-        hasShortO(args) ||
-        args.some(
-          (arg) =>
-            arg.startsWith("--output") || arg.startsWith("--compress-program"),
-        )
-      );
-    case "tree":
-      return !hasShortO(args);
-    case "rg":
-      return !args.some((arg) => arg === "--pre" || arg.startsWith("--pre="));
-    case "file":
-      return !args.some(
-        (arg) => /^-[a-zA-Z]*C/.test(arg) || arg === "--compile",
-      );
-    default:
-      return true;
-  }
-}
-
-/** Options that make a read-only `git` verb write a file or run a program. */
-const gitWrites = (args: readonly string[]): boolean =>
-  args.some(
-    (arg) =>
-      arg.startsWith("--output") ||
-      arg.startsWith("--open-files-in-pager") ||
-      arg.startsWith("--ext-diff") ||
-      arg.startsWith("--textconv") ||
-      arg.startsWith("--config-env") ||
-      arg.startsWith("-O"),
-  );
 
 /** The only options the concierge's `git log` and `git status` take: none prints changed lines. */
 const CONCIERGE_GIT_FLAGS: Record<string, RegExp> = {
@@ -154,17 +91,6 @@ function conciergeGit(args: readonly string[]): boolean {
   );
 }
 
-/** The read-only `gh` verbs a bounded role may run; `patches` also allows output that shows code. */
-function ghMayRun(args: readonly string[], patches: boolean): boolean {
-  const [group, verb] = args;
-  return (
-    (group === "issue" && ISSUE_READS.includes(verb ?? "")) ||
-    (group === "label" && verb === "list") ||
-    (group === "pr" && PR_READS.includes(verb ?? "")) ||
-    (patches && group === "pr" && verb === "diff")
-  );
-}
-
 /** What a no-code role's shell may run: its allowlisted harness commands and status queries, never anything that shows code. */
 function noCodeMayRun(role: string, segment: readonly string[]): boolean {
   const { name, args } = commandOf(segment);
@@ -178,52 +104,6 @@ function noCodeMayRun(role: string, segment: readonly string[]): boolean {
     (name === "gh" && ghMayRun(args, false)) ||
     (name === "git" && conciergeGit(args)) ||
     ["date", "echo", "pwd"].includes(name)
-  );
-}
-
-const READER_GIT = [
-  "log",
-  "status",
-  "show",
-  "diff",
-  "blame",
-  "ls-files",
-  "grep",
-  "rev-parse",
-];
-
-/** What the reader's shell may run: read utilities, queries and allowlisted harness commands; find may not delete, execute or write. */
-function readerMayRun(role: string, segment: readonly string[]): boolean {
-  const { name, args } = commandOf(segment);
-  if (name === "find") {
-    return !args.some((arg) =>
-      [
-        "-delete",
-        "-exec",
-        "-execdir",
-        "-ok",
-        "-okdir",
-        "-fprint",
-        "-fprint0",
-        "-fprintf",
-        "-fls",
-      ].includes(arg),
-    );
-  }
-  if (name === "git") {
-    return (
-      READER_GIT.includes(args.find((arg) => !arg.startsWith("-")) ?? "") &&
-      !gitWrites(args)
-    );
-  }
-  return (
-    harnessAllowed(
-      name,
-      args,
-      role === "refiner" ? REFINER_HARNESS : HARNESS_READS,
-    ) ||
-    (name === "gh" && ghMayRun(args, true)) ||
-    (READ_UTILITIES.has(name) && utilityMayRun(name, args))
   );
 }
 
@@ -254,7 +134,13 @@ function checkBash(role: string, command: string): Finding {
     const stray = segments.find((segment) => !noCodeMayRun(role, segment));
     return stray === undefined ? null : noCode(`\`${stray.join(" ")}\``, role);
   }
-  const unknown = segments.find((segment) => !readerMayRun(role, segment));
+  const unknown = segments.find(
+    (segment) =>
+      !readMayRun(
+        segment,
+        role === "refiner" ? REFINER_HARNESS : HARNESS_READS,
+      ),
+  );
   return unknown === undefined
     ? null
     : readOnly(

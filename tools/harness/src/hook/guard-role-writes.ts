@@ -1,6 +1,7 @@
 // Shared by the role guards: which commands change files, and the read-only
 // finding. Owner approval to enforce the plan 11 role guards is recorded on
 // #190 and #191 (2026-11-12).
+import { basename } from "node:path";
 import { commandOf } from "./guard-shell.js";
 import { block, type Finding } from "./guard-verdict.js";
 
@@ -158,7 +159,9 @@ const CONSTRUCT_WORDS = new Set([
 export const wrapsCommands = (segment: readonly string[]): boolean => {
   const first = segment[0] ?? "";
   return (
-    /^[({]/.test(first) || RUNS_OTHERS.has(first) || CONSTRUCT_WORDS.has(first)
+    /^[({]/.test(first) ||
+    RUNS_OTHERS.has(basename(first)) ||
+    CONSTRUCT_WORDS.has(first)
   );
 };
 

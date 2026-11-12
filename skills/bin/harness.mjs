@@ -7498,10 +7498,8 @@ ${extra.message}`,
 // src/hook/guard-role.ts
 import { isAbsolute as isAbsolute2, relative as relative2, resolve as resolve6 } from "node:path";
 
-// src/hook/guard-role-delivery.ts
-import { isAbsolute, relative, resolve as resolve5 } from "node:path";
-
 // src/hook/guard-role-writes.ts
+import { basename as basename2 } from "node:path";
 var WRITE_TOOLS = /* @__PURE__ */ new Set(["Write", "Edit", "NotebookEdit"]);
 var WRITERS = /* @__PURE__ */ new Set([
   "tee",
@@ -7616,14 +7614,97 @@ var CONSTRUCT_WORDS = /* @__PURE__ */ new Set([
 ]);
 var wrapsCommands = (segment) => {
   const first = segment[0] ?? "";
-  return /^[({]/.test(first) || RUNS_OTHERS.has(first) || CONSTRUCT_WORDS.has(first);
+  return /^[({]/.test(first) || RUNS_OTHERS.has(basename2(first)) || CONSTRUCT_WORDS.has(first);
 };
 var HARNESS2 = /^(\.\/)?skills\/bin\/harness\.mjs$/;
 var namesLedger = (args) => args.some((arg) => arg === "--ledger" || arg.startsWith("--ledger="));
 var harnessAllowed = (name, args, allowed) => name === "node" && HARNESS2.test(args[0] ?? "") && !namesLedger(args) && allowed.includes(`${args[1] ?? ""} ${args[2] ?? ""}`);
 var harnessStatus = (name, args) => name === "node" && HARNESS2.test(args[0] ?? "") && args[1] === "status" && args.length <= 3 && (args[2] === void 0 || args[2] === "--json");
 
+// src/hook/guard-role-allow.ts
+var PR_READS = ["view", "list", "status", "checks"];
+var ISSUE_READS = ["view", "list", "status"];
+var READ_UTILITIES = /* @__PURE__ */ new Set([
+  "cat",
+  "head",
+  "tail",
+  "ls",
+  "grep",
+  "rg",
+  "wc",
+  "sort",
+  "diff",
+  "stat",
+  "file",
+  "tree",
+  "basename",
+  "dirname",
+  "jq",
+  "date",
+  "echo",
+  "pwd"
+]);
+var hasShortO = (args) => args.some((arg) => /^-[a-zA-Z]*o/.test(arg));
+function utilityMayRun(name, args) {
+  switch (name) {
+    case "sort":
+      return !(hasShortO(args) || args.some(
+        (arg) => arg.startsWith("--output") || arg.startsWith("--compress-program")
+      ));
+    case "tree":
+      return !hasShortO(args);
+    case "rg":
+      return !args.some((arg) => arg === "--pre" || arg.startsWith("--pre="));
+    case "file":
+      return !args.some(
+        (arg) => /^-[a-zA-Z]*C/.test(arg) || arg === "--compile"
+      );
+    default:
+      return true;
+  }
+}
+var gitWrites = (args) => args.some(
+  (arg) => arg.startsWith("--output") || arg.startsWith("--open-files-in-pager") || arg.startsWith("--ext-diff") || arg.startsWith("--textconv") || arg.startsWith("--config-env") || arg.startsWith("-O")
+);
+function ghMayRun(args, patches) {
+  const [group, verb] = args;
+  return group === "issue" && ISSUE_READS.includes(verb ?? "") || group === "label" && verb === "list" || group === "pr" && PR_READS.includes(verb ?? "") || patches && group === "pr" && verb === "diff";
+}
+var READER_GIT = [
+  "log",
+  "status",
+  "show",
+  "diff",
+  "blame",
+  "ls-files",
+  "grep",
+  "rev-parse"
+];
+function readMayRun(segment, harness) {
+  const { name, args } = commandOf(segment);
+  if (name === "find") {
+    return !args.some(
+      (arg) => [
+        "-delete",
+        "-exec",
+        "-execdir",
+        "-ok",
+        "-okdir",
+        "-fprint",
+        "-fprint0",
+        "-fprintf",
+        "-fls"
+      ].includes(arg)
+    );
+  }
+  if (name === "git") {
+    return READER_GIT.includes(args.find((arg) => !arg.startsWith("-")) ?? "") && !gitWrites(args);
+  }
+  return harnessAllowed(name, args, harness) || name === "gh" && ghMayRun(args, true) || READ_UTILITIES.has(name) && utilityMayRun(name, args);
+}
+
 // src/hook/guard-role-delivery.ts
+import { isAbsolute, relative, resolve as resolve5 } from "node:path";
 var REPORTING_ROLES = /* @__PURE__ */ new Set(["orchestrator", "judge"]);
 var DELIVERY_ROLES = /* @__PURE__ */ new Set([...REPORTING_ROLES, "writer"]);
 var noMerge = (role, what) => block(
@@ -7670,6 +7751,23 @@ var HARNESS_BY_ROLE = {
   judge: JUDGE_HARNESS
 };
 var harnessFor = (role) => HARNESS_BY_ROLE[role] ?? READS;
+var HERDR_READS = [
+  "agent list",
+  "agent get",
+  "agent read",
+  "agent wait",
+  "pane list",
+  "pane get",
+  "pane read",
+  "pane current"
+];
+function reportingMayRun(role, segment) {
+  const { name, args } = commandOf(segment);
+  if (name === "herdr") {
+    return role === "orchestrator" && HERDR_READS.includes(`${args[0] ?? ""} ${args[1] ?? ""}`);
+  }
+  return readMayRun(segment, harnessFor(role));
+}
 function harnessRefused(role, segment) {
   const { name, args } = commandOf(segment);
   if (name !== "node" || !(args[0] ?? "").endsWith("harness.mjs")) {
@@ -7724,7 +7822,7 @@ function checkDeliveryBash(role, command, root3) {
       );
     }
     const changing = segments.find(
-      (s) => writes(s) || runsInline(s) || harnessRefused(role, s)
+      (s) => writes(s) || runsInline(s) || harnessRefused(role, s) || !reportingMayRun(role, s)
     );
     return changing === void 0 ? null : readOnly(`\`${changing.join(" ")}\``);
   }
@@ -7778,8 +7876,6 @@ var noCode = (what, role) => block(
   "role-no-code",
   `${what} reads code, and the ${role} works from plans, ADRs, ideas, issues and the ledger. Instead, ask a reader to look at the code and summarize it.`
 );
-var PR_READS = ["view", "list", "status", "checks"];
-var ISSUE_READS = ["view", "list", "status"];
 var HARNESS_READS = [
   "plan active",
   "idea list",
@@ -7790,48 +7886,6 @@ var HARNESS_READS = [
 var CONCIERGE_HARNESS = [...HARNESS_READS, "idea new", "idea sync"];
 var REFINER_HARNESS = [...HARNESS_READS, "idea new", "idea sync"];
 var CHALLENGER_HARNESS = [...HARNESS_READS, "idea challenge"];
-var READ_UTILITIES = /* @__PURE__ */ new Set([
-  "cat",
-  "head",
-  "tail",
-  "ls",
-  "grep",
-  "rg",
-  "wc",
-  "sort",
-  "diff",
-  "stat",
-  "file",
-  "tree",
-  "basename",
-  "dirname",
-  "jq",
-  "date",
-  "echo",
-  "pwd"
-]);
-var hasShortO = (args) => args.some((arg) => /^-[a-zA-Z]*o/.test(arg));
-function utilityMayRun(name, args) {
-  switch (name) {
-    case "sort":
-      return !(hasShortO(args) || args.some(
-        (arg) => arg.startsWith("--output") || arg.startsWith("--compress-program")
-      ));
-    case "tree":
-      return !hasShortO(args);
-    case "rg":
-      return !args.some((arg) => arg === "--pre" || arg.startsWith("--pre="));
-    case "file":
-      return !args.some(
-        (arg) => /^-[a-zA-Z]*C/.test(arg) || arg === "--compile"
-      );
-    default:
-      return true;
-  }
-}
-var gitWrites = (args) => args.some(
-  (arg) => arg.startsWith("--output") || arg.startsWith("--open-files-in-pager") || arg.startsWith("--ext-diff") || arg.startsWith("--textconv") || arg.startsWith("--config-env") || arg.startsWith("-O")
-);
 var CONCIERGE_GIT_FLAGS = {
   log: /^(--|--oneline|--graph|--decorate|--no-decorate|--all|--no-merges|--merges|--first-parent|--abbrev-commit|--since=.+|--until=.+|--author=.+|--grep=.+|--format=.+|--pretty=.+|--date=.+|--max-count=.+|-n|-\d+)$/,
   status: /^(-s|--short|-b|--branch|--porcelain|--porcelain=.+|--long)$/
@@ -7841,10 +7895,6 @@ function conciergeGit(args) {
   const flags = CONCIERGE_GIT_FLAGS[verb];
   return flags !== void 0 && rest.every((arg) => !arg.startsWith("-") || flags.test(arg));
 }
-function ghMayRun(args, patches) {
-  const [group, verb] = args;
-  return group === "issue" && ISSUE_READS.includes(verb ?? "") || group === "label" && verb === "list" || group === "pr" && PR_READS.includes(verb ?? "") || patches && group === "pr" && verb === "diff";
-}
 function noCodeMayRun(role, segment) {
   const { name, args } = commandOf(segment);
   return harnessAllowed(
@@ -7852,42 +7902,6 @@ function noCodeMayRun(role, segment) {
     args,
     role === "challenger" ? CHALLENGER_HARNESS : CONCIERGE_HARNESS
   ) || harnessStatus(name, args) || name === "gh" && ghMayRun(args, false) || name === "git" && conciergeGit(args) || ["date", "echo", "pwd"].includes(name);
-}
-var READER_GIT = [
-  "log",
-  "status",
-  "show",
-  "diff",
-  "blame",
-  "ls-files",
-  "grep",
-  "rev-parse"
-];
-function readerMayRun(role, segment) {
-  const { name, args } = commandOf(segment);
-  if (name === "find") {
-    return !args.some(
-      (arg) => [
-        "-delete",
-        "-exec",
-        "-execdir",
-        "-ok",
-        "-okdir",
-        "-fprint",
-        "-fprint0",
-        "-fprintf",
-        "-fls"
-      ].includes(arg)
-    );
-  }
-  if (name === "git") {
-    return READER_GIT.includes(args.find((arg) => !arg.startsWith("-")) ?? "") && !gitWrites(args);
-  }
-  return harnessAllowed(
-    name,
-    args,
-    role === "refiner" ? REFINER_HARNESS : HARNESS_READS
-  ) || name === "gh" && ghMayRun(args, true) || READ_UTILITIES.has(name) && utilityMayRun(name, args);
 }
 var PREFIXED2 = /^(?:[A-Za-z_][A-Za-z0-9_]*=|(?:sudo|env|time|command|nohup|exec)$)/;
 function checkBash(role, command) {
@@ -7910,7 +7924,12 @@ function checkBash(role, command) {
     const stray = segments.find((segment) => !noCodeMayRun(role, segment));
     return stray === void 0 ? null : noCode(`\`${stray.join(" ")}\``, role);
   }
-  const unknown = segments.find((segment) => !readerMayRun(role, segment));
+  const unknown = segments.find(
+    (segment) => !readMayRun(
+      segment,
+      role === "refiner" ? REFINER_HARNESS : HARNESS_READS
+    )
+  );
   return unknown === void 0 ? null : readOnly(
     `\`${unknown.join(" ")}\`, which is not a known read-only command,`
   );
@@ -9015,7 +9034,7 @@ import { homedir as homedir2 } from "node:os";
 import { join as join12 } from "node:path";
 
 // src/hook/retro-transcripts.ts
-import { basename as basename2, join as join11, sep } from "node:path";
+import { basename as basename3, join as join11, sep } from "node:path";
 var PROBE_BYTES = 256 * 1024;
 var DEFAULT_BRANCHES = /* @__PURE__ */ new Set(["main", "master", "HEAD"]);
 var encodePath = (path) => path.replace(/[^a-zA-Z0-9]/g, "-");
@@ -9062,7 +9081,7 @@ async function repoTranscriptDirs(fs, projectsDir, { main, worktrees, branches }
   const found = [];
   for (const name of entries2) {
     const dir = join11(projectsDir, name);
-    if (await fs.isDirectory(dir) && (names3.has(basename2(dir)) || await belongs(dir))) {
+    if (await fs.isDirectory(dir) && (names3.has(basename3(dir)) || await belongs(dir))) {
       found.push(dir);
     }
   }
@@ -9100,7 +9119,7 @@ async function readTranscripts(fs, dirs) {
     for (const name of (await fs.readdir(dir)).filter(
       (n) => n.endsWith(".jsonl")
     )) {
-      const id = basename2(name, ".jsonl");
+      const id = basename3(name, ".jsonl");
       const text10 = await fs.readFile(join11(dir, name));
       if (text10.length >= (byId.get(id)?.text.length ?? -1)) {
         byId.set(id, { id, text: text10 });

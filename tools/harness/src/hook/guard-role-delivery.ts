@@ -1,6 +1,8 @@
 // Role bounds for the delivery roles (ADR 0078): the orchestrator and judge change no
 // file, only the writer does and only inside its own worktree, and nobody merges until
-// the merge tool exists (plan 11 Step 5). The owner approved enforcing these guards on
+// the merge tool exists (plan 11 Step 5). The orchestrator and judge run under the
+// shared read allowlist in guard-role-allow.ts, so a write form nobody listed is
+// refused by default. The owner approved enforcing these guards on
 // #190 and #191 (2026-11-12), so every rule blocks.
 import { isAbsolute, relative, resolve } from "node:path";
 import {
@@ -14,6 +16,7 @@ import {
   writes,
   WRITE_TOOLS,
 } from "./guard-role-writes.js";
+import { readMayRun } from "./guard-role-allow.js";
 import { commandOf, splitSegments } from "./guard-shell.js";
 import { block, type Finding } from "./guard-verdict.js";
 
@@ -93,6 +96,30 @@ const HARNESS_BY_ROLE: Record<string, readonly string[]> = {
 const harnessFor = (role: string): readonly string[] =>
   HARNESS_BY_ROLE[role] ?? READS;
 
+/** The `herdr` queries the orchestrator may run to see its panes; none sends input or changes a pane. */
+const HERDR_READS = [
+  "agent list",
+  "agent get",
+  "agent read",
+  "agent wait",
+  "pane list",
+  "pane get",
+  "pane read",
+  "pane current",
+];
+
+/** What a reporting role's shell may run: the shared read allowlist with the role's harness commands, and for the orchestrator the herdr queries. Anything else is refused. */
+function reportingMayRun(role: string, segment: readonly string[]): boolean {
+  const { name, args } = commandOf(segment);
+  if (name === "herdr") {
+    return (
+      role === "orchestrator" &&
+      HERDR_READS.includes(`${args[0] ?? ""} ${args[1] ?? ""}`)
+    );
+  }
+  return readMayRun(segment, harnessFor(role));
+}
+
 /** A harness command the role may not run: it writes, or it is not on the role's list. */
 function harnessRefused(role: string, segment: readonly string[]): boolean {
   const { name, args } = commandOf(segment);
@@ -170,7 +197,11 @@ export function checkDeliveryBash(
       );
     }
     const changing = segments.find(
-      (s) => writes(s) || runsInline(s) || harnessRefused(role, s),
+      (s) =>
+        writes(s) ||
+        runsInline(s) ||
+        harnessRefused(role, s) ||
+        !reportingMayRun(role, s),
     );
     return changing === undefined
       ? null
