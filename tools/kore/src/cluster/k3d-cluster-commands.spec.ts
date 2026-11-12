@@ -113,13 +113,13 @@ test("an existing cluster that differs from the overlay fails naming the recreat
           },
         ],
       },
-      /ports: 9443:443 != 8443:443/,
+      /port 443: 9443 != 8443/,
     ],
     [
       {
-        nodes: [{ role: "server", args: ["--service-cidr=10.43.0.0/16"] }],
+        nodes: [{ role: "loadbalancer", portMappings: { "6443/tcp": [] } }],
       },
-      /serviceCidr: 10\.43\.0\.0\/16 != 10\.96\.0\.0\/12/,
+      /port 443: unmapped != 8443/,
     ],
   ] as const) {
     for (const running of [0, 1]) {
@@ -129,11 +129,31 @@ test("an existing cluster that differs from the overlay fails naming the recreat
       );
       expect((error as Error).message).toMatch(mentions);
       expect((error as Error).message).toMatch(
-        /kore local down.*kore local up/s,
+        /kore local down --prune.*kore local up/s,
       );
       expect(text(calls)).toEqual([listCommand]);
     }
   }
+});
+
+test("extra load-balancer mappings such as the random API port do not count as drift", async () => {
+  const { runner, calls } = fakeRunner(1, false, {
+    nodes: [
+      {
+        role: "loadbalancer",
+        portMappings: {
+          "443/tcp": [{ HostPort: "8443" }],
+          "6443/tcp": [{ HostPort: "51234" }],
+        },
+        args: ["--service-cidr=10.43.0.0/16"],
+      },
+      { role: "server", args: ["--service-cidr=10.43.0.0/16"] },
+    ],
+  });
+  await clusterUp(await k3dRepository(), runner, fast);
+  expect(text(calls).some((line) => line.includes("get --raw /readyz"))).toBe(
+    true,
+  );
 });
 
 test("a missing k3d binary raises the unavailable error telling the person to install k3d", async () => {

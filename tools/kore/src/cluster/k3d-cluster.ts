@@ -140,40 +140,31 @@ async function runK3d(
   }
 }
 
-function portPairs(entry: Record<string, unknown>): string[] | undefined {
+/** Host ports the load balancer publishes, by container port; undefined when not reported. */
+function publishedPorts(
+  entry: Record<string, unknown>,
+): Map<string, string[]> | undefined {
   const nodes = (entry["nodes"] ?? []) as Record<string, unknown>[];
-  const balancer = nodes.find((node) => node["role"] === "loadbalancer");
-  const mappings = balancer?.["portMappings"] as
-    Record<string, { HostPort?: string }[] | null> | undefined;
+  const mappings = nodes.find((node) => node["role"] === "loadbalancer")?.[
+    "portMappings"
+  ] as Record<string, { HostPort?: string }[] | null> | undefined;
   if (mappings === undefined) {
     return undefined;
   }
-  return Object.entries(mappings)
-    .flatMap(([container, bindings]) =>
-      (bindings ?? []).map(
-        (binding) =>
-          `${String(binding.HostPort)}:${container.replace(/\/\w+$/, "")}`,
-      ),
-    )
-    .sort();
-}
-
-function serviceCidrOf(entry: Record<string, unknown>): string | undefined {
-  const nodes = (entry["nodes"] ?? []) as Record<string, unknown>[];
-  for (const node of nodes) {
-    for (const arg of (node["args"] ?? []) as string[]) {
-      const match = /^--service-cidr=(.+)$/.exec(arg);
-      if (match) {
-        return match[1];
-      }
-    }
-  }
-  return undefined;
+  return new Map(
+    Object.entries(mappings).map(([container, bindings]) => [
+      container.replace(/\/\w+$/, ""),
+      (bindings ?? []).map((binding) => String(binding.HostPort)),
+    ]),
+  );
 }
 
 /**
  * How an existing cluster differs from the overlay. Counts always compare;
- * ports and the service CIDR compare when k3d's entry reports them.
+ * each declared port must be published on its host port when k3d's entry
+ * reports mappings. Extra mappings (k3d publishes the API port on a random
+ * host port) are ignored. The service CIDR is not compared: k3d's list does
+ * not report it in a form confirmed live (gap for the live proof, #149).
  */
 function drift(entry: Record<string, unknown>, cluster: K3dCluster): string[] {
   const differences: string[] = [];
@@ -184,20 +175,18 @@ function drift(entry: Record<string, unknown>, cluster: K3dCluster): string[] {
   };
   compare("servers", entry["serversCount"], cluster.servers ?? 1);
   compare("agents", entry["agentsCount"], cluster.agents ?? 0);
-  const ports = portPairs(entry);
-  if (ports !== undefined) {
-    compare(
-      "ports",
-      ports.join(","),
-      cluster.ports
-        .map((port) => `${port.hostPort}:${port.loadBalancerPort}`)
-        .sort()
-        .join(","),
-    );
-  }
-  const cidr = serviceCidrOf(entry);
-  if (cidr !== undefined) {
-    compare("serviceCidr", cidr, cluster.serviceCidr);
+  const published = publishedPorts(entry);
+  if (published !== undefined) {
+    for (const port of cluster.ports) {
+      const hosts = published.get(String(port.loadBalancerPort)) ?? [];
+      if (!hosts.includes(String(port.hostPort))) {
+        compare(
+          `port ${port.loadBalancerPort}`,
+          hosts.length ? hosts.join(",") : "unmapped",
+          port.hostPort,
+        );
+      }
+    }
   }
   return differences;
 }
@@ -286,7 +275,7 @@ export async function clusterUpK3d(
     const differences = drift(entry, k3dCluster(repository.environment));
     if (differences.length > 0) {
       throw new Error(
-        `k3d cluster ${clusterName} differs from the overlay (${differences.join("; ")}); recreate it with \`kore local down\` then \`kore local up\``,
+        `k3d cluster ${clusterName} differs from the overlay (${differences.join("; ")}); recreate it with \`kore local down --prune\` then \`kore local up\``,
       );
     }
   }
