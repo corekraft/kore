@@ -20,6 +20,7 @@ export const KINDS = [
   "token.usage",
   "session.launch",
   "guard.audit",
+  "challenge.round",
 ] as const;
 export type Kind = (typeof KINDS)[number];
 
@@ -34,6 +35,7 @@ const NUMBER_KINDS: readonly Kind[] = [
   "pr.opened",
   "pr.merged",
   "outcome",
+  "challenge.round",
 ];
 
 const LAUNCH_KINDS: readonly Kind[] = ["session.launch"];
@@ -169,7 +171,13 @@ const RULES: readonly Rule[] = [
     field: "label",
     check: isText(LABEL),
     hint: "must be 1-100 characters with no control characters",
-    kinds: ["issue.labelled", "outcome", "flag.activated", "guard.audit"],
+    kinds: [
+      "issue.labelled",
+      "outcome",
+      "flag.activated",
+      "guard.audit",
+      "challenge.round",
+    ],
   },
   {
     field: "number",

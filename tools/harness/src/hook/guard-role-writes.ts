@@ -49,9 +49,10 @@ const WRITING_GH = new Set(["merge", "close", "edit", "checkout"]);
 export const readOnly = (what: string): Finding =>
   block(
     "role-read-only",
-    `${what} changes files, and the concierge, reader, orchestrator and judge never write. ` +
+    `${what} changes files, and the concierge, reader, refiner, challenger, orchestrator and judge never write. ` +
       "Instead, report what needs changing: the concierge files it as an idea, the reader returns it in its summary, " +
-      "the orchestrator hands it to a writer and the judge sends the change back.",
+      "the orchestrator hands it to a writer, the judge sends the change back, the refiner files an idea with `idea new` " +
+      "and the challenger records a round with `idea challenge`.",
   );
 
 const FD_OPERATOR = /^(?:\d*>>?|&>>?)$/;
@@ -85,7 +86,11 @@ export function writes(segment: readonly string[]): boolean {
 }
 
 export const HARNESS = /^(\.\/)?skills\/bin\/harness\.mjs$/;
-/** The command is the harness bundle and its `<domain> <command>` is on the role's list; anything else, even a prefix match, is not. */
+/** `--ledger <path>` makes a harness command append to any file, so a bounded role never passes it. */
+const namesLedger = (args: readonly string[]): boolean =>
+  args.some((arg) => arg === "--ledger" || arg.startsWith("--ledger="));
+
+/** The command is the harness bundle and its `<domain> <command>` is on the role's list and names no --ledger; anything else, even a prefix match, is not. */
 export const harnessAllowed = (
   name: string,
   args: readonly string[],
@@ -93,6 +98,7 @@ export const harnessAllowed = (
 ): boolean =>
   name === "node" &&
   HARNESS.test(args[0] ?? "") &&
+  !namesLedger(args) &&
   allowed.includes(`${args[1] ?? ""} ${args[2] ?? ""}`);
 
 /** `harness status`, a domain with no command word: bare or with `--json` only. A separate check, so no other role's allowlist can match it. */

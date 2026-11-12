@@ -54,19 +54,24 @@ describe("agent definitions match the ADR 0078 tier table", () => {
     );
   });
 
-  it.each(["concierge", "reader", "orchestrator", "writer", "judge"])(
-    "%s has a definition whose model and effort are the table's",
-    (role) => {
-      const markdown = definitions().get(role);
-      expect(markdown, `.claude/agents/${role}.md must exist`).toBeDefined();
-      const found = parseDefinition(markdown ?? "");
-      const expected = tiers().get(role);
-      expect(displayName(found.model ?? "")).toMatch(
-        new RegExp(`^${expected?.family ?? "none"} `),
-      );
-      expect(found.effort).toBe(expected?.effort);
-    },
-  );
+  it.each([
+    "concierge",
+    "refiner",
+    "challenger",
+    "reader",
+    "orchestrator",
+    "writer",
+    "judge",
+  ])("%s has a definition whose model and effort are the table's", (role) => {
+    const markdown = definitions().get(role);
+    expect(markdown, `.claude/agents/${role}.md must exist`).toBeDefined();
+    const found = parseDefinition(markdown ?? "");
+    const expected = tiers().get(role);
+    expect(displayName(found.model ?? "")).toMatch(
+      new RegExp(`^${expected?.family ?? "none"} `),
+    );
+    expect(found.effort).toBe(expected?.effort);
+  });
 
   it("any other definition that names a role in the table also matches it", () => {
     for (const [role, markdown] of definitions()) {
@@ -83,9 +88,18 @@ describe("agent definitions match the ADR 0078 tier table", () => {
       }
     }
   });
+});
 
+describe("agent definitions bound each role's tools", () => {
   it("only the writer may edit files", () => {
-    for (const role of ["concierge", "reader", "orchestrator", "judge"]) {
+    for (const role of [
+      "concierge",
+      "refiner",
+      "challenger",
+      "reader",
+      "orchestrator",
+      "judge",
+    ]) {
       const tools = parseDefinition(definitions().get(role) ?? "").tools ?? [];
       expect(
         tools.filter((t) => /^(Edit|Write|NotebookEdit)$/.test(t)),
@@ -98,6 +112,8 @@ describe("agent definitions match the ADR 0078 tier table", () => {
     const tools = (role: string) =>
       parseDefinition(definitions().get(role) ?? "").tools;
     expect(tools("concierge")).toEqual(["Bash"]);
+    expect(tools("refiner")).toEqual(["Bash", "Glob", "Grep", "Read"]);
+    expect(tools("challenger")).toEqual(["Bash", "Glob", "Grep", "Read"]);
     expect(tools("reader")).toEqual(["Read", "Grep", "Glob", "Bash"]);
     expect(tools("orchestrator")).toEqual(["Bash", "Glob", "Grep", "Read"]);
     expect(tools("judge")).toEqual(["Bash", "Glob", "Grep", "Read"]);
@@ -110,5 +126,47 @@ describe("agent definitions match the ADR 0078 tier table", () => {
       "Skill",
       "Write",
     ]);
+  });
+});
+
+describe("the refiner and challenger definitions", () => {
+  const body = (role: string) => definitions().get(role) ?? "";
+
+  it("declare their tiers: Sonnet at medium and Opus at high", () => {
+    const refiner = parseDefinition(body("refiner"));
+    const challenger = parseDefinition(body("challenger"));
+    expect(displayName(refiner.model ?? "")).toMatch(/^Sonnet /);
+    expect(refiner.effort).toBe("medium");
+    expect(displayName(challenger.model ?? "")).toMatch(/^Opus /);
+    expect(challenger.effort).toBe("high");
+  });
+
+  it("forbid the challenger from reviewing code and send that to the judge", () => {
+    expect(body("challenger")).toMatch(/never review code/);
+    expect(body("challenger")).toMatch(/judge/);
+  });
+
+  it("have the same challenger review ideas, ADRs and plans, with no second definition", () => {
+    expect(body("challenger")).toMatch(/An idea/);
+    expect(body("challenger")).toMatch(/An ADR or a plan/);
+    const challengers = [...definitions().keys()].filter((role) =>
+      /challeng|adr|plan/.test(role),
+    );
+    expect(challengers).toEqual(["challenger"]);
+  });
+
+  it("have the refiner file ideas only through the idea tool, with every field the idea needs", () => {
+    for (const field of [
+      "--hypothesis",
+      "--expected-outcome",
+      "--measurement",
+      "--safety-pattern",
+    ]) {
+      expect(body("refiner")).toContain(field);
+    }
+  });
+
+  it("route a raw request from the concierge to the refiner", () => {
+    expect(body("concierge")).toMatch(/raw request goes to the refiner/);
   });
 });

@@ -38,13 +38,14 @@ export const MAIN_SESSION_STAGE: Stage = "orchestrate";
 /** The issue stays in await approval, open and waiting on a person, until this label. */
 export const APPROVAL_LABEL = "ready-for-agent";
 
-/** GitHub events by kind; labels other than the approval label are not stages. */
+/** Events by kind that name their stage; labels other than the approval label are not stages. */
 export const GITHUB_STAGES: Readonly<Partial<Record<Kind, Stage>>> = {
   "issue.opened": "await approval",
   "issue.closed": "outcome",
   outcome: "outcome",
   "pr.opened": "merge",
   "pr.merged": "merge",
+  "challenge.round": "challenge",
 };
 
 /** Default minimum completed ideas before a bottleneck is named. */

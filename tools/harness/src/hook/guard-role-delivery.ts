@@ -78,6 +78,9 @@ const ORCHESTRATOR_HARNESS = [
   "outcome close",
 ];
 
+const harnessFor = (role: string): readonly string[] =>
+  role === "orchestrator" ? ORCHESTRATOR_HARNESS : READS;
+
 /** A harness command the role may not run: it writes, or it is not on the role's list. */
 function harnessRefused(role: string, segment: readonly string[]): boolean {
   const { name, args } = commandOf(segment);
@@ -85,12 +88,7 @@ function harnessRefused(role: string, segment: readonly string[]): boolean {
     return false;
   }
   return !(
-    HARNESS.test(args[0] ?? "") &&
-    harnessAllowed(
-      name,
-      args,
-      role === "orchestrator" ? ORCHESTRATOR_HARNESS : READS,
-    )
+    HARNESS.test(args[0] ?? "") && harnessAllowed(name, args, harnessFor(role))
   );
 }
 

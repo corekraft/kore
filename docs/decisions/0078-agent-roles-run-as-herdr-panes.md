@@ -67,3 +67,15 @@ definitions.
 
 Medium matches the judge. A writer that escalates after two judge send-backs
 keeps this effort and changes only its model.
+
+## Refinement: the challenger's effort is explicit
+
+The table gives the challenger only a model, which would make `session spawn`
+refuse it for the same reason as the writer. Issue #192 added its definition
+and pinned the effort here, leaving the table as accepted.
+
+- Challenger: Opus, high.
+
+High, because the challenger exists to find what a cheaper pass misses in an
+idea, ADR or plan, and it runs once or twice per idea, so the extra cost is
+small next to a flawed idea reaching a writer.
