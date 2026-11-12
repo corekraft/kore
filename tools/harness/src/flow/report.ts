@@ -6,16 +6,30 @@ import {
   ROLE_STAGES,
   type Stage,
 } from "./stages.js";
-import { attribute } from "./attribution.js";
-import { uncovered, type Span } from "./intervals.js";
+import {
+  firstTime,
+  githubWaits,
+  time,
+  type GithubWait,
+} from "./github-waits.js";
+import { groupByIdea, select } from "./select.js";
 import { chargeToil, newLife } from "./toil.js";
 import { Tally, type StageTotals } from "./tally.js";
 import { median } from "./wip.js";
+import {
+  inWindow,
+  scopeOf,
+  windowOf,
+  type Scope,
+  type Span,
+  type ScopeOptions,
+} from "./scope.js";
 
-export const REPORT_VERSION = 3;
+export const REPORT_VERSION = 4;
 
 export type { StageTotals, Toil } from "./tally.js";
 export type { Wip } from "./wip.js";
+export type { Scope, ScopeOptions } from "./scope.js";
 
 export interface Bottleneck {
   stage: Stage;
@@ -36,6 +50,8 @@ export interface LeadTime {
 export interface FlowReport {
   version: typeof REPORT_VERSION;
   asOf: string;
+  /** The range and ideas the report covers. */
+  scope: Scope;
   ideas: { total: number; completed: number };
   minCompletedIdeas: number;
   stages: StageTotals[];
@@ -47,7 +63,7 @@ export interface FlowReport {
   unmappedEvents: number;
 }
 
-export interface ReportOptions {
+export interface ReportOptions extends ScopeOptions {
   /** Open GitHub states (an unapproved issue, an unmerged PR) are measured to here. */
   asOf: Date;
   minCompletedIdeas: number;
@@ -65,8 +81,6 @@ const STATE_AFTER: Partial<Record<Kind, State>> = {
   "pane.closed": "closed",
   "session.stop": "closed",
 };
-
-const time = (event: LedgerEvent) => Date.parse(event.occurredAt);
 
 function roleOf(event: LedgerEvent) {
   for (const name of [event.agent, event.pane, event.session]) {
@@ -90,7 +104,7 @@ function chargeActor(
   const spans: Span[] = [];
   let closed = false;
   let start = time((items[0] as (typeof items)[number]).event);
-  let life = newLife((items[0] as (typeof items)[number]).event);
+  let life = newLife((items[0] as (typeof items)[number]).event, tally.window);
   items.forEach(({ event, stage }, i) => {
     const at = time(event);
     if (
@@ -99,14 +113,14 @@ function chargeActor(
     ) {
       closed = false;
       start = at;
-      life = newLife(event);
+      life = newLife(event, tally.window);
     }
     const state = STATE_AFTER[event.kind];
     if (closed) {
       return;
     }
     chargeToil(
-      (kind, ms) => tally.addToil(stage, kind, ms),
+      (kind, ms) => tally.addToilMs(stage, kind, ms),
       event,
       at,
       start,
@@ -117,15 +131,11 @@ function chargeActor(
       spans.push([start, at]);
     } else if (state !== undefined && i < items.length - 1) {
       const next = time((items[i + 1] as (typeof items)[number]).event);
-      tally.add(
-        stage,
-        state === "active" ? "activeMs" : "waitingMs",
-        next - at,
-      );
+      tally.add(stage, state === "active" ? "activeMs" : "waitingMs", at, next);
       tally.present(stage, at, next);
       if (state === "waiting") {
         life.waits.push([at, next]);
-        tally.addToil(stage, "waiting", next - at);
+        tally.addToil(stage, "waiting", at, next);
       }
     }
   });
@@ -159,47 +169,6 @@ function actorTime(
   return lifetimes;
 }
 
-function firstTime(events: LedgerEvent[], match: (e: LedgerEvent) => boolean) {
-  return events
-    .filter(match)
-    .map(time)
-    .sort((a, b) => a - b)[0];
-}
-
-/** Charges the GitHub waits: open issue until approval, open PR until merge. */
-function githubWaits(
-  tally: Tally,
-  events: LedgerEvent[],
-  holes: Span[],
-  asOf: number,
-) {
-  const closed = firstTime(events, (e) => e.kind === "issue.closed");
-  const waits: [Stage, number | undefined, number | undefined][] = [
-    [
-      "await approval",
-      firstTime(events, (e) => e.kind === "issue.opened"),
-      firstTime(
-        events,
-        (e) => e.kind === "issue.labelled" && e.label === APPROVAL_LABEL,
-      ),
-    ],
-    [
-      "merge",
-      firstTime(events, (e) => e.kind === "pr.opened"),
-      firstTime(events, (e) => e.kind === "pr.merged"),
-    ],
-  ];
-  for (const [stage, start, end] of waits) {
-    if (start !== undefined) {
-      const stop = end ?? closed ?? asOf;
-      if (stop > start) {
-        tally.present(stage, start, stop);
-        tally.add(stage, "waitingMs", uncovered([start, stop], holes));
-      }
-    }
-  }
-}
-
 function stageOf(event: LedgerEvent, mergedAt: number | undefined) {
   const github = GITHUB_STAGES[event.kind];
   if (github !== undefined) {
@@ -224,45 +193,43 @@ function roundShare(share: number): number {
   return Math.round(share * 10_000) / 10_000;
 }
 
-function groupByIdea(events: LedgerEvent[]) {
-  const ideaOf = attribute(events);
-  const byIdea = new Map<string, LedgerEvent[]>();
-  let unattributed = 0;
-  for (const event of events) {
-    const idea = ideaOf.get(event.id);
-    if (idea === undefined) {
-      unattributed += 1;
-    } else {
-      byIdea.set(idea, [...(byIdea.get(idea) ?? []), event]);
-    }
-  }
-  return { byIdea, unattributed };
-}
-
-/** Charges one idea's events to the tally; returns how many it could not map. */
-function chargeIdea(tally: Tally, own: LedgerEvent[], asOf: number): number {
+/** Charges one idea's in-range events to the tally; returns how many it could not map. */
+function chargeIdea(
+  tally: Tally,
+  own: LedgerEvent[],
+  waits: GithubWait[],
+): number {
   tally.beginIdea();
   const mergedAt = firstTime(own, (e) => e.kind === "pr.merged");
   const mapped: { event: LedgerEvent; stage: Stage }[] = [];
+  let unmapped = 0;
   for (const event of own) {
     const stage = stageOf(event, mergedAt);
+    const inRange = inWindow(tally.window, time(event));
     if (stage !== undefined) {
-      tally.count(stage);
-      tally.present(stage, time(event), time(event));
+      if (inRange) {
+        tally.count(stage);
+        tally.present(stage, time(event), time(event));
+      }
       mapped.push({ event, stage });
+    } else if (inRange) {
+      unmapped += 1;
     }
   }
-  githubWaits(tally, own, actorTime(tally, mapped), asOf);
+  githubWaits(tally, waits, actorTime(tally, mapped));
   tally.endIdea();
-  return own.length - mapped.length;
+  return unmapped;
 }
 
-/** Each completed idea's first event to its first issue.closed, with median and maximum. */
-function leadTime(byIdea: Map<string, LedgerEvent[]>): LeadTime {
+const firstClosed = (own: LedgerEvent[]) =>
+  firstTime(own, (e) => e.kind === "issue.closed");
+
+/** Each idea completed in the range, from its first event to its first issue.closed, with median and maximum. */
+function leadTime(byIdea: Map<string, LedgerEvent[]>, window: Span): LeadTime {
   const ideas: LeadTime["ideas"] = [];
   for (const [idea, own] of byIdea) {
-    const outcome = firstTime(own, (e) => e.kind === "issue.closed");
-    if (outcome !== undefined) {
+    const outcome = firstClosed(own);
+    if (outcome !== undefined && inWindow(window, outcome)) {
       const first = Math.min(...own.map(time));
       ideas.push({ idea, seconds: (outcome - first) / 1000 });
     }
@@ -311,26 +278,41 @@ function nameBottleneck(
   };
 }
 
-/** Turns ledger events into per-stage active and waiting time, and names the bottleneck. */
+/**
+ * Turns ledger events into per-stage active and waiting time, and names the
+ * bottleneck. With a range, time is clipped at its edges and only events in it
+ * count; with ideas, only those ideas are covered.
+ */
 export function buildReport(
   events: LedgerEvent[],
-  { asOf, minCompletedIdeas }: ReportOptions,
+  options: ReportOptions,
 ): FlowReport {
-  const { byIdea, unattributed } = groupByIdea(events);
-  const tally = new Tally();
-  let unmapped = unattributed;
+  const { asOf, minCompletedIdeas } = options;
+  const scope = scopeOf(options);
+  const window = windowOf(options);
+  const { byIdea, unattributed } = groupByIdea(events, window);
+  const covered = select(byIdea, scope, window, asOf.getTime());
+  const tally = new Tally(window);
+  const ownByIdea = new Map<string, LedgerEvent[]>();
+  let unmapped = 0;
   let completed = 0;
-  for (const own of byIdea.values()) {
-    unmapped += chargeIdea(tally, own, asOf.getTime());
-    completed += own.some((e) => e.kind === "issue.closed") ? 1 : 0;
+  for (const [idea, { own, waits }] of covered) {
+    ownByIdea.set(idea, own);
+    unmapped += chargeIdea(tally, own, waits);
+    const outcome = firstClosed(own);
+    completed += outcome !== undefined && inWindow(window, outcome) ? 1 : 0;
+  }
+  if (scope.ideas === null) {
+    unmapped += unattributed;
   }
   return {
     version: REPORT_VERSION,
     asOf: asOf.toISOString(),
-    ideas: { total: byIdea.size, completed },
+    scope,
+    ideas: { total: covered.size, completed },
     minCompletedIdeas,
     stages: tally.stages(),
-    leadTime: leadTime(byIdea),
+    leadTime: leadTime(ownByIdea, window),
     ...nameBottleneck(tally, completed, minCompletedIdeas),
     unmappedEvents: unmapped,
   };

@@ -63,7 +63,20 @@ mise exec -- npm --prefix tools/kore install
 (`.kore/state/ledger.jsonl`, shared by every worktree) and reports, per stage of
 the delivery loop, active seconds, waiting seconds (waiting on a person counts),
 event count, toil, work in progress and lead time, then names the bottleneck: the stage with the largest share of
-all waiting. Flags: `--min-ideas N` (default 3), `--as-of TIME`, `--ledger PATH`.
+all waiting. Flags: `--min-ideas N` (default 3), `--as-of TIME`, `--since TIME`,
+`--until TIME`, `--idea N[,N...]`, `--ledger PATH`.
+
+Scope narrows a report so two periods or two sets of ideas compare field by
+field; the shape is the same and `scope` states what was covered (`since`,
+`until`, `ideas`, each `null` when not given). `--since` is inclusive and
+`--until` exclusive, as in `ledger list`. Waiting, active and toil time are
+clipped at the range edges, events count only inside it, and `wip` is measured
+over the range itself. An idea is covered when its events, or an open issue or PR
+wait, reach into the range; it is `completed`, and in `leadTime`, only when its
+`issue.closed` falls inside, and its lead time is whole, not clipped. `--idea`
+takes issue numbers (`12` or `#12`) and covers only those ideas; with it,
+unattributed events are not counted as unmapped. Both flags together cover the
+named ideas inside the range.
 
 The stage rules are one table, `tools/harness/src/flow/stages.ts`. An event
 joins an idea by issue number at read time: an issue event by its own number, a

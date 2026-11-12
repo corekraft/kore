@@ -85,11 +85,14 @@ and uses it first to measure the delivery loop. Terms follow
       retry), work in progress, and lead time.
 - [x] Name the bottleneck: the stage with the largest share of waiting,
       people included.
+- [x] Limit the report to a time range and to named ideas, clipping intervals
+      at the range edges, and state the scope covered.
 
 ### Exit Criteria
 
 - `node skills/bin/harness.mjs flow report --json` names a bottleneck from
   real ledger data.
+  To be demonstrated with the baseline (#163).
 
 ## Step 5: Baseline
 

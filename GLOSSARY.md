@@ -118,7 +118,8 @@ _Avoid_: Log, journal, history
 How ideas move through the delivery loop's stages, from refine to outcome,
 measured from the ledger as active time, waiting time, toil and event count
 per stage.
-The flow report maps stage events to stages and names the bottleneck.
+The flow report maps stage events to stages and names the bottleneck. It can
+be limited to a time range and to named ideas, and states which in its scope.
 _Avoid_: Pipeline, throughput
 
 **Unmapped event**:

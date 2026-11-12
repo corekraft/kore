@@ -11,13 +11,16 @@ export interface Life {
   failed: { tool: string | undefined; at: number } | undefined;
   /** Spans the pane waited on a person; toil gaps leave them out, so kinds never overlap. */
   waits: Span[];
+  /** Toil gaps are clipped to this range. */
+  window: Span;
 }
 
-export const newLife = (first: LedgerEvent): Life => ({
+export const newLife = (first: LedgerEvent, window: Span): Life => ({
   began: first.kind === "pane.spawned" || first.kind === "session.start",
   lastToolAt: undefined,
   failed: undefined,
   waits: [],
+  window,
 });
 
 /** Charges the toil one event closes: starting, stopping, or a retry gap. */
@@ -28,7 +31,11 @@ export function chargeToil(
   start: number,
   life: Life,
 ) {
-  const gap = (from: number, to: number) => uncovered([from, to], life.waits);
+  const { window } = life;
+  const gap = (from: number, to: number) => {
+    const [a, b] = [Math.max(from, window[0]), Math.min(to, window[1])];
+    return b > a ? uncovered([a, b], life.waits) : 0;
+  };
   const isTool = event.kind === "tool.start" || event.kind === "tool.end";
   if (isTool && life.lastToolAt === undefined && life.began) {
     add("starting", gap(start, at));

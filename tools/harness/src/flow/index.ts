@@ -4,6 +4,8 @@ export {
   type Bottleneck,
   type FlowReport,
   type LeadTime,
+  type Scope,
+  type ScopeOptions,
   type StageTotals,
   type Toil,
   type Wip,

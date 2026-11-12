@@ -610,6 +610,66 @@ var GITHUB_STAGES = {
 };
 var MIN_COMPLETED_IDEAS = 3;
 
+// src/flow/intervals.ts
+function uncovered(span, holes) {
+  const sorted = holes.map(([a, b]) => [Math.max(a, span[0]), Math.min(b, span[1])]).filter(([a, b]) => b > a).sort((x, y) => x[0] - y[0]);
+  let free = span[1] - span[0];
+  let reached = span[0];
+  for (const [a, b] of sorted) {
+    const from = Math.max(a, reached);
+    if (b > from) {
+      free -= b - from;
+      reached = b;
+    }
+  }
+  return free;
+}
+
+// src/flow/github-waits.ts
+var time = (event) => Date.parse(event.occurredAt);
+function firstTime(events, match) {
+  return events.filter(match).map(time).sort((a, b) => a - b)[0];
+}
+function githubSpans(events, asOf) {
+  const closed = firstTime(events, (e) => e.kind === "issue.closed");
+  const waits = [
+    [
+      "await approval",
+      firstTime(events, (e) => e.kind === "issue.opened"),
+      firstTime(
+        events,
+        (e) => e.kind === "issue.labelled" && e.label === APPROVAL_LABEL
+      )
+    ],
+    [
+      "merge",
+      firstTime(events, (e) => e.kind === "pr.opened"),
+      firstTime(events, (e) => e.kind === "pr.merged")
+    ]
+  ];
+  const spans = [];
+  for (const [stage, start, end] of waits) {
+    if (start !== void 0) {
+      const stop = end ?? closed ?? asOf;
+      if (stop > start) {
+        spans.push([stage, start, stop]);
+      }
+    }
+  }
+  return spans;
+}
+function githubWaits(tally, waits, holes) {
+  const [lo, hi] = tally.window;
+  for (const [stage, start, stop] of waits) {
+    tally.present(stage, start, stop);
+    const from = Math.max(start, lo);
+    const to = Math.min(stop, hi);
+    if (to > from) {
+      tally.addMs(stage, "waitingMs", uncovered([from, to], holes));
+    }
+  }
+}
+
 // src/flow/attribution.ts
 function attribute(events) {
   const byActor = /* @__PURE__ */ new Map();
@@ -632,30 +692,66 @@ function attribute(events) {
   return result;
 }
 
-// src/flow/intervals.ts
-function uncovered(span, holes) {
-  const sorted = holes.map(([a, b]) => [Math.max(a, span[0]), Math.min(b, span[1])]).filter(([a, b]) => b > a).sort((x, y) => x[0] - y[0]);
-  let free = span[1] - span[0];
-  let reached = span[0];
-  for (const [a, b] of sorted) {
-    const from = Math.max(a, reached);
-    if (b > from) {
-      free -= b - from;
-      reached = b;
+// src/flow/scope.ts
+var byNumber = (a, b) => a.localeCompare(b, void 0, { numeric: true });
+function scopeOf({ since, until, ideas }) {
+  return {
+    since: since?.toISOString() ?? null,
+    until: until?.toISOString() ?? null,
+    ideas: ideas === void 0 ? null : [...new Set(ideas)].sort(byNumber)
+  };
+}
+var windowOf = ({ since, until }) => [
+  since?.getTime() ?? -Infinity,
+  until?.getTime() ?? Infinity
+];
+var clipMs = (window, from, to) => Math.max(0, Math.min(to, window[1]) - Math.max(from, window[0]));
+var inWindow = (window, at) => at >= window[0] && at < window[1];
+
+// src/flow/select.ts
+function groupByIdea(events, window) {
+  const ideaOf = attribute(events);
+  const byIdea = /* @__PURE__ */ new Map();
+  let unattributed = 0;
+  for (const event of events) {
+    const idea = ideaOf.get(event.id);
+    if (idea === void 0) {
+      unattributed += inWindow(window, time(event)) ? 1 : 0;
+    } else {
+      byIdea.set(idea, [...byIdea.get(idea) ?? [], event]);
     }
   }
-  return free;
+  return { byIdea, unattributed };
+}
+function reach(own2, waits) {
+  return Math.max(...own2.map(time), ...waits.map(([, , stop]) => stop));
+}
+function select(byIdea, { ideas }, window, asOf) {
+  const kept = /* @__PURE__ */ new Map();
+  for (const [idea, own2] of byIdea) {
+    const waits = githubSpans(own2, asOf);
+    const first = Math.min(...own2.map(time));
+    if ((ideas === null || ideas.includes(idea)) && first < window[1] && reach(own2, waits) >= window[0]) {
+      kept.set(idea, { own: own2, waits });
+    }
+  }
+  return kept;
 }
 
 // src/flow/toil.ts
-var newLife = (first) => ({
+var newLife = (first, window) => ({
   began: first.kind === "pane.spawned" || first.kind === "session.start",
   lastToolAt: void 0,
   failed: void 0,
-  waits: []
+  waits: [],
+  window
 });
 function chargeToil(add, event, at, start, life) {
-  const gap = (from, to) => uncovered([from, to], life.waits);
+  const { window } = life;
+  const gap = (from, to) => {
+    const [a, b] = [Math.max(from, window[0]), Math.min(to, window[1])];
+    return b > a ? uncovered([a, b], life.waits) : 0;
+  };
   const isTool = event.kind === "tool.start" || event.kind === "tool.end";
   if (isTool && life.lastToolAt === void 0 && life.began) {
     add("starting", gap(start, at));
@@ -712,6 +808,11 @@ var emptyMillis = () => ({
   toilMs: { starting: 0, stopping: 0, waiting: 0, retrying: 0 }
 });
 var Tally = class {
+  /** Only time inside this range is charged; infinite where an end is open. */
+  constructor(window = [-Infinity, Infinity]) {
+    this.window = window;
+  }
+  window;
   totals = new Map(
     STAGES.map((stage) => [stage, emptyMillis()])
   );
@@ -725,25 +826,58 @@ var Tally = class {
   }
   /** The idea was in `stage` from `from` to `to`; its open interval grows to hold it. */
   present(stage, from, to) {
-    this.current.set(stage, widen(this.current.get(stage), [from, to]));
+    const clipped = [
+      Math.max(from, this.window[0]),
+      Math.min(to, this.window[1])
+    ];
+    const kept = from === to ? from >= this.window[0] && from < this.window[1] : clipped[1] > clipped[0];
+    if (kept) {
+      this.current.set(stage, widen(this.current.get(stage), clipped));
+    }
   }
   endIdea() {
     for (const [stage, span] of this.current) {
       this.open.get(stage).push(span);
     }
   }
-  /** The shortest span holding every idea's open interval in every stage. */
+  /**
+   * The report's range: the window where it has both ends, else the shortest
+   * span holding every idea's open interval in every stage.
+   */
   range() {
     const all = [...this.open.values()].flat();
-    return all.length === 0 ? [0, 0] : [
+    const [lo, hi] = this.window;
+    const held = all.length === 0 ? [0, 0] : [
       Math.min(...all.map(([from]) => from)),
       Math.max(...all.map(([, to]) => to))
     ];
+    return [
+      Number.isFinite(lo) ? lo : held[0],
+      Number.isFinite(hi) ? hi : held[1]
+    ];
   }
-  add(stage, field2, ms) {
+  /** Charges milliseconds the caller already clipped to the window. */
+  addMs(stage, field2, ms) {
     this.totals.get(stage)[field2] += ms;
   }
-  addToil(stage, kind, ms) {
+  /** Charges the part of `[from, to]` inside the window. */
+  add(stage, field2, from, to) {
+    this.totals.get(stage)[field2] += clipMs(
+      this.window,
+      from,
+      to
+    );
+  }
+  /** Charges the part of `[from, to]` inside the window as toil. */
+  addToil(stage, kind, from, to) {
+    this.totals.get(stage).toilMs[kind] += clipMs(
+      this.window,
+      from,
+      to
+    );
+  }
+  /** Charges toil already clipped by the caller. */
+  addToilMs(stage, kind, ms) {
     this.totals.get(stage).toilMs[kind] += ms;
   }
   count(stage) {
@@ -774,7 +908,7 @@ var Tally = class {
 };
 
 // src/flow/report.ts
-var REPORT_VERSION = 3;
+var REPORT_VERSION = 4;
 var STATE_AFTER = {
   "session.start": "active",
   "tool.start": "active",
@@ -785,7 +919,6 @@ var STATE_AFTER = {
   "pane.closed": "closed",
   "session.stop": "closed"
 };
-var time = (event) => Date.parse(event.occurredAt);
 function roleOf(event) {
   for (const name of [event.agent, event.pane, event.session]) {
     const role = name?.split("-").at(-1);
@@ -799,20 +932,20 @@ function chargeActor(tally, items) {
   const spans = [];
   let closed = false;
   let start = time(items[0].event);
-  let life = newLife(items[0].event);
+  let life = newLife(items[0].event, tally.window);
   items.forEach(({ event, stage }, i) => {
     const at = time(event);
     if (closed && (event.kind === "pane.spawned" || event.kind === "session.start")) {
       closed = false;
       start = at;
-      life = newLife(event);
+      life = newLife(event, tally.window);
     }
     const state = STATE_AFTER[event.kind];
     if (closed) {
       return;
     }
     chargeToil(
-      (kind, ms) => tally.addToil(stage, kind, ms),
+      (kind, ms) => tally.addToilMs(stage, kind, ms),
       event,
       at,
       start,
@@ -823,15 +956,11 @@ function chargeActor(tally, items) {
       spans.push([start, at]);
     } else if (state !== void 0 && i < items.length - 1) {
       const next = time(items[i + 1].event);
-      tally.add(
-        stage,
-        state === "active" ? "activeMs" : "waitingMs",
-        next - at
-      );
+      tally.add(stage, state === "active" ? "activeMs" : "waitingMs", at, next);
       tally.present(stage, at, next);
       if (state === "waiting") {
         life.waits.push([at, next]);
-        tally.addToil(stage, "waiting", next - at);
+        tally.addToil(stage, "waiting", at, next);
       }
     }
   });
@@ -858,36 +987,6 @@ function actorTime(tally, events) {
   }
   return lifetimes;
 }
-function firstTime(events, match) {
-  return events.filter(match).map(time).sort((a, b) => a - b)[0];
-}
-function githubWaits(tally, events, holes, asOf) {
-  const closed = firstTime(events, (e) => e.kind === "issue.closed");
-  const waits = [
-    [
-      "await approval",
-      firstTime(events, (e) => e.kind === "issue.opened"),
-      firstTime(
-        events,
-        (e) => e.kind === "issue.labelled" && e.label === APPROVAL_LABEL
-      )
-    ],
-    [
-      "merge",
-      firstTime(events, (e) => e.kind === "pr.opened"),
-      firstTime(events, (e) => e.kind === "pr.merged")
-    ]
-  ];
-  for (const [stage, start, end] of waits) {
-    if (start !== void 0) {
-      const stop = end ?? closed ?? asOf;
-      if (stop > start) {
-        tally.present(stage, start, stop);
-        tally.add(stage, "waitingMs", uncovered([start, stop], holes));
-      }
-    }
-  }
-}
 function stageOf(event, mergedAt) {
   const github = GITHUB_STAGES[event.kind];
   if (github !== void 0) {
@@ -907,41 +1006,34 @@ function stageOf(event, mergedAt) {
 function roundShare(share) {
   return Math.round(share * 1e4) / 1e4;
 }
-function groupByIdea(events) {
-  const ideaOf = attribute(events);
-  const byIdea = /* @__PURE__ */ new Map();
-  let unattributed = 0;
-  for (const event of events) {
-    const idea = ideaOf.get(event.id);
-    if (idea === void 0) {
-      unattributed += 1;
-    } else {
-      byIdea.set(idea, [...byIdea.get(idea) ?? [], event]);
-    }
-  }
-  return { byIdea, unattributed };
-}
-function chargeIdea(tally, own2, asOf) {
+function chargeIdea(tally, own2, waits) {
   tally.beginIdea();
   const mergedAt = firstTime(own2, (e) => e.kind === "pr.merged");
   const mapped = [];
+  let unmapped = 0;
   for (const event of own2) {
     const stage = stageOf(event, mergedAt);
+    const inRange = inWindow(tally.window, time(event));
     if (stage !== void 0) {
-      tally.count(stage);
-      tally.present(stage, time(event), time(event));
+      if (inRange) {
+        tally.count(stage);
+        tally.present(stage, time(event), time(event));
+      }
       mapped.push({ event, stage });
+    } else if (inRange) {
+      unmapped += 1;
     }
   }
-  githubWaits(tally, own2, actorTime(tally, mapped), asOf);
+  githubWaits(tally, waits, actorTime(tally, mapped));
   tally.endIdea();
-  return own2.length - mapped.length;
+  return unmapped;
 }
-function leadTime(byIdea) {
+var firstClosed = (own2) => firstTime(own2, (e) => e.kind === "issue.closed");
+function leadTime(byIdea, window) {
   const ideas = [];
   for (const [idea, own2] of byIdea) {
-    const outcome = firstTime(own2, (e) => e.kind === "issue.closed");
-    if (outcome !== void 0) {
+    const outcome = firstClosed(own2);
+    if (outcome !== void 0 && inWindow(window, outcome)) {
       const first = Math.min(...own2.map(time));
       ideas.push({ idea, seconds: (outcome - first) / 1e3 });
     }
@@ -983,22 +1075,33 @@ function nameBottleneck(tally, completed, minCompletedIdeas) {
     bottleneckNote: null
   };
 }
-function buildReport(events, { asOf, minCompletedIdeas }) {
-  const { byIdea, unattributed } = groupByIdea(events);
-  const tally = new Tally();
-  let unmapped = unattributed;
+function buildReport(events, options) {
+  const { asOf, minCompletedIdeas } = options;
+  const scope = scopeOf(options);
+  const window = windowOf(options);
+  const { byIdea, unattributed } = groupByIdea(events, window);
+  const covered = select(byIdea, scope, window, asOf.getTime());
+  const tally = new Tally(window);
+  const ownByIdea = /* @__PURE__ */ new Map();
+  let unmapped = 0;
   let completed = 0;
-  for (const own2 of byIdea.values()) {
-    unmapped += chargeIdea(tally, own2, asOf.getTime());
-    completed += own2.some((e) => e.kind === "issue.closed") ? 1 : 0;
+  for (const [idea, { own: own2, waits }] of covered) {
+    ownByIdea.set(idea, own2);
+    unmapped += chargeIdea(tally, own2, waits);
+    const outcome = firstClosed(own2);
+    completed += outcome !== void 0 && inWindow(window, outcome) ? 1 : 0;
+  }
+  if (scope.ideas === null) {
+    unmapped += unattributed;
   }
   return {
     version: REPORT_VERSION,
     asOf: asOf.toISOString(),
-    ideas: { total: byIdea.size, completed },
+    scope,
+    ideas: { total: covered.size, completed },
     minCompletedIdeas,
     stages: tally.stages(),
-    leadTime: leadTime(byIdea),
+    leadTime: leadTime(ownByIdea, window),
     ...nameBottleneck(tally, completed, minCompletedIdeas),
     unmappedEvents: unmapped
   };
@@ -1854,6 +1957,52 @@ var ledgerCommands = {
 };
 
 // src/cli/flow-commands.ts
+function parseTime(options, name) {
+  const given = options[name];
+  if (given === void 0) {
+    return void 0;
+  }
+  if (typeof given !== "string" || !isTimestamp(given)) {
+    return {
+      error: `Invalid --${name} "${String(given)}". Use an ISO 8601 UTC time such as 2026-01-02T03:04:05Z.`
+    };
+  }
+  return new Date(given);
+}
+function parseIdeas(given) {
+  const parts = typeof given === "string" ? given.split(",") : [""];
+  const ideas = parts.map((part) => /^#?(\d+)$/.exec(part.trim())?.[1]);
+  if (ideas.includes(void 0)) {
+    return {
+      error: `Invalid --idea "${String(given)}". Use issue numbers such as #12 or 12,13.`
+    };
+  }
+  return ideas.map((n) => `#${Number(n)}`);
+}
+function parseTimes(options) {
+  const asOf = parseTime(options, "as-of");
+  const since = parseTime(options, "since");
+  const until = parseTime(options, "until");
+  if (asOf !== void 0 && "error" in asOf) {
+    return asOf;
+  }
+  if (since !== void 0 && "error" in since) {
+    return since;
+  }
+  if (until !== void 0 && "error" in until) {
+    return until;
+  }
+  if (since !== void 0 && until !== void 0 && since > until) {
+    return {
+      error: `Invalid --since ${since.toISOString()}: it is after --until ${until.toISOString()}. Swap them.`
+    };
+  }
+  return {
+    ...asOf === void 0 ? {} : { asOf },
+    ...since === void 0 ? {} : { since },
+    ...until === void 0 ? {} : { until }
+  };
+}
 function parseFlags({ options, deps }) {
   const min = options["min-ideas"];
   let minCompletedIdeas = MIN_COMPLETED_IDEAS;
@@ -1865,18 +2014,33 @@ function parseFlags({ options, deps }) {
       };
     }
   }
-  const given = options["as-of"];
-  if (given === void 0) {
-    return { asOf: deps.clock.now(), minCompletedIdeas };
+  const times = parseTimes(options);
+  if ("error" in times) {
+    return times;
   }
-  if (typeof given !== "string" || !isTimestamp(given)) {
-    return {
-      error: `Invalid --as-of "${String(given)}". Use an ISO 8601 UTC time such as 2026-01-02T03:04:05Z.`
-    };
+  const { asOf, since, until } = times;
+  const idea = options.idea === void 0 ? void 0 : parseIdeas(options.idea);
+  if (idea !== void 0 && "error" in idea) {
+    return idea;
   }
-  return { asOf: new Date(given), minCompletedIdeas };
+  return {
+    asOf: asOf ?? deps.clock.now(),
+    minCompletedIdeas,
+    ...since === void 0 ? {} : { since },
+    ...until === void 0 ? {} : { until },
+    ...idea === void 0 ? {} : { ideas: idea }
+  };
 }
 var seconds = (value) => `${Math.round(value)}s`;
+function scopeLine({ since, until, ideas }) {
+  const range = [
+    since === null ? void 0 : `from ${since}`,
+    until === null ? void 0 : `until ${until}`
+  ].filter((part) => part !== void 0);
+  const named = ideas === null ? [] : [`ideas ${ideas.join(", ")}`];
+  const parts = [...range, ...named];
+  return parts.length === 0 ? "Covering the whole ledger" : `Covering ${parts.join(", ")}`;
+}
 var leadLine = ({
   ideas,
   medianSeconds,
@@ -1895,6 +2059,7 @@ function text(report2) {
   );
   const lines = [
     `Flow report as of ${report2.asOf}: ${report2.ideas.completed} of ${report2.ideas.total} ideas completed`,
+    scopeLine(report2.scope),
     ...rows,
     leadLine(report2.leadTime),
     `Unmapped events: ${report2.unmappedEvents}`,
@@ -1907,8 +2072,15 @@ function text(report2) {
 `;
 }
 var report = {
-  summary: `map ledger events to stages; per stage active, waiting, event counts, toil (starting, stopping, waiting, retrying), work in progress (peak and average ideas open), lead time (first event to outcome; median and max), and the bottleneck (--min-ideas N, default ${MIN_COMPLETED_IDEAS}; --as-of TIME; --ledger PATH; --json is one object, version ${REPORT_VERSION}: version, asOf, ideas, minCompletedIdeas, stages, leadTime, bottleneck, bottleneckNote, unmappedEvents, skippedLines)`,
-  options: { "min-ideas": "string", "as-of": "string", ledger: "string" },
+  summary: `map ledger events to stages; per stage active, waiting, event counts, toil (starting, stopping, waiting, retrying), work in progress (peak and average ideas open), lead time (first event to outcome; median and max), and the bottleneck (--min-ideas N, default ${MIN_COMPLETED_IDEAS}; --as-of TIME; --since TIME (inclusive) and --until TIME (exclusive) clip time at those edges and count only ideas open then, with lead time only for ideas whose outcome falls inside; --idea N|#N[,...] covers only those issues; --ledger PATH; --json is one object, version ${REPORT_VERSION}: version, asOf, scope, ideas, minCompletedIdeas, stages, leadTime, bottleneck, bottleneckNote, unmappedEvents, skippedLines)`,
+  options: {
+    "min-ideas": "string",
+    "as-of": "string",
+    since: "string",
+    until: "string",
+    idea: "string",
+    ledger: "string"
+  },
   async run(context) {
     const flags = parseFlags(context);
     const { deps, json } = context;
@@ -3062,10 +3234,10 @@ function upcomingSteps(markdown) {
 function activePlans(plans) {
   const active = [];
   let legacy;
-  const byNumber = Object.keys(plans).sort(
+  const byNumber2 = Object.keys(plans).sort(
     (a, b) => planNumber(b) - planNumber(a)
   );
-  for (const name of byNumber) {
+  for (const name of byNumber2) {
     const markdown = plans[name] ?? "";
     if (!FRONTMATTER.test(markdown)) {
       if (legacy === void 0 && openItems(markdown).length > 0) {

@@ -17,6 +17,7 @@ function seeded(extra: string[] = []) {
 const KEYS = [
   "version",
   "asOf",
+  "scope",
   "ideas",
   "minCompletedIdeas",
   "stages",
@@ -35,7 +36,7 @@ describe("flow report", () => {
     expect(Object.keys(report)).toEqual(KEYS);
     expect(report).toMatchObject({ bottleneckNote: null });
     expect(report).toMatchObject({
-      version: 3,
+      version: 4,
       asOf: "2026-01-02T03:04:05.000Z",
       ideas: { total: 3, completed: 3 },
       minCompletedIdeas: 3,
@@ -174,5 +175,91 @@ describe("flow report work in progress and lead time", () => {
     h.fs.files.set(DEFAULT, "");
     expect(await run(["flow", "report"], h.deps)).toBe(0);
     expect(h.out()).toContain("Lead time: no completed ideas");
+  });
+});
+
+describe("flow report range and ideas", () => {
+  it("reports only the named ideas and says so", async () => {
+    const { h, argv } = seeded(["--json", "--idea", "#2,#3"]);
+    expect(await run(argv, h.deps)).toBe(0);
+    expect(JSON.parse(h.out())).toMatchObject({
+      scope: { since: null, until: null, ideas: ["#2", "#3"] },
+      ideas: { total: 2, completed: 2 },
+    });
+  });
+
+  it("accepts an idea written as a bare issue number", async () => {
+    const { h, argv } = seeded(["--json", "--idea", "2"]);
+    expect(await run(argv, h.deps)).toBe(0);
+    expect(JSON.parse(h.out())).toMatchObject({
+      scope: { ideas: ["#2"] },
+      ideas: { total: 1 },
+    });
+  });
+
+  it("reads an idea written with leading zeros as the same issue", async () => {
+    const { h, argv } = seeded(["--json", "--idea", "#002"]);
+    expect(await run(argv, h.deps)).toBe(0);
+    expect(JSON.parse(h.out())).toMatchObject({
+      scope: { ideas: ["#2"] },
+      ideas: { total: 1 },
+    });
+  });
+
+  it("reports only the time range and says so", async () => {
+    const { h, argv } = seeded([
+      "--json",
+      "--since",
+      "2026-01-02T02:00:00Z",
+      "--until",
+      "2026-01-02T04:00:00Z",
+    ]);
+    expect(await run(argv, h.deps)).toBe(0);
+    expect(JSON.parse(h.out())).toMatchObject({
+      scope: {
+        since: "2026-01-02T02:00:00.000Z",
+        until: "2026-01-02T04:00:00.000Z",
+        ideas: null,
+      },
+      ideas: { total: 1 },
+    });
+  });
+});
+
+describe("flow report scope text and flags", () => {
+  it("states the range and ideas in plain text", async () => {
+    const { h, argv } = seeded([
+      "--since",
+      "2026-01-02T00:00:00Z",
+      "--idea",
+      "#1",
+    ]);
+    expect(await run(argv, h.deps)).toBe(0);
+    expect(h.out()).toContain(
+      "Covering from 2026-01-02T00:00:00.000Z, ideas #1",
+    );
+  });
+
+  it("says it covers the whole ledger when nothing narrows it", async () => {
+    const { h, argv } = seeded();
+    await run(argv, h.deps);
+    expect(h.out()).toContain("Covering the whole ledger");
+  });
+
+  it.each([
+    [["--since", "last week"], "--since"],
+    [["--until", "2026-01-02"], "--until"],
+    [["--idea", "abc"], "--idea"],
+    [["--idea", ""], "--idea"],
+    [
+      ["--since", "2026-01-03T00:00:00Z", "--until", "2026-01-02T00:00:00Z"],
+      "--since",
+    ],
+  ])("rejects a bad flag %j before reading the ledger", async (flags, name) => {
+    // With no shared ledger to locate, reading it would fail with a different message.
+    const h = harness("", { commonDir: undefined });
+    expect(await run(["flow", "report", ...flags], h.deps)).toBe(2);
+    expect(h.err()).toContain(`Invalid ${name}`);
+    expect(h.err()).not.toContain("main checkout root");
   });
 });
