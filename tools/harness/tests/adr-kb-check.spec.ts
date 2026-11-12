@@ -1,0 +1,44 @@
+import { describe, expect, it } from "vitest";
+import { run } from "../src/cli/index.js";
+import { NEW, fixture, type MemoryFs } from "../src/adr/adr-support.js";
+
+interface KbCheck {
+  findings(deps: {
+    files(): string[];
+    read(path: string): string | null;
+  }): { file: string; line: number; message: string }[];
+}
+
+async function kbFindings(fs: MemoryFs) {
+  const path = new URL("../../../.claude/hooks/kb-check.mjs", import.meta.url)
+    .href;
+  const kb = (await import(path)) as KbCheck;
+  return kb.findings({
+    files: () => [...fs.files.keys()],
+    read: (p) => fs.files.get(p) ?? null,
+  });
+}
+
+describe("harness adr new against kb-check", () => {
+  it("passes the frontmatter, link and index rules with no hand edits", async () => {
+    const f = fixture();
+    expect(await run(NEW, f.deps)).toBe(0);
+    expect(await kbFindings(f.fs)).toEqual([]);
+  });
+
+  it("passes with a Refines line too", async () => {
+    const f = fixture();
+    expect(await run([...NEW, "--refines", "ADR 0001"], f.deps)).toBe(0);
+    expect(await kbFindings(f.fs)).toEqual([]);
+  });
+
+  it("the check does notice a missing index entry (the fixture is not vacuous)", async () => {
+    const f = fixture();
+    await run(NEW, f.deps);
+    f.fs.files.set(
+      "docs/index.md",
+      f.fs.files.get("docs/index.md")?.replace(/.*0004-.*\n/, "") ?? "",
+    );
+    expect(await kbFindings(f.fs)).not.toEqual([]);
+  });
+});

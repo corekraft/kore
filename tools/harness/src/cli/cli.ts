@@ -36,11 +36,7 @@ function names(commands: Record<string, Command>): string {
 
 type Resolved = { command: Command } | { error: string };
 
-function resolve(
-  domain: string,
-  name: string | undefined,
-  extra: string[],
-): Resolved {
+function resolve(domain: string, name: string | undefined): Resolved {
   const commands = own(domains, domain);
   if (commands === undefined) {
     return {
@@ -58,33 +54,74 @@ function resolve(
       error: `Unknown command "${name}" for domain "${domain}". Commands: ${names(commands)}.`,
     };
   }
-  if (extra.length > 0) {
-    return { error: `Unexpected argument "${extra[0]}".` };
-  }
   return { command };
 }
 
-/** Dispatches `<domain> <command> [--json]` and returns the process exit code. */
+type Parsed = { options: Record<string, string | boolean> } | { error: string };
+
+/** Parses the tokens left after domain and command against the command's declared flags. */
+function parseOptions(command: Command, tokens: readonly string[]): Parsed {
+  const spec = command.options ?? {};
+  const options: Record<string, string | boolean> = {};
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i] ?? "";
+    if (!token.startsWith("--")) {
+      return { error: `Unexpected argument "${token}".` };
+    }
+    const [name = "", inline] = token.slice(2).split(/=(.*)/s, 2);
+    const kind = own(spec, name);
+    if (kind === undefined) {
+      return { error: `Unknown flag "${token}".` };
+    }
+    if (kind === "boolean") {
+      if (inline !== undefined) {
+        return { error: `Flag "--${name}" takes no value.` };
+      }
+      options[name] = true;
+      continue;
+    }
+    const value = inline ?? tokens[++i];
+    if (value === undefined) {
+      return { error: `Flag "--${name}" needs a value.` };
+    }
+    options[name] = value;
+  }
+  return { options };
+}
+
+/** Dispatches `<domain> <command> [flags]` and returns the process exit code. */
 export async function run(
   argv: readonly string[],
   deps: CliDeps,
 ): Promise<number> {
-  const flags = argv.filter((a) => a.startsWith("-"));
-  const words = argv.filter((a) => !a.startsWith("-"));
-  const json = flags.includes("--json");
-  const unknown = flags.find((f) => !["--json", "--help", "-h"].includes(f));
-  if (unknown !== undefined) {
-    return fail(deps, json, `Unknown flag "${unknown}".`);
-  }
-  const [domain, name, ...extra] = words;
-  const help = flags.includes("--help") || flags.includes("-h");
+  const json = argv.includes("--json");
+  const help = argv.includes("--help") || argv.includes("-h");
+  const words: number[] = [];
+  argv.forEach((token, i) => {
+    if (!token.startsWith("-") && words.length < 2) {
+      words.push(i);
+    }
+  });
+  const domain = argv[words[0] ?? -1];
+  const name = argv[words[1] ?? -1];
   if (domain === undefined || (help && own(domains, domain) !== undefined)) {
     deps.stdout(usage());
     return 0;
   }
-  const resolved = resolve(domain, name, extra);
+  const rest = argv.filter(
+    (token, i) =>
+      !words.includes(i) &&
+      token !== "--json" &&
+      token !== "--help" &&
+      token !== "-h",
+  );
+  const resolved = resolve(domain, name);
   if ("error" in resolved) {
     return fail(deps, json, resolved.error);
   }
-  return await resolved.command.run({ json, deps });
+  const parsed = parseOptions(resolved.command, rest);
+  if ("error" in parsed) {
+    return fail(deps, json, parsed.error);
+  }
+  return await resolved.command.run({ json, options: parsed.options, deps });
 }
