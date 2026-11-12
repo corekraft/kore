@@ -25,7 +25,7 @@ const live = {
 };
 
 test(
-  "records ingress CPU and memory under the fixed routes and load",
+  "measures the Gateway pods under the fixed load without changing cluster resources",
   live,
   async () => {
     const repository = await loadRepository("local");
@@ -50,6 +50,12 @@ test(
     );
     const result = await measurement.measure();
     assert.ok(result.pods.length > 0);
+    for (const value of [
+      result.summary.cpuMillicores.median,
+      result.summary.memoryMiB.median,
+    ]) {
+      assert.ok(Number.isFinite(value) && value > 0);
+    }
     console.log(JSON.stringify(result, null, 2));
   },
 );

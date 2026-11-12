@@ -88,9 +88,10 @@ comparison, so change it only with a new baseline.
   metrics API (`kubectl get --raw /apis/metrics.k8s.io/v1beta1/…?labelSelector=…`)
   through the injectable runner. Each sample totals CPU and memory over the
   subject pods; the result is the median and the peak of the six.
-- **Preconditions.** The host 1-minute load average is below 10 (the run refuses
-  otherwise), the cluster is converged, and nothing else drives the Gateway.
-  Run it twice and record both.
+- **Preconditions.** The host 1-minute load average is below 10 at the start
+  (the run refuses otherwise; it is not re-checked during the run), the person
+  running it has confirmed the cluster is converged (the code does not check),
+  and nothing else drives the Gateway. Run it twice and record both.
 - **Expected outcome.** With the same routes and load, the agentgateway ingress
   pods' median CPU and median memory are each at least 30% below the Istio
   baseline. Confirmed: both are. Refuted: either is not lower than the

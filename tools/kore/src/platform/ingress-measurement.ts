@@ -10,14 +10,12 @@ import type { Runner } from "../runtime/index.js";
 // only other process is curl, sending requests to the Gateway.
 
 /** The routes the load exercises: the reference app's, served by the platform Gateway. */
-export const ingressRoutes: readonly { path: string; note: string }[] = [
-  { path: "/livez", note: "liveness, answered by the app" },
-  { path: "/readyz", note: "readiness, answered by the app" },
-  { path: "/api", note: "app API root" },
-  {
-    path: "/api/protected",
-    note: "protected route, denied without a principal",
-  },
+export const ingressRoutes: readonly { path: string }[] = [
+  { path: "/livez" },
+  { path: "/readyz" },
+  { path: "/api" },
+  // Denied without a principal, so it exercises the authorizer path too.
+  { path: "/api/protected" },
 ];
 
 export interface MeasurementOptions {
@@ -184,7 +182,10 @@ export class IngressMeasurement {
     }
     await this.deps.sleep(this.options.settleSeconds);
     let running = true;
-    const loading = this.loadUntil(() => running);
+    const loading = this.loadUntil(() => running).then(
+      () => undefined,
+      (error: unknown) => error,
+    );
     const samples: PodUsage[][] = [];
     try {
       for (let index = 0; index < this.options.sampleCount; index++) {
@@ -193,7 +194,13 @@ export class IngressMeasurement {
       }
     } finally {
       running = false;
-      await loading;
+    }
+    const loadError = await loading;
+    if (loadError !== undefined) {
+      const { hostname, port } = this.options;
+      throw new Error(
+        `the request load to https://${hostname}:${port} failed: ${loadError instanceof Error ? loadError.message : JSON.stringify(loadError)}; check that kore local up converged and the k3d load balancer maps port ${port}`,
+      );
     }
     return {
       method: this.method(),

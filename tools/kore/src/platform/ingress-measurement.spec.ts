@@ -204,3 +204,43 @@ test("the result states the fixed method so it can be repeated exactly", async (
     sampleIntervalSeconds: 20,
   });
 });
+
+test("reads every CPU and memory unit the metrics API can report", () => {
+  const [pod] = parsePodMetrics(
+    metrics([
+      {
+        name: "gw",
+        containers: [
+          ["500u", "1Gi"],
+          ["1", "1048576"],
+        ],
+      },
+    ]),
+  );
+  assert.equal(pod?.cpuMillicores, 1000.5);
+  assert.equal(pod?.memoryMiB, 1025);
+  assert.throws(
+    () =>
+      parsePodMetrics(metrics([{ name: "x", containers: [["1m", "9Zi"]] }])),
+    /unreadable memory quantity 9Zi/,
+  );
+});
+
+test("a failing request load fails the measurement with an actionable message", async () => {
+  const sample = ok(metrics([{ name: "gw", containers: [["5m", "50Mi"]] }]));
+  const failing = {
+    run: async (): Promise<RunResult> => {
+      throw new Error("curl failed (7): connection refused");
+    },
+  };
+  const measurement = new IngressMeasurement(
+    new RecordingRunner([sample, sample]),
+    failing,
+    options(),
+    { sleep: async () => undefined, loadAverage: () => 1 },
+  );
+  await assert.rejects(
+    measurement.measure(),
+    /request load to https:\/\/kore.local:8443 failed: curl failed \(7\).*load balancer maps port 8443/,
+  );
+});
