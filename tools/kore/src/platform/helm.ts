@@ -12,6 +12,34 @@ import {
   type Repository,
 } from "../config/index.js";
 
+/** The Helm post-renderer plugin kept in the repository. */
+const PATCH_PLUGIN = "kore-patch";
+
+/**
+ * The environment for a helm call that renders a component. Helm 4 takes a
+ * post-renderer by plugin name, so a component with patches points Helm at the
+ * repository's plugin directory instead of installing a plugin into the user's
+ * Helm configuration.
+ */
+export function helmEnv(
+  repository: Repository,
+  component: Component,
+): NodeJS.ProcessEnv | undefined {
+  return component.patches?.length
+    ? {
+        ...process.env,
+        HELM_PLUGINS: absolute(repository, "infra/helm-plugins"),
+      }
+    : undefined;
+}
+
+/** Run options carrying `helmEnv`, or none when the component has no patches. */
+export function envOption(env: NodeJS.ProcessEnv | undefined): {
+  env?: NodeJS.ProcessEnv;
+} {
+  return env ? { env } : {};
+}
+
 function helmTarget(component: Component): string {
   if (component.kind === "local-chart") {
     return component.chart!;
@@ -51,6 +79,14 @@ function chartSelectionArgs(
     args.push(
       "--set-string",
       `gateway.className=${gatewayClassName(repository.environment)}`,
+    );
+  }
+  if (component.patches?.length) {
+    args.push(
+      "--post-renderer",
+      PATCH_PLUGIN,
+      "--post-renderer-args",
+      JSON.stringify(component.patches),
     );
   }
   if (component.name === "policy-controller") {
