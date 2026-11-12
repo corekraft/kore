@@ -45,7 +45,9 @@ clone's `.git/config`; see [The harness bundle and merges](#the-harness-bundle-a
    Specs read `infra/` and `apps/` by path, so a staged file there runs the
    specs that name its directory (`tools/kore/.husky/related-tests.mjs`). The
    full suites with coverage thresholds run in CI `check`, which the `main`
-   ruleset requires before merge; run them locally with `mise run test`. The
+   ruleset requires before merge (changes to that ruleset go through
+   `harness ruleset sync --dry-run`, then `--confirm` after the operator
+   agrees; a changed rule starts in the `main-candidate` ruleset, ADR 0090); run them locally with `mise run test`. The
    Stop hook only typechecks.
 
    Unit runs are capped so a busy host stays usable. Both packages' vitest

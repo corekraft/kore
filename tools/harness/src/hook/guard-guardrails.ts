@@ -112,7 +112,7 @@ export function checkGuardrailDemotion(
 }
 
 const PROTECTED_TARGET =
-  /(^|[/\s>'"=])\.claude\/(guardrails\.yaml|settings\.json)$/;
+  /(^|[/\s>'"=])(\.claude\/(guardrails\.yaml|settings\.json)|\.github\/rulesets\/[^/\s'"]+\.json)$/;
 
 /**
  * A Bash command that rewrites the inventory or the settings deny list (sed -i,
@@ -131,7 +131,7 @@ export function checkGuardrailBash(
     ? null
     : warn(
         "guardrail-demotion",
-        `${path.replace(/^.*(?=\.claude\/)/, "")} is rewritten by a command, whose effect on a rule's mode or deny patterns cannot be checked. ` +
+        `${path.replace(/^.*(?=\.(claude|github)\/)/, "")} is rewritten by a command, whose effect on a rule's mode, deny patterns or ruleset rules cannot be checked. ` +
           "Instead, edit it with the Edit tool so a weakening is checked, and leave demotions to a person (ADR 0080).",
       );
 }

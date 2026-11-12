@@ -1,6 +1,16 @@
 import type { Runner } from "../runtime/index.js";
 import { RulesetError } from "./declared.js";
 
+/** A gh call that exited non-zero; the stderr stays available for callers that classify it. */
+export class GitHubError extends RulesetError {
+  constructor(
+    message: string,
+    readonly stderr: string,
+  ) {
+    super(message);
+  }
+}
+
 type Json = Record<string, unknown>;
 
 /** One page of rule suites; a full page means older suites were not read. */
@@ -20,15 +30,16 @@ export class GitHubRulesets {
       input === undefined ? {} : { input },
     );
     if (result.code !== 0) {
-      throw new RulesetError(
+      throw new GitHubError(
         `gh ${args.join(" ")} failed: ${result.stderr.trim() || `exit ${result.code}`}. Check \`gh auth status\` and that you may administer ${this.repo}.`,
+        result.stderr,
       );
     }
     try {
       return result.stdout.trim() === "" ? {} : JSON.parse(result.stdout);
     } catch {
       throw new RulesetError(
-        `gh ${args.join(" ")} did not return JSON: ${result.stdout.slice(0, 80)}`,
+        `gh ${args.join(" ")} did not return JSON: ${result.stdout.slice(0, 80)}. Check \`gh --version\` and \`gh auth status\`, then rerun.`,
       );
     }
   }

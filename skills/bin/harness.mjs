@@ -642,12 +642,12 @@ var adrCommands = {
 // src/guardrail/inventory.ts
 var INVENTORY_PATH = ".claude/guardrails.yaml";
 var MODES = ["audit", "enforce"];
-var KINDS = ["bash", "file", "bash-and-file"];
+var KINDS = ["bash", "file", "bash-and-file", "ruleset"];
 var GuardrailError = class extends Error {
 };
 var MissingInventoryError = class extends GuardrailError {
 };
-var FIELDS = ["rule", "kind", "mode", "owner", "deny"];
+var FIELDS = ["rule", "kind", "mode", "owner", "deny", "note"];
 var PERMISSION = /^(Bash|Read|Edit|Write)\(.+\)$/;
 var RULE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 var fail = (problem) => {
@@ -679,6 +679,12 @@ function entry(raw, index) {
   if (typeof owner !== "string" || owner.trim() === "") {
     fail(`${where}.owner must name the module that implements the rule`);
   }
+  const note = fields["note"];
+  if (note !== void 0 && (typeof note !== "string" || note.trim() === "")) {
+    fail(
+      `${where}.note must be a non-blank sentence saying why the rule has its mode`
+    );
+  }
   if (fields["deny"] !== void 0) {
     checkDeny(where, fields["deny"], kind);
   }
@@ -699,7 +705,7 @@ function checkDeny(where, deny2, kind) {
         `${where}.deny holds ${pattern}, which mixes a mid-pattern * with a trailing :*. Claude Code reads that as a literal prefix, so the rule matches less than it appears to. Instead, drop the :* and end the pattern with *`
       );
     }
-    if (bash ? kind === "file" : kind === "bash") {
+    if (kind === "ruleset" || (bash ? kind === "file" : kind === "bash")) {
       fail(
         `${where}.deny holds ${pattern}, which does not fit its kind "${kind}"`
       );
@@ -3440,13 +3446,11 @@ var ideaCommands = {
 };
 
 // src/ruleset/declared.ts
-var RULE2 = "main-ruleset";
 var DECLARED_DIR = ".github/rulesets";
 var RulesetError = class extends Error {
 };
-function enforcementFor(mode) {
-  return mode === "audit" ? "evaluate" : "active";
-}
+var candidateName = (target) => `${target}-candidate`;
+var ruleName = (target, type) => `${target}-ruleset-${type.replaceAll("_", "-")}`;
 function parseDeclared(path, text10) {
   try {
     const value = JSON.parse(text10);
@@ -3462,6 +3466,16 @@ function parseDeclared(path, text10) {
     `${path} must be a JSON object with a "name" and a "rules" list. Fix the file, then rerun.`
   );
 }
+var rulesOf = (body) => body["rules"] ?? [];
+var typeOf = (rule) => String(rule["type"]);
+var typesOf = (rules2) => rules2.map(typeOf);
+function split(declared, modeOf2) {
+  const rules2 = rulesOf(declared);
+  return {
+    enforced: rules2.filter((r) => modeOf2(typeOf(r)) === "enforce"),
+    audited: rules2.filter((r) => modeOf2(typeOf(r)) === "audit")
+  };
+}
 function covers(want, have) {
   if (Array.isArray(want)) {
     return Array.isArray(have) && want.length === have.length && want.every((w, i) => covers(w, have[i]));
@@ -3472,25 +3486,83 @@ function covers(want, have) {
   }
   return want === have;
 }
-function plan2(declared, mode, live) {
-  const enforcement = enforcementFor(mode);
-  const body = { ...declared, enforcement };
-  if (live === void 0) {
-    return { action: "create", enforcement, changed: [], body };
-  }
-  const changed = Object.entries(declared).filter(([key, want]) => !covers(want, live[key])).map(([key]) => key);
-  const from = typeof live["enforcement"] === "string" ? live["enforcement"] : "unknown";
-  const id = live["id"];
-  if (typeof id !== "number") {
+function changedRules(want, have) {
+  const live = new Map(have.map((r) => [typeOf(r), r]));
+  return want.filter((w) => {
+    const there = live.get(typeOf(w));
+    return there !== void 0 && !covers(w["parameters"] ?? {}, there["parameters"]);
+  }).map(typeOf);
+}
+var idOf = (live, name) => {
+  if (typeof live["id"] !== "number") {
     throw new RulesetError(
-      `GitHub returned the live ruleset ${String(declared["name"])} without a numeric id, so it cannot be updated. Check it in the repository settings, then rerun.`
+      `GitHub returned the live ruleset ${name} without a numeric id, so it cannot be updated. Check it in the repository settings, then rerun.`
     );
   }
-  const action = changed.length === 0 && from === enforcement ? "none" : "update";
-  return { action, id, from, enforcement, changed, body };
+  return live["id"];
+};
+var enforcementOf = (live) => typeof live["enforcement"] === "string" ? live["enforcement"] : "unknown";
+function planMain(declared, enforced, live) {
+  const body = { ...declared, rules: enforced, enforcement: "active" };
+  const want = typesOf(enforced);
+  if (live === void 0) {
+    return {
+      action: "create",
+      enforcement: "active",
+      added: want,
+      removed: [],
+      changed: [],
+      body
+    };
+  }
+  const have = typesOf(rulesOf(live));
+  const fields = Object.entries(declared).filter(([key, value]) => key !== "rules" && !covers(value, live[key])).map(([key]) => key);
+  const changed = [...fields, ...changedRules(enforced, rulesOf(live))];
+  const added = want.filter((t) => !have.includes(t));
+  const removed = have.filter((t) => !want.includes(t));
+  const from = enforcementOf(live);
+  const unchanged = changed.length + added.length + removed.length === 0 && from === "active";
+  return {
+    action: unchanged ? "none" : "update",
+    id: idOf(live, String(declared["name"])),
+    from,
+    enforcement: "active",
+    added,
+    removed,
+    changed,
+    body
+  };
+}
+function planCandidate(declared, audited, live) {
+  const name = candidateName(String(declared["name"]));
+  const body = { ...declared, name, rules: audited, enforcement: "evaluate" };
+  const base = {
+    name,
+    enforcement: "evaluate",
+    rules: typesOf(audited),
+    body
+  };
+  if (live === void 0) {
+    return { ...base, action: audited.length === 0 ? "none" : "create" };
+  }
+  const sameRules = typesOf(rulesOf(live)).join() === typesOf(audited).join() && changedRules(audited, rulesOf(live)).length === 0;
+  const sameFields = Object.entries(declared).filter(([key]) => !["rules", "name"].includes(key)).every(([key, value]) => covers(value, live[key]));
+  const unchanged = sameRules && sameFields && enforcementOf(live) === "evaluate";
+  return {
+    ...base,
+    action: unchanged ? "none" : "update",
+    id: idOf(live, name)
+  };
 }
 
 // src/ruleset/github.ts
+var GitHubError = class extends RulesetError {
+  constructor(message, stderr2) {
+    super(message);
+    this.stderr = stderr2;
+  }
+  stderr;
+};
 var PAGE2 = 100;
 var GitHubRulesets = class {
   constructor(runner, repo) {
@@ -3506,15 +3578,16 @@ var GitHubRulesets = class {
       input === void 0 ? {} : { input }
     );
     if (result.code !== 0) {
-      throw new RulesetError(
-        `gh ${args.join(" ")} failed: ${result.stderr.trim() || `exit ${result.code}`}. Check \`gh auth status\` and that you may administer ${this.repo}.`
+      throw new GitHubError(
+        `gh ${args.join(" ")} failed: ${result.stderr.trim() || `exit ${result.code}`}. Check \`gh auth status\` and that you may administer ${this.repo}.`,
+        result.stderr
       );
     }
     try {
       return result.stdout.trim() === "" ? {} : JSON.parse(result.stdout);
     } catch {
       throw new RulesetError(
-        `gh ${args.join(" ")} did not return JSON: ${result.stdout.slice(0, 80)}`
+        `gh ${args.join(" ")} did not return JSON: ${result.stdout.slice(0, 80)}. Check \`gh --version\` and \`gh auth status\`, then rerun.`
       );
     }
   }
@@ -3560,17 +3633,23 @@ var GitHubRulesets = class {
 
 // src/ruleset/insights.ts
 var PERIODS = ["hour", "day", "week", "month"];
-async function summarize(github, repo, target, targetId, timePeriod) {
+async function summarize(github, { repo, target, ruleset, targetId, timePeriod }) {
   const suites = await github.suites(timePeriod);
   const failing = suites.filter((s) => s["evaluation_result"] === "fail");
   const byRule = {};
   const actors = /* @__PURE__ */ new Set();
   let firings = 0;
   for (const suite of failing) {
-    const detail2 = await github.suite(suite["id"]);
+    const id = suite["id"];
+    if (typeof id !== "number") {
+      throw new RulesetError(
+        "GitHub listed a rule suite without a numeric id, so its rules cannot be read. Check `gh --version`, then rerun."
+      );
+    }
+    const detail2 = await github.suite(id);
     const fired = (detail2["rule_evaluations"] ?? []).filter((e) => {
       const source = e["rule_source"];
-      return e["enforcement"] === "evaluate" && e["result"] === "fail" && (targetId === void 0 ? source?.["name"] === target : source?.["id"] === targetId);
+      return e["enforcement"] === "evaluate" && e["result"] === "fail" && (targetId === void 0 ? source?.["name"] === ruleset : source?.["id"] === targetId);
     }).map((e) => e["rule_type"]);
     if (fired.length === 0) {
       continue;
@@ -3586,6 +3665,7 @@ async function summarize(github, repo, target, targetId, timePeriod) {
   return {
     repo,
     target,
+    ruleset,
     timePeriod,
     suites: suites.length,
     firings,
@@ -3595,7 +3675,7 @@ async function summarize(github, repo, target, targetId, timePeriod) {
   };
 }
 
-// src/ruleset/commands.ts
+// src/ruleset/support.ts
 var FAILED2 = 1;
 async function guarded2({ json, deps }, action) {
   try {
@@ -3631,6 +3711,31 @@ function destination(context2) {
     target: required(context2, "target", "ruleset, by name, the target")
   };
 }
+
+// src/ruleset/lock.ts
+async function withLock(deps, repo, action) {
+  const path = `${await deps.root()}/.kore/state/locks/ruleset-${repo.replace(/[^A-Za-z0-9._-]/g, "-")}.lock`;
+  try {
+    await deps.fs.createFile(
+      path,
+      JSON.stringify({ since: deps.clock.now().toISOString() })
+    );
+  } catch (error) {
+    if (error.code !== "EEXIST") {
+      throw error;
+    }
+    throw new RulesetError(
+      `Another ruleset sync holds the lock for ${repo}: ${path}. Wait for it to finish, then rerun. If no sync is running, delete that file, then rerun.`
+    );
+  }
+  try {
+    return await action();
+  } finally {
+    await deps.fs.remove(path);
+  }
+}
+
+// src/ruleset/sync.ts
 async function declaredBody(context2, target) {
   const base = await context2.deps.root();
   const path = `${DECLARED_DIR}/${target}.json`;
@@ -3647,50 +3752,108 @@ async function declaredBody(context2, target) {
   }
   return { base, body: parseDeclared(path, text10) };
 }
+async function modesOf(context2, base, body) {
+  const { deps } = context2;
+  const inventory = await readInventory((p) => deps.fs.readFile(p), base);
+  const target = String(body["name"]);
+  const listed = new Set(inventory.guardrails.map((g) => g.rule));
+  for (const type of typesOf(body["rules"])) {
+    if (!listed.has(ruleName(target, type))) {
+      throw new RulesetError(
+        `The guardrail inventory has no ${ruleName(target, type)} rule, so the mode of the ${type} rule is undeclared. Add it to .claude/guardrails.yaml (enforce if main already has the rule live, else audit), then rerun.`
+      );
+    }
+  }
+  return (type) => modeOf(inventory, ruleName(target, type));
+}
+function describe5(main, candidate) {
+  const main_ = main.action === "none" ? "main: no change" : `main: ${main.action} (${main.from ?? "new"} -> active)` + (main.added.length > 0 ? `; added: ${main.added.join(", ")}` : "") + (main.removed.length > 0 ? `; removed: ${main.removed.join(", ")} (needs --allow-removal)` : "") + (main.changed.length > 0 ? `; changed: ${main.changed.join(", ")}` : "");
+  const cand = candidate.action === "none" ? `${candidate.name}: no change` : `${candidate.name}: ${candidate.action} (evaluate); rules: ${candidate.rules.join(", ") || "none"}`;
+  return `  ${main_}
+  ${cand}
+`;
+}
+function evaluateRefused(error, name, repo) {
+  if (error instanceof GitHubError && /\b422\b/.test(error.stderr) && /enterprise|evaluate/i.test(error.stderr)) {
+    throw new RulesetError(
+      `GitHub refused evaluate enforcement for ${name} in ${repo} (${error.stderr.trim()}): evaluate is unavailable on this plan. Nothing was changed. Ask the operator how to activate audit rules without evaluate; main stays active meanwhile.`
+    );
+  }
+  throw error;
+}
+async function apply(github, main, candidate, repo) {
+  if (candidate.action !== "none") {
+    await github.save(candidate.id, candidate.body).catch((error) => evaluateRefused(error, candidate.name, repo));
+  }
+  if (main.action !== "none") {
+    await github.save(main.id, main.body);
+  }
+}
 async function syncRuleset(context2) {
   const { deps, json } = context2;
   const { repo, target } = destination(context2);
   const dryRun = context2.options["dry-run"] === true;
+  const allowRemoval = context2.options["allow-removal"] === true;
   const { base, body } = await declaredBody(context2, target);
-  const inventory = await readInventory((p) => deps.fs.readFile(p), base);
-  if (!inventory.guardrails.some((g) => g.rule === RULE2)) {
-    throw new RulesetError(
-      `The guardrail inventory has no ${RULE2} rule, so the ruleset's mode is undeclared. Add it to .claude/guardrails.yaml, then rerun.`
-    );
-  }
+  const modes2 = await modesOf(context2, base, body);
   const github = new GitHubRulesets(deps.runner, repo);
-  const planned = plan2(
-    body,
-    modeOf(inventory, RULE2),
-    await github.find(target)
-  );
-  const report3 = { repo, target, dryRun, ...planned, body: void 0 };
-  const move = planned.from === void 0 ? `create as ${planned.enforcement}` : `${planned.from} -> ${planned.enforcement}`;
-  if (planned.action === "none") {
+  const work = async () => {
+    const { enforced, audited } = split(body, modes2);
+    const main = planMain(body, enforced, await github.find(target));
+    const candidate = planCandidate(
+      body,
+      audited,
+      await github.find(candidateName(target))
+    );
+    const refused = main.removed.length > 0 && !allowRemoval;
+    const report3 = {
+      repo,
+      target,
+      dryRun,
+      refused,
+      main: { ...main, body: void 0 },
+      candidate: { ...candidate, body: void 0 }
+    };
+    const head = `Ruleset ${target} in ${repo}`;
+    if (main.action === "none" && candidate.action === "none") {
+      deps.stdout(
+        json ? `${JSON.stringify(report3)}
+` : `${head}: no change; main is active and the candidate matches.
+`
+      );
+      return 0;
+    }
+    if (dryRun) {
+      deps.stdout(
+        json ? `${JSON.stringify(report3)}
+` : `${head}: dry run, nothing changed. Planned:
+${describe5(main, candidate)}`
+      );
+      return 0;
+    }
+    if (context2.options["confirm"] !== true) {
+      throw new RulesetError(
+        `${head} would change, but nothing was sent. Changing the live ruleset needs the operator's confirmation first:
+${describe5(main, candidate)}Preview with --dry-run, then rerun with --confirm once the operator agrees.`
+      );
+    }
+    if (refused) {
+      throw new RulesetError(
+        `${head} would remove ${main.removed.join(", ")} from main, which weakens it, so nothing was sent. Instead, add the rule back to ${DECLARED_DIR}/${target}.json, or rerun with --allow-removal once the operator agrees.`
+      );
+    }
+    await apply(github, main, candidate, repo);
     deps.stdout(
       json ? `${JSON.stringify(report3)}
-` : `Ruleset ${target} in ${repo}: no change; already ${planned.enforcement}.
-`
+` : `${head} changed:
+${describe5(main, candidate)}`
     );
     return 0;
-  }
-  if (!dryRun && context2.options["confirm"] !== true) {
-    throw new RulesetError(
-      `Ruleset ${target} in ${repo} would change (${move}), but nothing was sent. Changing the live ruleset needs the operator's confirmation first: preview with --dry-run, then rerun with --confirm once the operator agrees.`
-    );
-  }
-  if (!dryRun) {
-    await github.save(planned.id, planned.body);
-  }
-  const fields = planned.changed.length > 0 ? ` (also: ${planned.changed.join(", ")})` : "";
-  const verb = dryRun ? `Dry run, nothing changed. Ruleset ${target} in ${repo} would change` : `Ruleset ${target} in ${repo} changed`;
-  deps.stdout(
-    json ? `${JSON.stringify(report3)}
-` : `${verb}: ${move}${fields}.
-`
-  );
-  return 0;
+  };
+  return dryRun ? await work() : await withLock(deps, repo, work);
 }
+
+// src/ruleset/commands.ts
 async function ruleInsights(context2) {
   const { deps, json } = context2;
   const { repo, target } = destination(context2);
@@ -3698,18 +3861,19 @@ async function ruleInsights(context2) {
   const period = typeof given === "string" ? given : "week";
   if (!PERIODS.includes(period)) {
     throw new RulesetError(
-      `--time-period ${period} is not one of ${PERIODS.join(", ")}.`
+      `--time-period ${period} is not one of ${PERIODS.join(", ")}. Rerun with --time-period <${PERIODS.join("|")}>.`
     );
   }
   const github = new GitHubRulesets(deps.runner, repo);
-  const live = await github.find(target);
-  const result = await summarize(
-    github,
+  const candidate = candidateName(target);
+  const live = await github.find(candidate);
+  const result = await summarize(github, {
     repo,
     target,
-    typeof live?.["id"] === "number" ? live["id"] : void 0,
-    period
-  );
+    ruleset: candidate,
+    targetId: typeof live?.["id"] === "number" ? live["id"] : void 0,
+    timePeriod: period
+  });
   if (json) {
     deps.stdout(`${JSON.stringify(result)}
 `);
@@ -3727,17 +3891,18 @@ ${rules2.join("")}${result.actors.length > 0 ? `Actors: ${result.actors.join(", 
   return 0;
 }
 var sync2 = {
-  summary: "sync a repository ruleset from .github/rulesets/<target>.json: the main-ruleset inventory mode sets enforcement (audit -> evaluate, enforce -> active); --dry-run shows the plan and mutates nothing; a live change needs --confirm after the operator agrees (--repo <owner/name> --target <name> [--dry-run] [--confirm])",
+  summary: "sync a repository ruleset from .github/rulesets/<target>.json: main stays active with the enforce rules (one main-ruleset-<rule> inventory entry each), audit rules sync into <target>-candidate in evaluate; --dry-run shows the plan and mutates nothing; a live change needs --confirm after the operator agrees, and removing a rule from main needs --allow-removal (--repo <owner/name> --target <name> [--dry-run] [--confirm] [--allow-removal])",
   options: {
     repo: "string",
     target: "string",
     "dry-run": "boolean",
-    confirm: "boolean"
+    confirm: "boolean",
+    "allow-removal": "boolean"
   },
   run: (context2) => guarded2(context2, () => syncRuleset(context2))
 };
 var insights = {
-  summary: "summarize what an evaluate-mode ruleset would have blocked, by rule, from GitHub's rule-suite insights; read-only, for the activation request (--repo <owner/name> --target <name> [--time-period hour|day|week|month])",
+  summary: "summarize what the evaluate-mode candidate ruleset would have blocked, by rule, from GitHub's rule-suite insights; read-only, for the activation request (--repo <owner/name> --target <name> [--time-period hour|day|week|month])",
   options: { repo: "string", target: "string", "time-period": "string" },
   run: (context2) => guarded2(context2, () => ruleInsights(context2))
 };
@@ -4447,15 +4612,15 @@ async function readPlans(deps) {
 }
 
 // src/plan/active.ts
-function describe5(plan3) {
-  const open2 = plan3.open.map((o) => `${o.step} (${o.count})`).join(", ");
-  const lines3 = [`${plan3.file}${plan3.default ? " (default)" : ""}`];
+function describe6(plan2) {
+  const open2 = plan2.open.map((o) => `${o.step} (${o.count})`).join(", ");
+  const lines3 = [`${plan2.file}${plan2.default ? " (default)" : ""}`];
   lines3.push(`  Open items: ${open2 || "none"}`);
-  if (plan3.next) {
-    lines3.push(`  Next (${plan3.next.step}): ${plan3.next.text}`);
+  if (plan2.next) {
+    lines3.push(`  Next (${plan2.next.step}): ${plan2.next.text}`);
   }
-  if (plan3.upcoming.length > 0) {
-    lines3.push(`  Upcoming: ${plan3.upcoming.join("; ")}`);
+  if (plan2.upcoming.length > 0) {
+    lines3.push(`  Upcoming: ${plan2.upcoming.join("; ")}`);
   }
   return lines3.join("\n");
 }
@@ -4477,7 +4642,7 @@ var planActive = {
   summary: "list the active plans, flagging the default (highest-numbered)",
   async run({ json, deps }) {
     const listed = await readActivePlans(deps);
-    const names3 = listed.map((plan3) => plan3.name);
+    const names3 = listed.map((plan2) => plan2.name);
     if (json) {
       deps.stdout(
         `${JSON.stringify({ default: names3[0] ?? null, plans: listed })}
@@ -4489,7 +4654,7 @@ var planActive = {
 `
       );
     } else {
-      deps.stdout(`${listed.map(describe5).join("\n")}
+      deps.stdout(`${listed.map(describe6).join("\n")}
 `);
     }
     return 0;
@@ -4549,7 +4714,7 @@ function choosePlan(plans, requested) {
   }
   return active[0] ?? "";
 }
-function apply(lines3, edits) {
+function apply2(lines3, edits) {
   const out = [...lines3];
   for (const edit of [...edits].sort((a, b) => b.start - a.start)) {
     out.splice(edit.start, edit.end - edit.start, ...edit.lines);
@@ -4631,7 +4796,7 @@ async function write(deps, json, options) {
   if (written2) {
     await deps.fs.writeFile(
       join4(await deps.root(), file),
-      apply(lines3, edits).join("\n")
+      apply2(lines3, edits).join("\n")
     );
   }
   if (json) {
@@ -4652,7 +4817,7 @@ var planNext = {
   options: { plan: "string", text: "string", "dry-run": "boolean" },
   async run({ json, deps, options }) {
     const raw = options["text"];
-    const plan3 = options["plan"];
+    const plan2 = options["plan"];
     const text10 = typeof raw === "string" ? normalize(raw) : "";
     if (text10 === "") {
       throw new CommandError(
@@ -4660,7 +4825,7 @@ var planNext = {
       );
     }
     return await write(deps, json, {
-      planOption: typeof plan3 === "string" ? plan3 : void 0,
+      planOption: typeof plan2 === "string" ? plan2 : void 0,
       dryRun: options["dry-run"] === true,
       headline: (file, dry) => `${dry ? "Would set" : "Set"} Next: in ${file}`,
       edits: (lines3, markdown) => withInsertion(
@@ -4676,9 +4841,9 @@ var planClearNext = {
   summary: "remove the Next: line ([--plan N] [--dry-run]) and report every changed line",
   options: { plan: "string", "dry-run": "boolean" },
   async run({ json, deps, options }) {
-    const plan3 = options["plan"];
+    const plan2 = options["plan"];
     return await write(deps, json, {
-      planOption: typeof plan3 === "string" ? plan3 : void 0,
+      planOption: typeof plan2 === "string" ? plan2 : void 0,
       dryRun: options["dry-run"] === true,
       headline: (file, dry) => `${dry ? "Would clear" : "Cleared"} Next: in ${file}`,
       edits: (lines3) => removals(lines3),
@@ -4961,7 +5126,7 @@ function tickEdit(lines3, item) {
     lines: [`- [x]${first.slice(OPEN.length)}`]
   };
 }
-function describe6(file, step, text10, dryRun, changes) {
+function describe7(file, step, text10, dryRun, changes) {
   return renderChanges(
     `${dryRun ? "Would tick" : "Ticked"} ${step}: ${text10} in ${file}`,
     changes
@@ -4986,12 +5151,12 @@ async function tick(deps, json, item, planOption, dryRun) {
   if (!dryRun) {
     await deps.fs.writeFile(
       join5(await deps.root(), file),
-      apply(lines3, edits).join("\n")
+      apply2(lines3, edits).join("\n")
     );
   }
   deps.stdout(
     json ? `${JSON.stringify({ plan: file, item: { step, text: text10 }, dryRun, written: !dryRun, changes })}
-` : describe6(file, step, text10, dryRun, changes)
+` : describe7(file, step, text10, dryRun, changes)
   );
   return 0;
 }
@@ -5000,7 +5165,7 @@ var planTick = {
   options: { plan: "string", item: "string", "dry-run": "boolean" },
   async run({ json, deps, options }) {
     const item = options["item"];
-    const plan3 = options["plan"];
+    const plan2 = options["plan"];
     if (typeof item !== "string" || item.trim() === "") {
       throw new CommandError(
         'Missing --item "<text>": say which open item to tick.'
@@ -5010,7 +5175,7 @@ var planTick = {
       deps,
       json,
       item,
-      typeof plan3 === "string" ? plan3 : void 0,
+      typeof plan2 === "string" ? plan2 : void 0,
       options["dry-run"] === true
     );
   }
@@ -5073,7 +5238,7 @@ var statusCommand = {
       return 0;
     }
     const lines3 = status2.plans.map(
-      (plan3) => `${plan3.file}: ${plan3.open.map((o) => `${o.step} (${o.count})`).join(", ") || "no open items"}`
+      (plan2) => `${plan2.file}: ${plan2.open.map((o) => `${o.step} (${o.count})`).join(", ") || "no open items"}`
     );
     lines3.push(
       `Ideas: ${Object.entries(status2.ideas.byState).map(([state, count3]) => `${count3} ${state}`).join(", ") || "none"}`
@@ -6448,8 +6613,8 @@ var modes = (source) => new Map(
 );
 function denies(source) {
   const found = /* @__PURE__ */ new Map();
-  for (const [object, rule] of source.matchAll(OBJECT)) {
-    const list3 = DENY.exec(object)?.[1];
+  for (const [object2, rule] of source.matchAll(OBJECT)) {
+    const list3 = DENY.exec(object2)?.[1];
     if (list3 !== void 0) {
       found.set(
         rule,
@@ -6503,7 +6668,7 @@ function checkGuardrailDemotion(relative3, previous, after) {
     `${relative3} ${problems.join(" and ")}. A person approves a guardrail's mode and deny patterns (ADR 0080). Instead, leave them and ask the user to approve the change, or promote a rule from audit to enforce.`
   );
 }
-var PROTECTED_TARGET = /(^|[/\s>'"=])\.claude\/(guardrails\.yaml|settings\.json)$/;
+var PROTECTED_TARGET = /(^|[/\s>'"=])(\.claude\/(guardrails\.yaml|settings\.json)|\.github\/rulesets\/[^/\s'"]+\.json)$/;
 function checkGuardrailBash(name, args, segment) {
   const path = writtenPath(
     name,
@@ -6513,7 +6678,7 @@ function checkGuardrailBash(name, args, segment) {
   );
   return path === void 0 ? null : warn(
     "guardrail-demotion",
-    `${path.replace(/^.*(?=\.claude\/)/, "")} is rewritten by a command, whose effect on a rule's mode or deny patterns cannot be checked. Instead, edit it with the Edit tool so a weakening is checked, and leave demotions to a person (ADR 0080).`
+    `${path.replace(/^.*(?=\.(claude|github)\/)/, "")} is rewritten by a command, whose effect on a rule's mode, deny patterns or ruleset rules cannot be checked. Instead, edit it with the Edit tool so a weakening is checked, and leave demotions to a person (ADR 0080).`
   );
 }
 function checkDenyRemovalBash(name, args) {
@@ -6546,6 +6711,74 @@ function checkSettingsDenyRemoval(relative3, previous, after, ctx) {
     "guardrail-demotion",
     `${relative3} removes or narrows the deny patterns ${removed.join(", ")} by hand. The inventory owns the deny list and a person approves removing a pattern (ADR 0080). Instead, leave them, and ask the user to approve the change in the inventory, then run \`guardrail deny --write\`.`
   );
+}
+
+// src/hook/guard-ruleset.ts
+var RULESET_FILE = /^\.github\/rulesets\/[^/]+\.json$/;
+var object = (value) => typeof value === "object" && value !== null && !Array.isArray(value) ? value : void 0;
+var parse2 = (text10) => {
+  try {
+    return object(JSON.parse(text10));
+  } catch {
+    return void 0;
+  }
+};
+var same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+function weaker(was, now, path) {
+  if (Array.isArray(was)) {
+    const kept = Array.isArray(now) ? now : [];
+    return was.filter((item) => !kept.some((k) => same(k, item))).map(() => `${path} loses an entry`);
+  }
+  const old = object(was);
+  if (old !== void 0) {
+    const next = object(now) ?? {};
+    return Object.entries(old).flatMap(
+      ([key, value]) => key in next ? weaker(value, next[key], `${path}.${key}`) : [`${path}.${key} is removed`]
+    );
+  }
+  if (typeof was === "number" && typeof now === "number") {
+    return now < was ? [`${path} is lowered`] : [];
+  }
+  return same(was, now) ? [] : [`${path} changes`];
+}
+var typed = (body) => new Map(
+  (body["rules"] ?? []).map((r) => [
+    String(r["type"]),
+    r["parameters"] ?? null
+  ])
+);
+function weakenings(previous, after) {
+  const now = typed(after);
+  const rules2 = [...typed(previous)].flatMap(
+    ([type, parameters]) => now.has(type) ? weaker(parameters, now.get(type), type) : [`rule ${type} is removed`]
+  );
+  const conditions = same(previous["conditions"], after["conditions"]) ? [] : ["conditions change"];
+  const had = previous["bypass_actors"] ?? [];
+  const bypass = (after["bypass_actors"] ?? []).filter((actor) => !had.some((h) => same(h, actor))).map(() => "bypass_actors gains an actor");
+  return [...rules2, ...conditions, ...bypass];
+}
+function checkRulesetWeakening(relative3, previous, after) {
+  if (!RULESET_FILE.test(relative3)) {
+    return null;
+  }
+  const was = parse2(previous);
+  if (was === void 0) {
+    return null;
+  }
+  const now = parse2(after);
+  const problems = now === void 0 ? ["is no longer a JSON object, so its rules cannot be checked"] : weakenings(was, now);
+  return problems.length === 0 ? null : warn(
+    "guardrail-demotion",
+    `${relative3} weakens the declared ruleset by hand: ${problems.join("; ")}. A person approves a guardrail's rules (ADR 0080). Instead, leave them and ask the user to approve the change; a changed rule lands in audit mode in the candidate ruleset first.`
+  );
+}
+function checkRulesetSyncBash(name, args) {
+  const words2 = [name, ...args];
+  const at = words2.indexOf("ruleset");
+  return at >= 0 && words2[at + 1] === "sync" && words2.includes("--confirm") ? warn(
+    "guardrail-demotion",
+    "ruleset sync --confirm changes the live GitHub ruleset. The operator confirms every live change first (AGENTS.md, ADR 0080). Instead, run it with --dry-run and ask the user to confirm the planned change."
+  ) : null;
 }
 
 // src/hook/guard-deny.ts
@@ -6949,6 +7182,7 @@ async function checkBashSegment(segment, ctx) {
     checkAppendOnly(name, args, segment, ctx.root),
     checkGuardrailBash(name, args, segment),
     checkDenyRemovalBash(name, args),
+    checkRulesetSyncBash(name, args),
     ...checkDenyAudit("Bash", text10, ctx)
   ];
 }
@@ -7005,8 +7239,9 @@ async function before(tool, input, relative3, ctx, rethrow) {
   }
 }
 var GUARDED_FILES = [INVENTORY_PATH, ".claude/settings.json"];
+var guardedFile = (relative3) => GUARDED_FILES.includes(relative3) || RULESET_FILE.test(relative3);
 async function guardedChange(tool, input, relative3, ctx) {
-  if (!GUARDED_FILES.includes(relative3)) {
+  if (!guardedFile(relative3)) {
     return { previous: "", after: "" };
   }
   if (tool !== "Edit") {
@@ -7134,7 +7369,8 @@ async function checkWrite(tool, input, relative3, ctx) {
     await checkCoverageThreshold(tool, input, relative3, ctx),
     checkImageDigest(tool, input, relative3),
     checkGuardrailDemotion(relative3, guarded5.previous, guarded5.after),
-    checkSettingsDenyRemoval(relative3, guarded5.previous, guarded5.after, ctx)
+    checkSettingsDenyRemoval(relative3, guarded5.previous, guarded5.after, ctx),
+    checkRulesetWeakening(relative3, guarded5.previous, guarded5.after)
   ];
   return weigh(findings2.map((finding2) => applyMode(finding2, ctx)));
 }
@@ -8134,9 +8370,9 @@ function environmentLines(journals) {
 async function brief(event, deps) {
   const plans = await deps.readPlans();
   const lines3 = [];
-  for (const plan3 of activePlans(plans)) {
-    const markdown = plans[plan3] ?? "";
-    lines3.push(`Session brief from ${PLANS_DIR2}/${plan3}:`);
+  for (const plan2 of activePlans(plans)) {
+    const markdown = plans[plan2] ?? "";
+    lines3.push(`Session brief from ${PLANS_DIR2}/${plan2}:`);
     const counts = openCounts(markdown).map(({ step, count: count3 }) => `${step} (${count3})`).join(", ");
     if (counts) {
       lines3.push(`Open items: ${counts}.`);
@@ -8173,11 +8409,11 @@ async function restore(event, deps) {
     ...rules(await deps.readAgents())
   ];
   const plans = await deps.readPlans();
-  for (const plan3 of activePlans(plans)) {
+  for (const plan2 of activePlans(plans)) {
     sections.push(
       "",
-      `Open plan items in ${PLANS_DIR2}/${plan3}:`,
-      ...openItems(plans[plan3] ?? "")
+      `Open plan items in ${PLANS_DIR2}/${plan2}:`,
+      ...openItems(plans[plan2] ?? "")
     );
   }
   return sections.join("\n");
@@ -8463,8 +8699,8 @@ function operationLine(environment, operation) {
 }
 function planLines(before2, after) {
   const lines3 = [];
-  for (const [plan3, items2] of Object.entries(after.plans)) {
-    const old = before2.plans[plan3];
+  for (const [plan2, items2] of Object.entries(after.plans)) {
+    const old = before2.plans[plan2];
     const ticked = [];
     const added = [];
     for (const [title, checked] of Object.entries(items2)) {
@@ -8477,10 +8713,10 @@ function planLines(before2, after) {
       }
     }
     if (ticked.length > 0) {
-      lines3.push(`${plan3} ticked: ${ticked.join("; ")}`);
+      lines3.push(`${plan2} ticked: ${ticked.join("; ")}`);
     }
     if (added.length > 0) {
-      lines3.push(`${plan3} added: ${added.join("; ")}`);
+      lines3.push(`${plan2} added: ${added.join("; ")}`);
     }
   }
   return lines3;
@@ -10136,8 +10372,8 @@ async function equalize(runner, callerPane) {
       reason: "layout splits do not match the spawned panes"
     };
   }
-  for (const [i, split] of splits.entries()) {
-    const delta2 = 1 / (panes.length - i) - split.ratio;
+  for (const [i, split2] of splits.entries()) {
+    const delta2 = 1 / (panes.length - i) - split2.ratio;
     if (Math.abs(delta2) <= 5e-4) {
       continue;
     }
@@ -10859,7 +11095,7 @@ async function splitPane(deps, callerPane, cwd) {
   }
   const last = spawnedColumn(read.layout, callerPane).at(-1);
   const where = last === void 0 ? ["--current", "--direction", "right"] : [last.pane_id, "--direction", "down"];
-  const split = await deps.runner.run("herdr", [
+  const split2 = await deps.runner.run("herdr", [
     "pane",
     "split",
     ...where,
@@ -10867,12 +11103,12 @@ async function splitPane(deps, callerPane, cwd) {
     cwd,
     "--no-focus"
   ]);
-  if (split.code !== 0) {
-    return { error: `herdr pane split failed: ${describeFailure(split)}` };
+  if (split2.code !== 0) {
+    return { error: `herdr pane split failed: ${describeFailure(split2)}` };
   }
-  const paneId = paneIdOf(split.stdout);
+  const paneId = paneIdOf(split2.stdout);
   return paneId ?? {
-    error: `herdr pane split did not return a pane id (.result.pane.pane_id): ${split.stdout.trim()}`
+    error: `herdr pane split did not return a pane id (.result.pane.pane_id): ${split2.stdout.trim()}`
   };
 }
 async function nameTakenError(deps, name) {

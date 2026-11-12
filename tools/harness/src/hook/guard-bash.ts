@@ -4,6 +4,7 @@ import {
   checkDenyRemovalBash,
   checkGuardrailBash,
 } from "./guard-guardrails.js";
+import { checkRulesetSyncBash } from "./guard-ruleset.js";
 import { checkDenyAudit } from "./guard-deny.js";
 import { checkAppendOnly } from "./guard-append-only.js";
 import {
@@ -81,6 +82,7 @@ async function checkBashSegment(
     checkAppendOnly(name, args, segment, ctx.root),
     checkGuardrailBash(name, args, segment),
     checkDenyRemovalBash(name, args),
+    checkRulesetSyncBash(name, args),
     ...checkDenyAudit("Bash", text, ctx),
   ];
 }

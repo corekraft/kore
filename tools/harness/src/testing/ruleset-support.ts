@@ -3,74 +3,119 @@ import type { FakeResponse } from "../runtime/runner-support.js";
 
 export const REPO = "corekraft/kore";
 export const DECLARED = ".github/rulesets/main.json";
+export const CANDIDATE = "main-candidate";
+export const LOCK = ".kore/state/locks/ruleset-corekraft-kore.lock";
 
-/** The `main` ruleset's declared body: everything but its enforcement, which the inventory mode decides. */
+const CHECKS = {
+  type: "required_status_checks",
+  parameters: {
+    required_status_checks: [{ context: "check", integration_id: 15368 }],
+  },
+};
+const DELETION = { type: "deletion" };
+
+/** The declared ruleset: every rule main should have, whatever its mode. */
 export const declared = {
   name: "main",
   target: "branch",
   conditions: { ref_name: { exclude: [], include: ["~DEFAULT_BRANCH"] } },
-  rules: [
-    { type: "deletion" },
-    {
-      type: "required_status_checks",
-      parameters: {
-        required_status_checks: [{ context: "check", integration_id: 15368 }],
-      },
-    },
-  ],
+  rules: [DELETION, CHECKS],
   bypass_actors: [],
 };
 
-export function inventory(mode: "audit" | "enforce"): string {
+export type Mode = "audit" | "enforce";
+export interface Modes {
+  deletion?: Mode;
+  checks?: Mode;
+}
+
+/** An inventory with one entry per declared rule; every rule enforces unless told otherwise. */
+export function inventory({ deletion = "enforce", checks = "enforce" }: Modes) {
+  const entry = (rule: string, mode: Mode) => ({
+    rule,
+    kind: "ruleset",
+    mode,
+    owner: "tools/harness/src/ruleset/index.ts",
+  });
   return JSON.stringify({
     guardrails: [
-      {
-        rule: "main-ruleset",
-        kind: "file",
-        mode,
-        owner: "tools/harness/src/ruleset/index.ts",
-      },
+      entry("main-ruleset-deletion", deletion),
+      entry("main-ruleset-required-status-checks", checks),
     ],
   });
 }
 
-/** What GitHub returns for the live ruleset: the declared body plus fields it adds. */
-export const live = (enforcement: string, change: object = {}) => ({
+/** What GitHub returns for live main: the declared body plus fields it adds. */
+export const liveMain = (rules: object[] = declared.rules, change = {}) => ({
   id: 7,
   node_id: "RRS_x",
   source_type: "Repository",
-  enforcement,
   ...declared,
+  enforcement: "active",
+  rules,
   ...change,
 });
 
-const json = (value: unknown): Partial<{ stdout: string }> => ({
-  stdout: JSON.stringify(value),
+export const liveCandidate = (rules: object[]) => ({
+  id: 8,
+  ...declared,
+  name: CANDIDATE,
+  enforcement: "evaluate",
+  rules,
 });
 
-/** A repository with the declared ruleset and an inventory mode, and a runner that answers as GitHub would. */
-export function rulesetRepo(
-  mode: "audit" | "enforce",
-  liveRuleset: object | undefined,
-  extra: FakeResponse[] = [],
-) {
+/** The body `sync` should send for a ruleset of the given name. */
+export const body = (name: string, enforcement: string, rules: object[]) => ({
+  ...declared,
+  name,
+  enforcement,
+  rules,
+});
+
+export { CHECKS, DELETION };
+
+const stdout = (value: unknown) => ({ stdout: JSON.stringify(value) });
+const is = (args: readonly string[], path: string) =>
+  args.join(" ") === `api ${path}`;
+
+export interface Scene {
+  modes?: Modes;
+  main?: object | undefined;
+  candidate?: object | undefined;
+  extra?: FakeResponse[];
+}
+
+/** A repository with the declared ruleset, plus a runner that answers as GitHub would. */
+export function rulesetRepo({
+  modes = {},
+  main,
+  candidate,
+  extra = [],
+}: Scene) {
   const h = harness({
     "docs/index.md": "# Knowledge Index\n",
     [DECLARED]: `${JSON.stringify(declared, null, 2)}\n`,
-    ".claude/guardrails.yaml": inventory(mode),
+    ".claude/guardrails.yaml": inventory(modes),
   });
+  const listing = [
+    ...(main === undefined ? [] : [{ id: 7, name: "main" }]),
+    ...(candidate === undefined ? [] : [{ id: 8, name: CANDIDATE }]),
+  ];
   const responses: FakeResponse[] = [
     ...extra,
     {
-      match: (_c, a) => a.join(" ") === `api repos/${REPO}/rulesets`,
-      result: json(liveRuleset === undefined ? [] : [{ id: 7, name: "main" }]),
+      match: (_c, a) => is(a, `repos/${REPO}/rulesets`),
+      result: stdout(listing),
     },
     {
-      match: (_c, a) => a.join(" ") === `api repos/${REPO}/rulesets/7`,
-      result: json(liveRuleset ?? {}),
+      match: (_c, a) => is(a, `repos/${REPO}/rulesets/7`),
+      result: stdout(main ?? {}),
+    },
+    {
+      match: (_c, a) => is(a, `repos/${REPO}/rulesets/8`),
+      result: stdout(candidate ?? {}),
     },
   ];
-  // Rebind the runner's responses by wrapping the recording runner.
   const recorded = h.runner;
   const original = recorded.run.bind(recorded);
   recorded.run = (command, args, options) => {
@@ -93,10 +138,28 @@ export const sync = (...flags: string[]) => [
   ...flags,
 ];
 
-/** The mutating gh calls: anything but a GET on the ruleset API. */
+const WRITE_FLAGS = [
+  "-X",
+  "--method",
+  "-f",
+  "-F",
+  "--field",
+  "--raw-field",
+  "--input",
+];
+
+/** The mutating gh calls: any that names a method, a field or an input body. */
 export const mutations = (h: ReturnType<typeof harness>) =>
   h.runner.calls.filter(
-    (c) =>
-      c.command === "gh" &&
-      (c.args.includes("-X") || c.args.includes("--method")),
+    (c) => c.command === "gh" && c.args.some((a) => WRITE_FLAGS.includes(a)),
   );
+
+/** One mutation as [method, ruleset id or "new", parsed body]. */
+export const sent = (h: ReturnType<typeof harness>) =>
+  mutations(h).map((c): [string, string, Record<string, unknown>] => [
+    c.args[c.args.indexOf("-X") + 1] ?? "",
+    c.args.at(-3)?.split("/").at(-1) === "rulesets"
+      ? "new"
+      : (c.args.at(-3)?.split("/").at(-1) ?? ""),
+    JSON.parse(c.options?.input ?? "{}") as Record<string, unknown>,
+  ]);

@@ -8,8 +8,8 @@ export const INVENTORY_PATH = ".claude/guardrails.yaml";
 export const MODES = ["audit", "enforce"] as const;
 export type Mode = (typeof MODES)[number];
 
-/** What a rule inspects: Bash commands, file reads and writes, or both. */
-export const KINDS = ["bash", "file", "bash-and-file"] as const;
+/** What a rule inspects: Bash commands, file reads and writes, or both; or, for "ruleset", one rule of a GitHub ruleset. */
+export const KINDS = ["bash", "file", "bash-and-file", "ruleset"] as const;
 export type GuardrailKind = (typeof KINDS)[number];
 
 export interface Guardrail {
@@ -24,6 +24,8 @@ export interface Guardrail {
    * guard warns on a match instead, since a settings deny cannot warn.
    */
   deny?: readonly string[];
+  /** Why the rule has its mode, for the next person to edit it. */
+  note?: string;
 }
 
 export interface Inventory {
@@ -35,7 +37,7 @@ export class GuardrailError extends Error {}
 /** The inventory file is absent, as opposed to present and invalid. */
 export class MissingInventoryError extends GuardrailError {}
 
-const FIELDS = ["rule", "kind", "mode", "owner", "deny"];
+const FIELDS = ["rule", "kind", "mode", "owner", "deny", "note"];
 const PERMISSION = /^(Bash|Read|Edit|Write)\(.+\)$/;
 const RULE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
@@ -69,6 +71,12 @@ function entry(raw: unknown, index: number): Guardrail {
   if (typeof owner !== "string" || owner.trim() === "") {
     fail(`${where}.owner must name the module that implements the rule`);
   }
+  const note = fields["note"];
+  if (note !== undefined && (typeof note !== "string" || note.trim() === "")) {
+    fail(
+      `${where}.note must be a non-blank sentence saying why the rule has its mode`,
+    );
+  }
   if (fields["deny"] !== undefined) {
     checkDeny(where, fields["deny"], kind as GuardrailKind);
   }
@@ -95,7 +103,7 @@ function checkDeny(where: string, deny: unknown, kind: GuardrailKind): void {
           "Instead, drop the :* and end the pattern with *",
       );
     }
-    if (bash ? kind === "file" : kind === "bash") {
+    if (kind === "ruleset" || (bash ? kind === "file" : kind === "bash")) {
       fail(
         `${where}.deny holds ${pattern}, which does not fit its kind "${kind}"`,
       );

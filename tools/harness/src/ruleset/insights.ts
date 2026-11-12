@@ -1,12 +1,24 @@
+import { RulesetError } from "./declared.js";
 import { PAGE, type GitHubRulesets } from "./github.js";
 
 type Json = Record<string, unknown>;
 
 export const PERIODS = ["hour", "day", "week", "month"];
 
+/** What to summarize: the candidate ruleset (by name, and id when GitHub has it) of one target. */
+export interface Subject {
+  repo: string;
+  target: string;
+  ruleset: string;
+  targetId: number | undefined;
+  timePeriod: string;
+}
+
 export interface Insights {
   repo: string;
   target: string;
+  /** The candidate ruleset the firings were read from. */
+  ruleset: string;
   timePeriod: string;
   /** Rule suites GitHub evaluated in the period. */
   suites: number;
@@ -25,10 +37,7 @@ export interface Insights {
  */
 export async function summarize(
   github: GitHubRulesets,
-  repo: string,
-  target: string,
-  targetId: number | undefined,
-  timePeriod: string,
+  { repo, target, ruleset, targetId, timePeriod }: Subject,
 ): Promise<Insights> {
   const suites = await github.suites(timePeriod);
   const failing = suites.filter((s) => s["evaluation_result"] === "fail");
@@ -36,7 +45,13 @@ export async function summarize(
   const actors = new Set<string>();
   let firings = 0;
   for (const suite of failing) {
-    const detail = await github.suite(suite["id"] as number);
+    const id = suite["id"];
+    if (typeof id !== "number") {
+      throw new RulesetError(
+        "GitHub listed a rule suite without a numeric id, so its rules cannot be read. Check `gh --version`, then rerun.",
+      );
+    }
+    const detail = await github.suite(id);
     const fired = ((detail["rule_evaluations"] as Json[] | undefined) ?? [])
       .filter((e) => {
         const source = e["rule_source"] as Json | undefined;
@@ -44,7 +59,7 @@ export async function summarize(
           e["enforcement"] === "evaluate" &&
           e["result"] === "fail" &&
           (targetId === undefined
-            ? source?.["name"] === target
+            ? source?.["name"] === ruleset
             : source?.["id"] === targetId)
         );
       })
@@ -63,6 +78,7 @@ export async function summarize(
   return {
     repo,
     target,
+    ruleset,
     timePeriod,
     suites: suites.length,
     firings,
