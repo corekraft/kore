@@ -25,10 +25,15 @@ function usage(): string {
   return `${lines.join("\n")}\n`;
 }
 
-function fail(deps: CliDeps, json: boolean, message: string): number {
+function fail(
+  deps: CliDeps,
+  json: boolean,
+  message: string,
+  code = USAGE_ERROR,
+): number {
   const prefix = json ? `${JSON.stringify({ error: message })}\n` : "";
   deps.stderr(`${prefix}${message}\n\n${usage()}`);
-  return USAGE_ERROR;
+  return code;
 }
 
 /** Own keys only, so "constructor" or "__proto__" never resolve to a prototype member. */
@@ -155,13 +160,16 @@ export async function run(
       `Put "${early}" after the command: harness <domain> <command> [flags].`,
     );
   }
+  // Exit 1, not the usage error 2, for a hook: exit 2 from a PreToolUse hook
+  // blocks every tool call, so a typo in settings.json must never stop the session.
+  const failure = domain === "hook" ? FAILURE : USAGE_ERROR;
   const resolved = resolve(domain, name);
   if ("error" in resolved) {
-    return fail(deps, json, resolved.error);
+    return fail(deps, json, resolved.error, failure);
   }
   const parsed = parseOptions(resolved.command, rest);
   if ("error" in parsed) {
-    return fail(deps, json, parsed.error);
+    return fail(deps, json, parsed.error, failure);
   }
   return await execute(resolved.command, {
     json,

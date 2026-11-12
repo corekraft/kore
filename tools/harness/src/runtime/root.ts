@@ -1,5 +1,6 @@
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { CommandError } from "./errors.js";
 
 const PLANS = "infra/plans";
 
@@ -19,7 +20,7 @@ export async function resolveRoot(
     if (await exists(join(fromEnv, PLANS))) {
       return fromEnv;
     }
-    throw new Error(
+    throw new CommandError(
       `CLAUDE_PROJECT_DIR is "${fromEnv}" but it has no ${PLANS}. Point it at the repository root or unset it.`,
     );
   }
@@ -28,7 +29,7 @@ export async function resolveRoot(
   if (await exists(join(root, PLANS))) {
     return root;
   }
-  throw new Error(
+  throw new CommandError(
     `Cannot find the repo root: ${bundle} is not at <root>/skills/bin and CLAUDE_PROJECT_DIR is unset. Run the committed skills/bin/harness.mjs or set CLAUDE_PROJECT_DIR to the repository root.`,
   );
 }

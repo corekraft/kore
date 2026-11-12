@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { run } from "../cli/index.js";
 import { testHarness } from "../cli/cli-support.js";
-import { nodeFileSystem } from "../runtime/index.js";
+import { CommandError, nodeFileSystem } from "../runtime/index.js";
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
 const temps: string[] = [];
@@ -136,7 +136,9 @@ describe("hook skill-links reports", () => {
       ".codex/skills/adr is a directory or file, not a link; replace it with a link to ../../skills/adr\n",
     );
   });
+});
 
+describe("hook skill-links tolerates and fails open", () => {
   it("needs no link for a skills/ directory without SKILL.md, such as bin", async () => {
     const root = fixture();
     mkdirSync(join(root, "skills/bin"));
@@ -145,7 +147,7 @@ describe("hook skill-links reports", () => {
       link(root, harness, "adr");
     }
 
-    expect((await hook(root)).code).toBe(0);
+    expect(await hook(root)).toEqual({ code: 0, out: "", err: "" });
   });
 
   it("fails open, naming the hook, when it cannot read skills/", async () => {
@@ -154,7 +156,20 @@ describe("hook skill-links reports", () => {
 
     const result = await hook(root);
     expect(result.code).toBe(0);
-    expect(result.err).toMatch(/^\[hook:skill-links\] failed open: /);
+    expect(result.err).toMatch(
+      /^\[hook:skill-links\] failed open: No skills directory at .*skills\. Run from the repository, or set CLAUDE_PROJECT_DIR to its root\.\n$/,
+    );
+  });
+
+  it("fails open with the fix, and no harness-fault note, when the root cannot be found", async () => {
+    const h = testHarness();
+    h.deps.root = () =>
+      Promise.reject(new CommandError('CLAUDE_PROJECT_DIR is "/nope".'));
+
+    expect(await run(["hook", "skill-links"], h.deps)).toBe(0);
+    expect(h.err()).toBe(
+      '[hook:skill-links] failed open: CLAUDE_PROJECT_DIR is "/nope".\n',
+    );
   });
 });
 
@@ -164,7 +179,9 @@ describe("hook dispatcher", () => {
 
     const code = await run(["hook", "nope"], h.deps);
 
-    expect(code).not.toBe(0);
+    // Exit 1, not the usage error 2: a PreToolUse hook that exits 2 blocks every
+    // tool call, so a typo in settings.json must never stop the session.
+    expect(code).toBe(1);
     expect(h.err()).toContain('Unknown command "nope" for domain "hook"');
     expect(h.err()).toContain("Commands: skill-links.");
   });
@@ -183,5 +200,12 @@ describe("hook skill-links on a file system that cannot read links", () => {
     expect(h.err()).toBe(
       "[hook:skill-links] failed open: This file system cannot read symbolic links; run the hook with the node file system, or give the injected one a readlink method.\n",
     );
+  });
+
+  it("exits 1, not 2, for an unknown flag or a missing hook name", async () => {
+    for (const argv of [["hook"], ["hook", "skill-links", "--nope"]]) {
+      const h = testHarness();
+      expect(await run(argv, h.deps)).toBe(1);
+    }
   });
 });

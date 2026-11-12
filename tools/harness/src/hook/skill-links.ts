@@ -8,7 +8,18 @@ import { CommandError, type FileSystem } from "../runtime/index.js";
 const HARNESSES = [".claude", ".codex"];
 
 async function skillNames(fs: FileSystem, root: string): Promise<string[]> {
-  const entries = await fs.readdir(join(root, "skills"));
+  const skillsDir = join(root, "skills");
+  let entries: string[];
+  try {
+    entries = await fs.readdir(skillsDir);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new CommandError(
+        `No skills directory at ${skillsDir}. Run from the repository, or set CLAUDE_PROJECT_DIR to its root.`,
+      );
+    }
+    throw error;
+  }
   const skills: string[] = [];
   for (const entry of entries) {
     if (await fs.exists(join(root, "skills", entry, "SKILL.md"))) {

@@ -124,7 +124,7 @@ async function resolveRoot(env, moduleUrl, exists) {
     if (await exists(join(fromEnv, PLANS))) {
       return fromEnv;
     }
-    throw new Error(
+    throw new CommandError(
       `CLAUDE_PROJECT_DIR is "${fromEnv}" but it has no ${PLANS}. Point it at the repository root or unset it.`
     );
   }
@@ -133,9 +133,21 @@ async function resolveRoot(env, moduleUrl, exists) {
   if (await exists(join(root2, PLANS))) {
     return root2;
   }
-  throw new Error(
+  throw new CommandError(
     `Cannot find the repo root: ${bundle} is not at <root>/skills/bin and CLAUDE_PROJECT_DIR is unset. Run the committed skills/bin/harness.mjs or set CLAUDE_PROJECT_DIR to the repository root.`
   );
+}
+
+// src/runtime/stdin.ts
+async function readStdin(stream) {
+  if (stream.isTTY === true) {
+    return "";
+  }
+  const parts = [];
+  for await (const chunk of stream) {
+    parts.push(Buffer.from(chunk));
+  }
+  return Buffer.concat(parts).toString("utf8");
 }
 
 // package.json
@@ -3701,7 +3713,18 @@ function hookCommand(name, summary, handler) {
 import { isAbsolute, join as join5 } from "node:path";
 var HARNESSES = [".claude", ".codex"];
 async function skillNames(fs, root2) {
-  const entries = await fs.readdir(join5(root2, "skills"));
+  const skillsDir = join5(root2, "skills");
+  let entries;
+  try {
+    entries = await fs.readdir(skillsDir);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      throw new CommandError(
+        `No skills directory at ${skillsDir}. Run from the repository, or set CLAUDE_PROJECT_DIR to its root.`
+      );
+    }
+    throw error;
+  }
   const skills = [];
   for (const entry of entries) {
     if (await fs.exists(join5(root2, "skills", entry, "SKILL.md"))) {
@@ -4753,13 +4776,13 @@ function usage() {
   return `${lines.join("\n")}
 `;
 }
-function fail2(deps, json, message) {
+function fail2(deps, json, message, code = USAGE_ERROR2) {
   const prefix = json ? `${JSON.stringify({ error: message })}
 ` : "";
   deps.stderr(`${prefix}${message}
 
 ${usage()}`);
-  return USAGE_ERROR2;
+  return code;
 }
 function own(table, key) {
   return Object.hasOwn(table, key) ? table[key] : void 0;
@@ -4861,13 +4884,14 @@ async function run(argv, deps) {
       `Put "${early}" after the command: harness <domain> <command> [flags].`
     );
   }
+  const failure2 = domain === "hook" ? FAILURE : USAGE_ERROR2;
   const resolved = resolve5(domain, name);
   if ("error" in resolved) {
-    return fail2(deps, json, resolved.error);
+    return fail2(deps, json, resolved.error, failure2);
   }
   const parsed = parseOptions(resolved.command, rest);
   if ("error" in parsed) {
-    return fail2(deps, json, parsed.error);
+    return fail2(deps, json, parsed.error, failure2);
   }
   return await execute(resolved.command, {
     json,
@@ -4888,13 +4912,7 @@ try {
     ids: systemIds,
     env: process.env,
     cwd: process.cwd(),
-    stdin: async () => {
-      const chunks = [];
-      for await (const chunk of process.stdin) {
-        chunks.push(Buffer.from(chunk));
-      }
-      return Buffer.concat(chunks).toString("utf8");
-    },
+    stdin: () => readStdin(process.stdin),
     root: () => root ??= resolveRoot(
       process.env,
       import.meta.url,

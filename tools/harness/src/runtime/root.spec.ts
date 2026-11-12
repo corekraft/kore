@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { CommandError } from "./errors.js";
 import { resolveRoot } from "./root.js";
 
 const exists = (dirs: string[]) => (path: string) =>
@@ -43,6 +44,19 @@ describe("resolveRoot", () => {
         exists(["/work/repo/infra/plans"]),
       ),
     ).rejects.toThrow(/CLAUDE_PROJECT_DIR.*\/nope.*infra\/plans/s);
+  });
+
+  it("fails with an expected error a hook can report, not a stack", async () => {
+    await expect(
+      resolveRoot(
+        { CLAUDE_PROJECT_DIR: "/nope" },
+        "file:///a/skills/bin/h.mjs",
+        exists([]),
+      ),
+    ).rejects.toBeInstanceOf(CommandError);
+    await expect(
+      resolveRoot({}, "file:///tmp/skills/bin/harness.mjs", exists([])),
+    ).rejects.toBeInstanceOf(CommandError);
   });
 
   it("fails naming the bundle location when the repo root cannot be found", async () => {
