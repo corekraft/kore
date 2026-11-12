@@ -21,4 +21,6 @@ description: Use before writing or changing any code or hook, including implemen
 - Is this the least code that makes the test pass?
 - Am I skipping a step because "it's too simple" or "I'll test after"? If so, go back to red.
 
+No step here is a tool: choosing the behavior to pin, judging whether a test would catch a break, and keeping the code minimal are judgement. Running the test file is the only mechanical part.
+
 Read [writing-good-tests.md](references/writing-good-tests.md) when writing tests, and [rationalizations.md](references/rationalizations.md) when tempted to skip a step.
