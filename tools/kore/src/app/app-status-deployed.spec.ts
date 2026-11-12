@@ -1,4 +1,5 @@
-import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
+import { list } from "../cluster/k3d-cluster.fixtures.js";
+import { loadRepository } from "../config/index.js";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -24,7 +25,7 @@ async function statusFor(options: {
   deployedDigest?: string | undefined;
   enrolled?: string;
 }) {
-  const base = await loadMinikubeLocal();
+  const base = await loadRepository("local");
   const root = await mkdtemp(join(tmpdir(), "kore-app-status-deployed-"));
   roots.push(root);
   const signer = options.signer ?? releaseSigner;
@@ -46,6 +47,9 @@ async function statusFor(options: {
   const calls: string[][] = [];
   const runner: Runner = {
     async run(command, args) {
+      if (command === "k3d") {
+        return { stdout: list(1), stderr: "", code: 0 };
+      }
       calls.push([command, ...args]);
       const ok = (stdout: string) => ({ stdout, stderr: "", code: 0 });
       if (command === "helm" && args[0] === "get") {

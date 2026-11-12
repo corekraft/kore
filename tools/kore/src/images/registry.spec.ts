@@ -48,11 +48,10 @@ test("local registry verification starts a host-side port forward", async () => 
 
   const reference = await localRegistryReference(
     {
-      kubeContext: "kore-local",
+      kubeContext: "k3d-kore-local",
       environment: {
-        provider: "minikube",
-        kubeContext: "kore-local",
-        cluster: { profile: "kore-local" },
+        provider: "k3d",
+        kubeContext: "k3d-kore-local",
       },
     } as never,
     runner,
@@ -80,7 +79,7 @@ test("local registry verification starts a host-side port forward", async () => 
   assert.equal(reference, "127.0.0.1:30500/reference@sha256:" + "a".repeat(64));
   assert.deepEqual(calls[0]!.args, [
     "--context",
-    "kore-local",
+    "k3d-kore-local",
     "--namespace",
     "kore-registry",
     "port-forward",
@@ -118,7 +117,7 @@ test("an already available local registry avoids starting another port forward",
   await expect(
     localRegistryReference(
       {
-        environment: { provider: "minikube", kubeContext: "kore-local" },
+        environment: { provider: "k3d", kubeContext: "k3d-kore-local" },
       } as never,
       {} as Runner,
       reference,
@@ -143,7 +142,7 @@ test("local registry setup reports when the port forward never becomes ready", a
     await expect(
       localRegistryReference(
         {
-          environment: { provider: "minikube", kubeContext: "kore-local" },
+          environment: { provider: "k3d", kubeContext: "k3d-kore-local" },
         } as never,
         {} as Runner,
         "registry.kore.local/reference:dev",
@@ -164,7 +163,7 @@ test("default local registry setup starts kubectl and waits for its port", async
   const child = { pid: 1234, unref: vi.fn() };
   spawnMock.mockReturnValue(child);
   const repository = {
-    environment: { provider: "minikube", kubeContext: "kore-local" },
+    environment: { provider: "k3d", kubeContext: "k3d-kore-local" },
   } as never;
 
   try {
@@ -179,7 +178,7 @@ test("default local registry setup starts kubectl and waits for its port", async
       "kubectl",
       [
         "--context",
-        "kore-local",
+        "k3d-kore-local",
         "--namespace",
         "kore-registry",
         "port-forward",
@@ -203,7 +202,7 @@ test("default local registry setup fails if kubectl cannot start", async () => {
     await expect(
       localRegistryReference(
         {
-          environment: { provider: "minikube", kubeContext: "kore-local" },
+          environment: { provider: "k3d", kubeContext: "k3d-kore-local" },
         } as never,
         {} as Runner,
         "registry.kore.local/reference:dev",

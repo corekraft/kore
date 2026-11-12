@@ -22,7 +22,7 @@ function assertLocalBuild(
     !publicKey
   ) {
     throw new Error(
-      `a source-built image is accepted only on a local (k3d or Minikube) environment, signed by ${localSigner}, from kore local up; got signer ${image.signer} on provider ${repository.environment.provider}. Deploy release images with kore app up --image-lock <release lock>`,
+      `a source-built image is accepted only on a local k3d environment, signed by ${localSigner}, from kore local up; got signer ${image.signer} on provider ${repository.environment.provider}. Deploy release images with kore app up --image-lock <release lock>`,
     );
   }
 }

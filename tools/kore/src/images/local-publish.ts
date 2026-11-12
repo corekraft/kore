@@ -1,11 +1,9 @@
 import type { Repository } from "../config/index.js";
-import { minikubeCluster } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import type { ImageLockEntry } from "./image-lock.js";
 import {
   imageDigestFromRegistryHead,
   k3dImagePublishArgs,
-  minikubeImagePublishArgs,
 } from "./local-image-args.js";
 import {
   loadRegistryCredential,
@@ -21,6 +19,28 @@ import { verifiedRegistryAddress } from "./registry-service.js";
 const manifestAccept =
   "application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json";
 
+/**
+ * The k3d settings a local image operation needs. A provider other than k3d is
+ * refused with the move to k3d; a k3d overlay without settings is told which
+ * setting to add.
+ */
+export function requireK3d(
+  repository: Repository,
+): NonNullable<Repository["environment"]["k3d"]> {
+  const { provider, k3d, name } = repository.environment;
+  if (provider !== "k3d") {
+    throw new Error(
+      `provider ${provider} is no longer a local provider; set environment.provider to k3d and add environment.k3d (ADR 0076)`,
+    );
+  }
+  if (k3d === undefined) {
+    throw new Error(
+      `environment ${name} is a k3d overlay without environment.k3d settings; add environment.k3d.clusterName`,
+    );
+  }
+  return k3d;
+}
+
 export interface PublishSession {
   credential: RegistryCredential;
   ca: string;
@@ -33,6 +53,7 @@ export async function withPublishSession<T>(
   runner: Runner,
   action: (session: PublishSession) => Promise<T>,
 ): Promise<T> {
+  requireK3d(repository); // fail fast, before any command runs
   const credential = await loadRegistryCredential(repository, runner, "push");
   const ca = await loadRegistryCa(repository, runner);
   return await withRegistryClient(credential, ca, (client) =>
@@ -43,8 +64,7 @@ export async function withPublishSession<T>(
 /**
  * Pushes the image `copy.tag` (already in the cluster's nodes) to
  * `<address>/<copy.target>` with the push identity, by the provider's
- * transport: the node's containerd client on k3d (ADR 0083), nerdctl over
- * Minikube's ssh otherwise (ADR 0034).
+ * transport: the node's containerd client through docker exec (ADR 0083).
  */
 export async function publishImageCopy(
   repository: Repository,
@@ -57,43 +77,22 @@ export async function publishImageCopy(
       `local registry has an invalid username; the push identity must be lowercase letters, digits and hyphens`,
     );
   }
-  if (repository.environment.provider === "k3d") {
-    const { k3d } = repository.environment;
-    if (k3d === undefined) {
-      throw new Error(
-        `environment ${repository.environment.name} is a k3d overlay without environment.k3d settings; add environment.k3d.clusterName so the image can be published`,
-      );
-    }
-    // The node reads base64(user:password) from stdin for its Basic header.
-    const basic = Buffer.from(
-      `${credential.username}:${credential.password}`,
-    ).toString("base64");
-    await withSecretsRedacted([credential.password, basic], () =>
-      runner.run(
-        "docker",
-        k3dImagePublishArgs(
-          k3d.clusterName,
-          copy.tag,
-          copy.address,
-          copy.target,
-          ca,
-        ),
-        { capture: true, input: `${basic}\n` },
-      ),
-    );
-    return;
-  }
-  await withSecretsRedacted([credential.password], () =>
+  const k3d = requireK3d(repository);
+  // The node reads base64(user:password) from stdin for its Basic header.
+  const basic = Buffer.from(
+    `${credential.username}:${credential.password}`,
+  ).toString("base64");
+  await withSecretsRedacted([credential.password, basic], () =>
     runner.run(
-      "minikube",
-      minikubeImagePublishArgs(
-        minikubeCluster(repository.environment).profile,
+      "docker",
+      k3dImagePublishArgs(
+        k3d.clusterName,
         copy.tag,
         copy.address,
         copy.target,
-        credential.username,
+        ca,
       ),
-      { capture: true, input: `${credential.password}\n` },
+      { capture: true, input: `${basic}\n` },
     ),
   );
 }

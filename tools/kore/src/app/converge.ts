@@ -10,7 +10,6 @@ import {
   resolveCharts,
 } from "./install.js";
 import { cleanupInterruptedReleases } from "./cleanup.js";
-import { stageLocalImage } from "./local-image.js";
 import {
   assertAppAdmissible,
   waitForResources,
@@ -37,7 +36,6 @@ export async function converge(
   // Applications are admitted only through an open gate for this generation.
   const generation = await assertAppAdmissible(repository, runner);
   await verifyImage(repository, runner, image, options.publicKey);
-  const workloadImage = await stageLocalImage(repository, runner, image);
   const charts = await resolveCharts(repository, name);
   await enrollNamespace(repository, runner, name);
   await activateNamespace(repository, runner, name, generation);
@@ -47,7 +45,7 @@ export async function converge(
   await waitForResources(repository, runner, name);
   const secretVersion = await waitForSecretSource(repository, runner, name);
   await installWorkload(repository, runner, name, charts, {
-    image: workloadImage,
+    image,
     ...(secretVersion ? { secretVersion } : {}),
   });
   await waitForRollouts(repository, runner, name);

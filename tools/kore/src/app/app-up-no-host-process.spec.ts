@@ -18,8 +18,8 @@ import {
 
 afterEach(removeReleaseLocks);
 
-// Docs: docs/decisions/0076-k3d-replaces-minikube.md
-test("app up runs no minikube tunnel and no ssh command", async () => {
+// Docs: docs/decisions/0085-k3d-gateway-answers-through-a-node-port.md
+test("app up runs no tunnel, no ssh and no docker exec", async () => {
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
   const repository = await repositoryTrustingRelease();
   const calls: Call[] = [];
@@ -32,7 +32,8 @@ test("app up runs no minikube tunnel and no ssh command", async () => {
     calls.filter(
       (c) =>
         c.command === "ssh" ||
-        (c.command === "minikube" && c.args[0] === "tunnel"),
+        c.args[0] === "tunnel" ||
+        (c.command === "docker" && c.args[0] === "exec"),
     ),
   ).toEqual([]);
 });

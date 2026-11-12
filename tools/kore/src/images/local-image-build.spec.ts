@@ -1,4 +1,4 @@
-import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
+import { loadRepository } from "../config/index.js";
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -38,7 +38,7 @@ async function testRepository(): Promise<Repository> {
     mkdtemp(join(tmpdir(), "kore-local-image-")),
   );
   roots.push(root);
-  const repository = await loadMinikubeLocal();
+  const repository = await loadRepository("local");
   return { ...repository, root };
 }
 

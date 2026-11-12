@@ -164,9 +164,7 @@ export async function installLocalTrust(
   options: { platform?: NodeJS.Platform } = {},
 ): Promise<void> {
   if (!isLocalProvider(repository.environment)) {
-    throw new Error(
-      "local CA trust is only valid for a local (k3d or Minikube) environment",
-    );
+    throw new Error("local CA trust is only valid for a local k3d environment");
   }
   await assertExpectedCluster(repository, runner);
   await ensureNamespaces(repository, runner);

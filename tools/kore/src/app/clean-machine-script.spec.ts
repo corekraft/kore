@@ -8,7 +8,7 @@ const script = new URL("../../scripts/clean-machine-e2e.sh", import.meta.url)
 
 test("the clean-machine end-to-end script does nothing unless explicitly opted in", async () => {
   // Without the opt-in the script exits before running any tool: no mise,
-  // kore, minikube or docker call, so this is safe in ordinary runs.
+  // kore, k3d or docker call, so this is safe in ordinary runs.
   const { stdout, stderr } = await promisify(execFile)("bash", [script], {
     env: { PATH: "/usr/bin:/bin" },
   });

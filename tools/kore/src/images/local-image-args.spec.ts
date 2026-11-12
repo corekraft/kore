@@ -2,19 +2,19 @@ import { expect, test } from "vitest";
 import {
   imageDigestFromRegistryHead,
   localSignArgs,
-  minikubeImagePublishArgs,
+  k3dImagePublishArgs,
 } from "./local-image-args.js";
 
 const digest = (char: string): string => `sha256:${char.repeat(64)}`;
 
 test("publishing refuses a registry address that is not an IPv4 ClusterIP", () => {
   expect(() =>
-    minikubeImagePublishArgs(
+    k3dImagePublishArgs(
       "p",
       "tag",
       "10.0.0.8:5000; rm -rf /",
       "repo:kore-local",
-      "kore-push",
+      "CA",
     ),
   ).toThrow(/invalid registry address/);
 });

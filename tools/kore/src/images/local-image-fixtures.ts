@@ -7,20 +7,20 @@ import type { Runner, RunOptions, RunResult } from "../runtime/index.js";
 
 export const digest = `sha256:${"d".repeat(64)}`;
 
-export const kubeContext = "kore-local";
+export const kubeContext = "k3d-kore-local";
 export const secretRef = "k8s://kore-system/kore-local-signing-key";
 export const minifiedKubeconfig = `apiVersion: v1
 kind: Config
-current-context: ${kubeContext}
+current-context: k3d-kore-local
 clusters:
-  - name: kore-local
-    cluster: {server: "https://192.168.49.2:8443", certificate-authority: /home/u/.minikube/ca.crt}
+  - name: k3d-kore-local
+    cluster: {server: "https://0.0.0.0:6443", certificate-authority-data: Q0E=}
 contexts:
-  - name: ${kubeContext}
-    context: {cluster: kore-local, user: kore-local}
+  - name: k3d-kore-local
+    context: {cluster: k3d-kore-local, user: admin@k3d-kore-local}
 users:
-  - name: kore-local
-    user: {client-certificate: /home/u/.minikube/client.crt, client-key: /home/u/.minikube/client.key}
+  - name: admin@k3d-kore-local
+    user: {client-certificate-data: Q0VSVA==, client-key-data: S0VZ}
 `;
 
 // The real cosign writes cosign.pub into its working directory.

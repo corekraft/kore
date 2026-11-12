@@ -67,7 +67,6 @@ test("k3d publishes through the node's containerd client with docker exec, and n
   );
 
   const commands = calls.map(({ command }) => command);
-  expect(commands).not.toContain("minikube");
   expect(commands).not.toContain("ssh");
   const publish = calls.find(
     (c) => c.command === "docker" && c.args[0] === "exec",

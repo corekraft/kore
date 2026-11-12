@@ -1,8 +1,8 @@
+import { loadRepository } from "../config/index.js";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { registryTlsSecret } from "../images/registry-tls-fixtures.js";
-import { loadMinikubeLocal } from "../config/minikube-local.fixtures.js";
 import { platformGeneration } from "../platform/admission-gate.js";
 import {
   gatedOffReleaseAbsent,
@@ -53,7 +53,9 @@ const registryCredentials = JSON.stringify({
 });
 
 /** The generation of the local repository, which a gate must carry to be current. */
-export const localGeneration = platformGeneration(await loadMinikubeLocal());
+export const localGeneration = platformGeneration(
+  await loadRepository("local"),
+);
 
 export function gateOutput(
   state: string,
@@ -116,6 +118,17 @@ export function releaseNotFound(
   }
 }
 
+/** What `k3d cluster list` answers while the local cluster runs. */
+const runningK3dList = JSON.stringify([
+  {
+    name: "kore-local",
+    serversCount: 1,
+    serversRunning: 1,
+    agentsCount: 0,
+    agentsRunning: 0,
+  },
+]);
+
 /** Records every call and answers like a healthy local cluster. */
 export function healthyRunner(
   calls: Call[],
@@ -133,6 +146,9 @@ export function healthyRunner(
       const readiness = healthyReadinessOutput(args);
       if (command === "kubectl" && readiness !== undefined) {
         return ok(readiness);
+      }
+      if (command === "k3d" && args[1] === "list") {
+        return ok(runningK3dList);
       }
       if (command === "helm" && args[0] === "status") {
         return ok('{"info":{"status":"deployed"}}');
@@ -207,8 +223,8 @@ export async function removeReleaseLocks(): Promise<void> {
  */
 export async function repositoryTrustingRelease(
   signer = releaseSigner,
-): ReturnType<typeof loadMinikubeLocal> {
-  const base = await loadMinikubeLocal();
+): ReturnType<typeof loadRepository> {
+  const base = await loadRepository("local");
   return {
     ...base,
     imageTrustValues: {
