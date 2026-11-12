@@ -3439,6 +3439,310 @@ var ideaCommands = {
   sync
 };
 
+// src/ruleset/declared.ts
+var RULE2 = "main-ruleset";
+var DECLARED_DIR = ".github/rulesets";
+var RulesetError = class extends Error {
+};
+function enforcementFor(mode) {
+  return mode === "audit" ? "evaluate" : "active";
+}
+function parseDeclared(path, text10) {
+  try {
+    const value = JSON.parse(text10);
+    if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+      const body = value;
+      if (typeof body["name"] === "string" && Array.isArray(body["rules"])) {
+        return body;
+      }
+    }
+  } catch {
+  }
+  throw new RulesetError(
+    `${path} must be a JSON object with a "name" and a "rules" list. Fix the file, then rerun.`
+  );
+}
+function covers(want, have) {
+  if (Array.isArray(want)) {
+    return Array.isArray(have) && want.length === have.length && want.every((w, i) => covers(w, have[i]));
+  }
+  if (typeof want === "object" && want !== null) {
+    const live = typeof have === "object" && have !== null ? have : {};
+    return Object.entries(want).every(([k, w]) => covers(w, live[k]));
+  }
+  return want === have;
+}
+function plan2(declared, mode, live) {
+  const enforcement = enforcementFor(mode);
+  const body = { ...declared, enforcement };
+  if (live === void 0) {
+    return { action: "create", enforcement, changed: [], body };
+  }
+  const changed = Object.entries(declared).filter(([key, want]) => !covers(want, live[key])).map(([key]) => key);
+  const from = typeof live["enforcement"] === "string" ? live["enforcement"] : "unknown";
+  const id = live["id"];
+  if (typeof id !== "number") {
+    throw new RulesetError(
+      `GitHub returned the live ruleset ${String(declared["name"])} without a numeric id, so it cannot be updated. Check it in the repository settings, then rerun.`
+    );
+  }
+  const action = changed.length === 0 && from === enforcement ? "none" : "update";
+  return { action, id, from, enforcement, changed, body };
+}
+
+// src/ruleset/github.ts
+var PAGE2 = 100;
+var GitHubRulesets = class {
+  constructor(runner, repo) {
+    this.runner = runner;
+    this.repo = repo;
+  }
+  runner;
+  repo;
+  async gh(args, input) {
+    const result = await this.runner.run(
+      "gh",
+      args,
+      input === void 0 ? {} : { input }
+    );
+    if (result.code !== 0) {
+      throw new RulesetError(
+        `gh ${args.join(" ")} failed: ${result.stderr.trim() || `exit ${result.code}`}. Check \`gh auth status\` and that you may administer ${this.repo}.`
+      );
+    }
+    try {
+      return result.stdout.trim() === "" ? {} : JSON.parse(result.stdout);
+    } catch {
+      throw new RulesetError(
+        `gh ${args.join(" ")} did not return JSON: ${result.stdout.slice(0, 80)}`
+      );
+    }
+  }
+  /** The live ruleset with this name, in full, or undefined when GitHub has none. */
+  async list(args) {
+    const value = await this.gh(args);
+    if (!Array.isArray(value)) {
+      throw new RulesetError(
+        `gh ${args.join(" ")} did not return a list. Check that ${this.repo} is an owner/name repository you can read.`
+      );
+    }
+    return value;
+  }
+  async find(name) {
+    const list3 = await this.list(["api", `repos/${this.repo}/rulesets`]);
+    const hit = list3.find((r) => r["name"] === name);
+    return hit === void 0 ? void 0 : await this.gh([
+      "api",
+      `repos/${this.repo}/rulesets/${String(hit["id"])}`
+    ]);
+  }
+  /** The only mutations: a create or an update of one ruleset. */
+  async save(id, body) {
+    const [method, path] = id === void 0 ? ["POST", `repos/${this.repo}/rulesets`] : ["PUT", `repos/${this.repo}/rulesets/${String(id)}`];
+    await this.gh(
+      ["api", "-X", method, path, "--input", "-"],
+      JSON.stringify(body)
+    );
+  }
+  async suites(period) {
+    return await this.list([
+      "api",
+      `repos/${this.repo}/rulesets/rule-suites?time_period=${period}&per_page=${String(PAGE2)}`
+    ]);
+  }
+  async suite(id) {
+    return await this.gh([
+      "api",
+      `repos/${this.repo}/rulesets/rule-suites/${String(id)}`
+    ]);
+  }
+};
+
+// src/ruleset/insights.ts
+var PERIODS = ["hour", "day", "week", "month"];
+async function summarize(github, repo, target, targetId, timePeriod) {
+  const suites = await github.suites(timePeriod);
+  const failing = suites.filter((s) => s["evaluation_result"] === "fail");
+  const byRule = {};
+  const actors = /* @__PURE__ */ new Set();
+  let firings = 0;
+  for (const suite of failing) {
+    const detail2 = await github.suite(suite["id"]);
+    const fired = (detail2["rule_evaluations"] ?? []).filter((e) => {
+      const source = e["rule_source"];
+      return e["enforcement"] === "evaluate" && e["result"] === "fail" && (targetId === void 0 ? source?.["name"] === target : source?.["id"] === targetId);
+    }).map((e) => e["rule_type"]);
+    if (fired.length === 0) {
+      continue;
+    }
+    firings += 1;
+    for (const type of new Set(fired)) {
+      byRule[type] = (byRule[type] ?? 0) + 1;
+    }
+    if (typeof suite["actor_name"] === "string") {
+      actors.add(suite["actor_name"]);
+    }
+  }
+  return {
+    repo,
+    target,
+    timePeriod,
+    suites: suites.length,
+    firings,
+    byRule,
+    actors: [...actors].sort(),
+    truncated: suites.length >= PAGE2
+  };
+}
+
+// src/ruleset/commands.ts
+var FAILED2 = 1;
+async function guarded2({ json, deps }, action) {
+  try {
+    return await action();
+  } catch (error) {
+    if (!(error instanceof RulesetError || error instanceof GuardrailError)) {
+      throw error;
+    }
+    deps.stderr(
+      json ? `${JSON.stringify({ error: error.message })}
+` : `${error.message}
+`
+    );
+    return FAILED2;
+  }
+}
+function required(context2, key, meaning) {
+  const value = context2.options[key];
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new RulesetError(
+      `Missing --${key}: a ruleset change names its ${meaning} explicitly, never a default. Rerun with --${key} <value>.`
+    );
+  }
+  return value.trim();
+}
+function destination(context2) {
+  return {
+    repo: required(
+      context2,
+      "repo",
+      "repository, as owner/name, the environment"
+    ),
+    target: required(context2, "target", "ruleset, by name, the target")
+  };
+}
+async function declaredBody(context2, target) {
+  const base = await context2.deps.root();
+  const path = `${DECLARED_DIR}/${target}.json`;
+  let text10;
+  try {
+    text10 = await context2.deps.fs.readFile(`${base}/${path}`);
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
+    throw new RulesetError(
+      `The repository declares no ruleset "${target}" (no ${path}); it declares the rulesets under ${DECLARED_DIR}, such as main. Check --target.`
+    );
+  }
+  return { base, body: parseDeclared(path, text10) };
+}
+async function syncRuleset(context2) {
+  const { deps, json } = context2;
+  const { repo, target } = destination(context2);
+  const dryRun = context2.options["dry-run"] === true;
+  const { base, body } = await declaredBody(context2, target);
+  const inventory = await readInventory((p) => deps.fs.readFile(p), base);
+  if (!inventory.guardrails.some((g) => g.rule === RULE2)) {
+    throw new RulesetError(
+      `The guardrail inventory has no ${RULE2} rule, so the ruleset's mode is undeclared. Add it to .claude/guardrails.yaml, then rerun.`
+    );
+  }
+  const github = new GitHubRulesets(deps.runner, repo);
+  const planned = plan2(
+    body,
+    modeOf(inventory, RULE2),
+    await github.find(target)
+  );
+  const report3 = { repo, target, dryRun, ...planned, body: void 0 };
+  const move = planned.from === void 0 ? `create as ${planned.enforcement}` : `${planned.from} -> ${planned.enforcement}`;
+  if (planned.action === "none") {
+    deps.stdout(
+      json ? `${JSON.stringify(report3)}
+` : `Ruleset ${target} in ${repo}: no change; already ${planned.enforcement}.
+`
+    );
+    return 0;
+  }
+  if (!dryRun && context2.options["confirm"] !== true) {
+    throw new RulesetError(
+      `Ruleset ${target} in ${repo} would change (${move}), but nothing was sent. Changing the live ruleset needs the operator's confirmation first: preview with --dry-run, then rerun with --confirm once the operator agrees.`
+    );
+  }
+  if (!dryRun) {
+    await github.save(planned.id, planned.body);
+  }
+  const fields = planned.changed.length > 0 ? ` (also: ${planned.changed.join(", ")})` : "";
+  const verb = dryRun ? `Dry run, nothing changed. Ruleset ${target} in ${repo} would change` : `Ruleset ${target} in ${repo} changed`;
+  deps.stdout(
+    json ? `${JSON.stringify(report3)}
+` : `${verb}: ${move}${fields}.
+`
+  );
+  return 0;
+}
+async function ruleInsights(context2) {
+  const { deps, json } = context2;
+  const { repo, target } = destination(context2);
+  const given = context2.options["time-period"];
+  const period = typeof given === "string" ? given : "week";
+  if (!PERIODS.includes(period)) {
+    throw new RulesetError(
+      `--time-period ${period} is not one of ${PERIODS.join(", ")}.`
+    );
+  }
+  const github = new GitHubRulesets(deps.runner, repo);
+  const live = await github.find(target);
+  const result = await summarize(
+    github,
+    repo,
+    target,
+    typeof live?.["id"] === "number" ? live["id"] : void 0,
+    period
+  );
+  if (json) {
+    deps.stdout(`${JSON.stringify(result)}
+`);
+    return 0;
+  }
+  const rules2 = Object.entries(result.byRule).map(
+    ([rule, count3]) => `  ${rule}	${count3}
+`
+  );
+  deps.stdout(
+    `Ruleset ${target} in ${repo}, last ${period}: ${result.firings} evaluate firings in ${result.suites} rule suites.
+${rules2.join("")}${result.actors.length > 0 ? `Actors: ${result.actors.join(", ")}
+` : ""}${result.truncated ? "Truncated: more suites exist than one page; narrow --time-period.\n" : ""}`
+  );
+  return 0;
+}
+var sync2 = {
+  summary: "sync a repository ruleset from .github/rulesets/<target>.json: the main-ruleset inventory mode sets enforcement (audit -> evaluate, enforce -> active); --dry-run shows the plan and mutates nothing; a live change needs --confirm after the operator agrees (--repo <owner/name> --target <name> [--dry-run] [--confirm])",
+  options: {
+    repo: "string",
+    target: "string",
+    "dry-run": "boolean",
+    confirm: "boolean"
+  },
+  run: (context2) => guarded2(context2, () => syncRuleset(context2))
+};
+var insights = {
+  summary: "summarize what an evaluate-mode ruleset would have blocked, by rule, from GitHub's rule-suite insights; read-only, for the activation request (--repo <owner/name> --target <name> [--time-period hour|day|week|month])",
+  options: { repo: "string", target: "string", "time-period": "string" },
+  run: (context2) => guarded2(context2, () => ruleInsights(context2))
+};
+var rulesetCommands = { sync: sync2, insights };
+
 // src/challenge/model.ts
 var MAX_ROUNDS = 2;
 var MARKER = /^<!-- harness-challenge idea=(\d{4}) round=(\d+) -->$/;
@@ -3623,7 +3927,7 @@ async function challengeIdea(ctx, ref, objections) {
 }
 
 // src/cli/challenge-commands.ts
-var FAILED2 = 1;
+var FAILED3 = 1;
 function text3(options, key) {
   const value = options[key];
   return typeof value === "string" ? value : void 0;
@@ -3711,7 +4015,7 @@ var challenge = {
 ` : ""}${error.message}
 `
       );
-      return FAILED2;
+      return FAILED3;
     }
   }
 };
@@ -3864,12 +4168,12 @@ function unprovenLine(u) {
 }
 
 // src/cli/flag-commands.ts
-var FAILED3 = 1;
+var FAILED4 = 1;
 function text4(options, key) {
   const value = options[key];
   return typeof value === "string" && value.trim() !== "" ? value.trim() : void 0;
 }
-async function guarded2({ json, deps }, action) {
+async function guarded3({ json, deps }, action) {
   try {
     return await action();
   } catch (error) {
@@ -3880,7 +4184,7 @@ async function guarded2({ json, deps }, action) {
 ` : "";
     deps.stderr(`${prefix}${error.message}
 `);
-    return FAILED3;
+    return FAILED4;
   }
 }
 async function root(context2) {
@@ -3984,17 +4288,17 @@ async function auditFlags(context2) {
 ` : `${lines3.join("\n")}
 `
   );
-  return FAILED3;
+  return FAILED4;
 }
 var activate = {
   summary: "turn a flag on in an environment overlay, only when a confirmed live-run verification outcome names that flag and environment; records a flag.activated ledger event (<flag> --environment <env> [--ledger])",
   operand: "flag",
   options: { environment: "string", ledger: "string" },
-  run: (context2) => guarded2(context2, () => activateFlag(context2))
+  run: (context2) => guarded3(context2, () => activateFlag(context2))
 };
 var audit = {
   summary: "fail when any flag in any environment overlay is on without a confirmed live-run verification outcome; kb-check reports it as a warning (audit mode, ADR 0080)",
-  run: (context2) => guarded2(context2, () => auditFlags(context2))
+  run: (context2) => guarded3(context2, () => auditFlags(context2))
 };
 var flagCommands = { activate, audit };
 
@@ -4143,15 +4447,15 @@ async function readPlans(deps) {
 }
 
 // src/plan/active.ts
-function describe5(plan2) {
-  const open2 = plan2.open.map((o) => `${o.step} (${o.count})`).join(", ");
-  const lines3 = [`${plan2.file}${plan2.default ? " (default)" : ""}`];
+function describe5(plan3) {
+  const open2 = plan3.open.map((o) => `${o.step} (${o.count})`).join(", ");
+  const lines3 = [`${plan3.file}${plan3.default ? " (default)" : ""}`];
   lines3.push(`  Open items: ${open2 || "none"}`);
-  if (plan2.next) {
-    lines3.push(`  Next (${plan2.next.step}): ${plan2.next.text}`);
+  if (plan3.next) {
+    lines3.push(`  Next (${plan3.next.step}): ${plan3.next.text}`);
   }
-  if (plan2.upcoming.length > 0) {
-    lines3.push(`  Upcoming: ${plan2.upcoming.join("; ")}`);
+  if (plan3.upcoming.length > 0) {
+    lines3.push(`  Upcoming: ${plan3.upcoming.join("; ")}`);
   }
   return lines3.join("\n");
 }
@@ -4173,7 +4477,7 @@ var planActive = {
   summary: "list the active plans, flagging the default (highest-numbered)",
   async run({ json, deps }) {
     const listed = await readActivePlans(deps);
-    const names3 = listed.map((plan2) => plan2.name);
+    const names3 = listed.map((plan3) => plan3.name);
     if (json) {
       deps.stdout(
         `${JSON.stringify({ default: names3[0] ?? null, plans: listed })}
@@ -4348,7 +4652,7 @@ var planNext = {
   options: { plan: "string", text: "string", "dry-run": "boolean" },
   async run({ json, deps, options }) {
     const raw = options["text"];
-    const plan2 = options["plan"];
+    const plan3 = options["plan"];
     const text10 = typeof raw === "string" ? normalize(raw) : "";
     if (text10 === "") {
       throw new CommandError(
@@ -4356,7 +4660,7 @@ var planNext = {
       );
     }
     return await write(deps, json, {
-      planOption: typeof plan2 === "string" ? plan2 : void 0,
+      planOption: typeof plan3 === "string" ? plan3 : void 0,
       dryRun: options["dry-run"] === true,
       headline: (file, dry) => `${dry ? "Would set" : "Set"} Next: in ${file}`,
       edits: (lines3, markdown) => withInsertion(
@@ -4372,9 +4676,9 @@ var planClearNext = {
   summary: "remove the Next: line ([--plan N] [--dry-run]) and report every changed line",
   options: { plan: "string", "dry-run": "boolean" },
   async run({ json, deps, options }) {
-    const plan2 = options["plan"];
+    const plan3 = options["plan"];
     return await write(deps, json, {
-      planOption: typeof plan2 === "string" ? plan2 : void 0,
+      planOption: typeof plan3 === "string" ? plan3 : void 0,
       dryRun: options["dry-run"] === true,
       headline: (file, dry) => `${dry ? "Would clear" : "Cleared"} Next: in ${file}`,
       edits: (lines3) => removals(lines3),
@@ -4696,7 +5000,7 @@ var planTick = {
   options: { plan: "string", item: "string", "dry-run": "boolean" },
   async run({ json, deps, options }) {
     const item = options["item"];
-    const plan2 = options["plan"];
+    const plan3 = options["plan"];
     if (typeof item !== "string" || item.trim() === "") {
       throw new CommandError(
         'Missing --item "<text>": say which open item to tick.'
@@ -4706,7 +5010,7 @@ var planTick = {
       deps,
       json,
       item,
-      typeof plan2 === "string" ? plan2 : void 0,
+      typeof plan3 === "string" ? plan3 : void 0,
       options["dry-run"] === true
     );
   }
@@ -4769,7 +5073,7 @@ var statusCommand = {
       return 0;
     }
     const lines3 = status2.plans.map(
-      (plan2) => `${plan2.file}: ${plan2.open.map((o) => `${o.step} (${o.count})`).join(", ") || "no open items"}`
+      (plan3) => `${plan3.file}: ${plan3.open.map((o) => `${o.step} (${o.count})`).join(", ") || "no open items"}`
     );
     lines3.push(
       `Ideas: ${Object.entries(status2.ideas.byState).map(([state, count3]) => `${count3} ${state}`).join(", ") || "none"}`
@@ -5233,7 +5537,7 @@ ${report3.declaration.reason ?? ""}
 }
 
 // src/cli/judge-commands.ts
-var FAILED4 = 1;
+var FAILED5 = 1;
 var USAGE = "Run `harness judge precheck <pr> [--json] [--reviewer <login>[,<login>]]`.";
 function prNumber(operand) {
   if (operand === void 0 || !/^\d+$/.test(operand) || Number(operand) < 1) {
@@ -5289,7 +5593,7 @@ async function runPrecheck(context2) {
     deps.stdout(json ? `${JSON.stringify(report3)}
 ` : summary(report3));
     await record2(context2, report3);
-    return report3.ok ? 0 : FAILED4;
+    return report3.ok ? 0 : FAILED5;
   } catch (error) {
     if (!(error instanceof JudgeError)) {
       throw error;
@@ -5299,7 +5603,7 @@ async function runPrecheck(context2) {
 ` : ""}${error.message}
 `
     );
-    return FAILED4;
+    return FAILED5;
   }
 }
 var precheckCommand = {
@@ -5591,12 +5895,12 @@ async function closeOutcome(ctx, ref) {
 }
 
 // src/cli/outcome-commands.ts
-var FAILED5 = 1;
+var FAILED6 = 1;
 function text7(options, key) {
   const value = options[key];
   return typeof value === "string" ? value : void 0;
 }
-async function guarded3({ json, deps }, action) {
+async function guarded4({ json, deps }, action) {
   try {
     await action();
     return 0;
@@ -5608,7 +5912,7 @@ async function guarded3({ json, deps }, action) {
 ` : "";
     deps.stderr(`${prefix}${error.message}
 `);
-    return FAILED5;
+    return FAILED6;
   }
 }
 function ideaRef(context2, verb) {
@@ -5690,14 +5994,14 @@ var record3 = {
     ledger: "string"
   },
   run(context2) {
-    return guarded3(context2, () => conclusion(context2, "record"));
+    return guarded4(context2, () => conclusion(context2, "record"));
   }
 };
 var close = {
   summary: "finish closing an idea whose outcome is recorded (comment, one outcome:* label, close); refused with no gh call when no outcome is recorded (--idea [--ledger])",
   options: { idea: "string", ledger: "string" },
   run(context2) {
-    return guarded3(context2, () => conclusion(context2, "close"));
+    return guarded4(context2, () => conclusion(context2, "close"));
   }
 };
 var outcomeCommands = { record: record3, close };
@@ -5707,6 +6011,7 @@ var records = {
   idea: { ...ideaCommands, challenge },
   outcome: outcomeCommands,
   flag: flagCommands,
+  ruleset: rulesetCommands,
   // `harness status`: the one command of its domain, so it takes no command word.
   status: { "": statusCommand },
   judge: judgeCommands
@@ -6821,15 +7126,15 @@ async function checkWrite(tool, input, relative3, ctx) {
     return applyMode(appendOnlyWarn(relative3), ctx) ?? allow;
   }
   const ideaOutcome = IDEA_PATH.test(relative3) && HAND_WRITTEN_OUTCOME.test(written(tool, input)) ? ideaOutcomeWarn(relative3) : null;
-  const guarded4 = await guardedChange(tool, input, relative3, ctx);
+  const guarded5 = await guardedChange(tool, input, relative3, ctx);
   const findings2 = [
     await checkFlagOn(tool, input, relative3, ctx),
     ideaOutcome,
     await checkSopsPath(tool, input, relative3, ctx),
     await checkCoverageThreshold(tool, input, relative3, ctx),
     checkImageDigest(tool, input, relative3),
-    checkGuardrailDemotion(relative3, guarded4.previous, guarded4.after),
-    checkSettingsDenyRemoval(relative3, guarded4.previous, guarded4.after, ctx)
+    checkGuardrailDemotion(relative3, guarded5.previous, guarded5.after),
+    checkSettingsDenyRemoval(relative3, guarded5.previous, guarded5.after, ctx)
   ];
   return weigh(findings2.map((finding2) => applyMode(finding2, ctx)));
 }
@@ -7829,9 +8134,9 @@ function environmentLines(journals) {
 async function brief(event, deps) {
   const plans = await deps.readPlans();
   const lines3 = [];
-  for (const plan2 of activePlans(plans)) {
-    const markdown = plans[plan2] ?? "";
-    lines3.push(`Session brief from ${PLANS_DIR2}/${plan2}:`);
+  for (const plan3 of activePlans(plans)) {
+    const markdown = plans[plan3] ?? "";
+    lines3.push(`Session brief from ${PLANS_DIR2}/${plan3}:`);
     const counts = openCounts(markdown).map(({ step, count: count3 }) => `${step} (${count3})`).join(", ");
     if (counts) {
       lines3.push(`Open items: ${counts}.`);
@@ -7868,11 +8173,11 @@ async function restore(event, deps) {
     ...rules(await deps.readAgents())
   ];
   const plans = await deps.readPlans();
-  for (const plan2 of activePlans(plans)) {
+  for (const plan3 of activePlans(plans)) {
     sections.push(
       "",
-      `Open plan items in ${PLANS_DIR2}/${plan2}:`,
-      ...openItems(plans[plan2] ?? "")
+      `Open plan items in ${PLANS_DIR2}/${plan3}:`,
+      ...openItems(plans[plan3] ?? "")
     );
   }
   return sections.join("\n");
@@ -8158,8 +8463,8 @@ function operationLine(environment, operation) {
 }
 function planLines(before2, after) {
   const lines3 = [];
-  for (const [plan2, items2] of Object.entries(after.plans)) {
-    const old = before2.plans[plan2];
+  for (const [plan3, items2] of Object.entries(after.plans)) {
+    const old = before2.plans[plan3];
     const ticked = [];
     const added = [];
     for (const [title, checked] of Object.entries(items2)) {
@@ -8172,10 +8477,10 @@ function planLines(before2, after) {
       }
     }
     if (ticked.length > 0) {
-      lines3.push(`${plan2} ticked: ${ticked.join("; ")}`);
+      lines3.push(`${plan3} ticked: ${ticked.join("; ")}`);
     }
     if (added.length > 0) {
-      lines3.push(`${plan2} added: ${added.join("; ")}`);
+      lines3.push(`${plan3} added: ${added.join("; ")}`);
     }
   }
   return lines3;
@@ -8912,10 +9217,10 @@ function checkFrontmatter(file, markdown, exists) {
     ];
   }
   const adr = ADR.test(file);
-  const required = adr ? ["status", "date", "summary", "last-verified"] : ["status", "summary", "last-verified"];
+  const required2 = adr ? ["status", "date", "summary", "last-verified"] : ["status", "summary", "last-verified"];
   const { keys } = parsed;
   if (adr && keys.get("status")?.value === "superseded") {
-    required.push("superseded-by");
+    required2.push("superseded-by");
   }
   const problems = [...parsed.errors, ...valueProblems(file, keys, adr)];
   const replacement = keys.get("superseded-by");
@@ -8930,7 +9235,7 @@ function checkFrontmatter(file, markdown, exists) {
     );
   }
   problems.sort((a, b) => a.line - b.line);
-  for (const key of required) {
+  for (const key of required2) {
     if (!keys.has(key)) {
       problems.push(
         finding(file, 1, `frontmatter ${key} is missing`, `add a ${key}: line`)
@@ -9890,7 +10195,7 @@ function sessionNameError(name) {
 
 // src/session/output.ts
 var USAGE_ERROR = 2;
-var FAILED6 = 1;
+var FAILED7 = 1;
 function fail3(deps, json, code, message) {
   deps.stderr(
     `${json ? `${JSON.stringify({ error: message })}
@@ -10078,7 +10383,7 @@ async function close2(context2) {
   }
   const callerPane = deps.env.HERDR_PANE_ID;
   if (deps.env.HERDR_ENV !== "1" || !callerPane) {
-    return fail3(deps, json, FAILED6, NOT_IN_HERDR);
+    return fail3(deps, json, FAILED7, NOT_IN_HERDR);
   }
   const registry = await SessionRegistry.open(deps);
   const record5 = await registry.read(name);
@@ -10086,13 +10391,13 @@ async function close2(context2) {
     return fail3(
       deps,
       json,
-      FAILED6,
+      FAILED7,
       `This tool did not create a session named ${name}, so it will not close one. Close it yourself with \`herdr pane close <pane-id>\` if you are sure.`
     );
   }
   const refusal = refuse(record5, callerPane);
   if (refusal !== void 0) {
-    return fail3(deps, json, FAILED6, refusal);
+    return fail3(deps, json, FAILED7, refusal);
   }
   const closed = await deps.runner.run("herdr", [
     "pane",
@@ -10103,7 +10408,7 @@ async function close2(context2) {
     return fail3(
       deps,
       json,
-      FAILED6,
+      FAILED7,
       `herdr pane close ${record5.paneId} failed: ${describeFailure(closed)}`
     );
   }
@@ -10407,13 +10712,13 @@ async function wait(context2) {
     return fail3(
       deps,
       json,
-      FAILED6,
+      FAILED7,
       `No session named ${name} was spawned by this tool; start it with \`session spawn\`.`
     );
   }
   const result = await waitForResult(deps, registry, record5, timeout);
   if ("error" in result) {
-    return fail3(deps, json, FAILED6, result.error);
+    return fail3(deps, json, FAILED7, result.error);
   }
   deps.stdout(json ? `${JSON.stringify(result)}
 ` : formatWait(result));
@@ -10427,13 +10732,13 @@ function herdrCaller(deps) {
   if (deps.env.HERDR_ENV !== "1") {
     return {
       error: "Not inside Herdr (HERDR_ENV is not 1). Run this from a Herdr pane; no session was started.",
-      code: FAILED6
+      code: FAILED7
     };
   }
   if (callerPane === void 0 || callerPane === "") {
     return {
       error: "HERDR_PANE_ID is not set, so the session cannot broadcast back. Run this from a Herdr pane.",
-      code: FAILED6
+      code: FAILED7
     };
   }
   return callerPane;
@@ -10527,7 +10832,7 @@ async function finish2({ json, deps, options }, { registry, record: record5, mod
   }
   const result = await waitForResult(deps, registry, record5, timeoutMs);
   if ("error" in result) {
-    return fail3(deps, json, FAILED6, result.error);
+    return fail3(deps, json, FAILED7, result.error);
   }
   deps.stdout(
     json ? `${JSON.stringify({ ...result, role, effort, ...extra, modelCheck })}
@@ -10591,20 +10896,20 @@ async function spawn2(context2) {
   const registry = await SessionRegistry.open(deps);
   const taken = await registry.unavailable(name) ?? await nameTakenError(deps, name);
   if (taken !== void 0) {
-    return fail3(deps, json, FAILED6, taken);
+    return fail3(deps, json, FAILED7, taken);
   }
   const placed = await place(deps, context2.options, name);
   if ("error" in placed) {
-    return fail3(deps, json, FAILED6, placed.error);
+    return fail3(deps, json, FAILED7, placed.error);
   }
   const paneId = await splitPane(deps, callerPane, placed.cwd);
   if (typeof paneId !== "string") {
-    return fail3(deps, json, FAILED6, `${paneId.error}${placed.left}`);
+    return fail3(deps, json, FAILED7, `${paneId.error}${placed.left}`);
   }
   const leftOpen = `The pane ${paneId} was left open; close it with \`herdr pane close ${paneId}\`.${placed.left}`;
   const equalized = await equalize(deps.runner, callerPane);
   if (equalized.status === "failed") {
-    return fail3(deps, json, FAILED6, `${equalized.reason}. ${leftOpen}`);
+    return fail3(deps, json, FAILED7, `${equalized.reason}. ${leftOpen}`);
   }
   const modelCheck = await launch(deps, {
     ...checked.values,
@@ -10613,7 +10918,7 @@ async function spawn2(context2) {
     leftOpen
   });
   if ("error" in modelCheck) {
-    return fail3(deps, json, FAILED6, modelCheck.error);
+    return fail3(deps, json, FAILED7, modelCheck.error);
   }
   return await finish2(context2, {
     registry,
