@@ -37,6 +37,7 @@ export function planHarness(files: Record<string, string>) {
             ),
     },
     ids: { next: () => "id-1" },
+    stdin: () => Promise.resolve(""),
     env: {},
     cwd: ROOT,
     root: () => Promise.resolve(ROOT),
