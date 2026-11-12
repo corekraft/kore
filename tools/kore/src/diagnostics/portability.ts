@@ -8,8 +8,21 @@ export interface PortabilityReport {
   applications: string[];
 }
 
-const providerSpecific =
-  /\b(?:minikube|k3d|k3s|eks|gke|aks|azure|aws|gcp)\b|\blocal-path\b/i;
+/**
+ * Provider names match as values: k3d, k3s and local_path as standalone tokens
+ * (underscore forms included), local-path only as the rancher.io provisioner or
+ * a storageClassName or provisioner value, so cache-local-path and
+ * /data/local-path/ stay neutral.
+ */
+const providerSpecific = new RegExp(
+  [
+    String.raw`\b(?:minikube|eks|gke|aks|azure|aws|gcp)\b`,
+    String.raw`(?<![a-z0-9])(?:k3d|k3s|local_path)(?![a-z0-9])`,
+    String.raw`rancher\.io/local-path`,
+    String.raw`\b(?:storageClassName|provisioner)\s*:\s*["']?local-path(?![\w-])`,
+  ].join("|"),
+  "i",
+);
 const providerHint =
   "move provider names into the environment overlay; applications stay provider-neutral";
 const environmentOverlay =

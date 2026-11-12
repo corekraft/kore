@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vitest";
@@ -182,27 +182,68 @@ for (const name of ["k3d", "k3s", "local-path"]) {
   });
 }
 
-test("portability validation does not flag k3d names in platform or environment manifests", async () => {
+test("portability validation scans only apps/ and reads nothing outside it", async () => {
   const root = await applicationRoot(
-    "kore-k3d-env-",
+    "kore-provider-scope-",
     "kind: Deployment\nmetadata:\n  name: example\n",
   );
-  await mkdir(join(root, "infra/environments/local"), { recursive: true });
-  await mkdir(join(root, "infra/platform"), { recursive: true });
+  const infra = join(root, "infra");
+  await mkdir(join(infra, "environments/local"), { recursive: true });
   await writeFile(
-    join(root, "infra/environments/local/storage.yaml"),
+    join(infra, "environments/local/storage.yaml"),
     "provisioner: rancher.io/local-path\ncluster: k3d-kore\nimage: rancher/k3s\n",
   );
-  await writeFile(
-    join(root, "infra/platform/storage.yaml"),
-    "storageClassName: local-path\n",
-  );
-  const repository = await loadRepository("managed-example");
+  // An unreadable infra/ proves no file outside apps/ is read.
+  await chmod(infra, 0o000);
+  try {
+    const repository = await loadRepository("managed-example");
 
-  const result = await validatePortability(
-    { ...repository, root },
-    fakeRunner().runner,
-  );
+    const result = await validatePortability(
+      { ...repository, root },
+      fakeRunner().runner,
+    );
 
-  assert.deepEqual(result.applications, ["example"]);
+    assert.deepEqual(result.applications, ["example"]);
+  } finally {
+    await chmod(infra, 0o755);
+  }
 });
+
+const flaggedValues = [
+  "provisioner: rancher.io/local-path",
+  "storageClassName: local-path",
+  "image: rancher/k3s:v1",
+  "cluster: k3d-kore",
+  "token: ${k3s_token}",
+  "path: local_path",
+];
+const neutralValues = [
+  "cache-local-path: enabled",
+  "mountPath: /data/local-path/cache",
+];
+
+for (const value of flaggedValues) {
+  test(`portability validation flags the provider value ${value}`, async () => {
+    const root = await applicationRoot("kore-provider-", `${value}\n`);
+    const repository = await loadRepository("managed-example");
+
+    await assert.rejects(
+      validatePortability({ ...repository, root }, fakeRunner().runner),
+      /provider-specific/,
+    );
+  });
+}
+
+for (const value of neutralValues) {
+  test(`portability validation accepts the neutral value ${value}`, async () => {
+    const root = await applicationRoot("kore-provider-", `${value}\n`);
+    const repository = await loadRepository("managed-example");
+
+    const result = await validatePortability(
+      { ...repository, root },
+      fakeRunner().runner,
+    );
+
+    assert.deepEqual(result.applications, ["example"]);
+  });
+}
