@@ -174,4 +174,13 @@ crd/fakes.generators.external-secrets.io --timeout=3s` missed it under load.
   Targeted fix: that one wait retries once at 15s, only when kubectl reports a
   timeout. The broader fix is PR #119 (probe and status-wait tolerance), which
   stays unmerged.
+- Run 8 (existing profile, resumed after the failed fresh run above): `kore local up`
+  converged in 631s, exit 0. This is the only passing rerun so far.
+- Run 9 (fresh profile, 2679s, load 20-30 with 15-40% idle CPU, then a spike to
+  186 for ten minutes): k3s exited with `Transaction commit failed` from kine
+  (embedded SQLite) at the end of the install, after 146 "Slow SQL" lines, and
+  Docker restarted it. `kore local up` then failed on the `reference-db` wait
+  because the API vanished. This is the second kine crash during a fresh
+  install, so the etcd decision (`--cluster-init`) is now needed; no ADR is
+  written yet and no suite has run.
 - Safety pattern: expand and contract. Not yet proven live.
