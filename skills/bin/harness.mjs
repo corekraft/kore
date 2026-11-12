@@ -1709,7 +1709,7 @@ function parseEvent(input, mode) {
 }
 
 // src/ledger/github-poll.ts
-var LIMIT = "1000";
+var LIMIT = 1e3;
 var describe3 = (code, stdout, stderr2) => {
   const text3 = `${stderr2}${stdout}`.trim();
   return text3 === "" ? `exit code ${code}` : `exit code ${code}: ${text3}`;
@@ -1784,7 +1784,7 @@ async function pollGithub(deps) {
 }
 async function fetchAll(runner, repo) {
   const flag = ["--repo", repo];
-  const list3 = ["--state", "all", "--limit", LIMIT];
+  const list3 = ["--state", "all", "--limit", String(LIMIT)];
   const issues = await query(runner, "issue list", [
     "issue",
     "list",
@@ -1805,9 +1805,9 @@ async function fetchAll(runner, repo) {
     "api",
     "--paginate",
     "--slurp",
-    `repos/${repo}/issues/events`
+    `repos/${repo}/issues/events?per_page=100`
   ]);
-  const failed = [issues, prs, pages].find((a) => typeof a === "string");
+  const failed = [issues, prs, pages].find((a) => typeof a === "string") ?? ([issues, prs].some((a) => a.length >= LIMIT) ? `gh returned ${LIMIT} issues or PRs, the most one poll lists, so older ones may be missing. Poll a narrower repository, or raise LIMIT in github-poll.ts.` : void 0);
   return typeof failed === "string" ? failed : {
     issues,
     prs,

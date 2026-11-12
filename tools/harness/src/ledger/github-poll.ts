@@ -7,7 +7,7 @@ export type GithubPollResult =
   | { ok: true; recorded: number; events: EventInput[] }
   | { ok: false; message: string };
 
-const LIMIT = "1000";
+const LIMIT = 1000;
 
 const describe = (code: number, stdout: string, stderr: string) => {
   const text = `${stderr}${stdout}`.trim();
@@ -143,7 +143,7 @@ async function fetchAll(
   repo: string,
 ): Promise<Fetched | string> {
   const flag = ["--repo", repo];
-  const list = ["--state", "all", "--limit", LIMIT];
+  const list = ["--state", "all", "--limit", String(LIMIT)];
   const issues = await query(runner, "issue list", [
     "issue",
     "list",
@@ -164,9 +164,13 @@ async function fetchAll(
     "api",
     "--paginate",
     "--slurp",
-    `repos/${repo}/issues/events`,
+    `repos/${repo}/issues/events?per_page=100`,
   ]);
-  const failed = [issues, prs, pages].find((a) => typeof a === "string");
+  const failed =
+    [issues, prs, pages].find((a) => typeof a === "string") ??
+    ([issues, prs].some((a) => (a as unknown[]).length >= LIMIT)
+      ? `gh returned ${LIMIT} issues or PRs, the most one poll lists, so older ones may be missing. Poll a narrower repository, or raise LIMIT in github-poll.ts.`
+      : undefined);
   return typeof failed === "string"
     ? failed
     : {

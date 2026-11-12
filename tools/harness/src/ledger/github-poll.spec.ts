@@ -155,4 +155,57 @@ describe("pollGithub stored fields and failures", () => {
     t.gh.code = 0;
     expect(await t.poll()).toMatchObject({ ok: true });
   });
+
+  it("refuses to poll while another poll holds the lock, calling no gh", async () => {
+    const t = setup();
+    await t.fs.createFile(`${PATH}.lock`, "2026-02-01T00:00:00.000Z");
+    const result = await t.poll();
+    expect(result).toMatchObject({ ok: false });
+    expect(JSON.stringify(result)).toContain("Another poll");
+    expect(t.runner.calls).toHaveLength(0);
+  });
+});
+
+describe("pollGithub ids, late merges and paging", () => {
+  it("gives each event a deterministic id from GitHub's own numbers", async () => {
+    const t = setup();
+    t.gh.issues = [issue(7, "2026-01-05T10:00:00Z")];
+    t.gh.prs = [pr(9, "2026-01-06T10:00:00Z", "2026-01-06T12:00:00Z")];
+    t.gh.events = [labelled(11, 7, "2026-01-05T11:00:00Z", "bug")];
+    await t.poll();
+    expect((await t.stored()).map((e) => e.id).sort()).toEqual([
+      "github:issue.labelled:11",
+      "github:issue.opened:7",
+      "github:pr.merged:9",
+      "github:pr.opened:9",
+    ]);
+  });
+
+  it("records a merge after the default since for a PR opened before it", async () => {
+    const t = setup();
+    t.gh.issues = [issue(1, "2026-01-08T10:00:00Z")];
+    await t.poll();
+    t.gh.prs = [pr(9, "2026-01-06T10:00:00Z", "2026-01-09T12:00:00Z")];
+    await t.poll();
+    expect(await t.summary()).toEqual(["issue.opened:1", "pr.merged:9"]);
+  });
+
+  it("reads label events from every page of gh api output", async () => {
+    const t = setup();
+    t.gh.events = [
+      [labelled(1, 7, "2026-01-05T11:00:00Z", "a")],
+      [labelled(2, 8, "2026-01-05T12:00:00Z", "b")],
+    ];
+    expect(await t.poll()).toMatchObject({ ok: true, recorded: 2 });
+  });
+
+  it("fails loudly instead of silently dropping issues past gh's limit", async () => {
+    const t = setup();
+    t.gh.issues = Array.from({ length: 1000 }, (_, i) =>
+      issue(i + 1, "2026-01-05T10:00:00Z"),
+    );
+    const result = await t.poll();
+    expect(result).toMatchObject({ ok: false });
+    expect(t.fs.files.has(PATH)).toBe(false);
+  });
 });
