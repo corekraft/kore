@@ -1,7 +1,7 @@
 ---
-status: active
+status: done
 summary: Replace Minikube with k3d for the local environment, delete the tunnel domain, and prove the live suites on k3d.
-last-verified: 2026-11-11
+last-verified: 2026-11-12
 ---
 
 # k3d Local Cluster Plan
@@ -57,14 +57,15 @@ plan 8.
 ### Work
 
 - [x] Replace `minikube image load` with `k3d image import`.
-- [ ] Replace `minikube ssh` CA installation with `registries.yaml` set at
+- [x] Replace `minikube ssh` CA installation with `registries.yaml` set at
       cluster create. Progress: create mounts the trust directory and
       `registries.yaml`, and the CA is written there after issuance
       ([ADR 0084](../../docs/decisions/0084-k3d-registry-trust-through-a-mounted-ca-directory.md));
-      the live proof (#149) remains.
-- [ ] Keep Kore's in-cluster TLS registry as the only registry. Progress:
+      #149 proved it live (`registry` 4/4, `admission` 6/6, `reference` 8/8).
+- [x] Keep Kore's in-cluster TLS registry as the only registry. Progress:
       publishing without a node shell is done ([ADR 0083](../../docs/decisions/0083-k3d-publishes-through-the-node-containerd-client.md)),
-      and create adds no k3d registry (ADR 0084); the live proof remains.
+      and create adds no k3d registry (ADR 0084); #149 proved it live
+      (`registry` 4/4, `signer` 1/1).
 
 ### Exit Criteria
 
@@ -93,7 +94,9 @@ plan 8.
 ### Work
 
 - [x] Point `platform-storage` at the k3s `local-path` provisioner.
-- [ ] Re-prove retained-volume discovery (ADR 0061).
+- [x] Re-prove retained-volume discovery (ADR 0061). Progress: the `storage`
+      suite (`storage-lifecycle.integration.spec`, which checks the
+      retained-data discovery that gates destroy) passed 1/1 on k3d in #149.
 
 ### Exit Criteria
 
@@ -264,13 +267,36 @@ variable, the clean-machine status check judges platform components only).
   settings and its webhook probes use a 1s timeout, so under load the
   controller can be restarted and admission briefly has no endpoint. #292 patches
   the probes to a 5s timeout through a Helm post-renderer (ADR 0089); the live
-  proof (`resilience` passing first time under the suite's load) remains.
+  proof passed: `resilience` ran 10/10 on the first attempt with the patched
+  5s probes and 0 webhook restarts (#303).
 - **crd-ownership on k3d:** `addons.k3s.cattle.io`,
   `etcdsnapshotfiles.k3s.cattle.io`, `helmchartconfigs.helm.cattle.io` and
   `helmcharts.helm.cattle.io` ship with k3s and no catalog component owns them.
   The local overlay declares `k3s.cattle.io` and `helm.cattle.io` in
   `providerOwnedCRDGroups`, so the row counts them as provider-owned (#291,
-  ADR 0088). A live `kore status` on k3d is still to confirm the row is
-  healthy.
+  ADR 0088). A live `kore platform status` on k3d showed the row ready: 124
+  CRDs, 120 catalog-owned and 4 provider-owned (#305).
 - **backups row** reports degraded on a fresh install with retained data and no
   export, by design; `kore data export` clears it.
+
+### Plan outcome
+
+Plan 9 is done (2026-11-12). All 20 tickets under #129 are merged, and every
+step's exit criteria hold on main:
+
+- **Pins and validation:** k3d and the k3s image are pinned, and Minikube is
+  gone from `.mise.toml` and `versions.yaml`.
+- **Lifecycle:** `kore local up` converges on a k3d cluster from nothing and
+  from an existing profile.
+- **Images:** signed local images are imported and admitted by digest.
+- **Gateway:** it answers on host 8443 with no tunnel process. ADR 0060 is
+  superseded by 0076.
+- **Storage:** the storage lifecycle suite passes on k3d.
+- **Minikube removed:** Minikube is no longer an accepted provider, and the
+  Minikube grep finds only the exceptions recorded on #157.
+- **Live proof:** every opt-in suite passed on k3d.
+
+The operator's one-time Minikube profile removal is ticked: no profile remains.
+Live work after #149 also passed:
+- **#303:** `resilience` 10/10 on the first attempt, with patched probes.
+- **#305:** `crd-ownership` ready on k3d.
