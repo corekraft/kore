@@ -36,6 +36,8 @@ jobs:
         run: mise run test
       - name: Harness tests
         run: mise run test-hooks
+      - name: Harness typecheck and bundle freshness
+        run: mise run harness-check
       - name: Policy tests
         run: mise run test-opa
       - name: Gatekeeper policy tests

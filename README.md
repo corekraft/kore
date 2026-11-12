@@ -248,6 +248,9 @@ in history and tracked files), OSV-Scanner (npm lockfiles), Semgrep with the
 committed rules in `infra/policies/semgrep`, actionlint and zizmor (workflows),
 and hadolint (Dockerfiles). Run one with `mise run scan-secrets`, `scan-vulns`,
 `scan-sast`, `scan-workflows`, or `scan-dockerfiles`. CI fails on any finding.
+The scans cover both npm packages, `tools/kore` and `tools/harness`. CI also
+fails on a stale `skills/bin/harness.mjs`; fix it with `mise run harness-build`
+(check locally with `mise run harness-check`).
 See [ADR 0030](docs/decisions/0030-security-and-quality-scans.md).
 
 ## Commands
