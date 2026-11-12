@@ -3,6 +3,8 @@ import {
   REPORT_VERSION,
   buildReport,
   type FlowReport,
+  type Scope,
+  type ScopeOptions,
 } from "../flow/index.js";
 import { isTimestamp } from "../ledger/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
@@ -14,7 +16,40 @@ interface Printed extends FlowReport {
   skippedLines: number;
 }
 
-type Parsed = { asOf: Date; minCompletedIdeas: number } | { error: string };
+interface Flags extends ScopeOptions {
+  asOf: Date;
+  minCompletedIdeas: number;
+}
+
+type Parsed = Flags | { error: string };
+
+function parseTime(
+  options: CommandContext["options"],
+  name: string,
+): Date | undefined | { error: string } {
+  const given = options[name];
+  if (given === undefined) {
+    return undefined;
+  }
+  if (typeof given !== "string" || !isTimestamp(given)) {
+    return {
+      error: `Invalid --${name} "${String(given)}". Use an ISO 8601 UTC time such as 2026-01-02T03:04:05Z.`,
+    };
+  }
+  return new Date(given);
+}
+
+/** `#12,13` to `["#12", "#13"]`; an error for anything that is not an issue number. */
+function parseIdeas(given: string | boolean): string[] | { error: string } {
+  const parts = typeof given === "string" ? given.split(",") : [""];
+  const ideas = parts.map((part) => /^#?(\d+)$/.exec(part.trim())?.[1]);
+  if (ideas.includes(undefined)) {
+    return {
+      error: `Invalid --idea "${String(given)}". Use issue numbers such as #12 or 12,13.`,
+    };
+  }
+  return ideas.map((n) => `#${String(n)}`);
+}
 
 function parseFlags({ options, deps }: CommandContext): Parsed {
   const min = options["min-ideas"];
@@ -27,19 +62,48 @@ function parseFlags({ options, deps }: CommandContext): Parsed {
       };
     }
   }
-  const given = options["as-of"];
-  if (given === undefined) {
-    return { asOf: deps.clock.now(), minCompletedIdeas };
+  const asOf = parseTime(options, "as-of");
+  const since = parseTime(options, "since");
+  const until = parseTime(options, "until");
+  for (const time of [asOf, since, until]) {
+    if (time !== undefined && "error" in time) {
+      return time;
+    }
   }
-  if (typeof given !== "string" || !isTimestamp(given)) {
+  const sinceAt = since as Date | undefined;
+  const untilAt = until as Date | undefined;
+  if (sinceAt !== undefined && untilAt !== undefined && sinceAt > untilAt) {
     return {
-      error: `Invalid --as-of "${String(given)}". Use an ISO 8601 UTC time such as 2026-01-02T03:04:05Z.`,
+      error: `Invalid --since ${sinceAt.toISOString()}: it is after --until ${untilAt.toISOString()}. Swap them.`,
     };
   }
-  return { asOf: new Date(given), minCompletedIdeas };
+  const idea =
+    options.idea === undefined ? undefined : parseIdeas(options.idea);
+  if (idea !== undefined && "error" in idea) {
+    return idea;
+  }
+  return {
+    asOf: (asOf as Date | undefined) ?? deps.clock.now(),
+    minCompletedIdeas,
+    ...(sinceAt === undefined ? {} : { since: sinceAt }),
+    ...(untilAt === undefined ? {} : { until: untilAt }),
+    ...(idea === undefined ? {} : { ideas: idea }),
+  };
 }
 
 const seconds = (value: number) => `${Math.round(value)}s`;
+
+function scopeLine({ since, until, ideas }: Scope): string {
+  const range = [
+    since === null ? undefined : `from ${since}`,
+    until === null ? undefined : `until ${until}`,
+  ].filter((part) => part !== undefined);
+  const named = ideas === null ? [] : [`ideas ${ideas.join(", ")}`];
+  const parts = [...range, ...named];
+  return parts.length === 0
+    ? "Covering the whole ledger"
+    : `Covering ${parts.join(", ")}`;
+}
 
 const leadLine = ({
   ideas,
@@ -63,6 +127,7 @@ function text(report: Printed): string {
   );
   const lines = [
     `Flow report as of ${report.asOf}: ${report.ideas.completed} of ${report.ideas.total} ideas completed`,
+    scopeLine(report.scope),
     ...rows,
     leadLine(report.leadTime),
     `Unmapped events: ${report.unmappedEvents}`,
@@ -77,8 +142,15 @@ function text(report: Printed): string {
 }
 
 const report: Command = {
-  summary: `map ledger events to stages; per stage active, waiting, event counts, toil (starting, stopping, waiting, retrying), work in progress (peak and average ideas open), lead time (first event to outcome; median and max), and the bottleneck (--min-ideas N, default ${MIN_COMPLETED_IDEAS}; --as-of TIME; --ledger PATH; --json is one object, version ${REPORT_VERSION}: version, asOf, ideas, minCompletedIdeas, stages, leadTime, bottleneck, bottleneckNote, unmappedEvents, skippedLines)`,
-  options: { "min-ideas": "string", "as-of": "string", ledger: "string" },
+  summary: `map ledger events to stages; per stage active, waiting, event counts, toil (starting, stopping, waiting, retrying), work in progress (peak and average ideas open), lead time (first event to outcome; median and max), and the bottleneck (--min-ideas N, default ${MIN_COMPLETED_IDEAS}; --as-of TIME; --since TIME and --until TIME clip time at those edges and count only ideas open then, with lead time only for ideas whose outcome falls inside; --idea N[,N...] covers only those issues; --ledger PATH; --json is one object, version ${REPORT_VERSION}: version, asOf, scope, ideas, minCompletedIdeas, stages, leadTime, bottleneck, bottleneckNote, unmappedEvents, skippedLines)`,
+  options: {
+    "min-ideas": "string",
+    "as-of": "string",
+    since: "string",
+    until: "string",
+    idea: "string",
+    ledger: "string",
+  },
   async run(context) {
     const flags = parseFlags(context);
     const { deps, json } = context;

@@ -85,6 +85,8 @@ and uses it first to measure the delivery loop. Terms follow
       retry), work in progress, and lead time.
 - [x] Name the bottleneck: the stage with the largest share of waiting,
       people included.
+- [x] Limit the report to a time range and to named ideas, clipping intervals
+      at the range edges, and state the scope covered.
 
 ### Exit Criteria
 
