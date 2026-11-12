@@ -3,7 +3,7 @@ import { FakeRunner } from "../runtime/runner-support.js";
 import { pollHerdr } from "./herdr-poll.js";
 import { Ledger } from "./ledger.js";
 
-const PATH = "/repo/.kore/state/ledger.jsonl";
+export const PATH = "/repo/.kore/state/ledger.jsonl";
 
 export interface Agent {
   pane_id: string;
@@ -41,11 +41,11 @@ export function setup() {
       result: answer,
     },
   ]);
-  const poll = () => pollHerdr({ ledger, runner, clock });
+  const poll = () => pollHerdr({ ledger, runner, clock, fs });
   const show = (agents: Agent[]) => {
     answer.stdout = agentList(agents);
   };
   const kinds = async () =>
     (await ledger.list({})).events.map((e) => `${e.kind}:${e.pane}`);
-  return { ledger, runner, poll, show, kinds, answer };
+  return { fs, ledger, runner, poll, show, kinds, answer };
 }

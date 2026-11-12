@@ -1,6 +1,7 @@
-import type { Clock, Runner } from "../runtime/index.js";
+import type { Clock, FileSystem, Runner } from "../runtime/index.js";
+import { acquire } from "./poll-lock.js";
 import type { Ledger } from "./ledger.js";
-import type { EventInput, Kind } from "./schema.js";
+import { isName, type EventInput, type Kind } from "./schema.js";
 
 export type PollResult =
   | { ok: true; recorded: number; events: EventInput[] }
@@ -42,10 +43,9 @@ function toSeen(entry: unknown): Seen | undefined {
   const raw = entry as Record<string, unknown>;
   const pane = raw["pane_id"];
   const status = STATUS_KIND[String(raw["agent_status"])];
-  const agent = [raw["name"], raw["agent"]].find(
-    (v): v is string => typeof v === "string" && v !== "",
-  );
-  if (typeof pane !== "string" || status === undefined || agent === undefined) {
+  // A name the ledger would refuse must not stop the poll: use the agent type, else "unknown".
+  const agent = [raw["name"], raw["agent"]].find(isName) ?? "unknown";
+  if (!isName(pane) || status === undefined) {
     return undefined;
   }
   return { pane, agent, status };
@@ -111,8 +111,70 @@ async function lastRecorded(
  * current status; a recorded pane no longer listed is `pane.closed`. Every
  * event's `occurredAt` is the moment the poll observed herdr, not the moment
  * the ledger wrote the line, so re-polling an unchanged state appends nothing.
+ *
+ * `pane.closed` means the pane no longer hosts an agent: the pane may still be
+ * open as a shell, or gone, and a pane whose agent changed is closed then
+ * spawned. The poll holds a lock file beside the ledger so concurrent pollers
+ * cannot append the same transitions.
  */
 export async function pollHerdr(deps: {
+  ledger: Ledger;
+  runner: Runner;
+  clock: Clock;
+  fs: FileSystem;
+}): Promise<PollResult> {
+  const held = await acquire(deps.fs, deps.clock, `${deps.ledger.path}.lock`);
+  if (!held.ok) {
+    return { ok: false, message: held.message };
+  }
+  try {
+    return await poll(deps);
+  } finally {
+    await held.release();
+  }
+}
+
+type Recorded = Map<string, { kind: Kind; agent?: string }>;
+
+/** What changed between the last recorded pane states and what herdr lists now. */
+function plan(
+  listed: Extract<Listed, { seen: Seen[] }>,
+  last: Recorded,
+  observedAt: string,
+): EventInput[] {
+  const planned: EventInput[] = [];
+  const event = (kind: Known, pane: string, agent: string) =>
+    planned.push({
+      source: "herdr",
+      kind,
+      occurredAt: observedAt,
+      pane,
+      agent,
+    });
+  for (const { pane, agent, status } of listed.seen) {
+    const recorded = last.get(pane);
+    const open = recorded !== undefined && recorded.kind !== "pane.closed";
+    if (open && recorded.agent !== undefined && recorded.agent !== agent) {
+      // A different agent now lives in a recorded pane: end the old one, start the new one.
+      event("pane.closed", pane, recorded.agent);
+    }
+    const sameAgent = open && (recorded.agent ?? agent) === agent;
+    if (!sameAgent) {
+      event("pane.spawned", pane, agent);
+    }
+    if (!sameAgent || recorded.kind !== status) {
+      event(status, pane, agent);
+    }
+  }
+  for (const [pane, state] of last) {
+    if (state.kind !== "pane.closed" && !listed.present.has(pane)) {
+      event("pane.closed", pane, state.agent ?? "unknown");
+    }
+  }
+  return planned;
+}
+
+async function poll(deps: {
   ledger: Ledger;
   runner: Runner;
   clock: Clock;
@@ -122,29 +184,7 @@ export async function pollHerdr(deps: {
   if ("message" in listed) {
     return { ok: false, message: listed.message };
   }
-  const last = await lastRecorded(deps.ledger);
-  const planned: EventInput[] = [];
-  const event = (kind: Known, pane: string, agent: string): EventInput => ({
-    source: "herdr",
-    kind,
-    occurredAt: observedAt,
-    pane,
-    agent,
-  });
-  for (const { pane, agent, status } of listed.seen) {
-    const before = last.get(pane)?.kind;
-    if (before === undefined || before === "pane.closed") {
-      planned.push(event("pane.spawned", pane, agent));
-      planned.push(event(status, pane, agent));
-    } else if (before !== status) {
-      planned.push(event(status, pane, agent));
-    }
-  }
-  for (const [pane, state] of last) {
-    if (state.kind !== "pane.closed" && !listed.present.has(pane)) {
-      planned.push(event("pane.closed", pane, state.agent ?? "unknown"));
-    }
-  }
+  const planned = plan(listed, await lastRecorded(deps.ledger), observedAt);
   for (const input of planned) {
     const result = await deps.ledger.record(input);
     if (!result.ok) {

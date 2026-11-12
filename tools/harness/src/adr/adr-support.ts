@@ -58,6 +58,10 @@ export class MemoryFs implements FileSystem {
     this.files.set(this.rel(path), content);
     return Promise.resolve();
   }
+  remove(path: string): Promise<void> {
+    this.files.delete(this.rel(path));
+    return Promise.resolve();
+  }
   createFile(path: string, content: string): Promise<void> {
     if (this.files.has(this.rel(path))) {
       return Promise.reject(

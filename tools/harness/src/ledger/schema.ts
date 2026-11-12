@@ -92,6 +92,11 @@ const ALLOWED = new Set<string>([
   "number",
 ]);
 
+/** Whether a value passes the ledger's name rule (session, pane, agent and similar fields). */
+export function isName(value: unknown): value is string {
+  return typeof value === "string" && NAME.test(value);
+}
+
 export function isTimestamp(value: string): boolean {
   if (!TIMESTAMP.test(value)) {
     return false;

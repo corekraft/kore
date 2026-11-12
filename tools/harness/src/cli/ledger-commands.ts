@@ -242,15 +242,20 @@ const list: Command = {
 
 const pollHerdrCommand: Command = {
   summary:
-    "read herdr's agent panes once and append only the changes (pane.spawned, pane.busy, pane.waiting, pane.closed) to the ledger; safe to repeat from a wait loop",
+    "read herdr's agent panes once and append only the changes (pane.spawned, pane.busy, pane.waiting, pane.closed) to the ledger; pane.closed means the pane no longer hosts an agent; safe to repeat from a wait loop, and one poll runs at a time",
   options: STRING_FLAGS(["ledger"]),
   async run(context) {
     const opened = await openLedger(context);
     if ("error" in opened) {
       return reject(context, opened.error, "ledger");
     }
-    const { runner, clock } = context.deps;
-    const result = await pollHerdr({ ledger: opened.ledger, runner, clock });
+    const { runner, clock, fs } = context.deps;
+    const result = await pollHerdr({
+      ledger: opened.ledger,
+      runner,
+      clock,
+      fs,
+    });
     if (!result.ok) {
       return reject(context, result.message, "herdr");
     }

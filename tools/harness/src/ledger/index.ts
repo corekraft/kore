@@ -8,6 +8,7 @@ export {
 export {
   KINDS,
   SOURCES,
+  isName,
   isTimestamp,
   type Kind,
   type LedgerEvent,
