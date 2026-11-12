@@ -932,8 +932,111 @@ var Tally = class {
   }
 };
 
+// src/flow/cost.ts
+var DEFAULT_TRAILING_IDEAS = 5;
+var DEFAULT_MAX_INCREASE = 0.25;
+var DEFAULT_COST = {
+  trailingIdeas: DEFAULT_TRAILING_IDEAS,
+  tokensPerIdea: { maxIncrease: DEFAULT_MAX_INCREASE },
+  sessionsPerIdea: { maxIncrease: DEFAULT_MAX_INCREASE }
+};
+function costOf(own2) {
+  const latest = /* @__PURE__ */ new Map();
+  let sessions = 0;
+  for (const event of own2) {
+    if (event.kind === "session.launch") {
+      sessions += 1;
+    } else if (event.kind === "token.usage" && event.tokens !== void 0) {
+      const key = event.session ?? event.pane ?? event.id;
+      const seen = latest.get(key);
+      if (seen === void 0 || time(event) >= seen.at) {
+        latest.set(key, { at: time(event), tokens: event.tokens });
+      }
+    }
+  }
+  const measured = latest.size > 0;
+  const tokens = [...latest.values()].reduce((sum, v) => sum + v.tokens, 0);
+  return { tokens, measured, sessions };
+}
+function metric(values, trailing, { maxIncrease }) {
+  if (values.length < trailing) {
+    return {
+      status: "insufficient history",
+      closedIdeas: values.length,
+      needed: trailing
+    };
+  }
+  const last = values.slice(-trailing);
+  const current = last[last.length - 1];
+  const trailingAverage = last.reduce((sum, v) => sum + v.value, 0) / last.length;
+  return {
+    status: "ok",
+    currentIdea: current.idea,
+    current: current.value,
+    trailingAverage,
+    maxIncrease,
+    worsened: current.value > trailingAverage * (1 + maxIncrease)
+  };
+}
+function costMetrics(byIdea, window, options) {
+  const closed = [];
+  for (const [idea, own2] of byIdea) {
+    const at = own2.filter((e) => e.kind === "issue.closed").map(time).sort((a, b) => a - b)[0];
+    if (at !== void 0 && inWindow(window, at)) {
+      closed.push({ idea, at, ...costOf(own2) });
+    }
+  }
+  closed.sort(
+    (a, b) => a.at - b.at || a.idea.localeCompare(b.idea, void 0, { numeric: true })
+  );
+  const { trailingIdeas } = options;
+  return {
+    trailingIdeas,
+    tokensPerIdea: metric(
+      // An idea with no token.usage was not measured; it is not a zero.
+      closed.filter((c) => c.measured).map((c) => ({ idea: c.idea, value: c.tokens })),
+      trailingIdeas,
+      options.tokensPerIdea
+    ),
+    sessionsPerIdea: metric(
+      closed.map((c) => ({ idea: c.idea, value: c.sessions })),
+      trailingIdeas,
+      options.sessionsPerIdea
+    )
+  };
+}
+
+// src/flow/idea-metrics.ts
+var firstClosed = (own2) => firstTime(own2, (e) => e.kind === "issue.closed");
+function leadTime(byIdea, window) {
+  const ideas = [];
+  for (const [idea, own2] of byIdea) {
+    const outcome = firstClosed(own2);
+    if (outcome !== void 0 && inWindow(window, outcome)) {
+      const first = Math.min(...own2.map(time));
+      ideas.push({ idea, seconds: (outcome - first) / 1e3 });
+    }
+  }
+  ideas.sort(
+    (a, b) => a.idea.localeCompare(b.idea, void 0, { numeric: true })
+  );
+  const seconds3 = ideas.map((i) => i.seconds);
+  return {
+    ideas,
+    medianSeconds: median(seconds3),
+    maxSeconds: seconds3.length === 0 ? null : Math.max(...seconds3)
+  };
+}
+function ideaMetrics(byIdea, window, cost = {}) {
+  return {
+    leadTime: leadTime(byIdea, window),
+    metrics: costMetrics(byIdea, window, { ...DEFAULT_COST, ...cost })
+  };
+}
+
 // src/flow/report.ts
-var REPORT_VERSION = 4;
+var REPORT_VERSION = 5;
+var COST_KINDS = /* @__PURE__ */ new Set(["token.usage", "session.launch"]);
 var STATE_AFTER = {
   "session.start": "active",
   "tool.start": "active",
@@ -1037,6 +1140,9 @@ function chargeIdea(tally, own2, waits) {
   const mapped = [];
   let unmapped = 0;
   for (const event of own2) {
+    if (COST_KINDS.has(event.kind)) {
+      continue;
+    }
     const stage = stageOf(event, mergedAt);
     const inRange = inWindow(tally.window, time(event));
     if (stage !== void 0) {
@@ -1052,26 +1158,6 @@ function chargeIdea(tally, own2, waits) {
   githubWaits(tally, waits, actorTime(tally, mapped));
   tally.endIdea();
   return unmapped;
-}
-var firstClosed = (own2) => firstTime(own2, (e) => e.kind === "issue.closed");
-function leadTime(byIdea, window) {
-  const ideas = [];
-  for (const [idea, own2] of byIdea) {
-    const outcome = firstClosed(own2);
-    if (outcome !== void 0 && inWindow(window, outcome)) {
-      const first = Math.min(...own2.map(time));
-      ideas.push({ idea, seconds: (outcome - first) / 1e3 });
-    }
-  }
-  ideas.sort(
-    (a, b) => a.idea.localeCompare(b.idea, void 0, { numeric: true })
-  );
-  const seconds3 = ideas.map((i) => i.seconds);
-  return {
-    ideas,
-    medianSeconds: median(seconds3),
-    maxSeconds: seconds3.length === 0 ? null : Math.max(...seconds3)
-  };
 }
 function nameBottleneck(tally, completed, minCompletedIdeas) {
   const stages = [...tally.totals.entries()];
@@ -1126,11 +1212,119 @@ function buildReport(events, options) {
     ideas: { total: covered.size, completed },
     minCompletedIdeas,
     stages: tally.stages(),
-    leadTime: leadTime(ownByIdea, window),
+    ...ideaMetrics(ownByIdea, window, options.cost),
     ...nameBottleneck(tally, completed, minCompletedIdeas),
     unmappedEvents: unmapped
   };
 }
+
+// src/flow/cost-config.ts
+var HARNESS_CONFIG = ".claude/harness.json";
+var isObject = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+function bad(file, key, fix2) {
+  return { error: `Invalid ${file}: key "${key}" ${fix2}` };
+}
+function unknownKey(file, path, raw, known) {
+  const extra = Object.keys(raw).find((k) => !known.includes(k));
+  return extra === void 0 ? void 0 : bad(
+    file,
+    path === "" ? extra : `${path}.${extra}`,
+    `is not a harness config key. Remove it, or use one of: ${known.join(", ")}.`
+  );
+}
+function threshold(file, path, value, fallback) {
+  if (value === void 0) {
+    return fallback;
+  }
+  if (!isObject(value)) {
+    return bad(file, path, 'must be an object. Use {"maxIncrease": 0.25}.');
+  }
+  const extra = unknownKey(file, path, value, ["maxIncrease"]);
+  if (extra !== void 0) {
+    return extra;
+  }
+  const max = value["maxIncrease"];
+  if (max === void 0) {
+    return fallback;
+  }
+  if (typeof max !== "number" || !Number.isFinite(max) || max < 0) {
+    return bad(
+      file,
+      `${path}.maxIncrease`,
+      `must be a number of at least 0 (0.25 means worsened above 125% of the trailing average). Fix the value.`
+    );
+  }
+  return { maxIncrease: max };
+}
+function parseCost(file, cost) {
+  const trailing = cost["trailingIdeas"] ?? DEFAULT_COST.trailingIdeas;
+  if (typeof trailing !== "number" || !Number.isSafeInteger(trailing) || trailing < 1) {
+    return bad(
+      file,
+      "cost.trailingIdeas",
+      "must be a whole number of at least 1. Fix the value."
+    );
+  }
+  const tokens = threshold(
+    file,
+    "cost.tokensPerIdea",
+    cost["tokensPerIdea"],
+    DEFAULT_COST.tokensPerIdea
+  );
+  if ("error" in tokens) {
+    return tokens;
+  }
+  const sessions = threshold(
+    file,
+    "cost.sessionsPerIdea",
+    cost["sessionsPerIdea"],
+    DEFAULT_COST.sessionsPerIdea
+  );
+  if ("error" in sessions) {
+    return sessions;
+  }
+  return {
+    cost: {
+      trailingIdeas: trailing,
+      tokensPerIdea: tokens,
+      sessionsPerIdea: sessions
+    }
+  };
+}
+function parseHarnessConfig(text6, file) {
+  let value;
+  try {
+    value = JSON.parse(text6);
+  } catch {
+    return { error: `Invalid ${file}: it is not valid JSON. Fix the syntax.` };
+  }
+  if (!isObject(value)) {
+    return bad(file, "(root)", "must be a JSON object. Use {}.");
+  }
+  const top = unknownKey(file, "", value, ["cost"]);
+  if (top !== void 0) {
+    return top;
+  }
+  const cost = value["cost"];
+  if (cost === void 0) {
+    return { cost: DEFAULT_COST };
+  }
+  if (!isObject(cost)) {
+    return bad(file, "cost", "must be an object. Use {}.");
+  }
+  const inner = unknownKey(file, "cost", cost, [
+    "trailingIdeas",
+    "tokensPerIdea",
+    "sessionsPerIdea"
+  ]);
+  if (inner !== void 0) {
+    return inner;
+  }
+  return parseCost(file, cost);
+}
+
+// src/cli/flow-commands.ts
+import { join as join2 } from "node:path";
 
 // src/ledger/poll-lock.ts
 var STALE_LOCK_MS = 6e4;
@@ -1182,7 +1376,9 @@ var KINDS = [
   "pr.opened",
   "pr.merged",
   "outcome",
-  "flag.activated"
+  "flag.activated",
+  "token.usage",
+  "session.launch"
 ];
 var OUTCOMES = ["success", "failure"];
 var TOOL_KINDS = ["tool.start", "tool.end"];
@@ -1194,6 +1390,8 @@ var NUMBER_KINDS = [
   "pr.merged",
   "outcome"
 ];
+var LAUNCH_KINDS = ["session.launch"];
+var TOKEN_KINDS = ["token.usage"];
 var SCHEMA_VERSION = 1;
 var NAME = /^[\w.:/#@-]{1,128}$/;
 var TOOL = /^[\w.:-]{1,100}$/;
@@ -1216,7 +1414,10 @@ var ALLOWED = /* @__PURE__ */ new Set([
   "tool",
   "outcome",
   "label",
-  "number"
+  "number",
+  "tokens",
+  "role",
+  "tier"
 ]);
 function isName(value) {
   return typeof value === "string" && NAME.test(value);
@@ -1231,7 +1432,7 @@ function isTimestamp(value) {
   }
   return time2.toISOString().slice(0, 10) === value.slice(0, 10);
 }
-function bad(field2, problem) {
+function bad2(field2, problem) {
   return {
     ok: false,
     field: field2,
@@ -1269,22 +1470,30 @@ var RULES = [
     check: (v) => Number.isSafeInteger(v) && v >= 1,
     hint: "must be a positive integer",
     kinds: NUMBER_KINDS
-  }
+  },
+  {
+    field: "tokens",
+    check: (v) => Number.isSafeInteger(v) && v >= 1,
+    hint: "must be a positive integer",
+    kinds: TOKEN_KINDS
+  },
+  { field: "role", check: isText(NAME), hint: NAME_HINT, kinds: LAUNCH_KINDS },
+  { field: "tier", check: isText(NAME), hint: NAME_HINT, kinds: LAUNCH_KINDS }
 ];
 function checkShape(input, mode) {
   if (typeof input !== "object" || input === null || Array.isArray(input)) {
-    return bad("event", "must be a JSON object");
+    return bad2("event", "must be a JSON object");
   }
   const raw = input;
   for (const key of Object.keys(raw)) {
     if (!ALLOWED.has(key) && raw[key] !== void 0) {
-      return bad(key, "is not a ledger field and is never stored");
+      return bad2(key, "is not a ledger field and is never stored");
     }
   }
   if (mode === "input") {
     for (const field2 of ["recordedAt", "schema"]) {
       if (raw[field2] !== void 0) {
-        return bad(field2, "is set by the ledger, not the caller");
+        return bad2(field2, "is set by the ledger, not the caller");
       }
     }
   }
@@ -1292,19 +1501,19 @@ function checkShape(input, mode) {
 }
 function checkCore(raw, mode) {
   if (mode === "stored" && raw["schema"] !== SCHEMA_VERSION) {
-    return bad("schema", `must be ${SCHEMA_VERSION}`);
+    return bad2("schema", `must be ${SCHEMA_VERSION}`);
   }
   if (!SOURCES.includes(raw["source"])) {
-    return bad("source", `must be one of ${SOURCES.join(", ")}`);
+    return bad2("source", `must be one of ${SOURCES.join(", ")}`);
   }
   if (!KINDS.includes(raw["kind"])) {
-    return bad("kind", `must be one of ${KINDS.join(", ")}`);
+    return bad2("kind", `must be one of ${KINDS.join(", ")}`);
   }
   const times = mode === "stored" ? ["occurredAt", "recordedAt"] : ["occurredAt"];
   for (const field2 of times) {
     const value = raw[field2];
     if (typeof value !== "string" || !isTimestamp(value)) {
-      return bad(field2, TIME_HINT);
+      return bad2(field2, TIME_HINT);
     }
   }
   return void 0;
@@ -1315,15 +1524,15 @@ function checkRule(rule, raw, mode) {
   const applies = rule.kinds === void 0 || rule.kinds.includes(kind);
   if (value === void 0) {
     const needed = rule.kinds !== void 0 && applies || rule.field === "id" && mode === "stored";
-    return needed ? bad(rule.field, `is required on ${kind} events`) : void 0;
+    return needed ? bad2(rule.field, `is required on ${kind} events`) : void 0;
   }
   if (!applies) {
-    return bad(
+    return bad2(
       rule.field,
       `is only allowed on ${rule.kinds?.join(" and ")} events`
     );
   }
-  return rule.check(value) ? void 0 : bad(rule.field, rule.hint);
+  return rule.check(value) ? void 0 : bad2(rule.field, rule.hint);
 }
 function parseEvent(input, mode) {
   const failure2 = checkShape(input, mode) ?? checkCore(input, mode) ?? RULES.map((rule) => checkRule(rule, input, mode)).find(Boolean);
@@ -1374,8 +1583,8 @@ async function query(gh, what, args) {
   } catch {
     return `gh ${what} did not print JSON. Run it by hand and check the gh version.`;
   }
-  const isObject = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
-  return Array.isArray(value) && value.every(isObject) ? value : `gh ${what} did not print a JSON list of objects; the gh version may have changed its output.`;
+  const isObject2 = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
+  return Array.isArray(value) && value.every(isObject2) ? value : `gh ${what} did not print a JSON list of objects; the gh version may have changed its output.`;
 }
 var asRecord = (value) => typeof value === "object" && value !== null ? value : {};
 var when = (value) => typeof value === "string" && isTimestamp(value) ? value : void 0;
@@ -1751,7 +1960,10 @@ var EVENT_FLAGS = [
   "tool",
   "outcome",
   "label",
-  "number"
+  "number",
+  "tokens",
+  "role",
+  "tier"
 ];
 var STRING_FLAGS = (names3) => Object.fromEntries(names3.map((n) => [n, "string"]));
 var camel = (flag) => flag.replace(/-(\w)/g, (_, c) => c.toUpperCase());
@@ -1782,7 +1994,7 @@ async function eventInput(context) {
       input: Object.fromEntries(
         given.map((f) => {
           const value = String(context.options[f]);
-          const isCount = f === "number" && /^\d+$/.test(value);
+          const isCount = (f === "number" || f === "tokens") && /^\d+$/.test(value);
           return [camel(f), isCount ? Number(value) : value];
         })
       )
@@ -2054,6 +2266,12 @@ function parseFlags({ options, deps }) {
       };
     }
   }
+  const trailing = options["trailing"];
+  if (trailing !== void 0 && !/^[1-9]\d{0,8}$/.test(String(trailing))) {
+    return {
+      error: `Invalid --trailing "${String(trailing)}". Use a whole number of at least 1.`
+    };
+  }
   const times = parseTimes(options);
   if ("error" in times) {
     return times;
@@ -2066,6 +2284,7 @@ function parseFlags({ options, deps }) {
   return {
     asOf: asOf ?? deps.clock.now(),
     minCompletedIdeas,
+    ...trailing === void 0 ? {} : { trailingIdeas: Number(trailing) },
     ...since === void 0 ? {} : { since },
     ...until === void 0 ? {} : { until },
     ...idea === void 0 ? {} : { ideas: idea }
@@ -2086,6 +2305,13 @@ var leadLine = ({
   medianSeconds,
   maxSeconds
 }) => medianSeconds === null || maxSeconds === null ? "Lead time: no completed ideas" : `Lead time: ${ideas.length} ideas, median ${seconds(medianSeconds)}, max ${seconds(maxSeconds)}`;
+function metricLine(label, metric2, trailing) {
+  if (metric2.status === "insufficient history") {
+    return `${label}: insufficient history, ${metric2.closedIdeas} of ${metric2.needed} closed ideas`;
+  }
+  const average = Math.round(metric2.trailingAverage * 100) / 100;
+  return `${label}: ${metric2.currentIdea} ${metric2.current}, trailing average of ${trailing} ideas ${average}${metric2.worsened ? " (worsened)" : ""}`;
+}
 function text(report3) {
   const rows = report3.stages.map(
     (s) => [
@@ -2102,6 +2328,16 @@ function text(report3) {
     scopeLine(report3.scope),
     ...rows,
     leadLine(report3.leadTime),
+    metricLine(
+      "Tokens per idea",
+      report3.metrics.tokensPerIdea,
+      report3.metrics.trailingIdeas
+    ),
+    metricLine(
+      "Sessions per idea",
+      report3.metrics.sessionsPerIdea,
+      report3.metrics.trailingIdeas
+    ),
     `Unmapped events: ${report3.unmappedEvents}`,
     report3.bottleneck === null ? report3.bottleneckNote ?? "No bottleneck." : `Bottleneck: ${report3.bottleneck.stage} (${Math.round(report3.bottleneck.share * 100)}% of waiting)`
   ];
@@ -2111,10 +2347,19 @@ function text(report3) {
   return `${lines2.join("\n")}
 `;
 }
+async function loadCost({ deps }) {
+  const root3 = await deps.root().catch(() => void 0);
+  const file = root3 === void 0 ? void 0 : join2(root3, HARNESS_CONFIG);
+  if (file === void 0 || !await deps.fs.exists(file)) {
+    return { cost: DEFAULT_COST };
+  }
+  return parseHarnessConfig(await deps.fs.readFile(file), HARNESS_CONFIG);
+}
 var report = {
-  summary: `map ledger events to stages; per stage active, waiting, event counts, toil (starting, stopping, waiting, retrying), work in progress (peak and average ideas open), lead time (first event to outcome; median and max), and the bottleneck (--min-ideas N, default ${MIN_COMPLETED_IDEAS}; --as-of TIME; --since TIME (inclusive) and --until TIME (exclusive) clip time at those edges and count only ideas open then, with lead time only for ideas whose outcome falls inside; --idea N|#N[,...] covers only those issues; --ledger PATH; --json is one object, version ${REPORT_VERSION}: version, asOf, scope, ideas, minCompletedIdeas, stages, leadTime, bottleneck, bottleneckNote, unmappedEvents, skippedLines)`,
+  summary: `map ledger events to stages; per stage active, waiting, event counts, toil (starting, stopping, waiting, retrying), work in progress (peak and average ideas open), lead time (first event to outcome; median and max), tokens and sessions per closed idea with a trailing average over the last N closed ideas and a worsened flag (--trailing N, default 5, else cost.trailingIdeas; thresholds in ${HARNESS_CONFIG}), and the bottleneck (--min-ideas N, default ${MIN_COMPLETED_IDEAS}; --as-of TIME; --since TIME (inclusive) and --until TIME (exclusive) clip time at those edges and count only ideas open then, with lead time only for ideas whose outcome falls inside; --idea N|#N[,...] covers only those issues; --ledger PATH; --json is one object, version ${REPORT_VERSION}: version, asOf, scope, ideas, minCompletedIdeas, stages, leadTime, metrics, bottleneck, bottleneckNote, unmappedEvents, skippedLines)`,
   options: {
     "min-ideas": "string",
+    trailing: "string",
     "as-of": "string",
     since: "string",
     until: "string",
@@ -2135,13 +2380,23 @@ var report = {
     if ("error" in flags) {
       return fail4(flags.error, 2);
     }
+    const cost = await loadCost(context);
+    if ("error" in cost) {
+      return fail4(cost.error, 1);
+    }
     const opened = await openLedger(context);
     if ("error" in opened) {
       return fail4(opened.error, 1);
     }
     const { events, skipped } = await opened.ledger.list({});
     const printed = {
-      ...buildReport(events, flags),
+      ...buildReport(events, {
+        ...flags,
+        cost: {
+          ...cost.cost,
+          ...flags.trailingIdeas === void 0 ? {} : { trailingIdeas: flags.trailingIdeas }
+        }
+      }),
       skippedLines: skipped
     };
     deps.stdout(json ? `${JSON.stringify(printed)}
@@ -3613,13 +3868,13 @@ function activePlans(plans) {
 }
 
 // src/plan/store.ts
-import { join as join2 } from "node:path";
+import { join as join3 } from "node:path";
 var PLANS_DIR = "infra/plans";
 async function readPlans(deps) {
   const root3 = await deps.root();
   let names3;
   try {
-    names3 = (await deps.fs.readdir(join2(root3, PLANS_DIR))).filter(
+    names3 = (await deps.fs.readdir(join3(root3, PLANS_DIR))).filter(
       (n) => n.endsWith(".md")
     );
   } catch (error) {
@@ -3630,7 +3885,7 @@ async function readPlans(deps) {
   }
   const plans = {};
   for (const name of names3) {
-    plans[name] = await deps.fs.readFile(join2(root3, PLANS_DIR, name));
+    plans[name] = await deps.fs.readFile(join3(root3, PLANS_DIR, name));
   }
   return plans;
 }
@@ -3683,7 +3938,7 @@ var planActive = {
 };
 
 // src/plan/next.ts
-import { join as join3 } from "node:path";
+import { join as join4 } from "node:path";
 
 // src/plan/edits.ts
 function trimCommon(edit, lines2) {
@@ -3816,7 +4071,7 @@ async function write(deps, json, options) {
   const written = !options.dryRun && changes.length > 0;
   if (written) {
     await deps.fs.writeFile(
-      join3(await deps.root(), file),
+      join4(await deps.root(), file),
       apply(lines2, edits).join("\n")
     );
   }
@@ -3874,7 +4129,7 @@ var planClearNext = {
 };
 
 // src/plan/tick.ts
-import { join as join4 } from "node:path";
+import { join as join5 } from "node:path";
 
 // src/plan/totals.ts
 var TOTALS = /as of \d{4}-\d{2}-\d{2}: (\d+) local, (\d+) managed(\s+)cluster, (\d+) release(\s+)pipeline/;
@@ -4171,7 +4426,7 @@ async function tick(deps, json, item, planOption, dryRun) {
   const file = `${PLANS_DIR}/${name}`;
   if (!dryRun) {
     await deps.fs.writeFile(
-      join4(await deps.root(), file),
+      join5(await deps.root(), file),
       apply(lines2, edits).join("\n")
     );
   }
@@ -4203,7 +4458,7 @@ var planTick = {
 };
 
 // src/hook/delta-deps.ts
-import { join as join5, resolve as resolve4 } from "node:path";
+import { join as join6, resolve as resolve4 } from "node:path";
 var JOURNAL_DIR = ".kore/state/journal";
 var LOCKS_DIR = ".kore/locks";
 function gitReader(deps, root3) {
@@ -4239,7 +4494,7 @@ function parseEntries(text6) {
   return entries;
 }
 async function readJournals(deps, root3) {
-  const dir = join5(root3, JOURNAL_DIR);
+  const dir = join6(root3, JOURNAL_DIR);
   const journals = {};
   for (const name of await readDir(deps, dir)) {
     if (!name.endsWith(".jsonl")) {
@@ -4247,7 +4502,7 @@ async function readJournals(deps, root3) {
     }
     try {
       journals[name.slice(0, -".jsonl".length)] = parseEntries(
-        await deps.fs.readFile(join5(dir, name))
+        await deps.fs.readFile(join6(dir, name))
       );
     } catch {
     }
@@ -4255,8 +4510,8 @@ async function readJournals(deps, root3) {
   return journals;
 }
 function snapshotStore(deps, git2, root3) {
-  const dir = async () => join5(resolve4(root3, await git2("rev-parse", "--git-dir")), "kore-delta");
-  const file = async (id) => join5(await dir(), `${id}.json`);
+  const dir = async () => join6(resolve4(root3, await git2("rev-parse", "--git-dir")), "kore-delta");
+  const file = async (id) => join6(await dir(), `${id}.json`);
   return {
     async readSnapshot(id) {
       try {
@@ -4275,7 +4530,7 @@ function snapshotStore(deps, git2, root3) {
         if (name.endsWith(".json")) {
           found.push({
             id: name.slice(0, -".json".length),
-            mtimeMs: await deps.fs.mtimeMs(join5(base, name))
+            mtimeMs: await deps.fs.mtimeMs(join6(base, name))
           });
         }
       }
@@ -4303,7 +4558,7 @@ function realDeltaDeps(deps, root3) {
       return (await git2("log", "--format=%s", `${from}..${to}`)).split("\n").filter(Boolean);
     },
     readPlans: () => readPlans(deps),
-    listLocks: () => readDir(deps, join5(root3, LOCKS_DIR)),
+    listLocks: () => readDir(deps, join6(root3, LOCKS_DIR)),
     readJournals: () => readJournals(deps, root3),
     ...snapshotStore(deps, git2, root3)
   };
@@ -4480,7 +4735,41 @@ async function update(sessionId, deps) {
 
 // src/hook/feedback.ts
 import { tmpdir } from "node:os";
-import { join as join6 } from "node:path";
+import { join as join7 } from "node:path";
+
+// src/hook/feedback-tokens.ts
+function transcriptTokens(text6) {
+  const byMessage = /* @__PURE__ */ new Map();
+  text6.split("\n").forEach((raw, index) => {
+    try {
+      const value = JSON.parse(raw);
+      const usage2 = value.message?.usage;
+      if (value.type !== "assistant" || usage2 === void 0) {
+        return;
+      }
+      const count2 = (key) => {
+        const n = usage2[key];
+        return typeof n === "number" && Number.isFinite(n) && n > 0 ? n : 0;
+      };
+      const id = typeof value.message?.id === "string" ? value.message.id : `line-${index}`;
+      byMessage.set(
+        id,
+        count2("input_tokens") + count2("output_tokens") + count2("cache_creation_input_tokens")
+      );
+    } catch {
+    }
+  });
+  return [...byMessage.values()].reduce((sum, n) => sum + n, 0);
+}
+async function readTokens(fs, path) {
+  try {
+    return typeof path === "string" && path !== "" ? transcriptTokens(await fs.readFile(path)) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+// src/hook/feedback.ts
 var KORE_SOURCE_DIR = "tools/kore/src/";
 var KORE = {
   bin: "tools/kore/node_modules/.bin",
@@ -4620,7 +4909,7 @@ async function stop(payload, deps) {
     "The harness typecheck failed after your TypeScript changes. Fix it before finishing."
   );
 }
-async function recordEvent(deps, kind, call, outcome) {
+async function recordEvent(deps, kind, call, outcome, extra = {}) {
   try {
     const session2 = call.session_id;
     if (typeof session2 !== "string" || session2 === "") {
@@ -4638,19 +4927,27 @@ async function recordEvent(deps, kind, call, outcome) {
       session: session2,
       ...typeof pane === "string" && pane !== "" ? { pane } : {},
       ...kind.startsWith("tool.") && typeof call.tool_name === "string" ? { tool: call.tool_name } : {},
-      ...outcome === void 0 ? {} : { outcome }
+      ...outcome === void 0 ? {} : { outcome },
+      ...extra
     };
     await new Ledger(
       deps.fs,
       deps.clock,
       deps.ids,
-      join6(main, DEFAULT_LEDGER)
+      join7(main, DEFAULT_LEDGER)
     ).record(event);
   } catch {
   }
 }
+async function recordStop(deps, call) {
+  await recordEvent(deps, "session.stop", call);
+  const tokens = await readTokens(deps.fs, call.transcript_path);
+  if (tokens > 0) {
+    await recordEvent(deps, "token.usage", call, void 0, { tokens });
+  }
+}
 function feedbackDeps(deps, root3, call) {
-  const marker = (project) => join6(
+  const marker = (project) => join7(
     tmpdir(),
     `kore-${project === HARNESS.project ? "harness" : "ts"}-changed-${typeof call.session_id === "string" ? call.session_id : "default"}`
   );
@@ -4688,7 +4985,7 @@ async function feedback(mode, payload, deps) {
   if (mode === "post-edit") {
     recorded = recordEvent(deps, "tool.end", call, "success");
   } else if (!call.stop_hook_active) {
-    recorded = recordEvent(deps, "session.stop", call);
+    recorded = recordStop(deps, call);
   }
   const checks = feedbackDeps(deps, root3, call);
   try {
@@ -4747,7 +5044,7 @@ function hookCommand(name, summary, handler, { flags = {}, payload = true, opera
 
 // src/hook/retro-hook.ts
 import { homedir } from "node:os";
-import { join as join8 } from "node:path";
+import { join as join9 } from "node:path";
 
 // src/hook/retro-scan.ts
 import { createHash } from "node:crypto";
@@ -5122,7 +5419,7 @@ function scan(inputs, { since, knownSkills = [], auditRules: audit3 = [] } = {})
 }
 
 // src/hook/retro-transcripts.ts
-import { basename, join as join7, sep } from "node:path";
+import { basename, join as join8, sep } from "node:path";
 var PROBE_BYTES = 256 * 1024;
 var DEFAULT_BRANCHES = /* @__PURE__ */ new Set(["main", "master", "HEAD"]);
 var encodePath = (path) => path.replace(/[^a-zA-Z0-9]/g, "-");
@@ -5150,7 +5447,7 @@ async function repoTranscriptDirs(fs, projectsDir, { main, worktrees, branches }
     for (const file of files) {
       let head;
       try {
-        head = await fs.readHead(join7(dir, file), PROBE_BYTES);
+        head = await fs.readHead(join8(dir, file), PROBE_BYTES);
       } catch {
         continue;
       }
@@ -5168,7 +5465,7 @@ async function repoTranscriptDirs(fs, projectsDir, { main, worktrees, branches }
   }
   const found = [];
   for (const name of entries) {
-    const dir = join7(projectsDir, name);
+    const dir = join8(projectsDir, name);
     if (await fs.isDirectory(dir) && (names3.has(basename(dir)) || await belongs(dir))) {
       found.push(dir);
     }
@@ -5187,7 +5484,7 @@ async function defaultDirs(fs, runner, root3, home) {
     "--path-format=absolute",
     "--git-common-dir"
   ])).trim();
-  const main = worktrees[0] ?? (common ? join7(common, "..") : root3);
+  const main = worktrees[0] ?? (common ? join8(common, "..") : root3);
   const refs = await git(runner, root3, [
     "for-each-ref",
     "--format=%(refname:short)",
@@ -5195,7 +5492,7 @@ async function defaultDirs(fs, runner, root3, home) {
     "refs/remotes"
   ]);
   const branches = refs.split("\n").filter(Boolean).map((name) => name.replace(/^origin\//, ""));
-  return await repoTranscriptDirs(fs, join7(home, ".claude", "projects"), {
+  return await repoTranscriptDirs(fs, join8(home, ".claude", "projects"), {
     main,
     worktrees: worktrees.length > 0 ? worktrees : [main],
     branches
@@ -5208,7 +5505,7 @@ async function readTranscripts(fs, dirs) {
       (n) => n.endsWith(".jsonl")
     )) {
       const id = basename(name, ".jsonl");
-      const text6 = await fs.readFile(join7(dir, name));
+      const text6 = await fs.readFile(join8(dir, name));
       if (text6.length >= (byId.get(id)?.text.length ?? -1)) {
         byId.set(id, { id, text: text6 });
       }
@@ -5222,7 +5519,7 @@ var GUARD_SOURCE = ".claude/hooks/guard.mjs";
 var USAGE = "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD]\n--since keeps sessions active at or after local midnight of that date, like the session-start count.";
 var isMissing = (error) => error.code === "ENOENT";
 async function skillNames(fs, root3) {
-  const dir = join8(root3, "skills");
+  const dir = join9(root3, "skills");
   let entries;
   try {
     entries = await fs.readdir(dir);
@@ -5234,7 +5531,7 @@ async function skillNames(fs, root3) {
   }
   const names3 = [];
   for (const entry of entries) {
-    if (await fs.isDirectory(join8(dir, entry)) && await fs.exists(join8(dir, entry, "SKILL.md"))) {
+    if (await fs.isDirectory(join9(dir, entry)) && await fs.exists(join9(dir, entry, "SKILL.md"))) {
       names3.push(entry);
     }
   }
@@ -5263,7 +5560,7 @@ ${USAGE}
   }
 }
 async function readGuardSource(fs, root3) {
-  const path = join8(root3, GUARD_SOURCE);
+  const path = join9(root3, GUARD_SOURCE);
   try {
     return await fs.readFile(path);
   } catch (error) {
@@ -5319,10 +5616,10 @@ var retroScan = hookCommand(
 );
 
 // src/hook/skill-links.ts
-import { isAbsolute, join as join9 } from "node:path";
+import { isAbsolute, join as join10 } from "node:path";
 var HARNESSES = [".claude", ".codex"];
 async function skillNames2(fs, root3) {
-  const skillsDir = join9(root3, "skills");
+  const skillsDir = join10(root3, "skills");
   let entries;
   try {
     entries = await fs.readdir(skillsDir);
@@ -5336,7 +5633,7 @@ async function skillNames2(fs, root3) {
   }
   const skills = [];
   for (const entry of entries) {
-    if (await fs.exists(join9(root3, "skills", entry, "SKILL.md"))) {
+    if (await fs.exists(join10(root3, "skills", entry, "SKILL.md"))) {
       skills.push(entry);
     }
   }
@@ -5360,7 +5657,7 @@ async function linkProblems(fs, root3) {
     for (const skill2 of skills) {
       const link = `${harness}/skills/${skill2}`;
       const expected = `../../skills/${skill2}`;
-      const found = await targetOf(fs, join9(root3, link));
+      const found = await targetOf(fs, join10(root3, link));
       if ("code" in found) {
         problems.push(
           found.code === "EINVAL" ? `${link} is a directory or file, not a link; replace it with a link to ${expected}` : `${link} is missing; link it to ${expected}`
@@ -5380,7 +5677,7 @@ async function linkProblems(fs, root3) {
 }
 
 // src/hook/workflow-permissions.ts
-import { join as join10 } from "node:path";
+import { join as join11 } from "node:path";
 var RELEASE = "release.yaml";
 var SIGNING_JOBS = ["release", "mirror"];
 var SIGNING_SCOPES = ["id-token", "packages"];
@@ -5509,7 +5806,7 @@ function permissionProblems(files) {
   );
 }
 async function workflowProblems(fs, root3) {
-  const dir = join10(root3, ".github", "workflows");
+  const dir = join11(root3, ".github", "workflows");
   let entries;
   try {
     entries = await fs.readdir(dir);
@@ -5523,7 +5820,7 @@ async function workflowProblems(fs, root3) {
   }
   const files = {};
   for (const entry of entries.filter((f) => /\.ya?ml$/.test(f)).sort()) {
-    files[entry] = await fs.readFile(join10(dir, entry));
+    files[entry] = await fs.readFile(join11(dir, entry));
   }
   return permissionProblems(files);
 }
@@ -5708,7 +6005,7 @@ function fail2(deps, json, code, message) {
 }
 
 // src/session/registry.ts
-import { join as join11, resolve as resolve5 } from "node:path";
+import { join as join12, resolve as resolve5 } from "node:path";
 var STATE_DIR = ".kore/state/sessions";
 function isRecord(value) {
   if (typeof value !== "object" || value === null) {
@@ -5735,7 +6032,7 @@ var SessionRegistry = class _SessionRegistry {
     return new _SessionRegistry(deps.fs, resolve5(main, STATE_DIR));
   }
   file(name) {
-    return join11(this.dir, `${name}.json`);
+    return join12(this.dir, `${name}.json`);
   }
   async read(name) {
     const path = this.file(name);
@@ -5795,7 +6092,7 @@ var SessionRegistry = class _SessionRegistry {
 };
 
 // src/session/worktree.ts
-import { join as join12 } from "node:path";
+import { join as join13 } from "node:path";
 var removeCommands = (worktree) => `\`git worktree remove ${worktree.path}\` and \`git branch -D ${worktree.branch}\``;
 var removeHint = (worktree) => `The worktree ${worktree.path} was left behind; remove it with ${removeCommands(worktree)}.`;
 var closeHint = (worktree) => `Remove its worktree once its branch is merged: ${removeCommands(worktree)}.`;
@@ -5806,7 +6103,7 @@ async function create2(deps, name, branch) {
       error: "Cannot find the main checkout to create the worktree in. Run inside the repository or set KORE_ROOT to its root. No pane was split."
     };
   }
-  const worktree = { path: join12(main, ".claude", "worktrees", name), branch };
+  const worktree = { path: join13(main, ".claude", "worktrees", name), branch };
   const add = await deps.runner.run(
     "git",
     ["worktree", "add", "-b", branch, worktree.path, "HEAD"],
@@ -5818,7 +6115,7 @@ async function create2(deps, name, branch) {
     };
   }
   const install = await deps.runner.run("npm", ["ci"], {
-    cwd: join12(worktree.path, "tools", "kore")
+    cwd: join13(worktree.path, "tools", "kore")
   });
   if (install.code !== 0) {
     return {
@@ -6218,10 +6515,35 @@ function check({ deps, options }) {
 }
 
 // src/session/spawn-finish.ts
+import { join as join14 } from "node:path";
+async function recordLaunch(deps, record3) {
+  try {
+    const main = await mainRoot(deps);
+    if (main === void 0) {
+      return;
+    }
+    await new Ledger(
+      deps.fs,
+      deps.clock,
+      deps.ids,
+      join14(main, DEFAULT_LEDGER)
+    ).record({
+      source: "herdr",
+      kind: "session.launch",
+      occurredAt: record3.createdAt,
+      pane: record3.paneId,
+      agent: record3.name,
+      role: record3.role,
+      tier: record3.model
+    });
+  } catch {
+  }
+}
 async function finish2({ json, deps, options }, { registry, record: record3, modelCheck, timeoutMs }) {
   const { name, paneId, callerPane, model, role, effort, worktree } = record3;
   const extra = worktree === void 0 ? {} : { worktree };
   await registry.create(record3);
+  await recordLaunch(deps, record3);
   const verdict = modelCheck.status === "verified" ? "model verified" : `model unverified: ${modelCheck.reason}`;
   if (options["no-wait"] === true) {
     deps.stdout(
@@ -6396,7 +6718,7 @@ var session = {
 };
 
 // src/skill/index.ts
-import { join as join13 } from "node:path";
+import { join as join15 } from "node:path";
 
 // src/skill/audit.ts
 var DESCRIPTION_BUDGET = 200;
@@ -6510,7 +6832,7 @@ var audit2 = {
   summary: "report each skill's description and body against its budgets",
   options: { strict: "boolean" },
   async run({ json, options, deps }) {
-    const skillsDir = join13(await deps.root(), SKILLS_DIR);
+    const skillsDir = join15(await deps.root(), SKILLS_DIR);
     let report3;
     try {
       report3 = await auditSkills(deps.fs, skillsDir);

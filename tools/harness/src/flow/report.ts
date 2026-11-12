@@ -15,7 +15,13 @@ import {
 import { groupByIdea, select } from "./select.js";
 import { chargeToil, newLife } from "./toil.js";
 import { Tally, type StageTotals } from "./tally.js";
-import { median } from "./wip.js";
+import {
+  firstClosed,
+  ideaMetrics,
+  type CostMetrics,
+  type CostOptions,
+  type LeadTime,
+} from "./idea-metrics.js";
 import {
   inWindow,
   scopeOf,
@@ -25,10 +31,9 @@ import {
   type ScopeOptions,
 } from "./scope.js";
 
-export const REPORT_VERSION = 4;
+export const REPORT_VERSION = 5;
 
 export type { StageTotals, Toil } from "./tally.js";
-export type { Wip } from "./wip.js";
 export type { Scope, ScopeOptions } from "./scope.js";
 
 export interface Bottleneck {
@@ -36,14 +41,6 @@ export interface Bottleneck {
   waitingSeconds: number;
   /** The stage's waiting seconds over all stages' waiting seconds, 0 to 1. */
   share: number;
-}
-
-/** Seconds from each completed idea's first event to its outcome event. */
-export interface LeadTime {
-  ideas: { idea: string; seconds: number }[];
-  /** Null when no idea has an outcome. */
-  medianSeconds: number | null;
-  maxSeconds: number | null;
 }
 
 /** The `flow report --json` shape; `version` changes when a field does. */
@@ -56,6 +53,8 @@ export interface FlowReport {
   minCompletedIdeas: number;
   stages: StageTotals[];
   leadTime: LeadTime;
+  /** Tokens and sessions per closed idea, each with a trailing average. */
+  metrics: CostMetrics;
   bottleneck: Bottleneck | null;
   /** Why `bottleneck` is null; null when one is named. */
   bottleneckNote: string | null;
@@ -67,7 +66,11 @@ export interface ReportOptions extends ScopeOptions {
   /** Open GitHub states (an unapproved issue, an unmerged PR) are measured to here. */
   asOf: Date;
   minCompletedIdeas: number;
+  /** Trailing window and thresholds for the cost metrics; defaults apply to what is left out. */
+  cost?: Partial<CostOptions>;
 }
+
+const COST_KINDS = new Set<Kind>(["token.usage", "session.launch"]);
 
 type State = "active" | "waiting" | "closed";
 
@@ -204,6 +207,10 @@ function chargeIdea(
   const mapped: { event: LedgerEvent; stage: Stage }[] = [];
   let unmapped = 0;
   for (const event of own) {
+    if (COST_KINDS.has(event.kind)) {
+      // Cost events feed the cost metrics only; they are neither stage time nor unmapped.
+      continue;
+    }
     const stage = stageOf(event, mergedAt);
     const inRange = inWindow(tally.window, time(event));
     if (stage !== undefined) {
@@ -219,30 +226,6 @@ function chargeIdea(
   githubWaits(tally, waits, actorTime(tally, mapped));
   tally.endIdea();
   return unmapped;
-}
-
-const firstClosed = (own: LedgerEvent[]) =>
-  firstTime(own, (e) => e.kind === "issue.closed");
-
-/** Each idea completed in the range, from its first event to its first issue.closed, with median and maximum. */
-function leadTime(byIdea: Map<string, LedgerEvent[]>, window: Span): LeadTime {
-  const ideas: LeadTime["ideas"] = [];
-  for (const [idea, own] of byIdea) {
-    const outcome = firstClosed(own);
-    if (outcome !== undefined && inWindow(window, outcome)) {
-      const first = Math.min(...own.map(time));
-      ideas.push({ idea, seconds: (outcome - first) / 1000 });
-    }
-  }
-  ideas.sort((a, b) =>
-    a.idea.localeCompare(b.idea, undefined, { numeric: true }),
-  );
-  const seconds = ideas.map((i) => i.seconds);
-  return {
-    ideas,
-    medianSeconds: median(seconds),
-    maxSeconds: seconds.length === 0 ? null : Math.max(...seconds),
-  };
 }
 
 function nameBottleneck(
@@ -312,7 +295,7 @@ export function buildReport(
     ideas: { total: covered.size, completed },
     minCompletedIdeas,
     stages: tally.stages(),
-    leadTime: leadTime(ownByIdea, window),
+    ...ideaMetrics(ownByIdea, window, options.cost),
     ...nameBottleneck(tally, completed, minCompletedIdeas),
     unmappedEvents: unmapped,
   };

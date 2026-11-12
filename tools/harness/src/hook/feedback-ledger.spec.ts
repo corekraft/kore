@@ -80,6 +80,73 @@ describe("hook feedback records ledger events", () => {
   });
 });
 
+describe("hook feedback records token usage at stop", () => {
+  const TRANSCRIPT = "/home/t/session.jsonl";
+  const turn = (id: string, input: number, output: number, cached = 0) =>
+    JSON.stringify({
+      type: "assistant",
+      message: {
+        id,
+        content: [{ type: "text", text: "private words" }],
+        usage: {
+          input_tokens: input,
+          output_tokens: output,
+          cache_creation_input_tokens: cached,
+          cache_read_input_tokens: 99_999,
+        },
+      },
+    });
+
+  async function stopWith(lines: string[], extra: object = {}) {
+    const h = testHarness({
+      env: { CLAUDE_PROJECT_DIR: root, KORE_ROOT: root },
+    });
+    h.files.set(TRANSCRIPT, lines.join("\n"));
+    h.deps.stdin = () =>
+      Promise.resolve(
+        JSON.stringify({
+          session_id: "s1",
+          transcript_path: TRANSCRIPT,
+          ...extra,
+        }),
+      );
+    await run(["hook", "feedback", "stop"], h.deps);
+    return ledgerEvents(h.files);
+  }
+
+  it("records the session's tokens so far, counting each message once and leaving cache reads out", async () => {
+    const events = await stopWith([
+      turn("m1", 10, 5),
+      turn("m1", 10, 20),
+      turn("m2", 100, 30, 40),
+      "not json",
+    ]);
+    expect(events).toMatchObject([
+      { kind: "session.stop" },
+      { kind: "token.usage", session: "s1", source: "claude", tokens: 200 },
+    ]);
+    expect(JSON.stringify(events)).not.toMatch(/private words/);
+  });
+
+  it("records no usage for an empty, unreadable or missing transcript", async () => {
+    expect((await stopWith([])).map((e) => e["kind"])).toEqual([
+      "session.stop",
+    ]);
+    const missing = await hook("stop", {
+      session_id: "s1",
+      transcript_path: "/nowhere.jsonl",
+    });
+    expect(missing.events.map((e) => e["kind"])).toEqual(["session.stop"]);
+    expect(missing.code).toBe(0);
+  });
+
+  it("records nothing on a stop re-entry", async () => {
+    expect(
+      await stopWith([turn("m1", 1, 1)], { stop_hook_active: true }),
+    ).toEqual([]);
+  });
+});
+
 describe("hook feedback ledger recording is best effort", () => {
   it("records nothing without a session id", async () => {
     const result = await hook("post-edit", { tool_name: "Bash" });
