@@ -7,8 +7,9 @@ type Psql = (pod: string, sql: string) => Promise<{ stdout: string }>;
 
 const PRIMARY_SELECTOR =
   "--selector=cnpg.io/cluster=reference-db,cnpg.io/instanceRole=primary";
+// `range` prints nothing for an empty list; an indexed path makes kubectl fail.
 const PRIMARY_OUTPUT =
-  "--output=jsonpath={.items[0].metadata.name}{'\\n'}{.items[0].metadata.uid}";
+  "--output=jsonpath={range .items[*]}{.metadata.name}{'\\n'}{.metadata.uid}{'\\n'}{end}";
 
 function kubectlBase(repository: Repository): string[] {
   return [
