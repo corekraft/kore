@@ -19,7 +19,7 @@ plan 8.
 ### Work
 
 - [x] Record the decision and the Minikube-to-k3d mapping in ADR 0076.
-- [ ] Pin k3d in `.mise.toml` and the k3s image in `versions.yaml`, with
+- [x] Pin k3d in `.mise.toml` and the k3s image in `versions.yaml`, with
       compatibility evidence.
 
 ### Exit Criteria
