@@ -30,22 +30,22 @@ plan 8.
 
 ### Work
 
-- [ ] Change the provider value to `k3d` in the config types, schema and
+- [x] Change the provider value to `k3d` in the config types, schema and
       `infra/environments/local/environment.yaml`.
       Progress: types, schema and validator accept `k3d` (with an
       `environment.k3d` block), `managed` and `minikube` (#136); the overlay
-      flips in #146 (ADR 0085), which ticks this item once the live proof
-      (#149) passes; `kore doctor` checks the pinned `k3d` and `docker` and the
+      flipped in #146 (ADR 0085) and was proven live in #149; `kore doctor` checks the pinned `k3d` and `docker` and the
       cluster before anything mutates.
-- [ ] Rewrite `cluster/` for `k3d cluster create`, `start`, `stop` and
+- [x] Rewrite `cluster/` for `k3d cluster create`, `start`, `stop` and
       `delete`, with Traefik and ServiceLB disabled and ports mapped through
       the k3d load balancer.
-- [ ] Keep the readiness wait from ADR 0065 against the k3s API server.
+- [x] Keep the readiness wait from ADR 0065 against the k3s API server.
       Progress: `clusterUp` creates or starts the k3d cluster, then runs the
       wait against the configured context; `clusterStatus` and
       `assertExpectedCluster` handle k3d (#138). `clusterStop` and
       `clusterDestroy` handle k3d with the same consent and data gates (#143);
-      the lifecycle rewrite item ticks with the live proof.
+      the lifecycle was proven live in #149 (four fresh and three existing
+      profile runs, stop/start, destroy).
 
 ### Exit Criteria
 
@@ -76,11 +76,12 @@ plan 8.
 ### Work
 
 - [ ] Delete the `tunnel` domain, its commands, status row and specs.
-- [ ] Route Gateway traffic through the k3d load balancer.
+- [x] Route Gateway traffic through the k3d load balancer.
       Progress: the overlay publishes the Gateway Service as a NodePort the
       load balancer maps from host 8443, and `platform up` starts no tunnel on
       k3d (#146, [ADR 0085](../../docs/decisions/0085-k3d-gateway-answers-through-a-node-port.md));
-      the item ticks once #149 proves it live.
+      #149 proved it live: the Gateway answered after a stop/start with no
+      tunnel process.
 - [ ] Mark ADR 0060 superseded by ADR 0076.
 
 ### Exit Criteria
@@ -99,6 +100,10 @@ plan 8.
 - The storage lifecycle integration suite passes on k3d.
 
 ## Step 6: Retire Minikube
+
+The Minikube path is now unit-tested only: no live suite runs on Minikube any
+more (#134 recorded no Minikube baseline), so a Minikube regression would show
+in unit specs and nowhere else until the code is removed.
 
 ### Work
 

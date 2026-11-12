@@ -38,5 +38,6 @@ so it cannot name k3d or a node port itself.
 The overlay is the one place that knows the node port. With the
 `ingress-agentgateway` flag on, the Istio-only overlay is not rendered;
 agentgateway takes its own parameters resource, which plan 13 adds when it
-replaces the Gateway. The mapping is proven live in #149; until then the Istio
-merge of the port is the open risk.
+replaces the Gateway. The mapping was proven live in #149: the Istio merge of the
+port held and the Gateway answered on host port 8443 after a stop and start,
+with no tunnel process.

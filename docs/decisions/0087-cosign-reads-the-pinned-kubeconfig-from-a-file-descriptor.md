@@ -31,11 +31,14 @@ scratch directory remains for that public output only.
 
 Proven live on macOS with cosign 3.1.3 and kubectl: both read the descriptor,
 and `cosign generate-key-pair k8s://...` created its Secret through it. Each
-cosign call gets its own descriptor, so a client that read the kubeconfig more
-than once would still work per call.
+cosign call gets its own descriptor, and a pipe is read once: a client that
+read the same descriptor a second time within one call would see it empty.
 
 ## Consequences
 
+- A pipe is read once. A tool that reads the kubeconfig a second time from the
+  same descriptor sees it empty; Kore gives each cosign call its own pipe and
+  the option is only for tools that read it once per run.
 - A tool that cannot read a pipe cannot be used with the `kubeconfig` option;
   there is no temporary-file fallback.
 - The kubeconfig is visible to the same user's process list only as a

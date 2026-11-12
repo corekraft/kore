@@ -9,7 +9,7 @@ last-verified: 2026-11-12
 
 Source: [`infra/plans/9-k3d-local-cluster.md` § Step 5](../../infra/plans/9-k3d-local-cluster.md#step-5-storage)
 
-Refines: ADR 0061
+Refines: [ADR 0061](0061-retained-volumes-are-discovered-by-storage-class.md), [ADR 0035](0035-fail-fast-readiness-diagnosis.md) (the volume is proven by the consumer's readiness check, not by Helm's wait).
 
 ## Context
 
