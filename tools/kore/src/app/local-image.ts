@@ -1,4 +1,5 @@
 import type { Repository } from "../config/index.js";
+import { minikubeCluster } from "../config/index.js";
 import {
   loadRegistryCredential,
   minikubeRegistrySessionArgs,
@@ -50,7 +51,7 @@ export async function stageLocalImage(
     runner.run(
       "minikube",
       minikubeImagePullArgs(
-        repository.environment.cluster.profile,
+        minikubeCluster(repository.environment).profile,
         staged.reference,
         address,
         credential.username,

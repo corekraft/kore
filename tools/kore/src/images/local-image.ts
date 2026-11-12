@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import type { ImageLockEntry, LockedImage } from "./image-lock.js";
 import type { Repository } from "../config/index.js";
+import { minikubeCluster } from "../config/index.js";
 import {
   localDockerBuildArgs,
   localSignArgs,
@@ -42,7 +43,10 @@ async function loadIntoMinikube(
   );
   await runner.run(
     "minikube",
-    minikubeImageLoadArgs(repository.environment.cluster.profile, imageTag),
+    minikubeImageLoadArgs(
+      minikubeCluster(repository.environment).profile,
+      imageTag,
+    ),
     { capture: false },
   );
 }

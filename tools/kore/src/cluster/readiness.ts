@@ -1,4 +1,5 @@
 import type { Repository } from "../config/index.js";
+import { minikubeCluster } from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 
 export interface ReadinessOptions {
@@ -87,7 +88,7 @@ export async function waitForClusterReady(
       }
       if (now() + intervalMs > deadline) {
         throw new Error(
-          `cluster ${context} was started but the ${probe.name} was not ready within ${Math.round(timeoutMs / 1000)}s: ${problem.split("\n")[0]}. Nothing was applied; check \`minikube status --profile ${repository.environment.cluster.profile}\` and rerun.`,
+          `cluster ${context} was started but the ${probe.name} was not ready within ${Math.round(timeoutMs / 1000)}s: ${problem.split("\n")[0]}. Nothing was applied; check \`minikube status --profile ${minikubeCluster(repository.environment).profile}\` and rerun.`,
         );
       }
       await sleep(intervalMs);

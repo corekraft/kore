@@ -1,4 +1,5 @@
 import type { Repository } from "../config/index.js";
+import { minikubeCluster } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { minikubeCaTrustArgs } from "./local-image-args.js";
 import {
@@ -135,7 +136,7 @@ export async function ensureRegistryTrust(
     await runner.run(
       "minikube",
       minikubeCaTrustArgs(
-        repository.environment.cluster.profile,
+        minikubeCluster(repository.environment).profile,
         registryAddress(repository),
         ca,
       ),

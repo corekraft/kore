@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { loadRepository } from "../config/index.js";
+import { loadRepository, minikubeCluster } from "../config/index.js";
 import { doctor, doctorFailed } from "./doctor.js";
 import type { RunOptions, RunResult, Runner } from "../runtime/index.js";
 
@@ -163,7 +163,7 @@ test("doctor accepts a configured managed context and fails host checks that exc
       provider: "managed" as const,
       kubeContext: "prod-context",
       cluster: {
-        ...base.environment.cluster,
+        ...minikubeCluster(base.environment),
         cpus: 100000,
         memoryMB: 100000000,
         diskSize: "100000000g",

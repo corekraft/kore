@@ -3,6 +3,7 @@ import { createConnection } from "node:net";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Repository } from "../config/index.js";
+import { minikubeCluster } from "../config/index.js";
 import { assertExpectedCluster } from "../cluster/index.js";
 import { stopOrphanedForwards } from "./tunnel-processes.js";
 
@@ -80,7 +81,7 @@ async function readState(
     ) as Partial<TunnelState>;
     const pid = value.pid;
     if (
-      value.profile !== repository.environment.cluster.profile ||
+      value.profile !== minikubeCluster(repository.environment).profile ||
       typeof pid !== "number" ||
       !Number.isSafeInteger(pid) ||
       pid < 1
@@ -199,7 +200,7 @@ export async function startLocalTunnel(
     await stopOrphanedForwards(repository, dependencies);
   }
   const pid = (dependencies.spawnTunnel ?? spawnTunnel)(
-    repository.environment.cluster.profile,
+    minikubeCluster(repository.environment).profile,
   );
   const deadline = Date.now() + 15_000;
   let exitedEarly = false;
@@ -210,7 +211,7 @@ export async function startLocalTunnel(
       )
     ) {
       await writeState(repository, {
-        profile: repository.environment.cluster.profile,
+        profile: minikubeCluster(repository.environment).profile,
         pid,
       });
       return {
@@ -229,7 +230,7 @@ export async function startLocalTunnel(
   throw new Error(
     `Minikube tunnel did not expose local Gateway port ${repository.environment.gateway.port}` +
       (exitedEarly
-        ? `: the spawned tunnel process ${pid} exited early (minikube allows one tunnel per profile; stop any other \`minikube tunnel --profile ${repository.environment.cluster.profile}\` and retry)`
+        ? `: the spawned tunnel process ${pid} exited early (minikube allows one tunnel per profile; stop any other \`minikube tunnel --profile ${minikubeCluster(repository.environment).profile}\` and retry)`
         : ""),
   );
 }

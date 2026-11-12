@@ -1,6 +1,7 @@
 import { totalmem, cpus } from "node:os";
 import { statfs } from "node:fs/promises";
 import type { Repository } from "../config/index.js";
+import { minikubeCluster } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 
 export type CheckStatus = "pass" | "warn" | "fail";
@@ -120,7 +121,7 @@ async function containerRuntimeCheck(runner: Runner): Promise<Check> {
 
 function hostCpuCheck(repository: Repository): Check {
   const cpuCount = cpus().length;
-  const wanted = repository.environment.cluster.cpus;
+  const wanted = minikubeCluster(repository.environment).cpus;
   return {
     name: "host:cpu",
     status: cpuCount >= wanted ? "pass" : "fail",
@@ -131,7 +132,7 @@ function hostCpuCheck(repository: Repository): Check {
 
 function hostMemoryCheck(repository: Repository): Check {
   const memoryMB = Math.floor(totalmem() / 1024 / 1024);
-  const wanted = repository.environment.cluster.memoryMB;
+  const wanted = minikubeCluster(repository.environment).memoryMB;
   return {
     name: "host:memory",
     status: memoryMB >= wanted ? "pass" : "fail",
@@ -144,7 +145,7 @@ async function hostDiskCheck(repository: Repository): Promise<Check> {
   const fs = await statfs(repository.root);
   const freeGB = Math.floor(Number(fs.bavail * fs.bsize) / 1024 ** 3);
   const requestedGB = Number.parseInt(
-    repository.environment.cluster.diskSize,
+    minikubeCluster(repository.environment).diskSize,
     10,
   );
   return {
@@ -192,7 +193,7 @@ async function minikubeProfileCheck(
     const conflicting = (profiles.valid ?? []).filter(
       (profile) =>
         (profile.Name ?? profile.Config?.Name) ===
-        repository.environment.cluster.profile,
+        minikubeCluster(repository.environment).profile,
     );
     const unambiguous = conflicting.length <= 1;
     return {

@@ -16,7 +16,9 @@ function octetsToInt(parts: string[]): number | undefined {
     : octets.reduce((acc, o) => acc * 256 + o, 0);
 }
 
-function parseCidr(cidr: string): { base: number; size: number } | undefined {
+export function parseCidr(
+  cidr: string,
+): { base: number; size: number } | undefined {
   const match = cidrPattern.exec(cidr);
   const prefix = Number(match?.[5]);
   const base = match ? octetsToInt(match.slice(1, 5)) : undefined;
@@ -163,17 +165,20 @@ function hardcodedErrors(repository: Repository, host: string): string[] {
  */
 export function registryAddressErrors(repository: Repository): string[] {
   const { environment } = repository;
-  const cidrText = (
-    environment.cluster as Repository["environment"]["cluster"] | undefined
-  )?.serviceCidr;
+  const k3d = environment.provider === "k3d";
+  const cidrField = k3d ? "k3d.serviceCidr" : "cluster.serviceCidr";
+  const cidrText = k3d
+    ? environment.k3d?.serviceCidr
+    : (environment.cluster as Repository["environment"]["cluster"] | undefined)
+        ?.serviceCidr;
   const cidr = cidrText === undefined ? undefined : parseCidr(cidrText);
   const declared = (environment as { registry?: { address?: unknown } })
     .registry?.address;
   const plan = parseAddress(declared);
   return [
-    ...(cidrText !== undefined && cidr === undefined
+    ...(cidrText !== undefined && cidr === undefined && !k3d
       ? [
-          `cluster.serviceCidr must be an IPv4 CIDR such as 10.96.0.0/12, got ${cidrText}`,
+          `${cidrField} must be an IPv4 CIDR such as 10.96.0.0/12, got ${cidrText}`,
         ]
       : []),
     ...(plan === undefined
@@ -183,7 +188,8 @@ export function registryAddressErrors(repository: Repository): string[] {
       : [
           ...(plan.clusterIP !== undefined &&
           cidrText === undefined &&
-          environment.cluster !== undefined
+          environment.cluster !== undefined &&
+          !k3d
             ? [
                 `registry.address ${plan.address} is an in-cluster ClusterIP; set cluster.serviceCidr in environment ${environment.name} so Minikube is started with a range that contains it`,
               ]
@@ -192,7 +198,7 @@ export function registryAddressErrors(repository: Repository): string[] {
           cidr !== undefined &&
           !inRange(plan.clusterIP, cidr)
             ? [
-                `registry.address ${plan.address} is outside cluster.serviceCidr ${cidrText}; change registry.address to an address inside the range`,
+                `registry.address ${plan.address} is outside ${cidrField} ${cidrText}; change registry.address to an address inside the range`,
               ]
             : []),
           ...hardcodedErrors(repository, plan.host),

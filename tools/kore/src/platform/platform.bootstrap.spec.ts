@@ -8,7 +8,7 @@ vi.mock("./admission-gate.js", async (importOriginal) => ({
   closeExistingAdmissionGate: async () => undefined,
   openAdmissionGate: async () => undefined,
 }));
-import { loadRepository } from "../config/index.js";
+import { loadRepository, minikubeCluster } from "../config/index.js";
 import { bootstrapControllers } from "./bootstrap.js";
 import { platformStop, platformDestroy } from "./lifecycle.js";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -85,7 +85,7 @@ test("platform stop removes managed tunnel state before stopping the cluster", a
     assert.deepEqual(runner.calls.at(-1)?.args, [
       "stop",
       "--profile",
-      repository.environment.cluster.profile,
+      minikubeCluster(repository.environment).profile,
     ]);
   } finally {
     await rm(root, { recursive: true, force: true });

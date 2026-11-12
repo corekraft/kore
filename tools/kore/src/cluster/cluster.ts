@@ -1,4 +1,5 @@
 import type { Environment, Repository } from "../config/index.js";
+import { minikubeCluster } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { waitForClusterReady, type ReadinessOptions } from "./readiness.js";
 import { hasVerifiedExport } from "./export-manifest.js";
@@ -12,7 +13,7 @@ export class ClusterUnavailableError extends Error {
 }
 
 export function clusterStartArgs(environment: Environment): string[] {
-  const cluster = environment.cluster;
+  const cluster = minikubeCluster(environment);
   return [
     "start",
     "--profile",
@@ -59,20 +60,26 @@ export async function assertExpectedCluster(
     );
     return;
   }
-  if (environment.cluster.profile !== environment.kubeContext) {
+  if (minikubeCluster(environment).profile !== environment.kubeContext) {
     throw new Error(
-      `refusing unexpected profile/context pair: ${environment.cluster.profile} != ${environment.kubeContext}`,
+      `refusing unexpected profile/context pair: ${minikubeCluster(environment).profile} != ${environment.kubeContext}`,
     );
   }
   try {
     await runner.run(
       "minikube",
-      ["status", "--profile", environment.cluster.profile, "--output", "json"],
+      [
+        "status",
+        "--profile",
+        minikubeCluster(environment).profile,
+        "--output",
+        "json",
+      ],
       { capture: true },
     );
   } catch (error) {
     throw new ClusterUnavailableError(
-      `Minikube profile ${environment.cluster.profile} is unavailable`,
+      `Minikube profile ${minikubeCluster(environment).profile} is unavailable`,
       { cause: error },
     );
   }
@@ -107,7 +114,7 @@ export async function clusterUp(
       "cluster up only manages Minikube environments; provision managed clusters with OpenTofu",
     );
   }
-  if (environment.cluster.profile !== environment.kubeContext) {
+  if (minikubeCluster(environment).profile !== environment.kubeContext) {
     throw new Error("Minikube profile and expected context must match");
   }
   await runner.run("minikube", clusterStartArgs(environment), {
@@ -130,7 +137,7 @@ export async function clusterStatus(
           [
             "status",
             "--profile",
-            environment.cluster.profile,
+            minikubeCluster(environment).profile,
             "--output",
             "json",
           ],
@@ -143,7 +150,7 @@ export async function clusterStatus(
         );
   return {
     environment: environment.name,
-    profile: environment.cluster.profile,
+    profile: minikubeCluster(environment).profile,
     context: environment.kubeContext,
     status: result.stdout.trim(),
   };
@@ -159,7 +166,7 @@ export async function clusterStop(
   await assertExpectedCluster(repository, runner);
   await runner.run(
     "minikube",
-    ["stop", "--profile", repository.environment.cluster.profile],
+    ["stop", "--profile", minikubeCluster(repository.environment).profile],
     { capture: false },
   );
 }
@@ -206,7 +213,7 @@ export async function clusterDestroy(
     [
       "delete",
       "--profile",
-      repository.environment.cluster.profile,
+      minikubeCluster(repository.environment).profile,
       "--purge=false",
     ],
     { capture: false },

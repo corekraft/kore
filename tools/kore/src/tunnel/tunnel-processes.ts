@@ -1,4 +1,5 @@
 import type { Repository } from "../config/index.js";
+import { minikubeCluster } from "../config/index.js";
 import { terminateMatching, type ProcessControl } from "../runtime/index.js";
 
 const ISTIO_STATUS_PORT = 15021;
@@ -67,7 +68,7 @@ export async function stopOrphanedForwards(
   repository: Repository,
   dependencies: ProcessControl = {},
 ): Promise<number[]> {
-  const profile = repository.environment.cluster.profile;
+  const profile = minikubeCluster(repository.environment).profile;
   const port = repository.environment.gateway.port;
   return await terminateMatching(
     (entry) =>

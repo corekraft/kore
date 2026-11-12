@@ -32,6 +32,9 @@ plan 8.
 
 - [ ] Change the provider value to `k3d` in the config types, schema and
       `infra/environments/local/environment.yaml`.
+      Progress: types, schema and validator accept `k3d` (with an
+      `environment.k3d` block), `managed` and `minikube` (#136); the overlay
+      flips in #146, which ticks this item.
 - [ ] Rewrite `cluster/` for `k3d cluster create`, `start`, `stop` and
       `delete`, with Traefik and ServiceLB disabled and ports mapped through
       the k3d load balancer.

@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { test } from "vitest";
 import { readinessFor } from "./readiness-fixtures.js";
 import { loadRepository, validateRepository } from "./config.js";
+import { minikubeCluster } from "./minikube-cluster.js";
 
 test("validation reports invalid versions, component definitions, and missing value files", async () => {
   const base = await loadRepository("local");
@@ -22,7 +23,7 @@ test("validation reports invalid versions, component definitions, and missing va
         enrollmentExemptions: {},
         name: "BAD_NAME",
         kubeContext: "",
-        cluster: { ...base.environment.cluster, cpus: 1, memoryMB: 1 },
+        cluster: { ...minikubeCluster(base.environment), cpus: 1, memoryMB: 1 },
         componentValues: { [component.name]: ["missing-env.yaml"] },
       },
       catalog: {
@@ -97,7 +98,7 @@ test("validation reports every rule violation exactly once, sorted", async () =>
       name: "BAD_NAME",
       provider: "other",
       kubeContext: "",
-      cluster: { ...base.environment.cluster, cpus: 1, memoryMB: 1 },
+      cluster: { ...minikubeCluster(base.environment), cpus: 1, memoryMB: 1 },
       componentValues: { "also-bad": ["missing-env.yaml"], ghost: [] },
     },
     readiness: readinessFor("BAD_NAME", "also-bad", "cyc-a", "cyc-b"),
@@ -143,7 +144,7 @@ test("validation reports every rule violation exactly once, sorted", async () =>
       "environment.cluster.memoryMB must be at least 4096",
       "environment.kubeContext is required",
       "environment.name is invalid",
-      "environment.provider must be minikube or managed",
+      "environment.provider must be k3d, minikube or managed",
       "release dependency cycle includes: BAD_NAME, cyc-a, cyc-b",
       "tools.broken must be an exact semantic version",
       "unknown environment component values: ghost",
