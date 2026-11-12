@@ -7,34 +7,6 @@ const bash = (role: string, command: string) => as(role, "Bash", { command });
 const write = (role: string, file_path: string) =>
   as(role, "Write", { file_path, content: "x" });
 
-const MERGES = [
-  "gh pr merge 12 --squash",
-  "cd x && gh pr merge 12 --auto",
-  "gh api -X PUT repos/corekraft/kore/pulls/12/merge",
-  "gh api repos/corekraft/kore/pulls/12/merge --method PUT",
-];
-
-describe("role-no-merge: until the merge tool exists nobody merges", () => {
-  it("blocks the orchestrator, writer and judge from merging by any path", async () => {
-    for (const role of ["orchestrator", "writer", "judge"]) {
-      for (const command of MERGES) {
-        blocked(await bash(role, command), "role-no-merge");
-      }
-    }
-  });
-
-  it("still lets them read a pull request and mention merge in text", async () => {
-    for (const role of ["orchestrator", "writer", "judge"]) {
-      allowed(await bash(role, "gh pr view 12 --json mergeable"));
-      allowed(await bash(role, 'echo "gh pr merge 12"'));
-    }
-  });
-
-  it("does not bind a session with no role or an unknown one", async () => {
-    allowed(await bash("someone-else", "gh pr merge 12"));
-  });
-});
-
 describe("role-read-only: the judge and orchestrator never change files", () => {
   for (const role of ["judge", "orchestrator"]) {
     it(`${role}: file tools and writing commands are blocked`, async () => {

@@ -1,9 +1,10 @@
 // Role bounds for the delivery roles (ADR 0078): the orchestrator and judge change no
-// file, only the writer does and only inside its own worktree, and nobody merges until
-// the merge tool exists (plan 11 Step 5). The orchestrator and judge run under the
-// shared read allowlist in guard-role-allow.ts, so a write form nobody listed is
-// refused by default. The owner approved enforcing these guards on
-// #190 and #191 (2026-11-12), so every rule blocks.
+// file, only the writer does and only inside its own worktree, and the only merge is the
+// judge's `harness judge merge`, which re-runs the precheck first (plan 11 Step 5). A
+// session with no role, such as the person's, is not bound here and keeps `gh pr merge`.
+// The orchestrator and judge run under the shared read allowlist in guard-role-allow.ts,
+// so a write form nobody listed is refused by default. The owner approved enforcing these
+// guards on #190 and #191 (2026-11-12), so every rule blocks.
 import { isAbsolute, relative, resolve } from "node:path";
 import {
   changesShell,
@@ -27,8 +28,8 @@ export const DELIVERY_ROLES = new Set([...REPORTING_ROLES, "writer"]);
 const noMerge = (role: string, what: string): Finding =>
   block(
     "role-no-merge",
-    `${what} merges, but the ${role} may not: the merge tool does not exist yet (plan 11 Step 5), so no role merges. ` +
-      "Instead, report the verdict; the judge reports safe or sends the change back, and the operator merges.",
+    `${what} merges, but the ${role} may not merge by hand: the merge tool re-runs the precheck and merges only when it passes. ` +
+      "Instead, the judge runs `harness judge merge <pr>` or `harness judge send-back <pr> --reason <why>`; every other role reports and leaves the merge to the judge.",
   );
 
 const outsideWorktree = (what: string, root: string): Finding =>
@@ -37,6 +38,18 @@ const outsideWorktree = (what: string, root: string): Finding =>
     `${what} reaches outside this worktree (${root}), and a writer works only in the worktree it was launched in. ` +
       "Instead, make the change inside the worktree, or report that it needs another piece of work.",
   );
+
+/** The judge's own tools: the merge tool and the send-back that closes the loop with the orchestrator. */
+const JUDGE_TOOLS = ["merge", "send-back"];
+const runsJudgeTool = (segment: readonly string[]): boolean => {
+  const { name, args } = commandOf(segment);
+  return (
+    name === "node" &&
+    HARNESS.test(args[0] ?? "") &&
+    args[1] === "judge" &&
+    JUDGE_TOOLS.includes(args[2] ?? "")
+  );
+};
 
 const MERGE_API = /\/pulls\/\d+\/merge\b/;
 const merges = (segment: readonly string[]): boolean => {
@@ -85,8 +98,17 @@ const ORCHESTRATOR_HARNESS = [
   "outcome close",
 ];
 
-/** The judge also runs its precheck, which reads GitHub and appends one event to the shared ledger (never a path of its choosing). */
-const JUDGE_HARNESS = [...READS, "judge precheck"];
+/**
+ * The judge also runs its precheck, which reads GitHub and appends one event to the
+ * shared ledger, and the merge tool and send-back, which write only through gh and that
+ * same ledger (never a path of its choosing).
+ */
+const JUDGE_HARNESS = [
+  ...READS,
+  "judge precheck",
+  "judge merge",
+  "judge send-back",
+];
 
 /** The harness commands each delivery role may run; any other role gets the reads. */
 const HARNESS_BY_ROLE: Record<string, readonly string[]> = {
@@ -193,6 +215,10 @@ export function checkDeliveryBash(
   const merging = segments.find(merges);
   if (merging !== undefined) {
     return noMerge(role, `\`${merging.join(" ")}\``);
+  }
+  const judging = segments.find(runsJudgeTool);
+  if (judging !== undefined && role !== "judge") {
+    return noMerge(role, `\`${judging.join(" ")}\``);
   }
   if (REPORTING_ROLES.has(role)) {
     if (SUBSTITUTION.test(command)) {
