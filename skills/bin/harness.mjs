@@ -4759,7 +4759,7 @@ async function readPayload(deps) {
     return void 0;
   }
 }
-function hookCommand(name, summary, handler, { flags = {}, payload = true, operand } = {}) {
+function hookCommand(name, summary, handler, { flags = {}, payload = true, operand, faultCode = 0 } = {}) {
   return {
     summary,
     options: { ...flags, strict: "boolean" },
@@ -4776,12 +4776,12 @@ function hookCommand(name, summary, handler, { flags = {}, payload = true, opera
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
         const hint = error instanceof CommandError ? "" : " (unexpected; fixing it is on the harness)";
-        const strict = options["strict"] === true;
+        const code = options["strict"] === true ? 1 : faultCode;
         deps.stderr(
-          `[hook:${name}] ${strict ? "failed" : "failed open"}: ${reason}${hint}
+          `[hook:${name}] ${code === 0 ? "failed open" : "failed"}: ${reason}${hint}
 `
         );
-        return strict ? 1 : 0;
+        return code;
       }
       if (result.stdout) {
         deps.stdout(result.stdout);
@@ -6638,7 +6638,8 @@ var feedbackHook = hookCommand(
 var guardHook = hookCommand(
   "guard",
   "block or warn on tool calls that break mechanically checkable rules (PreToolUse)",
-  ({ deps, payload }) => guard(payload, deps)
+  ({ deps, payload }) => guard(payload, deps),
+  { faultCode: 1 }
 );
 var hook = {
   delta,

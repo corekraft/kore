@@ -13,9 +13,11 @@ async function guard(
     KORE_ROOT: "/repo",
   },
   stdin = JSON.stringify(payload),
+  tweak: (h: ReturnType<typeof testHarness>) => void = () => undefined,
 ) {
   const h = testHarness({ env });
   h.deps.stdin = () => Promise.resolve(stdin);
+  tweak(h);
   const code = await run(["hook", "guard"], h.deps);
   return {
     code,
@@ -70,6 +72,57 @@ describe("hook guard", () => {
       additionalContext: expect.stringMatching(/guard:image-digest/),
     });
     expect(result.events).toEqual([]);
+  });
+});
+
+describe("hook guard faults", () => {
+  it("exits 1, visibly, not 0 and not 2, when the guard itself breaks", async () => {
+    const unreadable = (h: ReturnType<typeof testHarness>) => {
+      h.deps.fs = {
+        ...h.deps.fs,
+        readFile: () =>
+          Promise.reject(
+            Object.assign(new Error("EACCES: permission denied"), {
+              code: "EACCES",
+            }),
+          ),
+      };
+    };
+    const payload = {
+      tool_name: "Write",
+      tool_input: {
+        file_path: "/repo/infra/environments/local/environment.yaml",
+        content: '"features": { "a-b": true }',
+      },
+    };
+    const result = await guard(payload, undefined, undefined, unreadable);
+    expect(result.code).toBe(1);
+    expect(result.out).toBe("");
+    expect(result.err).toMatch(/^\[hook:guard\] failed: EACCES/);
+    expect(result.err).not.toMatch(/failed open/);
+  });
+
+  it("keeps a block's verdict and stderr when the ledger cannot be written", async () => {
+    const unwritable = (h: ReturnType<typeof testHarness>) => {
+      const refuse = () => Promise.reject(new Error("EACCES: ledger"));
+      h.deps.fs = {
+        ...h.deps.fs,
+        appendFile: refuse,
+        writeFile: refuse,
+        createFile: refuse,
+      };
+    };
+    const normal = await guard(call("minikube delete"));
+    const result = await guard(
+      call("minikube delete"),
+      undefined,
+      undefined,
+      unwritable,
+    );
+    expect(result.events).toEqual([]);
+    expect(result.code).toBe(2);
+    expect(result.out).toBe(normal.out);
+    expect(result.err).toBe(normal.err);
   });
 
   it("fails open on malformed input, empty input and a payload that is not an object", async () => {

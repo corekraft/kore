@@ -40,6 +40,7 @@ const guardHook = hookCommand(
   "guard",
   "block or warn on tool calls that break mechanically checkable rules (PreToolUse)",
   ({ deps, payload }) => guard(payload, deps),
+  { faultCode: 1 },
 );
 
 /** The hooks the host runs as `harness hook <name>`; each is a command in this domain. */

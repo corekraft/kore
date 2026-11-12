@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { it } from "vitest";
+import { afterAll, it } from "vitest";
 
 // The guard as the host runs it: the committed bundle as a real process.
 const here = dirname(fileURLToPath(import.meta.url));
@@ -68,15 +71,40 @@ const timeMs = (fn: () => void, runs = 5) =>
     }),
   );
 
-it("cli: the guard adds at most 150 ms to the bare node startup", () => {
+// The real path: a session id, no KORE_ROOT, so each recording asks git for the
+// main checkout's root, as the host's hook does. The ledger lands in a temporary repository.
+const project = mkdtempSync(join(tmpdir(), "guard-timing-"));
+afterAll(() => rmSync(project, { recursive: true, force: true }));
+
+const runRecording = (payload: unknown) => {
+  const { KORE_ROOT: _root, ...env } = inherited;
+  return spawnSync("node", [bundle, "hook", "guard"], {
+    input: JSON.stringify(payload),
+    encoding: "utf8",
+    env: { ...env, CLAUDE_PROJECT_DIR: project },
+  });
+};
+
+it("cli: the guard adds at most 150 ms to the bare node startup, recording its events", () => {
+  mkdirSync(join(project, "infra", "plans"), { recursive: true });
+  execFileSync("git", ["init", "-q", project]);
   // Measured against the same node binary, so a slow or loaded machine
   // raises the baseline instead of failing the guard's own budget.
   const baseline = timeMs(() => spawnSync("node", ["-e", "0"]));
-  const guard = timeMs(() =>
-    run({ tool_name: "Bash", tool_input: { command: "git status" } }),
-  );
-  assert.ok(
-    guard <= baseline + 150,
-    `guard median ${guard.toFixed(0)} ms exceeds node baseline ${baseline.toFixed(0)} ms + 150 ms`,
-  );
-}, 15_000);
+  const call = (command: string) => ({
+    session_id: "timing",
+    tool_name: "Bash",
+    tool_input: { command },
+  });
+  const allowed = timeMs(() => runRecording(call("git status")));
+  const blocked = timeMs(() => runRecording(call("minikube delete")));
+  for (const [path, ms] of [
+    ["an allowed call", allowed],
+    ["a blocked call", blocked],
+  ] as const) {
+    assert.ok(
+      ms <= baseline + 150,
+      `${path}: guard median ${ms.toFixed(0)} ms exceeds node baseline ${baseline.toFixed(0)} ms + 150 ms`,
+    );
+  }
+}, 30_000);
