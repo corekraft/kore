@@ -21,6 +21,15 @@ export function isTrackedSource(filePath, root) {
   return relative.startsWith(SOURCE_DIR) && relative.endsWith(".ts");
 }
 
+const HARNESS_DIRS = ["tools/harness/src/", "tools/harness/tests/"];
+const HARNESS_BIN = "tools/harness/node_modules/.bin";
+
+export function isHarnessSource(filePath, root) {
+  const prefix = `${root}/`;
+  const relative = filePath.startsWith(prefix) ? filePath.slice(prefix.length) : filePath;
+  return HARNESS_DIRS.some((dir) => relative.startsWith(dir)) && relative.endsWith(".ts");
+}
+
 const MAX_LINES = 40;
 
 /** Keep the first lines of a report so a large one never floods the agent's context. */
@@ -64,9 +73,40 @@ export function stop(call, deps) {
   return ok;
 }
 
+export function postEditHarness(call, deps) {
+  const filePath = call?.tool_input?.file_path;
+  if (typeof filePath !== "string" || !isHarnessSource(filePath, deps.root)) return ok;
+
+  deps.markHarnessChanged();
+
+  const lint = deps.run(`${deps.root}/${HARNESS_BIN}/oxlint`, ["--deny-warnings", filePath]);
+  if (lint.status !== 0) {
+    const details = bound(lint.output, `${HARNESS_BIN}/oxlint --deny-warnings ${filePath}`);
+    return fail(`oxlint reported problems in ${filePath}. Fix them before continuing.\n${details}`);
+  }
+  const format = deps.run(`${deps.root}/${HARNESS_BIN}/prettier`, ["--check", filePath]);
+  if (format.status !== 0) {
+    const details = bound(format.output, `${HARNESS_BIN}/prettier --check ${filePath}`);
+    return fail(`${filePath} is not formatted. Run \`mise run format ${filePath}\`.\n${details}`);
+  }
+  return ok;
+}
+
+export function stopHarness(call, deps) {
+  if (call?.stop_hook_active || !deps.hasHarnessChanged()) return ok;
+  const check = deps.run("npm", ["--prefix", "tools/harness", "run", "check", "--silent"]);
+  if (check.status !== 0) {
+    const details = bound(check.output, "npm --prefix tools/harness run check");
+    return fail(`The harness typecheck failed after your TypeScript changes. Fix it before finishing.\n${details}`);
+  }
+  deps.clearHarnessChanged();
+  return ok;
+}
+
 function realDeps(call) {
   const root = process.env.CLAUDE_PROJECT_DIR || call.cwd || process.cwd();
   const marker = join(tmpdir(), `kore-ts-changed-${call.session_id ?? "default"}`);
+  const harnessMarker = join(tmpdir(), `kore-harness-changed-${call.session_id ?? "default"}`);
   return {
     root,
     run: (command, args) => {
@@ -76,6 +116,9 @@ function realDeps(call) {
     markChanged: () => writeFileSync(marker, ""),
     hasChanged: () => existsSync(marker),
     clearChanged: () => rmSync(marker, { force: true }),
+    markHarnessChanged: () => writeFileSync(harnessMarker, ""),
+    hasHarnessChanged: () => existsSync(harnessMarker),
+    clearHarnessChanged: () => rmSync(harnessMarker, { force: true }),
   };
 }
 
@@ -87,7 +130,9 @@ function main(mode) {
     return 0;
   }
   const deps = realDeps(call);
-  const result = mode === "stop" ? stop(call, deps) : postEdit(call, deps);
+  const [kore, harness] = mode === "stop" ? [stop, stopHarness] : [postEdit, postEditHarness];
+  const first = kore(call, deps);
+  const result = first.code !== 0 ? first : harness(call, deps);
   if (result.code !== 0) process.stderr.write(`${result.message}\n`);
   return result.code;
 }

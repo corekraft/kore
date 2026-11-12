@@ -44,6 +44,7 @@ function commit(files, failing = [], { withMise = true } = {}) {
     const opts = { cwd: root, env: cleanEnv, encoding: "utf8" };
     spawnSync("git", ["init", "-q"], opts);
     mkdirSync(join(root, "tools/kore/.husky"), { recursive: true });
+    mkdirSync(join(root, "tools/harness"), { recursive: true });
     copyFileSync(hook, join(root, "hook.sh"));
     copyFileSync(helper, join(root, "tools/kore/.husky/pinned.sh"));
     const log = join(root, "calls.log");
@@ -61,7 +62,7 @@ function commit(files, failing = [], { withMise = true } = {}) {
     }
     script(
       join(bin, "npm"),
-      `echo "$*" >> "${log}"\ncase " ${failing.join(" ")} " in *" $2 "*) exit 1;; esac`,
+      `echo "$*" >> "${log}"\necho "$(basename "$PWD") $*" >> "${log}.npm"\ncase " ${failing.join(" ")} " in *" $2 "*|*" $(basename "$PWD"):$2 "*) exit 1;; esac`,
     );
     for (const file of files) {
       mkdirSync(dirname(join(root, file)), { recursive: true });
@@ -81,7 +82,13 @@ function commit(files, failing = [], { withMise = true } = {}) {
     } catch {
       // npm never ran.
     }
-    return { status: result.status, stderr: result.stderr, calls };
+    let npmCalls = "";
+    try {
+      npmCalls = readFileSync(`${log}.npm`, "utf8");
+    } catch {
+      // npm never ran.
+    }
+    return { status: result.status, stderr: result.stderr, calls, npmCalls };
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -145,4 +152,50 @@ test("failing unit tests block the commit with one actionable line", () => {
   const result = commit(["tools/kore/src/a.ts"], ["test:unit"]);
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /^pre-commit: unit tests failed; run .+\n$/);
+});
+
+// Harness sources and the committed bundle have their own typecheck and tests,
+// run from tools/harness; kore's checks stay out of it.
+for (const file of [
+  "tools/harness/src/a.ts",
+  "tools/harness/tests/a.ts",
+  "tools/harness/package.json",
+  "skills/bin/harness.mjs",
+]) {
+  test(`staging ${file} runs the harness typecheck and unit tests, not kore's`, () => {
+    const result = commit([file]);
+    assert.equal(result.status, 0);
+    assert.match(result.npmCalls, /^harness run check/m);
+    assert.match(result.npmCalls, /^harness run test:unit/m);
+    assert.doesNotMatch(result.npmCalls, /^kore /m);
+  });
+}
+
+test("staging only unrelated files runs no harness checks", () => {
+  const result = commit([
+    "tools/kore/src/a.ts",
+    "README.md",
+    "skills/handoff/SKILL.md",
+  ]);
+  assert.equal(result.status, 0);
+  assert.doesNotMatch(result.npmCalls, /^harness /m);
+});
+
+test("a type-broken harness file blocks the commit with one actionable line and skips the harness tests", () => {
+  const result = commit(["tools/harness/src/a.ts"], ["harness:check"]);
+  assert.notEqual(result.status, 0);
+  assert.match(
+    result.stderr,
+    /^pre-commit: harness typecheck failed; run .+tools\/harness.+\n$/,
+  );
+  assert.doesNotMatch(result.calls, /test:unit/);
+});
+
+test("failing harness unit tests block the commit with one actionable line", () => {
+  const result = commit(["tools/harness/src/a.ts"], ["harness:test:unit"]);
+  assert.notEqual(result.status, 0);
+  assert.match(
+    result.stderr,
+    /^pre-commit: harness unit tests failed; run .+tools\/harness.+\n$/,
+  );
 });
