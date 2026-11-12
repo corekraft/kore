@@ -259,3 +259,47 @@ describe("role-no-code: a path with .. cannot step out of the readable folders",
     });
   }
 });
+
+describe("a bounded role cannot start a command with an environment assignment", () => {
+  const ASSIGNED = [
+    "GIT_EXTERNAL_DIFF='gh issue edit 300 --add-label ready-for-agent #' git diff HEAD~1",
+    "GIT_CONFIG_KEY_0=core.pager GIT_CONFIG_VALUE_0='sh -c x' git log",
+    "PAGER='sh -c x' git log",
+    "KORE_ROOT=/tmp/other node skills/bin/harness.mjs idea list",
+    "env KORE_ROOT=/tmp/other node skills/bin/harness.mjs idea list",
+    "echo ok && PAGER=x git log",
+  ];
+  const finding = (role: string) =>
+    ["concierge", "challenger"].includes(role)
+      ? "role-no-code"
+      : "role-read-only";
+
+  for (const role of ["reader", "refiner", "concierge", "challenger"]) {
+    it(`${role}: every assigned form is blocked`, async () => {
+      for (const command of ASSIGNED) {
+        blocked(await bash(role, command), finding(role));
+      }
+    });
+  }
+
+  it("a variable name inside an argument is not an assignment", async () => {
+    allowed(await bash("reader", "grep KORE_ROOT=x README.md"));
+    allowed(await bash("refiner", "echo KORE_ROOT=x"));
+  });
+});
+
+describe("git options that run a program are refused for the reader and refiner", () => {
+  for (const role of ["reader", "refiner"]) {
+    it(`${role}: --ext-diff, --textconv and --config-env are blocked`, async () => {
+      for (const command of [
+        "git diff --ext-diff HEAD~1",
+        "git log -p --textconv",
+        "git --config-env=core.pager=X log",
+        "git show --ext-diff HEAD",
+      ]) {
+        blocked(await bash(role, command), "role-read-only");
+      }
+      allowed(await bash(role, "git diff HEAD~1"));
+    });
+  }
+});

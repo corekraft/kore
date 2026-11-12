@@ -132,6 +132,9 @@ const gitWrites = (args: readonly string[]): boolean =>
     (arg) =>
       arg.startsWith("--output") ||
       arg.startsWith("--open-files-in-pager") ||
+      arg.startsWith("--ext-diff") ||
+      arg.startsWith("--textconv") ||
+      arg.startsWith("--config-env") ||
       arg.startsWith("-O"),
   );
 
@@ -223,6 +226,10 @@ function readerMayRun(role: string, segment: readonly string[]): boolean {
   );
 }
 
+/** A segment that starts with `VAR=value` or an `env`-style wrapper: git and the harness read variables such as GIT_EXTERNAL_DIFF, PAGER and KORE_ROOT to run a program or move the ledger. */
+const PREFIXED =
+  /^(?:[A-Za-z_][A-Za-z0-9_]*=|(?:sudo|env|time|command|nohup|exec)$)/;
+
 function checkBash(role: string, command: string): Finding {
   // A substitution runs a command the segment check never sees.
   if (/\$\(|`|<\(|>\(/.test(command)) {
@@ -231,6 +238,11 @@ function checkBash(role: string, command: string): Finding {
       : readOnly("A command substitution");
   }
   const segments = splitSegments(command);
+  const prefixed = segments.find((segment) => PREFIXED.test(segment[0] ?? ""));
+  if (prefixed !== undefined) {
+    const what = `\`${prefixed.join(" ")}\`, which sets an environment variable,`;
+    return NO_CODE_ROLES.has(role) ? noCode(what, role) : readOnly(what);
+  }
   const writer = segments.find(writes);
   if (writer !== undefined) {
     return readOnly(`\`${writer.join(" ")}\``);

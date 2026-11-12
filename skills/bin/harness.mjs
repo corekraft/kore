@@ -6198,7 +6198,7 @@ function utilityMayRun(name, args) {
   }
 }
 var gitWrites = (args) => args.some(
-  (arg) => arg.startsWith("--output") || arg.startsWith("--open-files-in-pager") || arg.startsWith("-O")
+  (arg) => arg.startsWith("--output") || arg.startsWith("--open-files-in-pager") || arg.startsWith("--ext-diff") || arg.startsWith("--textconv") || arg.startsWith("--config-env") || arg.startsWith("-O")
 );
 var CONCIERGE_GIT_FLAGS = {
   log: /^(--|--oneline|--graph|--decorate|--no-decorate|--all|--no-merges|--merges|--first-parent|--abbrev-commit|--since=.+|--until=.+|--author=.+|--grep=.+|--format=.+|--pretty=.+|--date=.+|--max-count=.+|-n|-\d+)$/,
@@ -6257,11 +6257,17 @@ function readerMayRun(role, segment) {
     role === "refiner" ? REFINER_HARNESS : HARNESS_READS
   ) || name === "gh" && ghMayRun(args, true) || READ_UTILITIES.has(name) && utilityMayRun(name, args);
 }
+var PREFIXED = /^(?:[A-Za-z_][A-Za-z0-9_]*=|(?:sudo|env|time|command|nohup|exec)$)/;
 function checkBash(role, command) {
   if (/\$\(|`|<\(|>\(/.test(command)) {
     return NO_CODE_ROLES.has(role) ? noCode("A command substitution", role) : readOnly("A command substitution");
   }
   const segments = splitSegments(command);
+  const prefixed = segments.find((segment) => PREFIXED.test(segment[0] ?? ""));
+  if (prefixed !== void 0) {
+    const what = `\`${prefixed.join(" ")}\`, which sets an environment variable,`;
+    return NO_CODE_ROLES.has(role) ? noCode(what, role) : readOnly(what);
+  }
   const writer = segments.find(writes);
   if (writer !== void 0) {
     return readOnly(`\`${writer.join(" ")}\``);
