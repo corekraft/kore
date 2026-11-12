@@ -301,7 +301,7 @@ test("cli: the guard adds at most 150 ms to the bare node startup", () => {
     guard <= baseline + 150,
     `guard median ${guard.toFixed(0)} ms exceeds node baseline ${baseline.toFixed(0)} ms + 150 ms`,
   );
-});
+}, 15_000);
 
 test("unquoted-glob: an unquoted --include or --exclude glob blocks, since zsh fails the whole command when it matches nothing", () => {
   for (const command of [

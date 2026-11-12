@@ -585,6 +585,8 @@ function main() {
   });
 
   if (result.action === "block") {
+    // A blocked call never reaches the post-tool hook, so close its start here.
+    recordEvent("tool.end", call, { root, outcome: "failure" });
     process.stderr.write(`${result.message}\n`);
     return 2;
   }

@@ -109,7 +109,9 @@ test("recording runs detached with ignored stdio so a hook never waits on it", (
   assert.equal(calls[0].options.stdio, "ignore");
 });
 
-// End to end: the real hook scripts, with the real harness bundle.
+// End to end: the real hook scripts, with the real harness bundle. Recorders run
+// detached, so each test says how many events it expects and its cleanup waits
+// for them before removing the temporary project.
 import { spawnSync } from "node:child_process";
 import {
   existsSync,
@@ -125,10 +127,35 @@ import { fileURLToPath } from "node:url";
 
 const hooks = dirname(fileURLToPath(import.meta.url));
 const repo = join(hooks, "..", "..");
+const TIMEOUT = 15_000;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-function project(t, { bundle = true } = {}) {
+function readEvents(dir) {
+  const file = join(dir, ".kore", "state", "ledger.jsonl");
+  return existsSync(file)
+    ? readFileSync(file, "utf8")
+        .trim()
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => JSON.parse(line))
+    : [];
+}
+
+/** Poll until `count` events exist, then let any extra recorder finish, and return all of them. */
+async function eventsOf(dir, count) {
+  for (let i = 0; i < 200 && readEvents(dir).length < count; i++) {
+    await sleep(50);
+  }
+  await sleep(600);
+  return readEvents(dir);
+}
+
+function project(t, { bundle = true, expect = 0 } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "kore-ledger-hook-"));
-  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  t.after(async () => {
+    await eventsOf(dir, expect);
+    rmSync(dir, { recursive: true, force: true });
+  });
   if (bundle) {
     mkdirSync(join(dir, "skills", "bin"), { recursive: true });
     symlinkSync(
@@ -152,153 +179,261 @@ function runHook(script, args, payload, dir) {
   });
 }
 
-async function ledgerEvents(dir) {
-  const file = join(dir, ".kore", "state", "ledger.jsonl");
-  for (let i = 0; i < 100 && !existsSync(file); i++)
-    await new Promise((r) => setTimeout(r, 50));
-  // Let any further detached recorders finish, so an absence assertion is real.
-  await new Promise((r) => setTimeout(r, 400));
-  return existsSync(file)
-    ? readFileSync(file, "utf8")
-        .trim()
-        .split("\n")
-        .map((line) => JSON.parse(line))
-    : [];
+/** Proof of absence: a later recording that did land, with nothing else beside it. */
+async function onlySentinel(dir) {
+  runHook("guard.mjs", [], { session_id: "sentinel", tool_name: "Grep" }, dir);
+  const events = await eventsOf(dir, 1);
+  assert.deepEqual(
+    events.map((e) => e.session),
+    ["sentinel"],
+  );
 }
 
-test("the pre-tool hook records a tool start with session, pane and tool, and no tool input", async (t) => {
-  const dir = project(t);
-  const result = runHook(
-    "guard.mjs",
-    [],
-    { session_id: "s1", tool_name: "Grep", tool_input: { pattern: "hunter2" } },
-    dir,
-  );
-  assert.equal(result.status, 0);
-  const [event] = await ledgerEvents(dir);
-  assert.deepEqual(
-    [event.source, event.kind, event.session, event.pane, event.tool],
-    ["claude", "tool.start", "s1", "w9:p9", "Grep"],
-  );
-  assert.equal(JSON.stringify(event).includes("hunter2"), false);
-});
+const kinds = (events) => events.map((e) => e.kind).sort();
 
-test("the post-tool hook records a tool end for a tool the edit checks ignore", async (t) => {
-  const dir = project(t);
-  const result = runHook(
-    "feedback.mjs",
-    ["post-edit"],
-    { session_id: "s1", tool_name: "Bash", tool_input: { command: "ls" } },
-    dir,
-  );
-  assert.equal(result.status, 0);
-  assert.equal(result.stderr, "");
-  const [event] = await ledgerEvents(dir);
-  assert.deepEqual(
-    [event.kind, event.tool, event.outcome],
-    ["tool.end", "Bash", "success"],
-  );
-});
-
-test("a failed tool is recorded as a failure and never fails the hook", async (t) => {
-  const dir = project(t);
-  const result = runHook(
-    "feedback.mjs",
-    ["tool-failure"],
-    { session_id: "s1", tool_name: "Bash" },
-    dir,
-  );
-  assert.equal(result.status, 0);
-  const [event] = await ledgerEvents(dir);
-  assert.deepEqual([event.kind, event.outcome], ["tool.end", "failure"]);
-});
-
-test("the stop hook records a session stop once, not on its own re-entry", async (t) => {
-  const dir = project(t);
-  runHook("feedback.mjs", ["stop"], { session_id: "s1" }, dir);
-  runHook(
-    "feedback.mjs",
-    ["stop"],
-    { session_id: "s1", stop_hook_active: true },
-    dir,
-  );
-  const events = await ledgerEvents(dir);
-  assert.deepEqual(
-    events.map((e) => e.kind),
-    ["session.stop"],
-  );
-});
-
-test("the session start hook records a session start", async (t) => {
-  const dir = project(t);
-  runHook("context.mjs", [], { session_id: "s1", source: "resume" }, dir);
-  const [event] = await ledgerEvents(dir);
-  assert.deepEqual(
-    [event.kind, event.session, event.pane],
-    ["session.start", "s1", "w9:p9"],
-  );
-});
-
-test("a missing bundle leaves the hook's verdict, stdout and exit code unchanged", (t) => {
-  const bare = project(t, { bundle: false });
-  const withBundle = project(t);
-  const blocked = {
-    session_id: "s1",
-    tool_name: "Bash",
-    tool_input: { command: "k3d cluster delete x" },
-  };
-  const a = runHook("guard.mjs", [], blocked, bare);
-  const b = runHook("guard.mjs", [], blocked, withBundle);
-  assert.equal(a.status, b.status);
-  assert.equal(a.stdout, b.stdout);
-  assert.equal(a.stderr, b.stderr);
-  assert.equal(existsSync(join(bare, ".kore")), false);
-});
-
-test("a failing edit check still returns its message and exit code 2 when recording works", async (t) => {
-  const dir = project(t);
-  const result = runHook(
-    "feedback.mjs",
-    ["post-edit"],
-    {
-      session_id: "s1",
-      tool_name: "Write",
-      tool_input: { file_path: join(dir, "tools/kore/src/a.ts") },
-    },
-    dir,
-  );
-  assert.equal(result.status, 2);
-  assert.match(result.stderr, /oxlint/);
-  const [event] = await ledgerEvents(dir);
-  assert.equal(event.kind, "tool.end");
-});
-
-test("the read tool on a tracked source file is not linted now that the hook sees every tool", (t) => {
-  const dir = project(t);
-  const result = runHook(
-    "feedback.mjs",
-    ["post-edit"],
-    {
-      session_id: "s1",
-      tool_name: "Read",
-      tool_input: { file_path: join(dir, "tools/kore/src/a.ts") },
-    },
-    dir,
-  );
-  assert.equal(result.status, 0);
-  assert.equal(result.stderr, "");
-});
-
-test("the pre-tool guard still allows tools it has no rule for, now that it sees every tool", (t) => {
-  const dir = project(t);
-  for (const tool_name of ["Task", "WebFetch", "mcp__x__y"]) {
+test(
+  "the pre-tool hook records a tool start with session, pane and tool, and no tool input",
+  async (t) => {
+    const dir = project(t, { expect: 1 });
     const result = runHook(
       "guard.mjs",
       [],
-      { session_id: "s1", tool_name, tool_input: { url: "x" } },
+      {
+        session_id: "s1",
+        tool_name: "Grep",
+        tool_input: { pattern: "hunter2" },
+      },
       dir,
     );
-    assert.equal(result.status, 0, tool_name);
-    assert.equal(result.stdout, "", tool_name);
-  }
-});
+    assert.equal(result.status, 0);
+    const [event] = await eventsOf(dir, 1);
+    assert.deepEqual(
+      [event.source, event.kind, event.session, event.pane, event.tool],
+      ["claude", "tool.start", "s1", "w9:p9", "Grep"],
+    );
+    assert.equal(JSON.stringify(event).includes("hunter2"), false);
+  },
+  TIMEOUT,
+);
+
+test(
+  "a call the guard blocks records a tool start and a failed tool end",
+  async (t) => {
+    const dir = project(t, { expect: 2 });
+    const result = runHook(
+      "guard.mjs",
+      [],
+      {
+        session_id: "s1",
+        tool_name: "Bash",
+        tool_input: { command: "k3d cluster delete x" },
+      },
+      dir,
+    );
+    assert.equal(result.status, 2);
+    const events = await eventsOf(dir, 2);
+    assert.deepEqual(kinds(events), ["tool.end", "tool.start"]);
+    const end = events.find((e) => e.kind === "tool.end");
+    assert.deepEqual([end.tool, end.outcome], ["Bash", "failure"]);
+  },
+  TIMEOUT,
+);
+
+test(
+  "an allowed call records no tool end from the guard, since the post-tool hook owns it",
+  async (t) => {
+    const dir = project(t, { expect: 1 });
+    runHook("guard.mjs", [], { session_id: "s1", tool_name: "Grep" }, dir);
+    assert.deepEqual(kinds(await eventsOf(dir, 1)), ["tool.start"]);
+  },
+  TIMEOUT,
+);
+
+test(
+  "the post-tool hook records a tool end for a tool the edit checks ignore",
+  async (t) => {
+    const dir = project(t, { expect: 1 });
+    const result = runHook(
+      "feedback.mjs",
+      ["post-edit"],
+      { session_id: "s1", tool_name: "Bash", tool_input: { command: "ls" } },
+      dir,
+    );
+    assert.equal(result.status, 0);
+    assert.equal(result.stderr, "");
+    const [event] = await eventsOf(dir, 1);
+    assert.deepEqual(
+      [event.kind, event.tool, event.outcome],
+      ["tool.end", "Bash", "success"],
+    );
+  },
+  TIMEOUT,
+);
+
+test(
+  "a failed tool is recorded as a failure and never fails the hook",
+  async (t) => {
+    const dir = project(t, { expect: 1 });
+    const result = runHook(
+      "feedback.mjs",
+      ["tool-failure"],
+      { session_id: "s1", tool_name: "Bash" },
+      dir,
+    );
+    assert.equal(result.status, 0);
+    const [event] = await eventsOf(dir, 1);
+    assert.deepEqual([event.kind, event.outcome], ["tool.end", "failure"]);
+  },
+  TIMEOUT,
+);
+
+test(
+  "the stop hook records a session stop once, not on its own re-entry",
+  async (t) => {
+    const dir = project(t, { expect: 1 });
+    runHook("feedback.mjs", ["stop"], { session_id: "s1" }, dir);
+    runHook(
+      "feedback.mjs",
+      ["stop"],
+      { session_id: "s1", stop_hook_active: true },
+      dir,
+    );
+    assert.deepEqual(kinds(await eventsOf(dir, 1)), ["session.stop"]);
+  },
+  TIMEOUT,
+);
+
+for (const source of ["startup", "clear", "resume"]) {
+  test(
+    `a ${source} records a session start, with session and pane`,
+    async (t) => {
+      const dir = project(t, { expect: 1 });
+      const result = runHook(
+        "record.mjs",
+        ["session-start"],
+        { session_id: "s1", source },
+        dir,
+      );
+      assert.equal(result.status, 0);
+      assert.equal(result.stdout, "");
+      const [event] = await eventsOf(dir, 1);
+      assert.deepEqual(
+        [event.kind, event.session, event.pane],
+        ["session.start", "s1", "w9:p9"],
+      );
+    },
+    TIMEOUT,
+  );
+}
+
+test(
+  "a compaction does not record a session start, since it continues the same session",
+  async (t) => {
+    const dir = project(t, { expect: 1 });
+    const result = runHook(
+      "record.mjs",
+      ["session-start"],
+      { session_id: "s1", source: "compact" },
+      dir,
+    );
+    assert.equal(result.status, 0);
+    await onlySentinel(dir);
+  },
+  TIMEOUT,
+);
+
+test(
+  "the context hook records nothing, so its behaviour no longer depends on the ledger",
+  async (t) => {
+    const dir = project(t, { expect: 1 });
+    runHook("context.mjs", [], { session_id: "s1", source: "startup" }, dir);
+    await onlySentinel(dir);
+  },
+  TIMEOUT,
+);
+
+test(
+  "a missing bundle leaves the guard's verdict, stdout and stderr unchanged",
+  async (t) => {
+    const bare = project(t, { bundle: false });
+    const withBundle = project(t, { expect: 2 });
+    const blocked = {
+      session_id: "s1",
+      tool_name: "Bash",
+      tool_input: { command: "k3d cluster delete x" },
+    };
+    const a = runHook("guard.mjs", [], blocked, bare);
+    const b = runHook("guard.mjs", [], blocked, withBundle);
+    assert.equal(a.status, 2);
+    assert.match(a.stderr, /\[guard:destructive\]/);
+    assert.equal(a.status, b.status);
+    assert.equal(a.stdout, b.stdout);
+    assert.equal(a.stderr, b.stderr);
+    await eventsOf(bare, 0);
+    assert.equal(existsSync(join(bare, ".kore")), false);
+  },
+  TIMEOUT,
+);
+
+test(
+  "a failing edit check still returns its message and exit code 2 when recording works",
+  async (t) => {
+    const dir = project(t, { expect: 1 });
+    const result = runHook(
+      "feedback.mjs",
+      ["post-edit"],
+      {
+        session_id: "s1",
+        tool_name: "Write",
+        tool_input: { file_path: join(dir, "tools/kore/src/a.ts") },
+      },
+      dir,
+    );
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /oxlint/);
+    const [event] = await eventsOf(dir, 1);
+    assert.equal(event.kind, "tool.end");
+    assert.equal(event.outcome, "success");
+  },
+  TIMEOUT,
+);
+
+test(
+  "the read tool on a tracked source file is not linted now that the hook sees every tool",
+  async (t) => {
+    const dir = project(t, { expect: 1 });
+    const result = runHook(
+      "feedback.mjs",
+      ["post-edit"],
+      {
+        session_id: "s1",
+        tool_name: "Read",
+        tool_input: { file_path: join(dir, "tools/kore/src/a.ts") },
+      },
+      dir,
+    );
+    assert.equal(result.status, 0);
+    assert.equal(result.stderr, "");
+    await eventsOf(dir, 1);
+  },
+  TIMEOUT,
+);
+
+test(
+  "the pre-tool guard still allows tools it has no rule for, now that it sees every tool",
+  async (t) => {
+    const dir = project(t, { expect: 3 });
+    for (const tool_name of ["Task", "WebFetch", "mcp__x__y"]) {
+      const result = runHook(
+        "guard.mjs",
+        [],
+        { session_id: "s1", tool_name, tool_input: { url: "x" } },
+        dir,
+      );
+      assert.equal(result.status, 0, tool_name);
+      assert.equal(result.stdout, "", tool_name);
+    }
+    await eventsOf(dir, 3);
+  },
+  TIMEOUT,
+);
