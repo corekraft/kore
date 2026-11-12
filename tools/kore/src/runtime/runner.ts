@@ -6,6 +6,12 @@ export interface RunOptions {
   env?: NodeJS.ProcessEnv;
   stdin?: "inherit" | "ignore";
   input?: string;
+  /**
+   * A kubeconfig held in memory and handed to the child as `KUBECONFIG=/dev/fd/N`
+   * through a pipe, so credentials in it never reach disk. The child reads the
+   * descriptor once; it cannot be combined with `input`.
+   */
+  kubeconfig?: string;
   /** Aborting terminates the running process (SIGTERM) and rejects the run. */
   signal?: AbortSignal;
 }
@@ -34,12 +40,25 @@ export class CommandError extends Error {
   }
 }
 
+// Bash exposes the piped kubeconfig as /dev/fd/N, which stays open across exec.
+const feedKubeconfig = 'KUBECONFIG=<(cat) exec "$0" "$@"';
+
 export class ProcessRunner implements Runner {
   async run(
     command: string,
     args: readonly string[],
     options: RunOptions = {},
   ): Promise<RunResult> {
+    if (options.kubeconfig !== undefined && options.input !== undefined) {
+      throw new Error("a kubeconfig and stdin input cannot be combined");
+    }
+    if (options.kubeconfig !== undefined) {
+      const { kubeconfig, ...rest } = options;
+      return await this.run("bash", ["-c", feedKubeconfig, command, ...args], {
+        ...rest,
+        input: kubeconfig,
+      });
+    }
     return await new Promise((resolve, reject) => {
       const child = spawn(command, [...args], {
         cwd: options.cwd,

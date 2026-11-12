@@ -95,7 +95,11 @@ export async function publishSignedCopy(
           ),
           session.client.caFile,
         ),
-        { capture: true, env: { ...signer.env, ...session.client.env } },
+        {
+          capture: true,
+          env: { ...signer.env, ...session.client.env },
+          kubeconfig: signer.kubeconfig,
+        },
       );
       return reference;
     }),

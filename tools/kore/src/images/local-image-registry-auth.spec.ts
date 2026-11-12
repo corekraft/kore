@@ -73,7 +73,8 @@ test("cosign signs with the push credential through a helper whose files hold no
   const sign = calls.find(({ args }) => args[0] === "sign")!;
   expect(sign.options?.env?.KORE_REGISTRY_USERNAME).toBe("kore-push");
   expect(sign.options?.env?.KORE_REGISTRY_PASSWORD).toBe(pushPassword);
-  expect(sign.options?.env?.KUBECONFIG).toBeTruthy();
+  expect(sign.options?.kubeconfig).toBeTruthy();
+  expect(sign.options?.env?.KUBECONFIG).toBeUndefined();
   expect(JSON.stringify(sign.args)).not.toContain(pushPassword);
   await expect(stat(sign.options?.env?.DOCKER_CONFIG ?? "")).rejects.toThrow(
     /ENOENT/,

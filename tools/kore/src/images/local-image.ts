@@ -86,6 +86,7 @@ async function signImage(
     {
       capture: false,
       env: { ...signer.env, ...client.env },
+      kubeconfig: signer.kubeconfig,
     },
   );
 }
