@@ -19,10 +19,14 @@ export interface CliDeps {
 
 export interface CommandContext {
   json: boolean;
+  /** Parsed flags, as the command declared them in `options`. */
+  options: Record<string, string | boolean>;
   deps: CliDeps;
 }
 
 export interface Command {
   summary: string;
+  /** Flags beyond the global --json and --help; a "string" flag takes a value. */
+  options?: Record<string, "string" | "boolean">;
   run(context: CommandContext): Promise<number>;
 }

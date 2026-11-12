@@ -5,6 +5,12 @@ it. This glossary names the concepts both share.
 
 ## Delivery loop
 
+**ADR**:
+An architecture decision record in `docs/decisions`: one numbered Markdown file
+holding a decision, the context behind it and its consequences, listed in
+`docs/index.md`.
+_Avoid_: Design doc, decision log
+
 **Idea**:
 A proposed change, stated with the outcome it is expected to produce. The
 start of the delivery loop.

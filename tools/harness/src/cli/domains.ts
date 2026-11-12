@@ -1,4 +1,5 @@
 import pkg from "../../package.json" with { type: "json" };
+import { adrCommands } from "../adr/index.js";
 import { planActive } from "../plan/index.js";
 import type { Command } from "../runtime/index.js";
 
@@ -18,4 +19,5 @@ const version: Command = {
 export const domains: Record<string, Record<string, Command>> = {
   harness: { version },
   plan: { active: planActive },
+  adr: adrCommands,
 };
