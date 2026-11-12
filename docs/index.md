@@ -181,7 +181,7 @@ repository root; `mise run kb-check` keeps this list complete.
   builds never edit it.
 - [`docs/release-signer-controls.md`](release-signer-controls.md) — what pins the
   accepted Cosign signer to the release workflow on a tag, what the repository
-  checks, and the GitHub settings (tag ruleset, token defaults) to verify with
+  checks, and the GitHub settings (tag and `main` rulesets, token defaults) to verify with
   read-only `gh api`. Read when changing release workflows or signing trust.
 - [`infra/environments/schema.json`](../infra/environments/schema.json) — the
   environment overlay schema. Read when adding an environment or its settings.
