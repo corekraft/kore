@@ -44,6 +44,7 @@ export type {
   Component,
   ComponentKind,
   Environment,
+  K3dCluster,
   Phase,
   Repository,
   Seed,

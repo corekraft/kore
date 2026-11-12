@@ -39,6 +39,10 @@ plan 8.
       `delete`, with Traefik and ServiceLB disabled and ports mapped through
       the k3d load balancer.
 - [ ] Keep the readiness wait from ADR 0065 against the k3s API server.
+      Progress: `clusterUp` creates or starts the k3d cluster, then runs the
+      wait against the configured context; `clusterStatus` and
+      `assertExpectedCluster` handle k3d (#138). Stop and delete follow in
+      their own tickets, which tick this step.
 
 ### Exit Criteria
 

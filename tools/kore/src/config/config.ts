@@ -21,6 +21,7 @@ export type {
   Component,
   ComponentKind,
   Environment,
+  K3dCluster,
   Phase,
   ReadinessCapability,
   ReadinessManifest,
