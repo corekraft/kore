@@ -1,7 +1,5 @@
 import { expect, test } from "vitest";
-import { loadRepository } from "../config/index.js";
-import type { Repository } from "../config/index.js";
-import type { RunResult, Runner } from "../runtime/index.js";
+import type { Runner } from "../runtime/index.js";
 import { CommandError } from "../runtime/index.js";
 import {
   assertExpectedCluster,
@@ -9,69 +7,14 @@ import {
   clusterStatus,
   clusterUp,
 } from "./cluster.js";
-
-async function k3dRepository(): Promise<Repository> {
-  const base = await loadRepository("local");
-  const { cluster: _cluster, ...rest } = base.environment;
-  return {
-    ...base,
-    environment: {
-      ...rest,
-      provider: "k3d",
-      kubeContext: "k3d-kore-local",
-      k3d: {
-        clusterName: "kore-local",
-        serviceCidr: "10.96.0.0/12",
-        ports: [{ hostPort: 8443, loadBalancerPort: 443 }],
-      },
-    },
-  };
-}
-
-const ok = (stdout = ""): RunResult => ({ stdout, stderr: "", code: 0 });
-const list = (running: number | undefined): string =>
-  JSON.stringify(
-    running === undefined
-      ? []
-      : [{ name: "kore-local", serversCount: 1, serversRunning: running }],
-  );
-
-/** A fake runner: k3d list reports `running` servers; kubectl answers ready. */
-function fakeRunner(initial: number | undefined, kubectlFails = false) {
-  let running = initial;
-  const calls: { command: string; args: readonly string[] }[] = [];
-  const runner: Runner = {
-    async run(command, args) {
-      calls.push({ command, args });
-      if (command === "k3d" && ["create", "start"].includes(args[1] ?? "")) {
-        running = 1;
-      }
-      if (command === "k3d" && args[1] === "list") {
-        return ok(list(running));
-      }
-      if (command === "kubectl" && kubectlFails) {
-        throw new CommandError(command, args, {
-          stdout: "",
-          stderr: "connection refused",
-          code: 1,
-        });
-      }
-      if (args.some((arg) => arg.startsWith("jsonpath={range"))) {
-        return ok("k3d-kore-local-server-0=True\n");
-      }
-      if (args.some((arg) => arg.startsWith("jsonpath={.metadata"))) {
-        return ok("kube-system");
-      }
-      return ok("ok");
-    },
-  };
-  return { runner, calls };
-}
-
-const text = (calls: { command: string; args: readonly string[] }[]) =>
-  calls.map((call) => `${call.command} ${call.args.join(" ")}`);
-
-const fast = { sleep: async () => undefined };
+import {
+  fakeRunner,
+  fast,
+  k3dRepository,
+  list,
+  ok,
+  text,
+} from "./k3d-cluster.fixtures.js";
 
 test("cluster up on an absent k3d cluster lists, creates with the pinned flags, then waits for readiness", async () => {
   const repository = await k3dRepository();
@@ -102,6 +45,8 @@ test("cluster up on an absent k3d cluster lists, creates with the pinned flags, 
     "--kubeconfig-update-default=true",
     "--kubeconfig-switch-context=false",
     "--wait",
+    "--timeout",
+    "300s",
   ]);
   const lines = text(calls);
   expect(lines[0]).toBe("k3d cluster list --output json");
@@ -117,11 +62,13 @@ test("cluster up on a stopped k3d cluster starts it and waits for readiness with
   await clusterUp(repository, runner, fast);
 
   const lines = text(calls);
-  expect(lines).toContain("k3d cluster start kore-local --wait");
+  expect(lines).toContain("k3d cluster start kore-local --wait --timeout 300s");
   expect(lines.some((line) => line.includes("cluster create"))).toBe(false);
   expect(
     lines.findIndex((line) => line.includes("get --raw /readyz")),
-  ).toBeGreaterThan(lines.indexOf("k3d cluster start kore-local --wait"));
+  ).toBeGreaterThan(
+    lines.indexOf("k3d cluster start kore-local --wait --timeout 300s"),
+  );
 });
 
 test("cluster up on a running k3d cluster neither creates nor starts it but still checks readiness", async () => {
@@ -173,7 +120,7 @@ test("expected-cluster refuses a configured context that is not the one k3d crea
   const { runner, calls } = fakeRunner(1);
 
   await expect(assertExpectedCluster(mismatched, runner)).rejects.toThrow(
-    /refusing unexpected cluster\/context pair: k3d-kore-local != other-context/,
+    /refusing unexpected cluster\/context pair: k3d-kore-local != other-context.*set environment\.kubeContext to k3d-kore-local.*kubectl config get-contexts/s,
   );
   expect(calls).toEqual([]);
 });
@@ -186,7 +133,7 @@ test("expected-cluster rejects a context that identifies another cluster", async
     },
   };
   await expect(assertExpectedCluster(repository, runner)).rejects.toThrow(
-    /did not identify the expected cluster/,
+    /did not identify the expected cluster.*set environment\.kubeContext to k3d-kore-local.*kubectl config get-contexts/s,
   );
 });
 

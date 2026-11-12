@@ -8,9 +8,23 @@ export type K3dState = "absent" | "stopped" | "running";
 
 export interface K3dClusterInfo {
   state: K3dState;
-  /** The cluster's entry from `k3d cluster list`; absent when there is none. */
-  detail?: Record<string, unknown>;
+  /**
+   * The cluster's entry from `k3d cluster list`; absent when there is none.
+   * Internal: it carries the k3s join token, so it is never reported.
+   */
+  entry?: Record<string, unknown>;
 }
+
+const reportedFields = [
+  "serversCount",
+  "serversRunning",
+  "agentsCount",
+  "agentsRunning",
+  "hasLoadBalancer",
+] as const;
+
+const missingK3d =
+  "k3d is not available; install k3d (mise install) and check that Docker is running";
 
 /** The k3d settings of an environment; fails with the cause when it has none. */
 export function k3dCluster(environment: Environment): K3dCluster {
@@ -21,6 +35,9 @@ export function k3dCluster(environment: Environment): K3dCluster {
   }
   return environment.k3d;
 }
+
+/** Bounds create and start, so a stuck server fails named (create rolls back). */
+const k3dWaitArgs = ["--wait", "--timeout", "300s"];
 
 /** The kube context k3d writes for a cluster name. */
 export function k3dContext(clusterName: string): string {
@@ -63,12 +80,12 @@ export function k3dCreateArgs(repository: Repository): string[] {
     ]),
     "--kubeconfig-update-default=true",
     "--kubeconfig-switch-context=false",
-    "--wait",
+    ...k3dWaitArgs,
   ];
 }
 
 export function k3dStartArgs(clusterName: string): string[] {
-  return ["cluster", "start", clusterName, "--wait"];
+  return ["cluster", "start", clusterName, ...k3dWaitArgs];
 }
 
 /** Looks the configured cluster up in `k3d cluster list`; read-only. */
@@ -78,7 +95,7 @@ export async function k3dClusterInfo(
 ): Promise<K3dClusterInfo> {
   const { clusterName } = k3dCluster(environment);
   const args = ["cluster", "list", "--output", "json"];
-  const { stdout } = await runner.run("k3d", args, { capture: true });
+  const { stdout } = await runK3d(runner, args, { capture: true });
   let entries: unknown;
   try {
     entries = JSON.parse(stdout);
@@ -93,14 +110,100 @@ export async function k3dClusterInfo(
       `k3d ${args.join(" ")} printed unreadable output: expected a JSON list`,
     );
   }
-  const detail = (entries as Record<string, unknown>[]).find(
-    (entry) => entry["name"] === clusterName,
+  const entry = (entries as Record<string, unknown>[]).find(
+    (candidate) => candidate["name"] === clusterName,
   );
-  if (detail === undefined) {
+  if (entry === undefined) {
     return { state: "absent" };
   }
-  const running = Number(detail["serversRunning"] ?? 0);
-  return { state: running > 0 ? "running" : "stopped", detail };
+  const count = (field: string): number => Number(entry[field] ?? 0);
+  const running =
+    count("serversRunning") > 0 &&
+    count("serversRunning") >= count("serversCount") &&
+    count("agentsRunning") >= count("agentsCount");
+  return { state: running ? "running" : "stopped", entry };
+}
+
+/** Runs k3d; a binary that cannot be spawned is the install remedy. */
+async function runK3d(
+  runner: Runner,
+  args: readonly string[],
+  options: Parameters<Runner["run"]>[2],
+): ReturnType<Runner["run"]> {
+  try {
+    return await runner.run("k3d", args, options);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new ClusterUnavailableError(missingK3d, { cause: error });
+    }
+    throw error;
+  }
+}
+
+function portPairs(entry: Record<string, unknown>): string[] | undefined {
+  const nodes = (entry["nodes"] ?? []) as Record<string, unknown>[];
+  const balancer = nodes.find((node) => node["role"] === "loadbalancer");
+  const mappings = balancer?.["portMappings"] as
+    Record<string, { HostPort?: string }[] | null> | undefined;
+  if (mappings === undefined) {
+    return undefined;
+  }
+  return Object.entries(mappings)
+    .flatMap(([container, bindings]) =>
+      (bindings ?? []).map(
+        (binding) =>
+          `${String(binding.HostPort)}:${container.replace(/\/\w+$/, "")}`,
+      ),
+    )
+    .sort();
+}
+
+function serviceCidrOf(entry: Record<string, unknown>): string | undefined {
+  const nodes = (entry["nodes"] ?? []) as Record<string, unknown>[];
+  for (const node of nodes) {
+    for (const arg of (node["args"] ?? []) as string[]) {
+      const match = /^--service-cidr=(.+)$/.exec(arg);
+      if (match) {
+        return match[1];
+      }
+    }
+  }
+  return undefined;
+}
+
+/**
+ * How an existing cluster differs from the overlay. Counts always compare;
+ * ports and the service CIDR compare when k3d's entry reports them.
+ */
+function drift(entry: Record<string, unknown>, cluster: K3dCluster): string[] {
+  const differences: string[] = [];
+  const compare = (name: string, actual: unknown, wanted: unknown): void => {
+    if (String(actual) !== String(wanted)) {
+      differences.push(`${name}: ${String(actual)} != ${String(wanted)}`);
+    }
+  };
+  compare("servers", entry["serversCount"], cluster.servers ?? 1);
+  compare("agents", entry["agentsCount"], cluster.agents ?? 0);
+  const ports = portPairs(entry);
+  if (ports !== undefined) {
+    compare(
+      "ports",
+      ports.join(","),
+      cluster.ports
+        .map((port) => `${port.hostPort}:${port.loadBalancerPort}`)
+        .sort()
+        .join(","),
+    );
+  }
+  const cidr = serviceCidrOf(entry);
+  if (cidr !== undefined) {
+    compare("serviceCidr", cidr, cluster.serviceCidr);
+  }
+  return differences;
+}
+
+function contextRemedy(clusterName: string): string {
+  return `set environment.kubeContext to ${k3dContext(clusterName)}; check \`kubectl config get-contexts\` for the contexts this machine has`;
 }
 
 function unavailable(clusterName: string, state: K3dState): Error {
@@ -116,11 +219,14 @@ async function listOrUnavailable(
   try {
     return await k3dClusterInfo(environment, runner);
   } catch (error) {
+    if (error instanceof ClusterUnavailableError) {
+      throw error;
+    }
     if (!(error instanceof CommandError)) {
       throw error;
     }
     throw new ClusterUnavailableError(
-      `k3d cluster ${k3dCluster(environment).clusterName} is unavailable because \`k3d cluster list\` failed; install k3d (mise install) and check that Docker is running`,
+      `k3d cluster ${k3dCluster(environment).clusterName} is unavailable because \`k3d cluster list\` failed; ${missingK3d}`,
       { cause: error },
     );
   }
@@ -134,7 +240,7 @@ export async function assertExpectedK3dCluster(
   const { clusterName } = k3dCluster(environment);
   if (k3dContext(clusterName) !== environment.kubeContext) {
     throw new Error(
-      `refusing unexpected cluster/context pair: ${k3dContext(clusterName)} != ${environment.kubeContext}`,
+      `refusing unexpected cluster/context pair: ${k3dContext(clusterName)} != ${environment.kubeContext}; ${contextRemedy(clusterName)}`,
     );
   }
   const info = await listOrUnavailable(environment, runner);
@@ -156,7 +262,7 @@ export async function assertExpectedK3dCluster(
   );
   if (result.stdout.trim() !== "kube-system") {
     throw new Error(
-      `context ${environment.kubeContext} did not identify the expected cluster`,
+      `context ${environment.kubeContext} did not identify the expected cluster; ${contextRemedy(clusterName)}`,
     );
   }
 }
@@ -169,17 +275,28 @@ export async function clusterUpK3d(
   const { clusterName } = k3dCluster(repository.environment);
   if (k3dContext(clusterName) !== repository.environment.kubeContext) {
     throw new Error(
-      `refusing unexpected cluster/context pair: ${k3dContext(clusterName)} != ${repository.environment.kubeContext}; set environment.kubeContext to ${k3dContext(clusterName)}`,
+      `refusing unexpected cluster/context pair: ${k3dContext(clusterName)} != ${repository.environment.kubeContext}; ${contextRemedy(clusterName)}`,
     );
   }
-  const { state } = await k3dClusterInfo(repository.environment, runner);
+  const { state, entry } = await listOrUnavailable(
+    repository.environment,
+    runner,
+  );
+  if (entry !== undefined) {
+    const differences = drift(entry, k3dCluster(repository.environment));
+    if (differences.length > 0) {
+      throw new Error(
+        `k3d cluster ${clusterName} differs from the overlay (${differences.join("; ")}); recreate it with \`kore local down\` then \`kore local up\``,
+      );
+    }
+  }
   if (state === "absent") {
-    await runner.run("k3d", k3dCreateArgs(repository), {
+    await runK3d(runner, k3dCreateArgs(repository), {
       capture: false,
       cwd: repository.root,
     });
   } else if (state === "stopped") {
-    await runner.run("k3d", k3dStartArgs(clusterName), {
+    await runK3d(runner, k3dStartArgs(clusterName), {
       capture: false,
       cwd: repository.root,
     });
@@ -203,6 +320,8 @@ export async function clusterStatusK3d(
     cluster: clusterName,
     context: environment.kubeContext,
     state: info.state,
-    status: info.detail,
+    status: Object.fromEntries(
+      reportedFields.map((field) => [field, info.entry?.[field]]),
+    ),
   };
 }
