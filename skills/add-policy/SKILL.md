@@ -14,3 +14,5 @@ New policies start in audit mode (`AGENTS.md`: audit before enforce).
 3. **Audit mode.** Ship any cluster-enforced constraint with an audit enforcement action. Then answer: what would it deny on the current tree? What evidence promotes it to enforce? Record both in the change.
 4. **Run** `mise run test-opa` and `mise run validate`.
 5. **Record** a significant policy decision as an ADR (see the `write-adr` skill).
+
+Step 4 is a tool. Steps 1 to 3 and 5 are judgement: what a policy should deny and what evidence promotes it to enforce are design decisions.
