@@ -599,6 +599,8 @@ test("idea-issue-body: editing an issue body by hand warns and names the sync to
     "gh issue edit 186 -F notes.md",
     "gh issue edit 186 --repo corekraft/kore --body=x",
     "gh issue edit 186 --body-file -",
+    "gh issue edit 186 --title 'x'",
+    "gh issue edit 186 -t x",
   ]) {
     bodyWarned(bash(command), command);
   }
@@ -608,7 +610,6 @@ test("idea-issue-body: label, assignee and read commands are not warned", () => 
   for (const command of [
     "gh issue edit 186 --add-label ready-for-agent",
     "gh issue edit 186 --add-assignee junners",
-    "gh issue edit 186 --title 'x'",
     "gh issue view 186 --json body",
     "gh issue comment 186 --body 'note'",
     "gh pr edit 12 --body 'x'",

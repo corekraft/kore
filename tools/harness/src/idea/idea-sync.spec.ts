@@ -35,6 +35,13 @@ function fakeGh(h: Awaited<ReturnType<typeof setup>>) {
       return Promise.resolve({ stdout: "", stderr: "", code: 0 });
     }
     const flag = (name: string) => args[args.indexOf(name) + 1];
+    if (args[0] === "repo") {
+      return Promise.resolve({
+        stdout: JSON.stringify({ nameWithOwner: "corekraft/kore" }),
+        stderr: "",
+        code: 0,
+      });
+    }
     if (verb === "create") {
       issue = { title: flag("--title") ?? "", body: options?.input ?? "" };
       return Promise.resolve({ stdout: `${URL}\n`, stderr: "", code: 0 });
@@ -142,6 +149,10 @@ describe("harness idea sync safety", () => {
     await run(["idea", "sync", "--idea", "1"], h.deps);
     const flags = h.runner.calls.flatMap((c) => [...c.args]).join(" ");
     expect(flags).not.toMatch(/label|assignee|--add-|--remove-/);
+    const verbs = h.runner.calls
+      .filter((c) => c.args[0] === "issue")
+      .map((c) => c.args[1]);
+    expect(new Set(verbs)).toEqual(new Set(["view", "create", "edit"]));
   });
 
   it("fails with the gh message when the view fails for another reason", async () => {
@@ -163,10 +174,55 @@ describe("harness idea sync safety", () => {
     const h = await setup();
     expect(await run(["idea", "sync"], h.deps)).toBe(1);
     expect(h.err()).toContain("--idea");
+    h.err();
     expect(await run(["idea", "sync", "--idea", "9"], h.deps)).toBe(1);
+    expect(h.err()).toContain('No idea matches "9"');
   });
 
-  it("does not recreate the issue when gh cannot resolve the repository", async () => {
+  it("tells the user to check the repo's issues when create succeeds without a link", async () => {
+    const h = await setup();
+    const gh = fakeGh(h);
+    const inner = h.runner.run.bind(h.runner);
+    h.runner.run = async (command, args, options) => {
+      const result = await inner(command, args, options);
+      return args[1] === "create" ? { ...result, stdout: "" } : result;
+    };
+    expect(gh.issue).toBeUndefined();
+    expect(await run(["idea", "sync", "--idea", "1"], h.deps)).toBe(1);
+    expect(h.err()).toContain("check the repository's issues");
+    expect(h.err()).toContain("issue: <url>");
+    expect(h.err()).not.toContain("gh auth status");
+    expect(h.get(PATH)).not.toContain("issue:");
+  });
+});
+
+describe("harness idea sync targeting", () => {
+  it("passes --repo on every gh call, resolving it once, then taking it from the recorded link", async () => {
+    const h = await setup();
+    fakeGh(h);
+    await run(["idea", "sync", "--idea", "1"], h.deps);
+    h.set(PATH, (h.get(PATH) ?? "").replace("cuts", "trims"));
+    await run(["idea", "sync", "--idea", "1"], h.deps);
+    const calls = h.runner.calls;
+    expect(calls.filter((c) => c.args[0] === "repo")).toHaveLength(1);
+    for (const c of calls.filter((x) => x.args[0] === "issue")) {
+      expect(c.args).toEqual(
+        expect.arrayContaining(["--repo", "corekraft/kore"]),
+      );
+    }
+  });
+
+  it("takes the repository from a recorded link without asking gh", async () => {
+    const h = await setup("https://github.com/other/repo/issues/5");
+    fakeGh(h);
+    await run(["idea", "sync", "--idea", "1"], h.deps);
+    expect(h.runner.calls.some((c) => c.args[0] === "repo")).toBe(false);
+    for (const c of h.runner.calls) {
+      expect(c.args).toEqual(expect.arrayContaining(["--repo", "other/repo"]));
+    }
+  });
+
+  it("gives no auth hint when gh names a repository problem", async () => {
     const h = await setup("300");
     h.runner.run = (command, args, options) => {
       h.runner.calls.push({ command, args, options });
@@ -179,22 +235,17 @@ describe("harness idea sync safety", () => {
     };
     expect(await run(["idea", "sync", "--idea", "1"], h.deps)).toBe(1);
     expect(writes(h)).toHaveLength(0);
+    expect(h.err()).toContain("Could not resolve to a Repository");
+    expect(h.err()).not.toContain("gh auth status");
   });
 
-  it("recreates a lost issue in the repository its recorded link names", async () => {
-    const link = "https://github.com/other/repo/issues/5";
-    const h = await setup(link);
-    fakeGh(h);
-    await run(["idea", "sync", "--idea", "1"], h.deps);
-    expect(writes(h)[0]?.args).toEqual(
-      expect.arrayContaining(["--repo", "other/repo"]),
-    );
-  });
-
-  it("fails when gh create does not print an issue link", async () => {
+  it("trims titles before comparing and sending", async () => {
     const h = await setup();
-    expect(await run(["idea", "sync", "--idea", "1"], h.deps)).toBe(1);
-    expect(h.err()).toContain("issue link");
-    expect(h.get(PATH)).not.toContain("issue:");
+    const gh = fakeGh(h);
+    h.set(PATH, (h.get(PATH) ?? "").replace(/(# Idea 0001: .*)\n/, "$1   \n"));
+    await run(["idea", "sync", "--idea", "1"], h.deps);
+    expect(gh.issue?.title).toBe("Cache the probe results");
+    await run(["idea", "sync", "--idea", "1"], h.deps);
+    expect(writes(h)).toHaveLength(1);
   });
 });

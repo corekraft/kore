@@ -39,13 +39,42 @@ export function renderBody(record: IdeaRecord, text: string): string {
 const normal = (value: string) => value.replace(/\r\n/g, "\n").trimEnd();
 
 /** Where an idea's recorded issue lives: its number, and its repository when the link names one. */
-function locate(issue: string): { number: string; repo: string[] } | undefined {
+function locate(issue: string): { number: string; repo?: string } | undefined {
   const url = ISSUE_URL.exec(issue);
   if (url?.[1] !== undefined && url[2] !== undefined) {
-    return { number: url[2], repo: ["--repo", url[1]] };
+    return { number: url[2], repo: url[1] };
   }
   const bare = /^#?(\d+)$/.exec(issue.trim());
-  return bare?.[1] === undefined ? undefined : { number: bare[1], repo: [] };
+  return bare?.[1] === undefined ? undefined : { number: bare[1] };
+}
+
+const REPO_PROBLEM = /repositor/i;
+
+/** The failure text with a fix: no auth hint when gh blames the repository. */
+function failure(what: string, stderr: string): IdeaError {
+  const hint = REPO_PROBLEM.test(stderr)
+    ? "Check the repository named above, then rerun `harness idea sync`."
+    : fix;
+  return new IdeaError(`${what}: ${stderr.trim()}. ${hint}`);
+}
+
+/** The repository every gh call names: from the recorded link, else the checkout's own, asked once. */
+async function resolveRepo(gh: Gh, recorded?: string): Promise<string> {
+  if (recorded !== undefined) {
+    return recorded;
+  }
+  const view = await gh(["repo", "view", "--json", "nameWithOwner"]);
+  let name: unknown;
+  try {
+    name = (JSON.parse(view.stdout) as { nameWithOwner?: unknown })
+      .nameWithOwner;
+  } catch {
+    name = undefined;
+  }
+  if (view.code !== 0 || typeof name !== "string" || name === "") {
+    throw failure("gh could not tell which repository this is", view.stderr);
+  }
+  return name;
 }
 
 type Gh = (
@@ -60,14 +89,16 @@ async function reconcile(
   gh: Gh,
   record: IdeaRecord,
   body: string,
-  at: { number: string; repo: string[] },
+  at: { number: string; repo: string },
 ): Promise<SyncResult | undefined> {
+  const title = record.title.trim();
   const issue = record.issue ?? "";
   const view = await gh([
     "issue",
     "view",
     at.number,
-    ...at.repo,
+    "--repo",
+    at.repo,
     "--json",
     "title,body",
   ]);
@@ -75,12 +106,10 @@ async function reconcile(
     if (NOT_FOUND.test(view.stderr)) {
       return undefined;
     }
-    throw new IdeaError(
-      `gh could not read issue ${issue}: ${view.stderr.trim()}. ${fix}`,
-    );
+    throw failure(`gh could not read issue ${issue}`, view.stderr);
   }
   const current = parseView(view.stdout, issue);
-  if (current.title === record.title && normal(current.body) === normal(body)) {
+  if (current.title.trim() === title && normal(current.body) === normal(body)) {
     return { action: "unchanged", issue };
   }
   const edit = await gh(
@@ -88,18 +117,17 @@ async function reconcile(
       "issue",
       "edit",
       at.number,
-      ...at.repo,
+      "--repo",
+      at.repo,
       "--title",
-      record.title,
+      title,
       "--body-file",
       "-",
     ],
     body,
   );
   if (edit.code !== 0) {
-    throw new IdeaError(
-      `gh could not update issue ${issue}: ${edit.stderr.trim()}. ${fix}`,
-    );
+    throw failure(`gh could not update issue ${issue}`, edit.stderr);
   }
   return { action: "updated", issue };
 }
@@ -128,8 +156,11 @@ export async function syncIssue(
       `${record.path} has issue "${record.issue}", which is not an issue number or link; set it to e.g. 123 or https://github.com/<owner>/<repo>/issues/123.`,
     );
   }
+  const repo = await resolveRepo(gh, at?.repo);
   const existing =
-    at === undefined ? undefined : await reconcile(gh, record, body, at);
+    at === undefined
+      ? undefined
+      : await reconcile(gh, record, body, { number: at.number, repo });
   if (existing !== undefined) {
     return existing;
   }
@@ -137,18 +168,22 @@ export async function syncIssue(
     [
       "issue",
       "create",
-      ...(at?.repo ?? []),
+      "--repo",
+      repo,
       "--title",
-      record.title,
+      record.title.trim(),
       "--body-file",
       "-",
     ],
     body,
   );
   const url = ISSUE_URL.exec(created.stdout)?.[0];
-  if (created.code !== 0 || url === undefined) {
+  if (created.code !== 0) {
+    throw failure("gh could not create the issue", created.stderr);
+  }
+  if (url === undefined) {
     throw new IdeaError(
-      `gh did not create the issue or print an issue link: ${(created.stderr || created.stdout).trim()}. ${fix}`,
+      `gh reported success but printed no issue link, so the issue may exist: check the repository's issues for "${record.title.trim()}" in ${repo}, add \`issue: <url>\` to ${record.path}, then rerun \`harness idea sync\`; otherwise a duplicate is created.`,
     );
   }
   try {

@@ -842,19 +842,42 @@ var normal = (value) => value.replace(/\r\n/g, "\n").trimEnd();
 function locate(issue) {
   const url = ISSUE_URL.exec(issue);
   if (url?.[1] !== void 0 && url[2] !== void 0) {
-    return { number: url[2], repo: ["--repo", url[1]] };
+    return { number: url[2], repo: url[1] };
   }
   const bare = /^#?(\d+)$/.exec(issue.trim());
-  return bare?.[1] === void 0 ? void 0 : { number: bare[1], repo: [] };
+  return bare?.[1] === void 0 ? void 0 : { number: bare[1] };
+}
+var REPO_PROBLEM = /repositor/i;
+function failure(what, stderr2) {
+  const hint = REPO_PROBLEM.test(stderr2) ? "Check the repository named above, then rerun `harness idea sync`." : fix;
+  return new IdeaError(`${what}: ${stderr2.trim()}. ${hint}`);
+}
+async function resolveRepo(gh, recorded) {
+  if (recorded !== void 0) {
+    return recorded;
+  }
+  const view = await gh(["repo", "view", "--json", "nameWithOwner"]);
+  let name;
+  try {
+    name = JSON.parse(view.stdout).nameWithOwner;
+  } catch {
+    name = void 0;
+  }
+  if (view.code !== 0 || typeof name !== "string" || name === "") {
+    throw failure("gh could not tell which repository this is", view.stderr);
+  }
+  return name;
 }
 var fix = "Check `gh auth status` and rerun `harness idea sync`.";
 async function reconcile(gh, record2, body, at) {
+  const title = record2.title.trim();
   const issue = record2.issue ?? "";
   const view = await gh([
     "issue",
     "view",
     at.number,
-    ...at.repo,
+    "--repo",
+    at.repo,
     "--json",
     "title,body"
   ]);
@@ -862,12 +885,10 @@ async function reconcile(gh, record2, body, at) {
     if (NOT_FOUND.test(view.stderr)) {
       return void 0;
     }
-    throw new IdeaError(
-      `gh could not read issue ${issue}: ${view.stderr.trim()}. ${fix}`
-    );
+    throw failure(`gh could not read issue ${issue}`, view.stderr);
   }
   const current = parseView(view.stdout, issue);
-  if (current.title === record2.title && normal(current.body) === normal(body)) {
+  if (current.title.trim() === title && normal(current.body) === normal(body)) {
     return { action: "unchanged", issue };
   }
   const edit = await gh(
@@ -875,18 +896,17 @@ async function reconcile(gh, record2, body, at) {
       "issue",
       "edit",
       at.number,
-      ...at.repo,
+      "--repo",
+      at.repo,
       "--title",
-      record2.title,
+      title,
       "--body-file",
       "-"
     ],
     body
   );
   if (edit.code !== 0) {
-    throw new IdeaError(
-      `gh could not update issue ${issue}: ${edit.stderr.trim()}. ${fix}`
-    );
+    throw failure(`gh could not update issue ${issue}`, edit.stderr);
   }
   return { action: "updated", issue };
 }
@@ -902,7 +922,8 @@ async function syncIssue(runner, root2, record2, text2, recordLink) {
       `${record2.path} has issue "${record2.issue}", which is not an issue number or link; set it to e.g. 123 or https://github.com/<owner>/<repo>/issues/123.`
     );
   }
-  const existing = at === void 0 ? void 0 : await reconcile(gh, record2, body, at);
+  const repo = await resolveRepo(gh, at?.repo);
+  const existing = at === void 0 ? void 0 : await reconcile(gh, record2, body, { number: at.number, repo });
   if (existing !== void 0) {
     return existing;
   }
@@ -910,18 +931,22 @@ async function syncIssue(runner, root2, record2, text2, recordLink) {
     [
       "issue",
       "create",
-      ...at?.repo ?? [],
+      "--repo",
+      repo,
       "--title",
-      record2.title,
+      record2.title.trim(),
       "--body-file",
       "-"
     ],
     body
   );
   const url = ISSUE_URL.exec(created.stdout)?.[0];
-  if (created.code !== 0 || url === void 0) {
+  if (created.code !== 0) {
+    throw failure("gh could not create the issue", created.stderr);
+  }
+  if (url === void 0) {
     throw new IdeaError(
-      `gh did not create the issue or print an issue link: ${(created.stderr || created.stdout).trim()}. ${fix}`
+      `gh reported success but printed no issue link, so the issue may exist: check the repository's issues for "${record2.title.trim()}" in ${repo}, add \`issue: <url>\` to ${record2.path}, then rerun \`harness idea sync\`; otherwise a duplicate is created.`
     );
   }
   try {
@@ -1276,9 +1301,9 @@ function checkRule(rule, raw, mode) {
   return rule.check(value) ? void 0 : bad(rule.field, rule.hint);
 }
 function parseEvent(input, mode) {
-  const failure = checkShape(input, mode) ?? checkCore(input, mode) ?? RULES.map((rule) => checkRule(rule, input, mode)).find(Boolean);
-  if (failure !== void 0) {
-    return failure;
+  const failure2 = checkShape(input, mode) ?? checkCore(input, mode) ?? RULES.map((rule) => checkRule(rule, input, mode)).find(Boolean);
+  if (failure2 !== void 0) {
+    return failure2;
   }
   const event = Object.fromEntries(
     Object.entries(input).filter(([, value]) => value !== void 0)
@@ -1919,7 +1944,7 @@ function classOf(lines, entry, from) {
   }
   return "";
 }
-function locate(entries, step, itemText) {
+function locate2(entries, step, itemText) {
   const item = words(itemText);
   const scored = entries.flatMap(
     (entry) => segmentsOf(entry.raw).map((segment, index, all) => ({
@@ -1952,7 +1977,7 @@ function listEdits(lines, step, itemText, date) {
       error: `The open-item lists have no entry for ${step}. Add the item to its list, or tick it by hand.`
     };
   }
-  const best = locate(entries, step, itemText);
+  const best = locate2(entries, step, itemText);
   if ("error" in best) {
     return best;
   }

@@ -266,14 +266,14 @@ const ideaOutcomeWarn = (path) =>
 // Idea issue bodies: rendered from docs/ideas by `harness idea sync` (ADR 0079), the only
 // writer. A hand-written body is overwritten by the next sync. The guard cannot tell which
 // issues are ideas, so it warns on any issue-body edit. Audit mode (warn) first, per ADR 0080.
-const BODY_FLAGS = ["--body", "--body-file", "-b", "-F"];
+const BODY_FLAGS = ["--body", "--body-file", "-b", "-F", "--title", "-t"];
 
 function checkIdeaIssueBody(name, args) {
   if (name !== "gh" || args[0] !== "issue" || args[1] !== "edit") return null;
   if (!BODY_FLAGS.some((flag) => hasFlag(args, flag))) return null;
   return warn(
     "idea-issue-body",
-    "Issue bodies for ideas are rendered from docs/ideas and overwritten by the next sync. " +
+    "Issue titles and bodies for ideas are rendered from docs/ideas and overwritten by the next sync. " +
       "Instead, edit the idea's markdown and run `harness idea sync --idea <number or slug>`; " +
       "use labels, assignees and comments for anything workflow-related.",
   );
