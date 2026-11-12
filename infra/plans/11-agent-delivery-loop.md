@@ -62,6 +62,9 @@ effect against the plan 8 baseline.
       Step 6. The Challenger reviews each refined idea, at most two rounds,
       then the idea goes to a person with any open objections listed.
 - [x] The Challenger also reviews new ADRs and plans.
+- Known limit: rounds count per `gh` account (the one running `idea challenge`),
+  so a different account gets two more; closing that needs a second credential
+  no role has.
 
 ### Exit Criteria
 

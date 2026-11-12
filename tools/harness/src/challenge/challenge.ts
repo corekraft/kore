@@ -23,6 +23,8 @@ export interface Challenged {
   round: number;
   objections: string[];
   issue: string;
+  /** Set when another comment claims the same round number: the message says which to keep. The round itself was posted. */
+  duplicate?: string;
 }
 
 /** The third round was asked for: the idea goes to a person, with what is still open. */
@@ -38,7 +40,7 @@ export class RoundLimit extends IdeaError {
 
 const FIX = "Check `gh auth status`, then rerun `harness idea challenge`.";
 
-function issueComments(stdout: string, issue: string): IssueComment[] {
+export function issueComments(stdout: string, issue: string): IssueComment[] {
   try {
     const view = JSON.parse(stdout) as { comments?: unknown };
     return Array.isArray(view.comments)
@@ -96,10 +98,66 @@ function roundLimit(idea: string, rounds: readonly Round[], issue: string) {
   );
 }
 
-function duplicatePost(duplicate: DuplicateRound, issue: string) {
-  return new IdeaError(
-    `Challenge round ${duplicate.round} on ${issue} was posted twice and both comments are still on the issue:  ${duplicate.urls.join(" and ")}. Another challenge ran at the same time. Delete the one that should not count, then rerun \`harness idea challenge\` if a round is still needed.`,
+function duplicatePost(duplicate: DuplicateRound, issue: string): string {
+  const [keep, ...extra] = duplicate.urls;
+  return `Challenge round ${duplicate.round} on ${issue} was posted twice and both comments are still on the issue: ${duplicate.urls.join(" and ")}. Another challenge ran at the same time. Keep ${keep} and delete ${extra.join(" and ")}; the round is recorded once. Do not rerun for this round.`;
+}
+
+type Gh = (args: string[], input?: string) => ReturnType<Runner["run"]>;
+interface Target {
+  repo: string;
+  number: string;
+}
+
+async function readComments(
+  gh: Gh,
+  target: Target,
+  issue: string,
+  unreadable?: (detail: string) => string,
+): Promise<IssueComment[]> {
+  const view = await gh([
+    "issue",
+    "view",
+    target.number,
+    "--repo",
+    target.repo,
+    "--json",
+    "comments",
+  ]);
+  if (view.code !== 0) {
+    const detail = view.stderr.trim();
+    throw new IdeaError(
+      unreadable?.(detail) ??
+        `gh could not read issue ${issue}: ${detail}. ${FIX}`,
+    );
+  }
+  return issueComments(view.stdout, issue);
+}
+
+async function postRound(
+  gh: Gh,
+  target: Target,
+  issue: string,
+  body: string,
+  round: number,
+): Promise<void> {
+  const post = await gh(
+    [
+      "issue",
+      "comment",
+      target.number,
+      "--repo",
+      target.repo,
+      "--body-file",
+      "-",
+    ],
+    body,
   );
+  if (post.code !== 0) {
+    throw new IdeaError(
+      `gh could not post round ${round} on ${issue}: ${post.stderr.trim()}. ${FIX}`,
+    );
+  }
 }
 
 /**
@@ -123,23 +181,8 @@ export async function challengeIdea(
       cwd: ctx.root,
       ...(input === undefined ? {} : { input }),
     });
-  const comments = async (): Promise<IssueComment[]> => {
-    const view = await gh([
-      "issue",
-      "view",
-      target.number,
-      "--repo",
-      target.repo,
-      "--json",
-      "comments",
-    ]);
-    if (view.code !== 0) {
-      throw new IdeaError(
-        `gh could not read issue ${issue}: ${view.stderr.trim()}. ${FIX}`,
-      );
-    }
-    return issueComments(view.stdout, issue);
-  };
+  const comments = (unreadable?: (detail: string) => string) =>
+    readComments(gh, target, issue, unreadable);
   const user = await ghUser(gh);
   const rounds = distinctRounds(
     parseRounds(record.number, await comments(), user),
@@ -148,33 +191,29 @@ export async function challengeIdea(
     throw roundLimit(record.number, rounds, issue);
   }
   const round = rounds.length + 1;
-  const post = await gh(
-    [
-      "issue",
-      "comment",
-      target.number,
-      "--repo",
-      target.repo,
-      "--body-file",
-      "-",
-    ],
+  await postRound(
+    gh,
+    target,
+    issue,
     renderRound(record.number, round, objections),
+    round,
   );
-  if (post.code !== 0) {
-    throw new IdeaError(
-      `gh could not post round ${round} on ${issue}: ${post.stderr.trim()}. ${FIX}`,
-    );
-  }
-  const duplicate = duplicateRounds(
-    parseRounds(record.number, await comments(), user),
-  ).find((d) => d.round === round);
-  if (duplicate !== undefined) {
-    throw duplicatePost(duplicate, issue);
-  }
+  const posted = parseRounds(
+    record.number,
+    await comments(
+      (detail) =>
+        `Round ${round} was posted on ${issue}, but gh could not read the issue again to check for a duplicate: ${detail}. Do not rerun, which would post another round; check the issue by hand.`,
+    ),
+    user,
+  );
+  const duplicate = duplicateRounds(posted).find((d) => d.round === round);
   return {
     idea: record.number,
     round,
     objections: [...objections],
     issue,
+    ...(duplicate === undefined
+      ? {}
+      : { duplicate: duplicatePost(duplicate, issue) }),
   };
 }
