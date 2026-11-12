@@ -91,22 +91,6 @@ describe("harness ruleset sync promotion and first creation", () => {
     ]);
   });
 
-  it("changes a rule's parameters in main without touching the candidate", async () => {
-    const h = rulesetRepo({
-      main: liveMain([
-        DELETION,
-        {
-          type: "required_status_checks",
-          parameters: { required_status_checks: [] },
-        },
-      ]),
-    });
-    expect(await run(sync("--confirm"), h.deps)).toBe(0);
-    expect(sent(h)).toEqual([
-      ["PUT", "7", body("main", "active", [DELETION, CHECKS])],
-    ]);
-  });
-
   it("names an inventory rule that is missing for a declared rule", async () => {
     const h = rulesetRepo({ main: liveMain() });
     h.set(".claude/guardrails.yaml", JSON.stringify({ guardrails: [] }));

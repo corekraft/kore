@@ -1,4 +1,5 @@
 import { modeOf, readInventory } from "../guardrail/index.js";
+import type { Mode } from "../guardrail/index.js";
 import type { CommandContext } from "../runtime/index.js";
 import {
   DECLARED_DIR,
@@ -8,7 +9,7 @@ import {
   planCandidate,
   planMain,
   ruleName,
-  split,
+  stage,
   typesOf,
   type CandidatePlan,
   type Json,
@@ -16,6 +17,7 @@ import {
 } from "./declared.js";
 import { GitHubError, GitHubRulesets } from "./github.js";
 import { destination } from "./support.js";
+import { weakenings } from "./weaken.js";
 import { withLock } from "./lock.js";
 
 async function declaredBody(context: CommandContext, target: string) {
@@ -32,7 +34,13 @@ async function declaredBody(context: CommandContext, target: string) {
       `The repository declares no ruleset "${target}" (no ${path}); it declares the rulesets under ${DECLARED_DIR}, such as main. Check --target.`,
     );
   }
-  return { base, body: parseDeclared(path, text) };
+  const body = parseDeclared(path, text);
+  if (body["name"] !== target) {
+    throw new RulesetError(
+      `${path} names the ruleset "${String(body["name"])}" but --target is ${target}, and a sync never renames a live ruleset. Fix the "name" in ${path} to ${target}, or pass the matching --target.`,
+    );
+  }
+  return { base, body };
 }
 
 /** The modes of the declared rules, one inventory entry each; a rule with no entry has no declared mode. */
@@ -52,22 +60,49 @@ async function modesOf(context: CommandContext, base: string, body: Json) {
 }
 
 function describe(main: MainPlan, candidate: CandidatePlan): string {
-  const main_ =
+  const parts = [
+    main.added.length > 0 ? `added: ${main.added.join(", ")}` : "",
+    main.removed.length > 0
+      ? `removed: ${main.removed.join(", ")} (needs --allow-removal)`
+      : "",
+    main.weakened.length > 0
+      ? `weakened: ${main.weakened.join(", ")} (needs --allow-removal)`
+      : "",
+    main.changed.length > 0 ? `changed: ${main.changed.join(", ")}` : "",
+    main.pending.length > 0
+      ? `pending: ${main.pending.join(", ")} (in ${candidate.name} until observed)`
+      : "",
+  ].filter((part) => part !== "");
+  const head =
     main.action === "none"
       ? "main: no change"
-      : `main: ${main.action} (${main.from ?? "new"} -> active)` +
-        (main.added.length > 0 ? `; added: ${main.added.join(", ")}` : "") +
-        (main.removed.length > 0
-          ? `; removed: ${main.removed.join(", ")} (needs --allow-removal)`
-          : "") +
-        (main.changed.length > 0
-          ? `; changed: ${main.changed.join(", ")}`
-          : "");
+      : `main: ${main.action} (${main.from ?? "new"} -> active)`;
   const cand =
     candidate.action === "none"
       ? `${candidate.name}: no change`
       : `${candidate.name}: ${candidate.action} (evaluate); rules: ${candidate.rules.join(", ") || "none"}`;
-  return `  ${main_}\n  ${cand}\n`;
+  return `  ${[head, ...parts].join("; ")}\n  ${cand}\n`;
+}
+
+/**
+ * How the declared file leaves main weaker than live: the enforce rules as
+ * declared, plus live's version of an audit rule, which waits in the candidate.
+ */
+function weakened(
+  body: Json,
+  modes: (type: string) => Mode,
+  live: Json | undefined,
+): string[] {
+  if (live === undefined) {
+    return [];
+  }
+  const kept = ((live["rules"] as Json[] | undefined) ?? []).filter(
+    (r) => modes(String(r["type"])) === "audit",
+  );
+  const declared = (body["rules"] as Json[]).filter(
+    (r) => modes(String(r["type"])) === "enforce",
+  );
+  return weakenings(live, { ...body, rules: [...declared, ...kept] }).weaker;
 }
 
 /** GitHub says the plan has no evaluate mode: stop rather than guess. */
@@ -111,14 +146,14 @@ export async function syncRuleset(context: CommandContext): Promise<number> {
   const github = new GitHubRulesets(deps.runner, repo);
 
   const work = async (): Promise<number> => {
-    const { enforced, audited } = split(body, modes);
-    const main = planMain(body, enforced, await github.find(target));
-    const candidate = planCandidate(
-      body,
-      audited,
-      await github.find(candidateName(target)),
-    );
-    const refused = main.removed.length > 0 && !allowRemoval;
+    const liveMain = await github.find(target);
+    const liveCandidate = await github.find(candidateName(target));
+    const staged = stage(body, modes, liveMain, liveCandidate);
+    const main = planMain(body, staged, liveMain);
+    main.weakened = weakened(body, modes, liveMain);
+    const candidate = planCandidate(body, staged.candidate, liveCandidate);
+    const refused =
+      (main.removed.length > 0 || main.weakened.length > 0) && !allowRemoval;
     const report = {
       repo,
       target,
@@ -128,7 +163,7 @@ export async function syncRuleset(context: CommandContext): Promise<number> {
       candidate: { ...candidate, body: undefined },
     };
     const head = `Ruleset ${target} in ${repo}`;
-    if (main.action === "none" && candidate.action === "none") {
+    if (main.action === "none" && candidate.action === "none" && !refused) {
       deps.stdout(
         json
           ? `${JSON.stringify(report)}\n`
@@ -144,14 +179,20 @@ export async function syncRuleset(context: CommandContext): Promise<number> {
       );
       return 0;
     }
+    if (refused) {
+      const problems = [
+        ...(main.removed.length > 0
+          ? [`removes ${main.removed.join(", ")}`]
+          : []),
+        ...main.weakened,
+      ];
+      throw new RulesetError(
+        `${head} would weaken main (${problems.join("; ")}), so nothing was sent. Instead, restore it in ${DECLARED_DIR}/${target}.json, or rerun with --allow-removal once the operator agrees.`,
+      );
+    }
     if (context.options["confirm"] !== true) {
       throw new RulesetError(
         `${head} would change, but nothing was sent. Changing the live ruleset needs the operator's confirmation first:\n${describe(main, candidate)}Preview with --dry-run, then rerun with --confirm once the operator agrees.`,
-      );
-    }
-    if (refused) {
-      throw new RulesetError(
-        `${head} would remove ${main.removed.join(", ")} from main, which weakens it, so nothing was sent. Instead, add the rule back to ${DECLARED_DIR}/${target}.json, or rerun with --allow-removal once the operator agrees.`,
       );
     }
     await apply(github, main, candidate, repo);

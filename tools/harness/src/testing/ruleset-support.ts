@@ -6,12 +6,23 @@ export const DECLARED = ".github/rulesets/main.json";
 export const CANDIDATE = "main-candidate";
 export const LOCK = ".kore/state/locks/ruleset-corekraft-kore.lock";
 
-const CHECKS = {
+/** A required_status_checks rule that requires each named check. */
+export const checksRule = (...contexts: string[]) => ({
   type: "required_status_checks",
   parameters: {
-    required_status_checks: [{ context: "check", integration_id: 15368 }],
+    required_status_checks: contexts.map((context) => ({
+      context,
+      integration_id: 15368,
+    })),
   },
-};
+});
+
+export const prRule = (parameters: object) => ({
+  type: "pull_request",
+  parameters,
+});
+
+const CHECKS = checksRule("check", "scan");
 const DELETION = { type: "deletion" };
 
 /** The declared ruleset: every rule main should have, whatever its mode. */
@@ -27,10 +38,15 @@ export type Mode = "audit" | "enforce";
 export interface Modes {
   deletion?: Mode;
   checks?: Mode;
+  pullRequest?: Mode;
 }
 
 /** An inventory with one entry per declared rule; every rule enforces unless told otherwise. */
-export function inventory({ deletion = "enforce", checks = "enforce" }: Modes) {
+export function inventory({
+  deletion = "enforce",
+  checks = "enforce",
+  pullRequest = "enforce",
+}: Modes) {
   const entry = (rule: string, mode: Mode) => ({
     rule,
     kind: "ruleset",
@@ -40,6 +56,7 @@ export function inventory({ deletion = "enforce", checks = "enforce" }: Modes) {
   return JSON.stringify({
     guardrails: [
       entry("main-ruleset-deletion", deletion),
+      entry("main-ruleset-pull-request", pullRequest),
       entry("main-ruleset-required-status-checks", checks),
     ],
   });
@@ -79,6 +96,8 @@ const is = (args: readonly string[], path: string) =>
   args.join(" ") === `api ${path}`;
 
 export interface Scene {
+  /** Replaces the declared ruleset file. */
+  declared?: object;
   modes?: Modes;
   main?: object | undefined;
   candidate?: object | undefined;
@@ -87,6 +106,7 @@ export interface Scene {
 
 /** A repository with the declared ruleset, plus a runner that answers as GitHub would. */
 export function rulesetRepo({
+  declared: file = declared,
   modes = {},
   main,
   candidate,
@@ -94,7 +114,7 @@ export function rulesetRepo({
 }: Scene) {
   const h = harness({
     "docs/index.md": "# Knowledge Index\n",
-    [DECLARED]: `${JSON.stringify(declared, null, 2)}\n`,
+    [DECLARED]: `${JSON.stringify(file, null, 2)}\n`,
     ".claude/guardrails.yaml": inventory(modes),
   });
   const listing = [

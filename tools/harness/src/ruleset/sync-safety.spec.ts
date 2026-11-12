@@ -6,6 +6,7 @@ import {
   DELETION,
   LOCK,
   REPO,
+  liveCandidate,
   liveMain,
   mutations,
   rulesetRepo,
@@ -86,6 +87,18 @@ describe("harness ruleset sync refuses unclear targets", () => {
     expect(h.runner.calls).toEqual([]);
   });
 
+  it("refuses a declared ruleset whose name differs from --target, so a sync never renames main", async () => {
+    const h = rulesetRepo({ main: liveMain() });
+    h.set(
+      ".github/rulesets/main.json",
+      JSON.stringify({ name: "renamed", rules: [] }),
+    );
+    expect(await run(sync("--dry-run"), h.deps)).toBe(1);
+    expect(h.err()).toMatch(/names the ruleset "renamed".*--target is main/);
+    expect(h.err()).toMatch(/rename/i);
+    expect(h.runner.calls).toEqual([]);
+  });
+
   it("writes only json to stderr when --json is set", async () => {
     const h = rulesetRepo({
       modes: { checks: "audit" },
@@ -121,13 +134,6 @@ describe("harness ruleset sync never silently removes a live rule", () => {
     expect(mutations(h)).toEqual([]);
   });
 
-  it("treats a rule demoted to audit as a removal from main", async () => {
-    const h = rulesetRepo({ modes: { deletion: "audit" }, main: liveMain() });
-    expect(await run(sync("--confirm"), h.deps)).toBe(1);
-    expect(h.err()).toMatch(/deletion/);
-    expect(mutations(h)).toEqual([]);
-  });
-
   it("removes the rule from main when --allow-removal is given", async () => {
     const h = rulesetRepo(scene);
     expect(await run(sync("--confirm", "--allow-removal"), h.deps)).toBe(0);
@@ -136,8 +142,11 @@ describe("harness ruleset sync never silently removes a live rule", () => {
     ]);
   });
 
-  it("names a rule main gains as added", async () => {
-    const h = rulesetRepo({ main: liveMain([DELETION]) });
+  it("names a rule main gains as added once the candidate has shown it", async () => {
+    const h = rulesetRepo({
+      main: liveMain([DELETION]),
+      candidate: liveCandidate([CHECKS]),
+    });
     await run([...sync("--dry-run"), "--json"], h.deps);
     expect(JSON.parse(h.out()).main.added).toEqual(["required_status_checks"]);
   });

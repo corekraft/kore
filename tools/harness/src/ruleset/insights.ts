@@ -30,9 +30,32 @@ export interface Insights {
   truncated: boolean;
 }
 
+const isObject = (value: unknown): value is Json =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+/** The rule types of the target ruleset that fired in evaluate; entries that do not fit are skipped. */
+function firedRules(detail: Json, ruleset: string, id: number | undefined) {
+  const evaluations = Array.isArray(detail["rule_evaluations"])
+    ? (detail["rule_evaluations"] as unknown[])
+    : [];
+  return evaluations.filter(isObject).flatMap((e) => {
+    const source = e["rule_source"];
+    const ours =
+      isObject(source) &&
+      (id === undefined ? source["name"] === ruleset : source["id"] === id);
+    const type = e["rule_type"];
+    return ours &&
+      e["enforcement"] === "evaluate" &&
+      e["result"] === "fail" &&
+      typeof type === "string"
+      ? [type]
+      : [];
+  });
+}
+
 /**
- * Summarizes what the evaluate-mode ruleset would have blocked, for the
- * activation request (ADR 0080). Only suites GitHub flags as failing in
+ * Summarizes what the evaluate-mode candidate ruleset would have blocked, for
+ * the activation request (ADR 0080). Only suites GitHub flags as failing in
  * evaluation are fetched in full, since the list omits which rule fired.
  */
 export async function summarize(
@@ -40,7 +63,9 @@ export async function summarize(
   { repo, target, ruleset, targetId, timePeriod }: Subject,
 ): Promise<Insights> {
   const suites = await github.suites(timePeriod);
-  const failing = suites.filter((s) => s["evaluation_result"] === "fail");
+  const failing = suites
+    .filter(isObject)
+    .filter((s) => s["evaluation_result"] === "fail");
   const byRule: Record<string, number> = {};
   const actors = new Set<string>();
   let firings = 0;
@@ -51,19 +76,7 @@ export async function summarize(
         "GitHub listed a rule suite without a numeric id, so its rules cannot be read. Check `gh --version`, then rerun.",
       );
     }
-    const detail = await github.suite(id);
-    const fired = ((detail["rule_evaluations"] as Json[] | undefined) ?? [])
-      .filter((e) => {
-        const source = e["rule_source"] as Json | undefined;
-        return (
-          e["enforcement"] === "evaluate" &&
-          e["result"] === "fail" &&
-          (targetId === undefined
-            ? source?.["name"] === ruleset
-            : source?.["id"] === targetId)
-        );
-      })
-      .map((e) => e["rule_type"] as string);
+    const fired = firedRules(await github.suite(id), ruleset, targetId);
     if (fired.length === 0) {
       continue;
     }

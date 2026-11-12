@@ -41,16 +41,62 @@ const rulesOf = (body: Json): Json[] => (body["rules"] as Json[]) ?? [];
 const typeOf = (rule: Json): string => String(rule["type"]);
 export const typesOf = (rules: readonly Json[]): string[] => rules.map(typeOf);
 
-/** Splits the declared rules by inventory mode: enforce rules go to main, audit rules to the candidate. */
-export function split(
+export interface Staged {
+  /** The rules main holds after the sync: live versions kept, promoted versions swapped in. */
+  main: Json[];
+  /** The rules the candidate holds after the sync, in evaluate. */
+  candidate: Json[];
+  /** Enforce rules that changed or are new, waiting in the candidate to be observed before they reach main. */
+  pending: string[];
+}
+
+/**
+ * Decides, rule by rule, where the declared version goes. Main keeps its live
+ * version of a rule until the candidate has held the declared one, so a new or
+ * changed rule is observed before it blocks (ADR 0090): an audit rule always
+ * waits in the candidate; an enforce rule that differs from main waits there
+ * too, and moves to main on the sync after the candidate holds it. Without a
+ * live main there is nothing to protect or compare, so main starts from the
+ * enforce rules.
+ */
+export function stage(
   declared: Json,
   modeOf: (type: string) => Mode,
-): { enforced: Json[]; audited: Json[] } {
-  const rules = rulesOf(declared);
-  return {
-    enforced: rules.filter((r) => modeOf(typeOf(r)) === "enforce"),
-    audited: rules.filter((r) => modeOf(typeOf(r)) === "audit"),
-  };
+  main: Json | undefined,
+  candidate: Json | undefined,
+): Staged {
+  const liveMain = new Map(rulesOf(main ?? {}).map((r) => [typeOf(r), r]));
+  const liveCandidate = new Map(
+    rulesOf(candidate ?? {}).map((r) => [typeOf(r), r]),
+  );
+  const staged: Staged = { main: [], candidate: [], pending: [] };
+  for (const rule of rulesOf(declared)) {
+    const type = typeOf(rule);
+    const params = rule["parameters"] ?? {};
+    const there = liveMain.get(type);
+    const held = liveCandidate.get(type);
+    const observed = held !== undefined && covers(params, held["parameters"]);
+    if (modeOf(type) === "enforce" && main === undefined) {
+      staged.main.push(rule);
+    } else if (
+      modeOf(type) === "enforce" &&
+      there &&
+      covers(params, there["parameters"])
+    ) {
+      staged.main.push(there);
+    } else if (modeOf(type) === "enforce" && observed) {
+      staged.main.push(rule);
+    } else {
+      staged.candidate.push(rule);
+      if (modeOf(type) === "enforce") {
+        staged.pending.push(type);
+      }
+      if (there !== undefined) {
+        staged.main.push(there);
+      }
+    }
+  }
+  return staged;
 }
 
 /** Every declared key and element is present and equal in live; GitHub's extra fields are ignored. */
@@ -103,21 +149,26 @@ export interface MainPlan {
   enforcement: "active";
   /** Rule types main gains. */
   added: string[];
-  /** Rule types live main has that the file does not give it; removing one weakens main. */
+  /** Rule types live main has that the file does not declare; removing one weakens main. */
   removed: string[];
+  /** Parameters, conditions or bypass actors the file makes weaker than live main. */
+  weakened: string[];
+  /** Enforce rules waiting in the candidate before they reach main. */
+  pending: string[];
   /** Declared fields or rule parameters that differ live. */
   changed: string[];
   body: Json;
 }
 
-/** Main always syncs as active, with exactly the enforce rules. */
+/** Main always syncs as active, with the rules staging leaves it. */
 export function planMain(
   declared: Json,
-  enforced: Json[],
+  staged: Staged,
   live: Json | undefined,
 ): MainPlan {
-  const body = { ...declared, rules: enforced, enforcement: "active" };
-  const want = typesOf(enforced);
+  const body = { ...declared, rules: staged.main, enforcement: "active" };
+  const want = typesOf(staged.main);
+  const none = { weakened: [], pending: staged.pending };
   if (live === undefined) {
     return {
       action: "create",
@@ -126,15 +177,16 @@ export function planMain(
       removed: [],
       changed: [],
       body,
+      ...none,
     };
   }
   const have = typesOf(rulesOf(live));
   const fields = Object.entries(declared)
     .filter(([key, value]) => key !== "rules" && !covers(value, live[key]))
     .map(([key]) => key);
-  const changed = [...fields, ...changedRules(enforced, rulesOf(live))];
+  const changed = [...fields, ...changedRules(staged.main, rulesOf(live))];
   const added = want.filter((t) => !have.includes(t));
-  const removed = have.filter((t) => !want.includes(t));
+  const removed = have.filter((t) => !typesOf(rulesOf(declared)).includes(t));
   const from = enforcementOf(live);
   const unchanged =
     changed.length + added.length + removed.length === 0 && from === "active";
@@ -147,6 +199,7 @@ export function planMain(
     removed,
     changed,
     body,
+    ...none,
   };
 }
 
@@ -160,7 +213,7 @@ export interface CandidatePlan {
   body: Json;
 }
 
-/** The candidate holds the audit rules in evaluate; it is never created just to be empty. */
+/** The candidate holds the staged rules in evaluate; it is never created just to be empty. */
 export function planCandidate(
   declared: Json,
   audited: Json[],

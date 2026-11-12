@@ -194,3 +194,35 @@ describe("a declared ruleset that does not exist yet", () => {
     expect(result.out).not.toMatch(/guardrail-demotion/);
   });
 });
+
+describe("the guard and sync call the same things a weakening", () => {
+  const withMerge = (methods: string[]) =>
+    ruleset({
+      rules: [
+        {
+          type: "pull_request",
+          parameters: { allowed_merge_methods: methods },
+        },
+      ],
+    });
+
+  it("warns when an edit adds a merge method", async () => {
+    const result = await guard(
+      write(withMerge(["squash", "merge"])),
+      committedInventoryText,
+      "/repo",
+      { [PATH]: withMerge(["squash"]) },
+    );
+    expect(result.out).toMatch(/allowed_merge_methods gains an entry/);
+  });
+
+  it("stays silent when an edit removes a merge method", async () => {
+    const result = await guard(
+      write(withMerge(["squash"])),
+      committedInventoryText,
+      "/repo",
+      { [PATH]: withMerge(["squash", "merge"]) },
+    );
+    expect(result.out).not.toMatch(/guardrail-demotion/);
+  });
+});

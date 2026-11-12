@@ -52,7 +52,7 @@ describe("harness ruleset sync on unusual input", () => {
   });
 
   it("does not create an empty candidate when every rule enforces", async () => {
-    const h = rulesetRepo({ main: liveMain([DELETION]) });
+    const h = rulesetRepo({ main: liveMain([DELETION, CHECKS]) });
     expect(await run([...sync("--dry-run"), "--json"], h.deps)).toBe(0);
     expect(JSON.parse(h.out()).candidate).toMatchObject({ action: "none" });
   });

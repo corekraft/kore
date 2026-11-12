@@ -221,3 +221,62 @@ describe("harness ruleset insights without an actor", () => {
     expect(JSON.parse(h.out())).toMatchObject({ firings: 1, actors: [] });
   });
 });
+
+describe("harness ruleset insights on malformed GitHub data", () => {
+  const rows = (list: unknown, detailBody: unknown) => [
+    {
+      match: (_c: string, a: readonly string[]) =>
+        a[1]?.startsWith(`repos/${REPO}/rulesets/rule-suites?`) === true,
+      result: { stdout: JSON.stringify(list) },
+    },
+    {
+      match: (_c: string, a: readonly string[]) =>
+        a[1] === `repos/${REPO}/rulesets/rule-suites/1`,
+      result: { stdout: JSON.stringify(detailBody) },
+    },
+  ];
+  const summarized = async (list: unknown, detailBody: unknown) => {
+    const h = rulesetRepo({
+      main: liveMain(),
+      candidate: liveCandidate([CHECKS]),
+      extra: rows(list, detailBody),
+    });
+    const code = await run([...insights(), "--json"], h.deps);
+    return { code, out: h.out() };
+  };
+
+  it("skips suites, evaluations and rule types that do not fit", async () => {
+    const { code, out } = await summarized([null, "x", 3, suite(1, "fail")], {
+      rule_evaluations: [
+        null,
+        "x",
+        { rule_source: "x", enforcement: "evaluate", result: "fail" },
+        {
+          rule_source: { id: 8 },
+          enforcement: "evaluate",
+          result: "fail",
+          rule_type: 5,
+        },
+        {
+          rule_source: { id: 8 },
+          enforcement: "evaluate",
+          result: "fail",
+          rule_type: "deletion",
+        },
+      ],
+    });
+    expect(code).toBe(0);
+    expect(JSON.parse(out)).toMatchObject({
+      firings: 1,
+      byRule: { deletion: 1 },
+    });
+  });
+
+  it("reads a detail without a rule_evaluations list as no firing", async () => {
+    const { code, out } = await summarized([suite(1, "fail")], {
+      rule_evaluations: "none",
+    });
+    expect(code).toBe(0);
+    expect(JSON.parse(out)).toMatchObject({ firings: 0, byRule: {} });
+  });
+});

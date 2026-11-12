@@ -1032,11 +1032,11 @@ function githubSpans(events, asOf) {
     ]
   ];
   const spans = [];
-  for (const [stage, start, end] of waits) {
+  for (const [stage2, start, end] of waits) {
     if (start !== void 0) {
       const stop2 = end ?? closed ?? asOf;
       if (stop2 > start) {
-        spans.push([stage, start, stop2]);
+        spans.push([stage2, start, stop2]);
       }
     }
   }
@@ -1044,12 +1044,12 @@ function githubSpans(events, asOf) {
 }
 function githubWaits(tally, waits, holes) {
   const [lo, hi] = tally.window;
-  for (const [stage, start, stop2] of waits) {
-    tally.present(stage, start, stop2);
+  for (const [stage2, start, stop2] of waits) {
+    tally.present(stage2, start, stop2);
     const from = Math.max(start, lo);
     const to = Math.min(stop2, hi);
     if (to > from) {
-      tally.addMs(stage, "waitingMs", uncovered([from, to], holes));
+      tally.addMs(stage2, "waitingMs", uncovered([from, to], holes));
     }
   }
 }
@@ -1198,30 +1198,30 @@ var Tally = class {
   }
   window;
   totals = new Map(
-    STAGES.map((stage) => [stage, emptyMillis()])
+    STAGES.map((stage2) => [stage2, emptyMillis()])
   );
   /** One open interval per idea per stage, from `present` calls between `beginIdea` and `endIdea`. */
   open = new Map(
-    STAGES.map((stage) => [stage, []])
+    STAGES.map((stage2) => [stage2, []])
   );
   current = /* @__PURE__ */ new Map();
   beginIdea() {
     this.current = /* @__PURE__ */ new Map();
   }
   /** The idea was in `stage` from `from` to `to`; its open interval grows to hold it. */
-  present(stage, from, to) {
+  present(stage2, from, to) {
     const clipped = [
       Math.max(from, this.window[0]),
       Math.min(to, this.window[1])
     ];
     const kept = from === to ? from >= this.window[0] && from < this.window[1] : clipped[1] > clipped[0];
     if (kept) {
-      this.current.set(stage, widen(this.current.get(stage), clipped));
+      this.current.set(stage2, widen(this.current.get(stage2), clipped));
     }
   }
   endIdea() {
-    for (const [stage, span] of this.current) {
-      this.open.get(stage).push(span);
+    for (const [stage2, span] of this.current) {
+      this.open.get(stage2).push(span);
     }
   }
   /**
@@ -1241,41 +1241,41 @@ var Tally = class {
     ];
   }
   /** Charges milliseconds the caller already clipped to the window. */
-  addMs(stage, field3, ms) {
-    this.totals.get(stage)[field3] += ms;
+  addMs(stage2, field3, ms) {
+    this.totals.get(stage2)[field3] += ms;
   }
   /** Charges the part of `[from, to]` inside the window. */
-  add(stage, field3, from, to) {
-    this.totals.get(stage)[field3] += clipMs(
+  add(stage2, field3, from, to) {
+    this.totals.get(stage2)[field3] += clipMs(
       this.window,
       from,
       to
     );
   }
   /** Charges the part of `[from, to]` inside the window as toil. */
-  addToil(stage, kind, from, to) {
-    this.totals.get(stage).toilMs[kind] += clipMs(
+  addToil(stage2, kind, from, to) {
+    this.totals.get(stage2).toilMs[kind] += clipMs(
       this.window,
       from,
       to
     );
   }
   /** Charges toil already clipped by the caller. */
-  addToilMs(stage, kind, ms) {
-    this.totals.get(stage).toilMs[kind] += ms;
+  addToilMs(stage2, kind, ms) {
+    this.totals.get(stage2).toilMs[kind] += ms;
   }
-  count(stage) {
-    this.totals.get(stage).events += 1;
+  count(stage2) {
+    this.totals.get(stage2).events += 1;
   }
   /** Stages in loop order, with milliseconds converted to seconds. */
   stages() {
     const range = this.range();
-    return STAGES.map((stage) => {
+    return STAGES.map((stage2) => {
       const { activeMs, waitingMs, events, toilMs } = this.totals.get(
-        stage
+        stage2
       );
       return {
-        stage,
+        stage: stage2,
         activeSeconds: activeMs / 1e3,
         waitingSeconds: waitingMs / 1e3,
         events,
@@ -1285,7 +1285,7 @@ var Tally = class {
           waitingSeconds: toilMs.waiting / 1e3,
           retryingSeconds: toilMs.retrying / 1e3
         },
-        wip: wipOf(this.open.get(stage), range)
+        wip: wipOf(this.open.get(stage2), range)
       };
     });
   }
@@ -1420,7 +1420,7 @@ function chargeActor(tally, items2) {
   let closed = false;
   let start = time(items2[0].event);
   let life = newLife(items2[0].event, tally.window);
-  items2.forEach(({ event, stage }, i) => {
+  items2.forEach(({ event, stage: stage2 }, i) => {
     const at = time(event);
     if (closed && (event.kind === "pane.spawned" || event.kind === "session.start")) {
       closed = false;
@@ -1432,7 +1432,7 @@ function chargeActor(tally, items2) {
       return;
     }
     chargeToil(
-      (kind, ms) => tally.addToilMs(stage, kind, ms),
+      (kind, ms) => tally.addToilMs(stage2, kind, ms),
       event,
       at,
       start,
@@ -1443,11 +1443,11 @@ function chargeActor(tally, items2) {
       spans.push([start, at]);
     } else if (state !== void 0 && i < items2.length - 1) {
       const next = time(items2[i + 1].event);
-      tally.add(stage, state === "active" ? "activeMs" : "waitingMs", at, next);
-      tally.present(stage, at, next);
+      tally.add(stage2, state === "active" ? "activeMs" : "waitingMs", at, next);
+      tally.present(stage2, at, next);
       if (state === "waiting") {
         life.waits.push([at, next]);
-        tally.addToil(stage, "waiting", at, next);
+        tally.addToil(stage2, "waiting", at, next);
       }
     }
   });
@@ -1502,14 +1502,14 @@ function chargeIdea(tally, own2, waits) {
     if (COST_KINDS.has(event.kind)) {
       continue;
     }
-    const stage = stageOf(event, mergedAt);
+    const stage2 = stageOf(event, mergedAt);
     const inRange = inWindow(tally.window, time(event));
-    if (stage !== void 0) {
+    if (stage2 !== void 0) {
       if (inRange) {
-        tally.count(stage);
-        tally.present(stage, time(event), time(event));
+        tally.count(stage2);
+        tally.present(stage2, time(event), time(event));
       }
-      mapped.push({ event, stage });
+      mapped.push({ event, stage: stage2 });
     } else if (inRange) {
       unmapped += 1;
     }
@@ -1521,7 +1521,7 @@ function chargeIdea(tally, own2, waits) {
 function nameBottleneck(tally, completed, minCompletedIdeas) {
   const stages = [...tally.totals.entries()];
   const totalMs = stages.reduce((sum, [, s]) => sum + s.waitingMs, 0);
-  const [stage, worst] = stages.reduce(
+  const [stage2, worst] = stages.reduce(
     (a, b) => b[1].waitingMs > a[1].waitingMs ? b : a
   );
   if (completed < minCompletedIdeas) {
@@ -1538,7 +1538,7 @@ function nameBottleneck(tally, completed, minCompletedIdeas) {
   }
   return {
     bottleneck: {
-      stage,
+      stage: stage2,
       waitingSeconds: worst.waitingMs / 1e3,
       share: roundShare(worst.waitingMs / totalMs)
     },
@@ -1954,8 +1954,8 @@ async function query(gh2, what, args) {
   } catch {
     return `gh ${what} did not print JSON. Run it by hand and check the gh version.`;
   }
-  const isObject2 = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
-  return Array.isArray(value) && value.every(isObject2) ? value : `gh ${what} did not print a JSON list of objects; the gh version may have changed its output.`;
+  const isObject3 = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
+  return Array.isArray(value) && value.every(isObject3) ? value : `gh ${what} did not print a JSON list of objects; the gh version may have changed its output.`;
 }
 var asRecord = (value) => typeof value === "object" && value !== null ? value : {};
 var when = (value) => typeof value === "string" && isTimestamp(value) ? value : void 0;
@@ -3469,12 +3469,35 @@ function parseDeclared(path, text10) {
 var rulesOf = (body) => body["rules"] ?? [];
 var typeOf = (rule) => String(rule["type"]);
 var typesOf = (rules2) => rules2.map(typeOf);
-function split(declared, modeOf2) {
-  const rules2 = rulesOf(declared);
-  return {
-    enforced: rules2.filter((r) => modeOf2(typeOf(r)) === "enforce"),
-    audited: rules2.filter((r) => modeOf2(typeOf(r)) === "audit")
-  };
+function stage(declared, modeOf2, main, candidate) {
+  const liveMain = new Map(rulesOf(main ?? {}).map((r) => [typeOf(r), r]));
+  const liveCandidate = new Map(
+    rulesOf(candidate ?? {}).map((r) => [typeOf(r), r])
+  );
+  const staged = { main: [], candidate: [], pending: [] };
+  for (const rule of rulesOf(declared)) {
+    const type = typeOf(rule);
+    const params = rule["parameters"] ?? {};
+    const there = liveMain.get(type);
+    const held = liveCandidate.get(type);
+    const observed = held !== void 0 && covers(params, held["parameters"]);
+    if (modeOf2(type) === "enforce" && main === void 0) {
+      staged.main.push(rule);
+    } else if (modeOf2(type) === "enforce" && there && covers(params, there["parameters"])) {
+      staged.main.push(there);
+    } else if (modeOf2(type) === "enforce" && observed) {
+      staged.main.push(rule);
+    } else {
+      staged.candidate.push(rule);
+      if (modeOf2(type) === "enforce") {
+        staged.pending.push(type);
+      }
+      if (there !== void 0) {
+        staged.main.push(there);
+      }
+    }
+  }
+  return staged;
 }
 function covers(want, have) {
   if (Array.isArray(want)) {
@@ -3502,9 +3525,10 @@ var idOf = (live, name) => {
   return live["id"];
 };
 var enforcementOf = (live) => typeof live["enforcement"] === "string" ? live["enforcement"] : "unknown";
-function planMain(declared, enforced, live) {
-  const body = { ...declared, rules: enforced, enforcement: "active" };
-  const want = typesOf(enforced);
+function planMain(declared, staged, live) {
+  const body = { ...declared, rules: staged.main, enforcement: "active" };
+  const want = typesOf(staged.main);
+  const none = { weakened: [], pending: staged.pending };
   if (live === void 0) {
     return {
       action: "create",
@@ -3512,14 +3536,15 @@ function planMain(declared, enforced, live) {
       added: want,
       removed: [],
       changed: [],
-      body
+      body,
+      ...none
     };
   }
   const have = typesOf(rulesOf(live));
   const fields = Object.entries(declared).filter(([key, value]) => key !== "rules" && !covers(value, live[key])).map(([key]) => key);
-  const changed = [...fields, ...changedRules(enforced, rulesOf(live))];
+  const changed = [...fields, ...changedRules(staged.main, rulesOf(live))];
   const added = want.filter((t) => !have.includes(t));
-  const removed = have.filter((t) => !want.includes(t));
+  const removed = have.filter((t) => !typesOf(rulesOf(declared)).includes(t));
   const from = enforcementOf(live);
   const unchanged = changed.length + added.length + removed.length === 0 && from === "active";
   return {
@@ -3530,7 +3555,8 @@ function planMain(declared, enforced, live) {
     added,
     removed,
     changed,
-    body
+    body,
+    ...none
   };
 }
 function planCandidate(declared, audited, live) {
@@ -3633,9 +3659,19 @@ var GitHubRulesets = class {
 
 // src/ruleset/insights.ts
 var PERIODS = ["hour", "day", "week", "month"];
+var isObject2 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+function firedRules(detail2, ruleset, id) {
+  const evaluations = Array.isArray(detail2["rule_evaluations"]) ? detail2["rule_evaluations"] : [];
+  return evaluations.filter(isObject2).flatMap((e) => {
+    const source = e["rule_source"];
+    const ours = isObject2(source) && (id === void 0 ? source["name"] === ruleset : source["id"] === id);
+    const type = e["rule_type"];
+    return ours && e["enforcement"] === "evaluate" && e["result"] === "fail" && typeof type === "string" ? [type] : [];
+  });
+}
 async function summarize(github, { repo, target, ruleset, targetId, timePeriod }) {
   const suites = await github.suites(timePeriod);
-  const failing = suites.filter((s) => s["evaluation_result"] === "fail");
+  const failing = suites.filter(isObject2).filter((s) => s["evaluation_result"] === "fail");
   const byRule = {};
   const actors = /* @__PURE__ */ new Set();
   let firings = 0;
@@ -3646,11 +3682,7 @@ async function summarize(github, { repo, target, ruleset, targetId, timePeriod }
         "GitHub listed a rule suite without a numeric id, so its rules cannot be read. Check `gh --version`, then rerun."
       );
     }
-    const detail2 = await github.suite(id);
-    const fired = (detail2["rule_evaluations"] ?? []).filter((e) => {
-      const source = e["rule_source"];
-      return e["enforcement"] === "evaluate" && e["result"] === "fail" && (targetId === void 0 ? source?.["name"] === ruleset : source?.["id"] === targetId);
-    }).map((e) => e["rule_type"]);
+    const fired = firedRules(await github.suite(id), ruleset, targetId);
     if (fired.length === 0) {
       continue;
     }
@@ -3712,6 +3744,54 @@ function destination(context2) {
   };
 }
 
+// src/ruleset/weaken.ts
+var object = (value) => typeof value === "object" && value !== null && !Array.isArray(value) ? value : void 0;
+var same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+var LOOSENS_ON_GROWTH = [".allowed_merge_methods"];
+function weaker(was, now, path) {
+  if (Array.isArray(was)) {
+    const kept = Array.isArray(now) ? now : [];
+    const absent = (list3, item) => !list3.some((k) => same(k, item));
+    if (LOOSENS_ON_GROWTH.some((suffix) => path.endsWith(suffix))) {
+      return kept.filter((item) => absent(was, item)).map(() => `${path} gains an entry`);
+    }
+    return was.filter((item) => absent(kept, item)).map(() => `${path} loses an entry`);
+  }
+  const old = object(was);
+  if (old !== void 0) {
+    const next = object(now) ?? {};
+    return Object.entries(old).flatMap(
+      ([key, value]) => key in next ? weaker(value, next[key], `${path}.${key}`) : [`${path}.${key} is removed`]
+    );
+  }
+  if (typeof was === "number" && typeof now === "number") {
+    return now < was ? [`${path} is lowered`] : [];
+  }
+  return same(was, now) ? [] : [`${path} changes`];
+}
+var typed = (body) => new Map(
+  (body["rules"] ?? []).map((r) => [
+    String(r["type"]),
+    r["parameters"] ?? null
+  ])
+);
+function weakenings(previous, after) {
+  const now = typed(after);
+  const removed = [];
+  const params = [];
+  for (const [type, parameters] of typed(previous)) {
+    if (now.has(type)) {
+      params.push(...weaker(parameters, now.get(type), type));
+    } else {
+      removed.push(type);
+    }
+  }
+  const conditions = same(previous["conditions"], after["conditions"]) ? [] : ["conditions change"];
+  const had = previous["bypass_actors"] ?? [];
+  const bypass = (after["bypass_actors"] ?? []).filter((actor) => !had.some((h) => same(h, actor))).map(() => "bypass_actors gains an actor");
+  return { removed, weaker: [...params, ...conditions, ...bypass] };
+}
+
 // src/ruleset/lock.ts
 async function withLock(deps, repo, action) {
   const path = `${await deps.root()}/.kore/state/locks/ruleset-${repo.replace(/[^A-Za-z0-9._-]/g, "-")}.lock`;
@@ -3750,7 +3830,13 @@ async function declaredBody(context2, target) {
       `The repository declares no ruleset "${target}" (no ${path}); it declares the rulesets under ${DECLARED_DIR}, such as main. Check --target.`
     );
   }
-  return { base, body: parseDeclared(path, text10) };
+  const body = parseDeclared(path, text10);
+  if (body["name"] !== target) {
+    throw new RulesetError(
+      `${path} names the ruleset "${String(body["name"])}" but --target is ${target}, and a sync never renames a live ruleset. Fix the "name" in ${path} to ${target}, or pass the matching --target.`
+    );
+  }
+  return { base, body };
 }
 async function modesOf(context2, base, body) {
   const { deps } = context2;
@@ -3767,11 +3853,30 @@ async function modesOf(context2, base, body) {
   return (type) => modeOf(inventory, ruleName(target, type));
 }
 function describe5(main, candidate) {
-  const main_ = main.action === "none" ? "main: no change" : `main: ${main.action} (${main.from ?? "new"} -> active)` + (main.added.length > 0 ? `; added: ${main.added.join(", ")}` : "") + (main.removed.length > 0 ? `; removed: ${main.removed.join(", ")} (needs --allow-removal)` : "") + (main.changed.length > 0 ? `; changed: ${main.changed.join(", ")}` : "");
+  const parts = [
+    main.added.length > 0 ? `added: ${main.added.join(", ")}` : "",
+    main.removed.length > 0 ? `removed: ${main.removed.join(", ")} (needs --allow-removal)` : "",
+    main.weakened.length > 0 ? `weakened: ${main.weakened.join(", ")} (needs --allow-removal)` : "",
+    main.changed.length > 0 ? `changed: ${main.changed.join(", ")}` : "",
+    main.pending.length > 0 ? `pending: ${main.pending.join(", ")} (in ${candidate.name} until observed)` : ""
+  ].filter((part) => part !== "");
+  const head = main.action === "none" ? "main: no change" : `main: ${main.action} (${main.from ?? "new"} -> active)`;
   const cand = candidate.action === "none" ? `${candidate.name}: no change` : `${candidate.name}: ${candidate.action} (evaluate); rules: ${candidate.rules.join(", ") || "none"}`;
-  return `  ${main_}
+  return `  ${[head, ...parts].join("; ")}
   ${cand}
 `;
+}
+function weakened(body, modes2, live) {
+  if (live === void 0) {
+    return [];
+  }
+  const kept = (live["rules"] ?? []).filter(
+    (r) => modes2(String(r["type"])) === "audit"
+  );
+  const declared = body["rules"].filter(
+    (r) => modes2(String(r["type"])) === "enforce"
+  );
+  return weakenings(live, { ...body, rules: [...declared, ...kept] }).weaker;
 }
 function evaluateRefused(error, name, repo) {
   if (error instanceof GitHubError && /\b422\b/.test(error.stderr) && /enterprise|evaluate/i.test(error.stderr)) {
@@ -3798,14 +3903,13 @@ async function syncRuleset(context2) {
   const modes2 = await modesOf(context2, base, body);
   const github = new GitHubRulesets(deps.runner, repo);
   const work = async () => {
-    const { enforced, audited } = split(body, modes2);
-    const main = planMain(body, enforced, await github.find(target));
-    const candidate = planCandidate(
-      body,
-      audited,
-      await github.find(candidateName(target))
-    );
-    const refused = main.removed.length > 0 && !allowRemoval;
+    const liveMain = await github.find(target);
+    const liveCandidate = await github.find(candidateName(target));
+    const staged = stage(body, modes2, liveMain, liveCandidate);
+    const main = planMain(body, staged, liveMain);
+    main.weakened = weakened(body, modes2, liveMain);
+    const candidate = planCandidate(body, staged.candidate, liveCandidate);
+    const refused = (main.removed.length > 0 || main.weakened.length > 0) && !allowRemoval;
     const report3 = {
       repo,
       target,
@@ -3815,7 +3919,7 @@ async function syncRuleset(context2) {
       candidate: { ...candidate, body: void 0 }
     };
     const head = `Ruleset ${target} in ${repo}`;
-    if (main.action === "none" && candidate.action === "none") {
+    if (main.action === "none" && candidate.action === "none" && !refused) {
       deps.stdout(
         json ? `${JSON.stringify(report3)}
 ` : `${head}: no change; main is active and the candidate matches.
@@ -3831,15 +3935,19 @@ ${describe5(main, candidate)}`
       );
       return 0;
     }
+    if (refused) {
+      const problems = [
+        ...main.removed.length > 0 ? [`removes ${main.removed.join(", ")}`] : [],
+        ...main.weakened
+      ];
+      throw new RulesetError(
+        `${head} would weaken main (${problems.join("; ")}), so nothing was sent. Instead, restore it in ${DECLARED_DIR}/${target}.json, or rerun with --allow-removal once the operator agrees.`
+      );
+    }
     if (context2.options["confirm"] !== true) {
       throw new RulesetError(
         `${head} would change, but nothing was sent. Changing the live ruleset needs the operator's confirmation first:
 ${describe5(main, candidate)}Preview with --dry-run, then rerun with --confirm once the operator agrees.`
-      );
-    }
-    if (refused) {
-      throw new RulesetError(
-        `${head} would remove ${main.removed.join(", ")} from main, which weakens it, so nothing was sent. Instead, add the rule back to ${DECLARED_DIR}/${target}.json, or rerun with --allow-removal once the operator agrees.`
       );
     }
     await apply(github, main, candidate, repo);
@@ -5188,13 +5296,13 @@ function stageOf2(event) {
 }
 function recentStages(events) {
   return events.flatMap((event) => {
-    const stage = stageOf2(event);
-    if (stage === void 0) {
+    const stage2 = stageOf2(event);
+    if (stage2 === void 0) {
       return [];
     }
     const recent = {
       occurredAt: event.occurredAt,
-      stage,
+      stage: stage2,
       kind: event.kind
     };
     if (event.number !== void 0) {
@@ -6626,7 +6734,7 @@ function denies(source) {
 }
 var PERMISSION2 = /"((?:Bash|Read|Edit|Write)\([^"]*\))"/g;
 var permissions = (source) => [...source.matchAll(PERMISSION2)].map((m) => m[1]);
-function weakened(previous, after) {
+function weakened2(previous, after) {
   const was = denies(previous);
   if (was.size === 0) {
     const kept = permissions(after);
@@ -6653,7 +6761,7 @@ function checkGuardrailDemotion(relative3, previous, after) {
     return null;
   }
   const rules2 = demoted(previous, after);
-  const weak = weakened(previous, after);
+  const weak = weakened2(previous, after);
   if (rules2.length === 0 && weak.length === 0) {
     return null;
   }
@@ -6715,47 +6823,17 @@ function checkSettingsDenyRemoval(relative3, previous, after, ctx) {
 
 // src/hook/guard-ruleset.ts
 var RULESET_FILE = /^\.github\/rulesets\/[^/]+\.json$/;
-var object = (value) => typeof value === "object" && value !== null && !Array.isArray(value) ? value : void 0;
 var parse2 = (text10) => {
   try {
-    return object(JSON.parse(text10));
+    const value = JSON.parse(text10);
+    return typeof value === "object" && value !== null && !Array.isArray(value) ? value : void 0;
   } catch {
     return void 0;
   }
 };
-var same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-function weaker(was, now, path) {
-  if (Array.isArray(was)) {
-    const kept = Array.isArray(now) ? now : [];
-    return was.filter((item) => !kept.some((k) => same(k, item))).map(() => `${path} loses an entry`);
-  }
-  const old = object(was);
-  if (old !== void 0) {
-    const next = object(now) ?? {};
-    return Object.entries(old).flatMap(
-      ([key, value]) => key in next ? weaker(value, next[key], `${path}.${key}`) : [`${path}.${key} is removed`]
-    );
-  }
-  if (typeof was === "number" && typeof now === "number") {
-    return now < was ? [`${path} is lowered`] : [];
-  }
-  return same(was, now) ? [] : [`${path} changes`];
-}
-var typed = (body) => new Map(
-  (body["rules"] ?? []).map((r) => [
-    String(r["type"]),
-    r["parameters"] ?? null
-  ])
-);
-function weakenings(previous, after) {
-  const now = typed(after);
-  const rules2 = [...typed(previous)].flatMap(
-    ([type, parameters]) => now.has(type) ? weaker(parameters, now.get(type), type) : [`rule ${type} is removed`]
-  );
-  const conditions = same(previous["conditions"], after["conditions"]) ? [] : ["conditions change"];
-  const had = previous["bypass_actors"] ?? [];
-  const bypass = (after["bypass_actors"] ?? []).filter((actor) => !had.some((h) => same(h, actor))).map(() => "bypass_actors gains an actor");
-  return [...rules2, ...conditions, ...bypass];
+function problemsOf(was, now) {
+  const { removed, weaker: weaker2 } = weakenings(was, now);
+  return [...removed.map((type) => `rule ${type} is removed`), ...weaker2];
 }
 function checkRulesetWeakening(relative3, previous, after) {
   if (!RULESET_FILE.test(relative3)) {
@@ -6766,7 +6844,7 @@ function checkRulesetWeakening(relative3, previous, after) {
     return null;
   }
   const now = parse2(after);
-  const problems = now === void 0 ? ["is no longer a JSON object, so its rules cannot be checked"] : weakenings(was, now);
+  const problems = now === void 0 ? ["is no longer a JSON object, so its rules cannot be checked"] : problemsOf(was, now);
   return problems.length === 0 ? null : warn(
     "guardrail-demotion",
     `${relative3} weakens the declared ruleset by hand: ${problems.join("; ")}. A person approves a guardrail's rules (ADR 0080). Instead, leave them and ask the user to approve the change; a changed rule lands in audit mode in the candidate ruleset first.`
@@ -10372,8 +10450,8 @@ async function equalize(runner, callerPane) {
       reason: "layout splits do not match the spawned panes"
     };
   }
-  for (const [i, split2] of splits.entries()) {
-    const delta2 = 1 / (panes.length - i) - split2.ratio;
+  for (const [i, split] of splits.entries()) {
+    const delta2 = 1 / (panes.length - i) - split.ratio;
     if (Math.abs(delta2) <= 5e-4) {
       continue;
     }
@@ -11095,7 +11173,7 @@ async function splitPane(deps, callerPane, cwd) {
   }
   const last = spawnedColumn(read.layout, callerPane).at(-1);
   const where = last === void 0 ? ["--current", "--direction", "right"] : [last.pane_id, "--direction", "down"];
-  const split2 = await deps.runner.run("herdr", [
+  const split = await deps.runner.run("herdr", [
     "pane",
     "split",
     ...where,
@@ -11103,12 +11181,12 @@ async function splitPane(deps, callerPane, cwd) {
     cwd,
     "--no-focus"
   ]);
-  if (split2.code !== 0) {
-    return { error: `herdr pane split failed: ${describeFailure(split2)}` };
+  if (split.code !== 0) {
+    return { error: `herdr pane split failed: ${describeFailure(split)}` };
   }
-  const paneId = paneIdOf(split2.stdout);
+  const paneId = paneIdOf(split.stdout);
   return paneId ?? {
-    error: `herdr pane split did not return a pane id (.result.pane.pane_id): ${split2.stdout.trim()}`
+    error: `herdr pane split did not return a pane id (.result.pane.pane_id): ${split.stdout.trim()}`
   };
 }
 async function nameTakenError(deps, name) {

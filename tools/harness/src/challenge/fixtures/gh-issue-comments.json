@@ -1,1 +1,17 @@
-{"comments":[{"id":"IC_kwDOUYei2s8AAAABl3qhJg","author":{"login":"junners"},"authorAssociation":"MEMBER","body":"Live boundary eval run on main after #300: all 14 delivery-loop cases passed 3 of 3, including the refiner and challenger cases (challenger declines a code review, refuses to read code or write a file) and the concierge cases. Recorded in eval history by #306.","createdAt":"2026-11-12T21:25:30Z","includesCreatedEdit":false,"isMinimized":false,"minimizedReason":"","reactionGroups":[],"url":"https://github.com/corekraft/kore/issues/192#issuecomment-6836363558","viewerDidAuthor":true}]}
+{
+  "comments": [
+    {
+      "id": "IC_kwDOUYei2s8AAAABl3qhJg",
+      "author": { "login": "junners" },
+      "authorAssociation": "MEMBER",
+      "body": "Live boundary eval run on main after #300: all 14 delivery-loop cases passed 3 of 3, including the refiner and challenger cases (challenger declines a code review, refuses to read code or write a file) and the concierge cases. Recorded in eval history by #306.",
+      "createdAt": "2026-11-12T21:25:30Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/corekraft/kore/issues/192#issuecomment-6836363558",
+      "viewerDidAuthor": true
+    }
+  ]
+}
