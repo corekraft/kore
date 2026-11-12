@@ -503,15 +503,15 @@ var Supersession = class {
     return (adr.lines[adr.statusLine] ?? "").slice("status:".length).trim();
   }
   async find(number, replacement) {
-    const matches2 = (await this.fs.readdir(this.abs(DECISIONS))).filter(
+    const matches3 = (await this.fs.readdir(this.abs(DECISIONS))).filter(
       (f) => f.startsWith(`${number}-`) && f.endsWith(".md") && f.length > number.length + 4
     ).sort();
-    if (matches2.length > 1) {
+    if (matches3.length > 1) {
       throw new AdrError(
-        `ADR ${number} matches more than one file: ${matches2.map((f) => `${DECISIONS}/${f}`).join(", ")}; renumber one so each ADR number is unique, then retry.`
+        `ADR ${number} matches more than one file: ${matches3.map((f) => `${DECISIONS}/${f}`).join(", ")}; renumber one so each ADR number is unique, then retry.`
       );
     }
-    const file = matches2[0];
+    const file = matches3[0];
     if (file === void 0) {
       throw new AdrError(
         `ADR ${number} does not exist; ${replacement ? "create it first with `harness adr new`" : "check the number against docs/decisions/"}.`
@@ -721,15 +721,38 @@ function denyRules(inventory) {
 function denyList(inventory) {
   return denyRules(inventory).filter((r) => r.mode === "enforce").flatMap((r) => [...r.patterns]);
 }
-var escape = (text10) => text10.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
-function bashRegex(body) {
-  const prefix = body.endsWith(":*");
-  const source = (prefix ? body.slice(0, -2) : body).split("*").map(escape).join(".*");
-  return new RegExp(`^${source}${prefix ? "(?: .*)?" : ""}$`);
+function items(pattern, path) {
+  const found = [];
+  for (let i = 0; i < pattern.length; i++) {
+    const char = pattern.charAt(i);
+    if (char !== "*") {
+      found.push({ literal: char });
+    } else if (path && pattern.charAt(i + 1) === "*") {
+      found.push({ crossesSlash: true });
+      i++;
+    } else {
+      found.push({ crossesSlash: !path });
+    }
+  }
+  return found;
 }
-function pathRegex(body) {
-  const source = body.replace(/^\.\//, "").split("**").map((part) => part.split("*").map(escape).join("[^/]*")).join(".*");
-  return new RegExp(`^${source}$`);
+function matches(pattern, text10) {
+  let row = Array.from({ length: text10.length + 1 }, (_, j) => j === 0);
+  for (const item of pattern) {
+    const next = Array.from({ length: text10.length + 1 }, () => false);
+    for (let j = 0; j <= text10.length; j++) {
+      next[j] = "literal" in item ? j > 0 && row[j - 1] === true && text10[j - 1] === item.literal : row[j] === true || j > 0 && next[j - 1] === true && (item.crossesSlash || text10[j - 1] !== "/");
+    }
+    row = next;
+  }
+  return row[text10.length] === true;
+}
+function bashMatches(body, command) {
+  if (!body.endsWith(":*")) {
+    return matches(items(body, false), command);
+  }
+  const prefix = body.slice(0, -2);
+  return matches(items(prefix, false), command) || matches(items(`${prefix} *`, false), command);
 }
 function denyMatches(pattern, tool, subject) {
   const open2 = pattern.indexOf("(");
@@ -737,7 +760,7 @@ function denyMatches(pattern, tool, subject) {
     return false;
   }
   const body = pattern.slice(open2 + 1, -1);
-  return (tool === "Bash" ? bashRegex(body) : pathRegex(body)).test(subject);
+  return tool === "Bash" ? bashMatches(body, subject) : matches(items(body.replace(/^\.\//, ""), true), subject);
 }
 function parseSettings(text10) {
   try {
@@ -1364,12 +1387,12 @@ function roleOf(event) {
   }
   return void 0;
 }
-function chargeActor(tally, items) {
+function chargeActor(tally, items2) {
   const spans = [];
   let closed = false;
-  let start = time(items[0].event);
-  let life = newLife(items[0].event, tally.window);
-  items.forEach(({ event, stage }, i) => {
+  let start = time(items2[0].event);
+  let life = newLife(items2[0].event, tally.window);
+  items2.forEach(({ event, stage }, i) => {
     const at = time(event);
     if (closed && (event.kind === "pane.spawned" || event.kind === "session.start")) {
       closed = false;
@@ -1390,8 +1413,8 @@ function chargeActor(tally, items) {
     if (state === "closed") {
       closed = true;
       spans.push([start, at]);
-    } else if (state !== void 0 && i < items.length - 1) {
-      const next = time(items[i + 1].event);
+    } else if (state !== void 0 && i < items2.length - 1) {
+      const next = time(items2[i + 1].event);
       tally.add(stage, state === "active" ? "activeMs" : "waitingMs", at, next);
       tally.present(stage, at, next);
       if (state === "waiting") {
@@ -1401,7 +1424,7 @@ function chargeActor(tally, items) {
     }
   });
   if (!closed) {
-    spans.push([start, time(items.at(-1).event)]);
+    spans.push([start, time(items2.at(-1).event)]);
   }
   return spans;
 }
@@ -1414,10 +1437,10 @@ function actorTime(tally, events) {
     }
   }
   const lifetimes = [];
-  for (const items of byActor.values()) {
-    items.sort((x, y) => time(x.event) - time(y.event));
-    const spans = chargeActor(tally, items);
-    if (items[0].stage !== "orchestrate") {
+  for (const items2 of byActor.values()) {
+    items2.sort((x, y) => time(x.event) - time(y.event));
+    const spans = chargeActor(tally, items2);
+    if (items2[0].stage !== "orchestrate") {
       lifetimes.push(...spans);
     }
   }
@@ -1911,9 +1934,9 @@ function closedIssue(raw) {
   const first = Array.isArray(refs) ? count(asRecord(refs[0])["number"]) : void 0;
   return first === void 0 ? void 0 : `#${first}`;
 }
-function fromItems(items, openedKind, mergedKind, mergedField = "mergedAt") {
+function fromItems(items2, openedKind, mergedKind, mergedField = "mergedAt") {
   const out = [];
-  for (const item of items) {
+  for (const item of items2) {
     const raw = asRecord(item);
     const number = count(raw["number"]);
     const opened = when(raw["createdAt"]);
@@ -1939,9 +1962,9 @@ function fromItems(items, openedKind, mergedKind, mergedField = "mergedAt") {
   }
   return out;
 }
-function fromLabelEvents(items) {
+function fromLabelEvents(items2) {
   const out = [];
-  for (const item of items) {
+  for (const item of items2) {
     const raw = asRecord(item);
     const id = count(raw["id"]);
     const number = count(asRecord(raw["issue"])["number"]);
@@ -2231,7 +2254,7 @@ var Ledger = class {
       const event = parseLine(line2);
       if (event === void 0) {
         skipped += 1;
-      } else if (matches(event, filter)) {
+      } else if (matches2(event, filter)) {
         events.push(event);
       }
     }
@@ -2258,7 +2281,7 @@ function parseLine(line2) {
   const parsed = parseEvent(value, "stored");
   return parsed.ok ? parsed.event : void 0;
 }
-function matches(event, filter) {
+function matches2(event, filter) {
   return (filter.session === void 0 || event.session === filter.session) && (filter.pane === void 0 || event.pane === filter.pane) && (filter.idea === void 0 || event.idea === filter.idea) && (filter.source === void 0 || event.source === filter.source) && (filter.kind === void 0 || event.kind === filter.kind) && (filter.since === void 0 || Date.parse(event.occurredAt) >= Date.parse(filter.since)) && (filter.until === void 0 || Date.parse(event.occurredAt) < Date.parse(filter.until));
 }
 
@@ -3892,7 +3915,7 @@ function planStatus(markdown) {
   return frontmatter3 === void 0 ? void 0 : /^status: *(\S*) *$/m.exec(frontmatter3)?.[1];
 }
 function listItemSpans(markdown) {
-  const items = [];
+  const items2 = [];
   let heading = "";
   let current = null;
   for (const [index, line2] of markdown.split("\n").entries()) {
@@ -3901,7 +3924,7 @@ function listItemSpans(markdown) {
     }
     if (line2.startsWith("- ")) {
       current = { heading, text: line2.trim(), line: index, end: index + 1 };
-      items.push(current);
+      items2.push(current);
     } else if (current && /^\s+\S/.test(line2)) {
       current.text += ` ${line2.trim()}`;
       current.end = index + 1;
@@ -3909,7 +3932,7 @@ function listItemSpans(markdown) {
       current = null;
     }
   }
-  return items;
+  return items2;
 }
 function listItems(markdown) {
   return listItemSpans(markdown).map(({ heading, text: text10 }) => ({
@@ -4622,16 +4645,16 @@ function recentStages(events) {
 }
 async function ideas({ deps }) {
   const repository2 = new IdeaRepository(deps.fs, deps.clock, await deps.root());
-  const items = (await repository2.list()).map((record4) => ({
+  const items2 = (await repository2.list()).map((record4) => ({
     number: record4.number,
     title: record4.title,
     state: record4.outcome ?? "open"
   }));
   const byState = {};
-  for (const { state } of items) {
+  for (const { state } of items2) {
     byState[state] = (byState[state] ?? 0) + 1;
   }
-  return { byState, items };
+  return { byState, items: items2 };
 }
 var statusCommand = {
   summary: "report open plan items, ideas by state and recent ledger stages; read-only, for the concierge",
@@ -5444,22 +5467,22 @@ function isProtectedDir(arg, root3) {
   }
   return PROTECTED_DIRS.has(path);
 }
-function truncatedTarget(segment, matches2) {
+function truncatedTarget(segment, matches3) {
   for (let i = 0; i < segment.length; i++) {
     const match = TRUNCATING_REDIRECT.exec(segment[i]);
     if (!match) {
       continue;
     }
     const target = (match[1].replace(/^\|/, "") || segment[i + 1]) ?? "";
-    if (matches2(target)) {
+    if (matches3(target)) {
       return target;
     }
   }
   return void 0;
 }
 var inPlace = (arg) => /^-[A-Za-z]*i/.test(arg) || arg.startsWith("--in-place");
-function rewrittenPath(name, args, matches2) {
-  const rewrites = (candidates) => candidates.find((arg) => matches2(arg));
+function rewrittenPath(name, args, matches3) {
+  const rewrites = (candidates) => candidates.find((arg) => matches3(arg));
   const operands = args.filter((arg) => !arg.startsWith("-"));
   const appends = args.some((arg) => arg === "-a" || arg === "--append");
   if (["rm", "mv", "truncate"].includes(name) || name === "sed" && args.some(inPlace)) {
@@ -5482,8 +5505,8 @@ function checkAppendOnly(name, args, segment, root3) {
   const path = writtenPath(name, args, segment, isAppendOnly);
   return path ? appendOnlyWarn(path) : null;
 }
-function writtenPath(name, args, segment, matches2) {
-  return truncatedTarget(segment, matches2) ?? rewrittenPath(name, args, matches2);
+function writtenPath(name, args, segment, matches3) {
+  return truncatedTarget(segment, matches3) ?? rewrittenPath(name, args, matches3);
 }
 
 // src/hook/guard-guardrails.ts
@@ -7331,16 +7354,16 @@ function lastOperation2(entries) {
 function planItems(plans) {
   const result = {};
   for (const name of activePlans(plans)) {
-    const items = {};
+    const items2 = {};
     for (const { text: text10 } of listItems(plans[name] ?? "")) {
       const match = /^- \[( |x)\] (.*)$/.exec(text10);
       if (match === null) {
         continue;
       }
       const title = (match[2] ?? "").replaceAll("**", "").slice(0, MAX_ITEM_CHARS);
-      items[title] = match[1] === "x";
+      items2[title] = match[1] === "x";
     }
-    result[name] = items;
+    result[name] = items2;
   }
   return result;
 }
@@ -7375,11 +7398,11 @@ function operationLine(environment, operation) {
 }
 function planLines(before2, after) {
   const lines2 = [];
-  for (const [plan2, items] of Object.entries(after.plans)) {
+  for (const [plan2, items2] of Object.entries(after.plans)) {
     const old = before2.plans[plan2];
     const ticked = [];
     const added = [];
-    for (const [title, checked] of Object.entries(items)) {
+    for (const [title, checked] of Object.entries(items2)) {
       if (old === void 0 || !(title in old)) {
         if (old !== void 0) {
           added.push(title);

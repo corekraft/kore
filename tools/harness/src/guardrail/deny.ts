@@ -26,27 +26,55 @@ export function denyList(inventory: Inventory): string[] {
     .flatMap((r) => [...r.patterns]);
 }
 
-const escape = (text: string): string =>
-  text.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
+/** A pattern character, or a wildcard that may (or may not) cross a slash. */
+type Item = { literal: string } | { crossesSlash: boolean };
 
-/** A Bash pattern: `cmd:*` is a prefix on word boundaries, `*` matches anything. */
-function bashRegex(body: string): RegExp {
-  const prefix = body.endsWith(":*");
-  const source = (prefix ? body.slice(0, -2) : body)
-    .split("*")
-    .map(escape)
-    .join(".*");
-  return new RegExp(`^${source}${prefix ? "(?: .*)?" : ""}$`);
+/** Reads a pattern; `**` only has meaning in a path, where `*` stops at a slash. */
+function items(pattern: string, path: boolean): Item[] {
+  const found: Item[] = [];
+  for (let i = 0; i < pattern.length; i++) {
+    const char = pattern.charAt(i);
+    if (char !== "*") {
+      found.push({ literal: char });
+    } else if (path && pattern.charAt(i + 1) === "*") {
+      found.push({ crossesSlash: true });
+      i++;
+    } else {
+      found.push({ crossesSlash: !path });
+    }
+  }
+  return found;
 }
 
-/** A path pattern relative to the root: `**` crosses directories, `*` does not. */
-function pathRegex(body: string): RegExp {
-  const source = body
-    .replace(/^\.\//, "")
-    .split("**")
-    .map((part) => part.split("*").map(escape).join("[^/]*"))
-    .join(".*");
-  return new RegExp(`^${source}$`);
+/** Whether the whole text matches; no regular expression is built from the pattern. */
+function matches(pattern: Item[], text: string): boolean {
+  let row = Array.from({ length: text.length + 1 }, (_, j) => j === 0);
+  for (const item of pattern) {
+    const next = Array.from({ length: text.length + 1 }, () => false);
+    for (let j = 0; j <= text.length; j++) {
+      next[j] =
+        "literal" in item
+          ? j > 0 && row[j - 1] === true && text[j - 1] === item.literal
+          : row[j] === true ||
+            (j > 0 &&
+              next[j - 1] === true &&
+              (item.crossesSlash || text[j - 1] !== "/"));
+    }
+    row = next;
+  }
+  return row[text.length] === true;
+}
+
+/** A Bash pattern: `cmd:*` is a prefix on word boundaries, `*` matches anything. */
+function bashMatches(body: string, command: string): boolean {
+  if (!body.endsWith(":*")) {
+    return matches(items(body, false), command);
+  }
+  const prefix = body.slice(0, -2);
+  return (
+    matches(items(prefix, false), command) ||
+    matches(items(`${prefix} *`, false), command)
+  );
 }
 
 /** Whether a permission pattern covers a call: a command, or a root-relative path. */
@@ -60,7 +88,9 @@ export function denyMatches(
     return false;
   }
   const body = pattern.slice(open + 1, -1);
-  return (tool === "Bash" ? bashRegex(body) : pathRegex(body)).test(subject);
+  return tool === "Bash"
+    ? bashMatches(body, subject)
+    : matches(items(body.replace(/^\.\//, ""), true), subject);
 }
 
 function parseSettings(text: string): unknown {
