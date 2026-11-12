@@ -39,8 +39,11 @@ test("app up verifies with the read-only identity, never the push credential, an
 
   expect(envs[0]?.["KORE_REGISTRY_USERNAME"]).toBe("kore-read");
   expect(envs[0]?.["KORE_REGISTRY_PASSWORD"]).toBe(readPassword);
-  const commands = calls.map(({ command }) => command);
-  expect(commands).not.toContain("ssh");
+  expect(
+    calls.some(
+      ({ command, args }) => command === "docker" && args[0] === "exec",
+    ),
+  ).toBe(false);
   expect(JSON.stringify(calls.map((c) => c.args))).not.toContain(pushPassword);
   expect(JSON.stringify(calls.map((c) => c.args))).not.toContain(readPassword);
 });

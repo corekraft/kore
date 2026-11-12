@@ -24,6 +24,10 @@ import {
 } from "./app-fixtures.js";
 import type { RunOptions, RunResult, Runner } from "../runtime/index.js";
 
+/** A node shell: a `docker exec` into a node or an ssh session. */
+const isNodeShell = ({ command, args }: Call): boolean =>
+  command === "ssh" || (command === "docker" && args[0] === "exec");
+
 class UnreadyPlatformRunner implements Runner {
   calls: string[] = [];
 
@@ -119,7 +123,7 @@ test("app up verifies, installs, and waits for every workload deployment", async
       ({ command, args }) => command === "cosign" && args[0] === "verify",
     ),
   ).toBe(true);
-  expect(calls.some(({ command }) => command === "ssh")).toBe(false);
+  expect(calls.some(isNodeShell)).toBe(false);
   expect(
     calls
       .filter(
@@ -156,7 +160,7 @@ test("app up does not install anything when image verification fails", async () 
       publicKey: "/tmp/kore.pub",
     }),
   ).rejects.toThrow(/cosign failed/);
-  expect(calls.some((c) => c.command === "ssh")).toBe(false);
+  expect(calls.some(isNodeShell)).toBe(false);
   expect(upCalls(calls, "helm", "upgrade")).toEqual([]);
 });
 
@@ -254,7 +258,7 @@ test("app up on a managed provider deploys the locked reference without staging"
     await writeReleaseLock(repository.root),
   );
 
-  expect(calls.some((c) => c.command === "ssh")).toBe(false);
+  expect(calls.some(isNodeShell)).toBe(false);
   const workload = upCalls(calls, "helm", "upgrade")[1]!;
   expect(workload.args).toContain(
     "image.repository=registry.kore.local:30500/reference",

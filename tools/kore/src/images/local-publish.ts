@@ -19,6 +19,28 @@ import { verifiedRegistryAddress } from "./registry-service.js";
 const manifestAccept =
   "application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json";
 
+/**
+ * The k3d settings a local image operation needs. A provider other than k3d is
+ * refused with the move to k3d; a k3d overlay without settings is told which
+ * setting to add.
+ */
+export function requireK3d(
+  repository: Repository,
+): NonNullable<Repository["environment"]["k3d"]> {
+  const { provider, k3d, name } = repository.environment;
+  if (provider !== "k3d") {
+    throw new Error(
+      `provider ${provider} is no longer a local provider; set environment.provider to k3d and add environment.k3d (ADR 0076)`,
+    );
+  }
+  if (k3d === undefined) {
+    throw new Error(
+      `environment ${name} is a k3d overlay without environment.k3d settings; add environment.k3d.clusterName`,
+    );
+  }
+  return k3d;
+}
+
 export interface PublishSession {
   credential: RegistryCredential;
   ca: string;
@@ -31,6 +53,7 @@ export async function withPublishSession<T>(
   runner: Runner,
   action: (session: PublishSession) => Promise<T>,
 ): Promise<T> {
+  requireK3d(repository); // fail fast, before any command runs
   const credential = await loadRegistryCredential(repository, runner, "push");
   const ca = await loadRegistryCa(repository, runner);
   return await withRegistryClient(credential, ca, (client) =>
@@ -54,12 +77,7 @@ export async function publishImageCopy(
       `local registry has an invalid username; the push identity must be lowercase letters, digits and hyphens`,
     );
   }
-  const { k3d } = repository.environment;
-  if (repository.environment.provider !== "k3d" || k3d === undefined) {
-    throw new Error(
-      `environment ${repository.environment.name} is not a k3d overlay with environment.k3d settings; add environment.k3d.clusterName so the image can be published`,
-    );
-  }
+  const k3d = requireK3d(repository);
   // The node reads base64(user:password) from stdin for its Basic header.
   const basic = Buffer.from(
     `${credential.username}:${credential.password}`,

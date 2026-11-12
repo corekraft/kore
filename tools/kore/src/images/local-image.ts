@@ -11,6 +11,7 @@ import { localRegistryReference } from "./registry.js";
 import {
   publishedDigest,
   publishToLocalRegistry,
+  requireK3d,
   withPublishSession,
   type PublishSession,
 } from "./local-publish.js";
@@ -42,12 +43,7 @@ export async function loadLocalImage(
     localDockerBuildArgs(join(repository.root, "apps", application), imageTag),
     { capture: false, cwd: repository.root },
   );
-  const { k3d } = repository.environment;
-  if (repository.environment.provider !== "k3d" || k3d === undefined) {
-    throw new Error(
-      `environment ${repository.environment.name} is not a k3d overlay with environment.k3d settings; add environment.k3d.clusterName so the built image can be imported`,
-    );
-  }
+  const k3d = requireK3d(repository);
   await runner.run("k3d", k3dImageImportArgs(k3d.clusterName, imageTag), {
     capture: false,
   });
