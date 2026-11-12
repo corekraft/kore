@@ -7543,13 +7543,13 @@ var readOnly = (what) => block(
   "role-read-only",
   `${what} changes files, and the concierge, reader, refiner, challenger, orchestrator and judge never write. Instead, report what needs changing: the concierge files it as an idea, the reader returns it in its summary, the orchestrator hands it to a writer, the judge sends the change back, the refiner files an idea with \`idea new\` and the challenger records a round with \`idea challenge\`.`
 );
-var FD_OPERATOR = /^(?:\d*>>?|&>>?)$/;
+var FD_OPERATOR = /^(?:\d*>>?|&>>?|\d*<>)$/;
 var harmless = (target) => target === "/dev/null" || target === "&1" || target === "&2";
 var redirectsToFile = (segment) => segment.some((word, index) => {
   if (FD_OPERATOR.test(word)) {
     return !harmless(segment[index + 1]);
   }
-  const joined = /^(?:\d*>>?|&>>?)(.+)$/.exec(word);
+  const joined = /^(?:\d*>>?|&>>?|\d*<>)(.+)$/.exec(word);
   return joined !== null && !harmless(joined[1]);
 });
 function writes(segment) {
@@ -7650,7 +7650,7 @@ function utilityMayRun(name, args) {
     case "sort":
       return !(hasShortO(args) || args.some((arg) => /^--(ou|com)/.test(arg)));
     case "tree":
-      return !(hasShortO(args) || args.some((arg) => arg.startsWith("--ou")));
+      return !(hasShortO(args) || args.some((arg) => arg.startsWith("--ou") || /^-[a-zA-Z]*R/.test(arg)));
     case "date":
       return !args.some((arg) => /^-[a-zA-Z]*s|^--s/.test(arg));
     case "rg":
@@ -7667,7 +7667,9 @@ function utilityMayRun(name, args) {
 }
 var gitWrites = (args) => args.some(
   // git accepts any unambiguous prefix of a long option, so match prefixes.
-  (arg) => /^--(ou|op|ex|tex|con|git-dir|work-tree|namespace)/.test(arg) || arg.startsWith("-O")
+  (arg) => /^--(ou|op|ext(-|$)|exec-path|tex|config-env|git-dir|work-tree|namespace)/.test(
+    arg
+  ) || arg.startsWith("-O")
 );
 function ghMayRun(args, patches) {
   const [group, verb] = args;
@@ -7764,10 +7766,21 @@ var HERDR_READS = [
   "pane read",
   "pane current"
 ];
+var FINISH_LINE = /^\[herdr:[\w.-]+\] finished: RESULT .+$/;
+function herdrFinish(args) {
+  const [group, verb, pane, text10, ...rest] = args;
+  if (group !== "pane" || pane === void 0 || pane.startsWith("-")) {
+    return false;
+  }
+  if (verb === "send-text") {
+    return rest.length === 0 && FINISH_LINE.test(text10 ?? "");
+  }
+  return verb === "send-keys" && text10 === "enter" && rest.length === 0;
+}
 function reportingMayRun(role, segment) {
   const { name, args } = commandOf(segment);
   if (name === "herdr") {
-    return role === "orchestrator" && HERDR_READS.includes(`${args[0] ?? ""} ${args[1] ?? ""}`);
+    return herdrFinish(args) || role === "orchestrator" && HERDR_READS.includes(`${args[0] ?? ""} ${args[1] ?? ""}`);
   }
   return readMayRun(segment, harnessFor(role));
 }

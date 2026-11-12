@@ -108,13 +108,28 @@ const HERDR_READS = [
   "pane current",
 ];
 
+const FINISH_LINE = /^\[herdr:[\w.-]+\] finished: RESULT .+$/;
+
+/** The finish broadcast every brief ends with: `herdr pane send-text <pane> "[herdr:<name>] finished: RESULT ..."`, then `herdr pane send-keys <pane> enter`. Nothing else goes through send-text or send-keys. */
+function herdrFinish(args: readonly string[]): boolean {
+  const [group, verb, pane, text, ...rest] = args;
+  if (group !== "pane" || pane === undefined || pane.startsWith("-")) {
+    return false;
+  }
+  if (verb === "send-text") {
+    return rest.length === 0 && FINISH_LINE.test(text ?? "");
+  }
+  return verb === "send-keys" && text === "enter" && rest.length === 0;
+}
+
 /** What a reporting role's shell may run: the shared read allowlist with the role's harness commands, and for the orchestrator the herdr queries. Anything else is refused. */
 function reportingMayRun(role: string, segment: readonly string[]): boolean {
   const { name, args } = commandOf(segment);
   if (name === "herdr") {
     return (
-      role === "orchestrator" &&
-      HERDR_READS.includes(`${args[0] ?? ""} ${args[1] ?? ""}`)
+      herdrFinish(args) ||
+      (role === "orchestrator" &&
+        HERDR_READS.includes(`${args[0] ?? ""} ${args[1] ?? ""}`))
     );
   }
   return readMayRun(segment, harnessFor(role));

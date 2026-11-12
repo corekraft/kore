@@ -170,6 +170,8 @@ describe("role guard: the reader's shell refuses options that write or execute",
       "find . -fprint0 out.txt",
       "rg --pre ./x foo",
       "rg --hostname-bin ./x foo",
+      "git log | cat 1<>AGENTS.md",
+      "tree -H . -R",
     ]) {
       const result = await bash("reader", command);
       assert.equal(result.action, "block", command);

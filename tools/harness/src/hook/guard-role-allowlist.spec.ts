@@ -25,7 +25,17 @@ describe("role-read-only: the judge and orchestrator run an allowlist, not a blo
     "make clean",
     "touch a &",
     "sleep 1 &",
-    "node skills/bin/harness.mjs plan tick --item x | cat",
+    "git log | cat 1<>AGENTS.md",
+    "echo x 1<>AGENTS.md",
+    "echo x <>AGENTS.md",
+    "echo x 1<> AGENTS.md",
+    "tree -H . -R",
+    "tree -R -H .",
+    "herdr pane send-text w3:p1 hello",
+    "herdr pane send-keys w3:p1 C-c",
+    "herdr pane send-keys w3:p1 enter extra",
+    "herdr pane send-text w3:p1 '[herdr:x] finished: RESULT done' extra",
+    "herdr agent prompt j hi",
     "python3 script.py",
     "node script.mjs",
     "npx vitest run",
@@ -103,5 +113,54 @@ describe("role-read-only: ordinary judge and orchestrator commands still pass", 
   it("leaves the writer unbounded by the allowlist", async () => {
     allowed(await bash("writer", "make test"));
     allowed(await bash("writer", "/bin/bash -c 'touch a'"));
+  });
+});
+
+describe("role-read-only: the finish broadcast and benign reads", () => {
+  const FINISH = [
+    'herdr pane send-text w3:p1 "[herdr:judge-314] finished: RESULT done; summary in pane w3:p9" && herdr pane send-keys w3:p1 enter',
+    "herdr pane send-text w3:p1 '[herdr:a.b_c] finished: RESULT blocked; summary in pane w3:p2'",
+    "herdr pane send-keys w3:p1 enter",
+  ];
+  for (const role of ["judge", "orchestrator"]) {
+    it(`${role}: may send exactly its finish line to a pane, and nothing else through send-text or send-keys`, async () => {
+      for (const command of FINISH) {
+        allowed(await bash(role, command));
+      }
+      for (const command of [
+        "herdr pane send-text w3:p1 'rm -rf /'",
+        "herdr pane send-text w3:p1 '[herdr:x] hello'",
+        "herdr pane send-text w3:p1 '[herdr:x] finished: RESULT done' && herdr pane send-keys w3:p1 C-c",
+        "herdr pane send-keys w3:p1 enter enter",
+      ]) {
+        blocked(await bash(role, command), "role-read-only");
+      }
+    });
+  }
+
+  it("keeps herdr agent prompt refused for the orchestrator: sessions are launched through session spawn (ADR 0078)", async () => {
+    blocked(
+      await bash("orchestrator", "herdr agent prompt j 'do it'"),
+      "role-read-only",
+    );
+  });
+
+  it("allows an allowlisted read in the background: it still runs only an allowlisted command, so `&` adds no write", async () => {
+    for (const role of ["judge", "orchestrator"]) {
+      allowed(await bash(role, "echo x &"));
+      allowed(await bash(role, "git log --oneline -3 &"));
+      blocked(await bash(role, "touch a &"), "role-read-only");
+    }
+  });
+
+  it("allows git reads whose options merely share a prefix with a writing option", async () => {
+    for (const command of [
+      "git diff --exit-code main",
+      "git grep --context=3 foo",
+      "git log --exclude='refs/tags/*' --oneline",
+      "git grep --extended-regexp foo",
+    ]) {
+      allowed(await bash("judge", command));
+    }
   });
 });

@@ -39,7 +39,10 @@ function utilityMayRun(name: string, args: readonly string[]): boolean {
     case "sort":
       return !(hasShortO(args) || args.some((arg) => /^--(ou|com)/.test(arg)));
     case "tree":
-      return !(hasShortO(args) || args.some((arg) => arg.startsWith("--ou")));
+      return !(
+        hasShortO(args) ||
+        args.some((arg) => arg.startsWith("--ou") || /^-[a-zA-Z]*R/.test(arg))
+      );
     case "date":
       return !args.some((arg) => /^-[a-zA-Z]*s|^--s/.test(arg));
     case "rg":
@@ -64,8 +67,9 @@ const gitWrites = (args: readonly string[]): boolean =>
   args.some(
     // git accepts any unambiguous prefix of a long option, so match prefixes.
     (arg) =>
-      /^--(ou|op|ex|tex|con|git-dir|work-tree|namespace)/.test(arg) ||
-      arg.startsWith("-O"),
+      /^--(ou|op|ext(-|$)|exec-path|tex|config-env|git-dir|work-tree|namespace)/.test(
+        arg,
+      ) || arg.startsWith("-O"),
   );
 
 /** The read-only `gh` verbs a bounded role may run; `patches` also allows output that shows code. */
