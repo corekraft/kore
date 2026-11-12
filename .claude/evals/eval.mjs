@@ -568,8 +568,13 @@ export function formatTrend(rows) {
 export function readTier(root, role) {
   const text = readFileSync(join(root, ".claude/agents", `${role}.md`), "utf8");
   const frontmatter = /^---\n([\s\S]*?)\n---/.exec(text)?.[1] ?? "";
-  const field = (key) =>
-    new RegExp(`^${key}: *(\\S+) *$`, "m").exec(frontmatter)?.[1];
+  const field = (key) => {
+    const line = frontmatter
+      .split("\n")
+      .find((candidate) => candidate.startsWith(`${key}:`));
+    const value = line?.slice(key.length + 1).trim();
+    return value === undefined || value === "" ? undefined : value;
+  };
   const model = field("model");
   const effort = field("effort");
   if (!model || !effort) {
