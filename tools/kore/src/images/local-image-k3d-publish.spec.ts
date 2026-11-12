@@ -131,6 +131,25 @@ test("the k3d node keeps the credential in memory-backed storage and removes it 
   expect(script).toContain("--hosts-dir");
 });
 
+test("the k3d node also names the pushed image by its digest, so a digest reference resolves with pull policy Never", () => {
+  const script = k3dImagePublishArgs(
+    "kore-local",
+    "kore-local/reference:kore-local",
+    "10.96.0.50:5000",
+    "reference:kore-local",
+    "CA",
+  ).join(" ");
+  const tags = script.match(/images tag --force/g) ?? [];
+  expect(tags).toHaveLength(2);
+  expect(script).toMatch(
+    /images ls "name==10\.96\.0\.50:5000\/reference:kore-local"/,
+  );
+  expect(script).toContain("10.96.0.50:5000/reference@");
+  expect(script.indexOf("images push")).toBeLessThan(
+    script.lastIndexOf("images tag --force"),
+  );
+});
+
 test("a failed k3d publish never carries the credential in its error", async () => {
   const { runner } = fakeRunner();
   stubRegistry(registryReference, registryHead);
@@ -205,6 +224,9 @@ test("the k3d publish command is pinned line by line", () => {
     "unset t",
     `ctr --namespace k8s.io images tag --force 'docker.io/kore-local/reference:kore-local' '10.96.0.50:5000/reference:kore-local'`,
     `ctr --namespace k8s.io images push --hosts-dir "$d" '10.96.0.50:5000/reference:kore-local'`,
+    `g=$(ctr --namespace k8s.io images ls "name==10.96.0.50:5000/reference:kore-local" | awk 'NR==2{print $3}')`,
+    `test -n "$g"`,
+    `ctr --namespace k8s.io images tag --force '10.96.0.50:5000/reference:kore-local' "10.96.0.50:5000/reference@$g"`,
   ]);
 });
 
