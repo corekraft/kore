@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import { expect, test } from "vitest";
 
@@ -13,4 +14,14 @@ test("the clean-machine end-to-end script does nothing unless explicitly opted i
   });
   expect(stdout).toBe("");
   expect(stderr).toMatch(/skipped: set KORE_RUN_CLEAN_MACHINE=1/);
+});
+
+test("the clean-machine script judges platform components only, not the cluster-wide capacity and backup rows", async () => {
+  // `kore platform status --json` ends with rows for the cluster as a whole
+  // (namespace "cluster"). A fresh install with retained data has no export
+  // yet, so its backups row is degraded by design; `kore data export` covers it.
+  const source = await readFile(script, "utf8");
+
+  expect(source).toMatch(/namespace\s*!==\s*"cluster"/);
+  expect(source).not.toMatch(/grep -q '"status": "\\\(missing/);
 });
