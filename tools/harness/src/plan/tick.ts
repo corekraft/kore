@@ -5,58 +5,20 @@ import {
   type CliDeps,
   type Command,
 } from "../runtime/index.js";
-import { trimCommon, type Edit } from "./edits.js";
+import { type Edit } from "./edits.js";
 import { listEdits } from "./lists.js";
-import { activePlans, listItemSpans, type ItemSpan } from "./parser.js";
+import { listItemSpans, type ItemSpan } from "./parser.js";
+import {
+  apply,
+  choosePlan,
+  normalize,
+  renderChanges,
+  toChanges,
+  type Change,
+} from "./plan-edit.js";
 import { PLANS_DIR, readPlans } from "./store.js";
 
 const OPEN = "- [ ]";
-
-interface Change {
-  line: number;
-  before: string[];
-  after: string[];
-}
-
-function normalize(text: string): string {
-  return text.replace(/\s+/g, " ").trim();
-}
-
-function choosePlan(
-  plans: Record<string, string>,
-  requested: string | undefined,
-): string {
-  const names = Object.keys(plans);
-  if (requested !== undefined) {
-    const named = /^\d+$/.test(requested)
-      ? names.filter((n) => n.startsWith(`${requested}-`))
-      : [];
-    if (named.length > 1) {
-      throw new CommandError(
-        `Plan number "${requested}" is shared by ${named.join(" and ")}. Rename one so each plan number is unique.`,
-      );
-    }
-    const name = named[0];
-    if (name === undefined) {
-      throw new CommandError(
-        `No plan numbered "${requested}" in ${PLANS_DIR}. Run \`harness plan active\` to list the plans.`,
-      );
-    }
-    return name;
-  }
-  const active = activePlans(plans);
-  if (active.length === 0) {
-    throw new CommandError(
-      `No active plan to tick in: no file in ${PLANS_DIR} has "status: active". Name one with --plan N.`,
-    );
-  }
-  if (active.length > 1) {
-    throw new CommandError(
-      `${active.length} plans are active (${active.join(", ")}), so there is no single default. Pass --plan N.`,
-    );
-  }
-  return active[0] ?? "";
-}
 
 function chooseItem(markdown: string, wanted: string): ItemSpan {
   const needle = normalize(wanted);
@@ -88,25 +50,6 @@ function tickEdit(lines: string[], item: ItemSpan): Edit {
   };
 }
 
-function apply(lines: string[], edits: Edit[]): string[] {
-  const out = [...lines];
-  for (const edit of [...edits].sort((a, b) => b.start - a.start)) {
-    out.splice(edit.start, edit.end - edit.start, ...edit.lines);
-  }
-  return out;
-}
-
-function toChanges(lines: string[], edits: Edit[]): Change[] {
-  return edits
-    .flatMap((edit) => trimCommon(edit, lines) ?? [])
-    .sort((a, b) => a.start - b.start)
-    .map((edit) => ({
-      line: edit.start + 1,
-      before: lines.slice(edit.start, edit.end),
-      after: edit.lines,
-    }));
-}
-
 function describe(
   file: string,
   step: string,
@@ -114,13 +57,10 @@ function describe(
   dryRun: boolean,
   changes: Change[],
 ): string {
-  const head = `${dryRun ? "Would tick" : "Ticked"} ${step}: ${text} in ${file}`;
-  const body = changes.flatMap((c) => [
-    `  line ${c.line}:`,
-    ...c.before.map((l) => `  - ${l}`),
-    ...c.after.map((l) => `  + ${l}`),
-  ]);
-  return `${[head, ...body].join("\n")}\n`;
+  return renderChanges(
+    `${dryRun ? "Would tick" : "Ticked"} ${step}: ${text} in ${file}`,
+    changes,
+  );
 }
 
 async function tick(

@@ -53,9 +53,9 @@ Each step reports its effect against the plan 8 baseline.
 
 ### Work
 
-- [ ] Add a `plan` domain that finds the active plan, ticks items, recounts the
+- [x] Add a `plan` domain that finds the active plan, ticks items, recounts the
       open-item lists and sets the single `Next:` line.
-- [ ] Shrink `skills/handoff/SKILL.md`.
+- [x] Shrink `skills/handoff/SKILL.md`.
 
 ### Exit Criteria
 
