@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import { testWorkers } from "../kore/.husky/test-workers.mjs";
 
 const bundleFiles = [
   "tests/bundle.spec.ts",
@@ -7,6 +8,8 @@ const bundleFiles = [
 
 export default defineConfig({
   test: {
+    // One cap for every unit path; see .husky/test-workers.mjs.
+    maxWorkers: testWorkers(),
     projects: [
       {
         extends: true,

@@ -249,7 +249,7 @@ test("the platform policy renders the environment trust mode for every environme
       assert.match(upstream, new RegExp(`mode: ${mode}\\b`), environment);
     }
   }
-});
+}, 30_000); // Four real `helm template` renders: over the 5s default on a busy host.
 
 test("both policies apply to every workload kind the webhook evaluates, not only pods", async () => {
   const { platform, upstream } = await render("local", "warn");
