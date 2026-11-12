@@ -13,6 +13,8 @@ export interface HookContext {
   payload: unknown;
   /** The flags the hook declared, as parsed. */
   options: Readonly<Record<string, string | boolean>>;
+  /** The one positional argument, for a hook that declares an operand such as a mode. */
+  operand: string | undefined;
 }
 
 /** Parses stdin as JSON, treating empty or malformed input as no payload. */
@@ -31,6 +33,8 @@ export async function readPayload(deps: CliDeps): Promise<unknown> {
 export interface HookShape {
   flags?: Record<string, "string" | "boolean">;
   payload?: boolean;
+  /** Names the one positional argument, such as the feedback hook's mode. */
+  operand?: string;
 }
 
 /**
@@ -45,17 +49,19 @@ export function hookCommand(
   name: string,
   summary: string,
   handler: (context: HookContext) => Promise<HookResult>,
-  { flags = {}, payload = true }: HookShape = {},
+  { flags = {}, payload = true, operand }: HookShape = {},
 ): Command {
   return {
     summary,
     options: { ...flags, strict: "boolean" },
-    async run({ deps, options }) {
+    ...(operand === undefined ? {} : { operand }),
+    async run({ deps, options, operand: given }) {
       let result: HookResult;
       try {
         result = await handler({
           deps,
           options,
+          operand: given,
           payload: payload ? await readPayload(deps) : undefined,
         });
       } catch (error) {

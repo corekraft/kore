@@ -191,8 +191,8 @@ describe("hook dispatcher", () => {
     expect(await dispatch(["hook", "nope"])).toEqual({
       code: 1,
       out: "",
-      err: expect.stringContaining(
-        'Unknown command "nope" for domain "hook". Commands: delta, retro-scan, skill-links, workflow-permissions.',
+      err: expect.stringMatching(
+        /Unknown command "nope" for domain "hook"\. Commands: .*skill-links/,
       ),
     });
   });

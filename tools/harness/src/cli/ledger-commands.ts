@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 import {
+  DEFAULT_LEDGER,
   KINDS,
   Ledger,
   pollGithub,
@@ -16,9 +17,6 @@ import {
   type Command,
   type CommandContext,
 } from "../runtime/index.js";
-
-/** Relative to the main checkout root: the git-ignored state directory shared with the kore journal. */
-const DEFAULT_LEDGER = ".kore/state/ledger.jsonl";
 
 const EVENT_FLAGS = [
   "id",

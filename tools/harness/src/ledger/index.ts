@@ -1,6 +1,7 @@
 export { pollGithub, type GithubPollResult } from "./github-poll.js";
 export { pollHerdr, type PollResult } from "./herdr-poll.js";
 export {
+  DEFAULT_LEDGER,
   Ledger,
   type ListFilter,
   type ListResult,

@@ -674,9 +674,9 @@ function githubSpans(events, asOf) {
   const spans = [];
   for (const [stage, start, end] of waits) {
     if (start !== void 0) {
-      const stop = end ?? closed ?? asOf;
-      if (stop > start) {
-        spans.push([stage, start, stop]);
+      const stop2 = end ?? closed ?? asOf;
+      if (stop2 > start) {
+        spans.push([stage, start, stop2]);
       }
     }
   }
@@ -684,10 +684,10 @@ function githubSpans(events, asOf) {
 }
 function githubWaits(tally, waits, holes) {
   const [lo, hi] = tally.window;
-  for (const [stage, start, stop] of waits) {
-    tally.present(stage, start, stop);
+  for (const [stage, start, stop2] of waits) {
+    tally.present(stage, start, stop2);
     const from = Math.max(start, lo);
-    const to = Math.min(stop, hi);
+    const to = Math.min(stop2, hi);
     if (to > from) {
       tally.addMs(stage, "waitingMs", uncovered([from, to], holes));
     }
@@ -748,7 +748,7 @@ function groupByIdea(events, window) {
   return { byIdea, unattributed };
 }
 function reach(own2, waits) {
-  return Math.max(...own2.map(time), ...waits.map(([, , stop]) => stop));
+  return Math.max(...own2.map(time), ...waits.map(([, , stop2]) => stop2));
 }
 function select(byIdea, { ideas }, window, asOf) {
   const kept = /* @__PURE__ */ new Map();
@@ -1650,6 +1650,7 @@ async function poll2(deps) {
 }
 
 // src/ledger/ledger.ts
+var DEFAULT_LEDGER = ".kore/state/ledger.jsonl";
 var Ledger = class {
   constructor(fs, clock, ids, path) {
     this.fs = fs;
@@ -1722,7 +1723,6 @@ function matches(event, filter) {
 
 // src/cli/ledger-commands.ts
 import { resolve as resolve3 } from "node:path";
-var DEFAULT_LEDGER = ".kore/state/ledger.jsonl";
 var EVENT_FLAGS = [
   "id",
   "source",
@@ -2109,7 +2109,7 @@ var report = {
   async run(context) {
     const flags = parseFlags(context);
     const { deps, json } = context;
-    const fail3 = (message, code) => {
+    const fail4 = (message, code) => {
       deps.stderr(
         json ? `${JSON.stringify({ error: message })}
 ` : `${message}
@@ -2118,11 +2118,11 @@ var report = {
       return code;
     };
     if ("error" in flags) {
-      return fail3(flags.error, 2);
+      return fail4(flags.error, 2);
     }
     const opened = await openLedger(context);
     if ("error" in opened) {
-      return fail3(opened.error, 1);
+      return fail4(opened.error, 1);
     }
     const { events, skipped } = await opened.ledger.list({});
     const printed = {
@@ -4463,6 +4463,221 @@ async function update(sessionId, deps) {
   }
 }
 
+// src/hook/feedback.ts
+import { tmpdir } from "node:os";
+import { join as join6 } from "node:path";
+var KORE_SOURCE_DIR = "tools/kore/src/";
+var KORE = {
+  bin: "tools/kore/node_modules/.bin",
+  project: "tools/kore"
+};
+var HARNESS_SOURCE_DIRS = ["tools/harness/src/", "tools/harness/tests/"];
+var HARNESS = {
+  bin: "tools/harness/node_modules/.bin",
+  project: "tools/harness"
+};
+function relativeTo(filePath, root3) {
+  const prefix = `${root3}/`;
+  return filePath.startsWith(prefix) ? filePath.slice(prefix.length) : filePath;
+}
+function isTrackedSource(filePath, root3) {
+  const relative = relativeTo(filePath, root3);
+  return relative.startsWith(KORE_SOURCE_DIR) && relative.endsWith(".ts");
+}
+function isHarnessSource(filePath, root3) {
+  const relative = relativeTo(filePath, root3);
+  return HARNESS_SOURCE_DIRS.some((dir) => relative.startsWith(dir)) && relative.endsWith(".ts");
+}
+var MAX_LINES = 40;
+function bound(output, command) {
+  const lines2 = output.split("\n");
+  if (lines2.length <= MAX_LINES) {
+    return output;
+  }
+  const cut = lines2.length - MAX_LINES;
+  return `${lines2.slice(0, MAX_LINES).join("\n")}
+... ${cut} more lines cut. Run \`${command}\` to see all.`;
+}
+var asCall = (payload) => typeof payload === "object" && payload !== null ? payload : {};
+var isEdit = (call) => call.tool_name === void 0 || call.tool_name === "Write" || call.tool_name === "Edit";
+var OK = {};
+var fail = (message) => ({
+  code: 2,
+  stderr: `${message}
+`
+});
+async function postEditFor(call, deps, project, tracked, formatFix) {
+  const filePath = call.tool_input?.file_path;
+  if (typeof filePath !== "string" || !tracked(filePath, deps.root)) {
+    return OK;
+  }
+  await deps.mark(project.project);
+  const lint = await deps.run(`${deps.root}/${project.bin}/oxlint`, [
+    "--deny-warnings",
+    filePath
+  ]);
+  if (lint.status !== 0) {
+    const details = bound(
+      lint.output,
+      `${project.bin}/oxlint --deny-warnings ${filePath}`
+    );
+    return fail(
+      `oxlint reported problems in ${filePath}. Fix them before continuing.
+${details}`
+    );
+  }
+  const format = await deps.run(`${deps.root}/${project.bin}/prettier`, [
+    "--check",
+    filePath
+  ]);
+  if (format.status !== 0) {
+    const details = bound(
+      format.output,
+      `${project.bin}/prettier --check ${filePath}`
+    );
+    return fail(
+      `${filePath} is not formatted. ${formatFix(filePath)}
+${details}`
+    );
+  }
+  return OK;
+}
+async function stopFor(call, deps, project, message) {
+  if (call.stop_hook_active || !await deps.isMarked(project.project)) {
+    return OK;
+  }
+  const check2 = await deps.run("npm", [
+    "--prefix",
+    project.project,
+    "run",
+    "check",
+    "--silent"
+  ]);
+  if (check2.status !== 0) {
+    const details = bound(
+      check2.output,
+      `npm --prefix ${project.project} run check`
+    );
+    return fail(`${message}
+${details}`);
+  }
+  await deps.clear(project.project);
+  return OK;
+}
+async function postEdit(payload, deps) {
+  const call = asCall(payload);
+  if (!isEdit(call)) {
+    return OK;
+  }
+  const kore = await postEditFor(
+    call,
+    deps,
+    KORE,
+    isTrackedSource,
+    (filePath) => `Run \`${KORE.bin}/prettier --write ${filePath}\`.`
+  );
+  if (kore.code !== void 0) {
+    return kore;
+  }
+  return await postEditFor(
+    call,
+    deps,
+    HARNESS,
+    isHarnessSource,
+    (filePath) => `Run \`mise run format ${filePath}\`.`
+  );
+}
+async function stop(payload, deps) {
+  const call = asCall(payload);
+  const kore = await stopFor(
+    call,
+    deps,
+    KORE,
+    "Typecheck failed after your TypeScript changes. Fix it before finishing."
+  );
+  if (kore.code !== void 0) {
+    return kore;
+  }
+  return await stopFor(
+    call,
+    deps,
+    HARNESS,
+    "The harness typecheck failed after your TypeScript changes. Fix it before finishing."
+  );
+}
+async function recordEvent(deps, kind, call, outcome) {
+  try {
+    const session2 = call.session_id;
+    if (typeof session2 !== "string" || session2 === "") {
+      return;
+    }
+    const main = await mainRoot(deps);
+    if (main === void 0) {
+      return;
+    }
+    const pane = deps.env["HERDR_PANE_ID"];
+    const event = {
+      source: "claude",
+      kind,
+      occurredAt: deps.clock.now().toISOString(),
+      session: session2,
+      ...typeof pane === "string" && pane !== "" ? { pane } : {},
+      ...kind.startsWith("tool.") && typeof call.tool_name === "string" ? { tool: call.tool_name } : {},
+      ...outcome === void 0 ? {} : { outcome }
+    };
+    await new Ledger(
+      deps.fs,
+      deps.clock,
+      deps.ids,
+      join6(main, DEFAULT_LEDGER)
+    ).record(event);
+  } catch {
+  }
+}
+function feedbackDeps(deps, root3, call) {
+  const marker = (project) => join6(
+    tmpdir(),
+    `kore-${project === HARNESS.project ? "harness" : "ts"}-changed-${typeof call.session_id === "string" ? call.session_id : "default"}`
+  );
+  return {
+    root: root3,
+    async run(command, args) {
+      const result = await deps.runner.run(command, args, { cwd: root3 });
+      return {
+        status: result.code,
+        output: `${result.stdout}${result.stderr}`.trim()
+      };
+    },
+    mark: (project) => deps.fs.writeFile(marker(project), ""),
+    isMarked: (project) => deps.fs.exists(marker(project)),
+    clear: (project) => deps.fs.remove(marker(project))
+  };
+}
+var MODES = ["post-edit", "stop", "tool-failure"];
+async function feedback(mode, payload, deps) {
+  if (mode === void 0 || !MODES.includes(mode)) {
+    throw new CommandError(
+      `Unknown feedback mode "${mode ?? ""}". Modes: ${MODES.join(", ")}.`
+    );
+  }
+  if (payload === void 0) {
+    return OK;
+  }
+  const call = asCall(payload);
+  const root3 = deps.env["CLAUDE_PROJECT_DIR"] || (typeof call.cwd === "string" && call.cwd !== "" ? call.cwd : deps.cwd);
+  if (mode === "tool-failure") {
+    await recordEvent(deps, "tool.end", call, "failure");
+    return OK;
+  }
+  if (mode === "post-edit") {
+    await recordEvent(deps, "tool.end", call, "success");
+  } else if (!call.stop_hook_active) {
+    await recordEvent(deps, "session.stop", call);
+  }
+  const checks = feedbackDeps(deps, root3, call);
+  return mode === "stop" ? await stop(payload, checks) : await postEdit(payload, checks);
+}
+
 // src/hook/io.ts
 async function readPayload(deps) {
   const text6 = await deps.stdin();
@@ -4475,16 +4690,18 @@ async function readPayload(deps) {
     return void 0;
   }
 }
-function hookCommand(name, summary, handler, { flags = {}, payload = true } = {}) {
+function hookCommand(name, summary, handler, { flags = {}, payload = true, operand } = {}) {
   return {
     summary,
     options: { ...flags, strict: "boolean" },
-    async run({ deps, options }) {
+    ...operand === void 0 ? {} : { operand },
+    async run({ deps, options, operand: given }) {
       let result;
       try {
         result = await handler({
           deps,
           options,
+          operand: given,
           payload: payload ? await readPayload(deps) : void 0
         });
       } catch (error) {
@@ -4510,7 +4727,7 @@ function hookCommand(name, summary, handler, { flags = {}, payload = true } = {}
 
 // src/hook/retro-hook.ts
 import { homedir } from "node:os";
-import { join as join7 } from "node:path";
+import { join as join8 } from "node:path";
 
 // src/hook/retro-scan.ts
 import { createHash } from "node:crypto";
@@ -4885,7 +5102,7 @@ function scan(inputs, { since, knownSkills = [], auditRules: audit3 = [] } = {})
 }
 
 // src/hook/retro-transcripts.ts
-import { basename, join as join6, sep } from "node:path";
+import { basename, join as join7, sep } from "node:path";
 var PROBE_BYTES = 256 * 1024;
 var DEFAULT_BRANCHES = /* @__PURE__ */ new Set(["main", "master", "HEAD"]);
 var encodePath = (path) => path.replace(/[^a-zA-Z0-9]/g, "-");
@@ -4913,7 +5130,7 @@ async function repoTranscriptDirs(fs, projectsDir, { main, worktrees, branches }
     for (const file of files) {
       let head;
       try {
-        head = await fs.readHead(join6(dir, file), PROBE_BYTES);
+        head = await fs.readHead(join7(dir, file), PROBE_BYTES);
       } catch {
         continue;
       }
@@ -4931,7 +5148,7 @@ async function repoTranscriptDirs(fs, projectsDir, { main, worktrees, branches }
   }
   const found = [];
   for (const name of entries) {
-    const dir = join6(projectsDir, name);
+    const dir = join7(projectsDir, name);
     if (await fs.isDirectory(dir) && (names3.has(basename(dir)) || await belongs(dir))) {
       found.push(dir);
     }
@@ -4950,7 +5167,7 @@ async function defaultDirs(fs, runner, root3, home) {
     "--path-format=absolute",
     "--git-common-dir"
   ])).trim();
-  const main = worktrees[0] ?? (common ? join6(common, "..") : root3);
+  const main = worktrees[0] ?? (common ? join7(common, "..") : root3);
   const refs = await git(runner, root3, [
     "for-each-ref",
     "--format=%(refname:short)",
@@ -4958,7 +5175,7 @@ async function defaultDirs(fs, runner, root3, home) {
     "refs/remotes"
   ]);
   const branches = refs.split("\n").filter(Boolean).map((name) => name.replace(/^origin\//, ""));
-  return await repoTranscriptDirs(fs, join6(home, ".claude", "projects"), {
+  return await repoTranscriptDirs(fs, join7(home, ".claude", "projects"), {
     main,
     worktrees: worktrees.length > 0 ? worktrees : [main],
     branches
@@ -4971,7 +5188,7 @@ async function readTranscripts(fs, dirs) {
       (n) => n.endsWith(".jsonl")
     )) {
       const id = basename(name, ".jsonl");
-      const text6 = await fs.readFile(join6(dir, name));
+      const text6 = await fs.readFile(join7(dir, name));
       if (text6.length >= (byId.get(id)?.text.length ?? -1)) {
         byId.set(id, { id, text: text6 });
       }
@@ -4985,7 +5202,7 @@ var GUARD_SOURCE = ".claude/hooks/guard.mjs";
 var USAGE = "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD]\n--since keeps sessions active at or after local midnight of that date, like the session-start count.";
 var isMissing = (error) => error.code === "ENOENT";
 async function skillNames(fs, root3) {
-  const dir = join7(root3, "skills");
+  const dir = join8(root3, "skills");
   let entries;
   try {
     entries = await fs.readdir(dir);
@@ -4997,7 +5214,7 @@ async function skillNames(fs, root3) {
   }
   const names3 = [];
   for (const entry of entries) {
-    if (await fs.isDirectory(join7(dir, entry))) {
+    if (await fs.isDirectory(join8(dir, entry))) {
       names3.push(entry);
     }
   }
@@ -5026,7 +5243,7 @@ ${USAGE}
   }
 }
 async function readGuardSource(fs, root3) {
-  const path = join7(root3, GUARD_SOURCE);
+  const path = join8(root3, GUARD_SOURCE);
   try {
     return await fs.readFile(path);
   } catch (error) {
@@ -5082,10 +5299,10 @@ var retroScan = hookCommand(
 );
 
 // src/hook/skill-links.ts
-import { isAbsolute, join as join8 } from "node:path";
+import { isAbsolute, join as join9 } from "node:path";
 var HARNESSES = [".claude", ".codex"];
 async function skillNames2(fs, root3) {
-  const skillsDir = join8(root3, "skills");
+  const skillsDir = join9(root3, "skills");
   let entries;
   try {
     entries = await fs.readdir(skillsDir);
@@ -5099,7 +5316,7 @@ async function skillNames2(fs, root3) {
   }
   const skills = [];
   for (const entry of entries) {
-    if (await fs.exists(join8(root3, "skills", entry, "SKILL.md"))) {
+    if (await fs.exists(join9(root3, "skills", entry, "SKILL.md"))) {
       skills.push(entry);
     }
   }
@@ -5123,7 +5340,7 @@ async function linkProblems(fs, root3) {
     for (const skill2 of skills) {
       const link = `${harness}/skills/${skill2}`;
       const expected = `../../skills/${skill2}`;
-      const found = await targetOf(fs, join8(root3, link));
+      const found = await targetOf(fs, join9(root3, link));
       if ("code" in found) {
         problems.push(
           found.code === "EINVAL" ? `${link} is a directory or file, not a link; replace it with a link to ${expected}` : `${link} is missing; link it to ${expected}`
@@ -5143,7 +5360,7 @@ async function linkProblems(fs, root3) {
 }
 
 // src/hook/workflow-permissions.ts
-import { join as join9 } from "node:path";
+import { join as join10 } from "node:path";
 var RELEASE = "release.yaml";
 var SIGNING_JOBS = ["release", "mirror"];
 var SIGNING_SCOPES = ["id-token", "packages"];
@@ -5272,7 +5489,7 @@ function permissionProblems(files) {
   );
 }
 async function workflowProblems(fs, root3) {
-  const dir = join9(root3, ".github", "workflows");
+  const dir = join10(root3, ".github", "workflows");
   let entries;
   try {
     entries = await fs.readdir(dir);
@@ -5286,7 +5503,7 @@ async function workflowProblems(fs, root3) {
   }
   const files = {};
   for (const entry of entries.filter((f) => /\.ya?ml$/.test(f)).sort()) {
-    files[entry] = await fs.readFile(join9(dir, entry));
+    files[entry] = await fs.readFile(join10(dir, entry));
   }
   return permissionProblems(files);
 }
@@ -5329,8 +5546,15 @@ var delta = hookCommand(
     };
   }
 );
+var feedbackHook = hookCommand(
+  "feedback",
+  "run the post-edit, stop or tool-failure feedback checks and record ledger events",
+  ({ deps, payload, operand }) => feedback(operand, payload, deps),
+  { operand: "mode" }
+);
 var hook = {
   delta,
+  feedback: feedbackHook,
   "retro-scan": retroScan,
   "skill-links": skillLinks,
   "workflow-permissions": workflowPermissions
@@ -5454,7 +5678,7 @@ function sessionNameError(name) {
 // src/session/output.ts
 var USAGE_ERROR = 2;
 var FAILED4 = 1;
-function fail(deps, json, code, message) {
+function fail2(deps, json, code, message) {
   deps.stderr(
     `${json ? `${JSON.stringify({ error: message })}
 ` : ""}${message}
@@ -5464,7 +5688,7 @@ function fail(deps, json, code, message) {
 }
 
 // src/session/registry.ts
-import { join as join10, resolve as resolve5 } from "node:path";
+import { join as join11, resolve as resolve5 } from "node:path";
 var STATE_DIR = ".kore/state/sessions";
 function isRecord(value) {
   if (typeof value !== "object" || value === null) {
@@ -5491,7 +5715,7 @@ var SessionRegistry = class _SessionRegistry {
     return new _SessionRegistry(deps.fs, resolve5(main, STATE_DIR));
   }
   file(name) {
-    return join10(this.dir, `${name}.json`);
+    return join11(this.dir, `${name}.json`);
   }
   async read(name) {
     const path = this.file(name);
@@ -5551,7 +5775,7 @@ var SessionRegistry = class _SessionRegistry {
 };
 
 // src/session/worktree.ts
-import { join as join11 } from "node:path";
+import { join as join12 } from "node:path";
 var removeCommands = (worktree) => `\`git worktree remove ${worktree.path}\` and \`git branch -D ${worktree.branch}\``;
 var removeHint = (worktree) => `The worktree ${worktree.path} was left behind; remove it with ${removeCommands(worktree)}.`;
 var closeHint = (worktree) => `Remove its worktree once its branch is merged: ${removeCommands(worktree)}.`;
@@ -5562,7 +5786,7 @@ async function create2(deps, name, branch) {
       error: "Cannot find the main checkout to create the worktree in. Run inside the repository or set KORE_ROOT to its root. No pane was split."
     };
   }
-  const worktree = { path: join11(main, ".claude", "worktrees", name), branch };
+  const worktree = { path: join12(main, ".claude", "worktrees", name), branch };
   const add = await deps.runner.run(
     "git",
     ["worktree", "add", "-b", branch, worktree.path, "HEAD"],
@@ -5574,7 +5798,7 @@ async function create2(deps, name, branch) {
     };
   }
   const install = await deps.runner.run("npm", ["ci"], {
-    cwd: join11(worktree.path, "tools", "kore")
+    cwd: join12(worktree.path, "tools", "kore")
   });
   if (install.code !== 0) {
     return {
@@ -5628,7 +5852,7 @@ async function close2(context) {
   const { json, deps } = context;
   const name = context.operand;
   if (name === void 0) {
-    return fail(
+    return fail2(
       deps,
       json,
       USAGE_ERROR,
@@ -5637,16 +5861,16 @@ async function close2(context) {
   }
   const nameError = sessionNameError(name);
   if (nameError !== void 0) {
-    return fail(deps, json, USAGE_ERROR, nameError);
+    return fail2(deps, json, USAGE_ERROR, nameError);
   }
   const callerPane = deps.env.HERDR_PANE_ID;
   if (deps.env.HERDR_ENV !== "1" || !callerPane) {
-    return fail(deps, json, FAILED4, NOT_IN_HERDR);
+    return fail2(deps, json, FAILED4, NOT_IN_HERDR);
   }
   const registry = await SessionRegistry.open(deps);
   const record3 = await registry.read(name);
   if (record3 === void 0) {
-    return fail(
+    return fail2(
       deps,
       json,
       FAILED4,
@@ -5655,7 +5879,7 @@ async function close2(context) {
   }
   const refusal = refuse(record3, callerPane);
   if (refusal !== void 0) {
-    return fail(deps, json, FAILED4, refusal);
+    return fail2(deps, json, FAILED4, refusal);
   }
   const closed = await deps.runner.run("herdr", [
     "pane",
@@ -5663,7 +5887,7 @@ async function close2(context) {
     record3.paneId
   ]);
   if (closed.code !== 0) {
-    return fail(
+    return fail2(
       deps,
       json,
       FAILED4,
@@ -5885,7 +6109,7 @@ async function wait(context) {
   const { json, deps, options } = context;
   const name = context.operand;
   if (name === void 0) {
-    return fail(
+    return fail2(
       deps,
       json,
       USAGE_ERROR,
@@ -5894,16 +6118,16 @@ async function wait(context) {
   }
   const nameError = sessionNameError(name);
   if (nameError !== void 0) {
-    return fail(deps, json, USAGE_ERROR, nameError);
+    return fail2(deps, json, USAGE_ERROR, nameError);
   }
   const timeout = parseTimeout(options.timeout);
   if (typeof timeout !== "number") {
-    return fail(deps, json, USAGE_ERROR, timeout.error);
+    return fail2(deps, json, USAGE_ERROR, timeout.error);
   }
   const registry = await SessionRegistry.open(deps);
   const record3 = await registry.read(name);
   if (record3 === void 0) {
-    return fail(
+    return fail2(
       deps,
       json,
       FAILED4,
@@ -5912,7 +6136,7 @@ async function wait(context) {
   }
   const result = await waitForResult(deps, registry, record3, timeout);
   if ("error" in result) {
-    return fail(deps, json, FAILED4, result.error);
+    return fail2(deps, json, FAILED4, result.error);
   }
   deps.stdout(json ? `${JSON.stringify(result)}
 ` : formatWait(result));
@@ -5976,7 +6200,7 @@ async function finish2({ json, deps, options }, { registry, record: record3, mod
   }
   const result = await waitForResult(deps, registry, record3, timeoutMs);
   if ("error" in result) {
-    return fail(deps, json, FAILED4, result.error);
+    return fail2(deps, json, FAILED4, result.error);
   }
   deps.stdout(
     json ? `${JSON.stringify({ ...result, role, effort, ...extra, modelCheck })}
@@ -6033,27 +6257,27 @@ async function spawn2(context) {
   const { json, deps } = context;
   const checked = check(context);
   if ("error" in checked) {
-    return fail(deps, json, checked.code, checked.error);
+    return fail2(deps, json, checked.code, checked.error);
   }
   const { name, model, role, effort } = checked.values;
   const { callerPane } = checked;
   const registry = await SessionRegistry.open(deps);
   const taken = await registry.unavailable(name) ?? await nameTakenError(deps, name);
   if (taken !== void 0) {
-    return fail(deps, json, FAILED4, taken);
+    return fail2(deps, json, FAILED4, taken);
   }
   const placed = await place(deps, context.options, name);
   if ("error" in placed) {
-    return fail(deps, json, FAILED4, placed.error);
+    return fail2(deps, json, FAILED4, placed.error);
   }
   const paneId = await splitPane(deps, callerPane, placed.cwd);
   if (typeof paneId !== "string") {
-    return fail(deps, json, FAILED4, `${paneId.error}${placed.left}`);
+    return fail2(deps, json, FAILED4, `${paneId.error}${placed.left}`);
   }
   const leftOpen = `The pane ${paneId} was left open; close it with \`herdr pane close ${paneId}\`.${placed.left}`;
   const equalized = await equalize(deps.runner, callerPane);
   if (equalized.status === "failed") {
-    return fail(deps, json, FAILED4, `${equalized.reason}. ${leftOpen}`);
+    return fail2(deps, json, FAILED4, `${equalized.reason}. ${leftOpen}`);
   }
   const modelCheck = await launch(deps, {
     ...checked.values,
@@ -6062,7 +6286,7 @@ async function spawn2(context) {
     leftOpen
   });
   if ("error" in modelCheck) {
-    return fail(deps, json, FAILED4, modelCheck.error);
+    return fail2(deps, json, FAILED4, modelCheck.error);
   }
   return await finish2(context, {
     registry,
@@ -6139,7 +6363,7 @@ var session = {
 };
 
 // src/skill/index.ts
-import { join as join12 } from "node:path";
+import { join as join13 } from "node:path";
 
 // src/skill/audit.ts
 var DESCRIPTION_BUDGET = 200;
@@ -6253,7 +6477,7 @@ var audit2 = {
   summary: "report each skill's description and body against its budgets",
   options: { strict: "boolean" },
   async run({ json, options, deps }) {
-    const skillsDir = join12(await deps.root(), SKILLS_DIR);
+    const skillsDir = join13(await deps.root(), SKILLS_DIR);
     let report3;
     try {
       report3 = await auditSkills(deps.fs, skillsDir);
@@ -6325,7 +6549,7 @@ function usage() {
   return `${lines2.join("\n")}
 `;
 }
-function fail2(deps, json, message, code = USAGE_ERROR2) {
+function fail3(deps, json, message, code = USAGE_ERROR2) {
   const prefix = json ? `${JSON.stringify({ error: message })}
 ` : "";
   deps.stderr(`${prefix}${message}
@@ -6428,7 +6652,7 @@ async function run(argv, deps) {
   const failure2 = domain === "hook" ? FAILURE : USAGE_ERROR2;
   const early = argv.slice(0, words2[1] ?? 0).find((t) => t.startsWith("-") && !["--json", "--help", "-h"].includes(t));
   if (early !== void 0) {
-    return fail2(
+    return fail3(
       deps,
       json,
       `Put "${early}" after the command: harness <domain> <command> [flags].`,
@@ -6437,11 +6661,11 @@ async function run(argv, deps) {
   }
   const resolved = resolve6(domain, name);
   if ("error" in resolved) {
-    return fail2(deps, json, resolved.error, failure2);
+    return fail3(deps, json, resolved.error, failure2);
   }
   const parsed = parseOptions(resolved.command, rest);
   if ("error" in parsed) {
-    return fail2(deps, json, parsed.error, failure2);
+    return fail3(deps, json, parsed.error, failure2);
   }
   return await execute(resolved.command, {
     json,
