@@ -242,3 +242,26 @@ test("a spec still cannot import a file inside the testing domain", () => {
     { file: "src/cli/b.spec.ts", line: 1, help: barrelMessage("testing") },
   ]);
 });
+
+test("production code cannot re-export the testing domain", () => {
+  const result = lint({
+    "src/cli/reexport.ts": 'export { testHome } from "../testing/index.js";\n',
+  });
+
+  assert.equal(result.status, 1);
+  assert.deepEqual(result.violations, [
+    { file: "src/cli/reexport.ts", line: 1, help: productionMessage },
+  ]);
+});
+
+test("production code cannot load the testing domain dynamically", () => {
+  const result = lint({
+    "src/cli/lazy.ts":
+      'export const load = () => import("../testing/index.js");\n',
+  });
+
+  assert.equal(result.status, 1);
+  assert.deepEqual(result.violations, [
+    { file: "src/cli/lazy.ts", line: 1, help: productionMessage },
+  ]);
+});
