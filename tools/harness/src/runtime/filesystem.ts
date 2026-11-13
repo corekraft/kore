@@ -1,5 +1,6 @@
 import {
   appendFile,
+  glob,
   mkdir,
   readFile,
   open,
@@ -10,6 +11,9 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { dirname } from "node:path";
+
+/** Directories a glob walk never enters: dependency trees and version control. */
+const GLOB_EXCLUDE = ["**/node_modules", "**/.git"];
 
 export interface FileSystem {
   readFile(path: string): Promise<string>;
@@ -36,6 +40,11 @@ export interface FileSystem {
   readHead(path: string, bytes: number): Promise<string>;
   /** The file's text from byte `offset` to its end, without reading what precedes it; empty at or past the end. */
   readFrom(path: string, offset: number): Promise<string>;
+  /**
+   * Whether any path under `cwd` matches the shell glob. Stops at the first match;
+   * never enters node_modules or .git.
+   */
+  hasGlobMatch(cwd: string, pattern: string): Promise<boolean>;
 }
 
 export const nodeFileSystem: FileSystem = {
@@ -102,5 +111,11 @@ export const nodeFileSystem: FileSystem = {
     } finally {
       await file.close();
     }
+  },
+  async hasGlobMatch(cwd, pattern) {
+    for await (const path of glob(pattern, { cwd, exclude: GLOB_EXCLUDE })) {
+      return path.length > 0;
+    }
+    return false;
   },
 };

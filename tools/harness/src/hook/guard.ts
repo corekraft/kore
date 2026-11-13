@@ -17,12 +17,16 @@ import {
   findInventory,
   type Inventory,
 } from "../guardrail/index.js";
-import { anyPathMatches } from "./guard-glob.js";
 import { recordEvent } from "./ledger-event.js";
 import type { CliDeps } from "../runtime/index.js";
 import type { HookResult } from "./io.js";
 
 export { evaluate };
+
+// Globs resolve from the call's directory, as the shell runs them; the root when the payload has none.
+function callDirectory(call: { cwd?: unknown }, root: string): string {
+  return typeof call.cwd === "string" && call.cwd !== "" ? call.cwd : root;
+}
 
 /** Runs the guard against the payload the host sent; a block exits 2. */
 /** One id per session, rule and call: the same blocked call retried is the same block. */
@@ -51,6 +55,7 @@ export async function guard(
   // Recording runs beside the rules, so resolving the ledger root never adds to the guard's latency.
   const started = recordEvent(deps, "tool.start", call);
   const readFile = (path: string) => deps.fs.readFile(path);
+  // Globs resolve from the call's directory, as the shell runs them; the root when the payload has none.
   // Fail closed: with no usable inventory every rule enforces, and the cause is named.
   let inventory: Inventory | undefined;
   let problem = "";
@@ -65,7 +70,8 @@ export async function guard(
   const verdict = await evaluate(payload, {
     root,
     readFile,
-    globMatches: (pattern) => anyPathMatches(root, pattern),
+    globMatches: (pattern) =>
+      deps.fs.hasGlobMatch(callDirectory(call, root), pattern),
     modeOf: (rule) => (inventory ? modeOf(inventory, rule) : "enforce"),
     denyRules: inventory ? denyRules(inventory) : [],
   });

@@ -18,7 +18,7 @@
     { "rule": "idea-outcome", "kind": "file", "mode": "audit", "owner": "tools/harness/src/hook/guard-file.ts" },
     { "rule": "idea-issue-body", "kind": "bash", "mode": "audit", "owner": "tools/harness/src/hook/guard-commands.ts" },
     { "rule": "idea-issue-close", "kind": "bash", "mode": "audit", "owner": "tools/harness/src/hook/guard-commands.ts" },
-    { "rule": "bare-glob", "kind": "bash", "mode": "audit", "owner": "tools/harness/src/hook/guard-bash.ts" },
+    { "rule": "bare-glob", "kind": "bash", "mode": "audit", "owner": "tools/harness/src/hook/guard-bare-glob.ts" },
     { "rule": "equals-word", "kind": "bash", "mode": "enforce", "owner": "tools/harness/src/hook/guard-bash.ts" },
     { "rule": "guardrail-demotion", "kind": "bash-and-file", "mode": "audit", "owner": "tools/harness/src/hook/guard-guardrails.ts" },
     { "rule": "main-ruleset-deletion", "kind": "ruleset", "mode": "enforce", "owner": "tools/harness/src/ruleset/index.ts", "note": "Starts in enforce because live main already has this rule active, so the first sync changes nothing. A new or changed rule lands in audit: sync puts it in main-candidate in evaluate, and a person approves moving it to enforce (ADR 0090)." },

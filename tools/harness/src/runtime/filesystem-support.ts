@@ -1,4 +1,5 @@
 import type { FileSystem } from "./filesystem.js";
+import { hasMatchUnder } from "./memory-filesystem-support.js";
 
 /**
  * An in-memory file system for tests, keyed by absolute path with directories
@@ -58,6 +59,12 @@ export class MemoryFileSystem implements FileSystem {
     return Buffer.from(await this.readFile(path))
       .subarray(offset)
       .toString("utf8");
+  }
+
+  hasGlobMatch(cwd: string, pattern: string): Promise<boolean> {
+    return Promise.resolve(
+      hasMatchUnder(this.files.keys(), this.checked(cwd), pattern),
+    );
   }
 
   readlink(path: string): Promise<string> {

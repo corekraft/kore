@@ -4,6 +4,19 @@
 import { rawWords, shellText } from "./guard-shell.js";
 import { warn, type Finding, type GuardContext } from "./guard-verdict.js";
 
+// A pattern that is absolute, starts with ~ or .., or walks with ** is not walked
+// on this hook, which runs before every Bash call: it counts as unmatched and warns.
+const WALKABLE = (pattern: string): boolean =>
+  !/^(\/|~|\.\.)/.test(pattern) && !pattern.includes("**");
+
+// An audit rule never changes a verdict: a match that fails counts as unmatched.
+async function matches(ctx: GuardContext, pattern: string): Promise<boolean> {
+  if (!WALKABLE(pattern)) {
+    return false;
+  }
+  return ctx.globMatches(pattern).catch(() => false);
+}
+
 export async function bareGlob(
   command: string,
   ctx: GuardContext,
@@ -13,7 +26,7 @@ export async function bareGlob(
     (word) => word.glob && !word.text.includes("${"),
   );
   const matched = await Promise.all(
-    globs.map((glob) => ctx.globMatches(glob.text)),
+    globs.map((glob) => matches(ctx, glob.text)),
   );
   const unmatched = globs.find((_glob, index) => !matched[index]);
   return unmatched
