@@ -1,5 +1,6 @@
 import type { ChangedFile } from "./diff.js";
 import type { Pattern } from "./declaration.js";
+import { isTooling } from "./tooling.js";
 
 export interface FlagChange {
   flag: string;
@@ -73,11 +74,13 @@ const netRemovedLines = (files: readonly ChangedFile[]) =>
 
 const BUILDERS: Record<Pattern, (files: readonly ChangedFile[]) => Hints> = {
   "no-behaviour-change": (files) => {
+    const toolingPaths = files.filter(isTooling).map((f) => f.path);
     const behaviouralPaths = files
-      .map((f) => f.path)
-      .filter((p) => !NOT_BEHAVIOUR.test(p));
+      .filter((f) => !isTooling(f) && !NOT_BEHAVIOUR.test(f.path))
+      .map((f) => f.path);
     return {
       behaviouralPaths,
+      toolingPaths,
       noBehaviouralDiff: behaviouralPaths.length === 0,
     };
   },

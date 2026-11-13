@@ -51,6 +51,7 @@ describe("hintsFor", () => {
     );
     expect(hintsFor("no-behaviour-change", diff)).toEqual({
       behaviouralPaths: [],
+      toolingPaths: [],
       noBehaviouralDiff: true,
     });
   });
@@ -63,6 +64,7 @@ describe("hintsFor", () => {
     );
     expect(hintsFor("no-behaviour-change", diff)).toEqual({
       behaviouralPaths: ["tools/kore/src/a.ts"],
+      toolingPaths: [],
       noBehaviouralDiff: false,
     });
   });

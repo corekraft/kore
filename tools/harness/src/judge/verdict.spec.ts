@@ -130,3 +130,20 @@ describe("clusterFacing", () => {
     expect(clusterFacing(parseDiff(file(path)))).toBe(false);
   });
 });
+
+describe("assess: tooling under no-behaviour-change", () => {
+  it("a diff whose only non-doc paths are tooling matches and is not cluster-facing", () => {
+    const files = parseDiff(file("tools/harness/src/hook/guard.ts"));
+    const r = assess(
+      "no-behaviour-change",
+      {
+        behaviouralPaths: [],
+        toolingPaths: ["tools/harness/src/hook/guard.ts"],
+        noBehaviouralDiff: true,
+      },
+      files,
+    );
+    expect(r).toMatchObject({ patternMatches: true, clusterFacing: false });
+    expect(r.patternMismatch).toBeUndefined();
+  });
+});
