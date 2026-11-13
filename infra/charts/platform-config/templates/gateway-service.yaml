@@ -18,3 +18,24 @@ data:
           nodePort: {{ .Values.gateway.service.nodePort }}
       {{- end }}
 {{- end }}
+{{- if and .Values.gateway.service.type (eq .Values.gateway.className "agentgateway") }}
+---
+# agentgateway generates the Gateway's Service and merges this overlay into it,
+# the same settings the Istio ConfigMap above carries, so the environment still
+# decides how the Service is published.
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayParameters
+metadata:
+  name: kore-gateway-service
+  namespace: kore-system
+  labels: {app.kubernetes.io/managed-by: Helm}
+spec:
+  service:
+    spec:
+      type: {{ .Values.gateway.service.type }}
+      {{- if .Values.gateway.service.nodePort }}
+      ports:
+        - port: {{ .Values.gateway.port }}
+          nodePort: {{ .Values.gateway.service.nodePort }}
+      {{- end }}
+{{- end }}

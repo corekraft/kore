@@ -1,4 +1,8 @@
-import type { Repository } from "../config/index.js";
+import {
+  featureEnabled,
+  ingressFlag,
+  type Repository,
+} from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { routeProblem } from "./gateway-proof.js";
 import { pollUntil } from "./readiness-poll.js";
@@ -114,10 +118,74 @@ async function unpublished(
     : "Service has no LoadBalancer address or node port";
 }
 
+/** The Service and Deployment Istio generates for a Gateway of the `istio` class. */
+function istioProxyResources(name: string): string[] {
+  return [`deployment/${name}-istio`, `service/${name}-istio`];
+}
+
 /**
- * Read-only Gateway readiness: Accepted, a LoadBalancer address (or assigned node port) on its Service,
- * Programmed, then every listener's ResolvedRefs. Each step is bounded by
- * `timeout` and fails with the condition reason the controller reported.
+ * Waits until the Istio ingress proxy is gone, so a profile that served
+ * ingress through Istio has handed the Gateway to agentgateway before anything
+ * is called ready. Istio is the only owner of these two names.
+ */
+async function waitForIstioProxyGone(
+  runner: Runner,
+  base: string[],
+  name: string,
+  timeout: string,
+): Promise<void> {
+  await pollUntil(timeout, async () => {
+    for (const resource of istioProxyResources(name)) {
+      const result = await runner.run(
+        "kubectl",
+        [...base, "get", resource, "--ignore-not-found", "--output", "name"],
+        { capture: true },
+      );
+      if (result.stdout.trim() !== "") {
+        return `Istio ingress proxy ${resource} still exists; Istio has not released the Gateway to agentgateway`;
+      }
+    }
+    return undefined;
+  });
+}
+
+/**
+ * Undefined once agentgateway's GatewayClass is accepted; otherwise the reason
+ * agentgateway reported, so a missing or broken controller fails fast.
+ */
+async function classProblem(
+  runner: Runner,
+  base: string[],
+): Promise<string | undefined> {
+  const result = await runner.run(
+    "kubectl",
+    [...base, "get", "gatewayclass/agentgateway", "--output", "json"],
+    { capture: true },
+  );
+  const parsed = JSON.parse(result.stdout) as {
+    status?: { conditions?: Condition[] };
+  };
+  const problem = holds(parsed.status?.conditions ?? [], "Accepted");
+  return problem === undefined ? undefined : `GatewayClass ${problem}`;
+}
+
+/** Prefixes a failure with the controller that reported it, when it is agentgateway. */
+function named(
+  controller: string | undefined,
+  problem: string | undefined,
+): string | undefined {
+  return problem !== undefined && controller !== undefined
+    ? `${controller}: ${problem}`
+    : problem;
+}
+
+/**
+ * Read-only Gateway readiness: with the ingress flag on, the Istio ingress
+ * proxy gone and agentgateway's GatewayClass accepted; then Accepted, a
+ * LoadBalancer address (or assigned node port) on its Service, Programmed, then
+ * every listener's ResolvedRefs. Each step is bounded by `timeout` and fails
+ * with the condition reason the controller reported, naming agentgateway when
+ * it serves the Gateway.
  */
 export async function waitForGateway(
   repository: Repository,
@@ -127,8 +195,23 @@ export async function waitForGateway(
   timeout: string,
 ): Promise<void> {
   const name = resource.slice("gateway/".length);
+  const controller = featureEnabled(repository.environment, ingressFlag)
+    ? "agentgateway"
+    : undefined;
+  if (controller !== undefined) {
+    await waitForIstioProxyGone(runner, base, name, timeout);
+    await pollUntil(timeout, async () =>
+      named(controller, await classProblem(runner, base)),
+    );
+  }
   await pollUntil(timeout, async () =>
-    holds((await gatewayStatus(runner, base, resource)).conditions, "Accepted"),
+    named(
+      controller,
+      holds(
+        (await gatewayStatus(runner, base, resource)).conditions,
+        "Accepted",
+      ),
+    ),
   );
   await pollUntil(timeout, async () => {
     const reason = await unpublished(repository, runner, base, name);
@@ -137,12 +220,18 @@ export async function waitForGateway(
     }
     const { conditions } = await gatewayStatus(runner, base, resource);
     const programmed = conditions.find(({ type }) => type === "Programmed");
-    return `${reason}; ${describe(programmed, "Programmed")}`;
+    return named(
+      controller,
+      `${reason}; ${describe(programmed, "Programmed")}`,
+    );
   });
   await pollUntil(timeout, async () =>
-    holds(
-      (await gatewayStatus(runner, base, resource)).conditions,
-      "Programmed",
+    named(
+      controller,
+      holds(
+        (await gatewayStatus(runner, base, resource)).conditions,
+        "Programmed",
+      ),
     ),
   );
   await pollUntil(timeout, async () => {
@@ -153,11 +242,14 @@ export async function waitForGateway(
         reason: holds(conditions, "ResolvedRefs"),
       }))
       .filter(({ reason }) => reason !== undefined);
-    return failing.length
-      ? failing
-          .map(({ listener, reason }) => `listener ${listener} ${reason}`)
-          .join("; ")
-      : undefined;
+    return named(
+      controller,
+      failing.length
+        ? failing
+            .map(({ listener, reason }) => `listener ${listener} ${reason}`)
+            .join("; ")
+        : undefined,
+    );
   });
 }
 

@@ -61,15 +61,36 @@ test("with the flag off the platform-config render is byte-identical to today", 
   assert.equal(render(repository), golden);
 });
 
-test("with the flag on the Gateway class changes and the Istio-only Service overlay is not rendered", async () => {
+test("with the flag on the Gateway class changes and its Service is published through agentgateway's own parameters", async () => {
   const off = render(await localWith({ [ingressFlag]: false }));
   const on = render(await localWith({ [ingressFlag]: true }));
   assert.match(off, /gatewayClassName: istio/);
-  assert.match(off, /name: kore-gateway-service/);
+  assert.match(off, /kind: ConfigMap\s+metadata:\s+name: kore-gateway-service/);
   assert.match(on, /gatewayClassName: agentgateway/);
-  // The overlay is an Istio parametersRef; agentgateway takes its own
-  // parameters resource, which the ingress plan adds when it replaces the Gateway.
-  assert.doesNotMatch(on, /kore-gateway-service|parametersRef/);
+  assert.doesNotMatch(on, /gatewayClassName: istio/);
+  // The Istio overlay is a ConfigMap; agentgateway reads the same Service
+  // settings from its AgentgatewayParameters, so the node port is kept.
+  assert.doesNotMatch(on, /kind: ConfigMap/);
+  assert.match(
+    on,
+    /parametersRef: \{group: agentgateway\.dev, kind: AgentgatewayParameters, name: kore-gateway-service\}/,
+  );
+  assert.match(on, /kind: AgentgatewayParameters/);
+  assert.match(on, /type: NodePort/);
+  assert.match(on, /port: 8443\s+nodePort: 30443/);
+});
+
+test("with the flag on, an overlay that sets no Gateway service renders no parameters resource", async () => {
+  const base = await loadRepository("managed-example");
+  const on = render({
+    ...base,
+    environment: {
+      ...base.environment,
+      features: { ...base.environment.features, [ingressFlag]: true },
+    },
+  });
+  assert.match(on, /gatewayClassName: agentgateway/);
+  assert.doesNotMatch(on, /AgentgatewayParameters|parametersRef/);
 });
 
 test("no agentgateway release is issued with the flag off, and both are with it on", async () => {
