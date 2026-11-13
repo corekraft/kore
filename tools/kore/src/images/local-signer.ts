@@ -1,9 +1,9 @@
 import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { localSigner, trustedSigners } from "../config/index.js";
 import type { Repository } from "../config/index.js";
-import type { Runner } from "../runtime/index.js";
+import { environmentStatePath, type Runner } from "../runtime/index.js";
 
 export const localSigningKeyNamespace = "kore-system";
 export const localSigningKeySecret = "kore-local-signing-key";
@@ -199,7 +199,13 @@ export async function withLocalSigner<T>(
   runner: Runner,
   action: (signer: LocalSigner) => Promise<T>,
 ): Promise<T> {
-  const state = join(repository.root, ".kore", "state");
+  const state = dirname(
+    environmentStatePath(
+      repository.root,
+      repository.environment.name,
+      "local-signing.pub",
+    ),
+  );
   return await withKeyPair(
     repository,
     runner,

@@ -1,15 +1,14 @@
 import { isLocalProvider, type Repository } from "../config/index.js";
 import { mkdir, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname } from "node:path";
 import { appUp, type AppUpOptions } from "../app/index.js";
 import {
+  buildAndSignLocalImage,
   loadImageLock,
+  pruneStaleImageTags,
+  type BuiltLocalImage,
   type ImageLockEntry,
   type LockedImage,
-} from "../images/index.js";
-import {
-  buildAndSignLocalImage,
-  type BuiltLocalImage,
 } from "../images/index.js";
 import { syncLocalSecrets } from "../security/index.js";
 import {
@@ -17,7 +16,11 @@ import {
   platformStop,
   platformUp,
 } from "../platform/index.js";
-import type { Runner } from "../runtime/index.js";
+import {
+  CommandError,
+  environmentStatePath,
+  type Runner,
+} from "../runtime/index.js";
 
 export interface LocalLifecycleDependencies {
   platformUp?: typeof platformUp;
@@ -35,6 +38,7 @@ export interface LocalLifecycleDependencies {
     entry: ImageLockEntry,
   ) => Promise<BuiltLocalImage>;
   syncSecrets?: typeof syncLocalSecrets;
+  pruneImageTags?: typeof pruneStaleImageTags;
   platformStop?: typeof platformStop;
   platformDestroy?: typeof platformDestroy;
 }
@@ -43,6 +47,31 @@ function assertLocal(repository: Repository): void {
   if (!isLocalProvider(repository.environment)) {
     throw new Error(
       `local lifecycle commands only manage k3d environments; environment ${repository.environment.name} is ${repository.environment.provider}`,
+    );
+  }
+}
+
+/**
+ * Removes the tags earlier runs left, before this run builds any. It is
+ * housekeeping: a command failing here (no docker daemon) is reported and the
+ * run goes on, but a bug or a refusal is not hidden.
+ */
+async function pruneStaleTags(
+  repository: Repository,
+  runner: Runner,
+  dependencies: LocalLifecycleDependencies,
+): Promise<void> {
+  try {
+    await (dependencies.pruneImageTags ?? pruneStaleImageTags)(
+      repository,
+      runner,
+    );
+  } catch (error) {
+    if (!(error instanceof CommandError)) {
+      throw error;
+    }
+    process.stderr.write(
+      `could not prune stale local image tags, continuing: ${error.message}\n`,
     );
   }
 }
@@ -56,14 +85,14 @@ export async function localUp(
   const lock = await loadImageLock(repository.root);
   await (dependencies.platformUp ?? platformUp)(repository, runner);
   await (dependencies.syncSecrets ?? syncLocalSecrets)(repository, runner);
+  await pruneStaleTags(repository, runner, dependencies);
   const localEntries: Record<string, ImageLockEntry> = {};
-  const localLockPath = join(
+  const localLockPath = environmentStatePath(
     repository.root,
-    ".kore",
-    "state",
+    repository.environment.name,
     "local-images.lock.json",
   );
-  await mkdir(join(repository.root, ".kore", "state"), { recursive: true });
+  await mkdir(dirname(localLockPath), { recursive: true });
   // A lock from an earlier run names digests signed by a key that may have
   // vanished with its cluster; every run re-signs, so start without it.
   await rm(localLockPath, { force: true });
@@ -105,7 +134,7 @@ export async function localUp(
 export async function localDown(
   repository: Repository,
   runner: Runner,
-  options: { prune: boolean; purgeData: boolean },
+  options: { prune: boolean; purgeData: boolean; force?: boolean },
   dependencies: LocalLifecycleDependencies = {},
 ): Promise<void> {
   assertLocal(repository);
@@ -116,15 +145,27 @@ export async function localDown(
   }
   if (options.prune) {
     // The signing key lives in the cluster Secret and is destroyed with it.
-    const state = join(repository.root, ".kore", "state");
-    await rm(join(state, "local-images.lock.json"), { force: true });
-    await rm(join(state, "local-signing.pub"), { force: true });
+    const state = (file: string) =>
+      environmentStatePath(repository.root, repository.environment.name, file);
+    await rm(state("local-images.lock.json"), { force: true });
+    await rm(state("local-signing.pub"), { force: true });
     await (dependencies.platformDestroy ?? platformDestroy)(
       repository,
       runner,
-      { yes: true, purgeData: options.purgeData },
+      {
+        yes: true,
+        purgeData: options.purgeData,
+        force: options.force === true,
+      },
     );
   } else {
-    await (dependencies.platformStop ?? platformStop)(repository, runner);
+    await (dependencies.platformStop ?? platformStop)(
+      repository,
+      runner,
+      {},
+      {
+        force: options.force === true,
+      },
+    );
   }
 }

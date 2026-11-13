@@ -1,5 +1,6 @@
 import type { CommandContext } from "../runtime/index.js";
 import { resolveTier } from "./agent-definition.js";
+import { hostLeaseRefusal } from "./host-lease.js";
 import { sessionNameError } from "./names.js";
 import { FAILED, USAGE_ERROR } from "./output.js";
 import { findResult, parseTimeout } from "./wait.js";
@@ -23,8 +24,14 @@ export type Checked =
     }
   | { error: string; code: number };
 
-/** The pane to broadcast back to, or the refusal when not run from a Herdr pane. */
-function herdrCaller(deps: CommandContext["deps"]): string | Checked {
+/**
+ * The pane to broadcast back to, or the refusal when not run from a Herdr
+ * pane, or when a writer would start while a live run holds the host lease.
+ */
+async function herdrCaller(
+  deps: CommandContext["deps"],
+  role: string,
+): Promise<string | Checked> {
   const callerPane = deps.env.HERDR_PANE_ID;
   if (deps.env.HERDR_ENV !== "1") {
     return {
@@ -39,6 +46,10 @@ function herdrCaller(deps: CommandContext["deps"]): string | Checked {
         "HERDR_PANE_ID is not set, so the session cannot broadcast back. Run this from a Herdr pane.",
       code: FAILED,
     };
+  }
+  const refused = role === "writer" ? await hostLeaseRefusal(deps) : undefined;
+  if (refused !== undefined) {
+    return { error: refused, code: FAILED };
   }
   return callerPane;
 }
@@ -114,7 +125,7 @@ export async function check({
   if (typeof timeoutMs !== "number") {
     return usage(timeoutMs.error);
   }
-  const callerPane = herdrCaller(deps);
+  const callerPane = await herdrCaller(deps, given.role);
   if (typeof callerPane !== "string") {
     return callerPane;
   }

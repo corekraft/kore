@@ -6,6 +6,7 @@ export { managedLockErrors } from "./managed-lock.js";
 export { renderedImages, unapprovedImages } from "./rendered-images.js";
 export { buildAndSignLocalImage } from "./local-image.js";
 export type { BuiltLocalImage } from "./local-image.js";
+export { pruneStaleImageTags } from "./image-prune.js";
 export { localRegistryReference, stopRegistryForward } from "./registry.js";
 export {
   ensureLocalSigningPublicKey,

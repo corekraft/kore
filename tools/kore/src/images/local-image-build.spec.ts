@@ -54,7 +54,10 @@ test("build and sign generates the key pair as a Kubernetes Secret through the c
     entry,
   );
 
-  const publicKey = join(repository.root, ".kore/state/local-signing.pub");
+  const publicKey = join(
+    repository.root,
+    ".kore/state/environments/local/local-signing.pub",
+  );
   expect(result).toEqual({
     image: {
       reference: `10.96.0.50:5000/reference@${digest}`,
@@ -222,8 +225,8 @@ test("build and sign pushes to the environment's registry.address, not a live lo
   await buildAndSignLocalImage(repository, runner, "reference", entry);
 
   const publish = calls.find((c) => c.args.some((a) => a.includes("push")));
-  expect(publish?.args.join(" ")).toContain(
-    "'10.96.0.50:5000/reference:kore-local'",
+  expect(publish?.args.join(" ")).toMatch(
+    /'10\.96\.0\.50:5000\/reference:kore-local-[0-9a-f]{12}'/,
   );
 });
 

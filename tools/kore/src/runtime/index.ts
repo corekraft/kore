@@ -13,6 +13,10 @@ export type {
   JournalOperation,
   OperationSummary,
 } from "./journal.js";
+export { environmentStatePath } from "./environment-state.js";
+export { processAlive } from "./lock-owner.js";
+export { HOST_LEASE, holdsHostLease, withHostLease } from "./host-lease.js";
+export { hostRoot, lockScope } from "./host-locks.js";
 export {
   CommandError,
   CommandTimeoutError,

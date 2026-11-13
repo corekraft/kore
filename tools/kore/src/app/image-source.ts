@@ -1,5 +1,6 @@
 import { access } from "node:fs/promises";
-import { join } from "node:path";
+import { join, relative } from "node:path";
+import { environmentStatePath } from "../runtime/index.js";
 import { isLocalProvider, type Repository } from "../config/index.js";
 import {
   assertReleaseAutomationImage,
@@ -51,7 +52,15 @@ export async function resolveImage(
   return image;
 }
 
-const localLockPath = ".kore/state/local-images.lock.json";
+const localLockPath = (repository: Repository) =>
+  relative(
+    repository.root,
+    environmentStatePath(
+      repository.root,
+      repository.environment.name,
+      "local-images.lock.json",
+    ),
+  );
 
 /**
  * The image `app status` compares against: on a local cluster the lock of the last
@@ -64,8 +73,9 @@ export async function lockedImageForStatus(
   let path: string | undefined;
   if (isLocalProvider(repository.environment)) {
     try {
-      await access(join(repository.root, localLockPath));
-      path = localLockPath;
+      const candidate = localLockPath(repository);
+      await access(join(repository.root, candidate));
+      path = candidate;
     } catch {
       /* No local source build has been recorded yet; use the release lock. */
     }

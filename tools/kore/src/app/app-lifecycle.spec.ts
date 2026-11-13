@@ -164,10 +164,12 @@ test("app status reports locked image provenance", async () => {
 test("app status prefers the local image lock when present", async () => {
   const base = await loadRepository("local");
   const root = await mkdtemp(join(tmpdir(), "kore-app-status-local-lock-"));
-  await mkdir(join(root, ".kore/state"), { recursive: true });
+  await mkdir(join(root, ".kore/state/environments/local"), {
+    recursive: true,
+  });
   await copyFile(
     join(base.root, "infra/catalog/images.lock.json"),
-    join(root, ".kore/state/local-images.lock.json"),
+    join(root, ".kore/state/environments/local/local-images.lock.json"),
   );
   const runner: Runner = {
     async run(command) {

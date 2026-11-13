@@ -6,16 +6,22 @@
 //   KORE_TEST_LOCK_DIR      lock directory (default: <main checkout>/.kore/state)
 //   KORE_TEST_LOCK_WAIT_MS  longest wait (default 15 minutes)
 //   KORE_TEST_LOCK_POLL_MS  poll interval (default 1000)
+//   KORE_HOST_ROOT          host directory holding .kore/locks (default: home)
+// A live run holds the exclusive host lease (.kore/locks/host-lease.lock). A
+// test run beside it is audited, to stderr and host-lease-audit.jsonl in the
+// lock directory, and still runs: enforcing the wait needs the owner's OK.
 // Docs: docs/guides/contributor.md (Commit hooks)
 
 import { spawn, spawnSync } from "node:child_process";
 import {
+  appendFileSync,
   mkdirSync,
   readFileSync,
   rmSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 
 const DEFAULT_WAIT_MS = 15 * 60 * 1000;
@@ -95,6 +101,54 @@ async function acquire(lock) {
   }
 }
 
+/** The host directory of `.kore/locks`; an empty value is unset, and a relative one is not usable. */
+function hostRoot() {
+  const given = [process.env.KORE_HOST_ROOT, process.env.HOME].find(
+    (value) => value !== undefined && value !== "",
+  );
+  const root = given ?? homedir();
+  if (!isAbsolute(root)) {
+    throw new Error(
+      `the host root "${root}" is not absolute; set KORE_HOST_ROOT to an absolute directory`,
+    );
+  }
+  return root;
+}
+
+/**
+ * Reports, without waiting, a test run that starts while a live run holds the
+ * host lease. Audit only: nothing here may stop the run, so every failure is
+ * reported and swallowed.
+ */
+function auditHostLease(directory) {
+  let lease;
+  try {
+    lease = holder(join(hostRoot(), ".kore", "locks", "host-lease.lock"));
+  } catch (error) {
+    console.error(`audit: host lease not checked: ${error.message}`);
+    return;
+  }
+  if (lease === undefined || !alive(lease.pid)) {
+    return;
+  }
+  console.error(
+    `audit: host lease held by pid ${lease.pid}; this test run would wait for it once enforcement is on (not waiting now)`,
+  );
+  try {
+    appendFileSync(
+      join(directory, "host-lease-audit.jsonl"),
+      `${JSON.stringify({
+        at: new Date().toISOString(),
+        holder: lease.pid,
+        cwd: process.cwd(),
+        command: process.argv.slice(2).join(" "),
+      })}\n`,
+    );
+  } catch (error) {
+    console.error(`audit: could not write the audit log: ${error.message}`);
+  }
+}
+
 const [command, ...args] = process.argv.slice(2);
 if (command === undefined) {
   console.error("usage: node test-lock.mjs <command> [args...]");
@@ -103,6 +157,7 @@ if (command === undefined) {
 
 const directory = lockDirectory();
 mkdirSync(directory, { recursive: true });
+auditHostLease(directory);
 const lock = join(directory, "test.lock");
 await acquire(lock);
 

@@ -85,12 +85,17 @@ test("local secret sync generates and reuses a private API token after cluster p
   await mkdir(join(root, "infra/environments/local/secrets"), {
     recursive: true,
   });
-  await mkdir(join(root, ".kore/state"), { recursive: true });
+  await mkdir(join(root, ".kore/state/environments/local"), {
+    recursive: true,
+  });
   const repository = { ...base, root };
   const runner = new SecretRunner();
   try {
     await syncLocalSecrets(repository, runner);
-    const tokenPath = join(root, ".kore/state/reference-api-token");
+    const tokenPath = join(
+      root,
+      ".kore/state/environments/local/reference-api-token",
+    );
     const token = (await readFile(tokenPath, "utf8")).trim();
     assert.match(token, /^[a-f0-9]{64}$/);
     assert.equal((await stat(tokenPath)).mode & 0o777, 0o600);
@@ -137,7 +142,9 @@ test("local secret sync immediately retries an existing reference ExternalSecret
   await mkdir(join(root, "infra/environments/local/secrets"), {
     recursive: true,
   });
-  await mkdir(join(root, ".kore/state"), { recursive: true });
+  await mkdir(join(root, ".kore/state/environments/local"), {
+    recursive: true,
+  });
   const runner = new SecretRunner();
   try {
     await syncLocalSecrets({ ...repository, root }, runner);
@@ -169,9 +176,11 @@ test("secret sync rejects a corrupted persisted local API token", async () => {
   await mkdir(join(root, "infra/environments/local/secrets"), {
     recursive: true,
   });
-  await mkdir(join(root, ".kore/state"), { recursive: true });
+  await mkdir(join(root, ".kore/state/environments/local"), {
+    recursive: true,
+  });
   await writeFile(
-    join(root, ".kore/state/reference-api-token"),
+    join(root, ".kore/state/environments/local/reference-api-token"),
     "not-secret\n",
   );
   try {

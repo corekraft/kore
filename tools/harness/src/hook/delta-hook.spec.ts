@@ -27,6 +27,8 @@ import { planText } from "./delta-support.js";
 // Under a git hook GIT_DIR and friends are set and would aim the fixture's git
 // calls at the real repository.
 const cleanEnv = cleanGitEnv();
+// Locks are host-wide; keep this spec's off the real home directory.
+const host = mkdtempSync(join(tmpdir(), "kore-delta-host-"));
 
 // ProcessRunner children inherit process.env, so drop GIT_* for each test.
 const savedGit: Record<string, string> = {};
@@ -68,7 +70,7 @@ function repoFixture(): { root: string; git: (...args: string[]) => void } {
 }
 
 async function hook(root: string, input: unknown) {
-  const h = testHarness({ env: cleanEnv });
+  const h = testHarness({ env: { ...cleanEnv, KORE_HOST_ROOT: host } });
   h.deps.fs = nodeFileSystem;
   h.deps.runner = new ProcessRunner();
   h.deps.clock = systemClock;
@@ -109,8 +111,8 @@ describe("hook delta", () => {
       join(root, "infra/plans/6-plan.md"),
       planText("- [x] Build it."),
     );
-    mkdirSync(join(root, ".kore/locks"), { recursive: true });
-    writeFileSync(join(root, ".kore/locks/local.lock"), "");
+    mkdirSync(join(host, ".kore/locks"), { recursive: true });
+    writeFileSync(join(host, ".kore/locks/local.lock"), "");
     git("commit", "-qam", "feat: build it");
 
     const second = await hook(root, event);
