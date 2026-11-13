@@ -7,8 +7,10 @@ import { CORPUS, ORDINARY, type CorpusCase } from "./guard-corpus.js";
 
 const ROOT = "/repo";
 
-/** The input a corpus case stands for: a command, or a path for a file tool. */
-function toolInput(c: Pick<CorpusCase, "tool" | "input">) {
+/** The input a corpus case stands for: a command, or the path fields of a file tool. */
+function toolInput(
+  c: Pick<CorpusCase, "tool" | "input"> & { pattern?: string },
+) {
   switch (c.tool) {
     case "Bash":
       return { command: c.input };
@@ -16,12 +18,18 @@ function toolInput(c: Pick<CorpusCase, "tool" | "input">) {
       return { file_path: c.input, old_string: "a", new_string: "b" };
     case "Write":
       return { file_path: c.input, content: "x" };
+    case "Glob":
+      return { pattern: c.input, path: c.input };
+    case "Grep":
+      return { pattern: c.pattern ?? "token", path: c.input };
     default:
-      return { file_path: c.input, path: c.input };
+      return { file_path: c.input };
   }
 }
 
-function payload(c: Pick<CorpusCase, "role" | "tool" | "input">) {
+function payload(
+  c: Pick<CorpusCase, "role" | "tool" | "input"> & { pattern?: string },
+) {
   return {
     session_id: "s1",
     cwd: ROOT,

@@ -202,7 +202,12 @@ function escapes(segment: readonly string[], root: string): string | undefined {
   if (!writes(segment) && !runsInline(segment)) {
     return undefined;
   }
-  return segment.flatMap(pathsIn).find((path) => outside(root, path));
+  // A word with whitespace is text (a commit message, a `--body`), not a path, unless it is inline code.
+  const inline = runsInline(segment);
+  return segment
+    .filter((word) => inline || !/\s/.test(word))
+    .flatMap(pathsIn)
+    .find((path) => outside(root, path));
 }
 
 export function checkDeliveryBash(

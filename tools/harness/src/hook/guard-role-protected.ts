@@ -1,9 +1,11 @@
 // What every role-bound pane may not touch, however it asks (#335, ADR 0091): the host's
 // credentials, and for a writer the guard it runs under and the commands that decide what
-// ships. These are quick fixes for holes the adversarial retro reproduced, not a boundary:
-// a writer has a full shell, and the control that stops it is the ruleset and the
-// containment around the pane, so each rule here is a named regex over words, nothing more.
-import { posix, isAbsolute, relative, resolve } from "node:path";
+// ships. These are hints, not a boundary: containment comes from #336 and #337, so each
+// check is a cheap match over path-like words and the file tools' path fields.
+//
+// Known limits, accepted under ADR 0091 and not chased: a path or command built through a
+// variable or a `cd`, and a writer editing tools/harness/src/hook and rebuilding the bundle.
+import { posix, isAbsolute, relative } from "node:path";
 import { runsInline } from "./guard-role-delivery.js";
 import { expand, withSubstitutions } from "./guard-role-merge.js";
 import {
@@ -15,30 +17,114 @@ import {
 import { commandOf, splitSegments } from "./guard-shell.js";
 import { block, type Finding } from "./guard-verdict.js";
 
-/** `~/.ssh`, `~/.kube/config` and `~/.config/gh`: key, cluster and GitHub token material that no pane has a task for. */
-const HOST_SECRET =
-  /(?:^|[/\s='"~:])\.ssh(?:\/|$|[\s'"])|\.kube\/config|\.config\/gh(?:\/|$|[\s'"])/;
-/** The tool inputs that name a path or a command. */
-const NAMING_FIELDS = [
-  "command",
-  "file_path",
-  "notebook_path",
-  "path",
-  "pattern",
-  "glob",
-];
-
-/** The text a tool call names, and for a command also its unquoted words, so `~/.s''sh` reads as `~/.ssh`. */
-function named(input: Record<string, unknown>): string[] {
-  return NAMING_FIELDS.flatMap((field) => {
-    const value = input[field];
-    if (typeof value !== "string") {
-      return [];
+/** Whether `pattern` (`*` any run, `?` and `[...]` one character) matches `text`; a leading dot needs a literal dot, as in a shell. */
+function globMatches(pattern: string, text: string): boolean {
+  if (text.startsWith(".") && !pattern.startsWith(".")) {
+    return false;
+  }
+  const units = pattern.replace(/\[[^\]]*\]/g, "?");
+  let p = 0;
+  let t = 0;
+  let star = -1;
+  let resume = 0;
+  while (t < text.length) {
+    if (units[p] === "*") {
+      star = p++;
+      resume = t;
+    } else if (units[p] === "?" || units[p] === text[t]) {
+      p++;
+      t++;
+    } else if (star >= 0) {
+      p = star + 1;
+      t = ++resume;
+    } else {
+      return false;
     }
-    return field === "command"
-      ? [value, ...splitSegments(value).map((segment) => segment.join(" "))]
-      : [value];
+  }
+  return units.slice(p).replace(/\*/g, "") === "";
+}
+
+/** How many characters of a glob are literal, so `.*` is too thin a match to name a protected path. */
+const literals = (part: string): number => part.replace(/[*?[\]]/g, "").length;
+const MIN_LITERALS = 3;
+
+/** Whether the path's leading components name `target`, with globs in the path read as the shell would expand them. */
+function namesPath(
+  parts: readonly string[],
+  target: readonly string[],
+): boolean {
+  return (
+    parts.length >= target.length &&
+    target.every((name, i) => globMatches(parts[i] as string, name)) &&
+    parts
+      .slice(0, target.length)
+      .reduce((sum, part) => sum + literals(part), 0) >= MIN_LITERALS
+  );
+}
+
+/** The components of a path with `//`, `.` and `..` collapsed and a leading `./` or `~/` dropped. */
+const componentsOf = (word: string): string[] =>
+  posix
+    .normalize(word.replace(/^~(?=\/)/, "~home"))
+    .split("/")
+    .filter((part) => part !== "" && part !== ".");
+
+/** The words a path could be written as: the word, the value of `--opt=value`, and without a redirect operator. */
+function pathForms(word: string): string[] {
+  const bare = word.replace(/^\d*[<>][>|]?|^&>>?/, "");
+  const value = bare.startsWith("-") ? bare.slice(bare.indexOf("=") + 1) : bare;
+  return [bare, value];
+}
+
+/** `~/.ssh`, `~/.kube/config` and `~/.config/gh`: key, cluster and GitHub token material that no pane has a task for. */
+const HOST_SECRETS = [[".ssh"], [".kube", "config"], [".config", "gh"]];
+
+/** Whether a path, wherever it starts, passes through host credential material. */
+function namesHostSecret(path: string): boolean {
+  const parts = componentsOf(path);
+  return parts.some((_, from) =>
+    HOST_SECRETS.some((secret) => namesPath(parts.slice(from), secret)),
+  );
+}
+
+/** The fields that hold a path; a Glob's pattern is one too, but a Grep's pattern is text to search for. */
+const PATH_FIELDS = ["file_path", "notebook_path", "path"];
+
+const SEARCHERS = new Set(["grep", "egrep", "fgrep", "rg", "ag"]);
+
+/** The words of a segment that can be paths: for a search command, not the pattern it looks for (its first operand, or the value of -e). */
+function operands(segment: readonly string[]): string[] {
+  const { name, args } = commandOf(segment);
+  if (!SEARCHERS.has(name)) {
+    return [...segment];
+  }
+  const patterned = args.some((arg) => /^-[a-zA-Z]*e$|^--regexp/.test(arg));
+  let skipped = patterned;
+  return args.filter((arg, i) => {
+    const pattern = /^-[a-zA-Z]*e$|^--regexp$/.test(args[i - 1] ?? "");
+    if (!skipped && !arg.startsWith("-")) {
+      skipped = true;
+      return false;
+    }
+    return !pattern;
   });
+}
+
+/** The paths a call names: a file tool's path fields, and a command's words with no whitespace (a commit message or `--body` text has some). */
+function pathsNamed(tool: string, input: Record<string, unknown>): string[] {
+  const fields = tool === "Glob" ? [...PATH_FIELDS, "pattern"] : PATH_FIELDS;
+  const fromFields = fields.flatMap((field) => {
+    const value = input[field];
+    return typeof value === "string" ? [value] : [];
+  });
+  const command = input["command"];
+  const words =
+    tool === "Bash" && typeof command === "string"
+      ? splitSegments(command)
+          .flatMap(operands)
+          .filter((word) => !/\s/.test(word))
+      : [];
+  return [...fromFields, ...words].flatMap(pathForms);
 }
 
 const hostSecret = (): Finding =>
@@ -48,40 +134,57 @@ const hostSecret = (): Finding =>
       "Instead, use `gh` and `kubectl` as they are configured, or ask the user to handle the credential.",
   );
 
-const protectedBlock = (what: string): Finding =>
+/** The writer's own guard: the bundle's folder, the hooks, the settings and the `.claude` folder itself. */
+const GUARD_PATHS = [
+  ["skills", "bin"],
+  [".claude", "hooks"],
+  [".claude", "settings.json"],
+  [".claude"],
+];
+/** The guard's files as inline code or a script names them, where a word is a whole program. */
+const GUARD_TEXT =
+  /skills\/bin\b|\.claude\/(?:hooks|settings\.json)|(?:^|[\s'"])\.claude(?:['"\s)]|$)/;
+
+const guardFile = (what: string): Finding =>
   block(
-    "role-protected",
-    `${what} is the guard bundle, a hook, or a command that flips a flag, records an outcome or dispatches a workflow; a writer may not change or run it. ` +
-      "Instead, report that the change needs the person or the orchestrator, and describe what to do.",
+    "role-read-only",
+    `${what} changes the guard bundle, a hook or the settings, and a writer may not edit the guard it runs under. ` +
+      "Instead, report that the change needs the person, and describe what to change.",
   );
 
-/** The guard's own files: the bundle and everything under `.claude/hooks`. */
-const GUARD_FILE = /skills\/bin\/harness\.mjs|\.claude\/hooks(?:\/|$|['"\s)])/;
+const gated = (what: string): Finding =>
+  block(
+    "role-no-merge",
+    `${what} activates a flag, records an outcome or dispatches a workflow, which is the person's or the orchestrator's call, not a writer's. ` +
+      "Instead, report that it is ready, and the orchestrator or the person runs it.",
+  );
 
-/** Whether a word names a guard file, as written or with `.` and `..` segments resolved. */
-const namesGuardFile = (word: string): boolean =>
-  GUARD_FILE.test(word) || GUARD_FILE.test(posix.normalize(word));
-
-/** Whether a file tool targets a guard file, with `..` resolved against the worktree. */
-function editsGuardFile(root: string, path: string): boolean {
-  const from = relative(root, resolve(root, path));
-  return !from.startsWith("..") && !isAbsolute(from) && namesGuardFile(from);
+/** Whether a word names a guard path, relative to the worktree or inside it by absolute path. */
+function namesGuardPath(root: string, word: string): boolean {
+  const inside = isAbsolute(word) ? relative(root, word) : word;
+  return (
+    GUARD_TEXT.test(word) ||
+    (!inside.startsWith("..") &&
+      GUARD_PATHS.some((target) => namesPath(componentsOf(inside), target)))
+  );
 }
 
 /** The command lines a Bash call may run: its segments, those inside substitutions, and those inside env, `bash -c`, xargs and eval. */
 const linesOf = (command: string): string[][] =>
   withSubstitutions(command).flatMap((segment) => expand(segment));
 
-/** A line that writes to a guard file: a redirect to it, or a writing command or inline script that names it. */
-function writesGuardFile(line: readonly string[]): boolean {
+/** A line that writes to a guard path: a redirect to it, or a writing command or inline script that names it. */
+function writesGuardPath(root: string, line: readonly string[]): boolean {
   const rest = withoutRedirects(line);
   const words = writes(rest) || runsInline(rest) ? rest : [];
-  return [...redirectTargets(line), ...words].some(namesGuardFile);
+  return [...redirectTargets(line), ...words]
+    .flatMap(pathForms)
+    .some((word) => namesGuardPath(root, word));
 }
 
 const WITHOUT_VALUE = new Set(["-R", "--repo"]);
 
-/** `gh workflow run`, with `-R <repo>` allowed anywhere before the verb. */
+/** `gh workflow run`, or an API call to a dispatches route, with `-R <repo>` allowed anywhere before the verb. */
 function dispatchesWorkflow(args: readonly string[]): boolean {
   const plain = args.filter(
     (arg, i) =>
@@ -89,16 +192,22 @@ function dispatchesWorkflow(args: readonly string[]): boolean {
       !WITHOUT_VALUE.has(args[i - 1] ?? "") &&
       !arg.startsWith("--repo="),
   );
-  return plain[0] === "workflow" && plain[1] === "run";
+  return (
+    (plain[0] === "workflow" && plain[1] === "run") ||
+    (plain[0] === "api" && plain.some((arg) => /\/dispatches\b/.test(arg)))
+  );
 }
 
 const GATED_HARNESS = ["flag activate", "outcome record"];
+const INTERPRETERS = new Set(["node", "bash", "sh", "zsh", "dash", "ksh"]);
+const HARNESS_SCRIPT = /(?:^|\/)harness\.(?:mjs|sh)$/;
 
-/** The words after the harness, run as the bundle, its launcher or the bare name; undefined when the line is not the harness. */
+/** The words after the harness, run as the bundle or the launcher (through an interpreter and its flags) or by name; undefined when the line is not the harness. */
 function harnessWords(line: readonly string[]): readonly string[] | undefined {
   const { name, args } = commandOf(line);
-  if (name === "node") {
-    return (args[0] ?? "").endsWith("harness.mjs") ? args.slice(1) : undefined;
+  if (INTERPRETERS.has(name)) {
+    const at = args.findIndex((arg) => HARNESS_SCRIPT.test(arg));
+    return at < 0 ? undefined : args.slice(at + 1);
   }
   return /^harness(?:\.mjs|\.sh)?$/.test(name) ? args : undefined;
 }
@@ -121,7 +230,7 @@ export function checkProtected(
   input: Record<string, unknown>,
   root: string,
 ): Finding {
-  if (named(input).some((text) => HOST_SECRET.test(text))) {
+  if (pathsNamed(tool, input).some(namesHostSecret)) {
     return hostSecret();
   }
   if (role !== "writer") {
@@ -129,16 +238,19 @@ export function checkProtected(
   }
   const path = input["file_path"] ?? input["notebook_path"];
   if (WRITE_TOOLS.has(tool)) {
-    return typeof path === "string" && editsGuardFile(root, path)
-      ? protectedBlock(`${tool} ${path}`)
+    return typeof path === "string" && namesGuardPath(root, path)
+      ? guardFile(`${tool} ${path}`)
       : null;
   }
   const command = input["command"];
   if (tool !== "Bash" || typeof command !== "string") {
     return null;
   }
-  const line = linesOf(command).find(
-    (candidate) => writesGuardFile(candidate) || runsGated(candidate),
-  );
-  return line === undefined ? null : protectedBlock(`\`${line.join(" ")}\``);
+  const lines = linesOf(command);
+  const file = lines.find((line) => writesGuardPath(root, line));
+  if (file !== undefined) {
+    return guardFile(`\`${file.join(" ")}\``);
+  }
+  const gate = lines.find(runsGated);
+  return gate === undefined ? null : gated(`\`${gate.join(" ")}\``);
 }

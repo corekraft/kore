@@ -57,7 +57,7 @@ export const readOnly = (what: string): Finding =>
   );
 
 /** Output redirects and the read-write `<>`, which opens a file for writing without truncating it. */
-const FD_OPERATOR = /^(?:\d*>>?|&>>?|\d*<>)$/;
+const FD_OPERATOR = /^(?:\d*>[>|]?|&>>?|\d*<>)$/;
 const harmless = (target: string | undefined): boolean =>
   target === "/dev/null" || target === "&1" || target === "&2";
 
@@ -66,7 +66,7 @@ export const redirectTargets = (segment: readonly string[]): string[] =>
   segment.flatMap((word, index) => {
     const target = FD_OPERATOR.test(word)
       ? segment[index + 1]
-      : /^(?:\d*>>?|&>>?|\d*<>)(.+)$/.exec(word)?.[1];
+      : /^(?:\d*>[>|]?|&>>?|\d*<>)(.+)$/.exec(word)?.[1];
     return target === undefined || harmless(target) ? [] : [target];
   });
 
@@ -75,7 +75,7 @@ export const withoutRedirects = (segment: readonly string[]): string[] =>
   segment.filter(
     (word, index) =>
       !FD_OPERATOR.test(word) &&
-      !/^(?:\d*>>?|&>>?|\d*<>)./.test(word) &&
+      !/^(?:\d*>[>|]?|&>>?|\d*<>)./.test(word) &&
       !FD_OPERATOR.test(segment[index - 1] ?? ""),
   );
 

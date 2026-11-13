@@ -81,8 +81,9 @@ class Splitter {
   }
 
   private isSingleOperator(i: number, char: string): boolean {
+    // `>|` forces a redirect to overwrite: one operator, not a pipe.
     return (
-      char === "|" ||
+      (char === "|" && !(this.inWord && this.word.endsWith(">"))) ||
       (char === "&" &&
         this.command[i + 1] !== ">" &&
         this.command[i - 1] !== ">")
@@ -264,7 +265,7 @@ export function rawWords(command: string): RawWord[] {
   return new WordScanner(command).run();
 }
 
-/** The first unquoted zsh glob qualifier that runs code: `e:'cmd':` evaluates a string and `+name` calls a function, on a word such as `*(e:'cmd':)`. */
+/** The first unquoted zsh glob qualifier that runs code: `e:'cmd':` evaluates a string and `+name` calls a function, after any word (`*(e:'cmd':)`, `a(e:'cmd':)`, `{a,b}(e:'cmd':)`). `$(`, `<(` and `>(` are substitutions, checked apart. */
 export function execGlobQualifier(command: string): string | undefined {
   let quote: string | null = null;
   for (let i = 0; i < command.length; i++) {
@@ -275,7 +276,7 @@ export function execGlobQualifier(command: string): string | undefined {
       quote = char === quote ? null : quote;
     } else if (char === "'" || char === '"') {
       quote = char;
-    } else if (char === "(" && "*?])/".includes(command[i - 1] ?? " ")) {
+    } else if (char === "(" && /[^\s$<>(;&|=]/.test(command[i - 1] ?? " ")) {
       const group = command.slice(i + 1).split(")")[0] as string;
       if (/(?:^|[^A-Za-z0-9])\+|e[^A-Za-z0-9]/.test(group)) {
         return `${command.slice(Math.max(0, i - 1), i)}(${group})`;
@@ -283,4 +284,18 @@ export function execGlobQualifier(command: string): string | undefined {
     }
   }
   return undefined;
+}
+
+const SCRIPT_SHELLS = new Set(["bash", "sh", "zsh", "dash", "ksh"]);
+
+/** The script a shell is given with -c (`-c`, `-lc`), or the line eval runs, in a segment; undefined for any other command. */
+export function scriptOf(segment: readonly string[]): string | undefined {
+  const { name, args } = commandOf(segment);
+  if (name === "eval") {
+    return args.join(" ");
+  }
+  const at = SCRIPT_SHELLS.has(name)
+    ? args.findIndex((arg) => /^-[a-z]*c[a-z]*$/.test(arg))
+    : -1;
+  return at < 0 ? undefined : args[at + 1];
 }
