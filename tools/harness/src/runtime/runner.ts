@@ -5,6 +5,8 @@ export interface RunOptions {
   input?: string;
   /** The child's whole environment; the parent's when omitted. */
   env?: Record<string, string>;
+  /** Kills the child after this long; the result then has code 124 and says it timed out. */
+  timeoutMs?: number;
 }
 export interface RunResult {
   stdout: string;
@@ -38,6 +40,14 @@ export class ProcessRunner implements Runner {
       });
       let stdout = "";
       let stderr = "";
+      let timedOut = false;
+      const timer =
+        options.timeoutMs === undefined
+          ? undefined
+          : setTimeout(() => {
+              timedOut = true;
+              child.kill("SIGKILL");
+            }, options.timeoutMs);
       child.stdout?.on("data", (chunk: Buffer) => {
         stdout += chunk.toString();
       });
@@ -45,10 +55,20 @@ export class ProcessRunner implements Runner {
         stderr += chunk.toString();
       });
       child.on("error", (error) => {
+        clearTimeout(timer);
         resolve({ stdout, stderr: error.message, code: 127 });
       });
       child.on("close", (code) => {
-        resolve({ stdout, stderr, code: code ?? 1 });
+        clearTimeout(timer);
+        resolve(
+          timedOut
+            ? {
+                stdout,
+                stderr: `${stderr}timed out after ${options.timeoutMs} ms`,
+                code: 124,
+              }
+            : { stdout, stderr, code: code ?? 1 },
+        );
       });
       if (options.input !== undefined) {
         child.stdin?.end(options.input);

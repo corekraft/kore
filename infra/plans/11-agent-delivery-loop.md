@@ -16,7 +16,9 @@ effect against the plan 8 baseline.
 
 ## Current Limits
 
-Merges are by the owner's hand until the judge identity exists. The judge and
+Merges are by the owner's hand until the judge identity exists (`session spawn`
+now hands writer and judge panes their tokens, [ADR 0096](../../docs/decisions/0096-role-tokens-reach-panes-through-a-fifo-handoff.md);
+the owner still runs `tools/harness/wizards/identities.sh` and the ruleset sync). The judge and
 merge tool are built, but they run under the owner's GitHub identity, so they
 do not yet bound anything
 ([ADR 0091](../../docs/decisions/0091-containment-comes-from-identities-and-a-sandbox-not-role-guards.md)).
