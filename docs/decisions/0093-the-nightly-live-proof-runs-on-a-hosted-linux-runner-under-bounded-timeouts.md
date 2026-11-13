@@ -1,11 +1,11 @@
 ---
 status: proposed
-summary: A nightly job proves clean local up and the integration suites on a dedicated host, commands get a read and a mutation timeout, and the runner choice stays an open owner decision.
+summary: A nightly job proves clean local up and the integration suites on the free GitHub-hosted ubuntu-latest runner, commands get a read and a mutation timeout, and the self-hosted trust controls are the fallback.
 date: 2026-11-12
 last-verified: 2026-11-12
 ---
 
-# ADR 0093: The nightly live proof runs on a dedicated self-hosted runner under bounded timeouts
+# ADR 0093: The nightly live proof runs on a hosted Linux runner under bounded timeouts
 
 Source: [issue #339](https://github.com/corekraft/kore/issues/339), spec [#333](https://github.com/corekraft/kore/issues/333)
 
@@ -14,8 +14,8 @@ Source: [issue #339](https://github.com/corekraft/kore/issues/339), spec [#333](
 CI `check` never starts a cluster, so `kore local up` from clean and the
 opt-in integration suites ran only by hand (retro finding 6). A hung `helm`,
 `kubectl` or suite also held its caller until an outer limit, with no named
-cause. A k3d cluster with the platform stack needs more memory than a standard
-GitHub-hosted runner has, and the nightly purges the `kore-local` profile.
+cause. The nightly purges the `kore-local` profile, and a k3d cluster with the
+platform stack needs real memory: plan 9 measured k3s peaking at 6.7 GiB.
 
 ## Decision
 
@@ -36,25 +36,31 @@ twice its `--timeout` plus a two-minute margin, because a failed upgrade rolls
 back and waits again. Every kubectl read verb (not only `get`) carries
 `--request-timeout=30s`; watches and followed logs do not.
 
-**Runner trust boundary.** The nightly runs repository code with the host's
-Docker and filesystem, so the runner must be:
+**Runner.** The owner decided on 2026-11-12 that the job runs on
+`ubuntu-latest`, the free GitHub-hosted runner: 4 vCPU and 16 GB for public
+repositories, which covers the measured 6.7 GiB peak. The job must not assume a
+dedicated or macOS host: it gets a fresh VM, uses GNU `timeout` from the image,
+and purging `kore-local` touches only that VM. Actions stay pinned by SHA and
+the workflow keeps `contents: read`. After the change merges, one
+`workflow_dispatch` run records memory and duration on
+[issue #356](https://github.com/corekraft/kore/issues/356). If the platform
+does not fit, the fallback is a larger GitHub-hosted runner first, then the
+self-hosted runner below.
+
+**Fallback: self-hosted runner trust boundary.** A self-hosted runner (label
+`kore-nightly`) runs repository code with the host's Docker and filesystem, so
+it must be:
 
 - a dedicated host, because the nightly purges `kore-local`;
 - in an organization runner group limited to `nightly.yml@refs/heads/main`;
 - ephemeral, a fresh runner for each job;
 - behind the repository setting that requires approval for fork workflows.
 
-**Open owner decision: the runner.** Use a self-hosted runner labelled
-`kore-nightly` (the workflow's current `runs-on`) or a larger GitHub-hosted
-runner. A larger hosted runner needs no trust boundary of its own but costs
-money, and its memory must be shown to fit the platform. Until the owner picks
-and provisions one, the nightly job queues.
-
 ## Consequences
 
 - Live regressions surface within a day rather than at the next manual run.
-- `nightly.sh` needs GNU `timeout` (Linux; `gtimeout` from coreutils on macOS)
-  and says so when it is missing.
+- `nightly.sh` needs GNU `timeout` (on the Linux runner image; `gtimeout` from
+  coreutils on macOS) and says so when it is missing.
 - A slow but healthy mutation longer than twice its helm timeout plus the margin
   is killed and named; raise the component's `timeout` rather than the default.
 - Detached children no longer receive the terminal's Ctrl-C, and Node's default
@@ -65,5 +71,7 @@ and provisions one, the nightly job queues.
   (inherited stdin or output) are not detached.
 - A night that finds no `test:integration*` suites, or whose discovery fails,
   fails instead of passing green.
-- Registering the runner and setting the runner-group, ephemeral and
-  fork-approval controls are owner steps; the ADR stays `proposed` until then.
+- Hosted runs are billed to no one for this public repository, and need no
+  runner registration or trust controls. The cost is a memory ceiling of 16 GB:
+  if the measured run does not fit, move to a larger hosted runner or the
+  self-hosted fallback.

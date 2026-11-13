@@ -96,9 +96,9 @@ worktree's tests (pid N)`. It waits up to 15 minutes
 - The `nightly` workflow (`.github/workflows/nightly.yml`) runs a clean
   `kore local up` and every `test:integration*` suite against one cluster through
   `tools/kore/scripts/nightly.sh`, purging the profile last. Its run conclusion is
-  the status on main. It needs GNU `timeout` (`gtimeout` from coreutils on macOS)
-  and a dedicated self-hosted runner labelled `kore-nightly`; registering it is an
-  owner step ([ADR 0093](../decisions/0093-the-nightly-live-proof-runs-on-a-dedicated-self-hosted-runner-under-bounded-timeouts.md)).
+  the status on main. It runs on the hosted `ubuntu-latest` runner and needs GNU
+  `timeout` (`gtimeout` from coreutils on macOS); a self-hosted runner is the
+  fallback ([ADR 0093](../decisions/0093-the-nightly-live-proof-runs-on-a-hosted-linux-runner-under-bounded-timeouts.md)).
   `ProcessRunner` kills a command past its timeout (helm mutations get twice
   their `--timeout` plus a margin) and names it; kubectl reads carry
   `--request-timeout`.

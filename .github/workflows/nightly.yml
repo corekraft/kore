@@ -7,13 +7,11 @@
 # default branch's latest commit, and the workflow needs no write permission.
 # A failed run notifies the person who last edited the schedule.
 #
-# OPEN OWNER DECISION: the runner. A k3d cluster with the platform stack needs
-# far more memory than the 7 GiB of a standard GitHub-hosted runner, so this
-# targets a self-hosted runner labelled `kore-nightly`. Registering that runner
-# (or switching `runs-on` to a larger hosted runner) is an owner step; until a
-# runner with that label exists, the job queues. The runner must be a dedicated
-# host (the nightly purges kore-local), ephemeral, and in a runner group limited
-# to this workflow on main: see ADR 0093.
+# Runner: `ubuntu-latest`, the free hosted Linux runner (4 vCPU, 16 GB for
+# public repositories; plan 9 measured k3s peaking at 6.7 GiB). The job gets a
+# fresh VM and must not assume a dedicated or macOS host. If a run does not fit,
+# use a larger hosted runner; the self-hosted trust controls in ADR 0093 are the
+# fallback.
 
 name: nightly
 
@@ -32,7 +30,7 @@ concurrency:
 jobs:
   live:
     if: github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, kore-nightly]
+    runs-on: ubuntu-latest
     timeout-minutes: 240
     permissions:
       contents: read
