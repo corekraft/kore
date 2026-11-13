@@ -174,14 +174,14 @@ step "measurement (read-only) -> $results"
   echo; echo "## pods in agentgateway-system"
   k top pods --containers -n agentgateway-system || echo "(metrics unavailable)"
   echo; echo "## agentgateway proxy pods (all namespaces)"
-  proxies="$(k get pods -A -l 'gateway.networking.k8s.io/gateway-name' -o name 2>/dev/null || true)"
+  proxies="$(k get pods -A -l 'gateway.networking.k8s.io/gateway-class-name=agentgateway' -o name 2>/dev/null || true)"
   if [ -z "$proxies" ]; then
     echo "(none: no Gateway uses the agentgateway class yet)"
   else
-    k top pods -A --containers -l 'gateway.networking.k8s.io/gateway-name' || echo "(metrics unavailable)"
+    k top pods -A --containers -l 'gateway.networking.k8s.io/gateway-class-name=agentgateway' || echo "(metrics unavailable)"
   fi
   echo; echo "## ztunnel"
-  k top pods --containers -n istio-system -l app=ztunnel || echo "(metrics unavailable)"
+  k top pods --containers -n istio-system -l app.kubernetes.io/name=ztunnel || echo "(metrics unavailable)"
   echo; echo "## nodes"
   k top nodes || echo "(metrics unavailable)"
 } | tee "$results"

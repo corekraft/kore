@@ -76,3 +76,55 @@ test("agentgateway-system is enrolled in image admission by default, with no exe
   assert.ok((await enrolled(true)).includes("agentgateway-system"));
   assert.ok(!(await enrolled(false)).includes("agentgateway-system"));
 });
+
+test("turning the flag off releases only the label kore-mesh-enrollment owns", async () => {
+  const repository = await local(false);
+  const { runner: base } = cluster(repository, true);
+  const ambientLabels = { "istio.io/dataplane-mode": "ambient" };
+  const applies: { manager: string; input: string }[] = [];
+  const runner: Runner = {
+    async run(command, args, options) {
+      if (command === "helm") {
+        return base.run(command, args, options);
+      }
+      if (args.includes("namespaces")) {
+        const items = [
+          ...repository.catalog.components.map((c) => c.namespace),
+          "agentgateway-system",
+        ].map((name) => ({
+          metadata: {
+            name,
+            labels: name === "agentgateway-system" ? ambientLabels : {},
+            managedFields:
+              name === "agentgateway-system"
+                ? [{ manager: "kore-mesh-enrollment" }]
+                : [],
+          },
+        }));
+        items.push({
+          metadata: {
+            name: "owned-by-someone-else",
+            labels: ambientLabels,
+            managedFields: [{ manager: "kubectl-label" }],
+          },
+        });
+        return { stdout: JSON.stringify({ items }), stderr: "", code: 0 };
+      }
+      if (args.includes("apply")) {
+        applies.push({
+          manager: args.find((a) => a.startsWith("--field-manager="))!,
+          input: options?.input ?? "",
+        });
+      }
+      return { stdout: "", stderr: "", code: 0 };
+    },
+  };
+  await enrollPlatformNamespaces(repository, runner);
+  assert.deepEqual(applies, [
+    {
+      manager: "--field-manager=kore-mesh-enrollment",
+      input:
+        "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: agentgateway-system\n",
+    },
+  ]);
+});
