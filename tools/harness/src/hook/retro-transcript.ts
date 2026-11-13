@@ -148,6 +148,12 @@ export function humanText(event: TranscriptEvent): string | null {
 const CORRECTION_WORD =
   /\b(no|not|dont|don't|don’t|stop|instead|wrong|again|actually|should|never)\b/i;
 
+const ORCHESTRATOR_BRIEF = /^\s*(\(orchestrator\)|orchestrator:|\[herdr:)/i;
+
+/** Whether a message is a brief pasted in by the orchestrator, not the person's own words. */
+export const isOrchestratorBrief = (text: string): boolean =>
+  ORCHESTRATOR_BRIEF.test(text);
+
 export const readsAsCorrection = (text: string): boolean =>
   CORRECTION_WORD.test(text);
 

@@ -6,6 +6,7 @@ import {
   blocksOf,
   callSignature,
   humanText,
+  isOrchestratorBrief,
   ownWords,
   phrasesOf,
   readsAsCorrection,
@@ -130,8 +131,10 @@ export class SessionAnalysis {
     }
     this.ordered.push({ kind: "human" });
     const own = ownWords(text);
+    // Orchestrator briefs are pasted into many panes; they are never corrections.
     // A repeated prompt is only a correction if it reads like one or follows a failure.
-    if (this.failedSinceHuman || readsAsCorrection(own)) {
+    const brief = isOrchestratorBrief(text);
+    if (!brief && (this.failedSinceHuman || readsAsCorrection(own))) {
       for (const phrase of phrasesOf(own)) {
         this.phrases.push({ phrase, line: event.line });
       }
