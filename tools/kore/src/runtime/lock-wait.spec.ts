@@ -152,15 +152,16 @@ test("the holder exports its lock token so child kore processes nest instead of 
   // lease, the nightly's cluster) is inherited and would be listed too.
   const inherited = process.env.KORE_HELD_ENVIRONMENT_LOCK;
   delete process.env.KORE_HELD_ENVIRONMENT_LOCK;
-  const held = await holdEnvironmentLock(root, "local");
+  let held: Awaited<ReturnType<typeof holdEnvironmentLock>> | undefined;
   try {
+    held = await holdEnvironmentLock(root, "local");
     const exported = process.env.KORE_HELD_ENVIRONMENT_LOCK ?? "";
     const owner = JSON.parse(
       await readFile(join(root, ".kore", "locks", "local.lock"), "utf8"),
     );
     expect(exported).toBe(`local:${owner.token}`);
   } finally {
-    await held.release();
+    await held?.release();
     if (inherited === undefined) {
       delete process.env.KORE_HELD_ENVIRONMENT_LOCK;
     } else {

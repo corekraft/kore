@@ -1,7 +1,8 @@
 # Nightly live proof (issue #339, retro finding 6). The `check` workflow never
 # starts a cluster, so the opt-in integration suites would otherwise run only by
-# hand. This runs a clean `kore local up` and then every `test:integration*`
-# suite once a night.
+# hand. This runs a clean `kore local up` and then every named
+# `test:integration:<name>` suite once a night, `lifecycle` last. The bare
+# `test:integration` task is skipped (ADR 0093).
 #
 # The run's conclusion is the status on main: a scheduled run belongs to the
 # default branch's latest commit, and the workflow needs no write permission.

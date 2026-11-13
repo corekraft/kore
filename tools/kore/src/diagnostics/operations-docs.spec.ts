@@ -1,7 +1,5 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { test } from "vitest";
 import { usage } from "../cli/usage.js";
 
@@ -27,11 +25,9 @@ const pages = [
 const read = (path: string): string =>
   readFileSync(new URL(path, root), "utf8");
 
-/** A git-ignored path is a build output (`skills/bin/harness.mjs`), absent until built. */
-const isBuildOutput = (path: string): boolean =>
-  spawnSync("git", ["check-ignore", "--quiet", "--", path], {
-    cwd: fileURLToPath(root),
-  }).status === 0;
+/** Build outputs are git-ignored and absent until built; no other missing path is excused. */
+const buildOutputs = new Set(["skills/bin/harness.mjs"]);
+const isBuildOutput = (path: string): boolean => buildOutputs.has(path);
 
 /** Text inside fenced blocks and inline code spans. */
 function codeText(markdown: string): string[] {

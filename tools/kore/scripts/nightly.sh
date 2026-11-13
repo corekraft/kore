@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Nightly live proof (issue #339): a clean `kore local up`, then every opt-in
-# `test:integration*` suite in tools/kore/package.json against that one
+# named `test:integration:<name>` suite in tools/kore/package.json against that one
 # cluster, then teardown. Opt-in only: it creates and destroys a scratch
 # profile (environment and cluster `kore-nightly`), so run it on a dedicated
 # host (ADR 0093).
