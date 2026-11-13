@@ -7,7 +7,7 @@ import { findRoot } from "../config/config.js";
 import {
   ProcessRunner,
   type Runner,
-  integrationEnvironment,
+  liveEnvironment,
 } from "../runtime/index.js";
 import {
   admissionVerdict,
@@ -160,10 +160,7 @@ async function restore(
  * admission and status to recover.
  */
 async function proveOutage(outage: Outage): Promise<void> {
-  const repository = await loadRepository(
-    integrationEnvironment(),
-    await findRoot(),
-  );
+  const repository = await loadRepository(liveEnvironment(), await findRoot());
   const runner = new ProcessRunner();
   await assertExpectedCluster(repository, runner);
 
@@ -211,8 +208,8 @@ async function proveOutage(outage: Outage): Promise<void> {
 const live = {
   concurrency: false,
   skip:
-    process.env.KORE_RUN_INTEGRATION !== "1"
-      ? "set KORE_RUN_INTEGRATION=1 to opt into a live local profile"
+    process.env.KORE_RUN_LIVE !== "1"
+      ? "set KORE_RUN_LIVE=1 to opt into a live local profile"
       : false,
   timeout: 20 * 60 * 1000,
 };

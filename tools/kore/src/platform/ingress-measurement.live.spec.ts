@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { loadavg } from "node:os";
 import test from "node:test";
 import { loadRepository } from "../config/index.js";
-import { ProcessRunner, integrationEnvironment } from "../runtime/index.js";
+import { ProcessRunner, liveEnvironment } from "../runtime/index.js";
 import { mkcertRoot } from "./gateway-cluster-support.js";
 import {
   IngressMeasurement,
@@ -13,13 +13,13 @@ import {
 // Live: needs a running k3d cluster. Read-only against the cluster (metrics
 // API reads) plus the fixed request load to the Gateway; it changes no
 // resource. Prints the measurement as JSON for the plan's Results section.
-// Run with KORE_RUN_INTEGRATION=1 (`npm run test:integration:ingress-measure`).
+// Run with KORE_RUN_LIVE=1 (`npm run test:live:ingress-measure`).
 
 const live = {
   concurrency: false,
   skip:
-    process.env.KORE_RUN_INTEGRATION !== "1"
-      ? "set KORE_RUN_INTEGRATION=1 to opt into a live platform"
+    process.env.KORE_RUN_LIVE !== "1"
+      ? "set KORE_RUN_LIVE=1 to opt into a live platform"
       : false,
   timeout: 15 * 60 * 1000,
 };
@@ -28,7 +28,7 @@ test(
   "measures the Gateway pods under the fixed load without changing cluster resources",
   live,
   async () => {
-    const repository = await loadRepository(integrationEnvironment());
+    const repository = await loadRepository(liveEnvironment());
     const { gateway, kubeContext } = repository.environment;
     const runner = new ProcessRunner();
     const measurement = new IngressMeasurement(

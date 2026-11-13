@@ -4,7 +4,7 @@ import { loadRepository } from "../config/index.js";
 import {
   listHostProcesses,
   ProcessRunner,
-  integrationEnvironment,
+  liveEnvironment,
 } from "../runtime/index.js";
 import {
   Cluster,
@@ -29,14 +29,14 @@ import { platformStatus, platformUp } from "./index.js";
 // Live: needs a running k3d cluster after `kore local up`; the k3d load balancer
 // answers on the Gateway port with no tunnel process. Creates only a throwaway
 // namespace, removed in `finally`;
-// no secret value is ever read or printed. Run with KORE_RUN_INTEGRATION=1
-// (`npm run test:integration:gateway`).
+// no secret value is ever read or printed. Run with KORE_RUN_LIVE=1
+// (`npm run test:live:gateway`).
 
 const live = {
   concurrency: false,
   skip:
-    process.env.KORE_RUN_INTEGRATION !== "1"
-      ? "set KORE_RUN_INTEGRATION=1 to opt into a live platform"
+    process.env.KORE_RUN_LIVE !== "1"
+      ? "set KORE_RUN_LIVE=1 to opt into a live platform"
       : false,
   timeout: 15 * 60 * 1000,
 };
@@ -205,7 +205,7 @@ test(
   "repeating platform creation on a converged cluster changes no Helm release",
   live,
   async () => {
-    const repository = await loadRepository(integrationEnvironment());
+    const repository = await loadRepository(liveEnvironment());
     const cluster = new Cluster(repository, new ProcessRunner());
     const before = await helmRevisions(cluster);
     await platformUp(repository, cluster.runner);

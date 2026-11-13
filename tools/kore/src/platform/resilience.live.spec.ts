@@ -10,7 +10,7 @@ import { findRoot } from "../config/config.js";
 import {
   ProcessRunner,
   type Runner,
-  integrationEnvironment,
+  liveEnvironment,
 } from "../runtime/index.js";
 import { scaleDeployment } from "./admission-probe.js";
 import { platformStatus } from "./status.js";
@@ -19,7 +19,7 @@ import { platformStatus } from "./status.js";
 // Live and opt-in: needs a running local profile (`kore local up`). It
 // restarts controllers and scales the OPA authorizer to zero, restoring it in
 // `finally`. Registry, verifier, and key-swap outages are proven by the
-// admission specs that `npm run test:integration:resilience` runs alongside
+// admission specs that `npm run test:live:resilience` runs alongside
 // this one. It never reads a Secret value and starts no image of its own.
 
 /** Controllers whose restart must not disturb anything else. */
@@ -92,17 +92,14 @@ async function rollout(
 const live = {
   concurrency: false,
   skip:
-    process.env.KORE_RUN_INTEGRATION !== "1"
-      ? "set KORE_RUN_INTEGRATION=1 to opt into a live local profile"
+    process.env.KORE_RUN_LIVE !== "1"
+      ? "set KORE_RUN_LIVE=1 to opt into a live local profile"
       : false,
   timeout: 20 * 60 * 1000,
 };
 
 async function session() {
-  const repository = await loadRepository(
-    integrationEnvironment(),
-    await findRoot(),
-  );
+  const repository = await loadRepository(liveEnvironment(), await findRoot());
   const runner = new ProcessRunner();
   await assertExpectedCluster(repository, runner);
   const names = enabledComponents(repository).map(({ name }) => name);

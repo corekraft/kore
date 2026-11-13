@@ -229,7 +229,7 @@ claim that the platform is ready.
 
 ## Step 7: Bootstrap Registry, Image Trust, Controllers, and CRD Ownership
 
-Next: Paused for the test refactor (plan 14, #371): start nothing here until its `paused` label is removed. When it resumes: finish proving and landing the open PRs, then tick their items. #115 (gate degradation and interrupt) passed live on scratch branch `live/batch6`. On #118 (constraint compliance) 7 of 8 constraints are at 0 violations live, and kore-rbac's last 2 (`crossplane:masters`) are fixed but unapplied. #119 (probe post-renderer, ADR 0081) is applied live. #114 (promotion, helm-interrupt) and #117 (app-status) had spec fixes pushed after their failures. #116 (upgrade) and #117's clean-machine spec need kore-local stopped (`kore local stop`, data kept) on this 16 GiB host. Scratch branch `live/batch6b` merges all six. Batch 6 was stopped during `resilience`, so `resilience`, `registry`, `policy`, `ops` and `docs` still need a run. On `live/batch6b`, run `kore local up`, check every constraint at 0 violations, then run those five plus `test:integration:` app-status, promotion, helm-interrupt, then clean-machine and upgrade, then land the PRs one at a time. After that, promote the zero-violation constraints one at a time with `kore policy` (retention was rolled back only because the host was overloaded). Release PR #65 (0.5.0) awaits the user.
+Next: Paused for the test refactor (plan 14, #371): start nothing here until its `paused` label is removed. When it resumes: finish proving and landing the open PRs, then tick their items. #115 (gate degradation and interrupt) passed live on scratch branch `live/batch6`. On #118 (constraint compliance) 7 of 8 constraints are at 0 violations live, and kore-rbac's last 2 (`crossplane:masters`) are fixed but unapplied. #119 (probe post-renderer, ADR 0081) is applied live. #114 (promotion, helm-interrupt) and #117 (app-status) had spec fixes pushed after their failures. #116 (upgrade) and #117's clean-machine spec need kore-local stopped (`kore local stop`, data kept) on this 16 GiB host. Scratch branch `live/batch6b` merges all six. Batch 6 was stopped during `resilience`, so `resilience`, `registry`, `policy`, `ops` and `docs` still need a run. On `live/batch6b`, run `kore local up`, check every constraint at 0 violations, then run those five plus `test:live:` app-status, promotion, helm-interrupt, then clean-machine and upgrade, then land the PRs one at a time. After that, promote the zero-violation constraints one at a time with `kore policy` (retention was rolled back only because the host was overloaded). Release PR #65 (0.5.0) awaits the user.
 
 ### Objective
 
@@ -1042,7 +1042,7 @@ failures have automated detection and recovery paths.
       (`helm-recovery.spec.ts`, `resilience-converge.spec.ts`)._
 - [ ] Test registry outage, signature-verifier outage, signer rotation, interrupted
       image promotion, and recovery from a partially closed bootstrap trust loop.
-      _Registry and verifier outages pass live (`admission-outage.integration.spec.ts`
+      _Registry and verifier outages pass live (`admission-outage.live.spec.ts`
       in the `resilience` suite, 2026-11-09). The local signer key swap (#107,
       `kore signer swap-key`) passed its `signer` suite 1 of 1. Interrupted image
       promotion and the partially closed trust loop have no live test yet._

@@ -7,13 +7,13 @@ export default defineConfig({
     maxWorkers: testWorkers(),
     setupFiles: ["src/test-setup-support.ts"],
     include: ["src/**/*.spec.ts"],
-    exclude: ["**/*.integration.spec.ts", "dist/**"],
+    exclude: ["**/*.live.spec.ts", "dist/**"],
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],
       exclude: [
         "src/**/*.spec.ts",
-        "src/**/*.integration.spec.ts",
+        "src/**/*.live.spec.ts",
         "src/**/*-support.ts",
         "src/**/*.fixtures.ts",
         "dist/**",

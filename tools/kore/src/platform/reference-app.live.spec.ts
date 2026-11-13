@@ -3,13 +3,13 @@ import test from "node:test";
 import { assertExpectedCluster } from "../cluster/index.js";
 import { loadRepository } from "../config/index.js";
 import { findRoot } from "../config/config.js";
-import { ProcessRunner, integrationEnvironment } from "../runtime/index.js";
+import { ProcessRunner, liveEnvironment } from "../runtime/index.js";
 import { deployedImage } from "./admission-probe.js";
 import { runMeshProbe } from "./reference-probe.js";
-import { assertReferenceSmoke } from "./platform.reference-smoke.integration.spec.js";
+import { assertReferenceSmoke } from "./platform.reference-smoke.live.spec.js";
 
 // Docs: docs/decisions/0007-workload-identity-and-layered-authorization.md
-// Live and opt-in (`npm run test:integration:reference`): needs a running
+// Live and opt-in (`npm run test:live:reference`): needs a running
 // local profile with the `reference` application up (`kore local up`, then
 // `kore app up reference --environment local`). It reads cluster state and
 // runs one throwaway probe pod from the application's own signed image, which
@@ -21,17 +21,14 @@ const expectedOtlpEndpoint = "http://otel-collector.observability.svc:4318";
 const live = {
   concurrency: false,
   skip:
-    process.env.KORE_RUN_INTEGRATION !== "1"
-      ? "set KORE_RUN_INTEGRATION=1 to opt into a live local profile"
+    process.env.KORE_RUN_LIVE !== "1"
+      ? "set KORE_RUN_LIVE=1 to opt into a live local profile"
       : false,
   timeout: 10 * 60 * 1000,
 };
 
 async function context() {
-  const repository = await loadRepository(
-    integrationEnvironment(),
-    await findRoot(),
-  );
+  const repository = await loadRepository(liveEnvironment(), await findRoot());
   const runner = new ProcessRunner();
   await assertExpectedCluster(repository, runner);
   const kubectl = async (...args: string[]): Promise<string> =>

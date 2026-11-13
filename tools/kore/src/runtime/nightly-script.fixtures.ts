@@ -84,7 +84,7 @@ live_check() {
   true
 }
 live_check
-echo "$* identity=$([ -n "${"$"}{SOPS_AGE_KEY:-}" ] && echo yes || echo no) env=${"$"}{KORE_INTEGRATION_ENVIRONMENT:-unset} overlay=$([ -f "${ctx.repo}/infra/environments/nightly/environment.yaml" ] && echo present || echo absent)" >> "${outside("facts")}"
+echo "$* identity=$([ -n "${"$"}{SOPS_AGE_KEY:-}" ] && echo yes || echo no) env=${"$"}{KORE_LIVE_ENVIRONMENT:-unset} overlay=$([ -f "${ctx.repo}/infra/environments/nightly/environment.yaml" ] && echo present || echo absent)" >> "${outside("facts")}"
 for bad in ${failOn.map((f) => `"${f}"`).join(" ")}; do
   [ "$*" = "$bad" ] && exit 1
 done

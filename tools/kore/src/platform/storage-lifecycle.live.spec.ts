@@ -4,7 +4,7 @@ import { findRoot } from "../config/config.js";
 import { loadRepository } from "../config/index.js";
 import { appDown } from "../app/index.js";
 import { retainedResources } from "../cluster/index.js";
-import { ProcessRunner, integrationEnvironment } from "../runtime/index.js";
+import { ProcessRunner, liveEnvironment } from "../runtime/index.js";
 
 type Repository = Awaited<ReturnType<typeof loadRepository>>;
 type Kubectl = (args: string[], input?: string) => Promise<string>;
@@ -25,7 +25,7 @@ const CLAIMS = "postgresqlinstances.platform.kore.dev";
 // read (only key names), and everything it creates is removed afterwards,
 // including the Released volume a retained claim leaves behind.
 //
-// Run with: npm run test:integration:storage
+// Run with: npm run test:live:storage
 
 const NAMESPACE = "kore-storage-it";
 const RETAINED = "storage-it-retained";
@@ -197,13 +197,13 @@ test(
     concurrency: false,
     timeout: 25 * 60 * 1000,
     skip:
-      process.env.KORE_RUN_INTEGRATION !== "1"
-        ? "set KORE_RUN_INTEGRATION=1 to opt into a live platform"
+      process.env.KORE_RUN_LIVE !== "1"
+        ? "set KORE_RUN_LIVE=1 to opt into a live platform"
         : false,
   },
   async () => {
     const session = newSession(
-      await loadRepository(integrationEnvironment(), await findRoot()),
+      await loadRepository(liveEnvironment(), await findRoot()),
     );
     const volumes = new Set<string>();
     try {

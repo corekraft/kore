@@ -7,20 +7,20 @@ import {
   clusterStop,
   clusterUp,
 } from "../cluster/index.js";
-import { ProcessRunner, integrationEnvironment } from "../runtime/index.js";
+import { ProcessRunner, liveEnvironment } from "../runtime/index.js";
 
 test(
-  "k3d create/inspect/stop/resume integration",
+  "k3d create/inspect/stop/resume live",
   {
     concurrency: false,
     skip:
-      process.env.KORE_RUN_INTEGRATION !== "1"
-        ? "set KORE_RUN_INTEGRATION=1 to opt into a live cluster"
+      process.env.KORE_RUN_LIVE !== "1"
+        ? "set KORE_RUN_LIVE=1 to opt into a live cluster"
         : false,
   },
   async () => {
     const repository = await loadRepository(
-      integrationEnvironment(),
+      liveEnvironment(),
       await findRoot(),
     );
     const runner = new ProcessRunner();

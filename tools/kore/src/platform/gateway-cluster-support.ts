@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { loadRepository } from "../config/index.js";
-import { ProcessRunner, integrationEnvironment } from "../runtime/index.js";
+import { ProcessRunner, liveEnvironment } from "../runtime/index.js";
 import type { Runner } from "../runtime/index.js";
 import { proofManifests } from "./gateway-proof.js";
 import type { Json, ProofOptions } from "./gateway-proof.js";
 
 // Docs: docs/decisions/0013-local-tls-before-gateway.md
-// Live-only helpers for gateway.integration.spec.ts. Nothing here reads or
+// Live-only helpers for gateway.live.spec.ts. Nothing here reads or
 // prints a Secret value.
 
 type Repository = Awaited<ReturnType<typeof loadRepository>>;
@@ -105,7 +105,7 @@ async function proofOptions(
 export async function withProofNamespace(
   fn: (cluster: Cluster, options: ProofOptions) => Promise<void>,
 ): Promise<void> {
-  const repository = await loadRepository(integrationEnvironment());
+  const repository = await loadRepository(liveEnvironment());
   const cluster = new Cluster(repository, new ProcessRunner());
   const namespace = `kore-proof-${randomBytes(3).toString("hex")}`;
   try {

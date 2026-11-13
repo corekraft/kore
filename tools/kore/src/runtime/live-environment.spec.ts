@@ -3,18 +3,19 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, expect, test } from "vitest";
-import { integrationEnvironment } from "./integration-environment.js";
+import { liveEnvironment } from "./live-environment.js";
 
 // Docs: AGENTS.md "Mutations are serialized per environment."
 
 afterEach(() => {
+  delete process.env.KORE_LIVE_ENVIRONMENT;
   delete process.env.KORE_INTEGRATION_ENVIRONMENT;
   delete process.env.KORE_ROOT;
 });
 
 /** A repository root defining the named environments (plus a shared `common`). */
 async function repositoryWith(...names: string[]): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "kore-integration-env-"));
+  const root = await mkdtemp(join(tmpdir(), "kore-live-env-"));
   await mkdir(join(root, "infra/catalog"), { recursive: true });
   await writeFile(join(root, "infra/catalog/components.yaml"), "{}");
   await mkdir(join(root, "infra/environments/common"), { recursive: true });
@@ -29,32 +30,38 @@ async function repositoryWith(...names: string[]): Promise<string> {
   return root;
 }
 
-test("integration specs test the local environment unless told otherwise", async () => {
+test("live specs test the local environment unless told otherwise", async () => {
   await repositoryWith("local", "scratch");
-  delete process.env.KORE_INTEGRATION_ENVIRONMENT;
-  expect(integrationEnvironment()).toBe("local");
+  delete process.env.KORE_LIVE_ENVIRONMENT;
+  expect(liveEnvironment()).toBe("local");
 });
 
-test("an empty KORE_INTEGRATION_ENVIRONMENT counts as unset", async () => {
+test("an empty KORE_LIVE_ENVIRONMENT counts as unset", async () => {
   await repositoryWith("local", "scratch");
-  process.env.KORE_INTEGRATION_ENVIRONMENT = "";
-  expect(integrationEnvironment()).toBe("local");
+  process.env.KORE_LIVE_ENVIRONMENT = "";
+  expect(liveEnvironment()).toBe("local");
 });
 
-test("KORE_INTEGRATION_ENVIRONMENT names the environment integration specs test", async () => {
+test("KORE_LIVE_ENVIRONMENT names the environment live specs test", async () => {
+  await repositoryWith("local", "scratch");
+  process.env.KORE_LIVE_ENVIRONMENT = "scratch";
+  expect(liveEnvironment()).toBe("scratch");
+});
+
+test("the retired KORE_INTEGRATION_ENVIRONMENT is refused naming KORE_LIVE_ENVIRONMENT, never read as local", async () => {
   await repositoryWith("local", "scratch");
   process.env.KORE_INTEGRATION_ENVIRONMENT = "scratch";
-  expect(integrationEnvironment()).toBe("scratch");
+  expect(() => liveEnvironment()).toThrow(
+    /KORE_INTEGRATION_ENVIRONMENT is retired; set KORE_LIVE_ENVIRONMENT/,
+  );
 });
 
 test("an unknown environment is refused naming the variable and the valid environments", async () => {
   await repositoryWith("local", "scratch");
-  process.env.KORE_INTEGRATION_ENVIRONMENT = "nope";
-  expect(() => integrationEnvironment()).toThrow(
-    /KORE_INTEGRATION_ENVIRONMENT/,
-  );
-  expect(() => integrationEnvironment()).toThrow(/local, scratch/);
-  expect(() => integrationEnvironment()).not.toThrow(/common/);
+  process.env.KORE_LIVE_ENVIRONMENT = "nope";
+  expect(() => liveEnvironment()).toThrow(/KORE_LIVE_ENVIRONMENT/);
+  expect(() => liveEnvironment()).toThrow(/local, scratch/);
+  expect(() => liveEnvironment()).not.toThrow(/common/);
 });
 
 /** A `loadRepository("local"`, an `--environment`, "local"` pair or an `environment: "local"` field. */
@@ -76,8 +83,7 @@ test("hardcodesLocal sees each way code can pin the environment", () => {
 
 /** Unit specs and fixtures build their own repositories; everything else may run live. */
 function isGuarded(file: string): boolean {
-  const unitSpec =
-    file.endsWith(".spec.ts") && !file.endsWith(".integration.spec.ts");
+  const unitSpec = file.endsWith(".spec.ts") && !file.endsWith(".live.spec.ts");
   const fixture = /[.-]fixtures\.ts$/.test(file);
   return file.endsWith(".ts") && !unitSpec && !fixture;
 }

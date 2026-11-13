@@ -68,7 +68,7 @@ Local is on `enforce`; a new policy starts on `warn`.
 
 The offline tests prove refusal with violations, with stale or missing
 evidence, and the rollback. The live round trip is opt-in:
-`npm --prefix tools/kore run test:integration:policy` promotes
+`npm --prefix tools/kore run test:live:policy` promotes
 `kore-workload-identity`, proves a default-ServiceAccount workload is rejected,
 rolls back, and proves it is admitted again. It has not run live yet, and no
 committed constraint is promoted.

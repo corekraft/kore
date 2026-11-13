@@ -6,7 +6,7 @@ import { loadRepository } from "../config/index.js";
 import {
   ProcessRunner,
   type Runner,
-  integrationEnvironment,
+  liveEnvironment,
 } from "../runtime/index.js";
 import { platformStatusReport } from "./crd-ownership-status.js";
 
@@ -43,8 +43,8 @@ async function get<T>(
 const live = {
   concurrency: false,
   skip:
-    process.env.KORE_RUN_INTEGRATION !== "1"
-      ? "set KORE_RUN_INTEGRATION=1 to opt into a live local profile"
+    process.env.KORE_RUN_LIVE !== "1"
+      ? "set KORE_RUN_LIVE=1 to opt into a live local profile"
       : false,
   timeout: 5 * 60 * 1000,
 };
@@ -54,7 +54,7 @@ test(
   live,
   async () => {
     const repository = await loadRepository(
-      integrationEnvironment(),
+      liveEnvironment(),
       await findRoot(),
     );
     const runner = new ProcessRunner();
@@ -89,7 +89,7 @@ test(
   live,
   async () => {
     const repository = await loadRepository(
-      integrationEnvironment(),
+      liveEnvironment(),
       await findRoot(),
     );
     const runner = new ProcessRunner();

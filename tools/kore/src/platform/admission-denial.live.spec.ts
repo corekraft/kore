@@ -3,7 +3,7 @@ import test from "node:test";
 import { assertExpectedCluster } from "../cluster/index.js";
 import { loadRepository, noMatchPolicy } from "../config/index.js";
 import { findRoot } from "../config/config.js";
-import { ProcessRunner, integrationEnvironment } from "../runtime/index.js";
+import { ProcessRunner, liveEnvironment } from "../runtime/index.js";
 import {
   admissionVerdict,
   deployedImage,
@@ -24,8 +24,8 @@ const namespace = "reference";
 const live = {
   concurrency: false,
   skip:
-    process.env.KORE_RUN_INTEGRATION !== "1"
-      ? "set KORE_RUN_INTEGRATION=1 to opt into a live local profile"
+    process.env.KORE_RUN_LIVE !== "1"
+      ? "set KORE_RUN_LIVE=1 to opt into a live local profile"
       : false,
   timeout: 10 * 60 * 1000,
 };
@@ -33,7 +33,7 @@ const live = {
 /** A public image no ClusterImagePolicy glob matches. */
 const unmatchedImage = "docker.io/library/busybox:1.37.0";
 
-const environment = integrationEnvironment();
+const environment = liveEnvironment();
 
 test(
   "unsigned and unauthorized-key images are denied in an enrolled namespace while the kore-signed image is admitted",
