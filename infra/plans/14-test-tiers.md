@@ -15,13 +15,13 @@ toil for people and agents, so the owner paused all feature work until the
 tests are fast.
 
 The decision is
-[ADR 0097](../../docs/decisions/0097-unit-tests-mock-everything-outside-the-unit-and-integration-tests-gate-only-a-release.md);
+[ADR 0098](../../docs/decisions/0098-unit-tests-mock-everything-outside-the-unit-and-integration-tests-gate-only-a-release.md);
 the terms are in [`GLOSSARY.md`](../../GLOSSARY.md) (Testing). Tracking issue:
 #371.
 
 ## Step 1: Free the Names and Add the Integration Tier
 
-Next: Merge the pull request that adds this plan and ADR 0097, then label #372 `ready-for-agent`. #372 (live rename), then #373 (integration tier), then #374 (budget, barrel lint, one spec per unit), in that order. Full state: #371.
+Next: Merge the pull request that adds this plan and ADR 0098, then label #372 `ready-for-agent`. #372 (live rename), then #373 (integration tier), then #374 (budget, barrel lint, one spec per unit), in that order. Full state: #371.
 
 ### Work
 

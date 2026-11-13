@@ -80,7 +80,7 @@ the plans and ADRs record why. Find them through
   treated as a class. Mock everything it depends on that has behaviour, pure
   helpers and units in its own domain included; only types, error classes and
   constants are real. It starts no process, waits on no real timer, and takes
-  under 100 ms ([ADR 0097](docs/decisions/0097-unit-tests-mock-everything-outside-the-unit-and-integration-tests-gate-only-a-release.md);
+  under 100 ms ([ADR 0098](docs/decisions/0098-unit-tests-mock-everything-outside-the-unit-and-integration-tests-gate-only-a-release.md);
   domains convert one at a time under [plan 14](infra/plans/14-test-tiers.md)).
 - **Integration tests run real domains together,** never a cluster. They gate
   a release, and a merge only for a change to the commit hooks; they never gate

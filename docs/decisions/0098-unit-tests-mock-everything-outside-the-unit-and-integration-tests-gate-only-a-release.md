@@ -5,7 +5,7 @@ date: 2026-11-12
 last-verified: 2026-11-12
 ---
 
-# ADR 0097: Unit tests mock everything outside the unit and integration tests gate only a release
+# ADR 0098: Unit tests mock everything outside the unit and integration tests gate only a release
 
 Source: [`infra/plans/14-test-tiers.md` § Purpose](../../infra/plans/14-test-tiers.md#purpose)
 

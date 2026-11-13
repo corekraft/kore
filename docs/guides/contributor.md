@@ -102,7 +102,7 @@ see [The harness bundle](#the-harness-bundle).
 
 ## Tests
 
-- Tests have three tiers ([ADR 0097](../decisions/0097-unit-tests-mock-everything-outside-the-unit-and-integration-tests-gate-only-a-release.md)).
+- Tests have three tiers ([ADR 0098](../decisions/0098-unit-tests-mock-everything-outside-the-unit-and-integration-tests-gate-only-a-release.md)).
   A unit test exercises one class or function with everything else mocked, and
   is the only tier that gates a commit. An integration test runs real domains
   together without a cluster, and gates a release. A live test needs a cluster
