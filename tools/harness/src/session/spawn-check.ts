@@ -1,6 +1,6 @@
 import type { CommandContext } from "../runtime/index.js";
 import { resolveTier } from "./agent-definition.js";
-import { hostLeaseHolder } from "./host-lease.js";
+import { hostLeaseRefusal } from "./host-lease.js";
 import { sessionNameError } from "./names.js";
 import { FAILED, USAGE_ERROR } from "./output.js";
 import { findResult, parseTimeout } from "./wait.js";
@@ -41,14 +41,9 @@ async function herdrCaller(
       code: FAILED,
     };
   }
-  const leased = role === "writer" ? await hostLeaseHolder(deps) : undefined;
-  if (leased !== undefined) {
-    const since =
-      leased.acquiredAt === undefined ? "" : `, since ${leased.acquiredAt}`;
-    return {
-      error: `A live run holds the host lease (pid ${leased.pid}${since}), and a new writer would load the host beside it. Wait for the run to finish, then spawn again. No session was started.`,
-      code: FAILED,
-    };
+  const refused = role === "writer" ? await hostLeaseRefusal(deps) : undefined;
+  if (refused !== undefined) {
+    return { error: refused, code: FAILED };
   }
   return callerPane;
 }

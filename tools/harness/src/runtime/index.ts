@@ -8,6 +8,7 @@ export {
   type RunResult,
   type Runner,
 } from "./runner.js";
+export { hostLocksDirectory } from "./host-root.js";
 export type { CliDeps, Command, CommandContext } from "./command.js";
 export { bundleMainRoot, mainRoot } from "./main-root.js";
 export { resolveRoot } from "./root.js";

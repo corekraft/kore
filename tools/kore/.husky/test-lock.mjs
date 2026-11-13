@@ -101,30 +101,52 @@ async function acquire(lock) {
   }
 }
 
-/** Reports, without waiting, a test run that starts while a live run holds the host lease. */
-function auditHostLease(directory) {
-  const leaseFile = join(
-    process.env.KORE_HOST_ROOT ?? homedir(),
-    ".kore",
-    "locks",
-    "host-lease.lock",
+/** The host directory of `.kore/locks`; an empty value is unset, and a relative one is not usable. */
+function hostRoot() {
+  const given = [process.env.KORE_HOST_ROOT, process.env.HOME].find(
+    (value) => value !== undefined && value !== "",
   );
-  const lease = holder(leaseFile);
+  const root = given ?? homedir();
+  if (!isAbsolute(root)) {
+    throw new Error(
+      `the host root "${root}" is not absolute; set KORE_HOST_ROOT to an absolute directory`,
+    );
+  }
+  return root;
+}
+
+/**
+ * Reports, without waiting, a test run that starts while a live run holds the
+ * host lease. Audit only: nothing here may stop the run, so every failure is
+ * reported and swallowed.
+ */
+function auditHostLease(directory) {
+  let lease;
+  try {
+    lease = holder(join(hostRoot(), ".kore", "locks", "host-lease.lock"));
+  } catch (error) {
+    console.error(`audit: host lease not checked: ${error.message}`);
+    return;
+  }
   if (lease === undefined || !alive(lease.pid)) {
     return;
   }
   console.error(
     `audit: host lease held by pid ${lease.pid}; this test run would wait for it once enforcement is on (not waiting now)`,
   );
-  appendFileSync(
-    join(directory, "host-lease-audit.jsonl"),
-    `${JSON.stringify({
-      at: new Date().toISOString(),
-      holder: lease.pid,
-      cwd: process.cwd(),
-      command: process.argv.slice(2).join(" "),
-    })}\n`,
-  );
+  try {
+    appendFileSync(
+      join(directory, "host-lease-audit.jsonl"),
+      `${JSON.stringify({
+        at: new Date().toISOString(),
+        holder: lease.pid,
+        cwd: process.cwd(),
+        command: process.argv.slice(2).join(" "),
+      })}\n`,
+    );
+  } catch (error) {
+    console.error(`audit: could not write the audit log: ${error.message}`);
+  }
 }
 
 const [command, ...args] = process.argv.slice(2);

@@ -142,3 +142,33 @@ test("a free host lease, or one whose holder is gone, is not audited", (t) => {
   }
   assert.equal(existsSync(join(dir, "host-lease-audit.jsonl")), false);
 });
+
+test("an empty KORE_HOST_ROOT is unset, so the lease is still found under HOME", (t) => {
+  const { dir } = setup(t);
+  const host = hostWith(t, process.pid);
+  const result = run(dir, node("process.exit(0)"), {
+    KORE_HOST_ROOT: "",
+    HOME: host,
+  });
+  assert.equal(result.status, 0);
+  assert.match(result.stderr, /audit: host lease held by pid/);
+});
+
+test("a relative KORE_HOST_ROOT is reported and ignored, never a reason to block", (t) => {
+  const { dir } = setup(t);
+  const result = run(dir, node("process.exit(4)"), {
+    KORE_HOST_ROOT: "relative/dir",
+  });
+  assert.equal(result.status, 4);
+  assert.match(result.stderr, /audit: .*KORE_HOST_ROOT.*absolute/);
+});
+
+test("audit can never block: an unwritable audit log does not abort the run", (t) => {
+  const { dir } = setup(t);
+  mkdirSync(join(dir, "host-lease-audit.jsonl"));
+  const host = hostWith(t, process.pid);
+  const result = run(dir, node("process.exit(5)"), { KORE_HOST_ROOT: host });
+  assert.equal(result.status, 5);
+  assert.match(result.stderr, /audit: host lease held by pid/);
+  assert.match(result.stderr, /audit log/);
+});
