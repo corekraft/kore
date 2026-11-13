@@ -2,10 +2,17 @@ import { spawn } from "node:child_process";
 import { connect } from "node:tls";
 import type { Repository } from "../config/index.js";
 import {
+  listHostProcesses,
   terminateMatching,
   type ProcessControl,
   type Runner,
 } from "../runtime/index.js";
+import {
+  clearForwardOwner,
+  ownedByAnother,
+  readForwardOwner,
+  recordForwardOwner,
+} from "./registry-forward-owner.js";
 import { loadRegistryCa } from "./registry-tls.js";
 
 export interface RegistryDependencies {
@@ -83,7 +90,8 @@ async function ensurePortForward(
   if (await portReady(ca)) {
     return;
   }
-  (dependencies.spawnPortForward ?? spawnPortForward)(repository);
+  const pid = (dependencies.spawnPortForward ?? spawnPortForward)(repository);
+  await recordForwardOwner(repository, pid);
   const deadline = Date.now() + 15000;
   while (Date.now() < deadline) {
     if (await portReady(ca)) {
@@ -117,14 +125,26 @@ export async function localRegistryReference(
  * Terminates the registry port-forward `ensurePortForward` leaves running,
  * matched by its full command line for this environment's kube context. A
  * forward for another context, or any other kubectl, is untouched; with none
- * running this does nothing.
+ * running this does nothing. A forward another worktree started, and that
+ * worktree still exists, is left running: one worktree's stop must not cut the
+ * registry from another that is mid-build.
  */
 export async function stopRegistryForward(
   repository: Repository,
   control: ProcessControl = {},
 ): Promise<number[]> {
   const context = repository.environment.kubeContext;
-  return await terminateMatching(
+  const owner = await readForwardOwner(context);
+  if (ownedByAnother(owner, repository.root)) {
+    const running = await (control.listProcesses ?? listHostProcesses)();
+    if (running.some((entry) => entry.pid === owner.pid)) {
+      (control.report ?? ((line) => void process.stderr.write(`${line}\n`)))(
+        `left registry port-forward ${owner.pid} for context ${context} running: it was started from ${owner.root}, so stop it from there`,
+      );
+      return [];
+    }
+  }
+  const stopped = await terminateMatching(
     ({ command }) => {
       const argv = command.trim().split(/\s+/);
       return (
@@ -137,4 +157,6 @@ export async function stopRegistryForward(
       `stopped registry port-forward ${entry.pid} for context ${context}`,
     control,
   );
+  await clearForwardOwner(context);
+  return stopped;
 }

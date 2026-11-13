@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { vi } from "vitest";
 
 // No unit test may see, or signal, real host processes: unit tests run beside
@@ -23,3 +26,12 @@ vi.mock("./runtime/processes.js", async (importOriginal) => {
       }),
   };
 });
+
+// No unit test may write host locks or ownership records under the real home
+// directory: they are shared with live runs on this host. A test that needs a
+// host root of its own sets `KORE_HOST_ROOT` itself.
+if (process.env.KORE_HOST_ROOT === undefined) {
+  const host = mkdtempSync(join(tmpdir(), "kore-unit-host-"));
+  process.env.KORE_HOST_ROOT = host;
+  process.on("exit", () => rmSync(host, { recursive: true, force: true }));
+}
