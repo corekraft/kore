@@ -133,10 +133,15 @@ rerun that changes no release are proven by `RecordingRunner` specs, and the
 live evidence row is still open. Namespace treatment of `agentgateway-system`:
 enrolled in image admission by default (no `enrollmentExemptions` entry);
 `KoreContainerSecurity` covers it (no exemption); `KoreMeshEnrollment` covers it
-too (no exemption), so the namespace is enrolled in the ambient mesh and its
-controller's xDS reaches data planes through ztunnel. Both are proven offline by
-Gatekeeper fixtures; the live run (#149) proves the gateway with ztunnel and
-records the ambient label and which rules the chart's pods violate in `dryrun`.
+too (no exemption). Helm's `--create-namespace` leaves the namespace
+unlabelled, so the catalog marks the `agentgateway` component `meshEnrolled` and
+`kore platform up` applies `istio.io/dataplane-mode: ambient` to its namespace
+once the flag is on, in every inventory mode, as server-side-apply field manager
+`kore-mesh-enrollment` (released again when the flag is off). Specs prove the
+label is applied with the flag on and never with it off, and Gatekeeper fixtures
+prove a labelled namespace has 0 violations and an unlabelled one has 1. The
+live run (#149) proves the label on the cluster and the gateway with ztunnel,
+and records which rules the chart's pods violate in `dryrun`.
 
 | Image                              | Tag    | Index digest                                                              | Signature                                                                                 |
 | ---------------------------------- | ------ | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |

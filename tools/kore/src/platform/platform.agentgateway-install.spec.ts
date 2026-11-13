@@ -14,135 +14,17 @@ vi.mock("./admission-gate.js", async (importOriginal) => ({
 vi.mock("./registry-rewire.js", () => ({
   rewireRegistryService: async () => false,
 }));
-import {
-  loadRepository,
-  type Component,
-  type Repository,
-} from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
+import {
+  agentgateway,
+  cluster,
+  component,
+  local,
+  upgrades,
+} from "./agentgateway-fixtures.js";
 import { bootstrapControllers } from "./bootstrap.js";
-import { enrollPlatformNamespaces } from "./enrollment.js";
-import { desiredFingerprint } from "./fingerprint.js";
 import { reconcileComponent } from "./reconcile.js";
 import { crashLoop, pod, Scenario } from "./fail-fast-fixtures.js";
-
-const agentgateway = /agentgateway/;
-
-/** The real catalog entries agentgateway depends on, plus itself. */
-const involved = [
-  "kore-gateway-api",
-  "cert-manager",
-  "agentgateway-crds",
-  "agentgateway",
-];
-
-/**
- * The local overlay with the ingress flag set. The catalog is cut to
- * agentgateway and its prerequisites, which keep their real dependency edges;
- * only the prerequisites' readiness is simplified, since their own proofs are
- * not under test here.
- */
-async function local(on: boolean): Promise<Repository> {
-  const base = await loadRepository("local");
-  const sibling = {
-    ...base.catalog.components.find((c) => c.kind === "helm")!,
-    name: "sibling",
-    namespace: "sibling-ns",
-    phase: "core" as const,
-    dependencies: [],
-    ownsCRDs: [],
-    readiness: ["configmap/ready"],
-  };
-  const components = base.catalog.components
-    .filter((c) => involved.includes(c.name))
-    .map((c) => {
-      const kept = c.dependencies.filter((d) => involved.includes(d));
-      const prerequisite = !c.name.startsWith("agentgateway");
-      return {
-        ...c,
-        dependencies: kept,
-        ...(prerequisite
-          ? { readiness: ["configmap/ready"], ownsCRDs: [] }
-          : {}),
-      };
-    });
-  return {
-    ...base,
-    catalog: { ...base.catalog, components: [sibling, ...components] },
-    environment: {
-      ...base.environment,
-      provider: "managed",
-      features: { ...base.environment.features, "ingress-agentgateway": on },
-    },
-  };
-}
-
-function component(repository: Repository, name: string): Component {
-  return repository.catalog.components.find((c) => c.name === name)!;
-}
-
-/**
- * A cluster whose releases are all absent (`converged` false) or all deployed
- * from the current desired state (`converged` true). Gated-off releases are
- * never installed, so Helm answers not found for them in both cases.
- */
-function cluster(repository: Repository, converged: boolean) {
-  const calls: string[] = [];
-  const runner: Runner = {
-    async run(command, args) {
-      calls.push(`${command} ${args.join(" ")}`);
-      if (command !== "helm") {
-        return { stdout: kubectlAnswer(args.join(" ")), stderr: "", code: 0 };
-      }
-      const name = args[1]!;
-      const gatedOff =
-        agentgateway.test(name) &&
-        repository.environment.features?.["ingress-agentgateway"] !== true;
-      if (args[0] === "status" || args[0] === "history") {
-        if (gatedOff || !converged) {
-          throw new CommandError(command, args, {
-            stdout: "",
-            stderr: "Error: release: not found",
-            code: 1,
-          });
-        }
-        const found = repository.catalog.components.find(
-          (c) => c.name === name,
-        );
-        return {
-          stdout:
-            args[0] === "status"
-              ? JSON.stringify({ info: { status: "deployed" } })
-              : JSON.stringify([
-                  {
-                    status: "deployed",
-                    description: found
-                      ? desiredFingerprint(repository, found)
-                      : "",
-                  },
-                ]),
-          stderr: "",
-          code: 0,
-        };
-      }
-      return { stdout: "", stderr: "", code: 0 };
-    },
-  };
-  return { runner, calls };
-}
-
-/** What the readiness probes read back from a healthy cluster. */
-function kubectlAnswer(joined: string): string {
-  if (joined.includes("availableReplicas")) {
-    return "available";
-  }
-  return joined.includes("tls.crt") ? "ready" : "";
-}
-
-const upgrades = (calls: string[]) =>
-  calls
-    .filter((c) => c.startsWith("helm upgrade"))
-    .map((c) => /upgrade --install (\S+)/.exec(c)![1]!);
 
 test("with the flag off, bootstrap issues no agentgateway command beyond the release probe", async () => {
   const repository = await local(false);
@@ -265,43 +147,4 @@ test("a failed agentgateway Helm install names the component and Helm's own erro
     reconcileComponent(repository, runner, target),
     /component agentgateway failed to become ready: .*manifest unreachable/s,
   );
-});
-
-/** Enrolls under enforce on a converged cluster; returns the namespaces labelled. */
-async function enrolled(on: boolean): Promise<string[]> {
-  const repository = await local(on);
-  repository.environment.imageInventory = "enforce";
-  const { runner: base } = cluster(repository, true);
-  const labelled: string[] = [];
-  const runner: Runner = {
-    async run(command, args, options) {
-      if (command === "helm") {
-        return base.run(command, args, options);
-      }
-      if (args.includes("namespaces")) {
-        const items = repository.catalog.components.map((c) => ({
-          metadata: { name: c.namespace, labels: {}, managedFields: [] },
-        }));
-        return { stdout: JSON.stringify({ items }), stderr: "", code: 0 };
-      }
-      if (args.includes("apply")) {
-        labelled.push(/name: (\S+)/.exec(options?.input ?? "")![1]!);
-      }
-      return { stdout: "", stderr: "", code: 0 };
-    },
-  };
-  await enrollPlatformNamespaces(repository, runner);
-  return labelled;
-}
-
-test("agentgateway-system is enrolled in image admission by default, with no exemption", async () => {
-  for (const name of ["local", "managed-example"]) {
-    const base = await loadRepository(name);
-    assert.equal(
-      base.environment.enrollmentExemptions?.["agentgateway-system"],
-      undefined,
-    );
-  }
-  assert.ok((await enrolled(true)).includes("agentgateway-system"));
-  assert.ok(!(await enrolled(false)).includes("agentgateway-system"));
 });

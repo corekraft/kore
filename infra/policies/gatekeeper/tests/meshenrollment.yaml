@@ -36,3 +36,8 @@ tests:
           object: objects/mesh-agentgateway-system.yaml,
           assertions: [{ violations: 1 }]
         }
+      - {
+          name: accepts-agentgateway-system-labelled-ambient,
+          object: objects/mesh-agentgateway-system-enrolled.yaml,
+          assertions: [{ violations: 0 }]
+        }

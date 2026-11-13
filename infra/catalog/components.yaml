@@ -232,6 +232,7 @@
         "chart": "agentgateway",
         "version": "agentgateway",
         "featureFlag": "ingress-agentgateway",
+        "meshEnrolled": true,
         "ownsCRDs": [],
         "dependencies":
           ["agentgateway-crds", "kore-gateway-api", "cert-manager"],

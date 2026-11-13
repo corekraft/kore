@@ -28,6 +28,12 @@ export interface Component {
    * status reports it as gated off.
    */
   featureFlag?: string;
+  /**
+   * Whether the platform labels this component's namespace
+   * `istio.io/dataplane-mode: ambient` once the component is enabled. Helm
+   * creates the namespace unlabelled; kore owns only the label.
+   */
+  meshEnrolled?: boolean;
   dependencies: string[];
   timeout: string;
   values?: string[];
