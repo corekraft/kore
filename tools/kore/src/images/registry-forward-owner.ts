@@ -11,6 +11,8 @@ export interface ForwardOwner {
   pid: number;
   /** The worktree that started it. */
   root: string;
+  /** The kore process that started it. */
+  starter: number;
 }
 
 /**
@@ -29,7 +31,11 @@ export async function recordForwardOwner(
 ): Promise<void> {
   const file = ownerFile(repository.environment.kubeContext);
   await mkdir(dirname(file), { recursive: true });
-  const owner: ForwardOwner = { pid, root: repository.root };
+  const owner: ForwardOwner = {
+    pid,
+    root: repository.root,
+    starter: process.pid,
+  };
   await writeFile(file, JSON.stringify(owner));
 }
 
@@ -41,9 +47,16 @@ export async function readForwardOwner(
     const owner = JSON.parse(await readFile(ownerFile(context), "utf8")) as {
       pid?: unknown;
       root?: unknown;
+      starter?: unknown;
     };
-    return Number.isInteger(owner.pid) && typeof owner.root === "string"
-      ? { pid: owner.pid as number, root: owner.root }
+    return Number.isInteger(owner.pid) &&
+      typeof owner.root === "string" &&
+      Number.isInteger(owner.starter)
+      ? {
+          pid: owner.pid as number,
+          root: owner.root,
+          starter: owner.starter as number,
+        }
       : undefined;
   } catch {
     return undefined;

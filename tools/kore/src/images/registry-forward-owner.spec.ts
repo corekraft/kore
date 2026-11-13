@@ -1,9 +1,10 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
+import { readForwardOwner } from "./registry-forward-owner.js";
 import { localRegistryReference, stopRegistryForward } from "./registry.js";
 
 // Docs: AGENTS.md "One owner per resource."
@@ -14,7 +15,15 @@ const context = "k3d-kore-local";
 const forwardCommand = `kubectl --context ${context} --namespace kore-registry port-forward service/oci-registry 30500:5000`;
 const roots: string[] = [];
 
+beforeEach(async () => {
+  // Ownership records are host-wide; give every test a host of its own.
+  const host = await mkdtemp(join(tmpdir(), "kore-forward-host-"));
+  roots.push(host);
+  vi.stubEnv("KORE_HOST_ROOT", host);
+});
+
 afterEach(async () => {
+  vi.unstubAllEnvs();
   await Promise.all(
     roots.splice(0).map((root) => rm(root, { recursive: true, force: true })),
   );
@@ -108,4 +117,43 @@ test("a forward nobody recorded, such as one from an older kore, is still stoppe
 
   expect(await stopRegistryForward(await worktree(), control)).toEqual([4242]);
   expect(signalled).toEqual([4242]);
+});
+
+test("the owner record names the starting process as well as the worktree", async () => {
+  const owner = await worktree();
+  await start(owner);
+
+  expect(await readForwardOwner(context)).toEqual({
+    pid: 4242,
+    root: owner.root,
+    starter: process.pid,
+  });
+});
+
+/** Reaches the registry through a forward that is already answering. */
+async function useOpenForward(repository: Repository) {
+  const lines: string[] = [];
+  await localRegistryReference(
+    repository,
+    {
+      run: async () => ({ stdout: "", stderr: "", code: 0 }),
+    } as unknown as Runner,
+    "registry.kore.local:30500/reference:dev",
+    { isPortOpen: async () => true, report: (line) => void lines.push(line) },
+  );
+  return lines;
+}
+
+test("a forward found already open with no recorded owner is reported, never silently adopted", async () => {
+  const lines = await useOpenForward(await worktree());
+
+  expect(lines.join("\n")).toMatch(/no owner recorded/);
+  expect(lines.join("\n")).toContain("30500");
+});
+
+test("a forward found open that a worktree recorded is used without a warning", async () => {
+  const owner = await worktree();
+  await start(owner);
+
+  expect(await useOpenForward(await worktree())).toEqual([]);
 });

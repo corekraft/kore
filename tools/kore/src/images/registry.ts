@@ -18,6 +18,8 @@ import { loadRegistryCa } from "./registry-tls.js";
 export interface RegistryDependencies {
   spawnPortForward?: (repository: Repository) => number;
   isPortOpen?: (ca: string) => Promise<boolean>;
+  /** Receives a warning line. Defaults to stderr. */
+  report?: (line: string) => void;
 }
 
 function spawnPortForward(repository: Repository): number {
@@ -81,6 +83,20 @@ async function isPortOpen(ca: string): Promise<boolean> {
   return await forwardResponds(30500, ca);
 }
 
+/** A forward found open with no recorded owner could be stopped by any worktree; say so. */
+async function reportUnownedForward(
+  repository: Repository,
+  dependencies: RegistryDependencies,
+): Promise<void> {
+  const context = repository.environment.kubeContext;
+  if ((await readForwardOwner(context)) !== undefined) {
+    return;
+  }
+  (dependencies.report ?? ((line) => void process.stderr.write(`${line}\n`)))(
+    `registry port-forward on 127.0.0.1:30500 for context ${context} is already running with no owner recorded, so this run uses it but does not own it; any worktree's stop can end it mid-build`,
+  );
+}
+
 async function ensurePortForward(
   repository: Repository,
   dependencies: RegistryDependencies,
@@ -88,6 +104,7 @@ async function ensurePortForward(
 ): Promise<void> {
   const portReady = dependencies.isPortOpen ?? isPortOpen;
   if (await portReady(ca)) {
+    await reportUnownedForward(repository, dependencies);
     return;
   }
   const pid = (dependencies.spawnPortForward ?? spawnPortForward)(repository);
