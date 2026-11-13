@@ -31,6 +31,12 @@ describe("a bypass actor is matched by type and id, and only a wider mode weaken
     expect(weakenings(body(was), body(now)).weaker).toHaveLength(count);
   });
 
+  it("counts an unknown mode as wider than pull_request", () => {
+    expect(
+      weakenings(body(actor("pull_request")), body(actor("exempt"))).weaker,
+    ).toHaveLength(1);
+  });
+
   it("names a widened mode, not a new actor", () => {
     const { weaker } = weakenings(
       body(actor("pull_request")),
@@ -77,6 +83,16 @@ describe("harness ruleset sync lets a narrowed bypass mode through", () => {
     });
     expect(await run(sync("--confirm"), h.deps)).toBe(0);
     expect(mutations(h)).not.toEqual([]);
+  });
+
+  it("refuses pull_request to an unknown mode without --allow-removal", async () => {
+    const h = rulesetRepo({
+      declared: { ...declared, bypass_actors: [actor("exempt")] },
+      main: liveMain([DELETION], { bypass_actors: [actor("pull_request")] }),
+    });
+    expect(await run(sync("--confirm"), h.deps)).toBe(1);
+    expect(h.err()).toMatch(/bypass_mode widens/);
+    expect(mutations(h)).toEqual([]);
   });
 
   it("refuses pull_request to always without --allow-removal", async () => {

@@ -27,6 +27,12 @@ describe("the guard hook ranks bypass modes", () => {
     expect(result.out).toMatch(/bypass_mode widens/);
   });
 
+  it("warns when a bypass mode changes to an unknown one", async () => {
+    const result = await run(write("exempt"));
+    expect(result.out).toMatch(/guard:guardrail-demotion/);
+    expect(result.out).toMatch(/bypass_mode widens/);
+  });
+
   it("stays silent on a rewrite that changes nothing", async () => {
     const result = await run(write("pull_request"));
     expect(result.out).not.toMatch(/guardrail-demotion/);
