@@ -8,12 +8,20 @@ import { testHarness } from "../cli/cli-support.js";
 const CLEAN = { "docs/index.md": "# Index\n", "README.md": "# Kore\n" };
 const BROKEN = { ...CLEAN, "README.md": "# Kore\n\n[gone](missing.md)\n" };
 
-function repository(tree: Record<string, string>, gitFails = false) {
+function repository(
+  tree: Record<string, string>,
+  gitFails = false,
+  bare?: string,
+) {
   return testHarness({
     files: Object.fromEntries(
       Object.entries(tree).map(([path, text]) => [`/repo/${path}`, text]),
     ),
     responses: [
+      {
+        match: (_, args) => args[0] === "config",
+        result: bare === undefined ? { code: 1 } : { stdout: `${bare}\n` },
+      },
       {
         match: (_, args) => args[0] === "ls-files",
         result: gitFails
@@ -78,5 +86,37 @@ describe("harness hook kb-check", () => {
     expect(open.err()).toMatch(/\[hook:kb-check\] failed: git ls-files/);
     const strict = repository(CLEAN, true);
     expect(await run(["hook", "kb-check", "--strict"], strict.deps)).toBe(1);
+  });
+});
+
+describe("harness hook kb-check core.bare", () => {
+  it("reports core.bare true in the shared git config, and --strict exits 1", async () => {
+    const warn = repository(CLEAN, false, "true");
+    expect(await run(["hook", "kb-check"], warn.deps)).toBe(0);
+    expect(warn.out()).toMatch(
+      /core\.bare is true.*git config core\.bare false/,
+    );
+    const strict = repository(CLEAN, false, "true");
+    expect(await run(["hook", "kb-check", "--strict"], strict.deps)).toBe(1);
+    expect(strict.out()).not.toMatch(/kb-check: clean/);
+  });
+
+  it("stays clean when core.bare is false or unset", async () => {
+    for (const bare of ["false", undefined]) {
+      const h = repository(CLEAN, false, bare);
+      expect(await run(["hook", "kb-check", "--strict"], h.deps)).toBe(0);
+      expect(h.out()).toMatch(/^kb-check: clean\n/);
+      expect(h.out()).not.toMatch(/core\.bare/);
+    }
+  });
+
+  it("reads core.bare from the repository root, without writing config", async () => {
+    const h = repository(CLEAN);
+    await run(["hook", "kb-check"], h.deps);
+    const config = h.runner.calls.filter((c) => c.args[0] === "config");
+    expect(config.map((c) => c.args)).toEqual([
+      ["config", "--get", "core.bare"],
+    ]);
+    expect(config[0]?.options?.cwd).toBe("/repo");
   });
 });

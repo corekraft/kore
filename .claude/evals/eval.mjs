@@ -27,6 +27,12 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+// No GIT_*: under a git hook GIT_DIR names the real repository, which the
+// eval's worktree add and remove would otherwise act on (#368).
+const GIT_ENV = Object.fromEntries(
+  Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_")),
+);
+
 const EVALS_DIR = fileURLToPath(new URL(".", import.meta.url));
 /** Skill triggering depends on the model, so every run names it exactly. */
 export const EVAL_MODEL = "claude-opus-5-5";
@@ -482,14 +488,7 @@ function realClaude(root) {
 }
 
 /** A detached worktree of HEAD in a temporary directory; remove() deletes it. */
-const STUBBED = [
-  "kore",
-  "k3d",
-  "helm",
-  "kubectl",
-  "tofu",
-  "terraform",
-];
+const STUBBED = ["kore", "k3d", "helm", "kubectl", "tofu", "terraform"];
 const STUB = '#!/bin/sh\necho "eval stub: $(basename "$0") $*; nothing ran"\n';
 
 /**
@@ -502,16 +501,11 @@ function realWorktree(root) {
     const parent = mkdtempSync(join(tmpdir(), "kore-eval-"));
     const path = join(parent, "repo");
     try {
-      execFileSync("git", [
-        "-C",
-        root,
-        "worktree",
-        "add",
-        "--detach",
-        "--quiet",
-        path,
-        "HEAD",
-      ]);
+      execFileSync(
+        "git",
+        ["-C", root, "worktree", "add", "--detach", "--quiet", path, "HEAD"],
+        { env: GIT_ENV },
+      );
     } catch (error) {
       rmSync(parent, { recursive: true, force: true });
       throw error;
@@ -528,20 +522,17 @@ function realWorktree(root) {
       for (const name of STUBBED)
         writeFileSync(join(stubs, name), STUB, { mode: 0o755 });
       writeFileSync(join(path, "bin", "kore"), STUB, { mode: 0o755 });
-      env = { ...process.env, PATH: `${stubs}:${process.env.PATH ?? ""}` };
+      env = { ...GIT_ENV, PATH: `${stubs}:${process.env.PATH ?? ""}` };
     }
     return {
       path,
       env,
       remove: async () => {
-        execFileSync("git", [
-          "-C",
-          root,
-          "worktree",
-          "remove",
-          "--force",
-          path,
-        ]);
+        execFileSync(
+          "git",
+          ["-C", root, "worktree", "remove", "--force", path],
+          { env: GIT_ENV },
+        );
         rmSync(parent, { recursive: true, force: true });
       },
     };
@@ -623,7 +614,7 @@ function dirtyOutside(path, seeded) {
   const status = execFileSync(
     "git",
     ["-C", path, "status", "--porcelain", "--untracked-files=all"],
-    { encoding: "utf8" },
+    { encoding: "utf8", env: GIT_ENV },
   );
   const changed = status
     .split("\n")
