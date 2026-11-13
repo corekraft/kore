@@ -23,6 +23,7 @@ import {
 } from "./guard-secrets.js";
 import {
   commandOf,
+  execGlobQualifier,
   isKore,
   rawWords,
   shellText,
@@ -104,6 +105,19 @@ function unquotedGlob(command: string): Finding {
   );
 }
 
+// A zsh glob qualifier such as `*(e:'cmd':)` runs code in a word the segment checks read as
+// an argument, so it blocks for every session, bounded or not (#335).
+function globQualifier(command: string): Finding {
+  const qualifier = execGlobQualifier(shellText(command));
+  return qualifier === undefined
+    ? null
+    : block(
+        "glob-qualifier-exec",
+        `${qualifier} is a zsh glob qualifier that runs code (e:'...' or +function) when the word expands. ` +
+          "Instead, list the files with a plain glob or `find`, and run the command on the result in a separate step.",
+      );
+}
+
 // zsh pitfalls beyond --include/--exclude, in audit mode (warn): a bare glob
 // that matches nothing fails with "no matches found", and a word starting
 // with = is expanded as a command lookup ("== not found"). One finding per rule.
@@ -134,7 +148,7 @@ export async function evaluateBash(
   command: string,
   ctx: GuardContext,
 ): Promise<Verdict> {
-  const found: Finding[] = [unquotedGlob(command)];
+  const found: Finding[] = [unquotedGlob(command), globQualifier(command)];
   for (const segment of splitSegments(command)) {
     found.push(...(await checkBashSegment(segment, ctx)));
   }

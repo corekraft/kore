@@ -47,7 +47,7 @@ const outsideWorktree = (what: string, root: string): Finding =>
   );
 
 /** An interpreter given inline code, or an editor told to work in place, which can write anything. */
-function runsInline(segment: readonly string[]): boolean {
+export function runsInline(segment: readonly string[]): boolean {
   const { name, args } = commandOf(segment);
   return (
     (name === "node" && args.some((a) => ["-e", "--eval", "-p"].includes(a))) ||

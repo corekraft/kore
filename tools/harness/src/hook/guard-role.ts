@@ -10,6 +10,7 @@
 import { isAbsolute, relative, resolve } from "node:path";
 import { ghMayRun, readMayRun } from "./guard-role-allow.js";
 import { checkDelivery, DELIVERY_ROLES } from "./guard-role-delivery.js";
+import { checkProtected } from "./guard-role-protected.js";
 import {
   changesShell,
   harnessAllowed,
@@ -155,6 +156,15 @@ export function checkRole(
   input: Record<string, unknown>,
   root: string,
 ): Finding {
+  const bound =
+    typeof agentType === "string" &&
+    (DELIVERY_ROLES.has(agentType) || READ_ONLY_ROLES.has(agentType));
+  const protectedFinding = bound
+    ? checkProtected(agentType, tool, input, root)
+    : null;
+  if (protectedFinding !== null) {
+    return protectedFinding;
+  }
   if (typeof agentType === "string" && DELIVERY_ROLES.has(agentType)) {
     return checkDelivery(agentType, tool, input, root);
   }

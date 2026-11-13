@@ -3,6 +3,8 @@
     { "rule": "secret-path", "kind": "bash-and-file", "mode": "enforce", "owner": "tools/harness/src/hook/guard-secrets.ts" },
     { "rule": "sops-plaintext", "kind": "bash-and-file", "mode": "enforce", "owner": "tools/harness/src/hook/guard-secrets.ts" },
     { "rule": "unquoted-glob", "kind": "bash", "mode": "enforce", "owner": "tools/harness/src/hook/guard-bash.ts" },
+    { "rule": "glob-qualifier-exec", "kind": "bash", "mode": "enforce", "owner": "tools/harness/src/hook/guard-bash.ts" },
+    { "rule": "role-protected", "kind": "bash-and-file", "mode": "enforce", "owner": "tools/harness/src/hook/guard-role-protected.ts" },
     { "rule": "destructive", "kind": "bash", "mode": "enforce", "owner": "tools/harness/src/hook/guard-commands.ts" },
     { "rule": "kubectl-context", "kind": "bash", "mode": "enforce", "owner": "tools/harness/src/hook/guard-commands.ts" },
     { "rule": "helm-context", "kind": "bash", "mode": "enforce", "owner": "tools/harness/src/hook/guard-commands.ts" },

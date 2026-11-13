@@ -65,10 +65,19 @@ class Splitter {
       return i + 1;
     } else if (this.isSingleOperator(i, char)) {
       this.endSegment();
+    } else if (char === ">" && this.startsRedirect()) {
+      // `echo x>file`: the redirect starts its own word, so the guards see `>file`.
+      this.endWord();
+      this.append(char);
     } else {
       this.append(char);
     }
     return i;
+  }
+
+  /** Whether an unquoted `>` follows word text that is not just a file descriptor (`2>`) or `&`, `>`: text glued to a redirect. */
+  private startsRedirect(): boolean {
+    return this.inWord && !/^(?:\d*|&|\d*>|&>)$/.test(this.word);
   }
 
   private isSingleOperator(i: number, char: string): boolean {
@@ -253,4 +262,25 @@ class WordScanner {
 /** Raw shell words, noting an unquoted * or ? and an unquoted leading =. */
 export function rawWords(command: string): RawWord[] {
   return new WordScanner(command).run();
+}
+
+/** The first unquoted zsh glob qualifier that runs code: `e:'cmd':` evaluates a string and `+name` calls a function, on a word such as `*(e:'cmd':)`. */
+export function execGlobQualifier(command: string): string | undefined {
+  let quote: string | null = null;
+  for (let i = 0; i < command.length; i++) {
+    const char = command[i] as string;
+    if (char === "\\" && quote !== "'") {
+      i++;
+    } else if (quote) {
+      quote = char === quote ? null : quote;
+    } else if (char === "'" || char === '"') {
+      quote = char;
+    } else if (char === "(" && "*?])/".includes(command[i - 1] ?? " ")) {
+      const group = command.slice(i + 1).split(")")[0] as string;
+      if (/(?:^|[^A-Za-z0-9])\+|e[^A-Za-z0-9]/.test(group)) {
+        return `${command.slice(Math.max(0, i - 1), i)}(${group})`;
+      }
+    }
+  }
+  return undefined;
 }
