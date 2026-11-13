@@ -70,6 +70,12 @@ test("tests, other file types and unscanned paths are not selected", () => {
   );
 });
 
+test("a .spec.mjs file is selected because the scan-sast task excludes only .spec.ts, .test.ts and .test.mjs", () => {
+  assert.deepEqual(select([".claude/hooks/a.spec.mjs"]), [
+    ".claude/hooks/a.spec.mjs",
+  ]);
+});
+
 test("a staged deletion is not selected because semgrep cannot read it", () => {
   assert.deepEqual(
     select(

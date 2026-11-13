@@ -31,7 +31,10 @@ fi
 # The grep skips even starting node when no staged path could qualify.
 sast_files=""
 if printf '%s\n' "$staged" | grep -qE '^(tools/kore/src/|tools/harness/src/|apps/|\.claude/).*\.(ts|mjs|js)$'; then
-  sast_files="$(printf '%s\n' "$staged" | pinned node "$repo_root/tools/kore/.husky/sast-staged.mjs")" || exit 1
+  sast_files="$(printf '%s\n' "$staged" | pinned node "$repo_root/tools/kore/.husky/sast-staged.mjs")" || {
+    echo "pre-commit: could not select the staged files for SAST; run 'mise run scan-sast' and fix the error" >&2
+    exit 1
+  }
 fi
 if [ -n "$sast_files" ]; then
   # shellcheck disable=SC2086

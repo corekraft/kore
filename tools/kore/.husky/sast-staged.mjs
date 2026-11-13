@@ -14,7 +14,7 @@ export const ROOTS = [
 ];
 
 const SOURCE = /\.(ts|mjs|js)$/;
-const TEST = /\.(spec|test)\.(ts|mjs)$/;
+const TEST = /\.spec\.ts$|\.test\.(ts|mjs)$/;
 
 export function selectScanned(paths) {
   return paths.filter(
