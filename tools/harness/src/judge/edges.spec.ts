@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parsePrView } from "./checks.js";
 import { parseDeclaration } from "./declaration.js";
 import { parseDiff } from "./diff.js";
+import { JudgeError } from "./errors.js";
 import { hintsFor } from "./hints.js";
 
 const overlay = (...lines: string[]) =>
@@ -74,5 +75,61 @@ describe("declaration and hint edges", () => {
 
   it("ignores text before the first diff header", () => {
     expect(parseDiff("noise\n+stray")).toEqual([]);
+  });
+});
+
+describe("diff header reading", () => {
+  it("reads a file whose quoted header has octal-escaped bytes under its unquoted path", () => {
+    const diff = [
+      'diff --git "a/apps/web/caf\\303\\251.yaml" "b/apps/web/caf\\303\\251.yaml"',
+      '--- "a/apps/web/caf\\303\\251.yaml"',
+      '+++ "b/apps/web/caf\\303\\251.yaml"',
+      "@@ -1 +1 @@",
+      "+name: cafe",
+    ].join("\n");
+    expect(parseDiff(diff)).toEqual([
+      {
+        path: "apps/web/café.yaml",
+        deleted: false,
+        added: ["name: cafe"],
+        removed: 0,
+        netRemoved: 0,
+        after: [{ added: true, text: "name: cafe" }],
+      },
+    ]);
+  });
+
+  it("decodes a quoted backslash-escape in a header to its character", () => {
+    const diff = [
+      'diff --git "a/say \\"hi\\".yaml" "b/say \\"hi\\".yaml"',
+      "@@ -1 +1 @@",
+      "+x: 1",
+    ].join("\n");
+    expect(parseDiff(diff)).toMatchObject([{ path: 'say "hi".yaml' }]);
+  });
+
+  it("fails closed on a quoted header with an escape it does not know", () => {
+    const diff = 'diff --git "a/x\\9.yaml" "b/x\\9.yaml"';
+    expect(() => parseDiff(diff)).toThrow(
+      new JudgeError(
+        'Cannot read the diff header on this line, so the file it changes is unknown: diff --git "a/x\\9.yaml" "b/x\\9.yaml". Check that header in the PR diff and rerun the precheck.',
+      ),
+    );
+  });
+
+  it("fails closed on a header it cannot read, naming that line, and books no hunk to the file before it", () => {
+    const diff = [
+      "diff --git a/one.yaml b/one.yaml",
+      "@@ -1 +1 @@",
+      "+a: 1",
+      'diff --git "a/two.yaml b/two.yaml',
+      "@@ -1 +1 @@",
+      "+b: 2",
+    ].join("\n");
+    expect(() => parseDiff(diff)).toThrow(
+      new JudgeError(
+        'Cannot read the diff header on this line, so the file it changes is unknown: diff --git "a/two.yaml b/two.yaml. Check that header in the PR diff and rerun the precheck.',
+      ),
+    );
   });
 });

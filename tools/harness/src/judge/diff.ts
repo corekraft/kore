@@ -1,3 +1,56 @@
+import { JudgeError } from "./errors.js";
+
+/** A `diff --git` header: each side is either bare or a quoted path, which git writes for special bytes. */
+const HEADER =
+  /^diff --git (?:a\/.+?|"a\/(?:[^"\\]|\\.)*") (?:b\/(.+)|"b\/((?:[^"\\]|\\.)*)")$/;
+/** One piece of a quoted path: an octal byte, a one-character escape, or literal text. */
+const QUOTED_PIECE = /\\([0-3][0-7]{2})|\\(.)|([^\\]+)/gs;
+const ESCAPES = new Map<string, number>([
+  ["a", 7],
+  ["b", 8],
+  ["t", 9],
+  ["n", 10],
+  ["v", 11],
+  ["f", 12],
+  ["r", 13],
+  ['"', 34],
+  ["\\", 92],
+]);
+
+function unreadable(line: string): JudgeError {
+  return new JudgeError(
+    `Cannot read the diff header on this line, so the file it changes is unknown: ${line}. Check that header in the PR diff and rerun the precheck.`,
+  );
+}
+
+/** Decodes a quoted git path to its UTF-8 text; an escape it does not know fails the read. */
+function unquote(quoted: string, line: string): string {
+  const bytes: Buffer[] = [];
+  for (const [, octal, escape, literal] of quoted.matchAll(QUOTED_PIECE)) {
+    if (octal !== undefined) {
+      bytes.push(Buffer.from([Number.parseInt(octal, 8)]));
+    } else if (escape !== undefined) {
+      const code = ESCAPES.get(escape);
+      if (code === undefined) {
+        throw unreadable(line);
+      }
+      bytes.push(Buffer.from([code]));
+    } else {
+      bytes.push(Buffer.from(literal ?? "", "utf8"));
+    }
+  }
+  return Buffer.concat(bytes).toString("utf8");
+}
+
+/** The path a `diff --git` header names, unquoted; a header that cannot be read fails the parse. */
+function pathOf(line: string): string {
+  const header = HEADER.exec(line);
+  if (header === null) {
+    throw unreadable(line);
+  }
+  return header[1] ?? unquote(header[2] ?? "", line);
+}
+
 export interface ChangedFile {
   path: string;
   deleted: boolean;
@@ -38,11 +91,10 @@ export function parseDiff(text: string): ChangedFile[] {
   let inHunk = false;
   const hunk = new Hunk();
   for (const line of text.split("\n")) {
-    const header = /^diff --git a\/(.+?) b\/(.+)$/.exec(line);
-    if (header?.[2] !== undefined) {
+    if (line.startsWith("diff --git")) {
       hunk.end(current);
       current = {
-        path: header[2],
+        path: pathOf(line),
         deleted: false,
         added: [],
         removed: 0,
