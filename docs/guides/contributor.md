@@ -91,6 +91,10 @@ worktree's tests (pid N)`. It waits up to 15 minutes
   `--request-timeout`.
 - Upstream chart and container checks are opt-in too (`test:upstream-charts`,
   `test:container-smoke`).
+- The agentgateway install is proven live by
+  `KORE_RUN_AGENTGATEWAY_PROOF=1 tools/kore/scripts/agentgateway-live-proof.sh`.
+  It runs a scratch copy of the local overlay with `ingress-agentgateway` on,
+  kept out of git and removed on exit, so the flag stays off in the repository.
 
 ## The harness bundle
 

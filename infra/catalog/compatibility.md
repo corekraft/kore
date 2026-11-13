@@ -125,7 +125,23 @@ minimum, so conformance against 1.7.0 is proven by the install ticket. Istio
 grants RBAC to read Istio `ServiceEntry` and `WorkloadEntry`; `istio.autoEnabled`
 stays false, so no Gateway joins the mesh unless it opts in through
 `AgentgatewayParameters`. Istio keeps ztunnel for identity and mTLS. k3d and
-Kubernetes 1.37 evidence is added by the agentgateway install ticket.
+Kubernetes 1.37 evidence is added by the live run of the agentgateway install
+ticket (#205); offline, the flag-on install order (`kore-gateway-api`,
+`cert-manager`, `agentgateway-crds`, `agentgateway`), the readiness wait on
+`deployment/agentgateway`, the fail-fast naming of an unready controller and a
+rerun that changes no release are proven by `RecordingRunner` specs, and the
+live evidence row is still open. Namespace treatment of `agentgateway-system`:
+enrolled in image admission by default (no `enrollmentExemptions` entry);
+`KoreContainerSecurity` covers it (no exemption); `KoreMeshEnrollment` covers it
+too (no exemption). Helm's `--create-namespace` leaves the namespace
+unlabelled, so the catalog marks the `agentgateway` component `meshEnrolled` and
+`kore platform up` applies `istio.io/dataplane-mode: ambient` to its namespace
+once the flag is on, in every inventory mode, as server-side-apply field manager
+`kore-mesh-enrollment` (released again when the flag is off). Specs prove the
+label is applied with the flag on and never with it off, and Gatekeeper fixtures
+prove a labelled namespace has 0 violations and an unlabelled one has 1. The
+live run (#149) proves the label on the cluster and the gateway with ztunnel,
+and records which rules the chart's pods violate in `dryrun`.
 
 | Image                              | Tag    | Index digest                                                              | Signature                                                                                 |
 | ---------------------------------- | ------ | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |

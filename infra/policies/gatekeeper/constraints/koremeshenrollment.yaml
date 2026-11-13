@@ -1,8 +1,27 @@
 apiVersion: constraints.gatekeeper.sh/v1beta1
 kind: KoreMeshEnrollment
-metadata: {name: kore-mesh-enrollment}
+metadata: { name: kore-mesh-enrollment }
 spec:
   enforcementAction: dryrun
-  match: {kinds: [{apiGroups: [""], kinds: [Namespace]}]}
+  match: { kinds: [{ apiGroups: [""], kinds: [Namespace] }] }
   parameters:
-    exemptNamespaces: [default, kube-public, kube-node-lease, kore-secret-source, kube-system, cert-manager, gatekeeper-system, istio-system, cosign-system, crossplane-system, external-secrets, cnpg-system, opentelemetry-operator-system, kore-system, kore-registry, observability, opa-system]
+    exemptNamespaces:
+      [
+        default,
+        kube-public,
+        kube-node-lease,
+        kore-secret-source,
+        kube-system,
+        cert-manager,
+        gatekeeper-system,
+        istio-system,
+        cosign-system,
+        crossplane-system,
+        external-secrets,
+        cnpg-system,
+        opentelemetry-operator-system,
+        kore-system,
+        kore-registry,
+        observability,
+        opa-system
+      ]

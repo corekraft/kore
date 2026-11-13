@@ -64,6 +64,10 @@
             "pattern": "^[a-z][a-z0-9-]*$",
             "description": "A flag in the environment overlay's features map; the component is installed only when it is true."
           },
+          "meshEnrolled": {
+            "type": "boolean",
+            "description": "The platform labels the component's namespace istio.io/dataplane-mode: ambient once the component is enabled."
+          },
           "ownsCRDGroups": {
             "type": "array",
             "items": { "type": "string", "minLength": 1 }

@@ -5,8 +5,39 @@ tests:
     template: ../templates/koremeshenrollment.yaml
     constraint: ../constraints/koremeshenrollment.yaml
     cases:
-      - {name: accepts-ambient-enrolled-namespace, object: objects/mesh-enrolled.yaml, assertions: [{violations: 0}]}
-      - {name: rejects-namespace-without-dataplane-label, object: objects/mesh-unenrolled.yaml, assertions: [{violations: 1, message: ambient}]}
-      - {name: rejects-non-ambient-dataplane-mode, object: objects/mesh-wrong-mode.yaml, assertions: [{violations: 1}]}
-      - {name: exempts-system-namespaces, object: objects/mesh-system.yaml, assertions: [{violations: 0}]}
-      - {name: exempts-platform-owned-namespaces-until-enrolled, object: objects/mesh-platform.yaml, assertions: [{violations: 0}]}
+      - {
+          name: accepts-ambient-enrolled-namespace,
+          object: objects/mesh-enrolled.yaml,
+          assertions: [{ violations: 0 }]
+        }
+      - {
+          name: rejects-namespace-without-dataplane-label,
+          object: objects/mesh-unenrolled.yaml,
+          assertions: [{ violations: 1, message: ambient }]
+        }
+      - {
+          name: rejects-non-ambient-dataplane-mode,
+          object: objects/mesh-wrong-mode.yaml,
+          assertions: [{ violations: 1 }]
+        }
+      - {
+          name: exempts-system-namespaces,
+          object: objects/mesh-system.yaml,
+          assertions: [{ violations: 0 }]
+        }
+      - {
+          name: exempts-platform-owned-namespaces-until-enrolled,
+          object: objects/mesh-platform.yaml,
+          assertions: [{ violations: 0 }]
+        }
+      # agentgateway-system is enrolled in the ambient mesh like any platform namespace, so an unenrolled one is a violation. Plan 13, ADR 0081.
+      - {
+          name: flags-unenrolled-agentgateway-system,
+          object: objects/mesh-agentgateway-system.yaml,
+          assertions: [{ violations: 1 }]
+        }
+      - {
+          name: accepts-agentgateway-system-labelled-ambient,
+          object: objects/mesh-agentgateway-system-enrolled.yaml,
+          assertions: [{ violations: 0 }]
+        }
