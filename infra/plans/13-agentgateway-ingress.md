@@ -72,51 +72,79 @@ The comparison point (Step 1) and the outcome (Step 4) run the same procedure,
 values are fixed in `ingressMeasurementDefaults`; changing one invalidates the
 comparison, so change it only with a new baseline.
 
-- **Subject.** Every pod labelled `gateway.networking.k8s.io/gateway-name=kore-gateway`
-  in `kore-system`: the Istio ingress proxy now, the agentgateway data plane
-  after Step 2. ztunnel, waypoints and istiod are not part of the subject.
+- **Subject.** Two columns, each the total over its pods. _Ingress_: every pod
+  labelled `gateway.networking.k8s.io/gateway-name=kore-gateway` in
+  `kore-system`, the Istio ingress proxy now and the agentgateway data plane
+  after Step 2. _ztunnel_: every pod labelled `app.kubernetes.io/name=ztunnel`
+  in `istio-system`, which stays through the switch and is recorded in both the
+  baseline and Step 4. Waypoints and istiod are not measured.
 - **Routes.** The reference app's HTTPRoute (`kore.local`, `PathPrefix /`)
-  through the platform Gateway: `/livez`, `/readyz`, `/api` and
-  `/api/protected` (denied without a principal). The throwaway gateway proof
-  route is not used: it needs a created namespace, and the measurement changes
-  no cluster resource.
-- **Load.** 200 HTTPS requests per route per round, 4 in flight, from the host
-  to `https://kore.local:8443` through the k3d load balancer, verifying the
-  mkcert CA. Rounds repeat for the whole sampling window.
+  through the platform Gateway, each checked for its status on every request:
+  `/livez`, `/readyz` and `/api` answer 200; `/api/protected` is denied with 403. Any other status, or a request that does not complete, fails the run.
+  Step 4 uses the same routes and statuses on agentgateway. The throwaway
+  gateway proof route is not used: it needs a created namespace, and the
+  measurement changes no cluster resource. The owner approved this
+  substitution of #202's "reference app and gateway proof routes" (2026-11-12).
+- **Load.** 200 HTTPS GET requests per route per round, 4 in flight, from the
+  host to `https://kore.local:8443` through the k3d load balancer, verifying
+  the mkcert CA, with `--connect-timeout 5 --max-time 60`. Rounds repeat for
+  the whole sampling window, so the number of requests is not fixed. The
+  result therefore records the completed requests, the elapsed time and the
+  requests per second, and the Results table reports the rate; two runs are
+  comparable only when their rates are close.
 - **Settle.** 60 seconds idle after the cluster is converged, before any load.
 - **Sampling.** Six samples 20 seconds apart while the load runs, read from the
   metrics API (`kubectl get --raw /apis/metrics.k8s.io/v1beta1/…?labelSelector=…`)
   through the injectable runner. Each sample totals CPU and memory over the
-  subject pods; the result is the median and the peak of the six.
+  pods of each column, and records the host 1-minute load average at that
+  moment; the result is the median and the peak of the six.
 - **Preconditions.** The host 1-minute load average is below 10 at the start
-  (the run refuses otherwise; it is not re-checked during the run), the person
-  running it has confirmed the cluster is converged (the code does not check),
-  and nothing else drives the Gateway. Run it twice and record both.
-- **Expected outcome.** With the same routes and load, the agentgateway ingress
-  pods' median CPU and median memory are each at least 30% below the Istio
-  baseline. Confirmed: both are. Refuted: either is not lower than the
-  baseline. Inconclusive: both are lower but either by less than 30%, or the
-  two baseline runs differ by more than the claimed saving.
+  (the run refuses otherwise), the person running it has confirmed the cluster
+  is converged (the code does not check), and nothing else drives the Gateway.
+  The load average is recorded at every sample, and any rise above 10 during a
+  run is reported with the results.
+- **Baseline.** The mean of the two baseline runs' medians, per metric. The
+  spread of a metric is the difference between the two runs' medians as a
+  percentage of the baseline.
+- **Expected outcome (owner-approved, 2026-11-12).** With the same routes and
+  load, the ingress median CPU or median memory drops by at least 20% from the
+  baseline, and by more than that metric's baseline spread. Confirmed: either
+  metric does. Refuted: neither is lower than the baseline. Inconclusive:
+  otherwise, including a drop no larger than the run-to-run spread. The
+  ztunnel column is reported beside the ingress and does not decide the
+  outcome. `judgeOutcome` in `ingress-metrics.ts` applies this rule.
 
 ## Results
 
 ### Comparison point: Istio ingress on k3d (2026-11-12)
 
 Subject: the single `kore-gateway-istio` pod (GatewayClass `istio`) serving
-`kore-system/kore-gateway`, on the `kore-local` k3d cluster with 40 pods
-running. Method: [Measurement Method](#measurement-method), unchanged defaults.
+`kore-system/kore-gateway`, and the single `ztunnel` pod, on the `kore-local`
+k3d cluster. Method: [Measurement Method](#measurement-method), defaults
+unchanged. Every request returned its route's expected status.
 
-| Run | Host load at start | CPU median (m) | CPU peak (m) | Memory median (MiB) | Memory peak (MiB) |
-| --- | ------------------ | -------------- | ------------ | ------------------- | ----------------- |
-| 1   | 9.13               | 60.2           | 114.0        | 47.7                | 48.3              |
-| 2   | 8.07               | 57.3           | 65.8         | 48.5                | 49.2              |
+An earlier recording of this table was withdrawn: its load repeated requests
+with a `?n=` query string, which the Gateway and authorizer answer with 403 and
+404 instead of the routes' statuses, so it measured denied traffic. The load
+now repeats the exact path, and a wrong status fails the run.
 
-The two runs agree within 5% on median CPU and 2% on median memory. Run 1's
-first sample (114.0m) is a warm-up outlier; the median is unaffected. Host load
-rose above 10 during both runs after the start check (the load guard checks
-only at the start), so absolute CPU may include host contention; Step 4 must
-apply the same condition. With the 30% rule in the method, agentgateway counts
-as confirmed only if its median CPU is at most about 40m and its median memory
-at most about 33 MiB.
+| Run | Requests (rate)          | Host load: start, samples min–max | Ingress CPU median / peak (m) | Ingress memory median / peak (MiB) | ztunnel CPU median / peak (m) | ztunnel memory median / peak (MiB) |
+| --- | ------------------------ | --------------------------------- | ----------------------------- | ---------------------------------- | ----------------------------- | ---------------------------------- |
+| 1   | 3600 in 122.2 s (29.5/s) | 9.5, 5.2–7.7                      | 44.3 / 68.0                   | 58.5 / 58.9                        | 97.3 / 113.0                  | 9.4 / 10.3                         |
+| 2   | 4200 in 123.4 s (34.0/s) | 9.6, 4.5–6.5                      | 43.5 / 53.8                   | 54.2 / 54.9                        | 96.9 / 116.0                  | 9.5 / 9.9                          |
+
+The host load never rose above its start value in either run. The two runs'
+request rates differ by 15%, because rounds repeat for the whole window; a
+Step 4 rate far from 29.5–34.0 requests per second is not comparable.
+
+**Baseline** (mean of the two runs' medians) and the exact thresholds for
+Step 4 (a 20% drop, which exceeds each metric's spread):
+
+| Column  | Metric       | Baseline | Spread | Confirmed at or below     |
+| ------- | ------------ | -------- | ------ | ------------------------- |
+| Ingress | CPU (m)      | 43.937   | 1.8%   | 35.15                     |
+| Ingress | Memory (MiB) | 56.325   | 7.5%   | 45.06                     |
+| ztunnel | CPU (m)      | 97.087   | 0.4%   | reported, does not decide |
+| ztunnel | Memory (MiB) | 9.425    | 0.5%   | reported, does not decide |
 
 Step 4 results will be added here against this table.

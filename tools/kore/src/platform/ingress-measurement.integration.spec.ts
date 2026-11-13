@@ -46,13 +46,18 @@ test(
         sleep: (seconds) =>
           new Promise((resolve) => setTimeout(resolve, seconds * 1000)),
         loadAverage: () => loadavg()[0] ?? Number.POSITIVE_INFINITY,
+        now: () => performance.now(),
       },
     );
     const result = await measurement.measure();
-    assert.ok(result.pods.length > 0);
+    assert.ok(result.pods.ingress.length > 0);
+    assert.ok(result.pods.ztunnel.length > 0);
     for (const value of [
-      result.summary.cpuMillicores.median,
-      result.summary.memoryMiB.median,
+      result.summary.ingress.cpuMillicores.median,
+      result.summary.ingress.memoryMiB.median,
+      result.summary.ztunnel.cpuMillicores.median,
+      result.summary.ztunnel.memoryMiB.median,
+      result.load.requestsPerSecond,
     ]) {
       assert.ok(Number.isFinite(value) && value > 0);
     }
