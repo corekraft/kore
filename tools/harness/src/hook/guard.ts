@@ -17,6 +17,7 @@ import {
   findInventory,
   type Inventory,
 } from "../guardrail/index.js";
+import { anyPathMatches } from "./guard-glob.js";
 import { recordEvent } from "./ledger-event.js";
 import type { CliDeps } from "../runtime/index.js";
 import type { HookResult } from "./io.js";
@@ -64,6 +65,7 @@ export async function guard(
   const verdict = await evaluate(payload, {
     root,
     readFile,
+    globMatches: (pattern) => anyPathMatches(root, pattern),
     modeOf: (rule) => (inventory ? modeOf(inventory, rule) : "enforce"),
     denyRules: inventory ? denyRules(inventory) : [],
   });

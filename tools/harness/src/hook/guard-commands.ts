@@ -169,3 +169,6 @@ export function checkIdeaIssueClose(name: string, args: string[]): Finding {
       "Instead, run `harness outcome record` to record the outcome, or `harness outcome close --idea <number or slug>` to finish closing one already recorded.",
   );
 }
+
+// The bare-glob rule lives in its own file; re-exported here with the command rules.
+export { bareGlob } from "./guard-bare-glob.js";
