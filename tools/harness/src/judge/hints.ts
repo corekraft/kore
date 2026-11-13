@@ -72,16 +72,20 @@ const removedLines = (files: readonly ChangedFile[]) =>
 const netRemovedLines = (files: readonly ChangedFile[]) =>
   authored(files).reduce((sum, f) => sum + f.netRemoved, 0);
 
+/** A file's path, or `old -> new` for a rename, so a message says what moved from where. */
+const named = (f: ChangedFile) =>
+  f.path === f.previousPath ? f.path : `${f.previousPath} -> ${f.path}`;
+
 /** Docs and specs on both sides of a rename: moving a file into a doc name does not make it one. */
 const allQuiet = (f: ChangedFile) =>
   [f.path, f.previousPath].every((p) => NOT_BEHAVIOUR.test(p));
 
 const BUILDERS: Record<Pattern, (files: readonly ChangedFile[]) => Hints> = {
   "no-behaviour-change": (files) => {
-    const toolingPaths = files.filter(isTooling).map((f) => f.path);
+    const toolingPaths = files.filter(isTooling).map(named);
     const behaviouralPaths = files
       .filter((f) => !isTooling(f) && !allQuiet(f))
-      .map((f) => f.path);
+      .map(named);
     return {
       behaviouralPaths,
       toolingPaths,

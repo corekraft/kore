@@ -23,7 +23,8 @@ never declare a pattern truthfully, and the judge could not pass it.
 
 For `no-behaviour-change`, the precheck leaves developer tooling out of the
 behavioural paths and lists it as `toolingPaths`. The hint stays; the judge
-still reads the diff. Only this mismatch rule changes. No other check moves.
+still reads the diff. The mismatch rule changes, and so do two things that follow
+from renames, below. No other check moves.
 
 Tooling is:
 
@@ -39,8 +40,12 @@ Tooling is:
   package moved between sections, or a change the precheck cannot place under a
   header in view of its own hunk is product. A line removed from `scripts` or
   `devDependencies` is tooling, because the precheck places each removed line
-  in its section.
-- A renamed file is tooling only when both its old and its new path are.
+  in its section. A diff of either file with no hunks (a mode change, a binary
+  diff) is product, and so is a lockfile key that is not a package entry.
+- A renamed file is tooling only when both its old and its new path are. A
+  doc or spec counts as quiet only when both sides of a rename are, and the
+  precheck lists a rename as `old -> new` so a message says what moved from
+  where.
 
 Everything else is product, including `release.yaml`, `apps`, `infra`,
 `catalog`, charts and kore production code. The boundary fails closed.
@@ -56,5 +61,6 @@ pattern. Such a change declares `no-behaviour-change`.
 - A mixed diff of tooling and product still names the product paths.
 - A product file named like test support is not caught by the precheck; the
   judge's reading of the diff is the backstop.
-- Cluster-facing detection is unchanged, so a live run is still required for
-  those diffs.
+- Cluster-facing detection also looks at the old path of a rename, for every
+  pattern: a file moved out of `apps`, `infra`, `catalog` or a chart is still
+  cluster-facing, so a live run is still required for those diffs.

@@ -52,8 +52,17 @@ describe("hintsFor no-behaviour-change with tooling", () => {
         changed("docs/values.md", "apps/web/values.yaml"),
       ]),
     ).toMatchObject({
-      behaviouralPaths: ["docs/values.md"],
+      behaviouralPaths: ["apps/web/values.yaml -> docs/values.md"],
       noBehaviouralDiff: false,
     });
+  });
+
+  it("lists a renamed tooling file as old -> new", () => {
+    vi.mocked(isTooling).mockReturnValue(true);
+    expect(
+      hintsFor("no-behaviour-change", [
+        changed("skills/b.md", "tools/harness/a.ts"),
+      ]),
+    ).toMatchObject({ toolingPaths: ["tools/harness/a.ts -> skills/b.md"] });
   });
 });

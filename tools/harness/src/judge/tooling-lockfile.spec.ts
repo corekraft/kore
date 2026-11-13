@@ -137,3 +137,61 @@ describe("isTooling: tools/kore/package-lock.json, unplaceable changes", () => {
     );
   });
 });
+
+describe("isTooling: tools/kore/package-lock.json, entry boundaries", () => {
+  const path = "tools/kore/package-lock.json";
+  const devEntry = [
+    ctx('    "node_modules/vitest": {'),
+    add('      "version": "4.0.1",'),
+    ctx('      "dev": true,'),
+    ctx("    },"),
+  ];
+
+  it.each([
+    ['    "packages/runtime": {'],
+    ['    "../shared": {'],
+    ['     "node_modules/left-pad": {'],
+  ])("is product when a runtime entry %s follows a dev entry", (header) => {
+    expect(
+      isTooling(
+        file(path, [
+          [...devEntry, ctx(header), add('      "version": "1.0.0",')],
+        ]),
+      ),
+    ).toBe(false);
+  });
+
+  it("is product when a touched runtime entry is followed by a top-level key", () => {
+    expect(
+      isTooling(
+        file(path, [
+          [
+            ctx('    "node_modules/left-pad": {'),
+            add('      "version": "1.0.0",'),
+            ctx("    },"),
+            ctx('  "requires": true'),
+          ],
+        ]),
+      ),
+    ).toBe(false);
+  });
+
+  it("is tooling when a dev entry closes and a later hunk starts a new dev entry", () => {
+    expect(
+      isTooling(
+        file(path, [
+          devEntry,
+          [
+            ctx('    "node_modules/oxlint": {'),
+            add('      "version": "1.0.0",'),
+            ctx('      "dev": true,'),
+          ],
+        ]),
+      ),
+    ).toBe(true);
+  });
+
+  it("is product when the diff has no hunks", () => {
+    expect(isTooling(file(path))).toBe(false);
+  });
+});

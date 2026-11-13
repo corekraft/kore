@@ -101,3 +101,9 @@ describe("isTooling: tools/kore/package.json, product changes", () => {
     );
   });
 });
+
+describe("isTooling: tools/kore/package.json, no hunks", () => {
+  it("is product when the diff has no hunks, as for a mode change or a binary diff", () => {
+    expect(isTooling(file("tools/kore/package.json"))).toBe(false);
+  });
+});

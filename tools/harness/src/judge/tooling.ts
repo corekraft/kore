@@ -15,11 +15,16 @@ const TOP_KEY = /^ {2}"[^"]+"\s*:/;
 const ROOT_TOOLING_SECTION = /^ {6}"devDependencies"\s*:/;
 const ROOT_KEY = /^ {6}"[^"]+"\s*:/;
 const PACKAGE_ENTRY = /^ {4}"(node_modules\/[^"]*|)"\s*:\s*\{/;
-const LOCK_TOP_KEY = /^ {2}"[^"]+"\s*:/;
+/** A key at top or entry depth that is not a package entry, or a package entry hand-indented to another depth. */
+const STRAY_KEY = /^( {2}"[^"]*"| {4}"[^"]*"|\s*"node_modules\/[^"]*")\s*:/;
+const ENTRY_CLOSE = /^ {4}\}/;
 const DEV_ONLY = /^\s*"dev"\s*:\s*true\b/;
 
 /** Only scripts or devDependencies change. State resets at each hunk, so a change counts only under a header in view. */
 function manifestIsTooling(trail: readonly TrailLine[]): boolean {
+  if (trail.length === 0) {
+    return false;
+  }
   let tooling = false;
   for (const { kind, text, start } of trail) {
     if (start) {
@@ -90,27 +95,33 @@ class Entry {
 
 /** Every package entry the diff touches is dev only, and the root entry changes only in devDependencies. */
 function lockfileIsTooling(trail: readonly TrailLine[]): boolean {
+  if (trail.length === 0) {
+    return false;
+  }
   const entry = new Entry();
   for (const line of trail) {
+    const header = PACKAGE_ENTRY.exec(line.text)?.[1];
+    const stray = header === undefined && STRAY_KEY.test(line.text);
+    if ((line.start || header !== undefined || stray) && !entry.settled()) {
+      return false;
+    }
     if (line.start) {
-      if (!entry.settled()) {
-        return false;
-      }
       entry.reset();
     }
-    const header = PACKAGE_ENTRY.exec(line.text)?.[1];
     if (header !== undefined) {
-      if (!entry.settled()) {
-        return false;
-      }
       entry.open(line, header);
-    } else if (LOCK_TOP_KEY.test(line.text)) {
+    } else if (stray) {
       if (line.kind !== "context") {
         return false;
       }
       entry.reset();
     } else if (!entry.take(line)) {
       return false;
+    } else if (ENTRY_CLOSE.test(line.text)) {
+      if (!entry.settled()) {
+        return false;
+      }
+      entry.reset();
     }
   }
   return entry.settled();
