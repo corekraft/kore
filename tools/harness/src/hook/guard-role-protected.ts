@@ -173,12 +173,14 @@ const GUARD_PATHS: readonly (readonly [readonly string[], boolean])[] = [
   [["skills", "bin"], false],
   [[".claude", "hooks"], false],
   [[".claude", "settings.json"], false],
+  // Claude Code reads it too: it can add hooks or set disableAllHooks.
+  [[".claude", "settings.local.json"], false],
   // The folder itself, so `rm -rf .claude`; its agents, evals and skills are ordinary work.
   [[".claude"], true],
 ];
 /** The guard's files as inline code or a script names them, where a word is a whole program. */
 const GUARD_TEXT =
-  /skills\/bin\b|\.claude\/(?:hooks|settings\.json)|(?:^|[\s'"])\.claude(?:['"\s)]|$)/;
+  /skills\/bin\b|\.claude\/(?:hooks|settings(?:\.local)?\.json)|(?:^|[\s'"])\.claude(?:['"\s)]|$)/;
 
 const guardFile = (what: string): Finding =>
   block(

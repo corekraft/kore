@@ -144,6 +144,7 @@ const PROTECTED_FILES = [
   ".claude/hooks/guard.sh",
   ".claude/hooks/new.sh",
   ".claude/settings.json",
+  ".claude/settings.local.json",
 ];
 
 /** The writer may not change the guard it runs under, neither the bundle nor the hooks. */
