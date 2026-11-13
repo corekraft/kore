@@ -19,42 +19,61 @@ The decision is
 the terms are in [`GLOSSARY.md`](../../GLOSSARY.md) (Testing). Tracking issue:
 #371.
 
-## Step 1: Free the Names and Add the Integration Tier
+## Step 1: Foundations
 
-Next: Merge the pull request that adds this plan and ADR 0098, then label #372 `ready-for-agent`. #372 (live rename), then #373 (integration tier), then #374 (budget, barrel lint, one spec per unit), in that order. Full state: #371.
+Next: #372, #374 and #421 are labelled `ready-for-agent` and can run in parallel; #372 lands first. Label each later ticket when its blockers close. Full state: #371.
 
 ### Work
 
 - [ ] Rename the cluster suites to live tests (#372).
-- [ ] Add the integration tier and move the script, hook and bundle tests
-      into it (#373).
-- [ ] Enforce the unit test budget, the barrel rule and one spec per unit,
-      with a list of unconverted domains (#374).
+- [ ] Add the integration tier with one hook test moved into it (#418).
+- [ ] Move the remaining script, hook and bundle tests to integration, and
+      make the commit gate unit-only (#373).
+- [ ] A failing integration run opens one issue (#419).
+- [ ] Fail the unit run on the test budget, with per-domain unconverted lists
+      (#374).
+- [ ] Report a missing or extra spec per unit, and reset mocks by
+      configuration (#420).
+- [ ] Barrel rule for the kore package (#421), then the harness package
+      (#422).
 
 ### Exit Criteria
 
 - A unit run starts no process.
-- The budget fails the run for a converted domain, and the unconverted list
-  holds every domain.
+- The budget fails the run for a converted source file, and the unconverted
+  lists hold every existing source file.
 
-## Step 2: Convert Every Domain
-
-One pull request per domain, in parallel, as many as the test lock admits.
-Label each `ready-for-agent` once #374 merges.
+## Step 2: Pilots
 
 ### Work
 
-- [ ] Convert the 11 `tools/kore` domains (#375 to #385), `platform` and
-      `runtime` first.
-- [ ] Convert the 18 `tools/harness` domains (#386 to #403).
+- [ ] Pilot: convert the kore `security` domain (#385).
+- [ ] Pilot: convert the harness `guardrail` domain (#393).
 
 ### Exit Criteria
 
-- The unconverted list is empty.
+- The contributor guide shows the mocking patterns the pilots settled.
+
+## Step 3: Convert Everything Else
+
+One pull request per ticket, in parallel, as many as the test lock admits.
+Label them all `ready-for-agent` when the pilots merge. Large domains are
+split into batches of about 15 source files.
+
+### Work
+
+- [ ] Convert the rest of the kore package: 16 tickets (#375 to #384 except
+      the pilot, and #423 to #428).
+- [ ] Convert the rest of the harness package: 20 tickets (#386 to #401 except
+      the pilot and the closed #391, and #429 to #434).
+
+### Exit Criteria
+
+- Every unconverted list is empty and deleted.
 - Each package's full unit run takes under 20 s, and its unit coverage meets
   its thresholds.
 
-## Step 3: Gate the Release and Lift the Pause
+## Step 4: Gate the Release and Lift the Pause
 
 ### Work
 
