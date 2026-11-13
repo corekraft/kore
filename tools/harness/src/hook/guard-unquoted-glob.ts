@@ -64,8 +64,9 @@ export function unquotedGlob(command: string): Finding {
   const unquoted = hits.filter(
     (hit) => !isQuoted(checked, hit.index + hit.lead.length),
   );
+  // A copy with a quoted match left in it would be blocked again, so every hit must be unquoted.
   const correctable =
-    unquoted.length > 0 &&
+    unquoted.length === hits.length &&
     unquoted.every((hit) => PLAIN_HEAD.exec(hit.value) !== null) &&
     checked === command &&
     command.length <= MAX_CORRECTED;

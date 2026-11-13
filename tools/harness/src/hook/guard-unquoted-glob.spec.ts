@@ -120,16 +120,13 @@ it("unquoted-glob: a glob outside the plain set is still blocked, with the flag-
   }
 });
 
-it("unquoted-glob: a corrected command leaves quoted text and quoted flags exactly as written", () => {
+it("unquoted-glob: no corrected command is offered when a quoted span also matches, since the copy would be blocked again", () => {
   expect(
     unquotedGlob("grep --include=*.ts 'x --exclude=*.md' src")?.message,
-  ).toBe(
-    CORRECTED(
-      "include",
-      "*.ts",
-      "grep --include='*.ts' 'x --exclude=*.md' src",
-    ),
-  );
+  ).toBe(FLAG_ONLY("include", "*.ts", "*.ts"));
+});
+
+it("unquoted-glob: a corrected command leaves quoted flags exactly as written when every match is unquoted", () => {
   expect(
     unquotedGlob("grep --include='*.ts' --exclude=*.spec.ts src")?.message,
   ).toBe(
