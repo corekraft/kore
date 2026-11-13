@@ -12,7 +12,7 @@ import {
 } from "node:fs";
 import { createServer, type Server } from "node:net";
 import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 
 export interface SandboxPaths {
   /** The only tree a writer may change. */
@@ -25,10 +25,12 @@ export interface SandboxPaths {
   deniedSockets: string[];
 }
 
+export const MARKER = "SECRET-MARKER";
+
 const q = (path: string): string => JSON.stringify(path);
 
 /**
- * A macOS sandbox-exec profile for a writer pane (ADR 0094): everything is
+ * A macOS sandbox-exec profile for a writer pane (ADR 0095): everything is
  * allowed except writes outside the worktree, reads of credential
  * directories, and connections to the denied sockets. The shared .git is
  * writable only where a worktree commit needs it, so the ref exposure is
@@ -44,12 +46,40 @@ export function sandboxProfile(paths: SandboxPaths): string {
     `${git}/refs`,
     `${git}/logs`,
   ];
+  const worktreeGit = `${git}/worktrees/${name}`;
+  const deniedHomeDirs = [
+    "/.ssh",
+    "/.kube",
+    "/.aws",
+    "/.docker",
+    "/.config/gh",
+    "/.config/git",
+    "/.config/herdr",
+    "/Library/Keychains",
+  ];
+  const deniedHomeFiles = ["/.netrc", "/.npmrc"];
+  const readDenied = [
+    ...deniedHomeDirs.map((d) => `(subpath ${q(paths.home + d)})`),
+    ...deniedHomeFiles.map((d) => `(literal ${q(paths.home + d)})`),
+  ];
+  // Later rules win, so the guard files are denied after the worktree is allowed.
+  const guardFiles = [
+    `(subpath ${q(`${paths.worktree}/.claude`)})`,
+    `(subpath ${q(`${paths.worktree}/skills/bin`)})`,
+    `(literal ${q(`${paths.worktree}/.git`)})`,
+    `(literal ${q(`${worktreeGit}/config`)})`,
+    `(literal ${q(`${worktreeGit}/config.worktree`)})`,
+    `(subpath ${q(`${worktreeGit}/hooks`)})`,
+  ];
   return [
     "(version 1)",
     "(allow default)",
     "(deny file-write*)",
     `(allow file-write* ${writable.map((p) => `(subpath ${q(p)})`).join(" ")} (literal ${q(`${git}/packed-refs`)}) (literal ${q(`${git}/packed-refs.lock`)}) (literal "/dev/null") (literal "/dev/tty"))`,
-    `(deny file-read* ${["/.ssh", "/.kube", "/.config/gh", "/.config/herdr"].map((d) => `(subpath ${q(paths.home + d)})`).join(" ")})`,
+    `(deny file-write* ${guardFiles.join(" ")})`,
+    `(deny file-read* ${readDenied.join(" ")})`,
+    // securityd reads the keychain files, so denying the files is not enough.
+    '(deny mach-lookup (global-name "com.apple.SecurityServer"))',
     ...paths.deniedSockets.map(
       (s) =>
         `(deny network-outbound (remote unix-socket (path-literal ${q(s)})))`,
@@ -70,12 +100,31 @@ export function runSandboxed(
   });
 }
 
+const READ_DENIED_FILES = [
+  ".ssh/id_test",
+  ".kube/config",
+  ".config/gh/hosts.yml",
+  ".aws/credentials",
+  ".docker/config.json",
+  ".netrc",
+  ".npmrc",
+  ".config/git/config",
+  "Library/Keychains/login.keychain-db",
+];
+
+const GUARD_FILES = [
+  ".claude/settings.json",
+  ".claude/hooks/harness.sh",
+  "skills/bin/harness.mjs",
+];
+
 export interface Fixture {
   root: string;
   home: string;
   repo: string;
   worktree: string;
   sock: string;
+  keychain: string;
   server: Server;
   profile: string;
 }
@@ -83,12 +132,36 @@ export interface Fixture {
 const git = (cwd: string, ...args: string[]): string =>
   execFileSync("git", args, { cwd, encoding: "utf8" });
 
+function seedFiles(base: string, rels: string[], content: string): void {
+  for (const rel of rels) {
+    mkdirSync(dirname(join(base, rel)), { recursive: true });
+    writeFileSync(join(base, rel), content);
+  }
+}
+
+/** A keychain file holding one generic password, MARKER, under service kore-sbx. */
+function createKeychain(root: string): string {
+  const keychain = join(root, "test.keychain-db");
+  execFileSync("security", ["create-keychain", "-p", "pw", keychain]);
+  execFileSync("security", ["unlock-keychain", "-p", "pw", keychain]);
+  const add = [
+    "add-generic-password",
+    "-a",
+    "a",
+    "-s",
+    "kore-sbx",
+    "-w",
+    MARKER,
+  ];
+  execFileSync("security", [...add, keychain]);
+  return keychain;
+}
+
 /** A throwaway repo, linked worktree, fake home with a key, and a listening socket. */
 export async function createFixture(): Promise<Fixture> {
   const root = realpathSync(mkdtempSync(join(tmpdir(), "kore-sbx-")));
   const home = join(root, "home");
-  mkdirSync(join(home, ".ssh"), { recursive: true });
-  writeFileSync(join(home, ".ssh", "id_test"), "PRIVATE-KEY-MARKER");
+  seedFiles(home, READ_DENIED_FILES, MARKER);
   const repo = join(root, "repo");
   mkdirSync(repo);
   git(repo, "init", "-q", "-b", "main");
@@ -97,6 +170,11 @@ export async function createFixture(): Promise<Fixture> {
   git(repo, "commit", "-q", "--allow-empty", "-m", "chore: init");
   const worktree = join(root, "repo-worktrees", "w1");
   git(repo, "worktree", "add", "-q", "-b", "feat/w1", worktree);
+  seedFiles(worktree, GUARD_FILES, "guard");
+  mkdirSync(join(repo, ".git", "hooks"), { recursive: true });
+  writeFileSync(join(repo, ".git", "hooks", "pre-commit"), "hook");
+  writeFileSync(join(repo, ".git", "worktrees", "w1", "config.worktree"), "");
+  const keychain = createKeychain(root);
   const sock = join(root, "herdr.sock");
   const server = createServer((c) => c.end("pong"));
   await new Promise<void>((r) => server.listen(sock, r));
@@ -106,10 +184,11 @@ export async function createFixture(): Promise<Fixture> {
     home,
     deniedSockets: [sock],
   });
-  return { root, home, repo, worktree, sock, server, profile };
+  return { root, home, repo, worktree, sock, keychain, server, profile };
 }
 
 export function removeFixture(f: Fixture): void {
+  spawnSync("security", ["delete-keychain", f.keychain]);
   f.server.close();
   git(f.repo, "worktree", "remove", "--force", f.worktree);
   rmSync(f.root, { recursive: true, force: true });
