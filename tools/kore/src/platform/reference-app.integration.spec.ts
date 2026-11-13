@@ -3,7 +3,7 @@ import test from "node:test";
 import { assertExpectedCluster } from "../cluster/index.js";
 import { loadRepository } from "../config/index.js";
 import { findRoot } from "../config/config.js";
-import { ProcessRunner } from "../runtime/index.js";
+import { ProcessRunner, integrationEnvironment } from "../runtime/index.js";
 import { deployedImage } from "./admission-probe.js";
 import { runMeshProbe } from "./reference-probe.js";
 import { assertReferenceSmoke } from "./platform.reference-smoke.integration.spec.js";
@@ -28,7 +28,10 @@ const live = {
 };
 
 async function context() {
-  const repository = await loadRepository("local", await findRoot());
+  const repository = await loadRepository(
+    integrationEnvironment(),
+    await findRoot(),
+  );
   const runner = new ProcessRunner();
   await assertExpectedCluster(repository, runner);
   const kubectl = async (...args: string[]): Promise<string> =>

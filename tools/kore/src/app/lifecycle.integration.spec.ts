@@ -6,7 +6,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { approvedImageList, loadRepository } from "../config/index.js";
 import { recoverRelease } from "../platform/release-recovery.js";
-import { ProcessRunner } from "../runtime/index.js";
+import { ProcessRunner, integrationEnvironment } from "../runtime/index.js";
 import type { Repository } from "../config/index.js";
 
 // Docs: docs/decisions/0063-lifecycle-resume-and-release-only-app-up.md
@@ -145,7 +145,7 @@ test(
     timeout: 10 * 60 * 1000,
   },
   async () => {
-    const repository = await loadRepository("local");
+    const repository = await loadRepository(integrationEnvironment());
     const runner = new ProcessRunner();
     const image = approvedImageList(repository)[0]?.image;
     assert.ok(image, "the catalog approves at least one image");

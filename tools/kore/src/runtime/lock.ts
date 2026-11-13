@@ -26,6 +26,8 @@ export interface LockOptions {
   onRecover?: (message: string) => void;
   /** How long to wait for a live holder to finish. Defaults to 0 (fail at once). */
   waitMs?: number;
+  /** Receives one message when a wait for a live holder starts. Defaults to stderr. */
+  onWait?: (message: string) => void;
   /** Interval between attempts while waiting. Defaults to 1000 ms. */
   pollMs?: number;
 }
@@ -125,7 +127,11 @@ async function acquireOrWait(
   const onRecover =
     options.onRecover ??
     ((message: string) => process.stderr.write(`${message}\n`));
+  const onWait =
+    options.onWait ??
+    ((message: string) => process.stderr.write(`${message}\n`));
   const waitMs = options.waitMs ?? 0;
+  let announced = false;
   const pollMs = options.pollMs ?? 1000;
   const lock = paths.lock;
   const deadline = Date.now() + waitMs;
@@ -135,6 +141,14 @@ async function acquireOrWait(
       continue;
     }
     if (!verdict.dead && verdict.live === true && Date.now() < deadline) {
+      if (!announced) {
+        announced = true;
+        const holder = await readOwner(lock);
+        const where = holder?.cwd === undefined ? "" : ` in ${holder.cwd}`;
+        onWait(
+          `waiting for ${environment}: ${verdict.reason}${where} (lock ${lock}); waiting up to ${waitMs} ms`,
+        );
+      }
       await sleep(Math.min(pollMs, Math.max(deadline - Date.now(), 1)));
       continue;
     }
@@ -199,6 +213,7 @@ async function takeLock(
     host: hostname(),
     token: randomUUID(),
     acquiredAt: new Date().toISOString(),
+    cwd: process.cwd(),
   };
   const staging = join(base, `${environment}.${owner.token}.tmp`);
   const take = () => acquire(lock, staging, owner);

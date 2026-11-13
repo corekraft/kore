@@ -18,18 +18,26 @@ interface MutationScope {
   runner: Runner;
 }
 
-/** Ten minutes: long enough for a live `kore local up` already running to finish. */
+/** Ten minutes: long enough for an ordinary mutation already running to finish. */
 const DEFAULT_LOCK_WAIT_MS = 10 * 60 * 1000;
 
+/** Thirty minutes: a first-time `kore local up` takes 15-20, so a queued `up` outlasts it. */
+const LOCAL_UP_LOCK_WAIT_MS = 30 * 60 * 1000;
+
 /** How long a mutation waits for the cluster's lock before it is refused naming the holder. */
-function lockWaitMs(): number {
+export function lockWaitMs(
+  command: string,
+  action: string | undefined,
+): number {
   const given = process.env.KORE_LOCK_WAIT_MS;
   if (given === undefined) {
-    return DEFAULT_LOCK_WAIT_MS;
+    return command === "local" && action === "up"
+      ? LOCAL_UP_LOCK_WAIT_MS
+      : DEFAULT_LOCK_WAIT_MS;
   }
   if (!/^\d+$/.test(given)) {
     throw new Error(
-      `KORE_LOCK_WAIT_MS must be a whole number of milliseconds, got "${given}"; unset it for the ten-minute default`,
+      `KORE_LOCK_WAIT_MS must be a whole number of milliseconds, got "${given}"; unset it for the default`,
     );
   }
   return Number(given);
@@ -43,7 +51,7 @@ export function createMutate(scope: MutationScope): Mutate {
     if (!mutations.includes(action ?? "")) {
       throw new Error(`unknown ${command} action: ${action ?? ""}`);
     }
-    const waitMs = lockWaitMs();
+    const waitMs = lockWaitMs(command, action);
     const locked = async () =>
       await withEnvironmentLock(
         hostRoot(),

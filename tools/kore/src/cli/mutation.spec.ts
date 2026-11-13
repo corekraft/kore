@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, expect, test } from "vitest";
 import type { Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
-import { createMutate } from "./mutation.js";
+import { createMutate, lockWaitMs } from "./mutation.js";
 
 // Docs: AGENTS.md "Mutations are serialized per environment."
 
@@ -224,4 +224,17 @@ test("environments on different clusters do not block each other", async () => {
     return 0;
   });
   expect(inner).toBe(true);
+});
+
+test("kore local up waits longer than a fresh up takes, and other mutations keep ten minutes", () => {
+  const freshUpMs = 20 * 60 * 1000;
+  expect(lockWaitMs("local", "up")).toBeGreaterThan(freshUpMs);
+  expect(lockWaitMs("local", "stop")).toBe(10 * 60 * 1000);
+  expect(lockWaitMs("app", "up")).toBe(10 * 60 * 1000);
+});
+
+test("KORE_LOCK_WAIT_MS overrides the longer local up default", () => {
+  process.env.KORE_LOCK_WAIT_MS = "1234";
+  expect(lockWaitMs("local", "up")).toBe(1234);
+  expect(lockWaitMs("local", "stop")).toBe(1234);
 });

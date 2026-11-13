@@ -7,7 +7,7 @@ import {
   clusterStop,
   clusterUp,
 } from "../cluster/index.js";
-import { ProcessRunner } from "../runtime/index.js";
+import { ProcessRunner, integrationEnvironment } from "../runtime/index.js";
 
 test(
   "k3d create/inspect/stop/resume integration",
@@ -19,7 +19,10 @@ test(
         : false,
   },
   async () => {
-    const repository = await loadRepository("local", await findRoot());
+    const repository = await loadRepository(
+      integrationEnvironment(),
+      await findRoot(),
+    );
     const runner = new ProcessRunner();
     try {
       await clusterUp(repository, runner);

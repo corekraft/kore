@@ -4,7 +4,7 @@ import { assertExpectedCluster } from "../cluster/index.js";
 import { loadRepository } from "../config/index.js";
 import { findRoot } from "../config/config.js";
 import { swapLocalSigningKey } from "../images/index.js";
-import { ProcessRunner } from "../runtime/index.js";
+import { ProcessRunner, integrationEnvironment } from "../runtime/index.js";
 import {
   admissionVerdict,
   deployedImage,
@@ -49,7 +49,10 @@ test(
   "after a local key swap an image signed only with the old key is denied and one signed with the new key is admitted",
   live,
   async () => {
-    const repository = await loadRepository("local", await findRoot());
+    const repository = await loadRepository(
+      integrationEnvironment(),
+      await findRoot(),
+    );
     const runner = new ProcessRunner();
     await assertExpectedCluster(repository, runner);
 

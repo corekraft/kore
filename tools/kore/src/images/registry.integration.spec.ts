@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test, { after as cleanup } from "node:test";
 import { loadRepository } from "../config/index.js";
-import { ProcessRunner } from "../runtime/index.js";
+import { ProcessRunner, integrationEnvironment } from "../runtime/index.js";
 import type { Runner } from "../runtime/index.js";
 import { loadRegistryCredential, rotateRegistryCredentials } from "./index.js";
 import type { RegistryCredential } from "./index.js";
@@ -24,7 +24,7 @@ let caDirectory: string | undefined;
 let caFile = "";
 async function registryCaFile(runner: Runner): Promise<string> {
   if (caFile === "") {
-    const repository = await loadRepository("local");
+    const repository = await loadRepository(integrationEnvironment());
     caDirectory = await mkdtemp(join(tmpdir(), "kore-registry-ca-"));
     caFile = join(caDirectory, "ca.crt");
     await writeFile(caFile, await loadRegistryCa(repository, runner));
@@ -137,7 +137,7 @@ test(
   "the registry keeps images and signatures across a restart and keeps refusing anonymous access",
   live,
   async () => {
-    const repository = await loadRepository("local");
+    const repository = await loadRepository(integrationEnvironment());
     const runner = new ProcessRunner();
     const read = await loadRegistryCredential(repository, runner, "read");
     await localRegistryReference(repository, runner, "kore/x");
@@ -195,7 +195,7 @@ test(
   "rotating the credentials refuses the old ones, accepts the new, and still admits a signed image",
   live,
   async () => {
-    const repository = await loadRepository("local");
+    const repository = await loadRepository(integrationEnvironment());
     const runner = new ProcessRunner();
     const oldPush = await loadRegistryCredential(repository, runner, "push");
     const oldRead = await loadRegistryCredential(repository, runner, "read");
@@ -273,7 +273,7 @@ test(
   "the read credential pulls but cannot push while the push credential can",
   live,
   async () => {
-    const repository = await loadRepository("local");
+    const repository = await loadRepository(integrationEnvironment());
     const runner = new ProcessRunner();
     const read = await loadRegistryCredential(repository, runner, "read");
     const push = await loadRegistryCredential(repository, runner, "push");
@@ -304,7 +304,7 @@ test(
   "the registry answers only HTTPS verified against the kore CA: plain HTTP and an unverified HTTPS request both fail",
   live,
   async () => {
-    const repository = await loadRepository("local");
+    const repository = await loadRepository(integrationEnvironment());
     const runner = new ProcessRunner();
     const read = await loadRegistryCredential(repository, runner, "read");
     await localRegistryReference(repository, runner, "kore/x");

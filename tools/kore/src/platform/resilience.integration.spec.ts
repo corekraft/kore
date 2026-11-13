@@ -7,7 +7,11 @@ import {
   type Repository,
 } from "../config/index.js";
 import { findRoot } from "../config/config.js";
-import { ProcessRunner, type Runner } from "../runtime/index.js";
+import {
+  ProcessRunner,
+  type Runner,
+  integrationEnvironment,
+} from "../runtime/index.js";
 import { scaleDeployment } from "./admission-probe.js";
 import { platformStatus } from "./status.js";
 
@@ -95,7 +99,10 @@ const live = {
 };
 
 async function session() {
-  const repository = await loadRepository("local", await findRoot());
+  const repository = await loadRepository(
+    integrationEnvironment(),
+    await findRoot(),
+  );
   const runner = new ProcessRunner();
   await assertExpectedCluster(repository, runner);
   const names = enabledComponents(repository).map(({ name }) => name);
