@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: proposed
 summary: Each tenant root gets its own Backstage and its own namespace-scoped Argo CD, composed by the Organization API, scoped inside by sub-organization groups; Argo CD owns that tenant's service workload releases.
 date: 2026-11-08
 last-verified: 2026-11-09

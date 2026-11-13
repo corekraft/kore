@@ -1,7 +1,7 @@
 ---
 status: active
 summary: Run delivery on autopilot from idea to outcome with role agents in Herdr panes, idea and outcome records, feature flags, a safety-pattern judge, and a protected main.
-last-verified: 2026-11-11
+last-verified: 2026-11-12
 ---
 
 # Agent Delivery Loop Plan
@@ -13,6 +13,13 @@ user. The loop runs from an idea to an outcome, not to a merge. Merging is
 trivial because trunk-based development makes every change declare why it is
 safe. Terms follow [`GLOSSARY.md`](../../GLOSSARY.md). Each step reports its
 effect against the plan 8 baseline.
+
+## Current Limits
+
+Merges are by the owner's hand until the judge identity exists. The judge and
+merge tool are built, but they run under the owner's GitHub identity, so they
+do not yet bound anything
+([ADR 0091](../../docs/decisions/0091-containment-comes-from-identities-and-a-sandbox-not-role-guards.md)).
 
 ## Principles
 

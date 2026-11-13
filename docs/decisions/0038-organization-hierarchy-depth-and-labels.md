@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: proposed
 summary: Organizations nest at most four levels below the tenant root, services may sit at any level, and namespaces carry only tenant and organization labels while the controller resolves ancestry from the model.
 date: 2026-11-08
 last-verified: 2026-11-09
