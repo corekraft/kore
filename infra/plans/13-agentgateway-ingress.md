@@ -37,7 +37,7 @@ the outcome is measured on k3d.
 
 ## Step 2: Replace the Gateway
 
-Next: Run the #207 live proof (KORE_RUN_AGENTGATEWAY_PROOF=1 tools/kore/scripts/agentgateway-live-proof.sh, phases 1–4 in a throwaway profile; kore-local stopped, not destroyed). Then #208, then #212 measured against #320's baseline under the same load. #210 only if the median CPU or memory drop is at least 20% (owner decision on #126). Full state: #366.
+Next: Paused for the test refactor (plan 14, #371): start nothing here until its `paused` label is removed. When it resumes: Run the #207 live proof (KORE_RUN_AGENTGATEWAY_PROOF=1 tools/kore/scripts/agentgateway-live-proof.sh, phases 1–4 in a throwaway profile; kore-local stopped, not destroyed). Then #208, then #212 measured against #320's baseline under the same load. #210 only if the median CPU or memory drop is at least 20% (owner decision on #126). Full state: #366.
 
 ### Work
 

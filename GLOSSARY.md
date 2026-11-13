@@ -109,8 +109,8 @@ the candidate would have blocked.
 _Avoid_: Check, policy
 
 **Toil**:
-Time an agent spends not advancing work: waiting, starting up, stopping,
-retrying.
+Time a person or an agent spends not advancing work: waiting, starting up,
+stopping, retrying.
 _Avoid_: Overhead, idle time
 
 **Bottleneck**:
@@ -146,3 +146,33 @@ counted but left out of every stage.
 **Completed idea**:
 An idea whose issue has closed, which is its outcome. The flow report names a
 bottleneck only once enough ideas have completed.
+
+## Testing
+
+**Unit**:
+One class, or one function treated as a class with a single method. It is the
+thing a unit test exercises.
+_Avoid_: Module, component
+
+**Unit test**:
+A test of one unit alone. Everything the unit depends on that has behaviour is
+replaced with a mock, including pure helpers and other units in its own
+domain. Only types, error classes and constants are real. Unit tests gate
+every commit.
+_Avoid_: Fast test, spec
+
+**Integration test**:
+A test that real units from built domains work together. It may run local
+processes and use files, but never a cluster or the network. Integration
+tests never gate a commit. They gate a merge only for a change to the commit
+hooks, and a failing one stops a release.
+_Avoid_: Script test, wiring test, bundle test
+
+**Live test**:
+A test that creates, changes or destroys a cluster. It runs only when asked.
+_Avoid_: Integration test, live spec, e2e test
+
+**Domain**:
+A group of units with one area of responsibility. Units in other domains
+reach it only through its public surface.
+_Avoid_: Package, layer

@@ -114,7 +114,7 @@ do not yet bound anything
 
 ## Step 6: Orchestrator and Concierge
 
-Next: Step 6 (#195, #197, #199; draft PR #332) waits on #336. Land #364 (role tokens behind a flag that's off by default). The owner runs tools/harness/wizards/identities.sh; prove a spawn with tokens; turn the flag on; then run harness ruleset sync --target main with --dry-run, and with --confirm --allow-removal only on the owner's OK. Full state: #366.
+Next: Paused for the test refactor (plan 14, #371): start nothing here until its `paused` label is removed. When it resumes: Step 6 (#195, #197, #199; draft PR #332) waits on #336. Land #364 (role tokens behind a flag that's off by default). The owner runs tools/harness/wizards/identities.sh; prove a spawn with tokens; turn the flag on; then run harness ruleset sync --target main with --dry-run, and with --confirm --allow-removal only on the owner's OK. Full state: #366.
 
 ### Work
 

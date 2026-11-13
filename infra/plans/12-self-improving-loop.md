@@ -16,7 +16,7 @@ weaken its own guardrails
 
 ## Step 1: Harness Metrics
 
-Next: #325 (session wait) once #364 merges, since both change session spawn. Steps 2–3 (#214–#218) and #220, #221, #223, #224 stay deferred under #333 until about 20 ideas have outcomes from #354's metrics that agents cannot set. Full state: #366.
+Next: Paused for the test refactor (plan 14, #371): start nothing here until its `paused` label is removed. When it resumes: #325 (session wait) once #364 merges, since both change session spawn. Steps 2–3 (#214–#218) and #220, #221, #223, #224 stay deferred under #333 until about 20 ideas have outcomes from #354's metrics that agents cannot set. Full state: #366.
 
 ### Work
 
