@@ -79,6 +79,9 @@ const ORCHESTRATOR_HARNESS = [
   "session close",
   "session equalize",
   "idea sync",
+  "queue next",
+  "queue send-backs",
+  "queue escalate",
   "outcome record",
   "outcome close",
 ];
