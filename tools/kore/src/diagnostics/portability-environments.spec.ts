@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, test } from "vitest";
@@ -17,10 +18,27 @@ import { validatePortability } from "./portability.js";
 // selecting an environment swaps implementations only (Step 14).
 
 const root = await findRoot();
+// Skip git-ignored directories: the nightly job writes a scratch overlay of its
+// own beside the environments (excluded through .git/info/exclude, a copy of
+// `local`), which is neither a provider swap nor part of the contract. A new
+// environment not yet `git add`ed is still checked.
+function isIgnored(name: string): boolean {
+  return (
+    spawnSync(
+      "git",
+      ["check-ignore", "--quiet", "--", `infra/environments/${name}`],
+      {
+        cwd: root,
+      },
+    ).status === 0
+  );
+}
+
 const environments = (
   await readdir(join(root, "infra/environments"), { withFileTypes: true })
 )
   .filter((entry) => entry.isDirectory() && entry.name !== "common")
+  .filter((entry) => !isIgnored(entry.name))
   .map((entry) => entry.name)
   .sort();
 

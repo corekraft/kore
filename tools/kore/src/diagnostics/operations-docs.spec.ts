@@ -25,6 +25,10 @@ const pages = [
 const read = (path: string): string =>
   readFileSync(new URL(path, root), "utf8");
 
+/** Build outputs are git-ignored and absent until built; no other missing path is excused. */
+const buildOutputs = new Set(["skills/bin/harness.mjs"]);
+const isBuildOutput = (path: string): boolean => buildOutputs.has(path);
+
 /** Text inside fenced blocks and inline code spans. */
 function codeText(markdown: string): string[] {
   const fenced = [...markdown.matchAll(/```[^\n]*\n([\s\S]*?)```/g)].map(
@@ -103,7 +107,12 @@ test("every repository path the pages name exists", () => {
   for (const page of pages) {
     const text = read(page);
     for (const [, span] of text.matchAll(/`([^`\n]+)`/g)) {
-      if (span && path.test(span) && !existsSync(new URL(span, root))) {
+      if (
+        span &&
+        path.test(span) &&
+        !existsSync(new URL(span, root)) &&
+        !isBuildOutput(span)
+      ) {
         problems.push(`${page}: ${span} does not exist`);
       }
     }

@@ -21,7 +21,7 @@ platform stack needs real memory: plan 9 measured k3s peaking at 6.7 GiB.
 
 **Nightly live proof.** `nightly.yml` runs once a night on main:
 `tools/kore/scripts/nightly.sh` purges any old profile, runs `local up`,
-checks platform status, runs `local up` again, runs every `test:integration*`
+checks platform status, runs `local up` again, runs every named `test:integration:<name>`
 suite against that one cluster, and purges last (an EXIT trap). A failing suite
 does not hide later ones, and a failed `local up` skips the suites. The run's
 conclusion is the status on main; the workflow holds read-only permissions, so
@@ -84,9 +84,25 @@ it must be:
   another handler, such as the integration lock's, is left to decide); a normal
   exit kills any group still running. Children that share the terminal
   (inherited stdin or output) are not detached.
-- A night that finds no `test:integration*` suites, or whose discovery fails,
+- A night that finds no `test:integration:<name>` suites, or whose discovery fails,
   fails instead of passing green.
 - Hosted runs are billed to no one for this public repository, and need no
   runner registration or trust controls. The cost is a memory ceiling of 16 GB:
   if the measured run does not fit, move to a larger hosted runner or the
   self-hosted fallback.
+
+## Refinement: named suites only, lifecycle last
+
+The first hosted run with a working cluster (run 43364720238, issue #369)
+showed that "every `test:integration*` suite" was wrong in two ways. The
+`lifecycle` suite destroys and recreates the cluster, so running it first left
+every later suite with `k3d cluster kore-nightly is absent`; it now runs last.
+The bare `test:integration` task is not a suite: its platform spec runs the unit
+suite and the OPA tests, and its cluster spec stops and deletes the night's
+cluster. The nightly runs only `test:integration:<name>` scripts. Reference
+smoke is already proved by `test:integration:reference`. Database persistence
+was proved only through the bare task's helper, so it has its own spec and the
+named script `test:integration:database` (it deletes the database primary pod
+and waits up to 5 minutes twice, within the 45 minute stage limit). A unit spec
+fails when an integration spec that registers a test belongs to no named script,
+or when a named script runs no spec that registers a test.

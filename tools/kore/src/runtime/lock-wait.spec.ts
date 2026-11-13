@@ -148,15 +148,25 @@ test("a nested call does not inherit the lock once the holder released it", asyn
 
 test("the holder exports its lock token so child kore processes nest instead of blocking", async () => {
   const root = await mkdtemp(join(tmpdir(), "kore-lock-child-"));
-  const held = await holdEnvironmentLock(root, "local");
+  // Pin the environment: a lock the surrounding run already holds (a host
+  // lease, the nightly's cluster) is inherited and would be listed too.
+  const inherited = process.env.KORE_HELD_ENVIRONMENT_LOCK;
+  delete process.env.KORE_HELD_ENVIRONMENT_LOCK;
+  let held: Awaited<ReturnType<typeof holdEnvironmentLock>> | undefined;
   try {
+    held = await holdEnvironmentLock(root, "local");
     const exported = process.env.KORE_HELD_ENVIRONMENT_LOCK ?? "";
     const owner = JSON.parse(
       await readFile(join(root, ".kore", "locks", "local.lock"), "utf8"),
     );
     expect(exported).toBe(`local:${owner.token}`);
   } finally {
-    await held.release();
+    await held?.release();
+    if (inherited === undefined) {
+      delete process.env.KORE_HELD_ENVIRONMENT_LOCK;
+    } else {
+      process.env.KORE_HELD_ENVIRONMENT_LOCK = inherited;
+    }
   }
 });
 

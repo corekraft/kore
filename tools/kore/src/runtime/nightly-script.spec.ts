@@ -26,6 +26,39 @@ test("the cluster stays up while the suites run, and cleanup runs last", () => {
   ]);
 });
 
+test("the lifecycle suite runs last, whatever order discovery gives, so it never tears the cluster down under the others", () => {
+  const { status, calls } = run([
+    "test:integration:lifecycle",
+    "test:integration:a",
+    "test:integration:b",
+  ]);
+  expect(status).toBe(0);
+  const suites = calls.filter((call) => call.startsWith("suite"));
+  expect(suites).toEqual([
+    "suite test:integration:a",
+    "suite test:integration:b",
+    "suite test:integration:lifecycle",
+  ]);
+  expect(calls.at(-1)).toBe(
+    "kore local down --environment nightly --prune --purge-data",
+  );
+});
+
+test("the bare test:integration task is not a nightly suite, because it runs the unit suite", () => {
+  const { status, calls } = run(["test:integration", "test:integration:a"]);
+  expect(status).toBe(0);
+  expect(calls.filter((call) => call.startsWith("suite"))).toEqual([
+    "suite test:integration:a",
+  ]);
+});
+
+test("a night whose only suite is the bare task still fails as finding none", () => {
+  const { status, stderr, calls } = run(["test:integration"]);
+  expect(status).toBe(1);
+  expect(stderr).toMatch(/found no test:integration suites/);
+  expect(calls.some((call) => call.startsWith("suite"))).toBe(false);
+});
+
 test("a failing suite never hides the ones after it, is named, and cleanup still runs last", () => {
   const { status, stderr, calls } = run(
     ["test:integration:a", "test:integration:b"],
