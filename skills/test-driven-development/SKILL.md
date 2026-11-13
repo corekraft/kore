@@ -1,6 +1,6 @@
 ---
 name: test-driven-development
-description: Use before writing or changing any code or hook, including implementing a plan step, a review finding, or a fix. Write the failing test first.
+description: Use before writing or changing any code, hook, script or skill tooling: implementing a plan step, fixing a bug or review finding, adding a feature. Write the failing test first, assert exact output.
 ---
 
 # Test-Driven Development
@@ -17,6 +17,7 @@ description: Use before writing or changing any code or hook, including implemen
 
 - Did I see this test fail, and did it fail because the behavior was missing? An import or setup error doesn't count.
 - If the code were broken, would this test catch it? Does it assert what must _not_ happen?
+- Do I assert the exact output (the whole string, list or value), not `toContain` or a loose match that a wrong answer would also satisfy?
 - Am I asserting outcomes, or just how many times a mock was called?
 - Is this the least code that makes the test pass?
 - Am I skipping a step because "it's too simple" or "I'll test after"? If so, go back to red.

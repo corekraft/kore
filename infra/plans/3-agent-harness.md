@@ -510,7 +510,8 @@ them. The owner accepted all ten proposals, now filed under #124:
   `Monitor` tool with ToolSearch's `query` argument before loading its schema;
   `spawn-session` now says how to load and call it.
 - **#328 (guidance), covering five items:**
-  - a default of two test workers in the mise environment
+  - a default of two test workers in `test-workers.mjs`, overridable by a shell
+    export
   - hold new writers during live runs
   - writers list owner decisions first
   - assert exact output

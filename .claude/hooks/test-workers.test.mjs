@@ -1,4 +1,4 @@
-// The unit-test worker cap scales to the host and takes an env override, so no
+// The unit-test worker cap defaults to two and takes an env override, so no
 // unit path (hook, npm test, mise run test) can start a worker per core.
 // Docs: docs/guides/contributor.md (Commit hooks)
 
@@ -12,24 +12,18 @@ const { testWorkers } = await import(
   )
 );
 
-test("the default is a quarter of the host's CPUs", () => {
-  assert.equal(testWorkers({}, 16), 4);
-  assert.equal(testWorkers({}, 12), 3);
-});
-
-test("a small host still gets two workers, never one per core", () => {
-  assert.equal(testWorkers({}, 4), 2);
-  assert.equal(testWorkers({}, 1), 2);
+test("the default is two workers whatever the host", () => {
+  assert.equal(testWorkers({}), 2);
 });
 
 test("KORE_TEST_WORKERS overrides the default, so CI keeps its own value", () => {
-  assert.equal(testWorkers({ KORE_TEST_WORKERS: "6" }, 12), 6);
+  assert.equal(testWorkers({ KORE_TEST_WORKERS: "6" }), 6);
 });
 
 test("an unusable override fails naming the variable instead of running uncapped", () => {
   for (const bad of ["0", "-1", "many", "1.5", ""]) {
     assert.throws(
-      () => testWorkers({ KORE_TEST_WORKERS: bad }, 12),
+      () => testWorkers({ KORE_TEST_WORKERS: bad }),
       /KORE_TEST_WORKERS must be a positive whole number/,
       bad,
     );

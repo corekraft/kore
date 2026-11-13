@@ -1,6 +1,6 @@
 ---
 name: spawn-session
-description: Use when asked to start, verify with, or hand off to another Claude session (a verifier or fixer) in a Herdr pane.
+description: Use when launching, briefing, waiting on or closing another Claude session in a Herdr pane (writer, reader, judge, verifier, fixer), or choosing its model, name or worktree.
 ---
 
 # Spawn a session in Herdr
