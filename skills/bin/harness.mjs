@@ -145,13 +145,13 @@ async function mainRoot(deps) {
   if (checkout === void 0) {
     return void 0;
   }
-  const git3 = await deps.runner.run(
+  const git4 = await deps.runner.run(
     "git",
     ["rev-parse", "--path-format=absolute", "--git-common-dir"],
     { cwd: checkout }
   );
-  const common = git3.stdout.trim();
-  return git3.code === 0 && common !== "" ? dirname2(common) : void 0;
+  const common = git4.stdout.trim();
+  return git4.code === 0 && common !== "" ? dirname2(common) : void 0;
 }
 function withoutGitEnv(env) {
   return Object.fromEntries(
@@ -165,13 +165,13 @@ async function bundleMainRoot(deps) {
     return void 0;
   }
   const checkout = resolve(dirname2(fileURLToPath(deps.bundleUrl)), "../..");
-  const git3 = await deps.runner.run(
+  const git4 = await deps.runner.run(
     "git",
     ["rev-parse", "--path-format=absolute", "--git-common-dir"],
     { cwd: checkout, env: withoutGitEnv(deps.env) }
   );
-  const common = git3.stdout.trim();
-  return git3.code === 0 && common !== "" ? dirname2(common) : void 0;
+  const common = git4.stdout.trim();
+  return git4.code === 0 && common !== "" ? dirname2(common) : void 0;
 }
 
 // src/runtime/root.ts
@@ -914,6 +914,7 @@ var KINDS2 = [
   "guard.audit",
   "challenge.round",
   "precheck",
+  "send-back",
   "guardrail.request"
 ];
 var OUTCOMES = ["success", "failure"];
@@ -926,7 +927,8 @@ var NUMBER_KINDS = [
   "pr.merged",
   "outcome",
   "challenge.round",
-  "precheck"
+  "precheck",
+  "send-back"
 ];
 var LAUNCH_KINDS = ["session.launch"];
 var TOKEN_KINDS = ["token.usage"];
@@ -1008,6 +1010,7 @@ var RULES = [
       "guard.audit",
       "challenge.round",
       "precheck",
+      "send-back",
       "guardrail.request"
     ]
   },
@@ -2851,6 +2854,24 @@ var typed = (body) => new Map(
     r["parameters"] ?? null
   ])
 );
+var BYPASS_MODES = ["pull_request", "always"];
+var modeRank = (actor) => {
+  const mode = actor["bypass_mode"];
+  const rank = BYPASS_MODES.indexOf(typeof mode === "string" ? mode : "always");
+  return rank === -1 ? BYPASS_MODES.length : rank;
+};
+var actorKey = (actor) => `${String(actor["actor_type"])}:${String(actor["actor_id"])}`;
+function widenedBypass(previous, after) {
+  const list3 = (body) => body["bypass_actors"] ?? [];
+  const had = new Map(list3(previous).map((a) => [actorKey(a), a]));
+  return list3(after).flatMap((actor) => {
+    const was = had.get(actorKey(actor));
+    if (was === void 0) {
+      return ["bypass_actors gains an actor"];
+    }
+    return modeRank(actor) > modeRank(was) ? [`bypass_actors ${actorKey(actor)} bypass_mode widens`] : [];
+  });
+}
 function weakenings(previous, after) {
   const now = typed(after);
   const removed = [];
@@ -2863,8 +2884,7 @@ function weakenings(previous, after) {
     }
   }
   const conditions = same(previous["conditions"], after["conditions"]) ? [] : ["conditions change"];
-  const had = previous["bypass_actors"] ?? [];
-  const bypass = (after["bypass_actors"] ?? []).filter((actor) => !had.some((h) => same(h, actor))).map(() => "bypass_actors gains an actor");
+  const bypass = widenedBypass(previous, after);
   const others = [.../* @__PURE__ */ new Set([...Object.keys(previous), ...Object.keys(after)])].filter((key) => !HANDLED.includes(key)).filter((key) => !same(previous[key], after[key])).map((key) => `${key} changes`);
   return { removed, weaker: [...params, ...conditions, ...bypass, ...others] };
 }
@@ -4537,21 +4557,291 @@ function readMayRun(segment, harness) {
 
 // src/hook/guard-role-delivery.ts
 import { isAbsolute, relative, resolve as resolve4 } from "node:path";
+
+// src/hook/guard-role-merge.ts
+import { basename as basename3 } from "node:path";
+var WRAPPERS2 = /* @__PURE__ */ new Set(["sudo", "env", "time", "command", "nohup", "exec"]);
+var SHELLS = /* @__PURE__ */ new Set(["bash", "sh", "zsh", "dash", "ksh"]);
+var MAIN = "main";
+var MAX_DEPTH = 5;
+var WRAPPER_VALUED = {
+  env: /* @__PURE__ */ new Set(["-u", "-C", "-S", "--unset", "--chdir"]),
+  sudo: /* @__PURE__ */ new Set(["-u", "-g", "-h", "-p", "-C", "-D", "-R", "-T", "-U"]),
+  time: /* @__PURE__ */ new Set(["-f", "-o", "--format", "--output"]),
+  exec: /* @__PURE__ */ new Set(["-a"])
+};
+var XARGS_VALUED = /* @__PURE__ */ new Set(["-I", "-n", "-P", "-L", "-s", "-E", "-d", "-a"]);
+var isDash = (word) => word !== void 0 && word.startsWith("-");
+function unwrapped(segment) {
+  let rest = [...segment];
+  for (; ; ) {
+    const word = rest[0] ?? "";
+    const wrapper = WRAPPERS2.has(basename3(word));
+    if (!wrapper && !/^[A-Za-z_][A-Za-z0-9_]*=/.test(word)) {
+      return rest;
+    }
+    rest = rest.slice(1);
+    const valued = WRAPPER_VALUED[basename3(word)] ?? /* @__PURE__ */ new Set();
+    while (wrapper && isDash(rest[0])) {
+      rest = rest.slice(valued.has(rest[0] ?? "") ? 2 : 1);
+    }
+  }
+}
+function shellScript(args) {
+  const at = args.findIndex((arg) => /^-[a-z]*c[a-z]*$/.test(arg));
+  return at < 0 ? void 0 : args[at + 1];
+}
+function xargsCommand(args) {
+  let at = 0;
+  while (isDash(args[at])) {
+    at += XARGS_VALUED.has(args[at] ?? "") ? 2 : 1;
+  }
+  return args.slice(at);
+}
+function expand(segment, depth = 0) {
+  const rest = unwrapped(segment);
+  const name = basename3(rest[0] ?? "");
+  const args = rest.slice(1);
+  const inner = (words2) => words2.length === 0 || depth >= MAX_DEPTH ? [] : expand(words2, depth + 1);
+  let script;
+  if (SHELLS.has(name)) {
+    script = shellScript(args);
+  } else if (name === "eval") {
+    script = args.join(" ");
+  }
+  if (script !== void 0) {
+    return [rest, ...splitSegments(script).flatMap(inner)];
+  }
+  return name === "xargs" ? [rest, ...inner(xargsCommand(args))] : [rest];
+}
+function substituted(command) {
+  const found = [];
+  for (let i = 0; i < command.length; i++) {
+    const char = command[i];
+    if (char === "`") {
+      const close3 = command.indexOf("`", i + 1);
+      const end = close3 < 0 ? command.length : close3;
+      const inner = command.slice(i + 1, end);
+      found.push(inner, ...substituted(inner));
+      i = end;
+    } else if ("$<>".includes(char ?? "") && command[i + 1] === "(") {
+      let depth = 1;
+      let j = i + 2;
+      while (j < command.length && depth > 0) {
+        if (command[j] === "(") {
+          depth++;
+        } else if (command[j] === ")") {
+          depth--;
+        }
+        j++;
+      }
+      const inner = command.slice(i + 2, depth === 0 ? j - 1 : j);
+      found.push(inner, ...substituted(inner));
+      i = j - 1;
+    }
+  }
+  return found;
+}
+var withSubstitutions = (command) => [command, ...substituted(command)].flatMap(splitSegments);
+var MERGE_API = /\/pulls\/\d+\/merge\b|\/merges\b|\/merge-upstream\b/;
+var MERGE_MUTATION = /mergePullRequest|enablePullRequestAutoMerge/i;
+var withoutRepo = (args) => args.flatMap(
+  (arg, i) => ["-R", "--repo"].includes(args[i - 1] ?? "") || ["-R", "--repo"].includes(arg) || arg.startsWith("--repo=") ? [] : [arg]
+);
+function graphqlMerges(args) {
+  return args[0] === "api" && args[1] === "graphql" && (args.some((arg) => MERGE_MUTATION.test(arg)) || args.some((arg) => /(^|=)@/.test(arg)) || args.includes("--input"));
+}
+function ghMerges(line2) {
+  const { name, args } = commandOf(line2);
+  if (name !== "gh") {
+    return false;
+  }
+  const plain = withoutRepo(args);
+  return plain[0] === "pr" && plain[1] === "merge" || args[0] === "api" && args.some((arg) => MERGE_API.test(arg)) || graphqlMerges(args);
+}
+var mergesPr = (segment) => expand(segment).some(ghMerges);
+var runsJudgeTool = (segment, harness) => expand(segment).some((line2) => {
+  const { name, args } = commandOf(line2);
+  return name === "node" && harness.test(args[0] ?? "") && args[1] === "judge" && ["merge", "send-back"].includes(args[2] ?? "");
+});
+
+// src/hook/guard-role-push.ts
+import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { basename as basename4 } from "node:path";
+var cleanEnv = () => Object.fromEntries(
+  Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_"))
+);
+var git = (root3, args) => {
+  try {
+    return execFileSync("git", ["-C", root3, ...args], {
+      env: cleanEnv(),
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: 15e3
+    }).trim();
+  } catch {
+    return void 0;
+  }
+};
+var branchName = (ref) => ref.startsWith("refs/heads/") ? ref.slice("refs/heads/".length) : ref;
+function branchesOf(root3) {
+  const current2 = git(root3, ["symbolic-ref", "--short", "-q", "HEAD"]);
+  const merge = current2 === void 0 || current2 === "" ? void 0 : git(root3, ["config", "--get", `branch.${current2}.merge`]);
+  return {
+    current: current2 === "" ? void 0 : current2,
+    tracked: merge === void 0 || merge === "" ? void 0 : branchName(merge)
+  };
+}
+var GIT_VALUED = /* @__PURE__ */ new Set(["-C", "--git-dir", "--work-tree", "--namespace"]);
+var GIT_CONFIG = /* @__PURE__ */ new Set(["-c", "--config-env"]);
+function gitCall(line2) {
+  const { name, args } = commandOf(line2);
+  if (name !== "git") {
+    return void 0;
+  }
+  const config = [];
+  let at = 0;
+  while (isDash(args[at])) {
+    const word = args[at];
+    const [flag = "", inline] = word.split(/=(.*)/s);
+    const value = GIT_CONFIG.has(flag) ? inline ?? args[at + 1] ?? "" : "";
+    if (GIT_CONFIG.has(flag)) {
+      config.push(value.split("=")[0] ?? "");
+    }
+    at += inline === void 0 && (GIT_VALUED.has(word) || GIT_CONFIG.has(word)) ? 2 : 1;
+  }
+  return { config, sub: args[at], args: args.slice(at + 1) };
+}
+var PUSH_KEY = /^(remote|push|branch)\./i;
+function pushArgs(line2) {
+  const call = gitCall(line2);
+  return call?.sub === "push" ? call.args : void 0;
+}
+function pushConfigured(line2) {
+  const call = gitCall(line2);
+  return call?.sub === "push" && call.config.some((key) => PUSH_KEY.test(key));
+}
+var sendsToMain = (target2) => target2 === MAIN || (target2?.includes("*") ?? false);
+function refspecsOf(words2) {
+  const at = words2.indexOf("--repo");
+  const named = at >= 0 || words2.some((w) => w.startsWith("--repo="));
+  const positional = words2.filter(
+    (w, i) => !w.startsWith("-") && !(at >= 0 && i === at + 1)
+  );
+  return named ? positional : positional.slice(1);
+}
+function namesMain(line2) {
+  const words2 = pushArgs(line2);
+  if (words2 === void 0) {
+    return false;
+  }
+  return words2.some((w) => w === "--all" || w === "--mirror") || refspecsOf(words2).some(
+    (spec) => sendsToMain(
+      branchName(
+        (spec.startsWith("+") ? spec.slice(1) : spec).split(":").at(-1) ?? ""
+      )
+    )
+  );
+}
+function tracksMain(line2, root3) {
+  const words2 = pushArgs(line2);
+  if (words2 === void 0) {
+    return false;
+  }
+  const refspecs = refspecsOf(words2);
+  const headOnly = refspecs.every((spec) => spec === "HEAD");
+  if (!headOnly) {
+    return false;
+  }
+  if (!existsSync(root3)) {
+    return false;
+  }
+  const { current: current2, tracked } = branchesOf(root3);
+  return current2 === void 0 || sendsToMain(current2) || sendsToMain(tracked);
+}
+var pushesToMain = (segment) => {
+  const lines3 = expand(segment);
+  const viaXargs = lines3.some(
+    (line2, at) => basename4(line2[0] ?? "") === "xargs" && lines3.slice(at + 1).some((inner) => pushArgs(inner) !== void 0)
+  );
+  return viaXargs || lines3.some((line2) => namesMain(line2) || pushConfigured(line2));
+};
+var pushesByTracking = (segment, root3) => expand(segment).some((line2) => tracksMain(line2, root3));
+
+// src/hook/guard-role-routes.ts
+var FIELD_FLAGS = /* @__PURE__ */ new Set(["-f", "-F", "--field", "--raw-field", "--input"]);
+var GH_MUTATES = /\/git\/(refs|commits|trees|tags)\b|\/contents\/|\/rulesets\b|\/branches\/[^/]+\/(protection|rename)\b/;
+function apiWrites(args) {
+  const at = args.findIndex((a) => a === "-X" || a === "--method");
+  const inline = args.find((a) => /^(-X|--method=)./.test(a));
+  const method = (at >= 0 ? args[at + 1] : inline?.replace(/^(-X|--method=)/, ""))?.toUpperCase();
+  if (method !== void 0) {
+    return method !== "GET";
+  }
+  return args.some(
+    (a) => FIELD_FLAGS.has(a) || /^--(field|raw-field)=/.test(a)
+  );
+}
+function ghRoute(line2) {
+  const { name, args } = commandOf(line2);
+  if (name !== "gh") {
+    return false;
+  }
+  return args[0] === "alias" && /^(set|import)$/.test(args[1] ?? "") || args[0] === "api" && apiWrites(args) && args.some((a) => GH_MUTATES.test(a));
+}
+var takesRoute = (segment) => expand(segment).some(ghRoute);
+var READ_FLAGS = /* @__PURE__ */ new Set([
+  "--get",
+  "--get-all",
+  "--get-regexp",
+  "--list",
+  "-l",
+  "--get-urlmatch"
+]);
+var WRITE_FLAGS = /* @__PURE__ */ new Set([
+  "--add",
+  "--unset",
+  "--unset-all",
+  "--replace-all",
+  "--rename-section",
+  "--remove-section",
+  "--edit",
+  "-e"
+]);
+function configWrite(line2) {
+  const call = gitCall(line2);
+  if (call?.sub !== "config" || call.args.some((a) => READ_FLAGS.has(a))) {
+    return false;
+  }
+  const words2 = call.args.filter((a) => !isDash(a));
+  const key = words2.find((w) => PUSH_KEY.test(w));
+  const keyAt = key === void 0 ? -1 : words2.indexOf(key);
+  return key !== void 0 && (words2.length > keyAt + 1 || call.args.some((a) => WRITE_FLAGS.has(a)));
+}
+function authToken(line2) {
+  const { name, args } = commandOf(line2);
+  return name === "gh" && args[0] === "auth" && (args[1] === "token" || args[1] === "git-credential" || args[1] === "status" && args.some((a) => a === "-t" || a === "--show-token"));
+}
+function graphqlExpands(line2) {
+  const { name, args } = commandOf(line2);
+  return name === "gh" && args[0] === "api" && args[1] === "graphql" && args.some((a) => a.includes("$"));
+}
+var takesWriterRoute = (segment) => expand(segment).some(
+  (line2) => configWrite(line2) || authToken(line2) || graphqlExpands(line2)
+);
+
+// src/hook/guard-role-delivery.ts
 var REPORTING_ROLES = /* @__PURE__ */ new Set(["orchestrator", "judge"]);
 var DELIVERY_ROLES = /* @__PURE__ */ new Set([...REPORTING_ROLES, "writer"]);
 var noMerge = (role, what) => block(
   "role-no-merge",
-  `${what} merges, but the ${role} may not: the merge tool does not exist yet (plan 11 Step 5), so no role merges. Instead, report the verdict; the judge reports safe or sends the change back, and the operator merges.`
+  `${what} merges or pushes to main, but the ${role} may not merge by hand: the merge tool re-runs the precheck and merges only when it passes. Instead, the judge runs \`harness judge merge <pr>\` or \`harness judge send-back <pr> --reason <why>\`; every other role reports and leaves the merge to the judge.`
 );
 var outsideWorktree = (what, root3) => block(
   "role-worktree",
   `${what} reaches outside this worktree (${root3}), and a writer works only in the worktree it was launched in. Instead, make the change inside the worktree, or report that it needs another piece of work.`
 );
-var MERGE_API = /\/pulls\/\d+\/merge\b/;
-var merges = (segment) => {
-  const { name, args } = commandOf(segment);
-  return name === "gh" && (args[0] === "pr" && args[1] === "merge" || args[0] === "api" && args.some((arg) => MERGE_API.test(arg)));
-};
 function runsInline(segment) {
   const { name, args } = commandOf(segment);
   return name === "node" && args.some((a) => ["-e", "--eval", "-p"].includes(a)) || /^python3?$/.test(name) && args.includes("-c") || name === "perl" && args.some((a) => /^-\w*[eEip]/.test(a)) || name === "ruby" && args.includes("-e") || /^g?awk$/.test(name) && args.some((a) => a === "inplace" || a === "--in-place");
@@ -4577,7 +4867,12 @@ var ORCHESTRATOR_HARNESS = [
   "outcome record",
   "outcome close"
 ];
-var JUDGE_HARNESS = [...READS, "judge precheck"];
+var JUDGE_HARNESS = [
+  ...READS,
+  "judge precheck",
+  "judge merge",
+  "judge send-back"
+];
 var HARNESS_BY_ROLE = {
   orchestrator: ORCHESTRATOR_HARNESS,
   judge: JUDGE_HARNESS
@@ -4619,7 +4914,15 @@ function harnessRefused(role, segment) {
   return !(HARNESS2.test(args[0] ?? "") && harnessAllowed(name, args, harnessFor(role)));
 }
 var SCRATCH = ["/tmp/", "/private/tmp/", "/var/folders/", "/dev/"];
-var PATHS = /(?:~|\.\.|\/)[\w.@~/-]*/g;
+var ABSOLUTE = /(?:^|[^\w.@~/-])((?:~|\/)[\w.@~/-]*)/g;
+var PARENT = /[\w.@~/-]*\.\.[\w.@~/-]*/g;
+function pathsIn(word) {
+  const text12 = word.replace(/^(?:\d*>>?|&>>?)/, "");
+  return [
+    ...[...text12.matchAll(ABSOLUTE)].flatMap((m) => m[1] ? [m[1]] : []),
+    ...(text12.match(PARENT) ?? []).filter((p) => p.split("/").includes(".."))
+  ];
+}
 function outside(root3, path) {
   if (path.startsWith("~")) {
     return true;
@@ -4638,13 +4941,21 @@ function escapes(segment, root3) {
   if (!writes(segment) && !runsInline(segment)) {
     return void 0;
   }
-  return segment.flatMap((word) => word.replace(/^(?:\d*>>?|&>>?)/, "").match(PATHS) ?? []).find((path) => outside(root3, path));
+  return segment.flatMap(pathsIn).find((path) => outside(root3, path));
 }
 function checkDeliveryBash(role, command, root3) {
   const segments = splitSegments(command);
-  const merging = segments.find(merges);
+  const merging = withSubstitutions(command).find(
+    (s) => mergesPr(s) || pushesToMain(s) || takesRoute(s) || // Only the writer has the full shell; the read-only roles' allowlist refuses these anyway.
+    !REPORTING_ROLES.has(role) && takesWriterRoute(s) || // A reporting role never pushes at all (read-only below), so only the writer needs the branch read.
+    !REPORTING_ROLES.has(role) && pushesByTracking(s, root3)
+  );
   if (merging !== void 0) {
     return noMerge(role, `\`${merging.join(" ")}\``);
+  }
+  const judging = segments.find((s) => runsJudgeTool(s, HARNESS2));
+  if (judging !== void 0 && role !== "judge") {
+    return noMerge(role, `\`${judging.join(" ")}\``);
   }
   if (REPORTING_ROLES.has(role)) {
     if (SUBSTITUTION.test(command)) {
@@ -6247,8 +6558,8 @@ async function readJournals2(deps, root3) {
   }
   return journals;
 }
-function snapshotStore(deps, git3, root3) {
-  const dir = async () => join9(resolve6(root3, await git3("rev-parse", "--git-dir")), "kore-delta");
+function snapshotStore(deps, git4, root3) {
+  const dir = async () => join9(resolve6(root3, await git4("rev-parse", "--git-dir")), "kore-delta");
   const file = async (id) => join9(await dir(), `${id}.json`);
   return {
     async readSnapshot(id) {
@@ -6280,25 +6591,25 @@ function snapshotStore(deps, git3, root3) {
   };
 }
 function realDeltaDeps(deps, root3) {
-  const git3 = gitReader(deps, root3);
+  const git4 = gitReader(deps, root3);
   return {
     now: () => deps.clock.now().getTime(),
-    head: () => git3("rev-parse", "HEAD"),
-    branch: () => git3("rev-parse", "--abbrev-ref", "HEAD"),
+    head: () => git4("rev-parse", "HEAD"),
+    branch: () => git4("rev-parse", "--abbrev-ref", "HEAD"),
     async main() {
       try {
-        return await git3("rev-parse", "--verify", "--quiet", "main");
+        return await git4("rev-parse", "--verify", "--quiet", "main");
       } catch {
         return null;
       }
     },
     async commitsBetween(from, to) {
-      return (await git3("log", "--format=%s", `${from}..${to}`)).split("\n").filter(Boolean);
+      return (await git4("log", "--format=%s", `${from}..${to}`)).split("\n").filter(Boolean);
     },
     readPlans: () => readPlans(deps),
     listLocks: () => readDir(deps, join9(root3, LOCKS_DIR)),
     readJournals: () => readJournals2(deps, root3),
-    ...snapshotStore(deps, git3, root3)
+    ...snapshotStore(deps, git4, root3)
   };
 }
 
@@ -6591,7 +6902,7 @@ import { homedir as homedir2 } from "node:os";
 import { join as join11 } from "node:path";
 
 // src/hook/retro-transcripts.ts
-import { basename as basename3, join as join10, sep } from "node:path";
+import { basename as basename5, join as join10, sep } from "node:path";
 var PROBE_BYTES = 256 * 1024;
 var DEFAULT_BRANCHES = /* @__PURE__ */ new Set(["main", "master", "HEAD"]);
 var encodePath = (path) => path.replace(/[^a-zA-Z0-9]/g, "-");
@@ -6638,26 +6949,26 @@ async function repoTranscriptDirs(fs, projectsDir, { main, worktrees, branches }
   const found = [];
   for (const name of entries2) {
     const dir = join10(projectsDir, name);
-    if (await fs.isDirectory(dir) && (names3.has(basename3(dir)) || await belongs(dir))) {
+    if (await fs.isDirectory(dir) && (names3.has(basename5(dir)) || await belongs(dir))) {
       found.push(dir);
     }
   }
   return found.sort();
 }
-async function git(runner, cwd, args) {
+async function git2(runner, cwd, args) {
   const result = await runner.run("git", args, { cwd });
   return result.code === 0 ? result.stdout : "";
 }
 async function defaultDirs(fs, runner, root3, home) {
-  const listed = await git(runner, root3, ["worktree", "list", "--porcelain"]);
+  const listed = await git2(runner, root3, ["worktree", "list", "--porcelain"]);
   const worktrees = listed.split("\n").filter((line2) => line2.startsWith("worktree ")).map((line2) => line2.slice("worktree ".length));
-  const common = (await git(runner, root3, [
+  const common = (await git2(runner, root3, [
     "rev-parse",
     "--path-format=absolute",
     "--git-common-dir"
   ])).trim();
   const main = worktrees[0] ?? (common ? join10(common, "..") : root3);
-  const refs = await git(runner, root3, [
+  const refs = await git2(runner, root3, [
     "for-each-ref",
     "--format=%(refname:short)",
     "refs/heads",
@@ -6676,7 +6987,7 @@ async function readTranscripts(fs, dirs) {
     for (const name of (await fs.readdir(dir)).filter(
       (n) => n.endsWith(".jsonl")
     )) {
-      const id = basename3(name, ".jsonl");
+      const id = basename5(name, ".jsonl");
       const text12 = await fs.readFile(join10(dir, name));
       if (text12.length >= (byId.get(id)?.text.length ?? -1)) {
         byId.set(id, { id, text: text12 });
@@ -7814,8 +8125,8 @@ async function run(argv, deps, log) {
   if (!audit3) {
     return status2;
   }
-  const failed = await printAudit(audit3, log);
-  if (failed) {
+  const failed2 = await printAudit(audit3, log);
+  if (failed2) {
     const strict = argv.includes("--strict");
     log(
       strict ? "kb-check: skill audit failed" : "kb-check: skill audit failed (warn mode; --strict fails on it)"
@@ -8031,7 +8342,7 @@ var skill = { audit };
 // src/hook/kb-check.ts
 var ENOENT = "ENOENT";
 var EISDIR = "EISDIR";
-async function git2(deps, root3, args) {
+async function git3(deps, root3, args) {
   const result = await deps.runner.run("git", args, { cwd: root3 });
   if (result.code !== 0) {
     throw new CommandError(
@@ -8055,7 +8366,7 @@ async function flagAudit(deps, root3) {
   }
 }
 async function readTree(deps, root3) {
-  const listed = await git2(deps, root3, [
+  const listed = await git3(deps, root3, [
     "ls-files",
     "--cached",
     "--others",
@@ -8082,7 +8393,7 @@ async function kbCheck(strict, deps) {
   const kbDeps = {
     files: () => [...tree.keys()],
     read: (path) => tree.get(path) ?? null,
-    commitDate: async (path) => (await git2(deps, root3, ["log", "-1", "--format=%cs", "--", path])).trim() || null,
+    commitDate: async (path) => (await git3(deps, root3, ["log", "-1", "--format=%cs", "--", path])).trim() || null,
     audit: () => skillAudit(deps.fs, root3),
     flagAudit: () => flagAudit(deps, root3)
   };
@@ -10105,9 +10416,6 @@ var statusCommand = {
   }
 };
 
-// src/cli/judge-commands.ts
-import { resolve as resolve8 } from "node:path";
-
 // src/judge/declaration.ts
 var PATTERNS = [
   "no-behaviour-change",
@@ -10233,7 +10541,7 @@ function review(view, reviewers) {
   const verdict = (REVIEW.exec(trusted.body)?.[1] ?? "").replace(/\s*\(?\bhead\s+[0-9a-f]{7,40}\)?\s*$/i, "").trim();
   return /^no violations\.?$/i.test(verdict) ? { result: "pass" } : { result: "fail", detail: verdict };
 }
-async function coverage(runner, root3, pr) {
+async function coverage(runner, root3, repo, pr) {
   const url = pr.rollup.find((c) => c.name === CI_JOB)?.url ?? "";
   const run3 = /\/actions\/runs\/(\d+)/.exec(url)?.[1];
   if (run3 === void 0) {
@@ -10242,9 +10550,13 @@ async function coverage(runner, root3, pr) {
       detail: "no CI run on the PR to read coverage out of"
     };
   }
-  const done = await runner.run("gh", ["run", "view", run3, "--json", "jobs"], {
-    cwd: root3
-  });
+  const done = await runner.run(
+    "gh",
+    ["run", "view", run3, "--repo", repo, "--json", "jobs"],
+    {
+      cwd: root3
+    }
+  );
   if (done.code !== 0) {
     return { result: "missing", detail: `gh run view ${run3} failed` };
   }
@@ -10281,11 +10593,11 @@ async function coverage(runner, root3, pr) {
     };
   }
 }
-async function gatherChecks(runner, root3, view, reviewers) {
+async function gatherChecks(runner, root3, repo, view, reviewers) {
   return {
     ci: job(view, CI_JOB),
     scan: job(view, SCAN_JOB),
-    coverage: await coverage(runner, root3, view),
+    coverage: await coverage(runner, root3, repo, view),
     principlesReview: review(view, reviewers)
   };
 }
@@ -10471,8 +10783,10 @@ function assess(pattern, hints, files) {
 var JudgeError = class extends Error {
 };
 var FIX4 = "Check `gh auth status` and the PR number, then rerun `harness judge precheck <pr>`.";
-async function gh2({ deps }, root3, args, pr) {
-  const done = await deps.runner.run("gh", args, { cwd: root3 });
+async function gh2({ deps }, root3, repo, args, pr) {
+  const done = await deps.runner.run("gh", [...args, "--repo", repo], {
+    cwd: root3
+  });
   if (done.code !== 0) {
     throw new JudgeError(
       `gh ${args.slice(0, 2).join(" ")} failed for PR #${pr}: ${done.stderr.trim()}. ${FIX4}`
@@ -10480,10 +10794,11 @@ async function gh2({ deps }, root3, args, pr) {
   }
   return done.stdout;
 }
-async function readPr(context2, root3, pr) {
+async function readPr(context2, root3, repo, pr) {
   const out = await gh2(
     context2,
     root3,
+    repo,
     [
       "pr",
       "view",
@@ -10499,8 +10814,8 @@ async function readPr(context2, root3, pr) {
   }
   return view;
 }
-async function precheck(context2, root3, pr, reviewers) {
-  const view = await readPr(context2, root3, pr);
+async function precheck(context2, root3, repo, pr, reviewers) {
+  const view = await readPr(context2, root3, repo, pr);
   const declaration = parseDeclaration(view.body);
   if (!declaration.ok) {
     return {
@@ -10511,13 +10826,20 @@ async function precheck(context2, root3, pr, reviewers) {
       declaration: { ok: false, reason: declaration.reason }
     };
   }
-  const diff = await gh2(context2, root3, ["pr", "diff", String(pr)], pr);
-  const checks = await gatherChecks(context2.deps.runner, root3, view, reviewers);
+  const diff = await gh2(context2, root3, repo, ["pr", "diff", String(pr)], pr);
+  const checks = await gatherChecks(
+    context2.deps.runner,
+    root3,
+    repo,
+    view,
+    reviewers
+  );
   const files = parseDiff(diff);
   const hints = hintsFor(declaration.pattern, files);
   const verdict = assess(declaration.pattern, hints, files);
   return {
     pr,
+    head: view.headSha,
     ok: verdict.patternMatches && Object.values(checks).every((c) => c.result === "pass"),
     pattern: declaration.pattern,
     idea: declaration.idea,
@@ -10554,16 +10876,25 @@ ${report3.declaration.reason ?? ""}
   ].join("\n");
 }
 
-// src/cli/judge-commands.ts
+// src/judge/send-back.ts
+var PREFIX = "Sent back by the judge: ";
+var sendBackBody = (reason, head) => `${PREFIX}${reason}
+
+head ${head}`;
+var hasSentBack = (view, reason) => view.comments.some((c) => c.body === sendBackBody(reason, view.headSha));
+
+// src/cli/judge-shared.ts
+import { resolve as resolve8 } from "node:path";
 var FAILED6 = 1;
-var USAGE2 = "Run `harness judge precheck <pr> [--json] [--reviewer <login>[,<login>]]`.";
-function prNumber(operand) {
+function prNumber(operand, usage2) {
   if (operand === void 0 || !/^\d+$/.test(operand) || Number(operand) < 1) {
-    throw new JudgeError(`Missing or invalid PR number. ${USAGE2}`);
+    throw new JudgeError(`Missing or invalid PR number. ${usage2}`);
   }
   return Number(operand);
 }
-async function openJudgeLedger({ deps }) {
+async function openJudgeLedger({
+  deps
+}) {
   const main = await bundleMainRoot(deps);
   if (main === void 0) {
     throw new JudgeError(
@@ -10601,27 +10932,195 @@ async function record4(context2, report3) {
     );
   }
 }
+var reviewersOf = (context2) => String(context2.options["reviewer"] ?? "").split(",").map((r) => r.trim()).filter((r) => r !== "");
+function failed(context2, error) {
+  if (!(error instanceof JudgeError)) {
+    throw error;
+  }
+  context2.deps.stderr(
+    `${context2.json ? `${JSON.stringify({ error: error.message })}
+` : ""}${error.message}
+`
+  );
+  return FAILED6;
+}
+var REMOTE = /github\.com[:/]([\w.-]+\/[\w.-]+?)(?:\.git)?\/?$/;
+async function repoOf({ deps }) {
+  const main = await bundleMainRoot(deps);
+  if (main === void 0) {
+    throw new JudgeError(
+      "Cannot find the main checkout from the harness bundle's location, so there is no repository to name. Run the committed skills/bin/harness.mjs from inside the repository."
+    );
+  }
+  const done = await deps.runner.run("git", ["remote", "get-url", "origin"], {
+    cwd: main
+  });
+  const repo = REMOTE.exec(done.stdout.trim())?.[1];
+  if (done.code !== 0 || repo === void 0) {
+    throw new JudgeError(
+      `The main checkout's origin remote is not a GitHub repository (${done.stdout.trim() || done.stderr.trim() || "no origin"}). Set it with \`git remote set-url origin <url>\`, then rerun.`
+    );
+  }
+  return repo;
+}
+
+// src/cli/judge-merge-commands.ts
+var MERGE_USAGE = "Run `harness judge merge <pr> [--json] [--reviewer <login>[,<login>]]`.";
+var SEND_BACK_USAGE = 'Run `harness judge send-back <pr> --reason "<why>"`.';
+var LABEL_MAX = 100;
+async function runMerge(context2) {
+  const { deps, json } = context2;
+  try {
+    const pr = prNumber(context2.operand, MERGE_USAGE);
+    const root3 = await deps.root();
+    const repo = await repoOf(context2);
+    const report3 = await precheck(
+      context2,
+      root3,
+      repo,
+      pr,
+      reviewersOf(context2)
+    );
+    await record4(context2, report3);
+    if (!report3.ok || report3.head === void 0 || report3.head === "") {
+      deps.stdout(
+        json ? `${JSON.stringify({ ...report3, merged: false })}
+` : summary(report3)
+      );
+      deps.stderr(
+        `PR #${pr} was not merged: the precheck did not pass. Fix what it reports, or send the change back with \`harness judge send-back ${pr} --reason <why>\`.
+`
+      );
+      return FAILED6;
+    }
+    const done = await deps.runner.run(
+      "gh",
+      [
+        "pr",
+        "merge",
+        String(pr),
+        "--repo",
+        repo,
+        "--squash",
+        "--match-head-commit",
+        report3.head
+      ],
+      { cwd: root3 }
+    );
+    if (done.code !== 0) {
+      throw new JudgeError(
+        `gh pr merge failed for PR #${pr}: ${done.stderr.trim()}. If the head moved, rerun \`harness judge merge ${pr}\` to verify the new commit.`
+      );
+    }
+    deps.stdout(
+      json ? `${JSON.stringify({ pr, merged: true, head: report3.head })}
+` : `PR #${pr}: squash-merged at ${report3.head}
+`
+    );
+    return 0;
+  } catch (error) {
+    return failed(context2, error);
+  }
+}
+function labelFor(reason, head) {
+  const tail = ` @${head.slice(0, 7)}`;
+  const line2 = reason.split("").map(
+    (ch) => ch.charCodeAt(0) < 32 || ch.charCodeAt(0) === 127 ? " " : ch
+  ).join("").replace(/\s+/g, " ").trim();
+  const room = LABEL_MAX - tail.length;
+  return `${line2.length <= room ? line2 : `${line2.slice(0, room - 1)}\u2026`}${tail}`;
+}
+async function runSendBack(context2) {
+  const { deps } = context2;
+  try {
+    const pr = prNumber(context2.operand, SEND_BACK_USAGE);
+    const reason = String(context2.options["reason"] ?? "").trim();
+    if (reason === "") {
+      throw new JudgeError(`A send-back needs a reason. ${SEND_BACK_USAGE}`);
+    }
+    const root3 = await deps.root();
+    const repo = await repoOf(context2);
+    const ledger = await openJudgeLedger(context2);
+    const view = await readPr(context2, root3, repo, pr);
+    if (!hasSentBack(view, reason)) {
+      const done = await deps.runner.run(
+        "gh",
+        [
+          "pr",
+          "comment",
+          String(pr),
+          "--repo",
+          repo,
+          "--body",
+          sendBackBody(reason, view.headSha)
+        ],
+        { cwd: root3 }
+      );
+      if (done.code !== 0) {
+        throw new JudgeError(
+          `gh pr comment failed for PR #${pr}: ${done.stderr.trim()}. Check \`gh auth status\` and the PR number, then rerun \`harness judge send-back ${pr}\`.`
+        );
+      }
+    }
+    const label = labelFor(reason, view.headSha);
+    const logged = await ledger.list({ kind: "send-back" });
+    const newest = logged.events.filter((e) => e.number === pr).at(-1);
+    if (newest?.label !== label) {
+      const event = await ledger.record({
+        source: "github",
+        kind: "send-back",
+        occurredAt: deps.clock.now().toISOString(),
+        number: pr,
+        label
+      });
+      if (!event.ok) {
+        throw new JudgeError(
+          `The reason is on PR #${pr}, but its ledger event was rejected: ${event.message} Fix the ledger, then rerun \`harness judge send-back ${pr}\`; the comment is not posted twice.`
+        );
+      }
+    }
+    deps.stdout(`PR #${pr}: sent back with the reason on the queue
+`);
+    return 0;
+  } catch (error) {
+    return failed(context2, error);
+  }
+}
+var mergeCommands = {
+  merge: {
+    summary: "mutates; re-runs the precheck and squash-merges the verified head commit only when it passes; with no declared pattern, a mismatching diff or a failing check it merges nothing (<pr> [--json] [--reviewer <login>[,<login>]])",
+    operand: "pr",
+    options: { reviewer: "string" },
+    run: runMerge
+  },
+  "send-back": {
+    summary: "posts the reason as a comment on the PR, the orchestrator's queue, and records a send-back event at the shared ledger (<pr> --reason <why>)",
+    operand: "pr",
+    options: { reason: "string" },
+    run: runSendBack
+  }
+};
+
+// src/cli/judge-commands.ts
+var USAGE2 = "Run `harness judge precheck <pr> [--json] [--reviewer <login>[,<login>]]`.";
 async function runPrecheck(context2) {
   const { deps, json } = context2;
   try {
-    const pr = prNumber(context2.operand);
+    const pr = prNumber(context2.operand, USAGE2);
     const root3 = await deps.root();
-    const reviewers = String(context2.options["reviewer"] ?? "").split(",").map((r) => r.trim()).filter((r) => r !== "");
-    const report3 = await precheck(context2, root3, pr, reviewers);
+    const report3 = await precheck(
+      context2,
+      root3,
+      await repoOf(context2),
+      pr,
+      reviewersOf(context2)
+    );
     deps.stdout(json ? `${JSON.stringify(report3)}
 ` : summary(report3));
     await record4(context2, report3);
     return report3.ok ? 0 : FAILED6;
   } catch (error) {
-    if (!(error instanceof JudgeError)) {
-      throw error;
-    }
-    deps.stderr(
-      `${json ? `${JSON.stringify({ error: error.message })}
-` : ""}${error.message}
-`
-    );
-    return FAILED6;
+    return failed(context2, error);
   }
 }
 var precheckCommand = {
@@ -10631,7 +11130,8 @@ var precheckCommand = {
   run: runPrecheck
 };
 var judgeCommands = {
-  precheck: precheckCommand
+  precheck: precheckCommand,
+  ...mergeCommands
 };
 
 // src/outcome/model.ts
@@ -10643,7 +11143,7 @@ var OUTCOME_SOURCES = [
   "comparison"
 ];
 var RESULTS = ["confirmed", "refuted", "inconclusive"];
-var labelFor = (result) => `outcome:${result}`;
+var labelFor2 = (result) => `outcome:${result}`;
 var markerFor2 = (record6) => `<!-- harness outcome idea ${record6.number} -->`;
 function choice(flag, allowed, value) {
   if (value === void 0 || value.trim() === "") {
@@ -10826,7 +11326,7 @@ async function publishOutcome(runner, root3, target2, outcome) {
     labelled: false,
     closed: false
   };
-  const wanted = labelFor(outcome.result);
+  const wanted = labelFor2(outcome.result);
   const flags = labelFlags(view.labels, wanted);
   if (flags.length > 0) {
     await gh3(
@@ -10982,7 +11482,7 @@ async function conclusion(context2, verb) {
       kind: "outcome",
       occurredAt: deps.clock.now().toISOString(),
       idea: done.idea,
-      label: labelFor(done.result),
+      label: labelFor2(done.result),
       number: Number(/(\d+)$/.exec(done.issue)?.[1])
     });
     if (!event.ok) {
