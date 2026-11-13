@@ -7,6 +7,10 @@ import {
 } from "./cost.js";
 
 export type { CostMetrics, CostOptions };
+export { guardBlocks, outcomes } from "./outcomes.js";
+export { COST_KINDS, measureAttribution } from "./attribution-measure.js";
+export type { GuardBlocks, Outcomes } from "./outcomes.js";
+export type { Attribution } from "./attribution-measure.js";
 import { firstTime, time } from "./github-waits.js";
 import { inWindow, type Span } from "./scope.js";
 import { median } from "./wip.js";

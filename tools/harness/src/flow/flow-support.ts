@@ -8,7 +8,10 @@ function sourceOf(kind: Kind): Source {
   if (kind.startsWith("pane.")) {
     return "herdr";
   }
-  return kind.startsWith("issue.") || kind.startsWith("pr.")
+  return kind.startsWith("issue.") ||
+    kind.startsWith("pr.") ||
+    kind.startsWith("ci.") ||
+    kind.startsWith("owner.")
     ? "github"
     : "claude";
 }

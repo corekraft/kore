@@ -15,12 +15,12 @@ const describe = (code: number, stdout: string, stderr: string) => {
 };
 
 /** What every `gh` query needs: the runner, and a hook to keep the poll's lock fresh. */
-interface Gh {
+export interface Gh {
   runner: Runner;
   refresh(): Promise<void>;
 }
 
-const RATE_LIMITED = /rate limit|HTTP 403|HTTP 429/i;
+export const RATE_LIMITED = /rate limit|HTTP 403|HTTP 429/i;
 
 /** The ISO time the core rate limit resets, or undefined when gh cannot say. */
 async function resetTime(gh: Gh): Promise<string | undefined> {
@@ -37,7 +37,7 @@ async function resetTime(gh: Gh): Promise<string | undefined> {
   }
 }
 
-async function rateLimited(gh: Gh, what: string): Promise<string> {
+export async function rateLimited(gh: Gh, what: string): Promise<string> {
   const reset = await resetTime(gh);
   const retry =
     reset === undefined ? "Retry in a few minutes" : `Retry after ${reset}`;

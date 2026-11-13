@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { pollOutcomeSignals, pollerOnly, repoOf } from "./poll-support.js";
 import {
   DEFAULT_LEDGER,
   KINDS,
@@ -127,6 +128,10 @@ const record: Command = {
     const given = await eventInput(context);
     if ("error" in given) {
       return reject(context, given.error, "event", given.code);
+    }
+    const forged = pollerOnly(given.input);
+    if (forged !== undefined) {
+      return reject(context, forged, "source");
     }
     const opened = await openLedger(context);
     if ("error" in opened) {
@@ -259,11 +264,9 @@ const pollHerdrCommand: Command = {
   },
 };
 
-const DEFAULT_REPO = "corekraft/kore";
-
 const pollGithubCommand: Command = {
   summary:
-    "list issues, label events and PRs through gh and append issue.opened, issue.labelled, pr.opened and pr.merged (numbers, labels and GitHub times only, no titles or bodies); --since (default: the latest recorded GitHub event) only bounds what gh is asked for, since ids decide what is new; --repo to corekraft/kore; re-polling appends nothing, one poll runs at a time, and a rate limit is reported with its retry time",
+    "list issues, label events and PRs through gh and append issue.opened, issue.labelled, pr.opened and pr.merged, then the outcome signals agents do not write: ci.main (check runs on main), ci.nightly (nightly runs), main.revert (commits on main whose subject starts Revert + a quote or whose body says This reverts commit) and owner.action (comments, issue events and PR reviews by the login in ownerLogin of .claude/harness.json, else the repository's owner) (numbers, labels, conclusions and GitHub times only, no titles, bodies, messages or logins); a run's result is its first attempt, and a listing too long to page through fails the poll, so pass --since; --since (default: the latest recorded GitHub event, and for the signals a day before the latest one, which --since can reach back past but never step over) only bounds what gh is asked for, since ids decide what is new; --repo to corekraft/kore; re-polling appends nothing, one poll runs at a time, and a rate limit is reported with its retry time",
   options: STRING_FLAGS(["ledger", "since", "repo"]),
   async run(context) {
     const since = context.options["since"];
@@ -275,14 +278,9 @@ const pollGithubCommand: Command = {
         2,
       );
     }
-    const repo = context.options["repo"];
-    if (typeof repo === "string" && !/^[\w.-]+\/[\w.-]+$/.test(repo)) {
-      return reject(
-        context,
-        `Invalid --repo "${repo}". Use owner/name, such as ${DEFAULT_REPO}.`,
-        "repo",
-        2,
-      );
+    const repoName = repoOf(context.options);
+    if (typeof repoName !== "string") {
+      return reject(context, repoName.error, "repo", 2);
     }
     const opened = await openLedger(context);
     if ("error" in opened) {
@@ -294,16 +292,21 @@ const pollGithubCommand: Command = {
       runner,
       clock,
       fs,
-      repo: typeof repo === "string" ? repo : DEFAULT_REPO,
+      repo: repoName,
       ...(typeof since === "string" ? { since } : {}),
     });
     if (!result.ok) {
       return reject(context, result.message, "github");
     }
+    const signals = await pollOutcomeSignals(context, opened.ledger, repoName);
+    if (!signals.ok) {
+      return reject(context, signals.message, signals.field);
+    }
+    const events = [...result.events, ...signals.events];
     context.deps.stdout(
       context.json
-        ? `${JSON.stringify({ recorded: result.recorded, events: result.events })}\n`
-        : `recorded ${result.recorded} github event(s)\n`,
+        ? `${JSON.stringify({ recorded: events.length, events })}\n`
+        : `recorded ${events.length} github event(s)\n`,
     );
     return 0;
   },

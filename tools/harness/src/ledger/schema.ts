@@ -20,9 +20,14 @@ export const KINDS = [
   "token.usage",
   "session.launch",
   "guard.audit",
+  "guard.block",
   "challenge.round",
   "precheck",
   "send-back",
+  "ci.main",
+  "ci.nightly",
+  "main.revert",
+  "owner.action",
 ] as const;
 export type Kind = (typeof KINDS)[number];
 
@@ -40,6 +45,23 @@ const NUMBER_KINDS: readonly Kind[] = [
   "challenge.round",
   "precheck",
   "send-back",
+  "owner.action",
+];
+
+/** Workflow runs GitHub concluded: only the conclusion and its time are kept. */
+const RUN_KINDS: readonly Kind[] = ["tool.end", "ci.main", "ci.nightly"];
+
+/** Kinds only `ledger poll-github` writes, from GitHub's own records; `ledger record` refuses them. */
+export const POLLER_KINDS: readonly Kind[] = [
+  "issue.opened",
+  "issue.labelled",
+  "issue.closed",
+  "pr.opened",
+  "pr.merged",
+  "ci.main",
+  "ci.nightly",
+  "main.revert",
+  "owner.action",
 ];
 
 const LAUNCH_KINDS: readonly Kind[] = ["session.launch"];
@@ -169,7 +191,7 @@ const RULES: readonly Rule[] = [
     field: "outcome",
     check: (v) => OUTCOMES.includes(v as Outcome),
     hint: `must be one of ${OUTCOMES.join(", ")}`,
-    kinds: ["tool.end"],
+    kinds: RUN_KINDS,
   },
   {
     field: "label",
@@ -180,6 +202,7 @@ const RULES: readonly Rule[] = [
       "outcome",
       "flag.activated",
       "guard.audit",
+      "guard.block",
       "challenge.round",
       "precheck",
       "send-back",

@@ -3,6 +3,7 @@ import {
   DEFAULT_LEDGER,
   Ledger,
   type Kind,
+  isName,
   type LedgerEvent,
 } from "../ledger/index.js";
 import { mainRoot, type CliDeps } from "../runtime/index.js";
@@ -25,9 +26,16 @@ function ledgerRoot(deps: CliDeps): Promise<string | undefined> {
   return root;
 }
 
+async function holds(ledger: Ledger, kind: Kind, id: string): Promise<boolean> {
+  const { events } = await ledger.list({ kind });
+  return events.some((e) => e.id === id);
+}
+
 /**
  * Appends one Claude event to the ledger. Best effort by contract: a missing
  * ledger root or a rejected event never changes a hook's verdict or output.
+ * An `extra.id` makes the event unique: the ledger already holding that id
+ * of this kind records nothing.
  */
 export async function recordEvent(
   deps: CliDeps,
@@ -46,24 +54,35 @@ export async function recordEvent(
       return;
     }
     const pane = deps.env["HERDR_PANE_ID"];
+    // Stamped into the pane by `session spawn`; a value the ledger would refuse is left out.
+    const stamp = (field: "idea" | "agent", name: string) => {
+      const value = deps.env[name];
+      return isName(value) ? { [field]: value } : {};
+    };
     const event: Partial<LedgerEvent> = {
       source: "claude",
       kind,
       occurredAt: deps.clock.now().toISOString(),
       session,
       ...(typeof pane === "string" && pane !== "" ? { pane } : {}),
+      ...stamp("idea", "KORE_IDEA"),
+      ...stamp("agent", "KORE_AGENT"),
       ...(kind.startsWith("tool.") && typeof call.tool_name === "string"
         ? { tool: call.tool_name }
         : {}),
       ...(outcome === undefined ? {} : { outcome }),
       ...extra,
     };
-    await new Ledger(
+    const ledger = new Ledger(
       deps.fs,
       deps.clock,
       deps.ids,
       join(main, DEFAULT_LEDGER),
-    ).record(event);
+    );
+    if (extra.id !== undefined && (await holds(ledger, kind, extra.id))) {
+      return;
+    }
+    await ledger.record(event);
   } catch {
     // Recording is best effort by contract.
   }

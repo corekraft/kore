@@ -1,22 +1,36 @@
 import type { LedgerEvent } from "../ledger/index.js";
+import { stampLanded, withPaneAgents } from "./agents.js";
 import { attribute } from "./attribution.js";
+import { REPOSITORY_KINDS } from "./outcomes.js";
 import { githubSpans, time, type GithubWait } from "./github-waits.js";
 import type { Span } from "./intervals.js";
 import { inWindow, type Scope } from "./scope.js";
 
-export function groupByIdea(events: LedgerEvent[], window: Span) {
+/**
+ * Groups events by idea. Events that name no agent first take the one their
+ * pane was last given, and repository-wide signals (CI runs, reverts, owner
+ * actions) belong to no idea, so they are left out here; `named` is every
+ * event after naming, for the metrics that count them.
+ */
+export function groupByIdea(all: LedgerEvent[], window: Span) {
+  const named = withPaneAgents(all);
+  const events = named.filter((e) => !REPOSITORY_KINDS.has(e.kind));
   const ideaOf = attribute(events);
   const byIdea = new Map<string, LedgerEvent[]>();
   let unattributed = 0;
+  const orphans: LedgerEvent[] = [];
   for (const event of events) {
     const idea = ideaOf.get(event.id);
     if (idea === undefined) {
-      unattributed += inWindow(window, time(event)) ? 1 : 0;
+      if (inWindow(window, time(event))) {
+        unattributed += 1;
+        orphans.push(event);
+      }
     } else {
       byIdea.set(idea, [...(byIdea.get(idea) ?? []), event]);
     }
   }
-  return { byIdea, unattributed };
+  return { byIdea, unattributed, orphans, named, landed: stampLanded(all) };
 }
 
 /** The latest time an idea holds: its last event or the end of an open GitHub wait. */

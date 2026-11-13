@@ -37,9 +37,10 @@ describe("ledger record", () => {
     const argv = [
       "ledger",
       "record",
-      "--source=github",
-      "--kind=pr.opened",
+      "--source=claude",
+      "--kind=challenge.round",
       "--occurred-at=2026-01-02T03:00:00Z",
+      "--label=round-1",
       "--number=12",
     ];
     expect(await run(argv, h.deps)).toBe(0);

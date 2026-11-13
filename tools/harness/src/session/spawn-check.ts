@@ -14,7 +14,13 @@ export type Values = Record<
   string
 >;
 export type Checked =
-  | { values: Values; callerPane: string; timeoutMs: number }
+  | {
+      values: Values;
+      callerPane: string;
+      timeoutMs: number;
+      /** The idea the session works, as the ledger keys it (`#338`). */
+      idea?: string;
+    }
   | { error: string; code: number };
 
 /** The pane to broadcast back to, or the refusal when not run from a Herdr pane. */
@@ -50,6 +56,41 @@ function worktreeError(
     : undefined;
 }
 
+/** The refusal for a brief with a line that is only a RESULT marker. */
+function briefError(brief: string): string | undefined {
+  return findResult(brief) === undefined
+    ? undefined
+    : 'The brief has a line that is only a RESULT marker, which would end the wait early. Describe the marker in words instead, such as "end with the word RESULT, a colon, then done or blocked".';
+}
+
+/** `338` or `#338` as `#338`; an error message for anything else; undefined when not given. */
+function ideaOf(
+  given: string | boolean | undefined,
+): string | { error: string } | undefined {
+  if (given === undefined) {
+    return undefined;
+  }
+  const n = typeof given === "string" ? /^#?([1-9]\d{0,8})$/.exec(given) : null;
+  return n?.[1] === undefined
+    ? {
+        error: `Invalid --idea "${String(given)}". Use an issue number such as 338 or #338.`,
+      }
+    : `#${n[1]}`;
+}
+
+/** The first refusal among the brief, the worktree flags and the idea, before anything is resolved. */
+function inputError(
+  given: { role: string; brief: string },
+  options: CommandContext["options"],
+): string | undefined {
+  const idea = ideaOf(options.idea);
+  return (
+    briefError(given.brief) ??
+    worktreeError(given.role, options) ??
+    (typeof idea === "object" ? idea.error : undefined)
+  );
+}
+
 /** Everything that can be refused is refused here, before any herdr call. */
 export async function check({
   deps,
@@ -65,14 +106,9 @@ export async function check({
   if (nameError !== undefined) {
     return usage(nameError);
   }
-  if (findResult(given.brief) !== undefined) {
-    return usage(
-      'The brief has a line that is only a RESULT marker, which would end the wait early. Describe the marker in words instead, such as "end with the word RESULT, a colon, then done or blocked".',
-    );
-  }
-  const wrongWorktree = worktreeError(given.role, options);
-  if (wrongWorktree !== undefined) {
-    return usage(wrongWorktree);
+  const wrongInput = inputError(given, options);
+  if (wrongInput !== undefined) {
+    return usage(wrongInput);
   }
   const timeoutMs = parseTimeout(options.timeout);
   if (typeof timeoutMs !== "number") {
@@ -92,5 +128,12 @@ export async function check({
   if ("error" in tier) {
     return usage(tier.error);
   }
-  return { values: { ...given, ...tier }, callerPane, timeoutMs };
+  // inputError has already refused a malformed idea.
+  const idea = ideaOf(options.idea) as string | undefined;
+  return {
+    values: { ...given, ...tier },
+    callerPane,
+    timeoutMs,
+    ...(idea === undefined ? {} : { idea }),
+  };
 }

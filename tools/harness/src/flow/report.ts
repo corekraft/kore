@@ -17,8 +17,15 @@ import { chargeToil, newLife } from "./toil.js";
 import { Tally, type StageTotals } from "./tally.js";
 import {
   firstClosed,
+  COST_KINDS,
+  guardBlocks,
   ideaMetrics,
+  measureAttribution,
+  outcomes,
+  type Attribution,
   type CostMetrics,
+  type GuardBlocks,
+  type Outcomes,
   type CostOptions,
   type LeadTime,
 } from "./idea-metrics.js";
@@ -31,7 +38,7 @@ import {
   type ScopeOptions,
 } from "./scope.js";
 
-export const REPORT_VERSION = 5;
+export const REPORT_VERSION = 6;
 
 export type { StageTotals, Toil } from "./tally.js";
 export type { Scope, ScopeOptions } from "./scope.js";
@@ -60,6 +67,12 @@ export interface FlowReport {
   bottleneckNote: string | null;
   /** Events with no stage or no idea, left out of every stage. */
   unmappedEvents: number;
+  /** How much of the work recorded since the stamp landed the report can place; earlier events stay unattributed and are not counted. */
+  attribution: Attribution;
+  /** Guard blocks per rule, most blocked first. */
+  guardBlocks: GuardBlocks[];
+  /** Metrics no agent can set: main-red rate, reverts, live-run pass rate and owner minutes. */
+  outcomes: Outcomes;
 }
 
 export interface ReportOptions extends ScopeOptions {
@@ -69,8 +82,6 @@ export interface ReportOptions extends ScopeOptions {
   /** Trailing window and thresholds for the cost metrics; defaults apply to what is left out. */
   cost?: Partial<CostOptions>;
 }
-
-const COST_KINDS = new Set<Kind>(["token.usage", "session.launch"]);
 
 type State = "active" | "waiting" | "closed";
 
@@ -187,7 +198,8 @@ function stageOf(event: LedgerEvent, mergedAt: number | undefined) {
       role.after === undefined || (gate !== undefined && time(event) >= gate);
     return open ? role.stage : undefined;
   }
-  return event.pane === undefined && event.source === "claude"
+  // A claude session no agent name reaches, stamped or from its pane, is the main session.
+  return event.agent === undefined && event.source === "claude"
     ? MAIN_SESSION_STAGE
     : undefined;
 }
@@ -273,7 +285,10 @@ export function buildReport(
   const { asOf, minCompletedIdeas } = options;
   const scope = scopeOf(options);
   const window = windowOf(options);
-  const { byIdea, unattributed } = groupByIdea(events, window);
+  const { byIdea, unattributed, orphans, named, landed } = groupByIdea(
+    events,
+    window,
+  );
   const covered = select(byIdea, scope, window, asOf.getTime());
   const tally = new Tally(window);
   const ownByIdea = new Map<string, LedgerEvent[]>();
@@ -298,5 +313,18 @@ export function buildReport(
     ...ideaMetrics(ownByIdea, window, options.cost),
     ...nameBottleneck(tally, completed, minCompletedIdeas),
     unmappedEvents: unmapped,
+    attribution: measureAttribution(
+      [...covered.values()].map((c) => c.own),
+      scope.ideas === null ? orphans : [],
+      window,
+      landed,
+      (event, own) =>
+        stageOf(
+          event,
+          firstTime(own, (e) => e.kind === "pr.merged"),
+        ) !== undefined,
+    ),
+    guardBlocks: guardBlocks(named, window),
+    outcomes: outcomes(named, window),
   };
 }
