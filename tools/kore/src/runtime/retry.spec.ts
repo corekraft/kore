@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import {
   CommandError,
+  CommandTimeoutError,
   type RunOptions,
   type RunResult,
   type Runner,
@@ -138,4 +139,27 @@ test.each([
   "Error from server (AlreadyExists): secrets x already exists",
 ])("classifies as permanent: %s", (stderr) => {
   expect(isTransientKubectlFailure(stderr)).toBe(false);
+});
+
+test("a command killed at its timeout is never retried as a transient failure", async () => {
+  const calls: number[] = [];
+  const hung: Runner = {
+    async run(command, args) {
+      calls.push(1);
+      throw new CommandTimeoutError(
+        command,
+        args,
+        { stdout: "", stderr: "TLS handshake timeout", code: 143 },
+        1000,
+        false,
+      );
+    },
+  };
+  await expect(
+    withTransientRetry(hung, { sleep: async () => {}, log: () => {} }).run(
+      "kubectl",
+      apply,
+    ),
+  ).rejects.toBeInstanceOf(CommandTimeoutError);
+  expect(calls).toHaveLength(1);
 });

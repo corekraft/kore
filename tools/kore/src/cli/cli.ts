@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 // Docs: infra/plans/2-implementation.md#public-command-surface
 import { loadRepository } from "../config/index.js";
-import { ProcessRunner, withTransientRetry } from "../runtime/index.js";
+import {
+  ProcessRunner,
+  withHelmDeadline,
+  withRequestTimeout,
+  withTransientRetry,
+} from "../runtime/index.js";
 import { COMMANDS, isMutating, usage } from "./commands.js";
 import type { CommandContext } from "./context.js";
 import {
@@ -11,6 +16,9 @@ import {
   stringFlag,
 } from "./flags.js";
 import { createMutate } from "./mutation.js";
+
+const defaultCommandTimeoutMs = 30 * 60_000;
+const kubectlRequestTimeout = "30s";
 
 export async function main(argv = process.argv.slice(2)): Promise<number> {
   const command = argv[0],
@@ -32,7 +40,15 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     ? requireEnvironment(parsed)
     : (stringFlag(parsed, "environment") ?? "local");
   const repository = await loadRepository(environmentName);
-  const runner = withTransientRetry(new ProcessRunner());
+  // A command that runs this long is hung, not slow: kill it and name the cause.
+  const runner = withTransientRetry(
+    withHelmDeadline(
+      withRequestTimeout(
+        new ProcessRunner({ defaultTimeoutMs: defaultCommandTimeoutMs }),
+        kubectlRequestTimeout,
+      ),
+    ),
+  );
   const context: CommandContext = {
     command,
     action,

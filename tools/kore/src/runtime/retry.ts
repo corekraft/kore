@@ -1,4 +1,9 @@
-import { CommandError, type RunOptions, type RunResult } from "./runner.js";
+import {
+  CommandError,
+  CommandTimeoutError,
+  type RunOptions,
+  type RunResult,
+} from "./runner.js";
 import type { Runner } from "./runner.js";
 
 /** kubectl verbs that are safe to repeat: re-applying the same desired state. */
@@ -38,7 +43,7 @@ export function isTransientKubectlFailure(stderr: string): boolean {
   return transientFailures.some((pattern) => pattern.test(stderr));
 }
 
-function kubectlVerb(args: readonly string[]): string | undefined {
+export function kubectlVerb(args: readonly string[]): string | undefined {
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index] ?? "";
     if (["--context", "-n", "--namespace"].includes(arg)) {
@@ -112,6 +117,7 @@ export function withTransientRetry(
         } catch (error) {
           if (
             !(error instanceof CommandError) ||
+            error instanceof CommandTimeoutError ||
             !isTransientKubectlFailure(error.result.stderr) ||
             runOptions?.signal?.aborted
           ) {

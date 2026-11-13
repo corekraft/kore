@@ -80,6 +80,15 @@ worktree's tests (pid N)`. It waits up to 15 minutes
   `test:integration:registry`). A cluster-facing `no-behaviour-change` needs a live
   run before merge; any other cluster-facing change merges behind a flag and
   needs the live run before the flag turns on (see Feature flags).
+- The `nightly` workflow (`.github/workflows/nightly.yml`) runs a clean
+  `kore local up` and every `test:integration*` suite against one cluster through
+  `tools/kore/scripts/nightly.sh`, purging the profile last. Its run conclusion is
+  the status on main. It needs GNU `timeout` (`gtimeout` from coreutils on macOS)
+  and a dedicated self-hosted runner labelled `kore-nightly`; registering it is an
+  owner step ([ADR 0093](../decisions/0093-the-nightly-live-proof-runs-on-a-dedicated-self-hosted-runner-under-bounded-timeouts.md)).
+  `ProcessRunner` kills a command past its timeout (helm mutations get twice
+  their `--timeout` plus a margin) and names it; kubectl reads carry
+  `--request-timeout`.
 - Upstream chart and container checks are opt-in too (`test:upstream-charts`,
   `test:container-smoke`).
 

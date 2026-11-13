@@ -1,0 +1,53 @@
+# Nightly live proof (issue #339, retro finding 6). The `check` workflow never
+# starts a cluster, so the opt-in integration suites would otherwise run only by
+# hand. This runs a clean `kore local up` and then every `test:integration*`
+# suite once a night.
+#
+# The run's conclusion is the status on main: a scheduled run belongs to the
+# default branch's latest commit, and the workflow needs no write permission.
+# A failed run notifies the person who last edited the schedule.
+#
+# OPEN OWNER DECISION: the runner. A k3d cluster with the platform stack needs
+# far more memory than the 7 GiB of a standard GitHub-hosted runner, so this
+# targets a self-hosted runner labelled `kore-nightly`. Registering that runner
+# (or switching `runs-on` to a larger hosted runner) is an owner step; until a
+# runner with that label exists, the job queues. The runner must be a dedicated
+# host (the nightly purges kore-local), ephemeral, and in a runner group limited
+# to this workflow on main: see ADR 0093.
+
+name: nightly
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+jobs:
+  live:
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, kore-nightly]
+    timeout-minutes: 240
+    permissions:
+      contents: read
+    env:
+      MISE_TASK_RUN_AUTO_INSTALL: "false"
+      KORE_RUN_NIGHTLY: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        with:
+          install: true
+          cache: false
+      - name: Install CLI dependencies
+        run: npm ci --prefix tools/kore
+      - name: Clean local up and the integration suites
+        run: tools/kore/scripts/nightly.sh
