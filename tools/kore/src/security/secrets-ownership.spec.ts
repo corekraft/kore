@@ -68,8 +68,13 @@ async function checkout(): Promise<{ root: string; tokenPath: string }> {
   await mkdir(join(root, "infra/environments/local/secrets"), {
     recursive: true,
   });
-  await mkdir(join(root, ".kore/state"), { recursive: true });
-  return { root, tokenPath: join(root, ".kore/state/reference-api-token") };
+  await mkdir(join(root, ".kore/state/environments/local"), {
+    recursive: true,
+  });
+  return {
+    root,
+    tokenPath: join(root, ".kore/state/environments/local/reference-api-token"),
+  };
 }
 
 test("a checkout never overwrites a token source that already exists in the cluster", async () => {

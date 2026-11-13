@@ -24,7 +24,7 @@ mise exec -- npm --prefix tools/kore install
 - Status, doctor, validate, render, and journal are **read-only** and default to
   `local`.
 - Every mutation needs `--environment`, uses that environment's configured kube
-  context (never the current one), takes an environment lock, and is recorded in
+  context (never the current one), takes the cluster's lock (`~/.kore/locks/<cluster>.lock`, shared by every worktree on the host), and is recorded in
   the ignored `.kore/state/journal/<environment>.jsonl`.
 - Destroying needs consent (`--yes`, or `--prune`); purging retained data needs
   `--purge-data` as well.

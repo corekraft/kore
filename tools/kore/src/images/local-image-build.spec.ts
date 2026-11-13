@@ -54,7 +54,10 @@ test("build and sign generates the key pair as a Kubernetes Secret through the c
     entry,
   );
 
-  const publicKey = join(repository.root, ".kore/state/local-signing.pub");
+  const publicKey = join(
+    repository.root,
+    ".kore/state/environments/local/local-signing.pub",
+  );
   expect(result).toEqual({
     image: {
       reference: `10.96.0.50:5000/reference@${digest}`,

@@ -6,6 +6,7 @@ import { holdIntegrationLock } from "./integration-lock.js";
 import { HELD_LOCK_ENV, holdEnvironmentLock } from "./lock.js";
 
 afterEach(() => {
+  delete process.env.KORE_HOST_ROOT;
   delete process.env.KORE_RUN_INTEGRATION;
   delete process.env.KORE_INTEGRATION_LOCK_WAIT_MS;
   delete process.env[HELD_LOCK_ENV];
@@ -13,7 +14,8 @@ afterEach(() => {
 
 async function newRoot(name: string) {
   const root = await mkdtemp(join(tmpdir(), `kore-proc-lock-${name}-`));
-  return { root, lock: join(root, ".kore", "locks", "local.lock") };
+  process.env.KORE_HOST_ROOT = root;
+  return { root, lock: join(root, ".kore", "locks", "kore-local.lock") };
 }
 
 function fakeProcess() {
@@ -29,29 +31,29 @@ function fakeProcess() {
 test("the test process takes no lock unless integration specs are opted into", async () => {
   // The live quick start runs this suite with the variable already set.
   delete process.env.KORE_RUN_INTEGRATION;
-  const { root, lock } = await newRoot("off");
-  await holdIntegrationLock({ root: async () => root });
+  const { lock } = await newRoot("off");
+  await holdIntegrationLock({ scope: async () => "kore-local" });
   await expect(access(lock)).rejects.toThrow();
 });
 
 test("an opted-in test process holds the lock and releases it on exit", async () => {
   process.env.KORE_RUN_INTEGRATION = "1";
-  const { root, lock } = await newRoot("on");
+  const { lock } = await newRoot("on");
   const proc = fakeProcess();
-  await holdIntegrationLock({ root: async () => root, process: proc });
+  await holdIntegrationLock({ scope: async () => "kore-local", process: proc });
 
   await expect(access(lock)).resolves.toBeUndefined();
   const owner = JSON.parse(await readFile(lock, "utf8"));
-  expect(process.env[HELD_LOCK_ENV]).toBe(`local:${owner.token}`);
+  expect(process.env[HELD_LOCK_ENV]).toBe(`kore-local:${owner.token}`);
   proc.handlers.exit?.();
   await expect(access(lock)).rejects.toThrow();
 });
 
 test("an interrupt releases the lock before the process dies", async () => {
   process.env.KORE_RUN_INTEGRATION = "1";
-  const { root, lock } = await newRoot("sigint");
+  const { lock } = await newRoot("sigint");
   const proc = fakeProcess();
-  await holdIntegrationLock({ root: async () => root, process: proc });
+  await holdIntegrationLock({ scope: async () => "kore-local", process: proc });
 
   expect(proc.handlers.SIGINT).toBeDefined();
   expect(proc.handlers.SIGTERM).toBeDefined();
@@ -61,15 +63,18 @@ test("an interrupt releases the lock before the process dies", async () => {
 
 test("a test child process that inherits the holder's token takes no second lock", async () => {
   process.env.KORE_RUN_INTEGRATION = "1";
-  const { root, lock } = await newRoot("child");
+  const { lock } = await newRoot("child");
   const parent = fakeProcess();
-  await holdIntegrationLock({ root: async () => root, process: parent });
+  await holdIntegrationLock({
+    scope: async () => "kore-local",
+    process: parent,
+  });
   const before = await readFile(lock, "utf8");
 
   // node --test starts each spec file in a child that loads the same --import.
   const child = fakeProcess();
   await holdIntegrationLock({
-    root: async () => root,
+    scope: async () => "kore-local",
     process: child,
     waitMs: 50,
   });
@@ -81,12 +86,12 @@ test("a test child process that inherits the holder's token takes no second lock
 test("a test process refuses to start while another holds the lock, naming it", async () => {
   process.env.KORE_RUN_INTEGRATION = "1";
   const { root } = await newRoot("busy");
-  const holder = await holdEnvironmentLock(root, "local");
+  const holder = await holdEnvironmentLock(root, "kore-local");
   delete process.env[HELD_LOCK_ENV];
   try {
     await expect(
       holdIntegrationLock({
-        root: async () => root,
+        scope: async () => "kore-local",
         process: fakeProcess(),
         waitMs: 50,
       }),

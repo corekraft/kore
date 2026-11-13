@@ -1,10 +1,11 @@
 import { readdir } from "node:fs/promises";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { randomBytes } from "node:crypto";
 import { isLocalProvider, type Repository } from "../config/index.js";
 import { assertExpectedCluster } from "../cluster/index.js";
 import type { Runner } from "../runtime/index.js";
+import { environmentStatePath } from "../runtime/environment-state.js";
 
 export const rotationAnnotation = "platform.kore.dev/rotation-id";
 export const rotatedAtAnnotation = "platform.kore.dev/rotated-at";
@@ -79,9 +80,12 @@ async function ensureLocalReferenceSecret(
   if (!rotate && (await sourceExists(repository, runner, namespace))) {
     return;
   }
-  const state = join(repository.root, ".kore", "state");
-  const tokenPath = join(state, "reference-api-token");
-  await mkdir(state, { recursive: true, mode: 0o700 });
+  const tokenPath = environmentStatePath(
+    repository.root,
+    repository.environment.name,
+    "reference-api-token",
+  );
+  await mkdir(dirname(tokenPath), { recursive: true, mode: 0o700 });
   let token: string;
   if (rotate) {
     token = randomBytes(32).toString("hex");

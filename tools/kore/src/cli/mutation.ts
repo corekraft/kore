@@ -1,6 +1,7 @@
 import type { Repository } from "../config/index.js";
 import { withEnvironmentLock, withJournal } from "../runtime/index.js";
 import type { Runner } from "../runtime/index.js";
+import { hostRoot, lockScope } from "../runtime/host-locks.js";
 import type { Mutate } from "./context.js";
 
 interface MutationScope {
@@ -21,8 +22,8 @@ export function createMutate(scope: MutationScope): Mutate {
       throw new Error(`unknown ${command} action: ${action ?? ""}`);
     }
     return await withEnvironmentLock(
-      repository.root,
-      environment,
+      hostRoot(),
+      lockScope(repository.environment),
       async () =>
         await withJournal(
           {

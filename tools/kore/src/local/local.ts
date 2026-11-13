@@ -1,6 +1,6 @@
 import { isLocalProvider, type Repository } from "../config/index.js";
 import { mkdir, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname } from "node:path";
 import { appUp, type AppUpOptions } from "../app/index.js";
 import {
   loadImageLock,
@@ -17,7 +17,7 @@ import {
   platformStop,
   platformUp,
 } from "../platform/index.js";
-import type { Runner } from "../runtime/index.js";
+import { environmentStatePath, type Runner } from "../runtime/index.js";
 
 export interface LocalLifecycleDependencies {
   platformUp?: typeof platformUp;
@@ -57,13 +57,12 @@ export async function localUp(
   await (dependencies.platformUp ?? platformUp)(repository, runner);
   await (dependencies.syncSecrets ?? syncLocalSecrets)(repository, runner);
   const localEntries: Record<string, ImageLockEntry> = {};
-  const localLockPath = join(
+  const localLockPath = environmentStatePath(
     repository.root,
-    ".kore",
-    "state",
+    repository.environment.name,
     "local-images.lock.json",
   );
-  await mkdir(join(repository.root, ".kore", "state"), { recursive: true });
+  await mkdir(dirname(localLockPath), { recursive: true });
   // A lock from an earlier run names digests signed by a key that may have
   // vanished with its cluster; every run re-signs, so start without it.
   await rm(localLockPath, { force: true });
@@ -116,9 +115,10 @@ export async function localDown(
   }
   if (options.prune) {
     // The signing key lives in the cluster Secret and is destroyed with it.
-    const state = join(repository.root, ".kore", "state");
-    await rm(join(state, "local-images.lock.json"), { force: true });
-    await rm(join(state, "local-signing.pub"), { force: true });
+    const state = (file: string) =>
+      environmentStatePath(repository.root, repository.environment.name, file);
+    await rm(state("local-images.lock.json"), { force: true });
+    await rm(state("local-signing.pub"), { force: true });
     await (dependencies.platformDestroy ?? platformDestroy)(
       repository,
       runner,

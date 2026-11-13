@@ -13,6 +13,7 @@ export type {
   JournalOperation,
   OperationSummary,
 } from "./journal.js";
+export { environmentStatePath } from "./environment-state.js";
 export {
   CommandError,
   CommandTimeoutError,

@@ -64,7 +64,7 @@ test("local up starts the platform before reconciling every locked application",
           digest: "sha256:" + "a".repeat(64),
           signer: "local-kore-key",
         },
-        publicKey: "/repo/.kore/state/local-signing.pub",
+        publicKey: "/repo/.kore/state/environments/local/local-signing.pub",
       };
     },
     appUp: async (_repository, _runner, name, image) => {
@@ -161,7 +161,7 @@ test("purging retained data without --prune is refused before anything is touche
 async function staleKeyRepository() {
   const base = await loadRepository("local");
   const root = await mkdtemp(join(tmpdir(), "kore-local-stale-key-"));
-  const state = join(root, ".kore/state");
+  const state = join(root, ".kore/state/environments/local");
   await mkdir(state, { recursive: true });
   await mkdir(join(root, "infra/catalog"), { recursive: true });
   await copyFile(

@@ -26,7 +26,7 @@ mise exec -- npm --prefix tools/kore run kore -- local up --environment local
 trust, generates/reuses a local API token and syncs local secrets, builds each
 locked application, publishes it to the in-cluster registry, signs and verifies
 the registry digest, then deploys that exact digest. The token is stored at
-`.kore/state/reference-api-token` with owner-only permissions and survives
+`.kore/state/environments/<environment>/reference-api-token` with owner-only permissions and survives
 `local down --prune`; it is never committed. Optional SOPS-encrypted local
 secret documents can still be placed in `infra/environments/local/secrets/`.
 

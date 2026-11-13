@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { environmentStatePath } from "../runtime/environment-state.js";
 import {
   isLocalProvider,
   trustedSigners,
@@ -36,8 +36,8 @@ export function verifyLockedImageArgs(
   ];
 }
 
-export function localPublicKeyPath(root: string): string {
-  return join(root, ".kore", "state", "local-signing.pub");
+export function localPublicKeyPath(root: string, environment: string): string {
+  return environmentStatePath(root, environment, "local-signing.pub");
 }
 
 function localPublicKey(
@@ -46,7 +46,7 @@ function localPublicKey(
 ): string | undefined {
   return isLocalProvider(repository.environment) &&
     image.signer === "local-kore-key"
-    ? localPublicKeyPath(repository.root)
+    ? localPublicKeyPath(repository.root, repository.environment.name)
     : undefined;
 }
 

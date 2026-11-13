@@ -118,7 +118,9 @@ test("deployment discovery uses kubectl get", () => {
 });
 
 test("local verification reads the public key published from the cluster Secret, never the legacy key directory", () => {
-  const path = localPublicKeyPath("/workspace");
-  expect(path).toBe("/workspace/.kore/state/local-signing.pub");
+  const path = localPublicKeyPath("/workspace", "local");
+  expect(path).toBe(
+    "/workspace/.kore/state/environments/local/local-signing.pub",
+  );
   expect(path).not.toContain("keys");
 });

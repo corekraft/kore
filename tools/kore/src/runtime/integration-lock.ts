@@ -1,4 +1,5 @@
-import { findRoot } from "../config/config.js";
+import { loadRepository } from "../config/config.js";
+import { hostRoot, lockScope } from "./host-locks.js";
 import { holdEnvironmentLock, inheritsLock } from "./lock.js";
 
 // Docs: AGENTS.md "Mutations are serialized per environment."
@@ -12,7 +13,8 @@ interface ProcessHooks {
 }
 
 interface HoldOptions {
-  root?: () => Promise<string>;
+  /** The lock key; defaults to the cluster of `KORE_INTEGRATION_ENVIRONMENT`. */
+  scope?: () => Promise<string>;
   process?: ProcessHooks;
   waitMs?: number;
 }
@@ -37,15 +39,19 @@ export async function holdIntegrationLock(
     return;
   }
   const environment = process.env.KORE_INTEGRATION_ENVIRONMENT ?? "local";
-  const root = await (options.root ?? findRoot)();
-  const lock = `${root}/.kore/locks/${environment}.lock`;
-  if (await inheritsLock(lock, environment)) {
+  const scope = await (
+    options.scope ??
+    (async () => lockScope((await loadRepository(environment)).environment))
+  )();
+  const root = hostRoot();
+  const lock = `${root}/.kore/locks/${scope}.lock`;
+  if (await inheritsLock(lock, scope)) {
     return;
   }
   const waitMs =
     options.waitMs ??
     Number(process.env.KORE_INTEGRATION_LOCK_WAIT_MS ?? DEFAULT_WAIT_MS);
-  const held = await holdEnvironmentLock(root, environment, { waitMs });
+  const held = await holdEnvironmentLock(root, scope, { waitMs });
   const hooks = options.process ?? process;
   hooks.on("exit", held.releaseSync);
   for (const [signal, code] of [
