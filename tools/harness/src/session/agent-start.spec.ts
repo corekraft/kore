@@ -19,17 +19,18 @@ const failure = (n: number) => ({ code: 1, stdout: "", stderr: `try ${n}` });
 /** Deps whose runner answers each start with the next result; the last one repeats. */
 function scripted(results: readonly (typeof started)[]) {
   let call = 0;
-  const run = vi.fn(() => {
+  const run = vi.fn<CliDeps["runner"]["run"]>(() => {
     const result = results[Math.min(call, results.length - 1)] ?? started;
     call += 1;
     return Promise.resolve(result);
   });
-  const sleep = vi.fn(() => Promise.resolve());
-  const deps = {
+  const sleep = vi.fn<CliDeps["clock"]["sleep"]>(() => Promise.resolve());
+  // Only what startAgent touches; the rest of CliDeps is never read.
+  const deps: Pick<CliDeps, "runner" | "clock"> = {
     runner: { run },
     clock: { now: () => new Date(0), sleep },
-  } as unknown as CliDeps;
-  return { deps, run, sleep };
+  };
+  return { deps: deps as CliDeps, run, sleep };
 }
 
 describe("startAgent retries a failed agent start", () => {

@@ -135,7 +135,10 @@ function checkBash(role: string, command: string): Finding {
     const what = `\`${prefixed.join(" ")}\`, which sets an environment variable or changes shell state,`;
     return NO_CODE_ROLES.has(role) ? noCode(what, role) : readOnly(what);
   }
-  const typing = segments.find(sendsToPane);
+  // Only a role a brief asks for the notice is pointed at it; the concierge gets its usual finding.
+  const typing = SPAWNED_ROLES.has(role)
+    ? segments.find(sendsToPane)
+    : undefined;
   if (typing !== undefined) {
     return useNotify(`\`${typing.join(" ")}\``);
   }

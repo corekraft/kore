@@ -50,8 +50,8 @@ function scripted(script: Script) {
   let read = 0;
   const calls: string[] = [];
   const out: string[] = [];
-  const sleep = vi.fn(() => Promise.resolve());
-  const run = (command: string, args: readonly string[]) => {
+  const sleep = vi.fn<CliDeps["clock"]["sleep"]>(() => Promise.resolve());
+  const run: CliDeps["runner"]["run"] = (command, args) => {
     calls.push(`${command} ${args.join(" ")}`);
     if (args[1] === "send-text") {
       return Promise.resolve(sendText);
@@ -63,16 +63,20 @@ function scripted(script: Script) {
     read += 1;
     return Promise.resolve(result);
   };
-  const deps = {
-    runner: { run },
-    clock: { now: () => new Date(0), sleep },
-    env,
-    stdout: (text: string) => out.push(text),
-    stderr: () => undefined,
-  } as unknown as CliDeps;
+  // Only what notify touches; the rest of CliDeps is never read.
+  const deps: Pick<CliDeps, "runner" | "clock" | "env" | "stdout" | "stderr"> =
+    {
+      runner: { run },
+      clock: { now: () => new Date(0), sleep },
+      env,
+      stdout: (text) => {
+        out.push(text);
+      },
+      stderr: () => undefined,
+    };
   const context: CommandContext = {
     json,
-    deps,
+    deps: deps as CliDeps,
     operand,
     options: { outcome },
   };
@@ -139,7 +143,7 @@ describe("session notify does not count what was not delivered", () => {
     expect(s.calls).toEqual([READ, SEND, ENTER, READ, READ, READ]);
     expect(s.sleep.mock.calls).toEqual([[1000], [1000]]);
     expect(failure()).toBe(
-      "Delivery to w3:p1 not confirmed: no new submitted finish line showed there in 3 reads. It was sent, so read pane w3:p1 before sending it again; if it sits in the input box, submit it with enter.",
+      "Delivery to w3:p1 not confirmed: no new submitted finish line showed there in 3 reads. Do not send it again: `session wait` records your result from your RESULT line, so end your turn.",
     );
     expect(s.out).toEqual([]);
   });
@@ -150,10 +154,26 @@ describe("session notify does not count what was not delivered", () => {
     expect(failure()).toContain("Delivery to w3:p1 not confirmed");
   });
 
-  it("fails when the pane cannot be read back after the send", async () => {
-    const s = scripted({ reads: [ok(EMPTY), failed] });
+  it("does not count a line typed in an input box drawn with a border", async () => {
+    const boxed = ["⏺ Waiting for the writer.", `│ ❯ ${LINE} │`].join("\n");
+    const s = scripted({ reads: [ok(EMPTY), ok(boxed)] });
     expect(await notify(s.context)).toBe(1);
     expect(failure()).toContain("Delivery to w3:p1 not confirmed");
+  });
+
+  it("names the read failure, not the input box, when the pane could never be read back", async () => {
+    const s = scripted({ reads: [ok(EMPTY), failed] });
+    expect(await notify(s.context)).toBe(1);
+    expect(s.calls).toEqual([READ, SEND, ENTER, READ, READ, READ]);
+    expect(failure()).toBe(
+      "herdr pane read w3:p1 failed: herdr said no, so delivery to w3:p1 is not confirmed. Do not send it again: `session wait` records your result from your RESULT line, so end your turn.",
+    );
+  });
+
+  it("reports the missing line when a later read-back succeeds without it", async () => {
+    const s = scripted({ reads: [ok(EMPTY), failed, ok(TYPED)] });
+    expect(await notify(s.context)).toBe(1);
+    expect(failure()).toContain("no new submitted finish line showed there");
   });
 });
 

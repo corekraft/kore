@@ -5,6 +5,9 @@ import { FAILED, USAGE_ERROR, fail } from "./output.js";
 const CONFIRM_READS = 3;
 const CONFIRM_PAUSE_MS = 1_000;
 const USAGE = "session notify <pane> --outcome done|blocked";
+/** The one move every role has left after a send that could not be confirmed. */
+const NO_RESEND =
+  "Do not send it again: `session wait` records your result from your RESULT line, so end your turn.";
 
 /** The line a finished session sends its caller: the name is the session's own, and the summary is in its pane. */
 export function finishLine(
@@ -72,23 +75,30 @@ async function sendLine(
     : `herdr pane send-keys to ${pane} failed: ${describeFailure(entered)}. The line is typed but not submitted in pane ${pane}.`;
 }
 
-/** Reads the pane back until it shows more submitted lines than before the send; false when it never does. */
+/**
+ * Reads the pane back until it shows more submitted lines than before the send.
+ * When it never does: `missing` if any read worked, else the last read's error.
+ */
 async function confirmed(
   deps: CliDeps,
   pane: string,
   line: string,
   before: number,
-): Promise<boolean> {
+): Promise<"confirmed" | "missing" | { error: string }> {
+  let outcome: "missing" | { error: string } = "missing";
+  let anyRead = false;
   for (let read = 1; read <= CONFIRM_READS; read++) {
     const now = await count(deps, pane, line);
     if (typeof now === "number" && now > before) {
-      return true;
+      return "confirmed";
     }
+    anyRead ||= typeof now === "number";
+    outcome = typeof now === "number" || anyRead ? "missing" : now;
     if (read < CONFIRM_READS) {
       await deps.clock.sleep(CONFIRM_PAUSE_MS);
     }
   }
-  return false;
+  return outcome;
 }
 
 /** Sends the line and confirms it; an error message, or undefined once a new submitted line shows in the pane. */
@@ -106,9 +116,13 @@ async function deliver(
   if (sendError !== undefined) {
     return sendError;
   }
-  return (await confirmed(deps, pane, line, before))
-    ? undefined
-    : `Delivery to ${pane} not confirmed: no new submitted finish line showed there in ${CONFIRM_READS} reads. It was sent, so read pane ${pane} before sending it again; if it sits in the input box, submit it with enter.`;
+  const result = await confirmed(deps, pane, line, before);
+  if (result === "confirmed") {
+    return undefined;
+  }
+  return result === "missing"
+    ? `Delivery to ${pane} not confirmed: no new submitted finish line showed there in ${CONFIRM_READS} reads. ${NO_RESEND}`
+    : `herdr pane read ${pane} failed: ${result.error}, so delivery to ${pane} is not confirmed. ${NO_RESEND}`;
 }
 
 /**

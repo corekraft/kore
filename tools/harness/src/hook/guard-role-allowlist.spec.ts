@@ -169,6 +169,11 @@ describe("role-read-only: the finish notification and benign reads", () => {
 
   it("leaves the concierge, which no session spawns, without the notice", async () => {
     blocked(await bash("concierge", NOTIFY[0] ?? ""), "role-no-code");
+    for (const command of RAW) {
+      const result = await bash("concierge", command);
+      blocked(result, "role-no-code");
+      assert.ok(!result.message.includes("session notify"), result.message);
+    }
   });
 
   it("keeps herdr agent prompt refused for the orchestrator: sessions are launched through session spawn (ADR 0078)", async () => {
