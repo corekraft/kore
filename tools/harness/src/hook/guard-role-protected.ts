@@ -196,8 +196,20 @@ const gated = (what: string): Finding =>
       "Instead, report that it is ready, and the orchestrator or the person runs it.",
   );
 
+/** A hook's test file: a literal name directly in `.claude/hooks` that ends `.test.mjs`. Writers may change these (#440, ADR 0100). */
+const HOOK_TEST = /^\.claude\/hooks\/[A-Za-z0-9_][A-Za-z0-9_.-]*\.test\.mjs$/;
+
+/** Whether a word names exactly one hook test file: a glob, variable, substitution or path climb never does, so it stays guarded. */
+function namesHookTest(root: string, word: string): boolean {
+  const inside = isAbsolute(word) ? relative(root, word) : word;
+  return HOOK_TEST.test(inside);
+}
+
 /** Whether a word names a guard path, relative to the worktree or inside it by absolute path. */
 function namesGuardPath(root: string, word: string): boolean {
+  if (namesHookTest(root, word)) {
+    return false;
+  }
   const inside = isAbsolute(word) ? relative(root, word) : word;
   return (
     GUARD_TEXT.test(word) ||

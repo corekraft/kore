@@ -151,6 +151,7 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0096-role-tokens-reach-panes-through-a-fifo-handoff.md`](decisions/0096-role-tokens-reach-panes-through-a-fifo-handoff.md) — Refines ADR 0095: session spawn gives writer and judge panes their GitHub token through a 0600 FIFO, since herdr offers no argv-free environment; the orchestrator gets none.
 - [`docs/decisions/0097-an-outcome-issue-closes-on-recorded-proof-not-on-merge.md`](decisions/0097-an-outcome-issue-closes-on-recorded-proof-not-on-merge.md) — Refines ADR 0077: a pull request references, and does not close, an issue whose outcome needs a live or nightly run; the issue closes once a green run is recorded on it.
 - [`docs/decisions/0098-unit-tests-mock-everything-outside-the-unit-and-integration-tests-gate-only-a-release.md`](decisions/0098-unit-tests-mock-everything-outside-the-unit-and-integration-tests-gate-only-a-release.md) — A unit test exercises one class or function with every behaving dependency mocked; integration tests of real domains run only in CI and gate the release tag; cluster suites are renamed live tests.
+- [`docs/decisions/0100-writers-may-edit-hook-test-files-while-the-hooks-stay-protected.md`](decisions/0100-writers-may-edit-hook-test-files-while-the-hooks-stay-protected.md) — A writer may create, edit, move and delete a hook test file directly in .claude/hooks, but the hook scripts, settings, the bundle and the .claude folder stay protected.
 
 ## Proposed Decisions
 
