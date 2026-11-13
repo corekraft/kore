@@ -51,8 +51,9 @@ function unquote(quoted: string, line: string): string {
 
 /**
  * The new path of an unquoted header. Git writes both sides bare, separated by a space, so a path
- * that contains " b/" gives several splits. Only a split whose two paths are equal is taken; a
- * header with no such split, or with several, is unreadable.
+ * that contains " b/" gives several splits, and an equal-path split is not proof of the path: a
+ * rename header can read the same. Only a header with exactly one " b/" is read; any other is
+ * unreadable.
  */
 function bareSplit(rest: string, line: string): string {
   if (!rest.startsWith("a/")) {
@@ -66,9 +67,8 @@ function bareSplit(rest: string, line: string): string {
   ) {
     splits.push({ a: rest.slice(2, at), b: rest.slice(at + 3) });
   }
-  const equal = splits.filter((split) => split.a === split.b);
-  const [only] = splits.length === 1 ? splits : equal;
-  if (only === undefined || (splits.length !== 1 && equal.length !== 1)) {
+  const [only] = splits;
+  if (only === undefined || splits.length !== 1) {
     throw unreadable(line);
   }
   return only.b;

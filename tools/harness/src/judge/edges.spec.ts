@@ -135,15 +135,25 @@ describe("diff header reading", () => {
 });
 
 describe("diff headers that are ambiguous or unknown", () => {
-  it("reads an unquoted path that contains ' b/' under the one path both sides name", () => {
+  it("fails closed on an unquoted header with more than one ' b/' split, even when one split has equal paths", () => {
     const diff = [
       "diff --git a/apps/web/templates/x b/docs/deploy.yaml b/apps/web/templates/x b/docs/deploy.yaml",
       "@@ -1 +1 @@",
       "+kind: Deployment",
     ].join("\n");
-    expect(parseDiff(diff)).toMatchObject([
-      { path: "apps/web/templates/x b/docs/deploy.yaml" },
-    ]);
+    expect(() => parseDiff(diff)).toThrow(
+      new JudgeError(
+        "Cannot read the diff header on this line, so the file it changes is unknown: diff --git a/apps/web/templates/x b/docs/deploy.yaml b/apps/web/templates/x b/docs/deploy.yaml. Rename the file so git writes a plain header, or extend the header reader in tools/harness/src/judge/diff.ts to read this form.",
+      ),
+    );
+  });
+
+  it("fails closed on an unquoted header with four ' b/' splits", () => {
+    expect(() => parseDiff("diff --git a/x b/x b/x b/x")).toThrow(
+      new JudgeError(
+        "Cannot read the diff header on this line, so the file it changes is unknown: diff --git a/x b/x b/x b/x. Rename the file so git writes a plain header, or extend the header reader in tools/harness/src/judge/diff.ts to read this form.",
+      ),
+    );
   });
 
   it("fails closed on an unquoted header whose split between the two paths is ambiguous", () => {
