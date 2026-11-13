@@ -1,4 +1,6 @@
 import { defineConfig } from "vitest/config";
+import { writeBudgetReport } from "../kore/.husky/budget-report.mjs";
+import { BudgetReporter } from "./src/hook/test-budget-reporter.ts";
 import { testWorkers } from "../kore/.husky/test-workers.mjs";
 
 const bundleFiles = [
@@ -12,7 +14,14 @@ export default defineConfig({
     // One cap for every unit path; see .husky/test-workers.mjs.
     maxWorkers: testWorkers(),
     // The test-budget hook reads this report; see `test:budget` in package.json.
-    reporters: ["default", ["json", { outputFile: "test-results/unit.json" }]],
+    reporters: [
+      "default",
+      new BudgetReporter({
+        outputFile: "test-results/unit.json",
+        write: writeBudgetReport,
+        now: Date.now,
+      }),
+    ],
     // Build skills/bin/harness.mjs once per run: the bundle specs read it.
     globalSetup: ["tests/build-bundle-setup.ts"],
     projects: [

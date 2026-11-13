@@ -113,8 +113,13 @@ see [The harness bundle](#the-harness-bundle).
 - The unit run has a budget: a test over 100 ms, a spec file over 1 s, or (once
   every list below is empty) a package run over 20 s fails, naming the test and
   its time. The `test-budget` hook (`harness hook test-budget`, run by
-  `test:budget` after each unit run) reads the JSON report the unit run writes
-  to `test-results/unit.json`, and prints the ten slowest tests every run. It
+  `test:budget` after each unit run) reads the report the unit run's
+  `BudgetReporter` writes to `test-results/unit.json`, and prints the ten
+  slowest tests every run. A spec file's time counts its environment setup,
+  imports, collection and tests, and the package time runs from reporter
+  start, so global setup counts; Node's own boot does not. Arguments after `--`
+  in `npm run test:unit -- <args>` reach the budget hook, not vitest: to run
+  one spec, call `npx vitest run <file>`, which skips the budget. It
   applies only to converted code: each domain keeps `unconverted.txt` beside
   its sources, naming the source files (relative to the domain directory, one
   per line, `#` for comments) whose specs are not yet rewritten. A file is

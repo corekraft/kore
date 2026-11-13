@@ -1,4 +1,4 @@
-// The test budget as a hook: `harness hook test-budget --package tools/kore --report <vitest json>`.
+// The test budget as a hook: `harness hook test-budget --package tools/kore --report <report>`, the report the BudgetReporter writes.
 // A unit test over 100 ms, a unit spec file over 1 s, or a package unit run
 // over 20 s fails, naming what was slow. Only converted code is budgeted: each
 // domain's `unconverted.txt` lists the source files not yet converted, one per
@@ -8,6 +8,7 @@
 
 import type { CliDeps } from "../runtime/index.js";
 import { hookCommand, type HookResult } from "./io.js";
+import type { BudgetReport } from "./test-budget-reporter.js";
 
 const TEST_MS = 100;
 const SPEC_MS = 1000;
@@ -15,16 +16,7 @@ const PACKAGE_MS = 20_000;
 const SLOWEST = 10;
 const LIST = "unconverted.txt";
 
-interface Assertion {
-  fullName: string;
-  duration?: number | null;
-}
-interface SpecResult {
-  name: string;
-  startTime: number;
-  endTime: number;
-  assertionResults: Assertion[];
-}
+type SpecResult = BudgetReport["files"][number];
 
 /** The part of a spec's path that picks its list and its source file. */
 interface Placement {
@@ -122,15 +114,18 @@ async function isConverted(
 async function loadReport(
   deps: CliDeps,
   path: string,
-): Promise<SpecResult[] | string> {
+  packageDir: string,
+): Promise<BudgetReport | string> {
+  let text: string;
   try {
-    const report = JSON.parse(await deps.fs.readFile(path)) as {
-      testResults: SpecResult[];
-    };
-    return report.testResults;
-  } catch {
-    return `test-budget: no unit report at ${path}; run the unit tests with --reporter=json --outputFile=${path} first`;
+    text = await deps.fs.readFile(path);
+  } catch (error) {
+    if ((error as { code?: unknown }).code !== "ENOENT") {
+      throw error;
+    }
+    return `test-budget: no unit report at ${path}; run \`npm run test:unit\` in ${packageDir}, which writes it before this check reads it`;
   }
+  return JSON.parse(text) as BudgetReport;
 }
 
 function slowestLines(
@@ -138,9 +133,9 @@ function slowestLines(
   relative: (path: string) => string,
 ): string {
   const all = results.flatMap((spec) =>
-    spec.assertionResults.map((test) => ({
-      ms: test.duration ?? 0,
-      label: `${relative(spec.name)} > ${test.fullName}`,
+    spec.tests.map((test) => ({
+      ms: test.ms,
+      label: `${relative(spec.name)} > ${test.name}`,
     })),
   );
   const top = all.sort((a, b) => b.ms - a.ms).slice(0, SLOWEST);
@@ -151,38 +146,34 @@ function slowestLines(
 
 function specProblems(spec: SpecResult, file: string): string[] {
   const problems: string[] = [];
-  for (const test of spec.assertionResults) {
-    const ms = test.duration ?? 0;
-    if (ms > TEST_MS) {
+  for (const test of spec.tests) {
+    if (test.ms > TEST_MS) {
       problems.push(
-        `test-budget: ${file} > ${test.fullName} took ${whole(ms)} ms, ${whole(ms - TEST_MS)} ms over the ${TEST_MS} ms test budget`,
+        `test-budget: ${file} > ${test.name} took ${whole(test.ms)} ms, ${whole(test.ms - TEST_MS)} ms over the ${TEST_MS} ms test budget; mock what it imports and drop real timers and processes, so it tests one unit alone (ADR 0098)`,
       );
     }
   }
-  const span = spec.endTime - spec.startTime;
-  if (span > SPEC_MS) {
+  if (spec.ms > SPEC_MS) {
     problems.push(
-      `test-budget: ${file} took ${whole(span)} ms, ${whole(span - SPEC_MS)} ms over the ${SPEC_MS} ms spec file budget`,
+      `test-budget: ${file} took ${whole(spec.ms)} ms, ${whole(spec.ms - SPEC_MS)} ms over the ${SPEC_MS} ms spec file budget, import and collection included; mock what the file imports, or split the spec (ADR 0098)`,
     );
   }
   return problems;
 }
 
 function packageProblems(
-  results: SpecResult[],
+  report: BudgetReport,
   lists: Map<string, string[]>,
   packageDir: string,
 ): string[] {
   const everyListEmpty = [...lists.values()].every((e) => e.length === 0);
-  if (!everyListEmpty || results.length === 0) {
+  if (!everyListEmpty || report.files.length === 0) {
     return [];
   }
-  const total =
-    Math.max(...results.map((r) => r.endTime)) -
-    Math.min(...results.map((r) => r.startTime));
+  const total = report.runMs;
   return total > PACKAGE_MS
     ? [
-        `test-budget: the ${packageDir} unit run took ${whole(total)} ms, ${whole(total - PACKAGE_MS)} ms over the ${PACKAGE_MS} ms package budget`,
+        `test-budget: the ${packageDir} unit run took ${whole(total)} ms, ${whole(total - PACKAGE_MS)} ms over the ${PACKAGE_MS} ms package budget, startup and global setup included; the slowest specs are printed above, so speed those up or split them (ADR 0098)`,
       ]
     : [];
 }
@@ -196,10 +187,11 @@ async function check(
   const srcDir = `${root}/${packageDir}/src`;
   const relative = (path: string) =>
     path.startsWith(`${root}/`) ? path.slice(root.length + 1) : path;
-  const results = await loadReport(deps, reportPath);
-  if (typeof results === "string") {
-    return { code: 1, stderr: `${results}\n` };
+  const report = await loadReport(deps, reportPath, packageDir);
+  if (typeof report === "string") {
+    return { code: 1, stderr: `${report}\n` };
   }
+  const results = report.files;
   const lists = await readLists(deps, srcDir);
   const problems = await staleEntries(deps, lists, relative);
   for (const spec of results) {
@@ -207,7 +199,7 @@ async function check(
       problems.push(...specProblems(spec, relative(spec.name)));
     }
   }
-  problems.push(...packageProblems(results, lists, packageDir));
+  problems.push(...packageProblems(report, lists, packageDir));
   return {
     code: problems.length === 0 ? 0 : 1,
     stdout: slowestLines(results, relative),
@@ -217,7 +209,7 @@ async function check(
 
 export const testBudgetHook = hookCommand(
   "test-budget",
-  "fail a unit run whose converted tests, spec files or package run break the speed budget; reads the vitest json report",
+  "fail a unit run whose converted tests, spec files or package run break the speed budget; reads the report the unit run writes",
   ({ deps, options }) => {
     const packageDir = options["package"];
     const report = options["report"];
@@ -225,7 +217,7 @@ export const testBudgetHook = hookCommand(
       return Promise.resolve({
         code: 1,
         stderr:
-          "test-budget: pass --package <dir, such as tools/kore> and --report <vitest json file>\n",
+          "test-budget: pass --package <dir, such as tools/kore> and --report <json file the unit run writes>\n",
       });
     }
     const absolute = report.startsWith("/") ? report : `${deps.cwd}/${report}`;
