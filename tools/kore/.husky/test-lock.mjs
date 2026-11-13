@@ -330,7 +330,7 @@ const release = () => {
 };
 process.on("exit", release);
 
-// The test run starts without any GIT_* variable (#440). A commit made in a linked
+// The test run starts without any GIT_* variable (#368). A commit made in a linked
 // worktree exports the real repository's GIT_DIR and friends, and a fixture's git
 // inherits them and writes that repository's config (core.bare = true). This
 // script's own git calls above keep the variables they run with.
