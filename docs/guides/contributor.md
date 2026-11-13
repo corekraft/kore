@@ -300,7 +300,9 @@ refuses source `github` and these kinds, so only the poller writes them:
 
 A listing too long to page through (200 runs or PRs, or 300 comments, events or
 commits) fails the poll instead of recording part of it: pass `--since` to bound
-a first poll. Later polls start a day before the latest recorded signal.
+a first poll. Later polls start a day before the latest recorded signal, and
+`--since` can only reach back past that, never later, so it cannot step over a
+failed run.
 Each rate is `null`, never zero, when nothing was measured, and each counts only
 events inside `--since`/`--until`. Only counts, conclusions and times are
 stored, never a title, body or login.

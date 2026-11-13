@@ -170,8 +170,8 @@ const SIGNAL_KINDS = ["ci.main", "ci.nightly", "main.revert", "owner.action"];
  * Appends ci.main, ci.nightly, main.revert and owner.action events that the
  * ledger does not hold. Ids come from GitHub's own run, commit, comment, event
  * and review ids, so re-polling appends nothing, and a run's result is its
- * first attempt, so a failure re-run to success is still seen. `since` (default:
- * a day before the latest recorded signal) bounds what is fetched; a listing
+ * first attempt, so a failure re-run to success is still seen. `since` bounds what is
+ * fetched, but never later than a day before the latest recorded signal; a listing
  * that cannot reach back that far fails the poll instead of recording part of
  * it. `owner` is the one login whose actions are kept.
  */
@@ -198,11 +198,14 @@ export async function pollSignals(deps: {
       .filter((e) => SIGNAL_KINDS.includes(e.kind))
       .map((e) => Date.parse(e.occurredAt))
       .reduce((a, b) => Math.max(a, b), Number.NEGATIVE_INFINITY);
-    const since =
-      deps.since ??
-      (Number.isFinite(latest)
-        ? new Date(latest - DAY_MS).toISOString().replace(/\.\d+Z$/, "Z")
-        : undefined);
+    // The earlier of --since and the default: a --since can reach back further,
+    // never step over a run recorded after the latest signal.
+    const recent = Number.isFinite(latest)
+      ? new Date(latest - DAY_MS).toISOString().replace(/\.\d+Z$/, "Z")
+      : undefined;
+    const since = [deps.since, recent]
+      .filter((t): t is string => t !== undefined)
+      .sort()[0];
     const have = new Set(known.map((e) => e.id));
     const parts = [
       await fromRuns(deps.runner, deps.repo, {

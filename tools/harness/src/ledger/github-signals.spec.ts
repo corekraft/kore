@@ -139,3 +139,47 @@ describe("pollSignals failures", () => {
     );
   });
 });
+
+describe("pollSignals --since cannot skip a failure", () => {
+  const all = [
+    run(1, "failure", "2026-01-05T10:00:00Z"),
+    run(2, "success", "2026-01-08T10:00:00Z"),
+  ];
+  /** gh filters by --created the way GitHub does. */
+  const filtered = (text: string) => {
+    const from = /--created >=(\S+)/.exec(text)?.[1] ?? "0000-00-00";
+    return {
+      stdout: JSON.stringify(
+        all.filter((r) => r.updatedAt.slice(0, 10) >= from),
+      ),
+    };
+  };
+
+  it("still records a failure that a later --since would step over, once any signal is recorded", async () => {
+    const t = setup({ "--workflow check.yml": filtered });
+    await t.ledger.record({
+      id: "github:ci.main:0",
+      source: "github",
+      kind: "ci.main",
+      occurredAt: "2026-01-04T10:00:00Z",
+      outcome: "success",
+    });
+    await t.poll("2026-01-07T00:00:00Z");
+    const outcomes = (await t.stored()).map((e) => [e.id, e.outcome]);
+    expect(outcomes).toContainEqual(["github:ci.main:1", "failure"]);
+    expect(outcomes).toContainEqual(["github:ci.main:2", "success"]);
+  });
+
+  it("lets --since reach back further than the default", async () => {
+    const t = setup({ "--workflow check.yml": filtered });
+    await t.ledger.record({
+      id: "github:ci.main:0",
+      source: "github",
+      kind: "ci.main",
+      occurredAt: "2026-01-09T10:00:00Z",
+      outcome: "success",
+    });
+    await t.poll("2026-01-01T00:00:00Z");
+    expect((await t.stored()).map((e) => e.id)).toContain("github:ci.main:1");
+  });
+});
