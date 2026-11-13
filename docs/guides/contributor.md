@@ -85,7 +85,7 @@ worktree's tests (pid N)`. It waits up to 15 minutes
   `tools/kore/scripts/nightly.sh`, purging the profile last. Its run conclusion is
   the status on main. It needs GNU `timeout` (`gtimeout` from coreutils on macOS)
   and a dedicated self-hosted runner labelled `kore-nightly`; registering it is an
-  owner step ([ADR 0092](../decisions/0092-the-nightly-live-proof-runs-on-a-dedicated-self-hosted-runner-under-bounded-timeouts.md)).
+  owner step ([ADR 0093](../decisions/0093-the-nightly-live-proof-runs-on-a-dedicated-self-hosted-runner-under-bounded-timeouts.md)).
   `ProcessRunner` kills a command past its timeout (helm mutations get twice
   their `--timeout` plus a margin) and names it; kubectl reads carry
   `--request-timeout`.

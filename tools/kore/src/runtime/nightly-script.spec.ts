@@ -55,7 +55,7 @@ const hasGnuTimeout =
 function run(
   suites: string[],
   failOn: string[] = [],
-  extra: Record<string, string> = {},
+  extra: Record<string, string | undefined> = {},
 ) {
   const { log, fake } = fakes(failOn);
   const result = spawnSync("/bin/bash", [script], {
@@ -139,6 +139,25 @@ exec "${fake}" "$@"
     expect(stderr).toMatch(/test:integration:slow \(timed out\)/);
   },
 );
+
+test("a night that finds no suites fails instead of passing green, and cleanup still runs", () => {
+  const { status, stderr, calls } = run([]);
+  expect(status).toBe(1);
+  expect(stderr).toMatch(/found no test:integration suites/);
+  expect(calls.some((call) => call.startsWith("suite"))).toBe(false);
+  expect(calls.at(-1)).toBe(
+    "kore local down --environment local --prune --purge-data",
+  );
+});
+
+test("a failing suite discovery fails the night and names the cause", () => {
+  const { status, stderr } = run([], [], {
+    KORE_NIGHTLY_SUITES: undefined,
+    KORE_NIGHTLY_DISCOVER_CMD: "echo boom >&2; exit 3",
+  });
+  expect(status).toBe(1);
+  expect(stderr).toMatch(/suite discovery failed/);
+});
 
 test("it refuses to run without GNU timeout and says how to get it", () => {
   const { status, stderr } = run(["x"], [], { PATH: dir });

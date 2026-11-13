@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { killGroup, liveGroups } from "./live-groups.js";
 import { Watchdog, type Signal } from "./watchdog.js";
 
 export interface RunOptions {
@@ -79,25 +80,6 @@ export interface ProcessRunnerOptions {
   /** Test seam: replaces signalling a process group (`process.kill(-pid)`). */
   signalGroup?: (pid: number, signal: Signal) => void;
 }
-
-function killGroup(pid: number, signal: Signal): void {
-  try {
-    process.kill(-pid, signal);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ESRCH") {
-      throw error;
-    }
-  }
-}
-
-// Detached children lead their own process group, so the terminal's Ctrl-C no
-// longer reaches them; this reaps any still running when Kore itself exits.
-const liveGroups = new Set<number>();
-process.once("exit", () => {
-  for (const pid of liveGroups) {
-    killGroup(pid, "SIGKILL");
-  }
-});
 
 // Bash exposes the piped kubeconfig as /dev/fd/N, which stays open across exec.
 const feedKubeconfig = 'KUBECONFIG=<(cat) exec "$0" "$@"';

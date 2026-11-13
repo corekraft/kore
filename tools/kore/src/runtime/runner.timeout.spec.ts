@@ -143,6 +143,15 @@ test("a hung process with a grandchild is killed with its whole group (real proc
     .run("bash", ["-c", `sleep ${marker} & wait`], { timeoutMs: 200 })
     .catch((caught: unknown) => caught);
   assert.ok(error instanceof CommandTimeoutError);
-  const left = spawnSync("pgrep", ["-f", `sleep ${marker}`]);
-  expect(left.status).toBe(1);
+  // A killed process can still show as a zombie for a moment: poll briefly.
+  const gone = async () => {
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      if (spawnSync("pgrep", ["-f", `sleep ${marker}`]).status === 1) {
+        return true;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    return false;
+  };
+  expect(await gone()).toBe(true);
 });

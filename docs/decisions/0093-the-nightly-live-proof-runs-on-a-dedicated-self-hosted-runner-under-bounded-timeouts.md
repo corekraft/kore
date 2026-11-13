@@ -5,9 +5,9 @@ date: 2026-11-12
 last-verified: 2026-11-12
 ---
 
-# ADR 0092: The nightly live proof runs on a dedicated self-hosted runner under bounded timeouts
+# ADR 0093: The nightly live proof runs on a dedicated self-hosted runner under bounded timeouts
 
-Source: [`infra/plans/12-self-improving-loop.md` § Step 2](../../infra/plans/12-self-improving-loop.md#step-2-automatic-retro)
+Source: [issue #339](https://github.com/corekraft/kore/issues/339), spec [#333](https://github.com/corekraft/kore/issues/333)
 
 ## Context
 
@@ -57,8 +57,13 @@ and provisions one, the nightly job queues.
   and says so when it is missing.
 - A slow but healthy mutation longer than twice its helm timeout plus the margin
   is killed and named; raise the component's `timeout` rather than the default.
-- Detached children no longer receive the terminal's Ctrl-C, so the runner
-  reaps their groups when Kore exits. Children that share the terminal (inherited
-  stdin or output) are not detached.
+- Detached children no longer receive the terminal's Ctrl-C, and Node's default
+  signal handling ends Kore without an `exit` event. On SIGINT or SIGTERM Kore
+  therefore sends SIGTERM to every live child group and exits 130 or 143 (unless
+  another handler, such as the integration lock's, is left to decide); a normal
+  exit kills any group still running. Children that share the terminal
+  (inherited stdin or output) are not detached.
+- A night that finds no `test:integration*` suites, or whose discovery fails,
+  fails instead of passing green.
 - Registering the runner and setting the runner-group, ephemeral and
   fork-approval controls are owner steps; the ADR stays `proposed` until then.

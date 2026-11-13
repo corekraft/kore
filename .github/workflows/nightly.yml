@@ -13,7 +13,7 @@
 # (or switching `runs-on` to a larger hosted runner) is an owner step; until a
 # runner with that label exists, the job queues. The runner must be a dedicated
 # host (the nightly purges kore-local), ephemeral, and in a runner group limited
-# to this workflow on main: see ADR 0092.
+# to this workflow on main: see ADR 0093.
 
 name: nightly
 

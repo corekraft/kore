@@ -2,7 +2,7 @@
 # Nightly live proof (issue #339): a clean `kore local up`, then every opt-in
 # `test:integration*` suite in tools/kore/package.json against that one
 # cluster, then teardown. Opt-in only: it destroys and purges the `local`
-# profile (cluster `kore-local`), so run it on a dedicated host (ADR 0092).
+# profile (cluster `kore-local`), so run it on a dedicated host (ADR 0093).
 #
 # Order: purge any old profile, `local up`, check platform status, `local up`
 # again (must converge), run the suites, and only then purge. The teardown is
@@ -16,7 +16,8 @@
 # `gtimeout`).
 #
 # Test seams: KORE_NIGHTLY_KORE and KORE_NIGHTLY_SUITE_CMD replace the commands,
-# KORE_NIGHTLY_SUITES replaces the suite list (one per line).
+# KORE_NIGHTLY_SUITES (even empty) replaces the discovered suite list, one per
+# line; KORE_NIGHTLY_DISCOVER_CMD replaces the discovery command.
 set -uo pipefail
 
 if [ "${KORE_RUN_NIGHTLY:-}" != "1" ]; then
@@ -42,6 +43,7 @@ environment=local
 failed=()
 
 read -r -a kore_cmd <<<"${KORE_NIGHTLY_KORE:-mise exec -- npm --prefix tools/kore run --silent kore --}"
+discover_cmd="${KORE_NIGHTLY_DISCOVER_CMD:-mise exec -- node -e 'const { scripts } = require(\"./tools/kore/package.json\"); console.log(Object.keys(scripts).filter((name) => name.startsWith(\"test:integration\")).join(\"\\n\"));'}"
 read -r -a suite_cmd <<<"${KORE_NIGHTLY_SUITE_CMD:-mise exec -- npm --prefix tools/kore run --silent}"
 
 run_stage() {
@@ -77,13 +79,17 @@ teardown() {
 }
 trap teardown EXIT
 
-if [ -n "${KORE_NIGHTLY_SUITES:-}" ]; then
+if [ -n "${KORE_NIGHTLY_SUITES+set}" ]; then
   suites="$KORE_NIGHTLY_SUITES"
-else
-  suites="$(mise exec -- node -e '
-    const { scripts } = require("./tools/kore/package.json");
-    console.log(Object.keys(scripts).filter((name) => name.startsWith("test:integration")).join("\n"));
-  ')"
+elif ! suites="$(bash -c "$discover_cmd")"; then
+  echo "FAILED: suite discovery failed (see the error above); the night cannot prove anything without suites" >&2
+  failed+=("suite discovery failed")
+  exit 1
+fi
+if [ -z "${suites//[[:space:]]/}" ]; then
+  echo "FAILED: found no test:integration suites in tools/kore/package.json; a night with nothing to run must not pass" >&2
+  failed+=("found no test:integration suites")
+  exit 1
 fi
 
 run_stage "clean start: purge any old profile" "${kore_cmd[@]}" local down --environment "$environment" --prune --purge-data
