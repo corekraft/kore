@@ -1,4 +1,10 @@
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "vitest";
 import {
@@ -86,7 +92,10 @@ test("plaintext secrets and the age identity never touch disk", () => {
       : "",
   ).toBe(""); // nothing leaked mid-run
   expect(stdout + stderr).not.toContain(value);
-  expect(stdout + stderr).not.toContain(FAKE_IDENTITY);
+  expect(stdout).toContain(`::add-mask::${FAKE_IDENTITY}`);
+  expect(
+    (stdout + stderr).replace(`::add-mask::${FAKE_IDENTITY}`, ""),
+  ).not.toContain(FAKE_IDENTITY);
   expect(readFileSync(outside("sops-args"), "utf8")).not.toContain(
     FAKE_IDENTITY,
   );
@@ -95,6 +104,9 @@ test("plaintext secrets and the age identity never touch disk", () => {
 test("the identity reaches kore and sops only through the environment, and each run draws a fresh canary", () => {
   expect(run(["test:integration:a"]).status).toBe(0);
   expect(facts()).toMatch(/^kore local up .* identity=yes /m);
+  expect(readFileSync(outside("sops-identity"), "utf8")).toContain(
+    "identity=yes",
+  );
   const first = readFileSync(outside("sops-stdin"), "utf8");
   rmSync(outside("facts"));
   expect(run(["test:integration:a"]).status).toBe(0);
@@ -143,4 +155,15 @@ test("without /proc/meminfo the summary says memory was not measured", () => {
   });
   expect(status).toBe(0);
   expect(readFileSync(summary, "utf8")).toMatch(/peak memory: not measured/i);
+});
+
+test("an existing untracked scratch directory is refused, named and left alone", () => {
+  const existing = join(ctx.repo, "infra/environments/nightly");
+  mkdirSync(existing, { recursive: true });
+  writeFileSync(join(existing, "mine.txt"), "keep");
+  const { status, stderr, calls } = run(["test:integration:a"]);
+  expect(status).toBe(1);
+  expect(stderr).toContain("infra/environments/nightly already exists");
+  expect(readFileSync(join(existing, "mine.txt"), "utf8")).toBe("keep");
+  expect(calls).toEqual([]);
 });

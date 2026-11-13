@@ -158,7 +158,7 @@ create_scratch_overlay() {
       fail_setup "infra/environments/local/secrets/${secret##*/} is a secret the nightly does not know how to generate; teach nightly.sh to generate a fresh value for it (it cannot decrypt the owner's)"
   done
 
-  rm -rf "$scratch_dir"
+  [ ! -e "$scratch_dir" ] || fail_setup "$scratch_dir already exists; the nightly will not delete a directory it did not create. Remove it (and any cluster $cluster) by hand, then rerun"
   cp -R infra/environments/local "$scratch_dir" || fail_setup "could not copy the local overlay to $scratch_dir"
   overlay_created=1
   if exclude="$(git rev-parse --git-path info/exclude 2>/dev/null)"; then
@@ -181,6 +181,8 @@ create_scratch_overlay() {
   identity="$("${age_keygen_cmd[@]}" | grep '^AGE-SECRET-KEY-')" || fail_setup "age-keygen did not produce an identity"
   recipient="$(printf '%s\n' "$identity" | "${age_keygen_cmd[@]}" -y)" || fail_setup "age-keygen -y could not derive the recipient"
   [ -n "$recipient" ] || fail_setup "age-keygen -y printed no recipient"
+  # Tell the Actions runner to mask the identity in every later log line.
+  echo "::add-mask::$identity"
   export SOPS_AGE_KEY="$identity"
   unset identity
 
