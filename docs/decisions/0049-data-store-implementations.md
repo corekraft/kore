@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: proposed
 summary: Local data services use SeaweedFS for the S3 object store, Strimzi for Kafka, FerretDB on CloudNativePG with the DocumentDB extension for the MongoDB protocol, and Valkey for the Redis protocol, all open source and avoiding Bitnami images.
 date: 2026-11-09
 last-verified: 2026-11-09

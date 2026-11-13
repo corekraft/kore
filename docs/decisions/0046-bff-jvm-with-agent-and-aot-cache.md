@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: proposed
 summary: The Kotlin BFF always runs on the GraalVM JDK as a JVM with the OpenTelemetry Java agent, and starts fast from Spring AOT and a JDK AOT cache produced by a training run at build time and baked into the Jib image; native image leaves the golden path.
 date: 2026-11-09
 last-verified: 2026-11-09

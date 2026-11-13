@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: proposed
 summary: Usage is metered per organization for visibility, with OpenCost allocating compute and storage by namespace labels plus data claims and telemetry volume, rolled up the organization tree into the business view; enforcement stays with quotas, and there is no billing.
 date: 2026-11-09
 last-verified: 2026-11-09

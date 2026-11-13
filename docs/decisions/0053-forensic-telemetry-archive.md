@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: proposed
 summary: Beside the hot telemetry tier, every log record and span is kept unsampled in a forensic archive, buffered through Kafka and indexed by Quickwit on the object store with full-text search over messages and attributes, in write-once buckets with signed batch digests, per-tenant indexes, retention, and audited access.
 date: 2026-11-09
 last-verified: 2026-11-09

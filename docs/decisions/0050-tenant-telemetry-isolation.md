@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: proposed
 summary: Telemetry backends stay shared, each tenant root gets its own Grafana signed in through its Keycloak, Loki and Tempo separate tenants natively, Prometheus is read through a label-enforcing proxy, and Mimir replaces it when per-tenant metric retention or limits are needed.
 date: 2026-11-09
 last-verified: 2026-11-09

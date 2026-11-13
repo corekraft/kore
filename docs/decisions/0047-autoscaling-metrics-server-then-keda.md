@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: proposed
 summary: metrics-server is installed first as a catalog Helm release and services get CPU-based HorizontalPodAutoscaler defaults from their chart values, without a replica count, with at least two replicas and a disruption budget; KEDA follows later for request-rate scaling.
 date: 2026-11-09
 last-verified: 2026-11-09

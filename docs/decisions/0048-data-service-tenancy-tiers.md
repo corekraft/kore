@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: proposed
 summary: PostgreSQL, document, and key-value claims each get their own instance; Kafka and the object store are shared per environment and partitioned by organization and service; a tenant root can get a dedicated Kafka cluster or object store when its administrators request it and an operator approves.
 date: 2026-11-09
 last-verified: 2026-11-09

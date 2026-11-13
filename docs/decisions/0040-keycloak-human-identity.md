@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: proposed
 summary: Each tenant root gets its own Keycloak, composed by the Organization API, with one realm and nested groups per sub-organization, so that tenant's tools read membership from tokens its Keycloak issues.
 date: 2026-11-08
 last-verified: 2026-11-09

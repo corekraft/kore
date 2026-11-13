@@ -1,7 +1,7 @@
 ---
 status: active
 summary: Let the delivery loop improve its own harness from measured outcomes, with automatic retro, auto-approved and auto-reverted harness ideas, and guardrails that need approval to enforce.
-last-verified: 2026-11-11
+last-verified: 2026-11-12
 ---
 
 # Self-Improving Loop Plan
@@ -30,6 +30,11 @@ weaken its own guardrails
 
 ## Step 2: Automatic Retro
 
+> **Deferred (2026-11-12).** Steps 2 and 3 wait until the Step 1 metrics are
+> fixed and about 20 ideas have outcomes recorded by something other than the
+> delivering agent. Automating retro and approval on metrics the delivering
+> agent can influence would tune the loop on noise.
+
 ### Work
 
 - [ ] The orchestrator starts retro on Opus after every five closed ideas, or
@@ -43,6 +48,8 @@ weaken its own guardrails
 - No person needs to start a retro.
 
 ## Step 3: Auto-Approve and Auto-Revert
+
+> **Deferred (2026-11-12).** Same condition as Step 2.
 
 ### Work
 

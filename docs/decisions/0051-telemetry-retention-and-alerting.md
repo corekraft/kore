@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: proposed
 summary: Logs keep 14 days and traces 7 days by default with per-tenant overrides and ingestion limits in Loki and Tempo, metrics keep one platform retention until Mimir, tenant alerts run in each tenant's Grafana with contact points from the Organization API, and Alertmanager serves platform alerts only.
 date: 2026-11-09
 last-verified: 2026-11-09

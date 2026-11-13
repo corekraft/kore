@@ -1,7 +1,7 @@
 ---
 status: active
 summary: Replace Istio ingress with agentgateway on k3d, keep ztunnel for identity and mTLS, re-prove the identity chain, and measure the resource outcome.
-last-verified: 2026-11-11
+last-verified: 2026-11-12
 ---
 
 # agentgateway Ingress Plan
@@ -13,6 +13,11 @@ agentgateway replaces Istio as Kore's Gateway API ingress
 adding first-class routes for agent and LLM traffic. Istio ambient ztunnel
 stays for workload identity and mTLS. This plan starts after plan 9, because
 the outcome is measured on k3d.
+
+> **Paused (2026-11-12)** after the #261 live proof. Nothing further is built
+> until the Step 4 outcome is measured against the owner-approved 20% threshold
+> (ingress median CPU or memory), so more work does not pile onto a replacement
+> that may not pay off.
 
 ## Step 1: Decide and Pin
 
