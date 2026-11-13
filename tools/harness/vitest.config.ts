@@ -4,13 +4,15 @@ import { testWorkers } from "../kore/.husky/test-workers.mjs";
 const bundleFiles = [
   "tests/bundle.spec.ts",
   "tests/guard-bundle.spec.ts",
-  "../../.claude/hooks/harness-bundle.test.mjs",
+  "../../.claude/hooks/harness-launcher.test.mjs",
 ];
 
 export default defineConfig({
   test: {
     // One cap for every unit path; see .husky/test-workers.mjs.
     maxWorkers: testWorkers(),
+    // Build skills/bin/harness.mjs once per run: the bundle specs read it.
+    globalSetup: ["tests/build-bundle-setup.ts"],
     projects: [
       {
         extends: true,
@@ -28,7 +30,7 @@ export default defineConfig({
         },
       },
       {
-        // These rewrite and read the committed bundle, so they never overlap.
+        // These read the built bundle, so they never overlap.
         extends: true,
         test: {
           name: "bundle",

@@ -269,19 +269,6 @@ for (const file of ["tools/harness/src/a.ts", "tools/harness/tests/a.ts"]) {
   });
 }
 
-// The bundle specs read the committed bundle at runtime, so no import graph
-// links them to it.
-test("staging the committed bundle runs the harness typecheck and the bundle specs", () => {
-  const result = commit(["skills/bin/harness.mjs"]);
-  assert.equal(result.status, 0);
-  assert.match(result.npmCalls, /^harness run check/m);
-  const line =
-    result.npmCalls.match(/^harness run test:related .*$/m)?.[0] ?? "";
-  assert.match(line, /tests\/bundle\.spec\.ts/);
-  assert.match(line, /\.\.\/\.\.\/\.claude\/hooks\/harness-bundle\.test\.mjs/);
-  assert.doesNotMatch(result.npmCalls, /test:unit/);
-});
-
 for (const file of [
   "tools/harness/package.json",
   "tools/harness/package-lock.json",

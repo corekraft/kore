@@ -263,9 +263,9 @@ and hadolint (Dockerfiles). Run one with `mise run scan-secrets`, `scan-vulns`,
 `scan-sast`, `scan-workflows`, or `scan-dockerfiles`. CI fails on any finding,
 except the audit-mode Semgrep rules in `infra/policies/semgrep/kore-audit.yaml`
 (`mise run scan-sast-audit`), which report and never fail.
-The scans cover both npm packages, `tools/kore` and `tools/harness`. CI also
-fails on a stale `skills/bin/harness.mjs`; fix it with `mise run harness-build`
-(check locally with `mise run harness-check`).
+The scans cover both npm packages, `tools/kore` and `tools/harness`. CI builds
+`skills/bin/harness.mjs` (`mise run harness-build`); it is never committed
+([ADR 0092](docs/decisions/0092-the-harness-bundle-is-a-build-output-not-a-committed-file.md)).
 See [ADR 0030](docs/decisions/0030-security-and-quality-scans.md).
 
 ## Commands

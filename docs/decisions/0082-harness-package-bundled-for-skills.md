@@ -46,6 +46,12 @@ pane can run the tools without `npm ci`. The repository carries a generated
 file, kept honest by the CI check. A second package means a second set of
 toolchain pins to upgrade together.
 
+## Note: superseded in part by ADR 0092
+
+[ADR 0092](0092-the-harness-bundle-is-a-build-output-not-a-committed-file.md)
+stops committing the bundle, so the committed-file, CI-freshness and
+merge-driver parts below no longer hold.
+
 ## Note: merging the bundle (2026-11-12)
 
 A committed generated file conflicts whenever two branches change the harness.
@@ -55,4 +61,4 @@ rebuilds the bundle from the merged sources during a local merge, rebase or
 cherry-pick. GitHub's server-side merge runs no custom drivers, so a PR that
 conflicts there still needs a local rebase, which the driver makes automatic.
 CI still fails on a stale bundle. See the
-[contributor guide](../guides/contributor.md#the-harness-bundle-and-merges).
+[contributor guide](../guides/contributor.md#the-harness-bundle).

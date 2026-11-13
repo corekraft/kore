@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { it } from "vitest";
 import { cleanGitEnv } from "../src/testing/git-env.js";
 
-// The knowledge check as the host, mise and CI run it: the committed bundle as a real process.
+// The knowledge check as the host, mise and CI run it: the built bundle as a real process.
 // Docs: infra/plans/4-knowledge.md#step-3-knowledge-health-check
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = resolve(here, "../../..");

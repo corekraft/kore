@@ -44,6 +44,7 @@ test("the workflow runs every check the commit and stop hooks run, in order", ()
   assert.deepEqual(runs, [
     "npm ci --prefix tools/kore",
     "npm ci --prefix tools/harness",
+    "mise run harness-build",
     "npm --prefix tools/kore run check",
     "mise run test",
     "mise run test-hooks",

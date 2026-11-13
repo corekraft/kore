@@ -30,12 +30,8 @@ description = "Run tests that do not require a cluster"
 run = "npm --prefix tools/kore test && npm --prefix apps/reference test && npm --prefix tools/harness test"
 
 [tasks.harness-build]
-description = "Bundle the harness CLI into skills/bin/harness.mjs (committed; rerun after changing tools/harness/src)"
+description = "Bundle the harness CLI into skills/bin/harness.mjs (a build output, never committed; needs `npm ci --prefix tools/harness`; CI and hooks need it built)"
 run = "npm --prefix tools/harness run build"
-
-[tasks.setup-merge-driver]
-description = "Register the harness-bundle git merge driver in .git/config so merges and rebases rebuild skills/bin/harness.mjs instead of conflicting (run once per clone; needs `npm ci --prefix tools/harness`)"
-run = "git config --local merge.harness-bundle.name 'Rebuild skills/bin/harness.mjs from merged sources' && git config --local merge.harness-bundle.driver 'tools/harness/merge-driver.sh %O %A %B %P %Y'"
 
 [tasks.harness-test]
 description = "Run the harness unit tests with the coverage threshold"
@@ -46,9 +42,8 @@ description = "Typecheck and lint the harness with warnings denied"
 run = ["npm --prefix tools/harness run check", "npm --prefix tools/harness run lint"]
 
 [tasks.harness-check]
-description = "CI gate: typecheck and lint the harness, then fail if skills/bin/harness.mjs is stale (run `mise run harness-build` to fix)"
+description = "CI gate: typecheck and lint the harness (CI builds the bundle in its own step before the tests)"
 depends = ["harness-lint"]
-run = "tools/harness/check-bundle.sh"
 
 [tasks.harness-format]
 description = "Check harness formatting; pass nothing to check, or run `mise run format <files>` to fix"
@@ -60,11 +55,11 @@ run = "tools/kore/node_modules/.bin/prettier --write"
 
 [tasks.test-hooks]
 description = "Run the hook, status line and eval grading tests under harness vitest; check skill links and workflow permissions with the harness hooks, and that the settings deny list is the one the inventory generates; then kb-check in warn mode"
-run = ["npm --prefix tools/harness run test:hooks", "node skills/bin/harness.mjs hook skill-links --strict", "node skills/bin/harness.mjs hook workflow-permissions --strict", "node skills/bin/harness.mjs guardrail deny --check", "node skills/bin/harness.mjs hook kb-check"]
+run = ["npm --prefix tools/harness run test:hooks", ".claude/hooks/harness.sh hook skill-links --strict", ".claude/hooks/harness.sh hook workflow-permissions --strict", ".claude/hooks/harness.sh guardrail deny --check", ".claude/hooks/harness.sh hook kb-check"]
 
 [tasks.kb-check]
 description = "Check knowledge-base links, index, frontmatter, and Docs: markers, then print the skill budget audit (never fails); pass -- --strict to fail on findings"
-run = "node skills/bin/harness.mjs hook kb-check"
+run = ".claude/hooks/harness.sh hook kb-check"
 
 [tasks.eval-harness]
 description = "Opt-in: check skill triggering and principles-review with live claude runs (costs tokens)"
