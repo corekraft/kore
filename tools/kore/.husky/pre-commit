@@ -51,9 +51,11 @@ if [ -n "$sast_files" ]; then
   }
 fi
 
-# Every test run below goes through test-lock.mjs: one host-wide lock under the
-# main checkout's .kore/state, so commits in many worktrees queue their tests
-# instead of multiplying vitest workers beside a live cluster.
+# Every test run below goes through test-lock.mjs: a host-wide semaphore under
+# the main checkout's .kore/state, sized to the cores and load, so commits in
+# many worktrees share the cores instead of multiplying vitest workers beside a
+# live cluster. It also skips a step whose tree and command already passed
+# (recorded by test-lock.mjs itself after a real green run) and records a pass.
 
 # The kore specs read the CLI source and config (tools/kore/), and the files the
 # repository specs scan or render: infra/ (apis, catalog, charts, environments,

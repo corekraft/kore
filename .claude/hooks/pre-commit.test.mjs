@@ -30,6 +30,14 @@ const testLock = fileURLToPath(
   new URL("../../tools/kore/.husky/test-lock.mjs", import.meta.url),
 );
 
+const testSlots = fileURLToPath(
+  new URL("../../tools/kore/.husky/test-slots.mjs", import.meta.url),
+);
+
+const testWorkers = fileURLToPath(
+  new URL("../../tools/kore/.husky/test-workers.mjs", import.meta.url),
+);
+
 const related = fileURLToPath(
   new URL("../../tools/kore/.husky/related-tests.mjs", import.meta.url),
 );
@@ -51,17 +59,28 @@ function script(path, body) {
 // Stages `files` in a throwaway repo whose lint-staged and npm are fakes that
 // log their calls; `failing` names the npm scripts that exit non-zero. `seed`
 // maps extra repository paths (specs) to contents; they exist but stay unstaged.
-function commit(files, failing = [], { withMise = true, seed = {} } = {}) {
+function commit(
+  files,
+  failing = [],
+  { withMise = true, seed = {}, gitCrash = false, rerun } = {},
+) {
   const root = mkdtempSync(join(tmpdir(), "pre-commit-"));
   try {
     const opts = { cwd: root, env: cleanEnv, encoding: "utf8" };
     spawnSync("git", ["init", "-q"], opts);
+    // The harness around the repo is not part of it; an untracked file would stop a pass being recorded.
+    writeFileSync(
+      join(root, ".git/info/exclude"),
+      "hook.sh\nbin\ncalls.log*\n.kore\ntools/kore/node_modules\ntools/kore/.husky\n",
+    );
     mkdirSync(join(root, "tools/kore/.husky"), { recursive: true });
     mkdirSync(join(root, "tools/harness"), { recursive: true });
     copyFileSync(hook, join(root, "hook.sh"));
     copyFileSync(helper, join(root, "tools/kore/.husky/pinned.sh"));
     copyFileSync(related, join(root, "tools/kore/.husky/related-tests.mjs"));
     copyFileSync(testLock, join(root, "tools/kore/.husky/test-lock.mjs"));
+    copyFileSync(testSlots, join(root, "tools/kore/.husky/test-slots.mjs"));
+    copyFileSync(testWorkers, join(root, "tools/kore/.husky/test-workers.mjs"));
     copyFileSync(sastStaged, join(root, "tools/kore/.husky/sast-staged.mjs"));
     for (const [path, content] of Object.entries(seed)) {
       mkdirSync(dirname(join(root, path)), { recursive: true });
@@ -91,18 +110,45 @@ function commit(files, failing = [], { withMise = true, seed = {} } = {}) {
       join(bin, "npm"),
       `echo "$*" >> "${log}"\necho "$(basename "$PWD") $*" >> "${log}.npm"\ncase " ${failing.join(" ")} " in *" $2 "*|*" $(basename "$PWD"):$2 "*) exit 1;; esac`,
     );
+    if (gitCrash) {
+      // `git write-tree` (the tree the test lock keys a pass on) crashes; every other git call is real.
+      const realGit = spawnSync("which", ["git"], {
+        encoding: "utf8",
+      }).stdout.trim();
+      script(
+        join(bin, "git"),
+        `case "$1" in write-tree) echo "fatal: simulated crash" >&2; exit 128;; esac\nexec "${realGit}" "$@"`,
+      );
+    }
     for (const file of files) {
       mkdirSync(dirname(join(root, file)), { recursive: true });
       writeFileSync(join(root, file), "x\n");
     }
     spawnSync("git", ["add", "-A", "--", ...files], opts);
-    const result = spawnSync("sh", [join(root, "hook.sh")], {
+    const hookEnv = {
+      ...cleanEnv,
+      // A live run on this host (its lease) must not add an audit line to the hook's stderr.
+      KORE_HOST_ROOT: root,
+      PATH: withMise ? `${bin}:${process.env.PATH}` : `${bin}:/usr/bin:/bin`,
+    };
+    let result = spawnSync("sh", [join(root, "hook.sh")], {
       ...opts,
-      env: {
-        ...cleanEnv,
-        PATH: withMise ? `${bin}:${process.env.PATH}` : `${bin}:/usr/bin:/bin`,
-      },
+      env: hookEnv,
     });
+    if (rerun !== undefined) {
+      // A second commit attempt: forget the first one's calls, optionally stage more.
+      rmSync(log, { force: true });
+      rmSync(`${log}.npm`, { force: true });
+      for (const file of rerun.stage ?? []) {
+        mkdirSync(dirname(join(root, file)), { recursive: true });
+        writeFileSync(join(root, file), "y\n");
+        spawnSync("git", ["add", "--", file], opts);
+      }
+      result = spawnSync("sh", [join(root, "hook.sh")], {
+        ...opts,
+        env: hookEnv,
+      });
+    }
     let calls = "";
     try {
       calls = readFileSync(log, "utf8");
@@ -459,4 +505,48 @@ test("a missing semgrep blocks the commit by saying to install it, not that SAST
     /^pre-commit: semgrep is missing; run 'mise install'\n$/,
   );
   assert.doesNotMatch(result.calls, /semgrep scan/);
+});
+
+// A tree whose tests already passed runs none again: the test lock records a
+// green run per tree and command, and says so when it skips. A changed tree
+// is a different hash, so its related tests run as before.
+test("committing the same staged tree again runs no tests and says so", () => {
+  const result = commit(["tools/kore/src/a.ts"], [], { rerun: {} });
+  assert.equal(result.status, 0);
+  assert.match(result.stderr, /tests already passed at tree [0-9a-f]{40}/);
+  assert.doesNotMatch(result.npmCalls, /test:related/);
+  assert.match(result.calls, /run check/, "the typecheck still runs");
+});
+
+test("a changed staged tree runs its related tests again", () => {
+  const result = commit(["tools/kore/src/a.ts"], [], {
+    rerun: { stage: ["tools/kore/src/b.ts"] },
+  });
+  assert.equal(result.status, 0);
+  assert.doesNotMatch(result.stderr, /already passed/);
+  assert.match(result.npmCalls, /^kore run test:related .*src\/b\.ts/m);
+});
+
+test("a failing test blocks the commit and the next attempt still runs it", () => {
+  const result = commit(["tools/kore/src/a.ts"], ["test:related"], {
+    rerun: {},
+  });
+  assert.notEqual(result.status, 0);
+  assert.doesNotMatch(result.stderr, /already passed/);
+  assert.match(result.npmCalls, /test:related/);
+});
+
+test("a crashing tree check still runs the tests and never blocks the commit", () => {
+  const result = commit(["tools/kore/src/a.ts"], [], { gitCrash: true });
+  assert.equal(result.status, 0);
+  assert.match(result.npmCalls, /^kore run test:related /m);
+  assert.doesNotMatch(result.stderr, /already passed/);
+});
+
+test("a crashing tree check does not hide a failing test", () => {
+  const result = commit(["tools/kore/src/a.ts"], ["test:related"], {
+    gitCrash: true,
+  });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /related unit tests failed/);
 });
