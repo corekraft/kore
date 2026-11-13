@@ -97,6 +97,10 @@ export async function publishImageCopy(
   );
 }
 
+/**
+ * Copies the host image `imageTag` into the registry under the same tag, so
+ * the digest is read back from the tag this run pushed.
+ */
 export async function publishToLocalRegistry(
   repository: Repository,
   runner: Runner,
@@ -115,7 +119,11 @@ export async function publishToLocalRegistry(
   await publishImageCopy(
     repository,
     runner,
-    { tag: imageTag, address, target: `${repositoryPath}:kore-local` },
+    {
+      tag: imageTag,
+      address,
+      target: `${repositoryPath}:${imageTag.slice(imageTag.lastIndexOf(":") + 1)}`,
+    },
     session,
   );
   return { address, repositoryPath };
@@ -124,13 +132,14 @@ export async function publishToLocalRegistry(
 export async function publishedDigest(
   repositoryPath: string,
   client: Pick<RegistryClient, "authorization" | "head">,
+  tag = "kore-local",
 ): Promise<string> {
   const manifestPath = repositoryPath
     .split("/")
     .map(encodeURIComponent)
     .join("/");
   const manifest = await client.head(
-    `https://127.0.0.1:30500/v2/${manifestPath}/manifests/kore-local`,
+    `https://127.0.0.1:30500/v2/${manifestPath}/manifests/${tag}`,
     { Accept: manifestAccept, Authorization: client.authorization },
   );
   return imageDigestFromRegistryHead(

@@ -1,0 +1,85 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, expect, test, vi } from "vitest";
+import { loadRepository, type Repository } from "../config/index.js";
+import { entry, fakeRunner, stubRegistry } from "./local-image-fixtures.js";
+import { buildAndSignLocalImage } from "./local-image.js";
+
+// Docs: AGENTS.md "Deploy what was verified."
+
+const registryReference = vi.hoisted(() => vi.fn());
+vi.mock("./registry.js", () => ({ localRegistryReference: registryReference }));
+const registryHead = vi.hoisted(() => vi.fn());
+vi.mock("./registry-https.js", () => ({ registryHead }));
+
+const roots: string[] = [];
+
+afterEach(async () => {
+  registryReference.mockReset();
+  registryHead.mockReset();
+  await Promise.all(
+    roots.splice(0).map((root) => rm(root, { force: true, recursive: true })),
+  );
+});
+
+async function checkout(): Promise<Repository> {
+  const root = await mkdtemp(join(tmpdir(), "kore-local-tags-"));
+  roots.push(root);
+  return { ...(await loadRepository("local")), root };
+}
+
+/** The tags one build used: docker build, node import, registry copy and digest read-back. */
+async function tagsOfOneBuild() {
+  const { runner, calls } = fakeRunner();
+  stubRegistry(registryReference, registryHead);
+  registryHead.mockClear();
+  await buildAndSignLocalImage(await checkout(), runner, "reference", entry);
+  const argv = (command: string, first: string) =>
+    calls.find((call) => call.command === command && call.args[0] === first)!
+      .args;
+  const build = argv("docker", "build");
+  const built = build[build.indexOf("--tag") + 1]!;
+  const imported = argv("k3d", "image")[2];
+  const read = String(registryHead.mock.calls[0]![0]).split("/manifests/")[1];
+  const published = JSON.stringify(calls.map((call) => call.args));
+  return { built, imported, read, published };
+}
+
+test("each build names its image by a tag of its own, never the shared mutable one", async () => {
+  const first = await tagsOfOneBuild();
+  const second = await tagsOfOneBuild();
+
+  for (const run of [first, second]) {
+    expect(run.built).toMatch(
+      /^kore-local\/reference:kore-local-[0-9a-f]{12}$/,
+    );
+    expect(run.built).not.toBe("kore-local/reference:kore-local");
+  }
+  expect(second.built).not.toBe(first.built);
+});
+
+test("a build imports, copies and reads back the digest of the tag it built", async () => {
+  const run = await tagsOfOneBuild();
+  const tag = run.built.split(":")[1]!;
+
+  expect(run.imported).toBe(run.built);
+  expect(run.read).toBe(tag);
+  expect(run.published).toContain(`reference:${tag}`);
+  expect(run.published).not.toContain('reference:kore-local"');
+  expect(run.read).not.toBe("kore-local");
+});
+
+test("the host tag of a finished build is removed so per-run tags do not pile up", async () => {
+  const { runner, calls } = fakeRunner();
+  stubRegistry(registryReference, registryHead);
+
+  await buildAndSignLocalImage(await checkout(), runner, "reference", entry);
+
+  const build = calls.find((call) => call.args[0] === "build")!.args;
+  const built = build[build.indexOf("--tag") + 1];
+  expect(
+    calls.find((call) => call.command === "docker" && call.args[0] === "image")
+      ?.args,
+  ).toEqual(["image", "rm", built]);
+});

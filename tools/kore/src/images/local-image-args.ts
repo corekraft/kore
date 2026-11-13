@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 
 export function localDockerBuildArgs(
@@ -150,4 +151,9 @@ export function localSignArgs(
     "--yes",
     reference,
   ];
+}
+
+/** A tag of one build's own, so concurrent builds never share a mutable tag. */
+export function newRunTag(): string {
+  return `kore-local-${randomBytes(6).toString("hex")}`;
 }

@@ -5,6 +5,7 @@ import {
   localDockerBuildArgs,
   k3dImageImportArgs,
   localSignArgs,
+  newRunTag,
 } from "./local-image-args.js";
 import { withLocalSigner, type LocalSigner } from "./local-signer.js";
 import { localRegistryReference } from "./registry.js";
@@ -15,7 +16,7 @@ import {
   withPublishSession,
   type PublishSession,
 } from "./local-publish.js";
-import type { Runner } from "../runtime/index.js";
+import { CommandError, type Runner } from "../runtime/index.js";
 
 export {
   imageDigestFromRegistryHead,
@@ -79,13 +80,28 @@ interface Context {
   session: PublishSession;
 }
 
+/** Per-run tags would pile up on the host; the registry and nodes hold the image by digest. */
+async function forgetHostTag(runner: Runner, imageTag: string): Promise<void> {
+  try {
+    await runner.run("docker", ["image", "rm", imageTag], { capture: true });
+  } catch (error) {
+    if (!(error instanceof CommandError)) {
+      throw error;
+    }
+    // Removing the tag is housekeeping; the build itself already succeeded.
+  }
+}
+
 async function buildAndSign(
   { repository, runner, signer, session }: Context,
   application: string,
   entry: ImageLockEntry,
 ): Promise<BuiltLocalImage> {
-  const imageTag = `kore-local/${application}:kore-local`;
-  await localRegistryReference(repository, runner, `${entry.image}:kore-local`);
+  // A tag of this run's own: a shared mutable tag lets a concurrent build in
+  // another worktree replace the image between build, import and digest read.
+  const runTag = newRunTag();
+  const imageTag = `kore-local/${application}:${runTag}`;
+  await localRegistryReference(repository, runner, `${entry.image}:${runTag}`);
   await loadLocalImage(repository, runner, application, imageTag);
   const { address, repositoryPath } = await publishToLocalRegistry(
     repository,
@@ -94,7 +110,7 @@ async function buildAndSign(
     imageTag,
     session,
   );
-  const digest = await publishedDigest(repositoryPath, session.client);
+  const digest = await publishedDigest(repositoryPath, session.client, runTag);
   const image: LockedImage = {
     // The deployed name is the registry address the nodes pull from and the
     // image policy matches, not the host the release lock records.
@@ -103,6 +119,7 @@ async function buildAndSign(
     signer: "local-kore-key",
   };
   await signImage(repository, runner, image, signer, session.client);
+  await forgetHostTag(runner, imageTag);
   return { image, publicKey: signer.publicKey };
 }
 
