@@ -16,7 +16,8 @@
 # is never edited. The suites follow KORE_INTEGRATION_ENVIRONMENT.
 #
 # Order: create the scratch overlay, purge any old profile, `local up`, check
-# platform status, `local up` again (must converge), run the suites, and only
+# platform status, `local up` again (must converge), run the suites (lifecycle
+# last, it tears the cluster down; the bare `test:integration` is skipped), and only
 # then purge and remove the overlay. The teardown is an EXIT trap, so it always
 # runs last, whatever failed. The job summary records duration and peak memory. A failing suite never
 # hides the ones after it: every suite runs, failures are named, and the exit
@@ -230,6 +231,12 @@ elif ! suites="$(bash -c "$discover_cmd")"; then
   failed+=("suite discovery failed")
   exit 1
 fi
+# Only `test:integration:<name>` suites are nightly suites. The bare
+# `test:integration` task also runs the unit suite and the OPA tests (its
+# platform spec bootstraps them), and its cluster spec stops and deletes the
+# night's cluster. The lifecycle suite destroys and recreates the cluster, so it
+# runs last, whatever order discovery gives.
+suites="$(printf '%s\n' "$suites" | grep -E '^test:integration:.' | grep -vxF 'test:integration:lifecycle'; printf '%s\n' "$suites" | grep -xF 'test:integration:lifecycle')"
 if [ -z "${suites//[[:space:]]/}" ]; then
   echo "FAILED: found no test:integration suites in tools/kore/package.json; a night with nothing to run must not pass" >&2
   failed+=("found no test:integration suites")

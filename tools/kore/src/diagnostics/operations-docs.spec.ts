@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { test } from "vitest";
 import { usage } from "../cli/usage.js";
 
@@ -24,6 +26,12 @@ const pages = [
 
 const read = (path: string): string =>
   readFileSync(new URL(path, root), "utf8");
+
+/** A git-ignored path is a build output (`skills/bin/harness.mjs`), absent until built. */
+const isBuildOutput = (path: string): boolean =>
+  spawnSync("git", ["check-ignore", "--quiet", "--", path], {
+    cwd: fileURLToPath(root),
+  }).status === 0;
 
 /** Text inside fenced blocks and inline code spans. */
 function codeText(markdown: string): string[] {
@@ -103,7 +111,12 @@ test("every repository path the pages name exists", () => {
   for (const page of pages) {
     const text = read(page);
     for (const [, span] of text.matchAll(/`([^`\n]+)`/g)) {
-      if (span && path.test(span) && !existsSync(new URL(span, root))) {
+      if (
+        span &&
+        path.test(span) &&
+        !existsSync(new URL(span, root)) &&
+        !isBuildOutput(span)
+      ) {
         problems.push(`${page}: ${span} does not exist`);
       }
     }

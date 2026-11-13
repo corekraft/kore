@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, test } from "vitest";
@@ -17,10 +18,32 @@ import { validatePortability } from "./portability.js";
 // selecting an environment swaps implementations only (Step 14).
 
 const root = await findRoot();
+// Only environments the repository commits: the nightly job writes a scratch
+// overlay of its own beside them (git-excluded, a copy of `local`), which is
+// neither a provider swap nor part of the contract.
+function committedDirectories(): ReadonlySet<string> | undefined {
+  const listed = spawnSync(
+    "git",
+    ["ls-files", "-z", "--", "infra/environments"],
+    { cwd: root, encoding: "utf8" },
+  );
+  if (listed.status !== 0) {
+    return undefined;
+  }
+  return new Set(
+    listed.stdout
+      .split("\0")
+      .map((file) => file.split("/")[2])
+      .filter((name): name is string => name !== undefined),
+  );
+}
+
+const committed = committedDirectories();
 const environments = (
   await readdir(join(root, "infra/environments"), { withFileTypes: true })
 )
   .filter((entry) => entry.isDirectory() && entry.name !== "common")
+  .filter((entry) => committed === undefined || committed.has(entry.name))
   .map((entry) => entry.name)
   .sort();
 
