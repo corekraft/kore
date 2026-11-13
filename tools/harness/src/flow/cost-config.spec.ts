@@ -10,6 +10,20 @@ describe("harness config", () => {
     expect(parse({})).toEqual({ cost: DEFAULT_COST });
   });
 
+  it("reads the owner login the owner-minutes metric counts", () => {
+    expect(parse({ ownerLogin: "junners" })).toEqual({
+      cost: DEFAULT_COST,
+      ownerLogin: "junners",
+    });
+  });
+
+  it("refuses an owner login that is not a GitHub login", () => {
+    expect(parse({ ownerLogin: "two words" })).toEqual({
+      error: expect.stringContaining('key "ownerLogin"'),
+    });
+    expect(parse({ ownerLogin: 7 })).toHaveProperty("error");
+  });
+
   it("reads the trailing window and per-metric thresholds", () => {
     expect(
       parse({

@@ -171,7 +171,7 @@ PR event by the `idea` (`#<issue>`) it closes, a pane or session event by the
 `idea` it carries on any event. Stages: an issue is in `await approval` from open
 until the `ready-for-agent` label; a pane or session named `...-<role>` works
 `refine`, `challenge`, `orchestrate`, `write`, `judge` or `verify` (verifier
-events count only after the PR merged); a claude session with no pane is the main
+events count only after the PR merged); a claude session no agent name reaches is the main
 session, `orchestrate`; a PR is in `merge` from open until merged; a closed issue
 is `outcome`. A pane is active from `pane.spawned` or `pane.busy` and waiting from
 `pane.waiting` until its next event. An open issue or PR is waiting, minus any
@@ -199,7 +199,7 @@ stage reached only by single events (no duration) shows `wip` 0. Lead time
 `issue.closed`, in seconds per idea, with `medianSeconds` and `maxSeconds`
 (both `null` when none); ideas without an outcome are left out.
 
-Cost metrics (`metrics`, report version 5) are tokens and sessions per closed
+Cost metrics (`metrics`) are tokens and sessions per closed
 idea, from ledger events only: `token.usage` (recorded by the Stop hook from the
 session transcript, as the session's cumulative input, output and cache-creation
 tokens so far; cache reads are left out and a session counts its latest value
@@ -235,11 +235,11 @@ completed ideas and the report says "Not enough data". A label other than
 last event is charged no time past it. Equal waiting ties go to the earlier
 stage.
 
-`--json` prints one object, `version` 3; any field change bumps `version`:
+`--json` prints one object, `version` 6; any field change bumps `version`:
 
 | Field               | Meaning                                                                                                    |
 | ------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `version`           | Shape version, `3`.                                                                                        |
+| `version`           | Shape version, `6`.                                                                                        |
 | `asOf`              | Time open waits are measured to.                                                                           |
 | `ideas`             | `{ total, completed }`; completed means the issue closed.                                                  |
 | `minCompletedIdeas` | Completed ideas needed before a bottleneck is named.                                                       |
@@ -248,7 +248,49 @@ stage.
 | `bottleneck`        | `{ stage, waitingSeconds, share }` (share 0 to 1), or `null`.                                              |
 | `bottleneckNote`    | Always present: why `bottleneck` is `null` (too few completed ideas, or no waiting recorded), else `null`. |
 | `unmappedEvents`    | Events with no stage or no idea, left out of every stage.                                                  |
+| `attribution`       | `{ events, withIdea, withIdeaAndStage }`: how many events the report can place.                            |
+| `guardBlocks`       | `[{ rule, blocks }]`, most blocked first, from `guard.block` events.                                       |
+| `outcomes`          | `{ mainRed, reverts, liveRuns, ownerMinutes }`, see below.                                                 |
 | `skippedLines`      | Ledger lines that were not valid events.                                                                   |
+
+### Attribution and outcome metrics
+
+`session spawn --idea N` stamps `KORE_IDEA=#N`, and always `KORE_AGENT=<name>`,
+into the new pane's environment (`herdr pane split --env`). Every event a hook
+records in that pane carries them as `idea` and `agent`, so the report maps the
+pane's events to a stage by its role suffix and to its idea. The stamp is set
+by the harness at spawn, not typed by the agent. A claude event with no agent
+takes the name its pane was last given by a herdr event, so older ledgers map
+too; a claude session still unnamed is the main session, `orchestrate`.
+`attribution` counts the events in range (cost events and the repository-wide
+events below left out) that have an idea, and an idea and a stage. Events from
+before sessions were stamped carry no idea and stay unattributed: the share
+rises as stamped sessions replace them.
+
+A blocked tool call records a `guard.block` event whose `label` is the rule
+name, never the command; `guardBlocks` counts them per rule.
+
+`outcomes` holds metrics whose inputs no agent writes. `ledger poll-github`
+records them from GitHub, beside the issue and PR events:
+
+- `mainRed`: `{ runs, failed, rate }`, failed `check` workflow runs on `main`
+  over concluded ones (`ci.main`, only runs started by a push; timed-out counts as failed; cancelled and
+  skipped runs are left out).
+- `reverts`: `{ reverts, merged, rate }`, merged pull requests titled `Revert...`
+  (`pr.reverted`) per merged change; the title is the PR author's, so this is only as trusted as that.
+- `liveRuns`: `{ runs, passed, rate }`, the pass rate of the `nightly` workflow's
+  clean `local up` and integration runs (`ci.nightly`, only scheduled runs, so a run an agent dispatches by hand is not counted).
+- `ownerMinutes`: `{ minutes, merged, perMerged, burstGapMinutes, upperBound }`.
+  The owner login's comments and issue events (`owner.action`) less than
+  `burstGapMinutes` (10) apart form one burst, charged from its first to its last
+  action, at least one minute. `perMerged` is `minutes` over merged changes.
+  The login is `--owner`, else `ownerLogin` in `.claude/harness.json`, else the
+  repository's owner. Agents share that login until they get their own
+  identities (#336), so `upperBound` is always `true`.
+
+Each rate is `null`, never zero, when nothing was measured, and each counts only
+events inside `--since`/`--until`. Only counts, conclusions and times are
+stored, never a title, body or login.
 
 ## Status
 

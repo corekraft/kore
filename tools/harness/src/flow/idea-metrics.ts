@@ -7,6 +7,8 @@ import {
 } from "./cost.js";
 
 export type { CostMetrics, CostOptions };
+export { guardBlocks, outcomes } from "./outcomes.js";
+export type { GuardBlocks, Outcomes } from "./outcomes.js";
 import { firstTime, time } from "./github-waits.js";
 import { inWindow, type Span } from "./scope.js";
 import { median } from "./wip.js";

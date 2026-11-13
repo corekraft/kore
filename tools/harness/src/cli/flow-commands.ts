@@ -153,6 +153,33 @@ function metricLine(label: string, metric: CostMetric, trailing: number) {
   return `${label}: ${metric.currentIdea} ${metric.current}, average of the ${trailing} ideas before it ${average}${metric.worsened ? " (worsened)" : ""}`;
 }
 
+const percent = (rate: number) => `${Math.round(rate * 100)}%`;
+
+/** The attribution, outcome and guard-block lines of the human report. */
+function outcomeLines({
+  attribution,
+  outcomes,
+  guardBlocks,
+}: Printed): string[] {
+  const { mainRed, reverts, liveRuns, ownerMinutes } = outcomes;
+  return [
+    `Attribution: ${attribution.withIdea} of ${attribution.events} events with an idea, ${attribution.withIdeaAndStage} with a stage too`,
+    mainRed.rate === null
+      ? "Main red: no check runs on main"
+      : `Main red: ${mainRed.failed} of ${mainRed.runs} check runs on main (${percent(mainRed.rate)})`,
+    `Reverts: ${reverts.reverts} of ${reverts.merged} merged changes`,
+    liveRuns.rate === null
+      ? "Live runs: no nightly runs"
+      : `Live runs: ${liveRuns.passed} of ${liveRuns.runs} nightly runs passed (${percent(liveRuns.rate)})`,
+    ownerMinutes.perMerged === null
+      ? "Owner minutes per merged change: none recorded"
+      : `Owner minutes per merged change: ${ownerMinutes.perMerged} (${ownerMinutes.minutes} over ${ownerMinutes.merged} merged; an upper bound while agents share the owner's login)`,
+    guardBlocks.length === 0
+      ? "Guard blocks: none"
+      : `Guard blocks: ${guardBlocks.map((b) => `${b.rule} ${b.blocks}`).join(", ")}`,
+  ];
+}
+
 function text(report: Printed): string {
   const rows = report.stages.map((s) =>
     [
@@ -180,6 +207,7 @@ function text(report: Printed): string {
       report.metrics.trailingIdeas,
     ),
     `Unmapped events: ${report.unmappedEvents}`,
+    ...outcomeLines(report),
     report.bottleneck === null
       ? (report.bottleneckNote ?? "No bottleneck.")
       : `Bottleneck: ${report.bottleneck.stage} (${Math.round(report.bottleneck.share * 100)}% of waiting)`,
@@ -201,7 +229,7 @@ async function loadCost({ deps }: CommandContext) {
 }
 
 const report: Command = {
-  summary: `map ledger events to stages; per stage active, waiting, event counts, toil (starting, stopping, waiting, retrying), work in progress (peak and average ideas open), lead time (first event to outcome; median and max), tokens and sessions per closed idea with a trailing average over the N closed ideas before the latest and a worsened flag (--trailing N, default 5, else cost.trailingIdeas; thresholds in ${HARNESS_CONFIG}), and the bottleneck (--min-ideas N, default ${MIN_COMPLETED_IDEAS}; --as-of TIME; --since TIME (inclusive) and --until TIME (exclusive) clip time at those edges and count only ideas open then, with lead time only for ideas whose outcome falls inside; --idea N|#N[,...] covers only those issues; --ledger PATH; --json is one object, version ${REPORT_VERSION}: version, asOf, scope, ideas, minCompletedIdeas, stages, leadTime, metrics, bottleneck, bottleneckNote, unmappedEvents, skippedLines)`,
+  summary: `map ledger events to stages; per stage active, waiting, event counts, toil (starting, stopping, waiting, retrying), work in progress (peak and average ideas open), lead time (first event to outcome; median and max), tokens and sessions per closed idea with a trailing average over the N closed ideas before the latest and a worsened flag (--trailing N, default 5, else cost.trailingIdeas; thresholds in ${HARNESS_CONFIG}), and the bottleneck (--min-ideas N, default ${MIN_COMPLETED_IDEAS}; --as-of TIME; --since TIME (inclusive) and --until TIME (exclusive) clip time at those edges and count only ideas open then, with lead time only for ideas whose outcome falls inside; --idea N|#N[,...] covers only those issues; --ledger PATH; --json is one object, version ${REPORT_VERSION}: version, asOf, scope, ideas, minCompletedIdeas, stages, leadTime, metrics, bottleneck, bottleneckNote, unmappedEvents, attribution (events with an idea, and with an idea and a stage), guardBlocks (blocks per rule), outcomes (mainRed, reverts, liveRuns, ownerMinutes: rates no agent can set, from ci.main, ci.nightly, pr.reverted and owner.action events that ledger poll-github records), skippedLines)`,
   options: {
     "min-ideas": "string",
     trailing: "string",

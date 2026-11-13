@@ -3,6 +3,7 @@ import {
   DEFAULT_LEDGER,
   Ledger,
   type Kind,
+  isName,
   type LedgerEvent,
 } from "../ledger/index.js";
 import { mainRoot, type CliDeps } from "../runtime/index.js";
@@ -46,12 +47,19 @@ export async function recordEvent(
       return;
     }
     const pane = deps.env["HERDR_PANE_ID"];
+    // Stamped into the pane by `session spawn`; a value the ledger would refuse is left out.
+    const stamp = (field: "idea" | "agent", name: string) => {
+      const value = deps.env[name];
+      return isName(value) ? { [field]: value } : {};
+    };
     const event: Partial<LedgerEvent> = {
       source: "claude",
       kind,
       occurredAt: deps.clock.now().toISOString(),
       session,
       ...(typeof pane === "string" && pane !== "" ? { pane } : {}),
+      ...stamp("idea", "KORE_IDEA"),
+      ...stamp("agent", "KORE_AGENT"),
       ...(kind.startsWith("tool.") && typeof call.tool_name === "string"
         ? { tool: call.tool_name }
         : {}),

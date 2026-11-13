@@ -52,11 +52,29 @@ describe("hook guard", () => {
     expect(result.err).toMatch(/^\[guard:destructive\] .*Instead/);
     expect(result.out).toBe("");
     expect(
-      result.events.map((e) => [e["kind"], e["tool"], e["outcome"]]),
+      result.events
+        .filter((e) => e["kind"] !== "guard.block")
+        .map((e) => [e["kind"], e["tool"], e["outcome"]]),
     ).toEqual([
       ["tool.start", "Bash", undefined],
       ["tool.end", "Bash", "failure"],
     ]);
+  });
+
+  it("records which rule blocked the call, and never the command", async () => {
+    const result = await guard(
+      { ...call("k3d cluster delete kore-local"), session_id: "s1" },
+      {
+        CLAUDE_PROJECT_DIR: "/repo",
+        KORE_ROOT: "/repo",
+        HERDR_PANE_ID: "w9:p9",
+      },
+    );
+    const blocks = result.events.filter((e) => e["kind"] === "guard.block");
+    expect(blocks.map((e) => [e["label"], e["session"], e["pane"]])).toEqual([
+      ["destructive", "s1", "w9:p9"],
+    ]);
+    expect(JSON.stringify(result.events)).not.toMatch(/k3d cluster delete/);
   });
 
   it("asks git for the ledger root once per run, even for a block that records twice", async () => {
@@ -238,6 +256,30 @@ describe("hook guard, ledger events", () => {
       event?.["tool"],
     ]).toEqual(["tool.start", "s1", "w9:p9", "Grep"]);
     expect(JSON.stringify(result.events)).not.toMatch(/hunter2/);
+  });
+
+  it("attributes events to the idea and agent the harness stamped into the pane", async () => {
+    const result = await guard(call("git status"), {
+      CLAUDE_PROJECT_DIR: "/repo",
+      KORE_ROOT: "/repo",
+      KORE_IDEA: "#338",
+      KORE_AGENT: "flow-metrics-writer",
+    });
+    expect(
+      result.events.map((e) => [e["kind"], e["idea"], e["agent"]]),
+    ).toEqual([["tool.start", "#338", "flow-metrics-writer"]]);
+  });
+
+  it("still records the event, unattributed, when the stamp is not a valid name", async () => {
+    const result = await guard(call("git status"), {
+      CLAUDE_PROJECT_DIR: "/repo",
+      KORE_ROOT: "/repo",
+      KORE_IDEA: "two words",
+      KORE_AGENT: "",
+    });
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0]).not.toHaveProperty("idea");
+    expect(result.events[0]).not.toHaveProperty("agent");
   });
 
   it("allows tools it has no rule for, silently, recording only their start", async () => {

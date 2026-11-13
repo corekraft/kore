@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { pollOutcomeSignals } from "./owner-login.js";
 import {
   DEFAULT_LEDGER,
   KINDS,
@@ -263,8 +264,8 @@ const DEFAULT_REPO = "corekraft/kore";
 
 const pollGithubCommand: Command = {
   summary:
-    "list issues, label events and PRs through gh and append issue.opened, issue.labelled, pr.opened and pr.merged (numbers, labels and GitHub times only, no titles or bodies); --since (default: the latest recorded GitHub event) only bounds what gh is asked for, since ids decide what is new; --repo to corekraft/kore; re-polling appends nothing, one poll runs at a time, and a rate limit is reported with its retry time",
-  options: STRING_FLAGS(["ledger", "since", "repo"]),
+    "list issues, label events and PRs through gh and append issue.opened, issue.labelled, pr.opened and pr.merged, then the outcome signals no agent can set: ci.main (check runs on main), ci.nightly (nightly runs), pr.reverted (merged PRs titled Revert...) and owner.action (comments and issue events by the owner login: --owner, else ownerLogin in .claude/harness.json, else the repository's owner) (numbers, labels, conclusions and GitHub times only, no titles, bodies or logins); --since (default: the latest recorded GitHub event) only bounds what gh is asked for, since ids decide what is new; --repo to corekraft/kore; re-polling appends nothing, one poll runs at a time, and a rate limit is reported with its retry time",
+  options: STRING_FLAGS(["ledger", "since", "repo", "owner"]),
   async run(context) {
     const since = context.options["since"];
     if (typeof since === "string" && !isTimestamp(since)) {
@@ -289,21 +290,27 @@ const pollGithubCommand: Command = {
       return reject(context, opened.error, "ledger");
     }
     const { runner, clock, fs } = context.deps;
+    const repoName = typeof repo === "string" ? repo : DEFAULT_REPO;
     const result = await pollGithub({
       ledger: opened.ledger,
       runner,
       clock,
       fs,
-      repo: typeof repo === "string" ? repo : DEFAULT_REPO,
+      repo: repoName,
       ...(typeof since === "string" ? { since } : {}),
     });
     if (!result.ok) {
       return reject(context, result.message, "github");
     }
+    const signals = await pollOutcomeSignals(context, opened.ledger, repoName);
+    if (!signals.ok) {
+      return reject(context, signals.message, signals.field);
+    }
+    const events = [...result.events, ...signals.events];
     context.deps.stdout(
       context.json
-        ? `${JSON.stringify({ recorded: result.recorded, events: result.events })}\n`
-        : `recorded ${result.recorded} github event(s)\n`,
+        ? `${JSON.stringify({ recorded: events.length, events })}\n`
+        : `recorded ${events.length} github event(s)\n`,
     );
     return 0;
   },

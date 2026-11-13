@@ -214,3 +214,48 @@ describe("guard.audit events", () => {
     expect(parseEvent(audit, "input").ok).toBe(false);
   });
 });
+
+describe("guard.block events", () => {
+  const blocked = {
+    source: "claude",
+    kind: "guard.block",
+    occurredAt: "2026-01-02T03:04:05.000Z",
+    session: "s1",
+  };
+
+  it("carry the rule name as their label", () => {
+    expect(parseEvent({ ...blocked, label: "destructive" }, "input").ok).toBe(
+      true,
+    );
+  });
+
+  it("are refused without a rule name", () => {
+    expect(parseEvent(blocked, "input").ok).toBe(false);
+  });
+});
+
+describe("outcome-metric events from GitHub", () => {
+  const at = "2026-01-02T03:04:05.000Z";
+
+  it.each(["ci.main", "ci.nightly"])(
+    "%s carries a success or failure outcome and nothing is stored about the run",
+    (kind) => {
+      const run = { source: "github", kind, occurredAt: at };
+      expect(parseEvent({ ...run, outcome: "success" }, "input").ok).toBe(true);
+      expect(parseEvent({ ...run, outcome: "failure" }, "input").ok).toBe(true);
+      expect(parseEvent(run, "input").ok).toBe(false);
+      expect(
+        parseEvent({ ...run, outcome: "success", label: "x" }, "input").ok,
+      ).toBe(false);
+    },
+  );
+
+  it.each(["pr.reverted", "owner.action"])(
+    "%s names the pull request or issue by number",
+    (kind) => {
+      const event = { source: "github", kind, occurredAt: at };
+      expect(parseEvent({ ...event, number: 7 }, "input").ok).toBe(true);
+      expect(parseEvent(event, "input").ok).toBe(false);
+    },
+  );
+});

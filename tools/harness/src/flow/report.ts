@@ -17,8 +17,12 @@ import { chargeToil, newLife } from "./toil.js";
 import { Tally, type StageTotals } from "./tally.js";
 import {
   firstClosed,
+  guardBlocks,
   ideaMetrics,
+  outcomes,
   type CostMetrics,
+  type GuardBlocks,
+  type Outcomes,
   type CostOptions,
   type LeadTime,
 } from "./idea-metrics.js";
@@ -31,7 +35,7 @@ import {
   type ScopeOptions,
 } from "./scope.js";
 
-export const REPORT_VERSION = 5;
+export const REPORT_VERSION = 6;
 
 export type { StageTotals, Toil } from "./tally.js";
 export type { Scope, ScopeOptions } from "./scope.js";
@@ -60,6 +64,12 @@ export interface FlowReport {
   bottleneckNote: string | null;
   /** Events with no stage or no idea, left out of every stage. */
   unmappedEvents: number;
+  /** How much of the work the report can place: events with an idea, and with an idea and a stage. */
+  attribution: { events: number; withIdea: number; withIdeaAndStage: number };
+  /** Guard blocks per rule, most blocked first. */
+  guardBlocks: GuardBlocks[];
+  /** Metrics no agent can set: main-red rate, reverts, live-run pass rate and owner minutes. */
+  outcomes: Outcomes;
 }
 
 export interface ReportOptions extends ScopeOptions {
@@ -187,7 +197,8 @@ function stageOf(event: LedgerEvent, mergedAt: number | undefined) {
       role.after === undefined || (gate !== undefined && time(event) >= gate);
     return open ? role.stage : undefined;
   }
-  return event.pane === undefined && event.source === "claude"
+  // A claude session no agent name reaches, stamped or from its pane, is the main session.
+  return event.agent === undefined && event.source === "claude"
     ? MAIN_SESSION_STAGE
     : undefined;
 }
@@ -201,11 +212,12 @@ function chargeIdea(
   tally: Tally,
   own: LedgerEvent[],
   waits: GithubWait[],
-): number {
+): { unmapped: number; mapped: number } {
   tally.beginIdea();
   const mergedAt = firstTime(own, (e) => e.kind === "pr.merged");
   const mapped: { event: LedgerEvent; stage: Stage }[] = [];
   let unmapped = 0;
+  let mappedInRange = 0;
   for (const event of own) {
     if (COST_KINDS.has(event.kind)) {
       // Cost events feed the cost metrics only; they are neither stage time nor unmapped.
@@ -217,6 +229,7 @@ function chargeIdea(
       if (inRange) {
         tally.count(stage);
         tally.present(stage, time(event), time(event));
+        mappedInRange += 1;
       }
       mapped.push({ event, stage });
     } else if (inRange) {
@@ -225,7 +238,7 @@ function chargeIdea(
   }
   githubWaits(tally, waits, actorTime(tally, mapped));
   tally.endIdea();
-  return unmapped;
+  return { unmapped, mapped: mappedInRange };
 }
 
 function nameBottleneck(
@@ -273,15 +286,20 @@ export function buildReport(
   const { asOf, minCompletedIdeas } = options;
   const scope = scopeOf(options);
   const window = windowOf(options);
-  const { byIdea, unattributed } = groupByIdea(events, window);
+  const { byIdea, unattributed, orphans, named } = groupByIdea(events, window);
   const covered = select(byIdea, scope, window, asOf.getTime());
   const tally = new Tally(window);
   const ownByIdea = new Map<string, LedgerEvent[]>();
   let unmapped = 0;
   let completed = 0;
+  let mappedEvents = 0;
+  let ideaEvents = 0;
   for (const [idea, { own, waits }] of covered) {
     ownByIdea.set(idea, own);
-    unmapped += chargeIdea(tally, own, waits);
+    const charged = chargeIdea(tally, own, waits);
+    unmapped += charged.unmapped;
+    mappedEvents += charged.mapped;
+    ideaEvents += charged.mapped + charged.unmapped;
     const outcome = firstClosed(own);
     completed += outcome !== undefined && inWindow(window, outcome) ? 1 : 0;
   }
@@ -298,5 +316,16 @@ export function buildReport(
     ...ideaMetrics(ownByIdea, window, options.cost),
     ...nameBottleneck(tally, completed, minCompletedIdeas),
     unmappedEvents: unmapped,
+    attribution: {
+      events:
+        ideaEvents +
+        (scope.ideas === null
+          ? orphans.filter((e) => !COST_KINDS.has(e.kind)).length
+          : 0),
+      withIdea: ideaEvents,
+      withIdeaAndStage: mappedEvents,
+    },
+    guardBlocks: guardBlocks(named, window),
+    outcomes: outcomes(named, window),
   };
 }

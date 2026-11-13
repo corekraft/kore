@@ -59,6 +59,10 @@ export async function guard(
   if (verdict.action === "block") {
     // A blocked call never reaches the post-tool hook, so close its start here.
     await recordEvent(deps, "tool.end", call, "failure");
+    // The rule name only, never the command: the flow report counts blocks per rule.
+    await recordEvent(deps, "guard.block", call, undefined, {
+      label: verdict.rule,
+    });
     return { code: 2, stderr: `${verdict.message}${problem}\n` };
   }
   if (verdict.action === "warn") {

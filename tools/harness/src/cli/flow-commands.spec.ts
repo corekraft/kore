@@ -26,6 +26,9 @@ const KEYS = [
   "bottleneck",
   "bottleneckNote",
   "unmappedEvents",
+  "attribution",
+  "guardBlocks",
+  "outcomes",
   "skippedLines",
 ];
 
@@ -37,7 +40,7 @@ describe("flow report", () => {
     expect(Object.keys(report)).toEqual(KEYS);
     expect(report).toMatchObject({ bottleneckNote: null });
     expect(report).toMatchObject({
-      version: 5,
+      version: 6,
       asOf: "2026-01-02T03:04:05.000Z",
       ideas: { total: 3, completed: 3 },
       minCompletedIdeas: 3,

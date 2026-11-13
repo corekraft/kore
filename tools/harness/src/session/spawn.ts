@@ -29,6 +29,7 @@ async function splitPane(
   deps: CliDeps,
   callerPane: string,
   cwd: string,
+  env: Record<string, string>,
 ): Promise<string | { error: string }> {
   const read = await readLayout(deps.runner, callerPane);
   if ("error" in read) {
@@ -46,6 +47,11 @@ async function splitPane(
     "--cwd",
     cwd,
     "--no-focus",
+    // Stamped by the harness, not typed by the agent, so the ledger can attribute its events.
+    ...Object.entries(env).flatMap(([key, value]) => [
+      "--env",
+      `${key}=${value}`,
+    ]),
   ]);
   if (split.code !== 0) {
     return { error: `herdr pane split failed: ${describeFailure(split)}` };
@@ -93,7 +99,10 @@ export async function spawn(context: CommandContext): Promise<number> {
   if ("error" in placed) {
     return fail(deps, json, FAILED, placed.error);
   }
-  const paneId = await splitPane(deps, callerPane, placed.cwd);
+  const paneId = await splitPane(deps, callerPane, placed.cwd, {
+    KORE_AGENT: name,
+    ...(checked.idea === undefined ? {} : { KORE_IDEA: checked.idea }),
+  });
   if (typeof paneId !== "string") {
     return fail(deps, json, FAILED, `${paneId.error}${placed.left}`);
   }

@@ -21,7 +21,7 @@ describe("session spawn placement", () => {
     expect(await run(spawnArgs, h.deps)).toBe(0);
     const split = herdrCalls(h).find((c) => c.includes("pane split"));
     expect(split).toBe(
-      "herdr pane split --current --direction right --cwd /work/tree --no-focus",
+      "herdr pane split --current --direction right --cwd /work/tree --no-focus --env KORE_AGENT=image-trust-writer",
     );
   });
 
@@ -38,7 +38,7 @@ describe("session spawn placement", () => {
     expect(await run(spawnArgs, h.deps)).toBe(0);
     const split = herdrCalls(h).find((c) => c.includes("pane split"));
     expect(split).toBe(
-      "herdr pane split w3:p7 --direction down --cwd /work/tree --no-focus",
+      "herdr pane split w3:p7 --direction down --cwd /work/tree --no-focus --env KORE_AGENT=image-trust-writer",
     );
   });
 

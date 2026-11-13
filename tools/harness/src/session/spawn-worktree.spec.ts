@@ -35,7 +35,7 @@ describe("session spawn --worktree", () => {
       `npm ci`,
       `npm ci`,
       `npm run build --silent`,
-      `herdr pane split --current --direction right --cwd ${WORKTREE} --no-focus`,
+      `herdr pane split --current --direction right --cwd ${WORKTREE} --no-focus --env KORE_AGENT=image-trust-writer`,
     ]);
     const add = h.runner.calls.find((c) => c.args[0] === "worktree");
     expect(add?.options?.cwd).toBe("/work/tree");
@@ -80,7 +80,7 @@ describe("session spawn --worktree", () => {
     await run(spawnArgs, h.deps);
     expect(h.runner.calls.some((c) => c.args[0] === "worktree")).toBe(false);
     expect(herdrCalls(h)).toContain(
-      "herdr pane split --current --direction right --cwd /work/tree --no-focus",
+      "herdr pane split --current --direction right --cwd /work/tree --no-focus --env KORE_AGENT=image-trust-writer",
     );
   });
 });

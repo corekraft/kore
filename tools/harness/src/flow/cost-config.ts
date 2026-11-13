@@ -5,6 +5,8 @@ export const HARNESS_CONFIG = ".claude/harness.json";
 
 export interface HarnessConfig {
   cost: CostOptions;
+  /** The GitHub login whose actions count as owner time; the repository's owner when absent. */
+  ownerLogin?: string;
 }
 
 type Failure = { error: string };
@@ -112,13 +114,26 @@ export function parseHarnessConfig(
   if (!isObject(value)) {
     return bad(file, "(root)", "must be a JSON object. Use {}.");
   }
-  const top = unknownKey(file, "", value, ["cost"]);
+  const top = unknownKey(file, "", value, ["cost", "ownerLogin"]);
   if (top !== undefined) {
     return top;
   }
+  const login = value["ownerLogin"];
+  if (
+    login !== undefined &&
+    (typeof login !== "string" ||
+      !/^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/.test(login))
+  ) {
+    return bad(
+      file,
+      "ownerLogin",
+      'must be a GitHub login of letters, digits and "-". Use "junners".',
+    );
+  }
+  const owner = login === undefined ? {} : { ownerLogin: login as string };
   const cost = value["cost"];
   if (cost === undefined) {
-    return { cost: DEFAULT_COST };
+    return { cost: DEFAULT_COST, ...owner };
   }
   if (!isObject(cost)) {
     return bad(file, "cost", "must be an object. Use {}.");
@@ -131,5 +146,6 @@ export function parseHarnessConfig(
   if (inner !== undefined) {
     return inner;
   }
-  return parseCost(file, cost);
+  const parsed = parseCost(file, cost);
+  return "error" in parsed ? parsed : { ...parsed, ...owner };
 }

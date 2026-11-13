@@ -20,9 +20,14 @@ export const KINDS = [
   "token.usage",
   "session.launch",
   "guard.audit",
+  "guard.block",
   "challenge.round",
   "precheck",
   "send-back",
+  "ci.main",
+  "ci.nightly",
+  "pr.reverted",
+  "owner.action",
 ] as const;
 export type Kind = (typeof KINDS)[number];
 
@@ -40,7 +45,12 @@ const NUMBER_KINDS: readonly Kind[] = [
   "challenge.round",
   "precheck",
   "send-back",
+  "pr.reverted",
+  "owner.action",
 ];
+
+/** Workflow runs GitHub concluded: only the conclusion and its time are kept. */
+const RUN_KINDS: readonly Kind[] = ["tool.end", "ci.main", "ci.nightly"];
 
 const LAUNCH_KINDS: readonly Kind[] = ["session.launch"];
 const TOKEN_KINDS: readonly Kind[] = ["token.usage"];
@@ -169,7 +179,7 @@ const RULES: readonly Rule[] = [
     field: "outcome",
     check: (v) => OUTCOMES.includes(v as Outcome),
     hint: `must be one of ${OUTCOMES.join(", ")}`,
-    kinds: ["tool.end"],
+    kinds: RUN_KINDS,
   },
   {
     field: "label",
@@ -180,6 +190,7 @@ const RULES: readonly Rule[] = [
       "outcome",
       "flag.activated",
       "guard.audit",
+      "guard.block",
       "challenge.round",
       "precheck",
       "send-back",
