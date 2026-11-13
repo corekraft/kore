@@ -488,6 +488,37 @@ retrospective PR. They cover commit-hook load, conflicts from the committed
 bundle, recurring review findings, the one-bug-per-run live proof,
 `equals-word` promotion, and the orchestrator bypassing `session spawn`.
 
+### Retrospective 2026-11-12 (afternoon)
+
+Last retrospective: 2026-11-12
+
+The fifth retrospective ran on Opus with the repository's `retro` skill. It
+covered the 67 sessions since the morning retrospective (#281). No audit rule
+was ready for promotion: `bare-glob` warned 271 times and agents heeded 270 of
+them. The owner accepted all ten proposals, now filed under #124:
+
+- **#324 (enforce):** role guards refuse shell constructs the splitter cannot
+  model. Four PRs found bypasses one form at a time. Writers get the check in
+  audit mode.
+- **#325 (enforce):** completion comes from `session wait`. The finish
+  broadcast becomes a harness command that confirms delivery, and
+  `session spawn` retries agent start.
+- **#326 (enforce):** pre-commit runs the SAST scan on staged TypeScript and
+  JavaScript. #288 and #290 failed only in CI.
+- **#327:** `retro-scan` ignores orchestrator briefs, which made up five of its
+  eight "corrections". The cause of seven Monitor parameter errors is to be
+  found.
+- **#328 (guidance), covering five items:**
+  - a default of two test workers in the mise environment
+  - hold new writers during live runs
+  - writers list owner decisions first
+  - assert exact output
+  - the orchestrator checks a fix request against the brief
+  - the test-driven-development and spawn-session skill descriptions are
+    rewritten
+
+Left alone: `equals-word` (fixed in #293), the `no-verify` blocks and `bare-glob`.
+
 ## Out of Scope
 
 - Reimplementing the guards inside the `kore` CLI. The CLI already enforces
