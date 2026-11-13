@@ -57,19 +57,30 @@ export const readOnly = (what: string): Finding =>
   );
 
 /** Output redirects and the read-write `<>`, which opens a file for writing without truncating it. */
-const FD_OPERATOR = /^(?:\d*>>?|&>>?|\d*<>)$/;
+const FD_OPERATOR = /^(?:\d*>[>|]?|&>>?|\d*<>)$/;
 const harmless = (target: string | undefined): boolean =>
   target === "/dev/null" || target === "&1" || target === "&2";
 
-/** Whether a word redirects output somewhere other than /dev/null or another stream, joined to its target or followed by it. */
-const redirectsToFile = (segment: readonly string[]): boolean =>
-  segment.some((word, index) => {
-    if (FD_OPERATOR.test(word)) {
-      return !harmless(segment[index + 1]);
-    }
-    const joined = /^(?:\d*>>?|&>>?|\d*<>)(.+)$/.exec(word);
-    return joined !== null && !harmless(joined[1]);
+/** The files a segment redirects output to, joined to the operator or following it; /dev/null and another stream are not files. */
+export const redirectTargets = (segment: readonly string[]): string[] =>
+  segment.flatMap((word, index) => {
+    const target = FD_OPERATOR.test(word)
+      ? segment[index + 1]
+      : /^(?:\d*>[>|]?|&>>?|\d*<>)(.+)$/.exec(word)?.[1];
+    return target === undefined || harmless(target) ? [] : [target];
   });
+
+/** The segment without its redirects, which are checked apart from the command's own words. */
+export const withoutRedirects = (segment: readonly string[]): string[] =>
+  segment.filter(
+    (word, index) =>
+      !FD_OPERATOR.test(word) &&
+      !/^(?:\d*>[>|]?|&>>?|\d*<>)./.test(word) &&
+      !FD_OPERATOR.test(segment[index - 1] ?? ""),
+  );
+
+const redirectsToFile = (segment: readonly string[]): boolean =>
+  redirectTargets(segment).length > 0;
 
 /** Whether a command writes: a writer, `sed -i`, writing git or gh verbs, or a redirect to a file. */
 export function writes(segment: readonly string[]): boolean {
