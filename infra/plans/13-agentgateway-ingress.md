@@ -37,6 +37,8 @@ the outcome is measured on k3d.
 
 ## Step 2: Replace the Gateway
 
+Next: Run the #207 live proof (KORE_RUN_AGENTGATEWAY_PROOF=1 tools/kore/scripts/agentgateway-live-proof.sh, phases 1–4 in a throwaway profile; kore-local stopped, not destroyed). Then #208, then #212 measured against #320's baseline under the same load. #210 only if the median CPU or memory drop is at least 20% (owner decision on #126). Full state: #366.
+
 ### Work
 
 - [ ] Install agentgateway as the GatewayClass for ingress, behind a feature
