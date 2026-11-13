@@ -84,6 +84,7 @@ test("local up composes platform, secrets, images and applications for k3d in or
       platformUp: async () => {
         calls.push("platform");
       },
+      pruneImageTags: async () => undefined,
       syncSecrets: async () => {
         calls.push("secrets");
         return 0;

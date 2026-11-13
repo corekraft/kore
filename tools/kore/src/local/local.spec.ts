@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
 
+import { CommandError } from "../runtime/index.js";
 import { localDown, localUp } from "./local.js";
 import {
   imageDigestFromRegistryHead,
@@ -51,6 +52,7 @@ test("local up starts the platform before reconciling every locked application",
     platformUp: async () => {
       calls.push("platform");
     },
+    pruneImageTags: async () => undefined,
     syncSecrets: async () => {
       calls.push("secrets");
       return 1;
@@ -78,6 +80,75 @@ test("local up starts the platform before reconciling every locked application",
     "build:reference",
     `deploy:reference:sha256:${"a".repeat(64)}`,
   ]);
+});
+
+test("local up prunes the tags earlier runs left before it builds anything", async () => {
+  const repository = await loadRepository("local");
+  const calls: string[] = [];
+
+  await localUp(repository, {} as never, {
+    platformUp: async () => void calls.push("platform"),
+    syncSecrets: async () => 1,
+    pruneImageTags: async () => void calls.push("prune"),
+    buildImage: async (_repository, _runner, name) => {
+      calls.push(`build:${name}`);
+      return {
+        image: {
+          reference: `registry/${name}@sha256:${"a".repeat(64)}`,
+          digest: `sha256:${"a".repeat(64)}`,
+          signer: "local-kore-key",
+        },
+        publicKey: "/key.pub",
+      };
+    },
+    appUp: async () => undefined,
+  });
+
+  expect(calls.indexOf("prune")).toBeGreaterThan(calls.indexOf("platform"));
+  expect(calls.indexOf("prune")).toBeLessThan(
+    calls.findIndex((call) => call.startsWith("build:")),
+  );
+});
+
+test("local up goes on when pruning stale tags fails on a command, but not on anything else", async () => {
+  const repository = await loadRepository("local");
+  const dependencies = (prune: () => Promise<void>) => ({
+    platformUp: async () => undefined,
+    syncSecrets: async () => 1,
+    pruneImageTags: prune,
+    buildImage: async (_r: unknown, _x: unknown, name: string) => ({
+      image: {
+        reference: `registry/${name}@sha256:${"a".repeat(64)}`,
+        digest: `sha256:${"a".repeat(64)}`,
+        signer: "local-kore-key" as const,
+      },
+      publicKey: "/key.pub",
+    }),
+    appUp: async () => undefined,
+  });
+
+  await expect(
+    localUp(
+      repository,
+      {} as never,
+      dependencies(async () => {
+        throw new CommandError("docker", ["image", "ls"], {
+          stdout: "",
+          stderr: "no daemon",
+          code: 1,
+        });
+      }),
+    ),
+  ).resolves.toBeUndefined();
+  await expect(
+    localUp(
+      repository,
+      {} as never,
+      dependencies(async () => {
+        throw new TypeError("a bug");
+      }),
+    ),
+  ).rejects.toThrow("a bug");
 });
 
 test("local down preserves cluster state unless pruning is explicitly requested", async () => {
@@ -220,6 +291,7 @@ test("local up discards a local lock left by a vanished signing key before re-si
   try {
     await localUp(repository, {} as never, {
       platformUp: async () => undefined,
+      pruneImageTags: async () => undefined,
       syncSecrets: async () => 0,
       buildImage: async () => {
         lockDuringBuild = await readFile(
