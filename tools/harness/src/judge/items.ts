@@ -31,38 +31,31 @@ export function applyModes(
   pattern: { matches: boolean; mismatch?: string },
   modeOf: ModeOf,
 ): { ok: boolean; audited: Audited[] } {
-  const items: { rule: string; failed: Audited | undefined }[] = [
-    ...(Object.keys(checks) as (keyof Checks)[]).map((key) => ({
-      rule: ITEM_RULES[key],
-      failed:
-        checks[key].result === "pass"
-          ? undefined
-          : {
+  const failures: Audited[] = [
+    ...(Object.keys(checks) as (keyof Checks)[]).flatMap((key) => {
+      const { result, detail } = checks[key];
+      return result === "pass"
+        ? []
+        : [
+            {
               rule: ITEM_RULES[key],
-              result: checks[key].result,
-              ...(checks[key].detail === undefined
-                ? {}
-                : { detail: checks[key].detail }),
+              result,
+              ...(detail === undefined ? {} : { detail }),
             },
-    })),
-    {
-      rule: ITEM_RULES.patternMatch,
-      failed: pattern.matches
-        ? undefined
-        : {
+          ];
+    }),
+    ...(pattern.matches
+      ? []
+      : [
+          {
             rule: ITEM_RULES.patternMatch,
-            result: "mismatch",
+            result: "mismatch" as const,
             ...(pattern.mismatch === undefined
               ? {}
               : { detail: pattern.mismatch }),
           },
-    },
+        ]),
   ];
-  const failed = items.filter((i) => i.failed !== undefined);
-  return {
-    ok: failed.every((i) => modeOf(i.rule) === "audit"),
-    audited: failed
-      .filter((i) => modeOf(i.rule) === "audit")
-      .map((i) => i.failed as Audited),
-  };
+  const audited = failures.filter((f) => modeOf(f.rule) === "audit");
+  return { ok: audited.length === failures.length, audited };
 }

@@ -111,3 +111,19 @@ describe("judge checklist audit mode", () => {
     expect(events(h, "guard.audit")).toHaveLength(1);
   });
 });
+
+describe("judge checklist audit mode inventory and merge", () => {
+  it("enforces every item when the inventory file is missing", async () => {
+    const h = scenario({ rollup: scanFails });
+    expect(await precheck(h)).toBe(1);
+    expect(report(h)).toMatchObject({ ok: false, audited: [] });
+  });
+
+  it("refuses to judge against a malformed inventory and merges nothing", async () => {
+    const h = scenario();
+    h.files.set(INVENTORY, "not json");
+    expect(await precheck(h)).toBe(1);
+    expect(h.err()).toContain("guardrails.yaml");
+    expect(h.err()).toContain("fix it there");
+  });
+});

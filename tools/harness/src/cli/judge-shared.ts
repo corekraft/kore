@@ -59,7 +59,9 @@ export async function judgeModes({ deps }: CommandContext): Promise<ModeOf> {
       return () => "enforce";
     }
     if (error instanceof GuardrailError) {
-      throw new JudgeError(error.message);
+      throw new JudgeError(
+        `${error.message} The judge reads the main checkout's inventory, so fix it there, then rerun.`,
+      );
     }
     throw error;
   }

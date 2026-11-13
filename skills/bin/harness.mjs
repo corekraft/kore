@@ -5727,29 +5727,27 @@ var ITEM_RULES = {
 };
 var enforcing = () => "enforce";
 function applyModes(checks, pattern, modeOf2) {
-  const items2 = [
-    ...Object.keys(checks).map((key) => ({
-      rule: ITEM_RULES[key],
-      failed: checks[key].result === "pass" ? void 0 : {
-        rule: ITEM_RULES[key],
-        result: checks[key].result,
-        ...checks[key].detail === void 0 ? {} : { detail: checks[key].detail }
-      }
-    })),
-    {
-      rule: ITEM_RULES.patternMatch,
-      failed: pattern.matches ? void 0 : {
+  const failures = [
+    ...Object.keys(checks).flatMap((key) => {
+      const { result, detail: detail2 } = checks[key];
+      return result === "pass" ? [] : [
+        {
+          rule: ITEM_RULES[key],
+          result,
+          ...detail2 === void 0 ? {} : { detail: detail2 }
+        }
+      ];
+    }),
+    ...pattern.matches ? [] : [
+      {
         rule: ITEM_RULES.patternMatch,
         result: "mismatch",
         ...pattern.mismatch === void 0 ? {} : { detail: pattern.mismatch }
       }
-    }
+    ]
   ];
-  const failed2 = items2.filter((i) => i.failed !== void 0);
-  return {
-    ok: failed2.every((i) => modeOf2(i.rule) === "audit"),
-    audited: failed2.filter((i) => modeOf2(i.rule) === "audit").map((i) => i.failed)
-  };
+  const audited = failures.filter((f) => modeOf2(f.rule) === "audit");
+  return { ok: audited.length === failures.length, audited };
 }
 
 // src/judge/verdict.ts
@@ -5941,7 +5939,9 @@ async function judgeModes({ deps }) {
       return () => "enforce";
     }
     if (error instanceof GuardrailError) {
-      throw new JudgeError(error.message);
+      throw new JudgeError(
+        `${error.message} The judge reads the main checkout's inventory, so fix it there, then rerun.`
+      );
     }
     throw error;
   }
