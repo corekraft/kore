@@ -142,6 +142,21 @@ describe("pruning stale local image tags", () => {
     expect(calls.join("\n")).not.toContain("k3d-other-server-0");
   });
 
+  it("does not mistake another cluster whose name starts with this one's for its own", async () => {
+    const shorter = {
+      ...repository,
+      environment: {
+        ...repository.environment,
+        k3d: { clusterName: "kore" },
+      },
+    } as unknown as Repository;
+    const { runner, calls } = cluster({ nodeImages: [old] });
+
+    await pruneStaleImageTags(shorter, runner, leased);
+
+    expect(calls.join("\n")).not.toContain("k3d-kore-local-server-0");
+  });
+
   it("refuses to prune unless this process holds the host lease", async () => {
     const { runner, calls, removed } = cluster({ nodeImages: [old] });
 

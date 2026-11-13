@@ -55,8 +55,12 @@ async function nodesOf(runner: Runner, clusterName: string): Promise<string[]> {
   const listed = await runner.run("docker", ["ps", "--format", "{{.Names}}"], {
     capture: true,
   });
-  const own = new RegExp(`^k3d-${clusterName}-(server|agent)-\\d+$`);
-  return lines(listed.stdout).filter((name) => own.test(name));
+  const prefix = `k3d-${clusterName}-`;
+  return lines(listed.stdout).filter(
+    (name) =>
+      name.startsWith(prefix) &&
+      /^(server|agent)-\d+$/.test(name.slice(prefix.length)),
+  );
 }
 
 async function pruneNode(
