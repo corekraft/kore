@@ -27,6 +27,21 @@ does not hide later ones, and a failed `local up` skips the suites. The run's
 conclusion is the status on main; the workflow holds read-only permissions, so
 the signer permission guard is unchanged.
 
+**Scratch environment ([issue #363](https://github.com/corekraft/kore/issues/363)).**
+The `local` overlay's SOPS secrets are encrypted to the owner's age key, which
+a fresh runner lacks; the first hosted run failed at the secret sync for that
+reason. Giving CI the owner's key, or a dedicated key stored as an Actions
+secret, would add a stored credential and an owner step. Instead `nightly.sh`
+copies `local` to a scratch overlay named `nightly` (cluster `kore-nightly`),
+generates an age identity with the pinned `age-keygen`, writes its public half as
+the overlay's recipient, and encrypts freshly generated secret values with sops
+from stdin. The identity travels only in `SOPS_AGE_KEY` and the plaintext only
+through shell variables and pipes, so neither touches disk, and the committed
+`local` overlay is never edited. A secret in `local` that the script does not
+know how to generate fails the night before any cluster work. The suites follow
+`KORE_INTEGRATION_ENVIRONMENT`, and the job summary records duration and peak
+memory.
+
 **Timeouts.** `ProcessRunner` kills a command that runs past its timeout:
 SIGTERM to its process group, then SIGKILL to the group after a grace period.
 It settles on the child's exit plus the grace period, not on pipe close, and
