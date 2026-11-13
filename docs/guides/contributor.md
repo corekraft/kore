@@ -69,7 +69,7 @@ worktree's tests (pid N)`. It waits up to 15 minutes
    (`KORE_TEST_LOCK_WAIT_MS`), breaks a lock whose pid is gone, and on timeout
    names the holder and the file to remove. A live `kore local up` or live spec
    run holds the exclusive host lease (`~/.kore/locks/host-lease.lock`, ADR
-   0093): `session spawn` refuses a new writer while it is held, and a hook test
+   0094): `session spawn` refuses a new writer while it is held, and a hook test
    run beside it prints `audit: host lease held by pid N` and appends to
    `host-lease-audit.jsonl` beside the test lock, without waiting yet.
 
