@@ -40,11 +40,13 @@ spawn` refuses a new writer while it is held (enforced). Commit-hook test
   lease, kore's own tags (the per-run tags and the old shared `kore-local`) on
   every node of its cluster and on the host, and only those no pod in the
   cluster uses; it removes nothing if the pods cannot be listed. **Registry tags
-  are not pruned yet, and that is open for the owner, not a choice made here:**
-  the registry does not allow deleting manifests (no delete support in its
-  chart, and its auth proxy lets only the push identity write), and a delete
-  removes every tag on a digest, so it needs registry delete support, garbage
-  collection and a rule that spares a digest any pod uses.
+  are not pruned, by the owner's decision:** #347 merges with node and host
+  pruning only, and registry pruning is tracked in
+  [#353](https://github.com/corekraft/kore/issues/353). The registry does not
+  allow deleting manifests (no delete support in its chart, and its auth proxy
+  lets only the push identity write), and a delete removes every tag on a
+  digest, so #353 needs registry delete support, garbage collection and a rule
+  that spares a digest any pod uses.
 - **An owner for the registry forward.** The starting process and its worktree
   are recorded at `~/.kore/registry-forward/<context>.json`. Another worktree's
   stop, or another kore process's stop in the owning worktree, leaves a running
