@@ -3790,6 +3790,24 @@ var typed = (body) => new Map(
     r["parameters"] ?? null
   ])
 );
+var BYPASS_MODES = ["pull_request", "always"];
+var modeRank = (actor) => {
+  const mode = actor["bypass_mode"];
+  const rank = BYPASS_MODES.indexOf(typeof mode === "string" ? mode : "always");
+  return rank === -1 ? BYPASS_MODES.length : rank;
+};
+var actorKey = (actor) => `${String(actor["actor_type"])}:${String(actor["actor_id"])}`;
+function widenedBypass(previous, after) {
+  const list3 = (body) => body["bypass_actors"] ?? [];
+  const had = new Map(list3(previous).map((a) => [actorKey(a), a]));
+  return list3(after).flatMap((actor) => {
+    const was = had.get(actorKey(actor));
+    if (was === void 0) {
+      return ["bypass_actors gains an actor"];
+    }
+    return modeRank(actor) > modeRank(was) ? [`bypass_actors ${actorKey(actor)} bypass_mode widens`] : [];
+  });
+}
 function weakenings(previous, after) {
   const now = typed(after);
   const removed = [];
@@ -3802,8 +3820,7 @@ function weakenings(previous, after) {
     }
   }
   const conditions = same(previous["conditions"], after["conditions"]) ? [] : ["conditions change"];
-  const had = previous["bypass_actors"] ?? [];
-  const bypass = (after["bypass_actors"] ?? []).filter((actor) => !had.some((h) => same(h, actor))).map(() => "bypass_actors gains an actor");
+  const bypass = widenedBypass(previous, after);
   const others = [.../* @__PURE__ */ new Set([...Object.keys(previous), ...Object.keys(after)])].filter((key) => !HANDLED.includes(key)).filter((key) => !same(previous[key], after[key])).map((key) => `${key} changes`);
   return { removed, weaker: [...params, ...conditions, ...bypass, ...others] };
 }

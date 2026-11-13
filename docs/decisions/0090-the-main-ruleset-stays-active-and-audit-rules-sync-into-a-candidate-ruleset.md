@@ -46,7 +46,8 @@ rule while enforcing the rest.
 - **A live ruleset is never weakened silently.** One definition of "weaker" is
   shared by the guard hook and sync (`ruleset/weaken.ts`): a rule dropped, a
   required check dropped, a number lowered, a boolean or string changed, a merge
-  method added, a bypass actor added, conditions changed, or a parameter missing
+  method added, a bypass actor added or a bypass mode widened (actors matched by
+  type and id; narrowing is not a weakening), conditions changed, or a parameter missing
   from the file. The dry run, the refusal and the JSON name each one, and sync sends
   nothing, not even to the candidate, without `--allow-removal`. A sync that changes
   anything live needs `--confirm`, which stands for the operator's agreement; the
