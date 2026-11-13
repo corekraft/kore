@@ -134,6 +134,39 @@ describe("hook retro-scan", () => {
 });
 
 describe("hook retro-scan usage", () => {
+  it("accepts a UTC timestamp for --since and reports it back as given", async () => {
+    const result = await retro(repoRoot(), [
+      "--dir",
+      fixtures,
+      "--since",
+      "2026-11-01T00:00:00Z",
+    ]);
+    expect(result.code).toBe(0);
+    expect(JSON.parse(result.out)).toMatchObject({
+      since: "2026-11-01T00:00:00Z",
+      sessions: { count: 2 },
+    });
+  });
+
+  it("rejects a timestamp that is not a real instant, with usage and exit 2", async () => {
+    const result = await retro(repoRoot(), [
+      "--dir",
+      fixtures,
+      "--since",
+      "2026-02-30",
+    ]);
+    expect(result.code).toBe(2);
+    expect(result.out).toBe("");
+    expect(result.err).toMatch(/Usage: harness hook retro-scan/);
+  });
+
+  it("states both --since forms in the usage text", async () => {
+    const result = await retro(repoRoot(), ["--since", "yesterday"]);
+    expect(result.err).toBe(
+      "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD|YYYY-MM-DDTHH:MM:SSZ]\n--since keeps sessions active at or after local midnight of that date, or at or after that UTC instant, like the session-start count.\n",
+    );
+  });
+
   it("rejects a malformed --since with usage and exit 2", async () => {
     const result = await retro(repoRoot(), ["--since", "yesterday"]);
     expect(result.code).toBe(2);

@@ -14,10 +14,11 @@ import { parseTranscript, timestamps } from "./retro-transcript.js";
 export { parseTranscript, summarizeError } from "./retro-transcript.js";
 
 const MIN_WARNINGS = 5;
-// A marker is a UTC timestamp (`date -u +%Y-%m-%dT%H:%M:%SZ`), or a legacy
-// date-only value read as local midnight.
-const RETRO_MARKER =
-  /^\W*Last retrospective: (\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}Z)?)/gm;
+// The whole value on the line is captured, so a near-miss form is refused
+// rather than read as its date. Group 1 is the prefix, group 2 the value.
+const RETRO_MARKER = /^(\W*Last retrospective: )(\S.*?)[ \t\r]*$/gm;
+const BARE_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const UTC_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 
 export interface SessionText {
   id: string;
@@ -41,23 +42,52 @@ type RuleStats = Record<Outcome, number> & {
   sessions: number;
 };
 
-/** When a marker opens the window, in epoch ms. */
-function markerInstant(marker: string): number {
-  return marker.includes("T")
-    ? Date.parse(marker)
-    : new Date(`${marker}T00:00:00`).getTime();
+const notAMarker = (value: string): string =>
+  `"${value}" is not a retrospective marker; write a date (YYYY-MM-DD) or a UTC timestamp with date -u +%Y-%m-%dT%H:%M:%SZ`;
+
+/**
+ * The instant a marker value opens the window at, in epoch ms, or NaN when the
+ * value is not a marker. A bare date is local midnight of that day; a UTC
+ * timestamp is that instant. Both must round-trip, so February 30 is refused
+ * rather than rolled over to March 2.
+ */
+export function markerInstant(value: string): number {
+  if (BARE_DATE.test(value)) {
+    const midnight = new Date(`${value}T00:00:00`);
+    return midnight.toLocaleDateString("sv") === value
+      ? midnight.getTime()
+      : Number.NaN;
+  }
+  if (UTC_TIMESTAMP.test(value)) {
+    const instant = Date.parse(value);
+    return Number.isFinite(instant) &&
+      new Date(instant).toISOString() === value.replace(/Z$/, ".000Z")
+      ? instant
+      : Number.NaN;
+  }
+  return Number.NaN;
 }
 
-/** The latest `Last retrospective:` marker across the plans, or null. */
+/** The latest `Last retrospective:` marker across the plans, or null. Throws, naming the plan line, for a value that is not a marker. */
 export function lastRetrospective(
   plans: Readonly<Record<string, string>>,
 ): string | null {
   let latest: string | null = null;
-  for (const markdown of Object.values(plans)) {
+  let latestAt = Number.NEGATIVE_INFINITY;
+  for (const [plan, markdown] of Object.entries(plans)) {
     for (const match of markdown.matchAll(RETRO_MARKER)) {
-      const marker = match[1] ?? "";
-      if (latest === null || markerInstant(marker) > markerInstant(latest)) {
-        latest = marker;
+      const prefix = match[1] ?? "";
+      const value = match[2] ?? "";
+      const instant = markerInstant(value);
+      if (!Number.isFinite(instant)) {
+        const line = markdown
+          .slice(0, (match.index ?? 0) + prefix.length)
+          .split("\n").length;
+        throw new Error(`${plan}:${line}: ${notAMarker(value)}`);
+      }
+      if (instant > latestAt) {
+        latest = value;
+        latestAt = instant;
       }
     }
   }
@@ -75,7 +105,14 @@ export function lastRetrospective(
  * so none is counted twice.
  */
 export function windowStart(marker: string | undefined): number {
-  return marker ? markerInstant(marker) : 0;
+  if (!marker) {
+    return 0;
+  }
+  const instant = markerInstant(marker);
+  if (!Number.isFinite(instant)) {
+    throw new Error(notAMarker(marker));
+  }
+  return instant;
 }
 
 const emptyStats = (): RuleStats => ({

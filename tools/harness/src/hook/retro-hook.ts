@@ -16,11 +16,11 @@ import {
 } from "../guardrail/index.js";
 import { readPlans } from "../plan/index.js";
 import { hookCommand, type HookResult } from "./io.js";
-import { lastRetrospective, scan } from "./retro-scan.js";
+import { lastRetrospective, markerInstant, scan } from "./retro-scan.js";
 import { defaultDirs, readTranscripts } from "./retro-transcripts.js";
 
 const USAGE =
-  "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD]\n--since keeps sessions active at or after local midnight of that date, like the session-start count.";
+  "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD|YYYY-MM-DDTHH:MM:SSZ]\n--since keeps sessions active at or after local midnight of that date, or at or after that UTC instant, like the session-start count.";
 
 const isMissing = (error: unknown): boolean =>
   (error as NodeJS.ErrnoException).code === "ENOENT";
@@ -132,7 +132,7 @@ export const retroScan = hookCommand(
   "count guard blocks, failures, skills and repeated corrections over session transcripts (retro skill input)",
   async ({ deps, options }) => {
     const since = options["since"];
-    if (typeof since === "string" && !/^\d{4}-\d{2}-\d{2}$/.test(since)) {
+    if (typeof since === "string" && !Number.isFinite(markerInstant(since))) {
       return { code: 2, stderr: `${USAGE}\n` };
     }
     const dir = options["dir"];

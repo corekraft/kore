@@ -68,7 +68,7 @@ outward-facing, so it is proposed to the user and not done by an agent.
 ### Work
 
 - [x] Add `.claude/hooks/retro-scan.mjs`. It reads the session transcripts
-      (`~/.claude/projects/<project>/*.jsonl`) since the `Last retrospective:` date
+      (`~/.claude/projects/<project>/*.jsonl`) since the `Last retrospective:` marker
       in `3-agent-harness.md`, or a directory passed with `--dir`, and prints JSON:
   - sessions scanned, with first and last timestamps
   - guard blocks and warnings per rule (`[guard:<rule>]`)
@@ -243,7 +243,7 @@ kb-check` on this tree: 0 stale documents.
   `handoff`, `write-adr`; none is archived on this evidence, since the
   transcripts cover a single day.
 - Follow-up: transcript timestamps are UTC, while `Last retrospective:` is a
-  local date. A session that falls on a different calendar day in UTC than
+  UTC timestamp (a bare date still reads as local midnight). A session that falls on a different calendar day in UTC than
   locally is counted on the wrong side of the boundary. `context.mjs` already
   had this problem, and the scan now shares it by reusing that function. Fix
   both together; not in this plan.

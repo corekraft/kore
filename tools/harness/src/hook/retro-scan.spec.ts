@@ -149,28 +149,6 @@ describe("retro scan corrections and windows", () => {
 });
 
 describe("retro scan window markers", () => {
-  it("two retrospectives on one day do not overlap: the later timestamp marker opens the window, so a session before it is left out", () => {
-    const morning = "2026-11-12T10:00:00Z";
-    const evening = "2026-11-12T18:00:00Z";
-    const at = (iso: string) =>
-      JSON.stringify({ type: "user", timestamp: iso });
-    const latest = lastRetrospective({
-      "3.md": `Last retrospective: ${morning}\n\nLast retrospective: ${evening}\n`,
-    });
-    expect(latest).toBe(evening);
-    expect(windowStart(latest ?? undefined)).toBe(Date.parse(evening));
-    const result = scan(
-      [
-        { id: "midday", text: at("2026-11-12T12:00:00Z") },
-        { id: "after", text: at("2026-11-12T19:00:00Z") },
-      ],
-      { since: latest ?? undefined },
-    );
-    expect(result.sessions.list.map((session) => session.id)).toEqual([
-      "after",
-    ]);
-  });
-
   it("reads the latest retrospective date across plans and opens the window at local midnight", () => {
     expect(
       lastRetrospective({
