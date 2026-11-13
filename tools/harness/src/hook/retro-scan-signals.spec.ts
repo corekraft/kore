@@ -98,6 +98,26 @@ describe("retro scan corrections", () => {
   });
 });
 
+describe("retro scan orchestrator briefs", () => {
+  const brief = "Never touch the shared stash. Always ask before you push.";
+  it.each([
+    ["(orchestrator) header", `(orchestrator) ${brief}`],
+    ["Orchestrator: header", `Orchestrator: ${brief}`],
+    ["[herdr:…] header", `[herdr:retro-writer] ${brief}`],
+    ["indented, any case", `  \n ORCHESTRATOR: ${brief}`],
+  ])("does not count a message with a %s as a correction", (_name, text) => {
+    const sessions = twoSessions(() => human("01", text));
+    expect(scan(sessions, options).corrections).toEqual([]);
+  });
+
+  it("still counts a person's correction that only mentions the orchestrator", () => {
+    const sessions = twoSessions(() =>
+      human("01", `Stop letting the orchestrator ${brief}`),
+    );
+    expect(scan(sessions, options).corrections).not.toEqual([]);
+  });
+});
+
 describe("retro scan corrections after failures", () => {
   it("ignores a correction word inside pasted content", () => {
     const sessions = twoSessions(() =>

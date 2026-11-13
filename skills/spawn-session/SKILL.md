@@ -7,7 +7,7 @@ description: Use when asked to start, verify with, or hand off to another Claude
 
 `node skills/bin/harness.mjs session spawn` places, names, briefs and waits; this skill is the judgement around it.
 
-1. **Spawn:** `session spawn --role <role> --name <name> --brief "<brief>" [--model <id> --effort <level>] [--worktree] [--no-wait]`. A role with a definition in `.claude/agents/<role>.md` launches at the model and effort declared there; pass `--model` or `--effort` only to override it, as an escalation does. It checks Herdr, the layout, the name, the model and the broadcast line itself. Long work: pass `--no-wait`, then run `session wait <name>` in the background. When done and recorded: `session close <name>`.
+1. **Spawn:** `session spawn --role <role> --name <name> --brief "<brief>" [--model <id> --effort <level>] [--worktree] [--no-wait]`. A role with a definition in `.claude/agents/<role>.md` launches at the model and effort declared there; pass `--model` or `--effort` only to override it, as an escalation does. It checks Herdr, the layout, the name, the model and the broadcast line itself. Long work: pass `--no-wait`, then run `session wait <name>` in the background (a Bash call with `run_in_background`; to stream it instead, load `Monitor` first with ToolSearch `select:Monitor`, then call it with `description`, `command` and `timeout_ms`, never ToolSearch's `query`). When done and recorded: `session close <name>`.
 2. **Pick the model for a role with no definition**, by exact ID (aliases drift). This table is judgement, not something the tool decides:
 
    | Role                                                                        | Model               |

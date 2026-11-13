@@ -506,8 +506,9 @@ them. The owner accepted all ten proposals, now filed under #124:
 - **#326 (enforce):** pre-commit runs the SAST scan on staged TypeScript and
   JavaScript. #288 and #290 failed only in CI.
 - **#327:** `retro-scan` ignores orchestrator briefs, which made up five of its
-  eight "corrections". The cause of seven Monitor parameter errors is to be
-  found.
+  eight "corrections". The Monitor errors came from calling the deferred
+  `Monitor` tool with ToolSearch's `query` argument before loading its schema;
+  `spawn-session` now says how to load and call it.
 - **#328 (guidance), covering five items:**
   - a default of two test workers in the mise environment
   - hold new writers during live runs
