@@ -15,7 +15,10 @@ import {
   changesShell,
   harnessAllowed,
   harnessStatus,
+  notifiesFinish,
   readOnly,
+  sendsToPane,
+  useNotify,
   writes,
   WRITE_TOOLS,
 } from "./guard-role-writes.js";
@@ -112,6 +115,11 @@ function noCodeMayRun(role: string, segment: readonly string[]): boolean {
 const PREFIXED =
   /^(?:[A-Za-z_][A-Za-z0-9_]*=|(?:sudo|env|time|command|nohup|exec)$)/;
 
+const SPAWNED_ROLES = new Set(["reader", "refiner", "challenger"]);
+
+const finishes = (role: string, segment: readonly string[]): boolean =>
+  SPAWNED_ROLES.has(role) && notifiesFinish(segment);
+
 function checkBash(role: string, command: string): Finding {
   // A substitution runs a command the segment check never sees.
   if (/\$\(|`|<\(|>\(/.test(command)) {
@@ -127,16 +135,23 @@ function checkBash(role: string, command: string): Finding {
     const what = `\`${prefixed.join(" ")}\`, which sets an environment variable or changes shell state,`;
     return NO_CODE_ROLES.has(role) ? noCode(what, role) : readOnly(what);
   }
+  const typing = segments.find(sendsToPane);
+  if (typing !== undefined) {
+    return useNotify(`\`${typing.join(" ")}\``);
+  }
   const writer = segments.find(writes);
   if (writer !== undefined) {
     return readOnly(`\`${writer.join(" ")}\``);
   }
   if (NO_CODE_ROLES.has(role)) {
-    const stray = segments.find((segment) => !noCodeMayRun(role, segment));
+    const stray = segments.find(
+      (segment) => !noCodeMayRun(role, segment) && !finishes(role, segment),
+    );
     return stray === undefined ? null : noCode(`\`${stray.join(" ")}\``, role);
   }
   const unknown = segments.find(
     (segment) =>
+      !finishes(role, segment) &&
       !readMayRun(
         segment,
         role === "refiner" ? REFINER_HARNESS : HARNESS_READS,

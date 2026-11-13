@@ -9,6 +9,9 @@ import { isAbsolute, relative, resolve } from "node:path";
 import {
   changesShell,
   harnessAllowed,
+  notifiesFinish,
+  sendsToPane,
+  useNotify,
   SUBSTITUTION,
   wrapsCommands,
   HARNESS,
@@ -117,20 +120,6 @@ const HERDR_READS = [
   "pane current",
 ];
 
-/** The finish notice every brief ends with: `harness session notify <pane> --outcome done|blocked`, which builds the line itself. Any other shape is refused, so a role cannot write its own text into another pane. */
-function notifiesFinish(args: readonly string[]): boolean {
-  const [, group, verb, pane, flag, outcome, ...rest] = args;
-  return (
-    group === "session" &&
-    verb === "notify" &&
-    pane !== undefined &&
-    /^[\w:]+$/.test(pane) &&
-    flag === "--outcome" &&
-    (outcome === "done" || outcome === "blocked") &&
-    rest.length === 0
-  );
-}
-
 /** What a reporting role's shell may run: the shared read allowlist with the role's harness commands, and for the orchestrator the herdr queries. Anything else is refused. */
 function reportingMayRun(role: string, segment: readonly string[]): boolean {
   const { name, args } = commandOf(segment);
@@ -149,8 +138,8 @@ function harnessRefused(role: string, segment: readonly string[]): boolean {
   if (name !== "node" || !(args[0] ?? "").endsWith("harness.mjs")) {
     return false;
   }
-  if (args[1] === "session" && args[2] === "notify" && !notifiesFinish(args)) {
-    return true;
+  if (args[1] === "session" && args[2] === "notify") {
+    return !notifiesFinish(segment);
   }
   return !(
     HARNESS.test(args[0] ?? "") && harnessAllowed(name, args, harnessFor(role))
@@ -212,6 +201,12 @@ function escapes(segment: readonly string[], root: string): string | undefined {
     .find((path) => outside(root, path));
 }
 
+/** The finding for a segment a reporting role may not run: raw pane input is pointed at `session notify`. */
+function refused(segment: readonly string[]): Finding {
+  const what = `\`${segment.join(" ")}\``;
+  return sendsToPane(segment) ? useNotify(what) : readOnly(what);
+}
+
 export function checkDeliveryBash(
   role: string,
   command: string,
@@ -262,9 +257,7 @@ export function checkDeliveryBash(
         harnessRefused(role, s) ||
         !reportingMayRun(role, s),
     );
-    return changing === undefined
-      ? null
-      : readOnly(`\`${changing.join(" ")}\``);
+    return changing === undefined ? null : refused(changing);
   }
   for (const segment of segments) {
     const path = escapes(segment, root);

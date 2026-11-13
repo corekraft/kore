@@ -4,6 +4,7 @@ import { FAILED, USAGE_ERROR, fail } from "./output.js";
 
 const CONFIRM_READS = 3;
 const CONFIRM_PAUSE_MS = 1_000;
+const USAGE = "session notify <pane> --outcome done|blocked";
 
 /** The line a finished session sends its caller: the name is the session's own, and the summary is in its pane. */
 export function finishLine(
@@ -14,12 +15,25 @@ export function finishLine(
   return `[herdr:${name}] finished: RESULT ${outcome}; summary in pane ${ownPane}`;
 }
 
-/** Whether the caller pane's recent output holds the line, as a whole line. */
-async function shows(
+/** A line that starts with the agent's prompt mark, after any box border. */
+const PROMPT = /^[\s│|]*[>❯]/;
+
+/**
+ * How many times the line shows as submitted. The last prompt line is the
+ * input box, so text there is typed, not sent, and does not count.
+ */
+export function submitted(text: string, line: string): number {
+  const lines = text.split("\n");
+  const inputBox = lines.map((l) => PROMPT.test(l)).lastIndexOf(true);
+  return lines.filter((l, i) => i !== inputBox && l.includes(line)).length;
+}
+
+/** The submitted count in the pane now, or herdr's error when it cannot be read. */
+async function count(
   deps: CliDeps,
   pane: string,
   line: string,
-): Promise<boolean> {
+): Promise<number | { error: string }> {
   const read = await deps.runner.run("herdr", [
     "pane",
     "read",
@@ -27,9 +41,9 @@ async function shows(
     "--source",
     "recent-unwrapped",
   ]);
-  return (
-    read.code === 0 && read.stdout.split("\n").some((l) => l.includes(line))
-  );
+  return read.code === 0
+    ? submitted(read.stdout, line)
+    : { error: describeFailure(read) };
 }
 
 /** Types the line into the pane and submits it; an error message, or undefined when both steps succeed. */
@@ -47,25 +61,27 @@ async function sendLine(
   if (sent.code !== 0) {
     return `herdr pane send-text to ${pane} failed: ${describeFailure(sent)}`;
   }
-  const submitted = await deps.runner.run("herdr", [
+  const entered = await deps.runner.run("herdr", [
     "pane",
     "send-keys",
     pane,
     "enter",
   ]);
-  return submitted.code === 0
+  return entered.code === 0
     ? undefined
-    : `herdr pane send-keys to ${pane} failed: ${describeFailure(submitted)}. The line is typed but not submitted in pane ${pane}.`;
+    : `herdr pane send-keys to ${pane} failed: ${describeFailure(entered)}. The line is typed but not submitted in pane ${pane}.`;
 }
 
-/** Reads the pane back until the line shows, pausing between reads; false when it never does. */
+/** Reads the pane back until it shows more submitted lines than before the send; false when it never does. */
 async function confirmed(
   deps: CliDeps,
   pane: string,
   line: string,
+  before: number,
 ): Promise<boolean> {
   for (let read = 1; read <= CONFIRM_READS; read++) {
-    if (await shows(deps, pane, line)) {
+    const now = await count(deps, pane, line);
+    if (typeof now === "number" && now > before) {
       return true;
     }
     if (read < CONFIRM_READS) {
@@ -75,6 +91,26 @@ async function confirmed(
   return false;
 }
 
+/** Sends the line and confirms it; an error message, or undefined once a new submitted line shows in the pane. */
+async function deliver(
+  deps: CliDeps,
+  pane: string,
+  line: string,
+): Promise<string | undefined> {
+  // Read first, so an identical older line is not taken for this one.
+  const before = await count(deps, pane, line);
+  if (typeof before !== "number") {
+    return `herdr pane read ${pane} failed: ${before.error}. Nothing was sent, because delivery could not be confirmed afterwards.`;
+  }
+  const sendError = await sendLine(deps, pane, line);
+  if (sendError !== undefined) {
+    return sendError;
+  }
+  return (await confirmed(deps, pane, line, before))
+    ? undefined
+    : `Delivery to ${pane} not confirmed: no new submitted finish line showed there in ${CONFIRM_READS} reads. It was sent, so read pane ${pane} before sending it again; if it sits in the input box, submit it with enter.`;
+}
+
 /**
  * `session notify <pane> --outcome done|blocked`: a spawned session's finish notice.
  * It sends the line to the caller pane, submits it, then reads that pane back to confirm it arrived.
@@ -82,30 +118,26 @@ async function confirmed(
 export async function notify(context: CommandContext): Promise<number> {
   const { json, deps, options } = context;
   const pane = context.operand;
+  const outcome = options["outcome"];
   if (pane === undefined || !/^[\w:]+$/.test(pane)) {
     return fail(
       deps,
       json,
       USAGE_ERROR,
-      "Missing or invalid caller pane: session notify <pane> --outcome done|blocked, where <pane> is a Herdr pane id such as w3:p1.",
+      `Missing or invalid caller pane: ${USAGE}, where <pane> is a Herdr pane id such as w3:p1.`,
     );
   }
-  if (options.outcome !== "done" && options.outcome !== "blocked") {
+  if (outcome !== "done" && outcome !== "blocked") {
     return fail(
       deps,
       json,
       USAGE_ERROR,
-      "--outcome must be done or blocked: session notify <pane> --outcome done|blocked.",
+      `--outcome must be done or blocked: ${USAGE}.`,
     );
   }
   const name = deps.env["KORE_AGENT"];
   const ownPane = deps.env["HERDR_PANE_ID"];
-  if (
-    name === undefined ||
-    name === "" ||
-    ownPane === undefined ||
-    ownPane === ""
-  ) {
+  if (!name || !ownPane) {
     return fail(
       deps,
       json,
@@ -113,24 +145,14 @@ export async function notify(context: CommandContext): Promise<number> {
       "Not inside a spawned session (KORE_AGENT or HERDR_PANE_ID is unset). session notify runs in the pane session spawn started.",
     );
   }
-  const line = finishLine(name, options.outcome, ownPane);
-  const sendError = await sendLine(deps, pane, line);
-  if (sendError !== undefined) {
-    return fail(deps, json, FAILED, sendError);
+  const error = await deliver(deps, pane, finishLine(name, outcome, ownPane));
+  if (error !== undefined) {
+    return fail(deps, json, FAILED, error);
   }
-  if (!(await confirmed(deps, pane, line))) {
-    return fail(
-      deps,
-      json,
-      FAILED,
-      `Delivery to ${pane} not confirmed: the finish line did not show there after ${CONFIRM_READS} reads. It was sent and submitted, so check pane ${pane} before sending it again.`,
-    );
-  }
-  const summary = { pane, name, outcome: options.outcome, delivered: true };
   deps.stdout(
     json
-      ? `${JSON.stringify(summary)}\n`
-      : `Notified ${pane}: ${name} finished: RESULT ${options.outcome}.\n`,
+      ? `${JSON.stringify({ pane, name, outcome, delivered: true })}\n`
+      : `Notified ${pane}: ${name} finished: RESULT ${outcome}.\n`,
   );
   return 0;
 }

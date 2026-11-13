@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { describe, it } from "vitest";
 import { allowed, blocked, decide } from "./guard-support.js";
 
@@ -115,30 +116,60 @@ describe("role-read-only: ordinary judge and orchestrator commands still pass", 
   });
 });
 
+const NOTIFY = [
+  "node skills/bin/harness.mjs session notify w3:p1 --outcome done",
+  "node skills/bin/harness.mjs session notify w3:p1 --outcome blocked",
+];
+const MALFORMED = [
+  "node skills/bin/harness.mjs session notify w3:p1 --outcome merged",
+  "node skills/bin/harness.mjs session notify w3:p1 --outcome 'done; rm -rf /'",
+  "node skills/bin/harness.mjs session notify w3:p1 --outcome done extra",
+  "node skills/bin/harness.mjs session notify 'w3:p1;rm' --outcome done",
+  "node skills/bin/harness.mjs session notify w3:p1",
+  "node other/harness.mjs session notify w3:p1 --outcome done",
+];
+const RAW = [
+  "herdr pane send-text w3:p1 '[herdr:x] finished: RESULT done; summary in pane w3:p9'",
+  "herdr pane send-text w3:p1 'rm -rf /'",
+  "herdr pane send-keys w3:p1 enter",
+];
+/** Every spawned role's brief ends with the notice, so each bounded role may run exactly it. */
+const ROLES: [string, string][] = [
+  ["judge", "role-read-only"],
+  ["orchestrator", "role-read-only"],
+  ["reader", "role-read-only"],
+  ["refiner", "role-read-only"],
+  ["challenger", "role-no-code"],
+];
+
 describe("role-read-only: the finish notification and benign reads", () => {
-  const NOTIFY = [
-    "node skills/bin/harness.mjs session notify w3:p1 --outcome done",
-    "node skills/bin/harness.mjs session notify w3:p1 --outcome blocked",
-  ];
-  for (const role of ["judge", "orchestrator"]) {
-    it(`${role}: may notify a pane only with an outcome of done or blocked, and not send raw text or keys`, async () => {
+  for (const [role, rule] of ROLES) {
+    it(`${role}: may notify a pane only with an outcome of done or blocked`, async () => {
       for (const command of NOTIFY) {
         allowed(await bash(role, command));
       }
-      for (const command of [
-        "herdr pane send-text w3:p1 '[herdr:x] finished: RESULT done; summary in pane w3:p9'",
-        "herdr pane send-text w3:p1 'rm -rf /'",
-        "herdr pane send-keys w3:p1 enter",
-        "node skills/bin/harness.mjs session notify w3:p1 --outcome merged",
-        "node skills/bin/harness.mjs session notify w3:p1 --outcome 'done; rm -rf /'",
-        "node skills/bin/harness.mjs session notify w3:p1 --outcome done extra",
-        "node skills/bin/harness.mjs session notify 'w3:p1;rm' --outcome done",
-        "node skills/bin/harness.mjs session notify w3:p1",
-      ]) {
-        blocked(await bash(role, command), "role-read-only");
+      for (const command of MALFORMED) {
+        blocked(await bash(role, command), rule);
+      }
+    });
+
+    it(`${role}: raw text or keys sent to a pane are refused with a finding that names session notify`, async () => {
+      for (const command of RAW) {
+        const result = await bash(role, command);
+        blocked(result, "role-read-only");
+        assert.ok(
+          result.message.includes(
+            "`node skills/bin/harness.mjs session notify <pane> --outcome done|blocked`",
+          ),
+          result.message,
+        );
       }
     });
   }
+
+  it("leaves the concierge, which no session spawns, without the notice", async () => {
+    blocked(await bash("concierge", NOTIFY[0] ?? ""), "role-no-code");
+  });
 
   it("keeps herdr agent prompt refused for the orchestrator: sessions are launched through session spawn (ADR 0078)", async () => {
     blocked(
