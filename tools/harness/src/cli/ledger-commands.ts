@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { pollOutcomeSignals } from "./owner-login.js";
+import { pollOutcomeSignals, pollerOnly, repoOf } from "./poll-support.js";
 import {
   DEFAULT_LEDGER,
   KINDS,
@@ -128,6 +128,10 @@ const record: Command = {
     const given = await eventInput(context);
     if ("error" in given) {
       return reject(context, given.error, "event", given.code);
+    }
+    const forged = pollerOnly(given.input);
+    if (forged !== undefined) {
+      return reject(context, forged, "source");
     }
     const opened = await openLedger(context);
     if ("error" in opened) {
@@ -260,12 +264,10 @@ const pollHerdrCommand: Command = {
   },
 };
 
-const DEFAULT_REPO = "corekraft/kore";
-
 const pollGithubCommand: Command = {
   summary:
-    "list issues, label events and PRs through gh and append issue.opened, issue.labelled, pr.opened and pr.merged, then the outcome signals no agent can set: ci.main (check runs on main), ci.nightly (nightly runs), pr.reverted (merged PRs titled Revert...) and owner.action (comments and issue events by the owner login: --owner, else ownerLogin in .claude/harness.json, else the repository's owner) (numbers, labels, conclusions and GitHub times only, no titles, bodies or logins); --since (default: the latest recorded GitHub event) only bounds what gh is asked for, since ids decide what is new; --repo to corekraft/kore; re-polling appends nothing, one poll runs at a time, and a rate limit is reported with its retry time",
-  options: STRING_FLAGS(["ledger", "since", "repo", "owner"]),
+    "list issues, label events and PRs through gh and append issue.opened, issue.labelled, pr.opened and pr.merged, then the outcome signals agents do not write: ci.main (check runs on main), ci.nightly (nightly runs), main.revert (commits on main whose subject starts Revert + a quote or whose body says This reverts commit) and owner.action (comments, issue events and PR reviews by the login in ownerLogin of .claude/harness.json, else the repository's owner) (numbers, labels, conclusions and GitHub times only, no titles, bodies, messages or logins); a run's result is its first attempt, and a listing too long to page through fails the poll, so pass --since; --since (default: the latest recorded GitHub event, and for the signals a day before the latest one) only bounds what gh is asked for, since ids decide what is new; --repo to corekraft/kore; re-polling appends nothing, one poll runs at a time, and a rate limit is reported with its retry time",
+  options: STRING_FLAGS(["ledger", "since", "repo"]),
   async run(context) {
     const since = context.options["since"];
     if (typeof since === "string" && !isTimestamp(since)) {
@@ -276,21 +278,15 @@ const pollGithubCommand: Command = {
         2,
       );
     }
-    const repo = context.options["repo"];
-    if (typeof repo === "string" && !/^[\w.-]+\/[\w.-]+$/.test(repo)) {
-      return reject(
-        context,
-        `Invalid --repo "${repo}". Use owner/name, such as ${DEFAULT_REPO}.`,
-        "repo",
-        2,
-      );
+    const repoName = repoOf(context.options);
+    if (typeof repoName !== "string") {
+      return reject(context, repoName.error, "repo", 2);
     }
     const opened = await openLedger(context);
     if ("error" in opened) {
       return reject(context, opened.error, "ledger");
     }
     const { runner, clock, fs } = context.deps;
-    const repoName = typeof repo === "string" ? repo : DEFAULT_REPO;
     const result = await pollGithub({
       ledger: opened.ledger,
       runner,

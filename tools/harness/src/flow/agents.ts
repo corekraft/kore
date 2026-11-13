@@ -30,3 +30,11 @@ export function withPaneAgents(events: LedgerEvent[]): LedgerEvent[] {
     return agent === undefined ? e : { ...e, agent };
   });
 }
+
+/** When sessions began carrying their stamp: the first claude event that names its agent, or undefined before that. */
+export function stampLanded(events: LedgerEvent[]): number | undefined {
+  const stamped = events
+    .filter((e) => e.source === "claude" && e.agent !== undefined)
+    .map(time);
+  return stamped.length === 0 ? undefined : Math.min(...stamped);
+}

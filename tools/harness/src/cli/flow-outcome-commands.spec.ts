@@ -18,8 +18,8 @@ describe("flow report outcome lines", () => {
   it("prints the outcome metrics, attribution and guard blocks in plain text", async () => {
     const { h, argv } = seeded();
     await run(argv, h.deps);
-    expect(h.out()).toMatch(
-      /Attribution: \d+ of \d+ events with an idea, \d+ with a stage too/,
+    expect(h.out()).toContain(
+      "Attribution: no stamped sessions yet, so nothing is measured",
     );
     expect(h.out()).toContain("Main red: no check runs on main");
     expect(h.out()).toContain("Reverts: 0 of 3 merged changes");

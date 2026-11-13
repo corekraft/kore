@@ -250,12 +250,15 @@ describe("outcome-metric events from GitHub", () => {
     },
   );
 
-  it.each(["pr.reverted", "owner.action"])(
-    "%s names the pull request or issue by number",
-    (kind) => {
-      const event = { source: "github", kind, occurredAt: at };
-      expect(parseEvent({ ...event, number: 7 }, "input").ok).toBe(true);
-      expect(parseEvent(event, "input").ok).toBe(false);
-    },
-  );
+  it("owner.action names the pull request or issue by number", () => {
+    const event = { source: "github", kind: "owner.action", occurredAt: at };
+    expect(parseEvent({ ...event, number: 7 }, "input").ok).toBe(true);
+    expect(parseEvent(event, "input").ok).toBe(false);
+  });
+
+  it("main.revert is a commit on main, which has no number", () => {
+    const event = { source: "github", kind: "main.revert", occurredAt: at };
+    expect(parseEvent(event, "input").ok).toBe(true);
+    expect(parseEvent({ ...event, number: 7 }, "input").ok).toBe(false);
+  });
 });

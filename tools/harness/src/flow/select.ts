@@ -1,5 +1,5 @@
 import type { LedgerEvent } from "../ledger/index.js";
-import { withPaneAgents } from "./agents.js";
+import { stampLanded, withPaneAgents } from "./agents.js";
 import { attribute } from "./attribution.js";
 import { REPOSITORY_KINDS } from "./outcomes.js";
 import { githubSpans, time, type GithubWait } from "./github-waits.js";
@@ -30,7 +30,7 @@ export function groupByIdea(all: LedgerEvent[], window: Span) {
       byIdea.set(idea, [...(byIdea.get(idea) ?? []), event]);
     }
   }
-  return { byIdea, unattributed, orphans, named };
+  return { byIdea, unattributed, orphans, named, landed: stampLanded(all) };
 }
 
 /** The latest time an idea holds: its last event or the end of an open GitHub wait. */

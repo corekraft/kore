@@ -26,9 +26,16 @@ function ledgerRoot(deps: CliDeps): Promise<string | undefined> {
   return root;
 }
 
+async function holds(ledger: Ledger, kind: Kind, id: string): Promise<boolean> {
+  const { events } = await ledger.list({ kind });
+  return events.some((e) => e.id === id);
+}
+
 /**
  * Appends one Claude event to the ledger. Best effort by contract: a missing
  * ledger root or a rejected event never changes a hook's verdict or output.
+ * An `extra.id` makes the event unique: the ledger already holding that id
+ * of this kind records nothing.
  */
 export async function recordEvent(
   deps: CliDeps,
@@ -66,12 +73,16 @@ export async function recordEvent(
       ...(outcome === undefined ? {} : { outcome }),
       ...extra,
     };
-    await new Ledger(
+    const ledger = new Ledger(
       deps.fs,
       deps.clock,
       deps.ids,
       join(main, DEFAULT_LEDGER),
-    ).record(event);
+    );
+    if (extra.id !== undefined && (await holds(ledger, kind, extra.id))) {
+      return;
+    }
+    await ledger.record(event);
   } catch {
     // Recording is best effort by contract.
   }

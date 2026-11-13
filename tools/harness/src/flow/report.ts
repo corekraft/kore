@@ -17,9 +17,12 @@ import { chargeToil, newLife } from "./toil.js";
 import { Tally, type StageTotals } from "./tally.js";
 import {
   firstClosed,
+  COST_KINDS,
   guardBlocks,
   ideaMetrics,
+  measureAttribution,
   outcomes,
+  type Attribution,
   type CostMetrics,
   type GuardBlocks,
   type Outcomes,
@@ -64,8 +67,8 @@ export interface FlowReport {
   bottleneckNote: string | null;
   /** Events with no stage or no idea, left out of every stage. */
   unmappedEvents: number;
-  /** How much of the work the report can place: events with an idea, and with an idea and a stage. */
-  attribution: { events: number; withIdea: number; withIdeaAndStage: number };
+  /** How much of the work recorded since the stamp landed the report can place; earlier events stay unattributed and are not counted. */
+  attribution: Attribution;
   /** Guard blocks per rule, most blocked first. */
   guardBlocks: GuardBlocks[];
   /** Metrics no agent can set: main-red rate, reverts, live-run pass rate and owner minutes. */
@@ -79,8 +82,6 @@ export interface ReportOptions extends ScopeOptions {
   /** Trailing window and thresholds for the cost metrics; defaults apply to what is left out. */
   cost?: Partial<CostOptions>;
 }
-
-const COST_KINDS = new Set<Kind>(["token.usage", "session.launch"]);
 
 type State = "active" | "waiting" | "closed";
 
@@ -212,12 +213,11 @@ function chargeIdea(
   tally: Tally,
   own: LedgerEvent[],
   waits: GithubWait[],
-): { unmapped: number; mapped: number } {
+): number {
   tally.beginIdea();
   const mergedAt = firstTime(own, (e) => e.kind === "pr.merged");
   const mapped: { event: LedgerEvent; stage: Stage }[] = [];
   let unmapped = 0;
-  let mappedInRange = 0;
   for (const event of own) {
     if (COST_KINDS.has(event.kind)) {
       // Cost events feed the cost metrics only; they are neither stage time nor unmapped.
@@ -229,7 +229,6 @@ function chargeIdea(
       if (inRange) {
         tally.count(stage);
         tally.present(stage, time(event), time(event));
-        mappedInRange += 1;
       }
       mapped.push({ event, stage });
     } else if (inRange) {
@@ -238,7 +237,7 @@ function chargeIdea(
   }
   githubWaits(tally, waits, actorTime(tally, mapped));
   tally.endIdea();
-  return { unmapped, mapped: mappedInRange };
+  return unmapped;
 }
 
 function nameBottleneck(
@@ -286,20 +285,18 @@ export function buildReport(
   const { asOf, minCompletedIdeas } = options;
   const scope = scopeOf(options);
   const window = windowOf(options);
-  const { byIdea, unattributed, orphans, named } = groupByIdea(events, window);
+  const { byIdea, unattributed, orphans, named, landed } = groupByIdea(
+    events,
+    window,
+  );
   const covered = select(byIdea, scope, window, asOf.getTime());
   const tally = new Tally(window);
   const ownByIdea = new Map<string, LedgerEvent[]>();
   let unmapped = 0;
   let completed = 0;
-  let mappedEvents = 0;
-  let ideaEvents = 0;
   for (const [idea, { own, waits }] of covered) {
     ownByIdea.set(idea, own);
-    const charged = chargeIdea(tally, own, waits);
-    unmapped += charged.unmapped;
-    mappedEvents += charged.mapped;
-    ideaEvents += charged.mapped + charged.unmapped;
+    unmapped += chargeIdea(tally, own, waits);
     const outcome = firstClosed(own);
     completed += outcome !== undefined && inWindow(window, outcome) ? 1 : 0;
   }
@@ -316,15 +313,17 @@ export function buildReport(
     ...ideaMetrics(ownByIdea, window, options.cost),
     ...nameBottleneck(tally, completed, minCompletedIdeas),
     unmappedEvents: unmapped,
-    attribution: {
-      events:
-        ideaEvents +
-        (scope.ideas === null
-          ? orphans.filter((e) => !COST_KINDS.has(e.kind)).length
-          : 0),
-      withIdea: ideaEvents,
-      withIdeaAndStage: mappedEvents,
-    },
+    attribution: measureAttribution(
+      [...covered.values()].map((c) => c.own),
+      scope.ideas === null ? orphans : [],
+      window,
+      landed,
+      (event, own) =>
+        stageOf(
+          event,
+          firstTime(own, (e) => e.kind === "pr.merged"),
+        ) !== undefined,
+    ),
     guardBlocks: guardBlocks(named, window),
     outcomes: outcomes(named, window),
   };

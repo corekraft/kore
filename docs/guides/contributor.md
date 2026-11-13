@@ -263,31 +263,44 @@ by the harness at spawn, not typed by the agent. A claude event with no agent
 takes the name its pane was last given by a herdr event, so older ledgers map
 too; a claude session still unnamed is the main session, `orchestrate`.
 `attribution` counts the events in range (cost events and the repository-wide
-events below left out) that have an idea, and an idea and a stage. Events from
-before sessions were stamped carry no idea and stay unattributed: the share
-rises as stamped sessions replace them.
+events below left out) that have an idea, and an idea and a stage, from the
+moment sessions began carrying the stamp: `since` is the first claude event that
+names its agent, and is `null` until there is one. Events recorded before that
+cannot carry a stamp, so they stay unattributed and are not counted against the
+figure.
 
 A blocked tool call records a `guard.block` event whose `label` is the rule
-name, never the command; `guardBlocks` counts them per rule.
+name, never the command; `guardBlocks` counts them per rule. The event id holds
+a hash of the session, rule and call, so retrying the same blocked call counts
+once.
 
-`outcomes` holds metrics whose inputs no agent writes. `ledger poll-github`
-records them from GitHub, beside the issue and PR events:
+`outcomes` holds figures whose inputs agents do not write. `ledger poll-github`
+records them from GitHub, beside the issue and PR events, and `ledger record`
+refuses source `github` and these kinds, so only the poller writes them:
 
 - `mainRed`: `{ runs, failed, rate }`, failed `check` workflow runs on `main`
-  over concluded ones (`ci.main`, only runs started by a push; timed-out counts as failed; cancelled and
-  skipped runs are left out).
-- `reverts`: `{ reverts, merged, rate }`, merged pull requests titled `Revert...`
-  (`pr.reverted`) per merged change; the title is the PR author's, so this is only as trusted as that.
+  over every concluded one (`ci.main`; only runs started by a push). Anything
+  but success counts against, cancelled and never-started runs included. A run
+  that was re-run is recorded by its first attempt, so a failure re-run to
+  success is still seen.
+- `reverts`: `{ reverts, merged, rate }`, commits on `main` whose subject starts
+  with `Revert "` or whose body says `This reverts commit` (`main.revert`) per
+  merged change. A PR merely titled Revert does not count.
 - `liveRuns`: `{ runs, passed, rate }`, the pass rate of the `nightly` workflow's
-  clean `local up` and integration runs (`ci.nightly`, only scheduled runs, so a run an agent dispatches by hand is not counted).
+  clean `local up` and integration runs (`ci.nightly`; only scheduled runs, so a
+  run an agent dispatches by hand is not counted; first attempt, as above).
 - `ownerMinutes`: `{ minutes, merged, perMerged, burstGapMinutes, upperBound }`.
-  The owner login's comments and issue events (`owner.action`) less than
-  `burstGapMinutes` (10) apart form one burst, charged from its first to its last
-  action, at least one minute. `perMerged` is `minutes` over merged changes.
-  The login is `--owner`, else `ownerLogin` in `.claude/harness.json`, else the
-  repository's owner. Agents share that login until they get their own
+  The owner login's comments, issue events and PR reviews (`owner.action`) on
+  idea issues and on pull requests that close one, less than `burstGapMinutes`
+  (10) apart, form one burst, charged from its first to its last action, at
+  least one minute. `perMerged` is `minutes` over merged changes. The login is
+  `ownerLogin` in `.claude/harness.json`, else the repository's owner; there is
+  no flag to override it. Agents share that login until they get their own
   identities (#336), so `upperBound` is always `true`.
 
+A listing too long to page through (200 runs or PRs, or 300 comments, events or
+commits) fails the poll instead of recording part of it: pass `--since` to bound
+a first poll. Later polls start a day before the latest recorded signal.
 Each rate is `null`, never zero, when nothing was measured, and each counts only
 events inside `--since`/`--until`. Only counts, conclusions and times are
 stored, never a title, body or login.

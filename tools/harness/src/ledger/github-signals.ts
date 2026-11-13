@@ -2,197 +2,70 @@ import type { Clock, FileSystem, Runner } from "../runtime/index.js";
 import type { GithubPollResult } from "./github-poll.js";
 import type { Ledger } from "./ledger.js";
 import { acquire } from "./poll-lock.js";
-import { isTimestamp, type EventInput } from "./schema.js";
+import type { EventInput } from "./schema.js";
 
 /**
  * The outcome signals agents do not write: how GitHub's own workflow runs
- * concluded (only runs GitHub started), which pull requests were titled as
- * reverts, and when the owner login acted. The last two are only as trusted as
- * the pull request title and the shared login (#336).
- * Only numbers, conclusions and times are kept: never a title, body or login.
+ * concluded (first attempts of runs GitHub started), which commits landed on
+ * main as reverts, and when the owner login acted. Only numbers, conclusions
+ * and times are kept: never a title, body, message or login. `owner.action`
+ * trusts the login, which agents share until #336.
  */
 
-type Raw = Record<string, unknown>;
+import {
+  DAY_MS,
+  LIMIT,
+  asRecord,
+  count,
+  json,
+  list,
+  pages,
+  when,
+} from "./github-gh.js";
+import { fromActions } from "./github-owner-actions.js";
 
 const WORKFLOWS = [
-  // Only the runs GitHub starts itself: a run an agent dispatches or reruns by hand is not counted.
+  // Only runs GitHub starts itself: a run an agent dispatches by hand is not counted.
   { file: "check.yml", kind: "ci.main", branch: "main", event: "push" },
   { file: "nightly.yml", kind: "ci.nightly", event: "schedule" },
 ] as const;
 
-const LIMIT = 200;
-const PAGE = 100;
-/** The comments and events APIs: at most three pages of the newest. */
-const MAX_PAGES = 3;
-
-const asRecord = (value: unknown): Raw =>
-  typeof value === "object" && value !== null ? (value as Raw) : {};
-
-const when = (value: unknown): string | undefined =>
-  typeof value === "string" && isTimestamp(value) ? value : undefined;
-
-const count = (value: unknown): number | undefined =>
-  Number.isSafeInteger(value) && (value as number) >= 1
-    ? (value as number)
-    : undefined;
-
-/** A `gh` call's JSON list, or the message saying which call failed. */
-async function list(
-  runner: Runner,
-  what: string,
-  args: string[],
-): Promise<Raw[] | string> {
-  const found = await runner.run("gh", args);
-  if (found.code !== 0) {
-    const text = `${found.stderr}${found.stdout}`.trim();
-    return `gh ${what} failed: ${text === "" ? `exit code ${found.code}` : text}. Is gh installed and logged in (gh auth status)?`;
+/** Success is a pass; every other conclusion (failure, timed out, cancelled, never started) counts against. */
+function outcomeOf(conclusion: unknown): "success" | "failure" | undefined {
+  if (typeof conclusion !== "string" || conclusion === "") {
+    return undefined;
   }
-  try {
-    const value = JSON.parse(found.stdout) as unknown;
-    if (Array.isArray(value)) {
-      return value.map(asRecord);
-    }
-  } catch {
-    // Falls through to the message below.
-  }
-  return `gh ${what} did not print a JSON list; the gh version may have changed its output.`;
+  return conclusion === "success" ? "success" : "failure";
 }
 
-/** Success and failure only: a cancelled or skipped run says nothing about the code. */
-const OUTCOME: Record<string, "success" | "failure" | undefined> = {
-  success: "success",
-  failure: "failure",
-  timed_out: "failure",
-};
-
-function fromRuns(runs: Raw[], kind: "ci.main" | "ci.nightly"): EventInput[] {
-  const out: EventInput[] = [];
-  for (const raw of runs) {
-    const id = count(raw["databaseId"]);
-    const at = when(raw["updatedAt"]);
-    const outcome = OUTCOME[String(raw["conclusion"])];
-    if (id !== undefined && at !== undefined && outcome !== undefined) {
-      out.push({
-        id: `github:${kind}:${id}`,
-        source: "github",
-        kind,
-        occurredAt: at,
-        outcome,
-      });
-    }
-  }
-  return out;
+interface Known {
+  have: Set<string>;
+  /** Where to start: --since, else a day before the latest recorded signal. */
+  since?: string;
 }
 
-const REVERT = /^revert\b/i;
-
-function fromReverts(prs: Raw[]): EventInput[] {
-  const out: EventInput[] = [];
-  for (const raw of prs) {
-    const number = count(raw["number"]);
-    const at = when(raw["mergedAt"]);
-    if (
-      number !== undefined &&
-      at !== undefined &&
-      typeof raw["title"] === "string" &&
-      REVERT.test(raw["title"])
-    ) {
-      out.push({
-        id: `github:pr.reverted:${number}`,
-        source: "github",
-        kind: "pr.reverted",
-        occurredAt: at,
-        number,
-      });
-    }
-  }
-  return out;
-}
-
-const issueNumber = (url: unknown) =>
-  count(Number(/\/issues\/(\d+)$/.exec(String(url))?.[1]));
-
-function fromActions(
-  comments: Raw[],
-  events: Raw[],
-  owner: string,
-): EventInput[] {
-  const out: EventInput[] = [];
-  const add = (
-    id: string,
-    login: unknown,
-    at: unknown,
-    number: number | undefined,
-  ) => {
-    const time = when(at);
-    if (login === owner && time !== undefined && number !== undefined) {
-      out.push({
-        id,
-        source: "github",
-        kind: "owner.action",
-        occurredAt: time,
-        number,
-      });
-    }
-  };
-  for (const c of comments) {
-    add(
-      `github:owner.action:comment:${String(c["id"])}`,
-      asRecord(c["user"])["login"],
-      c["created_at"],
-      issueNumber(c["issue_url"]),
-    );
-  }
-  for (const e of events) {
-    add(
-      `github:owner.action:event:${String(e["id"])}`,
-      asRecord(e["actor"])["login"],
-      e["created_at"],
-      count(asRecord(e["issue"])["number"]),
-    );
-  }
-  return out;
-}
-
-/** Newest-first pages of a `gh api` listing, stopping at a short page. */
-async function pages(
-  runner: Runner,
-  what: string,
-  path: string,
-  since?: string,
-): Promise<Raw[] | string> {
-  const all: Raw[] = [];
-  for (let page = 1; page <= MAX_PAGES; page++) {
-    const got = await list(runner, what, [
-      "api",
-      `${path}${path.includes("?") ? "&" : "?"}per_page=${PAGE}&page=${page}`,
-    ]);
-    if (typeof got === "string") {
-      return got;
-    }
-    all.push(...got);
-    const oldest = when(got.at(-1)?.["created_at"]);
-    const reached =
-      since !== undefined &&
-      oldest !== undefined &&
-      Date.parse(oldest) <= Date.parse(since);
-    if (got.length < PAGE || reached) {
-      return all;
-    }
-  }
-  // A full last page that never reached the last poll: some actions are missing.
-  return since === undefined
-    ? all
-    : `gh ${what} had more than ${MAX_PAGES * PAGE} entries since ${since}, so some owner actions would be missing. Poll more often.`;
-}
-
-async function fetchPlanned(
+/** A run's first attempt: a re-run keeps its id, so the later conclusion hides a failure. */
+async function firstAttempt(
   runner: Runner,
   repo: string,
-  owner: string,
-  since?: string,
+  id: number,
+): Promise<{ conclusion: unknown; at: unknown } | string> {
+  const got = await json(runner, "api run attempt", [
+    "api",
+    `repos/${repo}/actions/runs/${id}/attempts/1`,
+  ]);
+  const raw = asRecord(got);
+  return typeof got === "string"
+    ? got
+    : { conclusion: raw["conclusion"], at: raw["updated_at"] };
+}
+
+async function fromRuns(
+  runner: Runner,
+  repo: string,
+  known: Known,
 ): Promise<EventInput[] | string> {
-  const planned: EventInput[] = [];
+  const out: EventInput[] = [];
   for (const { file, kind, ...rest } of WORKFLOWS) {
     const runs = await list(runner, "run list", [
       "run",
@@ -208,59 +81,99 @@ async function fetchPlanned(
       "completed",
       "--limit",
       String(LIMIT),
+      ...(known.since === undefined
+        ? []
+        : ["--created", `>=${known.since.slice(0, 10)}`]),
       "--json",
-      "databaseId,conclusion,updatedAt",
+      "databaseId,conclusion,updatedAt,attempt",
     ]);
     if (typeof runs === "string") {
       return runs;
     }
-    planned.push(...fromRuns(runs, kind));
+    if (runs.length >= LIMIT) {
+      return `gh returned ${LIMIT} ${file} runs, the most one poll lists, so some may be missing. Pass --since with a later time.`;
+    }
+    for (const raw of runs) {
+      const id = count(raw["databaseId"]);
+      if (id === undefined || known.have.has(`github:${kind}:${id}`)) {
+        continue;
+      }
+      let conclusion = raw["conclusion"];
+      let at = raw["updatedAt"];
+      if ((count(raw["attempt"]) ?? 1) > 1) {
+        const first = await firstAttempt(runner, repo, id);
+        if (typeof first === "string") {
+          return first;
+        }
+        ({ conclusion, at } = first);
+      }
+      const outcome = outcomeOf(conclusion);
+      const time = when(at);
+      if (outcome !== undefined && time !== undefined) {
+        out.push({
+          id: `github:${kind}:${id}`,
+          source: "github",
+          kind,
+          occurredAt: time,
+          outcome,
+        });
+      }
+    }
   }
-  const prs = await list(runner, "pr list", [
-    "pr",
-    "list",
-    "--repo",
-    repo,
-    "--state",
-    "merged",
-    "--search",
-    "Revert in:title",
-    "--limit",
-    String(LIMIT),
-    "--json",
-    "number,title,mergedAt",
-  ]);
-  if (typeof prs === "string") {
-    return prs;
-  }
-  planned.push(...fromReverts(prs));
-  const comments = await pages(
-    runner,
-    "api issues/comments",
-    `repos/${repo}/issues/comments?sort=created&direction=desc${since === undefined ? "" : `&since=${since}`}`,
-    since,
-  );
-  if (typeof comments === "string") {
-    return comments;
-  }
-  const events = await pages(
-    runner,
-    "api issues/events",
-    `repos/${repo}/issues/events`,
-    since,
-  );
-  if (typeof events === "string") {
-    return events;
-  }
-  planned.push(...fromActions(comments, events, owner));
-  return planned;
+  return out;
 }
 
+const REVERT_SUBJECT = /^Revert "/;
+const REVERT_BODY = /\bThis reverts commit\b/;
+
+async function fromReverts(
+  runner: Runner,
+  repo: string,
+  since?: string,
+): Promise<EventInput[] | string> {
+  const commits = await pages(
+    runner,
+    "api commits",
+    `repos/${repo}/commits?sha=main`,
+    since,
+  );
+  if (typeof commits === "string") {
+    return commits;
+  }
+  const out: EventInput[] = [];
+  for (const raw of commits) {
+    const commit = asRecord(raw["commit"]);
+    const message =
+      typeof commit["message"] === "string" ? commit["message"] : "";
+    const sha = raw["sha"];
+    const at = when(asRecord(commit["committer"])["date"]);
+    if (
+      typeof sha === "string" &&
+      /^[0-9a-f]{7,64}$/.test(sha) &&
+      at !== undefined &&
+      (REVERT_SUBJECT.test(message) || REVERT_BODY.test(message))
+    ) {
+      out.push({
+        id: `github:main.revert:${sha}`,
+        source: "github",
+        kind: "main.revert",
+        occurredAt: at,
+      });
+    }
+  }
+  return out;
+}
+
+const SIGNAL_KINDS = ["ci.main", "ci.nightly", "main.revert", "owner.action"];
+
 /**
- * Appends ci.main, ci.nightly, pr.reverted and owner.action events that the
- * ledger does not hold. Ids come from GitHub's own run, pull request, comment
- * and event ids, so re-polling appends nothing. `owner` is the one login whose
- * actions are kept.
+ * Appends ci.main, ci.nightly, main.revert and owner.action events that the
+ * ledger does not hold. Ids come from GitHub's own run, commit, comment, event
+ * and review ids, so re-polling appends nothing, and a run's result is its
+ * first attempt, so a failure re-run to success is still seen. `since` (default:
+ * a day before the latest recorded signal) bounds what is fetched; a listing
+ * that cannot reach back that far fails the poll instead of recording part of
+ * it. `owner` is the one login whose actions are kept.
  */
 export async function pollSignals(deps: {
   ledger: Ledger;
@@ -269,6 +182,7 @@ export async function pollSignals(deps: {
   fs: FileSystem;
   repo: string;
   owner: string;
+  since?: string;
 }): Promise<GithubPollResult> {
   const held = await acquire(
     deps.fs,
@@ -280,23 +194,30 @@ export async function pollSignals(deps: {
   }
   try {
     const { events: known } = await deps.ledger.list({ source: "github" });
+    const latest = known
+      .filter((e) => SIGNAL_KINDS.includes(e.kind))
+      .map((e) => Date.parse(e.occurredAt))
+      .reduce((a, b) => Math.max(a, b), Number.NEGATIVE_INFINITY);
+    const since =
+      deps.since ??
+      (Number.isFinite(latest)
+        ? new Date(latest - DAY_MS).toISOString().replace(/\.\d+Z$/, "Z")
+        : undefined);
     const have = new Set(known.map((e) => e.id));
-    // Owner actions are paged back to the last one recorded; older ones were polled already.
-    const since = known
-      .filter((e) => e.kind === "owner.action")
-      .map((e) => e.occurredAt)
-      .sort()
-      .at(-1);
-    const fetched = await fetchPlanned(
-      deps.runner,
-      deps.repo,
-      deps.owner,
-      since,
-    );
-    if (typeof fetched === "string") {
-      return { ok: false, message: fetched };
+    const parts = [
+      await fromRuns(deps.runner, deps.repo, {
+        have,
+        ...(since === undefined ? {} : { since }),
+      }),
+      await fromReverts(deps.runner, deps.repo, since),
+      await fromActions(deps.runner, deps.repo, deps.owner, since),
+    ];
+    const failed = parts.find((p) => typeof p === "string");
+    if (typeof failed === "string") {
+      return { ok: false, message: failed };
     }
-    const planned = fetched
+    const planned = (parts as EventInput[][])
+      .flat()
       .filter((e) => !have.has(e.id ?? ""))
       .sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt));
     for (const input of planned) {

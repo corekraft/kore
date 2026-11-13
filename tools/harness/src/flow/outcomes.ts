@@ -13,9 +13,24 @@ import { inWindow, type Span } from "./scope.js";
 export const REPOSITORY_KINDS = new Set<string>([
   "ci.main",
   "ci.nightly",
-  "pr.reverted",
+  "main.revert",
   "owner.action",
 ]);
+
+/** Issue numbers that are ideas, and pull requests that close one: the only places owner time counts. */
+function ideaNumbers(events: LedgerEvent[]): Set<number> {
+  const numbers = new Set<number>();
+  for (const e of events) {
+    if (
+      e.number !== undefined &&
+      (e.kind === "issue.opened" ||
+        (e.kind.startsWith("pr.") && e.idea !== undefined))
+    ) {
+      numbers.add(e.number);
+    }
+  }
+  return numbers;
+}
 
 /** Owner actions less than this many minutes apart are one sitting. */
 export const BURST_GAP_MINUTES = 10;
@@ -78,8 +93,13 @@ export function outcomes(events: LedgerEvent[], window: Span): Outcomes {
   const main = of("ci.main");
   const nightly = of("ci.nightly");
   const merged = of("pr.merged").length;
-  const reverts = of("pr.reverted").length;
-  const minutes = ownerMinutes(of("owner.action").map(time));
+  const reverts = of("main.revert").length;
+  const ideas = ideaNumbers(events);
+  const minutes = ownerMinutes(
+    of("owner.action")
+      .filter((e) => e.number !== undefined && ideas.has(e.number))
+      .map(time),
+  );
   const failed = main.filter((e) => e.outcome === "failure").length;
   const passed = nightly.filter((e) => e.outcome === "success").length;
   return {

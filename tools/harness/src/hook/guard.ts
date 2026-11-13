@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 // PreToolUse guard: enforces mechanically checkable rules from AGENTS.md.
 // Plan: infra/plans/3-agent-harness.md (Step 2).
 //
@@ -23,6 +24,18 @@ import type { HookResult } from "./io.js";
 export { evaluate };
 
 /** Runs the guard against the payload the host sent; a block exits 2. */
+/** One id per session, rule and call: the same blocked call retried is the same block. */
+function blockId(
+  call: { session_id?: unknown; tool_input?: unknown },
+  rule: string,
+): string {
+  const hash = createHash("sha256")
+    .update(JSON.stringify(call.tool_input ?? null))
+    .digest("hex")
+    .slice(0, 16);
+  return `guard.block:${String(call.session_id)}:${rule}:${hash}`;
+}
+
 export async function guard(
   payload: unknown,
   deps: CliDeps,
@@ -60,8 +73,10 @@ export async function guard(
     // A blocked call never reaches the post-tool hook, so close its start here.
     await recordEvent(deps, "tool.end", call, "failure");
     // The rule name only, never the command: the flow report counts blocks per rule.
+    // The id carries a hash of the call, so a retry of the same blocked call counts once.
     await recordEvent(deps, "guard.block", call, undefined, {
       label: verdict.rule,
+      id: blockId(call, verdict.rule),
     });
     return { code: 2, stderr: `${verdict.message}${problem}\n` };
   }
