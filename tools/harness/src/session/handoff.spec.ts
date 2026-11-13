@@ -1,6 +1,7 @@
-import { mkdtemp, readdir, rm, stat } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { mkdtemp, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { testHarness } from "../cli/cli-support.js";
 import type { CliDeps } from "../runtime/index.js";
@@ -152,7 +153,7 @@ describe("handOff command shapes", () => {
       "pane",
       "run",
       "w3:p9",
-      `export GH_TOKEN="$(cat '/state/handoff/w1/token')"`,
+      `export GH_TOKEN="$(cat '/state/handoff/w1/token')"; [ -n "$GH_TOKEN" ] || exit 1`,
     ]);
   });
 
@@ -164,8 +165,34 @@ describe("handOff command shapes", () => {
     });
     const run = h.runner.calls.find((c) => c.args[1] === "run");
     expect(run?.args[3]).toBe(
-      `export GH_TOKEN="$(cat '/it'\\''s here/w1/token')"`,
+      `export GH_TOKEN="$(cat '/it'\\''s here/w1/token')"; [ -n "$GH_TOKEN" ] || exit 1`,
     );
+  });
+});
+
+describe("handOff failures", () => {
+  it("makes the pane's shell exit when it reads an empty token, so it never falls back to the owner's login", async () => {
+    const h = testHarness();
+    await handOff(h.deps, opts("/state"));
+    const command = h.runner.calls.find((c) => c.args[1] === "run")
+      ?.args[3] as string;
+    // Another process won the FIFO race: the pane's cat reads end-of-file at once.
+    const empty = join(await mkdtemp(join(tmpdir(), "kore-empty-")), "token");
+    scratch.push(dirname(empty));
+    await writeFile(empty, "");
+    const ran = spawnSync(
+      "sh",
+      [
+        "-c",
+        `${command.replace("/state/handoff/w1/token", empty)}; echo survived`,
+      ],
+      {
+        encoding: "utf8",
+        env: { PATH: process.env["PATH"] ?? "", GH_TOKEN: "owner-token" },
+      },
+    );
+    expect(ran.status).toBe(1);
+    expect(ran.stdout).not.toContain("survived");
   });
 
   it("unblocks the writer and reports the failure when the pane refuses the command", async () => {

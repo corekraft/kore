@@ -4,6 +4,7 @@ import { testHarness } from "../cli/cli-support.js";
 import { roleToken } from "./role-token.js";
 import {
   APP_KEY,
+  FLAG_ON,
   JUDGE_ITEMS,
   JUDGE_TOKEN,
   WRITER_ITEMS,
@@ -16,6 +17,7 @@ import {
 describe("roleToken", () => {
   it("mints a short-lived installation token for a writer, signing the App JWT in process", async () => {
     const h = testHarness({
+      files: FLAG_ON,
       responses: [...keychain(WRITER_ITEMS), mintResponse],
     });
     expect(await roleToken(h.deps, "writer")).toEqual({ token: WRITER_TOKEN });
@@ -43,6 +45,7 @@ describe("roleToken", () => {
 
   it("asks only for the writer's permissions on this repository", async () => {
     const h = testHarness({
+      files: FLAG_ON,
       responses: [...keychain(WRITER_ITEMS), mintResponse],
     });
     await roleToken(h.deps, "writer");
@@ -59,7 +62,7 @@ describe("roleToken", () => {
   });
 
   it("reads the judge's PAT from the keychain without calling GitHub", async () => {
-    const h = testHarness({ responses: keychain(JUDGE_ITEMS) });
+    const h = testHarness({ files: FLAG_ON, responses: keychain(JUDGE_ITEMS) });
     expect(await roleToken(h.deps, "judge")).toEqual({ token: JUDGE_TOKEN });
     expect(h.runner.calls.some((c) => c.command === "curl")).toBe(false);
   });
@@ -67,6 +70,7 @@ describe("roleToken", () => {
   it("gives the orchestrator and every other role no token and never reads the keychain", async () => {
     for (const role of ["orchestrator", "reader", "concierge", "refiner"]) {
       const h = testHarness({
+        files: FLAG_ON,
         responses: [...keychain(WRITER_ITEMS), ...keychain(JUDGE_ITEMS)],
       });
       expect(await roleToken(h.deps, role)).toBeUndefined();
@@ -77,7 +81,7 @@ describe("roleToken", () => {
 
 describe("roleToken without an identity or with a failed mint", () => {
   it("names the missing keychain item and the wizard when the writer identity is absent", async () => {
-    const h = testHarness({ responses: [keychainMiss] });
+    const h = testHarness({ files: FLAG_ON, responses: [keychainMiss] });
     const result = await roleToken(h.deps, "writer");
     expect(result).toHaveProperty("error");
     const { error } = result as { error: string };
@@ -86,14 +90,17 @@ describe("roleToken without an identity or with a failed mint", () => {
   });
 
   it("names the wizard when the judge PAT is absent", async () => {
-    const h = testHarness({ responses: [keychainMiss] });
+    const h = testHarness({ files: FLAG_ON, responses: [keychainMiss] });
     const { error } = (await roleToken(h.deps, "judge")) as { error: string };
     expect(error).toContain("kore.judge.pat");
     expect(error).toContain("tools/harness/wizards/identities.sh");
   });
 
   it("treats an empty keychain value as missing", async () => {
-    const h = testHarness({ responses: keychain({ "kore.judge.pat": "" }) });
+    const h = testHarness({
+      files: FLAG_ON,
+      responses: keychain({ "kore.judge.pat": "" }),
+    });
     expect(await roleToken(h.deps, "judge")).toHaveProperty("error");
   });
 });
@@ -101,6 +108,7 @@ describe("roleToken without an identity or with a failed mint", () => {
 describe("roleToken keeps secrets out of argv", () => {
   it("keeps every secret out of argv and out of the environment it hands a child", async () => {
     const h = testHarness({
+      files: FLAG_ON,
       responses: [...keychain(WRITER_ITEMS), mintResponse],
     });
     await roleToken(h.deps, "writer");
@@ -114,6 +122,7 @@ describe("roleToken keeps secrets out of argv", () => {
 
   it("reports a failed mint without echoing the response body", async () => {
     const h = testHarness({
+      files: FLAG_ON,
       responses: [
         ...keychain(WRITER_ITEMS),
         {
@@ -138,6 +147,7 @@ describe("roleToken keeps secrets out of argv", () => {
 
   it("rejects a mint response that carries no token", async () => {
     const h = testHarness({
+      files: FLAG_ON,
       responses: [
         ...keychain(WRITER_ITEMS),
         { match: (c) => c === "curl", result: { stdout: "{}" } },

@@ -49,3 +49,11 @@ export const keychainMiss: FakeResponse = {
       "security: SecKeychainSearchCopyNext: The specified item could not be found in the keychain.",
   },
 };
+
+export const OVERLAY = "/repo/infra/environments/local/environment.yaml";
+
+/** The local overlay with the role-tokens flag set. */
+export const flag = (on: boolean): Record<string, string> => ({
+  [OVERLAY]: JSON.stringify({ features: { "role-tokens": on } }),
+});
+export const FLAG_ON = flag(true);

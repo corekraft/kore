@@ -34,7 +34,7 @@ export async function spawn(context: CommandContext): Promise<number> {
     leftOpen,
   });
   if ("error" in modelCheck) {
-    return fail(deps, json, FAILED, modelCheck.error);
+    return fail(deps, json, FAILED, opened.explain(modelCheck.error));
   }
   return await finish(context, {
     registry,

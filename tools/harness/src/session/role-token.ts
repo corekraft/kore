@@ -1,4 +1,5 @@
 import { createSign } from "node:crypto";
+import { FlagError, environments, readOverlay } from "../flag/index.js";
 import type { CliDeps } from "../runtime/index.js";
 
 /** Where the owner runs the wizard that creates the identities and fills the keychain. */
@@ -151,20 +152,44 @@ async function mintWriter(deps: CliDeps): Promise<RoleToken> {
       };
 }
 
+/** The feature flag (ADR 0077) that turns role tokens on, in the local environment overlay; off unless true. */
+export const ROLE_TOKENS_FLAG = "role-tokens";
+const FLAG_ENVIRONMENT = "local";
+
+/** Whether the local overlay turns role tokens on. No overlay means off; a malformed one throws a FlagError. */
+async function flagOn(deps: CliDeps): Promise<boolean> {
+  const root = await deps.root();
+  if (!(await environments(deps.fs, root)).includes(FLAG_ENVIRONMENT)) {
+    return false;
+  }
+  const overlay = await readOverlay(deps.fs, root, FLAG_ENVIRONMENT);
+  return overlay.features[ROLE_TOKENS_FLAG] === true;
+}
+
 /**
  * The GitHub token a role's pane gets: a minted installation token for a
  * writer, the keychain PAT for the judge. Every other role, the orchestrator
- * included, gets none (undefined) and the keychain is not read.
+ * included, gets none (undefined) and the keychain is not read. So does every
+ * role while the role-tokens flag is off, so spawn behaves as it did before.
  */
 export async function roleToken(
   deps: CliDeps,
   role: string,
 ): Promise<RoleToken | undefined> {
-  if (role === "writer") {
-    return await mintWriter(deps);
+  if (role !== "writer" && role !== "judge") {
+    return undefined;
   }
-  if (role === "judge") {
-    return await fromKeychain(deps, SERVICE.judgePat, "judge");
+  try {
+    if (!(await flagOn(deps))) {
+      return undefined;
+    }
+  } catch (error) {
+    if (error instanceof FlagError) {
+      return { error: `${error.message} No pane was split.` };
+    }
+    throw error;
   }
-  return undefined;
+  return role === "writer"
+    ? await mintWriter(deps)
+    : await fromKeychain(deps, SERVICE.judgePat, "judge");
 }

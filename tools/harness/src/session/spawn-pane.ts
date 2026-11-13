@@ -5,7 +5,12 @@ import {
   readLayout,
   spawnedColumn,
 } from "./equalize.js";
-import { handOff, handoffDir, HANDOFF_TIMEOUT_MS } from "./handoff.js";
+import {
+  handOff,
+  handoffDir,
+  HANDOFF_TIMEOUT_MS,
+  unreadTokenHint,
+} from "./handoff.js";
 import type { SessionRegistry } from "./registry.js";
 import type { Checked } from "./spawn-check.js";
 import { place, type Placement } from "./worktree.js";
@@ -82,6 +87,8 @@ export interface Opened {
   /** What to tell the caller about a pane left open when a later step fails. */
   leftOpen: string;
   placed: Placement;
+  /** Adds what a failed agent start may mean for this pane. */
+  explain(error: string): string;
 }
 
 /**
@@ -132,5 +139,10 @@ export async function openPane(
       return { error: `${handed} ${leftOpen}` };
     }
   }
-  return { paneId, leftOpen, placed };
+  return {
+    paneId,
+    leftOpen,
+    placed,
+    explain: token === undefined ? (error) => error : unreadTokenHint,
+  };
 }

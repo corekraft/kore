@@ -10,7 +10,6 @@ import {
   nameFree,
   spawnArgs,
   splitReturns,
-  writerIdentity,
 } from "./spawn-support.js";
 
 // A live run holds the exclusive host lease at <host>/.kore/locks/host-lease.lock
@@ -34,13 +33,7 @@ const writer = [
   ...spawnArgs.map((arg) => (arg === "reader" ? "writer" : arg)),
   "--worktree",
 ];
-const spawned = [
-  ...writerIdentity,
-  gitCommon,
-  nameFree,
-  layoutOf(),
-  splitReturns("w3:p9"),
-];
+const spawned = [gitCommon, nameFree, layoutOf(), splitReturns("w3:p9")];
 
 describe("session spawn and the host lease", () => {
   it("refuses a new writer while a live run holds the lease, naming the holder", async () => {

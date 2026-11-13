@@ -78,7 +78,8 @@ export async function handOff(
       "pane",
       "run",
       pane,
-      `export GH_TOKEN="$(cat ${shellQuote(fifo)})"`,
+      // An empty read (another process won the FIFO) must not leave the shell, and so gh, on the owner's login.
+      `export GH_TOKEN="$(cat ${shellQuote(fifo)})"; [ -n "$GH_TOKEN" ] || exit 1`,
     ]);
     if (told.code !== 0) {
       // Nobody will read: open the read end so the writer does not wait out its timeout.
@@ -96,3 +97,9 @@ export async function handOff(
     await deps.runner.run("rm", ["-rf", dir]);
   }
 }
+
+/** What a failed `agent start` may mean for a pane that was given a token: its shell exits on an empty read. */
+export const unreadTokenHint = (error: string): string =>
+  error.includes("agent start failed")
+    ? `${error} If the pane's shell exited, it read no token (another process may have read the FIFO first); spawn again.`
+    : error;

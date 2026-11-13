@@ -26,7 +26,13 @@ sandboxed writer included.
 
 ## Decision
 
-- `session spawn` reads the role's identity from the macOS keychain before it
+- The whole mechanism sits behind the `role-tokens` feature flag
+  ([ADR 0077](0077-live-proof-gates-activation-not-merge.md)) in
+  `infra/environments/local/environment.yaml`, off by default. While it is off
+  `session spawn` behaves as before: no keychain read, no token, no FIFO. The
+  owner runs the wizard, the orchestrator proves a spawn with tokens, and only
+  then `harness flag activate` turns it on (audit before enforce).
+- With the flag on, `session spawn` reads the role's identity from the macOS keychain before it
   touches herdr or git: a writer's App id, installation id and private key, or
   the judge's PAT. A missing item stops the spawn with a hint naming
   `tools/harness/wizards/identities.sh`. Every other role, the orchestrator
@@ -40,7 +46,9 @@ sandboxed writer included.
   the FIFO from a process whose stdin carries it. Only the path is ever in
   argv. The directory is removed after the one read, on timeout (10 seconds)
   and on any failure. This happens before the agent starts, so `claude`
-  inherits the variable.
+  inherits the variable. The pane command fails closed:
+  `[ -n "$GH_TOKEN" ] || exit 1`, so a shell that read nothing exits instead of
+  leaving `gh` on the owner's login, and spawn reports the failed agent start.
 - The wizard stores secrets in the keychain through the stdin of `security -i`.
   The one file that holds a secret is the App's `.pem`, which GitHub makes the
   owner download; the wizard deletes it.
@@ -51,8 +59,17 @@ sandboxed writer included.
   token is on stdin of the writing process only.
 - Limit: a FIFO is readable by any process with the same user id that opens it
   before the pane does. The 0700 directory and the short window narrow the
-  race but cannot close it; whoever wins gets the token and the pane gets EOF,
-  which shows as an empty `GH_TOKEN`.
+  race but cannot close it; whoever wins gets the token, and the pane reads
+  nothing and exits (see above), so the loss is visible and the spawn is retried.
+- Limit: any agent running as the user can read the keychain items with
+  `security find-generic-password -s kore.judge.pat -a kore -w` without a
+  prompt, so an unsandboxed writer could read the judge PAT and approve its own
+  PR. The `secret-path` guard now blocks `security find-generic-password`
+  naming a `kore.*` service, `security dump-keychain` and `security export`, but
+  it is only a hint. The boundary is running writers under the ADR 0095
+  sandbox, which denies the keychain. Until then the judge PAT is exposed to
+  unsandboxed sessions, which is one more reason the flag stays off until the
+  sandbox is wired.
 - Limit: when the launcher later wraps the pane in `sandbox-exec` (ADR 0095),
   the profile must allow reading `.kore/state/handoff/<name>/token` for that
   pane, or the export must run before the wrap. Today the pane's shell is not

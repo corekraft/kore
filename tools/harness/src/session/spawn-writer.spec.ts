@@ -9,7 +9,6 @@ import {
   nameFree,
   spawnArgs,
   splitReturns,
-  writerIdentity,
 } from "./spawn-support.js";
 
 const writer = spawnArgs.map((arg) => (arg === "reader" ? "writer" : arg));
@@ -26,13 +25,7 @@ describe("session spawn for a writer", () => {
   it("starts a writer that has its own worktree", async () => {
     const h = testHarness({
       env: INSIDE,
-      responses: [
-        ...writerIdentity,
-        gitCommon,
-        nameFree,
-        layoutOf(),
-        splitReturns("w3:p9"),
-      ],
+      responses: [gitCommon, nameFree, layoutOf(), splitReturns("w3:p9")],
     });
     expect(await run([...writer, "--worktree"], h.deps)).toBe(0);
     expect(herdrCalls(h)).toContain("herdr pane layout --pane w3:p1");
