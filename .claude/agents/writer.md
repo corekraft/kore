@@ -21,3 +21,7 @@ Before you edit, load the repo skill that covers what you change, with the Skill
 - `tools/kore/src/cli` → `add-command`
 - `infra/policies` → `add-policy`
 - Version pins (`.mise.toml`, `infra/catalog/versions.yaml`, `infra/catalog/components.yaml`, `infra/charts/`) → `pin-upgrade`
+
+## Long-running commands
+
+To stream a long command instead of running it in the background, load `Monitor` first with ToolSearch `select:Monitor`, then call it with `description`, `command` and `timeout_ms`, never ToolSearch's `query`.
