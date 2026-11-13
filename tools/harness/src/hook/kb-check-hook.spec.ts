@@ -8,10 +8,20 @@ import { testHarness } from "../cli/cli-support.js";
 const CLEAN = { "docs/index.md": "# Index\n", "README.md": "# Kore\n" };
 const BROKEN = { ...CLEAN, "README.md": "# Kore\n\n[gone](missing.md)\n" };
 
+/** A `git config --get core.bare` answer: a value, unset (code 1), or a failure. */
+type BareAnswer = string | { code: number; stderr: string };
+
+function bareResult(bare: BareAnswer | undefined) {
+  if (bare === undefined) {
+    return { code: 1 };
+  }
+  return typeof bare === "string" ? { stdout: `${bare}\n` } : bare;
+}
+
 function repository(
   tree: Record<string, string>,
   gitFails = false,
-  bare?: string,
+  bare?: BareAnswer,
 ) {
   return testHarness({
     files: Object.fromEntries(
@@ -20,7 +30,7 @@ function repository(
     responses: [
       {
         match: (_, args) => args[0] === "config",
-        result: bare === undefined ? { code: 1 } : { stdout: `${bare}\n` },
+        result: bareResult(bare),
       },
       {
         match: (_, args) => args[0] === "ls-files",
@@ -96,8 +106,10 @@ describe("harness hook kb-check core.bare", () => {
     expect(warn.out()).toMatch(
       /core\.bare is true.*git config core\.bare false/,
     );
+    expect(warn.out()).toMatch(/kb-check: 1 finding \(warn mode/);
     const strict = repository(CLEAN, false, "true");
     expect(await run(["hook", "kb-check", "--strict"], strict.deps)).toBe(1);
+    expect(strict.out()).toMatch(/kb-check: 1 finding\n/);
     expect(strict.out()).not.toMatch(/kb-check: clean/);
   });
 
@@ -107,6 +119,21 @@ describe("harness hook kb-check core.bare", () => {
       expect(await run(["hook", "kb-check", "--strict"], h.deps)).toBe(0);
       expect(h.out()).toMatch(/^kb-check: clean\n/);
       expect(h.out()).not.toMatch(/core\.bare/);
+    }
+  });
+
+  it("fails rather than reporting clean when git cannot read core.bare", async () => {
+    const unreadable = { code: 128, stderr: "fatal: bad config line 1" };
+    for (const args of [
+      ["hook", "kb-check"],
+      ["hook", "kb-check", "--strict"],
+    ]) {
+      const h = repository(CLEAN, false, unreadable);
+      expect(await run(args, h.deps)).toBe(1);
+      expect(h.err()).toMatch(
+        /\[hook:kb-check\] failed: git config --get core\.bare failed: fatal: bad config line 1/,
+      );
+      expect(h.out()).not.toMatch(/kb-check: clean/);
     }
   });
 

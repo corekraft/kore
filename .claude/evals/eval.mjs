@@ -470,7 +470,7 @@ function realClaude(root) {
         args,
         {
           cwd: options.cwd ?? root,
-          env: options.env ?? process.env,
+          env: options.env ?? GIT_ENV,
           encoding: "utf8",
           maxBuffer: 64 * 1024 * 1024,
           timeout: 10 * 60 * 1000,
@@ -631,7 +631,10 @@ function realDeps() {
     claude: realClaude(root),
     worktree: realWorktree(root),
     version: () =>
-      execFileSync("claude", ["--version"], { encoding: "utf8" }).trim(),
+      execFileSync("claude", ["--version"], {
+        encoding: "utf8",
+        env: GIT_ENV,
+      }).trim(),
     readTier: (role) => readTier(root, role),
     dirty: (path, seeded) => dirtyOutside(path, seeded),
     readJson: (name) => JSON.parse(readFileSync(join(EVALS_DIR, name), "utf8")),

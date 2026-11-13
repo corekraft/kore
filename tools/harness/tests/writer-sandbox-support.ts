@@ -98,6 +98,7 @@ export function runSandboxed(
   return spawnSync("/usr/bin/sandbox-exec", ["-p", profile, command, ...args], {
     cwd,
     encoding: "utf8",
+    env: cleanGitEnv(),
   });
 }
 

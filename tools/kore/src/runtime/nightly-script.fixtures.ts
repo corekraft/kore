@@ -134,8 +134,9 @@ function shimDir(): string {
 }
 
 export const hasGnuTimeout =
-  spawnSync("sh", ["-c", "command -v timeout || command -v gtimeout"])
-    .status === 0;
+  spawnSync("sh", ["-c", "command -v timeout || command -v gtimeout"], {
+    env: gitEnv,
+  }).status === 0;
 
 export function files(root: string): string[] {
   return readdirSync(root, { recursive: true, withFileTypes: true })
@@ -164,7 +165,9 @@ export function run(
       KORE_NIGHTLY_SUITE_CMD: `${fake} suite`,
       KORE_NIGHTLY_SUITES: suites.join("\n"),
       KORE_NIGHTLY_STAGE_TIMEOUT: "30s",
-      ...extra,
+      ...Object.fromEntries(
+        Object.entries(extra).filter(([name]) => !name.startsWith("GIT_")),
+      ),
     },
   });
   const calls = readFileSync(log, { encoding: "utf8", flag: "a+" })

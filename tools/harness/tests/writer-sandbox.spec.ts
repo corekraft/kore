@@ -101,7 +101,7 @@ describe.runIf(enabled)("writer sandbox: writes", () => {
     const before = existsSync(target)
       ? readFileSync(target, "utf8")
       : undefined;
-    const control = spawnSync("sh", ["-c", append]);
+    const control = spawnSync("sh", ["-c", append], { env: cleanGitEnv() });
     expect(control.status, "unsandboxed write is the control").toBe(0);
     writeFileSync(target, before ?? "");
     const run = runSandboxed(x.profile, x.worktree, "sh", ["-c", append]);
