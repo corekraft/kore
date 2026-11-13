@@ -84,6 +84,34 @@ export interface Weakenings {
   weaker: string[];
 }
 
+/** Bypass modes from narrowest to widest; a mode GitHub leaves unset is `always`. */
+const BYPASS_MODES = ["pull_request", "always"];
+
+const modeRank = (actor: Json): number => {
+  const mode = actor["bypass_mode"];
+  const rank = BYPASS_MODES.indexOf(typeof mode === "string" ? mode : "always");
+  return rank === -1 ? BYPASS_MODES.length : rank;
+};
+
+const actorKey = (actor: Json): string =>
+  `${String(actor["actor_type"])}:${String(actor["actor_id"])}`;
+
+/** Bypass actors the new body adds, or widens from `pull_request` to `always`; narrowing one is a tightening. */
+function widenedBypass(previous: Json, after: Json): string[] {
+  const list = (body: Json) =>
+    (body["bypass_actors"] as Json[] | undefined) ?? [];
+  const had = new Map(list(previous).map((a) => [actorKey(a), a]));
+  return list(after).flatMap((actor) => {
+    const was = had.get(actorKey(actor));
+    if (was === undefined) {
+      return ["bypass_actors gains an actor"];
+    }
+    return modeRank(actor) > modeRank(was)
+      ? [`bypass_actors ${actorKey(actor)} bypass_mode widens`]
+      : [];
+  });
+}
+
 /** How the ruleset `after` is weaker than `previous`; empty when it is not. */
 export function weakenings(previous: Json, after: Json): Weakenings {
   const now = typed(after);
@@ -99,10 +127,7 @@ export function weakenings(previous: Json, after: Json): Weakenings {
   const conditions = same(previous["conditions"], after["conditions"])
     ? []
     : ["conditions change"];
-  const had = (previous["bypass_actors"] as unknown[] | undefined) ?? [];
-  const bypass = ((after["bypass_actors"] as unknown[] | undefined) ?? [])
-    .filter((actor) => !had.some((h) => same(h, actor)))
-    .map(() => "bypass_actors gains an actor");
+  const bypass = widenedBypass(previous, after);
   const others = [...new Set([...Object.keys(previous), ...Object.keys(after)])]
     .filter((key) => !HANDLED.includes(key))
     .filter((key) => !same(previous[key], after[key]))
