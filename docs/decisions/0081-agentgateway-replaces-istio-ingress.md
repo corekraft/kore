@@ -35,3 +35,9 @@ Ingress gains first-class support for MCP, A2A and LLM routes. Two projects now
 share the network path, each with one job. The identity chain from ingress to
 OPA must be re-proven live, because the gateway that forwards peer identity
 changes.
+
+Resumed behind the flag (2026-11-12, #126): after the #261 live proof the plan
+paused until the outcome was measured. The owner lifted that pause for the
+replacement, its identity re-proof and the measurement, with the flag off in
+`local`; activating it in `local` waits for a measured drop of at least 20% in
+median ingress CPU or memory.

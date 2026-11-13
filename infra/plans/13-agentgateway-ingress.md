@@ -14,10 +14,13 @@ adding first-class routes for agent and LLM traffic. Istio ambient ztunnel
 stays for workload identity and mTLS. This plan starts after plan 9, because
 the outcome is measured on k3d.
 
-> **Paused (2026-11-12)** after the #261 live proof. Nothing further is built
-> until the Step 4 outcome is measured against the owner-approved 20% threshold
-> (ingress median CPU or memory), so more work does not pile onto a replacement
-> that may not pay off.
+> **Resumed behind the flag (2026-11-12).** The #261 live proof paused this
+> plan until the outcome was measured. The owner decided (#126) that it resumes
+> with `ingress-agentgateway` off in `local`: the Gateway replacement (#207),
+> its identity re-proof (#208) and the measurement (#212) proceed, and the
+> measurement runs in a throwaway profile under the same load as the baseline.
+> Turning the flag on in `local` (#210) waits for #212 to show at least a 20%
+> drop in median ingress CPU or memory; otherwise the flag stays off.
 
 ## Step 1: Decide and Pin
 
@@ -45,6 +48,18 @@ the outcome is measured on k3d.
 ### Exit Criteria
 
 - The gateway integration suite passes with agentgateway serving ingress.
+
+### Safety pattern and live proof (#207)
+
+Pattern: `flag` (`ingress-agentgateway`, off in `local`). The flag-on render
+swaps the Gateway class and publishes its Service through
+`AgentgatewayParameters`; readiness waits for `deployment/kore-gateway-istio`
+and `service/kore-gateway-istio` to be absent. Fast specs prove the render and
+the readiness; the items above stay open until a live run on a throwaway
+profile shows the gateway integration suite passing with the flag on and a
+migration from an Istio-ingress profile that keeps the cluster. Whether Istio
+removes the proxy by itself when the class changes is unproven: if it does not,
+readiness times out naming the leftover resource.
 
 ## Step 3: Re-Prove the Identity Chain
 

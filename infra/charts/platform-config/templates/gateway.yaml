@@ -5,9 +5,13 @@ metadata:
   namespace: kore-system
   labels: {app.kubernetes.io/managed-by: Helm}
 spec:
-{{- if and .Values.gateway.service.type (eq .Values.gateway.className "istio") }}
+{{- if .Values.gateway.service.type }}
   infrastructure:
+{{- if eq .Values.gateway.className "istio" }}
     parametersRef: {group: "", kind: ConfigMap, name: kore-gateway-service}
+{{- else if eq .Values.gateway.className "agentgateway" }}
+    parametersRef: {group: agentgateway.dev, kind: AgentgatewayParameters, name: kore-gateway-service}
+{{- end }}
 {{- end }}
   gatewayClassName: {{ required "set gateway.className, or render through kore, which derives it from the ingress-agentgateway feature flag" .Values.gateway.className }}
   listeners:
