@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { isLinkOrFolder, isSymlink } from "./guard-role-links.js";
+import {
+  isLinkOrFolder,
+  isRegularFile,
+  isSymlink,
+} from "./guard-role-links.js";
 
 const fs = vi.hoisted(() => ({ lstatSync: vi.fn() }));
 vi.mock("node:fs", () => fs);
@@ -47,5 +51,22 @@ describe("isSymlink", () => {
     expect(isSymlink("/c")).toBe(false);
     fs.lstatSync.mockImplementationOnce(failWith("ENOENT"));
     expect(isSymlink("/d")).toBe(false);
+  });
+});
+
+describe("isRegularFile", () => {
+  it("is true only for an existing regular file", () => {
+    fs.lstatSync.mockReturnValueOnce({
+      ...stat(false, false),
+      isFile: () => true,
+    });
+    expect(isRegularFile("/a")).toBe(true);
+    fs.lstatSync.mockReturnValueOnce({
+      ...stat(false, false),
+      isFile: () => false,
+    });
+    expect(isRegularFile("/b")).toBe(false);
+    fs.lstatSync.mockImplementationOnce(failWith("ENOENT"));
+    expect(isRegularFile("/c")).toBe(false);
   });
 });

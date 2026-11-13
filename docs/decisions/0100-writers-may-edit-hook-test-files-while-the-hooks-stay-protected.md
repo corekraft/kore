@@ -27,17 +27,22 @@ regular file directly in `.claude/hooks` whose name is a literal ending
 
 - **File tools.** `Write` and `Edit` may take such a path, relative or inside
   this worktree by absolute path, when it is not an existing symlink or folder.
-- **Bash.** Only a call that is exactly one command, with no `&&`, `;`, `|`,
-  redirect or substitution, and is `git mv <hook tests> <destination>`,
-  `git rm <hook tests>` or `rm [-f] <hook tests>`. Every named hook test must be
-  a regular file. A `git mv` destination, a file or an existing folder, must be
-  literal, outside `.claude` and not a symlink.
+- **Bash.** Only a call that is one segment whose first word is literally
+  `git` or `rm`, with no wrapper, assignment or path in the command name, and
+  no `&&`, `;`, `|`, `&`, `#`, redirect, substitution or newline. The command is
+  `git mv <hook tests> <destination>`, `git rm <hook tests>` or
+  `rm [-f] <hook tests>`, with no other flag. Each named hook test must be an
+  existing regular file (the Write tool may also create a new one). A `git mv`
+  destination, a file or an existing folder, must be literal, outside `.claude`
+  and not a symlink.
 - **Everything else** that names a path under `.claude/hooks` in a writing
   command is refused as before: `mv`, `cp`, `install`, `ln`, a redirect, `tee`,
   `sed -i`, `git checkout`, `git restore`, a glob, variable, brace or path climb
-  and a path outside this worktree. No Bash command can place anything under a
-  test name, so a link or folder cannot be made there. A command that also names
-  a protected file is refused.
+  and a path outside this worktree. A `git` line with a flag before its verb
+  (`git -C dir mv`) counts as writing. The allowlist's moves leave `.claude` and
+  nothing else in Bash may name a path under `.claude/hooks`, so Bash does not
+  put a file, link or folder under a test name. A command that also names a
+  protected file is refused.
 
 The settings files, `skills/bin`, the hook scripts and the `.claude` folder stay
 protected with the same refusal, and path names compare without regard to case
@@ -60,8 +65,13 @@ spec. The tests that verify the hooks and settings are now writer-editable and
 deletable; the pull request's reviewer and CI stay the check on them.
 
 One limit remains: the symlink and folder checks read the disk once, before the
-call. A destination folder whose parent is a link, or a file tool writing
-through a link made by another tool in an earlier step, is not seen. That is the
-standing limit of [ADR 0091](0091-containment-comes-from-identities-and-a-sandbox-not-role-guards.md):
+call. A hard link, or a link in a parent folder of a `git mv` destination, is
+not seen. That is the standing limit of
+[ADR 0091](0091-containment-comes-from-identities-and-a-sandbox-not-role-guards.md):
 the role guards are a hint, and containment comes from separate identities and
 the sandbox, not from this check.
+
+The CI `check` workflow runs `mise run test-harness-integration` beside the hook
+tests, because the guard's real-parser case is an integration test and ADR 0098
+reserves those for releases and hook changes. This is a stopgap until #418
+gives integration tests their own place, and the step moves there then.

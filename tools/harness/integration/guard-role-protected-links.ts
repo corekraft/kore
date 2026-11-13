@@ -26,6 +26,7 @@ beforeAll(() => {
   writeFileSync(join(hooks, "harness.sh"), "#!/bin/sh\n");
   writeFileSync(join(hooks, "plain.test.mjs"), "");
   symlinkSync("harness.sh", join(hooks, "linked.test.mjs"));
+  writeFileSync(join(hooks, "other.test.mjs"), "");
   mkdirSync(join(hooks, "folder.test.mjs"));
   mkdirSync(join(root, "scratch", "dir"), { recursive: true });
 });
@@ -34,10 +35,47 @@ afterAll(() => {
   rmSync(root, { recursive: true, force: true });
 });
 
+/** Every shape that is not exactly one plain git mv, git rm or rm of regular hook tests. */
+const REFUSED = [
+  "rm .claude/hooks/plain.test.mjs\nrm .claude/hooks/other.test.mjs",
+  "rm .claude/hooks/plain.test.mjs & echo x",
+  "rm .claude/hooks/plain.test.mjs || echo x",
+  "rm .claude/hooks/plain.test.mjs; echo x",
+  "rm `echo .claude/hooks/plain.test.mjs`",
+  "rm .claude/hooks/plain.test.mjs <<EOF\nx\nEOF",
+  "X=1 rm .claude/hooks/plain.test.mjs",
+  "PATH=scratch git rm .claude/hooks/plain.test.mjs",
+  "env rm .claude/hooks/plain.test.mjs",
+  'env -S "rm -rf .claude/hooks" rm .claude/hooks/plain.test.mjs',
+  "command time -o .claude/settings.json rm .claude/hooks/plain.test.mjs",
+  "command rm .claude/hooks/plain.test.mjs",
+  "sudo rm .claude/hooks/plain.test.mjs",
+  "./scratch/rm .claude/hooks/plain.test.mjs",
+  'bash -c "rm .claude/hooks/plain.test.mjs"',
+  "git -C scratch mv .claude/hooks/plain.test.mjs dir",
+  "git mv -k .claude/hooks/plain.test.mjs scratch/dir",
+  "git --git-dir=x rm .claude/hooks/plain.test.mjs",
+  "rm -- .claude/hooks/plain.test.mjs",
+  "rm -d .claude/hooks/plain.test.mjs",
+  "rm -R .claude/hooks/plain.test.mjs",
+  "git mv .claude/hooks/plain.test.mjs ~/x",
+  "git mv .claude/hooks/plain.test.mjs .claude/settings.json",
+  "git mv .claude/hooks/plain.test.mjs .claude/hooks/b.test.mjs #x",
+  "rm -f .claude/hooks/missing.test.mjs",
+  "git mv .claude/hooks/missing.test.mjs scratch/dir",
+  "rm .claude/hooks/linked.test.mjs",
+  "rm .claude/hooks/folder.test.mjs",
+];
+
 describe("checkProtected with a real filesystem", () => {
   it("lets a writer remove or move a plain hook test file", () => {
     expect(bash("rm .claude/hooks/plain.test.mjs")).toBeNull();
-    expect(bash("rm -f .claude/hooks/new.test.mjs")).toBeNull();
+    expect(bash("rm -f .claude/hooks/other.test.mjs")).toBeNull();
+    expect(
+      bash(
+        "git mv .claude/hooks/plain.test.mjs .claude/hooks/other.test.mjs scratch/dir",
+      ),
+    ).toBeNull();
     expect(bash("git mv .claude/hooks/plain.test.mjs scratch/dir")).toBeNull();
   });
 
@@ -80,5 +118,22 @@ describe("checkProtected with a real filesystem", () => {
     expect(bash("mv scratch/dir .claude/hooks/moved.test.mjs")?.rule).toBe(
       "role-read-only",
     );
+  });
+
+  it("refuses every shape that is not exactly one plain git mv, git rm or rm of regular hook tests", () => {
+    for (const command of REFUSED) {
+      expect([command, bash(command)?.rule]).toEqual([
+        command,
+        "role-read-only",
+      ]);
+    }
+    expect(
+      checkProtected(
+        "writer",
+        "Write",
+        { file_path: ".claude/Hooks/x.test.mjs", content: "x" },
+        root,
+      )?.rule,
+    ).toBe("role-read-only");
   });
 });

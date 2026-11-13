@@ -21,3 +21,7 @@ export function isLinkOrFolder(path: string): boolean {
   const stat = statOf(path);
   return stat !== null && (stat.isSymbolicLink() || stat.isDirectory());
 }
+
+/** Whether a path is an existing regular file: not missing, a link, a folder, a pipe or a socket. */
+export const isRegularFile = (path: string): boolean =>
+  statOf(path)?.isFile() ?? false;

@@ -71,11 +71,16 @@ vi.mock("./guard-role-writes.js", async (importOriginal) => ({
 const links = vi.hoisted(() => ({
   present: new Set<string>(),
   symlinks: new Set<string>(),
+  missing: new Set<string>(),
 }));
 vi.mock("./guard-role-links.js", () => ({
   isLinkOrFolder: (path: string) =>
     links.present.has(path) || links.symlinks.has(path),
   isSymlink: (path: string) => links.symlinks.has(path),
+  isRegularFile: (path: string) =>
+    !links.present.has(path) &&
+    !links.symlinks.has(path) &&
+    !links.missing.has(path),
 }));
 
 vi.mock("./guard-verdict.js", () => ({

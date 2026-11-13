@@ -72,11 +72,16 @@ vi.mock("./guard-role-writes.js", async (importOriginal) => ({
 const links = vi.hoisted(() => ({
   present: new Set<string>(),
   symlinks: new Set<string>(),
+  missing: new Set<string>(),
 }));
 vi.mock("./guard-role-links.js", () => ({
   isLinkOrFolder: (path: string) =>
     links.present.has(path) || links.symlinks.has(path),
   isSymlink: (path: string) => links.symlinks.has(path),
+  isRegularFile: (path: string) =>
+    !links.present.has(path) &&
+    !links.symlinks.has(path) &&
+    !links.missing.has(path),
 }));
 
 vi.mock("./guard-verdict.js", () => ({
@@ -272,6 +277,10 @@ describe("checkProtected: the git mv, git rm and rm allowlist is narrow", () => 
       "git mv -f .claude/hooks/a.test.mjs tools/",
       "git mv .claude/hooks/*.test.mjs tools/",
       "git mv .claude/hooks/a.test.mjs",
+      "git -C scratch mv .claude/hooks/a.test.mjs dir",
+      "git --git-dir=x rm .claude/hooks/a.test.mjs",
+      "git mv .claude/hooks/a.test.mjs .claude/hooks/b.test.mjs #x",
+      "rm .claude/hooks/a.test.mjs #x",
     ]) {
       expect(bash(command)).toEqual(guardRefusal);
     }
@@ -279,10 +288,13 @@ describe("checkProtected: the git mv, git rm and rm allowlist is narrow", () => 
 
   it("refuses git mv, git rm and rm of a hook test that is a symlink or folder, or onto a symlink", () => {
     links.present.add("/repo/.claude/hooks/l.test.mjs");
+    links.missing.add("/repo/.claude/hooks/gone.test.mjs");
     links.symlinks.add("/repo/scratch/link");
     try {
       for (const command of [
         "rm .claude/hooks/l.test.mjs",
+        "rm -f .claude/hooks/gone.test.mjs",
+        "git mv .claude/hooks/gone.test.mjs tools/",
         "git rm .claude/hooks/l.test.mjs",
         "git mv .claude/hooks/l.test.mjs tools/",
         "git mv .claude/hooks/a.test.mjs scratch/link",
@@ -292,6 +304,7 @@ describe("checkProtected: the git mv, git rm and rm allowlist is narrow", () => 
     } finally {
       links.present.clear();
       links.symlinks.clear();
+      links.missing.clear();
     }
   });
 });
