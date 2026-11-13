@@ -245,7 +245,7 @@ async function escalateWriter(context: CommandContext): Promise<void> {
   }
   const { model } = await modelFor(context, count);
   const logged = await ledger.list({ kind: "escalation" });
-  if (!logged.events.some((e) => e.number === pr && e.label === model)) {
+  if (!logged.events.some((e) => e.number === pr)) {
     const event = await ledger.record({
       source: "github",
       kind: "escalation",
@@ -266,7 +266,7 @@ async function escalateWriter(context: CommandContext): Promise<void> {
   );
 }
 
-const next$: Command = {
+const nextCommand: Command = {
   summary:
     "read-only; list approved ideas without an outcome and pending judge send-backs, oldest first ([--json] [--ledger])",
   options: { ledger: "string" },
@@ -288,7 +288,7 @@ const escalateCommand: Command = {
 };
 
 export const queueCommands: Record<string, Command> = {
-  next: next$,
+  next: nextCommand,
   "send-backs": sendBacksCommand,
   escalate: escalateCommand,
 };

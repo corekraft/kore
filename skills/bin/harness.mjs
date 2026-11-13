@@ -4622,7 +4622,7 @@ async function escalateWriter(context2) {
   }
   const { model } = await modelFor(context2, count3);
   const logged = await ledger.list({ kind: "escalation" });
-  if (!logged.events.some((e) => e.number === pr && e.label === model)) {
+  if (!logged.events.some((e) => e.number === pr)) {
     const event = await ledger.record({
       source: "github",
       kind: "escalation",
@@ -4642,7 +4642,7 @@ async function escalateWriter(context2) {
 `
   );
 }
-var next$ = {
+var nextCommand = {
   summary: "read-only; list approved ideas without an outcome and pending judge send-backs, oldest first ([--json] [--ledger])",
   options: { ledger: "string" },
   run: (context2) => guarded2(context2, () => next(context2))
@@ -4660,7 +4660,7 @@ var escalateCommand = {
   run: (context2) => guarded2(context2, () => escalateWriter(context2))
 };
 var queueCommands = {
-  next: next$,
+  next: nextCommand,
   "send-backs": sendBacksCommand,
   escalate: escalateCommand
 };
