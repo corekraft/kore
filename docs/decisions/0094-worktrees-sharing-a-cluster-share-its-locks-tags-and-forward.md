@@ -39,10 +39,19 @@ spawn` refuses a new writer while it is held (enforced). Commit-hook test
   digest read-back, so a concurrent build cannot swap the image, and on pruning
   old tags. Tagging by content waits for the reproducible image (#344).
   #344 chose to skip the build rather than make it byte-reproducible: a run
-  hashes the app's build context and looks up the registry tag
-  `kore-src-<16 hex>`; when it exists the run reuses that digest, builds and
-  publishes nothing, and still signs again (the key may be new). A build
-  publishes that tag with its run tag. The registry tags are what #353 prunes.
+  tags the image `kore-src-<16 hex>` in the registry, from a hash of the app's
+  build context (read as docker reads it: `.dockerignore` rules rooted at the
+  context, link targets, file modes, length-prefixed fields), the base image
+  digests resolved from the Dockerfile's `FROM` lines, and the build platform.
+  When that tag exists the run reuses its digest, builds and publishes nothing,
+  and still signs again (the key may be new). When any input is unknown, such
+  as a base that does not resolve, the run builds and publishes no source tag.
+  A build publishes the tag only if the inputs are unchanged after it, so an
+  edit during the build cannot leave the old tag on the new image. A registry
+  answer other than found or not found fails the run.
+  **#353 must treat every `kore-src-*` tag as a root and never garbage-collect
+  a digest a pod uses or a `kore-src-*` tag names**; deleting such a digest
+  makes the next run reuse an image the registry no longer has.
   `kore local up` prunes, before it builds and only while it holds the host
   lease, kore's own tags (the per-run tags and the old shared `kore-local`) on
   every node of its cluster and on the host, and only those no pod in the

@@ -8,7 +8,11 @@ import {
 } from "./local-image-args.js";
 import { withLocalSigner, type LocalSigner } from "./local-signer.js";
 import { localRegistryReference } from "./registry.js";
-import { applicationPath, lookUpSource } from "./local-image-source.js";
+import {
+  applicationPath,
+  lookUpSource,
+  sourceTag,
+} from "./local-image-source.js";
 import {
   publishedDigest,
   publishToLocalRegistry,
@@ -92,6 +96,25 @@ async function forgetHostTag(runner: Runner, imageTag: string): Promise<void> {
   }
 }
 
+async function unchangedSourceTags(
+  repository: Repository,
+  runner: Runner,
+  application: string,
+  before: string | undefined,
+): Promise<string[]> {
+  if (before === undefined) {
+    return [];
+  }
+  const after = await sourceTag(repository, runner, application);
+  if (after === before) {
+    return [before];
+  }
+  process.stderr.write(
+    `apps/${application} changed during the build; this run deploys the image it built but does not tag it for reuse\n`,
+  );
+  return [];
+}
+
 async function buildAndSign(
   { repository, runner, signer, session }: Context,
   application: string,
@@ -119,13 +142,19 @@ async function buildAndSign(
       `${entry.image}:${runTag}`,
     );
     await loadLocalImage(repository, runner, application, imageTag);
-    // The source tag goes on last in the same publish, so a run that sees it
-    // finds an image that was pushed whole.
+    // An edit during the build may not have reached the image, so the source
+    // tag goes on only when the inputs are the ones the lookup named.
+    const extraTags = await unchangedSourceTags(
+      repository,
+      runner,
+      application,
+      found.source,
+    );
     await publishToLocalRegistry(
       repository,
       runner,
       entry,
-      { imageTag, extraTags: [found.source] },
+      { imageTag, extraTags },
       session,
     );
     const digest = await publishedDigest(

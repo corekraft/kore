@@ -114,13 +114,12 @@ test("cosign is pinned to the configured context through an in-memory kubeconfig
     expect(call.options?.env?.KUBECONFIG).toBeUndefined();
     expect(JSON.stringify(call.args)).not.toContain("kubeconfig");
   }
-  // Other specs running alongside make their own repository roots here.
+  // The reuse spec runs alongside and names its temp roots kore-reuse-.
   const created = (await readdir(tmpdir())).filter(
-    (name) => !before.has(name) && !name.startsWith("kore-local-"),
+    (name) => !before.has(name) && !name.startsWith("kore-reuse-"),
   );
   for (const name of created) {
-    // A concurrent spec may delete its directory while this one scans.
-    for (const file of await filesUnder(join(tmpdir(), name)).catch(() => [])) {
+    for (const file of await filesUnder(join(tmpdir(), name))) {
       expect(await readFile(file, "utf8").catch(() => "")).not.toContain(
         minifiedKubeconfig.trim(),
       );
