@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -100,4 +101,44 @@ test("a holder that never finishes fails the waiter at the timeout with the fix"
   assert.match(result.stderr, new RegExp(`still held by pid ${process.pid}`));
   assert.ok(result.stderr.includes(`remove ${lock}`));
   assert.equal(existsSync(lock), true, "a live holder's lock is left alone");
+});
+
+// Audit first: a hook test run beside a live run is reported, not yet held back.
+// Enforcing it (waiting for the lease) needs the owner's OK. Docs: #340.
+
+function hostWith(t, lease) {
+  const host = mkdtempSync(join(tmpdir(), "kore-host-"));
+  t.after(() => rmSync(host, { recursive: true, force: true }));
+  if (lease !== undefined) {
+    mkdirSync(join(host, ".kore", "locks"), { recursive: true });
+    writeFileSync(
+      join(host, ".kore", "locks", "host-lease.lock"),
+      JSON.stringify({ pid: lease, host: "h", token: "t", acquiredAt: "now" }),
+    );
+  }
+  return host;
+}
+
+test("a test run beside a live run is audited, still runs, and keeps its exit code", (t) => {
+  const { dir } = setup(t);
+  const host = hostWith(t, process.pid);
+  const result = run(dir, node("process.exit(3)"), { KORE_HOST_ROOT: host });
+  assert.equal(result.status, 3, "audit mode never blocks the run");
+  assert.match(
+    result.stderr,
+    new RegExp(`audit: host lease held by pid ${process.pid}`),
+  );
+  const log = readFileSync(join(dir, "host-lease-audit.jsonl"), "utf8");
+  assert.equal(JSON.parse(log.trim()).holder, process.pid);
+});
+
+test("a free host lease, or one whose holder is gone, is not audited", (t) => {
+  const { dir } = setup(t);
+  const dead = spawnSync(process.execPath, ["-e", ""]).pid;
+  for (const lease of [undefined, dead]) {
+    const result = run(dir, node(""), { KORE_HOST_ROOT: hostWith(t, lease) });
+    assert.equal(result.status, 0);
+    assert.doesNotMatch(result.stderr, /host lease/);
+  }
+  assert.equal(existsSync(join(dir, "host-lease-audit.jsonl")), false);
 });

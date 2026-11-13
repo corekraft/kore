@@ -67,7 +67,11 @@ see [The harness bundle](#the-harness-bundle).
    checkout), so commits in many worktrees queue and print `waiting for another
 worktree's tests (pid N)`. It waits up to 15 minutes
    (`KORE_TEST_LOCK_WAIT_MS`), breaks a lock whose pid is gone, and on timeout
-   names the holder and the file to remove.
+   names the holder and the file to remove. A live `kore local up` or live spec
+   run holds the exclusive host lease (`~/.kore/locks/host-lease.lock`, ADR
+   0092): `session spawn` refuses a new writer while it is held, and a hook test
+   run beside it prints `audit: host lease held by pid N` and appends to
+   `host-lease-audit.jsonl` beside the test lock, without waiting yet.
 
 ## Where things live
 
@@ -108,7 +112,7 @@ worktree's tests (pid N)`. It waits up to 15 minutes
 ## The harness bundle
 
 `skills/bin/harness.mjs` is generated from `tools/harness/src` and is not
-committed ([ADR 0092](../decisions/0092-the-harness-bundle-is-a-build-output-not-a-committed-file.md)),
+committed ([ADR 0093](../decisions/0092-the-harness-bundle-is-a-build-output-not-a-committed-file.md)),
 so harness PRs conflict only when a source file does. Hooks run it through
 `.claude/hooks/harness.sh`.
 
