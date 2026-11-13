@@ -11,6 +11,8 @@ export default defineConfig({
   test: {
     // One cap for every unit path; see .husky/test-workers.mjs.
     maxWorkers: testWorkers(),
+    // The test-budget hook reads this report; see `test:budget` in package.json.
+    reporters: ["default", ["json", { outputFile: "test-results/unit.json" }]],
     // Build skills/bin/harness.mjs once per run: the bundle specs read it.
     globalSetup: ["tests/build-bundle-setup.ts"],
     projects: [

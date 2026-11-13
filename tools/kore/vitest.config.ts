@@ -5,6 +5,8 @@ export default defineConfig({
   test: {
     // One cap for every unit path; see .husky/test-workers.mjs.
     maxWorkers: testWorkers(),
+    // The test-budget hook reads this report; see `test:budget` in package.json.
+    reporters: ["default", ["json", { outputFile: "test-results/unit.json" }]],
     setupFiles: ["src/test-setup-support.ts"],
     include: ["src/**/*.spec.ts"],
     exclude: ["**/*.integration.spec.ts", "dist/**"],
