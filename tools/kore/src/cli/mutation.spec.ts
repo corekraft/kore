@@ -189,6 +189,16 @@ test("a live run on another cluster waits for the host lease instead of loading 
   expect(order).toEqual(["a:start", "a:end", "b:start"]);
 });
 
+test("a lock wait that is not a number is refused before anything is locked", async () => {
+  for (const bad of ["", "10m", "-5"]) {
+    process.env.KORE_LOCK_WAIT_MS = bad;
+    await expect(
+      mutateFor(await checkout())("up", async () => 0),
+    ).rejects.toThrow(/KORE_LOCK_WAIT_MS/);
+  }
+  await expect(access(join(host, ".kore", "locks"))).rejects.toThrow();
+});
+
 test("the lock is keyed by cluster name at a host path, not by worktree", async () => {
   const mutate = mutateFor(await checkout());
   let owner = "";

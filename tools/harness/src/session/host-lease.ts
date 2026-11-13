@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import type { CliDeps } from "../runtime/index.js";
+import { hostLocksDirectory } from "../runtime/host-root.js";
 
 // A live run (`kore local up`, the live integration specs) holds the exclusive
 // host lease: a lock file in the host lock directory that kore writes as
@@ -10,20 +11,12 @@ export interface HostLeaseHolder {
   acquiredAt: string | undefined;
 }
 
-/** The lease file's path: under `KORE_HOST_ROOT`, else the home directory. */
-function leasePath(deps: CliDeps): string | undefined {
-  const root = deps.env.KORE_HOST_ROOT ?? deps.env.HOME;
-  return root === undefined || root === ""
-    ? undefined
-    : join(root, ".kore", "locks", "host-lease.lock");
-}
-
 /** The live run holding the lease, or undefined when it is free or its holder is gone. */
 export async function hostLeaseHolder(
   deps: CliDeps,
 ): Promise<HostLeaseHolder | undefined> {
-  const path = leasePath(deps);
-  if (path === undefined || !(await deps.fs.exists(path))) {
+  const path = join(hostLocksDirectory(deps.env), "host-lease.lock");
+  if (!(await deps.fs.exists(path))) {
     return undefined;
   }
   let owner: { pid?: unknown; acquiredAt?: unknown };

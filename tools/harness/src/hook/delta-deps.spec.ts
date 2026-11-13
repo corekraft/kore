@@ -19,6 +19,27 @@ function depsFor(
   return { h, deps: realDeltaDeps(h.deps, "/repo") };
 }
 
+describe("delta locks", () => {
+  it("lists the host's locks, which every worktree on the host shares", async () => {
+    const h = testHarness({
+      env: { HOME: "/home/jun" },
+      files: { "/home/jun/.kore/locks/kore-local.lock": "{}" },
+      responses: [gitDir],
+    });
+    const deps = realDeltaDeps(h.deps, "/repo");
+    expect(await deps.listLocks()).toEqual(["kore-local.lock"]);
+  });
+
+  it("does not list locks left under the repository", async () => {
+    const h = testHarness({
+      env: { HOME: "/home/jun" },
+      files: { "/repo/.kore/locks/old.lock": "{}" },
+      responses: [gitDir],
+    });
+    expect(await realDeltaDeps(h.deps, "/repo").listLocks()).toEqual([]);
+  });
+});
+
 describe("delta journals", () => {
   const journal = "/repo/.kore/state/journal";
 

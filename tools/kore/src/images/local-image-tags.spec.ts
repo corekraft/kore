@@ -83,3 +83,30 @@ test("the host tag of a finished build is removed so per-run tags do not pile up
       ?.args,
   ).toEqual(["image", "rm", built]);
 });
+
+test("the host tag is removed even when the build fails after it", async () => {
+  const { runner, calls } = fakeRunner();
+  stubRegistry(registryReference, registryHead);
+  const failing: typeof runner = {
+    ...runner,
+    run: async (command, args, options) => {
+      if (command === "cosign" && args[0] === "sign") {
+        throw new Error("sign failed");
+      }
+      return await runner.run(command, args, options);
+    },
+  };
+
+  await expect(
+    buildAndSignLocalImage(await checkout(), failing, "reference", entry),
+  ).rejects.toThrow("sign failed");
+
+  expect(
+    calls.some(
+      (call) =>
+        call.command === "docker" &&
+        call.args[0] === "image" &&
+        call.args[1] === "rm",
+    ),
+  ).toBe(true);
+});

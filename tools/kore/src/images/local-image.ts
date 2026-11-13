@@ -101,26 +101,37 @@ async function buildAndSign(
   // another worktree replace the image between build, import and digest read.
   const runTag = newRunTag();
   const imageTag = `kore-local/${application}:${runTag}`;
-  await localRegistryReference(repository, runner, `${entry.image}:${runTag}`);
-  await loadLocalImage(repository, runner, application, imageTag);
-  const { address, repositoryPath } = await publishToLocalRegistry(
-    repository,
-    runner,
-    entry,
-    imageTag,
-    session,
-  );
-  const digest = await publishedDigest(repositoryPath, session.client, runTag);
-  const image: LockedImage = {
-    // The deployed name is the registry address the nodes pull from and the
-    // image policy matches, not the host the release lock records.
-    reference: `${address}/${repositoryPath}@${digest}`,
-    digest,
-    signer: "local-kore-key",
-  };
-  await signImage(repository, runner, image, signer, session.client);
-  await forgetHostTag(runner, imageTag);
-  return { image, publicKey: signer.publicKey };
+  try {
+    await localRegistryReference(
+      repository,
+      runner,
+      `${entry.image}:${runTag}`,
+    );
+    await loadLocalImage(repository, runner, application, imageTag);
+    const { address, repositoryPath } = await publishToLocalRegistry(
+      repository,
+      runner,
+      entry,
+      imageTag,
+      session,
+    );
+    const digest = await publishedDigest(
+      repositoryPath,
+      session.client,
+      runTag,
+    );
+    const image: LockedImage = {
+      // The deployed name is the registry address the nodes pull from and the
+      // image policy matches, not the host the release lock records.
+      reference: `${address}/${repositoryPath}@${digest}`,
+      digest,
+      signer: "local-kore-key",
+    };
+    await signImage(repository, runner, image, signer, session.client);
+    return { image, publicKey: signer.publicKey };
+  } finally {
+    await forgetHostTag(runner, imageTag);
+  }
 }
 
 export async function buildAndSignLocalImage(

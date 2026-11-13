@@ -1,13 +1,13 @@
 // The real dependencies of the delta hook: git through the injected runner and
 // plain files through the injected filesystem.
 
+import { hostLocksDirectory } from "../runtime/host-root.js";
 import { join, resolve } from "node:path";
 import { readPlans } from "../plan/index.js";
 import type { CliDeps } from "../runtime/index.js";
 import type { DeltaDeps, JournalEntry, Snapshot } from "./delta.js";
 
 const JOURNAL_DIR = ".kore/state/journal";
-const LOCKS_DIR = ".kore/locks";
 
 type Git = (...args: string[]) => Promise<string>;
 
@@ -130,7 +130,7 @@ export function realDeltaDeps(deps: CliDeps, root: string): DeltaDeps {
         .filter(Boolean);
     },
     readPlans: () => readPlans(deps),
-    listLocks: () => readDir(deps, join(root, LOCKS_DIR)),
+    listLocks: () => readDir(deps, hostLocksDirectory(deps.env)),
     readJournals: () => readJournals(deps, root),
     ...snapshotStore(deps, git, root),
   };

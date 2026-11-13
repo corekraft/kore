@@ -19,7 +19,16 @@ const DEFAULT_LOCK_WAIT_MS = 10 * 60 * 1000;
 
 /** How long a mutation waits for the cluster's lock before it is refused naming the holder. */
 function lockWaitMs(): number {
-  return Number(process.env.KORE_LOCK_WAIT_MS ?? DEFAULT_LOCK_WAIT_MS);
+  const given = process.env.KORE_LOCK_WAIT_MS;
+  if (given === undefined) {
+    return DEFAULT_LOCK_WAIT_MS;
+  }
+  if (!/^\d+$/.test(given)) {
+    throw new Error(
+      `KORE_LOCK_WAIT_MS must be a whole number of milliseconds, got "${given}"; unset it for the ten-minute default`,
+    );
+  }
+  return Number(given);
 }
 
 export function createMutate(scope: MutationScope): Mutate {
