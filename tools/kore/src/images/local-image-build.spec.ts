@@ -114,9 +114,13 @@ test("cosign is pinned to the configured context through an in-memory kubeconfig
     expect(call.options?.env?.KUBECONFIG).toBeUndefined();
     expect(JSON.stringify(call.args)).not.toContain("kubeconfig");
   }
-  const created = (await readdir(tmpdir())).filter((name) => !before.has(name));
+  // Other specs running alongside make their own repository roots here.
+  const created = (await readdir(tmpdir())).filter(
+    (name) => !before.has(name) && !name.startsWith("kore-local-"),
+  );
   for (const name of created) {
-    for (const file of await filesUnder(join(tmpdir(), name))) {
+    // A concurrent spec may delete its directory while this one scans.
+    for (const file of await filesUnder(join(tmpdir(), name)).catch(() => [])) {
       expect(await readFile(file, "utf8").catch(() => "")).not.toContain(
         minifiedKubeconfig.trim(),
       );

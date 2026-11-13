@@ -101,7 +101,12 @@ export function stubRegistry(
   registryReference: Mock,
   registryHead: Mock,
 ): void {
-  registryHead.mockResolvedValue({ status: 200, digest });
+  // No source tag is held, so each run builds; a spec that reuses one sets it.
+  registryHead.mockImplementation(async (url: string) =>
+    String(url).includes("/manifests/kore-src-")
+      ? { status: 404, digest: "" }
+      : { status: 200, digest },
+  );
   registryReference.mockImplementation(
     async (_repo, _runner, reference) => reference,
   );

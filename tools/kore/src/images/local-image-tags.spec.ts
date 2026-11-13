@@ -41,7 +41,9 @@ async function tagsOfOneBuild() {
   const build = argv("docker", "build");
   const built = build[build.indexOf("--tag") + 1]!;
   const imported = argv("k3d", "image")[2];
-  const read = String(registryHead.mock.calls[0]![0]).split("/manifests/")[1];
+  const read = registryHead.mock.calls
+    .map(([url]) => String(url).split("/manifests/")[1]!)
+    .find((tag) => tag.startsWith("kore-local-"));
   const published = JSON.stringify(calls.map((call) => call.args));
   return { built, imported, read, published };
 }
@@ -117,10 +119,12 @@ test("a second build landing mid-run leaves the first run deploying the digest i
   const pushed: string[] = [];
   const digestOfPush = (n: number) =>
     `sha256:${n.toString(16).padStart(64, "0")}`;
-  registryHead.mockImplementation(async (url: string) => ({
-    status: 200,
-    digest: registry.get(String(url).split("/manifests/")[1] ?? ""),
-  }));
+  registryHead.mockImplementation(async (url: string) => {
+    const digest = registry.get(String(url).split("/manifests/")[1] ?? "");
+    return digest === undefined
+      ? { status: 404, digest: "" }
+      : { status: 200, digest };
+  });
   registryReference.mockImplementation(
     async (_repo: unknown, _runner: unknown, reference: string) => reference,
   );
@@ -136,7 +140,9 @@ test("a second build landing mid-run leaves the first run deploying the digest i
       if (
         command === "docker" &&
         args.join(" ").includes("images push") &&
-        push
+        push &&
+        // The source-tag publish names the run tag as its source, not a new push.
+        !registry.has(push[1]!)
       ) {
         const digest = digestOfPush(pushed.length + 1);
         pushed.push(digest);

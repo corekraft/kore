@@ -1,4 +1,3 @@
-import { join } from "node:path";
 import type { ImageLockEntry, LockedImage } from "./image-lock.js";
 import type { Repository } from "../config/index.js";
 import {
@@ -9,6 +8,7 @@ import {
 } from "./local-image-args.js";
 import { withLocalSigner, type LocalSigner } from "./local-signer.js";
 import { localRegistryReference } from "./registry.js";
+import { applicationPath, lookUpSource } from "./local-image-source.js";
 import {
   publishedDigest,
   publishToLocalRegistry,
@@ -41,7 +41,7 @@ export async function loadLocalImage(
 ): Promise<void> {
   await runner.run(
     "docker",
-    localDockerBuildArgs(join(repository.root, "apps", application), imageTag),
+    localDockerBuildArgs(applicationPath(repository, application), imageTag),
     { capture: false, cwd: repository.root },
   );
   const k3d = requireK3d(repository);
@@ -97,6 +97,17 @@ async function buildAndSign(
   application: string,
   entry: ImageLockEntry,
 ): Promise<BuiltLocalImage> {
+  const found = await lookUpSource(
+    repository,
+    runner,
+    application,
+    entry,
+    session.client,
+  );
+  if (found.reused !== undefined) {
+    await signImage(repository, runner, found.reused, signer, session.client);
+    return { image: found.reused, publicKey: signer.publicKey };
+  }
   // A tag of this run's own: a shared mutable tag lets a concurrent build in
   // another worktree replace the image between build, import and digest read.
   const runTag = newRunTag();
@@ -108,25 +119,21 @@ async function buildAndSign(
       `${entry.image}:${runTag}`,
     );
     await loadLocalImage(repository, runner, application, imageTag);
-    const { address, repositoryPath } = await publishToLocalRegistry(
+    // The source tag goes on last in the same publish, so a run that sees it
+    // finds an image that was pushed whole.
+    await publishToLocalRegistry(
       repository,
       runner,
       entry,
-      imageTag,
+      { imageTag, extraTags: [found.source] },
       session,
     );
     const digest = await publishedDigest(
-      repositoryPath,
+      found.repositoryPath,
       session.client,
       runTag,
     );
-    const image: LockedImage = {
-      // The deployed name is the registry address the nodes pull from and the
-      // image policy matches, not the host the release lock records.
-      reference: `${address}/${repositoryPath}@${digest}`,
-      digest,
-      signer: "local-kore-key",
-    };
+    const image = found.lock(digest);
     await signImage(repository, runner, image, signer, session.client);
     return { image, publicKey: signer.publicKey };
   } finally {

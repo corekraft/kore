@@ -38,6 +38,11 @@ spawn` refuses a new writer while it is held (enforced). Commit-hook test
   `kore-local-<12 hex>` for the host build, node import, registry copy and
   digest read-back, so a concurrent build cannot swap the image, and on pruning
   old tags. Tagging by content waits for the reproducible image (#344).
+  #344 chose to skip the build rather than make it byte-reproducible: a run
+  hashes the app's build context and looks up the registry tag
+  `kore-src-<16 hex>`; when it exists the run reuses that digest, builds and
+  publishes nothing, and still signs again (the key may be new). A build
+  publishes that tag with its run tag. The registry tags are what #353 prunes.
   `kore local up` prunes, before it builds and only while it holds the host
   lease, kore's own tags (the per-run tags and the old shared `kore-local`) on
   every node of its cluster and on the host, and only those no pod in the
