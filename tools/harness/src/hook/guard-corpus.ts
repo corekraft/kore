@@ -8,6 +8,8 @@ export interface CorpusCase {
   /** The role the session runs as, or none for the person's own session. */
   role?: string;
   tool: "Bash" | "Write" | "Edit" | "Read" | "Grep" | "Glob";
+  /** A Glob's pattern, when it is not the same as the path. */
+  pattern?: string;
   /** A command for Bash; a path for the file tools. */
   input: string;
   /** The rule whose block message must come back. */
@@ -85,8 +87,35 @@ const SECRET_PATHS = [
   "~/.config/g*/hosts.yml",
 ];
 
+/** A search whose root is, or holds, credential material reads it as surely as a path to it. */
+const SEARCH_ROOTS = [
+  "~/.kube",
+  "~/.config",
+  "~/.ssh",
+  "~",
+  "$HOME",
+  "/home/u",
+];
+
 /** Every bounded role, the writer included, refuses host credentials. */
 const SECRETS = [...ROLES, "writer"].flatMap((role) => [
+  ...SEARCH_ROOTS.flatMap((root) => [
+    ...bash(
+      role,
+      "secret-path",
+      `grep -r token ${root}`,
+      `rg token ${root}`,
+      `find ${root} -name config`,
+    ),
+    { role, tool: "Grep", input: root, rule: "secret-path" } as CorpusCase,
+    {
+      role,
+      tool: "Glob",
+      input: root,
+      pattern: "**/config",
+      rule: "secret-path",
+    } as CorpusCase,
+  ]),
   ...SECRET_PATHS.flatMap((path) =>
     bash(role, "secret-path", `cat ${path}`, `grep token ${path}`),
   ),
@@ -180,6 +209,8 @@ const GATED = bash(
   "echo $(node skills/bin/harness.mjs outcome record --idea 1)",
   "gh workflow run check.yml",
   "gh -R corekraft/kore workflow run check.yml",
+  "gh -R=corekraft/kore workflow run check.yml",
+  "gh -Rcorekraft/kore workflow run check.yml",
   "gh workflow run nightly.yml --ref main",
   "time gh workflow run check.yml",
   "xargs gh workflow run",
@@ -256,6 +287,12 @@ export const ORDINARY: readonly OrdinaryCase[] = [
     "node --no-warnings skills/bin/harness.mjs plan active",
     "bash -c 'ls docs'",
     "echo a >| out.txt",
+    "git add .claude/agents/writer.md",
+    "git add '.claude/agents/*'",
+    "touch .claude/agents/new.md",
+    "git commit -m 'fix(harness): stop .claude/hooks drift'",
+    "git commit -m 'fix: skills/bin/harness.mjs is built, not committed'",
+    "grep -r token ~/Development",
   ),
   ...ordinary(
     "reader",
@@ -267,6 +304,14 @@ export const ORDINARY: readonly OrdinaryCase[] = [
   { role: "writer", tool: "Edit", input: "docs/index.md" },
   { role: "writer", tool: "Read", input: ".claude/hooks/guard.sh" },
   { role: "writer", tool: "Grep", input: "src", pattern: ".kube/config" },
+  { role: "writer", tool: "Write", input: ".claude/agents/writer.md" },
+  {
+    role: "writer",
+    tool: "Edit",
+    input: ".claude/evals/principles-review/case.diff",
+  },
+  { role: "reader", tool: "Grep", input: "~/.configs" },
+  { role: "reader", tool: "Grep", input: "~/Development" },
   { role: "reader", tool: "Grep", input: "docs", pattern: "~/.ssh" },
   { role: "reader", tool: "Read", input: "tools/harness/src/hook/guard.ts" },
 ];

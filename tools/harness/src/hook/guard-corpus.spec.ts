@@ -19,7 +19,7 @@ function toolInput(
     case "Write":
       return { file_path: c.input, content: "x" };
     case "Glob":
-      return { pattern: c.input, path: c.input };
+      return { pattern: c.pattern ?? c.input, path: c.input };
     case "Grep":
       return { pattern: c.pattern ?? "token", path: c.input };
     default:

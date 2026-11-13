@@ -52,9 +52,10 @@ const MIN_LITERALS = 3;
 function namesPath(
   parts: readonly string[],
   target: readonly string[],
+  exact = false,
 ): boolean {
   return (
-    parts.length >= target.length &&
+    (exact ? parts.length === target.length : parts.length >= target.length) &&
     target.every((name, i) => globMatches(parts[i] as string, name)) &&
     parts
       .slice(0, target.length)
@@ -79,6 +80,23 @@ function pathForms(word: string): string[] {
 /** `~/.ssh`, `~/.kube/config` and `~/.config/gh`: key, cluster and GitHub token material that no pane has a task for. */
 const HOST_SECRETS = [[".ssh"], [".kube", "config"], [".config", "gh"]];
 
+/** A home folder as a search root: it holds `.ssh`, `.kube` and `.config`. */
+const HOME_DIR = /^(?:~|\$HOME|\$\{HOME\}|\/Users\/[^/]+|\/home\/[^/]+)\/*$/;
+/** Folders that hold credential material without being it. */
+const SECRET_PARENTS = [".kube", ".config"];
+
+/** Whether searching from this path reaches credential material: it names one, or it is the folder that holds one. */
+function searchesHostSecret(path: string): boolean {
+  const last = componentsOf(path).at(-1) ?? "";
+  return (
+    namesHostSecret(path) ||
+    HOME_DIR.test(path) ||
+    SECRET_PARENTS.some(
+      (parent) => globMatches(last, parent) && literals(last) >= MIN_LITERALS,
+    )
+  );
+}
+
 /** Whether a path, wherever it starts, passes through host credential material. */
 function namesHostSecret(path: string): boolean {
   const parts = componentsOf(path);
@@ -91,6 +109,8 @@ function namesHostSecret(path: string): boolean {
 const PATH_FIELDS = ["file_path", "notebook_path", "path"];
 
 const SEARCHERS = new Set(["grep", "egrep", "fgrep", "rg", "ag"]);
+/** Commands that read every file under the folders they are given. */
+const WALKERS = new Set([...SEARCHERS, "find"]);
 
 /** The words of a segment that can be paths: for a search command, not the pattern it looks for (its first operand, or the value of -e). */
 function operands(segment: readonly string[]): string[] {
@@ -108,6 +128,20 @@ function operands(segment: readonly string[]): string[] {
     }
     return !pattern;
   });
+}
+
+/** The folders a Grep, Glob or searching command starts from. */
+function searchRoots(tool: string, input: Record<string, unknown>): string[] {
+  const command = input["command"];
+  if (tool === "Bash" && typeof command === "string") {
+    return splitSegments(command).flatMap((segment) =>
+      WALKERS.has(commandOf(segment).name) ? operands(segment) : [],
+    );
+  }
+  const path = input["path"];
+  return (tool === "Grep" || tool === "Glob") && typeof path === "string"
+    ? [path]
+    : [];
 }
 
 /** The paths a call names: a file tool's path fields, and a command's words with no whitespace (a commit message or `--body` text has some). */
@@ -135,11 +169,12 @@ const hostSecret = (): Finding =>
   );
 
 /** The writer's own guard: the bundle's folder, the hooks, the settings and the `.claude` folder itself. */
-const GUARD_PATHS = [
-  ["skills", "bin"],
-  [".claude", "hooks"],
-  [".claude", "settings.json"],
-  [".claude"],
+const GUARD_PATHS: readonly (readonly [readonly string[], boolean])[] = [
+  [["skills", "bin"], false],
+  [[".claude", "hooks"], false],
+  [[".claude", "settings.json"], false],
+  // The folder itself, so `rm -rf .claude`; its agents, evals and skills are ordinary work.
+  [[".claude"], true],
 ];
 /** The guard's files as inline code or a script names them, where a word is a whole program. */
 const GUARD_TEXT =
@@ -165,7 +200,9 @@ function namesGuardPath(root: string, word: string): boolean {
   return (
     GUARD_TEXT.test(word) ||
     (!inside.startsWith("..") &&
-      GUARD_PATHS.some((target) => namesPath(componentsOf(inside), target)))
+      GUARD_PATHS.some(([target, exact]) =>
+        namesPath(componentsOf(inside), target, exact),
+      ))
   );
 }
 
@@ -176,7 +213,12 @@ const linesOf = (command: string): string[][] =>
 /** A line that writes to a guard path: a redirect to it, or a writing command or inline script that names it. */
 function writesGuardPath(root: string, line: readonly string[]): boolean {
   const rest = withoutRedirects(line);
-  const words = writes(rest) || runsInline(rest) ? rest : [];
+  // A word with whitespace is text (a commit message), not a path, unless it is inline code.
+  const inline = runsInline(rest);
+  const words =
+    writes(rest) || inline
+      ? rest.filter((word) => inline || !/\s/.test(word))
+      : [];
   return [...redirectTargets(line), ...words]
     .flatMap(pathForms)
     .some((word) => namesGuardPath(root, word));
@@ -190,7 +232,8 @@ function dispatchesWorkflow(args: readonly string[]): boolean {
     (arg, i) =>
       !WITHOUT_VALUE.has(arg) &&
       !WITHOUT_VALUE.has(args[i - 1] ?? "") &&
-      !arg.startsWith("--repo="),
+      !arg.startsWith("--repo=") &&
+      !/^-R./.test(arg),
   );
   return (
     (plain[0] === "workflow" && plain[1] === "run") ||
@@ -230,7 +273,10 @@ export function checkProtected(
   input: Record<string, unknown>,
   root: string,
 ): Finding {
-  if (pathsNamed(tool, input).some(namesHostSecret)) {
+  if (
+    pathsNamed(tool, input).some(namesHostSecret) ||
+    searchRoots(tool, input).flatMap(pathForms).some(searchesHostSecret)
+  ) {
     return hostSecret();
   }
   if (role !== "writer") {
