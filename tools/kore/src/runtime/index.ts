@@ -13,8 +13,19 @@ export type {
   JournalOperation,
   OperationSummary,
 } from "./journal.js";
-export { CommandError, ProcessRunner, withSignal } from "./runner.js";
-export type { RunOptions, RunResult, Runner } from "./runner.js";
+export {
+  CommandError,
+  CommandTimeoutError,
+  ProcessRunner,
+  withSignal,
+} from "./runner.js";
+export type {
+  ProcessRunnerOptions,
+  RunOptions,
+  RunResult,
+  Runner,
+} from "./runner.js";
+export { withRequestTimeout } from "./request-timeout.js";
 export {
   isTransientKubectlFailure,
   TransientFailureError,

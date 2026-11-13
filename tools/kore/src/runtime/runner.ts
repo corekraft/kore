@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 
 export interface RunOptions {
   cwd?: string;
@@ -14,6 +14,12 @@ export interface RunOptions {
   kubeconfig?: string;
   /** Aborting terminates the running process (SIGTERM) and rejects the run. */
   signal?: AbortSignal;
+  /**
+   * Kills the process after this many milliseconds (SIGTERM, then SIGKILL after
+   * the runner's grace period) and rejects with a `CommandTimeoutError`. Zero
+   * disables the runner's default for this call.
+   */
+  timeoutMs?: number;
 }
 export interface RunResult {
   stdout: string;
@@ -38,6 +44,35 @@ export class CommandError extends Error {
       `${command} ${args.join(" ")} failed (${result.code}): ${result.stderr.trim() || result.stdout.trim()}`,
     );
   }
+}
+
+/** A command killed for running past its timeout; the message names the cause. */
+export class CommandTimeoutError extends CommandError {
+  constructor(
+    command: string,
+    args: readonly string[],
+    result: RunResult,
+    public timeoutMs: number,
+    public escalatedToKill: boolean,
+  ) {
+    super(command, args, result);
+    this.name = "CommandTimeoutError";
+    const output = result.stderr.trim() || result.stdout.trim();
+    this.message =
+      `${command} ${args.join(" ")} timed out after ${timeoutMs}ms and was killed` +
+      (escalatedToKill
+        ? " with SIGKILL (it ignored SIGTERM)"
+        : " with SIGTERM") +
+      `; the process hung rather than failed. Check what it was waiting on, then rerun.` +
+      (output ? ` Last output: ${output}` : "");
+  }
+}
+
+export interface ProcessRunnerOptions {
+  /** Applied to every command that sets no `timeoutMs`; unset means none. */
+  defaultTimeoutMs?: number;
+  /** How long a timed-out process gets after SIGTERM before SIGKILL. */
+  killGraceMs?: number;
 }
 
 // Bash exposes the piped kubeconfig as /dev/fd/N, which stays open across exec.
@@ -66,7 +101,59 @@ function unwrapped(
   return new CommandError(command, args, error.result);
 }
 
+/**
+ * Starts the SIGTERM-then-SIGKILL clock for a child. A zero `timeoutMs` never
+ * fires. Read the outcome through `timedOut()` and `escalated()` once it exits.
+ */
+function startWatchdog(
+  child: ChildProcess,
+  timeoutMs: number,
+  graceMs: number,
+) {
+  let timedOut = false,
+    escalated = false;
+  let killTimer: NodeJS.Timeout | undefined;
+  const timeoutTimer =
+    timeoutMs > 0
+      ? setTimeout(() => {
+          timedOut = true;
+          child.kill("SIGTERM");
+          killTimer = setTimeout(() => {
+            escalated = true;
+            child.kill("SIGKILL");
+          }, graceMs);
+        }, timeoutMs)
+      : undefined;
+  return {
+    timeoutMs,
+    timedOut: () => timedOut,
+    escalated: () => escalated,
+    clear: () => {
+      clearTimeout(timeoutTimer);
+      clearTimeout(killTimer);
+    },
+  };
+}
+
 export class ProcessRunner implements Runner {
+  constructor(private readonly options: ProcessRunnerOptions = {}) {}
+
+  private async runWithKubeconfig(
+    command: string,
+    args: readonly string[],
+    kubeconfig: string,
+    rest: RunOptions,
+  ): Promise<RunResult> {
+    try {
+      return await this.run("bash", ["-c", feedKubeconfig, command, ...args], {
+        ...rest,
+        input: kubeconfig,
+      });
+    } catch (error) {
+      throw unwrapped(error, command, args);
+    }
+  }
+
   async run(
     command: string,
     args: readonly string[],
@@ -77,15 +164,7 @@ export class ProcessRunner implements Runner {
     }
     if (options.kubeconfig !== undefined) {
       const { kubeconfig, ...rest } = options;
-      try {
-        return await this.run(
-          "bash",
-          ["-c", feedKubeconfig, command, ...args],
-          { ...rest, input: kubeconfig },
-        );
-      } catch (error) {
-        throw unwrapped(error, command, args);
-      }
+      return await this.runWithKubeconfig(command, args, kubeconfig, rest);
     }
     return await new Promise((resolve, reject) => {
       const child = spawn(command, [...args], {
@@ -109,16 +188,35 @@ export class ProcessRunner implements Runner {
         child.stdin?.end(options.input);
       }
       const terminate = () => child.kill("SIGTERM");
+      const watchdog = startWatchdog(
+        child,
+        options.timeoutMs ?? this.options.defaultTimeoutMs ?? 0,
+        this.options.killGraceMs ?? 5000,
+      );
       if (options.signal?.aborted) {
         terminate();
       } else {
         options.signal?.addEventListener("abort", terminate, { once: true });
       }
-      child.on("error", reject);
+      child.on("error", (error) => {
+        watchdog.clear();
+        reject(error);
+      });
       child.on("close", (code) => {
+        watchdog.clear();
         options.signal?.removeEventListener("abort", terminate);
         const result = { stdout, stderr, code: code ?? 1 };
-        if (result.code === 0) {
+        if (watchdog.timedOut()) {
+          reject(
+            new CommandTimeoutError(
+              command,
+              args,
+              result,
+              watchdog.timeoutMs,
+              watchdog.escalated(),
+            ),
+          );
+        } else if (result.code === 0) {
           resolve(result);
         } else {
           reject(new CommandError(command, args, result));
