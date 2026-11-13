@@ -14,3 +14,4 @@ cosign.key
 # OpenTofu working directories (provider binaries); the lock file is committed
 .terraform/
 skills/bin/harness.mjs
+skills/bin/harness.mjs.*.tmp

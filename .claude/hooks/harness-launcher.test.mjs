@@ -51,6 +51,65 @@ test("the guard hook is blocked (exit 2) with a build hint when no bundle is pre
   }
 });
 
+test("the guard is blocked (exit 2) when the bundle crashes, whatever the crash exit code", () => {
+  const s = sandbox();
+  try {
+    const bundle = join(s.project, "skills", "bin", "harness.mjs");
+    for (const source of [
+      "process.exit(1);\n",
+      "process.exit(127);\n",
+      "throw new Error('boom');\n",
+      "this is not javascript (\n",
+    ]) {
+      writeFileSync(bundle, source);
+      const result = run(s.project, ["hook", "guard"]);
+      assert.equal(result.status, 2, source);
+      assert.match(result.stderr, /guard/i);
+    }
+  } finally {
+    s.cleanup();
+  }
+});
+
+test("the guard keeps a deliberate block (exit 2) and an allow (exit 0) from the bundle", () => {
+  const s = sandbox();
+  try {
+    const bundle = join(s.project, "skills", "bin", "harness.mjs");
+    writeFileSync(bundle, "process.exit(2);\n");
+    assert.equal(run(s.project, ["hook", "guard"]).status, 2);
+    writeFileSync(bundle, "process.exit(0);\n");
+    assert.equal(run(s.project, ["hook", "guard"]).status, 0);
+  } finally {
+    s.cleanup();
+  }
+});
+
+test("a non-guard hook passes a crash exit code through unchanged", () => {
+  const s = sandbox();
+  try {
+    writeFileSync(
+      join(s.project, "skills", "bin", "harness.mjs"),
+      "process.exit(7);\n",
+    );
+    assert.equal(run(s.project, ["hook", "context"]).status, 7);
+  } finally {
+    s.cleanup();
+  }
+});
+
+test("the missing-bundle hint says the build runs in a terminal outside the session", () => {
+  const s = sandbox();
+  try {
+    const result = run(s.project, ["hook", "guard"]);
+    assert.match(
+      result.stderr,
+      /terminal outside (this|the) (Claude )?session/i,
+    );
+  } finally {
+    s.cleanup();
+  }
+});
+
 test("a non-guard hook reports the missing bundle without blocking the session", () => {
   const s = sandbox();
   try {

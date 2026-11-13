@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+
+sh "$(git rev-parse --show-toplevel)/tools/kore/.husky/build-harness-bundle.sh" always

@@ -5,7 +5,7 @@
   "description": "Agent harness tools: one bundled CLI that skills and hooks call",
   "type": "module",
   "scripts": {
-    "build": "esbuild src/main.ts --bundle --platform=node --format=esm --target=node26 --legal-comments=none --outfile=../../skills/bin/harness.mjs",
+    "build": "node build.mjs",
     "check": "tsc -p tsconfig.json --noEmit",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\" package.json tsconfig.json .oxlintrc.json .prettierrc.json vitest.config.ts",
     "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\" package.json tsconfig.json .oxlintrc.json .prettierrc.json vitest.config.ts",

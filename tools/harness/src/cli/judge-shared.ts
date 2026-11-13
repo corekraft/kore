@@ -22,7 +22,7 @@ export async function openJudgeLedger({
   const main = await bundleMainRoot(deps);
   if (main === undefined) {
     throw new JudgeError(
-      "Cannot find the main checkout from the harness bundle's location, so there is no ledger to record to. Run the committed skills/bin/harness.mjs from inside the repository.",
+      "Cannot find the main checkout from the harness bundle's location, so there is no ledger to record to. Run the built skills/bin/harness.mjs (mise run harness-build) from inside the repository.",
     );
   }
   return new Ledger(
@@ -91,7 +91,7 @@ export async function repoOf({ deps }: CommandContext): Promise<string> {
   const main = await bundleMainRoot(deps);
   if (main === undefined) {
     throw new JudgeError(
-      "Cannot find the main checkout from the harness bundle's location, so there is no repository to name. Run the committed skills/bin/harness.mjs from inside the repository.",
+      "Cannot find the main checkout from the harness bundle's location, so there is no repository to name. Run the built skills/bin/harness.mjs (mise run harness-build) from inside the repository.",
     );
   }
   const done = await deps.runner.run("git", ["remote", "get-url", "origin"], {

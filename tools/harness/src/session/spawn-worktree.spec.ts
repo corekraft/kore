@@ -27,18 +27,46 @@ const calls = (h: ReturnType<typeof testHarness>): string[] =>
     .filter((c) => !c.includes("--git-common-dir"));
 
 describe("session spawn --worktree", () => {
-  it("creates the branch and worktree before the split, then runs npm ci", async () => {
+  it("creates the branch and worktree before the split, installs both packages and builds the bundle", async () => {
     const h = testHarness({ env: INSIDE, responses: responses() });
     expect(await run(args, h.deps)).toBe(0);
     expect(calls(h)).toEqual([
       `git worktree add -b image-trust-writer ${WORKTREE} HEAD`,
       `npm ci`,
+      `npm ci`,
+      `npm run build --silent`,
       `herdr pane split --current --direction right --cwd ${WORKTREE} --no-focus`,
     ]);
     const add = h.runner.calls.find((c) => c.args[0] === "worktree");
     expect(add?.options?.cwd).toBe("/work/tree");
     const install = h.runner.calls.find((c) => c.command === "npm");
     expect(install?.options?.cwd).toBe(`${WORKTREE}/tools/kore`);
+    const npmDirs = h.runner.calls
+      .filter((c) => c.command === "npm")
+      .map((c) => c.options?.cwd);
+    expect(npmDirs).toEqual([
+      `${WORKTREE}/tools/kore`,
+      `${WORKTREE}/tools/harness`,
+      `${WORKTREE}/tools/harness`,
+    ]);
+  });
+
+  it("fails before splitting, with the fix, when the bundle cannot be built", async () => {
+    const h = testHarness({
+      env: INSIDE,
+      responses: [
+        {
+          match: (c, a) => c === "npm" && a[0] === "run",
+          result: { code: 1, stderr: "esbuild exploded" },
+        },
+        ...responses(),
+      ],
+    });
+    expect(await run(args, h.deps)).toBe(1);
+    expect(h.err()).toContain("esbuild exploded");
+    expect(h.err()).toContain("harness bundle");
+    expect(h.err()).toContain(`git worktree remove ${WORKTREE}`);
+    expect(herdrCalls(h).some((c) => c.includes("pane split"))).toBe(false);
   });
 
   it("uses --branch as the branch name", async () => {

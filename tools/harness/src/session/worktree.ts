@@ -57,6 +57,23 @@ async function create(
       error: `npm ci failed in the new worktree: ${describeFailure(install)}. No pane was split. ${removeHint(worktree)}`,
     };
   }
+  // The pane's hooks need the harness bundle from its first tool call, and the
+  // fix hint is itself a tool call the guard would block (ADR 0092).
+  const harness = join(worktree.path, "tools", "harness");
+  const harnessInstall = await deps.runner.run("npm", ["ci"], { cwd: harness });
+  if (harnessInstall.code !== 0) {
+    return {
+      error: `npm ci failed for the harness in the new worktree: ${describeFailure(harnessInstall)}. No pane was split. ${removeHint(worktree)}`,
+    };
+  }
+  const build = await deps.runner.run("npm", ["run", "build", "--silent"], {
+    cwd: harness,
+  });
+  if (build.code !== 0) {
+    return {
+      error: `Building the harness bundle failed in the new worktree: ${describeFailure(build)}. The pane's guard hook would block every tool call. No pane was split. ${removeHint(worktree)}`,
+    };
+  }
   return worktree;
 }
 

@@ -61,4 +61,4 @@ rebuilds the bundle from the merged sources during a local merge, rebase or
 cherry-pick. GitHub's server-side merge runs no custom drivers, so a PR that
 conflicts there still needs a local rebase, which the driver makes automatic.
 CI still fails on a stale bundle. See the
-[contributor guide](../guides/contributor.md#the-harness-bundle-and-merges).
+[contributor guide](../guides/contributor.md#the-harness-bundle).
