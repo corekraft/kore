@@ -3,6 +3,7 @@ import { precheck, summary } from "../judge/index.js";
 import {
   FAILED,
   failed,
+  judgeModes,
   prNumber,
   record,
   repoOf,
@@ -18,13 +19,10 @@ async function runPrecheck(context: CommandContext): Promise<number> {
   try {
     const pr = prNumber(context.operand, USAGE);
     const root = await deps.root();
-    const report = await precheck(
-      context,
-      root,
-      await repoOf(context),
-      pr,
-      reviewersOf(context),
-    );
+    const report = await precheck(context, root, await repoOf(context), pr, {
+      reviewers: reviewersOf(context),
+      modeOf: await judgeModes(context),
+    });
     deps.stdout(json ? `${JSON.stringify(report)}\n` : summary(report));
     await record(context, report);
     return report.ok ? 0 : FAILED;

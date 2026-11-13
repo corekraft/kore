@@ -10,6 +10,7 @@ import type { Command, CommandContext } from "../runtime/index.js";
 import {
   FAILED,
   failed,
+  judgeModes,
   openJudgeLedger,
   prNumber,
   record,
@@ -33,13 +34,10 @@ async function runMerge(context: CommandContext): Promise<number> {
     const pr = prNumber(context.operand, MERGE_USAGE);
     const root = await deps.root();
     const repo = await repoOf(context);
-    const report = await precheck(
-      context,
-      root,
-      repo,
-      pr,
-      reviewersOf(context),
-    );
+    const report = await precheck(context, root, repo, pr, {
+      reviewers: reviewersOf(context),
+      modeOf: await judgeModes(context),
+    });
     await record(context, report);
     if (!report.ok || report.head === undefined || report.head === "") {
       deps.stdout(

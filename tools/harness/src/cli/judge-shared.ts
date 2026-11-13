@@ -1,7 +1,13 @@
 import { resolve } from "node:path";
 import { DEFAULT_LEDGER, Ledger } from "../ledger/index.js";
 import { bundleMainRoot, type CommandContext } from "../runtime/index.js";
-import { JudgeError, type Report } from "../judge/index.js";
+import { JudgeError, type ModeOf, type Report } from "../judge/index.js";
+import {
+  GuardrailError,
+  MissingInventoryError,
+  modeOf,
+  readInventory,
+} from "../guardrail/index.js";
 
 export const FAILED = 1;
 
@@ -33,6 +39,32 @@ export async function openJudgeLedger({
   );
 }
 
+/**
+ * The judge's item modes, read from the main checkout's inventory, never from
+ * the PR under review. A missing inventory enforces every item (fail closed).
+ */
+export async function judgeModes({ deps }: CommandContext): Promise<ModeOf> {
+  const main = await bundleMainRoot(deps);
+  if (main === undefined) {
+    return () => "enforce";
+  }
+  try {
+    const inventory = await readInventory(
+      (path) => deps.fs.readFile(path),
+      main,
+    );
+    return (rule) => modeOf(inventory, rule);
+  } catch (error) {
+    if (error instanceof MissingInventoryError) {
+      return () => "enforce";
+    }
+    if (error instanceof GuardrailError) {
+      throw new JudgeError(error.message);
+    }
+    throw error;
+  }
+}
+
 export async function record(
   context: CommandContext,
   report: Report,
@@ -40,6 +72,20 @@ export async function record(
   const ledger = await openJudgeLedger(context);
   const { deps } = context;
   const idea = report.idea;
+  // Every audit firing is a ledger event, so the retro can count it.
+  for (const item of report.audited ?? []) {
+    const fired = await ledger.record({
+      source: "github",
+      kind: "guard.audit",
+      occurredAt: deps.clock.now().toISOString(),
+      label: item.rule,
+    });
+    if (!fired.ok) {
+      throw new JudgeError(
+        `The precheck ran, but its audit event was rejected: ${fired.message} Fix the ledger, then rerun \`harness judge precheck ${report.pr}\`.`,
+      );
+    }
+  }
   const label = `${report.pattern ?? "none"}:${report.ok ? "pass" : "fail"}`;
   const logged = await ledger.list({ kind: "precheck" });
   const newest = logged.events.filter((e) => e.number === report.pr).at(-1);

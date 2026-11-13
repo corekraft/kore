@@ -8,8 +8,14 @@ export const INVENTORY_PATH = ".claude/guardrails.yaml";
 export const MODES = ["audit", "enforce"] as const;
 export type Mode = (typeof MODES)[number];
 
-/** What a rule inspects: Bash commands, file reads and writes, or both; or, for "ruleset", one rule of a GitHub ruleset. */
-export const KINDS = ["bash", "file", "bash-and-file", "ruleset"] as const;
+/** What a rule inspects: Bash commands, file reads and writes, or both; or, for "ruleset", one rule of a GitHub ruleset, or, for "judge", one item of the judge's checklist. */
+export const KINDS = [
+  "bash",
+  "file",
+  "bash-and-file",
+  "ruleset",
+  "judge",
+] as const;
 export type GuardrailKind = (typeof KINDS)[number];
 
 export interface Guardrail {
@@ -103,7 +109,11 @@ function checkDeny(where: string, deny: unknown, kind: GuardrailKind): void {
           "Instead, drop the :* and end the pattern with *",
       );
     }
-    if (kind === "ruleset" || (bash ? kind === "file" : kind === "bash")) {
+    if (
+      kind === "ruleset" ||
+      kind === "judge" ||
+      (bash ? kind === "file" : kind === "bash")
+    ) {
       fail(
         `${where}.deny holds ${pattern}, which does not fit its kind "${kind}"`,
       );

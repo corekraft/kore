@@ -23,6 +23,7 @@ describe("judge precheck recording and usage", () => {
       "rev-parse",
       "remote",
       "rev-parse",
+      "rev-parse",
     ]);
   });
 

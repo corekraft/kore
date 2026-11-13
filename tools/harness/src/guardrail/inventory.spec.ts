@@ -106,9 +106,9 @@ describe("the committed inventory", () => {
     ].map((m) => m[1] ?? "");
     const byName = (a: string, b: string) => a.localeCompare(b);
     // A deny rule's code is a Claude Code permission rule or the guard's generic matcher, and the
-    // ruleset's is `harness ruleset sync`; neither is a block() call.
+    // ruleset's is `harness ruleset sync`, a judge item's is `harness judge precheck`; none is a block() call.
     const coded = inventory.guardrails.filter(
-      (g) => g.deny === undefined && g.kind !== "ruleset",
+      (g) => g.deny === undefined && g.kind !== "ruleset" && g.kind !== "judge",
     );
     expect(coded.map((g) => g.rule).sort(byName)).toEqual(
       [...new Set(named)].sort(byName),

@@ -8,6 +8,7 @@ import {
 import { parseDeclaration, type Pattern } from "./declaration.js";
 import { parseDiff } from "./diff.js";
 import { hintsFor, type Hints } from "./hints.js";
+import { applyModes, enforcing, type Audited, type ModeOf } from "./items.js";
 import { assess } from "./verdict.js";
 
 export class JudgeError extends Error {}
@@ -15,6 +16,8 @@ export class JudgeError extends Error {}
 export interface Report {
   pr: number;
   ok: boolean;
+  /** Failing items in audit mode: reported, never a send-back. */
+  audited?: Audited[];
   /** The head commit the verdict covers; the merge tool merges only this one. */
   head?: string;
   pattern: Pattern | undefined;
@@ -26,6 +29,12 @@ export interface Report {
   patternMismatch?: string;
   clusterFacing?: boolean;
   unverified?: string[];
+}
+
+/** Who may post principles-review verdicts, and each checklist item's mode (enforce when absent). */
+export interface PrecheckOptions {
+  reviewers: readonly string[];
+  modeOf?: ModeOf;
 }
 
 const FIX =
@@ -85,7 +94,7 @@ export async function precheck(
   root: string,
   repo: string,
   pr: number,
-  reviewers: readonly string[],
+  { reviewers, modeOf = enforcing }: PrecheckOptions,
 ): Promise<Report> {
   const view = await readPr(context, root, repo, pr);
   const declaration = parseDeclaration(view.body);
@@ -109,12 +118,21 @@ export async function precheck(
   const files = parseDiff(diff);
   const hints = hintsFor(declaration.pattern, files);
   const verdict = assess(declaration.pattern, hints, files);
+  const { ok, audited } = applyModes(
+    checks,
+    {
+      matches: verdict.patternMatches,
+      ...(verdict.patternMismatch === undefined
+        ? {}
+        : { mismatch: verdict.patternMismatch }),
+    },
+    modeOf,
+  );
   return {
     pr,
     head: view.headSha,
-    ok:
-      verdict.patternMatches &&
-      Object.values(checks).every((c) => c.result === "pass"),
+    ok,
+    audited,
     pattern: declaration.pattern,
     idea: declaration.idea,
     declaration: { ok: true },
@@ -140,6 +158,10 @@ export function summary(report: Report): string {
     report.patternMismatch === undefined
       ? []
       : [`pattern mismatch: ${report.patternMismatch}`];
+  const audited = (report.audited ?? []).map(
+    (a) =>
+      `audit: ${a.rule} ${a.result}${a.detail === undefined ? "" : ` (${a.detail})`}, not sent back`,
+  );
   const unverified = (report.unverified ?? []).map((u) => `unverified: ${u}`);
   return [
     head,
@@ -147,6 +169,7 @@ export function summary(report: Report): string {
     ...checks,
     ...hints.map((h) => `hint ${h}`),
     ...mismatch,
+    ...audited,
     `cluster-facing: ${report.clusterFacing === true}`,
     ...unverified,
     "",

@@ -642,7 +642,13 @@ var adrCommands = {
 // src/guardrail/inventory.ts
 var INVENTORY_PATH = ".claude/guardrails.yaml";
 var MODES = ["audit", "enforce"];
-var KINDS = ["bash", "file", "bash-and-file", "ruleset"];
+var KINDS = [
+  "bash",
+  "file",
+  "bash-and-file",
+  "ruleset",
+  "judge"
+];
 var GuardrailError = class extends Error {
 };
 var MissingInventoryError = class extends GuardrailError {
@@ -705,7 +711,7 @@ function checkDeny(where, deny2, kind) {
         `${where}.deny holds ${pattern}, which mixes a mid-pattern * with a trailing :*. Claude Code reads that as a literal prefix, so the rule matches less than it appears to. Instead, drop the :* and end the pattern with *`
       );
     }
-    if (kind === "ruleset" || (bash ? kind === "file" : kind === "bash")) {
+    if (kind === "ruleset" || kind === "judge" || (bash ? kind === "file" : kind === "bash")) {
       fail(
         `${where}.deny holds ${pattern}, which does not fit its kind "${kind}"`
       );
@@ -5711,6 +5717,41 @@ function hintsFor(pattern, files) {
   return BUILDERS[pattern](files);
 }
 
+// src/judge/items.ts
+var ITEM_RULES = {
+  ci: "judge-ci",
+  scan: "judge-scan",
+  coverage: "judge-coverage",
+  principlesReview: "judge-principles-review",
+  patternMatch: "judge-pattern-match"
+};
+var enforcing = () => "enforce";
+function applyModes(checks, pattern, modeOf2) {
+  const items2 = [
+    ...Object.keys(checks).map((key) => ({
+      rule: ITEM_RULES[key],
+      failed: checks[key].result === "pass" ? void 0 : {
+        rule: ITEM_RULES[key],
+        result: checks[key].result,
+        ...checks[key].detail === void 0 ? {} : { detail: checks[key].detail }
+      }
+    })),
+    {
+      rule: ITEM_RULES.patternMatch,
+      failed: pattern.matches ? void 0 : {
+        rule: ITEM_RULES.patternMatch,
+        result: "mismatch",
+        ...pattern.mismatch === void 0 ? {} : { detail: pattern.mismatch }
+      }
+    }
+  ];
+  const failed2 = items2.filter((i) => i.failed !== void 0);
+  return {
+    ok: failed2.every((i) => modeOf2(i.rule) === "audit"),
+    audited: failed2.filter((i) => modeOf2(i.rule) === "audit").map((i) => i.failed)
+  };
+}
+
 // src/judge/verdict.ts
 var CLUSTER = /^(apps|infra|catalog)\/|(^|\/)charts?\//;
 function clusterFacing(files) {
@@ -5777,7 +5818,7 @@ async function readPr(context2, root3, repo, pr) {
   }
   return view;
 }
-async function precheck(context2, root3, repo, pr, reviewers) {
+async function precheck(context2, root3, repo, pr, { reviewers, modeOf: modeOf2 = enforcing }) {
   const view = await readPr(context2, root3, repo, pr);
   const declaration = parseDeclaration(view.body);
   if (!declaration.ok) {
@@ -5800,10 +5841,19 @@ async function precheck(context2, root3, repo, pr, reviewers) {
   const files = parseDiff(diff);
   const hints = hintsFor(declaration.pattern, files);
   const verdict = assess(declaration.pattern, hints, files);
+  const { ok, audited } = applyModes(
+    checks,
+    {
+      matches: verdict.patternMatches,
+      ...verdict.patternMismatch === void 0 ? {} : { mismatch: verdict.patternMismatch }
+    },
+    modeOf2
+  );
   return {
     pr,
     head: view.headSha,
-    ok: verdict.patternMatches && Object.values(checks).every((c) => c.result === "pass"),
+    ok,
+    audited,
     pattern: declaration.pattern,
     idea: declaration.idea,
     declaration: { ok: true },
@@ -5826,6 +5876,9 @@ ${report3.declaration.reason ?? ""}
     ([k, v]) => `${k}: ${JSON.stringify(v)}`
   );
   const mismatch = report3.patternMismatch === void 0 ? [] : [`pattern mismatch: ${report3.patternMismatch}`];
+  const audited = (report3.audited ?? []).map(
+    (a) => `audit: ${a.rule} ${a.result}${a.detail === void 0 ? "" : ` (${a.detail})`}, not sent back`
+  );
   const unverified = (report3.unverified ?? []).map((u) => `unverified: ${u}`);
   return [
     head,
@@ -5833,6 +5886,7 @@ ${report3.declaration.reason ?? ""}
     ...checks,
     ...hints.map((h) => `hint ${h}`),
     ...mismatch,
+    ...audited,
     `cluster-facing: ${report3.clusterFacing === true}`,
     ...unverified,
     ""
@@ -5871,10 +5925,44 @@ async function openJudgeLedger({
     resolve4(main, DEFAULT_LEDGER)
   );
 }
+async function judgeModes({ deps }) {
+  const main = await bundleMainRoot(deps);
+  if (main === void 0) {
+    return () => "enforce";
+  }
+  try {
+    const inventory = await readInventory(
+      (path) => deps.fs.readFile(path),
+      main
+    );
+    return (rule) => modeOf(inventory, rule);
+  } catch (error) {
+    if (error instanceof MissingInventoryError) {
+      return () => "enforce";
+    }
+    if (error instanceof GuardrailError) {
+      throw new JudgeError(error.message);
+    }
+    throw error;
+  }
+}
 async function record2(context2, report3) {
   const ledger = await openJudgeLedger(context2);
   const { deps } = context2;
   const idea = report3.idea;
+  for (const item of report3.audited ?? []) {
+    const fired = await ledger.record({
+      source: "github",
+      kind: "guard.audit",
+      occurredAt: deps.clock.now().toISOString(),
+      label: item.rule
+    });
+    if (!fired.ok) {
+      throw new JudgeError(
+        `The precheck ran, but its audit event was rejected: ${fired.message} Fix the ledger, then rerun \`harness judge precheck ${report3.pr}\`.`
+      );
+    }
+  }
   const label = `${report3.pattern ?? "none"}:${report3.ok ? "pass" : "fail"}`;
   const logged = await ledger.list({ kind: "precheck" });
   const newest = logged.events.filter((e) => e.number === report3.pr).at(-1);
@@ -5937,13 +6025,10 @@ async function runMerge(context2) {
     const pr = prNumber(context2.operand, MERGE_USAGE);
     const root3 = await deps.root();
     const repo = await repoOf(context2);
-    const report3 = await precheck(
-      context2,
-      root3,
-      repo,
-      pr,
-      reviewersOf(context2)
-    );
+    const report3 = await precheck(context2, root3, repo, pr, {
+      reviewers: reviewersOf(context2),
+      modeOf: await judgeModes(context2)
+    });
     await record2(context2, report3);
     if (!report3.ok || report3.head === void 0 || report3.head === "") {
       deps.stdout(
@@ -6071,13 +6156,10 @@ async function runPrecheck(context2) {
   try {
     const pr = prNumber(context2.operand, USAGE);
     const root3 = await deps.root();
-    const report3 = await precheck(
-      context2,
-      root3,
-      await repoOf(context2),
-      pr,
-      reviewersOf(context2)
-    );
+    const report3 = await precheck(context2, root3, await repoOf(context2), pr, {
+      reviewers: reviewersOf(context2),
+      modeOf: await judgeModes(context2)
+    });
     deps.stdout(json ? `${JSON.stringify(report3)}
 ` : summary(report3));
     await record2(context2, report3);
