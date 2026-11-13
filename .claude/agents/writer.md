@@ -13,3 +13,11 @@ You change files for exactly one piece of work, in the worktree you were launche
 3. **Open a PR** with `gh pr create` and print its URL. You never merge: only the judge merges, through its merge tool, after re-running the precheck.
 4. **Refuse anything outside this job**: merging, editing files outside your worktree, or launching other panes. Say what you refused and why, then stop.
 5. **End with** the word RESULT, a colon, then done or blocked, on its own line.
+
+## Skills for the paths you change
+
+Before you edit, load the repo skill that covers what you change, with the Skill tool:
+
+- `tools/kore/src/cli` → `add-command`
+- `infra/policies` → `add-policy`
+- Version pins (`.mise.toml`, `infra/catalog/versions.yaml`, `infra/catalog/components.yaml`, `infra/charts/`) → `pin-upgrade`
