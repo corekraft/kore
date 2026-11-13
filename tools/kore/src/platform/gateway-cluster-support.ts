@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { loadRepository } from "../config/index.js";
-import { ProcessRunner } from "../runtime/index.js";
+import { ProcessRunner, integrationEnvironment } from "../runtime/index.js";
 import type { Runner } from "../runtime/index.js";
 import { proofManifests } from "./gateway-proof.js";
 import type { Json, ProofOptions } from "./gateway-proof.js";
@@ -105,7 +105,7 @@ async function proofOptions(
 export async function withProofNamespace(
   fn: (cluster: Cluster, options: ProofOptions) => Promise<void>,
 ): Promise<void> {
-  const repository = await loadRepository("local");
+  const repository = await loadRepository(integrationEnvironment());
   const cluster = new Cluster(repository, new ProcessRunner());
   const namespace = `kore-proof-${randomBytes(3).toString("hex")}`;
   try {

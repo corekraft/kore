@@ -3,7 +3,11 @@ import { join } from "node:path";
 import { assertExpectedCluster } from "../cluster/index.js";
 import { loadRepository, type Repository } from "../config/index.js";
 import { findRoot } from "../config/config.js";
-import { ProcessRunner, type Runner } from "../runtime/index.js";
+import {
+  ProcessRunner,
+  integrationEnvironment,
+  type Runner,
+} from "../runtime/index.js";
 
 // Docs: docs/decisions/0059-identity-policy-evidence.md
 // Live and opt-in: needs a running local profile with the `reference`
@@ -29,7 +33,10 @@ export async function setup(): Promise<{
   repository: Repository;
   runner: Runner;
 }> {
-  const repository = await loadRepository("local", await findRoot());
+  const repository = await loadRepository(
+    integrationEnvironment(),
+    await findRoot(),
+  );
   const runner = new ProcessRunner();
   await assertExpectedCluster(repository, runner);
   return { repository, runner };
