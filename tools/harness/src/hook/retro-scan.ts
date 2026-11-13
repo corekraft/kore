@@ -4,6 +4,7 @@
 // Docs: infra/plans/5-self-maintenance.md#step-2-deterministic-retrospective-scan
 
 import { createHash } from "node:crypto";
+import { CommandError } from "../runtime/index.js";
 import {
   SessionAnalysis,
   type GuardCounts,
@@ -41,6 +42,16 @@ type RuleStats = Record<Outcome, number> & {
   warnings: number;
   sessions: number;
 };
+
+/** Where the plans live, relative to the repository root. */
+export const PLANS_DIR = "infra/plans";
+
+/**
+ * A `Last retrospective:` value that is not a marker. It is an expected fault
+ * the plan's author fixes, so callers catch it and say so, instead of letting
+ * it end the hook as a harness fault.
+ */
+export class MarkerError extends CommandError {}
 
 const notAMarker = (value: string): string =>
   `"${value}" is not a retrospective marker; write a date (YYYY-MM-DD) or a UTC timestamp with date -u +%Y-%m-%dT%H:%M:%SZ`;
@@ -83,7 +94,9 @@ export function lastRetrospective(
         const line = markdown
           .slice(0, (match.index ?? 0) + prefix.length)
           .split("\n").length;
-        throw new Error(`${plan}:${line}: ${notAMarker(value)}`);
+        throw new MarkerError(
+          `${PLANS_DIR}/${plan}:${line}: ${notAMarker(value)}`,
+        );
       }
       if (instant > latestAt) {
         latest = value;
@@ -110,7 +123,7 @@ export function windowStart(marker: string | undefined): number {
   }
   const instant = markerInstant(marker);
   if (!Number.isFinite(instant)) {
-    throw new Error(notAMarker(marker));
+    throw new MarkerError(notAMarker(marker));
   }
   return instant;
 }

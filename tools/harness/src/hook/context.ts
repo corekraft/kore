@@ -14,9 +14,8 @@ import {
   openItems,
   upcomingSteps,
 } from "../plan/index.js";
-import { lastRetrospective } from "./retro-scan.js";
+import { lastRetrospective, MarkerError, PLANS_DIR } from "./retro-scan.js";
 
-const PLANS_DIR = "infra/plans";
 const RETRO_AFTER_SESSIONS = 5;
 
 /** One line of an operation journal; only the fields the brief reads. */
@@ -134,18 +133,41 @@ export async function brief(
     }
   }
   lines.push(...environmentLines(await deps.readJournals()));
-  const since = lastRetrospective(plans);
+  const reminder = await retroLine(event, plans, deps);
+  if (reminder !== null) {
+    lines.push(reminder);
+  }
+  return lines.join("\n");
+}
+
+/**
+ * The retrospective reminder, once enough sessions have passed, or null. A
+ * marker the plan's author must fix becomes a warning in its place, so it
+ * never costs the session the rest of the brief.
+ */
+async function retroLine(
+  event: SessionEvent,
+  plans: Readonly<Record<string, string>>,
+  deps: ContextDeps,
+): Promise<string | null> {
+  let since: string | null;
+  try {
+    since = lastRetrospective(plans);
+  } catch (error) {
+    if (error instanceof MarkerError) {
+      return `Warning: ${error.message}`;
+    }
+    throw error;
+  }
   const id =
     typeof event.session_id === "string" ? event.session_id : undefined;
   const sessions = await deps.sessionsSince(since, id);
-  if (sessions >= RETRO_AFTER_SESSIONS) {
-    lines.push(
-      since
-        ? `${sessions} sessions since the last retrospective (${since}); run /retro.`
-        : `${sessions} sessions without a recorded retrospective; run /retro.`,
-    );
+  if (sessions < RETRO_AFTER_SESSIONS) {
+    return null;
   }
-  return lines.join("\n");
+  return since
+    ? `${sessions} sessions since the last retrospective (${since}); run /retro.`
+    : `${sessions} sessions without a recorded retrospective; run /retro.`;
 }
 
 /** The context for a SessionStart event: the brief on a fresh start, the rules after compaction. */

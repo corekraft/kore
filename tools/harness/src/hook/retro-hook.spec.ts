@@ -148,7 +148,43 @@ describe("hook retro-scan usage", () => {
     });
   });
 
+  it("exits 2 naming the plan line for a malformed marker, instead of failing open with no report", async () => {
+    const root = repoRoot({ marker: "2026-11-12 18:00:00Z" });
+    const home = temp();
+    const dir = join(
+      home,
+      ".claude",
+      "projects",
+      root.replace(/[^a-zA-Z0-9]/g, "-"),
+    );
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "new.jsonl"),
+      `${JSON.stringify({ type: "user", timestamp: "2026-11-13T00:00:00.000Z" })}\n`,
+    );
+    const result = await retro(root, [], home);
+    expect(result.code).toBe(2);
+    expect(result.out).toBe("");
+    expect(result.err).toBe(
+      'infra/plans/3-plan.md:1: "2026-11-12 18:00:00Z" is not a retrospective marker; write a date (YYYY-MM-DD) or a UTC timestamp with date -u +%Y-%m-%dT%H:%M:%SZ\n',
+    );
+  });
+});
+
+describe("hook retro-scan rejected input", () => {
   it("rejects a timestamp that is not a real instant, with usage and exit 2", async () => {
+    const result = await retro(repoRoot(), [
+      "--dir",
+      fixtures,
+      "--since",
+      "2026-02-30T00:00:00Z",
+    ]);
+    expect(result.code).toBe(2);
+    expect(result.out).toBe("");
+    expect(result.err).toMatch(/Usage: harness hook retro-scan/);
+  });
+
+  it("rejects a date that is not a real day, with usage and exit 2", async () => {
     const result = await retro(repoRoot(), [
       "--dir",
       fixtures,

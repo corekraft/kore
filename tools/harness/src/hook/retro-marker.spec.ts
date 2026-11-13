@@ -67,10 +67,10 @@ describe("marker values that are refused", () => {
       ),
     );
     expect(messages).toEqual([
-      `3.md:2: "2026-11-12 18:00:00Z" is not a retrospective marker; ${FORM}`,
-      `3.md:2: "2026-11-12T18:00:00.000Z" is not a retrospective marker; ${FORM}`,
-      `3.md:2: "2026-11-12T18:00:00+00:00" is not a retrospective marker; ${FORM}`,
-      `3.md:2: "2026-11-12T18:00Z" is not a retrospective marker; ${FORM}`,
+      `infra/plans/3.md:2: "2026-11-12 18:00:00Z" is not a retrospective marker; ${FORM}`,
+      `infra/plans/3.md:2: "2026-11-12T18:00:00.000Z" is not a retrospective marker; ${FORM}`,
+      `infra/plans/3.md:2: "2026-11-12T18:00:00+00:00" is not a retrospective marker; ${FORM}`,
+      `infra/plans/3.md:2: "2026-11-12T18:00Z" is not a retrospective marker; ${FORM}`,
     ]);
   });
 
@@ -82,7 +82,7 @@ describe("marker values that are refused", () => {
         }),
       ),
     ).toBe(
-      `3.md:2: "2026-11-12T25:00:00Z" is not a retrospective marker; ${FORM}`,
+      `infra/plans/3.md:2: "2026-11-12T25:00:00Z" is not a retrospective marker; ${FORM}`,
     );
   });
 
@@ -93,7 +93,9 @@ describe("marker values that are refused", () => {
           "3.md": "# Plan\nLast retrospective: 2026-13-45\n",
         }),
       ),
-    ).toBe(`3.md:2: "2026-13-45" is not a retrospective marker; ${FORM}`);
+    ).toBe(
+      `infra/plans/3.md:2: "2026-13-45" is not a retrospective marker; ${FORM}`,
+    );
   });
 
   it("throws for February 30 instead of rolling it over to March 2", () => {
@@ -103,7 +105,21 @@ describe("marker values that are refused", () => {
           "3.md": "# Plan\nLast retrospective: 2026-02-30\n",
         }),
       ),
-    ).toBe(`3.md:2: "2026-02-30" is not a retrospective marker; ${FORM}`);
+    ).toBe(
+      `infra/plans/3.md:2: "2026-02-30" is not a retrospective marker; ${FORM}`,
+    );
+  });
+
+  it("throws for a February 30 timestamp instead of rolling it over to March 2", () => {
+    expect(
+      thrown(() =>
+        lastRetrospective({
+          "3.md": "# Plan\nLast retrospective: 2026-02-30T00:00:00Z\n",
+        }),
+      ),
+    ).toBe(
+      `infra/plans/3.md:2: "2026-02-30T00:00:00Z" is not a retrospective marker; ${FORM}`,
+    );
   });
 
   it("throws for a value windowStart cannot open a window at", () => {

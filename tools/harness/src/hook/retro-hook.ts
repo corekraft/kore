@@ -16,7 +16,12 @@ import {
 } from "../guardrail/index.js";
 import { readPlans } from "../plan/index.js";
 import { hookCommand, type HookResult } from "./io.js";
-import { lastRetrospective, markerInstant, scan } from "./retro-scan.js";
+import {
+  lastRetrospective,
+  MarkerError,
+  markerInstant,
+  scan,
+} from "./retro-scan.js";
 import { defaultDirs, readTranscripts } from "./retro-transcripts.js";
 
 const USAGE =
@@ -106,9 +111,19 @@ async function report(
     return { code: 2, stderr: found };
   }
   let stderr = "";
-  const effective =
-    since ??
-    (dir ? undefined : (lastRetrospective(await readPlans(deps)) ?? undefined));
+  let effective = since;
+  if (effective === undefined && !dir) {
+    try {
+      effective = lastRetrospective(await readPlans(deps)) ?? undefined;
+    } catch (error) {
+      // The plan's author fixes this one, so it fails the scan by name
+      // instead of failing open with no report.
+      if (error instanceof MarkerError) {
+        return { code: 2, stderr: `${error.message}\n` };
+      }
+      throw error;
+    }
+  }
   const skills = await skillNames(deps.fs, root);
   if (skills === undefined) {
     stderr += "No skills/ directory found; skills.unused will be empty.\n";
