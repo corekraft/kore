@@ -1,6 +1,7 @@
 import type { Command } from "../runtime/index.js";
 import { close } from "./close.js";
 import { equalize } from "./equalize.js";
+import { notify } from "./notify.js";
 import { spawn } from "./spawn.js";
 import { tier } from "./tier.js";
 import { wait } from "./wait.js";
@@ -29,6 +30,14 @@ const waitCommand: Command = {
   operand: "name",
   options: { timeout: "string" },
   run: wait,
+};
+
+const notifyCommand: Command = {
+  summary:
+    "tell the caller pane this session finished: sends `[herdr:<name>] finished: RESULT <outcome>; summary in pane <this pane>` to <pane> and submits it, then confirms it shows there (<pane> --outcome done|blocked; a spawned session runs it as its last action, from the brief)",
+  operand: "pane",
+  options: { outcome: "string" },
+  run: notify,
 };
 
 const closeCommand: Command = {
@@ -71,6 +80,7 @@ const equalizeCommand: Command = {
 export const session: Record<string, Command> = {
   spawn: spawnCommand,
   wait: waitCommand,
+  notify: notifyCommand,
   close: closeCommand,
   tier: tierCommand,
   equalize: equalizeCommand,

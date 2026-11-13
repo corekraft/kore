@@ -73,7 +73,7 @@ describe("session wait refusals and recording", () => {
     const brief = [
       "❯ Print a final line with the word RESULT, a colon, then done or blocked.",
       "  Or write RESULT: done or RESULT: blocked inside a sentence",
-      '  herdr pane send-text w3:p1 "[herdr:image-trust-writer] finished: RESULT <done|blocked>; summary in pane $HERDR_PANE_ID"',
+      "  node skills/bin/harness.mjs session notify w3:p1 --outcome <done|blocked>",
     ].join("\n");
     const h = testHarness({
       env: INSIDE,
