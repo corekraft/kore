@@ -33,7 +33,8 @@ export interface LockOptions {
 /**
  * Exported by a lock holder as `<environment>:<token>`, so a kore call made
  * while the lock is held (in this process or a child) nests instead of
- * deadlocking on the lock its own caller holds.
+ * deadlocking on the lock its own caller holds. A holder of several locks
+ * (the host lease and a cluster's lock) lists them, comma-separated.
  */
 export const HELD_LOCK_ENV = "KORE_HELD_ENVIRONMENT_LOCK";
 
@@ -95,12 +96,12 @@ async function recoverStale(
 
 /** Whether this process was handed the environment's lock by its holder. */
 export async function inheritsLock(lock: string, environment: string) {
-  const [name, token] = (process.env[HELD_LOCK_ENV] ?? "").split(":");
-  return (
-    name === environment &&
-    token !== undefined &&
-    (await readOwner(lock))?.token === token
-  );
+  const held = (process.env[HELD_LOCK_ENV] ?? "")
+    .split(",")
+    .map((entry) => entry.split(":"))
+    .find(([name]) => name === environment);
+  const token = held?.[1];
+  return token !== undefined && (await readOwner(lock))?.token === token;
 }
 
 function readOwnerSync(lock: string): { token?: string } | undefined {
@@ -206,7 +207,9 @@ async function takeLock(
 
   const previous = process.env[HELD_LOCK_ENV];
   if (exportToken) {
-    process.env[HELD_LOCK_ENV] = `${environment}:${owner.token}`;
+    process.env[HELD_LOCK_ENV] = [previous, `${environment}:${owner.token}`]
+      .filter((entry) => entry !== undefined && entry !== "")
+      .join(",");
   }
   let released = false;
   const restoreEnv = () => {

@@ -1,6 +1,7 @@
 import { loadRepository } from "../config/config.js";
 import { hostRoot, lockScope } from "./host-locks.js";
-import { holdEnvironmentLock, inheritsLock } from "./lock.js";
+import { HOST_LEASE } from "./host-lease.js";
+import { holdEnvironmentLock, inheritsLock, type HeldLock } from "./lock.js";
 
 // Docs: AGENTS.md "Mutations are serialized per environment."
 
@@ -21,7 +22,8 @@ interface HoldOptions {
 
 /**
  * Holds the environment lock for the whole test process, the same lock
- * `kore local up` and every other mutating command take. Loaded through
+ * `kore local up` and every other mutating command take, after the exclusive
+ * host lease a live run holds. Loaded through
  * `node --import` by every `test:integration*` script, so no live spec can
  * mutate the cluster unserialized, however many specs exist.
  *
@@ -51,15 +53,27 @@ export async function holdIntegrationLock(
   const waitMs =
     options.waitMs ??
     Number(process.env.KORE_INTEGRATION_LOCK_WAIT_MS ?? DEFAULT_WAIT_MS);
-  const held = await holdEnvironmentLock(root, scope, { waitMs });
+  // The live run is exclusive on the host first (the lease), then on its cluster.
+  const lease = await holdEnvironmentLock(root, HOST_LEASE, { waitMs });
+  let held: HeldLock;
+  try {
+    held = await holdEnvironmentLock(root, scope, { waitMs });
+  } catch (error) {
+    await lease.release();
+    throw error;
+  }
+  const releaseSync = () => {
+    held.releaseSync();
+    lease.releaseSync();
+  };
   const hooks = options.process ?? process;
-  hooks.on("exit", held.releaseSync);
+  hooks.on("exit", releaseSync);
   for (const [signal, code] of [
     ["SIGINT", 130],
     ["SIGTERM", 143],
   ] as const) {
     hooks.on(signal, () => {
-      held.releaseSync();
+      releaseSync();
       hooks.exit(code);
     });
   }

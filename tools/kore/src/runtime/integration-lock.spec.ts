@@ -38,15 +38,39 @@ test("the test process takes no lock unless integration specs are opted into", a
 
 test("an opted-in test process holds the lock and releases it on exit", async () => {
   process.env.KORE_RUN_INTEGRATION = "1";
-  const { lock } = await newRoot("on");
+  const { root, lock } = await newRoot("on");
   const proc = fakeProcess();
   await holdIntegrationLock({ scope: async () => "kore-local", process: proc });
 
   await expect(access(lock)).resolves.toBeUndefined();
   const owner = JSON.parse(await readFile(lock, "utf8"));
-  expect(process.env[HELD_LOCK_ENV]).toBe(`kore-local:${owner.token}`);
+  const leasePath = join(root, ".kore", "locks", "host-lease.lock");
+  const lease = JSON.parse(await readFile(leasePath, "utf8"));
+  expect(process.env[HELD_LOCK_ENV]).toBe(
+    `host-lease:${lease.token},kore-local:${owner.token}`,
+  );
   proc.handlers.exit?.();
   await expect(access(lock)).rejects.toThrow();
+  await expect(access(leasePath)).rejects.toThrow();
+});
+
+test("a live spec run waits for the host lease held by another live run", async () => {
+  process.env.KORE_RUN_INTEGRATION = "1";
+  const { root, lock } = await newRoot("lease");
+  const other = await holdEnvironmentLock(root, "host-lease");
+  delete process.env[HELD_LOCK_ENV];
+  try {
+    await expect(
+      holdIntegrationLock({
+        scope: async () => "kore-local",
+        process: fakeProcess(),
+        waitMs: 50,
+      }),
+    ).rejects.toThrow(/host-lease.*waited 50 ms/);
+    await expect(access(lock)).rejects.toThrow();
+  } finally {
+    await other.release();
+  }
 });
 
 test("an interrupt releases the lock before the process dies", async () => {
