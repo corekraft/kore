@@ -74,3 +74,4 @@ export const session: Record<string, Command> = {
   tier: tierCommand,
   equalize: equalizeCommand,
 };
+export { resolveTier } from "./agent-definition.js";

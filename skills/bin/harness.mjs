@@ -306,13 +306,13 @@ var Adrs = class {
     this.checkStatus(input.status);
     checkSummary(input.summary);
     const slug2 = kebab(input.title);
-    const next = Math.max(
+    const next2 = Math.max(
       0,
       ...(await this.fs.readdir(this.abs(DECISIONS))).map(
         (f) => adrNumber(f) ?? 0
       )
     ) + 1;
-    const number = String(next).padStart(4, "0");
+    const number = String(next2).padStart(4, "0");
     const file = `${number}-${slug2}.md`;
     const path = `${DECISIONS}/${file}`;
     const indexText = await this.readIndex();
@@ -338,7 +338,7 @@ var Adrs = class {
       ""
     ];
     const entry2 = `- [\`${path}\`](decisions/${file}) \u2014 ${input.summary}`;
-    const index = this.insert(indexText, next, entry2);
+    const index = this.insert(indexText, next2, entry2);
     const report3 = {
       dryRun,
       number,
@@ -363,7 +363,7 @@ var Adrs = class {
     return this.fs.readFile(this.abs(INDEX));
   }
   /** Puts the entry before the first later-numbered ADR line, else after the last one. */
-  insert(text10, next, entry2) {
+  insert(text10, next2, entry2) {
     const lines3 = text10.split("\n");
     const start = lines3.indexOf("## Decisions");
     if (start === -1) {
@@ -375,19 +375,19 @@ var Adrs = class {
     if (end === -1) {
       end = lines3.length;
     }
-    const at = this.position(lines3, start, end, next);
+    const at = this.position(lines3, start, end, next2);
     lines3.splice(at, 0, entry2);
     return { text: lines3.join("\n"), line: at + 1 };
   }
   /** Index of the line to insert at: before the first later ADR entry, else after the last. */
-  position(lines3, start, end, next) {
+  position(lines3, start, end, next2) {
     let last = -1;
     for (let i = start + 1; i < end; i++) {
       const n = /\]\(decisions\/(\d{4})-/.exec(lines3[i] ?? "")?.[1];
       if (n === void 0) {
         continue;
       }
-      if (Number(n) > next) {
+      if (Number(n) > next2) {
         return i;
       }
       last = i;
@@ -466,17 +466,17 @@ var Supersession = class {
   root;
   async supersede(oldFlag, newFlag, dryRun) {
     const old = parseNumber("old", oldFlag);
-    const next = parseNumber("new", newFlag);
-    if (old === next) {
+    const next2 = parseNumber("new", newFlag);
+    if (old === next2) {
       throw new AdrError(
         `ADR ${old} cannot supersede itself; pass the replacing ADR's number as --new.`
       );
     }
     const oldAdr = await this.find(old, false);
-    const newAdr2 = await this.find(next, true);
+    const newAdr2 = await this.find(next2, true);
     const oldStatus = this.status(oldAdr);
     if (oldStatus === "superseded") {
-      throw new AdrError(this.alreadySuperseded(old, next, oldAdr));
+      throw new AdrError(this.alreadySuperseded(old, next2, oldAdr));
     }
     if (frontmatterLine(oldAdr.lines, "superseded-by") !== -1) {
       throw new AdrError(
@@ -485,7 +485,7 @@ var Supersession = class {
     }
     if (this.status(newAdr2) === "superseded") {
       throw new AdrError(
-        `ADR ${next} is itself superseded; use the ADR that replaced it as --new.`
+        `ADR ${next2} is itself superseded; use the ADR that replaced it as --new.`
       );
     }
     const changed = ["status: superseded", `superseded-by: ${newAdr2.path}`];
@@ -500,7 +500,7 @@ var Supersession = class {
     return {
       dryRun,
       old,
-      new: next,
+      new: next2,
       files: [
         {
           path: oldAdr.path,
@@ -512,14 +512,14 @@ var Supersession = class {
       ]
     };
   }
-  alreadySuperseded(old, next, adr) {
+  alreadySuperseded(old, next2, adr) {
     const line2 = frontmatterLine(adr.lines, "superseded-by");
     const current2 = (adr.lines[line2] ?? "").slice("superseded-by:".length).trim();
     const chained = /(\d{4})-[^/]*\.md$/.exec(current2)?.[1];
     if (chained === void 0) {
       return `ADR ${old} is already superseded; fix its superseded-by line by hand.`;
     }
-    return `ADR ${old} is already superseded by ${current2}; to replace that ADR instead, run \`harness adr supersede --old ${chained} --new ${next}\`.`;
+    return `ADR ${old} is already superseded by ${current2}; to replace that ADR instead, run \`harness adr supersede --old ${chained} --new ${next2}\`.`;
   }
   status(adr) {
     return (adr.lines[adr.statusLine] ?? "").slice("status:".length).trim();
@@ -767,11 +767,11 @@ function items(pattern, path) {
 function matches(pattern, text10) {
   let row = Array.from({ length: text10.length + 1 }, (_, j) => j === 0);
   for (const item of pattern) {
-    const next = Array.from({ length: text10.length + 1 }, () => false);
+    const next2 = Array.from({ length: text10.length + 1 }, () => false);
     for (let j = 0; j <= text10.length; j++) {
-      next[j] = "literal" in item ? j > 0 && row[j - 1] === true && text10[j - 1] === item.literal : row[j] === true || j > 0 && next[j - 1] === true && (item.crossesSlash || text10[j - 1] !== "/");
+      next2[j] = "literal" in item ? j > 0 && row[j - 1] === true && text10[j - 1] === item.literal : row[j] === true || j > 0 && next2[j - 1] === true && (item.crossesSlash || text10[j - 1] !== "/");
     }
-    row = next;
+    row = next2;
   }
   return row[text10.length] === true;
 }
@@ -1442,12 +1442,12 @@ function chargeActor(tally, items2) {
       closed = true;
       spans.push([start, at]);
     } else if (state !== void 0 && i < items2.length - 1) {
-      const next = time(items2[i + 1].event);
-      tally.add(stage2, state === "active" ? "activeMs" : "waitingMs", at, next);
-      tally.present(stage2, at, next);
+      const next2 = time(items2[i + 1].event);
+      tally.add(stage2, state === "active" ? "activeMs" : "waitingMs", at, next2);
+      tally.present(stage2, at, next2);
       if (state === "waiting") {
-        life.waits.push([at, next]);
-        tally.addToil(stage2, "waiting", at, next);
+        life.waits.push([at, next2]);
+        tally.addToil(stage2, "waiting", at, next2);
       }
     }
   });
@@ -1741,7 +1741,8 @@ var KINDS2 = [
   "guard.audit",
   "challenge.round",
   "precheck",
-  "send-back"
+  "send-back",
+  "escalation"
 ];
 var OUTCOMES = ["success", "failure"];
 var TOOL_KINDS = ["tool.start", "tool.end"];
@@ -1754,7 +1755,8 @@ var NUMBER_KINDS = [
   "outcome",
   "challenge.round",
   "precheck",
-  "send-back"
+  "send-back",
+  "escalation"
 ];
 var LAUNCH_KINDS = ["session.launch"];
 var TOKEN_KINDS = ["token.usage"];
@@ -1836,7 +1838,8 @@ var RULES = [
       "guard.audit",
       "challenge.round",
       "precheck",
-      "send-back"
+      "send-back",
+      "escalation"
     ]
   },
   {
@@ -1926,28 +1929,28 @@ var describe2 = (code, stdout, stderr2) => {
   return text10 === "" ? `exit code ${code}` : `exit code ${code}: ${text10}`;
 };
 var RATE_LIMITED = /rate limit|HTTP 403|HTTP 429/i;
-async function resetTime(gh2) {
-  const found = await gh2.runner.run("gh", ["api", "rate_limit"]);
+async function resetTime(gh3) {
+  const found = await gh3.runner.run("gh", ["api", "rate_limit"]);
   try {
-    const parsed = JSON.parse(found.stdout);
-    const core = asRecord(asRecord(asRecord(parsed)["resources"])["core"]);
+    const parsed2 = JSON.parse(found.stdout);
+    const core = asRecord(asRecord(asRecord(parsed2)["resources"])["core"]);
     const reset = core["reset"];
     return typeof reset === "number" && Number.isFinite(reset) ? new Date(reset * 1e3).toISOString() : void 0;
   } catch {
     return void 0;
   }
 }
-async function rateLimited(gh2, what) {
-  const reset = await resetTime(gh2);
+async function rateLimited(gh3, what) {
+  const reset = await resetTime(gh3);
   const retry = reset === void 0 ? "Retry in a few minutes" : `Retry after ${reset}`;
   return `gh ${what} hit the GitHub rate limit. ${retry}; poll again then (gh api rate_limit shows the reset time).`;
 }
-async function query(gh2, what, args) {
-  const found = await gh2.runner.run("gh", args);
-  await gh2.refresh();
+async function query(gh3, what, args) {
+  const found = await gh3.runner.run("gh", args);
+  await gh3.refresh();
   if (found.code !== 0) {
     if (RATE_LIMITED.test(`${found.stderr}${found.stdout}`)) {
-      return rateLimited(gh2, what);
+      return rateLimited(gh3, what);
     }
     return `gh ${what} failed: ${describe2(found.code, found.stdout, found.stderr)}. Is gh installed and logged in (gh auth status)?`;
   }
@@ -2031,10 +2034,10 @@ async function pollGithub(deps) {
 var PAGE = 100;
 var MAX_PAGES = 3;
 var searchFrom = (field3, since) => since === void 0 ? [] : ["--search", `${field3}:>=${since.slice(0, 10)}`];
-async function fetchEvents(gh2, repo, since) {
+async function fetchEvents(gh3, repo, since) {
   const events = [];
   for (let page = 1; page <= MAX_PAGES; page++) {
-    const got = await query(gh2, "api issues/events", [
+    const got = await query(gh3, "api issues/events", [
       "api",
       `repos/${repo}/issues/events?per_page=${PAGE}&page=${page}`
     ]);
@@ -2050,10 +2053,10 @@ async function fetchEvents(gh2, repo, since) {
   }
   return events;
 }
-async function fetchAll(gh2, repo, since) {
+async function fetchAll(gh3, repo, since) {
   const flag = ["--repo", repo];
   const list3 = ["--state", "all", "--limit", String(LIMIT)];
-  const issues = await query(gh2, "issue list", [
+  const issues = await query(gh3, "issue list", [
     "issue",
     "list",
     ...flag,
@@ -2066,7 +2069,7 @@ async function fetchAll(gh2, repo, since) {
   if (typeof issues === "string") {
     return issues;
   }
-  const prs = await query(gh2, "pr list", [
+  const prs = await query(gh3, "pr list", [
     "pr",
     "list",
     ...flag,
@@ -2078,7 +2081,7 @@ async function fetchAll(gh2, repo, since) {
   if (typeof prs === "string") {
     return prs;
   }
-  const events = await fetchEvents(gh2, repo, since);
+  const events = await fetchEvents(gh3, repo, since);
   if (typeof events === "string") {
     return events;
   }
@@ -2262,11 +2265,11 @@ var Ledger = class {
   path;
   /** Validates one event, then appends it as one line with a single write. */
   async record(input) {
-    const parsed = parseEvent(input, "input");
-    if (!parsed.ok) {
-      return parsed;
+    const parsed2 = parseEvent(input, "input");
+    if (!parsed2.ok) {
+      return parsed2;
     }
-    const given = parsed.event;
+    const given = parsed2.event;
     const event = {
       ...given,
       schema: SCHEMA_VERSION,
@@ -2312,8 +2315,8 @@ function parseLine(line2) {
   } catch {
     return void 0;
   }
-  const parsed = parseEvent(value, "stored");
-  return parsed.ok ? parsed.event : void 0;
+  const parsed2 = parseEvent(value, "stored");
+  return parsed2.ok ? parsed2.event : void 0;
 }
 function matches2(event, filter) {
   return (filter.session === void 0 || event.session === filter.session) && (filter.pane === void 0 || event.pane === filter.pane) && (filter.idea === void 0 || event.idea === filter.idea) && (filter.source === void 0 || event.source === filter.source) && (filter.kind === void 0 || event.kind === filter.kind) && (filter.since === void 0 || Date.parse(event.occurredAt) >= Date.parse(filter.since)) && (filter.until === void 0 || Date.parse(event.occurredAt) < Date.parse(filter.until));
@@ -2479,15 +2482,15 @@ var list = {
     "ledger"
   ]),
   async run(context2) {
-    const parsed = filterFrom(context2.options);
-    if ("error" in parsed) {
-      return reject(context2, parsed.error, "filter", 2);
+    const parsed2 = filterFrom(context2.options);
+    if ("error" in parsed2) {
+      return reject(context2, parsed2.error, "filter", 2);
     }
     const opened = await openLedger(context2);
     if ("error" in opened) {
       return reject(context2, opened.error, "ledger");
     }
-    const { events, skipped } = await opened.ledger.list(parsed.filter);
+    const { events, skipped } = await opened.ledger.list(parsed2.filter);
     if (context2.json) {
       context2.deps.stdout(`${JSON.stringify({ events, skipped })}
 `);
@@ -2780,12 +2783,6 @@ var report = {
 };
 var flowCommands = { report };
 
-// src/cli/measurement.ts
-var measurement = {
-  ledger: ledgerCommands,
-  flow: flowCommands
-};
-
 // src/idea/record.ts
 var SAFETY_PATTERNS = [
   "no-behaviour-change",
@@ -3068,10 +3065,10 @@ function addEntry(index, path, summary2) {
   const lines3 = index.split("\n");
   const start = lines3.indexOf(HEADING);
   if (start === -1) {
-    const next = lines3.indexOf(NEXT_SECTION);
-    const at = next === -1 ? lines3.length : next;
+    const next2 = lines3.indexOf(NEXT_SECTION);
+    const at = next2 === -1 ? lines3.length : next2;
     const block2 = [HEADING, "", entry2, ""];
-    if (next === -1 && lines3.at(-1) === "") {
+    if (next2 === -1 && lines3.at(-1) === "") {
       lines3.splice(lines3.length - 1, 0, "", ...block2.slice(0, -1));
     } else {
       lines3.splice(at, 0, ...block2);
@@ -3137,11 +3134,11 @@ function failure(what, stderr2) {
   const hint = REPO_PROBLEM.test(stderr2) ? "Check the repository named above, then rerun `harness idea sync`." : fix;
   return new IdeaError(`${what}: ${stderr2.trim()}. ${hint}`);
 }
-async function resolveRepo(gh2, recorded) {
+async function resolveRepo(gh3, recorded) {
   if (recorded !== void 0) {
     return recorded;
   }
-  const view = await gh2(["repo", "view", "--json", "nameWithOwner"]);
+  const view = await gh3(["repo", "view", "--json", "nameWithOwner"]);
   let name;
   try {
     name = JSON.parse(view.stdout).nameWithOwner;
@@ -3154,10 +3151,10 @@ async function resolveRepo(gh2, recorded) {
   return name;
 }
 var fix = "Check `gh auth status` and rerun `harness idea sync`.";
-async function reconcile(gh2, record5, body, at) {
+async function reconcile(gh3, record5, body, at) {
   const title = record5.title.trim();
   const issue = record5.issue ?? "";
-  const view = await gh2([
+  const view = await gh3([
     "issue",
     "view",
     at.number,
@@ -3176,7 +3173,7 @@ async function reconcile(gh2, record5, body, at) {
   if (current2.title.trim() === title && normal(current2.body) === normal(body)) {
     return { action: "unchanged", issue };
   }
-  const edit = await gh2(
+  const edit = await gh3(
     [
       "issue",
       "edit",
@@ -3197,7 +3194,7 @@ async function reconcile(gh2, record5, body, at) {
 }
 async function syncIssue(runner, root3, record5, text10, recordLink) {
   const body = renderBody(record5, text10);
-  const gh2 = async (args, input) => await runner.run("gh", args, {
+  const gh3 = async (args, input) => await runner.run("gh", args, {
     cwd: root3,
     ...input === void 0 ? {} : { input }
   });
@@ -3207,12 +3204,12 @@ async function syncIssue(runner, root3, record5, text10, recordLink) {
       `${record5.path} has issue "${record5.issue}", which is not an issue number or link; set it to e.g. 123 or https://github.com/<owner>/<repo>/issues/123.`
     );
   }
-  const repo = await resolveRepo(gh2, at?.repo);
-  const existing = at === void 0 ? void 0 : await reconcile(gh2, record5, body, { number: at.number, repo });
+  const repo = await resolveRepo(gh3, at?.repo);
+  const existing = at === void 0 ? void 0 : await reconcile(gh3, record5, body, { number: at.number, repo });
   if (existing !== void 0) {
     return existing;
   }
-  const created = await gh2(
+  const created = await gh3(
     [
       "issue",
       "create",
@@ -3245,10 +3242,10 @@ async function syncIssue(runner, root3, record5, text10, recordLink) {
 }
 function parseView(stdout, issue) {
   try {
-    const parsed = JSON.parse(stdout);
+    const parsed2 = JSON.parse(stdout);
     return {
-      title: typeof parsed.title === "string" ? parsed.title : "",
-      body: typeof parsed.body === "string" ? parsed.body : ""
+      title: typeof parsed2.title === "string" ? parsed2.title : "",
+      body: typeof parsed2.body === "string" ? parsed2.body : ""
     };
   } catch {
     throw new IdeaError(
@@ -3268,11 +3265,11 @@ async function issueTarget(runner, root3, record5) {
       `${record5.path} has issue "${record5.issue}", which is not an issue number or link; set it to e.g. 123 or https://github.com/<owner>/<repo>/issues/123.`
     );
   }
-  const gh2 = async (args, input) => await runner.run("gh", args, {
+  const gh3 = async (args, input) => await runner.run("gh", args, {
     cwd: root3,
     ...input === void 0 ? {} : { input }
   });
-  return { number: at.number, repo: await resolveRepo(gh2, at.repo) };
+  return { number: at.number, repo: await resolveRepo(gh3, at.repo) };
 }
 
 // src/idea/commands.ts
@@ -3446,6 +3443,1233 @@ var ideaCommands = {
   list: list2,
   show,
   sync
+};
+
+// src/queue/queue.ts
+var ESCALATION_THRESHOLD = 2;
+var ESCALATION_MODEL = "claude-sonnet-5-5";
+var sendBacksOf = (events, pr) => events.filter((e) => e.kind === "send-back" && e.number === pr);
+var countSendBacks = (events, pr) => sendBacksOf(events, pr).length;
+function writerTier(count3, defaultModel) {
+  const escalate = count3 >= ESCALATION_THRESHOLD;
+  return { model: escalate ? ESCALATION_MODEL : defaultModel, escalate };
+}
+var headOf = (label) => /@([0-9a-f]{7,40})$/.exec(label ?? "")?.[1];
+var issueNumber = (ref) => {
+  const found = /(\d+)$/.exec(ref ?? "")?.[1];
+  return found === void 0 ? void 0 : Number(found);
+};
+function buildQueue(input) {
+  const items2 = [];
+  for (const record5 of input.ideas) {
+    const issue = issueNumber(record5.issue);
+    const since = issue === void 0 ? void 0 : input.approved.get(issue);
+    if (issue !== void 0 && since !== void 0 && record5.outcome === void 0) {
+      items2.push({ kind: "idea", idea: record5.number, issue, since });
+    }
+  }
+  for (const pr of input.openPrs) {
+    const events = sendBacksOf(input.sendBacks, pr.number);
+    const newest = events.reduce(
+      (latest, e) => latest === void 0 || Date.parse(e.occurredAt) >= Date.parse(latest.occurredAt) ? e : latest,
+      void 0
+    );
+    const head = headOf(newest?.label);
+    if (newest !== void 0 && head !== void 0 && pr.head.startsWith(head)) {
+      items2.push({
+        kind: "send-back",
+        pr: pr.number,
+        count: events.length,
+        since: newest.occurredAt
+      });
+    }
+  }
+  return items2.sort((a, b) => Date.parse(a.since) - Date.parse(b.since));
+}
+
+// src/session/equalize.ts
+var byY = (a, b) => a.rect.y - b.rect.y;
+function describeFailure(result) {
+  return (result.stderr || result.stdout).trim() || `exit code ${result.code}`;
+}
+async function readLayout(runner, callerPane) {
+  const result = await runner.run("herdr", [
+    "pane",
+    "layout",
+    "--pane",
+    callerPane
+  ]);
+  if (result.code !== 0) {
+    return {
+      error: `herdr pane layout failed: ${describeFailure(result)}`
+    };
+  }
+  try {
+    const parsed2 = JSON.parse(result.stdout);
+    const layout = parsed2.result?.layout;
+    if (layout !== void 0) {
+      return { layout };
+    }
+  } catch {
+  }
+  return {
+    error: `herdr pane layout returned no layout (.result.layout): ${result.stdout.trim()}`
+  };
+}
+function spawnedColumn(layout, callerPane) {
+  const caller = layout.panes.find((p) => p.pane_id === callerPane);
+  const column = Math.max(...layout.panes.map((p) => p.rect.x));
+  if (caller === void 0 || column <= caller.rect.x) {
+    return [];
+  }
+  return layout.panes.filter((p) => p.rect.x === column).sort(byY);
+}
+async function equalize(runner, callerPane) {
+  const read = await readLayout(runner, callerPane);
+  if ("error" in read) {
+    return { status: "failed", reason: read.error };
+  }
+  const { layout } = read;
+  const panes = spawnedColumn(layout, callerPane);
+  const column = panes[0]?.rect.x;
+  if (column === void 0) {
+    return {
+      status: "skipped",
+      reason: "no spawned column right of the caller"
+    };
+  }
+  const splits = layout.splits.filter((s) => s.direction === "down" && s.rect.x === column).sort(byY);
+  if (splits.length !== panes.length - 1) {
+    return {
+      status: "skipped",
+      reason: "layout splits do not match the spawned panes"
+    };
+  }
+  for (const [i, split] of splits.entries()) {
+    const delta2 = 1 / (panes.length - i) - split.ratio;
+    if (Math.abs(delta2) <= 5e-4) {
+      continue;
+    }
+    const [pane, direction] = delta2 < 0 ? [panes[i + 1], "up"] : [panes[i], "down"];
+    const resize = await runner.run("herdr", [
+      "pane",
+      "resize",
+      "--pane",
+      pane.pane_id,
+      "--direction",
+      direction,
+      "--amount",
+      Math.abs(delta2).toFixed(6)
+    ]);
+    if (resize.code !== 0) {
+      return {
+        status: "failed",
+        reason: `herdr pane resize failed: ${describeFailure(resize)}`
+      };
+    }
+  }
+  return { status: "equalized" };
+}
+
+// src/session/names.ts
+var MAX_LENGTH = 32;
+var ORDINALS = /* @__PURE__ */ new Set([
+  "first",
+  "second",
+  "third",
+  "fourth",
+  "fifth",
+  "sixth",
+  "seventh",
+  "eighth",
+  "ninth",
+  "tenth"
+]);
+var EXAMPLE = "name it for its subject, such as image-trust-reader";
+function isPlaceholderSegment(segment) {
+  return /^[a-z]$/.test(segment) || /^\d{1,2}$/.test(segment) || /^step\d+$/.test(segment) || /^\d+(st|nd|rd|th)$/.test(segment) || ORDINALS.has(segment);
+}
+function sessionNameError(name) {
+  if (!/^[a-z0-9_-]+$/.test(name)) {
+    return `Session name "${name}" must use only lowercase letters, digits, "-" and "_"; ${EXAMPLE}.`;
+  }
+  if (name.length > MAX_LENGTH) {
+    return `Session name "${name}" is ${name.length} characters, but Herdr allows at most ${MAX_LENGTH}; shorten it, for example by dropping the role suffix.`;
+  }
+  if (name.split(/[-_]/).some(isPlaceholderSegment)) {
+    return `Session name "${name}" uses a letter, ordinal or step number; ${EXAMPLE}.`;
+  }
+  return void 0;
+}
+
+// src/session/output.ts
+var USAGE_ERROR = 2;
+var FAILED2 = 1;
+function fail2(deps, json, code, message) {
+  deps.stderr(
+    `${json ? `${JSON.stringify({ error: message })}
+` : ""}${message}
+`
+  );
+  return code;
+}
+
+// src/session/registry.ts
+import { join as join3, resolve as resolve4 } from "node:path";
+var STATE_DIR = ".kore/state/sessions";
+function isRecord(value) {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const record5 = value;
+  return typeof record5.name === "string" && typeof record5.paneId === "string" && typeof record5.callerPane === "string" && typeof record5.model === "string";
+}
+var SessionRegistry = class _SessionRegistry {
+  constructor(fs, dir) {
+    this.fs = fs;
+    this.dir = dir;
+  }
+  fs;
+  dir;
+  /** Keeps state in the main checkout, shared by every worktree (see `mainRoot`). */
+  static async open(deps) {
+    const main = await mainRoot(deps);
+    if (main === void 0) {
+      throw new CommandError(
+        "Cannot find the main checkout to keep session state in. Run inside the repository or set KORE_ROOT to its root."
+      );
+    }
+    return new _SessionRegistry(deps.fs, resolve4(main, STATE_DIR));
+  }
+  file(name) {
+    return join3(this.dir, `${name}.json`);
+  }
+  async read(name) {
+    const path = this.file(name);
+    if (!await this.fs.exists(path)) {
+      return void 0;
+    }
+    let parsed2;
+    try {
+      parsed2 = JSON.parse(await this.fs.readFile(path));
+    } catch (error) {
+      if (!(error instanceof SyntaxError)) {
+        throw error;
+      }
+      parsed2 = void 0;
+    }
+    if (!isRecord(parsed2)) {
+      throw new CommandError(
+        `Session state ${path} is not a valid session record; delete it and spawn the session again.`
+      );
+    }
+    return parsed2;
+  }
+  async write(record5) {
+    await this.fs.writeFile(
+      this.file(record5.name),
+      `${JSON.stringify(record5, null, 2)}
+`
+    );
+  }
+  /** Why `name` cannot be spawned again: its record exists and is not closed. Undefined when free. */
+  async unavailable(name) {
+    const existing = await this.read(name);
+    return existing === void 0 || existing.closedAt !== void 0 ? void 0 : `A session record for ${name} (pane ${existing.paneId}) already exists and is not closed; run \`session wait ${name}\` then \`session close ${name}\`, or pick another name. No pane was split.`;
+  }
+  /** Records a new session; refuses to replace one that is not closed, even under a race. */
+  async create(record5) {
+    const content = `${JSON.stringify(record5, null, 2)}
+`;
+    try {
+      await this.fs.createFile(this.file(record5.name), content);
+    } catch (error) {
+      if (error.code !== "EEXIST") {
+        throw error;
+      }
+      const reason = await this.unavailable(record5.name);
+      if (reason !== void 0) {
+        throw new CommandError(
+          reason.replace(
+            " No pane was split.",
+            ` Pane ${record5.paneId} is running unrecorded; close it with \`herdr pane close ${record5.paneId}\`.`
+          )
+        );
+      }
+      await this.write(record5);
+    }
+  }
+};
+
+// src/session/worktree.ts
+import { join as join4 } from "node:path";
+var removeCommands = (worktree) => `\`git worktree remove ${worktree.path}\` and \`git branch -D ${worktree.branch}\``;
+var removeHint = (worktree) => `The worktree ${worktree.path} was left behind; remove it with ${removeCommands(worktree)}.`;
+var closeHint = (worktree) => `Remove its worktree once its branch is merged: ${removeCommands(worktree)}.`;
+async function create2(deps, name, branch) {
+  const main = await mainRoot(deps);
+  if (main === void 0) {
+    return {
+      error: "Cannot find the main checkout to create the worktree in. Run inside the repository or set KORE_ROOT to its root. No pane was split."
+    };
+  }
+  const worktree = { path: join4(main, ".claude", "worktrees", name), branch };
+  const add = await deps.runner.run(
+    "git",
+    ["worktree", "add", "-b", branch, worktree.path, "HEAD"],
+    { cwd: deps.cwd }
+  );
+  if (add.code !== 0) {
+    return {
+      error: `git worktree add failed: ${describeFailure(add)}. No pane was split. A previous spawn may have left the worktree or branch: run ${removeCommands(worktree)}, or pass --branch <other>.`
+    };
+  }
+  const install = await deps.runner.run("npm", ["ci"], {
+    cwd: join4(worktree.path, "tools", "kore")
+  });
+  if (install.code !== 0) {
+    return {
+      error: `npm ci failed in the new worktree: ${describeFailure(install)}. No pane was split. ${removeHint(worktree)}`
+    };
+  }
+  return worktree;
+}
+async function place(deps, options, name) {
+  if (options.worktree !== true) {
+    return { cwd: deps.cwd, left: "" };
+  }
+  const branch = typeof options.branch === "string" ? options.branch : name;
+  const worktree = await create2(deps, name, branch);
+  if ("error" in worktree) {
+    return worktree;
+  }
+  return { worktree, cwd: worktree.path, left: ` ${removeHint(worktree)}` };
+}
+
+// src/session/close.ts
+var NOT_IN_HERDR = "Not inside Herdr (HERDR_ENV is not 1 or HERDR_PANE_ID is unset). Run this from the Herdr pane that spawned the session.";
+function refuse(record5, callerPane) {
+  const { name, paneId } = record5;
+  if (record5.closedAt !== void 0) {
+    return `Session ${name} is already closed (pane ${paneId}).`;
+  }
+  if (record5.callerPane !== callerPane) {
+    return `Session ${name} was spawned from pane ${record5.callerPane}, not ${callerPane}; only that pane may close it.`;
+  }
+  return record5.result === void 0 ? `Session ${name} has no recorded result, so pane ${paneId} stays open. Run \`session wait ${name}\` first.` : void 0;
+}
+async function finishClose({ json, deps }, registry, record5, callerPane) {
+  const { name } = record5;
+  await registry.write({ ...record5, closedAt: deps.clock.now().toISOString() });
+  const equalized = await equalize(deps.runner, callerPane);
+  const note = equalized.status === "failed" ? `Closed, but equalizing failed: ${equalized.reason}` : void 0;
+  if (note !== void 0) {
+    deps.stderr(`${note}
+`);
+  }
+  const hint = record5.worktree === void 0 ? void 0 : closeHint(record5.worktree);
+  deps.stdout(
+    json ? `${JSON.stringify({ name, paneId: record5.paneId, closed: true, equalize: equalized, ...hint === void 0 ? {} : { hint } })}
+` : `Closed ${name} (pane ${record5.paneId}).${hint === void 0 ? "" : ` ${hint}`}
+`
+  );
+  return 0;
+}
+async function close(context2) {
+  const { json, deps } = context2;
+  const name = context2.operand;
+  if (name === void 0) {
+    return fail2(
+      deps,
+      json,
+      USAGE_ERROR,
+      "Missing the session name: session close <name>."
+    );
+  }
+  const nameError = sessionNameError(name);
+  if (nameError !== void 0) {
+    return fail2(deps, json, USAGE_ERROR, nameError);
+  }
+  const callerPane = deps.env.HERDR_PANE_ID;
+  if (deps.env.HERDR_ENV !== "1" || !callerPane) {
+    return fail2(deps, json, FAILED2, NOT_IN_HERDR);
+  }
+  const registry = await SessionRegistry.open(deps);
+  const record5 = await registry.read(name);
+  if (record5 === void 0) {
+    return fail2(
+      deps,
+      json,
+      FAILED2,
+      `This tool did not create a session named ${name}, so it will not close one. Close it yourself with \`herdr pane close <pane-id>\` if you are sure.`
+    );
+  }
+  const refusal = refuse(record5, callerPane);
+  if (refusal !== void 0) {
+    return fail2(deps, json, FAILED2, refusal);
+  }
+  const closed = await deps.runner.run("herdr", [
+    "pane",
+    "close",
+    record5.paneId
+  ]);
+  if (closed.code !== 0) {
+    return fail2(
+      deps,
+      json,
+      FAILED2,
+      `herdr pane close ${record5.paneId} failed: ${describeFailure(closed)}`
+    );
+  }
+  return await finishClose(context2, registry, record5, callerPane);
+}
+
+// src/session/models.ts
+var MODELS = {
+  "claude-fable-5-2": {
+    name: "Fable 5.2",
+    pattern: /(?<![\w.])Fable 5\.2(?![\w.])/
+  },
+  "claude-opus-5-5": {
+    name: "Opus 5.5",
+    pattern: /(?<![\w.])Opus 5\.5(?![\w.])/
+  },
+  "claude-sonnet-5-5": {
+    name: "Sonnet 5.5",
+    pattern: /(?<![\w.])Sonnet 5\.5(?![\w.])/
+  },
+  "claude-haiku-5-5": {
+    name: "Haiku 5.5",
+    pattern: /(?<![\w.])Haiku 5\.5(?![\w.])/
+  }
+};
+function displayName(model) {
+  return Object.hasOwn(MODELS, model) ? MODELS[model]?.name : void 0;
+}
+function modelOnScreen(model, screen) {
+  const expected = Object.hasOwn(MODELS, model) ? MODELS[model] : void 0;
+  if (expected?.pattern.test(screen) === true) {
+    return { status: "verified" };
+  }
+  const seen = Object.values(MODELS).find(
+    ({ pattern }) => pattern.test(screen)
+  );
+  return seen === void 0 ? { status: "none" } : { status: "mismatch", seen: seen.name };
+}
+
+// src/session/agent-start.ts
+var BUSY_BOUND_MS = 1e4;
+var MODEL_BOUND_MS = 5e3;
+var RETRY_MS = 500;
+async function startAgent(deps, args) {
+  const deadline = deps.clock.now().getTime() + BUSY_BOUND_MS;
+  for (; ; ) {
+    const start = await deps.runner.run("herdr", args);
+    if (start.code === 0) {
+      return void 0;
+    }
+    if (!`${start.stdout}${start.stderr}`.includes("agent_pane_busy")) {
+      return `herdr agent start failed: ${describeFailure(start)}`;
+    }
+    if (deps.clock.now().getTime() >= deadline) {
+      return `herdr agent start failed: agent_pane_busy for ${BUSY_BOUND_MS / 1e3} seconds; the pane's shell never became ready (${describeFailure(start)})`;
+    }
+    await deps.clock.sleep(RETRY_MS);
+  }
+}
+async function checkModel(deps, name, model) {
+  const expected = displayName(model);
+  if (expected === void 0) {
+    return {
+      status: "unverified",
+      reason: `No display name is known for ${model}, so the pane's model could not be confirmed.`
+    };
+  }
+  const deadline = deps.clock.now().getTime() + MODEL_BOUND_MS;
+  for (; ; ) {
+    const read = await deps.runner.run("herdr", [
+      "agent",
+      "read",
+      name,
+      "--source",
+      "visible"
+    ]);
+    const seen = modelOnScreen(model, read.code === 0 ? read.stdout : "");
+    if (seen.status === "verified") {
+      return { status: "verified" };
+    }
+    if (seen.status === "mismatch") {
+      return {
+        mismatch: `Session ${name} runs "${seen.seen}" but ${model} ("${expected}") was requested.`
+      };
+    }
+    if (deps.clock.now().getTime() >= deadline) {
+      return {
+        status: "unverified",
+        reason: `The pane showed no model name, such as "${expected}", within ${MODEL_BOUND_MS / 1e3} seconds, so ${model} could not be confirmed.`
+      };
+    }
+    await deps.clock.sleep(RETRY_MS);
+  }
+}
+
+// src/session/brief.ts
+function broadcastCommand(name, callerPane) {
+  return `herdr pane send-text ${callerPane} "[herdr:${name}] finished: RESULT <done|blocked>; summary in pane $HERDR_PANE_ID" && herdr pane send-keys ${callerPane} enter`;
+}
+function buildBrief({ task, name, callerPane }) {
+  return [
+    task,
+    "",
+    `You are ${name}; your session name is ${name}.`,
+    `When you finish, broadcast to pane \`${callerPane}\`. Print your summary and a final line with the word RESULT, a colon, then done or blocked. Then, as your very last action, run this one line with the outcome word (done or blocked) in place of <done|blocked>; it expands your own $HERDR_PANE_ID, and must carry no secrets or output beyond the outcome word:`,
+    "",
+    broadcastCommand(name, callerPane)
+  ].join("\n");
+}
+
+// src/session/launch.ts
+async function launch(deps, { role, model, effort, name, brief: brief2, paneId, callerPane, leftOpen }) {
+  const started = await startAgent(deps, [
+    "agent",
+    "start",
+    name,
+    "--kind",
+    "claude",
+    "--pane",
+    paneId,
+    "--",
+    "--agent",
+    role,
+    "--model",
+    model,
+    "--effort",
+    effort
+  ]);
+  if (started !== void 0) {
+    return { error: `${started}. ${leftOpen}` };
+  }
+  const checked = await checkModel(deps, name, model);
+  if ("mismatch" in checked) {
+    return { error: `${checked.mismatch} ${leftOpen}` };
+  }
+  const prompt = await deps.runner.run("herdr", [
+    "agent",
+    "prompt",
+    name,
+    buildBrief({ task: brief2, name, callerPane }),
+    "--wait",
+    "--until",
+    "working",
+    "--timeout",
+    "5000"
+  ]);
+  if (prompt.code === 0) {
+    return checked;
+  }
+  await deps.runner.run("herdr", ["agent", "send-keys", name, "enter"]);
+  const retried = await deps.runner.run("herdr", [
+    "agent",
+    "wait",
+    name,
+    "--until",
+    "working",
+    "--timeout",
+    "5000"
+  ]);
+  return retried.code === 0 ? checked : {
+    error: `herdr agent prompt failed: ${describeFailure(prompt)}; pressing enter did not start it either: ${describeFailure(retried)}. Session ${name} is running in pane ${paneId} without its brief.`
+  };
+}
+
+// src/session/agent-definition.ts
+import { join as join5 } from "node:path";
+var FRONTMATTER = /^---\n([\s\S]*?)\n---/;
+function field(frontmatter3, key) {
+  const line2 = frontmatter3.split("\n").find((l) => l.startsWith(`${key}:`));
+  const value = line2?.slice(key.length + 1).trim();
+  return value === void 0 || value === "" ? void 0 : value.replace(/^(["'])(.*)\1$/, "$2");
+}
+function parseDefinition(markdown) {
+  const frontmatter3 = FRONTMATTER.exec(markdown)?.[1] ?? "";
+  const model = field(frontmatter3, "model");
+  const effort = field(frontmatter3, "effort");
+  const tools = field(frontmatter3, "tools");
+  return {
+    ...model === void 0 ? {} : { model },
+    ...effort === void 0 ? {} : { effort },
+    ...tools === void 0 ? {} : { tools: tools.split(",").map((tool) => tool.trim()) }
+  };
+}
+var ROLE = /^[a-z][a-z0-9-]*$/;
+async function readTier(deps, role) {
+  if (!ROLE.test(role)) {
+    return {};
+  }
+  const path = join5(await deps.root(), ".claude/agents", `${role}.md`);
+  try {
+    return parseDefinition(await deps.fs.readFile(path));
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return {};
+    }
+    throw error;
+  }
+}
+async function resolveTier(deps, role, flags) {
+  const declared = await readTier(deps, role);
+  const model = flags.model ?? declared.model;
+  const effort = flags.effort ?? declared.effort;
+  for (const [flag, value] of [
+    ["model", model],
+    ["effort", effort]
+  ]) {
+    if (value === void 0) {
+      return {
+        error: `Missing --${flag}, and .claude/agents/${role}.md does not declare it. Pass --${flag} or add \`${flag}:\` to that definition's frontmatter.`
+      };
+    }
+  }
+  return { model, effort };
+}
+
+// src/session/wait.ts
+var DEFAULT_TIMEOUT_MS = 60 * 60 * 1e3;
+var POLL_MS = 2e3;
+var MARKER = /^[ \t]*(?:[●⏺][ \t]+)?RESULT: (done|blocked)[ \t\r]*$/gm;
+function findResult(text10) {
+  const last = [...text10.matchAll(MARKER)].at(-1)?.[1];
+  return last === "done" || last === "blocked" ? last : void 0;
+}
+function parseTimeout(value) {
+  if (value === void 0) {
+    return DEFAULT_TIMEOUT_MS;
+  }
+  const ms = typeof value === "string" ? Number(value) : Number.NaN;
+  return Number.isInteger(ms) && ms > 0 ? ms : { error: "--timeout must be a positive whole number of milliseconds." };
+}
+function seconds2(ms) {
+  return `${ms / 1e3} seconds`;
+}
+async function waitForResult(deps, registry, record5, timeoutMs) {
+  const done = (outcome) => ({
+    name: record5.name,
+    paneId: record5.paneId,
+    model: record5.model,
+    outcome,
+    summary: `pane ${record5.paneId}`
+  });
+  if (record5.result !== void 0) {
+    return done(record5.result.outcome);
+  }
+  const deadline = deps.clock.now().getTime() + timeoutMs;
+  for (; ; ) {
+    const read = await deps.runner.run("herdr", [
+      "pane",
+      "read",
+      record5.paneId,
+      "--source",
+      "recent-unwrapped"
+    ]);
+    if (read.code !== 0) {
+      return {
+        error: `herdr pane read ${record5.paneId} failed: ${describeFailure(read)}`
+      };
+    }
+    const outcome = findResult(read.stdout);
+    if (outcome !== void 0) {
+      await registry.write({
+        ...record5,
+        result: { outcome, at: deps.clock.now().toISOString() }
+      });
+      return done(outcome);
+    }
+    if (deps.clock.now().getTime() + POLL_MS > deadline) {
+      return {
+        error: `Session ${record5.name} printed no "RESULT: done" or "RESULT: blocked" line in pane ${record5.paneId} within ${seconds2(timeoutMs)}. It may still be working; run \`session wait ${record5.name}\` again or read the pane.`
+      };
+    }
+    await deps.clock.sleep(POLL_MS);
+  }
+}
+function formatWait(result) {
+  return `${result.name} (${result.model}) finished: RESULT ${result.outcome}; summary in ${result.summary}.
+`;
+}
+async function wait(context2) {
+  const { json, deps, options } = context2;
+  const name = context2.operand;
+  if (name === void 0) {
+    return fail2(
+      deps,
+      json,
+      USAGE_ERROR,
+      "Missing the session name: session wait <name>."
+    );
+  }
+  const nameError = sessionNameError(name);
+  if (nameError !== void 0) {
+    return fail2(deps, json, USAGE_ERROR, nameError);
+  }
+  const timeout = parseTimeout(options.timeout);
+  if (typeof timeout !== "number") {
+    return fail2(deps, json, USAGE_ERROR, timeout.error);
+  }
+  const registry = await SessionRegistry.open(deps);
+  const record5 = await registry.read(name);
+  if (record5 === void 0) {
+    return fail2(
+      deps,
+      json,
+      FAILED2,
+      `No session named ${name} was spawned by this tool; start it with \`session spawn\`.`
+    );
+  }
+  const result = await waitForResult(deps, registry, record5, timeout);
+  if ("error" in result) {
+    return fail2(deps, json, FAILED2, result.error);
+  }
+  deps.stdout(json ? `${JSON.stringify(result)}
+` : formatWait(result));
+  return 0;
+}
+
+// src/session/spawn-check.ts
+var REQUIRED3 = ["role", "name", "brief"];
+function herdrCaller(deps) {
+  const callerPane = deps.env.HERDR_PANE_ID;
+  if (deps.env.HERDR_ENV !== "1") {
+    return {
+      error: "Not inside Herdr (HERDR_ENV is not 1). Run this from a Herdr pane; no session was started.",
+      code: FAILED2
+    };
+  }
+  if (callerPane === void 0 || callerPane === "") {
+    return {
+      error: "HERDR_PANE_ID is not set, so the session cannot broadcast back. Run this from a Herdr pane.",
+      code: FAILED2
+    };
+  }
+  return callerPane;
+}
+function worktreeError(role, options) {
+  if (options.branch !== void 0 && options.worktree !== true) {
+    return "--branch only applies with --worktree.";
+  }
+  return role === "writer" && options.worktree !== true ? "A writer needs its own worktree so concurrent writers cannot collide. Add --worktree." : void 0;
+}
+async function check({
+  deps,
+  options
+}) {
+  const usage2 = (error) => ({ error, code: USAGE_ERROR });
+  const missing = REQUIRED3.find((flag2) => typeof options[flag2] !== "string");
+  if (missing !== void 0) {
+    return usage2(`Missing --${missing}.`);
+  }
+  const given = options;
+  const nameError = sessionNameError(given.name);
+  if (nameError !== void 0) {
+    return usage2(nameError);
+  }
+  if (findResult(given.brief) !== void 0) {
+    return usage2(
+      'The brief has a line that is only a RESULT marker, which would end the wait early. Describe the marker in words instead, such as "end with the word RESULT, a colon, then done or blocked".'
+    );
+  }
+  const wrongWorktree = worktreeError(given.role, options);
+  if (wrongWorktree !== void 0) {
+    return usage2(wrongWorktree);
+  }
+  const timeoutMs = parseTimeout(options.timeout);
+  if (typeof timeoutMs !== "number") {
+    return usage2(timeoutMs.error);
+  }
+  const callerPane = herdrCaller(deps);
+  if (typeof callerPane !== "string") {
+    return callerPane;
+  }
+  const flag = (name) => typeof options[name] === "string" ? options[name] : void 0;
+  const tier2 = await resolveTier(deps, given.role, {
+    model: flag("model"),
+    effort: flag("effort")
+  });
+  if ("error" in tier2) {
+    return usage2(tier2.error);
+  }
+  return { values: { ...given, ...tier2 }, callerPane, timeoutMs };
+}
+
+// src/session/spawn-finish.ts
+import { join as join6 } from "node:path";
+async function recordLaunch(deps, record5) {
+  try {
+    const main = await mainRoot(deps);
+    if (main === void 0) {
+      return;
+    }
+    await new Ledger(
+      deps.fs,
+      deps.clock,
+      deps.ids,
+      join6(main, DEFAULT_LEDGER)
+    ).record({
+      source: "herdr",
+      kind: "session.launch",
+      occurredAt: record5.createdAt,
+      pane: record5.paneId,
+      agent: record5.name,
+      role: record5.role,
+      tier: record5.model
+    });
+  } catch {
+  }
+}
+async function finish({ json, deps, options }, { registry, record: record5, modelCheck, timeoutMs }) {
+  const { name, paneId, callerPane, model, role, effort, worktree } = record5;
+  const extra = worktree === void 0 ? {} : { worktree };
+  await registry.create(record5);
+  await recordLaunch(deps, record5);
+  const verdict = modelCheck.status === "verified" ? "model verified" : `model unverified: ${modelCheck.reason}`;
+  if (options["no-wait"] === true) {
+    deps.stdout(
+      json ? `${JSON.stringify({ name, paneId, model, role, effort, ...extra, modelCheck })}
+` : `Spawned ${name} (${model}; ${verdict}) in pane ${paneId}; it will broadcast to ${callerPane} when it finishes. Collect its result with \`session wait ${name}\`.
+`
+    );
+    return 0;
+  }
+  const result = await waitForResult(deps, registry, record5, timeoutMs);
+  if ("error" in result) {
+    return fail2(deps, json, FAILED2, result.error);
+  }
+  deps.stdout(
+    json ? `${JSON.stringify({ ...result, role, effort, ...extra, modelCheck })}
+` : `${formatWait(result).trimEnd()} (${verdict}).
+`
+  );
+  return 0;
+}
+
+// src/session/spawn.ts
+function paneIdOf(stdout) {
+  try {
+    const parsed2 = JSON.parse(stdout);
+    const id = parsed2.result?.pane?.pane_id;
+    return typeof id === "string" ? id : void 0;
+  } catch {
+    return void 0;
+  }
+}
+async function splitPane(deps, callerPane, cwd) {
+  const read = await readLayout(deps.runner, callerPane);
+  if ("error" in read) {
+    return { error: `${read.error}. No pane was split.` };
+  }
+  const last = spawnedColumn(read.layout, callerPane).at(-1);
+  const where = last === void 0 ? ["--current", "--direction", "right"] : [last.pane_id, "--direction", "down"];
+  const split = await deps.runner.run("herdr", [
+    "pane",
+    "split",
+    ...where,
+    "--cwd",
+    cwd,
+    "--no-focus"
+  ]);
+  if (split.code !== 0) {
+    return { error: `herdr pane split failed: ${describeFailure(split)}` };
+  }
+  const paneId = paneIdOf(split.stdout);
+  return paneId ?? {
+    error: `herdr pane split did not return a pane id (.result.pane.pane_id): ${split.stdout.trim()}`
+  };
+}
+async function nameTakenError(deps, name) {
+  const found = await deps.runner.run("herdr", ["agent", "get", name]);
+  if (found.code === 0) {
+    return `A session named ${name} already exists; pick another name or close that session first. No pane was split.`;
+  }
+  if (`${found.stdout}${found.stderr}`.includes("agent_not_found")) {
+    return void 0;
+  }
+  return `herdr agent get failed: ${describeFailure(found)}. No pane was split.`;
+}
+async function spawn2(context2) {
+  const { json, deps } = context2;
+  const checked = await check(context2);
+  if ("error" in checked) {
+    return fail2(deps, json, checked.code, checked.error);
+  }
+  const { name, model, role, effort } = checked.values;
+  const { callerPane } = checked;
+  const registry = await SessionRegistry.open(deps);
+  const taken = await registry.unavailable(name) ?? await nameTakenError(deps, name);
+  if (taken !== void 0) {
+    return fail2(deps, json, FAILED2, taken);
+  }
+  const placed = await place(deps, context2.options, name);
+  if ("error" in placed) {
+    return fail2(deps, json, FAILED2, placed.error);
+  }
+  const paneId = await splitPane(deps, callerPane, placed.cwd);
+  if (typeof paneId !== "string") {
+    return fail2(deps, json, FAILED2, `${paneId.error}${placed.left}`);
+  }
+  const leftOpen = `The pane ${paneId} was left open; close it with \`herdr pane close ${paneId}\`.${placed.left}`;
+  const equalized = await equalize(deps.runner, callerPane);
+  if (equalized.status === "failed") {
+    return fail2(deps, json, FAILED2, `${equalized.reason}. ${leftOpen}`);
+  }
+  const modelCheck = await launch(deps, {
+    ...checked.values,
+    paneId,
+    callerPane,
+    leftOpen
+  });
+  if ("error" in modelCheck) {
+    return fail2(deps, json, FAILED2, modelCheck.error);
+  }
+  return await finish(context2, {
+    registry,
+    modelCheck,
+    record: {
+      name,
+      paneId,
+      callerPane,
+      model,
+      role,
+      effort,
+      ...placed.worktree === void 0 ? {} : { worktree: placed.worktree },
+      createdAt: deps.clock.now().toISOString()
+    },
+    timeoutMs: checked.timeoutMs
+  });
+}
+
+// src/session/tier.ts
+async function tier({
+  json,
+  deps,
+  operand
+}) {
+  if (operand === void 0 || operand === "") {
+    return fail2(
+      deps,
+      json,
+      USAGE_ERROR,
+      "Missing the role: run `session tier <role>`."
+    );
+  }
+  const found = await resolveTier(deps, operand, {});
+  if ("error" in found) {
+    return fail2(deps, json, USAGE_ERROR, found.error);
+  }
+  deps.stdout(
+    json ? `${JSON.stringify({ role: operand, ...found })}
+` : `${operand}: ${found.model}, effort ${found.effort}
+`
+  );
+  return 0;
+}
+
+// src/session/index.ts
+var spawnCommand = {
+  summary: "start a Claude session in a Herdr pane (--role --name --brief [--model --effort, default from .claude/agents/<role>.md] --timeout ms; --worktree [--branch b] runs it in a new git worktree under .claude/worktrees); it waits for the result unless --no-wait, the normal pattern: spawn with --no-wait, then run `session wait <name>` in the background",
+  options: {
+    role: "string",
+    model: "string",
+    effort: "string",
+    name: "string",
+    brief: "string",
+    "no-wait": "boolean",
+    worktree: "boolean",
+    branch: "string",
+    timeout: "string"
+  },
+  run: spawn2
+};
+var waitCommand = {
+  summary: "wait for a spawned session's RESULT line and print its outcome (<name> --timeout ms)",
+  operand: "name",
+  options: { timeout: "string" },
+  run: wait
+};
+var closeCommand = {
+  summary: "close a spawned pane once its result is recorded (<name>; only the pane that spawned it)",
+  operand: "name",
+  run: close
+};
+var tierCommand = {
+  summary: "print the model and effort a role launches at, from .claude/agents/<role>.md (<role>; read-only)",
+  operand: "role",
+  run: tier
+};
+var equalizeCommand = {
+  summary: "equalize the heights of the spawned panes (run after closing one)",
+  async run({ json, deps }) {
+    const callerPane = deps.env.HERDR_PANE_ID;
+    if (deps.env.HERDR_ENV !== "1" || !callerPane) {
+      deps.stderr(
+        "Not inside Herdr (HERDR_ENV is not 1 or HERDR_PANE_ID is unset). Run this from a Herdr pane.\n"
+      );
+      return 1;
+    }
+    const result = await equalize(deps.runner, callerPane);
+    if (result.status === "failed") {
+      deps.stderr(`${result.reason}
+`);
+      return 1;
+    }
+    const text10 = result.status === "skipped" ? `Skipped: ${result.reason}.` : "Equalized.";
+    deps.stdout(json ? `${JSON.stringify(result)}
+` : `${text10}
+`);
+    return 0;
+  }
+};
+var session = {
+  spawn: spawnCommand,
+  wait: waitCommand,
+  close: closeCommand,
+  tier: tierCommand,
+  equalize: equalizeCommand
+};
+
+// src/cli/queue-commands.ts
+var FAILED3 = 1;
+var APPROVED_LABEL = "ready-for-agent";
+var QueueError = class extends Error {
+};
+async function gh(context2, args, root3) {
+  const done = await context2.deps.runner.run("gh", args, { cwd: root3 });
+  if (done.code !== 0) {
+    throw new QueueError(
+      `gh ${args.slice(0, 2).join(" ")} failed: ${done.stderr.trim() || "no output"}. Check \`gh auth status\`, then rerun.`
+    );
+  }
+  return done.stdout;
+}
+function parsed(text10, what) {
+  try {
+    const value = JSON.parse(text10);
+    if (Array.isArray(value)) {
+      return value;
+    }
+  } catch {
+  }
+  throw new QueueError(`gh returned unreadable ${what}; rerun the command.`);
+}
+var rowsOf = (text10, what) => parsed(text10, what).filter(
+  (row) => typeof row === "object" && row !== null
+);
+async function repoName(context2, root3) {
+  const view = await gh(
+    context2,
+    ["repo", "view", "--json", "nameWithOwner"],
+    root3
+  );
+  try {
+    const name = JSON.parse(view).nameWithOwner;
+    if (typeof name === "string" && name !== "") {
+      return name;
+    }
+  } catch {
+  }
+  throw new QueueError(
+    "gh could not tell which repository this is; run it inside the repository."
+  );
+}
+async function guarded2({ json, deps }, action) {
+  try {
+    await action();
+    return 0;
+  } catch (error) {
+    if (!(error instanceof QueueError)) {
+      throw error;
+    }
+    deps.stderr(
+      `${json ? `${JSON.stringify({ error: error.message })}
+` : ""}${error.message}
+`
+    );
+    return FAILED3;
+  }
+}
+async function openedLedger(context2) {
+  const opened = await openLedger(context2);
+  if ("error" in opened) {
+    throw new QueueError(opened.error);
+  }
+  return opened.ledger;
+}
+function prOf(context2, verb) {
+  const { operand } = context2;
+  if (operand === void 0 || !/^\d+$/.test(operand) || Number(operand) < 1) {
+    throw new QueueError(
+      `Missing or invalid PR number. Run \`harness queue ${verb} <pr>\`.`
+    );
+  }
+  return Number(operand);
+}
+var describeItem = (item) => item.kind === "idea" ? `idea ${item.idea} (issue #${item.issue}) approved ${item.since}` : `send-back on PR #${item.pr} (${item.count} so far) since ${item.since}`;
+async function listRows(context2, repo, root3, args, what) {
+  return rowsOf(
+    await gh(context2, [...args, "--repo", repo, "--limit", "200"], root3),
+    what
+  );
+}
+async function approvedIssues(context2, repo, root3) {
+  const rows = await listRows(
+    context2,
+    repo,
+    root3,
+    [
+      "issue",
+      "list",
+      "--label",
+      APPROVED_LABEL,
+      "--state",
+      "open",
+      "--json",
+      "number,createdAt"
+    ],
+    "issue list"
+  );
+  const approved = /* @__PURE__ */ new Map();
+  for (const row of rows) {
+    if (typeof row["number"] === "number" && typeof row["createdAt"] === "string") {
+      approved.set(row["number"], row["createdAt"]);
+    }
+  }
+  return approved;
+}
+async function openPullRequests(context2, repo, root3) {
+  const rows = await listRows(
+    context2,
+    repo,
+    root3,
+    ["pr", "list", "--state", "open", "--json", "number,headRefOid"],
+    "PR list"
+  );
+  const openPrs = [];
+  for (const row of rows) {
+    if (typeof row["number"] === "number" && typeof row["headRefOid"] === "string") {
+      openPrs.push({ number: row["number"], head: row["headRefOid"] });
+    }
+  }
+  return openPrs;
+}
+function render(queue, json) {
+  if (json) {
+    return `${JSON.stringify({ queue })}
+`;
+  }
+  if (queue.length === 0) {
+    return "The queue is empty.\n";
+  }
+  return `${queue.map(describeItem).join("\n")}
+`;
+}
+async function next(context2) {
+  const { deps, json } = context2;
+  const root3 = await deps.root();
+  const ledger = await openedLedger(context2);
+  const repo = await repoName(context2, root3);
+  const queue = buildQueue({
+    ideas: await new IdeaRepository(deps.fs, deps.clock, root3).list(),
+    approved: await approvedIssues(context2, repo, root3),
+    openPrs: await openPullRequests(context2, repo, root3),
+    sendBacks: (await ledger.list({ kind: "send-back" })).events
+  });
+  deps.stdout(render(queue, json));
+}
+async function countFor(context2, pr) {
+  const ledger = await openedLedger(context2);
+  const count3 = countSendBacks(
+    (await ledger.list({ kind: "send-back" })).events,
+    pr
+  );
+  return { ledger, count: count3 };
+}
+async function modelFor(context2, count3) {
+  if (count3 >= ESCALATION_THRESHOLD) {
+    return writerTier(count3, ESCALATION_MODEL);
+  }
+  const declared = await resolveTier(context2.deps, "writer", {});
+  if ("error" in declared) {
+    throw new QueueError(declared.error);
+  }
+  return writerTier(count3, declared.model);
+}
+async function sendBacks(context2) {
+  const pr = prOf(context2, "send-backs");
+  const { count: count3 } = await countFor(context2, pr);
+  const { model, escalate } = await modelFor(context2, count3);
+  context2.deps.stdout(
+    context2.json ? `${JSON.stringify({ pr, count: count3, model, escalate })}
+` : `PR #${pr}: sent back ${count3} time${count3 === 1 ? "" : "s"}; launch the writer on ${model}
+`
+  );
+}
+async function escalateWriter(context2) {
+  const { deps, json } = context2;
+  const pr = prOf(context2, "escalate");
+  const { ledger, count: count3 } = await countFor(context2, pr);
+  if (count3 < ESCALATION_THRESHOLD) {
+    throw new QueueError(
+      `PR #${pr} was sent back ${count3} time${count3 === 1 ? "" : "s"}; a writer escalates after ${ESCALATION_THRESHOLD}. Relaunch it on its default model instead.`
+    );
+  }
+  const { model } = await modelFor(context2, count3);
+  const logged = await ledger.list({ kind: "escalation" });
+  if (!logged.events.some((e) => e.number === pr && e.label === model)) {
+    const event = await ledger.record({
+      source: "github",
+      kind: "escalation",
+      occurredAt: deps.clock.now().toISOString(),
+      number: pr,
+      label: model
+    });
+    if (!event.ok) {
+      throw new QueueError(
+        `The escalation event was rejected: ${event.message} Fix the ledger, then rerun \`harness queue escalate ${pr}\`.`
+      );
+    }
+  }
+  deps.stdout(
+    json ? `${JSON.stringify({ pr, count: count3, model, escalated: true })}
+` : `PR #${pr}: escalation recorded; launch the writer with \`session spawn --role writer --model ${model}\`
+`
+  );
+}
+var next$ = {
+  summary: "read-only; list approved ideas without an outcome and pending judge send-backs, oldest first ([--json] [--ledger])",
+  options: { ledger: "string" },
+  run: (context2) => guarded2(context2, () => next(context2))
+};
+var sendBacksCommand = {
+  summary: `read-only; count a PR's judge send-backs and name the writer model to launch: Sonnet from ${ESCALATION_THRESHOLD}, else the writer's default (<pr> [--json] [--ledger])`,
+  operand: "pr",
+  options: { ledger: "string" },
+  run: (context2) => guarded2(context2, () => sendBacks(context2))
+};
+var escalateCommand = {
+  summary: `append an escalation event to the ledger once a PR has ${ESCALATION_THRESHOLD} send-backs, one per PR; then relaunch the writer with \`session spawn --model\` (<pr> [--json] [--ledger])`,
+  operand: "pr",
+  options: { ledger: "string" },
+  run: (context2) => guarded2(context2, () => escalateWriter(context2))
+};
+var queueCommands = {
+  next: next$,
+  "send-backs": sendBacksCommand,
+  escalate: escalateCommand
+};
+
+// src/cli/measurement.ts
+var measurement = {
+  ledger: ledgerCommands,
+  flow: flowCommands,
+  queue: queueCommands
 };
 
 // src/ruleset/declared.ts
@@ -3711,8 +4935,8 @@ async function summarize(github, { repo, target, ruleset, targetId, timePeriod }
 }
 
 // src/ruleset/support.ts
-var FAILED2 = 1;
-async function guarded2({ json, deps }, action) {
+var FAILED4 = 1;
+async function guarded3({ json, deps }, action) {
   try {
     return await action();
   } catch (error) {
@@ -3724,7 +4948,7 @@ async function guarded2({ json, deps }, action) {
 ` : `${error.message}
 `
     );
-    return FAILED2;
+    return FAILED4;
   }
 }
 function required(context2, key, meaning) {
@@ -3762,9 +4986,9 @@ function weaker(was, now, path) {
   }
   const old = object(was);
   if (old !== void 0) {
-    const next = object(now) ?? {};
+    const next2 = object(now) ?? {};
     return Object.entries(old).flatMap(
-      ([key, value]) => key in next ? weaker(value, next[key], `${path}.${key}`) : [`${path}.${key} is removed`]
+      ([key, value]) => key in next2 ? weaker(value, next2[key], `${path}.${key}`) : [`${path}.${key} is removed`]
     );
   }
   if (typeof was === "number" && typeof now === "number") {
@@ -4026,18 +5250,18 @@ var sync2 = {
     confirm: "boolean",
     "allow-removal": "boolean"
   },
-  run: (context2) => guarded2(context2, () => syncRuleset(context2))
+  run: (context2) => guarded3(context2, () => syncRuleset(context2))
 };
 var insights = {
   summary: "summarize what the evaluate-mode candidate ruleset would have blocked, by rule, from GitHub's rule-suite insights; read-only, for the activation request (--repo <owner/name> --target <name> [--time-period hour|day|week|month])",
   options: { repo: "string", target: "string", "time-period": "string" },
-  run: (context2) => guarded2(context2, () => ruleInsights(context2))
+  run: (context2) => guarded3(context2, () => ruleInsights(context2))
 };
 var rulesetCommands = { sync: sync2, insights };
 
 // src/challenge/model.ts
 var MAX_ROUNDS = 2;
-var MARKER = /^<!-- harness-challenge idea=(\d{4}) round=(\d+) -->$/;
+var MARKER2 = /^<!-- harness-challenge idea=(\d{4}) round=(\d+) -->$/;
 var NONE = "No open objections.";
 var markerFor = (idea, round2) => `<!-- harness-challenge idea=${idea} round=${round2} -->`;
 function renderRound(idea, round2, objections) {
@@ -4055,7 +5279,7 @@ function parseRounds(idea, comments, author) {
       continue;
     }
     const lines3 = comment.body.replace(/\r/g, "").split("\n");
-    const found = MARKER.exec((lines3[0] ?? "").trim());
+    const found = MARKER2.exec((lines3[0] ?? "").trim());
     if (found?.[1] !== idea || found[2] === void 0) {
       continue;
     }
@@ -4114,8 +5338,8 @@ function issueComments(stdout, issue) {
     );
   }
 }
-async function ghUser(gh2) {
-  const whoami = await gh2(["api", "user", "--jq", ".login"]);
+async function ghUser(gh3) {
+  const whoami = await gh3(["api", "user", "--jq", ".login"]);
   const user = whoami.stdout.trim();
   if (whoami.code !== 0 || user === "") {
     throw new IdeaError(
@@ -4140,8 +5364,8 @@ function duplicatePost(duplicate, issue) {
   const [keep, ...extra] = duplicate.urls;
   return `Challenge round ${duplicate.round} on ${issue} was posted twice and both comments are still on the issue: ${duplicate.urls.join(" and ")}. Another challenge ran at the same time. Keep ${keep} and delete ${extra.join(" and ")}; the round is recorded once. Do not rerun for this round.`;
 }
-async function readComments(gh2, target, issue, unreadable) {
-  const view = await gh2([
+async function readComments(gh3, target, issue, unreadable) {
+  const view = await gh3([
     "issue",
     "view",
     target.number,
@@ -4158,8 +5382,8 @@ async function readComments(gh2, target, issue, unreadable) {
   }
   return issueComments(view.stdout, issue);
 }
-async function postRound(gh2, target, issue, body, round2) {
-  const post = await gh2(
+async function postRound(gh3, target, issue, body, round2) {
+  const post = await gh3(
     [
       "issue",
       "comment",
@@ -4181,12 +5405,12 @@ async function challengeIdea(ctx, ref, objections) {
   const record5 = await ctx.repo.get(ref);
   const target = await issueTarget(ctx.runner, ctx.root, record5);
   const issue = `https://github.com/${target.repo}/issues/${target.number}`;
-  const gh2 = (args, input) => ctx.runner.run("gh", args, {
+  const gh3 = (args, input) => ctx.runner.run("gh", args, {
     cwd: ctx.root,
     ...input === void 0 ? {} : { input }
   });
-  const comments = (unreadable) => readComments(gh2, target, issue, unreadable);
-  const user = await ghUser(gh2);
+  const comments = (unreadable) => readComments(gh3, target, issue, unreadable);
+  const user = await ghUser(gh3);
   const rounds = distinctRounds(
     parseRounds(record5.number, await comments(), user)
   );
@@ -4195,7 +5419,7 @@ async function challengeIdea(ctx, ref, objections) {
   }
   const round2 = rounds.length + 1;
   await postRound(
-    gh2,
+    gh3,
     target,
     issue,
     renderRound(record5.number, round2, objections),
@@ -4219,7 +5443,7 @@ async function challengeIdea(ctx, ref, objections) {
 }
 
 // src/cli/challenge-commands.ts
-var FAILED3 = 1;
+var FAILED5 = 1;
 function text3(options, key) {
   const value = options[key];
   return typeof value === "string" ? value : void 0;
@@ -4307,7 +5531,7 @@ var challenge = {
 ` : ""}${error.message}
 `
       );
-      return FAILED3;
+      return FAILED5;
     }
   }
 };
@@ -4460,12 +5684,12 @@ function unprovenLine(u) {
 }
 
 // src/cli/flag-commands.ts
-var FAILED4 = 1;
+var FAILED6 = 1;
 function text4(options, key) {
   const value = options[key];
   return typeof value === "string" && value.trim() !== "" ? value.trim() : void 0;
 }
-async function guarded3({ json, deps }, action) {
+async function guarded4({ json, deps }, action) {
   try {
     return await action();
   } catch (error) {
@@ -4476,7 +5700,7 @@ async function guarded3({ json, deps }, action) {
 ` : "";
     deps.stderr(`${prefix}${error.message}
 `);
-    return FAILED4;
+    return FAILED6;
   }
 }
 async function root(context2) {
@@ -4580,28 +5804,28 @@ async function auditFlags(context2) {
 ` : `${lines3.join("\n")}
 `
   );
-  return FAILED4;
+  return FAILED6;
 }
 var activate = {
   summary: "turn a flag on in an environment overlay, only when a confirmed live-run verification outcome names that flag and environment; records a flag.activated ledger event (<flag> --environment <env> [--ledger])",
   operand: "flag",
   options: { environment: "string", ledger: "string" },
-  run: (context2) => guarded3(context2, () => activateFlag(context2))
+  run: (context2) => guarded4(context2, () => activateFlag(context2))
 };
 var audit = {
   summary: "fail when any flag in any environment overlay is on without a confirmed live-run verification outcome; kb-check reports it as a warning (audit mode, ADR 0080)",
-  run: (context2) => guarded3(context2, () => auditFlags(context2))
+  run: (context2) => guarded4(context2, () => auditFlags(context2))
 };
 var flagCommands = { activate, audit };
 
 // src/plan/parser.ts
-var FRONTMATTER = /^---\n([\s\S]*?)\n---\n/;
+var FRONTMATTER2 = /^---\n([\s\S]*?)\n---\n/;
 var UPCOMING_STEPS = 3;
 function planNumber(name) {
   return Number.parseInt(name, 10);
 }
 function planStatus(markdown) {
-  const frontmatter3 = FRONTMATTER.exec(markdown)?.[1];
+  const frontmatter3 = FRONTMATTER2.exec(markdown)?.[1];
   return frontmatter3 === void 0 ? void 0 : /^status: *(\S*) *$/m.exec(frontmatter3)?.[1];
 }
 function listItemSpans(markdown) {
@@ -4701,7 +5925,7 @@ function activePlans(plans) {
   );
   for (const name of byNumber2) {
     const markdown = plans[name] ?? "";
-    if (!FRONTMATTER.test(markdown)) {
+    if (!FRONTMATTER2.test(markdown)) {
       if (legacy === void 0 && openItems(markdown).length > 0) {
         legacy = name;
       }
@@ -4716,13 +5940,13 @@ function activePlans(plans) {
 }
 
 // src/plan/store.ts
-import { join as join3 } from "node:path";
+import { join as join7 } from "node:path";
 var PLANS_DIR = "infra/plans";
 async function readPlans(deps) {
   const root3 = await deps.root();
   let names3;
   try {
-    names3 = (await deps.fs.readdir(join3(root3, PLANS_DIR))).filter(
+    names3 = (await deps.fs.readdir(join7(root3, PLANS_DIR))).filter(
       (n) => n.endsWith(".md")
     );
   } catch (error) {
@@ -4733,7 +5957,7 @@ async function readPlans(deps) {
   }
   const plans = {};
   for (const name of names3) {
-    plans[name] = await deps.fs.readFile(join3(root3, PLANS_DIR, name));
+    plans[name] = await deps.fs.readFile(join7(root3, PLANS_DIR, name));
   }
   return plans;
 }
@@ -4789,7 +6013,7 @@ var planActive = {
 };
 
 // src/plan/next.ts
-import { join as join4 } from "node:path";
+import { join as join8 } from "node:path";
 
 // src/plan/edits.ts
 function trimCommon(edit, lines3) {
@@ -4922,7 +6146,7 @@ async function write(deps, json, options) {
   const written2 = !options.dryRun && changes.length > 0;
   if (written2) {
     await deps.fs.writeFile(
-      join4(await deps.root(), file),
+      join8(await deps.root(), file),
       apply2(lines3, edits).join("\n")
     );
   }
@@ -4980,7 +6204,7 @@ var planClearNext = {
 };
 
 // src/plan/tick.ts
-import { join as join5 } from "node:path";
+import { join as join9 } from "node:path";
 
 // src/plan/totals.ts
 var TOTALS = /as of \d{4}-\d{2}-\d{2}: (\d+) local, (\d+) managed(\s+)cluster, (\d+) release(\s+)pipeline/;
@@ -5001,12 +6225,12 @@ function totalsEdits(lines3, range, className, date) {
   const [local, managed, release] = [match[1], match[2], match[4]].map(
     Number
   );
-  const next = {
+  const next2 = {
     local: local - (lower.startsWith("local") ? 1 : 0),
     managed: managed - (lower.startsWith("managed") ? 1 : 0),
     release: release - (lower.startsWith("release") ? 1 : 0)
   };
-  const text10 = `as of ${date}: ${next.local} local, ${next.managed} managed${match[3]}cluster, ${next.release} release${match[5]}pipeline`;
+  const text10 = `as of ${date}: ${next2.local} local, ${next2.managed} managed${match[3]}cluster, ${next2.release} release${match[5]}pipeline`;
   const changed = intro.replace(TOTALS, text10).split("\n");
   const before2 = intro.split("\n");
   const edits = [];
@@ -5042,8 +6266,8 @@ function sectionRange(lines3) {
   if (start < 0) {
     return null;
   }
-  const next = lines3.findIndex((l, i) => i > start && l.startsWith("## "));
-  return [start, next < 0 ? lines3.length : next];
+  const next2 = lines3.findIndex((l, i) => i > start && l.startsWith("## "));
+  return [start, next2 < 0 ? lines3.length : next2];
 }
 function entriesIn(lines3, from, to) {
   const entries2 = [];
@@ -5115,11 +6339,11 @@ function lowered(raw, segment) {
     return raw;
   }
   const word = lead[1] ?? "";
-  const parsed = /^\d+$/.test(word) ? Number(word) : NUMBERS.indexOf(word);
-  if (parsed < 1) {
+  const parsed2 = /^\d+$/.test(word) ? Number(word) : NUMBERS.indexOf(word);
+  if (parsed2 < 1) {
     return raw;
   }
-  const count3 = parsed - 1;
+  const count3 = parsed2 - 1;
   const shown = /^\d+$/.test(word) ? String(count3) : NUMBERS[count3] ?? word;
   const noun = count3 === 1 ? "criterion" : "criteria";
   const [, , gap1, gap2, gap3] = lead;
@@ -5142,9 +6366,9 @@ function without(raw, segments, index) {
   if (target === void 0 || segments.length === 1) {
     return null;
   }
-  const next = segments[index + 1];
+  const next2 = segments[index + 1];
   const previous = segments[index - 1];
-  const [from, to] = next === void 0 ? [previous?.end ?? 0, target.end] : [target.itemStart, next.start];
+  const [from, to] = next2 === void 0 ? [previous?.end ?? 0, target.end] : [target.itemStart, next2.start];
   const cut = raw.slice(0, from) + raw.slice(to);
   const lead = segments.find((s) => s.exit);
   const others = segments.filter((s) => s.exit && s !== target).length;
@@ -5277,7 +6501,7 @@ async function tick(deps, json, item, planOption, dryRun) {
   const file = `${PLANS_DIR}/${name}`;
   if (!dryRun) {
     await deps.fs.writeFile(
-      join5(await deps.root(), file),
+      join9(await deps.root(), file),
       apply2(lines3, edits).join("\n")
     );
   }
@@ -5524,8 +6748,8 @@ async function coverage(runner, root3, repo, pr) {
     return { result: "missing", detail: `gh run view ${run3} failed` };
   }
   try {
-    const parsed = JSON.parse(done.stdout);
-    const jobs = Array.isArray(parsed.jobs) ? parsed.jobs : [];
+    const parsed2 = JSON.parse(done.stdout);
+    const jobs = Array.isArray(parsed2.jobs) ? parsed2.jobs : [];
     const steps = jobs.flatMap(
       (j) => j.name === CI_JOB && Array.isArray(j.steps) ? j.steps : []
     );
@@ -5746,7 +6970,7 @@ function assess(pattern, hints, files) {
 var JudgeError = class extends Error {
 };
 var FIX3 = "Check `gh auth status` and the PR number, then rerun `harness judge precheck <pr>`.";
-async function gh({ deps }, root3, repo, args, pr) {
+async function gh2({ deps }, root3, repo, args, pr) {
   const done = await deps.runner.run("gh", [...args, "--repo", repo], {
     cwd: root3
   });
@@ -5758,7 +6982,7 @@ async function gh({ deps }, root3, repo, args, pr) {
   return done.stdout;
 }
 async function readPr(context2, root3, repo, pr) {
-  const out = await gh(
+  const out = await gh2(
     context2,
     root3,
     repo,
@@ -5789,7 +7013,7 @@ async function precheck(context2, root3, repo, pr, reviewers) {
       declaration: { ok: false, reason: declaration.reason }
     };
   }
-  const diff = await gh(context2, root3, repo, ["pr", "diff", String(pr)], pr);
+  const diff = await gh2(context2, root3, repo, ["pr", "diff", String(pr)], pr);
   const checks = await gatherChecks(
     context2.deps.runner,
     root3,
@@ -5847,8 +7071,8 @@ head ${head}`;
 var hasSentBack = (view, reason) => view.comments.some((c) => c.body === sendBackBody(reason, view.headSha));
 
 // src/cli/judge-shared.ts
-import { resolve as resolve4 } from "node:path";
-var FAILED5 = 1;
+import { resolve as resolve5 } from "node:path";
+var FAILED7 = 1;
 function prNumber(operand, usage2) {
   if (operand === void 0 || !/^\d+$/.test(operand) || Number(operand) < 1) {
     throw new JudgeError(`Missing or invalid PR number. ${usage2}`);
@@ -5868,7 +7092,7 @@ async function openJudgeLedger({
     deps.fs,
     deps.clock,
     deps.ids,
-    resolve4(main, DEFAULT_LEDGER)
+    resolve5(main, DEFAULT_LEDGER)
   );
 }
 async function record2(context2, report3) {
@@ -5905,7 +7129,7 @@ function failed(context2, error) {
 ` : ""}${error.message}
 `
   );
-  return FAILED5;
+  return FAILED7;
 }
 var REMOTE = /github\.com[:/]([\w.-]+\/[\w.-]+?)(?:\.git)?\/?$/;
 async function repoOf({ deps }) {
@@ -5954,7 +7178,7 @@ async function runMerge(context2) {
         `PR #${pr} was not merged: the precheck did not pass. Fix what it reports, or send the change back with \`harness judge send-back ${pr} --reason <why>\`.
 `
       );
-      return FAILED5;
+      return FAILED7;
     }
     const done = await deps.runner.run(
       "gh",
@@ -6081,7 +7305,7 @@ async function runPrecheck(context2) {
     deps.stdout(json ? `${JSON.stringify(report3)}
 ` : summary(report3));
     await record2(context2, report3);
-    return report3.ok ? 0 : FAILED5;
+    return report3.ok ? 0 : FAILED7;
   } catch (error) {
     return failed(context2, error);
   }
@@ -6256,7 +7480,7 @@ function missingLabel(stderr2, wanted, repo, idea) {
   return /not found/i.test(stderr2) && stderr2.includes(wanted) ? `The label "${wanted}" does not exist on ${repo}; create it with \`gh label create ${wanted} --repo ${repo}\`, then rerun \`harness outcome close --idea ${idea}\`.` : void 0;
 }
 async function publishOutcome(runner, root3, target, outcome) {
-  const gh2 = async (args, input, explain) => {
+  const gh3 = async (args, input, explain) => {
     const done = await runner.run("gh", args, {
       cwd: root3,
       ...input === void 0 ? {} : { input }
@@ -6274,7 +7498,7 @@ async function publishOutcome(runner, root3, target, outcome) {
   };
   const at = ["--repo", target.repo];
   const view = parseView2(
-    await gh2([
+    await gh3([
       "issue",
       "view",
       target.number,
@@ -6292,7 +7516,7 @@ async function publishOutcome(runner, root3, target, outcome) {
   const wanted = labelFor2(outcome.result);
   const flags = labelFlags(view.labels, wanted);
   if (flags.length > 0) {
-    await gh2(
+    await gh3(
       ["issue", "edit", target.number, ...at, ...flags],
       void 0,
       (stderr2) => missingLabel(stderr2, wanted, target.repo, outcome.idea)
@@ -6300,25 +7524,25 @@ async function publishOutcome(runner, root3, target, outcome) {
     published.labelled = true;
   }
   if (!view.comments.some((body) => body.includes(outcome.marker))) {
-    await gh2(
+    await gh3(
       ["issue", "comment", target.number, ...at, "--body-file", "-"],
       outcome.comment
     );
     published.commented = true;
   }
   if (view.open) {
-    await gh2(["issue", "close", target.number, ...at]);
+    await gh3(["issue", "close", target.number, ...at]);
     published.closed = true;
   }
   return published;
 }
 
 // src/outcome/outcome.ts
-async function finish(ctx, record5, result, target) {
+async function finish2(ctx, record5, result, target) {
   let followUp;
   if (result !== "confirmed") {
-    const next = followUpOf(record5, result);
-    followUp = (await ctx.repo.create(next.slug, next.idea)).record.path;
+    const next2 = followUpOf(record5, result);
+    followUp = (await ctx.repo.create(next2.slug, next2.idea)).record.path;
   }
   const section = outcomeSection(await ctx.repo.source(record5)) ?? "";
   const comment = [
@@ -6355,7 +7579,7 @@ async function recordOutcome(ctx, ref, outcome) {
     outcome.result,
     renderSection(outcome, date)
   );
-  return await finish(ctx, record5, outcome.result, target);
+  return await finish2(ctx, record5, outcome.result, target);
 }
 async function closeOutcome(ctx, ref) {
   const record5 = await ctx.repo.get(ref);
@@ -6372,16 +7596,16 @@ async function closeOutcome(ctx, ref) {
     );
   }
   const target = await issueTarget(ctx.runner, ctx.root, record5);
-  return await finish(ctx, record5, result, target);
+  return await finish2(ctx, record5, result, target);
 }
 
 // src/cli/outcome-commands.ts
-var FAILED6 = 1;
+var FAILED8 = 1;
 function text7(options, key) {
   const value = options[key];
   return typeof value === "string" ? value : void 0;
 }
-async function guarded4({ json, deps }, action) {
+async function guarded5({ json, deps }, action) {
   try {
     await action();
     return 0;
@@ -6393,7 +7617,7 @@ async function guarded4({ json, deps }, action) {
 ` : "";
     deps.stderr(`${prefix}${error.message}
 `);
-    return FAILED6;
+    return FAILED8;
   }
 }
 function ideaRef(context2, verb) {
@@ -6475,17 +7699,17 @@ var record3 = {
     ledger: "string"
   },
   run(context2) {
-    return guarded4(context2, () => conclusion(context2, "record"));
+    return guarded5(context2, () => conclusion(context2, "record"));
   }
 };
-var close = {
+var close2 = {
   summary: "finish closing an idea whose outcome is recorded (comment, one outcome:* label, close); refused with no gh call when no outcome is recorded (--idea [--ledger])",
   options: { idea: "string", ledger: "string" },
   run(context2) {
-    return guarded4(context2, () => conclusion(context2, "close"));
+    return guarded5(context2, () => conclusion(context2, "close"));
   }
 };
-var outcomeCommands = { record: record3, close };
+var outcomeCommands = { record: record3, close: close2 };
 
 // src/cli/records.ts
 var records = {
@@ -6500,12 +7724,12 @@ var records = {
 
 // src/hook/feedback.ts
 import { tmpdir as tmpdir2 } from "node:os";
-import { join as join8 } from "node:path";
+import { join as join12 } from "node:path";
 
 // src/hook/feedback-tokens.ts
 import { tmpdir } from "node:os";
-import { join as join6 } from "node:path";
-var tokenStateFile = (session2) => join6(
+import { join as join10 } from "node:path";
+var tokenStateFile = (session2) => join10(
   tmpdir(),
   `kore-tokens-${(typeof session2 === "string" ? session2 : "default").replace(/[^\w.-]/g, "_")}.json`
 );
@@ -6580,7 +7804,7 @@ async function readTokens(fs, path, stateFile) {
 }
 
 // src/hook/ledger-event.ts
-import { join as join7 } from "node:path";
+import { join as join11 } from "node:path";
 var ledgerRoots = /* @__PURE__ */ new WeakMap();
 function ledgerRoot(deps) {
   let root3 = ledgerRoots.get(deps);
@@ -6615,7 +7839,7 @@ async function recordEvent(deps, kind, call, outcome, extra = {}) {
       deps.fs,
       deps.clock,
       deps.ids,
-      join7(main, DEFAULT_LEDGER)
+      join11(main, DEFAULT_LEDGER)
     ).record(event);
   } catch {
   }
@@ -6657,7 +7881,7 @@ function bound(output, command) {
 var asCall = (payload) => typeof payload === "object" && payload !== null ? payload : {};
 var isEdit = (call) => call.tool_name === void 0 || call.tool_name === "Write" || call.tool_name === "Edit";
 var OK = {};
-var fail2 = (message) => ({
+var fail3 = (message) => ({
   code: 2,
   stderr: `${message}
 `
@@ -6677,7 +7901,7 @@ async function postEditFor(call, deps, project, tracked, formatFix) {
       lint.output,
       `${project.bin}/oxlint --deny-warnings ${filePath}`
     );
-    return fail2(
+    return fail3(
       `oxlint reported problems in ${filePath}. Fix them before continuing.
 ${details}`
     );
@@ -6691,7 +7915,7 @@ ${details}`
       format2.output,
       `${project.bin}/prettier --check ${filePath}`
     );
-    return fail2(
+    return fail3(
       `${filePath} is not formatted. ${formatFix(filePath)}
 ${details}`
     );
@@ -6714,7 +7938,7 @@ async function stopFor(call, deps, project, message) {
       check2.output,
       `npm --prefix ${project.project} run check`
     );
-    return fail2(`${message}
+    return fail3(`${message}
 ${details}`);
   }
   await deps.clear(project.project);
@@ -6773,7 +7997,7 @@ async function recordStop(deps, call) {
   }
 }
 function feedbackDeps(deps, root3, call) {
-  const marker = (project) => join8(
+  const marker = (project) => join12(
     tmpdir2(),
     `kore-${project === HARNESS.project ? "harness" : "ts"}-changed-${typeof call.session_id === "string" ? call.session_id : "default"}`
   );
@@ -7121,21 +8345,21 @@ var Splitter = class {
   /** Handles the character at `i`; returns the index of the last one consumed. */
   step(i) {
     const char = this.command[i];
-    const next = this.command[i + 1];
+    const next2 = this.command[i + 1];
     if (this.quote) {
       return this.quoted(i, char);
     }
     if (char === "'" || char === '"') {
       this.quote = char;
       this.inWord = true;
-    } else if (char === "\\" && next !== void 0) {
-      this.append(next);
+    } else if (char === "\\" && next2 !== void 0) {
+      this.append(next2);
       return i + 1;
     } else if (char === " " || char === "	") {
       this.endWord();
     } else if (char === "\n" || char === ";") {
       this.endSegment();
-    } else if ((char === "&" || char === "|") && next === char) {
+    } else if ((char === "&" || char === "|") && next2 === char) {
       this.endSegment();
       return i + 1;
     } else if (this.isSingleOperator(i, char)) {
@@ -7230,7 +8454,7 @@ var WordScanner = class {
   /** Handles the character at `i`; returns the index of the last one consumed. */
   step(i) {
     const char = this.command[i];
-    const next = this.command[i + 1];
+    const next2 = this.command[i + 1];
     if (this.quote) {
       return this.inQuote(i, char);
     }
@@ -7238,15 +8462,15 @@ var WordScanner = class {
       this.start();
       this.quote = char;
     } else if (char === "\\") {
-      this.start().text += next ?? "";
+      this.start().text += next2 ?? "";
       return i + 1;
     } else if (WORD_BREAK.has(char)) {
       this.end();
-    } else if (char === "$" && SPECIAL_PARAMETER.test(next ?? "")) {
-      this.start().text += char + (next ?? "");
+    } else if (char === "$" && SPECIAL_PARAMETER.test(next2 ?? "")) {
+      this.start().text += char + (next2 ?? "");
       return i + 1;
     } else {
-      this.plain(char, next);
+      this.plain(char, next2);
     }
     return i;
   }
@@ -7261,12 +8485,12 @@ var WordScanner = class {
     }
     return i;
   }
-  plain(char, next) {
+  plain(char, next2) {
     const current2 = this.start();
     if (char === "*" || char === "?") {
       current2.glob = true;
     }
-    if (char === "=" && current2.text === "" && /[^\s]/.test(next ?? " ")) {
+    if (char === "=" && current2.text === "" && /[^\s]/.test(next2 ?? " ")) {
       current2.equals = true;
     }
     current2.text += char;
@@ -7647,16 +8871,16 @@ async function checkWrite(tool, input, relative3, ctx) {
     return applyMode(appendOnlyWarn(relative3), ctx) ?? allow;
   }
   const ideaOutcome = IDEA_PATH.test(relative3) && HAND_WRITTEN_OUTCOME.test(written(tool, input)) ? ideaOutcomeWarn(relative3) : null;
-  const guarded5 = await guardedChange(tool, input, relative3, ctx);
+  const guarded6 = await guardedChange(tool, input, relative3, ctx);
   const findings2 = [
     await checkFlagOn(tool, input, relative3, ctx),
     ideaOutcome,
     await checkSopsPath(tool, input, relative3, ctx),
     await checkCoverageThreshold(tool, input, relative3, ctx),
     checkImageDigest(tool, input, relative3),
-    checkGuardrailDemotion(relative3, guarded5.previous, guarded5.after),
-    checkSettingsDenyRemoval(relative3, guarded5.previous, guarded5.after, ctx),
-    checkRulesetWeakening(relative3, guarded5.previous, guarded5.after)
+    checkGuardrailDemotion(relative3, guarded6.previous, guarded6.after),
+    checkSettingsDenyRemoval(relative3, guarded6.previous, guarded6.after, ctx),
+    checkRulesetWeakening(relative3, guarded6.previous, guarded6.after)
   ];
   return weigh(findings2.map((finding2) => applyMode(finding2, ctx)));
 }
@@ -7688,7 +8912,7 @@ ${extra.message}`,
 }
 
 // src/hook/guard-role.ts
-import { isAbsolute as isAbsolute2, relative as relative2, resolve as resolve6 } from "node:path";
+import { isAbsolute as isAbsolute2, relative as relative2, resolve as resolve7 } from "node:path";
 
 // src/hook/guard-role-writes.ts
 import { basename as basename2 } from "node:path";
@@ -7901,7 +9125,7 @@ function readMayRun(segment, harness) {
 }
 
 // src/hook/guard-role-delivery.ts
-import { isAbsolute, relative, resolve as resolve5 } from "node:path";
+import { isAbsolute, relative, resolve as resolve6 } from "node:path";
 
 // src/hook/guard-role-merge.ts
 import { basename as basename3 } from "node:path";
@@ -8209,6 +9433,9 @@ var ORCHESTRATOR_HARNESS = [
   "session close",
   "session equalize",
   "idea sync",
+  "queue next",
+  "queue send-backs",
+  "queue escalate",
   "outcome record",
   "outcome close"
 ];
@@ -8272,7 +9499,7 @@ function outside(root3, path) {
   if (path.startsWith("~")) {
     return true;
   }
-  const full = resolve5(root3, path);
+  const full = resolve6(root3, path);
   const from = relative(root3, full);
   const within = from === "" || !from.startsWith("..") && !isAbsolute(from);
   return !within && !SCRATCH.some((dir) => full.startsWith(dir) || `${full}/` === dir);
@@ -8358,7 +9585,7 @@ var NO_CODE_ROLES = /* @__PURE__ */ new Set(["concierge", "challenger"]);
 var FILE_TOOLS = /* @__PURE__ */ new Set(["Read", "Grep", "Glob"]);
 var CONCIERGE_PATHS = /^(infra\/plans\/|docs\/|GLOSSARY\.md$|README\.md$)/;
 function insideRoot(root3, path) {
-  const from = relative2(root3, resolve6(root3, path));
+  const from = relative2(root3, resolve7(root3, path));
   return from.startsWith("..") || isAbsolute2(from) ? void 0 : from;
 }
 function readable(root3, input) {
@@ -8989,9 +10216,9 @@ async function brief(event, deps) {
     if (counts) {
       lines3.push(`Open items: ${counts}.`);
     }
-    const next = nextStep(markdown);
-    if (next) {
-      lines3.push(`Next (${next.step}): ${next.text}`);
+    const next2 = nextStep(markdown);
+    if (next2) {
+      lines3.push(`Next (${next2.step}): ${next2.text}`);
     }
     const upcoming = upcomingSteps(markdown);
     if (upcoming.length > 0) {
@@ -9033,7 +10260,7 @@ async function restore(event, deps) {
 
 // src/hook/context-deps.ts
 import { homedir } from "node:os";
-import { join as join9 } from "node:path";
+import { join as join13 } from "node:path";
 var JOURNAL_DIR = ".kore/state/journal";
 var isMissing = (error) => error.code === "ENOENT";
 function parseEntries(text10) {
@@ -9050,7 +10277,7 @@ function parseEntries(text10) {
   return entries2;
 }
 async function readJournals(fs, root3) {
-  const dir = join9(root3, JOURNAL_DIR);
+  const dir = join13(root3, JOURNAL_DIR);
   let names3;
   try {
     names3 = (await fs.readdir(dir)).filter((name) => name.endsWith(".jsonl"));
@@ -9064,7 +10291,7 @@ async function readJournals(fs, root3) {
   for (const name of names3) {
     let text10;
     try {
-      text10 = await fs.readFile(join9(dir, name));
+      text10 = await fs.readFile(join13(dir, name));
     } catch {
       continue;
     }
@@ -9073,8 +10300,8 @@ async function readJournals(fs, root3) {
   return journals;
 }
 async function sessionsSince(deps, root3, date, current2) {
-  const config = deps.env["CLAUDE_CONFIG_DIR"] || join9(homedir(), ".claude");
-  const dir = join9(config, "projects", root3.replace(/[^a-zA-Z0-9]/g, "-"));
+  const config = deps.env["CLAUDE_CONFIG_DIR"] || join13(homedir(), ".claude");
+  const dir = join13(config, "projects", root3.replace(/[^a-zA-Z0-9]/g, "-"));
   let names3;
   try {
     names3 = await deps.fs.readdir(dir);
@@ -9087,7 +10314,7 @@ async function sessionsSince(deps, root3, date, current2) {
   const after = windowStart(date ?? void 0);
   let count3 = 0;
   for (const name of names3) {
-    if (name.endsWith(".jsonl") && name !== `${current2}.jsonl` && await deps.fs.mtimeMs(join9(dir, name)) >= after) {
+    if (name.endsWith(".jsonl") && name !== `${current2}.jsonl` && await deps.fs.mtimeMs(join13(dir, name)) >= after) {
       count3 += 1;
     }
   }
@@ -9096,7 +10323,7 @@ async function sessionsSince(deps, root3, date, current2) {
 function realContextDeps(deps, root3) {
   return {
     readJournals: () => readJournals(deps.fs, root3),
-    readAgents: () => deps.fs.readFile(join9(root3, "AGENTS.md")),
+    readAgents: () => deps.fs.readFile(join13(root3, "AGENTS.md")),
     readPlans: () => readPlans(deps),
     sessionsSince: (date, current2) => sessionsSince(deps, root3, date, current2)
   };
@@ -9138,7 +10365,7 @@ var context = hookCommand(
 );
 
 // src/hook/delta-deps.ts
-import { join as join10, resolve as resolve7 } from "node:path";
+import { join as join14, resolve as resolve8 } from "node:path";
 var JOURNAL_DIR2 = ".kore/state/journal";
 var LOCKS_DIR = ".kore/locks";
 function gitReader(deps, root3) {
@@ -9174,7 +10401,7 @@ function parseEntries2(text10) {
   return entries2;
 }
 async function readJournals2(deps, root3) {
-  const dir = join10(root3, JOURNAL_DIR2);
+  const dir = join14(root3, JOURNAL_DIR2);
   const journals = {};
   for (const name of await readDir(deps, dir)) {
     if (!name.endsWith(".jsonl")) {
@@ -9182,7 +10409,7 @@ async function readJournals2(deps, root3) {
     }
     try {
       journals[name.slice(0, -".jsonl".length)] = parseEntries2(
-        await deps.fs.readFile(join10(dir, name))
+        await deps.fs.readFile(join14(dir, name))
       );
     } catch {
     }
@@ -9190,8 +10417,8 @@ async function readJournals2(deps, root3) {
   return journals;
 }
 function snapshotStore(deps, git4, root3) {
-  const dir = async () => join10(resolve7(root3, await git4("rev-parse", "--git-dir")), "kore-delta");
-  const file = async (id) => join10(await dir(), `${id}.json`);
+  const dir = async () => join14(resolve8(root3, await git4("rev-parse", "--git-dir")), "kore-delta");
+  const file = async (id) => join14(await dir(), `${id}.json`);
   return {
     async readSnapshot(id) {
       try {
@@ -9210,7 +10437,7 @@ function snapshotStore(deps, git4, root3) {
         if (name.endsWith(".json")) {
           found.push({
             id: name.slice(0, -".json".length),
-            mtimeMs: await deps.fs.mtimeMs(join10(base, name))
+            mtimeMs: await deps.fs.mtimeMs(join14(base, name))
           });
         }
       }
@@ -9238,7 +10465,7 @@ function realDeltaDeps(deps, root3) {
       return (await git4("log", "--format=%s", `${from}..${to}`)).split("\n").filter(Boolean);
     },
     readPlans: () => readPlans(deps),
-    listLocks: () => readDir(deps, join10(root3, LOCKS_DIR)),
+    listLocks: () => readDir(deps, join14(root3, LOCKS_DIR)),
     readJournals: () => readJournals2(deps, root3),
     ...snapshotStore(deps, git4, root3)
   };
@@ -9487,9 +10714,9 @@ function statusLine(input, plans) {
   if (name !== void 0) {
     const markdown = plans[name] ?? "";
     parts.push(name.replace(/\.md$/, ""));
-    const next = nextStep(markdown);
-    if (next) {
-      parts.push(next.step.split(":")[0] ?? next.step);
+    const next2 = nextStep(markdown);
+    if (next2) {
+      parts.push(next2.step.split(":")[0] ?? next2.step);
     }
     const open2 = openCounts(markdown).reduce((sum, c) => sum + c.count, 0);
     parts.push(`${open2} open`);
@@ -9530,10 +10757,10 @@ var statusline = hookCommand(
 
 // src/hook/retro-hook.ts
 import { homedir as homedir2 } from "node:os";
-import { join as join12 } from "node:path";
+import { join as join16 } from "node:path";
 
 // src/hook/retro-transcripts.ts
-import { basename as basename5, join as join11, sep } from "node:path";
+import { basename as basename5, join as join15, sep } from "node:path";
 var PROBE_BYTES = 256 * 1024;
 var DEFAULT_BRANCHES = /* @__PURE__ */ new Set(["main", "master", "HEAD"]);
 var encodePath = (path) => path.replace(/[^a-zA-Z0-9]/g, "-");
@@ -9561,7 +10788,7 @@ async function repoTranscriptDirs(fs, projectsDir, { main, worktrees, branches }
     for (const file of files) {
       let head;
       try {
-        head = await fs.readHead(join11(dir, file), PROBE_BYTES);
+        head = await fs.readHead(join15(dir, file), PROBE_BYTES);
       } catch {
         continue;
       }
@@ -9579,7 +10806,7 @@ async function repoTranscriptDirs(fs, projectsDir, { main, worktrees, branches }
   }
   const found = [];
   for (const name of entries2) {
-    const dir = join11(projectsDir, name);
+    const dir = join15(projectsDir, name);
     if (await fs.isDirectory(dir) && (names3.has(basename5(dir)) || await belongs(dir))) {
       found.push(dir);
     }
@@ -9598,7 +10825,7 @@ async function defaultDirs(fs, runner, root3, home) {
     "--path-format=absolute",
     "--git-common-dir"
   ])).trim();
-  const main = worktrees[0] ?? (common ? join11(common, "..") : root3);
+  const main = worktrees[0] ?? (common ? join15(common, "..") : root3);
   const refs = await git2(runner, root3, [
     "for-each-ref",
     "--format=%(refname:short)",
@@ -9606,7 +10833,7 @@ async function defaultDirs(fs, runner, root3, home) {
     "refs/remotes"
   ]);
   const branches = refs.split("\n").filter(Boolean).map((name) => name.replace(/^origin\//, ""));
-  return await repoTranscriptDirs(fs, join11(home, ".claude", "projects"), {
+  return await repoTranscriptDirs(fs, join15(home, ".claude", "projects"), {
     main,
     worktrees: worktrees.length > 0 ? worktrees : [main],
     branches
@@ -9619,7 +10846,7 @@ async function readTranscripts(fs, dirs) {
       (n) => n.endsWith(".jsonl")
     )) {
       const id = basename5(name, ".jsonl");
-      const text10 = await fs.readFile(join11(dir, name));
+      const text10 = await fs.readFile(join15(dir, name));
       if (text10.length >= (byId.get(id)?.text.length ?? -1)) {
         byId.set(id, { id, text: text10 });
       }
@@ -9632,7 +10859,7 @@ async function readTranscripts(fs, dirs) {
 var USAGE2 = "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD]\n--since keeps sessions active at or after local midnight of that date, like the session-start count.";
 var isMissing2 = (error) => error.code === "ENOENT";
 async function skillNames(fs, root3) {
-  const dir = join12(root3, "skills");
+  const dir = join16(root3, "skills");
   let entries2;
   try {
     entries2 = await fs.readdir(dir);
@@ -9644,7 +10871,7 @@ async function skillNames(fs, root3) {
   }
   const names3 = [];
   for (const entry2 of entries2) {
-    if (await fs.isDirectory(join12(dir, entry2)) && await fs.exists(join12(dir, entry2, "SKILL.md"))) {
+    if (await fs.isDirectory(join16(dir, entry2)) && await fs.exists(join16(dir, entry2, "SKILL.md"))) {
       names3.push(entry2);
     }
   }
@@ -9728,10 +10955,10 @@ var retroScan = hookCommand(
 );
 
 // src/hook/skill-links.ts
-import { isAbsolute as isAbsolute3, join as join13 } from "node:path";
+import { isAbsolute as isAbsolute3, join as join17 } from "node:path";
 var HARNESSES = [".claude", ".codex"];
 async function skillNames2(fs, root3) {
-  const skillsDir = join13(root3, "skills");
+  const skillsDir = join17(root3, "skills");
   let entries2;
   try {
     entries2 = await fs.readdir(skillsDir);
@@ -9745,7 +10972,7 @@ async function skillNames2(fs, root3) {
   }
   const skills = [];
   for (const entry2 of entries2) {
-    if (await fs.exists(join13(root3, "skills", entry2, "SKILL.md"))) {
+    if (await fs.exists(join17(root3, "skills", entry2, "SKILL.md"))) {
       skills.push(entry2);
     }
   }
@@ -9769,7 +10996,7 @@ async function linkProblems(fs, root3) {
     for (const skill2 of skills) {
       const link = `${harness}/skills/${skill2}`;
       const expected = `../../skills/${skill2}`;
-      const found = await targetOf(fs, join13(root3, link));
+      const found = await targetOf(fs, join17(root3, link));
       if ("code" in found) {
         problems.push(
           found.code === "EINVAL" ? `${link} is a directory or file, not a link; replace it with a link to ${expected}` : `${link} is missing; link it to ${expected}`
@@ -9789,7 +11016,7 @@ async function linkProblems(fs, root3) {
 }
 
 // src/hook/workflow-permissions.ts
-import { join as join14 } from "node:path";
+import { join as join18 } from "node:path";
 var RELEASE = "release.yaml";
 var SIGNING_JOBS = ["release", "mirror"];
 var SIGNING_SCOPES = ["id-token", "packages"];
@@ -9918,7 +11145,7 @@ function permissionProblems(files) {
   );
 }
 async function workflowProblems(fs, root3) {
-  const dir = join14(root3, ".github", "workflows");
+  const dir = join18(root3, ".github", "workflows");
   let entries2;
   try {
     entries2 = await fs.readdir(dir);
@@ -9932,7 +11159,7 @@ async function workflowProblems(fs, root3) {
   }
   const files = {};
   for (const entry2 of entries2.filter((f) => /\.ya?ml$/.test(f)).sort()) {
-    files[entry2] = await fs.readFile(join14(dir, entry2));
+    files[entry2] = await fs.readFile(join18(dir, entry2));
   }
   return permissionProblems(files);
 }
@@ -9981,7 +11208,7 @@ function anchors(markdown) {
   }
   return result;
 }
-function resolve8(from, target) {
+function resolve9(from, target) {
   const joined = posix.normalize(posix.join(posix.dirname(from), target));
   if (joined === ".." || joined.startsWith("../")) {
     return null;
@@ -10053,8 +11280,8 @@ function valueProblems(file, keys, adr) {
   return problems;
 }
 function checkFrontmatter(file, markdown, exists) {
-  const parsed = frontmatter2(file, markdown);
-  if (!parsed) {
+  const parsed2 = frontmatter2(file, markdown);
+  if (!parsed2) {
     return [
       finding(
         file,
@@ -10066,11 +11293,11 @@ function checkFrontmatter(file, markdown, exists) {
   }
   const adr = ADR.test(file);
   const required2 = adr ? ["status", "date", "summary", "last-verified"] : ["status", "summary", "last-verified"];
-  const { keys } = parsed;
+  const { keys } = parsed2;
   if (adr && keys.get("status")?.value === "superseded") {
     required2.push("superseded-by");
   }
-  const problems = [...parsed.errors, ...valueProblems(file, keys, adr)];
+  const problems = [...parsed2.errors, ...valueProblems(file, keys, adr)];
   const replacement = keys.get("superseded-by");
   if (adr && replacement && !exists(replacement.value)) {
     problems.push(
@@ -10213,8 +11440,8 @@ function outcomeProblems(file, markdown, keys) {
   return [];
 }
 function checkIdea(file, markdown, ideas2) {
-  const parsed = frontmatter2(file, markdown);
-  if (!parsed) {
+  const parsed2 = frontmatter2(file, markdown);
+  if (!parsed2) {
     return [
       finding(
         file,
@@ -10224,9 +11451,9 @@ function checkIdea(file, markdown, ideas2) {
       )
     ];
   }
-  const { keys } = parsed;
+  const { keys } = parsed2;
   const problems = [
-    ...parsed.errors,
+    ...parsed2.errors,
     ...valueProblems2(file, keys),
     ...parentProblems(file, keys, ideas2),
     ...outcomeProblems(file, markdown, keys)
@@ -10257,7 +11484,7 @@ var PLAN = /^infra\/plans\/[^/]+\.md$/;
 var ADR2 = /^docs\/decisions\/[^/]+\.md$/;
 var IDEA = /^docs\/ideas\/[^/]+\.md$/;
 var SKILL = /^skills\/[^/]+\/SKILL\.md$/;
-var MARKER2 = /^\s*(?:\/\/|#|\*|--|<!--)\s*(Docs|Plan|ADR):\s+([^\s#]+)(?:#(\S+))?/;
+var MARKER3 = /^\s*(?:\/\/|#|\*|--|<!--)\s*(Docs|Plan|ADR):\s+([^\s#]+)(?:#(\S+))?/;
 function openTree(deps) {
   const files = [...deps.files()].sort();
   const tracked = new Set(files);
@@ -10324,7 +11551,7 @@ function linkProblems2(tree, file, text10) {
         continue;
       }
       const [pathPart = "", anchor] = raw.split("#", 2);
-      const target = pathPart ? resolve8(file, decodeURI(pathPart)) : file;
+      const target = pathPart ? resolve9(file, decodeURI(pathPart)) : file;
       if (target === null || !tree.exists(target)) {
         problems.push(
           finding(
@@ -10384,7 +11611,7 @@ function indexProblems(tree) {
     if (raw === void 0 || isExternal(raw)) {
       continue;
     }
-    const target = resolve8(INDEX3, decodeURI(raw));
+    const target = resolve9(INDEX3, decodeURI(raw));
     if (target) {
       listed.add(target);
     }
@@ -10423,7 +11650,7 @@ function markerProblems(tree) {
       continue;
     }
     text10.split("\n").forEach((line2, position) => {
-      const match = MARKER2.exec(line2);
+      const match = MARKER3.exec(line2);
       if (!match) {
         return;
       }
@@ -10535,7 +11762,7 @@ function dependenciesOf(deps) {
       continue;
     }
     for (const line2 of text10.split("\n")) {
-      const path = (MARKER2.exec(line2)?.[2] ?? "").replace(/[.,;:)]+$/, "");
+      const path = (MARKER3.exec(line2)?.[2] ?? "").replace(/[.,;:)]+$/, "");
       if (PLAN.test(path) || ADR2.test(path)) {
         depend(path, file);
       }
@@ -10548,7 +11775,7 @@ function linkTargets(file, text10) {
   for (const { text: prose2 } of proseLines(text10)) {
     for (const [, raw = ""] of prose2.matchAll(LINK)) {
       const [pathPart] = raw.split("#", 1);
-      const target = isExternal(raw) || !pathPart ? null : resolve8(file, decodeURI(pathPart));
+      const target = isExternal(raw) || !pathPart ? null : resolve9(file, decodeURI(pathPart));
       if (target !== null) {
         targets.push(target);
       }
@@ -10667,7 +11894,7 @@ async function runChecks(argv, deps, log) {
 }
 
 // src/skill/index.ts
-import { join as join15 } from "node:path";
+import { join as join19 } from "node:path";
 
 // src/skill/audit.ts
 var DESCRIPTION_BUDGET = 200;
@@ -10682,7 +11909,7 @@ function invalid(name, reason) {
     reason
   };
 }
-function field(frontmatter3, key) {
+function field2(frontmatter3, key) {
   const line2 = frontmatter3.split("\n").find((l) => l.startsWith(`${key}:`));
   const value = line2?.slice(key.length + 1).trim();
   if (value === void 0 || value === "") {
@@ -10714,11 +11941,11 @@ function auditSkill(directory, text10) {
   }
   const end = close3.index + 3;
   const frontmatter3 = source.slice(4, end);
-  const name = field(frontmatter3, "name");
+  const name = field2(frontmatter3, "name");
   if (name === void 0) {
     return invalid(directory, "missing name");
   }
-  const description = field(frontmatter3, "description");
+  const description = field2(frontmatter3, "description");
   if (description === void 0) {
     return invalid(directory, "missing description");
   }
@@ -10778,7 +12005,7 @@ function renderReport(report3) {
 // src/skill/index.ts
 var SKILLS_DIR = "skills";
 async function skillReport(fs, root3) {
-  const skillsDir = join15(root3, SKILLS_DIR);
+  const skillsDir = join19(root3, SKILLS_DIR);
   try {
     return await auditSkills(fs, skillsDir);
   } catch (error) {
@@ -10924,954 +12151,6 @@ var hook = {
   "skill-links": skillLinks,
   statusline,
   "workflow-permissions": workflowPermissions
-};
-
-// src/session/equalize.ts
-var byY = (a, b) => a.rect.y - b.rect.y;
-function describeFailure(result) {
-  return (result.stderr || result.stdout).trim() || `exit code ${result.code}`;
-}
-async function readLayout(runner, callerPane) {
-  const result = await runner.run("herdr", [
-    "pane",
-    "layout",
-    "--pane",
-    callerPane
-  ]);
-  if (result.code !== 0) {
-    return {
-      error: `herdr pane layout failed: ${describeFailure(result)}`
-    };
-  }
-  try {
-    const parsed = JSON.parse(result.stdout);
-    const layout = parsed.result?.layout;
-    if (layout !== void 0) {
-      return { layout };
-    }
-  } catch {
-  }
-  return {
-    error: `herdr pane layout returned no layout (.result.layout): ${result.stdout.trim()}`
-  };
-}
-function spawnedColumn(layout, callerPane) {
-  const caller = layout.panes.find((p) => p.pane_id === callerPane);
-  const column = Math.max(...layout.panes.map((p) => p.rect.x));
-  if (caller === void 0 || column <= caller.rect.x) {
-    return [];
-  }
-  return layout.panes.filter((p) => p.rect.x === column).sort(byY);
-}
-async function equalize(runner, callerPane) {
-  const read = await readLayout(runner, callerPane);
-  if ("error" in read) {
-    return { status: "failed", reason: read.error };
-  }
-  const { layout } = read;
-  const panes = spawnedColumn(layout, callerPane);
-  const column = panes[0]?.rect.x;
-  if (column === void 0) {
-    return {
-      status: "skipped",
-      reason: "no spawned column right of the caller"
-    };
-  }
-  const splits = layout.splits.filter((s) => s.direction === "down" && s.rect.x === column).sort(byY);
-  if (splits.length !== panes.length - 1) {
-    return {
-      status: "skipped",
-      reason: "layout splits do not match the spawned panes"
-    };
-  }
-  for (const [i, split] of splits.entries()) {
-    const delta2 = 1 / (panes.length - i) - split.ratio;
-    if (Math.abs(delta2) <= 5e-4) {
-      continue;
-    }
-    const [pane, direction] = delta2 < 0 ? [panes[i + 1], "up"] : [panes[i], "down"];
-    const resize = await runner.run("herdr", [
-      "pane",
-      "resize",
-      "--pane",
-      pane.pane_id,
-      "--direction",
-      direction,
-      "--amount",
-      Math.abs(delta2).toFixed(6)
-    ]);
-    if (resize.code !== 0) {
-      return {
-        status: "failed",
-        reason: `herdr pane resize failed: ${describeFailure(resize)}`
-      };
-    }
-  }
-  return { status: "equalized" };
-}
-
-// src/session/names.ts
-var MAX_LENGTH = 32;
-var ORDINALS = /* @__PURE__ */ new Set([
-  "first",
-  "second",
-  "third",
-  "fourth",
-  "fifth",
-  "sixth",
-  "seventh",
-  "eighth",
-  "ninth",
-  "tenth"
-]);
-var EXAMPLE = "name it for its subject, such as image-trust-reader";
-function isPlaceholderSegment(segment) {
-  return /^[a-z]$/.test(segment) || /^\d{1,2}$/.test(segment) || /^step\d+$/.test(segment) || /^\d+(st|nd|rd|th)$/.test(segment) || ORDINALS.has(segment);
-}
-function sessionNameError(name) {
-  if (!/^[a-z0-9_-]+$/.test(name)) {
-    return `Session name "${name}" must use only lowercase letters, digits, "-" and "_"; ${EXAMPLE}.`;
-  }
-  if (name.length > MAX_LENGTH) {
-    return `Session name "${name}" is ${name.length} characters, but Herdr allows at most ${MAX_LENGTH}; shorten it, for example by dropping the role suffix.`;
-  }
-  if (name.split(/[-_]/).some(isPlaceholderSegment)) {
-    return `Session name "${name}" uses a letter, ordinal or step number; ${EXAMPLE}.`;
-  }
-  return void 0;
-}
-
-// src/session/output.ts
-var USAGE_ERROR = 2;
-var FAILED7 = 1;
-function fail3(deps, json, code, message) {
-  deps.stderr(
-    `${json ? `${JSON.stringify({ error: message })}
-` : ""}${message}
-`
-  );
-  return code;
-}
-
-// src/session/registry.ts
-import { join as join16, resolve as resolve9 } from "node:path";
-var STATE_DIR = ".kore/state/sessions";
-function isRecord(value) {
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-  const record5 = value;
-  return typeof record5.name === "string" && typeof record5.paneId === "string" && typeof record5.callerPane === "string" && typeof record5.model === "string";
-}
-var SessionRegistry = class _SessionRegistry {
-  constructor(fs, dir) {
-    this.fs = fs;
-    this.dir = dir;
-  }
-  fs;
-  dir;
-  /** Keeps state in the main checkout, shared by every worktree (see `mainRoot`). */
-  static async open(deps) {
-    const main = await mainRoot(deps);
-    if (main === void 0) {
-      throw new CommandError(
-        "Cannot find the main checkout to keep session state in. Run inside the repository or set KORE_ROOT to its root."
-      );
-    }
-    return new _SessionRegistry(deps.fs, resolve9(main, STATE_DIR));
-  }
-  file(name) {
-    return join16(this.dir, `${name}.json`);
-  }
-  async read(name) {
-    const path = this.file(name);
-    if (!await this.fs.exists(path)) {
-      return void 0;
-    }
-    let parsed;
-    try {
-      parsed = JSON.parse(await this.fs.readFile(path));
-    } catch (error) {
-      if (!(error instanceof SyntaxError)) {
-        throw error;
-      }
-      parsed = void 0;
-    }
-    if (!isRecord(parsed)) {
-      throw new CommandError(
-        `Session state ${path} is not a valid session record; delete it and spawn the session again.`
-      );
-    }
-    return parsed;
-  }
-  async write(record5) {
-    await this.fs.writeFile(
-      this.file(record5.name),
-      `${JSON.stringify(record5, null, 2)}
-`
-    );
-  }
-  /** Why `name` cannot be spawned again: its record exists and is not closed. Undefined when free. */
-  async unavailable(name) {
-    const existing = await this.read(name);
-    return existing === void 0 || existing.closedAt !== void 0 ? void 0 : `A session record for ${name} (pane ${existing.paneId}) already exists and is not closed; run \`session wait ${name}\` then \`session close ${name}\`, or pick another name. No pane was split.`;
-  }
-  /** Records a new session; refuses to replace one that is not closed, even under a race. */
-  async create(record5) {
-    const content = `${JSON.stringify(record5, null, 2)}
-`;
-    try {
-      await this.fs.createFile(this.file(record5.name), content);
-    } catch (error) {
-      if (error.code !== "EEXIST") {
-        throw error;
-      }
-      const reason = await this.unavailable(record5.name);
-      if (reason !== void 0) {
-        throw new CommandError(
-          reason.replace(
-            " No pane was split.",
-            ` Pane ${record5.paneId} is running unrecorded; close it with \`herdr pane close ${record5.paneId}\`.`
-          )
-        );
-      }
-      await this.write(record5);
-    }
-  }
-};
-
-// src/session/worktree.ts
-import { join as join17 } from "node:path";
-var removeCommands = (worktree) => `\`git worktree remove ${worktree.path}\` and \`git branch -D ${worktree.branch}\``;
-var removeHint = (worktree) => `The worktree ${worktree.path} was left behind; remove it with ${removeCommands(worktree)}.`;
-var closeHint = (worktree) => `Remove its worktree once its branch is merged: ${removeCommands(worktree)}.`;
-async function create2(deps, name, branch) {
-  const main = await mainRoot(deps);
-  if (main === void 0) {
-    return {
-      error: "Cannot find the main checkout to create the worktree in. Run inside the repository or set KORE_ROOT to its root. No pane was split."
-    };
-  }
-  const worktree = { path: join17(main, ".claude", "worktrees", name), branch };
-  const add = await deps.runner.run(
-    "git",
-    ["worktree", "add", "-b", branch, worktree.path, "HEAD"],
-    { cwd: deps.cwd }
-  );
-  if (add.code !== 0) {
-    return {
-      error: `git worktree add failed: ${describeFailure(add)}. No pane was split. A previous spawn may have left the worktree or branch: run ${removeCommands(worktree)}, or pass --branch <other>.`
-    };
-  }
-  const install = await deps.runner.run("npm", ["ci"], {
-    cwd: join17(worktree.path, "tools", "kore")
-  });
-  if (install.code !== 0) {
-    return {
-      error: `npm ci failed in the new worktree: ${describeFailure(install)}. No pane was split. ${removeHint(worktree)}`
-    };
-  }
-  return worktree;
-}
-async function place(deps, options, name) {
-  if (options.worktree !== true) {
-    return { cwd: deps.cwd, left: "" };
-  }
-  const branch = typeof options.branch === "string" ? options.branch : name;
-  const worktree = await create2(deps, name, branch);
-  if ("error" in worktree) {
-    return worktree;
-  }
-  return { worktree, cwd: worktree.path, left: ` ${removeHint(worktree)}` };
-}
-
-// src/session/close.ts
-var NOT_IN_HERDR = "Not inside Herdr (HERDR_ENV is not 1 or HERDR_PANE_ID is unset). Run this from the Herdr pane that spawned the session.";
-function refuse(record5, callerPane) {
-  const { name, paneId } = record5;
-  if (record5.closedAt !== void 0) {
-    return `Session ${name} is already closed (pane ${paneId}).`;
-  }
-  if (record5.callerPane !== callerPane) {
-    return `Session ${name} was spawned from pane ${record5.callerPane}, not ${callerPane}; only that pane may close it.`;
-  }
-  return record5.result === void 0 ? `Session ${name} has no recorded result, so pane ${paneId} stays open. Run \`session wait ${name}\` first.` : void 0;
-}
-async function finishClose({ json, deps }, registry, record5, callerPane) {
-  const { name } = record5;
-  await registry.write({ ...record5, closedAt: deps.clock.now().toISOString() });
-  const equalized = await equalize(deps.runner, callerPane);
-  const note = equalized.status === "failed" ? `Closed, but equalizing failed: ${equalized.reason}` : void 0;
-  if (note !== void 0) {
-    deps.stderr(`${note}
-`);
-  }
-  const hint = record5.worktree === void 0 ? void 0 : closeHint(record5.worktree);
-  deps.stdout(
-    json ? `${JSON.stringify({ name, paneId: record5.paneId, closed: true, equalize: equalized, ...hint === void 0 ? {} : { hint } })}
-` : `Closed ${name} (pane ${record5.paneId}).${hint === void 0 ? "" : ` ${hint}`}
-`
-  );
-  return 0;
-}
-async function close2(context2) {
-  const { json, deps } = context2;
-  const name = context2.operand;
-  if (name === void 0) {
-    return fail3(
-      deps,
-      json,
-      USAGE_ERROR,
-      "Missing the session name: session close <name>."
-    );
-  }
-  const nameError = sessionNameError(name);
-  if (nameError !== void 0) {
-    return fail3(deps, json, USAGE_ERROR, nameError);
-  }
-  const callerPane = deps.env.HERDR_PANE_ID;
-  if (deps.env.HERDR_ENV !== "1" || !callerPane) {
-    return fail3(deps, json, FAILED7, NOT_IN_HERDR);
-  }
-  const registry = await SessionRegistry.open(deps);
-  const record5 = await registry.read(name);
-  if (record5 === void 0) {
-    return fail3(
-      deps,
-      json,
-      FAILED7,
-      `This tool did not create a session named ${name}, so it will not close one. Close it yourself with \`herdr pane close <pane-id>\` if you are sure.`
-    );
-  }
-  const refusal = refuse(record5, callerPane);
-  if (refusal !== void 0) {
-    return fail3(deps, json, FAILED7, refusal);
-  }
-  const closed = await deps.runner.run("herdr", [
-    "pane",
-    "close",
-    record5.paneId
-  ]);
-  if (closed.code !== 0) {
-    return fail3(
-      deps,
-      json,
-      FAILED7,
-      `herdr pane close ${record5.paneId} failed: ${describeFailure(closed)}`
-    );
-  }
-  return await finishClose(context2, registry, record5, callerPane);
-}
-
-// src/session/models.ts
-var MODELS = {
-  "claude-fable-5-2": {
-    name: "Fable 5.2",
-    pattern: /(?<![\w.])Fable 5\.2(?![\w.])/
-  },
-  "claude-opus-5-5": {
-    name: "Opus 5.5",
-    pattern: /(?<![\w.])Opus 5\.5(?![\w.])/
-  },
-  "claude-sonnet-5-5": {
-    name: "Sonnet 5.5",
-    pattern: /(?<![\w.])Sonnet 5\.5(?![\w.])/
-  },
-  "claude-haiku-5-5": {
-    name: "Haiku 5.5",
-    pattern: /(?<![\w.])Haiku 5\.5(?![\w.])/
-  }
-};
-function displayName(model) {
-  return Object.hasOwn(MODELS, model) ? MODELS[model]?.name : void 0;
-}
-function modelOnScreen(model, screen) {
-  const expected = Object.hasOwn(MODELS, model) ? MODELS[model] : void 0;
-  if (expected?.pattern.test(screen) === true) {
-    return { status: "verified" };
-  }
-  const seen = Object.values(MODELS).find(
-    ({ pattern }) => pattern.test(screen)
-  );
-  return seen === void 0 ? { status: "none" } : { status: "mismatch", seen: seen.name };
-}
-
-// src/session/agent-start.ts
-var BUSY_BOUND_MS = 1e4;
-var MODEL_BOUND_MS = 5e3;
-var RETRY_MS = 500;
-async function startAgent(deps, args) {
-  const deadline = deps.clock.now().getTime() + BUSY_BOUND_MS;
-  for (; ; ) {
-    const start = await deps.runner.run("herdr", args);
-    if (start.code === 0) {
-      return void 0;
-    }
-    if (!`${start.stdout}${start.stderr}`.includes("agent_pane_busy")) {
-      return `herdr agent start failed: ${describeFailure(start)}`;
-    }
-    if (deps.clock.now().getTime() >= deadline) {
-      return `herdr agent start failed: agent_pane_busy for ${BUSY_BOUND_MS / 1e3} seconds; the pane's shell never became ready (${describeFailure(start)})`;
-    }
-    await deps.clock.sleep(RETRY_MS);
-  }
-}
-async function checkModel(deps, name, model) {
-  const expected = displayName(model);
-  if (expected === void 0) {
-    return {
-      status: "unverified",
-      reason: `No display name is known for ${model}, so the pane's model could not be confirmed.`
-    };
-  }
-  const deadline = deps.clock.now().getTime() + MODEL_BOUND_MS;
-  for (; ; ) {
-    const read = await deps.runner.run("herdr", [
-      "agent",
-      "read",
-      name,
-      "--source",
-      "visible"
-    ]);
-    const seen = modelOnScreen(model, read.code === 0 ? read.stdout : "");
-    if (seen.status === "verified") {
-      return { status: "verified" };
-    }
-    if (seen.status === "mismatch") {
-      return {
-        mismatch: `Session ${name} runs "${seen.seen}" but ${model} ("${expected}") was requested.`
-      };
-    }
-    if (deps.clock.now().getTime() >= deadline) {
-      return {
-        status: "unverified",
-        reason: `The pane showed no model name, such as "${expected}", within ${MODEL_BOUND_MS / 1e3} seconds, so ${model} could not be confirmed.`
-      };
-    }
-    await deps.clock.sleep(RETRY_MS);
-  }
-}
-
-// src/session/brief.ts
-function broadcastCommand(name, callerPane) {
-  return `herdr pane send-text ${callerPane} "[herdr:${name}] finished: RESULT <done|blocked>; summary in pane $HERDR_PANE_ID" && herdr pane send-keys ${callerPane} enter`;
-}
-function buildBrief({ task, name, callerPane }) {
-  return [
-    task,
-    "",
-    `You are ${name}; your session name is ${name}.`,
-    `When you finish, broadcast to pane \`${callerPane}\`. Print your summary and a final line with the word RESULT, a colon, then done or blocked. Then, as your very last action, run this one line with the outcome word (done or blocked) in place of <done|blocked>; it expands your own $HERDR_PANE_ID, and must carry no secrets or output beyond the outcome word:`,
-    "",
-    broadcastCommand(name, callerPane)
-  ].join("\n");
-}
-
-// src/session/launch.ts
-async function launch(deps, { role, model, effort, name, brief: brief2, paneId, callerPane, leftOpen }) {
-  const started = await startAgent(deps, [
-    "agent",
-    "start",
-    name,
-    "--kind",
-    "claude",
-    "--pane",
-    paneId,
-    "--",
-    "--agent",
-    role,
-    "--model",
-    model,
-    "--effort",
-    effort
-  ]);
-  if (started !== void 0) {
-    return { error: `${started}. ${leftOpen}` };
-  }
-  const checked = await checkModel(deps, name, model);
-  if ("mismatch" in checked) {
-    return { error: `${checked.mismatch} ${leftOpen}` };
-  }
-  const prompt = await deps.runner.run("herdr", [
-    "agent",
-    "prompt",
-    name,
-    buildBrief({ task: brief2, name, callerPane }),
-    "--wait",
-    "--until",
-    "working",
-    "--timeout",
-    "5000"
-  ]);
-  if (prompt.code === 0) {
-    return checked;
-  }
-  await deps.runner.run("herdr", ["agent", "send-keys", name, "enter"]);
-  const retried = await deps.runner.run("herdr", [
-    "agent",
-    "wait",
-    name,
-    "--until",
-    "working",
-    "--timeout",
-    "5000"
-  ]);
-  return retried.code === 0 ? checked : {
-    error: `herdr agent prompt failed: ${describeFailure(prompt)}; pressing enter did not start it either: ${describeFailure(retried)}. Session ${name} is running in pane ${paneId} without its brief.`
-  };
-}
-
-// src/session/agent-definition.ts
-import { join as join18 } from "node:path";
-var FRONTMATTER2 = /^---\n([\s\S]*?)\n---/;
-function field2(frontmatter3, key) {
-  const line2 = frontmatter3.split("\n").find((l) => l.startsWith(`${key}:`));
-  const value = line2?.slice(key.length + 1).trim();
-  return value === void 0 || value === "" ? void 0 : value.replace(/^(["'])(.*)\1$/, "$2");
-}
-function parseDefinition(markdown) {
-  const frontmatter3 = FRONTMATTER2.exec(markdown)?.[1] ?? "";
-  const model = field2(frontmatter3, "model");
-  const effort = field2(frontmatter3, "effort");
-  const tools = field2(frontmatter3, "tools");
-  return {
-    ...model === void 0 ? {} : { model },
-    ...effort === void 0 ? {} : { effort },
-    ...tools === void 0 ? {} : { tools: tools.split(",").map((tool) => tool.trim()) }
-  };
-}
-var ROLE = /^[a-z][a-z0-9-]*$/;
-async function readTier(deps, role) {
-  if (!ROLE.test(role)) {
-    return {};
-  }
-  const path = join18(await deps.root(), ".claude/agents", `${role}.md`);
-  try {
-    return parseDefinition(await deps.fs.readFile(path));
-  } catch (error) {
-    if (error?.code === "ENOENT") {
-      return {};
-    }
-    throw error;
-  }
-}
-async function resolveTier(deps, role, flags) {
-  const declared = await readTier(deps, role);
-  const model = flags.model ?? declared.model;
-  const effort = flags.effort ?? declared.effort;
-  for (const [flag, value] of [
-    ["model", model],
-    ["effort", effort]
-  ]) {
-    if (value === void 0) {
-      return {
-        error: `Missing --${flag}, and .claude/agents/${role}.md does not declare it. Pass --${flag} or add \`${flag}:\` to that definition's frontmatter.`
-      };
-    }
-  }
-  return { model, effort };
-}
-
-// src/session/wait.ts
-var DEFAULT_TIMEOUT_MS = 60 * 60 * 1e3;
-var POLL_MS = 2e3;
-var MARKER3 = /^[ \t]*(?:[●⏺][ \t]+)?RESULT: (done|blocked)[ \t\r]*$/gm;
-function findResult(text10) {
-  const last = [...text10.matchAll(MARKER3)].at(-1)?.[1];
-  return last === "done" || last === "blocked" ? last : void 0;
-}
-function parseTimeout(value) {
-  if (value === void 0) {
-    return DEFAULT_TIMEOUT_MS;
-  }
-  const ms = typeof value === "string" ? Number(value) : Number.NaN;
-  return Number.isInteger(ms) && ms > 0 ? ms : { error: "--timeout must be a positive whole number of milliseconds." };
-}
-function seconds2(ms) {
-  return `${ms / 1e3} seconds`;
-}
-async function waitForResult(deps, registry, record5, timeoutMs) {
-  const done = (outcome) => ({
-    name: record5.name,
-    paneId: record5.paneId,
-    model: record5.model,
-    outcome,
-    summary: `pane ${record5.paneId}`
-  });
-  if (record5.result !== void 0) {
-    return done(record5.result.outcome);
-  }
-  const deadline = deps.clock.now().getTime() + timeoutMs;
-  for (; ; ) {
-    const read = await deps.runner.run("herdr", [
-      "pane",
-      "read",
-      record5.paneId,
-      "--source",
-      "recent-unwrapped"
-    ]);
-    if (read.code !== 0) {
-      return {
-        error: `herdr pane read ${record5.paneId} failed: ${describeFailure(read)}`
-      };
-    }
-    const outcome = findResult(read.stdout);
-    if (outcome !== void 0) {
-      await registry.write({
-        ...record5,
-        result: { outcome, at: deps.clock.now().toISOString() }
-      });
-      return done(outcome);
-    }
-    if (deps.clock.now().getTime() + POLL_MS > deadline) {
-      return {
-        error: `Session ${record5.name} printed no "RESULT: done" or "RESULT: blocked" line in pane ${record5.paneId} within ${seconds2(timeoutMs)}. It may still be working; run \`session wait ${record5.name}\` again or read the pane.`
-      };
-    }
-    await deps.clock.sleep(POLL_MS);
-  }
-}
-function formatWait(result) {
-  return `${result.name} (${result.model}) finished: RESULT ${result.outcome}; summary in ${result.summary}.
-`;
-}
-async function wait(context2) {
-  const { json, deps, options } = context2;
-  const name = context2.operand;
-  if (name === void 0) {
-    return fail3(
-      deps,
-      json,
-      USAGE_ERROR,
-      "Missing the session name: session wait <name>."
-    );
-  }
-  const nameError = sessionNameError(name);
-  if (nameError !== void 0) {
-    return fail3(deps, json, USAGE_ERROR, nameError);
-  }
-  const timeout = parseTimeout(options.timeout);
-  if (typeof timeout !== "number") {
-    return fail3(deps, json, USAGE_ERROR, timeout.error);
-  }
-  const registry = await SessionRegistry.open(deps);
-  const record5 = await registry.read(name);
-  if (record5 === void 0) {
-    return fail3(
-      deps,
-      json,
-      FAILED7,
-      `No session named ${name} was spawned by this tool; start it with \`session spawn\`.`
-    );
-  }
-  const result = await waitForResult(deps, registry, record5, timeout);
-  if ("error" in result) {
-    return fail3(deps, json, FAILED7, result.error);
-  }
-  deps.stdout(json ? `${JSON.stringify(result)}
-` : formatWait(result));
-  return 0;
-}
-
-// src/session/spawn-check.ts
-var REQUIRED3 = ["role", "name", "brief"];
-function herdrCaller(deps) {
-  const callerPane = deps.env.HERDR_PANE_ID;
-  if (deps.env.HERDR_ENV !== "1") {
-    return {
-      error: "Not inside Herdr (HERDR_ENV is not 1). Run this from a Herdr pane; no session was started.",
-      code: FAILED7
-    };
-  }
-  if (callerPane === void 0 || callerPane === "") {
-    return {
-      error: "HERDR_PANE_ID is not set, so the session cannot broadcast back. Run this from a Herdr pane.",
-      code: FAILED7
-    };
-  }
-  return callerPane;
-}
-function worktreeError(role, options) {
-  if (options.branch !== void 0 && options.worktree !== true) {
-    return "--branch only applies with --worktree.";
-  }
-  return role === "writer" && options.worktree !== true ? "A writer needs its own worktree so concurrent writers cannot collide. Add --worktree." : void 0;
-}
-async function check({
-  deps,
-  options
-}) {
-  const usage2 = (error) => ({ error, code: USAGE_ERROR });
-  const missing = REQUIRED3.find((flag2) => typeof options[flag2] !== "string");
-  if (missing !== void 0) {
-    return usage2(`Missing --${missing}.`);
-  }
-  const given = options;
-  const nameError = sessionNameError(given.name);
-  if (nameError !== void 0) {
-    return usage2(nameError);
-  }
-  if (findResult(given.brief) !== void 0) {
-    return usage2(
-      'The brief has a line that is only a RESULT marker, which would end the wait early. Describe the marker in words instead, such as "end with the word RESULT, a colon, then done or blocked".'
-    );
-  }
-  const wrongWorktree = worktreeError(given.role, options);
-  if (wrongWorktree !== void 0) {
-    return usage2(wrongWorktree);
-  }
-  const timeoutMs = parseTimeout(options.timeout);
-  if (typeof timeoutMs !== "number") {
-    return usage2(timeoutMs.error);
-  }
-  const callerPane = herdrCaller(deps);
-  if (typeof callerPane !== "string") {
-    return callerPane;
-  }
-  const flag = (name) => typeof options[name] === "string" ? options[name] : void 0;
-  const tier2 = await resolveTier(deps, given.role, {
-    model: flag("model"),
-    effort: flag("effort")
-  });
-  if ("error" in tier2) {
-    return usage2(tier2.error);
-  }
-  return { values: { ...given, ...tier2 }, callerPane, timeoutMs };
-}
-
-// src/session/spawn-finish.ts
-import { join as join19 } from "node:path";
-async function recordLaunch(deps, record5) {
-  try {
-    const main = await mainRoot(deps);
-    if (main === void 0) {
-      return;
-    }
-    await new Ledger(
-      deps.fs,
-      deps.clock,
-      deps.ids,
-      join19(main, DEFAULT_LEDGER)
-    ).record({
-      source: "herdr",
-      kind: "session.launch",
-      occurredAt: record5.createdAt,
-      pane: record5.paneId,
-      agent: record5.name,
-      role: record5.role,
-      tier: record5.model
-    });
-  } catch {
-  }
-}
-async function finish2({ json, deps, options }, { registry, record: record5, modelCheck, timeoutMs }) {
-  const { name, paneId, callerPane, model, role, effort, worktree } = record5;
-  const extra = worktree === void 0 ? {} : { worktree };
-  await registry.create(record5);
-  await recordLaunch(deps, record5);
-  const verdict = modelCheck.status === "verified" ? "model verified" : `model unverified: ${modelCheck.reason}`;
-  if (options["no-wait"] === true) {
-    deps.stdout(
-      json ? `${JSON.stringify({ name, paneId, model, role, effort, ...extra, modelCheck })}
-` : `Spawned ${name} (${model}; ${verdict}) in pane ${paneId}; it will broadcast to ${callerPane} when it finishes. Collect its result with \`session wait ${name}\`.
-`
-    );
-    return 0;
-  }
-  const result = await waitForResult(deps, registry, record5, timeoutMs);
-  if ("error" in result) {
-    return fail3(deps, json, FAILED7, result.error);
-  }
-  deps.stdout(
-    json ? `${JSON.stringify({ ...result, role, effort, ...extra, modelCheck })}
-` : `${formatWait(result).trimEnd()} (${verdict}).
-`
-  );
-  return 0;
-}
-
-// src/session/spawn.ts
-function paneIdOf(stdout) {
-  try {
-    const parsed = JSON.parse(stdout);
-    const id = parsed.result?.pane?.pane_id;
-    return typeof id === "string" ? id : void 0;
-  } catch {
-    return void 0;
-  }
-}
-async function splitPane(deps, callerPane, cwd) {
-  const read = await readLayout(deps.runner, callerPane);
-  if ("error" in read) {
-    return { error: `${read.error}. No pane was split.` };
-  }
-  const last = spawnedColumn(read.layout, callerPane).at(-1);
-  const where = last === void 0 ? ["--current", "--direction", "right"] : [last.pane_id, "--direction", "down"];
-  const split = await deps.runner.run("herdr", [
-    "pane",
-    "split",
-    ...where,
-    "--cwd",
-    cwd,
-    "--no-focus"
-  ]);
-  if (split.code !== 0) {
-    return { error: `herdr pane split failed: ${describeFailure(split)}` };
-  }
-  const paneId = paneIdOf(split.stdout);
-  return paneId ?? {
-    error: `herdr pane split did not return a pane id (.result.pane.pane_id): ${split.stdout.trim()}`
-  };
-}
-async function nameTakenError(deps, name) {
-  const found = await deps.runner.run("herdr", ["agent", "get", name]);
-  if (found.code === 0) {
-    return `A session named ${name} already exists; pick another name or close that session first. No pane was split.`;
-  }
-  if (`${found.stdout}${found.stderr}`.includes("agent_not_found")) {
-    return void 0;
-  }
-  return `herdr agent get failed: ${describeFailure(found)}. No pane was split.`;
-}
-async function spawn2(context2) {
-  const { json, deps } = context2;
-  const checked = await check(context2);
-  if ("error" in checked) {
-    return fail3(deps, json, checked.code, checked.error);
-  }
-  const { name, model, role, effort } = checked.values;
-  const { callerPane } = checked;
-  const registry = await SessionRegistry.open(deps);
-  const taken = await registry.unavailable(name) ?? await nameTakenError(deps, name);
-  if (taken !== void 0) {
-    return fail3(deps, json, FAILED7, taken);
-  }
-  const placed = await place(deps, context2.options, name);
-  if ("error" in placed) {
-    return fail3(deps, json, FAILED7, placed.error);
-  }
-  const paneId = await splitPane(deps, callerPane, placed.cwd);
-  if (typeof paneId !== "string") {
-    return fail3(deps, json, FAILED7, `${paneId.error}${placed.left}`);
-  }
-  const leftOpen = `The pane ${paneId} was left open; close it with \`herdr pane close ${paneId}\`.${placed.left}`;
-  const equalized = await equalize(deps.runner, callerPane);
-  if (equalized.status === "failed") {
-    return fail3(deps, json, FAILED7, `${equalized.reason}. ${leftOpen}`);
-  }
-  const modelCheck = await launch(deps, {
-    ...checked.values,
-    paneId,
-    callerPane,
-    leftOpen
-  });
-  if ("error" in modelCheck) {
-    return fail3(deps, json, FAILED7, modelCheck.error);
-  }
-  return await finish2(context2, {
-    registry,
-    modelCheck,
-    record: {
-      name,
-      paneId,
-      callerPane,
-      model,
-      role,
-      effort,
-      ...placed.worktree === void 0 ? {} : { worktree: placed.worktree },
-      createdAt: deps.clock.now().toISOString()
-    },
-    timeoutMs: checked.timeoutMs
-  });
-}
-
-// src/session/tier.ts
-async function tier({
-  json,
-  deps,
-  operand
-}) {
-  if (operand === void 0 || operand === "") {
-    return fail3(
-      deps,
-      json,
-      USAGE_ERROR,
-      "Missing the role: run `session tier <role>`."
-    );
-  }
-  const found = await resolveTier(deps, operand, {});
-  if ("error" in found) {
-    return fail3(deps, json, USAGE_ERROR, found.error);
-  }
-  deps.stdout(
-    json ? `${JSON.stringify({ role: operand, ...found })}
-` : `${operand}: ${found.model}, effort ${found.effort}
-`
-  );
-  return 0;
-}
-
-// src/session/index.ts
-var spawnCommand = {
-  summary: "start a Claude session in a Herdr pane (--role --name --brief [--model --effort, default from .claude/agents/<role>.md] --timeout ms; --worktree [--branch b] runs it in a new git worktree under .claude/worktrees); it waits for the result unless --no-wait, the normal pattern: spawn with --no-wait, then run `session wait <name>` in the background",
-  options: {
-    role: "string",
-    model: "string",
-    effort: "string",
-    name: "string",
-    brief: "string",
-    "no-wait": "boolean",
-    worktree: "boolean",
-    branch: "string",
-    timeout: "string"
-  },
-  run: spawn2
-};
-var waitCommand = {
-  summary: "wait for a spawned session's RESULT line and print its outcome (<name> --timeout ms)",
-  operand: "name",
-  options: { timeout: "string" },
-  run: wait
-};
-var closeCommand = {
-  summary: "close a spawned pane once its result is recorded (<name>; only the pane that spawned it)",
-  operand: "name",
-  run: close2
-};
-var tierCommand = {
-  summary: "print the model and effort a role launches at, from .claude/agents/<role>.md (<role>; read-only)",
-  operand: "role",
-  run: tier
-};
-var equalizeCommand = {
-  summary: "equalize the heights of the spawned panes (run after closing one)",
-  async run({ json, deps }) {
-    const callerPane = deps.env.HERDR_PANE_ID;
-    if (deps.env.HERDR_ENV !== "1" || !callerPane) {
-      deps.stderr(
-        "Not inside Herdr (HERDR_ENV is not 1 or HERDR_PANE_ID is unset). Run this from a Herdr pane.\n"
-      );
-      return 1;
-    }
-    const result = await equalize(deps.runner, callerPane);
-    if (result.status === "failed") {
-      deps.stderr(`${result.reason}
-`);
-      return 1;
-    }
-    const text10 = result.status === "skipped" ? `Skipped: ${result.reason}.` : "Equalized.";
-    deps.stdout(json ? `${JSON.stringify(result)}
-` : `${text10}
-`);
-    return 0;
-  }
-};
-var session = {
-  spawn: spawnCommand,
-  wait: waitCommand,
-  close: closeCommand,
-  tier: tierCommand,
-  equalize: equalizeCommand
 };
 
 // src/cli/host.ts
@@ -12047,14 +12326,14 @@ async function run2(argv, deps) {
   if ("error" in resolved) {
     return fail4(deps, json, resolved.error, failure2);
   }
-  const parsed = parseOptions(resolved.command, rest);
-  if ("error" in parsed) {
-    return fail4(deps, json, parsed.error, failure2);
+  const parsed2 = parseOptions(resolved.command, rest);
+  if ("error" in parsed2) {
+    return fail4(deps, json, parsed2.error, failure2);
   }
   return await execute(resolved.command, {
     json,
-    options: parsed.options,
-    operand: parsed.operand,
+    options: parsed2.options,
+    operand: parsed2.operand,
     deps
   });
 }

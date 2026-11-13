@@ -115,6 +115,9 @@ describe("role-read-only: the harness is allowlisted per role", () => {
       "outcome record --idea 1 --kind verification",
       "outcome close --idea 1",
       "idea show --idea 1",
+      "queue next --json",
+      "queue send-backs 50",
+      "queue escalate 50",
     ]) {
       allowed(
         await bash("orchestrator", `node skills/bin/harness.mjs ${rest}`),
