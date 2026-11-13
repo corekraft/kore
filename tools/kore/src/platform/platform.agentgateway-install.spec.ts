@@ -233,7 +233,7 @@ test("an unready agentgateway controller names the pod and container, never a ba
     }),
   ]);
   await assert.rejects(
-    reconcileComponent(repository, scenario, target, undefined, {
+    reconcileComponent(repository, scenario, target, {
       clock: scenario.clock,
       intervalMs: 5000,
       graceMs: 60000,
