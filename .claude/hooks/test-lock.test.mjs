@@ -1,5 +1,7 @@
-// Commit-hook test runs serialize host-wide, so many worktrees committing at
-// once queue instead of multiplying vitest workers. A dead holder never blocks.
+// Commit-hook test runs share a host-wide semaphore, so many worktrees
+// committing at once take turns instead of multiplying vitest workers: up to
+// the slot count run together and the rest wait with a message. A dead holder
+// never blocks.
 // Docs: docs/guides/contributor.md (Commit hooks)
 
 import assert from "node:assert/strict";
@@ -24,13 +26,14 @@ const script = fileURLToPath(
 function setup(t) {
   const dir = mkdtempSync(join(tmpdir(), "kore-test-lock-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
-  return { dir, lock: join(dir, "test.lock") };
+  return { dir, lock: join(dir, "test-slot-0.lock") };
 }
 
 const envFor = (dir, extra = {}) => ({
   ...process.env,
   KORE_TEST_LOCK_DIR: dir,
   KORE_TEST_LOCK_POLL_MS: "50",
+  KORE_TEST_SLOTS: "1",
   ...extra,
 });
 
@@ -63,7 +66,7 @@ test("a stale lock whose process is gone is broken, never waited on", (t) => {
   writeFileSync(lock, JSON.stringify({ pid: dead, cwd: "/elsewhere" }));
   const result = run(dir, node(""), { KORE_TEST_LOCK_WAIT_MS: "5000" });
   assert.equal(result.status, 0);
-  assert.doesNotMatch(result.stderr, /waiting for another worktree/);
+  assert.doesNotMatch(result.stderr, /waiting for a test slot/);
 });
 
 test("a live holder is waited for, naming its pid, then the next run proceeds", async (t) => {
@@ -89,7 +92,7 @@ test("a live holder is waited for, naming its pid, then the next run proceeds", 
   assert.equal(result.status, 0);
   assert.match(
     result.stderr,
-    new RegExp(`waiting for another worktree's tests \\(pid ${owner.pid}\\)`),
+    new RegExp(`waiting for a test slot: 1 in use by pid ${owner.pid}`),
   );
 });
 
@@ -98,9 +101,75 @@ test("a holder that never finishes fails the waiter at the timeout with the fix"
   writeFileSync(lock, JSON.stringify({ pid: process.pid, cwd: "/busy" }));
   const result = run(dir, node(""), { KORE_TEST_LOCK_WAIT_MS: "300" });
   assert.equal(result.status, 1);
-  assert.match(result.stderr, new RegExp(`still held by pid ${process.pid}`));
+  assert.match(
+    result.stderr,
+    new RegExp(`test slots still held by pid ${process.pid}`),
+  );
   assert.ok(result.stderr.includes(`remove ${lock}`));
   assert.equal(existsSync(lock), true, "a live holder's lock is left alone");
+});
+
+function hold(dir, ms, extra) {
+  return spawn(
+    process.execPath,
+    [script, ...node(`setTimeout(() => {}, ${ms})`)],
+    {
+      env: envFor(dir, extra),
+    },
+  );
+}
+
+async function slotsTaken(dir, count) {
+  while (
+    [0, 1, 2].filter((n) => existsSync(join(dir, `test-slot-${n}.lock`)))
+      .length < count
+  ) {
+    await new Promise((r) => setTimeout(r, 20));
+  }
+}
+
+test("runs up to the slot count start at once; the next waits and says so", async (t) => {
+  const { dir } = setup(t);
+  const two = { KORE_TEST_SLOTS: "2" };
+  const first = hold(dir, 1500, two);
+  const second = hold(dir, 1500, two);
+  t.after(() => {
+    first.kill();
+    second.kill();
+  });
+  await slotsTaken(dir, 2);
+  const started = Date.now();
+  const third = spawnSync(process.execPath, [script, ...node("")], {
+    encoding: "utf8",
+    env: envFor(dir, { ...two, KORE_TEST_LOCK_WAIT_MS: "10000" }),
+  });
+  assert.equal(third.status, 0);
+  assert.ok(Date.now() - started > 500, "the third run waited for a slot");
+  assert.match(third.stderr, /waiting for a test slot: 2 in use by pid/);
+});
+
+test("a free slot below the size is used at once, with no waiting message", async (t) => {
+  const { dir } = setup(t);
+  const two = { KORE_TEST_SLOTS: "2" };
+  const first = hold(dir, 1500, two);
+  t.after(() => first.kill());
+  await slotsTaken(dir, 1);
+  const second = spawnSync(process.execPath, [script, ...node("")], {
+    encoding: "utf8",
+    env: envFor(dir, two),
+  });
+  assert.equal(second.status, 0);
+  assert.doesNotMatch(second.stderr, /waiting for a test slot/);
+});
+
+test("a bad KORE_TEST_SLOTS fails the run with the fix instead of running unbounded", (t) => {
+  const { dir } = setup(t);
+  const result = run(dir, node(""), { KORE_TEST_SLOTS: "many" });
+  assert.notEqual(result.status, 0);
+  assert.match(
+    result.stderr,
+    /KORE_TEST_SLOTS must be a positive whole number/,
+  );
 });
 
 // Audit first: a hook test run beside a live run is reported, not yet held back.

@@ -7,11 +7,33 @@ pinned "$repo_root/tools/kore/node_modules/.bin/lint-staged" \
 
 staged="$(git diff --cached --name-only)"
 
+# A staged tree whose tests already passed (recorded by `harness test record`,
+# under the main checkout's .kore/state/test-pass) runs none again, here or in
+# any worktree; any change to the staged tree is a different tree hash. A failed
+# or missing check just means the tests run. CI `check` still runs every suite.
+# The check runs once, and only when a test step could run.
+skip_tests=""
+tests_checked=""
+tests_ran=""
+already_passed() {
+  if [ -z "$tests_checked" ]; then
+    tests_checked=1
+    if pinned node "$repo_root/skills/bin/harness.mjs" test check </dev/null 2>/dev/null; then
+      skip_tests=1
+      echo "pre-commit: skipping the related tests; they already passed for this staged tree" >&2
+    fi
+  fi
+  [ -n "$skip_tests" ]
+}
+
 if printf '%s\n' "$staged" | grep -qE '^(\.claude|\.codex|skills)/'; then
-  (cd "$repo_root/tools/harness" && pinned node "$repo_root/tools/kore/.husky/test-lock.mjs" npm run test:hooks --silent) || {
-    echo "pre-commit: hook tests failed; run 'mise run test-hooks' and fix them" >&2
-    exit 1
-  }
+  if ! already_passed; then
+    tests_ran=1
+    (cd "$repo_root/tools/harness" && pinned node "$repo_root/tools/kore/.husky/test-lock.mjs" npm run test:hooks --silent) || {
+      echo "pre-commit: hook tests failed; run 'mise run test-hooks' and fix them" >&2
+      exit 1
+    }
+  fi
   pinned node "$repo_root/skills/bin/harness.mjs" hook skill-links --strict </dev/null || {
     echo "pre-commit: skill links are wrong; run 'node skills/bin/harness.mjs hook skill-links --strict' and fix them" >&2
     exit 1
@@ -51,9 +73,10 @@ if [ -n "$sast_files" ]; then
   }
 fi
 
-# Every test run below goes through test-lock.mjs: one host-wide lock under the
-# main checkout's .kore/state, so commits in many worktrees queue their tests
-# instead of multiplying vitest workers beside a live cluster.
+# Every test run below goes through test-lock.mjs: a host-wide semaphore under
+# the main checkout's .kore/state, sized to the cores and load, so commits in
+# many worktrees share the cores instead of multiplying vitest workers beside a
+# live cluster.
 
 # The kore specs read the CLI source and config (tools/kore/), and the files the
 # repository specs scan or render: infra/ (apis, catalog, charts, environments,
@@ -66,16 +89,21 @@ if printf '%s\n' "$staged" |
     echo "pre-commit: typecheck failed; run 'npm run check' in tools/kore and fix the errors" >&2
     exit 1
   }
-  plan="$(printf '%s\n' "$staged" | pinned node "$repo_root/tools/kore/.husky/related-tests.mjs" kore)" || exit 1
+  plan="none"
+  if ! already_passed; then
+    plan="$(printf '%s\n' "$staged" | pinned node "$repo_root/tools/kore/.husky/related-tests.mjs" kore)" || exit 1
+  fi
   related="$(printf '%s\n' "$plan" | sed 1d)"
   case "$(printf '%s\n' "$plan" | sed -n 1p)" in
   full)
+    tests_ran=1
     (cd "$repo_root/tools/kore" && pinned node "$repo_root/tools/kore/.husky/test-lock.mjs" npm run test:unit --silent) || {
       echo "pre-commit: unit tests failed; run 'npm run test:unit' in tools/kore and fix them" >&2
       exit 1
     }
     ;;
   related)
+    tests_ran=1
     # shellcheck disable=SC2086
     (cd "$repo_root/tools/kore" && IFS='
 ' && set -f && pinned node "$repo_root/tools/kore/.husky/test-lock.mjs" npm run test:related --silent -- $related) || {
@@ -93,16 +121,21 @@ if printf '%s\n' "$staged" | grep -qE '^tools/harness/'; then
     echo "pre-commit: harness typecheck failed; run 'npm run check' in tools/harness and fix the errors" >&2
     exit 1
   }
-  plan="$(printf '%s\n' "$staged" | pinned node "$repo_root/tools/kore/.husky/related-tests.mjs" harness)" || exit 1
+  plan="none"
+  if ! already_passed; then
+    plan="$(printf '%s\n' "$staged" | pinned node "$repo_root/tools/kore/.husky/related-tests.mjs" harness)" || exit 1
+  fi
   related="$(printf '%s\n' "$plan" | sed 1d)"
   case "$(printf '%s\n' "$plan" | sed -n 1p)" in
   full)
+    tests_ran=1
     (cd "$repo_root/tools/harness" && pinned node "$repo_root/tools/kore/.husky/test-lock.mjs" npm run test:unit --silent) || {
       echo "pre-commit: harness unit tests failed; run 'npm run test:unit' in tools/harness and fix them" >&2
       exit 1
     }
     ;;
   related)
+    tests_ran=1
     # shellcheck disable=SC2086
     (cd "$repo_root/tools/harness" && IFS='
 ' && set -f && pinned node "$repo_root/tools/kore/.husky/test-lock.mjs" npm run test:related --silent -- $related) || {
@@ -111,4 +144,10 @@ if printf '%s\n' "$staged" | grep -qE '^tools/harness/'; then
     }
     ;;
   esac
+fi
+
+# Every test step passed (a failure exits above), so record the staged tree.
+# Recording is an optimization: a failure to record never fails the commit.
+if [ -n "$tests_ran" ]; then
+  pinned node "$repo_root/skills/bin/harness.mjs" test record </dev/null >/dev/null 2>&1 || true
 fi

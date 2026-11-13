@@ -1,9 +1,13 @@
-// Runs a command under a host-wide test lock, so commit hooks in many worktrees
-// queue their unit tests instead of multiplying vitest workers beside a live
+// Runs a command under a host-wide test semaphore, so commit hooks in many
+// worktrees share the cores instead of multiplying vitest workers beside a live
 // cluster. Usage: node test-lock.mjs <command> [args...]
-// The lock file lives under the main checkout's .kore/state (shared by every
-// worktree). A holder whose pid is gone is broken, never waited on.
+// The host admits as many runs as test-slots.mjs sizes from the cores and the
+// current load average (KORE_TEST_SLOTS fixes it); the rest wait and say so.
+// Slot files (test-slot-<n>.lock) live under the main checkout's .kore/state
+// (shared by every worktree). A holder whose pid is gone is broken, never
+// waited on.
 //   KORE_TEST_LOCK_DIR      lock directory (default: <main checkout>/.kore/state)
+//   KORE_TEST_SLOTS         fixed slot count (default: sized from cores and load)
 //   KORE_TEST_LOCK_WAIT_MS  longest wait (default 15 minutes)
 //   KORE_TEST_LOCK_POLL_MS  poll interval (default 1000)
 //   KORE_HOST_ROOT          host directory holding .kore/locks (default: home)
@@ -23,6 +27,7 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
+import { slotCount } from "./test-slots.mjs";
 
 const DEFAULT_WAIT_MS = 15 * 60 * 1000;
 
@@ -60,21 +65,21 @@ function holder(lock) {
 
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 
-async function acquire(lock) {
-  const waitMs = Number(process.env.KORE_TEST_LOCK_WAIT_MS ?? DEFAULT_WAIT_MS);
-  const pollMs = Number(process.env.KORE_TEST_LOCK_POLL_MS ?? 1000);
-  const deadline = Date.now() + waitMs;
-  let announced;
-  for (;;) {
+const slotFile = (directory, index) =>
+  join(directory, `test-slot-${index}.lock`);
+
+/** Takes the first free slot below the current size; breaks a slot whose holder is gone. */
+function tryTake(directory, size) {
+  const owners = [];
+  for (let index = 0; index < size; index += 1) {
+    const lock = slotFile(directory, index);
     try {
       writeFileSync(
         lock,
         JSON.stringify({ pid: process.pid, cwd: process.cwd() }),
-        {
-          flag: "wx",
-        },
+        { flag: "wx" },
       );
-      return;
+      return { lock };
     } catch (error) {
       if (error.code !== "EEXIST") {
         throw error;
@@ -83,17 +88,34 @@ async function acquire(lock) {
     const owner = holder(lock);
     if (owner === undefined || !alive(owner.pid)) {
       rmSync(lock, { force: true });
-      continue;
+      return tryTake(directory, size);
     }
-    if (announced !== owner.pid) {
-      announced = owner.pid;
+    owners.push({ ...owner, lock });
+  }
+  return { owners };
+}
+
+async function acquire(directory) {
+  const waitMs = Number(process.env.KORE_TEST_LOCK_WAIT_MS ?? DEFAULT_WAIT_MS);
+  const pollMs = Number(process.env.KORE_TEST_LOCK_POLL_MS ?? 1000);
+  const deadline = Date.now() + waitMs;
+  let announced;
+  for (;;) {
+    const size = slotCount();
+    const taken = tryTake(directory, size);
+    if (taken.lock !== undefined) {
+      return taken.lock;
+    }
+    const pids = taken.owners.map((owner) => owner.pid).join(", ");
+    if (announced !== pids) {
+      announced = pids;
       console.error(
-        `waiting for another worktree's tests (pid ${owner.pid}) in ${owner.cwd}`,
+        `waiting for a test slot: ${size} in use by pid ${pids} (${taken.owners.map((owner) => owner.cwd).join(", ")}); the host admits ${size} at a time for its cores and load`,
       );
     }
     if (Date.now() >= deadline) {
       console.error(
-        `test lock still held by pid ${owner.pid} after ${Math.round(waitMs / 1000)}s; wait for it to finish, or if that process is hung, kill it or remove ${lock} and rerun`,
+        `test slots still held by pid ${pids} after ${Math.round(waitMs / 1000)}s; wait for them to finish, or if one is hung, kill it or remove ${taken.owners.map((owner) => owner.lock).join(" ")} and rerun`,
       );
       process.exit(1);
     }
@@ -158,8 +180,7 @@ if (command === undefined) {
 const directory = lockDirectory();
 mkdirSync(directory, { recursive: true });
 auditHostLease(directory);
-const lock = join(directory, "test.lock");
-await acquire(lock);
+const lock = await acquire(directory);
 
 const release = () => {
   try {

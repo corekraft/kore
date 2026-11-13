@@ -30,6 +30,14 @@ const testLock = fileURLToPath(
   new URL("../../tools/kore/.husky/test-lock.mjs", import.meta.url),
 );
 
+const testSlots = fileURLToPath(
+  new URL("../../tools/kore/.husky/test-slots.mjs", import.meta.url),
+);
+
+const testWorkers = fileURLToPath(
+  new URL("../../tools/kore/.husky/test-workers.mjs", import.meta.url),
+);
+
 const related = fileURLToPath(
   new URL("../../tools/kore/.husky/related-tests.mjs", import.meta.url),
 );
@@ -51,7 +59,12 @@ function script(path, body) {
 // Stages `files` in a throwaway repo whose lint-staged and npm are fakes that
 // log their calls; `failing` names the npm scripts that exit non-zero. `seed`
 // maps extra repository paths (specs) to contents; they exist but stay unstaged.
-function commit(files, failing = [], { withMise = true, seed = {} } = {}) {
+// `passed` makes `harness test check` report a recorded pass for the staged tree.
+function commit(
+  files,
+  failing = [],
+  { withMise = true, seed = {}, passed = false } = {},
+) {
   const root = mkdtempSync(join(tmpdir(), "pre-commit-"));
   try {
     const opts = { cwd: root, env: cleanEnv, encoding: "utf8" };
@@ -62,6 +75,8 @@ function commit(files, failing = [], { withMise = true, seed = {} } = {}) {
     copyFileSync(helper, join(root, "tools/kore/.husky/pinned.sh"));
     copyFileSync(related, join(root, "tools/kore/.husky/related-tests.mjs"));
     copyFileSync(testLock, join(root, "tools/kore/.husky/test-lock.mjs"));
+    copyFileSync(testSlots, join(root, "tools/kore/.husky/test-slots.mjs"));
+    copyFileSync(testWorkers, join(root, "tools/kore/.husky/test-workers.mjs"));
     copyFileSync(sastStaged, join(root, "tools/kore/.husky/sast-staged.mjs"));
     for (const [path, content] of Object.entries(seed)) {
       mkdirSync(dirname(join(root, path)), { recursive: true });
@@ -75,7 +90,7 @@ function commit(files, failing = [], { withMise = true, seed = {} } = {}) {
     );
     script(
       join(bin, "node"),
-      `echo "node $*" >> "${log}"\ncase "$1" in *related-tests.mjs|*test-lock.mjs|*sast-staged.mjs) exec "${process.execPath}" "$@";; esac\ncase " ${failing.join(" ")} " in *" node "*) exit 1;; esac\ncase " $* " in *" hook workflow-permissions "*) case " ${failing.join(" ")} " in *" node:workflow-permissions "*) exit 1;; esac;; esac`,
+      `echo "node $*" >> "${log}"\ncase "$1" in *related-tests.mjs|*test-lock.mjs|*sast-staged.mjs) exec "${process.execPath}" "$@";; esac\ncase " $* " in *" test check "*) exit ${passed ? 0 : 1};; esac\ncase " ${failing.join(" ")} " in *" node "*) exit 1;; esac\ncase " $* " in *" hook workflow-permissions "*) case " ${failing.join(" ")} " in *" node:workflow-permissions "*) exit 1;; esac;; esac`,
     );
     if (withMise) {
       script(
@@ -131,6 +146,8 @@ test("every tool the hook runs goes through the pinned toolchain", () => {
     // Each test run goes through the host-wide test lock (a node call).
     [
       "lint-staged",
+      // The recorded-pass check runs once, before the first test step.
+      "node",
       "node",
       "run",
       "node",
@@ -143,9 +160,11 @@ test("every tool the hook runs goes through the pinned toolchain", () => {
       "node",
       "node",
       "run",
+      // A green run records the staged tree.
+      "node",
     ],
   );
-  assert.equal(lines.length, 22);
+  assert.equal(lines.length, 26);
   // Every tool call follows a mise exec, except the test command the lock
   // starts, which inherits the pinned PATH from the call before it.
   for (const [i, l] of lines.entries()) {
@@ -459,4 +478,42 @@ test("a missing semgrep blocks the commit by saying to install it, not that SAST
     /^pre-commit: semgrep is missing; run 'mise install'\n$/,
   );
   assert.doesNotMatch(result.calls, /semgrep scan/);
+});
+
+// A tree that already passed runs no tests, and the hook says so; a changed tree
+// is a different hash, so the tests run as before and the pass is recorded.
+test("a staged tree that already passed runs no tests, says so, and records nothing", () => {
+  const result = commit(
+    [".claude/hooks/a.mjs", "tools/kore/src/a.ts", "tools/harness/src/a.ts"],
+    [],
+    { passed: true },
+  );
+  assert.equal(result.status, 0);
+  assert.match(
+    result.stderr,
+    /skipping the related tests; they already passed/,
+  );
+  assert.doesNotMatch(result.calls, /test-lock|test:(unit|related|hooks)/);
+  assert.doesNotMatch(result.calls, /test record/);
+  assert.match(result.calls, /run check/, "the typecheck still runs");
+});
+
+test("a staged tree with no recorded pass runs the tests and records the pass", () => {
+  const result = commit(["tools/kore/src/a.ts"]);
+  assert.equal(result.status, 0);
+  assert.doesNotMatch(result.stderr, /skipping the related tests/);
+  assert.match(result.calls, /test:related/);
+  assert.match(result.calls, /harness\.mjs test record$/m);
+});
+
+test("a failing test still blocks the commit and records nothing", () => {
+  const result = commit(["tools/kore/src/a.ts"], ["test:related"]);
+  assert.notEqual(result.status, 0);
+  assert.doesNotMatch(result.calls, /test record/);
+});
+
+test("a commit that runs no tests records no pass", () => {
+  const result = commit(["README.md"]);
+  assert.equal(result.status, 0);
+  assert.doesNotMatch(result.calls, /test (check|record)/);
 });

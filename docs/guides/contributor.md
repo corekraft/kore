@@ -62,13 +62,23 @@ see [The harness bundle](#the-harness-bundle).
    Unit runs are capped so a busy host stays usable. Both packages' vitest
    configs read `tools/kore/.husky/test-workers.mjs`: two workers, or
    `KORE_TEST_WORKERS` (a positive whole number exported in the shell; CI sets
-   its own). The hook also runs its tests under a host-wide lock
-   (`tools/kore/.husky/test-lock.mjs`, `.kore/state/test.lock` in the main
-   checkout), so commits in many worktrees queue and print `waiting for another
-worktree's tests (pid N)`. It waits up to 15 minutes
-   (`KORE_TEST_LOCK_WAIT_MS`), breaks a lock whose pid is gone, and on timeout
-   names the holder and the file to remove. A live `kore local up` or live spec
-   run holds the exclusive host lease (`~/.kore/locks/host-lease.lock`, ADR
+   its own). The hook runs its tests under a host-wide semaphore
+   (`tools/kore/.husky/test-lock.mjs`, `test-slot-<n>.lock` files in
+   `.kore/state` of the main checkout). Its size comes from
+   `tools/kore/.husky/test-slots.mjs`: idle cores (cores minus the one-minute
+   load average) divided by `KORE_TEST_WORKERS`, never below one, so a busy host
+   admits fewer runs; `KORE_TEST_SLOTS=<n>` fixes it. Runs past the size wait
+   and print `waiting for a test slot: N in use by pid ...`. It waits up to 15
+   minutes (`KORE_TEST_LOCK_WAIT_MS`), breaks a slot whose pid is gone, and on
+   timeout names the holders and the files to remove.
+   A green hook run records the staged tree hash (`harness test record`, one
+   file per tree in `.kore/state/test-pass` of the main checkout, shared by
+   every worktree). A later commit whose staged tree matches a record skips
+   every test step and prints `tests already passed at tree <hash>`; any change
+   to the staged tree is a different hash, so its tests run. `harness test check`
+   asks without running (`--tree <hash>` and `--json` are optional). The
+   typecheck and scans still run, and CI `check` still runs the full suites. A
+   live `kore local up` or live spec run holds the exclusive host lease (`~/.kore/locks/host-lease.lock`, ADR
    0094): `session spawn` refuses a new writer while it is held, and a hook test
    run beside it prints `audit: host lease held by pid N` and appends to
    `host-lease-audit.jsonl` beside the test lock, without waiting yet.
