@@ -521,6 +521,70 @@ them. The owner accepted all ten proposals, now filed under #124:
 
 Left alone: `equals-word` (fixed in #293), the `no-verify` blocks and `bare-glob`.
 
+### Retrospective 2026-11-12 (evening)
+
+Last retrospective: 2026-11-12
+
+The sixth retrospective ran with the repository's `retro` skill. The scan
+covered 97 sessions from 2026-11-12T03:08Z to 2026-11-13T05:36Z. The marker is
+a date, so that window also holds sessions the morning and afternoon
+retrospectives had already reviewed. Transcripts were opened only at the lines
+the scan named. The operation journals, the stage ledger and eval history were
+not examined.
+
+The owner accepted all nine proposals. This section records them; none is
+implemented here, and the orchestrator files the issues.
+
+1. **(enforce) The Bash guard refuses a bare `herdr agent start` and names
+   `session spawn`.** The `spawn.sh` in #366 started writers with
+   `herdr agent start` and no `--agent writer`. Role guards key on
+   `agent_type`, which only `--agent <role>` sets, and the writer host-lease
+   refusal and the role tokens of ADR 0096 live only in `session spawn`. All 97
+   transcripts ran in `bypassPermissions` and none records a role agent
+   setting, so writers most likely ran without their role guards. The morning
+   retrospective flagged the same bypass, and it continued.
+2. **(hook) `unquoted-glob` returns the quoted command through `updatedInput`
+   instead of blocking.** It blocked 90 commands, almost all
+   `grep --include=*.ts`. Each block was correct and cost a turn.
+3. **(hook) `bare-glob` warns only when the glob matches nothing in the
+   working directory, and stays in audit mode.** It warned 413 times in 87 of
+   97 sessions, including for globs that matched files.
+4. **(hook) Orchestrator briefs carry a fixed tag that the `retro-scan` filter
+   matches.** All 12 correction clusters were review or resume briefs. The
+   #348 filter matches only messages that start with `(orchestrator)`,
+   `orchestrator:` or `[herdr:`.
+5. **(guidance) The line on loading and calling the deferred `Monitor` tool
+   moves into `AGENTS.md` or `.claude/agents/writer.md`.** The
+   `InputValidationError` happened 10 times, twice after #348 put the line in
+   `spawn-session`, which no session loaded.
+6. **(enforce) `guardrail-demotion` is promoted to enforce mode.** It is
+   `rules.promotable`: 6 warnings across 5 sessions, 6 heeded, none
+   overridden. The owner gave the OK this promotion needs.
+7. **(guidance) `.claude/agents/writer.md` maps paths to skills:**
+   `tools/kore/src/cli` to `add-command`, `infra/policies` to `add-policy`,
+   pins to `pin-upgrade`. `skills.unused` lists those three and
+   `spawn-session`, yet #347 added a CLI flag and #261 changed policy test
+   objects. Writers start from an outside brief, so the skills never load.
+   None is archived.
+8. **(guidance) An issue whose outcome needs a live or nightly run is
+   referenced with "Refs" until a green run is recorded.** #358's "Closes
+   #356" closed #356 before any nightly run passed; two then failed and one was
+   cancelled. See
+   [ADR 0097](../../docs/decisions/0097-an-outcome-issue-closes-on-recorded-proof-not-on-merge.md).
+9. **(hook) The `Last retrospective:` marker becomes a timestamp.** A date
+   makes a second retrospective on the same day count the first one's sessions
+   again. This also settles the UTC and local-date follow-up in
+   `infra/plans/5-self-maintenance.md`.
+
+Checked against the #366 handoff: the plan 11 `Next:` line still says "Land
+#364", which merged at 04:48Z; #356 is closed with no passing nightly run; and
+the hold on new spawns during a live run (#347) does not cover writers started
+by the handoff's own `spawn.sh`.
+
+Left alone: the lowercase `bash` tool errors (no-op calls from Sonnet), the two
+`no-verify` blocks (correct), the slow commit-hook complaints (all before #361
+merged) and `idea-issue-close` (2 of 5 overridden).
+
 ## Out of Scope
 
 - Reimplementing the guards inside the `kore` CLI. The CLI already enforces
