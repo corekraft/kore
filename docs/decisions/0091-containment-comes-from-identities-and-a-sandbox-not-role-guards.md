@@ -37,4 +37,4 @@ Until the judge identity exists, merges are by the owner's hand.
 - Containment no longer depends on guessing every dangerous command shape.
 - Harness work is limited to containment and metrics until the base is
   proven; new guards are not added.
-- ADR 0080 still governs how guardrails change and activate.
+- ADR 0080 still governs activation; its free change of guardrails is limited to quick fixes.

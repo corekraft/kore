@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 summary: A managed environment declares a platformMirror and rewrites only the image repository of every approved platform image to it, leaving each digest with its one existing owner; a validate rule and an opt-in render test fail on a missing or drifted rewrite; the managed image policy admits the mirror under the same exact release subjects; and the release lock is attached to the GitHub release as an asset by a separate job and checked with kore validate, never committed by a bot.
 date: 2026-11-08
 last-verified: 2026-11-08
