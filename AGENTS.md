@@ -76,22 +76,29 @@ the plans and ADRs record why. Find them through
   write the minimum code to pass.
 - **Tests describe behavior.** Name tests after the guarantee they protect and
   assert on observable outcomes, including what must _not_ happen.
-- **Fast tests need no cluster.** Fake the process runner and inspect its
-  commands. Clean up temporary state.
+- **A unit test tests one unit alone.** A unit is one class, or one function
+  treated as a class. Mock everything it depends on that has behaviour, pure
+  helpers and units in its own domain included; only types, error classes and
+  constants are real. It starts no process, waits on no real timer, and takes
+  under 100 ms ([ADR 0097](docs/decisions/0097-unit-tests-mock-everything-outside-the-unit-and-integration-tests-gate-only-a-release.md);
+  domains convert one at a time under [plan 14](infra/plans/14-test-tiers.md)).
+- **Integration tests run real domains together,** never a cluster. They gate
+  a release, and a merge only for a change to the commit hooks; they never gate
+  a commit.
 - **Live tests are opt-in.** Anything that creates or destroys a cluster runs
   only when requested, never in ordinary runs. A cluster-facing `no-behaviour-change`
   still needs a live run before merge; any other needs one before its flag turns
   on (see _It just works_).
-- **Coverage only goes up,** measured by the full suite in CI.
+- **Coverage only goes up,** measured by the unit suite in CI.
   _Enforced: `coverage-threshold`._
 - **Policies have tests too,** kept beside the policies they verify.
 
 ## Changes
 
 - **Conventional Commits,** lowercase imperative subjects. Enforced on commit.
-- **Typecheck, lint, format, and the tests related to the change pass** before
-  anything is committed; the full suites and coverage pass in CI `check` before
-  merge. _Enforced: commit hooks (related tests), stop hook (typecheck), CI
+- **Typecheck, lint, format, and the unit tests related to the change pass**
+  before anything is committed; the full unit suites and coverage pass in CI
+  `check` before merge. _Enforced: commit hooks (related tests), stop hook (typecheck), CI
   `check` (full suites)._
 - **Scans pass before merge:** `mise run scan`. Ignore narrowly, with a reason.
 - **Record significant decisions** as ADRs; when a step refines an earlier

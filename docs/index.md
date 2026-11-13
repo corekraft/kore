@@ -67,6 +67,10 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`infra/plans/13-agentgateway-ingress.md`](../infra/plans/13-agentgateway-ingress.md) —
   active: agentgateway replaces Istio ingress on k3d, with ztunnel kept. Read
   before changing ingress or the Gateway.
+- [`infra/plans/14-test-tiers.md`](../infra/plans/14-test-tiers.md) —
+  active: unit, integration and live test tiers, every unit test rewritten to
+  one unit with everything mocked, and a speed budget; feature work is paused
+  until it is done. Read before writing or moving a test.
 
 ## Decisions
 
@@ -145,6 +149,7 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0095-writer-panes-run-under-macos-sandbox-exec-with-a-writer-token-over-https.md`](decisions/0095-writer-panes-run-under-macos-sandbox-exec-with-a-writer-token-over-https.md) — Refines ADR 0091: a writer pane runs under sandbox-exec that confines writes to its worktree and denies credential reads and the herdr socket; a container is the fallback; it is not a containment boundary until the writer identity exists.
 - [`docs/decisions/0094-worktrees-sharing-a-cluster-share-its-locks-tags-and-forward.md`](decisions/0094-worktrees-sharing-a-cluster-share-its-locks-tags-and-forward.md) — Locks live at a host path keyed by cluster, live runs hold an exclusive host lease, local images get a tag per run, the registry forward has an owner, and per-environment state is keyed by environment.
 - [`docs/decisions/0096-role-tokens-reach-panes-through-a-fifo-handoff.md`](decisions/0096-role-tokens-reach-panes-through-a-fifo-handoff.md) — Refines ADR 0095: session spawn gives writer and judge panes their GitHub token through a 0600 FIFO, since herdr offers no argv-free environment; the orchestrator gets none.
+- [`docs/decisions/0097-unit-tests-mock-everything-outside-the-unit-and-integration-tests-gate-only-a-release.md`](decisions/0097-unit-tests-mock-everything-outside-the-unit-and-integration-tests-gate-only-a-release.md) — A unit test exercises one class or function with every behaving dependency mocked; integration tests of real domains run only in CI and gate the release tag; cluster suites are renamed live tests.
 
 ## Proposed Decisions
 

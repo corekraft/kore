@@ -102,6 +102,14 @@ see [The harness bundle](#the-harness-bundle).
 
 ## Tests
 
+- Tests have three tiers ([ADR 0097](../decisions/0097-unit-tests-mock-everything-outside-the-unit-and-integration-tests-gate-only-a-release.md)).
+  A unit test exercises one class or function with everything else mocked, and
+  is the only tier that gates a commit. An integration test runs real domains
+  together without a cluster, and gates a release. A live test needs a cluster
+  and runs only when asked. The move to these tiers is in progress under
+  [plan 14](../../infra/plans/14-test-tiers.md): until its first step lands,
+  the live suites below still carry the `integration` name, and the unit runs
+  still include tests that start real processes.
 - `npm test` (in `tools/kore`) is fast and needs no cluster.
 - Live specs (`*.integration.spec.ts`) create or destroy clusters. They run only
   when asked, with `KORE_RUN_INTEGRATION=1` through the scripts in
