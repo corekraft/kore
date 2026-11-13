@@ -71,7 +71,8 @@ not seen. That is the standing limit of
 the role guards are a hint, and containment comes from separate identities and
 the sandbox, not from this check.
 
-The CI `check` workflow runs `mise run test-harness-integration` beside the hook
-tests, because the guard's real-parser case is an integration test and ADR 0098
-reserves those for releases and hook changes. This is a stopgap until #418
-gives integration tests their own place, and the step moves there then.
+The `test-hooks` mise task, which the CI `check` workflow already runs, also
+calls `mise run test-harness-integration`, so the guard's real-parser case runs
+on every pull request without a change to the workflow. ADR 0098 reserves
+integration tests for releases and hook changes, so this is a stopgap until
+#418 gives them their own place, and the call moves there then.
