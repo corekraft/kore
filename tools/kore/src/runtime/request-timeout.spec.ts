@@ -58,3 +58,30 @@ test("options are passed through unchanged", async () => {
   });
   expect(inner.calls[0]!.options?.capture).toBe(true);
 });
+
+test("every kubectl read verb carries a request timeout, not only get", async () => {
+  for (const verb of ["describe", "top", "events", "api-resources", "auth"]) {
+    expect(await sent("kubectl", ["--context", "c", verb, "x"])).toEqual([
+      "--context",
+      "c",
+      verb,
+      "x",
+      "--request-timeout=20s",
+    ]);
+  }
+  expect(await sent("kubectl", ["logs", "pod/x"])).toEqual([
+    "logs",
+    "pod/x",
+    "--request-timeout=20s",
+  ]);
+});
+
+test("followed logs are never given a request timeout", async () => {
+  for (const flag of ["-f", "--follow", "--follow=true"]) {
+    expect(await sent("kubectl", ["logs", "pod/x", flag])).toEqual([
+      "logs",
+      "pod/x",
+      flag,
+    ]);
+  }
+});

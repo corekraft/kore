@@ -3,6 +3,7 @@
 import { loadRepository } from "../config/index.js";
 import {
   ProcessRunner,
+  withHelmDeadline,
   withRequestTimeout,
   withTransientRetry,
 } from "../runtime/index.js";
@@ -41,9 +42,11 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   const repository = await loadRepository(environmentName);
   // A command that runs this long is hung, not slow: kill it and name the cause.
   const runner = withTransientRetry(
-    withRequestTimeout(
-      new ProcessRunner({ defaultTimeoutMs: defaultCommandTimeoutMs }),
-      kubectlRequestTimeout,
+    withHelmDeadline(
+      withRequestTimeout(
+        new ProcessRunner({ defaultTimeoutMs: defaultCommandTimeoutMs }),
+        kubectlRequestTimeout,
+      ),
     ),
   );
   const context: CommandContext = {

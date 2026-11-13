@@ -26,6 +26,7 @@ export type {
   Runner,
 } from "./runner.js";
 export { withRequestTimeout } from "./request-timeout.js";
+export { withHelmDeadline } from "./helm-timeout.js";
 export {
   isTransientKubectlFailure,
   TransientFailureError,

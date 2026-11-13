@@ -1,31 +1,55 @@
 #!/usr/bin/env bash
-# Nightly live proof (issue #339): a clean `kore local up` through the
-# clean-machine end-to-end script, then every opt-in `test:integration*` suite
-# in tools/kore/package.json. A failing suite never hides the ones after it:
-# every suite runs, the failures are named, and the exit status is non-zero if
-# any failed. Each stage runs under `timeout` with SIGKILL escalation, so a hung
-# stage is killed and reported by name instead of holding the runner until the
-# job limit. Opt-in only: it creates and destroys a k3d cluster.
+# Nightly live proof (issue #339): a clean `kore local up`, then every opt-in
+# `test:integration*` suite in tools/kore/package.json against that one
+# cluster, then teardown. Opt-in only: it destroys and purges the `local`
+# profile (cluster `kore-local`), so run it on a dedicated host (ADR 0092).
+#
+# Order: purge any old profile, `local up`, check platform status, `local up`
+# again (must converge), run the suites, and only then purge. The teardown is
+# an EXIT trap, so it always runs last, whatever failed. A failing suite never
+# hides the ones after it: every suite runs, failures are named, and the exit
+# status is non-zero if any failed. If `local up` fails, the suites are skipped.
+#
+# Each stage runs under GNU `timeout --kill-after`, so a hung stage is stopped
+# and named instead of holding the runner. GNU timeout is required: Linux has
+# it; on macOS install coreutils (`brew install coreutils`, which provides
+# `gtimeout`).
+#
+# Test seams: KORE_NIGHTLY_KORE and KORE_NIGHTLY_SUITE_CMD replace the commands,
+# KORE_NIGHTLY_SUITES replaces the suite list (one per line).
 set -uo pipefail
 
 if [ "${KORE_RUN_NIGHTLY:-}" != "1" ]; then
-  echo "skipped: set KORE_RUN_NIGHTLY=1 to create and destroy the local k3d cluster" >&2
+  echo "skipped: set KORE_RUN_NIGHTLY=1 to create, purge and destroy the local k3d cluster" >&2
   exit 0
 fi
 
-repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-cd "$repo"
+if command -v timeout >/dev/null 2>&1; then
+  timeout_bin=timeout
+elif command -v gtimeout >/dev/null 2>&1; then
+  timeout_bin=gtimeout
+else
+  echo "GNU timeout is required so a hung stage is killed and named; on macOS run: brew install coreutils (provides gtimeout)" >&2
+  exit 2
+fi
+
+script_dir="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
+cd "$script_dir/../../.."
 
 stage_limit="${KORE_NIGHTLY_STAGE_TIMEOUT:-45m}"
 kill_after="${KORE_NIGHTLY_KILL_AFTER:-60s}"
+environment=local
 failed=()
+
+read -r -a kore_cmd <<<"${KORE_NIGHTLY_KORE:-mise exec -- npm --prefix tools/kore run --silent kore --}"
+read -r -a suite_cmd <<<"${KORE_NIGHTLY_SUITE_CMD:-mise exec -- npm --prefix tools/kore run --silent}"
 
 run_stage() {
   local name="$1"
   shift
   printf '\n== %s\n' "$name" >&2
   local start=$SECONDS
-  timeout --kill-after="$kill_after" "$stage_limit" "$@"
+  "$timeout_bin" --kill-after="$kill_after" "$stage_limit" "$@"
   local status=$?
   if [ "$status" -eq 124 ]; then
     echo "FAILED: $name hung past $stage_limit and was stopped by timeout; see the log above for the last output" >&2
@@ -37,23 +61,39 @@ run_stage() {
     echo "FAILED: $name exited $status after $((SECONDS - start))s" >&2
     failed+=("$name")
   fi
+  return "$status"
 }
 
-run_stage "clean local up (clean-machine e2e)" \
-  env KORE_RUN_CLEAN_MACHINE=1 bash tools/kore/scripts/clean-machine-e2e.sh
+teardown() {
+  local status=$?
+  run_stage "teardown: purge the profile" "${kore_cmd[@]}" local down --environment "$environment" --prune --purge-data
+  printf '\n== nightly summary\n' >&2
+  if [ "${#failed[@]}" -gt 0 ]; then
+    printf 'failed: %s\n' "${failed[@]}" >&2
+    exit 1
+  fi
+  [ "$status" -eq 0 ] && echo "all stages passed" >&2
+  exit "$status"
+}
+trap teardown EXIT
 
-suites="$(mise exec -- node -e '
-  const { scripts } = require("./tools/kore/package.json");
-  console.log(Object.keys(scripts).filter((name) => name.startsWith("test:integration")).join("\n"));
-')"
-while IFS= read -r suite; do
-  [ -n "$suite" ] || continue
-  run_stage "$suite" mise exec -- npm --prefix tools/kore run --silent "$suite"
-done <<<"$suites"
-
-printf '\n== nightly summary\n' >&2
-if [ "${#failed[@]}" -gt 0 ]; then
-  printf 'failed: %s\n' "${failed[@]}" >&2
-  exit 1
+if [ -n "${KORE_NIGHTLY_SUITES:-}" ]; then
+  suites="$KORE_NIGHTLY_SUITES"
+else
+  suites="$(mise exec -- node -e '
+    const { scripts } = require("./tools/kore/package.json");
+    console.log(Object.keys(scripts).filter((name) => name.startsWith("test:integration")).join("\n"));
+  ')"
 fi
-echo "all stages passed" >&2
+
+run_stage "clean start: purge any old profile" "${kore_cmd[@]}" local down --environment "$environment" --prune --purge-data
+if run_stage "clean local up" "${kore_cmd[@]}" local up --environment "$environment" &&
+  run_stage "platform status: every component ready" "${kore_cmd[@]}" platform status --environment "$environment" &&
+  run_stage "second local up converges" "${kore_cmd[@]}" local up --environment "$environment"; then
+  while IFS= read -r suite; do
+    [ -n "$suite" ] || continue
+    run_stage "$suite" "${suite_cmd[@]}" "$suite"
+  done <<<"$suites"
+else
+  echo "local up did not converge: skipping the suites" >&2
+fi

@@ -1,4 +1,5 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn } from "node:child_process";
+import { Watchdog, type Signal } from "./watchdog.js";
 
 export interface RunOptions {
   cwd?: string;
@@ -59,11 +60,11 @@ export class CommandTimeoutError extends CommandError {
     this.name = "CommandTimeoutError";
     const output = result.stderr.trim() || result.stdout.trim();
     this.message =
-      `${command} ${args.join(" ")} timed out after ${timeoutMs}ms and was killed` +
+      `${command} ${args.join(" ")} timed out after ${timeoutMs}ms; it hung rather than failed, ` +
       (escalatedToKill
-        ? " with SIGKILL (it ignored SIGTERM)"
-        : " with SIGTERM") +
-      `; the process hung rather than failed. Check what it was waiting on, then rerun.` +
+        ? "did not exit on SIGTERM, and was killed with SIGKILL"
+        : "and stopped on SIGTERM") +
+      `. Check what it was waiting on, then rerun.` +
       (output ? ` Last output: ${output}` : "");
   }
 }
@@ -73,7 +74,30 @@ export interface ProcessRunnerOptions {
   defaultTimeoutMs?: number;
   /** How long a timed-out process gets after SIGTERM before SIGKILL. */
   killGraceMs?: number;
+  /** Test seam: replaces `child_process.spawn`. */
+  spawn?: typeof spawn;
+  /** Test seam: replaces signalling a process group (`process.kill(-pid)`). */
+  signalGroup?: (pid: number, signal: Signal) => void;
 }
+
+function killGroup(pid: number, signal: Signal): void {
+  try {
+    process.kill(-pid, signal);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ESRCH") {
+      throw error;
+    }
+  }
+}
+
+// Detached children lead their own process group, so the terminal's Ctrl-C no
+// longer reaches them; this reaps any still running when Kore itself exits.
+const liveGroups = new Set<number>();
+process.once("exit", () => {
+  for (const pid of liveGroups) {
+    killGroup(pid, "SIGKILL");
+  }
+});
 
 // Bash exposes the piped kubeconfig as /dev/fd/N, which stays open across exec.
 const feedKubeconfig = 'KUBECONFIG=<(cat) exec "$0" "$@"';
@@ -102,37 +126,49 @@ function unwrapped(
 }
 
 /**
- * Starts the SIGTERM-then-SIGKILL clock for a child. A zero `timeoutMs` never
- * fires. Read the outcome through `timedOut()` and `escalated()` once it exits.
+ * Spawns the child with its output captured into `output`. Children that
+ * share the terminal stay in Kore's process group, so the terminal's own
+ * signals still reach them; every other child leads a group of its own, and
+ * `send` signals that whole group.
  */
-function startWatchdog(
-  child: ChildProcess,
-  timeoutMs: number,
-  graceMs: number,
+function launch(
+  runner: ProcessRunnerOptions,
+  command: string,
+  args: readonly string[],
+  options: RunOptions,
 ) {
-  let timedOut = false,
-    escalated = false;
-  let killTimer: NodeJS.Timeout | undefined;
-  const timeoutTimer =
-    timeoutMs > 0
-      ? setTimeout(() => {
-          timedOut = true;
-          child.kill("SIGTERM");
-          killTimer = setTimeout(() => {
-            escalated = true;
-            child.kill("SIGKILL");
-          }, graceMs);
-        }, timeoutMs)
-      : undefined;
-  return {
-    timeoutMs,
-    timedOut: () => timedOut,
-    escalated: () => escalated,
-    clear: () => {
-      clearTimeout(timeoutTimer);
-      clearTimeout(killTimer);
-    },
-  };
+  const detached = options.capture !== false && options.stdin !== "inherit";
+  const child = (runner.spawn ?? spawn)(command, [...args], {
+    cwd: options.cwd,
+    env: options.env ?? process.env,
+    detached,
+    stdio: [
+      options.input === undefined ? (options.stdin ?? "ignore") : "pipe",
+      options.capture === false ? "inherit" : "pipe",
+      options.capture === false ? "inherit" : "pipe",
+    ],
+  });
+  const pid = child.pid;
+  const groupSignal = runner.signalGroup ?? killGroup;
+  const send = (signal: Signal) =>
+    detached && pid !== undefined
+      ? groupSignal(pid, signal)
+      : void child.kill(signal);
+  if (detached && pid !== undefined) {
+    liveGroups.add(pid);
+    child.on("exit", () => liveGroups.delete(pid));
+  }
+  const output = { stdout: "", stderr: "" };
+  child.stdout?.on("data", (chunk: Buffer) => {
+    output.stdout += chunk.toString();
+  });
+  child.stderr?.on("data", (chunk: Buffer) => {
+    output.stderr += chunk.toString();
+  });
+  if (options.input !== undefined) {
+    child.stdin?.end(options.input);
+  }
+  return { child, send, output };
 }
 
 export class ProcessRunner implements Runner {
@@ -166,33 +202,41 @@ export class ProcessRunner implements Runner {
       const { kubeconfig, ...rest } = options;
       return await this.runWithKubeconfig(command, args, kubeconfig, rest);
     }
-    return await new Promise((resolve, reject) => {
-      const child = spawn(command, [...args], {
-        cwd: options.cwd,
-        env: options.env ?? process.env,
-        stdio: [
-          options.input === undefined ? (options.stdin ?? "ignore") : "pipe",
-          options.capture === false ? "inherit" : "pipe",
-          options.capture === false ? "inherit" : "pipe",
-        ],
-      });
-      let stdout = "",
-        stderr = "";
-      child.stdout?.on("data", (chunk: Buffer) => {
-        stdout += chunk.toString();
-      });
-      child.stderr?.on("data", (chunk: Buffer) => {
-        stderr += chunk.toString();
-      });
-      if (options.input !== undefined) {
-        child.stdin?.end(options.input);
-      }
-      const terminate = () => child.kill("SIGTERM");
-      const watchdog = startWatchdog(
-        child,
-        options.timeoutMs ?? this.options.defaultTimeoutMs ?? 0,
-        this.options.killGraceMs ?? 5000,
+    return await this.execute(command, args, options);
+  }
+
+  private execute(
+    command: string,
+    args: readonly string[],
+    options: RunOptions,
+  ): Promise<RunResult> {
+    return new Promise((resolve, reject) => {
+      const { child, send, output } = launch(
+        this.options,
+        command,
+        args,
+        options,
       );
+      const terminate = () => send("SIGTERM");
+      const watchdog = new Watchdog({
+        timeoutMs: options.timeoutMs ?? this.options.defaultTimeoutMs ?? 0,
+        graceMs: this.options.killGraceMs ?? 5000,
+        send,
+        settled: () => {
+          child.stdout?.destroy();
+          child.stderr?.destroy();
+          options.signal?.removeEventListener("abort", terminate);
+          reject(
+            new CommandTimeoutError(
+              command,
+              args,
+              { ...output, code: 1 },
+              watchdog.timeoutMs,
+              watchdog.escalated(),
+            ),
+          );
+        },
+      });
       if (options.signal?.aborted) {
         terminate();
       } else {
@@ -202,21 +246,15 @@ export class ProcessRunner implements Runner {
         watchdog.clear();
         reject(error);
       });
+      child.on("exit", () => watchdog.noteExit());
       child.on("close", (code) => {
+        if (watchdog.timedOut()) {
+          return; // the watchdog settles a timed-out run on exit plus grace
+        }
         watchdog.clear();
         options.signal?.removeEventListener("abort", terminate);
-        const result = { stdout, stderr, code: code ?? 1 };
-        if (watchdog.timedOut()) {
-          reject(
-            new CommandTimeoutError(
-              command,
-              args,
-              result,
-              watchdog.timeoutMs,
-              watchdog.escalated(),
-            ),
-          );
-        } else if (result.code === 0) {
+        const result = { ...output, code: code ?? 1 };
+        if (result.code === 0) {
           resolve(result);
         } else {
           reject(new CommandError(command, args, result));

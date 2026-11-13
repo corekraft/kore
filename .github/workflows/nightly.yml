@@ -11,7 +11,9 @@
 # far more memory than the 7 GiB of a standard GitHub-hosted runner, so this
 # targets a self-hosted runner labelled `kore-nightly`. Registering that runner
 # (or switching `runs-on` to a larger hosted runner) is an owner step; until a
-# runner with that label exists, the job queues. See docs/guides/contributor.md.
+# runner with that label exists, the job queues. The runner must be a dedicated
+# host (the nightly purges kore-local), ephemeral, and in a runner group limited
+# to this workflow on main: see ADR 0092.
 
 name: nightly
 
