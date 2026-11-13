@@ -70,7 +70,8 @@ if [ "$1 $2" = "run build" ]; then
   ${failBuild ? "echo build broke >&2; exit 1" : `echo "// built" > "${root}/skills/bin/harness.mjs"`}
 fi`,
   );
-  if (mise) script(join(bin, "mise"), `shift; exec "$@"`);
+  if (mise)
+    script(join(bin, "mise"), `shift; [ "$1" = -- ] && shift; exec "$@"`);
   const path = mise ? `${bin}:${process.env.PATH}` : `${bin}:/usr/bin:/bin`;
   return {
     root,
