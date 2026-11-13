@@ -8,9 +8,6 @@ import { BudgetReporter } from "./test-budget-reporter.js";
 import { budgetReporters } from "./test-budget-config.js";
 
 vi.mock("node:fs");
-vi.mock("vitest/config", () => ({
-  configDefaults: { reporters: ["default", "github-actions"] },
-}));
 vi.mock("./test-budget-reporter.js");
 
 describe("budgetReporters", () => {
@@ -18,15 +15,18 @@ describe("budgetReporters", () => {
     vi.clearAllMocks();
   });
 
-  it("keeps vitest's own reporters, so CI annotations and agent output survive, and adds the budget reporter after them", () => {
-    const reporters = budgetReporters("test-results/unit.json");
+  it("keeps vitest's own reporters, so CI annotations and agent output survive, and adds the budget reporter after the ones it is given", () => {
+    const reporters = budgetReporters("test-results/unit.json", [
+      "default",
+      "github-actions",
+    ]);
     expect(reporters).toHaveLength(3);
     expect(reporters.slice(0, 2)).toEqual(["default", "github-actions"]);
     expect(reporters[2]).toBeInstanceOf(BudgetReporter);
   });
 
   it("writes the report into its directory, creating the directory", () => {
-    budgetReporters("test-results/unit.json");
+    budgetReporters("test-results/unit.json", []);
     const { write } = vi.mocked(BudgetReporter).mock.calls[0]?.[0] ?? {};
     write?.("test-results/unit.json", "{}");
     expect(mkdirSync).toHaveBeenCalledWith("test-results", { recursive: true });
@@ -34,7 +34,7 @@ describe("budgetReporters", () => {
   });
 
   it("removes the old report without failing when there is none", () => {
-    budgetReporters("test-results/unit.json");
+    budgetReporters("test-results/unit.json", []);
     const { remove } = vi.mocked(BudgetReporter).mock.calls[0]?.[0] ?? {};
     remove?.("test-results/unit.json");
     expect(rmSync).toHaveBeenCalledWith("test-results/unit.json", {

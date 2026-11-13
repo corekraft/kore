@@ -135,3 +135,50 @@ export const REPO: World = {
     [`${SRC}/security/unconverted.txt`]: "old.ts\n",
   },
 };
+
+/** One spec file holding one test. */
+export const one = (
+  path: string,
+  title: string,
+  duration: number,
+  ms?: number,
+): Spec => ({
+  path,
+  cases: [{ title, duration }],
+  ...(ms === undefined ? {} : { ms }),
+});
+
+/** REPO with the security domain's list replaced. */
+export const withList = (text: string): World => ({
+  files: { ...REPO.files, [`${SRC}/security/unconverted.txt`]: text },
+});
+
+/** A package of two domains, each with the given list text, or none. */
+export const twoDomains = (lists: Record<string, string>): World => ({
+  files: {
+    [`${SRC}/security/`]: "",
+    [`${SRC}/security/scan.ts`]: "",
+    [`${SRC}/images/`]: "",
+    [`${SRC}/images/pin.ts`]: "",
+    [`${SRC}/images/pin2.ts`]: "",
+    ...Object.fromEntries(
+      Object.entries(lists).map(([domain, text]) => [
+        `${SRC}/${domain}/unconverted.txt`,
+        text,
+      ]),
+    ),
+  },
+});
+
+/** Runs the handler over REPO plus the given files, reading the report at `report`. */
+export function runFiles(
+  handler: Handler,
+  files: World["files"],
+  report = `${ROOT}/report.json`,
+) {
+  const { deps } = depsOf({ files: { ...REPO.files, ...files } });
+  return {
+    deps,
+    result: () => callHandler(handler, deps, { package: "tools/kore", report }),
+  };
+}

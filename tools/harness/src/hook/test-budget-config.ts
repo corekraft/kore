@@ -4,12 +4,15 @@
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { configDefaults } from "vitest/config";
 import { BudgetReporter } from "./test-budget-reporter.js";
 
-export function budgetReporters(outputFile: string) {
+/** `defaults` is the config's own `configDefaults.reporters`, passed in so this file needs no vitest at load. */
+export function budgetReporters(
+  outputFile: string,
+  defaults: readonly string[],
+) {
   return [
-    ...configDefaults.reporters,
+    ...defaults,
     new BudgetReporter({
       outputFile,
       write: (path, text) => {

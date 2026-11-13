@@ -9,6 +9,11 @@ const budget: Command = { summary: "budget", options: {}, run: vi.fn() };
 
 vi.mock("./test-budget.js", () => ({ testBudgetHook: budget }));
 vi.mock("./io.js");
+vi.mock("./feedback.js");
+vi.mock("./guard.js");
+vi.mock("./session-hooks.js");
+vi.mock("./retro-hook.js");
+vi.mock("./repository-checks.js");
 
 const { hook } = await import("./index.js");
 

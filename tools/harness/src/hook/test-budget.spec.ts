@@ -7,8 +7,17 @@ import { hookCommand } from "./io.js";
 import "./test-budget.js";
 import {
   REPO,
+  ROOT,
   SRC,
+  callHandler,
+  depsOf,
+  fsError,
+  one,
+  reportOf,
+  runFiles,
   runHook,
+  twoDomains,
+  withList,
   type Spec,
   type World,
 } from "./test-budget-support.js";
@@ -41,10 +50,7 @@ describe("harness hook test-budget: registration", () => {
 describe("harness hook test-budget: tests", () => {
   it("fails a slow test for a converted file, naming the test and its time", async () => {
     const { code, err } = await run(REPO, [
-      {
-        path: "security/scan.spec.ts",
-        cases: [{ title: "scans", duration: 154 }],
-      },
+      one("security/scan.spec.ts", "scans", 154),
     ]);
     expect(code).toBe(1);
     expect(err).toBe(
@@ -54,10 +60,7 @@ describe("harness hook test-budget: tests", () => {
 
   it("does not fail a slow test for a listed file, and still prints it among the slowest", async () => {
     const { code, out, err } = await run(REPO, [
-      {
-        path: "security/old.spec.ts",
-        cases: [{ title: "walks", duration: 900 }],
-      },
+      one("security/old.spec.ts", "walks", 900),
     ]);
     expect(code).toBe(0);
     expect(err).toBe("");
@@ -86,11 +89,7 @@ describe("harness hook test-budget: tests", () => {
 describe("harness hook test-budget: spec files", () => {
   it("fails a converted spec file over one second", async () => {
     const { code, err } = await run(REPO, [
-      {
-        path: "security/scan.spec.ts",
-        cases: [{ title: "scans", duration: 5 }],
-        ms: 1250,
-      },
+      one("security/scan.spec.ts", "scans", 5, 1250),
     ]);
     expect(code).toBe(1);
     expect(err).toBe(
@@ -100,11 +99,7 @@ describe("harness hook test-budget: spec files", () => {
 
   it("does not fail a listed spec file over one second", async () => {
     const { code } = await run(REPO, [
-      {
-        path: "security/old.spec.ts",
-        cases: [{ title: "walks", duration: 5 }],
-        ms: 4000,
-      },
+      one("security/old.spec.ts", "walks", 5, 4000),
     ]);
     expect(code).toBe(0);
   });
@@ -112,15 +107,7 @@ describe("harness hook test-budget: spec files", () => {
 
 describe("harness hook test-budget: lists", () => {
   it("fails a list that names a file that does not exist, so lists cannot rot", async () => {
-    const { code, err } = await run(
-      {
-        files: {
-          ...REPO.files,
-          [`${SRC}/security/unconverted.txt`]: "old.ts\ngone.ts\n",
-        },
-      },
-      [],
-    );
+    const { code, err } = await run(withList("old.ts\ngone.ts\n"), []);
     expect(code).toBe(1);
     expect(err).toBe(
       "test-budget: tools/kore/src/security/unconverted.txt names gone.ts, which does not exist; remove the line\n",
@@ -128,24 +115,13 @@ describe("harness hook test-budget: lists", () => {
   });
 
   it("ignores blank lines and comments in a list", async () => {
-    const { code } = await run(
-      {
-        files: {
-          ...REPO.files,
-          [`${SRC}/security/unconverted.txt`]: "# batch 1\n\nold.ts\n",
-        },
-      },
-      [],
-    );
+    const { code } = await run(withList("# batch 1\n\nold.ts\n"), []);
     expect(code).toBe(0);
   });
 
   it("does not budget a spec that has no source file beside it", async () => {
     const { code } = await run(REPO, [
-      {
-        path: "security/orphan.spec.ts",
-        cases: [{ title: "x", duration: 800 }],
-      },
+      one("security/orphan.spec.ts", "x", 800),
     ]);
     expect(code).toBe(0);
   });
@@ -153,36 +129,18 @@ describe("harness hook test-budget: lists", () => {
 
 describe("harness hook test-budget: domains", () => {
   it("budgets a spec in a nested directory against the domain's list", async () => {
-    const world: World = {
+    const deep = (list: string): World => ({
       files: {
-        ...REPO.files,
+        ...withList(list).files,
         [`${SRC}/security/deep/`]: "",
         [`${SRC}/security/deep/a.ts`]: "",
         [`${SRC}/security/deep/a.spec.ts`]: "",
-        [`${SRC}/security/unconverted.txt`]: "old.ts\ndeep/a.ts\n",
       },
-    };
-    const listed = await run(world, [
-      {
-        path: "security/deep/a.spec.ts",
-        cases: [{ title: "a", duration: 500 }],
-      },
-    ]);
+    });
+    const slow = [one("security/deep/a.spec.ts", "a", 500)];
+    const listed = await run(deep("old.ts\ndeep/a.ts\n"), slow);
     expect(listed.code).toBe(0);
-    const unlisted = await run(
-      {
-        files: {
-          ...world.files,
-          [`${SRC}/security/unconverted.txt`]: "old.ts\n",
-        },
-      },
-      [
-        {
-          path: "security/deep/a.spec.ts",
-          cases: [{ title: "a", duration: 500 }],
-        },
-      ],
-    );
+    const unlisted = await run(deep("old.ts\n"), slow);
     expect(unlisted.code).toBe(1);
   });
 
@@ -194,59 +152,116 @@ describe("harness hook test-budget: domains", () => {
         [`${SRC}/images/pin.spec.ts`]: "",
       },
     };
-    const { code } = await run(world, [
-      { path: "images/pin.spec.ts", cases: [{ title: "pins", duration: 101 }] },
-    ]);
+    const { code } = await run(world, [one("images/pin.spec.ts", "pins", 101)]);
     expect(code).toBe(1);
   });
 });
 
 describe("harness hook test-budget: package run", () => {
-  {
-    const quick = [{ title: "a", duration: 1 }];
-    const slowRun: Spec[] = [
-      { path: "security/scan.spec.ts", cases: quick },
-      { path: "images/pin.spec.ts", cases: quick },
-      { path: "images/pin2.spec.ts", cases: quick },
-    ];
-    const world = (lists: Record<string, string>): World => ({
-      files: {
-        [`${SRC}/security/`]: "",
-        [`${SRC}/security/scan.ts`]: "",
-        [`${SRC}/images/`]: "",
-        [`${SRC}/images/pin.ts`]: "",
-        [`${SRC}/images/pin2.ts`]: "",
-        ...Object.fromEntries(
-          Object.entries(lists).map(([domain, text]) => [
-            `${SRC}/${domain}/unconverted.txt`,
-            text,
-          ]),
-        ),
-      },
-    });
+  const slowRun: Spec[] = [
+    one("security/scan.spec.ts", "a", 1),
+    one("images/pin.spec.ts", "a", 1),
+    one("images/pin2.spec.ts", "a", 1),
+  ];
 
-    it("fails a run over 20 seconds once every list is empty", async () => {
-      const { code, err } = await run(
-        world({ security: "" }),
-        slowRun,
-        {},
-        21_300,
-      );
-      expect(code).toBe(1);
-      expect(err).toBe(
-        "test-budget: the tools/kore unit run took 21300 ms, 1300 ms over the 20000 ms package budget, startup and global setup included; the slowest specs are printed above, so speed those up or split them (ADR 0098)\n",
-      );
-    });
+  it("fails a run over 20 seconds once every list is empty", async () => {
+    const world = twoDomains({ security: "" });
+    const { code, err } = await run(world, slowRun, {}, 21_300);
+    expect(code).toBe(1);
+    expect(err).toBe(
+      "test-budget: the tools/kore unit run took 21300 ms, 1300 ms over the 20000 ms package budget, startup and global setup included; the slowest specs are printed above, so speed those up or split them (ADR 0098)\n",
+    );
+  });
 
-    it("does not apply the 20 second limit while any list still names a file", async () => {
-      const { code, err } = await run(
-        world({ security: "scan.ts\n" }),
-        slowRun,
-        {},
-        21_300,
-      );
-      expect(code).toBe(0);
-      expect(err).toBe("");
+  it("does not apply the 20 second limit while any list still names a file", async () => {
+    const world = twoDomains({ security: "scan.ts\n" });
+    const { code, err } = await run(world, slowRun, {}, 21_300);
+    expect(code).toBe(0);
+    expect(err).toBe("");
+  });
+});
+
+describe("harness hook test-budget: report paths", () => {
+  const reportWith = (files: unknown[]) => ({
+    [`${ROOT}/report.json`]: JSON.stringify({ runMs: 5, files }),
+  });
+  const slowInside = {
+    name: `${SRC}/security/scan.spec.ts`,
+    ms: 154,
+    tests: [{ name: "scans", ms: 154 }],
+  };
+
+  it("fails naming both paths when the report's specs are not under the repository's package, instead of budgeting nothing", async () => {
+    const outside = "/other/checkout/tools/kore/src/a.spec.ts";
+    const { result } = runFiles(
+      handler,
+      reportWith([{ name: outside, ms: 5, tests: [] }]),
+    );
+    expect(await result()).toEqual({
+      code: 1,
+      stderr:
+        "test-budget: the report holds specs under /other/checkout/tools/kore/src, but the repository root /repo puts tools/kore at /repo/tools/kore/src; run the unit tests and this check from the same checkout\n",
     });
-  }
+  });
+
+  it("budgets the specs under the package and skips the ones outside it, when a report holds both", async () => {
+    const outside = { name: "/elsewhere/a.spec.ts", ms: 5000, tests: [] };
+    const { result } = runFiles(handler, reportWith([outside, slowInside]));
+    expect(await result()).toEqual({
+      code: 1,
+      stdout:
+        "slowest tests:\n  154 ms  tools/kore/src/security/scan.spec.ts > scans\n",
+      stderr:
+        "test-budget: tools/kore/src/security/scan.spec.ts > scans took 154 ms, 54 ms over the 100 ms test budget; mock what it imports and drop real timers and processes, so it tests one unit alone (ADR 0098)\n",
+    });
+  });
+
+  it("budgets a report with no specs at all without complaint", async () => {
+    const { code } = await run(REPO, []);
+    expect(code).toBe(0);
+  });
+});
+
+describe("harness hook test-budget: inputs", () => {
+  it("reads a relative report path from the working directory", async () => {
+    const { result } = runFiles(
+      handler,
+      { [`${ROOT}/tools/kore/out/unit.json`]: reportOf([]) },
+      "out/unit.json",
+    );
+    expect((await result()).code).toBe(0);
+  });
+
+  it("fails naming the command to run when the report is missing, instead of passing", async () => {
+    const { result } = runFiles(handler, {}, `${ROOT}/missing.json`);
+    expect(await result()).toEqual({
+      code: 1,
+      stderr:
+        "test-budget: no unit report at /repo/missing.json; run `npm run test:unit` in tools/kore, which writes it before this check reads it\n",
+    });
+  });
+
+  it("does not turn a malformed report into a missing one, so the wrapper fails the run with the real error", async () => {
+    const { result } = runFiles(handler, {
+      [`${ROOT}/report.json`]: "{not json",
+    });
+    await expect(result()).rejects.toBeInstanceOf(SyntaxError);
+  });
+
+  it("does not turn an unreadable report into a missing one", async () => {
+    const { deps, result } = runFiles(handler, {});
+    vi.spyOn(deps.fs, "readFile").mockRejectedValueOnce(
+      fsError("EACCES", "/repo/report.json"),
+    );
+    await expect(result()).rejects.toMatchObject({ code: "EACCES" });
+  });
+
+  it("fails naming the flags when --package or --report is missing", async () => {
+    const { deps } = depsOf({ files: REPO.files });
+    expect(await callHandler(handler, deps, {})).toEqual({
+      code: 1,
+      stderr:
+        "test-budget: pass --package <dir, such as tools/kore> and --report <json file the unit run writes>\n",
+    });
+  });
 });
