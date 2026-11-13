@@ -96,6 +96,12 @@ so harness PRs conflict only when a source file does. Hooks run it through
   test runs rebuild it too.
 - `KORE_HARNESS_BUNDLE` points the launcher at a bundle elsewhere, for example
   a read-only copy. It never falls back to the worktree copy.
+- A worktree made by hand with `git worktree add` runs no git hook. Run
+  `npm ci --prefix tools/kore`, `npm ci --prefix tools/harness` and
+  `mise run harness-build` in it; `session spawn --worktree` does this itself.
+- A branch that committed a rebuilt bundle hits a one-time modify/delete
+  conflict when it rebases onto the change that stopped tracking it. Resolve it
+  with `git rm --cached skills/bin/harness.mjs`, then `git rebase --continue`.
 - CI builds the bundle before it runs anything that needs it.
 
 ## Feature flags

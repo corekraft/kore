@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 summary: skills/bin/harness.mjs is no longer committed: CI and release build it, a launcher loads it and fails closed when absent, and the merge driver and freshness check go.
 date: 2026-11-12
 last-verified: 2026-11-12
@@ -61,13 +61,17 @@ The harness test run builds the bundle before it starts.
   before it splits the pane, so a new writer's first tool call is allowed. A
   failed install or build stops the spawn with the fix.
 - The husky `post-merge` hook rebuilds the bundle after every pull, and
-  `post-checkout` builds it when a branch checkout, including
-  `git worktree add` and the start of a rebase, finds none. Both ignore a
+  `post-checkout` builds it when a branch checkout, such as the start of a
+  rebase, finds none. Both ignore a
   failure and print the fix: a hook must never fail a git operation. Merging
   this change deletes the tracked bundle from every checkout on `git pull`;
   `post-merge` is the step that puts it back, so sessions in the main
   checkout keep working. The hooks arrive with the same merge, and husky
   installs them through `npm ci` in `tools/kore`, which every checkout has run.
+- A worktree made by hand with `git worktree add` runs no hook: it has no
+  `tools/kore/.husky/_` yet, so git finds nothing to run. Run
+  `npm ci --prefix tools/kore`, then `npm ci --prefix tools/harness` and
+  `mise run harness-build`. Session spawn does this itself.
 - A branch that already rewrote the old bundle in a commit hits a one-time
   modify/delete conflict on rebase. Resolve it with
   `git rm --cached skills/bin/harness.mjs` and `git rebase --continue`; the
