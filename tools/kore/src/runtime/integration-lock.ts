@@ -1,6 +1,7 @@
 import { loadRepository } from "../config/config.js";
 import { hostRoot, lockScope } from "./host-locks.js";
 import { HOST_LEASE } from "./host-lease.js";
+import { integrationEnvironment } from "./integration-environment.js";
 import { holdEnvironmentLock, inheritsLock, type HeldLock } from "./lock.js";
 
 // Docs: AGENTS.md "Mutations are serialized per environment."
@@ -40,7 +41,7 @@ export async function holdIntegrationLock(
   if (process.env.KORE_RUN_INTEGRATION !== "1") {
     return;
   }
-  const environment = process.env.KORE_INTEGRATION_ENVIRONMENT ?? "local";
+  const environment = integrationEnvironment();
   const scope = await (
     options.scope ??
     (async () => lockScope((await loadRepository(environment)).environment))

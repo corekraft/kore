@@ -6,6 +6,8 @@ export interface LockOwner {
   host: string;
   token: string;
   acquiredAt: string;
+  /** The working directory of the holder, so a waiter can name its worktree. */
+  cwd?: string;
 }
 
 export function processAlive(pid: number): boolean {
@@ -31,7 +33,8 @@ function parseOwner(text: string): LockOwner | undefined {
       typeof value.token === "string" &&
       typeof value.acquiredAt === "string"
     ) {
-      return value as LockOwner;
+      const { cwd, ...owner } = value as LockOwner;
+      return typeof cwd === "string" ? { ...owner, cwd } : owner;
     }
   } catch {
     // Malformed content is treated like a missing owner.

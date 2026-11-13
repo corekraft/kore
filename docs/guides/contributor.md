@@ -93,6 +93,11 @@ worktree's tests (pid N)`. It waits up to 15 minutes
   `test:integration:registry`). A cluster-facing `no-behaviour-change` needs a live
   run before merge; any other cluster-facing change merges behind a flag and
   needs the live run before the flag turns on (see Feature flags).
+- Integration specs test the environment `KORE_INTEGRATION_ENVIRONMENT` names
+  (default and empty: `local`); an unknown name is refused, listing the valid
+  environments. A kore mutation queued behind a live holder prints the holder's
+  pid, worktree and lock path, then waits ten minutes (`kore local up` thirty,
+  since a first-time `up` takes 15 to 20); `KORE_LOCK_WAIT_MS` overrides both.
 - The `nightly` workflow (`.github/workflows/nightly.yml`) runs a clean
   `kore local up` and every `test:integration*` suite against one cluster through
   `tools/kore/scripts/nightly.sh`, purging the profile last. Its run conclusion is

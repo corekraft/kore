@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { loadavg } from "node:os";
 import test from "node:test";
 import { loadRepository } from "../config/index.js";
-import { ProcessRunner } from "../runtime/index.js";
+import { ProcessRunner, integrationEnvironment } from "../runtime/index.js";
 import { mkcertRoot } from "./gateway-cluster-support.js";
 import {
   IngressMeasurement,
@@ -28,7 +28,7 @@ test(
   "measures the Gateway pods under the fixed load without changing cluster resources",
   live,
   async () => {
-    const repository = await loadRepository("local");
+    const repository = await loadRepository(integrationEnvironment());
     const { gateway, kubeContext } = repository.environment;
     const runner = new ProcessRunner();
     const measurement = new IngressMeasurement(

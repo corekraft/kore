@@ -4,7 +4,7 @@ import { findRoot } from "../config/config.js";
 import { loadRepository } from "../config/index.js";
 import { appDown } from "../app/index.js";
 import { retainedResources } from "../cluster/index.js";
-import { ProcessRunner } from "../runtime/index.js";
+import { ProcessRunner, integrationEnvironment } from "../runtime/index.js";
 
 type Repository = Awaited<ReturnType<typeof loadRepository>>;
 type Kubectl = (args: string[], input?: string) => Promise<string>;
@@ -202,7 +202,9 @@ test(
         : false,
   },
   async () => {
-    const session = newSession(await loadRepository("local", await findRoot()));
+    const session = newSession(
+      await loadRepository(integrationEnvironment(), await findRoot()),
+    );
     const volumes = new Set<string>();
     try {
       await session.kubectl(["create", "namespace", NAMESPACE]);

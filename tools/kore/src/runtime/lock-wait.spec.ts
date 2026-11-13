@@ -159,3 +159,65 @@ test("the holder exports its lock token so child kore processes nest instead of 
     await held.release();
   }
 });
+
+test("a wait that starts says once who it waits for, where, and for how long", async () => {
+  const root = await mkdtemp(join(tmpdir(), "kore-lock-wait-notice-"));
+  const lockPath = await plantLock(root, "live");
+  const owner = { ...deadOwner, cwd: "/work/other-worktree" };
+  await writeFile(lockPath, JSON.stringify(owner));
+  setTimeout(() => void rm(lockPath, { force: true }), 80);
+  const notices: string[] = [];
+
+  await withEnvironmentLock(root, "local", async () => "ran", {
+    isProcessAlive: () => true,
+    waitMs: 2_000,
+    pollMs: 10,
+    onWait: (message) => notices.push(message),
+  });
+
+  expect(notices).toHaveLength(1);
+  expect(notices[0]).toContain("424242");
+  expect(notices[0]).toContain("/work/other-worktree");
+  expect(notices[0]).toContain(lockPath);
+  expect(notices[0]).toContain("2000 ms");
+});
+
+test("a lock taken at once prints no wait notice", async () => {
+  const root = await mkdtemp(join(tmpdir(), "kore-lock-nonotice-"));
+  const notices: string[] = [];
+
+  await withEnvironmentLock(root, "local", async () => "ran", {
+    waitMs: 2_000,
+    onWait: (message) => notices.push(message),
+  });
+
+  expect(notices).toEqual([]);
+});
+
+test("a holder that records no worktree is still named by its pid", async () => {
+  const root = await mkdtemp(join(tmpdir(), "kore-lock-notice-legacy-"));
+  const lockPath = await plantLock(root, "live");
+  setTimeout(() => void rm(lockPath, { force: true }), 40);
+  const notices: string[] = [];
+
+  await withEnvironmentLock(root, "local", async () => "ran", {
+    isProcessAlive: () => true,
+    waitMs: 2_000,
+    pollMs: 10,
+    onWait: (message) => notices.push(message),
+  });
+
+  expect(notices).toHaveLength(1);
+  expect(notices[0]).toContain("424242");
+});
+
+test("a lock records the worktree that holds it", async () => {
+  const root = await mkdtemp(join(tmpdir(), "kore-lock-cwd-"));
+  const lockPath = join(root, ".kore", "locks", "local.lock");
+
+  await withEnvironmentLock(root, "local", async () => {
+    expect(JSON.parse(await readFile(lockPath, "utf8")).cwd).toBe(
+      process.cwd(),
+    );
+  });
+});

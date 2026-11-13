@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { loadRepository } from "../config/index.js";
 import { clusterDestroy } from "../cluster/index.js";
-import { ProcessRunner } from "../runtime/index.js";
+import { ProcessRunner, integrationEnvironment } from "../runtime/index.js";
 import { assertDatabasePersistence } from "./platform.database.integration.spec.js";
 import { assertReferenceSmoke } from "./platform.reference-smoke.integration.spec.js";
+
+const environment = integrationEnvironment();
 
 test(
   "README local quick start converges and cleans up",
@@ -17,7 +19,7 @@ test(
     timeout: 45 * 60 * 1000,
   },
   async () => {
-    const repository = await loadRepository("local");
+    const repository = await loadRepository(integrationEnvironment());
     const runner = new ProcessRunner();
     try {
       await runner.run("mise", ["install"], {
@@ -37,10 +39,10 @@ test(
         );
       }
       for (const args of [
-        ["doctor", "--environment", "local"],
-        ["validate", "--environment", "local"],
-        ["local", "up", "--environment", "local"],
-        ["app", "status", "reference", "--environment", "local"],
+        ["doctor", "--environment", environment],
+        ["validate", "--environment", environment],
+        ["local", "up", "--environment", environment],
+        ["app", "status", "reference", "--environment", environment],
       ]) {
         const result = await runner.run(
           "mise",

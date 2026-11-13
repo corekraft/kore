@@ -4,7 +4,11 @@ import { appStatus } from "../app/index.js";
 import { assertExpectedCluster } from "../cluster/index.js";
 import { loadRepository, type Repository } from "../config/index.js";
 import { findRoot } from "../config/config.js";
-import { ProcessRunner, type Runner } from "../runtime/index.js";
+import {
+  ProcessRunner,
+  type Runner,
+  integrationEnvironment,
+} from "../runtime/index.js";
 import {
   admissionVerdict,
   deployedImage,
@@ -156,7 +160,10 @@ async function restore(
  * admission and status to recover.
  */
 async function proveOutage(outage: Outage): Promise<void> {
-  const repository = await loadRepository("local", await findRoot());
+  const repository = await loadRepository(
+    integrationEnvironment(),
+    await findRoot(),
+  );
   const runner = new ProcessRunner();
   await assertExpectedCluster(repository, runner);
 

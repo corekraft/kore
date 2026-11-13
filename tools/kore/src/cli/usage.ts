@@ -51,6 +51,11 @@ installing it clears a failed or canceled earlier attempt (a release that never
 deployed is uninstalled, a canceled upgrade is rolled back) and refuses to
 uninstall a release whose claim holds retained data.
 
+A mutation queued behind another on the same cluster prints one line naming the
+holder's pid, worktree and lock path, then waits ten minutes; "local up" waits
+thirty, because a first-time "up" takes 15 to 20. KORE_LOCK_WAIT_MS (whole
+milliseconds) overrides both, and a wait that runs out is refused naming the holder.
+
 "app down" uninstalls only the workload release and reports the retained data
 (claims and volumes) that remains; with --json it always prints
 { name, retained: [...], warnings? }.

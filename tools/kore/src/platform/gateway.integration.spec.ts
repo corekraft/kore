@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { loadRepository } from "../config/index.js";
-import { listHostProcesses, ProcessRunner } from "../runtime/index.js";
+import {
+  listHostProcesses,
+  ProcessRunner,
+  integrationEnvironment,
+} from "../runtime/index.js";
 import {
   Cluster,
   conditionHolds,
@@ -201,7 +205,7 @@ test(
   "repeating platform creation on a converged cluster changes no Helm release",
   live,
   async () => {
-    const repository = await loadRepository("local");
+    const repository = await loadRepository(integrationEnvironment());
     const cluster = new Cluster(repository, new ProcessRunner());
     const before = await helmRevisions(cluster);
     await platformUp(repository, cluster.runner);

@@ -3,7 +3,7 @@ import test from "node:test";
 import { assertExpectedCluster } from "../cluster/index.js";
 import { loadRepository, noMatchPolicy } from "../config/index.js";
 import { findRoot } from "../config/config.js";
-import { ProcessRunner } from "../runtime/index.js";
+import { ProcessRunner, integrationEnvironment } from "../runtime/index.js";
 import {
   admissionVerdict,
   deployedImage,
@@ -33,11 +33,13 @@ const live = {
 /** A public image no ClusterImagePolicy glob matches. */
 const unmatchedImage = "docker.io/library/busybox:1.37.0";
 
+const environment = integrationEnvironment();
+
 test(
   "unsigned and unauthorized-key images are denied in an enrolled namespace while the kore-signed image is admitted",
   live,
   async () => {
-    const repository = await loadRepository("local", await findRoot());
+    const repository = await loadRepository(environment, await findRoot());
     const runner = new ProcessRunner();
     await assertExpectedCluster(repository, runner);
 
@@ -92,7 +94,7 @@ test(
   "an unsigned image is denied as an init container or an ephemeral container, and a signed one is admitted there",
   live,
   async () => {
-    const repository = await loadRepository("local", await findRoot());
+    const repository = await loadRepository(environment, await findRoot());
     const runner = new ProcessRunner();
     await assertExpectedCluster(repository, runner);
 
@@ -170,7 +172,7 @@ test(
   "an image from a repository no policy matches is denied with the reason",
   live,
   async () => {
-    const repository = await loadRepository("local", await findRoot());
+    const repository = await loadRepository(environment, await findRoot());
     const runner = new ProcessRunner();
     await assertExpectedCluster(repository, runner);
     assert.equal(
@@ -198,7 +200,7 @@ test(
   "a tag-only reference and a modified digest of the signed image are denied",
   live,
   async () => {
-    const repository = await loadRepository("local", await findRoot());
+    const repository = await loadRepository(environment, await findRoot());
     const runner = new ProcessRunner();
     await assertExpectedCluster(repository, runner);
 

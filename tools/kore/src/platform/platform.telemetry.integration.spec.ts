@@ -3,7 +3,11 @@ import { randomBytes } from "node:crypto";
 import test from "node:test";
 import { loadRepository, type Repository } from "../config/index.js";
 import { assertExpectedCluster } from "../cluster/index.js";
-import { ProcessRunner, type Runner } from "../runtime/index.js";
+import {
+  ProcessRunner,
+  type Runner,
+  integrationEnvironment,
+} from "../runtime/index.js";
 import { postOtlp, waitForOtlp, withForward } from "./otlp-forward.js";
 import { platformStatus } from "./status.js";
 
@@ -180,7 +184,7 @@ test(
     timeout: 10 * 60 * 1000,
   },
   async () => {
-    const repository = await loadRepository("local");
+    const repository = await loadRepository(integrationEnvironment());
     const runner = new ProcessRunner();
     await assertExpectedCluster(repository, runner);
     const call = proxy(repository, runner);
@@ -257,7 +261,7 @@ test(
     timeout: 10 * 60 * 1000,
   },
   async () => {
-    const repository = await loadRepository("local");
+    const repository = await loadRepository(integrationEnvironment());
     const runner = new ProcessRunner();
     await assertExpectedCluster(repository, runner);
     const call = proxy(repository, runner);
@@ -308,7 +312,7 @@ test(
     timeout: 10 * 60 * 1000,
   },
   async () => {
-    const repository = await loadRepository("local");
+    const repository = await loadRepository(integrationEnvironment());
     const runner = new ProcessRunner();
     await assertExpectedCluster(repository, runner);
     const statuses = await platformStatus(repository, runner, [

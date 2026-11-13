@@ -25,7 +25,9 @@ checkout. Load peaked near 249 on 12 cores, kine crashed twice, and a fresh
   refused), keyed by the
   cluster name. A Lease in the cluster was rejected: it cannot guard `up` on a
   missing or stopped cluster, and it needs a working API server. Mutations
-  wait for a live holder (`KORE_LOCK_WAIT_MS`, ten minutes), then are refused
+  wait for a live holder (`KORE_LOCK_WAIT_MS`; ten minutes, thirty for `kore local up`,
+  which a first-time run takes up to 20 minutes to finish), print one stderr line naming
+  the holder's pid, worktree and lock path when the wait starts, then are refused
   naming it.
 - **Exclusive host lease.** `kore local up` and the live integration specs
   take `~/.kore/locks/host-lease.lock` before their cluster lock. `session

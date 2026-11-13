@@ -3,7 +3,11 @@ import test from "node:test";
 import { assertExpectedCluster } from "../cluster/index.js";
 import { findRoot } from "../config/config.js";
 import { loadRepository } from "../config/index.js";
-import { ProcessRunner, type Runner } from "../runtime/index.js";
+import {
+  ProcessRunner,
+  type Runner,
+  integrationEnvironment,
+} from "../runtime/index.js";
 import { platformStatusReport } from "./crd-ownership-status.js";
 
 // Docs: docs/operations/resource-budgets.md
@@ -49,7 +53,10 @@ test(
   "platform status reports a capacity row from the live node that matches its warning rule",
   live,
   async () => {
-    const repository = await loadRepository("local", await findRoot());
+    const repository = await loadRepository(
+      integrationEnvironment(),
+      await findRoot(),
+    );
     const runner = new ProcessRunner();
     await assertExpectedCluster(repository, runner);
 
@@ -81,7 +88,10 @@ test(
   "the registry claim is the disposable class the registry page documents, and storage deletion is off",
   live,
   async () => {
-    const repository = await loadRepository("local", await findRoot());
+    const repository = await loadRepository(
+      integrationEnvironment(),
+      await findRoot(),
+    );
     const runner = new ProcessRunner();
     const kubeContext = repository.environment.kubeContext;
     await assertExpectedCluster(repository, runner);

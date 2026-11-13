@@ -6,7 +6,11 @@ import test from "node:test";
 import { exportRetainedData, restoreRetainedData } from "../cluster/index.js";
 import { findRoot } from "../config/config.js";
 import { loadRepository, type Repository } from "../config/index.js";
-import { ProcessRunner, type Runner } from "../runtime/index.js";
+import {
+  ProcessRunner,
+  type Runner,
+  integrationEnvironment,
+} from "../runtime/index.js";
 import { loadRecovery } from "./recovery.js";
 
 const NAMESPACE = "reference";
@@ -105,7 +109,7 @@ test(
   { concurrency: false, skip: missing() },
   async () => {
     const root = await findRoot();
-    const repository = await loadRepository("local", root);
+    const repository = await loadRepository(integrationEnvironment(), root);
     const runner: Runner = new ProcessRunner();
     const objective = (await loadRecovery(root)).find(
       (candidate) => candidate.name === "retained-postgresql",
