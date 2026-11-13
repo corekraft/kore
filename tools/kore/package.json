@@ -37,8 +37,7 @@
     "test:integration:gateway": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/platform/gateway.integration.spec.js",
     "test:integration:ingress-measure": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/platform/ingress-measurement.integration.spec.js",
     "test:integration:docs": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/platform/operations-docs.integration.spec.js",
-    "test:integration:database": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/platform/platform.database.integration.spec.js",
-    "test:integration:reference-smoke": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/platform/platform.reference-smoke.integration.spec.js",
+    "test:integration:database": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/platform/database-persistence.integration.spec.js",
     "test:integration:storage": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/platform/storage-lifecycle.integration.spec.js",
     "prepare": "cd ../.. && husky tools/kore/.husky"
   },

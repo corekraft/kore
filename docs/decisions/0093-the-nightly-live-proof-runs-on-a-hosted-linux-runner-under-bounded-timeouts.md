@@ -99,6 +99,10 @@ showed that "every `test:integration*` suite" was wrong in two ways. The
 every later suite with `k3d cluster kore-nightly is absent`; it now runs last.
 The bare `test:integration` task is not a suite: its platform spec runs the unit
 suite and the OPA tests, and its cluster spec stops and deletes the night's
-cluster. The nightly runs only `test:integration:<name>` scripts. The two specs
-that only the bare task ran (database, reference smoke) got named scripts, and a
-unit spec fails when an integration spec belongs to no named script.
+cluster. The nightly runs only `test:integration:<name>` scripts. Reference
+smoke is already proved by `test:integration:reference`. Database persistence
+was proved only through the bare task's helper, so it has its own spec and the
+named script `test:integration:database` (it deletes the database primary pod
+and waits up to 5 minutes twice, within the 45 minute stage limit). A unit spec
+fails when an integration spec that registers a test belongs to no named script,
+or when a named script runs no spec that registers a test.
