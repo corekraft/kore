@@ -72,7 +72,7 @@ weaken its own guardrails
       ruleset: `main` stays active and an audit rule syncs into a `main-candidate`
       ruleset in `evaluate`, ADR 0090; deny rules, ADR 0080 and #299.)
 - [ ] Land changed guardrails in audit mode.
-- [x] Ask a person to approve enforcing each one, presenting the idea and its
+- [ ] Ask a person to approve enforcing each one, presenting the idea and its
       outcome summarized.
 
 ### Exit Criteria

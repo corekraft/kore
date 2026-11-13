@@ -8,26 +8,29 @@ import {
 } from "./deny.js";
 import { GuardrailError, INVENTORY_PATH, type Inventory } from "./inventory.js";
 import { readInventory } from "./read.js";
-import { REQUEST_KIND, pendingRequests, type Pending } from "./requests.js";
+import { waitingRequests } from "./pending.js";
+import type { Pending } from "./requests.js";
 
 const SETTINGS_PATH = ".claude/settings.json";
 
-/** The requests for a person's approval that are still waiting; none when the ledger cannot be opened. */
+const NO_LEDGER =
+  "No shared ledger could be found, so requests waiting for approval are not shown. Run inside the repository, set KORE_ROOT to its root, or pass --ledger <path>.";
+
+/** The requests waiting for a person's approval; none, with the reason on stderr, when the ledger cannot be opened. */
 async function waiting(
   context: CommandContext,
   inventory: Inventory,
 ): Promise<Map<string, Pending>> {
+  const { deps, options } = context;
   const ledger = await openSharedLedger(
-    context.deps,
-    typeof context.options["ledger"] === "string"
-      ? context.options["ledger"]
-      : undefined,
+    deps,
+    typeof options["ledger"] === "string" ? options["ledger"] : undefined,
   );
   if (ledger === undefined) {
+    deps.stderr(`${NO_LEDGER}\n`);
     return new Map();
   }
-  const { events } = await ledger.list({ kind: REQUEST_KIND });
-  return pendingRequests(inventory, events);
+  return await waitingRequests(deps, inventory, ledger);
 }
 
 const status: Command = {

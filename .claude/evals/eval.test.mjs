@@ -17,6 +17,7 @@ import {
   gradeBoundary,
   readTier,
   selectedKinds,
+  selectedCases,
   gradeDeny,
   gradeReview,
   gradeSkill,
@@ -430,6 +431,18 @@ test("deny cases refuse to run without stub commands, rather than risk a real de
     }),
     /deny cases need stub commands on PATH/,
   );
+});
+
+test("selectedCases keeps every case by default and only those whose name contains --case", () => {
+  const list = [{ name: "a one" }, { name: "b two" }, { prompt: "a prompt" }];
+  assert.deepEqual(selectedCases([], list), list);
+  assert.deepEqual(selectedCases(["--case", "two"], list), [list[1]]);
+  assert.deepEqual(selectedCases(["--case", "one"], list), [list[0]]);
+  assert.throws(
+    () => selectedCases(["--case", "nothing"], list),
+    /no eval case matches --case "nothing"/,
+  );
+  assert.throws(() => selectedCases(["--case"], list), /--case needs a value/);
 });
 
 test("selectedKinds refuses an empty --kind instead of running nothing and passing", () => {

@@ -189,15 +189,3 @@ export const harnessStatus = (name: string, args: readonly string[]): boolean =>
   args[1] === "status" &&
   args.length <= 3 &&
   (args[2] === undefined || args[2] === "--json");
-
-/** `harness guardrail status`, bare or with `--json` only: how the concierge learns what waits for a person's approval. Its own check, so no allowlist can reach `guardrail request` or `guardrail deny`. */
-export const harnessGuardrailStatus = (
-  name: string,
-  args: readonly string[],
-): boolean =>
-  name === "node" &&
-  HARNESS.test(args[0] ?? "") &&
-  args[1] === "guardrail" &&
-  args[2] === "status" &&
-  args.length <= 4 &&
-  (args[3] === undefined || args[3] === "--json");

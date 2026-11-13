@@ -5,7 +5,7 @@ var CommandError = class extends Error {
 // src/runtime/clock.ts
 var systemClock = {
   now: () => /* @__PURE__ */ new Date(),
-  sleep: (ms) => new Promise((resolve12) => setTimeout(resolve12, ms))
+  sleep: (ms) => new Promise((resolve11) => setTimeout(resolve11, ms))
 };
 function localDate(date) {
   const two = (n) => String(n).padStart(2, "0");
@@ -102,7 +102,7 @@ var nodeFileSystem = {
 import { spawn } from "node:child_process";
 var ProcessRunner = class {
   async run(command, args, options = {}) {
-    return await new Promise((resolve12) => {
+    return await new Promise((resolve11) => {
       const child = spawn(command, [...args], {
         ...options.cwd === void 0 ? {} : { cwd: options.cwd },
         ...options.env === void 0 ? {} : { env: options.env },
@@ -121,10 +121,10 @@ var ProcessRunner = class {
         stderr2 += chunk.toString();
       });
       child.on("error", (error) => {
-        resolve12({ stdout, stderr: error.message, code: 127 });
+        resolve11({ stdout, stderr: error.message, code: 127 });
       });
       child.on("close", (code) => {
-        resolve12({ stdout, stderr: stderr2, code: code ?? 1 });
+        resolve11({ stdout, stderr: stderr2, code: code ?? 1 });
       });
       if (options.input !== void 0) {
         child.stdin?.end(options.input);
@@ -278,14 +278,14 @@ function headings(markdown) {
       fence = opener === fence ? null : fence ?? opener;
       continue;
     }
-    const text11 = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(line2)?.[1];
-    if (text11 === void 0) {
+    const text12 = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(line2)?.[1];
+    if (text12 === void 0) {
       continue;
     }
-    const base = headingSlug(text11);
+    const base = headingSlug(text12);
     const count3 = seen.get(base) ?? 0;
     seen.set(base, count3 + 1);
-    found.push({ text: text11, anchor: count3 > 0 ? `${base}-${count3}` : base });
+    found.push({ text: text12, anchor: count3 > 0 ? `${base}-${count3}` : base });
   }
   return found;
 }
@@ -345,7 +345,7 @@ var Adrs = class {
       files: [
         {
           path,
-          lines: body.slice(0, -1).map((text11, i) => ({ number: i + 1, text: text11 }))
+          lines: body.slice(0, -1).map((text12, i) => ({ number: i + 1, text: text12 }))
         },
         { path: INDEX, lines: [{ number: index.line, text: entry2 }] }
       ]
@@ -363,8 +363,8 @@ var Adrs = class {
     return this.fs.readFile(this.abs(INDEX));
   }
   /** Puts the entry before the first later-numbered ADR line, else after the last one. */
-  insert(text11, next, entry2) {
-    const lines3 = text11.split("\n");
+  insert(text12, next, entry2) {
+    const lines3 = text12.split("\n");
     const start = lines3.indexOf("## Decisions");
     if (start === -1) {
       throw new AdrError(
@@ -504,9 +504,9 @@ var Supersession = class {
       files: [
         {
           path: oldAdr.path,
-          lines: changed.map((text11, i) => ({
+          lines: changed.map((text12, i) => ({
             number: oldAdr.statusLine + 1 + i,
-            text: text11
+            text: text12
           }))
         }
       ]
@@ -712,10 +712,10 @@ function checkDeny(where, deny2, kind) {
     }
   }
 }
-function parseInventory(text11) {
+function parseInventory(text12) {
   let value;
   try {
-    value = JSON.parse(text11);
+    value = JSON.parse(text12);
   } catch {
     return fail("is not JSON-compatible YAML");
   }
@@ -764,16 +764,16 @@ function items(pattern, path) {
   }
   return found;
 }
-function matches(pattern, text11) {
-  let row = Array.from({ length: text11.length + 1 }, (_, j) => j === 0);
+function matches(pattern, text12) {
+  let row = Array.from({ length: text12.length + 1 }, (_, j) => j === 0);
   for (const item of pattern) {
-    const next = Array.from({ length: text11.length + 1 }, () => false);
-    for (let j = 0; j <= text11.length; j++) {
-      next[j] = "literal" in item ? j > 0 && row[j - 1] === true && text11[j - 1] === item.literal : row[j] === true || j > 0 && next[j - 1] === true && (item.crossesSlash || text11[j - 1] !== "/");
+    const next = Array.from({ length: text12.length + 1 }, () => false);
+    for (let j = 0; j <= text12.length; j++) {
+      next[j] = "literal" in item ? j > 0 && row[j - 1] === true && text12[j - 1] === item.literal : row[j] === true || j > 0 && next[j - 1] === true && (item.crossesSlash || text12[j - 1] !== "/");
     }
     row = next;
   }
-  return row[text11.length] === true;
+  return row[text12.length] === true;
 }
 function bashMatches(body, command) {
   if (!body.endsWith(":*")) {
@@ -790,9 +790,9 @@ function denyMatches(pattern, tool, subject) {
   const body = pattern.slice(open2 + 1, -1);
   return tool === "Bash" ? bashMatches(body, subject) : matches(items(body.replace(/^\.\//, ""), true), subject);
 }
-function parseSettings(text11) {
+function parseSettings(text12) {
   try {
-    return JSON.parse(text11);
+    return JSON.parse(text12);
   } catch {
     throw new GuardrailError(
       ".claude/settings.json is not JSON. Restore it from git, then rerun."
@@ -827,9 +827,9 @@ function settingsWithDeny(settingsText, deny2) {
 // src/guardrail/read.ts
 import { dirname as dirname4 } from "node:path";
 async function readInventory(readFile2, root3) {
-  let text11;
+  let text12;
   try {
-    text11 = await readFile2(`${root3}/${INVENTORY_PATH}`);
+    text12 = await readFile2(`${root3}/${INVENTORY_PATH}`);
   } catch (error) {
     if (error.code !== "ENOENT") {
       throw error;
@@ -838,7 +838,7 @@ async function readInventory(readFile2, root3) {
       `${INVENTORY_PATH} is missing, so no guard rule has a declared mode. Restore it from git, then rerun.`
     );
   }
-  return parseInventory(text11);
+  return parseInventory(text12);
 }
 async function findInventory(readFile2, start) {
   let dir = start;
@@ -1094,12 +1094,12 @@ function parseEvent(input, mode) {
 // src/ledger/github-poll.ts
 var LIMIT = 1e3;
 var describe2 = (code, stdout, stderr2) => {
-  const text11 = `${stderr2}${stdout}`.trim();
-  return text11 === "" ? `exit code ${code}` : `exit code ${code}: ${text11}`;
+  const text12 = `${stderr2}${stdout}`.trim();
+  return text12 === "" ? `exit code ${code}` : `exit code ${code}: ${text12}`;
 };
 var RATE_LIMITED = /rate limit|HTTP 403|HTTP 429/i;
-async function resetTime(gh2) {
-  const found = await gh2.runner.run("gh", ["api", "rate_limit"]);
+async function resetTime(gh3) {
+  const found = await gh3.runner.run("gh", ["api", "rate_limit"]);
   try {
     const parsed = JSON.parse(found.stdout);
     const core = asRecord(asRecord(asRecord(parsed)["resources"])["core"]);
@@ -1109,17 +1109,17 @@ async function resetTime(gh2) {
     return void 0;
   }
 }
-async function rateLimited(gh2, what) {
-  const reset = await resetTime(gh2);
+async function rateLimited(gh3, what) {
+  const reset = await resetTime(gh3);
   const retry = reset === void 0 ? "Retry in a few minutes" : `Retry after ${reset}`;
   return `gh ${what} hit the GitHub rate limit. ${retry}; poll again then (gh api rate_limit shows the reset time).`;
 }
-async function query(gh2, what, args) {
-  const found = await gh2.runner.run("gh", args);
-  await gh2.refresh();
+async function query(gh3, what, args) {
+  const found = await gh3.runner.run("gh", args);
+  await gh3.refresh();
   if (found.code !== 0) {
     if (RATE_LIMITED.test(`${found.stderr}${found.stdout}`)) {
-      return rateLimited(gh2, what);
+      return rateLimited(gh3, what);
     }
     return `gh ${what} failed: ${describe2(found.code, found.stdout, found.stderr)}. Is gh installed and logged in (gh auth status)?`;
   }
@@ -1203,10 +1203,10 @@ async function pollGithub(deps) {
 var PAGE = 100;
 var MAX_PAGES = 3;
 var searchFrom = (field3, since) => since === void 0 ? [] : ["--search", `${field3}:>=${since.slice(0, 10)}`];
-async function fetchEvents(gh2, repo, since) {
+async function fetchEvents(gh3, repo, since) {
   const events = [];
   for (let page = 1; page <= MAX_PAGES; page++) {
-    const got = await query(gh2, "api issues/events", [
+    const got = await query(gh3, "api issues/events", [
       "api",
       `repos/${repo}/issues/events?per_page=${PAGE}&page=${page}`
     ]);
@@ -1222,10 +1222,10 @@ async function fetchEvents(gh2, repo, since) {
   }
   return events;
 }
-async function fetchAll(gh2, repo, since) {
+async function fetchAll(gh3, repo, since) {
   const flag = ["--repo", repo];
   const list3 = ["--state", "all", "--limit", String(LIMIT)];
-  const issues = await query(gh2, "issue list", [
+  const issues = await query(gh3, "issue list", [
     "issue",
     "list",
     ...flag,
@@ -1238,7 +1238,7 @@ async function fetchAll(gh2, repo, since) {
   if (typeof issues === "string") {
     return issues;
   }
-  const prs = await query(gh2, "pr list", [
+  const prs = await query(gh3, "pr list", [
     "pr",
     "list",
     ...flag,
@@ -1250,7 +1250,7 @@ async function fetchAll(gh2, repo, since) {
   if (typeof prs === "string") {
     return prs;
   }
-  const events = await fetchEvents(gh2, repo, since);
+  const events = await fetchEvents(gh3, repo, since);
   if (typeof events === "string") {
     return events;
   }
@@ -1303,8 +1303,8 @@ var STATUS_KIND = {
   done: "pane.waiting"
 };
 function describe3(code, stdout, stderr2) {
-  const text11 = `${stderr2}${stdout}`.trim();
-  return text11 === "" ? `exit code ${code}` : `exit code ${code}: ${text11}`;
+  const text12 = `${stderr2}${stdout}`.trim();
+  return text12 === "" ? `exit code ${code}` : `exit code ${code}: ${text12}`;
 }
 function toSeen(entry2) {
   if (typeof entry2 !== "object" || entry2 === null) {
@@ -1453,10 +1453,10 @@ var Ledger = class {
     return { ok: true, event };
   }
   async list(filter) {
-    const text11 = await this.read();
+    const text12 = await this.read();
     const events = [];
     let skipped = 0;
-    for (const line2 of text11.split("\n")) {
+    for (const line2 of text12.split("\n")) {
       if (line2 === "") {
         continue;
       }
@@ -1506,6 +1506,91 @@ async function openSharedLedger(deps, given) {
   return path === void 0 ? void 0 : new Ledger(deps.fs, deps.clock, deps.ids, path);
 }
 
+// src/guardrail/history.ts
+var MAX_COMMITS = 200;
+var ModeHistory = class {
+  constructor(runner, root3) {
+    this.runner = runner;
+    this.root = root3;
+  }
+  runner;
+  root;
+  /** Commits that touched the inventory, newest first; empty when git cannot answer. */
+  async commits() {
+    const log = await this.runner.run(
+      "git",
+      [
+        "log",
+        `--max-count=${MAX_COMMITS}`,
+        "--format=%H %cI",
+        "--",
+        INVENTORY_PATH
+      ],
+      { cwd: this.root }
+    );
+    if (log.code !== 0) {
+      return [];
+    }
+    return log.stdout.split("\n").filter((line2) => line2.trim() !== "").map((line2) => {
+      const [sha = "", at = ""] = line2.trim().split(" ");
+      return { sha, at };
+    });
+  }
+  /** The rule's state at a commit, or undefined when the file cannot be read there. */
+  async stateAt(sha, rule) {
+    const shown = await this.runner.run(
+      "git",
+      ["show", `${sha}:${INVENTORY_PATH}`],
+      {
+        cwd: this.root
+      }
+    );
+    if (shown.code !== 0) {
+      return void 0;
+    }
+    try {
+      const found = parseInventory(shown.stdout).guardrails.find(
+        (g) => g.rule === rule
+      );
+      return found?.mode ?? "removed";
+    } catch (error) {
+      if (error instanceof GuardrailError) {
+        return void 0;
+      }
+      throw error;
+    }
+  }
+  /**
+   * The day (YYYY-MM-DD) the rule entered its current mode: the oldest commit
+   * of the unbroken run in that mode. Undefined when git cannot say, or when
+   * the newest commit holds another mode (the change is not committed yet).
+   */
+  async enteredMode(rule, mode) {
+    let entered;
+    for (const commit of await this.commits()) {
+      if (await this.stateAt(commit.sha, rule) !== mode) {
+        break;
+      }
+      entered = commit.at.slice(0, 10);
+    }
+    return entered;
+  }
+  /** Whether any commit at or after `since` (an ISO time) held the requested state. */
+  async reached(rule, to, since) {
+    const wanted = to === "remove" ? "removed" : to;
+    const from = Date.parse(since);
+    for (const commit of await this.commits()) {
+      if (Date.parse(commit.at) < from) {
+        break;
+      }
+      if (await this.stateAt(commit.sha, rule) === wanted) {
+        return true;
+      }
+    }
+    return false;
+  }
+};
+
 // src/guardrail/requests.ts
 var REQUEST_KIND = "guardrail.request";
 var TARGETS = ["enforce", "audit", "remove"];
@@ -1516,11 +1601,11 @@ function parseLabel(label) {
   const to = label.slice(at + 1);
   return at > 0 && isTarget(to) ? { rule: label.slice(0, at), to } : void 0;
 }
-function reached(guardrail, to) {
-  return to !== "remove" && guardrail.mode === to;
+function holds(guardrail, to) {
+  return to === "remove" ? guardrail === void 0 : guardrail?.mode === to;
 }
 var direction = (to) => to === "enforce" ? "Tightening" : "Loosening";
-function pendingRequests(inventory, events) {
+function latestRequests(events) {
   const latest = /* @__PURE__ */ new Map();
   for (const event of [...events].sort(
     (a, b) => a.occurredAt.localeCompare(b.occurredAt)
@@ -1528,39 +1613,52 @@ function pendingRequests(inventory, events) {
     const parsed = event.kind === REQUEST_KIND && event.label !== void 0 ? parseLabel(event.label) : void 0;
     if (parsed !== void 0) {
       latest.set(parsed.rule, {
+        id: event.id,
         to: parsed.to,
         idea: event.idea ?? "",
         requestedAt: event.occurredAt
       });
     }
   }
-  for (const guardrail of inventory.guardrails) {
-    const pending = latest.get(guardrail.rule);
-    if (pending !== void 0 && reached(guardrail, pending.to)) {
-      latest.delete(guardrail.rule);
-    }
-  }
-  const listed = new Set(inventory.guardrails.map((g) => g.rule));
-  for (const rule of latest.keys()) {
-    if (!listed.has(rule)) {
-      latest.delete(rule);
-    }
-  }
   return latest;
+}
+async function pendingRequests(inventory, events, reached) {
+  const waiting2 = /* @__PURE__ */ new Map();
+  for (const [rule, request2] of latestRequests(events)) {
+    const guardrail = inventory.guardrails.find((g) => g.rule === rule);
+    if (guardrail !== void 0 && !holds(guardrail, request2.to) && !await reached(rule, request2.to, request2.requestedAt)) {
+      waiting2.set(rule, request2);
+    }
+  }
+  return waiting2;
+}
+
+// src/guardrail/pending.ts
+async function waitingRequests(deps, inventory, ledger) {
+  const { events } = await ledger.list({ kind: REQUEST_KIND });
+  const history = new ModeHistory(deps.runner, await deps.root());
+  return await pendingRequests(
+    inventory,
+    events,
+    (rule, to, since) => history.reached(rule, to, since)
+  );
 }
 
 // src/guardrail/commands.ts
 var SETTINGS_PATH = ".claude/settings.json";
+var NO_LEDGER = "No shared ledger could be found, so requests waiting for approval are not shown. Run inside the repository, set KORE_ROOT to its root, or pass --ledger <path>.";
 async function waiting(context2, inventory) {
+  const { deps, options } = context2;
   const ledger = await openSharedLedger(
-    context2.deps,
-    typeof context2.options["ledger"] === "string" ? context2.options["ledger"] : void 0
+    deps,
+    typeof options["ledger"] === "string" ? options["ledger"] : void 0
   );
   if (ledger === void 0) {
+    deps.stderr(`${NO_LEDGER}
+`);
     return /* @__PURE__ */ new Map();
   }
-  const { events } = await ledger.list({ kind: REQUEST_KIND });
-  return pendingRequests(inventory, events);
+  return await waitingRequests(deps, inventory, ledger);
 }
 var status = {
   summary: "list each guardrail with its kind, mode and owner, and the request waiting for a person's approval, if any",
@@ -1674,36 +1772,1365 @@ var deny = {
 var guardrailCommands = { status, deny };
 
 // src/guardrail/request-comment.ts
-var marker = (rule, to) => `<!-- guardrail-request: ${requestLabel(rule, to)} -->`;
+var marker = (requestId) => `<!-- guardrail-request: ${requestId} -->`;
+function figures(evidence) {
+  if (evidence.source === "warnings") {
+    return [
+      "| Fired | Heeded | Overridden | Repeated (identical call) | Unresolved |",
+      "| --- | --- | --- | --- | --- |",
+      `| ${evidence.fired} | ${evidence.heeded} | ${evidence.overridden} | ${evidence.repeated} | ${evidence.unresolved} |`,
+      "",
+      "Fired is how often the rule warned in audit mode; the other four add up to it. Heeded: the agent changed course. Overridden: a person continued past it. Repeated: the agent made the identical call again. Unresolved: nothing followed.",
+      "",
+      `Classification: ${evidence.status}`
+    ];
+  }
+  if (evidence.source === "blocks") {
+    return [
+      "| Blocked |",
+      "| --- |",
+      `| ${evidence.blocks} |`,
+      "",
+      "Blocked is how often the rule stopped a tool call in the session transcripts of the window. It does not say whether the call was legitimate."
+    ];
+  }
+  return [
+    "| Suites evaluated | Would have blocked |",
+    "| --- | --- |",
+    `| ${evidence.suites} | ${evidence.firings}${evidence.truncated ? "+" : ""} |`,
+    "",
+    `From \`harness ruleset insights\` on \`${evidence.ruleset}\`, over the last ${evidence.timePeriod}.${evidence.truncated ? " The period held more suites than one page, so the counts are a floor." : ""}`
+  ];
+}
 function renderRequest({
   guardrail,
   to,
+  requestId,
   idea,
   evidence
 }) {
   const goal = to === "remove" ? "removed" : to;
   const { rule } = guardrail;
   return [
-    marker(rule, to),
+    marker(requestId),
     `## Approval requested: ${direction(to).toLowerCase()} guardrail \`${rule}\``,
     "",
     `Idea ${idea.number}: [${idea.title}](${idea.link}) (\`${idea.path}\`)`,
     "",
     `Change: \`${rule}\` ${guardrail.mode} \u2192 ${goal} (${guardrail.kind}, owner \`${guardrail.owner}\`). ${direction(to)}.`,
     "",
-    "### Outcome summary",
+    `### Outcome summary (${evidence.window})`,
     "",
-    "| Fired | Heeded | Overridden | False positives |",
-    "| --- | --- | --- | --- |",
-    `| ${evidence.warnings} | ${evidence.heeded} | ${evidence.overridden} | ${evidence.repeated} |`,
+    ...figures(evidence),
     "",
-    `Classification: ${evidence.status}`,
+    "### For the approving person",
     "",
-    "Fired is how often the rule warned in audit mode. Heeded: the agent changed course. Overridden: a person continued past it. False positives: the agent repeated the identical call, so the warning did not apply.",
-    "",
-    `Nothing changes until a person approves: edit the rule's \`mode\` in \`.claude/guardrails.yaml\` (ADR 0080). This request changes no guardrail.`,
+    "- [ ] I judged whether the firings above hit legitimate work. Whether a firing was a false positive is a person's judgement; the figures do not decide it (ADR 0080).",
+    `- [ ] If I approve, I edit the rule's \`mode\` in \`.claude/guardrails.yaml\`. This request changes no guardrail.`,
     ""
   ].join("\n");
+}
+
+// src/guardrail/evidence.ts
+function evidenceSource(guardrail) {
+  const { rule, kind, mode, deny: deny2 } = guardrail;
+  if (kind === "ruleset") {
+    return mode === "audit" ? { source: "ruleset-insights" } : {
+      refusal: `${rule} is an enforced ruleset rule, and \`harness ruleset insights\` measures only what the evaluate-mode candidate ruleset would have blocked (ADR 0090). Instead, put the rule back in audit so the candidate ruleset measures it, then request again.`
+    };
+  }
+  if (deny2 !== void 0 && mode === "enforce") {
+    return {
+      refusal: `${rule} is an enforced deny rule: a settings deny blocks before any guard runs, so nothing counts its blocks. Instead, put the rule in audit (the guard then warns, and the retro scan counts it), or judge it from the session transcripts by hand.`
+    };
+  }
+  return { source: mode === "audit" ? "warnings" : "blocks" };
+}
+
+// src/idea/record.ts
+var SAFETY_PATTERNS = [
+  "no-behaviour-change",
+  "feature-flagged",
+  "dark-launched",
+  "branch-by-abstraction",
+  "expand-contract"
+];
+var IdeaError = class extends Error {
+};
+var IDEA_FILE = /^(\d{4})-([a-z0-9]+(?:-[a-z0-9]+)*)\.md$/;
+var REQUIRED2 = [
+  ["summary", "summary"],
+  ["hypothesis", "hypothesis"],
+  ["expected-outcome", "expectedOutcome"],
+  ["measurement", "measurement"],
+  ["safety-pattern", "safetyPattern"],
+  ["date", "date"]
+];
+function frontmatter(text12) {
+  const lines3 = text12.split("\n");
+  if (lines3[0] !== "---") {
+    return null;
+  }
+  const keys = /* @__PURE__ */ new Map();
+  for (const line2 of lines3.slice(1)) {
+    if (line2 === "---") {
+      return keys;
+    }
+    const match = /^([A-Za-z][\w-]*):\s*(.*)$/.exec(line2);
+    if (match?.[1] !== void 0) {
+      keys.set(match[1], (match[2] ?? "").trim());
+    }
+  }
+  return null;
+}
+function parseIdea(path, text12) {
+  const file = path.slice(path.lastIndexOf("/") + 1);
+  const name = IDEA_FILE.exec(file);
+  if (name?.[1] === void 0 || name[2] === void 0) {
+    throw new IdeaError(
+      `${path} is not named NNNN-slug.md; rename it to a four-digit number and a lowercase slug.`
+    );
+  }
+  const keys = frontmatter(text12);
+  if (keys === null) {
+    throw new IdeaError(
+      `${path} has no frontmatter; start it with --- and the idea fields (see \`harness idea new --help\`).`
+    );
+  }
+  const missing = REQUIRED2.filter(([key]) => !keys.get(key)).map(([k]) => k);
+  if (missing.length > 0) {
+    throw new IdeaError(
+      `${path} is missing frontmatter ${missing.join(", ")}; add each as a key: value line.`
+    );
+  }
+  const get = (key) => keys.get(key) ?? "";
+  const heading = /^# Idea \d{4}: (.+)$/m.exec(text12)?.[1];
+  const record6 = {
+    number: name[1],
+    slug: name[2],
+    path,
+    title: heading ?? get("summary"),
+    summary: get("summary"),
+    hypothesis: get("hypothesis"),
+    expectedOutcome: get("expected-outcome"),
+    measurement: get("measurement"),
+    safetyPattern: get("safety-pattern"),
+    date: get("date")
+  };
+  for (const key of ["outcome", "issue", "parent"]) {
+    if (get(key) !== "") {
+      record6[key] = get(key);
+    }
+  }
+  return record6;
+}
+function scalar(flag, value) {
+  const text12 = (value ?? "").replace(/\s+/g, " ").trim();
+  if (text12 === "") {
+    throw new IdeaError(`Missing --${flag}; pass a non-empty value.`);
+  }
+  if (/^[[{|>&*!-]/.test(text12)) {
+    throw new IdeaError(
+      `--${flag} must not start with "${text12.slice(0, 1)}"; frontmatter holds plain text, so reword it.`
+    );
+  }
+  return text12;
+}
+function renderIdea(number, date, idea) {
+  const lines3 = [
+    "---",
+    `summary: ${idea.summary}`,
+    `hypothesis: ${idea.hypothesis}`,
+    `expected-outcome: ${idea.expectedOutcome}`,
+    `measurement: ${idea.measurement}`,
+    `safety-pattern: ${idea.safetyPattern}`,
+    `date: ${date}`
+  ];
+  if (idea.issue !== void 0) {
+    lines3.push(`issue: ${idea.issue}`);
+  }
+  if (idea.parent !== void 0) {
+    lines3.push(`parent: ${idea.parent}`);
+  }
+  lines3.push("---", "", `# Idea ${number}: ${idea.title}`, "");
+  return lines3.join("\n");
+}
+function withIssue(text12, issue) {
+  const lines3 = text12.split("\n");
+  const end = lines3.indexOf("---", 1);
+  if (lines3[0] !== "---" || end === -1) {
+    throw new IdeaError("The idea has no frontmatter to record the issue in.");
+  }
+  const at = lines3.findIndex(
+    (l, i) => i > 0 && i < end && l.startsWith("issue:")
+  );
+  if (at === -1) {
+    lines3.splice(end, 0, `issue: ${issue}`);
+  } else {
+    lines3[at] = `issue: ${issue}`;
+  }
+  return lines3.join("\n");
+}
+var OUTCOME_HEADING = "## Outcome";
+function outcomeRange(lines3) {
+  const start = lines3.findIndex((l) => l.trimEnd() === OUTCOME_HEADING);
+  if (start === -1) {
+    return void 0;
+  }
+  const end = lines3.findIndex((l, i) => i > start && /^#{1,2} /.test(l));
+  return [start, end === -1 ? lines3.length : end];
+}
+function outcomeSection(text12) {
+  const lines3 = text12.split("\n");
+  const range = outcomeRange(lines3);
+  return range === void 0 ? void 0 : lines3.slice(...range).join("\n").replace(/\r/g, "").trim();
+}
+function withoutOutcome(text12) {
+  const lines3 = text12.split("\n");
+  const range = outcomeRange(lines3);
+  return range === void 0 ? text12 : [...lines3.slice(0, range[0]), ...lines3.slice(range[1])].join("\n").trimEnd();
+}
+function withOutcome(text12, result, section) {
+  const lines3 = text12.split("\n");
+  const end = lines3.indexOf("---", 1);
+  if (lines3[0] !== "---" || end === -1) {
+    throw new IdeaError(
+      "The idea has no frontmatter to record the outcome in."
+    );
+  }
+  lines3.splice(end, 0, `outcome: ${result}`);
+  return `${lines3.join("\n").trimEnd()}
+
+${section.trim()}
+`;
+}
+
+// src/idea/repository.ts
+var INDEX2 = "docs/index.md";
+var DIR = "docs/ideas";
+var ATTEMPTS = 3;
+var HEADING = "## Ideas";
+var NEXT_SECTION = "## Operations and Guides";
+var IdeaRepository = class {
+  constructor(fs, clock, root3) {
+    this.fs = fs;
+    this.clock = clock;
+    this.root = root3;
+  }
+  fs;
+  clock;
+  root;
+  async list() {
+    return await Promise.all((await this.listNames()).map((n) => this.read(n)));
+  }
+  /** Finds an idea by number (`1` or `0001`), slug, or file stem. */
+  async get(ref) {
+    const wanted = /^\d+$/.test(ref) ? ref.padStart(4, "0") : ref;
+    const name = (await this.listNames()).find((n) => {
+      const [, number, slug2] = IDEA_FILE.exec(n) ?? [];
+      return wanted === number || wanted === slug2 || `${number}-${slug2}` === wanted;
+    });
+    if (name === void 0) {
+      throw new IdeaError(
+        `No idea matches "${ref}". Run \`harness idea list\` to see the ideas, or \`harness idea new\` to create one.`
+      );
+    }
+    return await this.read(name);
+  }
+  /**
+   * Creates the next numbered idea and indexes it; an existing slug is returned untouched.
+   * The file is created exclusively, so a competing writer's file is never overwritten:
+   * on a collision the listing is read again and the call retries.
+   */
+  async create(slug2, idea) {
+    if (!await this.fs.exists(this.abs(INDEX2))) {
+      throw new IdeaError(
+        `${INDEX2} not found under ${this.root}; set CLAUDE_PROJECT_DIR to the repository root.`
+      );
+    }
+    if (!SAFETY_PATTERNS.some((p) => p === idea.safetyPattern)) {
+      throw new IdeaError(
+        `--safety-pattern "${idea.safetyPattern}" is not recognised; use one of ${SAFETY_PATTERNS.join(", ")}.`
+      );
+    }
+    for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
+      const names3 = await this.listNames();
+      const existing = names3.find((n) => IDEA_FILE.exec(n)?.[2] === slug2);
+      if (existing !== void 0) {
+        const record7 = await this.read(existing);
+        await this.ensureIndexed(record7);
+        return { created: false, record: record7 };
+      }
+      const taken = names3.map((n) => Number(n.slice(0, 4)));
+      const number = String(Math.max(0, ...taken) + 1).padStart(4, "0");
+      const path = `${DIR}/${number}-${slug2}.md`;
+      const text12 = renderIdea(
+        number,
+        this.clock.now().toISOString().slice(0, 10),
+        idea
+      );
+      try {
+        await this.fs.createFile(this.abs(path), text12);
+      } catch (error) {
+        if (error.code === "EEXIST") {
+          continue;
+        }
+        throw error;
+      }
+      const record6 = parseIdea(path, text12);
+      await this.ensureIndexed(record6);
+      return { created: true, record: record6 };
+    }
+    throw new IdeaError(
+      `Another writer keeps creating ideas in ${DIR}; rerun \`harness idea new\` once it finishes.`
+    );
+  }
+  /** The raw markdown of an idea. */
+  async source(record6) {
+    return await this.fs.readFile(this.abs(record6.path));
+  }
+  /** Records the idea's issue link in its frontmatter, touching nothing else. */
+  async recordIssue(record6, issue) {
+    await this.fs.writeFile(
+      this.abs(record6.path),
+      withIssue(await this.source(record6), issue)
+    );
+  }
+  /** Records the outcome in the idea's frontmatter and as its `## Outcome` section, touching nothing else. */
+  async recordOutcome(record6, result, section) {
+    await this.fs.writeFile(
+      this.abs(record6.path),
+      withOutcome(await this.source(record6), result, section)
+    );
+  }
+  abs(path) {
+    return `${this.root}/${path}`;
+  }
+  async read(name) {
+    const path = `${DIR}/${name}`;
+    return parseIdea(path, await this.fs.readFile(this.abs(path)));
+  }
+  /** Lists the idea in the index unless an entry already points at it, so a rerun repairs a half-finished create. */
+  async ensureIndexed(record6) {
+    const index = await this.fs.readFile(this.abs(INDEX2));
+    if (!index.includes(`](${record6.path.replace(/^docs\//, "")})`)) {
+      await this.fs.writeFile(
+        this.abs(INDEX2),
+        addEntry(index, record6.path, record6.summary)
+      );
+    }
+  }
+  async listNames() {
+    return await this.fs.exists(this.abs(DIR)) ? (await this.fs.readdir(this.abs(DIR))).filter((f) => IDEA_FILE.test(f)).sort() : [];
+  }
+};
+function addEntry(index, path, summary2) {
+  const entry2 = `- [\`${path}\`](${path.replace(/^docs\//, "")}) \u2014 ${summary2}`;
+  const lines3 = index.split("\n");
+  const start = lines3.indexOf(HEADING);
+  if (start === -1) {
+    const next = lines3.indexOf(NEXT_SECTION);
+    const at = next === -1 ? lines3.length : next;
+    const block2 = [HEADING, "", entry2, ""];
+    if (next === -1 && lines3.at(-1) === "") {
+      lines3.splice(lines3.length - 1, 0, "", ...block2.slice(0, -1));
+    } else {
+      lines3.splice(at, 0, ...block2);
+    }
+    return lines3.join("\n");
+  }
+  let end = lines3.findIndex((l, i) => i > start && l.startsWith("## "));
+  if (end === -1) {
+    end = lines3.length;
+  }
+  while (end > start + 1 && lines3[end - 1] === "") {
+    end--;
+  }
+  lines3.splice(end, 0, entry2);
+  return lines3.join("\n");
+}
+
+// src/idea/sync.ts
+var NOT_FOUND = /could not resolve to an issue|issue .*not found|no issue/i;
+var ISSUE_URL = /https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/issues\/(\d+)/;
+function prose(text12) {
+  const lines3 = withoutOutcome(text12).split("\n");
+  const at = lines3.findIndex((l) => /^# Idea \d{4}: /.test(l));
+  return (at === -1 ? "" : lines3.slice(at + 1).join("\n")).trim();
+}
+function renderBody(record6, text12) {
+  const sections = [
+    `<!-- Generated by \`harness idea sync\` from ${record6.path}. Edit that file; changes made here are overwritten. -->`,
+    `## Summary
+
+${record6.summary}`,
+    `## Hypothesis
+
+${record6.hypothesis}`,
+    `## Expected outcome
+
+${record6.expectedOutcome}`,
+    `## Measurement
+
+${record6.measurement}`,
+    `## Safety pattern
+
+${record6.safetyPattern}`
+  ];
+  const extra = prose(text12);
+  if (extra !== "") {
+    sections.push(extra);
+  }
+  return `${sections.join("\n\n")}
+`;
+}
+var normal = (value) => value.replace(/\r\n/g, "\n").trimEnd();
+function locate(issue) {
+  const url = ISSUE_URL.exec(issue);
+  if (url?.[1] !== void 0 && url[2] !== void 0) {
+    return { number: url[2], repo: url[1] };
+  }
+  const bare = /^#?(\d+)$/.exec(issue.trim());
+  return bare?.[1] === void 0 ? void 0 : { number: bare[1] };
+}
+var REPO_PROBLEM = /repositor/i;
+function failure(what, stderr2) {
+  const hint = REPO_PROBLEM.test(stderr2) ? "Check the repository named above, then rerun `harness idea sync`." : fix;
+  return new IdeaError(`${what}: ${stderr2.trim()}. ${hint}`);
+}
+async function resolveRepo(gh3, recorded) {
+  if (recorded !== void 0) {
+    return recorded;
+  }
+  const view = await gh3(["repo", "view", "--json", "nameWithOwner"]);
+  let name;
+  try {
+    name = JSON.parse(view.stdout).nameWithOwner;
+  } catch {
+    name = void 0;
+  }
+  if (view.code !== 0 || typeof name !== "string" || name === "") {
+    throw failure("gh could not tell which repository this is", view.stderr);
+  }
+  return name;
+}
+var fix = "Check `gh auth status` and rerun `harness idea sync`.";
+async function reconcile(gh3, record6, body, at) {
+  const title = record6.title.trim();
+  const issue = record6.issue ?? "";
+  const view = await gh3([
+    "issue",
+    "view",
+    at.number,
+    "--repo",
+    at.repo,
+    "--json",
+    "title,body"
+  ]);
+  if (view.code !== 0) {
+    if (NOT_FOUND.test(view.stderr)) {
+      return void 0;
+    }
+    throw failure(`gh could not read issue ${issue}`, view.stderr);
+  }
+  const current2 = parseView(view.stdout, issue);
+  if (current2.title.trim() === title && normal(current2.body) === normal(body)) {
+    return { action: "unchanged", issue };
+  }
+  const edit = await gh3(
+    [
+      "issue",
+      "edit",
+      at.number,
+      "--repo",
+      at.repo,
+      "--title",
+      title,
+      "--body-file",
+      "-"
+    ],
+    body
+  );
+  if (edit.code !== 0) {
+    throw failure(`gh could not update issue ${issue}`, edit.stderr);
+  }
+  return { action: "updated", issue };
+}
+async function syncIssue(runner, root3, record6, text12, recordLink) {
+  const body = renderBody(record6, text12);
+  const gh3 = async (args, input) => await runner.run("gh", args, {
+    cwd: root3,
+    ...input === void 0 ? {} : { input }
+  });
+  const at = record6.issue === void 0 ? void 0 : locate(record6.issue);
+  if (record6.issue !== void 0 && at === void 0) {
+    throw new IdeaError(
+      `${record6.path} has issue "${record6.issue}", which is not an issue number or link; set it to e.g. 123 or https://github.com/<owner>/<repo>/issues/123.`
+    );
+  }
+  const repo = await resolveRepo(gh3, at?.repo);
+  const existing = at === void 0 ? void 0 : await reconcile(gh3, record6, body, { number: at.number, repo });
+  if (existing !== void 0) {
+    return existing;
+  }
+  const created = await gh3(
+    [
+      "issue",
+      "create",
+      "--repo",
+      repo,
+      "--title",
+      record6.title.trim(),
+      "--body-file",
+      "-"
+    ],
+    body
+  );
+  const url = ISSUE_URL.exec(created.stdout)?.[0];
+  if (created.code !== 0) {
+    throw failure("gh could not create the issue", created.stderr);
+  }
+  if (url === void 0) {
+    throw new IdeaError(
+      `gh reported success but printed no issue link, so the issue may exist: check the repository's issues for "${record6.title.trim()}" in ${repo}, add \`issue: <url>\` to ${record6.path}, then rerun \`harness idea sync\`; otherwise a duplicate is created.`
+    );
+  }
+  try {
+    await recordLink(url);
+  } catch (error) {
+    throw new IdeaError(
+      `Created ${url} but could not record it in ${record6.path}: ${error instanceof Error ? error.message : String(error)}. Add \`issue: ${url}\` to its frontmatter, then rerun \`harness idea sync\`; otherwise a second issue is created.`
+    );
+  }
+  return { action: "created", issue: url };
+}
+function parseView(stdout, issue) {
+  try {
+    const parsed = JSON.parse(stdout);
+    return {
+      title: typeof parsed.title === "string" ? parsed.title : "",
+      body: typeof parsed.body === "string" ? parsed.body : ""
+    };
+  } catch {
+    throw new IdeaError(
+      `gh returned unreadable output for issue ${issue}; rerun \`harness idea sync\`.`
+    );
+  }
+}
+async function issueTarget(runner, root3, record6) {
+  if (record6.issue === void 0) {
+    throw new IdeaError(
+      `${record6.path} has no issue; run \`harness idea sync --idea ${record6.number}\` to create and link it first.`
+    );
+  }
+  const at = locate(record6.issue);
+  if (at === void 0) {
+    throw new IdeaError(
+      `${record6.path} has issue "${record6.issue}", which is not an issue number or link; set it to e.g. 123 or https://github.com/<owner>/<repo>/issues/123.`
+    );
+  }
+  const gh3 = async (args, input) => await runner.run("gh", args, {
+    cwd: root3,
+    ...input === void 0 ? {} : { input }
+  });
+  return { number: at.number, repo: await resolveRepo(gh3, at.repo) };
+}
+
+// src/idea/commands.ts
+var FAILED = 1;
+var SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+async function repository({ deps }) {
+  const root3 = await deps.root().catch((cause) => {
+    throw new IdeaError(cause instanceof Error ? cause.message : String(cause));
+  });
+  return new IdeaRepository(deps.fs, deps.clock, root3);
+}
+async function guarded({ json, deps }, action) {
+  try {
+    await action();
+    return 0;
+  } catch (error) {
+    if (!(error instanceof IdeaError)) {
+      throw error;
+    }
+    const prefix = json ? `${JSON.stringify({ error: error.message })}
+` : "";
+    deps.stderr(`${prefix}${error.message}
+`);
+    return FAILED;
+  }
+}
+function text(options, key) {
+  const value = options[key];
+  return typeof value === "string" ? value : void 0;
+}
+function slugOf(title) {
+  return title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60).replace(/-+$/, "");
+}
+function describe4(record6) {
+  const lines3 = [
+    `Idea ${record6.number}: ${record6.title}`,
+    `Date: ${record6.date}`,
+    `Summary: ${record6.summary}`,
+    `Hypothesis: ${record6.hypothesis}`,
+    `Expected outcome: ${record6.expectedOutcome}`,
+    `Measurement: ${record6.measurement}`,
+    `Safety pattern: ${record6.safetyPattern}`
+  ];
+  for (const [label, value] of [
+    ["Outcome", record6.outcome],
+    ["Issue", record6.issue],
+    ["Parent", record6.parent]
+  ]) {
+    if (value !== void 0) {
+      lines3.push(`${label}: ${value}`);
+    }
+  }
+  lines3.push(`File: ${record6.path}`);
+  return `${lines3.join("\n")}
+`;
+}
+function parseNewIdea(options) {
+  const title = scalar("title", text(options, "title"));
+  const slug2 = text(options, "slug") ?? slugOf(title);
+  if (!SLUG.test(slug2)) {
+    throw new IdeaError(
+      `Slug "${slug2}" is invalid; use lowercase letters, digits and single hyphens, e.g. cache-probe-results.`
+    );
+  }
+  const idea = {
+    title,
+    summary: scalar("summary", text(options, "summary") ?? title),
+    hypothesis: scalar("hypothesis", text(options, "hypothesis")),
+    expectedOutcome: scalar(
+      "expected-outcome",
+      text(options, "expected-outcome")
+    ),
+    measurement: scalar("measurement", text(options, "measurement")),
+    safetyPattern: scalar("safety-pattern", text(options, "safety-pattern"))
+  };
+  for (const key of ["issue", "parent"]) {
+    const value = text(options, key);
+    if (value !== void 0) {
+      idea[key] = scalar(key, value);
+    }
+  }
+  return { slug: slug2, idea };
+}
+var create = {
+  summary: "create the next numbered idea record and index it (--title --hypothesis --expected-outcome --measurement --safety-pattern [--slug] [--summary] [--issue] [--parent])",
+  options: {
+    title: "string",
+    slug: "string",
+    summary: "string",
+    hypothesis: "string",
+    "expected-outcome": "string",
+    measurement: "string",
+    "safety-pattern": "string",
+    issue: "string",
+    parent: "string"
+  },
+  run(context2) {
+    return guarded(context2, async () => {
+      const { slug: slug2, idea } = parseNewIdea(context2.options);
+      const { created, record: record6 } = await (await repository(context2)).create(slug2, idea);
+      context2.deps.stdout(
+        context2.json ? `${JSON.stringify({ created, ...record6 })}
+` : `${created ? "Created" : "Already exists:"} ${record6.path}
+`
+      );
+    });
+  }
+};
+var show = {
+  summary: "print one idea record (--idea <number or slug>)",
+  options: { idea: "string" },
+  run(context2) {
+    return guarded(context2, async () => {
+      const ref = text(context2.options, "idea");
+      if (ref === void 0 || ref.trim() === "") {
+        throw new IdeaError(
+          "Missing --idea; run `harness idea show --idea <number or slug>`, or `harness idea list` to see the ideas."
+        );
+      }
+      const record6 = await (await repository(context2)).get(ref.trim());
+      context2.deps.stdout(
+        context2.json ? `${JSON.stringify(record6)}
+` : describe4(record6)
+      );
+    });
+  }
+};
+var list = {
+  summary: "list every idea record in number order",
+  run(context2) {
+    return guarded(context2, async () => {
+      const records2 = await (await repository(context2)).list();
+      context2.deps.stdout(
+        context2.json ? `${JSON.stringify(records2)}
+` : records2.map((r) => `${r.number} ${r.outcome ?? "open"} ${r.title}
+`).join("")
+      );
+    });
+  }
+};
+var sync = {
+  summary: "mirror one idea to its GitHub issue, creating it when missing and editing only when the body changed (--idea <number or slug>)",
+  options: { idea: "string" },
+  run(context2) {
+    return guarded(context2, async () => {
+      const ref = text(context2.options, "idea");
+      if (ref === void 0 || ref.trim() === "") {
+        throw new IdeaError(
+          "Missing --idea; run `harness idea sync --idea <number or slug>`, or `harness idea list` to see the ideas."
+        );
+      }
+      const repo = await repository(context2);
+      const record6 = await repo.get(ref.trim());
+      const result = await syncIssue(
+        context2.deps.runner,
+        await context2.deps.root(),
+        record6,
+        await repo.source(record6),
+        (url) => repo.recordIssue(record6, url)
+      );
+      context2.deps.stdout(
+        context2.json ? `${JSON.stringify({ idea: record6.number, ...result })}
+` : `Issue ${result.action}: ${result.issue}
+`
+      );
+    });
+  }
+};
+var ideaCommands = {
+  new: create,
+  list,
+  show,
+  sync
+};
+
+// src/ruleset/declared.ts
+var DECLARED_DIR = ".github/rulesets";
+var RulesetError = class extends Error {
+};
+var candidateName = (target2) => `${target2}-candidate`;
+var ruleName = (target2, type) => `${target2}-ruleset-${type.replaceAll("_", "-")}`;
+function parseDeclared(path, text12) {
+  try {
+    const value = JSON.parse(text12);
+    if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+      const body = value;
+      if (typeof body["name"] === "string" && Array.isArray(body["rules"])) {
+        return body;
+      }
+    }
+  } catch {
+  }
+  throw new RulesetError(
+    `${path} must be a JSON object with a "name" and a "rules" list. Fix the file, then rerun.`
+  );
+}
+var rulesOf = (body) => body["rules"] ?? [];
+var typeOf = (rule) => String(rule["type"]);
+var typesOf = (rules2) => rules2.map(typeOf);
+function stage(declared, modeOf2, main, candidate) {
+  const liveMain = new Map(rulesOf(main ?? {}).map((r) => [typeOf(r), r]));
+  const liveCandidate = new Map(
+    rulesOf(candidate ?? {}).map((r) => [typeOf(r), r])
+  );
+  const staged = { main: [], candidate: [], pending: [] };
+  for (const rule of rulesOf(declared)) {
+    const type = typeOf(rule);
+    const params = rule["parameters"] ?? {};
+    const there = liveMain.get(type);
+    const held = liveCandidate.get(type);
+    const observed = held !== void 0 && covers(params, held["parameters"]);
+    if (modeOf2(type) === "enforce" && main === void 0) {
+      staged.main.push(rule);
+    } else if (modeOf2(type) === "enforce" && there && covers(params, there["parameters"])) {
+      staged.main.push(there);
+    } else if (modeOf2(type) === "enforce" && observed) {
+      staged.main.push(rule);
+    } else {
+      staged.candidate.push(rule);
+      if (modeOf2(type) === "enforce") {
+        staged.pending.push(type);
+      }
+      if (there !== void 0) {
+        staged.main.push(there);
+      }
+    }
+  }
+  return staged;
+}
+function covers(want, have) {
+  if (Array.isArray(want)) {
+    return Array.isArray(have) && want.length === have.length && want.every((w, i) => covers(w, have[i]));
+  }
+  if (typeof want === "object" && want !== null) {
+    const live = typeof have === "object" && have !== null ? have : {};
+    return Object.entries(want).every(([k, w]) => covers(w, live[k]));
+  }
+  return want === have;
+}
+function changedRules(want, have) {
+  const live = new Map(have.map((r) => [typeOf(r), r]));
+  return want.filter((w) => {
+    const there = live.get(typeOf(w));
+    return there !== void 0 && !covers(w["parameters"] ?? {}, there["parameters"]);
+  }).map(typeOf);
+}
+var idOf = (live, name) => {
+  if (typeof live["id"] !== "number") {
+    throw new RulesetError(
+      `GitHub returned the live ruleset ${name} without a numeric id, so it cannot be updated. Check it in the repository settings, then rerun.`
+    );
+  }
+  return live["id"];
+};
+var enforcementOf = (live) => typeof live["enforcement"] === "string" ? live["enforcement"] : "unknown";
+function planMain(declared, staged, live) {
+  const body = { ...declared, rules: staged.main, enforcement: "active" };
+  const want = typesOf(staged.main);
+  const none = { weakened: [], pending: staged.pending };
+  if (live === void 0) {
+    return {
+      action: "create",
+      enforcement: "active",
+      added: want,
+      removed: [],
+      changed: [],
+      body,
+      ...none
+    };
+  }
+  const have = typesOf(rulesOf(live));
+  const fields = Object.entries(declared).filter(([key, value]) => key !== "rules" && !covers(value, live[key])).map(([key]) => key);
+  const changed = [...fields, ...changedRules(staged.main, rulesOf(live))];
+  const added = want.filter((t) => !have.includes(t));
+  const removed = have.filter((t) => !typesOf(rulesOf(declared)).includes(t));
+  const from = enforcementOf(live);
+  const unchanged = changed.length + added.length + removed.length === 0 && from === "active";
+  return {
+    action: unchanged ? "none" : "update",
+    id: idOf(live, String(declared["name"])),
+    from,
+    enforcement: "active",
+    added,
+    removed,
+    changed,
+    body,
+    ...none
+  };
+}
+function planCandidate(declared, audited, live) {
+  const name = candidateName(String(declared["name"]));
+  const body = { ...declared, name, rules: audited, enforcement: "evaluate" };
+  const base = {
+    name,
+    enforcement: "evaluate",
+    rules: typesOf(audited),
+    body
+  };
+  if (live === void 0) {
+    return { ...base, action: audited.length === 0 ? "none" : "create" };
+  }
+  const sameRules = typesOf(rulesOf(live)).join() === typesOf(audited).join() && changedRules(audited, rulesOf(live)).length === 0;
+  const sameFields = Object.entries(declared).filter(([key]) => !["rules", "name"].includes(key)).every(([key, value]) => covers(value, live[key]));
+  const unchanged = sameRules && sameFields && enforcementOf(live) === "evaluate";
+  return {
+    ...base,
+    action: unchanged ? "none" : "update",
+    id: idOf(live, name)
+  };
+}
+
+// src/ruleset/github.ts
+var GitHubError = class extends RulesetError {
+  constructor(message, stderr2) {
+    super(message);
+    this.stderr = stderr2;
+  }
+  stderr;
+};
+var PAGE2 = 100;
+var GitHubRulesets = class {
+  constructor(runner, repo) {
+    this.runner = runner;
+    this.repo = repo;
+  }
+  runner;
+  repo;
+  async gh(args, input) {
+    const result = await this.runner.run(
+      "gh",
+      args,
+      input === void 0 ? {} : { input }
+    );
+    if (result.code !== 0) {
+      throw new GitHubError(
+        `gh ${args.join(" ")} failed: ${result.stderr.trim() || `exit ${result.code}`}. Check \`gh auth status\` and that you may administer ${this.repo}.`,
+        result.stderr
+      );
+    }
+    try {
+      return result.stdout.trim() === "" ? {} : JSON.parse(result.stdout);
+    } catch {
+      throw new RulesetError(
+        `gh ${args.join(" ")} did not return JSON: ${result.stdout.slice(0, 80)}. Check \`gh --version\` and \`gh auth status\`, then rerun.`
+      );
+    }
+  }
+  /** The live ruleset with this name, in full, or undefined when GitHub has none. */
+  async list(args) {
+    const value = await this.gh(args);
+    if (!Array.isArray(value)) {
+      throw new RulesetError(
+        `gh ${args.join(" ")} did not return a list. Check that ${this.repo} is an owner/name repository you can read.`
+      );
+    }
+    return value;
+  }
+  async find(name) {
+    const list3 = await this.list(["api", `repos/${this.repo}/rulesets`]);
+    const hit = list3.find((r) => r["name"] === name);
+    return hit === void 0 ? void 0 : await this.gh([
+      "api",
+      `repos/${this.repo}/rulesets/${String(hit["id"])}`
+    ]);
+  }
+  /** The only mutations: a create or an update of one ruleset. */
+  async save(id, body) {
+    const [method, path] = id === void 0 ? ["POST", `repos/${this.repo}/rulesets`] : ["PUT", `repos/${this.repo}/rulesets/${String(id)}`];
+    await this.gh(
+      ["api", "-X", method, path, "--input", "-"],
+      JSON.stringify(body)
+    );
+  }
+  async suites(period) {
+    return await this.list([
+      "api",
+      `repos/${this.repo}/rulesets/rule-suites?time_period=${period}&per_page=${String(PAGE2)}`
+    ]);
+  }
+  async suite(id) {
+    return await this.gh([
+      "api",
+      `repos/${this.repo}/rulesets/rule-suites/${String(id)}`
+    ]);
+  }
+};
+
+// src/ruleset/insights.ts
+var PERIODS = ["hour", "day", "week", "month"];
+var isObject = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+function firedRules(detail2, ruleset, id) {
+  const evaluations = Array.isArray(detail2["rule_evaluations"]) ? detail2["rule_evaluations"] : [];
+  return evaluations.filter(isObject).flatMap((e) => {
+    const source = e["rule_source"];
+    const ours = isObject(source) && (id === void 0 ? source["name"] === ruleset : source["id"] === id);
+    const type = e["rule_type"];
+    return ours && e["enforcement"] === "evaluate" && e["result"] === "fail" && typeof type === "string" ? [type] : [];
+  });
+}
+async function summarize(github, { repo, target: target2, ruleset, targetId, timePeriod }) {
+  const suites = await github.suites(timePeriod);
+  const failing = suites.filter(isObject).filter((s) => s["evaluation_result"] === "fail");
+  const byRule = {};
+  const actors = /* @__PURE__ */ new Set();
+  let firings = 0;
+  for (const suite of failing) {
+    const id = suite["id"];
+    if (typeof id !== "number") {
+      throw new RulesetError(
+        "GitHub listed a rule suite without a numeric id, so its rules cannot be read. Check `gh --version`, then rerun."
+      );
+    }
+    const fired = firedRules(await github.suite(id), ruleset, targetId);
+    if (fired.length === 0) {
+      continue;
+    }
+    firings += 1;
+    for (const type of new Set(fired)) {
+      byRule[type] = (byRule[type] ?? 0) + 1;
+    }
+    if (typeof suite["actor_name"] === "string") {
+      actors.add(suite["actor_name"]);
+    }
+  }
+  return {
+    repo,
+    target: target2,
+    ruleset,
+    timePeriod,
+    suites: suites.length,
+    firings,
+    byRule,
+    actors: [...actors].sort(),
+    truncated: suites.length >= PAGE2
+  };
+}
+
+// src/ruleset/support.ts
+var FAILED2 = 1;
+async function guarded2({ json, deps }, action) {
+  try {
+    return await action();
+  } catch (error) {
+    if (!(error instanceof RulesetError || error instanceof GuardrailError)) {
+      throw error;
+    }
+    deps.stderr(
+      json ? `${JSON.stringify({ error: error.message })}
+` : `${error.message}
+`
+    );
+    return FAILED2;
+  }
+}
+function required(context2, key, meaning) {
+  const value = context2.options[key];
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new RulesetError(
+      `Missing --${key}: a ruleset change names its ${meaning} explicitly, never a default. Rerun with --${key} <value>.`
+    );
+  }
+  return value.trim();
+}
+function destination(context2) {
+  return {
+    repo: required(
+      context2,
+      "repo",
+      "repository, as owner/name, the environment"
+    ),
+    target: required(context2, "target", "ruleset, by name, the target")
+  };
+}
+
+// src/ruleset/weaken.ts
+var object = (value) => typeof value === "object" && value !== null && !Array.isArray(value) ? value : void 0;
+var same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+var LOOSENS_ON_GROWTH = [".allowed_merge_methods"];
+function weaker(was, now, path) {
+  if (Array.isArray(was)) {
+    const kept = Array.isArray(now) ? now : [];
+    const absent = (list3, item) => !list3.some((k) => same(k, item));
+    if (LOOSENS_ON_GROWTH.some((suffix) => path.endsWith(suffix))) {
+      return kept.filter((item) => absent(was, item)).map(() => `${path} gains an entry`);
+    }
+    return was.filter((item) => absent(kept, item)).map(() => `${path} loses an entry`);
+  }
+  const old = object(was);
+  if (old !== void 0) {
+    const next = object(now) ?? {};
+    return Object.entries(old).flatMap(
+      ([key, value]) => key in next ? weaker(value, next[key], `${path}.${key}`) : [`${path}.${key} is removed`]
+    );
+  }
+  if (typeof was === "number" && typeof now === "number") {
+    return now < was ? [`${path} is lowered`] : [];
+  }
+  return same(was, now) ? [] : [`${path} changes`];
+}
+var RULESET_FIELDS = [
+  "name",
+  "target",
+  "enforcement",
+  "conditions",
+  "rules",
+  "bypass_actors"
+];
+var declaredFields = (live) => Object.fromEntries(
+  Object.entries(live).filter(([key]) => RULESET_FIELDS.includes(key))
+);
+var HANDLED = ["name", "enforcement", "rules", "conditions", "bypass_actors"];
+var typed = (body) => new Map(
+  (body["rules"] ?? []).map((r) => [
+    String(r["type"]),
+    r["parameters"] ?? null
+  ])
+);
+function weakenings(previous, after) {
+  const now = typed(after);
+  const removed = [];
+  const params = [];
+  for (const [type, parameters] of typed(previous)) {
+    if (now.has(type)) {
+      params.push(...weaker(parameters, now.get(type), type));
+    } else {
+      removed.push(type);
+    }
+  }
+  const conditions = same(previous["conditions"], after["conditions"]) ? [] : ["conditions change"];
+  const had = previous["bypass_actors"] ?? [];
+  const bypass = (after["bypass_actors"] ?? []).filter((actor) => !had.some((h) => same(h, actor))).map(() => "bypass_actors gains an actor");
+  const others = [.../* @__PURE__ */ new Set([...Object.keys(previous), ...Object.keys(after)])].filter((key) => !HANDLED.includes(key)).filter((key) => !same(previous[key], after[key])).map((key) => `${key} changes`);
+  return { removed, weaker: [...params, ...conditions, ...bypass, ...others] };
+}
+
+// src/ruleset/lock.ts
+async function withLock(deps, repo, action) {
+  const path = `${await deps.root()}/.kore/state/locks/ruleset-${repo.replace(/[^A-Za-z0-9._-]/g, "-")}.lock`;
+  try {
+    await deps.fs.createFile(
+      path,
+      JSON.stringify({ since: deps.clock.now().toISOString() })
+    );
+  } catch (error) {
+    if (error.code !== "EEXIST") {
+      throw error;
+    }
+    throw new RulesetError(
+      `Another ruleset sync holds the lock for ${repo}: ${path}. Wait for it to finish, then rerun. If no sync is running, delete that file, then rerun.`
+    );
+  }
+  try {
+    return await action();
+  } finally {
+    await deps.fs.remove(path);
+  }
+}
+
+// src/ruleset/sync.ts
+async function declaredBody(context2, target2) {
+  const base = await context2.deps.root();
+  const path = `${DECLARED_DIR}/${target2}.json`;
+  let text12;
+  try {
+    text12 = await context2.deps.fs.readFile(`${base}/${path}`);
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
+    throw new RulesetError(
+      `The repository declares no ruleset "${target2}" (no ${path}); it declares the rulesets under ${DECLARED_DIR}, such as main. Check --target.`
+    );
+  }
+  const body = parseDeclared(path, text12);
+  if (body["name"] !== target2) {
+    throw new RulesetError(
+      `${path} names the ruleset "${String(body["name"])}" but --target is ${target2}, and a sync never renames a live ruleset. Fix the "name" in ${path} to ${target2}, or pass the matching --target.`
+    );
+  }
+  return { base, body };
+}
+async function modesOf(context2, base, body) {
+  const { deps } = context2;
+  const inventory = await readInventory((p) => deps.fs.readFile(p), base);
+  const target2 = String(body["name"]);
+  const listed = new Set(inventory.guardrails.map((g) => g.rule));
+  for (const type of typesOf(body["rules"])) {
+    if (!listed.has(ruleName(target2, type))) {
+      throw new RulesetError(
+        `The guardrail inventory has no ${ruleName(target2, type)} rule, so the mode of the ${type} rule is undeclared. Add it to .claude/guardrails.yaml (enforce if main already has the rule live, else audit), then rerun.`
+      );
+    }
+  }
+  return (type) => modeOf(inventory, ruleName(target2, type));
+}
+function describe5(main, candidate) {
+  const parts = [
+    main.added.length > 0 ? `added: ${main.added.join(", ")}` : "",
+    main.removed.length > 0 ? `removed: ${main.removed.join(", ")} (needs --allow-removal)` : "",
+    main.weakened.length > 0 ? `weakened: ${main.weakened.join(", ")} (needs --allow-removal)` : "",
+    main.changed.length > 0 ? `changed: ${main.changed.join(", ")}` : "",
+    main.pending.length > 0 ? `pending: ${main.pending.join(", ")} (in ${candidate.name} until observed)` : ""
+  ].filter((part) => part !== "");
+  const head = main.action === "none" ? "main: no change" : `main: ${main.action} (${main.from ?? "new"} -> active)`;
+  const cand = candidate.action === "none" ? `${candidate.name}: no change` : `${candidate.name}: ${candidate.action} (evaluate); rules: ${candidate.rules.join(", ") || "none"}`;
+  return `  ${[head, ...parts].join("; ")}
+  ${cand}
+`;
+}
+function weakened(body, modes2, live) {
+  if (live === void 0) {
+    return [];
+  }
+  const kept = (live["rules"] ?? []).filter(
+    (r) => modes2(String(r["type"])) === "audit"
+  );
+  const declared = body["rules"].filter(
+    (r) => modes2(String(r["type"])) === "enforce"
+  );
+  return weakenings(declaredFields(live), {
+    ...body,
+    rules: [...declared, ...kept]
+  }).weaker;
+}
+function evaluateRefused(error, name, repo) {
+  if (error instanceof GitHubError && /\b422\b/.test(error.stderr) && /enterprise|evaluate/i.test(error.stderr)) {
+    throw new RulesetError(
+      `GitHub refused evaluate enforcement for ${name} in ${repo} (${error.stderr.trim()}): evaluate is unavailable on this plan. Nothing was changed. Ask the operator how to activate audit rules without evaluate; main stays active meanwhile.`
+    );
+  }
+  throw error;
+}
+async function apply(github, main, candidate, repo) {
+  if (candidate.action !== "none") {
+    await github.save(candidate.id, candidate.body).catch((error) => evaluateRefused(error, candidate.name, repo));
+  }
+  if (main.action !== "none") {
+    await github.save(main.id, main.body);
+  }
+}
+async function syncRuleset(context2) {
+  const { deps, json } = context2;
+  const { repo, target: target2 } = destination(context2);
+  const dryRun = context2.options["dry-run"] === true;
+  const allowRemoval = context2.options["allow-removal"] === true;
+  const { base, body } = await declaredBody(context2, target2);
+  const modes2 = await modesOf(context2, base, body);
+  const github = new GitHubRulesets(deps.runner, repo);
+  const work = async () => {
+    const liveMain = await github.find(target2);
+    const liveCandidate = await github.find(candidateName(target2));
+    const staged = stage(body, modes2, liveMain, liveCandidate);
+    const main = planMain(body, staged, liveMain);
+    main.weakened = weakened(body, modes2, liveMain);
+    const candidate = planCandidate(body, staged.candidate, liveCandidate);
+    const refused = (main.removed.length > 0 || main.weakened.length > 0) && !allowRemoval;
+    const report3 = {
+      repo,
+      target: target2,
+      dryRun,
+      refused,
+      main: { ...main, body: void 0 },
+      candidate: { ...candidate, body: void 0 }
+    };
+    const head = `Ruleset ${target2} in ${repo}`;
+    if (main.action === "none" && candidate.action === "none" && !refused) {
+      deps.stdout(
+        json ? `${JSON.stringify(report3)}
+` : `${head}: no change; main is active and the candidate matches.
+`
+      );
+      return 0;
+    }
+    if (dryRun) {
+      deps.stdout(
+        json ? `${JSON.stringify(report3)}
+` : `${head}: dry run, nothing changed. Planned:
+${describe5(main, candidate)}`
+      );
+      return 0;
+    }
+    if (refused) {
+      const problems = [
+        ...main.removed.length > 0 ? [`removes ${main.removed.join(", ")}`] : [],
+        ...main.weakened
+      ];
+      throw new RulesetError(
+        `${head} would weaken main (${problems.join("; ")}), so nothing was sent. Instead, restore it in ${DECLARED_DIR}/${target2}.json, or rerun with --allow-removal once the operator agrees.`
+      );
+    }
+    if (context2.options["confirm"] !== true) {
+      throw new RulesetError(
+        `${head} would change, but nothing was sent. Changing the live ruleset needs the operator's confirmation first:
+${describe5(main, candidate)}Preview with --dry-run, then rerun with --confirm once the operator agrees.`
+      );
+    }
+    await apply(github, main, candidate, repo);
+    deps.stdout(
+      json ? `${JSON.stringify(report3)}
+` : `${head} changed:
+${describe5(main, candidate)}`
+    );
+    return 0;
+  };
+  return dryRun ? await work() : await withLock(deps, repo, work);
+}
+
+// src/ruleset/commands.ts
+async function ruleInsights(context2) {
+  const { deps, json } = context2;
+  const { repo, target: target2 } = destination(context2);
+  const given = context2.options["time-period"];
+  const period = typeof given === "string" ? given : "week";
+  if (!PERIODS.includes(period)) {
+    throw new RulesetError(
+      `--time-period ${period} is not one of ${PERIODS.join(", ")}. Rerun with --time-period <${PERIODS.join("|")}>.`
+    );
+  }
+  const github = new GitHubRulesets(deps.runner, repo);
+  const candidate = candidateName(target2);
+  const live = await github.find(candidate);
+  const result = await summarize(github, {
+    repo,
+    target: target2,
+    ruleset: candidate,
+    targetId: typeof live?.["id"] === "number" ? live["id"] : void 0,
+    timePeriod: period
+  });
+  if (json) {
+    deps.stdout(`${JSON.stringify(result)}
+`);
+    return 0;
+  }
+  const rules2 = Object.entries(result.byRule).map(
+    ([rule, count3]) => `  ${rule}	${count3}
+`
+  );
+  deps.stdout(
+    `Ruleset ${target2} in ${repo}, last ${period}: ${result.firings} evaluate firings in ${result.suites} rule suites.
+${rules2.join("")}${result.actors.length > 0 ? `Actors: ${result.actors.join(", ")}
+` : ""}${result.truncated ? "Truncated: more suites exist than one page; narrow --time-period.\n" : ""}`
+  );
+  return 0;
+}
+var sync2 = {
+  summary: "sync a repository ruleset from .github/rulesets/<target>.json: main stays active with the enforce rules (one main-ruleset-<rule> inventory entry each), audit rules sync into <target>-candidate in evaluate; --dry-run shows the plan and mutates nothing; a live change needs --confirm after the operator agrees, and removing a rule from main needs --allow-removal (--repo <owner/name> --target <name> [--dry-run] [--confirm] [--allow-removal])",
+  options: {
+    repo: "string",
+    target: "string",
+    "dry-run": "boolean",
+    confirm: "boolean",
+    "allow-removal": "boolean"
+  },
+  run: (context2) => guarded2(context2, () => syncRuleset(context2))
+};
+var insights = {
+  summary: "summarize what the evaluate-mode candidate ruleset would have blocked, by rule, from GitHub's rule-suite insights; read-only, for the activation request (--repo <owner/name> --target <name> [--time-period hour|day|week|month])",
+  options: { repo: "string", target: "string", "time-period": "string" },
+  run: (context2) => guarded2(context2, () => ruleInsights(context2))
+};
+var rulesetCommands = { sync: sync2, insights };
+
+// src/ruleset/evidence.ts
+function ruleType(rule, target2) {
+  const prefix = `${target2}-ruleset-`;
+  if (!rule.startsWith(prefix)) {
+    throw new RulesetError(
+      `${rule} does not belong to the ${target2} ruleset, whose rules are named ${prefix}<type>. Instead, pass the --target that owns it.`
+    );
+  }
+  return rule.slice(prefix.length).replaceAll("-", "_");
+}
+async function ruleFirings(runner, subject) {
+  const { repo, target: target2, rule, timePeriod } = subject;
+  if (!PERIODS.includes(timePeriod)) {
+    throw new RulesetError(
+      `--time-period ${timePeriod} is not one of ${PERIODS.join(", ")}. Rerun with --time-period <${PERIODS.join("|")}>.`
+    );
+  }
+  const type = ruleType(rule, target2);
+  const github = new GitHubRulesets(runner, repo);
+  const ruleset = candidateName(target2);
+  const live = await github.find(ruleset);
+  const result = await summarize(github, {
+    repo,
+    target: target2,
+    ruleset,
+    targetId: typeof live?.["id"] === "number" ? live["id"] : void 0,
+    timePeriod
+  });
+  return {
+    ruleset,
+    timePeriod,
+    suites: result.suites,
+    firings: result.byRule[type] ?? 0,
+    truncated: result.truncated
+  };
 }
 
 // src/hook/feedback.ts
@@ -1738,10 +3165,10 @@ function usageOf(raw) {
     return void 0;
   }
 }
-function advance(state, text11) {
-  const end = text11.lastIndexOf("\n") + 1;
+function advance(state, text12) {
+  const end = text12.lastIndexOf("\n") + 1;
   let { total, lastId, lastTokens } = state;
-  for (const raw of text11.slice(0, end).split("\n")) {
+  for (const raw of text12.slice(0, end).split("\n")) {
     const usage2 = usageOf(raw);
     if (usage2 === void 0) {
       continue;
@@ -1751,15 +3178,15 @@ function advance(state, text11) {
     lastTokens = usage2.tokens;
   }
   return {
-    offset: state.offset + Buffer.byteLength(text11.slice(0, end)),
+    offset: state.offset + Buffer.byteLength(text12.slice(0, end)),
     total,
     ...lastId === void 0 ? {} : { lastId },
     ...lastTokens === void 0 ? {} : { lastTokens }
   };
 }
-function parseState(text11) {
+function parseState(text12) {
   try {
-    const value = JSON.parse(text11);
+    const value = JSON.parse(text12);
     const { offset, total, lastId, lastTokens } = value;
     return typeof offset === "number" && typeof total === "number" && Number.isSafeInteger(offset) && offset >= 0 && total >= 0 ? {
       offset,
@@ -2150,7 +3577,7 @@ function denies(source) {
 }
 var PERMISSION2 = /"((?:Bash|Read|Edit|Write)\([^"]*\))"/g;
 var permissions = (source) => [...source.matchAll(PERMISSION2)].map((m) => m[1]);
-function weakened(previous, after) {
+function weakened2(previous, after) {
   const was = denies(previous);
   if (was.size === 0) {
     const kept = permissions(after);
@@ -2177,7 +3604,7 @@ function checkGuardrailDemotion(relative3, previous, after) {
     return null;
   }
   const rules2 = demoted(previous, after);
-  const weak = weakened(previous, after);
+  const weak = weakened2(previous, after);
   if (rules2.length === 0 && weak.length === 0) {
     return null;
   }
@@ -2237,598 +3664,11 @@ function checkSettingsDenyRemoval(relative3, previous, after, ctx) {
   );
 }
 
-// src/ruleset/declared.ts
-var DECLARED_DIR = ".github/rulesets";
-var RulesetError = class extends Error {
-};
-var candidateName = (target2) => `${target2}-candidate`;
-var ruleName = (target2, type) => `${target2}-ruleset-${type.replaceAll("_", "-")}`;
-function parseDeclared(path, text11) {
-  try {
-    const value = JSON.parse(text11);
-    if (typeof value === "object" && value !== null && !Array.isArray(value)) {
-      const body = value;
-      if (typeof body["name"] === "string" && Array.isArray(body["rules"])) {
-        return body;
-      }
-    }
-  } catch {
-  }
-  throw new RulesetError(
-    `${path} must be a JSON object with a "name" and a "rules" list. Fix the file, then rerun.`
-  );
-}
-var rulesOf = (body) => body["rules"] ?? [];
-var typeOf = (rule) => String(rule["type"]);
-var typesOf = (rules2) => rules2.map(typeOf);
-function stage(declared, modeOf2, main, candidate) {
-  const liveMain = new Map(rulesOf(main ?? {}).map((r) => [typeOf(r), r]));
-  const liveCandidate = new Map(
-    rulesOf(candidate ?? {}).map((r) => [typeOf(r), r])
-  );
-  const staged = { main: [], candidate: [], pending: [] };
-  for (const rule of rulesOf(declared)) {
-    const type = typeOf(rule);
-    const params = rule["parameters"] ?? {};
-    const there = liveMain.get(type);
-    const held = liveCandidate.get(type);
-    const observed = held !== void 0 && covers(params, held["parameters"]);
-    if (modeOf2(type) === "enforce" && main === void 0) {
-      staged.main.push(rule);
-    } else if (modeOf2(type) === "enforce" && there && covers(params, there["parameters"])) {
-      staged.main.push(there);
-    } else if (modeOf2(type) === "enforce" && observed) {
-      staged.main.push(rule);
-    } else {
-      staged.candidate.push(rule);
-      if (modeOf2(type) === "enforce") {
-        staged.pending.push(type);
-      }
-      if (there !== void 0) {
-        staged.main.push(there);
-      }
-    }
-  }
-  return staged;
-}
-function covers(want, have) {
-  if (Array.isArray(want)) {
-    return Array.isArray(have) && want.length === have.length && want.every((w, i) => covers(w, have[i]));
-  }
-  if (typeof want === "object" && want !== null) {
-    const live = typeof have === "object" && have !== null ? have : {};
-    return Object.entries(want).every(([k, w]) => covers(w, live[k]));
-  }
-  return want === have;
-}
-function changedRules(want, have) {
-  const live = new Map(have.map((r) => [typeOf(r), r]));
-  return want.filter((w) => {
-    const there = live.get(typeOf(w));
-    return there !== void 0 && !covers(w["parameters"] ?? {}, there["parameters"]);
-  }).map(typeOf);
-}
-var idOf = (live, name) => {
-  if (typeof live["id"] !== "number") {
-    throw new RulesetError(
-      `GitHub returned the live ruleset ${name} without a numeric id, so it cannot be updated. Check it in the repository settings, then rerun.`
-    );
-  }
-  return live["id"];
-};
-var enforcementOf = (live) => typeof live["enforcement"] === "string" ? live["enforcement"] : "unknown";
-function planMain(declared, staged, live) {
-  const body = { ...declared, rules: staged.main, enforcement: "active" };
-  const want = typesOf(staged.main);
-  const none = { weakened: [], pending: staged.pending };
-  if (live === void 0) {
-    return {
-      action: "create",
-      enforcement: "active",
-      added: want,
-      removed: [],
-      changed: [],
-      body,
-      ...none
-    };
-  }
-  const have = typesOf(rulesOf(live));
-  const fields = Object.entries(declared).filter(([key, value]) => key !== "rules" && !covers(value, live[key])).map(([key]) => key);
-  const changed = [...fields, ...changedRules(staged.main, rulesOf(live))];
-  const added = want.filter((t) => !have.includes(t));
-  const removed = have.filter((t) => !typesOf(rulesOf(declared)).includes(t));
-  const from = enforcementOf(live);
-  const unchanged = changed.length + added.length + removed.length === 0 && from === "active";
-  return {
-    action: unchanged ? "none" : "update",
-    id: idOf(live, String(declared["name"])),
-    from,
-    enforcement: "active",
-    added,
-    removed,
-    changed,
-    body,
-    ...none
-  };
-}
-function planCandidate(declared, audited, live) {
-  const name = candidateName(String(declared["name"]));
-  const body = { ...declared, name, rules: audited, enforcement: "evaluate" };
-  const base = {
-    name,
-    enforcement: "evaluate",
-    rules: typesOf(audited),
-    body
-  };
-  if (live === void 0) {
-    return { ...base, action: audited.length === 0 ? "none" : "create" };
-  }
-  const sameRules = typesOf(rulesOf(live)).join() === typesOf(audited).join() && changedRules(audited, rulesOf(live)).length === 0;
-  const sameFields = Object.entries(declared).filter(([key]) => !["rules", "name"].includes(key)).every(([key, value]) => covers(value, live[key]));
-  const unchanged = sameRules && sameFields && enforcementOf(live) === "evaluate";
-  return {
-    ...base,
-    action: unchanged ? "none" : "update",
-    id: idOf(live, name)
-  };
-}
-
-// src/ruleset/github.ts
-var GitHubError = class extends RulesetError {
-  constructor(message, stderr2) {
-    super(message);
-    this.stderr = stderr2;
-  }
-  stderr;
-};
-var PAGE2 = 100;
-var GitHubRulesets = class {
-  constructor(runner, repo) {
-    this.runner = runner;
-    this.repo = repo;
-  }
-  runner;
-  repo;
-  async gh(args, input) {
-    const result = await this.runner.run(
-      "gh",
-      args,
-      input === void 0 ? {} : { input }
-    );
-    if (result.code !== 0) {
-      throw new GitHubError(
-        `gh ${args.join(" ")} failed: ${result.stderr.trim() || `exit ${result.code}`}. Check \`gh auth status\` and that you may administer ${this.repo}.`,
-        result.stderr
-      );
-    }
-    try {
-      return result.stdout.trim() === "" ? {} : JSON.parse(result.stdout);
-    } catch {
-      throw new RulesetError(
-        `gh ${args.join(" ")} did not return JSON: ${result.stdout.slice(0, 80)}. Check \`gh --version\` and \`gh auth status\`, then rerun.`
-      );
-    }
-  }
-  /** The live ruleset with this name, in full, or undefined when GitHub has none. */
-  async list(args) {
-    const value = await this.gh(args);
-    if (!Array.isArray(value)) {
-      throw new RulesetError(
-        `gh ${args.join(" ")} did not return a list. Check that ${this.repo} is an owner/name repository you can read.`
-      );
-    }
-    return value;
-  }
-  async find(name) {
-    const list3 = await this.list(["api", `repos/${this.repo}/rulesets`]);
-    const hit = list3.find((r) => r["name"] === name);
-    return hit === void 0 ? void 0 : await this.gh([
-      "api",
-      `repos/${this.repo}/rulesets/${String(hit["id"])}`
-    ]);
-  }
-  /** The only mutations: a create or an update of one ruleset. */
-  async save(id, body) {
-    const [method, path] = id === void 0 ? ["POST", `repos/${this.repo}/rulesets`] : ["PUT", `repos/${this.repo}/rulesets/${String(id)}`];
-    await this.gh(
-      ["api", "-X", method, path, "--input", "-"],
-      JSON.stringify(body)
-    );
-  }
-  async suites(period) {
-    return await this.list([
-      "api",
-      `repos/${this.repo}/rulesets/rule-suites?time_period=${period}&per_page=${String(PAGE2)}`
-    ]);
-  }
-  async suite(id) {
-    return await this.gh([
-      "api",
-      `repos/${this.repo}/rulesets/rule-suites/${String(id)}`
-    ]);
-  }
-};
-
-// src/ruleset/insights.ts
-var PERIODS = ["hour", "day", "week", "month"];
-var isObject = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
-function firedRules(detail2, ruleset, id) {
-  const evaluations = Array.isArray(detail2["rule_evaluations"]) ? detail2["rule_evaluations"] : [];
-  return evaluations.filter(isObject).flatMap((e) => {
-    const source = e["rule_source"];
-    const ours = isObject(source) && (id === void 0 ? source["name"] === ruleset : source["id"] === id);
-    const type = e["rule_type"];
-    return ours && e["enforcement"] === "evaluate" && e["result"] === "fail" && typeof type === "string" ? [type] : [];
-  });
-}
-async function summarize(github, { repo, target: target2, ruleset, targetId, timePeriod }) {
-  const suites = await github.suites(timePeriod);
-  const failing = suites.filter(isObject).filter((s) => s["evaluation_result"] === "fail");
-  const byRule = {};
-  const actors = /* @__PURE__ */ new Set();
-  let firings = 0;
-  for (const suite of failing) {
-    const id = suite["id"];
-    if (typeof id !== "number") {
-      throw new RulesetError(
-        "GitHub listed a rule suite without a numeric id, so its rules cannot be read. Check `gh --version`, then rerun."
-      );
-    }
-    const fired = firedRules(await github.suite(id), ruleset, targetId);
-    if (fired.length === 0) {
-      continue;
-    }
-    firings += 1;
-    for (const type of new Set(fired)) {
-      byRule[type] = (byRule[type] ?? 0) + 1;
-    }
-    if (typeof suite["actor_name"] === "string") {
-      actors.add(suite["actor_name"]);
-    }
-  }
-  return {
-    repo,
-    target: target2,
-    ruleset,
-    timePeriod,
-    suites: suites.length,
-    firings,
-    byRule,
-    actors: [...actors].sort(),
-    truncated: suites.length >= PAGE2
-  };
-}
-
-// src/ruleset/support.ts
-var FAILED = 1;
-async function guarded({ json, deps }, action) {
-  try {
-    return await action();
-  } catch (error) {
-    if (!(error instanceof RulesetError || error instanceof GuardrailError)) {
-      throw error;
-    }
-    deps.stderr(
-      json ? `${JSON.stringify({ error: error.message })}
-` : `${error.message}
-`
-    );
-    return FAILED;
-  }
-}
-function required(context2, key, meaning) {
-  const value = context2.options[key];
-  if (typeof value !== "string" || value.trim() === "") {
-    throw new RulesetError(
-      `Missing --${key}: a ruleset change names its ${meaning} explicitly, never a default. Rerun with --${key} <value>.`
-    );
-  }
-  return value.trim();
-}
-function destination(context2) {
-  return {
-    repo: required(
-      context2,
-      "repo",
-      "repository, as owner/name, the environment"
-    ),
-    target: required(context2, "target", "ruleset, by name, the target")
-  };
-}
-
-// src/ruleset/weaken.ts
-var object = (value) => typeof value === "object" && value !== null && !Array.isArray(value) ? value : void 0;
-var same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-var LOOSENS_ON_GROWTH = [".allowed_merge_methods"];
-function weaker(was, now, path) {
-  if (Array.isArray(was)) {
-    const kept = Array.isArray(now) ? now : [];
-    const absent = (list3, item) => !list3.some((k) => same(k, item));
-    if (LOOSENS_ON_GROWTH.some((suffix) => path.endsWith(suffix))) {
-      return kept.filter((item) => absent(was, item)).map(() => `${path} gains an entry`);
-    }
-    return was.filter((item) => absent(kept, item)).map(() => `${path} loses an entry`);
-  }
-  const old = object(was);
-  if (old !== void 0) {
-    const next = object(now) ?? {};
-    return Object.entries(old).flatMap(
-      ([key, value]) => key in next ? weaker(value, next[key], `${path}.${key}`) : [`${path}.${key} is removed`]
-    );
-  }
-  if (typeof was === "number" && typeof now === "number") {
-    return now < was ? [`${path} is lowered`] : [];
-  }
-  return same(was, now) ? [] : [`${path} changes`];
-}
-var RULESET_FIELDS = [
-  "name",
-  "target",
-  "enforcement",
-  "conditions",
-  "rules",
-  "bypass_actors"
-];
-var declaredFields = (live) => Object.fromEntries(
-  Object.entries(live).filter(([key]) => RULESET_FIELDS.includes(key))
-);
-var HANDLED = ["name", "enforcement", "rules", "conditions", "bypass_actors"];
-var typed = (body) => new Map(
-  (body["rules"] ?? []).map((r) => [
-    String(r["type"]),
-    r["parameters"] ?? null
-  ])
-);
-function weakenings(previous, after) {
-  const now = typed(after);
-  const removed = [];
-  const params = [];
-  for (const [type, parameters] of typed(previous)) {
-    if (now.has(type)) {
-      params.push(...weaker(parameters, now.get(type), type));
-    } else {
-      removed.push(type);
-    }
-  }
-  const conditions = same(previous["conditions"], after["conditions"]) ? [] : ["conditions change"];
-  const had = previous["bypass_actors"] ?? [];
-  const bypass = (after["bypass_actors"] ?? []).filter((actor) => !had.some((h) => same(h, actor))).map(() => "bypass_actors gains an actor");
-  const others = [.../* @__PURE__ */ new Set([...Object.keys(previous), ...Object.keys(after)])].filter((key) => !HANDLED.includes(key)).filter((key) => !same(previous[key], after[key])).map((key) => `${key} changes`);
-  return { removed, weaker: [...params, ...conditions, ...bypass, ...others] };
-}
-
-// src/ruleset/lock.ts
-async function withLock(deps, repo, action) {
-  const path = `${await deps.root()}/.kore/state/locks/ruleset-${repo.replace(/[^A-Za-z0-9._-]/g, "-")}.lock`;
-  try {
-    await deps.fs.createFile(
-      path,
-      JSON.stringify({ since: deps.clock.now().toISOString() })
-    );
-  } catch (error) {
-    if (error.code !== "EEXIST") {
-      throw error;
-    }
-    throw new RulesetError(
-      `Another ruleset sync holds the lock for ${repo}: ${path}. Wait for it to finish, then rerun. If no sync is running, delete that file, then rerun.`
-    );
-  }
-  try {
-    return await action();
-  } finally {
-    await deps.fs.remove(path);
-  }
-}
-
-// src/ruleset/sync.ts
-async function declaredBody(context2, target2) {
-  const base = await context2.deps.root();
-  const path = `${DECLARED_DIR}/${target2}.json`;
-  let text11;
-  try {
-    text11 = await context2.deps.fs.readFile(`${base}/${path}`);
-  } catch (error) {
-    if (error.code !== "ENOENT") {
-      throw error;
-    }
-    throw new RulesetError(
-      `The repository declares no ruleset "${target2}" (no ${path}); it declares the rulesets under ${DECLARED_DIR}, such as main. Check --target.`
-    );
-  }
-  const body = parseDeclared(path, text11);
-  if (body["name"] !== target2) {
-    throw new RulesetError(
-      `${path} names the ruleset "${String(body["name"])}" but --target is ${target2}, and a sync never renames a live ruleset. Fix the "name" in ${path} to ${target2}, or pass the matching --target.`
-    );
-  }
-  return { base, body };
-}
-async function modesOf(context2, base, body) {
-  const { deps } = context2;
-  const inventory = await readInventory((p) => deps.fs.readFile(p), base);
-  const target2 = String(body["name"]);
-  const listed = new Set(inventory.guardrails.map((g) => g.rule));
-  for (const type of typesOf(body["rules"])) {
-    if (!listed.has(ruleName(target2, type))) {
-      throw new RulesetError(
-        `The guardrail inventory has no ${ruleName(target2, type)} rule, so the mode of the ${type} rule is undeclared. Add it to .claude/guardrails.yaml (enforce if main already has the rule live, else audit), then rerun.`
-      );
-    }
-  }
-  return (type) => modeOf(inventory, ruleName(target2, type));
-}
-function describe4(main, candidate) {
-  const parts = [
-    main.added.length > 0 ? `added: ${main.added.join(", ")}` : "",
-    main.removed.length > 0 ? `removed: ${main.removed.join(", ")} (needs --allow-removal)` : "",
-    main.weakened.length > 0 ? `weakened: ${main.weakened.join(", ")} (needs --allow-removal)` : "",
-    main.changed.length > 0 ? `changed: ${main.changed.join(", ")}` : "",
-    main.pending.length > 0 ? `pending: ${main.pending.join(", ")} (in ${candidate.name} until observed)` : ""
-  ].filter((part) => part !== "");
-  const head = main.action === "none" ? "main: no change" : `main: ${main.action} (${main.from ?? "new"} -> active)`;
-  const cand = candidate.action === "none" ? `${candidate.name}: no change` : `${candidate.name}: ${candidate.action} (evaluate); rules: ${candidate.rules.join(", ") || "none"}`;
-  return `  ${[head, ...parts].join("; ")}
-  ${cand}
-`;
-}
-function weakened2(body, modes2, live) {
-  if (live === void 0) {
-    return [];
-  }
-  const kept = (live["rules"] ?? []).filter(
-    (r) => modes2(String(r["type"])) === "audit"
-  );
-  const declared = body["rules"].filter(
-    (r) => modes2(String(r["type"])) === "enforce"
-  );
-  return weakenings(declaredFields(live), {
-    ...body,
-    rules: [...declared, ...kept]
-  }).weaker;
-}
-function evaluateRefused(error, name, repo) {
-  if (error instanceof GitHubError && /\b422\b/.test(error.stderr) && /enterprise|evaluate/i.test(error.stderr)) {
-    throw new RulesetError(
-      `GitHub refused evaluate enforcement for ${name} in ${repo} (${error.stderr.trim()}): evaluate is unavailable on this plan. Nothing was changed. Ask the operator how to activate audit rules without evaluate; main stays active meanwhile.`
-    );
-  }
-  throw error;
-}
-async function apply(github, main, candidate, repo) {
-  if (candidate.action !== "none") {
-    await github.save(candidate.id, candidate.body).catch((error) => evaluateRefused(error, candidate.name, repo));
-  }
-  if (main.action !== "none") {
-    await github.save(main.id, main.body);
-  }
-}
-async function syncRuleset(context2) {
-  const { deps, json } = context2;
-  const { repo, target: target2 } = destination(context2);
-  const dryRun = context2.options["dry-run"] === true;
-  const allowRemoval = context2.options["allow-removal"] === true;
-  const { base, body } = await declaredBody(context2, target2);
-  const modes2 = await modesOf(context2, base, body);
-  const github = new GitHubRulesets(deps.runner, repo);
-  const work = async () => {
-    const liveMain = await github.find(target2);
-    const liveCandidate = await github.find(candidateName(target2));
-    const staged = stage(body, modes2, liveMain, liveCandidate);
-    const main = planMain(body, staged, liveMain);
-    main.weakened = weakened2(body, modes2, liveMain);
-    const candidate = planCandidate(body, staged.candidate, liveCandidate);
-    const refused = (main.removed.length > 0 || main.weakened.length > 0) && !allowRemoval;
-    const report3 = {
-      repo,
-      target: target2,
-      dryRun,
-      refused,
-      main: { ...main, body: void 0 },
-      candidate: { ...candidate, body: void 0 }
-    };
-    const head = `Ruleset ${target2} in ${repo}`;
-    if (main.action === "none" && candidate.action === "none" && !refused) {
-      deps.stdout(
-        json ? `${JSON.stringify(report3)}
-` : `${head}: no change; main is active and the candidate matches.
-`
-      );
-      return 0;
-    }
-    if (dryRun) {
-      deps.stdout(
-        json ? `${JSON.stringify(report3)}
-` : `${head}: dry run, nothing changed. Planned:
-${describe4(main, candidate)}`
-      );
-      return 0;
-    }
-    if (refused) {
-      const problems = [
-        ...main.removed.length > 0 ? [`removes ${main.removed.join(", ")}`] : [],
-        ...main.weakened
-      ];
-      throw new RulesetError(
-        `${head} would weaken main (${problems.join("; ")}), so nothing was sent. Instead, restore it in ${DECLARED_DIR}/${target2}.json, or rerun with --allow-removal once the operator agrees.`
-      );
-    }
-    if (context2.options["confirm"] !== true) {
-      throw new RulesetError(
-        `${head} would change, but nothing was sent. Changing the live ruleset needs the operator's confirmation first:
-${describe4(main, candidate)}Preview with --dry-run, then rerun with --confirm once the operator agrees.`
-      );
-    }
-    await apply(github, main, candidate, repo);
-    deps.stdout(
-      json ? `${JSON.stringify(report3)}
-` : `${head} changed:
-${describe4(main, candidate)}`
-    );
-    return 0;
-  };
-  return dryRun ? await work() : await withLock(deps, repo, work);
-}
-
-// src/ruleset/commands.ts
-async function ruleInsights(context2) {
-  const { deps, json } = context2;
-  const { repo, target: target2 } = destination(context2);
-  const given = context2.options["time-period"];
-  const period = typeof given === "string" ? given : "week";
-  if (!PERIODS.includes(period)) {
-    throw new RulesetError(
-      `--time-period ${period} is not one of ${PERIODS.join(", ")}. Rerun with --time-period <${PERIODS.join("|")}>.`
-    );
-  }
-  const github = new GitHubRulesets(deps.runner, repo);
-  const candidate = candidateName(target2);
-  const live = await github.find(candidate);
-  const result = await summarize(github, {
-    repo,
-    target: target2,
-    ruleset: candidate,
-    targetId: typeof live?.["id"] === "number" ? live["id"] : void 0,
-    timePeriod: period
-  });
-  if (json) {
-    deps.stdout(`${JSON.stringify(result)}
-`);
-    return 0;
-  }
-  const rules2 = Object.entries(result.byRule).map(
-    ([rule, count3]) => `  ${rule}	${count3}
-`
-  );
-  deps.stdout(
-    `Ruleset ${target2} in ${repo}, last ${period}: ${result.firings} evaluate firings in ${result.suites} rule suites.
-${rules2.join("")}${result.actors.length > 0 ? `Actors: ${result.actors.join(", ")}
-` : ""}${result.truncated ? "Truncated: more suites exist than one page; narrow --time-period.\n" : ""}`
-  );
-  return 0;
-}
-var sync = {
-  summary: "sync a repository ruleset from .github/rulesets/<target>.json: main stays active with the enforce rules (one main-ruleset-<rule> inventory entry each), audit rules sync into <target>-candidate in evaluate; --dry-run shows the plan and mutates nothing; a live change needs --confirm after the operator agrees, and removing a rule from main needs --allow-removal (--repo <owner/name> --target <name> [--dry-run] [--confirm] [--allow-removal])",
-  options: {
-    repo: "string",
-    target: "string",
-    "dry-run": "boolean",
-    confirm: "boolean",
-    "allow-removal": "boolean"
-  },
-  run: (context2) => guarded(context2, () => syncRuleset(context2))
-};
-var insights = {
-  summary: "summarize what the evaluate-mode candidate ruleset would have blocked, by rule, from GitHub's rule-suite insights; read-only, for the activation request (--repo <owner/name> --target <name> [--time-period hour|day|week|month])",
-  options: { repo: "string", target: "string", "time-period": "string" },
-  run: (context2) => guarded(context2, () => ruleInsights(context2))
-};
-var rulesetCommands = { sync, insights };
-
 // src/hook/guard-ruleset.ts
 var RULESET_FILE = /^\.github\/rulesets\/[^/]+\.json$/;
-var parse = (text11) => {
+var parse = (text12) => {
   try {
-    const value = JSON.parse(text11);
+    const value = JSON.parse(text12);
     return typeof value === "object" && value !== null && !Array.isArray(value) ? value : void 0;
   } catch {
     return void 0;
@@ -3210,14 +4050,14 @@ var secretBlock = () => block(
   "Key and token material under .kore/ must not be read or written directly. Instead, use a kore command that streams the secret through stdin, or ask the user to handle it."
 );
 async function loadSopsPatterns(ctx) {
-  let text11;
+  let text12;
   try {
-    text11 = await ctx.readFile(`${ctx.root}/.sops.yaml`);
+    text12 = await ctx.readFile(`${ctx.root}/.sops.yaml`);
   } catch {
     return [];
   }
   const patterns = [];
-  for (const match of text11.matchAll(/path_regex:\s*(.+)$/gm)) {
+  for (const match of text12.matchAll(/path_regex:\s*(.+)$/gm)) {
     const source = match[1].trim().replace(/^['"]|['"]$/g, "");
     try {
       patterns.push(new RegExp(source));
@@ -3232,8 +4072,8 @@ var sopsBlock = (path) => block(
 );
 
 // src/hook/guard-bash.ts
-async function sopsWrite(name, segment, text11, ctx) {
-  const writes2 = text11.includes(">") || ["tee", "cp", "mv", "sed"].includes(name);
+async function sopsWrite(name, segment, text12, ctx) {
+  const writes2 = text12.includes(">") || ["tee", "cp", "mv", "sed"].includes(name);
   if (name === "sops" || !writes2) {
     return null;
   }
@@ -3249,12 +4089,12 @@ async function checkBashSegment(segment, ctx) {
   if (!name) {
     return [];
   }
-  const text11 = segment.join(" ");
-  if (!SECRET_SAFE.has(name) && !isKore(name, args) && SECRET_PATH.test(text11)) {
+  const text12 = segment.join(" ");
+  if (!SECRET_SAFE.has(name) && !isKore(name, args) && SECRET_PATH.test(text12)) {
     return [secretBlock()];
   }
   return [
-    await sopsWrite(name, segment, text11, ctx),
+    await sopsWrite(name, segment, text12, ctx),
     checkDestructive(name, args),
     checkContext(name, args),
     checkNoVerify(name, args),
@@ -3264,7 +4104,7 @@ async function checkBashSegment(segment, ctx) {
     checkGuardrailBash(name, args, segment),
     checkDenyRemovalBash(name, args),
     checkRulesetSyncBash(name, args),
-    ...checkDenyAudit("Bash", text11, ctx)
+    ...checkDenyAudit("Bash", text12, ctx)
   ];
 }
 var UNQUOTED_GLOB = /(?:^|\s)--(include|exclude)=([^\s'"]*\*[^\s'"]*)/;
@@ -3279,10 +4119,10 @@ function unquotedGlob(command) {
   );
 }
 function zshWords(command) {
-  const text11 = shellText(command).replace(/\$?\(\([^)]*\)\)/g, "");
-  const words2 = rawWords(text11);
+  const text12 = shellText(command).replace(/\$?\(\([^)]*\)\)/g, "");
+  const words2 = rawWords(text12);
   const glob = words2.find((w) => w.glob && !w.text.includes("${"));
-  const equals = text11.includes("[[") ? void 0 : words2.find((w) => w.equals);
+  const equals = text12.includes("[[") ? void 0 : words2.find((w) => w.equals);
   return [
     glob ? warn(
       "bare-glob",
@@ -3304,11 +4144,11 @@ async function evaluateBash(command, ctx) {
 }
 
 // src/hook/guard-file.ts
-var text = (value) => typeof value === "string" ? value : "";
-var written = (tool, input) => text(tool === "Edit" ? input["new_string"] : input["content"]);
+var text2 = (value) => typeof value === "string" ? value : "";
+var written = (tool, input) => text2(tool === "Edit" ? input["new_string"] : input["content"]);
 async function before(tool, input, relative3, ctx, rethrow) {
   if (tool === "Edit") {
-    return text(input["old_string"]);
+    return text2(input["old_string"]);
   }
   try {
     return await ctx.readFile(`${ctx.root}/${relative3}`);
@@ -3331,8 +4171,8 @@ async function guardedChange(tool, input, relative3, ctx) {
       after: written(tool, input)
     };
   }
-  const old = text(input["old_string"]);
-  const replacement = text(input["new_string"]);
+  const old = text2(input["old_string"]);
+  const replacement = text2(input["new_string"]);
   const disk = await before("Write", input, relative3, ctx, false);
   const at = old === "" ? -1 : disk.indexOf(old);
   if (at < 0) {
@@ -3434,7 +4274,7 @@ async function checkSopsPath(tool, input, relative3, ctx) {
   if (!patterns.some((pattern) => pattern.test(relative3))) {
     return null;
   }
-  const encrypted = tool === "Write" && /^sops:/m.test(text(input["content"]));
+  const encrypted = tool === "Write" && /^sops:/m.test(text2(input["content"]));
   return encrypted ? null : sopsBlock(relative3);
 }
 async function checkWrite(tool, input, relative3, ctx) {
@@ -3607,7 +4447,6 @@ var HARNESS2 = /^(\.\/)?skills\/bin\/harness\.mjs$/;
 var namesLedger = (args) => args.some((arg) => arg === "--ledger" || arg.startsWith("--ledger="));
 var harnessAllowed = (name, args, allowed) => name === "node" && HARNESS2.test(args[0] ?? "") && !namesLedger(args) && allowed.includes(`${args[1] ?? ""} ${args[2] ?? ""}`);
 var harnessStatus = (name, args) => name === "node" && HARNESS2.test(args[0] ?? "") && args[1] === "status" && args.length <= 3 && (args[2] === void 0 || args[2] === "--json");
-var harnessGuardrailStatus = (name, args) => name === "node" && HARNESS2.test(args[0] ?? "") && args[1] === "guardrail" && args[2] === "status" && args.length <= 4 && (args[3] === void 0 || args[3] === "--json");
 
 // src/hook/guard-role-allow.ts
 var PR_READS = ["view", "list", "status", "checks"];
@@ -3756,14 +4595,14 @@ var HERDR_READS = [
 ];
 var FINISH_LINE = /^\[herdr:[\w.-]+\] finished: RESULT (?:done|blocked); summary in pane (?:\$HERDR_PANE_ID|[\w:]+)$/;
 function herdrFinish(args) {
-  const [group, verb, pane, text11, ...rest] = args;
+  const [group, verb, pane, text12, ...rest] = args;
   if (group !== "pane" || pane === void 0 || pane.startsWith("-")) {
     return false;
   }
   if (verb === "send-text") {
-    return rest.length === 0 && FINISH_LINE.test(text11 ?? "");
+    return rest.length === 0 && FINISH_LINE.test(text12 ?? "");
   }
-  return verb === "send-keys" && text11 === "enter" && rest.length === 0;
+  return verb === "send-keys" && text12 === "enter" && rest.length === 0;
 }
 function reportingMayRun(role, segment) {
   const { name, args } = commandOf(segment);
@@ -3905,7 +4744,7 @@ function noCodeMayRun(role, segment) {
     name,
     args,
     role === "challenger" ? CHALLENGER_HARNESS : CONCIERGE_HARNESS
-  ) || harnessStatus(name, args) || role === "concierge" && harnessGuardrailStatus(name, args) || name === "gh" && ghMayRun(args, false) || name === "git" && conciergeGit(args) || ["date", "echo", "pwd"].includes(name);
+  ) || harnessStatus(name, args) || name === "gh" && ghMayRun(args, false) || name === "git" && conciergeGit(args) || ["date", "echo", "pwd"].includes(name);
 }
 var PREFIXED2 = /^(?:[A-Za-z_][A-Za-z0-9_]*=|(?:sudo|env|time|command|nohup|exec)$)/;
 function checkBash(role, command) {
@@ -4029,12 +4868,12 @@ async function guard(payload, deps) {
 
 // src/hook/io.ts
 async function readPayload(deps) {
-  const text11 = await deps.stdin();
-  if (text11.trim() === "") {
+  const text12 = await deps.stdin();
+  if (text12.trim() === "") {
     return void 0;
   }
   try {
-    return JSON.parse(text11);
+    return JSON.parse(text12);
   } catch {
     return void 0;
   }
@@ -4105,9 +4944,9 @@ function listItemSpans(markdown) {
   return items2;
 }
 function listItems(markdown) {
-  return listItemSpans(markdown).map(({ heading, text: text11 }) => ({
+  return listItemSpans(markdown).map(({ heading, text: text12 }) => ({
     heading,
-    text: text11
+    text: text12
   }));
 }
 function openItems(markdown) {
@@ -4219,7 +5058,7 @@ async function readPlans(deps) {
 }
 
 // src/plan/active.ts
-function describe5(plan2) {
+function describe6(plan2) {
   const open2 = plan2.open.map((o) => `${o.step} (${o.count})`).join(", ");
   const lines3 = [`${plan2.file}${plan2.default ? " (default)" : ""}`];
   lines3.push(`  Open items: ${open2 || "none"}`);
@@ -4261,7 +5100,7 @@ var planActive = {
 `
       );
     } else {
-      deps.stdout(`${listed.map(describe5).join("\n")}
+      deps.stdout(`${listed.map(describe6).join("\n")}
 `);
     }
     return 0;
@@ -4288,8 +5127,8 @@ function trimCommon(edit, lines3) {
 }
 
 // src/plan/plan-edit.ts
-function normalize(text11) {
-  return text11.replace(/\s+/g, " ").trim();
+function normalize(text12) {
+  return text12.replace(/\s+/g, " ").trim();
 }
 function choosePlan(plans, requested) {
   const names3 = Object.keys(plans);
@@ -4372,13 +5211,13 @@ function currentHeading(lines3, markdown) {
   }
   return index;
 }
-function insertion(lines3, heading, text11) {
+function insertion(lines3, heading, text12) {
   const blank = (lines3[heading + 1] ?? "").trim() === "";
   const start = blank ? heading + 2 : heading + 1;
   return {
     start,
     end: start,
-    lines: blank ? [`${NEXT} ${text11}`, ""] : ["", `${NEXT} ${text11}`, ""]
+    lines: blank ? [`${NEXT} ${text12}`, ""] : ["", `${NEXT} ${text12}`, ""]
   };
 }
 function withInsertion(lines3, removed, added) {
@@ -4425,8 +5264,8 @@ var planNext = {
   async run({ json, deps, options }) {
     const raw = options["text"];
     const plan2 = options["plan"];
-    const text11 = typeof raw === "string" ? normalize(raw) : "";
-    if (text11 === "") {
+    const text12 = typeof raw === "string" ? normalize(raw) : "";
+    if (text12 === "") {
       throw new CommandError(
         'Missing --text "<line>": say the first concrete action and any state the files cannot show.'
       );
@@ -4438,7 +5277,7 @@ var planNext = {
       edits: (lines3, markdown) => withInsertion(
         lines3,
         removals(lines3),
-        insertion(lines3, currentHeading(lines3, markdown), text11)
+        insertion(lines3, currentHeading(lines3, markdown), text12)
       ),
       unchanged: `Next: already reads that way`
     });
@@ -4486,8 +5325,8 @@ function totalsEdits(lines3, range, className, date) {
     managed: managed - (lower.startsWith("managed") ? 1 : 0),
     release: release - (lower.startsWith("release") ? 1 : 0)
   };
-  const text11 = `as of ${date}: ${next.local} local, ${next.managed} managed${match[3]}cluster, ${next.release} release${match[5]}pipeline`;
-  const changed = intro.replace(TOTALS, text11).split("\n");
+  const text12 = `as of ${date}: ${next.local} local, ${next.managed} managed${match[3]}cluster, ${next.release} release${match[5]}pipeline`;
+  const changed = intro.replace(TOTALS, text12).split("\n");
   const before2 = intro.split("\n");
   const edits = [];
   for (const [i, line2] of changed.entries()) {
@@ -4569,17 +5408,17 @@ function segmentsOf(raw) {
   pieces.push([from, bodyEnd]);
   let exit = false;
   return pieces.map(([a, b]) => {
-    const text11 = raw.slice(a, b);
-    const start = a + (text11.length - text11.trimStart().length);
-    const end = b - (text11.length - text11.trimEnd().length);
+    const text12 = raw.slice(a, b);
+    const start = a + (text12.length - text12.trimStart().length);
+    const end = b - (text12.length - text12.trimEnd().length);
     const lead = LEAD.exec(raw.slice(start, end))?.[0];
     exit ||= lead !== void 0;
     return { start, end, itemStart: start + (lead?.length ?? 0), exit };
   });
 }
-function words(text11) {
+function words(text12) {
   return new Set(
-    (text11.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => w.length >= 4)
+    (text12.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => w.length >= 4)
   );
 }
 function score(item, segment) {
@@ -4603,13 +5442,13 @@ function lowered(raw, segment) {
   const shown = /^\d+$/.test(word) ? String(count3) : NUMBERS[count3] ?? word;
   const noun = count3 === 1 ? "criterion" : "criteria";
   const [, , gap1, gap2, gap3] = lead;
-  const text11 = `and ${shown}${gap1}exit${gap2}${noun}:${gap3}`;
-  return raw.slice(0, segment.start) + text11 + raw.slice(segment.start + lead[0].length);
+  const text12 = `and ${shown}${gap1}exit${gap2}${noun}:${gap3}`;
+  return raw.slice(0, segment.start) + text12 + raw.slice(segment.start + lead[0].length);
 }
 function sharedNote(raw, segments, index) {
   for (const [i, segment] of segments.entries()) {
-    const text11 = raw.slice(segment.itemStart, segment.end);
-    const note = /\([^)]*\b(both|all)\b[^)]*\)/i.exec(text11);
+    const text12 = raw.slice(segment.itemStart, segment.end);
+    const note = /\([^)]*\b(both|all)\b[^)]*\)/i.exec(text12);
     const covered = note?.[1]?.toLowerCase() === "all" || index === i || index === i - 1;
     if (note !== null && covered) {
       return note[0];
@@ -4639,7 +5478,7 @@ function classOf(lines3, entry2, from) {
   }
   return "";
 }
-function locate(entries2, step, itemText) {
+function locate2(entries2, step, itemText) {
   const item = words(itemText);
   const scored = entries2.flatMap(
     (entry2) => segmentsOf(entry2.raw).map((segment, index, all) => ({
@@ -4672,7 +5511,7 @@ function listEdits(lines3, step, itemText, date) {
       error: `The open-item lists have no entry for ${step}. Add the item to its list, or tick it by hand.`
     };
   }
-  const best = locate(entries2, step, itemText);
+  const best = locate2(entries2, step, itemText);
   if ("error" in best) {
     return best;
   }
@@ -4733,9 +5572,9 @@ function tickEdit(lines3, item) {
     lines: [`- [x]${first.slice(OPEN.length)}`]
   };
 }
-function describe6(file, step, text11, dryRun, changes) {
+function describe7(file, step, text12, dryRun, changes) {
   return renderChanges(
-    `${dryRun ? "Would tick" : "Ticked"} ${step}: ${text11} in ${file}`,
+    `${dryRun ? "Would tick" : "Ticked"} ${step}: ${text12} in ${file}`,
     changes
   );
 }
@@ -4746,9 +5585,9 @@ async function tick(deps, json, item, planOption, dryRun) {
   const lines3 = markdown.split("\n");
   const span = chooseItem(markdown, item);
   const step = span.heading.split(":")[0] ?? span.heading;
-  const text11 = normalize(span.text.slice(OPEN.length));
+  const text12 = normalize(span.text.slice(OPEN.length));
   const date = localDate(deps.clock.now());
-  const lists = listEdits(lines3, step, text11, date);
+  const lists = listEdits(lines3, step, text12, date);
   if ("error" in lists) {
     throw new CommandError(lists.error);
   }
@@ -4762,8 +5601,8 @@ async function tick(deps, json, item, planOption, dryRun) {
     );
   }
   deps.stdout(
-    json ? `${JSON.stringify({ plan: file, item: { step, text: text11 }, dryRun, written: !dryRun, changes })}
-` : describe6(file, step, text11, dryRun, changes)
+    json ? `${JSON.stringify({ plan: file, item: { step, text: text12 }, dryRun, written: !dryRun, changes })}
+` : describe7(file, step, text12, dryRun, changes)
   );
   return 0;
 }
@@ -4794,10 +5633,10 @@ import { createHash } from "node:crypto";
 // src/hook/retro-transcript.ts
 var MAX_ERROR = 120;
 var MIN_CORRECTION_WORDS = 4;
-function parseTranscript(id, text11) {
+function parseTranscript(id, text12) {
   const events = [];
   let skipped = 0;
-  text11.split("\n").forEach((raw, index) => {
+  text12.split("\n").forEach((raw, index) => {
     if (raw.trim() === "") {
       return;
     }
@@ -4817,8 +5656,8 @@ var ERROR_WORDS = /\b(errors?|fail(ed|ure|ures)?|fatal|not found|no such|denied|
 var SHELL_PREFIX = /^(\(eval\):\d+:|zsh:|bash:|sh:)/;
 var NOT_OUTPUT_ERROR = /^(- |#|import |export |\|)/;
 var looksLikeError = (line2) => !NOT_OUTPUT_ERROR.test(line2) && (ERROR_WORDS.test(line2) || SHELL_PREFIX.test(line2));
-function summarizeError(text11) {
-  const lines3 = text11.replace(/<\/?tool_use_error>/g, "").split("\n").map((line2) => line2.trim()).filter(Boolean);
+function summarizeError(text12) {
+  const lines3 = text12.replace(/<\/?tool_use_error>/g, "").split("\n").map((line2) => line2.trim()).filter(Boolean);
   let head = lines3[0] ?? "";
   let prefix = "";
   if (/^Exit code \d+$/.test(head)) {
@@ -4858,13 +5697,13 @@ function humanText(event) {
   if (notTyped || event.origin && event.origin.kind !== "human") {
     return null;
   }
-  const text11 = typedText(event.message?.content);
-  return text11.trim() === "" || INJECTED.test(text11) ? null : text11;
+  const text12 = typedText(event.message?.content);
+  return text12.trim() === "" || INJECTED.test(text12) ? null : text12;
 }
 var CORRECTION_WORD = /\b(no|not|dont|don't|don’t|stop|instead|wrong|again|actually|should|never)\b/i;
-var readsAsCorrection = (text11) => CORRECTION_WORD.test(text11);
-var ownWords = (text11) => text11.replace(/<pasted_content[^>]*>[\s\S]*?<\/pasted_content[^>]*>/g, " ").replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, " ");
-var phrasesOf = (text11) => text11.split(/[.!?;\n]+/).map(
+var readsAsCorrection = (text12) => CORRECTION_WORD.test(text12);
+var ownWords = (text12) => text12.replace(/<pasted_content[^>]*>[\s\S]*?<\/pasted_content[^>]*>/g, " ").replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, " ");
+var phrasesOf = (text12) => text12.split(/[.!?;\n]+/).map(
   (part) => part.toLowerCase().replace(/['’`]/g, "").replace(/[^a-z0-9]+/g, " ").trim()
 ).filter((phrase) => phrase.split(" ").length >= MIN_CORRECTION_WORDS);
 function timestamps(session2) {
@@ -4875,7 +5714,7 @@ function timestamps(session2) {
 // src/hook/retro-session.ts
 var GUARD_TAG = /\[guard:([a-z0-9-]+)\]/g;
 var SLASH_COMMAND = /<command-name>\/?([a-z0-9:-]+)<\/command-name>/;
-var tagsIn = (text11) => [...text11.matchAll(GUARD_TAG)].map((match) => match[1] ?? "");
+var tagsIn = (text12) => [...text12.matchAll(GUARD_TAG)].map((match) => match[1] ?? "");
 var SessionAnalysis = class {
   guards = {};
   failures = [];
@@ -4924,12 +5763,12 @@ var SessionAnalysis = class {
   }
   toolFailure(block2) {
     this.failedSinceHuman = true;
-    const text11 = resultText(block2);
-    const tags = new Set(tagsIn(text11));
+    const text12 = resultText(block2);
+    const tags = new Set(tagsIn(text12));
     if (tags.size === 0) {
       this.failures.push({
         tool: this.calls.get(block2.tool_use_id ?? "") ?? "unknown",
-        error: summarizeError(text11)
+        error: summarizeError(text12)
       });
     }
     for (const tag of tags) {
@@ -4947,12 +5786,12 @@ var SessionAnalysis = class {
     }
   }
   human(event) {
-    const text11 = humanText(event);
-    if (text11 === null) {
+    const text12 = humanText(event);
+    if (text12 === null) {
       return;
     }
     this.ordered.push({ kind: "human" });
-    const own2 = ownWords(text11);
+    const own2 = ownWords(text12);
     if (this.failedSinceHuman || readsAsCorrection(own2)) {
       for (const phrase of phrasesOf(own2)) {
         this.phrases.push({ phrase, line: event.line });
@@ -5125,7 +5964,7 @@ var Tally = class {
   }
 };
 function scan(inputs, { since, knownSkills = [], auditRules: audit3 = [] } = {}) {
-  const included = inputs.map(({ id, text: text11 }) => parseTranscript(id, text11)).map((session2) => ({ session: session2, ...timestamps(session2) })).filter(
+  const included = inputs.map(({ id, text: text12 }) => parseTranscript(id, text12)).map((session2) => ({ session: session2, ...timestamps(session2) })).filter(
     ({ last }) => last !== null && Date.parse(last) >= windowStart(since)
   ).sort((a, b) => (a.first ?? "").localeCompare(b.first ?? ""));
   const tally = new Tally(audit3, knownSkills);
@@ -5175,7 +6014,7 @@ function lastOperation(entries2) {
     error: end?.error
   };
 }
-var show = (value) => typeof value === "string" || typeof value === "number" ? String(value) : JSON.stringify(value) ?? "";
+var show2 = (value) => typeof value === "string" || typeof value === "number" ? String(value) : JSON.stringify(value) ?? "";
 function environmentLines(journals) {
   const lines3 = [];
   for (const environment of Object.keys(journals).sort()) {
@@ -5183,17 +6022,17 @@ function environmentLines(journals) {
     if (!last) {
       continue;
     }
-    const date = show(last.ts).slice(0, 10);
-    const label = `Environment ${environment}: last operation \`${show(last.command)}\``;
+    const date = show2(last.ts).slice(0, 10);
+    const label = `Environment ${environment}: last operation \`${show2(last.command)}\``;
     if (last.outcome === null) {
       lines3.push(
         `${label} was interrupted (started ${date}, no end recorded).`
       );
     } else if (last.outcome === "failed") {
-      const reason = last.error ? `: ${show(last.error)}` : "";
+      const reason = last.error ? `: ${show2(last.error)}` : "";
       lines3.push(`${label} failed on ${date}${reason}.`);
     } else {
-      lines3.push(`${label} ${show(last.outcome)} on ${date}.`);
+      lines3.push(`${label} ${show2(last.outcome)} on ${date}.`);
     }
   }
   return lines3;
@@ -5255,9 +6094,9 @@ import { homedir } from "node:os";
 import { join as join8 } from "node:path";
 var JOURNAL_DIR = ".kore/state/journal";
 var isMissing = (error) => error.code === "ENOENT";
-function parseEntries(text11) {
+function parseEntries(text12) {
   const entries2 = [];
-  for (const line2 of text11.split("\n")) {
+  for (const line2 of text12.split("\n")) {
     try {
       const entry2 = JSON.parse(line2);
       if (entry2 && typeof entry2 === "object") {
@@ -5281,13 +6120,13 @@ async function readJournals(fs, root3) {
   }
   const journals = {};
   for (const name of names3) {
-    let text11;
+    let text12;
     try {
-      text11 = await fs.readFile(join8(dir, name));
+      text12 = await fs.readFile(join8(dir, name));
     } catch {
       continue;
     }
-    journals[name.slice(0, -".jsonl".length)] = parseEntries(text11);
+    journals[name.slice(0, -".jsonl".length)] = parseEntries(text12);
   }
   return journals;
 }
@@ -5332,9 +6171,9 @@ var context = hookCommand(
     if (Array.isArray(payload)) {
       return {};
     }
-    let text11;
+    let text12;
     try {
-      text11 = await restore(
+      text12 = await restore(
         payload,
         realContextDeps(deps, await deps.root())
       );
@@ -5344,11 +6183,11 @@ var context = hookCommand(
       }
       throw error;
     }
-    return text11 === "" ? {} : {
+    return text12 === "" ? {} : {
       stdout: JSON.stringify({
         hookSpecificOutput: {
           hookEventName: "SessionStart",
-          additionalContext: text11
+          additionalContext: text12
         }
       })
     };
@@ -5379,9 +6218,9 @@ async function readDir(deps, dir) {
     throw error;
   }
 }
-function parseEntries2(text11) {
+function parseEntries2(text12) {
   const entries2 = [];
-  for (const line2 of text11.split("\n")) {
+  for (const line2 of text12.split("\n")) {
     try {
       const entry2 = JSON.parse(line2);
       if (entry2 !== null && typeof entry2 === "object") {
@@ -5487,8 +6326,8 @@ function planItems(plans) {
   const result = {};
   for (const name of activePlans(plans)) {
     const items2 = {};
-    for (const { text: text11 } of listItems(plans[name] ?? "")) {
-      const match = /^- \[( |x)\] (.*)$/.exec(text11);
+    for (const { text: text12 } of listItems(plans[name] ?? "")) {
+      const match = /^- \[( |x)\] (.*)$/.exec(text12);
       if (match === null) {
         continue;
       }
@@ -5588,8 +6427,8 @@ function describeChanges(before2, after, subjects) {
   if (lines3.length === 0) {
     return "";
   }
-  const text11 = `Changed since your last turn: ${lines3.join(" | ")}`;
-  return text11.length <= MAX_CHARS ? text11 : `${text11.slice(0, MAX_CHARS - 3)}...`;
+  const text12 = `Changed since your last turn: ${lines3.join(" | ")}`;
+  return text12.length <= MAX_CHARS ? text12 : `${text12.slice(0, MAX_CHARS - 3)}...`;
 }
 async function prune(currentId, deps) {
   try {
@@ -5675,26 +6514,26 @@ var record = hookCommand(
 var AMBER_AT = 40;
 var RED_AT = 50;
 function contextPercent(input) {
-  const window = input.context_window;
-  if (typeof window?.used_percentage === "number") {
-    return Math.round(window.used_percentage);
+  const window2 = input.context_window;
+  if (typeof window2?.used_percentage === "number") {
+    return Math.round(window2.used_percentage);
   }
-  const usage2 = window?.current_usage;
-  if (!usage2 || !window?.context_window_size) {
+  const usage2 = window2?.current_usage;
+  if (!usage2 || !window2?.context_window_size) {
     return null;
   }
   const used = (usage2.input_tokens ?? 0) + (usage2.cache_creation_input_tokens ?? 0) + (usage2.cache_read_input_tokens ?? 0);
-  return Math.round(used / window.context_window_size * 100);
+  return Math.round(used / window2.context_window_size * 100);
 }
 function colored(percent) {
-  const text11 = `ctx ${percent}%`;
+  const text12 = `ctx ${percent}%`;
   if (percent >= RED_AT) {
-    return `\x1B[31m${text11}\x1B[0m`;
+    return `\x1B[31m${text12}\x1B[0m`;
   }
   if (percent >= AMBER_AT) {
-    return `\x1B[33m${text11}\x1B[0m`;
+    return `\x1B[33m${text12}\x1B[0m`;
   }
-  return text11;
+  return text12;
 }
 function statusLine(input, plans) {
   const parts = [];
@@ -5715,9 +6554,9 @@ function statusLine(input, plans) {
   }
   return parts.join(" \xB7 ");
 }
-var text2 = (value) => typeof value === "string" && value !== "" ? value : void 0;
+var text3 = (value) => typeof value === "string" && value !== "" ? value : void 0;
 function projectOf(input, deps) {
-  return text2(deps.env["CLAUDE_PROJECT_DIR"]) ?? text2(input.workspace?.project_dir) ?? text2(input.cwd) ?? deps.cwd;
+  return text3(deps.env["CLAUDE_PROJECT_DIR"]) ?? text3(input.workspace?.project_dir) ?? text3(input.cwd) ?? deps.cwd;
 }
 var UNREADABLE = "plans?";
 var statusline = hookCommand(
@@ -5838,9 +6677,9 @@ async function readTranscripts(fs, dirs) {
       (n) => n.endsWith(".jsonl")
     )) {
       const id = basename3(name, ".jsonl");
-      const text11 = await fs.readFile(join10(dir, name));
-      if (text11.length >= (byId.get(id)?.text.length ?? -1)) {
-        byId.set(id, { id, text: text11 });
+      const text12 = await fs.readFile(join10(dir, name));
+      if (text12.length >= (byId.get(id)?.text.length ?? -1)) {
+        byId.set(id, { id, text: text12 });
       }
     }
   }
@@ -5910,11 +6749,14 @@ async function ruleEvidence(deps, rule, { dir, since } = { dir: void 0, since: v
     throw new CommandError(found.trim());
   }
   const effective = since ?? (dir ? void 0 : lastRetrospective(await readPlans(deps)) ?? void 0);
-  const row = scan(found.inputs, { since: effective, auditRules: [rule] }).rules.audit[0];
+  const result = scan(found.inputs, { since: effective, auditRules: [rule] });
+  const row = result.rules.audit[0];
   if (row === void 0) {
-    throw new CommandError(`The retro scan reported nothing for ${rule}.`);
+    throw new CommandError(
+      `The retro scan reported nothing for ${rule}. Check the rule name against .claude/guardrails.yaml, then rerun.`
+    );
   }
-  return row;
+  return { row, blocks: result.guards[rule]?.blocks ?? 0 };
 }
 async function report(deps, { dir, since }) {
   const root3 = await deps.root();
@@ -6028,7 +6870,7 @@ var SIGNING_SCOPES = ["id-token", "packages"];
 var TAG_GATE = "github.ref_type == 'tag'";
 var PR_TRIGGERS = ["pull_request", "pull_request_target"];
 var isMap = (value) => typeof value === "object" && value !== null;
-function addEntry(stack, indent, body) {
+function addEntry2(stack, indent, body) {
   const match = /^["']?([^:"']+)["']?:\s*(.*)$/.exec(body);
   if (!match) {
     return null;
@@ -6048,11 +6890,11 @@ function addEntry(stack, indent, body) {
   parent[key] = value;
   return /^[|>]/.test(value) ? indent : null;
 }
-function parseWorkflow(text11) {
+function parseWorkflow(text12) {
   const rootNode = {};
   const stack = [{ indent: -1, node: rootNode }];
   let skipAbove = null;
-  for (const raw of text11.split("\n")) {
+  for (const raw of text12.split("\n")) {
     const line2 = raw.replace(/(^|\s)#.*$/, "");
     const indent = line2.length - line2.trimStart().length;
     if (line2.trim() === "" || skipAbove !== null && indent > skipAbove) {
@@ -6064,7 +6906,7 @@ function parseWorkflow(text11) {
       skipAbove = indent - 1;
       continue;
     }
-    skipAbove = addEntry(stack, indent, body);
+    skipAbove = addEntry2(stack, indent, body);
   }
   return rootNode;
 }
@@ -6121,8 +6963,8 @@ function jobProblems(file, name, job2) {
   }
   return problems;
 }
-function fileProblems(file, text11) {
-  const workflow = parseWorkflow(text11);
+function fileProblems(file, text12) {
+  const workflow = parseWorkflow(text12);
   const problems = [];
   const top = writeScopes(workflow["permissions"]);
   if (top === null || top.length > 0) {
@@ -6146,7 +6988,7 @@ function fileProblems(file, text11) {
 }
 function permissionProblems(files) {
   return Object.entries(files).flatMap(
-    ([file, text11]) => fileProblems(file, text11)
+    ([file, text12]) => fileProblems(file, text12)
   );
 }
 async function workflowProblems(fs, root3) {
@@ -6173,9 +7015,9 @@ async function workflowProblems(fs, root3) {
 var ENVIRONMENTS = "infra/environments";
 var FlagError = class extends Error {
 };
-function parse2(path, text11) {
+function parse2(path, text12) {
   try {
-    const value = JSON.parse(text11);
+    const value = JSON.parse(text12);
     if (typeof value === "object" && value !== null && !Array.isArray(value)) {
       return value;
     }
@@ -6216,8 +7058,8 @@ async function readOverlay(fs, root3, environment) {
       `No environment "${environment}" has an overlay at ${path}. Environments: ${(await environments(fs, root3)).join(", ") || "none"}.`
     );
   }
-  const text11 = await fs.readFile(`${root3}/${path}`);
-  const features = parse2(path, text11)["features"] ?? {};
+  const text12 = await fs.readFile(`${root3}/${path}`);
+  const features = parse2(path, text12)["features"] ?? {};
   const valid = typeof features === "object" && features !== null && Object.values(features).every((v) => typeof v === "boolean");
   if (!valid) {
     throw new FlagError(
@@ -6227,21 +7069,21 @@ async function readOverlay(fs, root3, environment) {
   return {
     environment,
     path,
-    text: text11,
+    text: text12,
     features
   };
 }
-function featuresSpan(text11) {
-  const key = /["']?features["']?\s*:\s*\{/.exec(text11);
+function featuresSpan(text12) {
+  const key = /["']?features["']?\s*:\s*\{/.exec(text12);
   if (key === null) {
     return void 0;
   }
   const open2 = key.index + key[0].length - 1;
   let depth = 0;
-  for (let i = open2; i < text11.length; i++) {
-    if (text11[i] === "{") {
+  for (let i = open2; i < text12.length; i++) {
+    if (text12[i] === "{") {
       depth += 1;
-    } else if (text11[i] === "}") {
+    } else if (text12[i] === "}") {
       depth -= 1;
     }
     if (depth === 0) {
@@ -6261,672 +7103,10 @@ function withFlagOn(overlay, flag) {
     );
   }
   const end = span[0] + entry2.index + entry2[0].length;
-  const text11 = `${overlay.text.slice(0, end - "false".length)}true${overlay.text.slice(end)}`;
-  parse2(overlay.path, text11);
-  return text11;
+  const text12 = `${overlay.text.slice(0, end - "false".length)}true${overlay.text.slice(end)}`;
+  parse2(overlay.path, text12);
+  return text12;
 }
-
-// src/idea/record.ts
-var SAFETY_PATTERNS = [
-  "no-behaviour-change",
-  "feature-flagged",
-  "dark-launched",
-  "branch-by-abstraction",
-  "expand-contract"
-];
-var IdeaError = class extends Error {
-};
-var IDEA_FILE = /^(\d{4})-([a-z0-9]+(?:-[a-z0-9]+)*)\.md$/;
-var REQUIRED2 = [
-  ["summary", "summary"],
-  ["hypothesis", "hypothesis"],
-  ["expected-outcome", "expectedOutcome"],
-  ["measurement", "measurement"],
-  ["safety-pattern", "safetyPattern"],
-  ["date", "date"]
-];
-function frontmatter(text11) {
-  const lines3 = text11.split("\n");
-  if (lines3[0] !== "---") {
-    return null;
-  }
-  const keys = /* @__PURE__ */ new Map();
-  for (const line2 of lines3.slice(1)) {
-    if (line2 === "---") {
-      return keys;
-    }
-    const match = /^([A-Za-z][\w-]*):\s*(.*)$/.exec(line2);
-    if (match?.[1] !== void 0) {
-      keys.set(match[1], (match[2] ?? "").trim());
-    }
-  }
-  return null;
-}
-function parseIdea(path, text11) {
-  const file = path.slice(path.lastIndexOf("/") + 1);
-  const name = IDEA_FILE.exec(file);
-  if (name?.[1] === void 0 || name[2] === void 0) {
-    throw new IdeaError(
-      `${path} is not named NNNN-slug.md; rename it to a four-digit number and a lowercase slug.`
-    );
-  }
-  const keys = frontmatter(text11);
-  if (keys === null) {
-    throw new IdeaError(
-      `${path} has no frontmatter; start it with --- and the idea fields (see \`harness idea new --help\`).`
-    );
-  }
-  const missing = REQUIRED2.filter(([key]) => !keys.get(key)).map(([k]) => k);
-  if (missing.length > 0) {
-    throw new IdeaError(
-      `${path} is missing frontmatter ${missing.join(", ")}; add each as a key: value line.`
-    );
-  }
-  const get = (key) => keys.get(key) ?? "";
-  const heading = /^# Idea \d{4}: (.+)$/m.exec(text11)?.[1];
-  const record5 = {
-    number: name[1],
-    slug: name[2],
-    path,
-    title: heading ?? get("summary"),
-    summary: get("summary"),
-    hypothesis: get("hypothesis"),
-    expectedOutcome: get("expected-outcome"),
-    measurement: get("measurement"),
-    safetyPattern: get("safety-pattern"),
-    date: get("date")
-  };
-  for (const key of ["outcome", "issue", "parent"]) {
-    if (get(key) !== "") {
-      record5[key] = get(key);
-    }
-  }
-  return record5;
-}
-function scalar(flag, value) {
-  const text11 = (value ?? "").replace(/\s+/g, " ").trim();
-  if (text11 === "") {
-    throw new IdeaError(`Missing --${flag}; pass a non-empty value.`);
-  }
-  if (/^[[{|>&*!-]/.test(text11)) {
-    throw new IdeaError(
-      `--${flag} must not start with "${text11.slice(0, 1)}"; frontmatter holds plain text, so reword it.`
-    );
-  }
-  return text11;
-}
-function renderIdea(number, date, idea) {
-  const lines3 = [
-    "---",
-    `summary: ${idea.summary}`,
-    `hypothesis: ${idea.hypothesis}`,
-    `expected-outcome: ${idea.expectedOutcome}`,
-    `measurement: ${idea.measurement}`,
-    `safety-pattern: ${idea.safetyPattern}`,
-    `date: ${date}`
-  ];
-  if (idea.issue !== void 0) {
-    lines3.push(`issue: ${idea.issue}`);
-  }
-  if (idea.parent !== void 0) {
-    lines3.push(`parent: ${idea.parent}`);
-  }
-  lines3.push("---", "", `# Idea ${number}: ${idea.title}`, "");
-  return lines3.join("\n");
-}
-function withIssue(text11, issue) {
-  const lines3 = text11.split("\n");
-  const end = lines3.indexOf("---", 1);
-  if (lines3[0] !== "---" || end === -1) {
-    throw new IdeaError("The idea has no frontmatter to record the issue in.");
-  }
-  const at = lines3.findIndex(
-    (l, i) => i > 0 && i < end && l.startsWith("issue:")
-  );
-  if (at === -1) {
-    lines3.splice(end, 0, `issue: ${issue}`);
-  } else {
-    lines3[at] = `issue: ${issue}`;
-  }
-  return lines3.join("\n");
-}
-var OUTCOME_HEADING = "## Outcome";
-function outcomeRange(lines3) {
-  const start = lines3.findIndex((l) => l.trimEnd() === OUTCOME_HEADING);
-  if (start === -1) {
-    return void 0;
-  }
-  const end = lines3.findIndex((l, i) => i > start && /^#{1,2} /.test(l));
-  return [start, end === -1 ? lines3.length : end];
-}
-function outcomeSection(text11) {
-  const lines3 = text11.split("\n");
-  const range = outcomeRange(lines3);
-  return range === void 0 ? void 0 : lines3.slice(...range).join("\n").replace(/\r/g, "").trim();
-}
-function withoutOutcome(text11) {
-  const lines3 = text11.split("\n");
-  const range = outcomeRange(lines3);
-  return range === void 0 ? text11 : [...lines3.slice(0, range[0]), ...lines3.slice(range[1])].join("\n").trimEnd();
-}
-function withOutcome(text11, result, section) {
-  const lines3 = text11.split("\n");
-  const end = lines3.indexOf("---", 1);
-  if (lines3[0] !== "---" || end === -1) {
-    throw new IdeaError(
-      "The idea has no frontmatter to record the outcome in."
-    );
-  }
-  lines3.splice(end, 0, `outcome: ${result}`);
-  return `${lines3.join("\n").trimEnd()}
-
-${section.trim()}
-`;
-}
-
-// src/idea/repository.ts
-var INDEX2 = "docs/index.md";
-var DIR = "docs/ideas";
-var ATTEMPTS = 3;
-var HEADING = "## Ideas";
-var NEXT_SECTION = "## Operations and Guides";
-var IdeaRepository = class {
-  constructor(fs, clock, root3) {
-    this.fs = fs;
-    this.clock = clock;
-    this.root = root3;
-  }
-  fs;
-  clock;
-  root;
-  async list() {
-    return await Promise.all((await this.listNames()).map((n) => this.read(n)));
-  }
-  /** Finds an idea by number (`1` or `0001`), slug, or file stem. */
-  async get(ref) {
-    const wanted = /^\d+$/.test(ref) ? ref.padStart(4, "0") : ref;
-    const name = (await this.listNames()).find((n) => {
-      const [, number, slug2] = IDEA_FILE.exec(n) ?? [];
-      return wanted === number || wanted === slug2 || `${number}-${slug2}` === wanted;
-    });
-    if (name === void 0) {
-      throw new IdeaError(
-        `No idea matches "${ref}". Run \`harness idea list\` to see the ideas, or \`harness idea new\` to create one.`
-      );
-    }
-    return await this.read(name);
-  }
-  /**
-   * Creates the next numbered idea and indexes it; an existing slug is returned untouched.
-   * The file is created exclusively, so a competing writer's file is never overwritten:
-   * on a collision the listing is read again and the call retries.
-   */
-  async create(slug2, idea) {
-    if (!await this.fs.exists(this.abs(INDEX2))) {
-      throw new IdeaError(
-        `${INDEX2} not found under ${this.root}; set CLAUDE_PROJECT_DIR to the repository root.`
-      );
-    }
-    if (!SAFETY_PATTERNS.some((p) => p === idea.safetyPattern)) {
-      throw new IdeaError(
-        `--safety-pattern "${idea.safetyPattern}" is not recognised; use one of ${SAFETY_PATTERNS.join(", ")}.`
-      );
-    }
-    for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
-      const names3 = await this.listNames();
-      const existing = names3.find((n) => IDEA_FILE.exec(n)?.[2] === slug2);
-      if (existing !== void 0) {
-        const record6 = await this.read(existing);
-        await this.ensureIndexed(record6);
-        return { created: false, record: record6 };
-      }
-      const taken = names3.map((n) => Number(n.slice(0, 4)));
-      const number = String(Math.max(0, ...taken) + 1).padStart(4, "0");
-      const path = `${DIR}/${number}-${slug2}.md`;
-      const text11 = renderIdea(
-        number,
-        this.clock.now().toISOString().slice(0, 10),
-        idea
-      );
-      try {
-        await this.fs.createFile(this.abs(path), text11);
-      } catch (error) {
-        if (error.code === "EEXIST") {
-          continue;
-        }
-        throw error;
-      }
-      const record5 = parseIdea(path, text11);
-      await this.ensureIndexed(record5);
-      return { created: true, record: record5 };
-    }
-    throw new IdeaError(
-      `Another writer keeps creating ideas in ${DIR}; rerun \`harness idea new\` once it finishes.`
-    );
-  }
-  /** The raw markdown of an idea. */
-  async source(record5) {
-    return await this.fs.readFile(this.abs(record5.path));
-  }
-  /** Records the idea's issue link in its frontmatter, touching nothing else. */
-  async recordIssue(record5, issue) {
-    await this.fs.writeFile(
-      this.abs(record5.path),
-      withIssue(await this.source(record5), issue)
-    );
-  }
-  /** Records the outcome in the idea's frontmatter and as its `## Outcome` section, touching nothing else. */
-  async recordOutcome(record5, result, section) {
-    await this.fs.writeFile(
-      this.abs(record5.path),
-      withOutcome(await this.source(record5), result, section)
-    );
-  }
-  abs(path) {
-    return `${this.root}/${path}`;
-  }
-  async read(name) {
-    const path = `${DIR}/${name}`;
-    return parseIdea(path, await this.fs.readFile(this.abs(path)));
-  }
-  /** Lists the idea in the index unless an entry already points at it, so a rerun repairs a half-finished create. */
-  async ensureIndexed(record5) {
-    const index = await this.fs.readFile(this.abs(INDEX2));
-    if (!index.includes(`](${record5.path.replace(/^docs\//, "")})`)) {
-      await this.fs.writeFile(
-        this.abs(INDEX2),
-        addEntry2(index, record5.path, record5.summary)
-      );
-    }
-  }
-  async listNames() {
-    return await this.fs.exists(this.abs(DIR)) ? (await this.fs.readdir(this.abs(DIR))).filter((f) => IDEA_FILE.test(f)).sort() : [];
-  }
-};
-function addEntry2(index, path, summary2) {
-  const entry2 = `- [\`${path}\`](${path.replace(/^docs\//, "")}) \u2014 ${summary2}`;
-  const lines3 = index.split("\n");
-  const start = lines3.indexOf(HEADING);
-  if (start === -1) {
-    const next = lines3.indexOf(NEXT_SECTION);
-    const at = next === -1 ? lines3.length : next;
-    const block2 = [HEADING, "", entry2, ""];
-    if (next === -1 && lines3.at(-1) === "") {
-      lines3.splice(lines3.length - 1, 0, "", ...block2.slice(0, -1));
-    } else {
-      lines3.splice(at, 0, ...block2);
-    }
-    return lines3.join("\n");
-  }
-  let end = lines3.findIndex((l, i) => i > start && l.startsWith("## "));
-  if (end === -1) {
-    end = lines3.length;
-  }
-  while (end > start + 1 && lines3[end - 1] === "") {
-    end--;
-  }
-  lines3.splice(end, 0, entry2);
-  return lines3.join("\n");
-}
-
-// src/idea/sync.ts
-var NOT_FOUND = /could not resolve to an issue|issue .*not found|no issue/i;
-var ISSUE_URL = /https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/issues\/(\d+)/;
-function prose(text11) {
-  const lines3 = withoutOutcome(text11).split("\n");
-  const at = lines3.findIndex((l) => /^# Idea \d{4}: /.test(l));
-  return (at === -1 ? "" : lines3.slice(at + 1).join("\n")).trim();
-}
-function renderBody(record5, text11) {
-  const sections = [
-    `<!-- Generated by \`harness idea sync\` from ${record5.path}. Edit that file; changes made here are overwritten. -->`,
-    `## Summary
-
-${record5.summary}`,
-    `## Hypothesis
-
-${record5.hypothesis}`,
-    `## Expected outcome
-
-${record5.expectedOutcome}`,
-    `## Measurement
-
-${record5.measurement}`,
-    `## Safety pattern
-
-${record5.safetyPattern}`
-  ];
-  const extra = prose(text11);
-  if (extra !== "") {
-    sections.push(extra);
-  }
-  return `${sections.join("\n\n")}
-`;
-}
-var normal = (value) => value.replace(/\r\n/g, "\n").trimEnd();
-function locate2(issue) {
-  const url = ISSUE_URL.exec(issue);
-  if (url?.[1] !== void 0 && url[2] !== void 0) {
-    return { number: url[2], repo: url[1] };
-  }
-  const bare = /^#?(\d+)$/.exec(issue.trim());
-  return bare?.[1] === void 0 ? void 0 : { number: bare[1] };
-}
-var REPO_PROBLEM = /repositor/i;
-function failure(what, stderr2) {
-  const hint = REPO_PROBLEM.test(stderr2) ? "Check the repository named above, then rerun `harness idea sync`." : fix;
-  return new IdeaError(`${what}: ${stderr2.trim()}. ${hint}`);
-}
-async function resolveRepo(gh2, recorded) {
-  if (recorded !== void 0) {
-    return recorded;
-  }
-  const view = await gh2(["repo", "view", "--json", "nameWithOwner"]);
-  let name;
-  try {
-    name = JSON.parse(view.stdout).nameWithOwner;
-  } catch {
-    name = void 0;
-  }
-  if (view.code !== 0 || typeof name !== "string" || name === "") {
-    throw failure("gh could not tell which repository this is", view.stderr);
-  }
-  return name;
-}
-var fix = "Check `gh auth status` and rerun `harness idea sync`.";
-async function reconcile(gh2, record5, body, at) {
-  const title = record5.title.trim();
-  const issue = record5.issue ?? "";
-  const view = await gh2([
-    "issue",
-    "view",
-    at.number,
-    "--repo",
-    at.repo,
-    "--json",
-    "title,body"
-  ]);
-  if (view.code !== 0) {
-    if (NOT_FOUND.test(view.stderr)) {
-      return void 0;
-    }
-    throw failure(`gh could not read issue ${issue}`, view.stderr);
-  }
-  const current2 = parseView(view.stdout, issue);
-  if (current2.title.trim() === title && normal(current2.body) === normal(body)) {
-    return { action: "unchanged", issue };
-  }
-  const edit = await gh2(
-    [
-      "issue",
-      "edit",
-      at.number,
-      "--repo",
-      at.repo,
-      "--title",
-      title,
-      "--body-file",
-      "-"
-    ],
-    body
-  );
-  if (edit.code !== 0) {
-    throw failure(`gh could not update issue ${issue}`, edit.stderr);
-  }
-  return { action: "updated", issue };
-}
-async function syncIssue(runner, root3, record5, text11, recordLink) {
-  const body = renderBody(record5, text11);
-  const gh2 = async (args, input) => await runner.run("gh", args, {
-    cwd: root3,
-    ...input === void 0 ? {} : { input }
-  });
-  const at = record5.issue === void 0 ? void 0 : locate2(record5.issue);
-  if (record5.issue !== void 0 && at === void 0) {
-    throw new IdeaError(
-      `${record5.path} has issue "${record5.issue}", which is not an issue number or link; set it to e.g. 123 or https://github.com/<owner>/<repo>/issues/123.`
-    );
-  }
-  const repo = await resolveRepo(gh2, at?.repo);
-  const existing = at === void 0 ? void 0 : await reconcile(gh2, record5, body, { number: at.number, repo });
-  if (existing !== void 0) {
-    return existing;
-  }
-  const created = await gh2(
-    [
-      "issue",
-      "create",
-      "--repo",
-      repo,
-      "--title",
-      record5.title.trim(),
-      "--body-file",
-      "-"
-    ],
-    body
-  );
-  const url = ISSUE_URL.exec(created.stdout)?.[0];
-  if (created.code !== 0) {
-    throw failure("gh could not create the issue", created.stderr);
-  }
-  if (url === void 0) {
-    throw new IdeaError(
-      `gh reported success but printed no issue link, so the issue may exist: check the repository's issues for "${record5.title.trim()}" in ${repo}, add \`issue: <url>\` to ${record5.path}, then rerun \`harness idea sync\`; otherwise a duplicate is created.`
-    );
-  }
-  try {
-    await recordLink(url);
-  } catch (error) {
-    throw new IdeaError(
-      `Created ${url} but could not record it in ${record5.path}: ${error instanceof Error ? error.message : String(error)}. Add \`issue: ${url}\` to its frontmatter, then rerun \`harness idea sync\`; otherwise a second issue is created.`
-    );
-  }
-  return { action: "created", issue: url };
-}
-function parseView(stdout, issue) {
-  try {
-    const parsed = JSON.parse(stdout);
-    return {
-      title: typeof parsed.title === "string" ? parsed.title : "",
-      body: typeof parsed.body === "string" ? parsed.body : ""
-    };
-  } catch {
-    throw new IdeaError(
-      `gh returned unreadable output for issue ${issue}; rerun \`harness idea sync\`.`
-    );
-  }
-}
-async function issueTarget(runner, root3, record5) {
-  if (record5.issue === void 0) {
-    throw new IdeaError(
-      `${record5.path} has no issue; run \`harness idea sync --idea ${record5.number}\` to create and link it first.`
-    );
-  }
-  const at = locate2(record5.issue);
-  if (at === void 0) {
-    throw new IdeaError(
-      `${record5.path} has issue "${record5.issue}", which is not an issue number or link; set it to e.g. 123 or https://github.com/<owner>/<repo>/issues/123.`
-    );
-  }
-  const gh2 = async (args, input) => await runner.run("gh", args, {
-    cwd: root3,
-    ...input === void 0 ? {} : { input }
-  });
-  return { number: at.number, repo: await resolveRepo(gh2, at.repo) };
-}
-
-// src/idea/commands.ts
-var FAILED2 = 1;
-var SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-async function repository({ deps }) {
-  const root3 = await deps.root().catch((cause) => {
-    throw new IdeaError(cause instanceof Error ? cause.message : String(cause));
-  });
-  return new IdeaRepository(deps.fs, deps.clock, root3);
-}
-async function guarded2({ json, deps }, action) {
-  try {
-    await action();
-    return 0;
-  } catch (error) {
-    if (!(error instanceof IdeaError)) {
-      throw error;
-    }
-    const prefix = json ? `${JSON.stringify({ error: error.message })}
-` : "";
-    deps.stderr(`${prefix}${error.message}
-`);
-    return FAILED2;
-  }
-}
-function text3(options, key) {
-  const value = options[key];
-  return typeof value === "string" ? value : void 0;
-}
-function slugOf(title) {
-  return title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60).replace(/-+$/, "");
-}
-function describe7(record5) {
-  const lines3 = [
-    `Idea ${record5.number}: ${record5.title}`,
-    `Date: ${record5.date}`,
-    `Summary: ${record5.summary}`,
-    `Hypothesis: ${record5.hypothesis}`,
-    `Expected outcome: ${record5.expectedOutcome}`,
-    `Measurement: ${record5.measurement}`,
-    `Safety pattern: ${record5.safetyPattern}`
-  ];
-  for (const [label, value] of [
-    ["Outcome", record5.outcome],
-    ["Issue", record5.issue],
-    ["Parent", record5.parent]
-  ]) {
-    if (value !== void 0) {
-      lines3.push(`${label}: ${value}`);
-    }
-  }
-  lines3.push(`File: ${record5.path}`);
-  return `${lines3.join("\n")}
-`;
-}
-function parseNewIdea(options) {
-  const title = scalar("title", text3(options, "title"));
-  const slug2 = text3(options, "slug") ?? slugOf(title);
-  if (!SLUG.test(slug2)) {
-    throw new IdeaError(
-      `Slug "${slug2}" is invalid; use lowercase letters, digits and single hyphens, e.g. cache-probe-results.`
-    );
-  }
-  const idea = {
-    title,
-    summary: scalar("summary", text3(options, "summary") ?? title),
-    hypothesis: scalar("hypothesis", text3(options, "hypothesis")),
-    expectedOutcome: scalar(
-      "expected-outcome",
-      text3(options, "expected-outcome")
-    ),
-    measurement: scalar("measurement", text3(options, "measurement")),
-    safetyPattern: scalar("safety-pattern", text3(options, "safety-pattern"))
-  };
-  for (const key of ["issue", "parent"]) {
-    const value = text3(options, key);
-    if (value !== void 0) {
-      idea[key] = scalar(key, value);
-    }
-  }
-  return { slug: slug2, idea };
-}
-var create = {
-  summary: "create the next numbered idea record and index it (--title --hypothesis --expected-outcome --measurement --safety-pattern [--slug] [--summary] [--issue] [--parent])",
-  options: {
-    title: "string",
-    slug: "string",
-    summary: "string",
-    hypothesis: "string",
-    "expected-outcome": "string",
-    measurement: "string",
-    "safety-pattern": "string",
-    issue: "string",
-    parent: "string"
-  },
-  run(context2) {
-    return guarded2(context2, async () => {
-      const { slug: slug2, idea } = parseNewIdea(context2.options);
-      const { created, record: record5 } = await (await repository(context2)).create(slug2, idea);
-      context2.deps.stdout(
-        context2.json ? `${JSON.stringify({ created, ...record5 })}
-` : `${created ? "Created" : "Already exists:"} ${record5.path}
-`
-      );
-    });
-  }
-};
-var show2 = {
-  summary: "print one idea record (--idea <number or slug>)",
-  options: { idea: "string" },
-  run(context2) {
-    return guarded2(context2, async () => {
-      const ref = text3(context2.options, "idea");
-      if (ref === void 0 || ref.trim() === "") {
-        throw new IdeaError(
-          "Missing --idea; run `harness idea show --idea <number or slug>`, or `harness idea list` to see the ideas."
-        );
-      }
-      const record5 = await (await repository(context2)).get(ref.trim());
-      context2.deps.stdout(
-        context2.json ? `${JSON.stringify(record5)}
-` : describe7(record5)
-      );
-    });
-  }
-};
-var list = {
-  summary: "list every idea record in number order",
-  run(context2) {
-    return guarded2(context2, async () => {
-      const records2 = await (await repository(context2)).list();
-      context2.deps.stdout(
-        context2.json ? `${JSON.stringify(records2)}
-` : records2.map((r) => `${r.number} ${r.outcome ?? "open"} ${r.title}
-`).join("")
-      );
-    });
-  }
-};
-var sync2 = {
-  summary: "mirror one idea to its GitHub issue, creating it when missing and editing only when the body changed (--idea <number or slug>)",
-  options: { idea: "string" },
-  run(context2) {
-    return guarded2(context2, async () => {
-      const ref = text3(context2.options, "idea");
-      if (ref === void 0 || ref.trim() === "") {
-        throw new IdeaError(
-          "Missing --idea; run `harness idea sync --idea <number or slug>`, or `harness idea list` to see the ideas."
-        );
-      }
-      const repo = await repository(context2);
-      const record5 = await repo.get(ref.trim());
-      const result = await syncIssue(
-        context2.deps.runner,
-        await context2.deps.root(),
-        record5,
-        await repo.source(record5),
-        (url) => repo.recordIssue(record5, url)
-      );
-      context2.deps.stdout(
-        context2.json ? `${JSON.stringify({ idea: record5.number, ...result })}
-` : `Issue ${result.action}: ${result.issue}
-`
-      );
-    });
-  }
-};
-var ideaCommands = {
-  new: create,
-  list,
-  show: show2,
-  sync: sync2
-};
 
 // src/flag/proof.ts
 function fieldBlock(section) {
@@ -6947,14 +7127,14 @@ function lines(section) {
   return found;
 }
 async function findProof(repo, flag, environment) {
-  for (const record5 of await repo.list()) {
-    const section = outcomeSection(await repo.source(record5));
+  for (const record6 of await repo.list()) {
+    const section = outcomeSection(await repo.source(record6));
     if (section === void 0) {
       continue;
     }
     const fields = lines(section);
     if (fields.get("Result") === "confirmed" && fields.get("Kind") === "verification" && fields.get("Source") === "live-run" && fields.get("Flag") === flag && fields.get("Environment") === environment) {
-      return { idea: record5.number, path: record5.path };
+      return { idea: record6.number, path: record6.path };
     }
   }
   return void 0;
@@ -6991,8 +7171,8 @@ function slug(heading) {
 function proseLines(markdown) {
   const lines3 = [];
   let fence = null;
-  markdown.split("\n").forEach((text11, index) => {
-    const opener = /^\s*(```|~~~)/.exec(text11);
+  markdown.split("\n").forEach((text12, index) => {
+    const opener = /^\s*(```|~~~)/.exec(text12);
     if (fence) {
       if (opener && opener[1] === fence) {
         fence = null;
@@ -7003,15 +7183,15 @@ function proseLines(markdown) {
       fence = opener[1] ?? null;
       return;
     }
-    lines3.push({ line: index + 1, text: text11.replace(/`[^`]*`/g, "") });
+    lines3.push({ line: index + 1, text: text12.replace(/`[^`]*`/g, "") });
   });
   return lines3;
 }
 function anchors(markdown) {
   const seen = /* @__PURE__ */ new Map();
   const result = [];
-  for (const { text: text11 } of proseLines(markdown)) {
-    const match = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(text11);
+  for (const { text: text12 } of proseLines(markdown)) {
+    const match = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(text12);
     if (!match) {
       continue;
     }
@@ -7040,15 +7220,15 @@ function frontmatter2(file, markdown) {
   const keys = /* @__PURE__ */ new Map();
   const errors = [];
   for (let index = 1; index < lines3.length; index++) {
-    const text11 = lines3[index] ?? "";
-    if (text11 === "---") {
+    const text12 = lines3[index] ?? "";
+    if (text12 === "---") {
       return { keys, errors };
     }
-    const match = /^([A-Za-z][\w-]*):\s*(.*)$/.exec(text11);
+    const match = /^([A-Za-z][\w-]*):\s*(.*)$/.exec(text12);
     if (match?.[2] && !/^[[{|>&*!-]/.test(match[2])) {
       keys.set(match[1] ?? "", { value: match[2].trim(), line: index + 1 });
     } else {
-      const key = match ? match[1] : text11.trim();
+      const key = match ? match[1] : text12.trim();
       errors.push(
         finding(
           file,
@@ -7106,10 +7286,10 @@ function checkFrontmatter(file, markdown, exists) {
     ];
   }
   const adr = ADR.test(file);
-  const required3 = adr ? ["status", "date", "summary", "last-verified"] : ["status", "summary", "last-verified"];
+  const required4 = adr ? ["status", "date", "summary", "last-verified"] : ["status", "summary", "last-verified"];
   const { keys } = parsed;
   if (adr && keys.get("status")?.value === "superseded") {
-    required3.push("superseded-by");
+    required4.push("superseded-by");
   }
   const problems = [...parsed.errors, ...valueProblems(file, keys, adr)];
   const replacement = keys.get("superseded-by");
@@ -7124,7 +7304,7 @@ function checkFrontmatter(file, markdown, exists) {
     );
   }
   problems.sort((a, b) => a.line - b.line);
-  for (const key of required3) {
+  for (const key of required4) {
     if (!keys.has(key)) {
       problems.push(
         finding(file, 1, `frontmatter ${key} is missing`, `add a ${key}: line`)
@@ -7357,9 +7537,9 @@ function ideaNumbers(files) {
   }
   return { ideas: ideas2, problems };
 }
-function linkProblems2(tree, file, text11) {
+function linkProblems2(tree, file, text12) {
   const problems = [];
-  for (const { line: line2, text: prose2 } of proseLines(text11)) {
+  for (const { line: line2, text: prose2 } of proseLines(text12)) {
     for (const [, raw = ""] of prose2.matchAll(LINK)) {
       if (isExternal(raw)) {
         continue;
@@ -7388,17 +7568,17 @@ function linkProblems2(tree, file, text11) {
 function markdownProblems(tree, ideas2) {
   const problems = [];
   for (const file of tree.files.filter((name) => name.endsWith(".md"))) {
-    const text11 = tree.deps.read(file);
-    if (text11 === null) {
+    const text12 = tree.deps.read(file);
+    if (text12 === null) {
       continue;
     }
-    problems.push(...linkProblems2(tree, file, text11));
+    problems.push(...linkProblems2(tree, file, text12));
     if (PLAN.test(file) || ADR2.test(file)) {
       problems.push(
-        ...checkFrontmatter(file, text11, (path) => tree.exists(path))
+        ...checkFrontmatter(file, text12, (path) => tree.exists(path))
       );
     } else if (IDEA.test(file)) {
-      problems.push(...checkIdea(file, text11, ideas2));
+      problems.push(...checkIdea(file, text12, ideas2));
     }
   }
   return problems;
@@ -7417,11 +7597,11 @@ function indexProblems(tree) {
   }
   const problems = [];
   const listed = /* @__PURE__ */ new Set();
-  for (const { line: line2, text: text11 } of proseLines(index)) {
-    if (!text11.startsWith("- [")) {
+  for (const { line: line2, text: text12 } of proseLines(index)) {
+    if (!text12.startsWith("- [")) {
       continue;
     }
-    const raw = /\]\(([^)\s#]+)/.exec(text11)?.[1];
+    const raw = /\]\(([^)\s#]+)/.exec(text12)?.[1];
     if (raw === void 0 || isExternal(raw)) {
       continue;
     }
@@ -7459,11 +7639,11 @@ var TRAILING = /[.,;:)]+$/;
 function markerProblems(tree) {
   const problems = [];
   for (const file of tree.files.filter((name) => !name.endsWith(".md"))) {
-    const text11 = tree.deps.read(file);
-    if (text11 === null) {
+    const text12 = tree.deps.read(file);
+    if (text12 === null) {
       continue;
     }
-    text11.split("\n").forEach((line2, position) => {
+    text12.split("\n").forEach((line2, position) => {
       const match = MARKER.exec(line2);
       if (!match) {
         return;
@@ -7563,19 +7743,19 @@ function dependenciesOf(deps) {
     paths.add(path);
   };
   for (const file of files) {
-    const text11 = deps.read(file);
-    if (text11 === null) {
+    const text12 = deps.read(file);
+    if (text12 === null) {
       continue;
     }
     if (PLAN.test(file) || ADR2.test(file)) {
-      for (const target2 of linkTargets(file, text11)) {
+      for (const target2 of linkTargets(file, text12)) {
         depend(file, target2);
       }
     }
     if (file.endsWith(".md")) {
       continue;
     }
-    for (const line2 of text11.split("\n")) {
+    for (const line2 of text12.split("\n")) {
       const path = (MARKER.exec(line2)?.[2] ?? "").replace(/[.,;:)]+$/, "");
       if (PLAN.test(path) || ADR2.test(path)) {
         depend(path, file);
@@ -7584,9 +7764,9 @@ function dependenciesOf(deps) {
   }
   return dependencies;
 }
-function linkTargets(file, text11) {
+function linkTargets(file, text12) {
   const targets = [];
-  for (const { text: prose2 } of proseLines(text11)) {
+  for (const { text: prose2 } of proseLines(text12)) {
     for (const [, raw = ""] of prose2.matchAll(LINK)) {
       const [pathPart] = raw.split("#", 1);
       const target2 = isExternal(raw) || !pathPart ? null : resolve7(file, decodeURI(pathPart));
@@ -7628,23 +7808,23 @@ async function staleDocuments(deps) {
 function format(problem) {
   return `${problem.file}:${problem.line}: ${problem.message}; ${problem.fix}`;
 }
-async function run(argv, deps, log2) {
-  const status2 = await runChecks(argv, deps, log2);
+async function run(argv, deps, log) {
+  const status2 = await runChecks(argv, deps, log);
   const audit3 = deps.audit?.bind(deps);
   if (!audit3) {
     return status2;
   }
-  const failed = await printAudit(audit3, log2);
+  const failed = await printAudit(audit3, log);
   if (failed) {
     const strict = argv.includes("--strict");
-    log2(
+    log(
       strict ? "kb-check: skill audit failed" : "kb-check: skill audit failed (warn mode; --strict fails on it)"
     );
     return strict ? 1 : status2;
   }
   return status2;
 }
-async function printAudit(audit3, log2) {
+async function printAudit(audit3, log) {
   let report3;
   try {
     report3 = await audit3();
@@ -7652,55 +7832,55 @@ async function printAudit(audit3, log2) {
     if (!(error instanceof CommandError)) {
       throw error;
     }
-    log2(
+    log(
       `skill audit: not run (${error.message}); run \`node skills/bin/harness.mjs skill audit\` to see the cause`
     );
     return true;
   }
-  log2("skill audit:");
+  log("skill audit:");
   for (const line2 of report3.text.trimEnd().split("\n")) {
-    log2(`  ${line2}`.trimEnd());
+    log(`  ${line2}`.trimEnd());
   }
   return report3.failing;
 }
-async function runChecks(argv, deps, log2) {
+async function runChecks(argv, deps, log) {
   const strict = argv.includes("--strict");
   const problems = findings(deps);
   for (const problem of problems) {
-    log2(format(problem));
+    log(format(problem));
   }
   const stale = await staleDocuments(deps);
   for (const item of stale) {
-    log2(
+    log(
       `stale: ${item.document} was last verified ${item.verified}, but ${item.path} changed ${item.date}; re-read it and update last-verified`
     );
   }
   const flags = await deps.flagAudit?.() ?? [];
   for (const line2 of flags) {
-    log2(`flag: ${line2}`);
+    log(`flag: ${line2}`);
   }
   const staleNote = () => {
     if (stale.length > 0) {
-      log2(
+      log(
         `kb-check: ${stale.length} stale ${stale.length === 1 ? "document" : "documents"} (warn only)`
       );
     }
     if (flags.length > 0) {
-      log2(
+      log(
         `kb-check: ${flags.length} flag audit ${flags.length === 1 ? "warning" : "warnings"} (warn only)`
       );
     }
   };
   if (problems.length === 0) {
     if (stale.length === 0 && flags.length === 0) {
-      log2("kb-check: clean");
+      log("kb-check: clean");
     } else {
       staleNote();
     }
     return 0;
   }
   const noun = problems.length === 1 ? "finding" : "findings";
-  log2(
+  log(
     strict ? `kb-check: ${problems.length} ${noun}` : `kb-check: ${problems.length} ${noun} (warn mode; --strict fails on them)`
   );
   staleNote();
@@ -7744,8 +7924,8 @@ function overBudgets(descriptionChars, bodyLines) {
 function countLines(body) {
   return body === "" ? 0 : body.replace(/\n$/, "").split("\n").length;
 }
-function auditSkill(directory, text11) {
-  const source = text11.replaceAll("\r\n", "\n");
+function auditSkill(directory, text12) {
+  const source = text12.replaceAll("\r\n", "\n");
   if (!source.startsWith("---\n")) {
     return invalid(directory, "missing frontmatter");
   }
@@ -7967,8 +8147,76 @@ var hook = {
   "workflow-permissions": workflowPermissions
 };
 
+// src/cli/guardrail-request-evidence.ts
+function text4(options, key) {
+  const value = options[key];
+  return typeof value === "string" && value.trim() !== "" ? value.trim() : void 0;
+}
+async function window({ deps, options }, guardrail) {
+  const given = text4(options, "since");
+  if (given !== void 0) {
+    return { since: given, why: `since ${given}, from --since` };
+  }
+  const history = new ModeHistory(deps.runner, await deps.root());
+  const entered = await history.enteredMode(guardrail.rule, guardrail.mode);
+  if (entered !== void 0) {
+    return {
+      since: entered,
+      why: `since ${entered}, when the rule entered ${guardrail.mode} mode`
+    };
+  }
+  return {
+    since: void 0,
+    why: text4(options, "dir") ? "all sessions in --dir; git history gave no mode date" : "since the last retrospective; git history gave no mode date"
+  };
+}
+function required2(context2, key, meaning) {
+  const value = text4(context2.options, key);
+  if (value === void 0) {
+    throw new RulesetError(
+      `Missing --${key}: a ruleset rule's evidence names its ${meaning} explicitly. Rerun with --${key} <value>.`
+    );
+  }
+  return value;
+}
+async function gatherEvidence(context2, guardrail, source) {
+  const { deps, options } = context2;
+  if (source === "ruleset-insights") {
+    const timePeriod = text4(options, "time-period") ?? "week";
+    const found = await ruleFirings(deps.runner, {
+      repo: required2(context2, "repo", "repository, as owner/name"),
+      target: required2(context2, "target", "ruleset, by name"),
+      rule: guardrail.rule,
+      timePeriod
+    });
+    return {
+      source,
+      window: `last ${timePeriod}`,
+      ruleset: found.ruleset,
+      timePeriod,
+      suites: found.suites,
+      firings: found.firings,
+      truncated: found.truncated
+    };
+  }
+  const { since, why } = await window(context2, guardrail);
+  const { row, blocks } = await ruleEvidence(deps, guardrail.rule, {
+    dir: text4(options, "dir"),
+    since
+  });
+  return source === "blocks" ? { source, window: why, blocks } : {
+    source,
+    window: why,
+    status: row.status,
+    fired: row.warnings,
+    heeded: row.heeded,
+    overridden: row.overridden,
+    repeated: row.repeated,
+    unresolved: row.unresolved
+  };
+}
+
 // src/cli/ledger-commands.ts
-import { resolve as resolve8 } from "node:path";
 var EVENT_FLAGS = [
   "id",
   "source",
@@ -7990,24 +8238,13 @@ var EVENT_FLAGS = [
 var STRING_FLAGS = (names3) => Object.fromEntries(names3.map((n) => [n, "string"]));
 var camel = (flag) => flag.replace(/-(\w)/g, (_, c) => c.toUpperCase());
 var NO_ROOT = "Cannot find the main checkout root for the shared ledger. Run inside the repository, set KORE_ROOT to its root, or pass --ledger <path>.";
-async function ledgerPath({
-  deps,
-  options
-}) {
-  const given = options["ledger"];
-  if (typeof given === "string") {
-    return resolve8(deps.cwd, given);
-  }
-  const main = await mainRoot(deps);
-  return main === void 0 ? void 0 : resolve8(main, DEFAULT_LEDGER);
-}
 async function openLedger(context2) {
-  const path = await ledgerPath(context2);
-  if (path === void 0) {
-    return { error: NO_ROOT };
-  }
-  const { deps } = context2;
-  return { ledger: new Ledger(deps.fs, deps.clock, deps.ids, path) };
+  const given = context2.options["ledger"];
+  const ledger = await openSharedLedger(
+    context2.deps,
+    typeof given === "string" ? given : void 0
+  );
+  return ledger === void 0 ? { error: NO_ROOT } : { ledger };
 }
 async function eventInput(context2) {
   const given = EVENT_FLAGS.filter((f) => context2.options[f] !== void 0);
@@ -8022,15 +8259,15 @@ async function eventInput(context2) {
       )
     };
   }
-  const text11 = await context2.deps.stdin();
-  if (text11.trim() === "") {
+  const text12 = await context2.deps.stdin();
+  if (text12.trim() === "") {
     return {
       error: "No event given. Pass --source, --kind and --occurred-at, or one JSON event on stdin.",
       code: 2
     };
   }
   try {
-    return { input: JSON.parse(text11) };
+    return { input: JSON.parse(text12) };
   } catch {
     return { error: "Invalid event: stdin is not valid JSON." };
   }
@@ -8069,17 +8306,17 @@ var record2 = {
 };
 function filterFrom(options) {
   const filter = {};
-  const text11 = (name) => {
+  const text12 = (name) => {
     const value = options[name];
     return typeof value === "string" ? value : void 0;
   };
   for (const name of ["session", "pane", "idea"]) {
-    const value = text11(name);
+    const value = text12(name);
     if (value !== void 0) {
       filter[name] = value;
     }
   }
-  const source = text11("source");
+  const source = text12("source");
   if (source !== void 0) {
     if (!SOURCES.includes(source)) {
       return {
@@ -8088,7 +8325,7 @@ function filterFrom(options) {
     }
     filter.source = source;
   }
-  const kind = text11("kind");
+  const kind = text12("kind");
   if (kind !== void 0) {
     if (!KINDS2.includes(kind)) {
       return { error: `Invalid --kind "${kind}". Kinds: ${KINDS2.join(", ")}.` };
@@ -8096,7 +8333,7 @@ function filterFrom(options) {
     filter.kind = kind;
   }
   for (const name of ["since", "until"]) {
-    const value = text11(name);
+    const value = text12(name);
     if (value !== void 0) {
       if (!isTimestamp(value)) {
         return {
@@ -8232,12 +8469,13 @@ var ledgerCommands = {
 
 // src/cli/guardrail-request-command.ts
 var FAILED3 = 1;
-function text4(options, key) {
+var FIX = "Check `gh auth status`, then rerun `harness guardrail request`.";
+function text5(options, key) {
   const value = options[key];
   return typeof value === "string" && value.trim() !== "" ? value.trim() : void 0;
 }
-function required2(context2, key) {
-  const value = text4(context2.options, key);
+function required3(context2, key) {
+  const value = text5(context2.options, key);
   if (value === void 0) {
     throw new GuardrailError(
       `Missing --${key}; run \`harness guardrail request --rule <rule> --to <enforce|audit|remove> --idea <number or slug>\`.`
@@ -8248,39 +8486,58 @@ function required2(context2, key) {
 function target(to) {
   if (!isTarget(to)) {
     throw new GuardrailError(
-      `--to must be ${TARGETS.slice(0, -1).join(", ")} or ${TARGETS.at(-1)}; got "${to}". Instead, pass one of them.`
+      `--to must be ${TARGETS.slice(0, -1).join(", ")} or ${TARGETS.at(-1)}; got "${to}". Rerun with one of them.`
     );
   }
   return to;
 }
-async function commentedAlready({ deps }, issue, wanted) {
-  const view = await deps.runner.run(
-    "gh",
-    ["issue", "view", issue.number, "--repo", issue.repo, "--json", "comments"],
-    { cwd: await deps.root() }
-  );
-  if (view.code !== 0) {
+function changeable(inventory, rule, to) {
+  const guardrail = inventory.guardrails.find((g) => g.rule === rule);
+  if (guardrail === void 0) {
     throw new GuardrailError(
-      `gh issue view failed for issue ${issue.number}: ${view.stderr.trim()}. Check \`gh auth status\`, then rerun \`harness guardrail request\`.`
+      `${rule} is not in .claude/guardrails.yaml. Rerun with one of: ${inventory.guardrails.map((g) => g.rule).join(", ")}.`
     );
   }
-  let comments = [];
+  if (guardrail.mode === to) {
+    throw new GuardrailError(
+      `${rule} is already in ${to} mode, so there is nothing to approve. Rerun with a different --to.`
+    );
+  }
+  return guardrail;
+}
+async function gh({ deps }, args, what, input) {
+  const done = await deps.runner.run("gh", args, {
+    cwd: await deps.root(),
+    ...input === void 0 ? {} : { input }
+  });
+  if (done.code !== 0) {
+    throw new GuardrailError(
+      `gh ${what} failed: ${done.stderr.trim()}. ${FIX}`
+    );
+  }
+  return done.stdout;
+}
+async function hasComment(context2, issue, wanted) {
+  const stdout = await gh(
+    context2,
+    ["issue", "view", issue.number, "--repo", issue.repo, "--json", "comments"],
+    `issue view for issue ${issue.number}`
+  );
   try {
-    comments = JSON.parse(view.stdout).comments ?? [];
+    const { comments = [] } = JSON.parse(stdout);
+    return comments.some((c) => c.body?.includes(wanted) === true);
   } catch {
     throw new GuardrailError(
-      `gh returned unreadable output for issue ${issue.number}. Check \`gh auth status\`, then rerun \`harness guardrail request\`.`
+      `gh returned unreadable output for issue ${issue.number}. ${FIX}`
     );
   }
-  return comments.some((c) => c.body?.includes(wanted) === true);
 }
-async function post(context2, issue, wanted, body) {
-  const { deps } = context2;
-  if (await commentedAlready(context2, issue, wanted)) {
+async function post(context2, issue, requestId, body) {
+  if (await hasComment(context2, issue, marker(requestId))) {
     return false;
   }
-  const posted = await deps.runner.run(
-    "gh",
+  await gh(
+    context2,
     [
       "issue",
       "comment",
@@ -8290,125 +8547,109 @@ async function post(context2, issue, wanted, body) {
       "--body-file",
       "-"
     ],
-    { cwd: await deps.root(), input: body }
+    `issue comment for issue ${issue.number}`,
+    body
   );
-  if (posted.code !== 0) {
-    throw new GuardrailError(
-      `gh issue comment failed for issue ${issue.number}: ${posted.stderr.trim()}. Check \`gh auth status\`, then rerun \`harness guardrail request\`.`
-    );
-  }
   return true;
 }
-async function log({ deps }, ledger, idea, label) {
-  const event = await ledger.record({
+async function record3({ deps }, ledger, event) {
+  const logged = await ledger.record({
     source: "claude",
     kind: REQUEST_KIND,
     occurredAt: deps.clock.now().toISOString(),
-    idea,
-    label
+    ...event
   });
-  if (!event.ok) {
+  if (!logged.ok) {
     throw new GuardrailError(
-      `The request was posted, but its ledger event was rejected: ${event.message} Fix the ledger, then rerun \`harness guardrail request\` to record it.`
+      `The request could not be recorded: ${logged.message} Fix the ledger, then rerun \`harness guardrail request\`.`
     );
   }
 }
-function changeable(inventory, rule, to) {
-  const guardrail = inventory.guardrails.find((g) => g.rule === rule);
-  if (guardrail === void 0) {
-    throw new GuardrailError(
-      `${rule} is not in .claude/guardrails.yaml. Instead, pick one of: ${inventory.guardrails.map((g) => g.rule).join(", ")}.`
-    );
+async function begin(context2, ledger, inventory, { rule, to, idea }) {
+  const waiting2 = (await waitingRequests(context2.deps, inventory, ledger)).get(
+    rule
+  );
+  if (waiting2?.to === to && waiting2.idea === idea) {
+    return { requestId: waiting2.id, same: true };
   }
-  if (guardrail.mode === to) {
-    throw new GuardrailError(
-      `${rule} is already in ${to} mode, so there is nothing to approve. Instead, request a different state.`
-    );
-  }
-  return guardrail;
+  const requestId = context2.deps.ids.next();
+  await record3(context2, ledger, {
+    id: requestId,
+    idea,
+    label: requestLabel(rule, to)
+  });
+  return { requestId, same: false };
 }
 async function request(context2) {
   const { deps } = context2;
-  const rule = required2(context2, "rule");
-  const to = target(required2(context2, "to"));
-  const ideaRef2 = required2(context2, "idea");
+  const rule = required3(context2, "rule");
+  const to = target(required3(context2, "to"));
+  const ideaRef2 = required3(context2, "idea");
   const root3 = await deps.root();
   const inventory = await readInventory((p) => deps.fs.readFile(p), root3);
   const guardrail = changeable(inventory, rule, to);
+  const measured = evidenceSource(guardrail);
+  if ("refusal" in measured) {
+    throw new GuardrailError(measured.refusal);
+  }
   const opened = await openLedger(context2);
   if ("error" in opened) {
     throw new GuardrailError(opened.error);
   }
-  const record5 = await new IdeaRepository(deps.fs, deps.clock, root3).get(
-    ideaRef2
-  );
-  const issue = await issueTarget(deps.runner, root3, record5);
-  const asked = await priorRequests(opened.ledger, inventory, {
+  const idea = await new IdeaRepository(deps.fs, deps.clock, root3).get(ideaRef2);
+  const issue = await issueTarget(deps.runner, root3, idea);
+  const evidence = await gatherEvidence(context2, guardrail, measured.source);
+  const { requestId, same: same2 } = await begin(context2, opened.ledger, inventory, {
     rule,
     to,
-    idea: record5.number
+    idea: idea.number
   });
   const link = `https://github.com/${issue.repo}/issues/${issue.number}`;
-  if (asked.pending) {
-    return finish(
-      context2,
-      { rule, to, idea: record5.number, link },
-      false,
-      false
-    );
-  }
-  const evidence = await ruleEvidence(deps, rule, {
-    dir: text4(context2.options, "dir"),
-    since: text4(context2.options, "since")
-  });
-  const body = renderRequest({
-    guardrail,
-    to,
-    idea: {
-      number: record5.number,
-      title: record5.title,
-      path: record5.path,
-      link
-    },
-    evidence
-  });
-  const commented = await post(context2, issue, marker(rule, to), body);
-  await log(context2, opened.ledger, record5.number, requestLabel(rule, to));
-  return finish(
+  const commented = await post(
     context2,
-    { rule, to, idea: record5.number, link },
-    commented,
-    true
+    issue,
+    requestId,
+    renderRequest({
+      guardrail,
+      to,
+      requestId,
+      idea: { number: idea.number, title: idea.title, path: idea.path, link },
+      evidence
+    })
   );
-}
-async function priorRequests(ledger, inventory, { rule, to, idea }) {
-  const { events } = await ledger.list({ kind: REQUEST_KIND });
-  const waiting2 = pendingRequests(inventory, events).get(rule);
-  return { pending: waiting2?.to === to && waiting2.idea === idea };
-}
-function finish({ deps, json }, done, commented, recorded) {
+  const out = {
+    rule,
+    to,
+    idea: idea.number,
+    requestId,
+    commented,
+    recorded: !same2
+  };
   deps.stdout(
-    json ? `${JSON.stringify({ rule: done.rule, to: done.to, idea: done.idea, commented, recorded })}
-` : `${recorded ? "Requested" : "Already requested"}: ${done.rule} to ${done.to} on ${done.link}
+    context2.json ? `${JSON.stringify(out)}
+` : `${same2 && !commented ? "Already requested" : "Requested"}: ${rule} to ${to} on ${link}
 `
   );
   return 0;
 }
 var guardrailRequest = {
-  summary: "ask a person to approve a guardrail mode change on the idea's issue, with outcome evidence (--rule <rule> --to <enforce|audit|remove> --idea <number or slug> [--dir <transcripts>] [--since YYYY-MM-DD] [--ledger <path>]); changes no guardrail",
+  summary: "ask a person to approve a guardrail mode change on the idea's issue, with outcome evidence (--rule <rule> --to <enforce|audit|remove> --idea <number or slug> [--dir <transcripts>] [--since YYYY-MM-DD] [--repo <owner/name> --target <ruleset> [--time-period hour|day|week|month]] [--ledger <path>]); changes no guardrail",
   options: {
     rule: "string",
     to: "string",
     idea: "string",
     dir: "string",
     since: "string",
+    repo: "string",
+    target: "string",
+    "time-period": "string",
     ledger: "string"
   },
   async run(context2) {
     try {
       return await request(context2);
     } catch (error) {
-      if (!(error instanceof GuardrailError || error instanceof IdeaError || error instanceof CommandError)) {
+      if (!(error instanceof GuardrailError || error instanceof IdeaError || error instanceof RulesetError || error instanceof CommandError)) {
         throw error;
       }
       const prefix = context2.json ? `${JSON.stringify({ error: error.message })}
@@ -8461,12 +8702,12 @@ var MIN_COMPLETED_IDEAS = 3;
 function uncovered(span, holes) {
   const sorted = holes.map(([a, b]) => [Math.max(a, span[0]), Math.min(b, span[1])]).filter(([a, b]) => b > a).sort((x, y) => x[0] - y[0]);
   let free = span[1] - span[0];
-  let reached2 = span[0];
+  let reached = span[0];
   for (const [a, b] of sorted) {
-    const from = Math.max(a, reached2);
+    const from = Math.max(a, reached);
     if (b > from) {
       free -= b - from;
-      reached2 = b;
+      reached = b;
     }
   }
   return free;
@@ -8552,18 +8793,18 @@ var windowOf = ({ since, until }) => [
   since?.getTime() ?? -Infinity,
   until?.getTime() ?? Infinity
 ];
-var clipMs = (window, from, to) => Math.max(0, Math.min(to, window[1]) - Math.max(from, window[0]));
-var inWindow = (window, at) => at >= window[0] && at < window[1];
+var clipMs = (window2, from, to) => Math.max(0, Math.min(to, window2[1]) - Math.max(from, window2[0]));
+var inWindow = (window2, at) => at >= window2[0] && at < window2[1];
 
 // src/flow/select.ts
-function groupByIdea(events, window) {
+function groupByIdea(events, window2) {
   const ideaOf = attribute(events);
   const byIdea = /* @__PURE__ */ new Map();
   let unattributed = 0;
   for (const event of events) {
     const idea = ideaOf.get(event.id);
     if (idea === void 0) {
-      unattributed += inWindow(window, time(event)) ? 1 : 0;
+      unattributed += inWindow(window2, time(event)) ? 1 : 0;
     } else {
       byIdea.set(idea, [...byIdea.get(idea) ?? [], event]);
     }
@@ -8573,12 +8814,12 @@ function groupByIdea(events, window) {
 function reach(own2, waits) {
   return Math.max(...own2.map(time), ...waits.map(([, , stop2]) => stop2));
 }
-function select(byIdea, { ideas: ideas2 }, window, asOf) {
+function select(byIdea, { ideas: ideas2 }, window2, asOf) {
   const kept = /* @__PURE__ */ new Map();
   for (const [idea, own2] of byIdea) {
     const waits = githubSpans(own2, asOf);
     const first = Math.min(...own2.map(time));
-    if ((ideas2 === null || ideas2.includes(idea)) && first < window[1] && reach(own2, waits) >= window[0]) {
+    if ((ideas2 === null || ideas2.includes(idea)) && first < window2[1] && reach(own2, waits) >= window2[0]) {
       kept.set(idea, { own: own2, waits });
     }
   }
@@ -8586,17 +8827,17 @@ function select(byIdea, { ideas: ideas2 }, window, asOf) {
 }
 
 // src/flow/toil.ts
-var newLife = (first, window) => ({
+var newLife = (first, window2) => ({
   began: first.kind === "pane.spawned" || first.kind === "session.start",
   lastToolAt: void 0,
   failed: void 0,
   waits: [],
-  window
+  window: window2
 });
 function chargeToil(add, event, at, start, life) {
-  const { window } = life;
+  const { window: window2 } = life;
   const gap = (from, to) => {
-    const [a, b] = [Math.max(from, window[0]), Math.min(to, window[1])];
+    const [a, b] = [Math.max(from, window2[0]), Math.min(to, window2[1])];
     return b > a ? uncovered([a, b], life.waits) : 0;
   };
   const isTool = event.kind === "tool.start" || event.kind === "tool.end";
@@ -8656,8 +8897,8 @@ var emptyMillis = () => ({
 });
 var Tally2 = class {
   /** Only time inside this range is charged; infinite where an end is open. */
-  constructor(window = [-Infinity, Infinity]) {
-    this.window = window;
+  constructor(window2 = [-Infinity, Infinity]) {
+    this.window = window2;
   }
   window;
   totals = new Map(
@@ -8800,11 +9041,11 @@ function metric(values, trailing, { maxIncrease }) {
     worsened: current2.value > trailingAverage * (1 + maxIncrease)
   };
 }
-function costMetrics(byIdea, window, options) {
+function costMetrics(byIdea, window2, options) {
   const closed = [];
   for (const [idea, own2] of byIdea) {
     const at = own2.filter((e) => e.kind === "issue.closed").map(time).sort((a, b) => a - b)[0];
-    if (at !== void 0 && inWindow(window, at)) {
+    if (at !== void 0 && inWindow(window2, at)) {
       closed.push({ idea, at, ...costOf(own2) });
     }
   }
@@ -8830,11 +9071,11 @@ function costMetrics(byIdea, window, options) {
 
 // src/flow/idea-metrics.ts
 var firstClosed = (own2) => firstTime(own2, (e) => e.kind === "issue.closed");
-function leadTime(byIdea, window) {
+function leadTime(byIdea, window2) {
   const ideas2 = [];
   for (const [idea, own2] of byIdea) {
     const outcome = firstClosed(own2);
-    if (outcome !== void 0 && inWindow(window, outcome)) {
+    if (outcome !== void 0 && inWindow(window2, outcome)) {
       const first = Math.min(...own2.map(time));
       ideas2.push({ idea, seconds: (outcome - first) / 1e3 });
     }
@@ -8849,10 +9090,10 @@ function leadTime(byIdea, window) {
     maxSeconds: seconds3.length === 0 ? null : Math.max(...seconds3)
   };
 }
-function ideaMetrics(byIdea, window, cost = {}) {
+function ideaMetrics(byIdea, window2, cost = {}) {
   return {
-    leadTime: leadTime(byIdea, window),
-    metrics: costMetrics(byIdea, window, { ...DEFAULT_COST, ...cost })
+    leadTime: leadTime(byIdea, window2),
+    metrics: costMetrics(byIdea, window2, { ...DEFAULT_COST, ...cost })
   };
 }
 
@@ -9011,10 +9252,10 @@ function nameBottleneck(tally, completed, minCompletedIdeas) {
 function buildReport(events, options) {
   const { asOf, minCompletedIdeas } = options;
   const scope = scopeOf(options);
-  const window = windowOf(options);
-  const { byIdea, unattributed } = groupByIdea(events, window);
-  const covered = select(byIdea, scope, window, asOf.getTime());
-  const tally = new Tally2(window);
+  const window2 = windowOf(options);
+  const { byIdea, unattributed } = groupByIdea(events, window2);
+  const covered = select(byIdea, scope, window2, asOf.getTime());
+  const tally = new Tally2(window2);
   const ownByIdea = /* @__PURE__ */ new Map();
   let unmapped = 0;
   let completed = 0;
@@ -9022,7 +9263,7 @@ function buildReport(events, options) {
     ownByIdea.set(idea, own2);
     unmapped += chargeIdea(tally, own2, waits);
     const outcome = firstClosed(own2);
-    completed += outcome !== void 0 && inWindow(window, outcome) ? 1 : 0;
+    completed += outcome !== void 0 && inWindow(window2, outcome) ? 1 : 0;
   }
   if (scope.ideas === null) {
     unmapped += unattributed;
@@ -9034,7 +9275,7 @@ function buildReport(events, options) {
     ideas: { total: covered.size, completed },
     minCompletedIdeas,
     stages: tally.stages(),
-    ...ideaMetrics(ownByIdea, window, options.cost),
+    ...ideaMetrics(ownByIdea, window2, options.cost),
     ...nameBottleneck(tally, completed, minCompletedIdeas),
     unmappedEvents: unmapped
   };
@@ -9113,10 +9354,10 @@ function parseCost(file, cost) {
     }
   };
 }
-function parseHarnessConfig(text11, file) {
+function parseHarnessConfig(text12, file) {
   let value;
   try {
-    value = JSON.parse(text11);
+    value = JSON.parse(text12);
   } catch {
     return { error: `Invalid ${file}: it is not valid JSON. Fix the syntax.` };
   }
@@ -9250,7 +9491,7 @@ function metricLine(label, metric2, trailing) {
   const average = Math.round(metric2.trailingAverage * 100) / 100;
   return `${label}: ${metric2.currentIdea} ${metric2.current}, average of the ${trailing} ideas before it ${average}${metric2.worsened ? " (worsened)" : ""}`;
 }
-function text5(report3) {
+function text6(report3) {
   const rows = report3.stages.map(
     (s) => [
       s.stage.padEnd(15),
@@ -9338,7 +9579,7 @@ var report2 = {
       skippedLines: skipped
     };
     deps.stdout(json ? `${JSON.stringify(printed)}
-` : text5(printed));
+` : text6(printed));
     return 0;
   }
 };
@@ -9408,7 +9649,7 @@ var RoundLimit = class extends IdeaError {
   rounds;
   openObjections;
 };
-var FIX = "Check `gh auth status`, then rerun `harness idea challenge`.";
+var FIX2 = "Check `gh auth status`, then rerun `harness idea challenge`.";
 function issueComments(stdout, issue) {
   try {
     const view = JSON.parse(stdout);
@@ -9425,16 +9666,16 @@ function issueComments(stdout, issue) {
     }) : [];
   } catch {
     throw new IdeaError(
-      `gh returned unreadable output for issue ${issue}; ${FIX}`
+      `gh returned unreadable output for issue ${issue}; ${FIX2}`
     );
   }
 }
-async function ghUser(gh2) {
-  const whoami = await gh2(["api", "user", "--jq", ".login"]);
+async function ghUser(gh3) {
+  const whoami = await gh3(["api", "user", "--jq", ".login"]);
   const user = whoami.stdout.trim();
   if (whoami.code !== 0 || user === "") {
     throw new IdeaError(
-      `gh could not name the authenticated user${whoami.stderr.trim() === "" ? "" : `: ${whoami.stderr.trim()}`}. ${FIX}`
+      `gh could not name the authenticated user${whoami.stderr.trim() === "" ? "" : `: ${whoami.stderr.trim()}`}. ${FIX2}`
     );
   }
   return user;
@@ -9455,8 +9696,8 @@ function duplicatePost(duplicate, issue) {
   const [keep, ...extra] = duplicate.urls;
   return `Challenge round ${duplicate.round} on ${issue} was posted twice and both comments are still on the issue: ${duplicate.urls.join(" and ")}. Another challenge ran at the same time. Keep ${keep} and delete ${extra.join(" and ")}; the round is recorded once. Do not rerun for this round.`;
 }
-async function readComments(gh2, target2, issue, unreadable) {
-  const view = await gh2([
+async function readComments(gh3, target2, issue, unreadable) {
+  const view = await gh3([
     "issue",
     "view",
     target2.number,
@@ -9468,13 +9709,13 @@ async function readComments(gh2, target2, issue, unreadable) {
   if (view.code !== 0) {
     const detail2 = view.stderr.trim();
     throw new IdeaError(
-      unreadable?.(detail2) ?? `gh could not read issue ${issue}: ${detail2}. ${FIX}`
+      unreadable?.(detail2) ?? `gh could not read issue ${issue}: ${detail2}. ${FIX2}`
     );
   }
   return issueComments(view.stdout, issue);
 }
-async function postRound(gh2, target2, issue, body, round2) {
-  const post2 = await gh2(
+async function postRound(gh3, target2, issue, body, round2) {
+  const post2 = await gh3(
     [
       "issue",
       "comment",
@@ -9488,36 +9729,36 @@ async function postRound(gh2, target2, issue, body, round2) {
   );
   if (post2.code !== 0) {
     throw new IdeaError(
-      `gh could not post round ${round2} on ${issue}: ${post2.stderr.trim()}. ${FIX}`
+      `gh could not post round ${round2} on ${issue}: ${post2.stderr.trim()}. ${FIX2}`
     );
   }
 }
 async function challengeIdea(ctx, ref, objections) {
-  const record5 = await ctx.repo.get(ref);
-  const target2 = await issueTarget(ctx.runner, ctx.root, record5);
+  const record6 = await ctx.repo.get(ref);
+  const target2 = await issueTarget(ctx.runner, ctx.root, record6);
   const issue = `https://github.com/${target2.repo}/issues/${target2.number}`;
-  const gh2 = (args, input) => ctx.runner.run("gh", args, {
+  const gh3 = (args, input) => ctx.runner.run("gh", args, {
     cwd: ctx.root,
     ...input === void 0 ? {} : { input }
   });
-  const comments = (unreadable) => readComments(gh2, target2, issue, unreadable);
-  const user = await ghUser(gh2);
+  const comments = (unreadable) => readComments(gh3, target2, issue, unreadable);
+  const user = await ghUser(gh3);
   const rounds = distinctRounds(
-    parseRounds(record5.number, await comments(), user)
+    parseRounds(record6.number, await comments(), user)
   );
   if (rounds.length >= MAX_ROUNDS) {
-    throw roundLimit(record5.number, rounds, issue);
+    throw roundLimit(record6.number, rounds, issue);
   }
   const round2 = rounds.length + 1;
   await postRound(
-    gh2,
+    gh3,
     target2,
     issue,
-    renderRound(record5.number, round2, objections),
+    renderRound(record6.number, round2, objections),
     round2
   );
   const posted = parseRounds(
-    record5.number,
+    record6.number,
     await comments(
       (detail2) => `Round ${round2} was posted on ${issue}, but gh could not read the issue again to check for a duplicate: ${detail2}. Do not rerun, which would post another round; check the issue by hand.`
     ),
@@ -9525,7 +9766,7 @@ async function challengeIdea(ctx, ref, objections) {
   );
   const duplicate = duplicateRounds(posted).find((d) => d.round === round2);
   return {
-    idea: record5.number,
+    idea: record6.number,
     round: round2,
     objections: [...objections],
     issue,
@@ -9535,7 +9776,7 @@ async function challengeIdea(ctx, ref, objections) {
 
 // src/cli/challenge-commands.ts
 var FAILED4 = 1;
-function text6(options, key) {
+function text7(options, key) {
   const value = options[key];
   return typeof value === "string" ? value : void 0;
 }
@@ -9554,7 +9795,7 @@ async function objectionsOf(context2) {
 }
 async function round(context2) {
   const { deps } = context2;
-  const ref = text6(context2.options, "idea")?.trim();
+  const ref = text7(context2.options, "idea")?.trim();
   if (ref === void 0 || ref === "") {
     throw new IdeaError(
       "Missing --idea; run `harness idea challenge --idea <number or slug>`, or `harness idea list` to see the ideas."
@@ -9629,7 +9870,7 @@ var challenge = {
 
 // src/cli/flag-commands.ts
 var FAILED5 = 1;
-function text7(options, key) {
+function text8(options, key) {
   const value = options[key];
   return typeof value === "string" && value.trim() !== "" ? value.trim() : void 0;
 }
@@ -9673,7 +9914,7 @@ function activationTarget(context2) {
       "Missing flag name; run `harness flag activate <flag> --environment <env>`."
     );
   }
-  const environment = text7(context2.options, "environment");
+  const environment = text8(context2.options, "environment");
   if (environment === void 0) {
     throw new FlagError(
       "Missing --environment; run `harness flag activate <flag> --environment <env>`."
@@ -9789,16 +10030,38 @@ function recentStages(events) {
 }
 async function ideas({ deps }) {
   const repository2 = new IdeaRepository(deps.fs, deps.clock, await deps.root());
-  const items2 = (await repository2.list()).map((record5) => ({
-    number: record5.number,
-    title: record5.title,
-    state: record5.outcome ?? "open"
+  const items2 = (await repository2.list()).map((record6) => ({
+    number: record6.number,
+    title: record6.title,
+    state: record6.outcome ?? "open"
   }));
   const byState = {};
   for (const { state } of items2) {
     byState[state] = (byState[state] ?? 0) + 1;
   }
   return { byState, items: items2 };
+}
+async function waitingForApproval({ deps }, ledger) {
+  try {
+    const inventory = await readInventory(
+      (path) => deps.fs.readFile(path),
+      await deps.root()
+    );
+    const pending = await waitingRequests(deps, inventory, ledger);
+    return {
+      waiting: [...pending].map(([rule, { to, idea, requestedAt }]) => ({
+        rule,
+        to,
+        idea,
+        requestedAt
+      }))
+    };
+  } catch (error) {
+    if (!(error instanceof GuardrailError)) {
+      throw error;
+    }
+    return { waiting: [], error: error.message };
+  }
 }
 var statusCommand = {
   summary: "report open plan items, ideas by state and recent ledger stages; read-only, for the concierge",
@@ -9811,7 +10074,8 @@ var statusCommand = {
     const status2 = {
       plans: await readActivePlans(context2.deps),
       ideas: await ideas(context2),
-      ledger: { recent: recentStages(events), skipped }
+      ledger: { recent: recentStages(events), skipped },
+      guardrails: await waitingForApproval(context2, opened.ledger)
     };
     if (context2.json) {
       context2.deps.stdout(`${JSON.stringify(status2)}
@@ -9824,6 +10088,14 @@ var statusCommand = {
     lines3.push(
       `Ideas: ${Object.entries(status2.ideas.byState).map(([state, count3]) => `${count3} ${state}`).join(", ") || "none"}`
     );
+    for (const w of status2.guardrails.waiting) {
+      lines3.push(
+        `Waiting for approval: ${w.rule} to ${w.to} (idea ${w.idea}, requested ${w.requestedAt})`
+      );
+    }
+    if (status2.guardrails.error !== void 0) {
+      lines3.push(`Guardrails unreadable: ${status2.guardrails.error}`);
+    }
     for (const r of status2.ledger.recent) {
       lines3.push(`${r.occurredAt} ${r.stage} ${r.kind}`);
     }
@@ -9834,7 +10106,7 @@ var statusCommand = {
 };
 
 // src/cli/judge-commands.ts
-import { resolve as resolve9 } from "node:path";
+import { resolve as resolve8 } from "node:path";
 
 // src/judge/declaration.ts
 var PATTERNS = [
@@ -9845,7 +10117,7 @@ var PATTERNS = [
   "expand-contract"
 ];
 var FIELD = "Safety pattern:";
-var FIX2 = `Add exactly one \`${FIELD} <pattern>\` line to the PR body (see .github/pull_request_template.md), where <pattern> is one of ${PATTERNS.join(", ")}.`;
+var FIX3 = `Add exactly one \`${FIELD} <pattern>\` line to the PR body (see .github/pull_request_template.md), where <pattern> is one of ${PATTERNS.join(", ")}.`;
 var FIELDS2 = {
   pattern: /^\s*Safety pattern:\s*(.*?)\s*$/i,
   idea: /^\s*Idea:\s*(.*?)\s*$/i
@@ -9867,14 +10139,14 @@ function parseDeclaration(body) {
   if (declared.length !== 1) {
     return {
       ok: false,
-      reason: declared.length === 0 ? `The PR declares no safety pattern. ${FIX2}` : `The PR declares ${declared.length} safety patterns; declare exactly one. ${FIX2}`
+      reason: declared.length === 0 ? `The PR declares no safety pattern. ${FIX3}` : `The PR declares ${declared.length} safety patterns; declare exactly one. ${FIX3}`
     };
   }
   const value = declared[0] ?? "";
   if (!isPattern(value)) {
     return {
       ok: false,
-      reason: value === "" ? `The \`${FIELD}\` field is blank. ${FIX2}` : `Unknown safety pattern "${value}". ${FIX2}`
+      reason: value === "" ? `The \`${FIELD}\` field is blank. ${FIX3}` : `Unknown safety pattern "${value}". ${FIX3}`
     };
   }
   const idea = lines2(body, "idea")[0];
@@ -9886,7 +10158,7 @@ var CI_JOB = "check";
 var SCAN_JOB = "scan";
 var COVERAGE_STEPS = ["Unit tests", "Harness tests"];
 var REVIEW = /^\s*principles-review:\s*(.*)$/im;
-function text8(value) {
+function text9(value) {
   return typeof value === "string" ? value : "";
 }
 function parsePrView(stdout) {
@@ -9894,21 +10166,21 @@ function parsePrView(stdout) {
     const view = JSON.parse(stdout);
     const list3 = (key) => Array.isArray(view[key]) ? view[key] : [];
     return {
-      body: text8(view["body"]),
+      body: text9(view["body"]),
       comments: list3("comments").map((c) => ({
-        body: text8(c["body"]),
-        author: text8(
+        body: text9(c["body"]),
+        author: text9(
           c["author"]?.["login"]
         ),
-        createdAt: text8(c["createdAt"])
+        createdAt: text9(c["createdAt"])
       })),
-      headSha: text8(view["headRefOid"]),
-      headCommittedAt: list3("commits").map((c) => text8(c["committedDate"])).filter((d) => d !== "").sort().at(-1),
+      headSha: text9(view["headRefOid"]),
+      headCommittedAt: list3("commits").map((c) => text9(c["committedDate"])).filter((d) => d !== "").sort().at(-1),
       rollup: list3("statusCheckRollup").map((c) => ({
-        name: text8(c["name"]),
-        status: text8(c["status"]),
-        conclusion: text8(c["conclusion"]),
-        url: text8(c["detailsUrl"])
+        name: text9(c["name"]),
+        status: text9(c["status"]),
+        conclusion: text9(c["conclusion"]),
+        url: text9(c["detailsUrl"])
       }))
     };
   } catch {
@@ -10036,12 +10308,12 @@ var Hunk = class {
     this.removed = 0;
   }
 };
-function parseDiff(text11) {
+function parseDiff(text12) {
   const files = [];
   let current2;
   let inHunk = false;
   const hunk = new Hunk();
-  for (const line2 of text11.split("\n")) {
+  for (const line2 of text12.split("\n")) {
     const header = /^diff --git a\/(.+?) b\/(.+)$/.exec(line2);
     if (header?.[2] !== void 0) {
       hunk.end(current2);
@@ -10084,28 +10356,28 @@ var INLINE = /^\s*"?features"?\s*:\s*\{(.*)\}\s*,?\s*$/;
 var OPEN2 = /^\s*"?features"?\s*:\s*\{(.*)$/;
 var CLOSE = /^[^"]*\}/;
 var NOT_BEHAVIOUR = /(\.md$|\.spec\.[cm]?[jt]sx?$|\.test\.[cm]?[jt]sx?$|^docs\/)/;
-function entries(text11, environment) {
-  return [...text11.matchAll(ENTRY2)].flatMap(
+function entries(text12, environment) {
+  return [...text12.matchAll(ENTRY2)].flatMap(
     (m) => m[1] === void 0 ? [] : [{ flag: m[1], environment, value: m[2] === "true" }]
   );
 }
 function overlayFlags(file, environment) {
   const found = [];
   let inside = false;
-  for (const { added, text: text11 } of file.after) {
-    const inline = INLINE.exec(text11);
+  for (const { added, text: text12 } of file.after) {
+    const inline = INLINE.exec(text12);
     if (inline?.[1] !== void 0) {
       inside = false;
       found.push(...added ? entries(inline[1], environment) : []);
-    } else if (OPEN2.test(text11)) {
+    } else if (OPEN2.test(text12)) {
       inside = true;
-      const rest = OPEN2.exec(text11)?.[1] ?? "";
+      const rest = OPEN2.exec(text12)?.[1] ?? "";
       found.push(...added ? entries(rest, environment) : []);
     } else if (inside) {
-      if (CLOSE.test(text11)) {
+      if (CLOSE.test(text12)) {
         inside = false;
       } else if (added) {
-        found.push(...entries(text11, environment));
+        found.push(...entries(text12, environment));
       }
     }
   }
@@ -10198,18 +10470,18 @@ function assess(pattern, hints, files) {
 // src/judge/precheck.ts
 var JudgeError = class extends Error {
 };
-var FIX3 = "Check `gh auth status` and the PR number, then rerun `harness judge precheck <pr>`.";
-async function gh({ deps }, root3, args, pr) {
+var FIX4 = "Check `gh auth status` and the PR number, then rerun `harness judge precheck <pr>`.";
+async function gh2({ deps }, root3, args, pr) {
   const done = await deps.runner.run("gh", args, { cwd: root3 });
   if (done.code !== 0) {
     throw new JudgeError(
-      `gh ${args.slice(0, 2).join(" ")} failed for PR #${pr}: ${done.stderr.trim()}. ${FIX3}`
+      `gh ${args.slice(0, 2).join(" ")} failed for PR #${pr}: ${done.stderr.trim()}. ${FIX4}`
     );
   }
   return done.stdout;
 }
 async function readPr(context2, root3, pr) {
-  const out = await gh(
+  const out = await gh2(
     context2,
     root3,
     [
@@ -10223,7 +10495,7 @@ async function readPr(context2, root3, pr) {
   );
   const view = parsePrView(out);
   if (view === void 0) {
-    throw new JudgeError(`gh returned unreadable output for PR #${pr}. ${FIX3}`);
+    throw new JudgeError(`gh returned unreadable output for PR #${pr}. ${FIX4}`);
   }
   return view;
 }
@@ -10239,7 +10511,7 @@ async function precheck(context2, root3, pr, reviewers) {
       declaration: { ok: false, reason: declaration.reason }
     };
   }
-  const diff = await gh(context2, root3, ["pr", "diff", String(pr)], pr);
+  const diff = await gh2(context2, root3, ["pr", "diff", String(pr)], pr);
   const checks = await gatherChecks(context2.deps.runner, root3, view, reviewers);
   const files = parseDiff(diff);
   const hints = hintsFor(declaration.pattern, files);
@@ -10302,10 +10574,10 @@ async function openJudgeLedger({ deps }) {
     deps.fs,
     deps.clock,
     deps.ids,
-    resolve9(main, DEFAULT_LEDGER)
+    resolve8(main, DEFAULT_LEDGER)
   );
 }
-async function record3(context2, report3) {
+async function record4(context2, report3) {
   const ledger = await openJudgeLedger(context2);
   const { deps } = context2;
   const idea = report3.idea;
@@ -10338,7 +10610,7 @@ async function runPrecheck(context2) {
     const report3 = await precheck(context2, root3, pr, reviewers);
     deps.stdout(json ? `${JSON.stringify(report3)}
 ` : summary(report3));
-    await record3(context2, report3);
+    await record4(context2, report3);
     return report3.ok ? 0 : FAILED6;
   } catch (error) {
     if (!(error instanceof JudgeError)) {
@@ -10372,7 +10644,7 @@ var OUTCOME_SOURCES = [
 ];
 var RESULTS = ["confirmed", "refuted", "inconclusive"];
 var labelFor = (result) => `outcome:${result}`;
-var markerFor2 = (record5) => `<!-- harness outcome idea ${record5.number} -->`;
+var markerFor2 = (record6) => `<!-- harness outcome idea ${record6.number} -->`;
 function choice(flag, allowed, value) {
   if (value === void 0 || value.trim() === "") {
     throw new IdeaError(
@@ -10387,7 +10659,7 @@ function choice(flag, allowed, value) {
   }
   return found;
 }
-function text9(flag, value, hint) {
+function text10(flag, value, hint) {
   const trimmed = (value ?? "").trim();
   if (trimmed === "") {
     throw new IdeaError(`Missing --${flag}; ${hint}.`);
@@ -10398,12 +10670,12 @@ function parseOutcome(options) {
   const kind = choice("kind", OUTCOME_KINDS, options.kind);
   const source = choice("source", OUTCOME_SOURCES, options.source);
   const result = choice("result", RESULTS, options.result);
-  const evidence = text9(
+  const evidence = text10(
     "evidence",
     options.evidence,
     "name the run, journal entry, eval record or comparison it was measured on"
   ).replace(/\s+/g, " ");
-  const summary2 = text9(
+  const summary2 = text10(
     "summary",
     options.summary,
     "state what was observed against the idea's expected outcome"
@@ -10472,24 +10744,24 @@ function renderSection(outcome, date) {
     outcome.summary
   ].join("\n");
 }
-function followUpOf(record5, result) {
+function followUpOf(record6, result) {
   return {
     // The number keeps the slug unique when long slugs share a prefix.
-    slug: `follow-up-${record5.number}-${record5.slug}`.slice(0, 60).replace(/-+$/, ""),
+    slug: `follow-up-${record6.number}-${record6.slug}`.slice(0, 60).replace(/-+$/, ""),
     idea: {
-      title: `Follow up: ${record5.title}`,
-      summary: `Follow up on idea ${record5.number} after a ${result} outcome`,
-      hypothesis: `After a ${result} outcome on idea ${record5.number}, revisit: ${record5.hypothesis}`,
-      expectedOutcome: record5.expectedOutcome,
-      measurement: record5.measurement,
-      safetyPattern: record5.safetyPattern,
-      parent: record5.number
+      title: `Follow up: ${record6.title}`,
+      summary: `Follow up on idea ${record6.number} after a ${result} outcome`,
+      hypothesis: `After a ${result} outcome on idea ${record6.number}, revisit: ${record6.hypothesis}`,
+      expectedOutcome: record6.expectedOutcome,
+      measurement: record6.measurement,
+      safetyPattern: record6.safetyPattern,
+      parent: record6.number
     }
   };
 }
 
 // src/outcome/publish.ts
-var FIX4 = "Check `gh auth status`, then rerun `harness outcome close`.";
+var FIX5 = "Check `gh auth status`, then rerun `harness outcome close`.";
 function names(value, key) {
   return Array.isArray(value) ? value.flatMap((v) => {
     const found = v?.[key];
@@ -10506,7 +10778,7 @@ function parseView2(stdout, target2) {
     };
   } catch {
     throw new IdeaError(
-      `gh returned unreadable output for issue ${target2.number}; ${FIX4}`
+      `gh returned unreadable output for issue ${target2.number}; ${FIX5}`
     );
   }
 }
@@ -10521,7 +10793,7 @@ function missingLabel(stderr2, wanted, repo, idea) {
   return /not found/i.test(stderr2) && stderr2.includes(wanted) ? `The label "${wanted}" does not exist on ${repo}; create it with \`gh label create ${wanted} --repo ${repo}\`, then rerun \`harness outcome close --idea ${idea}\`.` : void 0;
 }
 async function publishOutcome(runner, root3, target2, outcome) {
-  const gh2 = async (args, input, explain) => {
+  const gh3 = async (args, input, explain) => {
     const done = await runner.run("gh", args, {
       cwd: root3,
       ...input === void 0 ? {} : { input }
@@ -10532,14 +10804,14 @@ async function publishOutcome(runner, root3, target2, outcome) {
         throw new IdeaError(reason);
       }
       throw new IdeaError(
-        `gh ${args.slice(0, 2).join(" ")} failed for issue ${target2.number}: ${done.stderr.trim()}. ${FIX4}`
+        `gh ${args.slice(0, 2).join(" ")} failed for issue ${target2.number}: ${done.stderr.trim()}. ${FIX5}`
       );
     }
     return done.stdout;
   };
   const at = ["--repo", target2.repo];
   const view = parseView2(
-    await gh2([
+    await gh3([
       "issue",
       "view",
       target2.number,
@@ -10557,7 +10829,7 @@ async function publishOutcome(runner, root3, target2, outcome) {
   const wanted = labelFor(outcome.result);
   const flags = labelFlags(view.labels, wanted);
   if (flags.length > 0) {
-    await gh2(
+    await gh3(
       ["issue", "edit", target2.number, ...at, ...flags],
       void 0,
       (stderr2) => missingLabel(stderr2, wanted, target2.repo, outcome.idea)
@@ -10565,41 +10837,41 @@ async function publishOutcome(runner, root3, target2, outcome) {
     published.labelled = true;
   }
   if (!view.comments.some((body) => body.includes(outcome.marker))) {
-    await gh2(
+    await gh3(
       ["issue", "comment", target2.number, ...at, "--body-file", "-"],
       outcome.comment
     );
     published.commented = true;
   }
   if (view.open) {
-    await gh2(["issue", "close", target2.number, ...at]);
+    await gh3(["issue", "close", target2.number, ...at]);
     published.closed = true;
   }
   return published;
 }
 
 // src/outcome/outcome.ts
-async function finish2(ctx, record5, result, target2) {
+async function finish(ctx, record6, result, target2) {
   let followUp;
   if (result !== "confirmed") {
-    const next = followUpOf(record5, result);
+    const next = followUpOf(record6, result);
     followUp = (await ctx.repo.create(next.slug, next.idea)).record.path;
   }
-  const section = outcomeSection(await ctx.repo.source(record5)) ?? "";
+  const section = outcomeSection(await ctx.repo.source(record6)) ?? "";
   const comment = [
-    markerFor2(record5),
+    markerFor2(record6),
     section,
     ...followUp === void 0 ? [] : [`Follow-up idea: ${followUp}`]
   ].join("\n\n");
   const published = await publishOutcome(ctx.runner, ctx.root, target2, {
-    idea: record5.number,
+    idea: record6.number,
     result,
-    marker: markerFor2(record5),
+    marker: markerFor2(record6),
     comment: `${comment}
 `
   });
   return {
-    idea: record5.number,
+    idea: record6.number,
     result,
     issue: `https://github.com/${target2.repo}/issues/${target2.number}`,
     ...followUp === void 0 ? {} : { followUp },
@@ -10607,42 +10879,42 @@ async function finish2(ctx, record5, result, target2) {
   };
 }
 async function recordOutcome(ctx, ref, outcome) {
-  const record5 = await ctx.repo.get(ref);
-  if (record5.outcome !== void 0) {
+  const record6 = await ctx.repo.get(ref);
+  if (record6.outcome !== void 0) {
     throw new IdeaError(
-      `${record5.path} already has an outcome (${record5.outcome}); an outcome is recorded once. Run \`harness outcome close --idea ${record5.number}\` to finish publishing it.`
+      `${record6.path} already has an outcome (${record6.outcome}); an outcome is recorded once. Run \`harness outcome close --idea ${record6.number}\` to finish publishing it.`
     );
   }
-  const target2 = await issueTarget(ctx.runner, ctx.root, record5);
+  const target2 = await issueTarget(ctx.runner, ctx.root, record6);
   const date = ctx.clock.now().toISOString().slice(0, 10);
   await ctx.repo.recordOutcome(
-    record5,
+    record6,
     outcome.result,
     renderSection(outcome, date)
   );
-  return await finish2(ctx, record5, outcome.result, target2);
+  return await finish(ctx, record6, outcome.result, target2);
 }
 async function closeOutcome(ctx, ref) {
-  const record5 = await ctx.repo.get(ref);
-  const recorded = record5.outcome;
+  const record6 = await ctx.repo.get(ref);
+  const recorded = record6.outcome;
   if (recorded === void 0) {
     throw new IdeaError(
-      `${record5.path} has no recorded outcome, so its issue stays open. Run \`harness outcome record --idea ${record5.number} --kind <experiment|usage|verification> --source <live-run|journal|eval-history|comparison> --evidence <reference> --result <confirmed|refuted|inconclusive> --summary <text>\`.`
+      `${record6.path} has no recorded outcome, so its issue stays open. Run \`harness outcome record --idea ${record6.number} --kind <experiment|usage|verification> --source <live-run|journal|eval-history|comparison> --evidence <reference> --result <confirmed|refuted|inconclusive> --summary <text>\`.`
     );
   }
   const result = RESULTS.find((r) => r === recorded);
-  if (result === void 0 || outcomeSection(await ctx.repo.source(record5)) === void 0) {
+  if (result === void 0 || outcomeSection(await ctx.repo.source(record6)) === void 0) {
     throw new IdeaError(
-      `${record5.path} has an outcome line "${recorded}" that the outcome tool did not write (it needs one of ${RESULTS.join(", ")} and an ## Outcome section). Remove it and run \`harness outcome record --idea ${record5.number}\`.`
+      `${record6.path} has an outcome line "${recorded}" that the outcome tool did not write (it needs one of ${RESULTS.join(", ")} and an ## Outcome section). Remove it and run \`harness outcome record --idea ${record6.number}\`.`
     );
   }
-  const target2 = await issueTarget(ctx.runner, ctx.root, record5);
-  return await finish2(ctx, record5, result, target2);
+  const target2 = await issueTarget(ctx.runner, ctx.root, record6);
+  return await finish(ctx, record6, result, target2);
 }
 
 // src/cli/outcome-commands.ts
 var FAILED7 = 1;
-function text10(options, key) {
+function text11(options, key) {
   const value = options[key];
   return typeof value === "string" ? value : void 0;
 }
@@ -10662,7 +10934,7 @@ async function guarded4({ json, deps }, action) {
   }
 }
 function ideaRef(context2, verb) {
-  const ref = text10(context2.options, "idea")?.trim();
+  const ref = text11(context2.options, "idea")?.trim();
   if (ref === void 0 || ref === "") {
     throw new IdeaError(
       `Missing --idea; run \`harness outcome ${verb} --idea <number or slug>\`, or \`harness idea list\` to see the ideas.`
@@ -10694,13 +10966,13 @@ async function conclusion(context2, verb) {
     ctx,
     ref,
     parseOutcome({
-      kind: text10(context2.options, "kind"),
-      source: text10(context2.options, "source"),
-      result: text10(context2.options, "result"),
-      evidence: text10(context2.options, "evidence"),
-      summary: text10(context2.options, "summary"),
-      flag: text10(context2.options, "flag"),
-      environment: text10(context2.options, "environment")
+      kind: text11(context2.options, "kind"),
+      source: text11(context2.options, "source"),
+      result: text11(context2.options, "result"),
+      evidence: text11(context2.options, "evidence"),
+      summary: text11(context2.options, "summary"),
+      flag: text11(context2.options, "flag"),
+      environment: text11(context2.options, "environment")
     })
   ) : await closeOutcome(ctx, ref);
   const logged = await ledger.list({ idea: done.idea, kind: "outcome" });
@@ -10726,7 +10998,7 @@ Follow-up idea: ${done.followUp}`}
 `
   );
 }
-var record4 = {
+var record5 = {
   summary: `record an idea's measured outcome in its markdown, post it to the issue with one outcome:* label, close the issue, and open a follow-up idea when refuted or inconclusive (--idea --kind ${OUTCOME_KINDS.join("|")} --source ${OUTCOME_SOURCES.join("|")} --evidence <reference> --result ${RESULTS.join("|")} --summary <text> [--flag <name> --environment <env>, only on a live-run verification] [--ledger])`,
   options: {
     idea: "string",
@@ -10750,7 +11022,7 @@ var close = {
     return guarded4(context2, () => conclusion(context2, "close"));
   }
 };
-var outcomeCommands = { record: record4, close };
+var outcomeCommands = { record: record5, close };
 
 // src/cli/records.ts
 var records = {
@@ -10891,14 +11163,14 @@ function fail3(deps, json, code, message) {
 }
 
 // src/session/registry.ts
-import { join as join16, resolve as resolve10 } from "node:path";
+import { join as join16, resolve as resolve9 } from "node:path";
 var STATE_DIR = ".kore/state/sessions";
 function isRecord(value) {
   if (typeof value !== "object" || value === null) {
     return false;
   }
-  const record5 = value;
-  return typeof record5.name === "string" && typeof record5.paneId === "string" && typeof record5.callerPane === "string" && typeof record5.model === "string";
+  const record6 = value;
+  return typeof record6.name === "string" && typeof record6.paneId === "string" && typeof record6.callerPane === "string" && typeof record6.model === "string";
 }
 var SessionRegistry = class _SessionRegistry {
   constructor(fs, dir) {
@@ -10915,7 +11187,7 @@ var SessionRegistry = class _SessionRegistry {
         "Cannot find the main checkout to keep session state in. Run inside the repository or set KORE_ROOT to its root."
       );
     }
-    return new _SessionRegistry(deps.fs, resolve10(main, STATE_DIR));
+    return new _SessionRegistry(deps.fs, resolve9(main, STATE_DIR));
   }
   file(name) {
     return join16(this.dir, `${name}.json`);
@@ -10941,10 +11213,10 @@ var SessionRegistry = class _SessionRegistry {
     }
     return parsed;
   }
-  async write(record5) {
+  async write(record6) {
     await this.fs.writeFile(
-      this.file(record5.name),
-      `${JSON.stringify(record5, null, 2)}
+      this.file(record6.name),
+      `${JSON.stringify(record6, null, 2)}
 `
     );
   }
@@ -10954,25 +11226,25 @@ var SessionRegistry = class _SessionRegistry {
     return existing === void 0 || existing.closedAt !== void 0 ? void 0 : `A session record for ${name} (pane ${existing.paneId}) already exists and is not closed; run \`session wait ${name}\` then \`session close ${name}\`, or pick another name. No pane was split.`;
   }
   /** Records a new session; refuses to replace one that is not closed, even under a race. */
-  async create(record5) {
-    const content = `${JSON.stringify(record5, null, 2)}
+  async create(record6) {
+    const content = `${JSON.stringify(record6, null, 2)}
 `;
     try {
-      await this.fs.createFile(this.file(record5.name), content);
+      await this.fs.createFile(this.file(record6.name), content);
     } catch (error) {
       if (error.code !== "EEXIST") {
         throw error;
       }
-      const reason = await this.unavailable(record5.name);
+      const reason = await this.unavailable(record6.name);
       if (reason !== void 0) {
         throw new CommandError(
           reason.replace(
             " No pane was split.",
-            ` Pane ${record5.paneId} is running unrecorded; close it with \`herdr pane close ${record5.paneId}\`.`
+            ` Pane ${record6.paneId} is running unrecorded; close it with \`herdr pane close ${record6.paneId}\`.`
           )
         );
       }
-      await this.write(record5);
+      await this.write(record6);
     }
   }
 };
@@ -11024,29 +11296,29 @@ async function place(deps, options, name) {
 
 // src/session/close.ts
 var NOT_IN_HERDR = "Not inside Herdr (HERDR_ENV is not 1 or HERDR_PANE_ID is unset). Run this from the Herdr pane that spawned the session.";
-function refuse(record5, callerPane) {
-  const { name, paneId } = record5;
-  if (record5.closedAt !== void 0) {
+function refuse(record6, callerPane) {
+  const { name, paneId } = record6;
+  if (record6.closedAt !== void 0) {
     return `Session ${name} is already closed (pane ${paneId}).`;
   }
-  if (record5.callerPane !== callerPane) {
-    return `Session ${name} was spawned from pane ${record5.callerPane}, not ${callerPane}; only that pane may close it.`;
+  if (record6.callerPane !== callerPane) {
+    return `Session ${name} was spawned from pane ${record6.callerPane}, not ${callerPane}; only that pane may close it.`;
   }
-  return record5.result === void 0 ? `Session ${name} has no recorded result, so pane ${paneId} stays open. Run \`session wait ${name}\` first.` : void 0;
+  return record6.result === void 0 ? `Session ${name} has no recorded result, so pane ${paneId} stays open. Run \`session wait ${name}\` first.` : void 0;
 }
-async function finishClose({ json, deps }, registry, record5, callerPane) {
-  const { name } = record5;
-  await registry.write({ ...record5, closedAt: deps.clock.now().toISOString() });
+async function finishClose({ json, deps }, registry, record6, callerPane) {
+  const { name } = record6;
+  await registry.write({ ...record6, closedAt: deps.clock.now().toISOString() });
   const equalized = await equalize(deps.runner, callerPane);
   const note = equalized.status === "failed" ? `Closed, but equalizing failed: ${equalized.reason}` : void 0;
   if (note !== void 0) {
     deps.stderr(`${note}
 `);
   }
-  const hint = record5.worktree === void 0 ? void 0 : closeHint(record5.worktree);
+  const hint = record6.worktree === void 0 ? void 0 : closeHint(record6.worktree);
   deps.stdout(
-    json ? `${JSON.stringify({ name, paneId: record5.paneId, closed: true, equalize: equalized, ...hint === void 0 ? {} : { hint } })}
-` : `Closed ${name} (pane ${record5.paneId}).${hint === void 0 ? "" : ` ${hint}`}
+    json ? `${JSON.stringify({ name, paneId: record6.paneId, closed: true, equalize: equalized, ...hint === void 0 ? {} : { hint } })}
+` : `Closed ${name} (pane ${record6.paneId}).${hint === void 0 ? "" : ` ${hint}`}
 `
   );
   return 0;
@@ -11071,8 +11343,8 @@ async function close2(context2) {
     return fail3(deps, json, FAILED8, NOT_IN_HERDR);
   }
   const registry = await SessionRegistry.open(deps);
-  const record5 = await registry.read(name);
-  if (record5 === void 0) {
+  const record6 = await registry.read(name);
+  if (record6 === void 0) {
     return fail3(
       deps,
       json,
@@ -11080,24 +11352,24 @@ async function close2(context2) {
       `This tool did not create a session named ${name}, so it will not close one. Close it yourself with \`herdr pane close <pane-id>\` if you are sure.`
     );
   }
-  const refusal = refuse(record5, callerPane);
+  const refusal = refuse(record6, callerPane);
   if (refusal !== void 0) {
     return fail3(deps, json, FAILED8, refusal);
   }
   const closed = await deps.runner.run("herdr", [
     "pane",
     "close",
-    record5.paneId
+    record6.paneId
   ]);
   if (closed.code !== 0) {
     return fail3(
       deps,
       json,
       FAILED8,
-      `herdr pane close ${record5.paneId} failed: ${describeFailure(closed)}`
+      `herdr pane close ${record6.paneId} failed: ${describeFailure(closed)}`
     );
   }
-  return await finishClose(context2, registry, record5, callerPane);
+  return await finishClose(context2, registry, record6, callerPane);
 }
 
 // src/session/models.ts
@@ -11313,8 +11585,8 @@ async function resolveTier(deps, role, flags) {
 var DEFAULT_TIMEOUT_MS = 60 * 60 * 1e3;
 var POLL_MS = 2e3;
 var MARKER3 = /^[ \t]*(?:[●⏺][ \t]+)?RESULT: (done|blocked)[ \t\r]*$/gm;
-function findResult(text11) {
-  const last = [...text11.matchAll(MARKER3)].at(-1)?.[1];
+function findResult(text12) {
+  const last = [...text12.matchAll(MARKER3)].at(-1)?.[1];
   return last === "done" || last === "blocked" ? last : void 0;
 }
 function parseTimeout(value) {
@@ -11327,42 +11599,42 @@ function parseTimeout(value) {
 function seconds2(ms) {
   return `${ms / 1e3} seconds`;
 }
-async function waitForResult(deps, registry, record5, timeoutMs) {
+async function waitForResult(deps, registry, record6, timeoutMs) {
   const done = (outcome) => ({
-    name: record5.name,
-    paneId: record5.paneId,
-    model: record5.model,
+    name: record6.name,
+    paneId: record6.paneId,
+    model: record6.model,
     outcome,
-    summary: `pane ${record5.paneId}`
+    summary: `pane ${record6.paneId}`
   });
-  if (record5.result !== void 0) {
-    return done(record5.result.outcome);
+  if (record6.result !== void 0) {
+    return done(record6.result.outcome);
   }
   const deadline = deps.clock.now().getTime() + timeoutMs;
   for (; ; ) {
     const read = await deps.runner.run("herdr", [
       "pane",
       "read",
-      record5.paneId,
+      record6.paneId,
       "--source",
       "recent-unwrapped"
     ]);
     if (read.code !== 0) {
       return {
-        error: `herdr pane read ${record5.paneId} failed: ${describeFailure(read)}`
+        error: `herdr pane read ${record6.paneId} failed: ${describeFailure(read)}`
       };
     }
     const outcome = findResult(read.stdout);
     if (outcome !== void 0) {
       await registry.write({
-        ...record5,
+        ...record6,
         result: { outcome, at: deps.clock.now().toISOString() }
       });
       return done(outcome);
     }
     if (deps.clock.now().getTime() + POLL_MS > deadline) {
       return {
-        error: `Session ${record5.name} printed no "RESULT: done" or "RESULT: blocked" line in pane ${record5.paneId} within ${seconds2(timeoutMs)}. It may still be working; run \`session wait ${record5.name}\` again or read the pane.`
+        error: `Session ${record6.name} printed no "RESULT: done" or "RESULT: blocked" line in pane ${record6.paneId} within ${seconds2(timeoutMs)}. It may still be working; run \`session wait ${record6.name}\` again or read the pane.`
       };
     }
     await deps.clock.sleep(POLL_MS);
@@ -11392,8 +11664,8 @@ async function wait(context2) {
     return fail3(deps, json, USAGE_ERROR, timeout.error);
   }
   const registry = await SessionRegistry.open(deps);
-  const record5 = await registry.read(name);
-  if (record5 === void 0) {
+  const record6 = await registry.read(name);
+  if (record6 === void 0) {
     return fail3(
       deps,
       json,
@@ -11401,7 +11673,7 @@ async function wait(context2) {
       `No session named ${name} was spawned by this tool; start it with \`session spawn\`.`
     );
   }
-  const result = await waitForResult(deps, registry, record5, timeout);
+  const result = await waitForResult(deps, registry, record6, timeout);
   if ("error" in result) {
     return fail3(deps, json, FAILED8, result.error);
   }
@@ -11478,7 +11750,7 @@ async function check({
 
 // src/session/spawn-finish.ts
 import { join as join19 } from "node:path";
-async function recordLaunch(deps, record5) {
+async function recordLaunch(deps, record6) {
   try {
     const main = await mainRoot(deps);
     if (main === void 0) {
@@ -11492,20 +11764,20 @@ async function recordLaunch(deps, record5) {
     ).record({
       source: "herdr",
       kind: "session.launch",
-      occurredAt: record5.createdAt,
-      pane: record5.paneId,
-      agent: record5.name,
-      role: record5.role,
-      tier: record5.model
+      occurredAt: record6.createdAt,
+      pane: record6.paneId,
+      agent: record6.name,
+      role: record6.role,
+      tier: record6.model
     });
   } catch {
   }
 }
-async function finish3({ json, deps, options }, { registry, record: record5, modelCheck, timeoutMs }) {
-  const { name, paneId, callerPane, model, role, effort, worktree } = record5;
+async function finish2({ json, deps, options }, { registry, record: record6, modelCheck, timeoutMs }) {
+  const { name, paneId, callerPane, model, role, effort, worktree } = record6;
   const extra = worktree === void 0 ? {} : { worktree };
-  await registry.create(record5);
-  await recordLaunch(deps, record5);
+  await registry.create(record6);
+  await recordLaunch(deps, record6);
   const verdict = modelCheck.status === "verified" ? "model verified" : `model unverified: ${modelCheck.reason}`;
   if (options["no-wait"] === true) {
     deps.stdout(
@@ -11515,7 +11787,7 @@ async function finish3({ json, deps, options }, { registry, record: record5, mod
     );
     return 0;
   }
-  const result = await waitForResult(deps, registry, record5, timeoutMs);
+  const result = await waitForResult(deps, registry, record6, timeoutMs);
   if ("error" in result) {
     return fail3(deps, json, FAILED8, result.error);
   }
@@ -11605,7 +11877,7 @@ async function spawn2(context2) {
   if ("error" in modelCheck) {
     return fail3(deps, json, FAILED8, modelCheck.error);
   }
-  return await finish3(context2, {
+  return await finish2(context2, {
     registry,
     modelCheck,
     record: {
@@ -11696,9 +11968,9 @@ var equalizeCommand = {
 `);
       return 1;
     }
-    const text11 = result.status === "skipped" ? `Skipped: ${result.reason}.` : "Equalized.";
+    const text12 = result.status === "skipped" ? `Skipped: ${result.reason}.` : "Equalized.";
     deps.stdout(json ? `${JSON.stringify(result)}
-` : `${text11}
+` : `${text12}
 `);
     return 0;
   }
@@ -11780,7 +12052,7 @@ function own(table, key) {
 function names2(commands) {
   return Object.keys(commands).join(", ");
 }
-function resolve11(domain, name) {
+function resolve10(domain, name) {
   const commands = own(domains, domain);
   if (commands === void 0) {
     return {
@@ -11880,7 +12152,7 @@ async function run2(argv, deps) {
       failure2
     );
   }
-  const resolved = resolve11(domain, name);
+  const resolved = resolve10(domain, name);
   if ("error" in resolved) {
     return fail4(deps, json, resolved.error, failure2);
   }
@@ -11897,7 +12169,7 @@ async function run2(argv, deps) {
 }
 
 // src/main.ts
-var stderr = (text11) => process.stderr.write(text11);
+var stderr = (text12) => process.stderr.write(text12);
 var root2;
 try {
   process.exitCode = await run2(process.argv.slice(2), {
@@ -11914,7 +12186,7 @@ try {
       import.meta.url,
       (path) => nodeFileSystem.exists(path)
     ),
-    stdout: (text11) => process.stdout.write(text11),
+    stdout: (text12) => process.stdout.write(text12),
     stderr
   });
 } catch (error) {

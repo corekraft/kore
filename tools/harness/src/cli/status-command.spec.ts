@@ -112,6 +112,10 @@ describe("harness status output", () => {
       plans: [],
       ideas: { byState: {}, items: [] },
       ledger: { recent: [], skipped: 0 },
+      guardrails: {
+        waiting: [],
+        error: expect.stringMatching(/guardrails\.yaml is missing/),
+      },
     });
   });
 

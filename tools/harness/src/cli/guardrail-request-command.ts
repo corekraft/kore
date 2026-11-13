@@ -4,30 +4,35 @@
 // Plan: infra/plans/12-self-improving-loop.md (Step 4).
 import {
   GuardrailError,
+  evidenceSource,
   guardrailCommands,
   isTarget,
+  marker,
   readInventory,
   renderRequest,
   requestLabel,
-  marker,
-  pendingRequests,
+  waitingRequests,
   REQUEST_KIND,
   TARGETS,
   type Guardrail,
   type Inventory,
   type Target,
 } from "../guardrail/index.js";
-import { ruleEvidence } from "../hook/index.js";
 import { IdeaError, IdeaRepository, issueTarget } from "../idea/index.js";
+import type { Ledger } from "../ledger/index.js";
+import { RulesetError } from "../ruleset/index.js";
 import {
   CommandError,
   type Command,
   type CommandContext,
 } from "../runtime/index.js";
-import type { Ledger } from "../ledger/index.js";
+import { gatherEvidence } from "./guardrail-request-evidence.js";
 import { openLedger } from "./ledger-commands.js";
 
 const FAILED = 1;
+const FIX = "Check `gh auth status`, then rerun `harness guardrail request`.";
+
+type Issue = { number: string; repo: string };
 
 function text(options: CommandContext["options"], key: string) {
   const value = options[key];
@@ -49,53 +54,80 @@ function required(context: CommandContext, key: string): string {
 function target(to: string): Target {
   if (!isTarget(to)) {
     throw new GuardrailError(
-      `--to must be ${TARGETS.slice(0, -1).join(", ")} or ${TARGETS.at(-1)}; got "${to}". Instead, pass one of them.`,
+      `--to must be ${TARGETS.slice(0, -1).join(", ")} or ${TARGETS.at(-1)}; got "${to}". Rerun with one of them.`,
     );
   }
   return to;
 }
 
-async function commentedAlready(
-  { deps }: CommandContext,
-  issue: { number: string; repo: string },
-  wanted: string,
-): Promise<boolean> {
-  const view = await deps.runner.run(
-    "gh",
-    ["issue", "view", issue.number, "--repo", issue.repo, "--json", "comments"],
-    { cwd: await deps.root() },
-  );
-  if (view.code !== 0) {
+/** The rule to change, or the fix for a rule that is unknown or already in the requested state. */
+function changeable(inventory: Inventory, rule: string, to: Target): Guardrail {
+  const guardrail = inventory.guardrails.find((g) => g.rule === rule);
+  if (guardrail === undefined) {
     throw new GuardrailError(
-      `gh issue view failed for issue ${issue.number}: ${view.stderr.trim()}. Check \`gh auth status\`, then rerun \`harness guardrail request\`.`,
+      `${rule} is not in .claude/guardrails.yaml. Rerun with one of: ${inventory.guardrails.map((g) => g.rule).join(", ")}.`,
     );
   }
-  let comments: { body?: string }[] = [];
-  try {
-    comments =
-      (JSON.parse(view.stdout) as { comments?: { body?: string }[] })
-        .comments ?? [];
-  } catch {
+  if (guardrail.mode === to) {
     throw new GuardrailError(
-      `gh returned unreadable output for issue ${issue.number}. Check \`gh auth status\`, then rerun \`harness guardrail request\`.`,
+      `${rule} is already in ${to} mode, so there is nothing to approve. Rerun with a different --to.`,
     );
   }
-  return comments.some((c) => c.body?.includes(wanted) === true);
+  return guardrail;
 }
 
-/** Posts the comment unless the issue already holds this request; true when it posted. */
+async function gh(
+  { deps }: CommandContext,
+  args: string[],
+  what: string,
+  input?: string,
+): Promise<string> {
+  const done = await deps.runner.run("gh", args, {
+    cwd: await deps.root(),
+    ...(input === undefined ? {} : { input }),
+  });
+  if (done.code !== 0) {
+    throw new GuardrailError(
+      `gh ${what} failed: ${done.stderr.trim()}. ${FIX}`,
+    );
+  }
+  return done.stdout;
+}
+
+async function hasComment(
+  context: CommandContext,
+  issue: Issue,
+  wanted: string,
+): Promise<boolean> {
+  const stdout = await gh(
+    context,
+    ["issue", "view", issue.number, "--repo", issue.repo, "--json", "comments"],
+    `issue view for issue ${issue.number}`,
+  );
+  try {
+    const { comments = [] } = JSON.parse(stdout) as {
+      comments?: { body?: string }[];
+    };
+    return comments.some((c) => c.body?.includes(wanted) === true);
+  } catch {
+    throw new GuardrailError(
+      `gh returned unreadable output for issue ${issue.number}. ${FIX}`,
+    );
+  }
+}
+
+/** Posts the comment unless the issue already holds this request's marker; true when it posted. */
 async function post(
   context: CommandContext,
-  issue: { number: string; repo: string },
-  wanted: string,
+  issue: Issue,
+  requestId: string,
   body: string,
 ): Promise<boolean> {
-  const { deps } = context;
-  if (await commentedAlready(context, issue, wanted)) {
+  if (await hasComment(context, issue, marker(requestId))) {
     return false;
   }
-  const posted = await deps.runner.run(
-    "gh",
+  await gh(
+    context,
     [
       "issue",
       "comment",
@@ -105,51 +137,54 @@ async function post(
       "--body-file",
       "-",
     ],
-    { cwd: await deps.root(), input: body },
+    `issue comment for issue ${issue.number}`,
+    body,
   );
-  if (posted.code !== 0) {
-    throw new GuardrailError(
-      `gh issue comment failed for issue ${issue.number}: ${posted.stderr.trim()}. Check \`gh auth status\`, then rerun \`harness guardrail request\`.`,
-    );
-  }
   return true;
 }
 
-/** Records the request in the ledger. */
-async function log(
+async function record(
   { deps }: CommandContext,
   ledger: Ledger,
-  idea: string,
-  label: string,
+  event: { id: string; idea: string; label: string },
 ): Promise<void> {
-  const event = await ledger.record({
+  const logged = await ledger.record({
     source: "claude",
     kind: REQUEST_KIND,
     occurredAt: deps.clock.now().toISOString(),
-    idea,
-    label,
+    ...event,
   });
-  if (!event.ok) {
+  if (!logged.ok) {
     throw new GuardrailError(
-      `The request was posted, but its ledger event was rejected: ${event.message} Fix the ledger, then rerun \`harness guardrail request\` to record it.`,
+      `The request could not be recorded: ${logged.message} Fix the ledger, then rerun \`harness guardrail request\`.`,
     );
   }
 }
 
-/** The rule to change, or the fix for a rule that is unknown or already in the requested state. */
-function changeable(inventory: Inventory, rule: string, to: Target): Guardrail {
-  const guardrail = inventory.guardrails.find((g) => g.rule === rule);
-  if (guardrail === undefined) {
-    throw new GuardrailError(
-      `${rule} is not in .claude/guardrails.yaml. Instead, pick one of: ${inventory.guardrails.map((g) => g.rule).join(", ")}.`,
-    );
+/**
+ * The request to post: the one already waiting for this rule, target and idea,
+ * else a new one, recorded now. It is recorded before it is posted, so a rerun
+ * after a failed post finds it waiting and posts the same request.
+ */
+async function begin(
+  context: CommandContext,
+  ledger: Ledger,
+  inventory: Inventory,
+  { rule, to, idea }: { rule: string; to: Target; idea: string },
+): Promise<{ requestId: string; same: boolean }> {
+  const waiting = (await waitingRequests(context.deps, inventory, ledger)).get(
+    rule,
+  );
+  if (waiting?.to === to && waiting.idea === idea) {
+    return { requestId: waiting.id, same: true };
   }
-  if (guardrail.mode === to) {
-    throw new GuardrailError(
-      `${rule} is already in ${to} mode, so there is nothing to approve. Instead, request a different state.`,
-    );
-  }
-  return guardrail;
+  const requestId = context.deps.ids.next();
+  await record(context, ledger, {
+    id: requestId,
+    idea,
+    label: requestLabel(rule, to),
+  });
+  return { requestId, same: false };
 }
 
 async function request(context: CommandContext): Promise<number> {
@@ -160,87 +195,63 @@ async function request(context: CommandContext): Promise<number> {
   const root = await deps.root();
   const inventory = await readInventory((p) => deps.fs.readFile(p), root);
   const guardrail = changeable(inventory, rule, to);
+  const measured = evidenceSource(guardrail);
+  if ("refusal" in measured) {
+    throw new GuardrailError(measured.refusal);
+  }
   const opened = await openLedger(context);
   if ("error" in opened) {
     throw new GuardrailError(opened.error);
   }
-  const record = await new IdeaRepository(deps.fs, deps.clock, root).get(
-    ideaRef,
-  );
-  const issue = await issueTarget(deps.runner, root, record);
-  const asked = await priorRequests(opened.ledger, inventory, {
+  const idea = await new IdeaRepository(deps.fs, deps.clock, root).get(ideaRef);
+  const issue = await issueTarget(deps.runner, root, idea);
+  const evidence = await gatherEvidence(context, guardrail, measured.source);
+  const { requestId, same } = await begin(context, opened.ledger, inventory, {
     rule,
     to,
-    idea: record.number,
+    idea: idea.number,
   });
   const link = `https://github.com/${issue.repo}/issues/${issue.number}`;
-  if (asked.pending) {
-    return finish(
-      context,
-      { rule, to, idea: record.number, link },
-      false,
-      false,
-    );
-  }
-  const evidence = await ruleEvidence(deps, rule, {
-    dir: text(context.options, "dir"),
-    since: text(context.options, "since"),
-  });
-  const body = renderRequest({
-    guardrail,
-    to,
-    idea: {
-      number: record.number,
-      title: record.title,
-      path: record.path,
-      link,
-    },
-    evidence,
-  });
-  const commented = await post(context, issue, marker(rule, to), body);
-  await log(context, opened.ledger, record.number, requestLabel(rule, to));
-  return finish(
+  const commented = await post(
     context,
-    { rule, to, idea: record.number, link },
-    commented,
-    true,
+    issue,
+    requestId,
+    renderRequest({
+      guardrail,
+      to,
+      requestId,
+      idea: { number: idea.number, title: idea.title, path: idea.path, link },
+      evidence,
+    }),
   );
-}
-
-/** Whether this very request already waits for a person: it stays pending until the inventory holds its target. */
-async function priorRequests(
-  ledger: Ledger,
-  inventory: Inventory,
-  { rule, to, idea }: { rule: string; to: Target; idea: string },
-): Promise<{ pending: boolean }> {
-  const { events } = await ledger.list({ kind: REQUEST_KIND });
-  const waiting = pendingRequests(inventory, events).get(rule);
-  return { pending: waiting?.to === to && waiting.idea === idea };
-}
-
-function finish(
-  { deps, json }: CommandContext,
-  done: { rule: string; to: Target; idea: string; link: string },
-  commented: boolean,
-  recorded: boolean,
-): number {
+  const out = {
+    rule,
+    to,
+    idea: idea.number,
+    requestId,
+    commented,
+    recorded: !same,
+  };
   deps.stdout(
-    json
-      ? `${JSON.stringify({ rule: done.rule, to: done.to, idea: done.idea, commented, recorded })}\n`
-      : `${recorded ? "Requested" : "Already requested"}: ${done.rule} to ${done.to} on ${done.link}\n`,
+    context.json
+      ? `${JSON.stringify(out)}\n`
+      : `${same && !commented ? "Already requested" : "Requested"}: ${rule} to ${to} on ${link}\n`,
   );
   return 0;
 }
 
 export const guardrailRequest: Command = {
   summary:
-    "ask a person to approve a guardrail mode change on the idea's issue, with outcome evidence (--rule <rule> --to <enforce|audit|remove> --idea <number or slug> [--dir <transcripts>] [--since YYYY-MM-DD] [--ledger <path>]); changes no guardrail",
+    "ask a person to approve a guardrail mode change on the idea's issue, with outcome evidence (--rule <rule> --to <enforce|audit|remove> --idea <number or slug> [--dir <transcripts>] [--since YYYY-MM-DD] [--repo <owner/name> --target <ruleset> [--time-period hour|day|week|month]] [--ledger <path>]); changes no guardrail",
   options: {
     rule: "string",
     to: "string",
     idea: "string",
     dir: "string",
     since: "string",
+    repo: "string",
+    target: "string",
+    "time-period": "string",
     ledger: "string",
   },
   async run(context) {
@@ -250,6 +261,7 @@ export const guardrailRequest: Command = {
       if (!(
         error instanceof GuardrailError ||
         error instanceof IdeaError ||
+        error instanceof RulesetError ||
         error instanceof CommandError
       )) {
         throw error;

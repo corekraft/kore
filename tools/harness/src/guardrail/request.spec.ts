@@ -5,10 +5,18 @@ import { describe, expect, it } from "vitest";
 import { run } from "../cli/index.js";
 import { ghWrites } from "../outcome/outcome-support.js";
 import { INVENTORY_PATH } from "./index.js";
-import { INVENTORY, ledgerEvents, ready, request } from "./request-support.js";
+import {
+  INVENTORY,
+  ledgerEvents,
+  ready,
+  request,
+  withGit,
+  withRulesetInsights,
+} from "./request-support.js";
+import { inventoryOf } from "./history-support.js";
 
-describe("guardrail request comment", () => {
-  it("comments on the idea's issue with the idea link and the four figures", async () => {
+describe("guardrail request comment for an audit rule", () => {
+  it("comments on the idea's issue with the idea link and figures that add up to fired", async () => {
     const { h, issue } = await ready();
     expect(await request(h, "image-digest", "enforce")).toBe(0);
     expect(issue.comments).toHaveLength(1);
@@ -16,9 +24,21 @@ describe("guardrail request comment", () => {
     expect(body).toContain("https://github.com/corekraft/kore/issues/300");
     expect(body).toContain("Idea 0001");
     expect(body).toContain(
-      "| Fired | Heeded | Overridden | False positives |\n| --- | --- | --- | --- |\n| 5 | 4 | 1 | 0 |",
+      "| Fired | Heeded | Overridden | Repeated (identical call) | Unresolved |\n| --- | --- | --- | --- | --- |\n| 5 | 4 | 1 | 0 | 0 |",
     );
     expect(body).toContain("audit → enforce");
+  });
+
+  it("leaves whether a warning was a false positive to the approving person", async () => {
+    const { h, issue } = await ready();
+    await request(h, "image-digest", "enforce");
+    const body = issue.comments[0] ?? "";
+    expect(body).toMatch(
+      /- \[ \] I judged whether the firings above hit legitimate work/,
+    );
+    expect(body).toContain("a person's judgement");
+    expect(body).not.toMatch(/did not apply/);
+    expect(body).not.toMatch(/\| False positives/);
   });
 
   it("takes its evidence from the retro-scan classification of the same transcripts", async () => {
@@ -35,38 +55,140 @@ describe("guardrail request comment", () => {
     expect(new Set(Object.values(classes)).size).toBeGreaterThan(1);
     for (const rule of ["image-digest", "sample-audit", "unquoted-glob"]) {
       issue.comments.length = 0;
-      expect(await request(h, rule, "enforce")).toBe(0);
+      expect(await request(h, rule, "enforce", ["--since", "2026-01-01"])).toBe(
+        0,
+      );
       expect(issue.comments[0]).toContain(`Classification: ${classes[rule]}`);
     }
   });
+});
+
+describe("guardrail request evidence by kind", () => {
+  it("reports an enforced hook rule's blocks", async () => {
+    const { h, issue } = await ready();
+    expect(await request(h, "kubectl-context", "audit")).toBe(0);
+    expect(issue.comments[0]).toContain("| Blocked |\n| --- |\n| 1 |");
+    expect(issue.comments[0]).toContain("Loosening");
+  });
 
   it.each([
-    ["enforced-rule", "audit", "enforce → audit", "Loosening"],
-    ["enforced-rule", "remove", "enforce → removed", "Loosening"],
-    ["unquoted-glob", "enforce", "audit → enforce", "Tightening"],
+    ["enforced-rule", "remove", "enforce → removed"],
+    ["unquoted-glob", "enforce", "audit → enforce"],
   ])(
-    "requests %s to %s the same way, naming the direction",
-    async (rule, to, change, direction) => {
+    "requests %s to %s the same way, naming the change",
+    async (rule, to, change) => {
       const { h, issue } = await ready();
       expect(await request(h, rule, to)).toBe(0);
       expect(issue.comments[0]).toContain(change);
-      expect(issue.comments[0]).toContain(direction);
       expect(ledgerEvents(h)[0]).toMatchObject({ label: `${rule}:${to}` });
+    },
+  );
+
+  it("reads a ruleset rule's firings from the candidate ruleset's insights", async () => {
+    const { h, issue } = await ready();
+    const where = withRulesetInsights(h);
+    expect(
+      await request(h, "main-ruleset-pull-request", "enforce", where),
+    ).toBe(0);
+    expect(issue.comments[0]).toContain(
+      "| Suites evaluated | Would have blocked |\n| --- | --- |\n| 2 | 1 |",
+    );
+    expect(issue.comments[0]).toContain("harness ruleset insights");
+  });
+
+  it("asks a ruleset rule's request to name its repository and ruleset", async () => {
+    const { h, issue } = await ready();
+    expect(await request(h, "main-ruleset-pull-request", "enforce")).toBe(1);
+    expect(h.err()).toMatch(/Missing --repo/);
+    expect(issue.comments).toHaveLength(0);
+    expect(ledgerEvents(h)).toHaveLength(0);
+  });
+
+  it.each([
+    [
+      "main-ruleset-deletion",
+      "audit",
+      /ruleset insights.*candidate ruleset.*audit/s,
+    ],
+    [
+      "deny-iac-destroy",
+      "audit",
+      /deny rule.*nothing counts its blocks.*audit/s,
+    ],
+  ])(
+    "refuses %s, which nothing measures, naming what to use instead",
+    async (rule, to, why) => {
+      const { h, issue } = await ready();
+      expect(await request(h, rule, to)).toBe(1);
+      expect(h.err()).toMatch(why);
+      expect(issue.comments).toHaveLength(0);
+      expect(ledgerEvents(h)).toHaveLength(0);
     },
   );
 });
 
+describe("guardrail request evidence window", () => {
+  it("opens when the rule entered its current mode, from the inventory's git history", async () => {
+    const { h, issue } = await ready();
+    withGit(h, [
+      {
+        sha: "c1",
+        date: "2026-01-02T00:00:00Z",
+        text: inventoryOf({ "image-digest": "audit" }),
+      },
+    ]);
+    await request(h, "image-digest", "enforce");
+    expect(issue.comments[0]).toContain(
+      "since 2026-01-02, when the rule entered audit mode",
+    );
+    expect(issue.comments[0]).toContain("| 5 | 4 | 1 | 0 | 0 |");
+  });
+
+  it("counts only sessions after a later start, so an old rule's evidence is not mixed with a new mode's", async () => {
+    const { h, issue } = await ready();
+    withGit(h, [
+      {
+        sha: "c1",
+        date: "2099-01-01T00:00:00Z",
+        text: inventoryOf({ "image-digest": "audit" }),
+      },
+    ]);
+    await request(h, "image-digest", "enforce");
+    expect(issue.comments[0]).toContain("since 2099-01-01");
+    expect(issue.comments[0]).toContain("| 0 | 0 | 0 | 0 | 0 |");
+    expect(issue.comments[0]).toContain(
+      "Classification: insufficient-evidence",
+    );
+  });
+
+  it("takes --since over the git history", async () => {
+    const { h, issue } = await ready();
+    withGit(h, [
+      {
+        sha: "c1",
+        date: "2099-01-01T00:00:00Z",
+        text: inventoryOf({ "image-digest": "audit" }),
+      },
+    ]);
+    await request(h, "image-digest", "enforce", ["--since", "2026-01-01"]);
+    expect(issue.comments[0]).toContain("since 2026-01-01, from --since");
+    expect(issue.comments[0]).toContain("| 5 | 4 | 1 | 0 | 0 |");
+  });
+});
+
 describe("guardrail request effects", () => {
-  it("records one ledger event for the request", async () => {
-    const { h } = await ready();
+  it("records one ledger event for the request, with an id the comment carries", async () => {
+    const { h, issue } = await ready();
     await request(h, "image-digest", "enforce");
     expect(ledgerEvents(h)).toMatchObject([
       {
+        id: "req-1",
         kind: "guardrail.request",
         idea: "0001",
         label: "image-digest:enforce",
       },
     ]);
+    expect(issue.comments[0]).toContain("<!-- guardrail-request: req-1 -->");
   });
 
   it("never changes the inventory, the settings or the ruleset", async () => {
@@ -83,29 +205,22 @@ describe("guardrail request effects", () => {
     expect(ghWrites(h).map((c) => c.args[1])).toEqual(["comment"]);
   });
 
-  it("does not post twice when the same request is repeated", async () => {
-    const { h, issue } = await ready();
-    await request(h, "image-digest", "enforce");
-    await request(h, "image-digest", "enforce");
-    expect(issue.comments).toHaveLength(1);
-    expect(ledgerEvents(h)).toHaveLength(1);
-  });
-});
-
-describe("guardrail request after the first", () => {
   it("says so instead of posting again while the same request still waits", async () => {
     const { h, issue } = await ready();
     await request(h, "image-digest", "enforce");
     expect(await request(h, "image-digest", "enforce")).toBe(0);
     expect(h.out()).toContain('"commented":false,"recorded":false');
     expect(issue.comments).toHaveLength(1);
+    expect(ledgerEvents(h)).toHaveLength(1);
   });
 
-  it("finishes a request whose comment posted but whose ledger event did not", async () => {
+  it("finishes a request that was recorded but not posted, with the same request", async () => {
     const { h, issue } = await ready();
-    issue.comments.push("<!-- guardrail-request: image-digest:enforce -->");
+    await request(h, "image-digest", "enforce");
+    issue.comments.length = 0;
     expect(await request(h, "image-digest", "enforce")).toBe(0);
     expect(issue.comments).toHaveLength(1);
+    expect(issue.comments[0]).toContain("req-1");
     expect(ledgerEvents(h)).toHaveLength(1);
   });
 });
@@ -140,12 +255,13 @@ describe("guardrail request refusals", () => {
     expect(h.err()).toMatch(/harness idea sync/);
   });
 
-  it("fails with the fix when no transcripts can be read", async () => {
+  it("fails with the fix, recording nothing, when no transcripts can be read", async () => {
     const { h, issue } = await ready();
     expect(
       await request(h, "image-digest", "enforce", ["--dir", "/nowhere"]),
     ).toBe(1);
     expect(h.err()).toMatch(/--dir/);
     expect(issue.comments).toHaveLength(0);
+    expect(ledgerEvents(h)).toHaveLength(0);
   });
 });

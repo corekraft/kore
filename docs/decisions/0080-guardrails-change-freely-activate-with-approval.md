@@ -2,7 +2,7 @@
 status: accepted
 summary: Harness ideas, guardrail changes included, are approved automatically when reversible and measurable, but a changed guardrail lands in audit mode and enforcing it needs a person's approval.
 date: 2026-11-11
-last-verified: 2026-11-11
+last-verified: 2026-11-12
 ---
 
 # ADR 0080: Guardrails change automatically and activate with approval
@@ -36,3 +36,15 @@ The loop can make itself cheaper and faster without waiting on a person, and
 it can propose stricter or looser guardrails with evidence. No guardrail
 changes what it blocks until a person agrees. Guard code needs an audit mode
 for each rule it enforces.
+
+## Addendum (2026-11-12): false positives are a person's judgement
+
+The activation request shows counts, not a verdict. For a rule in audit mode it
+shows how often the rule fired and what followed each firing: the agent
+heeded it, a person overrode it, the agent repeated the identical call, or
+nothing followed. Those four add up to the firings. Whether a firing hit
+legitimate work (a false positive) cannot be read from a transcript, so the
+request asks the approving person to judge it and never reports a count of
+false positives. A rule with no measure (an enforced deny rule, an enforced
+ruleset rule) gets no request until it has one; the request never shows figures
+that nothing measured.

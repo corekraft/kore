@@ -11,6 +11,8 @@ export const TARGETS = ["enforce", "audit", "remove"] as const;
 export type Target = (typeof TARGETS)[number];
 
 export interface Pending {
+  /** The ledger event that recorded the request. */
+  id: string;
   to: Target;
   idea: string;
   requestedAt: string;
@@ -18,6 +20,7 @@ export interface Pending {
 
 /** The part of a ledger event a request needs. */
 export interface RequestEvent {
+  id: string;
   kind: string;
   idea?: string | undefined;
   label?: string | undefined;
@@ -36,20 +39,24 @@ function parseLabel(label: string): { rule: string; to: Target } | undefined {
   return at > 0 && isTarget(to) ? { rule: label.slice(0, at), to } : undefined;
 }
 
-/** Whether the inventory already holds what the request asked for. */
-function reached(guardrail: Guardrail, to: Target): boolean {
-  return to !== "remove" && guardrail.mode === to;
+/** Whether the inventory file as it stands holds what the request asked for. */
+function holds(guardrail: Guardrail | undefined, to: Target): boolean {
+  return to === "remove" ? guardrail === undefined : guardrail?.mode === to;
 }
+
+/** Whether a commit after the request held the requested state. */
+export type Reached = (
+  rule: string,
+  to: Target,
+  since: string,
+) => Promise<boolean>;
 
 /** Tightening moves a rule to enforce; anything else loosens it. */
 export const direction = (to: Target): "Tightening" | "Loosening" =>
   to === "enforce" ? "Tightening" : "Loosening";
 
-/** The pending request per rule: its latest, unless the inventory already holds it. */
-export function pendingRequests(
-  inventory: Inventory,
-  events: readonly RequestEvent[],
-): Map<string, Pending> {
+/** The latest request per rule. */
+function latestRequests(events: readonly RequestEvent[]): Map<string, Pending> {
   const latest = new Map<string, Pending>();
   for (const event of [...events].sort((a, b) =>
     a.occurredAt.localeCompare(b.occurredAt),
@@ -60,23 +67,39 @@ export function pendingRequests(
         : undefined;
     if (parsed !== undefined) {
       latest.set(parsed.rule, {
+        id: event.id,
         to: parsed.to,
         idea: event.idea ?? "",
         requestedAt: event.occurredAt,
       });
     }
   }
-  for (const guardrail of inventory.guardrails) {
-    const pending = latest.get(guardrail.rule);
-    if (pending !== undefined && reached(guardrail, pending.to)) {
-      latest.delete(guardrail.rule);
-    }
-  }
-  const listed = new Set(inventory.guardrails.map((g) => g.rule));
-  for (const rule of latest.keys()) {
-    if (!listed.has(rule)) {
-      latest.delete(rule);
-    }
-  }
   return latest;
+}
+
+/**
+ * The requests still waiting for a person: each rule's latest, unless the
+ * inventory holds its target now or a commit after the request did. Asking git
+ * means a rule approved and later reverted is not pending again, and a new
+ * request for it is a new request. A rule the inventory no longer lists has
+ * nothing left to approve, unless the request was its removal and it is not
+ * yet gone.
+ */
+export async function pendingRequests(
+  inventory: Inventory,
+  events: readonly RequestEvent[],
+  reached: Reached,
+): Promise<Map<string, Pending>> {
+  const waiting = new Map<string, Pending>();
+  for (const [rule, request] of latestRequests(events)) {
+    const guardrail = inventory.guardrails.find((g) => g.rule === rule);
+    if (
+      guardrail !== undefined &&
+      !holds(guardrail, request.to) &&
+      !(await reached(rule, request.to, request.requestedAt))
+    ) {
+      waiting.set(rule, request);
+    }
+  }
+  return waiting;
 }

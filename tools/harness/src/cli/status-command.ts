@@ -1,6 +1,11 @@
 import { GITHUB_STAGES } from "../flow/index.js";
+import {
+  GuardrailError,
+  readInventory,
+  waitingRequests,
+} from "../guardrail/index.js";
 import { IdeaRepository } from "../idea/index.js";
-import type { LedgerEvent } from "../ledger/index.js";
+import type { Ledger, LedgerEvent } from "../ledger/index.js";
 import { readActivePlans } from "../plan/index.js";
 import {
   CommandError,
@@ -62,6 +67,40 @@ async function ideas({ deps }: CommandContext) {
   return { byState, items };
 }
 
+interface Waiting {
+  rule: string;
+  to: string;
+  idea: string;
+  requestedAt: string;
+}
+
+/** Guardrail changes waiting for a person's approval, from the ledger resolved against the inventory's history. */
+async function waitingForApproval(
+  { deps }: CommandContext,
+  ledger: Ledger,
+): Promise<{ waiting: Waiting[]; error?: string }> {
+  try {
+    const inventory = await readInventory(
+      (path) => deps.fs.readFile(path),
+      await deps.root(),
+    );
+    const pending = await waitingRequests(deps, inventory, ledger);
+    return {
+      waiting: [...pending].map(([rule, { to, idea, requestedAt }]) => ({
+        rule,
+        to,
+        idea,
+        requestedAt,
+      })),
+    };
+  } catch (error) {
+    if (!(error instanceof GuardrailError)) {
+      throw error;
+    }
+    return { waiting: [], error: error.message };
+  }
+}
+
 export const statusCommand: Command = {
   summary:
     "report open plan items, ideas by state and recent ledger stages; read-only, for the concierge",
@@ -75,6 +114,7 @@ export const statusCommand: Command = {
       plans: await readActivePlans(context.deps),
       ideas: await ideas(context),
       ledger: { recent: recentStages(events), skipped },
+      guardrails: await waitingForApproval(context, opened.ledger),
     };
     if (context.json) {
       context.deps.stdout(`${JSON.stringify(status)}\n`);
@@ -91,6 +131,14 @@ export const statusCommand: Command = {
           .join(", ") || "none"
       }`,
     );
+    for (const w of status.guardrails.waiting) {
+      lines.push(
+        `Waiting for approval: ${w.rule} to ${w.to} (idea ${w.idea}, requested ${w.requestedAt})`,
+      );
+    }
+    if (status.guardrails.error !== undefined) {
+      lines.push(`Guardrails unreadable: ${status.guardrails.error}`);
+    }
     for (const r of status.ledger.recent) {
       lines.push(`${r.occurredAt} ${r.stage} ${r.kind}`);
     }

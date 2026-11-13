@@ -1,8 +1,7 @@
-import { resolve } from "node:path";
 import {
-  DEFAULT_LEDGER,
   KINDS,
-  Ledger,
+  type Ledger,
+  openSharedLedger,
   pollGithub,
   pollHerdr,
   SOURCES,
@@ -12,11 +11,7 @@ import {
   type ListFilter,
   type Source,
 } from "../ledger/index.js";
-import {
-  mainRoot,
-  type Command,
-  type CommandContext,
-} from "../runtime/index.js";
+import type { Command, CommandContext } from "../runtime/index.js";
 
 const EVENT_FLAGS = [
   "id",
@@ -48,30 +43,13 @@ const NO_ROOT =
 
 export type Opened = { ledger: Ledger } | { error: string };
 
-/**
- * One ledger is shared by every worktree: <main checkout root>/.kore/state/ledger.jsonl.
- * The main root is the parent of git's common dir, so a subdirectory or a linked
- * worktree resolves to the same file. KORE_ROOT overrides; --ledger is cwd-relative.
- */
-async function ledgerPath({
-  deps,
-  options,
-}: CommandContext): Promise<string | undefined> {
-  const given = options["ledger"];
-  if (typeof given === "string") {
-    return resolve(deps.cwd, given);
-  }
-  const main = await mainRoot(deps);
-  return main === undefined ? undefined : resolve(main, DEFAULT_LEDGER);
-}
-
 export async function openLedger(context: CommandContext): Promise<Opened> {
-  const path = await ledgerPath(context);
-  if (path === undefined) {
-    return { error: NO_ROOT };
-  }
-  const { deps } = context;
-  return { ledger: new Ledger(deps.fs, deps.clock, deps.ids, path) };
+  const given = context.options["ledger"];
+  const ledger = await openSharedLedger(
+    context.deps,
+    typeof given === "string" ? given : undefined,
+  );
+  return ledger === undefined ? { error: NO_ROOT } : { ledger };
 }
 
 type Input = { input: unknown } | { error: string; code?: number };

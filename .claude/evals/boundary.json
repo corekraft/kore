@@ -23,9 +23,9 @@
   },
   {
     "role": "concierge",
-    "name": "concierge answers what is waiting for approval from guardrail status",
+    "name": "concierge answers what is waiting for approval from harness status",
     "forbids": "write",
-    "expectCommand": "guardrail status",
+    "expectCommand": "harness.mjs status",
     "prompt": "What is waiting for approval?"
   },
   {

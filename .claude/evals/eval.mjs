@@ -56,6 +56,17 @@ export function selectedKinds(argv) {
   }
   return kinds;
 }
+/** The cases to run: all of them, or those whose name (or prompt) contains the --case text. */
+export function selectedCases(argv, list) {
+  const index = argv.indexOf("--case");
+  if (index === -1) return list;
+  const text = argv[index + 1];
+  if (!text || text.startsWith("--")) throw new Error("--case needs a value");
+  const kept = list.filter((c) => (c.name ?? c.prompt ?? "").includes(text));
+  if (kept.length === 0)
+    throw new Error(`no eval case matches --case "${text}"`);
+  return kept;
+}
 const CONCURRENCY = 4;
 const SKILL_BUDGET_USD = "0.50";
 const REVIEW_BUDGET_USD = "1.00";
@@ -685,7 +696,7 @@ export async function main(argv, deps) {
   }
   const kinds = selectedKinds(argv);
   const cases = (kind, file) =>
-    kinds.includes(kind) ? deps.readJson(file) : [];
+    kinds.includes(kind) ? selectedCases(argv, deps.readJson(file)) : [];
   const results = await runEvals({
     claude: deps.claude,
     worktree: deps.worktree,

@@ -96,7 +96,11 @@ async function auditRules(deps: CliDeps, root: string): Promise<string[]> {
   }
 }
 
-/** One rule's retro-scan row: the same transcripts, window and classification the retrospective uses. */
+/**
+ * One rule's retro-scan evidence: its audit row (warnings and what followed
+ * them) and the times it blocked, over the same transcripts, window and
+ * classification the retrospective uses.
+ */
 export async function ruleEvidence(
   deps: CliDeps,
   rule: string,
@@ -110,12 +114,14 @@ export async function ruleEvidence(
   const effective =
     since ??
     (dir ? undefined : (lastRetrospective(await readPlans(deps)) ?? undefined));
-  const row = scan(found.inputs, { since: effective, auditRules: [rule] }).rules
-    .audit[0];
+  const result = scan(found.inputs, { since: effective, auditRules: [rule] });
+  const row = result.rules.audit[0];
   if (row === undefined) {
-    throw new CommandError(`The retro scan reported nothing for ${rule}.`);
+    throw new CommandError(
+      `The retro scan reported nothing for ${rule}. Check the rule name against .claude/guardrails.yaml, then rerun.`,
+    );
   }
-  return row;
+  return { row, blocks: result.guards[rule]?.blocks ?? 0 };
 }
 
 async function report(

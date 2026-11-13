@@ -5,3 +5,5 @@ export {
   weakenings,
   type Weakenings,
 } from "./weaken.js";
+export { RulesetError } from "./declared.js";
+export { ruleFirings, type RuleFirings } from "./evidence.js";

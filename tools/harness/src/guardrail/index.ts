@@ -32,4 +32,7 @@ export {
   type Pending,
   type Target,
 } from "./requests.js";
-export { marker, renderRequest } from "./request-comment.js";
+export { marker, renderRequest, type Evidence } from "./request-comment.js";
+export { evidenceSource, type EvidenceSource } from "./evidence.js";
+export { ModeHistory } from "./history.js";
+export { waitingRequests } from "./pending.js";
