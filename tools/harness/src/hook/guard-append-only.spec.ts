@@ -140,3 +140,28 @@ it("append-only: recording to and reading the ledger is allowed", async () => {
 it("append-only: a blocking rule in the same command still blocks", async () => {
   blocked(await bash(`rm ${HISTORY} && kubectl get pods`), "kubectl-context");
 });
+
+// A recorded test pass lets the commit hook skip its tests, so only the test
+// lock may write one: forged or deleted records are warned like the journals.
+const PASS = `.kore/state/test-pass/${"a".repeat(40)}/${"b".repeat(64)}`;
+
+it("append-only: a test-pass record cannot be written, moved or removed by hand", async () => {
+  for (const [label, result] of [
+    ["Edit", await edit(`/repo/${PASS}`, "a", "b")],
+    ["Write", await write(`/repo/${PASS}`, "{}\n")],
+    ["redirect", await bash(`echo '{}' > ${PASS}`)],
+    ["touch-by-copy", await bash(`cp /tmp/x ${PASS}`)],
+    ["rm", await bash(`rm ${PASS}`)],
+    ["rm dir", await bash(`rm -rf .kore/state/test-pass`)],
+    ["mv dir", await bash(`mv .kore/state/test-pass /tmp/x`)],
+  ] as const) {
+    assert.equal(result.action, "warn", `${label}: ${JSON.stringify(result)}`);
+    assert.equal(result.rule, "append-only", label);
+    assert.match(result.message, /test-lock\.mjs/, `${label}: names the owner`);
+  }
+});
+
+it("append-only: reading a test-pass record is allowed", async () => {
+  allowed(await bash(`cat ${PASS}`));
+  allowed(await bash(`ls .kore/state/test-pass`));
+});

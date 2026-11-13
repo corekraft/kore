@@ -5,7 +5,12 @@
 // current load average (KORE_TEST_SLOTS fixes it); the rest wait and say so.
 // Slot files (test-slot-<n>.lock) live under the main checkout's .kore/state
 // (shared by every worktree). A holder whose pid is gone is broken, never
-// waited on.
+// waited on: its pid is gone, or it predates the host's boot (pid reuse). A slot
+// is claimed with complete content (written aside, then linked into place), and
+// one that cannot be read is a claim in progress, broken only after a few seconds.
+// The same run also skips a step whose staged tree and command already passed,
+// and records a pass: only after this run's command exits 0 with no unstaged
+// change, under <lock directory>/test-pass/<tree>/<step>. Nothing else writes it.
 //   KORE_TEST_LOCK_DIR      lock directory (default: <main checkout>/.kore/state)
 //   KORE_TEST_SLOTS         fixed slot count (default: sized from cores and load)
 //   KORE_TEST_LOCK_WAIT_MS  longest wait (default 15 minutes)
@@ -17,19 +22,28 @@
 // Docs: docs/guides/contributor.md (Commit hooks)
 
 import { spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   appendFileSync,
+  existsSync,
+  linkSync,
   mkdirSync,
   readFileSync,
+  renameSync,
   rmSync,
+  statSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, uptime } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { slotCount } from "./test-slots.mjs";
 
 const DEFAULT_WAIT_MS = 15 * 60 * 1000;
+// An unreadable slot is younger than this while its owner is still writing it.
+const UNREADABLE_GRACE_MS = 5000;
+// Clock and uptime readings differ by a little; only a clear gap proves a reboot.
+const BOOT_TOLERANCE_MS = 60_000;
 
 function lockDirectory() {
   if (process.env.KORE_TEST_LOCK_DIR) {
@@ -68,29 +82,96 @@ const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 const slotFile = (directory, index) =>
   join(directory, `test-slot-${index}.lock`);
 
-/** Takes the first free slot below the current size; breaks a slot whose holder is gone. */
-function tryTake(directory, size) {
-  const owners = [];
-  for (let index = 0; index < size; index += 1) {
-    const lock = slotFile(directory, index);
+/** Whether the slot's holder is gone: dead pid, a claim from before this boot, or an unreadable file left for good. */
+function stale(lock, owner) {
+  if (owner === undefined) {
     try {
-      writeFileSync(
-        lock,
-        JSON.stringify({ pid: process.pid, cwd: process.cwd() }),
-        { flag: "wx" },
-      );
-      return { lock };
+      return Date.now() - statSync(lock).mtimeMs > UNREADABLE_GRACE_MS;
+    } catch {
+      return true;
+    }
+  }
+  const bootedAt = Date.now() - uptime() * 1000;
+  return (
+    !alive(owner.pid) ||
+    Date.parse(owner.acquiredAt) < bootedAt - BOOT_TOLERANCE_MS
+  );
+}
+
+/** Claims the slot with complete content: written aside, then linked into place (EEXIST when taken). */
+function claim(lock) {
+  const aside = `${lock}.${process.pid}.tmp`;
+  writeFileSync(
+    aside,
+    JSON.stringify({
+      pid: process.pid,
+      cwd: process.cwd(),
+      acquiredAt: new Date().toISOString(),
+    }),
+  );
+  try {
+    linkSync(aside, lock);
+    return true;
+  } catch (error) {
+    if (error.code !== "EEXIST") {
+      throw error;
+    }
+    return false;
+  } finally {
+    rmSync(aside, { force: true });
+  }
+}
+
+/**
+ * Removes a stale slot atomically: rename it away, then check what was really
+ * moved. A live slot that replaced the stale one in between is put back.
+ */
+function breakSlot(lock) {
+  const moved = `${lock}.broken.${process.pid}`;
+  try {
+    renameSync(lock, moved);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return;
+    }
+    throw error;
+  }
+  if (!stale(moved, holder(moved))) {
+    try {
+      linkSync(moved, lock);
     } catch (error) {
       if (error.code !== "EEXIST") {
         throw error;
       }
     }
-    const owner = holder(lock);
-    if (owner === undefined || !alive(owner.pid)) {
-      rmSync(lock, { force: true });
-      return tryTake(directory, size);
+  }
+  rmSync(moved, { force: true });
+}
+
+/** Takes the first free slot below the current size; breaks a slot whose holder is gone. */
+function tryTake(directory, size) {
+  const owners = [];
+  for (let index = 0; index < size; index += 1) {
+    const lock = slotFile(directory, index);
+    for (;;) {
+      if (claim(lock)) {
+        return { lock };
+      }
+      const owner = holder(lock);
+      if (!existsSync(lock)) {
+        continue;
+      }
+      if (stale(lock, owner)) {
+        breakSlot(lock);
+        continue;
+      }
+      owners.push({
+        pid: owner?.pid ?? "unknown",
+        cwd: owner?.cwd ?? "?",
+        lock,
+      });
+      break;
     }
-    owners.push({ ...owner, lock });
   }
   return { owners };
 }
@@ -171,6 +252,43 @@ function auditHostLease(directory) {
   }
 }
 
+/** The staged tree, or undefined when git cannot say (never a reason to skip or fail). */
+function stagedTree() {
+  const tree = spawnSync("git", ["write-tree"], { encoding: "utf8" });
+  const hash = tree.stdout?.trim() ?? "";
+  return tree.status === 0 && /^[0-9a-f]{40}([0-9a-f]{24})?$/.test(hash)
+    ? hash
+    : undefined;
+}
+
+/** Where this step's pass is recorded: one file per staged tree and exact command. */
+function passRecord(directory, tree, command, args) {
+  const prefix = spawnSync("git", ["rev-parse", "--show-prefix"], {
+    encoding: "utf8",
+  }).stdout?.trim();
+  const step = createHash("sha256")
+    .update(JSON.stringify([prefix ?? "", command, ...args]))
+    .digest("hex");
+  return join(directory, "test-pass", tree, step);
+}
+
+/** Records a pass only when no tracked file differs from the index, so the run was of the staged tree. */
+function recordPass(file, tree) {
+  const unstaged = spawnSync("git", ["diff", "--quiet"]).status !== 0;
+  if (unstaged || stagedTree() !== tree) {
+    return;
+  }
+  try {
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(
+      file,
+      `${JSON.stringify({ tree, at: new Date().toISOString() })}\n`,
+    );
+  } catch (error) {
+    console.error(`could not record the pass: ${error.message}`);
+  }
+}
+
 const [command, ...args] = process.argv.slice(2);
 if (command === undefined) {
   console.error("usage: node test-lock.mjs <command> [args...]");
@@ -179,6 +297,15 @@ if (command === undefined) {
 
 const directory = lockDirectory();
 mkdirSync(directory, { recursive: true });
+const tree = stagedTree();
+const record =
+  tree === undefined ? undefined : passRecord(directory, tree, command, args);
+if (record !== undefined && existsSync(record)) {
+  console.error(
+    `tests already passed at tree ${tree}: skipping ${[command, ...args].join(" ")}`,
+  );
+  process.exit(0);
+}
 auditHostLease(directory);
 const lock = await acquire(directory);
 
@@ -209,5 +336,8 @@ child.on("error", (error) => {
   process.exit(127);
 });
 child.on("close", (status, signal) => {
+  if (status === 0 && record !== undefined) {
+    recordPass(record, tree);
+  }
   process.exit(status ?? (signal ? 128 : 1));
 });

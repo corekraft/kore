@@ -9,6 +9,8 @@ import { spawn, spawnSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
+  readdirSync,
+  utimesSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -40,6 +42,7 @@ const envFor = (dir, extra = {}) => ({
 function run(dir, command, extra) {
   return spawnSync(process.execPath, [script, ...command], {
     encoding: "utf8",
+    cwd: dir,
     env: envFor(dir, extra),
   });
 }
@@ -74,7 +77,7 @@ test("a live holder is waited for, naming its pid, then the next run proceeds", 
   const holder = spawn(
     process.execPath,
     [script, ...node("setTimeout(() => {}, 700)")],
-    { env: envFor(dir) },
+    { cwd: dir, env: envFor(dir) },
   );
   t.after(() => holder.kill());
   while (!existsSync(lock)) {
@@ -83,6 +86,7 @@ test("a live holder is waited for, naming its pid, then the next run proceeds", 
   const owner = JSON.parse(readFileSync(lock, "utf8"));
   const result = await new Promise((resolve) => {
     const waiter = spawn(process.execPath, [script, ...node("")], {
+      cwd: dir,
       env: envFor(dir, { KORE_TEST_LOCK_WAIT_MS: "10000" }),
     });
     let stderr = "";
@@ -114,6 +118,7 @@ function hold(dir, ms, extra) {
     process.execPath,
     [script, ...node(`setTimeout(() => {}, ${ms})`)],
     {
+      cwd: dir,
       env: envFor(dir, extra),
     },
   );
@@ -141,6 +146,7 @@ test("runs up to the slot count start at once; the next waits and says so", asyn
   const started = Date.now();
   const third = spawnSync(process.execPath, [script, ...node("")], {
     encoding: "utf8",
+    cwd: dir,
     env: envFor(dir, { ...two, KORE_TEST_LOCK_WAIT_MS: "10000" }),
   });
   assert.equal(third.status, 0);
@@ -156,6 +162,7 @@ test("a free slot below the size is used at once, with no waiting message", asyn
   await slotsTaken(dir, 1);
   const second = spawnSync(process.execPath, [script, ...node("")], {
     encoding: "utf8",
+    cwd: dir,
     env: envFor(dir, two),
   });
   assert.equal(second.status, 0);
@@ -240,4 +247,146 @@ test("audit can never block: an unwritable audit log does not abort the run", (t
   assert.equal(result.status, 5);
   assert.match(result.stderr, /audit: host lease held by pid/);
   assert.match(result.stderr, /audit log/);
+});
+
+// A slot is claimed with complete content, and one that cannot be read is
+// someone's claim in progress, never a dead holder's leftover.
+
+test("an unreadable fresh slot is a claim in progress: waited on, never deleted", (t) => {
+  const { dir, lock } = setup(t);
+  writeFileSync(lock, "");
+  const result = run(dir, node(""), { KORE_TEST_LOCK_WAIT_MS: "300" });
+  assert.equal(result.status, 1);
+  assert.equal(existsSync(lock), true, "the half-written slot is left alone");
+});
+
+test("an unreadable slot that stays unreadable for over a few seconds is broken", (t) => {
+  const { dir, lock } = setup(t);
+  writeFileSync(lock, "{");
+  const old = new Date(Date.now() - 60_000);
+  utimesSync(lock, old, old);
+  const result = run(dir, node(""), { KORE_TEST_LOCK_WAIT_MS: "5000" });
+  assert.equal(result.status, 0);
+});
+
+test("a slot whose pid is alive but predates the host's boot is broken (pid reuse)", (t) => {
+  const { dir, lock } = setup(t);
+  writeFileSync(
+    lock,
+    JSON.stringify({
+      pid: process.pid,
+      cwd: "/before-reboot",
+      acquiredAt: "2000-01-01T00:00:00.000Z",
+    }),
+  );
+  const result = run(dir, node(""), { KORE_TEST_LOCK_WAIT_MS: "5000" });
+  assert.equal(result.status, 0);
+  assert.doesNotMatch(result.stderr, /waiting for a test slot/);
+});
+
+test("breaking a dead slot leaves no stray file, and a live slot is never moved", (t) => {
+  const { dir, lock } = setup(t);
+  const dead = spawnSync(process.execPath, ["-e", ""]).pid;
+  writeFileSync(lock, JSON.stringify({ pid: dead, cwd: "/gone" }));
+  assert.equal(run(dir, node("")).status, 0);
+  assert.deepEqual(
+    readdirSync(dir).filter((name) => /broken|\.tmp$/.test(name)),
+    [],
+  );
+  const live = JSON.stringify({ pid: process.pid, cwd: "/busy" });
+  writeFileSync(lock, live);
+  run(dir, node(""), { KORE_TEST_LOCK_WAIT_MS: "200" });
+  assert.equal(readFileSync(lock, "utf8"), live);
+});
+
+// A pass is recorded only by a real green run of the step itself, for the staged
+// tree and the exact command, and only when the working tree has no unstaged
+// change: tests that ran on other content must not vouch for the staged tree.
+
+// Under the commit hook GIT_INDEX_FILE and friends point at the real repository.
+const withoutGit = (env) =>
+  Object.fromEntries(
+    Object.entries(env).filter(([name]) => !name.startsWith("GIT_")),
+  );
+const cleanEnv = withoutGit(process.env);
+
+function repo(t) {
+  const { dir } = setup(t);
+  const work = mkdtempSync(join(tmpdir(), "kore-test-pass-"));
+  t.after(() => rmSync(work, { recursive: true, force: true }));
+  const git = (...args) =>
+    spawnSync("git", args, { cwd: work, env: cleanEnv, encoding: "utf8" });
+  git("init", "-q");
+  writeFileSync(join(work, "a.txt"), "one\n");
+  git("add", "a.txt");
+  const counter = join(work, "ran.log");
+  const step = (exit = 0, tag = "") =>
+    node(
+      `require("fs").appendFileSync(${JSON.stringify(counter)}, "x${tag}"); process.exit(${exit})`,
+    );
+  const go = (command) =>
+    spawnSync(process.execPath, [script, ...command], {
+      cwd: work,
+      env: { ...withoutGit(envFor(dir)), KORE_TEST_SLOTS: "1" },
+      encoding: "utf8",
+    });
+  const ran = () => (existsSync(counter) ? readFileSync(counter, "utf8") : "");
+  return { git, step, go, ran, work, dir };
+}
+
+test("a green run records the staged tree, and the same step on it is skipped with a message", (t) => {
+  const { step, go, ran } = repo(t);
+  assert.equal(go(step()).status, 0);
+  const again = go(step());
+  assert.equal(again.status, 0);
+  assert.equal(ran(), "x", "the second run ran nothing");
+  assert.match(again.stderr, /tests already passed at tree [0-9a-f]{40}/);
+});
+
+test("a changed staged tree runs the step again", (t) => {
+  const { git, step, go, ran, work } = repo(t);
+  go(step());
+  writeFileSync(join(work, "a.txt"), "two\n");
+  git("add", "a.txt");
+  go(step());
+  assert.equal(ran(), "xx");
+});
+
+test("a different command on the same tree is a different step and runs", (t) => {
+  const { step, go, ran } = repo(t);
+  go(step(0, "1"));
+  go(step(0, "2"));
+  assert.equal(ran(), "x1x2");
+});
+
+test("a failing run records nothing and keeps its exit code", (t) => {
+  const { step, go, ran } = repo(t);
+  assert.equal(go(step(3)).status, 3);
+  assert.equal(go(step(3)).status, 3);
+  assert.equal(ran(), "xx");
+});
+
+test("a pass over unstaged changes is not recorded: the staged tree was not what ran", (t) => {
+  const { step, go, ran, work } = repo(t);
+  writeFileSync(join(work, "a.txt"), "unstaged fix\n");
+  assert.equal(go(step()).status, 0);
+  assert.equal(go(step()).status, 0);
+  assert.equal(ran(), "xx", "both runs ran; nothing was recorded");
+});
+
+test("a tree that cannot be read still runs the step, never skips or fails it", (t) => {
+  const { dir } = setup(t);
+  const elsewhere = mkdtempSync(join(tmpdir(), "kore-no-repo-"));
+  t.after(() => rmSync(elsewhere, { recursive: true, force: true }));
+  const result = spawnSync(
+    process.execPath,
+    [script, ...node("process.exit(4)")],
+    {
+      cwd: elsewhere,
+      env: { ...withoutGit(envFor(dir)), GIT_DIR: join(elsewhere, "none") },
+      encoding: "utf8",
+    },
+  );
+  assert.equal(result.status, 4);
+  assert.doesNotMatch(result.stderr, /already passed/);
 });

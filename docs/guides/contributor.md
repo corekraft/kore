@@ -70,14 +70,19 @@ see [The harness bundle](#the-harness-bundle).
    admits fewer runs; `KORE_TEST_SLOTS=<n>` fixes it. Runs past the size wait
    and print `waiting for a test slot: N in use by pid ...`. It waits up to 15
    minutes (`KORE_TEST_LOCK_WAIT_MS`), breaks a slot whose pid is gone, and on
-   timeout names the holders and the files to remove.
-   A green hook run records the staged tree hash (`harness test record`, one
-   file per tree in `.kore/state/test-pass` of the main checkout, shared by
-   every worktree). A later commit whose staged tree matches a record skips
-   every test step and prints `tests already passed at tree <hash>`; any change
-   to the staged tree is a different hash, so its tests run. `harness test check`
-   asks without running (`--tree <hash>` and `--json` are optional). The
-   typecheck and scans still run, and CI `check` still runs the full suites. A
+   timeout names the holders and the files to remove. A slot whose pid is gone,
+   or that predates the host's boot, is broken; one that cannot be read counts as
+   held until it is a few seconds old.
+   The same script skips a step that already passed. After its command exits
+   0, and only when no tracked file differs from the index (`git diff --quiet`),
+   it records the staged tree hash and the exact command, one file per step in
+   `.kore/state/test-pass/<tree>/` of the main checkout, shared by every
+   worktree. Nothing else writes a record; the guard warns on a hand edit. A
+   later commit whose staged tree and step match prints "tests already passed
+   at tree <hash>" and runs nothing; a changed tree is a different
+   hash, and a different related-test list is a different step, so those run. A
+   tree git cannot read just runs the tests. The typecheck and scans still run,
+   and CI `check` still runs the full suites. A
    live `kore local up` or live spec run holds the exclusive host lease (`~/.kore/locks/host-lease.lock`, ADR
    0094): `session spawn` refuses a new writer while it is held, and a hook test
    run beside it prints `audit: host lease held by pid N` and appends to

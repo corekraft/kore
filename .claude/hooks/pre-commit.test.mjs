@@ -59,11 +59,10 @@ function script(path, body) {
 // Stages `files` in a throwaway repo whose lint-staged and npm are fakes that
 // log their calls; `failing` names the npm scripts that exit non-zero. `seed`
 // maps extra repository paths (specs) to contents; they exist but stay unstaged.
-// `passed` makes `harness test check` report a recorded pass for the staged tree.
 function commit(
   files,
   failing = [],
-  { withMise = true, seed = {}, passed = false } = {},
+  { withMise = true, seed = {}, gitCrash = false, rerun } = {},
 ) {
   const root = mkdtempSync(join(tmpdir(), "pre-commit-"));
   try {
@@ -90,7 +89,7 @@ function commit(
     );
     script(
       join(bin, "node"),
-      `echo "node $*" >> "${log}"\ncase "$1" in *related-tests.mjs|*test-lock.mjs|*sast-staged.mjs) exec "${process.execPath}" "$@";; esac\ncase " $* " in *" test check "*) exit ${passed ? 0 : 1};; esac\ncase " ${failing.join(" ")} " in *" node "*) exit 1;; esac\ncase " $* " in *" hook workflow-permissions "*) case " ${failing.join(" ")} " in *" node:workflow-permissions "*) exit 1;; esac;; esac`,
+      `echo "node $*" >> "${log}"\ncase "$1" in *related-tests.mjs|*test-lock.mjs|*sast-staged.mjs) exec "${process.execPath}" "$@";; esac\ncase " ${failing.join(" ")} " in *" node "*) exit 1;; esac\ncase " $* " in *" hook workflow-permissions "*) case " ${failing.join(" ")} " in *" node:workflow-permissions "*) exit 1;; esac;; esac`,
     );
     if (withMise) {
       script(
@@ -106,18 +105,43 @@ function commit(
       join(bin, "npm"),
       `echo "$*" >> "${log}"\necho "$(basename "$PWD") $*" >> "${log}.npm"\ncase " ${failing.join(" ")} " in *" $2 "*|*" $(basename "$PWD"):$2 "*) exit 1;; esac`,
     );
+    if (gitCrash) {
+      // `git write-tree` (the tree the test lock keys a pass on) crashes; every other git call is real.
+      const realGit = spawnSync("which", ["git"], {
+        encoding: "utf8",
+      }).stdout.trim();
+      script(
+        join(bin, "git"),
+        `case "$1" in write-tree) echo "fatal: simulated crash" >&2; exit 128;; esac\nexec "${realGit}" "$@"`,
+      );
+    }
     for (const file of files) {
       mkdirSync(dirname(join(root, file)), { recursive: true });
       writeFileSync(join(root, file), "x\n");
     }
     spawnSync("git", ["add", "-A", "--", ...files], opts);
-    const result = spawnSync("sh", [join(root, "hook.sh")], {
+    const hookEnv = {
+      ...cleanEnv,
+      PATH: withMise ? `${bin}:${process.env.PATH}` : `${bin}:/usr/bin:/bin`,
+    };
+    let result = spawnSync("sh", [join(root, "hook.sh")], {
       ...opts,
-      env: {
-        ...cleanEnv,
-        PATH: withMise ? `${bin}:${process.env.PATH}` : `${bin}:/usr/bin:/bin`,
-      },
+      env: hookEnv,
     });
+    if (rerun !== undefined) {
+      // A second commit attempt: forget the first one's calls, optionally stage more.
+      rmSync(log, { force: true });
+      rmSync(`${log}.npm`, { force: true });
+      for (const file of rerun.stage ?? []) {
+        mkdirSync(dirname(join(root, file)), { recursive: true });
+        writeFileSync(join(root, file), "y\n");
+        spawnSync("git", ["add", "--", file], opts);
+      }
+      result = spawnSync("sh", [join(root, "hook.sh")], {
+        ...opts,
+        env: hookEnv,
+      });
+    }
     let calls = "";
     try {
       calls = readFileSync(log, "utf8");
@@ -146,8 +170,6 @@ test("every tool the hook runs goes through the pinned toolchain", () => {
     // Each test run goes through the host-wide test lock (a node call).
     [
       "lint-staged",
-      // The recorded-pass check runs once, before the first test step.
-      "node",
       "node",
       "run",
       "node",
@@ -160,11 +182,9 @@ test("every tool the hook runs goes through the pinned toolchain", () => {
       "node",
       "node",
       "run",
-      // A green run records the staged tree.
-      "node",
     ],
   );
-  assert.equal(lines.length, 26);
+  assert.equal(lines.length, 22);
   // Every tool call follows a mise exec, except the test command the lock
   // starts, which inherits the pinned PATH from the call before it.
   for (const [i, l] of lines.entries()) {
@@ -480,40 +500,46 @@ test("a missing semgrep blocks the commit by saying to install it, not that SAST
   assert.doesNotMatch(result.calls, /semgrep scan/);
 });
 
-// A tree that already passed runs no tests, and the hook says so; a changed tree
-// is a different hash, so the tests run as before and the pass is recorded.
-test("a staged tree that already passed runs no tests, says so, and records nothing", () => {
-  const result = commit(
-    [".claude/hooks/a.mjs", "tools/kore/src/a.ts", "tools/harness/src/a.ts"],
-    [],
-    { passed: true },
-  );
+// A tree whose tests already passed runs none again: the test lock records a
+// green run per tree and command, and says so when it skips. A changed tree
+// is a different hash, so its related tests run as before.
+test("committing the same staged tree again runs no tests and says so", () => {
+  const result = commit(["tools/kore/src/a.ts"], [], { rerun: {} });
   assert.equal(result.status, 0);
-  assert.match(
-    result.stderr,
-    /skipping the related tests; they already passed/,
-  );
-  assert.doesNotMatch(result.calls, /test-lock|test:(unit|related|hooks)/);
-  assert.doesNotMatch(result.calls, /test record/);
+  assert.match(result.stderr, /tests already passed at tree [0-9a-f]{40}/);
+  assert.doesNotMatch(result.npmCalls, /test:related/);
   assert.match(result.calls, /run check/, "the typecheck still runs");
 });
 
-test("a staged tree with no recorded pass runs the tests and records the pass", () => {
-  const result = commit(["tools/kore/src/a.ts"]);
+test("a changed staged tree runs its related tests again", () => {
+  const result = commit(["tools/kore/src/a.ts"], [], {
+    rerun: { stage: ["tools/kore/src/b.ts"] },
+  });
   assert.equal(result.status, 0);
-  assert.doesNotMatch(result.stderr, /skipping the related tests/);
-  assert.match(result.calls, /test:related/);
-  assert.match(result.calls, /harness\.mjs test record$/m);
+  assert.doesNotMatch(result.stderr, /already passed/);
+  assert.match(result.npmCalls, /^kore run test:related .*src\/b\.ts/m);
 });
 
-test("a failing test still blocks the commit and records nothing", () => {
-  const result = commit(["tools/kore/src/a.ts"], ["test:related"]);
+test("a failing test blocks the commit and the next attempt still runs it", () => {
+  const result = commit(["tools/kore/src/a.ts"], ["test:related"], {
+    rerun: {},
+  });
   assert.notEqual(result.status, 0);
-  assert.doesNotMatch(result.calls, /test record/);
+  assert.doesNotMatch(result.stderr, /already passed/);
+  assert.match(result.npmCalls, /test:related/);
 });
 
-test("a commit that runs no tests records no pass", () => {
-  const result = commit(["README.md"]);
+test("a crashing tree check still runs the tests and never blocks the commit", () => {
+  const result = commit(["tools/kore/src/a.ts"], [], { gitCrash: true });
   assert.equal(result.status, 0);
-  assert.doesNotMatch(result.calls, /test (check|record)/);
+  assert.match(result.npmCalls, /^kore run test:related /m);
+  assert.doesNotMatch(result.stderr, /already passed/);
+});
+
+test("a crashing tree check does not hide a failing test", () => {
+  const result = commit(["tools/kore/src/a.ts"], ["test:related"], {
+    gitCrash: true,
+  });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /related unit tests failed/);
 });
