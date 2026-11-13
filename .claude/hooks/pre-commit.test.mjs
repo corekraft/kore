@@ -34,6 +34,10 @@ const related = fileURLToPath(
   new URL("../../tools/kore/.husky/related-tests.mjs", import.meta.url),
 );
 
+const sastStaged = fileURLToPath(
+  new URL("../../tools/kore/.husky/sast-staged.mjs", import.meta.url),
+);
+
 const cleanEnv = Object.fromEntries(
   Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_")),
 );
@@ -58,6 +62,7 @@ function commit(files, failing = [], { withMise = true, seed = {} } = {}) {
     copyFileSync(helper, join(root, "tools/kore/.husky/pinned.sh"));
     copyFileSync(related, join(root, "tools/kore/.husky/related-tests.mjs"));
     copyFileSync(testLock, join(root, "tools/kore/.husky/test-lock.mjs"));
+    copyFileSync(sastStaged, join(root, "tools/kore/.husky/sast-staged.mjs"));
     for (const [path, content] of Object.entries(seed)) {
       mkdirSync(dirname(join(root, path)), { recursive: true });
       writeFileSync(join(root, path), content);
@@ -70,7 +75,7 @@ function commit(files, failing = [], { withMise = true, seed = {} } = {}) {
     );
     script(
       join(bin, "node"),
-      `echo "node $*" >> "${log}"\ncase "$1" in *related-tests.mjs|*test-lock.mjs) exec "${process.execPath}" "$@";; esac\ncase " ${failing.join(" ")} " in *" node "*) exit 1;; esac\ncase " $* " in *" hook workflow-permissions "*) case " ${failing.join(" ")} " in *" node:workflow-permissions "*) exit 1;; esac;; esac`,
+      `echo "node $*" >> "${log}"\ncase "$1" in *related-tests.mjs|*test-lock.mjs|*sast-staged.mjs) exec "${process.execPath}" "$@";; esac\ncase " ${failing.join(" ")} " in *" node "*) exit 1;; esac\ncase " $* " in *" hook workflow-permissions "*) case " ${failing.join(" ")} " in *" node:workflow-permissions "*) exit 1;; esac;; esac`,
     );
     if (withMise) {
       script(
@@ -78,6 +83,10 @@ function commit(files, failing = [], { withMise = true, seed = {} } = {}) {
         `echo "mise $*" >> "${log}"\n[ "$1" = exec ] && [ "$2" = -- ] || exit 2\nshift 2\nexec "$@"`,
       );
     }
+    script(
+      join(bin, "semgrep"),
+      `echo "semgrep $*" >> "${log}"\ncase "$1" in --version) case " ${failing.join(" ")} " in *" semgrep:version "*) exit 1;; esac; exit 0;; esac\ncase " ${failing.join(" ")} " in *" semgrep "*) exit 1;; esac`,
+    );
     script(
       join(bin, "npm"),
       `echo "$*" >> "${log}"\necho "$(basename "$PWD") $*" >> "${log}.npm"\ncase " ${failing.join(" ")} " in *" $2 "*|*" $(basename "$PWD"):$2 "*) exit 1;; esac`,
@@ -126,13 +135,17 @@ test("every tool the hook runs goes through the pinned toolchain", () => {
       "run",
       "node",
       "node",
+      // The SAST step selects the staged source, checks semgrep, then scans.
+      "node",
+      "semgrep",
+      "semgrep",
       "run",
       "node",
       "node",
       "run",
     ],
   );
-  assert.equal(lines.length, 16);
+  assert.equal(lines.length, 22);
   // Every tool call follows a mise exec, except the test command the lock
   // starts, which inherits the pinned PATH from the call before it.
   for (const [i, l] of lines.entries()) {
@@ -399,4 +412,51 @@ test("failing hook tests block the commit with one actionable line", () => {
     result.stderr,
     /^pre-commit: hook tests failed; run 'mise run test-hooks' and fix them\n$/,
   );
+});
+
+// SAST: the committed Semgrep rules run on staged source only, so a
+// kore-dynamic-regexp finding fails here instead of in CI.
+test("staging a scanned source file runs the Semgrep rules on it through the pinned toolchain", () => {
+  const result = commit(["tools/kore/src/a.ts"], []);
+  assert.equal(result.status, 0);
+  assert.match(
+    result.calls,
+    /^semgrep scan .*--config infra\/policies\/semgrep\/kore-node\.yaml --error .*tools\/kore\/src\/a\.ts$/m,
+  );
+  const lines = result.calls.split("\n");
+  assert.match(
+    lines[lines.findIndex((l) => l.startsWith("semgrep ")) - 1],
+    /^mise exec -- /,
+  );
+});
+
+test("a commit with no scannable source skips Semgrep", () => {
+  for (const files of [
+    ["README.md"],
+    ["tools/kore/src/a.spec.ts"],
+    ["infra/charts/c/values.yaml"],
+  ]) {
+    const result = commit(files, []);
+    assert.equal(result.status, 0);
+    assert.doesNotMatch(result.calls, /semgrep/, files.join());
+  }
+});
+
+test("a Semgrep finding blocks the commit with one actionable line", () => {
+  const result = commit(["tools/kore/src/a.ts"], ["semgrep"]);
+  assert.notEqual(result.status, 0);
+  assert.match(
+    result.stderr,
+    /^pre-commit: SAST found a problem in the staged files; run 'mise run scan-sast' and fix it\n$/,
+  );
+});
+
+test("a missing semgrep blocks the commit by saying to install it, not that SAST found a problem", () => {
+  const result = commit(["tools/kore/src/a.ts"], ["semgrep:version"]);
+  assert.notEqual(result.status, 0);
+  assert.match(
+    result.stderr,
+    /^pre-commit: semgrep is missing; run 'mise install'\n$/,
+  );
+  assert.doesNotMatch(result.calls, /semgrep scan/);
 });

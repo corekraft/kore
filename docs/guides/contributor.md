@@ -50,6 +50,15 @@ see [The harness bundle](#the-harness-bundle).
    agrees; a changed rule starts in the `main-candidate` ruleset, ADR 0090); run them locally with `mise run test`. The
    Stop hook only typechecks.
 
+   Staged `.ts`, `.mjs` and `.js` source also runs the Semgrep rules
+   (`kore-node.yaml`, the `scan-sast` task) on those files, so a finding such
+   as `kore-dynamic-regexp` fails the commit with its rule and line instead of
+   failing in CI. `tools/kore/.husky/sast-staged.mjs` picks the files with the
+   same roots as `scan-sast` and skips tests; a commit with none skips the scan.
+   Semgrep reads files from the working tree, so a partly staged file is
+   scanned as it is on disk, unstaged edits included. A scan takes about three
+   seconds.
+
    Unit runs are capped so a busy host stays usable. Both packages' vitest
    configs read `tools/kore/.husky/test-workers.mjs`: two workers, or
    `KORE_TEST_WORKERS` (a positive whole number exported in the shell; CI sets
