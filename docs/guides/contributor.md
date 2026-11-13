@@ -100,8 +100,11 @@ worktree's tests (pid N)`. It waits up to 15 minutes
   since a first-time `up` takes 15 to 20); `KORE_LOCK_WAIT_MS` overrides both.
 - The `nightly` workflow (`.github/workflows/nightly.yml`) runs a clean
   `kore local up` and every `test:integration*` suite against one cluster through
-  `tools/kore/scripts/nightly.sh`, purging the profile last. Its run conclusion is
-  the status on main. It runs on the hosted `ubuntu-latest` runner and needs GNU
+  `tools/kore/scripts/nightly.sh`, purging the profile last. It brings up a
+  scratch `nightly` environment (a copy of `local` with its own cluster) whose
+  secrets are generated and encrypted to an age key made for the run, held in
+  memory only, so the runner needs no stored credential; the job summary records
+  duration and peak memory. Its run conclusion is the status on main. It runs on the hosted `ubuntu-latest` runner and needs GNU
   `timeout` (`gtimeout` from coreutils on macOS); a self-hosted runner is the
   fallback ([ADR 0093](../decisions/0093-the-nightly-live-proof-runs-on-a-hosted-linux-runner-under-bounded-timeouts.md)).
   `ProcessRunner` kills a command past its timeout (helm mutations get twice
