@@ -1,10 +1,9 @@
 import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { environmentStatePath } from "../runtime/environment-state.js";
 import { localSigner, trustedSigners } from "../config/index.js";
 import type { Repository } from "../config/index.js";
-import type { Runner } from "../runtime/index.js";
+import { environmentStatePath, type Runner } from "../runtime/index.js";
 
 export const localSigningKeyNamespace = "kore-system";
 export const localSigningKeySecret = "kore-local-signing-key";

@@ -14,6 +14,8 @@ export type {
   OperationSummary,
 } from "./journal.js";
 export { environmentStatePath } from "./environment-state.js";
+export { HOST_LEASE, withHostLease } from "./host-lease.js";
+export { hostRoot, lockScope } from "./host-locks.js";
 export {
   CommandError,
   CommandTimeoutError,

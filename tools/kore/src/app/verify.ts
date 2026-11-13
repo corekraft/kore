@@ -1,4 +1,3 @@
-import { environmentStatePath } from "../runtime/environment-state.js";
 import {
   isLocalProvider,
   trustedSigners,
@@ -12,7 +11,7 @@ import {
   withRegistryClient,
   type LockedImage,
 } from "../images/index.js";
-import type { Runner } from "../runtime/index.js";
+import { environmentStatePath, type Runner } from "../runtime/index.js";
 
 export function verifyLockedImageArgs(
   image: LockedImage,

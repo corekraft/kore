@@ -4,7 +4,7 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: kore-system
-  labels: {app.kubernetes.io/managed-by: Helm}
+  labels: { app.kubernetes.io/managed-by: Helm }
 
 ---
 # Source: platform-config/templates/namespaces.yaml
@@ -16,7 +16,6 @@ metadata:
     app.kubernetes.io/managed-by: Helm
     platform.kore.dev/secret-source: "true"
 
-
 ---
 # Source: platform-config/templates/gateway-service.yaml
 # Istio generates the Gateway's Service and merges this overlay into it. The
@@ -27,7 +26,7 @@ kind: ConfigMap
 metadata:
   name: kore-gateway-service
   namespace: kore-system
-  labels: {app.kubernetes.io/managed-by: Helm}
+  labels: { app.kubernetes.io/managed-by: Helm }
 data:
   service: |
     spec:
@@ -40,7 +39,7 @@ data:
 # Source: platform-config/templates/mesh-policy.yaml
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
-metadata: {name: default-deny, namespace: kore-system}
+metadata: { name: default-deny, namespace: kore-system }
 spec: {}
 
 ---
@@ -49,7 +48,7 @@ spec: {}
 # kore-system denied by default while allowing HTTPS traffic to this Gateway.
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
-metadata: {name: gateway-allow-https, namespace: kore-system}
+metadata: { name: gateway-allow-https, namespace: kore-system }
 spec:
   selector:
     matchLabels:
@@ -72,12 +71,17 @@ spec:
       remoteNamespace: kore-secret-source
       server:
         url: https://kubernetes.default.svc
-        caProvider: {type: ConfigMap, name: kube-root-ca.crt, key: ca.crt, namespace: kore-secret-source}
+        caProvider:
+          {
+            type: ConfigMap,
+            name: kube-root-ca.crt,
+            key: ca.crt,
+            namespace: kore-secret-source,
+          }
       auth:
         serviceAccount:
           name: external-secrets
           namespace: external-secrets
-
 
 ---
 # Source: platform-config/templates/gateway.yaml
@@ -86,10 +90,10 @@ kind: Gateway
 metadata:
   name: kore-gateway
   namespace: kore-system
-  labels: {app.kubernetes.io/managed-by: Helm}
+  labels: { app.kubernetes.io/managed-by: Helm }
 spec:
   infrastructure:
-    parametersRef: {group: "", kind: ConfigMap, name: kore-gateway-service}
+    parametersRef: { group: "", kind: ConfigMap, name: kore-gateway-service }
   gatewayClassName: istio
   listeners:
     - name: https
@@ -99,13 +103,13 @@ spec:
       tls:
         mode: Terminate
         certificateRefs:
-          - {kind: Secret, name: kore-local-tls}
+          - { kind: Secret, name: kore-local-tls }
       allowedRoutes:
-        namespaces: {from: All}
+        namespaces: { from: All }
 
 ---
 # Source: platform-config/templates/mesh-policy.yaml
 apiVersion: security.istio.io/v1
 kind: PeerAuthentication
-metadata: {name: default, namespace: kore-system}
-spec: {mtls: {mode: STRICT}}
+metadata: { name: default, namespace: kore-system }
+spec: { mtls: { mode: STRICT } }

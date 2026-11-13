@@ -1,8 +1,12 @@
 import type { Repository } from "../config/index.js";
-import { withEnvironmentLock, withJournal } from "../runtime/index.js";
+import {
+  hostRoot,
+  lockScope,
+  withEnvironmentLock,
+  withHostLease,
+  withJournal,
+} from "../runtime/index.js";
 import type { Runner } from "../runtime/index.js";
-import { withHostLease } from "../runtime/host-lease.js";
-import { hostRoot, lockScope } from "../runtime/host-locks.js";
 import type { Mutate } from "./context.js";
 
 interface MutationScope {

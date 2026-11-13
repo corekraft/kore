@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { Repository } from "../config/index.js";
-import { hostRoot } from "../runtime/host-locks.js";
+import { hostRoot } from "../runtime/index.js";
 
 // Docs: AGENTS.md "One owner per resource."
 

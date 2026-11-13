@@ -67,6 +67,11 @@ export const diagnosticsModule = () => ({
 });
 
 export const runtimeModule = () => ({
+  hostRoot: () => "/host",
+  lockScope: (environment: { name: string }) => environment.name,
+  withHostLease: vi.fn(async (operation: () => Promise<unknown>) =>
+    operation(),
+  ),
   ProcessRunner: class {},
   withHelmDeadline: (runner: unknown) => runner,
   withRequestTimeout: (runner: unknown) => runner,

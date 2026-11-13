@@ -1,6 +1,6 @@
 import { access } from "node:fs/promises";
 import { join, relative } from "node:path";
-import { environmentStatePath } from "../runtime/environment-state.js";
+import { environmentStatePath } from "../runtime/index.js";
 import { isLocalProvider, type Repository } from "../config/index.js";
 import {
   assertReleaseAutomationImage,

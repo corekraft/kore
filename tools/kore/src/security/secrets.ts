@@ -4,8 +4,7 @@ import { dirname, join } from "node:path";
 import { randomBytes } from "node:crypto";
 import { isLocalProvider, type Repository } from "../config/index.js";
 import { assertExpectedCluster } from "../cluster/index.js";
-import type { Runner } from "../runtime/index.js";
-import { environmentStatePath } from "../runtime/environment-state.js";
+import { environmentStatePath, type Runner } from "../runtime/index.js";
 
 export const rotationAnnotation = "platform.kore.dev/rotation-id";
 export const rotatedAtAnnotation = "platform.kore.dev/rotated-at";
