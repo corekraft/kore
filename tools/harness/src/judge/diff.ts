@@ -1,5 +1,14 @@
+/** One changed or context line of a hunk; `start` marks the first line of its hunk. */
+export interface TrailLine {
+  kind: "added" | "removed" | "context";
+  text: string;
+  start: boolean;
+}
+
 export interface ChangedFile {
   path: string;
+  /** The path before a rename; the same as `path` for a file that kept its name. */
+  previousPath: string;
   deleted: boolean;
   added: string[];
   removed: number;
@@ -7,19 +16,36 @@ export interface ChangedFile {
   netRemoved: number;
   /** The new side of every hunk in order: added lines and unchanged context. */
   after: { added: boolean; text: string }[];
+  /** Every added, removed and context line in diff order, so a change can be placed by what surrounds it. */
+  trail: TrailLine[];
 }
 
-/** Counts one hunk's added and removed lines; ending it books the lines removed with no replacement. */
+/** Counts one hunk's added and removed lines and records each in the file's trail; ending it books the lines removed with no replacement. */
 class Hunk {
   private added = 0;
   private removed = 0;
+  private starting = false;
 
-  plus(): void {
-    this.added += 1;
+  begin(): void {
+    this.starting = true;
   }
 
-  minus(): void {
+  plus(file: ChangedFile, text: string): void {
+    this.added += 1;
+    file.added.push(text);
+    file.after.push({ added: true, text });
+    this.record(file, "added", text);
+  }
+
+  minus(file: ChangedFile, text: string): void {
     this.removed += 1;
+    file.removed += 1;
+    this.record(file, "removed", text);
+  }
+
+  context(file: ChangedFile, text: string): void {
+    file.after.push({ added: false, text });
+    this.record(file, "context", text);
   }
 
   end(file: ChangedFile | undefined): void {
@@ -28,6 +54,12 @@ class Hunk {
     }
     this.added = 0;
     this.removed = 0;
+    this.starting = false;
+  }
+
+  private record(file: ChangedFile, kind: TrailLine["kind"], text: string) {
+    file.trail.push({ kind, text, start: this.starting });
+    this.starting = false;
   }
 }
 
@@ -43,11 +75,13 @@ export function parseDiff(text: string): ChangedFile[] {
       hunk.end(current);
       current = {
         path: header[2],
+        previousPath: header[1] ?? header[2],
         deleted: false,
         added: [],
         removed: 0,
         netRemoved: 0,
         after: [],
+        trail: [],
       };
       files.push(current);
       inHunk = false;
@@ -56,17 +90,15 @@ export function parseDiff(text: string): ChangedFile[] {
     } else if (line.startsWith("@@")) {
       hunk.end(current);
       inHunk = true;
+      hunk.begin();
     } else if (!inHunk && line.startsWith("deleted file mode")) {
       current.deleted = true;
     } else if (inHunk && line.startsWith("+")) {
-      current.added.push(line.slice(1));
-      current.after.push({ added: true, text: line.slice(1) });
-      hunk.plus();
+      hunk.plus(current, line.slice(1));
     } else if (inHunk && line.startsWith("-")) {
-      current.removed += 1;
-      hunk.minus();
+      hunk.minus(current, line.slice(1));
     } else if (inHunk && line.startsWith(" ")) {
-      current.after.push({ added: false, text: line.slice(1) });
+      hunk.context(current, line.slice(1));
     }
   }
   hunk.end(current);

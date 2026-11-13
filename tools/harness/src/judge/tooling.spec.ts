@@ -1,22 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { ChangedFile } from "./diff.js";
 import { isTooling } from "./tooling.js";
-
-const file = (
-  path: string,
-  lines: { added: boolean; text: string }[] = [],
-  removed = 0,
-): ChangedFile => ({
-  path,
-  deleted: false,
-  added: lines.filter((l) => l.added).map((l) => l.text),
-  removed,
-  netRemoved: Math.max(0, removed - lines.filter((l) => l.added).length),
-  after: lines,
-});
-
-const add = (text: string) => ({ added: true, text });
-const ctx = (text: string) => ({ added: false, text });
+import { file } from "./tooling.fixtures.js";
 
 describe("isTooling: paths", () => {
   it.each([
@@ -43,77 +27,40 @@ describe("isTooling: paths", () => {
     ".github/workflows/release.yaml",
     "apps/web/values.yaml",
     "infra/environments/local/environment.yaml",
+    "infra/charts/x/values.yaml",
     "catalog/a.yaml",
     "something/else.ts",
+    "x/tools/harness/a.ts",
+    "tools/kore/src/foo-support.ts.bak",
+    "tools/kore/src/cli/testing/x.ts",
+    "tools/kore/src/x.config.ts",
+    ".github/workflows/check.yml.bak",
+    ".Claude/x",
+    "tools/kore/tsconfig.json",
+    "tools/kore/.npmrc",
   ])("%s is product", (path) => {
     expect(isTooling(file(path))).toBe(false);
   });
 });
 
-describe("isTooling: tools/kore/package.json", () => {
-  const path = "tools/kore/package.json";
+describe("isTooling: renames", () => {
+  it("is tooling when both the old and the new path are tooling", () => {
+    expect(isTooling(file("skills/b.md", [], "tools/harness/a.ts"))).toBe(true);
+  });
 
-  it("is tooling when only scripts or devDependencies change", () => {
-    const f = file(
-      path,
-      [
-        ctx('  "devDependencies": {'),
-        add('    "vitest": "4.0.1",'),
-        ctx("  },"),
-      ],
-      1,
-    );
-    expect(isTooling(f)).toBe(true);
+  it("is product when a product file is renamed into a tooling name", () => {
     expect(
       isTooling(
-        file(path, [ctx('  "scripts": {'), add('    "x": "y",'), ctx("  }")]),
+        file("tools/kore/src/gate-support.ts", [], "tools/kore/src/gate.ts"),
       ),
-    ).toBe(true);
+    ).toBe(false);
+    expect(
+      isTooling(file("skills/values.yaml", [], "apps/web/values.yaml")),
+    ).toBe(false);
   });
 
-  it("is product when runtime dependencies change", () => {
-    const f = file(path, [
-      ctx('  "dependencies": {'),
-      add('    "left-pad": "1.0.0"'),
-      ctx("  }"),
-    ]);
-    expect(isTooling(f)).toBe(false);
-  });
-
-  it("is product when a line is only removed, since where it sat is unknown", () => {
-    expect(isTooling(file(path, [ctx('  "devDependencies": {')], 1))).toBe(
-      false,
-    );
-  });
-
-  it("is product when an added line has no section header in view", () => {
-    expect(isTooling(file(path, [add('    "vitest": "4.0.1",')]))).toBe(false);
-  });
-});
-
-describe("isTooling: tools/kore/package-lock.json", () => {
-  const path = "tools/kore/package-lock.json";
-
-  it("is tooling when every changed package entry is dev only", () => {
-    const f = file(path, [
-      ctx('    "node_modules/vitest": {'),
-      add('      "version": "4.0.1",'),
-      ctx('      "dev": true,'),
-    ]);
-    expect(isTooling(f)).toBe(true);
-  });
-
-  it("is product when a changed package entry is not dev only", () => {
-    const f = file(path, [
-      ctx('    "node_modules/left-pad": {'),
-      add('      "version": "1.0.0",'),
-      ctx('      "license": "MIT"'),
-    ]);
-    expect(isTooling(f)).toBe(false);
-  });
-
-  it("is product when a change has no package entry in view", () => {
-    expect(isTooling(file(path, [add('      "version": "1.0.0",')]))).toBe(
+  it("is product when package.json is renamed", () => {
+    expect(isTooling(file("tools/kore/package.json", [], "package.json"))).toBe(
       false,
     );
   });

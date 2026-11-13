@@ -5,13 +5,15 @@ import { isTooling } from "./tooling.js";
 
 vi.mock("./tooling.js", () => ({ isTooling: vi.fn() }));
 
-const changed = (path: string): ChangedFile => ({
+const changed = (path: string, previousPath = path): ChangedFile => ({
   path,
+  previousPath,
   deleted: false,
   added: [],
   removed: 0,
   netRemoved: 0,
   after: [],
+  trail: [],
 });
 
 describe("hintsFor no-behaviour-change with tooling", () => {
@@ -39,6 +41,18 @@ describe("hintsFor no-behaviour-change with tooling", () => {
     ).toEqual({
       behaviouralPaths: ["apps/web/values.yaml"],
       toolingPaths: ["tools/harness/a.ts"],
+      noBehaviouralDiff: false,
+    });
+  });
+
+  it("a doc renamed from a product path is still behavioural", () => {
+    vi.mocked(isTooling).mockReturnValue(false);
+    expect(
+      hintsFor("no-behaviour-change", [
+        changed("docs/values.md", "apps/web/values.yaml"),
+      ]),
+    ).toMatchObject({
+      behaviouralPaths: ["docs/values.md"],
       noBehaviouralDiff: false,
     });
   });

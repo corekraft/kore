@@ -35,8 +35,12 @@ Tooling is:
   file with such a name slips past; the judge reads the diff.
 - `tools/kore/package.json` and its lockfile when the diff changes only
   scripts or devDependencies (in the lockfile, only dev-only packages).
-  A change to runtime `dependencies`, a removal, or a change the precheck cannot
-  place in a section is product.
+  A change to runtime `dependencies` (the root lockfile entry's included), a
+  package moved between sections, or a change the precheck cannot place under a
+  header in view of its own hunk is product. A line removed from `scripts` or
+  `devDependencies` is tooling, because the precheck places each removed line
+  in its section.
+- A renamed file is tooling only when both its old and its new path are.
 
 Everything else is product, including `release.yaml`, `apps`, `infra`,
 `catalog`, charts and kore production code. The boundary fails closed.
