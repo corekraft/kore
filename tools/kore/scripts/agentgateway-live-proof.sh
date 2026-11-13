@@ -15,7 +15,13 @@
 #   2. flag on in the scratch overlay: `kore local up` on the same (existing)
 #      profile; the controller rolls out, the CRDs exist, the namespace is
 #      labelled ambient, platform status is clean.
+#      The gateway is reported ready by `kore platform status --json`, and the
+#      Istio ingress proxy (deploy and svc kore-gateway-istio) is gone.
 #   3. rerun `kore local up`; no Helm release revision changes.
+#   4. flag off again, `kore local up`: rollback. The Gateway is ready on the
+#      istio class, and the agentgateway proxy (deploy and svc kore-gateway)
+#      is gone. If a Service keeps NodePort 30443 across a class change, this
+#      phase fails and names which one, so the owner of its removal is known.
 # Then a read-only measurement (kubectl top) is written to a results file
 # outside git and printed.
 #
@@ -164,7 +170,25 @@ kore platform status --environment "$scratch" --json |
       const bad = JSON.parse(s).filter((r) => ["missing", "degraded"].includes(r.status));
       if (bad.length) { console.error(bad.map((r) => `${r.name}: ${r.status}`).join("\n")); process.exit(1); }
     });' || fail "platform status reports a missing or degraded component"
-echo "phase 2 ok: rollout, CRDs, ambient label and status" >&2
+gateway_state() { # prints the status of the kore-gateway component, or nothing
+  kore platform status --environment "$scratch" --json |
+    mise exec -- node -e '
+      let s = "";
+      process.stdin.on("data", (c) => { s += c; });
+      process.stdin.on("end", () => {
+        const r = JSON.parse(s).find((c) => c.name === "kore-platform-config");
+        if (r) console.log(r.status);
+      });'
+}
+[ "$(gateway_state)" = "ready" ] || fail "platform status does not report kore-platform-config (the Gateway) ready: '$(gateway_state)'"
+gone() { # kind name: fail unless the object is absent
+  if k -n kore-system get "$1" "$2" >/dev/null 2>&1; then
+    fail "$1/$2 still exists after the class change; remove it with: kubectl --context $context -n kore-system delete $1 $2 (and record who should remove it)"
+  fi
+}
+gone deploy kore-gateway-istio
+gone svc kore-gateway-istio
+echo "phase 2 ok: rollout, CRDs, ambient label, status, gateway ready and Istio proxy gone" >&2
 
 step "phase 3: rerun kore local up, no Helm revision may change"
 before="$(revisions)"
@@ -182,6 +206,17 @@ if printf '%s\n' "$changed" | grep -qx 'reference/reference'; then
   echo "known issue (#344): reference/reference changed revision; the local reference image gets a new digest every run. Not an agentgateway problem." >&2
 fi
 echo "phase 3 ok: no platform release changed" >&2
+
+step "phase 4: flag off again, kore local up (rollback)"
+sed -i.bak 's/"ingress-agentgateway": true/"ingress-agentgateway": false/' "$env_file"
+rm -f "$env_file.bak"
+grep -qF '"ingress-agentgateway": false' "$env_file" || fail "could not turn the flag off in $env_file"
+kore local up --environment "$scratch"
+[ "$(gateway_state)" = "ready" ] || fail "after rollback platform status does not report the Gateway ready: '$(gateway_state)'"
+k -n kore-system get deploy kore-gateway-istio >/dev/null || fail "rollback: Istio did not recreate deploy/kore-gateway-istio"
+gone deploy kore-gateway
+gone svc kore-gateway
+echo "phase 4 ok: Gateway ready on the istio class, agentgateway proxy gone" >&2
 
 step "measurement (read-only) -> $results"
 {

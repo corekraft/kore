@@ -142,7 +142,7 @@ async function waitForIstioProxyGone(
         { capture: true },
       );
       if (result.stdout.trim() !== "") {
-        return `Istio ingress proxy ${resource} still exists; Istio has not released the Gateway to agentgateway`;
+        return `Istio ingress proxy ${resource} still exists; Istio has not released the Gateway to agentgateway. Remove it: ${["kubectl", ...base, "delete", resource].join(" ")}`;
       }
     }
     return undefined;
@@ -281,9 +281,12 @@ export function gatewayCheck(
   resource: string,
 ): { condition: string; run: (timeout: string) => Promise<void> } | undefined {
   if (resource.startsWith("gateway/")) {
+    const conditions =
+      "Accepted, LoadBalancer address or node port, Programmed, ResolvedRefs";
     return {
-      condition:
-        "Accepted, LoadBalancer address or node port, Programmed, ResolvedRefs",
+      condition: featureEnabled(repository.environment, ingressFlag)
+        ? `Istio ingress proxy gone, GatewayClass agentgateway Accepted, ${conditions}`
+        : conditions,
       run: (timeout) =>
         waitForGateway(repository, runner, base, resource, timeout),
     };

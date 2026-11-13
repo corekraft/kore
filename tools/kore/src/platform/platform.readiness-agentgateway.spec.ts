@@ -3,7 +3,7 @@ import { test } from "vitest";
 import { ingressFlag, loadRepository } from "../config/index.js";
 import type { Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
-import { waitForGateway } from "./readiness-gateway.js";
+import { gatewayCheck, waitForGateway } from "./readiness-gateway.js";
 
 const ready = { status: "True" };
 
@@ -146,5 +146,36 @@ test("a Gateway agentgateway rejects names agentgateway and the condition reason
   await assert.rejects(
     waitForGateway(repository, runner, base, "gateway/kore-gateway", "1s"),
     /agentgateway.*Accepted is False \(reason: ListenersNotValid\)/s,
+  );
+});
+
+test("a leftover Istio ingress proxy fails with the command that removes it", async () => {
+  const repository = await repositoryWith(true);
+  const { runner } = cluster({ istioProxy: ["deployment"] });
+  await assert.rejects(
+    waitForGateway(repository, runner, base, "gateway/kore-gateway", "1s"),
+    /kubectl --context kore-local --namespace kore-system delete deployment\/kore-gateway-istio/,
+  );
+});
+
+async function conditionWith(on: boolean): Promise<string> {
+  const repository = await repositoryWith(on);
+  const { runner } = cluster();
+  return gatewayCheck({ repository, runner, base }, "gateway/kore-gateway")!
+    .condition;
+}
+
+test("the Gateway readiness condition names the GatewayClass and Istio proxy checks only with the flag on", async () => {
+  assert.match(await conditionWith(true), /Istio ingress proxy.*GatewayClass/s);
+  assert.doesNotMatch(await conditionWith(false), /GatewayClass|Istio/);
+});
+
+test("turning the flag back off needs no agentgateway or Istio proxy check", async () => {
+  const repository = await repositoryWith(false);
+  const { runner, calls } = cluster();
+  await waitForGateway(repository, runner, base, "gateway/kore-gateway", "5s");
+  assert.equal(
+    calls.some((args) => args.some((a) => /agentgateway|istio/.test(a))),
+    false,
   );
 });

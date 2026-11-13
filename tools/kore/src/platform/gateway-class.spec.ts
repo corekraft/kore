@@ -121,3 +121,12 @@ test("a malformed ingress flag fails validation naming the flag and the fix", as
     /environment\.features\.ingress-agentgateway must be true or false/,
   );
 });
+
+test("turning the flag back off restores the Istio class and overlay and drops agentgateway's parameters", async () => {
+  const on = render(await localWith({ [ingressFlag]: true }));
+  const off = render(await localWith({ [ingressFlag]: false }));
+  assert.match(on, /AgentgatewayParameters/);
+  assert.doesNotMatch(off, /AgentgatewayParameters|agentgateway/);
+  assert.match(off, /gatewayClassName: istio/);
+  assert.match(off, /kind: ConfigMap\s+metadata:\s+name: kore-gateway-service/);
+});
