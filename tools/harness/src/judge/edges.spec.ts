@@ -112,7 +112,7 @@ describe("diff header reading", () => {
     const diff = 'diff --git "a/x\\9.yaml" "b/x\\9.yaml"';
     expect(() => parseDiff(diff)).toThrow(
       new JudgeError(
-        'Cannot read the diff header on this line, so the file it changes is unknown: diff --git "a/x\\9.yaml" "b/x\\9.yaml". Check that header in the PR diff and rerun the precheck.',
+        'Cannot read the diff header on this line, so the file it changes is unknown: diff --git "a/x\\9.yaml" "b/x\\9.yaml". Rename the file so git writes a plain header, or extend the header reader in tools/harness/src/judge/diff.ts to read this form.',
       ),
     );
   });
@@ -128,8 +128,108 @@ describe("diff header reading", () => {
     ].join("\n");
     expect(() => parseDiff(diff)).toThrow(
       new JudgeError(
-        'Cannot read the diff header on this line, so the file it changes is unknown: diff --git "a/two.yaml b/two.yaml. Check that header in the PR diff and rerun the precheck.',
+        'Cannot read the diff header on this line, so the file it changes is unknown: diff --git "a/two.yaml b/two.yaml. Rename the file so git writes a plain header, or extend the header reader in tools/harness/src/judge/diff.ts to read this form.',
       ),
     );
+  });
+});
+
+describe("diff headers that are ambiguous or unknown", () => {
+  it("reads an unquoted path that contains ' b/' under the one path both sides name", () => {
+    const diff = [
+      "diff --git a/apps/web/templates/x b/docs/deploy.yaml b/apps/web/templates/x b/docs/deploy.yaml",
+      "@@ -1 +1 @@",
+      "+kind: Deployment",
+    ].join("\n");
+    expect(parseDiff(diff)).toMatchObject([
+      { path: "apps/web/templates/x b/docs/deploy.yaml" },
+    ]);
+  });
+
+  it("fails closed on an unquoted header whose split between the two paths is ambiguous", () => {
+    const diff = "diff --git a/p b/q b/r";
+    expect(() => parseDiff(diff)).toThrow(
+      new JudgeError(
+        "Cannot read the diff header on this line, so the file it changes is unknown: diff --git a/p b/q b/r. Rename the file so git writes a plain header, or extend the header reader in tools/harness/src/judge/diff.ts to read this form.",
+      ),
+    );
+  });
+
+  it("reads a plain rename under its new path", () => {
+    expect(
+      parseDiff("diff --git a/old.yaml b/new.yaml\n@@ -1 +1 @@\n+x: 1"),
+    ).toMatchObject([{ path: "new.yaml" }]);
+  });
+
+  it("fails closed on a combined-diff header, which the reader does not handle", () => {
+    const diff = [
+      "diff --cc apps/web/x.yaml",
+      "@@@ -1,1 -1,1 +1,1 @@@",
+      "++name: y",
+    ].join("\n");
+    expect(() => parseDiff(diff)).toThrow(
+      new JudgeError(
+        "Cannot read the diff header on this line, so the file it changes is unknown: diff --cc apps/web/x.yaml. Rename the file so git writes a plain header, or extend the header reader in tools/harness/src/judge/diff.ts to read this form.",
+      ),
+    );
+  });
+
+  it("fails closed on a quoted path whose bytes are not valid UTF-8", () => {
+    const diff = 'diff --git "a/x\\377.yaml" "b/x\\377.yaml"';
+    expect(() => parseDiff(diff)).toThrow(
+      new JudgeError(
+        'Cannot read the diff header on this line, so the file it changes is unknown: diff --git "a/x\\377.yaml" "b/x\\377.yaml". Rename the file so git writes a plain header, or extend the header reader in tools/harness/src/judge/diff.ts to read this form.',
+      ),
+    );
+  });
+});
+
+describe("diff headers among other files", () => {
+  it("keeps an ordinary file's hunk on that file when a quoted file follows it", () => {
+    const diff = [
+      "diff --git a/one.yaml b/one.yaml",
+      "@@ -1 +1 @@",
+      "+a: 1",
+      'diff --git "a/caf\\303\\251.yaml" "b/caf\\303\\251.yaml"',
+      "@@ -1 +1 @@",
+      "+b: 2",
+    ].join("\n");
+    expect(parseDiff(diff)).toMatchObject([
+      { path: "one.yaml", added: ["a: 1"] },
+      { path: "café.yaml", added: ["b: 2"] },
+    ]);
+  });
+
+  it("keeps a quoted file's hunk on that file when an ordinary file follows it", () => {
+    const diff = [
+      'diff --git "a/caf\\303\\251.yaml" "b/caf\\303\\251.yaml"',
+      "@@ -1 +1 @@",
+      "+b: 2",
+      "diff --git a/one.yaml b/one.yaml",
+      "@@ -1 +1 @@",
+      "+a: 1",
+    ].join("\n");
+    expect(parseDiff(diff)).toMatchObject([
+      { path: "café.yaml", added: ["b: 2"] },
+      { path: "one.yaml", added: ["a: 1"] },
+    ]);
+  });
+
+  it("decodes backslash, tab and newline escapes in a quoted path", () => {
+    const diff = [
+      'diff --git "a/a\\\\b\\tc\\nd.yaml" "b/a\\\\b\\tc\\nd.yaml"',
+      "@@ -1 +1 @@",
+      "+x: 1",
+    ].join("\n");
+    expect(parseDiff(diff)).toMatchObject([{ path: "a\\b\tc\nd.yaml" }]);
+  });
+
+  it("reads a rename from a quoted old path to a bare new path under the new path", () => {
+    const diff = [
+      'diff --git "a/caf\\303\\251.yaml" b/cafe.yaml',
+      "@@ -1 +1 @@",
+      "+x: 1",
+    ].join("\n");
+    expect(parseDiff(diff)).toMatchObject([{ path: "cafe.yaml" }]);
   });
 });

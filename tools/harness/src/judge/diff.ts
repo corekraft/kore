@@ -1,8 +1,6 @@
 import { JudgeError } from "./errors.js";
 
-/** A `diff --git` header: each side is either bare or a quoted path, which git writes for special bytes. */
-const HEADER =
-  /^diff --git (?:a\/.+?|"a\/(?:[^"\\]|\\.)*") (?:b\/(.+)|"b\/((?:[^"\\]|\\.)*)")$/;
+const GIT_PREFIX = "diff --git ";
 /** One piece of a quoted path: an octal byte, a one-character escape, or literal text. */
 const QUOTED_PIECE = /\\([0-3][0-7]{2})|\\(.)|([^\\]+)/gs;
 const ESCAPES = new Map<string, number>([
@@ -19,9 +17,11 @@ const ESCAPES = new Map<string, number>([
 
 function unreadable(line: string): JudgeError {
   return new JudgeError(
-    `Cannot read the diff header on this line, so the file it changes is unknown: ${line}. Check that header in the PR diff and rerun the precheck.`,
+    `Cannot read the diff header on this line, so the file it changes is unknown: ${line}. Rename the file so git writes a plain header, or extend the header reader in tools/harness/src/judge/diff.ts to read this form.`,
   );
 }
+
+const UTF8 = new TextDecoder("utf-8", { fatal: true });
 
 /** Decodes a quoted git path to its UTF-8 text; an escape it does not know fails the read. */
 function unquote(quoted: string, line: string): string {
@@ -39,16 +39,57 @@ function unquote(quoted: string, line: string): string {
       bytes.push(Buffer.from(literal ?? "", "utf8"));
     }
   }
-  return Buffer.concat(bytes).toString("utf8");
+  try {
+    return UTF8.decode(Buffer.concat(bytes));
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw unreadable(line);
+    }
+    throw error;
+  }
 }
 
-/** The path a `diff --git` header names, unquoted; a header that cannot be read fails the parse. */
-function pathOf(line: string): string {
-  const header = HEADER.exec(line);
-  if (header === null) {
+/**
+ * The new path of an unquoted header. Git writes both sides bare, separated by a space, so a path
+ * that contains " b/" gives several splits. Only a split whose two paths are equal is taken; a
+ * header with no such split, or with several, is unreadable.
+ */
+function bareSplit(rest: string, line: string): string {
+  if (!rest.startsWith("a/")) {
     throw unreadable(line);
   }
-  return header[1] ?? unquote(header[2] ?? "", line);
+  const splits: { a: string; b: string }[] = [];
+  for (
+    let at = rest.indexOf(" b/");
+    at !== -1;
+    at = rest.indexOf(" b/", at + 1)
+  ) {
+    splits.push({ a: rest.slice(2, at), b: rest.slice(at + 3) });
+  }
+  const equal = splits.filter((split) => split.a === split.b);
+  const [only] = splits.length === 1 ? splits : equal;
+  if (only === undefined || (splits.length !== 1 && equal.length !== 1)) {
+    throw unreadable(line);
+  }
+  return only.b;
+}
+
+/** The new path a `diff --git` header names, unquoted; a header that cannot be read fails the parse. */
+function pathOf(line: string): string {
+  if (!line.startsWith(GIT_PREFIX)) {
+    throw unreadable(line);
+  }
+  const rest = line.slice(GIT_PREFIX.length);
+  const quotedNew =
+    /^(?:"a\/(?:[^"\\]|\\.)*"|a\/.+?) "b\/((?:[^"\\]|\\.)*)"$/.exec(rest);
+  if (quotedNew !== null) {
+    return unquote(quotedNew[1] ?? "", line);
+  }
+  const quotedOld = /^"a\/(?:[^"\\]|\\.)*" b\/(.+)$/.exec(rest);
+  if (quotedOld !== null) {
+    return quotedOld[1] ?? "";
+  }
+  return bareSplit(rest, line);
 }
 
 export interface ChangedFile {
@@ -91,7 +132,7 @@ export function parseDiff(text: string): ChangedFile[] {
   let inHunk = false;
   const hunk = new Hunk();
   for (const line of text.split("\n")) {
-    if (line.startsWith("diff --git")) {
+    if (line.startsWith("diff --")) {
       hunk.end(current);
       current = {
         path: pathOf(line),
