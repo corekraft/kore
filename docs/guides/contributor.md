@@ -9,11 +9,11 @@ this page is the short path through them.
 mise install
 mise exec -- npm --prefix tools/kore install
 mise exec -- npm --prefix tools/harness ci
-mise run setup-merge-driver
+mise run harness-build
 ```
 
-`setup-merge-driver` registers the `harness-bundle` git merge driver in your
-clone's `.git/config`; see [The harness bundle and merges](#the-harness-bundle-and-merges).
+`harness-build` creates `skills/bin/harness.mjs`, which hooks and skills run;
+see [The harness bundle](#the-harness-bundle).
 
 ## The loop
 
@@ -83,37 +83,20 @@ worktree's tests (pid N)`. It waits up to 15 minutes
 - Upstream chart and container checks are opt-in too (`test:upstream-charts`,
   `test:container-smoke`).
 
-## The harness bundle and merges
+## The harness bundle
 
-`skills/bin/harness.mjs` is generated from `tools/harness/src` and committed
-([ADR 0082](../decisions/0082-harness-package-bundled-for-skills.md)), so any
-two branches that change the harness both rewrite it and conflict on every
-merge. `.gitattributes` assigns the file the `harness-bundle` merge driver.
-After `mise run setup-merge-driver`, `git merge`, `git rebase` and
-`git cherry-pick` run `tools/harness/merge-driver.sh`, which merges the
-sources, rebuilds the bundle from the merged result and writes that as the
-result, so the bundle never needs a hand merge.
+`skills/bin/harness.mjs` is generated from `tools/harness/src` and is not
+committed ([ADR 0092](../decisions/0092-the-harness-bundle-is-a-build-output-not-a-committed-file.md)),
+so harness PRs conflict only when a source file does. Hooks run it through
+`.claude/hooks/harness.sh`.
 
-Limits:
-
-- GitHub's server-side merge does not run custom drivers. A PR that conflicts
-  in the bundle on GitHub still needs `git fetch origin && git rebase origin/main`
-  locally; with the driver registered that rebase resolves the bundle by
-  itself. Then rerun the tests and `git push --force-with-lease`.
-- The driver needs `npm ci --prefix tools/harness`. When it cannot rebuild
-  (missing dependencies, conflicting harness sources, or an operation it
-  cannot identify such as `git revert` or `git stash pop`), it leaves the bundle
-  with ordinary conflict markers: resolve the sources, then run
-  `mise run harness-build`.
-- The driver rebuilds from a default three-way merge of the two commits. It
-  does not see merge options: `git merge -X ours`/`-X theirs`, `-s ours`, an
-  octopus merge or a custom strategy can merge the sources differently than the
-  bundle was built from. After one of those, run `mise run harness-build` and
-  amend; `mise run harness-check` (and CI) report a stale bundle.
-- The driver builds through `mise exec -- npm` and fails with an install hint
-  when mise is missing.
-- Without the driver registered the bundle conflicts as before; resolve it by
-  rebuilding, never by hand.
+- A fresh worktree has no bundle. The guard hook then blocks tool calls and
+  prints the fix: `npm ci --prefix tools/harness && mise run harness-build`.
+- Rebuild with `mise run harness-build` after pulling harness changes. Harness
+  test runs rebuild it too.
+- `KORE_HARNESS_BUNDLE` points the launcher at a bundle elsewhere, for example
+  a read-only copy. It never falls back to the worktree copy.
+- CI builds the bundle before it runs anything that needs it.
 
 ## Feature flags
 

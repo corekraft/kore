@@ -62,8 +62,8 @@ if printf '%s\n' "$staged" |
 fi
 
 # The harness has its own typecheck and tests; run them when its sources, tests,
-# config or the committed bundle are staged.
-if printf '%s\n' "$staged" | grep -qE '^(tools/harness/|skills/bin/harness\.mjs$)'; then
+# or config are staged.
+if printf '%s\n' "$staged" | grep -qE '^tools/harness/'; then
   (cd "$repo_root/tools/harness" && pinned npm run check --silent) || {
     echo "pre-commit: harness typecheck failed; run 'npm run check' in tools/harness and fix the errors" >&2
     exit 1

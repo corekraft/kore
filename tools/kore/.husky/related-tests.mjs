@@ -34,11 +34,6 @@ const PACKAGES = {
       "tsconfig.json",
       "vitest.config.ts",
     ],
-    // Specs that read the committed bundle at runtime.
-    bundle: [
-      "tests/bundle.spec.ts",
-      "../../.claude/hooks/harness-bundle.test.mjs",
-    ],
   },
 };
 
@@ -108,11 +103,6 @@ export function plan(name, staged) {
   const files = new Set(own.filter((f) => f.endsWith(".ts")));
   if (pkg.readsRepository) {
     for (const spec of readers(pkg.dir, staged)) {
-      files.add(spec);
-    }
-  }
-  if (pkg.bundle && staged.includes("skills/bin/harness.mjs")) {
-    for (const spec of pkg.bundle) {
       files.add(spec);
     }
   }

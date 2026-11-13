@@ -30,6 +30,6 @@ export async function resolveRoot(
     return root;
   }
   throw new CommandError(
-    `Cannot find the repo root: ${bundle} is not at <root>/skills/bin and CLAUDE_PROJECT_DIR is unset. Run the committed skills/bin/harness.mjs or set CLAUDE_PROJECT_DIR to the repository root.`,
+    `Cannot find the repo root: ${bundle} is not at <root>/skills/bin and CLAUDE_PROJECT_DIR is unset. Run the built skills/bin/harness.mjs or set CLAUDE_PROJECT_DIR to the repository root.`,
   );
 }

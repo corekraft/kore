@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, it } from "vitest";
 import { cleanGitEnv } from "../src/testing/git-env.js";
 
-// The status line as the host runs it: the committed bundle as a real process,
+// The status line as the host runs it: the built bundle as a real process,
 // in projects that are not this repository.
 const here = dirname(fileURLToPath(import.meta.url));
 const bundle = resolve(here, "../../../skills/bin/harness.mjs");

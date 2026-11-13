@@ -118,6 +118,7 @@ Single-context: `GLOSSARY.md` at the root, ADRs in `docs/decisions/`. See
 
 _Enforced_ and _Audited_ rules are checked by `.claude/hooks/`, by the harness
 hooks in `tools/harness/src/hook/` (run as
-`node skills/bin/harness.mjs hook <name>`, for example `hook guard`), and by
+`.claude/hooks/harness.sh hook <name>`, for example `hook guard`; the bundle is
+built, never committed, [ADR 0092](docs/decisions/0092-the-harness-bundle-is-a-build-output-not-a-committed-file.md)), and by
 `.claude/settings.json`; workflows live in `skills/`. All other rules are
 guidance.

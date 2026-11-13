@@ -37,7 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/skills/bin/harness.mjs\" hook context"
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/harness.sh\" hook context"
           }
         ]
       },
@@ -45,7 +45,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/skills/bin/harness.mjs\" hook record session-start"
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/harness.sh\" hook record session-start"
           }
         ]
       }
@@ -55,7 +55,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/skills/bin/harness.mjs\" hook delta"
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/harness.sh\" hook delta"
           }
         ]
       }
@@ -65,7 +65,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/skills/bin/harness.mjs\" hook guard"
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/harness.sh\" hook guard"
           }
         ]
       }
@@ -75,7 +75,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/skills/bin/harness.mjs\" hook feedback post-edit"
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/harness.sh\" hook feedback post-edit"
           }
         ]
       }
@@ -85,7 +85,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/skills/bin/harness.mjs\" hook feedback tool-failure"
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/harness.sh\" hook feedback tool-failure"
           }
         ]
       }
@@ -95,7 +95,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/skills/bin/harness.mjs\" hook feedback stop"
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/harness.sh\" hook feedback stop"
           }
         ]
       }
