@@ -41,4 +41,21 @@ describe("the guard hook ranks bypass modes", () => {
     );
     expect(result.out).not.toMatch(/guardrail-demotion/);
   });
+
+  it("warns when a new bypass actor is added", async () => {
+    const content = JSON.stringify({
+      ...JSON.parse(ruleset("pull_request")),
+      bypass_actors: [
+        { actor_id: 1, actor_type: "User", bypass_mode: "pull_request" },
+        { actor_id: 2, actor_type: "Team", bypass_mode: "pull_request" },
+      ],
+    });
+    const result = await run({
+      session_id: "s1",
+      tool_name: "Write",
+      tool_input: { file_path: PATH, content },
+    });
+    expect(result.out).toMatch(/guard:guardrail-demotion/);
+    expect(result.out).toMatch(/gains an actor/);
+  });
 });

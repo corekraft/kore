@@ -70,6 +70,15 @@ describe("harness ruleset sync lets a narrowed bypass mode through", () => {
     expect(mutations(h)).toEqual([]);
   });
 
+  it("goes ahead with --confirm on always to pull_request, no --allow-removal needed", async () => {
+    const h = rulesetRepo({
+      declared: { ...declared, bypass_actors: [actor("pull_request")] },
+      main: liveMain([DELETION], { bypass_actors: [actor("always")] }),
+    });
+    expect(await run(sync("--confirm"), h.deps)).toBe(0);
+    expect(mutations(h)).not.toEqual([]);
+  });
+
   it("refuses pull_request to always without --allow-removal", async () => {
     const h = rulesetRepo({
       declared: { ...declared, bypass_actors: [actor("always")] },
