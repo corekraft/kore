@@ -21,7 +21,7 @@
     "test:container-smoke": "KORE_CHECK_CONTAINER_SMOKE=1 vitest run src/platform/container-smoke.docker.spec.ts",
     "test:unit": "vitest run",
     "test:related": "vitest related --run --passWithNoTests --maxWorkers=2",
-    "test:integration:barrel-rule": "npm run build --silent && node --test --test-concurrency=1 dist/src/testing/barrel-rule.integration.spec.js",
+    "test:barrel-rule": "node --test --test-concurrency=1 tests/barrel-rule.test.mjs",
     "test:integration:lifecycle": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/app/lifecycle.integration.spec.js",
     "test:e2e:clean-machine": "bash scripts/clean-machine-e2e.sh",
     "test:integration": "npm run build --silent && KORE_RUN_INTEGRATION=1 node --import ./dist/src/runtime/integration-lock-setup.js --test --test-concurrency=1 dist/src/cluster/*.integration.spec.js dist/src/platform/platform.integration.spec.js dist/src/platform/platform.*.integration.spec.js",
