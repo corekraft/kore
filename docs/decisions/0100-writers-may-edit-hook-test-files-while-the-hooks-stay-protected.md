@@ -21,39 +21,47 @@ needed a session started outside the guard.
 
 ## Decision
 
-A writer may create, edit, move and delete a file directly in `.claude/hooks`
-whose name ends in `.test.mjs`, through file tools and through Bash. The name
-must be literal: a glob, variable, substitution, brace or path climb, an
-absolute path containing `..`, `*`, `$` or braces, a path outside this
-worktree, and a name that is already a symlink or a folder all stay
-protected, and so does a command that also names a protected file. The
-exemption is refused too much on purpose: none for `ln`, `install` or a `cp`
-that links or copies folders; none when a `mv` or `cp` source is a symlink or a
-folder; none when a call moves or checks out onto a test name and names it
-again. A refused writer splits the work into two calls. The test-name match is
-case-sensitive and the protected paths are not, so `A.TEST.MJS` stays
-protected. The guard also refuses the glob characters `?` and `[`.
-This loosens an enforced guard, so it is the owner's approval under ADR 0080,
-recorded in #440 and in the `role-read-only` note of `.claude/guardrails.yaml`.
+A writer may create, edit, move out and delete a hook test file, which is a
+regular file directly in `.claude/hooks` whose name is a literal ending
+`.test.mjs`. The exemption is an allowlist, not a name check inside any command:
+
+- **File tools.** `Write` and `Edit` may take such a path, relative or inside
+  this worktree by absolute path, when it is not an existing symlink or folder.
+- **Bash.** Only a call that is exactly one command, with no `&&`, `;`, `|`,
+  redirect or substitution, and is `git mv <hook tests> <destination>`,
+  `git rm <hook tests>` or `rm [-f] <hook tests>`. Every named hook test must be
+  a regular file. A `git mv` destination, a file or an existing folder, must be
+  literal, outside `.claude` and not a symlink.
+- **Everything else** that names a path under `.claude/hooks` in a writing
+  command is refused as before: `mv`, `cp`, `install`, `ln`, a redirect, `tee`,
+  `sed -i`, `git checkout`, `git restore`, a glob, variable, brace or path climb
+  and a path outside this worktree. No Bash command can place anything under a
+  test name, so a link or folder cannot be made there. A command that also names
+  a protected file is refused.
+
+The settings files, `skills/bin`, the hook scripts and the `.claude` folder stay
+protected with the same refusal, and path names compare without regard to case
+since the disk may ignore it. This loosens an enforced guard, so it is the
+owner's approval under ADR 0080, recorded in #440 and in the `role-read-only`
+note of `.claude/guardrails.yaml`.
 
 ## Consequences
 
-Test fixes under `.claude/hooks` no longer need a session outside the guard.
-Inline code that names a hook test file (`node -e`) stays blocked, because
-the guard cannot read what it writes; a writer names the file instead. The
-hook scripts still need the owner.
+Test fixes under `.claude/hooks` no longer need a session outside the guard,
+and a test moved to the integration tier leaves with one `git mv`. A writer
+who needs to rename a test inside the hooks folder, or copy one in, asks the
+person. Inline code that names a hook test file (`node -e`) stays blocked,
+because the guard cannot read what it writes. The hook scripts still need the
+owner.
 
 These files are run by the commit hook's `test:hooks` and by CI, so a writer
 can make one write a protected file when it runs. That was already true of any
-spec, and the ADR names `node -e` only as the case the guard can see. The
-tests that verify the hooks and the settings are now writer-editable and
-deletable; the checks that matter stay with the reviewer and CI on the pull
-request, and the owner reviews any change to a hook script.
+spec. The tests that verify the hooks and settings are now writer-editable and
+deletable; the pull request's reviewer and CI stay the check on them.
 
-One limit remains. The check that a name is a symlink or a folder reads the disk
-once, before the call runs, so a link made and written through within one call
-is caught only by the shapes above; others (`rsync`, `tar -x`, `patch`,
-`git apply`, a path after `cd`) pass, as they did before. That is the standing
-limit of [ADR 0091](0091-containment-comes-from-identities-and-a-sandbox-not-role-guards.md):
+One limit remains: the symlink and folder checks read the disk once, before the
+call. A destination folder whose parent is a link, or a file tool writing
+through a link made by another tool in an earlier step, is not seen. That is the
+standing limit of [ADR 0091](0091-containment-comes-from-identities-and-a-sandbox-not-role-guards.md):
 the role guards are a hint, and containment comes from separate identities and
 the sandbox, not from this check.

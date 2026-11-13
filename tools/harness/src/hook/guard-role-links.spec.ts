@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { isLinkOrFolder } from "./guard-role-links.js";
+import { isLinkOrFolder, isSymlink } from "./guard-role-links.js";
 
 const fs = vi.hoisted(() => ({ lstatSync: vi.fn() }));
 vi.mock("node:fs", () => fs);
@@ -34,5 +34,18 @@ describe("isLinkOrFolder", () => {
   it("rethrows an unexpected error rather than treating the path as safe", () => {
     fs.lstatSync.mockImplementationOnce(failWith("EACCES"));
     expect(() => isLinkOrFolder("/e")).toThrow("EACCES");
+  });
+});
+
+describe("isSymlink", () => {
+  it("is true only for a symlink, not for a folder, a file or a missing path", () => {
+    fs.lstatSync.mockReturnValueOnce(stat(true, false));
+    expect(isSymlink("/a")).toBe(true);
+    fs.lstatSync.mockReturnValueOnce(stat(false, true));
+    expect(isSymlink("/b")).toBe(false);
+    fs.lstatSync.mockReturnValueOnce(stat(false, false));
+    expect(isSymlink("/c")).toBe(false);
+    fs.lstatSync.mockImplementationOnce(failWith("ENOENT"));
+    expect(isSymlink("/d")).toBe(false);
   });
 });

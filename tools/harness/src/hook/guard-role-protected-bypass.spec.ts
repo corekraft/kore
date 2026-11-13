@@ -50,7 +50,8 @@ vi.mock("./guard-role-writes.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./guard-role-writes.js")>()),
   writes: (segment: readonly string[]) =>
     shell.WRITERS.has(segment[0] ?? "") ||
-    (segment[0] === "git" && ["mv", "checkout"].includes(segment[1] ?? "")) ||
+    (segment[0] === "git" &&
+      ["mv", "rm", "checkout"].includes(segment[1] ?? "")) ||
     segment.some((word) => shell.REDIRECT.test(word)),
   redirectTargets: (segment: readonly string[]) =>
     segment.flatMap((word, i) =>
@@ -68,9 +69,14 @@ vi.mock("./guard-role-writes.js", async (importOriginal) => ({
 
 // Which paths are symlinks or folders on disk is the fs's to say; the integration spec
 // runs the real check.
-const links = vi.hoisted(() => ({ present: new Set<string>() }));
+const links = vi.hoisted(() => ({
+  present: new Set<string>(),
+  symlinks: new Set<string>(),
+}));
 vi.mock("./guard-role-links.js", () => ({
-  isLinkOrFolder: (path: string) => links.present.has(path),
+  isLinkOrFolder: (path: string) =>
+    links.present.has(path) || links.symlinks.has(path),
+  isSymlink: (path: string) => links.symlinks.has(path),
 }));
 
 vi.mock("./guard-verdict.js", () => ({
@@ -207,57 +213,85 @@ describe("checkProtected: a hook test name beside other words", () => {
   });
 });
 
-describe("checkProtected: a link or folder made and moved in within one call", () => {
-  it("refuses a hook test name that is a move or copy destination and is named again in the call", () => {
+describe("checkProtected: Bash gets no exemption beyond git mv out, git rm and rm", () => {
+  it("refuses a link, folder or file put under a test name, in one call or across two", () => {
     for (const command of [
       "ln -s harness.sh scratch/x.test.mjs && mv scratch/x.test.mjs .claude/hooks/x.test.mjs && echo x > .claude/hooks/x.test.mjs",
-      "ln -s ../settings.json scratch/x.test.mjs && mv scratch/x.test.mjs .claude/hooks/x.test.mjs && echo x > .claude/hooks/x.test.mjs",
-      "ln -s . scratch/d.test.mjs && mv scratch/d.test.mjs .claude/hooks/d.test.mjs && cp scratch/harness.sh .claude/hooks/d.test.mjs",
-      "cp a .claude/hooks/x.test.mjs && rm .claude/hooks/x.test.mjs",
-      "git mv a .claude/hooks/x.test.mjs && cp b .claude/hooks/x.test.mjs",
-      "git checkout -- .claude/hooks/x.test.mjs && echo x > .claude/hooks/x.test.mjs",
-    ]) {
-      expect(bash(command)).toEqual(guardRefusal);
-    }
-  });
-
-  it("refuses install, and a copy that links or copies recursively, under a hook test name", () => {
-    for (const command of [
+      "ln -s harness.sh scratch/x.test.mjs && mv scratch/x.test.mjs .claude/hooks/x.test.mjs && echo x > .claude/hooks/X.test.mjs",
+      "ln -s harness.sh scratch/x.test.mjs && mv scratch/x.test.mjs .claude/hooks/x.test.mjs && git stash -u",
+      "git stash pop && echo x > .claude/hooks/x.test.mjs",
+      "git restore .claude/hooks/x.test.mjs && echo x > .claude/hooks/x.test.mjs",
+      "mkdir scratch/dir && mv scratch/dir .claude/hooks/d.test.mjs",
+      "cp -r scratch/d .claude/hooks/d.test.mjs",
+      "mv scratch/dir .claude/hooks/d.test.mjs",
+      "mv scratch/file .claude/hooks/d.test.mjs",
+      "cp scratch/a.test.mjs .claude/hooks/a.test.mjs",
+      "mv .claude/hooks/a.test.mjs .claude/hooks/b.test.mjs",
       "install -l s harness.sh .claude/hooks/x.test.mjs",
-      "install a .claude/hooks/x.test.mjs",
-      "cp -s harness.sh .claude/hooks/x.test.mjs",
-      "cp -l a .claude/hooks/x.test.mjs",
-      "cp -P a .claude/hooks/x.test.mjs",
-      "cp -a a .claude/hooks/x.test.mjs",
-      "cp -R a .claude/hooks/x.test.mjs",
-      "cp -rP a .claude/hooks/x.test.mjs",
     ]) {
       expect(bash(command)).toEqual(guardRefusal);
     }
   });
 
-  it("refuses moving or copying a source that is a symlink or a folder onto a hook test name", () => {
-    links.present.add("/repo/scratch/dir");
+  it("refuses the other writing commands into a hook test name", () => {
+    for (const command of [
+      "cp -s harness.sh .claude/hooks/x.test.mjs",
+      "git mv a .claude/hooks/x.test.mjs",
+      "git checkout -- .claude/hooks/a.test.mjs",
+      "echo x > .claude/hooks/a.test.mjs",
+      "tee .claude/hooks/a.test.mjs",
+      "sed -i s/a/b/ .claude/hooks/a.test.mjs",
+    ]) {
+      expect(bash(command)).toEqual(guardRefusal);
+    }
+  });
+});
+
+describe("checkProtected: the git mv, git rm and rm allowlist is narrow", () => {
+  it("refuses git mv, git rm and rm unless they stand alone with plain hook tests", () => {
+    for (const command of [
+      "rm .claude/hooks/a.test.mjs && echo hi",
+      "rm .claude/hooks/a.test.mjs ; echo hi",
+      "rm .claude/hooks/a.test.mjs | cat",
+      "rm .claude/hooks/a.test.mjs > out",
+      "rm .claude/hooks/a.test.mjs $(id)",
+      "rm .claude/hooks/a.test.mjs .claude/hooks/harness.sh",
+      "rm -rf .claude/hooks/a.test.mjs",
+      "rm -r .claude/hooks/a.test.mjs",
+      "git rm -r .claude/hooks/a.test.mjs",
+      "git rm --cached .claude/hooks/a.test.mjs .claude/hooks/harness.sh",
+      "git mv .claude/hooks/a.test.mjs .claude/archive/a.test.mjs",
+      "git mv .claude/hooks/a.test.mjs .claude",
+      "git mv .claude/hooks/a.test.mjs .CLAUDE/hooks/",
+      "git mv .claude/hooks/a.test.mjs scratch/../.claude/hooks/x.test.mjs",
+      "git mv .claude/hooks/a.test.mjs skills/bin/x.mjs",
+      "git mv .claude/hooks/a.test.mjs $DEST",
+      "git mv .claude/hooks/a.test.mjs tools/{a,b}",
+      "git mv .claude/hooks/harness.sh tools/harness.sh",
+      "git mv .claude/hooks/a.test.mjs .claude/hooks/harness.sh tools/",
+      "git mv -f .claude/hooks/a.test.mjs tools/",
+      "git mv .claude/hooks/*.test.mjs tools/",
+      "git mv .claude/hooks/a.test.mjs",
+    ]) {
+      expect(bash(command)).toEqual(guardRefusal);
+    }
+  });
+
+  it("refuses git mv, git rm and rm of a hook test that is a symlink or folder, or onto a symlink", () => {
+    links.present.add("/repo/.claude/hooks/l.test.mjs");
+    links.symlinks.add("/repo/scratch/link");
     try {
-      expect(bash("mv scratch/dir .claude/hooks/d.test.mjs")).toEqual(
-        guardRefusal,
-      );
-      expect(bash("cp scratch/dir .claude/hooks/d.test.mjs")).toEqual(
-        guardRefusal,
-      );
-      expect(bash("mv scratch/file .claude/hooks/d.test.mjs")).toBeNull();
+      for (const command of [
+        "rm .claude/hooks/l.test.mjs",
+        "git rm .claude/hooks/l.test.mjs",
+        "git mv .claude/hooks/l.test.mjs tools/",
+        "git mv .claude/hooks/a.test.mjs scratch/link",
+      ]) {
+        expect(bash(command)).toEqual(guardRefusal);
+      }
     } finally {
       links.present.clear();
-    }
-  });
-
-  it("still lets a plain move, copy or checkout of a test file stand alone", () => {
-    for (const command of [
-      "mv scratch/a.test.mjs .claude/hooks/a.test.mjs",
-      "cp -f scratch/a.test.mjs .claude/hooks/a.test.mjs",
-      "git checkout -- .claude/hooks/a.test.mjs",
-    ]) {
-      expect(bash(command)).toBeNull();
+      links.symlinks.clear();
     }
   });
 });

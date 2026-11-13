@@ -49,7 +49,8 @@ vi.mock("./guard-role-writes.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./guard-role-writes.js")>()),
   writes: (segment: readonly string[]) =>
     shell.WRITERS.has(segment[0] ?? "") ||
-    (segment[0] === "git" && ["mv", "checkout"].includes(segment[1] ?? "")) ||
+    (segment[0] === "git" &&
+      ["mv", "rm", "checkout"].includes(segment[1] ?? "")) ||
     segment.some((word) => shell.REDIRECT.test(word)),
   redirectTargets: (segment: readonly string[]) =>
     segment.flatMap((word, i) =>
@@ -67,9 +68,14 @@ vi.mock("./guard-role-writes.js", async (importOriginal) => ({
 
 // Which paths are symlinks or folders on disk is the fs's to say; the integration spec
 // runs the real check.
-const links = vi.hoisted(() => ({ present: new Set<string>() }));
+const links = vi.hoisted(() => ({
+  present: new Set<string>(),
+  symlinks: new Set<string>(),
+}));
 vi.mock("./guard-role-links.js", () => ({
-  isLinkOrFolder: (path: string) => links.present.has(path),
+  isLinkOrFolder: (path: string) =>
+    links.present.has(path) || links.symlinks.has(path),
+  isSymlink: (path: string) => links.symlinks.has(path),
 }));
 
 vi.mock("./guard-verdict.js", () => ({
@@ -111,13 +117,14 @@ describe("checkProtected: a writer may change hook test files", () => {
     }
   });
 
-  it("allows Bash to move, delete, edit and redirect into a hook test file", () => {
+  it("allows Bash to git mv, git rm or rm hook tests, alone in one command", () => {
     for (const command of [
-      "mv .claude/hooks/a.test.mjs .claude/hooks/b.test.mjs",
+      "git mv .claude/hooks/a.test.mjs tools/harness/integration/a.test.mjs",
+      "git mv .claude/hooks/a.test.mjs tools/harness/integration/",
+      "git mv .claude/hooks/a.test.mjs .claude/hooks/b.test.mjs /repo/tools/harness/integration",
+      "git rm .claude/hooks/a.test.mjs .claude/hooks/b.test.mjs",
       "rm .claude/hooks/a.test.mjs",
-      "echo x > .claude/hooks/a.test.mjs",
-      "sed -i s/a/b/ .claude/hooks/a.test.mjs",
-      "cp tools/x.test.mjs .claude/hooks/a.test.mjs",
+      "rm -f .claude/hooks/a.test.mjs /repo/.claude/hooks/b.test.mjs",
     ]) {
       expect(bash(command)).toBeNull();
     }

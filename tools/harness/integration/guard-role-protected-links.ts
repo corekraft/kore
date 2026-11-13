@@ -35,9 +35,10 @@ afterAll(() => {
 });
 
 describe("checkProtected with a real filesystem", () => {
-  it("lets a writer edit a plain hook test file", () => {
-    expect(bash("echo x > .claude/hooks/plain.test.mjs")).toBeNull();
-    expect(bash("rm .claude/hooks/new.test.mjs")).toBeNull();
+  it("lets a writer remove or move a plain hook test file", () => {
+    expect(bash("rm .claude/hooks/plain.test.mjs")).toBeNull();
+    expect(bash("rm -f .claude/hooks/new.test.mjs")).toBeNull();
+    expect(bash("git mv .claude/hooks/plain.test.mjs scratch/dir")).toBeNull();
   });
 
   it("refuses a write through a hook test name that is a symlink to a protected file", () => {
@@ -66,6 +67,10 @@ describe("checkProtected with a real filesystem", () => {
       "ln -s harness.sh scratch/x.test.mjs && mv scratch/x.test.mjs .claude/hooks/x.test.mjs && echo x > .claude/hooks/x.test.mjs",
       "ln -s . scratch/d.test.mjs && mv scratch/d.test.mjs .claude/hooks/d.test.mjs && cp scratch/harness.sh .claude/hooks/d.test.mjs",
       "install -l s harness.sh .claude/hooks/x.test.mjs && echo x > .claude/hooks/x.test.mjs",
+      "ln -s harness.sh scratch/x.test.mjs && mv scratch/x.test.mjs .claude/hooks/x.test.mjs && echo x > .claude/hooks/X.test.mjs",
+      "git stash pop && echo x > .claude/hooks/x.test.mjs",
+      "mkdir scratch/e && mv scratch/e .claude/hooks/e.test.mjs",
+      "cp -r scratch/dir .claude/hooks/e.test.mjs",
     ]) {
       expect(bash(command)?.rule).toBe("role-read-only");
     }
