@@ -28,7 +28,8 @@ fi
 
 # The SAST rules (scan-sast) run on staged source only, so a finding such as
 # kore-dynamic-regexp fails here, with its rule and line, instead of in CI.
-# The grep skips even starting node when no staged path could qualify.
+# Semgrep reads each file as it is on disk, so a partly staged file is scanned
+# with its unstaged edits too. The grep skips even starting node when no staged path could qualify.
 sast_files=""
 if printf '%s\n' "$staged" | grep -qE '^(tools/kore/src/|tools/harness/src/|apps/|\.claude/).*\.(ts|mjs|js)$'; then
   sast_files="$(printf '%s\n' "$staged" | pinned node "$repo_root/tools/kore/.husky/sast-staged.mjs")" || {
@@ -37,6 +38,11 @@ if printf '%s\n' "$staged" | grep -qE '^(tools/kore/src/|tools/harness/src/|apps
   }
 fi
 if [ -n "$sast_files" ]; then
+  # A missing semgrep must not read as a finding.
+  pinned semgrep --version >/dev/null 2>&1 || {
+    echo "pre-commit: semgrep is missing; run 'mise install'" >&2
+    exit 1
+  }
   # shellcheck disable=SC2086
   (cd "$repo_root" && IFS='
 ' && set -f && pinned semgrep scan --metrics=off --disable-version-check --quiet --config infra/policies/semgrep/kore-node.yaml --error $sast_files) || {

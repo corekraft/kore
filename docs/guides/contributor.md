@@ -55,7 +55,9 @@ see [The harness bundle](#the-harness-bundle).
    as `kore-dynamic-regexp` fails the commit with its rule and line instead of
    failing in CI. `tools/kore/.husky/sast-staged.mjs` picks the files with the
    same roots as `scan-sast` and skips tests; a commit with none skips the scan.
-   A scan takes about three seconds.
+   Semgrep reads files from the working tree, so a partly staged file is
+   scanned as it is on disk, unstaged edits included. A scan takes about three
+   seconds.
 
    Unit runs are capped so a busy host stays usable. Both packages' vitest
    configs read `tools/kore/.husky/test-workers.mjs`: a quarter of the CPUs,
