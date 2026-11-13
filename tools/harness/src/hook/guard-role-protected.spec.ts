@@ -16,6 +16,7 @@ const shell = vi.hoisted(() => {
     "touch",
     "chmod",
     "mkdir",
+    "ln",
   ]);
   const splitSegments = (command: string): string[][] =>
     command.split("&&").map((segment) =>
@@ -48,6 +49,7 @@ vi.mock("./guard-role-writes.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./guard-role-writes.js")>()),
   writes: (segment: readonly string[]) =>
     shell.WRITERS.has(segment[0] ?? "") ||
+    (segment[0] === "git" && ["mv", "checkout"].includes(segment[1] ?? "")) ||
     segment.some((word) => shell.REDIRECT.test(word)),
   redirectTargets: (segment: readonly string[]) =>
     segment.flatMap((word, i) =>
@@ -61,6 +63,13 @@ vi.mock("./guard-role-writes.js", async (importOriginal) => ({
         !shell.REDIRECT.test(word) &&
         !shell.REDIRECT.test(segment[i - 1] ?? ""),
     ),
+}));
+
+// Which paths are symlinks or folders on disk is the fs's to say; the integration spec
+// runs the real check.
+const links = vi.hoisted(() => ({ present: new Set<string>() }));
+vi.mock("./guard-role-links.js", () => ({
+  isLinkOrFolder: (path: string) => links.present.has(path),
 }));
 
 vi.mock("./guard-verdict.js", () => ({

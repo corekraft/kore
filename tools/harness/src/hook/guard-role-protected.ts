@@ -5,8 +5,9 @@
 //
 // Known limits, accepted under ADR 0091 and not chased: a path or command built through a
 // variable or a `cd`, and a writer editing tools/harness/src/hook and rebuilding the bundle.
-import { posix, isAbsolute, relative } from "node:path";
+import { posix, isAbsolute, join, relative } from "node:path";
 import { runsInline } from "./guard-role-delivery.js";
+import { isLinkOrFolder } from "./guard-role-links.js";
 import { expand, withSubstitutions } from "./guard-role-merge.js";
 import {
   redirectTargets,
@@ -180,7 +181,7 @@ const GUARD_PATHS: readonly (readonly [readonly string[], boolean])[] = [
 ];
 /** The guard's files as inline code or a script names them, where a word is a whole program. */
 const GUARD_TEXT =
-  /skills\/bin\b|\.claude\/(?:hooks|settings(?:\.local)?\.json)|(?:^|[\s'"])\.claude(?:['"\s)]|$)/;
+  /skills\/bin\b|\.claude\/(?:hooks|settings(?:\.local)?\.json)|(?:^|[\s'"])\.claude(?:['"\s)]|$)/i;
 
 const guardFile = (what: string): Finding =>
   block(
@@ -199,18 +200,25 @@ const gated = (what: string): Finding =>
 /** A hook's test file: a literal name directly in `.claude/hooks` that ends `.test.mjs`. Writers may change these (#440, ADR 0100). */
 const HOOK_TEST = /^\.claude\/hooks\/[A-Za-z0-9_][A-Za-z0-9_.-]*\.test\.mjs$/;
 
-/** Whether a word names exactly one hook test file: a glob, variable, substitution or path climb never does, so it stays guarded. */
-function namesHookTest(root: string, word: string): boolean {
-  const inside = isAbsolute(word) ? relative(root, word) : word;
-  return HOOK_TEST.test(inside);
-}
+/** An absolute word the guard cannot resolve by reading it: a climb, glob, variable or brace. */
+const UNRESOLVED = /\.\.|[*$?[{}]/;
 
-/** Whether a word names a guard path, relative to the worktree or inside it by absolute path. */
-function namesGuardPath(root: string, word: string): boolean {
-  if (namesHookTest(root, word)) {
+/** Whether a word names exactly one hook test file: a glob, variable, substitution or path climb never does, an absolute path must be free of them too, and a name that is already a symlink or folder is not a plain file. */
+function namesHookTest(root: string, word: string): boolean {
+  if (isAbsolute(word) && UNRESOLVED.test(word)) {
     return false;
   }
   const inside = isAbsolute(word) ? relative(root, word) : word;
+  return HOOK_TEST.test(inside) && !isLinkOrFolder(join(root, inside));
+}
+
+/** Whether a word names a guard path, relative to the worktree or inside it by absolute path. `exempt` lets a plain hook test file through; `ln` never gets it, since a link made under a test name is how a later write reaches a protected file. */
+function namesGuardPath(root: string, word: string, exempt = true): boolean {
+  if (exempt && namesHookTest(root, word)) {
+    return false;
+  }
+  // The disk may ignore case (macOS), so `.claude/HOOKS` is the hooks folder.
+  const inside = (isAbsolute(word) ? relative(root, word) : word).toLowerCase();
   return (
     GUARD_TEXT.test(word) ||
     (!inside.startsWith("..") &&
@@ -233,9 +241,10 @@ function writesGuardPath(root: string, line: readonly string[]): boolean {
     writes(rest) || inline
       ? rest.filter((word) => inline || !/\s/.test(word))
       : [];
+  const exempt = commandOf(rest).name !== "ln";
   return [...redirectTargets(line), ...words]
     .flatMap(pathForms)
-    .some((word) => namesGuardPath(root, word));
+    .some((word) => namesGuardPath(root, word, exempt));
 }
 
 const WITHOUT_VALUE = new Set(["-R", "--repo"]);
