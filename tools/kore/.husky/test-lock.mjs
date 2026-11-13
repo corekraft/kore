@@ -10,7 +10,7 @@
 // one that cannot be read is a claim in progress, broken only after a few seconds.
 // The same run also skips a step whose staged tree and command already passed,
 // and records a pass: only after this run's command exits 0 with no unstaged
-// change, under <lock directory>/test-pass/<tree>/<step>. Nothing else writes it.
+// change and no untracked file, under <lock directory>/test-pass/<tree>/<step>. Nothing else writes it.
 //   KORE_TEST_LOCK_DIR      lock directory (default: <main checkout>/.kore/state)
 //   KORE_TEST_SLOTS         fixed slot count (default: sized from cores and load)
 //   KORE_TEST_LOCK_WAIT_MS  longest wait (default 15 minutes)
@@ -272,10 +272,20 @@ function passRecord(directory, tree, command, args) {
   return join(directory, "test-pass", tree, step);
 }
 
-/** Records a pass only when no tracked file differs from the index, so the run was of the staged tree. */
+/** Records a pass only when no tracked file differs from the index and no untracked, unignored file exists, so the run was of the staged tree alone. */
 function recordPass(file, tree) {
   const unstaged = spawnSync("git", ["diff", "--quiet"]).status !== 0;
-  if (unstaged || stagedTree() !== tree) {
+  const untracked = spawnSync(
+    "git",
+    ["ls-files", "--others", "--exclude-standard"],
+    { encoding: "utf8" },
+  );
+  if (
+    unstaged ||
+    untracked.status !== 0 ||
+    untracked.stdout.trim() !== "" ||
+    stagedTree() !== tree
+  ) {
     return;
   }
   try {

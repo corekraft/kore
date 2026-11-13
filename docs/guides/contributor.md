@@ -74,7 +74,8 @@ see [The harness bundle](#the-harness-bundle).
    or that predates the host's boot, is broken; one that cannot be read counts as
    held until it is a few seconds old.
    The same script skips a step that already passed. After its command exits
-   0, and only when no tracked file differs from the index (`git diff --quiet`),
+   0, and only when no tracked file differs from the index (`git diff --quiet`) and no
+   untracked, unignored file exists (`git ls-files --others --exclude-standard`),
    it records the staged tree hash and the exact command, one file per step in
    `.kore/state/test-pass/<tree>/` of the main checkout, shared by every
    worktree. Nothing else writes a record; the guard warns on a hand edit. A

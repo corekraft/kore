@@ -68,6 +68,11 @@ function commit(
   try {
     const opts = { cwd: root, env: cleanEnv, encoding: "utf8" };
     spawnSync("git", ["init", "-q"], opts);
+    // The harness around the repo is not part of it; an untracked file would stop a pass being recorded.
+    writeFileSync(
+      join(root, ".git/info/exclude"),
+      "hook.sh\nbin\ncalls.log*\n.kore\ntools/kore/node_modules\ntools/kore/.husky\n",
+    );
     mkdirSync(join(root, "tools/kore/.husky"), { recursive: true });
     mkdirSync(join(root, "tools/harness"), { recursive: true });
     copyFileSync(hook, join(root, "hook.sh"));
@@ -122,6 +127,8 @@ function commit(
     spawnSync("git", ["add", "-A", "--", ...files], opts);
     const hookEnv = {
       ...cleanEnv,
+      // A live run on this host (its lease) must not add an audit line to the hook's stderr.
+      KORE_HOST_ROOT: root,
       PATH: withMise ? `${bin}:${process.env.PATH}` : `${bin}:/usr/bin:/bin`,
     };
     let result = spawnSync("sh", [join(root, "hook.sh")], {

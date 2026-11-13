@@ -319,7 +319,7 @@ function repo(t) {
   git("init", "-q");
   writeFileSync(join(work, "a.txt"), "one\n");
   git("add", "a.txt");
-  const counter = join(work, "ran.log");
+  const counter = join(dir, "ran.log");
   const step = (exit = 0, tag = "") =>
     node(
       `require("fs").appendFileSync(${JSON.stringify(counter)}, "x${tag}"); process.exit(${exit})`,
@@ -372,6 +372,24 @@ test("a pass over unstaged changes is not recorded: the staged tree was not what
   assert.equal(go(step()).status, 0);
   assert.equal(go(step()).status, 0);
   assert.equal(ran(), "xx", "both runs ran; nothing was recorded");
+});
+
+test("a pass beside an untracked file is not recorded: the file may have made the tests pass", (t) => {
+  const { step, go, ran, work } = repo(t);
+  writeFileSync(join(work, "scratch.txt"), "not staged\n");
+  assert.equal(go(step()).status, 0);
+  assert.equal(go(step()).status, 0);
+  assert.equal(ran(), "xx", "both runs ran; nothing was recorded");
+});
+
+test("an ignored file does not stop a pass from being recorded", (t) => {
+  const { git, step, go, ran, work } = repo(t);
+  writeFileSync(join(work, ".gitignore"), "*.log\n");
+  git("add", ".gitignore");
+  writeFileSync(join(work, "noise.log"), "ignored\n");
+  go(step());
+  go(step());
+  assert.equal(ran(), "x");
 });
 
 test("a tree that cannot be read still runs the step, never skips or fails it", (t) => {
