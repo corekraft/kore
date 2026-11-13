@@ -17,7 +17,9 @@ import {
 import {
   SECRET_PATH,
   SECRET_SAFE,
+  keychainBlock,
   loadSopsPatterns,
+  readsKoreKeychain,
   secretBlock,
   sopsBlock,
 } from "./guard-secrets.js";
@@ -71,6 +73,10 @@ async function checkBashSegment(
 
   if (!SECRET_SAFE.has(name) && !isKore(name, args) && SECRET_PATH.test(text)) {
     return [secretBlock()];
+  }
+
+  if (readsKoreKeychain(name, args)) {
+    return [keychainBlock()];
   }
 
   // Every check runs: each finding takes its own rule's mode, so a promoted rule can block past an audit one.

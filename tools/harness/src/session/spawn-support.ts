@@ -1,5 +1,12 @@
 import type { testHarness } from "../cli/cli-support.js";
 import type { FakeResponse } from "../runtime/runner-support.js";
+import { WRITER_ITEMS, keychain, mintResponse } from "./role-token-support.js";
+
+/** The keychain and GitHub answers that let a writer spawn get its token. */
+export const writerIdentity: FakeResponse[] = [
+  ...keychain(WRITER_ITEMS),
+  mintResponse,
+];
 
 export const INSIDE = { HERDR_ENV: "1", HERDR_PANE_ID: "w3:p1" };
 

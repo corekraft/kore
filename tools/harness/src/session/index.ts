@@ -7,7 +7,7 @@ import { wait } from "./wait.js";
 
 const spawnCommand: Command = {
   summary:
-    "start a Claude session in a Herdr pane (--role --name --brief [--model --effort, default from .claude/agents/<role>.md] --idea N|#N stamps the idea into the pane's environment for the ledger; --timeout ms; --worktree [--branch b] runs it in a new git worktree under .claude/worktrees); it waits for the result unless --no-wait, the normal pattern: spawn with --no-wait, then run `session wait <name>` in the background",
+    "start a Claude session in a Herdr pane (--role --name --brief [--model --effort, default from .claude/agents/<role>.md] --idea N|#N stamps the idea into the pane's environment for the ledger; --timeout ms; --worktree [--branch b] runs it in a new git worktree under .claude/worktrees); with the role-tokens flag on in the local environment overlay (off by default, and spawn is unchanged while it is), a writer pane gets a minted kore-writer installation token and a judge pane the judge PAT as GH_TOKEN through a FIFO, never argv or disk (a missing identity fails with a hint naming tools/harness/wizards/identities.sh); it waits for the result unless --no-wait, the normal pattern: spawn with --no-wait, then run `session wait <name>` in the background",
   options: {
     role: "string",
     model: "string",
