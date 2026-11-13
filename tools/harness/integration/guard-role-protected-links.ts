@@ -27,6 +27,7 @@ beforeAll(() => {
   writeFileSync(join(hooks, "plain.test.mjs"), "");
   symlinkSync("harness.sh", join(hooks, "linked.test.mjs"));
   mkdirSync(join(hooks, "folder.test.mjs"));
+  mkdirSync(join(root, "scratch", "dir"), { recursive: true });
 });
 
 afterAll(() => {
@@ -56,6 +57,22 @@ describe("checkProtected with a real filesystem", () => {
 
   it("refuses creating the link in the first place", () => {
     expect(bash("ln -s harness.sh .claude/hooks/made.test.mjs")?.rule).toBe(
+      "role-read-only",
+    );
+  });
+
+  it("refuses a link made and moved in under a test name within one call", () => {
+    for (const command of [
+      "ln -s harness.sh scratch/x.test.mjs && mv scratch/x.test.mjs .claude/hooks/x.test.mjs && echo x > .claude/hooks/x.test.mjs",
+      "ln -s . scratch/d.test.mjs && mv scratch/d.test.mjs .claude/hooks/d.test.mjs && cp scratch/harness.sh .claude/hooks/d.test.mjs",
+      "install -l s harness.sh .claude/hooks/x.test.mjs && echo x > .claude/hooks/x.test.mjs",
+    ]) {
+      expect(bash(command)?.rule).toBe("role-read-only");
+    }
+  });
+
+  it("refuses moving a folder onto a hook test name", () => {
+    expect(bash("mv scratch/dir .claude/hooks/moved.test.mjs")?.rule).toBe(
       "role-read-only",
     );
   });

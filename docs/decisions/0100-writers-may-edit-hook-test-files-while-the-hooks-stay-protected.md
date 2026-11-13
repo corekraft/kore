@@ -26,10 +26,13 @@ whose name ends in `.test.mjs`, through file tools and through Bash. The name
 must be literal: a glob, variable, substitution, brace or path climb, an
 absolute path containing `..`, `*`, `$` or braces, a path outside this
 worktree, and a name that is already a symlink or a folder all stay
-protected, and so does a command that also names a protected file. `ln` never
-gets the exemption, so a link cannot be made under a test name. Names compare
-without regard to case, since the disk may ignore it. Every other file under `.claude/hooks`, the settings files,
-`skills/bin` and the `.claude` folder stay protected with the same refusal.
+protected, and so does a command that also names a protected file. The
+exemption is refused too much on purpose: none for `ln`, `install` or a `cp`
+that links or copies folders; none when a `mv` or `cp` source is a symlink or a
+folder; none when a call moves or checks out onto a test name and names it
+again. A refused writer splits the work into two calls. The test-name match is
+case-sensitive and the protected paths are not, so `A.TEST.MJS` stays
+protected. The guard also refuses the glob characters `?` and `[`.
 This loosens an enforced guard, so it is the owner's approval under ADR 0080,
 recorded in #440 and in the `role-read-only` note of `.claude/guardrails.yaml`.
 
@@ -46,3 +49,11 @@ spec, and the ADR names `node -e` only as the case the guard can see. The
 tests that verify the hooks and the settings are now writer-editable and
 deletable; the checks that matter stay with the reviewer and CI on the pull
 request, and the owner reviews any change to a hook script.
+
+One limit remains. The check that a name is a symlink or a folder reads the disk
+once, before the call runs, so a link made and written through within one call
+is caught only by the shapes above; others (`rsync`, `tar -x`, `patch`,
+`git apply`, a path after `cd`) pass, as they did before. That is the standing
+limit of [ADR 0091](0091-containment-comes-from-identities-and-a-sandbox-not-role-guards.md):
+the role guards are a hint, and containment comes from separate identities and
+the sandbox, not from this check.

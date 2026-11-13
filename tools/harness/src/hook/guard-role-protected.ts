@@ -5,7 +5,7 @@
 //
 // Known limits, accepted under ADR 0091 and not chased: a path or command built through a
 // variable or a `cd`, and a writer editing tools/harness/src/hook and rebuilding the bundle.
-import { posix, isAbsolute, join, relative } from "node:path";
+import { posix, isAbsolute, join, relative, resolve } from "node:path";
 import { runsInline } from "./guard-role-delivery.js";
 import { isLinkOrFolder } from "./guard-role-links.js";
 import { expand, withSubstitutions } from "./guard-role-merge.js";
@@ -205,11 +205,17 @@ const UNRESOLVED = /\.\.|[*$?[{}]/;
 
 /** Whether a word names exactly one hook test file: a glob, variable, substitution or path climb never does, an absolute path must be free of them too, and a name that is already a symlink or folder is not a plain file. */
 function namesHookTest(root: string, word: string): boolean {
+  const inside = hookTestPath(root, word);
+  return inside !== null && !isLinkOrFolder(join(root, inside));
+}
+
+/** The worktree-relative path when a word literally names a hook test file by name alone (nothing on disk is read); otherwise null. */
+function hookTestPath(root: string, word: string): string | null {
   if (isAbsolute(word) && UNRESOLVED.test(word)) {
-    return false;
+    return null;
   }
   const inside = isAbsolute(word) ? relative(root, word) : word;
-  return HOOK_TEST.test(inside) && !isLinkOrFolder(join(root, inside));
+  return HOOK_TEST.test(inside) ? inside : null;
 }
 
 /** Whether a word names a guard path, relative to the worktree or inside it by absolute path. `exempt` lets a plain hook test file through; `ln` never gets it, since a link made under a test name is how a later write reaches a protected file. */
@@ -232,6 +238,32 @@ function namesGuardPath(root: string, word: string, exempt = true): boolean {
 const linesOf = (command: string): string[][] =>
   withSubstitutions(command).flatMap((segment) => expand(segment));
 
+/** Flags that make `cp` link, keep a link or copy a folder. */
+const CP_LINKING =
+  /^-[a-zA-Z]*[slPaR]|^--(?:symbolic-link|link|no-dereference|archive|recursive)\b/;
+
+/** The words a moving or copying line names as files: `mv`, `cp`, `install`, `git mv` and `git checkout` (whose paths follow `--`). */
+function moved(line: readonly string[]): string[] | undefined {
+  const { name, args } = commandOf(line);
+  if (name === "git" && ["mv", "checkout"].includes(args[0] ?? "")) {
+    return args.slice(1).filter((arg) => !arg.startsWith("-") && arg !== "--");
+  }
+  return ["mv", "cp", "install"].includes(name)
+    ? args.filter((arg) => !arg.startsWith("-"))
+    : undefined;
+}
+
+/** Whether a line may use the hook test exemption. Refused too much on purpose: a refused writer splits the work into two calls. `ln` and `install` make links or arbitrary files; `cp` with a linking flag does too; a `mv` or `cp` source that is a symlink or folder carries its target in under a test name. */
+function exemptible(root: string, line: readonly string[]): boolean {
+  const { name, args } = commandOf(line);
+  return !(
+    name === "ln" ||
+    name === "install" ||
+    (name === "cp" && args.some((arg) => CP_LINKING.test(arg))) ||
+    (moved(line) ?? []).some((word) => isLinkOrFolder(resolve(root, word)))
+  );
+}
+
 /** A line that writes to a guard path: a redirect to it, or a writing command or inline script that names it. */
 function writesGuardPath(root: string, line: readonly string[]): boolean {
   const rest = withoutRedirects(line);
@@ -241,10 +273,27 @@ function writesGuardPath(root: string, line: readonly string[]): boolean {
     writes(rest) || inline
       ? rest.filter((word) => inline || !/\s/.test(word))
       : [];
-  const exempt = commandOf(rest).name !== "ln";
+  const exempt = exemptible(root, rest);
   return [...redirectTargets(line), ...words]
     .flatMap(pathForms)
     .some((word) => namesGuardPath(root, word, exempt));
+}
+
+/** Whether a call moves, copies or checks out onto a hook test name and names that file again: the file could have been a link made earlier in the same call, which the one `lstat` before the call cannot see. */
+function reusesMovedTest(root: string, lines: readonly string[][]): boolean {
+  const named = lines.flatMap((line) => [
+    ...redirectTargets(line),
+    ...withoutRedirects(line),
+  ]);
+  return lines.some((line) =>
+    (moved(withoutRedirects(line)) ?? []).some((word) => {
+      const path = hookTestPath(root, word);
+      return (
+        path !== null &&
+        named.filter((other) => hookTestPath(root, other) === path).length > 1
+      );
+    }),
+  );
 }
 
 const WITHOUT_VALUE = new Set(["-R", "--repo"]);
@@ -319,6 +368,9 @@ export function checkProtected(
   const file = lines.find((line) => writesGuardPath(root, line));
   if (file !== undefined) {
     return guardFile(`\`${file.join(" ")}\``);
+  }
+  if (reusesMovedTest(root, lines)) {
+    return guardFile(`\`${command}\``);
   }
   const gate = lines.find(runsGated);
   return gate === undefined ? null : gated(`\`${gate.join(" ")}\``);
