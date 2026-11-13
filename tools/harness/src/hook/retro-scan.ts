@@ -14,7 +14,10 @@ import { parseTranscript, timestamps } from "./retro-transcript.js";
 export { parseTranscript, summarizeError } from "./retro-transcript.js";
 
 const MIN_WARNINGS = 5;
-const RETRO_MARKER = /^\W*Last retrospective: (\d{4}-\d{2}-\d{2})/gm;
+// A marker is a UTC timestamp (`date -u +%Y-%m-%dT%H:%M:%SZ`), or a legacy
+// date-only value read as local midnight.
+const RETRO_MARKER =
+  /^\W*Last retrospective: (\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}Z)?)/gm;
 
 export interface SessionText {
   id: string;
@@ -22,7 +25,7 @@ export interface SessionText {
 }
 
 export interface ScanOptions {
-  /** YYYY-MM-DD; sessions that ended before local midnight of that date are left out. */
+  /** A retrospective marker; sessions active before the window opens are left out. */
   since?: string | undefined;
   knownSkills?: readonly string[];
   auditRules?: readonly string[];
@@ -38,29 +41,41 @@ type RuleStats = Record<Outcome, number> & {
   sessions: number;
 };
 
-/** The latest `Last retrospective:` date across the plans, or null. */
+/** When a marker opens the window, in epoch ms. */
+function markerInstant(marker: string): number {
+  return marker.includes("T")
+    ? Date.parse(marker)
+    : new Date(`${marker}T00:00:00`).getTime();
+}
+
+/** The latest `Last retrospective:` marker across the plans, or null. */
 export function lastRetrospective(
   plans: Readonly<Record<string, string>>,
 ): string | null {
-  const dates = Object.values(plans)
-    .flatMap((markdown) =>
-      [...markdown.matchAll(RETRO_MARKER)].map((match) => match[1] ?? ""),
-    )
-    .sort();
-  return dates.at(-1) ?? null;
+  let latest: string | null = null;
+  for (const markdown of Object.values(plans)) {
+    for (const match of markdown.matchAll(RETRO_MARKER)) {
+      const marker = match[1] ?? "";
+      if (latest === null || markerInstant(marker) > markerInstant(latest)) {
+        latest = marker;
+      }
+    }
+  }
+  return latest;
 }
 
 /**
- * Where the retrospective window opens, in epoch ms: local midnight at the
- * start of the marker date (0 without one). The marker has day granularity, so
- * the window is closed on the left: a session active at or after that instant
- * is in the next retrospective. A session earlier on the marker day that the
- * retrospective already reviewed is counted again, which is preferred to
- * losing the sessions that ran later that day. Each transcript is one session,
+ * Where the retrospective window opens, in epoch ms (0 without a marker). The
+ * window is closed on the left: a session active at or after that instant is
+ * in the next retrospective. A timestamp marker opens the window at that
+ * instant, so two retrospectives on one day do not overlap. A date-only marker
+ * opens at local midnight of its day, so the sessions of that day that the
+ * earlier retrospective already reviewed are counted again; that is preferred
+ * to losing the ones that ran later that day. Each transcript is one session,
  * so none is counted twice.
  */
-export function windowStart(date: string | undefined): number {
-  return date ? new Date(`${date}T00:00:00`).getTime() : 0;
+export function windowStart(marker: string | undefined): number {
+  return marker ? markerInstant(marker) : 0;
 }
 
 const emptyStats = (): RuleStats => ({
