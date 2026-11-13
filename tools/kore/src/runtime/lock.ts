@@ -221,6 +221,20 @@ async function takeLock(
       }
     }
   };
+  const releaseSync = () => {
+    if (released) {
+      return;
+    }
+    released = true;
+    restoreEnv();
+    process.off("exit", releaseSync);
+    if (readOwnerSync(lock)?.token === owner.token) {
+      rmSync(lock, { force: true });
+    }
+  };
+  // A process that exits mid-operation frees its lock, so the next run need not
+  // recover it as stale.
+  process.once("exit", releaseSync);
   return {
     release: async () => {
       if (released) {
@@ -228,21 +242,13 @@ async function takeLock(
       }
       released = true;
       restoreEnv();
+      process.off("exit", releaseSync);
       // Only remove the lock if it is still ours.
       if ((await readOwner(lock))?.token === owner.token) {
         await rm(lock, { force: true });
       }
     },
-    releaseSync: () => {
-      if (released) {
-        return;
-      }
-      released = true;
-      restoreEnv();
-      if (readOwnerSync(lock)?.token === owner.token) {
-        rmSync(lock, { force: true });
-      }
-    },
+    releaseSync,
   };
 }
 

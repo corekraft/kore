@@ -110,3 +110,60 @@ test("the host tag is removed even when the build fails after it", async () => {
     ),
   ).toBe(true);
 });
+
+test("a second build landing mid-run leaves the first run deploying the digest it pushed", async () => {
+  // A registry where a push overwrites its tag, as a real one does.
+  const registry = new Map<string, string>();
+  const pushed: string[] = [];
+  const digestOfPush = (n: number) =>
+    `sha256:${n.toString(16).padStart(64, "0")}`;
+  registryHead.mockImplementation(async (url: string) => ({
+    status: 200,
+    digest: registry.get(String(url).split("/manifests/")[1] ?? ""),
+  }));
+  registryReference.mockImplementation(
+    async (_repo: unknown, _runner: unknown, reference: string) => reference,
+  );
+  const { runner } = fakeRunner();
+  let secondDone = false;
+  const racing: typeof runner = {
+    ...runner,
+    run: async (command, args, options) => {
+      const result = await runner.run(command, args, options);
+      const push = /reference:(kore-local(?:-[0-9a-f]{12})?)'/.exec(
+        args.join(" "),
+      );
+      if (
+        command === "docker" &&
+        args.join(" ").includes("images push") &&
+        push
+      ) {
+        const digest = digestOfPush(pushed.length + 1);
+        pushed.push(digest);
+        registry.set(push[1]!, digest);
+        if (pushed.length === 1 && !secondDone) {
+          secondDone = true;
+          // Another worktree's build publishes before the first reads its digest.
+          await buildAndSignLocalImage(
+            await checkout(),
+            racing,
+            "reference",
+            entry,
+          );
+        }
+      }
+      return result;
+    },
+  };
+
+  const first = await buildAndSignLocalImage(
+    await checkout(),
+    racing,
+    "reference",
+    entry,
+  );
+
+  expect(pushed).toHaveLength(2);
+  expect(first.image.digest).toBe(pushed[0]);
+  expect(first.image.digest).not.toBe(pushed[1]);
+});

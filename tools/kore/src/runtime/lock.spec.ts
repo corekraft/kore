@@ -241,3 +241,45 @@ test("an unreadable lock surfaces the error instead of being treated as stale", 
     await chmod(lockPath, 0o600);
   }
 });
+
+test("an interrupted process frees its lock on exit instead of leaving it for stale recovery", async () => {
+  const root = await mkdtemp(join(tmpdir(), "kore-lock-exit-"));
+  const lockPath = join(root, ".kore", "locks", "local.lock");
+  const handlers: (() => void)[] = [];
+  const on = vi.spyOn(process, "once").mockImplementation(((
+    event: string,
+    handler: () => void,
+  ) => {
+    if (event === "exit") {
+      handlers.push(handler);
+    }
+    return process;
+  }) as never);
+  try {
+    let pending: () => void = () => undefined;
+    const running = withEnvironmentLock(
+      root,
+      "local",
+      () => new Promise<void>((resolve) => (pending = resolve)),
+    );
+    await vi.waitFor(() => expect(handlers).toHaveLength(1));
+    await expect(access(lockPath)).resolves.toBeUndefined();
+
+    handlers[0]?.(); // the process exits mid-operation
+
+    await expect(access(lockPath)).rejects.toThrow();
+    pending();
+    await running;
+  } finally {
+    on.mockRestore();
+  }
+});
+
+test("a finished lock leaves no exit handler behind", async () => {
+  const root = await mkdtemp(join(tmpdir(), "kore-lock-exit-clean-"));
+  const before = process.listenerCount("exit");
+
+  await withEnvironmentLock(root, "local", async () => "done");
+
+  expect(process.listenerCount("exit")).toBe(before);
+});
