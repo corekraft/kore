@@ -195,3 +195,36 @@ describe("isTooling: tools/kore/package-lock.json, entry boundaries", () => {
     expect(isTooling(file(path))).toBe(false);
   });
 });
+
+describe("isTooling: tools/kore/package-lock.json, entries with no close line in view", () => {
+  const path = "tools/kore/package-lock.json";
+  const devEntry = [
+    ctx('    "node_modules/vitest": {'),
+    add('      "version": "4.0.1",'),
+    ctx('      "dev": true,'),
+  ];
+
+  it.each([
+    ['    "packages/runtime": {'],
+    ['    "../shared": {'],
+    ['     "node_modules/left-pad": {'],
+  ])("is product when a runtime entry %s follows a dev entry", (header) => {
+    expect(
+      isTooling(
+        file(path, [
+          [...devEntry, ctx(header), add('      "version": "1.0.0",')],
+        ]),
+      ),
+    ).toBe(false);
+  });
+
+  it("is product when a change follows a top-level key that ends a dev entry", () => {
+    expect(
+      isTooling(
+        file(path, [
+          [...devEntry, ctx('  "requires": true'), add('      "version": "1"')],
+        ]),
+      ),
+    ).toBe(false);
+  });
+});
