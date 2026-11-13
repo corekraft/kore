@@ -3,6 +3,7 @@ import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 import { evaluateAudit } from "../config/index.js";
+import { integrationEnvironment } from "../runtime/index.js";
 import { deployedImage } from "./admission-probe.js";
 import {
   constraints,
@@ -48,7 +49,13 @@ test(
     }
     // Promote one constraint at a time: copy a clean constraint's observedAt
     // and totalViolations into infra/policies/gatekeeper/promotions/<constraint>.json.
-    console.log(JSON.stringify({ environment: "local", evidence }, null, 2));
+    console.log(
+      JSON.stringify(
+        { environment: integrationEnvironment(), evidence },
+        null,
+        2,
+      ),
+    );
     assert.deepEqual(failures, []);
   },
 );

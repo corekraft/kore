@@ -20,7 +20,23 @@ test("KORE_INTEGRATION_ENVIRONMENT names the environment integration specs test"
   expect(integrationEnvironment()).toBe("scratch");
 });
 
-test("no integration spec hardcodes the environment it loads", async () => {
+/** A `loadRepository("local"`, an `--environment`, "local"` pair or an `environment: "local"` field. */
+function hardcodesLocal(text: string): boolean {
+  return [
+    /loadRepository\(\s*"local"/,
+    /"--environment"\s*,\s*"local"/,
+    /environment:\s*"local"/,
+  ].some((pattern) => pattern.test(text));
+}
+
+test("hardcodesLocal sees each way a spec can pin the environment", () => {
+  expect(hardcodesLocal('loadRepository("local", root)')).toBe(true);
+  expect(hardcodesLocal('["doctor", "--environment", "local"]')).toBe(true);
+  expect(hardcodesLocal('{ environment: "local", evidence }')).toBe(true);
+  expect(hardcodesLocal('["--environment", environment]')).toBe(false);
+});
+
+test("no integration spec hardcodes the environment it loads or passes", async () => {
   const src = join(dirname(fileURLToPath(import.meta.url)), "..");
   const entries = await readdir(src, { recursive: true });
   const specs = entries.filter((entry) =>
@@ -30,7 +46,7 @@ test("no integration spec hardcodes the environment it loads", async () => {
   const offenders: string[] = [];
   for (const spec of specs) {
     const text = await readFile(join(src, spec), "utf8");
-    if (/loadRepository\(\s*"local"/.test(text)) {
+    if (hardcodesLocal(text)) {
       offenders.push(spec);
     }
   }
