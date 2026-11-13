@@ -49,7 +49,7 @@ feature work until it is gone.
   an explicit command.
 - **Budget.** A unit test takes under 100 ms, a unit spec file under 1 s, and
   a package's full unit run under 20 s. The budget fails the run for a
-  converted domain from the day it converts; no audit period.
+  converted source file from the day it converts; no audit period.
 - **Coverage thresholds are measured on the unit run alone.**
 
 Rejected:
@@ -75,8 +75,8 @@ Rejected:
   between files changes its dependants' tests even when behaviour is the same.
 - A change to the commit hooks is first tested in CI, not at commit.
 - The budget skips the audit stage that AGENTS.md asks of new policies. A
-  list of unconverted domains keeps main green while the rewrite lands one
-  domain per pull request.
+  list of unconverted source files in each domain keeps main green while the
+  rewrite lands in small pull requests.
 - Every existing unit spec is rewritten, about 400 files across both
   packages. Plans 2, 11, 12 and 13 are paused until it is done.
 - Plan 7 keeps its direction: a function module is tested as a class with one
