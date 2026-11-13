@@ -7,7 +7,7 @@ import {
 } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { imageInventory, imageInventoryStatus } from "./image-inventory.js";
-import { gatedOffReleaseAbsent } from "./webhook-fixtures.js";
+import { gatedOffReleaseAbsent } from "../testing/index.js";
 
 // Docs: infra/plans/2-implementation.md#step-7-bootstrap-registry-image-trust-controllers-and-crd-ownership
 // Docs: docs/decisions/0056-platform-image-inventory.md

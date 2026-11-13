@@ -15,7 +15,7 @@ import {
   testHome,
   text,
   trustVolumeArgs,
-} from "./k3d-cluster.fixtures.js";
+} from "../testing/index.js";
 
 const create = [
   "k3d cluster create kore-local --image rancher/k3s:v1.37.2-k3s1@sha256:21ea6e0fac4e3930c2ce8aa40ddd41a8b18cb3e9a0222c030dc005e7e88c4332 --servers 1 --agents 0 --k3s-arg --disable=traefik@server:* --k3s-arg --disable=servicelb@server:* --k3s-arg --service-cidr=10.96.0.0/12@server:* --port 8443:443@loadbalancer",

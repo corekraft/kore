@@ -1,7 +1,7 @@
 import { loadRepository } from "../config/index.js";
 import { expect, test, vi } from "vitest";
 
-import { RecordingRunner } from "../runtime/runner.js";
+import { RecordingRunner } from "../runtime/index.js";
 import { platformDestroy, platformStop } from "./lifecycle.js";
 
 const stops = vi.hoisted(() => ({ calls: [] as string[] }));

@@ -2,13 +2,13 @@ import { loadRepository } from "../config/index.js";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
-import { registryTlsSecret } from "../images/registry-tls-fixtures.js";
-import { platformGeneration } from "../platform/admission-gate.js";
+import { platformGeneration } from "../platform/index.js";
+import { registryTlsSecret } from "./registry-tls-fixtures.js";
 import {
   gatedOffReleaseAbsent,
   healthyDaemonSetOutput,
   healthyWebhookOutput,
-} from "../platform/webhook-fixtures.js";
+} from "./webhook-fixtures.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 
 export const digest = "sha256:" + "a".repeat(64);

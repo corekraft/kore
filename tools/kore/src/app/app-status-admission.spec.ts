@@ -1,4 +1,4 @@
-import { list } from "../cluster/k3d-cluster.fixtures.js";
+import { list, healthyWebhookOutput } from "../testing/index.js";
 import { loadRepository } from "../config/index.js";
 import assert from "node:assert/strict";
 import { copyFile, mkdir, mkdtemp, rm } from "node:fs/promises";
@@ -7,7 +7,6 @@ import { join } from "node:path";
 import { test } from "vitest";
 
 import type { Runner } from "../runtime/index.js";
-import { healthyWebhookOutput } from "../platform/webhook-fixtures.js";
 import { appStatus } from "./app.js";
 
 // Docs: docs/decisions/0035-fail-fast-readiness-diagnosis.md

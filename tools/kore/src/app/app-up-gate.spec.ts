@@ -8,7 +8,7 @@ vi.mock("../images/index.js", async (importOriginal) => ({
 }));
 
 import type { Runner } from "../runtime/index.js";
-import { admissionGate } from "../platform/admission-gate.js";
+import { admissionGate } from "../platform/index.js";
 import { appUp } from "./up.js";
 import {
   gateOutput,
@@ -16,7 +16,7 @@ import {
   lockedImage,
   passthroughRegistry,
   type Call,
-} from "./app-fixtures.js";
+} from "../testing/index.js";
 
 function withGate(calls: Call[], gate: string | undefined): Runner {
   const inner = healthyRunner(calls);

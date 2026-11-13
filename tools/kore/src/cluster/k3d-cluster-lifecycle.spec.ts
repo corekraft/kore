@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { expect, test } from "vitest";
 import type { Runner } from "../runtime/index.js";
 import { clusterDestroy, clusterStop } from "./cluster.js";
-import { fakeRunner, k3dRepository, ok, text } from "./k3d-cluster.fixtures.js";
+import { fakeRunner, k3dRepository, ok, text } from "../testing/index.js";
 
 const retainedPv = JSON.stringify({
   items: [

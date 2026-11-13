@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import { loadRepository } from "../config/index.js";
-import { RecordingRunner } from "../runtime/runner.js";
+import { RecordingRunner } from "../runtime/index.js";
 import { verifiedRegistryAddress } from "./registry-service.js";
 
 const lookup = (stdout: string) => ({ stdout, stderr: "", code: 0 });

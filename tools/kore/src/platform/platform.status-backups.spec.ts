@@ -2,11 +2,8 @@ import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "vitest";
-import {
-  FakeRunner,
-  useExportRepository,
-} from "../cluster/data-export.fixtures.js";
-import { exportRetainedData } from "../cluster/export.js";
+import { FakeRunner, useExportRepository } from "../testing/index.js";
+import { exportRetainedData } from "../cluster/index.js";
 import { backupStatus } from "./backup-status.js";
 
 // Docs: docs/operations/backups.md

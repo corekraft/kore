@@ -1,6 +1,10 @@
 // Shared fixtures for the ingress measurement specs.
-import { RecordingRunner } from "../runtime/runner.js";
-import type { RunOptions, RunResult, Runner } from "../runtime/runner.js";
+import {
+  RecordingRunner,
+  type RunOptions,
+  type RunResult,
+  type Runner,
+} from "../runtime/index.js";
 import { IngressMeasurement } from "./ingress-measurement.js";
 import type { MeasurementOptions } from "./ingress-measurement.js";
 

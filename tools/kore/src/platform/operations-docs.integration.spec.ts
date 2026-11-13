@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { assertExpectedCluster } from "../cluster/index.js";
-import { findRoot } from "../config/config.js";
+import { findRoot } from "../config/index.js";
 import { loadRepository } from "../config/index.js";
 import {
   ProcessRunner,

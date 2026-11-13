@@ -10,7 +10,7 @@ import {
   helmEnv,
   helmTemplateArgs,
   withAbsoluteChart,
-} from "../platform/helm.js";
+} from "../platform/index.js";
 import { renderedImages, unapprovedImages } from "./rendered-images.js";
 
 const run = promisify(execFile);

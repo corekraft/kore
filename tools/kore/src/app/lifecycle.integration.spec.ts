@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { approvedImageList, loadRepository } from "../config/index.js";
-import { recoverRelease } from "../platform/release-recovery.js";
+import { recoverRelease } from "../platform/index.js";
 import { ProcessRunner, integrationEnvironment } from "../runtime/index.js";
 import type { Repository } from "../config/index.js";
 

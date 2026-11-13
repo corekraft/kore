@@ -1,5 +1,5 @@
 import { loadRepository } from "../config/index.js";
-import { withHealthyWebhooks } from "./webhook-fixtures.js";
+import { withHealthyWebhooks } from "../testing/index.js";
 import { desiredFingerprint } from "./fingerprint.js";
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
@@ -15,7 +15,7 @@ import { platformStop, platformDestroy } from "./lifecycle.js";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import type { Runner } from "../runtime/index.js";
-import { RecordingRunner } from "../runtime/runner.js";
+import { RecordingRunner } from "../runtime/index.js";
 import { tmpdir } from "node:os";
 
 test("controller bootstrap reconciles controllers before shared Gateway configuration", async () => {

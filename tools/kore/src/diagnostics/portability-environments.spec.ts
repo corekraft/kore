@@ -7,7 +7,7 @@ import {
   findRoot,
   loadRepository,
   validateRepository,
-} from "../config/config.js";
+} from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { validatePortability } from "./portability.js";
 

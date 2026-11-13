@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { RecordingRunner } from "../runtime/runner.js";
-import type { RunResult } from "../runtime/runner.js";
+import { RecordingRunner, type RunResult } from "../runtime/index.js";
 import { IngressMeasurement, ingressRoutes } from "./ingress-measurement.js";
 import {
   FakeLoad,

@@ -1,7 +1,7 @@
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { Component, Repository } from "../config/index.js";
-import { exists } from "../config/files.js";
+import { exists } from "../config/index.js";
 
 export type Protection = "data-export" | "rebuild" | "scheduled-backup";
 

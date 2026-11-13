@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { findRoot } from "../config/config.js";
+import { findRoot } from "../config/index.js";
 import { loadRepository } from "../config/index.js";
 import { appDown } from "../app/index.js";
 import { retainedResources } from "../cluster/index.js";

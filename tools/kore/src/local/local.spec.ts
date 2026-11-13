@@ -1,5 +1,5 @@
 import { loadRepository } from "../config/index.js";
-import { loadManagedLocal } from "../config/managed-local.fixtures.js";
+import { loadManagedLocal } from "../testing/index.js";
 import {
   copyFile,
   mkdir,
@@ -18,7 +18,7 @@ import { localDown, localUp } from "./local.js";
 import {
   imageDigestFromRegistryHead,
   localDockerBuildArgs,
-} from "../images/local-image-args.js";
+} from "../images/index.js";
 
 test("local image build uses the application Dockerfile and context", () => {
   expect(

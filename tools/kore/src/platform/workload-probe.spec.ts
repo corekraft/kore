@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { type Call } from "../app/app-fixtures.js";
+import { type Call } from "../testing/index.js";
 import { loadRepository } from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 import { workloadVerdict } from "./workload-probe.js";

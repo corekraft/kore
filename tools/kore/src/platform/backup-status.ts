@@ -1,6 +1,6 @@
 import { newestVerifiedExport, retainedResources } from "../cluster/index.js";
 import type { Repository } from "../config/index.js";
-import { loadRecovery } from "../ops/recovery.js";
+import { loadRecovery } from "../ops/index.js";
 import type { Runner } from "../runtime/index.js";
 import { errorMessage } from "./probe.js";
 

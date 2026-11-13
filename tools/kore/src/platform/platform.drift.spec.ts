@@ -1,4 +1,4 @@
-import { healthyWebhookOutput } from "./webhook-fixtures.js";
+import { healthyWebhookOutput } from "../testing/index.js";
 import assert from "node:assert/strict";
 import { cp, mkdtemp, rm, writeFile, appendFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { afterEach, test } from "vitest";
 import { loadRepository, type Repository } from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
-import type { RunResult } from "../runtime/runner.js";
+import { type RunResult } from "../runtime/index.js";
 import { desiredFingerprint } from "./fingerprint.js";
 import { reconcileIfNeeded } from "./reconcile.js";
 
