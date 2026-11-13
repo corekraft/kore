@@ -72,8 +72,10 @@ weaken its own guardrails
       ruleset: `main` stays active and an audit rule syncs into a `main-candidate`
       ruleset in `evaluate`, ADR 0090; deny rules, ADR 0080 and #299.)
 - [ ] Land changed guardrails in audit mode.
-- [ ] Ask a person to approve enforcing each one, presenting the idea and its
-      outcome summarized.
+- [x] Ask a person to approve enforcing each one, presenting the idea and its
+      outcome summarized. Evidence: `guardrail request` is tested through the fake
+      runner (PR #321); the concierge boundary case "what is waiting for approval"
+      hit 3/3 live on 2026-11-13 (claude-haiku-5-5, $0.0062, `history.jsonl`).
 
 ### Exit Criteria
 
