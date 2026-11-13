@@ -45,7 +45,7 @@ test("local down --prune --purge-data passes purgeData through for k3d", async (
     ...base,
     environment: { ...base.environment, provider: "k3d" as const },
   };
-  const seen: { yes: boolean; purgeData: boolean }[] = [];
+  const seen: { yes: boolean; purgeData: boolean; force?: boolean }[] = [];
   await localDown(
     repository,
     {} as never,
@@ -56,7 +56,37 @@ test("local down --prune --purge-data passes purgeData through for k3d", async (
       },
     },
   );
-  expect(seen).toEqual([{ yes: true, purgeData: true }]);
+  expect(seen).toEqual([{ yes: true, purgeData: true, force: false }]);
+});
+
+test("local down --force reaches the registry forward stop, with or without --prune", async () => {
+  const base = await loadRepository("local");
+  const repository = {
+    ...base,
+    environment: { ...base.environment, provider: "k3d" as const },
+  };
+  const forced: (boolean | undefined)[] = [];
+  await localDown(
+    repository,
+    {} as never,
+    { prune: false, purgeData: false, force: true },
+    {
+      platformStop: async (_repository, _runner, _processes, options) => {
+        forced.push(options?.force);
+      },
+    },
+  );
+  await localDown(
+    repository,
+    {} as never,
+    { prune: true, purgeData: false, force: true },
+    {
+      platformDestroy: async (_repository, _runner, options) => {
+        forced.push(options.force);
+      },
+    },
+  );
+  expect(forced).toEqual([true, true]);
 });
 
 async function k3dRepository() {

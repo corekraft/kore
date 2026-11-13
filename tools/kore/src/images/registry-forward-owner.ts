@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { Repository } from "../config/index.js";
-import { hostRoot } from "../runtime/index.js";
+import { hostRoot, processAlive } from "../runtime/index.js";
 
 // Docs: AGENTS.md "One owner per resource."
 
@@ -67,10 +67,25 @@ export async function clearForwardOwner(context: string): Promise<void> {
   await rm(ownerFile(context), { force: true });
 }
 
-/** Whether a worktree other than `root`, which still exists, owns the forward. */
-export function ownedByAnother(
+/**
+ * Why `root`'s stop must leave the recorded forward alone, or undefined when it
+ * may stop it: another worktree that still exists started it, or another kore
+ * process still running in this worktree did. A starter that has exited, or a
+ * worktree that is gone, no longer owns anything.
+ */
+export function ownershipConflict(
   owner: ForwardOwner | undefined,
   root: string,
-): owner is ForwardOwner {
-  return owner !== undefined && owner.root !== root && existsSync(owner.root);
+): string | undefined {
+  if (owner === undefined) {
+    return undefined;
+  }
+  if (owner.root !== root) {
+    return existsSync(owner.root)
+      ? `it was started from ${owner.root}, so stop it from there`
+      : undefined;
+  }
+  return owner.starter !== process.pid && processAlive(owner.starter)
+    ? `it was started by kore process ${owner.starter} in this worktree, so stop it from there`
+    : undefined;
 }

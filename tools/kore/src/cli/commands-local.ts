@@ -17,6 +17,7 @@ export async function localCommand(context: CommandContext): Promise<number> {
       await localDown(repository, runner, {
         prune: boolFlag(context.parsed, "prune"),
         purgeData: boolFlag(context.parsed, "purge-data"),
+        force: boolFlag(context.parsed, "force"),
       }),
   });
 }

@@ -1,4 +1,5 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
@@ -156,4 +157,60 @@ test("a forward found open that a worktree recorded is used without a warning", 
   await start(owner);
 
   expect(await useOpenForward(await worktree())).toEqual([]);
+});
+
+/** A forward `repository`'s worktree started from another kore process, `starter`. */
+async function startedByAnotherProcess(
+  repository: Repository,
+  starter: number,
+): Promise<void> {
+  const directory = join(
+    process.env.KORE_HOST_ROOT ?? "",
+    ".kore",
+    "registry-forward",
+  );
+  await mkdir(directory, { recursive: true });
+  await writeFile(
+    join(directory, `${context}.json`),
+    JSON.stringify({ pid: 4242, root: repository.root, starter }),
+  );
+}
+
+test("another process in the owning worktree leaves the forward running, naming the starter", async () => {
+  const owner = await worktree();
+  await startedByAnotherProcess(owner, process.ppid);
+  const { signalled, lines, control } = stopControl();
+
+  expect(await stopRegistryForward(owner, control)).toEqual([]);
+
+  expect(signalled).toEqual([]);
+  expect(lines.join("\n")).toContain(`process ${process.ppid}`);
+  expect(lines.join("\n")).toContain("--force");
+});
+
+test("--force stops a forward another process or another worktree owns", async () => {
+  const owner = await worktree();
+  const other = await worktree();
+  await startedByAnotherProcess(owner, process.ppid);
+
+  const sameWorktree = stopControl();
+  expect(
+    await stopRegistryForward(owner, sameWorktree.control, { force: true }),
+  ).toEqual([4242]);
+
+  await startedByAnotherProcess(owner, process.ppid);
+  const otherWorktree = stopControl();
+  expect(
+    await stopRegistryForward(other, otherWorktree.control, { force: true }),
+  ).toEqual([4242]);
+});
+
+test("a forward whose starting process has exited can be stopped by its worktree", async () => {
+  const owner = await worktree();
+  const gone = spawnSync(process.execPath, ["-e", ""]).pid;
+  await startedByAnotherProcess(owner, gone);
+  const { signalled, control } = stopControl();
+
+  expect(await stopRegistryForward(owner, control)).toEqual([4242]);
+  expect(signalled).toEqual([4242]);
 });

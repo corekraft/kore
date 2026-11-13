@@ -7,9 +7,10 @@ export async function platformStop(
   repository: Repository,
   runner: Runner,
   processes: ProcessControl = {},
+  options: { force?: boolean } = {},
 ): Promise<void> {
   if (repository.environment.provider !== "managed") {
-    await stopRegistryForward(repository, processes);
+    await stopRegistryForward(repository, processes, options);
   }
   await clusterStop(repository, runner);
 }
@@ -17,11 +18,11 @@ export async function platformStop(
 export async function platformDestroy(
   repository: Repository,
   runner: Runner,
-  options: { yes: boolean; purgeData: boolean },
+  options: { yes: boolean; purgeData: boolean; force?: boolean },
   processes: ProcessControl = {},
 ): Promise<void> {
   if (repository.environment.provider !== "managed") {
-    await stopRegistryForward(repository, processes);
+    await stopRegistryForward(repository, processes, options);
   }
   await clusterDestroy(repository, runner, options);
 }

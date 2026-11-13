@@ -134,7 +134,7 @@ export async function localUp(
 export async function localDown(
   repository: Repository,
   runner: Runner,
-  options: { prune: boolean; purgeData: boolean },
+  options: { prune: boolean; purgeData: boolean; force?: boolean },
   dependencies: LocalLifecycleDependencies = {},
 ): Promise<void> {
   assertLocal(repository);
@@ -152,9 +152,20 @@ export async function localDown(
     await (dependencies.platformDestroy ?? platformDestroy)(
       repository,
       runner,
-      { yes: true, purgeData: options.purgeData },
+      {
+        yes: true,
+        purgeData: options.purgeData,
+        force: options.force === true,
+      },
     );
   } else {
-    await (dependencies.platformStop ?? platformStop)(repository, runner);
+    await (dependencies.platformStop ?? platformStop)(
+      repository,
+      runner,
+      {},
+      {
+        force: options.force === true,
+      },
+    );
   }
 }

@@ -5,14 +5,14 @@ Usage:
   kore validate [--environment local] [--platform-image-lock <file>] [--json]
   kore cluster up|stop|destroy --environment <name> [--yes] [--purge-data]
   kore cluster status [--environment <name>] [--json]
-  kore platform bootstrap|up|gate-check|stop|destroy --environment <name> [--yes] [--purge-data]
+  kore platform bootstrap|up|gate-check|stop|destroy --environment <name> [--yes] [--purge-data] [--force]
   kore platform status|render [--environment <name>] [--output <directory>] [--json]   (a component gated off by its catalog featureFlag reports gated-off)
   kore app up <name> --environment <name> [--image-lock <release images.lock.json>]
   kore app down <name> --environment <name> [--json]
   kore app status <name> [--environment <name>] [--json]   (reports degraded when the registry or verifier is down)
   kore data export --environment <name> [--namespace reference] [--json]
   kore data restore --environment <name> --from <file> [--identity <age-key-file>] [--overwrite-data --yes] [--json]
-  kore local up|down --environment local [--prune [--purge-data]]
+  kore local up|down --environment local [--prune [--purge-data]] [--force]
   kore registry rotate-credentials --environment <name> --yes [--json]
   kore signer swap-key --environment local --yes [--json]
   kore secrets sync --environment local [--rotate --yes]
@@ -25,6 +25,10 @@ Usage:
 
 "cluster destroy" refuses while data labeled platform.kore.dev/retention=Retain
 (databases) exists; --purge-data deletes it.
+
+"platform stop|destroy" and "local down" leave the local registry port-forward
+running when another worktree, or another kore process in this one, started it;
+--force stops it anyway.
 
 "data export" dumps each retained CloudNativePG database with pg_dump in the
 primary, encrypts the stream with age to the recipient that .sops.yaml names for

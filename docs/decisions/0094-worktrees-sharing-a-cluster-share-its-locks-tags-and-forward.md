@@ -47,8 +47,11 @@ spawn` refuses a new writer while it is held (enforced). Commit-hook test
   collection and a rule that spares a digest any pod uses.
 - **An owner for the registry forward.** The starting process and its worktree
   are recorded at `~/.kore/registry-forward/<context>.json`. Another worktree's
-  stop leaves a running forward alone and names its owner; an unrecorded
-  forward or one whose owner worktree is gone is stopped as before. A forward
+  stop, or another kore process's stop in the owning worktree, leaves a running
+  forward alone and names its owner; the starting process or `--force` (on
+  `platform stop|destroy` and `local down`) stops it. An unrecorded forward, one
+  whose owner worktree is gone, or one whose starting process has exited is
+  stopped as before. A forward
   found already open with no record is reported, not adopted silently.
 - **State per environment.** The signing public key, local image lock and API
   token live under `.kore/state/environments/<environment>/`.

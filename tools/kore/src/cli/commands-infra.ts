@@ -26,10 +26,12 @@ import { print } from "./output.js";
 function destroyOptions(context: CommandContext): {
   yes: boolean;
   purgeData: boolean;
+  force: boolean;
 } {
   return {
     yes: boolFlag(context.parsed, "yes"),
     purgeData: boolFlag(context.parsed, "purge-data"),
+    force: boolFlag(context.parsed, "force"),
   };
 }
 
@@ -105,7 +107,12 @@ export async function platformCommand(
       }
     },
     stop: async (_context, mutationRunner) =>
-      await platformStop(repository, mutationRunner),
+      await platformStop(
+        repository,
+        mutationRunner,
+        {},
+        { force: boolFlag(context.parsed, "force") },
+      ),
     destroy: async (_context, mutationRunner) =>
       await platformDestroy(
         repository,

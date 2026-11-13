@@ -9,7 +9,7 @@ import {
 } from "../runtime/index.js";
 import {
   clearForwardOwner,
-  ownedByAnother,
+  ownershipConflict,
   readForwardOwner,
   recordForwardOwner,
 } from "./registry-forward-owner.js";
@@ -143,20 +143,26 @@ export async function localRegistryReference(
  * matched by its full command line for this environment's kube context. A
  * forward for another context, or any other kubectl, is untouched; with none
  * running this does nothing. A forward another worktree started, and that
- * worktree still exists, is left running: one worktree's stop must not cut the
- * registry from another that is mid-build.
+ * worktree still exists, or by another kore process still running in this
+ * worktree, is left running: one stop must not cut the registry from a build
+ * that is using it. `force` stops it anyway.
  */
 export async function stopRegistryForward(
   repository: Repository,
   control: ProcessControl = {},
+  options: { force?: boolean } = {},
 ): Promise<number[]> {
   const context = repository.environment.kubeContext;
   const owner = await readForwardOwner(context);
-  if (ownedByAnother(owner, repository.root)) {
+  const conflict =
+    options.force === true
+      ? undefined
+      : ownershipConflict(owner, repository.root);
+  if (owner !== undefined && conflict !== undefined) {
     const running = await (control.listProcesses ?? listHostProcesses)();
     if (running.some((entry) => entry.pid === owner.pid)) {
       (control.report ?? ((line) => void process.stderr.write(`${line}\n`)))(
-        `left registry port-forward ${owner.pid} for context ${context} running: it was started from ${owner.root}, so stop it from there`,
+        `left registry port-forward ${owner.pid} for context ${context} running: ${conflict}; or pass --force to stop it anyway`,
       );
       return [];
     }
