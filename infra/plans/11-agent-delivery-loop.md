@@ -112,6 +112,8 @@ do not yet bound anything
 
 ## Step 6: Orchestrator and Concierge
 
+Next: Step 6 (#195, #197, #199; draft PR #332) waits on #336. Land #364 (role tokens behind a flag that's off by default). The owner runs tools/harness/wizards/identities.sh; prove a spawn with tokens; turn the flag on; then run harness ruleset sync --target main with --dry-run, and with --confirm --allow-removal only on the owner's OK. Full state: #366.
+
 ### Work
 
 - [ ] The orchestrator runs in its own Herdr pane, reads the queue only
