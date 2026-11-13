@@ -29,8 +29,17 @@ describe("checkAgentStart", () => {
     expect(block).toHaveBeenCalledTimes(1);
     expect(vi.mocked(block).mock.calls[0]).toEqual([
       "bare-agent-start",
-      "herdr agent start launches a session without the role guards, the writer host-lease refusal or the role tokens, which only harness session spawn applies. Instead, launch the session with `harness session spawn --role <role> --name <name> --brief <file>`.",
+      'herdr agent start launches a session without the role guards, the writer host-lease refusal or the role tokens, which only harness session spawn applies. Instead, launch the session with `harness session spawn --role <role> --name <name> --brief "<brief>"`.',
     ]);
+  });
+
+  it("lets herdr agent start through when its args ask for help", () => {
+    expect(checkAgentStart("herdr", ["agent", "start", "--help"])).toBeNull();
+    expect(checkAgentStart("herdr", ["agent", "start", "-h"])).toBeNull();
+    expect(
+      checkAgentStart("herdr", ["agent", "start", "w3:p2", "--help"]),
+    ).toBeNull();
+    expect(block).not.toHaveBeenCalled();
   });
 
   it("lets harness session spawn through, and every other herdr command", () => {
