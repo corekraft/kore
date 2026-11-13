@@ -192,6 +192,19 @@ async function check(
     return { code: 1, stderr: `${report}\n` };
   }
   const results = report.files;
+  const first = results[0];
+  if (
+    first !== undefined &&
+    !results.some((spec) => spec.name.startsWith(`${srcDir}/`))
+  ) {
+    const seen = first.name.includes("/src/")
+      ? first.name.slice(0, first.name.indexOf("/src/") + "/src".length)
+      : first.name;
+    return {
+      code: 1,
+      stderr: `test-budget: the report holds specs under ${seen}, but the repository root ${root} puts ${packageDir} at ${srcDir}; run the unit tests and this check from the same checkout\n`,
+    };
+  }
   const lists = await readLists(deps, srcDir);
   const problems = await staleEntries(deps, lists, relative);
   for (const spec of results) {

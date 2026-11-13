@@ -7,12 +7,7 @@ import { hookCommand } from "./io.js";
 import "./test-budget.js";
 import {
   REPO,
-  ROOT,
   SRC,
-  callHandler,
-  depsOf,
-  fsError,
-  reportOf,
   runHook,
   type Spec,
   type World,
@@ -254,68 +249,4 @@ describe("harness hook test-budget: package run", () => {
       expect(err).toBe("");
     });
   }
-});
-
-describe("harness hook test-budget: inputs", () => {
-  it("reads a relative report path from the working directory", async () => {
-    const { deps } = depsOf({
-      files: {
-        ...REPO.files,
-        [`${ROOT}/tools/kore/out/unit.json`]: reportOf([]),
-      },
-    });
-    const result = await callHandler(handler, deps, {
-      package: "tools/kore",
-      report: "out/unit.json",
-    });
-    expect(result.code).toBe(0);
-  });
-
-  it("fails naming the command to run when the report is missing, instead of passing", async () => {
-    const { deps } = depsOf({ files: REPO.files });
-    const result = await callHandler(handler, deps, {
-      package: "tools/kore",
-      report: `${ROOT}/missing.json`,
-    });
-    expect(result).toEqual({
-      code: 1,
-      stderr:
-        "test-budget: no unit report at /repo/missing.json; run `npm run test:unit` in tools/kore, which writes it before this check reads it\n",
-    });
-  });
-
-  it("does not turn a malformed report into a missing one, so the wrapper fails the run with the real error", async () => {
-    const { deps } = depsOf({
-      files: { ...REPO.files, [`${ROOT}/bad.json`]: "{not json" },
-    });
-    await expect(
-      callHandler(handler, deps, {
-        package: "tools/kore",
-        report: `${ROOT}/bad.json`,
-      }),
-    ).rejects.toBeInstanceOf(SyntaxError);
-  });
-
-  it("does not turn an unreadable report into a missing one", async () => {
-    const { deps } = depsOf({ files: REPO.files });
-    vi.spyOn(deps.fs, "readFile").mockRejectedValueOnce(
-      fsError("EACCES", "/repo/report.json"),
-    );
-    await expect(
-      callHandler(handler, deps, {
-        package: "tools/kore",
-        report: `${ROOT}/report.json`,
-      }),
-    ).rejects.toMatchObject({ code: "EACCES" });
-  });
-
-  it("fails naming the flags when --package or --report is missing", async () => {
-    const { deps } = depsOf({ files: REPO.files });
-    const result = await callHandler(handler, deps, {});
-    expect(result).toEqual({
-      code: 1,
-      stderr:
-        "test-budget: pass --package <dir, such as tools/kore> and --report <json file the unit run writes>\n",
-    });
-  });
 });

@@ -1,6 +1,5 @@
 import { defineConfig } from "vitest/config";
-import { writeBudgetReport } from "./.husky/budget-report.mjs";
-import { BudgetReporter } from "../harness/src/hook/test-budget-reporter.ts";
+import { budgetReporters } from "../harness/src/hook/test-budget-config.ts";
 import { testWorkers } from "./.husky/test-workers.mjs";
 
 export default defineConfig({
@@ -8,14 +7,7 @@ export default defineConfig({
     // One cap for every unit path; see .husky/test-workers.mjs.
     maxWorkers: testWorkers(),
     // The test-budget hook reads this report; see `test:budget` in package.json.
-    reporters: [
-      "default",
-      new BudgetReporter({
-        outputFile: "test-results/unit.json",
-        write: writeBudgetReport,
-        now: Date.now,
-      }),
-    ],
+    reporters: budgetReporters("test-results/unit.json"),
     setupFiles: ["src/test-setup-support.ts"],
     include: ["src/**/*.spec.ts"],
     exclude: ["**/*.integration.spec.ts", "dist/**"],

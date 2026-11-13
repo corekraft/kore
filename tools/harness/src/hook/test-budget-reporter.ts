@@ -26,6 +26,8 @@ export interface ModuleLike {
 export interface BudgetReporterOptions {
   outputFile: string;
   write: (path: string, text: string) => void;
+  /** Removes a file, succeeding when it is already gone. */
+  remove: (path: string) => void;
   now: () => number;
 }
 
@@ -41,6 +43,8 @@ export class BudgetReporter implements Reporter {
   constructor(private readonly options: BudgetReporterOptions) {}
 
   onInit(): void {
+    // A run that writes no report must fail the check, not be judged by the last run's file.
+    this.options.remove(this.options.outputFile);
     this.started = this.options.now();
   }
 

@@ -37,17 +37,23 @@ const timings = (collect: number, tests: number) => ({
 
 function run(modules: ModuleLike[], clock: [number, number] = [1000, 1500]) {
   const write = vi.fn<(path: string, text: string) => void>();
+  const remove = vi.fn<(path: string) => void>();
   const now = vi.fn<() => number>();
   now.mockReturnValueOnce(clock[0]).mockReturnValueOnce(clock[1]);
   const reporter = new BudgetReporter({
     outputFile: "out/unit.json",
     write,
+    remove,
     now,
   });
   reporter.onInit();
   reporter.onTestRunEnd(modules);
   const text = write.mock.calls[0]?.[1];
-  return { write, report: text === undefined ? undefined : JSON.parse(text) };
+  return {
+    write,
+    remove,
+    report: text === undefined ? undefined : JSON.parse(text),
+  };
 }
 
 describe("BudgetReporter", () => {
@@ -88,5 +94,13 @@ describe("BudgetReporter", () => {
     ]);
     expect(write.mock.calls[0]?.[0]).toBe("out/unit.json");
     expect(report.files[0].tests).toEqual([{ name: "skipped", ms: 0 }]);
+  });
+
+  it("removes the last run's report when a run starts, so a run that writes none cannot be judged by the old file", () => {
+    const { write, remove } = run([]);
+    expect(remove.mock.calls).toEqual([["out/unit.json"]]);
+    expect(remove.mock.invocationCallOrder[0]).toBeLessThan(
+      write.mock.invocationCallOrder[0] ?? 0,
+    );
   });
 });
