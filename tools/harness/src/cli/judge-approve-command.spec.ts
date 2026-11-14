@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, type Mock } from "vitest";
 import { precheck, summary } from "../judge/index.js";
 import {
   failed,
@@ -46,11 +46,17 @@ const viewJson = (
     reviews: over.reviews ?? [],
   });
 
-type Answer = (cmd: string, args: string[]) => Promise<typeof OK>;
+type Answer = (
+  cmd: string,
+  args: string[],
+  options: { cwd: string },
+) => Promise<typeof OK>;
 
 /** A context whose gh answers `gh api user` with the caller and `gh pr view` with the PR. */
 function setup(view = viewJson(), caller = "kore-judge", json = false) {
-  const made = contextOf("42", {}, json);
+  const { run: untyped, ...made } = contextOf("42", {}, json);
+  // The one cast: the shared fixture's runner mock is untyped, and this types it for the whole spec.
+  const run = untyped as Mock<Answer>;
   const answer: Answer = (_cmd, args) => {
     if (args[0] === "api") {
       return Promise.resolve({ ...OK, stdout: `${caller}\n` });
@@ -60,17 +66,17 @@ function setup(view = viewJson(), caller = "kore-judge", json = false) {
     }
     return Promise.resolve(OK);
   };
-  made.run.mockImplementation(answer);
+  run.mockImplementation(answer);
   vi.mocked(failed).mockReturnValue(1);
   vi.mocked(prNumber).mockReturnValue(42);
   vi.mocked(repoOf).mockResolvedValue(REPO);
   vi.mocked(reviewersOf).mockResolvedValue(["bot"]);
   vi.mocked(precheck).mockResolvedValue(reportOf());
-  return { ...made, answer };
+  return { ...made, run, answer };
 }
 
-const reviewCalls = (run: ReturnType<typeof setup>["run"]): unknown[] =>
-  run.mock.calls.filter((c) => (c[1] as string[])[1] === "review");
+const reviewCalls = (run: ReturnType<typeof setup>["run"]) =>
+  run.mock.calls.filter((c) => c[1][1] === "review");
 
 describe("harness judge approve", () => {
   it("approves the head the precheck verified with the pane's own gh identity", async () => {
@@ -194,10 +200,10 @@ describe("harness judge approve idempotence and failures", () => {
 describe("harness judge approve gh failures", () => {
   it("fails and names the cause when gh refuses the review", async () => {
     const { context, run, answer } = setup();
-    run.mockImplementation((cmd: string, args: string[]) =>
+    run.mockImplementation((cmd, args, options) =>
       args[1] === "review"
         ? Promise.resolve({ code: 1, stdout: "", stderr: "denied\n" })
-        : answer(cmd, args),
+        : answer(cmd, args, options),
     );
 
     expect(await approveCommands.approve?.run(context)).toBe(1);
@@ -211,12 +217,27 @@ describe("harness judge approve gh failures", () => {
     );
   });
 
+  it("names the missing login, not self-approval, when gh reports an empty caller", async () => {
+    const { context, run } = setup(viewJson(), "");
+
+    expect(await approveCommands.approve?.run(context)).toBe(1);
+    expect(reviewCalls(run)).toEqual([]);
+    expect(failed).toHaveBeenCalledWith(
+      context,
+      expect.objectContaining({
+        message: expect.stringContaining(
+          "gh could not report the login this pane runs as. Run `gh auth status`",
+        ),
+      }),
+    );
+  });
+
   it("approves nothing when gh cannot say who the caller is", async () => {
     const { context, run, answer } = setup();
-    run.mockImplementation((cmd: string, args: string[]) =>
+    run.mockImplementation((cmd, args, options) =>
       args[0] === "api"
         ? Promise.resolve({ code: 1, stdout: "", stderr: "no auth\n" })
-        : answer(cmd, args),
+        : answer(cmd, args, options),
     );
 
     expect(await approveCommands.approve?.run(context)).toBe(1);

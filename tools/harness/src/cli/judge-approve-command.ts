@@ -143,7 +143,12 @@ async function runApprove(context: CommandContext): Promise<number> {
         `The head of PR #${pr} moved from ${verified} to ${standing.head} after the precheck verified it. Rerun \`harness judge approve ${pr}\` to verify the new commit.`,
       );
     }
-    if (caller === "" || standing.author === caller) {
+    if (caller === "") {
+      throw new JudgeError(
+        `gh could not report the login this pane runs as. Run \`gh auth status\` to check the pane's GH_TOKEN, then rerun \`harness judge approve ${pr}\`.`,
+      );
+    }
+    if (standing.author === caller) {
       throw new JudgeError(
         `PR #${pr} is authored by ${standing.author}, the login this pane runs as, and nobody approves their own change. Let a different judge identity approve it.`,
       );

@@ -1,4 +1,4 @@
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { allowed, blocked, decide } from "../../src/testing/index.js";
 
 const as = (agent_type: string, tool_name: string, tool_input: object) =>
@@ -202,6 +202,14 @@ describe("role-read-only: the judge precheck", () => {
       ),
       "role-read-only",
     );
+  });
+
+  it("lets only the judge run judge approve, and refuses every other role", async () => {
+    const approve = "node skills/bin/harness.mjs judge approve 42 --json";
+    allowed(await bash("judge", approve));
+    for (const role of ["orchestrator", "writer", "reader", "refiner"]) {
+      expect((await bash(role, approve)).action).toBe("block");
+    }
   });
 
   it("blocks the judge from choosing where the precheck writes with --ledger", async () => {

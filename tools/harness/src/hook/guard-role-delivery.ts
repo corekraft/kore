@@ -33,8 +33,8 @@ import { block, type Finding } from "./guard-verdict.js";
 const noMerge = (role: string, what: string): Finding =>
   block(
     "role-no-merge",
-    `${what} merges or pushes to main, but the ${role} may not merge by hand: the merge tool re-runs the precheck and merges only when it passes. ` +
-      "Instead, the judge runs `harness judge approve <pr>`, then `harness judge merge <pr>`, or `harness judge send-back <pr> --reason <why>`; every other role reports and leaves the merge to the judge.",
+    `${what} merges, approves or pushes to main, but the ${role} may not do that by hand: the merge tool re-runs the precheck and merges only when it passes. ` +
+      "Instead, the judge approves with `harness judge approve <pr>`, then `harness judge merge <pr>`, or `harness judge send-back <pr> --reason <why>`; every other role reports and leaves the merge to the judge.",
   );
 
 const outsideWorktree = (what: string, root: string): Finding =>
