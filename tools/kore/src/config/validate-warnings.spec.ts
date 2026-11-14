@@ -125,3 +125,14 @@ test("exemption findings fail validation under enforce", async () => {
     ),
   ).rejects.toThrow(new Error("exemption: x is unlisted"));
 });
+
+test("the exemption source is not read when another rule fails, so its errors never mask them", async () => {
+  vi.mocked(k3dErrors).mockReturnValue(["k3d: bad cluster"]);
+  const exemptions = vi
+    .fn()
+    .mockRejectedValue(new Error("exemption check: dir does not exist"));
+  await expect(
+    validateRepository(repositoryWith(), [], exemptions),
+  ).rejects.toThrow(new Error("k3d: bad cluster"));
+  expect(exemptions).not.toHaveBeenCalled();
+});

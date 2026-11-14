@@ -275,12 +275,13 @@ export async function validateRepository(
     ...readinessErrors(repository),
     ...registryAddressErrors(repository),
   ];
-  const exemptions = (await exemptionSource?.(repository)) ?? [];
-  if (exemptionCheckMode(environment) === "enforce") {
-    errors.push(...exemptions);
-  }
   if (errors.length) {
     throw new Error([...new Set(errors)].sort().join("\n"));
+  }
+  // Read last: a missing exemption input must never mask the errors above.
+  const exemptions = (await exemptionSource?.(repository)) ?? [];
+  if (exemptionCheckMode(environment) === "enforce" && exemptions.length) {
+    throw new Error([...new Set(exemptions)].sort().join("\n"));
   }
   const warnings = await Promise.all(
     warningSources.map(async (source) => source(repository)),
