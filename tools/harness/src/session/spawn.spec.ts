@@ -233,3 +233,52 @@ describe("spawn records the session", () => {
     await expect(spawn(contextOf(deps))).resolves.toBe(1);
   });
 });
+
+describe("spawn launches a Sonnet writer in its worktree", () => {
+  const BRIEF = "Implement step 2 of plan 14.";
+  const SONNET_WRITER: Checked = {
+    ...CHECKED,
+    values: { ...VALUES, model: "claude-sonnet-5-5", brief: BRIEF },
+  };
+
+  it("passes the Sonnet model and the --brief text to the launch, and records the worktree it placed", async () => {
+    vi.mocked(check).mockResolvedValue(SONNET_WRITER);
+    const registry = asRegistry(fakeRegistry());
+    opener.open.mockResolvedValue(registry);
+    vi.mocked(openPane).mockResolvedValue(opened(WORKTREE));
+
+    await spawn(contextOf(deps));
+
+    expect(openPane).toHaveBeenCalledWith(
+      contextOf(deps),
+      SONNET_WRITER,
+      registry,
+      undefined,
+    );
+    expect(launch).toHaveBeenCalledWith(deps, {
+      role: "writer",
+      model: "claude-sonnet-5-5",
+      effort: "high",
+      name: "image-trust-writer",
+      brief: BRIEF,
+      paneId: "w3:p9",
+      callerPane: "w3:p1",
+      leftOpen: "The pane w3:p9 was left open.",
+    });
+    expect(finish).toHaveBeenCalledWith(contextOf(deps), {
+      registry,
+      modelCheck: { status: "verified" },
+      record: {
+        name: "image-trust-writer",
+        paneId: "w3:p9",
+        callerPane: "w3:p1",
+        model: "claude-sonnet-5-5",
+        role: "writer",
+        effort: "high",
+        worktree: WORKTREE,
+        createdAt: CREATED_AT,
+      },
+      timeoutMs: 60_000,
+    });
+  });
+});
