@@ -1,7 +1,7 @@
 // Fakes and fixtures shared by the local domain's unit specs. A support file is
 // not a unit, so it needs no spec of its own (ADR 0098).
 import { vi } from "vitest";
-import type { Repository } from "../config/index.js";
+import type { Environment, Repository } from "../config/index.js";
 import type {
   BuiltLocalImage,
   LockedImage,
@@ -52,19 +52,40 @@ export function fakeRunner() {
 }
 
 /**
- * A repository with the fields the local lifecycle reads: the root and the
- * environment's name and provider. Overrides replace the environment's fields,
- * so `fakeRepository({ provider: "managed" })` is the managed case. The one
- * cast stands in for the rest of the overlay, which these units never read.
+ * A typed repository for the local k3d environment, with empty overlay parts
+ * the local lifecycle never reads. Overrides replace the environment's fields,
+ * so `fakeRepository({ provider: "managed" })` is the managed case.
  */
 export function fakeRepository(
-  environment: Record<string, unknown> = {},
+  environment: Partial<Environment> = {},
   root = "/repo",
 ): Repository {
   return {
     root,
-    environment: { name: "local", provider: "k3d", ...environment },
-  } as unknown as Repository;
+    versions: { tools: {}, kubernetes: "", components: {}, images: {} },
+    seeds: { seeds: [] },
+    readiness: { version: 1, requirements: [] },
+    approved: { images: [] },
+    catalog: { components: [] },
+    environment: {
+      name: "local",
+      provider: "k3d",
+      kubeContext: "k3d-kore-local",
+      registry: { address: "registry.kore.local:30500" },
+      gateway: {
+        namespace: "kore-system",
+        name: "kore-gateway",
+        hostname: "kore.local",
+        port: 443,
+      },
+      secrets: {
+        storeName: "kore-secrets",
+        sourceNamespace: "kore-secret-source",
+      },
+      telemetry: { otlpEndpoint: "http://otel.kore.local:4318" },
+      ...environment,
+    },
+  };
 }
 
 /** Where the local image lock of the environment `local` lives under `root`. */
