@@ -150,6 +150,7 @@ const FORWARDS: Record<string, readonly string[]> = {
   "../platform/upstream.live.js": ["renderChart", "yamlDocuments"],
   "../platform/rollout-feasibility.js": ["rolloutProblems"],
   "../images/images.fixtures.js": [
+    "baseDigest as imageBaseDigest",
     "digest as imageDigest",
     "encodeBase64",
     "entry as imageEntry",
@@ -160,6 +161,7 @@ const FORWARDS: Record<string, readonly string[]> = {
     "secretRef",
     "stubRegistry",
   ],
+  "../images/local-image-context.js": ["contextInputs"],
   "../images/local-image.js": ["k3dImageImportArgs", "loadLocalImage"],
   "../images/local-publish.js": ["requireK3d"],
   "../images/local-image-args.js": [
