@@ -170,7 +170,6 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0108-the-judge-precheck-treats-the-ruleset-files-as-developer-tooling.md`](decisions/0108-the-judge-precheck-treats-the-ruleset-files-as-developer-tooling.md) — The main ruleset JSON under .github/rulesets governs which merges are allowed, never what a user or cluster runs, so a diff that edits it alone matches no-behaviour-change; this refines ADR 0099.
 - [`docs/decisions/0109-the-judge-approves-a-pull-request-through-its-own-tool-before-it-merges.md`](decisions/0109-the-judge-approves-a-pull-request-through-its-own-tool-before-it-merges.md) — A judge approve command posts the approving review the ruleset requires, and the role guards allow it and no raw gh pr review.
 - [`docs/decisions/0110-the-judge-precheck-treats-the-pr-declaration-workflow-as-developer-tooling.md`](decisions/0110-the-judge-precheck-treats-the-pr-declaration-workflow-as-developer-tooling.md) — The pr-declaration workflow takes only the PR body as input and builds the harness from the checkout with contents: read, no secrets and no required status, so a diff that edits it alone matches no-behaviour-change; this refines ADR 0105 and ADR 0099.
-- [`docs/decisions/0111-run-a-backstage-and-an-argo-cd-for-the-platform-organization-s-operators.md`](decisions/0111-run-a-backstage-and-an-argo-cd-for-the-platform-organization-s-operators.md) — The platform organization gets its own Backstage and Argo CD for operators in Next: Argo CD syncs service workloads from git by digest while image admission decides what runs, and Backstage reads clusters as the user through OIDC.
 
 ## Proposed Decisions
 
@@ -193,6 +192,7 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/decisions/0051-telemetry-retention-and-alerting.md`](decisions/0051-telemetry-retention-and-alerting.md) — refines ADR 0019: default and per-tenant retention, tenant alerts in each tenant's Grafana, Alertmanager for platform alerts only. Read when changing retention or alerting.
 - [`docs/decisions/0052-usage-metering-with-opencost.md`](decisions/0052-usage-metering-with-opencost.md) — usage per organization through OpenCost and platform counters, for visibility only. Read when changing usage reporting.
 - [`docs/decisions/0053-forensic-telemetry-archive.md`](decisions/0053-forensic-telemetry-archive.md) — refines ADR 0019, 0050, and 0051: every log record and span kept unsampled in a Quickwit archive on the object store, buffered through Kafka, fully indexed, write-once, with signed batch digests and audited, tenant-scoped access. Read when changing telemetry retention, sampling, or the archive.
+- [`docs/decisions/0111-run-a-backstage-and-an-argo-cd-for-the-platform-organization-s-operators.md`](decisions/0111-run-a-backstage-and-an-argo-cd-for-the-platform-organization-s-operators.md) — The platform organization gets its own Backstage and Argo CD for operators in Next: Argo CD syncs service workloads from git by digest while image admission decides what runs, and Backstage reads clusters as the user through OIDC.
 
 ## Ideas
 
