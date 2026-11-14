@@ -110,6 +110,23 @@ see [The harness bundle](#the-harness-bundle).
   [plan 14](../../infra/plans/14-test-tiers.md): the cluster suites are live
   tests now (#372), and the unit runs still include tests that start real
   processes.
+- The unit run has a budget: a test over 100 ms, a spec file over 1 s, or (once
+  every list below is empty) a package run over 20 s fails, naming the test and
+  its time. The `test-budget` hook (`harness hook test-budget`, run by
+  `test:budget` after each unit run) reads the report the unit run's
+  `BudgetReporter` writes to `test-results/unit.json`, and prints the ten
+  slowest tests every run. A spec file's time counts its environment setup,
+  imports, collection and tests, and the package time runs from reporter
+  start, so global setup counts; Node's own boot does not. Arguments after `--`
+  in `npm run test:unit -- <args>` reach the budget hook, not vitest: to run
+  one spec, call `npx vitest run <file>`, which skips the budget. It
+  applies only to converted code: each domain keeps `unconverted.txt` beside
+  its sources, naming the source files (relative to the domain directory, one
+  per line, `#` for comments) whose specs are not yet rewritten. A file is
+  converted unless a list names it, so a new file is budgeted from the start;
+  delete a line when its spec is converted. A line naming a file that no
+  longer exists fails the check. A spec with no source file of the same name
+  beside it is not budgeted.
 - `npm test` (in `tools/kore`) is fast and needs no cluster.
 - Live specs (`*.live.spec.ts`) create or destroy clusters. They run only
   when asked, with `KORE_RUN_LIVE=1` through the scripts in

@@ -10,8 +10,9 @@
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\" \"integration/**/*.ts\" package.json tsconfig.json .oxlintrc.json .prettierrc.json vitest.config.ts vitest.integration.config.ts",
     "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\" \"integration/**/*.ts\" package.json tsconfig.json .oxlintrc.json .prettierrc.json vitest.config.ts vitest.integration.config.ts",
     "lint": "oxlint --type-aware --deny-warnings src tests integration",
-    "test": "vitest run --coverage",
-    "test:unit": "vitest run",
+    "test": "vitest run --coverage && npm run test:budget",
+    "test:unit": "vitest run && npm run test:budget",
+    "test:budget": "../../.claude/hooks/harness.sh hook test-budget --package tools/harness --report test-results/unit.json",
     "test:related": "vitest related --run --passWithNoTests --maxWorkers=2",
     "test:hooks": "vitest run .claude/",
     "test:integration": "vitest run --config vitest.integration.config.ts"
