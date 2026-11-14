@@ -60,7 +60,6 @@ vi.mock("./policy-promotion.js", () => ({
   auditEvidence: vi.fn(),
   evaluateAudit: vi.fn(),
   policyPromotionErrors: vi.fn(),
-  policyWarnings: vi.fn(),
 }));
 vi.mock("./policy-promotion-change.js", () => ({
   promoteConstraint: vi.fn(),
@@ -104,7 +103,6 @@ test("the config barrel exposes exactly the entry points other domains use", () 
     "orderedComponents",
     "patchableKinds",
     "policyPromotionErrors",
-    "policyWarnings",
     "probeFields",
     "probeNames",
     "promoteConstraint",

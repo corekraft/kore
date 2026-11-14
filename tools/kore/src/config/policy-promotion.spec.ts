@@ -9,7 +9,6 @@ import {
   isRecord,
   parseJson,
   policyPromotionErrors,
-  policyWarnings,
   recordErrors,
 } from "./policy-promotion.js";
 
@@ -248,36 +247,6 @@ test("a constraint with no metadata name is refused, naming its file", async () 
   policies({ "rbac.yaml": "spec: {}\n" });
   expect(await policyPromotionErrors(repository(), NOW)).toEqual([
     "policy promotion: infra/policies/gatekeeper/constraints/rbac.yaml needs metadata name",
-  ]);
-});
-
-const noAction = "metadata: {name: kore-rbac}\nspec: {}\n";
-
-test("a constraint with no enforcementAction is held to the deny evidence check without a promotion record", async () => {
-  policies({ "rbac.yaml": noAction });
-  expect(await policyPromotionErrors(repository(), NOW)).toEqual([
-    "policy promotion: kore-rbac enforces deny without infra/policies/gatekeeper/promotions/kore-rbac.json; record zero-violation audit evidence for each environment first",
-  ]);
-});
-
-test("a constraint with no enforcementAction and a deny record passes the evidence check and keeps only the warning", async () => {
-  policies(
-    { "rbac.yaml": noAction },
-    { "kore-rbac.json": JSON.stringify(record) },
-  );
-  expect(await policyPromotionErrors(repository(), NOW)).toEqual([]);
-  expect(await policyWarnings(repository())).toEqual([
-    "policy promotion: infra/policies/gatekeeper/constraints/rbac.yaml has no spec.enforcementAction, so Gatekeeper enforces deny with no audit stage; set enforcementAction: dryrun until a recorded promotion",
-  ]);
-});
-
-test("a constraint with no enforcementAction and a warn record is rejected as enforcing deny", async () => {
-  policies(
-    { "rbac.yaml": noAction },
-    { "kore-rbac.json": JSON.stringify({ ...record, to: "warn" }) },
-  );
-  expect(await policyPromotionErrors(repository(), NOW)).toEqual([
-    "policy promotion: kore-rbac promotes to warn but the constraint enforces deny",
   ]);
 });
 

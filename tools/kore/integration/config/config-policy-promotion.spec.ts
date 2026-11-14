@@ -261,6 +261,16 @@ test("namespaced violating resources are named kind, namespace, and name", () =>
   assert.deepEqual(report.sample, ["Role/ns/r"]);
 });
 
+test("a constraint with no enforcementAction is refused with the fix, even with a deny record", async () => {
+  const repository = await sandbox(
+    { "rbac.yaml": "metadata: {name: kore-rbac}\nspec: {}\n" },
+    { "kore-rbac.json": record() },
+  );
+  assert.deepEqual(await policyPromotionErrors(repository, now), [
+    "policy promotion: infra/policies/gatekeeper/constraints/rbac.yaml has no spec.enforcementAction; set enforcementAction to deny, warn or dryrun explicitly",
+  ]);
+});
+
 test("a constraint that has not been audited yet fails its evaluation", () => {
   const report = evaluateAudit({
     metadata: { name: "c" },

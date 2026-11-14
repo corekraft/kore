@@ -31,7 +31,9 @@ ADR 0018 but not proven.
   target action, and per environment `observedAt` and `totalViolations` taken
   from the constraint's own audit status. `kore validate` rejects a promotion
   with no record, a count above zero, no evidence for the validated
-  environment, or evidence older than 14 days. Promotion is per constraint. This
+  environment, or evidence older than 14 days. A constraint with no
+  `enforcementAction` is refused, not warned: the warning was the expand step,
+  and all seven committed constraints set `dryrun` explicitly (#502). Promotion is per constraint. This
   ADR builds the mechanism; no constraint is promoted by it.
 - **Signer trust.** `trustedSigners` derives from the environment's image trust
   authority: the local key for `type: key`, the exact release subjects for
