@@ -3,6 +3,8 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 import { exists } from "./files.js";
 import { registryConsumers } from "./registry-address.js";
 import { validateRepository } from "./validate.js";
+import { ExemptionCheck } from "./exemption-check.js";
+import { FileExemptionSource } from "./exemption-source.js";
 import type {
   Catalog,
   Component,
@@ -129,7 +131,10 @@ export async function loadRepository(
       environment,
     ),
   };
-  const warnings = await validateRepository(repository);
+  const exemptions = new ExemptionCheck(new FileExemptionSource(root));
+  const warnings = await validateRepository(repository, [], (repo) =>
+    exemptions.findings(repo.catalog.components ?? []),
+  );
   return { ...repository, warnings };
 }
 

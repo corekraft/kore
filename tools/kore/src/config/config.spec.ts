@@ -14,6 +14,7 @@ import {
 } from "./config.js";
 import { exists } from "./files.js";
 import { orderedComponents } from "./order.js";
+import { FileExemptionSource } from "./exemption-source.js";
 import { validateRepository } from "./validate.js";
 import {
   fakeComponent,
@@ -28,6 +29,14 @@ vi.mock("node:path");
 vi.mock("./files.js", () => ({ exists: vi.fn() }));
 vi.mock("./order.js", () => ({ orderedComponents: vi.fn() }));
 vi.mock("./validate.js", () => ({ validateRepository: vi.fn() }));
+vi.mock("./exemption-check.js", () => ({
+  ExemptionCheck: vi.fn(
+    class {
+      findings = vi.fn().mockResolvedValue(["exemption: found"]);
+    },
+  ),
+}));
+vi.mock("./exemption-source.js", () => ({ FileExemptionSource: vi.fn() }));
 // registryConsumers is a constant list: kept real so the test names its members.
 vi.mock("./registry-address.js", () => ({
   registryConsumers: ["kore-registry", "kore-ui"],
@@ -177,7 +186,12 @@ test("loading reads the six catalog and overlay files, validates the whole repos
   });
   const { warnings, ...validated } = loaded;
   expect(warnings).toEqual([]);
-  expect(vi.mocked(validateRepository).mock.calls).toEqual([[validated]]);
+  expect(vi.mocked(validateRepository).mock.calls).toEqual([
+    [validated, [], expect.any(Function)],
+  ]);
+  const exemptionSource = vi.mocked(validateRepository).mock.calls[0]?.[2];
+  expect(await exemptionSource?.(loaded)).toEqual(["exemption: found"]);
+  expect(vi.mocked(FileExemptionSource)).toHaveBeenCalledWith("/repo");
   expect(vi.mocked(readFile).mock.calls.map(([path]) => path)).toEqual([
     "/repo/infra/catalog/versions.yaml",
     "/repo/infra/catalog/seeds.yaml",

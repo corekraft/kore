@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["exemptions"],
+  "properties": {
+    "exemptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "name", "namespace", "component", "adr", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "namespace": { "type": "string", "minLength": 1 },
+          "component": {
+            "type": "string",
+            "minLength": 1,
+            "description": "A catalog component name, or the marker cluster-provided."
+          },
+          "adr": { "type": "integer", "minimum": 1 },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}
