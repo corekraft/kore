@@ -1,162 +1,266 @@
-import { describe, expect, it } from "vitest";
-import { testHarness } from "../testing/index.js";
-import { run } from "../cli/index.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { CliDeps } from "../runtime/index.js";
+import { close } from "./close.js";
+import { removeMergedWorktree } from "./close-worktree.js";
 import {
-  INSIDE,
-  gitCommon,
-  herdrCalls,
-  layoutOf,
-  stateFile,
-} from "./spawn-support.js";
+  SPAWNED,
+  UNRESULTED,
+  WITHOUT_WORKTREE,
+  WORKTREE,
+  asRegistry,
+  fakeRegistry,
+  scene,
+  type Scene,
+} from "./close-support.js";
+import { describeFailure, equalize } from "./equalize.js";
+import { sessionNameError } from "./names.js";
+import { fail } from "./output.js";
+import type { SessionRegistry } from "./registry.js";
+import { closeHint } from "./worktree.js";
 
-const created = {
-  name: "image-trust-writer",
-  paneId: "w3:p9",
-  callerPane: "w3:p1",
-  model: "claude-sonnet-5-5",
-  role: "writer",
-  effort: "high",
-  createdAt: "2026-01-02T03:04:05.000Z",
-};
-const withResult = {
-  ...created,
-  result: { outcome: "done", at: "2026-01-02T03:05:00.000Z" },
-};
-const close = ["session", "close", "image-trust-writer", "--json"];
-const stateOf = (record: object) => ({
-  [stateFile("image-trust-writer")]: JSON.stringify(record),
+vi.mock("./close-worktree.js", () => ({
+  removeMergedWorktree: vi.fn(),
+}));
+vi.mock("./equalize.js", () => ({
+  equalize: vi.fn(),
+  describeFailure: vi.fn(() => "herdr said no"),
+}));
+vi.mock("./names.js", () => ({
+  sessionNameError: vi.fn(() => undefined),
+}));
+vi.mock("./output.js", async (original) => ({
+  ...(await original<typeof import("./output.js")>()),
+  fail: vi.fn(),
+}));
+// A plain object, not the class: a static method reference would be an unbound method.
+const opener = vi.hoisted(() => ({
+  open: vi.fn<(deps: CliDeps) => Promise<SessionRegistry>>(),
+}));
+vi.mock("./registry.js", () => ({ SessionRegistry: opener }));
+vi.mock("./worktree.js", () => ({
+  closeHint: vi.fn(() => "HINT"),
+}));
+
+const CLOSED_AT = "2026-01-02T03:06:00.000Z";
+const WORKTREE_FLAG = { "remove-worktree": true };
+
+/** The registry this test reads and writes, handed to close through the mocked class. */
+function registryOf(record: typeof SPAWNED | undefined) {
+  const registry = fakeRegistry(record);
+  opener.open.mockResolvedValue(asRegistry(registry));
+  return registry;
+}
+
+const failures = () => vi.mocked(fail).mock.calls;
+const pairs = (s: Scene) => s.runner.run.mock.calls.map((c) => [c[0], c[1]]);
+
+beforeEach(() => {
+  // The real fail returns its exit code, and close returns what it returns.
+  vi.mocked(fail).mockImplementation((_deps, _json, code) => code);
+  vi.mocked(equalize).mockResolvedValue({ status: "equalized" });
+  vi.mocked(removeMergedWorktree).mockResolvedValue({
+    removed: true,
+    message:
+      "Removed worktree /main/.claude/worktrees/x and deleted branch feat/x.",
+  });
 });
-const closes = (h: ReturnType<typeof testHarness>) =>
-  herdrCalls(h).filter((c) => c.includes("pane close"));
 
-describe("session close", () => {
-  it("closes a pane this caller created once its result is recorded, then equalizes", async () => {
-    const h = testHarness({
-      env: INSIDE,
-      files: stateOf(withResult),
-      responses: [gitCommon, layoutOf()],
-    });
-    expect(await run(close, h.deps)).toBe(0);
-    const calls = herdrCalls(h);
-    expect(calls).toContain("herdr pane close w3:p9");
-    expect(calls.indexOf("herdr pane layout --pane w3:p1")).toBeGreaterThan(
-      calls.indexOf("herdr pane close w3:p9"),
+describe("session close refusals, touching nothing", () => {
+  it("asks for a session name, opening no registry and running no command", async () => {
+    const s = scene({ operand: undefined });
+    expect(await close(s.context)).toBe(2);
+    expect(failures()).toEqual([
+      [
+        s.context.deps,
+        false,
+        2,
+        "Missing the session name: session close <name>.",
+      ],
+    ]);
+    expect(opener.open).not.toHaveBeenCalled();
+    expect(s.runner.run).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invalid name with the name error, before the registry", async () => {
+    vi.mocked(sessionNameError).mockReturnValueOnce(
+      "Session name must be a slug.",
     );
-    expect(JSON.parse(h.out())).toMatchObject({
+    const s = scene({ operand: "Bad Name" });
+    expect(await close(s.context)).toBe(2);
+    expect(failures()[0]?.[3]).toBe("Session name must be a slug.");
+    expect(opener.open).not.toHaveBeenCalled();
+  });
+
+  it("refuses outside Herdr, opening nothing", async () => {
+    const s = scene({ env: {} });
+    expect(await close(s.context)).toBe(1);
+    expect(failures()[0]?.[3]).toContain("Not inside Herdr");
+    expect(opener.open).not.toHaveBeenCalled();
+    expect(s.runner.run).not.toHaveBeenCalled();
+  });
+
+  it("refuses a name this tool did not create, closing no pane", async () => {
+    registryOf(undefined);
+    const s = scene();
+    expect(await close(s.context)).toBe(1);
+    expect(failures()[0]?.[3]).toContain("did not create a session named");
+    expect(s.runner.run).not.toHaveBeenCalled();
+  });
+
+  it("refuses a pane another caller spawned, naming the one that may close it", async () => {
+    registryOf(SPAWNED);
+    const s = scene({ env: { HERDR_ENV: "1", HERDR_PANE_ID: "w3:p77" } });
+    expect(await close(s.context)).toBe(1);
+    expect(failures()[0]?.[3]).toContain("spawned from pane w3:p1, not w3:p77");
+    expect(s.runner.run).not.toHaveBeenCalled();
+  });
+
+  it("refuses a session whose result is not recorded, naming session wait", async () => {
+    registryOf(UNRESULTED);
+    const s = scene();
+    expect(await close(s.context)).toBe(1);
+    expect(failures()[0]?.[3]).toContain(
+      "Run `session wait image-trust-writer` first.",
+    );
+    expect(s.runner.run).not.toHaveBeenCalled();
+  });
+
+  it("refuses a session already closed, closing nothing twice", async () => {
+    registryOf({ ...SPAWNED, closedAt: CLOSED_AT });
+    const s = scene();
+    expect(await close(s.context)).toBe(1);
+    expect(failures()[0]?.[3]).toContain("already closed");
+    expect(s.runner.run).not.toHaveBeenCalled();
+  });
+});
+
+describe("session close closes the pane and records it", () => {
+  it("closes the caller's child pane, records closedAt, equalizes from the caller pane, and prints the hint", async () => {
+    const registry = registryOf(SPAWNED);
+    const s = scene();
+    expect(await close(s.context)).toBe(0);
+    expect(pairs(s)).toEqual([["herdr", ["pane", "close", "w3:p9"]]]);
+    expect(registry.write).toHaveBeenCalledWith({
+      ...SPAWNED,
+      closedAt: CLOSED_AT,
+    });
+    expect(equalize).toHaveBeenCalledWith(s.runner.runner, "w3:p1");
+    expect(closeHint).toHaveBeenCalledWith(WORKTREE);
+    expect(s.stdout).toHaveBeenCalledWith(
+      "Closed image-trust-writer (pane w3:p9). HINT\n",
+    );
+    expect(removeMergedWorktree).not.toHaveBeenCalled();
+  });
+
+  it("keeps the session open and reports herdr's words when the pane cannot be closed", async () => {
+    const registry = registryOf(SPAWNED);
+    vi.mocked(describeFailure).mockReturnValueOnce("pane_not_found");
+    const s = scene({ herdr: { code: 1, stderr: "pane_not_found" } });
+    expect(await close(s.context)).toBe(1);
+    expect(failures()[0]?.[3]).toBe(
+      "herdr pane close w3:p9 failed: pane_not_found",
+    );
+    expect(registry.write).not.toHaveBeenCalled();
+  });
+
+  it("notes a failed equalize on stderr, and still reports the close", async () => {
+    registryOf(SPAWNED);
+    vi.mocked(equalize).mockResolvedValue({
+      status: "failed",
+      reason: "layout gone",
+    });
+    const s = scene();
+    expect(await close(s.context)).toBe(0);
+    expect(s.stderr).toHaveBeenCalledWith(
+      "Closed, but equalizing failed: layout gone\n",
+    );
+  });
+
+  it("prints no hint for a session without a worktree", async () => {
+    registryOf(WITHOUT_WORKTREE);
+    const s = scene();
+    expect(await close(s.context)).toBe(0);
+    expect(s.stdout).toHaveBeenCalledWith(
+      "Closed image-trust-writer (pane w3:p9).\n",
+    );
+    expect(closeHint).not.toHaveBeenCalled();
+  });
+});
+
+describe("session close JSON without --remove-worktree", () => {
+  it("prints the close and the hint, with no removal field, and removes nothing", async () => {
+    registryOf(SPAWNED);
+    const s = scene({ json: true });
+    expect(await close(s.context)).toBe(0);
+    expect(JSON.parse(s.stdout.mock.calls[0]?.[0] ?? "")).toEqual({
       name: "image-trust-writer",
       paneId: "w3:p9",
       closed: true,
+      equalize: { status: "equalized" },
+      hint: "HINT",
     });
-  });
-
-  it("prints the worktree removal commands when the session had a worktree", async () => {
-    const worktree = { path: "/main/.claude/worktrees/x", branch: "feat/x" };
-    const h = testHarness({
-      env: INSIDE,
-      files: stateOf({ ...withResult, worktree }),
-      responses: [gitCommon, layoutOf()],
-    });
-    expect(await run(close, h.deps)).toBe(0);
-    const out = JSON.parse(h.out()) as { hint: string };
-    expect(out.hint).toContain("git worktree remove /main/.claude/worktrees/x");
-    expect(out.hint).toContain("git branch -D feat/x");
-    const human = testHarness({
-      env: INSIDE,
-      files: stateOf({ ...withResult, worktree }),
-      responses: [gitCommon, layoutOf()],
-    });
-    await run(["session", "close", "image-trust-writer"], human.deps);
-    expect(human.out()).toContain("git worktree remove");
-  });
-
-  it("prints no worktree hint for a session without one", async () => {
-    const h = testHarness({
-      env: INSIDE,
-      files: stateOf(withResult),
-      responses: [gitCommon, layoutOf()],
-    });
-    await run(close, h.deps);
-    expect(JSON.parse(h.out())).not.toHaveProperty("hint");
-  });
-
-  it("refuses a pane this tool did not create, closing nothing", async () => {
-    const h = testHarness({ env: INSIDE, responses: [gitCommon] });
-    expect(await run(close, h.deps)).toBe(1);
-    expect(h.err()).toContain("did not create");
-    expect(closes(h)).toEqual([]);
+    expect(removeMergedWorktree).not.toHaveBeenCalled();
   });
 });
 
-describe("session close refusals and recording", () => {
-  it("refuses a session whose result is not recorded, naming session wait", async () => {
-    const h = testHarness({
-      env: INSIDE,
-      files: stateOf(created),
-      responses: [gitCommon],
-    });
-    expect(await run(close, h.deps)).toBe(1);
-    expect(h.err()).toContain("session wait");
-    expect(closes(h)).toEqual([]);
+describe("session close --remove-worktree", () => {
+  it("removes the merged worktree from the caller's directory and names what it removed, with no hint", async () => {
+    registryOf(SPAWNED);
+    const s = scene({ flags: WORKTREE_FLAG });
+    expect(await close(s.context)).toBe(0);
+    expect(removeMergedWorktree).toHaveBeenCalledWith(
+      s.runner.runner,
+      WORKTREE,
+      "/main",
+    );
+    expect(s.stdout).toHaveBeenCalledWith(
+      "Closed image-trust-writer (pane w3:p9). Removed worktree /main/.claude/worktrees/x and deleted branch feat/x.\n",
+    );
+    expect(closeHint).not.toHaveBeenCalled();
   });
 
-  it("refuses a pane another caller created", async () => {
-    const h = testHarness({
-      env: { HERDR_ENV: "1", HERDR_PANE_ID: "w3:p77" },
-      files: stateOf(withResult),
-      responses: [gitCommon],
+  it("closes the pane, keeps the worktree, and exits 1 with the reason on stderr", async () => {
+    const registry = registryOf(SPAWNED);
+    vi.mocked(removeMergedWorktree).mockResolvedValue({
+      removed: false,
+      reason: "branch feat/x is unmerged: no merged PR has it as its head.",
     });
-    expect(await run(close, h.deps)).toBe(1);
-    expect(h.err()).toContain("w3:p1");
-    expect(closes(h)).toEqual([]);
+    const s = scene({ flags: WORKTREE_FLAG });
+    expect(await close(s.context)).toBe(1);
+    expect(pairs(s)).toEqual([["herdr", ["pane", "close", "w3:p9"]]]);
+    expect(registry.write).toHaveBeenCalledTimes(1);
+    expect(s.stderr).toHaveBeenCalledWith(
+      "branch feat/x is unmerged: no merged PR has it as its head.\n",
+    );
+    expect(s.stdout).toHaveBeenCalledWith(
+      "Closed image-trust-writer (pane w3:p9).\n",
+    );
   });
 
-  it("does not close the same session twice", async () => {
-    const h = testHarness({
-      env: INSIDE,
-      files: stateOf(withResult),
-      responses: [gitCommon, layoutOf()],
-    });
-    await run(close, h.deps);
-    expect(await run(close, h.deps)).toBe(1);
-    expect(h.err()).toContain("already closed");
-    expect(closes(h)).toHaveLength(1);
+  it("exits 1 and removes nothing for a session that has no worktree", async () => {
+    registryOf(WITHOUT_WORKTREE);
+    const s = scene({ flags: WORKTREE_FLAG });
+    expect(await close(s.context)).toBe(1);
+    expect(removeMergedWorktree).not.toHaveBeenCalled();
+    expect(s.stderr).toHaveBeenCalledWith(
+      "Session image-trust-writer has no worktree, so there is none to remove.\n",
+    );
   });
 
-  it("reports herdr's message when the pane cannot be closed, and keeps the session open", async () => {
-    const h = testHarness({
-      env: INSIDE,
-      files: stateOf(withResult),
-      responses: [
-        gitCommon,
-        {
-          match: (_c, a) => a[1] === "close",
-          result: { code: 1, stderr: "pane_not_found" },
-        },
-      ],
+  it("prints the removal in the JSON output beside the close, and no hint", async () => {
+    registryOf(SPAWNED);
+    const s = scene({ flags: WORKTREE_FLAG, json: true });
+    expect(await close(s.context)).toBe(0);
+    expect(JSON.parse(s.stdout.mock.calls[0]?.[0] ?? "")).toEqual({
+      name: "image-trust-writer",
+      paneId: "w3:p9",
+      closed: true,
+      equalize: { status: "equalized" },
+      removal: {
+        removed: true,
+        message:
+          "Removed worktree /main/.claude/worktrees/x and deleted branch feat/x.",
+      },
     });
-    expect(await run(close, h.deps)).toBe(1);
-    expect(h.err()).toContain("pane_not_found");
   });
-
-  it("refuses outside Herdr with zero herdr calls", async () => {
-    const h = testHarness({
-      files: stateOf(withResult),
-      responses: [gitCommon],
-    });
-    expect(await run(close, h.deps)).toBe(1);
-    expect(h.err()).toContain("HERDR_ENV");
-    expect(herdrCalls(h)).toEqual([]);
-  });
-});
-
-describe("session close name validation", () => {
-  it.each(["Bad Name", "../escape", "a/b"])(
-    "rejects the name %j before touching git or the registry",
-    async (name) => {
-      const h = testHarness({ env: INSIDE, responses: [gitCommon] });
-      expect(await run(["session", "close", name], h.deps)).toBe(2);
-      expect(h.err()).toContain("Session name");
-      expect(h.runner.calls).toEqual([]);
-    },
-  );
 });
