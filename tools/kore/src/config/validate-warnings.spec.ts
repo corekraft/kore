@@ -96,3 +96,43 @@ test("an unset exemptionCheck reads as audit", () => {
     exemptionCheckMode(fakeEnvironment({ exemptionCheck: "enforce" })),
   ).toBe("enforce");
 });
+
+test("exemption findings warn under audit and never fail validation", async () => {
+  const exemptions = vi.fn().mockResolvedValue(["exemption: x is unlisted"]);
+  expect(
+    await validateRepository(
+      repositoryWith({ exemptionCheck: "audit" }),
+      [],
+      exemptions,
+    ),
+  ).toEqual(["exemption: x is unlisted"]);
+});
+
+test("exemption findings warn when exemptionCheck is unset", async () => {
+  const exemptions = vi.fn().mockResolvedValue(["exemption: x is unlisted"]);
+  expect(await validateRepository(repositoryWith(), [], exemptions)).toEqual([
+    "exemption: x is unlisted",
+  ]);
+});
+
+test("exemption findings fail validation under enforce", async () => {
+  const exemptions = vi.fn().mockResolvedValue(["exemption: x is unlisted"]);
+  await expect(
+    validateRepository(
+      repositoryWith({ exemptionCheck: "enforce" }),
+      [],
+      exemptions,
+    ),
+  ).rejects.toThrow(new Error("exemption: x is unlisted"));
+});
+
+test("the exemption source is not read when another rule fails, so its errors never mask them", async () => {
+  vi.mocked(k3dErrors).mockReturnValue(["k3d: bad cluster"]);
+  const exemptions = vi
+    .fn()
+    .mockRejectedValue(new Error("exemption check: dir does not exist"));
+  await expect(
+    validateRepository(repositoryWith(), [], exemptions),
+  ).rejects.toThrow(new Error("k3d: bad cluster"));
+  expect(exemptions).not.toHaveBeenCalled();
+});
