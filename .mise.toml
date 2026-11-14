@@ -29,6 +29,10 @@ run = "npm --prefix tools/kore run build"
 description = "Run tests that do not require a cluster"
 run = "npm --prefix tools/kore test && npm --prefix apps/reference test && npm --prefix tools/harness test"
 
+[tasks.test-integration]
+description = "Run the integration tier of tools/kore and tools/harness: real units together, no cluster. Not part of the default test run or the commit hook"
+run = ["npm --prefix tools/kore run test:integration", "npm --prefix tools/harness run test:integration"]
+
 [tasks.harness-build]
 description = "Bundle the harness CLI into skills/bin/harness.mjs (a build output, never committed; needs `npm ci --prefix tools/harness`; CI and hooks need it built)"
 run = "npm --prefix tools/harness run build"

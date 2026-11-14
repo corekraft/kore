@@ -6,8 +6,26 @@ export default defineConfig({
     // One cap for every unit path; see .husky/test-workers.mjs.
     maxWorkers: testWorkers(),
     setupFiles: ["src/test-setup-support.ts"],
-    include: ["src/**/*.spec.ts"],
-    exclude: ["**/*.live.spec.ts", "dist/**"],
+    // The integration tier runs real units together, never a cluster. Only
+    // `test:integration` runs it; the unit project and every default run skip it.
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "unit",
+          include: ["src/**/*.spec.ts"],
+          exclude: ["**/*.live.spec.ts", "**/*.integration.spec.ts", "dist/**"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "integration",
+          include: ["src/**/*.integration.spec.ts"],
+          exclude: ["dist/**"],
+        },
+      },
+    ],
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],

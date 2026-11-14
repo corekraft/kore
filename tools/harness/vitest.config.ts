@@ -7,6 +7,17 @@ const bundleFiles = [
   "../../.claude/hooks/harness-launcher.test.mjs",
 ];
 
+// The integration tier: real units run together, with local processes and
+// temporary files but no cluster or network. A file joins it by its name
+// (`*.integration.spec.ts`, `*.integration.test.mjs`) in one of these folders,
+// and the unit project excludes it. Only `test:integration` runs it.
+const integrationFiles = [
+  "src/**/*.integration.spec.ts",
+  "tests/**/*.integration.spec.ts",
+  "../../.claude/hooks/*.integration.test.mjs",
+  "../../.claude/evals/*.integration.test.mjs",
+];
+
 export default defineConfig({
   test: {
     // One cap for every unit path; see .husky/test-workers.mjs.
@@ -25,7 +36,7 @@ export default defineConfig({
             "../../.claude/hooks/*.test.mjs",
             "../../.claude/evals/*.test.mjs",
           ],
-          exclude: bundleFiles,
+          exclude: [...bundleFiles, ...integrationFiles],
           sequence: { groupOrder: 0 },
         },
       },
@@ -37,6 +48,16 @@ export default defineConfig({
           include: bundleFiles,
           fileParallelism: false,
           sequence: { groupOrder: 1 },
+        },
+      },
+      {
+        // Run only by `test:integration`: never by the default run, the unit
+        // run, the hook run or the commit hook.
+        extends: true,
+        test: {
+          name: "integration",
+          include: integrationFiles,
+          sequence: { groupOrder: 2 },
         },
       },
     ],

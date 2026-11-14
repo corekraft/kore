@@ -10,10 +10,11 @@
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\" package.json tsconfig.json .oxlintrc.json .prettierrc.json vitest.config.ts",
     "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\" package.json tsconfig.json .oxlintrc.json .prettierrc.json vitest.config.ts",
     "lint": "oxlint --type-aware --deny-warnings src tests",
-    "test": "vitest run --coverage",
-    "test:unit": "vitest run",
-    "test:related": "vitest related --run --passWithNoTests --maxWorkers=2",
-    "test:hooks": "vitest run .claude/"
+    "test": "vitest run --coverage --project unit --project bundle",
+    "test:unit": "vitest run --project unit --project bundle",
+    "test:integration": "vitest run --project integration",
+    "test:related": "vitest related --run --passWithNoTests --maxWorkers=2 --project unit --project bundle",
+    "test:hooks": "vitest run --project unit --project bundle .claude/"
   },
   "devDependencies": {
     "@types/node": "26.6.6",
