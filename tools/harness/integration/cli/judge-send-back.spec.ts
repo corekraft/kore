@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { run } from "./cli.js";
-import { sendBackBody } from "../judge/index.js";
+import { run } from "../../src/cli/index.js";
+import { sendBackBody } from "../../src/judge/index.js";
 import { LEDGER, REPO, scenario, type Harness } from "./judge-support.js";
 
 const HEAD = "abc1234def5678abc1234def5678abc1234def56";

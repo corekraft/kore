@@ -1,7 +1,7 @@
 // Fakes shared by the cli domain's command unit specs. A support file is not a
 // unit, so it needs no spec of its own (ADR 0098).
 import { vi } from "vitest";
-import type { Ledger, LedgerEvent } from "../ledger/index.js";
+import type { Ledger, LedgerEvent, RecordResult } from "../ledger/index.js";
 import type { CliDeps, CommandContext, FileSystem } from "../runtime/index.js";
 
 export const NOW = "2026-01-02T03:04:05.000Z";
@@ -46,11 +46,29 @@ export function fakeContext(overrides: Partial<CommandContext> = {}) {
 }
 
 /**
+ * The deps a spec fakes: only the members it names. The one cast stands in for
+ * the rest of CliDeps, which the unit under test never reaches.
+ */
+export function depsWith(fakes: Record<string, unknown>): CliDeps {
+  return fakes as unknown as CliDeps;
+}
+
+/** A command context whose deps are the given fakes, with the flags and operand it was run with. */
+export function contextWith(
+  fakes: Record<string, unknown>,
+  options: Record<string, string | boolean> = {},
+  json = false,
+  operand?: string,
+): CommandContext {
+  return { json, options, operand, deps: depsWith(fakes) };
+}
+
+/**
  * A ledger that lists the given events and records every event it is given.
  * The cast stands in for the ledger's file handling, which the spec never reaches.
  */
 export function fakeLedger(
-  listed: { label: string }[] = [],
+  listed: { label: string; number?: number }[] = [],
   record: Awaited<ReturnType<Ledger["record"]>> = {
     ok: true,
     event: {} as LedgerEvent,
@@ -62,6 +80,8 @@ export function fakeLedger(
       skipped: 0,
     }),
   );
-  const write = vi.fn<Ledger["record"]>(() => Promise.resolve(record));
+  const write = vi.fn<(input: { label?: string }) => Promise<RecordResult>>(
+    () => Promise.resolve(record),
+  );
   return { ledger: { list, record: write } as unknown as Ledger, write, list };
 }

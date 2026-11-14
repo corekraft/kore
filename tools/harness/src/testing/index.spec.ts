@@ -113,6 +113,8 @@ const EXPORTS = [
   "INDEX",
   "ISSUE",
   "LEDGER",
+  "LEDGER_FILE",
+  "ledgerHarness",
   "LOCK",
   "MemoryFs",
   "MemoryFileSystem",

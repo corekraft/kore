@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { run } from "./cli.js";
+import { run } from "../../src/cli/index.js";
 import { report, scenario } from "./judge-support.js";
 
 const CONFIG = "/repo/.claude/harness.json";
