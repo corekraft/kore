@@ -47,6 +47,7 @@ vi.mock("./guard-shell.js");
 vi.mock("./guard-verdict.js");
 
 const ROOT = "/repo";
+const WHERE = { root: ROOT, cwd: ROOT };
 const HARNESS_PATH = "skills/bin/harness.mjs";
 
 const hit = (rule: string, message: string) => ({
@@ -123,22 +124,22 @@ describe("runsInline: an interpreter given code, or an editor told to edit in pl
 describe("checkDelivery: a tool other than Bash", () => {
   it("refuses a file write by a reporting role, which changes no file", () => {
     expect(
-      checkDelivery("judge", true, "Write", { file_path: "a.md" }, ROOT),
+      checkDelivery("judge", true, "Write", { file_path: "a.md" }, WHERE),
     ).toEqual(hit("role-read-only", "Write changes files"));
   });
 
   it("reads the role kind it is given, not the role's name", () => {
     expect(
-      checkDelivery("judge", false, "Write", { file_path: "a.md" }, ROOT),
+      checkDelivery("judge", false, "Write", { file_path: "a.md" }, WHERE),
     ).toBeNull();
     expect(
-      checkDelivery("writer", true, "Edit", { file_path: "docs/a.md" }, ROOT),
+      checkDelivery("writer", true, "Edit", { file_path: "docs/a.md" }, WHERE),
     ).toEqual(hit("role-read-only", "Edit changes files"));
   });
 
   it("allows a writer's write inside its worktree, relative or absolute", () => {
     expect(
-      checkDelivery("writer", false, "Edit", { file_path: "docs/a.md" }, ROOT),
+      checkDelivery("writer", false, "Edit", { file_path: "docs/a.md" }, WHERE),
     ).toBeNull();
     expect(
       checkDelivery(
@@ -146,7 +147,7 @@ describe("checkDelivery: a tool other than Bash", () => {
         false,
         "Edit",
         { file_path: `${ROOT}/a.md` },
-        ROOT,
+        WHERE,
       ),
     ).toBeNull();
   });
@@ -158,19 +159,25 @@ describe("checkDelivery: a tool other than Bash", () => {
         false,
         "Write",
         { file_path: "/etc/hosts" },
-        ROOT,
+        WHERE,
       ),
     ).toMatchObject({
       rule: "role-worktree",
     });
     expect(
-      checkDelivery("writer", false, "Write", { file_path: "/tmp/x" }, ROOT),
+      checkDelivery("writer", false, "Write", { file_path: "/tmp/x" }, WHERE),
     ).toBeNull();
   });
 
   it("passes a tool that writes no file", () => {
     expect(
-      checkDelivery("writer", false, "Read", { file_path: "/etc/hosts" }, ROOT),
+      checkDelivery(
+        "writer",
+        false,
+        "Read",
+        { file_path: "/etc/hosts" },
+        WHERE,
+      ),
     ).toBeNull();
   });
 });
