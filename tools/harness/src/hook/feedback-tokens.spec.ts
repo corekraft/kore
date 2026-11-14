@@ -119,8 +119,11 @@ function fakeFs() {
   };
 }
 
-/** The fake as the file system the hook reads through; the one cast the fake needs, since only the three reads are mocked. */
-const port = (fake: ReturnType<typeof fakeFs>) => fake as unknown as FileSystem;
+/** The fake as the file system the hook reads through. Only the three methods the hook uses are mocked, so the one assertion stands for the rest. */
+function port(fake: ReturnType<typeof fakeFs>): FileSystem {
+  const used: Pick<FileSystem, "readFile" | "writeFile" | "readFrom"> = fake;
+  return used as FileSystem;
+}
 
 describe("feedback token reads, what is counted", () => {
   it("reads nothing and reports no growth when there is no transcript path", async () => {

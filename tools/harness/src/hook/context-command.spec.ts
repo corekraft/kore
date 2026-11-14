@@ -9,20 +9,21 @@ import "./context-command.js";
 import { realContextDeps } from "./context-deps.js";
 import { restore } from "./context.js";
 import { deps as contextDeps } from "./context-support.js";
-import { hookCommand, type HookResult } from "./io.js";
+import { hookCommand } from "./io.js";
 
 vi.mock("./io.js", () => ({ hookCommand: vi.fn() }));
 vi.mock("./context.js", () => ({ restore: vi.fn() }));
 vi.mock("./context-deps.js", () => ({ realContextDeps: vi.fn() }));
 
-type Handler = (ctx: {
-  deps: CliDeps;
-  payload: unknown;
-}) => Promise<HookResult>;
+type Handler = Parameters<typeof hookCommand>[2];
 
-/** The handler the wrapper registered when the module loaded; the one cast is the wrapper's typing. */
+/** The handler the wrapper registered when the module loaded, as the wrapper typed it. */
 function registeredHandler(): Handler {
-  return vi.mocked(hookCommand).mock.calls[0]?.[2] as unknown as Handler;
+  const handler = vi.mocked(hookCommand).mock.calls[0]?.[2];
+  if (!handler) {
+    throw new Error("the context hook was never registered");
+  }
+  return handler;
 }
 
 /** The one assertion: a fake's parts as CliDeps, whose members the spec never reads. */
@@ -39,6 +40,10 @@ const handler = registeredHandler();
 const deps = fakeDeps();
 const rootedDeps = contextDeps();
 
+/** The hook context the wrapper hands the handler for a payload, with no flags or operand. */
+const run = (payload: unknown) =>
+  handler({ deps, payload, options: {}, operand: undefined });
+
 beforeEach(() => {
   vi.mocked(realContextDeps).mockReturnValue(rootedDeps);
   vi.mocked(restore).mockResolvedValue("");
@@ -50,23 +55,23 @@ describe("context command, input", () => {
   });
 
   it("ends quietly on input that is not a JSON object", async () => {
-    expect(await handler({ deps, payload: "text" })).toEqual({});
-    expect(await handler({ deps, payload: null })).toEqual({});
-    expect(await handler({ deps, payload: ["list"] })).toEqual({});
+    expect(await run("text")).toEqual({});
+    expect(await run(null)).toEqual({});
+    expect(await run(["list"])).toEqual({});
     expect(vi.mocked(restore)).not.toHaveBeenCalled();
   });
 });
 
 describe("context command, output", () => {
   it("prints nothing when there is no context to add", async () => {
-    expect(await handler({ deps, payload: { source: "resume" } })).toEqual({});
+    expect(await run({ source: "resume" })).toEqual({});
   });
 
   it("prints the context as SessionStart additional context", async () => {
     vi.mocked(restore).mockResolvedValue(
       "Session brief from infra/plans/x.md:",
     );
-    expect(await handler({ deps, payload: { source: "startup" } })).toEqual({
+    expect(await run({ source: "startup" })).toEqual({
       stdout: JSON.stringify({
         hookSpecificOutput: {
           hookEventName: "SessionStart",
@@ -77,7 +82,7 @@ describe("context command, output", () => {
   });
 
   it("restores from the event and the dependencies rooted at the repository", async () => {
-    await handler({ deps, payload: { source: "compact", session_id: "s1" } });
+    await run({ source: "compact", session_id: "s1" });
     expect(vi.mocked(realContextDeps).mock.calls).toEqual([[deps, "/repo"]]);
     expect(vi.mocked(restore).mock.calls).toEqual([
       [{ source: "compact", session_id: "s1" }, rootedDeps],
@@ -90,13 +95,13 @@ describe("context command, faults", () => {
     vi.mocked(restore).mockRejectedValue(
       Object.assign(new Error("no AGENTS.md"), { code: "ENOENT" }),
     );
-    expect(await handler({ deps, payload: { source: "compact" } })).toEqual({});
+    expect(await run({ source: "compact" })).toEqual({});
   });
 
   it("rethrows any other fault, so a broken hook is visible", async () => {
     vi.mocked(restore).mockRejectedValue(new Error("plan parse broke"));
-    await expect(
-      handler({ deps, payload: { source: "compact" } }),
-    ).rejects.toThrow("plan parse broke");
+    await expect(run({ source: "compact" })).rejects.toThrow(
+      "plan parse broke",
+    );
   });
 });
