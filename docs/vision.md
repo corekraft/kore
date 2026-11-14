@@ -311,19 +311,21 @@ automatic for every service and scopes it to the organization.
 
 What a service gets without writing any instrumentation:
 
-| Signal          | Where it comes from                                                                    |
-| --------------- | -------------------------------------------------------------------------------------- |
-| Request metrics | Gateway and mesh telemetry: request rate, errors, and latency for every route          |
-| Logs            | The node agent collects container output and enriches it with service and organization |
-| Traces          | Mesh spans at the Gateway and between services, joined to the service's own spans      |
-| Resource use    | Kubelet and cluster metrics per service, plus HPA replica counts                       |
-| Data health     | Metrics from each data service operator, such as CloudNativePG and Strimzi             |
+| Signal          | Where it comes from                                                                                                                              |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Request metrics | Gateway and mesh telemetry: request rate, errors, and latency for every route                                                                    |
+| Logs            | The node agent collects container output and enriches it with service and organization                                                           |
+| Traces          | agentgateway spans at the edge, each service's own agent spans, and waypoint spans only where a service needs L7 policy, joined by trace context |
+| Resource use    | Kubelet and cluster metrics per service, plus HPA replica counts                                                                                 |
+| Data health     | Metrics from each data service operator, such as CloudNativePG and Strimzi                                                                       |
 
 - **The OTLP endpoint is injected.** Every service receives the Collector
   endpoint and standard resource attributes in its environment, so the Kotlin
   BFF template exports from its first deploy. On the JVM, the OpenTelemetry
   Java agent that Jib bakes into the image traces Spring, HTTP clients, JDBC,
-  Kafka, and Redis clients with no code, in every BFF.
+  Kafka, and Redis clients with no code, in every BFF. Other languages export
+  through the same endpoint once they emit OTLP; until then they get edge spans
+  from agentgateway and metrics.
 - **The platform stamps the organization.** The Collector adds tenant,
   organization, service, and environment attributes from namespace labels.
   It never trusts an organization a service reports about itself, so one tenant
@@ -365,8 +367,10 @@ Beside the hot tier, every log record and every span is kept as evidence
 - **Indexed on the object store.** Quickwit, licensed under Apache 2.0, keeps
   one index per tenant root in the object store, with every message and
   attribute searchable.
-- **Nothing sampled away.** Mesh tracing samples every request, and the archive
-  receives every span even where the hot tier samples.
+- **Nothing sampled away.** The components that emit spans (agentgateway, each
+  service's own agent, and waypoints) sample every request, and the archive
+  receives every span they emit even where the hot tier samples. It cannot
+  hold spans no component emits.
 - **Tamper-evident.** Each tenant's archive bucket uses S3 Object Lock in
   compliance mode, so no one, root included, can delete or change it before
   retention ends. Each indexed batch has a signed digest, and gaps are
@@ -515,9 +519,11 @@ What exists or is in flight today, and what the vision adds.
   because a pod started cold.
 - An organization admin sees their own tree and nothing else, and a negative
   test proves it.
-- A new service shows request rate, errors, latency, logs, and traces in its
+- A new service shows request rate, errors, latency, and logs in its
   organization's dashboards before anyone writes instrumentation code, and
   another organization cannot query them.
+- A new golden-path BFF also shows traces in those dashboards with no code.
+  Services in other languages get edge spans and metrics until they emit OTLP.
 - Every running workload in every tenant is deployed by signed digest, and no
   secret exists in plaintext on disk or in git.
 - Moving a service between local and a managed environment changes only
