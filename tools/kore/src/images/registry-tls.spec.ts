@@ -64,6 +64,14 @@ test("a Secret that holds no PEM certificate is rejected, not trusted", async ()
   );
 });
 
+test("a Secret whose CA is empty is missing, never an empty trust store", async () => {
+  const repository = await loadRepository("local");
+  const { runner } = runnerWith({ ca: "" });
+  await expect(loadRegistryCa(repository, runner)).rejects.toThrow(
+    /is missing/,
+  );
+});
+
 test("trust distribution publishes only the public CA: a ConfigMap for Policy Controller, with no node shell", async () => {
   const repository = await loadRepository("local");
   const { runner, calls } = runnerWith({ ca: pem });
