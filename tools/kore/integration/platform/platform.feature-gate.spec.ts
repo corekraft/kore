@@ -151,12 +151,16 @@ test("a gated-on component is probed like any other", async () => {
 
 test("a gated-off prerequisite does not close the admission gate", async () => {
   const repository = await repositoryWith(false);
+  const requirement: Repository["readiness"]["requirements"][number] = {
+    name: "r",
+    step: 1,
+    capability: "endpoint",
+    components: ["gated-core"],
+  };
   repository.readiness = {
     ...repository.readiness,
-    requirements: [
-      { name: "r", step: 1, capability: "c", components: ["gated-core"] },
-    ],
-  } as never;
+    requirements: [requirement],
+  };
   const evidence = evaluateReadiness(repository, [
     { name: "gated-core", namespace: "x", status: "gated-off", detail: "off" },
   ]);
