@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { run } from "../cli/index.js";
-import { INDEX, NEW, harness } from "../testing/index.js";
+import { run } from "../../src/cli/index.js";
+import { INDEX, NEW, harness } from "../../src/testing/index.js";
 
 const PATH = "docs/ideas/0001-cache-the-probe-results.md";
 

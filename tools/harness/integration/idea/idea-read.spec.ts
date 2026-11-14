@@ -2,10 +2,16 @@ import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { run } from "../cli/index.js";
-import { nodeFileSystem } from "../runtime/index.js";
-import { FakeRunner } from "../testing/index.js";
-import { INDEX, NEW, harness, ideaText, seeded } from "../testing/index.js";
+import { run } from "../../src/cli/index.js";
+import { nodeFileSystem } from "../../src/runtime/index.js";
+import { FakeRunner } from "../../src/testing/index.js";
+import {
+  INDEX,
+  NEW,
+  harness,
+  ideaText,
+  seeded,
+} from "../../src/testing/index.js";
 
 const FIELDS = {
   number: "0001",
