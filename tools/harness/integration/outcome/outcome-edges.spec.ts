@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { run } from "../cli/index.js";
-import { outcomeSection } from "../idea/index.js";
-import { harness, newArgs } from "../testing/index.js";
+import { run } from "../../src/cli/index.js";
+import { outcomeSection } from "../../src/idea/index.js";
+import { harness, newArgs } from "../../src/testing/index.js";
 import {
   LEDGER,
   PATH,
@@ -9,7 +9,7 @@ import {
   linked,
   record,
   withFlag,
-} from "../testing/index.js";
+} from "../../src/testing/index.js";
 
 const CLOSE = ["outcome", "close", "--idea", "1", "--ledger", LEDGER];
 

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { run } from "../cli/index.js";
-import { PATH, ghWrites, linked, record, withFlag } from "../testing/index.js";
+import { run } from "../../src/cli/index.js";
+import {
+  PATH,
+  ghWrites,
+  linked,
+  record,
+  withFlag,
+} from "../../src/testing/index.js";
 
 const PROOF = ["--flag", "ingress-agentgateway", "--environment", "local"];
 const live = (extra: string[] = PROOF) =>
