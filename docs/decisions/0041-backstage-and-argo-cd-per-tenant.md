@@ -1,8 +1,8 @@
 ---
 status: proposed
-summary: Each tenant root gets its own Backstage and its own namespace-scoped Argo CD, composed by the Organization API, scoped inside by sub-organization groups; Argo CD owns that tenant's service workload releases.
+summary: In Then, each tenant root gets its own Backstage and its own namespace-scoped Argo CD, composed by the Organization API, scoped inside by sub-organization groups; Argo CD owns that tenant's service workload releases. The platform organization's own set is ADR 0111, in Next.
 date: 2026-11-08
-last-verified: 2026-11-09
+last-verified: 2026-11-14
 ---
 
 # ADR 0041: Run one Backstage and one Argo CD per tenant
@@ -14,6 +14,10 @@ Refines: [ADR 0002](0002-tool-responsibility-boundaries.md) and
 workloads only.
 
 ## Context
+
+This ADR covers the Then part only: per-tenant instances need the tenancy
+model. The platform organization's own Backstage and Argo CD for operators, in
+Next, are [ADR 0111](0111-run-a-backstage-and-an-argo-cd-for-the-platform-organization-s-operators.md).
 
 The vision ships Backstage and Argo CD out of the box. A single shared
 Backstage relies on each plugin to enforce access, and plugins that call other
@@ -27,8 +31,7 @@ GitOps.
 - **One Backstage and one Argo CD per tenant root.** The `Organization` API
   composes both when it creates a tenant root, in a platform namespace for that
   tenant, alongside the tenant's own Keycloak
-  ([ADR 0040](0040-keycloak-human-identity.md)). The platform organization gets
-  its own set for operators.
+  ([ADR 0040](0040-keycloak-human-identity.md)).
 - **Scoped inside by organization.** Backstage permission policies and Argo CD
   RBAC key on the sub-organization groups in the token
   ([ADR 0040](0040-keycloak-human-identity.md)). Argo CD has an AppProject per
