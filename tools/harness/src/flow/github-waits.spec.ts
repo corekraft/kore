@@ -34,18 +34,19 @@ function at(
 }
 
 vi.mock("./intervals.js");
+vi.mock("./tally.js");
 
 /**
- * The tally is real, so its window and type are real; the two methods the
- * waits call are spies that record and charge nothing.
+ * The tally is automocked, so its constructor and methods are mocks. The
+ * constructor is mocked too, so the window it would have set is set here.
  */
 function fakeTally(window: Span) {
-  const tally = new Tally(window);
-  return {
-    tally,
-    present: vi.spyOn(tally, "present").mockImplementation(() => undefined),
-    addMs: vi.spyOn(tally, "addMs").mockImplementation(() => undefined),
-  };
+  const tally = Object.assign(new Tally(window), { window });
+  const present = vi.fn<Tally["present"]>();
+  const addMs = vi.fn<Tally["addMs"]>();
+  tally.present = present;
+  tally.addMs = addMs;
+  return { tally, present, addMs };
 }
 
 describe("time", () => {
