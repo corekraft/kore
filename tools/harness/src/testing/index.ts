@@ -22,6 +22,19 @@ export {
   repository,
 } from "./flag-support.js";
 export { T0, at, finishedIdea } from "./flow-support.js";
+export { entry, fakeDeps as fakeDeltaDeps, planText } from "./delta-support.js";
+export {
+  allowed,
+  bash,
+  blocked,
+  decide,
+  edit,
+  read,
+  root,
+  vitestConfig,
+  write,
+  type Result,
+} from "./guard-support.js";
 export { cleanGitEnv } from "./git-env.js";
 export {
   committedInventory,

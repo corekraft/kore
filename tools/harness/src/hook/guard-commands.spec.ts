@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { it } from "vitest";
-import { allowed, bash, blocked, type Result } from "./guard-support.js";
+import { allowed, bash, blocked, type Result } from "../testing/index.js";
 import { splitSegments } from "./guard-shell.js";
 
 it("splitSegments separates chained commands but keeps quoted operators", async () => {

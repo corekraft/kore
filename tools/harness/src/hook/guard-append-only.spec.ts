@@ -8,7 +8,7 @@ import {
   read,
   write,
   type Result,
-} from "./guard-support.js";
+} from "../testing/index.js";
 
 const HISTORY = ".claude/evals/history.jsonl";
 const JOURNAL = ".kore/state/journal/local.jsonl";

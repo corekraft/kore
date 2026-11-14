@@ -10,7 +10,7 @@ import {
   vitestConfig,
   write,
   type Result,
-} from "./guard-support.js";
+} from "../testing/index.js";
 
 it("secret-path: reading key and token material is blocked", async () => {
   blocked(await read("/repo/.kore/keys/local/age.txt"), "secret-path");
