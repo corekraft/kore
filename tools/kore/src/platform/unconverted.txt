@@ -14,4 +14,3 @@ reference-token.ts
 render-redaction.ts
 render.ts
 upstream-support.ts
-fail-fast.fixtures.ts
