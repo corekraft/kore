@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { loadRepository } from "../config/index.js";
+import { loadRepository } from "../src/config/index.js";
 
 test("reference resources template evaluates database values with Helm delimiters", async () => {
   const repository = await loadRepository("local");
