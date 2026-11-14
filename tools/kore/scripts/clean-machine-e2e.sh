@@ -91,7 +91,7 @@ mise exec -- node --input-type=module -e '
   const { loadRepository } = await import("./tools/kore/dist/src/config/index.js");
   const { ProcessRunner } = await import("./tools/kore/dist/src/runtime/index.js");
   const { assertReferenceSmoke } = await import(
-    "./tools/kore/dist/src/platform/platform.reference-smoke.integration.spec.js"
+    "./tools/kore/dist/src/platform/platform.reference-smoke.live.spec.js"
   );
   const repository = await loadRepository("local");
   await assertReferenceSmoke(repository, new ProcessRunner());

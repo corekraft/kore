@@ -8,7 +8,7 @@
     { "rule": "helm-context", "kind": "bash", "mode": "enforce", "owner": "tools/harness/src/hook/guard-commands.ts" },
     { "rule": "no-verify", "kind": "bash", "mode": "enforce", "owner": "tools/harness/src/hook/guard-commands.ts" },
     { "rule": "coverage-threshold", "kind": "file", "mode": "enforce", "owner": "tools/harness/src/hook/guard-file.ts" },
-    { "rule": "role-read-only", "kind": "bash-and-file", "mode": "enforce", "owner": "tools/harness/src/hook/guard-role.ts" },
+    { "rule": "role-read-only", "kind": "bash-and-file", "mode": "enforce", "owner": "tools/harness/src/hook/guard-role.ts", "note": "Writers may edit and move hook test files, .claude/hooks/<name>.test.mjs, by the owner's approval of 2026-11-12 (#440, ADR 0100); the hook scripts, the settings, skills/bin and the .claude folder stay protected." },
     { "rule": "role-no-code", "kind": "bash-and-file", "mode": "enforce", "owner": "tools/harness/src/hook/guard-role.ts" },
     { "rule": "role-no-merge", "kind": "bash", "mode": "enforce", "owner": "tools/harness/src/hook/guard-role-delivery.ts" },
     { "rule": "role-worktree", "kind": "bash-and-file", "mode": "enforce", "owner": "tools/harness/src/hook/guard-role-delivery.ts" },

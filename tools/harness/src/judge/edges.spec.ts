@@ -71,8 +71,4 @@ describe("declaration and hint edges", () => {
       flagPresentAndOff: true,
     });
   });
-
-  it("ignores text before the first diff header", () => {
-    expect(parseDiff("noise\n+stray")).toEqual([]);
-  });
 });

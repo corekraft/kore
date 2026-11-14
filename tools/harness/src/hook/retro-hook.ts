@@ -16,11 +16,16 @@ import {
 } from "../guardrail/index.js";
 import { readPlans } from "../plan/index.js";
 import { hookCommand, type HookResult } from "./io.js";
-import { lastRetrospective, scan } from "./retro-scan.js";
+import {
+  lastRetrospective,
+  MarkerError,
+  markerInstant,
+  scan,
+} from "./retro-scan.js";
 import { defaultDirs, readTranscripts } from "./retro-transcripts.js";
 
 const USAGE =
-  "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD]\n--since keeps sessions active at or after local midnight of that date, like the session-start count.";
+  "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD|YYYY-MM-DDTHH:MM:SSZ]\n--since keeps sessions active at or after local midnight of that date, or at or after that UTC instant, like the session-start count.";
 
 const isMissing = (error: unknown): boolean =>
   (error as NodeJS.ErrnoException).code === "ENOENT";
@@ -106,9 +111,19 @@ async function report(
     return { code: 2, stderr: found };
   }
   let stderr = "";
-  const effective =
-    since ??
-    (dir ? undefined : (lastRetrospective(await readPlans(deps)) ?? undefined));
+  let effective = since;
+  if (effective === undefined && !dir) {
+    try {
+      effective = lastRetrospective(await readPlans(deps)) ?? undefined;
+    } catch (error) {
+      // The plan's author fixes this one, so it fails the scan by name
+      // instead of failing open with no report.
+      if (error instanceof MarkerError) {
+        return { code: 2, stderr: `${error.message}\n` };
+      }
+      throw error;
+    }
+  }
   const skills = await skillNames(deps.fs, root);
   if (skills === undefined) {
     stderr += "No skills/ directory found; skills.unused will be empty.\n";
@@ -132,7 +147,7 @@ export const retroScan = hookCommand(
   "count guard blocks, failures, skills and repeated corrections over session transcripts (retro skill input)",
   async ({ deps, options }) => {
     const since = options["since"];
-    if (typeof since === "string" && !/^\d{4}-\d{2}-\d{2}$/.test(since)) {
+    if (typeof since === "string" && !Number.isFinite(markerInstant(since))) {
       return { code: 2, stderr: `${USAGE}\n` };
     }
     const dir = options["dir"];
