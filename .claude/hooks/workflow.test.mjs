@@ -236,15 +236,28 @@ test("the release workflow names the registry once and emits an image lock", () 
 });
 
 test("the release workflow checks out without credentials and installs only the signing tools", () => {
-  const text = release();
-  assert.equal(
-    text.match(/persist-credentials: false/g)?.length,
-    2,
-    "both signing jobs check out without credentials",
-  );
+  // Each job is checked by name: the integration gate (#404) is a third job that
+  // checks out without credentials too, so a total count would be stale.
+  for (const name of ["release", "mirror", "integration"]) {
+    const job = jobText(name);
+    assert.match(
+      job,
+      /^ {10}persist-credentials: false$/m,
+      `${name} checks out without credentials`,
+    );
+    assert.match(
+      job,
+      /^ {10}cache: false$/m,
+      `${name} turns off the mise cache`,
+    );
+  }
   assert.match(jobText("release"), /install_args: cosign$/m);
   assert.match(jobText("mirror"), /install_args: cosign crane$/m);
-  assert.equal(text.match(/cache: false/g)?.length, 2);
+  // The integration job installs what the tier runs, as integration.yml does.
+  assert.match(
+    jobText("integration"),
+    /install_args: node npm opa gator helm promtool opentofu$/m,
+  );
 });
 
 test("platform image mirroring is a separate tag-only job with the minimal signing permissions", () => {
