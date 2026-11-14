@@ -60,9 +60,12 @@ see [The harness bundle](#the-harness-bundle).
    seconds.
 
    Unit runs are capped so a busy host stays usable. Both packages' vitest
-   configs read `tools/kore/.husky/test-workers.mjs`: two workers, or
-   `KORE_TEST_WORKERS` (a positive whole number exported in the shell; CI sets
-   its own). The hook runs its tests under a host-wide semaphore
+   configs read `tools/kore/.husky/test-workers.mjs`, run the threads pool
+   (`pool: "threads"`), and start two workers on any host, CI included.
+   `KORE_TEST_WORKERS` (a positive whole number exported in the shell)
+   overrides it on a local host, for example for a run that wants more
+   workers than a live cluster on the same host leaves room for (#405). The
+   hook runs its tests under a host-wide semaphore
    (`tools/kore/.husky/test-lock.mjs`, `test-slot-<n>.lock` files in
    `.kore/state` of the main checkout). Its size comes from
    `tools/kore/.husky/test-slots.mjs`: idle cores (cores minus the one-minute
