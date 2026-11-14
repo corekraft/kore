@@ -59,6 +59,31 @@ describe("role-no-merge: the merge tool is the only way a role merges", () => {
       "role-no-merge",
     );
   });
+});
+
+describe("role-no-merge: the judge approve tool", () => {
+  it("lets only the judge run the approve tool, and still blocks a raw gh pr review for it", async () => {
+    allowed(
+      await bash(
+        "judge",
+        "node skills/bin/harness.mjs judge approve 12 --reviewer bot --json",
+      ),
+    );
+    for (const role of ["orchestrator", "writer"]) {
+      blocked(
+        await bash(role, "node skills/bin/harness.mjs judge approve 12"),
+        "role-no-merge",
+      );
+    }
+    blocked(await bash("judge", "gh pr review 12 --approve"), "role-read-only");
+    blocked(
+      await bash(
+        "judge",
+        "node skills/bin/harness.mjs judge approve 12 --ledger /tmp/x.jsonl",
+      ),
+      "role-read-only",
+    );
+  });
 
   it("still blocks the judge from merging through a chained or wrapped call", async () => {
     blocked(

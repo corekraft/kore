@@ -8,6 +8,7 @@ import {
   repoOf,
   reviewersOf,
 } from "./judge-shared.js";
+import { approveCommands } from "./judge-approve-command.js";
 import { mergeCommands } from "./judge-merge-commands.js";
 
 /** `harness review post`: the principles-review verdict, in the format the judge's precheck reads. */
@@ -47,5 +48,6 @@ const precheckCommand: Command = {
 
 export const judgeCommands: Record<string, Command> = {
   precheck: precheckCommand,
+  ...approveCommands,
   ...mergeCommands,
 };

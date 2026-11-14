@@ -154,7 +154,7 @@ function ghMerges(line: readonly string[]): boolean {
 export const mergesPr = (segment: readonly string[]): boolean =>
   expand(segment).some(ghMerges);
 
-/** Whether a segment runs the judge's merge or send-back tool, through its wrappers. */
+/** Whether a segment runs the judge's merge, approve or send-back tool, through its wrappers. */
 export const runsJudgeTool = (
   segment: readonly string[],
   harness: RegExp,
@@ -165,6 +165,6 @@ export const runsJudgeTool = (
       name === "node" &&
       harness.test(args[0] ?? "") &&
       args[1] === "judge" &&
-      ["merge", "send-back"].includes(args[2] ?? "")
+      ["merge", "send-back", "approve"].includes(args[2] ?? "")
     );
   });

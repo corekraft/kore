@@ -170,7 +170,7 @@ describe("mergesPr: a gh command that merges a pull request", () => {
   });
 });
 
-describe("runsJudgeTool: the judge's merge or send-back", () => {
+describe("runsJudgeTool: the judge's merge, approve or send-back", () => {
   const judge = (...args: string[]) => [
     "node",
     "skills/bin/harness.mjs",
@@ -180,6 +180,7 @@ describe("runsJudgeTool: the judge's merge or send-back", () => {
   it.each([
     ["merge", ["judge", "merge", "12"]],
     ["send-back", ["judge", "send-back", "12"]],
+    ["approve", ["judge", "approve", "12"]],
   ])("is true for the judge's %s", (_name, args) => {
     expect(runsJudgeTool(judge(...args), HARNESS)).toBe(true);
   });
