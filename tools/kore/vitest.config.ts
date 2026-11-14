@@ -1,10 +1,16 @@
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
+import { budgetReporters } from "../harness/src/hook/test-budget-config.ts";
 import { testWorkers } from "./.husky/test-workers.mjs";
 
 export default defineConfig({
   test: {
     // One cap for every unit path; see .husky/test-workers.mjs.
     maxWorkers: testWorkers(),
+    // The test-budget hook reads this report; see `test:budget` in package.json.
+    reporters: budgetReporters(
+      "test-results/unit.json",
+      configDefaults.reporters,
+    ),
     setupFiles: ["src/test-setup-support.ts"],
     include: ["src/**/*.spec.ts"],
     exclude: ["**/*.live.spec.ts", "dist/**"],

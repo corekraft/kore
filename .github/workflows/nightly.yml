@@ -5,7 +5,8 @@
 # `test:live` task is skipped (ADR 0093).
 #
 # The run's conclusion is the status on main: a scheduled run belongs to the
-# default branch's latest commit, and the workflow needs no write permission.
+# default branch's latest commit, and the workflow needs no write permission,
+# except the pinned `failure-issue` job, which opens the integration tier's issue.
 # A failed run notifies the person who last edited the schedule.
 #
 # Runner: `ubuntu-latest`, the free hosted Linux runner (4 vCPU, 16 GB for
@@ -50,3 +51,53 @@ jobs:
         run: npm ci --prefix tools/kore
       - name: Clean local up and the live suites
         run: tools/kore/scripts/nightly.sh
+
+  # The integration tier (ADR 0098): real units together, no cluster. Its own
+  # job, so its result shows in the run next to the live job's.
+  integration:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      MISE_TASK_RUN_AUTO_INSTALL: "false"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        with:
+          install: true
+          install_args: node npm
+          cache: true
+      - name: Install CLI dependencies
+        run: npm ci --prefix tools/kore
+      - name: Install harness dependencies
+        run: npm ci --prefix tools/harness
+      - name: Run the integration tier
+        run: mise run test-integration
+
+  # Opens, updates or closes the integration tier's failure issue (#419, ADR 0044).
+  # The one job outside release.yaml that may hold a write scope: the signer guard
+  # pins its name, exact scopes, and gate. It runs on the scheduled or a manually
+  # dispatched run on main only, checks out only main without credentials, and
+  # reads no secret but GITHUB_TOKEN.
+  failure-issue:
+    needs: integration
+    if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      issues: write
+      actions: read
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      INTEGRATION_RESULT: ${{ needs.integration.result }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Open, update, or close the failure issue
+        run: .github/scripts/nightly-failure-issue.sh

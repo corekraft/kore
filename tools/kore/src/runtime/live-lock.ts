@@ -1,4 +1,4 @@
-import { loadRepository } from "../config/config.js";
+import { loadRepository } from "../config/index.js";
 import { hostRoot, lockScope } from "./host-locks.js";
 import { HOST_LEASE } from "./host-lease.js";
 import { isSet, liveEnvironment } from "./live-environment.js";

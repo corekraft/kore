@@ -7,10 +7,10 @@ import {
 } from "./checks.js";
 import { parseDeclaration, type Pattern } from "./declaration.js";
 import { parseDiff } from "./diff.js";
+import { JudgeError } from "./errors.js";
 import { hintsFor, type Hints } from "./hints.js";
+import { withManifestSides } from "./manifest-source.js";
 import { assess } from "./verdict.js";
-
-export class JudgeError extends Error {}
 
 export interface Report {
   pr: number;
@@ -31,23 +31,30 @@ export interface Report {
 const FIX =
   "Check `gh auth status` and the PR number, then rerun `harness judge precheck <pr>`.";
 
-async function gh(
+async function run(
   { deps }: CommandContext,
   root: string,
-  repo: string,
-  args: string[],
+  args: readonly string[],
   pr: number,
 ): Promise<string> {
-  // The repository is named, never taken from the working directory or GH_REPO.
-  const done = await deps.runner.run("gh", [...args, "--repo", repo], {
-    cwd: root,
-  });
+  const done = await deps.runner.run("gh", args, { cwd: root });
   if (done.code !== 0) {
     throw new JudgeError(
       `gh ${args.slice(0, 2).join(" ")} failed for PR #${pr}: ${done.stderr.trim()}. ${FIX}`,
     );
   }
   return done.stdout;
+}
+
+async function gh(
+  context: CommandContext,
+  root: string,
+  repo: string,
+  args: string[],
+  pr: number,
+): Promise<string> {
+  // The repository is named, never taken from the working directory or GH_REPO.
+  return run(context, root, [...args, "--repo", repo], pr);
 }
 
 export async function readPr(
@@ -65,7 +72,7 @@ export async function readPr(
       "view",
       String(pr),
       "--json",
-      "body,comments,commits,headRefOid,statusCheckRollup",
+      "baseRefOid,body,comments,commits,headRefOid,statusCheckRollup",
     ],
     pr,
   );
@@ -106,7 +113,13 @@ export async function precheck(
     view,
     reviewers,
   );
-  const files = parseDiff(diff);
+  const files = await withManifestSides(
+    parseDiff(diff),
+    (args) => run(context, root, args, pr),
+    repo,
+    view.baseSha,
+    view.headSha,
+  );
   const hints = hintsFor(declaration.pattern, files);
   const verdict = assess(declaration.pattern, hints, files);
   return {

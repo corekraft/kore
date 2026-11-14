@@ -15,7 +15,7 @@ import {
   lockedImage,
   passthroughRegistry,
   type Call,
-} from "./app-fixtures.js";
+} from "../testing/index.js";
 
 // Docs: docs/decisions/0013-local-tls-before-gateway.md
 // kore app up reports success only once every HTTPRoute the application's

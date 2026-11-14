@@ -238,3 +238,20 @@ export const useNotify = (what: string): Finding =>
     `${what} types into another pane, and a bounded role sends a pane nothing but its finish notice. ` +
       "Instead, run `node skills/bin/harness.mjs session notify <pane> --outcome done|blocked`, which builds the finish line, submits it and confirms it arrived.",
   );
+
+/** The sources (and destination) of `git mv`, `git rm` or `rm [-f]`; any other flag stays a source and is no hook test. */
+export function removal(
+  line: readonly string[],
+): { sources: string[]; destination?: string } | undefined {
+  const { name, args } = commandOf(line);
+  const [verb = "", ...rest] = args;
+  if (name === "rm") {
+    return { sources: args.filter((word) => word !== "-f") };
+  }
+  if (name !== "git" || !["mv", "rm"].includes(verb)) {
+    return undefined;
+  }
+  return verb === "rm"
+    ? { sources: rest }
+    : { sources: rest.slice(0, -1), destination: rest.at(-1) ?? "-" };
+}

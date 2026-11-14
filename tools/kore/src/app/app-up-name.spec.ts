@@ -1,4 +1,9 @@
-import { list } from "../cluster/k3d-cluster.fixtures.js";
+import {
+  list,
+  gateOutput,
+  healthyReadinessOutput,
+  passthroughRegistry,
+} from "../testing/index.js";
 import { loadRepository } from "../config/index.js";
 import { expect, test, vi } from "vitest";
 
@@ -8,13 +13,8 @@ vi.mock("../images/index.js", async (importOriginal) => ({
   localRegistryReference: localRegistryReferenceMock,
 }));
 
-import { platformGeneration } from "../platform/admission-gate.js";
+import { platformGeneration } from "../platform/index.js";
 import { appUp } from "./up.js";
-import {
-  gateOutput,
-  healthyReadinessOutput,
-  passthroughRegistry,
-} from "./app-fixtures.js";
 import type { Runner } from "../runtime/index.js";
 
 test("app up rejects an invalid application name before resolving chart paths", async () => {

@@ -9,6 +9,15 @@ export const LEDGER = "/repo/.kore/state/ledger.jsonl";
 export const RUN_URL =
   "https://github.com/corekraft/kore/actions/runs/777/job/1";
 
+export const BASE_SHA = "1111111aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+export const HEAD_SHA = "abc1234def5678abc1234def5678abc1234def56";
+
+export interface ManifestSides {
+  mergeBase: string;
+  before: string;
+  after: string;
+}
+
 export interface Comment {
   author?: string;
   createdAt?: string;
@@ -21,6 +30,9 @@ export interface Scenario {
   comments?: Comment[];
   committedAt?: string;
   headSha?: string;
+  baseSha?: string;
+  /** The manifest at the merge base and at the head, for a diff that touches tools/kore/package.json. */
+  manifest?: ManifestSides;
   env?: Record<string, string>;
   steps?: { name: string; conclusion: string }[];
   diff?: string;
@@ -57,6 +69,40 @@ export const docsDiff = [
 export const REVIEWER = "reviewer-bot";
 export const REVIEW_OK: Comment = { body: "principles-review: No violations." };
 
+/** Answers the three `gh api` reads the precheck makes for a manifest diff. */
+function manifestResponses(
+  manifest: ManifestSides | undefined,
+  headSha: string,
+): FakeResponse[] {
+  if (manifest === undefined) {
+    return [];
+  }
+  const api = (args: readonly string[]) => args[0] === "api";
+  return [
+    {
+      match: (c, a) =>
+        c === "gh" && api(a) && a.some((x) => x.includes("/compare/")),
+      result: { stdout: `${manifest.mergeBase}\n` },
+    },
+    {
+      match: (c, a) =>
+        c === "gh" &&
+        api(a) &&
+        a.at(-1) ===
+          `repos/${REPO}/contents/tools/kore/package.json?ref=${manifest.mergeBase}`,
+      result: { stdout: manifest.before },
+    },
+    {
+      match: (c, a) =>
+        c === "gh" &&
+        api(a) &&
+        a.at(-1) ===
+          `repos/${REPO}/contents/tools/kore/package.json?ref=${headSha}`,
+      result: { stdout: manifest.after },
+    },
+  ];
+}
+
 export function scenario(s: Scenario = {}) {
   const responses: FakeResponse[] = [
     ...(s.first ?? []),
@@ -80,7 +126,8 @@ export function scenario(s: Scenario = {}) {
         stdout: JSON.stringify({
           body: s.body ?? "Safety pattern: no-behaviour-change\nIdea: #193",
           statusCheckRollup: s.rollup ?? passing,
-          headRefOid: s.headSha ?? "abc1234def5678abc1234def5678abc1234def56",
+          baseRefOid: s.baseSha ?? BASE_SHA,
+          headRefOid: s.headSha ?? HEAD_SHA,
           commits: [
             { committedDate: "2025-12-31T00:00:00Z" },
             { committedDate: s.committedAt ?? "2026-01-01T00:00:00Z" },
@@ -97,6 +144,7 @@ export function scenario(s: Scenario = {}) {
       match: (c, a) => c === "gh" && a[0] === "pr" && a[1] === "diff",
       result: { stdout: s.diff ?? docsDiff },
     },
+    ...manifestResponses(s.manifest, s.headSha ?? HEAD_SHA),
     {
       match: (c, a) => c === "gh" && a[0] === "run" && a[1] === "view",
       result: {
@@ -142,3 +190,43 @@ export const kore = [
   "@@ -1 +1 @@",
   "+x",
 ].join("\n");
+
+/** A scripts-only change to tools/kore/package.json, with the section header out of view as in PR 437. */
+export const manifestDiff = [
+  "diff --git a/tools/kore/package.json b/tools/kore/package.json",
+  "--- a/tools/kore/package.json",
+  "+++ b/tools/kore/package.json",
+  "@@ -14,4 +14,4 @@",
+  '     "format:check": "prettier --check src",',
+  '-    "test": "vitest run --coverage",',
+  '+    "test": "vitest run --coverage && npm run test:budget",',
+  '     "test:coverage": "vitest run --coverage",',
+].join("\n");
+
+const manifestText = (test: string) =>
+  JSON.stringify(
+    {
+      name: "kore",
+      scripts: {
+        "format:check": "prettier --check src",
+        test,
+        "test:coverage": "vitest run --coverage",
+      },
+      dependencies: { yaml: "2.0.0" },
+      devDependencies: { vitest: "4.0.0" },
+    },
+    null,
+    2,
+  );
+
+export const manifestSides: ManifestSides = {
+  mergeBase: "9999999aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  before: manifestText("vitest run --coverage"),
+  after: manifestText("vitest run --coverage && npm run test:budget"),
+};
+
+/** The `gh api` calls the fake runner received, as argument lists. */
+export const apiCalls = (h: Harness) =>
+  h.runner.calls
+    .filter((c) => c.command === "gh" && c.args[0] === "api")
+    .map((c) => [...c.args]);

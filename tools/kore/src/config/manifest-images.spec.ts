@@ -1,10 +1,10 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import { findRoot } from "../config/config.js";
+import { findRoot } from "../config/index.js";
 import { approvedImageList, loadRepository } from "../config/index.js";
 import { manifestImages } from "./manifest-images.js";
-import { unapprovedImages } from "./rendered-images.js";
+import { unapprovedImages } from "../images/index.js";
 
 const digest = `sha256:${"a".repeat(64)}`;
 

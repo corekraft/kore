@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "vitest";
-import { loadRepository, validateRepository } from "../config/config.js";
+import { loadRepository, validateRepository } from "../config/index.js";
 import type { Component, Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { desiredFingerprint } from "./fingerprint.js";

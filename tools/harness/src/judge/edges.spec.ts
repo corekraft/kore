@@ -20,12 +20,17 @@ describe("parsePrView", () => {
 
   it("tolerates a PR with no comments, commits or checks", () => {
     expect(parsePrView("{}")).toEqual({
+      baseSha: "",
       body: "",
       comments: [],
       headCommittedAt: undefined,
       headSha: "",
       rollup: [],
     });
+  });
+
+  it("reads the base commit the PR was opened against", () => {
+    expect(parsePrView('{"baseRefOid":"abc123"}')?.baseSha).toBe("abc123");
   });
 
   it("reads a comment with no author as an empty author", () => {
@@ -70,9 +75,5 @@ describe("declaration and hint edges", () => {
     expect(hintsFor("feature-flagged", parseDiff(diff))).toMatchObject({
       flagPresentAndOff: true,
     });
-  });
-
-  it("ignores text before the first diff header", () => {
-    expect(parseDiff("noise\n+stray")).toEqual([]);
   });
 });

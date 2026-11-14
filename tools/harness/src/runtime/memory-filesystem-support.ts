@@ -1,4 +1,23 @@
+import { matchesGlob } from "node:path";
 import type { FileSystem } from "./filesystem.js";
+
+const EXCLUDED = /(^|\/)(node_modules|\.git)(\/|$)/;
+
+/** Whether a path under `cwd` among `keys` matches the glob, as the real walk does: no node_modules or .git. */
+export function hasMatchUnder(
+  keys: Iterable<string>,
+  cwd: string,
+  pattern: string,
+): boolean {
+  const prefix = `${cwd}/`;
+  for (const key of keys) {
+    const rel = key.startsWith(prefix) ? key.slice(prefix.length) : undefined;
+    if (rel !== undefined && !EXCLUDED.test(rel) && matchesGlob(rel, pattern)) {
+      return true;
+    }
+  }
+  return false;
+}
 
 /** An in-memory FileSystem for tests; `files` is inspectable and seedable. */
 export class MemoryFileSystem implements FileSystem {
@@ -76,6 +95,10 @@ export class MemoryFileSystem implements FileSystem {
       throw Object.assign(new Error(`ENOENT: ${path}`), { code: "ENOENT" });
     }
     return Buffer.from(content).subarray(offset).toString("utf8");
+  }
+
+  hasGlobMatch(cwd: string, pattern: string): Promise<boolean> {
+    return Promise.resolve(hasMatchUnder(this.files.keys(), cwd, pattern));
   }
 
   readlink(path: string): Promise<string> {

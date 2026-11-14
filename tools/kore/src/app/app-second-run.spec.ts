@@ -14,7 +14,7 @@ import {
   lockedImage,
   passthroughRegistry,
   type Call,
-} from "./app-fixtures.js";
+} from "../testing/index.js";
 
 /**
  * A healthy cluster that remembers each release's revision description, as

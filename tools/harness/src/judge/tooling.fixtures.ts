@@ -6,6 +6,13 @@ export const add = (text: string): Line => ["added", text];
 export const del = (text: string): Line => ["removed", text];
 export const ctx = (text: string): Line => ["context", text];
 
+/** The file's full text at the merge base and at the head, as the precheck fetches it. */
+export const withSides = (
+  changed: ChangedFile,
+  before: string | undefined,
+  after: string | undefined,
+): ChangedFile => ({ ...changed, sides: { before, after } });
+
 /** One file; each hunk is a list of lines, and the first line of a hunk starts it. */
 export const file = (
   path: string,

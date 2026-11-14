@@ -1,4 +1,4 @@
-import { list } from "../cluster/k3d-cluster.fixtures.js";
+import { list } from "../testing/index.js";
 import { loadRepository } from "../config/index.js";
 import { expect, test } from "vitest";
 import { copyFile, mkdir, mkdtemp, rm } from "node:fs/promises";

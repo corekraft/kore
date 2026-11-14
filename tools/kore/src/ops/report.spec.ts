@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, test } from "vitest";
-import { findRoot } from "../config/config.js";
+import { findRoot } from "../config/index.js";
 import { loadRepository, type Repository } from "../config/index.js";
 import type { Runner, RunOptions, RunResult } from "../runtime/index.js";
 import { opsReport } from "./report.js";
