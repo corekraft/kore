@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { precheck, summary } from "../judge/index.js";
 import { contextWith } from "./command-support.js";
 import { judgeCommands } from "./judge-commands.js";
+import { declarationCommands } from "./judge-declaration-command.js";
+import { diffCommands } from "./judge-diff-command.js";
 import { approveCommands } from "./judge-approve-command.js";
 import { mergeCommands } from "./judge-merge-commands.js";
 import {
@@ -13,8 +15,16 @@ import {
   reviewersOf,
 } from "./judge-shared.js";
 import { REPO, reportOf, ROOT } from "./judge-command-support.js";
+import { requireFreshBundle } from "./judge-freshness.js";
 
 vi.mock("../judge/index.js");
+vi.mock("./judge-freshness.js");
+vi.mock("./judge-declaration-command.js", () => ({
+  declarationCommands: { declaration: { summary: "declaration" } },
+}));
+vi.mock("./judge-diff-command.js", () => ({
+  diffCommands: { diff: { summary: "diff" } },
+}));
 vi.mock("./judge-approve-command.js", () => ({
   approveCommands: { approve: { summary: "approve" } },
 }));
@@ -66,6 +76,31 @@ describe("harness judge precheck", () => {
     expect(record).toHaveBeenCalledWith(context, REPORT);
   });
 
+  it("checks the harness bundle is fresh before it reads the PR", async () => {
+    const { context } = contextOf();
+    ready();
+    vi.mocked(precheck).mockResolvedValue(REPORT);
+
+    await judgeCommands.precheck?.run(context);
+    expect(requireFreshBundle).toHaveBeenCalledWith(context, ROOT, REPO);
+    expect(
+      vi.mocked(requireFreshBundle).mock.invocationCallOrder[0],
+    ).toBeLessThan(vi.mocked(precheck).mock.invocationCallOrder[0] ?? 0);
+  });
+
+  it("stops without a precheck when the bundle is behind main", async () => {
+    const { context } = contextOf();
+    ready();
+    const error = new Error("behind");
+    vi.mocked(requireFreshBundle).mockRejectedValue(error);
+    vi.mocked(failed).mockReturnValue(1);
+
+    expect(await judgeCommands.precheck?.run(context)).toBe(1);
+    expect(failed).toHaveBeenCalledWith(context, error);
+    expect(precheck).not.toHaveBeenCalled();
+    expect(record).not.toHaveBeenCalled();
+  });
+
   it("prints the report as JSON under --json", async () => {
     const { context, stdout } = contextOf(true);
     ready();
@@ -102,8 +137,17 @@ describe("harness judge precheck", () => {
 describe("judge command table", () => {
   it("lists the precheck and the merge commands, taking the merge table unchanged", () => {
     expect(Object.keys(judgeCommands)).toEqual(
-      expect.arrayContaining(["precheck", "approve", "merge", "send-back"]),
+      expect.arrayContaining([
+        "precheck",
+        "declaration",
+        "diff",
+        "approve",
+        "merge",
+        "send-back",
+      ]),
     );
+    expect(judgeCommands.declaration).toBe(declarationCommands.declaration);
+    expect(judgeCommands.diff).toBe(diffCommands.diff);
     expect(judgeCommands.approve).toBe(approveCommands.approve);
     expect(judgeCommands.merge).toBe(mergeCommands.merge);
     expect(judgeCommands["send-back"]).toBe(mergeCommands["send-back"]);

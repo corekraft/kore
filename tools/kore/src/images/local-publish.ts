@@ -97,36 +97,74 @@ export async function publishImageCopy(
   );
 }
 
+export function localRepositoryPath(entry: ImageLockEntry): string {
+  const separator = entry.image.indexOf("/");
+  if (separator < 1) {
+    throw new Error("image repository path is unavailable");
+  }
+  return entry.image.slice(separator + 1).replace(/:[^/:]+$/, "");
+}
+
 /**
- * Copies the host image `imageTag` into the registry under the same tag, so
- * the digest is read back from the tag this run pushed.
+ * Copies the host image `imageTag` into the registry under the run tag and each
+ * extra tag, so the digest is read back from the tag this run pushed.
  */
 export async function publishToLocalRegistry(
   repository: Repository,
   runner: Runner,
   entry: ImageLockEntry,
-  imageTag: string,
+  { imageTag, extraTags = [] }: { imageTag: string; extraTags?: string[] },
   session: Pick<PublishSession, "credential" | "ca">,
 ): Promise<{ address: string; repositoryPath: string }> {
   const address = await verifiedRegistryAddress(repository, runner);
-  const separator = entry.image.indexOf("/");
-  if (separator < 1) {
-    throw new Error("image repository path is unavailable");
+  const repositoryPath = localRepositoryPath(entry);
+  // The run's own tag, and the source tag a later run finds the image by.
+  for (const registryTag of [
+    imageTag.slice(imageTag.lastIndexOf(":") + 1),
+    ...extraTags,
+  ]) {
+    await publishImageCopy(
+      repository,
+      runner,
+      {
+        tag: imageTag,
+        address,
+        target: `${repositoryPath}:${registryTag}`,
+      },
+      session,
+    );
   }
-  const repositoryPath = entry.image
-    .slice(separator + 1)
-    .replace(/:[^/:]+$/, "");
-  await publishImageCopy(
-    repository,
-    runner,
-    {
-      tag: imageTag,
-      address,
-      target: `${repositoryPath}:${imageTag.slice(imageTag.lastIndexOf(":") + 1)}`,
-    },
-    session,
-  );
   return { address, repositoryPath };
+}
+
+async function headManifest(
+  repositoryPath: string,
+  client: Pick<RegistryClient, "authorization" | "head">,
+  tag: string,
+): ReturnType<RegistryClient["head"]> {
+  const manifestPath = repositoryPath
+    .split("/")
+    .map(encodeURIComponent)
+    .join("/");
+  return await client.head(
+    `https://127.0.0.1:30500/v2/${manifestPath}/manifests/${tag}`,
+    { Accept: manifestAccept, Authorization: client.authorization },
+  );
+}
+
+/** The digest `tag` names in the registry, or undefined when nothing holds the tag. */
+export async function digestIfPublished(
+  repositoryPath: string,
+  client: Pick<RegistryClient, "authorization" | "head">,
+  tag: string,
+): Promise<string | undefined> {
+  const manifest = await headManifest(repositoryPath, client, tag);
+  return manifest.status === 404
+    ? undefined
+    : imageDigestFromRegistryHead(
+        manifest.status,
+        `docker-content-digest: ${manifest.digest}`,
+      );
 }
 
 export async function publishedDigest(
@@ -134,14 +172,7 @@ export async function publishedDigest(
   client: Pick<RegistryClient, "authorization" | "head">,
   tag = "kore-local",
 ): Promise<string> {
-  const manifestPath = repositoryPath
-    .split("/")
-    .map(encodeURIComponent)
-    .join("/");
-  const manifest = await client.head(
-    `https://127.0.0.1:30500/v2/${manifestPath}/manifests/${tag}`,
-    { Accept: manifestAccept, Authorization: client.authorization },
-  );
+  const manifest = await headManifest(repositoryPath, client, tag);
   return imageDigestFromRegistryHead(
     manifest.status,
     `docker-content-digest: ${manifest.digest}`,

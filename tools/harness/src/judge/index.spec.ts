@@ -1,7 +1,10 @@
 import { expect, it, vi } from "vitest";
 import * as checks from "./checks.js";
+import * as declarationAudit from "./declaration-audit.js";
 import * as declaration from "./declaration.js";
+import * as diffSelect from "./diff-select.js";
 import * as errors from "./errors.js";
+import * as freshness from "./freshness.js";
 import * as judge from "./index.js";
 import * as precheck from "./precheck.js";
 import * as reviewFindings from "./review-findings.js";
@@ -14,6 +17,9 @@ import * as sendBack from "./send-back.js";
 // tested as a pass-through, not as the units behind it.
 vi.mock("./checks.js");
 vi.mock("./declaration.js");
+vi.mock("./declaration-audit.js");
+vi.mock("./freshness.js");
+vi.mock("./diff-select.js");
 vi.mock("./errors.js");
 vi.mock("./precheck.js");
 vi.mock("./review-findings.js");
@@ -26,7 +32,10 @@ it("the judge barrel exposes exactly the names its callers import", () => {
   expect(Object.keys(judge).sort()).toEqual([
     "JudgeError",
     "PATTERNS",
+    "auditDeclaration",
+    "diffStat",
     "findingsFrom",
+    "harnessFreshness",
     "hasSentBack",
     "parseDeclaration",
     "postReview",
@@ -35,6 +44,7 @@ it("the judge barrel exposes exactly the names its callers import", () => {
     "reviewBody",
     "reviewCheck",
     "reviewersFor",
+    "selectDiff",
     "sendBackBody",
     "summary",
   ]);
@@ -44,6 +54,8 @@ it("each export is the unit's own export, not a copy or a wrapper", () => {
   expect(judge.JudgeError).toBe(errors.JudgeError);
   expect(judge.PATTERNS).toBe(declaration.PATTERNS);
   expect(judge.parseDeclaration).toBe(declaration.parseDeclaration);
+  expect(judge.auditDeclaration).toBe(declarationAudit.auditDeclaration);
+  expect(judge.harnessFreshness).toBe(freshness.harnessFreshness);
   expect(judge.reviewCheck).toBe(checks.reviewCheck);
   expect(judge.precheck).toBe(precheck.precheck);
   expect(judge.readPr).toBe(precheck.readPr);
@@ -54,4 +66,6 @@ it("each export is the unit's own export, not a copy or a wrapper", () => {
   expect(judge.hasSentBack).toBe(sendBack.hasSentBack);
   expect(judge.sendBackBody).toBe(sendBack.sendBackBody);
   expect(judge.reviewersFor).toBe(reviewers.reviewersFor);
+  expect(judge.selectDiff).toBe(diffSelect.selectDiff);
+  expect(judge.diffStat).toBe(diffSelect.diffStat);
 });

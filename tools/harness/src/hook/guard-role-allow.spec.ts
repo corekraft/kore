@@ -122,6 +122,25 @@ describe("readMayRun: sed -n prints lines and never writes", () => {
     expect(run("sed", "-n", "s#a#b#p", "AGENTS.md")).toBe(true);
   });
 
+  it("allows several semicolon-joined print ranges and escaped slashes", () => {
+    expect(run("sed", "-n", "1,5p;10,20p", "AGENTS.md")).toBe(true);
+    expect(run("sed", "-n", "1,5p;$p;/a/p", "AGENTS.md")).toBe(true);
+    expect(run("sed", "-n", "/a\\/b/p", "AGENTS.md")).toBe(true);
+  });
+
+  it("refuses a joined script when any part writes or runs a command", () => {
+    expect(run("sed", "-n", "1,5p;w out.txt", "AGENTS.md")).toBe(false);
+    expect(run("sed", "-n", "1,5p;10W out.txt", "AGENTS.md")).toBe(false);
+    expect(run("sed", "-n", "1p;2e touch a", "AGENTS.md")).toBe(false);
+    expect(run("sed", "-n", "1p;r /etc/passwd", "AGENTS.md")).toBe(false);
+    expect(run("sed", "-n", "1p;", "AGENTS.md")).toBe(false);
+    expect(run("sed", "-n", "1p;2p", "-i", "AGENTS.md")).toBe(false);
+    expect(run("sed", "-ni", "1p;2p", "AGENTS.md")).toBe(false);
+    expect(run("sed", "-n", "-e", "1p;2p", "AGENTS.md")).toBe(false);
+    expect(run("sed", "-n", "/a\\/w out/p;1p", "AGENTS.md")).toBe(true);
+    expect(run("sed", "-n", "/a/w out;1p", "AGENTS.md")).toBe(false);
+  });
+
   it("refuses sed -i in every spelling, and any script that writes or runs a command", () => {
     expect(run("sed", "-i", "s/a/b/", "AGENTS.md")).toBe(false);
     expect(run("sed", "-ni", "1p", "AGENTS.md")).toBe(false);

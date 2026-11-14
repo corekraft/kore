@@ -7,6 +7,8 @@ import * as renderedImages from "./rendered-images.js";
 import * as localImage from "./local-image.js";
 import * as localImageArgs from "./local-image-args.js";
 import * as imagePrune from "./image-prune.js";
+import * as registryPruneRun from "./registry-prune-run.js";
+import * as registryPruneError from "./registry-prune-error.js";
 import * as registry from "./registry.js";
 import * as localSigner from "./local-signer.js";
 import * as registryService from "./registry-service.js";
@@ -25,6 +27,7 @@ vi.mock("./rendered-images.js");
 vi.mock("./local-image.js");
 vi.mock("./local-image-args.js");
 vi.mock("./image-prune.js");
+vi.mock("./registry-prune-run.js");
 vi.mock("./registry.js");
 vi.mock("./local-signer.js");
 vi.mock("./registry-service.js");
@@ -49,6 +52,8 @@ test("the images barrel exposes exactly the public surface, each name from the m
     imageDigestFromRegistryHead: localImageArgs.imageDigestFromRegistryHead,
     localDockerBuildArgs: localImageArgs.localDockerBuildArgs,
     pruneStaleImageTags: imagePrune.pruneStaleImageTags,
+    pruneRegistryTagsInCluster: registryPruneRun.pruneRegistryTagsInCluster,
+    RegistryPruneError: registryPruneError.RegistryPruneError,
     localRegistryReference: registry.localRegistryReference,
     stopRegistryForward: registry.stopRegistryForward,
     ensureLocalSigningPublicKey: localSigner.ensureLocalSigningPublicKey,

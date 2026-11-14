@@ -34,7 +34,7 @@ export type {
   Versions,
 } from "./types.js";
 export { orderedComponents } from "./order.js";
-export { validateRepository } from "./validate.js";
+export { exemptionCheckMode, validateRepository } from "./validate.js";
 
 export async function findRoot(start = process.cwd()): Promise<string> {
   if (process.env.KORE_ROOT) {
@@ -129,8 +129,8 @@ export async function loadRepository(
       environment,
     ),
   };
-  await validateRepository(repository);
-  return repository;
+  const warnings = await validateRepository(repository);
+  return { ...repository, warnings };
 }
 
 export function componentVersion(

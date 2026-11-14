@@ -147,3 +147,38 @@ describe("ProcessRunner: the timeout", () => {
     expect(child.kill).not.toHaveBeenCalled();
   });
 });
+
+describe("ProcessRunner: a detached start", () => {
+  it("spawns the child in its own process group with no pipes, and lets the parent exit without it", async () => {
+    const runner = new ProcessRunner();
+    const unref = vi.fn();
+    Object.assign(child, { unref });
+
+    await runner.run("poll", ["now"], { detached: true, cwd: "/repo" });
+
+    expect(vi.mocked(spawn).mock.calls).toEqual([
+      ["poll", ["now"], { cwd: "/repo", detached: true, stdio: "ignore" }],
+    ]);
+    expect(unref).toHaveBeenCalledTimes(1);
+  });
+
+  it("resolves at once with code 0 and no output, without waiting for the child to end", async () => {
+    const runner = new ProcessRunner();
+    Object.assign(child, { unref: vi.fn() });
+
+    await expect(runner.run("poll", [], { detached: true })).resolves.toEqual({
+      stdout: "",
+      stderr: "",
+      code: 0,
+    });
+  });
+
+  it("absorbs a start error, so a command that cannot start never crashes the parent", () => {
+    const runner = new ProcessRunner();
+    Object.assign(child, { unref: vi.fn() });
+
+    void runner.run("missing", [], { detached: true });
+
+    expect(() => child.emit("error", new Error("ENOENT"))).not.toThrow();
+  });
+});

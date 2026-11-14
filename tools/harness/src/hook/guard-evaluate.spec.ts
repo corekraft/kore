@@ -51,12 +51,14 @@ describe("evaluate", () => {
       agent_type: "writer",
       tool_input: { command: "ls" },
     };
-    expect(await evaluate(payload, ctx)).toBe(BLOCK);
+    const deep = { ...ctx, cwd: `${ROOT}/tools/harness` };
+    expect(await evaluate(payload, deep)).toBe(BLOCK);
     expect(checkRole).toHaveBeenCalledWith(
       "writer",
       "Bash",
       { command: "ls" },
       ROOT,
+      `${ROOT}/tools/harness`,
     );
     expect(evaluateBash).not.toHaveBeenCalled();
   });

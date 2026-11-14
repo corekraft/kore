@@ -18,13 +18,16 @@ import { Tally, type StageTotals } from "./tally.js";
 import {
   firstClosed,
   COST_KINDS,
+  DEFAULT_HOST_DAYS,
   guardBlocks,
+  hostPressure,
   ideaMetrics,
   measureAttribution,
   outcomes,
   type Attribution,
   type CostMetrics,
   type GuardBlocks,
+  type HostPressure,
   type Outcomes,
   type CostOptions,
   type LeadTime,
@@ -38,7 +41,7 @@ import {
   type ScopeOptions,
 } from "./scope.js";
 
-export const REPORT_VERSION = 6;
+export const REPORT_VERSION = 7;
 
 export type { StageTotals, Toil } from "./tally.js";
 export type { Scope, ScopeOptions } from "./scope.js";
@@ -73,6 +76,8 @@ export interface FlowReport {
   guardBlocks: GuardBlocks[];
   /** Metrics no agent can set: main-red rate, reverts, live-run pass rate and owner minutes. */
   outcomes: Outcomes;
+  /** Swap and load by live-session count, with a trailing baseline, from host-sample events. */
+  hostPressure: HostPressure;
 }
 
 export interface ReportOptions extends ScopeOptions {
@@ -81,6 +86,8 @@ export interface ReportOptions extends ScopeOptions {
   minCompletedIdeas: number;
   /** Trailing window and thresholds for the cost metrics; defaults apply to what is left out. */
   cost?: Partial<CostOptions>;
+  /** Days before the window the host-pressure baseline covers; defaults to several. */
+  hostDays?: number;
 }
 
 type State = "active" | "waiting" | "closed";
@@ -326,5 +333,9 @@ export function buildReport(
     ),
     guardBlocks: guardBlocks(named, window),
     outcomes: outcomes(named, window),
+    hostPressure: hostPressure(named, window, {
+      trailingDays: options.hostDays ?? DEFAULT_HOST_DAYS,
+      asOf,
+    }),
   };
 }

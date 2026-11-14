@@ -17,5 +17,11 @@ export {
   type Stage,
 } from "./stages.js";
 export type { CostMetric, CostMetrics, CostOptions } from "./cost.js";
+export type {
+  HostBaseline,
+  HostFigure,
+  HostLevel,
+  HostPressure,
+} from "./host-pressure.js";
 export type { LeadTime } from "./idea-metrics.js";
 export type { Wip } from "./wip.js";

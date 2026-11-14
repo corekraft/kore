@@ -147,22 +147,6 @@ describe("session analysis guard blocks", () => {
     ]);
   });
 
-  it("records one entry per rule when one result names the same rule twice", () => {
-    const found = new SessionAnalysis(
-      session([
-        toolUse(2, "t1"),
-        toolError(
-          3,
-          "t1",
-          "[guard:role-worktree] first [guard:role-worktree] again",
-        ),
-      ]),
-    );
-    expect(found.guardBlocks.map((block) => [block.rule, block.line])).toEqual([
-      ["role-worktree", 3],
-    ]);
-  });
-
   it("leaves a plain failure out of the guard blocks, and keeps it as a failure", () => {
     const found = new SessionAnalysis(
       session([

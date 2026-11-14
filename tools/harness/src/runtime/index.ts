@@ -1,7 +1,12 @@
 export { CommandError } from "./errors.js";
 export { localDate, systemClock, type Clock } from "./clock.js";
 export { systemIds, type IdSource } from "./ids.js";
-export { systemHostLoad, type HostLoad } from "./host-load.js";
+export {
+  systemHostLoad,
+  type HostLoad,
+  type HostSample,
+  type LoadReader,
+} from "./host-load.js";
 export { nodeFileSystem, type FileSystem } from "./filesystem.js";
 export {
   ProcessRunner,

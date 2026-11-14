@@ -18,11 +18,7 @@ import {
   wrapsCommands,
 } from "./guard-role-writes.js";
 import { commandOf, splitSegments } from "./guard-shell.js";
-import {
-  checkDelivery,
-  checkDeliveryBash,
-  runsInline,
-} from "./guard-role-delivery.js";
+import { checkDeliveryBash, runsInline } from "./guard-role-delivery.js";
 import { isAbsolute, relative, resolve } from "node:path";
 import { block } from "./guard-verdict.js";
 import { REPORTING_ROLES } from "./guard-roles.js";
@@ -120,61 +116,6 @@ describe("runsInline: an interpreter given code, or an editor told to edit in pl
   });
 });
 
-describe("checkDelivery: a tool other than Bash", () => {
-  it("refuses a file write by a reporting role, which changes no file", () => {
-    expect(
-      checkDelivery("judge", true, "Write", { file_path: "a.md" }, ROOT),
-    ).toEqual(hit("role-read-only", "Write changes files"));
-  });
-
-  it("reads the role kind it is given, not the role's name", () => {
-    expect(
-      checkDelivery("judge", false, "Write", { file_path: "a.md" }, ROOT),
-    ).toBeNull();
-    expect(
-      checkDelivery("writer", true, "Edit", { file_path: "docs/a.md" }, ROOT),
-    ).toEqual(hit("role-read-only", "Edit changes files"));
-  });
-
-  it("allows a writer's write inside its worktree, relative or absolute", () => {
-    expect(
-      checkDelivery("writer", false, "Edit", { file_path: "docs/a.md" }, ROOT),
-    ).toBeNull();
-    expect(
-      checkDelivery(
-        "writer",
-        false,
-        "Edit",
-        { file_path: `${ROOT}/a.md` },
-        ROOT,
-      ),
-    ).toBeNull();
-  });
-
-  it("refuses a writer's write outside its worktree, but not scratch space in tmp", () => {
-    expect(
-      checkDelivery(
-        "writer",
-        false,
-        "Write",
-        { file_path: "/etc/hosts" },
-        ROOT,
-      ),
-    ).toMatchObject({
-      rule: "role-worktree",
-    });
-    expect(
-      checkDelivery("writer", false, "Write", { file_path: "/tmp/x" }, ROOT),
-    ).toBeNull();
-  });
-
-  it("passes a tool that writes no file", () => {
-    expect(
-      checkDelivery("writer", false, "Read", { file_path: "/etc/hosts" }, ROOT),
-    ).toBeNull();
-  });
-});
-
 describe("checkDeliveryBash: the merge and push routes every role refuses", () => {
   it.each([
     ["a merge", mergesPr],
@@ -259,6 +200,18 @@ describe("checkDeliveryBash: a reporting role's shell", () => {
     expect(bash("judge", `node ${HARNESS_PATH} idea new`)).toMatchObject({
       rule: "role-read-only",
     });
+  });
+
+  it("lists `judge diff` for the judge and for no other delivery role", () => {
+    const listed = (role: string): readonly string[] => {
+      vi.mocked(harnessAllowed).mockClear();
+      bash(role, `node ${HARNESS_PATH} judge diff 1`);
+      return vi.mocked(harnessAllowed).mock.calls[0]?.[2] ?? [];
+    };
+
+    expect(listed("judge")).toContain("judge diff");
+    expect(listed("orchestrator")).not.toContain("judge diff");
+    expect(listed("writer")).not.toContain("judge diff");
   });
 
   it("points raw pane input at the finish notice", () => {

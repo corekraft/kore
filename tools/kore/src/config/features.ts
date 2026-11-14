@@ -45,3 +45,9 @@ export function enabledComponents(repository: Repository): Component[] {
     (component) => !componentGatedOff(repository.environment, component),
   );
 }
+
+/** The flag that lets a local build reuse the image an earlier run published for the same source (#344). */
+export const localImageReuseFlag = "local-image-reuse";
+
+/** The flag that lets `kore local up` prune old per-run tags from the registry (ADR 0094). */
+export const registryPruneFlag = "registry-tag-pruning";
