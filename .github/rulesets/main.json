@@ -17,7 +17,7 @@
     {
       "type": "pull_request",
       "parameters": {
-        "required_approving_review_count": 0,
+        "required_approving_review_count": 1,
         "dismiss_stale_reviews_on_push": false,
         "required_reviewers": [],
         "require_code_owner_review": true,
@@ -34,7 +34,7 @@
     {
       "type": "required_status_checks",
       "parameters": {
-        "strict_required_status_checks_policy": false,
+        "strict_required_status_checks_policy": true,
         "do_not_enforce_on_create": false,
         "required_status_checks": [
           {
@@ -49,11 +49,5 @@
       }
     }
   ],
-  "bypass_actors": [
-    {
-      "actor_id": 6131635,
-      "actor_type": "User",
-      "bypass_mode": "pull_request"
-    }
-  ]
+  "bypass_actors": []
 }

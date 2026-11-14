@@ -58,7 +58,7 @@ export async function readJournals(
   return journals;
 }
 
-/** Transcripts of this project modified at or after the marker day, leaving out the current session's. */
+/** Transcripts of this project modified at or after the marker, leaving out the current session's. */
 async function sessionsSince(
   deps: CliDeps,
   root: string,

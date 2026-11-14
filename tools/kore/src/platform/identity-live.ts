@@ -2,10 +2,10 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { assertExpectedCluster } from "../cluster/index.js";
 import { loadRepository, type Repository } from "../config/index.js";
-import { findRoot } from "../config/config.js";
+import { findRoot } from "../config/index.js";
 import {
   ProcessRunner,
-  integrationEnvironment,
+  liveEnvironment,
   type Runner,
 } from "../runtime/index.js";
 
@@ -15,7 +15,7 @@ import {
 // authorization checks only read pods, logs, and policy status. The one
 // mutation, scaling the authorizer to zero, is restored in a `finally`. It
 // never reads a Secret value: the credential it sends is a fixed fake string.
-// Run it with `npm run test:integration:identity`.
+// Run it with `npm run test:live:identity`.
 
 export const namespace = "reference";
 export const fakeCredential = "kore-identity-probe-credential-0000";
@@ -23,8 +23,8 @@ export const fakeCredential = "kore-identity-probe-credential-0000";
 export const live = {
   concurrency: false,
   skip:
-    process.env.KORE_RUN_INTEGRATION !== "1"
-      ? "set KORE_RUN_INTEGRATION=1 to opt into a live local profile"
+    process.env.KORE_RUN_LIVE !== "1"
+      ? "set KORE_RUN_LIVE=1 to opt into a live local profile"
       : false,
   timeout: 10 * 60 * 1000,
 };
@@ -33,10 +33,7 @@ export async function setup(): Promise<{
   repository: Repository;
   runner: Runner;
 }> {
-  const repository = await loadRepository(
-    integrationEnvironment(),
-    await findRoot(),
-  );
+  const repository = await loadRepository(liveEnvironment(), await findRoot());
   const runner = new ProcessRunner();
   await assertExpectedCluster(repository, runner);
   return { repository, runner };

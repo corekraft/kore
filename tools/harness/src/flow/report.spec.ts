@@ -1,302 +1,294 @@
-import { describe, expect, it } from "vitest";
-import { buildReport, type FlowReport } from "./report.js";
-import { STAGES } from "./stages.js";
-import { T0, at, finishedIdea } from "./flow-support.js";
-import type { LedgerEvent } from "../ledger/index.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { firstTime, githubWaits, time } from "./github-waits.js";
+import {
+  firstClosed,
+  guardBlocks,
+  ideaMetrics,
+  measureAttribution,
+  outcomes,
+} from "./idea-metrics.js";
+import { groupByIdea, select } from "./select.js";
+import { inWindow, scopeOf, windowOf } from "./scope.js";
+import { Tally } from "./tally.js";
+import { chargeToil, newLife } from "./toil.js";
+import {
+  ASOF,
+  SCOPE,
+  WINDOW,
+  cover,
+  coverIdea,
+  ev,
+  fakeLife,
+  fakeTally,
+  run,
+  writer,
+} from "./report-support.js";
 
-const ASOF = new Date(T0 + 1_000_000_000);
+vi.mock("./github-waits.js");
+vi.mock("./idea-metrics.js");
+vi.mock("./select.js");
+vi.mock("./scope.js");
+vi.mock("./tally.js");
+vi.mock("./toil.js");
 
-function report(events: LedgerEvent[], minCompletedIdeas = 1): FlowReport {
-  return buildReport(events, { asOf: ASOF, minCompletedIdeas });
-}
+beforeEach(() => {
+  vi.mocked(scopeOf).mockReturnValue(SCOPE);
+  vi.mocked(windowOf).mockReturnValue(WINDOW);
+  vi.mocked(time).mockImplementation((e) => Number(e.id));
+  vi.mocked(inWindow).mockReturnValue(true);
+  vi.mocked(newLife).mockReturnValue(fakeLife());
+  cover(new Map());
+});
 
-function stage(r: FlowReport, name: string) {
-  const found = r.stages.find((s) => s.stage === name);
-  if (found === undefined) {
-    throw new Error(`no stage ${name}`);
-  }
-  return found;
-}
-
-describe("flow report stage mapping", () => {
-  it("lists every stage in delivery order, zeroed, for an empty ledger", () => {
-    const r = report([]);
+describe("buildReport scope and ideas", () => {
+  it("states the scope, as-of time and stages it was given, at the report version", () => {
+    const tally = fakeTally();
+    vi.mocked(tally.stages).mockReturnValue([]);
+    const r = run([]);
     expect(r.version).toBe(6);
-    expect(r.stages.map((s) => s.stage)).toEqual([...STAGES]);
-    expect(
-      r.stages.every(
-        (s) =>
-          s.activeSeconds === 0 && s.waitingSeconds === 0 && s.events === 0,
-      ),
-    ).toBe(true);
-    expect(r.ideas).toEqual({ total: 0, completed: 0 });
-    expect(r.unmappedEvents).toBe(0);
+    expect(r.asOf).toBe("1970-01-01T00:00:01.000Z");
+    expect(r.scope).toBe(SCOPE);
+    expect(r.stages).toEqual([]);
+    expect(scopeOf).toHaveBeenCalledWith({ asOf: ASOF, minCompletedIdeas: 1 });
   });
 
-  it.each([
-    ["refiner", "refine"],
-    ["challenger", "challenge"],
-    ["orchestrator", "orchestrate"],
-    ["writer", "write"],
-    ["judge", "judge"],
-  ])("maps a pane whose name ends in -%s to %s", (role, name) => {
-    const pane = `subject-${role}`;
-    const r = report([
-      at(0, "pane.spawned", { pane, idea: "#1" }),
-      at(30, "pane.closed", { pane, idea: "#1" }),
-    ]);
-    expect(stage(r, name)).toMatchObject({ activeSeconds: 30, events: 2 });
-  });
-});
-
-describe("flow report pane roles and states", () => {
-  it("maps a pane by its agent role or session name when the pane id has none", () => {
-    const r = report([
-      at(0, "pane.spawned", { pane: "w3:p2", agent: "judge", idea: "#1" }),
-      at(20, "pane.closed", { pane: "w3:p2", agent: "judge", idea: "#1" }),
-      at(0, "pane.spawned", { pane: "w3:p3", session: "x-writer", idea: "#1" }),
-      at(5, "pane.closed", { pane: "w3:p3", session: "x-writer", idea: "#1" }),
-    ]);
-    expect(stage(r, "judge").activeSeconds).toBe(20);
-    expect(stage(r, "write").activeSeconds).toBe(5);
-  });
-
-  it("splits a pane's time into active while busy and waiting while it waits on a person", () => {
-    const pane = "idea-refiner";
-    const r = report([
-      at(0, "pane.spawned", { pane, idea: "#1" }),
-      at(10, "pane.busy", { pane, idea: "#1" }),
-      at(40, "pane.waiting", { pane, idea: "#1" }),
-      at(100, "pane.busy", { pane, idea: "#1" }),
-      at(160, "pane.closed", { pane, idea: "#1" }),
-    ]);
-    expect(stage(r, "refine")).toEqual({
-      stage: "refine",
-      activeSeconds: 100,
-      waitingSeconds: 60,
-      events: 5,
-      toil: {
-        startingSeconds: 0,
-        stoppingSeconds: 0,
-        waitingSeconds: 60,
-        retryingSeconds: 0,
-      },
-      wip: { peak: 1, average: 1 },
-    });
-  });
-
-  it("counts no time after a pane closes", () => {
-    const pane = "idea-writer";
-    const r = report([
-      at(0, "pane.spawned", { pane, idea: "#1" }),
-      at(10, "pane.closed", { pane, idea: "#1" }),
-      at(500, "tool.start", { pane, idea: "#1", tool: "Bash" }),
-    ]);
-    expect(stage(r, "write").activeSeconds).toBe(10);
-  });
-});
-
-describe("flow report attribution", () => {
-  it("maps the main session, a claude session with no pane, to orchestrate", () => {
-    const r = report([
-      at(0, "session.start", { session: "main", idea: "#1" }),
-      at(20, "tool.start", { session: "main", tool: "Bash" }),
-      at(50, "session.stop", { session: "main", idea: "#1" }),
-    ]);
-    expect(stage(r, "orchestrate")).toMatchObject({
-      activeSeconds: 50,
-      events: 3,
-    });
-  });
-
-  it("attributes tool events to the idea their pane or session carries elsewhere", () => {
-    const r = report([
-      at(0, "pane.spawned", { pane: "a-writer", idea: "#7" }),
-      at(5, "tool.start", { pane: "a-writer", tool: "Edit" }),
-      at(9, "pane.closed", { pane: "a-writer" }),
-    ]);
-    expect(stage(r, "write")).toMatchObject({ events: 3, activeSeconds: 9 });
-    expect(r.unmappedEvents).toBe(0);
-    expect(r.ideas.total).toBe(1);
-  });
-});
-
-describe("flow report GitHub waits", () => {
-  it("holds an issue in await approval, as waiting, until the approval label", () => {
-    const r = report([
-      at(0, "issue.opened", { number: 1 }),
-      at(900, "issue.labelled", { number: 1, label: "needs-triage" }),
-      at(1000, "issue.labelled", { number: 1, label: "ready-for-agent" }),
-    ]);
-    expect(stage(r, "await approval")).toMatchObject({
-      waitingSeconds: 1000,
-      activeSeconds: 0,
-      events: 2,
-    });
-    expect(r.unmappedEvents).toBe(1);
-  });
-
-  it("does not count refine or challenge time twice as await approval", () => {
-    const r = report([
-      at(0, "issue.opened", { number: 1 }),
-      at(100, "pane.spawned", { pane: "s-refiner", idea: "#1" }),
-      at(300, "pane.closed", { pane: "s-refiner", idea: "#1" }),
-      at(1000, "issue.labelled", { number: 1, label: "ready-for-agent" }),
-    ]);
-    expect(stage(r, "await approval").waitingSeconds).toBe(800);
-    expect(stage(r, "refine").activeSeconds).toBe(200);
-  });
-
-  it("keeps an unapproved issue waiting up to the report time", () => {
-    const r = buildReport([at(0, "issue.opened", { number: 4 })], {
-      asOf: new Date(T0 + 7200_000),
-      minCompletedIdeas: 1,
-    });
-    expect(stage(r, "await approval").waitingSeconds).toBe(7200);
-  });
-
-  it("holds a pull request in merge, as waiting, until it merges, attributed to the issue it closes", () => {
-    const r = report([
-      at(0, "pr.opened", { number: 5, idea: "#1" }),
-      at(600, "pr.merged", { number: 5, idea: "#1" }),
-    ]);
-    expect(stage(r, "merge")).toMatchObject({ waitingSeconds: 600, events: 2 });
-    expect(r.ideas.total).toBe(1);
-  });
-
-  it("leaves judge time out of merge waiting", () => {
-    const r = report([
-      at(0, "pr.opened", { number: 5, idea: "#1" }),
-      at(100, "pane.spawned", { pane: "s-judge", idea: "#1" }),
-      at(220, "pane.closed", { pane: "s-judge", idea: "#1" }),
-      at(600, "pr.merged", { number: 5, idea: "#1" }),
-    ]);
-    expect(stage(r, "merge").waitingSeconds).toBe(480);
-    expect(stage(r, "judge").activeSeconds).toBe(120);
-  });
-});
-
-describe("flow report verify, outcome and unmapped events", () => {
-  it("maps a verifier pane to verify only after the pull request merged", () => {
-    const events = [
-      at(0, "pr.opened", { number: 5, idea: "#1" }),
-      at(50, "pane.spawned", { pane: "s-verifier", idea: "#1" }),
-      at(60, "pane.closed", { pane: "s-verifier", idea: "#1" }),
-      at(100, "pr.merged", { number: 5, idea: "#1" }),
-      at(110, "pane.spawned", { pane: "s-verifier", idea: "#1" }),
-      at(140, "pane.closed", { pane: "s-verifier", idea: "#1" }),
-    ];
-    const r = report(events);
-    expect(stage(r, "verify")).toMatchObject({ activeSeconds: 30, events: 2 });
-    expect(r.unmappedEvents).toBe(2);
-  });
-
-  it("maps a closed issue to outcome and counts the idea as completed", () => {
-    const r = report([
-      at(0, "issue.opened", { number: 1 }),
-      at(10, "issue.closed", { number: 1 }),
-    ]);
-    expect(stage(r, "outcome")).toMatchObject({ events: 1, activeSeconds: 0 });
-    expect(r.ideas).toEqual({ total: 1, completed: 1 });
-  });
-
-  it("reports events it cannot map, and unattributed events, with a count", () => {
-    const r = report([
-      at(0, "pane.spawned", { pane: "w3:p9", idea: "#1" }),
-      at(1, "pane.closed", { pane: "w3:p9", idea: "#1" }),
-      at(2, "pane.busy", { pane: "x-writer" }),
-      at(3, "pr.opened", { number: 8 }),
-    ]);
-    expect(r.unmappedEvents).toBe(4);
-    expect(r.ideas.total).toBe(1);
-  });
-});
-
-describe("flow report bottleneck", () => {
-  it("names the stage with the largest share of waiting, a person's approval included", () => {
-    const events = [
-      ...finishedIdea(1, { approval: 3000 }),
-      ...finishedIdea(2, { approval: 1000 }, 10_000),
-      ...finishedIdea(3, { approval: 2000 }, 20_000),
-    ];
-    const r = report(events, 3);
-    expect(r.ideas.completed).toBe(3);
-    expect(r.bottleneck).toMatchObject({ stage: "await approval" });
-    const waiting = r.stages.reduce((sum, s) => sum + s.waitingSeconds, 0);
-    expect(r.bottleneck?.share).toBeCloseTo(
-      stage(r, "await approval").waitingSeconds / waiting,
-      3,
+  it("counts a completed idea only when its outcome is inside the window", () => {
+    fakeTally();
+    const own1 = [ev(1, "issue.opened")];
+    cover(
+      new Map([
+        ["#1", own1],
+        ["#2", [ev(2, "issue.opened")]],
+      ]),
     );
-    expect(r.bottleneck?.share).toBeGreaterThan(0.5);
-    expect(r.bottleneckNote).toBeNull();
+    vi.mocked(firstClosed)
+      .mockReturnValueOnce(50)
+      .mockReturnValueOnce(undefined);
+    expect(run([], 0).ideas).toEqual({ total: 2, completed: 1 });
+    expect(firstClosed).toHaveBeenCalledWith(own1);
   });
 
-  it("names merge when pull requests wait longer than approvals", () => {
-    const events = [
-      ...finishedIdea(1, { approval: 10, merge: 5000 }),
-      ...finishedIdea(2, { approval: 10, merge: 4000 }, 10_000),
-    ];
-    expect(report(events, 2).bottleneck?.stage).toBe("merge");
-  });
-
-  it("counts a pane waiting on a person as waiting time that can be the bottleneck", () => {
-    const pane = "s-writer";
-    const r = report(
-      [
-        at(0, "pane.spawned", { pane, idea: "#1" }),
-        at(5, "pane.waiting", { pane, idea: "#1" }),
-        at(905, "pane.closed", { pane, idea: "#1" }),
-        at(906, "issue.closed", { number: 1 }),
-      ],
-      1,
+  it("gives the idea metrics the covered ideas and the report window", () => {
+    fakeTally();
+    const own = [ev(1, "issue.opened")];
+    coverIdea(...own);
+    run([]);
+    expect(ideaMetrics).toHaveBeenCalledWith(
+      new Map([["#1", own]]),
+      WINDOW,
+      undefined,
     );
-    expect(r.bottleneck).toMatchObject({ stage: "write", share: 1 });
   });
 });
 
-describe("flow report bottleneck ties and gaps", () => {
-  it("names the earlier stage on an exact tie, summing whole milliseconds", () => {
-    const r = report(
-      [
-        at(0, "issue.opened", { number: 1 }),
-        at(0.3, "issue.labelled", { number: 1, label: "ready-for-agent" }),
-        at(0, "pr.opened", { number: 5, idea: "#2" }),
-        at(0.1, "pr.merged", { number: 5, idea: "#2" }),
-        at(0, "pr.opened", { number: 6, idea: "#3" }),
-        at(0.2, "pr.merged", { number: 6, idea: "#3" }),
-        at(1, "issue.closed", { number: 1 }),
-      ],
-      1,
-    );
-    expect(stage(r, "merge").waitingSeconds).toBe(0.3);
-    expect(r.bottleneck?.stage).toBe("await approval");
+describe("buildReport unmapped events and reports", () => {
+  it("counts unattributed events as unmapped when the report covers every idea", () => {
+    fakeTally();
+    cover(new Map(), [], 2);
+    expect(run([]).unmappedEvents).toBe(2);
   });
 
-  it("names no bottleneck below the minimum number of completed ideas", () => {
-    const r = report(
-      [
-        ...finishedIdea(1, { approval: 3000 }),
-        ...finishedIdea(2, { approval: 1000 }, 10_000),
-      ],
-      3,
+  it("leaves unattributed events out of the unmapped count when ideas are named", () => {
+    fakeTally();
+    vi.mocked(scopeOf).mockReturnValue({ ...SCOPE, ideas: ["#1"] });
+    cover(new Map(), [], 2);
+    expect(run([]).unmappedEvents).toBe(0);
+  });
+
+  it("measures attribution over the covered events and the orphans of an unfiltered report", () => {
+    fakeTally();
+    const own = [ev(1, "issue.opened")];
+    const orphan = ev(9, "tool.start");
+    vi.mocked(groupByIdea).mockReturnValue({
+      byIdea: new Map(),
+      unattributed: 0,
+      orphans: [orphan],
+      named: [],
+      landed: 42,
+    });
+    vi.mocked(select).mockReturnValue(new Map([["#1", { own, waits: [] }]]));
+    run([]);
+    expect(measureAttribution).toHaveBeenCalledWith(
+      [own],
+      [orphan],
+      WINDOW,
+      42,
+      expect.any(Function),
     );
+  });
+
+  it("measures guard blocks and outcomes over every named event", () => {
+    fakeTally();
+    const named = [ev(1, "guard.block", { label: "rule" })];
+    cover(new Map(), named);
+    vi.mocked(guardBlocks).mockReturnValue([{ rule: "rule", blocks: 1 }]);
+    expect(run([]).guardBlocks).toEqual([{ rule: "rule", blocks: 1 }]);
+    expect(outcomes).toHaveBeenCalledWith(named, WINDOW);
+  });
+});
+
+describe("buildReport attribution", () => {
+  it("tells attribution which events a stage claims, and every merge lookup finds only a pull request merge", () => {
+    fakeTally();
+    coverIdea(ev(1, "issue.opened", { number: 1 }));
+    run([]);
+    const claims = vi.mocked(measureAttribution).mock.calls[0]?.[4];
+    expect(claims?.(writer(2, "pane.spawned"), [])).toBe(true);
+    expect(claims?.(ev(3, "tool.start", { source: "github" }), [])).toBe(false);
+    for (const [, isMerge] of vi.mocked(firstTime).mock.calls) {
+      const merged = [isMerge(ev(4, "pr.merged")), isMerge(ev(5, "pr.opened"))];
+      expect(merged).toEqual([true, false]);
+    }
+  });
+});
+
+describe("buildReport stage mapping", () => {
+  it("counts a GitHub event in its stage and marks it present at its instant", () => {
+    const tally = fakeTally();
+    coverIdea(ev(1, "issue.opened", { number: 1 }));
+    run([]);
+    expect(tally.count).toHaveBeenCalledWith("await approval");
+    expect(tally.present).toHaveBeenCalledWith("await approval", 1, 1);
+  });
+
+  it("maps a pane by the role its name ends with", () => {
+    const tally = fakeTally();
+    coverIdea(ev(1, "pane.spawned", { pane: "idea-writer" }));
+    run([]);
+    expect(tally.count).toHaveBeenCalledWith("write");
+  });
+
+  it("maps a claude session with no agent to the orchestrator", () => {
+    const tally = fakeTally();
+    coverIdea(ev(1, "session.start", { session: "s1" }));
+    run([]);
+    expect(tally.count).toHaveBeenCalledWith("orchestrate");
+  });
+
+  it("maps an issue label to await approval only for the approval label", () => {
+    const tally = fakeTally();
+    coverIdea(
+      ev(1, "issue.labelled", { label: "ready-for-agent" }),
+      ev(2, "issue.labelled", { label: "wontfix" }),
+    );
+    expect(run([]).unmappedEvents).toBe(1);
+    expect(tally.count).toHaveBeenCalledWith("await approval");
+  });
+
+  it("maps the verifier only from the pull request's merge onward", () => {
+    const tally = fakeTally();
+    vi.mocked(firstTime).mockReturnValue(100);
+    coverIdea(
+      ev(50, "pane.spawned", { pane: "x-verifier" }),
+      ev(150, "pane.spawned", { pane: "x-verifier" }),
+    );
+    expect(run([]).unmappedEvents).toBe(1);
+    expect(tally.count).toHaveBeenCalledWith("verify");
+  });
+
+  it("counts a cost event in neither stage time nor the unmapped count", () => {
+    const tally = fakeTally();
+    coverIdea(ev(1, "token.usage"));
+    expect(run([]).unmappedEvents).toBe(0);
+    expect(tally.count).not.toHaveBeenCalled();
+  });
+
+  it("counts an event no stage claims, inside the window, as unmapped", () => {
+    fakeTally();
+    coverIdea(ev(1, "tool.start", { source: "github" }));
+    expect(run([]).unmappedEvents).toBe(1);
+  });
+});
+
+describe("buildReport actor time", () => {
+  it("charges a pane's time between its events to the state it was in", () => {
+    const tally = fakeTally();
+    coverIdea(
+      writer(0, "pane.spawned"),
+      writer(10, "pane.busy"),
+      writer(20, "pane.waiting"),
+      writer(30, "pane.closed"),
+    );
+    run([]);
+    expect(tally.add.mock.calls).toEqual([
+      ["write", "activeMs", 0, 10],
+      ["write", "activeMs", 10, 20],
+      ["write", "waitingMs", 20, 30],
+    ]);
+    expect(tally.addToil).toHaveBeenCalledWith("write", "waiting", 20, 30);
+  });
+
+  it("does not charge a reused pane for the gap between its lives", () => {
+    const tally = fakeTally();
+    coverIdea(
+      writer(0, "pane.spawned"),
+      writer(10, "pane.closed"),
+      writer(50, "pane.busy"),
+      writer(60, "pane.spawned"),
+      writer(100, "pane.closed"),
+    );
+    run([]);
+    expect(tally.add.mock.calls).toEqual([
+      ["write", "activeMs", 0, 10],
+      ["write", "activeMs", 60, 100],
+    ]);
+  });
+
+  it("passes the toil a life charges to the tally under the pane's stage", () => {
+    const tally = fakeTally();
+    vi.mocked(chargeToil).mockImplementation((add) => add("starting", 5));
+    coverIdea(writer(0, "pane.spawned"));
+    run([]);
+    expect(tally.addToilMs).toHaveBeenCalledWith("write", "starting", 5);
+  });
+});
+
+describe("buildReport GitHub waits", () => {
+  it("holds GitHub waits out of a pane's lives, but not the orchestrator's", () => {
+    fakeTally();
+    coverIdea(
+      writer(0, "pane.spawned"),
+      writer(30, "pane.closed"),
+      ev(0, "session.start", { session: "s1" }),
+      ev(40, "session.stop", { session: "s1" }),
+    );
+    run([]);
+    expect(githubWaits).toHaveBeenCalledWith(expect.any(Tally), [], [[0, 30]]);
+  });
+});
+
+describe("buildReport bottleneck", () => {
+  it("names no bottleneck, with a note, below the minimum of completed ideas", () => {
+    fakeTally();
+    const r = run([], 3);
     expect(r.bottleneck).toBeNull();
     expect(r.bottleneckNote).toBe(
-      "Not enough data: 2 of 3 completed ideas needed to name a bottleneck.",
+      "Not enough data: 0 of 3 completed ideas needed to name a bottleneck.",
     );
-  });
-
-  it("invents no bottleneck from an empty ledger", () => {
-    const r = report([], 3);
-    expect(r.bottleneck).toBeNull();
-    expect(r.bottleneckNote).toContain("0 of 3");
   });
 
   it("names no bottleneck when no waiting time was recorded", () => {
-    const r = report([at(0, "issue.closed", { number: 1 })], 1);
-    expect(r.bottleneck).toBeNull();
-    expect(r.bottleneckNote).toBe(
+    fakeTally();
+    expect(run([], 0).bottleneckNote).toBe(
       "No waiting time recorded, so there is no bottleneck.",
     );
+  });
+
+  it("names the stage with the most waiting, and its share of all waiting", () => {
+    fakeTally({ write: 1000, merge: 2000, judge: 0 });
+    expect(run([], 0).bottleneck).toEqual({
+      stage: "merge",
+      waitingSeconds: 2,
+      share: 0.6667,
+    });
+  });
+
+  it("names the earlier stage on an exact tie", () => {
+    fakeTally({ write: 1000, merge: 1000 });
+    expect(run([], 0).bottleneck).toEqual({
+      stage: "write",
+      waitingSeconds: 1,
+      share: 0.5,
+    });
   });
 });

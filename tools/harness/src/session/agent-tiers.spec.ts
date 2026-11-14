@@ -170,3 +170,65 @@ describe("the refiner and challenger definitions", () => {
     expect(body("concierge")).toMatch(/raw request goes to the refiner/);
   });
 });
+
+describe("the judge and orchestrator state which safety patterns merge without the owner", () => {
+  const body = (role: string) => definitions().get(role) ?? "";
+
+  // The judge owns the pattern list and its rules; the orchestrator only points to them (#495).
+  it("judge lets a frictionless pattern merge without asking the owner", () => {
+    expect(body("judge")).toMatch(/without asking the owner/);
+    expect(body("judge")).toMatch(/no-behaviour-change/);
+    expect(body("judge")).toMatch(/dark launch/);
+    expect(body("judge")).toMatch(/expand-contract/);
+    expect(body("judge")).toMatch(/feature flag/);
+  });
+
+  it("orchestrator points to the judge's rule and does not repeat the pattern list", () => {
+    // Link targets name ADRs by file, which contain pattern words; check the prose only.
+    const merges = (
+      body("orchestrator").split("## Merges without asking the owner")[1] ?? ""
+    ).replace(/\]\([^)]*\)/g, "]");
+    expect(merges).toMatch(/judge's own rule/);
+    expect(merges).not.toMatch(
+      /no-behaviour-change|dark launch|expand-contract|feature flag/,
+    );
+  });
+
+  it.each(["judge"])(
+    "%s lets a frictionless pattern merge without asking the owner",
+    (role) => {
+      expect(body(role)).toMatch(/without asking the owner/);
+      expect(body(role)).toMatch(/no-behaviour-change/);
+      expect(body(role)).toMatch(/dark launch/);
+      expect(body(role)).toMatch(/expand-contract/);
+      expect(body(role)).toMatch(/feature flag/);
+    },
+  );
+
+  it.each(["judge"])(
+    "%s keeps a cluster-facing no-behaviour-change behind its live run",
+    (role) => {
+      expect(body(role)).toMatch(/cluster-facing[\s\S]*live run/);
+    },
+  );
+
+  it.each(["judge"])(
+    "%s sends activation to the owner after a recorded experiment outcome",
+    (role) => {
+      expect(body(role)).toMatch(/activat\w*[\s\S]*experiment outcome/);
+    },
+  );
+
+  it.each(["judge", "orchestrator"])(
+    "%s links the decisions the rule restates instead of copying them",
+    (role) => {
+      expect(body(role)).toMatch(/\(\.\.\/\.\.\/docs\/decisions\/0099-/);
+      expect(body(role)).toMatch(/\(\.\.\/\.\.\/docs\/decisions\/0077-/);
+    },
+  );
+
+  it("never gives the orchestrator merge rights, so it still sends merges to the judge", () => {
+    expect(body("orchestrator")).toMatch(/you do not merge/);
+    expect(body("orchestrator")).not.toMatch(/squash/);
+  });
+});

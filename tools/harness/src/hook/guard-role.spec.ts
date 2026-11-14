@@ -1,316 +1,252 @@
-import assert from "node:assert/strict";
-import { describe, it } from "vitest";
-import { allowed, blocked, decide } from "./guard-support.js";
+import { isAbsolute, relative, resolve } from "node:path";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ghMayRun, readMayRun } from "./guard-role-allow.js";
+import { checkDelivery } from "./guard-role-delivery.js";
+import { checkProtected } from "./guard-role-protected.js";
+import {
+  harnessAllowed,
+  harnessStatus,
+  notifiesFinish,
+  readOnly,
+  sendsToPane,
+  setsEnvironment,
+  useNotify,
+  writes,
+} from "./guard-role-writes.js";
+import { commandOf, splitSegments } from "./guard-shell.js";
+import { block } from "./guard-verdict.js";
+import { checkRole } from "./guard-role.js";
 
-const as = (agent_type: string, tool_name: string, tool_input: object) =>
-  decide({ agent_type, tool_name, tool_input });
-const bash = (role: string, command: string) => as(role, "Bash", { command });
+vi.mock("node:path");
+vi.mock("./guard-role-allow.js");
+vi.mock("./guard-role-delivery.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./guard-role-delivery.js")>()),
+  checkDelivery: vi.fn(),
+}));
+vi.mock("./guard-role-protected.js");
+vi.mock("./guard-role-writes.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./guard-role-writes.js")>()),
+  harnessAllowed: vi.fn(),
+  harnessStatus: vi.fn(),
+  notifiesFinish: vi.fn(),
+  readOnly: vi.fn(),
+  sendsToPane: vi.fn(),
+  setsEnvironment: vi.fn(),
+  useNotify: vi.fn(),
+  writes: vi.fn(),
+}));
+vi.mock("./guard-shell.js");
+vi.mock("./guard-verdict.js");
 
-describe("role guard: neither the concierge nor the reader can write files", () => {
-  for (const role of ["concierge", "reader"]) {
-    it(`${role}: Write, Edit and NotebookEdit are blocked`, async () => {
-      blocked(
-        await as(role, "Write", { file_path: "/repo/a.ts", content: "x" }),
-        "role-read-only",
-      );
-      blocked(
-        await as(role, "Edit", {
-          file_path: "/repo/a.ts",
-          old_string: "a",
-          new_string: "b",
-        }),
-        "role-read-only",
-      );
-      blocked(
-        await as(role, "NotebookEdit", { notebook_path: "/repo/a.ipynb" }),
-        "role-read-only",
-      );
-    });
+const ROOT = "/repo";
 
-    it(`${role}: shell commands that write files are blocked`, async () => {
-      for (const command of [
-        "echo hi > notes.md",
-        "echo hi >> notes.md",
-        "cat a | tee notes.md",
-        "sed -i 's/a/b/' README.md",
-        "cp a b",
-        "mv a b",
-        "rm a",
-        "mkdir x",
-        "touch x",
-        "git commit -m x",
-        "git add .",
-        "git push",
-        "git checkout main",
-        "gh pr merge 1 --squash",
-        "echo hi >notes.md",
-        "echo hi 1> notes.md",
-      ]) {
-        blocked(await bash(role, command), "role-read-only");
-      }
-    });
+/** A block finding, as the verdict helpers build one. */
+const hit = (rule: string, message: string) => ({
+  action: "block" as const,
+  rule,
+  message,
+});
 
-    it(`${role}: redirecting to /dev/null and reading status still pass`, async () => {
-      allowed(
-        await bash(role, "node skills/bin/harness.mjs plan active 2>/dev/null"),
-      );
-      allowed(await bash(role, "gh issue list --label ready-for-agent"));
-      allowed(
-        await bash(role, "node skills/bin/harness.mjs plan active > /dev/null"),
-      );
-      allowed(await bash(role, "date 2> /dev/null"));
-    });
+/** Fake shell: segments split on `&&`, words on spaces. */
+const splitWords = (command: string) =>
+  command.split(" && ").map((s) => s.split(" "));
+const words = (tokens: readonly string[]) => ({
+  name: tokens[0] ?? "",
+  args: tokens.slice(1),
+});
+
+/** Fake relative: the rest of `to` past `from`, else `../outside`. */
+function relativeTo(from: string, to: string): string {
+  if (to === from) {
+    return "";
   }
+  return to.startsWith(`${from}/`) ? to.slice(from.length + 1) : "../outside";
+}
+
+/** Runs one tool call as the host does, for a role with no protected finding. */
+const call = (role: unknown, tool: string, input: Record<string, unknown>) =>
+  checkRole(role, tool, input, ROOT);
+const bash = (role: string, command: string) => call(role, "Bash", { command });
+
+beforeEach(() => {
+  vi.mocked(splitSegments).mockImplementation(splitWords);
+  vi.mocked(commandOf).mockImplementation(words);
+  vi.mocked(resolve).mockImplementation((root, path) =>
+    path.startsWith("/") ? path : `${root}/${path}`,
+  );
+  vi.mocked(isAbsolute).mockImplementation((path) => path.startsWith("/"));
+  vi.mocked(relative).mockImplementation(relativeTo);
+  vi.mocked(checkProtected).mockReturnValue(null);
+  vi.mocked(checkDelivery).mockReturnValue(null);
+  vi.mocked(readMayRun).mockReturnValue(true);
+  vi.mocked(ghMayRun).mockReturnValue(false);
+  vi.mocked(harnessAllowed).mockReturnValue(false);
+  vi.mocked(harnessStatus).mockReturnValue(false);
+  vi.mocked(notifiesFinish).mockReturnValue(false);
+  vi.mocked(sendsToPane).mockReturnValue(false);
+  vi.mocked(setsEnvironment).mockReturnValue(false);
+  vi.mocked(writes).mockReturnValue(false);
+  vi.mocked(readOnly).mockImplementation((what) =>
+    hit("role-read-only", `${what} changes files`),
+  );
+  vi.mocked(useNotify).mockImplementation((what) =>
+    hit("role-read-only", `${what} types into a pane`),
+  );
+  vi.mocked(block).mockImplementation(hit);
 });
 
-describe("role guard: commands that are not known read-only", () => {
-  it("are blocked for both roles, whichever rule names them", async () => {
-    for (const role of ["concierge", "reader"]) {
-      for (const command of [
-        "gh pr create --title x",
-        "gh pr comment 1 --body x",
-        "gh issue create --title x",
-        "gh api -X POST repos/corekraft/kore/issues",
-        'node -e \'require("fs").writeFileSync("a","b")\'',
-        'python3 -c \'open("a","w")\'',
-        "find . -name x -delete",
-        "node /tmp/x/skills/bin/harness.mjs plan active",
-      ]) {
-        const result = await bash(role, command);
-        assert.equal(result.action, "block", `${role}: ${command}`);
-      }
-    }
-  });
-});
-
-const harness = (...words: string[]) =>
-  `node skills/bin/harness.mjs ${words.join(" ")}`;
-
-describe("role guard: harness commands are an explicit allowlist, not a prefix", () => {
-  const writing = [
-    "plan tick --item x",
-    "plan next --text x",
-    "plan clear-next",
-    "adr new --title x",
-    "adr supersede --old 1 --new 2",
-    "flag activate some-flag --environment local",
-    "outcome record --idea 1",
-    "outcome close --idea 1",
-    "ledger record --kind outcome",
-    "ledger poll-herdr",
-    "ledger poll-github",
-    "session spawn --role writer --name x --brief y",
-    "session close x",
-  ];
-
-  it("neither role can run a harness command that writes, spawns or activates", async () => {
-    for (const role of ["concierge", "reader"]) {
-      for (const words of writing) {
-        const result = await bash(role, harness(words));
-        assert.equal(result.action, "block", `${role}: ${words}`);
-      }
-    }
+describe("checkRole: which sessions it bounds", () => {
+  it("leaves a session with no role, or an unknown role, unbounded", () => {
+    expect(call(undefined, "Bash", { command: "rm -rf x" })).toBeNull();
+    expect(call("someone-else", "Write", { file_path: "a" })).toBeNull();
+    expect(checkProtected).not.toHaveBeenCalled();
   });
 
-  it("both roles can read: plan active, idea list and show, flow report, ledger list", async () => {
-    for (const role of ["concierge", "reader"]) {
-      for (const words of [
-        "plan active",
-        "idea list",
-        "idea show --idea 3",
-        "flow report --json",
-        "ledger list --since 2026-11-01T00:00:00Z",
-      ]) {
-        allowed(await bash(role, harness(words)));
-      }
-    }
+  it("returns the protected-path finding before any role rule", () => {
+    const protectedHit = hit("role-protected", "a protected file");
+    vi.mocked(checkProtected).mockReturnValue(protectedHit);
+
+    expect(call("writer", "Write", { file_path: "x" })).toBe(protectedHit);
+    expect(checkDelivery).not.toHaveBeenCalled();
   });
 
-  it("only the concierge may file and sync an idea", async () => {
-    for (const words of ["idea new --title x", "idea sync --idea 3"]) {
-      allowed(await bash("concierge", harness(words)));
-      const result = await bash("reader", harness(words));
-      assert.equal(result.action, "block", `reader: ${words}`);
-    }
-  });
+  it("hands a delivery role's call to the delivery check", () => {
+    const deliveryHit = hit("role-no-merge", "a merge");
+    vi.mocked(checkDelivery).mockReturnValue(deliveryHit);
 
-  it("a harness call with no subcommand, or an unknown one, is blocked", async () => {
-    for (const role of ["concierge", "reader"]) {
-      for (const words of [
-        "",
-        "--json",
-        "plan",
-        "plan active-ish",
-        "nope list",
-      ]) {
-        const result = await bash(role, harness(words));
-        assert.equal(result.action, "block", `${role}: '${words}'`);
-      }
-    }
-  });
-});
-
-describe("role guard: the reader's shell refuses options that write or execute", () => {
-  it("blocks sed (its w and e commands), sort -o, tree -o, git --output= and find's file outputs", async () => {
-    for (const command of [
-      "sed 'w out.txt' a.ts",
-      "sed -n 's/a/b/w out.txt' a.ts",
-      "sed -n 1,5p a.ts",
-      "sort -o out.txt a.txt",
-      "sort -ro out.txt a.txt",
-      "sort --output=out.txt a.txt",
-      "sort --compress-program=./x a.txt",
-      "tree -o out.txt",
-      "tree -L 2 -o out.txt",
-      "git diff --output=out.patch",
-      "git log --output=out.txt",
-      "git show --output out.txt HEAD",
-      "find . -fprintf out.txt x",
-      "find . -fls out.txt",
-      "find . -fprint0 out.txt",
-      "rg --pre ./x foo",
-      "rg --hostname-bin ./x foo",
-      "git log | cat 1<>AGENTS.md",
-      "tree -H . -R",
-    ]) {
-      const result = await bash("reader", command);
-      assert.equal(result.action, "block", command);
-    }
-  });
-
-  it("still allows the read forms", async () => {
-    for (const command of [
-      "sort a.txt",
-      "tree -L 2",
-      "git diff HEAD~1",
-      "git log --oneline -5",
-      "find . -name '*.ts' -print",
-      "rg foo tools",
-    ]) {
-      allowed(await bash("reader", command));
-    }
-  });
-});
-
-describe("role guard: the concierge's git cannot show code", () => {
-  it("blocks every form that prints changed lines", async () => {
-    for (const command of [
-      "git log -p",
-      "git log -L1,5:a.ts",
-      "git log -L:main:a.ts",
-      "git log --word-diff",
-      "git log --word-diff=color",
-      "git log --color-words",
-      "git log --patch-with-stat",
-      "git log --stat",
-      "git log --cc",
-      "git log --full-diff",
-      "git status -v",
-    ]) {
-      blocked(await bash("concierge", command), "role-no-code");
-    }
-  });
-
-  it("allows history and status summaries", async () => {
-    for (const command of [
-      "git log --oneline -5",
-      "git log --author=x --since=2026-01-01",
-      "git log -n 3 --format=%H",
-      "git status --short",
-    ]) {
-      allowed(await bash("concierge", command));
-    }
-  });
-});
-
-describe("role guard: what it does not cover", () => {
-  it("a command substitution is blocked, since it hides a command from the check", async () => {
-    for (const role of ["concierge", "reader"]) {
-      for (const command of [
-        "ls $(touch x)",
-        "ls `touch x`",
-        "echo $(cat a.ts)",
-      ]) {
-        const result = await bash(role, command);
-        assert.equal(result.action, "block", `${role}: ${command}`);
-      }
-    }
-  });
-
-  it("other roles and sessions without a role are not bounded by it", async () => {
-    allowed(
-      await as("writer", "Write", { file_path: "/repo/a.ts", content: "x" }),
-    );
-    allowed(
-      await decide({
-        tool_name: "Write",
-        tool_input: { file_path: "/repo/a.ts", content: "x" },
-      }),
+    expect(bash("judge", "gh pr merge 1")).toBe(deliveryHit);
+    expect(checkDelivery).toHaveBeenCalledWith(
+      "judge",
+      true,
+      "Bash",
+      { command: "gh pr merge 1" },
+      ROOT,
     );
   });
 });
 
-describe("role guard: the concierge cannot read code", () => {
-  it("Read, Grep and Glob are blocked outside plans, docs and ideas", async () => {
-    blocked(
-      await as("concierge", "Read", { file_path: "/repo/tools/kore/src/a.ts" }),
-      "role-no-code",
-    );
-    blocked(
-      await as("concierge", "Grep", { pattern: "x", path: "/repo/tools" }),
-      "role-no-code",
-    );
-    blocked(
-      await as("concierge", "Glob", { pattern: "**/*.ts" }),
-      "role-no-code",
-    );
+describe("checkRole: a read-only role's writes and file reads", () => {
+  it("refuses every write tool from a read-only role", () => {
+    expect(call("reader", "Edit", { file_path: "a.md" })).toMatchObject({
+      rule: "role-read-only",
+    });
   });
 
-  it("Read of a plan, an idea or an ADR passes", async () => {
-    allowed(
-      await as("concierge", "Read", {
-        file_path: "/repo/infra/plans/11-agent-delivery-loop.md",
-      }),
-    );
-    allowed(
-      await as("concierge", "Read", {
-        file_path: "/repo/docs/ideas/0001-x.md",
-      }),
-    );
+  it("lets the reader read code, but refuses the concierge reading it", () => {
+    expect(call("reader", "Read", { file_path: "src/x.ts" })).toBeNull();
+    expect(call("concierge", "Read", { file_path: "src/x.ts" })).toMatchObject({
+      rule: "role-no-code",
+    });
   });
 
-  it("shell commands that read files or call anything but the status tools are blocked", async () => {
-    for (const command of [
-      "cat tools/kore/src/a.ts",
-      "grep -r foo tools",
-      "git show HEAD:tools/kore/src/a.ts",
-      "git log -p",
-      "gh pr diff 1",
-      "gh api repos/corekraft/kore/contents/tools",
-      "node skills/bin/harness.mjs plan active; cat a.ts",
-    ]) {
-      blocked(await bash("concierge", command), "role-no-code");
-    }
+  it("lets the concierge read plans, ADRs and ideas, and refuses a climbing glob", () => {
+    expect(call("concierge", "Read", { file_path: "docs/a.md" })).toBeNull();
+    expect(
+      call("concierge", "Grep", { path: "../secret", pattern: "x" }),
+    ).toMatchObject({
+      rule: "role-no-code",
+    });
+    expect(
+      call("concierge", "Glob", { path: "infra/plans", pattern: "../../x" }),
+    ).toMatchObject({
+      rule: "role-no-code",
+    });
+  });
+});
+
+describe("checkRole: a read-only role's shell", () => {
+  it("refuses a command substitution, as a read-only role or as a no-code one", () => {
+    expect(bash("reader", "echo $(ls)")).toMatchObject({
+      rule: "role-read-only",
+    });
+    expect(bash("concierge", "echo $(ls)")).toMatchObject({
+      rule: "role-no-code",
+    });
   });
 
-  it("the harness, issue and status commands pass", async () => {
-    for (const command of [
-      "node skills/bin/harness.mjs plan active",
-      "node skills/bin/harness.mjs idea new --title x",
-      "gh issue list --label ready-for-agent",
-      "gh pr view 12",
-      "git log --oneline -5",
-      "git status",
-    ]) {
-      allowed(await bash("concierge", command));
-    }
+  it("refuses a segment that sets a variable or changes shell state", () => {
+    vi.mocked(setsEnvironment).mockReturnValue(true);
+
+    expect(bash("reader", "KORE_ROOT=/x cat f")).toMatchObject({
+      rule: "role-read-only",
+    });
   });
 
-  it("the reader may read code", async () => {
-    allowed(
-      await as("reader", "Read", { file_path: "/repo/tools/kore/src/a.ts" }),
-    );
-    allowed(await bash("reader", "grep -r foo tools"));
-    allowed(await bash("reader", "git show HEAD:README.md"));
+  it("points a spawned role's raw pane input at the finish notice", () => {
+    vi.mocked(sendsToPane).mockReturnValue(true);
+
+    expect(bash("reader", "herdr pane send-text w3:p1 x")).toMatchObject({
+      message: expect.stringContaining("types into a pane"),
+    });
+  });
+
+  it("refuses a write in the shell", () => {
+    vi.mocked(writes).mockReturnValue(true);
+
+    expect(bash("refiner", "tee out")).toMatchObject({
+      rule: "role-read-only",
+    });
+  });
+});
+
+describe("checkRole: the concierge's harness commands and gh reads", () => {
+  it("lets the concierge run its allowlisted harness commands and gh reads", () => {
+    vi.mocked(harnessAllowed).mockReturnValue(true);
+    expect(
+      bash("concierge", "node skills/bin/harness.mjs idea new"),
+    ).toBeNull();
+    vi.mocked(ghMayRun).mockReturnValue(true);
+    expect(bash("concierge", "gh pr view 1")).toBeNull();
+  });
+
+  it("refuses a command a no-code role does not list, and allows its date and echo", () => {
+    expect(bash("concierge", "rm f")).toMatchObject({ rule: "role-no-code" });
+    expect(bash("concierge", "date")).toBeNull();
+  });
+
+  it("lets the concierge run git log and status with only the flags that print no code", () => {
+    expect(bash("concierge", "git log --oneline -n 3")).toBeNull();
+    expect(bash("concierge", "git status -s")).toBeNull();
+    expect(bash("concierge", "git log -p")).toMatchObject({
+      rule: "role-no-code",
+    });
+    expect(bash("concierge", "git diff")).toMatchObject({
+      rule: "role-no-code",
+    });
+  });
+
+  it("allows the harness status query to a no-code role", () => {
+    vi.mocked(harnessAllowed).mockReturnValue(false);
+    vi.mocked(harnessStatus).mockReturnValue(true);
+
+    expect(bash("challenger", "node skills/bin/harness.mjs status")).toBeNull();
+  });
+
+  it("refuses a command the read allowlist does not name, for a reader", () => {
+    vi.mocked(readMayRun).mockReturnValue(false);
+
+    expect(bash("reader", "curl x")).toMatchObject({ rule: "role-read-only" });
+  });
+
+  it("gives the refiner the harness commands it may file, and the challenger its own", () => {
+    bash("refiner", "node skills/bin/harness.mjs idea new");
+    bash("challenger", "node skills/bin/harness.mjs idea challenge");
+
+    const [refinerCall] = vi.mocked(readMayRun).mock.calls;
+    const [, , challengerList] = vi.mocked(harnessAllowed).mock.calls[0] ?? [];
+    expect(refinerCall?.[1]).toContain("idea new");
+    expect(challengerList).toContain("idea challenge");
+  });
+
+  it("lets a spawned role finish with its one notice, which no allowlist names", () => {
+    vi.mocked(readMayRun).mockReturnValue(false);
+    vi.mocked(notifiesFinish).mockReturnValue(true);
+
+    expect(
+      bash(
+        "reader",
+        "node skills/bin/harness.mjs session notify w3:p1 --outcome done",
+      ),
+    ).toBeNull();
   });
 });

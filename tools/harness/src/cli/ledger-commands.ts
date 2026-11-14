@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { pollOutcomeSignals, pollerOnly, repoOf } from "./poll-support.js";
+import { pollOutcomeSignals, pollerOnly, repoOf } from "./poll-helpers.js";
 import {
   DEFAULT_LEDGER,
   KINDS,

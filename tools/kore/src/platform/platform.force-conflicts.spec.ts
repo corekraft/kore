@@ -1,10 +1,10 @@
-import { healthyWebhookOutput } from "./webhook-fixtures.js";
+import { healthyWebhookOutput } from "../testing/index.js";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "vitest";
-import { loadRepository, validateRepository } from "../config/config.js";
+import { loadRepository, validateRepository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
-import type { RunResult } from "../runtime/runner.js";
+import { type RunResult } from "../runtime/index.js";
 import { desiredFingerprint } from "./fingerprint.js";
 import { helmUpgradeArgs } from "./helm.js";
 import { reconcileIfNeeded } from "./reconcile.js";

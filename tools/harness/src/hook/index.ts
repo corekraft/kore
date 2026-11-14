@@ -1,9 +1,14 @@
 import type { Command } from "../runtime/index.js";
+export { checkProtected } from "./guard-role-protected.js";
+export type { DeltaDeps, Snapshot } from "./delta.js";
+export { checkDeliveryBash } from "./guard-role-delivery.js";
+export { evaluate } from "./guard.js";
 import { feedback } from "./feedback.js";
 import { guard } from "./guard.js";
 import { hookCommand } from "./io.js";
 import { context, delta, record, statusline } from "./session-hooks.js";
 import { retroScan } from "./retro-hook.js";
+import { testHooks } from "./test-hooks.js";
 import {
   kbCheckHook,
   skillLinks,
@@ -35,5 +40,6 @@ export const hook: Record<string, Command> = {
   "retro-scan": retroScan,
   "skill-links": skillLinks,
   statusline,
+  ...testHooks,
   "workflow-permissions": workflowPermissions,
 };

@@ -8,7 +8,7 @@ import { test } from "vitest";
 
 test("the live resilience spec checks only the components enabled in the environment", async () => {
   const source = await readFile(
-    new URL("./resilience.integration.spec.ts", import.meta.url),
+    new URL("./resilience.live.spec.ts", import.meta.url),
     "utf8",
   );
 

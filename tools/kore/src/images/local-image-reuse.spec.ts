@@ -11,12 +11,7 @@ import { join } from "node:path";
 import { afterEach, expect, test, vi } from "vitest";
 import { loadRepository, type Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
-import {
-  baseDigest,
-  digest,
-  entry,
-  fakeRunner,
-} from "./local-image-fixtures.js";
+import { baseDigest, digest, entry, fakeRunner } from "./images.fixtures.js";
 import { buildAndSignLocalImage } from "./local-image.js";
 
 // Docs: AGENTS.md "It just works." (a no-change rerun is a no-op, not a rollout)

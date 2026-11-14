@@ -1,6 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { manifestImages } from "../images/manifest-images.js";
+import { manifestImages } from "./manifest-images.js";
 import type { ApprovedEntry } from "./approved.js";
 import type { Repository } from "./types.js";
 

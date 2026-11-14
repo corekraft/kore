@@ -1,90 +1,123 @@
-import { execFileSync } from "node:child_process";
-import { readdir, readFile, stat } from "node:fs/promises";
+// Docs: docs/decisions/0034-registry-authentication-and-authorization.md
+import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect, test } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { withRegistryClient } from "./registry-client.js";
+import { registryHead } from "./registry-https.js";
 
-const caPem = "-----BEGIN CERTIFICATE-----\nQUJD\n-----END CERTIFICATE-----\n";
-const credential = { username: "kore-push", password: "s3cret-Pass_word-0123" };
+vi.mock("node:fs/promises");
+vi.mock("node:os");
+vi.mock("node:path");
+vi.mock("./registry-https.js");
 
-test("the credential reaches the client only through its environment, never a file", async () => {
-  let files: Record<string, string> = {};
-  let env: NodeJS.ProcessEnv = {};
-  let directory = "";
-  await withRegistryClient(credential, caPem, async (client) => {
-    env = client.env;
-    directory = client.env["DOCKER_CONFIG"] ?? "";
-    for (const name of await readdir(directory)) {
-      files[name] = await readFile(join(directory, name), "utf8");
-    }
+const directory = "/tmp/kore-registry-abc";
+const ca = "-----BEGIN CERTIFICATE-----\nQUJD\n-----END CERTIFICATE-----\n";
+const credential = { username: "kore-push", password: "s3cret-Pass_word" };
+const helper = `${directory}/docker-credential-kore-env`;
+
+beforeEach(() => {
+  vi.stubEnv("PATH", "/usr/bin:/bin");
+  vi.mocked(join).mockImplementation((...parts: string[]) => parts.join("/"));
+  vi.mocked(tmpdir).mockReturnValue("/tmp");
+  vi.mocked(mkdtemp).mockResolvedValue(directory);
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
+test("the child environment carries the credential and the helper directory, and the helper answers from it", async () => {
+  const env = await withRegistryClient(credential, ca, async (client) => {
+    return client.env;
   });
 
-  expect(env["KORE_REGISTRY_PASSWORD"]).toBe(credential.password);
-  expect(Object.keys(files).length).toBeGreaterThan(0);
-  for (const content of Object.values(files)) {
-    expect(content).not.toContain(credential.password);
+  expect(env).toEqual({
+    DOCKER_CONFIG: directory,
+    PATH: `${directory}:/usr/bin:/bin`,
+    KORE_REGISTRY_USERNAME: "kore-push",
+    KORE_REGISTRY_PASSWORD: "s3cret-Pass_word",
+  });
+});
+
+test("the config and the CA are written mode 0600, and the credential is written to no file", async () => {
+  await withRegistryClient(credential, ca, async () => undefined);
+
+  expect(writeFile).toHaveBeenNthCalledWith(
+    1,
+    `${directory}/config.json`,
+    JSON.stringify({ credsStore: "kore-env" }),
+    { mode: 0o600 },
+  );
+  expect(writeFile).toHaveBeenNthCalledWith(2, `${directory}/ca.crt`, ca, {
+    mode: 0o600,
+  });
+  for (const [, content] of vi.mocked(writeFile).mock.calls) {
+    expect(String(content)).not.toContain(credential.password);
   }
-  expect(JSON.parse(files["config.json"] ?? "{}")).toEqual({
-    credsStore: "kore-env",
+});
+
+test("the helper script is written and made executable, and only get is answered", async () => {
+  await withRegistryClient(credential, ca, async () => undefined);
+
+  const script = vi.mocked(writeFile).mock.calls[2]?.[1];
+  expect(vi.mocked(writeFile).mock.calls[2]).toEqual([
+    helper,
+    script,
+    { mode: 0o700 },
+  ]);
+  expect(String(script)).toMatch(/^#!\/bin\/sh\n/);
+  expect(String(script)).toContain('if [ "$1" != "get" ]; then');
+  expect(chmod).toHaveBeenCalledWith(helper, 0o700);
+});
+
+test("the CA reaches cosign as the temporary file, and head verifies against the same CA", async () => {
+  vi.mocked(registryHead).mockResolvedValue({
+    status: 200,
+    digest: "sha256:d",
   });
-});
-
-test("the helper directory is deleted after the call, even when it fails", async () => {
-  let directory = "";
-  await expect(
-    withRegistryClient(credential, caPem, async (client) => {
-      directory = client.env["DOCKER_CONFIG"] ?? "";
-      throw new Error("sign failed");
-    }),
-  ).rejects.toThrow("sign failed");
-
-  await expect(stat(directory)).rejects.toThrow(/ENOENT/);
-});
-
-test("the credential helper answers a get request with the environment's identity", async () => {
-  await withRegistryClient(credential, caPem, async (client) => {
-    const helper = join(
-      client.env["DOCKER_CONFIG"] ?? "",
-      "docker-credential-kore-env",
-    );
-    const out = execFileSync(helper, ["get"], {
-      input: "127.0.0.1:30500",
-      env: client.env,
-    }).toString();
-    expect(JSON.parse(out)).toEqual({
-      ServerURL: "127.0.0.1:30500",
-      Username: credential.username,
-      Secret: credential.password,
-    });
-    expect(client.env["PATH"]?.split(":")[0]).toBe(client.env["DOCKER_CONFIG"]);
-  });
-});
-
-test("the helper refuses every action except get so it can never store or erase", async () => {
-  await withRegistryClient(credential, caPem, async (client) => {
-    const helper = join(
-      client.env["DOCKER_CONFIG"] ?? "",
-      "docker-credential-kore-env",
-    );
-    expect(() =>
-      execFileSync(helper, ["store"], { input: "{}", env: client.env }),
-    ).toThrow();
-  });
-});
-
-test("the Authorization header carries the credential for in-process lookups", async () => {
-  await withRegistryClient(credential, caPem, async (client) => {
-    expect(client.authorization).toBe(
-      `Basic ${Buffer.from(`${credential.username}:${credential.password}`).toString("base64")}`,
-    );
-  });
-});
-
-test("the CA reaches cosign as a temporary file that holds only the public certificate and is removed afterwards", async () => {
   let caFile = "";
-  await withRegistryClient(credential, caPem, async (client) => {
+  let head: Awaited<ReturnType<typeof registryHead>> | undefined;
+
+  await withRegistryClient(credential, ca, async (client) => {
     caFile = client.caFile;
-    expect(await readFile(caFile, "utf8")).toBe(caPem);
+    head = await client.head("https://x/v2/", { accept: "a" });
   });
-  await expect(stat(caFile)).rejects.toThrow(/ENOENT/);
+
+  expect(caFile).toBe(`${directory}/ca.crt`);
+  expect(registryHead).toHaveBeenCalledWith(
+    "https://x/v2/",
+    { accept: "a" },
+    ca,
+  );
+  expect(head).toEqual({ status: 200, digest: "sha256:d" });
+});
+
+test("the Authorization header is the Basic encoding of the credential for in-process lookups", async () => {
+  let authorization = "";
+  await withRegistryClient(credential, ca, async (client) => {
+    authorization = client.authorization;
+  });
+
+  expect(authorization).toBe(
+    `Basic ${Buffer.from("kore-push:s3cret-Pass_word").toString("base64")}`,
+  );
+});
+
+test("the private directory is removed when the action succeeds", async () => {
+  await withRegistryClient(credential, ca, async () => "done");
+
+  expect(rm).toHaveBeenCalledWith(directory, { force: true, recursive: true });
+});
+
+test("the private directory is removed even when the action fails, and the failure is rethrown", async () => {
+  const failure = new Error("sign failed");
+
+  await expect(
+    withRegistryClient(credential, ca, async () => {
+      throw failure;
+    }),
+  ).rejects.toBe(failure);
+
+  expect(rm).toHaveBeenCalledWith(directory, { force: true, recursive: true });
 });

@@ -2,7 +2,11 @@
 // read utilities, read-only git and gh verbs, find without its writing actions, and the
 // harness commands each role names. Anything not listed here is refused, so a form the
 // blocklist never thought of (`awk system()`, `find -exec`, `git -c alias`) cannot write.
-import { harnessAllowed } from "./guard-role-writes.js";
+import {
+  bareAssignment,
+  HARNESS,
+  harnessAllowed,
+} from "./guard-role-writes.js";
 import { commandOf } from "./guard-shell.js";
 
 const PR_READS = ["view", "list", "status", "checks"];
@@ -16,6 +20,10 @@ const READ_UTILITIES = new Set([
   "grep",
   "rg",
   "wc",
+  "cut",
+  "paste",
+  "tr",
+  "uniq",
   "sort",
   "diff",
   "stat",
@@ -57,6 +65,17 @@ function utilityMayRun(name: string, args: readonly string[]): boolean {
       return !args.some(
         (arg) => /^-[a-zA-Z]*C/.test(arg) || arg === "--compile",
       );
+    case "uniq": {
+      // `uniq [INPUT [OUTPUT]]`: a second positional word names a file to write. A lone `-`
+      // is a positional (standard input), and every word after `--` is positional too.
+      const end = args.indexOf("--");
+      const options = end === -1 ? args : args.slice(0, end);
+      const after = end === -1 ? [] : args.slice(end + 1);
+      const positional =
+        options.filter((arg) => arg === "-" || !arg.startsWith("-")).length +
+        after.length;
+      return positional <= 1;
+    }
     default:
       return true;
   }
@@ -94,11 +113,60 @@ const READER_GIT = [
   "rev-parse",
 ];
 
+/** `sed -n` with one print or printing substitution and file names only: no `-i`, no `w` or `e` flag, no option after the script (GNU sed reads options after it). */
+const SED_PRINT = /^(?:(?:\d+|\$)(?:,(?:\d+|\$))?|\/[^/\n]*\/)?p$/;
+const SED_SUBSTITUTE =
+  /^s([^\\\n\w\s])(?:\\.|(?!\1)[^\\\n])*\1(?:\\.|(?!\1)[^\\\n])*\1[gp]*$/;
+function sedMayRun(args: readonly string[]): boolean {
+  const [flag, script, ...files] = args;
+  return (
+    flag === "-n" &&
+    script !== undefined &&
+    (SED_PRINT.test(script) || SED_SUBSTITUTE.test(script)) &&
+    files.every((file) => !file.startsWith("-"))
+  );
+}
+
+/** `cd` with at most one path: it changes directory and nothing else. */
+const cdMayRun = (args: readonly string[]): boolean =>
+  args.length <= 1 && args.every((arg) => !arg.startsWith("-"));
+
+/** awk's program may not run a command, read one, or write a file; options that load a program file or edit in place are refused. */
+const AWK_RUNS = /system|getline|[>|]/;
+function awkMayRun(args: readonly string[]): boolean {
+  let index = 0;
+  let arg = args[index] ?? "";
+  while (arg.startsWith("-")) {
+    if (arg === "-F" || arg === "-v") {
+      index += 2;
+    } else if (/^-[Fv]./.test(arg)) {
+      index += 1;
+    } else {
+      return false;
+    }
+    arg = args[index] ?? "";
+  }
+  const program = args[index];
+  return program !== undefined && !AWK_RUNS.test(program);
+}
+
+/** `harness hook retro-scan` reads the transcripts and prints counts; a `--ledger` option would name a file to append to. */
+const retroScanMayRun = (name: string, args: readonly string[]): boolean =>
+  name === "node" &&
+  HARNESS.test(args[0] ?? "") &&
+  args[1] === "hook" &&
+  args[2] === "retro-scan" &&
+  !args.some((arg) => arg === "--ledger" || arg.startsWith("--ledger="));
+
 /** What a read-only role's shell may run (the reader, refiner, judge and orchestrator share it): read utilities, queries and allowlisted harness commands; find may not delete, execute or write. */
 export function readMayRun(
   segment: readonly string[],
   harness: readonly string[],
 ): boolean {
+  // A lone NAME=value runs no command; a write on the same line is refused by writes(), not here.
+  if (bareAssignment(segment)) {
+    return true;
+  }
   const { name, args } = commandOf(segment);
   if (name === "find") {
     return !args.some((arg) =>
@@ -123,7 +191,11 @@ export function readMayRun(
   }
   return (
     harnessAllowed(name, args, harness) ||
+    retroScanMayRun(name, args) ||
     (name === "gh" && ghMayRun(args, true)) ||
-    (READ_UTILITIES.has(name) && utilityMayRun(name, args))
+    (READ_UTILITIES.has(name) && utilityMayRun(name, args)) ||
+    (name === "cd" && cdMayRun(args)) ||
+    (name === "sed" && sedMayRun(args)) ||
+    (name === "awk" && awkMayRun(args))
   );
 }

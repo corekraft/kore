@@ -1,74 +1,37 @@
-// Signer guard: only release.yaml's tag-gated signing jobs may hold id-token or
-// packages write. Plan: infra/plans/2-implementation.md (Step 7), ADR 0044.
+// The workflow token-permission rules as a unit: each rule over workflow text,
+// the parser under them, and the directory read over a typed fake file system.
+// The real workflows and the hook run: integration/hook/workflow-permissions.spec.ts.
+// Plan: infra/plans/2-implementation.md (Step 7), ADR 0044.
 
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { afterEach, describe, expect, it } from "vitest";
-import { run } from "../cli/index.js";
-import { testHarness } from "../cli/cli-support.js";
-import { CommandError, nodeFileSystem } from "../runtime/index.js";
-import { permissionProblems } from "./workflow-permissions.js";
+import { describe, expect, it } from "vitest";
+import { CommandError } from "../runtime/index.js";
+import {
+  CI_ID_TOKEN,
+  DOCS_WRITE_ALL,
+  ISSUE_GATE,
+  PARSE_SAMPLE,
+  PUBLISH_PACKAGES,
+  SIGNERS,
+  TOP_BAD,
+  fakeFs,
+  issueJob,
+  nightlyJob,
+  notExact,
+  port,
+  readonly,
+  release,
+  sound,
+} from "./workflow-permissions-support.js";
+import {
+  parseWorkflow,
+  permissionProblems,
+  workflowProblems,
+} from "./workflow-permissions.js";
 
-const repo = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
+const nightly = (text: string) => permissionProblems({ "nightly.yml": text });
 
-const temps: string[] = [];
-afterEach(() => {
-  for (const dir of temps.splice(0)) {
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
-function emptyRoot(): string {
-  const root = mkdtempSync(join(tmpdir(), "kore-workflows-empty-"));
-  temps.push(root);
-  return root;
-}
-
-const readonly = (name: string, extra = "") => ({
-  [name]: `name: x
-on:
-  pull_request:
-permissions:
-  contents: read
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-${extra}    steps:
-      - run: echo hi
-`,
-});
-
-const release = (
-  over: { ifRelease?: string; extra?: string } = {},
-) => `name: release
-on:
-  push:
-    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
-  workflow_dispatch:
-permissions:
-  contents: read
-jobs:
-  release:
-    if: ${over.ifRelease ?? "github.ref_type == 'tag'"}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-    steps:
-      - run: echo sign
-  extra:
-    runs-on: ubuntu-latest
-    ${over.extra ?? "permissions:\n      contents: read"}
-    steps:
-      - run: echo hi
-`;
-
-describe("permissionProblems accepts", () => {
-  it("a tag-gated release workflow with explicit permissions", () => {
+describe("permissionProblems: the release workflow", () => {
+  it("accepts a tag-gated signing job beside a read-only job", () => {
     expect(
       permissionProblems({
         ...readonly("check.yml"),
@@ -76,227 +39,261 @@ describe("permissionProblems accepts", () => {
       }),
     ).toEqual([]);
   });
-});
 
-describe("permissionProblems rejects", () => {
-  it("id-token write in a pull_request workflow", () => {
-    const problems = permissionProblems({
-      "ci.yml": `on:
-  pull_request:
-permissions: {}
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-    steps:
-      - run: echo hi
-`,
-    });
-    expect(problems).toHaveLength(1);
-    expect(problems[0]).toMatch(
-      /ci\.yml.*build.*id-token: write.*release\.yaml/s,
-    );
-  });
-
-  it("a job without explicit permissions", () => {
-    const problems = permissionProblems({
-      "release.yaml": release({ extra: "timeout-minutes: 5" }),
-    });
-    expect(problems).toHaveLength(1);
-    expect(problems[0]).toMatch(/release\.yaml.*extra.*explicit permissions/s);
-  });
-
-  it("a non-release workflow requesting packages write", () => {
-    const problems = permissionProblems({
-      "publish.yml": `on:
-  push:
-    branches: [main]
-permissions:
-  contents: read
-jobs:
-  push:
-    runs-on: ubuntu-latest
-    permissions:
-      packages: write
-    steps:
-      - run: echo hi
-`,
-    });
-    expect(problems).toHaveLength(1);
-    expect(problems[0]).toMatch(/publish\.yml.*push.*packages: write/s);
-  });
-
-  it("any other write scope in a non-release workflow", () => {
-    const problems = permissionProblems({
-      "docs.yml": `on:
-  push:
-permissions: write-all
-jobs:
-  a:
-    runs-on: ubuntu-latest
-    permissions: { contents: write }
-    steps:
-      - run: echo hi
-`,
-    });
-    expect(problems).toHaveLength(2);
-  });
-});
-
-describe("permissionProblems rejects signing that escapes its gate", () => {
-  it("a signing job that can run on a pull request", () => {
-    for (const trigger of ["pull_request", "pull_request_target"]) {
+  it.each(["pull_request", "pull_request_target"])(
+    "refuses a %s trigger, which could mint a trusted signature",
+    (trigger) => {
       const text = release().replace(
         "  workflow_dispatch:\n",
         `  workflow_dispatch:\n  ${trigger}:\n`,
       );
-      const problems = permissionProblems({ "release.yaml": text });
-      expect(
-        problems.some((p) => p.includes(trigger)),
-        trigger,
-      ).toBe(true);
-    }
+      expect(permissionProblems({ "release.yaml": text })).toEqual([
+        `release.yaml: must not run on ${trigger}; a pull request could mint a trusted signature, so remove the trigger`,
+      ]);
+    },
+  );
+
+  it("refuses a signing job that runs without the tag gate", () => {
+    expect(
+      permissionProblems({
+        "release.yaml": release({
+          ifRelease: "github.ref == 'refs/heads/main'",
+        }),
+      }),
+    ).toEqual([
+      "release.yaml: signing job release must run only for tags; add `if: github.ref_type == 'tag'`",
+    ]);
   });
 
-  it("a signing job without the tag gate", () => {
-    const problems = permissionProblems({
-      "release.yaml": release({ ifRelease: "github.ref == 'refs/heads/main'" }),
-    });
-    expect(problems).toHaveLength(1);
-    expect(problems[0]).toMatch(/release.*github\.ref_type == 'tag'/s);
-  });
-
-  it("a signing job name other than release or mirror", () => {
+  it("refuses id-token write under a job name other than release or mirror", () => {
     const text = release()
       .replace("  extra:", "  sneaky:")
       .replace(
         "contents: read\n    steps:\n      - run: echo hi\n",
         "contents: read\n      id-token: write\n    steps:\n      - run: echo hi\n",
       );
-    const problems = permissionProblems({ "release.yaml": text });
-    expect(problems.some((p) => /sneaky.*id-token: write/s.test(p))).toBe(true);
+    expect(permissionProblems({ "release.yaml": text })).toEqual([
+      `release.yaml: job sneaky requests id-token: write; ${SIGNERS}`,
+    ]);
   });
 
-  it("a missing or writable top-level permissions block", () => {
+  it("refuses a missing top-level permissions block, with the fix", () => {
     const text = release().replace(
       "permissions:\n  contents: read\njobs:",
       "jobs:",
     );
-    expect(permissionProblems({ "release.yaml": text })[0]).toMatch(
-      /top-level permissions/,
-    );
-  });
-});
-
-describe("hook workflow-permissions", () => {
-  async function hook(
-    files: Record<string, string>,
-    argv: string[] = [],
-    stdin = "",
-  ) {
-    const h = testHarness({ files });
-    h.deps.stdin = () => Promise.resolve(stdin);
-    const code = await run(["hook", "workflow-permissions", ...argv], h.deps);
-    return { code, out: h.out(), err: h.err() };
-  }
-  const wf = (name: string, text: string) => ({
-    [`/repo/.github/workflows/${name}`]: text,
+    expect(permissionProblems({ "release.yaml": text })).toEqual([
+      "release.yaml: top-level permissions must be present and read-only; add `permissions: {}` or `contents: read`",
+    ]);
   });
 
-  it("passes silently for the repository's workflows", async () => {
-    const h = testHarness();
-    h.deps.fs = nodeFileSystem;
-    h.deps.root = () => Promise.resolve(repo);
-    expect(await run(["hook", "workflow-permissions"], h.deps)).toBe(0);
-    expect(h.out()).toBe("");
-    expect(h.err()).toBe("");
+  it("refuses a job without explicit permissions, with the fix", () => {
     expect(
-      await nodeFileSystem.exists(join(repo, ".github/workflows/release.yaml")),
-    ).toBe(true);
-  });
-
-  it("passes silently and ignores stdin for compliant workflows", async () => {
-    expect(
-      await hook(
-        {
-          ...wf("release.yaml", release()),
-          ...wf("check.yml", readonly("x")["x"] ?? ""),
-        },
-        [],
-        '{"tool_name":"Bash"}',
-      ),
-    ).toEqual({ code: 0, out: "", err: "" });
-  });
-
-  it("reports each problem with its fix on stderr and exits 1", async () => {
-    const result = await hook(
-      wf("release.yaml", release({ ifRelease: "github.ref == 'x'" })),
-    );
-    expect(result.code).toBe(1);
-    expect(result.out).toBe("");
-    expect(result.err).toBe(
-      "release.yaml: signing job release must run only for tags; add `if: github.ref_type == 'tag'`\n",
-    );
-  });
-
-  it("reads only .yml and .yaml files", async () => {
-    expect(
-      await hook({
-        ...wf("release.yaml", release()),
-        ...wf("notes.md", "permissions: write-all"),
+      permissionProblems({
+        "release.yaml": release({ extra: "timeout-minutes: 5" }),
       }),
-    ).toEqual({ code: 0, out: "", err: "" });
+    ).toEqual([
+      "release.yaml: job extra needs explicit permissions; add `permissions: {}` or the read scopes it uses",
+    ]);
   });
 });
 
-describe("hook workflow-permissions fails open", () => {
-  it("fails open, with the fix, when .github/workflows is missing", async () => {
-    const h = testHarness();
-    h.deps.fs = nodeFileSystem;
-    h.deps.root = () => Promise.resolve(emptyRoot());
-    expect(await run(["hook", "workflow-permissions"], h.deps)).toBe(0);
-    expect(h.out()).toBe("");
-    expect(h.err()).toMatch(
-      /^\[hook:workflow-permissions\] failed open: No workflows directory at .*workflows\. Run from the repository, or set CLAUDE_PROJECT_DIR to its root\.\n$/,
-    );
+describe("permissionProblems: the other workflows", () => {
+  it("refuses id-token write in a pull_request workflow", () => {
+    const text = CI_ID_TOKEN;
+    expect(permissionProblems({ "ci.yml": text })).toEqual([
+      `ci.yml: job build requests id-token: write; ${SIGNERS}`,
+    ]);
   });
 
-  it("fails closed under --strict when it cannot run", async () => {
-    const h = testHarness();
-    h.deps.fs = nodeFileSystem;
-    const root = emptyRoot();
-    h.deps.root = () => Promise.resolve(root);
+  it("refuses packages write outside release.yaml", () => {
+    const text = PUBLISH_PACKAGES;
+    expect(permissionProblems({ "publish.yml": text })).toEqual([
+      `publish.yml: job push requests packages: write; ${SIGNERS}`,
+    ]);
+  });
+
+  it("refuses a write-all top level and a contents write, outside release.yaml", () => {
+    const text = DOCS_WRITE_ALL;
+    expect(permissionProblems({ "docs.yml": text })).toEqual([
+      "docs.yml: top-level permissions must be present and read-only; add `permissions: {}` or `contents: read`",
+      "docs.yml: job a requests contents: write; only release.yaml may write, so drop it",
+    ]);
+  });
+});
+
+describe("permissionProblems: which job holds the nightly failure-issue scope", () => {
+  it("accepts the job with exactly its scopes, after integration, on the scheduled main run", () => {
+    expect(nightly(issueJob())).toEqual([]);
+  });
+
+  it("refuses the same scopes on any other job name in nightly.yml", () => {
+    expect(nightly(issueJob({ name: "live" }))).toEqual([
+      "nightly.yml: job live requests issues: write; only release.yaml may write, so drop it",
+    ]);
+  });
+
+  it("refuses the failure-issue name in any other workflow file", () => {
+    expect(permissionProblems({ "check.yml": issueJob() })).toEqual([
+      "check.yml: job failure-issue requests issues: write; only release.yaml may write, so drop it",
+    ]);
+  });
+});
+
+describe("permissionProblems: the exact scopes of the nightly failure-issue job", () => {
+  it("refuses an extra read scope on the named job", () => {
+    const permissions =
+      "      issues: write\n      actions: read\n      contents: read\n      pull-requests: read";
+    expect(nightly(issueJob({ permissions }))).toEqual([
+      notExact(
+        "issues: write, actions: read, contents: read, pull-requests: read",
+      ),
+    ]);
+  });
+});
+
+describe("permissionProblems: the needs and gate of the nightly failure-issue job", () => {
+  it("refuses the named job without needs: integration", () => {
+    expect(nightly(issueJob({ needs: null }))).toEqual([
+      "nightly.yml: job failure-issue must wait for the integration job; add `needs: integration`",
+    ]);
+  });
+
+  it("refuses the named job without the scheduled main gate", () => {
     expect(
-      await run(["hook", "workflow-permissions", "--strict"], h.deps),
-    ).toBe(1);
-    expect(h.out()).toBe("");
-    expect(h.err()).toBe(
-      `[hook:workflow-permissions] failed: No workflows directory at ${join(root, ".github", "workflows")}. Run from the repository, or set CLAUDE_PROJECT_DIR to its root.\n`,
+      nightly(issueJob({ gate: "github.ref == 'refs/heads/main'" })),
+    ).toEqual([
+      `nightly.yml: job failure-issue must run on the scheduled main run, after a failure or success; add \`if: ${ISSUE_GATE}\``,
+    ]);
+  });
+
+  it("refuses a write scope beyond issues on the named job", () => {
+    expect(
+      nightly(
+        issueJob({
+          permissions: "      issues: write\n      contents: write",
+        }),
+      ),
+    ).toEqual([notExact("issues: write, contents: write")]);
+  });
+
+  it("refuses a top-level permissions write in nightly.yml, with the top-level fix", () => {
+    expect(nightly(nightlyJob(sound(), { top: "permissions: write" }))).toEqual(
+      [TOP_BAD],
     );
   });
 
-  it("fails open when the root cannot be found", async () => {
-    const h = testHarness();
-    h.deps.root = () =>
-      Promise.reject(new CommandError('CLAUDE_PROJECT_DIR is "/nope".'));
-    expect(await run(["hook", "workflow-permissions"], h.deps)).toBe(0);
-    expect(h.err()).toBe(
-      '[hook:workflow-permissions] failed open: CLAUDE_PROJECT_DIR is "/nope".\n',
-    );
+  it("refuses write-all on the named job, naming what it asked for", () => {
+    expect(
+      nightly(nightlyJob(sound({ permissions: "    permissions: write-all" }))),
+    ).toEqual([notExact("write-all")]);
+  });
+});
+
+describe("permissionProblems: the top-level and look-alike rules of nightly.yml", () => {
+  it("refuses flow-style permissions on the named job, naming the flow text", () => {
+    expect(
+      nightly(
+        nightlyJob(
+          sound({
+            permissions:
+              "    permissions: { issues: write, actions: read, contents: read }",
+          }),
+        ),
+      ),
+    ).toEqual([notExact("{ issues: write, actions: read, contents: read }")]);
   });
 
-  it("fails open, flagging an unexpected read fault as the harness's to fix", async () => {
-    const h = testHarness();
-    h.deps.fs = {
-      ...h.deps.fs,
-      readdir: () => Promise.resolve(["release.yaml"]),
-      readFile: () =>
-        Promise.reject(Object.assign(new Error("denied"), { code: "EACCES" })),
+  it("refuses an upper-case look-alike of the named job as an ordinary write", () => {
+    expect(nightly(nightlyJob(sound(), { name: "Failure-Issue" }))).toEqual([
+      "nightly.yml: job Failure-Issue requests issues: write; only release.yaml may write, so drop it",
+    ]);
+  });
+
+  it("refuses a longer look-alike of the named job as an ordinary write", () => {
+    expect(nightly(nightlyJob(sound(), { name: "failure-issue-2" }))).toEqual([
+      "nightly.yml: job failure-issue-2 requests issues: write; only release.yaml may write, so drop it",
+    ]);
+  });
+
+  it("refuses a top-level write-all in nightly.yml, with the top-level fix", () => {
+    expect(
+      nightly(nightlyJob(sound(), { top: "permissions: write-all" })),
+    ).toEqual([TOP_BAD]);
+  });
+
+  it.each([
+    ["id-token", "id-token: write"],
+    ["packages", "packages: write"],
+    ["pull-requests", "pull-requests: write"],
+  ])("refuses %s write on the named job", (_scope, line) => {
+    const permissions = `    permissions:\n      issues: write\n      actions: read\n      contents: read\n      ${line}`;
+    expect(nightly(nightlyJob(sound({ permissions })))).toEqual([
+      notExact(`issues: write, actions: read, contents: read, ${line}`),
+    ]);
+  });
+
+  it.each([
+    ["a flow list", "[integration, live]"],
+    ["a block list", "\n      - integration"],
+    ["another job", "live"],
+  ])("refuses needs as %s: it must be exactly integration", (_form, needs) => {
+    expect(nightly(nightlyJob(sound({ needs })))).toEqual([
+      "nightly.yml: job failure-issue must wait for the integration job; add `needs: integration`",
+    ]);
+  });
+});
+
+describe("parseWorkflow", () => {
+  it("reads nested keys and flow values, dropping comments, list items and block scalars", () => {
+    const text = PARSE_SAMPLE;
+    expect(parseWorkflow(text)).toEqual({
+      name: "x",
+      on: { push: { branches: "[main]" } },
+      permissions: "{}",
+      jobs: { build: { run: "|", steps: {} } },
+    });
+  });
+});
+
+describe("workflowProblems: the workflows directory", () => {
+  const dir = "/repo/.github/workflows";
+  const faultOf = (code: string) => Object.assign(new Error(code), { code });
+
+  it("checks only .yml and .yaml files, in name order, and reports their problems", async () => {
+    const fake = fakeFs();
+    const texts: Record<string, string> = {
+      [`${dir}/check.yml`]: readonly("check.yml")["check.yml"] ?? "",
+      [`${dir}/release.yaml`]: release({ ifRelease: "github.ref == 'x'" }),
     };
-    expect(await run(["hook", "workflow-permissions"], h.deps)).toBe(0);
-    expect(h.err()).toBe(
-      "[hook:workflow-permissions] failed open: denied (unexpected; fixing it is on the harness)\n",
+    fake.readdir.mockResolvedValue(["notes.md", "release.yaml", "check.yml"]);
+    fake.readFile.mockImplementation((path) =>
+      Promise.resolve(texts[path] ?? ""),
+    );
+    expect(await workflowProblems(port(fake), "/repo")).toEqual([
+      "release.yaml: signing job release must run only for tags; add `if: github.ref_type == 'tag'`",
+    ]);
+    expect(fake.readFile.mock.calls).toEqual([
+      [`${dir}/check.yml`],
+      [`${dir}/release.yaml`],
+    ]);
+  });
+
+  it("names the fix when the workflows directory is missing", async () => {
+    const fake = fakeFs();
+    fake.readdir.mockRejectedValue(faultOf("ENOENT"));
+    await expect(workflowProblems(port(fake), "/repo")).rejects.toEqual(
+      new CommandError(
+        `No workflows directory at ${dir}. Run from the repository, or set CLAUDE_PROJECT_DIR to its root.`,
+      ),
+    );
+  });
+
+  it("rethrows a read fault that is not a missing directory", async () => {
+    const fake = fakeFs();
+    fake.readdir.mockRejectedValue(faultOf("EACCES"));
+    await expect(workflowProblems(port(fake), "/repo")).rejects.toThrow(
+      "EACCES",
     );
   });
 });

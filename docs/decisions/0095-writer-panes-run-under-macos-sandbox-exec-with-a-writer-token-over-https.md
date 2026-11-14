@@ -43,7 +43,8 @@ keeps its token in the keychain, which the sandbox must not reach.
   the shared `.git`, minus the guard files above. It denies the credential
   reads, the keychain service and the herdr sockets.
 - Writer worktrees push over HTTPS with a token helper, reading the writer
-  identity's token (#336) from `GH_TOKEN`, set by the launcher with
+  identity's token (#336) from `GH_TOKEN`, set by the launcher (the token
+  reaches the pane by [ADR 0096](0096-role-tokens-reach-panes-through-a-fifo-handoff.md)) with
   `GH_CONFIG_DIR` pointing at an empty directory. The owner's checkout stays
   on SSH.
 - A container (Colima) is the recorded fallback, for when `sandbox-exec` is

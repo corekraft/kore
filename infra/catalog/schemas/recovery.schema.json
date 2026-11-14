@@ -64,7 +64,7 @@
           "reason": { "type": "string" },
           "restoreTest": {
             "type": "string",
-            "pattern": "\\.integration\\.spec\\.ts$"
+            "pattern": "\\.live\\.spec\\.ts$"
           }
         }
       }

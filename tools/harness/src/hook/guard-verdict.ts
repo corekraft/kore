@@ -34,7 +34,13 @@ export const allow: Verdict = { action: "allow" };
 /** What the rules may read: the repository root, its files, and each rule's mode. */
 export interface GuardContext {
   root: string;
+  /** The directory the command runs in: the payload's cwd, else the root. */
+  readonly cwd: string;
+  /** The home directory a leading ~ expands to, as the shell expands it. */
+  readonly home: string;
   readFile(path: string): Promise<string>;
+  /** Whether any path under a directory (the cwd by default) matches a shell glob; the bare-glob rule reads it. */
+  globMatches(pattern: string, directory?: string): Promise<boolean>;
   /** A rule's mode from the guardrail inventory. */
   modeOf(rule: string): Mode;
   /** The inventory's deny rules; those in audit mode warn here, since a settings deny cannot. */

@@ -3,21 +3,27 @@
 import { warn, type Finding } from "./guard-verdict.js";
 
 const APPEND_ONLY =
-  /(^|[/\s>'"=])(\.claude\/evals\/history\.jsonl|\.kore\/state\/journal\/[^/\s'"]*\.jsonl|\.kore\/state\/ledger\.jsonl)$/;
+  /(^|[/\s>'"=])(\.claude\/evals\/history\.jsonl|\.kore\/state\/journal\/[^/\s'"]*\.jsonl|\.kore\/state\/ledger\.jsonl|\.kore\/state\/test-pass\/[^\s'"]+)$/;
 export const isAppendOnly = (path: string): boolean => APPEND_ONLY.test(path);
 
 export const appendOnlyWarn = (path: string): Finding =>
   warn(
     "append-only",
     `${path} is an append-only record: .claude/evals/history.jsonl is owned by eval.mjs, ` +
-      `.kore/state/journal/*.jsonl by kore, .kore/state/ledger.jsonl by the harness ledger tool (\`harness ledger record\`). ` +
-      `Instead, append through the owning script (eval.mjs, kore, harness ledger); never edit, truncate, move, or remove it by hand.`,
+      `.kore/state/journal/*.jsonl by kore, .kore/state/ledger.jsonl by the harness ledger tool (\`harness ledger record\`), ` +
+      `.kore/state/test-pass/ (a recorded test pass that lets the commit hook skip tests) by test-lock.mjs after a real green run. ` +
+      `Instead, append through the owning script (eval.mjs, kore, harness ledger, test-lock.mjs); never edit, truncate, move, or remove it by hand.`,
   );
 
 const TRUNCATING_REDIRECT = /^(?:\d*|&)>(?!>)(.*)$/;
 
 // Removing or moving these directories removes every journal inside them.
-const PROTECTED_DIRS = new Set([".kore", ".kore/state", ".kore/state/journal"]);
+const PROTECTED_DIRS = new Set([
+  ".kore",
+  ".kore/state",
+  ".kore/state/journal",
+  ".kore/state/test-pass",
+]);
 
 function isProtectedDir(arg: string, root: string): boolean {
   let path = arg.replace(/^\.\//, "").replace(/\/+$/, "");

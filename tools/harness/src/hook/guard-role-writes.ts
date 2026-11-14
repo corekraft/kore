@@ -102,6 +102,11 @@ export function writes(segment: readonly string[]): boolean {
 export const PREFIXED =
   /^(?:[A-Za-z_][A-Za-z0-9_]*=|(?:sudo|env|time|command|nohup|exec)$)/;
 
+/** A segment that sets a variable for a command that follows, or changes shell state: the refusal the read-only roles share. A lone `NAME=value` is no change to a command, so it passes. */
+export const setsEnvironment = (segment: readonly string[]): boolean =>
+  (PREFIXED.test(segment[0] ?? "") && !bareAssignment(segment)) ||
+  changesShell(segment);
+
 /** Builtins that change the shell's environment, aliases or options, or load a file into it, so a later segment runs with a variable such as KORE_ROOT that the guard never sees. */
 const SHELL_STATE = new Set([
   "export",
@@ -119,6 +124,18 @@ const SHELL_STATE = new Set([
 /** A segment whose command changes shell state or sources a file. */
 export const changesShell = (segment: readonly string[]): boolean =>
   SHELL_STATE.has(segment[0] ?? "");
+
+const ASSIGNMENT = /^([A-Za-z_][A-Za-z0-9_]*)=/;
+/** Names a shell or program reads when it runs: a bare assignment to one would steer git, the shell or the harness, so it stays refused. */
+const STEERING =
+  /^(?:GIT_|PATH$|IFS$|HOME$|XDG_|ENV$|BASH|SHELL|ZDOTDIR$|PAGER$|MANPAGER$|LESS|EDITOR$|VISUAL$|CDPATH$|PROMPT_COMMAND$|PS4$|KORE_|LD_|DYLD_|NODE_|PERL|PYTHON|RUBY)/;
+
+/** A segment that is one plain `NAME=value` and nothing else: no command follows it, and it is not a steering name. A redirect on it is still a write, which writes() flags. */
+export const bareAssignment = (segment: readonly string[]): boolean => {
+  const words = withoutRedirects(segment);
+  const name = ASSIGNMENT.exec(words[0] ?? "")?.[1];
+  return words.length === 1 && name !== undefined && !STEERING.test(name);
+};
 
 /** A command substitution or process substitution runs a command the segment check never sees. */
 export const SUBSTITUTION = /\$\(|`|<\(|>\(/;
@@ -200,3 +217,58 @@ export const harnessStatus = (name: string, args: readonly string[]): boolean =>
   args[1] === "status" &&
   args.length <= 3 &&
   (args[2] === undefined || args[2] === "--json");
+
+/**
+ * The finish notice every brief ends with, in its one allowed shape:
+ * `node skills/bin/harness.mjs session notify <pane> --outcome done|blocked`.
+ * The harness builds the line, so a role cannot write its own text into another pane.
+ */
+export function notifiesFinish(segment: readonly string[]): boolean {
+  const { name, args } = commandOf(segment);
+  const [path, group, verb, pane, flag, outcome, ...rest] = args;
+  return (
+    name === "node" &&
+    HARNESS.test(path ?? "") &&
+    group === "session" &&
+    verb === "notify" &&
+    /^[\w:]+$/.test(pane ?? "") &&
+    flag === "--outcome" &&
+    (outcome === "done" || outcome === "blocked") &&
+    rest.length === 0
+  );
+}
+
+/** `herdr pane send-text` or `send-keys`: raw input typed into a pane. */
+export function sendsToPane(segment: readonly string[]): boolean {
+  const { name, args } = commandOf(segment);
+  return (
+    name === "herdr" &&
+    args[0] === "pane" &&
+    (args[1] === "send-text" || args[1] === "send-keys")
+  );
+}
+
+/** The finding for raw pane input, which names the command a brief's finish notice uses now. */
+export const useNotify = (what: string): Finding =>
+  block(
+    "role-read-only",
+    `${what} types into another pane, and a bounded role sends a pane nothing but its finish notice. ` +
+      "Instead, run `node skills/bin/harness.mjs session notify <pane> --outcome done|blocked`, which builds the finish line, submits it and confirms it arrived.",
+  );
+
+/** The sources (and destination) of `git mv`, `git rm` or `rm [-f]`; any other flag stays a source and is no hook test. */
+export function removal(
+  line: readonly string[],
+): { sources: string[]; destination?: string } | undefined {
+  const { name, args } = commandOf(line);
+  const [verb = "", ...rest] = args;
+  if (name === "rm") {
+    return { sources: args.filter((word) => word !== "-f") };
+  }
+  if (name !== "git" || !["mv", "rm"].includes(verb)) {
+    return undefined;
+  }
+  return verb === "rm"
+    ? { sources: rest }
+    : { sources: rest.slice(0, -1), destination: rest.at(-1) ?? "-" };
+}

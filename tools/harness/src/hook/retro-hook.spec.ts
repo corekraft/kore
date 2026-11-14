@@ -1,242 +1,272 @@
-// `harness hook retro-scan`: the command line around the scan.
+// The `harness hook retro-scan` command as a unit: which scan it runs with
+// which window, rules and skills, and the report or the message it prints. The
+// hook wrapper, the guardrail, the plans, the transcript readers and the scan
+// are mocked; the real command line over real files is in
+// integration/hook/retro-hook.spec.ts.
 // Docs: infra/plans/5-self-maintenance.md#step-2-deterministic-retrospective-scan
 
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  mkdirSync,
-  readFileSync,
-  mkdtempSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { run } from "../cli/index.js";
-import { testHarness } from "../cli/cli-support.js";
-import { INVENTORY_PATH } from "../guardrail/index.js";
-import { nodeFileSystem } from "../runtime/index.js";
-import { fixtures } from "./retro-scan-support.js";
+  CommandError,
+  type CliDeps,
+  type FileSystem,
+} from "../runtime/index.js";
+import {
+  auditRuleNames,
+  GuardrailError,
+  readInventory,
+} from "../guardrail/index.js";
+import { readPlans } from "../plan/index.js";
+import { hookCommand } from "./io.js";
+import {
+  lastRetrospective,
+  markerInstant,
+  MarkerError,
+  scan,
+} from "./retro-scan.js";
+import { defaultDirs, readTranscripts } from "./retro-transcripts.js";
+import "./retro-hook.js";
 
-const temps: string[] = [];
-afterEach(() => {
-  for (const dir of temps.splice(0)) {
-    rmSync(dir, { recursive: true, force: true });
+vi.mock("./io.js", () => ({ hookCommand: vi.fn() }));
+vi.mock("../plan/index.js", () => ({ readPlans: vi.fn() }));
+vi.mock("../guardrail/index.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../guardrail/index.js")>()),
+  auditRuleNames: vi.fn(),
+  readInventory: vi.fn(),
+}));
+vi.mock("./retro-transcripts.js", () => ({
+  defaultDirs: vi.fn(),
+  readTranscripts: vi.fn(),
+}));
+vi.mock("./retro-scan.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./retro-scan.js")>()),
+  lastRetrospective: vi.fn(),
+  markerInstant: vi.fn(),
+  scan: vi.fn(),
+}));
+
+type Handler = Parameters<typeof hookCommand>[2];
+
+/** The handler the wrapper registered when the module loaded, read before any reset. */
+const registration = vi.mocked(hookCommand).mock.calls[0];
+
+function registeredHandler(): Handler {
+  if (registration === undefined) {
+    throw new Error("the retro-scan hook was never registered");
   }
-});
+  return registration[2];
+}
+const handler = registeredHandler();
 
-const temp = (): string => {
-  const dir = mkdtempSync(join(tmpdir(), "kore-retro-hook-"));
-  temps.push(dir);
-  return dir;
+const USAGE =
+  "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD|YYYY-MM-DDTHH:MM:SSZ] [--evidence]\n--since keeps sessions active at or after local midnight of that date, or at or after that UTC instant, like the session-start count.\n--evidence adds guardEvidence (the session, transcript line and excerpt of each guard block) and overriddenEvidence (the same, with the command excerpt and the unquoted glob the guard named, for each overridden audit warning), capped per rule. The default report leaves them out.";
+const NO_SKILLS = "No skills/ directory found; skills.unused will be empty.\n";
+
+/** A scan report as the scan returns it, with nothing in it. */
+const SCANNED: ReturnType<typeof scan> = {
+  sessions: { count: 0, first: null, last: null, list: [] },
+  skippedLines: 0,
+  guards: {},
+  failures: [],
+  skills: { perSession: {}, unused: [] },
+  corrections: [],
+  rules: { promotable: [], audit: [] },
 };
 
-/** A repository root with skills, a guardrail inventory, and optionally a retrospective marker. */
-function repoRoot(
-  parts: { skills?: boolean; marker?: string; guard?: boolean } = {},
-): string {
-  const { skills = true, marker, guard = true } = parts;
-  const root = temp();
-  mkdirSync(join(root, "infra", "plans"), { recursive: true });
-  if (guard) {
-    mkdirSync(join(root, ".claude"), { recursive: true });
-    const entry = (rule: string, mode: string) => ({
-      rule,
-      kind: "bash",
-      mode,
-      owner: "guard.ts",
-    });
-    writeFileSync(
-      join(root, INVENTORY_PATH),
-      JSON.stringify({
-        guardrails: [
-          entry("image-digest", "audit"),
-          entry("sample-audit", "audit"),
-          entry("unquoted-glob", "audit"),
-          entry("enforced-rule", "enforce"),
-        ],
-      }),
-    );
-  }
-  if (skills) {
-    mkdirSync(join(root, "skills", "alpha-skill"), { recursive: true });
-    writeFileSync(join(root, "skills", "alpha-skill", "SKILL.md"), "---\n");
-    writeFileSync(join(root, "skills", "README.md"), "not a skill\n");
-    // A folder without SKILL.md, like skills/bin, is not a skill.
-    mkdirSync(join(root, "skills", "bin"), { recursive: true });
-  }
-  if (marker) {
-    writeFileSync(
-      join(root, "infra", "plans", "3-plan.md"),
-      `Last retrospective: ${marker}\n`,
-    );
-  }
-  return root;
+const notFound = () =>
+  Promise.reject(Object.assign(new Error("ENOENT"), { code: "ENOENT" }));
+
+/** A typed file system whose four reads the command makes are mocks; with no skills/ directory by default. */
+function fakeFs() {
+  return {
+    readdir: vi.fn<FileSystem["readdir"]>(() => notFound()),
+    isDirectory: vi.fn<FileSystem["isDirectory"]>(() => Promise.resolve(false)),
+    exists: vi.fn<FileSystem["exists"]>(() => Promise.resolve(false)),
+    readFile: vi.fn<FileSystem["readFile"]>(),
+  };
 }
 
-async function retro(root: string, args: string[], home = temp()) {
-  const h = testHarness({ env: { HOME: home } });
-  h.deps.fs = nodeFileSystem;
-  h.deps.root = () => Promise.resolve(root);
-  h.deps.stdin = () => Promise.reject(new Error("stdin must not be read"));
-  const code = await run(["hook", "retro-scan", ...args], h.deps);
-  return { code, out: h.out(), err: h.err(), runner: h.runner };
+/** The fake as the file system the command reads through; the four reads are mocks, so the one assertion stands for the rest. */
+function port(fake: ReturnType<typeof fakeFs>): FileSystem {
+  const used: Pick<
+    FileSystem,
+    "readdir" | "isDirectory" | "exists" | "readFile"
+  > = fake;
+  return used as FileSystem;
 }
 
-describe("hook retro-scan", () => {
-  it("prints exactly the report the .mjs printed on the fixtures, with and without --since", async () => {
-    const root = repoRoot();
-    const expected = (name: string) =>
-      readFileSync(`${fixtures}${name}`, "utf8");
-    expect((await retro(root, ["--dir", fixtures])).out).toBe(
-      expected("expected-all.json"),
-    );
-    expect(
-      (await retro(root, ["--dir", fixtures, "--since", "2026-11-01"])).out,
-    ).toBe(expected("expected-since.json"));
+/** The host's deps as the command reads them: the root, the file system and HOME. The one cast stands for the rest. */
+function depsOf(fs: FileSystem): CliDeps {
+  const used: Pick<CliDeps, "root" | "fs" | "env"> = {
+    root: () => Promise.resolve("/repo"),
+    fs,
+    env: { HOME: "/home" },
+  };
+  return used as CliDeps;
+}
+
+/** Runs the command as the host does: the flags it was given, and no stdin. */
+function run(options: Record<string, string | boolean> = {}, fs = fakeFs()) {
+  return handler({
+    deps: depsOf(port(fs)),
+    payload: undefined,
+    options,
+    operand: undefined,
+  });
+}
+
+beforeEach(() => {
+  vi.mocked(markerInstant).mockReturnValue(0);
+  vi.mocked(defaultDirs).mockResolvedValue(["/t"]);
+  vi.mocked(readTranscripts).mockResolvedValue([{ id: "s", text: "" }]);
+  vi.mocked(readPlans).mockResolvedValue({});
+  vi.mocked(lastRetrospective).mockReturnValue("2026-11-12");
+  vi.mocked(auditRuleNames).mockReturnValue(["bare-glob"]);
+  vi.mocked(scan).mockReturnValue(SCANNED);
+});
+
+describe("retro-scan command: registration and input", () => {
+  it("is registered under the name the host runs it by", () => {
+    expect(registration?.[0]).toBe("retro-scan");
   });
 
-  it("scans a directory and prints JSON without user text", async () => {
-    const result = await retro(repoRoot(), ["--dir", fixtures]);
-    expect(result).toMatchObject({ code: 0, err: "" });
-    const report = JSON.parse(result.out) as {
-      since: unknown;
-      sessions: { count: number };
-      skills: { unused: string[] };
-      rules: { audit: { rule: string }[] };
-    };
-    expect(report.sessions.count).toBe(3);
-    expect(report.since).toBeNull();
-    expect(report.skills.unused).toEqual(["alpha-skill"]);
-    expect(report.rules.audit.map((r) => r.rule)).toEqual([
-      "image-digest",
-      "sample-audit",
-      "unquoted-glob",
-    ]);
-    expect(result.out).not.toMatch(
-      /push to the remote|widget tag|shared stash/,
-    );
-    expect(result.out.endsWith("}\n")).toBe(true);
-  });
-
-  it("applies --since to a directory", async () => {
-    const result = await retro(repoRoot(), [
-      "--dir",
-      fixtures,
-      "--since",
-      "2026-11-01",
-    ]);
-    expect(result.code).toBe(0);
-    expect(JSON.parse(result.out)).toMatchObject({
-      since: "2026-11-01",
-      sessions: { count: 2 },
+  it("refuses a --since that is neither a date nor an instant, with the usage", async () => {
+    vi.mocked(markerInstant).mockReturnValue(Number.NaN);
+    expect(await run({ since: "yesterday" })).toEqual({
+      code: 2,
+      stderr: `${USAGE}\n`,
     });
+    expect(vi.mocked(scan)).not.toHaveBeenCalled();
   });
 });
 
-describe("hook retro-scan usage", () => {
-  it("rejects a malformed --since with usage and exit 2", async () => {
-    const result = await retro(repoRoot(), ["--since", "yesterday"]);
-    expect(result.code).toBe(2);
-    expect(result.out).toBe("");
-    expect(result.err).toMatch(/Usage: harness hook retro-scan/);
-  });
-
-  it("exits 1, not 2, for an unknown flag, so a typo never blocks a session", async () => {
-    const result = await retro(repoRoot(), ["--bogus"]);
-    expect(result.code).toBe(1);
-    expect(result.out).toBe("");
-    expect(result.err).toMatch(/Unknown flag "--bogus"/);
-  });
-
-  it("names the directory it cannot read and exits 2", async () => {
-    const result = await retro(repoRoot(), ["--dir", "/nonexistent-kore-dir"]);
-    expect(result.code).toBe(2);
-    expect(result.err).toMatch(
-      /Cannot read transcripts in \/nonexistent-kore-dir\. Pass --dir/,
-    );
-  });
-
-  it("exits 2 when the repository has no transcripts", async () => {
-    const result = await retro(repoRoot(), []);
-    expect(result.code).toBe(2);
-    expect(result.err).toMatch(/No transcripts found for this repository/);
-  });
-});
-
-describe("hook retro-scan defaults", () => {
-  it("scans the repository's transcripts since the last retrospective by default", async () => {
-    const root = repoRoot({ marker: "2026-11-01" });
-    const home = temp();
-    const dir = join(
-      home,
-      ".claude",
-      "projects",
-      root.replace(/[^a-zA-Z0-9]/g, "-"),
-    );
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(
-      join(dir, "new.jsonl"),
-      `${JSON.stringify({ type: "user", timestamp: "2026-11-02T00:00:00.000Z" })}\n`,
-    );
-    writeFileSync(
-      join(dir, "old.jsonl"),
-      `${JSON.stringify({ type: "user", timestamp: "2026-10-02T00:00:00.000Z" })}\n`,
-    );
-    const result = await retro(root, [], home);
-    expect(result.code).toBe(0);
-    expect(result.err).toBe("");
-    const report = JSON.parse(result.out) as {
-      since: string;
-      sessions: { list: { id: string }[] };
-    };
-    expect(report.since).toBe("2026-11-01");
-    expect(report.sessions.list.map((s) => s.id)).toEqual(["new"]);
-  });
-});
-
-describe("hook retro-scan warnings and faults", () => {
-  it("says so on stderr when there is no marker or no skills directory, and still reports", async () => {
-    const root = repoRoot({ skills: false });
-    const home = temp();
-    const dir = join(
-      home,
-      ".claude",
-      "projects",
-      root.replace(/[^a-zA-Z0-9]/g, "-"),
-    );
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, "s.jsonl"), "{}\n");
-    const result = await retro(root, [], home);
-    expect(result.code).toBe(0);
-    expect(result.err).toBe(
-      "No skills/ directory found; skills.unused will be empty.\n" +
-        "No `Last retrospective:` date found; scanning all sessions. Pass --since to narrow.\n",
-    );
-    expect(JSON.parse(result.out)).toMatchObject({
-      since: null,
-      skills: { unused: [] },
+describe("retro-scan command: transcripts", () => {
+  it("reports that no transcripts were found for the repository, with the usage", async () => {
+    vi.mocked(readTranscripts).mockResolvedValue([]);
+    expect(await run()).toEqual({
+      code: 2,
+      stderr: `No transcripts found for this repository or its worktrees. Pass --dir <transcripts>.\n${USAGE}\n`,
     });
   });
 
-  it("names the fix when the guardrail inventory is missing, and fails open without --strict", async () => {
-    const result = await retro(repoRoot({ guard: false }), ["--dir", fixtures]);
-    expect(result.code).toBe(0);
-    expect(result.out).toBe("");
-    expect(result.err).toMatch(
-      /failed open: \.claude\/guardrails\.yaml is missing.*Restore it from git/,
-    );
-    expect(result.err).not.toMatch(/unexpected/);
+  it("names the directories it could not read", async () => {
+    vi.mocked(readTranscripts).mockRejectedValue(new Error("EACCES"));
+    expect(await run({ dir: "/t" })).toEqual({
+      code: 2,
+      stderr: `Cannot read transcripts in /t. Pass --dir <transcripts>.\n${USAGE}\n`,
+    });
   });
 
-  it("exits 1 instead of failing open under --strict", async () => {
-    const result = await retro(repoRoot({ guard: false }), [
-      "--dir",
-      fixtures,
-      "--strict",
-    ]);
-    expect(result.code).toBe(1);
-    expect(result.err).toMatch(
-      /\[hook:retro-scan\] failed: \.claude\/guardrails\.yaml is missing/,
+  it("reads the given --dir, and looks for neither the repository's sessions nor its plans", async () => {
+    const fs = fakeFs();
+    await run({ dir: "/t" }, fs);
+    expect(vi.mocked(readTranscripts)).toHaveBeenCalledWith(port(fs), ["/t"]);
+    expect(vi.mocked(defaultDirs)).not.toHaveBeenCalled();
+    expect(vi.mocked(readPlans)).not.toHaveBeenCalled();
+  });
+});
+
+describe("retro-scan command: the window", () => {
+  it("takes the window from the latest Last retrospective: marker, and prints the report", async () => {
+    const result = await run();
+    expect(vi.mocked(scan)).toHaveBeenCalledWith([{ id: "s", text: "" }], {
+      since: "2026-11-12",
+      knownSkills: [],
+      auditRules: ["bare-glob"],
+      evidence: false,
+    });
+    expect(result).toEqual({
+      stdout: `${JSON.stringify({ since: "2026-11-12", ...SCANNED }, null, 2)}\n`,
+      stderr: NO_SKILLS,
+    });
+  });
+
+  it("scans every session, with a note, when no marker exists", async () => {
+    vi.mocked(lastRetrospective).mockReturnValue(null);
+    const result = await run();
+    expect(vi.mocked(scan).mock.calls[0]?.[1]?.since).toBeUndefined();
+    expect(result.stderr).toBe(
+      `${NO_SKILLS}No \`Last retrospective:\` date found; scanning all sessions. Pass --since to narrow.\n`,
     );
+  });
+
+  it("uses the --since date over any marker in the plans", async () => {
+    await run({ since: "2026-11-01" });
+    expect(vi.mocked(lastRetrospective)).not.toHaveBeenCalled();
+    expect(vi.mocked(scan).mock.calls[0]?.[1]?.since).toBe("2026-11-01");
+  });
+
+  it("fails the scan by name for a malformed marker, instead of failing open", async () => {
+    vi.mocked(lastRetrospective).mockImplementation(() => {
+      throw new MarkerError("infra/plans/3.md:2: bad");
+    });
+    expect(await run()).toEqual({
+      code: 2,
+      stderr: "infra/plans/3.md:2: bad\n",
+    });
+  });
+
+  it("rethrows a plan read fault it does not expect", async () => {
+    vi.mocked(readPlans).mockRejectedValue(new Error("boom"));
+    await expect(run()).rejects.toThrow(new Error("boom"));
+  });
+});
+
+describe("retro-scan command: skills, audit rules and evidence", () => {
+  it("passes the skills that hold a SKILL.md, and the audit-mode rules", async () => {
+    const fs = fakeFs();
+    fs.readdir.mockResolvedValue(["tdd", "bin"]);
+    fs.isDirectory.mockResolvedValue(true);
+    fs.exists.mockImplementation((path) =>
+      Promise.resolve(path === "/repo/skills/tdd/SKILL.md"),
+    );
+    const result = await run({ dir: "/t" }, fs);
+    expect(vi.mocked(scan).mock.calls[0]?.[1]).toEqual({
+      since: undefined,
+      knownSkills: ["tdd"],
+      auditRules: ["bare-glob"],
+      evidence: false,
+    });
+    expect(result.stderr).toBe("");
+  });
+
+  it("passes the evidence flag through to the scan", async () => {
+    await run({ dir: "/t", evidence: true });
+    expect(vi.mocked(scan).mock.calls[0]?.[1]?.evidence).toBe(true);
+  });
+
+  it("turns a guardrail inventory error into a command error with its fix", async () => {
+    vi.mocked(readInventory).mockRejectedValue(
+      new GuardrailError("fix the inventory"),
+    );
+    await expect(run({ dir: "/t" })).rejects.toThrow(
+      new CommandError("fix the inventory"),
+    );
+  });
+
+  it("rethrows an inventory fault that is not a guardrail error", async () => {
+    vi.mocked(readInventory).mockRejectedValue(new Error("boom"));
+    await expect(run({ dir: "/t" })).rejects.toThrow(new Error("boom"));
+  });
+});
+
+describe("retro-scan command: reads through the file system", () => {
+  it("rethrows a skills/ read fault that is not a missing directory", async () => {
+    const fs = fakeFs();
+    fs.readdir.mockRejectedValue(
+      Object.assign(new Error("denied"), { code: "EACCES" }),
+    );
+    await expect(run({ dir: "/t" }, fs)).rejects.toMatchObject({
+      message: "denied",
+      code: "EACCES",
+    });
+  });
+
+  it("reads the guardrail inventory through the host's file system", async () => {
+    const fs = fakeFs();
+    await run({ dir: "/t" }, fs);
+    const reader = vi.mocked(readInventory).mock.calls[0]?.[0];
+    await reader?.("/repo/.claude/guardrails.json");
+    expect(fs.readFile).toHaveBeenCalledWith("/repo/.claude/guardrails.json");
   });
 });

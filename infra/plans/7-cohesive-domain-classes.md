@@ -141,7 +141,7 @@ one worktree each.
   helpers that need no dependencies.
 - Coverage does not drop (`coverage-threshold`).
 - `kore` behaviour is unchanged: the CLI dispatch specs and the opt-in
-  integration specs pass.
+  live specs pass.
 
 ## Step 4: Enforce
 

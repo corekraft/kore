@@ -5,6 +5,7 @@ import {
   readStdin,
   resolveRoot,
   systemClock,
+  systemHostLoad,
   systemIds,
 } from "./runtime/index.js";
 
@@ -18,6 +19,7 @@ try {
     clock: systemClock,
     fs: nodeFileSystem,
     ids: systemIds,
+    hostLoad: systemHostLoad,
     bundleUrl: import.meta.url,
     env: process.env,
     cwd: process.cwd(),

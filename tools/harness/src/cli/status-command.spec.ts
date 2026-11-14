@@ -1,70 +1,124 @@
-import { describe, expect, it } from "vitest";
-import { run } from "./cli.js";
-import { DEFAULT, harness } from "./ledger-commands-support.js";
-import { ideaText } from "../testing/records-support.js";
+import { describe, expect, it, vi } from "vitest";
+import { IdeaRepository, type IdeaRecord } from "../idea/index.js";
+import type { Kind, LedgerEvent } from "../ledger/index.js";
+import { readActivePlans, type ActivePlan } from "../plan/index.js";
+import { CommandError } from "../runtime/index.js";
+import { contextWith, fakeLedger } from "./command-support.js";
+import { openLedger } from "./ledger-commands.js";
+import { statusCommand } from "./status-command.js";
 
-const PLAN =
-  "---\nstatus: active\nsummary: s\nlast-verified: 2026-11-11\n---\n\n## Step 1: A\n\n- [ ] x\n- [x] y\n- [ ] z\n";
+const { list } = vi.hoisted(() => ({
+  list: vi.fn<() => Promise<IdeaRecord[]>>(),
+}));
 
-const event = (kind: string, at: string, extra: object = {}) =>
-  JSON.stringify({
-    schema: 1,
-    id: `${kind}-${at}`,
-    source: "github",
-    kind,
-    occurredAt: at,
-    recordedAt: at,
-    ...extra,
-  });
+vi.mock("../idea/index.js", () => ({
+  IdeaRepository: vi.fn(function fakeRepository() {
+    return { list };
+  }),
+}));
+vi.mock("../plan/index.js");
+vi.mock("./ledger-commands.js");
 
-function seeded(ledger = "") {
-  const h = harness();
-  h.fs.files.set("/repo/infra/plans/5-a.md", PLAN);
-  // The in-memory file system only knows a directory by a file of that name.
-  h.fs.files.set("/repo/docs/ideas", "");
-  h.fs.files.set("/repo/docs/ideas/0001-open-one.md", ideaText({}, "Open one"));
-  h.fs.files.set(
-    "/repo/docs/ideas/0002-won.md",
-    ideaText({ outcome: "success" }, "Won"),
-  );
-  h.fs.files.set(
-    "/repo/docs/ideas/0003-lost.md",
-    ideaText({ outcome: "failure" }, "Lost"),
-  );
-  if (ledger !== "") {
-    h.fs.files.set(DEFAULT, ledger);
-  }
-  return h;
+const ROOT = "/repo";
+
+function idea(number: string, title: string, outcome?: string): IdeaRecord {
+  return {
+    number,
+    slug: "slug",
+    path: `docs/ideas/${number}-slug.md`,
+    title,
+    summary: "",
+    hypothesis: "",
+    expectedOutcome: "",
+    measurement: "",
+    safetyPattern: "",
+    date: "2026-01-01",
+    ...(outcome === undefined ? {} : { outcome }),
+  };
 }
 
-describe("harness status", () => {
-  it("--json reports open plan items, ideas by state and recent ledger stages", async () => {
-    const h = seeded(
-      [
-        event("issue.opened", "2026-01-01T00:00:00Z", { number: 7 }),
-        event("pr.opened", "2026-01-02T00:00:00Z", { number: 8 }),
-        event("pane.busy", "2026-01-03T00:00:00Z", { pane: "p1" }),
-        event("outcome", "2026-01-04T00:00:00Z", {
-          number: 7,
-          label: "success",
-        }),
-      ].join("\n") + "\n",
-    );
-    expect(await run(["status", "--json"], h.deps)).toBe(0);
-    const status = JSON.parse(h.out());
-    expect(status.plans).toEqual([
-      expect.objectContaining({
-        name: "5-a.md",
-        open: [{ step: "Step 1", count: 2 }],
-      }),
-    ]);
-    expect(status.ideas.byState).toEqual({ open: 1, success: 1, failure: 1 });
-    expect(status.ideas.items).toEqual([
-      { number: "0001", title: "Open one", state: "open" },
-      { number: "0002", title: "Won", state: "success" },
-      { number: "0003", title: "Lost", state: "failure" },
-    ]);
-    expect(status.ledger.recent).toEqual([
+function github(
+  kind: Kind,
+  occurredAt: string,
+  extra: Partial<LedgerEvent> = {},
+): Partial<LedgerEvent> {
+  return { source: "github", kind, occurredAt, ...extra };
+}
+
+const PLAN: ActivePlan = {
+  file: "infra/plans/5-a.md",
+  name: "5-a",
+  default: false,
+  open: [{ step: "Step 1", count: 2 }],
+  next: null,
+  upcoming: [],
+};
+
+/** A command context over fake deps, with the ledger, plans and ideas the spec names. */
+function fixture(
+  options: {
+    events?: Partial<LedgerEvent>[];
+    skipped?: number;
+    ideas?: IdeaRecord[];
+    plans?: ActivePlan[];
+    json?: boolean;
+  } = {},
+) {
+  const ledger = fakeLedger(options.events ?? [], undefined, options.skipped);
+  vi.mocked(openLedger).mockResolvedValue({ ledger: ledger.ledger });
+  list.mockResolvedValue(options.ideas ?? []);
+  vi.mocked(readActivePlans).mockResolvedValue(options.plans ?? []);
+  const stdout = vi.fn<(text: string) => void>();
+  const fs = {};
+  const clock = { now: vi.fn(), sleep: vi.fn() };
+  const context = contextWith(
+    { root: vi.fn(() => Promise.resolve(ROOT)), fs, clock, stdout },
+    {},
+    options.json ?? false,
+  );
+  return { context, stdout, fs, clock };
+}
+
+function printed(stdout: ReturnType<typeof vi.fn<(text: string) => void>>) {
+  return stdout.mock.calls.map(([text]) => text).join("");
+}
+
+describe("harness status --json", () => {
+  it("reports open plan items and ideas by state, with each idea listed", async () => {
+    const f = fixture({
+      json: true,
+      plans: [PLAN],
+      ideas: [
+        idea("0001", "Open one"),
+        idea("0002", "Won", "success"),
+        idea("0003", "Lost", "failure"),
+      ],
+    });
+    expect(await statusCommand.run(f.context)).toBe(0);
+    expect(JSON.parse(printed(f.stdout))).toMatchObject({
+      plans: [PLAN],
+      ideas: {
+        byState: { open: 1, success: 1, failure: 1 },
+        items: [
+          { number: "0001", title: "Open one", state: "open" },
+          { number: "0002", title: "Won", state: "success" },
+          { number: "0003", title: "Lost", state: "failure" },
+        ],
+      },
+    });
+  });
+
+  it("reports the github events as stages, newest first, with their number", async () => {
+    const f = fixture({
+      json: true,
+      events: [
+        github("issue.opened", "2026-01-01T00:00:00Z", { number: 7 }),
+        github("pr.opened", "2026-01-02T00:00:00Z", { number: 8 }),
+        github("outcome", "2026-01-04T00:00:00Z", { number: 7 }),
+      ],
+    });
+    await statusCommand.run(f.context);
+    expect(JSON.parse(printed(f.stdout)).ledger.recent).toEqual([
       {
         occurredAt: "2026-01-04T00:00:00Z",
         stage: "outcome",
@@ -87,10 +141,10 @@ describe("harness status", () => {
   });
 });
 
-describe("harness status output", () => {
-  it("limits recent ledger stages to the latest ten, newest first", async () => {
-    const lines = Array.from({ length: 12 }, (_, i) =>
-      event(
+describe("harness status --json ledger stages", () => {
+  it("limits the recent stages to the newest ten, newest first", async () => {
+    const events = Array.from({ length: 12 }, (_, i) =>
+      github(
         "pr.opened",
         `2026-01-${String(i + 1).padStart(2, "0")}T00:00:00Z`,
         {
@@ -98,57 +152,96 @@ describe("harness status output", () => {
         },
       ),
     );
-    const h = seeded(`${lines.join("\n")}\n`);
-    await run(["status", "--json"], h.deps);
-    const recent = JSON.parse(h.out()).ledger.recent;
-    expect(recent).toHaveLength(10);
-    expect(recent[0].number).toBe(12);
+    const f = fixture({ json: true, events });
+    await statusCommand.run(f.context);
+    const recent = JSON.parse(printed(f.stdout)).ledger.recent as {
+      number: number;
+    }[];
+    expect(recent.map((r) => r.number)).toEqual([
+      12, 11, 10, 9, 8, 7, 6, 5, 4, 3,
+    ]);
   });
 
-  it("reports empty sections when there is no plan, idea or ledger", async () => {
-    const h = harness();
-    expect(await run(["status", "--json"], h.deps)).toBe(0);
-    expect(JSON.parse(h.out())).toEqual({
+  it("drops a stage an agent reports about itself, since only github events map to a stage", async () => {
+    const f = fixture({
+      json: true,
+      events: [
+        {
+          source: "claude",
+          kind: "session.start",
+          occurredAt: "2026-01-05T00:00:00Z",
+          stage: "merge",
+        },
+        {
+          source: "claude",
+          kind: "pr.opened",
+          occurredAt: "2026-01-02T00:00:00Z",
+          number: 9,
+        },
+        github("pr.opened", "2026-01-01T00:00:00Z", { number: 8 }),
+      ],
+    });
+    await statusCommand.run(f.context);
+    expect(JSON.parse(printed(f.stdout)).ledger.recent).toEqual([
+      {
+        occurredAt: "2026-01-01T00:00:00Z",
+        stage: "merge",
+        kind: "pr.opened",
+        number: 8,
+      },
+    ]);
+  });
+
+  it("passes the ledger's skipped-line count through", async () => {
+    const f = fixture({ json: true, skipped: 2 });
+    await statusCommand.run(f.context);
+    expect(JSON.parse(printed(f.stdout)).ledger.skipped).toBe(2);
+  });
+
+  it("reports empty sections when there is no plan, idea or ledger event", async () => {
+    const f = fixture({ json: true });
+    expect(await statusCommand.run(f.context)).toBe(0);
+    expect(JSON.parse(printed(f.stdout))).toEqual({
       plans: [],
       ideas: { byState: {}, items: [] },
       ledger: { recent: [], skipped: 0 },
     });
   });
 
-  it("prints a readable summary without --json", async () => {
-    const h = seeded(
-      event("pr.opened", "2026-01-02T00:00:00Z", { number: 8 }) + "\n",
+  it("reads the ideas from the repository at the resolved root", async () => {
+    const f = fixture({ json: true });
+    await statusCommand.run(f.context);
+    expect(IdeaRepository).toHaveBeenCalledWith(f.fs, f.clock, ROOT);
+  });
+});
+
+describe("harness status text", () => {
+  it("prints each plan's open steps, the idea counts and the recent stages", async () => {
+    const f = fixture({
+      plans: [PLAN],
+      ideas: [idea("0001", "Open one"), idea("0002", "Won", "success")],
+      events: [github("pr.opened", "2026-01-02T00:00:00Z", { number: 8 })],
+    });
+    expect(await statusCommand.run(f.context)).toBe(0);
+    expect(printed(f.stdout)).toBe(
+      "infra/plans/5-a.md: Step 1 (2)\nIdeas: 1 open, 1 success\n2026-01-02T00:00:00Z merge pr.opened\n",
     );
-    expect(await run(["status"], h.deps)).toBe(0);
-    expect(h.out()).toContain("infra/plans/5-a.md");
-    expect(h.out()).toContain("Ideas: 1 open, 1 success, 1 failure");
-    expect(h.out()).toContain("merge pr.opened");
   });
 
-  it("never writes a file", async () => {
-    const h = seeded();
-    const before = JSON.stringify([...h.fs.files]);
-    await run(["status", "--json"], h.deps);
-    expect(JSON.stringify([...h.fs.files])).toBe(before);
+  it("says no open items, and none for ideas, when there are none", async () => {
+    const f = fixture({ plans: [{ ...PLAN, open: [] }] });
+    await statusCommand.run(f.context);
+    expect(printed(f.stdout)).toBe(
+      "infra/plans/5-a.md: no open items\nIdeas: none\n",
+    );
   });
 
-  it("ignores a stage an agent reports about itself", async () => {
-    const h = seeded(
-      [
-        event("session.start", "2026-01-05T00:00:00Z", {
-          source: "claude",
-          stage: "merge",
-        }),
-        event("pr.opened", "2026-01-02T00:00:00Z", {
-          source: "claude",
-          number: 9,
-        }),
-        event("pr.opened", "2026-01-01T00:00:00Z", { number: 8 }),
-      ].join("\n") + "\n",
+  it("fails with the ledger's error as a command error, listing nothing", async () => {
+    const f = fixture({ plans: [PLAN] });
+    vi.mocked(openLedger).mockResolvedValue({ error: "no ledger here" });
+    await expect(statusCommand.run(f.context)).rejects.toThrow(
+      new CommandError("no ledger here"),
     );
-    await run(["status", "--json"], h.deps);
-    expect(JSON.parse(h.out()).ledger.recent).toEqual([
-      expect.objectContaining({ kind: "pr.opened", number: 8 }),
-    ]);
+    expect(f.stdout).not.toHaveBeenCalled();
   });
 });

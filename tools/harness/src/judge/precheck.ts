@@ -1,22 +1,25 @@
 import type { CommandContext } from "../runtime/index.js";
 import {
   gatherChecks,
+  gatherExpandStep,
   parsePrView,
   type Checks,
   type PrView,
 } from "./checks.js";
 import { parseDeclaration, type Pattern } from "./declaration.js";
 import { parseDiff } from "./diff.js";
+import { JudgeError } from "./errors.js";
 import { hintsFor, type Hints } from "./hints.js";
+import { withManifestSides } from "./manifest-source.js";
 import { assess } from "./verdict.js";
-
-export class JudgeError extends Error {}
 
 export interface Report {
   pr: number;
   ok: boolean;
   /** The head commit the verdict covers; the merge tool merges only this one. */
   head?: string;
+  /** The logins whose principles-review verdicts this report trusted. */
+  reviewers: string[];
   pattern: Pattern | undefined;
   idea: string | undefined;
   declaration: { ok: boolean; reason?: string };
@@ -31,23 +34,30 @@ export interface Report {
 const FIX =
   "Check `gh auth status` and the PR number, then rerun `harness judge precheck <pr>`.";
 
-async function gh(
+async function run(
   { deps }: CommandContext,
   root: string,
-  repo: string,
-  args: string[],
+  args: readonly string[],
   pr: number,
 ): Promise<string> {
-  // The repository is named, never taken from the working directory or GH_REPO.
-  const done = await deps.runner.run("gh", [...args, "--repo", repo], {
-    cwd: root,
-  });
+  const done = await deps.runner.run("gh", args, { cwd: root });
   if (done.code !== 0) {
     throw new JudgeError(
       `gh ${args.slice(0, 2).join(" ")} failed for PR #${pr}: ${done.stderr.trim()}. ${FIX}`,
     );
   }
   return done.stdout;
+}
+
+async function gh(
+  context: CommandContext,
+  root: string,
+  repo: string,
+  args: readonly string[],
+  pr: number,
+): Promise<string> {
+  // The repository is named, never taken from the working directory or GH_REPO.
+  return run(context, root, [...args, "--repo", repo], pr);
 }
 
 export async function readPr(
@@ -65,7 +75,7 @@ export async function readPr(
       "view",
       String(pr),
       "--json",
-      "body,comments,commits,headRefOid,statusCheckRollup",
+      "baseRefOid,body,comments,commits,headRefOid,statusCheckRollup",
     ],
     pr,
   );
@@ -93,25 +103,51 @@ export async function precheck(
     return {
       pr,
       ok: false,
+      reviewers: [...reviewers],
       pattern: undefined,
       idea: undefined,
       declaration: { ok: false, reason: declaration.reason },
     };
   }
   const diff = await gh(context, root, repo, ["pr", "diff", String(pr)], pr);
-  const checks = await gatherChecks(
+  const gathered = await gatherChecks(
     context.deps.runner,
     root,
     repo,
     view,
     reviewers,
   );
-  const files = parseDiff(diff);
+  const files = await withManifestSides(
+    parseDiff(diff),
+    (args) => run(context, root, args, pr),
+    repo,
+    view.baseSha,
+    view.headSha,
+  );
   const hints = hintsFor(declaration.pattern, files);
-  const verdict = assess(declaration.pattern, hints, files);
+  const unproven = assess(declaration.pattern, hints, files);
+  // Only a contract that names its expand step, and whose diff fails its pattern, reads it.
+  const expandStep = declaration.expandStep;
+  const expand =
+    unproven.patternMatches || expandStep === undefined
+      ? undefined
+      : await gatherExpandStep({
+          api: (ghArgs) => gh(context, root, repo, ghArgs, pr),
+          pr,
+          view,
+          reviewers,
+          declared: { idea: declaration.idea, expandStep },
+        });
+  const verdict =
+    expand === undefined
+      ? unproven
+      : assess(declaration.pattern, hints, files, expand.result === "pass");
+  const checks: Checks =
+    expand === undefined ? gathered : { ...gathered, expandStep: expand };
   return {
     pr,
     head: view.headSha,
+    reviewers: [...reviewers],
     ok:
       verdict.patternMatches &&
       Object.values(checks).every((c) => c.result === "pass"),
@@ -144,6 +180,7 @@ export function summary(report: Report): string {
   return [
     head,
     `pattern: ${report.pattern ?? "none"}${report.idea === undefined ? "" : ` (idea ${report.idea})`}`,
+    `reviewers: ${report.reviewers.join(", ")}`,
     ...checks,
     ...hints.map((h) => `hint ${h}`),
     ...mismatch,

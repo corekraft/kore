@@ -8,7 +8,7 @@ import { test } from "vitest";
 
 test("the live persistence spec reads the primary pod without indexing an empty list", async () => {
   const source = await readFile(
-    new URL("./platform.database.integration.spec.ts", import.meta.url),
+    new URL("./platform.database.live.spec.ts", import.meta.url),
     "utf8",
   );
 

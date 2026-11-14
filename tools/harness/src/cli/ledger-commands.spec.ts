@@ -1,260 +1,298 @@
-import { describe, expect, it } from "vitest";
-import { run } from "./cli.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  Ledger,
+  SOURCES,
+  isTimestamp,
+  pollGithub,
+  pollHerdr,
+  type ListResult,
+  type RecordResult,
+} from "../ledger/index.js";
+import { mainRoot, type CommandContext } from "../runtime/index.js";
+import { ledgerCommands, openLedger } from "./ledger-commands.js";
+import {
+  EVENT,
+  FILTER,
+  GITHUB_EVENT,
+  HERDR_EVENT,
+  LEDGER_PATH,
+  MAIN,
+  ctx,
+} from "./ledger-command-support.js";
+import { pollOutcomeSignals, pollerOnly, repoOf } from "./poll-helpers.js";
 
-import { DEFAULT, harness } from "./ledger-commands-support.js";
+const { ledgerRecord, ledgerList } = vi.hoisted(() => ({
+  ledgerRecord: vi.fn<(input: unknown) => Promise<RecordResult>>(),
+  ledgerList: vi.fn<() => Promise<ListResult>>(),
+}));
 
-const startFlags = [
-  "ledger",
-  "record",
-  "--source",
-  "claude",
-  "--kind",
-  "session.start",
-  "--occurred-at",
-  "2026-01-02T03:00:00Z",
-  "--session",
-  "s1",
-];
+vi.mock("../ledger/index.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../ledger/index.js")>()),
+  Ledger: vi.fn(function fakeLedger() {
+    return { record: ledgerRecord, list: ledgerList };
+  }),
+  pollGithub: vi.fn(),
+  pollHerdr: vi.fn(),
+  isTimestamp: vi.fn(),
+}));
+vi.mock("../runtime/index.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../runtime/index.js")>()),
+  mainRoot: vi.fn(),
+}));
+vi.mock("./poll-helpers.js");
+
+const AT = "2026-01-02T03:00:00Z";
+const NO_ROOT =
+  "Cannot find the main checkout root for the shared ledger. Run inside the repository, set KORE_ROOT to its root, or pass --ledger <path>.";
+const NO_EVENT =
+  "No event given. Pass --source, --kind and --occurred-at, or one JSON event on stdin.\n";
+const run = (name: string, context: CommandContext) =>
+  ledgerCommands[name]?.run(context);
+
+beforeEach(() => {
+  vi.mocked(mainRoot).mockResolvedValue(MAIN);
+  vi.mocked(isTimestamp).mockReturnValue(true);
+  vi.mocked(repoOf).mockReturnValue("corekraft/kore");
+  ledgerRecord.mockResolvedValue({ ok: true, event: EVENT });
+  ledgerList.mockResolvedValue({ events: [], skipped: 0 });
+});
+
+describe("openLedger", () => {
+  it("opens the default ledger under the main checkout root", async () => {
+    expect(await openLedger(ctx().context)).toHaveProperty("ledger");
+    expect(vi.mocked(Ledger).mock.calls[0]?.[3]).toBe(LEDGER_PATH);
+  });
+
+  it("resolves --ledger against the working directory and asks for no root", async () => {
+    await openLedger(ctx({ ledger: "out/x.jsonl" }).context);
+    expect(mainRoot).not.toHaveBeenCalled();
+    expect(vi.mocked(Ledger).mock.calls[0]?.[3]).toBe("/repo/out/x.jsonl");
+  });
+
+  it("returns the actionable error when no main checkout root can be found", async () => {
+    vi.mocked(mainRoot).mockResolvedValue(undefined);
+    expect(await openLedger(ctx().context)).toEqual({ error: NO_ROOT });
+  });
+});
 
 describe("ledger record", () => {
-  it("appends an event built from flags to the default ledger under .kore/state", async () => {
-    const h = harness();
-    expect(await run(startFlags, h.deps)).toBe(0);
-    expect(JSON.parse(h.fs.files.get(DEFAULT) ?? "")).toEqual({
-      schema: 1,
-      id: "id-1",
+  it("appends an event built from flags, printing its id and kind", async () => {
+    const { context, deps } = ctx({
       source: "claude",
       kind: "session.start",
-      occurredAt: "2026-01-02T03:00:00Z",
-      recordedAt: "2026-01-02T03:04:05.000Z",
+      "occurred-at": AT,
       session: "s1",
     });
-    expect(h.out()).toBe("recorded id-1 session.start\n");
-  });
-
-  it("accepts --name=value and converts --number", async () => {
-    const h = harness();
-    const argv = [
-      "ledger",
-      "record",
-      "--source=claude",
-      "--kind=challenge.round",
-      "--occurred-at=2026-01-02T03:00:00Z",
-      "--label=round-1",
-      "--number=12",
-    ];
-    expect(await run(argv, h.deps)).toBe(0);
-    expect(JSON.parse(h.fs.files.get(DEFAULT) ?? "")).toMatchObject({
-      number: 12,
+    expect(await run("record", context)).toBe(0);
+    expect(ledgerRecord).toHaveBeenCalledWith({
+      source: "claude",
+      kind: "session.start",
+      occurredAt: AT,
+      session: "s1",
     });
+    expect(deps.stdout).toHaveBeenCalledWith("recorded id-1 session.start\n");
   });
 
-  it("appends one JSON event from stdin and prints it under --json", async () => {
-    const h = harness(
-      JSON.stringify({
-        source: "herdr",
-        kind: "pane.closed",
-        occurredAt: "2026-01-02T03:00:00Z",
-        pane: "w3:p1",
-      }),
+  it("converts a count flag to a number and leaves other values as text", async () => {
+    await run("record", ctx({ number: "12", tokens: "x" }).context);
+    expect(ledgerRecord).toHaveBeenCalledWith({ number: 12, tokens: "x" });
+  });
+
+  it("reads one JSON event from stdin and prints it under --json", async () => {
+    const stdin = JSON.stringify({
+      source: "herdr",
+      kind: "pane.closed",
+      occurredAt: AT,
+    });
+    const { context, deps } = ctx({}, { json: true, stdin });
+    expect(await run("record", context)).toBe(0);
+    expect(ledgerRecord).toHaveBeenCalledWith(JSON.parse(stdin));
+    expect(deps.stdout).toHaveBeenCalledWith(
+      `${JSON.stringify({ event: EVENT })}\n`,
     );
-    expect(await run(["ledger", "record", "--json"], h.deps)).toBe(0);
-    const printed = JSON.parse(h.out()) as { event: { id: string } };
-    expect(printed.event.id).toBe("id-1");
-    expect((h.fs.files.get(DEFAULT) ?? "").trimEnd().split("\n")).toHaveLength(
-      1,
+  });
+  it("refuses a poller-only event before the ledger is opened", async () => {
+    vi.mocked(pollerOnly).mockReturnValue("only the poller writes this");
+    const { context, deps } = ctx({ source: "github", kind: "pr.merged" });
+    expect(await run("record", context)).toBe(1);
+    expect(deps.stderr).toHaveBeenCalledWith("only the poller writes this\n");
+    expect(mainRoot).not.toHaveBeenCalled();
+  });
+
+  it("reports the ledger's rejection as its message, and as JSON with the field under --json", async () => {
+    ledgerRecord.mockResolvedValue({
+      ok: false,
+      field: "number",
+      message: "bad number",
+    });
+    const plain = ctx({ source: "claude" });
+    expect(await run("record", plain.context)).toBe(1);
+    expect(plain.deps.stderr).toHaveBeenCalledWith("bad number\n");
+    const json = ctx({ source: "claude" }, { json: true });
+    expect(await run("record", json.context)).toBe(1);
+    expect(json.deps.stderr).toHaveBeenCalledWith(
+      `${JSON.stringify({ error: "bad number", field: "number" })}\n`,
     );
   });
 
-  it("writes to the path given by --ledger, relative to the working directory", async () => {
-    const h = harness();
-    await run([...startFlags, "--ledger", "out/x.jsonl"], h.deps);
-    expect(h.fs.files.has("/repo/out/x.jsonl")).toBe(true);
-    expect(h.fs.files.has(DEFAULT)).toBe(false);
-  });
-});
-
-describe("ledger record rejections", () => {
-  it("rejects a value flag placed before the command instead of misreading it", async () => {
-    const h = harness();
-    expect(await run(["ledger", "--source", "claude", "record"], h.deps)).toBe(
-      2,
-    );
-    expect(h.err()).toContain('Put "--source" after the command');
-  });
-
-  it("rejects an invalid event with exit 1, names the field and appends nothing", async () => {
-    const h = harness();
-    const argv = startFlags.map((a) => (a === "session.start" ? "bogus" : a));
-    expect(await run(argv, h.deps)).toBe(1);
-    expect(h.err()).toContain('field "kind"');
-    expect(h.out()).toBe("");
-    expect(h.fs.files.has(DEFAULT)).toBe(false);
-  });
-
-  it("reports the rejected field as JSON under --json", async () => {
-    const h = harness();
-    const argv = [...startFlags.slice(0, -2), "--number", "x", "--json"];
-    expect(await run(argv, h.deps)).toBe(1);
-    expect(JSON.parse(h.err())).toMatchObject({ field: "number" });
-  });
-
-  it("rejects stdin that is not JSON, and empty stdin as a usage error", async () => {
-    const bad = harness("{nope");
-    expect(await run(["ledger", "record"], bad.deps)).toBe(1);
-    expect(bad.err()).toContain("not valid JSON");
-    expect(bad.fs.files.has(DEFAULT)).toBe(false);
-
-    const empty = harness("  \n");
-    expect(await run(["ledger", "record"], empty.deps)).toBe(2);
-    expect(empty.err()).toContain("No event given");
-  });
-
-  it("refuses a prompt field smuggled in on stdin", async () => {
-    const h = harness(
-      JSON.stringify({
-        source: "claude",
-        kind: "session.start",
-        occurredAt: "2026-01-02T03:00:00Z",
-        prompt: "hi",
-      }),
-    );
-    expect(await run(["ledger", "record"], h.deps)).toBe(1);
-    expect(h.err()).toContain('"prompt"');
-    expect(h.fs.files.has(DEFAULT)).toBe(false);
-  });
-
-  it("rejects an unknown flag and a flag missing its value", async () => {
-    const unknown = harness();
-    expect(await run([...startFlags, "--prompt", "x"], unknown.deps)).toBe(2);
-    expect(unknown.err()).toContain('Unknown flag "--prompt"');
-
-    const missing = harness();
-    expect(await run(["ledger", "record", "--source"], missing.deps)).toBe(2);
-    expect(missing.err()).toContain('Flag "--source" needs a value');
-    expect(missing.fs.files.size).toBe(0);
-  });
-});
-
-async function seeded() {
-  const h = harness();
-  const events = [
-    ["claude", "session.start", "2026-01-02T03:00:00Z", "--session", "s1"],
-    ["herdr", "pane.spawned", "2026-01-02T04:00:00Z", "--pane", "w3:p1"],
-  ];
-  for (const [source, kind, at, flag, value] of events) {
-    await run(
-      [
-        "ledger",
-        "record",
-        "--source",
-        source ?? "",
-        "--kind",
-        kind ?? "",
-        "--occurred-at",
-        at ?? "",
-        flag ?? "",
-        value ?? "",
-      ],
-      h.deps,
-    );
-  }
-  return h;
-}
-
-describe("ledger list", () => {
-  it("prints one line per event, oldest first", async () => {
-    const h = await seeded();
-    h.out();
-    const list = harness();
-    list.fs.files.set(DEFAULT, h.fs.files.get(DEFAULT) ?? "");
-    expect(await run(["ledger", "list"], list.deps)).toBe(0);
-    expect(list.out().trimEnd().split("\n")).toEqual([
-      "2026-01-02T03:00:00Z claude session.start s1",
-      "2026-01-02T04:00:00Z herdr pane.spawned w3:p1",
-    ]);
-  });
-
-  it("emits events and the skipped count as JSON, applying filters", async () => {
-    const h = await seeded();
-    h.fs.files.set(DEFAULT, `${h.fs.files.get(DEFAULT) ?? ""}garbage\n`);
-    h.out();
-    const list = harness();
-    list.fs.files.set(DEFAULT, h.fs.files.get(DEFAULT) ?? "");
-    const argv = [
-      "ledger",
-      "list",
-      "--json",
-      "--source",
-      "herdr",
-      "--since",
-      "2026-01-02T03:30:00Z",
-    ];
-    expect(await run(argv, list.deps)).toBe(0);
-    const result = JSON.parse(list.out()) as {
-      events: { pane: string }[];
-      skipped: number;
-    };
-    expect(result.events.map((e) => e.pane)).toEqual(["w3:p1"]);
-    expect(result.skipped).toBe(1);
-  });
-
-  it("reports skipped lines in human output", async () => {
-    const h = harness();
-    h.fs.files.set(DEFAULT, "garbage\n");
-    expect(await run(["ledger", "list"], h.deps)).toBe(0);
-    expect(h.out()).toBe("skipped 1 malformed ledger line(s)\n");
-  });
-});
-
-describe("ledger list filters", () => {
   it.each([
-    [["--source", "slack"], "Invalid --source"],
-    [["--kind", "nope"], "Invalid --kind"],
-    [["--since", "yesterday"], "Invalid --since"],
-    [["--until", "2026-13-01T00:00:00Z"], "Invalid --until"],
+    ["  \n", 2, NO_EVENT],
+    ["{nope", 1, "Invalid event: stdin is not valid JSON.\n"],
   ])(
-    "rejects a bad filter %j without reading the ledger",
-    async (flags, message) => {
-      const h = harness();
-      const reads: string[] = [];
-      const read = h.fs.readFile.bind(h.fs);
-      h.fs.readFile = (path) => {
-        reads.push(path);
-        return read(path);
-      };
-      expect(await run(["ledger", "list", ...flags], h.deps)).toBe(2);
-      expect(h.err()).toContain(message);
-      expect(reads).toEqual([]);
-      expect(h.runner.calls).toEqual([]);
+    "exits %i and prints the stdin problem for stdin %j, writing nothing",
+    async (stdin, code, message) => {
+      const { context, deps } = ctx({}, { stdin });
+      expect(await run("record", context)).toBe(code);
+      expect(deps.stderr).toHaveBeenCalledWith(message);
+      expect(ledgerRecord).not.toHaveBeenCalled();
     },
   );
+});
 
-  it("filters by session, pane, idea and kind through the flags", async () => {
-    const h = harness();
-    h.fs.files.set(
-      DEFAULT,
-      `${JSON.stringify({ schema: 1, id: "a", source: "claude", kind: "session.start", occurredAt: "2026-01-02T03:00:00Z", recordedAt: "2026-01-02T03:00:01Z", session: "s1", pane: "p", idea: "i" })}\n`,
+describe("ledger list", () => {
+  it("prints one line per event with its session or pane when present", async () => {
+    ledgerList.mockResolvedValue({ events: [EVENT, HERDR_EVENT], skipped: 0 });
+    const { context, deps } = ctx();
+    expect(await run("list", context)).toBe(0);
+    expect(deps.stdout.mock.calls.map(([t]) => t).join("")).toBe(
+      "2026-01-02T03:00:00Z claude session.start s1\n2026-01-02T04:00:00Z herdr pane.spawned w3:p1\n",
     );
-    for (const flags of [
-      ["--session", "s1"],
-      ["--pane", "p"],
-      ["--idea", "i"],
-      ["--kind", "session.start"],
-      ["--until", "2026-01-02T04:00:00Z"],
-    ]) {
-      const f = harness();
-      f.fs.files.set(DEFAULT, h.fs.files.get(DEFAULT) ?? "");
-      await run(["ledger", "list", "--json", ...flags], f.deps);
-      expect(
-        (JSON.parse(f.out()) as { events: unknown[] }).events,
-      ).toHaveLength(1);
-    }
-    const miss = harness();
-    miss.fs.files.set(DEFAULT, h.fs.files.get(DEFAULT) ?? "");
-    await run(["ledger", "list", "--json", "--session", "other"], miss.deps);
-    expect(
-      (JSON.parse(miss.out()) as { events: unknown[] }).events,
-    ).toHaveLength(0);
+  });
+
+  it("prints the events and the skipped count as JSON", async () => {
+    ledgerList.mockResolvedValue({ events: [EVENT], skipped: 1 });
+    const { context, deps } = ctx({}, { json: true });
+    await run("list", context);
+    expect(deps.stdout).toHaveBeenCalledWith(
+      `${JSON.stringify({ events: [EVENT], skipped: 1 })}\n`,
+    );
+  });
+
+  it("says how many malformed lines it skipped in human output", async () => {
+    ledgerList.mockResolvedValue({ events: [], skipped: 1 });
+    const { context, deps } = ctx();
+    await run("list", context);
+    expect(deps.stdout).toHaveBeenCalledWith(
+      "skipped 1 malformed ledger line(s)\n",
+    );
+  });
+  it("passes the flags as one filter, with both time bounds, to the ledger", async () => {
+    await run("list", ctx(FILTER).context);
+    expect(ledgerList).toHaveBeenCalledWith(FILTER);
+  });
+
+  it("refuses an unknown source with exit 2, listing the sources, and reads nothing", async () => {
+    const { context, deps } = ctx({ source: "slack" });
+    expect(await run("list", context)).toBe(2);
+    expect(deps.stderr).toHaveBeenCalledWith(
+      `Invalid --source "slack". Sources: ${SOURCES.join(", ")}.\n`,
+    );
+    expect(ledgerList).not.toHaveBeenCalled();
+  });
+
+  it("refuses a malformed --since before reading the ledger", async () => {
+    vi.mocked(isTimestamp).mockReturnValue(false);
+    const { context, deps } = ctx({ since: "yesterday" });
+    expect(await run("list", context)).toBe(2);
+    expect(deps.stderr).toHaveBeenCalledWith(
+      'Invalid --since "yesterday". Use an ISO 8601 UTC time such as 2026-01-02T03:04:05Z.\n',
+    );
+    expect(ledgerList).not.toHaveBeenCalled();
+  });
+});
+
+describe("ledger poll-herdr", () => {
+  it("polls herdr into the ledger and reports the recorded count", async () => {
+    vi.mocked(pollHerdr).mockResolvedValue({
+      ok: true,
+      recorded: 2,
+      events: [],
+    });
+    const { context, deps } = ctx();
+    expect(await run("poll-herdr", context)).toBe(0);
+    expect(pollHerdr).toHaveBeenCalledWith(
+      expect.objectContaining({ fs: deps.fs }),
+    );
+    expect(deps.stdout).toHaveBeenCalledWith("recorded 2 herdr event(s)\n");
+  });
+
+  it("names a herdr failure as the herdr field, and exits 1", async () => {
+    vi.mocked(pollHerdr).mockResolvedValue({
+      ok: false,
+      message: "herdr agent list failed",
+    });
+    const { context, deps } = ctx({}, { json: true });
+    expect(await run("poll-herdr", context)).toBe(1);
+    expect(deps.stderr).toHaveBeenCalledWith(
+      `${JSON.stringify({ error: "herdr agent list failed", field: "herdr" })}\n`,
+    );
+  });
+});
+
+describe("ledger poll-github", () => {
+  it("polls GitHub for the repo from --since and adds the outcome signals to the total", async () => {
+    vi.mocked(pollGithub).mockResolvedValue({
+      ok: true,
+      recorded: 1,
+      events: [GITHUB_EVENT],
+    });
+    vi.mocked(pollOutcomeSignals).mockResolvedValue({
+      ok: true,
+      recorded: 1,
+      events: [GITHUB_EVENT],
+    });
+    const { context, deps } = ctx({ since: "2026-01-05T00:00:00Z" });
+    expect(await run("poll-github", context)).toBe(0);
+    expect(pollGithub).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runner: deps.runner,
+        repo: "corekraft/kore",
+        since: "2026-01-05T00:00:00Z",
+      }),
+    );
+    expect(pollOutcomeSignals).toHaveBeenCalledWith(
+      context,
+      expect.anything(),
+      "corekraft/kore",
+    );
+    expect(deps.stdout).toHaveBeenCalledWith("recorded 2 github event(s)\n");
+  });
+
+  it("refuses a malformed --repo before polling", async () => {
+    vi.mocked(repoOf).mockReturnValue({ error: 'Invalid --repo "nope".' });
+    const { context, deps } = ctx({ repo: "nope" });
+    expect(await run("poll-github", context)).toBe(2);
+    expect(deps.stderr).toHaveBeenCalledWith('Invalid --repo "nope".\n');
+    expect(pollGithub).not.toHaveBeenCalled();
+  });
+
+  it("names a GitHub failure as the github field, as JSON under --json", async () => {
+    vi.mocked(pollGithub).mockResolvedValue({
+      ok: false,
+      message: "rate limited",
+    });
+    const { context, deps } = ctx({}, { json: true });
+    expect(await run("poll-github", context)).toBe(1);
+    expect(deps.stderr).toHaveBeenCalledWith(
+      `${JSON.stringify({ error: "rate limited", field: "github" })}\n`,
+    );
+  });
+
+  it("names a signal failure as the field the signal poll reports", async () => {
+    vi.mocked(pollGithub).mockResolvedValue({
+      ok: true,
+      recorded: 0,
+      events: [],
+    });
+    vi.mocked(pollOutcomeSignals).mockResolvedValue({
+      ok: false,
+      message: "bad owner",
+      field: "config",
+    });
+    const { context, deps } = ctx({}, { json: true });
+    expect(await run("poll-github", context)).toBe(1);
+    expect(deps.stderr).toHaveBeenCalledWith(
+      `${JSON.stringify({ error: "bad owner", field: "config" })}\n`,
+    );
   });
 });

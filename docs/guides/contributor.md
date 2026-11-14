@@ -62,13 +62,29 @@ see [The harness bundle](#the-harness-bundle).
    Unit runs are capped so a busy host stays usable. Both packages' vitest
    configs read `tools/kore/.husky/test-workers.mjs`: two workers, or
    `KORE_TEST_WORKERS` (a positive whole number exported in the shell; CI sets
-   its own). The hook also runs its tests under a host-wide lock
-   (`tools/kore/.husky/test-lock.mjs`, `.kore/state/test.lock` in the main
-   checkout), so commits in many worktrees queue and print `waiting for another
-worktree's tests (pid N)`. It waits up to 15 minutes
-   (`KORE_TEST_LOCK_WAIT_MS`), breaks a lock whose pid is gone, and on timeout
-   names the holder and the file to remove. A live `kore local up` or live spec
-   run holds the exclusive host lease (`~/.kore/locks/host-lease.lock`, ADR
+   its own). The hook runs its tests under a host-wide semaphore
+   (`tools/kore/.husky/test-lock.mjs`, `test-slot-<n>.lock` files in
+   `.kore/state` of the main checkout). Its size comes from
+   `tools/kore/.husky/test-slots.mjs`: idle cores (cores minus the one-minute
+   load average) divided by `KORE_TEST_WORKERS`, never below one, so a busy host
+   admits fewer runs; `KORE_TEST_SLOTS=<n>` fixes it. Runs past the size wait
+   and print `waiting for a test slot: N in use by pid ...`. It waits up to 15
+   minutes (`KORE_TEST_LOCK_WAIT_MS`), breaks a slot whose pid is gone, and on
+   timeout names the holders and the files to remove. A slot whose pid is gone,
+   or that predates the host's boot, is broken; one that cannot be read counts as
+   held until it is a few seconds old.
+   The same script skips a step that already passed. After its command exits
+   0, and only when no tracked file differs from the index (`git diff --quiet`) and no
+   untracked, unignored file exists (`git ls-files --others --exclude-standard`),
+   it records the staged tree hash and the exact command, one file per step in
+   `.kore/state/test-pass/<tree>/` of the main checkout, shared by every
+   worktree. Nothing else writes a record; the guard warns on a hand edit. A
+   later commit whose staged tree and step match prints "tests already passed
+   at tree <hash>" and runs nothing; a changed tree is a different
+   hash, and a different related-test list is a different step, so those run. A
+   tree git cannot read just runs the tests. The typecheck and scans still run,
+   and CI `check` still runs the full suites. A
+   live `kore local up` or live spec run holds the exclusive host lease (`~/.kore/locks/host-lease.lock`, ADR
    0094): `session spawn` refuses a new writer while it is held, and a hook test
    run beside it prints `audit: host lease held by pid N` and appends to
    `host-lease-audit.jsonl` beside the test lock, without waiting yet.
@@ -86,29 +102,114 @@ worktree's tests (pid N)`. It waits up to 15 minutes
 
 ## Tests
 
+- Tests have three tiers ([ADR 0098](../decisions/0098-unit-tests-mock-everything-outside-the-unit-and-integration-tests-gate-only-a-release.md)).
+  A unit test exercises one class or function with everything else mocked, and
+  is the only tier that gates a commit. An integration test runs real domains
+  together without a cluster, and gates a release. A live test needs a cluster
+  and runs only when asked. The move to these tiers is in progress under
+  [plan 14](../../infra/plans/14-test-tiers.md): the cluster suites are live
+  tests now (#372), and the script, hook, status line and bundle tests run in
+  the integration tier (#373). A pull request that touches only `.claude/` files
+  other than hooks and evals, `skills/` or `.codex/` runs no hook test before
+  merge; the nightly integration job covers them after merge (owner decision).
+- The unit run has a budget: a test over 100 ms, a spec file over 1 s, or (once
+  every list below is empty) a package run over 2 min fails, naming the test and
+  its time. The `test-budget` hook (`harness hook test-budget`, run by
+  `test:budget` after each unit run) reads the report the unit run's
+  `BudgetReporter` writes to `test-results/unit.json`, and prints the ten
+  slowest tests every run. A spec file's time counts its environment setup,
+  imports, collection and tests, and the package time runs from reporter
+  start, so global setup counts; Node's own boot does not. Arguments after `--`
+  in `npm run test:unit -- <args>` reach the budget hook, not vitest: to run
+  one spec, call `npx vitest run <file>`, which skips the budget. It
+  applies only to converted code: each domain keeps `unconverted.txt` beside
+  its sources, naming the source files (relative to the domain directory, one
+  per line, `#` for comments) whose specs are not yet rewritten. A file is
+  converted unless a list names it, so a new file is budgeted from the start;
+  delete a line when its spec is converted. A line naming a file that no
+  longer exists fails the check. A spec with no source file of the same name
+  beside it is not budgeted.
+- Each converted source file needs exactly one unit spec beside it, named
+  `<name>.spec.ts`. The `unit-specs` hook (`test:specs` after `test:budget`,
+  `harness hook unit-specs --package <dir>`) fails a converted file that has no
+  such spec, and one that also has a `<name>.test.ts` beside it, and names the
+  file. It reads the same unconverted lists as the budget, so a listed file is
+  not checked. Live and docker specs (`*.live.spec.ts`, `*.docker.spec.ts`) are
+  live tests and do not count. Support and fixture files (`*-support.ts`,
+  `*-fixtures.ts`, `*.fixtures.ts`), live helpers (`*.live.ts`, imported only
+  by live and opt-in suites) and `.d.ts` files are not units and need no spec.
+  Live helpers are excluded from unit coverage too.
+- Vitest resets mocks before each test, in both packages: a mock's calls and
+  behaviour, and a spy's real method, do not carry from one test to the next
+  (`mockReset` and `restoreMocks` in each `vitest.config.ts`). Do not reset
+  mocks by hand in a test.
+- Mocking patterns, from the `security` domain (`tools/kore/src/security`):
+  - A source file is the unit; its spec is `<name>.spec.ts` beside it. Its
+    exported functions are tested through the spec. Helpers inside the file
+    cannot be mocked, so they run for real.
+  - A collaborator in another module is an automock: `vi.mock("../config/index.js")`,
+    then read it through `vi.mocked(isLocalProvider).mockReturnValue(true)`.
+    Mock the barrel path, not the file behind it. Node built-ins that touch
+    the outside world (`node:fs/promises`, `node:crypto`, `node:os`) and pure
+    ones (`node:path`) are automocked the same way.
+  - The process runner is a typed object: `fakeRunner()` wraps
+    `vi.fn<Runner["run"]>` and replies from the command and its arguments.
+    Fakes shared by a domain's specs go in one domain-level `<domain>-support.ts`
+    (not a unit, so no spec of its own), with `fakeRepository()` for the
+    repository. Fixtures only one spec uses go in `<name>-support.ts` beside it.
+    Each spec and each support file stays under 300 lines (`max-lines`), and
+    each test function under 70 (`max-lines-per-function`). Assert the whole
+    `run.mock.calls` list, so a missing or extra command fails.
+  - Errors from a real error class (`CommandError`) stay real; construct them
+    and reject with them.
+  - Time: `vi.useFakeTimers({ toFake: ["Date"] })` and `vi.setSystemTime`, then
+    `vi.useRealTimers()` in `afterEach`. Nothing waits on a real timer.
+  - A test that needs real files, a real repository or real units together
+    moves to `tools/kore/integration/` (`npm run test:integration`), not deleted.
+    Example: `sops-config.spec.ts` reads the committed `.sops.yaml`.
+- Mocking patterns in the harness (`tools/harness`), as the `guardrail` domain
+  settled them. They follow the kore pattern above, except where noted:
+  - Integration specs live in `tools/harness/integration/<domain>/` and import
+    the domain through its barrel (`../../src/<domain>/index.js`), like the
+    harness's other integration specs.
+  - The harness has no shared runner fake. A domain's `<domain>-support.ts`
+    builds a typed `CliDeps` whose every member is a `vi.fn` (the `guardrail`
+    domain's `fakeDeps()`). The `testing` domain's in-memory file system is a
+    stateful fake, so unit specs do not use it.
+  - A partly real module keeps its error classes and constants real through a
+    partial mock: `vi.mock(path, async (importOriginal) => ({ ...(await
+importOriginal()), fn: vi.fn() }))`.
+  - A barrel's spec (`index.spec.ts`) automocks the files it re-exports and
+    checks the names it exposes and that each is its module's own export.
 - `npm test` (in `tools/kore`) is fast and needs no cluster.
-- Live specs (`*.integration.spec.ts`) create or destroy clusters. They run only
-  when asked, with `KORE_RUN_INTEGRATION=1` through the scripts in
-  `tools/kore/package.json` (`test:integration`, `test:integration:admission`,
-  `test:integration:registry`). A cluster-facing `no-behaviour-change` needs a live
+- Live specs (`*.live.spec.ts`) create or destroy clusters. They run only
+  when asked, with `KORE_RUN_LIVE=1` through the scripts in
+  `tools/kore/package.json` (`test:live`, `test:live:admission`,
+  `test:live:registry`). A cluster-facing `no-behaviour-change` needs a live
   run before merge; any other cluster-facing change merges behind a flag and
   needs the live run before the flag turns on (see Feature flags).
-- Integration specs test the environment `KORE_INTEGRATION_ENVIRONMENT` names
+  The retired `KORE_RUN_INTEGRATION` and `KORE_INTEGRATION_ENVIRONMENT` are refused,
+  naming their replacements, and `KORE_INTEGRATION_LOCK_WAIT_MS` likewise.
+- Live specs test the environment `KORE_LIVE_ENVIRONMENT` names
   (default and empty: `local`); an unknown name is refused, listing the valid
   environments. A kore mutation queued behind a live holder prints the holder's
   pid, worktree and lock path, then waits ten minutes (`kore local up` thirty,
   since a first-time `up` takes 15 to 20); `KORE_LOCK_WAIT_MS` overrides both.
 - The `nightly` workflow (`.github/workflows/nightly.yml`) runs a clean
-  `kore local up` and every `test:integration*` suite against one cluster through
-  `tools/kore/scripts/nightly.sh`, purging the profile last. Its run conclusion is
-  the status on main. It runs on the hosted `ubuntu-latest` runner and needs GNU
+  `kore local up` and every `test:live*` suite against one cluster through
+  `tools/kore/scripts/nightly.sh`, purging the profile last. It brings up a
+  scratch `nightly` environment (a copy of `local` with its own cluster) whose
+  secrets are generated and encrypted to an age key made for the run, held in
+  memory only, so the runner needs no stored credential; the job summary records
+  duration and peak memory. Its run conclusion is the status on main. It runs on the hosted `ubuntu-latest` runner and needs GNU
   `timeout` (`gtimeout` from coreutils on macOS); a self-hosted runner is the
   fallback ([ADR 0093](../decisions/0093-the-nightly-live-proof-runs-on-a-hosted-linux-runner-under-bounded-timeouts.md)).
   `ProcessRunner` kills a command past its timeout (helm mutations get twice
   their `--timeout` plus a margin) and names it; kubectl reads carry
   `--request-timeout`.
 - Upstream chart and container checks are opt-in too (`test:upstream-charts`,
-  `test:container-smoke`).
+  `test:container-smoke`). They are integration specs in `tools/kore/integration/`
+  that run helm and docker, so the unit run never starts them.
 - The agentgateway install is proven live by
   `KORE_RUN_AGENTGATEWAY_PROOF=1 tools/kore/scripts/agentgateway-live-proof.sh`.
   It runs a scratch copy of the local overlay with `ingress-agentgateway` on,
@@ -296,7 +397,7 @@ refuses source `github` and these kinds, so only the poller writes them:
   with `Revert "` or whose body says `This reverts commit` (`main.revert`) per
   merged change. A PR merely titled Revert does not count.
 - `liveRuns`: `{ runs, passed, rate }`, the pass rate of the `nightly` workflow's
-  clean `local up` and integration runs (`ci.nightly`; only scheduled runs, so a
+  clean `local up` and live runs (`ci.nightly`; only scheduled runs, so a
   run an agent dispatches by hand is not counted; first attempt, as above).
 - `ownerMinutes`: `{ minutes, merged, perMerged, burstGapMinutes, upperBound }`.
   The owner login's comments, issue events and PR reviews (`owner.action`) on
@@ -306,6 +407,19 @@ refuses source `github` and these kinds, so only the poller writes them:
   `ownerLogin` in `.claude/harness.json`, else the repository's owner; there is
   no flag to override it. Agents share that login until they get their own
   identities (#336), so `upperBound` is always `true`.
+
+The judge's precheck and merge trust principles-review verdicts only from the
+reviewer logins they name: `reviewerLogins` in `.claude/harness.json` when set,
+else the owner login (`ownerLogin`, else the repository's owner). A verdict from
+any other login is unverified. `--reviewer <login>[,<login>]` overrides both, and
+`harness judge precheck` prints the reviewers it used in its text and JSON output.
+
+A contract step (`expand-contract`, a diff that removes lines) passes once its
+expand step is proven (ADR 0107). The PR body names the merged expand PR on
+`Expand step: #<number>`, and the idea issue carries a comment from a trusted
+reviewer login with a line `Expand proof: #<number>` for that PR. The expand
+PR must merge before the contract's head commit. Without all three, the
+precheck refuses and says what to add.
 
 A listing too long to page through (200 runs or PRs, or 300 comments, events or
 commits) fails the poll instead of recording part of it: pass `--since` to bound

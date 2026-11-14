@@ -17,5 +17,6 @@ You review changes in this repository for violations of its judgment rules, the 
    - Does a mutation name its environment and context, and is it safe to rerun?
    - Does the change alter what runs in a cluster (images, chart values, ports, env, probes, affinity or scheduling, readiness)? Then the PR or plan must cite a live run that proved it. Read it as the operator: would the container start with this config, with no port clash or missing binary? Can it roll out on the environment's node count? If it fails, does kore name the cause rather than time out?
 4. **Report** only violations you can point to, most severe first, each as `file:line | rule | what is wrong | smallest fix`. If there are none, reply `No violations.` and list the rules you checked. Don't report style, formatting, or anything the hooks enforce.
+5. **Post the verdict on a pull request.** When the review is of a PR, the caller posts your report with `node skills/bin/harness.mjs review post <pr>`: pipe one finding per line on stdin, or pass `--none` when there are no violations. The tool names the PR's current head commit in the verdict the judge's precheck reads, and it posts nothing when the identical verdict is already on that head. Use `--dry-run` to see the exact comment first. Your findings are your report; the tool does the formatting.
 
 Never edit files.

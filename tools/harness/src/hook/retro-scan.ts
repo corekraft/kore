@@ -4,6 +4,8 @@
 // Docs: infra/plans/5-self-maintenance.md#step-2-deterministic-retrospective-scan
 
 import { createHash } from "node:crypto";
+import { CommandError } from "../runtime/index.js";
+import { RuleLocations } from "./retro-locations.js";
 import {
   SessionAnalysis,
   type GuardCounts,
@@ -14,7 +16,11 @@ import { parseTranscript, timestamps } from "./retro-transcript.js";
 export { parseTranscript, summarizeError } from "./retro-transcript.js";
 
 const MIN_WARNINGS = 5;
-const RETRO_MARKER = /^\W*Last retrospective: (\d{4}-\d{2}-\d{2})/gm;
+// The whole value on the line is captured, so a near-miss form is refused
+// rather than read as its date. Group 1 is the prefix, group 2 the value.
+const RETRO_MARKER = /^(\W*Last retrospective: )(\S.*?)[ \t\r]*$/gm;
+const BARE_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const UTC_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 
 export interface SessionText {
   id: string;
@@ -22,10 +28,12 @@ export interface SessionText {
 }
 
 export interface ScanOptions {
-  /** YYYY-MM-DD; sessions that ended before local midnight of that date are left out. */
+  /** A retrospective marker; sessions active before the window opens are left out. */
   since?: string | undefined;
   knownSkills?: readonly string[];
   auditRules?: readonly string[];
+  /** Add the location of each guard block per rule; off by default so the default report is unchanged. */
+  evidence?: boolean;
 }
 
 interface Evidence {
@@ -38,29 +46,89 @@ type RuleStats = Record<Outcome, number> & {
   sessions: number;
 };
 
-/** The latest `Last retrospective:` date across the plans, or null. */
+/** Where the plans live, relative to the repository root. */
+export const PLANS_DIR = "infra/plans";
+
+/**
+ * A `Last retrospective:` value that is not a marker. It is an expected fault
+ * the plan's author fixes, so callers catch it and say so, instead of letting
+ * it end the hook as a harness fault.
+ */
+export class MarkerError extends CommandError {}
+
+const notAMarker = (value: string): string =>
+  `"${value}" is not a retrospective marker; write a date (YYYY-MM-DD) or a UTC timestamp with date -u +%Y-%m-%dT%H:%M:%SZ`;
+
+/**
+ * The instant a marker value opens the window at, in epoch ms, or NaN when the
+ * value is not a marker. A bare date is local midnight of that day; a UTC
+ * timestamp is that instant. Both must round-trip, so February 30 is refused
+ * rather than rolled over to March 2.
+ */
+export function markerInstant(value: string): number {
+  if (BARE_DATE.test(value)) {
+    const midnight = new Date(`${value}T00:00:00`);
+    return midnight.toLocaleDateString("sv") === value
+      ? midnight.getTime()
+      : Number.NaN;
+  }
+  if (UTC_TIMESTAMP.test(value)) {
+    const instant = Date.parse(value);
+    return Number.isFinite(instant) &&
+      new Date(instant).toISOString() === value.replace(/Z$/, ".000Z")
+      ? instant
+      : Number.NaN;
+  }
+  return Number.NaN;
+}
+
+/** The latest `Last retrospective:` marker across the plans, or null. Throws, naming the plan line, for a value that is not a marker. */
 export function lastRetrospective(
   plans: Readonly<Record<string, string>>,
 ): string | null {
-  const dates = Object.values(plans)
-    .flatMap((markdown) =>
-      [...markdown.matchAll(RETRO_MARKER)].map((match) => match[1] ?? ""),
-    )
-    .sort();
-  return dates.at(-1) ?? null;
+  let latest: string | null = null;
+  let latestAt = Number.NEGATIVE_INFINITY;
+  for (const [plan, markdown] of Object.entries(plans)) {
+    for (const match of markdown.matchAll(RETRO_MARKER)) {
+      const prefix = match[1] ?? "";
+      const value = match[2] ?? "";
+      const instant = markerInstant(value);
+      if (!Number.isFinite(instant)) {
+        const line = markdown
+          .slice(0, (match.index ?? 0) + prefix.length)
+          .split("\n").length;
+        throw new MarkerError(
+          `${PLANS_DIR}/${plan}:${line}: ${notAMarker(value)}`,
+        );
+      }
+      if (instant > latestAt) {
+        latest = value;
+        latestAt = instant;
+      }
+    }
+  }
+  return latest;
 }
 
 /**
- * Where the retrospective window opens, in epoch ms: local midnight at the
- * start of the marker date (0 without one). The marker has day granularity, so
- * the window is closed on the left: a session active at or after that instant
- * is in the next retrospective. A session earlier on the marker day that the
- * retrospective already reviewed is counted again, which is preferred to
- * losing the sessions that ran later that day. Each transcript is one session,
+ * Where the retrospective window opens, in epoch ms (0 without a marker). The
+ * window is closed on the left: a session active at or after that instant is
+ * in the next retrospective. A timestamp marker opens the window at that
+ * instant, so two retrospectives on one day do not overlap. A date-only marker
+ * opens at local midnight of its day, so the sessions of that day that the
+ * earlier retrospective already reviewed are counted again; that is preferred
+ * to losing the ones that ran later that day. Each transcript is one session,
  * so none is counted twice.
  */
-export function windowStart(date: string | undefined): number {
-  return date ? new Date(`${date}T00:00:00`).getTime() : 0;
+export function windowStart(marker: string | undefined): number {
+  if (!marker) {
+    return 0;
+  }
+  const instant = markerInstant(marker);
+  if (!Number.isFinite(instant)) {
+    throw new MarkerError(notAMarker(marker));
+  }
+  return instant;
 }
 
 const emptyStats = (): RuleStats => ({
@@ -75,6 +143,8 @@ const emptyStats = (): RuleStats => ({
 /** Counts added up across the sessions in the window. */
 class Tally {
   readonly guards: Record<string, GuardCounts> = {};
+  readonly guardEvidence = new RuleLocations();
+  readonly overriddenEvidence = new RuleLocations();
   readonly failureCounts = new Map<string, number>();
   readonly perSession: Record<string, string[]> = {};
   readonly loaded = new Set<string>();
@@ -90,13 +160,16 @@ class Tally {
 
   add(id: string, found: SessionAnalysis): void {
     this.addGuards(found);
+    for (const { rule, line, excerpt } of found.guardBlocks) {
+      this.guardEvidence.add(rule, { session: id, line, excerpt });
+    }
+    this.addWarnings(id, found);
     for (const { tool, error } of found.failures) {
       const key = `${tool}\u0000${error}`;
       this.failureCounts.set(key, (this.failureCounts.get(key) ?? 0) + 1);
     }
     this.addSkills(id, found);
     this.addPhrases(id, found);
-    this.addWarnings(found);
   }
 
   private addGuards(found: SessionAnalysis): void {
@@ -133,13 +206,22 @@ class Tally {
     }
   }
 
-  private addWarnings(found: SessionAnalysis): void {
+  private addWarnings(id: string, found: SessionAnalysis): void {
     const touched = new Set<RuleStats>();
     for (const warning of found.warnings) {
       const stats = this.ruleStats.get(warning.rule);
       if (stats) {
         stats.warnings++;
-        stats[found.outcome(warning)]++;
+        const outcome = found.outcome(warning);
+        stats[outcome]++;
+        if (outcome === "overridden") {
+          this.overriddenEvidence.add(warning.rule, {
+            session: id,
+            line: warning.line,
+            excerpt: warning.excerpt,
+            glob: warning.glob,
+          });
+        }
         touched.add(stats);
       }
     }
@@ -218,7 +300,12 @@ class Tally {
 /** Scan sessions into the report the retro skill reads. */
 export function scan(
   inputs: readonly SessionText[],
-  { since, knownSkills = [], auditRules: audit = [] }: ScanOptions = {},
+  {
+    since,
+    knownSkills = [],
+    auditRules: audit = [],
+    evidence = false,
+  }: ScanOptions = {},
 ) {
   const included = inputs
     .map(({ id, text }) => parseTranscript(id, text))
@@ -246,6 +333,12 @@ export function scan(
     },
     skippedLines: included.reduce((sum, item) => sum + item.session.skipped, 0),
     guards: tally.sortedGuards(),
+    ...(evidence
+      ? {
+          guardEvidence: tally.guardEvidence.sorted(),
+          overriddenEvidence: tally.overriddenEvidence.sorted(),
+        }
+      : {}),
     failures: tally.failures(),
     skills: { perSession: tally.perSession, unused: tally.unused() },
     corrections: tally.corrections(),

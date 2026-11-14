@@ -1,130 +1,96 @@
-import { run } from "../cli/index.js";
-import { harness, NEW } from "../testing/records-support.js";
+// Fakes and fixtures shared by the outcome domain's unit specs. A support file is
+// not a unit, so it needs no spec of its own (ADR 0098).
+import { vi, type Mock } from "vitest";
+import type { IdeaRecord, IdeaRepository } from "../idea/index.js";
+import type { Clock, RunResult, Runner } from "../runtime/index.js";
+import type { Outcome } from "./model.js";
 
-export const PATH = "docs/ideas/0001-cache-the-probe-results.md";
-export const LEDGER = "/repo/.kore/state/ledger.jsonl";
-export const ISSUE = "https://github.com/corekraft/kore/issues/300";
-
-export type Harness = ReturnType<typeof harness>;
-
-/** The login the fake gh is authenticated as; comments without an author are by this user. */
-export const GH_USER = "kore-bot";
-
-export interface FakeIssue {
-  state: "OPEN" | "CLOSED";
-  labels: string[];
-  comments: string[];
-  /** Author login per comment index; a missing entry means GH_USER. */
-  authors?: Record<number, string>;
-  /** Runs after a comment is posted, to simulate another writer racing the post. */
-  afterComment?: (issue: FakeIssue) => void;
+/** A runner whose `run` is a mock the spec reads its calls from. */
+export interface FakeRunner {
+  run: Mock<Runner["run"]>;
 }
 
-/** A stateful gh: answers repo and issue views from `issue`, and applies comment, edit and close calls. */
-export function fakeGh(h: Harness, issue: FakeIssue) {
-  h.runner.run = (command, args, options) => {
-    h.runner.calls.push({ command, args, options });
-    const ok = (stdout = "") =>
-      Promise.resolve({ stdout, stderr: "", code: 0 });
-    if (command !== "gh") {
-      return ok();
-    }
-    const values = (flag: string) =>
-      args.flatMap((a, i) => (a === flag ? [args[i + 1] ?? ""] : []));
-    if (args[0] === "repo") {
-      return ok(JSON.stringify({ nameWithOwner: "corekraft/kore" }));
-    }
-    if (args[0] === "api" && args[1] === "user") {
-      return ok(`${GH_USER}\n`);
-    }
-    switch (args[1]) {
-      case "view":
-        return ok(
-          JSON.stringify({
-            state: issue.state,
-            labels: issue.labels.map((name) => ({ name })),
-            comments: issue.comments.map((body, i) => ({
-              body,
-              author: { login: issue.authors?.[i] ?? GH_USER },
-              url: `${ISSUE}#issuecomment-${i + 1}`,
-            })),
-          }),
-        );
-      case "comment":
-        issue.comments.push(options?.input ?? "");
-        issue.afterComment?.(issue);
-        return ok();
-      case "edit":
-        issue.labels = [
-          ...issue.labels.filter((l) => !values("--remove-label").includes(l)),
-          ...values("--add-label"),
-        ];
-        return ok();
-      case "close":
-        issue.state = "CLOSED";
-        return ok();
-      default:
-        return ok();
-    }
+/**
+ * A typed runner. `reply` answers each call with the fields it names; every
+ * other field is a success with no output.
+ */
+export function fakeRunner(
+  reply: (
+    command: string,
+    args: readonly string[],
+  ) => Partial<RunResult> = () => ({}),
+): FakeRunner {
+  return {
+    run: vi.fn<Runner["run"]>((command, args) =>
+      Promise.resolve({
+        stdout: "",
+        stderr: "",
+        code: 0,
+        ...reply(command, args),
+      }),
+    ),
   };
 }
 
-/** gh calls that change the issue. */
-export function ghWrites(h: Harness) {
-  return h.runner.calls.filter(
-    (c) =>
-      c.command === "gh" &&
-      c.args[0] === "issue" &&
-      c.args[1] !== undefined &&
-      ["comment", "edit", "close", "create"].includes(c.args[1]),
-  );
+/** The four repository methods the outcome units call, as the mocks a spec reads. */
+export interface RepositoryMocks {
+  get: Mock<IdeaRepository["get"]>;
+  create: Mock<IdeaRepository["create"]>;
+  source: Mock<IdeaRepository["source"]>;
+  recordOutcome: Mock<IdeaRepository["recordOutcome"]>;
 }
 
-/** A repository with idea 0001 linked to issue 300 and a stateful open issue. */
-export async function linked(
-  overrides: Partial<FakeIssue> = {},
-): Promise<{ h: Harness; issue: FakeIssue }> {
-  const h = harness();
-  await run([...NEW, "--issue", "300"], h.deps);
-  const issue: FakeIssue = {
-    state: "OPEN",
-    labels: ["ready-for-agent"],
-    comments: [],
+/**
+ * A repository whose four methods are `mocks`. The one cast stands in for the
+ * rest of the class, whose private fields these units never read.
+ */
+export function fakeRepository(): {
+  repo: IdeaRepository;
+  mocks: RepositoryMocks;
+} {
+  const mocks: RepositoryMocks = {
+    get: vi.fn<IdeaRepository["get"]>(),
+    create: vi.fn<IdeaRepository["create"]>(),
+    source: vi.fn<IdeaRepository["source"]>(),
+    recordOutcome: vi.fn<IdeaRepository["recordOutcome"]>(),
+  };
+  return { repo: mocks as unknown as IdeaRepository, mocks };
+}
+
+/** A clock that always reads `now`; it never sleeps. */
+export function fakeClock(now = new Date("2026-11-14T08:30:00Z")): Clock {
+  return {
+    now: vi.fn<Clock["now"]>(() => now),
+    sleep: vi.fn<Clock["sleep"]>(() => Promise.resolve()),
+  };
+}
+
+/** An idea record with idea 0001 linked to issue 300. */
+export function ideaRecord(overrides: Partial<IdeaRecord> = {}): IdeaRecord {
+  return {
+    number: "0001",
+    slug: "cache-the-probe-results",
+    path: "docs/ideas/0001-cache-the-probe-results.md",
+    title: "Cache the probe results",
+    summary: "Probes repeat work the last run already did.",
+    hypothesis: "Caching the probe results cuts up time.",
+    expectedOutcome: "Up time falls below 30s.",
+    measurement: "kore local up p50 before and after.",
+    safetyPattern: "no-behaviour-change",
+    date: "2026-11-01",
+    issue: "https://github.com/corekraft/kore/issues/300",
     ...overrides,
   };
-  fakeGh(h, issue);
-  return { h, issue };
 }
 
-export function record(extra: string[] = []): string[] {
-  return [
-    "outcome",
-    "record",
-    "--idea",
-    "1",
-    "--kind",
-    "experiment",
-    "--source",
-    "comparison",
-    "--evidence",
-    "kore local up p50 41s before, 29s after, ledger runs 12 to 40",
-    "--result",
-    "confirmed",
-    "--summary",
-    "Up time fell from 41s to 29s.",
-    "--ledger",
-    LEDGER,
-    ...extra,
-  ];
-}
-
-/** Replaces the value following `flag` in an argv. */
-export function withFlag(
-  argv: string[],
-  flag: string,
-  value: string,
-): string[] {
-  const out = [...argv];
-  out[out.indexOf(flag) + 1] = value;
-  return out;
+/** A confirmed comparison outcome, as a caller passes it to recordOutcome. */
+export function outcome(overrides: Partial<Outcome> = {}): Outcome {
+  return {
+    kind: "experiment",
+    source: "comparison",
+    result: "confirmed",
+    evidence: "kore local up p50 41s before, 29s after",
+    summary: "Up time fell from 41s to 29s.",
+    ...overrides,
+  };
 }

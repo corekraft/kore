@@ -45,7 +45,7 @@ function specs(dir) {
       found.push(...specs(path));
     } else if (
       entry.name.endsWith(".spec.ts") &&
-      !entry.name.endsWith(".integration.spec.ts")
+      !entry.name.endsWith(".live.spec.ts")
     ) {
       found.push(path);
     }

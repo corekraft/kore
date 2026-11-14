@@ -1,5 +1,6 @@
 import type { Clock } from "./clock.js";
 import type { FileSystem } from "./filesystem.js";
+import type { HostLoad } from "./host-load.js";
 import type { IdSource } from "./ids.js";
 import type { Runner } from "./runner.js";
 
@@ -15,6 +16,8 @@ export interface CliDeps {
    */
   root(): Promise<string>;
   ids: IdSource;
+  /** The host load average; absent in fakes that no load check reads. */
+  hostLoad?: HostLoad;
   /**
    * `import.meta.url` of the running bundle. A command that must not be steered by the
    * environment finds the checkout from it instead of from KORE_ROOT or CLAUDE_PROJECT_DIR.

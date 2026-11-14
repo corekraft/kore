@@ -1,249 +1,196 @@
-import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { checkDeliveryBash } from "./guard-role-delivery.js";
-import { allowed, blocked, decide } from "./guard-support.js";
+import { basename } from "node:path";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { commandOf, splitSegments } from "./guard-shell.js";
+import {
+  expand,
+  isDash,
+  mergesPr,
+  runsJudgeTool,
+  substituted,
+  withSubstitutions,
+} from "./guard-role-merge.js";
 
-const as = (agent_type: string, tool_name: string, tool_input: object) =>
-  decide({ agent_type, tool_name, tool_input });
-const bash = (role: string, command: string) => as(role, "Bash", { command });
+vi.mock("node:path");
+vi.mock("./guard-shell.js");
 
-const MERGES = [
-  "gh pr merge 12 --squash",
-  "cd x && gh pr merge 12 --auto",
-  "gh api -X PUT repos/corekraft/kore/pulls/12/merge",
-  "gh api repos/corekraft/kore/pulls/12/merge --method PUT",
-];
+const HARNESS = /^(\.\/)?skills\/bin\/harness\.mjs$/;
 
-describe("role-no-merge: the merge tool is the only way a role merges", () => {
-  it("blocks the orchestrator, writer and judge from merging by any other path", async () => {
-    for (const role of ["orchestrator", "writer", "judge"]) {
-      for (const command of MERGES) {
-        blocked(await bash(role, command), "role-no-merge");
-      }
-    }
-  });
+/** Fake shell: a segment is its words, and a command line is its first word and the rest. */
+const splitWords = (command: string) => [command.split(" ")];
+const commandWords = (words: readonly string[]) => ({
+  name: words[0] ?? "",
+  args: words.slice(1),
+});
 
-  it("points a blocked merge at the merge tool", async () => {
-    const result = await bash("judge", "gh pr merge 12 --squash");
-    assert.match(result.message, /harness judge merge/);
-  });
+beforeEach(() => {
+  vi.mocked(basename).mockImplementation((path) => path.split("/").pop() ?? "");
+  vi.mocked(splitSegments).mockImplementation(splitWords);
+  vi.mocked(commandOf).mockImplementation(commandWords);
+});
 
-  it("lets only the judge run the merge and send-back tools", async () => {
-    allowed(
-      await bash(
-        "judge",
-        "node skills/bin/harness.mjs judge merge 12 --reviewer bot --json",
-      ),
-    );
-    allowed(
-      await bash(
-        "judge",
-        'node skills/bin/harness.mjs judge send-back 12 --reason "no pattern"',
-      ),
-    );
-    for (const role of ["orchestrator", "writer"]) {
-      blocked(
-        await bash(role, "node skills/bin/harness.mjs judge merge 12"),
-        "role-no-merge",
-      );
-    }
-    blocked(
-      await bash(
-        "orchestrator",
-        "node skills/bin/harness.mjs judge send-back 12 --reason x",
-      ),
-      "role-no-merge",
-    );
-  });
-
-  it("still blocks the judge from merging through a chained or wrapped call", async () => {
-    blocked(
-      await bash(
-        "judge",
-        "node skills/bin/harness.mjs judge merge 12 && gh pr merge 13 --squash",
-      ),
-      "role-no-merge",
-    );
-    blocked(
-      await bash(
-        "judge",
-        "node skills/bin/harness.mjs judge merge 12 --ledger /tmp/x.jsonl",
-      ),
-      "role-read-only",
-    );
+describe("isDash: a dash word is a flag", () => {
+  it("is true for a word that starts with a dash, and false for anything else", () => {
+    expect(isDash("-u")).toBe(true);
+    expect(isDash("--repo")).toBe(true);
+    expect(isDash("pr")).toBe(false);
+    expect(isDash(undefined)).toBe(false);
   });
 });
 
-describe("role-no-merge: what stays allowed", () => {
-  it("still lets them read a pull request and mention merge in text", async () => {
-    for (const role of ["orchestrator", "writer", "judge"]) {
-      allowed(await bash(role, "gh pr view 12 --json mergeable"));
-      allowed(await bash(role, 'echo "gh pr merge 12"'));
-    }
+describe("expand: the command lines a segment may run", () => {
+  it("returns only the segment when no wrapper, shell or eval hides a command", () => {
+    expect(expand(["gh", "pr", "view"])).toEqual([["gh", "pr", "view"]]);
   });
 
-  it("does not bind a session with no role, so the person keeps gh pr merge --squash", async () => {
-    allowed(
-      await decide({
-        tool_name: "Bash",
-        tool_input: { command: "gh pr merge 12 --squash" },
-      }),
-    );
-    allowed(
-      await decide({
-        agent_type: "",
-        tool_name: "Bash",
-        tool_input: { command: "gh pr merge 12 --squash" },
-      }),
-    );
+  it("unwraps env, its valued options and VAR=value assignments before the command", () => {
+    expect(
+      expand(["FOO=1", "env", "-u", "X", "gh", "pr", "merge"]),
+    ).toContainEqual(["gh", "pr", "merge"]);
   });
 
-  it("does not bind an unknown role", async () => {
-    allowed(await bash("someone-else", "gh pr merge 12"));
-  });
-});
-
-const WRAPPED_MERGES = [
-  "/usr/bin/env gh pr merge 12 --squash",
-  "env GH_TOKEN=x gh pr merge 12",
-  "env -i gh pr merge 12",
-  'bash -c "gh pr merge 12 --squash"',
-  "sh -c 'cd x && gh pr merge 12'",
-  "bash -lc 'gh pr merge 12'",
-  "echo 12 | xargs gh pr merge",
-  "echo 12 | xargs -n1 gh pr merge --squash",
-  "echo 12 | xargs -I{} gh pr merge {}",
-  'eval "gh pr merge 12"',
-  "gh -R corekraft/kore pr merge 12",
-  "gh pr merge --repo corekraft/kore 12",
-  "gh api graphql -f query='mutation { mergePullRequest(input: {pullRequestId: \"x\"}) { clientMutationId } }'",
-  "gh api graphql -F query=@merge.graphql",
-  "gh api graphql -f query=@merge.graphql",
-  "gh api graphql --input merge.json",
-  "gh api graphql -f query='mutation { enablePullRequestAutoMerge(input: {}) { clientMutationId } }'",
-];
-
-describe("role-no-merge: wrapped and graphql merges", () => {
-  it("blocks every role-bound pane from each wrapped or graphql merge form", async () => {
-    for (const role of ["orchestrator", "writer", "judge"]) {
-      for (const command of WRAPPED_MERGES) {
-        blocked(await bash(role, command), "role-no-merge");
-      }
-    }
+  it("unwraps sudo and reads the command name from a path", () => {
+    expect(
+      expand(["sudo", "-u", "root", "/usr/bin/gh", "pr", "merge"]),
+    ).toContainEqual(["/usr/bin/gh", "pr", "merge"]);
   });
 
-  it("leaves a session with no role every form, and graphql reads", async () => {
-    for (const command of WRAPPED_MERGES) {
-      allowed(await decide({ tool_name: "Bash", tool_input: { command } }));
-    }
-    allowed(
-      await bash("writer", "gh api graphql -f query='{ viewer { login } }'"),
-    );
-    allowed(await bash("writer", "env gh pr view 12"));
-    allowed(await bash("writer", 'bash -c "gh pr view 12"'));
+  it("expands a shell's -c script into the command lines it runs", () => {
+    expect(expand(["bash", "-c", "gh pr merge 1"])).toContainEqual([
+      "gh",
+      "pr",
+      "merge",
+      "1",
+    ]);
+  });
+
+  it("expands the line eval runs, joining its arguments", () => {
+    expect(expand(["eval", "gh", "pr", "merge"])).toContainEqual([
+      "gh",
+      "pr",
+      "merge",
+    ]);
+  });
+
+  it("expands the command xargs runs, after its own valued options", () => {
+    expect(expand(["xargs", "-I", "{}", "gh", "pr", "merge"])).toContainEqual([
+      "gh",
+      "pr",
+      "merge",
+    ]);
+  });
+
+  it("stops expanding at five levels of nesting, so a deeper command is not reached", () => {
+    const chain = (depth: number) => [
+      ...Array.from({ length: depth }, () => "eval"),
+      "gh",
+      "pr",
+      "merge",
+    ];
+
+    expect(expand(chain(2))).toContainEqual(["gh", "pr", "merge"]);
+    expect(expand(chain(7))).not.toContainEqual(["gh", "pr", "merge"]);
   });
 });
 
-const PUSHES_TO_MAIN = [
-  "git push origin HEAD:main",
-  "git push origin main",
-  "git push origin +main",
-  "git push origin +HEAD:main",
-  "git push origin HEAD:refs/heads/main",
-  "git push origin feat/x:main",
-  "git push origin :main",
-  "git push --force origin main",
-  "git push -u origin main",
-  "git push --all origin",
-  "git push --mirror",
-  "git -C . push origin main",
-  "git push origin 'refs/heads/*:refs/heads/*'",
-  'bash -c "git push origin HEAD:main"',
-  "env git push origin main",
-  "echo main | xargs git push origin",
-];
-
-describe("role-no-merge: no role-bound pane pushes to main", () => {
-  it("blocks every push whose target is main, for every role", async () => {
-    for (const role of ["orchestrator", "writer", "judge"]) {
-      for (const command of PUSHES_TO_MAIN) {
-        blocked(await bash(role, command), "role-no-merge");
-      }
-    }
+describe("substituted: the commands inside substitutions", () => {
+  it("finds the text of a $( ) substitution", () => {
+    expect(substituted("echo $(gh pr merge 1)")).toEqual(["gh pr merge 1"]);
   });
 
-  it("leaves a session with no role every push", async () => {
-    for (const command of PUSHES_TO_MAIN) {
-      allowed(await decide({ tool_name: "Bash", tool_input: { command } }));
-    }
+  it("finds the text of a backtick substitution", () => {
+    expect(substituted("echo `gh pr merge 1`")).toEqual(["gh pr merge 1"]);
+  });
+
+  it("finds a process substitution, <( ) or >( )", () => {
+    expect(substituted("diff <(gh pr merge 1) x")).toEqual(["gh pr merge 1"]);
+    expect(substituted("tee >(gh pr merge 1)")).toEqual(["gh pr merge 1"]);
+  });
+
+  it("finds a substitution nested in another, outer first", () => {
+    expect(substituted("a $(b $(c))")).toEqual(["b $(c)", "c"]);
+  });
+
+  it("finds nothing in a command with no substitution", () => {
+    expect(substituted("gh pr merge 1")).toEqual([]);
   });
 });
 
-describe("role-no-merge: a push with no named target goes where the branch tracks", () => {
-  const dirs: string[] = [];
-  afterEach(() => {
-    for (const dir of dirs.splice(0)) {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-  const repo = (branch: string, merge?: string): string => {
-    const dir = mkdtempSync(join(tmpdir(), "guard-push-"));
-    dirs.push(dir);
-    // No GIT_*: under a git hook GIT_DIR names the real repository, which `git init` and `git config` would change.
-    const env = Object.fromEntries(
-      Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
-    );
-    const git = (...args: string[]) =>
-      execFileSync("git", args, { cwd: dir, env, stdio: "ignore" });
-    git("init", "-q", "-b", branch);
-    if (merge !== undefined) {
-      git("config", `branch.${branch}.merge`, merge);
-    }
-    return dir;
-  };
-  const push = (dir: string, command: string) =>
-    checkDeliveryBash("writer", command, dir);
+describe("withSubstitutions: a command with the commands it substitutes", () => {
+  it("splits the command and every substituted command, so a hidden merge is seen", () => {
+    const segments = withSubstitutions("echo $(gh pr merge 1)");
 
-  it("blocks a bare push from main, or from a branch that tracks main", () => {
-    for (const command of [
-      "git push",
-      "git push origin",
-      "git push -u origin HEAD",
-      "git push origin HEAD",
-    ]) {
-      expect(push(repo("main"), command)?.rule).toBe("role-no-merge");
-      expect(push(repo("feat/x", "refs/heads/main"), command)?.rule).toBe(
-        "role-no-merge",
-      );
-    }
+    expect(segments).toContainEqual(["gh", "pr", "merge", "1"]);
+    const split = vi.mocked(splitSegments).mock.calls.map(([text]) => text);
+    expect(split).toContain("gh pr merge 1");
   });
+});
 
-  it("allows a writer to push its own branch by name, and a bare push that tracks its own branch or nothing", () => {
-    for (const command of [
-      "git push -u origin mybranch",
-      "git push --force-with-lease origin mybranch",
-      "git push origin mybranch:mybranch",
-      "git push origin HEAD:mybranch",
-    ]) {
-      expect(push(repo("main"), command)).toBeNull();
-    }
-    for (const command of [
-      "git push",
-      "git push -u origin HEAD",
-      "git push origin HEAD",
-    ]) {
-      expect(push(repo("feat/x", "refs/heads/feat/x"), command)).toBeNull();
-      expect(push(repo("feat/x"), command)).toBeNull();
-    }
+describe("mergesPr: a gh command that merges a pull request", () => {
+  it.each([
+    ["gh pr merge", ["gh", "pr", "merge", "12"]],
+    ["gh pr merge with a repo flag", ["gh", "-R", "o/r", "pr", "merge", "12"]],
+    [
+      "the REST merge endpoint",
+      ["gh", "api", "-X", "PUT", "repos/o/r/pulls/12/merge"],
+    ],
+    ["the merge-upstream endpoint", ["gh", "api", "repos/o/r/merge-upstream"]],
+    ["the merges endpoint", ["gh", "api", "repos/o/r/merges"]],
+    [
+      "a GraphQL merge mutation",
+      [
+        "gh",
+        "api",
+        "graphql",
+        "-f",
+        "query=mutation { mergePullRequest(input: {}) }",
+      ],
+    ],
+    [
+      "a GraphQL query read from a file",
+      ["gh", "api", "graphql", "-F", "q=@query.graphql"],
+    ],
+    [
+      "a GraphQL query read from --input",
+      ["gh", "api", "graphql", "--input", "q.json"],
+    ],
+  ])("is true for %s", (_name, segment) => {
+    expect(mergesPr(segment)).toBe(true);
   });
 
-  it("fails closed when the branch cannot be read", () => {
-    expect(checkDeliveryBash("writer", "git push", tmpdir())?.rule).toBe(
-      "role-no-merge",
-    );
+  it("is true when the merge sits behind a wrapper", () => {
+    expect(mergesPr(["env", "gh", "pr", "merge", "12"])).toBe(true);
+  });
+
+  it.each([
+    ["a pull request read", ["gh", "pr", "view", "12"]],
+    ["a pull request list", ["gh", "api", "repos/o/r/pulls"]],
+    ["a command that is not gh", ["git", "pr", "merge"]],
+  ])("is false for %s", (_name, segment) => {
+    expect(mergesPr(segment)).toBe(false);
+  });
+});
+
+describe("runsJudgeTool: the judge's merge or send-back", () => {
+  const judge = (...args: string[]) => [
+    "node",
+    "skills/bin/harness.mjs",
+    ...args,
+  ];
+
+  it.each([
+    ["merge", ["judge", "merge", "12"]],
+    ["send-back", ["judge", "send-back", "12"]],
+  ])("is true for the judge's %s", (_name, args) => {
+    expect(runsJudgeTool(judge(...args), HARNESS)).toBe(true);
+  });
+
+  it("is false for another judge command, such as status", () => {
+    expect(runsJudgeTool(judge("judge", "status", "12"), HARNESS)).toBe(false);
+  });
+
+  it("is false when the script is not the harness the caller names", () => {
+    expect(
+      runsJudgeTool(["node", "other.mjs", "judge", "merge"], HARNESS),
+    ).toBe(false);
   });
 });

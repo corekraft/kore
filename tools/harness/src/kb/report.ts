@@ -13,6 +13,8 @@ export interface KbDeps extends HistoryDeps {
   audit?(): Promise<{ text: string; failing: boolean }>;
   /** The flag audit as warning lines: none when every flag that is on has live proof. */
   flagAudit?(): Promise<string[]>;
+  /** Problems with the repository itself, as full lines; each counts as a finding. */
+  repositoryProblems?(): Promise<string[]>;
 }
 
 /** One finding as `file:line: message; fix`. */
@@ -80,6 +82,11 @@ async function runChecks(
   for (const problem of problems) {
     log(format(problem));
   }
+  const repository = (await deps.repositoryProblems?.()) ?? [];
+  for (const line of repository) {
+    log(line);
+  }
+  const total = problems.length + repository.length;
   // Staleness is warn-only for now: it never changes the exit code, even --strict.
   const stale = await staleDocuments(deps);
   for (const item of stale) {
@@ -104,7 +111,7 @@ async function runChecks(
       );
     }
   };
-  if (problems.length === 0) {
+  if (total === 0) {
     if (stale.length === 0 && flags.length === 0) {
       log("kb-check: clean");
     } else {
@@ -112,11 +119,11 @@ async function runChecks(
     }
     return 0;
   }
-  const noun = problems.length === 1 ? "finding" : "findings";
+  const noun = total === 1 ? "finding" : "findings";
   log(
     strict
-      ? `kb-check: ${problems.length} ${noun}`
-      : `kb-check: ${problems.length} ${noun} (warn mode; --strict fails on them)`,
+      ? `kb-check: ${total} ${noun}`
+      : `kb-check: ${total} ${noun} (warn mode; --strict fails on them)`,
   );
   staleNote();
   return strict ? 1 : 0;

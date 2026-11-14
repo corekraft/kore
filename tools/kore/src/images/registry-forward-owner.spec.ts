@@ -1,216 +1,111 @@
-import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import type { Repository } from "../config/index.js";
-import type { Runner } from "../runtime/index.js";
-import { readForwardOwner } from "./registry-forward-owner.js";
-import { localRegistryReference, stopRegistryForward } from "./registry.js";
-
 // Docs: AGENTS.md "One owner per resource."
+import { existsSync } from "node:fs";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { beforeEach, expect, test, vi } from "vitest";
+import { hostRoot, processAlive } from "../runtime/index.js";
+import {
+  clearForwardOwner,
+  ownershipConflict,
+  readForwardOwner,
+  recordForwardOwner,
+} from "./registry-forward-owner.js";
+import { fakeRepository } from "./images-support.js";
 
-vi.mock("./registry-tls.js", () => ({ loadRegistryCa: async () => "ca-pem" }));
+vi.mock("node:fs");
+vi.mock("node:fs/promises");
+vi.mock("node:path");
+vi.mock("../runtime/index.js");
 
-const context = "k3d-kore-local";
-const forwardCommand = `kubectl --context ${context} --namespace kore-registry port-forward service/oci-registry 30500:5000`;
-const roots: string[] = [];
+const ownerPath = "/host/.kore/registry-forward/k3d-kore-local.json";
+const owner = { pid: 4242, root: "/worktrees/a", starter: 7 };
 
-beforeEach(async () => {
-  // Ownership records are host-wide; give every test a host of its own.
-  const host = await mkdtemp(join(tmpdir(), "kore-forward-host-"));
-  roots.push(host);
-  vi.stubEnv("KORE_HOST_ROOT", host);
+beforeEach(() => {
+  vi.mocked(hostRoot).mockReturnValue("/host");
+  vi.mocked(join).mockImplementation((...parts: string[]) => parts.join("/"));
+  vi.mocked(dirname).mockReturnValue("/host/.kore/registry-forward");
 });
 
-afterEach(async () => {
-  vi.unstubAllEnvs();
-  await Promise.all(
-    roots.splice(0).map((root) => rm(root, { recursive: true, force: true })),
+test("recording an owner writes the forward's pid, the worktree and this process as the starter", async () => {
+  await recordForwardOwner(
+    fakeRepository({ kubeContext: "k3d-kore-local" }, "/worktrees/a"),
+    4242,
   );
-});
 
-async function worktree(): Promise<Repository> {
-  const root = await mkdtemp(join(tmpdir(), "kore-forward-owner-"));
-  roots.push(root);
-  return {
-    root,
-    environment: { provider: "k3d", kubeContext: context },
-  } as unknown as Repository;
-}
-
-/** `repository` starts the forward (pid 4242), as `kore local up` does. */
-async function start(repository: Repository): Promise<void> {
-  let ready = false;
-  await localRegistryReference(
-    repository,
-    {
-      run: async () => ({ stdout: "", stderr: "", code: 0 }),
-    } as unknown as Runner,
-    "registry.kore.local:30500/reference:dev",
-    {
-      isPortOpen: async () => {
-        const open = ready;
-        ready = true;
-        return open;
-      },
-      spawnPortForward: () => 4242,
-    },
-  );
-}
-
-function stopControl() {
-  const signalled: number[] = [];
-  const lines: string[] = [];
-  return {
-    signalled,
-    lines,
-    control: {
-      listProcesses: async () => [{ pid: 4242, command: forwardCommand }],
-      signalProcess: (pid: number) => void signalled.push(pid),
-      report: (line: string) => void lines.push(line),
-    },
-  };
-}
-
-test("a worktree that did not start the forward leaves it running, naming its owner", async () => {
-  const owner = await worktree();
-  const other = await worktree();
-  await start(owner);
-  const { signalled, lines, control } = stopControl();
-
-  const stopped = await stopRegistryForward(other, control);
-
-  expect(stopped).toEqual([]);
-  expect(signalled).toEqual([]);
-  expect(lines.join("\n")).toContain(owner.root);
-});
-
-test("the worktree that started the forward stops it, and the next stop is a no-op", async () => {
-  const owner = await worktree();
-  await start(owner);
-  const first = stopControl();
-
-  expect(await stopRegistryForward(owner, first.control)).toEqual([4242]);
-  expect(first.signalled).toEqual([4242]);
-
-  const again = stopControl();
-  await stopRegistryForward(await worktree(), {
-    ...again.control,
-    listProcesses: async () => [],
+  expect(mkdir).toHaveBeenCalledWith("/host/.kore/registry-forward", {
+    recursive: true,
   });
-  expect(again.signalled).toEqual([]);
-});
-
-test("a forward whose owning worktree is gone can be stopped by anyone", async () => {
-  const owner = await worktree();
-  const other = await worktree();
-  await start(owner);
-  await rm(owner.root, { recursive: true, force: true });
-  const { signalled, control } = stopControl();
-
-  expect(await stopRegistryForward(other, control)).toEqual([4242]);
-  expect(signalled).toEqual([4242]);
-});
-
-test("a forward nobody recorded, such as one from an older kore, is still stopped", async () => {
-  const { signalled, control } = stopControl();
-
-  expect(await stopRegistryForward(await worktree(), control)).toEqual([4242]);
-  expect(signalled).toEqual([4242]);
-});
-
-test("the owner record names the starting process as well as the worktree", async () => {
-  const owner = await worktree();
-  await start(owner);
-
-  expect(await readForwardOwner(context)).toEqual({
-    pid: 4242,
-    root: owner.root,
-    starter: process.pid,
-  });
-});
-
-/** Reaches the registry through a forward that is already answering. */
-async function useOpenForward(repository: Repository) {
-  const lines: string[] = [];
-  await localRegistryReference(
-    repository,
-    {
-      run: async () => ({ stdout: "", stderr: "", code: 0 }),
-    } as unknown as Runner,
-    "registry.kore.local:30500/reference:dev",
-    { isPortOpen: async () => true, report: (line) => void lines.push(line) },
+  expect(writeFile).toHaveBeenCalledWith(
+    ownerPath,
+    JSON.stringify({ pid: 4242, root: "/worktrees/a", starter: process.pid }),
   );
-  return lines;
-}
-
-test("a forward found already open with no recorded owner is reported, never silently adopted", async () => {
-  const lines = await useOpenForward(await worktree());
-
-  expect(lines.join("\n")).toMatch(/no owner recorded/);
-  expect(lines.join("\n")).toContain("30500");
 });
 
-test("a forward found open that a worktree recorded is used without a warning", async () => {
-  const owner = await worktree();
-  await start(owner);
+test("a well-formed owner record is read back exactly", async () => {
+  vi.mocked(readFile).mockResolvedValue(JSON.stringify(owner));
 
-  expect(await useOpenForward(await worktree())).toEqual([]);
+  await expect(readForwardOwner("k3d-kore-local")).resolves.toEqual(owner);
+  expect(readFile).toHaveBeenCalledWith(ownerPath, "utf8");
 });
 
-/** A forward `repository`'s worktree started from another kore process, `starter`. */
-async function startedByAnotherProcess(
-  repository: Repository,
-  starter: number,
-): Promise<void> {
-  const directory = join(
-    process.env.KORE_HOST_ROOT ?? "",
-    ".kore",
-    "registry-forward",
+test("a record that is missing, unreadable or malformed reads as no owner", async () => {
+  vi.mocked(readFile).mockRejectedValueOnce(new Error("ENOENT"));
+  await expect(readForwardOwner("k3d-kore-local")).resolves.toBeUndefined();
+
+  for (const bad of [
+    { ...owner, pid: "4242" },
+    { ...owner, root: 7 },
+    { ...owner, starter: 1.5 },
+    {},
+  ]) {
+    vi.mocked(readFile).mockResolvedValueOnce(JSON.stringify(bad));
+    await expect(readForwardOwner("k3d-kore-local")).resolves.toBeUndefined();
+  }
+});
+
+test("clearing the owner removes its record and ignores a record that is already gone", async () => {
+  await clearForwardOwner("k3d-kore-local");
+
+  expect(rm).toHaveBeenCalledWith(ownerPath, { force: true });
+});
+
+test("no recorded owner conflicts with nothing", () => {
+  expect(ownershipConflict(undefined, "/worktrees/a")).toBeUndefined();
+});
+
+test("another worktree that still exists conflicts, and the message says where to stop from", () => {
+  vi.mocked(existsSync).mockReturnValue(true);
+
+  expect(ownershipConflict(owner, "/worktrees/b")).toBe(
+    "it was started from /worktrees/a, so stop it from there",
   );
-  await mkdir(directory, { recursive: true });
-  await writeFile(
-    join(directory, `${context}.json`),
-    JSON.stringify({ pid: 4242, root: repository.root, starter }),
+  expect(existsSync).toHaveBeenCalledWith("/worktrees/a");
+});
+
+test("another worktree that is gone no longer owns the forward", () => {
+  vi.mocked(existsSync).mockReturnValue(false);
+
+  expect(ownershipConflict(owner, "/worktrees/b")).toBeUndefined();
+});
+
+test("this worktree's own record conflicts only with a live kore process other than this one", () => {
+  vi.mocked(processAlive).mockReturnValue(true);
+
+  expect(ownershipConflict(owner, "/worktrees/a")).toBe(
+    "it was started by kore process 7 in this worktree, so stop it from there",
   );
-}
-
-test("another process in the owning worktree leaves the forward running, naming the starter", async () => {
-  const owner = await worktree();
-  await startedByAnotherProcess(owner, process.ppid);
-  const { signalled, lines, control } = stopControl();
-
-  expect(await stopRegistryForward(owner, control)).toEqual([]);
-
-  expect(signalled).toEqual([]);
-  expect(lines.join("\n")).toContain(`process ${process.ppid}`);
-  expect(lines.join("\n")).toContain("--force");
+  expect(processAlive).toHaveBeenCalledWith(7);
 });
 
-test("--force stops a forward another process or another worktree owns", async () => {
-  const owner = await worktree();
-  const other = await worktree();
-  await startedByAnotherProcess(owner, process.ppid);
+test("the starting process itself never conflicts with its own record", () => {
+  const own = { ...owner, starter: process.pid };
+  vi.mocked(processAlive).mockReturnValue(true);
 
-  const sameWorktree = stopControl();
-  expect(
-    await stopRegistryForward(owner, sameWorktree.control, { force: true }),
-  ).toEqual([4242]);
-
-  await startedByAnotherProcess(owner, process.ppid);
-  const otherWorktree = stopControl();
-  expect(
-    await stopRegistryForward(other, otherWorktree.control, { force: true }),
-  ).toEqual([4242]);
+  expect(ownershipConflict(own, "/worktrees/a")).toBeUndefined();
 });
 
-test("a forward whose starting process has exited can be stopped by its worktree", async () => {
-  const owner = await worktree();
-  const gone = spawnSync(process.execPath, ["-e", ""]).pid;
-  await startedByAnotherProcess(owner, gone);
-  const { signalled, control } = stopControl();
+test("a starter that has exited no longer owns the forward in this worktree", () => {
+  vi.mocked(processAlive).mockReturnValue(false);
 
-  expect(await stopRegistryForward(owner, control)).toEqual([4242]);
-  expect(signalled).toEqual([4242]);
+  expect(ownershipConflict(owner, "/worktrees/a")).toBeUndefined();
 });

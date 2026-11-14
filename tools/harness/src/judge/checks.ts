@@ -1,4 +1,8 @@
 import type { Runner } from "../runtime/index.js";
+import { NAMED_HEAD, TRAILING_HEAD, VERDICT_LINE } from "./review-verdict.js";
+
+// The expand step gather lives in its own unit; precheck imports it through here.
+export { gatherExpandStep } from "./expand-gather.js";
 
 export const RESULTS = [
   "pass",
@@ -19,6 +23,8 @@ export interface Checks {
   scan: Check;
   coverage: Check;
   principlesReview: Check;
+  /** Present only for a contract whose diff removes lines: its expand step is proven or not. */
+  expandStep?: Check;
 }
 
 export interface PrComment {
@@ -27,7 +33,18 @@ export interface PrComment {
   createdAt: string;
 }
 
+/** One comment from gh's JSON, with its author's login. */
+function parseComment(c: Record<string, unknown>): PrComment {
+  return {
+    body: text(c["body"]),
+    author: text((c["author"] as Record<string, unknown> | null)?.["login"]),
+    createdAt: text(c["createdAt"]),
+  };
+}
+
 export interface PrView {
+  /** The commit the PR's base branch points at now; the merge base is found from it. */
+  baseSha: string;
   body: string;
   comments: PrComment[];
   /** When the newest commit on the PR was made; undefined when the PR lists none. */
@@ -42,7 +59,6 @@ const CI_JOB = "check";
 const SCAN_JOB = "scan";
 /** The CI steps that run the suites with the coverage threshold: kore's and the harness's. */
 const COVERAGE_STEPS = ["Unit tests", "Harness tests"];
-const REVIEW = /^\s*principles-review:\s*(.*)$/im;
 
 function text(value: unknown): string {
   return typeof value === "string" ? value : "";
@@ -54,14 +70,9 @@ export function parsePrView(stdout: string): PrView | undefined {
     const list = (key: string): Record<string, unknown>[] =>
       Array.isArray(view[key]) ? (view[key] as Record<string, unknown>[]) : [];
     return {
+      baseSha: text(view["baseRefOid"]),
       body: text(view["body"]),
-      comments: list("comments").map((c) => ({
-        body: text(c["body"]),
-        author: text(
-          (c["author"] as Record<string, unknown> | null)?.["login"],
-        ),
-        createdAt: text(c["createdAt"]),
-      })),
+      comments: list("comments").map(parseComment),
       headSha: text(view["headRefOid"]),
       headCommittedAt: list("commits")
         .map((c) => text(c["committedDate"]))
@@ -98,8 +109,6 @@ function job(view: PrView, name: string): Check {
     : { result, detail: `${name}: ${found.conclusion || found.status}` };
 }
 
-const NAMED_HEAD = /\bhead\s+([0-9a-f]{7,40})\b/i;
-
 /**
  * Whether a review covers the PR's current head. A review that names a commit
  * (`head <sha>`) is current only if that is the head; otherwise it must be newer
@@ -121,20 +130,13 @@ function current(view: PrView, comment: PrComment): boolean {
  * commit, decides. A review from anyone else, or from before the head commit, is not
  * trusted: the result is unverified, not a pass.
  */
-function review(view: PrView, reviewers: readonly string[]): Check {
-  const reviews = view.comments.filter((c) => REVIEW.test(c.body));
+export function reviewCheck(view: PrView, reviewers: readonly string[]): Check {
+  const reviews = view.comments.filter((c) => VERDICT_LINE.test(c.body));
   if (reviews.length === 0) {
     return {
       result: "missing",
       detail:
         "no `principles-review:` comment; run the principles-review agent and post its verdict as `principles-review: No violations.` or `principles-review: <n> violations`",
-    };
-  }
-  if (reviewers.length === 0) {
-    return {
-      result: "unverified",
-      detail:
-        "no known reviewer identity; rerun with `--reviewer <login>` naming who posts principles-review verdicts",
     };
   }
   const trusted = reviews
@@ -147,8 +149,8 @@ function review(view: PrView, reviewers: readonly string[]): Check {
       detail: `no principles-review comment from ${reviewers.join(" or ")} for the current head (name it as "head <sha>", or post it after the head commit); rerun the review on the current head`,
     };
   }
-  const verdict = (REVIEW.exec(trusted.body)?.[1] ?? "")
-    .replace(/\s*\(?\bhead\s+[0-9a-f]{7,40}\)?\s*$/i, "")
+  const verdict = (VERDICT_LINE.exec(trusted.body)?.[1] ?? "")
+    .replace(TRAILING_HEAD, "")
     .trim();
   return /^no violations\.?$/i.test(verdict)
     ? { result: "pass" }
@@ -227,6 +229,6 @@ export async function gatherChecks(
     ci: job(view, CI_JOB),
     scan: job(view, SCAN_JOB),
     coverage: await coverage(runner, root, repo, view),
-    principlesReview: review(view, reviewers),
+    principlesReview: reviewCheck(view, reviewers),
   };
 }

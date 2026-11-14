@@ -1,274 +1,267 @@
-import assert from "node:assert/strict";
-import { test } from "vitest";
-import {
-  enabledComponents,
-  loadRepository,
-  type Repository,
-} from "../config/index.js";
-import type { Runner } from "../runtime/index.js";
-import { imageInventory, imageInventoryStatus } from "./image-inventory.js";
-import { gatedOffReleaseAbsent } from "./webhook-fixtures.js";
-
-// Docs: infra/plans/2-implementation.md#step-7-bootstrap-registry-image-trust-controllers-and-crd-ownership
 // Docs: docs/decisions/0056-platform-image-inventory.md
+import { beforeEach, expect, test, vi } from "vitest";
+import { approvedImageList } from "../config/index.js";
+import { managedNamespaces } from "./gated-release.js";
+import {
+  classifyImage,
+  imageInventory,
+  imageInventoryStatus,
+} from "./image-inventory.js";
+import {
+  approvedEntryOf,
+  repositoryOf,
+  runnerFake,
+} from "./gate-unit-support.js";
 
-interface PodSpec {
-  namespace: string;
-  name: string;
-  containers?: string[];
-  initContainers?: string[];
-  ephemeralContainers?: string[];
-  phase?: string;
-}
+vi.mock("../config/index.js");
+vi.mock("./gated-release.js");
 
-const label = { "policy.sigstore.dev/include": "true" };
+const mirror = "mirror.kore.local/platform";
+const registry = "registry.kore.local:5001";
+const digest = `sha256:${"a".repeat(64)}`;
+const repository = repositoryOf({
+  platformMirror: mirror,
+  registry: { address: registry },
+});
 
-function names(repository: Repository): string[] {
-  return [...new Set(enabledComponents(repository).map((c) => c.namespace))];
-}
-
-function cluster(
-  repository: Repository,
-  pods: PodSpec[],
-  options: { unlabelled?: string[]; failPods?: boolean } = {},
+/** A pod with containers of each kind, as `kubectl get pods -o json` lists it. */
+function pod(
+  namespace: string,
+  name: string,
+  images: { containers?: string[]; init?: string[]; ephemeral?: string[] },
+  phase = "Running",
 ) {
-  const calls: string[] = [];
-  const runner: Runner = {
-    async run(command, args) {
-      gatedOffReleaseAbsent(command, args);
-      calls.push(`${command} ${args.join(" ")}`);
-      const joined = args.join(" ");
-      if (command !== "kubectl") {
-        throw new Error(`unexpected ${command}`);
-      }
-      if (joined.includes("get pods")) {
-        if (options.failPods) {
-          throw new Error("connection refused");
-        }
-        const entry = (list: string[] | undefined, prefix: string) =>
-          (list ?? []).map((image, i) => ({ name: `${prefix}${i}`, image }));
-        return {
-          stdout: JSON.stringify({
-            items: pods.map((pod) => ({
-              metadata: { namespace: pod.namespace, name: pod.name },
-              status: { phase: pod.phase ?? "Running" },
-              spec: {
-                containers: entry(pod.containers, "c"),
-                initContainers: entry(pod.initContainers, "i"),
-                ephemeralContainers: entry(pod.ephemeralContainers, "e"),
-              },
-            })),
-          }),
-          stderr: "",
-          code: 0,
-        };
-      }
-      if (joined.includes("get namespaces")) {
-        return {
-          stdout: JSON.stringify({
-            items: [...names(repository), "kube-system"].map((name) => ({
-              metadata: {
-                name,
-                labels: options.unlabelled?.includes(name) ? {} : label,
-              },
-            })),
-          }),
-          stderr: "",
-          code: 0,
-        };
-      }
-      throw new Error(`unexpected ${joined}`);
+  const named = (list: string[] = []) =>
+    list.map((image, i) => ({ name: `c${i}`, image }));
+  return {
+    metadata: { namespace, name },
+    status: { phase },
+    spec: {
+      containers: named(images.containers),
+      initContainers: named(images.init),
+      ephemeralContainers: named(images.ephemeral),
     },
   };
-  return { runner, calls };
 }
 
-const sha = (n: string) => `sha256:${n.repeat(64)}`;
-
-async function local() {
-  return await loadRepository("local");
+function listing(items: unknown[]): string {
+  return JSON.stringify({ items });
 }
 
-test("an approved upstream digest is classified approved-upstream-digest, a seed as seed", async () => {
-  const repository = await local();
-  const seed = repository.seeds.seeds[0]!;
-  const approved = repository.approved.images[0]!;
-  const { runner } = cluster(repository, [
-    { namespace: "kore-registry", name: "a", containers: [seed.image] },
-    { namespace: "observability", name: "b", containers: [approved.image] },
+beforeEach(() => {
+  vi.mocked(approvedImageList).mockReturnValue([]);
+  vi.mocked(managedNamespaces).mockResolvedValue(["app"]);
+});
+
+test("a tag-only image is classified tag-only, whatever its registry", () => {
+  expect(classifyImage(repository, "nginx:1.25")).toBe("tag-only");
+});
+
+test("an approved digest under the platform mirror is internal-digest", () => {
+  const image = `${mirror}/api@${digest}`;
+  vi.mocked(approvedImageList).mockReturnValue([approvedEntryOf(image)]);
+
+  expect(classifyImage(repository, image)).toBe("internal-digest");
+});
+
+test("an approved digest under the registry address is internal-digest too", () => {
+  const image = `${registry}/api@${digest}`;
+  vi.mocked(approvedImageList).mockReturnValue([approvedEntryOf(image)]);
+
+  expect(classifyImage(repository, image)).toBe("internal-digest");
+});
+
+test("a digest under the mirror that the approved list does not hold is unknown, never internal", () => {
+  expect(classifyImage(repository, `${mirror}/api@${digest}`)).toBe("unknown");
+});
+
+test("an approved seed digest from upstream is classified seed", () => {
+  const image = `docker.io/library/seed@${digest}`;
+  vi.mocked(approvedImageList).mockReturnValue([approvedEntryOf(image, true)]);
+
+  expect(classifyImage(repository, image)).toBe("seed");
+});
+
+test("an approved upstream digest that is not a seed is approved-upstream-digest", () => {
+  const image = `docker.io/library/tool@${digest}`;
+  vi.mocked(approvedImageList).mockReturnValue([approvedEntryOf(image)]);
+
+  expect(classifyImage(repository, image)).toBe("approved-upstream-digest");
+});
+
+test("an upstream digest the approved list does not hold is unknown", () => {
+  expect(classifyImage(repository, `docker.io/x/y@${digest}`)).toBe("unknown");
+});
+
+test("the inventory covers containers, init and ephemeral containers of managed pods, skipping finished ones and other namespaces", async () => {
+  const { runner } = runnerFake((_command, args) => {
+    if (args.includes("pods")) {
+      return {
+        stdout: listing([
+          pod("app", "web", {
+            containers: ["nginx:1.25"],
+            init: [`${mirror}/init@${digest}`],
+            ephemeral: ["busybox"],
+          }),
+          pod("app", "done", { containers: ["nginx:1.25"] }, "Succeeded"),
+          pod("other", "stray", { containers: ["nginx:1.25"] }),
+        ]),
+        stderr: "",
+        code: 0,
+      };
+    }
+    return { stdout: listing([]), stderr: "", code: 0 };
+  });
+  vi.mocked(approvedImageList).mockReturnValue([
+    approvedEntryOf(`${mirror}/init@${digest}`),
   ]);
 
   const inventory = await imageInventory(repository, runner);
 
-  assert.deepEqual(
-    inventory.images.map((image) => image.classification),
-    ["seed", "approved-upstream-digest"],
-  );
-});
-
-test("tag-only and unlisted digests are classified, and init and ephemeral containers are inventoried", async () => {
-  const repository = await local();
-  const { runner } = cluster(repository, [
-    {
-      namespace: "observability",
-      name: "p",
-      containers: ["busybox:1.37.0"],
-      initContainers: [`docker.io/evil/x@${sha("a")}`],
-      ephemeralContainers: ["debug:latest"],
-    },
+  expect(
+    inventory.images.map((found) => [
+      found.pod,
+      found.kind,
+      found.classification,
+    ]),
+  ).toEqual([
+    ["web", "container", "tag-only"],
+    ["web", "init", "internal-digest"],
+    ["web", "ephemeral", "tag-only"],
   ]);
+});
 
-  const { images } = await imageInventory(repository, runner);
+test("a managed namespace without the enrollment label is unenrolled, unless it is exempt", async () => {
+  vi.mocked(managedNamespaces).mockResolvedValue(["app", "exempt", "labelled"]);
+  const { runner } = runnerFake((_command, args) => ({
+    stdout: args.includes("namespaces")
+      ? listing([
+          {
+            metadata: {
+              name: "labelled",
+              labels: { "policy.sigstore.dev/include": "true" },
+            },
+          },
+        ])
+      : listing([]),
+    stderr: "",
+    code: 0,
+  }));
+  const exempting = repositoryOf({
+    enrollmentExemptions: { exempt: "legacy workload" },
+  });
 
-  assert.deepEqual(
-    images.map((i) => [i.kind, i.classification]),
-    [
-      ["container", "tag-only"],
-      ["init", "unknown"],
-      ["ephemeral", "tag-only"],
-    ],
+  const inventory = await imageInventory(exempting, runner);
+
+  expect(inventory.unenrolledNamespaces).toEqual(["app"]);
+});
+
+test("the inventory mode comes from the environment and defaults to audit", async () => {
+  const { runner } = runnerFake(() => ({
+    stdout: listing([]),
+    stderr: "",
+    code: 0,
+  }));
+
+  const defaulted = await imageInventory(repository, runner);
+  const enforced = await imageInventory(
+    repositoryOf({ imageInventory: "enforce" }),
+    runner,
   );
-  assert.equal(images[0]?.pod, "p");
-  assert.equal(images[0]?.namespace, "observability");
+
+  expect(defaulted.mode).toBe("audit");
+  expect(enforced.mode).toBe("enforce");
 });
 
-test("a digest under the platform mirror is internal-digest only when approved", async () => {
-  const repository = await loadRepository("managed-example");
-  const approved = repository.approved.images[0]!;
-  const digest = approved.image.slice(approved.image.indexOf("@") + 1);
-  const mirror = repository.environment.platformMirror!;
-  const { runner } = cluster(repository, [
-    {
-      namespace: "observability",
-      name: "ok",
-      containers: [`${mirror}/${approved.name}@${digest}`],
-    },
-    {
-      namespace: "observability",
-      name: "unlisted",
-      containers: [`${mirror}/${approved.name}@${sha("b")}`],
-    },
-  ]);
+test("the inventory only reads: every kubectl call is a get", async () => {
+  const { run, runner } = runnerFake(() => ({
+    stdout: listing([]),
+    stderr: "",
+    code: 0,
+  }));
 
-  const { images } = await imageInventory(repository, runner);
+  await imageInventory(repository, runner);
 
-  assert.deepEqual(
-    images.map((i) => i.classification),
-    ["internal-digest", "unknown"],
-  );
+  expect(run).toHaveBeenCalled();
+  for (const [command, args] of run.mock.calls) {
+    expect(command).toBe("kubectl");
+    expect(args).toContain("get");
+  }
 });
 
-test("pods outside platform namespaces and finished pods are ignored", async () => {
-  const repository = await local();
-  const { runner } = cluster(repository, [
-    { namespace: "reference", name: "app", containers: ["busybox:1"] },
-    {
-      namespace: "observability",
-      name: "done",
-      containers: ["busybox:1"],
-      phase: "Succeeded",
-    },
-  ]);
-
-  assert.deepEqual((await imageInventory(repository, runner)).images, []);
-});
-
-test("namespaces without the Policy Controller inclusion label are reported", async () => {
-  const repository = await local();
-  const { runner } = cluster(repository, [], { unlabelled: ["observability"] });
-
-  const inventory = await imageInventory(repository, runner);
-
-  assert.deepEqual(inventory.unenrolledNamespaces, ["observability"]);
-});
-
-test("audit mode reports findings but the status stays ready", async () => {
-  const repository = await local();
-  assert.equal(repository.environment.imageInventory, "audit");
-  const { runner } = cluster(
-    repository,
-    [{ namespace: "observability", name: "p", containers: ["busybox:1"] }],
-    { unlabelled: ["observability"] },
-  );
+test("an unreadable cluster is degraded, names the read error, and is never ready", async () => {
+  const { runner } = runnerFake(() => {
+    throw new Error("connection refused");
+  });
 
   const status = await imageInventoryStatus(repository, runner);
 
-  assert.equal(status.status, "ready");
-  assert.match(status.detail, /audit/);
-  assert.match(status.detail, /1 tag-only/);
-  assert.equal(status.inventory?.images.length, 1);
-  assert.deepEqual(status.inventory?.unenrolledNamespaces, ["observability"]);
+  expect(status).toMatchObject({
+    name: "image-inventory",
+    namespace: "cluster",
+    status: "degraded",
+    detail: "image inventory could not be read: connection refused",
+  });
 });
 
-test("enforce mode is degraded and names each offending pod, container and image", async () => {
-  const repository = await loadRepository("managed-example");
-  const { runner } = cluster(
-    repository,
-    [
-      {
-        namespace: "observability",
-        name: "grafana-0",
-        containers: ["busybox:1"],
-      },
-    ],
-    { unlabelled: ["cert-manager"] },
-  );
+test("audit findings are reported, but the status stays ready", async () => {
+  const { runner } = runnerFake((_command, args) => ({
+    stdout: args.includes("pods")
+      ? listing([pod("app", "web", { containers: ["nginx:1.25"] })])
+      : listing([]),
+    stderr: "",
+    code: 0,
+  }));
 
   const status = await imageInventoryStatus(repository, runner);
 
-  assert.equal(status.status, "degraded");
-  assert.match(
-    status.detail,
-    /observability\/grafana-0 container c0 busybox:1 \(tag-only\)/,
-  );
-  assert.match(status.detail, /cert-manager/);
+  expect(status.status).toBe("ready");
+  expect(status.detail).toBe("audit: 1 tag-only, 1 namespace(s) not enrolled");
 });
 
-test("enforce mode is ready when every image is internal-digest and every namespace enrolled", async () => {
-  const repository = await loadRepository("managed-example");
-  const approved = repository.approved.images[0]!;
-  const digest = approved.image.slice(approved.image.indexOf("@") + 1);
-  const mirror = repository.environment.platformMirror!;
-  const { runner } = cluster(repository, [
-    {
-      namespace: "observability",
-      name: "ok",
-      containers: [`${mirror}/${approved.name}@${digest}`],
-    },
-  ]);
+test("enforce findings are degraded and name each offending pod, container and image", async () => {
+  const { runner } = runnerFake((_command, args) => ({
+    stdout: args.includes("pods")
+      ? listing([pod("app", "web", { containers: ["nginx:1.25"] })])
+      : listing([]),
+    stderr: "",
+    code: 0,
+  }));
+  const enforcing = repositoryOf({ imageInventory: "enforce" });
 
-  assert.equal(
-    (await imageInventoryStatus(repository, runner)).status,
-    "ready",
+  const status = await imageInventoryStatus(enforcing, runner);
+
+  expect(status.status).toBe("degraded");
+  expect(status.detail).toBe(
+    "enforce: app/web container c0 nginx:1.25 (tag-only); namespace app lacks policy.sigstore.dev/include=true",
   );
 });
 
-test("an unreadable cluster is degraded, never ready, and never mutates", async () => {
-  const repository = await local();
-  const { runner, calls } = cluster(repository, [], { failPods: true });
+test("enforce with only internal digests and enrolled namespaces is ready", async () => {
+  const image = `${mirror}/api@${digest}`;
+  vi.mocked(approvedImageList).mockReturnValue([approvedEntryOf(image)]);
+  const { runner } = runnerFake((_command, args) => ({
+    stdout: args.includes("pods")
+      ? listing([pod("app", "api", { containers: [image] })])
+      : listing([
+          {
+            metadata: {
+              name: "app",
+              labels: { "policy.sigstore.dev/include": "true" },
+            },
+          },
+        ]),
+    stderr: "",
+    code: 0,
+  }));
+  const enforcing = repositoryOf({
+    imageInventory: "enforce",
+    platformMirror: mirror,
+    registry: { address: registry },
+  });
 
-  const status = await imageInventoryStatus(repository, runner);
+  const status = await imageInventoryStatus(enforcing, runner);
 
-  assert.equal(status.status, "degraded");
-  assert.match(status.detail, /connection refused/);
-  assert.ok(calls.every((call) => /\bget\b/.test(call)));
-  assert.ok(calls.every((call) => call.includes("--context k3d-kore-local")));
-});
-
-test("exempt namespaces are not reported unenrolled but every other one is checked, and their images are still classified", async () => {
-  const repository = await loadRepository("managed-example");
-  const all = names(repository);
-  const { runner } = cluster(
-    repository,
-    [{ namespace: "kore-registry", name: "r", containers: ["busybox:1"] }],
-    { unlabelled: all },
-  );
-
-  const inventory = await imageInventory(repository, runner);
-
-  assert.deepEqual(
-    inventory.unenrolledNamespaces,
-    all.filter((ns) => ns !== "cosign-system" && ns !== "kore-registry").sort(),
-  );
-  assert.equal(inventory.images[0]?.classification, "tag-only");
+  expect(status.status).toBe("ready");
+  expect(status.detail).toBe("enforce: every image is an internal digest");
 });

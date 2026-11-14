@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
-import { loadRepository } from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 import { recoverRelease } from "./release-recovery.js";
+import { fakeRepository } from "./platform-support.js";
 
 type Revision = { revision: number; status: string };
 
@@ -35,9 +35,9 @@ function helm(history: Revision[] | undefined, stuckAfterUninstall = false) {
 }
 const target = { name: "reference", namespace: "reference", timeout: "10m" };
 const verbs = (calls: string[][]) => calls.map((call) => call[1]);
+const repository = fakeRepository();
 
 test("a release that never deployed is uninstalled and its absence verified", async () => {
-  const repository = await loadRepository("local");
   const { runner, calls } = helm([{ revision: 1, status: "failed" }]);
   await expect(recoverRelease(repository, runner, target)).resolves.toBe(
     "uninstalled",
@@ -46,7 +46,6 @@ test("a release that never deployed is uninstalled and its absence verified", as
 });
 
 test("recovery fails naming the release when the uninstall left it behind", async () => {
-  const repository = await loadRepository("local");
   const { runner } = helm([{ revision: 1, status: "failed" }], true);
   await expect(recoverRelease(repository, runner, target)).rejects.toThrow(
     /release reference in namespace reference is still present after uninstall/,
@@ -56,7 +55,6 @@ test("recovery fails naming the release when the uninstall left it behind", asyn
 test.each(["pending-upgrade", "pending-rollback"])(
   "a canceled %s returns to the last deployed revision instead of uninstalling",
   async (status) => {
-    const repository = await loadRepository("local");
     const { runner, calls } = helm([
       { revision: 1, status: "superseded" },
       { revision: 2, status: "deployed" },
@@ -74,7 +72,6 @@ test.each(["pending-upgrade", "pending-rollback"])(
 );
 
 test("a deployed release, even after a failed upgrade, is left to helm", async () => {
-  const repository = await loadRepository("local");
   const { runner, calls } = helm([
     { revision: 1, status: "deployed" },
     { revision: 2, status: "failed" },
@@ -86,7 +83,6 @@ test("a deployed release, even after a failed upgrade, is left to helm", async (
 });
 
 test("a missing release needs nothing", async () => {
-  const repository = await loadRepository("local");
   const { runner } = helm(undefined);
   await expect(recoverRelease(repository, runner, target)).resolves.toBe(
     "none",
@@ -94,7 +90,6 @@ test("a missing release needs nothing", async () => {
 });
 
 test("the guard runs before anything is uninstalled and can refuse", async () => {
-  const repository = await loadRepository("local");
   const { runner, calls } = helm([{ revision: 1, status: "failed" }]);
   await expect(
     recoverRelease(repository, runner, target, async () => {
@@ -102,4 +97,47 @@ test("the guard runs before anything is uninstalled and can refuse", async () =>
     }),
   ).rejects.toThrow(/retained data exists/);
   expect(calls.some((call) => call[1] === "uninstall")).toBe(false);
+});
+
+test("a history failure other than a missing release is rethrown, never read as no release", async () => {
+  const runner: Runner = {
+    async run(command, args) {
+      throw new CommandError(command, args, {
+        stdout: "",
+        stderr: "connection refused",
+        code: 1,
+      });
+    },
+  };
+  await expect(recoverRelease(repository, runner, target)).rejects.toThrow(
+    "connection refused",
+  );
+});
+
+test("a canceled upgrade with no earlier live revision is left to helm", async () => {
+  const { runner, calls } = helm([
+    { revision: 1, status: "failed" },
+    { revision: 2, status: "pending-upgrade" },
+  ]);
+  await expect(recoverRelease(repository, runner, target)).resolves.toBe(
+    "none",
+  );
+  expect(verbs(calls)).toEqual(["history"]);
+});
+
+test("a rollback that does not leave the release deployed fails naming the revision it rolled back to", async () => {
+  const history: Revision[] = [
+    { revision: 1, status: "superseded" },
+    { revision: 2, status: "deployed" },
+    { revision: 3, status: "pending-upgrade" },
+  ];
+  const runner: Runner = {
+    async run(_command, args) {
+      const stdout = args[0] === "history" ? JSON.stringify(history) : "";
+      return { stdout, stderr: "", code: 0 };
+    },
+  };
+  await expect(recoverRelease(repository, runner, target)).rejects.toThrow(
+    /not deployed after rolling back to revision 2/,
+  );
 });

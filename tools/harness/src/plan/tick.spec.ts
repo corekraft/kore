@@ -1,321 +1,234 @@
-import { describe, expect, it } from "vitest";
-import { run } from "../cli/index.js";
-import { activePlan, planHarness } from "./plan-test-support.js";
+import { join } from "node:path";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type * as Runtime from "../runtime/index.js";
+import { CommandError, localDate } from "../runtime/index.js";
+import { listEdits } from "./lists.js";
+import { listItemSpans, type ItemSpan } from "./parser.js";
+import { planTick } from "./tick.js";
+import {
+  apply,
+  choosePlan,
+  normalize,
+  renderChanges,
+  toChanges,
+} from "./plan-edit.js";
+import { readPlans } from "./store.js";
+import { fakeDeps, ROOT } from "./plan-support.js";
 
-const PLAN = "infra/plans/2-a.md";
+// localDate keeps the real CommandError; every other collaborator is a typed automock.
+vi.mock("../runtime/index.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof Runtime>()),
+  localDate: vi.fn(),
+}));
+vi.mock("node:path");
+vi.mock("./lists.js");
+vi.mock("./parser.js");
+vi.mock("./plan-edit.js");
+vi.mock("./store.js");
 
-const BODY = `## Step 1: Alpha
+const FILE = "infra/plans/2-a.md";
+const MD = [
+  "## Step 1: A",
+  "",
+  "- [ ] Wire the alpha gate",
+  "- [x] Done already",
+  "",
+  "## Step 2: B",
+  "",
+  "- [ ] Ship the gamma release",
+  "",
+].join("\n");
+const LINES = MD.split("\n");
 
-- [ ] Wire the alpha gate
-- [ ] Prove the beta path
-      across two lines
-- [x] Done already
+const WIRE: ItemSpan = {
+  heading: "Step 1: A",
+  text: "- [ ] Wire the alpha gate",
+  line: 2,
+  end: 3,
+};
+const DONE: ItemSpan = {
+  heading: "Step 1: A",
+  text: "- [x] Done already",
+  line: 3,
+  end: 4,
+};
+const GAMMA: ItemSpan = {
+  heading: "Step 2: B",
+  text: "- [ ] Ship the gamma release",
+  line: 7,
+  end: 8,
+};
+const CHANGE = { line: 3, before: ["x"], after: ["y"] };
+const TICK_EDIT = { start: 2, end: 3, lines: ["- [x] Wire the alpha gate"] };
+const LIST_EDIT = { start: 9, end: 10, lines: ["- Step 1 (1): Tag it."] };
 
-## Step 2: Beta
+beforeEach(() => {
+  vi.mocked(join).mockImplementation((...parts) => parts.join("/"));
+  vi.mocked(readPlans).mockResolvedValue({ "2-a.md": MD });
+  vi.mocked(choosePlan).mockReturnValue("2-a.md");
+  vi.mocked(normalize).mockImplementation((text) => text.trim());
+  vi.mocked(listItemSpans).mockReturnValue([WIRE, DONE, GAMMA]);
+  vi.mocked(listEdits).mockReturnValue({ edits: [LIST_EDIT] });
+  vi.mocked(localDate).mockReturnValue("2026-01-02");
+  vi.mocked(toChanges).mockReturnValue([CHANGE]);
+  vi.mocked(apply).mockReturnValue(["applied"]);
+  vi.mocked(renderChanges).mockReturnValue("RENDERED");
+});
 
-- [ ] Ship the gamma release
-
-## Where each open item can be done
-
-Every item sits in one class (as of 2026-11-09: 2 local, 1 managed
-cluster, 1 release pipeline).
-
-### Local
-
-- Step 1 (2): Wire the alpha gate (offline only); Prove the beta path
-  across two lines.
-
-### Managed cluster
-
-- Step 2 (1): Ship the gamma release.
-
-### Release pipeline and repository settings
-
-- Step 1 (1): Tag it.
-
-## Step 3: After
-
-- [ ] Later
-`;
-
-function plan(body = BODY) {
-  return planHarness({ [PLAN]: activePlan(body) });
-}
-
-interface Change {
-  line: number;
-  before: string[];
-  after: string[];
-}
-
-function applyChanges(before: string, changes: Change[]): string {
-  const lines = before.split("\n");
-  for (const c of [...changes].sort((a, b) => b.line - a.line)) {
-    expect(lines.slice(c.line - 1, c.line - 1 + c.before.length)).toEqual(
-      c.before,
-    );
-    lines.splice(c.line - 1, c.before.length, ...c.after);
-  }
-  return lines.join("\n");
-}
-
-describe("harness plan tick", () => {
-  it("ticks the item, drops it from its list, and recounts the list and totals", async () => {
-    const h = plan();
+describe("planTick writing", () => {
+  it("ticks the matching open item and applies its edit with the list edit", async () => {
+    const deps = fakeDeps();
     expect(
-      await run(["plan", "tick", "--item", "Wire the alpha gate"], h.deps),
+      await planTick.run({
+        json: false,
+        deps,
+        options: { item: "Wire the alpha gate" },
+      }),
     ).toBe(0);
-    const after = h.files[PLAN] ?? "";
-    expect(after).toContain("- [x] Wire the alpha gate");
-    expect(after).toContain(
-      "- Step 1 (1): Prove the beta path\n  across two lines.",
+    expect(vi.mocked(apply).mock.calls).toEqual([
+      [LINES, [TICK_EDIT, LIST_EDIT]],
+    ]);
+    expect(deps.fs.writeFile).toHaveBeenCalledWith(
+      `${ROOT}/${FILE}`,
+      "applied",
     );
-    expect(after).toContain("(as of 2026-01-02: 1 local, 1 managed");
-    expect(after).toContain("- Step 1 (1): Tag it.");
-    expect(h.writes).toEqual([PLAN]);
   });
 
-  it("changes only the lines the JSON report names", async () => {
-    const h = plan();
-    const before = h.files[PLAN] ?? "";
-    expect(
-      await run(
-        ["plan", "tick", "--item", "Prove the beta path", "--json"],
-        h.deps,
-      ),
-    ).toBe(0);
-    const report = JSON.parse(h.out()) as {
-      plan: string;
-      written: boolean;
-      changes: Change[];
-    };
-    expect(report.plan).toBe(PLAN);
-    expect(report.written).toBe(true);
-    expect(report.changes.length).toBeGreaterThanOrEqual(2);
-    expect(applyChanges(before, report.changes)).toBe(h.files[PLAN]);
-    const reported = new Set(report.changes.flatMap((c) => c.before));
-    const kept = before.split("\n").filter((line) => !reported.has(line));
-    expect(kept.length).toBeGreaterThan(10);
-    for (const line of kept) {
-      expect(h.files[PLAN]?.split("\n")).toContain(line);
-    }
-  });
-});
-
-describe("harness plan tick output", () => {
-  it("stamps the as-of date with the local day just before UTC midnight west of UTC", async () => {
-    const zone = process.env["TZ"];
-    process.env["TZ"] = "America/Los_Angeles";
-    try {
-      const h = plan();
-      h.deps.clock = {
-        now: () => new Date("2026-03-02T07:59:00Z"),
-        sleep: () => Promise.resolve(),
-      };
-      await run(["plan", "tick", "--item", "Ship the gamma"], h.deps);
-      expect(h.files[PLAN]).toContain("(as of 2026-03-01: 2 local");
-    } finally {
-      if (zone === undefined) {
-        delete process.env["TZ"];
-      } else {
-        process.env["TZ"] = zone;
-      }
-    }
-  });
-
-  it("removes a list entry whose count reaches zero", async () => {
-    const h = plan();
-    await run(["plan", "tick", "--item", "Ship the gamma"], h.deps);
-    expect(h.files[PLAN]).not.toContain("- Step 2 (1)");
-    expect(h.files[PLAN]).toContain("(as of 2026-01-02: 2 local, 0 managed");
-  });
-
-  it("reports the diff without writing under --dry-run", async () => {
-    const h = plan();
-    const before = h.files[PLAN];
-    expect(
-      await run(
-        ["plan", "tick", "--item", "Ship the gamma", "--dry-run", "--json"],
-        h.deps,
-      ),
-    ).toBe(0);
-    const report = JSON.parse(h.out()) as {
-      dryRun: boolean;
-      written: boolean;
-    };
-    expect(report).toMatchObject({ dryRun: true, written: false });
-    expect(h.files[PLAN]).toBe(before);
-    expect(h.writes).toEqual([]);
-  });
-
-  it("prints the changed lines in text", async () => {
-    const h = plan();
-    await run(["plan", "tick", "--item", "Ship the gamma"], h.deps);
-    expect(h.out()).toContain("Ticked Step 2");
-    expect(h.out()).toContain("- - [ ] Ship the gamma release");
-    expect(h.out()).toContain("+ - [x] Ship the gamma release");
-  });
-
-  it("says it would tick under --dry-run in text", async () => {
-    const h = plan();
-    await run(
-      ["plan", "tick", "--item", "Ship the gamma", "--dry-run"],
-      h.deps,
+  it("looks up the open-item lists by the item's step, text and the local date", async () => {
+    const deps = fakeDeps();
+    await planTick.run({
+      json: false,
+      deps,
+      options: { item: "Wire the alpha gate" },
+    });
+    expect(listEdits).toHaveBeenCalledWith(
+      LINES,
+      "Step 1",
+      "Wire the alpha gate",
+      "2026-01-02",
     );
-    expect(h.out()).toContain("Would tick Step 2");
+    expect(localDate).toHaveBeenCalledWith(new Date("2026-01-02T12:00:00Z"));
+  });
+
+  it("passes the --plan option to the plan choice", async () => {
+    await planTick.run({
+      json: false,
+      deps: fakeDeps(),
+      options: { item: "Ship the gamma", plan: "9" },
+    });
+    expect(choosePlan).toHaveBeenCalledWith({ "2-a.md": MD }, "9");
+  });
+
+  it("refuses a missing or blank --item before it reads any plan", async () => {
+    const deps = fakeDeps();
+    await expect(
+      planTick.run({ json: false, deps, options: {} }),
+    ).rejects.toThrow('Missing --item "<text>": say which open item to tick.');
+    await expect(
+      planTick.run({ json: false, deps, options: { item: "  " } }),
+    ).rejects.toThrow(CommandError);
+    expect(readPlans).not.toHaveBeenCalled();
   });
 });
 
-describe("harness plan tick refusals", () => {
-  it("refuses an item matching no open item and writes nothing", async () => {
-    const h = plan();
-    expect(
-      await run(["plan", "tick", "--item", "Nonexistent thing"], h.deps),
-    ).toBe(1);
-    expect(h.err()).toContain("matches no open item");
-    expect(h.err()).toContain("harness plan active");
-    expect(h.writes).toEqual([]);
-  });
-
-  it("says when the item is already ticked", async () => {
-    const h = plan();
-    expect(await run(["plan", "tick", "--item", "Done already"], h.deps)).toBe(
-      1,
+describe("planTick output", () => {
+  it("reports a dry run as would-tick, and writes nothing", async () => {
+    const deps = fakeDeps();
+    await planTick.run({
+      json: false,
+      deps,
+      options: { item: "Wire the alpha gate", "dry-run": true },
+    });
+    expect(deps.fs.writeFile).not.toHaveBeenCalled();
+    expect(renderChanges).toHaveBeenCalledWith(
+      `Would tick Step 1: Wire the alpha gate in ${FILE}`,
+      [CHANGE],
     );
-    expect(h.err()).toContain("already ticked");
-    expect(h.writes).toEqual([]);
+    expect(vi.mocked(deps.stdout).mock.calls).toEqual([["RENDERED"]]);
   });
 
-  it("refuses an item matching several open items and writes nothing", async () => {
-    const h = plan();
-    expect(await run(["plan", "tick", "--item", "the"], h.deps)).toBe(1);
-    expect(h.err()).toContain("matches 3 open items");
-    expect(h.err()).toContain("longer");
-    expect(h.writes).toEqual([]);
-  });
-});
-
-describe("harness plan tick plan selection", () => {
-  it("refuses when several plans are active and none is named", async () => {
-    const h = planHarness({
-      [PLAN]: activePlan(BODY),
-      "infra/plans/9-b.md": activePlan("## Step 1: C\n\n- [ ] q\n"),
+  it("reports a written tick with the rendered changes", async () => {
+    const deps = fakeDeps();
+    await planTick.run({
+      json: false,
+      deps,
+      options: { item: "Wire the alpha gate" },
     });
-    expect(await run(["plan", "tick", "--item", "q"], h.deps)).toBe(1);
-    expect(h.err()).toContain("--plan");
-    expect(h.err()).toContain("9-b.md");
-    expect(h.writes).toEqual([]);
-  });
-
-  it("ticks in the plan named by --plan when several are active", async () => {
-    const h = planHarness({
-      [PLAN]: activePlan(BODY),
-      "infra/plans/9-b.md": activePlan("## Step 1: C\n\n- [ ] q\n"),
-    });
-    expect(
-      await run(["plan", "tick", "--plan", "9", "--item", "q"], h.deps),
-    ).toBe(0);
-    expect(h.files["infra/plans/9-b.md"]).toContain("- [x] q");
-    expect(h.files[PLAN]).toBe(activePlan(BODY));
-  });
-
-  it("refuses a --plan number shared by two files and writes nothing", async () => {
-    const h = planHarness({
-      "infra/plans/9-b.md": activePlan("## Step 1: C\n\n- [ ] q\n"),
-      "infra/plans/9-c.md": activePlan("## Step 1: D\n\n- [ ] q\n"),
-    });
-    expect(
-      await run(["plan", "tick", "--plan", "9", "--item", "q"], h.deps),
-    ).toBe(1);
-    expect(h.err()).toContain("9-b.md");
-    expect(h.err()).toContain("9-c.md");
-    expect(h.writes).toEqual([]);
-  });
-
-  it("refuses a --plan that names no plan file", async () => {
-    const h = plan();
-    expect(
-      await run(["plan", "tick", "--plan", "7", "--item", "x"], h.deps),
-    ).toBe(1);
-    expect(h.err()).toContain('No plan numbered "7"');
-  });
-
-  it("refuses when no plan is active", async () => {
-    const h = planHarness({ "infra/plans/1-a.md": "---\nstatus: done\n---\n" });
-    expect(await run(["plan", "tick", "--item", "x"], h.deps)).toBe(1);
-    expect(h.err()).toContain("No active plan");
-  });
-});
-
-describe("harness plan tick usage", () => {
-  it("fails as a usage error without --item", async () => {
-    const h = plan();
-    expect(await run(["plan", "tick"], h.deps)).toBe(1);
-    expect(h.err()).toContain("--item");
-    expect(h.writes).toEqual([]);
-  });
-
-  it("fails as a usage error when a flag lacks its value", async () => {
-    const h = plan();
-    expect(await run(["plan", "tick", "--item"], h.deps)).toBe(2);
-    expect(h.err()).toContain('Flag "--item" needs a value');
-  });
-
-  it("prints a JSON error object under --json when refusing", async () => {
-    const h = plan();
-    await run(["plan", "tick", "--item", "Nope", "--json"], h.deps);
-    const line = h.err().split("\n")[0] ?? "";
-    expect(JSON.parse(line)).toHaveProperty("error");
-  });
-});
-
-describe("harness plan tick list edge cases", () => {
-  it("refuses an item the plan's lists have no entry for and writes nothing", async () => {
-    const h = plan(BODY.replace("- Step 2 (1): Ship the gamma release.\n", ""));
-    expect(
-      await run(["plan", "tick", "--item", "Ship the gamma"], h.deps),
-    ).toBe(1);
-    expect(h.err()).toContain("no entry for Step 2");
-    expect(h.writes).toEqual([]);
-  });
-
-  it("refuses an item it cannot place in any list segment", async () => {
-    const h = plan(
-      BODY.replace(
-        "- Step 2 (1): Ship the gamma release.",
-        "- Step 2 (1): Unrelated words entirely.",
-      ),
+    expect(renderChanges).toHaveBeenCalledWith(
+      `Ticked Step 1: Wire the alpha gate in ${FILE}`,
+      [CHANGE],
     );
-    expect(
-      await run(["plan", "tick", "--item", "Ship the gamma"], h.deps),
-    ).toBe(1);
-    expect(h.err()).toContain("Cannot tell which list entry");
-    expect(h.writes).toEqual([]);
   });
 
-  it("refuses when the totals line cannot be recounted and writes nothing", async () => {
-    const h = plan(BODY.replace("1 managed\ncluster", "one managed\ncluster"));
-    expect(
-      await run(["plan", "tick", "--item", "Ship the gamma"], h.deps),
-    ).toBe(1);
-    expect(h.err()).toContain("totals line");
-    expect(h.writes).toEqual([]);
-  });
-
-  it("refuses when the entry sits under an unknown list class", async () => {
-    const h = plan(BODY.replace("### Managed cluster", "### Elsewhere"));
-    expect(
-      await run(["plan", "tick", "--item", "Ship the gamma"], h.deps),
-    ).toBe(1);
-    expect(h.err()).toContain('"Elsewhere"');
-    expect(h.writes).toEqual([]);
-  });
-
-  it("ticks a plan that has no open-item lists", async () => {
-    const h = planHarness({
-      [PLAN]: activePlan("## Step 1: A\n\n- [ ] only\n"),
+  it("prints the item, the write and the changes as one JSON line", async () => {
+    const deps = fakeDeps();
+    await planTick.run({
+      json: true,
+      deps,
+      options: { item: "Wire the alpha gate" },
     });
-    expect(await run(["plan", "tick", "--item", "only"], h.deps)).toBe(0);
-    expect(h.files[PLAN]).toContain("- [x] only");
+    expect(vi.mocked(deps.stdout).mock.calls).toEqual([
+      [
+        `${JSON.stringify({
+          plan: FILE,
+          item: { step: "Step 1", text: "Wire the alpha gate" },
+          dryRun: false,
+          written: true,
+          changes: [CHANGE],
+        })}\n`,
+      ],
+    ]);
+  });
+});
+
+describe("planTick refusals", () => {
+  it("refuses an item that matches no open item, pointing to the list command", async () => {
+    vi.mocked(listItemSpans).mockReturnValue([WIRE]);
+    const deps = fakeDeps();
+    await expect(
+      planTick.run({ json: false, deps, options: { item: "Nonexistent" } }),
+    ).rejects.toThrow(
+      '"Nonexistent" matches no open item. Run `harness plan active` to see the open items.',
+    );
+    expect(deps.fs.writeFile).not.toHaveBeenCalled();
+  });
+
+  it("says an item is already ticked when only a ticked item matches", async () => {
+    await expect(
+      planTick.run({
+        json: false,
+        deps: fakeDeps(),
+        options: { item: "Done already" },
+      }),
+    ).rejects.toThrow(
+      '"Done already" matches no open item. It is already ticked.',
+    );
+  });
+
+  it("refuses an item that matches several open items, and writes nothing", async () => {
+    vi.mocked(listItemSpans).mockReturnValue([
+      { ...WIRE, text: "- [ ] the first" },
+      { ...GAMMA, text: "- [ ] the second" },
+    ]);
+    const deps = fakeDeps();
+    await expect(
+      planTick.run({ json: false, deps, options: { item: "the" } }),
+    ).rejects.toThrow(
+      '"the" matches 2 open items. Use a longer, more specific part of the item text.',
+    );
+    expect(deps.fs.writeFile).not.toHaveBeenCalled();
+  });
+
+  it("refuses when the open-item lists cannot take the change, and writes nothing", async () => {
+    vi.mocked(listEdits).mockReturnValue({ error: "No entry for Step 1." });
+    const deps = fakeDeps();
+    await expect(
+      planTick.run({
+        json: false,
+        deps,
+        options: { item: "Wire the alpha gate" },
+      }),
+    ).rejects.toThrow("No entry for Step 1.");
+    expect(deps.fs.writeFile).not.toHaveBeenCalled();
   });
 });

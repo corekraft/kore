@@ -9,9 +9,11 @@ description: Use before writing or changing any code, hook, script or skill tool
 
 ## The cycle
 
-1. **Red.** One test, one behavior, named after the guarantee it protects. For tests in `tools/kore`, fake the process runner. Run only that test: `npm --prefix tools/kore exec vitest run <file>`, or `npm --prefix tools/harness exec vitest run <file>` for hooks (their cases live in `.claude/hooks`).
+1. **Red.** One test, one behavior, named after the guarantee it protects. A guard role rule gets a spec for every role it names. For tests in `tools/kore`, fake the process runner. Run only that test: `npm --prefix tools/kore exec vitest run <file>`, or `npm --prefix tools/harness exec vitest run <file>` for hooks (their cases live in `.claude/hooks`).
 2. **Green.** Write the least code that makes it pass. Then run the wider suite.
 3. **Refactor** only while green, without adding behavior. For a bug, the first red test reproduces it.
+
+Locally run only the related tests and typecheck; the full suites run in CI `check` (AGENTS.md, Changes).
 
 ## Before you move on, ask
 

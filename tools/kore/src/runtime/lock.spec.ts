@@ -1,285 +1,295 @@
-import {
-  chmod,
-  access,
-  mkdir,
-  mkdtemp,
-  readFile,
-  writeFile,
-} from "node:fs/promises";
-import { hostname, tmpdir } from "node:os";
+import { randomUUID } from "node:crypto";
+import { readFileSync, rmSync } from "node:fs";
+import { link, mkdir, open, rm } from "node:fs/promises";
+import { hostname, uptime } from "node:os";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
-import { expect, test, vi } from "vitest";
-import { withEnvironmentLock } from "./lock.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { errorCode, processAlive, readOwner } from "./lock-owner.js";
+import { judge, recover, refusal } from "./lock-recovery.js";
+import {
+  HELD_LOCK_ENV,
+  holdEnvironmentLock,
+  withEnvironmentLock,
+  type LockOptions,
+} from "./lock.js";
+import {
+  CLOCK,
+  DEAD,
+  LOCK,
+  OWNER,
+  RECOVERY,
+  ROOT,
+  STAGING,
+  TOKEN,
+  GONE,
+  LIVE_HOLDER,
+} from "./lock-support.js";
+import { fakeHandle, systemError, type FakeHandle } from "./runtime-support.js";
 
-test("environment lock is removed after a successful operation", async () => {
-  const root = await mkdtemp(join(tmpdir(), "kore-lock-success-"));
+vi.mock("node:crypto");
+vi.mock("node:fs");
+vi.mock("node:fs/promises");
+vi.mock("node:os");
+vi.mock("node:path");
+vi.mock("./lock-owner.js");
+vi.mock("./lock-recovery.js");
 
-  await expect(
-    withEnvironmentLock(root, "local", async () => "done"),
-  ).resolves.toBe("done");
-  await expect(
-    access(join(root, ".kore", "locks", "local.lock")),
-  ).rejects.toThrow();
-});
+let handle: FakeHandle;
 
-test("environment lock prevents concurrent mutations of the same environment", async () => {
-  const root = await mkdtemp(join(tmpdir(), "kore-lock-exclusive-"));
-  let release!: () => void;
-  let markAcquired!: () => void;
-  const blocked = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const acquired = new Promise<void>((resolve) => {
-    markAcquired = resolve;
-  });
-  const first = withEnvironmentLock(root, "local", () => {
-    markAcquired();
-    return blocked;
-  });
+const LOCKS_DIR = "/root/.kore/locks";
 
-  try {
-    await acquired;
-    await expect(
-      withEnvironmentLock(root, "local", async () => undefined),
-    ).rejects.toThrow(
-      "another mutation is already running for environment local",
-    );
-    await expect(
-      withEnvironmentLock(root, "managed", async () => "independent"),
-    ).resolves.toBe("independent");
-  } finally {
-    release();
-  }
-  await first;
-});
-
-test("environment lock is removed when the operation throws", async () => {
-  const root = await mkdtemp(join(tmpdir(), "kore-lock-error-"));
-  const lockPath = join(root, ".kore", "locks", "local.lock");
-
-  await expect(
-    withEnvironmentLock(root, "local", async () => {
-      throw new Error("operation failed");
-    }),
-  ).rejects.toThrow("operation failed");
-  await expect(access(lockPath)).rejects.toThrow();
-});
-
-async function plantLock(
-  root: string,
-  owner: Record<string, unknown> | string,
-): Promise<string> {
-  const base = join(root, ".kore", "locks");
-  const lockPath = join(base, "local.lock");
-  await mkdir(base, { recursive: true });
-  if (owner === "legacy") {
-    await mkdir(lockPath);
-  } else {
-    await writeFile(
-      lockPath,
-      typeof owner === "string" ? owner : JSON.stringify(owner),
-    );
-  }
-  return lockPath;
+function options(extra: LockOptions = {}): LockOptions {
+  return { onRecover: vi.fn(), onWait: vi.fn(), ...extra };
 }
 
-const deadOwner = {
-  pid: 424242,
-  host: hostname(),
-  token: "dead-token",
-  acquiredAt: new Date().toISOString(),
-};
-
-test("a lock whose owner process is alive is refused, naming the path and pid", async () => {
-  const root = await mkdtemp(join(tmpdir(), "kore-lock-live-"));
-  const lockPath = await plantLock(root, deadOwner);
-  let ran = false;
-
-  const refused = withEnvironmentLock(
-    root,
-    "local",
-    async () => {
-      ran = true;
-    },
-    { isProcessAlive: () => true },
+beforeEach(() => {
+  vi.useFakeTimers({ now: new Date(CLOCK) });
+  vi.spyOn(process, "once").mockImplementation(() => process);
+  vi.mocked(join).mockImplementation((...parts) => parts.join("/"));
+  vi.mocked(randomUUID).mockReturnValue(TOKEN);
+  vi.mocked(hostname).mockReturnValue("box");
+  vi.mocked(uptime).mockReturnValue(1000);
+  vi.mocked(errorCode).mockImplementation(
+    (error) => (error as NodeJS.ErrnoException).code,
   );
-  await expect(refused).rejects.toThrow(lockPath);
-  await expect(refused).rejects.toThrow("424242");
-  expect(ran).toBe(false);
-  expect(JSON.parse(await readFile(lockPath, "utf8")).token).toBe("dead-token");
+  handle = fakeHandle();
+  vi.mocked(open).mockResolvedValue(handle.handle);
+  vi.mocked(link).mockResolvedValue(undefined);
+  vi.mocked(readOwner).mockResolvedValue(OWNER);
+  vi.mocked(judge).mockResolvedValue({ dead: false, reason: "x", fix: "y" });
+  vi.mocked(refusal).mockImplementation(() => new Error("refused"));
+  delete process.env[HELD_LOCK_ENV];
 });
 
-test("a lock whose owner process is dead on this host is recovered and reported", async () => {
-  const root = await mkdtemp(join(tmpdir(), "kore-lock-dead-"));
-  await plantLock(root, deadOwner);
-  const reports: string[] = [];
+afterEach(() => vi.useRealTimers());
 
-  await expect(
-    withEnvironmentLock(root, "local", async () => "ran", {
-      isProcessAlive: () => false,
-      onRecover: (message) => reports.push(message),
-    }),
-  ).resolves.toBe("ran");
-  expect(reports).toHaveLength(1);
-  expect(reports[0]).toMatch(/424242/);
-  expect(reports[0]).toMatch(/interrupted/);
-  await expect(
-    access(join(root, ".kore", "locks", "local.lock")),
-  ).rejects.toThrow();
-});
+describe("holdEnvironmentLock", () => {
+  it("stages the owner record and links it into place, so the lock appears with its owner", async () => {
+    await holdEnvironmentLock(ROOT, "local");
 
-test("a lock whose pid is alive but predates the host boot is recovered", async () => {
-  const root = await mkdtemp(join(tmpdir(), "kore-lock-reboot-"));
-  await plantLock(root, {
-    ...deadOwner,
-    acquiredAt: new Date(Date.now() - 3_600_000).toISOString(),
+    expect(open).toHaveBeenCalledWith(STAGING, "wx");
+    expect(handle.writeFile).toHaveBeenCalledWith(JSON.stringify(OWNER));
+    expect(link).toHaveBeenCalledWith(STAGING, LOCK);
+    expect(rm).toHaveBeenCalledWith(STAGING, { force: true });
   });
 
-  await expect(
-    withEnvironmentLock(root, "local", async () => "ran", {
-      isProcessAlive: () => true,
-      bootTime: () => Date.now() - 60_000,
-      onRecover: () => undefined,
-    }),
-  ).resolves.toBe("ran");
-});
+  it("creates the locks directory, recursively, before taking the lock", async () => {
+    await holdEnvironmentLock(ROOT, "local");
 
-test("a lock owned by another host is never recovered", async () => {
-  const root = await mkdtemp(join(tmpdir(), "kore-lock-host-"));
-  const lockPath = await plantLock(root, { ...deadOwner, host: "elsewhere" });
-
-  const refused = withEnvironmentLock(root, "local", async () => "ran", {
-    isProcessAlive: () => false,
+    expect(mkdir).toHaveBeenCalledWith(LOCKS_DIR, {
+      recursive: true,
+    });
   });
-  await expect(refused).rejects.toThrow(lockPath);
-  await expect(refused).rejects.toThrow("elsewhere");
-  await access(lockPath);
-});
 
-test.each([
-  ["a legacy directory lock", "legacy" as const],
-  ["a malformed lock file", "{not json"],
-  ["a lock file without a pid", JSON.stringify({ host: hostname() })],
-])("%s is refused rather than broken", async (_name, owner) => {
-  const root = await mkdtemp(join(tmpdir(), "kore-lock-unknown-"));
-  const lockPath = await plantLock(root, owner);
+  it("exports its token after any token the caller inherited, for child kore processes", async () => {
+    process.env[HELD_LOCK_ENV] = "host-lease:abc";
 
-  await expect(
-    withEnvironmentLock(root, "local", async () => "ran", {
-      isProcessAlive: () => false,
-    }),
-  ).rejects.toThrow(`rm -rf ${lockPath}`);
-  await access(lockPath);
-});
+    await holdEnvironmentLock(ROOT, "local");
 
-test("concurrent recovery of a dead lock yields exactly one winner", async () => {
-  const root = await mkdtemp(join(tmpdir(), "kore-lock-race-"));
-  await plantLock(root, deadOwner);
-  let release!: () => void;
-  const blocked = new Promise<void>((resolve) => {
-    release = resolve;
+    expect(process.env[HELD_LOCK_ENV]).toBe(`host-lease:abc,local:${TOKEN}`);
   });
-  let winners = 0;
-  const attempt = () =>
-    withEnvironmentLock(
-      root,
+
+  it("releases the lock while its token owns it, and restores the exported environment", async () => {
+    const held = await holdEnvironmentLock(ROOT, "local");
+
+    await held.release();
+
+    expect(rm).toHaveBeenCalledWith(LOCK, { force: true });
+    expect(process.env[HELD_LOCK_ENV]).toBeUndefined();
+  });
+
+  it("leaves a lock that another owner has taken in place, and releases once only", async () => {
+    const held = await holdEnvironmentLock(ROOT, "local");
+    vi.mocked(readOwner).mockResolvedValue({ ...OWNER, token: "other" });
+
+    await held.release();
+    await held.release();
+
+    expect(rm).not.toHaveBeenCalledWith(LOCK, expect.anything());
+  });
+
+  it("removes the lock synchronously on exit while its token owns it, and never another's", async () => {
+    vi.mocked(readFileSync).mockReturnValue(JSON.stringify(OWNER));
+    const held = await holdEnvironmentLock(ROOT, "local");
+    held.releaseSync();
+    expect(rmSync).toHaveBeenCalledWith(LOCK, { force: true });
+
+    vi.mocked(readFileSync).mockReturnValue(
+      JSON.stringify({ ...OWNER, token: "other" }),
+    );
+    vi.mocked(rmSync).mockClear();
+    held.releaseSync();
+    expect(rmSync).not.toHaveBeenCalled();
+  });
+
+  it("rethrows a failure to create the lock that is not an existing lock", async () => {
+    const denied = systemError("EACCES");
+    vi.mocked(link).mockRejectedValue(denied);
+
+    await expect(holdEnvironmentLock(ROOT, "local")).rejects.toBe(denied);
+  });
+
+  it("probes liveness with kill(pid, 0) and dates the boot from the clock minus uptime by default", async () => {
+    vi.mocked(link).mockRejectedValueOnce(systemError("EEXIST"));
+    vi.mocked(judge).mockResolvedValueOnce(GONE);
+
+    await holdEnvironmentLock(ROOT, "local");
+
+    const probes = vi.mocked(judge).mock.calls[0]![1];
+    expect(probes.isAlive).toBe(processAlive);
+    expect(probes.bootTime()).toBe(Date.parse(CLOCK) - 1000 * 1000);
+  });
+});
+
+describe("waiting for a live holder", () => {
+  beforeEach(() => {
+    vi.mocked(judge).mockResolvedValue(LIVE_HOLDER);
+    vi.mocked(link).mockRejectedValue(systemError("EEXIST"));
+  });
+
+  it("announces who it waits for, where, and for how long, then takes the lock once released", async () => {
+    vi.mocked(readOwner).mockResolvedValue({ ...OWNER, cwd: "/work/other" });
+    vi.mocked(link)
+      .mockRejectedValueOnce(systemError("EEXIST"))
+      .mockResolvedValue(undefined);
+    const opts = options({ waitMs: 60_000, pollMs: 10 });
+
+    const pending = holdEnvironmentLock(ROOT, "local", opts);
+    await vi.runAllTimersAsync();
+    await pending;
+
+    expect(opts.onWait).toHaveBeenCalledTimes(1);
+    expect(opts.onWait).toHaveBeenCalledWith(
+      `waiting for local: held by running pid 7 in /work/other (lock ${LOCK}); waiting up to 60000 ms`,
+    );
+  });
+
+  it("refuses a holder that outlasts the wait, naming the holder and the wait", async () => {
+    const opts = options({ waitMs: 50, pollMs: 10 });
+    const failure = holdEnvironmentLock(ROOT, "local", opts).catch(
+      (caught: unknown) => caught,
+    );
+    await vi.runAllTimersAsync();
+
+    expect(await failure).toEqual(new Error("refused"));
+    expect(refusal).toHaveBeenCalledWith(
       "local",
-      async () => {
-        winners += 1;
-        await blocked;
-      },
-      {
-        isProcessAlive: (pid) => pid === process.pid,
-        onRecover: () => undefined,
-      },
+      LOCK,
+      "held by running pid 7; waited 50 ms",
+      "Wait.",
+    );
+  });
+
+  it("refuses a live holder at once when no wait was asked for", async () => {
+    await expect(holdEnvironmentLock(ROOT, "local")).rejects.toThrow("refused");
+
+    expect(refusal).toHaveBeenCalledWith(
+      "local",
+      LOCK,
+      "held by running pid 7",
+      "Wait.",
+    );
+  });
+});
+
+describe("recovering a stale lock", () => {
+  it("recovers a dead owner's lock and announces the owner and the interrupted mutation", async () => {
+    vi.mocked(link).mockRejectedValueOnce(systemError("EEXIST"));
+    vi.mocked(judge).mockResolvedValue({ dead: true, owner: DEAD });
+    vi.mocked(recover).mockResolvedValue(DEAD);
+    const opts = options();
+
+    await holdEnvironmentLock(ROOT, "local", opts);
+
+    expect(recover).toHaveBeenCalledWith(
+      { lock: LOCK, recovery: RECOVERY },
+      expect.objectContaining({ isAlive: processAlive }),
+    );
+    expect(opts.onRecover).toHaveBeenCalledWith(
+      `recovered stale lock ${LOCK} left by pid 424242 (acquired 2026-11-13T00:00:00.000Z); the previous mutation was interrupted, so check \`kore journal\` before trusting the environment state`,
+    );
+  });
+
+  it("retries at once when the lock vanished between the attempt and its inspection", async () => {
+    vi.mocked(link).mockRejectedValueOnce(systemError("EEXIST"));
+    vi.mocked(judge).mockResolvedValueOnce(GONE);
+
+    await holdEnvironmentLock(ROOT, "local");
+
+    expect(recover).not.toHaveBeenCalled();
+    expect(link).toHaveBeenCalledTimes(2);
+  });
+
+  it("refuses when another process takes the recovery lock first, naming the recovery lock", async () => {
+    vi.mocked(link).mockRejectedValue(systemError("EEXIST"));
+    vi.mocked(judge).mockResolvedValue({ dead: true, owner: DEAD });
+    vi.mocked(recover).mockResolvedValue(undefined);
+
+    await expect(holdEnvironmentLock(ROOT, "local")).rejects.toThrow("refused");
+    expect(refusal).toHaveBeenCalledWith(
+      "local",
+      LOCK,
+      "another process is recovering or has just taken it",
+      `Retry shortly; if it persists, check ${RECOVERY} and ${LOCK}.`,
+    );
+  });
+
+  it("refuses a lock whose owner cannot be proven dead, without recovering it", async () => {
+    vi.mocked(link).mockRejectedValue(systemError("EEXIST"));
+    vi.mocked(judge).mockResolvedValue({
+      dead: false,
+      reason: "legacy",
+      fix: "rm it",
+    });
+
+    await expect(holdEnvironmentLock(ROOT, "local")).rejects.toThrow("refused");
+    expect(recover).not.toHaveBeenCalled();
+    expect(refusal).toHaveBeenCalledWith("local", LOCK, "legacy", "rm it");
+  });
+});
+
+describe("inheriting and withEnvironmentLock", () => {
+  it("runs the operation without a second lock when the caller already holds it", async () => {
+    process.env[HELD_LOCK_ENV] = `local:${TOKEN}`;
+    const operation = vi.fn(async () => "done");
+
+    await expect(withEnvironmentLock(ROOT, "local", operation)).resolves.toBe(
+      "done",
     );
 
-  const attempts = Array.from({ length: 8 }, () => attempt());
-  const settled = Promise.allSettled(attempts);
-  await new Promise((resolve) => setTimeout(resolve, 100));
-  release();
-  const results = await settled;
+    expect(link).not.toHaveBeenCalled();
+    expect(operation).toHaveBeenCalledTimes(1);
+  });
 
-  expect(winners).toBe(1);
-  expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
-  expect(results.filter((r) => r.status === "rejected")).toHaveLength(7);
-});
+  it("does not inherit a token for another environment, nor one that no longer owns the lock", async () => {
+    process.env[HELD_LOCK_ENV] = `host-lease:${TOKEN}`;
+    await withEnvironmentLock(ROOT, "local", async () => undefined);
+    expect(link).toHaveBeenCalledTimes(1);
 
-test("the default liveness check refuses our own pid and recovers a pid that has exited", async () => {
-  const exited = spawnSync(process.execPath, ["-e", ""]).pid;
-  const live = await mkdtemp(join(tmpdir(), "kore-lock-default-live-"));
-  await plantLock(live, { ...deadOwner, pid: process.pid });
-  await expect(
-    withEnvironmentLock(live, "local", async () => "ran"),
-  ).rejects.toThrow(String(process.pid));
+    process.env[HELD_LOCK_ENV] = "local:stale-token";
+    await withEnvironmentLock(ROOT, "local", async () => undefined);
+    expect(link).toHaveBeenCalledTimes(2);
+  });
 
-  const dead = await mkdtemp(join(tmpdir(), "kore-lock-default-dead-"));
-  await plantLock(dead, { ...deadOwner, pid: exited });
-  const write = vi.spyOn(process.stderr, "write").mockReturnValue(true);
-  try {
+  it("takes the lock around the operation, and releases it even when the operation fails", async () => {
+    const failure = new Error("operation failed");
+
     await expect(
-      withEnvironmentLock(dead, "local", async () => "ran"),
-    ).resolves.toBe("ran");
-    expect(write).toHaveBeenCalledWith(expect.stringContaining("recovered"));
-  } finally {
-    write.mockRestore();
-  }
-});
-
-test("an unreadable lock surfaces the error instead of being treated as stale", async () => {
-  const root = await mkdtemp(join(tmpdir(), "kore-lock-unreadable-"));
-  const lockPath = await plantLock(root, deadOwner);
-  await chmod(lockPath, 0o000);
-  try {
-    await expect(
-      withEnvironmentLock(root, "local", async () => "ran", {
-        isProcessAlive: () => false,
+      withEnvironmentLock(ROOT, "local", async () => {
+        throw failure;
       }),
-    ).rejects.toThrow(/EACCES/);
-  } finally {
-    await chmod(lockPath, 0o600);
-  }
-});
+    ).rejects.toBe(failure);
 
-test("an interrupted process frees its lock on exit instead of leaving it for stale recovery", async () => {
-  const root = await mkdtemp(join(tmpdir(), "kore-lock-exit-"));
-  const lockPath = join(root, ".kore", "locks", "local.lock");
-  const handlers: (() => void)[] = [];
-  const on = vi.spyOn(process, "once").mockImplementation(((
-    event: string,
-    handler: () => void,
-  ) => {
-    if (event === "exit") {
-      handlers.push(handler);
-    }
-    return process;
-  }) as never);
-  try {
-    let pending: () => void = () => undefined;
-    const running = withEnvironmentLock(
-      root,
-      "local",
-      () => new Promise<void>((resolve) => (pending = resolve)),
-    );
-    await vi.waitFor(() => expect(handlers).toHaveLength(1));
-    await expect(access(lockPath)).resolves.toBeUndefined();
+    expect(rm).toHaveBeenCalledWith(LOCK, { force: true });
+  });
 
-    handlers[0]?.(); // the process exits mid-operation
+  it("does not export its token, so concurrent operations in this process still exclude each other", async () => {
+    let exported: string | undefined = "unset";
 
-    await expect(access(lockPath)).rejects.toThrow();
-    pending();
-    await running;
-  } finally {
-    on.mockRestore();
-  }
-});
+    await withEnvironmentLock(ROOT, "local", async () => {
+      exported = process.env[HELD_LOCK_ENV];
+    });
 
-test("a finished lock leaves no exit handler behind", async () => {
-  const root = await mkdtemp(join(tmpdir(), "kore-lock-exit-clean-"));
-  const before = process.listenerCount("exit");
-
-  await withEnvironmentLock(root, "local", async () => "done");
-
-  expect(process.listenerCount("exit")).toBe(before);
+    expect(exported).toBeUndefined();
+  });
 });

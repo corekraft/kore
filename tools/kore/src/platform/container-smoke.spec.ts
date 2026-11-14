@@ -36,29 +36,38 @@ test("ordinary startup logs pass, including words that merely contain fatal", ()
   assert.deepEqual(classifySmokeLogs(logs), []);
 });
 
-const registryDeployment = {
-  kind: "Deployment",
-  metadata: { name: "oci-registry", namespace: "kore-system" },
-  spec: {
-    template: {
-      spec: {
-        containers: [
-          {
-            name: "registry",
-            image: `registry:3.1.2@${digest}`,
-            args: ["serve", "/etc/distribution/config.yml"],
-            env: [{ name: "REGISTRY_HTTP_ADDR", value: ":5000" }],
-            volumeMounts: [{ name: "data", mountPath: "/var/lib/registry" }],
-          },
-        ],
-        volumes: [{ name: "data", persistentVolumeClaim: { claimName: "x" } }],
+/** A Deployment with one container; overrides replace any container field. */
+function deployment(
+  container: Record<string, unknown> = {},
+  volumes: unknown[] = [
+    { name: "data", persistentVolumeClaim: { claimName: "x" } },
+  ],
+) {
+  return {
+    kind: "Deployment",
+    metadata: { name: "oci-registry", namespace: "kore-system" },
+    spec: {
+      template: {
+        spec: {
+          containers: [
+            {
+              name: "registry",
+              image: `registry:3.1.2@${digest}`,
+              args: ["serve", "/etc/distribution/config.yml"],
+              env: [{ name: "REGISTRY_HTTP_ADDR", value: ":5000" }],
+              volumeMounts: [{ name: "data", mountPath: "/var/lib/registry" }],
+              ...container,
+            },
+          ],
+          volumes,
+        },
       },
     },
-  },
-};
+  };
+}
 
 test("a container becomes a read-only docker run by digest with its rendered env and args", () => {
-  const [target] = smokeTargets([registryDeployment]);
+  const [target] = smokeTargets([deployment()]);
   assert.equal(target!.skip, undefined);
   const args = dockerRunArgs(target!, "kore-smoke-1");
   assert.deepEqual(args.slice(0, 4), ["run", "-d", "--name", "kore-smoke-1"]);
@@ -76,31 +85,32 @@ test("a container becomes a read-only docker run by digest with its rendered env
 });
 
 test("a PVC mount becomes a tmpfs so the read-only container can write where it expects", () => {
-  const [target] = smokeTargets([registryDeployment]);
+  const [target] = smokeTargets([deployment()]);
   const args = dockerRunArgs(target!, "n");
   assert.equal(args[args.indexOf("--tmpfs") + 1], "/var/lib/registry");
 });
 
 test("containers that need cluster resources are skipped with a reason", () => {
-  const needsSecret = structuredClone(registryDeployment);
-  needsSecret.spec.template.spec.volumes = [
+  const needsSecret = deployment({}, [
     { name: "data", secret: { secretName: "s" } },
-  ] as never;
+  ]);
   const [secret] = smokeTargets([needsSecret]);
   assert.match(secret!.skip!, /Secret volume data/);
 
-  const needsFieldRef = structuredClone(registryDeployment);
-  (needsFieldRef.spec.template.spec.containers[0] as { env: unknown[] }).env = [
-    { name: "POD", valueFrom: { fieldRef: { fieldPath: "metadata.name" } } },
-  ];
+  const needsFieldRef = deployment({
+    env: [
+      {
+        name: "POD",
+        valueFrom: { fieldRef: { fieldPath: "metadata.name" } },
+      },
+    ],
+  });
   const [field] = smokeTargets([needsFieldRef]);
   assert.match(field!.skip!, /env POD/);
 });
 
 test("an image that is not pinned by digest is skipped, never run by tag", () => {
-  const byTag = structuredClone(registryDeployment);
-  byTag.spec.template.spec.containers[0]!.image = "registry:3.1.2";
-  const [target] = smokeTargets([byTag]);
+  const [target] = smokeTargets([deployment({ image: "registry:3.1.2" })]);
   assert.match(target!.skip!, /digest/);
 });
 

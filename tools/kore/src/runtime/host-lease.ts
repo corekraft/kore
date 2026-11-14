@@ -10,7 +10,7 @@ export const HOST_LEASE = "host-lease";
 
 /**
  * Runs `operation` holding the exclusive host lease. A live run (`kore local
- * up`, the live integration specs) takes it, so no second live run, new
+ * up`, the live specs) takes it, so no second live run, new
  * writer session or hook test run piles load onto a host already running a
  * cluster. It is an ordinary lock in the host lock directory, with the same
  * stale-owner recovery as a cluster's lock.

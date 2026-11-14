@@ -1,7 +1,7 @@
 import { expect, test, vi } from "vitest";
 import { loadRepository } from "../config/index.js";
-import { RecordingRunner } from "../runtime/runner.js";
-import { withHealthyWebhooks } from "./webhook-fixtures.js";
+import { RecordingRunner } from "../runtime/index.js";
+import { withHealthyWebhooks } from "../testing/index.js";
 
 const events = vi.hoisted(() => [] as string[]);
 

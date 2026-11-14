@@ -181,17 +181,20 @@ export async function policyPromotionErrors(
   now = new Date(),
 ): Promise<string[]> {
   const dir = join(repository.root, constraintsDir);
-  const files = (await readdir(dir).catch(() => [])).filter((f) =>
-    f.endsWith(".yaml"),
-  );
+  const files = await constraintFiles(repository);
   const errors: string[] = [];
   for (const file of files) {
     const text = await readFile(join(dir, file), "utf8");
     const name = /^metadata:\s*\{\s*name:\s*([^\s,}]+)/m.exec(text)?.[1];
     const action = /^\s*enforcementAction:\s*(\S+)/m.exec(text)?.[1];
-    if (name === undefined || action === undefined) {
+    if (name === undefined) {
       errors.push(
-        `policy promotion: ${constraintsDir}/${file} needs metadata name and spec.enforcementAction`,
+        `policy promotion: ${constraintsDir}/${file} needs metadata name`,
+      );
+    } else if (action === undefined) {
+      // Gatekeeper would enforce deny with no audit stage, so the action must be explicit.
+      errors.push(
+        `policy promotion: ${constraintsDir}/${file} has no spec.enforcementAction; set enforcementAction to deny, warn or dryrun explicitly`,
       );
     } else if (!(actions as readonly string[]).includes(action)) {
       errors.push(
@@ -217,4 +220,11 @@ export async function policyPromotionErrors(
     }
   }
   return errors;
+}
+
+async function constraintFiles(repository: Repository): Promise<string[]> {
+  const dir = join(repository.root, constraintsDir);
+  return (await readdir(dir).catch(() => [])).filter((f) =>
+    f.endsWith(".yaml"),
+  );
 }

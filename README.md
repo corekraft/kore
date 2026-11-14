@@ -192,7 +192,7 @@ the public key to Policy Controller, so the old key is never trusted beside the
 new one. Images signed with the old key are denied until they are signed again
 (`kore app up` signs again). Managed environments refuse: they trust release
 identities, not a key. Safe to rerun after a failure. The opt-in live proof is
-`npm --prefix tools/kore run test:integration:signer`.
+`npm --prefix tools/kore run test:live:signer`.
 
 ### Storage classes
 
@@ -207,7 +207,7 @@ expansion; neither is a backup.
 Gatekeeper audits that every claim declares one of those labels and that
 `Retain` claims use `kore-retained`.
 
-If a live integration or platform attempt fails, destroy the explicit local
+If a live run or platform attempt fails, destroy the explicit local
 profile before retrying from a clean cluster:
 
 ```sh
@@ -218,7 +218,11 @@ mise exec -- npm --prefix tools/kore run kore -- cluster destroy --environment l
 separate resources and workload charts with no provider-specific references.
 For an environment that declares a `platformMirror` (`managed-example`), it also
 checks that every approved platform image has a rewrite to that signed mirror at
-its approved digest.
+its approved digest. It refuses a Gatekeeper constraint with no
+`enforcementAction` (exit 1, before any cluster is touched), naming the file and
+the fix: set `enforcementAction` to `deny`, `warn` or `dryrun` explicitly. A
+missing action would mean deny with no audit stage, and a promotion record does
+not stand in for it.
 `kore validate --environment managed-example --platform-image-lock <file>`
 additionally checks a release's `platform-images.lock.json` (attached to the
 GitHub release as an asset) against the committed overlay and image policy
@@ -290,6 +294,7 @@ is the source of truth.
 | `kore data`     | Exports retained CloudNativePG data as an age-encrypted, digest-manifested artifact, or restores it into a fresh profile.                      |
 | `kore local`    | Brings the whole local environment up or down (`--prune` destroys it; `--prune --purge-data` also purges retained data).                       |
 | `kore registry` | Rotates the registry's push and read passwords and the enrolled pull Secrets (`rotate-credentials --yes`).                                     |
+| `kore signer`   | Swaps the local cosign signing key and republishes only the public key to Policy Controller (`swap-key --yes`).                                |
 | `kore secrets`  | Syncs local secrets, including the generated API token, into the cluster.                                                                      |
 | `kore trust`    | Installs the local certificate authority before the Gateway is configured.                                                                     |
 | `kore ops`      | Offline checks: dependency inventory and integrity, recovery objectives, upgrade from the previous release, CRD safety. Read-only.             |

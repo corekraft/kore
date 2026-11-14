@@ -44,7 +44,7 @@ vi.mock("./reconcile.js", () => ({
   },
 }));
 vi.mock("./status.js", async () => {
-  const { readyRows } = await import("./readiness-fixtures.js");
+  const { readyRows } = await import("../testing/index.js");
   return {
     imageInventoryStatusName: "image-inventory",
     platformStatus: async (repository: Parameters<typeof readyRows>[0]) =>
@@ -65,7 +65,7 @@ import {
 } from "./admission-gate-support.js";
 import { platformGeneration, readAdmissionGate } from "./admission-gate.js";
 import { platformUp } from "./up.js";
-import { gatedOffReleaseAbsent } from "./webhook-fixtures.js";
+import { gatedOffReleaseAbsent } from "../testing/index.js";
 
 interface Gate {
   generation: string;

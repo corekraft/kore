@@ -13,7 +13,7 @@ import {
   releaseMatchesFingerprint,
 } from "../platform/index.js";
 import type { Runner } from "../runtime/index.js";
-import { activationLabel } from "../platform/admission-gate.js";
+import { activationLabel } from "../platform/index.js";
 import { releaseArgs } from "./release.js";
 
 async function chart(

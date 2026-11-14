@@ -1,172 +1,133 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { expect, test } from "vitest";
-import { loadImageLock, imageForApplication } from "./image-lock.js";
+import { beforeEach, expect, test, vi } from "vitest";
+import {
+  imageForApplication,
+  loadImageLock,
+  type ImageLock,
+} from "./image-lock.js";
 
-test("loads an application image only when its lock entry is immutable and signed", async () => {
-  const root = await mkdtemp(join(tmpdir(), "kore-image-lock-"));
-  await mkdir(join(root, "infra/catalog"), { recursive: true });
-  await writeFile(
-    join(root, "infra/catalog/images.lock.json"),
-    JSON.stringify({
-      version: 1,
-      authorizedSigners: ["release@kore.dev"],
-      entries: {
-        reference: {
-          image: "registry.kore.local/reference",
-          digest: "sha256:" + "a".repeat(64),
-          signer: "release@kore.dev",
-        },
+vi.mock("node:fs/promises");
+vi.mock("node:path");
+
+const lockPath = "/repo/infra/catalog/images.lock.json";
+const signer = "release@kore.dev";
+const digest = "sha256:" + "a".repeat(64);
+
+/** The lock file text: one valid entry, with its fields overridable. */
+function lockWith(
+  entry: Record<string, unknown> = {},
+  overrides: Record<string, unknown> = {},
+): string {
+  return JSON.stringify({
+    version: 1,
+    authorizedSigners: [signer],
+    entries: {
+      reference: {
+        image: "registry.kore.local/reference",
+        digest,
+        signer,
+        ...entry,
       },
-    }),
-  );
+    },
+    ...overrides,
+  });
+}
 
-  const lock = await loadImageLock(root);
+beforeEach(() => {
+  vi.mocked(join).mockReturnValue(lockPath);
+});
+
+test("loads the default lock from the repository root and resolves a locked application to its digest reference", async () => {
+  vi.mocked(readFile).mockResolvedValue(lockWith());
+
+  const lock = await loadImageLock("/repo");
+
+  expect(join).toHaveBeenCalledWith("/repo", "infra/catalog/images.lock.json");
+  expect(readFile).toHaveBeenCalledWith(lockPath, "utf8");
   expect(imageForApplication(lock, "reference")).toEqual({
-    reference: "registry.kore.local/reference@sha256:" + "a".repeat(64),
-    digest: "sha256:" + "a".repeat(64),
-    signer: "release@kore.dev",
+    reference: `registry.kore.local/reference@${digest}`,
+    digest,
+    signer,
   });
 });
 
-test("allows an immutable image from a registry exposed on an explicit port", async () => {
-  const root = await mkdtemp(join(tmpdir(), "kore-image-lock-port-"));
-  await writeFile(
-    join(root, "images.lock.json"),
-    JSON.stringify({
-      version: 1,
-      authorizedSigners: ["release@kore.dev"],
-      entries: {
-        reference: {
-          image: "registry.kore.local:30500/reference",
-          digest: "sha256:" + "a".repeat(64),
-          signer: "release@kore.dev",
-        },
-      },
-    }),
+test("accepts an internal image on a registry exposed on an explicit port", async () => {
+  vi.mocked(readFile).mockResolvedValue(
+    lockWith({ image: "registry.kore.local:30500/reference" }),
   );
-  await expect(loadImageLock(root, "images.lock.json")).resolves.toBeTruthy();
+  await expect(
+    loadImageLock("/repo", "images.lock.json"),
+  ).resolves.toBeTruthy();
 });
 
-test("reports the required location when the image lock file is absent", async () => {
-  const root = await mkdtemp(join(tmpdir(), "kore-image-lock-missing-"));
-  await expect(loadImageLock(root, "images.lock.json")).rejects.toThrow(
-    /image lock is required at/,
+test("reports the required location when the lock file cannot be read", async () => {
+  vi.mocked(readFile).mockRejectedValue(new Error("ENOENT"));
+
+  await expect(loadImageLock("/repo")).rejects.toThrow(
+    `image lock is required at ${lockPath}`,
   );
 });
 
 test.each([
   [
-    "tag-only",
-    {
-      image: "registry.kore.local/reference:latest",
-      digest: "",
-      signer: "release@kore.dev",
-    },
+    "a tag on the internal image",
+    { image: "registry.kore.local/reference:latest" },
+    /must use an internal image without a tag/,
   ],
+  ["no signer", { signer: "" }, /has no signer/],
+  ["a malformed digest", { digest: "sha256:bad" }, /invalid digest/],
   [
-    "missing signer",
-    {
-      image: "registry.kore.local/reference",
-      digest: "sha256:" + "b".repeat(64),
-      signer: "",
-    },
+    "a signer outside the authorized list",
+    { signer: "developer@kore.dev" },
+    /unauthorized signer/,
   ],
-  [
-    "invalid digest",
-    {
-      image: "registry.kore.local/reference",
-      digest: "sha256:bad",
-      signer: "release@kore.dev",
-    },
-  ],
-])("rejects an image lock with %s trust data", async (_case, entry) => {
-  const root = await mkdtemp(join(tmpdir(), "kore-image-lock-invalid-"));
-  await writeFile(
-    join(root, "images.lock.json"),
-    JSON.stringify({
-      version: 1,
-      authorizedSigners: ["release@kore.dev"],
-      entries: { reference: entry },
-    }),
-  );
-  await expect(loadImageLock(root, "images.lock.json")).rejects.toThrow(
-    /image lock|digest|signer/i,
-  );
-});
+])("rejects a lock entry with %s", async (_case, entry, message) => {
+  vi.mocked(readFile).mockResolvedValue(lockWith(entry));
 
-test("refuses applications without a locked image", () => {
-  expect(() =>
-    imageForApplication(
-      { version: 1, authorizedSigners: ["release@kore.dev"], entries: {} },
-      "reference",
-    ),
-  ).toThrow(/no locked image/i);
-});
-
-test("rejects a locked image signed by an unauthorized identity", async () => {
-  const root = await mkdtemp(join(tmpdir(), "kore-image-lock-signer-"));
-  await writeFile(
-    join(root, "images.lock.json"),
-    JSON.stringify({
-      version: 1,
-      authorizedSigners: ["release@kore.dev"],
-      entries: {
-        reference: {
-          image: "registry.kore.local/reference",
-          digest: "sha256:" + "a".repeat(64),
-          signer: "developer@kore.dev",
-        },
-      },
-    }),
-  );
-  await expect(loadImageLock(root, "images.lock.json")).rejects.toThrow(
-    /unauthorized signer/i,
-  );
+  await expect(loadImageLock("/repo")).rejects.toThrow(message);
 });
 
 test.each([
-  ["not an object", "null", /must be an object/],
+  ["a lock that is not an object", "null", /must be an object/],
   [
-    "wrong lock version",
-    JSON.stringify({ version: 2, entries: {}, authorizedSigners: ["a"] }),
-    /version 1/,
+    "a lock at another version",
+    lockWith({}, { version: 2 }),
+    /version 1, authorized signers, and entries/,
   ],
   [
-    "no authorized signers",
-    JSON.stringify({ version: 1, entries: {}, authorizedSigners: [] }),
-    /authorized signers/,
+    "a lock with no authorized signers",
+    lockWith({}, { authorizedSigners: [] }),
+    /version 1, authorized signers, and entries/,
   ],
   [
-    "invalid application name",
+    "an application name that is not lowercase",
     JSON.stringify({
       version: 1,
-      authorizedSigners: ["a"],
+      authorizedSigners: [signer],
       entries: { Bad_Name: {} },
     }),
-    /invalid entry/,
+    /invalid entry for Bad_Name/,
   ],
   [
-    "invalid image reference",
-    JSON.stringify({
-      version: 1,
-      authorizedSigners: ["a"],
-      entries: {
-        app: {
-          image: "reference",
-          digest: "sha256:" + "a".repeat(64),
-          signer: "a",
-        },
-      },
-    }),
-    /internal image/,
+    "an image reference with no repository path",
+    lockWith({ image: "reference" }),
+    /must use an internal image without a tag/,
   ],
-])("rejects image lock with %s", async (_case, contents, message) => {
-  const root = await mkdtemp(join(tmpdir(), "kore-image-lock-shape-"));
-  await writeFile(join(root, "images.lock.json"), contents);
-  await expect(loadImageLock(root, "images.lock.json")).rejects.toThrow(
-    message,
+])("rejects a lock file with %s", async (_case, contents, message) => {
+  vi.mocked(readFile).mockResolvedValue(contents);
+
+  await expect(loadImageLock("/repo")).rejects.toThrow(message);
+});
+
+test("refuses an application that has no locked image", () => {
+  const lock: ImageLock = {
+    version: 1,
+    authorizedSigners: [signer],
+    entries: {},
+  };
+
+  expect(() => imageForApplication(lock, "reference")).toThrow(
+    /no locked image for application reference/,
   );
 });

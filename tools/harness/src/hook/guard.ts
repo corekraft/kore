@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { homedir } from "node:os";
 // PreToolUse guard: enforces mechanically checkable rules from AGENTS.md.
 // Plan: infra/plans/3-agent-harness.md (Step 2).
 //
@@ -22,6 +23,11 @@ import type { CliDeps } from "../runtime/index.js";
 import type { HookResult } from "./io.js";
 
 export { evaluate };
+
+// Globs resolve from the call's directory, as the shell runs them; the root when the payload has none.
+function callDirectory(call: { cwd?: unknown }, root: string): string {
+  return typeof call.cwd === "string" && call.cwd !== "" ? call.cwd : root;
+}
 
 /** Runs the guard against the payload the host sent; a block exits 2. */
 /** One id per session, rule and call: the same blocked call retried is the same block. */
@@ -63,7 +69,13 @@ export async function guard(
   }
   const verdict = await evaluate(payload, {
     root,
+    cwd: callDirectory(call, root),
+    // The home a leading ~ expands to: the environment's HOME, as the shell reads it.
+    home: deps.env["HOME"] || homedir(),
     readFile,
+    // Globs resolve from the directory the command runs in, as the shell runs them; the call's when none is given.
+    globMatches: (pattern, directory) =>
+      deps.fs.hasGlobMatch(directory ?? callDirectory(call, root), pattern),
     modeOf: (rule) => (inventory ? modeOf(inventory, rule) : "enforce"),
     denyRules: inventory ? denyRules(inventory) : [],
   });

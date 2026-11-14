@@ -22,3 +22,13 @@ export {
 export { imageInventoryStatusName } from "./image-inventory.js";
 export type { ImageInventory, InventoriedImage } from "./image-inventory.js";
 export { waitForHTTPRoute } from "./readiness-gateway.js";
+export { activationLabel, admissionGate } from "./admission-gate.js";
+export { recoverRelease } from "./release-recovery.js";
+export {
+  envOption,
+  helmEnv,
+  helmTemplateArgs,
+  helmUpgradeArgs,
+  withAbsoluteChart,
+} from "./helm.js";
+export { capacityWarningPercent } from "./capacity-status.js";

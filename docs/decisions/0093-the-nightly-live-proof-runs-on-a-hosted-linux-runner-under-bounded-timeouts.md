@@ -21,11 +21,26 @@ platform stack needs real memory: plan 9 measured k3s peaking at 6.7 GiB.
 
 **Nightly live proof.** `nightly.yml` runs once a night on main:
 `tools/kore/scripts/nightly.sh` purges any old profile, runs `local up`,
-checks platform status, runs `local up` again, runs every `test:integration*`
+checks platform status, runs `local up` again, runs every named `test:integration:<name>`
 suite against that one cluster, and purges last (an EXIT trap). A failing suite
 does not hide later ones, and a failed `local up` skips the suites. The run's
 conclusion is the status on main; the workflow holds read-only permissions, so
 the signer permission guard is unchanged.
+
+**Scratch environment ([issue #363](https://github.com/corekraft/kore/issues/363)).**
+The `local` overlay's SOPS secrets are encrypted to the owner's age key, which
+a fresh runner lacks; the first hosted run failed at the secret sync for that
+reason. Giving CI the owner's key, or a dedicated key stored as an Actions
+secret, would add a stored credential and an owner step. Instead `nightly.sh`
+copies `local` to a scratch overlay named `nightly` (cluster `kore-nightly`),
+generates an age identity with the pinned `age-keygen`, writes its public half as
+the overlay's recipient, and encrypts freshly generated secret values with sops
+from stdin. The identity travels only in `SOPS_AGE_KEY` and the plaintext only
+through shell variables and pipes, so neither touches disk, and the committed
+`local` overlay is never edited. A secret in `local` that the script does not
+know how to generate fails the night before any cluster work. The suites follow
+`KORE_INTEGRATION_ENVIRONMENT`, and the job summary records duration and peak
+memory.
 
 **Timeouts.** `ProcessRunner` kills a command that runs past its timeout:
 SIGTERM to its process group, then SIGKILL to the group after a grace period.
@@ -69,9 +84,25 @@ it must be:
   another handler, such as the integration lock's, is left to decide); a normal
   exit kills any group still running. Children that share the terminal
   (inherited stdin or output) are not detached.
-- A night that finds no `test:integration*` suites, or whose discovery fails,
+- A night that finds no `test:integration:<name>` suites, or whose discovery fails,
   fails instead of passing green.
 - Hosted runs are billed to no one for this public repository, and need no
   runner registration or trust controls. The cost is a memory ceiling of 16 GB:
   if the measured run does not fit, move to a larger hosted runner or the
   self-hosted fallback.
+
+## Refinement: named suites only, lifecycle last
+
+The first hosted run with a working cluster (run 43364720238, issue #369)
+showed that "every `test:integration*` suite" was wrong in two ways. The
+`lifecycle` suite destroys and recreates the cluster, so running it first left
+every later suite with `k3d cluster kore-nightly is absent`; it now runs last.
+The bare `test:integration` task is not a suite: its platform spec runs the unit
+suite and the OPA tests, and its cluster spec stops and deletes the night's
+cluster. The nightly runs only `test:integration:<name>` scripts. Reference
+smoke is already proved by `test:integration:reference`. Database persistence
+was proved only through the bare task's helper, so it has its own spec and the
+named script `test:integration:database` (it deletes the database primary pod
+and waits up to 5 minutes twice, within the 45 minute stage limit). A unit spec
+fails when an integration spec that registers a test belongs to no named script,
+or when a named script runs no spec that registers a test.

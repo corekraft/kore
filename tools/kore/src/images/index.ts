@@ -49,3 +49,7 @@ export {
   assertReleaseAutomationImage,
   isReleaseAutomationSigner,
 } from "./release-image.js";
+export {
+  imageDigestFromRegistryHead,
+  localDockerBuildArgs,
+} from "./local-image-args.js";

@@ -2,3 +2,5 @@
 export { appDown, appStatus } from "./app.js";
 export { appUp, appUpRelease } from "./up.js";
 export type { AppUpOptions } from "./up.js";
+export { verifyLockedImageArgs } from "./verify.js";
+export { releaseArgs } from "./release.js";

@@ -7,12 +7,14 @@
 // guards on #190 and #191 (2026-11-12), so every rule blocks.
 import { isAbsolute, relative, resolve } from "node:path";
 import {
-  changesShell,
   harnessAllowed,
+  notifiesFinish,
+  sendsToPane,
+  setsEnvironment,
+  useNotify,
   SUBSTITUTION,
   wrapsCommands,
   HARNESS,
-  PREFIXED,
   readOnly,
   writes,
   WRITE_TOOLS,
@@ -27,10 +29,6 @@ import { pushesByTracking, pushesToMain } from "./guard-role-push.js";
 import { takesRoute, takesWriterRoute } from "./guard-role-routes.js";
 import { commandOf, splitSegments } from "./guard-shell.js";
 import { block, type Finding } from "./guard-verdict.js";
-
-/** Roles that read and report: they may run the harness and gh/git queries but change no file. */
-const REPORTING_ROLES = new Set(["orchestrator", "judge"]);
-export const DELIVERY_ROLES = new Set([...REPORTING_ROLES, "writer"]);
 
 const noMerge = (role: string, what: string): Finding =>
   block(
@@ -78,6 +76,7 @@ const ORCHESTRATOR_HARNESS = [
   "session wait",
   "session close",
   "session equalize",
+  "session notify",
   "idea sync",
   "outcome record",
   "outcome close",
@@ -93,6 +92,7 @@ const JUDGE_HARNESS = [
   "judge precheck",
   "judge merge",
   "judge send-back",
+  "session notify",
 ];
 
 /** The harness commands each delivery role may run; any other role gets the reads. */
@@ -115,30 +115,13 @@ const HERDR_READS = [
   "pane current",
 ];
 
-/** The exact line session/brief.ts tells a session to send: the outcome is done or blocked, and the pane is `$HERDR_PANE_ID` or a literal id. Free text would let a role instruct another pane. */
-const FINISH_LINE =
-  /^\[herdr:[\w.-]+\] finished: RESULT (?:done|blocked); summary in pane (?:\$HERDR_PANE_ID|[\w:]+)$/;
-
-/** The finish broadcast every brief ends with: `herdr pane send-text <pane> "[herdr:<name>] finished: RESULT ..."`, then `herdr pane send-keys <pane> enter`. Nothing else goes through send-text or send-keys. */
-function herdrFinish(args: readonly string[]): boolean {
-  const [group, verb, pane, text, ...rest] = args;
-  if (group !== "pane" || pane === undefined || pane.startsWith("-")) {
-    return false;
-  }
-  if (verb === "send-text") {
-    return rest.length === 0 && FINISH_LINE.test(text ?? "");
-  }
-  return verb === "send-keys" && text === "enter" && rest.length === 0;
-}
-
 /** What a reporting role's shell may run: the shared read allowlist with the role's harness commands, and for the orchestrator the herdr queries. Anything else is refused. */
 function reportingMayRun(role: string, segment: readonly string[]): boolean {
   const { name, args } = commandOf(segment);
   if (name === "herdr") {
     return (
-      herdrFinish(args) ||
-      (role === "orchestrator" &&
-        HERDR_READS.includes(`${args[0] ?? ""} ${args[1] ?? ""}`))
+      role === "orchestrator" &&
+      HERDR_READS.includes(`${args[0] ?? ""} ${args[1] ?? ""}`)
     );
   }
   return readMayRun(segment, harnessFor(role));
@@ -149,6 +132,9 @@ function harnessRefused(role: string, segment: readonly string[]): boolean {
   const { name, args } = commandOf(segment);
   if (name !== "node" || !(args[0] ?? "").endsWith("harness.mjs")) {
     return false;
+  }
+  if (args[1] === "session" && args[2] === "notify") {
+    return !notifiesFinish(segment);
   }
   return !(
     HARNESS.test(args[0] ?? "") && harnessAllowed(name, args, harnessFor(role))
@@ -210,8 +196,16 @@ function escapes(segment: readonly string[], root: string): string | undefined {
     .find((path) => outside(root, path));
 }
 
+/** The finding for a segment a reporting role may not run: raw pane input is pointed at `session notify`. */
+function refused(segment: readonly string[]): Finding {
+  const what = `\`${segment.join(" ")}\``;
+  return sendsToPane(segment) ? useNotify(what) : readOnly(what);
+}
+
+/** `reporting` is the role's kind from the registry: a reporting role reads and never changes a file. */
 export function checkDeliveryBash(
   role: string,
+  reporting: boolean,
   command: string,
   root: string,
 ): Finding {
@@ -223,9 +217,9 @@ export function checkDeliveryBash(
       pushesToMain(s) ||
       takesRoute(s) ||
       // Only the writer has the full shell; the read-only roles' allowlist refuses these anyway.
-      (!REPORTING_ROLES.has(role) && takesWriterRoute(s)) ||
+      (!reporting && takesWriterRoute(s)) ||
       // A reporting role never pushes at all (read-only below), so only the writer needs the branch read.
-      (!REPORTING_ROLES.has(role) && pushesByTracking(s, root)),
+      (!reporting && pushesByTracking(s, root)),
   );
   if (merging !== undefined) {
     return noMerge(role, `\`${merging.join(" ")}\``);
@@ -234,7 +228,7 @@ export function checkDeliveryBash(
   if (judging !== undefined && role !== "judge") {
     return noMerge(role, `\`${judging.join(" ")}\``);
   }
-  if (REPORTING_ROLES.has(role)) {
+  if (reporting) {
     if (SUBSTITUTION.test(command)) {
       return readOnly("A command or process substitution");
     }
@@ -245,9 +239,7 @@ export function checkDeliveryBash(
       );
     }
     // A variable such as KORE_ROOT moves where the harness writes, past its allowlist.
-    const prefixed = segments.find(
-      (s) => PREFIXED.test(s[0] ?? "") || changesShell(s),
-    );
+    const prefixed = segments.find(setsEnvironment);
     if (prefixed !== undefined) {
       return readOnly(
         `\`${prefixed.join(" ")}\`, which sets an environment variable or changes shell state,`,
@@ -260,9 +252,7 @@ export function checkDeliveryBash(
         harnessRefused(role, s) ||
         !reportingMayRun(role, s),
     );
-    return changing === undefined
-      ? null
-      : readOnly(`\`${changing.join(" ")}\``);
+    return changing === undefined ? null : refused(changing);
   }
   for (const segment of segments) {
     const path = escapes(segment, root);
@@ -273,19 +263,21 @@ export function checkDeliveryBash(
   return null;
 }
 
+/** `reporting` is the role's kind from the registry (see checkDeliveryBash). */
 export function checkDelivery(
   role: string,
+  reporting: boolean,
   tool: string,
   input: Record<string, unknown>,
   root: string,
 ): Finding {
   if (tool === "Bash" && typeof input["command"] === "string") {
-    return checkDeliveryBash(role, input["command"], root);
+    return checkDeliveryBash(role, reporting, input["command"], root);
   }
   if (!WRITE_TOOLS.has(tool)) {
     return null;
   }
-  if (REPORTING_ROLES.has(role)) {
+  if (reporting) {
     return readOnly(tool);
   }
   const path = input["file_path"] ?? input["notebook_path"];

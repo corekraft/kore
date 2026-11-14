@@ -15,7 +15,7 @@
           },
         "rpoMinutes": 1440,
         "rtoMinutes": 15,
-        "restoreTest": "tools/kore/src/ops/data-restore.integration.spec.ts"
+        "restoreTest": "tools/kore/src/ops/data-restore.live.spec.ts"
       },
       {
         "name": "telemetry-history",

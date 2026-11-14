@@ -2,7 +2,7 @@ import { hostname, uptime } from "node:os";
 import { join } from "node:path";
 import { hostLocksDirectory, type CliDeps } from "../runtime/index.js";
 
-// A live run (`kore local up`, the live integration specs) holds the exclusive
+// A live run (`kore local up`, the live specs) holds the exclusive
 // host lease: a lock file in the host lock directory that kore writes as
 // {pid, host, token, acquiredAt}. The harness only reads it, and fails closed:
 // a lease it cannot judge refuses a writer instead of counting as free.

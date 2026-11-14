@@ -16,11 +16,16 @@ import {
 } from "../guardrail/index.js";
 import { readPlans } from "../plan/index.js";
 import { hookCommand, type HookResult } from "./io.js";
-import { lastRetrospective, scan } from "./retro-scan.js";
+import {
+  lastRetrospective,
+  MarkerError,
+  markerInstant,
+  scan,
+} from "./retro-scan.js";
 import { defaultDirs, readTranscripts } from "./retro-transcripts.js";
 
 const USAGE =
-  "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD]\n--since keeps sessions active at or after local midnight of that date, like the session-start count.";
+  "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD|YYYY-MM-DDTHH:MM:SSZ] [--evidence]\n--since keeps sessions active at or after local midnight of that date, or at or after that UTC instant, like the session-start count.\n--evidence adds guardEvidence (the session, transcript line and excerpt of each guard block) and overriddenEvidence (the same, with the command excerpt and the unquoted glob the guard named, for each overridden audit warning), capped per rule. The default report leaves them out.";
 
 const isMissing = (error: unknown): boolean =>
   (error as NodeJS.ErrnoException).code === "ENOENT";
@@ -55,6 +60,7 @@ async function skillNames(
 interface Args {
   dir: string | undefined;
   since: string | undefined;
+  evidence: boolean;
 }
 
 async function transcripts(
@@ -98,7 +104,7 @@ async function auditRules(deps: CliDeps, root: string): Promise<string[]> {
 
 async function report(
   deps: CliDeps,
-  { dir, since }: Args,
+  { dir, since, evidence }: Args,
 ): Promise<HookResult> {
   const root = await deps.root();
   const found = await transcripts(deps, root, dir);
@@ -106,9 +112,19 @@ async function report(
     return { code: 2, stderr: found };
   }
   let stderr = "";
-  const effective =
-    since ??
-    (dir ? undefined : (lastRetrospective(await readPlans(deps)) ?? undefined));
+  let effective = since;
+  if (effective === undefined && !dir) {
+    try {
+      effective = lastRetrospective(await readPlans(deps)) ?? undefined;
+    } catch (error) {
+      // The plan's author fixes this one, so it fails the scan by name
+      // instead of failing open with no report.
+      if (error instanceof MarkerError) {
+        return { code: 2, stderr: `${error.message}\n` };
+      }
+      throw error;
+    }
+  }
   const skills = await skillNames(deps.fs, root);
   if (skills === undefined) {
     stderr += "No skills/ directory found; skills.unused will be empty.\n";
@@ -122,6 +138,7 @@ async function report(
     since: effective,
     knownSkills: skills ?? [],
     auditRules: audit,
+    evidence,
   });
   const body = { since: effective ?? null, ...result };
   return { stdout: `${JSON.stringify(body, null, 2)}\n`, stderr };
@@ -132,14 +149,18 @@ export const retroScan = hookCommand(
   "count guard blocks, failures, skills and repeated corrections over session transcripts (retro skill input)",
   async ({ deps, options }) => {
     const since = options["since"];
-    if (typeof since === "string" && !/^\d{4}-\d{2}-\d{2}$/.test(since)) {
+    if (typeof since === "string" && !Number.isFinite(markerInstant(since))) {
       return { code: 2, stderr: `${USAGE}\n` };
     }
     const dir = options["dir"];
     return await report(deps, {
       dir: typeof dir === "string" ? dir : undefined,
       since: typeof since === "string" ? since : undefined,
+      evidence: options["evidence"] === true,
     });
   },
-  { flags: { dir: "string", since: "string" }, payload: false },
+  {
+    flags: { dir: "string", since: "string", evidence: "boolean" },
+    payload: false,
+  },
 );

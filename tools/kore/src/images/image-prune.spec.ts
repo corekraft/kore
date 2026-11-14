@@ -1,9 +1,21 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Repository } from "../config/index.js";
 import type { RunResult, Runner } from "../runtime/index.js";
+import { shellQuote } from "./local-image-args.js";
+import { requireK3d } from "./local-publish.js";
 import { pruneStaleImageTags } from "./image-prune.js";
 
 // Docs: docs/decisions/0094-worktrees-sharing-a-cluster-share-its-locks-tags-and-forward.md
+
+vi.mock("./local-image-args.js");
+vi.mock("./local-publish.js");
+
+beforeEach(() => {
+  vi.mocked(shellQuote).mockImplementation((value) => `'${value}'`);
+  vi.mocked(requireK3d).mockImplementation(
+    (target) => target.environment.k3d as ReturnType<typeof requireK3d>,
+  );
+});
 
 const repository = {
   root: "/repo",

@@ -1,6 +1,5 @@
-// Delta: what changed between a session's turns, as UserPromptSubmit context.
-// Plan: infra/plans/6-agent-primitives.md#step-3-what-changed-between-turns
-
+// Fakes for the delta unit spec: a plan file's text, a journal entry, and a
+// DeltaDeps whose snapshots live in a map. Every read resolves to a default.
 import type { DeltaDeps, Snapshot } from "./delta.js";
 
 export const planText = (...items: string[]) =>

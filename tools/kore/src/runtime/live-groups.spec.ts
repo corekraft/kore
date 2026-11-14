@@ -43,7 +43,7 @@ test("a group that already exited is not signalled", () => {
   expect(sent).toEqual([]);
 });
 
-test("another signal handler, such as the integration lock's, still gets to run and decides the exit", () => {
+test("another signal handler, such as the live lock's, still gets to run and decides the exit", () => {
   const groups = new LiveGroups();
   const proc = fakeProcess();
   installSignalReaper(proc, groups, () => {});

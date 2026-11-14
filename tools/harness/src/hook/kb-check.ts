@@ -47,6 +47,35 @@ async function flagAudit(deps: CliDeps, root: string): Promise<string[]> {
   }
 }
 
+/**
+ * The repository problems kb-check reports beyond documents: `core.bare = true`
+ * in the shared git config, which a fixture's `git init` under an inherited
+ * GIT_DIR writes and which breaks `git pull` in the main checkout (#368).
+ * git exits 1 when the key is unset, which is clean. Any other failure (an
+ * unreadable config, not a repository) is an error, never a clean check.
+ */
+async function repositoryProblems(
+  deps: CliDeps,
+  root: string,
+): Promise<string[]> {
+  const bare = await deps.runner.run("git", ["config", "--get", "core.bare"], {
+    cwd: root,
+  });
+  if (bare.code === 1) {
+    return [];
+  }
+  if (bare.code !== 0) {
+    throw new CommandError(
+      `git config --get core.bare failed: ${bare.stderr.trim()}`,
+    );
+  }
+  return bare.stdout.trim() === "true"
+    ? [
+        "git config: core.bare is true in the shared .git/config, so git pull and git status fail in the main checkout; run `git config core.bare false`, then find the git init that ran with GIT_DIR set (tools/harness/src/testing/git-env.ts: cleanGitEnv)",
+      ]
+    : [];
+}
+
 /** Tracked and untracked-but-not-ignored regular files under root, with their text. */
 async function readTree(
   deps: CliDeps,
@@ -90,6 +119,7 @@ export async function kbCheck(
       ).trim() || null,
     audit: () => skillAudit(deps.fs, root),
     flagAudit: () => flagAudit(deps, root),
+    repositoryProblems: () => repositoryProblems(deps, root),
   };
   const code = await run(strict ? ["--strict"] : [], kbDeps, (line) =>
     lines.push(line),

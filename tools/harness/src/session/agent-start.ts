@@ -1,33 +1,123 @@
-import type { CliDeps } from "../runtime/index.js";
+import type { CliDeps, RunResult } from "../runtime/index.js";
 import { describeFailure } from "./equalize.js";
 import { displayName, modelOnScreen, type ModelCheck } from "./models.js";
 
-const BUSY_BOUND_MS = 10_000;
 const MODEL_BOUND_MS = 5_000;
 const RETRY_MS = 500;
+/** Starts tried before giving up; a fresh pane's shell is often not ready for the first few. */
+const START_TRIES = 10;
+/** The fixed pause between tries of a fast failure, and the first backoff step after a timeout. */
+const START_PAUSE_MS = 1_000;
+/** The most time spent pausing across the backoff after a timeout. */
+const START_BUDGET_MS = 60_000;
+/** A host load average this far above 1 per step doubles the pause, so a busier host waits longer. */
+const LOAD_PER_STEP = 8;
+
+/** The exit code of a command that its own timeout ended (the coreutils `timeout` convention). */
+const TIMEOUT_EXIT_CODE = 124;
+/**
+ * herdr's timeout error, as it prints it when an agent does not reach the
+ * status it waits for: a JSON error whose code is "timeout". Seen in session
+ * transcripts from `herdr agent prompt`; no transcript shows `agent start`
+ * printing it, so a live timed-out start should confirm the wording.
+ */
+const HERDR_TIMEOUT = /"code":\s*"timeout"|timed out waiting for agent status/;
+
+/** Whether a failed start timed out (herdr's timeout error, or the timeout exit code), not a fast failure. */
+function timedOut(result: RunResult): boolean {
+  return (
+    result.code === TIMEOUT_EXIT_CODE ||
+    HERDR_TIMEOUT.test(`${result.stdout}\n${result.stderr}`)
+  );
+}
 
 /**
- * Starts the agent, retrying `agent_pane_busy` (a fresh pane's shell is not
- * ready yet) for a bounded time. An error message, or undefined on success.
+ * The backoff pause after a timed-out try, `steps` tries after the first
+ * timeout (0 for the timeout's own try), or undefined when the wait budget is
+ * spent. It doubles per step and scales with the host load (never below the
+ * unscaled pause), and is cut short so the total never passes the budget.
+ */
+function backoffPause(
+  steps: number,
+  waited: number,
+  load: number,
+): number | undefined {
+  const remaining = START_BUDGET_MS - waited;
+  if (remaining <= 0) {
+    return undefined;
+  }
+  const scale = Number.isFinite(load) ? Math.max(1, load / LOAD_PER_STEP) : 1;
+  return Math.round(Math.min(START_PAUSE_MS * 2 ** steps * scale, remaining));
+}
+
+/** The host's load average, or infinity when no reader is injected or the host reports none. */
+function hostLoadOf(deps: Pick<CliDeps, "hostLoad">): number {
+  return deps.hostLoad?.oneMinute() ?? Number.POSITIVE_INFINITY;
+}
+
+/**
+ * The pause before try `tries + 1`, or undefined to give up. A start that has
+ * not timed out yet pauses one second, as before. From the first timeout on,
+ * the pause is the backoff, which reads the host load.
+ */
+function pauseBeforeRetry(
+  deps: Pick<CliDeps, "hostLoad">,
+  firstTimeout: number | undefined,
+  tries: number,
+  waited: number,
+): number | undefined {
+  if (firstTimeout === undefined) {
+    return START_PAUSE_MS;
+  }
+  return backoffPause(tries - firstTimeout, waited, hostLoadOf(deps));
+}
+
+/** The host load a message reports, or a note that it cannot be read; never a guessed value. */
+function loadNote(load: number): string {
+  return Number.isFinite(load)
+    ? `The host 1-minute load average is ${load.toFixed(2)}, so the pane may not have started in time under load. Wait for the load to fall, then spawn again.`
+    : "The host 1-minute load average cannot be read. Check the host load, then spawn again.";
+}
+
+/**
+ * Starts the agent, retrying a failed start up to START_TRIES times, whatever
+ * the failure (a fresh pane's shell is often not ready yet). A fast failure is
+ * retried one second apart, as before. Once a start times out, the pauses from
+ * that try on double, scaled by the host load, and stop once their total would
+ * pass a minute; that failure names the try count, the elapsed wait, the last
+ * failure, the host load and what to do. An error message, or undefined on success.
  */
 export async function startAgent(
-  deps: CliDeps,
+  deps: Pick<CliDeps, "runner" | "clock" | "hostLoad">,
   args: readonly string[],
 ): Promise<string | undefined> {
-  const deadline = deps.clock.now().getTime() + BUSY_BOUND_MS;
+  let last = "";
+  let waited = 0;
+  let tries = 0;
+  let firstTimeout: number | undefined;
   for (;;) {
+    tries += 1;
     const start = await deps.runner.run("herdr", args);
     if (start.code === 0) {
       return undefined;
     }
-    if (!`${start.stdout}${start.stderr}`.includes("agent_pane_busy")) {
-      return `herdr agent start failed: ${describeFailure(start)}`;
+    last = describeFailure(start);
+    firstTimeout ??= timedOut(start) ? tries : undefined;
+    const pause =
+      tries < START_TRIES
+        ? pauseBeforeRetry(deps, firstTimeout, tries, waited)
+        : undefined;
+    if (pause === undefined) {
+      break;
     }
-    if (deps.clock.now().getTime() >= deadline) {
-      return `herdr agent start failed: agent_pane_busy for ${BUSY_BOUND_MS / 1000} seconds; the pane's shell never became ready (${describeFailure(start)})`;
-    }
-    await deps.clock.sleep(RETRY_MS);
+    await deps.clock.sleep(pause);
+    waited += pause;
   }
+  if (firstTimeout === undefined) {
+    return `herdr agent start failed after ${START_TRIES} tries: ${last}`;
+  }
+  const seconds = Math.round(waited / 1_000);
+  return `herdr agent start failed after ${tries} tries over ${seconds} s of waiting: ${last}. ${loadNote(hostLoadOf(deps))}`;
 }
 
 /**
@@ -36,7 +126,7 @@ export async function startAgent(
  * unverified with the reason, never as a pass.
  */
 export async function checkModel(
-  deps: CliDeps,
+  deps: Pick<CliDeps, "runner" | "clock">,
   name: string,
   model: string,
 ): Promise<ModelCheck | { mismatch: string }> {

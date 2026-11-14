@@ -117,7 +117,7 @@ and the clean-machine script (#157).
       Progress: the guard, deny rule and eval cases blocked
       `k3d cluster delete` from #133; #157 removed the `minikube delete` rule
       (through the guardrail inventory and `guardrail deny --write
-  --allow-removal`) and its guard cases, as this step approved. The
+--allow-removal`) and its guard cases, as this step approved. The
       `k3d cluster delete` rule stays.
 - [x] Remove the `minikube` provider value from the types, schema and validator,
       and the Minikube paths from the cluster, local and doctor code.
@@ -140,7 +140,7 @@ and the clean-machine script (#157).
   the provider rejection in `tools/kore/src/config/validate.ts` (and its spec),
   the provider-name detector in `tools/kore/src/diagnostics/portability.ts`
   (and its spec), and the assertion in
-  `tools/kore/src/app/clean-machine-script.spec.ts` that the clean-machine
+  `tools/kore/integration/app/clean-machine-script.spec.ts` that the clean-machine
   script names no Minikube.
 
 ## Step 7: Live Proof
@@ -298,5 +298,6 @@ step's exit criteria hold on main:
 
 The operator's one-time Minikube profile removal is ticked: no profile remains.
 Live work after #149 also passed:
+
 - **#303:** `resilience` 10/10 on the first attempt, with patched probes.
 - **#305:** `crd-ownership` ready on k3d.

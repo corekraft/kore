@@ -1,309 +1,235 @@
-import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
-import { readdir, readFile } from "node:fs/promises";
-import { promisify } from "node:util";
-import { join } from "node:path";
-import { test } from "vitest";
-import { findRoot, loadRepository, validateRepository } from "./config.js";
-import { helmUpgradeArgs } from "../platform/helm.js";
-import type { Repository } from "./types.js";
+// Docs: docs/decisions/0028-image-trust-authority.md
+import { beforeEach, expect, test, vi } from "vitest";
+import { enrollmentExemptionErrors } from "./enrollment.js";
+import {
+  imagePolicyComponent,
+  imageTrustErrors,
+  localSigner,
+  noMatchPolicy,
+  registryGlob,
+  trustedSigners,
+} from "./image-trust.js";
+import { registryPlan, type RegistryPlan } from "./registry-address.js";
+import {
+  fakeCatalog,
+  fakeComponent,
+  fakeEnvironment,
+  fakeRepository,
+  fakeSeeds,
+} from "./config-support.js";
+import type { Component, Environment, Repository } from "./types.js";
 
-const releaseSubject =
-  "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.1.1";
-const issuer = "https://token.actions.githubusercontent.com";
-type Trust = Record<string, unknown>;
+// Factories, not automocks: the collaborators' real modules never load here.
+vi.mock("./enrollment.js", () => ({ enrollmentExemptionErrors: vi.fn() }));
+vi.mock("./registry-address.js", () => ({ registryPlan: vi.fn() }));
 
-async function withTrust(
-  environment: string,
-  change: (trust: Trust | undefined) => Trust | undefined,
-): Promise<Repository> {
-  const base = await loadRepository(environment);
-  const overlay = base.imageTrustValues ?? {};
-  return {
-    ...base,
-    imageTrustValues: { ...overlay, trust: change(overlay.trust as Trust) },
-  };
-}
-
-const keyless = (over: Trust = {}): Trust => ({
+const release =
+  "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v1.2.3";
+const keylessTrust = {
   type: "keyless",
   mode: "warn",
-  issuer,
-  subjects: [releaseSubject],
-  ...over,
-});
+  issuer: "https://token.actions.githubusercontent.com",
+  subjects: [release],
+};
+const keyTrust = {
+  type: "key",
+  mode: "warn",
+  keyRef: { name: "local-kore-key", namespace: "cosign-system" },
+};
+const components = [
+  fakeComponent({ name: "kore-image-policy" }),
+  fakeComponent({ name: "policy-controller", namespace: "cosign-system" }),
+];
 
-test("every managed-example subject is the release workflow's real identity on an exact tag", async () => {
-  const { root } = await loadRepository("local");
-  const workflow = await readFile(
-    join(root, ".github", "workflows", "release.yaml"),
-    "utf8",
-  );
-  const template = /^ {6}IDENTITY: (\S+)\$\{\{ github\.ref_name \}\}$/m.exec(
-    workflow,
-  )?.[1];
-  assert.ok(template, "release.yaml declares IDENTITY from the pushed tag");
-  const managed = await loadRepository("managed-example");
-  const subjects = managed.imageTrustValues?.["trust"] as Trust;
-  const listed = subjects["subjects"] as string[];
-  assert.ok(listed.length > 0);
-  for (const subject of listed) {
-    assert.ok(subject.startsWith(template), subject);
-    assert.match(subject.slice(template.length), /^v\d+\.\d+\.\d+$/);
-  }
-});
-
-test("a missing authority is rejected with the fix", async () => {
-  const repository = await withTrust("local", () => undefined);
-  await assert.rejects(
-    validateRepository(repository),
-    /image trust authority is required.*type: key or keyless/is,
-  );
-});
-
-test("regexp identities are rejected so no other workflow or branch is admitted", async () => {
-  for (const extra of [
-    { subjectRegExp: ".*" },
-    { issuerRegExp: "https://.*" },
-  ]) {
-    const repository = await withTrust("managed-example", () => keyless(extra));
-    await assert.rejects(
-      validateRepository(repository),
-      /regexp.*not allowed/i,
-    );
-  }
-});
-
-test("wildcard, branch, pull-request, and foreign-repository subjects are rejected", async () => {
-  const base =
-    "https://github.com/corekraft/kore/.github/workflows/release.yaml";
-  for (const subject of [
-    `${base}@refs/tags/v*`,
-    `${base}@refs/heads/main`,
-    `${base}@refs/pull/12/merge`,
-    "https://github.com/evil/kore/.github/workflows/release.yaml@refs/tags/v0.1.0",
-    "https://github.com/corekraft/kore/.github/workflows/check.yml@refs/heads/main",
-  ]) {
-    const repository = await withTrust("managed-example", () =>
-      keyless({ subjects: [subject] }),
-    );
-    await assert.rejects(
-      validateRepository(repository),
-      /subject.*exact.*corekraft\/kore.*refs\/tags\/v/is,
-      subject,
-    );
-  }
-});
-
-test("keyless requires the GitHub Actions issuer and at least one subject", async () => {
-  await assert.rejects(
-    validateRepository(
-      await withTrust("managed-example", () =>
-        keyless({ issuer: "https://accounts.example.com", subjects: [] }),
-      ),
-    ),
-    (error: Error) => {
-      assert.match(error.message, /issuer must be https:\/\/token\.actions/);
-      assert.match(error.message, /at least one exact subject/);
-      return true;
-    },
-  );
-});
-
-test("a key authority must reference a key and cannot also be keyless", async () => {
-  await assert.rejects(
-    validateRepository(
-      await withTrust("local", (trust) => ({
-        ...trust,
-        keyRef: undefined,
-        issuer,
-        subjects: [releaseSubject],
-      })),
-    ),
-    (error: Error) => {
-      assert.match(error.message, /key authority needs keyRef\.name/);
-      assert.match(error.message, /must not also set keyless/);
-      return true;
-    },
-  );
-});
-
-test("a registry address that covers a seed image or everything is rejected", async () => {
-  for (const address of ["docker.io", "ghcr.io", "cgr.dev"]) {
-    const base = await loadRepository("managed-example");
-    await assert.rejects(
-      validateRepository({
-        ...base,
-        environment: { ...base.environment, registry: { address } },
-      }),
-      /glob .*\/\*\* covers seed/is,
-      address,
-    );
-  }
-});
-
-test("a committed images list is rejected because the glob is derived from registry.address", async () => {
-  const repository = await withTrust("local", (trust) => ({
-    ...trust,
-    images: ["10.96.0.50:5000/**"],
-  }));
-  await assert.rejects(
-    validateRepository(repository),
-    /images is derived from registry\.address/,
-  );
-});
-
-test("the chart renders ClusterImagePolicy for all containers without regexps or namespace opt-in", async () => {
-  const root = await findRoot();
-  const dir = join(root, "infra/charts/image-policy/templates");
-  const text = await readFile(join(dir, "clusterimagepolicy.yaml"), "utf8");
-  assert.match(text, /kind: ClusterImagePolicy/);
-  assert.match(text, /apiVersion: policy\.sigstore\.dev\/v1beta1/);
-  // A match on pods alone would leave Deployments and Jobs unmatched (the
-  // webhook evaluates the kind it is handed) and rejected as "no matching policies".
-  assert.doesNotMatch(text, /^\s*match:/m);
-  assert.match(text, /\.Values\.trust\.issuer/);
-  assert.doesNotMatch(text, /RegExp/i);
-  assert.doesNotMatch(text, /static:/);
-  assert.doesNotMatch(text, /policy\.sigstore\.dev\/include/);
-});
-
-test("no namespace is opted into enforcement yet", async () => {
-  const root = await findRoot();
-  for (const dir of ["infra/charts", "infra/environments"]) {
-    const files = (await readdir(join(root, dir), { recursive: true })).filter(
-      (f) => /\.(ya?ml|tpl)$/.test(f),
-    );
-    for (const file of files) {
-      const body = await readFile(join(root, dir, file), "utf8");
-      assert.doesNotMatch(
-        body,
-        /policy\.sigstore\.dev\/include/,
-        `${dir}/${file} opts a namespace in before audit`,
-      );
-    }
-  }
-});
-
-test("a key reference outside the policy-controller namespace is rejected with the fix", async () => {
-  const repository = await withTrust("local", (trust) => ({
-    ...trust,
-    keyRef: { name: "kore-local-signing-pub", namespace: "kore-system" },
-  }));
-  await assert.rejects(validateRepository(repository), (error: Error) => {
-    assert.match(error.message, /keyRef\.namespace must be cosign-system/);
-    assert.match(error.message, /policy-controller/);
-    return true;
+/** A repository with only the fields the image trust checks read. */
+function repositoryWith(options: {
+  trust?: Record<string, unknown> | undefined;
+  provider?: Environment["provider"];
+  components?: Component[];
+  seeds?: unknown[];
+}): Repository {
+  return fakeRepository({
+    environment: fakeEnvironment({
+      name: "local",
+      provider: options.provider ?? "k3d",
+    }),
+    catalog: fakeCatalog(options.components ?? components),
+    seeds: fakeSeeds(options.seeds ?? []),
+    ...(options.trust === undefined
+      ? {}
+      : { imageTrustValues: { trust: options.trust } }),
   });
-});
-
-test("trust.mode must be warn or enforce so a typo cannot silently disable the audit", async () => {
-  for (const mode of [undefined, "audit", "Enforce", ""]) {
-    const repository = await withTrust("local", (trust) => ({
-      ...trust,
-      mode,
-    }));
-    await assert.rejects(
-      validateRepository(repository),
-      /image trust: mode must be warn or enforce/,
-      String(mode),
-    );
-  }
-  for (const mode of ["warn", "enforce"]) {
-    await validateRepository(
-      await withTrust("local", (trust) => ({ ...trust, mode })),
-    );
-  }
-});
-
-const run = promisify(execFile);
-
-async function render(
-  environment: string,
-  mode: string,
-): Promise<{ platform: string; upstream: string }> {
-  const root = await findRoot();
-  const repository = await loadRepository(environment);
-  const trust = { ...(repository.imageTrustValues?.trust as Trust), mode };
-  const { stdout } = await run("helm", [
-    "template",
-    "kore-image-policy",
-    join(root, "infra/charts/image-policy"),
-    "--set-string",
-    "platform.registry.address=registry.example:5000",
-    "--set-json",
-    `trust=${JSON.stringify(trust)}`,
-  ]);
-  const docs = stdout.split(/^---$/m);
-  return {
-    platform: docs.find((d) => d.includes("name: kore-platform-images")) ?? "",
-    upstream: docs.find((d) => d.includes("name: kore-upstream-images")) ?? "",
-  };
 }
 
-test("the platform policy renders the environment trust mode for every environment", async () => {
-  for (const environment of ["local", "managed-example"]) {
-    for (const mode of ["warn", "enforce"]) {
-      const { platform, upstream } = await render(environment, mode);
-      assert.match(platform, new RegExp(`mode: ${mode}\\b`), environment);
-      assert.match(upstream, new RegExp(`mode: ${mode}\\b`), environment);
-    }
-  }
-}, 30_000); // Four real `helm template` renders: over the 5s default on a busy host.
-
-test("both policies apply to every workload kind the webhook evaluates, not only pods", async () => {
-  const { platform, upstream } = await render("local", "warn");
-  for (const policy of [platform, upstream]) {
-    assert.doesNotMatch(policy, /^\s*match:/m);
-    assert.doesNotMatch(policy, /resource: pods/);
-  }
+beforeEach(() => {
+  vi.mocked(enrollmentExemptionErrors).mockReturnValue([]);
+  vi.mocked(registryPlan).mockReturnValue({
+    address: "registry.example:5000",
+  } as RegistryPlan);
 });
 
-test("policy controller's no-match behavior follows trust.mode: warn while auditing, deny when enforcing", async () => {
-  for (const [mode, policy] of [
-    ["warn", "warn"],
-    ["enforce", "deny"],
-  ] as const) {
-    const repository = await withTrust("local", (trust) => ({
-      ...trust,
-      mode,
-    }));
-    const component = repository.catalog.components!.find(
-      (c) => c.name === "policy-controller",
-    )!;
-    const args = helmUpgradeArgs(repository, component);
-    const at = args.indexOf(`webhook.configData.no-match-policy=${policy}`);
-    assert.notEqual(at, -1, mode);
-    assert.equal(args[at - 1], "--set-string");
-  }
+test("the policy component, and the local signer's name, are the values the chart and signing use", () => {
+  expect(imagePolicyComponent).toBe("kore-image-policy");
+  expect(localSigner).toBe("local-kore-key");
 });
 
-test("an unrecognised trust.mode never relaxes the no-match policy", async () => {
-  const repository = await withTrust("local", (trust) => ({
-    ...trust,
-    mode: "audit",
-  }));
-  const component = repository.catalog.components!.find(
-    (c) => c.name === "policy-controller",
-  )!;
-  assert.ok(
-    helmUpgradeArgs(repository, component).includes(
-      "webhook.configData.no-match-policy=deny",
+test("a key authority trusts exactly the local signer", () => {
+  expect(trustedSigners(repositoryWith({ trust: keyTrust }))).toEqual([
+    "local-kore-key",
+  ]);
+});
+
+test("a keyless authority trusts exactly its release subjects, dropping blank or non-text entries", () => {
+  const trust = { ...keylessTrust, subjects: [release, "  ", 42] };
+  expect(trustedSigners(repositoryWith({ trust }))).toEqual([release]);
+});
+
+test("an environment with no trust authority trusts no signer", () => {
+  expect(trustedSigners(repositoryWith({ trust: undefined }))).toEqual([]);
+});
+
+test("the no-match policy is warn only while the trust mode is warn, and deny for enforce", () => {
+  expect(noMatchPolicy(repositoryWith({ trust: keylessTrust }))).toBe("warn");
+  expect(
+    noMatchPolicy(
+      repositoryWith({ trust: { ...keylessTrust, mode: "enforce" } }),
     ),
-  );
+  ).toBe("deny");
 });
 
-test("upstream images get their own static policy and never widen the internal-image policy", async () => {
-  const { platform, upstream } = await render("local", "enforce");
-  // Internal images: signature required, never a static pass.
-  assert.doesNotMatch(platform, /static:/);
-  assert.match(platform, /registry\.example:5000\/\*\*/);
-  assert.doesNotMatch(platform, /proxyv2|cloudnative-pg/);
-  // Upstream images (waypoint, CloudNativePG) are named exactly, not by wildcard host.
-  assert.match(upstream, /static:\s*\n\s*action: pass/);
-  assert.match(upstream, /istio\/proxyv2/);
-  assert.match(upstream, /ghcr\.io\/cloudnative-pg\/postgresql/);
-  assert.match(upstream, /ghcr\.io\/cloudnative-pg\/cloudnative-pg\*\*/);
-  assert.doesNotMatch(upstream, /registry\.example/);
-  assert.doesNotMatch(upstream, /glob: "?(\*\*|\*)"?\s*$/m);
+test("the no-match policy fails closed to deny when the trust is missing or its mode is unknown", () => {
+  expect(noMatchPolicy(repositoryWith({ trust: undefined }))).toBe("deny");
+  expect(
+    noMatchPolicy(
+      repositoryWith({ trust: { ...keylessTrust, mode: "audit" } }),
+    ),
+  ).toBe("deny");
+});
+
+test("the registry glob is the registry address that the plan reads, followed by everything under it", () => {
+  const repository = repositoryWith({ trust: keylessTrust });
+  expect(registryGlob(repository)).toBe("registry.example:5000/**");
+  expect(vi.mocked(registryPlan).mock.calls).toEqual([
+    [repository.environment],
+  ]);
+});
+
+test("the trust errors start with the enrollment exemption errors, then the trust value errors", () => {
+  vi.mocked(enrollmentExemptionErrors).mockReturnValue(["enrollment problem"]);
+  const repository = repositoryWith({
+    trust: { ...keylessTrust, mode: "audit" },
+  });
+  expect(imageTrustErrors(repository)).toEqual([
+    "enrollment problem",
+    "image trust: mode must be warn or enforce (new environments start at warn; audit before enforce)",
+  ]);
+  expect(vi.mocked(enrollmentExemptionErrors).mock.calls).toEqual([
+    [repository],
+  ]);
+});
+
+test("a sound keyless or key authority has no image trust errors", () => {
+  expect(imageTrustErrors(repositoryWith({ trust: keylessTrust }))).toEqual([]);
+  expect(imageTrustErrors(repositoryWith({ trust: keyTrust }))).toEqual([]);
+});
+
+test("without the image policy component no trust is required, so there are no trust errors", () => {
+  const repository = repositoryWith({
+    trust: undefined,
+    components: [fakeComponent({ name: "kore-ui" })],
+  });
+  expect(imageTrustErrors(repository)).toEqual([]);
+});
+
+test("a policy component with no trust authority is rejected, naming the overlay and the environment", () => {
+  expect(imageTrustErrors(repositoryWith({ trust: undefined }))).toEqual([
+    "image trust authority is required: set trust in the kore-image-policy values overlay of environment local (type: key or keyless)",
+  ]);
+});
+
+test("a regexp identity is refused, because it would admit other workflows or branches", () => {
+  const trust = { ...keylessTrust, subjectRegExp: ".*" };
+  expect(imageTrustErrors(repositoryWith({ trust }))).toEqual([
+    "image trust: subjectRegExp is not allowed (regexp identities admit other workflows or branches); list exact subjects",
+  ]);
+});
+
+test("a trust type other than key or keyless is rejected", () => {
+  expect(
+    imageTrustErrors(
+      repositoryWith({ trust: { type: "password", mode: "warn" } }),
+    ),
+  ).toEqual(["image trust: type must be key or keyless"]);
+});
+
+test("a key authority is refused in a managed environment, which trusts only keyless identities", () => {
+  expect(
+    imageTrustErrors(repositoryWith({ trust: keyTrust, provider: "managed" })),
+  ).toEqual([
+    "image trust: managed environment local must use a keyless authority; a key authority is the local signing key and is never trusted outside the local profile",
+  ]);
+});
+
+test("a keyless authority with the wrong issuer, no subjects and a keyRef reports each problem", () => {
+  const trust = {
+    type: "keyless",
+    mode: "warn",
+    issuer: "https://example.com",
+    keyRef: { name: "x", namespace: "cosign-system" },
+  };
+  expect(imageTrustErrors(repositoryWith({ trust }))).toEqual([
+    "image trust: keyless issuer must be https://token.actions.githubusercontent.com",
+    "image trust: keyless needs at least one exact subject (the release workflow identity)",
+    "image trust: keyless authority must not also set keyRef",
+  ]);
+});
+
+test("a keyless subject that is not the exact release workflow on a release tag is rejected by value", () => {
+  const branch =
+    "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/heads/main";
+  const trust = { ...keylessTrust, subjects: [branch] };
+  expect(imageTrustErrors(repositoryWith({ trust }))).toEqual([
+    `image trust: subject ${branch} must be the exact corekraft/kore release workflow on a release tag (https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/vX.Y.Z); wildcards, branches, and pull requests are not allowed`,
+  ]);
+});
+
+test("a key authority whose key Secret is outside the policy-controller namespace is rejected naming that namespace", () => {
+  const trust = { ...keyTrust, keyRef: { name: "k", namespace: "default" } };
+  expect(imageTrustErrors(repositoryWith({ trust }))).toEqual([
+    "image trust: keyRef.namespace must be cosign-system, the policy-controller namespace; Policy Controller cannot read key Secrets elsewhere. Publish a public-key-only Secret there (the local signer does this) and reference it",
+  ]);
+});
+
+test("a key authority without a key Secret reference, or with keyless fields, is rejected", () => {
+  const trust = { ...keyTrust, keyRef: undefined, issuer: "https://x" };
+  expect(imageTrustErrors(repositoryWith({ trust }))).toEqual([
+    "image trust: key authority needs keyRef.name and keyRef.namespace (the public key Secret)",
+    "image trust: key authority must not also set keyless issuer or subjects",
+  ]);
+});
+
+test("a hand-written images list is refused, because the registry address writes the glob once", () => {
+  const trust = { ...keylessTrust, images: ["x/*"] };
+  expect(imageTrustErrors(repositoryWith({ trust }))).toEqual([
+    "image trust: images is derived from registry.address; remove it from the values overlay so the address is written once",
+  ]);
+});
+
+test("a registry glob that covers a seed is refused, because seeds are not yet signed internal digests", () => {
+  const seeds = [{ image: "registry.example:5000/kore/seed:1" }];
+  expect(
+    imageTrustErrors(repositoryWith({ trust: keylessTrust, seeds })),
+  ).toEqual([
+    "image trust: registry.address glob registry.example:5000/** covers seed registry.example:5000/kore/seed:1; seeds stay out of scope until they are rolled to signed internal digests",
+  ]);
+});
+
+test("a registry address that does not parse skips the glob check rather than reporting a guess", () => {
+  vi.mocked(registryPlan).mockImplementation(() => {
+    throw new Error("registry.address is not an address");
+  });
+  const seeds = [{ image: "registry.example:5000/kore/seed:1" }];
+  expect(
+    imageTrustErrors(repositoryWith({ trust: keylessTrust, seeds })),
+  ).toEqual([]);
 });

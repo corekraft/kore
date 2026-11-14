@@ -1,3 +1,7 @@
+// The role lists below (READ_ONLY, REPORTING, NO_CODE, ROLES) are deliberately independent of
+// guard-roles.ts: importing the registry would make the role check unable to fail. The spec checks
+// them against the registry with roleCoverage (guard-corpus.spec.ts), so drift fails in CI.
+//
 // A deterministic corpus of bypass attempts against `hook guard` (retro finding 9, #335).
 // Each case is a call the guard must refuse, with the rule that refuses it; each `ORDINARY`
 // case is a call that must keep passing. The spec runs both through the hook, in CI `check`,
@@ -226,6 +230,11 @@ export const CORPUS: readonly CorpusCase[] = [
   ...GUARD_FILES,
   ...GUARD_PATH_VARIANTS,
   ...GATED,
+  {
+    tool: "Bash",
+    input: "herdr agent start w3:p2 --permission-mode bypassPermissions",
+    rule: "bare-agent-start",
+  },
 ];
 
 export interface OrdinaryCase {
@@ -301,6 +310,18 @@ export const ORDINARY: readonly OrdinaryCase[] = [
     "echo 'see ~/.ssh docs'",
   ),
   ...ordinary(undefined, "git status", "ls *(.)", "echo hi>out.txt"),
+  ...ordinary(
+    undefined,
+    "harness session spawn --role writer --name a --brief b",
+    "node skills/bin/harness.mjs session spawn --role judge --name j --brief b --no-wait",
+  ),
+  ...ordinary(
+    undefined,
+    "echo 'herdr agent start'",
+    'git commit -m "use herdr agent start"',
+    "herdr agent prompt w3:p2 hi",
+    "herdr agent start --help",
+  ),
   { role: "writer", tool: "Write", input: "src/a.ts" },
   { role: "writer", tool: "Edit", input: "docs/index.md" },
   { role: "writer", tool: "Read", input: ".claude/hooks/guard.sh" },

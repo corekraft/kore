@@ -38,7 +38,7 @@ async function runMerge(context: CommandContext): Promise<number> {
       root,
       repo,
       pr,
-      reviewersOf(context),
+      await reviewersOf(context, repo),
     );
     await record(context, report);
     if (!report.ok || report.head === undefined || report.head === "") {
