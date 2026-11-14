@@ -43,6 +43,8 @@ describe("harness boundary", () => {
   it("reaches another domain only through its index.js (ADR 0082)", () => {
     const offenders = sources(src)
       .filter((f) => !f.endsWith(".spec.ts") && !f.endsWith("-support.ts"))
+      // The testing barrel re-exports domain fixtures for integration specs (#554, the same scope as its lint override).
+      .filter((f) => relative(f) !== "testing/index.ts")
       .flatMap((f) =>
         importSpecifiers(readFileSync(f, "utf8"))
           .filter((spec) => /^\.\.\/(?!\.)[^/]+\/(?!index\.js$)/.test(spec))
