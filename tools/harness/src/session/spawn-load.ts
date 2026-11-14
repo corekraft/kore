@@ -1,4 +1,4 @@
-import type { CliDeps } from "../runtime/index.js";
+import type { CliDeps, LoadReader } from "../runtime/index.js";
 
 /** The environment variable that sets the host load ceiling for a new writer. Unset means no ceiling. */
 export const SPAWN_MAX_LOAD = "KORE_SPAWN_MAX_LOAD";
@@ -9,7 +9,7 @@ export const SPAWN_MAX_LOAD = "KORE_SPAWN_MAX_LOAD";
  * whose load cannot be read is refused rather than treated as clear.
  */
 export function spawnLoadRefusal(
-  deps: Pick<CliDeps, "env"> & Partial<Pick<CliDeps, "hostLoad">>,
+  deps: Pick<CliDeps, "env"> & { hostLoad?: LoadReader },
 ): string | undefined {
   const setting = deps.env[SPAWN_MAX_LOAD];
   if (setting === undefined || setting === "") {
