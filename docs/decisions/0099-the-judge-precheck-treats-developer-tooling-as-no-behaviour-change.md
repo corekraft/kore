@@ -33,7 +33,7 @@ its setup, `tools/kore/integration-setup.ts`. Both only build and run tests, so
 no user or cluster observes them, but the list named neither, and the precheck
 reported such a PR as behavioural. The owner decided on 2026-11-14 to add
 exactly these two paths. `tools/kore/tsconfig.json` stays product: a compiler
-setting can change what runs. `.mise.toml` was product here too; [ADR 0101](0101-the-judge-precheck-treats-mise-toml-as-developer-tooling.md)
+setting can change what runs. `.mise.toml` was product here too; [ADR 0102](0102-the-judge-precheck-treats-mise-toml-as-developer-tooling.md)
 refines that and makes it tooling.
 
 ## Decision
@@ -51,7 +51,7 @@ Tooling is:
   `integration.yml` workflows, and `tools/kore/integration-setup.ts`, the setup
   of the integration tier.
 - `.mise.toml` at the repository root, the task wiring and tool pins of the
-  repository ([ADR 0101](0101-the-judge-precheck-treats-mise-toml-as-developer-tooling.md)).
+  repository ([ADR 0102](0102-the-judge-precheck-treats-mise-toml-as-developer-tooling.md)).
 - Test support inside `tools/kore/src`, by name: `*.fixtures.ts`,
   `*-fixtures.ts`, `*-support.ts` and the `src/testing/` domain. A production
   file with such a name slips past; the judge reads the diff.

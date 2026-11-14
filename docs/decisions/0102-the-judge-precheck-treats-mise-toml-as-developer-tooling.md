@@ -5,7 +5,7 @@ date: 2026-11-14
 last-verified: 2026-11-14
 ---
 
-# ADR 0101: The judge precheck treats .mise.toml as developer tooling
+# ADR 0102: The judge precheck treats .mise.toml as developer tooling
 
 Source: [`infra/plans/11-agent-delivery-loop.md` § Step 5](../../infra/plans/11-agent-delivery-loop.md#step-5-judge-and-merge)
 
