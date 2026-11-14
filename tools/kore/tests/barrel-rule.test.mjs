@@ -265,3 +265,45 @@ test("production code cannot load the testing domain dynamically", () => {
     { file: "src/cli/lazy.ts", line: 1, help: productionMessage },
   ]);
 });
+
+// ADR 0098: the testing barrel re-exports fakes that reach into domain
+// internals, so its one file (and no other) may deep-import a domain. The
+// override in .oxlintrc.json cannot carry this comment: that file stays plain
+// JSON, which this test parses.
+test("the testing barrel may deep-import another domain's internals", () => {
+  const result = lint({
+    "src/testing/index.ts":
+      'import { manifestImages } from "../config/manifest-images.js";\nexport { manifestImages };\n',
+  });
+
+  assert.equal(result.status, 0);
+  assert.deepEqual(result.violations, []);
+});
+
+test("a fixture beside the testing barrel still fails lint on a deep import", () => {
+  const result = lint({
+    "src/testing/app-fixtures.ts":
+      'import { manifestImages } from "../config/manifest-images.js";\nexport { manifestImages };\n',
+  });
+
+  assert.deepEqual(result.violations, [
+    {
+      file: "src/testing/app-fixtures.ts",
+      line: 1,
+      help: barrelMessage("config"),
+    },
+  ]);
+});
+
+test("the testing barrel override names only its own file and turns off only no-restricted-imports", () => {
+  const overrides = config.overrides.filter((override) =>
+    override.files.some((glob) => glob.includes("testing")),
+  );
+
+  assert.deepEqual(overrides, [
+    {
+      files: ["**/src/testing/index.ts"],
+      rules: { "no-restricted-imports": "off" },
+    },
+  ]);
+});

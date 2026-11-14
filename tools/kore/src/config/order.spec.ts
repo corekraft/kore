@@ -1,7 +1,10 @@
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { orderedComponents } from "./order.js";
 import { fakeCatalog, fakeComponent } from "./config-support.js";
 import type { Component, Phase } from "./types.js";
+
+// order.ts re-exports the readiness check; the ordering unit does not run it.
+vi.mock("./readiness.js", () => ({ readinessErrors: vi.fn() }));
 
 function component(
   name: string,

@@ -3,7 +3,7 @@ import type { ChangedFile, TrailLine } from "./diff.js";
 
 /** Developer tooling: what builds, tests, guards and ships the code, never what a user or cluster runs. ADR 0099. */
 const TOOLING_PATH =
-  /^(tools\/harness\/|\.claude\/|skills\/|tools\/kore\/(tests\/|\.husky\/|scripts\/|[^/]+\.config\.[^/]+$)|tools\/kore\/integration\/|tools\/kore\/integration-setup\.ts$|\.github\/workflows\/(check|nightly|integration)\.yml$|\.mise\.toml$)/;
+  /^(tools\/harness\/|\.claude\/|skills\/|tools\/kore\/(tests\/|\.husky\/|scripts\/|[^/]+\.config\.[^/]+$)|tools\/kore\/integration\/|tools\/kore\/integration-setup\.ts$|tools\/kore\/\.oxlintrc\.json$|\.github\/workflows\/(check|nightly|integration)\.yml$|\.mise\.toml$)/;
 
 /** Test support kept inside `tools/kore/src`, recognised by name; a production file with such a name slips past and the judge reads the diff. */
 const TEST_SUPPORT =

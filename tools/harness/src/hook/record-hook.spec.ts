@@ -4,8 +4,9 @@
 
 import { describe, expect, it } from "vitest";
 import { run } from "../cli/index.js";
-import { testHarness } from "../testing/index.js";
-import { ledgerEvents } from "./feedback-support.js";
+import { ledgerEvents, testHarness } from "../testing/index.js";
+
+/** The ledger's events from a fake file map, one JSON object per line. */
 
 async function record(payload: unknown, env: Record<string, string> = {}) {
   const h = testHarness({ env: { KORE_ROOT: "/repo", ...env } });
