@@ -9,7 +9,13 @@ vi.mock("./ledger-event.js");
 
 /** The one assertion: a fake whose members the spec never reads, passed through to the mocked ledger. */
 const asCliDeps = (parts: object) => parts as CliDeps;
-const DEPS = asCliDeps({ tag: "deps" });
+const BUNDLE = "file:///repo/skills/bin/harness.mjs";
+const runnerRun = vi.fn();
+const DEPS = asCliDeps({
+  tag: "deps",
+  bundleUrl: BUNDLE,
+  runner: { run: runnerRun },
+});
 
 /** The handler `record` was built from, read from the hookCommand call that ran when the module loaded. */
 function handlerOf() {
@@ -72,5 +78,63 @@ describe("record hook: what it ignores", () => {
 
   it("returns no output, so the host gets nothing back from the hook", async () => {
     expect(await run({ source: "startup" })).toEqual({});
+  });
+});
+
+describe("record hook: the background ledger poll", () => {
+  const POLL = [
+    "node",
+    ["/repo/skills/bin/harness.mjs", "ledger", "poll-github"],
+    { detached: true },
+  ];
+
+  it.each(["startup", "clear", "resume"])(
+    "starts `ledger poll-github` detached through the runner for a %s start",
+    async (source) => {
+      runnerRun.mockResolvedValue({ stdout: "", stderr: "", code: 0 });
+
+      await run({ source, session_id: "abc" });
+
+      expect(runnerRun.mock.calls).toEqual([POLL]);
+    },
+  );
+
+  it("prints nothing into the session context when the poll reports output or fails", async () => {
+    runnerRun.mockResolvedValue({ stdout: "polled", stderr: "rate", code: 1 });
+
+    expect(await run({ source: "startup", session_id: "abc" })).toEqual({});
+  });
+
+  it("swallows a poll that rejects, so no unhandled rejection reaches the host", async () => {
+    const unhandled = vi.fn();
+    process.on("unhandledRejection", unhandled);
+    runnerRun.mockRejectedValue(new Error("rate limited"));
+
+    expect(await run({ source: "resume", session_id: "abc" })).toEqual({});
+    await new Promise((resolve) => setImmediate(resolve));
+    process.off("unhandledRejection", unhandled);
+
+    expect(unhandled).not.toHaveBeenCalled();
+  });
+
+  it("returns the same output when the runner throws at once", async () => {
+    runnerRun.mockImplementation(() => {
+      throw new Error("spawn failed");
+    });
+
+    expect(await run({ source: "clear", session_id: "abc" })).toEqual({});
+  });
+
+  it("starts no poll for a compaction, another mode or a missing bundle", async () => {
+    await run({ source: "compact", session_id: "abc" });
+    await runMode({ source: "startup" }, "stop");
+    await handler({
+      deps: asCliDeps({ runner: { run: runnerRun } }),
+      payload: { source: "startup" },
+      options: {},
+      operand: "session-start",
+    });
+
+    expect(runnerRun).not.toHaveBeenCalled();
   });
 });
