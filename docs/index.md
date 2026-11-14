@@ -258,8 +258,9 @@ decisions; read one only when planning that area, and expect it to change.
   — ten proposed harness changes from the 2026-11-14 Pocock retro, none applied.
   Read when choosing which retro proposals to accept.
 - [`docs/retros/2026-11-14-repo-retro.md`](retros/2026-11-14-repo-retro.md) —
-  proposals from the repo retro over 436 sessions; none applied. Read before
-  changing the role guards or the writer and orchestrator agent definitions.
+  the repo retro over 436 sessions, unified with the Pocock retro into one
+  owner-decided triage; none applied yet. Read before changing the role guards
+  or the writer and orchestrator agent definitions.
 
 ## Skills
 

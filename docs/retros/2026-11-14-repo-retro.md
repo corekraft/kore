@@ -1,12 +1,73 @@
 ---
-summary: Findings of the repo-skill retro over 436 sessions from 2026-11-12 to 2026-11-14, as proposals only; none applied, the owner picks which to accept.
+summary: Findings of the repo-skill retro over 436 sessions from 2026-11-12 to 2026-11-14, unified with the Pocock retro into one triage the owner decided on #417; none applied yet.
 date: 2026-11-14
 last-verified: 2026-11-14
 ---
 
 # Repo Retro 2026-11-14
 
-These are **proposals only**. None is applied. The owner picks which to accept.
+These findings were proposals. The owner has since accepted the items below,
+recorded on #417, comment of 2026-11-14. None is applied yet; each accepted item
+goes in as its own writer PR.
+
+## Unified triage and owner decision (2026-11-14)
+
+This repo retro and the [Pocock retro](2026-11-14-pocock-retro.md) are triaged
+together. Both retros found: the role-worktree `cd` false positive, gaps in the
+read-only guard, the Monitor and ToolSearch tool-list mismatch, and repeated zsh
+quoting blocks. Only this repo retro found: scan noise from follow-up messages,
+and the scan tag miscount. Only the Pocock retro found: judge per-file diffs,
+hand-posted review verdicts, early judge spawns, `session notify` typing over
+the owner's input, missing ledger polling, pre-commit still off, and repeated
+status questions.
+
+The 12 merged items, with their status. Item numbers are the merged list's, not
+the findings' numbers below.
+
+**Accepted** (owner, #417):
+
+- 1. The role-worktree guard resolves relative paths from the hook's cwd. 1b,
+     `node -e` regexes read as paths, is deferred.
+- 2. `session notify` never submits over unsent input.
+- 3. Delete the "load Monitor via ToolSearch" line in `writer.md` and
+     `orchestrator.md`. Do not add the tools: the guard only inspects Bash. Add an
+     agent-definition tool-list test.
+- 4a. A read-only `harness judge diff <pr> [--path] [--stat]`.
+- 4b. Semicolon-joined `sed -n` print ranges.
+- 5. The retro scan counts only a block message's leading guard tag.
+- 6. The `spawn-session` skill: start follow-ups with `[orchestrator]`.
+- 7. `principles-review` ends with the exact `harness review post <pr>` command.
+     No new guard rule.
+- 8. Ledger `poll-github`, built from the existing SessionStart hook code.
+- 10a. `judge precheck` fails fast when the local harness is behind
+  `origin/main`.
+- 10b. A CI audit of the `Safety pattern:` line. Audit, not required.
+
+**Rejected:**
+
+- 4d. Allow `git fetch` for read-only roles. It writes refs into the shared
+  `.git`, and 4a removes the need.
+
+**Deferred:**
+
+- 4c. Narrow `AWK_RUNS`.
+- 4e. Read-only `gh api`.
+- 10c. The orchestrator runs precheck before spawning a judge, after #332.
+- 12. Repeated status questions. The proposal text was cut off in the retro.
+
+**Owner-only, undecided:**
+
+- 9. Zsh quote auto-rewrite through `updatedInput`. It needs an ADR; keep the
+     `zsh-quote-globs` memory.
+- 11. Restoring pre-commit (`core.hooksPath`, keeper loop pid 60557).
+
+The accepted items go in as separate writer PRs under #417, in the order a, b,
+c, e, d, f, g, h, which the owner gave as retro items 1, 2, 3, 5, 4b, 4a, 6/7,
+8, 10.
+
+## The six findings
+
+The findings below are unchanged from the scan.
 
 The retro ran on 2026-11-14 over 436 sessions from 2026-11-12 to 2026-11-14.
 Findings are listed most frequent first. The numbering and the `file:line`
@@ -84,8 +145,8 @@ Evidence as reported by the retro: counts only, no `file:line` given for the mis
 - No skill went unused.
 - No memory changes are proposed.
 
-## Needed from the owner
+## Still open
 
-Pick which items to accept. Accepted ones then go into
-`infra/plans/3-agent-harness.md` or an ADR, and `Last retrospective:` is set to
-the current UTC time. That is not done.
+The owner has decided the items above except 9 and 11. Accepted ones go into
+`infra/plans/3-agent-harness.md` or an ADR as their PRs land, and
+`Last retrospective:` is set to the current UTC time. That is not done.
