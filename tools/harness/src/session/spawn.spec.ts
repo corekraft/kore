@@ -281,4 +281,17 @@ describe("spawn launches a Sonnet writer in its worktree", () => {
       timeoutMs: 60_000,
     });
   });
+
+  it("never reports a failure or launches an Opus model, and launches a brief with the implement step", async () => {
+    vi.mocked(check).mockResolvedValue(SONNET_WRITER);
+
+    await spawn(contextOf(deps));
+
+    expect(fail).not.toHaveBeenCalled();
+    expect(launch).not.toHaveBeenCalledWith(
+      deps,
+      expect.objectContaining({ model: "claude-opus-5-5" }),
+    );
+    expect(vi.mocked(launch).mock.calls[0]?.[1].brief).toContain("Implement");
+  });
 });
