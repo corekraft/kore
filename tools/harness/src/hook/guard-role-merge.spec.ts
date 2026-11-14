@@ -125,13 +125,32 @@ describe("withSubstitutions: a command with the commands it substitutes", () => 
   });
 });
 
-describe("mergesPr: a gh command that merges a pull request", () => {
+describe("mergesPr: a gh command that merges or approves a pull request", () => {
   it.each([
     ["gh pr merge", ["gh", "pr", "merge", "12"]],
     ["gh pr merge with a repo flag", ["gh", "-R", "o/r", "pr", "merge", "12"]],
     [
       "the REST merge endpoint",
       ["gh", "api", "-X", "PUT", "repos/o/r/pulls/12/merge"],
+    ],
+    ["gh pr review", ["gh", "pr", "review", "12", "--approve"]],
+    [
+      "gh pr review with a repo flag",
+      ["gh", "--repo", "o/r", "pr", "review", "12", "--approve"],
+    ],
+    [
+      "the REST reviews endpoint",
+      ["gh", "api", "-X", "POST", "repos/o/r/pulls/12/reviews"],
+    ],
+    [
+      "a GraphQL review mutation",
+      [
+        "gh",
+        "api",
+        "graphql",
+        "-f",
+        "query=mutation { addPullRequestReview(input: {}) }",
+      ],
     ],
     ["the merge-upstream endpoint", ["gh", "api", "repos/o/r/merge-upstream"]],
     ["the merges endpoint", ["gh", "api", "repos/o/r/merges"]],
@@ -170,7 +189,7 @@ describe("mergesPr: a gh command that merges a pull request", () => {
   });
 });
 
-describe("runsJudgeTool: the judge's merge or send-back", () => {
+describe("runsJudgeTool: the judge's merge, approve or send-back", () => {
   const judge = (...args: string[]) => [
     "node",
     "skills/bin/harness.mjs",
@@ -180,6 +199,7 @@ describe("runsJudgeTool: the judge's merge or send-back", () => {
   it.each([
     ["merge", ["judge", "merge", "12"]],
     ["send-back", ["judge", "send-back", "12"]],
+    ["approve", ["judge", "approve", "12"]],
   ])("is true for the judge's %s", (_name, args) => {
     expect(runsJudgeTool(judge(...args), HARNESS)).toBe(true);
   });

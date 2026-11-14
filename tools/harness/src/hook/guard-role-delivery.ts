@@ -33,8 +33,8 @@ import { block, type Finding } from "./guard-verdict.js";
 const noMerge = (role: string, what: string): Finding =>
   block(
     "role-no-merge",
-    `${what} merges or pushes to main, but the ${role} may not merge by hand: the merge tool re-runs the precheck and merges only when it passes. ` +
-      "Instead, the judge runs `harness judge merge <pr>` or `harness judge send-back <pr> --reason <why>`; every other role reports and leaves the merge to the judge.",
+    `${what} merges, approves or pushes to main, but the ${role} may not do that by hand: the merge tool re-runs the precheck and merges only when it passes. ` +
+      "Instead, the judge approves with `harness judge approve <pr>`, then `harness judge merge <pr>`, or `harness judge send-back <pr> --reason <why>`; every other role reports and leaves the merge to the judge.",
   );
 
 const outsideWorktree = (what: string, root: string): Finding =>
@@ -84,12 +84,13 @@ const ORCHESTRATOR_HARNESS = [
 
 /**
  * The judge also runs its precheck, which reads GitHub and appends one event to the
- * shared ledger, and the merge tool and send-back, which write only through gh and that
+ * shared ledger, and the approve, merge and send-back tools, which write only through gh and that
  * same ledger (never a path of its choosing).
  */
 const JUDGE_HARNESS = [
   ...READS,
   "judge precheck",
+  "judge approve",
   "judge merge",
   "judge send-back",
   "session notify",
