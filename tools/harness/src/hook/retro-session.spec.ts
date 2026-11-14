@@ -42,6 +42,28 @@ const toolError = (
   },
 });
 
+const bashUse = (
+  line: number,
+  id: string,
+  command: string,
+): TranscriptEvent => ({
+  line,
+  type: "assistant",
+  message: {
+    content: [{ type: "tool_use", id, name: "Bash", input: { command } }],
+  },
+});
+
+const warningAttachment = (
+  line: number,
+  toolUseID: string,
+  content: string,
+): TranscriptEvent => ({
+  line,
+  type: "attachment",
+  attachment: { type: "hook_additional_context", content, toolUseID },
+});
+
 beforeEach(() => {
   vi.mocked(blocksOf).mockImplementation(
     (event) => (event.message?.content as Block[] | undefined) ?? [],
@@ -49,6 +71,63 @@ beforeEach(() => {
   vi.mocked(humanText).mockReturnValue(null);
   vi.mocked(resultText).mockImplementation((block) => String(block.content));
   vi.mocked(summarizeError).mockImplementation((text) => `summary of ${text}`);
+});
+
+describe("session analysis warnings", () => {
+  it("records each warning with its transcript line and the command of the call it warned about", () => {
+    const found = new SessionAnalysis(
+      session([
+        bashUse(3, "t1", "ls skills/*/SKILL.md"),
+        warningAttachment(
+          4,
+          "t1",
+          "[guard:bare-glob] Quote the glob so zsh does not fail the command.",
+        ),
+      ]),
+    );
+    expect(found.warnings).toEqual([
+      {
+        rule: "bare-glob",
+        toolUseId: "t1",
+        line: 4,
+        excerpt: "ls skills/*/SKILL.md",
+      },
+    ]);
+  });
+
+  it("keeps only the first line of a command, capped at 120 characters", () => {
+    const command = `${"x".repeat(200)}\nsecond line`;
+    const found = new SessionAnalysis(
+      session([
+        bashUse(2, "t1", command),
+        warningAttachment(3, "t1", "[guard:bare-glob] quote it"),
+      ]),
+    );
+    expect(found.warnings[0]?.excerpt).toBe("x".repeat(120));
+  });
+
+  it("uses the tool name as the excerpt when the warned call has no command", () => {
+    const found = new SessionAnalysis(
+      session([
+        {
+          line: 2,
+          type: "assistant",
+          message: {
+            content: [
+              {
+                type: "tool_use",
+                id: "t1",
+                name: "Edit",
+                input: { file_path: "a.ts" },
+              },
+            ],
+          },
+        },
+        warningAttachment(3, "t1", "[guard:bare-glob] quote it"),
+      ]),
+    );
+    expect(found.warnings[0]?.excerpt).toBe("Edit");
+  });
 });
 
 describe("session analysis guard blocks", () => {
