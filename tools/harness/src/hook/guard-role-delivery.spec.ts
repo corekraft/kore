@@ -1,295 +1,299 @@
-import { describe, it } from "vitest";
-import { allowed, blocked, decide } from "../testing/index.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readMayRun } from "./guard-role-allow.js";
+import {
+  mergesPr,
+  runsJudgeTool,
+  withSubstitutions,
+} from "./guard-role-merge.js";
+import { pushesByTracking, pushesToMain } from "./guard-role-push.js";
+import { takesRoute, takesWriterRoute } from "./guard-role-routes.js";
+import {
+  harnessAllowed,
+  notifiesFinish,
+  readOnly,
+  sendsToPane,
+  setsEnvironment,
+  useNotify,
+  writes,
+  wrapsCommands,
+} from "./guard-role-writes.js";
+import { commandOf, splitSegments } from "./guard-shell.js";
+import {
+  checkDelivery,
+  checkDeliveryBash,
+  runsInline,
+} from "./guard-role-delivery.js";
+import { isAbsolute, relative, resolve } from "node:path";
+import { block } from "./guard-verdict.js";
 
-const as = (agent_type: string, tool_name: string, tool_input: object) =>
-  decide({ agent_type, tool_name, tool_input });
-const bash = (role: string, command: string) => as(role, "Bash", { command });
-const write = (role: string, file_path: string) =>
-  as(role, "Write", { file_path, content: "x" });
+vi.mock("node:path");
+vi.mock("./guard-role-allow.js");
+vi.mock("./guard-role-merge.js");
+vi.mock("./guard-role-push.js");
+vi.mock("./guard-role-routes.js");
+vi.mock("./guard-role-writes.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./guard-role-writes.js")>()),
+  harnessAllowed: vi.fn(),
+  notifiesFinish: vi.fn(),
+  readOnly: vi.fn(),
+  sendsToPane: vi.fn(),
+  setsEnvironment: vi.fn(),
+  useNotify: vi.fn(),
+  writes: vi.fn(),
+  wrapsCommands: vi.fn(),
+}));
+vi.mock("./guard-shell.js");
+vi.mock("./guard-verdict.js");
 
-describe("role-read-only: the judge and orchestrator never change files", () => {
-  for (const role of ["judge", "orchestrator"]) {
-    it(`${role}: file tools and writing commands are blocked`, async () => {
-      blocked(await write(role, "/repo/a.ts"), "role-read-only");
-      blocked(
-        await as(role, "Edit", {
-          file_path: "/repo/a.ts",
-          old_string: "a",
-          new_string: "b",
-        }),
-        "role-read-only",
-      );
-      for (const command of [
-        "echo x > a.ts",
-        "cat a | tee out.txt",
-        "sed -i s/a/b/ a.ts",
-        "cp a b",
-        "mv a b",
-        "rm a",
-        "touch a",
-        "git commit -am x",
-        "git push",
-        "node -e 'process.exit(0)'",
-        "python3 -c 'print(1)'",
-      ]) {
-        blocked(await bash(role, command), "role-read-only");
-      }
-    });
+const ROOT = "/repo";
+const HARNESS_PATH = "skills/bin/harness.mjs";
 
-    it(`${role}: reading, the harness and null redirects pass`, async () => {
-      for (const command of [
-        "gh pr diff 12",
-        "gh pr checks 12",
-        "git diff main...HEAD 2>/dev/null",
-        "git log --oneline -5",
-        "node skills/bin/harness.mjs plan active > /dev/null",
-        "node skills/bin/harness.mjs flag audit",
-        "node skills/bin/harness.mjs session tier writer",
-      ]) {
-        allowed(await bash(role, command));
-      }
-    });
+const hit = (rule: string, message: string) => ({
+  action: "block" as const,
+  rule,
+  message,
+});
+
+const splitWords = (command: string) =>
+  command.split(" && ").map((s) => s.split(" "));
+const words = (tokens: readonly string[]) => ({
+  name: tokens[0] ?? "",
+  args: tokens.slice(1),
+});
+
+const join = (root: string, path: string) =>
+  path.startsWith("/") ? path : `${root}/${path}`;
+
+/** Fake relative: the rest of `to` past `from`, else `../outside`. */
+function relativeTo(from: string, to: string): string {
+  if (to === from) {
+    return "";
   }
+  return to.startsWith(`${from}/`) ? to.slice(from.length + 1) : "../outside";
+}
 
-  it("blocks inline scripts in perl and ruby and an in-place awk", async () => {
-    for (const role of ["judge", "orchestrator"]) {
-      for (const command of [
-        "perl -pi -e 's/a/b/' a.ts",
-        "perl -e 'print 1'",
-        "ruby -e 'puts 1'",
-        "awk -i inplace '{print}' a.ts",
-        "gawk -i inplace '{print}' a.ts",
-      ]) {
-        blocked(await bash(role, command), "role-read-only");
-      }
-    }
+const bash = (role: string, command: string) =>
+  checkDeliveryBash(role, command, ROOT);
+
+beforeEach(() => {
+  vi.mocked(splitSegments).mockImplementation(splitWords);
+  vi.mocked(commandOf).mockImplementation(words);
+  vi.mocked(withSubstitutions).mockImplementation(splitWords);
+  vi.mocked(resolve).mockImplementation(join);
+  vi.mocked(isAbsolute).mockImplementation((path) => path.startsWith("/"));
+  vi.mocked(relative).mockImplementation(relativeTo);
+  for (const check of [mergesPr, pushesToMain, takesRoute, takesWriterRoute]) {
+    vi.mocked(check).mockReturnValue(false);
+  }
+  vi.mocked(pushesByTracking).mockReturnValue(false);
+  vi.mocked(runsJudgeTool).mockReturnValue(false);
+  vi.mocked(readMayRun).mockReturnValue(true);
+  vi.mocked(harnessAllowed).mockReturnValue(true);
+  vi.mocked(notifiesFinish).mockReturnValue(true);
+  vi.mocked(sendsToPane).mockReturnValue(false);
+  vi.mocked(setsEnvironment).mockReturnValue(false);
+  vi.mocked(writes).mockReturnValue(false);
+  vi.mocked(wrapsCommands).mockReturnValue(false);
+  vi.mocked(readOnly).mockImplementation((what) =>
+    hit("role-read-only", `${what} changes files`),
+  );
+  vi.mocked(useNotify).mockImplementation((what) =>
+    hit("role-read-only", `${what} types into a pane; session notify`),
+  );
+  vi.mocked(block).mockImplementation(hit);
+});
+
+describe("runsInline: an interpreter given code, or an editor told to edit in place", () => {
+  it.each([
+    ["node -e", ["node", "-e", "x"]],
+    ["python3 -c", ["python3", "-c", "x"]],
+    ["perl -pi", ["perl", "-pi", "x"]],
+    ["ruby -e", ["ruby", "-e", "x"]],
+    ["awk -i inplace", ["awk", "-i", "inplace", "x"]],
+  ])("is true for %s", (_name, segment) => {
+    expect(runsInline(segment)).toBe(true);
+  });
+
+  it("is false for a script file run as a script", () => {
+    expect(runsInline(["node", "build.mjs"])).toBe(false);
   });
 });
 
-describe("role-read-only: the harness is allowlisted per role", () => {
-  const MUTATING = [
-    "flag activate remote-thing --environment local",
-    "plan tick --item x",
-    "plan next --text x",
-    "adr new --title x",
-    "adr supersede --old 1 --new 2",
-    "idea new --title x",
-    "ledger record --kind outcome",
-    "hook guard",
-    "session spawn --role writer --name a --brief b",
-  ];
-
-  it("blocks the judge from every command that changes a file or launches a pane", async () => {
-    for (const rest of [
-      ...MUTATING,
-      "session wait a",
-      "session close a",
-      "outcome record --idea 1",
-      "outcome close --idea 1",
-      "idea sync --idea 1",
-    ]) {
-      blocked(
-        await bash("judge", `node skills/bin/harness.mjs ${rest}`),
-        "role-read-only",
-      );
-    }
+describe("checkDelivery: a tool other than Bash", () => {
+  it("refuses a file write by a reporting role, which changes no file", () => {
+    expect(
+      checkDelivery("judge", "Write", { file_path: "a.md" }, ROOT),
+    ).toEqual(hit("role-read-only", "Write changes files"));
   });
 
-  it("blocks the orchestrator from commands outside its job", async () => {
-    for (const rest of MUTATING.filter((c) => !c.startsWith("session"))) {
-      blocked(
-        await bash("orchestrator", `node skills/bin/harness.mjs ${rest}`),
-        "role-read-only",
-      );
-    }
+  it("allows a writer's write inside its worktree, relative or absolute", () => {
+    expect(
+      checkDelivery("writer", "Edit", { file_path: "docs/a.md" }, ROOT),
+    ).toBeNull();
+    expect(
+      checkDelivery("writer", "Edit", { file_path: `${ROOT}/a.md` }, ROOT),
+    ).toBeNull();
   });
 
-  it("lets the orchestrator run the session commands and the outcome and idea commands its job needs", async () => {
-    for (const rest of [
-      "session spawn --role writer --name a --brief b --worktree --no-wait",
-      "session wait a",
-      "session close a",
-      "session tier writer",
-      "session equalize",
-      "idea sync --idea 1",
-      "outcome record --idea 1 --kind verification",
-      "outcome close --idea 1",
-      "idea show --idea 1",
-    ]) {
-      allowed(
-        await bash("orchestrator", `node skills/bin/harness.mjs ${rest}`),
-      );
-    }
+  it("refuses a writer's write outside its worktree, but not scratch space in tmp", () => {
+    expect(
+      checkDelivery("writer", "Write", { file_path: "/etc/hosts" }, ROOT),
+    ).toMatchObject({
+      rule: "role-worktree",
+    });
+    expect(
+      checkDelivery("writer", "Write", { file_path: "/tmp/x" }, ROOT),
+    ).toBeNull();
   });
 
-  it("does not trust another path to a harness bundle or a prefix of an allowed command", async () => {
-    for (const role of ["judge", "orchestrator"]) {
-      blocked(
-        await bash(role, "node /tmp/x/skills/bin/harness.mjs plan active"),
-        "role-read-only",
-      );
-      blocked(
-        await bash(role, "node skills/bin/harness.mjs plan tick-all"),
-        "role-read-only",
-      );
-    }
+  it("passes a tool that writes no file", () => {
+    expect(
+      checkDelivery("writer", "Read", { file_path: "/etc/hosts" }, ROOT),
+    ).toBeNull();
   });
 });
 
-describe("role-worktree: a writer works only in its own worktree", () => {
-  it("blocks files outside the worktree, through .., and in the main checkout", async () => {
-    blocked(await write("writer", "/elsewhere/kore/a.ts"), "role-worktree");
-    blocked(await write("writer", "/repo/../main/a.ts"), "role-worktree");
-    blocked(
-      await as("writer", "Edit", {
-        file_path: "/elsewhere/a.ts",
-        old_string: "a",
-        new_string: "b",
-      }),
-      "role-worktree",
+describe("checkDeliveryBash: the merge and push routes every role refuses", () => {
+  it.each([
+    ["a merge", mergesPr],
+    ["a push to main", pushesToMain],
+    ["a route past the ruleset", takesRoute],
+  ])("blocks %s for the writer and every reporting role", (_name, check) => {
+    vi.mocked(check).mockReturnValue(true);
+    for (const role of ["writer", "orchestrator", "judge"]) {
+      expect(bash(role, "gh pr merge 1")).toMatchObject({
+        rule: "role-no-merge",
+      });
+    }
+  });
+
+  it("blocks a judge command by anyone but the judge", () => {
+    vi.mocked(runsJudgeTool).mockReturnValue(true);
+
+    expect(
+      bash("orchestrator", "node skills/bin/harness.mjs judge merge 1"),
+    ).toMatchObject({
+      rule: "role-no-merge",
+    });
+    expect(
+      bash("judge", "node skills/bin/harness.mjs judge merge 1"),
+    ).toBeNull();
+  });
+
+  it("blocks a writer's route only the writer's shell reaches, but leaves a reporting role to its allowlist", () => {
+    vi.mocked(takesWriterRoute).mockReturnValue(true);
+
+    expect(bash("writer", "gh auth token")).toMatchObject({
+      rule: "role-no-merge",
+    });
+    expect(bash("judge", "gh auth token")).toBeNull();
+  });
+
+  it("blocks a push that tracks main for the writer, which the reporting roles never make", () => {
+    vi.mocked(pushesByTracking).mockReturnValue(true);
+
+    expect(bash("writer", "git push")).toMatchObject({ rule: "role-no-merge" });
+    expect(bash("judge", "git push")).toBeNull();
+  });
+});
+
+describe("checkDeliveryBash: a reporting role's shell", () => {
+  it("refuses a command or process substitution", () => {
+    expect(bash("judge", "echo $(ls)")).toMatchObject({
+      rule: "role-read-only",
+    });
+  });
+
+  it("refuses a command that wraps or launches others", () => {
+    vi.mocked(wrapsCommands).mockReturnValue(true);
+
+    expect(bash("orchestrator", "xargs cat")).toMatchObject({
+      rule: "role-read-only",
+    });
+  });
+
+  it("refuses a segment that sets an environment variable or changes shell state", () => {
+    vi.mocked(setsEnvironment).mockReturnValue(true);
+
+    expect(bash("judge", "KORE_ROOT=/x cat f")).toMatchObject({
+      rule: "role-read-only",
+    });
+  });
+
+  it("refuses a segment the read allowlist does not list, naming it in the finding", () => {
+    vi.mocked(readMayRun).mockReturnValue(false);
+
+    expect(bash("judge", "rm f")).toEqual(
+      hit("role-read-only", "`rm f` changes files"),
     );
   });
 
-  it("blocks shell commands that write, cd or run git outside the worktree", async () => {
-    for (const command of [
-      "cp a /elsewhere/b",
-      "mv a /elsewhere/b",
-      "rm /elsewhere/b",
-      "touch /elsewhere/b",
-      "echo x > /elsewhere/b",
-      "echo x >/elsewhere/b",
-      "cat a | tee /elsewhere/b",
-      "mkdir ../sibling",
-      "git -C /elsewhere commit -am x",
-      "cd /elsewhere && git push",
-      'node -e \'require("fs").writeFileSync("/elsewhere/b", "x")\'',
-    ]) {
-      blocked(await bash("writer", command), "role-worktree");
-    }
+  it("refuses a write, and a harness command the role does not list", () => {
+    vi.mocked(writes).mockReturnValue(true);
+    expect(bash("judge", "tee out")).toMatchObject({ rule: "role-read-only" });
+
+    vi.mocked(writes).mockReturnValue(false);
+    vi.mocked(harnessAllowed).mockReturnValue(false);
+    expect(bash("judge", `node ${HARNESS_PATH} idea new`)).toMatchObject({
+      rule: "role-read-only",
+    });
   });
 
-  it("allows work inside the worktree and scratch space in tmp", async () => {
-    allowed(await write("writer", "/repo/tools/a.ts"));
-    allowed(await write("writer", "tools/a.ts"));
-    for (const command of [
-      "git commit -am x",
-      "git push -u origin HEAD",
-      "git -C /repo status",
-      "cd /repo/tools/harness && npx vitest run",
-      "echo x > notes.md",
-      "cp a /repo/b",
-      "echo x > /tmp/scratch.txt",
-      "node -e 'process.exit(0)'",
-      "npx vitest run 2>/dev/null",
-    ]) {
-      allowed(await bash("writer", command));
-    }
-  });
-});
+  it("points raw pane input at the finish notice", () => {
+    vi.mocked(sendsToPane).mockReturnValue(true);
 
-describe("role-read-only: the judge precheck", () => {
-  it("lets the judge run its precheck, and not the orchestrator", async () => {
-    allowed(
-      await bash(
-        "judge",
-        "node skills/bin/harness.mjs judge precheck 42 --json",
-      ),
-    );
-    blocked(
-      await bash(
+    expect(bash("orchestrator", "herdr pane send-text w3:p1 x")).toMatchObject({
+      message: expect.stringContaining("session notify"),
+    });
+  });
+
+  it("refuses a session notify that is not the one finish notice", () => {
+    vi.mocked(notifiesFinish).mockReturnValue(false);
+
+    expect(
+      bash(
         "orchestrator",
-        "node skills/bin/harness.mjs judge precheck 42",
+        `node ${HARNESS_PATH} session notify w3:p1 --outcome maybe`,
       ),
-      "role-read-only",
-    );
+    ).toMatchObject({
+      rule: "role-read-only",
+    });
   });
 
-  it("blocks the judge from choosing where the precheck writes with --ledger", async () => {
-    for (const flag of [
-      "--ledger AGENTS.md",
-      "--ledger=AGENTS.md",
-      "--json --ledger /tmp/x",
-    ]) {
-      blocked(
-        await bash(
-          "judge",
-          `node skills/bin/harness.mjs judge precheck 42 ${flag}`,
-        ),
-        "role-read-only",
-      );
-    }
-  });
-
-  it("blocks a judge or orchestrator command that sets an environment variable, such as KORE_ROOT", async () => {
-    for (const role of ["judge", "orchestrator"]) {
-      for (const command of [
-        "KORE_ROOT=/anywhere node skills/bin/harness.mjs judge precheck 42",
-        "KORE_ROOT=/anywhere node skills/bin/harness.mjs ledger list",
-        "env KORE_ROOT=/anywhere node skills/bin/harness.mjs plan active",
-        "sudo node skills/bin/harness.mjs plan active",
-        "time node skills/bin/harness.mjs plan active",
-        "command node skills/bin/harness.mjs plan active",
-        "cd /tmp && KORE_ROOT=/x node skills/bin/harness.mjs plan active",
-        "export KORE_ROOT=/x; node skills/bin/harness.mjs judge precheck 42",
-        "export KORE_ROOT=/x && node skills/bin/harness.mjs judge precheck 42",
-        "declare -x KORE_ROOT=/x; node skills/bin/harness.mjs judge precheck 42",
-        "typeset -x KORE_ROOT=/x; node skills/bin/harness.mjs plan active",
-        "source ./env.sh; node skills/bin/harness.mjs plan active",
-        ". ./env.sh && node skills/bin/harness.mjs plan active",
-        "alias node='echo'; node skills/bin/harness.mjs plan active",
-        "unset KORE_ROOT; node skills/bin/harness.mjs plan active",
-      ]) {
-        blocked(await bash(role, command), "role-read-only");
-      }
-    }
-  });
-
-  it("still lets a writer set a variable for a test run, since no harness allowlist applies to it", async () => {
-    allowed(await bash("writer", "KORE_TEST_WORKERS=2 npx vitest run"));
-    allowed(await bash("judge", "grep export README.md"));
+  it("allows a read the allowlist lists, and returns no finding", () => {
+    expect(bash("judge", "git log -n 3")).toBeNull();
   });
 });
 
-describe("role-read-only: the judge and orchestrator run plain commands only", () => {
-  const H = "node skills/bin/harness.mjs judge precheck 42";
-  const SHELL_FORMS = [
-    `( export KORE_ROOT=/x; ${H} )`,
-    `(export KORE_ROOT=/x; ${H})`,
-    `{ export KORE_ROOT=/x; ${H}; }`,
-    `echo $(KORE_ROOT=/x ${H})`,
-    `echo \`${H}\``,
-    `cat <(${H})`,
-    `eval 'export KORE_ROOT=/x'; ${H}`,
-    `builtin export KORE_ROOT=/x; ${H}`,
-    `bash -c 'KORE_ROOT=/x ${H}'`,
-    `sh -c 'KORE_ROOT=/x ${H}'`,
-    `zsh -c 'KORE_ROOT=/x ${H}'`,
-    `echo 42 | xargs env KORE_ROOT=/x node skills/bin/harness.mjs judge precheck`,
-    `timeout 5 env KORE_ROOT=/x ${H}`,
-    `nice ${H}`,
-    `if true; then export KORE_ROOT=/x; fi; ${H}`,
-    `! export KORE_ROOT=/x; ${H}`,
-    `for i in 1; do export KORE_ROOT=/x; done; ${H}`,
-    `while true; do ${H}; done`,
-  ];
-
-  for (const role of ["judge", "orchestrator"]) {
-    it(`${role}: every shell form that could hide an environment change is blocked`, async () => {
-      for (const command of SHELL_FORMS) {
-        blocked(await bash(role, command), "role-read-only");
-      }
+describe("checkDeliveryBash: a writer's shell and the worktree", () => {
+  it("refuses a cd or git -C that leaves the worktree", () => {
+    expect(bash("writer", "cd /etc")).toMatchObject({ rule: "role-worktree" });
+    expect(bash("writer", "git -C /other status")).toMatchObject({
+      rule: "role-worktree",
     });
-  }
+  });
 
-  it("ordinary judge commands still pass", async () => {
-    for (const command of [
-      `${H} --reviewer r --json`,
-      "node skills/bin/harness.mjs ledger list",
-      "gh pr view 42 --json body",
-      "git log --oneline -5",
-      "gh pr checks 42 && git status",
-    ]) {
-      allowed(await bash("judge", command));
-    }
+  it("refuses a write to an absolute path outside the worktree", () => {
+    vi.mocked(writes).mockReturnValue(true);
+
+    expect(bash("writer", "tee /etc/hosts")).toMatchObject({
+      rule: "role-worktree",
+    });
+  });
+
+  it("allows a write inside the worktree or to scratch space in tmp", () => {
+    vi.mocked(writes).mockReturnValue(true);
+
+    expect(bash("writer", "tee docs/a.md")).toBeNull();
+    expect(bash("writer", "tee /tmp/x")).toBeNull();
+  });
+
+  it("ignores a path inside a word with whitespace, such as a commit message", () => {
+    vi.mocked(writes).mockReturnValue(true);
+    const message = ["git", "commit", "-m", "see /etc/x"];
+    vi.mocked(splitSegments).mockReturnValue([message]);
+    vi.mocked(withSubstitutions).mockReturnValue([message]);
+
+    expect(bash("writer", "git commit")).toBeNull();
   });
 });

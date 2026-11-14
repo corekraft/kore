@@ -2,8 +2,8 @@
 // Docs: infra/plans/4-knowledge.md#step-3-knowledge-health-check
 
 import { describe, expect, it } from "vitest";
-import { run } from "../cli/index.js";
-import { testHarness } from "../testing/index.js";
+import { run } from "../../src/cli/index.js";
+import { testHarness } from "../../src/testing/index.js";
 
 const CLEAN = { "docs/index.md": "# Index\n", "README.md": "# Kore\n" };
 const BROKEN = { ...CLEAN, "README.md": "# Kore\n\n[gone](missing.md)\n" };

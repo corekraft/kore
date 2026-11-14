@@ -1,10 +1,13 @@
-import { healthyWebhookOutput } from "../testing/index.js";
+import { healthyWebhookOutput } from "../../src/testing/index.js";
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { loadRepository } from "../config/index.js";
-import { CommandError, type Runner } from "../runtime/index.js";
-import { type RunOptions, type RunResult } from "../runtime/index.js";
-import { reconcileComponent, recoverUndeployedRelease } from "./reconcile.js";
+import { loadRepository } from "../../src/config/index.js";
+import { CommandError, type Runner } from "../../src/runtime/index.js";
+import { type RunOptions, type RunResult } from "../../src/runtime/index.js";
+import {
+  reconcileComponent,
+  recoverUndeployedRelease,
+} from "../../src/testing/index.js";
 
 const notFound = () =>
   new CommandError("helm", ["history"], {

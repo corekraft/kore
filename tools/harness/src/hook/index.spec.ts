@@ -28,4 +28,21 @@ describe("the hook registry", () => {
   it("runs harness hook unit-specs as the one-spec check", () => {
     expect(hook["unit-specs"]).toBe(specs);
   });
+
+  it("registers exactly the hooks the host runs, under the names it runs them by", () => {
+    expect(Object.keys(hook).sort()).toEqual([
+      "context",
+      "delta",
+      "feedback",
+      "guard",
+      "kb-check",
+      "record",
+      "retro-scan",
+      "skill-links",
+      "statusline",
+      "test-budget",
+      "unit-specs",
+      "workflow-permissions",
+    ]);
+  });
 });

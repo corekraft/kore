@@ -113,6 +113,18 @@ export {
 export type { FakeEvent } from "../platform/fail-fast.fixtures.js";
 export { bootstrapControllers } from "../platform/bootstrap.js";
 export { enrollPlatformNamespaces } from "../platform/enrollment.js";
-export { platformStatus } from "../platform/status.js";
 export { managedNamespaces } from "../platform/gated-release.js";
 export { currentGateParameters } from "../platform/admission-gate-support.js";
+// Platform units that the integration specs of Helm, reconcile and patches run
+// together (plan 14, #424). Production code never imports it, so the platform
+// barrel stays as it is.
+export { desiredFingerprint } from "../platform/fingerprint.js";
+export { platformStatus } from "../platform/status.js";
+export { platformRender } from "../platform/render.js";
+export {
+  helmEnv,
+  helmTemplateArgs,
+  helmUpgradeArgs,
+} from "../platform/helm.js";
+export { recoverUndeployedRelease } from "../platform/reconcile.js";
+export type { ProbePatch } from "../platform/patches.js";

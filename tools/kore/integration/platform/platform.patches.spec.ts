@@ -2,13 +2,17 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "vitest";
-import { loadRepository, validateRepository } from "../config/index.js";
-import type { Component, Repository } from "../config/index.js";
-import type { Runner } from "../runtime/index.js";
-import { desiredFingerprint } from "./fingerprint.js";
-import { helmEnv, helmTemplateArgs, helmUpgradeArgs } from "./helm.js";
-import type { ProbePatch } from "./patches.js";
-import { platformRender } from "./render.js";
+import { loadRepository, validateRepository } from "../../src/config/index.js";
+import type { Component, Repository } from "../../src/config/index.js";
+import type { Runner } from "../../src/runtime/index.js";
+import { desiredFingerprint } from "../../src/testing/index.js";
+import {
+  helmEnv,
+  helmTemplateArgs,
+  helmUpgradeArgs,
+} from "../../src/testing/index.js";
+import type { ProbePatch } from "../../src/testing/index.js";
+import { platformRender } from "../../src/testing/index.js";
 
 const patch: ProbePatch = {
   target: { kind: "Deployment", name: "cloudnative-pg", container: "manager" },

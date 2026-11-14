@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
-import { test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { applyProbePatches, type ProbePatch } from "./patches.js";
+
+// The config barrel's only value this unit reads is the probe names constant (ADR 0098).
+vi.mock("../config/index.js", () => ({
+  probeNames: ["livenessProbe", "readinessProbe", "startupProbe"],
+}));
 
 const stream = `---
 # Source: cloudnative-pg/templates/deployment.yaml
@@ -49,6 +54,33 @@ const patch: ProbePatch = {
     readinessProbe: { timeoutSeconds: 5 },
   },
 };
+
+const deployment = (containers: string) =>
+  `kind: Deployment\nmetadata:\n  name: cloudnative-pg\nspec:\n  template:\n    spec:\n${containers}`;
+
+test.each([
+  ["has no containers key", deployment("      args: []\n")],
+  [
+    "has containers that are not a list",
+    deployment("      containers:\n        name: manager\n"),
+  ],
+])(
+  "a workload whose manifest %s fails loudly, naming the missing container",
+  (_case, manifest) => {
+    expect(() => applyProbePatches(manifest, [patch])).toThrow(
+      /not found in the rendered chart/,
+    );
+  },
+);
+
+test("a probe key with no block under it fails loudly rather than being patched", () => {
+  const manifest = deployment(
+    "      containers:\n      - name: manager\n        livenessProbe:\n        readinessProbe:\n          timeoutSeconds: 1\n",
+  );
+  expect(() => applyProbePatches(manifest, [patch])).toThrow(
+    /livenessProbe is not a block mapping/,
+  );
+});
 
 test("a patch adds missing probe fields and replaces existing ones in the targeted container only", () => {
   const out = applyProbePatches(stream, [patch]);
