@@ -100,7 +100,7 @@ it("runs the integration tier in the nightly workflow, so its result shows in th
   expect(nightly).toMatch(/^\s+run: mise run test-integration$/m);
 });
 
-it("runs the tier in the merge check for a change to the commit hooks or the hook scripts and tests, and for no other agent configuration", () => {
+it("runs the tier in the merge check for a change to the commit hooks, the hook scripts and tests, or any product tooling that has integration specs, and for no agent configuration or docs", () => {
   const workflow = readFileSync(
     join(repo, ".github/workflows/integration.yml"),
     "utf8",
@@ -114,19 +114,23 @@ it("runs the tier in the merge check for a change to the commit hooks or the hoo
     ".claude/evals/eval.test.mjs",
     "tools/kore/.husky/pre-commit",
     "tools/harness/src/hook/guard.ts",
+    "tools/harness/src/flow/report.ts",
+    "tools/harness/src/judge/verdict.ts",
+    "tools/harness/package.json",
+    "tools/kore/src/runtime/runner.ts",
+    ".github/workflows/integration.yml",
   ]) {
     expect(triggers.test(path), path).toBe(true);
   }
-  // Coverage trade-off (owner decision): these run no tier in the merge check; the
-  // nightly integration job covers them after merge.
+  // Agent configuration and docs run no tier in the merge check; the nightly
+  // integration job covers them after merge.
   for (const path of [
     ".claude/settings.json",
     ".claude/agents/reviewer.md",
     "skills/handoff/SKILL.md",
     ".codex/config.toml",
-    "tools/kore/src/runtime/runner.ts",
-    "tools/harness/src/judge/verdict.ts",
     "docs/index.md",
+    "tools/other/src/x.ts",
   ]) {
     expect(triggers.test(path), path).toBe(false);
   }

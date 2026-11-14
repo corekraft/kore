@@ -803,8 +803,8 @@
           <article class="tile lead">
             <h3>One home for every app</h3>
             <p>
-              Every app, the operator's own or a tenant's, runs on the same
-              platform under the same contracts. Nothing is a one-off.
+              Nothing is a one-off: services follow one contract, and the
+              platform components outside it are a listed, recorded set.
             </p>
             <div class="chips">
               <a
@@ -2307,7 +2307,19 @@
               that reach HTTPS and scale 1→N; Backstage shows them; people are
               signed in through the platform Keycloak; each delivered service
               shows its default dashboard and alerts with no setup; alerts
-              notify-only until thresholds are measured.
+              notify-only until thresholds are measured. The time from a merged
+              <code>Service</code> change with a signed digest to a working
+              HTTPS address is recorded over several runs, per stage: namespace,
+              sync, admission, certificate, rollout, readiness; the tenant's own
+              build is excluded, and first-ever (cold) services are reported
+              separately from redeploys. The golden-path frontend's p95 at the
+              Gateway is recorded with
+              <a
+                href="https://github.com/corekraft/kore/blob/main/infra/plans/13-agentgateway-ingress.md"
+                >plan 13</a
+              >'s load harness, which reports CPU, memory, and requests per
+              second today, so a p95 measurement is still to be added to it.
+              Both are baselines, not targets.
             </p>
           </li>
           <li class="horizon">
@@ -2372,6 +2384,37 @@
                 A new golden-path BFF also shows traces in those dashboards with
                 no code. Services in other languages get edge spans and metrics
                 until they emit OTLP.
+              </li>
+              <li>
+                Each horizon's proof settles inside the default local Docker VM
+                with stated headroom. Headroom is measured per horizon from a
+                Now baseline, the way
+                <a
+                  href="https://github.com/corekraft/kore/blob/main/infra/plans/9-k3d-local-cluster.md"
+                  >plan 9</a
+                >'s Machine load section measured it. If a horizon exceeds it,
+                the per-tenant component ADRs (<a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0040-keycloak-human-identity.md"
+                  >0040</a
+                >,
+                <a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0041-backstage-and-argo-cd-per-tenant.md"
+                  >0041</a
+                >,
+                <a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0050-tenant-telemetry-isolation.md"
+                  >0050</a
+                >) are revisited while still proposed.
+              </li>
+              <li>
+                On the golden-path service, a browser test finds no access or
+                refresh token readable by script: local and session storage,
+                non-HttpOnly cookies, response bodies visible to the page, URLs
+                and redirects. Every session cookie is host-only,
+                <code>HttpOnly</code>, <code>Secure</code>, and
+                <code>SameSite</code>. It runs on the local HTTPS host as an
+                opt-in live test, with a unit-level assertion on the template's
+                cookie and response settings that gates commits.
               </li>
               <li>
                 Every workload in every tenant runs by signed digest; no secret
