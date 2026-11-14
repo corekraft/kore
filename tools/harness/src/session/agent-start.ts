@@ -13,12 +13,22 @@ const START_BUDGET_MS = 60_000;
 /** A host load average this far above 1 per step doubles the pause, so a busier host waits longer. */
 const LOAD_PER_STEP = 8;
 
+/** The exit code of a command that its own timeout ended (the coreutils `timeout` convention). */
+const TIMEOUT_EXIT_CODE = 124;
 /**
- * Whether a failed start says it timed out. herdr's own wording is not pinned
- * in this repository, so this matches the common forms of the word.
+ * herdr's timeout error, as it prints it when an agent does not reach the
+ * status it waits for: a JSON error whose code is "timeout". Seen in session
+ * transcripts from `herdr agent prompt`; no transcript shows `agent start`
+ * printing it, so a live timed-out start should confirm the wording.
  */
+const HERDR_TIMEOUT = /"code":\s*"timeout"|timed out waiting for agent status/;
+
+/** Whether a failed start timed out (herdr's timeout error, or the timeout exit code), not a fast failure. */
 function timedOut(result: RunResult): boolean {
-  return /time ?d? ?out/i.test(`${result.stdout}\n${result.stderr}`);
+  return (
+    result.code === TIMEOUT_EXIT_CODE ||
+    HERDR_TIMEOUT.test(`${result.stdout}\n${result.stderr}`)
+  );
 }
 
 /**
@@ -78,7 +88,7 @@ function loadNote(load: number): string {
  * failure, the host load and what to do. An error message, or undefined on success.
  */
 export async function startAgent(
-  deps: CliDeps,
+  deps: Pick<CliDeps, "runner" | "clock" | "hostLoad">,
   args: readonly string[],
 ): Promise<string | undefined> {
   let last = "";
@@ -116,7 +126,7 @@ export async function startAgent(
  * unverified with the reason, never as a pass.
  */
 export async function checkModel(
-  deps: CliDeps,
+  deps: Pick<CliDeps, "runner" | "clock">,
   name: string,
   model: string,
 ): Promise<ModelCheck | { mismatch: string }> {

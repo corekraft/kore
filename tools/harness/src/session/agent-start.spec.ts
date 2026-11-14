@@ -16,11 +16,10 @@ const failure = (n: number): RunResult => ({
   stdout: "",
   stderr: `try ${n}`,
 });
-const timedOut = (n: number): RunResult => ({
-  code: 1,
-  stdout: "",
-  stderr: `timed out, try ${n}`,
-});
+/** herdr's timeout error, exactly as a session transcript shows it. */
+const HERDR_TIMEOUT =
+  '{"error":{"code":"timeout","message":"timed out waiting for agent status"}}';
+const TIMED_OUT: RunResult = { code: 1, stdout: "", stderr: HERDR_TIMEOUT };
 
 /**
  * Fake deps: the runner answers each call with the next result (the last one
@@ -39,14 +38,12 @@ function fakeDeps(results: readonly RunResult[], hostLoad?: HostLoad) {
     time += ms;
     return Promise.resolve();
   });
-  const parts: Pick<CliDeps, "runner" | "clock"> &
-    Partial<Pick<CliDeps, "hostLoad">> = {
+  const deps: Pick<CliDeps, "runner" | "clock" | "hostLoad"> = {
     runner: { run },
     clock: { now: () => new Date(time), sleep },
     ...(hostLoad === undefined ? {} : { hostLoad }),
   };
-  // The one cast: fakes set only the parts these units touch, and CliDeps' rest is never read.
-  return { deps: parts as CliDeps, run, sleep };
+  return { deps, run, sleep };
 }
 
 /** A host load reader that answers the same one-minute average on every read. */
@@ -100,14 +97,26 @@ describe("startAgent retries a fast failure exactly as before", () => {
     expect(s.sleep.mock.calls).toEqual(Array.from({ length: 9 }, () => [1000]));
     expect(hostLoad.oneMinute).not.toHaveBeenCalled();
   });
+
+  it("keeps the fast path for a failure that is not a timeout, even one naming the pane busy", async () => {
+    const s = fakeDeps(
+      Array.from({ length: 10 }, () => ({
+        code: 1,
+        stdout: "",
+        stderr: '{"error":{"code":"agent_pane_busy"}}',
+      })),
+      loadAt(40),
+    );
+    expect(await startAgent(s.deps, START)).toBe(
+      'herdr agent start failed after 10 tries: described {"error":{"code":"agent_pane_busy"}}',
+    );
+    expect(s.sleep.mock.calls).toEqual(Array.from({ length: 9 }, () => [1000]));
+  });
 });
 
 describe("startAgent backs off once a start times out", () => {
   it("pauses one, two and four seconds across three timed-out tries, then returns success", async () => {
-    const s = fakeDeps(
-      [timedOut(1), timedOut(2), timedOut(3), started],
-      loadAt(0.5),
-    );
+    const s = fakeDeps([TIMED_OUT, TIMED_OUT, TIMED_OUT, started], loadAt(0.5));
     expect(await startAgent(s.deps, START)).toBeUndefined();
     expect(s.run).toHaveBeenCalledTimes(4);
     expect(s.sleep.mock.calls).toEqual([[1000], [2000], [4000]]);
@@ -115,11 +124,11 @@ describe("startAgent backs off once a start times out", () => {
 
   it("doubles the pause and gives up once the total wait would pass sixty seconds", async () => {
     const s = fakeDeps(
-      Array.from({ length: 10 }, (_, i) => timedOut(i + 1)),
+      Array.from({ length: 10 }, () => TIMED_OUT),
       loadAt(0.5),
     );
     expect(await startAgent(s.deps, START)).toBe(
-      "herdr agent start failed after 7 tries over 60 s of waiting: described timed out, try 7. The host 1-minute load average is 0.50, so the pane may not have started in time under load. Wait for the load to fall, then spawn again.",
+      `herdr agent start failed after 7 tries over 60 s of waiting: described ${HERDR_TIMEOUT}. The host 1-minute load average is 0.50, so the pane may not have started in time under load. Wait for the load to fall, then spawn again.`,
     );
     expect(s.run).toHaveBeenCalledTimes(7);
     expect(s.sleep.mock.calls).toEqual(BACKOFF_SLEEPS);
@@ -127,40 +136,64 @@ describe("startAgent backs off once a start times out", () => {
 
   it("scales each pause with the host load, so a busy host waits longer", async () => {
     const s = fakeDeps(
-      Array.from({ length: 10 }, (_, i) => timedOut(i + 1)),
+      Array.from({ length: 10 }, () => TIMED_OUT),
       loadAt(40),
     );
     expect(await startAgent(s.deps, START)).toBe(
-      "herdr agent start failed after 5 tries over 60 s of waiting: described timed out, try 5. The host 1-minute load average is 40.00, so the pane may not have started in time under load. Wait for the load to fall, then spawn again.",
+      `herdr agent start failed after 5 tries over 60 s of waiting: described ${HERDR_TIMEOUT}. The host 1-minute load average is 40.00, so the pane may not have started in time under load. Wait for the load to fall, then spawn again.`,
     );
     expect(s.run).toHaveBeenCalledTimes(5);
     expect(s.sleep.mock.calls).toEqual([[5000], [10000], [20000], [25000]]);
   });
 
+  it("treats herdr's timeout error, pinned as a session transcript shows it, as a timeout", async () => {
+    const s = fakeDeps([TIMED_OUT, started], loadAt(0.5));
+    expect(await startAgent(s.deps, START)).toBeUndefined();
+    expect(s.sleep.mock.calls).toEqual([[1000]]);
+  });
+
+  it("treats the timeout exit code 124 as a timeout, with no output", async () => {
+    const s = fakeDeps(
+      [{ code: 124, stdout: "", stderr: "" }, started],
+      loadAt(0.5),
+    );
+    expect(await startAgent(s.deps, START)).toBeUndefined();
+    expect(s.sleep.mock.calls).toEqual([[1000]]);
+    const busy = fakeDeps(
+      Array.from({ length: 10 }, () => ({ code: 124, stdout: "", stderr: "" })),
+      loadAt(0.5),
+    );
+    expect(await startAgent(busy.deps, START)).toContain(
+      "after 7 tries over 60 s",
+    );
+  });
+
   it("keeps the one-second pause for fast failures before the first timeout", async () => {
     const s = fakeDeps(
-      [failure(1), timedOut(2), timedOut(3), started],
+      [failure(1), TIMED_OUT, TIMED_OUT, started],
       loadAt(0.5),
     );
     expect(await startAgent(s.deps, START)).toBeUndefined();
     expect(s.sleep.mock.calls).toEqual([[1000], [1000], [2000]]);
   });
+});
 
+describe("startAgent names a host load it cannot read", () => {
   it("names an unreadable host load and keeps the unscaled pauses when no reader is injected", async () => {
-    const s = fakeDeps(Array.from({ length: 10 }, (_, i) => timedOut(i + 1)));
+    const s = fakeDeps(Array.from({ length: 10 }, () => TIMED_OUT));
     expect(await startAgent(s.deps, START)).toBe(
-      "herdr agent start failed after 7 tries over 60 s of waiting: described timed out, try 7. The host 1-minute load average cannot be read. Check the host load, then spawn again.",
+      `herdr agent start failed after 7 tries over 60 s of waiting: described ${HERDR_TIMEOUT}. The host 1-minute load average cannot be read. Check the host load, then spawn again.`,
     );
     expect(s.sleep.mock.calls).toEqual(BACKOFF_SLEEPS);
   });
 
   it("names an unreadable host load when the reader reports none", async () => {
     const s = fakeDeps(
-      Array.from({ length: 10 }, (_, i) => timedOut(i + 1)),
+      Array.from({ length: 10 }, () => TIMED_OUT),
       loadAt(Number.POSITIVE_INFINITY),
     );
     expect(await startAgent(s.deps, START)).toBe(
-      "herdr agent start failed after 7 tries over 60 s of waiting: described timed out, try 7. The host 1-minute load average cannot be read. Check the host load, then spawn again.",
+      `herdr agent start failed after 7 tries over 60 s of waiting: described ${HERDR_TIMEOUT}. The host 1-minute load average cannot be read. Check the host load, then spawn again.`,
     );
     expect(s.sleep.mock.calls).toEqual(BACKOFF_SLEEPS);
   });
