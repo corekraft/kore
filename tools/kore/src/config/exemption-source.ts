@@ -21,6 +21,14 @@ async function reading<T>(path: string, read: () => Promise<T>): Promise<T> {
   }
 }
 
+/** The items of a one-line YAML flow list's body. */
+function flowList(body: string | undefined): string[] {
+  return (body ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 /** Reads the exemption inputs from a repository checkout. */
 export class FileExemptionSource implements ExemptionSource {
   constructor(private readonly root: string) {}
@@ -71,5 +79,24 @@ export class FileExemptionSource implements ExemptionSource {
       readdir(dir, { withFileTypes: true }),
     );
     return entries.filter((e) => e.isDirectory()).map((e) => e.name);
+  }
+
+  async staticPassNamespaces(): Promise<string[]> {
+    const path = join(this.root, "infra/charts/image-policy/values.yaml");
+    const text = await reading(path, () => readFile(path, "utf8"));
+    return flowList(/^staticPassNamespaces:\s*\[([^\]]*)\]/m.exec(text)?.[1]);
+  }
+
+  async gateWriters(): Promise<string[]> {
+    const path = join(
+      this.root,
+      "infra/charts/admission-gate/templates/rbac.yaml",
+    );
+    const text = await reading(path, () => readFile(path, "utf8"));
+    return flowList(
+      /resources:\s*\[koreapplicationadmission\]\s*resourceNames:\s*\[([^\]]*)\]/.exec(
+        text,
+      )?.[1],
+    );
   }
 }

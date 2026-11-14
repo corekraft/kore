@@ -18,3 +18,9 @@ upstreamImages:
   - "index.docker.io/istio/proxyv2**"
   - "ghcr.io/cloudnative-pg/postgresql**"
   - "ghcr.io/cloudnative-pg/cloudnative-pg**"
+# Platform namespaces whose images the kore-upstream-images static pass covers
+# (ADR 0032): istio-system runs the Istio proxy image, cnpg-system the
+# CloudNativePG operator image. Each needs an entry in
+# infra/catalog/gatekeeper-exemptions.yaml; kore validate checks it. The
+# templates do not read this list.
+staticPassNamespaces: [istio-system, cnpg-system]
