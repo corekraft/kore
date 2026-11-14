@@ -5,7 +5,13 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { fixtures } from "./retro-scan-support.js";
-import { removeTemps, repoRoot, retro, temp } from "./retro-hook-support.js";
+import {
+  parseReport,
+  removeTemps,
+  repoRoot,
+  retro,
+  temp,
+} from "./retro-hook-support.js";
 
 afterEach(removeTemps);
 
@@ -50,8 +56,8 @@ describe("hook retro-scan --evidence", () => {
 
     const result = await retro(root, ["--dir", fixtures, "--evidence"]);
     expect(result).toMatchObject({ code: 0, err: "" });
-    const report = JSON.parse(result.out) as Record<string, unknown>;
-    expect(report["guardEvidence"]).toEqual({
+    const report = parseReport(result.out);
+    expect(report.guardEvidence).toEqual({
       "kubectl-context": [
         {
           session: "alpha",
@@ -61,9 +67,7 @@ describe("hook retro-scan --evidence", () => {
         },
       ],
     });
-    expect(report["guards"]).toEqual(
-      (JSON.parse(plain) as Record<string, unknown>)["guards"],
-    );
+    expect(report.guards).toEqual(parseReport(plain).guards);
   });
 });
 
@@ -76,8 +80,8 @@ describe("hook retro-scan --evidence: locations per rule", () => {
     ]);
     const result = await retro(repoRoot(), ["--dir", dir, "--evidence"]);
     expect(result).toMatchObject({ code: 0, err: "" });
-    const report = JSON.parse(result.out) as Record<string, unknown>;
-    expect(report["guardEvidence"]).toEqual({
+    const report = parseReport(result.out);
+    expect(report.guardEvidence).toEqual({
       "bare-glob": [
         {
           session: "bravo",
@@ -109,12 +113,9 @@ describe("hook retro-scan --evidence: locations per rule", () => {
     ).flat();
     const dir = transcripts(lines);
     const result = await retro(repoRoot(), ["--dir", dir, "--evidence"]);
-    const report = JSON.parse(result.out) as {
-      guards: Record<string, { blocks: number }>;
-      guardEvidence: Record<string, { line: number }[]>;
-    };
+    const report = parseReport(result.out);
     expect(report.guards["role-worktree"]?.blocks).toBe(25);
-    const kept = report.guardEvidence["role-worktree"] ?? [];
+    const kept = report.guardEvidence?.["role-worktree"] ?? [];
     expect(kept).toHaveLength(20);
     expect(kept[0]?.line).toBe(2);
     expect(kept[19]?.line).toBe(40);
