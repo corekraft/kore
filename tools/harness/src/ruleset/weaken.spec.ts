@@ -65,6 +65,44 @@ describe("weaker names where a value got weaker, and not where it got stricter",
   });
 });
 
+const STRICT = "required_status_checks.strict_required_status_checks_policy";
+const DISMISS = "pull_request.dismiss_stale_reviews_on_push";
+
+describe("a boolean where true is stricter tightens only when it goes false to true", () => {
+  it("does not name strict_required_status_checks_policy going false to true", () => {
+    expect(weaker(false, true, STRICT)).toEqual([]);
+  });
+
+  it("does not name dismiss_stale_reviews_on_push going false to true", () => {
+    expect(weaker(false, true, DISMISS)).toEqual([]);
+  });
+
+  it("names strict_required_status_checks_policy going true to false", () => {
+    expect(weaker(true, false, STRICT)).toEqual([`${STRICT} changes`]);
+  });
+
+  it("names a strict-listed boolean that changes from a non-boolean", () => {
+    expect(weaker("false", true, STRICT)).toEqual([`${STRICT} changes`]);
+  });
+
+  it("names an unknown boolean going false to true, since it cannot be told stricter", () => {
+    expect(weaker(false, true, "pull_request.some_unknown_flag")).toEqual([
+      "pull_request.some_unknown_flag changes",
+    ]);
+  });
+
+  it("names do_not_enforce_on_create going false to true, since true there loosens", () => {
+    const path = "required_status_checks.do_not_enforce_on_create";
+    expect(weaker(false, true, path)).toEqual([`${path} changes`]);
+  });
+
+  it("does not change how a number on a strict-listed path is judged", () => {
+    const path = "pull_request.required_approving_review_count";
+    expect(weaker(1, 2, path)).toEqual([]);
+    expect(weaker(2, 1, path)).toEqual([`${path} is lowered`]);
+  });
+});
+
 describe("declaredFields keeps the fields a repository declares", () => {
   it("drops the fields GitHub adds to a live ruleset", () => {
     const live = {
