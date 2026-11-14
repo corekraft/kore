@@ -60,3 +60,10 @@ test("every named live suite runs at least one spec that registers a test", () =
     .map(([name]) => name);
   expect(vacuous).toEqual([]);
 });
+
+test("the signer suite is declared after the reference and resilience suites, because its key swap breaks every later suite that needs the signed reference image", () => {
+  const order = named.map(([name]) => name);
+  const signer = order.indexOf("test:live:signer");
+  expect(signer).toBeGreaterThan(order.indexOf("test:live:reference"));
+  expect(signer).toBeGreaterThan(order.indexOf("test:live:resilience"));
+});

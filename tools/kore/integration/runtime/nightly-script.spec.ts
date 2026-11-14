@@ -44,6 +44,22 @@ test("the lifecycle suite runs last, whatever order discovery gives, so it never
   );
 });
 
+test("the signer suite runs after every other suite but lifecycle, because its key swap leaves the reference image signed with a key no longer trusted", () => {
+  const { status, calls } = run([
+    "test:live:signer",
+    "test:live:a",
+    "test:live:lifecycle",
+    "test:live:b",
+  ]);
+  expect(status).toBe(0);
+  expect(calls.filter((call) => call.startsWith("suite"))).toEqual([
+    "suite test:live:a",
+    "suite test:live:b",
+    "suite test:live:signer",
+    "suite test:live:lifecycle",
+  ]);
+});
+
 test("the bare test:live task is not a nightly suite, because it runs the unit suite", () => {
   const { status, calls } = run(["test:live", "test:live:a"]);
   expect(status).toBe(0);
