@@ -1752,8 +1752,9 @@
               <tr>
                 <td>Traces</td>
                 <td>
-                  Mesh spans at the Gateway and between services, joined to the
-                  service's own spans
+                  agentgateway spans at the edge, each service's own agent
+                  spans, and waypoint spans only where a service needs L7
+                  policy, joined by trace context
                 </td>
               </tr>
               <tr>
@@ -1782,7 +1783,9 @@
                 resource attributes, so the Kotlin BFF template exports from its
                 first deploy. On the JVM, the Java agent Jib bakes in traces
                 Spring, HTTP clients, JDBC, Kafka, and Redis clients with no
-                code, in every BFF.</span
+                code, in every BFF. Other languages export through the same
+                endpoint once they emit OTLP; until then they get edge spans
+                from agentgateway and metrics.</span
               >
             </li>
             <li>
@@ -1892,8 +1895,10 @@
             <li>
               <strong>Nothing sampled away.</strong
               ><span
-                >Mesh tracing samples every request, and the archive receives
-                every span even where the hot tier samples.</span
+                >The components that emit spans (agentgateway, each service's
+                own agent, and waypoints) sample every request, and the archive
+                receives every span they emit even where the hot tier samples.
+                It cannot hold spans no component emits.</span
               >
             </li>
             <li>
@@ -2352,10 +2357,15 @@
                 a negative test proves it.
               </li>
               <li>
-                A new service shows request rate, errors, latency, logs, and
-                traces in its organization's dashboards before anyone writes
+                A new service shows request rate, errors, latency, and logs in
+                its organization's dashboards before anyone writes
                 instrumentation code, and another organization cannot query
                 them.
+              </li>
+              <li>
+                A new golden-path BFF also shows traces in those dashboards with
+                no code. Services in other languages get edge spans and metrics
+                until they emit OTLP.
               </li>
               <li>
                 Every workload in every tenant runs by signed digest; no secret

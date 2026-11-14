@@ -2,7 +2,7 @@
 status: proposed
 summary: Beside the hot telemetry tier, every log record and span is kept unsampled in a forensic archive, buffered through Kafka and indexed by Quickwit on the object store with full-text search over messages and attributes, in write-once buckets with signed batch digests, per-tenant indexes, retention, and audited access.
 date: 2026-11-09
-last-verified: 2026-11-09
+last-verified: 2026-11-14
 ---
 
 # ADR 0053: Keep a forensic telemetry archive in Quickwit on the object store
@@ -28,9 +28,12 @@ Apache 2.0, with no commercial-use restriction.
 
 - **Two tiers.** The hot tier is unchanged. A forensic archive keeps every log
   record and every span with its full body and attributes.
-- **Nothing is sampled away from the archive.** Mesh tracing samples every
-  request, and the Collector sends all spans to the archive even where the hot
-  tier samples.
+- **Nothing is sampled away from the archive.** The components that emit
+  spans sample every request: agentgateway at the edge
+  ([ADR 0081](0081-agentgateway-replaces-istio-ingress.md)), each service's
+  own agent, and waypoints only where a service already needs L7 policy. The
+  Collector sends every span they emit to the archive even where the hot tier
+  samples. The archive cannot hold spans no component emits.
 - **The Collector writes twice, through a durable buffer.** The Collector
   buffers to disk and exports every signal to the hot tier and, through a Kafka
   topic per tenant, to the archive, so an indexer outage loses nothing and the
