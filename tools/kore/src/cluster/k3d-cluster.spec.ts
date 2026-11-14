@@ -16,7 +16,7 @@ import {
   testHome,
   text,
   trustVolumeArgs,
-} from "./k3d-cluster.fixtures.js";
+} from "../testing/index.js";
 
 test("cluster up on an absent k3d cluster lists, creates with the pinned flags, then waits for readiness", async () => {
   const repository = await k3dRepository();

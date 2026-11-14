@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "vitest";
-import { loadRepository, validateRepository } from "../config/config.js";
+import { loadRepository, validateRepository } from "../config/index.js";
 import { desiredFingerprint } from "./fingerprint.js";
 import { helmUpgradeArgs } from "./helm.js";
 

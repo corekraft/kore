@@ -1,4 +1,9 @@
-import { list } from "../cluster/k3d-cluster.fixtures.js";
+import {
+  list,
+  healthyReadinessOutput,
+  passthroughRegistry,
+  releaseNotFound,
+} from "../testing/index.js";
 import { loadRepository } from "../config/index.js";
 import { expect, test, vi } from "vitest";
 
@@ -10,11 +15,6 @@ vi.mock("../images/index.js", async (importOriginal) => ({
 
 import { appUp } from "./up.js";
 import type { Runner } from "../runtime/index.js";
-import {
-  healthyReadinessOutput,
-  passthroughRegistry,
-  releaseNotFound,
-} from "./app-fixtures.js";
 
 test("app up enrolls the application namespace in the ambient mesh before any release installs", async () => {
   const repository = await loadRepository("local");

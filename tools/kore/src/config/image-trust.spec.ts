@@ -5,7 +5,7 @@ import { promisify } from "node:util";
 import { join } from "node:path";
 import { test } from "vitest";
 import { findRoot, loadRepository, validateRepository } from "./config.js";
-import { helmUpgradeArgs } from "../platform/helm.js";
+import { helmUpgradeArgs } from "../platform/index.js";
 import type { Repository } from "./types.js";
 
 const releaseSubject =

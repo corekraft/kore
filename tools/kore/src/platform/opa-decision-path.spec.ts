@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "vitest";
-import { findRoot } from "../config/config.js";
+import { findRoot } from "../config/index.js";
 import { decisionLogArguments } from "./identity-live.js";
 
 // Docs: docs/decisions/0066-opa-receives-peer-identity-via-xfcc.md

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { loadRepository, validateRepository } from "./config.js";
 import { featureEnabled, featureHelmArgs } from "./features.js";
-import { helmTemplateArgs } from "../platform/helm.js";
+import { helmTemplateArgs } from "../platform/index.js";
 import type { Repository } from "./types.js";
 
 /** The repository without the catalog's own gated components. */

@@ -1,7 +1,7 @@
 import test from "node:test";
 import { assertExpectedCluster } from "../cluster/index.js";
 import { loadRepository } from "../config/index.js";
-import { findRoot } from "../config/config.js";
+import { findRoot } from "../config/index.js";
 import { ProcessRunner, liveEnvironment } from "../runtime/index.js";
 import { assertDatabasePersistence } from "./platform.database.live.spec.js";
 

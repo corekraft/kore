@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { test } from "vitest";
-import { findRoot } from "../config/config.js";
+import { findRoot } from "../config/index.js";
 
 // Docs: infra/apis/postgresql/tests/contract.md
 // Offline render of the PostgreSQL composition. function-go-templating needs

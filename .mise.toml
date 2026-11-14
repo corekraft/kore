@@ -54,8 +54,13 @@ description = "Format files with the pinned prettier: mise run format <files>"
 run = "tools/kore/node_modules/.bin/prettier --write"
 
 [tasks.test-hooks]
-description = "Run the hook, status line and eval grading tests under harness vitest; check skill links and workflow permissions with the harness hooks, and that the settings deny list is the one the inventory generates; then kb-check in warn mode"
+description = "Run the hook, status line and eval grading tests under harness vitest; check skill links and workflow permissions with the harness hooks, and that the settings deny list is the one the inventory generates; then kb-check in warn mode. Runs the kore barrel-rule test first, so CI check covers it until integration tests have their own step (#418)"
+depends = ["test-barrel-rule"]
 run = ["npm --prefix tools/harness run test:hooks", ".claude/hooks/harness.sh hook skill-links --strict", ".claude/hooks/harness.sh hook workflow-permissions --strict", ".claude/hooks/harness.sh guardrail deny --check", ".claude/hooks/harness.sh hook kb-check"]
+
+[tasks.test-barrel-rule]
+description = "Run the kore barrel-rule test: oxlint over scratch fixtures, the domain list against src/, and the testing ban (an integration test, so it is outside the unit run and the commit hook)"
+run = "npm --prefix tools/kore run test:barrel-rule"
 
 [tasks.kb-check]
 description = "Check knowledge-base links, index, frontmatter, and Docs: markers, then print the skill budget audit (never fails); pass -- --strict to fail on findings"

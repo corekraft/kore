@@ -1,4 +1,4 @@
-import { list } from "../cluster/k3d-cluster.fixtures.js";
+import { list, digest, releaseSigner } from "../testing/index.js";
 import { loadRepository } from "../config/index.js";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -6,7 +6,6 @@ import { join } from "node:path";
 import { afterEach, expect, test } from "vitest";
 
 import type { Runner } from "../runtime/index.js";
-import { digest, releaseSigner } from "./app-fixtures.js";
 import { appStatus } from "./app.js";
 
 // Exit criterion: status reports the deployed digest, verified signer

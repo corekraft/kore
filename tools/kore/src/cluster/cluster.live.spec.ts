@@ -1,6 +1,6 @@
 import test from "node:test";
 import { loadRepository } from "../config/index.js";
-import { findRoot } from "../config/config.js";
+import { findRoot } from "../config/index.js";
 import {
   clusterDestroy,
   clusterStatus,

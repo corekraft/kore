@@ -8,10 +8,10 @@ vi.mock("./admission-gate.js", async (importOriginal) => ({
 }));
 import { loadRepository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
-import { RecordingRunner } from "../runtime/runner.js";
+import { RecordingRunner } from "../runtime/index.js";
 import { bootstrapControllers } from "./bootstrap.js";
 import { reconcileComponent } from "./reconcile.js";
-import { withHealthyWebhooks } from "./webhook-fixtures.js";
+import { withHealthyWebhooks } from "../testing/index.js";
 
 async function helmComponent(readiness: string[], timeout = "1s") {
   const repository = await loadRepository("local");

@@ -1,4 +1,4 @@
-import { loadManagedLocal } from "../config/managed-local.fixtures.js";
+import { loadManagedLocal } from "../testing/index.js";
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { managedCluster } from "../config/index.js";
