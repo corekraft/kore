@@ -1,269 +1,284 @@
-import { describe, expect, it } from "vitest";
-import { run } from "./cli.js";
-import { DEFAULT, harness } from "./ledger-commands-support.js";
-import { finishedIdea } from "../testing/index.js";
+import { join } from "node:path";
+import { describe, expect, it, vi } from "vitest";
+import {
+  buildReport,
+  DEFAULT_COST,
+  MIN_COMPLETED_IDEAS,
+  parseHarnessConfig,
+} from "../flow/index.js";
+import { isTimestamp } from "../ledger/index.js";
+import type { CommandContext } from "../runtime/index.js";
+import { flowCommands } from "./flow-commands.js";
+import { openLedger } from "./ledger-commands.js";
+import {
+  contextOf,
+  emptyReport,
+  ledgerOf,
+  populatedReport,
+  NOW,
+} from "./flow-commands-support.js";
 
-function seeded(extra: string[] = []) {
-  const h = harness();
-  const events = [
-    ...finishedIdea(1, { approval: 3000 }),
-    ...finishedIdea(2, { approval: 1000 }, 10_000),
-    ...finishedIdea(3, { approval: 2000 }, 20_000),
-  ];
-  h.fs.files.set(DEFAULT, events.map((e) => `${JSON.stringify(e)}\n`).join(""));
-  return { h, argv: ["flow", "report", ...extra] };
-}
+vi.mock("node:path");
+vi.mock("../flow/index.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../flow/index.js")>()),
+  buildReport: vi.fn(),
+  parseHarnessConfig: vi.fn(),
+}));
+vi.mock("../ledger/index.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../ledger/index.js")>()),
+  isTimestamp: vi.fn(),
+}));
+vi.mock("./ledger-commands.js");
 
-const KEYS = [
-  "version",
-  "asOf",
-  "scope",
-  "ideas",
-  "minCompletedIdeas",
-  "stages",
-  "leadTime",
-  "metrics",
-  "bottleneck",
-  "bottleneckNote",
-  "unmappedEvents",
-  "attribution",
-  "guardBlocks",
-  "outcomes",
-  "skippedLines",
-];
+const CONFIG = "/repo/harness.yaml";
 
-describe("flow report", () => {
-  it("prints the versioned JSON shape with the named bottleneck", async () => {
-    const { h, argv } = seeded(["--json"]);
-    expect(await run(argv, h.deps)).toBe(0);
-    const report = JSON.parse(h.out()) as Record<string, unknown>;
-    expect(Object.keys(report)).toEqual(KEYS);
-    expect(report).toMatchObject({ bottleneckNote: null });
-    expect(report).toMatchObject({
-      version: 6,
-      asOf: "2026-01-02T03:04:05.000Z",
-      ideas: { total: 3, completed: 3 },
-      minCompletedIdeas: 3,
-      bottleneck: { stage: "await approval" },
-      skippedLines: 0,
-    });
-  });
+const run = (context: CommandContext) => flowCommands.report?.run(context);
 
-  it("prints a table and the bottleneck in plain text", async () => {
-    const { h, argv } = seeded();
-    expect(await run(argv, h.deps)).toBe(0);
-    expect(h.out()).toContain("await approval");
-    expect(h.out()).toMatch(/Bottleneck: await approval \(\d+% of waiting\)/);
-  });
-
-  it("says there is not enough data instead of naming a bottleneck", async () => {
-    const { h, argv } = seeded(["--min-ideas", "4"]);
-    expect(await run(argv, h.deps)).toBe(0);
-    expect(h.out()).toContain(
-      "Not enough data: 3 of 4 completed ideas needed to name a bottleneck.",
+describe("flow report: flags", () => {
+  it("refuses a --min-ideas below one, naming the valid range, and reads nothing", async () => {
+    const { context, stderr } = contextOf({ "min-ideas": "0" });
+    expect(await run(context)).toBe(2);
+    expect(stderr).toHaveBeenCalledWith(
+      'Invalid --min-ideas "0". Use a whole number of at least 1.\n',
     );
-    expect(h.out()).not.toContain("Bottleneck:");
+    expect(openLedger).not.toHaveBeenCalled();
   });
 
-  it("emits the same keys when there is not enough data", async () => {
-    const { h, argv } = seeded(["--json", "--min-ideas", "4"]);
-    await run(argv, h.deps);
-    const report = JSON.parse(h.out()) as Record<string, unknown>;
-    expect(Object.keys(report)).toEqual(KEYS);
-    expect(report).toMatchObject({
-      bottleneck: null,
-      bottleneckNote:
-        "Not enough data: 3 of 4 completed ideas needed to name a bottleneck.",
-    });
-  });
-
-  it("reports an empty or missing ledger without inventing a bottleneck", async () => {
-    const h = harness();
-    expect(await run(["flow", "report", "--json"], h.deps)).toBe(0);
-    expect(JSON.parse(h.out())).toMatchObject({
-      ideas: { total: 0, completed: 0 },
-      bottleneck: null,
-    });
-  });
-
-  it("counts malformed ledger lines as skipped", async () => {
-    const h = harness();
-    h.fs.files.set(DEFAULT, "not json\n");
-    await run(["flow", "report", "--json"], h.deps);
-    expect(JSON.parse(h.out())).toMatchObject({ skippedLines: 1 });
-    const text = harness();
-    text.fs.files.set(DEFAULT, "not json\n");
-    await run(["flow", "report"], text.deps);
-    expect(text.out()).toContain("skipped 1 malformed ledger line(s)");
-  });
-});
-
-describe("flow report flags", () => {
-  it("measures open waits to --as-of", async () => {
-    const h = harness();
-    h.fs.files.set(
-      DEFAULT,
-      `${JSON.stringify({ schema: 1, id: "a", source: "github", kind: "issue.opened", occurredAt: "2026-01-02T00:00:00.000Z", recordedAt: "2026-01-02T00:00:00.000Z", number: 1 })}\n`,
+  it("refuses a --trailing that is not a whole number, and refuses a timestamp that is not ISO 8601", async () => {
+    const { context, stderr } = contextOf({ trailing: "x" });
+    expect(await run(context)).toBe(2);
+    expect(stderr).toHaveBeenCalledWith(
+      'Invalid --trailing "x". Use a whole number of at least 1.\n',
     );
-    await run(
-      ["flow", "report", "--json", "--as-of", "2026-01-02T01:00:00Z"],
-      h.deps,
-    );
-    const report = JSON.parse(h.out()) as {
-      stages: { stage: string; waitingSeconds: number }[];
-    };
-    expect(
-      report.stages.find((s) => s.stage === "await approval")?.waitingSeconds,
-    ).toBe(3600);
-  });
-
-  it.each([
-    [["--min-ideas", "0"], "--min-ideas"],
-    [["--min-ideas", "x"], "--min-ideas"],
-    [["--as-of", "yesterday"], "--as-of"],
-  ])("rejects a bad flag %j before reading the ledger", async (flags, name) => {
-    const h = harness();
-    expect(await run(["flow", "report", ...flags], h.deps)).toBe(2);
-    expect(h.err()).toContain(`Invalid ${name}`);
-  });
-
-  it("fails clearly when the shared ledger cannot be located", async () => {
-    const h = harness("", { commonDir: undefined });
-    expect(await run(["flow", "report"], h.deps)).toBe(1);
-    expect(h.err()).toContain("main checkout root");
-  });
-});
-
-describe("flow report toil", () => {
-  it("prints toil of every kind under each stage in the JSON", async () => {
-    const { h, argv } = seeded(["--json"]);
-    expect(await run(argv, h.deps)).toBe(0);
-    const { stages } = JSON.parse(h.out()) as {
-      stages: { toil: Record<string, number> }[];
-    };
-    for (const stage of stages) {
-      expect(Object.keys(stage.toil)).toEqual([
-        "startingSeconds",
-        "stoppingSeconds",
-        "waitingSeconds",
-        "retryingSeconds",
-      ]);
-    }
-  });
-});
-
-describe("flow report work in progress and lead time", () => {
-  it("prints wip per stage and lead time in the JSON", async () => {
-    const { h, argv } = seeded(["--json"]);
-    expect(await run(argv, h.deps)).toBe(0);
-    const { stages, leadTime } = JSON.parse(h.out()) as {
-      stages: { wip: Record<string, number> }[];
-      leadTime: { ideas: unknown[]; medianSeconds: number; maxSeconds: number };
-    };
-    for (const stage of stages) {
-      expect(Object.keys(stage.wip)).toEqual(["peak", "average"]);
-    }
-    expect(leadTime.ideas).toHaveLength(3);
-    expect(leadTime.maxSeconds).toBeGreaterThanOrEqual(leadTime.medianSeconds);
-  });
-
-  it("prints wip per stage and a lead time line in plain text", async () => {
-    const { h, argv } = seeded();
-    expect(await run(argv, h.deps)).toBe(0);
-    expect(h.out()).toMatch(/wip peak \d+ avg \d/);
-    expect(h.out()).toMatch(/Lead time: 3 ideas, median \d+s, max \d+s/);
-  });
-
-  it("says no idea has an outcome yet when none completed", async () => {
-    const h = harness();
-    h.fs.files.set(DEFAULT, "");
-    expect(await run(["flow", "report"], h.deps)).toBe(0);
-    expect(h.out()).toContain("Lead time: no completed ideas");
-  });
-});
-
-describe("flow report range and ideas", () => {
-  it("reports only the named ideas and says so", async () => {
-    const { h, argv } = seeded(["--json", "--idea", "#2,#3"]);
-    expect(await run(argv, h.deps)).toBe(0);
-    expect(JSON.parse(h.out())).toMatchObject({
-      scope: { since: null, until: null, ideas: ["#2", "#3"] },
-      ideas: { total: 2, completed: 2 },
-    });
-  });
-
-  it("accepts an idea written as a bare issue number", async () => {
-    const { h, argv } = seeded(["--json", "--idea", "2"]);
-    expect(await run(argv, h.deps)).toBe(0);
-    expect(JSON.parse(h.out())).toMatchObject({
-      scope: { ideas: ["#2"] },
-      ideas: { total: 1 },
-    });
-  });
-
-  it("reads an idea written with leading zeros as the same issue", async () => {
-    const { h, argv } = seeded(["--json", "--idea", "#002"]);
-    expect(await run(argv, h.deps)).toBe(0);
-    expect(JSON.parse(h.out())).toMatchObject({
-      scope: { ideas: ["#2"] },
-      ideas: { total: 1 },
-    });
-  });
-
-  it("reports only the time range and says so", async () => {
-    const { h, argv } = seeded([
-      "--json",
-      "--since",
-      "2026-01-02T02:00:00Z",
-      "--until",
-      "2026-01-02T04:00:00Z",
-    ]);
-    expect(await run(argv, h.deps)).toBe(0);
-    expect(JSON.parse(h.out())).toMatchObject({
-      scope: {
-        since: "2026-01-02T02:00:00.000Z",
-        until: "2026-01-02T04:00:00.000Z",
-        ideas: null,
-      },
-      ideas: { total: 1 },
-    });
-  });
-});
-
-describe("flow report scope text and flags", () => {
-  it("states the range and ideas in plain text", async () => {
-    const { h, argv } = seeded([
-      "--since",
-      "2026-01-02T00:00:00Z",
-      "--idea",
-      "#1",
-    ]);
-    expect(await run(argv, h.deps)).toBe(0);
-    expect(h.out()).toContain(
-      "Covering from 2026-01-02T00:00:00.000Z, ideas #1",
+    vi.mocked(isTimestamp).mockReturnValue(false);
+    const next = contextOf({ "as-of": "yesterday" });
+    expect(await run(next.context)).toBe(2);
+    expect(next.stderr).toHaveBeenCalledWith(
+      'Invalid --as-of "yesterday". Use an ISO 8601 UTC time such as 2026-01-02T03:04:05Z.\n',
     );
   });
 
-  it("says it covers the whole ledger when nothing narrows it", async () => {
-    const { h, argv } = seeded();
-    await run(argv, h.deps);
-    expect(h.out()).toContain("Covering the whole ledger");
+  it("refuses a --since after --until, and tells the user to swap them", async () => {
+    vi.mocked(isTimestamp).mockReturnValue(true);
+    const { context, stderr } = contextOf({
+      since: "2026-02-01T00:00:00Z",
+      until: "2026-01-01T00:00:00Z",
+    });
+    expect(await run(context)).toBe(2);
+    expect(stderr).toHaveBeenCalledWith(
+      "Invalid --since 2026-02-01T00:00:00.000Z: it is after --until 2026-01-01T00:00:00.000Z. Swap them.\n",
+    );
   });
 
-  it.each([
-    [["--since", "last week"], "--since"],
-    [["--until", "2026-01-02"], "--until"],
-    [["--idea", "abc"], "--idea"],
-    [["--idea", ""], "--idea"],
-    [
-      ["--since", "2026-01-03T00:00:00Z", "--until", "2026-01-02T00:00:00Z"],
-      "--since",
-    ],
-  ])("rejects a bad flag %j before reading the ledger", async (flags, name) => {
-    // With no shared ledger to locate, reading it would fail with a different message.
-    const h = harness("", { commonDir: undefined });
-    expect(await run(["flow", "report", ...flags], h.deps)).toBe(2);
-    expect(h.err()).toContain(`Invalid ${name}`);
-    expect(h.err()).not.toContain("main checkout root");
+  it.each([["since"], ["until"]])(
+    "refuses a --%s that is not a timestamp, naming the flag and the value",
+    async (name) => {
+      vi.mocked(isTimestamp).mockReturnValue(false);
+      const { context, stderr } = contextOf({ [name]: "soon" });
+      expect(await run(context)).toBe(2);
+      expect(stderr).toHaveBeenCalledWith(
+        "Invalid --" +
+          name +
+          ' "soon". Use an ISO 8601 UTC time such as 2026-01-02T03:04:05Z.\n',
+      );
+    },
+  );
+
+  it("refuses an --idea that is not an issue number, and says what to use", async () => {
+    const { context, stderr } = contextOf({ idea: "12,abc" });
+    expect(await run(context)).toBe(2);
+    expect(stderr).toHaveBeenCalledWith(
+      'Invalid --idea "12,abc". Use issue numbers such as #12 or 12,13.\n',
+    );
+  });
+});
+
+describe("flow report: what it builds", () => {
+  it("builds the report as of now, with the default threshold and cost, when no flag is given", async () => {
+    const { context } = contextOf();
+    ledgerOf([{ kind: "x" }], 2);
+    vi.mocked(buildReport).mockReturnValue(emptyReport());
+
+    expect(await run(context)).toBe(0);
+    expect(buildReport).toHaveBeenCalledWith([{ kind: "x" }], {
+      asOf: NOW,
+      minCompletedIdeas: MIN_COMPLETED_IDEAS,
+      cost: DEFAULT_COST,
+    });
+  });
+
+  it("passes the parsed window, ideas, threshold and trailing count through to the report", async () => {
+    vi.mocked(isTimestamp).mockReturnValue(true);
+    const { context } = contextOf({
+      "min-ideas": "4",
+      trailing: "3",
+      "as-of": "2026-01-05T00:00:00Z",
+      since: "2026-01-01T00:00:00Z",
+      until: "2026-01-04T00:00:00Z",
+      idea: "#12,13",
+    });
+    ledgerOf();
+    vi.mocked(buildReport).mockReturnValue(emptyReport());
+
+    await run(context);
+    expect(buildReport).toHaveBeenCalledWith([], {
+      asOf: new Date("2026-01-05T00:00:00Z"),
+      minCompletedIdeas: 4,
+      since: new Date("2026-01-01T00:00:00Z"),
+      until: new Date("2026-01-04T00:00:00Z"),
+      ideas: ["#12", "#13"],
+      trailingIdeas: 3,
+      cost: { ...DEFAULT_COST, trailingIdeas: 3 },
+    });
+  });
+});
+
+describe("flow report: cost settings", () => {
+  it("uses the cost settings from the harness config when the checkout has one", async () => {
+    const { context, exists, readFile } = contextOf();
+    const config = { ...DEFAULT_COST, trailingIdeas: 9 };
+    vi.mocked(join).mockReturnValue(CONFIG);
+    exists.mockResolvedValue(true);
+    readFile.mockResolvedValue("cost: {}");
+    vi.mocked(parseHarnessConfig).mockReturnValue({ cost: config });
+    ledgerOf();
+    vi.mocked(buildReport).mockReturnValue(emptyReport());
+
+    await run(context);
+    expect(parseHarnessConfig).toHaveBeenCalledWith(
+      "cost: {}",
+      expect.any(String),
+    );
+    expect(buildReport).toHaveBeenCalledWith(
+      [],
+      expect.objectContaining({ cost: config }),
+    );
+  });
+
+  it("refuses a harness config it cannot parse, and reports the parse error with exit 1", async () => {
+    const { context, stderr, exists } = contextOf({}, true);
+    vi.mocked(join).mockReturnValue(CONFIG);
+    exists.mockResolvedValue(true);
+    vi.mocked(parseHarnessConfig).mockReturnValue({ error: "bad cost" });
+
+    expect(await run(context)).toBe(1);
+    expect(stderr).toHaveBeenCalledWith(
+      `${JSON.stringify({ error: "bad cost" })}\n`,
+    );
+    expect(buildReport).not.toHaveBeenCalled();
+  });
+
+  it("uses the default cost when the root cannot be read, rather than failing the report", async () => {
+    const { context, root, exists } = contextOf();
+    root.mockRejectedValue(new Error("no root"));
+    ledgerOf();
+    vi.mocked(buildReport).mockReturnValue(emptyReport());
+
+    expect(await run(context)).toBe(0);
+    expect(exists).not.toHaveBeenCalled();
+  });
+});
+
+describe("flow report: output", () => {
+  it("prints the report as one JSON object with the skipped line count under --json", async () => {
+    const { context, stdout } = contextOf({}, true);
+    ledgerOf([], 3);
+    vi.mocked(buildReport).mockReturnValue(emptyReport());
+
+    expect(await run(context)).toBe(0);
+    expect(stdout).toHaveBeenCalledWith(
+      `${JSON.stringify({ ...emptyReport(), skippedLines: 3 })}\n`,
+    );
+  });
+});
+
+describe("flow report: human lines", () => {
+  it("prints the human report with its lines in order, and no bottleneck when there is none", async () => {
+    const { context, stdout } = contextOf();
+    ledgerOf();
+    vi.mocked(buildReport).mockReturnValue(emptyReport());
+
+    await run(context);
+    expect(stdout).toHaveBeenCalledWith(
+      [
+        "Flow report as of 2026-01-02T03:04:05Z: 2 of 3 ideas completed",
+        "Covering the whole ledger",
+        "Lead time: no completed ideas",
+        "Tokens per idea: insufficient history, 1 of 3 closed ideas",
+        "Sessions per idea: insufficient history, 1 of 3 closed ideas",
+        "Unmapped events: 0",
+        "Attribution: no stamped sessions yet, so nothing is measured",
+        "Main red: no check runs on main",
+        "Reverts: 0 of 0 merged changes",
+        "Live runs: no nightly runs",
+        "Owner minutes per merged change: none recorded",
+        "Guard blocks: none",
+        "No bottleneck yet.",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("names the bottleneck with its share, and counts malformed ledger lines last", async () => {
+    const { context, stdout } = contextOf();
+    ledgerOf([], 2);
+    vi.mocked(buildReport).mockReturnValue(
+      emptyReport({
+        bottleneck: { stage: "review", share: 0.5 },
+        guardBlocks: [{ rule: "push", blocks: 2 }],
+      }),
+    );
+
+    await run(context);
+    const text = vi.mocked(stdout).mock.calls[0]?.[0] as string;
+    expect(text).toContain("Guard blocks: push 2\n");
+    expect(text).toContain("Bottleneck: review (50% of waiting)\n");
+    expect(text.endsWith("skipped 2 malformed ledger line(s)\n")).toBe(true);
+  });
+});
+
+describe("flow report: a populated report", () => {
+  it("prints each section that has figures: scope, lead time, trends, attribution, outcomes and guard blocks", async () => {
+    const { context, stdout } = contextOf();
+    ledgerOf();
+    vi.mocked(buildReport).mockReturnValue(populatedReport());
+
+    await run(context);
+    const text = vi.mocked(stdout).mock.calls[0]?.[0] as string;
+    expect(text).toContain(
+      "Covering from 2026-01-01, until 2026-02-01, ideas #12\n",
+    );
+    expect(text).toContain("Lead time: 1 ideas, median 90s, max 200s\n");
+    expect(text).toContain(
+      "Tokens per idea: #12 120, average of the 3 ideas before it 100.46 (worsened)\n",
+    );
+    expect(text).toContain(
+      "Sessions per idea: #12 2, average of the 3 ideas before it 2\n",
+    );
+    expect(text).toContain(
+      "Attribution since 2026-01-01: 8 of 10 events with an idea, 6 with a stage too\n",
+    );
+    expect(text).toContain("Main red: 1 of 2 check runs on main (50%)\n");
+    expect(text).toContain("Reverts: 1 of 4 merged changes\n");
+    expect(text).toContain("Live runs: 3 of 3 nightly runs passed (100%)\n");
+    expect(text).toContain(
+      "Owner minutes per merged change: 5 (20 over 4 merged; an upper bound while agents share the owner's login)\n",
+    );
+    expect(text).toContain("Guard blocks: push 2\n");
+    expect(text).toMatch(
+      /review .*active 60s .*waiting 30s .*4 events .*wip peak 2 avg 1\.5 .*toil start 1s stop 2s wait 3s retry 4s/,
+    );
+  });
+});
+
+describe("flow report: ledger", () => {
+  it("refuses when the ledger cannot open, and prints nothing", async () => {
+    const { context, stderr, stdout } = contextOf();
+    vi.mocked(openLedger).mockResolvedValue({ error: "no ledger here" });
+
+    expect(await run(context)).toBe(1);
+    expect(stderr).toHaveBeenCalledWith("no ledger here\n");
+    expect(stdout).not.toHaveBeenCalled();
+    expect(buildReport).not.toHaveBeenCalled();
   });
 });
