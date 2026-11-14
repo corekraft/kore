@@ -9,7 +9,14 @@
 // person to do. A new capability for a role needs a guard case first.
 import { isAbsolute, relative, resolve } from "node:path";
 import { ghMayRun, readMayRun } from "./guard-role-allow.js";
-import { checkDelivery, DELIVERY_ROLES } from "./guard-role-delivery.js";
+import { checkDelivery } from "./guard-role-delivery.js";
+import {
+  DELIVERY_ROLES,
+  NO_CODE_ROLES,
+  READ_ONLY_ROLES,
+  REPORTING_ROLES,
+  SPAWNED_ROLES,
+} from "./guard-roles.js";
 import { checkProtected } from "./guard-role-protected.js";
 import {
   harnessAllowed,
@@ -25,14 +32,9 @@ import {
 import { commandOf, splitSegments } from "./guard-shell.js";
 import { block, type Finding } from "./guard-verdict.js";
 
-const READ_ONLY_ROLES = new Set([
-  "concierge",
-  "reader",
-  "refiner",
-  "challenger",
-]);
-/** Roles that answer from plans, ADRs, ideas and issues and never read code. */
-const NO_CODE_ROLES = new Set(["concierge", "challenger"]);
+const READ_ONLY_ROLE_SET = new Set<string>(READ_ONLY_ROLES);
+const NO_CODE_ROLE_SET = new Set<string>(NO_CODE_ROLES);
+const SPAWNED_ROLE_SET = new Set<string>(SPAWNED_ROLES);
 const FILE_TOOLS = new Set(["Read", "Grep", "Glob"]);
 
 /** Paths the concierge and the challenger may read: plans, ADRs and ideas, never code. */
@@ -111,15 +113,13 @@ function noCodeMayRun(role: string, segment: readonly string[]): boolean {
   );
 }
 
-const SPAWNED_ROLES = new Set(["reader", "refiner", "challenger"]);
-
 const finishes = (role: string, segment: readonly string[]): boolean =>
-  SPAWNED_ROLES.has(role) && notifiesFinish(segment);
+  SPAWNED_ROLE_SET.has(role) && notifiesFinish(segment);
 
 function checkBash(role: string, command: string): Finding {
   // A substitution runs a command the segment check never sees.
   if (/\$\(|`|<\(|>\(/.test(command)) {
-    return NO_CODE_ROLES.has(role)
+    return NO_CODE_ROLE_SET.has(role)
       ? noCode("A command substitution", role)
       : readOnly("A command substitution");
   }
@@ -127,10 +127,10 @@ function checkBash(role: string, command: string): Finding {
   const prefixed = segments.find(setsEnvironment);
   if (prefixed !== undefined) {
     const what = `\`${prefixed.join(" ")}\`, which sets an environment variable or changes shell state,`;
-    return NO_CODE_ROLES.has(role) ? noCode(what, role) : readOnly(what);
+    return NO_CODE_ROLE_SET.has(role) ? noCode(what, role) : readOnly(what);
   }
   // Only a role a brief asks for the notice is pointed at it; the concierge gets its usual finding.
-  const typing = SPAWNED_ROLES.has(role)
+  const typing = SPAWNED_ROLE_SET.has(role)
     ? segments.find(sendsToPane)
     : undefined;
   if (typing !== undefined) {
@@ -140,7 +140,7 @@ function checkBash(role: string, command: string): Finding {
   if (writer !== undefined) {
     return readOnly(`\`${writer.join(" ")}\``);
   }
-  if (NO_CODE_ROLES.has(role)) {
+  if (NO_CODE_ROLE_SET.has(role)) {
     const stray = segments.find(
       (segment) => !noCodeMayRun(role, segment) && !finishes(role, segment),
     );
@@ -170,7 +170,7 @@ export function checkRole(
 ): Finding {
   const bound =
     typeof agentType === "string" &&
-    (DELIVERY_ROLES.has(agentType) || READ_ONLY_ROLES.has(agentType));
+    (DELIVERY_ROLES.has(agentType) || READ_ONLY_ROLE_SET.has(agentType));
   const protectedFinding = bound
     ? checkProtected(agentType, tool, input, root)
     : null;
@@ -178,9 +178,15 @@ export function checkRole(
     return protectedFinding;
   }
   if (typeof agentType === "string" && DELIVERY_ROLES.has(agentType)) {
-    return checkDelivery(agentType, tool, input, root);
+    return checkDelivery(
+      agentType,
+      REPORTING_ROLES.includes(agentType),
+      tool,
+      input,
+      root,
+    );
   }
-  if (typeof agentType !== "string" || !READ_ONLY_ROLES.has(agentType)) {
+  if (typeof agentType !== "string" || !READ_ONLY_ROLE_SET.has(agentType)) {
     return null;
   }
   if (WRITE_TOOLS.has(tool)) {
@@ -189,7 +195,7 @@ export function checkRole(
   if (tool === "Bash" && typeof input["command"] === "string") {
     return checkBash(agentType, input["command"]);
   }
-  if (NO_CODE_ROLES.has(agentType) && FILE_TOOLS.has(tool)) {
+  if (NO_CODE_ROLE_SET.has(agentType) && FILE_TOOLS.has(tool)) {
     return readable(root, input) ? null : noCode(tool, agentType);
   }
   return null;
