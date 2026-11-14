@@ -1,144 +1,298 @@
-import { mkdtemp } from "node:fs/promises";
-import { realpathSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { CommandError, ProcessRunner, RecordingRunner } from "./runner.js";
-import { expect, test } from "vitest";
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
+import {
+  CommandError,
+  CommandTimeoutError,
+  ProcessRunner,
+  type ProcessRunnerOptions,
+} from "./runner.js";
+import {
+  FakeChild,
+  FakeWatchdog,
+  lastWatchdog,
+} from "./runner-fakes-support.js";
+import type { Signal } from "./watchdog.js";
 
-test("ProcessRunner captures output from a successful child process", async () => {
-  const result = await new ProcessRunner().run(process.execPath, [
-    "-e",
-    "process.stdout.write('out'); process.stderr.write('err')",
-  ]);
+vi.mock("./watchdog.js", async () => ({
+  Watchdog: (await import("./runner-fakes-support.js")).FakeWatchdog,
+}));
 
-  expect(result).toEqual({ stdout: "out", stderr: "err", code: 0 });
+const { liveGroups, killGroup } = vi.hoisted(() => ({
+  liveGroups: {
+    add: vi.fn<(pid: number) => void>(),
+    delete: vi.fn<(pid: number) => void>(),
+  },
+  killGroup: vi.fn<(pid: number, signal: Signal) => void>(),
+}));
+vi.mock("./live-groups.js", () => ({ liveGroups, killGroup }));
+
+let child: FakeChild;
+let spawn: Mock<(...args: unknown[]) => FakeChild>;
+let signalGroup: Mock<(pid: number, signal: Signal) => void>;
+
+function runner(options: ProcessRunnerOptions = {}): ProcessRunner {
+  return new ProcessRunner({
+    spawn: spawn as unknown as NonNullable<ProcessRunnerOptions["spawn"]>,
+    signalGroup,
+    ...options,
+  });
+}
+
+beforeEach(() => {
+  FakeWatchdog.reset();
+  liveGroups.add.mockReset();
+  liveGroups.delete.mockReset();
+  killGroup.mockReset();
+  child = new FakeChild();
+  spawn = vi.fn<(...args: unknown[]) => FakeChild>(() => child);
+  signalGroup = vi.fn<(pid: number, signal: Signal) => void>();
 });
 
-test("ProcessRunner passes stdin, environment, and working directory", async () => {
-  const cwd = await mkdtemp(join(tmpdir(), "kore-runner-"));
-  const result = await new ProcessRunner().run(
-    process.execPath,
-    [
-      "-e",
-      "let input=''; process.stdin.on('data', chunk => input += chunk); process.stdin.on('end', () => process.stdout.write(JSON.stringify({input, env:process.env.KORE_RUNNER_TEST, cwd:process.cwd()})))",
-    ],
-    {
-      cwd,
-      env: { ...process.env, KORE_RUNNER_TEST: "present" },
-      input: "payload",
-    },
-  );
+describe("ProcessRunner: starting the child", () => {
+  it("spawns a captured child as the leader of its own group, with piped output and no stdin", () => {
+    void runner().run("tool", ["run", "--fast"], { cwd: "/work" });
 
-  expect(JSON.parse(result.stdout)).toEqual({
-    input: "payload",
-    env: "present",
-    cwd: realpathSync(cwd),
+    expect(spawn).toHaveBeenCalledWith("tool", ["run", "--fast"], {
+      cwd: "/work",
+      env: process.env,
+      detached: true,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  });
+
+  it("registers a detached child's group while it runs, and forgets it on exit", () => {
+    void runner().run("tool", []);
+    expect(liveGroups.add).toHaveBeenCalledWith(4242);
+
+    child.emit("exit", 0);
+
+    expect(liveGroups.delete).toHaveBeenCalledWith(4242);
+    expect(lastWatchdog().exits).toBe(1);
+  });
+
+  it("passes an explicit environment through unchanged", () => {
+    const env = { PATH: "/bin" };
+
+    void runner().run("tool", [], { env });
+
+    expect(spawn).toHaveBeenCalledWith(
+      "tool",
+      [],
+      expect.objectContaining({ env }),
+    );
+  });
+
+  it("lets an uncaptured child share the terminal, and does not give it a group", () => {
+    void runner().run("tool", [], { capture: false });
+
+    expect(spawn).toHaveBeenCalledWith("tool", [], {
+      cwd: undefined,
+      env: process.env,
+      detached: false,
+      stdio: ["ignore", "inherit", "inherit"],
+    });
+    expect(liveGroups.add).not.toHaveBeenCalled();
+  });
+
+  it("keeps an inherited stdin in the terminal's group rather than detaching the child", () => {
+    void runner().run("tool", [], { stdin: "inherit" });
+
+    expect(spawn).toHaveBeenCalledWith(
+      "tool",
+      [],
+      expect.objectContaining({
+        detached: false,
+        stdio: ["inherit", "pipe", "pipe"],
+      }),
+    );
+  });
+
+  it("writes the input to stdin and closes it, with stdin piped", () => {
+    void runner().run("tool", [], { input: "hello" });
+
+    expect(spawn).toHaveBeenCalledWith(
+      "tool",
+      [],
+      expect.objectContaining({ stdio: ["pipe", "pipe", "pipe"] }),
+    );
+    expect(child.stdin.end).toHaveBeenCalledWith("hello");
   });
 });
 
-test("ProcessRunner reports a failed child with its command and stderr", async () => {
-  const runner = new ProcessRunner();
-  await expect(
-    runner.run(process.execPath, [
-      "-e",
-      "process.stderr.write('bad'); process.exit(7)",
-    ]),
-  ).rejects.toSatisfy((error: unknown) => {
+describe("ProcessRunner: the result", () => {
+  it("resolves with the captured output on exit code 0, and stops the watchdog", async () => {
+    const result = runner().run("tool", []);
+
+    child.stdout.emit("data", Buffer.from("a "));
+    child.stdout.emit("data", Buffer.from("b"));
+    child.stderr.emit("data", Buffer.from("warn"));
+    child.emit("close", 0);
+
+    await expect(result).resolves.toEqual({
+      stdout: "a b",
+      stderr: "warn",
+      code: 0,
+    });
+    expect(lastWatchdog().clears).toBe(1);
+  });
+
+  it("rejects with a CommandError naming the command, arguments and output on a failing exit", async () => {
+    const result = runner().run("tool", ["run"]);
+
+    child.stderr.emit("data", Buffer.from("  boom  \n"));
+    child.emit("close", 2);
+
+    const error = await result.catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(CommandError);
     expect(error).toMatchObject({
-      command: process.execPath,
-      result: { code: 7, stderr: "bad" },
+      command: "tool",
+      args: ["run"],
+      result: { stdout: "", stderr: "  boom  \n", code: 2 },
     });
-    return true;
+    expect((error as Error).message).toBe("tool run failed (2): boom");
+  });
+
+  it("treats a child that closes with no exit code as failing with code 1", async () => {
+    const result = runner().run("tool", []);
+
+    child.emit("close", null);
+
+    await expect(result).rejects.toMatchObject({ result: { code: 1 } });
+  });
+
+  it("rejects with the spawn error and stops the watchdog when the child cannot start", async () => {
+    const result = runner().run("missing", []);
+    const failure = new Error("spawn missing ENOENT");
+
+    child.emit("error", failure);
+
+    await expect(result).rejects.toBe(failure);
+    expect(lastWatchdog().clears).toBe(1);
   });
 });
 
-test("ProcessRunner rejects when the executable cannot be started", async () => {
-  await expect(
-    new ProcessRunner().run("kore-command-that-does-not-exist", []),
-  ).rejects.toMatchObject({ code: "ENOENT" });
-});
+describe("ProcessRunner: the timeout", () => {
+  it("uses the call's own timeout over the runner default, and the default over none", () => {
+    void runner({ defaultTimeoutMs: 9000 }).run("tool", [], {
+      timeoutMs: 100,
+    });
+    expect(lastWatchdog().timeoutMs).toBe(100);
 
-test("ProcessRunner supports inherited output without capturing it", async () => {
-  const result = await new ProcessRunner().run(process.execPath, ["-e", ""], {
-    capture: false,
+    void runner({ defaultTimeoutMs: 9000 }).run("tool", []);
+    expect(lastWatchdog().timeoutMs).toBe(9000);
+
+    void runner().run("tool", []);
+    expect(lastWatchdog().timeoutMs).toBe(0);
   });
 
-  expect(result).toEqual({ stdout: "", stderr: "", code: 0 });
-});
+  it("uses the configured grace period before SIGKILL, defaulting to five seconds", () => {
+    void runner({ killGraceMs: 250 }).run("tool", []);
+    expect(lastWatchdog().options.graceMs).toBe(250);
 
-test("RecordingRunner records calls and consumes queued responses", async () => {
-  const runner = new RecordingRunner([
-    { stdout: "first", stderr: "", code: 0 },
-  ]);
-
-  await expect(
-    runner.run("first", ["--flag"], { capture: true }),
-  ).resolves.toEqual({
-    stdout: "first",
-    stderr: "",
-    code: 0,
-  });
-  await expect(runner.run("second", [])).resolves.toEqual({
-    stdout: "",
-    stderr: "",
-    code: 0,
-  });
-  expect(runner.calls).toEqual([
-    { command: "first", args: ["--flag"], options: { capture: true } },
-    { command: "second", args: [] },
-  ]);
-});
-
-test("ProcessRunner hands a kubeconfig to the child through a file descriptor, never a file", async () => {
-  const result = await new ProcessRunner().run(
-    "sh",
-    ["-c", 'printf "%s|" "$KUBECONFIG"; cat "$KUBECONFIG"'],
-    { kubeconfig: "apiVersion: v1\n" },
-  );
-
-  const [path, content] = result.stdout.split("|");
-  expect(path).toMatch(/^\/dev\/fd\/\d+$/);
-  expect(content).toBe("apiVersion: v1\n");
-});
-
-test("ProcessRunner keeps the kubeconfig out of the arguments and the environment of the caller", async () => {
-  const before = process.env.KUBECONFIG;
-  const result = await new ProcessRunner().run("sh", ["-c", 'echo "$0 $*"'], {
-    kubeconfig: "secret-config",
+    void runner().run("tool", []);
+    expect(lastWatchdog().options.graceMs).toBe(5000);
   });
 
-  expect(result.stdout).not.toContain("secret-config");
-  expect(process.env.KUBECONFIG).toBe(before);
+  it("rejects a timed-out run with a CommandTimeoutError naming the timeout and the last output", async () => {
+    const result = runner().run("tool", ["run"], { timeoutMs: 1000 });
+    const dog = lastWatchdog();
+
+    child.stderr.emit("data", Buffer.from("x"));
+    dog.expired = true;
+    dog.killed = true;
+    dog.options.settled();
+
+    const error = await result.catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(CommandTimeoutError);
+    expect(error).toMatchObject({ timeoutMs: 1000, escalatedToKill: true });
+    expect((error as Error).message).toBe(
+      "tool run timed out after 1000ms; it hung rather than failed, did not exit on SIGTERM, and was killed with SIGKILL. Check what it was waiting on, then rerun. Last output: x",
+    );
+    expect(child.stdout.destroy).toHaveBeenCalled();
+    expect(child.stderr.destroy).toHaveBeenCalled();
+  });
+
+  it("names a timed-out child that stopped on SIGTERM, with no output tail when it printed none", async () => {
+    const result = runner().run("tool", ["run"], { timeoutMs: 1000 });
+    const dog = lastWatchdog();
+
+    dog.expired = true;
+    dog.options.settled();
+
+    const error = await result.catch((caught: unknown) => caught);
+    expect((error as Error).message).toBe(
+      "tool run timed out after 1000ms; it hung rather than failed, and stopped on SIGTERM. Check what it was waiting on, then rerun.",
+    );
+  });
+
+  it("leaves a timed-out run to the watchdog when the child closes, rather than settling it early", async () => {
+    let settledEarly = false;
+    const result = runner()
+      .run("tool", [])
+      .then(
+        () => (settledEarly = true),
+        () => (settledEarly = true),
+      );
+    const dog = lastWatchdog();
+    dog.expired = true;
+
+    child.emit("close", 143);
+    await Promise.resolve();
+
+    expect(settledEarly).toBe(false);
+    expect(dog.clears).toBe(0);
+    dog.options.settled();
+    await result;
+    expect(settledEarly).toBe(true);
+  });
 });
 
-test("ProcessRunner refuses a kubeconfig together with stdin input", async () => {
-  await expect(
-    new ProcessRunner().run("sh", ["-c", "true"], {
-      kubeconfig: "a",
-      input: "b",
-    }),
-  ).rejects.toThrow(/kubeconfig.*input/);
+describe("ProcessRunner: aborting", () => {
+  it("terminates the child at once when the signal is already aborted", () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    void runner().run("tool", [], { signal: controller.signal });
+
+    expect(signalGroup).toHaveBeenCalledWith(4242, "SIGTERM");
+  });
+
+  it("terminates the child when the signal aborts mid-run, and stops listening once it exits", async () => {
+    const controller = new AbortController();
+    const result = runner().run("tool", [], { signal: controller.signal });
+
+    controller.abort();
+    expect(signalGroup).toHaveBeenCalledWith(4242, "SIGTERM");
+
+    child.emit("close", 143);
+    await expect(result).rejects.toBeInstanceOf(CommandError);
+    controller.abort();
+    expect(signalGroup).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not signal a child that was never aborted", () => {
+    void runner().run("tool", [], { signal: new AbortController().signal });
+
+    expect(signalGroup).not.toHaveBeenCalled();
+    expect(child.kill).not.toHaveBeenCalled();
+  });
 });
 
-test("a failing command run with a kubeconfig reports the command and arguments the caller asked for, not the bash wrapper", async () => {
-  const error = await new ProcessRunner()
-    .run("sh", ["-c", "exit 3"], { kubeconfig: "k" })
-    .catch((caught: unknown) => caught);
+describe("ProcessRunner: signalling the child", () => {
+  it("signals the whole group of a detached child through the group signaller", () => {
+    void runner().run("tool", []);
 
-  expect(error).toBeInstanceOf(CommandError);
-  const failure = error as CommandError;
-  expect(failure.command).toBe("sh");
-  expect(failure.args).toEqual(["-c", "exit 3"]);
-  expect(failure.result.code).toBe(3);
-  expect(failure.message).not.toContain("<(cat)");
-});
+    lastWatchdog().options.send("SIGKILL");
 
-test("a missing command run with a kubeconfig fails with ENOENT like a missing command without one", async () => {
-  const error = await new ProcessRunner()
-    .run("kore-no-such-cosign", ["sign"], { kubeconfig: "k" })
-    .catch((caught: unknown) => caught);
+    expect(signalGroup).toHaveBeenCalledWith(4242, "SIGKILL");
+    expect(child.kill).not.toHaveBeenCalled();
+  });
 
-  expect(error).toMatchObject({ code: "ENOENT" });
-  expect((error as Error).message).toContain("kore-no-such-cosign");
+  it("signals an uncaptured child itself, since it has no group of its own", () => {
+    void runner().run("tool", [], { capture: false });
+
+    lastWatchdog().options.send("SIGTERM");
+
+    expect(child.kill).toHaveBeenCalledWith("SIGTERM");
+    expect(signalGroup).not.toHaveBeenCalled();
+  });
 });
