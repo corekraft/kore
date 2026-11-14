@@ -254,9 +254,12 @@ decisions; read one only when planning that area, and expect it to change.
 - [`.claude/evals/`](../.claude/evals/) — skill-triggering, review and role
   boundary evals (`--kind boundary`, opt-in). Read when changing a skill
   description, the review agent or a role's bounds.
-- [`docs/retros/2026-11-14-repo-retro.md`](retros/2026-11-14-repo-retro.md) — proposals
-  from the repo retro over 436 sessions; none applied. Read before changing
-  the role guards or the writer and orchestrator agent definitions.
+- [`docs/retros/2026-11-14-pocock-retro.md`](retros/2026-11-14-pocock-retro.md)
+  — ten proposed harness changes from the 2026-11-14 Pocock retro, none applied.
+  Read when choosing which retro proposals to accept.
+- [`docs/retros/2026-11-14-repo-retro.md`](retros/2026-11-14-repo-retro.md) —
+  proposals from the repo retro over 436 sessions; none applied. Read before
+  changing the role guards or the writer and orchestrator agent definitions.
 
 ## Skills
 
