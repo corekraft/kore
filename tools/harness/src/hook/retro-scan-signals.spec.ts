@@ -105,6 +105,10 @@ describe("retro scan orchestrator briefs", () => {
     ["Orchestrator: header", `Orchestrator: ${brief}`],
     ["[herdr:…] header", `[herdr:retro-writer] ${brief}`],
     ["indented, any case", `  \n ORCHESTRATOR: ${brief}`],
+    [
+      "session-name line and no tag",
+      `${brief}\n\nYou are retro-writer; your session name is retro-writer.`,
+    ],
   ])("does not count a message with a %s as a correction", (_name, text) => {
     const sessions = twoSessions(() => human("01", text));
     expect(scan(sessions, options).corrections).toEqual([]);

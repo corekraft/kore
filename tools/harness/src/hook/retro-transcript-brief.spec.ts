@@ -15,7 +15,24 @@ describe("orchestrator brief tag", () => {
   });
 
   it.each([
+    [
+      "a brief that holds the session-name line, with no tag",
+      "Retro ticket #496\n\nYou are retro-writer; your session name is retro-writer.\n\nWhen you finish, broadcast.",
+    ],
+    [
+      "a session-name line that opens the message, with no tag",
+      "You are image-trust-writer; your session name is image-trust-writer.",
+    ],
+  ])("reads a message with %s as a brief", (_name, text) => {
+    expect(isOrchestratorBrief(text)).toBe(true);
+  });
+
+  it.each([
     ["a person's correction", "Stop editing the widget manifests directly"],
+    [
+      "a person's words that say the session name is something else",
+      "You are wrong; your session name is not what I asked for.",
+    ],
     [
       "a person who names the tag mid-sentence",
       "Stop letting the [orchestrator] brief edit manifests",
