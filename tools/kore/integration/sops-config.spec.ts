@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "vitest";
-import { loadRepository } from "../config/index.js";
+import { loadRepository } from "../src/config/index.js";
 
 const recipient = /^\s+age: (age1[02-9ac-hj-np-z]{58})$/m;
 
