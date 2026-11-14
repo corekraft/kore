@@ -14,6 +14,8 @@ const OVERLAY = /^infra\/environments\/([^/]+)\/environment\.yaml$/;
 const ENTRY = /"?([\w.-]+)"?\s*:\s*(true|false)\b/g;
 const INLINE = /^\s*"?features"?\s*:\s*\{(.*)\}\s*,?\s*$/;
 const OPEN = /^\s*"?features"?\s*:\s*\{(.*)$/;
+const KEY_ONLY = /^\s*"?features"?\s*:\s*$/;
+const BRACE = /^\s*\{(.*)$/;
 const CLOSE = /^[^"]*\}/;
 export const NOT_BEHAVIOUR =
   /(\.md$|\.spec\.[cm]?[jt]sx?$|\.test\.[cm]?[jt]sx?$|^docs\/)/;
@@ -30,7 +32,16 @@ function entries(text: string, environment: string): FlagChange[] {
 function overlayFlags(file: ChangedFile, environment: string): FlagChange[] {
   const found: FlagChange[] = [];
   let inside = false;
+  let keyOnly = false;
   for (const { added, text } of file.after) {
+    const brace = keyOnly ? BRACE.exec(text) : null;
+    keyOnly = KEY_ONLY.test(text);
+    if (brace) {
+      const rest = brace[1] ?? "";
+      inside = !CLOSE.test(rest);
+      found.push(...(added ? entries(rest, environment) : []));
+      continue;
+    }
     const inline = INLINE.exec(text);
     if (inline?.[1] !== undefined) {
       inside = false;
