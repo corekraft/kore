@@ -1,28 +1,26 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 
-vi.mock("../images/index.js", () => ({
+vi.mock("../../src/images/index.js", () => ({
   ensureRegistryAuth: async () => undefined,
   ensureRegistryTrust: async () => undefined,
   ensureLocalSigningPublicKey: async () => undefined,
   registryTrustProblem: async () => undefined,
 }));
-vi.mock("./admission-gate.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./admission-gate.js")>()),
-  closeExistingAdmissionGate: async () => undefined,
-}));
 import {
   loadRepository,
   type Component,
   type Repository,
-} from "../config/index.js";
-import { CommandError, type Runner } from "../runtime/index.js";
-import { bootstrapControllers } from "./bootstrap.js";
-import { enrollPlatformNamespaces } from "./enrollment.js";
-import { platformStatus } from "./status.js";
-import { platformGeneration } from "./admission-gate.js";
-import { evaluateReadiness } from "./readiness-manifest.js";
-import { managedNamespaces } from "./gated-release.js";
+} from "../../src/config/index.js";
+import { CommandError, type Runner } from "../../src/runtime/index.js";
+import {
+  bootstrapControllers,
+  enrollPlatformNamespaces,
+  evaluateReadiness,
+  managedNamespaces,
+  platformGeneration,
+  platformStatus,
+} from "../../src/testing/index.js";
 
 const deployed = JSON.stringify({ info: { status: "deployed" } });
 
@@ -187,10 +185,20 @@ test("a requirement whose components are all gated off is skipped, not ready", a
   repository.readiness = {
     ...repository.readiness,
     requirements: [
-      { name: "ingress", step: 1, capability: "c", components: ["gated"] },
-      { name: "base", step: 2, capability: "c", components: ["sibling"] },
+      {
+        name: "ingress",
+        step: 1,
+        capability: "controller",
+        components: ["gated"],
+      },
+      {
+        name: "base",
+        step: 2,
+        capability: "controller",
+        components: ["sibling"],
+      },
     ],
-  } as never;
+  };
   const evidence = evaluateReadiness(repository, [
     { name: "gated", namespace: "x", status: "gated-off", detail: "off" },
     { name: "sibling", namespace: "x", status: "ready", detail: "ok" },
