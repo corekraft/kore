@@ -15,6 +15,7 @@ import { describe, expect, it, vi } from "vitest";
 import { nodeFileSystem } from "./filesystem.js";
 import {
   asFileHandle,
+  asGlob,
   errnoError,
   fakeHandle,
   fakeStats,
@@ -171,9 +172,7 @@ describe("nodeFileSystem.hasGlobMatch", () => {
         yield path;
       }
     }
-    vi.mocked(glob).mockReturnValue(
-      generator() as unknown as ReturnType<typeof glob>,
-    );
+    vi.mocked(glob).mockReturnValue(asGlob(generator()));
     return pulled;
   }
 

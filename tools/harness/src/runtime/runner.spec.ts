@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProcessRunner } from "./runner.js";
 
@@ -11,13 +12,18 @@ class FakeChild extends EventEmitter {
   readonly stderr = new EventEmitter();
   readonly stdin = { end: vi.fn() };
   readonly kill = vi.fn();
+
+  /** The child as the spawn call returns it. */
+  asChildProcess(): ChildProcess {
+    return this as unknown as ChildProcess;
+  }
 }
 
 let child: FakeChild;
 
 beforeEach(() => {
   child = new FakeChild();
-  vi.mocked(spawn).mockReturnValue(child as unknown as ChildProcess);
+  vi.mocked(spawn).mockReturnValue(child.asChildProcess());
 });
 
 afterEach(() => {

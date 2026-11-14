@@ -1,5 +1,5 @@
 import type { Stats } from "node:fs";
-import type { FileHandle } from "node:fs/promises";
+import type { FileHandle, glob } from "node:fs/promises";
 import type { Mock } from "vitest";
 import { vi } from "vitest";
 
@@ -48,4 +48,9 @@ export function fakeHandle(content: string): FakeHandle {
 /** The handle as the open call returns it. */
 export function asFileHandle(handle: FakeHandle): FileHandle {
   return handle as unknown as FileHandle;
+}
+
+/** A walk as the glob call returns it: the paths the generator yields, typed as the real walk. */
+export function asGlob(paths: AsyncIterable<string>): ReturnType<typeof glob> {
+  return paths as unknown as ReturnType<typeof glob>;
 }
