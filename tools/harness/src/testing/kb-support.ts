@@ -1,7 +1,7 @@
 // Shared fixtures for the knowledge health check specs.
 // Docs: infra/plans/4-knowledge.md#step-3-knowledge-health-check
 
-import { findings, format, type TreeDeps } from "./index.js";
+import { findings, format, type TreeDeps } from "../kb/index.js";
 
 export type Tree = Record<string, string | null>;
 

@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { run } from "../cli/index.js";
-import { testHarness } from "../cli/cli-support.js";
+import { testHarness } from "../testing/index.js";
 import { INVENTORY_PATH } from "./index.js";
 import {
   committedInventory,
   committedInventoryText,
-} from "../testing/guardrail-support.js";
+} from "../testing/index.js";
 
 const status = async (files: Record<string, string>, args: string[] = []) => {
   const h = testHarness({ files });

@@ -10,7 +10,7 @@ import {
   rulesetRepo,
   sent,
   sync,
-} from "../testing/ruleset-support.js";
+} from "../testing/index.js";
 
 // The declared checks require check and scan; live main still requires only check.
 const OLD = checksRule("check");

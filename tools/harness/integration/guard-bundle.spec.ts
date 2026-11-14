@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, it } from "vitest";
-import { cleanGitEnv } from "../src/testing/git-env.js";
+import { cleanGitEnv } from "../src/testing/index.js";
 
 // The guard as the host runs it: the built bundle as a real process.
 const here = dirname(fileURLToPath(import.meta.url));

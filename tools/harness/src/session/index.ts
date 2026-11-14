@@ -1,4 +1,5 @@
 import type { Command } from "../runtime/index.js";
+export { handOff } from "./handoff.js";
 import { close } from "./close.js";
 import { equalize } from "./equalize.js";
 import { notify } from "./notify.js";

@@ -1,7 +1,7 @@
 // Delta: what changed between a session's turns, as UserPromptSubmit context.
 // Plan: infra/plans/6-agent-primitives.md#step-3-what-changed-between-turns
 
-import { cleanGitEnv } from "../../src/testing/git-env.js";
+import { cleanGitEnv, planText, testHarness } from "../../src/testing/index.js";
 import { spawnSync } from "node:child_process";
 import {
   existsSync,
@@ -15,14 +15,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { run } from "../../src/cli/index.js";
-import { testHarness } from "../../src/cli/cli-support.js";
 import {
   CommandError,
   nodeFileSystem,
   ProcessRunner,
   systemClock,
 } from "../../src/runtime/index.js";
-import { planText } from "../../src/hook/delta-support.js";
 
 // Under a git hook GIT_DIR and friends are set and would aim the fixture's git
 // calls at the real repository.

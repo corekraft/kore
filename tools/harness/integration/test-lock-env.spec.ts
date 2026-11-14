@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { cleanGitEnv } from "../src/testing/git-env.js";
+import { cleanGitEnv } from "../src/testing/index.js";
 
 const TEST_LOCK = fileURLToPath(
   new URL("../../kore/.husky/test-lock.mjs", import.meta.url),

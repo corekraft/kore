@@ -7,7 +7,7 @@ import {
   linked,
   record,
   withFlag,
-} from "./outcome-support.js";
+} from "../testing/index.js";
 
 const CLOSE = ["outcome", "close", "--idea", "1", "--ledger", LEDGER];
 

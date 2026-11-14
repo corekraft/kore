@@ -3,9 +3,9 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { run } from "../cli/index.js";
-import { testHarness } from "../cli/cli-support.js";
+import { testHarness } from "../testing/index.js";
 import { nodeFileSystem } from "../runtime/index.js";
-import type { FakeRunner } from "../runtime/runner-support.js";
+import type { FakeRunner } from "../testing/index.js";
 
 export const agents = `# AGENTS.md
 

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { it } from "vitest";
-import { bash, blocked } from "./guard-support.js";
+import { bash, blocked } from "../testing/index.js";
 
 it("unquoted-glob: an unquoted --include or --exclude glob blocks, since zsh fails the whole command when it matches nothing", async () => {
   for (const command of [

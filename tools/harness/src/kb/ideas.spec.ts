@@ -9,7 +9,7 @@ import {
   ideaFile,
   messages,
   type Tree,
-} from "./kb-support.js";
+} from "../testing/index.js";
 
 const idea = (changes: Record<string, string | null>, body?: string): Tree => ({
   "docs/ideas/0001-a.md": ideaFile(changes, body),

@@ -3,7 +3,11 @@
 
 import { describe, expect, it } from "vitest";
 import { update } from "./delta.js";
-import { entry, fakeDeps, planText } from "./delta-support.js";
+import {
+  entry,
+  fakeDeltaDeps as fakeDeps,
+  planText,
+} from "../testing/index.js";
 
 describe("delta update", () => {
   it("writes a snapshot and prints nothing on the first prompt of a session", async () => {

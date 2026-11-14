@@ -4,14 +4,8 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { run } from "../cli/index.js";
 import { nodeFileSystem } from "../runtime/index.js";
-import { FakeRunner } from "../runtime/runner-support.js";
-import {
-  INDEX,
-  NEW,
-  harness,
-  ideaText,
-  seeded,
-} from "../testing/records-support.js";
+import { FakeRunner } from "../testing/index.js";
+import { INDEX, NEW, harness, ideaText, seeded } from "../testing/index.js";
 
 const FIELDS = {
   number: "0001",

@@ -11,7 +11,7 @@ import {
   rulesetRepo,
   sent,
   sync,
-} from "../testing/ruleset-support.js";
+} from "../testing/index.js";
 
 describe("harness ruleset sync keeps main active", () => {
   it("leaves both rulesets alone when every rule enforces and main matches", async () => {

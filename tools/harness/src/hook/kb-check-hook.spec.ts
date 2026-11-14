@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import { run } from "../cli/index.js";
-import { testHarness } from "../cli/cli-support.js";
+import { testHarness } from "../testing/index.js";
 
 const CLEAN = { "docs/index.md": "# Index\n", "README.md": "# Kore\n" };
 const BROKEN = { ...CLEAN, "README.md": "# Kore\n\n[gone](missing.md)\n" };

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { run } from "./cli.js";
 import { DEFAULT, harness } from "./ledger-commands-support.js";
-import { ideaText } from "../testing/records-support.js";
+import { ideaText } from "../testing/index.js";
 
 const PLAN =
   "---\nstatus: active\nsummary: s\nlast-verified: 2026-11-11\n---\n\n## Step 1: A\n\n- [ ] x\n- [x] y\n- [ ] z\n";

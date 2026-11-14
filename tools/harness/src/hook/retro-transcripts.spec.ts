@@ -11,7 +11,7 @@ import {
   readTranscripts,
   repoTranscriptDirs,
 } from "./retro-transcripts.js";
-import { FakeRunner } from "../runtime/runner-support.js";
+import { FakeRunner } from "../testing/index.js";
 
 const temps: string[] = [];
 afterEach(() => {

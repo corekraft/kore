@@ -1,4 +1,4 @@
-import type { FileSystem } from "./filesystem.js";
+import type { FileSystem } from "../runtime/index.js";
 import { hasMatchUnder } from "./memory-filesystem-support.js";
 
 /**

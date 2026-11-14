@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { run } from "../cli/index.js";
-import { ANCHOR, INDEX, NEW, PLAN, adrFile, fixture } from "./adr-support.js";
+import {
+  ADR_INDEX as INDEX,
+  ADR_NEW as NEW,
+  ANCHOR,
+  PLAN,
+  adrFile,
+  fixture,
+} from "../testing/index.js";
 
 describe("harness adr new", () => {
   it("writes flat frontmatter with the injected clock's date and the body skeleton", async () => {

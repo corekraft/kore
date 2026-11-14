@@ -7,7 +7,7 @@ import {
   liveMain,
   mutations,
   rulesetRepo,
-} from "../testing/ruleset-support.js";
+} from "../testing/index.js";
 
 const suite = (id: number, evaluation: string, result = "pass") => ({
   id,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { run } from "./cli.js";
 import { DEFAULT, harness } from "./ledger-commands-support.js";
-import { finishedIdea } from "../flow/flow-support.js";
+import { finishedIdea } from "../testing/index.js";
 
 function seeded(extra: string[] = []) {
   const h = harness();

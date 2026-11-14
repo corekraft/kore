@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CliDeps } from "../cli/index.js";
 import { run } from "../cli/index.js";
-import { FakeRunner } from "../runtime/runner-support.js";
+import { FakeRunner } from "../testing/index.js";
 
 type Files = Record<string, string>;
 

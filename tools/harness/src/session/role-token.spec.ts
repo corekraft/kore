@@ -1,6 +1,6 @@
 import { createVerify } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { testHarness } from "../cli/cli-support.js";
+import { testHarness } from "../testing/index.js";
 import { roleToken } from "./role-token.js";
 import {
   APP_KEY,

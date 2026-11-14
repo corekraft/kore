@@ -1,6 +1,6 @@
-import { FakeRunner, type FakeResponse } from "../runtime/runner-support.js";
+import { FakeRunner, type FakeResponse } from "./runner-support.js";
 import type { CliDeps } from "../runtime/index.js";
-import { MemoryFileSystem } from "../runtime/memory-filesystem-support.js";
+import { MemoryFileSystem } from "./memory-filesystem-support.js";
 
 export interface TestHarness {
   deps: CliDeps;

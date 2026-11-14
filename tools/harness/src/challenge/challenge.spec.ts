@@ -7,7 +7,7 @@ import {
   ghWrites,
   linked,
   type Harness,
-} from "../outcome/outcome-support.js";
+} from "../testing/index.js";
 import { issueComments } from "./challenge.js";
 import { MAX_ROUNDS } from "./index.js";
 

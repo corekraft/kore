@@ -10,7 +10,7 @@ import {
   rulesetRepo,
   sent,
   sync,
-} from "../testing/ruleset-support.js";
+} from "../testing/index.js";
 
 const PR = {
   required_approving_review_count: 1,

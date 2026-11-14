@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vitest";
-import { allowed, blocked, decide } from "./guard-support.js";
+import { allowed, blocked, decide } from "../testing/index.js";
 
 const bash = (agent_type: string, command: string) =>
   decide({ agent_type, tool_name: "Bash", tool_input: { command } });

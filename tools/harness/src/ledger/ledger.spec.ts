@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MemoryFileSystem } from "../runtime/memory-filesystem-support.js";
+import { MemoryFileSystem } from "../testing/index.js";
 import { Ledger, type ListFilter } from "./ledger.js";
 
 const PATH = "/repo/.kore/state/ledger.jsonl";

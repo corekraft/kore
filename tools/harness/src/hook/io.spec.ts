@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { testHarness } from "../cli/cli-support.js";
+import { testHarness } from "../testing/index.js";
 import { CommandError } from "../runtime/index.js";
 import { hookCommand, readPayload } from "./io.js";
 

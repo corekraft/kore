@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { denyRules, modeOf } from "../guardrail/index.js";
-import { committedInventory } from "../testing/guardrail-support.js";
-import { evaluate } from "./guard.js";
+import { evaluate } from "../hook/index.js";
+import { committedInventory } from "./guardrail-support.js";
 
 export const root = "/repo";
 const sopsConfig = `creation_rules:

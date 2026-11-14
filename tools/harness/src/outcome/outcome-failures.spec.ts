@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { run } from "../cli/index.js";
-import { PATH, ghWrites, linked, record } from "./outcome-support.js";
+import { PATH, ghWrites, linked, record } from "../testing/index.js";
 
 describe("harness outcome record failing on gh", () => {
   it("names the failing gh step and how to resume, leaving the outcome recorded", async () => {

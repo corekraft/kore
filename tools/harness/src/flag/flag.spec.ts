@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { run } from "../cli/index.js";
-import { harness } from "../testing/records-support.js";
+import { harness } from "../testing/index.js";
 import {
   LEDGER,
   OVERLAY,
@@ -8,7 +8,7 @@ import {
   overlay,
   provenIdea,
   repository,
-} from "../testing/flag-support.js";
+} from "../testing/index.js";
 
 const events = (h: ReturnType<typeof harness>) =>
   (h.get(".kore/state/ledger.jsonl") ?? "")

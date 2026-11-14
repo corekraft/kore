@@ -2,8 +2,8 @@
 // Plan: infra/plans/6-agent-primitives.md#step-3-what-changed-between-turns
 
 import { describe, expect, it } from "vitest";
-import { testHarness } from "../cli/cli-support.js";
-import type { FakeResponse } from "../runtime/runner-support.js";
+import { testHarness } from "../testing/index.js";
+import type { FakeResponse } from "../testing/index.js";
 import { realDeltaDeps } from "./delta-deps.js";
 
 const gitDir: FakeResponse = {

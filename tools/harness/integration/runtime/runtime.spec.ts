@@ -2,11 +2,14 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { nodeFileSystem } from "../../src/runtime/filesystem.js";
-import { localDate, systemClock } from "../../src/runtime/clock.js";
-import { systemIds } from "../../src/runtime/ids.js";
-import { ProcessRunner } from "../../src/runtime/runner.js";
-import { FakeRunner } from "../../src/runtime/runner-support.js";
+import {
+  localDate,
+  nodeFileSystem,
+  ProcessRunner,
+  systemClock,
+  systemIds,
+} from "../../src/runtime/index.js";
+import { FakeRunner } from "../../src/testing/index.js";
 
 /** No GIT_* variable: the guard cannot tell this fake from a process (#368). */
 const gitEnv = Object.fromEntries(

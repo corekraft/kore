@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, it } from "vitest";
-import { cleanGitEnv } from "../src/testing/git-env.js";
+import { cleanGitEnv } from "../src/testing/index.js";
 
 // The session brief as the host runs it: the built bundle as a real process.
 // Docs: infra/plans/4-knowledge.md#step-4-upward-context

@@ -1,4 +1,4 @@
-import type { RunOptions, RunResult, Runner } from "./runner.js";
+import type { RunOptions, RunResult, Runner } from "../runtime/index.js";
 
 export interface FakeResponse {
   match: (command: string, args: readonly string[]) => boolean;

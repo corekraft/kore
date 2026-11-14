@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { committedInventoryText } from "../testing/guardrail-support.js";
+import { committedInventoryText } from "../testing/index.js";
 import { auditEvents, bash, guard } from "./guard-modes-support.js";
 
 const SETTINGS = "/repo/.claude/settings.json";

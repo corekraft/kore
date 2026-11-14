@@ -1,5 +1,5 @@
 import { generateKeyPairSync } from "node:crypto";
-import type { FakeResponse } from "../runtime/runner-support.js";
+import type { FakeResponse } from "../testing/index.js";
 
 const pair = generateKeyPairSync("rsa", { modulusLength: 2048 });
 

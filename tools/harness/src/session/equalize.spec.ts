@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { testHarness } from "../cli/cli-support.js";
+import { testHarness } from "../testing/index.js";
 import { equalize } from "./equalize.js";
 
 const pane = (id: string, x: number, y: number, height: number) => ({

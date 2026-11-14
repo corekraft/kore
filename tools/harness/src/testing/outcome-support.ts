@@ -1,5 +1,5 @@
 import { run } from "../cli/index.js";
-import { harness, NEW } from "../testing/records-support.js";
+import { harness, NEW } from "./records-support.js";
 
 export const PATH = "docs/ideas/0001-cache-the-probe-results.md";
 export const LEDGER = "/repo/.kore/state/ledger.jsonl";

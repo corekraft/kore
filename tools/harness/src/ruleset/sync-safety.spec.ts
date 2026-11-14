@@ -12,7 +12,7 @@ import {
   rulesetRepo,
   sent,
   sync,
-} from "../testing/ruleset-support.js";
+} from "../testing/index.js";
 
 const EXTRA = { type: "required_linear_history" };
 
