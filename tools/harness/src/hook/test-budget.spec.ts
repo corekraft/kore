@@ -4,7 +4,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import { hookCommand } from "./io.js";
-import "./test-budget.js";
+import { isListed, readLists } from "./test-budget.js";
 import {
   REPO,
   ROOT,
@@ -178,6 +178,64 @@ describe("harness hook test-budget: package run", () => {
     const { code, err } = await run(world, slowRun, {}, 21_300);
     expect(code).toBe(0);
     expect(err).toBe("");
+  });
+});
+
+describe("harness hook test-budget: missing and header-only lists", () => {
+  const domainOnly: World = {
+    files: {
+      [`${SRC}/`]: "",
+      [`${SRC}/security/`]: "",
+      [`${SRC}/security/scan.ts`]: "",
+    },
+  };
+  const headerOnly = "# Source files not yet converted to unit tests.\n";
+
+  it("reads a domain with no list as naming no file, the same as a list holding only its header", async () => {
+    const missing = await readLists(depsOf(domainOnly).deps, SRC);
+    expect([...missing.entries()]).toEqual([]);
+
+    const withHeader = depsOf({
+      files: {
+        ...domainOnly.files,
+        [`${SRC}/security/unconverted.txt`]: headerOnly,
+      },
+    }).deps;
+    const empty = await readLists(withHeader, SRC);
+    expect([...empty.entries()]).toEqual([
+      [`${SRC}/security/unconverted.txt`, []],
+    ]);
+
+    const source = `${SRC}/security/scan.ts`;
+    expect(isListed(missing, SRC, source)).toBe(false);
+    expect(isListed(empty, SRC, source)).toBe(false);
+  });
+
+  it("budgets a domain whose list holds only its header the same as one with no list", async () => {
+    const { code, err } = await run(withList(headerOnly), [
+      one("security/scan.spec.ts", "scans", 154),
+    ]);
+    expect(code).toBe(1);
+    expect(err).toBe(
+      "test-budget: tools/kore/src/security/scan.spec.ts > scans took 154 ms, 54 ms over the 100 ms test budget; mock what it imports and drop real timers and processes, so it tests one unit alone (ADR 0098)\n",
+    );
+  });
+
+  it("applies the 20 second package limit when no domain has a list at all", async () => {
+    const { code, err } = await run(
+      twoDomains({}),
+      [
+        one("security/scan.spec.ts", "a", 1),
+        one("images/pin.spec.ts", "a", 1),
+        one("images/pin2.spec.ts", "a", 1),
+      ],
+      {},
+      21_300,
+    );
+    expect(code).toBe(1);
+    expect(err).toBe(
+      "test-budget: the tools/kore unit run took 21300 ms, 1300 ms over the 20000 ms package budget, startup and global setup included; the slowest specs are printed above, so speed those up or split them (ADR 0098)\n",
+    );
   });
 });
 
