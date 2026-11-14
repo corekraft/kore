@@ -2,7 +2,7 @@
 status: accepted
 summary: Refines ADR 0078 and 0080: agent containment comes from separate GitHub identities, no owner bypass and an OS sandbox; regex role guards are hints, frozen apart from quick fixes.
 date: 2026-11-12
-last-verified: 2026-11-12
+last-verified: 2026-11-14
 ---
 
 # ADR 0091: Containment comes from identities and a sandbox, not role guards

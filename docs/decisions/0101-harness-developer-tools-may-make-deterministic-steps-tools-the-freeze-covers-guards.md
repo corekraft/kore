@@ -28,6 +28,8 @@ back.
   precheck's format, and removing a merged writer's worktree.
 - The freeze in ADR 0091 still applies to new guards, new deny rules and new
   rule families.
+- These tools do not widen what the role guards enforce, and ADR 0080 still
+  governs activation.
 
 ## Consequences
 
