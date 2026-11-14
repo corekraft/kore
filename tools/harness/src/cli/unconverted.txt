@@ -14,6 +14,6 @@ ledger-commands-support.ts
 ledger-commands.ts
 measurement.ts
 outcome-commands.ts
-poll-support.ts
+poll-helpers.ts
 records.ts
 status-command.ts
