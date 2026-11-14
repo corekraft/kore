@@ -7,5 +7,11 @@ export default defineConfig({
   test: {
     name: "integration",
     include: ["integration/**/*.ts"],
+    // The guard-bundle spec reads the built bundle, so build it first (ADR 0092).
+    globalSetup: ["tests/build-bundle-setup.ts"],
+    // The guard startup timing must not share the host with another file, and the
+    // hook cases spawn real processes and git (as in vitest.config.ts).
+    fileParallelism: false,
+    testTimeout: 60_000,
   },
 });
