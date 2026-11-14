@@ -82,29 +82,39 @@ describe("record hook: what it ignores", () => {
 });
 
 describe("record hook: the background ledger poll", () => {
-  it("starts `ledger poll-github` through the runner on a session start", async () => {
-    runnerRun.mockResolvedValue({ stdout: "", stderr: "", code: 0 });
+  const POLL = [
+    "node",
+    ["/repo/skills/bin/harness.mjs", "ledger", "poll-github"],
+    { detached: true },
+  ];
 
-    await run({ source: "startup", session_id: "abc" });
+  it.each(["startup", "clear", "resume"])(
+    "starts `ledger poll-github` detached through the runner for a %s start",
+    async (source) => {
+      runnerRun.mockResolvedValue({ stdout: "", stderr: "", code: 0 });
 
-    expect(runnerRun).toHaveBeenCalledWith("node", [
-      "/repo/skills/bin/harness.mjs",
-      "ledger",
-      "poll-github",
-    ]);
-  });
+      await run({ source, session_id: "abc" });
 
-  it("does not wait for the poll, so a poll that never ends never blocks the hook", async () => {
-    runnerRun.mockReturnValue(new Promise(() => undefined));
+      expect(runnerRun.mock.calls).toEqual([POLL]);
+    },
+  );
+
+  it("prints nothing into the session context when the poll reports output or fails", async () => {
+    runnerRun.mockResolvedValue({ stdout: "polled", stderr: "rate", code: 1 });
 
     expect(await run({ source: "startup", session_id: "abc" })).toEqual({});
   });
 
-  it("returns the same output when the poll rejects", async () => {
+  it("swallows a poll that rejects, so no unhandled rejection reaches the host", async () => {
+    const unhandled = vi.fn();
+    process.on("unhandledRejection", unhandled);
     runnerRun.mockRejectedValue(new Error("rate limited"));
 
     expect(await run({ source: "resume", session_id: "abc" })).toEqual({});
-    await Promise.resolve();
+    await new Promise((resolve) => setImmediate(resolve));
+    process.off("unhandledRejection", unhandled);
+
+    expect(unhandled).not.toHaveBeenCalled();
   });
 
   it("returns the same output when the runner throws at once", async () => {
@@ -115,9 +125,15 @@ describe("record hook: the background ledger poll", () => {
     expect(await run({ source: "clear", session_id: "abc" })).toEqual({});
   });
 
-  it("does not poll for a compaction or under another mode", async () => {
+  it("starts no poll for a compaction, another mode or a missing bundle", async () => {
     await run({ source: "compact", session_id: "abc" });
     await runMode({ source: "startup" }, "stop");
+    await handler({
+      deps: asCliDeps({ runner: { run: runnerRun } }),
+      payload: { source: "startup" },
+      options: {},
+      operand: "session-start",
+    });
 
     expect(runnerRun).not.toHaveBeenCalled();
   });

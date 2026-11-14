@@ -13,11 +13,13 @@ import { recordEvent } from "./ledger-event.js";
 const STARTS = new Set(["startup", "clear", "resume"]);
 
 /**
- * Starts `ledger poll-github` and does not wait for it: the ledger gets its
- * outcome signals without the session start ever waiting on GitHub. Best
+ * Starts `ledger poll-github` detached (its own process group, no pipes,
+ * unref'd), so the hook exits at once whatever the poll does: the ledger gets
+ * its outcome signals without a session start ever waiting on GitHub. Best
  * effort by contract: a poll that fails, is rate limited or cannot start never
  * changes the hook's output, and its output is dropped, never printed. The
- * poll itself refuses to run twice at once.
+ * poll itself refuses to run twice at once (ledger/poll-lock.ts, a lock file
+ * beside the ledger, taken in ledger/github-poll.ts).
  */
 function pollInBackground(deps: CliDeps): void {
   if (deps.bundleUrl === undefined) {
@@ -25,7 +27,9 @@ function pollInBackground(deps: CliDeps): void {
   }
   try {
     deps.runner
-      .run("node", [fileURLToPath(deps.bundleUrl), "ledger", "poll-github"])
+      .run("node", [fileURLToPath(deps.bundleUrl), "ledger", "poll-github"], {
+        detached: true,
+      })
       .catch(() => undefined);
   } catch {
     // Best effort: the poll is not the hook's verdict.
