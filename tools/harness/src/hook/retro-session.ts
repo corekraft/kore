@@ -66,6 +66,10 @@ export interface GuardBlock {
 /** A bare-glob message names the glob it flags: "[guard:bare-glob] <glob> is an unquoted glob; ...". */
 const GLOB_NAMED = /\[guard:([a-z0-9-]+)\] (\S+) is an unquoted glob;/g;
 
+/** A block message leads with its own tag, after at most the hook error prefix; later tags are quoted command text. */
+const LEADING_TAG =
+  /^\s*(?:PreToolUse:\S+ hook (?:blocking )?error: [^\n]*?\]: )?\[guard:([a-z0-9-]+)\]/;
+
 const tagsIn = (text: string): string[] =>
   [...text.matchAll(GUARD_TAG)].map((match) => match[1] ?? "");
 
@@ -131,8 +135,8 @@ export class SessionAnalysis {
   private toolFailure(event: TranscriptEvent, block: Block): void {
     this.failedSinceHuman = true;
     const text = resultText(block);
-    // A block message leads with its own tag; later tags are quoted command text.
-    const tags = new Set(tagsIn(text).slice(0, 1));
+    const leading = LEADING_TAG.exec(text)?.[1];
+    const tags = new Set(leading ? [leading] : []);
     if (tags.size === 0) {
       this.failures.push({
         tool: this.calls.get(block.tool_use_id ?? "") ?? "unknown",
