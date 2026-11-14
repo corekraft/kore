@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "vitest";
+import { loadRepository } from "../../src/config/index.js";
 import {
   comparePinnedTools,
-  loadRepository,
   parseMiseTools,
-} from "../../src/config/index.js";
+} from "../../src/config/tool-pins.js";
 
 test("every tool .mise.toml and the tool catalog both pin is at the same version, and no tool is in only one file without an allow-list entry", async () => {
   const { root, versions } = await loadRepository("local");
