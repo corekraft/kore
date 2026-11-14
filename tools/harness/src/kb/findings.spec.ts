@@ -1,200 +1,286 @@
-// Knowledge health check: links, the index, frontmatter, upward `Docs:`
-// markers, and README coverage of CLI commands.
+// The knowledge health check's problems: links and anchors, the index, idea numbers, Docs/Plan/ADR markers and README coverage.
 // Docs: infra/plans/4-knowledge.md#step-3-knowledge-health-check
 
-import assert from "node:assert/strict";
-import { it } from "vitest";
-import { format, slug } from "./index.js";
+import { beforeEach, expect, test, vi } from "vitest";
+import { checkFrontmatter } from "./document-checks.js";
+import { findings } from "./findings.js";
+import { checkIdea } from "./idea-checks.js";
+import { fakeFinding, fakeProse, fakeTree } from "./kb-support.js";
 import {
-  adrFrontmatter,
-  check,
-  cleanTree,
-  messages,
-  planFrontmatter,
-} from "../testing/index.js";
+  anchors,
+  finding,
+  isExternal,
+  proseLines,
+  resolve,
+} from "./markdown.js";
 
-it("a clean tree reports nothing", () => {
-  assert.deepEqual(messages(cleanTree()), []);
+vi.mock("./document-checks.js", () => ({ checkFrontmatter: vi.fn() }));
+vi.mock("./idea-checks.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./idea-checks.js")>()),
+  checkIdea: vi.fn(),
+}));
+vi.mock("./markdown.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./markdown.js")>()),
+  anchors: vi.fn(),
+  finding: vi.fn(),
+  isExternal: vi.fn(),
+  proseLines: vi.fn(),
+  resolve: vi.fn(),
+}));
+
+const FIX_LINK = "point the link at an existing file or remove it";
+
+beforeEach(() => {
+  vi.mocked(finding).mockImplementation(fakeFinding);
+  vi.mocked(proseLines).mockImplementation(fakeProse);
+  vi.mocked(isExternal).mockReturnValue(false);
+  vi.mocked(resolve).mockImplementation((_from, target) => target);
+  vi.mocked(anchors).mockReturnValue([]);
+  vi.mocked(checkFrontmatter).mockReturnValue([]);
+  vi.mocked(checkIdea).mockReturnValue([]);
 });
 
-it("slug follows GitHub heading anchors", () => {
-  assert.equal(
-    slug("Step 3: Knowledge Health Check"),
-    "step-3-knowledge-health-check",
-  );
-  assert.equal(
-    slug("Step 9: Workload Identity, Application Image Trust, and Policy"),
-    "step-9-workload-identity-application-image-trust-and-policy",
-  );
-  assert.equal(slug("Use `kore` as a CLI"), "use-kore-as-a-cli");
-  assert.equal(slug("Read [the plan](x.md) first"), "read-the-plan-first");
-  assert.equal(slug("snake_case and dash-ed"), "snake_case-and-dash-ed");
+test("a tree with an index and nothing to check reports nothing", () => {
+  expect(findings(fakeTree({ "docs/index.md": "" }))).toEqual([]);
 });
 
-it("a relative link to a missing file is reported with file, line, and fix", () => {
-  const tree = cleanTree({
-    "skills/tdd/SKILL.md": "# TDD\n\nSee [rules](references/gone.md).\n",
+test("a relative link to a missing file is reported on its line", () => {
+  vi.mocked(resolve).mockReturnValue("skills/a/references/gone.md");
+  const tree = fakeTree({
+    "docs/index.md": "",
+    "docs/a.md": "# A\n[rules](references/gone.md)\n",
   });
-  assert.deepEqual(check(tree), [
+  expect(findings(tree)).toEqual([
     {
-      file: "skills/tdd/SKILL.md",
-      line: 3,
-      message: "link target skills/tdd/references/gone.md does not exist",
-      fix: "point the link at an existing file or remove it",
+      file: "docs/a.md",
+      line: 2,
+      message: "link target skills/a/references/gone.md does not exist",
+      fix: FIX_LINK,
     },
   ]);
 });
 
-it("a link to a missing anchor is reported, but an existing anchor is not", () => {
-  const tree = cleanTree({
-    "README.md":
-      "# Kore\n\n[a](docs/index.md#nowhere) and [b](#kore).\nkore doctor, kore cluster\n",
+test("a link that leaves the repository is reported with the path as written", () => {
+  vi.mocked(resolve).mockReturnValue(null);
+  const tree = fakeTree({
+    "docs/index.md": "",
+    "docs/a.md": "[up](../../../x.md)\n",
   });
-  assert.deepEqual(messages(tree), [
-    "README.md:3: link anchor #nowhere is not a heading in docs/index.md; use one of its heading slugs, e.g. #index",
+  expect(findings(tree)).toEqual([
+    {
+      file: "docs/a.md",
+      line: 1,
+      message: "link target ../../../x.md does not exist",
+      fix: FIX_LINK,
+    },
   ]);
 });
 
-it("duplicate headings get numbered anchors", () => {
-  const tree = cleanTree({
-    "skills/tdd/references/rules.md":
-      "# Rules\n\n## Work\n\n## Work\n\n[x](#work-1) [y](#work-2)\n",
+test("external links are never resolved, and a bare anchor is checked against the file's own headings", () => {
+  vi.mocked(isExternal).mockImplementation((target) =>
+    target.startsWith("https://"),
+  );
+  vi.mocked(anchors).mockReturnValue(["intro"]);
+  const tree = fakeTree({
+    "docs/index.md": "",
+    "docs/a.md": "[web](https://x.test/a) [top](#intro) [bad](#nowhere)\n",
   });
-  assert.deepEqual(messages(tree), [
-    "skills/tdd/references/rules.md:7: link anchor #work-2 is not a heading in skills/tdd/references/rules.md; use one of its heading slugs, e.g. #rules",
+  expect(findings(tree)).toEqual([
+    {
+      file: "docs/a.md",
+      line: 1,
+      message: "link anchor #nowhere is not a heading in docs/a.md",
+      fix: "use one of its heading slugs, e.g. #intro",
+    },
   ]);
+  expect(resolve).not.toHaveBeenCalledWith("docs/a.md", "https://x.test/a");
 });
 
-it("external links, links in code, and links to tracked directories are not checked", () => {
-  const tree = cleanTree({
-    "skills/tdd/references/rules.md": [
-      "# Rules",
-      "",
-      "[web](https://example.com/x.md) [mail](mailto:a@b.c) [dir](../)",
-      "`[code](missing.md)`",
-      "```markdown",
-      "[fenced](missing.md)",
-      "```",
-      "",
-    ].join("\n"),
+test("an anchor into a file with no headings says to remove the anchor", () => {
+  vi.mocked(resolve).mockReturnValue("skills/a/notes.md");
+  const tree = fakeTree({
+    "docs/index.md": "",
+    "skills/a/notes.md": "plain\n",
+    "docs/a.md": "[n](notes.md#gone)\n",
   });
-  assert.deepEqual(messages(tree), []);
-});
-
-it("an untracked index is reported once", () => {
-  const tree = cleanTree({ "docs/index.md": null });
-  tree["README.md"] = "# Kore\n\nkore doctor and kore cluster\n";
-  assert.deepEqual(messages(tree), [
-    "docs/index.md:1: the knowledge index is missing; create it with one entry per plan, ADR, and skill",
+  expect(findings(tree)).toEqual([
+    {
+      file: "docs/a.md",
+      line: 1,
+      message: "link anchor #gone is not a heading in skills/a/notes.md",
+      fix: "remove the anchor; the file has no headings",
+    },
   ]);
 });
 
-it("an index entry whose file is missing is reported", () => {
-  const tree = cleanTree();
-  tree["docs/index.md"] +=
-    "- [`infra/plans/9-gone.md`](../infra/plans/9-gone.md) — gone. Read when …\n";
-  const found = check(tree).filter((f) => f.file === "docs/index.md");
-  assert.deepEqual(found.map(format), [
-    "docs/index.md:18: link target infra/plans/9-gone.md does not exist; point the link at an existing file or remove it",
-    "docs/index.md:18: index entry infra/plans/9-gone.md names a missing file; remove the entry or restore the file",
-  ]);
-});
-
-it("plans, ADRs, and skills missing from the index are reported, other files are not", () => {
-  const tree = cleanTree({
-    "infra/plans/2-b.md": `${planFrontmatter}# Plan B\n`,
-    "docs/decisions/0002-b.md": `${adrFrontmatter}# ADR 0002\n`,
-    "skills/adr/SKILL.md": "# ADR\n",
-    "infra/catalog/compatibility.md": "# Compatibility\n",
+test("an existing anchor passes, and an anchor into a non-Markdown file is not checked", () => {
+  vi.mocked(resolve).mockImplementation((_from, target) =>
+    target.startsWith("src/") ? "src/a.ts" : "skills/a/rules.md",
+  );
+  vi.mocked(anchors).mockReturnValue(["rules"]);
+  const tree = fakeTree({
+    "docs/index.md": "",
+    "skills/a/rules.md": "# Rules\n",
+    "src/a.ts": "export {};\n",
+    "docs/a.md": "[ok](rules.md#rules) [code](src/a.ts#L3)\n",
   });
-  assert.deepEqual(messages(tree), [
-    "docs/index.md:1: docs/decisions/0002-b.md is not in the index; add an entry under its ## heading",
-    "docs/index.md:1: infra/plans/2-b.md is not in the index; add an entry under its ## heading",
-    "docs/index.md:1: skills/adr/SKILL.md is not in the index; add an entry under its ## heading",
-  ]);
+  expect(findings(tree)).toEqual([]);
 });
 
-it("a plan without frontmatter is reported", () => {
-  const tree = cleanTree({
-    "infra/plans/1-a.md": "# Plan A\n\n## Step 1: Do It\n",
+test("a link to a tracked directory exists, and the repository root is a valid target", () => {
+  vi.mocked(resolve).mockImplementation((_from, target) =>
+    target === "." ? "." : "skills/tdd/references",
+  );
+  const tree = fakeTree({
+    "docs/index.md": "",
+    "skills/tdd/references/rules.md": "# Rules\n",
+    "docs/tdd.md": "[dir](references/) [root](.)\n",
   });
-  assert.deepEqual(messages(tree), [
-    "infra/plans/1-a.md:1: frontmatter is missing; start the file with --- status, summary, and last-verified ---",
-  ]);
+  expect(findings(tree)).toEqual([]);
 });
 
-it("invalid plan frontmatter reports each bad key", () => {
-  const tree = cleanTree({
-    "infra/plans/1-a.md": [
-      "---",
-      "status: accepted",
-      "last-verified: yesterday",
-      "tags: [a, b]",
-      "---",
-      "# Plan A",
-      "## Step 1: Do It",
-      "",
-    ].join("\n"),
+test("plans and ADRs get the frontmatter check, and ideas the idea check with their numbers", () => {
+  const tree = fakeTree({
+    "docs/index.md": "",
+    "infra/plans/1-a.md": "p",
+    "docs/decisions/0001-a.md": "d",
+    "docs/ideas/0001-a.md": "i",
   });
-  assert.deepEqual(messages(tree), [
-    "infra/plans/1-a.md:2: frontmatter status is accepted; use one of active, done",
-    "infra/plans/1-a.md:3: frontmatter last-verified is yesterday; use a YYYY-MM-DD date",
-    "infra/plans/1-a.md:4: frontmatter tags is not a scalar string; use flat key: value lines only",
-    "infra/plans/1-a.md:1: frontmatter summary is missing; add a summary: line",
-  ]);
+  findings(tree);
+  expect(checkFrontmatter).toHaveBeenCalledWith(
+    "infra/plans/1-a.md",
+    "p",
+    expect.any(Function),
+  );
+  expect(checkFrontmatter).toHaveBeenCalledWith(
+    "docs/decisions/0001-a.md",
+    "d",
+    expect.any(Function),
+  );
+  expect(checkIdea).toHaveBeenCalledTimes(1);
+  expect(checkIdea).toHaveBeenCalledWith(
+    "docs/ideas/0001-a.md",
+    "i",
+    new Map([["0001", "docs/ideas/0001-a.md"]]),
+  );
 });
 
-it("ADR frontmatter needs a date, and a superseded ADR needs a resolving superseded-by", () => {
-  const tree = cleanTree({
-    "docs/decisions/0001-a.md": [
-      "---",
-      "status: superseded",
-      "summary: Decides the thing.",
-      "last-verified: 2026-11-07",
-      "superseded-by: docs/decisions/0009-none.md",
-      "---",
-      "# ADR 0001",
-      "",
-    ].join("\n"),
+test("two idea files that share a number are reported on the later one, naming the earlier", () => {
+  const tree = fakeTree({
+    "docs/index.md": "",
+    "docs/ideas/0001-a.md": "a",
+    "docs/ideas/0001-b.md": "b",
   });
-  assert.deepEqual(messages(tree), [
-    "docs/decisions/0001-a.md:5: frontmatter superseded-by docs/decisions/0009-none.md does not exist; use the replacing ADR's path from the repository root",
-    "docs/decisions/0001-a.md:1: frontmatter date is missing; add a date: line",
-  ]);
-  tree["docs/decisions/0001-a.md"] = (tree["docs/decisions/0001-a.md"] ?? "")
-    .replace("superseded-by: docs/decisions/0009-none.md\n", "")
-    .replace("status: superseded\n", "status: superseded\ndate: 2026-09-13\n");
-  assert.deepEqual(messages(tree), [
-    "docs/decisions/0001-a.md:1: frontmatter superseded-by is missing; add a superseded-by: line",
+  expect(findings(tree)).toContainEqual({
+    file: "docs/ideas/0001-b.md",
+    line: 1,
+    message: "idea number 0001 is also used by docs/ideas/0001-a.md",
+    fix: "renumber it to the next free number",
+  });
+});
+
+test("an index entry naming a missing file is reported, and so is a plan the index omits", () => {
+  vi.mocked(resolve).mockImplementation((_from, target) =>
+    target.replace(/^\.\.\//, ""),
+  );
+  const tree = fakeTree({
+    "docs/index.md":
+      "# Index\n\n- [`infra/plans/9-gone.md`](../infra/plans/9-gone.md) — gone.\n",
+    "infra/plans/2-b.md": "p",
+  });
+  expect(findings(tree)).toEqual([
+    {
+      file: "docs/index.md",
+      line: 3,
+      message: "link target infra/plans/9-gone.md does not exist",
+      fix: FIX_LINK,
+    },
+    {
+      file: "docs/index.md",
+      line: 3,
+      message: "index entry infra/plans/9-gone.md names a missing file",
+      fix: "remove the entry or restore the file",
+    },
+    {
+      file: "docs/index.md",
+      line: 1,
+      message: "infra/plans/2-b.md is not in the index",
+      fix: "add an entry under its ## heading",
+    },
   ]);
 });
 
-it("Docs:, Plan:, and ADR: markers whose path or anchor does not resolve are reported", () => {
-  const tree = cleanTree({
+test("a missing index is reported once, on line 1", () => {
+  expect(findings(fakeTree({ "infra/plans/1-a.md": "p" }))).toContainEqual({
+    file: "docs/index.md",
+    line: 1,
+    message: "the knowledge index is missing",
+    fix: "create it with one entry per plan, ADR, and skill",
+  });
+});
+
+test("a file that cannot be read is skipped, and an unreadable index is a missing index", () => {
+  const unreadable = {
+    files: () => ["docs/index.md", "docs/a.md", "tools/x.ts"],
+    read: () => null,
+  };
+  expect(findings(unreadable)).toEqual([
+    {
+      file: "docs/index.md",
+      line: 1,
+      message: "the knowledge index is missing",
+      fix: "create it with one entry per plan, ADR, and skill",
+    },
+  ]);
+});
+
+test("Docs:, Plan: and ADR: markers whose path or anchor does not resolve are reported", () => {
+  vi.mocked(anchors).mockReturnValue(["adr-0001-a"]);
+  const tree = fakeTree({
+    "docs/index.md": "",
+    "docs/decisions/0001-a.md": "# ADR 0001: A\n",
     "tools/kore/src/a.ts": "// Docs: infra/plans/9-gone.md#x\n",
-    "tools/kore/src/b.ts": "// ADR: docs/decisions/0001-a.md#no-such-heading\n",
-    "infra/c.sh": "#!/bin/sh\n# Plan: infra/plans/1-a.md (Step 1).\n",
+    "tools/kore/src/b.ts": "// ADR: docs/decisions/0001-a.md#no-such\n",
   });
-  assert.deepEqual(messages(tree), [
-    "tools/kore/src/a.ts:1: Docs: path infra/plans/9-gone.md does not exist; use a path from the repository root",
-    "tools/kore/src/b.ts:1: ADR: anchor #no-such-heading is not a heading in docs/decisions/0001-a.md; use one of its heading slugs, e.g. #adr-0001-a",
-  ]);
+  const problems = findings(tree);
+  expect(problems).toContainEqual({
+    file: "tools/kore/src/a.ts",
+    line: 1,
+    message: "Docs: path infra/plans/9-gone.md does not exist",
+    fix: "use a path from the repository root",
+  });
+  expect(problems).toContainEqual({
+    file: "tools/kore/src/b.ts",
+    line: 1,
+    message:
+      "ADR: anchor #no-such is not a heading in docs/decisions/0001-a.md",
+    fix: "use one of its heading slugs, e.g. #adr-0001-a",
+  });
 });
 
-it("markers in Markdown prose are not treated as code comments", () => {
-  const tree = cleanTree({
-    "skills/tdd/references/rules.md":
-      "# Rules\n\nPlan: infra/plans/9-gone.md\n",
+test("the CLI usage text's commands must each appear in README.md, once each", () => {
+  const tree = fakeTree({
+    "docs/index.md": "",
+    "README.md": "Run `kore -- doctor`.\n",
+    "tools/kore/src/cli/cli.ts": [
+      "const usage = `kore",
+      "",
+      "Usage:",
+      "  kore doctor [--json]",
+      "  kore doctor [--json]",
+      "  kore cluster up",
+      "  options:",
+      "",
+      "`;",
+    ].join("\n"),
   });
-  assert.deepEqual(messages(tree), []);
-});
-
-it("a top-level kore command in the usage text that README.md does not mention is reported", () => {
-  const tree = cleanTree({
-    "README.md":
-      "# Kore\n\nRun `kore -- doctor`. Read the [index](docs/index.md).\n",
-  });
-  assert.deepEqual(messages(tree), [
-    "tools/kore/src/cli/cli.ts:6: kore cluster is in the CLI usage text but README.md does not mention it; document it in README.md",
+  expect(findings(tree)).toEqual([
+    {
+      file: "tools/kore/src/cli/cli.ts",
+      line: 6,
+      message:
+        "kore cluster is in the CLI usage text but README.md does not mention it",
+      fix: "document it in README.md",
+    },
   ]);
 });

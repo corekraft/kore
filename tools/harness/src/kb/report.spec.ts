@@ -1,171 +1,194 @@
-// The report: warn and --strict exit codes, the skill audit and the flag audit.
+// The kb-check report: the warn and --strict exit codes, the skill audit, and the stale and flag warnings.
 // Docs: infra/plans/4-knowledge.md#step-3-knowledge-health-check
 // Plan: infra/plans/8-harness-measurement.md#step-2-skill-budget-audit
 
-import assert from "node:assert/strict";
-import { it } from "vitest";
-import { run } from "./index.js";
+import { beforeEach, expect, test, vi } from "vitest";
 import { CommandError } from "../runtime/index.js";
-import { cleanTree, fakeDeps, type Tree } from "../testing/index.js";
+import { fakeFinding } from "./kb-support.js";
+import { findings } from "./findings.js";
+import { format, run, type KbDeps } from "./report.js";
+import { staleDocuments } from "./stale.js";
 
-async function runWith(tree: Tree, argv: string[]) {
-  const lines: string[] = [];
-  const status = await run(argv, fakeDeps(tree), (line) => lines.push(line));
-  return { status, lines };
+vi.mock("./findings.js", () => ({ findings: vi.fn() }));
+vi.mock("./stale.js", () => ({ staleDocuments: vi.fn() }));
+
+const broken = fakeFinding(
+  "README.md",
+  3,
+  "link target missing.md does not exist",
+  "point the link at an existing file or remove it",
+);
+const stale = {
+  document: "infra/plans/1-a.md",
+  verified: "2026-11-07",
+  path: "skills/tdd/SKILL.md",
+  date: "2026-11-12",
+};
+const AUDIT =
+  "NAME   DESC  BODY  VERDICT\nbig      10    42  over-budget (body)\n";
+
+function deps(overrides: Partial<KbDeps> = {}): KbDeps {
+  return { files: () => [], read: () => null, ...overrides };
 }
 
-const brokenTree = () =>
-  cleanTree({
-    "README.md":
-      "# Kore\n\nRun `kore -- doctor` and `kore cluster up`. Read the [index](docs/index.md) and [gone](missing.md).\n",
-  });
+/** run() with its log lines collected, so a test asserts the whole output. */
+async function runWith(argv: string[], overrides: Partial<KbDeps> = {}) {
+  const log = vi.fn<(line: string) => void>();
+  const status = await run(argv, deps(overrides), log);
+  return { status, lines: log.mock.calls.map(([line]) => line) };
+}
 
-it("warn mode prints each finding and a warn summary, and still exits 0", async () => {
-  const { status, lines } = await runWith(brokenTree(), []);
-  assert.equal(status, 0);
-  assert.match(lines[0] ?? "", /^README\.md:3: .*missing\.md/);
-  assert.equal(
-    lines.at(-1),
-    "kb-check: 1 finding (warn mode; --strict fails on them)",
+beforeEach(() => {
+  vi.mocked(findings).mockReturnValue([]);
+  vi.mocked(staleDocuments).mockResolvedValue([]);
+});
+
+test("a finding prints as file:line: message; fix", () => {
+  expect(format(broken)).toBe(
+    "README.md:3: link target missing.md does not exist; point the link at an existing file or remove it",
   );
 });
 
-it("--strict exits 1 when there are findings", async () => {
-  const { status, lines } = await runWith(brokenTree(), ["--strict"]);
-  assert.equal(status, 1);
-  assert.equal(lines.at(-1), "kb-check: 1 finding");
-});
-
-it("a clean tree exits 0 in both modes and prints only the clean line", async () => {
+test("a clean tree prints only the clean line and exits 0 in both modes", async () => {
   for (const argv of [[], ["--strict"]]) {
-    assert.deepEqual(await runWith(cleanTree(), argv), {
+    expect(await runWith(argv)).toEqual({
       status: 0,
       lines: ["kb-check: clean"],
     });
   }
 });
 
-// Skill audit: kb-check prints the audit's report; --strict fails on a skill over budget (ADR 0080).
-// Plan: infra/plans/8-harness-measurement.md#step-2-skill-budget-audit
+test("warn mode prints each finding and a warn summary, and exits 0", async () => {
+  vi.mocked(findings).mockReturnValue([broken]);
+  expect(await runWith([])).toEqual({
+    status: 0,
+    lines: [
+      format(broken),
+      "kb-check: 1 finding (warn mode; --strict fails on them)",
+    ],
+  });
+});
 
-const auditText = [
-  "NAME   DESC  BODY  VERDICT",
-  "big      10    42  over-budget (body)",
-  "",
-].join("\n");
-const overBudget = () => Promise.resolve({ text: auditText, failing: true });
-const withinBudget = () => Promise.resolve({ text: auditText, failing: false });
+test("--strict exits 1 on findings, and the count is plural for more than one", async () => {
+  vi.mocked(findings).mockReturnValue([broken, broken]);
+  expect(await runWith(["--strict"])).toEqual({
+    status: 1,
+    lines: [format(broken), format(broken), "kb-check: 2 findings"],
+  });
+});
 
-async function runAudited(
-  tree: Tree,
-  argv: string[],
-  audit: () => Promise<{ text: string; failing: boolean }>,
-) {
-  const lines: string[] = [];
-  const deps = { ...fakeDeps(tree), audit };
-  const status = await run(argv, deps, (line) => lines.push(line));
-  return { status, lines };
-}
-
-it("the skill audit report is printed after kb-check's own output", async () => {
-  const { lines } = await runAudited(cleanTree(), [], withinBudget);
-  assert.deepEqual(lines, [
-    "kb-check: clean",
-    "skill audit:",
-    "  NAME   DESC  BODY  VERDICT",
-    "  big      10    42  over-budget (body)",
+test("repository problems are printed and counted with the findings", async () => {
+  vi.mocked(findings).mockReturnValue([broken]);
+  const { status, lines } = await runWith([], {
+    repositoryProblems: () => Promise.resolve(["repo: broken"]),
+  });
+  expect(status).toBe(0);
+  expect(lines).toEqual([
+    format(broken),
+    "repo: broken",
+    "kb-check: 2 findings (warn mode; --strict fails on them)",
   ]);
 });
 
-it("a skill over budget fails --strict and only warns otherwise", async () => {
-  const strict = await runAudited(cleanTree(), ["--strict"], overBudget);
-  assert.equal(strict.status, 1);
-  assert.ok(strict.lines.includes("kb-check: skill audit failed"));
-  const warn = await runAudited(cleanTree(), [], overBudget);
-  assert.equal(warn.status, 0);
-  assert.ok(
-    warn.lines.includes(
-      "kb-check: skill audit failed (warn mode; --strict fails on it)",
-    ),
-  );
-});
-
-it("skills within budget leave the exit code to the other checks", async () => {
+test("staleness is printed as a warning, never fails --strict, and suppresses the clean line", async () => {
+  vi.mocked(staleDocuments).mockResolvedValue([stale]);
   for (const argv of [[], ["--strict"]]) {
-    assert.equal((await runAudited(cleanTree(), argv, withinBudget)).status, 0);
-    assert.equal(
-      (await runAudited(brokenTree(), argv, withinBudget)).status,
-      argv.length ? 1 : 0,
-    );
+    expect(await runWith(argv)).toEqual({
+      status: 0,
+      lines: [
+        "stale: infra/plans/1-a.md was last verified 2026-11-07, but skills/tdd/SKILL.md changed 2026-11-12; re-read it and update last-verified",
+        "kb-check: 1 stale document (warn only)",
+      ],
+    });
   }
 });
 
-it("an audit that fails to run is noted, fails --strict (fail closed) and only warns otherwise", async () => {
-  const run1 = (argv: string[]) =>
-    runAudited(cleanTree(), argv, () =>
-      Promise.reject(new CommandError("spawn failed")),
-    );
-  const warn = await run1([]);
-  assert.equal(warn.status, 0);
-  assert.deepEqual(warn.lines, [
-    "kb-check: clean",
-    "skill audit: not run (spawn failed); run `node skills/bin/harness.mjs skill audit` to see the cause",
+test("two stale documents are counted in the plural", async () => {
+  vi.mocked(staleDocuments).mockResolvedValue([stale, stale]);
+  const { lines } = await runWith([]);
+  expect(lines.at(-1)).toBe("kb-check: 2 stale documents (warn only)");
+});
+
+test("findings come first, then stale, flags, the summary and its staleness note", async () => {
+  vi.mocked(findings).mockReturnValue([broken]);
+  vi.mocked(staleDocuments).mockResolvedValue([stale]);
+  const { lines } = await runWith([], {
+    flagAudit: () => Promise.resolve(["flag x is on"]),
+  });
+  expect(lines).toEqual([
+    format(broken),
+    expect.stringMatching(/^stale: /),
+    "flag: flag x is on",
+    "kb-check: 1 finding (warn mode; --strict fails on them)",
+    "kb-check: 1 stale document (warn only)",
+    "kb-check: 1 flag audit warning (warn only)",
+  ]);
+});
+
+test("a flag on without proof is a warning that never fails --strict", async () => {
+  const flagAudit = () =>
+    Promise.resolve(["flag audit could not run (spawn failed)"]);
+  expect(await runWith(["--strict"], { flagAudit })).toEqual({
+    status: 0,
+    lines: [
+      "flag: flag audit could not run (spawn failed)",
+      "kb-check: 1 flag audit warning (warn only)",
+    ],
+  });
+});
+
+test("two flag warnings are counted in the plural", async () => {
+  const flagAudit = () => Promise.resolve(["a", "b"]);
+  const { lines } = await runWith([], { flagAudit });
+  expect(lines.at(-1)).toBe("kb-check: 2 flag audit warnings (warn only)");
+});
+
+test("the skill audit's report is printed after kb-check's own output", async () => {
+  const audit = () => Promise.resolve({ text: `${AUDIT}\n`, failing: false });
+  expect(await runWith([], { audit })).toEqual({
+    status: 0,
+    lines: [
+      "kb-check: clean",
+      "skill audit:",
+      "  NAME   DESC  BODY  VERDICT",
+      "  big      10    42  over-budget (body)",
+    ],
+  });
+});
+
+test("a skill over budget only warns in warn mode, and fails --strict", async () => {
+  const audit = () => Promise.resolve({ text: AUDIT, failing: true });
+  const warn = await runWith([], { audit });
+  expect(warn.status).toBe(0);
+  expect(warn.lines.at(-1)).toBe(
     "kb-check: skill audit failed (warn mode; --strict fails on it)",
-  ]);
-  const strict = await run1(["--strict"]);
-  assert.equal(strict.status, 1);
-  assert.deepEqual(strict.lines, [
-    "kb-check: clean",
-    "skill audit: not run (spawn failed); run `node skills/bin/harness.mjs skill audit` to see the cause",
-    "kb-check: skill audit failed",
-  ]);
+  );
+  const strict = await runWith(["--strict"], { audit });
+  expect(strict.status).toBe(1);
+  expect(strict.lines.at(-1)).toBe("kb-check: skill audit failed");
 });
 
-async function runFlagAudited(
-  tree: Tree,
-  argv: string[],
-  flagAudit: () => Promise<string[]>,
-) {
-  const lines: string[] = [];
-  const status = await run(argv, { ...fakeDeps(tree), flagAudit }, (l) =>
-    lines.push(l),
-  );
-  return { status, lines };
-}
-
-it("a flag on without proof is reported as a warning that never fails --strict", async () => {
-  const audit = () =>
-    Promise.resolve([
-      "Flag x is on in local (infra/environments/local/environment.yaml) with no verification outcome.",
-    ]);
-  for (const argv of [[], ["--strict"]]) {
-    const { status, lines } = await runFlagAudited(cleanTree(), argv, audit);
-    assert.equal(status, 0, argv.join(" "));
-    assert.match(lines.join("\n"), /Flag x is on in local/);
-    assert.match(lines.join("\n"), /warn only/);
-    assert.doesNotMatch(lines.join("\n"), /kb-check: clean/);
-  }
+test("a failing skill audit keeps the findings' own exit code", async () => {
+  vi.mocked(findings).mockReturnValue([broken]);
+  const audit = () => Promise.resolve({ text: AUDIT, failing: false });
+  expect((await runWith([], { audit })).status).toBe(0);
+  expect((await runWith(["--strict"], { audit })).status).toBe(1);
 });
 
-it("a flag audit that could not run is one warning line", async () => {
-  const { status, lines } = await runFlagAudited(
-    cleanTree(),
-    ["--strict"],
-    () =>
-      Promise.resolve([
-        "flag audit could not run (spawn failed); run `node skills/bin/harness.mjs flag audit` to see the cause",
-      ]),
-  );
-  assert.equal(status, 0);
-  assert.equal(lines.filter((l) => l.includes("could not run")).length, 1);
+test("an audit that cannot run is noted, fails --strict (fail closed), and only warns otherwise", async () => {
+  const audit = () => Promise.reject(new CommandError("spawn failed"));
+  expect(await runWith([], { audit })).toEqual({
+    status: 0,
+    lines: [
+      "kb-check: clean",
+      "skill audit: not run (spawn failed); run `node skills/bin/harness.mjs skill audit` to see the cause",
+      "kb-check: skill audit failed (warn mode; --strict fails on it)",
+    ],
+  });
+  expect((await runWith(["--strict"], { audit })).status).toBe(1);
 });
 
-it("a clean flag audit leaves kb-check clean", async () => {
-  const { status, lines } = await runFlagAudited(
-    cleanTree(),
-    ["--strict"],
-    () => Promise.resolve([]),
-  );
-  assert.equal(status, 0);
-  assert.deepEqual(lines, ["kb-check: clean"]);
+test("an audit error that is not a command failure is rethrown, not reported", async () => {
+  const audit = () => Promise.reject(new TypeError("bug"));
+  await expect(runWith([], { audit })).rejects.toThrow("bug");
 });

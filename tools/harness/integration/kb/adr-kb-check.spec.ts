@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { run } from "../src/cli/index.js";
-import { findings } from "../src/kb/index.js";
+import { run } from "../../src/cli/index.js";
+import { findings } from "../../src/kb/index.js";
 import {
   ADR_NEW as NEW,
   fixture,
   type MemoryFs,
-} from "../src/testing/index.js";
+} from "../../src/testing/index.js";
 
 async function kbFindings(fs: MemoryFs) {
   return findings({
