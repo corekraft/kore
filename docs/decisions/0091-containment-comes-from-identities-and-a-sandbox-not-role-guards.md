@@ -38,3 +38,4 @@ Until the judge identity exists, merges are by the owner's hand.
 - Harness work is limited to containment and metrics until the base is
   proven; new guards are not added.
 - ADR 0080 still governs activation; its free change of guardrails is limited to quick fixes.
+- Refined by [ADR 0101](0101-harness-developer-tools-may-make-deterministic-steps-tools-the-freeze-covers-guards.md): non-guard harness tools that make a deterministic step a tool are allowed.
