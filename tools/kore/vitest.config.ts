@@ -4,7 +4,9 @@ import { testWorkers } from "./.husky/test-workers.mjs";
 
 export default defineConfig({
   test: {
-    // One cap for every unit path; see .husky/test-workers.mjs.
+    // One cap for every unit path; see .husky/test-workers.mjs. The threads pool
+    // starts a worker per thread, not a process, so the cap costs less memory (#405).
+    pool: "threads",
     maxWorkers: testWorkers(),
     // The test-budget hook reads this report; see `test:budget` in package.json.
     reporters: budgetReporters(

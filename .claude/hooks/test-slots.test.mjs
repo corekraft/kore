@@ -12,8 +12,9 @@ const { slotCount } = await import(
   )
 );
 
-test("an idle host admits one run per pair of cores", () => {
+test("an idle host admits one run per pair of cores, the default two workers", () => {
   assert.equal(slotCount({ env: {}, cores: 12, load: 0 }), 6);
+  assert.equal(slotCount({ env: {}, cores: 8, load: 0 }), 4);
 });
 
 test("load takes slots away: each busy core-pair is one run fewer", () => {
@@ -27,6 +28,10 @@ test("a saturated or tiny host still admits one run, so a commit is never starve
 });
 
 test("more workers per run means fewer runs at once", () => {
+  assert.equal(
+    slotCount({ env: { KORE_TEST_WORKERS: "2" }, cores: 12, load: 0 }),
+    6,
+  );
   assert.equal(
     slotCount({ env: { KORE_TEST_WORKERS: "4" }, cores: 12, load: 0 }),
     3,
