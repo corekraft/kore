@@ -1,196 +1,249 @@
-import { describe, expect, it } from "vitest";
-import { run } from "../cli/index.js";
-import { activePlan, planHarness } from "./plan-test-support.js";
+import { join } from "node:path";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { CommandError } from "../runtime/index.js";
+import { planClearNext, planNext } from "./next.js";
+import {
+  apply,
+  choosePlan,
+  normalize,
+  renderChanges,
+  toChanges,
+} from "./plan-edit.js";
+import { nextBlocks, nextStep, openCounts } from "./parser.js";
+import { readPlans } from "./store.js";
+import { fakeDeps, ROOT } from "./plan-support.js";
 
-const PLAN = "infra/plans/2-a.md";
+// Every collaborator is a typed automock; node:path joins for real.
+vi.mock("node:path");
+vi.mock("./parser.js");
+vi.mock("./plan-edit.js");
+vi.mock("./store.js");
 
-const BODY = `## Step 1: Alpha
+const FILE = "infra/plans/2-a.md";
+const CHANGE = { line: 3, before: ["x"], after: ["y"] };
 
-- [x] Done already
+/** Two steps, each with an open item; `Next:` lines come from the parser mock. */
+const MD = [
+  "## Step 1: A",
+  "",
+  "- [ ] one",
+  "",
+  "## Step 2: B",
+  "",
+  "- [ ] two",
+  "",
+].join("\n");
+const LINES = MD.split("\n");
 
-## Step 2: Beta
+beforeEach(() => {
+  vi.mocked(join).mockImplementation((...parts) => parts.join("/"));
+  vi.mocked(readPlans).mockResolvedValue({ "2-a.md": MD });
+  vi.mocked(choosePlan).mockReturnValue("2-a.md");
+  vi.mocked(normalize).mockImplementation((text) => text);
+  vi.mocked(apply).mockReturnValue(["applied"]);
+  vi.mocked(renderChanges).mockReturnValue("RENDERED");
+  vi.mocked(toChanges).mockReturnValue([CHANGE]);
+  vi.mocked(nextBlocks).mockReturnValue([]);
+  vi.mocked(nextStep).mockReturnValue(null);
+  vi.mocked(openCounts).mockReturnValue([
+    { step: "Step 1", count: 1 },
+    { step: "Step 2", count: 1 },
+  ]);
+});
 
-Next: old line
-  that wraps.
-
-- [ ] Ship the gamma release
-- [ ] Ship the delta release
-
-## Step 3: After
-
-- [ ] Later
-`;
-
-function plan(body = BODY) {
-  return planHarness({ [PLAN]: activePlan(body) });
-}
-
-function nextLines(markdown: string): string[] {
-  return markdown.split("\n").filter((l) => l.startsWith("Next:"));
-}
-
-interface Change {
-  line: number;
-  before: string[];
-  after: string[];
-}
-
-function applyChanges(before: string, changes: Change[]): string {
-  const lines = before.split("\n");
-  for (const c of [...changes].sort((a, b) => b.line - a.line)) {
-    expect(lines.slice(c.line - 1, c.line - 1 + c.before.length)).toEqual(
-      c.before,
-    );
-    lines.splice(c.line - 1, c.before.length, ...c.after);
-  }
-  return lines.join("\n");
-}
-
-describe("harness plan next", () => {
-  it("leaves exactly one Next: line, directly under the current step heading", async () => {
-    const h = plan();
+describe("planNext placement", () => {
+  it("adds the Next: line under the first step with open items, with a blank line after it", async () => {
+    const deps = fakeDeps();
     expect(
-      await run(["plan", "next", "--text", "Run the gamma test"], h.deps),
+      await planNext.run({
+        json: false,
+        deps,
+        options: { text: "Run it" },
+      }),
     ).toBe(0);
-    const after = h.files[PLAN] ?? "";
-    expect(nextLines(after)).toEqual(["Next: Run the gamma test"]);
-    expect(after).toContain(
-      "## Step 2: Beta\n\nNext: Run the gamma test\n\n- [ ] Ship the gamma release",
-    );
-    expect(after).not.toContain("old line");
-    expect(after).not.toContain("that wraps");
-  });
-
-  it("moves the Next: line to the first step with open items when its step is finished", async () => {
-    const h = plan(
-      BODY.replace("- [ ] Ship the gamma", "- [x] Ship the gamma").replace(
-        "- [ ] Ship the delta",
-        "- [x] Ship the delta",
-      ),
-    );
-    await run(["plan", "next", "--text", "Start step 3"], h.deps);
-    const after = h.files[PLAN] ?? "";
-    expect(nextLines(after)).toEqual(["Next: Start step 3"]);
-    expect(after).toContain(
-      "## Step 3: After\n\nNext: Start step 3\n\n- [ ] Later",
+    expect(vi.mocked(apply).mock.calls).toEqual([
+      [LINES, [{ start: 2, end: 2, lines: ["Next: Run it", ""] }]],
+    ]);
+    expect(deps.fs.writeFile).toHaveBeenCalledWith(
+      `${ROOT}/${FILE}`,
+      "applied",
     );
   });
 
-  it("adds a Next: line when the plan has none, under the first step with open items", async () => {
-    const h = plan(BODY.replace("Next: old line\n  that wraps.\n\n", ""));
-    await run(["plan", "next", "--text", "Begin"], h.deps);
-    expect(h.files[PLAN]).toContain(
-      "## Step 2: Beta\n\nNext: Begin\n\n- [ ] Ship the gamma release",
-    );
-  });
-
-  it("changes only the lines the JSON report names", async () => {
-    const h = plan();
-    const before = h.files[PLAN] ?? "";
-    await run(["plan", "next", "--text", "New", "--json"], h.deps);
-    const report = JSON.parse(h.out()) as {
-      written: boolean;
-      changes: Change[];
-    };
-    expect(report.written).toBe(true);
-    expect(applyChanges(before, report.changes)).toBe(h.files[PLAN]);
-  });
-
-  it("writes nothing under --dry-run but reports the same lines", async () => {
-    const h = plan();
-    const before = h.files[PLAN];
-    await run(["plan", "next", "--text", "New", "--dry-run"], h.deps);
-    expect(h.files[PLAN]).toBe(before);
-    expect(h.writes).toEqual([]);
-    expect(h.out()).toContain("Would set");
-    expect(h.out()).toContain("+ Next: New");
+  it("adds a blank line on each side of the Next: line when a list follows the heading", async () => {
+    const lines = ["## Step 1: A", "- [ ] one", ""];
+    vi.mocked(readPlans).mockResolvedValue({ "2-a.md": lines.join("\n") });
+    await planNext.run({
+      json: false,
+      deps: fakeDeps(),
+      options: { text: "Begin" },
+    });
+    expect(vi.mocked(apply).mock.calls).toEqual([
+      [lines, [{ start: 1, end: 1, lines: ["", "Next: Begin", ""] }]],
+    ]);
   });
 });
 
-describe("harness plan next edge cases", () => {
-  it("collapses a Next: line placed under the wrong step and does not duplicate it", async () => {
-    const h = plan(
-      BODY.replace("## Step 3: After\n", "## Step 3: After\n\nNext: stray\n"),
-    );
-    await run(["plan", "next", "--text", "Only"], h.deps);
-    expect(nextLines(h.files[PLAN] ?? "")).toEqual(["Next: Only"]);
-  });
-
-  it("rejects missing text, and a plan with no open item, before writing", async () => {
-    const h = plan();
-    expect(await run(["plan", "next"], h.deps)).toBe(1);
-    expect(h.err()).toContain("--text");
-    const done = plan("## Step 1: A\n\n- [x] Done\n");
-    expect(await run(["plan", "next", "--text", "x"], done.deps)).toBe(1);
-    expect(done.err()).toContain("no open item");
-    expect(done.writes).toEqual([]);
-  });
-});
-
-describe("harness plan clear-next", () => {
-  it("leaves no Next: line and no wrapped remainder", async () => {
-    const h = plan();
-    expect(await run(["plan", "clear-next"], h.deps)).toBe(0);
-    const after = h.files[PLAN] ?? "";
-    expect(nextLines(after)).toEqual([]);
-    expect(after).not.toContain("that wraps");
-    expect(after).toContain("## Step 2: Beta\n\n- [ ] Ship the gamma release");
-  });
-
-  it("reports changed lines equal to the diff", async () => {
-    const h = plan();
-    const before = h.files[PLAN] ?? "";
-    await run(["plan", "clear-next", "--json"], h.deps);
-    const report = JSON.parse(h.out()) as { changes: Change[] };
-    expect(applyChanges(before, report.changes)).toBe(h.files[PLAN]);
-  });
-
-  it("is a no-op that writes nothing when there is no Next: line", async () => {
-    const h = plan(BODY.replace("Next: old line\n  that wraps.\n\n", ""));
-    expect(await run(["plan", "clear-next"], h.deps)).toBe(0);
-    expect(h.writes).toEqual([]);
-    expect(h.out()).toContain("No Next:");
-  });
-
-  it("keeps a list that follows a Next: line with no blank line between", async () => {
-    const h = plan(
-      "## Step 1: A\n\nNext: old\n- [ ] one\n- [ ] two\n\n## Step 2: B\n\n- [ ] x\n",
-    );
-    await run(["plan", "clear-next"], h.deps);
-    const after = h.files[PLAN] ?? "";
-    expect(after).toContain("- [ ] one\n- [ ] two");
-    expect(after).not.toContain("Next:");
-  });
-});
-
-describe("harness plan next and code fences", () => {
-  const FENCED =
-    "## Step 1: A\n\nNext: real\n\n```\nNext: example in a fence\n```\n\n- [ ] one\n";
-
-  it("leaves a Next: line inside a code fence untouched when setting and clearing", async () => {
-    const h = plan(FENCED);
-    await run(["plan", "next", "--text", "new"], h.deps);
-    expect(h.files[PLAN]).toContain("Next: new\n");
-    expect(h.files[PLAN]).toContain("```\nNext: example in a fence\n```");
-    expect(h.files[PLAN]).not.toContain("Next: real");
-    await run(["plan", "clear-next"], h.deps);
-    expect(h.files[PLAN]).toContain("```\nNext: example in a fence\n```");
-    expect(nextLines(h.files[PLAN] ?? "")).toEqual([
-      "Next: example in a fence",
+describe("planNext with an existing Next: line", () => {
+  it("replaces a Next: paragraph and its blank line, then inserts under the current step", async () => {
+    const lines = [
+      "## Step 1: A",
+      "",
+      "Next: old",
+      "  wraps.",
+      "",
+      "- [ ] one",
+    ];
+    vi.mocked(readPlans).mockResolvedValue({ "2-a.md": lines.join("\n") });
+    vi.mocked(nextBlocks).mockReturnValue([
+      { step: "Step 1: A", text: "old wraps.", line: 2, end: 4 },
+    ]);
+    vi.mocked(nextStep).mockReturnValue({ step: "Step 1: A", text: "old" });
+    vi.mocked(openCounts).mockReturnValue([{ step: "Step 1", count: 1 }]);
+    await planNext.run({
+      json: false,
+      deps: fakeDeps(),
+      options: { text: "New" },
+    });
+    expect(vi.mocked(apply).mock.calls).toEqual([
+      [lines, [{ start: 2, end: 5, lines: ["Next: New", ""] }]],
     ]);
   });
 
-  it("stops removing a Next: line at a code fence", async () => {
-    const h = plan("## Step 1: A\n\nNext: real\n```\ncode\n```\n\n- [ ] one\n");
-    await run(["plan", "clear-next"], h.deps);
-    expect(h.files[PLAN]).toContain("```\ncode\n```");
-    expect(h.files[PLAN]).not.toContain("Next: real");
+  it("does not add a second blank line when the heading is already followed by one", async () => {
+    const lines = ["## Step 1: A", "", "", "- [ ] one"];
+    vi.mocked(readPlans).mockResolvedValue({ "2-a.md": lines.join("\n") });
+    vi.mocked(openCounts).mockReturnValue([{ step: "Step 1", count: 1 }]);
+    await planNext.run({
+      json: false,
+      deps: fakeDeps(),
+      options: { text: "X" },
+    });
+    expect(vi.mocked(apply).mock.calls).toEqual([
+      [lines, [{ start: 2, end: 2, lines: ["Next: X"] }]],
+    ]);
   });
 
-  it("does not leave two blank lines when replacing a Next: line directly under its heading", async () => {
-    const h = plan("## Step 1: A\nNext: old\n\n- [ ] one\n");
-    await run(["plan", "next", "--text", "new"], h.deps);
-    expect(h.files[PLAN]).not.toContain("\n\n\n");
-    expect(h.files[PLAN]).toContain("## Step 1: A\n\nNext: new\n\n- [ ] one");
+  it("moves the Next: line to the first open step when its own step is finished", async () => {
+    vi.mocked(nextStep).mockReturnValue({ step: "Step 9: Z", text: "old" });
+    await planNext.run({
+      json: false,
+      deps: fakeDeps(),
+      options: { text: "Start" },
+    });
+    expect(vi.mocked(apply).mock.calls[0]?.[1]).toEqual([
+      { start: 2, end: 2, lines: ["Next: Start", ""] },
+    ]);
+  });
+});
+
+describe("planNext refusals", () => {
+  it("refuses missing text before it reads any plan", async () => {
+    const deps = fakeDeps();
+    await expect(
+      planNext.run({ json: false, deps, options: {} }),
+    ).rejects.toThrow(CommandError);
+    expect(readPlans).not.toHaveBeenCalled();
+  });
+
+  it("refuses a plan with no open item, and writes nothing", async () => {
+    vi.mocked(openCounts).mockReturnValue([]);
+    const deps = fakeDeps();
+    await expect(
+      planNext.run({ json: false, deps, options: { text: "x" } }),
+    ).rejects.toThrow("The plan has no open item");
+    expect(deps.fs.writeFile).not.toHaveBeenCalled();
+  });
+});
+
+describe("planNext output", () => {
+  it("writes nothing under --dry-run and reports the changes as a dry run", async () => {
+    const deps = fakeDeps();
+    await planNext.run({
+      json: false,
+      deps,
+      options: { text: "New", "dry-run": true },
+    });
+    expect(deps.fs.writeFile).not.toHaveBeenCalled();
+    expect(renderChanges).toHaveBeenCalledWith(`Would set Next: in ${FILE}`, [
+      CHANGE,
+    ]);
+    expect(vi.mocked(deps.stdout).mock.calls).toEqual([["RENDERED"]]);
+  });
+
+  it("reports the line as already right, and writes nothing, when no line changes", async () => {
+    vi.mocked(toChanges).mockReturnValue([]);
+    const deps = fakeDeps();
+    await planNext.run({ json: false, deps, options: { text: "New" } });
+    expect(deps.fs.writeFile).not.toHaveBeenCalled();
+    expect(vi.mocked(deps.stdout).mock.calls).toEqual([
+      [`Next: already reads that way in ${FILE}\n`],
+    ]);
+  });
+
+  it("prints the plan, the write and every change as one JSON line", async () => {
+    const deps = fakeDeps();
+    await planNext.run({ json: true, deps, options: { text: "New" } });
+    expect(vi.mocked(deps.stdout).mock.calls).toEqual([
+      [
+        `${JSON.stringify({
+          plan: FILE,
+          dryRun: false,
+          written: true,
+          changes: [CHANGE],
+        })}\n`,
+      ],
+    ]);
+  });
+
+  it("passes the --plan option to the plan choice", async () => {
+    await planNext.run({
+      json: false,
+      deps: fakeDeps(),
+      options: { text: "New", plan: "2" },
+    });
+    expect(choosePlan).toHaveBeenCalledWith({ "2-a.md": MD }, "2");
+  });
+});
+
+describe("planClearNext", () => {
+  it("removes a Next: paragraph with its blank line and writes the result", async () => {
+    const lines = ["## Step 1: A", "", "Next: old", "", "- [ ] one"];
+    vi.mocked(readPlans).mockResolvedValue({ "2-a.md": lines.join("\n") });
+    vi.mocked(nextBlocks).mockReturnValue([
+      { step: "Step 1: A", text: "old", line: 2, end: 3 },
+    ]);
+    const deps = fakeDeps();
+    expect(await planClearNext.run({ json: false, deps, options: {} })).toBe(0);
+    expect(vi.mocked(apply).mock.calls).toEqual([
+      [lines, [{ start: 2, end: 4, lines: [] }]],
+    ]);
+    expect(deps.fs.writeFile).toHaveBeenCalledWith(
+      `${ROOT}/${FILE}`,
+      "applied",
+    );
+  });
+
+  it("writes nothing and says so when there is no Next: line", async () => {
+    vi.mocked(toChanges).mockReturnValue([]);
+    const deps = fakeDeps();
+    expect(await planClearNext.run({ json: false, deps, options: {} })).toBe(0);
+    expect(deps.fs.writeFile).not.toHaveBeenCalled();
+    expect(vi.mocked(deps.stdout).mock.calls).toEqual([
+      [`No Next: line to clear in ${FILE}\n`],
+    ]);
+  });
+
+  it("headlines a dry run as a clear that would happen", async () => {
+    const deps = fakeDeps();
+    await planClearNext.run({
+      json: false,
+      deps,
+      options: { "dry-run": true },
+    });
+    expect(deps.fs.writeFile).not.toHaveBeenCalled();
+    expect(renderChanges).toHaveBeenCalledWith(`Would clear Next: in ${FILE}`, [
+      CHANGE,
+    ]);
   });
 });
