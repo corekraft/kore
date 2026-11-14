@@ -7,8 +7,8 @@ import {
   recordOutcome,
   type Concluded,
 } from "../outcome/index.js";
-import type { CliDeps, CommandContext } from "../runtime/index.js";
-import type { Ledger, LedgerEvent } from "../ledger/index.js";
+import type { LedgerEvent, RecordResult } from "../ledger/index.js";
+import { contextWith, fakeLedger } from "./command-support.js";
 import { openLedger } from "./ledger-commands.js";
 import { outcomeCommands } from "./outcome-commands.js";
 
@@ -32,17 +32,21 @@ const CONCLUDED: Concluded = {
   issue: "https://github.com/corekraft/kore/issues/300",
   published: { commented: true, labelled: true, closed: true },
 };
-const PARSED = {
-  kind: "experiment",
-  source: "comparison",
-  result: "confirmed",
-  evidence: "kore local up p50 41s before, 29s after",
-  summary: "Up time fell from 41s to 29s.",
-} as ReturnType<typeof parseOutcome>;
 
-/** The deps a command reads: a root, a runner, a clock and two output streams, all fakes. */
+/** The outcome parseOutcome returns for the record flags below; a fixture, not behaviour. */
+function parsedOutcome() {
+  return {
+    kind: "experiment",
+    source: "comparison",
+    result: "confirmed",
+    evidence: "kore local up p50 41s before, 29s after",
+    summary: "Up time fell from 41s to 29s.",
+  } as ReturnType<typeof parseOutcome>;
+}
+
+/** The deps a command reads, every one a fake the spec can assert on. */
 function fakeDeps() {
-  const deps = {
+  return {
     root: vi.fn(() => Promise.resolve(ROOT)),
     runner: { run: vi.fn() },
     clock: {
@@ -50,19 +54,25 @@ function fakeDeps() {
       sleep: vi.fn(() => Promise.resolve()),
     },
     fs: {},
-    stdout: vi.fn(),
-    stderr: vi.fn(),
+    stdout: vi.fn<(text: string) => void>(),
+    stderr: vi.fn<(text: string) => void>(),
   };
-  return deps as typeof deps & CliDeps;
 }
 
 /** A context for `outcome record` or `outcome close` with the given flags. */
-function context(
-  options: Record<string, string | boolean>,
-  json = false,
-): { ctx: CommandContext; deps: ReturnType<typeof fakeDeps> } {
+function context(options: Record<string, string | boolean>, json = false) {
   const deps = fakeDeps();
-  return { ctx: { json, options, deps }, deps };
+  return { ctx: contextWith(deps, options, json), deps };
+}
+
+/** Makes the ledger the command opens: its list and record are mocks. */
+function withLedger(
+  listed: Partial<LedgerEvent>[] = [],
+  record: RecordResult = { ok: true, event: STORED },
+) {
+  const ledger = fakeLedger(listed, record);
+  vi.mocked(openLedger).mockResolvedValue({ ledger: ledger.ledger });
+  return ledger;
 }
 
 const RECORD_FLAGS = {
@@ -74,7 +84,6 @@ const RECORD_FLAGS = {
   summary: "Up time fell from 41s to 29s.",
 };
 
-/** An event as the ledger stores it: the outcome that was just recorded. */
 const STORED: LedgerEvent = {
   schema: 1,
   id: "e1",
@@ -87,24 +96,10 @@ const STORED: LedgerEvent = {
   number: 300,
 };
 
-/** A ledger whose list and record are mocks; the one cast stands in for the rest of the class. */
-function fakeLedger() {
-  const list = vi.fn<Ledger["list"]>(() =>
-    Promise.resolve({ events: [], skipped: 0 }),
-  );
-  const record = vi.fn<Ledger["record"]>(() =>
-    Promise.resolve({ ok: true, event: STORED }),
-  );
-  return { ledger: { list, record } as unknown as Ledger, list, record };
-}
-
-let ledger: ReturnType<typeof fakeLedger>;
-
 beforeEach(() => {
-  ledger = fakeLedger();
-  vi.mocked(openLedger).mockResolvedValue({ ledger: ledger.ledger });
+  withLedger();
   vi.mocked(labelFor).mockImplementation((r) => `outcome:${r}`);
-  vi.mocked(parseOutcome).mockReturnValue(PARSED);
+  vi.mocked(parseOutcome).mockReturnValue(parsedOutcome());
   vi.mocked(recordOutcome).mockResolvedValue(CONCLUDED);
   vi.mocked(closeOutcome).mockResolvedValue(CONCLUDED);
 });
@@ -128,7 +123,7 @@ describe("outcome record", () => {
         root: ROOT,
       }),
       "1",
-      PARSED,
+      parsedOutcome(),
     );
     expect(deps.stdout).toHaveBeenCalledWith(
       "Idea 0001 confirmed; issue closed: https://github.com/corekraft/kore/issues/300\n",
@@ -136,10 +131,11 @@ describe("outcome record", () => {
   });
 
   it("logs one ledger event for the idea, labelled by its result and numbered by its issue", async () => {
+    const ledger = withLedger();
     const { ctx } = context(RECORD_FLAGS);
     expect(await outcomeCommands.record?.run(ctx)).toBe(0);
     expect(ledger.list).toHaveBeenCalledWith({ idea: "0001", kind: "outcome" });
-    expect(ledger.record).toHaveBeenCalledWith({
+    expect(ledger.write).toHaveBeenCalledWith({
       source: "github",
       kind: "outcome",
       occurredAt: "2026-11-14T08:30:00.000Z",
@@ -171,19 +167,15 @@ describe("outcome record output and ledger", () => {
   });
 
   it("does not log a second ledger event when the idea already has one", async () => {
+    const ledger = withLedger([STORED]);
     const { ctx } = context(RECORD_FLAGS);
-    ledger.list.mockResolvedValue({ events: [STORED], skipped: 0 });
     expect(await outcomeCommands.record?.run(ctx)).toBe(0);
-    expect(ledger.record).not.toHaveBeenCalled();
+    expect(ledger.write).not.toHaveBeenCalled();
   });
 
   it("fails after publishing when the ledger rejects the event, naming how to repair it", async () => {
+    withLedger([], { ok: false, field: "label", message: "disk full." });
     const { ctx, deps } = context(RECORD_FLAGS);
-    ledger.record.mockResolvedValue({
-      ok: false,
-      field: "label",
-      message: "disk full.",
-    });
     expect(await outcomeCommands.record?.run(ctx)).toBe(1);
     expect(deps.stderr).toHaveBeenCalledWith(
       "The outcome was published, but its ledger event was rejected: disk full. Fix the ledger, then rerun `harness outcome close --idea 0001` to record the event.\n",
