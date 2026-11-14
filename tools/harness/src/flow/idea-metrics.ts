@@ -7,6 +7,8 @@ import {
 } from "./cost.js";
 
 export type { CostMetrics, CostOptions };
+export { DEFAULT_HOST_DAYS, hostPressure } from "./host-pressure.js";
+export type { HostPressure } from "./host-pressure.js";
 export { guardBlocks, outcomes } from "./outcomes.js";
 export { COST_KINDS, measureAttribution } from "./attribution-measure.js";
 export type { GuardBlocks, Outcomes } from "./outcomes.js";

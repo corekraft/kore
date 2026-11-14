@@ -278,6 +278,17 @@ takes issue numbers (`12` or `#12`) and covers only those ideas; with it,
 unattributed events are not counted as unmapped. Both flags together cover the
 named ideas inside the range.
 
+Host pressure comes from the `host-sample` events each session spawn records.
+`hostPressure` in `--json` (and one short section in the human report) gives, per
+live-session count and split by whether the local platform was up, the sample
+count and the median and peak of swap (bytes) and load. Each median is compared
+with the median of the same level over the `--host-days N` days before the range
+(default 7; before `--as-of` when the range has no start), and `worsened` is set
+when it is above that median by more than the spread (population standard
+deviation). Fewer than three baseline samples give `insufficient history`. A
+reading a host could not give is left out of the figures, and a range with no
+samples says so (`samples` 0, no levels).
+
 The stage rules are one table, `tools/harness/src/flow/stages.ts`. An event
 joins an idea by issue number at read time: an issue event by its own number, a
 PR event by the `idea` (`#<issue>`) it closes, a pane or session event by the
