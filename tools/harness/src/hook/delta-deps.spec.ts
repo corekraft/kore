@@ -18,6 +18,8 @@ vi.mock("../plan/index.js", () => ({ readPlans: vi.fn() }));
 vi.mock("../runtime/index.js", () => ({ hostLocksDirectory: vi.fn() }));
 vi.mock("node:path", () => ({ join: vi.fn(), resolve: vi.fn() }));
 
+/** The one assertion: a fake's parts as CliDeps, whose members the spec never reads. */
+const asCliDeps = (parts: object) => parts as CliDeps;
 const LOCKS = "/home/jun/.kore/locks";
 const JOURNAL = "/repo/.kore/state/journal";
 const SNAPSHOTS = "/repo/.git/kore-delta";
@@ -35,7 +37,7 @@ function fakeCli() {
   const runner = { run: vi.fn<Runner["run"]>() };
   const clock = { now: vi.fn(() => new Date(1_000)) };
   runner.run.mockResolvedValue({ code: 0, stdout: ".git\n", stderr: "" });
-  const deps = { fs, runner, clock } as unknown as CliDeps;
+  const deps = asCliDeps({ fs, runner, clock });
   return { deps, fs, runner, clock };
 }
 

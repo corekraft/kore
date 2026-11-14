@@ -25,9 +25,12 @@ function registeredHandler(): Handler {
   return vi.mocked(hookCommand).mock.calls[0]?.[2] as unknown as Handler;
 }
 
+/** The one assertion: a fake's parts as CliDeps, whose members the spec never reads. */
+const asCliDeps = (parts: object) => parts as CliDeps;
+
 /** A host's CliDeps reduced to what the handler reads: the repository root. The one cast stands for the rest. */
 function fakeDeps(): CliDeps {
-  return { root: () => Promise.resolve("/repo") } as unknown as CliDeps;
+  return asCliDeps({ root: () => Promise.resolve("/repo") });
 }
 
 // The wrapper is automocked, so its calls are read at load, before any test resets the mocks.

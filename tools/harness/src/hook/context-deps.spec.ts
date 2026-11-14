@@ -15,6 +15,8 @@ vi.mock("node:path", () => ({ join: vi.fn() }));
 vi.mock("../plan/index.js", () => ({ readPlans: vi.fn() }));
 vi.mock("./retro-scan.js", () => ({ windowStart: vi.fn() }));
 
+/** The one assertion: a fake's parts as CliDeps, whose members the spec never reads. */
+const asCliDeps = (parts: object) => parts as CliDeps;
 const enoent = () => Object.assign(new Error("missing"), { code: "ENOENT" });
 const JOURNALS = "/repo/.kore/state/journal";
 
@@ -30,7 +32,7 @@ function fakeFs() {
 /** CliDeps around the fake file system, with the environment the spec gives. */
 function fakeCli(env: Record<string, string | undefined> = {}) {
   const fs = fakeFs();
-  return { fs, deps: { fs, env } as unknown as CliDeps };
+  return { fs, deps: asCliDeps({ fs, env }) };
 }
 
 beforeEach(() => {

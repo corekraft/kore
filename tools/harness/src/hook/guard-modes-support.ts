@@ -2,15 +2,9 @@
 import { run } from "../cli/index.js";
 import { testHarness } from "../testing/index.js";
 import { INVENTORY_PATH, type Mode } from "../guardrail/index.js";
-import { inventoryWith } from "../testing/index.js";
-import { LEDGER } from "./feedback-support.js";
+import { inventoryWith, ledgerEvents } from "../testing/index.js";
 
 /** The ledger's events from a fake file map, one JSON object per line. */
-const ledgerEvents = (files: Map<string, string>) =>
-  (files.get(LEDGER) ?? "")
-    .split("\n")
-    .filter(Boolean)
-    .map((line) => JSON.parse(line) as Record<string, unknown>);
 
 export async function guard(
   payload: unknown,

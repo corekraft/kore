@@ -2,15 +2,9 @@ import { describe, expect, it } from "vitest";
 import { run } from "../cli/index.js";
 import { testHarness } from "../testing/index.js";
 import { INVENTORY_PATH } from "../guardrail/index.js";
-import { committedInventoryText } from "../testing/index.js";
-import { LEDGER } from "./feedback-support.js";
+import { committedInventoryText, ledgerEvents } from "../testing/index.js";
 
 /** The ledger's events from a fake file map, one JSON object per line. */
-const ledgerEvents = (files: Map<string, string>) =>
-  (files.get(LEDGER) ?? "")
-    .split("\n")
-    .filter(Boolean)
-    .map((line) => JSON.parse(line) as Record<string, unknown>);
 
 /** One ledger and one repository across several hook runs, as in a real session. */
 function session() {

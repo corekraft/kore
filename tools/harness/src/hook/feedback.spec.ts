@@ -29,6 +29,8 @@ vi.mock("../runtime/index.js", async (importOriginal) => {
   return { CommandError: real.CommandError };
 });
 
+/** The one assertion: a fake's parts as CliDeps, whose members the spec never reads. */
+const asCliDeps = (parts: object) => parts as CliDeps;
 const ROOT = "/repo";
 const KORE_TS = `${ROOT}/tools/kore/src/a.ts`;
 const HARNESS_TS = `${ROOT}/tools/harness/src/hook/x.ts`;
@@ -65,11 +67,7 @@ function fakeCli() {
     ),
   };
   const env = { CLAUDE_PROJECT_DIR: ROOT };
-  return {
-    deps: { fs, runner, env, cwd: "/elsewhere" } as unknown as CliDeps,
-    fs,
-    runner,
-  };
+  return { deps: asCliDeps({ fs, runner, env }), fs, runner };
 }
 
 beforeEach(() => {
