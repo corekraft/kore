@@ -41,6 +41,9 @@ if ! command -v mise >/dev/null 2>&1; then
 fi
 mise install
 mise exec -- npm --prefix tools/kore ci
+# `npm test` ends with the test-budget hook, which runs from the built harness bundle.
+mise exec -- npm --prefix tools/harness ci
+mise exec -- npm --prefix tools/harness run build
 
 step "unit tests and policy tests need no cluster"
 mise exec -- npm --prefix tools/kore test
@@ -91,7 +94,7 @@ mise exec -- node --input-type=module -e '
   const { loadRepository } = await import("./tools/kore/dist/src/config/index.js");
   const { ProcessRunner } = await import("./tools/kore/dist/src/runtime/index.js");
   const { assertReferenceSmoke } = await import(
-    "./tools/kore/dist/src/platform/platform.reference-smoke.integration.spec.js"
+    "./tools/kore/dist/src/platform/platform.reference-smoke.live.spec.js"
   );
   const repository = await loadRepository("local");
   await assertReferenceSmoke(repository, new ProcessRunner());

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { findRoot } from "../config/config.js";
+import { findRoot } from "../config/index.js";
 import { loadRepository } from "../config/index.js";
 import { ProcessRunner } from "../runtime/index.js";
 import { crdRollbackProblems, crdUpgradeProblems } from "./crd-compat.js";

@@ -28,6 +28,8 @@ export interface PrComment {
 }
 
 export interface PrView {
+  /** The commit the PR's base branch points at now; the merge base is found from it. */
+  baseSha: string;
   body: string;
   comments: PrComment[];
   /** When the newest commit on the PR was made; undefined when the PR lists none. */
@@ -54,6 +56,7 @@ export function parsePrView(stdout: string): PrView | undefined {
     const list = (key: string): Record<string, unknown>[] =>
       Array.isArray(view[key]) ? (view[key] as Record<string, unknown>[]) : [];
     return {
+      baseSha: text(view["baseRefOid"]),
       body: text(view["body"]),
       comments: list("comments").map((c) => ({
         body: text(c["body"]),

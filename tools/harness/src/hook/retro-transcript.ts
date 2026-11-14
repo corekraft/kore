@@ -148,7 +148,10 @@ export function humanText(event: TranscriptEvent): string | null {
 const CORRECTION_WORD =
   /\b(no|not|dont|don't|don’t|stop|instead|wrong|again|actually|should|never)\b/i;
 
-const ORCHESTRATOR_BRIEF = /^\s*(\(orchestrator\)|orchestrator:|\[herdr:)/i;
+// `[orchestrator]` is the fixed tag every orchestrator brief opens with; the
+// older forms stay matched so transcripts written before the tag still count.
+const ORCHESTRATOR_BRIEF =
+  /^\s*(\[orchestrator\]|\(orchestrator\)|orchestrator:|\[herdr:)/i;
 
 /** Whether a message is a brief pasted in by the orchestrator, not the person's own words. */
 export const isOrchestratorBrief = (text: string): boolean =>

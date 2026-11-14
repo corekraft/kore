@@ -1,4 +1,4 @@
-import { k3dRepository } from "./k3d-cluster.fixtures.js";
+import { k3dRepository } from "../testing/index.js";
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { retainedResources } from "./retained.js";

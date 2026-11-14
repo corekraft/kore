@@ -41,7 +41,7 @@ const signalExitCodes = [
  * signal handling ends Kore without an `exit` event, so without this a killed
  * Kore would leave kubectl, helm or k3d running with the environment lock gone.
  * On SIGINT or SIGTERM every live group gets SIGTERM, then Kore exits 130 or
- * 143 unless another handler (the integration lock's) is left to decide. A
+ * 143 unless another handler (the live lock's) is left to decide. A
  * normal exit kills any group still running.
  */
 export function installSignalReaper(

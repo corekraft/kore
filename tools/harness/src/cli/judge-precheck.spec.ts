@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { kore, precheck, report, scenario, verbs } from "./judge-support.js";
+import {
+  apiCalls,
+  BASE_SHA,
+  HEAD_SHA,
+  kore,
+  manifestDiff,
+  manifestSides,
+  precheck,
+  report,
+  scenario,
+  verbs,
+} from "./judge-support.js";
 
 describe("judge precheck", () => {
   it("passes a declared pattern with passing checks and reports the hints", async () => {
@@ -65,7 +76,10 @@ describe("judge precheck", () => {
 
 describe("judge precheck hints and options", () => {
   it.each([
-    ["no-behaviour-change", ["behaviouralPaths", "noBehaviouralDiff"]],
+    [
+      "no-behaviour-change",
+      ["behaviouralPaths", "noBehaviouralDiff", "toolingPaths"],
+    ],
     ["feature-flagged", ["flagPresentAndOff", "flags"]],
     ["dark-launched", ["flagOnlyInLocal", "flags"]],
     ["branch-by-abstraction", ["deletedFiles", "oldPathRetained"]],
@@ -84,5 +98,67 @@ describe("judge precheck hints and options", () => {
     expect(await precheck(h, "--ledger", "AGENTS.md")).not.toBe(0);
     expect(h.files.has("AGENTS.md")).toBe(false);
     expect(h.runner.calls).toHaveLength(0);
+  });
+});
+
+describe("judge precheck reads a manifest diff through the runner", () => {
+  const compare = `repos/corekraft/kore/compare/${BASE_SHA}...${HEAD_SHA}`;
+  const at = (sha: string) =>
+    `repos/corekraft/kore/contents/tools/kore/package.json?ref=${sha}`;
+  const raw = ["api", "-H", "Accept: application/vnd.github.raw"];
+
+  it("passes a scripts-only manifest change and reads both sides at the PR's own SHAs", async () => {
+    const h = scenario({
+      diff: manifestDiff,
+      baseSha: BASE_SHA,
+      headSha: HEAD_SHA,
+      manifest: manifestSides,
+    });
+    expect(await precheck(h)).toBe(0);
+    expect(report(h)).toMatchObject({
+      ok: true,
+      patternMatches: true,
+      hints: { behaviouralPaths: [], noBehaviouralDiff: true },
+    });
+    expect(apiCalls(h)).toEqual([
+      ["api", compare, "--jq", ".merge_base_commit.sha"],
+      [...raw, at(manifestSides.mergeBase)],
+      [...raw, at(HEAD_SHA)],
+    ]);
+  });
+
+  it("asks GitHub for the base and head commits the PR reports, in its view", async () => {
+    const h = scenario({
+      diff: manifestDiff,
+      baseSha: BASE_SHA,
+      headSha: HEAD_SHA,
+      manifest: manifestSides,
+    });
+    await precheck(h);
+    const view = h.runner.calls.find((c) => c.args[1] === "view");
+    expect(view?.args.join(" ")).toContain("baseRefOid");
+    expect(view?.args.join(" ")).toContain("headRefOid");
+  });
+
+  it("fails closed when a gh api read exits non-zero, naming the cause and printing no pass", async () => {
+    const h = scenario({
+      diff: manifestDiff,
+      baseSha: BASE_SHA,
+      headSha: HEAD_SHA,
+      manifest: manifestSides,
+      first: [
+        {
+          match: (c, a) =>
+            c === "gh" &&
+            a[0] === "api" &&
+            a.some((x) => x.includes("/compare/")),
+          result: { code: 1, stderr: "HTTP 404: Not Found" },
+        },
+      ],
+    });
+    expect(await precheck(h)).not.toBe(0);
+    expect(h.err()).toContain("failed for PR #42: HTTP 404: Not Found");
+    expect(h.out()).toBe("");
+    expect(apiCalls(h)).toHaveLength(1);
   });
 });

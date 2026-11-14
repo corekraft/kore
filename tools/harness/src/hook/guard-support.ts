@@ -21,6 +21,8 @@ const files: Record<string, string> = {
 };
 const ctx = {
   root,
+  // No fixture path matches a glob, so an unquoted glob warns as it did before the file check.
+  globMatches: () => Promise.resolve(false),
   modeOf: (rule: string) => modeOf(committedInventory, rule),
   denyRules: denyRules(committedInventory),
   readFile: (path: string): Promise<string> => {

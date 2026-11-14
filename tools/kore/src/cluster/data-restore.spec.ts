@@ -11,7 +11,7 @@ import {
   PLAINTEXT,
   exportOptions,
   useExportRepository,
-} from "./data-export.fixtures.js";
+} from "../testing/index.js";
 
 const state = useExportRepository();
 async function exported(): Promise<{ artifact: string }> {

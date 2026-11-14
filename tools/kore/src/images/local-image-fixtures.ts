@@ -1,7 +1,7 @@
 import { readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Mock } from "vitest";
-import { registryCaPem } from "./registry-tls-fixtures.js";
+import { registryCaPem } from "../testing/index.js";
 import type { ImageLockEntry } from "./image-lock.js";
 import type { Runner, RunOptions, RunResult } from "../runtime/index.js";
 

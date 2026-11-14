@@ -5,12 +5,7 @@ import { afterEach, beforeEach, expect, test } from "vitest";
 import { ensureRegistryTrust } from "../images/index.js";
 import type { Runner } from "../runtime/index.js";
 import { clusterUp } from "./cluster.js";
-import {
-  fakeRunner,
-  fast,
-  k3dRepository,
-  text,
-} from "./k3d-cluster.fixtures.js";
+import { fakeRunner, fast, k3dRepository, text } from "../testing/index.js";
 import { k3dCreateArgs } from "./k3d-cluster.js";
 
 // Docs: docs/decisions/0084-k3d-registry-trust-through-a-mounted-ca-directory.md

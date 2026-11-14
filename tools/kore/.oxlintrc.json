@@ -63,7 +63,62 @@
         "max": 8
       }
     ],
-    "import/no-cycle": "error"
+    "import/no-cycle": "error",
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "group": ["**/app/**", "!**/app/index.js"],
+            "message": "import from the app barrel (app/index.js), not one of its files"
+          },
+          {
+            "group": ["**/cli/**", "!**/cli/index.js"],
+            "message": "import from the cli barrel (cli/index.js), not one of its files"
+          },
+          {
+            "group": ["**/cluster/**", "!**/cluster/index.js"],
+            "message": "import from the cluster barrel (cluster/index.js), not one of its files"
+          },
+          {
+            "group": ["**/config/**", "!**/config/index.js"],
+            "message": "import from the config barrel (config/index.js), not one of its files"
+          },
+          {
+            "group": ["**/diagnostics/**", "!**/diagnostics/index.js"],
+            "message": "import from the diagnostics barrel (diagnostics/index.js), not one of its files"
+          },
+          {
+            "group": ["**/images/**", "!**/images/index.js"],
+            "message": "import from the images barrel (images/index.js), not one of its files"
+          },
+          {
+            "group": ["**/local/**", "!**/local/index.js"],
+            "message": "import from the local barrel (local/index.js), not one of its files"
+          },
+          {
+            "group": ["**/ops/**", "!**/ops/index.js"],
+            "message": "import from the ops barrel (ops/index.js), not one of its files"
+          },
+          {
+            "group": ["**/platform/**", "!**/platform/index.js"],
+            "message": "import from the platform barrel (platform/index.js), not one of its files"
+          },
+          {
+            "group": ["**/runtime/**", "!**/runtime/index.js"],
+            "message": "import from the runtime barrel (runtime/index.js), not one of its files"
+          },
+          {
+            "group": ["**/security/**", "!**/security/index.js"],
+            "message": "import from the security barrel (security/index.js), not one of its files"
+          },
+          {
+            "group": ["**/testing/**"],
+            "message": "production code must not import the testing domain; only specs and fixtures may"
+          }
+        ]
+      }
+    ]
   },
   "overrides": [
     {
@@ -80,9 +135,69 @@
       }
     },
     {
-      "files": ["**/*.integration.spec.ts"],
+      "files": ["**/*.live.spec.ts"],
       "rules": {
         "typescript/no-floating-promises": "off"
+      }
+    },
+    {
+      "files": ["**/*.spec.ts", "**/*fixtures.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/app/**", "!**/app/index.js"],
+                "message": "import from the app barrel (app/index.js), not one of its files"
+              },
+              {
+                "group": ["**/cli/**", "!**/cli/index.js"],
+                "message": "import from the cli barrel (cli/index.js), not one of its files"
+              },
+              {
+                "group": ["**/cluster/**", "!**/cluster/index.js"],
+                "message": "import from the cluster barrel (cluster/index.js), not one of its files"
+              },
+              {
+                "group": ["**/config/**", "!**/config/index.js"],
+                "message": "import from the config barrel (config/index.js), not one of its files"
+              },
+              {
+                "group": ["**/diagnostics/**", "!**/diagnostics/index.js"],
+                "message": "import from the diagnostics barrel (diagnostics/index.js), not one of its files"
+              },
+              {
+                "group": ["**/images/**", "!**/images/index.js"],
+                "message": "import from the images barrel (images/index.js), not one of its files"
+              },
+              {
+                "group": ["**/local/**", "!**/local/index.js"],
+                "message": "import from the local barrel (local/index.js), not one of its files"
+              },
+              {
+                "group": ["**/ops/**", "!**/ops/index.js"],
+                "message": "import from the ops barrel (ops/index.js), not one of its files"
+              },
+              {
+                "group": ["**/platform/**", "!**/platform/index.js"],
+                "message": "import from the platform barrel (platform/index.js), not one of its files"
+              },
+              {
+                "group": ["**/runtime/**", "!**/runtime/index.js"],
+                "message": "import from the runtime barrel (runtime/index.js), not one of its files"
+              },
+              {
+                "group": ["**/security/**", "!**/security/index.js"],
+                "message": "import from the security barrel (security/index.js), not one of its files"
+              },
+              {
+                "group": ["**/testing/**", "!**/testing/index.js"],
+                "message": "import from the testing barrel (testing/index.js), not one of its files"
+              }
+            ]
+          }
+        ]
       }
     }
   ]

@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import { loadRepository } from "../config/index.js";
 import type { RunOptions, RunResult, Runner } from "../runtime/index.js";
-import { lockedImage } from "./app-fixtures.js";
+import { lockedImage } from "../testing/index.js";
 import { verifyImage } from "./verify.js";
 
 // Docs: docs/decisions/0059-identity-policy-evidence.md
