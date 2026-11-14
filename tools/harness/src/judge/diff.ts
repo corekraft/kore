@@ -135,6 +135,11 @@ export interface ChangedFile {
   after: { added: boolean; text: string }[];
   /** Every added, removed and context line in diff order, so a change can be placed by what surrounds it. */
   trail: TrailLine[];
+  /**
+   * The file's full text at the merge base and at the head, when the precheck fetched it. A hunk shows
+   * three lines of context, so a section header can be out of view; the whole file is what places a change.
+   */
+  sides?: { before: string | undefined; after: string | undefined };
 }
 
 /** Counts one hunk's added and removed lines and records each in the file's trail; ending it books the lines removed with no replacement. */

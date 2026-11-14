@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isTooling } from "./tooling.js";
-import { file } from "./tooling.fixtures.js";
+import { add, ctx, del, file } from "./tooling.fixtures.js";
 
 describe("isTooling: paths", () => {
   it.each([
@@ -18,6 +18,8 @@ describe("isTooling: paths", () => {
     "tools/kore/src/app/app-fixtures.ts",
     "tools/kore/src/cli/cli-dispatch.fixtures.ts",
     "tools/kore/src/cli/runner-support.ts",
+    "tools/kore/src/cli/unconverted.txt",
+    "apps/web/unconverted.txt",
   ])("%s is tooling", (path) => {
     expect(isTooling(file(path))).toBe(true);
   });
@@ -38,6 +40,9 @@ describe("isTooling: paths", () => {
     ".Claude/x",
     "tools/kore/tsconfig.json",
     "tools/kore/.npmrc",
+    "tools/kore/src/cli/unconverted.txt.bak",
+    "tools/kore/src/cli/unconverted-list.ts",
+    "tools/kore/src/cli/cli.ts",
   ])("%s is product", (path) => {
     expect(isTooling(file(path))).toBe(false);
   });
@@ -63,5 +68,28 @@ describe("isTooling: renames", () => {
     expect(isTooling(file("tools/kore/package.json", [], "package.json"))).toBe(
       false,
     );
+  });
+});
+
+describe("isTooling: .gitignore", () => {
+  it("is tooling when its only change adds the test-results ignore line", () => {
+    expect(
+      isTooling(
+        file(".gitignore", [
+          [ctx("skills/bin/harness.mjs.*.tmp"), add("test-results/")],
+        ]),
+      ),
+    ).toBe(true);
+  });
+
+  it.each([
+    ["adds another ignore line", [add("cosign.key")]],
+    ["removes the test-results line", [del("test-results/")]],
+    [
+      "adds the test-results line beside another line",
+      [add("test-results/"), add("secrets.txt")],
+    ],
+  ])("is product when it %s", (_, lines) => {
+    expect(isTooling(file(".gitignore", [lines]))).toBe(false);
   });
 });
