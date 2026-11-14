@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { run } from "../cli/index.js";
-import { ANCHOR, NEW, PLAN, fixture } from "./adr-support.js";
+import { run } from "../../src/cli/index.js";
+import { ANCHOR, NEW, PLAN, fixture } from "../../src/adr/adr-support.js";
 
 describe("harness adr new source, root and date", () => {
   it("rejects a missing plan file, naming it, and writes nothing", async () => {
