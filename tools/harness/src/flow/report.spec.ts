@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { buildReport } from "./report.js";
 import { firstTime, githubWaits, time } from "./github-waits.js";
 import {
   firstClosed,
   guardBlocks,
+  hostPressure,
   ideaMetrics,
   measureAttribution,
   outcomes,
@@ -45,7 +47,7 @@ describe("buildReport scope and ideas", () => {
     const tally = fakeTally();
     vi.mocked(tally.stages).mockReturnValue([]);
     const r = run([]);
-    expect(r.version).toBe(6);
+    expect(r.version).toBe(7);
     expect(r.asOf).toBe("1970-01-01T00:00:01.000Z");
     expect(r.scope).toBe(SCOPE);
     expect(r.stages).toEqual([]);
@@ -124,6 +126,31 @@ describe("buildReport unmapped events and reports", () => {
     vi.mocked(guardBlocks).mockReturnValue([{ rule: "rule", blocks: 1 }]);
     expect(run([]).guardBlocks).toEqual([{ rule: "rule", blocks: 1 }]);
     expect(outcomes).toHaveBeenCalledWith(named, WINDOW);
+  });
+});
+
+describe("buildReport host pressure", () => {
+  it("reports host pressure over every named event, the window and the default trailing days", () => {
+    fakeTally();
+    const named = [ev(1, "host-sample", { sessions: 1, platform: false })];
+    cover(new Map(), named);
+    const pressure = { trailingDays: 7, samples: 1, levels: [] };
+    vi.mocked(hostPressure).mockReturnValue(pressure);
+    expect(run([]).hostPressure).toBe(pressure);
+    expect(hostPressure).toHaveBeenCalledWith(named, WINDOW, {
+      trailingDays: 7,
+      asOf: ASOF,
+    });
+  });
+
+  it("uses the trailing days it was given for the host baseline", () => {
+    fakeTally();
+    cover(new Map());
+    buildReport([], { asOf: ASOF, minCompletedIdeas: 1, hostDays: 3 });
+    expect(hostPressure).toHaveBeenCalledWith([], WINDOW, {
+      trailingDays: 3,
+      asOf: ASOF,
+    });
   });
 });
 

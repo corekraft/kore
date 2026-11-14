@@ -14,7 +14,8 @@
     {
       "ingress-agentgateway": false,
       "role-tokens": true,
-      "local-image-reuse": false
+      "local-image-reuse": false,
+      "registry-tag-pruning": false
     },
   "imageInventory": "audit",
   "exemptionCheck": "audit",
