@@ -23,6 +23,26 @@ export interface RegistryAdminTransport {
 const path = (repository: string): string =>
   repository.split("/").map(encodeURIComponent).join("/");
 
+/** When the tag's image was built; Infinity (so never old) when it cannot be read. */
+async function buildTime(
+  json: (url: string) => Promise<Record<string, unknown>>,
+  repositoryPath: string,
+  tag: string,
+): Promise<number> {
+  const manifest = await json(`${base}/${repositoryPath}/manifests/${tag}`);
+  const config = (manifest["config"] as { digest?: string } | undefined)
+    ?.digest;
+  if (config === undefined) {
+    return Infinity;
+  }
+  const built = (await json(`${base}/${repositoryPath}/blobs/${config}`))[
+    "created"
+  ];
+  return typeof built === "string" && !Number.isNaN(Date.parse(built))
+    ? Date.parse(built)
+    : Infinity;
+}
+
 /** The registry operations pruning needs, over the verified HTTPS transport. */
 export function createRegistryAdmin(
   transport: RegistryAdminTransport,
@@ -54,25 +74,22 @@ export function createRegistryAdmin(
     tags: async (repository) =>
       ((await json(`${base}/${path(repository)}/tags/list`))["tags"] ??
         []) as string[],
-    digest: async (repository, tag) =>
-      (await send("HEAD", `${base}/${path(repository)}/manifests/${tag}`, 200))
-        .headers["docker-content-digest"] ?? "",
-    created: async (repository, tag) => {
-      const manifest = await json(
+    digest: async (repository, tag) => {
+      const { headers } = await send(
+        "HEAD",
         `${base}/${path(repository)}/manifests/${tag}`,
+        200,
       );
-      const config = (manifest["config"] as { digest?: string } | undefined)
-        ?.digest;
-      if (config === undefined) {
-        return Infinity;
+      const digest = headers["docker-content-digest"];
+      if (digest === undefined || !/^sha256:[a-f0-9]{64}$/.test(digest)) {
+        throw new RegistryPruneError(
+          `registry returned no sha256 digest for ${repository}:${tag}; nothing is deleted for it`,
+        );
       }
-      const built = (await json(`${base}/${path(repository)}/blobs/${config}`))[
-        "created"
-      ];
-      return typeof built === "string" && !Number.isNaN(Date.parse(built))
-        ? Date.parse(built)
-        : Infinity;
+      return digest;
     },
+    created: async (repository, tag) =>
+      await buildTime(json, `${path(repository)}`, tag),
     remove: async (repository, digest) => {
       const response = await (transport.request ?? registryRequest)(
         "DELETE",

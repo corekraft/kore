@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { RegistryPruneError } from "./registry-prune-error.js";
 import { createRegistryAdmin } from "./registry-admin.js";
 import type { RegistryResponse } from "./registry-https.js";
 
@@ -57,6 +58,27 @@ describe("registry admin", () => {
       Authorization: "Basic abc",
     });
     expect(request.mock.calls[0]?.[3]).toBe("ca-pem");
+  });
+});
+
+describe("registry admin refusals", () => {
+  it("refuses a tag whose HEAD carries no verified digest, so no delete can name an empty one", async () => {
+    const { registry } = admin({
+      [`HEAD ${base}/a/b/manifests/t1`]: reply(200),
+      [`HEAD ${base}/a/b/manifests/t2`]: reply(
+        200,
+        {},
+        {
+          "docker-content-digest": "sha256:short",
+        },
+      ),
+    });
+    await expect(registry.digest("a/b", "t1")).rejects.toThrow(
+      "registry returned no sha256 digest for a/b:t1",
+    );
+    await expect(registry.digest("a/b", "t2")).rejects.toBeInstanceOf(
+      RegistryPruneError,
+    );
   });
 
   it("reads the build time from the image config", async () => {

@@ -25,17 +25,33 @@ vi.mock("./local-publish.js");
 vi.mock("./registry-prune.js");
 vi.mock("./registry-service.js");
 
-const repository = {
+const repository = asFake<Repository>({
   environment: { kubeContext: "k3d-kore-local" },
-} as Repository;
+});
 const run = vi.fn();
 const runner = asFake<Runner>({ run });
 const admin = asFake<RegistryAdmin>({});
 
+let given: RegistryPruneDependencies | undefined;
+
+/** The dependencies the prune was handed. */
+function handed(): RegistryPruneDependencies {
+  if (given === undefined) {
+    throw new Error("the prune was never called");
+  }
+  return given;
+}
+
 beforeEach(() => {
+  given = undefined;
   vi.mocked(featureEnabled).mockReturnValue(true);
   vi.mocked(createRegistryAdmin).mockReturnValue(admin);
-  vi.mocked(pruneRegistryTags).mockResolvedValue(0);
+  vi.mocked(pruneRegistryTags).mockImplementation(
+    async (_repository, dependencies) => {
+      given = dependencies;
+      return 0;
+    },
+  );
   vi.mocked(withPublishSession).mockImplementation(
     async (_repository, _runner, action) =>
       await action(
@@ -61,8 +77,7 @@ it("prunes through the forwarded registry with the push identity, a seven day ke
   expect(createRegistryAdmin).toHaveBeenCalledWith(
     expect.objectContaining({ authorization: "Basic abc", ca: "ca-pem" }),
   );
-  const dependencies = vi.mocked(pruneRegistryTags).mock
-    .calls[0]?.[1] as RegistryPruneDependencies;
+  const dependencies = handed();
   expect(dependencies.admin).toBe(admin);
   expect(dependencies.keepWindowMs).toBe(7 * 24 * 60 * 60 * 1000);
   expect(dependencies.holdsLease).toBe(holdsHostLease);
@@ -74,8 +89,7 @@ it("prunes through the forwarded registry with the push identity, a seven day ke
 
 it("collects garbage inside the registry container of the configured context", async () => {
   await pruneRegistryTagsInCluster(repository, runner);
-  const dependencies = vi.mocked(pruneRegistryTags).mock
-    .calls[0]?.[1] as RegistryPruneDependencies;
+  const dependencies = handed();
   await dependencies.collectGarbage();
   expect(run).toHaveBeenCalledWith(
     "kubectl",
