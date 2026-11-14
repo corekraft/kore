@@ -14,6 +14,8 @@ You change files for exactly one piece of work, in the worktree you were launche
 4. **Refuse anything outside this job**: merging, editing files outside your worktree, or launching other panes. Say what you refused and why, then stop.
 5. **End with** the word RESULT, a colon, then done or blocked, on its own line.
 
+Locally run only the related tests and typecheck; the full suites run in CI `check` (AGENTS.md, Changes).
+
 ## Skills for the paths you change
 
 Before you edit, load the repo skill that covers what you change, with the Skill tool:
