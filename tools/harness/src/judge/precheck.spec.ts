@@ -179,6 +179,18 @@ describe("precheck hands each step the PR's own commits and files", () => {
     );
   });
 
+  it("gives the manifest reader gh api calls through the same runner, in the repository root", async () => {
+    ready();
+    await run();
+    const api = vi.mocked(withManifestSides).mock.calls[0]?.[1];
+    await api?.(["api", "repos/corekraft/kore/contents/x"]);
+    expect(runner.run).toHaveBeenLastCalledWith(
+      "gh",
+      ["api", "repos/corekraft/kore/contents/x"],
+      { cwd: ROOT },
+    );
+  });
+
   it("gives the declared pattern and the diff's files to the hints, then to the verdict", async () => {
     ready();
     await run();
