@@ -44,7 +44,6 @@ test("a deployment is ready when its rollout completes and it has an available r
   );
 
   await wait();
-
   expect(tails(run)).toEqual([
     ["status", "deployment/web", "--timeout=10m"],
     ["deployment/web", "--output", AVAILABLE],
@@ -64,7 +63,6 @@ test("a rollout-only resource is waited on with its rollout status alone", async
   const { run, wait } = waitOn(["statefulset/db"]);
 
   await wait();
-
   expect(tails(run)).toEqual([["status", "statefulset/db", "--timeout=10m"]]);
 });
 
@@ -77,7 +75,6 @@ test("a DaemonSet is handed to the scheduled-pods check with the base arguments,
   const { runner, wait } = waitOn(["daemonset/ztunnel"]);
 
   await wait();
-
   expect(withScheduledPods).toHaveBeenCalledWith(
     expect.objectContaining({ base: BASE, capture: false, runner }),
     "daemonset/ztunnel",
@@ -90,7 +87,6 @@ test("a CRD is proven Established in the environment's context, with no namespac
   const { run, wait } = waitOn(["crd/fakes.example.io"]);
 
   await wait();
-
   expect(tails(run)).toEqual([
     ["--for=condition=Established", "crd/fakes.example.io", "--timeout=10m"],
   ]);
@@ -109,19 +105,14 @@ test("a CRD that does not exist yet is retried after a pause until it is Establi
   });
 
   await wait();
-
   expect(pause).toHaveBeenCalledTimes(1);
   expect(run).toHaveBeenCalledTimes(2);
 });
 
 test("a wait that fails for another reason is rethrown at once, with no pause", async () => {
-  const { wait } = waitOn(
-    ["crd/x"],
-    () => new Error("forbidden: cannot list crds"),
-  );
-
+  const forbidden = () => new Error("forbidden: cannot list crds");
+  const { wait } = waitOn(["crd/x"], forbidden);
   await expect(wait()).rejects.toThrow("forbidden");
-
   expect(pause).not.toHaveBeenCalled();
 });
 
@@ -129,7 +120,6 @@ test("a Crossplane Function is proven Installed and then Healthy, in that order"
   const { run, wait } = waitOn(["function.pkg.crossplane.io/kcl"]);
 
   await wait();
-
   expect(tails(run).map(([flag]) => flag)).toEqual([
     "--for=condition=Installed",
     "--for=condition=Healthy",
@@ -142,7 +132,6 @@ test("a ClusterImagePolicy is proven Ready", async () => {
   ]);
 
   await wait();
-
   expect(tails(run)).toEqual([
     [
       "--for=condition=Ready",
