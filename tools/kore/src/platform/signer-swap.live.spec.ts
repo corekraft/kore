@@ -10,7 +10,7 @@ import {
   deployedImage,
   publishSignedCopy,
 } from "./admission-probe.js";
-import { withReferenceSigned } from "./reference-restore.js";
+import { withReferenceSigned } from "./reference-restore.live.js";
 
 // Docs: docs/decisions/0028-image-trust-authority.md
 // Live and opt-in: needs a running local profile with the `reference`

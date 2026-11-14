@@ -8,7 +8,7 @@ import {
   withPublishSession,
 } from "../images/index.js";
 import type { Runner } from "../runtime/index.js";
-import { withReferenceSigned } from "./reference-restore.js";
+import { withReferenceSigned } from "./reference-restore.live.js";
 
 vi.mock("../images/index.js");
 
