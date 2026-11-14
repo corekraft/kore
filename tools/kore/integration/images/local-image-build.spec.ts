@@ -1,10 +1,10 @@
-import { loadRepository } from "../config/index.js";
-import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { loadRepository } from "../../src/config/index.js";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, test, vi } from "vitest";
-import { type Repository } from "../config/index.js";
+import { type Repository } from "../../src/config/index.js";
 import {
   digest,
   entry,
@@ -14,18 +14,19 @@ import {
   minifiedKubeconfig,
   secretRef,
   stubRegistry,
-} from "./local-image-fixtures.js";
-import { buildAndSignLocalImage } from "./local-image.js";
+} from "../../src/images/images.fixtures.js";
+import { buildAndSignLocalImage } from "../../src/images/local-image.js";
 
 const registryReference = vi.hoisted(() => vi.fn());
-vi.mock("./registry.js", () => ({ localRegistryReference: registryReference }));
+vi.mock("../../src/images/registry.js", () => ({ localRegistryReference: registryReference }));
 const registryHead = vi.hoisted(() => vi.fn());
-vi.mock("./registry-https.js", () => ({ registryHead }));
+vi.mock("../../src/images/registry-https.js", () => ({ registryHead }));
 
 const roots: string[] = [];
 
 afterEach(async () => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   await Promise.all(
     roots.splice(0).map((root) => rm(root, { force: true, recursive: true })),
   );
@@ -97,10 +98,16 @@ test("build and sign generates the key pair as a Kubernetes Secret through the c
 });
 
 test("cosign is pinned to the configured context through an in-memory kubeconfig, never a file", async () => {
+  // Scratch files go to a temporary directory this test owns, so parallel
+  // tests creating and removing their own entries cannot race the scan.
+  const scratch = await import("node:fs/promises").then(({ mkdtemp }) =>
+    mkdtemp(join(tmpdir(), "kore-scratch-")),
+  );
+  roots.push(scratch);
+  vi.stubEnv("TMPDIR", scratch);
   const repository = await testRepository();
   const { runner, calls } = fakeRunner();
   stubRegistry(registryReference, registryHead);
-  const before = new Set(await readdir(tmpdir()));
 
   await buildAndSignLocalImage(repository, runner, "reference", entry);
 
@@ -112,13 +119,10 @@ test("cosign is pinned to the configured context through an in-memory kubeconfig
     expect(call.options?.env?.KUBECONFIG).toBeUndefined();
     expect(JSON.stringify(call.args)).not.toContain("kubeconfig");
   }
-  const created = (await readdir(tmpdir())).filter((name) => !before.has(name));
-  for (const name of created) {
-    for (const file of await filesUnder(join(tmpdir(), name))) {
-      expect(await readFile(file, "utf8").catch(() => "")).not.toContain(
-        minifiedKubeconfig.trim(),
-      );
-    }
+  for (const file of await filesUnder(scratch)) {
+    expect(await readFile(file, "utf8").catch(() => "")).not.toContain(
+      minifiedKubeconfig.trim(),
+    );
   }
 });
 
