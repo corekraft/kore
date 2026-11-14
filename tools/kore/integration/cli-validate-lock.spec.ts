@@ -2,40 +2,40 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { dispatch } from "./cli-dispatch.fixtures.js";
+import { dispatch } from "../src/cli/cli-dispatch.fixtures.js";
 
-vi.mock("../app/index.js", async () =>
-  (await import("./cli-dispatch.fixtures.js")).appModule(),
+vi.mock("../src/app/index.js", async () =>
+  (await import("../src/cli/cli-dispatch.fixtures.js")).appModule(),
 );
-vi.mock("../cluster/index.js", async () =>
-  (await import("./cli-dispatch.fixtures.js")).clusterModule(),
+vi.mock("../src/cluster/index.js", async () =>
+  (await import("../src/cli/cli-dispatch.fixtures.js")).clusterModule(),
 );
-vi.mock("../config/index.js", async () =>
-  (await import("./cli-dispatch.fixtures.js")).configModule(),
+vi.mock("../src/config/index.js", async () =>
+  (await import("../src/cli/cli-dispatch.fixtures.js")).configModule(),
 );
-vi.mock("../diagnostics/index.js", async () =>
-  (await import("./cli-dispatch.fixtures.js")).diagnosticsModule(),
+vi.mock("../src/diagnostics/index.js", async () =>
+  (await import("../src/cli/cli-dispatch.fixtures.js")).diagnosticsModule(),
 );
-vi.mock("../runtime/index.js", async () =>
-  (await import("./cli-dispatch.fixtures.js")).runtimeModule(),
+vi.mock("../src/runtime/index.js", async () =>
+  (await import("../src/cli/cli-dispatch.fixtures.js")).runtimeModule(),
 );
-vi.mock("../platform/index.js", async () =>
-  (await import("./cli-dispatch.fixtures.js")).platformModule(),
+vi.mock("../src/platform/index.js", async () =>
+  (await import("../src/cli/cli-dispatch.fixtures.js")).platformModule(),
 );
-vi.mock("../security/index.js", async () =>
-  (await import("./cli-dispatch.fixtures.js")).securityModule(),
+vi.mock("../src/security/index.js", async () =>
+  (await import("../src/cli/cli-dispatch.fixtures.js")).securityModule(),
 );
-vi.mock("../local/index.js", async () =>
-  (await import("./cli-dispatch.fixtures.js")).localModule(),
+vi.mock("../src/local/index.js", async () =>
+  (await import("../src/cli/cli-dispatch.fixtures.js")).localModule(),
 );
 
-vi.mock("../images/index.js", () => ({
+vi.mock("../src/images/index.js", () => ({
   managedLockErrors: vi.fn((lock: { bad?: boolean }) =>
     lock.bad ? ["grafana: mirror digest sha256:0 differs"] : [],
   ),
 }));
 
-import { main } from "./cli.js";
+import { main } from "../src/cli/cli.js";
 
 let directory: string;
 

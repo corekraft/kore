@@ -2,12 +2,12 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { loadRepository } from "../config/index.js";
-import { main } from "./cli.js";
-import { COMMANDS, isMutating } from "./commands.js";
-import { policyCommand } from "./commands-policy.js";
-import { parseArgs } from "./flags.js";
-import type { CommandContext } from "./context.js";
+import { loadRepository } from "../src/config/index.js";
+import { main } from "../src/cli/cli.js";
+import { COMMANDS, isMutating } from "../src/cli/commands.js";
+import { policyCommand } from "../src/cli/commands-policy.js";
+import { parseArgs } from "../src/cli/flags.js";
+import type { CommandContext } from "../src/cli/context.js";
 
 // Docs: docs/decisions/0072-constraint-promotion-procedure.md
 const roots: string[] = [];
