@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import type { ChangedFile, TrailLine } from "./diff.js";
 
 /** Developer tooling: what builds, tests, guards and ships the code, never what a user or cluster runs. ADR 0099. */
@@ -8,10 +9,12 @@ const TOOLING_PATH =
 const TEST_SUPPORT =
   /^tools\/kore\/src\/(testing\/|.*(\.fixtures\.ts|-fixtures\.ts|-support\.ts)$)/;
 
-const MANIFEST = "tools/kore/package.json";
+/** A list of unconverted sources, which every conversion edits (ADR 0098 and plan 14). */
+const UNCONVERTED = /(^|\/)unconverted\.txt$/;
+export const MANIFEST = "tools/kore/package.json";
+const GITIGNORE = ".gitignore";
+const TEST_RESULTS_IGNORE = "test-results/";
 const LOCKFILE = "tools/kore/package-lock.json";
-const TOOLING_SECTION = /^ {2}"(scripts|devDependencies)"\s*:/;
-const TOP_KEY = /^ {2}"[^"]+"\s*:/;
 const ROOT_TOOLING_SECTION = /^ {6}"devDependencies"\s*:/;
 const ROOT_KEY = /^ {6}"[^"]+"\s*:/;
 const PACKAGE_ENTRY = /^ {4}"(node_modules\/[^"]*|)"\s*:\s*\{/;
@@ -20,24 +23,49 @@ const STRAY_KEY = /^( {2}"[^"]*"| {4}"[^"]*"|\s*"node_modules\/[^"]*")\s*:/;
 const ENTRY_CLOSE = /^ {4}\}/;
 const DEV_ONLY = /^\s*"dev"\s*:\s*true\b/;
 
-/** Only scripts or devDependencies change. State resets at each hunk, so a change counts only under a header in view. */
-function manifestIsTooling(trail: readonly TrailLine[]): boolean {
-  if (trail.length === 0) {
+/** The manifest without its tooling sections, or undefined when the text is not a JSON object. */
+function withoutToolingSections(
+  text: string,
+): Record<string, unknown> | undefined {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return undefined;
+  }
+  const rest: Record<string, unknown> = { ...parsed };
+  delete rest["scripts"];
+  delete rest["devDependencies"];
+  return rest;
+}
+
+/**
+ * Only scripts or devDependencies change: the whole manifest at the merge base and at the head, compared
+ * without those two sections, is equal. The hunk is not read, since its context can hide the section header.
+ * Without both sides, or with no hunks, the change is product.
+ */
+function manifestIsTooling(file: ChangedFile): boolean {
+  const { before, after } = file.sides ?? {};
+  if (file.trail.length === 0 || before === undefined || after === undefined) {
     return false;
   }
-  let tooling = false;
-  for (const { kind, text, start } of trail) {
-    if (start) {
-      tooling = false;
-    }
-    if (TOP_KEY.test(text)) {
-      tooling = TOOLING_SECTION.test(text);
-    }
-    if (kind !== "context" && !tooling) {
-      return false;
-    }
-  }
-  return true;
+  const rest = withoutToolingSections(before);
+  return (
+    rest !== undefined && isDeepStrictEqual(rest, withoutToolingSections(after))
+  );
+}
+
+/** The `.gitignore` change is tooling only when its one changed line adds the test-results ignore. */
+function gitignoreIsTooling(trail: readonly TrailLine[]): boolean {
+  const changed = trail.filter((line) => line.kind !== "context");
+  return (
+    changed.length === 1 &&
+    changed[0]?.kind === "added" &&
+    changed[0].text === TEST_RESULTS_IGNORE
+  );
 }
 
 /** What is known of the lockfile entry the walk is inside. */
@@ -128,7 +156,7 @@ function lockfileIsTooling(trail: readonly TrailLine[]): boolean {
 }
 
 const pathIsTooling = (path: string) =>
-  TOOLING_PATH.test(path) || TEST_SUPPORT.test(path);
+  TOOLING_PATH.test(path) || TEST_SUPPORT.test(path) || UNCONVERTED.test(path);
 
 /** Whether a changed file is developer tooling rather than product behaviour; anything unclear is product, and a rename counts only when both paths are tooling. */
 export function isTooling(file: ChangedFile): boolean {
@@ -136,7 +164,10 @@ export function isTooling(file: ChangedFile): boolean {
     return pathIsTooling(file.path) && pathIsTooling(file.previousPath);
   }
   if (file.path === MANIFEST) {
-    return manifestIsTooling(file.trail);
+    return manifestIsTooling(file);
+  }
+  if (file.path === GITIGNORE) {
+    return gitignoreIsTooling(file.trail);
   }
   if (file.path === LOCKFILE) {
     return lockfileIsTooling(file.trail);
