@@ -1,7 +1,8 @@
 // Signer guard: only the tag-gated signing jobs of release.yaml may hold
 // `id-token: write` (keyless signing) or `packages: write` (registry push), and
-// every job states its token permissions. Plan: infra/plans/2-implementation.md
-// (Step 7), ADR 0044.
+// every job states its token permissions. The one exception is the nightly
+// failure-issue job, which opens or closes the integration tier's issue (#419).
+// Plan: infra/plans/2-implementation.md (Step 7), ADR 0044.
 
 import { join } from "node:path";
 import { CommandError, type FileSystem } from "../runtime/index.js";
@@ -11,6 +12,15 @@ const SIGNING_JOBS = ["release", "mirror"];
 const SIGNING_SCOPES = ["id-token", "packages"];
 const TAG_GATE = "github.ref_type == 'tag'";
 const PR_TRIGGERS = ["pull_request", "pull_request_target"];
+
+/** The one job outside release.yaml that may hold a write scope: exactly these scopes, after the integration job, on the scheduled main run (ADR 0044). */
+const ISSUE_JOB = {
+  file: "nightly.yml",
+  name: "failure-issue",
+  needs: "integration",
+  gate: "always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'",
+  permissions: { issues: "write", actions: "read", contents: "read" },
+} as const;
 
 type Node = { [key: string]: string | Node };
 
@@ -73,8 +83,13 @@ function writeScopes(permissions: string | Node | undefined): string[] | null {
       .filter(([, level]) => level === "write")
       .map(([scope]) => scope);
   }
-  if (permissions === "write-all") {
-    return ["write-all"];
+  if (permissions === "read-all") {
+    return [];
+  }
+  if (!permissions.trimStart().startsWith("{")) {
+    // A scalar GitHub reads as one blanket level (`write-all`, or a bare `write`):
+    // no read-only reading of it exists, so it counts as a write (fail closed).
+    return [permissions];
   }
   return [...permissions.matchAll(/([\w-]+)\s*:\s*write\b/g)].map(
     (m) => m[1] as string,
@@ -92,7 +107,46 @@ function triggers(on: string | Node | undefined): string[] {
     .filter(Boolean);
 }
 
+/** The named nightly job's problems: its exact permission map, and its wait for integration and its gate. */
+function issueJobProblems(file: string, job: Node): string[] {
+  const requested = isMap(job["permissions"]) ? job["permissions"] : {};
+  const want = Object.entries(ISSUE_JOB.permissions);
+  const exact =
+    Object.keys(requested).length === want.length &&
+    want.every(([scope, level]) => requested[scope] === level);
+  const problems: string[] = [];
+  if (!exact) {
+    const declared = job["permissions"];
+    const got =
+      typeof declared === "string"
+        ? declared
+        : Object.entries(requested)
+            .map(([scope, level]) =>
+              typeof level === "string" ? `${scope}: ${level}` : scope,
+            )
+            .join(", ");
+    const expected = want.map(([scope, level]) => `${scope}: ${level}`);
+    problems.push(
+      `${file}: job ${ISSUE_JOB.name} requests ${got || "no scope"}; it must request exactly ${expected.join(", ")}, so drop the rest`,
+    );
+  }
+  if (job["needs"] !== ISSUE_JOB.needs) {
+    problems.push(
+      `${file}: job ${ISSUE_JOB.name} must wait for the ${ISSUE_JOB.needs} job; add \`needs: ${ISSUE_JOB.needs}\``,
+    );
+  }
+  if (job["if"] !== ISSUE_JOB.gate) {
+    problems.push(
+      `${file}: job ${ISSUE_JOB.name} must run on the scheduled main run, after a failure or success; add \`if: ${ISSUE_JOB.gate}\``,
+    );
+  }
+  return problems;
+}
+
 function jobProblems(file: string, name: string, job: unknown): string[] {
+  if (file === ISSUE_JOB.file && name === ISSUE_JOB.name && isMap(job)) {
+    return issueJobProblems(file, job);
+  }
   const scopes = isMap(job) ? writeScopes(job["permissions"]) : null;
   if (scopes === null || !isMap(job)) {
     return [

@@ -19,7 +19,9 @@ is the checklist for the part the repository cannot configure.
   `mise run test-hooks`, so by the `check` workflow) fails when:
   - a workflow other than `release.yaml`, or a job other than `release` and
     `mirror`, requests `id-token: write` or `packages: write`;
-  - any non-release workflow requests any write scope;
+  - any non-release workflow requests any write scope, except the one
+    `failure-issue` job of `nightly.yml`, which may hold exactly `issues: write`,
+    `actions: read` and `contents: read` and runs only on a main run (ADR 0044);
   - `release.yaml` can run on `pull_request` or `pull_request_target`, or a
     signing job lacks `if: github.ref_type == 'tag'`;
   - a workflow lacks read-only top-level `permissions`, or a job lacks explicit

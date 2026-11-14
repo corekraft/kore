@@ -1,5 +1,15 @@
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "./node-test-shim.mjs";
 import { fileURLToPath } from "node:url";
@@ -383,4 +393,350 @@ test("the platform image lock is attached to the GitHub release by a job that ho
   assert.doesNotMatch(job, /actions\/checkout|cosign|crane|mise/);
   assert.doesNotMatch(job, /secrets\.(?!GITHUB_TOKEN)/);
   assert.doesNotMatch(job, /\$\{\{[^}]*\}\}[^\n]*gh release/);
+});
+
+// The nightly failure issue (#419, ADR 0044): one issue per red integration run,
+// updated not duplicated while red, closed by the first green run.
+const nightlyFailureJob = () => {
+  const text = readFileSync(join(workflows, "nightly.yml"), "utf8");
+  const match = text.match(
+    /^ {2}failure-issue:\n([\s\S]*?)(?=^ {2}[\w-]+:\n|(?![\s\S]))/m,
+  );
+  assert.ok(match, "job failure-issue exists in nightly.yml");
+  return match[1] ?? "";
+};
+
+test("the failure-issue job waits for the integration job and runs only on the scheduled main run", () => {
+  const job = nightlyFailureJob();
+  assert.match(job, /^ {4}needs: integration$/m);
+  assert.match(
+    job,
+    /^ {4}if: always\(\) && \(github\.event_name == 'schedule' \|\| github\.event_name == 'workflow_dispatch'\) && github\.ref == 'refs\/heads\/main'$/m,
+  );
+});
+
+test("the failure-issue job holds exactly the scopes the signer guard allows it: issues write, actions read, contents read", () => {
+  const perms = nightlyFailureJob().match(
+    /^ {4}permissions:\n((?: {6}.+\n)+)/m,
+  )?.[1];
+  assert.equal(
+    perms,
+    "      issues: write\n      actions: read\n      contents: read\n",
+  );
+});
+
+test("the failure-issue job checks out only main, without credentials, and reads no secret but GITHUB_TOKEN", () => {
+  const job = nightlyFailureJob();
+  const uses = job.match(/^ {6}- uses: .+$/gm) ?? [];
+  assert.deepEqual(uses, [
+    "      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1",
+  ]);
+  assert.match(job, /^ {10}persist-credentials: false$/m);
+  assert.doesNotMatch(job, /^ {10}ref:/m);
+  assert.doesNotMatch(job, /secrets\.(?!GITHUB_TOKEN)/);
+  assert.match(job, /^ {6}GH_TOKEN: \$\{\{ github\.token \}\}$/m);
+});
+
+test("the failure-issue job runs its script, fed the integration result", () => {
+  const job = nightlyFailureJob();
+  assert.match(
+    job,
+    /^ {6}INTEGRATION_RESULT: \$\{\{ needs\.integration\.result \}\}$/m,
+  );
+  assert.match(job, /^ {8}run: \.github\/scripts\/nightly-failure-issue\.sh$/m);
+});
+
+const failureScript = join(
+  root,
+  ".github",
+  "scripts",
+  "nightly-failure-issue.sh",
+);
+const issueTitle = "Nightly integration tier is red";
+const runUrl = "https://github.com/corekraft/kore/actions/runs/42";
+const failingLog = [
+  "integration\tRun the integration tier\t2026-11-13T03:20:00Z \t FAIL  tools/harness/integration/a.spec.ts > suite > first",
+  "integration\tRun the integration tier\t2026-11-13T03:20:01Z \t FAIL  tools/harness/integration/b.spec.ts > second",
+  "integration\tRun the integration tier\t2026-11-13T03:20:02Z \t ✓ tools/harness/integration/c.spec.ts > fine",
+  "",
+].join("\n");
+
+/**
+ * Runs the failure script with a fake `gh` that records each call and models
+ * GitHub: a run's log is refused while the run is in progress (the job that
+ * asks is part of that run), so only `run view --job <id>` returns a log.
+ */
+function runFailureScript({
+  result,
+  open = "",
+  log = failingLog,
+  jobId = "99",
+  apiFails = false,
+  logFails = false,
+}) {
+  const dir = mkdtempSync(join(tmpdir(), "kore-nightly-issue-"));
+  try {
+    const bin = join(dir, "bin");
+    const temp = join(dir, "temp");
+    const calls = join(dir, "calls.log");
+    const logFile = join(dir, "run.log");
+    mkdirSync(bin);
+    mkdirSync(temp);
+    writeFileSync(logFile, log);
+    writeFileSync(
+      join(bin, "gh"),
+      [
+        "#!/usr/bin/env bash",
+        'printf \'%s\\n\' "$*" >> "$CALLS"',
+        'case "$1" in',
+        '  api) [ "$FAKE_API_FAIL" = 1 ] && exit 1; printf \'%s\\n\' "$FAKE_JOB_ID" ;;',
+        '  issue) if [ "$2" = list ]; then printf \'%s\\n\' "$FAKE_OPEN"; fi ;;',
+        "  run)",
+        '    case "$*" in',
+        '      *--job*) [ "$FAKE_LOG_FAIL" = 1 ] && exit 1; cat "$FAKE_LOG" ;;',
+        '      *) echo "run $3 is still in progress; its logs are not available" >&2; exit 1 ;;',
+        "    esac ;;",
+        "esac",
+        "",
+      ].join("\n"),
+      { mode: 0o755 },
+    );
+    const run = spawnSync("bash", [failureScript], {
+      encoding: "utf8",
+      env: {
+        PATH: `${bin}:${process.env.PATH}`,
+        GH_TOKEN: "token",
+        GITHUB_REPOSITORY: "corekraft/kore",
+        GITHUB_RUN_ID: "42",
+        GITHUB_SERVER_URL: "https://github.com",
+        INTEGRATION_RESULT: result,
+        RUNNER_TEMP: temp,
+        CALLS: calls,
+        FAKE_OPEN: open,
+        FAKE_LOG: logFile,
+        FAKE_JOB_ID: jobId,
+        FAKE_API_FAIL: apiFails ? "1" : "",
+        FAKE_LOG_FAIL: logFails ? "1" : "",
+      },
+    });
+    const lines = existsSync(calls)
+      ? readFileSync(calls, "utf8")
+          .split("\n")
+          .filter((line) => line !== "")
+      : [];
+    const made = lines.filter(
+      (line) => !line.startsWith("issue list") && !line.startsWith("api "),
+    );
+    const queries = lines.filter((line) => line.startsWith("api "));
+    const bodyFile = join(temp, "nightly-failure-body.md");
+    return {
+      status: run.status,
+      stderr: run.stderr,
+      made,
+      queries,
+      tempDir: temp,
+      body: existsSync(bodyFile) ? readFileSync(bodyFile, "utf8") : null,
+    };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+const redBody = [
+  `The nightly integration tier failed in run 42: ${runUrl}`,
+  "",
+  "Failing tests:",
+  "```text",
+  "tools/harness/integration/a.spec.ts > suite > first",
+  "tools/harness/integration/b.spec.ts > second",
+  "```",
+  "",
+  "Updated by each red nightly run; closed by the first green one.",
+  "",
+].join("\n");
+
+test("a red integration run with no open failure issue opens exactly one, naming the failing tests", () => {
+  const run = runFailureScript({ result: "failure" });
+  assert.equal(run.status, 0, run.stderr);
+  assert.deepEqual(run.made, [
+    "run view --job 99 --repo corekraft/kore --log-failed",
+    `issue create --repo corekraft/kore --title ${issueTitle} --label ready-for-agent --body-file ${run.tempDir}/nightly-failure-body.md`,
+  ]);
+  assert.equal(run.body, redBody);
+});
+
+test("a red run with an open failure issue updates that issue and opens no other", () => {
+  const run = runFailureScript({ result: "failure", open: "7" });
+  assert.equal(run.status, 0, run.stderr);
+  assert.deepEqual(run.made, [
+    "run view --job 99 --repo corekraft/kore --log-failed",
+    `issue edit 7 --repo corekraft/kore --body-file ${run.tempDir}/nightly-failure-body.md`,
+  ]);
+  assert.equal(run.body, redBody);
+});
+
+test("a green integration run closes the open failure issue and opens nothing", () => {
+  const run = runFailureScript({ result: "success", open: "7" });
+  assert.equal(run.status, 0, run.stderr);
+  assert.deepEqual(run.made, [
+    "issue close 7 --repo corekraft/kore --reason completed --comment The nightly integration tier is green in run 42: https://github.com/corekraft/kore/actions/runs/42",
+  ]);
+});
+
+test("a green run with no open failure issue does nothing", () => {
+  const run = runFailureScript({ result: "success" });
+  assert.equal(run.status, 0, run.stderr);
+  assert.deepEqual(run.made, []);
+});
+
+test("a cancelled or skipped integration run neither opens, updates nor closes an issue", () => {
+  for (const result of ["cancelled", "skipped"]) {
+    const run = runFailureScript({ result, open: "7" });
+    assert.equal(run.status, 0, run.stderr);
+    assert.deepEqual(run.made, [], result);
+  }
+});
+
+test("a red run whose log names no failing test still opens the issue, pointing at the run", () => {
+  const run = runFailureScript({ result: "failure", log: "nothing failed\n" });
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(
+    run.body,
+    [
+      `The nightly integration tier failed in run 42: ${runUrl}`,
+      "",
+      "Failing tests:",
+      "No failing test is named in the log; open the run.",
+      "",
+      "Updated by each red nightly run; closed by the first green one.",
+      "",
+    ].join("\n"),
+  );
+});
+
+test("a red run opens the issue even when the in-progress run refuses the run-level log, by fetching the integration job's log instead", () => {
+  const run = runFailureScript({ result: "failure", jobId: "99" });
+  assert.equal(run.status, 0, run.stderr);
+  assert.deepEqual(run.queries, [
+    'api repos/corekraft/kore/actions/runs/42/jobs --jq .jobs[] | select(.name == "integration") | .id',
+  ]);
+  assert.deepEqual(run.made, [
+    "run view --job 99 --repo corekraft/kore --log-failed",
+    `issue create --repo corekraft/kore --title ${issueTitle} --label ready-for-agent --body-file ${run.tempDir}/nightly-failure-body.md`,
+  ]);
+  assert.match(
+    run.body ?? "",
+    /tools\/harness\/integration\/a\.spec\.ts > suite > first/,
+  );
+});
+
+test("a red run whose integration job id cannot be found still opens the issue, pointing at the run", () => {
+  const run = runFailureScript({ result: "failure", jobId: "" });
+  assert.equal(run.status, 0, run.stderr);
+  assert.deepEqual(run.made, [
+    `issue create --repo corekraft/kore --title ${issueTitle} --label ready-for-agent --body-file ${run.tempDir}/nightly-failure-body.md`,
+  ]);
+  assert.match(
+    run.body ?? "",
+    /^No failing test is named in the log; open the run\.$/m,
+  );
+});
+
+test("a red run whose job log cannot be fetched still opens the issue, pointing at the run", () => {
+  const run = runFailureScript({ result: "failure", logFails: true });
+  assert.equal(run.status, 0, run.stderr);
+  assert.match(
+    run.body ?? "",
+    /^No failing test is named in the log; open the run\.$/m,
+  );
+  assert.equal(run.made.at(-1)?.startsWith("issue create "), true);
+});
+
+test("a red run whose job id lookup fails still opens the issue, pointing at the run", () => {
+  const run = runFailureScript({ result: "failure", apiFails: true });
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(run.made.at(-1)?.startsWith("issue create "), true);
+  assert.match(
+    run.body ?? "",
+    /^No failing test is named in the log; open the run\.$/m,
+  );
+});
+
+const namesBody = (names) =>
+  [
+    `The nightly integration tier failed in run 42: ${runUrl}`,
+    "",
+    "Failing tests:",
+    ...names,
+    "",
+    "Updated by each red nightly run; closed by the first green one.",
+    "",
+  ].join("\n");
+
+test("failing test names are cut to 200 characters and stripped of control and ANSI characters", () => {
+  const long = "a".repeat(250);
+  const log = [
+    `integration\tRun\t2026-11-13T03:20:00Z \t FAIL  \u001b[31m${long}\u001b[0m`,
+    "integration\tRun\t2026-11-13T03:20:01Z \t FAIL  bell\u0007name\tand tab",
+    "",
+  ].join("\n");
+  const run = runFailureScript({ result: "failure", log });
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(
+    run.body,
+    namesBody(["```text", "a".repeat(200), "bellname and tab", "```"]),
+  );
+});
+
+test("a test name with backticks is fenced by a longer fence, so the names cannot close the block", () => {
+  const log = "integration\tRun\t2026-11-13T03:20:00Z \t FAIL  x ``` y\n";
+  const run = runFailureScript({ result: "failure", log });
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(run.body, namesBody(["````text", "x ``` y", "````"]));
+});
+
+test("names are listed inside the code block, so a mention or an issue reference in a name pings no one", () => {
+  const log =
+    "integration\tRun\t2026-11-13T03:20:00Z \t FAIL  @corekraft/team fixes #419\n";
+  const run = runFailureScript({ result: "failure", log });
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(
+    run.body,
+    namesBody(["```text", "@corekraft/team fixes #419", "```"]),
+  );
+});
+
+test("at most 50 failing test names are listed", () => {
+  const log = Array.from(
+    { length: 60 },
+    (_, i) =>
+      `integration\tRun\t2026-11-13T03:20:00Z \t FAIL  t${String(i + 1).padStart(2, "0")}`,
+  ).join("\n");
+  const run = runFailureScript({ result: "failure", log });
+  assert.equal(run.status, 0, run.stderr);
+  const listed = (run.body ?? "")
+    .split("\n")
+    .filter((line) => /^t\d\d$/.test(line));
+  assert.equal(listed.length, 50);
+  assert.equal(listed.at(-1), "t50");
+});
+
+/** Whether the workflow's failure-issue gate runs for this event and ref (test-only evaluation of the exact expression). */
+const gateRuns = (event, ref) => {
+  const gate = nightlyFailureJob().match(/^ {4}if: (.+)$/m)?.[1] ?? "";
+  const js = gate
+    .replace(/always\(\)/g, "true")
+    .replace(/github\.event_name/g, JSON.stringify(event))
+    .replace(/github\.ref/g, JSON.stringify(ref))
+    .replace(/'/g, '"');
+  return new Function(`return (${js});`)();
+};
+
+test("the failure-issue job runs for a scheduled or dispatched run on main, and never for a pull request or another ref", () => {
+  assert.equal(gateRuns("schedule", "refs/heads/main"), true);
+  assert.equal(gateRuns("workflow_dispatch", "refs/heads/main"), true);
+  assert.equal(gateRuns("pull_request", "refs/pull/1/merge"), false);
+  assert.equal(gateRuns("workflow_dispatch", "refs/heads/feature"), false);
+  assert.equal(gateRuns("schedule", "refs/heads/feature"), false);
+  assert.equal(gateRuns("push", "refs/heads/main"), false);
 });
