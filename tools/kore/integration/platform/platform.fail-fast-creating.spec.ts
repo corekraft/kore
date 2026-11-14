@@ -10,7 +10,7 @@ import {
   sandboxOom,
   Scenario,
   waiting,
-} from "./fail-fast-fixtures.js";
+} from "../../src/testing/index.js";
 
 const creating = (extra = {}) =>
   pod({

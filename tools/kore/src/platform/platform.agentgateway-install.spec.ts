@@ -24,7 +24,7 @@ import {
 } from "./agentgateway-fixtures.js";
 import { bootstrapControllers } from "./bootstrap.js";
 import { reconcileComponent } from "./reconcile.js";
-import { crashLoop, pod, Scenario } from "./fail-fast-fixtures.js";
+import { crashLoop, pod, Scenario } from "./fail-fast.fixtures.js";
 
 test("with the flag off, bootstrap issues no agentgateway command beyond the release probe", async () => {
   const repository = await local(false);
