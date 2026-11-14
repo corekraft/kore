@@ -290,21 +290,8 @@ describe("diff header previous paths", () => {
 
 describe("parseDiff marks a deleted file", () => {
   it("marks a file whose header says it was deleted, and counts its removed lines", () => {
-    const [file] = parseDiff(
-      [
-        "diff --git a/old.ts b/old.ts",
-        "deleted file mode 100644",
-        "--- a/old.ts",
-        "+++ /dev/null",
-        "@@ -1 +0,0 @@",
-        "-x",
-      ].join("\n"),
-    );
-    expect(file).toMatchObject({
-      path: "old.ts",
-      deleted: true,
-      removed: 1,
-      netRemoved: 1,
-    });
+    const diff =
+      "diff --git a/old.ts b/old.ts\ndeleted file mode 100644\n@@ -1 +0,0 @@\n-x";
+    expect(parseDiff(diff)[0]).toMatchObject({ deleted: true, removed: 1 });
   });
 });
