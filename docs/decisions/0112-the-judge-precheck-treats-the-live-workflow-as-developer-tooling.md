@@ -5,7 +5,7 @@ date: 2026-11-14
 last-verified: 2026-11-14
 ---
 
-# ADR 0111: The judge precheck treats the live workflow as developer tooling
+# ADR 0112: The judge precheck treats the live workflow as developer tooling
 
 Source: [`infra/plans/11-agent-delivery-loop.md` § Step 5](../../infra/plans/11-agent-delivery-loop.md#step-5-judge-and-merge)
 

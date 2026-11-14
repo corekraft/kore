@@ -11,7 +11,9 @@
 # different host from the local VM. A footprint run is recorded with its true
 # host (runner label, vCPU, memory) and method, and is never described as the
 # local VM. The `runs` input takes several clean measurements in one job, each
-# printed with its load average beside it.
+# printed with its load average beside it. The footprint suite reads macOS
+# `sysctl vm.swapusage` and fails on a Linux runner (#659), so the default suite
+# is lifecycle; footprint stays selectable.
 #
 # A footprint taken here must not be recorded as the local Now baseline for
 # #614/#623 (the local VM is a different host); it needs the owner's decision on
@@ -25,7 +27,7 @@ on:
       suite:
         description: The test:live suite to run
         type: choice
-        default: footprint
+        default: lifecycle
         options:
           - admission
           - database

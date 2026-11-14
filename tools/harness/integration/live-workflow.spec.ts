@@ -41,7 +41,7 @@ it("offers a choice input whose options are exactly the real test:live suites", 
   expect([...options].sort()).toEqual([...realSuites].sort());
   expect(options).toContain("footprint");
   expect(options).toContain("lifecycle");
-  expect(live).toMatch(/^ {8}default: footprint$/m);
+  expect(live).toMatch(/^ {8}default: lifecycle$/m);
 });
 
 it("takes a number input runs, defaulting to 3, and checks its 2 to 5 range before any cluster work", () => {
@@ -90,6 +90,11 @@ it("runs the chosen suite through nightly.sh, which always tears down, and write
   expect(live).toMatch(/run: tools\/kore\/scripts\/nightly\.sh/);
   expect(live).toMatch(/GITHUB_STEP_SUMMARY/);
   expect(live).toMatch(/^ {4}timeout-minutes: \d+$/m);
+});
+
+it("states that footprint fails on Linux, so it is not the default", () => {
+  expect(live.split("\nname:")[0]).toMatch(/vm\.swapusage/);
+  expect(live).not.toMatch(/default: footprint/);
 });
 
 it("warns that a runner's numbers are not the local Now baseline", () => {
