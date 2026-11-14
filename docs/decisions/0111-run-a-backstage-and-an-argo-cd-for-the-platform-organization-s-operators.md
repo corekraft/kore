@@ -19,8 +19,8 @@ Its platform-organization set needs none: in Next only the platform
 organization exists, and operators still need a portal and git delivery
 ([plan 15](../../infra/plans/15-next-horizon.md)). The split lets Next accept
 its part without accepting tenant tooling that has no tenant to serve, as was
-done for [ADR 0040](0040-keycloak-human-identity.md) and
-[ADR 0051](0051-telemetry-retention-and-alerting.md).
+done for [ADR 0113](0113-run-a-keycloak-for-the-platform-organization-s-operators.md) and
+[ADR 0114](0114-give-the-platform-organization-default-dashboards-notify-only-alerts-and-default-retention.md).
 
 ## Decision
 
@@ -29,7 +29,7 @@ done for [ADR 0040](0040-keycloak-human-identity.md) and
 - **Argo CD syncs service workloads from git, by digest.** Image admission
   still decides what runs.
 - **Backstage reads clusters as the user.** Its Kubernetes plugin uses the
-  user's OIDC token ([ADR 0040](0040-keycloak-human-identity.md)), so
+  user's OIDC token ([ADR 0113](0113-run-a-keycloak-for-the-platform-organization-s-operators.md)), so
   Kubernetes RBAC applies.
 - **Both run like any other service,** with hosts, a claim on the PostgreSQL
   API and telemetry.

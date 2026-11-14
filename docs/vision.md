@@ -562,16 +562,16 @@ Each Decision links its ADR and is labelled with that ADR's status: "Chosen,
 proposed" while the ADR is proposed, and "Decided" only once it is accepted. The
 numbers stay stable so earlier references still resolve.
 
-1. **Isolation tier.** Chosen, proposed (ADR 0037): one shared cluster, a namespace per service
+1. **Isolation tier.** Decided (ADR 0037): one shared cluster, a namespace per service
    environment, no Capsule, and vCluster as a later dedicated tier
    ([ADR 0037](decisions/0037-tenant-isolation-by-namespace.md)).
-2. **Hierarchy depth.** Chosen, proposed (ADR 0038): at most four levels below the tenant root,
+2. **Hierarchy depth.** Decided (ADR 0038): at most four levels below the tenant root,
    with tenant and organization labels on namespaces
    ([ADR 0038](decisions/0038-organization-hierarchy-depth-and-labels.md)).
 3. **Sharing.** Chosen, proposed (ADR 0039): owner grants within a tenant, parents can block, and
    only operators grant across tenants
    ([ADR 0039](decisions/0039-service-sharing-by-owner-grant.md)).
-4. **Argo CD for platform components.** Chosen, proposed (ADR 0043): `kore` keeps the early phases,
+4. **Argo CD for platform components.** Decided (ADR 0043): `kore` keeps the early phases,
    and the platform Argo CD owns the configuration phase except the image
    policy ([ADR 0043](decisions/0043-platform-configuration-through-argo-cd.md)).
 5. **Human identity.** Chosen, proposed (ADR 0040): a Keycloak per tenant root with one realm and
@@ -580,24 +580,24 @@ numbers stay stable so earlier references still resolve.
 6. **Backstage tenancy.** Chosen, proposed (ADR 0041): one Backstage and one namespace-scoped Argo
    CD per tenant root, scoped inside by organization
    ([ADR 0041](decisions/0041-backstage-and-argo-cd-per-tenant.md)).
-7. **Default static host.** Chosen, proposed (ADR 0045): in the cluster as a signed image, with
+7. **Default static host.** Decided (ADR 0045): in the cluster as a signed image, with
    GitHub Pages or object storage as a per-service escape hatch
    ([ADR 0045](decisions/0045-static-frontends-as-signed-images.md)).
-8. **BFF runtime.** Chosen, proposed (ADR 0046): always the JVM with the Java agent, started from a
+8. **BFF runtime.** Decided (ADR 0046): always the JVM with the Java agent, started from a
    build-time AOT cache; native image only by exception
    ([ADR 0046](decisions/0046-bff-jvm-with-agent-and-aot-cache.md)).
-9. **Autoscaling source.** Chosen, proposed (ADR 0047): metrics-server first, as a catalog Helm
+9. **Autoscaling source.** Decided (ADR 0047): metrics-server first, as a catalog Helm
    release, with autoscaling defaults in chart values; KEDA after
    ([ADR 0047](decisions/0047-autoscaling-metrics-server-then-keda.md)).
 10. **Usage and cost.** Chosen, proposed (ADR 0052): OpenCost and platform counters meter usage
     per organization for visibility, rolled up the tree; enforcement stays
     with quotas and there is no billing
     ([ADR 0052](decisions/0052-usage-metering-with-opencost.md)).
-11. **Domain verification and DNS.** Chosen, proposed (ADR 0042): organizations at any level
+11. **Domain verification and DNS.** Decided (ADR 0042): organizations at any level
     delegate zones under any TLD, services are subdomains inside them, and
     ExternalDNS writes the records
     ([ADR 0042](decisions/0042-organization-domains-by-delegation.md)).
-12. **Platform default domain.** Chosen, proposed (ADR 0042): every organization gets one default
+12. **Platform default domain.** Decided (ADR 0042): every organization gets one default
     zone under a per-environment platform domain, still to be chosen
     ([ADR 0042](decisions/0042-organization-domains-by-delegation.md)).
 13. **Data isolation tiers.** Chosen, proposed (ADR 0048): per-claim instances for PostgreSQL,

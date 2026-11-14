@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: Each tenant root gets its own Keycloak, composed by the Organization API, with one realm and nested groups per sub-organization, so that tenant's tools read membership from tokens its Keycloak issues.
+summary: In Then, each tenant root gets its own Keycloak, composed by the Organization API, with one realm and nested groups per sub-organization, so that tenant's tools read membership from tokens its Keycloak issues. The platform organization's own Keycloak is ADR 0113, in Next.
 date: 2026-11-08
 last-verified: 2026-11-14
 ---
@@ -10,6 +10,10 @@ last-verified: 2026-11-14
 Source: [`docs/vision.md` § The Portal: Backstage and Argo CD Out of the Box](../vision.md#the-portal-backstage-and-argo-cd-out-of-the-box)
 
 ## Context
+
+This ADR covers the Then part only: per-tenant Keycloaks need the tenancy
+model. The platform organization's own Keycloak, in Next, is
+[ADR 0113](0113-run-a-keycloak-for-the-platform-organization-s-operators.md).
 
 The vision needs an identity provider for people across Backstage, Argo CD,
 Grafana, and the business view, and every tool must agree on which
@@ -22,16 +26,11 @@ follows the same boundary.
 
 ## Decision
 
-- **Horizon split.** The platform organization's Keycloak arrives in Next, so
-  the portal has a sign-in before any tenant exists; its memory counts in
-  Next's footprint. Per-tenant Keycloaks arrive in Then, with the tenancy
-  model they depend on.
 - **Keycloak, one instance per tenant root.** The `Organization` API composes a
   Keycloak for each tenant root through the Keycloak operator, which the
   platform installs once. Each instance claims its database through the
   PostgreSQL platform API, gets a host under the tenant's service base, and
-  counts toward the tenant's quotas. The platform organization has its own
-  Keycloak for operators.
+  counts toward the tenant's quotas.
 - **One realm per instance.** Groups mirror organizations: each
   sub-organization is a nested group, and tokens carry the user's groups.
 - **The `Organization` API owns the realm's organizations and groups,**

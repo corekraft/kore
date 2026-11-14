@@ -67,8 +67,6 @@ and is not part of Next.
 
 ## Step 1: Accept the Next ADRs
 
-Next: Settle ADR 0040 and 0051, whose Next parts #609 marked in place instead of splitting out (accept whole or split like ADR 0111), then tick the footprint and acceptance items; Step 2 (Organization and Service Platform APIs) follows.
-
 Safety pattern: `no-behaviour-change` (documentation only). Accepting an ADR
 changes no cluster resource.
 
@@ -81,10 +79,11 @@ changes no cluster resource.
       0041 belongs to Now. The Next part is
       [ADR 0111](../../docs/decisions/0111-run-a-backstage-and-an-argo-cd-for-the-platform-organization-s-operators.md);
       0041 keeps the Then part.
-- [ ] **Check the footprint.** Weigh each component-adding ADR against the
+- [x] **Check the footprint** (estimate recorded, measured baseline owed
+      (#659)). Weigh each component-adding ADR against the
       recorded Now baseline (#614): the platform Keycloak of
-      [ADR 0040](../../docs/decisions/0040-keycloak-human-identity.md), the
-      platform Backstage from the Next part of 0041, and the platform Argo CD of
+      [ADR 0113](../../docs/decisions/0113-run-a-keycloak-for-the-platform-organization-s-operators.md), the
+      platform Backstage of ADR 0111, and the platform Argo CD of
       [ADR 0043](../../docs/decisions/0043-platform-configuration-through-argo-cd.md).
       Record the result in this plan. A breach is revisited while the ADR is
       still `proposed`.
@@ -93,7 +92,7 @@ changes no cluster resource.
       estimate, not a measurement: no breach is found and no pass is claimed.
       - **The additions are unsized.** No chart, values file or catalog entry
         exists yet for the platform Keycloak
-        ([ADR 0040](../../docs/decisions/0040-keycloak-human-identity.md)), the
+        ([ADR 0113](../../docs/decisions/0113-run-a-keycloak-for-the-platform-organization-s-operators.md)), the
         platform Backstage or Argo CD
         ([ADR 0111](../../docs/decisions/0111-run-a-backstage-and-an-argo-cd-for-the-platform-organization-s-operators.md)),
         so their requests and limits are unknown. A Keycloak figure of 1 to
@@ -110,13 +109,17 @@ changes no cluster resource.
         11.68 GiB Docker VM, with swap in use, so the three additions could
         breach it.
       - **The measured baseline is owed** (#659, #614, #623). Once measured, a
-        breach is revisited while the ADRs are still `proposed`; ADR 0111 and
-        ADR 0043 are accepted without it by the owner's waiver (#659).
+        breach is revisited while the ADRs are still `proposed`; ADR 0111, ADR 0113
+        and ADR 0043 are accepted without it by the owner's waiver (#659).
 
-- [ ] **Accept the Next ADRs** through write-adr: 0037, 0038, 0042 (the default
-      zone), 0043, 0045, 0046, 0047, the Next parts of 0040 and 0051 as split by
-      #609, and the new Next ADR from the first item. Accept nothing outside
-      Next.
+- [x] **Accept the Next ADRs** through write-adr: 0037, 0038, 0042 (the default
+      zone), 0043, 0045, 0046, 0047, and the Next ADRs split out of 0040 and 0051
+      ([ADR 0113](../../docs/decisions/0113-run-a-keycloak-for-the-platform-organization-s-operators.md),
+      [ADR 0114](../../docs/decisions/0114-give-the-platform-organization-default-dashboards-notify-only-alerts-and-default-retention.md)),
+      and the new Next ADR from the first item (ADR 0111). Accept nothing
+      outside Next. #609 marked the Next clauses in place; ADR 0113 and 0114
+      split them out as ADR 0111 did for 0041, and 0040 and 0051 stay
+      `proposed` for their Then clauses.
 - [x] Update `docs/index.md` for each status change and keep `harness kb check`
       clean.
 
@@ -127,6 +130,8 @@ changes no cluster resource.
 - ADR 0041 holds only its Then clauses, and the new ADR holds the Next ones.
 
 ## Step 2: Organization and Service Platform APIs
+
+Next: Step 2: Organization and Service Platform APIs, behind the platform-organization-service-apis flag, off in local.
 
 Safety pattern: `feature-flagged` (`platform-organization-service-apis`, off in `local`),
 dark launched. With the flag off the render adds nothing to a cluster.
