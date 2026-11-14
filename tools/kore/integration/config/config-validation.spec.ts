@@ -205,7 +205,11 @@ test("the gatekeeper exemptions schema requires every field and the seeded file 
     ),
   );
   for (const entry of seeded.exemptions) {
-    assert.deepEqual(Object.keys(entry).sort(), [...item.required].sort());
+    const byName = (a: string, b: string) => a.localeCompare(b);
+    assert.deepEqual(
+      Object.keys(entry).sort(byName),
+      [...item.required].sort(byName),
+    );
     assert.equal(typeof entry.adr, "number");
   }
 });
