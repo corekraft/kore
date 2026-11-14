@@ -131,7 +131,8 @@ export class SessionAnalysis {
   private toolFailure(event: TranscriptEvent, block: Block): void {
     this.failedSinceHuman = true;
     const text = resultText(block);
-    const tags = new Set(tagsIn(text));
+    // A block message leads with its own tag; later tags are quoted command text.
+    const tags = new Set(tagsIn(text).slice(0, 1));
     if (tags.size === 0) {
       this.failures.push({
         tool: this.calls.get(block.tool_use_id ?? "") ?? "unknown",

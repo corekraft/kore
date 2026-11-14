@@ -147,20 +147,21 @@ describe("session analysis guard blocks", () => {
     ]);
   });
 
-  it("records one entry per rule when one result names the same rule twice", () => {
+  it("counts only the leading tag when the quoted command text names another rule", () => {
     const found = new SessionAnalysis(
       session([
         toolUse(2, "t1"),
         toolError(
           3,
           "t1",
-          "[guard:role-worktree] first [guard:role-worktree] again",
+          "[guard:image-digest] refused: echo '[guard:audit-x] [guard:image-digest]'",
         ),
       ]),
     );
     expect(found.guardBlocks.map((block) => [block.rule, block.line])).toEqual([
-      ["role-worktree", 3],
+      ["image-digest", 3],
     ]);
+    expect(found.guards["audit-x"]).toBeUndefined();
   });
 
   it("leaves a plain failure out of the guard blocks, and keeps it as a failure", () => {
