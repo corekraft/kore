@@ -16,8 +16,8 @@
 # is never edited. The suites follow KORE_LIVE_ENVIRONMENT.
 #
 # Order: create the scratch overlay, purge any old profile, `local up`, check
-# platform status, `local up` again (must converge), run the suites (lifecycle
-# last, it tears the cluster down; the bare `test:live` is skipped), and only
+# platform status, `local up` again (must converge), run the suites (signer and lifecycle
+# last, they are destructive; the bare `test:live` is skipped), and only
 # then purge and remove the overlay. The teardown is an EXIT trap, so it always
 # runs last, whatever failed. The job summary records duration and peak memory. A failing suite never
 # hides the ones after it: every suite runs, failures are named, and the exit
@@ -234,9 +234,16 @@ fi
 # Only `test:live:<name>` suites are nightly suites. The bare
 # `test:live` task also runs the unit suite and the OPA tests (its
 # platform spec bootstraps them), and its cluster spec stops and deletes the
-# night's cluster. The lifecycle suite destroys and recreates the cluster, so it
-# runs last, whatever order discovery gives.
-suites="$(printf '%s\n' "$suites" | grep -E '^test:live:.' | grep -vxF 'test:live:lifecycle'; printf '%s\n' "$suites" | grep -xF 'test:live:lifecycle')"
+# night's cluster. Destructive suites run last, in this order, whatever order
+# discovery gives: signer swaps the local signing key and leaves the reference
+# image signed with the old one, so any suite after it that deploys that image
+# is denied; lifecycle destroys and recreates the cluster.
+destructive_suites=(test:live:signer test:live:lifecycle)
+suites_all="$suites"
+suites="$(printf '%s\n' "$suites_all" | grep -E '^test:live:.' | grep -vxF -f <(printf '%s\n' "${destructive_suites[@]}"))"
+for destructive in "${destructive_suites[@]}"; do
+  suites="$suites"$'\n'"$(printf '%s\n' "$suites_all" | grep -xF "$destructive")"
+done
 if [ -z "${suites//[[:space:]]/}" ]; then
   echo "FAILED: found no test:live suites in tools/kore/package.json; a night with nothing to run must not pass" >&2
   failed+=("found no test:live suites")

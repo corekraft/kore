@@ -10,13 +10,15 @@ import {
   deployedImage,
   publishSignedCopy,
 } from "./admission-probe.js";
+import { withReferenceSigned } from "./reference-restore.js";
 
 // Docs: docs/decisions/0028-image-trust-authority.md
 // Live and opt-in: needs a running local profile with the `reference`
 // application up. It replaces the local signing key through
 // `swapLocalSigningKey` (kore's own code path; no key material is read or
-// written here). Afterwards the reference image stays signed with the old
-// key until the next `kore app up reference`, which signs it again.
+// written here). However the test ends, the reference image is signed again
+// with the new key, so the suites after it still find a trusted image; the
+// nightly also runs this suite after the others that need that image.
 
 const namespace = "reference";
 
@@ -64,39 +66,41 @@ test(
       "the image signed with the current key is admitted before the swap",
     );
 
-    await swapLocalSigningKey(repository, runner, { yes: true });
+    await withReferenceSigned(repository, runner, oldSigned, async () => {
+      await swapLocalSigningKey(repository, runner, { yes: true });
 
-    const denied = await until(
-      "admission to deny the image signed only with the old key",
-      async () => {
-        const verdict = await admissionVerdict(
-          repository,
-          runner,
-          namespace,
-          oldSigned,
-        );
-        return verdict.admitted ? undefined : verdict;
-      },
-    );
-    assert.ok(denied.detail.length > 0, "the denial carries a message");
+      const denied = await until(
+        "admission to deny the image signed only with the old key",
+        async () => {
+          const verdict = await admissionVerdict(
+            repository,
+            runner,
+            namespace,
+            oldSigned,
+          );
+          return verdict.admitted ? undefined : verdict;
+        },
+      );
+      assert.ok(denied.detail.length > 0, "the denial carries a message");
 
-    const newSigned = await publishSignedCopy(
-      repository,
-      runner,
-      oldSigned,
-      "key-swap",
-    );
-    await until("admission to admit the image signed with the new key", () =>
-      admissionVerdict(repository, runner, namespace, newSigned).then(
-        (verdict) => (verdict.admitted ? true : undefined),
-      ),
-    );
+      const newSigned = await publishSignedCopy(
+        repository,
+        runner,
+        oldSigned,
+        "key-swap",
+      );
+      await until("admission to admit the image signed with the new key", () =>
+        admissionVerdict(repository, runner, namespace, newSigned).then(
+          (verdict) => (verdict.admitted ? true : undefined),
+        ),
+      );
 
-    assert.equal(
-      (await admissionVerdict(repository, runner, namespace, oldSigned))
-        .admitted,
-      false,
-      "the old key is not trusted alongside the new one",
-    );
+      assert.equal(
+        (await admissionVerdict(repository, runner, namespace, oldSigned))
+          .admitted,
+        false,
+        "the old key is not trusted alongside the new one",
+      );
+    });
   },
 );
