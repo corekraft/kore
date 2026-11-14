@@ -1,114 +1,105 @@
 import { describe, expect, it } from "vitest";
-import { parseDiff, type ChangedFile } from "./diff.js";
-import { hintsFor } from "./hints.js";
 import { assess, clusterFacing } from "./verdict.js";
-import type { Pattern } from "./declaration.js";
+import { file } from "./tooling.fixtures.js";
 
-const file = (path: string, body = "+x") =>
-  `diff --git a/${path} b/${path}\n--- a/${path}\n+++ b/${path}\n@@ -1 +1 @@\n${body}`;
-
-const overlay = (value: boolean, env = "local") =>
-  [
-    `diff --git a/infra/environments/${env}/environment.yaml b/infra/environments/${env}/environment.yaml`,
-    `--- a/infra/environments/${env}/environment.yaml`,
-    `+++ b/infra/environments/${env}/environment.yaml`,
-    "@@ -1,2 +1,2 @@",
-    `+  "features": { "gateway": ${value} },`,
-  ].join("\n");
-
-function assessed(pattern: Pattern, diff: string) {
-  const files = parseDiff(diff);
-  return assess(pattern, hintsFor(pattern, files), files);
-}
+// The hints are given as data: assess compares them to the pattern, it does not build them.
+const clean = { patternMatches: true, clusterFacing: false, unverified: [] };
 
 describe("assess: a hint that contradicts the pattern fails it", () => {
   it("no-behaviour-change with a behavioural path is a mismatch naming the path", () => {
-    const r = assessed("no-behaviour-change", file("tools/kore/src/a.ts"));
-    expect(r.patternMatches).toBe(false);
-    expect(r.patternMismatch).toContain("tools/kore/src/a.ts");
+    const hints = {
+      behaviouralPaths: ["tools/kore/src/a.ts"],
+      noBehaviouralDiff: false,
+    };
+    expect(
+      assess("no-behaviour-change", hints, [file("tools/kore/src/a.ts")]),
+    ).toMatchObject({
+      patternMatches: false,
+      patternMismatch:
+        "no-behaviour-change, but the diff changes behaviour in: tools/kore/src/a.ts",
+    });
   });
 
   it("feature-flagged without a flag present and off is a mismatch", () => {
-    const r = assessed("feature-flagged", file("tools/kore/src/a.ts"));
-    expect(r).toMatchObject({ patternMatches: false });
-    expect(r.patternMismatch).toContain("flag");
-    expect(assessed("feature-flagged", overlay(true)).patternMatches).toBe(
-      false,
-    );
+    expect(
+      assess("feature-flagged", { flagPresentAndOff: false }, []),
+    ).toMatchObject({
+      patternMatches: false,
+      patternMismatch:
+        "feature-flagged, but the diff adds no flag that is off in an environment overlay",
+    });
   });
 
   it("dark-launched is a mismatch unless the flag is on only in local", () => {
     expect(
-      assessed("dark-launched", overlay(true, "prod")).patternMatches,
-    ).toBe(false);
-    expect(assessed("dark-launched", overlay(true)).patternMatches).toBe(true);
+      assess("dark-launched", { flagOnlyInLocal: false }, []).patternMismatch,
+    ).toBe(
+      "dark-launched, but the diff adds no flag that is on only in the local overlay",
+    );
   });
 
-  it("branch-by-abstraction is a mismatch when the diff deletes a file", () => {
-    const gone = [
-      "diff --git a/old.ts b/old.ts",
-      "deleted file mode 100644",
-      "--- a/old.ts",
-      "+++ /dev/null",
-      "@@ -1 +0,0 @@",
-      "-x",
-    ].join("\n");
-    expect(assessed("branch-by-abstraction", gone).patternMatches).toBe(false);
+  it("branch-by-abstraction is a mismatch naming each deleted file", () => {
+    expect(
+      assess(
+        "branch-by-abstraction",
+        { oldPathRetained: false, deletedFiles: ["old.ts", "legacy.ts"] },
+        [],
+      ).patternMismatch,
+    ).toBe(
+      "branch-by-abstraction, but the diff deletes the old path: old.ts, legacy.ts",
+    );
   });
 
-  it("expand-contract is a mismatch when the diff removes without replacing", () => {
-    const r = assessed("expand-contract", file("a.ts", "-old\n-older"));
-    expect(r.patternMatches).toBe(false);
-    expect(r.patternMismatch).toContain("expand-contract");
-    const gone = [
-      "diff --git a/old.ts b/old.ts",
-      "deleted file mode 100644",
-      "--- a/old.ts",
-      "+++ /dev/null",
-      "@@ -1 +0,0 @@",
-      "-x",
-    ].join("\n");
-    expect(assessed("expand-contract", gone).patternMatches).toBe(false);
-  });
-
-  it("expand-contract matches an additive diff and ignores the generated bundle", () => {
-    const diff = [
-      file("a.ts", "+new"),
-      file("skills/bin/harness.mjs", "-a\n-b\n-c"),
-    ].join("\n");
-    expect(assessed("expand-contract", diff).patternMatches).toBe(true);
+  it("expand-contract is a mismatch that counts removed lines and deleted files", () => {
+    expect(
+      assess(
+        "expand-contract",
+        { additiveOnly: false, netRemovedLines: 2, deletedFiles: ["old.ts"] },
+        [],
+      ),
+    ).toMatchObject({
+      patternMatches: false,
+      patternMismatch:
+        "expand-contract, but the diff removes 2 line(s) without replacing them and deletes 1 file(s); that is a contract step, declare it only once the expand step is proven",
+    });
   });
 
   it("matching hints leave no mismatch reason", () => {
-    const r = assessed("feature-flagged", overlay(false));
-    expect(r.patternMatches).toBe(true);
-    expect(r).not.toHaveProperty("patternMismatch");
+    const result = assess("feature-flagged", { flagPresentAndOff: true }, []);
+    expect(result).toEqual({ ...clean, unverified: ["gating not verified"] });
+    expect(result).not.toHaveProperty("patternMismatch");
   });
 });
 
 describe("assess: what the precheck cannot verify is listed", () => {
   it("lists gating as unverified for a flagged change", () => {
-    expect(assessed("feature-flagged", overlay(false)).unverified).toContain(
-      "gating not verified",
-    );
+    expect(
+      assess("feature-flagged", { flagPresentAndOff: true }, []).unverified,
+    ).toEqual(["gating not verified"]);
   });
 
   it("requires a live run before merge for a cluster-facing no-behaviour-change", () => {
-    const r = assessed("no-behaviour-change", file("apps/web/values.yaml"));
-    expect(r.clusterFacing).toBe(true);
-    expect(r.unverified).toContain(
-      "cluster-facing: live run required before merge",
-    );
+    const files = [file("apps/web/values.yaml")];
+    expect(
+      assess("no-behaviour-change", { noBehaviouralDiff: true }, files),
+    ).toEqual({
+      patternMatches: true,
+      clusterFacing: true,
+      unverified: [
+        "behaviour equivalence not verified",
+        "cluster-facing: live run required before merge",
+      ],
+    });
   });
 
   it("requires live proof before activation for other cluster-facing patterns", () => {
-    const diff = [overlay(false), file("infra/charts/x/values.yaml")].join(
-      "\n",
-    );
-    const r = assessed("feature-flagged", diff);
-    expect(r.unverified).toContain(
+    const files = [file("infra/charts/x/values.yaml")];
+    expect(
+      assess("feature-flagged", { flagPresentAndOff: true }, files).unverified,
+    ).toEqual([
+      "gating not verified",
       "cluster-facing: live proof required before the flag turns on",
-    );
+    ]);
   });
 });
 
@@ -119,7 +110,7 @@ describe("clusterFacing", () => {
     "catalog/components.yaml",
     "tools/kore/charts/x/Chart.yaml",
   ])("treats %s as cluster-facing", (path) => {
-    expect(clusterFacing(parseDiff(file(path)))).toBe(true);
+    expect(clusterFacing([file(path)])).toBe(true);
   });
 
   it.each([
@@ -127,30 +118,17 @@ describe("clusterFacing", () => {
     "docs/index.md",
     "tools/harness/src/judge/hints.ts",
   ])("does not treat %s as cluster-facing", (path) => {
-    expect(clusterFacing(parseDiff(file(path)))).toBe(false);
-  });
-});
-
-describe("clusterFacing: renames", () => {
-  const renamed = (path: string, previousPath: string): ChangedFile => ({
-    path,
-    previousPath,
-    deleted: false,
-    added: [],
-    removed: 0,
-    netRemoved: 0,
-    after: [],
-    trail: [],
+    expect(clusterFacing([file(path)])).toBe(false);
   });
 
   it("is cluster-facing when a cluster file is moved out of the cluster paths", () => {
     expect(
-      clusterFacing([renamed("skills/values.yaml", "apps/web/values.yaml")]),
+      clusterFacing([file("skills/values.yaml", [], "apps/web/values.yaml")]),
     ).toBe(true);
   });
 
   it("is not cluster-facing when a file moves between non-cluster paths", () => {
-    expect(clusterFacing([renamed("docs/b.md", "tools/harness/a.ts")])).toBe(
+    expect(clusterFacing([file("docs/b.md", [], "tools/harness/a.ts")])).toBe(
       false,
     );
   });
