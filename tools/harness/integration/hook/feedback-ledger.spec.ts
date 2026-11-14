@@ -1,8 +1,8 @@
 // Feedback hook: ledger recording and fail-open behaviour.
 
 import { describe, expect, it } from "vitest";
-import { run } from "../cli/index.js";
-import { testHarness } from "../testing/index.js";
+import { run } from "../../src/cli/index.js";
+import { testHarness } from "../../src/testing/index.js";
 import {
   KORE_BIN,
   edited,

@@ -3,9 +3,9 @@
 // Docs: infra/plans/4-knowledge.md#step-4-upward-context
 
 import { afterEach, describe, expect, it } from "vitest";
-import { run } from "../cli/index.js";
-import { testHarness } from "../testing/index.js";
-import { nodeFileSystem } from "../runtime/index.js";
+import { run } from "../../src/cli/index.js";
+import { testHarness } from "../../src/testing/index.js";
+import { nodeFileSystem } from "../../src/runtime/index.js";
 import { ledgerEvents } from "./feedback-support.js";
 import {
   additional,

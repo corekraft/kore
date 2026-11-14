@@ -4,8 +4,6 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { nodeFileSystem } from "../runtime/index.js";
-import { readJournals } from "./context-deps.js";
 import {
   additional,
   agents,
@@ -114,10 +112,6 @@ describe("harness hook context, journals", () => {
         "---\nstatus: active\nsummary: A plan.\nlast-verified: 2026-11-07\n---\n\n## Step 1: Work\n\n- [ ] Build it.\n",
     });
     mkdirSync(join(root, ".kore/state/journal/x.jsonl"), { recursive: true });
-    expect(
-      await readJournals(nodeFileSystem, root),
-      "the directory is skipped",
-    ).toEqual({});
     const result = await context(
       root,
       JSON.stringify({ source: "startup", session_id: "s" }),
@@ -126,19 +120,24 @@ describe("harness hook context, journals", () => {
     expect(additional(result)).toMatch(/Open items: Step 1 \(1\)/);
   });
 
-  it("readJournals parses journal files, skips malformed lines, and tolerates a missing directory", async () => {
-    const root = temp("kore-context-");
-    expect(await readJournals(nodeFileSystem, root)).toEqual({});
+  it("the brief reads each journal file, skipping malformed lines and files that are not journals", async () => {
+    const root = repository({});
     const dir = join(root, ".kore/state/journal");
     mkdirSync(dir, { recursive: true });
-    const start = { ts: "2026-11-07T10:00:00.000Z", op: "a", kind: "start" };
+    const ts = "2026-11-07T10:00:00.000Z";
+    const start = { ts, op: "a", kind: "start", command: "local up" };
+    const end = { ts, op: "a", kind: "end", outcome: "ok" };
     writeFileSync(
       join(dir, "local.jsonl"),
-      `${JSON.stringify(start)}\nnot json\n`,
+      `${JSON.stringify(start)}\nnot json\n${JSON.stringify(end)}\n`,
     );
-    writeFileSync(join(dir, "notes.txt"), "x");
-    expect(await readJournals(nodeFileSystem, root)).toEqual({
-      local: [start],
-    });
+    writeFileSync(join(dir, "notes.txt"), "Environment notes: not a journal");
+    const result = await context(
+      root,
+      JSON.stringify({ source: "startup", session_id: "s" }),
+    );
+    expect(additional(result)).toBe(
+      "Environment local: last operation `local up` ok on 2026-11-07.",
+    );
   });
 });
