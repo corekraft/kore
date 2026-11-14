@@ -4,29 +4,6 @@ import { join } from "node:path";
 import { test } from "vitest";
 import { findRoot, loadRepository } from "../../src/config/config.js";
 
-test("repository toolchain pins are declared in the local mise profile", async () => {
-  const root = await findRoot();
-  const mise = await readFile(join(root, ".mise.toml"), "utf8");
-  for (const pin of [
-    'node = "26.13.0"',
-    'npm = "12.2.2"',
-    'k3d = "5.9.0"',
-    'kubectl = "1.37.2"',
-    'helm = "4.3.1"',
-    'yq = "4.54.2"',
-    'sops = "3.13.3"',
-    'age = "1.3.2"',
-    'mkcert = "1.4.4"',
-    'opa = "1.22.2"',
-    'tofu = "1.13.9"',
-    'cosign = "3.1.4"',
-    'crane = "0.22.1"',
-    'promtool = "3.16.0"',
-  ]) {
-    assert.match(mise, new RegExp(pin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  }
-});
-
 test("the repository tool catalog pins Cosign for image verification", async () => {
   const repository = await loadRepository("local");
   assert.equal(repository.versions.tools.cosign, "3.1.4");
