@@ -78,3 +78,4 @@ export {
   readinessEvidenceObject,
 } from "../platform/readiness-manifest.js";
 export { withAbsoluteChart } from "../platform/helm.js";
+export { manifestImages } from "../config/manifest-images.js";
