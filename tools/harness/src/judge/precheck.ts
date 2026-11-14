@@ -7,10 +7,9 @@ import {
 } from "./checks.js";
 import { parseDeclaration, type Pattern } from "./declaration.js";
 import { parseDiff } from "./diff.js";
+import { JudgeError } from "./errors.js";
 import { hintsFor, type Hints } from "./hints.js";
 import { assess } from "./verdict.js";
-
-export class JudgeError extends Error {}
 
 export interface Report {
   pr: number;
