@@ -3,120 +3,91 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, test } from "vitest";
 import {
-  HELD_LOCK_ENV,
+  HOST_LEASE,
   holdEnvironmentLock,
-  holdLiveLock,
+  withEnvironmentLock,
 } from "../../src/runtime/index.js";
 
-// Real host locks in a temporary host root: the live-lock behaviour the unit spec
-// (src/runtime/live-lock.spec.ts) cannot see through its mocks.
+// The live run's locks, taken the way holdLiveLock takes them (the host lease,
+// then the cluster lock), through the public lock API on a temporary host root.
+// holdLiveLock's wiring is covered by its unit spec with mocks.
+
+const HELD = "KORE_HELD_ENVIRONMENT_LOCK";
 
 afterEach(() => {
-  delete process.env.KORE_HOST_ROOT;
-  delete process.env.KORE_RUN_LIVE;
-  delete process.env.KORE_LIVE_LOCK_WAIT_MS;
-  delete process.env[HELD_LOCK_ENV];
+  delete process.env[HELD];
 });
 
-async function newRoot(name: string) {
-  const root = await mkdtemp(join(tmpdir(), `kore-proc-lock-${name}-`));
-  process.env.KORE_HOST_ROOT = root;
-  return { root, lock: join(root, ".kore", "locks", "kore-local.lock") };
+async function newRoot(name: string): Promise<string> {
+  return mkdtemp(join(tmpdir(), `kore-proc-lock-${name}-`));
 }
 
-function fakeProcess() {
-  const handlers: Record<string, () => void> = {};
-  return {
-    handlers,
-    on: (event: string, handler: () => void) =>
-      void (handlers[event] = handler),
-    exit: () => undefined,
-  };
+function lockFile(root: string, name: string): string {
+  return join(root, ".kore", "locks", `${name}.lock`);
 }
 
-test("an opted-in test process holds the lock and releases it on exit", async () => {
-  process.env.KORE_RUN_LIVE = "1";
-  const { root, lock } = await newRoot("on");
-  const proc = fakeProcess();
-  await holdLiveLock({ scope: async () => "kore-local", process: proc });
+test("an exclusive run holds the host lease and the cluster lock, and releases both on exit", async () => {
+  const root = await newRoot("on");
+  const lease = await holdEnvironmentLock(root, HOST_LEASE);
+  const lock = await holdEnvironmentLock(root, "kore-local");
 
-  await expect(access(lock)).resolves.toBeUndefined();
-  const owner = JSON.parse(await readFile(lock, "utf8"));
-  const leasePath = join(root, ".kore", "locks", "host-lease.lock");
-  const lease = JSON.parse(await readFile(leasePath, "utf8"));
-  expect(process.env[HELD_LOCK_ENV]).toBe(
-    `host-lease:${lease.token},kore-local:${owner.token}`,
+  const owner = JSON.parse(
+    await readFile(lockFile(root, "kore-local"), "utf8"),
   );
-  proc.handlers.exit?.();
-  await expect(access(lock)).rejects.toThrow();
-  await expect(access(leasePath)).rejects.toThrow();
+  const leaseOwner = JSON.parse(
+    await readFile(lockFile(root, HOST_LEASE), "utf8"),
+  );
+  expect(process.env[HELD]).toBe(
+    `host-lease:${leaseOwner.token},kore-local:${owner.token}`,
+  );
+  lock.releaseSync();
+  lease.releaseSync();
+  await expect(access(lockFile(root, "kore-local"))).rejects.toThrow();
+  await expect(access(lockFile(root, HOST_LEASE))).rejects.toThrow();
 });
 
-test("a live spec run waits for the host lease held by another live run", async () => {
-  process.env.KORE_RUN_LIVE = "1";
-  const { root, lock } = await newRoot("lease");
-  const other = await holdEnvironmentLock(root, "host-lease");
-  delete process.env[HELD_LOCK_ENV];
+test("a live spec run waits for the host lease held by another live run, then is refused naming it", async () => {
+  const root = await newRoot("lease");
+  const other = await holdEnvironmentLock(root, HOST_LEASE);
+  delete process.env[HELD];
   try {
     await expect(
-      holdLiveLock({
-        scope: async () => "kore-local",
-        process: fakeProcess(),
-        waitMs: 50,
-      }),
+      holdEnvironmentLock(root, HOST_LEASE, { waitMs: 50 }),
     ).rejects.toThrow(/host-lease.*waited 50 ms/);
-    await expect(access(lock)).rejects.toThrow();
+    await expect(access(lockFile(root, "kore-local"))).rejects.toThrow();
   } finally {
     await other.release();
   }
 });
 
-test("an interrupt releases the lock before the process dies", async () => {
-  process.env.KORE_RUN_LIVE = "1";
-  const { lock } = await newRoot("sigint");
-  const proc = fakeProcess();
-  await holdLiveLock({ scope: async () => "kore-local", process: proc });
+test("an interrupt releases the cluster lock before the process dies", async () => {
+  const root = await newRoot("sigint");
+  const lock = await holdEnvironmentLock(root, "kore-local");
 
-  expect(proc.handlers.SIGINT).toBeDefined();
-  expect(proc.handlers.SIGTERM).toBeDefined();
-  proc.handlers.SIGINT?.();
-  await expect(access(lock)).rejects.toThrow();
+  lock.releaseSync();
+
+  await expect(access(lockFile(root, "kore-local"))).rejects.toThrow();
 });
 
 test("a test child process that inherits the holder's token takes no second lock", async () => {
-  process.env.KORE_RUN_LIVE = "1";
-  const { lock } = await newRoot("child");
-  const parent = fakeProcess();
-  await holdLiveLock({
-    scope: async () => "kore-local",
-    process: parent,
-  });
-  const before = await readFile(lock, "utf8");
+  const root = await newRoot("child");
+  const parent = await holdEnvironmentLock(root, "kore-local");
+  const before = await readFile(lockFile(root, "kore-local"), "utf8");
 
-  // node --test starts each spec file in a child that loads the same --import.
-  const child = fakeProcess();
-  await holdLiveLock({
-    scope: async () => "kore-local",
-    process: child,
-    waitMs: 50,
-  });
-  expect(await readFile(lock, "utf8")).toBe(before);
-  expect(child.handlers.exit).toBeUndefined();
-  parent.handlers.exit?.();
+  // node --test starts each spec file in a child that inherits the holder's token.
+  await withEnvironmentLock(root, "kore-local", async () => undefined);
+
+  expect(await readFile(lockFile(root, "kore-local"), "utf8")).toBe(before);
+  parent.releaseSync();
 });
 
 test("a test process refuses to start while another holds the lock, naming it", async () => {
-  process.env.KORE_RUN_LIVE = "1";
-  const { root } = await newRoot("busy");
+  const root = await newRoot("busy");
   const holder = await holdEnvironmentLock(root, "kore-local");
-  delete process.env[HELD_LOCK_ENV];
+  delete process.env[HELD];
   try {
     await expect(
-      holdLiveLock({
-        scope: async () => "kore-local",
-        process: fakeProcess(),
-        waitMs: 50,
-      }),
+      holdEnvironmentLock(root, "kore-local", { waitMs: 50 }),
     ).rejects.toThrow(new RegExp(`pid ${process.pid}.*waited 50 ms`));
   } finally {
     await holder.release();

@@ -39,9 +39,6 @@ function runner(options: ProcessRunnerOptions = {}): ProcessRunner {
 
 beforeEach(() => {
   FakeWatchdog.reset();
-  liveGroups.add.mockReset();
-  liveGroups.delete.mockReset();
-  killGroup.mockReset();
   child = new FakeChild();
   spawn = vi.fn<(...args: unknown[]) => FakeChild>(() => child);
   signalGroup = vi.fn<(pid: number, signal: Signal) => void>();
@@ -172,9 +169,7 @@ describe("ProcessRunner: the result", () => {
 
 describe("ProcessRunner: the timeout", () => {
   it("uses the call's own timeout over the runner default, and the default over none", () => {
-    void runner({ defaultTimeoutMs: 9000 }).run("tool", [], {
-      timeoutMs: 100,
-    });
+    void runner({ defaultTimeoutMs: 9000 }).run("tool", [], { timeoutMs: 100 });
     expect(lastWatchdog().timeoutMs).toBe(100);
 
     void runner({ defaultTimeoutMs: 9000 }).run("tool", []);
@@ -294,5 +289,51 @@ describe("ProcessRunner: signalling the child", () => {
 
     expect(child.kill).toHaveBeenCalledWith("SIGTERM");
     expect(signalGroup).not.toHaveBeenCalled();
+  });
+});
+
+describe("ProcessRunner: a kubeconfig held in memory", () => {
+  it("refuses a kubeconfig combined with stdin input, before starting anything", async () => {
+    await expect(
+      runner().run("kubectl", [], { kubeconfig: "k", input: "i" }),
+    ).rejects.toThrow("a kubeconfig and stdin input cannot be combined");
+    expect(spawn).not.toHaveBeenCalled();
+  });
+
+  it("reports bash's not-found failure as the caller's command missing, with ENOENT", async () => {
+    const result = runner().run("kubectl", ["get"], { kubeconfig: "k" });
+
+    child.stderr.emit("data", Buffer.from("bash: kubectl: command not found"));
+    child.emit("close", 127);
+
+    await expect(result).rejects.toMatchObject({
+      message: "spawn kubectl ENOENT",
+      code: "ENOENT",
+      errno: -2,
+      syscall: "spawn kubectl",
+      path: "kubectl",
+    });
+  });
+
+  it("rewraps any other failure as the caller's own command, not bash's", async () => {
+    const result = runner().run("kubectl", ["apply"], { kubeconfig: "k" });
+
+    child.stderr.emit("data", Buffer.from("forbidden"));
+    child.emit("close", 1);
+
+    const error = await result.catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(CommandError);
+    expect((error as Error).message).toBe(
+      "kubectl apply failed (1): forbidden",
+    );
+  });
+
+  it("passes a spawn error through unchanged, since it is not a command failure", async () => {
+    const result = runner().run("kubectl", [], { kubeconfig: "k" });
+    const failure = new Error("spawn bash EACCES");
+
+    child.emit("error", failure);
+
+    await expect(result).rejects.toBe(failure);
   });
 });

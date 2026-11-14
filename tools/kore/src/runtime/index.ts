@@ -1,12 +1,6 @@
 // Docs: docs/decisions/0002-tool-responsibility-boundaries.md
-export {
-  HELD_LOCK_ENV,
-  holdEnvironmentLock,
-  withEnvironmentLock,
-} from "./lock.js";
+export { holdEnvironmentLock, withEnvironmentLock } from "./lock.js";
 export type { HeldLock, LockOptions } from "./lock.js";
-export { holdLiveLock } from "./live-lock.js";
-export { judge } from "./lock-recovery.js";
 export {
   isSensitiveName,
   readJournal,
