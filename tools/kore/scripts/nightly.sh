@@ -175,6 +175,16 @@ create_scratch_overlay() {
   for want in "\"name\": \"$environment\"" "\"kubeContext\": \"$context\"" "\"clusterName\": \"$cluster\""; do
     grep -qF "$want" "$env_file" || fail_setup "could not rewrite $env_file: missing $want"
   done
+  # The Collector stamps these on every signal; left as copied they would say
+  # `local` and the telemetry proof would read a different environment back.
+  local collector="$scratch_dir/values/otel-collector.yaml"
+  sed -i.bak \
+    -e "s/\"value\": \"kore-local\"/\"value\": \"$cluster\"/" \
+    -e "s/\"value\": \"local\"/\"value\": \"$environment\"/" \
+    "$collector" && rm -f "$collector.bak"
+  for want in "\"value\": \"$cluster\"" "\"value\": \"$environment\""; do
+    grep -qF "$want" "$collector" || fail_setup "could not rewrite $collector: missing $want"
+  done
   # Nothing in the copy is decryptable here: drop every encrypted document.
   rm -f "$scratch_dir"/secrets/*.enc.yaml
 
