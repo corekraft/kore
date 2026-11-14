@@ -68,16 +68,17 @@ export function contextWith(
  * The cast stands in for the ledger's file handling, which the spec never reaches.
  */
 export function fakeLedger(
-  listed: { label: string; number?: number }[] = [],
+  listed: Partial<LedgerEvent>[] = [],
   record: Awaited<ReturnType<Ledger["record"]>> = {
     ok: true,
     event: {} as LedgerEvent,
   },
+  skipped = 0,
 ) {
   const list = vi.fn<Ledger["list"]>(() =>
     Promise.resolve({
       events: listed as LedgerEvent[],
-      skipped: 0,
+      skipped,
     }),
   );
   const write = vi.fn<(input: { label?: string }) => Promise<RecordResult>>(

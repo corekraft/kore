@@ -9,10 +9,8 @@ import {
   type Repository,
 } from "../../src/config/index.js";
 import { loadRepository, validateRepository } from "../../src/config/index.js";
-import {
-  helmTemplateArgs,
-  withAbsoluteChart,
-} from "../../src/platform/helm.js";
+import { helmTemplateArgs } from "../../src/platform/index.js";
+import { withAbsoluteChart } from "../../src/testing/index.js";
 
 async function localWith(features: unknown): Promise<Repository> {
   const base = await loadRepository("local");

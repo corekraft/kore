@@ -1,5 +1,5 @@
 import type { Repository } from "../config/index.js";
-import type { ComponentStatus } from "./status.js";
+import type { ComponentStatus } from "../platform/index.js";
 
 /**
  * A ready status row for every prerequisite the readiness manifest names, for
