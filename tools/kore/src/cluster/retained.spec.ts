@@ -1,233 +1,202 @@
-import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { test } from "vitest";
-import { clusterDestroy } from "./cluster.js";
-import {
-  fakeRunner,
-  k3dRepository,
-  list,
-  testHome,
-  text,
-} from "../testing/index.js";
-import { hasVerifiedExport } from "./export-manifest.js";
-import { purgeRetainedResources, retainedResources } from "./retained.js";
-
+import { expect, test } from "vitest";
 import { CommandError } from "../runtime/index.js";
-import { RecordingRunner } from "../runtime/index.js";
+import { purgeRetainedResources, retainedResources } from "./retained.js";
+import { commandLines, fakeRepository, fakeRunner } from "./cluster-support.js";
 
-test("purge tolerates a PostgreSQL CRD that was never installed", async () => {
-  const repository = await k3dRepository();
-  const calls: { command: string; args: readonly string[] }[] = [];
-  const runner = {
-    async run(command: string, args: readonly string[]) {
-      calls.push({ command, args });
-      if (
-        command === "kubectl" &&
-        args.includes("delete") &&
-        args.includes("postgresqlinstances.platform.kore.dev")
-      ) {
-        throw new Error(
-          'the server doesn\'t have a resource type "postgresqlinstances"',
-        );
-      }
-      return { stdout: "", stderr: "", code: 0 };
-    },
+const RETAIN = "platform.kore.dev/retention=Retain";
+
+function volume(
+  name: string,
+  storageClassName: string,
+  claim?: { namespace: string; name: string },
+) {
+  return {
+    metadata: { name },
+    spec: { storageClassName, ...(claim ? { claimRef: claim } : {}) },
   };
+}
 
-  await purgeRetainedResources(repository, runner);
+/** The API answers: `queries` for the two retention lists, `volumes` for the PV list. */
+function clusterWith(
+  queries: { postgres?: string; pvc?: string },
+  volumes: unknown = { items: [] },
+) {
+  return fakeRunner((_command, args) => {
+    if (args.includes("persistentvolumes")) {
+      return typeof volumes === "string" ? volumes : JSON.stringify(volumes);
+    }
+    if (args.includes("postgresqlinstances.platform.kore.dev")) {
+      return queries.postgres ?? "";
+    }
+    return args.includes("pvc") ? (queries.pvc ?? "") : "";
+  });
+}
 
-  assert.ok(
-    calls.some(
-      ({ command, args }) =>
-        command === "kubectl" &&
-        args.includes("delete") &&
-        args.includes("pvc"),
-    ),
-  );
+const repository = fakeRepository();
+
+test("retained data is searched in every namespace by the retention label, then the persistent volumes, in the configured context", async () => {
+  const { runner, run } = clusterWith({});
+  await retainedResources(repository, runner);
+  expect(commandLines(run)).toEqual([
+    `kubectl --context k3d-kore-local get postgresqlinstances.platform.kore.dev --all-namespaces -l ${RETAIN} -o name`,
+    `kubectl --context k3d-kore-local get pvc --all-namespaces -l ${RETAIN} -o name`,
+    "kubectl --context k3d-kore-local get persistentvolumes -o json",
+  ]);
 });
 
-test("verified exports allow destroying an unreachable profile without purging data", async () => {
-  const repository = {
-    ...(await k3dRepository()),
-    root: await mkdtemp(join(tmpdir(), "kore-retained-")),
-  };
-  const exportDirectory = join(
-    repository.root,
-    ".kore",
-    "exports",
-    repository.environment.name,
-  );
-  await mkdir(exportDirectory, { recursive: true });
-  const artifact = "-----BEGIN AGE ENCRYPTED FILE-----\nabc\n";
-  await writeFile(join(exportDirectory, "reference.sql.age"), artifact);
-  await writeFile(
-    join(exportDirectory, "reference.sql.age.manifest.json"),
-    JSON.stringify({
-      version: 1,
-      environment: repository.environment.name,
-      createdAt: "2026-11-08T00:00:00.000Z",
-      recipient: "age1x",
-      contents: {
-        kind: "cnpg-database",
-        namespace: "reference",
-        cluster: "reference-db",
-        database: "app",
-        format: "pg_dump-plain",
-      },
-      artifact: {
-        file: "reference.sql.age",
-        sha256: createHash("sha256").update(artifact).digest("hex"),
-        bytes: Buffer.byteLength(artifact),
-      },
-    }),
-  );
-  const { runner, calls } = fakeRunner(0);
-  try {
-    await clusterDestroy(
-      repository,
-      runner,
-      { yes: true, purgeData: false },
-      testHome,
-    );
-  } finally {
-    await rm(repository.root, { recursive: true, force: true });
-  }
-  assert.ok(text(calls).includes("k3d cluster delete kore-local"));
+test("a namespace scope replaces --all-namespaces in both label queries", async () => {
+  const { runner, run } = clusterWith({});
+  await retainedResources(repository, runner, "reference");
+  expect(commandLines(run).slice(0, 2)).toEqual([
+    `kubectl --context k3d-kore-local get postgresqlinstances.platform.kore.dev --namespace=reference -l ${RETAIN} -o name`,
+    `kubectl --context k3d-kore-local get pvc --namespace=reference -l ${RETAIN} -o name`,
+  ]);
 });
 
-test("retained resource discovery ignores unavailable APIs, trims, deduplicates, and sorts", async () => {
-  const repository = await k3dRepository();
-  let query = 0;
-  const runner = {
-    async run() {
-      query += 1;
-      if (query === 3) {
-        return { stdout: '{"items":[]}', stderr: "", code: 0 };
-      }
-      if (query === 1) {
-        return {
-          stdout:
-            " postgresqlinstance.platform.kore.dev/reference-db \npostgresqlinstance.platform.kore.dev/reference-db\n",
-          stderr: "",
-          code: 0,
-        };
-      }
-      throw new CommandError("kubectl", ["get", "pvc"], {
-        stdout: "",
-        stderr: 'error: the server doesn\'t have a resource type "pvc"',
-        code: 1,
-      });
+test("retained names are trimmed, blank lines and duplicates dropped, and the result sorted", async () => {
+  const { runner } = clusterWith(
+    {
+      postgres:
+        " postgresqlinstance.platform.kore.dev/reference-db \npostgresqlinstance.platform.kore.dev/reference-db\n\n",
+      pvc: "persistentvolumeclaim/cache\n",
     },
-  };
-
-  assert.deepEqual(await retainedResources(repository, runner), [
+    { items: [volume("pvc-orphan", "kore-retained")] },
+  );
+  expect(await retainedResources(repository, runner)).toEqual([
+    "persistentvolume/pvc-orphan",
+    "persistentvolumeclaim/cache",
     "postgresqlinstance.platform.kore.dev/reference-db",
   ]);
 });
 
-test("a missing PostgreSQL CRD counts as no retained data", async () => {
-  const repository = await k3dRepository();
-  let query = 0;
-  const runner = {
-    async run() {
-      query += 1;
-      if (query === 1) {
-        throw new CommandError("kubectl", ["get"], {
-          stdout: "",
-          stderr:
-            'error: the server doesn\'t have a resource type "postgresqlinstances"',
-          code: 1,
-        });
-      }
-      return { stdout: "", stderr: "", code: 0 };
+test("a retained volume whose claim was already deleted still counts, and disposable volumes never do", async () => {
+  const { runner } = clusterWith(
+    {},
+    {
+      items: [
+        volume("pvc-orphan", "kore-retained", {
+          namespace: "reference",
+          name: "reference-db-1",
+        }),
+        volume("pvc-disposable", "kore-standard", {
+          namespace: "reference",
+          name: "cache",
+        }),
+      ],
     },
-  };
-  assert.deepEqual(await retainedResources(repository, runner), []);
-});
-
-test("an unreachable cluster blocks destroy instead of counting as no retained data", async () => {
-  // An isolated root: a real export under the repository's .kore/ would
-  // legitimately unblock destroy and hide what this test protects.
-  const repository = {
-    ...(await k3dRepository()),
-    root: await mkdtemp(join(tmpdir(), "kore-retained-")),
-  };
-  try {
-    const runner = {
-      calls: [] as string[][],
-      async run(command: string, args: readonly string[]) {
-        this.calls.push([command, ...args]);
-        if (command === "k3d" && args[1] === "list") {
-          return { stdout: list(1), stderr: "", code: 0 };
-        }
-        if (command === "kubectl" && args.includes("get")) {
-          throw new CommandError(command, args, {
-            stdout: "",
-            stderr:
-              "Unable to connect to the server: dial tcp 192.168.49.2:8443: i/o timeout",
-            code: 1,
-          });
-        }
-        return { stdout: "", stderr: "", code: 0 };
-      },
-    };
-    await assert.rejects(
-      retainedResources(repository, runner),
-      /Unable to connect/,
-    );
-    await assert.rejects(
-      clusterDestroy(repository, runner, { yes: true, purgeData: false }),
-      /Unable to connect/,
-    );
-    assert.equal(
-      runner.calls.some((call) => call.includes("delete")),
-      false,
-    );
-  } finally {
-    await rm(repository.root, { recursive: true, force: true });
-  }
-});
-
-test("export verification rejects malformed or mismatched manifests", async () => {
-  const repository = {
-    ...(await k3dRepository()),
-    root: await mkdtemp(join(tmpdir(), "kore-retained-")),
-  };
-  const exportDirectory = join(
-    repository.root,
-    ".kore",
-    "exports",
-    repository.environment.name,
   );
-  await mkdir(exportDirectory, { recursive: true });
-  try {
-    await writeFile(
-      join(exportDirectory, "invalid.manifest.json"),
-      "not json\n",
-    );
-    await writeFile(
-      join(exportDirectory, "empty.manifest.json"),
-      JSON.stringify({ version: 1 }),
-    );
-    assert.equal(await hasVerifiedExport(repository), false);
-  } finally {
-    await rm(repository.root, { recursive: true, force: true });
-  }
+  expect(await retainedResources(repository, runner)).toEqual([
+    "persistentvolume/pvc-orphan",
+  ]);
 });
 
-test("purge never waits on a claim that a running pod still mounts", async () => {
-  const repository = await k3dRepository();
-  const runner = new RecordingRunner([]);
+test("a namespace scope reports only the volumes last bound in that namespace, not unbound ones", async () => {
+  const volumes = {
+    items: [
+      volume("pvc-a", "kore-retained", {
+        namespace: "reference",
+        name: "db-1",
+      }),
+      volume("pvc-b", "kore-retained", { namespace: "other", name: "db-1" }),
+      volume("pvc-unbound", "kore-retained"),
+    ],
+  };
+  const { runner } = clusterWith({}, volumes);
+  expect(await retainedResources(repository, runner, "reference")).toEqual([
+    "persistentvolume/pvc-a",
+  ]);
+  expect(await retainedResources(repository, runner)).toEqual([
+    "persistentvolume/pvc-a",
+    "persistentvolume/pvc-b",
+    "persistentvolume/pvc-unbound",
+  ]);
+});
 
+test("an API that is not installed cannot hold retained data, so its missing resource type is no finding", async () => {
+  const { runner } = fakeRunner((_command, args) => {
+    if (args.includes("postgresqlinstances.platform.kore.dev")) {
+      throw new CommandError("kubectl", args, {
+        stdout: "",
+        stderr:
+          'error: the server doesn\'t have a resource type "postgresqlinstances"',
+        code: 1,
+      });
+    }
+    return args.includes("persistentvolumes") ? '{"items":[]}' : "pvc/cache\n";
+  });
+  expect(await retainedResources(repository, runner)).toEqual(["pvc/cache"]);
+});
+
+test("a failing label query that is not a missing API refuses, and the remaining queries are not run", async () => {
+  const unreachable = new CommandError("kubectl", ["get"], {
+    stdout: "",
+    stderr: "Unable to connect to the server: i/o timeout",
+    code: 1,
+  });
+  const { runner, run } = fakeRunner(() => {
+    throw unreachable;
+  });
+  await expect(retainedResources(repository, runner)).rejects.toBe(unreachable);
+  expect(run).toHaveBeenCalledTimes(1);
+});
+
+test("an unreadable persistent volume list refuses, rather than counting as no retained data", async () => {
+  const { runner } = clusterWith({}, "not json");
+  await expect(retainedResources(repository, runner)).rejects.toThrow(
+    /could not read the PersistentVolume list: .*Check the cluster with kubectl before destroying anything\./,
+  );
+});
+
+test("a persistent volume list that fails to run refuses with the command's own error", async () => {
+  const unreachable = new CommandError("kubectl", ["get"], {
+    stdout: "",
+    stderr: "Unable to connect to the server",
+    code: 1,
+  });
+  const { runner } = fakeRunner((_command, args) => {
+    if (args.includes("persistentvolumes")) {
+      throw unreachable;
+    }
+    return "";
+  });
+  await expect(retainedResources(repository, runner)).rejects.toBe(unreachable);
+});
+
+test("an empty persistent volume list holds no retained volumes", async () => {
+  const { runner } = clusterWith({}, "");
+  expect(await retainedResources(repository, runner)).toEqual([]);
+});
+
+test("purging deletes the PostgreSQL instances with --wait and the claims without it, by retention label", async () => {
+  const { runner, run } = fakeRunner();
   await purgeRetainedResources(repository, runner);
+  expect(commandLines(run)).toEqual([
+    `kubectl --context k3d-kore-local delete postgresqlinstances.platform.kore.dev --all-namespaces --selector ${RETAIN} --ignore-not-found --wait`,
+    `kubectl --context k3d-kore-local delete pvc --all-namespaces --selector ${RETAIN} --ignore-not-found --wait=false`,
+  ]);
+});
 
-  const pvcDelete = runner.calls.find(
-    ({ args }) => args.includes("delete") && args.includes("pvc"),
+test("a PostgreSQL CRD that was never installed is skipped, and the claims are still purged", async () => {
+  const { runner, run } = fakeRunner((_command, args) => {
+    if (args.includes("postgresqlinstances.platform.kore.dev")) {
+      throw new Error(
+        'the server doesn\'t have a resource type "postgresqlinstances"',
+      );
+    }
+    return "";
+  });
+  await purgeRetainedResources(repository, runner);
+  expect(run).toHaveBeenCalledTimes(2);
+  expect(commandLines(run)[1]).toContain("delete pvc");
+});
+
+test("a purge failure other than a missing API stops the purge before any claim is deleted", async () => {
+  const { runner, run } = fakeRunner(() => {
+    throw new Error("Unable to connect to the server");
+  });
+  await expect(purgeRetainedResources(repository, runner)).rejects.toThrow(
+    "Unable to connect to the server",
   );
-  assert.ok(pvcDelete, "expected a pvc delete");
-  assert.ok(pvcDelete.args.includes("--wait=false"));
-  assert.equal(pvcDelete.args.includes("--wait"), false);
+  expect(run).toHaveBeenCalledTimes(1);
+  expect(commandLines(run)[0]).toContain("delete postgresqlinstances");
 });
