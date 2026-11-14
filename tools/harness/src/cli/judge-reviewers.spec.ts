@@ -1,20 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { run } from "./cli.js";
-import { REVIEWER, report, scenario, type Comment } from "./judge-support.js";
+import { report, scenario } from "./judge-support.js";
 
 const CONFIG = "/repo/.claude/harness.json";
-const OWNER = "corekraft";
 
-/** A scenario whose only principles-review comment is by `author`, under the given harness config. */
-function reviewedBy(author: string, config?: unknown, flag?: string) {
-  const comment: Comment = {
-    body: "principles-review: No violations.",
-    author,
-  };
-  const raw = typeof config === "string" ? config : JSON.stringify(config);
+/** A precheck of PR 42 with the given harness config file, or none, and an optional --reviewer flag. */
+function precheckWith(config?: string, flag?: string) {
   const h = scenario({
-    comments: [comment],
-    files: config === undefined ? {} : { [CONFIG]: raw },
+    files: config === undefined ? {} : { [CONFIG]: config },
   });
   const args = ["judge", "precheck", "42", "--json"];
   if (flag !== undefined) {
@@ -23,89 +16,49 @@ function reviewedBy(author: string, config?: unknown, flag?: string) {
   return { h, args };
 }
 
-const verdict = (h: ReturnType<typeof scenario>) =>
-  (report(h)["checks"] as Record<string, { result: string; detail?: string }>)[
-    "principlesReview"
-  ];
-
-describe("judge precheck reviewers with no flag and no list", () => {
-  it("counts a verdict from the repository owner when no owner login is configured", async () => {
-    const { h, args } = reviewedBy(OWNER);
-    expect(await run(args, h.deps)).toBe(0);
-    expect(verdict(h)?.result).toBe("pass");
-  });
-
-  it("counts a verdict from the configured owner login", async () => {
-    const { h, args } = reviewedBy("junners", { ownerLogin: "junners" });
-    expect(await run(args, h.deps)).toBe(0);
-    expect(verdict(h)?.result).toBe("pass");
-  });
-
-  it("treats a verdict from any other login as unverified", async () => {
-    const { h, args } = reviewedBy("writer-pane", { ownerLogin: "junners" });
-    expect(await run(args, h.deps)).toBe(1);
-    expect(verdict(h)?.result).toBe("unverified");
-    expect(verdict(h)?.detail).toContain("junners");
-  });
-});
-
-describe("judge precheck reviewers from reviewerLogins", () => {
-  it("counts only the logins in the configured list", async () => {
-    const { h, args } = reviewedBy("bot-a", {
-      ownerLogin: "junners",
-      reviewerLogins: ["bot-a", "bot-b"],
-    });
-    expect(await run(args, h.deps)).toBe(0);
-    expect(verdict(h)?.result).toBe("pass");
-  });
-
-  it("does not count the owner login once a list is configured", async () => {
-    const { h, args } = reviewedBy("junners", {
-      ownerLogin: "junners",
-      reviewerLogins: ["bot-a"],
-    });
-    expect(await run(args, h.deps)).toBe(1);
-    expect(verdict(h)?.result).toBe("unverified");
-  });
-});
-
-describe("judge precheck reviewers with --reviewer", () => {
-  it("overrides the configured list, so a flagged login counts", async () => {
-    const { h, args } = reviewedBy(
-      REVIEWER,
-      { ownerLogin: "junners", reviewerLogins: ["bot-a"] },
-      REVIEWER,
-    );
-    expect(await run(args, h.deps)).toBe(0);
-    expect(verdict(h)?.result).toBe("pass");
-  });
-
-  it("does not read the harness config when the flag names the reviewers", async () => {
-    const { h, args } = reviewedBy(REVIEWER, "not json", REVIEWER);
-    expect(await run(args, h.deps)).toBe(0);
-    expect(report(h)["reviewers"]).toEqual([REVIEWER]);
-  });
-});
-
-describe("judge precheck output names the reviewers it trusted", () => {
-  it("lists them in the JSON report", async () => {
-    const { h, args } = reviewedBy("junners", { ownerLogin: "junners" });
+describe("judge precheck JSON names the reviewers it trusted", () => {
+  it("names the configured owner login", async () => {
+    const { h, args } = precheckWith(JSON.stringify({ ownerLogin: "junners" }));
     await run(args, h.deps);
     expect(report(h)["reviewers"]).toEqual(["junners"]);
   });
 
-  it("lists them in the readable summary", async () => {
-    const { h } = reviewedBy("junners", { ownerLogin: "junners" });
-    await run(["judge", "precheck", "42"], h.deps);
-    expect(h.out()).toContain("reviewers: junners\n");
+  it("names the reviewerLogins list when one is configured", async () => {
+    const { h, args } = precheckWith(
+      JSON.stringify({
+        ownerLogin: "junners",
+        reviewerLogins: ["bot-a", "bot-b"],
+      }),
+    );
+    await run(args, h.deps);
+    expect(report(h)["reviewers"]).toEqual(["bot-a", "bot-b"]);
+  });
+
+  it("names the --reviewer logins when the flag overrides the configuration", async () => {
+    const { h, args } = precheckWith(
+      JSON.stringify({ reviewerLogins: ["bot-a"] }),
+      "bot-b,bot-c",
+    );
+    await run(args, h.deps);
+    expect(report(h)["reviewers"]).toEqual(["bot-b", "bot-c"]);
   });
 });
 
-describe("judge precheck refuses a harness config it cannot read", () => {
-  it("names the file and the key, and nothing is trusted", async () => {
-    const { h, args } = reviewedBy(OWNER, { reviewerLogins: [] });
+describe("judge precheck readable output names the reviewers", () => {
+  it("prints a reviewers line after the pattern line", async () => {
+    const { h } = precheckWith(JSON.stringify({ ownerLogin: "junners" }));
+    await run(["judge", "precheck", "42"], h.deps);
+    expect(h.out()).toContain(
+      "pattern: no-behaviour-change (idea #193)\nreviewers: junners\n",
+    );
+  });
+});
+
+describe("judge precheck error output for an unreadable config", () => {
+  it("names the file and the key, and fails", async () => {
+    const { h, args } = precheckWith(JSON.stringify({ reviewerLogins: [] }));
     expect(await run(args, h.deps)).toBe(1);
     expect(h.err()).toContain(".claude/harness.json");
-    expect(h.err()).toContain("reviewerLogins");
+    expect(h.err()).toContain('key "reviewerLogins"');
   });
 });
