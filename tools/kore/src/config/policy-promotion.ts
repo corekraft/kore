@@ -181,17 +181,17 @@ export async function policyPromotionErrors(
   now = new Date(),
 ): Promise<string[]> {
   const dir = join(repository.root, constraintsDir);
-  const files = (await readdir(dir).catch(() => [])).filter((f) =>
-    f.endsWith(".yaml"),
-  );
+  const files = await constraintFiles(repository);
   const errors: string[] = [];
   for (const file of files) {
     const text = await readFile(join(dir, file), "utf8");
     const name = /^metadata:\s*\{\s*name:\s*([^\s,}]+)/m.exec(text)?.[1];
-    const action = /^\s*enforcementAction:\s*(\S+)/m.exec(text)?.[1];
-    if (name === undefined || action === undefined) {
+    // Gatekeeper enforces deny when the action is missing, so the evidence check
+    // holds it to deny; policyWarnings reports the missing action itself.
+    const action = /^\s*enforcementAction:\s*(\S+)/m.exec(text)?.[1] ?? "deny";
+    if (name === undefined) {
       errors.push(
-        `policy promotion: ${constraintsDir}/${file} needs metadata name and spec.enforcementAction`,
+        `policy promotion: ${constraintsDir}/${file} needs metadata name`,
       );
     } else if (!(actions as readonly string[]).includes(action)) {
       errors.push(
@@ -217,4 +217,32 @@ export async function policyPromotionErrors(
     }
   }
   return errors;
+}
+
+/**
+ * A constraint with no enforcementAction enforces deny with no audit stage in
+ * Gatekeeper. It is reported as a warning first; the refusal follows in its own
+ * change after a recorded outcome.
+ */
+export async function policyWarnings(
+  repository: Repository,
+): Promise<string[]> {
+  const dir = join(repository.root, constraintsDir);
+  const warnings: string[] = [];
+  for (const file of await constraintFiles(repository)) {
+    const text = await readFile(join(dir, file), "utf8");
+    if (!/^\s*enforcementAction:\s*(\S+)/m.test(text)) {
+      warnings.push(
+        `policy promotion: ${constraintsDir}/${file} has no spec.enforcementAction, so Gatekeeper enforces deny with no audit stage; set enforcementAction: dryrun until a recorded promotion`,
+      );
+    }
+  }
+  return warnings;
+}
+
+async function constraintFiles(repository: Repository): Promise<string[]> {
+  const dir = join(repository.root, constraintsDir);
+  return (await readdir(dir).catch(() => [])).filter((f) =>
+    f.endsWith(".yaml"),
+  );
 }
