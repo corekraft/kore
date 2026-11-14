@@ -392,6 +392,12 @@ refuses source `github` and these kinds, so only the poller writes them:
   no flag to override it. Agents share that login until they get their own
   identities (#336), so `upperBound` is always `true`.
 
+The judge's precheck and merge trust principles-review verdicts only from the
+reviewer logins they name: `reviewerLogins` in `.claude/harness.json` when set,
+else the owner login (`ownerLogin`, else the repository's owner). A verdict from
+any other login is unverified. `--reviewer <login>[,<login>]` overrides both, and
+`harness judge precheck` prints the reviewers it used in its text and JSON output.
+
 A listing too long to page through (200 runs or PRs, or 300 comments, events or
 commits) fails the poll instead of recording part of it: pass `--since` to bound
 a first poll. Later polls start a day before the latest recorded signal, and
