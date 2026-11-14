@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { run } from "../cli/index.js";
-import { activePlan, planHarness } from "./plan-test-support.js";
+import { run } from "../../src/cli/index.js";
+import { activePlan, planHarness } from "../../src/testing/index.js";
 
 const PLAN = "infra/plans/2-a.md";
 
