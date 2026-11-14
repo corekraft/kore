@@ -11,7 +11,6 @@ import {
   fakeClock,
   fakeFileSystem,
 } from "./adr-support.js";
-
 vi.mock("../runtime/index.js", () => ({ localDate: vi.fn() }));
 
 const NOW = new Date(2026, 10, 11, 23, 59, 59);
@@ -19,7 +18,6 @@ const DATE = "2026-11-11";
 const PATH = "docs/decisions/0004-harness-tools-are-great.md";
 const THIRD =
   "- [`docs/decisions/0003-third.md`](decisions/0003-third.md) — third.";
-/** The index line the decision adds, for the number it is given. */
 const entryFor = (n: string) =>
   `- [\`docs/decisions/${n}-harness-tools-are-great.md\`](decisions/${n}-harness-tools-are-great.md) — Tools are great.`;
 const ENTRY = entryFor("0004");
