@@ -20,9 +20,9 @@ import {
 import {
   component,
   kubectl,
-  readinessDefaults,
   fakeHash,
   fresh,
+  readinessDefaults,
   rotatedAt,
   rotationId,
   routeManifest,
@@ -39,12 +39,7 @@ const context = "k3d-kore-local";
 const scope = ["--context", context, "--namespace", name];
 const repository = fakeRepository();
 const bounded = { timeoutMs: 5000, intervalMs: 1000 };
-beforeEach(() => {
-  // Date and setTimeout run on the fake clock, so the wait loop never sleeps.
-  vi.useFakeTimers({ toFake: ["Date", "setTimeout"] });
-  vi.setSystemTime(new Date("2026-11-09T10:00:00Z"));
-  readinessDefaults();
-});
+beforeEach(readinessDefaults);
 
 afterEach(() => {
   vi.useRealTimers();

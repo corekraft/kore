@@ -74,8 +74,11 @@ export const kubectl = (args: string[], capture = false) => [
 export const component = (componentName: string, status: string, detail = "") =>
   ({ name: componentName, namespace: "kore-system", status, detail }) as never;
 
-/** The readiness unit's collaborators answer healthy: a reachable cluster, an open gate and no route yet ready. */
+/** Fake clock, and collaborators that answer healthy: a reachable cluster and an open gate. */
 export function readinessDefaults(): void {
+  // Date and setTimeout run on the fake clock, so the wait loop never sleeps.
+  vi.useFakeTimers({ toFake: ["Date", "setTimeout"] });
+  vi.setSystemTime(new Date("2026-11-09T10:00:00Z"));
   vi.mocked(assertExpectedCluster).mockResolvedValue();
   vi.mocked(platformStatus).mockResolvedValue([]);
   vi.mocked(assertAdmissionGateOpen).mockResolvedValue("g-abc");
