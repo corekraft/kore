@@ -41,6 +41,8 @@ export interface Scenario {
   remote?: string;
   /** Answers that win over the defaults, for example a refused merge. */
   first?: FakeResponse[];
+  /** Files the fake filesystem starts with, by absolute path, for example the harness config. */
+  files?: Record<string, string>;
 }
 
 export const passing = [
@@ -162,7 +164,11 @@ export function scenario(s: Scenario = {}) {
       },
     },
   ];
-  const h = testHarness({ env: s.env ?? {}, responses });
+  const h = testHarness({
+    env: s.env ?? {},
+    responses,
+    files: s.files ?? {},
+  });
   h.deps.bundleUrl = BUNDLE;
   return h;
 }
