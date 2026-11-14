@@ -16,9 +16,28 @@ const same = (a: unknown, b: unknown): boolean =>
 const LOOSENS_ON_GROWTH = [".allowed_merge_methods"];
 
 /**
+ * Booleans where `true` is the stricter setting in a GitHub ruleset body, by
+ * the dotted path suffix they sit under. Going false to true tightens them.
+ * `do_not_enforce_on_create` is absent on purpose: true there loosens.
+ */
+const TRUE_IS_STRICTER = [
+  "strict_required_status_checks_policy",
+  "dismiss_stale_reviews_on_push",
+  "require_code_owner_review",
+  "require_last_push_approval",
+  "required_review_thread_resolution",
+  "require_extra_approval_for_unattributed_changes",
+  "dismissal_restriction.enabled",
+];
+
+const isTrueStricter = (path: string): boolean =>
+  TRUE_IS_STRICTER.some((name) => path.endsWith(`.${name}`));
+
+/**
  * Where a value got weaker: a key or element gone, a number lowered, or a
  * value changed. A changed boolean or string cannot be told stricter from
- * different, so it counts; a new key or element, or a higher number, does not,
+ * different, so it counts, except a false-to-true boolean on a listed field
+ * where true is stricter; a new key or element, or a higher number, does not,
  * except in a list that loosens as it grows.
  */
 export function weaker(was: unknown, now: unknown, path: string): string[] {
@@ -46,6 +65,9 @@ export function weaker(was: unknown, now: unknown, path: string): string[] {
   }
   if (typeof was === "number" && typeof now === "number") {
     return now < was ? [`${path} is lowered`] : [];
+  }
+  if (was === false && now === true && isTrueStricter(path)) {
+    return [];
   }
   return same(was, now) ? [] : [`${path} changes`];
 }
