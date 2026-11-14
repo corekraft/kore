@@ -208,7 +208,8 @@ importOriginal()), fn: vi.fn() }))`.
   their `--timeout` plus a margin) and names it; kubectl reads carry
   `--request-timeout`.
 - Upstream chart and container checks are opt-in too (`test:upstream-charts`,
-  `test:container-smoke`).
+  `test:container-smoke`). They are integration specs in `tools/kore/integration/`
+  that run helm and docker, so the unit run never starts them.
 - The agentgateway install is proven live by
   `KORE_RUN_AGENTGATEWAY_PROOF=1 tools/kore/scripts/agentgateway-live-proof.sh`.
   It runs a scratch copy of the local overlay with `ingress-agentgateway` on,

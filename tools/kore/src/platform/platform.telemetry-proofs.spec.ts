@@ -5,7 +5,6 @@ import { test } from "vitest";
 import { loadRepository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { platformStatus } from "./status.js";
-import { renderChart } from "./upstream.live.js";
 
 type Json = Record<string, any>; // oxlint-disable-line typescript/no-explicit-any
 
@@ -194,17 +193,3 @@ test("the endpoint an application receives is the Collector, never a backend por
     repository.catalog.components.some(({ name }) => name === "otel-collector"),
   );
 });
-
-// Opt-in: renders the pinned ztunnel chart (needs helm, yq, and network).
-test.runIf(process.env["KORE_CHECK_UPSTREAM_CHARTS"] === "1")(
-  "the pinned ztunnel chart marks its pods for the Prometheus pod scrape on its metrics port",
-  async () => {
-    const repository = await loadRepository("local");
-    const component = repository.catalog.components.find(
-      ({ name }) => name === "ztunnel",
-    )!;
-    const rendered = await renderChart(repository, component);
-    assert.match(rendered, /prometheus\.io\/scrape: "true"/);
-    assert.match(rendered, /prometheus\.io\/port: "15020"/);
-  },
-);

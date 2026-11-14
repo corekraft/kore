@@ -4,9 +4,12 @@ import {
   loadRepository,
   type Component,
   type Repository,
-} from "../config/index.js";
-import { rolloutProblems } from "./rollout-feasibility.js";
-import { renderChart, yamlDocuments } from "./upstream.live.js";
+} from "../../src/config/index.js";
+import {
+  renderChart,
+  rolloutProblems,
+  yamlDocuments,
+} from "../../src/testing/index.js";
 
 // The environment schema declares no node count; local is a single k3d
 // server node. Read it from the config here once an environment can declare it.

@@ -3,7 +3,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { join } from "node:path";
 import { test } from "vitest";
-import { loadRepository } from "../config/index.js";
+import { loadRepository } from "../../src/config/index.js";
 
 // Docs: docs/decisions/0028-image-trust-authority.md ("Fail closed")
 // Opt-in: it pulls the pinned chart, and fast tests run offline (AGENTS.md).
