@@ -22,6 +22,7 @@ guard-guardrails.ts
 guard-modes-support.ts
 guard-role-allow.ts
 guard-role-delivery.ts
+guard-role-links.ts
 guard-role-merge.ts
 guard-role-protected.ts
 guard-role-push.ts
@@ -32,6 +33,7 @@ guard-ruleset.ts
 guard-secrets.ts
 guard-shell.ts
 guard-support.ts
+guard-unquoted-glob.ts
 guard-verdict.ts
 guard.ts
 index.ts
@@ -49,4 +51,5 @@ retro-transcripts.ts
 session-hooks.ts
 skill-links.ts
 statusline.ts
+test-budget-support.ts
 workflow-permissions.ts

@@ -1,6 +1,19 @@
-import { describe, expect, it } from "vitest";
-import { parseDiff } from "./diff.js";
+import { describe, expect, it, vi } from "vitest";
+import { parseDiff, type ChangedFile } from "./diff.js";
 import { hintsFor } from "./hints.js";
+
+vi.mock("./tooling.js", () => ({ isTooling: () => false }));
+
+const changed = (path: string, previousPath = path): ChangedFile => ({
+  path,
+  previousPath,
+  deleted: false,
+  added: [],
+  removed: 0,
+  netRemoved: 0,
+  after: [],
+  trail: [],
+});
 
 const overlay = (env: string, flag: string, value: boolean) =>
   [
@@ -46,23 +59,27 @@ const removal = (path: string) =>
 
 describe("hintsFor", () => {
   it("no-behaviour-change: a docs and test only diff has no behavioural diff", () => {
-    const diff = parseDiff(
-      [edit("docs/index.md", 1, 0), edit("src/a.spec.ts", 2, 0)].join("\n"),
-    );
-    expect(hintsFor("no-behaviour-change", diff)).toEqual({
+    expect(
+      hintsFor("no-behaviour-change", [
+        changed("docs/index.md"),
+        changed("src/a.spec.ts"),
+      ]),
+    ).toEqual({
       behaviouralPaths: [],
+      toolingPaths: [],
       noBehaviouralDiff: true,
     });
   });
 
   it("no-behaviour-change: names the files that change behaviour", () => {
-    const diff = parseDiff(
-      [edit("docs/index.md", 1, 0), edit("tools/kore/src/a.ts", 1, 1)].join(
-        "\n",
-      ),
-    );
-    expect(hintsFor("no-behaviour-change", diff)).toEqual({
+    expect(
+      hintsFor("no-behaviour-change", [
+        changed("docs/index.md"),
+        changed("tools/kore/src/a.ts"),
+      ]),
+    ).toEqual({
       behaviouralPaths: ["tools/kore/src/a.ts"],
+      toolingPaths: [],
       noBehaviouralDiff: false,
     });
   });

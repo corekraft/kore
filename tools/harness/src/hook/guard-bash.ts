@@ -13,6 +13,7 @@ import {
   checkIdeaIssueBody,
   checkIdeaIssueClose,
   checkNoVerify,
+  unquotedGlob,
 } from "./guard-commands.js";
 import {
   SECRET_PATH,
@@ -93,23 +94,6 @@ async function checkBashSegment(
     checkRulesetSyncBash(name, args),
     ...checkDenyAudit("Bash", text, ctx),
   ];
-}
-
-// An unquoted glob in --include/--exclude: zsh expands it and, when nothing
-// matches, fails the whole command before it runs. Blocks: every warning in
-// the 2026-11-08 retrospective was heeded and none was overridden.
-const UNQUOTED_GLOB = /(?:^|\s)--(include|exclude)=([^\s'"]*\*[^\s'"]*)/;
-
-function unquotedGlob(command: string): Finding {
-  const match = UNQUOTED_GLOB.exec(shellText(command));
-  if (!match) {
-    return null;
-  }
-  return block(
-    "unquoted-glob",
-    `--${match[1]}=${match[2]} is unquoted; zsh fails the whole command when the glob matches no file. ` +
-      `Instead, quote it: --${match[1]}='${match[2]}'.`,
-  );
 }
 
 // A zsh glob qualifier such as `*(e:'cmd':)` runs code in a word the segment checks read as

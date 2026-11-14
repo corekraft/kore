@@ -8,7 +8,7 @@ import {
   ingressFlag,
   type Repository,
 } from "../config/index.js";
-import { loadRepository, validateRepository } from "../config/config.js";
+import { loadRepository, validateRepository } from "../config/index.js";
 import { helmTemplateArgs, withAbsoluteChart } from "./helm.js";
 
 async function localWith(features: unknown): Promise<Repository> {

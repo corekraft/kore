@@ -15,7 +15,7 @@ fail-fast-detect.ts
 fail-fast-fixtures.ts
 fail-fast.ts
 fingerprint.ts
-gate-integration-support.ts
+gate-live-support.ts
 gate-live.ts
 gate-proof-access.ts
 gated-release.ts
@@ -54,5 +54,4 @@ rollout-feasibility.ts
 status.ts
 up.ts
 upstream-support.ts
-webhook-fixtures.ts
 workload-probe.ts

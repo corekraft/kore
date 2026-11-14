@@ -12,9 +12,13 @@ export interface Assessment {
 
 const CLUSTER = /^(apps|infra|catalog)\/|(^|\/)charts?\//;
 
-/** Whether the diff touches what runs in a cluster: apps, infra, catalog or chart files. */
+/** Whether the diff touches what runs in a cluster: apps, infra, catalog or chart files, on either side of a rename. */
 export function clusterFacing(files: readonly ChangedFile[]): boolean {
-  return files.some((f) => CLUSTER.test(f.path) && !NOT_BEHAVIOUR.test(f.path));
+  return files.some((f) =>
+    [f.path, f.previousPath].some(
+      (p) => CLUSTER.test(p) && !NOT_BEHAVIOUR.test(p),
+    ),
+  );
 }
 
 const MISMATCH: Record<Pattern, (hints: Hints) => string | undefined> = {

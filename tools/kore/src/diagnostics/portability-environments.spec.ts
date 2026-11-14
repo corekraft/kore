@@ -7,7 +7,7 @@ import {
   findRoot,
   loadRepository,
   validateRepository,
-} from "../config/config.js";
+} from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { validatePortability } from "./portability.js";
 
@@ -22,6 +22,11 @@ const root = await findRoot();
 // own beside the environments (excluded through .git/info/exclude, a copy of
 // `local`), which is neither a provider swap nor part of the contract. A new
 // environment not yet `git add`ed is still checked.
+/** No GIT_* variable: under a git hook GIT_DIR names the real repository, which a fixture's git would read or rewrite (#368). */
+const gitEnv = Object.fromEntries(
+  Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_")),
+);
+
 function isIgnored(name: string): boolean {
   return (
     spawnSync(
@@ -29,6 +34,7 @@ function isIgnored(name: string): boolean {
       ["check-ignore", "--quiet", "--", `infra/environments/${name}`],
       {
         cwd: root,
+        env: gitEnv,
       },
     ).status === 0
   );

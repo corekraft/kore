@@ -10,6 +10,7 @@ commands.ts
 context.ts
 flags.ts
 image-lock-flag.ts
+index.ts
 mutation.ts
 output.ts
 post-render.ts

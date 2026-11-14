@@ -330,7 +330,16 @@ const release = () => {
 };
 process.on("exit", release);
 
-const child = spawn(command, args, { stdio: "inherit" });
+// The test run starts without any GIT_* variable (#368). A commit made in a linked
+// worktree exports the real repository's GIT_DIR and friends, and a fixture's git
+// inherits them and writes that repository's config (core.bare = true). This
+// script's own git calls above keep the variables they run with.
+const testEnv = Object.fromEntries(
+  Object.entries(process.env).filter(
+    ([name, value]) => value !== undefined && !name.startsWith("GIT_"),
+  ),
+);
+const child = spawn(command, args, { stdio: "inherit", env: testEnv });
 for (const [signal, code] of [
   ["SIGINT", 130],
   ["SIGTERM", 143],

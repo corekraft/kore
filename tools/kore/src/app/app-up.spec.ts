@@ -1,4 +1,15 @@
-import { list } from "../cluster/k3d-cluster.fixtures.js";
+import {
+  list,
+  healthyReadinessOutput,
+  healthyRunner,
+  lockedImage,
+  passthroughRegistry,
+  releaseNotFound,
+  releaseSigner,
+  removeReleaseLocks,
+  writeReleaseLock,
+  type Call,
+} from "../testing/index.js";
 import { loadRepository } from "../config/index.js";
 import { afterEach, expect, test, vi } from "vitest";
 
@@ -11,17 +22,6 @@ vi.mock("../images/index.js", async (importOriginal) => ({
 import { appUp, appUpRelease } from "./up.js";
 
 afterEach(removeReleaseLocks);
-import {
-  healthyReadinessOutput,
-  healthyRunner,
-  lockedImage,
-  passthroughRegistry,
-  releaseNotFound,
-  releaseSigner,
-  removeReleaseLocks,
-  writeReleaseLock,
-  type Call,
-} from "./app-fixtures.js";
 import type { RunOptions, RunResult, Runner } from "../runtime/index.js";
 
 /** A node shell: a `docker exec` into a node or an ssh session. */

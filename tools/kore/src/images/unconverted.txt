@@ -9,7 +9,6 @@ local-image.ts
 local-publish.ts
 local-signer.ts
 managed-lock.ts
-manifest-images.ts
 platform-image-lock.ts
 registry-auth.ts
 registry-client.ts
@@ -18,7 +17,6 @@ registry-https.ts
 registry-rotation-fixtures.ts
 registry-rotation.ts
 registry-service.ts
-registry-tls-fixtures.ts
 registry-tls.ts
 registry.ts
 release-image.ts

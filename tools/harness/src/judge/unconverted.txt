@@ -2,8 +2,11 @@
 checks.ts
 declaration.ts
 diff.ts
+errors.ts
 hints.ts
 index.ts
 precheck.ts
 send-back.ts
+tooling.fixtures.ts
+tooling.ts
 verdict.ts

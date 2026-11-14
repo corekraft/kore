@@ -1,6 +1,6 @@
 import type { Repository } from "../config/index.js";
 import { retainedResources } from "../cluster/index.js";
-import { recoverRelease } from "../platform/release-recovery.js";
+import { recoverRelease } from "../platform/index.js";
 import type { Runner } from "../runtime/index.js";
 
 /**

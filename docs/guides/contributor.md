@@ -107,9 +107,9 @@ see [The harness bundle](#the-harness-bundle).
   is the only tier that gates a commit. An integration test runs real domains
   together without a cluster, and gates a release. A live test needs a cluster
   and runs only when asked. The move to these tiers is in progress under
-  [plan 14](../../infra/plans/14-test-tiers.md): until its first step lands,
-  the live suites below still carry the `integration` name, and the unit runs
-  still include tests that start real processes.
+  [plan 14](../../infra/plans/14-test-tiers.md): the cluster suites are live
+  tests now (#372), and the unit runs still include tests that start real
+  processes.
 - The unit run has a budget: a test over 100 ms, a spec file over 1 s, or (once
   every list below is empty) a package run over 20 s fails, naming the test and
   its time. The `test-budget` hook (`harness hook test-budget`, run by
@@ -128,19 +128,21 @@ see [The harness bundle](#the-harness-bundle).
   longer exists fails the check. A spec with no source file of the same name
   beside it is not budgeted.
 - `npm test` (in `tools/kore`) is fast and needs no cluster.
-- Live specs (`*.integration.spec.ts`) create or destroy clusters. They run only
-  when asked, with `KORE_RUN_INTEGRATION=1` through the scripts in
-  `tools/kore/package.json` (`test:integration`, `test:integration:admission`,
-  `test:integration:registry`). A cluster-facing `no-behaviour-change` needs a live
+- Live specs (`*.live.spec.ts`) create or destroy clusters. They run only
+  when asked, with `KORE_RUN_LIVE=1` through the scripts in
+  `tools/kore/package.json` (`test:live`, `test:live:admission`,
+  `test:live:registry`). A cluster-facing `no-behaviour-change` needs a live
   run before merge; any other cluster-facing change merges behind a flag and
   needs the live run before the flag turns on (see Feature flags).
-- Integration specs test the environment `KORE_INTEGRATION_ENVIRONMENT` names
+  The retired `KORE_RUN_INTEGRATION` and `KORE_INTEGRATION_ENVIRONMENT` are refused,
+  naming their replacements, and `KORE_INTEGRATION_LOCK_WAIT_MS` likewise.
+- Live specs test the environment `KORE_LIVE_ENVIRONMENT` names
   (default and empty: `local`); an unknown name is refused, listing the valid
   environments. A kore mutation queued behind a live holder prints the holder's
   pid, worktree and lock path, then waits ten minutes (`kore local up` thirty,
   since a first-time `up` takes 15 to 20); `KORE_LOCK_WAIT_MS` overrides both.
 - The `nightly` workflow (`.github/workflows/nightly.yml`) runs a clean
-  `kore local up` and every `test:integration*` suite against one cluster through
+  `kore local up` and every `test:live*` suite against one cluster through
   `tools/kore/scripts/nightly.sh`, purging the profile last. It brings up a
   scratch `nightly` environment (a copy of `local` with its own cluster) whose
   secrets are generated and encrypted to an age key made for the run, held in
@@ -340,7 +342,7 @@ refuses source `github` and these kinds, so only the poller writes them:
   with `Revert "` or whose body says `This reverts commit` (`main.revert`) per
   merged change. A PR merely titled Revert does not count.
 - `liveRuns`: `{ runs, passed, rate }`, the pass rate of the `nightly` workflow's
-  clean `local up` and integration runs (`ci.nightly`; only scheduled runs, so a
+  clean `local up` and live runs (`ci.nightly`; only scheduled runs, so a
   run an agent dispatches by hand is not counted; first attempt, as above).
 - `ownerMinutes`: `{ minutes, merged, perMerged, burstGapMinutes, upperBound }`.
   The owner login's comments, issue events and PR reviews (`owner.action`) on

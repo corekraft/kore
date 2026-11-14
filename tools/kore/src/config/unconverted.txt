@@ -11,7 +11,7 @@ image-trust.ts
 index.ts
 k3d-errors.ts
 managed-cluster.ts
-managed-local.fixtures.ts
+manifest-images.ts
 mirror.ts
 order.ts
 overlay-errors.ts

@@ -15,7 +15,7 @@ import {
   pushPassword,
   readPassword,
   type Call,
-} from "./app-fixtures.js";
+} from "../testing/index.js";
 import type { Runner } from "../runtime/index.js";
 
 test("app up verifies with the read-only identity, never the push credential, and runs no node command", async () => {

@@ -4,11 +4,11 @@ helm-timeout.ts
 host-lease.ts
 host-locks.ts
 index.ts
-integration-environment.ts
-integration-lock-setup.ts
-integration-lock.ts
 journal.ts
+live-environment.ts
 live-groups.ts
+live-lock-setup.ts
+live-lock.ts
 lock-owner.ts
 lock-recovery.ts
 lock.ts
