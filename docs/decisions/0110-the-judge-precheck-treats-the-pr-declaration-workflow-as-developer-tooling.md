@@ -1,6 +1,6 @@
 ---
 status: accepted
-summary: The pr-declaration workflow reads only PR text with read-only access, so a diff that edits it alone matches no-behaviour-change; this refines ADR 0105 and ADR 0099.
+summary: The pr-declaration workflow takes only the PR body as input and builds the harness from the checkout with contents: read, no secrets and no required status, so a diff that edits it alone matches no-behaviour-change; this refines ADR 0105 and ADR 0099.
 date: 2026-11-14
 last-verified: 2026-11-14
 ---
@@ -16,9 +16,11 @@ Refines: [ADR 0105](0105-the-judge-precheck-treats-the-release-workflow-as-devel
 ADR 0099 lists the developer tooling the precheck leaves out of the behavioural
 paths, and ADR 0105 added the release workflow. The workflow
 `.github/workflows/pr-declaration.yml` is an audit job that checks a pull
-request body has exactly one valid `Safety pattern` line. It reads PR text only,
-has `contents: read`, uses no secrets, is not a required check, and cannot
-change what runs in a cluster. The precheck read it as behavioural, so PR #636
+request body has exactly one valid `Safety pattern` line. Its only input is the
+PR body. It checks out the repository, builds the harness from that checkout
+and runs it, so it executes the pull request's own harness code. It runs with
+`contents: read`, uses no secrets, is not a required check, and cannot change
+what runs in a cluster. The precheck read it as behavioural, so PR #636
 could not pass with its truthful `no-behaviour-change` declaration.
 
 ## Decision
