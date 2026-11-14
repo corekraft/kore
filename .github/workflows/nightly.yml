@@ -1,8 +1,8 @@
 # Nightly live proof (issue #339, retro finding 6). The `check` workflow never
-# starts a cluster, so the opt-in integration suites would otherwise run only by
+# starts a cluster, so the opt-in live suites would otherwise run only by
 # hand. This runs a clean `kore local up` and then every named
-# `test:integration:<name>` suite once a night, `lifecycle` last. The bare
-# `test:integration` task is skipped (ADR 0093).
+# `test:live:<name>` suite once a night, `lifecycle` last. The bare
+# `test:live` task is skipped (ADR 0093).
 #
 # The run's conclusion is the status on main: a scheduled run belongs to the
 # default branch's latest commit, and the workflow needs no write permission.
@@ -48,5 +48,5 @@ jobs:
           cache: false
       - name: Install CLI dependencies
         run: npm ci --prefix tools/kore
-      - name: Clean local up and the integration suites
+      - name: Clean local up and the live suites
         run: tools/kore/scripts/nightly.sh

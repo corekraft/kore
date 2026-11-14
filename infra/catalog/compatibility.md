@@ -1,6 +1,6 @@
 # MVP compatibility matrix
 
-Validated offline on 2026-11-07. Live conformance remains an opt-in integration
+Validated offline on 2026-11-07. Live conformance remains an opt-in live
 test and is required before a release is tagged. **The live bootstrap test has
 not been run against these pins and is still required.**
 
@@ -57,7 +57,7 @@ k3s `v1.37.2-k3s1` (pinned by tag and index digest `sha256:21ea6e0fac4e3930c2ce8
 5.9.0 is the latest k3d release, resolved 2026-11-11) tracks the same upstream
 Kubernetes 1.37.2 as the pinned kubectl. Evidence per component
 against that version, all unchanged pins. Live evidence: #149 ran every opt-in
-integration suite and `kore local up` on k3d 5.9.0 with this k3s image on
+live suite and `kore local up` on k3d 5.9.0 with this k3s image on
 2026-11-12, and every component below converged (plan 9 Results has the suite
 table and machine load). A live bootstrap is still required before a release is
 tagged:

@@ -100,6 +100,10 @@ the plans and ADRs record why. Find them through
   before anything is committed; the full unit suites and coverage pass in CI
   `check` before merge. _Enforced: commit hooks (related tests), stop hook (typecheck), CI
   `check` (full suites)._
+- **Refs until green.** An issue whose outcome needs a live or nightly run gets
+  `Refs #n` in its pull request, never `Closes`; it closes once a green run is
+  recorded on it ([ADR 0097](docs/decisions/0097-an-outcome-issue-closes-on-recorded-proof-not-on-merge.md)).
+  When unsure, use `Refs`.
 - **Scans pass before merge:** `mise run scan`. Ignore narrowly, with a reason.
 - **Record significant decisions** as ADRs; when a step refines an earlier
   decision, record why.

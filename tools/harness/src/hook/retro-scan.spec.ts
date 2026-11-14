@@ -146,7 +146,9 @@ describe("retro scan corrections and windows", () => {
     );
     expect(result.sessions.list.map((s) => s.id)).toEqual(["on"]);
   });
+});
 
+describe("retro scan window markers", () => {
   it("reads the latest retrospective date across plans and opens the window at local midnight", () => {
     expect(
       lastRetrospective({

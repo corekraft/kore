@@ -23,7 +23,7 @@ export interface Objective {
   /** Longest tolerated time from decision to restore until service is back. */
   rtoMinutes: number;
   reason?: string;
-  /** Repository path of the opt-in integration spec that proves the restore. */
+  /** Repository path of the opt-in live spec that proves the restore. */
   restoreTest?: string;
 }
 
@@ -148,8 +148,8 @@ function objectiveProblems(
     );
   }
   if (objective.restoreTest) {
-    if (!objective.restoreTest.endsWith(".integration.spec.ts")) {
-      problems.push(`${name}: restoreTest must be a *.integration.spec.ts`);
+    if (!objective.restoreTest.endsWith(".live.spec.ts")) {
+      problems.push(`${name}: restoreTest must be a *.live.spec.ts`);
     } else if (!context.exists(objective.restoreTest)) {
       problems.push(
         `${name}: restoreTest ${objective.restoreTest} does not exist`,

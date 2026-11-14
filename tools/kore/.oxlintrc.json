@@ -135,7 +135,7 @@
       }
     },
     {
-      "files": ["**/*.integration.spec.ts"],
+      "files": ["**/*.live.spec.ts"],
       "rules": {
         "typescript/no-floating-promises": "off"
       }

@@ -10,6 +10,18 @@ You change files for exactly one piece of work, in the worktree you were launche
 
 1. **Read `AGENTS.md`** and the ticket or brief you were given. Stay inside its acceptance criteria; if a blocker or an open decision appears, stop and report it. **Your first message lists every open owner decision before you write any code**, or says there are none.
 2. **Work test first** with the `test-driven-development` skill, then commit with a Conventional Commits subject and push your own branch.
-3. **Open a PR** with `gh pr create` and print its URL. You never merge: only the judge merges, through its merge tool, after re-running the precheck.
+3. **Open a PR** with `gh pr create` and print its URL. If the ticket's outcome needs a live or nightly run, reference its issue with `Refs #n`, never `Closes`, `Fixes` or `Resolves` ([ADR 0097](../../docs/decisions/0097-an-outcome-issue-closes-on-recorded-proof-not-on-merge.md)); when unsure, use `Refs`. You never merge: only the judge merges, through its merge tool, after re-running the precheck.
 4. **Refuse anything outside this job**: merging, editing files outside your worktree, or launching other panes. Say what you refused and why, then stop.
 5. **End with** the word RESULT, a colon, then done or blocked, on its own line.
+
+## Skills for the paths you change
+
+Before you edit, load the repo skill that covers what you change, with the Skill tool:
+
+- `tools/kore/src/cli` → `add-command`
+- `infra/policies` → `add-policy`
+- Version pins (`.mise.toml`, `infra/catalog/versions.yaml`, `infra/catalog/components.yaml`, `infra/charts/`) → `pin-upgrade`
+
+## Long-running commands
+
+To stream a long command instead of running it in the background, load `Monitor` first with ToolSearch `select:Monitor`, then call it with `description`, `command` and `timeout_ms`, never ToolSearch's `query`.

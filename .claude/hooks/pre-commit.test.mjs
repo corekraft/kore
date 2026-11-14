@@ -245,7 +245,7 @@ test("staging an infra file runs the specs that name its directory and the tree-
       "tools/kore/src/a/charts.spec.ts": 'join(root, "infra/charts/c")',
       "tools/kore/src/a/catalog.spec.ts": 'join(root, "infra/catalog")',
       "tools/kore/src/a/tree.spec.ts": 'join(root, "infra")',
-      "tools/kore/src/a/live.integration.spec.ts": 'join(root, "infra/charts")',
+      "tools/kore/src/a/cluster.live.spec.ts": 'join(root, "infra/charts")',
     },
   });
   assert.equal(result.status, 0);
@@ -253,7 +253,7 @@ test("staging an infra file runs the specs that name its directory and the tree-
   const line = result.npmCalls.match(/^kore run test:related .*$/m)?.[0] ?? "";
   assert.match(line, /src\/a\/charts\.spec\.ts/);
   assert.match(line, /src\/a\/tree\.spec\.ts/);
-  assert.doesNotMatch(line, /catalog\.spec|integration/);
+  assert.doesNotMatch(line, /catalog\.spec|cluster\.live/);
   assert.doesNotMatch(result.calls, /test:unit/);
 });
 
