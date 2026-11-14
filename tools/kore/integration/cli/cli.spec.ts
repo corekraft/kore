@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
-import { main } from "../../src/cli/cli.js";
+import { main } from "../../src/testing/index.js";
 
 // Real units together: the command table, the real repository on disk and the
 // real usage text. Unit specs (src/cli/*.spec.ts) cover each unit alone (ADR 0098).

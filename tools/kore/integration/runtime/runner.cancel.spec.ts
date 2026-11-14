@@ -5,7 +5,7 @@ import {
   ProcessRunner,
   withSignal,
 } from "../../src/runtime/index.js";
-import { RecordingRunner } from "../../src/runtime/runner.js";
+import { RecordingRunner } from "../../src/runtime/index.js";
 
 test("aborting the signal terminates a running process promptly", async () => {
   const controller = new AbortController();

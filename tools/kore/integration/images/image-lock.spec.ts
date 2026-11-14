@@ -3,7 +3,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import { loadImageLock, imageForApplication } from "../../src/images/image-lock.js";
+import { loadImageLock, imageForApplication } from "../../src/images/index.js";
 
 test("loads an application image only when its lock entry is immutable and signed", async () => {
   const root = await mkdtemp(join(tmpdir(), "kore-image-lock-"));

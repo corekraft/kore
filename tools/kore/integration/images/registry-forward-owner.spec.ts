@@ -5,11 +5,11 @@ import { join } from "node:path";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { Repository } from "../../src/config/index.js";
 import type { Runner } from "../../src/runtime/index.js";
-import { readForwardOwner } from "../../src/images/registry-forward-owner.js";
+import { readForwardOwner } from "../../src/testing/index.js";
 import {
   localRegistryReference,
   stopRegistryForward,
-} from "../../src/images/registry.js";
+} from "../../src/images/index.js";
 
 // Docs: AGENTS.md "One owner per resource."
 

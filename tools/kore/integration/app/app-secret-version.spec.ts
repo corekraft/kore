@@ -12,7 +12,7 @@ vi.mock("../../src/images/index.js", async (importOriginal) => ({
 }));
 import { findRoot } from "../../src/config/index.js";
 
-import { appUp, appUpRelease } from "../../src/app/up.js";
+import { appUp, appUpRelease } from "../../src/app/index.js";
 import {
   healthyRunner,
   lockedImage,

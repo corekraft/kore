@@ -7,7 +7,7 @@ import { CommandError, ProcessRunner } from "../../src/runtime/index.js";
 import {
   CommandTimeoutError,
   type ProcessRunnerOptions,
-} from "../../src/runtime/runner.js";
+} from "../../src/runtime/index.js";
 
 class FakeChild extends EventEmitter {
   pid = 4242;

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { loadRepository, validateRepository } from "../../src/config/config.js";
-import { enabledComponents } from "../../src/config/features.js";
-import type { Repository } from "../../src/config/types.js";
+import { loadRepository, validateRepository } from "../../src/config/index.js";
+import { enabledComponents } from "../../src/config/index.js";
+import type { Repository } from "../../src/config/index.js";
 
 /** The local repository without the catalog's own gated components. */
 async function ungatedRepository(): Promise<Repository> {

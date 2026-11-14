@@ -9,7 +9,7 @@ import {
   validateRepository,
 } from "../../src/config/index.js";
 import type { Runner } from "../../src/runtime/index.js";
-import { validatePortability } from "../../src/diagnostics/portability.js";
+import { validatePortability } from "../../src/diagnostics/index.js";
 
 // Docs: docs/decisions/0012-environment-overlays-hold-provider-specifics.md
 // Offline, credential-free proof across every environment directory in the

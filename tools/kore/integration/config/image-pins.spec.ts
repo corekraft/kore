@@ -6,7 +6,7 @@ import {
   componentValues,
   findRoot,
   loadRepository,
-} from "../../src/config/config.js";
+} from "../../src/config/index.js";
 
 /** No GIT_* variable: under a git hook GIT_DIR names the real repository, which git would read (#368). */
 const gitEnv = Object.fromEntries(

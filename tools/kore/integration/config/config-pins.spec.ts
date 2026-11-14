@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "vitest";
-import { findRoot, loadRepository } from "../../src/config/config.js";
+import { findRoot, loadRepository } from "../../src/config/index.js";
 
 test("the repository tool catalog pins Cosign for image verification", async () => {
   const repository = await loadRepository("local");

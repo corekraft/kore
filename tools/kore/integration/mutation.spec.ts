@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, expect, test } from "vitest";
 import type { Repository } from "../src/config/index.js";
 import type { Runner } from "../src/runtime/index.js";
-import { createMutate } from "../src/cli/mutation.js";
+import { createMutate } from "../src/testing/index.js";
 
 // Docs: AGENTS.md "Mutations are serialized per environment."
 

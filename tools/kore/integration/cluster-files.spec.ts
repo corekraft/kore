@@ -11,21 +11,15 @@ import { join } from "node:path";
 import { test } from "vitest";
 import {
   clusterDestroy,
-  clusterUp,
   exportRetainedData,
   hasVerifiedExport,
   restoreRetainedData,
 } from "../src/cluster/index.js";
 import {
-  ensureRegistryTrust,
-  writeK3dRegistriesConfig,
-} from "../src/images/index.js";
-import {
   CIPHERTEXT,
   FakeRunner,
   exportOptions,
   fakeRunner,
-  fast,
   k3dRepository,
   ok,
   testHome,
@@ -143,9 +137,9 @@ test("export never leaves plaintext on disk, only ciphertext and a manifest", as
   const names = await exportedFiles();
   assert.ok(names.length >= 2);
   for (const name of names) {
-    const text = await readFile(join(exportsDirectory(), name), "utf8");
-    assert.equal(text.includes("PLAINTEXT-MARKER"), false, name);
-    assert.equal(text.includes("CREATE TABLE"), false, name);
+    const content = await readFile(join(exportsDirectory(), name), "utf8");
+    assert.equal(content.includes("PLAINTEXT-MARKER"), false, name);
+    assert.equal(content.includes("CREATE TABLE"), false, name);
   }
 });
 

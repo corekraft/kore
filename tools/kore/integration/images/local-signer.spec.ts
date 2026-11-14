@@ -3,17 +3,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, test } from "vitest";
 import { loadRepository, type Repository } from "../../src/config/index.js";
-import type {
-  RunOptions,
-  RunResult,
-  Runner,
-} from "../../src/runtime/index.js";
+import type { RunOptions, RunResult, Runner } from "../../src/runtime/index.js";
 import {
   ensureLocalSigningPublicKey,
+  swapLocalSigningKey,
+} from "../../src/images/index.js";
+import {
   localSigningPublicNamespace,
   localSigningPublicSecret,
-  swapLocalSigningKey,
-} from "../../src/images/local-signer.js";
+} from "../../src/testing/index.js";
 
 const roots: string[] = [];
 afterEach(async () => {

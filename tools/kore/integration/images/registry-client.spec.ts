@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import { withRegistryClient } from "../../src/images/registry-client.js";
+import { withRegistryClient } from "../../src/images/index.js";
 
 const caPem = "-----BEGIN CERTIFICATE-----\nQUJD\n-----END CERTIFICATE-----\n";
 const credential = { username: "kore-push", password: "s3cret-Pass_word-0123" };

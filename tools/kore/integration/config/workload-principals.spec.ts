@@ -4,12 +4,12 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { test } from "vitest";
-import { findRoot } from "../../src/config/config.js";
+import { findRoot } from "../../src/config/index.js";
 import {
   parsePrincipal,
   spiffeId,
   spiffePrincipal,
-} from "../../src/config/identity.js";
+} from "../../src/testing/index.js";
 
 // Docs: docs/decisions/0007-workload-identity-and-layered-authorization.md
 const run = promisify(execFile);

@@ -8,7 +8,7 @@ import {
   hasGnuTimeout,
   run,
   useNightlySandbox,
-} from "../../src/runtime/nightly-script.fixtures.js";
+} from "../../src/testing/index.js";
 
 useNightlySandbox();
 

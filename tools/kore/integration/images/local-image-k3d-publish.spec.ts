@@ -4,22 +4,26 @@ import { join } from "node:path";
 import { afterEach, expect, test, vi } from "vitest";
 import { loadRepository, type Repository } from "../../src/config/index.js";
 import {
-  digest,
   encodeBase64,
-  entry,
-  fakeRunner,
+  imageDigest as digest,
+  imageEntry as entry,
+  imageFakeRunner as fakeRunner,
   pushPassword,
   stubRegistry,
-} from "../../src/images/images.fixtures.js";
-import { buildAndSignLocalImage } from "../../src/images/local-image.js";
-import { publishImageCopy } from "../../src/images/local-publish.js";
+} from "../../src/testing/index.js";
+import {
+  buildAndSignLocalImage,
+  publishImageCopy,
+} from "../../src/images/index.js";
 import {
   k3dImagePublishArgs,
   k3dRegistrySessionArgs,
-} from "../../src/images/local-image-args.js";
+} from "../../src/testing/index.js";
 
 const registryReference = vi.hoisted(() => vi.fn());
-vi.mock("../../src/images/registry.js", () => ({ localRegistryReference: registryReference }));
+vi.mock("../../src/images/registry.js", () => ({
+  localRegistryReference: registryReference,
+}));
 const registryHead = vi.hoisted(() => vi.fn());
 vi.mock("../../src/images/registry-https.js", () => ({ registryHead }));
 

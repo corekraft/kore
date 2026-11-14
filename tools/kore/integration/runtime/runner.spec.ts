@@ -6,7 +6,7 @@ import {
   CommandError,
   ProcessRunner,
   RecordingRunner,
-} from "../../src/runtime/runner.js";
+} from "../../src/runtime/index.js";
 import { expect, test } from "vitest";
 
 test("ProcessRunner captures output from a successful child process", async () => {

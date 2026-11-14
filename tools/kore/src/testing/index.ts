@@ -158,3 +158,57 @@ export {
 } from "../platform/container-smoke.js";
 export { renderChart, yamlDocuments } from "../platform/upstream.live.js";
 export { rolloutProblems } from "../platform/rollout-feasibility.js";
+// Internals of the cli, config, images and runtime domains that the integration
+// specs reach through this barrel (plan 14, #579). Names a domain's own index.ts
+// already exports are imported from that index. Production code never imports
+// this barrel, so the domain barrels stay as they are.
+export { COMMANDS, isMutating } from "../cli/commands.js";
+export { main } from "../cli/cli.js";
+export { policyCommand } from "../cli/commands-policy.js";
+export { parseArgs } from "../cli/flags.js";
+export { createMutate } from "../cli/mutation.js";
+export type { CommandContext } from "../cli/context.js";
+export { unmirroredImages } from "../config/mirror.js";
+export {
+  parsePrincipal,
+  spiffeId,
+  spiffePrincipal,
+} from "../config/identity.js";
+export { readinessFor } from "../config/readiness-fixtures.js";
+export { sound, validationMessage } from "../config/validation.fixtures.js";
+export type { ReadinessManifest } from "../config/types.js";
+export {
+  digest as imageDigest,
+  encodeBase64,
+  entry as imageEntry,
+  fakeRunner as imageFakeRunner,
+  filesUnder,
+  kubeContext,
+  minifiedKubeconfig,
+  secretRef,
+  stubRegistry,
+} from "../images/images.fixtures.js";
+export { k3dImageImportArgs, loadLocalImage } from "../images/local-image.js";
+export { requireK3d } from "../images/local-publish.js";
+export {
+  k3dImagePublishArgs,
+  k3dRegistrySessionArgs,
+} from "../images/local-image-args.js";
+export {
+  localSigningPublicNamespace,
+  localSigningPublicSecret,
+} from "../images/local-signer.js";
+export { readForwardOwner } from "../images/registry-forward-owner.js";
+export { forwardResponds } from "../images/registry.js";
+export {
+  FAKE_IDENTITY,
+  FAKE_RECIPIENT,
+  LOCAL_RECIPIENT,
+  ctx,
+  fakes,
+  files,
+  hasGnuTimeout,
+  outside,
+  run,
+  useNightlySandbox,
+} from "../runtime/nightly-script.fixtures.js";

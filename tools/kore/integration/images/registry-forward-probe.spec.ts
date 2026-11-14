@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer as createTls, type Server as TlsServer } from "node:tls";
 import { afterAll, afterEach, expect, test } from "vitest";
-import { forwardResponds } from "../../src/images/registry.js";
+import { forwardResponds } from "../../src/testing/index.js";
 
 // A kubectl port-forward whose pod was replaced keeps its listener until the
 // first request, then exits. Only an answered HTTPS request, verified against
