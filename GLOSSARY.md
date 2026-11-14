@@ -163,8 +163,9 @@ _Avoid_: Fast test, spec
 
 **Integration test**:
 A test that real units from built domains work together. It may run local
-processes and use files, but never a cluster or the network. Integration
-tests never gate a commit. They gate a merge only for a change to the commit
+processes and use files, but never a cluster or the network. It may replace a
+domain's own cluster-facing modules with scripted replies. Integration tests
+never gate a commit. They gate a merge only for a change to the commit
 hooks, and a failing one stops a release.
 _Avoid_: Script test, wiring test, bundle test
 
