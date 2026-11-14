@@ -57,6 +57,44 @@ describe("manifestSides", () => {
   });
 });
 
+describe("manifestSides, when a read fails", () => {
+  it("lets the rejection of the compare read reach the caller, with no manifest read after it", async () => {
+    const api = vi.fn(async () => {
+      throw new Error("compare failed");
+    });
+    await expect(manifestSides(api, REPO, BASE, HEAD)).rejects.toThrow(
+      "compare failed",
+    );
+    expect(api).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets the rejection of the head read reach the caller, and returns no sides", async () => {
+    const api = vi.fn(async (args: readonly string[]) => {
+      if (args.at(-1)?.endsWith(`?ref=${HEAD}`)) {
+        throw new Error("head read failed");
+      }
+      return args.some((a) => a.includes("/compare/"))
+        ? `${MERGE_BASE}\n`
+        : "before";
+    });
+    await expect(manifestSides(api, REPO, BASE, HEAD)).rejects.toThrow(
+      "head read failed",
+    );
+  });
+});
+
+describe("withManifestSides, when the compare read fails", () => {
+  it("rejects without attaching sides, and makes no further call", async () => {
+    const api = vi.fn(async () => {
+      throw new Error("compare failed");
+    });
+    await expect(
+      withManifestSides([changed(MANIFEST)], api, REPO, BASE, HEAD),
+    ).rejects.toThrow("compare failed");
+    expect(api).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("withManifestSides", () => {
   it("attaches the sides to the manifest and leaves every other file as it was", async () => {
     const api = fakeApi({ [MERGE_BASE]: "before", [HEAD]: "after" });
