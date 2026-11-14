@@ -10,9 +10,22 @@ import type {
   IdSource,
   Runner,
 } from "../runtime/index.js";
-import type { GitHubRulesets } from "./github.js";
-import type { CandidatePlan, MainPlan } from "./declared.js";
-import type { Inventory } from "../guardrail/index.js";
+import { GitHubRulesets } from "./github.js";
+import {
+  candidateName,
+  parseDeclared,
+  planCandidate,
+  planMain,
+  ruleName,
+  stage,
+  typesOf,
+  type CandidatePlan,
+  type MainPlan,
+} from "./declared.js";
+import { modeOf, readInventory, type Inventory } from "../guardrail/index.js";
+import { withLock } from "./lock.js";
+import { destination } from "./support.js";
+import { declaredFields, weakenings } from "./weaken.js";
 
 export const ROOT = "/repo";
 export const REPO = "corekraft/kore";
@@ -151,3 +164,36 @@ export const mainPlan = (overrides: Partial<MainPlan> = {}): MainPlan => ({
   body: {},
   ...overrides,
 });
+
+/**
+ * Arms the collaborators of the sync unit (the spec mocks their modules) so a
+ * repository declares main, has no live rulesets, and every plan changes nothing.
+ * Specs override the one answer they test.
+ */
+export function armSync(): { deps: FakeDeps; github: FakeGitHub } {
+  const deps = fakeDeps();
+  const github = fakeGitHub();
+  vi.mocked(parseDeclared).mockReturnValue({ name: "main", rules: [] });
+  vi.mocked(readInventory).mockResolvedValue(
+    inventoryOf("main-ruleset-deletion"),
+  );
+  vi.mocked(modeOf).mockReturnValue("enforce");
+  vi.mocked(typesOf).mockReturnValue(["deletion"]);
+  vi.mocked(ruleName).mockImplementation(
+    (target, type) => `${target}-ruleset-${type}`,
+  );
+  vi.mocked(candidateName).mockReturnValue("main-candidate");
+  vi.mocked(destination).mockReturnValue({ repo: REPO, target: "main" });
+  vi.mocked(stage).mockReturnValue({ main: [], candidate: [], pending: [] });
+  vi.mocked(planMain).mockReturnValue(mainPlan());
+  vi.mocked(planCandidate).mockReturnValue(candidatePlan());
+  vi.mocked(declaredFields).mockReturnValue({});
+  vi.mocked(weakenings).mockReturnValue({ removed: [], weaker: [] });
+  vi.mocked(withLock).mockImplementation((_deps, _repo, action) => action());
+  vi.mocked(GitHubRulesets).mockImplementation(function () {
+    return asGitHub(github);
+  });
+  github.find.mockResolvedValue(undefined);
+  github.save.mockResolvedValue(undefined);
+  return { deps, github };
+}

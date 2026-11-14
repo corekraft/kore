@@ -2,28 +2,22 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { modeOf, readInventory } from "../guardrail/index.js";
 import {
   DECLARED_DIR,
-  candidateName,
   parseDeclared,
   planCandidate,
   planMain,
-  ruleName,
   stage,
-  typesOf,
 } from "./declared.js";
 import { GitHubError, GitHubRulesets } from "./github.js";
 import { withLock } from "./lock.js";
-import { destination } from "./support.js";
-import { declaredFields, weakenings } from "./weaken.js";
 import { syncRuleset } from "./sync.js";
+import { weakenings } from "./weaken.js";
 import {
   REPO,
   ROOT,
-  asGitHub,
+  armSync,
+  inventoryOf,
   candidatePlan as candidate,
   fakeContext,
-  fakeDeps,
-  fakeGitHub,
-  inventoryOf,
   mainPlan,
   type FakeDeps,
   type FakeGitHub,
@@ -49,45 +43,18 @@ vi.mock("./support.js");
 vi.mock("./weaken.js");
 
 const DECLARED = `${ROOT}/${DECLARED_DIR}/main.json`;
-const flags = (extra: Record<string, string | boolean> = {}) => ({
-  repo: REPO,
-  target: "main",
-  ...extra,
-});
 
 let deps: FakeDeps;
 let github: FakeGitHub;
 
 beforeEach(() => {
-  deps = fakeDeps();
-  github = fakeGitHub();
-  deps.fs.readFile.mockResolvedValue("{}");
-  vi.mocked(parseDeclared).mockReturnValue({ name: "main", rules: [] });
-  vi.mocked(readInventory).mockResolvedValue(
-    inventoryOf("main-ruleset-deletion"),
-  );
-  vi.mocked(modeOf).mockReturnValue("enforce");
-  vi.mocked(typesOf).mockReturnValue(["deletion"]);
-  vi.mocked(ruleName).mockImplementation(
-    (target, type) => `${target}-ruleset-${type}`,
-  );
-  vi.mocked(candidateName).mockReturnValue("main-candidate");
-  vi.mocked(destination).mockReturnValue({ repo: REPO, target: "main" });
-  vi.mocked(stage).mockReturnValue({ main: [], candidate: [], pending: [] });
-  vi.mocked(planMain).mockReturnValue(mainPlan());
-  vi.mocked(planCandidate).mockReturnValue(candidate());
-  vi.mocked(declaredFields).mockReturnValue({});
-  vi.mocked(weakenings).mockReturnValue({ removed: [], weaker: [] });
-  vi.mocked(withLock).mockImplementation((_deps, _repo, action) => action());
-  vi.mocked(GitHubRulesets).mockImplementation(function () {
-    return asGitHub(github);
-  });
-  github.find.mockResolvedValue(undefined);
-  github.save.mockResolvedValue(undefined);
+  ({ deps, github } = armSync());
 });
 
 const sync = (options: Record<string, string | boolean>, json = false) =>
-  syncRuleset(fakeContext(flags(options), deps, json));
+  syncRuleset(
+    fakeContext({ repo: REPO, target: "main", ...options }, deps, json),
+  );
 
 describe("syncRuleset reads the declared ruleset and refuses one it cannot use", () => {
   it("refuses a target the repository declares no file for, naming the directory", async () => {
@@ -115,7 +82,7 @@ describe("syncRuleset reads the declared ruleset and refuses one it cannot use",
   });
 
   it("refuses a declared rule with no guardrail inventory entry, naming the rule to add", async () => {
-    vi.mocked(readInventory).mockResolvedValue(inventoryOf());
+    vi.mocked(readInventory).mockResolvedValue({ guardrails: [] } as never);
     await expect(sync({ "dry-run": true })).rejects.toThrow(
       "The guardrail inventory has no main-ruleset-deletion rule, so the mode of the deletion rule is undeclared. Add it to .claude/guardrails.yaml (enforce if main already has the rule live, else audit), then rerun.",
     );
@@ -201,6 +168,9 @@ describe("syncRuleset refuses a change that weakens main, or that the operator h
 });
 
 describe("syncRuleset takes each rule's mode from the inventory", () => {
+  const byChecks = (_inventory: unknown, rule: string) =>
+    rule.endsWith("checks") ? "audit" : "enforce";
+
   it("reads the guardrail inventory through the file system, from the repository root", async () => {
     vi.mocked(readInventory).mockImplementation(async (readFile) => {
       await readFile("probe");
@@ -212,9 +182,7 @@ describe("syncRuleset takes each rule's mode from the inventory", () => {
   });
 
   it("hands staging a mode lookup that reads each rule's inventory entry", async () => {
-    vi.mocked(modeOf).mockImplementation((_inventory, rule) =>
-      rule.endsWith("checks") ? "audit" : "enforce",
-    );
+    vi.mocked(modeOf).mockImplementation(byChecks);
     await sync({ "dry-run": true });
     const [, modes] = vi.mocked(stage).mock.calls[0] ?? [];
     expect(modes?.("checks")).toBe("audit");
@@ -222,9 +190,7 @@ describe("syncRuleset takes each rule's mode from the inventory", () => {
   });
 
   it("keeps live main's audit rules when it judges the weakenings, beside the declared enforce rules", async () => {
-    vi.mocked(modeOf).mockImplementation((_inventory, rule) =>
-      rule.endsWith("checks") ? "audit" : "enforce",
-    );
+    vi.mocked(modeOf).mockImplementation(byChecks);
     vi.mocked(parseDeclared).mockReturnValue({
       name: "main",
       rules: [{ type: "deletion" }],
@@ -288,14 +254,12 @@ describe("syncRuleset saves the candidate first, then main, under the lock", () 
 });
 
 describe("syncRuleset explains a failed evaluate or a failed save", () => {
-  const evaluateRefused = (stderr: string) =>
-    new GitHubError("gh failed", stderr);
-
   it("says evaluate is unavailable on this plan, sends main nothing, and changes nothing", async () => {
     vi.mocked(planCandidate).mockReturnValue(candidate({ action: "create" }));
     vi.mocked(planMain).mockReturnValue(mainPlan({ action: "update", id: 7 }));
     github.save.mockRejectedValue(
-      evaluateRefused(
+      new GitHubError(
+        "gh failed",
         "HTTP 422: Enforcement 'evaluate' requires GitHub Enterprise",
       ),
     );
@@ -307,7 +271,10 @@ describe("syncRuleset explains a failed evaluate or a failed save", () => {
 
   it("rethrows a 422 that is not about evaluate, as the gh error it is", async () => {
     vi.mocked(planCandidate).mockReturnValue(candidate({ action: "create" }));
-    const failure = evaluateRefused("HTTP 422: Invalid property /rules/0");
+    const failure = new GitHubError(
+      "gh failed",
+      "HTTP 422: Invalid property /rules/0",
+    );
     github.save.mockRejectedValue(failure);
     await expect(sync({ confirm: true })).rejects.toBe(failure);
   });

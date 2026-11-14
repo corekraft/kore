@@ -42,6 +42,14 @@ const ruleset = (rules: Json[], change: Json = {}): Json => ({
   rules,
   ...change,
 });
+/** The live candidate ruleset, in evaluate unless told otherwise. */
+const candidateOf = (id: number | undefined, rules: Json[]): Json => ({
+  id,
+  ...declared,
+  name: "main-candidate",
+  rules,
+  enforcement: "evaluate",
+});
 
 describe("parseDeclared accepts only a ruleset object with a name and rules", () => {
   it("returns the body of a JSON object that has a name and a rules list", () => {
@@ -261,13 +269,7 @@ describe("planCandidate says what the candidate must hold in evaluate", () => {
   });
 
   it("does nothing when the live candidate already holds the same rules in evaluate", () => {
-    const live = {
-      id: 8,
-      ...declared,
-      name: "main-candidate",
-      rules: [CHECKS],
-      enforcement: "evaluate",
-    };
+    const live = candidateOf(8, [CHECKS]);
     expect(planCandidate(declared, [CHECKS], live)).toMatchObject({
       action: "none",
       id: 8,
@@ -275,13 +277,7 @@ describe("planCandidate says what the candidate must hold in evaluate", () => {
   });
 
   it("updates a live candidate whose rule parameters differ", () => {
-    const live = {
-      id: 8,
-      ...declared,
-      name: "main-candidate",
-      rules: [OLD],
-      enforcement: "evaluate",
-    };
+    const live = candidateOf(8, [OLD]);
     expect(planCandidate(declared, [CHECKS], live)).toMatchObject({
       action: "update",
       id: 8,
@@ -289,12 +285,7 @@ describe("planCandidate says what the candidate must hold in evaluate", () => {
   });
 
   it("refuses a live candidate without a numeric id", () => {
-    const live = {
-      id: undefined,
-      ...declared,
-      name: "main-candidate",
-      rules: [],
-    };
+    const live = candidateOf(undefined, []);
     expect(() => planCandidate(declared, [CHECKS], live)).toThrow(
       "GitHub returned the live ruleset main-candidate without a numeric id, so it cannot be updated.",
     );
