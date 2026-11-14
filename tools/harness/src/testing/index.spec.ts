@@ -52,6 +52,7 @@ vi.mock("./kb-support.js", () =>
     "usage",
   ),
 );
+vi.mock("./ledger-support.js", () => stubs("ledgerEvents"));
 vi.mock("./memory-filesystem-support.js", () =>
   stubs("MemoryFileSystem", "hasMatchUnder"),
 );
@@ -114,6 +115,7 @@ const EXPORTS = [
   "ISSUE",
   "LEDGER",
   "LOCK",
+  "ledgerEvents",
   "MemoryFs",
   "MemoryFileSystem",
   "NEW",

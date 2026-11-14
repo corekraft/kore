@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { Runner, RunOptions, RunResult } from "../runtime/index.js";
+import type { Runner, RunOptions, RunResult } from "../../src/runtime/index.js";
 
 export const oldCredentials = {
   push: { username: "kore-push", password: "old-push-password" },
