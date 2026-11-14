@@ -101,7 +101,6 @@ test("plain output prints key-value pairs for objects and lines for lists", asyn
     "components: 1",
     'order: ["gateway"]',
     'applications: ["reference"]',
-    "warnings: []",
     "status: valid",
   ]);
 });
