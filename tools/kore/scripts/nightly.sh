@@ -17,7 +17,8 @@
 #
 # Order: create the scratch overlay, purge any old profile, `local up`, check
 # platform status, `local up` again (must converge), run the suites (signer and lifecycle
-# last, they are destructive; the bare `test:live` is skipped), and only
+# last, they are destructive; the bare `test:live` and the measurement-only
+# suites in `excluded_suites` are skipped and named in the summary), and only
 # then purge and remove the overlay. The teardown is an EXIT trap, so it always
 # runs last, whatever failed. The job summary records duration and peak memory. A failing suite never
 # hides the ones after it: every suite runs, failures are named, and the exit
@@ -56,6 +57,7 @@ stage_limit="${KORE_NIGHTLY_STAGE_TIMEOUT:-45m}"
 kill_after="${KORE_NIGHTLY_KILL_AFTER:-60s}"
 environment=nightly
 failed=()
+skipped=()
 started=$SECONDS
 
 read -r -a kore_cmd <<<"${KORE_NIGHTLY_KORE:-mise exec -- npm --prefix tools/kore run --silent kore --}"
@@ -109,6 +111,9 @@ report_summary() {
   [ -s "$work/peak" ] && peak="$(cat "$work/peak") MiB"
   local text
   text="### nightly live proof ($environment)"$'\n'"- duration: ${duration}s"$'\n'"- peak memory: $peak"
+  if [ "${#skipped[@]}" -gt 0 ]; then
+    text="$text"$'\n'"- skipped (measurement-only): ${skipped[*]}"
+  fi
   printf '\n%s\n' "$text" >&2
   if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
     printf '%s\n' "$text" >>"$GITHUB_STEP_SUMMARY"
@@ -133,6 +138,7 @@ teardown() {
   report_summary
   rm -rf "$work"
   printf '\n== nightly summary\n' >&2
+  [ "${#skipped[@]}" -eq 0 ] || printf 'skipped: %s\n' "${skipped[@]}" >&2
   if [ "${#failed[@]}" -gt 0 ]; then
     printf 'failed: %s\n' "${failed[@]}" >&2
     exit 1
@@ -253,7 +259,18 @@ fi
 # image signed with the old one, so any suite after it that deploys that image
 # is denied; lifecycle destroys and recreates the cluster.
 destructive_suites=(test:live:signer test:live:lifecycle)
+# Measurement-only suites are never nightly suites: they measure the host, not
+# the platform, and need a host the runner is not (test:live:footprint reads the
+# macOS swap usage and fails on Linux; Linux support is debt #659). Add a future
+# measurement suite here deliberately; each one found is named in the summary.
+excluded_suites=(test:live:footprint)
 suites_all="$suites"
+for excluded in "${excluded_suites[@]}"; do
+  if printf '%s\n' "$suites_all" | grep -qxF "$excluded"; then
+    skipped+=("$excluded")
+  fi
+done
+suites_all="$(printf '%s\n' "$suites_all" | grep -vxF -f <(printf '%s\n' "${excluded_suites[@]}"))"
 suites="$(printf '%s\n' "$suites_all" | grep -E '^test:live:.' | grep -vxF -f <(printf '%s\n' "${destructive_suites[@]}"))"
 for destructive in "${destructive_suites[@]}"; do
   suites="$suites"$'\n'"$(printf '%s\n' "$suites_all" | grep -xF "$destructive")"
