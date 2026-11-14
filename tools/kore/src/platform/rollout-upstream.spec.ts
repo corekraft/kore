@@ -6,7 +6,7 @@ import {
   type Repository,
 } from "../config/index.js";
 import { rolloutProblems } from "./rollout-feasibility.js";
-import { renderChart, yamlDocuments } from "./upstream-support.js";
+import { renderChart, yamlDocuments } from "./upstream.live.js";
 
 // The environment schema declares no node count; local is a single k3d
 // server node. Read it from the config here once an environment can declare it.

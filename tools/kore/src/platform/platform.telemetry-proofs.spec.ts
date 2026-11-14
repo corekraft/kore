@@ -5,7 +5,7 @@ import { test } from "vitest";
 import { loadRepository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { platformStatus } from "./status.js";
-import { renderChart } from "./upstream-support.js";
+import { renderChart } from "./upstream.live.js";
 
 type Json = Record<string, any>; // oxlint-disable-line typescript/no-explicit-any
 
