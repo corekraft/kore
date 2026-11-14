@@ -1,4 +1,5 @@
 import type { CliDeps } from "../runtime/index.js";
+import { LEDGER } from "./flag-support.js";
 import { MemoryFileSystem } from "./memory-filesystem-support.js";
 import { FakeRunner } from "./runner-support.js";
 
@@ -46,4 +47,12 @@ export function harness(stdin = "", options: Options = {}) {
     stderr: (text) => err.push(text),
   };
   return { deps, fs, runner, out: () => out.join(""), err: () => err.join("") };
+}
+
+// A fake reader for the ledger a spec's file map holds: one JSON event per line.
+export function ledgerEvents(files: Map<string, string>) {
+  return (files.get(LEDGER) ?? "")
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as Record<string, unknown>);
 }

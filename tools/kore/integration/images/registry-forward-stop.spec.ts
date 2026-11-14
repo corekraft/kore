@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
-import { loadRepository } from "../config/index.js";
-import { stopRegistryForward } from "./registry.js";
+import { loadRepository } from "../../src/config/index.js";
+import { stopRegistryForward } from "../../src/images/index.js";
 
 test("stops the kore registry port-forward for this context only, idempotently", async () => {
   const repository = await loadRepository("local");

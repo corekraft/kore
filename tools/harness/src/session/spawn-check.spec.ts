@@ -5,12 +5,14 @@ import { contextOf, fakeDeps, type FakeDeps } from "./deps-support.js";
 import { hostLeaseRefusal } from "./host-lease.js";
 import { sessionNameError } from "./names.js";
 import { FAILED, USAGE_ERROR } from "./output.js";
+import { spawnLoadRefusal } from "./spawn-load.js";
 import { check } from "./spawn-check.js";
 import { findResult, parseTimeout } from "./wait.js";
 
 vi.mock("./agent-definition.js");
 vi.mock("./host-lease.js");
 vi.mock("./names.js");
+vi.mock("./spawn-load.js");
 vi.mock("./wait.js");
 
 const BRIEF_MARKER =
@@ -41,6 +43,7 @@ beforeEach(() => {
   vi.mocked(findResult).mockReturnValue(undefined);
   vi.mocked(parseTimeout).mockReturnValue(60_000);
   vi.mocked(hostLeaseRefusal).mockResolvedValue(undefined);
+  vi.mocked(spawnLoadRefusal).mockReturnValue(undefined);
   vi.mocked(resolveTier).mockResolvedValue({
     model: "claude-sonnet-5-5",
     effort: "high",
@@ -157,6 +160,21 @@ describe("check reads the timeout and the caller", () => {
     vi.mocked(hostLeaseRefusal).mockClear();
     await check(request());
     expect(hostLeaseRefusal).not.toHaveBeenCalled();
+  });
+
+  it("refuses a writer while the host load is above its ceiling, and never checks the load for a reader", async () => {
+    const refusal =
+      "The host 1-minute load average is 44.50, above KORE_SPAWN_MAX_LOAD=20, so a new writer would add load to a busy host. Wait for the load to fall and spawn again, or raise KORE_SPAWN_MAX_LOAD (or unset it) to override. No session was started.";
+    vi.mocked(spawnLoadRefusal).mockReturnValue(refusal);
+
+    await expect(
+      check(request({ role: "writer", worktree: true })),
+    ).resolves.toEqual({ error: refusal, code: FAILED });
+    expect(spawnLoadRefusal).toHaveBeenCalledWith(deps);
+
+    vi.mocked(spawnLoadRefusal).mockClear();
+    await check(request());
+    expect(spawnLoadRefusal).not.toHaveBeenCalled();
   });
 });
 

@@ -199,6 +199,12 @@
           }
         ]
       }
+    },
+    {
+      "files": ["**/src/testing/index.ts"],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
     }
   ]
 }

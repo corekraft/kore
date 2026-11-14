@@ -1,12 +1,10 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import { verifyLockedImageArgs } from "../app/index.js";
-import {
-  k3dImagePublishArgs,
-  k3dRegistrySessionArgs,
-  localSignArgs,
-} from "./local-image-args.js";
+import { verifyLockedImageArgs } from "../../src/app/index.js";
+import { loadRepository } from "../../src/config/index.js";
+import type { Runner } from "../../src/runtime/index.js";
+import { localSignArgs, publishImageCopy } from "../../src/images/index.js";
 
 // Docs: docs/decisions/0058-registry-transport-tls.md
 
@@ -17,12 +15,31 @@ const image = {
   signer: "local-kore-key",
 };
 
-test("no node command skips TLS verification or allows plain HTTP", () => {
-  const all = [
-    ...k3dImagePublishArgs("p", "t", "10.96.0.50:5000", "x:y", "CA"),
-    ...k3dRegistrySessionArgs("p", "10.96.0.50:5000", "CA", ["ctr pull x"]),
-  ].join(" ");
-  expect(all).not.toMatch(/insecure|allow-http|skip[-_]verify|plain-?http/i);
+test("no node command the publish path runs skips TLS verification or allows plain HTTP", async () => {
+  const repository = await loadRepository("local");
+  const calls: string[][] = [];
+  const runner: Runner = {
+    run: async (_command, args) => {
+      calls.push([...args]);
+      return { stdout: "", stderr: "", code: 0 };
+    },
+  };
+
+  await publishImageCopy(
+    repository,
+    runner,
+    { tag: "x:y", address: "10.96.0.50:5000", target: "x:y" },
+    {
+      credential: { username: "kore-push", password: "p" },
+      ca,
+    },
+  );
+
+  expect(calls).toHaveLength(1);
+  expect(calls.flat().join(" ")).toContain("10.96.0.50:5000");
+  expect(calls.flat().join(" ")).not.toMatch(
+    /insecure|allow-http|skip[-_]verify|plain-?http/i,
+  );
 });
 
 test("cosign sign and verify carry the registry CA and never allow HTTP", () => {
