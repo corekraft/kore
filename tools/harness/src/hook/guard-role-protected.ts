@@ -3,10 +3,11 @@
 // ships. These are hints, not a boundary (ADR 0091): each check is a cheap match over
 // path-like words and the file tools' path fields. Known limits, not chased: a path or
 // command built through a variable or a `cd`, and a writer editing tools/harness/src/hook.
-import { posix, isAbsolute, join, relative, resolve } from "node:path";
+import { posix, isAbsolute, relative, resolve } from "node:path";
 import { runsInline } from "./guard-role-delivery.js";
 import * as links from "./guard-role-links.js";
 import { expand, withSubstitutions } from "./guard-role-merge.js";
+import { isHookTest, stagesHookTest, UNRESOLVED } from "./guard-role-stage.js";
 import {
   redirectTargets,
   removal,
@@ -196,24 +197,6 @@ const gated = (what: string): Finding =>
       "Instead, report that it is ready, and the orchestrator or the person runs it.",
   );
 
-/** A hook's test file: a literal name directly in `.claude/hooks` that ends `.test.mjs`. Writers may change these (#440, ADR 0100). */
-const HOOK_TEST = /^\.claude\/hooks\/[A-Za-z0-9_][A-Za-z0-9_.-]*\.test\.mjs$/;
-/** A word the guard cannot resolve by reading it: a climb, glob, variable or brace. */
-const UNRESOLVED = /\.\.|[*$?[{}]/;
-
-/** Whether a word is a regular hook test file by its literal name: no glob, variable, substitution, climb or brace, and nothing on disk that is a symlink or folder. */
-function isHookTest(root: string, word: string, exists = false): boolean {
-  if (isAbsolute(word) && UNRESOLVED.test(word)) {
-    return false;
-  }
-  const inside = isAbsolute(word) ? relative(root, word) : word;
-  const onDisk = join(root, inside);
-  return (
-    HOOK_TEST.test(inside) &&
-    (exists ? links.isRegularFile(onDisk) : !links.isLinkOrFolder(onDisk))
-  );
-}
-
 /** A word as a path inside the worktree, lower-cased: the disk may ignore case (macOS), so `.claude/HOOKS` is the hooks folder. */
 const insideOf = (root: string, word: string): string =>
   (isAbsolute(word) ? relative(root, word) : word).toLowerCase();
@@ -254,7 +237,7 @@ function writesGuardPath(root: string, line: readonly string[]): boolean {
 /** Characters that chain, pipe, redirect or substitute: a call with any is not one plain command. */
 const COMPOUND = /[&;|<>`\n$(#]/;
 
-/** Whether a call is exactly one plain command that moves hook tests out of `.claude`, or removes them: `git mv <hook tests> <destination outside the guard>`, `git rm <hook tests>`, or `rm [-f] <hook tests>`. This is the only Bash that may name a hook test (#440, ADR 0100); nothing in Bash can place a file under a test name. */
+/** Whether a call is exactly one plain command that moves hook tests out of `.claude`, or removes them: `git mv <hook tests> <destination outside the guard>`, `git rm <hook tests>`, or `rm [-f] <hook tests>`. With `stagesHookTest` (guard-role-stage.ts, #576), these are the only Bash calls that may name a hook test (#440, ADR 0100); nothing in Bash can place a file under a test name. */
 function removesHookTests(root: string, command: string): boolean {
   // One segment whose first word is literally `git` or `rm`: no wrapper, assignment or path in the name.
   const segments = splitSegments(command);
@@ -350,7 +333,7 @@ export function checkProtected(
   if (tool !== "Bash" || typeof command !== "string") {
     return null;
   }
-  if (removesHookTests(root, command)) {
+  if (removesHookTests(root, command) || stagesHookTest(root, command)) {
     return null;
   }
   const lines = linesOf(command);
