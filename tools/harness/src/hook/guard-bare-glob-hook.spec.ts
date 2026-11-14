@@ -40,6 +40,14 @@ describe("hook guard bare glob resolves from the call's directory", () => {
     expect(result.out).toBe("");
   });
 
+  it("is silent when a cd in the command moves the glob to where it matches", async () => {
+    const result = await guard(
+      { ...bare("/repo"), tool_input: { command: "cd wt && ls infra/*.yaml" } },
+      ["/repo/wt/infra/a.yaml"],
+    );
+    expect(result.out).toBe("");
+  });
+
   it("resolves from the project root when the payload carries no directory", async () => {
     const result = await guard(bare(), ["/repo/infra/a.yaml"]);
     expect(result.out).toBe("");

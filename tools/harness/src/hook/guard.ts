@@ -55,7 +55,6 @@ export async function guard(
   // Recording runs beside the rules, so resolving the ledger root never adds to the guard's latency.
   const started = recordEvent(deps, "tool.start", call);
   const readFile = (path: string) => deps.fs.readFile(path);
-  // Globs resolve from the call's directory, as the shell runs them; the root when the payload has none.
   // Fail closed: with no usable inventory every rule enforces, and the cause is named.
   let inventory: Inventory | undefined;
   let problem = "";
@@ -69,9 +68,11 @@ export async function guard(
   }
   const verdict = await evaluate(payload, {
     root,
+    cwd: callDirectory(call, root),
     readFile,
-    globMatches: (pattern) =>
-      deps.fs.hasGlobMatch(callDirectory(call, root), pattern),
+    // Globs resolve from the directory the command runs in, as the shell runs them; the call's when none is given.
+    globMatches: (pattern, directory) =>
+      deps.fs.hasGlobMatch(directory ?? callDirectory(call, root), pattern),
     modeOf: (rule) => (inventory ? modeOf(inventory, rule) : "enforce"),
     denyRules: inventory ? denyRules(inventory) : [],
   });

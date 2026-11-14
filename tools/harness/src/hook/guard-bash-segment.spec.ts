@@ -59,6 +59,7 @@ const hit = (rule: string): Hit => ({ action: "block", rule, message: rule });
 const ctx: GuardContext = {
   root: "/repo",
   readFile: () => Promise.reject(new Error("no file in this unit")),
+  cwd: "/repo",
   globMatches: () => Promise.resolve(false),
   modeOf: () => "enforce",
   denyRules: [],

@@ -3,6 +3,7 @@
 // that matches is expanded as the author meant, and stays silent. A glob
 // character in a pattern argument is data, not a path, and stays silent too.
 // Audit mode.
+import { posix } from "node:path";
 import {
   commandOf,
   rawSegments,
@@ -17,11 +18,70 @@ const WALKABLE = (pattern: string): boolean =>
   !/^(\/|~|\.\.)/.test(pattern) && !pattern.includes("**");
 
 // An audit rule never changes a verdict: a match that fails counts as unmatched.
-async function matches(ctx: GuardContext, pattern: string): Promise<boolean> {
+async function matches(
+  ctx: GuardContext,
+  pattern: string,
+  directory: string,
+): Promise<boolean> {
   if (!WALKABLE(pattern)) {
     return false;
   }
-  return ctx.globMatches(pattern).catch(() => false);
+  return ctx.globMatches(pattern, directory).catch(() => false);
+}
+
+// A cd target the rule cannot resolve: a variable, a command substitution, ~, or an option such as -.
+const UNKNOWN_TARGET = /[$~`]|^-/;
+
+/** The directory after a cd: an absolute target replaces it, a relative one resolves from it. */
+function afterCd(
+  directory: string | undefined,
+  target: string | undefined,
+): string | undefined {
+  if (target === undefined || UNKNOWN_TARGET.test(target)) {
+    return undefined;
+  }
+  if (target.startsWith("/")) {
+    return posix.resolve(target);
+  }
+  return directory === undefined
+    ? undefined
+    : posix.resolve(directory, target);
+}
+
+interface LocatedGlob {
+  readonly word: RawWord;
+  readonly directory: string;
+}
+
+/**
+ * The globs whose directory is known, each with the directory the shell runs it in: the call's,
+ * moved by each literal cd in the segments before it. A cd in a subshell is not followed.
+ */
+function globsIn(
+  segments: readonly RawWord[][],
+  cwd: string,
+  subshell: boolean,
+  patterns: ReadonlySet<RawWord>,
+): LocatedGlob[] {
+  let directory: string | undefined = cwd;
+  const globs: LocatedGlob[] = [];
+  for (const segment of segments) {
+    for (const word of segment) {
+      if (
+        directory !== undefined &&
+        word.glob &&
+        !word.text.includes("${") &&
+        !patterns.has(word)
+      ) {
+        globs.push({ word, directory });
+      }
+    }
+    const { name, args } = commandOf(segment.map((word) => word.text));
+    if (name === "cd") {
+      directory = subshell ? undefined : afterCd(directory, args[0]);
+    }
+  }
+  return globs;
 }
 
 // Commands whose first non-option argument is a pattern, not a path (`git grep` included).
@@ -133,15 +193,11 @@ export async function bareGlob(
   const text = shellText(command).replace(/\$?\(\([^)]*\)\)/g, "");
   const segments = rawSegments(text);
   const patterns = patternWords(segments);
-  const globs = segments
-    .flat()
-    .filter(
-      (word) => word.glob && !word.text.includes("${") && !patterns.has(word),
-    );
+  const globs = globsIn(segments, ctx.cwd, text.includes("("), patterns);
   const matched = await Promise.all(
-    globs.map((glob) => matches(ctx, glob.text)),
+    globs.map((glob) => matches(ctx, glob.word.text, glob.directory)),
   );
-  const unmatched = globs.find((_glob, index) => !matched[index]);
+  const unmatched = globs.find((_glob, index) => !matched[index])?.word;
   return unmatched
     ? warn(
         "bare-glob",
