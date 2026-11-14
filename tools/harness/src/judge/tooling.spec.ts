@@ -73,6 +73,22 @@ describe("isTooling: paths", () => {
   });
 });
 
+describe("isTooling: the PR declaration workflow", () => {
+  it("is tooling for the exact workflow file", () => {
+    expect(isTooling(file(".github/workflows/pr-declaration.yml"))).toBe(true);
+  });
+
+  it.each([
+    ".github/workflows/deploy.yml",
+    ".github/workflows/pr-declaration.yaml",
+    ".github/workflows/pr-declaration.yml.bak",
+    ".github/workflows/nested/pr-declaration.yml",
+    "docs/.github/workflows/pr-declaration.yml",
+  ])("%s is product", (path) => {
+    expect(isTooling(file(path))).toBe(false);
+  });
+});
+
 describe("isTooling: live helpers", () => {
   it.each([
     "tools/kore/src/platform/gateway-cluster.live.ts",

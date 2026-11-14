@@ -89,6 +89,7 @@ test("the config barrel exposes exactly the entry points other domains use", () 
     "crdOwners",
     "enabledComponents",
     "evaluateAudit",
+    "exemptionCheckMode",
     "exists",
     "expandVersions",
     "featureEnabled",
