@@ -417,6 +417,18 @@ else the owner login (`ownerLogin`, else the repository's owner). A verdict from
 any other login is unverified. `--reviewer <login>[,<login>]` overrides both, and
 `harness judge precheck` prints the reviewers it used in its text and JSON output.
 
+`harness judge precheck` also refuses to run when its harness bundle is behind
+`origin/main` for `tools/harness`: the build stamps the bundle with its commit,
+and the precheck asks GitHub's compare API whether main changed a file under
+`tools/harness` since. It names the fix (update the worktree, `mise run
+harness-build`). When GitHub cannot compare (no stamp, an unpushed commit, no
+network) it only warns.
+
+The `pr-declaration` workflow audits every PR body with `harness judge
+declaration` (the body on stdin): exactly one valid `Safety pattern:` line, and
+it is the last line. It is an audit; a failure annotates the run and does not
+turn the check red. Making it required is a ruleset change for the owner.
+
 A contract step (`expand-contract`, a diff that removes lines) passes once its
 expand step is proven (ADR 0107). The PR body names the merged expand PR on
 `Expand step: #<number>`, and the idea issue carries a comment from a trusted

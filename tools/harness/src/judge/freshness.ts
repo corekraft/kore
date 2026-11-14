@@ -1,6 +1,5 @@
 export type Freshness =
-  | { state: "current" }
-  | { state: "behind" | "unknown"; message: string };
+  { state: "current" } | { state: "behind" | "unknown"; message: string };
 
 const CHANGED_HARNESS_FILES =
   '[.files[].filename | select(startswith("tools/harness/"))] | length';

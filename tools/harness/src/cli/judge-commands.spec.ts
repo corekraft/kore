@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { precheck, summary } from "../judge/index.js";
 import { contextWith } from "./command-support.js";
 import { judgeCommands } from "./judge-commands.js";
+import { declarationCommands } from "./judge-declaration-command.js";
 import { approveCommands } from "./judge-approve-command.js";
 import { mergeCommands } from "./judge-merge-commands.js";
 import {
@@ -17,6 +18,9 @@ import { requireFreshBundle } from "./judge-freshness.js";
 
 vi.mock("../judge/index.js");
 vi.mock("./judge-freshness.js");
+vi.mock("./judge-declaration-command.js", () => ({
+  declarationCommands: { declaration: { summary: "declaration" } },
+}));
 vi.mock("./judge-approve-command.js", () => ({
   approveCommands: { approve: { summary: "approve" } },
 }));
@@ -129,8 +133,15 @@ describe("harness judge precheck", () => {
 describe("judge command table", () => {
   it("lists the precheck and the merge commands, taking the merge table unchanged", () => {
     expect(Object.keys(judgeCommands)).toEqual(
-      expect.arrayContaining(["precheck", "approve", "merge", "send-back"]),
+      expect.arrayContaining([
+        "precheck",
+        "declaration",
+        "approve",
+        "merge",
+        "send-back",
+      ]),
     );
+    expect(judgeCommands.declaration).toBe(declarationCommands.declaration);
     expect(judgeCommands.approve).toBe(approveCommands.approve);
     expect(judgeCommands.merge).toBe(mergeCommands.merge);
     expect(judgeCommands["send-back"]).toBe(mergeCommands["send-back"]);
