@@ -67,6 +67,24 @@ export function repoRoot(
   return root;
 }
 
+/** One guard block location in `guardEvidence`: the session, its transcript line and an excerpt. */
+export interface RetroEvidence {
+  session: string;
+  line: number;
+  excerpt: string;
+}
+
+/** The fields of a `harness hook retro-scan` report that the integration specs read. */
+export interface RetroReport {
+  guards: Record<string, { blocks: number; warnings: number }>;
+  guardEvidence?: Record<string, RetroEvidence[]>;
+}
+
+/** Parses the JSON a `retro-scan` run printed; the one narrowing for the report shape. */
+export function parseReport(out: string): RetroReport {
+  return JSON.parse(out) as RetroReport;
+}
+
 export async function retro(root: string, args: string[], home = temp()) {
   const h = testHarness({ env: { HOME: home } });
   h.deps.fs = nodeFileSystem;
