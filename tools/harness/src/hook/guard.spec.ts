@@ -44,7 +44,10 @@ const EMPTY: Inventory = { guardrails: [] };
 
 /** Typed CliDeps for one run: the env and cwd the root comes from, and a file system whose reads are mocks. */
 function fakeDeps(
-  env: Record<string, string> = { CLAUDE_PROJECT_DIR: "/repo" },
+  env: Record<string, string> = {
+    CLAUDE_PROJECT_DIR: "/repo",
+    HOME: "/home/test",
+  },
 ) {
   const fs = {
     readFile: vi.fn((_path: string) => Promise.resolve("")),
@@ -220,6 +223,13 @@ describe("guard inventory", () => {
     expect(denyRules).toHaveBeenCalledWith(EMPTY);
     await ctx?.globMatches("*.ts");
     expect(fs.hasGlobMatch).toHaveBeenCalledWith("/work", "*.ts");
+  });
+
+  it("gives the rules the home directory from the environment, for expanding a leading ~", async () => {
+    vi.mocked(findInventory).mockResolvedValue(EMPTY);
+    const { deps } = fakeDeps();
+    await guard({}, deps);
+    expect(vi.mocked(evaluate).mock.calls[0]?.[1].home).toBe("/home/test");
   });
 
   it("reads a glob from the directory the rule names, and the call's directory when it names none", async () => {
