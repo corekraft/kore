@@ -13,6 +13,13 @@ export {
   NEW as ADR_NEW,
 } from "./adr-support.js";
 export { testHarness, type TestHarness } from "./cli-support.js";
+export {
+  INSIDE,
+  gitCommon,
+  herdrCalls,
+  layoutOf,
+  stateFile,
+} from "./session-close-support.js";
 export { MemoryFileSystem as RootedMemoryFileSystem } from "./filesystem-support.js";
 export {
   OVERLAY,
@@ -36,13 +43,6 @@ export {
   type Result,
 } from "./guard-support.js";
 export { cleanGitEnv } from "./git-env.js";
-export {
-  INSIDE,
-  gitCommon,
-  herdrCalls,
-  layoutOf,
-  stateFile,
-} from "./close-session-support.js";
 export {
   committedInventory,
   committedInventoryText,

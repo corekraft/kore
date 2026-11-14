@@ -85,7 +85,7 @@ describe("the session domain's command set", () => {
   it.each([
     ["wait", "name", { timeout: "string" }],
     ["notify", "pane", { outcome: "string" }],
-    ["close", "name", undefined],
+    ["close", "name", { "remove-worktree": "boolean" }],
     ["tier", "role", undefined],
   ])("takes the operand and flags %s declares", (name, operand, options) => {
     expect(session[name]?.operand).toBe(operand);

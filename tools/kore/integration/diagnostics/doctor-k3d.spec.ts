@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { loadRepository } from "../config/index.js";
-import { doctor, doctorFailed } from "./doctor.js";
-import type { Runner } from "../runtime/index.js";
+import { loadRepository } from "../../src/config/index.js";
+import { doctor, doctorFailed } from "../../src/diagnostics/index.js";
+import type { Runner } from "../../src/runtime/index.js";
 
 interface Cluster {
   serversCount: number;

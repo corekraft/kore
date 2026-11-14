@@ -10,4 +10,3 @@ spawn-support.ts
 spawn.ts
 tier.ts
 wait.ts
-worktree.ts

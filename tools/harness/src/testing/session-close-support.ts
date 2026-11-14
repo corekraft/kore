@@ -1,10 +1,7 @@
-import type { TestHarness } from "./cli-support.js";
 import type { FakeResponse } from "./runner-support.js";
+import type { testHarness } from "./cli-support.js";
 
-// Fixtures for the session close integration spec: the same answers the unit
-// session specs give, kept in the testing domain so the spec imports only the
-// testing barrel.
-
+/** The environment of a pane inside Herdr, as the caller pane w3:p1. */
 export const INSIDE = { HERDR_ENV: "1", HERDR_PANE_ID: "w3:p1" };
 
 const pane = (id: string, x: number, y: number) => ({
@@ -12,14 +9,13 @@ const pane = (id: string, x: number, y: number) => ({
   rect: { x, y, width: 100, height: 10 },
 });
 
-export const layoutOf = (
-  ...panes: ReturnType<typeof pane>[]
-): FakeResponse => ({
+/** What `herdr pane layout` shows for the caller's column. */
+export const layoutOf = (): FakeResponse => ({
   match: (_c, a) => a[1] === "layout",
   result: {
     stdout: JSON.stringify({
       result: {
-        layout: { panes: [pane("w3:p1", 0, 0), ...panes], splits: [] },
+        layout: { panes: [pane("w3:p1", 0, 0)], splits: [] },
       },
     }),
   },
@@ -35,7 +31,8 @@ export const gitCommon: FakeResponse = {
 export const stateFile = (name: string): string =>
   `/main/.kore/state/sessions/${name}.json`;
 
-export function herdrCalls(h: TestHarness): string[] {
+/** The herdr commands a test ran, as `herdr <args>` lines. */
+export function herdrCalls(h: ReturnType<typeof testHarness>): string[] {
   return h.runner.calls
     .filter((c) => c.command === "herdr")
     .map((c) => `${c.command} ${c.args.join(" ")}`);

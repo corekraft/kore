@@ -10,6 +10,9 @@ import {
 } from "./judge-shared.js";
 import { mergeCommands } from "./judge-merge-commands.js";
 
+/** `harness review post`: the principles-review verdict, in the format the judge's precheck reads. */
+export { reviewCommands } from "./review-commands.js";
+
 const USAGE =
   "Run `harness judge precheck <pr> [--json] [--reviewer <login>[,<login>]]`.";
 

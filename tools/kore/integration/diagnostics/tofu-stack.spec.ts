@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, test } from "vitest";
-import { findRoot } from "../config/index.js";
+import { findRoot } from "../../src/config/index.js";
 
 // Offline proof that every OpenTofu stack pins OpenTofu and each provider to an
 // exact version (AGENTS.md: pin everything), and declares no backend or
