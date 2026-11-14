@@ -2,7 +2,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import { judge } from "./lock-recovery.js";
+import { judge } from "../../src/runtime/index.js";
 
 const probes = { isAlive: () => true, bootTime: () => 0 };
 
