@@ -4,8 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, expect, test, vi } from "vitest";
 import { assertExpectedCluster } from "../cluster/index.js";
-import { isLocalProvider, type Repository } from "../config/index.js";
-import { CommandError, type Runner } from "../runtime/index.js";
+import { isLocalProvider } from "../config/index.js";
+import { CommandError } from "../runtime/index.js";
+import { errno, fakeRepository, fakeRunner } from "./security-support.js";
 import {
   installLocalTrust,
   issuerManifest,
@@ -35,31 +36,7 @@ const gatewayNamespace =
 const certManagerNamespace =
   "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: cert-manager\n";
 
-const repository = {
-  root: "/repo",
-  environment: {
-    name: "local",
-    provider: "k3d",
-    kubeContext: "k3d-kore-local",
-    gateway: { namespace: "kore-system" },
-  },
-} as unknown as Repository;
-
-function errno(code: string): NodeJS.ErrnoException {
-  return Object.assign(new Error(code), { code });
-}
-
-/** A typed runner whose replies depend on the command and its arguments. */
-function fakeRunner(
-  stdout: (command: string, args: readonly string[]) => string = () => "",
-) {
-  const run = vi.fn<Runner["run"]>(async (command, args) => ({
-    stdout: stdout(command, args),
-    stderr: "",
-    code: 0,
-  }));
-  return { runner: { run } as Runner, run };
-}
+const repository = fakeRepository();
 
 /** mkcert reports the CA root; kubectl prints the CA secret it builds. */
 function trustReply(command: string, args: readonly string[]): string {
@@ -258,9 +235,7 @@ test("local trust refuses a managed environment before any command runs", async 
 });
 
 test("removing trust artifacts deletes only the temporary CA directory of the selected environment", async () => {
-  await removeLocalTrustArtifacts({
-    environment: { name: "local" },
-  } as unknown as Repository);
+  await removeLocalTrustArtifacts(fakeRepository());
   expect(rm).toHaveBeenCalledWith("/tmp/kore-ca-local", {
     recursive: true,
     force: true,

@@ -151,10 +151,12 @@ see [The harness bundle](#the-harness-bundle).
     ones (`node:path`) are automocked the same way.
   - The process runner is a typed object: `fakeRunner()` wraps
     `vi.fn<Runner["run"]>` and replies from the command and its arguments.
-    Fakes and fixtures a spec shares go in `<name>-support.ts` beside it (not a
-    unit, so no spec of its own); a spec and its support file stay under 300
-    lines, and each test under 70. Assert the whole `run.mock.calls` list, so a
-    missing or extra command fails.
+    Fakes shared by a domain's specs go in one domain-level `<domain>-support.ts`
+    (not a unit, so no spec of its own), with `fakeRepository()` for the
+    repository. Fixtures only one spec uses go in `<name>-support.ts` beside it.
+    Each spec and each support file stays under 300 lines (`max-lines`), and
+    each test function under 70 (`max-lines-per-function`). Assert the whole
+    `run.mock.calls` list, so a missing or extra command fails.
   - Errors from a real error class (`CommandError`) stay real; construct them
     and reject with them.
   - Time: `vi.useFakeTimers({ toFake: ["Date"] })` and `vi.setSystemTime`, then

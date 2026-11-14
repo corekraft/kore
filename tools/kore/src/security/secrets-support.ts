@@ -1,8 +1,7 @@
-// Shared fakes and fixtures for the secrets unit spec (secrets.spec.ts). A support
-// file is not a unit, so it needs no spec of its own (ADR 0098).
+// Fixtures for the secrets unit spec (secrets.spec.ts). Shared fakes live in
+// security-support.ts. A support file is not a unit, so it needs no spec (ADR 0098).
 import { vi } from "vitest";
-import type { Repository } from "../config/index.js";
-import type { Runner } from "../runtime/index.js";
+import type { Run } from "./security-support.js";
 
 export const NOW = "2026-11-13T10:00:00.000Z";
 export const TOKEN = "ab".repeat(32);
@@ -13,34 +12,6 @@ export const CONTEXT = "k3d-kore-local";
 export const STATE_DIR = "/repo/.kore/state/environments/local";
 export const TOKEN_PATH = `${STATE_DIR}/reference-api-token`;
 export const SECRETS_DIR = "/repo/infra/environments/local/secrets";
-
-export const repository = {
-  root: "/repo",
-  environment: {
-    name: "local",
-    provider: "k3d",
-    kubeContext: CONTEXT,
-    secrets: { sourceNamespace: NAMESPACE },
-  },
-} as unknown as Repository;
-
-export type Run = Runner["run"];
-
-export function errno(code: string): NodeJS.ErrnoException {
-  return Object.assign(new Error(code), { code });
-}
-
-/** A typed runner whose replies depend on the command and its arguments. */
-export function fakeRunner(
-  stdout: (command: string, args: readonly string[]) => string = () => "",
-) {
-  const run = vi.fn<Run>(async (command, args) => ({
-    stdout: stdout(command, args),
-    stderr: "",
-    code: 0,
-  }));
-  return { runner: { run } as Runner, run };
-}
 
 /** The cluster as the sync sees it: whether the source and the ExternalSecret exist. */
 export function cluster({

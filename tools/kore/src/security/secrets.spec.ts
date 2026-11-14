@@ -7,6 +7,7 @@ import { assertExpectedCluster } from "../cluster/index.js";
 import { isLocalProvider } from "../config/index.js";
 import { environmentStatePath } from "../runtime/index.js";
 import { syncLocalSecrets } from "./secrets.js";
+import { errno, fakeRepository, fakeRunner } from "./security-support.js";
 import {
   CONTEXT,
   NAMESPACE,
@@ -18,12 +19,11 @@ import {
   TOKEN,
   TOKEN_PATH,
   cluster,
-  errno,
-  fakeRunner,
   referenceSecret,
-  repository,
   sourceApplies,
 } from "./secrets-support.js";
+
+const repository = fakeRepository();
 
 vi.mock("node:fs/promises");
 vi.mock("node:crypto");
