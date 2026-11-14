@@ -166,7 +166,7 @@ describe("the spawn-session skill", () => {
 describe("the principles-review agent", () => {
   const agent = read(".claude/agents/principles-review.md");
 
-  it("ends its report with the exact review post command, not a hand-written gh comment", () => {
+  it("names the exact review post command, not a hand-written gh comment", () => {
     expect(agent).toContain("node skills/bin/harness.mjs review post <pr>");
     expect(agent).toContain("never a hand-written `gh pr comment`");
   });
