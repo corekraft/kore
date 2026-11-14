@@ -34,6 +34,17 @@ it("runs the guard-bundle startup spec from the harness integration config", asy
   ).toBe(true);
 });
 
+it("runs the integration tier one file at a time, with the hook-case timeout", async () => {
+  const { default: config } = (await import(
+    join(harness, "vitest.integration.config.ts")
+  )) as {
+    default: { test: { fileParallelism?: boolean; testTimeout?: number } };
+  };
+
+  expect(config.test.fileParallelism).toBe(false);
+  expect(config.test.testTimeout).toBe(60_000);
+});
+
 it("moves the guard-bundle startup spec out of tests/, and out of the default bundle run", async () => {
   expect(existsSync(join(harness, "tests/guard-bundle.spec.ts"))).toBe(false);
   expect(existsSync(join(harness, "integration/guard-bundle.spec.ts"))).toBe(
