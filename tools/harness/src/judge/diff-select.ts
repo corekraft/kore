@@ -16,23 +16,28 @@ export interface FileStat {
   removed: number;
 }
 
-/** A glob as a regex: `**` crosses slashes, `*` and `?` stay inside one path part, anything else is literal. */
-function globToRegExp(glob: string): RegExp {
-  let source = "";
-  for (let at = 0; at < glob.length; at += 1) {
-    const char = glob.charAt(at);
-    if (char === "*" && glob.charAt(at + 1) === "*") {
-      source += ".*";
-      at += 1;
-    } else if (char === "*") {
-      source += "[^/]*";
-    } else if (char === "?") {
-      source += "[^/]";
-    } else {
-      source += char.replace(/[.+^${}()|[\]\\]/g, "\\$&");
-    }
+/** Whether a glob matches a whole path: `**` crosses slashes, `*` and `?` stay inside one path part, anything else is literal. */
+function matches(glob: string, path: string): boolean {
+  if (glob === "") {
+    return path === "";
   }
-  return new RegExp(`^${source}$`);
+  if (glob.startsWith("**")) {
+    const rest = glob.slice(2);
+    return Array.from({ length: path.length + 1 }, (_, at) => at).some((at) =>
+      matches(rest, path.slice(at)),
+    );
+  }
+  if (glob.startsWith("*")) {
+    const rest = glob.slice(1);
+    const part = path.indexOf("/");
+    const reach = part === -1 ? path.length : part;
+    return Array.from({ length: reach + 1 }, (_, at) => at).some((at) =>
+      matches(rest, path.slice(at)),
+    );
+  }
+  const next = path.charAt(0);
+  const same = glob.startsWith("?") ? next !== "/" : next === glob.charAt(0);
+  return path !== "" && same && matches(glob.slice(1), path.slice(1));
 }
 
 /** The diff cut at each `diff --git` header, one section per file, in order. */
@@ -53,12 +58,12 @@ function sections(text: string): Section[] {
 
 /** The sections a glob list keeps: all of them for an empty list, else those whose new or old path matches a glob. */
 function chosen(text: string, globs: readonly string[]): Section[] {
-  const patterns = globs.map(globToRegExp);
   return sections(text).filter(
     (section) =>
-      patterns.length === 0 ||
-      patterns.some(
-        (re) => re.test(section.path) || re.test(section.previousPath),
+      globs.length === 0 ||
+      globs.some(
+        (glob) =>
+          matches(glob, section.path) || matches(glob, section.previousPath),
       ),
   );
 }

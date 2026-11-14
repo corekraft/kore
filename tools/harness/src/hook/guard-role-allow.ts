@@ -113,10 +113,9 @@ const READER_GIT = [
   "rev-parse",
 ];
 
-/** One print: an optional line, line range or regex address (a backslash escapes a slash in it), then `p`. */
-const PRINT = String.raw`(?:(?:\d+|\$)(?:,(?:\d+|\$))?|\/(?:\\.|[^/\\\n])*\/)?p`;
-/** `sed -n` with print scripts joined by `;` (or one printing substitution) and file names only: no `-i`, no `w`, `W`, `e` or `r` command or flag, no option after the script (GNU sed reads options after it). */
-const SED_PRINT = new RegExp(`^${PRINT}(?:;${PRINT})*$`);
+/** `sed -n` with print scripts joined by `;` (or one printing substitution) and file names only: each print is an optional line, line range or regex address (a backslash escapes a slash in it), then `p`. No `-i`, no `w`, `W`, `e` or `r` command or flag, no option after the script (GNU sed reads options after it). */
+const SED_PRINT =
+  /^(?:(?:\d+|\$)(?:,(?:\d+|\$))?|\/(?:\\.|[^/\\\n])*\/)?p(?:;(?:(?:\d+|\$)(?:,(?:\d+|\$))?|\/(?:\\.|[^/\\\n])*\/)?p)*$/;
 const SED_SUBSTITUTE =
   /^s([^\\\n\w\s])(?:\\.|(?!\1)[^\\\n])*\1(?:\\.|(?!\1)[^\\\n])*\1[gp]*$/;
 function sedMayRun(args: readonly string[]): boolean {
