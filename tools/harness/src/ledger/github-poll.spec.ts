@@ -1,300 +1,301 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { PATH } from "./ledger-support.js";
 import {
-  fullPage,
-  issue,
-  labelled,
-  PATH,
-  pr,
-  REPO,
+  ISSUE,
+  PR,
+  eventReads,
+  heldLock,
+  known,
   setup,
 } from "./github-poll-support.js";
+import { acquire } from "./poll-lock.js";
+import { isTimestamp } from "./schema.js";
 
-describe("pollGithub events", () => {
-  it("records an opened issue at GitHub's creation time", async () => {
-    const t = setup();
-    t.gh.issues = [issue(7, "2026-01-05T10:00:00Z")];
-    expect(await t.poll()).toMatchObject({ ok: true, recorded: 1 });
-    const [event] = await t.stored();
-    expect(event).toMatchObject({
-      source: "github",
-      kind: "issue.opened",
-      number: 7,
-      occurredAt: "2026-01-05T10:00:00Z",
-    });
+// Factories, not automocks: an automock loads the real module, which the budget charges to each test.
+vi.mock("./poll-lock.js", () => ({ acquire: vi.fn() }));
+vi.mock("./schema.js", () => ({ isTimestamp: vi.fn() }));
+
+const REPO = "corekraft/kore";
+const RESET = 1769904000; // 2026-02-01T00:00:00.000Z
+
+beforeEach(() => {
+  vi.mocked(isTimestamp).mockReturnValue(true);
+  vi.mocked(acquire).mockResolvedValue(heldLock());
+});
+
+describe("pollGithub: the lock", () => {
+  it("polls under the ledger's lock file, beside the ledger", async () => {
+    const { fs, clock, poll } = setup({});
+    await poll();
+    expect(vi.mocked(acquire).mock.calls).toEqual([
+      [fs, clock, `${PATH}.lock`],
+    ]);
   });
 
-  it("records a label event with its label and issue number", async () => {
-    const t = setup();
-    t.gh.events = [
-      [labelled(11, 7, "2026-01-05T11:00:00Z", "ready-for-agent")],
+  it("reports busy, and asks GitHub and records nothing, when another poll holds the lock", async () => {
+    const { runner, fake, poll } = setup({});
+    vi.mocked(acquire).mockResolvedValue({ ok: false, message: "held" });
+    expect(await poll()).toEqual({ ok: false, message: "held" });
+    expect(runner.run).not.toHaveBeenCalled();
+    expect(fake.record).not.toHaveBeenCalled();
+  });
+
+  it("releases the lock even when a gh call fails", async () => {
+    const { poll } = setup({ failure: { code: 1, stderr: "boom" } });
+    const held = heldLock();
+    vi.mocked(acquire).mockResolvedValue(held);
+    await poll();
+    expect(held.release).toHaveBeenCalledTimes(1);
+  });
+
+  it("refreshes the lock after each gh call, so a long poll is not taken over", async () => {
+    const { poll } = setup({});
+    const held = heldLock();
+    vi.mocked(acquire).mockResolvedValue(held);
+    await poll();
+    // Issues, pull requests and one event page.
+    expect(held.refresh).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("pollGithub: what it asks GitHub for", () => {
+  it("lists by the updated day of the latest recorded GitHub event", async () => {
+    const { runner, fake, poll } = setup({});
+    fake.list.mockResolvedValue({
+      events: [
+        known("github:issue.opened:1", "2026-01-10T00:00:00Z"),
+        known("github:pr.opened:2", "2026-01-12T08:00:00Z"),
+      ],
+      skipped: 0,
+    });
+    await poll();
+    expect(runner.run.mock.calls[0]?.[1]).toEqual([
+      "issue",
+      "list",
+      "--repo",
+      REPO,
+      "--state",
+      "all",
+      "--limit",
+      "1000",
+      "--search",
+      "updated:>=2026-01-12",
+      "--json",
+      "number,createdAt,closedAt",
+    ]);
+  });
+
+  it("uses the since it is given, over the latest recorded event", async () => {
+    const { runner, poll } = setup({}, "2026-02-01T00:00:00Z");
+    await poll();
+    expect(runner.run.mock.calls[0]?.[1]).toContain("updated:>=2026-02-01");
+  });
+});
+
+describe("pollGithub: how far back it reads label events", () => {
+  it("reads at most three pages of label events", async () => {
+    const page = Array.from({ length: 100 }, (_, i) => ({
+      id: i,
+      event: "other",
+    }));
+    const { runner, poll } = setup({ events: [page, page, page, page] });
+    await poll();
+    expect(eventReads(runner)).toHaveLength(3);
+  });
+
+  it("stops reading event pages once one reaches back before since", async () => {
+    const newer = Array.from({ length: 100 }, (_, i) => ({
+      id: i,
+      event: "other",
+      created_at: "2026-02-05T00:00:00Z",
+    }));
+    const older = [
+      { id: 500, event: "other", created_at: "2026-01-01T00:00:00Z" },
     ];
-    await t.poll();
-    expect((await t.stored())[0]).toMatchObject({
-      kind: "issue.labelled",
-      number: 7,
-      label: "ready-for-agent",
-      occurredAt: "2026-01-05T11:00:00Z",
-    });
+    const { runner, poll } = setup(
+      { events: [newer, older, newer] },
+      "2026-02-01T00:00:00Z",
+    );
+    await poll();
+    expect(eventReads(runner)).toHaveLength(2);
   });
+});
 
-  it("ignores timeline events that are not labelling", async () => {
-    const t = setup();
-    t.gh.events = [
+describe("pollGithub: what it records", () => {
+  it("records an issue as opened and then closed, in time order, with its number only", async () => {
+    const { fake, poll } = setup({ issues: [ISSUE] });
+    await poll();
+    expect(fake.record.mock.calls).toEqual([
       [
         {
-          id: 1,
-          event: "closed",
-          created_at: "2026-01-05T11:00:00Z",
-          issue: { number: 7 },
-        },
-        {
-          id: 2,
-          event: "labeled",
-          created_at: "2026-01-05T11:00:00Z",
-          label: { name: "x" },
+          id: "github:issue.opened:7",
+          source: "github",
+          kind: "issue.opened",
+          occurredAt: "2026-01-05T00:00:00Z",
+          number: 7,
         },
       ],
-    ];
-    expect(await t.poll()).toMatchObject({ ok: true, recorded: 0 });
-  });
-
-  it("records an opened PR, and a merged PR at its merge time", async () => {
-    const t = setup();
-    t.gh.prs = [
-      pr(9, "2026-01-06T10:00:00Z", "2026-01-06T12:00:00Z"),
-      pr(10, "2026-01-06T13:00:00Z"),
-    ];
-    await t.poll();
-    expect((await t.summary()).sort()).toEqual([
-      "pr.merged:9",
-      "pr.opened:10",
-      "pr.opened:9",
-    ]);
-    const merged = (await t.stored()).find((e) => e.kind === "pr.merged");
-    expect(merged?.occurredAt).toBe("2026-01-06T12:00:00Z");
-  });
-});
-
-describe("pollGithub idempotence and --since", () => {
-  it("appends nothing when polled again", async () => {
-    const t = setup();
-    t.gh.issues = [issue(7, "2026-01-05T10:00:00Z")];
-    t.gh.prs = [pr(9, "2026-01-06T10:00:00Z", "2026-01-06T12:00:00Z")];
-    t.gh.events = [[labelled(11, 7, "2026-01-05T11:00:00Z", "bug")]];
-    await t.poll();
-    const before = await t.summary();
-    expect(await t.poll()).toMatchObject({ ok: true, recorded: 0 });
-    expect(await t.summary()).toEqual(before);
-  });
-
-  it("records a PR's merge on a later poll without repeating its opening", async () => {
-    const t = setup();
-    t.gh.prs = [pr(9, "2026-01-06T10:00:00Z")];
-    await t.poll();
-    t.gh.prs = [pr(9, "2026-01-06T10:00:00Z", "2026-01-06T12:00:00Z")];
-    await t.poll();
-    expect(await t.summary()).toEqual(["pr.opened:9", "pr.merged:9"]);
-  });
-
-  it("bounds the issue and PR lists by the latest recorded event, issues and PRs by update", async () => {
-    const t = setup();
-    t.gh.issues = [issue(1, "2026-01-05T10:00:00Z")];
-    await t.poll();
-    await t.poll();
-    const [issues, prs] = t.calls().slice(-3);
-    expect(issues).toContain("--search updated:>=2026-01-05");
-    expect(prs).toContain("--search updated:>=2026-01-05");
-  });
-
-  it("lists everything on the first poll, with no search", async () => {
-    const t = setup();
-    await t.poll();
-    expect(t.calls().join("\n")).not.toContain("--search");
-  });
-
-  it("bounds the fetch by an explicit --since over the ledger", async () => {
-    const t = setup();
-    t.gh.issues = [issue(1, "2026-01-05T10:00:00Z")];
-    await t.poll();
-    await t.poll("2026-01-06T00:00:00Z");
-    expect(t.calls().slice(-3)[0]).toContain("updated:>=2026-01-06");
-  });
-
-  it("uses since only to bound the fetch: whatever gh returns is recorded once, by id", async () => {
-    const t = setup();
-    t.gh.issues = [
-      issue(1, "2026-01-05T10:00:00Z"),
-      issue(2, "2026-01-08T10:00:00Z"),
-    ];
-    await t.poll("2026-01-06T00:00:00Z");
-    await t.poll("2026-01-06T00:00:00Z");
-    expect(await t.summary()).toEqual(["issue.opened:1", "issue.opened:2"]);
-  });
-
-  it("passes --repo on every gh call", async () => {
-    const t = setup();
-    await t.poll();
-    expect(t.runner.calls.length).toBeGreaterThan(0);
-    for (const call of t.runner.calls) {
-      expect(call.command).toBe("gh");
-      expect(call.args.join(" ")).toMatch(
-        new RegExp(`--repo ${REPO}|repos/${REPO}/`),
-      );
-    }
-  });
-});
-
-describe("pollGithub stored fields and failures", () => {
-  it("stores only identifiers, labels, numbers and times", async () => {
-    const t = setup();
-    t.gh.issues = [issue(7, "2026-01-05T10:00:00Z")];
-    t.gh.prs = [pr(9, "2026-01-06T10:00:00Z")];
-    t.gh.events = [[labelled(11, 7, "2026-01-05T11:00:00Z", "bug")]];
-    await t.poll();
-    const text = t.fs.files.get(PATH) ?? "";
-    expect(text).not.toContain("secret");
-  });
-
-  it("names a gh failure and writes nothing", async () => {
-    const t = setup();
-    t.gh.issues = [issue(7, "2026-01-05T10:00:00Z")];
-    t.gh.code = 1;
-    const result = await t.poll();
-    expect(result).toMatchObject({ ok: false });
-    expect(JSON.stringify(result)).toContain("gh auth status");
-    expect(t.fs.files.has(PATH)).toBe(false);
-  });
-
-  it("releases the lock so the next poll runs", async () => {
-    const t = setup();
-    t.gh.code = 1;
-    await t.poll();
-    t.gh.code = 0;
-    expect(await t.poll()).toMatchObject({ ok: true });
-  });
-
-  it("refuses to poll while another poll holds the lock, calling no gh", async () => {
-    const t = setup();
-    await t.fs.createFile(`${PATH}.lock`, "2026-02-01T00:00:00.000Z");
-    const result = await t.poll();
-    expect(result).toMatchObject({ ok: false });
-    expect(JSON.stringify(result)).toContain("Another poll");
-    expect(t.runner.calls).toHaveLength(0);
-  });
-});
-
-describe("pollGithub ids, late merges and paging", () => {
-  it("gives each event a deterministic id from GitHub's own numbers", async () => {
-    const t = setup();
-    t.gh.issues = [issue(7, "2026-01-05T10:00:00Z")];
-    t.gh.prs = [pr(9, "2026-01-06T10:00:00Z", "2026-01-06T12:00:00Z")];
-    t.gh.events = [[labelled(11, 7, "2026-01-05T11:00:00Z", "bug")]];
-    await t.poll();
-    expect((await t.stored()).map((e) => e.id).sort()).toEqual([
-      "github:issue.labelled:11",
-      "github:issue.opened:7",
-      "github:pr.merged:9",
-      "github:pr.opened:9",
+      [
+        {
+          id: "github:issue.closed:7",
+          source: "github",
+          kind: "issue.closed",
+          occurredAt: "2026-01-09T00:00:00Z",
+          number: 7,
+        },
+      ],
     ]);
   });
 
-  it("records a merge after the default since for a PR opened before it", async () => {
-    const t = setup();
-    t.gh.issues = [issue(1, "2026-01-08T10:00:00Z")];
-    await t.poll();
-    t.gh.prs = [pr(9, "2026-01-06T10:00:00Z", "2026-01-09T12:00:00Z")];
-    await t.poll();
-    expect(await t.summary()).toEqual([
-      "issue.opened:1",
-      "pr.opened:9",
-      "pr.merged:9",
+  it("records a pull request as opened and merged, under the issue it closes", async () => {
+    const { fake, poll } = setup({ prs: [PR] });
+    await poll();
+    expect(fake.record.mock.calls.map((c) => c[0])).toEqual([
+      {
+        id: "github:pr.opened:9",
+        source: "github",
+        kind: "pr.opened",
+        occurredAt: "2026-01-06T00:00:00Z",
+        number: 9,
+        idea: "#7",
+      },
+      {
+        id: "github:pr.merged:9",
+        source: "github",
+        kind: "pr.merged",
+        occurredAt: "2026-01-08T00:00:00Z",
+        number: 9,
+        idea: "#7",
+      },
     ]);
-  });
-
-  it("reads label events from every full page until a short one", async () => {
-    const t = setup();
-    t.gh.events = [
-      fullPage(1, "2026-01-09"),
-      [labelled(500, 8, "2026-01-08T12:00:00Z", "b")],
-    ];
-    expect(await t.poll()).toMatchObject({ ok: true, recorded: 101 });
-    expect(t.calls().filter((c) => c.includes("page="))).toHaveLength(2);
-  });
-
-  it("stops paging at the first page older than since, without --paginate", async () => {
-    const t = setup();
-    t.gh.events = [
-      fullPage(1, "2026-01-09"),
-      fullPage(1001, "2026-01-01"),
-      fullPage(2001, "2025-12-01"),
-    ];
-    await t.poll("2026-01-05T00:00:00Z");
-    const pages = t.calls().filter((c) => c.includes("page="));
-    expect(pages).toHaveLength(2);
-    expect(t.calls().join("\n")).not.toContain("--paginate");
-  });
-
-  it("fails loudly instead of silently dropping issues past gh's limit", async () => {
-    const t = setup();
-    t.gh.issues = Array.from({ length: 1000 }, (_, i) =>
-      issue(i + 1, "2026-01-05T10:00:00Z"),
-    );
-    const result = await t.poll();
-    expect(result).toMatchObject({ ok: false });
-    expect(t.fs.files.has(PATH)).toBe(false);
   });
 });
 
-describe("pollGithub rate limits, lock and response shape", () => {
-  it("names a rate limit and when to retry, from gh api rate_limit", async () => {
-    const t = setup();
-    t.gh.code = 1;
-    t.gh.stderr = "gh: API rate limit exceeded for user (HTTP 403)";
-    t.gh.rateLimit = JSON.stringify({
-      resources: { core: { reset: Date.UTC(2026, 1, 1, 1) / 1000 } },
+describe("pollGithub: what it records from label events", () => {
+  it("records a label event with its label name", async () => {
+    const { fake, poll } = setup({
+      events: [
+        [
+          {
+            id: 4,
+            event: "labeled",
+            created_at: "2026-01-07T00:00:00Z",
+            label: { name: "bug" },
+            issue: { number: 7 },
+          },
+        ],
+      ],
     });
-    const result = await t.poll();
-    expect(result).toMatchObject({ ok: false });
-    const { message } = result as { message: string };
-    expect(message).toContain("rate limit");
-    expect(message).toContain("2026-02-01T01:00:00.000Z");
-    expect(message).not.toContain("gh auth status");
+    await poll();
+    expect(fake.record.mock.calls).toEqual([
+      [
+        {
+          id: "github:issue.labelled:4",
+          source: "github",
+          kind: "issue.labelled",
+          occurredAt: "2026-01-07T00:00:00Z",
+          number: 7,
+          label: "bug",
+        },
+      ],
+    ]);
+  });
+});
+
+describe("pollGithub: what it leaves out", () => {
+  it("never records a title or a body", async () => {
+    const { fake, poll } = setup({ issues: [ISSUE], prs: [PR] });
+    await poll();
+    expect(JSON.stringify(fake.record.mock.calls)).not.toContain("secret");
   });
 
-  it("treats HTTP 429 as a rate limit even when the reset time is unavailable", async () => {
-    const t = setup();
-    t.gh.code = 1;
-    t.gh.stderr = "HTTP 429: Too Many Requests";
-    const { message } = (await t.poll()) as { message: string };
-    expect(message).toContain("rate limit");
-    expect(message).toContain("few minutes");
+  it("does not record what the ledger already holds", async () => {
+    const { fake, poll } = setup({ issues: [ISSUE] });
+    fake.list.mockResolvedValue({
+      events: [known("github:issue.opened:7", "2026-01-05T00:00:00Z")],
+      skipped: 0,
+    });
+    await poll();
+    expect(fake.record.mock.calls.map((c) => c[0].kind)).toEqual([
+      "issue.closed",
+    ]);
   });
 
-  it("keeps the lock fresh across slow gh calls so no one takes it over", async () => {
-    const t = setup();
-    const seen: number[] = [];
-    t.gh.onCall = () => {
-      t.advance(40_000);
-      seen.push(Date.parse(t.fs.files.get(`${PATH}.lock`) ?? ""));
-    };
-    expect(await t.poll()).toMatchObject({ ok: true });
-    expect(seen.length).toBeGreaterThanOrEqual(3);
-    seen.slice(1).forEach((time, i) => {
-      expect(time - (seen[i] ?? 0)).toBeGreaterThanOrEqual(40_000);
+  it("drops a time that is not a timestamp, and a number that is not a count", async () => {
+    const { fake, poll } = setup({
+      issues: [
+        { ...ISSUE, createdAt: "soon", closedAt: null },
+        { ...ISSUE, number: 0, closedAt: null },
+      ],
+    });
+    vi.mocked(isTimestamp).mockImplementation((value) => value !== "soon");
+    expect(await poll()).toEqual({ ok: true, recorded: 0, events: [] });
+    expect(fake.record).not.toHaveBeenCalled();
+  });
+
+  it("stops at the first record the ledger refuses, and returns its message", async () => {
+    const { fake, poll } = setup({ issues: [ISSUE] });
+    fake.record.mockResolvedValue({
+      ok: false,
+      field: "kind",
+      message: "bad kind",
+    });
+    expect(await poll()).toEqual({ ok: false, message: "bad kind" });
+    expect(fake.record).toHaveBeenCalledTimes(1);
+  });
+
+  it("counts the events it recorded", async () => {
+    const { poll } = setup({ issues: [ISSUE], prs: [PR] });
+    expect(await poll()).toMatchObject({ ok: true, recorded: 4 });
+  });
+});
+
+describe("pollGithub: a gh call that fails", () => {
+  it("names the failed listing and records nothing after it", async () => {
+    const { runner, fake, poll } = setup({
+      failure: { code: 1, stderr: "boom" },
+    });
+    expect(await poll()).toEqual({
+      ok: false,
+      message:
+        "gh issue list failed: exit code 1: boom. Is gh installed and logged in (gh auth status)?",
+    });
+    expect(runner.run).toHaveBeenCalledTimes(1);
+    expect(fake.record).not.toHaveBeenCalled();
+  });
+
+  it("answers a rate limit with the time it resets", async () => {
+    const { poll } = setup({
+      failure: { code: 1, stderr: "API rate limit exceeded" },
+      rateLimit: JSON.stringify({ resources: { core: { reset: RESET } } }),
+    });
+    expect(await poll()).toEqual({
+      ok: false,
+      message:
+        "gh issue list hit the GitHub rate limit. Retry after 2026-02-01T00:00:00.000Z; poll again then (gh api rate_limit shows the reset time).",
     });
   });
 
-  it("rejects gh api output that is not a list of event objects", async () => {
-    const t = setup();
-    t.gh.events = [[[labelled(1, 7, "2026-01-05T11:00:00Z", "a")]]];
-    const result = await t.poll();
-    expect(result).toMatchObject({ ok: false });
-    expect(t.fs.files.has(PATH)).toBe(false);
+  it("says the gh version may have changed when a listing is not JSON", async () => {
+    const { poll } = setup({ issues: "nope" });
+    expect(await poll()).toEqual({
+      ok: false,
+      message:
+        "gh issue list did not print JSON. Run it by hand and check the gh version.",
+    });
   });
 
-  it("rejects gh api output that is not a list", async () => {
-    const t = setup();
-    t.gh.events = [{ message: "Not Found" }];
-    expect(await t.poll()).toMatchObject({ ok: false });
+  it("refuses a full issue listing, since some may be missing", async () => {
+    const { poll } = setup({
+      issues: Array.from({ length: 1000 }, (_, i) => ({
+        ...ISSUE,
+        number: i + 1,
+      })),
+    });
+    expect(await poll()).toEqual({
+      ok: false,
+      message:
+        "gh returned 1000 issues or PRs, the most one poll lists, so some may be missing. Pass a later --since, or raise LIMIT in github-poll.ts.",
+    });
   });
 });

@@ -1,150 +1,116 @@
-import { MemoryFileSystem } from "../testing/index.js";
-import type { RunOptions, RunResult, Runner } from "../runtime/index.js";
+// Fixtures and fakes for the github-poll unit spec: what `gh` answers, the
+// lock a poll holds, the canned GitHub items, and one poll over fakes. Only
+// that spec uses them, so they stay beside it (ADR 0098).
+import { vi } from "vitest";
+import {
+  NOW,
+  fakeClock,
+  fakeFileSystem,
+  fakeLedger,
+  fakeRunner,
+  failed,
+  ok,
+  type FakeRunner,
+} from "./ledger-support.js";
+import type { LedgerEvent } from "./schema.js";
 import { pollGithub } from "./github-poll.js";
-import { Ledger } from "./ledger.js";
 
-export const PATH = "/repo/.kore/state/ledger.jsonl";
-export const REPO = "corekraft/kore";
+const REPO = "corekraft/kore";
 
+/** What `gh` answers: a list per call, the events one page at a time, or a failure. */
 export interface Gh {
-  issues: unknown[];
-  prs: unknown[];
-  /** What `gh api repos/R/issues/events?page=N` prints for page N: one array of events per page, newest first. */
-  events: unknown[];
-  /** The exit code and stderr every canned `gh` call returns, except `gh api rate_limit`. */
-  code: number;
-  stderr: string;
-  /** What `gh api rate_limit` prints. */
-  rateLimit: string;
-  /** Runs before each `gh` call answers. */
-  onCall: () => void;
+  issues?: unknown;
+  prs?: unknown;
+  events?: unknown[][];
+  failure?: { code: number; stderr: string };
+  rateLimit?: string;
 }
 
-export interface Call {
-  command: string;
-  args: readonly string[];
-  options: RunOptions | undefined;
-}
-
-/** `count` label events on one day, ids from `first`: a full page as the events API serves it. */
-export const fullPage = (first: number, day: string, count = 100) =>
-  Array.from({ length: count }, (_, i) =>
-    labelled(first + i, first + i, `${day}T10:00:00Z`, "bug"),
-  );
-
-/** Answers `gh` the way GitHub does: lists, then the events API one page per call. */
-class GhRunner implements Runner {
-  readonly calls: Call[] = [];
-  constructor(private readonly gh: Gh) {}
-
-  run(
-    command: string,
-    args: readonly string[],
-    options?: RunOptions,
-  ): Promise<RunResult> {
-    this.calls.push({ command, args, options });
-    this.gh.onCall();
+/** Answers each `gh` call the way GitHub does, by the arguments; a string is printed as it is. */
+export function answerGh(runner: FakeRunner, gh: Gh) {
+  runner.run.mockImplementation((_command, args) => {
     const text = args.join(" ");
-    const ok = (value: unknown) => ({
-      stdout: typeof value === "string" ? value : JSON.stringify(value),
-      stderr: "",
-      code: 0,
-    });
     if (text.includes("rate_limit")) {
-      return Promise.resolve(ok(this.gh.rateLimit));
+      return Promise.resolve(ok(gh.rateLimit ?? "{}"));
     }
-    if (this.gh.code !== 0) {
-      return Promise.resolve({
-        stdout: "",
-        stderr: this.gh.stderr,
-        code: this.gh.code,
-      });
+    if (gh.failure !== undefined) {
+      return Promise.resolve(failed(gh.failure.code, gh.failure.stderr));
     }
-    if (args[0] === "issue") {
-      return Promise.resolve(ok(this.gh.issues));
+    if (args[0] === "issue" || args[0] === "pr") {
+      const value = args[0] === "issue" ? gh.issues : gh.prs;
+      return Promise.resolve(
+        ok(typeof value === "string" ? value : JSON.stringify(value ?? [])),
+      );
     }
-    if (args[0] === "pr") {
-      return Promise.resolve(ok(this.gh.prs));
-    }
-    const page = Number(/[?&]page=(\d+)/.exec(text)?.[1] ?? "1");
-    return Promise.resolve(ok(this.gh.events[page - 1] ?? []));
-  }
+    const page = Number(/&page=(\d+)/.exec(text)?.[1] ?? "1");
+    return Promise.resolve(ok(JSON.stringify(gh.events?.[page - 1] ?? [])));
+  });
 }
 
-/** Canned `gh` JSON. Titles and bodies are included on purpose: they must never be stored. */
-export const issue = (
-  number: number,
-  createdAt: string,
-  closedAt?: string,
-) => ({
-  number,
-  createdAt,
-  closedAt: closedAt ?? null,
-  title: "secret title",
-  body: "secret body",
-});
-export const pr = (
-  number: number,
-  createdAt: string,
-  mergedAt?: string,
-  closes: number[] = [],
-) => ({
-  number,
-  createdAt,
-  mergedAt: mergedAt ?? null,
-  closingIssuesReferences: closes.map((n) => ({ number: n })),
-  title: "secret title",
-  body: "secret body",
-});
-export const labelled = (
-  id: number,
-  number: number,
-  at: string,
-  name: string,
-) => ({
-  id,
-  event: "labeled",
-  created_at: at,
-  label: { name },
-  issue: { number },
-});
+/** A lock this poll can hold; the tests read its refresh and release calls. */
+export function heldLock() {
+  return {
+    ok: true as const,
+    refresh: vi.fn(() => Promise.resolve()),
+    release: vi.fn(() => Promise.resolve()),
+  };
+}
 
-export function setup(start = "2026-02-01T00:00:00.000Z") {
-  const fs = new MemoryFileSystem();
-  let tick = 0;
-  let skew = 0;
-  const clock = {
-    now: () => new Date(Date.parse(start) + skew + 1000 * tick++),
-    sleep: () => Promise.resolve(),
-  };
-  let n = 0;
-  const ledger = new Ledger(fs, clock, { next: () => `id-${++n}` }, PATH);
-  const gh: Gh = {
-    issues: [],
-    prs: [],
-    events: [],
-    code: 0,
-    stderr: "",
-    rateLimit: "{}",
-    onCall: () => undefined,
-  };
-  const runner = new GhRunner(gh);
-  const poll = (since?: string) =>
+/** A ledger event already recorded, for the dedupe and the `since` default. */
+export const known = (id: string, occurredAt: string) =>
+  ({
+    id,
+    source: "github",
+    kind: "issue.opened",
+    occurredAt,
+    schema: 1,
+    recordedAt: occurredAt,
+  }) as LedgerEvent;
+
+/** Canned GitHub items. Titles and bodies are included on purpose: they must never be recorded. */
+export const ISSUE = {
+  number: 7,
+  createdAt: "2026-01-05T00:00:00Z",
+  closedAt: "2026-01-09T00:00:00Z",
+  title: "secret title",
+  body: "secret body",
+};
+
+export const PR = {
+  number: 9,
+  createdAt: "2026-01-06T00:00:00Z",
+  mergedAt: "2026-01-08T00:00:00Z",
+  closingIssuesReferences: [{ number: 7 }],
+  title: "secret title",
+  body: "secret body",
+};
+
+/** One poll over fakes; `since` is passed only when the test gives one. */
+export function setup(gh: Gh, since?: string) {
+  const runner = fakeRunner();
+  answerGh(runner, gh);
+  const fake = fakeLedger();
+  fake.list.mockResolvedValue({ events: [], skipped: 0 });
+  fake.record.mockImplementation((input) =>
+    Promise.resolve({
+      ok: true,
+      event: { ...input, schema: 1, recordedAt: NOW } as LedgerEvent,
+    }),
+  );
+  const fs = fakeFileSystem();
+  const clock = fakeClock();
+  const poll = () =>
     pollGithub({
-      ledger,
+      ledger: fake.ledger,
       runner,
       clock,
       fs,
       repo: REPO,
       ...(since === undefined ? {} : { since }),
     });
-  const stored = async () => (await ledger.list({})).events;
-  const summary = async () =>
-    (await stored()).map((e) => `${e.kind}:${e.number}`);
-  /** Moves the clock forward, as a slow `gh` call would. */
-  const advance = (ms: number) => {
-    skew += ms;
-  };
-  const calls = () => runner.calls.map((c) => c.args.join(" "));
-  return { fs, ledger, runner, gh, poll, stored, summary, advance, calls };
+  return { runner, fake, fs, clock, poll };
 }
+
+/** The label-event listings that were read, by their gh call. */
+export const eventReads = (runner: FakeRunner) =>
+  runner.run.mock.calls.filter((c) => c[1].join(" ").includes("issues/events"));

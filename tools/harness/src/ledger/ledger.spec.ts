@@ -1,176 +1,221 @@
-import { describe, expect, it } from "vitest";
-import { MemoryFileSystem } from "../testing/index.js";
+import { describe, expect, it, vi } from "vitest";
+import { parseEvent, type EventInput } from "./schema.js";
+import {
+  PATH,
+  NOW,
+  fakeClock,
+  fakeFileSystem,
+  fakeIds,
+  withCode,
+} from "./ledger-support.js";
 import { Ledger, type ListFilter } from "./ledger.js";
 
-const PATH = "/repo/.kore/state/ledger.jsonl";
-const RECORDED = "2026-01-02T03:04:05.000Z";
+vi.mock("./schema.js");
 
-function setup() {
-  const fs = new MemoryFileSystem();
-  let n = 0;
-  const ledger = new Ledger(
-    fs,
-    { now: () => new Date(RECORDED), sleep: () => Promise.resolve() },
-    { next: () => `id-${++n}` },
-    PATH,
-  );
-  return { fs, ledger };
-}
-
-const start = {
+const start: EventInput = {
   source: "claude",
   kind: "session.start",
   occurredAt: "2026-01-02T03:00:00.000Z",
   session: "s1",
 };
 
+/** A ledger over fakes: `parseEvent` is mocked, so it accepts whatever the spec says. */
+function setup() {
+  const fs = fakeFileSystem();
+  const clock = fakeClock();
+  const ids = fakeIds();
+  const ledger = new Ledger(fs, clock, ids, PATH);
+  return { fs, clock, ids, ledger };
+}
+
 describe("Ledger.record", () => {
-  it("appends exactly one line stamped with the injected clock and a fresh id", async () => {
+  it("appends one line: the event with schema, the clock's time and a fresh id", async () => {
     const { fs, ledger } = setup();
+    vi.mocked(parseEvent).mockReturnValue({ ok: true, event: start });
     const result = await ledger.record(start);
-    expect(result.ok).toBe(true);
-    const text = fs.files.get(PATH) ?? "";
-    expect(text.endsWith("\n")).toBe(true);
-    expect(text.trimEnd().split("\n")).toHaveLength(1);
-    expect(JSON.parse(text)).toEqual({
-      ...start,
-      schema: 1,
-      id: "id-1",
-      recordedAt: RECORDED,
+    expect(result).toEqual({
+      ok: true,
+      event: { ...start, schema: 1, id: "id-1", recordedAt: NOW },
     });
+    expect(fs.appendFile.mock.calls).toEqual([
+      [
+        PATH,
+        `${JSON.stringify({ ...start, schema: 1, id: "id-1", recordedAt: NOW })}\n`,
+      ],
+    ]);
   });
 
-  it("keeps a caller-supplied id", async () => {
+  it("validates the input as an input event, before anything is appended", async () => {
     const { fs, ledger } = setup();
-    await ledger.record({ ...start, id: "mine" });
-    expect(JSON.parse(fs.files.get(PATH) ?? "")).toMatchObject({ id: "mine" });
-  });
-
-  it("appends after earlier lines without rewriting them", async () => {
-    const { fs, ledger } = setup();
+    vi.mocked(parseEvent).mockReturnValue({ ok: true, event: start });
     await ledger.record(start);
-    const first = fs.files.get(PATH) ?? "";
+    expect(vi.mocked(parseEvent).mock.calls).toEqual([[start, "input"]]);
+    expect(fs.appendFile).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a caller-supplied id and asks the id source for none", async () => {
+    const { fs, ids, ledger } = setup();
+    const given = { ...start, id: "mine" };
+    vi.mocked(parseEvent).mockReturnValue({ ok: true, event: given });
+    const result = await ledger.record(given);
+    expect(ids.next).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ ok: true, event: { id: "mine" } });
+    expect(fs.appendFile.mock.calls[0]?.[1]).toContain('"id":"mine"');
+  });
+
+  it("returns the validation failure, naming the field, and appends nothing", async () => {
+    const { fs, ledger } = setup();
+    const failure = {
+      ok: false as const,
+      field: "kind",
+      message: "kind must be a known kind",
+    };
+    vi.mocked(parseEvent).mockReturnValue(failure);
+    expect(await ledger.record({ ...start, kind: "nope" })).toEqual(failure);
+    expect(fs.appendFile).not.toHaveBeenCalled();
+  });
+
+  it("writes each event with its own append, never rewriting earlier lines", async () => {
+    const { fs, ledger } = setup();
+    vi.mocked(parseEvent).mockReturnValue({ ok: true, event: start });
+    await ledger.record(start);
     await ledger.record({ ...start, kind: "session.stop" });
-    expect((fs.files.get(PATH) ?? "").startsWith(first)).toBe(true);
-    expect((fs.files.get(PATH) ?? "").trimEnd().split("\n")).toHaveLength(2);
-  });
-
-  it("rejects an invalid event, names the field, and appends nothing", async () => {
-    const { fs, ledger } = setup();
-    const result = await ledger.record({ ...start, kind: "nope" });
-    expect(result).toMatchObject({ ok: false, field: "kind" });
-    expect(fs.files.has(PATH)).toBe(false);
-  });
-
-  it("never stores prompt text, tool input or file contents", async () => {
-    const { fs, ledger } = setup();
-    for (const field of ["prompt", "toolInput", "toolOutput", "content"]) {
-      const result = await ledger.record({ ...start, [field]: "secret" });
-      expect(result).toMatchObject({ ok: false, field });
-    }
-    expect(fs.files.has(PATH)).toBe(false);
+    expect(fs.appendFile).toHaveBeenCalledTimes(2);
+    expect(fs.writeFile).not.toHaveBeenCalled();
   });
 });
 
-async function seeded() {
-  const { fs, ledger } = setup();
+const stored = (id: string, extra: Record<string, unknown> = {}) => ({
+  source: "claude",
+  kind: "session.start",
+  occurredAt: start.occurredAt,
+  id,
+  ...extra,
+});
+
+/** A file of the given lines, read through the fake file system. */
+function fileOf(fs: ReturnType<typeof fakeFileSystem>, text: string) {
+  fs.readFile.mockResolvedValue(text);
+}
+
+describe("Ledger.list", () => {
+  it("returns every stored event in file order, with no skipped lines", async () => {
+    const { fs, ledger } = setup();
+    fileOf(fs, '{"id":"e1"}\n{"id":"e2"}\n');
+    vi.mocked(parseEvent).mockImplementation((value) => ({
+      ok: true,
+      event: value as never,
+    }));
+    expect(await ledger.list({})).toEqual({
+      events: [{ id: "e1" }, { id: "e2" }],
+      skipped: 0,
+    });
+    expect(fs.readFile.mock.calls).toEqual([[PATH]]);
+  });
+
+  it("validates each stored line as a stored event", async () => {
+    const { fs, ledger } = setup();
+    fileOf(fs, '{"id":"e1"}\n');
+    vi.mocked(parseEvent).mockReturnValue({ ok: true, event: start as never });
+    await ledger.list({});
+    expect(vi.mocked(parseEvent).mock.calls).toEqual([
+      [{ id: "e1" }, "stored"],
+    ]);
+  });
+
+  it("returns nothing, without error, when the ledger does not exist", async () => {
+    const { fs, ledger } = setup();
+    fs.readFile.mockRejectedValue(withCode("ENOENT"));
+    expect(await ledger.list({})).toEqual({ events: [], skipped: 0 });
+  });
+
+  it("rethrows a read error other than a missing file", async () => {
+    const { fs, ledger } = setup();
+    fs.readFile.mockRejectedValue(withCode("EACCES", "EACCES"));
+    await expect(ledger.list({})).rejects.toThrow("EACCES");
+  });
+
+  it("counts a line that is not JSON, or not a stored event, as skipped", async () => {
+    const { fs, ledger } = setup();
+    fileOf(fs, 'not json\n{"id":"bad"}\n{"id":"e1"}\n');
+    vi.mocked(parseEvent).mockImplementation((value) =>
+      (value as { id: string }).id === "e1"
+        ? { ok: true, event: value as never }
+        : { ok: false, field: "id", message: "bad" },
+    );
+    expect(await ledger.list({})).toEqual({
+      events: [{ id: "e1" }],
+      skipped: 2,
+    });
+  });
+
+  it("does not count blank lines as skipped", async () => {
+    const { fs, ledger } = setup();
+    fileOf(fs, '\n{"id":"e1"}\n\n');
+    vi.mocked(parseEvent).mockReturnValue({
+      ok: true,
+      event: { id: "e1" } as never,
+    });
+    expect(await ledger.list({})).toEqual({
+      events: [{ id: "e1" }],
+      skipped: 0,
+    });
+  });
+});
+
+describe("Ledger.list filters", () => {
   const events = [
-    { ...start, id: "e1" },
-    {
+    stored("e1", { session: "s1" }),
+    stored("e2", {
       source: "herdr",
       kind: "pane.spawned",
       occurredAt: "2026-01-02T04:00:00.000Z",
       pane: "w3:p1",
       idea: "0042-loop",
-      id: "e2",
-    },
-    {
+    }),
+    stored("e3", {
       source: "github",
       kind: "pr.opened",
       occurredAt: "2026-01-02T05:00:00.000Z",
-      number: 7,
       idea: "0042-loop",
-      id: "e3",
-    },
-    {
-      source: "claude",
-      kind: "tool.end",
-      occurredAt: "2026-01-02T06:00:00.000Z",
-      session: "s2",
-      pane: "w3:p1",
-      tool: "Bash",
-      outcome: "success",
-      id: "e4",
-    },
+    }),
   ];
-  for (const event of events) {
-    await ledger.record(event);
+
+  async function listed(filter: ListFilter) {
+    const { fs, ledger } = setup();
+    fileOf(fs, events.map((e) => JSON.stringify(e)).join("\n"));
+    vi.mocked(parseEvent).mockImplementation((value) => ({
+      ok: true,
+      event: value as never,
+    }));
+    return (await ledger.list(filter)).events.map((e) => e.id);
   }
-  return { fs, ledger };
-}
-const ids = (events: { id: string }[]) => events.map((e) => e.id);
 
-describe("Ledger.list", () => {
-  it("returns every event in file order and no skipped lines when unfiltered", async () => {
-    const { ledger } = await seeded();
-    const result = await ledger.list({});
-    expect(ids(result.events)).toEqual(["e1", "e2", "e3", "e4"]);
-    expect(result.skipped).toBe(0);
-  });
-
-  it("returns nothing, without error, when the ledger does not exist", async () => {
-    const { ledger } = setup();
-    expect(await ledger.list({})).toEqual({ events: [], skipped: 0 });
-  });
-});
-
-describe("Ledger.list filters", () => {
   it.each<[ListFilter, string[]]>([
     [{ session: "s1" }, ["e1"]],
-    [{ session: "s2" }, ["e4"]],
-    [{ pane: "w3:p1" }, ["e2", "e4"]],
+    [{ pane: "w3:p1" }, ["e2"]],
     [{ idea: "0042-loop" }, ["e2", "e3"]],
     [{ source: "github" }, ["e3"]],
-    [{ kind: "tool.end" }, ["e4"]],
-    [{ since: "2026-01-02T04:00:00.000Z" }, ["e2", "e3", "e4"]],
+    [{ kind: "pr.opened" }, ["e3"]],
+    [{ session: "nobody" }, []],
+  ])("keeps only the events matching %j", async (filter, expected) => {
+    expect(await listed(filter)).toEqual(expected);
+  });
+
+  it.each<[ListFilter, string[]]>([
+    [{ since: "2026-01-02T04:00:00.000Z" }, ["e2", "e3"]],
     [{ until: "2026-01-02T05:00:00.000Z" }, ["e1", "e2"]],
     [
       {
         since: "2026-01-02T04:00:00.000Z",
-        until: "2026-01-02T06:00:00.000Z",
+        until: "2026-01-02T05:00:00.000Z",
       },
-      ["e2", "e3"],
+      ["e2"],
     ],
-    [{ pane: "w3:p1", idea: "0042-loop" }, ["e2"]],
-    [{ session: "nobody" }, []],
-  ])("filters by %j", async (filter, expected) => {
-    const { ledger } = await seeded();
-    expect(ids((await ledger.list(filter)).events)).toEqual(expected);
-  });
-});
-
-describe("Ledger.list malformed lines", () => {
-  it("skips malformed, partial and invalid lines and counts them", async () => {
-    const { fs, ledger } = await seeded();
-    fs.files.set(
-      PATH,
-      `${fs.files.get(PATH) ?? ""}not json\n{"half":\n{"schema":1}\n[1]\n\n{"schema":1,"id":"torn"`,
-    );
-    const result = await ledger.list({});
-    expect(ids(result.events)).toEqual(["e1", "e2", "e3", "e4"]);
-    expect(result.skipped).toBe(5);
-  });
-
-  it("counts skipped lines even when a filter excludes everything else", async () => {
-    const { fs, ledger } = await seeded();
-    fs.files.set(PATH, `${fs.files.get(PATH) ?? ""}garbage\n`);
-    const result = await ledger.list({ session: "nobody" });
-    expect(result).toEqual({ events: [], skipped: 1 });
-  });
-
-  it("rethrows read errors other than a missing file", async () => {
-    const { fs, ledger } = setup();
-    fs.readFile = () => Promise.reject(new Error("EACCES"));
-    await expect(ledger.list({})).rejects.toThrow("EACCES");
-  });
+  ])(
+    "bounds by occurredAt, since inclusive and until exclusive: %j",
+    async (filter, expected) => {
+      expect(await listed(filter)).toEqual(expected);
+    },
+  );
 });

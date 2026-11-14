@@ -1,9 +1,17 @@
-import { MemoryFileSystem } from "../testing/index.js";
-import { FakeRunner } from "../testing/index.js";
+// Fixtures and fakes for the herdr-poll unit spec: what `herdr agent list`
+// prints, a recorded pane event, and one poll over fakes. Only that spec uses
+// them, so they stay beside it (ADR 0098).
+import {
+  NOW,
+  fakeClock,
+  fakeFileSystem,
+  fakeLedger,
+  fakeRunner,
+  ok,
+  type FakeRunner,
+} from "./ledger-support.js";
+import type { LedgerEvent } from "./schema.js";
 import { pollHerdr } from "./herdr-poll.js";
-import { Ledger } from "./ledger.js";
-
-export const PATH = "/repo/.kore/state/ledger.jsonl";
 
 export interface Agent {
   pane_id: string;
@@ -12,41 +20,60 @@ export interface Agent {
   agent?: string;
 }
 
-const agentList = (agents: Agent[]) =>
-  JSON.stringify({
-    id: "cli:agent:list",
-    result: { agents, type: "agent_list" },
-  });
+/** What `herdr agent list` prints for these agents. */
+export const listing = (agents: unknown[]) =>
+  JSON.stringify({ result: { agents, type: "agent_list" } });
 
-export const writer = (status: string): Agent => ({
-  pane_id: "w3:p74",
+/** An agent named `writer` of type claude, in pane `w3:p74` unless the test says otherwise. */
+export const writer = (status: string, pane = "w3:p74"): Agent => ({
+  pane_id: pane,
   agent_status: status,
-  name: "ledger-poll-herdr-writer",
+  name: "writer",
   agent: "claude",
 });
 
-/** A clock that moves one second on every read, so occurred-at and recorded-at differ. */
-export function setup() {
-  const fs = new MemoryFileSystem();
-  let tick = 0;
-  const clock = {
-    now: () => new Date(Date.UTC(2026, 0, 2, 3, 0, tick++)),
-    sleep: () => Promise.resolve(),
-  };
-  let n = 0;
-  const ledger = new Ledger(fs, clock, { next: () => `id-${++n}` }, PATH);
-  const answer = { stdout: agentList([]), code: 0, stderr: "" };
-  const runner = new FakeRunner([
-    {
-      match: (c, a) => c === "herdr" && a[0] === "agent" && a[1] === "list",
-      result: answer,
-    },
-  ]);
-  const poll = () => pollHerdr({ ledger, runner, clock, fs });
-  const show = (agents: Agent[]) => {
-    answer.stdout = agentList(agents);
-  };
-  const kinds = async () =>
-    (await ledger.list({})).events.map((e) => `${e.kind}:${e.pane}`);
-  return { fs, ledger, runner, poll, show, kinds, answer };
+/** A pane event the ledger already holds, for the last recorded state of each pane. */
+export const paneEvent = (kind: string, pane: string, agent?: string) =>
+  ({
+    id: `herdr:${kind}:${pane}`,
+    source: "herdr",
+    kind,
+    occurredAt: NOW,
+    pane,
+    ...(agent === undefined ? {} : { agent }),
+    schema: 1,
+    recordedAt: NOW,
+  }) as LedgerEvent;
+
+/** The herdr runner answers `agents`, and the ledger holds `events`. */
+export function setupHerdr(agents: unknown[] = [], events: LedgerEvent[] = []) {
+  const runner: FakeRunner = fakeRunner();
+  runner.run.mockResolvedValue(ok(listing(agents)));
+  return setupWith(runner, events);
 }
+
+/** The same poll, with the runner answering `stdout` as it is printed. */
+export function setupRaw(stdout: string, code = 0, stderr = "") {
+  const runner: FakeRunner = fakeRunner();
+  runner.run.mockResolvedValue({ stdout, stderr, code });
+  return setupWith(runner, []);
+}
+
+function setupWith(runner: FakeRunner, events: LedgerEvent[]) {
+  const fake = fakeLedger();
+  fake.list.mockResolvedValue({ events, skipped: 0 });
+  fake.record.mockImplementation((input) =>
+    Promise.resolve({
+      ok: true,
+      event: { ...input, schema: 1, recordedAt: NOW } as LedgerEvent,
+    }),
+  );
+  const fs = fakeFileSystem();
+  const clock = fakeClock();
+  const poll = () => pollHerdr({ ledger: fake.ledger, runner, clock, fs });
+  return { runner, fake, fs, clock, poll };
+}
+
+/** `isName`, stubbed: a non-empty string is a name the ledger accepts. */
+export const isNameStub = (value: unknown) =>
+  typeof value === "string" && value !== "";
