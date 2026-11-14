@@ -19,10 +19,9 @@ describe("the guard blocks the demotion of guardrail-demotion itself", () => {
       committedInventoryText,
     );
     expect(result.code).toBe(2);
-    expect(result.err).toMatch(
-      /turns guardrail-demotion from enforce to audit/,
+    expect(result.err).toBe(
+      "[guard:guardrail-demotion] .claude/guardrails.yaml turns guardrail-demotion from enforce to audit by hand. A person approves a guardrail's mode and deny patterns (ADR 0080). Instead, leave them and ask the user to approve the change.\n",
     );
-    expect(result.err).toMatch(/ask the user to approve the change/);
     expect(result.out).toBe("");
   });
 });
