@@ -53,7 +53,6 @@ export const configModule = () => ({
     environment: { ...repository.environment, name: environment },
   })),
   orderedComponents: vi.fn(() => [{ name: "gateway" }]),
-  policyWarnings: vi.fn(async () => []),
 });
 
 export const diagnosticsModule = () => ({

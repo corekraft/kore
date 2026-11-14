@@ -218,11 +218,11 @@ mise exec -- npm --prefix tools/kore run kore -- cluster destroy --environment l
 separate resources and workload charts with no provider-specific references.
 For an environment that declares a `platformMirror` (`managed-example`), it also
 checks that every approved platform image has a rewrite to that signed mirror at
-its approved digest. It reports a Gatekeeper constraint with no
-`enforcementAction` as a warning, naming the file and the `dryrun` fix, in its
-output and in the `warnings` field of `--json`; a missing action means deny with
-no audit stage, so the promotion-record check still holds it to deny and it
-needs a `deny` record in `promotions/` before it passes.
+its approved digest. It refuses a Gatekeeper constraint with no
+`enforcementAction` (exit 1, before any cluster is touched), naming the file and
+the fix: set `enforcementAction` to `deny`, `warn` or `dryrun` explicitly. A
+missing action would mean deny with no audit stage, and a promotion record does
+not stand in for it.
 `kore validate --environment managed-example --platform-image-lock <file>`
 additionally checks a release's `platform-images.lock.json` (attached to the
 GitHub release as an asset) against the committed overlay and image policy
