@@ -15,6 +15,7 @@ export function planHarness(files: Record<string, string>) {
       sleep: () => Promise.resolve(),
     },
     fs: {
+      hasGlobMatch: () => Promise.resolve(false),
       readFile: (path) => {
         const key = path.slice(ROOT.length + 1);
         return path.startsWith(`${ROOT}/`) && key in files

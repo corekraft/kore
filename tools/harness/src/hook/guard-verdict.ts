@@ -35,6 +35,8 @@ export const allow: Verdict = { action: "allow" };
 export interface GuardContext {
   root: string;
   readFile(path: string): Promise<string>;
+  /** Whether any path under the root matches a shell glob; the bare-glob rule reads it. */
+  globMatches(pattern: string): Promise<boolean>;
   /** A rule's mode from the guardrail inventory. */
   modeOf(rule: string): Mode;
   /** The inventory's deny rules; those in audit mode warn here, since a settings deny cannot. */

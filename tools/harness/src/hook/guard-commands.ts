@@ -170,4 +170,6 @@ export function checkIdeaIssueClose(name: string, args: string[]): Finding {
   );
 }
 
+// The bare-glob rule lives in its own file; re-exported here with the command rules.
+export { bareGlob } from "./guard-bare-glob.js";
 export { unquotedGlob } from "./guard-unquoted-glob.js";
