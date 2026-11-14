@@ -20,6 +20,10 @@ export {
   layoutOf,
   stateFile,
 } from "./session-close-support.js";
+export {
+  DEFAULT as LEDGER_FILE,
+  harness as ledgerHarness,
+} from "./ledger-support.js";
 export { MemoryFileSystem as RootedMemoryFileSystem } from "./filesystem-support.js";
 export {
   OVERLAY,

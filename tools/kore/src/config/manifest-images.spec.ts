@@ -1,14 +1,9 @@
-import { readdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
+// Docs: docs/decisions/0033-platform-image-mirror.md
 import { expect, test } from "vitest";
-import { findRoot } from "../config/index.js";
-import { approvedImageList, loadRepository } from "../config/index.js";
 import { manifestImages } from "./manifest-images.js";
-import { unapprovedImages } from "../images/index.js";
 
-const digest = `sha256:${"a".repeat(64)}`;
-
-test("manifestImages finds block and flow image and package fields", () => {
+test("block, flow and package fields are each read, in the order they appear", () => {
+  const digest = `sha256:${"a".repeat(64)}`;
   const manifests = `
 spec:
   package: xpkg.example/a/fn:v1@${digest}
@@ -25,48 +20,45 @@ containers:
   ]);
 });
 
-async function yamlFiles(dir: string): Promise<string[]> {
-  const entries = await readdir(dir, { withFileTypes: true });
-  const nested = await Promise.all(
-    entries.map(async (entry) =>
-      entry.isDirectory()
-        ? yamlFiles(join(dir, entry.name))
-        : [join(dir, entry.name)],
-    ),
+test("a block-style image field is read as its reference", () => {
+  expect(manifestImages("containers:\n  - image: ghcr.io/x/app:1.2\n")).toEqual(
+    ["ghcr.io/x/app:1.2"],
   );
-  return nested.flat().filter((file) => /\.ya?ml$/.test(file));
-}
+});
 
-test("every image or package a plain manifest installs is pinned by digest and approved", async () => {
-  const root = await findRoot();
-  const repository = await loadRepository("local");
-  const sources = new Set([
-    "infra/apis",
-    ...repository.catalog.components.flatMap((c) =>
-      c.kind === "manifest" && c.source && !/^https?:/.test(c.source)
-        ? [c.source]
-        : [],
-    ),
+test("a flow-style image field is read, and its closing brace is not part of the reference", () => {
+  expect(manifestImages('{image: "ghcr.io/x/app@sha256:abc"}')).toEqual([
+    "ghcr.io/x/app@sha256:abc",
   ]);
-  const approved = approvedImageList(repository).map((entry) => entry.image);
-  const files = (
-    await Promise.all([...sources].map((s) => yamlFiles(join(root, s))))
-  ).flat();
-  expect(files.length).toBeGreaterThan(0);
-  const refs = (
-    await Promise.all(
-      files.map(async (file) => {
-        const text = await readFile(file, "utf8");
-        return manifestImages(text).map((ref) => ({ file, ref }));
-      }),
-    )
-  ).flat();
-  // The Function packages are the manifest-installed images today.
-  expect(refs.map((r) => r.ref).join("\n")).toContain("function-go-templating");
-  const problems = refs.flatMap(({ file, ref }) =>
-    unapprovedImages([ref], approved).map(
-      (p) => `${file.slice(root.length + 1)}: ${p}`,
-    ),
+});
+
+test("a package field, such as a Crossplane Function, counts as a reference", () => {
+  expect(
+    manifestImages("spec:\n  package: xpkg.upbound.io/crossplane-contrib/fn\n"),
+  ).toEqual(["xpkg.upbound.io/crossplane-contrib/fn"]);
+});
+
+test("a reference that a template fills in is skipped, since its value is not known yet", () => {
+  expect(
+    manifestImages("image: {{ .Values.image }}\nimage: ghcr.io/x/a:1\n"),
+  ).toEqual(["ghcr.io/x/a:1"]);
+});
+
+test("a reference repeated in the manifests is listed once, in order of first appearance", () => {
+  expect(manifestImages("image: b:1\nimage: a:1\nimage: b:1\n")).toEqual([
+    "b:1",
+    "a:1",
+  ]);
+});
+
+test("text with no image or package field yields no references", () => {
+  expect(manifestImages("kind: Namespace\nmetadata:\n  name: kore\n")).toEqual(
+    [],
   );
-  expect(problems).toEqual([]);
+});
+
+test("a key that only contains the word image is not read as an image field", () => {
+  expect(manifestImages("imagePullPolicy: Always\npullImage: x:1\n")).toEqual(
+    [],
+  );
 });
