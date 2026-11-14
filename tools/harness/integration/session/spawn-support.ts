@@ -1,5 +1,5 @@
-import type { testHarness } from "../testing/index.js";
-import type { FakeResponse } from "../testing/index.js";
+import type { testHarness } from "../../src/testing/index.js";
+import type { FakeResponse } from "../../src/testing/index.js";
 import { WRITER_ITEMS, keychain, mintResponse } from "./role-token-support.js";
 
 /** The keychain and GitHub answers that let a writer spawn get its token. */
