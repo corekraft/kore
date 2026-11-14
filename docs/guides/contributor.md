@@ -166,6 +166,20 @@ see [The harness bundle](#the-harness-bundle).
   - A test that needs real files, a real repository or real units together
     moves to `tools/kore/integration/` (`npm run test:integration`), not deleted.
     Example: `sops-config.spec.ts` reads the committed `.sops.yaml`.
+- Mocking patterns in the harness (`tools/harness`), as the `guardrail` domain
+  settled them. They follow the kore pattern above, except where noted:
+  - Integration specs live in `tools/harness/integration/<domain>/` and import
+    the domain through its barrel (`../../src/<domain>/index.js`), like the
+    harness's other integration specs.
+  - The harness has no shared runner fake. A domain's `<domain>-support.ts`
+    builds a typed `CliDeps` whose every member is a `vi.fn` (the `guardrail`
+    domain's `fakeDeps()`). The `testing` domain's in-memory file system is a
+    stateful fake, so unit specs do not use it.
+  - A partly real module keeps its error classes and constants real through a
+    partial mock: `vi.mock(path, async (importOriginal) => ({ ...(await
+importOriginal()), fn: vi.fn() }))`.
+  - A barrel's spec (`index.spec.ts`) automocks the files it re-exports and
+    checks the names it exposes and that each is its module's own export.
 - `npm test` (in `tools/kore`) is fast and needs no cluster.
 - Live specs (`*.live.spec.ts`) create or destroy clusters. They run only
   when asked, with `KORE_RUN_LIVE=1` through the scripts in
