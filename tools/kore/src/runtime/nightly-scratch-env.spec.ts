@@ -23,7 +23,7 @@ useNightlySandbox();
 const facts = () => readFileSync(outside("facts"), "utf8");
 
 test("the scratch overlay exists before the first local up and is gone after cleanup", () => {
-  const { status } = run(["test:integration:a"]);
+  const { status } = run(["test:live:a"]);
   expect(status).toBe(0);
   expect(facts()).toMatch(/^kore local up .*overlay=present$/m);
   expect(existsSync(join(ctx.repo, "infra/environments/nightly"))).toBe(false);
@@ -39,7 +39,7 @@ test("the scratch overlay has its own environment, cluster and context, and the 
     "utf8",
   );
   let overlay = "";
-  const { status } = run(["test:integration:a"], [], {
+  const { status } = run(["test:live:a"], [], {
     KORE_NIGHTLY_KORE: `${join(ctx.dir, "snapshot.sh")}`,
   });
   expect(status).toBe(1); // the snapshot fake records the overlay, then fails
@@ -62,7 +62,7 @@ test("the scratch overlay has its own environment, cluster and context, and the 
 });
 
 test("the overlay's secrets are encrypted to a fresh recipient, never the owner's", () => {
-  const { status } = run(["test:integration:a"], [], {
+  const { status } = run(["test:live:a"], [], {
     KORE_NIGHTLY_KORE: `${join(ctx.dir, "snapshot.sh")}`,
   });
   expect(status).toBe(1);
@@ -76,7 +76,7 @@ test("the overlay's secrets are encrypted to a fresh recipient, never the owner'
 });
 
 test("plaintext secrets and the age identity never touch disk", () => {
-  const { status, stdout, stderr } = run(["test:integration:a"]);
+  const { status, stdout, stderr } = run(["test:live:a"]);
   expect(status).toBe(0);
   const plaintext = readFileSync(outside("sops-stdin"), "utf8");
   expect(plaintext).toMatch(/canary: \S{16,}/);
@@ -102,22 +102,20 @@ test("plaintext secrets and the age identity never touch disk", () => {
 });
 
 test("the identity reaches kore and sops only through the environment, and each run draws a fresh canary", () => {
-  expect(run(["test:integration:a"]).status).toBe(0);
+  expect(run(["test:live:a"]).status).toBe(0);
   expect(facts()).toMatch(/^kore local up .* identity=yes /m);
   expect(readFileSync(outside("sops-identity"), "utf8")).toContain(
     "identity=yes",
   );
   const first = readFileSync(outside("sops-stdin"), "utf8");
   rmSync(outside("facts"));
-  expect(run(["test:integration:a"]).status).toBe(0);
+  expect(run(["test:live:a"]).status).toBe(0);
   expect(readFileSync(outside("sops-stdin"), "utf8")).not.toBe(first);
 });
 
 test("the suites are pointed at the scratch environment", () => {
-  expect(run(["test:integration:a"]).status).toBe(0);
-  expect(facts()).toMatch(
-    /^suite test:integration:a identity=yes env=nightly /m,
-  );
+  expect(run(["test:live:a"]).status).toBe(0);
+  expect(facts()).toMatch(/^suite test:live:a identity=yes env=nightly /m);
 });
 
 test("a secret the generator does not know fails before any cluster work and names the file", () => {
@@ -125,7 +123,7 @@ test("a secret the generator does not know fails before any cluster work and nam
     join(ctx.repo, "infra/environments/local/secrets/extra.enc.yaml"),
     "kind: Secret\n",
   );
-  const { status, stderr, calls } = run(["test:integration:a"]);
+  const { status, stderr, calls } = run(["test:live:a"]);
   expect(status).toBe(1);
   expect(stderr).toMatch(/extra\.enc\.yaml/);
   expect(stderr).toMatch(/generat/);
@@ -138,7 +136,7 @@ test("the job summary records the duration and the peak memory", () => {
     "MemTotal:       16384000 kB\nMemFree:         1000000 kB\nMemAvailable:   10384000 kB\n",
   );
   const summary = join(ctx.dir, "summary.md");
-  const { status } = run(["test:integration:a"], [], {
+  const { status } = run(["test:live:a"], [], {
     GITHUB_STEP_SUMMARY: summary,
   });
   expect(status).toBe(0);
@@ -149,7 +147,7 @@ test("the job summary records the duration and the peak memory", () => {
 
 test("without /proc/meminfo the summary says memory was not measured", () => {
   const summary = join(ctx.dir, "summary.md");
-  const { status } = run(["test:integration:a"], [], {
+  const { status } = run(["test:live:a"], [], {
     GITHUB_STEP_SUMMARY: summary,
     KORE_NIGHTLY_MEMINFO: join(ctx.dir, "absent"),
   });
@@ -161,7 +159,7 @@ test("an existing untracked scratch directory is refused, named and left alone",
   const existing = join(ctx.repo, "infra/environments/nightly");
   mkdirSync(existing, { recursive: true });
   writeFileSync(join(existing, "mine.txt"), "keep");
-  const { status, stderr, calls } = run(["test:integration:a"]);
+  const { status, stderr, calls } = run(["test:live:a"]);
   expect(status).toBe(1);
   expect(stderr).toContain("infra/environments/nightly already exists");
   expect(readFileSync(join(existing, "mine.txt"), "utf8")).toBe("keep");

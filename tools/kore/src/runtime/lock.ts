@@ -181,7 +181,7 @@ async function acquireOrWait(
  *
  * While held, the token is exported in `HELD_LOCK_ENV`, so nested kore calls
  * (in this process or children it spawns) pass through. This is for a caller
- * that runs kore on its own behalf, such as an integration spec; kore's own
+ * that runs kore on its own behalf, such as a live spec; kore's own
  * `withEnvironmentLock` does not export it, so concurrent in-process
  * mutations still exclude each other.
  */

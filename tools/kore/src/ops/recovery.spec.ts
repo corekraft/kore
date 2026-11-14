@@ -12,7 +12,7 @@ import {
 const context = {
   components: ["db", "cache", "pg-controller"],
   stateful: ["db"],
-  exists: (path: string): boolean => path === "tests/db.integration.spec.ts",
+  exists: (path: string): boolean => path === "tests/db.live.spec.ts",
 };
 
 const exportObjective: Objective = {
@@ -24,7 +24,7 @@ const exportObjective: Objective = {
   schedule: { kind: "on-demand", trigger: "before cluster destroy" },
   rpoMinutes: 1440,
   rtoMinutes: 15,
-  restoreTest: "tests/db.integration.spec.ts",
+  restoreTest: "tests/db.live.spec.ts",
 };
 
 const problems = (...objectives: Objective[]): string[] =>
@@ -45,7 +45,7 @@ test("an objective for a component the catalog does not define is reported", () 
   assert.deepEqual(found, ["database: unknown component ghost"]);
 });
 
-test("an export objective needs an existing integration spec as its restore test", () => {
+test("an export objective needs an existing live spec as its restore test", () => {
   const { restoreTest: _omit, ...rest } = exportObjective;
   assert.match(
     problems(rest).join(),
@@ -54,16 +54,16 @@ test("an export objective needs an existing integration spec as its restore test
   assert.match(
     problems({
       ...exportObjective,
-      restoreTest: "tests/missing.integration.spec.ts",
+      restoreTest: "tests/missing.live.spec.ts",
     }).join(),
-    /database: restoreTest tests\/missing\.integration\.spec\.ts does not exist/,
+    /database: restoreTest tests\/missing\.live\.spec\.ts does not exist/,
   );
   assert.match(
     problems({
       ...exportObjective,
-      restoreTest: "tests/db.integration.spec.ts.bak",
+      restoreTest: "tests/db.live.spec.ts.bak",
     }).join(),
-    /restoreTest must be a \*\.integration\.spec\.ts/,
+    /restoreTest must be a \*\.live\.spec\.ts/,
   );
 });
 

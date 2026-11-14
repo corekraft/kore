@@ -1,7 +1,7 @@
 // Docs: docs/decisions/0013-local-tls-before-gateway.md
 //
 // Pure helpers for the opt-in Gateway, TLS, and Secret materialization proof
-// (`npm run test:integration:gateway`). They build the throwaway objects and
+// (`npm run test:live:gateway`). They build the throwaway objects and
 // judge cluster status; nothing here talks to a cluster or reads a secret value.
 
 export type Json = Record<string, unknown>;

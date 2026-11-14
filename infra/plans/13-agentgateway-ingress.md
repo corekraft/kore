@@ -49,7 +49,7 @@ Next: Paused for the test refactor (plan 14, #371): start nothing here until its
 
 ### Exit Criteria
 
-- The gateway integration suite passes with agentgateway serving ingress.
+- The gateway live suite passes with agentgateway serving ingress.
 
 ### Safety pattern and live proof (#207)
 
@@ -58,7 +58,7 @@ swaps the Gateway class and publishes its Service through
 `AgentgatewayParameters`; readiness waits for `deployment/kore-gateway-istio`
 and `service/kore-gateway-istio` to be absent. Fast specs prove the render and
 the readiness; the items above stay open until a live run on a throwaway
-profile shows the gateway integration suite passing with the flag on and a
+profile shows the gateway live suite passing with the flag on and a
 migration from an Istio-ingress profile that keeps the cluster. Whether Istio
 removes the proxy by itself when the class changes is unproven: if it does not,
 readiness times out naming the leftover resource.
@@ -89,7 +89,7 @@ readiness times out naming the leftover resource.
 ## Measurement Method
 
 The comparison point (Step 1) and the outcome (Step 4) run the same procedure,
-`npm run test:integration:ingress-measure` in `tools/kore`, implemented by
+`npm run test:live:ingress-measure` in `tools/kore`, implemented by
 `IngressMeasurement` in `tools/kore/src/platform/ingress-measurement.ts`. Its
 values are fixed in `ingressMeasurementDefaults`; changing one invalidates the
 comparison, so change it only with a new baseline.

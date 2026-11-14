@@ -49,13 +49,19 @@ function unquote(quoted: string, line: string): string {
   }
 }
 
+/** The two paths a header names: the new path, and the path before a rename (equal when unchanged). */
+interface HeaderPaths {
+  path: string;
+  previousPath: string;
+}
+
 /**
- * The new path of an unquoted header. Git writes both sides bare, separated by a space, so a path
+ * The old and new paths of an unquoted header. Git writes both sides bare, separated by a space, so a path
  * that contains " b/" gives several splits, and an equal-path split is not proof of the path: a
  * rename header can read the same. Only a header with exactly one " b/" is read; any other is
  * unreadable.
  */
-function bareSplit(rest: string, line: string): string {
+function bareSplit(rest: string, line: string): HeaderPaths {
   if (!rest.startsWith("a/")) {
     throw unreadable(line);
   }
@@ -71,29 +77,55 @@ function bareSplit(rest: string, line: string): string {
   if (only === undefined || splits.length !== 1) {
     throw unreadable(line);
   }
-  return only.b;
+  return { path: only.b, previousPath: only.a };
 }
 
-/** The new path a `diff --git` header names, unquoted; a header that cannot be read fails the parse. */
-function pathOf(line: string): string {
+/**
+ * The old path of a quoted or bare a-side token, `a/` stripped. A quoted token decodes the same way
+ * as a quoted new path, so an unknown escape or bytes that are not UTF-8 fail the read.
+ */
+function oldPath(token: string, line: string): string {
+  if (token.startsWith('"')) {
+    return unquote(token.slice(1, -1), line).slice(2);
+  }
+  return token.slice(2);
+}
+
+/** The old and new paths a `diff --git` header names, unquoted; a header that cannot be read fails the parse. */
+function pathOf(line: string): HeaderPaths {
   if (!line.startsWith(GIT_PREFIX)) {
     throw unreadable(line);
   }
   const rest = line.slice(GIT_PREFIX.length);
   const quotedNew =
-    /^(?:"a\/(?:[^"\\]|\\.)*"|a\/.+?) "b\/((?:[^"\\]|\\.)*)"$/.exec(rest);
+    /^("a\/(?:[^"\\]|\\.)*"|a\/.+?) "b\/((?:[^"\\]|\\.)*)"$/.exec(rest);
   if (quotedNew !== null) {
-    return unquote(quotedNew[1] ?? "", line);
+    return {
+      path: unquote(quotedNew[2] ?? "", line),
+      previousPath: oldPath(quotedNew[1] ?? "", line),
+    };
   }
-  const quotedOld = /^"a\/(?:[^"\\]|\\.)*" b\/(.+)$/.exec(rest);
+  const quotedOld = /^"(a\/(?:[^"\\]|\\.)*)" b\/(.+)$/.exec(rest);
   if (quotedOld !== null) {
-    return quotedOld[1] ?? "";
+    return {
+      path: quotedOld[2] ?? "",
+      previousPath: unquote(quotedOld[1] ?? "", line).slice(2),
+    };
   }
   return bareSplit(rest, line);
 }
 
+/** One changed or context line of a hunk; `start` marks the first line of its hunk. */
+export interface TrailLine {
+  kind: "added" | "removed" | "context";
+  text: string;
+  start: boolean;
+}
+
 export interface ChangedFile {
   path: string;
+  /** The path before a rename; the same as `path` for a file that kept its name. */
+  previousPath: string;
   deleted: boolean;
   added: string[];
   removed: number;
@@ -101,19 +133,36 @@ export interface ChangedFile {
   netRemoved: number;
   /** The new side of every hunk in order: added lines and unchanged context. */
   after: { added: boolean; text: string }[];
+  /** Every added, removed and context line in diff order, so a change can be placed by what surrounds it. */
+  trail: TrailLine[];
 }
 
-/** Counts one hunk's added and removed lines; ending it books the lines removed with no replacement. */
+/** Counts one hunk's added and removed lines and records each in the file's trail; ending it books the lines removed with no replacement. */
 class Hunk {
   private added = 0;
   private removed = 0;
+  private starting = false;
 
-  plus(): void {
-    this.added += 1;
+  begin(): void {
+    this.starting = true;
   }
 
-  minus(): void {
+  plus(file: ChangedFile, text: string): void {
+    this.added += 1;
+    file.added.push(text);
+    file.after.push({ added: true, text });
+    this.record(file, "added", text);
+  }
+
+  minus(file: ChangedFile, text: string): void {
     this.removed += 1;
+    file.removed += 1;
+    this.record(file, "removed", text);
+  }
+
+  context(file: ChangedFile, text: string): void {
+    file.after.push({ added: false, text });
+    this.record(file, "context", text);
   }
 
   end(file: ChangedFile | undefined): void {
@@ -122,6 +171,12 @@ class Hunk {
     }
     this.added = 0;
     this.removed = 0;
+    this.starting = false;
+  }
+
+  private record(file: ChangedFile, kind: TrailLine["kind"], text: string) {
+    file.trail.push({ kind, text, start: this.starting });
+    this.starting = false;
   }
 }
 
@@ -134,13 +189,16 @@ export function parseDiff(text: string): ChangedFile[] {
   for (const line of text.split("\n")) {
     if (line.startsWith("diff --")) {
       hunk.end(current);
+      const { path, previousPath } = pathOf(line);
       current = {
-        path: pathOf(line),
+        path,
+        previousPath,
         deleted: false,
         added: [],
         removed: 0,
         netRemoved: 0,
         after: [],
+        trail: [],
       };
       files.push(current);
       inHunk = false;
@@ -149,17 +207,15 @@ export function parseDiff(text: string): ChangedFile[] {
     } else if (line.startsWith("@@")) {
       hunk.end(current);
       inHunk = true;
+      hunk.begin();
     } else if (!inHunk && line.startsWith("deleted file mode")) {
       current.deleted = true;
     } else if (inHunk && line.startsWith("+")) {
-      current.added.push(line.slice(1));
-      current.after.push({ added: true, text: line.slice(1) });
-      hunk.plus();
+      hunk.plus(current, line.slice(1));
     } else if (inHunk && line.startsWith("-")) {
-      current.removed += 1;
-      hunk.minus();
+      hunk.minus(current, line.slice(1));
     } else if (inHunk && line.startsWith(" ")) {
-      current.after.push({ added: false, text: line.slice(1) });
+      hunk.context(current, line.slice(1));
     }
   }
   hunk.end(current);

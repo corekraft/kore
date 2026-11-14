@@ -1,6 +1,7 @@
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { cleanGitEnv } from "../src/testing/git-env.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   createFixture,
@@ -60,6 +61,7 @@ describe.runIf(enabled)("writer sandbox: writes", () => {
     const log = execFileSync("git", ["log", "--oneline", "feat/w1"], {
       cwd: repo,
       encoding: "utf8",
+      env: cleanGitEnv(),
     });
     expect(log).toContain("feat: x");
   });
@@ -99,7 +101,7 @@ describe.runIf(enabled)("writer sandbox: writes", () => {
     const before = existsSync(target)
       ? readFileSync(target, "utf8")
       : undefined;
-    const control = spawnSync("sh", ["-c", append]);
+    const control = spawnSync("sh", ["-c", append], { env: cleanGitEnv() });
     expect(control.status, "unsandboxed write is the control").toBe(0);
     writeFileSync(target, before ?? "");
     const run = runSandboxed(x.profile, x.worktree, "sh", ["-c", append]);

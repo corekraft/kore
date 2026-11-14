@@ -43,4 +43,4 @@ change the `kore platform status` exit code.
 Restore into a fresh profile with `kore data restore --from <artifact> --environment local`,
 as described in [registry recovery](registry.md#restore-and-disaster-recovery)
 and ADR 0029. The restore time objective is measured by the opt-in spec
-`npm run test:integration:ops`, not assumed.
+`npm run test:live:ops`, not assumed.
