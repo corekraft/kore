@@ -13,7 +13,16 @@ import {
 // Read-only: `docker stats`, `docker info` and `sysctl`; it changes no
 // resource. Prints one run as JSON; the person recording the Now baseline
 // repeats it and takes the mean of the run medians (footprintBaseline).
+// KORE_FOOTPRINT_RUNS (default 1, 2 to 5) repeats the measurement in this one
+// process, each run printed with its load average beside it.
 // Run with KORE_RUN_LIVE=1 (`npm run test:live:footprint`).
+
+const runs = Number(process.env.KORE_FOOTPRINT_RUNS ?? "1");
+if (!Number.isInteger(runs) || runs < 1 || runs > 5) {
+  throw new Error(
+    `KORE_FOOTPRINT_RUNS must be a whole number from 1 to 5, got "${process.env.KORE_FOOTPRINT_RUNS}"; unset it for a single run`,
+  );
+}
 
 const live = {
   concurrency: false,
@@ -21,7 +30,7 @@ const live = {
     process.env.KORE_RUN_LIVE !== "1"
       ? "set KORE_RUN_LIVE=1 to opt into a live platform"
       : false,
-  timeout: 15 * 60 * 1000,
+  timeout: runs * 15 * 60 * 1000,
 };
 
 test(
@@ -42,19 +51,24 @@ test(
         now: () => performance.now(),
       },
     );
-    const result = await measurement.measure();
-    assert.equal(
-      result.samples.length,
-      footprintMeasurementDefaults.sampleCount,
-    );
-    for (const value of [
-      result.vmMemoryMiB,
-      result.summary.cpuMillicores.median,
-      result.summary.memoryMiB.median,
-      result.summary.memoryMiB.max,
-    ]) {
-      assert.ok(Number.isFinite(value) && value > 0);
+    for (let run = 1; run <= runs; run++) {
+      const result = await measurement.measure();
+      assert.equal(
+        result.samples.length,
+        footprintMeasurementDefaults.sampleCount,
+      );
+      for (const value of [
+        result.vmMemoryMiB,
+        result.summary.cpuMillicores.median,
+        result.summary.memoryMiB.median,
+        result.summary.memoryMiB.max,
+      ]) {
+        assert.ok(Number.isFinite(value) && value > 0);
+      }
+      console.log(
+        `run ${run} of ${runs}: load average start ${result.loadAverage.start}, max ${result.loadAverage.max}`,
+      );
+      console.log(JSON.stringify(result, null, 2));
     }
-    console.log(JSON.stringify(result, null, 2));
   },
 );

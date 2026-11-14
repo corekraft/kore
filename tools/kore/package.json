@@ -41,6 +41,7 @@
     "test:live:gateway": "npm run build --silent && KORE_RUN_LIVE=1 node --import ./dist/src/runtime/live-lock-setup.js --test --test-concurrency=1 dist/src/platform/gateway.live.spec.js",
     "test:live:ingress-measure": "npm run build --silent && KORE_RUN_LIVE=1 node --import ./dist/src/runtime/live-lock-setup.js --test --test-concurrency=1 dist/src/platform/ingress-measurement.live.spec.js",
     "test:live:footprint": "npm run build --silent && KORE_RUN_LIVE=1 node --import ./dist/src/runtime/live-lock-setup.js --test --test-concurrency=1 dist/src/platform/footprint-measurement.live.spec.js",
+    "test:live:responsiveness": "npm run build --silent && KORE_RUN_LIVE=1 node --import ./dist/src/runtime/live-lock-setup.js --test --test-concurrency=1 dist/src/platform/responsiveness.live.spec.js",
     "test:live:docs": "npm run build --silent && KORE_RUN_LIVE=1 node --import ./dist/src/runtime/live-lock-setup.js --test --test-concurrency=1 dist/src/platform/operations-docs.live.spec.js",
     "test:live:database": "npm run build --silent && KORE_RUN_LIVE=1 node --import ./dist/src/runtime/live-lock-setup.js --test --test-concurrency=1 dist/src/platform/database-persistence.live.spec.js",
     "test:live:storage": "npm run build --silent && KORE_RUN_LIVE=1 node --import ./dist/src/runtime/live-lock-setup.js --test --test-concurrency=1 dist/src/platform/storage-lifecycle.live.spec.js",
