@@ -130,12 +130,31 @@ const FORWARDS: Record<string, readonly string[]> = {
   "../platform/fingerprint.js": ["desiredFingerprint"],
   "../platform/status.js": ["platformStatus"],
   "../platform/render.js": ["platformRender"],
+  "../platform/ingress-measurement.js": ["IngressMeasurement", "ingressRoutes"],
+  "../platform/ingress-measurement.fixtures.js": [
+    "FakeLoad",
+    "expectedStatus",
+    "fixture",
+    "metrics",
+    "ok as measurementOk",
+    "options",
+    "sampleResponses",
+  ],
+};
+
+/** An entry is a module export name, or `<export> as <barrel name>` when the barrel renames it. */
+const parse = (entry: string) => {
+  const [source, alias = source] = entry.split(" as ");
+  return { source, alias };
 };
 
 /** A module's stand-in: each name it exports is the string `<path>#<name>`. */
 const tagged = (path: string) =>
   Object.fromEntries(
-    (FORWARDS[path] ?? []).map((name) => [name, `${path}#${name}`]),
+    (FORWARDS[path] ?? []).map((entry) => {
+      const { source } = parse(entry);
+      return [source, `${path}#${source}`];
+    }),
   );
 
 vi.mock("./app-fixtures.js", () => tagged("./app-fixtures.js"));
@@ -215,15 +234,24 @@ vi.mock("../platform/fingerprint.js", () =>
 );
 vi.mock("../platform/status.js", () => tagged("../platform/status.js"));
 vi.mock("../platform/render.js", () => tagged("../platform/render.js"));
+vi.mock("../platform/ingress-measurement.js", () =>
+  tagged("../platform/ingress-measurement.js"),
+);
+vi.mock("../platform/ingress-measurement.fixtures.js", () =>
+  tagged("../platform/ingress-measurement.fixtures.js"),
+);
 
 const testing = await import("./index.js");
 
 test("the testing barrel forwards each name from the module that exports it, and exposes nothing else", () => {
   const expected = Object.fromEntries(
-    Object.entries(FORWARDS).flatMap(([path, names]) =>
-      names.map((name) => [name, `${path}#${name}`]),
+    Object.entries(FORWARDS).flatMap(([path, entries]) =>
+      entries.map((entry) => {
+        const { source, alias } = parse(entry);
+        return [alias, `${path}#${source}`];
+      }),
     ),
   );
 
-  expect({ ...testing }).toEqual(expected);
+  expect({ ...testing }).toStrictEqual(expected);
 });
