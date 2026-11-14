@@ -1,4 +1,4 @@
-// Docs: docs/decisions/0077-feature-flags-are-activated-only-after-a-live-run-verification.md
+// Docs: docs/decisions/0077-live-proof-gates-activation-not-merge.md
 import { describe, expect, it } from "vitest";
 import {
   environments,

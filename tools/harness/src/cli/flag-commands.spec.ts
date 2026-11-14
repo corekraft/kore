@@ -1,4 +1,4 @@
-// Docs: docs/decisions/0077-feature-flags-are-activated-only-after-a-live-run-verification.md
+// Docs: docs/decisions/0077-live-proof-gates-activation-not-merge.md
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { IdeaRepository } from "../idea/index.js";
 import {
