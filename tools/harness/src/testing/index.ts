@@ -46,6 +46,24 @@ export {
   write,
   type Result,
 } from "./guard-support.js";
+// The release workflow fixture the workflow-permissions specs share.
+export { release as releaseWorkflow } from "../hook/workflow-permissions-support.js";
+// The retrospective transcript readers, for the integration spec over real directories.
+export {
+  defaultDirs,
+  readTranscripts,
+  repoTranscriptDirs,
+} from "../hook/retro-transcripts.js";
+// The retrospective scan and its marker, for the integration specs over real transcripts.
+export {
+  lastRetrospective,
+  parseTranscript,
+  scan,
+  summarizeError,
+  windowStart,
+} from "../hook/retro-scan.js";
+// The status line's pure figures and builder, for the integration spec over real plans.
+export { contextPercent, statusLine } from "../hook/statusline.js";
 // The bypass corpus is data the guard's real-run spec replays; re-exported here so no integration spec deep-imports the hook domain.
 export {
   CORPUS,

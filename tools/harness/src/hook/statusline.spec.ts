@@ -1,37 +1,60 @@
-// The status line, ported from .claude/hooks/statusline.test.mjs.
+// The status line as a unit: the context figure, the line it builds from the
+// plan helpers, and the hook's choice of project and fallback line. The plan
+// domain, the hook wrapper and the plan reader are mocked. The real plan
+// parsing and the bundle run are in integration/hook/statusline.spec.ts.
 // Plan: infra/plans/3-agent-harness.md (Step 9)
 
-import { describe, expect, it } from "vitest";
-import { run } from "../cli/index.js";
-import { testHarness } from "../testing/index.js";
-import { nextStep } from "../plan/index.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { activePlans, nextStep, openCounts, readPlans } from "../plan/index.js";
+import type { CliDeps } from "../runtime/index.js";
+import { hookCommand } from "./io.js";
 import { contextPercent, statusLine } from "./statusline.js";
+import "./statusline.js";
+
+vi.mock("../plan/index.js");
+vi.mock("./io.js", () => ({ hookCommand: vi.fn() }));
 
 const AMBER = "\x1b[33m";
 const RED = "\x1b[31m";
 const RESET = "\x1b[0m";
 
-const plan = `# Plan
+type Handler = Parameters<typeof hookCommand>[2];
 
-## Step 8: Earlier
+/** The handler the wrapper registered when the module loaded, read before any reset. */
+const registration = vi.mocked(hookCommand).mock.calls[0];
+const handler = registeredHandler();
 
-- [ ] Confirm live.
+function registeredHandler(): Handler {
+  if (registration === undefined) {
+    throw new Error("the statusline hook was never registered");
+  }
+  return registration[2];
+}
 
-## Step 9: Operator Load
+/** The one assertion: a fake whose members the spec never reads, beyond env and cwd. */
+const asCliDeps = (parts: object) => parts as CliDeps;
 
-Next: wire the statusline.
+const deps = (env: Record<string, string>, cwd = "/cwd") =>
+  asCliDeps({ env, cwd });
 
-- [ ] Statusline.
-- [x] Brief.
-`;
+const run = (payload: unknown, env: Record<string, string> = {}) =>
+  handler({ deps: deps(env), payload, options: {}, operand: undefined });
 
-const plans = { "3-agent-harness.md": plan, "1-old.md": "- [x] done\n" };
+beforeEach(() => {
+  vi.mocked(activePlans).mockReturnValue([]);
+  vi.mocked(nextStep).mockReturnValue(null);
+  vi.mocked(openCounts).mockReturnValue([]);
+  vi.mocked(readPlans).mockResolvedValue({});
+});
 
 describe("contextPercent", () => {
-  it("prefers the reported percentage and falls back to the current usage", () => {
+  it("prefers the reported percentage, rounded", () => {
     expect(contextPercent({ context_window: { used_percentage: 41.6 } })).toBe(
       42,
     );
+  });
+
+  it("falls back to the current usage over the window size", () => {
     expect(
       contextPercent({
         context_window: {
@@ -44,6 +67,9 @@ describe("contextPercent", () => {
         },
       }),
     ).toBe(50);
+  });
+
+  it("reports null when neither the percentage nor a usable window is given", () => {
     expect(contextPercent({})).toBeNull();
     expect(
       contextPercent({
@@ -62,10 +88,28 @@ describe("contextPercent", () => {
 });
 
 describe("statusLine", () => {
-  it("shows context use, the active plan, its Next: step, and open items", () => {
-    expect(statusLine({ context_window: { used_percentage: 12 } }, plans)).toBe(
-      "ctx 12% · 3-agent-harness · Step 9 · 2 open",
-    );
+  it("joins context use, the plan name, its Next: step and open items", () => {
+    vi.mocked(activePlans).mockReturnValue(["3-agent-harness.md"]);
+    vi.mocked(nextStep).mockReturnValue({
+      step: "Step 9: Operator Load",
+      text: "wire it",
+    });
+    vi.mocked(openCounts).mockReturnValue([{ step: "Step 9", count: 2 }]);
+    expect(
+      statusLine(
+        { context_window: { used_percentage: 12 } },
+        { "3-agent-harness.md": "x" },
+      ),
+    ).toBe("ctx 12% · 3-agent-harness · Step 9 · 2 open");
+  });
+
+  it("sums open items across every step of the plan", () => {
+    vi.mocked(activePlans).mockReturnValue(["2-plan.md"]);
+    vi.mocked(openCounts).mockReturnValue([
+      { step: "Step 1", count: 1 },
+      { step: "Step 2", count: 3 },
+    ]);
+    expect(statusLine({}, { "2-plan.md": "markdown" })).toBe("2-plan · 4 open");
   });
 
   it("turns context use amber at 40% and red at 50%, and leaves it plain below", () => {
@@ -76,118 +120,98 @@ describe("statusLine", () => {
     expect(at(50)).toBe(`${RED}ctx 50%${RESET}`);
   });
 
-  it("omits what it cannot know instead of guessing", () => {
+  it("leaves out what it cannot know instead of guessing", () => {
     expect(statusLine({}, {})).toBe("");
-    expect(
-      statusLine({}, { "2-plan.md": "## Step 1: A\n\n- [ ] open\n" }),
-    ).toBe("2-plan · 1 open");
+    expect(vi.mocked(nextStep)).not.toHaveBeenCalled();
   });
 
-  it("reads Next: as the session brief does, ending it at a list item", () => {
-    const tight = "## Step 4: Tight\nNext: do it\n- [ ] item\n";
-    expect(nextStep(tight)?.text).toBe("do it");
-    expect(statusLine({}, { "2-plan.md": tight })).toBe(
-      "2-plan · Step 4 · 1 open",
-    );
-  });
-
-  it("names the plan the brief names: the highest-numbered active one", () => {
-    const active = (n: number) =>
-      `---\nstatus: active\nsummary: A plan.\nlast-verified: 2026-11-07\n---\n\n## Step ${n}: S\n\n- [ ] open\n`;
-    expect(statusLine({}, { "2-a.md": active(1), "10-b.md": active(2) })).toBe(
+  it("reads the first active plan only, and leaves Next: out when there is none", () => {
+    vi.mocked(activePlans).mockReturnValue(["10-b.md", "2-a.md"]);
+    vi.mocked(nextStep).mockReturnValue(null);
+    vi.mocked(openCounts).mockReturnValue([{ step: "Step 1", count: 1 }]);
+    expect(statusLine({}, { "10-b.md": "B", "2-a.md": "A" })).toBe(
       "10-b · 1 open",
+    );
+    expect(vi.mocked(nextStep)).toHaveBeenCalledWith("B");
+  });
+
+  it("keeps only the step name before the colon of Next:", () => {
+    vi.mocked(activePlans).mockReturnValue(["4-tight.md"]);
+    vi.mocked(nextStep).mockReturnValue({
+      step: "Step 4: Tight",
+      text: "do it",
+    });
+    vi.mocked(openCounts).mockReturnValue([{ step: "Step 1", count: 1 }]);
+    expect(statusLine({}, { "4-tight.md": "m" })).toBe(
+      "4-tight · Step 4 · 1 open",
     );
   });
 });
 
-async function runWith(
-  stdin: string,
-  files: Record<string, string> = {},
-  env: Record<string, string> = {},
-) {
-  const h = testHarness({ files, env });
-  h.deps.stdin = () => Promise.resolve(stdin);
-  const code = await run(["hook", "statusline"], h.deps);
-  return { code, out: h.out(), err: h.err() };
-}
+describe("hook statusline, registration", () => {
+  it("is registered under the name the host runs it by", () => {
+    expect(registration?.[0]).toBe("statusline");
+  });
 
-describe("hook statusline", () => {
-  it("prints one line from the session JSON and the plans under the project", async () => {
-    const result = await runWith(
-      JSON.stringify({
-        workspace: { project_dir: "/repo" },
-        context_window: { used_percentage: 20 },
-      }),
-      { "/repo/infra/plans/3-agent-harness.md": plan },
-    );
-    expect(result).toEqual({
-      code: 0,
-      out: "ctx 20% · 3-agent-harness · Step 9 · 2 open\n",
-      err: "",
+  it("prints nothing for input that is not a JSON object", async () => {
+    for (const payload of ["not json", undefined, [1], null, 7]) {
+      expect(await run(payload)).toEqual({});
+    }
+    expect(vi.mocked(readPlans)).not.toHaveBeenCalled();
+  });
+});
+
+describe("hook statusline, choice of project", () => {
+  const used = (extra: object = {}) => ({
+    context_window: { used_percentage: 20 },
+    ...extra,
+  });
+
+  it("reads plans from CLAUDE_PROJECT_DIR first", async () => {
+    await run(used({ workspace: { project_dir: "/ws" }, cwd: "/cwd" }), {
+      CLAUDE_PROJECT_DIR: "/env",
+    });
+    const root = await vi.mocked(readPlans).mock.calls[0]?.[0].root();
+    expect(root).toBe("/env");
+  });
+
+  it("then uses the host's workspace project, then the payload cwd", async () => {
+    await run(used({ workspace: { project_dir: "/ws" }, cwd: "/cwd" }));
+    expect(await vi.mocked(readPlans).mock.calls[0]?.[0].root()).toBe("/ws");
+    vi.mocked(readPlans).mockClear();
+    await run(used({ cwd: "/cwd" }));
+    expect(await vi.mocked(readPlans).mock.calls[0]?.[0].root()).toBe("/cwd");
+  });
+
+  it("never falls back to the bundle's own repository when none is given", async () => {
+    await run(used({ workspace: { project_dir: "" } }));
+    expect(await vi.mocked(readPlans).mock.calls[0]?.[0].root()).toBe("/cwd");
+  });
+});
+
+describe("hook statusline, output", () => {
+  it("prints the line built from the plans it read, with a newline", async () => {
+    vi.mocked(readPlans).mockResolvedValue({ "a.md": "markdown" });
+    vi.mocked(activePlans).mockReturnValue(["a.md"]);
+    vi.mocked(openCounts).mockReturnValue([{ step: "Step 1", count: 0 }]);
+    expect(await run({ context_window: { used_percentage: 20 } })).toEqual({
+      stdout: "ctx 20% · a · 0 open\n",
     });
   });
 
-  it("prints nothing for malformed or non-object input and exits cleanly", async () => {
-    for (const stdin of ["not json", "", "[1]", "null", "7"]) {
-      expect(await runWith(stdin)).toEqual({ code: 0, out: "", err: "" });
-    }
+  it("prints nothing when the line is empty", async () => {
+    expect(await run({})).toEqual({});
   });
 
-  it("prints nothing when it knows nothing", async () => {
-    expect(await runWith("{}")).toEqual({ code: 0, out: "", err: "" });
-  });
-});
-
-describe("hook statusline, in any project", () => {
-  const used = (extra: object = {}) =>
-    JSON.stringify({ context_window: { used_percentage: 20 }, ...extra });
-  const planAt = (root: string) => ({
-    [`${root}/infra/plans/3-agent-harness.md`]: plan,
-  });
-  const LINE = "ctx 20% · 3-agent-harness · Step 9 · 2 open\n";
-
-  it("takes the project from CLAUDE_PROJECT_DIR, then workspace.project_dir, then cwd", async () => {
-    const files = { ...planAt("/env"), ...planAt("/ws"), ...planAt("/cwd") };
-    const both = used({ workspace: { project_dir: "/ws" }, cwd: "/cwd" });
-    expect(
-      (await runWith(both, files, { CLAUDE_PROJECT_DIR: "/env" })).out,
-    ).toBe(LINE);
-    expect((await runWith(both, planAt("/ws"))).out).toBe(LINE);
-    expect((await runWith(used({ cwd: "/cwd" }), planAt("/cwd"))).out).toBe(
-      LINE,
-    );
-    // Not the repository the bundle sits in, which holds /repo/infra/plans.
-    expect(
-      (
-        await runWith(
-          used({ workspace: { project_dir: "/other" } }),
-          planAt("/repo"),
-        )
-      ).out,
-    ).toBe("ctx 20%\n");
+  it("prints a short marker when the plans cannot be read, keeping the context figure", async () => {
+    vi.mocked(readPlans).mockRejectedValue(new Error("EACCES"));
+    expect(await run({ context_window: { used_percentage: 20 } })).toEqual({
+      stdout: "ctx 20% · plans?\n",
+    });
   });
 
-  it("still prints context use in a project without infra/plans", async () => {
-    const result = await runWith(
-      used({ workspace: { project_dir: "/none" } }),
-      {},
-      {
-        CLAUDE_PROJECT_DIR: "/also-none",
-      },
-    );
-    expect(result).toEqual({ code: 0, out: "ctx 20%\n", err: "" });
-  });
-
-  it("shows a short marker on stdout when the plans cannot be read", async () => {
-    const h = testHarness({ env: { CLAUDE_PROJECT_DIR: "/p" } });
-    h.deps.stdin = () => Promise.resolve(used());
-    h.deps.fs = {
-      ...h.deps.fs,
-      readdir: () =>
-        Promise.reject(Object.assign(new Error("no"), { code: "EACCES" })),
-    };
-    expect(await run(["hook", "statusline"], h.deps)).toBe(0);
-    expect(h.out()).toBe("ctx 20% · plans?\n");
-    expect(h.err()).toBe("");
+  it("prints only the marker when the plans cannot be read and no context is known", async () => {
+    vi.mocked(readPlans).mockRejectedValue(new Error("EACCES"));
+    expect(await run({})).toEqual({ stdout: "plans?\n" });
   });
 });
