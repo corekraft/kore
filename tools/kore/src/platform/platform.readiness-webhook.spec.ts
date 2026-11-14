@@ -1,5 +1,20 @@
 import assert from "node:assert/strict";
-import { test } from "vitest";
+import { test, vi } from "vitest";
+
+/**
+ * Advances the fake clock until the work settles, so a poll's bound passes at
+ * once instead of in real seconds. The bound is still the one the code uses.
+ */
+async function settleOnFakeClock<T>(work: Promise<T>): Promise<T> {
+  let settled = false;
+  const tracked = work.finally(() => {
+    settled = true;
+  });
+  for (let step = 0; step < 200 && !settled; step += 1) {
+    await vi.advanceTimersByTimeAsync(250);
+  }
+  return tracked;
+}
 import { loadRepository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { reconcileComponent } from "./reconcile.js";
@@ -235,7 +250,13 @@ test("status reports a webhook missing its CA bundle as degraded, naming the web
     () => slices(true),
   );
 
-  const [status] = await platformStatus(repository, runner);
+  vi.useFakeTimers();
+  let status: Awaited<ReturnType<typeof platformStatus>>[number] | undefined;
+  try {
+    [status] = await settleOnFakeClock(platformStatus(repository, runner));
+  } finally {
+    vi.useRealTimers();
+  }
 
   assert.equal(status?.status, "degraded");
   assert.match(status!.detail, /validatingwebhookconfiguration\/demo-webhook/);
