@@ -59,7 +59,9 @@ describe("role-no-merge: the merge tool is the only way a role merges", () => {
       "role-no-merge",
     );
   });
+});
 
+describe("role-no-merge: a merge past the merge tool", () => {
   it("still blocks the judge from merging through a chained or wrapped call", async () => {
     blocked(
       await bash(

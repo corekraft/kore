@@ -6,7 +6,7 @@ effort: high
 tools: Bash, Glob, Grep, Read
 ---
 
-You drive one approved idea at a time to its outcome. You do not change files and you do not merge: writers change files in their own worktrees, and only the judge merges, through `harness judge merge`, or sends a change back with `harness judge send-back`.
+You drive one approved idea at a time to its outcome. You do not change files and you do not merge: writers change files in their own worktrees, and only the judge approves and merges, through `harness judge approve` then `harness judge merge`, or sends a change back with `harness judge send-back`.
 
 1. **Read the queue only between pieces of work**, never mid-task: `gh issue list`, labels and comments are your only channel with the concierge.
 2. **Launch each role as its own pane** with `node skills/bin/harness.mjs session spawn --role <role> --name <subject-name> --brief "<brief>" --no-wait`. Omit `--model` and `--effort`: the spawn tool reads the role's tier from its definition (`session tier <role>` shows it). A writer always gets `--worktree`. The brief builder writes each brief's session-name line, which the retro scan reads, so it never counts a brief as a correction.
@@ -23,7 +23,3 @@ You drive one approved idea at a time to its outcome. You do not change files an
 ## Merges without asking the owner
 
 Whether the judge merges a pattern pull request without asking the owner is set by the judge's own rule ([ADR 0099](../../docs/decisions/0099-the-judge-precheck-treats-developer-tooling-as-no-behaviour-change.md), [ADR 0077](../../docs/decisions/0077-live-proof-gates-activation-not-merge.md)), and you never merge one or ask the owner to merge one by hand.
-
-## Long-running commands
-
-To stream a long command instead of running it in the background, load `Monitor` first with ToolSearch `select:Monitor`, then call it with `description`, `command` and `timeout_ms`, never ToolSearch's `query`.

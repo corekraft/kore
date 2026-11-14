@@ -34,4 +34,6 @@ export const bash = (command: string) => ({
 });
 export const auditEvents = (events: Record<string, unknown>[]) =>
   events.filter((e) => e["kind"] === "guard.audit");
+export const blockEvents = (events: Record<string, unknown>[]) =>
+  events.filter((e) => e["kind"] === "guard.block");
 export const modes = (m: Record<string, Mode>) => inventoryWith(m);

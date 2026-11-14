@@ -97,3 +97,45 @@ test("a published source is reused at the registry address, once the forward is 
     vi.mocked(ensureRegistryForward).mock.invocationCallOrder[0]!,
   ).toBeLessThan(vi.mocked(digestIfPublished).mock.invocationCallOrder[0]!);
 });
+
+test("a context with no Dockerfile has no source tag, so the run builds and reuses nothing", async () => {
+  const { runner } = imageFakeRunner();
+  vi.mocked(contextInputs).mockResolvedValue({
+    hash: undefined,
+    dockerfile: undefined,
+  });
+
+  const found = await lookUpSource(
+    repository(),
+    runner,
+    "reference",
+    entry,
+    client(),
+  );
+
+  expect(found.source).toBeUndefined();
+  expect(found.reused).toBeUndefined();
+  expect(resolveBuildInputs).not.toHaveBeenCalled();
+  expect(digestIfPublished).not.toHaveBeenCalled();
+  expect(ensureRegistryForward).not.toHaveBeenCalled();
+});
+
+test("a base image that cannot be resolved has no source tag, and the run says why", async () => {
+  const { runner } = imageFakeRunner();
+  vi.mocked(resolveBuildInputs).mockResolvedValue(undefined);
+  const stderr = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+
+  const found = await lookUpSource(
+    repository(),
+    runner,
+    "reference",
+    entry,
+    client(),
+  );
+
+  expect(found.source).toBeUndefined();
+  expect(digestIfPublished).not.toHaveBeenCalled();
+  expect(stderr).toHaveBeenCalledWith(
+    "could not resolve the base image of apps/reference; building without reusing an earlier image\n",
+  );
+});

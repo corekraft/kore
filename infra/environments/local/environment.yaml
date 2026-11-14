@@ -13,7 +13,8 @@
   "features":
     {
       "ingress-agentgateway": false,
-      "role-tokens": false,
+      "role-tokens": true,
+      "local-image-reuse": false,
       "registry-tag-pruning": false
     },
   "imageInventory": "audit",
