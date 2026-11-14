@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { run } from "../cli/index.js";
+import { run } from "../../src/cli/index.js";
 import {
   CHECKS,
   DECLARED,
@@ -10,7 +10,7 @@ import {
   mutations,
   rulesetRepo,
   sync,
-} from "../testing/index.js";
+} from "../../src/testing/index.js";
 
 describe("harness ruleset sync on unusual input", () => {
   it("names a declared ruleset that is not a JSON object with rules", async () => {
