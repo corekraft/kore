@@ -46,6 +46,13 @@ export {
   write,
   type Result,
 } from "./guard-support.js";
+// The bypass corpus is data the guard's real-run spec replays; re-exported here so no integration spec deep-imports the hook domain.
+export {
+  CORPUS,
+  ORDINARY,
+  type CorpusCase,
+  type OrdinaryCase,
+} from "../hook/guard-corpus.js";
 export { cleanGitEnv } from "./git-env.js";
 export {
   committedInventory,

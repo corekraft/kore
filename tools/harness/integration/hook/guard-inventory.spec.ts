@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { committedInventoryText, inventoryWith } from "../testing/index.js";
+import {
+  committedInventoryText,
+  inventoryWith,
+} from "../../src/testing/index.js";
 import { auditEvents, bash, guard, modes } from "./guard-modes-support.js";
 
 describe("the inventory protects itself", () => {

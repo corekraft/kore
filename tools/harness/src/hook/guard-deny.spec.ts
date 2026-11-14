@@ -1,84 +1,97 @@
-import { describe, expect, it } from "vitest";
-import { committedInventory } from "../testing/index.js";
-import { auditEvents, bash, guard } from "./guard-modes-support.js";
+// Audit deny rules: a warning per audit rule whose pattern covers the call. `denyMatches` and `warn` are mocked.
 
-// Synthetic deny rules on commands and paths no other guard rule covers, so the
-// verdict is the deny rule's alone.
-const withMode = (mode: "audit" | "enforce") =>
-  JSON.stringify({
-    guardrails: [
-      ...committedInventory.guardrails,
-      {
-        rule: "deny-example-command",
-        kind: "bash",
-        mode,
-        owner: ".claude/settings.json",
-        deny: ["Bash(example-tool wipe:*)"],
-      },
-      {
-        rule: "deny-example-read",
-        kind: "file",
-        mode,
-        owner: ".claude/settings.json",
-        deny: ["Read(./docs/private/**)"],
-      },
-    ],
-  });
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { denyMatches, type DenyRule } from "../guardrail/index.js";
+import { checkDenyAudit } from "./guard-deny.js";
+import { warn, type GuardContext, type Hit } from "./guard-verdict.js";
 
-describe("a deny rule in audit mode", () => {
-  const audit = withMode("audit");
+vi.mock("../guardrail/index.js", () => ({ denyMatches: vi.fn() }));
+vi.mock("./guard-verdict.js");
 
-  it("warns and records a ledger event instead of denying the call", async () => {
-    const result = await guard(bash("example-tool wipe all"), audit);
-    expect(result.code).toBe(0);
-    expect(result.err).toBe("");
-    expect(JSON.parse(result.out).hookSpecificOutput.additionalContext).toMatch(
-      /\[guard:deny-example-command\].*Bash\(example-tool wipe:\*\)/,
-    );
-    expect(auditEvents(result.events)).toMatchObject([
-      { label: "deny-example-command", session: "s1" },
-    ]);
-  });
-
-  it("matches the pattern in any segment of a compound command", async () => {
-    const result = await guard(bash("echo ok && example-tool wipe all"), audit);
-    expect(result.out).toMatch(/deny-example-command/);
-  });
-
-  it("stays silent for a command the pattern does not match", async () => {
-    const result = await guard(bash("example-tool list"), audit);
-    expect(result.out).toBe("");
-    expect(auditEvents(result.events)).toEqual([]);
-  });
-
-  it("warns for a file deny pattern", async () => {
-    const result = await guard(
-      {
-        session_id: "s1",
-        tool_name: "Read",
-        tool_input: { file_path: "/repo/docs/private/notes.md" },
-      },
-      withMode("audit"),
-      "/repo",
-    );
-    expect(result.code).toBe(0);
-    expect(result.err).toBe("");
-    const output = JSON.parse(result.out).hookSpecificOutput;
-    expect(output.additionalContext).toMatch(/deny-example-read/);
-    expect(output.permissionDecision).toBeUndefined();
-    expect(auditEvents(result.events)).toMatchObject([
-      { label: "deny-example-read" },
-    ]);
-  });
+const rule = (
+  name: string,
+  mode: DenyRule["mode"],
+  patterns: string[],
+): DenyRule => ({
+  rule: name,
+  mode,
+  patterns,
 });
 
-describe("a deny rule in enforce mode", () => {
-  it("leaves denying to Claude Code settings, so the guard adds no warning", async () => {
-    const result = await guard(
-      bash("example-tool wipe all"),
-      withMode("enforce"),
+/** A guard context whose only member the unit reads is the deny list; the rest is inert. */
+const ctxWith = (denyRules: DenyRule[]): GuardContext => ({
+  root: "/repo",
+  readFile: () => Promise.reject(new Error("no file in this unit")),
+  globMatches: () => Promise.resolve(false),
+  modeOf: () => "audit",
+  denyRules,
+});
+
+beforeEach(() => {
+  vi.mocked(warn).mockImplementation((name: string, message: string): Hit => ({
+    action: "warn",
+    rule: name,
+    message,
+  }));
+  vi.mocked(denyMatches).mockReturnValue(false);
+});
+
+describe("checkDenyAudit", () => {
+  it("warns once for an audit rule whose pattern covers the call, naming the subject and the pattern", () => {
+    vi.mocked(denyMatches).mockImplementation(
+      (pattern) => pattern === "Bash(rm -rf:*)",
     );
-    expect(result.out).not.toMatch(/deny-example-command/);
-    expect(auditEvents(result.events)).toEqual([]);
+    const findings = checkDenyAudit(
+      "Bash",
+      "rm -rf /tmp/x",
+      ctxWith([rule("no-rm", "audit", ["Bash(rm -rf:*)"])]),
+    );
+    expect(findings).toEqual([
+      {
+        action: "warn",
+        rule: "no-rm",
+        message: expect.stringContaining(
+          "rm -rf /tmp/x matches the deny pattern Bash(rm -rf:*)",
+        ),
+      },
+    ]);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(warn).mock.calls[0]?.[1]).toContain(
+      "allowed with a warning",
+    );
+  });
+
+  it("names only the first pattern that covers the call", () => {
+    vi.mocked(denyMatches).mockReturnValue(true);
+    checkDenyAudit(
+      "Bash",
+      "x",
+      ctxWith([rule("r", "audit", ["Bash(a:*)", "Bash(b:*)"])]),
+    );
+    expect(vi.mocked(warn).mock.calls[0]?.[1]).toContain(
+      "deny pattern Bash(a:*)",
+    );
+    expect(denyMatches).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores an enforce rule, which the settings deny list blocks instead", () => {
+    vi.mocked(denyMatches).mockReturnValue(true);
+    expect(
+      checkDenyAudit("Bash", "x", ctxWith([rule("r", "enforce", ["Bash(x)"])])),
+    ).toEqual([]);
+    expect(denyMatches).not.toHaveBeenCalled();
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("returns no finding when no audit pattern covers the call", () => {
+    expect(
+      checkDenyAudit(
+        "Bash",
+        "ls",
+        ctxWith([rule("r", "audit", ["Bash(rm:*)"])]),
+      ),
+    ).toEqual([]);
+    expect(denyMatches).toHaveBeenCalledWith("Bash(rm:*)", "Bash", "ls");
+    expect(warn).not.toHaveBeenCalled();
   });
 });

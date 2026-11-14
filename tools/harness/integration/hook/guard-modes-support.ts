@@ -1,8 +1,8 @@
 // Runs the guard hook in process against a chosen inventory.
-import { run } from "../cli/index.js";
-import { testHarness } from "../testing/index.js";
-import { INVENTORY_PATH, type Mode } from "../guardrail/index.js";
-import { inventoryWith, ledgerEvents } from "../testing/index.js";
+import { run } from "../../src/cli/index.js";
+import { testHarness } from "../../src/testing/index.js";
+import { INVENTORY_PATH, type Mode } from "../../src/guardrail/index.js";
+import { inventoryWith, ledgerEvents } from "../../src/testing/index.js";
 
 /** The ledger's events from a fake file map, one JSON object per line. */
 
