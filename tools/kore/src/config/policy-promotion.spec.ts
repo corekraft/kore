@@ -156,12 +156,33 @@ metadata: {name: kore-rbac}
 spec: {}
 `;
 
-test("a constraint with no enforcementAction is a warning that names the file and the dryrun fix, not a refusal", async () => {
+test("a constraint with no enforcementAction is still held to the deny evidence check without a promotion record", async () => {
   const repository = await sandbox({ "rbac.yaml": noAction });
+  assert.deepEqual(await policyPromotionErrors(repository, now), [
+    "policy promotion: kore-rbac enforces deny without infra/policies/gatekeeper/promotions/kore-rbac.json; record zero-violation audit evidence for each environment first",
+  ]);
+});
+
+test("a constraint with no enforcementAction and a deny promotion record passes the evidence check and keeps only the warning", async () => {
+  const repository = await sandbox(
+    { "rbac.yaml": noAction },
+    { "kore-rbac.json": record() },
+  );
   assert.deepEqual(await policyPromotionErrors(repository, now), []);
   assert.deepEqual(await policyWarnings(repository), [
     "policy promotion: infra/policies/gatekeeper/constraints/rbac.yaml has no spec.enforcementAction, so Gatekeeper enforces deny with no audit stage; set enforcementAction: dryrun until a recorded promotion",
   ]);
+});
+
+test("a constraint with no enforcementAction and a record for warn is rejected as enforcing deny", async () => {
+  const repository = await sandbox(
+    { "rbac.yaml": noAction },
+    { "kore-rbac.json": record({ to: "warn" }) },
+  );
+  assert.match(
+    (await policyPromotionErrors(repository, now)).join("\n"),
+    /kore-rbac.*promotes to warn but the constraint enforces deny/,
+  );
 });
 
 test("dryrun, warn and deny never produce a missing-action warning", async () => {

@@ -186,14 +186,13 @@ export async function policyPromotionErrors(
   for (const file of files) {
     const text = await readFile(join(dir, file), "utf8");
     const name = /^metadata:\s*\{\s*name:\s*([^\s,}]+)/m.exec(text)?.[1];
-    const action = /^\s*enforcementAction:\s*(\S+)/m.exec(text)?.[1];
+    // Gatekeeper enforces deny when the action is missing, so the evidence check
+    // holds it to deny; policyWarnings reports the missing action itself.
+    const action = /^\s*enforcementAction:\s*(\S+)/m.exec(text)?.[1] ?? "deny";
     if (name === undefined) {
       errors.push(
         `policy promotion: ${constraintsDir}/${file} needs metadata name`,
       );
-    } else if (action === undefined) {
-      // A missing action is a warning (policyWarnings): warning first, refusal follows.
-      continue;
     } else if (!(actions as readonly string[]).includes(action)) {
       errors.push(
         `policy promotion: ${name} enforcementAction ${action} must be dryrun, warn, or deny`,
