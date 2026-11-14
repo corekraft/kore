@@ -65,7 +65,9 @@ describe("hook retro-scan --evidence", () => {
       (JSON.parse(plain) as Record<string, unknown>)["guards"],
     );
   });
+});
 
+describe("hook retro-scan --evidence: locations per rule", () => {
   it("gives each rule its own session:line locations for a transcript with blocks by two rules", async () => {
     const dir = transcripts([
       ...blocked("t1", "role-worktree"),
