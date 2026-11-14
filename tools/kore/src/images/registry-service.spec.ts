@@ -1,7 +1,7 @@
 // Docs: docs/decisions/0058-registry-transport-tls.md
 import { expect, test, vi } from "vitest";
 import { registryPlan } from "../config/index.js";
-import { fakeRepository, fakeRunner } from "./images-support.js";
+import { asFake, fakeRepository, fakeRunner } from "./images-support.js";
 import { verifiedRegistryAddress } from "./registry-service.js";
 
 vi.mock("../config/index.js");
@@ -18,9 +18,11 @@ const kubectlLookup = [
 ];
 
 test("an external registry address is returned without asking the cluster", async () => {
-  vi.mocked(registryPlan).mockReturnValue({
-    address: "registry.example.com:443",
-  } as never);
+  vi.mocked(registryPlan).mockReturnValue(
+    asFake({
+      address: "registry.example.com:443",
+    }),
+  );
   const { runner, run } = fakeRunner();
 
   await expect(verifiedRegistryAddress(fakeRepository(), runner)).resolves.toBe(
@@ -30,10 +32,12 @@ test("an external registry address is returned without asking the cluster", asyn
 });
 
 test("a Service that answers at the pinned clusterIP returns the configured address", async () => {
-  vi.mocked(registryPlan).mockReturnValue({
-    address: "10.96.0.50:5000",
-    clusterIP: "10.96.0.50",
-  } as never);
+  vi.mocked(registryPlan).mockReturnValue(
+    asFake({
+      address: "10.96.0.50:5000",
+      clusterIP: "10.96.0.50",
+    }),
+  );
   const { runner, run } = fakeRunner(() => "10.96.0.50\n");
 
   await expect(verifiedRegistryAddress(fakeRepository(), runner)).resolves.toBe(
@@ -45,10 +49,12 @@ test("a Service that answers at the pinned clusterIP returns the configured addr
 });
 
 test("an absent Service is reported with the platform command that creates it", async () => {
-  vi.mocked(registryPlan).mockReturnValue({
-    address: "10.96.0.50:5000",
-    clusterIP: "10.96.0.50",
-  } as never);
+  vi.mocked(registryPlan).mockReturnValue(
+    asFake({
+      address: "10.96.0.50:5000",
+      clusterIP: "10.96.0.50",
+    }),
+  );
   const { runner } = fakeRunner(() => "");
 
   await expect(
@@ -59,10 +65,12 @@ test("an absent Service is reported with the platform command that creates it", 
 });
 
 test("a Service on another clusterIP names the delete that recreates it, and the address it expects", async () => {
-  vi.mocked(registryPlan).mockReturnValue({
-    address: "10.96.0.50:5000",
-    clusterIP: "10.96.0.50",
-  } as never);
+  vi.mocked(registryPlan).mockReturnValue(
+    asFake({
+      address: "10.96.0.50:5000",
+      clusterIP: "10.96.0.50",
+    }),
+  );
   const { runner } = fakeRunner(() => "10.99.1.2");
 
   const message = await verifiedRegistryAddress(fakeRepository(), runner).then(

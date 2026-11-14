@@ -4,6 +4,7 @@ import { connect } from "node:tls";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { listHostProcesses, terminateMatching } from "../runtime/index.js";
 import {
+  asFake,
   connectTo,
   fakeRepository,
   fakeRunner,
@@ -140,7 +141,7 @@ test("a forward that never answers fails after fifteen seconds, naming the port"
 test("the default start runs kubectl detached with its output ignored, and records the forward it started", async () => {
   vi.useFakeTimers();
   const child = { pid: 1234, unref: vi.fn() };
-  vi.mocked(spawn).mockReturnValue(child as never);
+  vi.mocked(spawn).mockReturnValue(asFake(child));
   connectTo(
     fakeSocket({ error: new Error("connection refused") }),
     fakeSocket({ data: "HTTP/1.1 401 Unauthorized" }),
@@ -163,7 +164,7 @@ test("the default start runs kubectl detached with its output ignored, and recor
 });
 
 test("a kubectl that starts without a process id fails with the start error", async () => {
-  vi.mocked(spawn).mockReturnValue({ pid: undefined, unref: vi.fn() } as never);
+  vi.mocked(spawn).mockReturnValue(asFake({ pid: undefined, unref: vi.fn() }));
 
   await expect(
     localRegistryReference(fakeRepository(), fakeRunner().runner, reference, {

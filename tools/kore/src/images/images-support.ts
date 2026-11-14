@@ -155,6 +155,6 @@ export function secretData(
  * The one cast a fake needs. A fake implements the members a unit calls, not
  * the whole Node type it stands in for, so it is handed over as that type here.
  */
-function asFake<T>(fake: unknown): T {
+export function asFake<T>(fake: unknown): T {
   return fake as T;
 }

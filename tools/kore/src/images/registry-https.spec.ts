@@ -2,6 +2,7 @@
 import type { ClientRequest, IncomingMessage } from "node:http";
 import { request } from "node:https";
 import { expect, test, vi } from "vitest";
+import { asFake } from "./images-support.js";
 import { registryHead } from "./registry-https.js";
 
 vi.mock("node:https");
@@ -30,7 +31,7 @@ function fakeRequest(): FakeRequest {
 
 /** Starts a HEAD with `req` as the request node returns, and returns the response callback. */
 function start(req: FakeRequest) {
-  vi.mocked(request).mockReturnValue(req as unknown as ClientRequest);
+  vi.mocked(request).mockReturnValue(asFake<ClientRequest>(req));
   const promise = registryHead(
     "https://127.0.0.1:30500/v2/app/manifests/x",
     { accept: "application/vnd.oci.image.manifest.v1+json" },
@@ -47,7 +48,7 @@ function response(
   statusCode: number | undefined,
   headers: Record<string, string | string[] | undefined>,
 ) {
-  return { statusCode, headers, resume: vi.fn() } as unknown as IncomingMessage;
+  return asFake<IncomingMessage>({ statusCode, headers, resume: vi.fn() });
 }
 
 test("the HEAD goes to the URL with its headers, verified against the CA and never with verification off", async () => {

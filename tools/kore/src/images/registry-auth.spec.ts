@@ -4,6 +4,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 import { registryPlan } from "../config/index.js";
 import {
   appliedItems,
+  asFake,
   fakeRepository,
   fakeRunner,
   fakeSha1,
@@ -37,10 +38,12 @@ const storedSecret = JSON.stringify({
 });
 
 beforeEach(() => {
-  vi.mocked(registryPlan).mockReturnValue({
-    address: "10.96.0.50:5000",
-    clusterIP: "10.96.0.50",
-  } as never);
+  vi.mocked(registryPlan).mockReturnValue(
+    asFake({
+      address: "10.96.0.50:5000",
+      clusterIP: "10.96.0.50",
+    }),
+  );
   fakeSha1();
 });
 
@@ -214,9 +217,11 @@ test("kore manages registry auth only where the plan has a cluster address, and 
   expect(koreManagesRegistryAuth(fakeRepository())).toBe(true);
   expect(registryAddress(fakeRepository())).toBe("10.96.0.50:5000");
 
-  vi.mocked(registryPlan).mockReturnValue({
-    address: "registry.example.com",
-  } as never);
+  vi.mocked(registryPlan).mockReturnValue(
+    asFake({
+      address: "registry.example.com",
+    }),
+  );
   expect(koreManagesRegistryAuth(fakeRepository())).toBe(false);
 });
 

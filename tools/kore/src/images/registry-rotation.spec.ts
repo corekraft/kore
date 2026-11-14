@@ -11,7 +11,7 @@ import {
   registryPullSecret,
   withSecretsRedacted,
 } from "./registry-auth.js";
-import { fakeRepository, fakeRunner } from "./images-support.js";
+import { asFake, fakeRepository, fakeRunner } from "./images-support.js";
 import { rotateRegistryCredentials } from "./registry-rotation.js";
 
 vi.mock("node:crypto");
@@ -36,9 +36,11 @@ beforeEach(() => {
   vi.mocked(registryAddress).mockReturnValue("10.96.0.50:5000");
   vi.mocked(existingCredentials).mockResolvedValue(previous);
   vi.mocked(generated).mockReturnValue(next);
-  vi.mocked(randomBytes).mockReturnValue({
-    toString: () => "abcd",
-  } as never);
+  vi.mocked(randomBytes).mockReturnValue(
+    asFake({
+      toString: () => "abcd",
+    }),
+  );
   vi.mocked(htpasswdLine).mockImplementation(
     (credential) => `${credential.username}:{SHA}${credential.password}`,
   );
