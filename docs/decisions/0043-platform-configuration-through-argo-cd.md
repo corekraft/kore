@@ -2,7 +2,7 @@
 status: proposed
 summary: kore keeps installing the bootstrap, core, and observability phases through Helm, installs the platform organization's Argo CD in core, and hands every configuration-phase release except the image policy to that Argo CD as Helm charts from the platform OCI registry, with its health gating application admission.
 date: 2026-11-09
-last-verified: 2026-11-09
+last-verified: 2026-11-14
 ---
 
 # ADR 0043: Deliver platform configuration through the platform Argo CD

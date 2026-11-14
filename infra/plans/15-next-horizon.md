@@ -67,28 +67,20 @@ and is not part of Next.
 
 ## Step 1: Accept the Next ADRs
 
-Next: Split ADR 0041's Next part into its own ADR (first Work item), then run the footprint check as far as possible without a baseline (#659), then accept the Next ADRs through write-adr.
+Next: Run the footprint check as far as possible without a baseline (#659), then accept the Next ADRs through write-adr.
 
 Safety pattern: `no-behaviour-change` (documentation only). Accepting an ADR
 changes no cluster resource.
 
 ### Work
 
-- [ ] **Split ADR 0041 first.** Write a new ADR through write-adr for the Next
+- [x] **Split ADR 0041 first.** Write a new ADR through write-adr for the Next
       part of
       [ADR 0041](../../docs/decisions/0041-backstage-and-argo-cd-per-tenant.md),
       and have ADR 0041 keep the rest, as #609 did for 0040 and 0051. Nothing in
-      0041 belongs to Now. By clause:
-  - _Next:_ the platform organization gets its own Backstage and Argo CD for
-    operators; Argo CD syncs service workloads from git by digest, with image
-    admission still deciding what runs; Backstage reads clusters as the user
-    through OIDC; both run like any other service, with hosts, a PostgreSQL
-    claim and telemetry.
-  - _Then:_ one Backstage and one Argo CD per tenant root, composed by the
-    `Organization` API; scoping by sub-organization groups and an AppProject
-    per organization; a namespace-scoped Argo CD per tenant; the reserved
-    service names in a tenant's base; one pinned version rolled across every
-    tenant's instance.
+      0041 belongs to Now. The Next part is
+      [ADR 0111](../../docs/decisions/0111-run-a-backstage-and-an-argo-cd-for-the-platform-organization-s-operators.md);
+      0041 keeps the Then part.
 - [ ] **Check the footprint.** Weigh each component-adding ADR against the
       recorded Now baseline (#614): the platform Keycloak of
       [ADR 0040](../../docs/decisions/0040-keycloak-human-identity.md), the
