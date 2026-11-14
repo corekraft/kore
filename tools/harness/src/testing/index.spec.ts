@@ -195,6 +195,17 @@ const EXPORTS = [
   "vitestConfig",
   "withFlag",
   "write",
+  "contextPercent",
+  "defaultDirs",
+  "lastRetrospective",
+  "parseTranscript",
+  "readTranscripts",
+  "releaseWorkflow",
+  "repoTranscriptDirs",
+  "scan",
+  "statusLine",
+  "summarizeError",
+  "windowStart",
 ];
 
 test("the testing barrel exposes exactly the fakes and fixtures its support files define", () => {

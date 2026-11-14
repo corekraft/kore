@@ -187,6 +187,20 @@ describe("harness hook unit-specs: what is not a unit", () => {
     expect(err).toBe("");
   });
 
+  it("exempts a live helper, a *.live.ts file that only live suites import, which needs no spec", async () => {
+    const { code, err } = await run(tree("security/cluster.live.ts"));
+    expect(code).toBe(0);
+    expect(err).toBe("");
+  });
+
+  it("still requires a spec for a source whose name only contains the word live", async () => {
+    const { code, err } = await run(tree("security/live-scan.ts"));
+    expect(code).toBe(1);
+    expect(err).toBe(
+      "unit-specs: tools/kore/src/security/live-scan.ts has no spec; add live-scan.spec.ts beside it (ADR 0098)\n",
+    );
+  });
+
   it("does not count a live or docker spec as the unit's spec", async () => {
     const { code, err } = await run(
       tree(

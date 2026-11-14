@@ -28,6 +28,25 @@ describe("hook I/O", () => {
     expect(seen).toEqual({ tool_name: "Bash" });
   });
 
+  it("never reads stdin for a hook that declares it takes no payload", async () => {
+    const h = testHarness();
+    let read = false;
+    h.deps.stdin = () => {
+      read = true;
+      return Promise.resolve('{"tool_name":"Bash"}');
+    };
+    const command = hookCommand(
+      "demo",
+      "demo hook",
+      () => Promise.resolve({}),
+      {
+        payload: false,
+      },
+    );
+    await command.run({ json: false, options: {}, deps: h.deps });
+    expect(read).toBe(false);
+  });
+
   it("treats empty or malformed stdin as no payload", async () => {
     const h = testHarness();
     for (const text of ["", "  \n", "not json"]) {
@@ -35,7 +54,9 @@ describe("hook I/O", () => {
       expect(await readPayload(h.deps)).toBeUndefined();
     }
   });
+});
 
+describe("hook I/O, exit codes and failures", () => {
   it("passes the handler's exit code, stdout and stderr through", async () => {
     expect(
       await runHook(() =>

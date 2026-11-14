@@ -14,7 +14,7 @@ import {
   httpsGet,
   mkcertRoot,
   withProofNamespace,
-} from "./gateway-cluster-support.js";
+} from "./gateway-cluster.live.js";
 import {
   certificateProblem,
   proofManifests,

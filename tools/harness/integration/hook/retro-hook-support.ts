@@ -1,13 +1,13 @@
-// Helpers for the `harness hook retro-scan` specs: a temporary repository root
+// Helpers for the `harness hook retro-scan` integration specs: a temporary repository root
 // and a run of the hook through the CLI with fake dependencies.
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { run } from "../cli/index.js";
-import { testHarness } from "../testing/index.js";
-import { INVENTORY_PATH } from "../guardrail/index.js";
-import { nodeFileSystem } from "../runtime/index.js";
+import { run } from "../../src/cli/index.js";
+import { testHarness } from "../../src/testing/index.js";
+import { INVENTORY_PATH } from "../../src/guardrail/index.js";
+import { nodeFileSystem } from "../../src/runtime/index.js";
 
 const temps: string[] = [];
 

@@ -4,7 +4,7 @@ import { loadRepository } from "../../src/config/index.js";
 import {
   renderChart,
   yamlDocuments,
-} from "../../src/platform/upstream-support.js";
+} from "../../src/platform/upstream.live.js";
 
 // Renders the pinned chart through the real kore-patch post-renderer, so a
 // chart bump that moves a patch target fails here, not in a live run.

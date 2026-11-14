@@ -12,7 +12,7 @@ import {
 import {
   renderChart,
   yamlDocuments,
-} from "../../src/platform/upstream-support.js";
+} from "../../src/platform/upstream.live.js";
 
 const run = promisify(execFile);
 const uptimeMs = 5_000;

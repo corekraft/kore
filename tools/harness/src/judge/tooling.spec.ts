@@ -69,6 +69,24 @@ describe("isTooling: paths", () => {
   });
 });
 
+describe("isTooling: live helpers", () => {
+  it.each([
+    "tools/kore/src/platform/gateway-cluster.live.ts",
+    "tools/kore/src/platform/upstream.live.ts",
+  ])("%s is tooling", (path) => {
+    expect(isTooling(file(path))).toBe(true);
+  });
+
+  it.each([
+    "tools/kore/src/platform/foo.ts",
+    "tools/kore/foo.live.ts",
+    "infra/platform/foo.live.ts",
+    "apps/web/foo.live.ts",
+  ])("%s is product", (path) => {
+    expect(isTooling(file(path))).toBe(false);
+  });
+});
+
 describe("isTooling: renames", () => {
   it("is tooling when both the old and the new path are tooling", () => {
     expect(isTooling(file("skills/b.md", [], "tools/harness/a.ts"))).toBe(true);
@@ -95,6 +113,30 @@ describe("isTooling: renames", () => {
         ),
       ),
     ).toBe(true);
+  });
+
+  it("is tooling when a test-support file is renamed to a live helper in tools/kore/src", () => {
+    expect(
+      isTooling(
+        file(
+          "tools/kore/src/platform/gateway-cluster.live.ts",
+          [],
+          "tools/kore/src/platform/gateway-cluster-support.ts",
+        ),
+      ),
+    ).toBe(true);
+  });
+
+  it("is product when a live helper moves out of tools/kore/src", () => {
+    expect(
+      isTooling(
+        file(
+          "tools/kore/foo.live.ts",
+          [],
+          "tools/kore/src/platform/upstream.live.ts",
+        ),
+      ),
+    ).toBe(false);
   });
 
   it("is product when a production file moves into tools/kore/integration", () => {

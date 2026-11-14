@@ -3,9 +3,12 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vitest";
-import { loadRepository } from "../config/index.js";
-import type { Runner } from "../runtime/index.js";
-import { platformRender } from "./render.js";
+import { loadRepository } from "../../src/config/index.js";
+import type { Runner } from "../../src/runtime/index.js";
+import { platformRender } from "../../src/testing/index.js";
+
+// Real units together: the catalog loader, Helm's output redaction and the
+// filesystem. Moved from src/platform/render-output.spec.ts (ADR 0098).
 
 const rendered =
   "apiVersion: v1\nkind: Secret\nmetadata:\n  name: db\nstringData:\n  password: hunter2-plain\n";

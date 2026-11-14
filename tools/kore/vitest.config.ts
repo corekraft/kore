@@ -25,6 +25,7 @@ export default defineConfig({
         "src/**/*.live.spec.ts",
         "src/**/*-support.ts",
         "src/**/*.fixtures.ts",
+        "src/**/*.live.ts",
         "dist/**",
       ],
       reporter: ["text", "html"],

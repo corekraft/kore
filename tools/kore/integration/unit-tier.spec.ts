@@ -31,7 +31,7 @@ const reasons = (text: string): string[] => {
   ) {
     found.push("imports child_process unmocked");
   }
-  if (/from ["'][^"']*upstream-support(?:\.js)?["']/.test(text)) {
+  if (/from ["'][^"']*upstream(?:-support|\.live)(?:\.js)?["']/.test(text)) {
     found.push("imports the chart renderer, which runs helm");
   }
   if (/readFile(?:Sync)?\([^)]*harness\.mjs/.test(text)) {
