@@ -5,15 +5,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { lastRetrospective, scan, windowStart } from "./retro-scan.js";
-import {
-  add,
-  analysisOf,
-  at,
-  sessions,
-  warning,
-} from "./retro-scan-support.js";
-import { SessionAnalysis } from "./retro-session.js";
-import { parseTranscript, timestamps } from "./retro-transcript.js";
+import { add, at, warning, wireSessions } from "./retro-scan-support.js";
 
 const locations = vi.hoisted(() => ({ add: vi.fn(), sorted: vi.fn() }));
 
@@ -89,21 +81,7 @@ const scanOf = (ids: string[], options?: Parameters<typeof scan>[1]) =>
     options,
   );
 
-beforeEach(() => {
-  sessions.clear();
-  vi.mocked(parseTranscript).mockImplementation((id) => ({
-    id,
-    events: [],
-    skipped: sessions.get(id)?.skipped ?? 0,
-  }));
-  vi.mocked(timestamps).mockImplementation((session) => ({
-    first: sessions.get(session.id)?.first ?? null,
-    last: sessions.get(session.id)?.last ?? null,
-  }));
-  vi.mocked(SessionAnalysis).mockImplementation(function (session) {
-    return analysisOf(sessions.get(session.id)?.analysis);
-  });
-});
+beforeEach(wireSessions);
 
 describe("scan: which sessions it keeps", () => {
   it("keeps the sessions still active in the window, in order of their first stamp", () => {
@@ -211,13 +189,14 @@ describe("scan: warning outcomes and the audit", () => {
     ]);
   });
 
-  it("reports an overridden audit warning as evidence, and ignores a rule outside the audit", () => {
+  it("reports only an overridden audit warning as evidence, and ignores a rule outside the audit", () => {
     add("a", {
       warnings: [
         warning("bare-glob", 7, "skills/*/SKILL.md"),
+        warning("bare-glob", 8),
         warning("unquoted-glob", 9),
       ],
-      outcome: () => "overridden",
+      outcome: (w) => (w.line === 7 ? "overridden" : "heeded"),
     });
     scanOf(["a"], { evidence: true, auditRules: ["bare-glob"] });
     expect(locations.add.mock.calls).toEqual([
@@ -226,6 +205,18 @@ describe("scan: warning outcomes and the audit", () => {
         { session: "a", line: 7, excerpt: "ls 7", glob: "skills/*/SKILL.md" },
       ],
     ]);
+  });
+
+  it("counts every overridden warning in the audit, past the 20 locations kept per rule", () => {
+    const overridden = (n: number) =>
+      Array.from({ length: n }, (_, i) => warning("bare-glob", i + 1));
+    add("a", { warnings: overridden(15), outcome: () => "overridden" });
+    add("b", { warnings: overridden(10), outcome: () => "overridden" });
+    const { audit } = scanOf(["a", "b"], {
+      evidence: true,
+      auditRules: ["bare-glob"],
+    }).rules;
+    expect(audit[0]).toMatchObject({ rule: "bare-glob", overridden: 25 });
   });
 });
 

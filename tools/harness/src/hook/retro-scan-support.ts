@@ -1,7 +1,9 @@
+import { vi } from "vitest";
+import { parseTranscript, timestamps } from "./retro-transcript.js";
 // Fakes for the retro scan unit spec: a session analysis as the scan reads it,
 // and a warning as the analysis records it. Fakes only; no behaviour.
 
-import type { SessionAnalysis, Warning } from "./retro-session.js";
+import { SessionAnalysis, type Warning } from "./retro-session.js";
 
 /** The analysis members the scan reads, as the scan reads them. */
 export type Visible = Pick<
@@ -55,4 +57,21 @@ export function add(
   skipped = 0,
 ) {
   sessions.set(id, { analysis, first, last, skipped });
+}
+
+/** Makes the mocked transcript and session units answer from the sessions registered with add(). */
+export function wireSessions(): void {
+  sessions.clear();
+  vi.mocked(parseTranscript).mockImplementation((id) => ({
+    id,
+    events: [],
+    skipped: sessions.get(id)?.skipped ?? 0,
+  }));
+  vi.mocked(timestamps).mockImplementation((session) => ({
+    first: sessions.get(session.id)?.first ?? null,
+    last: sessions.get(session.id)?.last ?? null,
+  }));
+  vi.mocked(SessionAnalysis).mockImplementation(function (session) {
+    return analysisOf(sessions.get(session.id)?.analysis);
+  });
 }
