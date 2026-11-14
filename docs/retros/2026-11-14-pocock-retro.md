@@ -1,9 +1,7 @@
 ---
-{
-  "summary": "Ten findings from the Matt Pocock-skill retro of 2026-11-14 over 193 main-checkout and 290 writer-worktree sessions, each with evidence and a proposed change; proposals only, none applied. Read when choosing which harness changes to accept.",
-  "date": "2026-11-14",
-  "last-verified": "2026-11-14",
-}
+summary: Ten findings from the Matt Pocock-skill retro of 2026-11-14 over 193 main-checkout and 290 writer-worktree sessions, each with evidence and a proposed change; proposals only, none applied. Read when choosing which harness changes to accept.
+date: 2026-11-14
+last-verified: 2026-11-14
 ---
 
 # Pocock retro, 2026-11-14
@@ -56,6 +54,8 @@ command, failing spec first.
 
 ## 3. Writer and orchestrator definitions tell agents to use tools they do not have
 
+Evidence as reported by the retro: counts (89 writer sessions, about 40 more errors) and file names (the writer and orchestrator agent definitions), no file:line given.
+
 Both say to load Monitor first with ToolSearch, but neither `tools:` list
 includes Monitor or ToolSearch. 89 writer sessions hit "No such tool available:
 Monitor/ToolSearch/TaskStop" and then tried sleep loops, which Claude Code
@@ -66,6 +66,8 @@ section. Add a test that fails when an agent body names a tool its `tools:` list
 leaves out.
 
 ## 4. zsh quoting blocks are frequent and the memory about them changes nothing
+
+Evidence as reported by the retro: counts (254 + 37 and 89 + 5 blocks) and the `zsh-quote-globs` memory, no file:line given.
 
 - 254 + 37 unquoted-glob blocks, almost all `grep` with an include option given
   a bare star-dot-ts glob.
@@ -79,6 +81,8 @@ the quoted word instead of blocking, then delete the `zsh-quote-globs` memory.
 
 ## 5. Principles-review verdicts are posted by hand; `harness review post` was never used (pointer in the wrong place)
 
+Evidence as reported by the retro: counts, session 112bd8fe, PR #519 and the file name `principles-review.md`, no file:line given.
+
 The only instruction to use `review post` is in `principles-review.md` (the
 caller posts), which the caller never reads. In session 112bd8fe, 124
 hand-written `gh pr comment` principles-review calls came after #519 merged at
@@ -89,6 +93,8 @@ body and names `harness review post`. Have the reviewer end its report with the
 exact `review post` command.
 
 ## 6. Judges are spawned before a PR is ready to judge (automated checks)
+
+Evidence as reported by the retro: counts (21 of 118 PRs, about 28 extra sessions) and PR numbers, no file:line given.
 
 21 of 118 PRs needed more than one judge session, about 28 extra sessions.
 Causes:
@@ -109,6 +115,8 @@ Proposed:
 
 ## 7. `session notify` types into the owner's pane and submits their half-written message (information access)
 
+Evidence as reported by the retro: counts (at least three cut messages, 28 "Delivery not confirmed"), a quoted owner message and times, no file:line given.
+
 The owner's messages were cut mid-word at least three times (for example "is PR
 584 not gonna ge" followed by a herdr finished line); at 18:06 the owner retyped
 it. `notify` reported "Delivery not confirmed" 28 times. The user said "go read
@@ -120,6 +128,8 @@ the pane.
 
 ## 8. The ledger is missing outcome signals
 
+Evidence as reported by the retro: the last `pr.merged` event time, a count of about 100 merged PRs, the absence of `pane.*` events, and issue #354, no file:line given.
+
 Nothing runs `ledger poll-github` or `ledger poll-herdr` on a schedule or hook.
 The last `pr.merged` event is 11-12 20:06 though about 100 PRs merged on 11-14,
 and there are no `pane.*` events at all. Plan 12's metrics (#354) depend on
@@ -129,6 +139,8 @@ Proposed: run `ledger poll-github` from a SessionStart or Stop hook (one poll at
 a time is already enforced) or on a timer.
 
 ## 9. Pre-commit is still off with nothing left to justify it (guardrail missing; needs the owner)
+
+Evidence as reported by the retro: the `core.hooksPath` value, the keeper loop pid 60557 and its 20-second interval, and plan 14, no file:line given.
 
 `core.hooksPath` is `.git/hooks-light` and the keeper loop (pid 60557) still
 resets it every 20 seconds. The conversion writers it was turned off for are
