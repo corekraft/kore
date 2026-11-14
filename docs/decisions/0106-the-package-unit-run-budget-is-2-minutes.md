@@ -29,5 +29,4 @@ thresholds are unchanged. No exemptions are added.
 
 The budget is a ceiling against regression, not a target; the hook still prints
 the slowest specs on every run. A run that takes 26 s now passes; one over 120 s
-fails with the same message. Unit runs also use worker threads and four CI
-workers, which leaves more headroom still.
+fails with the same message.
