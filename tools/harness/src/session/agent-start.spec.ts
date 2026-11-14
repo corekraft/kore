@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { CliDeps, HostLoad, RunResult, Runner } from "../runtime/index.js";
+import type {
+  CliDeps,
+  LoadReader,
+  RunResult,
+  Runner,
+} from "../runtime/index.js";
 import { checkModel, startAgent } from "./agent-start.js";
 import { describeFailure } from "./equalize.js";
 import { displayName, modelOnScreen } from "./models.js";
@@ -26,7 +31,7 @@ const TIMED_OUT: RunResult = { code: 1, stdout: "", stderr: HERDR_TIMEOUT };
  * repeating), and the clock advances only when something sleeps. The host load
  * reader is set only when given, as in a fake that no load check reads.
  */
-function fakeDeps(results: readonly RunResult[], hostLoad?: HostLoad) {
+function fakeDeps(results: readonly RunResult[], hostLoad?: LoadReader) {
   let call = 0;
   let time = 0;
   const run = vi.fn<Runner["run"]>(() => {
@@ -38,7 +43,7 @@ function fakeDeps(results: readonly RunResult[], hostLoad?: HostLoad) {
     time += ms;
     return Promise.resolve();
   });
-  const deps: Pick<CliDeps, "runner" | "clock" | "hostLoad"> = {
+  const deps: Pick<CliDeps, "runner" | "clock"> & { hostLoad?: LoadReader } = {
     runner: { run },
     clock: { now: () => new Date(time), sleep },
     ...(hostLoad === undefined ? {} : { hostLoad }),
@@ -47,7 +52,7 @@ function fakeDeps(results: readonly RunResult[], hostLoad?: HostLoad) {
 }
 
 /** A host load reader that answers the same one-minute average on every read. */
-const loadAt = (average: number): HostLoad => ({ oneMinute: () => average });
+const loadAt = (average: number): LoadReader => ({ oneMinute: () => average });
 
 /** The pauses a timed-out start backs off through when the budget runs out (load 0 to 8). */
 const BACKOFF_SLEEPS = [[1000], [2000], [4000], [8000], [16000], [29000]];

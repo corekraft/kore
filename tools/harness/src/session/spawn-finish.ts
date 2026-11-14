@@ -8,6 +8,7 @@ import {
 import type { ModelCheck } from "./models.js";
 import { FAILED, fail } from "./output.js";
 import type { SessionRecord, SessionRegistry } from "./registry.js";
+import { recordHostSample } from "./spawn-sample.js";
 import { formatWait, waitForResult } from "./wait.js";
 
 interface Finish {
@@ -52,6 +53,7 @@ export async function finish(
   const extra = worktree === undefined ? {} : { worktree };
   await registry.create(record);
   await recordLaunch(deps, record);
+  await recordHostSample(deps, { pane: paneId, name });
   const verdict =
     modelCheck.status === "verified"
       ? "model verified"

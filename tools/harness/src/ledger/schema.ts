@@ -1,3 +1,5 @@
+import { HOST_RULES } from "./schema-host.js";
+
 export const SOURCES = ["claude", "herdr", "github"] as const;
 export type Source = (typeof SOURCES)[number];
 
@@ -28,6 +30,7 @@ export const KINDS = [
   "ci.nightly",
   "main.revert",
   "owner.action",
+  "host-sample",
 ] as const;
 export type Kind = (typeof KINDS)[number];
 
@@ -90,6 +93,16 @@ export interface EventInput {
   role?: string;
   /** session.launch: the model tier the session was launched on. */
   tier?: string;
+  /** host-sample: the host's 1-minute load average; absent when the host reported none. */
+  load?: number;
+  /** host-sample: free memory as a share of total, 0 to 1; absent when unreadable. */
+  memory?: number;
+  /** host-sample: swap in use in bytes; absent when unreadable. */
+  swap?: number;
+  /** host-sample: delivery-loop sessions live at that moment. */
+  sessions?: number;
+  /** host-sample: whether the local platform was up. */
+  platform?: boolean;
 }
 
 export interface LedgerEvent extends EventInput {
@@ -136,6 +149,11 @@ const ALLOWED = new Set<string>([
   "tokens",
   "role",
   "tier",
+  "load",
+  "memory",
+  "swap",
+  "sessions",
+  "platform",
 ]);
 
 /** Whether a value passes the ledger's name rule (session, pane, agent and similar fields). */
@@ -172,6 +190,8 @@ interface Rule {
   hint: string;
   /** Kinds on which the field is required and allowed; undefined means any kind, optional. */
   kinds?: readonly Kind[];
+  /** The field may be omitted on its kinds, but is checked when present. */
+  optional?: boolean;
 }
 
 const RULES: readonly Rule[] = [
@@ -222,6 +242,7 @@ const RULES: readonly Rule[] = [
   },
   { field: "role", check: isText(NAME), hint: NAME_HINT, kinds: LAUNCH_KINDS },
   { field: "tier", check: isText(NAME), hint: NAME_HINT, kinds: LAUNCH_KINDS },
+  ...HOST_RULES,
 ];
 
 function checkShape(input: unknown, mode: ParseMode): Failure | undefined {
@@ -271,7 +292,7 @@ function checkRule(rule: Rule, raw: Raw, mode: ParseMode): Failure | undefined {
   const applies = rule.kinds === undefined || rule.kinds.includes(kind);
   if (value === undefined) {
     const needed =
-      (rule.kinds !== undefined && applies) ||
+      (rule.kinds !== undefined && applies && rule.optional !== true) ||
       (rule.field === "id" && mode === "stored");
     return needed
       ? bad(rule.field, `is required on ${kind} events`)

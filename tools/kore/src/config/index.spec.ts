@@ -44,6 +44,7 @@ vi.mock("./features.js", () => ({
   gatewayClassName: vi.fn(),
   ingressFlag: "ingress-agentgateway",
   localImageReuseFlag: "local-image-reuse",
+  registryPruneFlag: "registry-tag-pruning",
 }));
 vi.mock("./files.js", () => ({ exists: vi.fn() }));
 vi.mock("./image-trust.js", () => ({
@@ -115,6 +116,7 @@ test("the config barrel exposes exactly the entry points other domains use", () 
     "registryConsumers",
     "registryHelmArgs",
     "registryPlan",
+    "registryPruneFlag",
     "renderedCrdNames",
     "rollbackConstraint",
     "trustedSigners",
