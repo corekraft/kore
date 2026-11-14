@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseDiff } from "./diff.js";
+import { parseDiff, type ChangedFile } from "./diff.js";
 import { hintsFor } from "./hints.js";
 import { assess, clusterFacing } from "./verdict.js";
 import type { Pattern } from "./declaration.js";
@@ -128,5 +128,30 @@ describe("clusterFacing", () => {
     "tools/harness/src/judge/hints.ts",
   ])("does not treat %s as cluster-facing", (path) => {
     expect(clusterFacing(parseDiff(file(path)))).toBe(false);
+  });
+});
+
+describe("clusterFacing: renames", () => {
+  const renamed = (path: string, previousPath: string): ChangedFile => ({
+    path,
+    previousPath,
+    deleted: false,
+    added: [],
+    removed: 0,
+    netRemoved: 0,
+    after: [],
+    trail: [],
+  });
+
+  it("is cluster-facing when a cluster file is moved out of the cluster paths", () => {
+    expect(
+      clusterFacing([renamed("skills/values.yaml", "apps/web/values.yaml")]),
+    ).toBe(true);
+  });
+
+  it("is not cluster-facing when a file moves between non-cluster paths", () => {
+    expect(clusterFacing([renamed("docs/b.md", "tools/harness/a.ts")])).toBe(
+      false,
+    );
   });
 });

@@ -4,6 +4,11 @@ import { join } from "node:path";
 import { test } from "vitest";
 import { componentValues, findRoot, loadRepository } from "./config.js";
 
+/** No GIT_* variable: under a git hook GIT_DIR names the real repository, which git would read (#368). */
+const gitEnv = Object.fromEntries(
+  Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_")),
+);
+
 const DIGEST = /@sha256:[0-9a-f]{64}$/;
 
 // The locally built reference image is the only entry allowed without a digest.
@@ -123,7 +128,7 @@ test("every approved image is used: its digest appears in a chart, values file, 
     await promisify(execFile)(
       "git",
       ["ls-files", "--cached", "--others", "--exclude-standard", "infra"],
-      { cwd: root },
+      { cwd: root, env: gitEnv },
     )
   ).stdout
     .split("\n")

@@ -169,3 +169,5 @@ export function checkIdeaIssueClose(name: string, args: string[]): Finding {
       "Instead, run `harness outcome record` to record the outcome, or `harness outcome close --idea <number or slug>` to finish closing one already recorded.",
   );
 }
+
+export { unquotedGlob } from "./guard-unquoted-glob.js";

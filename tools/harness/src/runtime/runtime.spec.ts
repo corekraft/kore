@@ -8,6 +8,14 @@ import { systemIds } from "./ids.js";
 import { ProcessRunner } from "./runner.js";
 import { FakeRunner } from "./runner-support.js";
 
+/** No GIT_* variable: the guard cannot tell this fake from a process (#368). */
+const gitEnv = Object.fromEntries(
+  Object.entries(process.env).filter(
+    (entry): entry is [string, string] =>
+      entry[1] !== undefined && !entry[0].startsWith("GIT_"),
+  ),
+);
+
 const dirs: string[] = [];
 afterEach(async () => {
   await Promise.all(dirs.splice(0).map((d) => rm(d, { recursive: true })));
@@ -51,7 +59,9 @@ describe("FakeRunner", () => {
         result: { stdout: "clean", code: 0 },
       },
     ]);
-    expect((await runner.run("git", ["status"])).stdout).toBe("clean");
+    expect((await runner.run("git", ["status"], { env: gitEnv })).stdout).toBe(
+      "clean",
+    );
     expect(await runner.run("ls", [])).toEqual({
       stdout: "",
       stderr: "",

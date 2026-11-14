@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Nightly live proof (issue #339): a clean `kore local up`, then every opt-in
-# named `test:integration:<name>` suite in tools/kore/package.json against that one
+# named `test:live:<name>` suite in tools/kore/package.json against that one
 # cluster, then teardown. Opt-in only: it creates and destroys a scratch
 # profile (environment and cluster `kore-nightly`), so run it on a dedicated
 # host (ADR 0093).
@@ -13,11 +13,11 @@
 # encrypting them with sops from stdin. The identity lives in the process
 # environment (SOPS_AGE_KEY) and the plaintext in shell variables and pipes:
 # neither touches disk and neither is uploaded. The committed `local` overlay
-# is never edited. The suites follow KORE_INTEGRATION_ENVIRONMENT.
+# is never edited. The suites follow KORE_LIVE_ENVIRONMENT.
 #
 # Order: create the scratch overlay, purge any old profile, `local up`, check
 # platform status, `local up` again (must converge), run the suites (lifecycle
-# last, it tears the cluster down; the bare `test:integration` is skipped), and only
+# last, it tears the cluster down; the bare `test:live` is skipped), and only
 # then purge and remove the overlay. The teardown is an EXIT trap, so it always
 # runs last, whatever failed. The job summary records duration and peak memory. A failing suite never
 # hides the ones after it: every suite runs, failures are named, and the exit
@@ -59,7 +59,7 @@ failed=()
 started=$SECONDS
 
 read -r -a kore_cmd <<<"${KORE_NIGHTLY_KORE:-mise exec -- npm --prefix tools/kore run --silent kore --}"
-discover_cmd="${KORE_NIGHTLY_DISCOVER_CMD:-mise exec -- node -e 'const { scripts } = require(\"./tools/kore/package.json\"); console.log(Object.keys(scripts).filter((name) => name.startsWith(\"test:integration\")).join(\"\\n\"));'}"
+discover_cmd="${KORE_NIGHTLY_DISCOVER_CMD:-mise exec -- node -e 'const { scripts } = require(\"./tools/kore/package.json\"); console.log(Object.keys(scripts).filter((name) => name.startsWith(\"test:live\")).join(\"\\n\"));'}"
 read -r -a age_keygen_cmd <<<"${KORE_NIGHTLY_AGE_KEYGEN:-mise exec -- age-keygen}"
 read -r -a sops_cmd <<<"${KORE_NIGHTLY_SOPS:-mise exec -- sops}"
 meminfo="${KORE_NIGHTLY_MEMINFO:-/proc/meminfo}"
@@ -216,7 +216,7 @@ stringData:
 
 printf '\n== scratch environment %s: overlay, ephemeral age key, generated secrets\n' "$environment" >&2
 create_scratch_overlay
-export KORE_INTEGRATION_ENVIRONMENT="$environment"
+export KORE_LIVE_ENVIRONMENT="$environment"
 
 sample_memory
 (
@@ -231,15 +231,15 @@ elif ! suites="$(bash -c "$discover_cmd")"; then
   failed+=("suite discovery failed")
   exit 1
 fi
-# Only `test:integration:<name>` suites are nightly suites. The bare
-# `test:integration` task also runs the unit suite and the OPA tests (its
+# Only `test:live:<name>` suites are nightly suites. The bare
+# `test:live` task also runs the unit suite and the OPA tests (its
 # platform spec bootstraps them), and its cluster spec stops and deletes the
 # night's cluster. The lifecycle suite destroys and recreates the cluster, so it
 # runs last, whatever order discovery gives.
-suites="$(printf '%s\n' "$suites" | grep -E '^test:integration:.' | grep -vxF 'test:integration:lifecycle'; printf '%s\n' "$suites" | grep -xF 'test:integration:lifecycle')"
+suites="$(printf '%s\n' "$suites" | grep -E '^test:live:.' | grep -vxF 'test:live:lifecycle'; printf '%s\n' "$suites" | grep -xF 'test:live:lifecycle')"
 if [ -z "${suites//[[:space:]]/}" ]; then
-  echo "FAILED: found no test:integration suites in tools/kore/package.json; a night with nothing to run must not pass" >&2
-  failed+=("found no test:integration suites")
+  echo "FAILED: found no test:live suites in tools/kore/package.json; a night with nothing to run must not pass" >&2
+  failed+=("found no test:live suites")
   exit 1
 fi
 

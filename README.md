@@ -192,7 +192,7 @@ the public key to Policy Controller, so the old key is never trusted beside the
 new one. Images signed with the old key are denied until they are signed again
 (`kore app up` signs again). Managed environments refuse: they trust release
 identities, not a key. Safe to rerun after a failure. The opt-in live proof is
-`npm --prefix tools/kore run test:integration:signer`.
+`npm --prefix tools/kore run test:live:signer`.
 
 ### Storage classes
 
@@ -207,7 +207,7 @@ expansion; neither is a backup.
 Gatekeeper audits that every claim declares one of those labels and that
 `Retain` claims use `kore-retained`.
 
-If a live integration or platform attempt fails, destroy the explicit local
+If a live run or platform attempt fails, destroy the explicit local
 profile before retrying from a clean cluster:
 
 ```sh

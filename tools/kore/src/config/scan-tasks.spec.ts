@@ -5,6 +5,11 @@ import { join } from "node:path";
 import { test } from "vitest";
 import { loadRepository } from "./index.js";
 
+/** No GIT_* variable: under a git hook GIT_DIR names the real repository, which a fixture's git would read or rewrite (#368). */
+const gitEnv = Object.fromEntries(
+  Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_")),
+);
+
 const SCANNERS = {
   trufflehog: "3.99.7",
   "osv-scanner": "2.7.0",
@@ -132,6 +137,7 @@ test("every tracked npm lockfile is scanned for vulnerabilities", async () => {
     {
       cwd: root,
       encoding: "utf8",
+      env: gitEnv,
     },
   )
     .split("\n")

@@ -17,7 +17,7 @@ export { environmentStatePath } from "./environment-state.js";
 export { processAlive } from "./lock-owner.js";
 export { HOST_LEASE, holdsHostLease, withHostLease } from "./host-lease.js";
 export { hostRoot, lockScope } from "./host-locks.js";
-export { integrationEnvironment } from "./integration-environment.js";
+export { liveEnvironment } from "./live-environment.js";
 export {
   CommandError,
   CommandTimeoutError,
