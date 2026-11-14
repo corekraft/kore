@@ -9,7 +9,7 @@ import {
   ideaFile,
   messages,
   type Tree,
-} from "../testing/index.js";
+} from "../../src/testing/index.js";
 
 const idea = (changes: Record<string, string | null>, body?: string): Tree => ({
   "docs/ideas/0001-a.md": ideaFile(changes, body),
