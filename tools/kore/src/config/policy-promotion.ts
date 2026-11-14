@@ -192,7 +192,7 @@ export async function policyPromotionErrors(
         `policy promotion: ${constraintsDir}/${file} needs metadata name`,
       );
     } else if (action === undefined) {
-      // A missing action is a warning (policyWarnings), a dark launch before the refusal.
+      // A missing action is a warning (policyWarnings): warning first, refusal follows.
       continue;
     } else if (!(actions as readonly string[]).includes(action)) {
       errors.push(
@@ -222,8 +222,8 @@ export async function policyPromotionErrors(
 
 /**
  * A constraint with no enforcementAction enforces deny with no audit stage in
- * Gatekeeper. It is reported as a warning first (a dark launch); the refusal is
- * switched on in a follow-up after a recorded outcome.
+ * Gatekeeper. It is reported as a warning first; the refusal follows in its own
+ * change after a recorded outcome.
  */
 export async function policyWarnings(
   repository: Repository,
