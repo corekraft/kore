@@ -112,8 +112,10 @@ export function substituted(command: string): string[] {
 export const withSubstitutions = (command: string): string[][] =>
   [command, ...substituted(command)].flatMap(splitSegments);
 
-const MERGE_API = /\/pulls\/\d+\/merge\b|\/merges\b|\/merge-upstream\b/;
-const MERGE_MUTATION = /mergePullRequest|enablePullRequestAutoMerge/i;
+const MERGE_API =
+  /\/pulls\/\d+\/(merge|reviews)\b|\/merges\b|\/merge-upstream\b/;
+const MERGE_MUTATION =
+  /mergePullRequest|addPullRequestReview|submitPullRequestReview|enablePullRequestAutoMerge/i;
 
 /** The arguments with `-R <repo>` and `--repo <repo>` dropped, so `gh -R x pr merge` reads as `gh pr merge`. */
 const withoutRepo = (args: readonly string[]): string[] =>
@@ -136,7 +138,7 @@ function graphqlMerges(args: readonly string[]): boolean {
   );
 }
 
-/** Whether one command line merges a pull request by `gh`, through the REST or GraphQL API. */
+/** Whether one command line merges or approves a pull request by `gh`, through the REST or GraphQL API. A review is refused for every role: only `judge approve` posts one. */
 function ghMerges(line: readonly string[]): boolean {
   const { name, args } = commandOf(line);
   if (name !== "gh") {
@@ -144,7 +146,7 @@ function ghMerges(line: readonly string[]): boolean {
   }
   const plain = withoutRepo(args);
   return (
-    (plain[0] === "pr" && plain[1] === "merge") ||
+    (plain[0] === "pr" && ["merge", "review"].includes(plain[1] ?? "")) ||
     (args[0] === "api" && args.some((arg) => MERGE_API.test(arg))) ||
     graphqlMerges(args)
   );
@@ -154,7 +156,7 @@ function ghMerges(line: readonly string[]): boolean {
 export const mergesPr = (segment: readonly string[]): boolean =>
   expand(segment).some(ghMerges);
 
-/** Whether a segment runs the judge's merge or send-back tool, through its wrappers. */
+/** Whether a segment runs the judge's merge, approve or send-back tool, through its wrappers. */
 export const runsJudgeTool = (
   segment: readonly string[],
   harness: RegExp,
@@ -165,6 +167,6 @@ export const runsJudgeTool = (
       name === "node" &&
       harness.test(args[0] ?? "") &&
       args[1] === "judge" &&
-      ["merge", "send-back"].includes(args[2] ?? "")
+      ["merge", "send-back", "approve"].includes(args[2] ?? "")
     );
   });
