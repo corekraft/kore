@@ -29,18 +29,8 @@ const INDEX_PATH = `${ROOT}/docs/index.md`;
 const DIR = `${ROOT}/docs/ideas`;
 const NEW_PATH = "docs/ideas/0004-probe.md";
 
-const INDEX = [
-  "# Index",
-  "",
-  "## Decisions",
-  "",
-  "- x",
-  "",
-  "## Operations and Guides",
-  "",
-  "- y",
-  "",
-].join("\n");
+const INDEX =
+  "# Index\n\n## Decisions\n\n- x\n\n## Operations and Guides\n\n- y\n";
 
 const IDEA = {
   title: "Probe",
@@ -288,6 +278,40 @@ describe("IdeaRepository writes to one record", () => {
     expect(fs.writeFile.mock.calls).toEqual([
       [`${ROOT}/docs/ideas/0001-cache-the-probe-results.md`, "WITH OUTCOME"],
     ]);
+  });
+});
+
+describe("IdeaRepository indexes new entries in the layout it finds", () => {
+  const ENTRY =
+    "- [`docs/ideas/0001-probe.md`](ideas/0001-probe.md) — Cache the probe results";
+
+  it("appends the entry under an existing Ideas section, before the blank lines that precede the next heading", async () => {
+    const { fs, repo } = setup();
+    fs.readdir.mockResolvedValue(["0001-probe.md"]);
+    const index =
+      "# Index\n\n## Ideas\n\n- old\n\n## Operations and Guides\n\n- y\n";
+    fs.readFile.mockImplementation((path) =>
+      Promise.resolve(path === INDEX_PATH ? index : "TEXT"),
+    );
+    await repo.create("probe", IDEA);
+    expect(fs.writeFile.mock.calls).toEqual([
+      [
+        INDEX_PATH,
+        `# Index\n\n## Ideas\n\n- old\n${ENTRY}\n\n## Operations and Guides\n\n- y\n`,
+      ],
+    ]);
+  });
+
+  it("starts an Ideas section at the end of an index that has no later section", async () => {
+    const { fs, repo } = setup();
+    fs.readdir.mockResolvedValue(["0001-probe.md"]);
+    fs.readFile.mockImplementation((path) =>
+      Promise.resolve(
+        path === INDEX_PATH ? "# Index\n\n## Decisions\n\n- x" : "TEXT",
+      ),
+    );
+    await repo.create("probe", IDEA);
+    expect(fs.writeFile.mock.calls[0]?.[1]).toContain(`## Ideas\n\n${ENTRY}`);
   });
 });
 
