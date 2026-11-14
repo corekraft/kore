@@ -11,6 +11,7 @@ const FOUND = { file: "docs/vision.md", line: 9, message: "m", fix: "f" };
 const docs: Record<string, string> = {
   "docs/index.md": "",
   "docs/vision.md": "# Vision",
+  "docs/vision.html": "<h1>Vision</h1>",
 };
 const read = (path: string) => docs[path] ?? null;
 
@@ -27,4 +28,10 @@ test("the vision unit receives the sorted tracked files and a reader of the tree
   const [files, reader] = vi.mocked(visionProblems).mock.calls[0] ?? [];
   expect(files).toEqual(["docs/index.md", "docs/vision.md"]);
   expect(reader?.("docs/vision.md")).toBe("# Vision");
+});
+
+test("the reader the vision unit receives also reads vision.html", () => {
+  findings({ files: () => Object.keys(docs), read });
+  const reader = vi.mocked(visionProblems).mock.calls[0]?.[1];
+  expect(reader?.("docs/vision.html")).toBe("<h1>Vision</h1>");
 });

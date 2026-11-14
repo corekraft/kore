@@ -14,9 +14,17 @@ vi.mock("./vision-check.js", async (importOriginal) => ({
 
 const FOUND = { file: "docs/vision.md", line: 9, message: "m", fix: "f" };
 const LOOKUP: AdrLookup = () => null;
-const FILES = ["docs/decisions/0037-a.md", "docs/vision.md"];
-const check = vi.fn<(text: string) => (typeof FOUND)[]>();
-const read = (path: string) => (path === "docs/vision.md" ? "# Vision" : null);
+const FILES = [
+  "docs/decisions/0037-a.md",
+  "docs/vision.html",
+  "docs/vision.md",
+];
+const check = vi.fn<(text: string, html: string | null) => (typeof FOUND)[]>();
+const docs: Record<string, string> = {
+  "docs/vision.md": "# Vision",
+  "docs/vision.html": "<h1>Vision</h1>",
+};
+const read = (path: string) => docs[path] ?? null;
 
 beforeEach(() => {
   check.mockReturnValue([FOUND]);
@@ -26,9 +34,14 @@ beforeEach(() => {
   vi.mocked(adrLookup).mockReturnValue(LOOKUP);
 });
 
-test("vision.md's text goes to the vision check and its findings are returned", () => {
+test("vision.md's and vision.html's text go to the vision check and its findings are returned", () => {
   expect(visionProblems(FILES, read)).toEqual([FOUND]);
-  expect(check.mock.calls).toEqual([["# Vision"]]);
+  expect(check.mock.calls).toEqual([["# Vision", "<h1>Vision</h1>"]]);
+});
+
+test("a vision.html that is not tracked reaches the vision check as null", () => {
+  visionProblems(["docs/vision.md"], read);
+  expect(check.mock.calls).toEqual([["# Vision", null]]);
 });
 
 test("the vision check gets the ADR lookup built from the tracked files", () => {
