@@ -13,6 +13,8 @@ description: Use before writing or changing any code, hook, script or skill tool
 2. **Green.** Write the least code that makes it pass. Then run the wider suite.
 3. **Refactor** only while green, without adding behavior. For a bug, the first red test reproduces it.
 
+Locally run only the related tests and typecheck; the full suites run in CI `check` (AGENTS.md, Changes).
+
 ## Before you move on, ask
 
 - Did I see this test fail, and did it fail because the behavior was missing? An import or setup error doesn't count.
