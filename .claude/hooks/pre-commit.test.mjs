@@ -174,11 +174,8 @@ test("every tool the hook runs goes through the pinned toolchain", () => {
   const tools = lines.filter((l) => !l.startsWith("mise "));
   assert.deepEqual(
     tools.map((l) => l.split(" ")[0]),
-    // Each test run goes through the host-wide test lock (a node call).
     [
       "lint-staged",
-      "node",
-      "run",
       "node",
       "node",
       // The SAST step selects the staged source, checks semgrep, then scans.
@@ -191,7 +188,7 @@ test("every tool the hook runs goes through the pinned toolchain", () => {
       "run",
     ],
   );
-  assert.equal(lines.length, 22);
+  assert.equal(lines.length, 19);
   // Every tool call follows a mise exec, except the test command the lock
   // starts, which inherits the pinned PATH from the call before it.
   for (const [i, l] of lines.entries()) {
@@ -384,10 +381,10 @@ test("failing full harness unit tests block the commit with one actionable line"
   );
 });
 
-test("staging a .claude file runs the hook tests under harness vitest, not node --test", () => {
+test("staging a .claude/hooks file runs no test command, since hook tests are integration tests", () => {
   const result = commit([".claude/hooks/a.mjs"]);
   assert.equal(result.status, 0);
-  assert.match(result.npmCalls, /^harness run test:hooks/m);
+  assert.equal(result.npmCalls, "");
   assert.doesNotMatch(result.calls, /node --test/);
 });
 
@@ -449,15 +446,6 @@ test("staging nothing under .github/workflows, skills, .claude or .codex does no
 test("staging nothing under skills, .claude or .codex does not check skill links", () => {
   const result = commit(["tools/kore/src/a.ts"]);
   assert.doesNotMatch(result.calls, /skill-links/);
-});
-
-test("failing hook tests block the commit with one actionable line", () => {
-  const result = commit([".claude/hooks/a.mjs"], ["harness:test:hooks"]);
-  assert.notEqual(result.status, 0);
-  assert.match(
-    result.stderr,
-    /^pre-commit: hook tests failed; run 'mise run test-hooks' and fix them\n$/,
-  );
 });
 
 // SAST: the committed Semgrep rules run on staged source only, so a

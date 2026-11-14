@@ -7,11 +7,9 @@ pinned "$repo_root/tools/kore/node_modules/.bin/lint-staged" \
 
 staged="$(git diff --cached --name-only)"
 
+# Agent configuration is checked here without any test run: its tests are integration
+# tests, which never gate a commit (ADR 0098). The merge check runs them for a hook change.
 if printf '%s\n' "$staged" | grep -qE '^(\.claude|\.codex|skills)/'; then
-  (cd "$repo_root/tools/harness" && pinned node "$repo_root/tools/kore/.husky/test-lock.mjs" npm run test:hooks --silent) || {
-    echo "pre-commit: hook tests failed; run 'mise run test-hooks' and fix them" >&2
-    exit 1
-  }
   pinned node "$repo_root/skills/bin/harness.mjs" hook skill-links --strict </dev/null || {
     echo "pre-commit: skill links are wrong; run 'node skills/bin/harness.mjs hook skill-links --strict' and fix them" >&2
     exit 1

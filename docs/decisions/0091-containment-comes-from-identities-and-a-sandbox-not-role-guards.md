@@ -2,7 +2,7 @@
 status: accepted
 summary: Refines ADR 0078 and 0080: agent containment comes from separate GitHub identities, no owner bypass and an OS sandbox; regex role guards are hints, frozen apart from quick fixes.
 date: 2026-11-12
-last-verified: 2026-11-12
+last-verified: 2026-11-14
 ---
 
 # ADR 0091: Containment comes from identities and a sandbox, not role guards
@@ -38,3 +38,4 @@ Until the judge identity exists, merges are by the owner's hand.
 - Harness work is limited to containment and metrics until the base is
   proven; new guards are not added.
 - ADR 0080 still governs activation; its free change of guardrails is limited to quick fixes.
+- Refined by [ADR 0101](0101-harness-developer-tools-may-make-deterministic-steps-tools-the-freeze-covers-guards.md): non-guard harness tools that make a deterministic step a tool are allowed.
