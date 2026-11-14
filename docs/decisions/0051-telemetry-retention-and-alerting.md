@@ -2,7 +2,7 @@
 status: proposed
 summary: Logs keep 14 days and traces 7 days by default with per-tenant overrides and ingestion limits in Loki and Tempo, metrics keep one platform retention until Mimir, tenant alerts run in each tenant's Grafana with contact points from the Organization API, and Alertmanager serves platform alerts only.
 date: 2026-11-09
-last-verified: 2026-11-09
+last-verified: 2026-11-14
 ---
 
 # ADR 0051: Set telemetry retention per tenant and route alerts through each tenant's Grafana
@@ -22,6 +22,11 @@ everything. Each tenant has its own Grafana
 
 ## Decision
 
+- **Horizon split.** Per-service dashboards and default alerts arrive in Next.
+  Default alerts start notify-only until their thresholds are measured (audit
+  before enforce, [ADR 0017](0017-gatekeeper-policy-families-audit-first.md)).
+  Tenant alert routing and per-tenant retention overrides move to Then, with
+  [ADR 0050](0050-tenant-telemetry-isolation.md).
 - **Default retention:** logs 14 days and traces 7 days, overridable per tenant
   within its quota through Loki and Tempo per-tenant settings, with per-tenant
   ingestion limits.
