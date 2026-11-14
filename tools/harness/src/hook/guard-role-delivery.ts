@@ -30,10 +30,6 @@ import { takesRoute, takesWriterRoute } from "./guard-role-routes.js";
 import { commandOf, splitSegments } from "./guard-shell.js";
 import { block, type Finding } from "./guard-verdict.js";
 
-/** Roles that read and report: they may run the harness and gh/git queries but change no file. */
-const REPORTING_ROLES = new Set(["orchestrator", "judge"]);
-export const DELIVERY_ROLES = new Set([...REPORTING_ROLES, "writer"]);
-
 const noMerge = (role: string, what: string): Finding =>
   block(
     "role-no-merge",
@@ -206,8 +202,10 @@ function refused(segment: readonly string[]): Finding {
   return sendsToPane(segment) ? useNotify(what) : readOnly(what);
 }
 
+/** `reporting` is the role's kind from the registry: a reporting role reads and never changes a file. */
 export function checkDeliveryBash(
   role: string,
+  reporting: boolean,
   command: string,
   root: string,
 ): Finding {
@@ -219,9 +217,9 @@ export function checkDeliveryBash(
       pushesToMain(s) ||
       takesRoute(s) ||
       // Only the writer has the full shell; the read-only roles' allowlist refuses these anyway.
-      (!REPORTING_ROLES.has(role) && takesWriterRoute(s)) ||
+      (!reporting && takesWriterRoute(s)) ||
       // A reporting role never pushes at all (read-only below), so only the writer needs the branch read.
-      (!REPORTING_ROLES.has(role) && pushesByTracking(s, root)),
+      (!reporting && pushesByTracking(s, root)),
   );
   if (merging !== undefined) {
     return noMerge(role, `\`${merging.join(" ")}\``);
@@ -230,7 +228,7 @@ export function checkDeliveryBash(
   if (judging !== undefined && role !== "judge") {
     return noMerge(role, `\`${judging.join(" ")}\``);
   }
-  if (REPORTING_ROLES.has(role)) {
+  if (reporting) {
     if (SUBSTITUTION.test(command)) {
       return readOnly("A command or process substitution");
     }
@@ -265,19 +263,21 @@ export function checkDeliveryBash(
   return null;
 }
 
+/** `reporting` is the role's kind from the registry (see checkDeliveryBash). */
 export function checkDelivery(
   role: string,
+  reporting: boolean,
   tool: string,
   input: Record<string, unknown>,
   root: string,
 ): Finding {
   if (tool === "Bash" && typeof input["command"] === "string") {
-    return checkDeliveryBash(role, input["command"], root);
+    return checkDeliveryBash(role, reporting, input["command"], root);
   }
   if (!WRITE_TOOLS.has(tool)) {
     return null;
   }
-  if (REPORTING_ROLES.has(role)) {
+  if (reporting) {
     return readOnly(tool);
   }
   const path = input["file_path"] ?? input["notebook_path"];

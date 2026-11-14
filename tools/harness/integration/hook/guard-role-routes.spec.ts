@@ -121,7 +121,7 @@ describe("role-worktree: a writer's ordinary branch push passes", () => {
       "tee --output=/etc/x",
       "dd of=/etc/x",
     ]) {
-      expect(checkDeliveryBash("writer", command, "/repo")?.rule).toBe(
+      expect(checkDeliveryBash("writer", false, command, "/repo")?.rule).toBe(
         "role-worktree",
       );
     }

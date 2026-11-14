@@ -25,6 +25,7 @@ import {
 } from "./guard-role-delivery.js";
 import { isAbsolute, relative, resolve } from "node:path";
 import { block } from "./guard-verdict.js";
+import { REPORTING_ROLES } from "./guard-roles.js";
 
 vi.mock("node:path");
 vi.mock("./guard-role-allow.js");
@@ -73,7 +74,7 @@ function relativeTo(from: string, to: string): string {
 }
 
 const bash = (role: string, command: string) =>
-  checkDeliveryBash(role, command, ROOT);
+  checkDeliveryBash(role, REPORTING_ROLES.includes(role), command, ROOT);
 
 beforeEach(() => {
   vi.mocked(splitSegments).mockImplementation(splitWords);
@@ -122,33 +123,54 @@ describe("runsInline: an interpreter given code, or an editor told to edit in pl
 describe("checkDelivery: a tool other than Bash", () => {
   it("refuses a file write by a reporting role, which changes no file", () => {
     expect(
-      checkDelivery("judge", "Write", { file_path: "a.md" }, ROOT),
+      checkDelivery("judge", true, "Write", { file_path: "a.md" }, ROOT),
     ).toEqual(hit("role-read-only", "Write changes files"));
+  });
+
+  it("reads the role kind it is given, not the role's name", () => {
+    expect(
+      checkDelivery("judge", false, "Write", { file_path: "a.md" }, ROOT),
+    ).toBeNull();
+    expect(
+      checkDelivery("writer", true, "Edit", { file_path: "docs/a.md" }, ROOT),
+    ).toEqual(hit("role-read-only", "Edit changes files"));
   });
 
   it("allows a writer's write inside its worktree, relative or absolute", () => {
     expect(
-      checkDelivery("writer", "Edit", { file_path: "docs/a.md" }, ROOT),
+      checkDelivery("writer", false, "Edit", { file_path: "docs/a.md" }, ROOT),
     ).toBeNull();
     expect(
-      checkDelivery("writer", "Edit", { file_path: `${ROOT}/a.md` }, ROOT),
+      checkDelivery(
+        "writer",
+        false,
+        "Edit",
+        { file_path: `${ROOT}/a.md` },
+        ROOT,
+      ),
     ).toBeNull();
   });
 
   it("refuses a writer's write outside its worktree, but not scratch space in tmp", () => {
     expect(
-      checkDelivery("writer", "Write", { file_path: "/etc/hosts" }, ROOT),
+      checkDelivery(
+        "writer",
+        false,
+        "Write",
+        { file_path: "/etc/hosts" },
+        ROOT,
+      ),
     ).toMatchObject({
       rule: "role-worktree",
     });
     expect(
-      checkDelivery("writer", "Write", { file_path: "/tmp/x" }, ROOT),
+      checkDelivery("writer", false, "Write", { file_path: "/tmp/x" }, ROOT),
     ).toBeNull();
   });
 
   it("passes a tool that writes no file", () => {
     expect(
-      checkDelivery("writer", "Read", { file_path: "/etc/hosts" }, ROOT),
+      checkDelivery("writer", false, "Read", { file_path: "/etc/hosts" }, ROOT),
     ).toBeNull();
   });
 });
