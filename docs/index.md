@@ -69,8 +69,9 @@ repository root; `mise run kb-check` keeps this list complete.
   before changing ingress or the Gateway.
 - [`infra/plans/14-test-tiers.md`](../infra/plans/14-test-tiers.md) —
   active: unit, integration and live test tiers, every unit test rewritten to
-  one unit with everything mocked, and a speed budget; feature work is paused
-  until it is done. Read before writing or moving a test.
+  one unit with everything mocked, and a speed budget; feature work was paused
+  until it was done, and that pause lifts when Step 4 merges. Read before
+  writing or moving a test.
 
 ## Decisions
 
