@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { run } from "../cli/index.js";
+import { run } from "../../src/cli/index.js";
 import {
   CANDIDATE,
   DELETION,
@@ -10,7 +10,7 @@ import {
   rulesetRepo,
   sent,
   sync,
-} from "../testing/index.js";
+} from "../../src/testing/index.js";
 
 // The declared checks require check and scan; live main still requires only check.
 const OLD = checksRule("check");
