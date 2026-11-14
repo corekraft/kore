@@ -140,6 +140,28 @@ see [The harness bundle](#the-harness-bundle).
   behaviour, and a spy's real method, do not carry from one test to the next
   (`mockReset` and `restoreMocks` in each `vitest.config.ts`). Do not reset
   mocks by hand in a test.
+- Mocking patterns, from the `security` domain (`tools/kore/src/security`):
+  - A source file is the unit; its spec is `<name>.spec.ts` beside it. Its
+    exported functions are tested through the spec. Helpers inside the file
+    cannot be mocked, so they run for real.
+  - A collaborator in another module is an automock: `vi.mock("../config/index.js")`,
+    then read it through `vi.mocked(isLocalProvider).mockReturnValue(true)`.
+    Mock the barrel path, not the file behind it. Node built-ins that touch
+    the outside world (`node:fs/promises`, `node:crypto`, `node:os`) and pure
+    ones (`node:path`) are automocked the same way.
+  - The process runner is a typed object: `fakeRunner()` wraps
+    `vi.fn<Runner["run"]>` and replies from the command and its arguments.
+    Fakes and fixtures a spec shares go in `<name>-support.ts` beside it (not a
+    unit, so no spec of its own); a spec and its support file stay under 300
+    lines, and each test under 70. Assert the whole `run.mock.calls` list, so a
+    missing or extra command fails.
+  - Errors from a real error class (`CommandError`) stay real; construct them
+    and reject with them.
+  - Time: `vi.useFakeTimers({ toFake: ["Date"] })` and `vi.setSystemTime`, then
+    `vi.useRealTimers()` in `afterEach`. Nothing waits on a real timer.
+  - A test that needs real files, a real repository or real units together
+    moves to `tools/kore/integration/` (`npm run test:integration`), not deleted.
+    Example: `sops-config.spec.ts` reads the committed `.sops.yaml`.
 - `npm test` (in `tools/kore`) is fast and needs no cluster.
 - Live specs (`*.live.spec.ts`) create or destroy clusters. They run only
   when asked, with `KORE_RUN_LIVE=1` through the scripts in
