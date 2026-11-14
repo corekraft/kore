@@ -50,6 +50,7 @@ function scan(
   }));
   const ctx: GuardContext = {
     root: "/repo",
+    cwd: "/repo",
     readFile: () => Promise.reject(new Error("ENOENT")),
     modeOf: () => "audit",
     denyRules: [],
@@ -191,4 +192,53 @@ describe("bare-glob, pattern arguments", () => {
     expect(await scan("[ * $n * ]")).toBeNull();
     expect(warn).not.toHaveBeenCalled();
   });
+});
+
+describe("bare-glob, the directory the command runs in", () => {
+  it("resolves a glob after a literal cd from that directory, and is silent when it matches there", async () => {
+    const matches = vi.fn<GuardContext["globMatches"]>(async () => true);
+    expect(await scan("cd sub && ls *.md", matches)).toBeNull();
+    expect(matches).toHaveBeenCalledExactlyOnceWith("*.md", "/repo/sub");
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("resolves each relative cd from the directory before it", async () => {
+    const matches = vi.fn<GuardContext["globMatches"]>(async () => true);
+    await scan("cd a && cd ../b && ls *.md", matches);
+    expect(matches).toHaveBeenCalledExactlyOnceWith("*.md", "/repo/b");
+  });
+
+  it("replaces the directory with an absolute cd target", async () => {
+    const matches = vi.fn<GuardContext["globMatches"]>(async () => true);
+    await scan("cd sub && cd /x && ls *.md", matches);
+    expect(matches).toHaveBeenCalledExactlyOnceWith("*.md", "/x");
+  });
+
+  it("resolves a glob before any cd from the call's directory", async () => {
+    const matches = vi.fn<GuardContext["globMatches"]>(async () => true);
+    await scan("ls *.md && cd sub", matches);
+    expect(matches).toHaveBeenCalledExactlyOnceWith("*.md", "/repo");
+  });
+
+  it("warns when the glob matches nothing where the command runs after a cd", async () => {
+    expect(await scan("cd sub && ls *.zzz")).toBe(WARNING);
+    expect(warn).toHaveBeenCalledExactlyOnceWith("bare-glob", message("*.zzz"));
+  });
+
+  it.each([
+    'cd "$d" && ls *.md',
+    "cd ~/x && ls *.md",
+    "cd - && ls *.md",
+    "cd `pwd` && ls *.md",
+    "cd && ls *.md",
+    "(cd sub) && ls *.md",
+  ])(
+    "is silent, and asks the filesystem nothing, when the directory after a cd is unknown: %s",
+    async (command) => {
+      const matches = vi.fn<GuardContext["globMatches"]>(async () => false);
+      expect(await scan(command, matches)).toBeNull();
+      expect(matches).not.toHaveBeenCalled();
+      expect(warn).not.toHaveBeenCalled();
+    },
+  );
 });

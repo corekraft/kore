@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { loadRepository } from "../config/index.js";
-import { renderChart, yamlDocuments } from "./upstream.live.js";
+import { loadRepository } from "../../src/config/index.js";
+import { renderChart, yamlDocuments } from "../../src/testing/index.js";
 
 // Renders the pinned chart through the real kore-patch post-renderer, so a
 // chart bump that moves a patch target fails here, not in a live run.

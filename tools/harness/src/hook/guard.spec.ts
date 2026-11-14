@@ -221,4 +221,17 @@ describe("guard inventory", () => {
     await ctx?.globMatches("*.ts");
     expect(fs.hasGlobMatch).toHaveBeenCalledWith("/work", "*.ts");
   });
+
+  it("reads a glob from the directory the rule names, and the call's directory when it names none", async () => {
+    vi.mocked(findInventory).mockResolvedValue(EMPTY);
+    vi.mocked(asCall).mockReturnValue({ ...CALL, cwd: "/work" });
+    const { deps, fs } = fakeDeps();
+    await guard({}, deps);
+    const ctx = vi.mocked(evaluate).mock.calls[0]?.[1];
+    expect(ctx?.cwd).toBe("/work");
+    await ctx?.globMatches("*.md", "/work/sub");
+    expect(fs.hasGlobMatch).toHaveBeenLastCalledWith("/work/sub", "*.md");
+    await ctx?.globMatches("*.md");
+    expect(fs.hasGlobMatch).toHaveBeenLastCalledWith("/work", "*.md");
+  });
 });
