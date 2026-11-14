@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 summary: The platform organization gets its own Backstage and Argo CD for operators in Next: Argo CD syncs service workloads from git by digest while image admission decides what runs, and Backstage reads clusters as the user through OIDC.
 date: 2026-11-14
 last-verified: 2026-11-14

@@ -67,7 +67,7 @@ and is not part of Next.
 
 ## Step 1: Accept the Next ADRs
 
-Next: Run the footprint check as far as possible without a baseline (#659), then accept the Next ADRs through write-adr.
+Next: Settle ADR 0040 and 0051, whose Next parts #609 marked in place instead of splitting out (accept whole or split like ADR 0111), then tick the footprint and acceptance items; Step 2 (Organization and Service Platform APIs) follows.
 
 Safety pattern: `no-behaviour-change` (documentation only). Accepting an ADR
 changes no cluster resource.
@@ -88,11 +88,36 @@ changes no cluster resource.
       [ADR 0043](../../docs/decisions/0043-platform-configuration-through-argo-cd.md).
       Record the result in this plan. A breach is revisited while the ADR is
       still `proposed`.
+
+      **Footprint estimate (2026-11-14, design time only).** This is an
+      estimate, not a measurement: no breach is found and no pass is claimed.
+      - **The additions are unsized.** No chart, values file or catalog entry
+        exists yet for the platform Keycloak
+        ([ADR 0040](../../docs/decisions/0040-keycloak-human-identity.md)), the
+        platform Backstage or Argo CD
+        ([ADR 0111](../../docs/decisions/0111-run-a-backstage-and-an-argo-cd-for-the-platform-organization-s-operators.md)),
+        so their requests and limits are unknown. A Keycloak figure of 1 to
+        1.25 GiB is an unverified assumption.
+      - **The Now components' declared requests** total 470m CPU and 1184Mi:
+        opa-authorizer 25m/64Mi, oci-registry 75m/160Mi, cert-manager
+        20m/64Mi, Loki 100m/256Mi, Tempo 100m/256Mi, Prometheus 100m/256Mi,
+        Grafana 50m/128Mi. Their limits total 2950m CPU and 4736Mi. The
+        request total is a floor, because Istio, Crossplane, Gatekeeper,
+        external-secrets, CloudNativePG, agentgateway and the OpenTelemetry
+        components declare no requests.
+      - **Headroom is already thin.** [Plan 9](9-k3d-local-cluster.md) measured
+        the k3s server at 3.7 GiB on average and 6.7 GiB at peak of an
+        11.68 GiB Docker VM, with swap in use, so the three additions could
+        breach it.
+      - **The measured baseline is owed** (#659, #614, #623). Once measured, a
+        breach is revisited while the ADRs are still `proposed`; ADR 0111 and
+        ADR 0043 are accepted without it by the owner's waiver (#659).
+
 - [ ] **Accept the Next ADRs** through write-adr: 0037, 0038, 0042 (the default
       zone), 0043, 0045, 0046, 0047, the Next parts of 0040 and 0051 as split by
       #609, and the new Next ADR from the first item. Accept nothing outside
       Next.
-- [ ] Update `docs/index.md` for each status change and keep `harness kb check`
+- [x] Update `docs/index.md` for each status change and keep `harness kb check`
       clean.
 
 ### Exit Criteria
