@@ -31,12 +31,26 @@ export function submitted(text: string, line: string): number {
   return lines.filter((l, i) => i !== inputBox && l.includes(line)).length;
 }
 
-/** The submitted count in the pane now, or herdr's error when it cannot be read. */
-async function count(
+/** True when the input box (the last prompt line) already holds text, so typing would cut it. */
+export function unsent(text: string): boolean {
+  const last = text
+    .split("\n")
+    .filter((l) => PROMPT.test(l))
+    .pop();
+  return (
+    last !== undefined &&
+    last
+      .replace(PROMPT, "")
+      .replace(/[\s│|]+$/, "")
+      .trim() !== ""
+  );
+}
+
+/** The pane text now, or herdr's error when it cannot be read. */
+async function readPane(
   deps: CliDeps,
   pane: string,
-  line: string,
-): Promise<number | { error: string }> {
+): Promise<string | { error: string }> {
   const read = await deps.runner.run("herdr", [
     "pane",
     "read",
@@ -44,9 +58,17 @@ async function count(
     "--source",
     "recent-unwrapped",
   ]);
-  return read.code === 0
-    ? submitted(read.stdout, line)
-    : { error: describeFailure(read) };
+  return read.code === 0 ? read.stdout : { error: describeFailure(read) };
+}
+
+/** The submitted count in the pane now, or herdr's error when it cannot be read. */
+async function count(
+  deps: CliDeps,
+  pane: string,
+  line: string,
+): Promise<number | { error: string }> {
+  const text = await readPane(deps, pane);
+  return typeof text === "string" ? submitted(text, line) : text;
 }
 
 /** Types the line into the pane and submits it; an error message, or undefined when both steps succeed. */
@@ -108,10 +130,14 @@ async function deliver(
   line: string,
 ): Promise<string | undefined> {
   // Read first, so an identical older line is not taken for this one.
-  const before = await count(deps, pane, line);
-  if (typeof before !== "number") {
-    return `herdr pane read ${pane} failed: ${before.error}. Nothing was sent, because delivery could not be confirmed afterwards.`;
+  const text = await readPane(deps, pane);
+  if (typeof text !== "string") {
+    return `herdr pane read ${pane} failed: ${text.error}. Nothing was sent, because delivery could not be confirmed afterwards.`;
   }
+  if (unsent(text)) {
+    return `Nothing was sent to ${pane}: its input box already holds unsent text. Retry later; \`session wait\` records your result from your RESULT line meanwhile.`;
+  }
+  const before = submitted(text, line);
   const sendError = await sendLine(deps, pane, line);
   if (sendError !== undefined) {
     return sendError;

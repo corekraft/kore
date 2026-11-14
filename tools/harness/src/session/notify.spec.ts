@@ -177,6 +177,32 @@ describe("session notify does not count what was not delivered", () => {
   });
 });
 
+describe("session notify leaves an unsent message alone", () => {
+  it.each([
+    ["a half-typed message", pane(["⏺ Waiting."], "please also check the sec")],
+    ["a half-typed message in a bordered box", "⏺ Waiting.\n│ ❯ half typed │"],
+  ])(
+    "types and submits nothing when the input box holds %s",
+    async (_what, text) => {
+      const s = scripted({ reads: [ok(text)] });
+      expect(await notify(s.context)).toBe(1);
+      expect(s.calls).toEqual([READ]);
+      expect(s.sleep).not.toHaveBeenCalled();
+      expect(failure()).toBe(
+        "Nothing was sent to w3:p1: its input box already holds unsent text. Retry later; `session wait` records your result from your RESULT line meanwhile.",
+      );
+      expect(s.out).toEqual([]);
+    },
+  );
+
+  it("still sends when the input box is empty inside a border", async () => {
+    const s = scripted({
+      reads: [ok("⏺ Waiting.\n│ ❯ │"), ok(SUBMITTED)],
+    });
+    expect(await notify(s.context)).toBe(0);
+  });
+});
+
 describe("session notify stops at the step that failed", () => {
   it("sends nothing when the caller pane cannot be read first", async () => {
     const s = scripted({ reads: [failed] });
