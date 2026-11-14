@@ -40,7 +40,7 @@ export function stagesHookTest(root: string, command: string): boolean {
   }
   const paths: string[] = [];
   for (let i = 0; i < args.length; i++) {
-    const arg = args[i] as string;
+    const arg = args[i] ?? "";
     if (verb === "commit" && (arg === "-m" || arg === "--message")) {
       i++;
     } else if (
@@ -50,5 +50,5 @@ export function stagesHookTest(root: string, command: string): boolean {
       paths.push(arg);
     }
   }
-  return paths.length === 1 && isHookTest(root, paths[0] as string, true);
+  return paths.length === 1 && isHookTest(root, paths[0] ?? "", true);
 }
