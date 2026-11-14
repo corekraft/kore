@@ -81,6 +81,13 @@ describe("checkGuardrailDemotion", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
+  it("names a rule when a change edits only a bare mode line from enforce to audit", () => {
+    checkGuardrailDemotion(INVENTORY, '"mode": "enforce"', '"mode": "audit"');
+    expect(vi.mocked(warn).mock.calls[0]?.[1]).toContain(
+      "turns a rule from enforce to audit by hand",
+    );
+  });
+
   it("names both problems in one warning when a change demotes and weakens", () => {
     const before = '{"rule": "a", "mode": "enforce", "deny": ["Bash(x:*)"]}';
     const after = '{"rule": "a", "mode": "audit", "deny": []}';

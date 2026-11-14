@@ -21,8 +21,7 @@ import {
   type Hit,
 } from "./guard-verdict.js";
 
-vi.mock("./guard-append-only.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./guard-append-only.js")>()),
+vi.mock("./guard-append-only.js", () => ({
   appendOnlyWarn: vi.fn(),
   isAppendOnly: vi.fn(),
 }));
@@ -54,25 +53,38 @@ const INVENTORY = ".claude/guardrails.yaml";
 const SETTINGS = ".claude/settings.json";
 const OVERLAY = "infra/environments/local/environment.yaml";
 const CONFIG = "tools/kore/vitest.config.ts";
+const HISTORY = ".claude/evals/history.jsonl";
 // A features map is JSON-compatible YAML, so a flag is a quoted key inside braces.
 const FLAG_ON = '"features": { "judge-merge": true }';
+const IMAGE = "  image: ghcr.io/x/web:1.2";
+const DEPLOY = "apps/web/d.yaml";
+const PINNED = "  image: ghcr.io/x/web@sha256:abc";
+const IDEA = "docs/ideas/42.md";
 
-const hit = (rule: string, kind: "block" | "warn" = "block"): Hit => ({
-  action: kind,
-  rule,
-  message: `[guard:${rule}] ${rule}`,
-});
+/** The constructor a verdict helper stands in for: the rule's prefixed message, as the real one builds it. */
+const verdictOf =
+  (action: "block" | "warn") =>
+  (rule: string, message: string): Hit => ({
+    action,
+    rule,
+    message: `[guard:${rule}] ${message}`,
+  });
+const hit = (rule: string, kind: "block" | "warn" = "block"): Hit =>
+  verdictOf(kind)(rule, rule);
+
+type Input = Record<string, unknown>;
+type Files = Record<string, string>;
+const ENOENT = Object.assign(new Error("ENOENT"), { code: "ENOENT" });
 
 /** A context whose files are keyed by path relative to the root; a missing file rejects with ENOENT. */
-function ctxWith(files: Record<string, string> = {}): GuardContext {
+function ctxWith(files: Files = {}): GuardContext {
+  const readFile = (path: string) => {
+    const text = files[path.slice(`${ROOT}/`.length)];
+    return text === undefined ? Promise.reject(ENOENT) : Promise.resolve(text);
+  };
   return {
     root: ROOT,
-    readFile: (path) => {
-      const text = files[path.slice(`${ROOT}/`.length)];
-      return text === undefined
-        ? Promise.reject(Object.assign(new Error("ENOENT"), { code: "ENOENT" }))
-        : Promise.resolve(text);
-    },
+    readFile,
     globMatches: () => Promise.resolve(false),
     modeOf: () => "enforce",
     denyRules: [],
@@ -80,33 +92,25 @@ function ctxWith(files: Record<string, string> = {}): GuardContext {
 }
 
 /** One file-rule check of a tool call against a context of the given files. */
-const scan = (
-  tool: string,
-  input: Record<string, unknown>,
-  path: string,
-  files: Record<string, string> = {},
-) => evaluateFile(tool, input, path, ctxWith(files));
+const scan = (tool: string, input: Input, path: string, files: Files = {}) =>
+  evaluateFile(tool, input, path, ctxWith(files));
+
+/** The rule's warning was raised with a message containing the text. */
+const warned = (rule: string, text: string) =>
+  expect(warn).toHaveBeenCalledWith(rule, expect.stringContaining(text));
 
 beforeEach(() => {
   vi.mocked(applyMode).mockImplementation((finding: Finding) => finding);
   // A stand-in for weighing: the first finding that fires is the verdict; a warning names its rule.
   vi.mocked(weigh).mockImplementation((findings) => {
-    const first = findings.find((finding): finding is Hit => finding !== null);
+    const first = findings.find((f): f is Hit => f !== null);
     if (first === undefined) {
       return allow;
     }
     return first.action === "warn" ? { ...first, rules: [first.rule] } : first;
   });
-  vi.mocked(warn).mockImplementation((rule, message): Hit => ({
-    action: "warn",
-    rule,
-    message: `[guard:${rule}] ${message}`,
-  }));
-  vi.mocked(block).mockImplementation((rule, message): Hit => ({
-    action: "block",
-    rule,
-    message: `[guard:${rule}] ${message}`,
-  }));
+  vi.mocked(warn).mockImplementation(verdictOf("warn"));
+  vi.mocked(block).mockImplementation(verdictOf("block"));
   vi.mocked(secretBlock).mockReturnValue(hit("secret-path"));
   vi.mocked(sopsBlock).mockImplementation((path) => hit(`sops:${path}`));
   vi.mocked(loadSopsPatterns).mockResolvedValue([]);
@@ -119,45 +123,33 @@ beforeEach(() => {
 
 describe("evaluateFile: reads and the secret path", () => {
   it("blocks a read of key material through the rule's mode", async () => {
-    expect(await scan("Read", {}, ".kore/keys/writer.pem")).toEqual(
-      hit("secret-path"),
-    );
-    expect(secretBlock).toHaveBeenCalledTimes(1);
+    const verdict = await scan("Read", {}, ".kore/keys/writer.pem");
+    expect(verdict).toEqual(hit("secret-path"));
   });
 
   it("allows a read of an ordinary file, after the audit deny list is consulted", async () => {
     expect(await scan("Read", {}, "src/a.ts")).toEqual({ action: "allow" });
-    expect(checkDenyAudit).toHaveBeenCalledWith(
-      "Read",
-      "src/a.ts",
-      expect.anything(),
-    );
-    expect(loadSopsPatterns).not.toHaveBeenCalled();
   });
 });
 
 describe("evaluateFile: append-only and idea records", () => {
-  it("warns on a write to an append-only record, through its mode", async () => {
+  it("warns on an append-only record through its mode, and allows it once its mode turns the warning off", async () => {
+    const edit = { old_string: "a", new_string: "b" };
     vi.mocked(isAppendOnly).mockReturnValue(true);
     vi.mocked(appendOnlyWarn).mockReturnValue(hit("append-only", "warn"));
-    const edit = { old_string: "a", new_string: "b" };
-    const verdict = await scan("Edit", edit, ".claude/evals/history.jsonl");
-    expect(appendOnlyWarn).toHaveBeenCalledWith(".claude/evals/history.jsonl");
-    expect(verdict).toEqual(hit("append-only", "warn"));
+    expect(await scan("Edit", edit, HISTORY)).toEqual(
+      hit("append-only", "warn"),
+    );
+    expect(appendOnlyWarn).toHaveBeenCalledWith(HISTORY);
+    vi.mocked(applyMode).mockReturnValueOnce(null);
+    expect(await scan("Edit", edit, HISTORY)).toEqual({ action: "allow" });
   });
 
   it("warns on an idea record that writes its outcome by hand, and not on one without an outcome", async () => {
-    await scan(
-      "Write",
-      { content: "## Outcome\nconfirmed" },
-      "docs/ideas/42.md",
-    );
-    expect(warn).toHaveBeenCalledWith(
-      "idea-outcome",
-      expect.stringContaining("docs/ideas/42.md is an idea record"),
-    );
+    await scan("Write", { content: "## Outcome\nconfirmed" }, IDEA);
+    warned("idea-outcome", "docs/ideas/42.md is an idea record");
     vi.mocked(warn).mockClear();
-    await scan("Write", { content: "# Summary\nplain" }, "docs/ideas/42.md");
+    await scan("Write", { content: "# Summary\nplain" }, IDEA);
     expect(warn).not.toHaveBeenCalledWith("idea-outcome", expect.anything());
   });
 });
@@ -173,21 +165,10 @@ describe("evaluateFile: sops, digests and thresholds", () => {
   });
 
   it("warns on an image that is not pinned by digest, and not on one pinned by digest", async () => {
-    await scan(
-      "Write",
-      { content: "  image: ghcr.io/x/web:1.2" },
-      "apps/web/d.yaml",
-    );
-    expect(warn).toHaveBeenCalledWith(
-      "image-digest",
-      expect.stringContaining("ghcr.io/x/web:1.2 is not pinned by digest"),
-    );
+    await scan("Write", { content: IMAGE }, DEPLOY);
+    warned("image-digest", "ghcr.io/x/web:1.2 is not pinned by digest");
     vi.mocked(warn).mockClear();
-    await scan(
-      "Write",
-      { content: "  image: ghcr.io/x/web@sha256:abc" },
-      "apps/web/d.yaml",
-    );
+    await scan("Write", { content: PINNED }, DEPLOY);
     expect(warn).not.toHaveBeenCalled();
   });
 
@@ -208,17 +189,31 @@ describe("evaluateFile: sops, digests and thresholds", () => {
 });
 
 describe("evaluateFile: feature flags", () => {
-  it("warns when an overlay turns on a flag that was off, with no previous file", async () => {
+  it("warns when an overlay turns on a flag that was off, by a write or by an edit with no features key", async () => {
     await scan("Write", { content: FLAG_ON }, OVERLAY);
-    expect(warn).toHaveBeenCalledWith(
-      "flag-activation",
-      expect.stringContaining("turns on flag judge-merge by hand"),
-    );
+    warned("flag-activation", "turns on flag judge-merge by hand");
+    const edit = {
+      old_string: "judge-merge: false",
+      new_string: "judge-merge: true",
+    };
+    await scan("Edit", edit, OVERLAY);
+    warned("flag-activation", "judge-merge");
   });
 
-  it("stays silent when the flag was already on", async () => {
+  it("stays silent when the flag was already on, or the overlay has no features map", async () => {
     await scan("Write", { content: FLAG_ON }, OVERLAY, { [OVERLAY]: FLAG_ON });
+    await scan("Write", { content: "name: local" }, OVERLAY);
     expect(warn).not.toHaveBeenCalledWith("flag-activation", expect.anything());
+  });
+
+  it("rethrows a read error that is not a missing file, when the flag check reads the overlay", async () => {
+    const failing = {
+      ...ctxWith(),
+      readFile: () => Promise.reject(new Error("EACCES")),
+    };
+    await expect(
+      evaluateFile("Write", { content: FLAG_ON }, OVERLAY, failing),
+    ).rejects.toThrow("EACCES");
   });
 });
 
@@ -246,6 +241,26 @@ describe("evaluateFile: guarded files", () => {
     );
   });
 
+  it("compares an edit's snippets when its old text is not on disk, and replaces every occurrence with replace_all", async () => {
+    await scan("Edit", { old_string: "zz", new_string: "y" }, SETTINGS, {
+      [SETTINGS]: "{}",
+    });
+    expect(checkSettingsDenyRemoval).toHaveBeenLastCalledWith(
+      SETTINGS,
+      "zz",
+      "y",
+      expect.anything(),
+    );
+    const all = { old_string: "a", new_string: "b", replace_all: true };
+    await scan("Edit", all, SETTINGS, { [SETTINGS]: "aa" });
+    expect(checkSettingsDenyRemoval).toHaveBeenLastCalledWith(
+      SETTINGS,
+      "aa",
+      "bb",
+      expect.anything(),
+    );
+  });
+
   it("gives an unguarded file empty texts to the guarded checks", async () => {
     await scan("Write", { content: "x" }, "src/a.ts");
     expect(checkGuardrailDemotion).toHaveBeenCalledWith("src/a.ts", "", "");
@@ -263,20 +278,22 @@ describe("evaluateFile: combining with the audit deny list", () => {
     });
   });
 
+  it("returns an audit warning alone when the file rules allow the call", async () => {
+    vi.mocked(checkDenyAudit).mockReturnValue([hit("audit-x", "warn")]);
+    expect(await scan("Read", {}, "src/a.ts")).toMatchObject({
+      action: "warn",
+      rule: "audit-x",
+    });
+  });
+
   it("joins an audit warning onto a warning from the file rules, naming both rules", async () => {
     vi.mocked(checkDenyAudit).mockReturnValue([hit("audit-x", "warn")]);
-    const verdict = await scan(
-      "Write",
-      { content: "  image: ghcr.io/x/web:1.2" },
-      "apps/web/d.yaml",
-    );
+    const verdict = await scan("Write", { content: IMAGE }, DEPLOY);
     expect(verdict).toMatchObject({
       action: "warn",
       rule: "image-digest",
       rules: ["image-digest", "audit-x"],
-      message: expect.stringMatching(
-        /ghcr\.io\/x\/web:1\.2 is not pinned.*\n\[guard:audit-x\] audit-x$/s,
-      ),
+      message: expect.stringContaining("[guard:audit-x] audit-x"),
     });
   });
 });

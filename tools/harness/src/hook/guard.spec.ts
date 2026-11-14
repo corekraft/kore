@@ -156,6 +156,35 @@ describe("guard verdict output", () => {
   });
 });
 
+describe("guard verdict fallbacks", () => {
+  it("hashes a call with no tool input, and records a warning with no rule list under its own rule", async () => {
+    vi.mocked(asCall).mockReturnValue({ session_id: "s1", tool_name: "Bash" });
+    vi.mocked(evaluate).mockResolvedValue(block("secret-path", "stop"));
+    await guard({}, fakeDeps().deps);
+    expect(recordEvent).toHaveBeenCalledWith(
+      expect.anything(),
+      "guard.block",
+      expect.anything(),
+      undefined,
+      expect.objectContaining({ label: "secret-path" }),
+    );
+    const warning: Verdict = {
+      action: "warn",
+      rule: "image-digest",
+      message: "w",
+    };
+    vi.mocked(evaluate).mockResolvedValue(warning);
+    await guard({}, fakeDeps().deps);
+    expect(recordEvent).toHaveBeenCalledWith(
+      expect.anything(),
+      "guard.audit",
+      expect.anything(),
+      undefined,
+      { label: "image-digest" },
+    );
+  });
+});
+
 describe("guard inventory", () => {
   it("enforces every rule and says why when the inventory cannot be read", async () => {
     vi.mocked(findInventory).mockRejectedValue(

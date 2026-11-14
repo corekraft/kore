@@ -132,6 +132,33 @@ describe("rawSegments", () => {
   });
 });
 
+describe("shell escapes and edge cases", () => {
+  it("keeps an escaped quote inside double quotes, and an escaped glob outside them as text", () => {
+    expect(splitSegments('echo "a\\"b"')).toEqual([["echo", 'a"b']]);
+    expect(rawWords('"a\\"b"')).toEqual([
+      { text: 'a"b', glob: false, equals: false },
+    ]);
+    expect(rawWords("a\\*")).toEqual([
+      { text: "a*", glob: false, equals: false },
+    ]);
+  });
+
+  it("reads a trailing backslash as nothing, and a lone = followed by a space as plain text", () => {
+    expect(rawWords("a\\")).toEqual([
+      { text: "a", glob: false, equals: false },
+    ]);
+    expect(rawWords("a = b")).toEqual([
+      { text: "a", glob: false, equals: false },
+      { text: "=", glob: false, equals: false },
+      { text: "b", glob: false, equals: false },
+    ]);
+  });
+
+  it("finds no qualifier at the very start of a command", () => {
+    expect(execGlobQualifier("(e:x)")).toBeUndefined();
+  });
+});
+
 describe("execGlobQualifier", () => {
   it("finds a glob qualifier that evaluates a string, e:'...':", () => {
     expect(execGlobQualifier("ls *(e:'rm -rf /':)")).toBe("*(e:'rm -rf /':)");
