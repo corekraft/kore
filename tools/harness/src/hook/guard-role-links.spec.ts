@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   isLinkOrFolder,
   isRegularFile,
@@ -17,10 +17,6 @@ const failWith = (code: string) => () => {
 };
 
 describe("isLinkOrFolder", () => {
-  beforeEach(() => {
-    fs.lstatSync.mockReset();
-  });
-
   it("is true for a symlink and for a folder", () => {
     fs.lstatSync.mockReturnValueOnce(stat(true, false));
     expect(isLinkOrFolder("/a")).toBe(true);

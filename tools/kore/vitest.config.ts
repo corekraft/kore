@@ -11,6 +11,9 @@ export default defineConfig({
       "test-results/unit.json",
       configDefaults.reporters,
     ),
+    // A mock's calls and behaviour, and a spy's real method, reset before each test (ADR 0098).
+    mockReset: true,
+    restoreMocks: true,
     setupFiles: ["src/test-setup-support.ts"],
     include: ["src/**/*.spec.ts"],
     exclude: ["**/*.live.spec.ts", "dist/**"],

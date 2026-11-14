@@ -25,8 +25,6 @@ vi.mock("./registry-https.js", () => ({ registryHead }));
 
 const roots: string[] = [];
 afterEach(async () => {
-  registryReference.mockReset();
-  registryHead.mockReset();
   await Promise.all(
     roots.splice(0).map((root) => rm(root, { force: true, recursive: true })),
   );

@@ -10,21 +10,15 @@ import {
 
 test("validate reports portable applications for the selected environment", async () => {
   const output: string[] = [];
-  const write = vi
-    .spyOn(process.stdout, "write")
-    .mockImplementation((chunk) => {
-      output.push(String(chunk));
-      return true;
-    });
-  try {
-    assert.equal(
-      await main(["validate", "--environment", "managed-example", "--json"]),
-      0,
-    );
-    assert.match(output.join(""), /"applications": \[\n\s+"reference"/);
-  } finally {
-    write.mockRestore();
-  }
+  vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
+    output.push(String(chunk));
+    return true;
+  });
+  assert.equal(
+    await main(["validate", "--environment", "managed-example", "--json"]),
+    0,
+  );
+  assert.match(output.join(""), /"applications": \[\n\s+"reference"/);
 });
 
 test("the tunnel command no longer exists and usage does not mention it", async () => {
@@ -33,25 +27,17 @@ test("the tunnel command no longer exists and usage does not mention it", async 
     /unknown command: tunnel/,
   );
   const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
-  try {
-    await main(["help"]);
-    assert.doesNotMatch(String(log.mock.calls[0]?.[0]), /tunnel/i);
-  } finally {
-    log.mockRestore();
-  }
+  await main(["help"]);
+  assert.doesNotMatch(String(log.mock.calls[0]?.[0]), /tunnel/i);
 });
 
 test("help prints usage without loading an environment", async () => {
   const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
-  try {
-    assert.equal(await main(["help"]), 0);
-    assert.match(
-      String(log.mock.calls[0]?.[0]),
-      /Kore local platform orchestration/,
-    );
-  } finally {
-    log.mockRestore();
-  }
+  assert.equal(await main(["help"]), 0);
+  assert.match(
+    String(log.mock.calls[0]?.[0]),
+    /Kore local platform orchestration/,
+  );
 });
 
 test("mutating commands require an explicit environment", async () => {

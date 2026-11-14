@@ -171,7 +171,6 @@ test("a write failure after start warns and lets the mutation finish", async () 
   expect(result).toBe("finished");
   expect(inner.calls).toHaveLength(1);
   expect(warn).toHaveBeenCalled();
-  warn.mockRestore();
 });
 
 test("an operation with a start and no end is reported as interrupted", async () => {

@@ -18,7 +18,6 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  vi.restoreAllMocks();
   await Promise.all(roots.splice(0).map((r) => rm(r, { recursive: true })));
 });
 

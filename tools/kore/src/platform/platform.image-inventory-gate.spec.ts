@@ -127,14 +127,10 @@ test("opening the gate reports the image inventory summary in the run log, findi
   const write = vi
     .spyOn(process.stderr, "write")
     .mockImplementation(() => true);
-  try {
-    await openApplicationAdmission(repository, runnerWith([], true));
-    const lines = write.mock.calls.map((call) => String(call[0]));
-    assert.ok(
-      lines.some((line) => /^image inventory: audit: .*tag-only/.test(line)),
-      lines.join(""),
-    );
-  } finally {
-    write.mockRestore();
-  }
+  await openApplicationAdmission(repository, runnerWith([], true));
+  const lines = write.mock.calls.map((call) => String(call[0]));
+  assert.ok(
+    lines.some((line) => /^image inventory: audit: .*tag-only/.test(line)),
+    lines.join(""),
+  );
 });

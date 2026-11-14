@@ -3,7 +3,7 @@
 // Docs: infra/plans/14-test-tiers.md#step-1-foundations
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { BudgetReporter } from "./test-budget-reporter.js";
 import { budgetReporters } from "./test-budget-config.js";
 
@@ -11,10 +11,6 @@ vi.mock("node:fs");
 vi.mock("./test-budget-reporter.js");
 
 describe("budgetReporters", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("keeps vitest's own reporters, so CI annotations and agent output survive, and adds the budget reporter after the ones it is given", () => {
     const reporters = budgetReporters("test-results/unit.json", [
       "default",

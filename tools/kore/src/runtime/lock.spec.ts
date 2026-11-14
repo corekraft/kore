@@ -217,14 +217,10 @@ test("the default liveness check refuses our own pid and recovers a pid that has
   const dead = await mkdtemp(join(tmpdir(), "kore-lock-default-dead-"));
   await plantLock(dead, { ...deadOwner, pid: exited });
   const write = vi.spyOn(process.stderr, "write").mockReturnValue(true);
-  try {
-    await expect(
-      withEnvironmentLock(dead, "local", async () => "ran"),
-    ).resolves.toBe("ran");
-    expect(write).toHaveBeenCalledWith(expect.stringContaining("recovered"));
-  } finally {
-    write.mockRestore();
-  }
+  await expect(
+    withEnvironmentLock(dead, "local", async () => "ran"),
+  ).resolves.toBe("ran");
+  expect(write).toHaveBeenCalledWith(expect.stringContaining("recovered"));
 });
 
 test("an unreadable lock surfaces the error instead of being treated as stale", async () => {
@@ -246,7 +242,7 @@ test("an interrupted process frees its lock on exit instead of leaving it for st
   const root = await mkdtemp(join(tmpdir(), "kore-lock-exit-"));
   const lockPath = join(root, ".kore", "locks", "local.lock");
   const handlers: (() => void)[] = [];
-  const on = vi.spyOn(process, "once").mockImplementation(((
+  vi.spyOn(process, "once").mockImplementation(((
     event: string,
     handler: () => void,
   ) => {
@@ -255,24 +251,20 @@ test("an interrupted process frees its lock on exit instead of leaving it for st
     }
     return process;
   }) as never);
-  try {
-    let pending: () => void = () => undefined;
-    const running = withEnvironmentLock(
-      root,
-      "local",
-      () => new Promise<void>((resolve) => (pending = resolve)),
-    );
-    await vi.waitFor(() => expect(handlers).toHaveLength(1));
-    await expect(access(lockPath)).resolves.toBeUndefined();
+  let pending: () => void = () => undefined;
+  const running = withEnvironmentLock(
+    root,
+    "local",
+    () => new Promise<void>((resolve) => (pending = resolve)),
+  );
+  await vi.waitFor(() => expect(handlers).toHaveLength(1));
+  await expect(access(lockPath)).resolves.toBeUndefined();
 
-    handlers[0]?.(); // the process exits mid-operation
+  handlers[0]?.(); // the process exits mid-operation
 
-    await expect(access(lockPath)).rejects.toThrow();
-    pending();
-    await running;
-  } finally {
-    on.mockRestore();
-  }
+  await expect(access(lockPath)).rejects.toThrow();
+  pending();
+  await running;
 });
 
 test("a finished lock leaves no exit handler behind", async () => {
