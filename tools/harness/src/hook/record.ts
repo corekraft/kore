@@ -34,7 +34,7 @@ function pollInBackground(deps: CliDeps): void {
 
 export const record = hookCommand(
   "record",
-  "record a ledger event for the session; mode: session-start (SessionStart, no matcher)",
+  "record a ledger event for the session; mode: session-start (SessionStart, no matcher; also starts ledger poll-github in the background)",
   async ({ deps, payload, operand }) => {
     if (typeof payload !== "object" || payload === null) {
       return {};
