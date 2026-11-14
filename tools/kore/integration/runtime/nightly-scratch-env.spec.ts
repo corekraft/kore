@@ -73,6 +73,18 @@ test("the scratch overlay's collector stamps its own environment and cluster, no
   expect(collector).not.toContain('"value": "kore-local"');
 });
 
+test("the scratch environment reads its own values files, so the collector's stamp is the one deployed", () => {
+  const { status } = run(["test:live:a"], [], {
+    KORE_NIGHTLY_KORE: `${join(ctx.dir, "snapshot.sh")}`,
+  });
+  expect(status).toBe(1);
+  const overlay = readFileSync(outside("overlay-environment"), "utf8");
+  expect(overlay).toContain(
+    '"otel-collector": ["infra/environments/nightly/values/otel-collector.yaml"]',
+  );
+  expect(overlay).not.toContain("infra/environments/local/");
+});
+
 test("the overlay's secrets are encrypted to a fresh recipient, never the owner's", () => {
   const { status } = run(["test:live:a"], [], {
     KORE_NIGHTLY_KORE: `${join(ctx.dir, "snapshot.sh")}`,
