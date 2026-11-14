@@ -6,14 +6,12 @@ import {
   registryAddress,
   writeK3dRegistriesConfig,
 } from "../images/index.js";
-import type { Runner } from "../runtime/index.js";
 import { CommandError } from "../runtime/index.js";
 import { ClusterUnavailableError } from "./cluster-unavailable.js";
 import { waitForClusterReady } from "./readiness.js";
 import {
   assertExpectedK3dCluster,
   clusterStatusK3d,
-  clusterUpK3d,
   k3dClusterInfo,
   k3dCreateArgs,
   listOrUnavailable,
@@ -31,15 +29,17 @@ import {
   LIST,
   MESSAGES,
   NAMESPACE_CHECK,
+  loadBalancer,
+  READINESS,
   RUNNING_STATUS,
   TRUST,
   TRUST_VOLUMES,
+  up,
 } from "./k3d-cluster-support.js";
 
 vi.mock("../images/index.js");
 vi.mock("./readiness.js");
 
-const READINESS = { timeoutMs: 1000 };
 const repository = fakeRepository();
 
 beforeEach(() => {
@@ -50,9 +50,6 @@ beforeEach(() => {
   vi.mocked(writeK3dRegistriesConfig).mockResolvedValue(undefined);
   vi.mocked(waitForClusterReady).mockResolvedValue(undefined);
 });
-
-const up = (runner: Runner, env = repository) =>
-  clusterUpK3d(env, runner, READINESS, "/home/u");
 
 test("a k3d create pins the k3s image, disables the bundled ingress and load balancer, and mounts the registry trust", () => {
   expect(k3dCreateArgs(repository, TRUST)).toEqual(createArgs());
@@ -261,14 +258,11 @@ test("drift is refused with the recreate path before any start or write, when se
   const servers = fakeK3d(1, { serversCount: 3, serversRunning: 3 });
   await expect(up(servers.runner)).rejects.toThrow(MESSAGES.overlayServers);
   expect(commandLines(servers.run)).toEqual([LIST]);
-  const nodes = (ports: Record<string, { HostPort: string }[]>) => [
-    { role: "loadbalancer", portMappings: ports },
-  ];
   const wrong = fakeK3d(1, {
-    nodes: nodes({ "443/tcp": [{ HostPort: "9443" }] }),
+    nodes: loadBalancer({ "443/tcp": [{ HostPort: "9443" }] }),
   });
   await expect(up(wrong.runner)).rejects.toThrow(MESSAGES.wrongPort);
-  const unmapped = fakeK3d(1, { nodes: nodes({ "443/tcp": [] }) });
+  const unmapped = fakeK3d(1, { nodes: loadBalancer({ "443/tcp": [] }) });
   await expect(up(unmapped.runner)).rejects.toThrow(MESSAGES.unmappedPort);
   expect(writeK3dRegistriesConfig).not.toHaveBeenCalled();
   expect(waitForClusterReady).not.toHaveBeenCalled();

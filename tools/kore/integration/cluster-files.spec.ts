@@ -11,15 +11,21 @@ import { join } from "node:path";
 import { test } from "vitest";
 import {
   clusterDestroy,
+  clusterUp,
   exportRetainedData,
   hasVerifiedExport,
   restoreRetainedData,
 } from "../src/cluster/index.js";
 import {
+  ensureRegistryTrust,
+  writeK3dRegistriesConfig,
+} from "../src/images/index.js";
+import {
   CIPHERTEXT,
   FakeRunner,
   exportOptions,
   fakeRunner,
+  fast,
   k3dRepository,
   ok,
   testHome,

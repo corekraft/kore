@@ -1,9 +1,26 @@
 // Fixtures only the k3d-cluster spec reads: the arguments the overlay produces, and
 // the host trust directory. A support file is not a unit, so it needs no spec of
 // its own (ADR 0098).
-import { pinnedK3s } from "./cluster-support.js";
+import type { Repository } from "../config/index.js";
+import type { Runner } from "../runtime/index.js";
+import { clusterUpK3d } from "./k3d-cluster.js";
+import { fakeRepository, pinnedK3s } from "./cluster-support.js";
 
 export const TRUST = "/home/u/.kore/k3d/kore-local/registry-trust";
+
+/** The readiness bound the spec's ups run under; the readiness wait itself is mocked. */
+export const READINESS = { timeoutMs: 1000 };
+
+/** The k3d entry's nodes: one load balancer publishing the given container-to-host ports. */
+export const loadBalancer = (ports: Record<string, { HostPort: string }[]>) => [
+  { role: "loadbalancer", portMappings: ports },
+];
+
+/** A k3d up with the spec's readiness bound and home, against the given repository. */
+export const up = (
+  runner: Runner,
+  env: Repository = fakeRepository(),
+): Promise<void> => clusterUpK3d(env, runner, READINESS, "/home/u");
 
 /** The registry trust mounts k3dTrustVolumeArgs returns for `TRUST`. */
 export const TRUST_VOLUMES = [
