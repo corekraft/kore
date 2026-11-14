@@ -1,7 +1,19 @@
 import assert from "node:assert/strict";
 import { it } from "vitest";
 import { allowed, bash, blocked, type Result } from "../testing/index.js";
+import * as commands from "./guard-commands.js";
 import { splitSegments } from "./guard-shell.js";
+
+it("guard-commands exports only the command rules it owns, so no glob rule is re-exported through it", () => {
+  assert.deepEqual(Object.keys(commands).sort(), [
+    "checkAgentStart",
+    "checkContext",
+    "checkDestructive",
+    "checkIdeaIssueBody",
+    "checkIdeaIssueClose",
+    "checkNoVerify",
+  ]);
+});
 
 it("splitSegments separates chained commands but keeps quoted operators", async () => {
   assert.deepEqual(splitSegments("a && b; c | d"), [
