@@ -118,6 +118,8 @@ const EXPORTS = [
   "ledgerHarness",
   "LOCK",
   "ledgerEvents",
+  "CORPUS",
+  "ORDINARY",
   "MemoryFs",
   "MemoryFileSystem",
   "NEW",
