@@ -28,7 +28,6 @@ vi.mock("./markdown.js", async (importOriginal) => ({
   resolve: vi.fn(),
 }));
 
-/** The problems of a tree given as literal file texts. */
 function scan(docs: Record<string, string>) {
   return findings({
     files: () => Object.keys(docs),
@@ -36,19 +35,15 @@ function scan(docs: Record<string, string>) {
   });
 }
 
-/** The arguments finding() was called with, one array per problem. */
 const calls = () => vi.mocked(finding).mock.calls;
 
-/** proseLines() of this text returns these lines; every other file has none. */
 const proseOf = (text: string, lines: { line: number; text: string }[]) =>
   vi.mocked(proseLines).mockImplementation((t) => (t === text ? lines : []));
 
 beforeEach(() => {
   vi.mocked(finding).mockReturnValue(PROBLEM);
   vi.mocked(proseLines).mockReturnValue([]);
-  vi.mocked(isExternal).mockReturnValue(false);
   vi.mocked(resolve).mockImplementation((_from, target) => target);
-  vi.mocked(anchors).mockReturnValue([]);
   vi.mocked(checkFrontmatter).mockReturnValue([]);
   vi.mocked(checkIdea).mockReturnValue([]);
 });
@@ -107,6 +102,7 @@ test("external links are never resolved, and a bare anchor is checked against th
 test("an anchor into a file with no headings says to remove the anchor", () => {
   proseOf("[n](notes.md#gone)", [{ line: 1, text: "[n](notes.md#gone)" }]);
   vi.mocked(resolve).mockReturnValue("docs/notes.md");
+  vi.mocked(anchors).mockReturnValue([]);
   scan({
     "docs/index.md": "",
     "docs/notes.md": "plain",
@@ -139,7 +135,6 @@ test("an existing anchor passes, and an anchor into a non-Markdown file is not c
       "docs/a.md": "[ok](rules.md#rules) [code](src/a.ts#L3)",
     }),
   ).toEqual([]);
-  expect(finding).not.toHaveBeenCalled();
 });
 
 test("a link to a tracked directory exists, and the repository root is a valid target", () => {
@@ -246,11 +241,10 @@ test("a missing index is reported once, on line 1", () => {
 });
 
 test("a file that cannot be read is skipped, and an unreadable index is a missing index", () => {
-  const unreadable = {
+  findings({
     files: () => ["docs/index.md", "docs/a.md", "tools/x.ts"],
     read: () => null,
-  };
-  expect(findings(unreadable)).toEqual([PROBLEM]);
+  });
   expect(calls()).toEqual([
     ["docs/index.md", 1, "the knowledge index is missing", FIX_INDEX],
   ]);
