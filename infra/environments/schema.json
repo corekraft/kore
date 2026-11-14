@@ -87,6 +87,10 @@
       "enum": ["audit", "enforce"],
       "description": "Inventory mode and enrollment rule (ADR 0056): enforce labels every catalog platform namespace except enrollmentExemptions with policy.sigstore.dev/include before the inventory runs; audit labels none."
     },
+    "exemptionCheck": {
+      "enum": ["audit", "enforce"],
+      "description": "Mode of the policy-exemption check, audit or enforce (ADR 0056 mode); unset reads as audit. Accepted and validated now; the exemption check that consumes it is a later ticket under #613."
+    },
     "enrollmentExemptions": {
       "type": "object",
       "additionalProperties": { "type": "string", "minLength": 1 }

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { precheck, summary } from "../judge/index.js";
 import { contextWith } from "./command-support.js";
 import { judgeCommands } from "./judge-commands.js";
+import { diffCommands } from "./judge-diff-command.js";
 import { approveCommands } from "./judge-approve-command.js";
 import { mergeCommands } from "./judge-merge-commands.js";
 import {
@@ -15,6 +16,9 @@ import {
 import { REPO, reportOf, ROOT } from "./judge-command-support.js";
 
 vi.mock("../judge/index.js");
+vi.mock("./judge-diff-command.js", () => ({
+  diffCommands: { diff: { summary: "diff" } },
+}));
 vi.mock("./judge-approve-command.js", () => ({
   approveCommands: { approve: { summary: "approve" } },
 }));
@@ -102,8 +106,15 @@ describe("harness judge precheck", () => {
 describe("judge command table", () => {
   it("lists the precheck and the merge commands, taking the merge table unchanged", () => {
     expect(Object.keys(judgeCommands)).toEqual(
-      expect.arrayContaining(["precheck", "approve", "merge", "send-back"]),
+      expect.arrayContaining([
+        "precheck",
+        "diff",
+        "approve",
+        "merge",
+        "send-back",
+      ]),
     );
+    expect(judgeCommands.diff).toBe(diffCommands.diff);
     expect(judgeCommands.approve).toBe(approveCommands.approve);
     expect(judgeCommands.merge).toBe(mergeCommands.merge);
     expect(judgeCommands["send-back"]).toBe(mergeCommands["send-back"]);

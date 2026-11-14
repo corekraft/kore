@@ -1567,6 +1567,25 @@ unchanged releases; Step 15's documentation exists under `docs/operations` and
 resolves a tag to a digest, so the new `kore-image-digest` constraint (dryrun)
 guards the paths admission does not cover.
 
+### Now footprint baseline (method; numbers owed, #619)
+
+`FootprintMeasurement` (`tools/kore/src/platform/footprint-measurement.ts`)
+measures the settled platform the same way every time, so Next and Then compare
+against Now. Precondition: a converged `kore local up` profile with nothing else
+driving load. Method (`footprintMeasurementDefaults`): refuse to start at a host
+1-minute load average of 10 or more, settle 120 s, then 12 samples 20 s apart.
+Each sample reads the k3d server container's CPU and memory (`docker stats`), the
+macOS swap used (`sysctl vm.swapusage`) and the host load; the Docker VM's total
+memory is read once. A run reports the median and peak per metric, the VM
+headroom at the median and peak memory, and any load at or above the ceiling
+during the run. `footprintBaseline` is the mean of the run medians with the
+spread (gap between run medians as a percentage of the baseline, as in plan 13).
+
+Run it several times with `KORE_RUN_LIVE=1 npm --prefix tools/kore run
+test:live:footprint`, then record the date, host, VM size, method values,
+per-metric baseline and spread here, and only the headroom figures in the
+vision's footprint line. The live run is owed; no baseline is recorded yet.
+
 ## Progress Record
 
 Update this table when a step begins or completes. Link implementation commits,

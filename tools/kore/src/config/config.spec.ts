@@ -80,7 +80,7 @@ beforeEach(() => {
     return text;
   });
   vi.mocked(orderedComponents).mockReturnValue([]);
-  vi.mocked(validateRepository).mockResolvedValue(undefined);
+  vi.mocked(validateRepository).mockResolvedValue([]);
   filesPresent();
 });
 
@@ -157,6 +157,14 @@ test("a component's value files are its own, then the environment's for that com
   expect(componentValues(repo, fakeComponent({ name: "kube" }))).toEqual([]);
 });
 
+test("loading carries the warnings validation reports on the repository", async () => {
+  filesPresent("/repo/infra/catalog/components.yaml");
+  vi.mocked(validateRepository).mockResolvedValue(["warn: loose"]);
+  expect((await loadRepository("local", "/repo")).warnings).toEqual([
+    "warn: loose",
+  ]);
+});
+
 test("loading reads the six catalog and overlay files, validates the whole repository, and returns it", async () => {
   filesPresent("/repo/infra/catalog/components.yaml");
   const loaded = await loadRepository("local", "/repo");
@@ -167,7 +175,9 @@ test("loading reads the six catalog and overlay files, validates the whole repos
     imageTrustValues: undefined,
     registryComponentValues: {},
   });
-  expect(vi.mocked(validateRepository).mock.calls).toEqual([[loaded]]);
+  const { warnings, ...validated } = loaded;
+  expect(warnings).toEqual([]);
+  expect(vi.mocked(validateRepository).mock.calls).toEqual([[validated]]);
   expect(vi.mocked(readFile).mock.calls.map(([path]) => path)).toEqual([
     "/repo/infra/catalog/versions.yaml",
     "/repo/infra/catalog/seeds.yaml",

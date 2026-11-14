@@ -172,7 +172,7 @@ test("a publish to the local registry pushes under the entry's repository and th
     fakeRepository(),
     runner,
     entry,
-    "kore-local/reference:run",
+    { imageTag: "kore-local/reference:run" },
     { credential, ca: "CA" },
   );
 
@@ -197,7 +197,7 @@ test("a publish refuses an image entry with no repository path after the registr
       fakeRepository(),
       runner,
       { ...entry, image: "registry.kore.local" },
-      "kore-local/reference:run",
+      { imageTag: "kore-local/reference:run" },
       { credential, ca: "CA" },
     ),
   ).rejects.toThrow("image repository path is unavailable");
