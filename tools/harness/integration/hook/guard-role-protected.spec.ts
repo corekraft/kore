@@ -3,52 +3,17 @@
 // The unit spec (src/hook/guard-role-protected.spec.ts) proves each rule against stand-ins; these
 // cases are the full set, run through the barrel. The cases name the repository as /repo, which
 // the run replaces with its temporary root.
-import {
-  mkdirSync,
-  mkdtempSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { checkProtected } from "../../src/hook/index.js";
+import {
+  bash,
+  guardRefusal,
+  setUp,
+  tearDown,
+  write,
+} from "./guard-role-protected-support.js";
 
-let root = "";
-const at = (text: string) => text.replaceAll("/repo", root);
-const writer = (tool: string, input: Record<string, unknown>) =>
-  checkProtected("writer", tool, input, root);
-const bash = (command: string) => writer("Bash", { command: at(command) });
-const write = (file_path: string) =>
-  writer("Write", { file_path: at(file_path), content: "x" });
-
-const guardRefusal = {
-  action: "block",
-  rule: "role-read-only",
-  message: expect.stringContaining(
-    "changes the guard bundle, a hook or the settings",
-  ),
-};
-
-beforeAll(() => {
-  root = mkdtempSync(join(tmpdir(), "guard-protected-"));
-  const hooks = join(root, ".claude", "hooks");
-  mkdirSync(hooks, { recursive: true });
-  for (const file of ["harness.sh", "a.test.mjs", "b.test.mjs", "y.test.mjs"]) {
-    writeFileSync(join(hooks, file), "");
-  }
-  mkdirSync(join(hooks, "x.test.mjs"));
-  mkdirSync(join(hooks, "l.test.mjs"));
-  symlinkSync("harness.sh", join(hooks, "linked.test.mjs"));
-  mkdirSync(join(root, "scratch", "dir"), { recursive: true });
-  writeFileSync(join(root, "scratch", "file"), "");
-  symlinkSync("dir", join(root, "scratch", "link"));
-});
-
-afterAll(() => {
-  rmSync(root, { recursive: true, force: true });
-});
+beforeAll(setUp);
+afterAll(tearDown);
 
 describe("protected guard: hook test files a writer may change", () => {
   it.each([
@@ -214,89 +179,5 @@ describe("protected guard: a hook test name that is a folder or link on disk", (
     "sed -i s/a/b/ .claude/hooks/a.test.mjs",
   ])("refuses a link, file or folder put under a test name: %s", (command) => {
     expect(bash(command)).toEqual(guardRefusal);
-  });
-});
-
-describe("protected guard: git mv, git rm and rm stand alone with plain hook tests", () => {
-  it.each([
-    "rm .claude/hooks/a.test.mjs && echo hi",
-    "rm .claude/hooks/a.test.mjs ; echo hi",
-    "rm .claude/hooks/a.test.mjs | cat",
-    "rm .claude/hooks/a.test.mjs > out",
-    "rm .claude/hooks/a.test.mjs $(id)",
-    "rm .claude/hooks/a.test.mjs .claude/hooks/harness.sh",
-    "rm -rf .claude/hooks/a.test.mjs",
-    "rm -r .claude/hooks/a.test.mjs",
-    "git rm -r .claude/hooks/a.test.mjs",
-    "git rm --cached .claude/hooks/a.test.mjs .claude/hooks/harness.sh",
-    "git mv .claude/hooks/a.test.mjs .claude/archive/a.test.mjs",
-    "git mv .claude/hooks/a.test.mjs .claude",
-    "git mv .claude/hooks/a.test.mjs .CLAUDE/hooks/",
-    "git mv .claude/hooks/a.test.mjs scratch/../.claude/hooks/x.test.mjs",
-    "git mv .claude/hooks/a.test.mjs skills/bin/x.mjs",
-    "git mv .claude/hooks/a.test.mjs $DEST",
-    "git mv .claude/hooks/a.test.mjs tools/{a,b}",
-    "git mv .claude/hooks/harness.sh tools/harness.sh",
-    "git mv .claude/hooks/a.test.mjs .claude/hooks/harness.sh tools/",
-    "git mv -f .claude/hooks/a.test.mjs tools/",
-    "git mv .claude/hooks/*.test.mjs tools/",
-    "git mv .claude/hooks/a.test.mjs",
-    "git -C scratch mv .claude/hooks/a.test.mjs dir",
-    "git --git-dir=x rm .claude/hooks/a.test.mjs",
-    "git mv .claude/hooks/a.test.mjs .claude/hooks/b.test.mjs #x",
-    "rm .claude/hooks/a.test.mjs #x",
-  ])("refuses it, since it is not one plain removal: %s", (command) => {
-    expect(bash(command)).toEqual(guardRefusal);
-  });
-
-  it.each([
-    "rm .claude/hooks/l.test.mjs",
-    "rm -f .claude/hooks/gone.test.mjs",
-    "git mv .claude/hooks/gone.test.mjs tools/",
-    "git rm .claude/hooks/l.test.mjs",
-    "git mv .claude/hooks/l.test.mjs tools/",
-    "git mv .claude/hooks/a.test.mjs scratch/link",
-  ])(
-    "refuses a folder, a missing file or a move onto a symlink: %s",
-    (command) => {
-      expect(bash(command)).toEqual(guardRefusal);
-    },
-  );
-});
-
-describe("protected guard: the refusals that already held", () => {
-  it.each([
-    "node skills/bin/harness.mjs flag activate x",
-    "gh workflow run check.yml",
-  ])(
-    "refuses a writer's flag activation or workflow dispatch: %s",
-    (command) => {
-      expect(bash(command)).toMatchObject({ rule: "role-no-merge" });
-    },
-  );
-
-  it("refuses host credentials for every bound role, for a read as well as a command", () => {
-    expect(
-      checkProtected(
-        "reader",
-        "Read",
-        { file_path: "~/.ssh/id_ed25519" },
-        root,
-      ),
-    ).toMatchObject({ rule: "secret-path" });
-    expect(bash("cat ~/.kube/config")).toMatchObject({ rule: "secret-path" });
-  });
-
-  it("lets ordinary work through, and binds only the writer to the guard files", () => {
-    expect(write("src/a.ts")).toBeNull();
-    expect(bash("ls docs")).toBeNull();
-    expect(
-      checkProtected(
-        "reader",
-        "Write",
-        { file_path: ".claude/hooks/harness.sh", content: "x" },
-        root,
-      ),
-    ).toBeNull();
   });
 });
