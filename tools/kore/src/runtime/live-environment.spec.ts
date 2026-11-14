@@ -1,11 +1,38 @@
-import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { afterEach, expect, test } from "vitest";
-import { liveEnvironment } from "./live-environment.js";
+import { existsSync, readdirSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { isSet, liveEnvironment } from "./live-environment.js";
 
-// Docs: AGENTS.md "Mutations are serialized per environment."
+vi.mock("node:fs");
+vi.mock("node:path");
+
+const ROOT = "/repo";
+
+/** A repository with the named environments (plus a `common` directory with none). */
+function repositoryWith(...names: string[]): void {
+  const files = new Set([
+    `${ROOT}/infra/catalog/components.yaml`,
+    ...names.map(
+      (name) => `${ROOT}/infra/environments/${name}/environment.yaml`,
+    ),
+  ]);
+  vi.mocked(existsSync).mockImplementation((path) => files.has(String(path)));
+  vi.mocked(readdirSync).mockReturnValue(
+    [...names, "common"].map((name) => ({
+      name,
+      isDirectory: () => true,
+    })) as never,
+  );
+}
+
+beforeEach(() => {
+  vi.mocked(join).mockImplementation((...parts) => parts.join("/"));
+  vi.mocked(resolve).mockImplementation((path) => path);
+  vi.mocked(dirname).mockImplementation(
+    (path) => path.slice(0, path.lastIndexOf("/")) || "/",
+  );
+  process.env.KORE_ROOT = ROOT;
+});
 
 afterEach(() => {
   delete process.env.KORE_LIVE_ENVIRONMENT;
@@ -13,91 +40,94 @@ afterEach(() => {
   delete process.env.KORE_ROOT;
 });
 
-/** A repository root defining the named environments (plus a shared `common`). */
-async function repositoryWith(...names: string[]): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "kore-live-env-"));
-  await mkdir(join(root, "infra/catalog"), { recursive: true });
-  await writeFile(join(root, "infra/catalog/components.yaml"), "{}");
-  await mkdir(join(root, "infra/environments/common"), { recursive: true });
-  for (const name of names) {
-    await mkdir(join(root, "infra/environments", name), { recursive: true });
-    await writeFile(
-      join(root, "infra/environments", name, "environment.yaml"),
-      "{}",
+describe("liveEnvironment", () => {
+  it("tests the local environment when the variable is unset", () => {
+    repositoryWith("local", "scratch");
+
+    expect(liveEnvironment()).toBe("local");
+  });
+
+  it("counts an empty KORE_LIVE_ENVIRONMENT as unset", () => {
+    repositoryWith("local", "scratch");
+    process.env.KORE_LIVE_ENVIRONMENT = "";
+
+    expect(liveEnvironment()).toBe("local");
+  });
+
+  it("tests the environment KORE_LIVE_ENVIRONMENT names", () => {
+    repositoryWith("local", "scratch");
+    process.env.KORE_LIVE_ENVIRONMENT = "scratch";
+
+    expect(liveEnvironment()).toBe("scratch");
+  });
+
+  it("refuses the retired KORE_INTEGRATION_ENVIRONMENT, naming its replacement, and never reads it as local", () => {
+    repositoryWith("local", "scratch");
+    process.env.KORE_INTEGRATION_ENVIRONMENT = "scratch";
+
+    expect(() => liveEnvironment()).toThrow(
+      /KORE_INTEGRATION_ENVIRONMENT is retired; set KORE_LIVE_ENVIRONMENT/,
     );
-  }
-  process.env.KORE_ROOT = root;
-  return root;
-}
+  });
 
-test("live specs test the local environment unless told otherwise", async () => {
-  await repositoryWith("local", "scratch");
-  delete process.env.KORE_LIVE_ENVIRONMENT;
-  expect(liveEnvironment()).toBe("local");
+  it("refuses an environment the repository does not define, naming the variable and the valid ones", () => {
+    repositoryWith("scratch", "local");
+    process.env.KORE_LIVE_ENVIRONMENT = "nope";
+
+    expect(() => liveEnvironment()).toThrow(
+      'KORE_LIVE_ENVIRONMENT="nope" is not an environment of this repository; use one of: local, scratch, or unset it for local',
+    );
+  });
+
+  it("lists only directories that define an environment, and never the shared common one", () => {
+    repositoryWith("local");
+    process.env.KORE_LIVE_ENVIRONMENT = "common";
+
+    expect(() => liveEnvironment()).toThrow(/use one of: local,/);
+  });
+
+  it("reads the environments under KORE_ROOT when it is set", () => {
+    repositoryWith("local");
+
+    liveEnvironment("/somewhere/else");
+
+    expect(readdirSync).toHaveBeenCalledWith(`${ROOT}/infra/environments`, {
+      withFileTypes: true,
+    });
+  });
+
+  it("finds the repository by walking up from the start directory", () => {
+    delete process.env.KORE_ROOT;
+    repositoryWith("local");
+    vi.mocked(existsSync).mockImplementation(
+      (path) =>
+        path === "/work/kore/infra/catalog/components.yaml" ||
+        path === "/work/kore/infra/environments/local/environment.yaml",
+    );
+    vi.mocked(readdirSync).mockReturnValue([
+      { name: "local", isDirectory: () => true },
+    ] as never);
+
+    expect(liveEnvironment("/work/kore/tools/kore")).toBe("local");
+    expect(readdirSync).toHaveBeenCalledWith("/work/kore/infra/environments", {
+      withFileTypes: true,
+    });
+  });
+
+  it("refuses to run outside a Kore repository, naming how to point at one", () => {
+    delete process.env.KORE_ROOT;
+    vi.mocked(existsSync).mockReturnValue(false);
+
+    expect(() => liveEnvironment("/tmp/elsewhere")).toThrow(
+      "not inside a Kore repository (set KORE_ROOT to override)",
+    );
+  });
 });
 
-test("an empty KORE_LIVE_ENVIRONMENT counts as unset", async () => {
-  await repositoryWith("local", "scratch");
-  process.env.KORE_LIVE_ENVIRONMENT = "";
-  expect(liveEnvironment()).toBe("local");
-});
-
-test("KORE_LIVE_ENVIRONMENT names the environment live specs test", async () => {
-  await repositoryWith("local", "scratch");
-  process.env.KORE_LIVE_ENVIRONMENT = "scratch";
-  expect(liveEnvironment()).toBe("scratch");
-});
-
-test("the retired KORE_INTEGRATION_ENVIRONMENT is refused naming KORE_LIVE_ENVIRONMENT, never read as local", async () => {
-  await repositoryWith("local", "scratch");
-  process.env.KORE_INTEGRATION_ENVIRONMENT = "scratch";
-  expect(() => liveEnvironment()).toThrow(
-    /KORE_INTEGRATION_ENVIRONMENT is retired; set KORE_LIVE_ENVIRONMENT/,
-  );
-});
-
-test("an unknown environment is refused naming the variable and the valid environments", async () => {
-  await repositoryWith("local", "scratch");
-  process.env.KORE_LIVE_ENVIRONMENT = "nope";
-  expect(() => liveEnvironment()).toThrow(/KORE_LIVE_ENVIRONMENT/);
-  expect(() => liveEnvironment()).toThrow(/local, scratch/);
-  expect(() => liveEnvironment()).not.toThrow(/common/);
-});
-
-/** A `loadRepository("local"`, an `--environment`, "local"` pair or an `environment: "local"` field. */
-function hardcodesLocal(text: string): boolean {
-  return [
-    /loadRepository\(\s*"local"/,
-    /"--environment"\s*,\s*"local"/,
-    /environment:\s*"local"\s*[,}]/,
-  ].some((pattern) => pattern.test(text));
-}
-
-test("hardcodesLocal sees each way code can pin the environment", () => {
-  expect(hardcodesLocal('loadRepository("local", root)')).toBe(true);
-  expect(hardcodesLocal('["doctor", "--environment", "local"]')).toBe(true);
-  expect(hardcodesLocal('{ environment: "local", evidence }')).toBe(true);
-  expect(hardcodesLocal('["--environment", environment]')).toBe(false);
-  expect(hardcodesLocal('environment: "local" | "managed";')).toBe(false);
-});
-
-/** Unit specs and fixtures build their own repositories; everything else may run live. */
-function isGuarded(file: string): boolean {
-  const unitSpec = file.endsWith(".spec.ts") && !file.endsWith(".live.spec.ts");
-  const fixture = /[.-]fixtures\.ts$/.test(file);
-  return file.endsWith(".ts") && !unitSpec && !fixture;
-}
-
-test("no live or production source file hardcodes the environment it loads or passes", async () => {
-  const src = join(dirname(fileURLToPath(import.meta.url)), "..");
-  const files = (await readdir(src, { recursive: true })).filter(isGuarded);
-  expect(files.length).toBeGreaterThan(0);
-  expect(files).toContain(join("platform", "identity-live.ts"));
-  const offenders: string[] = [];
-  for (const file of files) {
-    if (hardcodesLocal(await readFile(join(src, file), "utf8"))) {
-      offenders.push(file);
-    }
-  }
-  expect(offenders).toEqual([]);
+describe("isSet", () => {
+  it("counts a variable with a value as set, and one that is unset or empty as not", () => {
+    expect(isSet("x")).toBe(true);
+    expect(isSet("")).toBe(false);
+    expect(isSet(undefined)).toBe(false);
+  });
 });

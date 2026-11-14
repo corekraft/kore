@@ -5,6 +5,7 @@
 
 import { createHash } from "node:crypto";
 import { CommandError } from "../runtime/index.js";
+import { RuleLocations } from "./retro-locations.js";
 import {
   SessionAnalysis,
   type GuardCounts,
@@ -31,6 +32,8 @@ export interface ScanOptions {
   since?: string | undefined;
   knownSkills?: readonly string[];
   auditRules?: readonly string[];
+  /** Add the location of each guard block per rule; off by default so the default report is unchanged. */
+  evidence?: boolean;
 }
 
 interface Evidence {
@@ -140,6 +143,8 @@ const emptyStats = (): RuleStats => ({
 /** Counts added up across the sessions in the window. */
 class Tally {
   readonly guards: Record<string, GuardCounts> = {};
+  readonly guardEvidence = new RuleLocations();
+  readonly overriddenEvidence = new RuleLocations();
   readonly failureCounts = new Map<string, number>();
   readonly perSession: Record<string, string[]> = {};
   readonly loaded = new Set<string>();
@@ -155,13 +160,16 @@ class Tally {
 
   add(id: string, found: SessionAnalysis): void {
     this.addGuards(found);
+    for (const { rule, line, excerpt } of found.guardBlocks) {
+      this.guardEvidence.add(rule, { session: id, line, excerpt });
+    }
+    this.addWarnings(id, found);
     for (const { tool, error } of found.failures) {
       const key = `${tool}\u0000${error}`;
       this.failureCounts.set(key, (this.failureCounts.get(key) ?? 0) + 1);
     }
     this.addSkills(id, found);
     this.addPhrases(id, found);
-    this.addWarnings(found);
   }
 
   private addGuards(found: SessionAnalysis): void {
@@ -198,13 +206,22 @@ class Tally {
     }
   }
 
-  private addWarnings(found: SessionAnalysis): void {
+  private addWarnings(id: string, found: SessionAnalysis): void {
     const touched = new Set<RuleStats>();
     for (const warning of found.warnings) {
       const stats = this.ruleStats.get(warning.rule);
       if (stats) {
         stats.warnings++;
-        stats[found.outcome(warning)]++;
+        const outcome = found.outcome(warning);
+        stats[outcome]++;
+        if (outcome === "overridden") {
+          this.overriddenEvidence.add(warning.rule, {
+            session: id,
+            line: warning.line,
+            excerpt: warning.excerpt,
+            glob: warning.glob,
+          });
+        }
         touched.add(stats);
       }
     }
@@ -283,7 +300,12 @@ class Tally {
 /** Scan sessions into the report the retro skill reads. */
 export function scan(
   inputs: readonly SessionText[],
-  { since, knownSkills = [], auditRules: audit = [] }: ScanOptions = {},
+  {
+    since,
+    knownSkills = [],
+    auditRules: audit = [],
+    evidence = false,
+  }: ScanOptions = {},
 ) {
   const included = inputs
     .map(({ id, text }) => parseTranscript(id, text))
@@ -311,6 +333,12 @@ export function scan(
     },
     skippedLines: included.reduce((sum, item) => sum + item.session.skipped, 0),
     guards: tally.sortedGuards(),
+    ...(evidence
+      ? {
+          guardEvidence: tally.guardEvidence.sorted(),
+          overriddenEvidence: tally.overriddenEvidence.sorted(),
+        }
+      : {}),
     failures: tally.failures(),
     skills: { perSession: tally.perSession, unused: tally.unused() },
     corrections: tally.corrections(),

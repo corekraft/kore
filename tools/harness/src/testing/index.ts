@@ -13,6 +13,13 @@ export {
   NEW as ADR_NEW,
 } from "./adr-support.js";
 export { testHarness, type TestHarness } from "./cli-support.js";
+export {
+  INSIDE,
+  gitCommon,
+  herdrCalls,
+  layoutOf,
+  stateFile,
+} from "./session-close-support.js";
 export { MemoryFileSystem as RootedMemoryFileSystem } from "./filesystem-support.js";
 export {
   OVERLAY,
@@ -70,6 +77,13 @@ export {
   type FakeIssue,
   type Harness,
 } from "./outcome-support.js";
+export {
+  TICK_BODY,
+  TICK_PLAN_FILE,
+  activePlan,
+  planHarness,
+  tickPlan,
+} from "./plan-support.js";
 export {
   INDEX,
   NEW,

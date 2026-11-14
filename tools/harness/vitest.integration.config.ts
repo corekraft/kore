@@ -13,7 +13,7 @@ export default defineConfig({
       "../../.claude/hooks/*.test.mjs",
       "../../.claude/evals/*.test.mjs",
     ],
-    // Helpers beside the specs (`<name>-support.ts`) hold fakes and fixtures, not suites.
+    // Fixtures a spec beside them imports (`<name>-support.ts`) hold no suite of their own.
     exclude: [...configDefaults.exclude, "integration/**/*-support.ts"],
     // The guard-bundle spec reads the built bundle, so build it first (ADR 0092).
     globalSetup: ["tests/build-bundle-setup.ts"],

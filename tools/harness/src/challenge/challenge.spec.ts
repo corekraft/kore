@@ -1,322 +1,269 @@
-import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
-import { run } from "../cli/index.js";
+// Docs: infra/plans/11-agent-delivery-loop.md (Step 3, the challenge stage)
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
+import { IdeaError, issueTarget } from "../idea/index.js";
+import type { Runner } from "../runtime/index.js";
+import { challengeIdea, issueComments, RoundLimit } from "./challenge.js";
 import {
-  GH_USER,
-  LEDGER,
-  ghWrites,
-  linked,
-  type Harness,
-} from "../testing/index.js";
-import { issueComments } from "./challenge.js";
-import { MAX_ROUNDS } from "./index.js";
+  CAPTURED_COMMENTS,
+  fakeContext,
+  fakeRunner,
+  failed,
+  ISSUE,
+  ok,
+  RECORD,
+} from "./challenge-support.js";
+import {
+  distinctRounds,
+  duplicateRounds,
+  parseRounds,
+  renderRound,
+  type Round,
+} from "./model.js";
 
-const challenge = (extra: string[] = []) => [
-  "idea",
-  "challenge",
-  "--idea",
-  "1",
-  "--ledger",
-  LEDGER,
-  ...extra,
-];
+vi.mock("../idea/index.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../idea/index.js")>()),
+  issueTarget: vi.fn(),
+}));
+vi.mock("./model.js");
 
-/** Runs one round with the given objections on stdin, one per line. */
-async function round(h: Harness, objections: string[], extra: string[] = []) {
-  h.deps.stdin = () => Promise.resolve(`${objections.join("\n")}\n`);
-  return await run(challenge(extra), h.deps);
-}
+const REPO = "corekraft/kore";
+const USER = "junners";
+const FIX = "Check `gh auth status`, then rerun `harness idea challenge`.";
+const EMPTY_VIEW = '{"comments":[]}';
 
-const ledgerEvents = (h: Harness) =>
-  (h.get(LEDGER.slice("/repo/".length)) ?? "")
-    .split("\n")
-    .filter((line) => line !== "")
-    .map((line) => JSON.parse(line) as Record<string, unknown>);
+/** gh's answers when nothing is wrong: the user, an empty issue, a posted comment. */
+const healthy = (args: readonly string[]) => {
+  if (args[0] === "api") {
+    return ok(`${USER}\n`);
+  }
+  return args[1] === "view" ? ok(EMPTY_VIEW) : ok();
+};
 
-describe("harness idea challenge", () => {
-  it("limits an idea to two challenge rounds", () => {
-    expect(MAX_ROUNDS).toBe(2);
-  });
-
-  it("posts a round's objections on the issue and counts it as round 1", async () => {
-    const { h, issue } = await linked();
-    expect(
-      await round(h, ["The hypothesis has no baseline.", "No rollback."]),
-    ).toBe(0);
-    expect(issue.comments).toHaveLength(1);
-    expect(issue.comments[0]).toContain("Challenge round 1 of 2");
-    expect(issue.comments[0]).toContain("- The hypothesis has no baseline.");
-    expect(issue.comments[0]).toContain("- No rollback.");
-    expect(h.out()).toContain("round 1 of 2");
-  });
-
-  it("counts the second round from the first round's comment on the issue", async () => {
-    const { h, issue } = await linked();
-    await round(h, ["No baseline."]);
-    await round(h, ["Safety pattern should be dark-launched."]);
-    expect(issue.comments).toHaveLength(2);
-    expect(issue.comments[1]).toContain("Challenge round 2 of 2");
-  });
-
-  it("counts rounds from the issue, not from this machine", async () => {
-    const first = await linked();
-    await round(first.h, ["No baseline."]);
-    await round(first.h, ["Still no baseline."]);
-    // A fresh checkout and ledger, the same issue: the two rounds are still two.
-    const { h } = await linked({ comments: first.issue.comments });
-    expect(await round(h, ["Third."])).toBe(1);
-    expect(h.err()).toContain("2 challenge rounds");
-  });
-
-  it("refuses a third round, lists the open objections, and writes nothing", async () => {
-    const { h, issue } = await linked();
-    await round(h, ["No baseline."]);
-    await round(h, ["Outcome is not measurable.", "Wrong safety pattern."]);
-    const writes = ghWrites(h).length;
-    const events = ledgerEvents(h).length;
-
-    expect(await round(h, ["One more thing."])).toBe(1);
-    const error = h.err();
-    expect(error).toContain("limit of 2 challenge rounds");
-    expect(error).toContain("a person");
-    expect(error).toContain("- Outcome is not measurable.");
-    expect(error).toContain("- Wrong safety pattern.");
-    expect(error).not.toContain("No baseline.");
-    expect(error).not.toContain("One more thing.");
-    expect(issue.comments).toHaveLength(2);
-    expect(ghWrites(h)).toHaveLength(writes);
-    expect(ledgerEvents(h)).toHaveLength(events);
-  });
-
-  it("reports the refusal as JSON with the open objections", async () => {
-    const { h } = await linked();
-    await round(h, ["a"]);
-    await round(h, ["b"]);
-    h.deps.stdin = () => Promise.resolve("c\n");
-    expect(await run([...challenge(), "--json"], h.deps)).toBe(1);
-    expect(JSON.parse(h.err().trim().split("\n")[0] ?? "")).toMatchObject({
-      rounds: 2,
-      openObjections: ["b"],
-    });
-  });
+const round = (n: number, objections: string[], url = `u${n}`): Round => ({
+  round: n,
+  objections,
+  url,
 });
 
-const marker = (idea: string, n: number) =>
-  `<!-- harness-challenge idea=${idea} round=${n} -->\nChallenge round ${n} of 2\n\n- x`;
+/** The gh calls made, as argument lists, in order. */
+const ghCalls = (run: Mock<Runner["run"]>) =>
+  run.mock.calls.map((call) => call[1]);
 
-describe("harness idea challenge integrity", () => {
-  it("ignores a round marker posted by anyone but the authenticated gh user", async () => {
-    const { h, issue } = await linked({
-      comments: [marker("0001", 1), marker("0001", 2)],
-      authors: { 0: "mallory", 1: "mallory" },
-    });
-    expect(await round(h, ["mine"])).toBe(0);
-    expect(h.out()).toContain("round 1 of 2");
-    expect(issue.comments).toHaveLength(3);
-  });
-
-  it("does not let a forged marker use up the rounds", async () => {
-    const { h } = await linked({
-      comments: [marker("0001", 1), marker("0001", 2)],
-      authors: { 1: "mallory" },
-    });
-    expect(await round(h, ["mine"])).toBe(0);
-    expect(h.out()).toContain("round 2 of 2");
-  });
-
-  it("still counts rounds by the expected user and refuses a third", async () => {
-    const { h } = await linked({
-      comments: [marker("0001", 1), marker("0001", 2)],
-      authors: { 0: GH_USER, 1: GH_USER },
-    });
-    expect(await round(h, ["third"])).toBe(1);
-    expect(h.err()).toContain("limit of 2 challenge rounds");
-  });
-
-  it("reports a duplicate round number after posting, naming both comments and which to keep", async () => {
-    const raced = await linked();
-    raced.issue.afterComment = (i) => {
-      if (i.comments.length === 1) {
-        i.comments.unshift(marker("0001", 1));
-      }
-    };
-    expect(await round(raced.h, ["mine"])).toBe(1);
-    const error = raced.h.err();
-    expect(error).toContain("round 1");
-    expect(error).toContain("#issuecomment-1");
-    expect(error).toContain("#issuecomment-2");
-    expect(error).toMatch(/keep .*#issuecomment-1/i);
-  });
+beforeEach(() => {
+  vi.mocked(issueTarget).mockResolvedValue({ number: "300", repo: REPO });
+  vi.mocked(parseRounds).mockReturnValue([]);
+  vi.mocked(distinctRounds).mockImplementation((rounds) => [...rounds]);
+  vi.mocked(duplicateRounds).mockReturnValue([]);
+  vi.mocked(renderRound).mockReturnValue("BODY");
 });
 
-describe("harness idea challenge duplicates", () => {
-  it("records the round in the ledger before reporting a duplicate, so the issue and ledger agree", async () => {
-    const raced = await linked();
-    raced.issue.afterComment = (i) => {
-      if (i.comments.length === 1) {
-        i.comments.unshift(marker("0001", 1));
-      }
-    };
-    expect(await round(raced.h, ["mine"])).toBe(1);
-    expect(
-      ledgerEvents(raced.h).filter((e) => e["kind"] === "challenge.round"),
-    ).toMatchObject([{ idea: "0001", stage: "challenge", number: 1 }]);
-    expect(
-      ghWrites(raced.h).filter((c) => c.args[1] === "comment"),
-    ).toHaveLength(1);
-  });
-
-  it("says not to rerun when the re-read after posting fails, and posts exactly once", async () => {
-    const { h, issue } = await linked();
-    const inner = h.runner.run.bind(h.runner);
-    let views = 0;
-    h.runner.run = (c, a, o) => {
-      if (c === "gh" && a[0] === "issue" && a[1] === "view" && ++views === 2) {
-        return Promise.resolve({ stdout: "", stderr: "rate limited", code: 1 });
-      }
-      return inner(c, a, o);
-    };
-    expect(await round(h, ["a"])).toBe(1);
-    const error = h.err();
-    expect(error).toContain("Round 1 was posted");
-    expect(error).toContain("rate limited");
-    expect(error).toContain("Do not rerun");
-    expect(error).not.toContain("then rerun");
-    expect(issue.comments).toHaveLength(1);
-    expect(ghWrites(h).filter((c) => c.args[1] === "comment")).toHaveLength(1);
-  });
-
-  it("is not a duplicate when the same round number is from someone else", async () => {
-    const { h, issue } = await linked();
-    issue.afterComment = (i) => {
-      if (i.comments.length === 1) {
-        i.comments.unshift(marker("0001", 1));
-        i.authors = { 0: "mallory" };
-      }
-    };
-    expect(await round(h, ["mine"])).toBe(0);
-  });
-
-  it("refuses to post when the gh user cannot be determined", async () => {
-    const { h } = await linked();
-    const inner = h.runner.run.bind(h.runner);
-    h.runner.run = (c, a, o) =>
-      c === "gh" && a[0] === "api"
-        ? Promise.resolve({ stdout: "", stderr: "not logged in", code: 1 })
-        : inner(c, a, o);
-    expect(await round(h, ["a"])).toBe(1);
-    expect(h.err()).toContain("could not name the authenticated user");
-    expect(h.err()).toContain("gh auth status");
-    expect(ghWrites(h)).toHaveLength(0);
-  });
-
-  it("counts a leftover duplicate as one round and does not fail a clean later post", async () => {
-    const { h, issue } = await linked({
-      comments: [marker("0001", 1), marker("0001", 1)],
-    });
-    expect(await round(h, ["next"])).toBe(0);
-    expect(h.out()).toContain("round 2 of 2");
-    expect(issue.comments).toHaveLength(3);
-  });
-});
-
-describe("harness idea challenge approvals", () => {
-  it("records a round with no objections as an approval, and still counts it", async () => {
-    const { h, issue } = await linked();
-    expect(await run(challenge(["--approve"]), h.deps)).toBe(0);
-    expect(issue.comments[0]).toContain("Challenge round 1 of 2");
-    expect(issue.comments[0]).toContain("No open objections.");
-    await round(h, ["Late objection."]);
-    expect(await round(h, ["Too late."])).toBe(1);
-  });
-
-  it("lists no objections when the last round approved", async () => {
-    const { h } = await linked();
-    await round(h, ["a"]);
-    await run(challenge(["--approve"]), h.deps);
-    expect(await round(h, ["again"])).toBe(1);
-    expect(h.err()).toContain("No open objections");
-    expect(h.err()).not.toContain("- a");
-  });
-});
-
-describe("harness idea challenge bookkeeping", () => {
-  it("ignores rounds posted for other ideas", async () => {
-    const { h, issue } = await linked({
-      comments: [
-        "<!-- harness-challenge idea=0002 round=1 -->\nChallenge round 1 of 2\n\n- other",
-        "<!-- harness-challenge idea=0002 round=2 -->\nChallenge round 2 of 2\n\n- other",
-      ],
-    });
-    expect(await round(h, ["mine"])).toBe(0);
-    expect(issue.comments[2]).toContain("round 1 of 2");
-  });
-
-  it("ignores a person's comment that merely mentions a round", async () => {
-    const { h } = await linked({
-      comments: ["Challenge round 1 of 2 looked fair to me."],
-    });
-    expect(await round(h, ["mine"])).toBe(0);
-    expect(h.out()).toContain("round 1 of 2");
-  });
-
-  it("records each round in the ledger against the idea and the challenge stage", async () => {
-    const { h } = await linked();
-    await round(h, ["a", "b"]);
-    await run(challenge(["--approve"]), h.deps);
-    const events = ledgerEvents(h).filter(
-      (e) => e["kind"] === "challenge.round",
-    );
-    expect(events).toMatchObject([
-      { idea: "0001", stage: "challenge", number: 1, label: "objections:2" },
-      { idea: "0001", stage: "challenge", number: 2, label: "objections:0" },
-    ]);
-  });
-
-  it("needs objections or --approve, and posts nothing without either", async () => {
-    const { h } = await linked();
-    expect(await round(h, [])).toBe(1);
-    expect(h.err()).toContain("--approve");
-    expect(ghWrites(h)).toHaveLength(0);
-  });
-
-  it("says to sync first when the idea has no issue", async () => {
-    const { h } = await linked();
-    h.set(
-      "docs/ideas/0001-cache-the-probe-results.md",
-      (h.get("docs/ideas/0001-cache-the-probe-results.md") ?? "").replace(
-        /issue: 300\n/,
-        "",
-      ),
-    );
-    expect(await round(h, ["a"])).toBe(1);
-    expect(h.err()).toContain("harness idea sync");
-    expect(ghWrites(h)).toHaveLength(0);
-  });
-
-  it("changes no idea file", async () => {
-    const { h } = await linked();
-    const before = h.snapshot();
-    await round(h, ["a"]);
-    const after = h.snapshot();
-    delete after[LEDGER.slice("/repo/".length)];
-    expect(after).toEqual(before);
-  });
-});
-
-describe("issueComments on a captured gh payload", () => {
-  const captured = readFileSync(
-    new URL("fixtures/gh-issue-comments.json", import.meta.url),
-    "utf8",
-  );
-
-  it("reads the body, author login and url from `gh issue view --json comments`", () => {
-    expect(issueComments(captured, "https://example.test/issue")).toEqual([
+describe("issueComments", () => {
+  it("reads the body, author login and url of each comment in a captured gh payload", () => {
+    expect(issueComments(CAPTURED_COMMENTS, ISSUE)).toEqual([
       {
         body: expect.stringContaining("Live boundary eval run on main"),
         author: "junners",
         url: "https://github.com/corekraft/kore/issues/192#issuecomment-6836363558",
       },
     ]);
+  });
+
+  it("gives a comment with no author an empty author and the issue's url when it has none", () => {
+    const stdout = JSON.stringify({ comments: [{ body: "x", author: null }] });
+    expect(issueComments(stdout, ISSUE)).toEqual([
+      { body: "x", author: "", url: ISSUE },
+    ]);
+  });
+
+  it("skips a comment with no text body, and reads nothing from a payload with no comment list", () => {
+    const stdout = JSON.stringify({
+      comments: [null, { url: "u" }, { body: 5 }],
+    });
+    expect(issueComments(stdout, ISSUE)).toEqual([]);
+    expect(issueComments("{}", ISSUE)).toEqual([]);
+    expect(issueComments('{"comments":{}}', ISSUE)).toEqual([]);
+  });
+
+  it("refuses output that is not JSON, naming the issue and the fix", () => {
+    expect(() => issueComments("not json", ISSUE)).toThrow(
+      new IdeaError(`gh returned unreadable output for issue ${ISSUE}; ${FIX}`),
+    );
+  });
+});
+
+describe("challengeIdea reading the issue", () => {
+  it("resolves the issue through the runner, the root and the record", async () => {
+    const { runner } = fakeRunner(healthy);
+    await challengeIdea(fakeContext(runner), "1", ["a"]);
+    expect(issueTarget).toHaveBeenCalledWith(runner, "/repo", RECORD);
+  });
+
+  it("names the user, then reads the issue's comments, before posting", async () => {
+    const { runner, run } = fakeRunner(healthy);
+    await challengeIdea(fakeContext(runner), "1", ["a"]);
+    expect(ghCalls(run)).toEqual([
+      ["api", "user", "--jq", ".login"],
+      ["issue", "view", "300", "--repo", REPO, "--json", "comments"],
+      ["issue", "comment", "300", "--repo", REPO, "--body-file", "-"],
+      ["issue", "view", "300", "--repo", REPO, "--json", "comments"],
+    ]);
+  });
+
+  it("counts the authenticated user's rounds from the comments it read", async () => {
+    const { runner } = fakeRunner(healthy);
+    await challengeIdea(fakeContext(runner), "1", ["a"]);
+    expect(parseRounds).toHaveBeenNthCalledWith(1, "0001", [], USER);
+  });
+
+  it("refuses a request to read an issue that cannot be resolved, before any gh call", async () => {
+    vi.mocked(issueTarget).mockRejectedValue(new IdeaError("no issue"));
+    const { runner, run } = fakeRunner(healthy);
+    await expect(
+      challengeIdea(fakeContext(runner), "1", ["a"]),
+    ).rejects.toThrow("no issue");
+    expect(run).not.toHaveBeenCalled();
+  });
+});
+
+describe("challengeIdea round limit", () => {
+  it("refuses a third round with the open objections of the last round, and posts nothing", async () => {
+    const rounds = [round(1, ["a"]), round(2, ["b", "c"])];
+    vi.mocked(parseRounds).mockReturnValue(rounds);
+    vi.mocked(distinctRounds).mockReturnValue(rounds);
+    const { runner, run } = fakeRunner(healthy);
+    const refused = challengeIdea(fakeContext(runner), "1", ["d"]);
+    await expect(refused).rejects.toBeInstanceOf(RoundLimit);
+    await expect(refused).rejects.toMatchObject({
+      rounds: 2,
+      openObjections: ["b", "c"],
+    });
+    await expect(refused).rejects.toThrow(
+      `Idea 0001 has used the limit of 2 challenge rounds, so it goes to a person to approve or reject (${ISSUE}).\nOpen objections:\n- b\n- c`,
+    );
+    expect(ghCalls(run).map((args) => args[1])).toEqual(["user", "view"]);
+  });
+
+  it("says no objections are open when the last round approved", async () => {
+    const rounds = [round(1, ["a"]), round(2, [])];
+    vi.mocked(distinctRounds).mockReturnValue(rounds);
+    const { runner } = fakeRunner(healthy);
+    await expect(
+      challengeIdea(fakeContext(runner), "1", ["d"]),
+    ).rejects.toThrow("No open objections.");
+  });
+});
+
+describe("challengeIdea posting", () => {
+  it("posts the rendered round as the comment body, counted as the next round", async () => {
+    const { runner, run } = fakeRunner(healthy);
+    await challengeIdea(fakeContext(runner), "1", ["a", "b"]);
+    expect(renderRound).toHaveBeenCalledWith("0001", 1, ["a", "b"]);
+    expect(run.mock.calls[2]?.[2]).toEqual({
+      cwd: "/repo",
+      input: "BODY",
+    });
+  });
+
+  it("returns the round, its objections and the issue, with no duplicate", async () => {
+    const { runner } = fakeRunner(healthy);
+    const objections = ["a"];
+    const result = await challengeIdea(fakeContext(runner), "1", objections);
+    expect(result).toEqual({
+      idea: "0001",
+      round: 1,
+      objections: ["a"],
+      issue: ISSUE,
+    });
+    expect(result.objections).not.toBe(objections);
+  });
+
+  it("numbers the round after the rounds already recorded", async () => {
+    vi.mocked(distinctRounds).mockReturnValue([round(1, ["a"])]);
+    const { runner } = fakeRunner(healthy);
+    const result = await challengeIdea(fakeContext(runner), "1", ["b"]);
+    expect(renderRound).toHaveBeenCalledWith("0001", 2, ["b"]);
+    expect(result.round).toBe(2);
+  });
+
+  it("reports a duplicate of this round after posting, naming both comments and which to keep", async () => {
+    vi.mocked(duplicateRounds).mockReturnValue([
+      { round: 1, urls: ["u1", "u2"] },
+    ]);
+    const { runner } = fakeRunner(healthy);
+    const result = await challengeIdea(fakeContext(runner), "1", ["a"]);
+    expect(result.duplicate).toContain(
+      `Challenge round 1 on ${ISSUE} was posted twice and both comments are still on the issue: u1 and u2.`,
+    );
+    expect(result.duplicate).toContain("Keep u1 and delete u2;");
+    expect(result.duplicate).toContain("Do not rerun for this round.");
+  });
+
+  it("ignores a duplicate of another round when reporting this one", async () => {
+    vi.mocked(duplicateRounds).mockReturnValue([
+      { round: 2, urls: ["u1", "u2"] },
+    ]);
+    const { runner } = fakeRunner(healthy);
+    const result = await challengeIdea(fakeContext(runner), "1", ["a"]);
+    expect(result).not.toHaveProperty("duplicate");
+  });
+});
+
+describe("challengeIdea gh failures", () => {
+  it.each([
+    ["gh names an error", failed("not logged in"), ": not logged in."],
+    ["gh names nothing", ok(""), "."],
+  ])(
+    "refuses to post when gh cannot name the user (%s), posting nothing",
+    async (_, reply, detail) => {
+      const { runner, run } = fakeRunner((args) =>
+        args[0] === "api" ? reply : healthy(args),
+      );
+      await expect(
+        challengeIdea(fakeContext(runner), "1", ["a"]),
+      ).rejects.toThrow(
+        `gh could not name the authenticated user${detail} ${FIX}`,
+      );
+      expect(ghCalls(run)).toEqual([["api", "user", "--jq", ".login"]]);
+    },
+  );
+
+  it("names the issue and the error when gh cannot read it before posting", async () => {
+    const { runner, run } = fakeRunner((args) =>
+      args[0] === "api" ? ok(`${USER}\n`) : failed("rate limited"),
+    );
+    await expect(
+      challengeIdea(fakeContext(runner), "1", ["a"]),
+    ).rejects.toThrow(`gh could not read issue ${ISSUE}: rate limited. ${FIX}`);
+    expect(ghCalls(run)).toHaveLength(2);
+  });
+
+  it("names the round and the error when gh rejects the comment, without a re-read", async () => {
+    const { runner, run } = fakeRunner((args) =>
+      args[1] === "comment" ? failed("forbidden") : healthy(args),
+    );
+    await expect(
+      challengeIdea(fakeContext(runner), "1", ["a"]),
+    ).rejects.toThrow(
+      `gh could not post round 1 on ${ISSUE}: forbidden. ${FIX}`,
+    );
+    expect(ghCalls(run)).toHaveLength(3);
+  });
+
+  it("says not to rerun when the re-read after posting fails, since the round is already posted", async () => {
+    let views = 0;
+    const { runner, run } = fakeRunner((args) => {
+      if (args[1] === "view" && ++views === 2) {
+        return failed("rate limited");
+      }
+      return healthy(args);
+    });
+    await expect(
+      challengeIdea(fakeContext(runner), "1", ["a"]),
+    ).rejects.toThrow(
+      `Round 1 was posted on ${ISSUE}, but gh could not read the issue again to check for a duplicate: rate limited. Do not rerun, which would post another round; check the issue by hand.`,
+    );
+    expect(ghCalls(run).filter((args) => args[1] === "comment")).toHaveLength(
+      1,
+    );
   });
 });

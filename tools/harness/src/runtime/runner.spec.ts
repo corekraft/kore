@@ -1,9 +1,10 @@
+import { spawn, type ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProcessRunner } from "./runner.js";
 
-const { spawnMock } = vi.hoisted(() => ({ spawnMock: vi.fn() }));
-vi.mock("node:child_process", () => ({ spawn: spawnMock }));
+vi.mock("node:child_process");
 
 /** A child process with the streams and signals the runner listens to. */
 class FakeChild extends EventEmitter {
@@ -11,14 +12,18 @@ class FakeChild extends EventEmitter {
   readonly stderr = new EventEmitter();
   readonly stdin = { end: vi.fn() };
   readonly kill = vi.fn();
+
+  /** The child as the spawn call returns it. */
+  asChildProcess(): ChildProcess {
+    return this as unknown as ChildProcess;
+  }
 }
 
 let child: FakeChild;
 
 beforeEach(() => {
   child = new FakeChild();
-  spawnMock.mockReset();
-  spawnMock.mockReturnValue(child);
+  vi.mocked(spawn).mockReturnValue(child.asChildProcess());
 });
 
 afterEach(() => {
@@ -31,9 +36,9 @@ describe("ProcessRunner: starting the child", () => {
 
     void runner.run("list", ["--short"]);
 
-    expect(spawnMock).toHaveBeenCalledWith("list", ["--short"], {
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    expect(vi.mocked(spawn).mock.calls).toEqual([
+      ["list", ["--short"], { stdio: ["ignore", "pipe", "pipe"] }],
+    ]);
   });
 
   it("passes the working directory and the whole environment through, and pipes the input to stdin", () => {
@@ -45,11 +50,17 @@ describe("ProcessRunner: starting the child", () => {
       input: "hello",
     });
 
-    expect(spawnMock).toHaveBeenCalledWith("cat", [], {
-      cwd: "/repo",
-      env: { PATH: "/bin" },
-      stdio: ["pipe", "pipe", "pipe"],
-    });
+    expect(vi.mocked(spawn).mock.calls).toEqual([
+      [
+        "cat",
+        [],
+        {
+          cwd: "/repo",
+          env: { PATH: "/bin" },
+          stdio: ["pipe", "pipe", "pipe"],
+        },
+      ],
+    ]);
     expect(child.stdin.end).toHaveBeenCalledWith("hello");
   });
 

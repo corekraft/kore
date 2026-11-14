@@ -1,160 +1,256 @@
-import assert from "node:assert/strict";
-import { test } from "vitest";
-import { findRoot } from "../config/index.js";
-import { buildInventory } from "./inventory.js";
-import { integrityProblems } from "./inventory-problems.js";
-import {
-  DIGEST,
-  pinnedFiles,
-  useFixtureRepository,
-} from "./inventory.fixtures.js";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { beforeEach, expect, test, vi } from "vitest";
+import { buildInventory, type InventoryItem } from "./inventory.js";
+import { serveDirectories, serveFiles } from "./ops-support.js";
 
-const fixtures = useFixtureRepository();
+vi.mock("node:fs/promises");
+vi.mock("node:path");
 
-async function problems(
-  overrides: Record<string, string> = {},
-): Promise<string[]> {
-  return integrityProblems(
-    await buildInventory(await fixtures.write(overrides)),
-  );
-}
+const ROOT = "/repo";
+const DIGEST = `sha256:${"a".repeat(64)}`;
+const COMMIT = "c".repeat(40);
+const SHA512 = `sha512-${"b".repeat(86)}==`;
 
-test("a fully pinned repository has no integrity problems and lists every dependency kind", async () => {
-  const inventory = await buildInventory(await fixtures.write());
-  assert.deepEqual(integrityProblems(inventory), []);
-  const kinds = new Set(inventory.items.map((item) => item.kind));
-  for (const kind of ["tool", "component", "image", "npm", "action"]) {
-    assert.ok(kinds.has(kind as never), `inventory lists ${kind} entries`);
-  }
-  assert.ok(
-    inventory.items.some(
-      (item) => item.kind === "component" && item.version === "1.2.3",
-    ),
-    "component versions resolve through the version catalog",
-  );
-});
-
-test("the inventory is deterministic so it can be reviewed and diffed", async () => {
-  const root = await fixtures.write();
-  assert.deepEqual(await buildInventory(root), await buildInventory(root));
-});
-
-test("a tool version range is reported", async () => {
-  const files = pinnedFiles();
-  const versions = JSON.parse(files["infra/catalog/versions.yaml"]!);
-  versions.tools.helm = "^4.3.1";
-  const found = await problems({
-    "infra/catalog/versions.yaml": JSON.stringify(versions),
-  });
-  assert.ok(
-    found.some((p) => /tool helm.*\^4\.3\.1.*exact/.test(p)),
-    found.join("\n"),
-  );
-});
-
-test("a mise pin that differs from the version catalog is reported", async () => {
-  const found = await problems({
-    ".mise.toml": '[tools]\nhelm = "4.3.0"\nopentofu = "1.13.9"\n',
-  });
-  assert.ok(
-    found.some((p) => /helm.*4\.3\.0.*4\.3\.1/.test(p)),
-    found.join("\n"),
-  );
-});
-
-test("an image without a digest is reported, but a local build is not", async () => {
-  const files = pinnedFiles();
-  const versions = JSON.parse(files["infra/catalog/versions.yaml"]!);
-  versions.images.demo = "ghcr.io/example/demo:1.2.3";
-  const found = await problems({
-    "infra/catalog/versions.yaml": JSON.stringify(versions),
-  });
-  assert.equal(found.length, 1, found.join("\n"));
-  assert.match(found[0]!, /image demo.*digest/);
-});
-
-test("an approved image or seed without a digest is reported", async () => {
-  const found = await problems({
-    "infra/catalog/approved-images.yaml": JSON.stringify({
-      images: [{ image: "quay.io/x/y:1", name: "y" }],
+/** A repository whose pins all pass, keyed by absolute path as the real reads are. */
+function pinnedRepository(): Record<string, string> {
+  return {
+    [`${ROOT}/infra/catalog/versions.yaml`]: JSON.stringify({
+      tools: { helm: "4.3.1", tofu: "1.13.9" },
+      kubernetes: "1.37.2",
+      components: { demo: "1.2.3" },
+      images: { demo: `ghcr.io/example/demo:1.2.3@${DIGEST}` },
     }),
-    "infra/catalog/seeds.yaml": JSON.stringify({
-      seeds: [{ image: "docker.io/library/registry:3" }],
+    [`${ROOT}/infra/catalog/components.yaml`]: JSON.stringify({
+      components: [
+        { name: "demo", version: "demo", kind: "helm", chart: "demo" },
+        { name: "own", version: "local", kind: "local-chart" },
+      ],
     }),
-  });
-  assert.equal(found.length, 2, found.join("\n"));
-});
-
-test("a lock entry with a malformed digest or an unauthorized signer is reported", async () => {
-  const found = await problems({
-    "infra/catalog/images.lock.json": JSON.stringify({
+    [`${ROOT}/infra/catalog/approved-images.yaml`]: JSON.stringify({
+      images: [{ image: `quay.io/x/y:1@${DIGEST}`, name: "y" }],
+    }),
+    [`${ROOT}/infra/catalog/seeds.yaml`]: JSON.stringify({
+      seeds: [{ image: `docker.io/library/registry:3@${DIGEST}` }],
+    }),
+    [`${ROOT}/infra/catalog/images.lock.json`]: JSON.stringify({
       version: 1,
       authorizedSigners: ["local-kore-key"],
       entries: {
-        a: { image: "r/a", digest: "sha256:short", signer: "local-kore-key" },
-        b: { image: "r/b", digest: DIGEST, signer: "someone-else" },
+        reference: {
+          image: "registry.kore.local:30500/reference",
+          digest: DIGEST,
+          signer: "local-kore-key",
+        },
       },
     }),
-  });
-  assert.ok(
-    found.some((p) => /lock entry a.*digest/.test(p)),
-    found.join("\n"),
-  );
-  assert.ok(
-    found.some((p) => /lock entry b.*signer/.test(p)),
-    found.join("\n"),
-  );
-});
-
-test("an npm package without an integrity hash or an https source is reported", async () => {
-  const found = await problems({
-    "tools/kore/package-lock.json": JSON.stringify({
+    [`${ROOT}/.mise.toml`]: '[tools]\nhelm = "4.3.1"\nopentofu = "1.13.9"\n',
+    [`${ROOT}/tools/kore/package.json`]: JSON.stringify({
+      devDependencies: { vitest: "5.1.0" },
+    }),
+    [`${ROOT}/tools/kore/package-lock.json`]: JSON.stringify({
       lockfileVersion: 3,
       packages: {
-        "": {},
-        "node_modules/a": { version: "1.0.0", resolved: "https://r/a.tgz" },
-        "node_modules/b": {
+        "": { name: "kore" },
+        "node_modules/vitest": {
+          version: "5.1.0",
+          resolved: "https://registry.npmjs.org/vitest/-/vitest-5.1.0.tgz",
+          integrity: SHA512,
+        },
+      },
+    }),
+    [`${ROOT}/.github/workflows/check.yml`]: `jobs:\n  a:\n    steps:\n      - uses: actions/checkout@${COMMIT} # v7\n      - uses: ./.github/actions/local\n`,
+    [`${ROOT}/.github/workflows/notes.txt`]: "uses: not/a-workflow@v1\n",
+  };
+}
+
+const workflows = { [`${ROOT}/.github/workflows`]: ["check.yml", "notes.txt"] };
+
+beforeEach(() => {
+  vi.mocked(join).mockImplementation((...parts: string[]) => parts.join("/"));
+});
+
+/** Every pinned item of pinnedRepository(), in the order buildInventory sorts them. */
+const PINNED_ITEMS: InventoryItem[] = [
+  {
+    kind: "action",
+    name: "actions/checkout",
+    version: COMMIT,
+    source: ".github/workflows/check.yml",
+  },
+  {
+    kind: "component",
+    name: "demo",
+    version: "1.2.3",
+    source: "infra/catalog/components.yaml",
+  },
+  {
+    kind: "image",
+    name: "demo",
+    version: "ghcr.io/example/demo:1.2.3",
+    source: "infra/catalog/versions.yaml",
+    digest: DIGEST,
+  },
+  {
+    kind: "image",
+    name: `docker.io/library/registry:3@${DIGEST}`,
+    version: "docker.io/library/registry:3",
+    source: "infra/catalog/seeds.yaml",
+    digest: DIGEST,
+  },
+  {
+    kind: "image",
+    name: "y",
+    version: "quay.io/x/y:1",
+    source: "infra/catalog/approved-images.yaml",
+    digest: DIGEST,
+  },
+  {
+    kind: "lock",
+    name: "reference",
+    version: "registry.kore.local:30500/reference",
+    source: "infra/catalog/images.lock.json",
+    digest: DIGEST,
+    resolved: "local-kore-key",
+  },
+  {
+    kind: "npm",
+    name: "vitest",
+    version: "5.1.0",
+    source: "tools/kore/package-lock.json",
+    resolved: "https://registry.npmjs.org/vitest/-/vitest-5.1.0.tgz",
+    integrity: SHA512,
+  },
+  {
+    kind: "tool",
+    name: "helm",
+    version: "4.3.1",
+    source: "infra/catalog/versions.yaml",
+  },
+  {
+    kind: "tool",
+    name: "kubernetes",
+    version: "1.37.2",
+    source: "infra/catalog/versions.yaml",
+  },
+  {
+    kind: "tool",
+    name: "tofu",
+    version: "1.13.9",
+    source: "infra/catalog/versions.yaml",
+  },
+];
+
+test("a pinned repository lists every dependency in a stable order, with its source, digest and signer", async () => {
+  serveFiles(pinnedRepository());
+  serveDirectories(workflows);
+  const inventory = await buildInventory(ROOT);
+  expect(inventory.items).toStrictEqual(PINNED_ITEMS);
+  expect(inventory.misePins).toEqual({ helm: "4.3.1", tofu: "1.13.9" });
+  expect(inventory.npmRanges).toEqual({ vitest: "5.1.0" });
+  expect(inventory.authorizedSigners).toEqual(["local-kore-key"]);
+});
+
+test("only YAML workflow files are read for their action references", async () => {
+  serveFiles(pinnedRepository());
+  serveDirectories(workflows);
+  await buildInventory(ROOT);
+  const read = vi.mocked(readFile).mock.calls.map(([path]) => path);
+  expect(read).toContain(`${ROOT}/.github/workflows/check.yml`);
+  expect(read).not.toContain(`${ROOT}/.github/workflows/notes.txt`);
+});
+
+test("a repository with no workflows directory has no action entries", async () => {
+  serveFiles(pinnedRepository());
+  serveDirectories({});
+  const inventory = await buildInventory(ROOT);
+  expect(inventory.items.some((item) => item.kind === "action")).toBe(false);
+});
+
+test("a missing pinned file fails the inventory instead of reporting it clean", async () => {
+  const files = pinnedRepository();
+  delete files[`${ROOT}/.mise.toml`];
+  serveFiles(files);
+  serveDirectories(workflows);
+  await expect(buildInventory(ROOT)).rejects.toMatchObject({ code: "ENOENT" });
+});
+
+test("a value of the wrong type reads as empty, so the check flags it", async () => {
+  const files = pinnedRepository();
+  files[`${ROOT}/infra/catalog/versions.yaml`] = JSON.stringify({
+    tools: { helm: 4 },
+    kubernetes: "1.37.2",
+    components: {},
+    images: {},
+  });
+  serveFiles(files);
+  serveDirectories({});
+  const inventory = await buildInventory(ROOT);
+  expect(inventory.items).toContainEqual({
+    kind: "tool",
+    name: "helm",
+    version: "",
+    source: "infra/catalog/versions.yaml",
+  });
+});
+
+test("an image without a digest keeps its whole reference and has no digest field", async () => {
+  const files = pinnedRepository();
+  files[`${ROOT}/infra/catalog/versions.yaml`] = JSON.stringify({
+    tools: {},
+    kubernetes: "1.37.2",
+    components: {},
+    images: { demo: "ghcr.io/example/demo:1.2.3" },
+  });
+  serveFiles(files);
+  serveDirectories({});
+  const inventory = await buildInventory(ROOT);
+  expect(inventory.items).toContainEqual({
+    kind: "image",
+    name: "demo",
+    version: "ghcr.io/example/demo:1.2.3",
+    source: "infra/catalog/versions.yaml",
+  });
+});
+
+test("a workflow reference with no @version is an action with an empty version", async () => {
+  serveFiles({
+    ...pinnedRepository(),
+    [`${ROOT}/.github/workflows/check.yml`]:
+      "jobs:\n  a:\n    steps:\n      - uses: actions/checkout\n",
+  });
+  serveDirectories(workflows);
+  const inventory = await buildInventory(ROOT);
+  expect(inventory.items).toContainEqual({
+    kind: "action",
+    name: "actions/checkout",
+    version: "",
+    source: ".github/workflows/check.yml",
+  });
+});
+
+test("an npm package without an integrity hash has no integrity field, and a nested package takes its last name", async () => {
+  serveFiles({
+    ...pinnedRepository(),
+    [`${ROOT}/tools/kore/package-lock.json`]: JSON.stringify({
+      lockfileVersion: 3,
+      packages: {
+        "node_modules/a/node_modules/b": {
           version: "1.0.0",
-          resolved: "http://r/b.tgz",
-          integrity: "sha512-x",
+          resolved: "https://r/b.tgz",
         },
       },
     }),
   });
-  assert.ok(
-    found.some((p) => /npm a.*integrity/.test(p)),
-    found.join("\n"),
-  );
-  assert.ok(
-    found.some((p) => /npm b.*https/.test(p)),
-    found.join("\n"),
-  );
-});
-
-test("a package.json range and a lock that disagrees with it are reported", async () => {
-  const found = await problems({
-    "tools/kore/package.json": JSON.stringify({
-      devDependencies: { vitest: "^5.1.0" },
-    }),
+  serveDirectories(workflows);
+  const inventory = await buildInventory(ROOT);
+  expect(inventory.items).toContainEqual({
+    kind: "npm",
+    name: "b",
+    version: "1.0.0",
+    source: "tools/kore/package-lock.json",
+    resolved: "https://r/b.tgz",
   });
-  assert.ok(
-    found.some((p) => /vitest.*\^5\.1\.0.*exact/.test(p)),
-    found.join("\n"),
-  );
-});
-
-test("a GitHub Action pinned to a tag instead of a commit is reported", async () => {
-  const found = await problems({
-    ".github/workflows/check.yml":
-      "jobs:\n  a:\n    steps:\n      - uses: actions/checkout@v4\n",
-  });
-  assert.ok(
-    found.some((p) => /action actions\/checkout.*commit/.test(p)),
-    found.join("\n"),
-  );
-});
-
-test("this repository's own pins pass the integrity check", async () => {
-  const inventory = await buildInventory(await findRoot());
-  assert.deepEqual(integrityProblems(inventory), []);
+  const npm = inventory.items.find((item) => item.kind === "npm");
+  expect(npm).not.toHaveProperty("integrity");
 });

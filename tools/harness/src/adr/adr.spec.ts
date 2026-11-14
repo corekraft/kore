@@ -1,273 +1,298 @@
-import { describe, expect, it } from "vitest";
-import { run } from "../cli/index.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { localDate } from "../runtime/index.js";
+import { Adrs, AdrError, type NewAdr } from "./adr.js";
 import {
-  ADR_INDEX as INDEX,
-  ADR_NEW as NEW,
   ANCHOR,
+  INDEX,
   PLAN,
+  PLAN_TEXT,
+  ROOT,
   adrFile,
-  fixture,
-} from "../testing/index.js";
+  fakeClock,
+  fakeFileSystem,
+} from "./adr-support.js";
+vi.mock("../runtime/index.js", () => ({ localDate: vi.fn() }));
 
-describe("harness adr new", () => {
-  it("writes flat frontmatter with the injected clock's date and the body skeleton", async () => {
-    const f = fixture();
-    await run(NEW, f.deps);
-    const text = f.fs.files.get(
-      "docs/decisions/0004-harness-tools-are-great.md",
-    );
-    expect(text?.split("\n").slice(0, 7)).toEqual([
-      "---",
-      "status: proposed",
-      "summary: Tools are great.",
-      "date: 2026-11-11",
-      "last-verified: 2026-11-11",
-      "---",
-      "",
+const NOW = new Date(2026, 10, 11, 23, 59, 59);
+const DATE = "2026-11-11";
+const PATH = "docs/decisions/0004-harness-tools-are-great.md";
+const THIRD =
+  "- [`docs/decisions/0003-third.md`](decisions/0003-third.md) — third.";
+const entryFor = (n: string) =>
+  `- [\`docs/decisions/${n}-harness-tools-are-great.md\`](decisions/${n}-harness-tools-are-great.md) — Tools are great.`;
+const ENTRY = entryFor("0004");
+const REPOSITORY = {
+  "docs/index.md": INDEX,
+  "docs/decisions/0001-first.md": adrFile("0001", "first"),
+  "docs/decisions/0003-third.md": adrFile("0003", "third"),
+  [PLAN]: PLAN_TEXT,
+};
+const NEW_ADR: NewAdr = {
+  title: "Harness tools Are Great!",
+  summary: "Tools are great.",
+  status: "proposed",
+  source: `${PLAN}#${ANCHOR}`,
+};
+
+/** The file the decision writes, with its optional Refines paragraph. */
+const adrBody = (refines: string[] = []) =>
+  [
+    "---",
+    "status: proposed",
+    "summary: Tools are great.",
+    `date: ${DATE}`,
+    `last-verified: ${DATE}`,
+    "---",
+    "",
+    "# ADR 0004: Harness tools Are Great!",
+    "",
+    `Source: [\`${PLAN}\` § Step 1](../../${PLAN}#${ANCHOR})`,
+    ...refines,
+    "",
+    "## Context",
+    "",
+    "## Decision",
+    "",
+    "## Consequences",
+    "",
+  ].join("\n");
+
+const numbered = (texts: string[]) =>
+  texts.map((text, i) => ({ number: i + 1, text }));
+
+function adrs(files: Record<string, string> = REPOSITORY) {
+  const fs = fakeFileSystem(files);
+  const clock = fakeClock(NOW);
+  return { fs, clock, adrs: new Adrs(fs, clock, ROOT) };
+}
+
+beforeEach(() => {
+  vi.mocked(localDate).mockReturnValue(DATE);
+});
+
+describe("Adrs.create writes", () => {
+  it("writes the ADR file and its index line, and reports the lines it wrote", async () => {
+    const { fs, adrs: decisions } = adrs();
+    const report = await decisions.create(NEW_ADR, false);
+    expect(fs.writeFile.mock.calls).toEqual([
+      [`${ROOT}/${PATH}`, adrBody()],
+      [`${ROOT}/docs/index.md`, INDEX.replace(THIRD, `${THIRD}\n${ENTRY}`)],
     ]);
-    expect(text).toContain("# ADR 0004: Harness tools Are Great!");
-    for (const h of ["## Context", "## Decision", "## Consequences"]) {
-      expect(text).toContain(h);
-    }
-  });
-
-  it("numbers from the highest existing ADR, past gaps", async () => {
-    const f = fixture();
-    await run([...NEW, "--json"], f.deps);
-    expect(JSON.parse(f.out())).toMatchObject({ number: "0004" });
-  });
-
-  it("skips a parallel ADR already on disk", async () => {
-    const f = fixture({
-      "docs/decisions/0004-parallel.md": adrFile("0004", "parallel"),
+    expect(report).toEqual({
+      dryRun: false,
+      number: "0004",
+      files: [
+        { path: PATH, lines: numbered(adrBody().split("\n").slice(0, -1)) },
+        { path: "docs/index.md", lines: [{ number: 11, text: ENTRY }] },
+      ],
     });
-    await run([...NEW, "--json"], f.deps);
-    expect(JSON.parse(f.out())).toMatchObject({ number: "0005" });
-    expect(f.fs.files.has("docs/decisions/0004-parallel.md")).toBe(true);
   });
 
-  it("numbers the first ADR 0001 in an empty decisions directory", async () => {
-    const f = fixture();
-    f.fs.files.delete("docs/decisions/0001-first.md");
-    f.fs.files.delete("docs/decisions/0003-third.md");
-    await run([...NEW, "--json"], f.deps);
-    expect(JSON.parse(f.out())).toMatchObject({ number: "0001" });
+  it("stamps the date that localDate gives the injected clock's instant", async () => {
+    const { adrs: decisions } = adrs();
+    await decisions.create(NEW_ADR, false);
+    expect(localDate).toHaveBeenCalledWith(NOW);
   });
 
-  it("inserts the index line after the last decision entry, keeping numeric order", async () => {
-    const f = fixture();
-    await run(NEW, f.deps);
-    const lines = f.fs.files.get("docs/index.md")?.split("\n") ?? [];
-    const at = lines.findIndex((l) => l.includes("0004-"));
-    expect(lines[at - 1]).toContain("0003-third.md");
-    expect(lines[at]).toBe(
-      "- [`docs/decisions/0004-harness-tools-are-great.md`](decisions/0004-harness-tools-are-great.md) — Tools are great.",
+  it("writes nothing on a dry run, and reports what a real run would write", async () => {
+    const real = adrs();
+    const dry = adrs();
+    const realReport = await real.adrs.create(NEW_ADR, false);
+    const dryReport = await dry.adrs.create(NEW_ADR, true);
+    expect(dry.fs.writeFile).not.toHaveBeenCalled();
+    expect(dryReport).toEqual({ ...realReport, dryRun: true });
+  });
+
+  it("writes a Refines paragraph after Source only when one is given", async () => {
+    const { fs, adrs: decisions } = adrs();
+    await decisions.create({ ...NEW_ADR, refines: "ADR 0001" }, false);
+    expect(fs.writeFile.mock.calls[0]).toEqual([
+      `${ROOT}/${PATH}`,
+      adrBody(["", "Refines: ADR 0001"]),
+    ]);
+  });
+});
+
+describe("Adrs.create numbering", () => {
+  it("numbers one past the highest ADR, past gaps and ignoring files that are not ADRs", async () => {
+    const { fs, adrs: decisions } = adrs({
+      ...REPOSITORY,
+      "docs/decisions/README.md": "# Decisions\n",
+    });
+    expect((await decisions.create(NEW_ADR, true)).number).toBe("0004");
+    expect(fs.readdir).toHaveBeenCalledWith(`${ROOT}/docs/decisions`);
+  });
+
+  it("numbers the first ADR 0001 when the decisions directory holds no ADR", async () => {
+    const { adrs: decisions } = adrs({
+      "docs/index.md": INDEX,
+      [PLAN]: PLAN_TEXT,
+    });
+    const report = await decisions.create(NEW_ADR, true);
+    expect(report.number).toBe("0001");
+    expect(report.files[0]?.path).toBe(
+      "docs/decisions/0001-harness-tools-are-great.md",
     );
   });
+});
 
-  it("inserts before a later-numbered entry", async () => {
-    const f = fixture();
-    f.fs.files.set(
-      "docs/index.md",
-      INDEX.replace(
-        "- [`docs/decisions/0003-third.md`](decisions/0003-third.md) — third.",
-        "- [`docs/decisions/0009-ninth.md`](decisions/0009-ninth.md) — ninth.",
+describe("Adrs.create index placement", () => {
+  it("puts the entry before the first later-numbered entry", async () => {
+    const NINTH =
+      "- [`docs/decisions/0009-ninth.md`](decisions/0009-ninth.md) — ninth.";
+    // Only 0001 exists, so the new ADR is 0002 and its entry precedes 0009.
+    const { fs, adrs: decisions } = adrs({
+      "docs/index.md": INDEX.replace(THIRD, NINTH),
+      "docs/decisions/0001-first.md": adrFile("0001", "first"),
+      [PLAN]: PLAN_TEXT,
+    });
+    await decisions.create(NEW_ADR, false);
+    expect(fs.writeFile.mock.calls[1]).toEqual([
+      `${ROOT}/docs/index.md`,
+      INDEX.replace(THIRD, `${entryFor("0002")}\n${NINTH}`),
+    ]);
+  });
+
+  it("appends to an empty Decisions section, before the next heading", async () => {
+    const index = "# Index\n\n## Decisions\n\nIntro.\n\n## Other\n";
+    const { fs, adrs: decisions } = adrs({
+      "docs/index.md": index,
+      [PLAN]: PLAN_TEXT,
+    });
+    const report = await decisions.create(NEW_ADR, false);
+    expect(fs.writeFile.mock.calls[1]?.[1]).toBe(
+      `# Index\n\n## Decisions\n\nIntro.\n${entryFor("0001")}\n\n## Other\n`,
+    );
+    expect(report.files[1]?.lines).toEqual([
+      { number: 6, text: entryFor("0001") },
+    ]);
+  });
+});
+
+describe("Adrs.create refusals", () => {
+  it.each([
+    [
+      "superseded",
+      "--status superseded cannot be written by adr new, which has no superseded-by to record; create the ADR as proposed or accepted, then run `harness adr supersede`.",
+    ],
+    ["draft", '--status is "draft"; use one of proposed, accepted.'],
+  ])("refuses status %s and writes nothing", async (status, message) => {
+    const { fs, adrs: decisions } = adrs();
+    await expect(
+      decisions.create({ ...NEW_ADR, status }, false),
+    ).rejects.toThrow(new AdrError(message));
+    expect(fs.writeFile).not.toHaveBeenCalled();
+  });
+
+  it.each(["a\nb", "- list", "[x]"])(
+    "refuses the summary %j, which would break the frontmatter",
+    async (summary) => {
+      const { fs, adrs: decisions } = adrs();
+      await expect(
+        decisions.create({ ...NEW_ADR, summary }, false),
+      ).rejects.toThrow(
+        new AdrError(
+          "--summary must be one plain line that does not start with [ { | > & * ! or -; reword it as a sentence.",
+        ),
+      );
+      expect(fs.writeFile).not.toHaveBeenCalled();
+    },
+  );
+
+  it("refuses a title with no letters or digits", async () => {
+    const { adrs: decisions } = adrs();
+    await expect(
+      decisions.create({ ...NEW_ADR, title: "!!!" }, false),
+    ).rejects.toThrow(
+      new AdrError(
+        "--title needs at least one letter or digit; give the decision a short name.",
       ),
     );
-    f.fs.files.delete("docs/decisions/0003-third.md");
-    f.fs.files.set("docs/decisions/0002-second.md", adrFile("0002", "second"));
-    await run(["adr", "new", ...NEW.slice(2)], f.deps);
-    const lines = f.fs.files.get("docs/index.md")?.split("\n") ?? [];
-    const at = lines.findIndex((l) => l.includes("0003-harness"));
-    expect(lines[at - 1]).toContain("0001-first.md");
-    expect(lines[at + 1]).toContain("0009-ninth.md");
+  });
+
+  it("refuses a missing index file and writes nothing", async () => {
+    const { fs, adrs: decisions } = adrs({ [PLAN]: PLAN_TEXT });
+    await expect(decisions.create(NEW_ADR, false)).rejects.toThrow(
+      new AdrError("docs/index.md is missing; restore it from git."),
+    );
+    expect(fs.writeFile).not.toHaveBeenCalled();
+  });
+
+  it("refuses an index with no Decisions heading and writes nothing", async () => {
+    const { fs, adrs: decisions } = adrs({
+      "docs/index.md": "# Index\n",
+      [PLAN]: PLAN_TEXT,
+    });
+    await expect(decisions.create(NEW_ADR, false)).rejects.toThrow(
+      new AdrError(
+        'docs/index.md has no "## Decisions" heading; add it above the ADR entries.',
+      ),
+    );
+    expect(fs.writeFile).not.toHaveBeenCalled();
   });
 });
 
-describe("harness adr new output", () => {
-  it("reports every file and line written, as JSON", async () => {
-    const f = fixture();
-    await run([...NEW, "--json"], f.deps);
-    const report = JSON.parse(f.out()) as {
-      dryRun: boolean;
-      files: { path: string; lines: { number: number; text: string }[] }[];
-    };
-    expect(report.dryRun).toBe(false);
-    expect(report.files.map((x) => x.path)).toEqual([
-      "docs/decisions/0004-harness-tools-are-great.md",
-      "docs/index.md",
-    ]);
-    const adr = f.fs.files.get(report.files[0]?.path ?? "")?.split("\n") ?? [];
-    expect(report.files[0]?.lines.map((l) => l.text)).toEqual(adr.slice(0, -1));
-    const index = report.files[1]?.lines ?? [];
-    expect(index).toHaveLength(1);
-    expect(
-      f.fs.files.get("docs/index.md")?.split("\n")[(index[0]?.number ?? 0) - 1],
-    ).toBe(index[0]?.text);
-  });
-
-  it("dry-run reports the same files and lines as a real run and writes nothing", async () => {
-    const real = fixture();
-    await run([...NEW, "--json"], real.deps);
-    const dry = fixture();
-    expect(await run([...NEW, "--dry-run", "--json"], dry.deps)).toBe(0);
-    const a = JSON.parse(real.out()) as { dryRun: boolean; files: unknown };
-    const b = JSON.parse(dry.out()) as { dryRun: boolean; files: unknown };
-    expect(b.dryRun).toBe(true);
-    expect(b.files).toEqual(a.files);
-    expect(dry.fs.writes).toEqual([]);
-  });
-});
-
-describe("harness adr new validation", () => {
-  it("rejects a status outside proposed, accepted, superseded and writes nothing", async () => {
-    const f = fixture();
-    const argv = NEW.map((a) => (a === "proposed" ? "draft" : a));
-    expect(await run(argv, f.deps)).toBe(1);
-    expect(f.err()).toContain("draft");
-    expect(f.err()).toContain("proposed, accepted");
-    expect(f.fs.writes).toEqual([]);
-  });
-
-  it("rejects superseded and points to the supersede command", async () => {
-    const f = fixture();
-    const argv = NEW.map((a) => (a === "proposed" ? "superseded" : a));
-    expect(await run(argv, f.deps)).toBe(1);
-    expect(f.err()).toContain("harness adr supersede");
-    expect(f.err()).toContain("proposed or accepted");
-    expect(f.fs.writes).toEqual([]);
-  });
-
-  it("always writes Source and writes Refines only when given", async () => {
-    const plain = fixture();
-    await run(NEW, plain.deps);
-    const a = plain.fs.files.get(
-      "docs/decisions/0004-harness-tools-are-great.md",
+describe("Adrs.create source link", () => {
+  it("refuses a plan that does not exist, naming it", async () => {
+    const { fs, adrs: decisions } = adrs();
+    await expect(
+      decisions.create({ ...NEW_ADR, source: "infra/plans/nope.md#x" }, false),
+    ).rejects.toThrow(
+      new AdrError(
+        "--source infra/plans/nope.md does not exist; use a plan path from the repository root, e.g. infra/plans/<plan>.md#<heading-slug>.",
+      ),
     );
-    expect(a).toContain(`Source: [\`${PLAN}\` § Step 1]`);
-    expect(a).not.toContain("Refines:");
-
-    const refined = fixture();
-    await run([...NEW, "--refines", "ADR 0001"], refined.deps);
-    const b = refined.fs.files.get(
-      "docs/decisions/0004-harness-tools-are-great.md",
-    );
-    expect(b).toContain("Refines: ADR 0001");
+    expect(fs.writeFile).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ["title", "--title"],
-    ["summary", "--summary"],
-    ["status", "--status"],
-    ["source", "--source"],
-  ])("requires --%s and names the fix", async (name, flag) => {
-    const f = fixture();
-    const at = NEW.indexOf(flag);
-    const argv = [...NEW.slice(0, at), ...NEW.slice(at + 2)];
-    expect(await run(argv, f.deps)).toBe(1);
-    expect(f.err()).toContain(`--${name}`);
-    expect(f.fs.writes).toEqual([]);
-  });
-
-  it("rejects a multi-line or YAML-special summary", async () => {
-    for (const summary of ["a\nb", "- list", "[x]"]) {
-      const f = fixture();
-      const argv = NEW.map((a) => (a === "Tools are great." ? summary : a));
-      expect(await run(argv, f.deps)).toBe(1);
-      expect(f.err()).toContain("--summary");
-      expect(f.fs.writes).toEqual([]);
-    }
-  });
-});
-
-describe("harness adr new edge cases", () => {
-  it("rejects a title with no letters or digits", async () => {
-    const f = fixture();
-    const argv = NEW.map((a) => (a === "Harness tools Are Great!" ? "!!!" : a));
-    expect(await run(argv, f.deps)).toBe(1);
-    expect(f.err()).toContain("--title");
-  });
-
-  it("reports a missing index heading and writes nothing", async () => {
-    const f = fixture();
-    f.fs.files.set("docs/index.md", "# Index\n");
-    expect(await run(NEW, f.deps)).toBe(1);
-    expect(f.err()).toContain("## Decisions");
-    expect(f.fs.writes).toEqual([]);
-  });
-
-  it("appends to an empty Decisions section", async () => {
-    const f = fixture();
-    f.fs.files.delete("docs/decisions/0001-first.md");
-    f.fs.files.delete("docs/decisions/0003-third.md");
-    f.fs.files.set(
-      "docs/index.md",
-      "# Index\n\n## Decisions\n\nIntro.\n\n## Other\n",
-    );
-    await run(NEW, f.deps);
-    const lines = f.fs.files.get("docs/index.md")?.split("\n") ?? [];
-    expect(lines.indexOf("Intro.")).toBeLessThan(
-      lines.findIndex((l) => l.includes("0001-harness")),
-    );
-    expect(lines.findIndex((l) => l.includes("0001-harness"))).toBeLessThan(
-      lines.indexOf("## Other"),
+  it("links the plan alone when the source has no anchor", async () => {
+    const { fs, adrs: decisions } = adrs();
+    await decisions.create({ ...NEW_ADR, source: PLAN }, false);
+    expect(fs.writeFile.mock.calls[0]?.[1]).toContain(
+      `Source: [\`${PLAN}\`](../../${PLAN})\n`,
     );
   });
 
-  it("reports a missing index file and writes nothing", async () => {
-    const f = fixture();
-    f.fs.files.delete("docs/index.md");
-    expect(await run(NEW, f.deps)).toBe(1);
-    expect(f.err()).toContain("docs/index.md");
-    expect(f.fs.writes).toEqual([]);
-  });
-
-  it("prints a human summary without --json and a JSON error with it", async () => {
-    const f = fixture();
-    await run(NEW, f.deps);
-    expect(f.out()).toContain("docs/decisions/0004-harness-tools-are-great.md");
-    const g = fixture();
-    await run(
-      [...NEW.map((a) => (a === "proposed" ? "x" : a)), "--json"],
-      g.deps,
+  it("refuses an anchor that is no heading, listing the first five slugs", async () => {
+    const { adrs: decisions } = adrs({
+      ...REPOSITORY,
+      [PLAN]:
+        "# Plan\n\n## Step 1: ADR Tool\n\n## Step 2\n\n## Step 3\n\n## Step 4\n\n## Step 5\n",
+    });
+    await expect(
+      decisions.create({ ...NEW_ADR, source: `${PLAN}#step-9` }, false),
+    ).rejects.toThrow(
+      new AdrError(
+        `--source #step-9 is not a heading in ${PLAN}; use one of its heading slugs: #plan, #step-1-adr-tool, #step-2, #step-3, #step-4.`,
+      ),
     );
-    expect(g.err()).toContain('{"error"');
   });
 
-  it("source without an anchor links the path alone", async () => {
-    const f = fixture();
-    const argv = NEW.map((a) => (a.includes("#") ? PLAN : a));
-    await run(argv, f.deps);
-    expect(
-      f.fs.files.get("docs/decisions/0004-harness-tools-are-great.md"),
-    ).toContain(`Source: [\`${PLAN}\`](../../${PLAN})`);
-  });
-});
-
-describe("harness flag parsing", () => {
-  it("accepts --flag=value", async () => {
-    const f = fixture();
-    const eq = [
-      "adr",
-      "new",
-      "--title=Equals Form",
-      "--summary=s.",
-      "--status=accepted",
-      `--source=${PLAN}#${ANCHOR}`,
-    ];
-    expect(await run(eq, f.deps)).toBe(0);
-    expect(f.fs.files.has("docs/decisions/0004-equals-form.md")).toBe(true);
+  it("ignores headings inside code fences when it looks for an anchor", async () => {
+    const { adrs: decisions } = adrs({
+      ...REPOSITORY,
+      [PLAN]: "# Plan\n\n```\n## Hidden\n```\n\n## Real: x\n",
+    });
+    await expect(
+      decisions.create({ ...NEW_ADR, source: `${PLAN}#hidden` }, false),
+    ).rejects.toThrow(
+      new AdrError(
+        `--source #hidden is not a heading in ${PLAN}; use one of its heading slugs: #plan, #real-x.`,
+      ),
+    );
   });
 
-  it("rejects a valued flag with no value", async () => {
-    const f = fixture();
-    expect(await run(["adr", "new", "--title"], f.deps)).toBe(2);
-    expect(f.err()).toContain("--title");
-  });
-
-  it("rejects a switch given a value and an unexpected positional", async () => {
-    const f = fixture();
-    expect(await run([...NEW, "--dry-run=yes"], f.deps)).toBe(2);
-    expect(await run([...NEW, "stray"], f.deps)).toBe(2);
+  it("gives a repeated heading the -1 anchor and labels it by its text before the colon", async () => {
+    const { fs, adrs: decisions } = adrs({
+      ...REPOSITORY,
+      [PLAN]: "# Plan\n\n## Step 1: First\n\n## Step 1: First\n",
+    });
+    await decisions.create(
+      { ...NEW_ADR, source: `${PLAN}#step-1-first-1` },
+      false,
+    );
+    expect(fs.writeFile.mock.calls[0]?.[1]).toContain(
+      `Source: [\`${PLAN}\` § Step 1](../../${PLAN}#step-1-first-1)\n`,
+    );
   });
 });

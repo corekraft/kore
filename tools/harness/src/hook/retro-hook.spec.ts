@@ -1,86 +1,13 @@
 // `harness hook retro-scan`: the command line around the scan.
 // Docs: infra/plans/5-self-maintenance.md#step-2-deterministic-retrospective-scan
 
-import {
-  mkdirSync,
-  readFileSync,
-  mkdtempSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { run } from "../cli/index.js";
-import { testHarness } from "../testing/index.js";
-import { INVENTORY_PATH } from "../guardrail/index.js";
-import { nodeFileSystem } from "../runtime/index.js";
 import { fixtures } from "./retro-scan-support.js";
+import { removeTemps, repoRoot, retro, temp } from "./retro-hook-support.js";
 
-const temps: string[] = [];
-afterEach(() => {
-  for (const dir of temps.splice(0)) {
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
-
-const temp = (): string => {
-  const dir = mkdtempSync(join(tmpdir(), "kore-retro-hook-"));
-  temps.push(dir);
-  return dir;
-};
-
-/** A repository root with skills, a guardrail inventory, and optionally a retrospective marker. */
-function repoRoot(
-  parts: { skills?: boolean; marker?: string; guard?: boolean } = {},
-): string {
-  const { skills = true, marker, guard = true } = parts;
-  const root = temp();
-  mkdirSync(join(root, "infra", "plans"), { recursive: true });
-  if (guard) {
-    mkdirSync(join(root, ".claude"), { recursive: true });
-    const entry = (rule: string, mode: string) => ({
-      rule,
-      kind: "bash",
-      mode,
-      owner: "guard.ts",
-    });
-    writeFileSync(
-      join(root, INVENTORY_PATH),
-      JSON.stringify({
-        guardrails: [
-          entry("image-digest", "audit"),
-          entry("sample-audit", "audit"),
-          entry("unquoted-glob", "audit"),
-          entry("enforced-rule", "enforce"),
-        ],
-      }),
-    );
-  }
-  if (skills) {
-    mkdirSync(join(root, "skills", "alpha-skill"), { recursive: true });
-    writeFileSync(join(root, "skills", "alpha-skill", "SKILL.md"), "---\n");
-    writeFileSync(join(root, "skills", "README.md"), "not a skill\n");
-    // A folder without SKILL.md, like skills/bin, is not a skill.
-    mkdirSync(join(root, "skills", "bin"), { recursive: true });
-  }
-  if (marker) {
-    writeFileSync(
-      join(root, "infra", "plans", "3-plan.md"),
-      `Last retrospective: ${marker}\n`,
-    );
-  }
-  return root;
-}
-
-async function retro(root: string, args: string[], home = temp()) {
-  const h = testHarness({ env: { HOME: home } });
-  h.deps.fs = nodeFileSystem;
-  h.deps.root = () => Promise.resolve(root);
-  h.deps.stdin = () => Promise.reject(new Error("stdin must not be read"));
-  const code = await run(["hook", "retro-scan", ...args], h.deps);
-  return { code, out: h.out(), err: h.err(), runner: h.runner };
-}
+afterEach(removeTemps);
 
 describe("hook retro-scan", () => {
   it("prints exactly the report the .mjs printed on the fixtures, with and without --since", async () => {
@@ -199,7 +126,7 @@ describe("hook retro-scan rejected input", () => {
   it("states both --since forms in the usage text", async () => {
     const result = await retro(repoRoot(), ["--since", "yesterday"]);
     expect(result.err).toBe(
-      "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD|YYYY-MM-DDTHH:MM:SSZ]\n--since keeps sessions active at or after local midnight of that date, or at or after that UTC instant, like the session-start count.\n",
+      "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD|YYYY-MM-DDTHH:MM:SSZ] [--evidence]\n--since keeps sessions active at or after local midnight of that date, or at or after that UTC instant, like the session-start count.\n--evidence adds guardEvidence (the session, transcript line and excerpt of each guard block) and overriddenEvidence (the same, with the command excerpt and the unquoted glob the guard named, for each overridden audit warning), capped per rule. The default report leaves them out.\n",
     );
   });
 

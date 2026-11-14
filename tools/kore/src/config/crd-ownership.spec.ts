@@ -5,6 +5,8 @@ import {
   crdGroupErrors,
   crdNameFormatErrors,
   crdOwners,
+  providerCrdGroupErrors,
+  providerOwnsCrd,
   renderedCrdNames,
 } from "./crd-ownership.js";
 
@@ -185,5 +187,53 @@ test("a component may name CRDs inside a group it claims", () => {
   assert.deepEqual(
     crdGroupErrors([owner("a", ["x.example.io"], ["example.io"])]),
     [],
+  );
+});
+
+test("a CRD is provider-owned only when its group is one the environment declares provider-owned", () => {
+  const groups = { "k3s.cattle.io": "k3s ships it" };
+  assert.equal(providerOwnsCrd(groups, "addons.k3s.cattle.io"), true);
+  assert.equal(providerOwnsCrd(groups, "widgets.example.com"), false);
+  assert.equal(providerOwnsCrd(undefined, "addons.k3s.cattle.io"), false);
+});
+
+test("a provider-owned group the provider ships, with a reason and no catalog owner, is accepted", () => {
+  assert.deepEqual(
+    providerCrdGroupErrors("k3d", { "k3s.cattle.io": "k3s ships it" }, []),
+    [],
+  );
+});
+
+test("a provider-owned group that is not an API group is rejected, with an example of one", () => {
+  assert.deepEqual(providerCrdGroupErrors("k3d", { widgets: "x" }, []), [
+    "environment.providerOwnedCRDGroups: widgets must be an API group such as widgets.example.com",
+  ]);
+});
+
+test("a provider-owned group the provider does not ship is refused, and pointed at ownsCRDGroups", () => {
+  assert.deepEqual(
+    providerCrdGroupErrors("managed", { "k3s.cattle.io": "x" }, []),
+    [
+      "environment.providerOwnedCRDGroups: k3s.cattle.io is not shipped by managed; claim it in a catalog component with ownsCRDGroups instead",
+    ],
+  );
+});
+
+test("a provider-owned group must carry a reason", () => {
+  assert.deepEqual(
+    providerCrdGroupErrors("k3d", { "k3s.cattle.io": "  " }, []),
+    ["environment.providerOwnedCRDGroups: k3s.cattle.io needs a reason"],
+  );
+});
+
+test("a group that a catalog component owns by name or by claim cannot also be provider-owned", () => {
+  assert.deepEqual(
+    providerCrdGroupErrors("k3d", { "k3s.cattle.io": "k3s ships it" }, [
+      owner("kore-b", ["addons.k3s.cattle.io"]),
+      owner("kore-a", [], ["k3s.cattle.io"]),
+    ]),
+    [
+      "environment.providerOwnedCRDGroups: k3s.cattle.io is also owned by kore-a and kore-b; a group has one owner",
+    ],
   );
 });

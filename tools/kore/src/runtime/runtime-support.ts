@@ -1,5 +1,6 @@
 // Fakes shared by the runtime domain's unit specs. A support file is not a unit,
 // so it needs no spec of its own (ADR 0098).
+import type { FileHandle } from "node:fs/promises";
 import { vi } from "vitest";
 import type { Runner } from "./runner.js";
 
@@ -14,4 +15,21 @@ export function fakeRunner(
 ) {
   const run = vi.fn<Run>(reply);
   return { runner: { run } as Runner, run };
+}
+
+/** An open file handle whose `close` and `writeFile` a test can read. */
+export function fakeHandle() {
+  const close = vi.fn<() => Promise<void>>(async () => undefined);
+  const writeFile = vi.fn<(data: string) => Promise<void>>(
+    async () => undefined,
+  );
+  const methods: Pick<FileHandle, "close" | "writeFile"> = { close, writeFile };
+  return { close, writeFile, handle: methods as FileHandle };
+}
+
+export type FakeHandle = ReturnType<typeof fakeHandle>;
+
+/** A Node system error carrying a code, as a failed fs or process call throws. */
+export function systemError(code: string): NodeJS.ErrnoException {
+  return Object.assign(new Error(code), { code });
 }

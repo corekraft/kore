@@ -25,7 +25,7 @@ import {
 import { defaultDirs, readTranscripts } from "./retro-transcripts.js";
 
 const USAGE =
-  "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD|YYYY-MM-DDTHH:MM:SSZ]\n--since keeps sessions active at or after local midnight of that date, or at or after that UTC instant, like the session-start count.";
+  "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD|YYYY-MM-DDTHH:MM:SSZ] [--evidence]\n--since keeps sessions active at or after local midnight of that date, or at or after that UTC instant, like the session-start count.\n--evidence adds guardEvidence (the session, transcript line and excerpt of each guard block) and overriddenEvidence (the same, with the command excerpt and the unquoted glob the guard named, for each overridden audit warning), capped per rule. The default report leaves them out.";
 
 const isMissing = (error: unknown): boolean =>
   (error as NodeJS.ErrnoException).code === "ENOENT";
@@ -60,6 +60,7 @@ async function skillNames(
 interface Args {
   dir: string | undefined;
   since: string | undefined;
+  evidence: boolean;
 }
 
 async function transcripts(
@@ -103,7 +104,7 @@ async function auditRules(deps: CliDeps, root: string): Promise<string[]> {
 
 async function report(
   deps: CliDeps,
-  { dir, since }: Args,
+  { dir, since, evidence }: Args,
 ): Promise<HookResult> {
   const root = await deps.root();
   const found = await transcripts(deps, root, dir);
@@ -137,6 +138,7 @@ async function report(
     since: effective,
     knownSkills: skills ?? [],
     auditRules: audit,
+    evidence,
   });
   const body = { since: effective ?? null, ...result };
   return { stdout: `${JSON.stringify(body, null, 2)}\n`, stderr };
@@ -154,7 +156,11 @@ export const retroScan = hookCommand(
     return await report(deps, {
       dir: typeof dir === "string" ? dir : undefined,
       since: typeof since === "string" ? since : undefined,
+      evidence: options["evidence"] === true,
     });
   },
-  { flags: { dir: "string", since: "string" }, payload: false },
+  {
+    flags: { dir: "string", since: "string", evidence: "boolean" },
+    payload: false,
+  },
 );
