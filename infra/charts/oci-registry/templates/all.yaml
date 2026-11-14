@@ -57,6 +57,11 @@ spec:
             # The stock config runs a debug server on :5001 on every interface;
             # keep it on loopback so /metrics never bypasses the proxy.
             - {name: REGISTRY_HTTP_DEBUG_ADDR, value: "127.0.0.1:5081"}
+            {{- if index .Values.features "registry-tag-pruning" }}
+            # Manifest deletes, so `kore local up` can prune old per-run tags
+            # (ADR 0094). Only kore-push passes the proxy's method rules.
+            - {name: REGISTRY_STORAGE_DELETE_ENABLED, value: "true"}
+            {{- end }}
           readinessProbe:
             exec: {command: [nc, -z, 127.0.0.1, "5080"]}
             initialDelaySeconds: 2

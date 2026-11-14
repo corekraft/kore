@@ -7,6 +7,8 @@ export { renderedImages, unapprovedImages } from "./rendered-images.js";
 export { buildAndSignLocalImage } from "./local-image.js";
 export type { BuiltLocalImage } from "./local-image.js";
 export { pruneStaleImageTags } from "./image-prune.js";
+export { pruneRegistryTagsInCluster } from "./registry-prune-run.js";
+export { RegistryPruneError } from "./registry-prune-error.js";
 export { localRegistryReference, stopRegistryForward } from "./registry.js";
 export {
   ensureLocalSigningPublicKey,

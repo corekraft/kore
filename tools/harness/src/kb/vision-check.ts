@@ -13,9 +13,15 @@ export interface AdrState {
 export type AdrLookup = (number: string) => AdrState | null;
 
 export const VISION = "docs/vision.md";
+export const VISION_HTML = "docs/vision.html";
 const ITEM = /^(\d+)\.\s/;
 const LABEL = /\*\*[^*]+\*\*\s*(Decided|Chosen, proposed)/;
 const ADR_LINK = /decisions\/(\d{4})-/g;
+const FIRST_LINK = /decisions\/(\d{4})-/;
+const LABELLED_ADR = /ADR (\d{4})\)/;
+const MD_DATE = /^last-verified:\s*(\S+)\s*$/m;
+const HTML_DATE = /Last verified (\d{4}-\d{2}-\d{2})/;
+const BADGE = />\s*(Decided|Chosen, proposed)\s*·\s*ADR (\d{4})\s*</;
 
 interface Decision {
   number: string;
@@ -23,12 +29,144 @@ interface Decision {
   text: string;
 }
 
-/** Checks each numbered item of vision.md's Decisions list against its linked ADRs. */
+/** A Decision's badge: its status label and the ADR it cites. */
+interface Badge {
+  label: string;
+  adr: string;
+  line: number;
+  number: number;
+}
+
+const show = (b: Badge) => `${b.label} · ADR ${b.adr}`;
+
+/** The badges in `list` that `other` does not also hold, matched one for one. */
+function without(list: Badge[], other: Badge[]): Badge[] {
+  const left = other.map(show);
+  return list.filter((b) => {
+    const found = left.indexOf(show(b));
+    if (found >= 0) {
+      left.splice(found, 1);
+    }
+    return found < 0;
+  });
+}
+
+/** Checks vision.md's Decisions against their ADRs, and vision.html's badges and date against vision.md. */
 export class VisionCheck {
   constructor(private readonly adr: AdrLookup) {}
 
-  check(text: string): Finding[] {
-    return this.decisions(text).flatMap((decision) => this.judge(decision));
+  check(text: string, html?: string | null): Finding[] {
+    const found = this.decisions(text).flatMap((d) => this.judge(d));
+    return html === undefined || html === null
+      ? found
+      : [...found, ...this.badges(text, html), ...this.date(text, html)];
+  }
+
+  private date(text: string, html: string): Finding[] {
+    const want = MD_DATE.exec(text)?.[1];
+    const lines = html.split("\n");
+    const at = lines.findIndex((l) => HTML_DATE.test(l));
+    const have = HTML_DATE.exec(lines[at] ?? "")?.[1];
+    return want && have && want !== have
+      ? [
+          finding(
+            VISION_HTML,
+            at + 1,
+            `vision.html says Last verified ${have} but vision.md says ${want}`,
+            `change the header date to ${want}`,
+          ),
+        ]
+      : [];
+  }
+
+  private badges(text: string, html: string): Finding[] {
+    const want = this.decisions(text).flatMap((d): Badge[] => {
+      const label = LABEL.exec(d.text)?.[1];
+      const adr = (LABELLED_ADR.exec(d.text) ?? FIRST_LINK.exec(d.text))?.[1];
+      return label && adr
+        ? [{ label, adr, line: d.line, number: Number(d.number) }]
+        : [];
+    });
+    const lines = html.split("\n");
+    const start = lines.findIndex((l) => l.includes('<ol class="questions">'));
+    const have: Badge[] = [];
+    for (let i = start + 1; start >= 0 && i < lines.length; i++) {
+      const row = lines[i] ?? "";
+      if (row.includes("</ol>")) {
+        break;
+      }
+      const m = BADGE.exec(row);
+      if (m) {
+        have.push({
+          label: m[1] ?? "",
+          adr: m[2] ?? "",
+          line: i + 1,
+          number: have.length + 1,
+        });
+      }
+    }
+    return want.length === have.length
+      ? this.compare(want, have)
+      : this.unmatched(want, have, start + 1);
+  }
+
+  private compare(want: Badge[], have: Badge[]): Finding[] {
+    return want.flatMap((w, i): Finding[] => {
+      const h = have[i];
+      if (!h || show(h) === show(w)) {
+        return [];
+      }
+      const fix = `change the badge to "${show(w)}"`;
+      if (h.adr === w.adr) {
+        return [
+          finding(
+            VISION_HTML,
+            h.line,
+            `Decision ${w.number} badge says "${h.label}" but vision.md says "${w.label}"`,
+            fix,
+          ),
+        ];
+      }
+      if (h.label === w.label && !want.some((o) => show(o) === show(h))) {
+        return [
+          finding(
+            VISION_HTML,
+            h.line,
+            `Decision ${w.number} badge says ADR ${h.adr} but vision.md says ADR ${w.adr}`,
+            fix,
+          ),
+        ];
+      }
+      return [
+        finding(
+          VISION_HTML,
+          h.line,
+          `Decision ${w.number} is out of order in vision.html`,
+          `put the badge "${show(w)}" here`,
+        ),
+      ];
+    });
+  }
+
+  private unmatched(want: Badge[], have: Badge[], at: number): Finding[] {
+    return [
+      ...without(want, have).map((w) =>
+        finding(
+          VISION_HTML,
+          at || 1,
+          `Decision ${w.number} is missing from vision.html`,
+          `add the badge "${show(w)}" for it`,
+        ),
+      ),
+      ...without(have, want).map((h) =>
+        finding(
+          VISION_HTML,
+          h.line,
+          `vision.html has the badge "${show(h)}", which vision.md does not list`,
+          "remove it, or add the Decision to vision.md",
+        ),
+      ),
+    ];
   }
 
   /** The numbered items under the Decisions heading, each with its continuation lines. */
