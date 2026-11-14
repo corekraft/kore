@@ -29,6 +29,7 @@ export {
   auditEvidence,
   evaluateAudit,
   policyPromotionErrors,
+  policyWarnings,
 } from "./policy-promotion.js";
 export type {
   AuditEvidence,

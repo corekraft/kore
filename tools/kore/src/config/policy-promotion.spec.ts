@@ -8,6 +8,7 @@ import {
   auditEvidence,
   evaluateAudit,
   policyPromotionErrors,
+  policyWarnings,
   type PromotionRecord,
 } from "./policy-promotion.js";
 import type { Repository } from "./types.js";
@@ -147,6 +148,38 @@ test("an unknown enforcementAction is rejected", async () => {
     (await policyPromotionErrors(repository, now)).join("\n"),
     /enforcementAction enforce must be dryrun, warn, or deny/,
   );
+});
+
+const noAction = `apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: KoreRbac
+metadata: {name: kore-rbac}
+spec: {}
+`;
+
+test("a constraint with no enforcementAction is a warning that names the file and the dryrun fix, not a refusal", async () => {
+  const repository = await sandbox({ "rbac.yaml": noAction });
+  assert.deepEqual(await policyPromotionErrors(repository, now), []);
+  assert.deepEqual(await policyWarnings(repository), [
+    "policy promotion: infra/policies/gatekeeper/constraints/rbac.yaml has no spec.enforcementAction, so Gatekeeper enforces deny with no audit stage; set enforcementAction: dryrun until a recorded promotion",
+  ]);
+});
+
+test("dryrun, warn and deny never produce a missing-action warning", async () => {
+  const repository = await sandbox({
+    "a.yaml": constraint("kore-a", "dryrun"),
+    "b.yaml": constraint("kore-b", "warn"),
+    "c.yaml": constraint("kore-c", "deny"),
+  });
+  assert.deepEqual(await policyWarnings(repository), []);
+});
+
+test("a constraint with no metadata name is still refused, naming the file", async () => {
+  const repository = await sandbox({
+    "x.yaml": "spec:\n  enforcementAction: dryrun\n",
+  });
+  assert.deepEqual(await policyPromotionErrors(repository, now), [
+    "policy promotion: infra/policies/gatekeeper/constraints/x.yaml needs metadata name",
+  ]);
 });
 
 test("a malformed promotion record is rejected rather than ignored", async () => {
