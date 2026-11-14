@@ -1,6 +1,8 @@
 import type { Runner } from "../runtime/index.js";
-import { readExpandStep } from "./expand-step.js";
 import { NAMED_HEAD, TRAILING_HEAD, VERDICT_LINE } from "./review-verdict.js";
+
+// The expand step gather lives in its own unit; precheck imports it through here.
+export { gatherExpandStep } from "./expand-gather.js";
 
 export const RESULTS = [
   "pass",
@@ -213,24 +215,6 @@ async function coverage(
       detail: `gh run view ${run} returned unreadable output`,
     };
   }
-}
-
-/** The expand step a contract names, read through the caller's gh api. */
-export function gatherExpandStep(args: {
-  api: (ghArgs: readonly string[]) => Promise<string>;
-  pr: number;
-  view: PrView;
-  reviewers: readonly string[];
-  declared: { idea: string | undefined; expandStep: number };
-}): Promise<Check> {
-  const { api, pr, view, reviewers, declared } = args;
-  return readExpandStep(api, {
-    pr,
-    expandPr: declared.expandStep,
-    idea: declared.idea,
-    headCommittedAt: view.headCommittedAt,
-    reviewers,
-  });
 }
 
 /** CI, scan, coverage and principles-review results, gathered through read-only gh calls. */
