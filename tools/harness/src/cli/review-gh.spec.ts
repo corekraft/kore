@@ -1,15 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
-import { JudgeError } from "../judge/errors.js";
-import { readPr } from "../judge/index.js";
+import { JudgeError, readPr } from "../judge/index.js";
 import type { CommandContext, Runner } from "../runtime/index.js";
 import { repoOf } from "./judge-shared.js";
 import { ghReviewIo } from "./review-gh.js";
 
-// The error class is real; the PR reader is mocked, so no judge module graph loads here.
-vi.mock("../judge/index.js", async () => ({
-  JudgeError: (await import("../judge/errors.js")).JudgeError,
-  readPr: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
-}));
+// The judge barrel is mocked, so no judge module graph loads here. JudgeError is a local
+// stand-in class: the port and the spec both see the same one through the mock.
+vi.mock("../judge/index.js", () => {
+  class ErrorStandIn extends Error {}
+  return {
+    JudgeError: ErrorStandIn,
+    readPr: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  };
+});
 vi.mock("./judge-shared.js", () => ({
   repoOf: vi.fn<(context: CommandContext) => Promise<string>>(),
 }));
