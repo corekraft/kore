@@ -5,7 +5,6 @@ container-smoke.ts
 enrollment.ts
 fail-fast.fixtures.ts
 fingerprint.ts
-gate-live-support.ts
 gateway-cluster-support.ts
 gateway-proof.ts
 helm.ts
