@@ -1,10 +1,16 @@
-// One session's analysis: the guard blocks it records, with the line of each.
-// Unit spec: the transcript helpers are mocked, so only SessionAnalysis runs.
+// One session's analysis as a unit: the guard blocks, warnings and counted
+// corrections it records. The transcript helpers are mocked, so only
+// SessionAnalysis runs.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   blocksOf,
+  callSignature,
   humanText,
+  isOrchestratorBrief,
+  ownWords,
+  phrasesOf,
+  readsAsCorrection,
   resultText,
   summarizeError,
   type Block,
@@ -12,57 +18,17 @@ import {
   type TranscriptEvent,
 } from "./retro-transcript.js";
 
+import {
+  session,
+  toolUse,
+  toolError,
+  bashUse,
+  warningAttachment,
+} from "./retro-session-support.js";
+
 vi.mock("./retro-transcript.js");
 
 const { SessionAnalysis } = await import("./retro-session.js");
-
-const session = (events: TranscriptEvent[]): Transcript => ({
-  id: "s",
-  events,
-  skipped: 0,
-});
-
-const toolUse = (line: number, id: string): TranscriptEvent => ({
-  line,
-  type: "assistant",
-  message: { content: [{ type: "tool_use", id, name: "Bash", input: {} }] },
-});
-
-const toolError = (
-  line: number,
-  id: string,
-  text: string,
-): TranscriptEvent => ({
-  line,
-  type: "user",
-  message: {
-    content: [
-      { type: "tool_result", tool_use_id: id, is_error: true, content: text },
-    ],
-  },
-});
-
-const bashUse = (
-  line: number,
-  id: string,
-  command: string,
-): TranscriptEvent => ({
-  line,
-  type: "assistant",
-  message: {
-    content: [{ type: "tool_use", id, name: "Bash", input: { command } }],
-  },
-});
-
-const warningAttachment = (
-  line: number,
-  toolUseID: string,
-  content: string,
-): TranscriptEvent => ({
-  line,
-  type: "attachment",
-  attachment: { type: "hook_additional_context", content, toolUseID },
-});
 
 beforeEach(() => {
   vi.mocked(blocksOf).mockImplementation(
@@ -207,6 +173,117 @@ describe("session analysis guard blocks", () => {
     expect(found.guardBlocks).toEqual([]);
     expect(found.failures).toEqual([
       { tool: "Bash", error: "summary of Exit code 1\nfatal: boom" },
+    ]);
+  });
+});
+
+describe("session analysis counts a repeated prompt as a correction", () => {
+  const briefSession = (...texts: string[]): Transcript => ({
+    id: "s",
+    skipped: 0,
+    events: texts.map((_text, index) => ({ line: index + 1, type: "user" })),
+  });
+
+  beforeEach(() => {
+    vi.mocked(callSignature).mockReturnValue("");
+    vi.mocked(ownWords).mockImplementation((text: string) => text);
+    vi.mocked(phrasesOf).mockImplementation((text: string) => [text]);
+  });
+
+  it("does not count a message that reads as an orchestrator brief", () => {
+    const brief = "[orchestrator] Stop editing the widget manifests directly";
+    vi.mocked(humanText).mockReturnValue(brief);
+    vi.mocked(isOrchestratorBrief).mockImplementation((text) =>
+      text.startsWith("[orchestrator]"),
+    );
+    vi.mocked(readsAsCorrection).mockReturnValue(true);
+    expect(new SessionAnalysis(briefSession(brief)).phrases).toEqual([]);
+  });
+
+  it("still counts an untagged user correction", () => {
+    const correction = "Stop editing the widget manifests directly";
+    vi.mocked(humanText).mockReturnValue(correction);
+    vi.mocked(isOrchestratorBrief).mockReturnValue(false);
+    vi.mocked(readsAsCorrection).mockReturnValue(true);
+    expect(new SessionAnalysis(briefSession(correction)).phrases).toEqual([
+      { phrase: correction, line: 1 },
+    ]);
+  });
+});
+
+describe("session analysis: what the agent did after a warning", () => {
+  const human = (line: number): TranscriptEvent => ({
+    line,
+    type: "user",
+    message: { content: "human" },
+  });
+  const warn = (line: number, id = "t1") =>
+    warningAttachment(line, id, "[guard:bare-glob] quote it");
+  const outcomeOf = (...events: TranscriptEvent[]) => {
+    const found = new SessionAnalysis(session(events));
+    const warned = found.warnings[0];
+    if (warned === undefined) {
+      throw new Error("no warning was recorded");
+    }
+    return found.outcome(warned);
+  };
+
+  beforeEach(() => {
+    vi.mocked(callSignature).mockImplementation((input = {}) =>
+      String(input["command"]),
+    );
+    vi.mocked(humanText).mockImplementation((event) =>
+      event.message?.content === "human" ? "human" : null,
+    );
+    vi.mocked(ownWords).mockImplementation((text: string) => text);
+    vi.mocked(phrasesOf).mockReturnValue([]);
+  });
+
+  it.each([
+    [
+      "overridden",
+      "the person speaks before the agent acts again",
+      [bashUse(1, "t1", "ls a"), warn(2), human(3)],
+    ],
+    [
+      "repeated",
+      "the agent repeats the same call",
+      [bashUse(1, "t1", "ls a"), warn(2), bashUse(3, "t2", "ls a")],
+    ],
+    [
+      "heeded",
+      "the agent makes a different call",
+      [bashUse(1, "t1", "ls a"), warn(2), bashUse(3, "t2", "ls b")],
+    ],
+    [
+      "unresolved",
+      "nothing follows the warned call",
+      [bashUse(1, "t1", "ls a"), warn(2)],
+    ],
+    ["unresolved", "the warned call is not in the transcript", [warn(2, "zz")]],
+  ])("reads a warning as %s when %s", (expected, _why, events) => {
+    expect(outcomeOf(...events)).toBe(expected);
+  });
+});
+
+describe("session analysis: the skills it records", () => {
+  it("records a skill the agent invoked through the Skill tool", () => {
+    const skillUse: TranscriptEvent = {
+      line: 1,
+      type: "assistant",
+      message: {
+        content: [
+          {
+            type: "tool_use",
+            id: "t9",
+            name: "Skill",
+            input: { skill: "tdd" },
+          },
+        ],
+      },
+    };
+    expect([...new SessionAnalysis(session([skillUse])).skills]).toEqual([
+      "tdd",
     ]);
   });
 });

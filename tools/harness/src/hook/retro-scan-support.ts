@@ -1,88 +1,58 @@
-// Fixtures and builders shared by the retro-scan specs. Fixtures in
-// .claude/hooks/fixtures/retro/ are synthetic.
+// Fakes for the retro scan unit spec: a session analysis as the scan reads it,
+// and a warning as the analysis records it. Fakes only; no behaviour.
 
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import type { SessionAnalysis, Warning } from "./retro-session.js";
 
-export const repo = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  "../../../..",
-);
-export const fixtures = `${repo}/.claude/hooks/fixtures/retro/`;
+/** The analysis members the scan reads, as the scan reads them. */
+export type Visible = Pick<
+  SessionAnalysis,
+  | "guards"
+  | "failures"
+  | "skills"
+  | "slashCommands"
+  | "phrases"
+  | "warnings"
+  | "guardBlocks"
+  | "outcome"
+>;
 
-export const fixture = (name: string) => ({
-  id: name,
-  text: readFileSync(`${fixtures}${name}.jsonl`, "utf8"),
+/** A typed analysis as the scan reads it: the one cast stands for the fields the scan never reads. */
+export function analysisOf(parts: Partial<Visible> = {}): SessionAnalysis {
+  const visible: Visible = {
+    guards: {},
+    failures: [],
+    skills: new Set(),
+    slashCommands: [],
+    phrases: [],
+    warnings: [],
+    guardBlocks: [],
+    outcome: () => "heeded",
+    ...parts,
+  };
+  return visible as SessionAnalysis;
+}
+
+export const warning = (rule: string, line: number, glob = ""): Warning => ({
+  rule,
+  toolUseId: `t${line}`,
+  line,
+  excerpt: `ls ${line}`,
+  glob,
 });
-export const all = () => ["alpha", "bravo", "charlie"].map(fixture);
-export const options = {
-  since: "2026-10-31",
-  knownSkills: ["handoff", "retro", "test-driven-development", "write-adr"],
-  auditRules: ["image-digest", "sample-audit", "unquoted-glob"],
-};
 
-const STAMP = "2026-11-03T00:00:00.000Z";
+export const at = (time: string) => `2026-11-03T${time}.000Z`;
 
-/** A failed Bash call and its error result, as two JSONL lines. */
-export const failure = (id: string, output: string): string[] => [
-  JSON.stringify({
-    type: "assistant",
-    timestamp: STAMP,
-    message: { content: [{ type: "tool_use", id, name: "Bash", input: {} }] },
-  }),
-  JSON.stringify({
-    type: "user",
-    timestamp: STAMP,
-    message: {
-      content: [
-        {
-          type: "tool_result",
-          tool_use_id: id,
-          is_error: true,
-          content: output,
-        },
-      ],
-    },
-  }),
-];
+export const sessions = new Map<
+  string,
+  { analysis: Partial<Visible>; first: string; last: string; skipped: number }
+>();
 
-export const human = (stamp: string, text: string): string =>
-  JSON.stringify({
-    type: "user",
-    origin: { kind: "human" },
-    timestamp: `2026-11-03T00:${stamp}:00.000Z`,
-    message: { role: "user", content: text },
-  });
-
-export const toolTurn = (stamp: string, id: string, isError: boolean) =>
-  [
-    JSON.stringify({
-      type: "assistant",
-      timestamp: `2026-11-03T00:${stamp}:00.000Z`,
-      message: {
-        role: "assistant",
-        content: [{ type: "tool_use", id, name: "Bash", input: {} }],
-      },
-    }),
-    JSON.stringify({
-      type: "user",
-      timestamp: `2026-11-03T00:${stamp}:30.000Z`,
-      message: {
-        role: "user",
-        content: [
-          {
-            type: "tool_result",
-            tool_use_id: id,
-            content: isError ? "Exit code 1\nfatal: synthetic" : "ok",
-            is_error: isError,
-          },
-        ],
-      },
-    }),
-  ].join("\n");
-
-export const twoSessions = (build: (id: string) => string) => [
-  { id: "p", text: build("p") },
-  { id: "q", text: build("q") },
-];
+/** Registers a session the mocks answer for: its analysis, first and last stamps, and skipped lines. */
+export function add(
+  id: string,
+  analysis: Partial<Visible> = {},
+  [first, last] = [at("10:00:00"), at("10:05:00")],
+  skipped = 0,
+) {
+  sessions.set(id, { analysis, first, last, skipped });
+}

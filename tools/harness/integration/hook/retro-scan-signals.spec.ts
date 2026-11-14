@@ -1,7 +1,7 @@
 // What the retro scan counts as a failure or a correction, on synthetic transcripts.
 
 import { describe, expect, it } from "vitest";
-import { scan } from "./retro-scan.js";
+import { scan } from "../../src/testing/index.js";
 import {
   failure,
   human,
