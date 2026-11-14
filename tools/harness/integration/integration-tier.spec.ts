@@ -151,7 +151,7 @@ it("starts no process and reads no built bundle in any harness unit spec", () =>
     const text = readFileSync(file, "utf8");
     const found: string[] = [];
     if (
-      /from ["'](?:node:)?child_process["']/.test(text) &&
+      /^import(?! type)[^;]*from ["'](?:node:)?child_process["']/m.test(text) &&
       !/vi\.mock\(["'](?:node:)?child_process["']/.test(text)
     ) {
       found.push("imports child_process unmocked");

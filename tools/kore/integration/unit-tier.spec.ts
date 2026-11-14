@@ -26,7 +26,7 @@ const unitSpecs = (dir: string): string[] =>
 const reasons = (text: string): string[] => {
   const found: string[] = [];
   if (
-    /from ["'](?:node:)?child_process["']/.test(text) &&
+    /^import(?! type)[^;]*from ["'](?:node:)?child_process["']/m.test(text) &&
     !/vi\.mock\(["'](?:node:)?child_process["']/.test(text)
   ) {
     found.push("imports child_process unmocked");
