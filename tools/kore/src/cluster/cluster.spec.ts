@@ -1,4 +1,11 @@
-import { loadManagedLocal } from "../config/managed-local.fixtures.js";
+import {
+  loadManagedLocal,
+  fast,
+  k3dRepository,
+  list,
+  ok,
+  testHome,
+} from "../testing/index.js";
 import assert from "node:assert/strict";
 import { expect, test } from "vitest";
 import {
@@ -8,14 +15,7 @@ import {
   clusterStatus,
   clusterStop,
 } from "./cluster.js";
-import { CommandError, RecordingRunner } from "../runtime/runner.js";
-import {
-  fast,
-  k3dRepository,
-  list,
-  ok,
-  testHome,
-} from "./k3d-cluster.fixtures.js";
+import { CommandError, RecordingRunner } from "../runtime/index.js";
 
 test("managed cluster status uses kubectl and reports its context", async () => {
   const base = await loadManagedLocal();

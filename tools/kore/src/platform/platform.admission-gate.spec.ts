@@ -65,7 +65,7 @@ import {
 } from "./admission-gate-support.js";
 import { platformGeneration, readAdmissionGate } from "./admission-gate.js";
 import { platformUp } from "./up.js";
-import { gatedOffReleaseAbsent } from "./webhook-fixtures.js";
+import { gatedOffReleaseAbsent } from "../testing/index.js";
 
 interface Gate {
   generation: string;

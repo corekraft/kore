@@ -1,15 +1,15 @@
 // What every role-bound pane may not touch, however it asks (#335, ADR 0091): the host's
 // credentials, and for a writer the guard it runs under and the commands that decide what
-// ships. These are hints, not a boundary: containment comes from #336 and #337, so each
-// check is a cheap match over path-like words and the file tools' path fields.
-//
-// Known limits, accepted under ADR 0091 and not chased: a path or command built through a
-// variable or a `cd`, and a writer editing tools/harness/src/hook and rebuilding the bundle.
-import { posix, isAbsolute, relative } from "node:path";
+// ships. These are hints, not a boundary (ADR 0091): each check is a cheap match over
+// path-like words and the file tools' path fields. Known limits, not chased: a path or
+// command built through a variable or a `cd`, and a writer editing tools/harness/src/hook.
+import { posix, isAbsolute, join, relative, resolve } from "node:path";
 import { runsInline } from "./guard-role-delivery.js";
+import * as links from "./guard-role-links.js";
 import { expand, withSubstitutions } from "./guard-role-merge.js";
 import {
   redirectTargets,
+  removal,
   withoutRedirects,
   writes,
   WRITE_TOOLS,
@@ -180,7 +180,7 @@ const GUARD_PATHS: readonly (readonly [readonly string[], boolean])[] = [
 ];
 /** The guard's files as inline code or a script names them, where a word is a whole program. */
 const GUARD_TEXT =
-  /skills\/bin\b|\.claude\/(?:hooks|settings(?:\.local)?\.json)|(?:^|[\s'"])\.claude(?:['"\s)]|$)/;
+  /skills\/bin\b|\.claude\/(?:hooks|settings(?:\.local)?\.json)|(?:^|[\s'"])\.claude(?:['"\s)]|$)/i;
 
 const guardFile = (what: string): Finding =>
   block(
@@ -196,9 +196,31 @@ const gated = (what: string): Finding =>
       "Instead, report that it is ready, and the orchestrator or the person runs it.",
   );
 
+/** A hook's test file: a literal name directly in `.claude/hooks` that ends `.test.mjs`. Writers may change these (#440, ADR 0100). */
+const HOOK_TEST = /^\.claude\/hooks\/[A-Za-z0-9_][A-Za-z0-9_.-]*\.test\.mjs$/;
+/** A word the guard cannot resolve by reading it: a climb, glob, variable or brace. */
+const UNRESOLVED = /\.\.|[*$?[{}]/;
+
+/** Whether a word is a regular hook test file by its literal name: no glob, variable, substitution, climb or brace, and nothing on disk that is a symlink or folder. */
+function isHookTest(root: string, word: string, exists = false): boolean {
+  if (isAbsolute(word) && UNRESOLVED.test(word)) {
+    return false;
+  }
+  const inside = isAbsolute(word) ? relative(root, word) : word;
+  const onDisk = join(root, inside);
+  return (
+    HOOK_TEST.test(inside) &&
+    (exists ? links.isRegularFile(onDisk) : !links.isLinkOrFolder(onDisk))
+  );
+}
+
+/** A word as a path inside the worktree, lower-cased: the disk may ignore case (macOS), so `.claude/HOOKS` is the hooks folder. */
+const insideOf = (root: string, word: string): string =>
+  (isAbsolute(word) ? relative(root, word) : word).toLowerCase();
+
 /** Whether a word names a guard path, relative to the worktree or inside it by absolute path. */
 function namesGuardPath(root: string, word: string): boolean {
-  const inside = isAbsolute(word) ? relative(root, word) : word;
+  const inside = insideOf(root, word);
   return (
     GUARD_TEXT.test(word) ||
     (!inside.startsWith("..") &&
@@ -217,13 +239,45 @@ function writesGuardPath(root: string, line: readonly string[]): boolean {
   const rest = withoutRedirects(line);
   // A word with whitespace is text (a commit message), not a path, unless it is inline code.
   const inline = runsInline(rest);
+  const git = commandOf(rest);
+  // `git -C dir mv`: a flag before the verb hides it from `writes`, so such a line counts as writing.
+  const flagged = git.name === "git" && (git.args[0] ?? "").startsWith("-");
   const words =
-    writes(rest) || inline
+    writes(rest) || inline || flagged
       ? rest.filter((word) => inline || !/\s/.test(word))
       : [];
   return [...redirectTargets(line), ...words]
     .flatMap(pathForms)
     .some((word) => namesGuardPath(root, word));
+}
+
+/** Characters that chain, pipe, redirect or substitute: a call with any is not one plain command. */
+const COMPOUND = /[&;|<>`\n$(#]/;
+
+/** Whether a call is exactly one plain command that moves hook tests out of `.claude`, or removes them: `git mv <hook tests> <destination outside the guard>`, `git rm <hook tests>`, or `rm [-f] <hook tests>`. This is the only Bash that may name a hook test (#440, ADR 0100); nothing in Bash can place a file under a test name. */
+function removesHookTests(root: string, command: string): boolean {
+  // One segment whose first word is literally `git` or `rm`: no wrapper, assignment or path in the name.
+  const segments = splitSegments(command);
+  const first = segments[0]?.[0] ?? "";
+  const parsed =
+    segments.length === 1 && ["git", "rm"].includes(first)
+      ? removal(segments[0] ?? [])
+      : undefined;
+  const to = parsed?.destination;
+  return (
+    parsed !== undefined &&
+    !COMPOUND.test(command) &&
+    parsed.sources.length > 0 &&
+    parsed.sources.every((word) => isHookTest(root, word, true)) &&
+    (to === undefined ||
+      !(
+        /^[-~]/.test(to) ||
+        UNRESOLVED.test(to) ||
+        componentsOf(insideOf(root, to))[0] === ".claude" ||
+        namesGuardPath(root, to) ||
+        links.isSymlink(resolve(root, to))
+      ))
+  );
 }
 
 const WITHOUT_VALUE = new Set(["-R", "--repo"]);
@@ -286,12 +340,17 @@ export function checkProtected(
   }
   const path = input["file_path"] ?? input["notebook_path"];
   if (WRITE_TOOLS.has(tool)) {
-    return typeof path === "string" && namesGuardPath(root, path)
+    return typeof path === "string" &&
+      !isHookTest(root, path) &&
+      namesGuardPath(root, path)
       ? guardFile(`${tool} ${path}`)
       : null;
   }
   const command = input["command"];
   if (tool !== "Bash" || typeof command !== "string") {
+    return null;
+  }
+  if (removesHookTests(root, command)) {
     return null;
   }
   const lines = linesOf(command);

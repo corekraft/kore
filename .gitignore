@@ -15,3 +15,4 @@ cosign.key
 .terraform/
 skills/bin/harness.mjs
 skills/bin/harness.mjs.*.tmp
+test-results/

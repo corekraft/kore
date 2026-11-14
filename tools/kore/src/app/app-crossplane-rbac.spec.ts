@@ -10,7 +10,7 @@ vi.mock("../images/index.js", async (importOriginal) => ({
 import { appUp } from "./up.js";
 import { bindCrossplaneSecrets } from "./install.js";
 import type { Runner } from "../runtime/index.js";
-import { healthyRunner, passthroughRegistry } from "./app-fixtures.js";
+import { healthyRunner, passthroughRegistry } from "../testing/index.js";
 
 interface Recorded {
   command: string;

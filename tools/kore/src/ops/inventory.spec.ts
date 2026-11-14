@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { findRoot } from "../config/config.js";
+import { findRoot } from "../config/index.js";
 import { buildInventory } from "./inventory.js";
 import { integrityProblems } from "./inventory-problems.js";
 import {

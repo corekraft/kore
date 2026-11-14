@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "vitest";
-import { releaseArgs } from "../app/release.js";
+import { releaseArgs } from "../app/index.js";
 import { loadRepository, type Repository } from "../config/index.js";
 import { helmTemplateArgs, helmUpgradeArgs } from "./helm.js";
 
