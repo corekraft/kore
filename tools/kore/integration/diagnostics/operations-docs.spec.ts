@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { test } from "vitest";
-import { usage } from "../cli/index.js";
+import { usage } from "../../src/cli/index.js";
 
 // Docs: docs/guides/operator.md
 // Operations pages name only `kore` commands, flags, and repository paths that
@@ -202,7 +202,8 @@ test("the hidden-remediation check flags an unmarked mutation and accepts read-o
 });
 
 test("the budget page states the warning threshold the status check uses", async () => {
-  const { capacityWarningPercent } = await import("../platform/index.js");
+  const { capacityWarningPercent } =
+    await import("../../src/platform/index.js");
   assert.match(
     read("docs/operations/resource-budgets.md"),
     new RegExp(`${capacityWarningPercent}%`),
