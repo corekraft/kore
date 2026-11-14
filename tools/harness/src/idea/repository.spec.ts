@@ -1,18 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { IdeaError, parseIdea, renderIdea } from "./record.js";
 import {
-  IdeaError,
-  parseIdea,
-  renderIdea,
-  withIssue,
-  withOutcome,
-} from "./record.js";
-import { IdeaRepository } from "./repository.js";
-import {
-  fakeClock,
-  fakeFileSystem,
-  recordFixture,
-  type FakeFileSystem,
-} from "./idea-support.js";
+  DIR,
+  IDEA,
+  INDEX,
+  INDEX_PATH,
+  NEW_PATH,
+  ROOT,
+  defaultMocks,
+  setup,
+} from "./repository-support.js";
 
 // The record helpers are this domain's other units: mocked. The constants and
 // IdeaError stay real, so the safety-pattern check runs for real.
@@ -24,39 +21,7 @@ vi.mock("./record.js", async (importOriginal) => ({
   withOutcome: vi.fn(),
 }));
 
-const ROOT = "/repo";
-const INDEX_PATH = `${ROOT}/docs/index.md`;
-const DIR = `${ROOT}/docs/ideas`;
-const NEW_PATH = "docs/ideas/0004-probe.md";
-
-const INDEX =
-  "# Index\n\n## Decisions\n\n- x\n\n## Operations and Guides\n\n- y\n";
-
-const IDEA = {
-  title: "Probe",
-  summary: "Cache the probe results",
-  hypothesis: "Caching probes cuts up time.",
-  expectedOutcome: "Up time drops by 20 percent.",
-  measurement: "Compare kore local up duration in the ledger.",
-  safetyPattern: "feature-flagged",
-};
-
-const eexist = () => Object.assign(new Error("exists"), { code: "EEXIST" });
-
-function setup() {
-  const fs: FakeFileSystem = fakeFileSystem();
-  const clock = fakeClock();
-  const repo = new IdeaRepository(fs, clock, ROOT);
-  fs.exists.mockResolvedValue(true);
-  return { fs, clock, repo };
-}
-
-beforeEach(() => {
-  vi.mocked(parseIdea).mockImplementation((path) =>
-    recordFixture({ path, number: "0001", slug: "probe" }),
-  );
-  vi.mocked(renderIdea).mockReturnValue("RENDERED");
-});
+beforeEach(defaultMocks);
 
 describe("IdeaRepository.list", () => {
   it("reads and parses each idea file in number order, skipping other names", async () => {
@@ -208,114 +173,6 @@ describe("IdeaRepository.create numbering and indexing", () => {
   });
 });
 
-describe("IdeaRepository.create collisions", () => {
-  it("creates the file exclusively and retries with the next number on a collision", async () => {
-    const { fs, repo } = setup();
-    fs.readdir
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce(["0001-other.md"]);
-    fs.createFile
-      .mockRejectedValueOnce(eexist())
-      .mockResolvedValueOnce(undefined);
-    fs.readFile.mockResolvedValue(INDEX);
-    await repo.create("probe", IDEA);
-    expect(fs.createFile.mock.calls.map(([path]) => path)).toEqual([
-      `${ROOT}/docs/ideas/0001-probe.md`,
-      `${ROOT}/docs/ideas/0002-probe.md`,
-    ]);
-  });
-
-  it("rethrows a write failure that is not a collision", async () => {
-    const { fs, repo } = setup();
-    fs.readdir.mockResolvedValue([]);
-    fs.createFile.mockRejectedValue(new Error("disk full"));
-    await expect(repo.create("probe", IDEA)).rejects.toThrow("disk full");
-    expect(fs.createFile).toHaveBeenCalledTimes(1);
-  });
-
-  it("gives up after three colliding attempts and says to rerun later", async () => {
-    const { fs, repo } = setup();
-    fs.readdir.mockResolvedValue([]);
-    fs.createFile.mockRejectedValue(eexist());
-    await expect(repo.create("probe", IDEA)).rejects.toThrow(
-      "Another writer keeps creating ideas in docs/ideas; rerun `harness idea new` once it finishes.",
-    );
-    expect(fs.createFile).toHaveBeenCalledTimes(3);
-  });
-});
-
-describe("IdeaRepository writes to one record", () => {
-  it("reads the raw markdown of a record under the root", async () => {
-    const { fs, repo } = setup();
-    fs.readFile.mockResolvedValue("RAW");
-    expect(await repo.source(recordFixture())).toBe("RAW");
-    expect(fs.readFile.mock.calls).toEqual([
-      [`${ROOT}/docs/ideas/0001-cache-the-probe-results.md`],
-    ]);
-  });
-
-  it("records the issue through withIssue and writes the result back", async () => {
-    const { fs, repo } = setup();
-    fs.readFile.mockResolvedValue("OLD");
-    vi.mocked(withIssue).mockReturnValue("WITH ISSUE");
-    await repo.recordIssue(recordFixture(), "https://x/issues/1");
-    expect(vi.mocked(withIssue).mock.calls).toEqual([
-      ["OLD", "https://x/issues/1"],
-    ]);
-    expect(fs.writeFile.mock.calls).toEqual([
-      [`${ROOT}/docs/ideas/0001-cache-the-probe-results.md`, "WITH ISSUE"],
-    ]);
-  });
-
-  it("records the outcome through withOutcome and writes the result back", async () => {
-    const { fs, repo } = setup();
-    fs.readFile.mockResolvedValue("OLD");
-    vi.mocked(withOutcome).mockReturnValue("WITH OUTCOME");
-    await repo.recordOutcome(recordFixture(), "refuted", "## Outcome\n\nNo.");
-    expect(vi.mocked(withOutcome).mock.calls).toEqual([
-      ["OLD", "refuted", "## Outcome\n\nNo."],
-    ]);
-    expect(fs.writeFile.mock.calls).toEqual([
-      [`${ROOT}/docs/ideas/0001-cache-the-probe-results.md`, "WITH OUTCOME"],
-    ]);
-  });
-});
-
-describe("IdeaRepository indexes new entries in the layout it finds", () => {
-  const ENTRY =
-    "- [`docs/ideas/0001-probe.md`](ideas/0001-probe.md) — Cache the probe results";
-
-  it("appends the entry under an existing Ideas section, before the blank lines that precede the next heading", async () => {
-    const { fs, repo } = setup();
-    fs.readdir.mockResolvedValue(["0001-probe.md"]);
-    const index =
-      "# Index\n\n## Ideas\n\n- old\n\n## Operations and Guides\n\n- y\n";
-    fs.readFile.mockImplementation((path) =>
-      Promise.resolve(path === INDEX_PATH ? index : "TEXT"),
-    );
-    await repo.create("probe", IDEA);
-    expect(fs.writeFile.mock.calls).toEqual([
-      [
-        INDEX_PATH,
-        `# Index\n\n## Ideas\n\n- old\n${ENTRY}\n\n## Operations and Guides\n\n- y\n`,
-      ],
-    ]);
-  });
-
-  it("starts an Ideas section at the end of an index that has no later section", async () => {
-    const { fs, repo } = setup();
-    fs.readdir.mockResolvedValue(["0001-probe.md"]);
-    fs.readFile.mockImplementation((path) =>
-      Promise.resolve(
-        path === INDEX_PATH ? "# Index\n\n## Decisions\n\n- x" : "TEXT",
-      ),
-    );
-    await repo.create("probe", IDEA);
-    expect(fs.writeFile.mock.calls[0]?.[1]).toContain(`## Ideas\n\n${ENTRY}`);
-  });
-});
-
-/** The index as addEntry leaves it: the entry appended under a new Ideas heading before Operations and Guides. */
 function indexWithEntry(index: string, path: string, summary: string): string {
   const entry = `- [\`${path}\`](${path.replace(/^docs\//, "")}) — ${summary}`;
   return index.replace(
