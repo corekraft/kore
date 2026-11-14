@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FakeRunner } from "../runtime/runner-support.js";
+import { FakeRunner } from "../testing/index.js";
 import { run } from "./cli.js";
 import { DEFAULT, harness } from "./ledger-commands-support.js";
 

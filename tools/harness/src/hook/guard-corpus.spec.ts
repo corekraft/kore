@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { run } from "../cli/index.js";
-import { testHarness } from "../cli/cli-support.js";
+import { testHarness } from "../testing/index.js";
 import { INVENTORY_PATH } from "../guardrail/index.js";
-import { committedInventoryText } from "../testing/guardrail-support.js";
+import { committedInventoryText } from "../testing/index.js";
 import { CORPUS, ORDINARY, type CorpusCase } from "./guard-corpus.js";
 
 const ROOT = "/repo";

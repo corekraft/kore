@@ -4,8 +4,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { checkDeliveryBash } from "../../src/hook/guard-role-delivery.js";
-import { allowed, blocked, decide } from "../../src/hook/guard-support.js";
+import { checkDeliveryBash } from "../../src/hook/index.js";
+import { allowed, blocked, decide } from "../../src/testing/index.js";
 
 const as = (agent_type: string, tool_name: string, tool_input: object) =>
   decide({ agent_type, tool_name, tool_input });

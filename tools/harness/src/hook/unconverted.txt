@@ -6,7 +6,6 @@ context-support.ts
 context.ts
 delta-command.ts
 delta-deps.ts
-delta-support.ts
 delta.ts
 feedback-support.ts
 feedback-tokens.ts
@@ -32,7 +31,6 @@ guard-role.ts
 guard-ruleset.ts
 guard-secrets.ts
 guard-shell.ts
-guard-support.ts
 guard-unquoted-glob.ts
 guard-verdict.ts
 guard.ts

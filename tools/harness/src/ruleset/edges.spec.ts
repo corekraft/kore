@@ -10,7 +10,7 @@ import {
   mutations,
   rulesetRepo,
   sync,
-} from "../testing/ruleset-support.js";
+} from "../testing/index.js";
 
 describe("harness ruleset sync on unusual input", () => {
   it("names a declared ruleset that is not a JSON object with rules", async () => {

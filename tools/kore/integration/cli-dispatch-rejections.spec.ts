@@ -1,0 +1,111 @@
+import { beforeEach, expect, test, vi } from "vitest";
+import { dispatch } from "../src/cli/cli-dispatch.fixtures.js";
+
+vi.mock("../src/app/index.js", async () =>
+  (await import("../src/cli/cli-dispatch.fixtures.js")).appModule(),
+);
+vi.mock("../src/cluster/index.js", async () =>
+  (await import("../src/cli/cli-dispatch.fixtures.js")).clusterModule(),
+);
+vi.mock("../src/config/index.js", async () =>
+  (await import("../src/cli/cli-dispatch.fixtures.js")).configModule(),
+);
+vi.mock("../src/diagnostics/index.js", async () =>
+  (await import("../src/cli/cli-dispatch.fixtures.js")).diagnosticsModule(),
+);
+vi.mock("../src/runtime/index.js", async () =>
+  (await import("../src/cli/cli-dispatch.fixtures.js")).runtimeModule(),
+);
+vi.mock("../src/images/index.js", async () =>
+  (await import("../src/cli/cli-dispatch.fixtures.js")).imagesModule(),
+);
+vi.mock("../src/platform/index.js", async () =>
+  (await import("../src/cli/cli-dispatch.fixtures.js")).platformModule(),
+);
+vi.mock("../src/security/index.js", async () =>
+  (await import("../src/cli/cli-dispatch.fixtures.js")).securityModule(),
+);
+vi.mock("../src/local/index.js", async () =>
+  (await import("../src/cli/cli-dispatch.fixtures.js")).localModule(),
+);
+
+import { main } from "../src/cli/cli.js";
+
+beforeEach(() => {
+  dispatch.length = 0;
+  vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+});
+
+test("CLI rejects unknown commands, missing environments, and unsupported actions", async () => {
+  await expect(main(["unrecognized"])).rejects.toThrow(/unknown command/);
+  await expect(
+    main(["cluster", "nope", "--environment", "local"]),
+  ).rejects.toThrow(/unknown cluster action/);
+  await expect(
+    main(["platform", "nope", "--environment", "local"]),
+  ).rejects.toThrow(/unknown platform action/);
+  await expect(
+    main(["app", "publish", "reference", "--environment", "local"]),
+  ).rejects.toThrow(/unknown app action/);
+  await expect(
+    main(["local", "restart", "--environment", "local"]),
+  ).rejects.toThrow(/unknown local action/);
+  await expect(
+    main(["tunnel", "status", "--environment", "local"]),
+  ).rejects.toThrow(/unknown command: tunnel/);
+  await expect(
+    main(["secrets", "rotate", "--environment", "local"]),
+  ).rejects.toThrow(/unknown secrets action/);
+  await expect(
+    main(["trust", "remove", "--environment", "local"]),
+  ).rejects.toThrow(/unknown trust action/);
+  await expect(
+    main(["app", "status", "--environment", "local"]),
+  ).rejects.toThrow(/application name is required/);
+  await expect(main(["app", "up", "reference"])).rejects.toThrow(
+    /--environment is required for mutating commands/,
+  );
+});
+
+test("data commands require an environment, and restore requires --from", async () => {
+  await expect(main(["data", "export"])).rejects.toThrow(
+    /--environment is required for mutating commands/,
+  );
+  await expect(
+    main(["data", "restore", "--environment", "local"]),
+  ).rejects.toThrow(/--from/);
+  expect(dispatch).not.toContain("restoreRetainedData");
+});
+
+test("unknown actions fail before taking the lock or writing a journal entry", async () => {
+  for (const argv of [
+    ["cluster", "nope"],
+    ["platform", "nope"],
+    ["app", "restart", "reference"],
+    ["local", "restart"],
+    ["secrets", "rotate"],
+    ["trust", "remove"],
+    ["registry", "rotate"],
+    ["signer", "rotate"],
+  ]) {
+    dispatch.length = 0;
+    await expect(main([...argv, "--environment", "local"])).rejects.toThrow(
+      /unknown \w+ action/,
+    );
+    expect(dispatch, argv.join(" ")).toEqual([]);
+  }
+});
+
+test("signer swap-key requires a named environment", async () => {
+  await expect(main(["signer", "swap-key", "--yes"])).rejects.toThrow(
+    /--environment is required for mutating commands/,
+  );
+  expect(dispatch).toEqual([]);
+});
+
+test("registry rotate-credentials requires a named environment", async () => {
+  await expect(
+    main(["registry", "rotate-credentials", "--yes"]),
+  ).rejects.toThrow(/--environment is required for mutating commands/);
+  expect(dispatch).toEqual([]);
+});

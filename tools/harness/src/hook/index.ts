@@ -1,4 +1,8 @@
 import type { Command } from "../runtime/index.js";
+export { checkProtected } from "./guard-role-protected.js";
+export type { DeltaDeps, Snapshot } from "./delta.js";
+export { checkDeliveryBash } from "./guard-role-delivery.js";
+export { evaluate } from "./guard.js";
 import { feedback } from "./feedback.js";
 import { guard } from "./guard.js";
 import { hookCommand } from "./io.js";

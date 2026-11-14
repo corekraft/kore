@@ -1,6 +1,6 @@
 import { run } from "../cli/index.js";
-import { testHarness } from "../cli/cli-support.js";
-import type { FakeResponse } from "../runtime/runner-support.js";
+import { testHarness } from "../testing/index.js";
+import type { FakeResponse } from "../testing/index.js";
 
 export const root = "/repo";
 export const KORE_BIN = "/repo/tools/kore/node_modules/.bin";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { checkDeliveryBash } from "./guard-role-delivery.js";
-import { allowed, blocked, decide } from "./guard-support.js";
+import { allowed, blocked, decide } from "../testing/index.js";
 
 const as = (agent_type: string, command: string) =>
   decide({ agent_type, tool_name: "Bash", tool_input: { command } });

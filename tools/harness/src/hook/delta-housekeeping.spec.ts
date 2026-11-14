@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import { describeChanges, snapshot, update } from "./delta.js";
-import { entry, fakeDeps } from "./delta-support.js";
+import { entry, fakeDeltaDeps as fakeDeps } from "../testing/index.js";
 
 describe("delta fail-open and pruning", () => {
   it("prints nothing instead of throwing when git or the filesystem fails", async () => {

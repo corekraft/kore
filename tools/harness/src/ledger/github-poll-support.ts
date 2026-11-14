@@ -1,5 +1,5 @@
-import { MemoryFileSystem } from "../runtime/memory-filesystem-support.js";
-import type { RunOptions, RunResult, Runner } from "../runtime/runner.js";
+import { MemoryFileSystem } from "../testing/index.js";
+import type { RunOptions, RunResult, Runner } from "../runtime/index.js";
 import { pollGithub } from "./github-poll.js";
 import { Ledger } from "./ledger.js";
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { committedInventoryText } from "../testing/guardrail-support.js";
+import { committedInventoryText } from "../testing/index.js";
 import { auditEvents, bash, guard, modes } from "./guard-modes-support.js";
 
 describe("a guardrail in audit mode", () => {

@@ -1,12 +1,9 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import { main } from "../../src/cli/cli.js";
-import {
-  boolFlag,
-  parseArgs,
-  requireEnvironment,
-  stringFlag,
-} from "../../src/cli/flags.js";
+
+// Real units together: the command table, the real repository on disk and the
+// real usage text. Unit specs (src/cli/*.spec.ts) cover each unit alone (ADR 0098).
 
 test("validate reports portable applications for the selected environment", async () => {
   const output: string[] = [];
@@ -59,26 +56,5 @@ test("unknown commands report the supported CLI usage", async () => {
   await assert.rejects(
     main(["unknown-command"]),
     /unknown command: unknown-command/,
-  );
-});
-
-test("CLI flags support equals values, standalone booleans, and positional arguments", () => {
-  const parsed = parseArgs([
-    "app",
-    "reference",
-    "--environment=staging",
-    "--json",
-    "--output",
-    "rendered",
-  ]);
-  assert.deepEqual(parsed.positional, ["app", "reference"]);
-  assert.equal(stringFlag(parsed, "environment"), "staging");
-  assert.equal(stringFlag(parsed, "json"), undefined);
-  assert.equal(boolFlag(parsed, "json"), true);
-  assert.equal(boolFlag(parsed, "environment"), false);
-  assert.equal(requireEnvironment(parsed), "staging");
-  assert.throws(
-    () => requireEnvironment(parseArgs([])),
-    /--environment is required/,
   );
 });

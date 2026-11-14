@@ -36,6 +36,13 @@ export interface GuardCounts {
 
 export type Outcome = "heeded" | "repeated" | "overridden" | "unresolved";
 
+/** One guard block: the rule, the transcript line of its blocked result, and a short excerpt of that result. */
+export interface GuardBlock {
+  rule: string;
+  line: number;
+  excerpt: string;
+}
+
 const tagsIn = (text: string): string[] =>
   [...text.matchAll(GUARD_TAG)].map((match) => match[1] ?? "");
 
@@ -47,6 +54,7 @@ export class SessionAnalysis {
   readonly slashCommands: string[] = [];
   readonly phrases: { phrase: string; line: number }[] = [];
   readonly warnings: Warning[] = [];
+  readonly guardBlocks: GuardBlock[] = [];
   readonly ordered: Ordered[] = [];
   private readonly calls = new Map<string, string>();
   private failedSinceHuman = false;
@@ -75,7 +83,7 @@ export class SessionAnalysis {
       block.type === "tool_result" &&
       block.is_error
     ) {
-      this.toolFailure(block);
+      this.toolFailure(event, block);
     }
   }
 
@@ -95,7 +103,7 @@ export class SessionAnalysis {
     }
   }
 
-  private toolFailure(block: Block): void {
+  private toolFailure(event: TranscriptEvent, block: Block): void {
     this.failedSinceHuman = true;
     const text = resultText(block);
     const tags = new Set(tagsIn(text));
@@ -107,6 +115,11 @@ export class SessionAnalysis {
     }
     for (const tag of tags) {
       this.bump(tag, "blocks");
+      this.guardBlocks.push({
+        rule: tag,
+        line: event.line,
+        excerpt: summarizeError(text),
+      });
     }
   }
 

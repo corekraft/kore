@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildReport, type FlowReport } from "./report.js";
-import { T0, at, finishedIdea } from "./flow-support.js";
+import { T0, at, finishedIdea } from "../testing/index.js";
 import type { LedgerEvent } from "../ledger/index.js";
 
 const ASOF = new Date(T0 + 1_000_000_000);

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { run } from "../cli/index.js";
-import { testHarness } from "../cli/cli-support.js";
+import { testHarness } from "../testing/index.js";
 import { INVENTORY_PATH } from "../guardrail/index.js";
-import { committedInventoryText } from "../testing/guardrail-support.js";
+import { committedInventoryText } from "../testing/index.js";
 
 // The hook as the host runs it: the bare-glob rule resolves from the call's
 // directory, through the injected filesystem, and only warns.

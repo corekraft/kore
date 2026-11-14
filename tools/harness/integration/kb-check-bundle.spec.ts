@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { it } from "vitest";
-import { cleanGitEnv } from "../src/testing/git-env.js";
+import { cleanGitEnv } from "../src/testing/index.js";
 
 // The knowledge check as the host, mise and CI run it: the built bundle as a real process.
 // Docs: infra/plans/4-knowledge.md#step-3-knowledge-health-check

@@ -12,12 +12,12 @@ import { ghMayRun, readMayRun } from "./guard-role-allow.js";
 import { checkDelivery, DELIVERY_ROLES } from "./guard-role-delivery.js";
 import { checkProtected } from "./guard-role-protected.js";
 import {
-  changesShell,
   harnessAllowed,
   harnessStatus,
   notifiesFinish,
   readOnly,
   sendsToPane,
+  setsEnvironment,
   useNotify,
   writes,
   WRITE_TOOLS,
@@ -111,10 +111,6 @@ function noCodeMayRun(role: string, segment: readonly string[]): boolean {
   );
 }
 
-/** A segment that starts with `VAR=value` or an `env`-style wrapper: git and the harness read variables such as GIT_EXTERNAL_DIFF, PAGER and KORE_ROOT to run a program or move the ledger. */
-const PREFIXED =
-  /^(?:[A-Za-z_][A-Za-z0-9_]*=|(?:sudo|env|time|command|nohup|exec)$)/;
-
 const SPAWNED_ROLES = new Set(["reader", "refiner", "challenger"]);
 
 const finishes = (role: string, segment: readonly string[]): boolean =>
@@ -128,9 +124,7 @@ function checkBash(role: string, command: string): Finding {
       : readOnly("A command substitution");
   }
   const segments = splitSegments(command);
-  const prefixed = segments.find(
-    (segment) => PREFIXED.test(segment[0] ?? "") || changesShell(segment),
-  );
+  const prefixed = segments.find(setsEnvironment);
   if (prefixed !== undefined) {
     const what = `\`${prefixed.join(" ")}\`, which sets an environment variable or changes shell state,`;
     return NO_CODE_ROLES.has(role) ? noCode(what, role) : readOnly(what);

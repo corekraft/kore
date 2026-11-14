@@ -1,7 +1,7 @@
 import { run } from "../cli/index.js";
 import type { CliDeps } from "../runtime/index.js";
-import { MemoryFileSystem } from "../runtime/filesystem-support.js";
-import { FakeRunner } from "../runtime/runner-support.js";
+import { MemoryFileSystem } from "./filesystem-support.js";
+import { FakeRunner } from "./runner-support.js";
 
 export const ROOT = "/repo";
 

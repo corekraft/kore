@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { committedInventoryText } from "../testing/guardrail-support.js";
+import { committedInventoryText } from "../testing/index.js";
 import { bash, guard } from "./guard-modes-support.js";
 
 // A hint, not a boundary (ADR 0096): the sandbox that denies the keychain is the boundary.

@@ -1,5 +1,5 @@
 import type { Runner } from "../runtime/index.js";
-import { MemoryFileSystem } from "../runtime/memory-filesystem-support.js";
+import { MemoryFileSystem } from "../testing/index.js";
 import { Ledger } from "./ledger.js";
 import { pollSignals } from "./github-signals.js";
 

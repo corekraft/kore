@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { run } from "../../src/cli/index.js";
-import { adrFile, fixture } from "../../src/adr/adr-support.js";
+import { adrFile, fixture } from "../../src/testing/index.js";
 
 const OLD = "docs/decisions/0001-first.md";
 const NEW_PATH = "docs/decisions/0003-third.md";

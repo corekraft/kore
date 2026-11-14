@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { run } from "./cli.js";
-import { testHarness } from "./cli-support.js";
+import { testHarness } from "../testing/index.js";
 import { BUNDLE } from "./judge-support.js";
-import type { FakeResponse } from "../runtime/runner-support.js";
+import type { FakeResponse } from "../testing/index.js";
 
 const URL = "https://github.com/corekraft/kore/actions/runs/9/job/1";
 const job = (name: string) => ({

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { testHarness } from "./cli-support.js";
+import { testHarness } from "../testing/index.js";
 import { run } from "./cli.js";
 
 const harness = testHarness;

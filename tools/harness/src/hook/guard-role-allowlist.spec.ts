@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vitest";
-import { allowed, blocked, decide } from "./guard-support.js";
+import { allowed, blocked, decide } from "../testing/index.js";
 
 const bash = (agent_type: string, command: string) =>
   decide({ agent_type, tool_name: "Bash", tool_input: { command } });
@@ -199,6 +199,69 @@ describe("role-read-only: the finish notification and benign reads", () => {
       "git grep --extended-regexp foo",
     ]) {
       allowed(await bash("judge", command));
+    }
+  });
+});
+
+const READ_COMMANDS = [
+  "sed -n 1,40p AGENTS.md",
+  "sed -n s/a/b/gp AGENTS.md",
+  "cd /Users/jun/.claude/projects/x",
+  "paste - -",
+  "cut -c1-200 AGENTS.md",
+  "uniq -c",
+  "wc -l AGENTS.md",
+  "tr a-z A-Z",
+  "awk '{print $1}' AGENTS.md",
+  "T=/tmp/x",
+];
+const WRITE_COMMANDS = [
+  "sed -i s/a/b/ AGENTS.md",
+  "sed -n 1p AGENTS.md > out.txt",
+  "cut -c1 AGENTS.md > out.txt",
+  "uniq -c in.txt out.txt",
+  "awk '{print > \"out\"}' AGENTS.md",
+  "export X=1",
+  "T=x > out.txt",
+];
+const ROLES_WITH_READS = ["reader", "refiner", "judge", "orchestrator"];
+
+describe("role-read-only: the retro's read commands pass for every role the allowlist names", () => {
+  for (const role of ROLES_WITH_READS) {
+    it(`${role}: runs each read command and refuses each write form`, async () => {
+      for (const command of READ_COMMANDS) {
+        allowed(await bash(role, command));
+      }
+      for (const command of WRITE_COMMANDS) {
+        blocked(await bash(role, command), "role-read-only");
+      }
+    });
+  }
+
+  it("reader and refiner run the retro scan, and a ledger option stays refused", async () => {
+    for (const role of ["reader", "refiner"]) {
+      allowed(
+        await bash(
+          role,
+          "node skills/bin/harness.mjs hook retro-scan --strict --since 2026-11-13",
+        ),
+      );
+      blocked(
+        await bash(
+          role,
+          "node skills/bin/harness.mjs hook retro-scan --ledger x.jsonl",
+        ),
+        "role-read-only",
+      );
+    }
+  });
+
+  it("judge and orchestrator still refuse the retro scan: their harness lists do not name it", async () => {
+    for (const role of ["judge", "orchestrator"]) {
+      blocked(
+        await bash(role, "node skills/bin/harness.mjs hook retro-scan"),
+        "role-read-only",
+      );
     }
   });
 });

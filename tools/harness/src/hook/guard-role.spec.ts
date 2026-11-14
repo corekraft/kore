@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vitest";
-import { allowed, blocked, decide } from "./guard-support.js";
+import { allowed, blocked, decide } from "../testing/index.js";
 
 const as = (agent_type: string, tool_name: string, tool_input: object) =>
   decide({ agent_type, tool_name, tool_input });
@@ -155,7 +155,6 @@ describe("role guard: the reader's shell refuses options that write or execute",
     for (const command of [
       "sed 'w out.txt' a.ts",
       "sed -n 's/a/b/w out.txt' a.ts",
-      "sed -n 1,5p a.ts",
       "sort -o out.txt a.txt",
       "sort -ro out.txt a.txt",
       "sort --output=out.txt a.txt",

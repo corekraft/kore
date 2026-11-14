@@ -7,7 +7,7 @@ import {
   linked,
   record,
   withFlag,
-} from "./outcome-support.js";
+} from "../testing/index.js";
 
 const CASES = [
   ["confirmed", "experiment", "comparison"],

@@ -3,15 +3,15 @@ import { mkdtemp, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { testHarness } from "../../src/cli/cli-support.js";
+import { testHarness } from "../../src/testing/index.js";
 import type { CliDeps } from "../../src/runtime/index.js";
 import {
   ProcessRunner,
   type RunOptions,
   type RunResult,
   type Runner,
-} from "../../src/runtime/runner.js";
-import { handOff } from "../../src/session/handoff.js";
+} from "../../src/runtime/index.js";
+import { handOff } from "../../src/session/index.js";
 
 const TOKEN = "ghs_handoff_secret_value";
 

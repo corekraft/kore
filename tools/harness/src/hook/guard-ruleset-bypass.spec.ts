@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { committedInventoryText } from "../testing/guardrail-support.js";
+import { committedInventoryText } from "../testing/index.js";
 import { guard } from "./guard-modes-support.js";
 
 const PATH = "/repo/.github/rulesets/main.json";
