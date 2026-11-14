@@ -1,26 +1,110 @@
-import { describe, expect, it, vi } from "vitest";
-import { readMayRun } from "./guard-role-allow.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ghMayRun, readMayRun } from "./guard-role-allow.js";
+import { bareAssignment, harnessAllowed } from "./guard-role-writes.js";
+import { commandOf } from "./guard-shell.js";
 
-// commandOf, harnessAllowed and bareAssignment are collaborators outside the unit: typed stubs
-// stand in for them. Constants (HARNESS) stay real, as ADR 0098 allows.
-vi.mock("./guard-shell.js", () => ({
-  commandOf: (tokens: readonly string[]) => ({
-    name: tokens[0] ?? "",
-    args: tokens.slice(1),
-  }),
-}));
+// commandOf, harnessAllowed and bareAssignment are collaborators outside the unit: typed
+// mocks stand in for them. Constants (HARNESS) stay real, as ADR 0098 allows.
+vi.mock("./guard-shell.js");
 vi.mock("./guard-role-writes.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./guard-role-writes.js")>()),
-  harnessAllowed: (
-    name: string,
-    args: readonly string[],
-    allowed: readonly string[],
-  ) => name === "node" && allowed.includes(`${args[1] ?? ""} ${args[2] ?? ""}`),
-  bareAssignment: (segment: readonly string[]) =>
-    segment.length === 1 && /^[A-Za-z_]\w*=/.test(segment[0] ?? ""),
+  harnessAllowed: vi.fn(),
+  bareAssignment: vi.fn(),
 }));
 
 const run = (...words: string[]): boolean => readMayRun(words, []);
+const mayRun = (line: string[]): boolean => run(...line);
+
+beforeEach(() => {
+  vi.mocked(commandOf).mockImplementation((tokens) => ({
+    name: tokens[0] ?? "",
+    args: tokens.slice(1),
+  }));
+  vi.mocked(harnessAllowed).mockImplementation(
+    (name, args, allowed) =>
+      name === "node" && allowed.includes(`${args[1] ?? ""} ${args[2] ?? ""}`),
+  );
+  vi.mocked(bareAssignment).mockImplementation(
+    (segment) =>
+      segment.length === 1 && /^[A-Za-z_]\w*=/.test(segment[0] ?? ""),
+  );
+});
+
+describe("ghMayRun: the read-only gh verbs", () => {
+  it.each([
+    ["issue", "view"],
+    ["issue", "list"],
+    ["issue", "status"],
+    ["label", "list"],
+    ["pr", "view"],
+    ["pr", "list"],
+    ["pr", "status"],
+    ["pr", "checks"],
+  ])("allows gh %s %s", (group, verb) => {
+    expect(ghMayRun([group, verb], false)).toBe(true);
+  });
+
+  it("allows gh pr diff only when the role may see code", () => {
+    expect(ghMayRun(["pr", "diff"], false)).toBe(false);
+    expect(ghMayRun(["pr", "diff"], true)).toBe(true);
+  });
+
+  it.each([
+    ["pr", "merge"],
+    ["pr", "create"],
+    ["issue", "create"],
+    ["label", "create"],
+    ["repo", "view"],
+  ])(
+    "refuses gh %s %s, which writes or reads outside the list",
+    (group, verb) => {
+      expect(ghMayRun([group, verb], true)).toBe(false);
+    },
+  );
+});
+
+describe("readMayRun: find, git and gh", () => {
+  it("allows a find that only lists", () => {
+    expect(mayRun(["find", ".", "-name", "*.md"])).toBe(true);
+  });
+
+  it.each(["-delete", "-exec", "-execdir", "-ok", "-fprint", "-fls"])(
+    "refuses a find with %s, which deletes, runs or writes",
+    (action) => {
+      expect(mayRun(["find", ".", action])).toBe(false);
+    },
+  );
+
+  it.each([
+    ["log", ["log", "-n", "3"]],
+    ["diff", ["diff", "HEAD"]],
+    ["ls-files", ["ls-files"]],
+  ])("allows read-only git %s", (_verb, args) => {
+    expect(mayRun(["git", ...args])).toBe(true);
+  });
+
+  it("refuses a git verb that writes, such as push or commit", () => {
+    expect(mayRun(["git", "push", "origin", "main"])).toBe(false);
+    expect(mayRun(["git", "commit", "-m", "x"])).toBe(false);
+  });
+
+  it.each([
+    ["--output", ["log", "--output=x"]],
+    ["--exec-path", ["log", "--exec-path=/bin"]],
+    ["--git-dir", ["log", "--git-dir=/elsewhere"]],
+    ["-O", ["log", "-Oorder"]],
+  ])(
+    "refuses a read-only git verb given %s, which writes or runs",
+    (_name, args) => {
+      expect(mayRun(["git", ...args])).toBe(false);
+    },
+  );
+
+  it("allows gh pr view and refuses gh pr merge", () => {
+    expect(mayRun(["gh", "pr", "view", "12"])).toBe(true);
+    expect(mayRun(["gh", "pr", "merge", "12"])).toBe(false);
+  });
+});
 
 describe("readMayRun: a lone NAME=value runs no command and is allowed", () => {
   it("allows a plain assignment and refuses one followed by a command", () => {
@@ -144,5 +228,29 @@ describe("readMayRun: the retro scan is a read", () => {
     ).toBe(false);
     expect(run("node", "skills/bin/harness.mjs", "hook", "guard")).toBe(false);
     expect(run("node", "other/harness.mjs", "hook", "retro-scan")).toBe(false);
+  });
+});
+
+describe("readMayRun: read utilities and their write options", () => {
+  it("allows a read utility with no write option, and sort and uniq on their input", () => {
+    expect(run("cat", "a.md")).toBe(true);
+    expect(run("sort", "a.txt")).toBe(true);
+    expect(run("uniq", "in.txt")).toBe(true);
+    expect(run("uniq", "in.txt", "out.txt")).toBe(false);
+  });
+
+  it.each([
+    ["sort -o", ["sort", "-o", "out", "in"]],
+    ["sort --output", ["sort", "--output=out", "in"]],
+    ["tree -R", ["tree", "-R", "."]],
+    ["date -s", ["date", "-s", "now"]],
+    ["rg --pre", ["rg", "--pre", "cmd", "x"]],
+    ["file -C", ["file", "-C", "x"]],
+  ])("refuses %s, which writes a file or runs a program", (_name, line) => {
+    expect(mayRun(line)).toBe(false);
+  });
+
+  it("refuses a command the allowlist does not name", () => {
+    expect(mayRun(["rm", "-rf", "x"])).toBe(false);
   });
 });
