@@ -8,13 +8,12 @@ import {
   LINK,
   anchors,
   finding,
-  frontmatter,
   isExternal,
   proseLines,
   resolve,
   type Finding,
 } from "./markdown.js";
-import { VISION, VisionCheck, type AdrState } from "./vision-check.js";
+import { visionProblems } from "./vision-problems.js";
 
 export const INDEX = "docs/index.md";
 const CLI = "tools/kore/src/cli/cli.ts";
@@ -311,32 +310,6 @@ function readmeProblems(tree: Tree): Finding[] {
   return problems;
 }
 
-/** Decisions in vision.md whose label disagrees with the status of the ADRs they link. */
-function visionProblems(tree: Tree): Finding[] {
-  const text = tree.tracked.has(VISION) ? tree.deps.read(VISION) : null;
-  if (text === null) {
-    return [];
-  }
-  const adr = (number: string): AdrState | null => {
-    const file = tree.files.find(
-      (name) => ADR.test(name) && name.startsWith(`docs/decisions/${number}-`),
-    );
-    const keys = file
-      ? frontmatter(file, tree.deps.read(file) ?? "")?.keys
-      : null;
-    const status = keys?.get("status")?.value;
-    if (!keys || status === undefined) {
-      return null;
-    }
-    const replacement = keys.get("superseded-by")?.value;
-    return {
-      status,
-      supersededBy: replacement && /(\d{4})-/.exec(replacement)?.[1],
-    };
-  };
-  return new VisionCheck(adr).check(text);
-}
-
 /** Every knowledge-base problem in the tree, each with file, line, message, and fix. */
 export function findings(deps: TreeDeps): Finding[] {
   const tree = openTree(deps);
@@ -347,6 +320,6 @@ export function findings(deps: TreeDeps): Finding[] {
     ...indexProblems(tree),
     ...markerProblems(tree),
     ...readmeProblems(tree),
-    ...visionProblems(tree),
+    ...visionProblems(tree.files, tree.deps.read),
   ];
 }
