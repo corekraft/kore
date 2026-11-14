@@ -1,6 +1,9 @@
-import { join } from "node:path";
 import type { ImageLockEntry, LockedImage } from "./image-lock.js";
-import type { Repository } from "../config/index.js";
+import {
+  featureEnabled,
+  localImageReuseFlag,
+  type Repository,
+} from "../config/index.js";
 import {
   localDockerBuildArgs,
   k3dImageImportArgs,
@@ -9,6 +12,11 @@ import {
 } from "./local-image-args.js";
 import { withLocalSigner, type LocalSigner } from "./local-signer.js";
 import { localRegistryReference } from "./registry.js";
+import {
+  applicationPath,
+  lookUpSource,
+  sourceTag,
+} from "./local-image-source.js";
 import {
   publishedDigest,
   publishToLocalRegistry,
@@ -41,7 +49,7 @@ export async function loadLocalImage(
 ): Promise<void> {
   await runner.run(
     "docker",
-    localDockerBuildArgs(join(repository.root, "apps", application), imageTag),
+    localDockerBuildArgs(applicationPath(repository, application), imageTag),
     { capture: false, cwd: repository.root },
   );
   const k3d = requireK3d(repository);
@@ -92,11 +100,38 @@ async function forgetHostTag(runner: Runner, imageTag: string): Promise<void> {
   }
 }
 
+async function unchangedSourceTags(
+  repository: Repository,
+  runner: Runner,
+  application: string,
+  before: string | undefined,
+): Promise<string[]> {
+  if (before === undefined) {
+    return [];
+  }
+  const after = await sourceTag(repository, runner, application);
+  if (after === before) {
+    return [before];
+  }
+  process.stderr.write(
+    `apps/${application} changed during the build; this run deploys the image it built but does not tag it for reuse\n`,
+  );
+  return [];
+}
+
 async function buildAndSign(
   { repository, runner, signer, session }: Context,
   application: string,
   entry: ImageLockEntry,
 ): Promise<BuiltLocalImage> {
+  // Reuse is behind a flag (#344): off, every run builds, as before.
+  const found = featureEnabled(repository.environment, localImageReuseFlag)
+    ? await lookUpSource(repository, runner, application, entry, session.client)
+    : undefined;
+  if (found?.reused !== undefined) {
+    await signImage(repository, runner, found.reused, signer, session.client);
+    return { image: found.reused, publicKey: signer.publicKey };
+  }
   // A tag of this run's own: a shared mutable tag lets a concurrent build in
   // another worktree replace the image between build, import and digest read.
   const runTag = newRunTag();
@@ -108,11 +143,19 @@ async function buildAndSign(
       `${entry.image}:${runTag}`,
     );
     await loadLocalImage(repository, runner, application, imageTag);
+    // An edit during the build may not have reached the image, so the source
+    // tag goes on only when the inputs are the ones the lookup named.
+    const extraTags = await unchangedSourceTags(
+      repository,
+      runner,
+      application,
+      found?.source,
+    );
     const { address, repositoryPath } = await publishToLocalRegistry(
       repository,
       runner,
       entry,
-      imageTag,
+      { imageTag, extraTags },
       session,
     );
     const digest = await publishedDigest(

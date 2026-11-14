@@ -10,6 +10,8 @@ import {
 } from "./local-image-args.js";
 import { withLocalSigner, type LocalSigner } from "./local-signer.js";
 import { localRegistryReference } from "./registry.js";
+import { applicationPath, lookUpSource } from "./local-image-source.js";
+import { featureEnabled } from "../config/index.js";
 import {
   publishedDigest,
   publishToLocalRegistry,
@@ -23,6 +25,11 @@ vi.mock("./local-image-args.js");
 vi.mock("./local-signer.js");
 vi.mock("./registry.js");
 vi.mock("./local-publish.js");
+vi.mock("./local-image-source.js");
+vi.mock("../config/index.js", () => ({
+  featureEnabled: vi.fn(),
+  localImageReuseFlag: "local-image-reuse",
+}));
 
 const kubeconfig = "KUBECONFIG";
 const digest = `sha256:${"f".repeat(64)}`;
@@ -49,6 +56,9 @@ beforeEach(() => {
   vi.mocked(k3dImageImportArgs).mockReturnValue(["import"]);
   vi.mocked(localSignArgs).mockReturnValue(["sign"]);
   vi.mocked(newRunTag).mockReturnValue("kore-local-abc");
+  // Reuse is a flag, off here: every run builds. The reuse path has its own spec.
+  vi.mocked(featureEnabled).mockReturnValue(false);
+  vi.mocked(applicationPath).mockReturnValue("/repo/apps/reference");
   vi.mocked(requireK3d).mockReturnValue({
     clusterName: "kore-local",
   } as ReturnType<typeof requireK3d>);
@@ -120,7 +130,7 @@ test("a built image is published by its run tag and returned as the registry ref
     repository,
     runner,
     entry,
-    "kore-local/reference:kore-local-abc",
+    { imageTag: "kore-local/reference:kore-local-abc", extraTags: [] },
     session,
   );
   expect(publishedDigest).toHaveBeenCalledWith(
@@ -211,4 +221,16 @@ test("a host tag that cannot be removed for any other reason fails the build", a
   await expect(
     buildAndSignLocalImage(repository, runner, "reference", entry),
   ).rejects.toThrow("docker daemon unreachable");
+});
+
+test("with reuse off the build path never looks a source up in the registry", async () => {
+  const { runner } = typedRunner();
+
+  await buildAndSignLocalImage(repository, runner, "reference", entry);
+
+  expect(featureEnabled).toHaveBeenCalledWith(
+    repository.environment,
+    "local-image-reuse",
+  );
+  expect(lookUpSource).not.toHaveBeenCalled();
 });

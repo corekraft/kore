@@ -10,7 +10,12 @@
       "ports": [{ "hostPort": 8443, "loadBalancerPort": 30443 }]
     },
   "registry": { "address": "10.96.0.50:5000" },
-  "features": { "ingress-agentgateway": false, "role-tokens": true },
+  "features":
+    {
+      "ingress-agentgateway": false,
+      "role-tokens": true,
+      "local-image-reuse": false
+    },
   "imageInventory": "audit",
   "providerOwnedCRDGroups":
     {

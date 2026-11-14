@@ -178,6 +178,7 @@ export { readinessFor } from "../config/readiness-fixtures.js";
 export { sound, validationMessage } from "../config/validation.fixtures.js";
 export type { ReadinessManifest } from "../config/types.js";
 export {
+  baseDigest as imageBaseDigest,
   digest as imageDigest,
   encodeBase64,
   entry as imageEntry,
@@ -188,6 +189,7 @@ export {
   secretRef,
   stubRegistry,
 } from "../images/images.fixtures.js";
+export { contextInputs } from "../images/local-image-context.js";
 export { k3dImageImportArgs, loadLocalImage } from "../images/local-image.js";
 export { requireK3d } from "../images/local-publish.js";
 export {
