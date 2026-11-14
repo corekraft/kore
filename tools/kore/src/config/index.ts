@@ -57,6 +57,8 @@ export type {
 } from "./config.js";
 export { patchableKinds, probeFields, probeNames } from "./patch-validation.js";
 export { approvedImageList } from "./approved.js";
+export { comparePinnedTools, parseMiseTools } from "./tool-pins.js";
+export type { ToolPins } from "./tool-pins.js";
 export type { ApprovedEntry } from "./approved.js";
 export {
   componentGatedOff,
