@@ -15,6 +15,7 @@ vi.mock("node:fs/promises");
 vi.mock("node:path");
 vi.mock("./schema-compat.js");
 
+const GIT = "git";
 const VERSIONS = "infra/catalog/versions.yaml";
 const COMPONENTS = "infra/catalog/components.yaml";
 const CONTRACT = "infra/apis/postgresql/definitions/postgresqlinstance.yaml";
@@ -136,7 +137,7 @@ test("previousRelease is the first v-tag git lists, skipping blank lines", async
   const { runner, run } = cli({}, ["", "v0.4.0", "v0.3.2"]);
   expect(await previousRelease(runner, "/repo")).toBe("v0.4.0");
   expect(run).toHaveBeenCalledWith(
-    "git",
+    GIT,
     ["tag", "--list", "v*", "--sort=-v:refname"],
     { capture: true, cwd: "/repo" },
   );
