@@ -9,6 +9,7 @@ import { checkDenyAudit } from "./guard-deny.js";
 import { checkAppendOnly } from "./guard-append-only.js";
 import {
   bareGlob,
+  checkAgentStart,
   checkContext,
   checkDestructive,
   checkIdeaIssueBody,
@@ -93,6 +94,7 @@ async function checkBashSegment(
     checkGuardrailBash(name, args, segment),
     checkDenyRemovalBash(name, args),
     checkRulesetSyncBash(name, args),
+    checkAgentStart(name, args),
     ...checkDenyAudit("Bash", text, ctx),
   ];
 }

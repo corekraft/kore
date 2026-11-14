@@ -4,6 +4,9 @@
 import { firstPositional, hasFlag, isKore } from "./guard-shell.js";
 import { block, warn, type Finding } from "./guard-verdict.js";
 
+// The agent-start rule is a command rule too; guard-bash reads every command rule from here.
+export { checkAgentStart } from "./guard-agent-start.js";
+
 const KUBECTL_OFFLINE = new Set([
   "config",
   "completion",
