@@ -79,3 +79,40 @@ export {
 } from "../platform/readiness-manifest.js";
 export { withAbsoluteChart } from "../platform/helm.js";
 export { manifestImages } from "../config/manifest-images.js";
+export {
+  imageInventory,
+  imageInventoryStatus,
+} from "../platform/image-inventory.js";
+export {
+  grantProofGateAccess,
+  proofGateAccess,
+  revokeProofGateAccess,
+} from "../platform/gate-proof-access.js";
+export {
+  activationLabel,
+  admissionGateStatus,
+  assertAdmissionGateOpen,
+  closedAdmissionGate,
+  ensureClosedAdmissionGate,
+  openAdmissionGate,
+  platformGeneration,
+  readAdmissionGate,
+} from "../platform/admission-gate.js";
+export { gateCrdJson } from "../platform/admission-gate-support.js";
+export {
+  crashLoop,
+  liveCniFailure,
+  liveSandboxOom,
+  oci,
+  pod,
+  reconcile,
+  sandboxOom,
+  Scenario,
+  waiting,
+} from "../platform/fail-fast.fixtures.js";
+export type { FakeEvent } from "../platform/fail-fast.fixtures.js";
+export { bootstrapControllers } from "../platform/bootstrap.js";
+export { enrollPlatformNamespaces } from "../platform/enrollment.js";
+export { platformStatus } from "../platform/status.js";
+export { managedNamespaces } from "../platform/gated-release.js";
+export { currentGateParameters } from "../platform/admission-gate-support.js";

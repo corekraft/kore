@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
-import { loadRepository } from "../config/index.js";
-import type { Runner } from "../runtime/index.js";
+import { loadRepository } from "../../src/config/index.js";
+import type { Runner } from "../../src/runtime/index.js";
 import {
   currentGateParameters,
   gateCrdJson,
-} from "./admission-gate-support.js";
-import { openApplicationAdmission } from "./bootstrap.js";
-import { platformStatus } from "./status.js";
+  openApplicationAdmission,
+  platformStatus,
+} from "../../src/testing/index.js";
 
 // Docs: docs/decisions/0056-platform-image-inventory.md
 // The inventory is a status row; enforce findings keep the gate closed.
