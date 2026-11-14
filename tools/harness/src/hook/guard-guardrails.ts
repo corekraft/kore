@@ -1,7 +1,7 @@
 // The guardrail inventory protects itself: an edit that turns an enforced rule
 // into audit, or removes, narrows or renames a deny pattern, weakens the guard,
-// and changing either needs a person's approval (ADR 0080). Audit mode (warn) until the owner approves enforcing it;
-// promoting this rule is a one-line mode edit in the inventory.
+// and changing either needs a person's approval (ADR 0080). This rule enforces
+// since the owner's 2026-11-14 decision on #413; its mode is in the inventory.
 import { INVENTORY_PATH } from "../guardrail/index.js";
 import { writtenPath } from "./guard-append-only.js";
 import { warn, type Finding, type GuardContext } from "./guard-verdict.js";
@@ -107,7 +107,7 @@ export function checkGuardrailDemotion(
   return warn(
     "guardrail-demotion",
     `${relative} ${problems.join(" and ")}. A person approves a guardrail's mode and deny patterns (ADR 0080). ` +
-      "Instead, leave them and ask the user to approve the change, or promote a rule from audit to enforce.",
+      "Instead, leave them and ask the user to approve the change.",
   );
 }
 
