@@ -7,15 +7,14 @@
 // guards on #190 and #191 (2026-11-12), so every rule blocks.
 import { isAbsolute, relative, resolve } from "node:path";
 import {
-  changesShell,
   harnessAllowed,
   notifiesFinish,
   sendsToPane,
+  setsEnvironment,
   useNotify,
   SUBSTITUTION,
   wrapsCommands,
   HARNESS,
-  PREFIXED,
   readOnly,
   writes,
   WRITE_TOOLS,
@@ -242,9 +241,7 @@ export function checkDeliveryBash(
       );
     }
     // A variable such as KORE_ROOT moves where the harness writes, past its allowlist.
-    const prefixed = segments.find(
-      (s) => PREFIXED.test(s[0] ?? "") || changesShell(s),
-    );
+    const prefixed = segments.find(setsEnvironment);
     if (prefixed !== undefined) {
       return readOnly(
         `\`${prefixed.join(" ")}\`, which sets an environment variable or changes shell state,`,
