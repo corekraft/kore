@@ -7,7 +7,7 @@ const TOOLING_PATH =
 
 /** Test support kept inside `tools/kore/src`, recognised by name; a production file with such a name slips past and the judge reads the diff. */
 const TEST_SUPPORT =
-  /^tools\/kore\/src\/(testing\/|.*(\.fixtures\.ts|-fixtures\.ts|-support\.ts)$)/;
+  /^tools\/kore\/src\/(testing\/|.*(\.fixtures\.ts|-fixtures\.ts|-support\.ts|\.live\.ts)$)/;
 
 /** A list of unconverted sources, which every conversion edits (ADR 0098 and plan 14). */
 const UNCONVERTED = /(^|\/)unconverted\.txt$/;
