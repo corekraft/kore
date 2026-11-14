@@ -1,12 +1,12 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import { verifyLockedImageArgs } from "../app/index.js";
+import { verifyLockedImageArgs } from "../../src/app/index.js";
 import {
   k3dImagePublishArgs,
   k3dRegistrySessionArgs,
   localSignArgs,
-} from "./local-image-args.js";
+} from "../../src/images/index.js";
 
 // Docs: docs/decisions/0058-registry-transport-tls.md
 

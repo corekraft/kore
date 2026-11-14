@@ -1,183 +1,332 @@
-import { createHash } from "node:crypto";
-import { expect, test } from "vitest";
-import { loadRepository } from "../config/index.js";
-import { RecordingRunner } from "../runtime/index.js";
+// Docs: docs/decisions/0034-registry-authentication-and-authorization.md
+import { createHash, randomBytes, type Hash } from "node:crypto";
+import { beforeEach, expect, test, vi } from "vitest";
+import { registryPlan } from "../config/index.js";
+import { fakeRepository, fakeRunner } from "./images-support.js";
 import {
+  applyRegistryCredentials,
   ensureRegistryAuth,
+  generated,
+  htpasswdLine,
+  koreManagesRegistryAuth,
   loadRegistryCredential,
+  registryAddress,
   registryPullSecret,
+  withSecretsRedacted,
 } from "./registry-auth.js";
+
+vi.mock("node:crypto");
+vi.mock("../config/index.js");
 
 interface Manifest {
   kind: string;
   metadata: { name: string; namespace?: string };
-  type?: string;
   data?: Record<string, string>;
 }
 
-function applied(runner: RecordingRunner): Manifest[] {
-  const apply = runner.calls.find((call) => call.args.includes("apply"));
-  const list = JSON.parse(apply?.options?.input ?? "{}") as {
-    items: Manifest[];
-  };
-  return list.items;
-}
-
-function decode(manifest: Manifest | undefined, key: string): string {
-  return Buffer.from(manifest?.data?.[key] ?? "", "base64").toString("utf8");
-}
-
-const none = { stdout: "", stderr: "", code: 0 };
-
-test("generated registry credentials reach the cluster only through stdin, never argv", async () => {
-  const repository = await loadRepository("local");
-  const runner = new RecordingRunner([none]);
-
-  await ensureRegistryAuth(repository, runner);
-
-  const items = applied(runner);
-  const credentials = items.find(
-    (item) => item.metadata.name === "oci-registry-credentials",
-  );
-  const pushPassword = decode(credentials, "push-password");
-  const readPassword = decode(credentials, "read-password");
-  expect(pushPassword.length).toBeGreaterThanOrEqual(32);
-  expect(readPassword.length).toBeGreaterThanOrEqual(32);
-  expect(pushPassword).not.toBe(readPassword);
-  const argv = JSON.stringify(runner.calls.map((call) => call.args));
-  expect(argv).not.toContain(pushPassword);
-  expect(argv).not.toContain(readPassword);
-  expect(argv).toContain("--filename=-");
+const encode = (value: string): string => Buffer.from(value).toString("base64");
+const decode = (value: string | undefined): string =>
+  Buffer.from(value ?? "", "base64").toString("utf8");
+const noSecret = (): string => "";
+const storedSecret = JSON.stringify({
+  data: {
+    "push-username": encode("kore-push"),
+    "push-password": encode("existing-push"),
+    "read-username": encode("kore-read"),
+    "read-password": encode("existing-read"),
+  },
 });
 
-test("the htpasswd Secret holds only hashes of the two distinct identities", async () => {
-  const repository = await loadRepository("local");
-  const runner = new RecordingRunner([none]);
+/** Each random password is a fixed label, so the expected Secret data is exact. */
+function fixedPasswords(push: string, read: string): void {
+  vi.mocked(randomBytes)
+    .mockReturnValueOnce({ toString: () => push } as never)
+    .mockReturnValueOnce({ toString: () => read } as never);
+}
 
-  await ensureRegistryAuth(repository, runner);
+/** The SHA-1 digest is `sha:` plus the hashed text, so the htpasswd lines are exact. */
+function fakeSha1(): void {
+  vi.mocked(createHash).mockImplementation(() => {
+    let text = "";
+    const hash = {
+      update: (value: string) => {
+        text = value;
+        return hash;
+      },
+      digest: () => `sha:${text}`,
+    };
+    return hash as unknown as Hash;
+  });
+}
 
-  const items = applied(runner);
-  const credentials = items.find(
-    (item) => item.metadata.name === "oci-registry-credentials",
+/** The items of the one apply call, decoded from its stdin. */
+function appliedItems(
+  calls: readonly (readonly unknown[])[],
+): Record<string, unknown>[] {
+  const apply = calls.find((call) => (call[1] as string[]).includes("apply"));
+  if (apply === undefined) {
+    throw new Error("no apply call was made");
+  }
+  return (
+    JSON.parse((apply[2] as { input: string }).input) as {
+      items: Record<string, unknown>[];
+    }
+  ).items;
+}
+
+function secretData(
+  items: Record<string, unknown>[],
+  name: string,
+): Record<string, string> {
+  const secret = items.find(
+    (item) => (item as unknown as Manifest).metadata.name === name,
+  ) as unknown as Manifest;
+  return Object.fromEntries(
+    Object.entries(secret.data ?? {}).map(([key, value]) => [
+      key,
+      decode(value),
+    ]),
   );
-  const htpasswd = decode(
-    items.find((item) => item.metadata.name === "oci-registry-auth"),
-    "htpasswd",
-  );
-  const pushPassword = decode(credentials, "push-password");
-  const readPassword = decode(credentials, "read-password");
-  const sha = (secret: string): string =>
-    createHash("sha1").update(secret).digest("base64");
-  expect(htpasswd.split("\n").filter(Boolean)).toEqual([
-    `kore-push:{SHA}${sha(pushPassword)}`,
-    `kore-read:{SHA}${sha(readPassword)}`,
-  ]);
-  expect(htpasswd).not.toContain(pushPassword);
-  expect(htpasswd).not.toContain(readPassword);
+}
+
+beforeEach(() => {
+  vi.mocked(registryPlan).mockReturnValue({
+    address: "10.96.0.50:5000",
+    clusterIP: "10.96.0.50",
+  } as never);
+  fakeSha1();
 });
 
-test("the registry namespace is created with the Secrets so the first release can mount them", async () => {
-  const repository = await loadRepository("local");
-  const runner = new RecordingRunner([none]);
+test("generated credentials reach the cluster through stdin only, and the push and read passwords differ", async () => {
+  fixedPasswords("PUSH", "READ");
+  const { runner, run } = fakeRunner(noSecret);
 
-  await ensureRegistryAuth(repository, runner);
+  await ensureRegistryAuth(fakeRepository(), runner);
 
-  const items = applied(runner);
-  expect(items[0]).toMatchObject({
+  expect(
+    secretData(appliedItems(run.mock.calls), "oci-registry-credentials"),
+  ).toEqual({
+    "push-username": "kore-push",
+    "push-password": "PUSH",
+    "read-username": "kore-read",
+    "read-password": "READ",
+  });
+  expect(JSON.stringify(run.mock.calls.map(([, args]) => args))).not.toContain(
+    "PUSH",
+  );
+  expect(run.mock.calls.at(-1)?.[1]).toContain("--filename=-");
+});
+
+test("the htpasswd Secret holds one hashed line per identity and no password", async () => {
+  fixedPasswords("PUSH", "READ");
+  const { runner, run } = fakeRunner(noSecret);
+
+  await ensureRegistryAuth(fakeRepository(), runner);
+
+  expect(secretData(appliedItems(run.mock.calls), "oci-registry-auth")).toEqual(
+    {
+      htpasswd: "kore-push:{SHA}sha:PUSH\nkore-read:{SHA}sha:READ\n",
+    },
+  );
+});
+
+test("existing credentials are kept and nothing is generated, so a rerun never rotates what live pods use", async () => {
+  const { runner, run } = fakeRunner(() => storedSecret);
+
+  await ensureRegistryAuth(fakeRepository(), runner);
+
+  expect(randomBytes).not.toHaveBeenCalled();
+  expect(
+    secretData(appliedItems(run.mock.calls), "oci-registry-credentials"),
+  ).toEqual({
+    "push-username": "kore-push",
+    "push-password": "existing-push",
+    "read-username": "kore-read",
+    "read-password": "existing-read",
+  });
+});
+
+test("the registry namespace is applied first and every Secret lives in it", async () => {
+  fixedPasswords("PUSH", "READ");
+  const { runner, run } = fakeRunner(noSecret);
+
+  await ensureRegistryAuth(fakeRepository(), runner);
+
+  const items = appliedItems(run.mock.calls) as unknown as Manifest[];
+  expect(items[0]).toEqual({
+    apiVersion: "v1",
     kind: "Namespace",
     metadata: { name: "kore-registry" },
   });
-  for (const item of items.slice(1)) {
-    expect(item.metadata.namespace).toBe("kore-registry");
-  }
+  expect(items.slice(1).map((item) => item.metadata.namespace)).toEqual([
+    "kore-registry",
+    "kore-registry",
+  ]);
 });
 
-test("existing credentials are kept so a rerun never rotates what live pods use", async () => {
-  const repository = await loadRepository("local");
-  const encode = (value: string): string =>
-    Buffer.from(value).toString("base64");
-  const existing = JSON.stringify({
-    data: {
-      "push-username": encode("kore-push"),
-      "push-password": encode("existing-push-password-0123456789abcdef"),
-      "read-username": encode("kore-read"),
-      "read-password": encode("existing-read-password-0123456789abcdef"),
-    },
-  });
-  const runner = new RecordingRunner([{ ...none, stdout: existing }]);
+test("every kubectl call names the configured context before anything else", async () => {
+  fixedPasswords("PUSH", "READ");
+  const { runner, run } = fakeRunner(noSecret);
 
-  await ensureRegistryAuth(repository, runner);
+  await ensureRegistryAuth(
+    fakeRepository({ kubeContext: "k3d-other" }),
+    runner,
+  );
 
-  const credentials = applied(runner).find(
-    (item) => item.metadata.name === "oci-registry-credentials",
-  );
-  expect(decode(credentials, "push-password")).toBe(
-    "existing-push-password-0123456789abcdef",
-  );
-  expect(decode(credentials, "read-password")).toBe(
-    "existing-read-password-0123456789abcdef",
-  );
+  expect(run.mock.calls.map(([, args]) => args.slice(0, 2))).toEqual([
+    ["--context", "k3d-other"],
+    ["--context", "k3d-other"],
+  ]);
 });
 
-test("every mutation names the configured context", async () => {
-  const repository = await loadRepository("local");
-  const runner = new RecordingRunner([none]);
-
-  await ensureRegistryAuth(repository, runner);
-
-  for (const call of runner.calls) {
-    expect(call.args.slice(0, 2)).toEqual([
-      "--context",
-      repository.environment.kubeContext,
-    ]);
-  }
-});
-
-test("a missing credentials Secret is reported with the command that creates it", async () => {
-  const repository = await loadRepository("local");
-  const runner = new RecordingRunner([none]);
+test("a missing credentials Secret is reported with the platform command that creates it", async () => {
+  const { runner } = fakeRunner(noSecret);
 
   await expect(
-    loadRegistryCredential(repository, runner, "push"),
-  ).rejects.toThrow(/kore platform up --env local/);
+    loadRegistryCredential(fakeRepository(), runner, "push"),
+  ).rejects.toThrow(
+    "registry credentials Secret kore-registry/oci-registry-credentials is missing or incomplete; run `kore platform up --env local` to create it",
+  );
 });
 
-test("the read credential never carries the push identity", async () => {
-  const repository = await loadRepository("local");
-  const encode = (value: string): string =>
-    Buffer.from(value).toString("base64");
-  const secret = JSON.stringify({
+test("a Secret with an empty password is incomplete, and is treated as absent", async () => {
+  const incomplete = JSON.stringify({
     data: {
       "push-username": encode("kore-push"),
-      "push-password": encode("p"),
+      "push-password": "",
       "read-username": encode("kore-read"),
       "read-password": encode("r"),
     },
   });
-  const runner = new RecordingRunner([{ ...none, stdout: secret }]);
+  const { runner } = fakeRunner(() => incomplete);
 
-  const credential = await loadRegistryCredential(repository, runner, "read");
-
-  expect(credential).toEqual({ username: "kore-read", password: "r" });
+  await expect(
+    loadRegistryCredential(fakeRepository(), runner, "read"),
+  ).rejects.toThrow(/missing or incomplete/);
 });
 
-test("the pull Secret is a dockerconfigjson for the registry address with the read credential", () => {
-  const manifest = registryPullSecret(
-    "10.96.0.50:5000",
-    { username: "kore-read", password: "r" },
-    "demo",
-  ) as Manifest;
+test("the read credential is the read identity alone, never the push one", async () => {
+  const { runner } = fakeRunner(() => storedSecret);
 
-  expect(manifest.type).toBe("kubernetes.io/dockerconfigjson");
-  expect(manifest.metadata).toMatchObject({
-    name: "kore-registry-read",
-    namespace: "demo",
+  await expect(
+    loadRegistryCredential(fakeRepository(), runner, "read"),
+  ).resolves.toEqual({ username: "kore-read", password: "existing-read" });
+});
+
+test("generated identities are kore-push and kore-read unless a rotation names a new read username", () => {
+  fixedPasswords("PUSH", "READ");
+  expect(generated()).toEqual({
+    push: { username: "kore-push", password: "PUSH" },
+    read: { username: "kore-read", password: "READ" },
   });
-  const config = JSON.parse(decode(manifest, ".dockerconfigjson")) as {
-    auths: Record<string, { username: string; password: string }>;
-  };
-  expect(config.auths["10.96.0.50:5000"]).toMatchObject({
-    username: "kore-read",
-    password: "r",
+
+  fixedPasswords("PUSH", "READ");
+  expect(generated("kore-read-1a2b").read.username).toBe("kore-read-1a2b");
+});
+
+test("the htpasswd line hashes the password with SHA-1 in the {SHA} form", () => {
+  expect(htpasswdLine({ username: "kore-push", password: "secret" })).toBe(
+    "kore-push:{SHA}sha:secret",
+  );
+  expect(createHash).toHaveBeenCalledWith("sha1");
+});
+
+test("the pull Secret is a dockerconfigjson for the registry address with the read identity", () => {
+  expect(
+    registryPullSecret(
+      "10.96.0.50:5000",
+      { username: "kore-read", password: "r" },
+      "demo",
+    ),
+  ).toEqual({
+    apiVersion: "v1",
+    kind: "Secret",
+    metadata: {
+      name: "kore-registry-read",
+      namespace: "demo",
+      labels: { "app.kubernetes.io/managed-by": "kore-app" },
+    },
+    type: "kubernetes.io/dockerconfigjson",
+    data: {
+      ".dockerconfigjson": encode(
+        JSON.stringify({
+          auths: {
+            "10.96.0.50:5000": {
+              username: "kore-read",
+              password: "r",
+              auth: encode("kore-read:r"),
+            },
+          },
+        }),
+      ),
+    },
   });
+});
+
+test("kore manages registry auth only where the plan has a cluster address, and names that address", () => {
+  expect(koreManagesRegistryAuth(fakeRepository())).toBe(true);
+  expect(registryAddress(fakeRepository())).toBe("10.96.0.50:5000");
+
+  vi.mocked(registryPlan).mockReturnValue({
+    address: "registry.example.com",
+  } as never);
+  expect(koreManagesRegistryAuth(fakeRepository())).toBe(false);
+});
+
+test("the apply of new credentials keeps any retained htpasswd lines after the two identities", async () => {
+  const { runner, run } = fakeRunner();
+
+  await applyRegistryCredentials(
+    fakeRepository(),
+    runner,
+    {
+      push: { username: "kore-push", password: "P" },
+      read: { username: "kore-read-2", password: "R" },
+    },
+    ["kore-read:{SHA}old"],
+  );
+
+  expect(secretData(appliedItems(run.mock.calls), "oci-registry-auth")).toEqual(
+    {
+      htpasswd:
+        "kore-push:{SHA}sha:P\nkore-read-2:{SHA}sha:R\nkore-read:{SHA}old\n",
+    },
+  );
+});
+
+test("withSecretsRedacted replaces every secret in the message and the stack, then rethrows", async () => {
+  const failure = new Error("apply failed for PUSH and READ");
+  failure.stack = "Error: apply failed for PUSH and READ\n  at PUSH";
+
+  await expect(
+    withSecretsRedacted(["PUSH", "READ"], async () => {
+      throw failure;
+    }),
+  ).rejects.toBe(failure);
+  expect(failure.message).toBe("apply failed for [REDACTED] and [REDACTED]");
+  expect(failure.stack).toBe(
+    "Error: apply failed for [REDACTED] and [REDACTED]\n  at [REDACTED]",
+  );
+});
+
+test("an empty secret redacts nothing, and a non-Error failure passes through untouched", async () => {
+  const failure = new Error("visible text");
+  await expect(
+    withSecretsRedacted(["", "absent"], async () => {
+      throw failure;
+    }),
+  ).rejects.toBe(failure);
+  expect(failure.message).toBe("visible text");
+
+  await expect(
+    withSecretsRedacted(["PUSH"], async () => {
+      throw "PUSH";
+    }),
+  ).rejects.toBe("PUSH");
+});
+
+test("withSecretsRedacted returns the operation's result when nothing fails", async () => {
+  await expect(withSecretsRedacted(["PUSH"], async () => "done")).resolves.toBe(
+    "done",
+  );
 });

@@ -1,6 +1,13 @@
-import { expect, test } from "vitest";
+import { beforeEach, expect, test, vi } from "vitest";
 import type { ApprovedEntry } from "../config/index.js";
 import { platformImageLockErrors } from "./platform-image-lock.js";
+import { isReleaseAutomationSigner } from "./release-image.js";
+
+vi.mock("./release-image.js");
+
+beforeEach(() => {
+  vi.mocked(isReleaseAutomationSigner).mockReturnValue(true);
+});
 
 const upstreamDigest = `sha256:${"a".repeat(64)}`;
 const signer =
@@ -150,9 +157,11 @@ test("provenance must match what the catalog records: verified only for a signed
 test("every entry must be signed by an authorized exact tag identity", () => {
   const lock = good();
   lock.entries["oci-registry"].signer = "someone@example.com";
-  lock.authorizedSigners = [
-    signer.replace("refs/tags/v1.2.3", "refs/heads/main"),
-  ];
+  const branchSigner = signer.replace("refs/tags/v1.2.3", "refs/heads/main");
+  lock.authorizedSigners = [branchSigner];
+  vi.mocked(isReleaseAutomationSigner).mockImplementation(
+    (candidate) => candidate !== branchSigner,
+  );
   const errors = platformImageLockErrors(lock, approved).join("\n");
   expect(errors).toMatch(/authorizedSigners .* refs\/tags\/vX\.Y\.Z/);
   expect(errors).toMatch(/oci-registry: signer .* not authorized/);

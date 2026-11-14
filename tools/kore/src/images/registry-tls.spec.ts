@@ -1,138 +1,171 @@
-import { mkdtempSync, rmSync } from "node:fs";
-import { readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { afterAll, expect, test } from "vitest";
-import { loadRepository } from "../config/index.js";
-import type { Runner, RunOptions } from "../runtime/index.js";
+// Docs: docs/decisions/0058-registry-transport-tls.md
+import { beforeEach, expect, test, vi } from "vitest";
+import { k3dTrustDirectory, writeK3dRegistryCa } from "./k3d-registry-trust.js";
+import { fakeRepository, fakeRunner } from "./images-support.js";
+import { koreManagesRegistryAuth } from "./registry-auth.js";
 import {
   ensureRegistryTrust,
   loadRegistryCa,
   registryTrustProblem,
 } from "./registry-tls.js";
 
-// Docs: docs/decisions/0058-registry-transport-tls.md
-
-const home = mkdtempSync(join(tmpdir(), "kore-registry-tls-"));
-afterAll(() => rmSync(home, { recursive: true, force: true }));
+vi.mock("./k3d-registry-trust.js");
+vi.mock("./registry-auth.js");
 
 const pem = "-----BEGIN CERTIFICATE-----\nQUJD\n-----END CERTIFICATE-----\n";
-const b64 = (value: string) => Buffer.from(value).toString("base64");
+const encoded = (value: string) => Buffer.from(value).toString("base64");
+const secretJson = (ca: string) =>
+  JSON.stringify({ data: { "ca.crt": encoded(ca) } });
+const missing =
+  "the internal registry's CA is missing (Secret kore-registry/oci-registry-tls, key ca.crt); every client verifies it and none skips verification, so run `kore platform up --env local` to have cert-manager issue it";
 
-function runnerWith(options: { ca?: string; fail?: string } = {}) {
-  const calls: {
-    command: string;
-    args: readonly string[];
-    options?: RunOptions;
-  }[] = [];
-  const runner: Runner = {
-    async run(command, args, runOptions) {
-      calls.push({
-        command,
-        args,
-        ...(runOptions ? { options: runOptions } : {}),
-      });
-      if (command === "kubectl" && args.includes("oci-registry-tls")) {
-        return {
-          stdout:
-            options.ca === undefined
-              ? ""
-              : JSON.stringify({ data: { "ca.crt": b64(options.ca) } }),
-          stderr: "",
-          code: 0,
-        };
-      }
-      return { stdout: "", stderr: "", code: 0 };
-    },
+beforeEach(() => {
+  vi.mocked(koreManagesRegistryAuth).mockReturnValue(true);
+  vi.mocked(k3dTrustDirectory).mockReturnValue("/home/kore/k3d/trust");
+});
+
+test("the CA is read from the TLS Secret's ca.crt key, asking the configured context", async () => {
+  const { runner, run } = fakeRunner(() => secretJson(pem));
+
+  await expect(loadRegistryCa(fakeRepository(), runner)).resolves.toBe(pem);
+  expect(run.mock.calls).toEqual([
+    [
+      "kubectl",
+      [
+        "--context",
+        "k3d-kore-local",
+        "--namespace",
+        "kore-registry",
+        "get",
+        "secret",
+        "oci-registry-tls",
+        "--ignore-not-found",
+        "--output=json",
+      ],
+      { capture: true },
+    ],
+  ]);
+});
+
+test("a missing Secret fails closed with the command that issues the CA", async () => {
+  const { runner } = fakeRunner(() => "");
+
+  await expect(loadRegistryCa(fakeRepository(), runner)).rejects.toThrow(
+    missing,
+  );
+});
+
+test("a Secret without a ca.crt key is treated as missing, not trusted", async () => {
+  const { runner } = fakeRunner(() => JSON.stringify({ data: {} }));
+
+  await expect(loadRegistryCa(fakeRepository(), runner)).rejects.toThrow(
+    missing,
+  );
+});
+
+test("a Secret whose ca.crt is not a PEM certificate is refused", async () => {
+  const { runner } = fakeRunner(() => secretJson("garbage"));
+
+  await expect(loadRegistryCa(fakeRepository(), runner)).rejects.toThrow(
+    "the internal registry's CA is not a PEM certificate (Secret kore-registry/oci-registry-tls, key ca.crt); every client verifies it and none skips verification, so run `kore platform up --env local` to have cert-manager issue it",
+  );
+});
+
+test("status reports a missing CA with the platform fix, and nothing once it is readable", async () => {
+  const absent = fakeRunner(() => "");
+  await expect(
+    registryTrustProblem(fakeRepository(), absent.runner),
+  ).resolves.toBe(missing);
+
+  const present = fakeRunner(() => secretJson(pem));
+  await expect(
+    registryTrustProblem(fakeRepository(), present.runner),
+  ).resolves.toBeUndefined();
+});
+
+test("status reports nothing and reads nothing where kore does not manage registry auth", async () => {
+  vi.mocked(koreManagesRegistryAuth).mockReturnValue(false);
+  const { runner, run } = fakeRunner();
+
+  await expect(
+    registryTrustProblem(fakeRepository(), runner),
+  ).resolves.toBeUndefined();
+  expect(run).not.toHaveBeenCalled();
+});
+
+test("trust distribution applies a ConfigMap of the public CA only, with no node shell or private key", async () => {
+  const { runner, run } = fakeRunner(() => secretJson(pem));
+
+  await ensureRegistryTrust(fakeRepository(), runner, "/home/kore");
+
+  const apply = run.mock.calls.find(([, args]) => args.includes("apply"));
+  expect(apply?.[1]).toEqual([
+    "--context",
+    "k3d-kore-local",
+    "apply",
+    "--server-side",
+    "--field-manager=kore-registry-tls",
+    "--force-conflicts",
+    "--filename=-",
+  ]);
+  const items = JSON.parse(apply?.[2]?.input ?? "{}") as {
+    items: unknown[];
   };
-  return { runner, calls };
-}
-
-test("a missing CA fails closed with the command that issues it", async () => {
-  const repository = await loadRepository("local");
-  const { runner } = runnerWith();
-  await expect(loadRegistryCa(repository, runner)).rejects.toThrow(
-    /oci-registry-tls.*kore platform up --env local/s,
-  );
+  expect(items.items).toEqual([
+    {
+      apiVersion: "v1",
+      kind: "Namespace",
+      metadata: { name: "cosign-system" },
+    },
+    {
+      apiVersion: "v1",
+      kind: "ConfigMap",
+      metadata: {
+        name: "kore-registry-ca",
+        namespace: "cosign-system",
+        labels: { "app.kubernetes.io/managed-by": "kore-registry-tls" },
+      },
+      data: { "ca.crt": pem },
+    },
+  ]);
+  expect(JSON.stringify(run.mock.calls)).not.toMatch(/PRIVATE KEY|tls\.key/);
+  expect(run.mock.calls.map(([command]) => command)).toEqual([
+    "kubectl",
+    "kubectl",
+  ]);
 });
 
-test("a Secret that holds no PEM certificate is rejected, not trusted", async () => {
-  const repository = await loadRepository("local");
-  const { runner } = runnerWith({ ca: "garbage" });
-  await expect(loadRegistryCa(repository, runner)).rejects.toThrow(
-    /not a PEM certificate/,
-  );
-});
-
-test("trust distribution publishes only the public CA: a ConfigMap for Policy Controller, with no node shell", async () => {
-  const repository = await loadRepository("local");
-  const { runner, calls } = runnerWith({ ca: pem });
-  await ensureRegistryTrust(repository, runner, home);
-
-  const apply = calls.find((c) => c.args.includes("apply"))!;
-  const items = (
-    JSON.parse(apply.options?.input ?? "{}") as {
-      items: {
-        kind: string;
-        metadata: { name: string; namespace: string };
-        data?: Record<string, string>;
-      }[];
-    }
-  ).items;
-  const map = items.find((i) => i.kind === "ConfigMap")!;
-  expect(map.metadata).toMatchObject({
-    name: "kore-registry-ca",
-    namespace: "cosign-system",
+test("on k3d the CA is also written to the host trust directory the nodes mount", async () => {
+  const { runner } = fakeRunner(() => secretJson(pem));
+  const repository = fakeRepository({
+    provider: "k3d",
+    k3d: { clusterName: "kore-local" },
   });
-  expect(map.data).toEqual({ "ca.crt": pem });
-  expect(JSON.stringify(items)).not.toMatch(/PRIVATE KEY|tls\.key/);
 
-  const commands = calls.map((c) => c.command);
-  expect(commands).not.toContain("ssh");
-  expect(calls.some((c) => c.args.includes("exec"))).toBe(false);
+  await ensureRegistryTrust(repository, runner, "/home/kore");
+
+  expect(k3dTrustDirectory).toHaveBeenCalledWith("kore-local", "/home/kore");
+  expect(writeK3dRegistryCa).toHaveBeenCalledWith("/home/kore/k3d/trust", pem);
 });
 
-test("the CA reaches the nodes through the host trust directory, never a node command", async () => {
-  const repository = await loadRepository("local");
-  const { runner, calls } = runnerWith({ ca: pem });
-  await ensureRegistryTrust(repository, runner, home);
-  const written = await readFile(
-    join(home, ".kore", "k3d", "kore-local", "registry-trust", "ca.crt"),
-    "utf8",
-  );
-  expect(written).toBe(pem);
-  expect(calls.map((c) => c.command)).not.toContain("ssh");
+test("a non-k3d environment applies the ConfigMap but writes no host trust directory", async () => {
+  const { runner } = fakeRunner(() => secretJson(pem));
+  const repository = fakeRepository({
+    provider: "managed",
+    k3d: { clusterName: "kore-local" },
+  });
+
+  await ensureRegistryTrust(repository, runner);
+
+  expect(writeK3dRegistryCa).not.toHaveBeenCalled();
 });
 
-test("trust is reapplied identically on a second run so nothing is reissued", async () => {
-  const repository = await loadRepository("local");
-  const first = runnerWith({ ca: pem });
-  const second = runnerWith({ ca: pem });
-  await ensureRegistryTrust(repository, first.runner, home);
-  await ensureRegistryTrust(repository, second.runner, home);
-  expect(second.calls.map((c) => c.args)).toEqual(
-    first.calls.map((c) => c.args),
-  );
-  // Nothing in trust distribution creates or deletes a certificate resource.
-  expect(JSON.stringify(first.calls)).not.toMatch(
-    /delete|certificate\.cert-manager/,
-  );
-});
+test("where kore does not manage registry auth, trust distribution does nothing at all", async () => {
+  vi.mocked(koreManagesRegistryAuth).mockReturnValue(false);
+  const { runner, run } = fakeRunner(() => secretJson(pem));
 
-test("an external registry is the provider's to trust: kore distributes nothing", async () => {
-  const repository = await loadRepository("managed-example");
-  const { runner, calls } = runnerWith({ ca: pem });
-  await ensureRegistryTrust(repository, runner, home);
-  expect(calls).toEqual([]);
-});
+  await ensureRegistryTrust(fakeRepository(), runner);
 
-test("status reports a missing CA with the fix, and nothing when it is present", async () => {
-  const repository = await loadRepository("local");
-  expect(await registryTrustProblem(repository, runnerWith().runner)).toMatch(
-    /kore platform up --env local/,
-  );
-  const present = runnerWith({ ca: pem });
-  expect(
-    await registryTrustProblem(repository, present.runner),
-  ).toBeUndefined();
+  expect(run).not.toHaveBeenCalled();
+  expect(writeK3dRegistryCa).not.toHaveBeenCalled();
 });
