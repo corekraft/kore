@@ -31,6 +31,9 @@ const charts = { resources: "/charts/resources", workload: "/charts/workload" };
 const image = fakeImage();
 
 beforeEach(() => {
+  // Reset here too, so no mock's rejection or calls leak into the next test
+  // when the spec runs under a config that does not set `mockReset`.
+  vi.resetAllMocks();
   vi.mocked(assertAppAdmissible).mockResolvedValue("g-abc");
   vi.mocked(resolveCharts).mockResolvedValue(charts);
   vi.mocked(waitForSecretSource).mockResolvedValue("");
