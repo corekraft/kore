@@ -102,6 +102,11 @@ export function writes(segment: readonly string[]): boolean {
 export const PREFIXED =
   /^(?:[A-Za-z_][A-Za-z0-9_]*=|(?:sudo|env|time|command|nohup|exec)$)/;
 
+/** A segment that sets a variable for a command that follows, or changes shell state: the refusal the read-only roles share. A lone `NAME=value` is no change to a command, so it passes. */
+export const setsEnvironment = (segment: readonly string[]): boolean =>
+  (PREFIXED.test(segment[0] ?? "") && !bareAssignment(segment)) ||
+  changesShell(segment);
+
 /** Builtins that change the shell's environment, aliases or options, or load a file into it, so a later segment runs with a variable such as KORE_ROOT that the guard never sees. */
 const SHELL_STATE = new Set([
   "export",
@@ -119,6 +124,18 @@ const SHELL_STATE = new Set([
 /** A segment whose command changes shell state or sources a file. */
 export const changesShell = (segment: readonly string[]): boolean =>
   SHELL_STATE.has(segment[0] ?? "");
+
+const ASSIGNMENT = /^([A-Za-z_][A-Za-z0-9_]*)=/;
+/** Names a shell or program reads when it runs: a bare assignment to one would steer git, the shell or the harness, so it stays refused. */
+const STEERING =
+  /^(?:GIT_|PATH$|IFS$|HOME$|XDG_|ENV$|BASH|SHELL|ZDOTDIR$|PAGER$|MANPAGER$|LESS|EDITOR$|VISUAL$|CDPATH$|PROMPT_COMMAND$|PS4$|KORE_|LD_|DYLD_|NODE_|PERL|PYTHON|RUBY)/;
+
+/** A segment that is one plain `NAME=value` and nothing else: no command follows it, and it is not a steering name. A redirect on it is still a write, which writes() flags. */
+export const bareAssignment = (segment: readonly string[]): boolean => {
+  const words = withoutRedirects(segment);
+  const name = ASSIGNMENT.exec(words[0] ?? "")?.[1];
+  return words.length === 1 && name !== undefined && !STEERING.test(name);
+};
 
 /** A command substitution or process substitution runs a command the segment check never sees. */
 export const SUBSTITUTION = /\$\(|`|<\(|>\(/;
