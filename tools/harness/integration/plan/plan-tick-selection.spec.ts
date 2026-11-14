@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { run } from "../../src/cli/index.js";
-import { activePlan, planHarness } from "../../src/testing/index.js";
-import { BODY, PLAN, plan } from "./plan-tick-support.js";
+import {
+  TICK_BODY as BODY,
+  TICK_PLAN_FILE as PLAN,
+  activePlan,
+  planHarness,
+  tickPlan as plan,
+} from "../../src/testing/index.js";
 
 describe("harness plan tick plan selection", () => {
   it("refuses when several plans are active and none is named", async () => {

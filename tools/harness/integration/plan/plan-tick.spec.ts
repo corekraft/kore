@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { run } from "../../src/cli/index.js";
-import { PLAN, plan } from "./plan-tick-support.js";
+import {
+  TICK_PLAN_FILE as PLAN,
+  tickPlan as plan,
+} from "../../src/testing/index.js";
 
 interface Change {
   line: number;
