@@ -7,7 +7,8 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     name: "integration",
-    include: ["integration/**/*.ts"],
+    // Support files beside the specs (`*-support.ts`) are not tests, so only specs match.
+    include: ["integration/**/*.spec.ts"],
     // Host locks and ownership records go to a temporary host root, never the real home.
     setupFiles: ["integration-setup.ts"],
   },
