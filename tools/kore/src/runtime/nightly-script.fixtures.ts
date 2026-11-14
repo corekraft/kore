@@ -23,6 +23,11 @@ export const FAKE_RECIPIENT =
 export const FAKE_IDENTITY =
   "AGE-SECRET-KEY-1FAKEEPHEMERALIDENTITYFORTHENIGHTLYSPEC";
 
+/** No GIT_* variable: under a git hook GIT_DIR names the real repository, which a fixture's git would read or rewrite (#368). */
+const gitEnv = Object.fromEntries(
+  Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_")),
+);
+
 /** The sandbox of the running spec: `repo` is a copy of the real layout, so no run touches the checkout. */
 export const ctx = { dir: "", repo: "", script: "" };
 
@@ -48,7 +53,7 @@ export function useNightlySandbox(): void {
       { recursive: true },
     );
     copyFileSync(join(realRoot, ".sops.yaml"), join(ctx.repo, ".sops.yaml"));
-    spawnSync("git", ["init", "--quiet"], { cwd: ctx.repo });
+    spawnSync("git", ["init", "--quiet"], { cwd: ctx.repo, env: gitEnv });
     const overlay = join(ctx.repo, "infra/environments/nightly");
     writeFileSync(
       join(ctx.dir, "snapshot.sh"),
@@ -129,8 +134,9 @@ function shimDir(): string {
 }
 
 export const hasGnuTimeout =
-  spawnSync("sh", ["-c", "command -v timeout || command -v gtimeout"])
-    .status === 0;
+  spawnSync("sh", ["-c", "command -v timeout || command -v gtimeout"], {
+    env: gitEnv,
+  }).status === 0;
 
 export function files(root: string): string[] {
   return readdirSync(root, { recursive: true, withFileTypes: true })
@@ -159,7 +165,9 @@ export function run(
       KORE_NIGHTLY_SUITE_CMD: `${fake} suite`,
       KORE_NIGHTLY_SUITES: suites.join("\n"),
       KORE_NIGHTLY_STAGE_TIMEOUT: "30s",
-      ...extra,
+      ...Object.fromEntries(
+        Object.entries(extra).filter(([name]) => !name.startsWith("GIT_")),
+      ),
     },
   });
   const calls = readFileSync(log, { encoding: "utf8", flag: "a+" })
