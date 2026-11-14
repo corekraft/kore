@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { run } from "./cli.js";
+import { run } from "../../src/cli/index.js";
 import {
   LEDGER_FILE as DEFAULT,
   ledgerHarness as harness,
-} from "../testing/index.js";
+} from "../../src/testing/index.js";
 
 const startFlags = [
   "ledger",
