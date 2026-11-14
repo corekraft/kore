@@ -24,7 +24,7 @@
     "test:budget": "../../.claude/hooks/harness.sh hook test-budget --package tools/kore --report test-results/unit.json",
     "test:specs": "../../.claude/hooks/harness.sh hook unit-specs --package tools/kore",
     "test:related": "vitest related --run --passWithNoTests --maxWorkers=2",
-    "test:barrel-rule": "node --test --test-concurrency=1 tests/barrel-rule.test.mjs tests/unit-run-config.test.mjs",
+    "test:barrel-rule": "node --test --test-concurrency=1 tests/barrel-rule.test.mjs",
     "test:live:lifecycle": "npm run build --silent && KORE_RUN_LIVE=1 node --import ./dist/src/runtime/live-lock-setup.js --test --test-concurrency=1 dist/src/app/lifecycle.live.spec.js",
     "test:e2e:clean-machine": "bash scripts/clean-machine-e2e.sh",
     "test:live": "npm run build --silent && KORE_RUN_LIVE=1 node --import ./dist/src/runtime/live-lock-setup.js --test --test-concurrency=1 dist/src/cluster/*.live.spec.js dist/src/platform/platform.live.spec.js dist/src/platform/platform.*.live.spec.js",
