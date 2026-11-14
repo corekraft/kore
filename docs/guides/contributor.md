@@ -127,6 +127,19 @@ see [The harness bundle](#the-harness-bundle).
   delete a line when its spec is converted. A line naming a file that no
   longer exists fails the check. A spec with no source file of the same name
   beside it is not budgeted.
+- Each converted source file needs exactly one unit spec beside it, named
+  `<name>.spec.ts`. The `unit-specs` hook (`test:specs` after `test:budget`,
+  `harness hook unit-specs --package <dir>`) fails a converted file that has no
+  such spec, and one that also has a `<name>.test.ts` beside it, and names the
+  file. It reads the same unconverted lists as the budget, so a listed file is
+  not checked. Live and docker specs (`*.live.spec.ts`, `*.docker.spec.ts`) are
+  live tests and do not count. Support and fixture files (`*-support.ts`,
+  `*-fixtures.ts`, `*.fixtures.ts`) and `.d.ts` files are not units and need no
+  spec.
+- Vitest resets mocks before each test, in both packages: a mock's calls and
+  behaviour, and a spy's real method, do not carry from one test to the next
+  (`mockReset` and `restoreMocks` in each `vitest.config.ts`). Do not reset
+  mocks by hand in a test.
 - `npm test` (in `tools/kore`) is fast and needs no cluster.
 - Live specs (`*.live.spec.ts`) create or destroy clusters. They run only
   when asked, with `KORE_RUN_LIVE=1` through the scripts in

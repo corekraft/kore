@@ -11,6 +11,9 @@ export default defineConfig({
   test: {
     // One cap for every unit path; see .husky/test-workers.mjs.
     maxWorkers: testWorkers(),
+    // A mock's calls and behaviour, and a spy's real method, reset before each test (ADR 0098).
+    mockReset: true,
+    restoreMocks: true,
     // The test-budget hook reads this report; see `test:budget` in package.json.
     reporters: budgetReporters(
       "test-results/unit.json",

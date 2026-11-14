@@ -1,14 +1,10 @@
-import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { beforeEach, expect, test, vi } from "vitest";
 import { COMMANDS, isMutating } from "./commands.js";
 import { main } from "./cli.js";
 
 beforeEach(() => {
   vi.spyOn(process.stdout, "write").mockImplementation(() => true);
   vi.spyOn(console, "log").mockImplementation(() => undefined);
-});
-
-afterEach(() => {
-  vi.restoreAllMocks();
 });
 
 test("ops is read-only: no action mutates, so none needs --environment", () => {

@@ -138,24 +138,20 @@ test("local registry setup reports when the port forward never becomes ready", a
   now.mockReturnValueOnce(0).mockReturnValueOnce(16_000);
   const spawnPortForward = vi.fn(() => 1234);
 
-  try {
-    await expect(
-      localRegistryReference(
-        {
-          environment: { provider: "k3d", kubeContext: "k3d-kore-local" },
-        } as never,
-        {} as Runner,
-        "registry.kore.local/reference:dev",
-        {
-          isPortOpen: async () => false,
-          spawnPortForward,
-        },
-      ),
-    ).rejects.toThrow(/did not become ready/);
-    expect(spawnPortForward).toHaveBeenCalledOnce();
-  } finally {
-    now.mockRestore();
-  }
+  await expect(
+    localRegistryReference(
+      {
+        environment: { provider: "k3d", kubeContext: "k3d-kore-local" },
+      } as never,
+      {} as Runner,
+      "registry.kore.local/reference:dev",
+      {
+        isPortOpen: async () => false,
+        spawnPortForward,
+      },
+    ),
+  ).rejects.toThrow(/did not become ready/);
+  expect(spawnPortForward).toHaveBeenCalledOnce();
 });
 
 test("default local registry setup starts kubectl and waits for its port", async () => {
@@ -189,7 +185,6 @@ test("default local registry setup starts kubectl and waits for its port", async
     );
     expect(child.unref).toHaveBeenCalledOnce();
   } finally {
-    spawnMock.mockReset();
     connectionOutcomes.length = 0;
   }
 });
@@ -209,7 +204,6 @@ test("default local registry setup fails if kubectl cannot start", async () => {
       ),
     ).rejects.toThrow(/could not start the local OCI registry port-forward/);
   } finally {
-    spawnMock.mockReset();
     connectionOutcomes.length = 0;
   }
 });

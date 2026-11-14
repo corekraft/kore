@@ -40,7 +40,6 @@ function scan(
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
   vi.mocked(warn).mockReturnValue(WARNING);
 });
 

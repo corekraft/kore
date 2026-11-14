@@ -16,8 +16,6 @@ vi.mock("./registry-https.js", () => ({ registryHead }));
 const roots: string[] = [];
 
 afterEach(async () => {
-  registryReference.mockReset();
-  registryHead.mockReset();
   await Promise.all(
     roots.splice(0).map((root) => rm(root, { force: true, recursive: true })),
   );
@@ -33,7 +31,7 @@ async function checkout(): Promise<Repository> {
 async function tagsOfOneBuild() {
   const { runner, calls } = fakeRunner();
   stubRegistry(registryReference, registryHead);
-  registryHead.mockClear();
+  const headsBefore = registryHead.mock.calls.length;
   await buildAndSignLocalImage(await checkout(), runner, "reference", entry);
   const argv = (command: string, first: string) =>
     calls.find((call) => call.command === command && call.args[0] === first)!
@@ -41,7 +39,9 @@ async function tagsOfOneBuild() {
   const build = argv("docker", "build");
   const built = build[build.indexOf("--tag") + 1]!;
   const imported = argv("k3d", "image")[2];
-  const read = String(registryHead.mock.calls[0]![0]).split("/manifests/")[1];
+  const read = String(registryHead.mock.calls[headsBefore]![0]).split(
+    "/manifests/",
+  )[1];
   const published = JSON.stringify(calls.map((call) => call.args));
   return { built, imported, read, published };
 }

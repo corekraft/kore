@@ -38,7 +38,6 @@ const session = (...texts: string[]): Transcript => ({
 
 describe("session analysis counts a repeated prompt as a correction", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     vi.mocked(blocksOf).mockReturnValue([]);
     vi.mocked(callSignature).mockReturnValue("");
     vi.mocked(resultText).mockReturnValue("");

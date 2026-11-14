@@ -28,22 +28,43 @@ interface Placement {
 
 const whole = (ms: number) => String(Math.round(ms));
 
-function placement(spec: string, srcDir: string): Placement | undefined {
-  const inside = spec.startsWith(`${srcDir}/`)
-    ? spec.slice(srcDir.length + 1)
+/** The source file a spec tests, beside it: `x/y.spec.ts` tests `x/y.ts`. */
+function sourceOf(spec: string): string | undefined {
+  return spec.endsWith(".spec.ts")
+    ? `${spec.slice(0, -".spec.ts".length)}.ts`
     : undefined;
-  if (inside === undefined || !inside.endsWith(".spec.ts")) {
+}
+
+/** Where a source file under srcDir is named: its domain's list and its path within the domain. */
+function placement(source: string, srcDir: string): Placement | undefined {
+  const inside = source.startsWith(`${srcDir}/`)
+    ? source.slice(srcDir.length + 1)
+    : undefined;
+  if (inside === undefined) {
     return undefined;
   }
   const parts = inside.split("/");
-  const sourceName = `${parts.pop()?.slice(0, -".spec.ts".length)}.ts`;
+  const name = parts.pop() ?? "";
   const [domain, ...rest] = parts;
   return domain === undefined
-    ? { listDir: srcDir, entry: sourceName }
-    : {
-        listDir: `${srcDir}/${domain}`,
-        entry: [...rest, sourceName].join("/"),
-      };
+    ? { listDir: srcDir, entry: name }
+    : { listDir: `${srcDir}/${domain}`, entry: [...rest, name].join("/") };
+}
+
+/**
+ * Whether a list names the source file (an absolute path under srcDir). The
+ * budget and the unit-spec check both read the lists through this.
+ */
+export function isListed(
+  lists: Map<string, string[]>,
+  srcDir: string,
+  source: string,
+): boolean {
+  const where = placement(source, srcDir);
+  return (
+    where !== undefined &&
+    (lists.get(`${where.listDir}/${LIST}`) ?? []).includes(where.entry)
+  );
 }
 
 const entriesOf = (text: string): string[] =>
@@ -53,7 +74,7 @@ const entriesOf = (text: string): string[] =>
     .filter((line) => line !== "" && !line.startsWith("#"));
 
 /** Every list under the package's src, by absolute list path, with its entries. */
-async function readLists(
+export async function readLists(
   deps: CliDeps,
   srcDir: string,
 ): Promise<Map<string, string[]>> {
@@ -101,14 +122,15 @@ async function isConverted(
   spec: string,
   srcDir: string,
 ): Promise<boolean> {
-  const where = placement(spec, srcDir);
-  if (where === undefined) {
+  const source = sourceOf(spec);
+  if (
+    source === undefined ||
+    placement(source, srcDir) === undefined ||
+    !(await deps.fs.exists(source))
+  ) {
     return false;
   }
-  if (!(await deps.fs.exists(`${where.listDir}/${where.entry}`))) {
-    return false;
-  }
-  return !(lists.get(`${where.listDir}/${LIST}`) ?? []).includes(where.entry);
+  return !isListed(lists, srcDir, source);
 }
 
 async function loadReport(

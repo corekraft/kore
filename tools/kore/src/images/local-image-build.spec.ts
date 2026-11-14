@@ -26,8 +26,6 @@ const roots: string[] = [];
 
 afterEach(async () => {
   vi.unstubAllGlobals();
-  registryReference.mockReset();
-  registryHead.mockReset();
   await Promise.all(
     roots.splice(0).map((root) => rm(root, { force: true, recursive: true })),
   );
@@ -173,7 +171,6 @@ test("a legacy key under .kore is never used and is reported as deletable", asyn
   expect(await readFile(join(directory, "automation.key"), "utf8")).toBe(
     "private",
   );
-  stderr.mockRestore();
 });
 
 test("build and sign rejects a registry response without a usable digest", async () => {

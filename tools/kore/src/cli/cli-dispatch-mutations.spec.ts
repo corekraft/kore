@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { beforeEach, expect, test, vi } from "vitest";
 import { dispatch } from "./cli-dispatch.fixtures.js";
 
 vi.mock("../app/index.js", async () =>
@@ -34,10 +34,6 @@ import { main } from "./cli.js";
 beforeEach(() => {
   dispatch.length = 0;
   vi.spyOn(process.stdout, "write").mockImplementation(() => true);
-});
-
-afterEach(() => {
-  vi.restoreAllMocks();
 });
 
 test("cluster CLI commands dispatch guarded mutations and destroy options", async () => {
