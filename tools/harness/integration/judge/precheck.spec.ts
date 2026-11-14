@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { precheck } from "../../src/judge/index.js";
 import type { CommandContext } from "../../src/runtime/index.js";
-import { FakeRunner, harness } from "../../src/testing/index.js";
+import {
+  FakeRunner,
+  type FakeResponse,
+  harness,
+} from "../../src/testing/index.js";
 
 // The judge's diff reading, hints and verdict run together here, through the
 // precheck, with gh replaced by a fake that returns the PR and its diff text.
@@ -10,6 +14,7 @@ import { FakeRunner, harness } from "../../src/testing/index.js";
 
 const BASE = "base0000";
 const HEAD = "abc1234def5678abc1234def5678abc1234def56";
+const COMMITTED = "2026-11-14T10:00:00Z";
 
 const fileDiff = (path: string, body = "+x") =>
   `diff --git a/${path} b/${path}\n--- a/${path}\n+++ b/${path}\n@@ -1 +1 @@\n${body}`;
@@ -36,16 +41,26 @@ const overlay = (env: string, hunk: string[]) =>
 const flagged = (env: string, value: boolean) =>
   overlay(env, ['   "features": {', `+    "gateway": ${value},`, "   }"]);
 
-/** The precheck of a PR with this declared pattern and this diff text. */
-function check(pattern: string, diff: string) {
+const EXPAND_PR = 547;
+const IDEA = 99;
+
+/** The precheck of a PR with this declared pattern and this diff text; `lines` follow the pattern line in its body. */
+function check(
+  pattern: string,
+  diff: string,
+  lines: readonly string[] = [],
+  extra: readonly FakeResponse[] = [],
+) {
   const runner = new FakeRunner([
+    ...extra,
     {
-      match: (_command, args) => args[1] === "view",
+      match: (_command, args) => args[1] === "view" && args[2] === "42",
       result: {
         stdout: JSON.stringify({
-          body: `Safety pattern: ${pattern}`,
+          body: [`Safety pattern: ${pattern}`, ...lines].join("\n"),
           baseRefOid: BASE,
           headRefOid: HEAD,
+          commits: [{ committedDate: COMMITTED }],
         }),
       },
     },
@@ -108,7 +123,7 @@ describe("judge precheck: a diff that contradicts the declared pattern", () => {
     ).toMatchObject({
       patternMatches: false,
       patternMismatch:
-        "expand-contract, but the diff removes 2 line(s) without replacing them and deletes 0 file(s); that is a contract step, declare it only once the expand step is proven",
+        "expand-contract, but the diff removes 2 line(s) without replacing them and deletes 0 file(s); that is a contract step: name its merged expand PR on an `Expand step: #<n>` line, and record `Expand proof: #<n>` on the idea issue",
     });
   });
 
@@ -118,6 +133,45 @@ describe("judge precheck: a diff that contradicts the declared pattern", () => {
       fileDiff("skills/bin/harness.mjs", "-a\n-b\n-c"),
     ].join("\n");
     expect((await check("expand-contract", diff)).patternMatches).toBe(true);
+  });
+});
+
+describe("judge precheck: a contract whose expand step is proven", () => {
+  it("expand-contract with a proven expand step matches a removing diff", async () => {
+    const report = await check(
+      "expand-contract",
+      fileDiff("a.ts", "-old\n-older"),
+      [`Idea: #${IDEA}`, `Expand step: #${EXPAND_PR}`],
+      [
+        {
+          match: (_command, args) =>
+            args[0] === "pr" && args[2] === String(EXPAND_PR),
+          result: {
+            stdout: JSON.stringify({ mergedAt: "2026-11-13T09:00:00Z" }),
+          },
+        },
+        {
+          match: (_command, args) =>
+            args[0] === "issue" && args[2] === String(IDEA),
+          result: {
+            stdout: JSON.stringify({
+              comments: [
+                {
+                  body: `Expand proof: #${EXPAND_PR}`,
+                  author: { login: "reviewer-bot" },
+                  createdAt: "2026-11-14T09:00:00Z",
+                },
+              ],
+            }),
+          },
+        },
+      ],
+    );
+    expect(report).toMatchObject({
+      patternMatches: true,
+      checks: { expandStep: { result: "pass" } },
+    });
+    expect(report).not.toHaveProperty("patternMismatch");
   });
 });
 
