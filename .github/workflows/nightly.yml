@@ -50,3 +50,29 @@ jobs:
         run: npm ci --prefix tools/kore
       - name: Clean local up and the live suites
         run: tools/kore/scripts/nightly.sh
+
+  # The integration tier (ADR 0098): real units together, no cluster. Its own
+  # job, so its result shows in the run next to the live job's.
+  integration:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      MISE_TASK_RUN_AUTO_INSTALL: "false"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        with:
+          install: true
+          install_args: node npm
+          cache: true
+      - name: Install CLI dependencies
+        run: npm ci --prefix tools/kore
+      - name: Install harness dependencies
+        run: npm ci --prefix tools/harness
+      - name: Run the integration tier
+        run: mise run test-integration
