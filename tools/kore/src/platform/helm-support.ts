@@ -1,0 +1,30 @@
+// Config answers the helm unit's specs read through the mocked config barrel.
+// Fixtures only the helm spec uses, so they live beside it (ADR 0098).
+import { vi } from "vitest";
+import {
+  absolute,
+  componentValues,
+  componentVersion,
+  expandVersions,
+  featureHelmArgs,
+  gatewayClassName,
+  noMatchPolicy,
+  registryHelmArgs,
+} from "../config/index.js";
+
+/** Sets each config answer to the value a helm argument needs, as the real barrel gives it. */
+export function configAnswers(): void {
+  vi.mocked(absolute).mockImplementation(
+    (repo, path) => `${repo.root}/${path}`,
+  );
+  vi.mocked(componentValues).mockReturnValue([]);
+  vi.mocked(componentVersion).mockReturnValue("1.2.3");
+  vi.mocked(expandVersions).mockImplementation((_repo, value) => value);
+  vi.mocked(featureHelmArgs).mockReturnValue([]);
+  vi.mocked(gatewayClassName).mockReturnValue("kore-gateway");
+  vi.mocked(noMatchPolicy).mockReturnValue("warn");
+  vi.mocked(registryHelmArgs).mockImplementation((_env, name) => [
+    "--set-string",
+    `registry=${name}`,
+  ]);
+}

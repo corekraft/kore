@@ -79,3 +79,16 @@ export {
 } from "../platform/readiness-manifest.js";
 export { withAbsoluteChart } from "../platform/helm.js";
 export { manifestImages } from "../config/manifest-images.js";
+// Platform units that the integration specs of Helm, reconcile and patches run
+// together (plan 14, #424). Production code never imports it, so the platform
+// barrel stays as it is.
+export { desiredFingerprint } from "../platform/fingerprint.js";
+export { platformStatus } from "../platform/status.js";
+export { platformRender } from "../platform/render.js";
+export {
+  helmEnv,
+  helmTemplateArgs,
+  helmUpgradeArgs,
+} from "../platform/helm.js";
+export { recoverUndeployedRelease } from "../platform/reconcile.js";
+export type { ProbePatch } from "../platform/patches.js";

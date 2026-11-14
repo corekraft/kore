@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { loadRepository, orderedComponents } from "../config/index.js";
-import { reconcileComponent } from "./reconcile.js";
-import { helmUpgradeArgs } from "./helm.js";
-import { platformRender } from "./render.js";
-import { platformStatus } from "./status.js";
+import { loadRepository, orderedComponents } from "../../src/config/index.js";
+import { reconcileComponent } from "../../src/testing/index.js";
+import { helmUpgradeArgs } from "../../src/testing/index.js";
+import { platformRender } from "../../src/testing/index.js";
+import { platformStatus } from "../../src/testing/index.js";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
-import type { Runner } from "../runtime/index.js";
-import { RecordingRunner } from "../runtime/index.js";
+import type { Runner } from "../../src/runtime/index.js";
+import { RecordingRunner } from "../../src/runtime/index.js";
 import { tmpdir } from "node:os";
 
 test("the PostgreSQL connection secret is explicitly marked ready for Crossplane", async () => {
