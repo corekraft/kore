@@ -1,6 +1,9 @@
 import type { Runner } from "../runtime/index.js";
 import { NAMED_HEAD, TRAILING_HEAD, VERDICT_LINE } from "./review-verdict.js";
 
+// The expand step gather lives in its own unit; precheck imports it through here.
+export { gatherExpandStep } from "./expand-gather.js";
+
 export const RESULTS = [
   "pass",
   "fail",
@@ -20,12 +23,23 @@ export interface Checks {
   scan: Check;
   coverage: Check;
   principlesReview: Check;
+  /** Present only for a contract whose diff removes lines: its expand step is proven or not. */
+  expandStep?: Check;
 }
 
 export interface PrComment {
   body: string;
   author: string;
   createdAt: string;
+}
+
+/** One comment from gh's JSON, with its author's login. */
+function parseComment(c: Record<string, unknown>): PrComment {
+  return {
+    body: text(c["body"]),
+    author: text((c["author"] as Record<string, unknown> | null)?.["login"]),
+    createdAt: text(c["createdAt"]),
+  };
 }
 
 export interface PrView {
@@ -58,13 +72,7 @@ export function parsePrView(stdout: string): PrView | undefined {
     return {
       baseSha: text(view["baseRefOid"]),
       body: text(view["body"]),
-      comments: list("comments").map((c) => ({
-        body: text(c["body"]),
-        author: text(
-          (c["author"] as Record<string, unknown> | null)?.["login"],
-        ),
-        createdAt: text(c["createdAt"]),
-      })),
+      comments: list("comments").map(parseComment),
       headSha: text(view["headRefOid"]),
       headCommittedAt: list("commits")
         .map((c) => text(c["committedDate"]))
