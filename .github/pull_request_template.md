@@ -20,6 +20,9 @@ when the field is missing, repeated or unknown. Patterns (GLOSSARY.md, ADR 0077)
 - dark-launched: the change is on only in `local`.
 - branch-by-abstraction: the old path stays until the new one is proven.
 - expand-contract: an additive step; the removal comes in a later PR.
+  A contract step that removes lines also names its merged expand PR on an
+  `Expand step: #<number>` line; its `Expand proof: #<number>` is recorded on the
+  idea issue by a reviewer (ADR 0107).
 -->
 
 Safety pattern: <pattern>
