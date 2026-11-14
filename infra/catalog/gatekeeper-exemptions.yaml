@@ -1,0 +1,558 @@
+{
+  "$schema": "./schemas/gatekeeper-exemptions.schema.json",
+  "exemptions":
+    [
+      {
+        "kind": "KoreContainerSecurity",
+        "name": "kore-container-security",
+        "namespace": "kube-system",
+        "component": "cluster-provided",
+        "adr": 66,
+        "reason": "Namespace shipped by Kubernetes itself, not owned by any Kore component."
+      },
+      {
+        "kind": "KoreContainerSecurity",
+        "name": "kore-container-security",
+        "namespace": "cert-manager",
+        "component": "cert-manager",
+        "adr": 66,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreContainerSecurity",
+        "name": "kore-container-security",
+        "namespace": "gatekeeper-system",
+        "component": "gatekeeper",
+        "adr": 66,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreContainerSecurity",
+        "name": "kore-container-security",
+        "namespace": "istio-system",
+        "component": "istiod",
+        "adr": 66,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreContainerSecurity",
+        "name": "kore-container-security",
+        "namespace": "crossplane-system",
+        "component": "crossplane",
+        "adr": 66,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreContainerSecurity",
+        "name": "kore-container-security",
+        "namespace": "external-secrets",
+        "component": "external-secrets",
+        "adr": 66,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreContainerSecurity",
+        "name": "kore-container-security",
+        "namespace": "cnpg-system",
+        "component": "cloudnative-pg",
+        "adr": 66,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreContainerSecurity",
+        "name": "kore-container-security",
+        "namespace": "opentelemetry-operator-system",
+        "component": "opentelemetry-operator",
+        "adr": 66,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreContainerSecurity",
+        "name": "kore-container-security",
+        "namespace": "observability",
+        "component": "kore-observability-config",
+        "adr": 66,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreImageDigest",
+        "name": "kore-image-digest",
+        "namespace": "kube-system",
+        "component": "cluster-provided",
+        "adr": 73,
+        "reason": "Namespace shipped by Kubernetes itself, not owned by any Kore component."
+      },
+      {
+        "kind": "KoreImageDigest",
+        "name": "kore-image-digest",
+        "namespace": "cert-manager",
+        "component": "cert-manager",
+        "adr": 73,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreImageDigest",
+        "name": "kore-image-digest",
+        "namespace": "gatekeeper-system",
+        "component": "gatekeeper",
+        "adr": 73,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreImageDigest",
+        "name": "kore-image-digest",
+        "namespace": "istio-system",
+        "component": "istiod",
+        "adr": 73,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreImageDigest",
+        "name": "kore-image-digest",
+        "namespace": "crossplane-system",
+        "component": "crossplane",
+        "adr": 73,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreImageDigest",
+        "name": "kore-image-digest",
+        "namespace": "external-secrets",
+        "component": "external-secrets",
+        "adr": 73,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreImageDigest",
+        "name": "kore-image-digest",
+        "namespace": "cnpg-system",
+        "component": "cloudnative-pg",
+        "adr": 73,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreImageDigest",
+        "name": "kore-image-digest",
+        "namespace": "opentelemetry-operator-system",
+        "component": "opentelemetry-operator",
+        "adr": 73,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreImageDigest",
+        "name": "kore-image-digest",
+        "namespace": "observability",
+        "component": "kore-observability-config",
+        "adr": 73,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreMeshEnrollment",
+        "name": "kore-mesh-enrollment",
+        "namespace": "default",
+        "component": "cluster-provided",
+        "adr": 25,
+        "reason": "Namespace shipped by Kubernetes itself, not owned by any Kore component."
+      },
+      {
+        "kind": "KoreMeshEnrollment",
+        "name": "kore-mesh-enrollment",
+        "namespace": "kube-public",
+        "component": "cluster-provided",
+        "adr": 25,
+        "reason": "Namespace shipped by Kubernetes itself, not owned by any Kore component."
+      },
+      {
+        "kind": "KoreMeshEnrollment",
+        "name": "kore-mesh-enrollment",
+        "namespace": "kube-node-lease",
+        "component": "cluster-provided",
+        "adr": 25,
+        "reason": "Namespace shipped by Kubernetes itself, not owned by any Kore component."
+      },
+      {
+        "kind": "KoreMeshEnrollment",
+        "name": "kore-mesh-enrollment",
+        "namespace": "kube-system",
+        "component": "cluster-provided",
+        "adr": 25,
+        "reason": "Namespace shipped by Kubernetes itself, not owned by any Kore component."
+      },
+      {
+        "kind": "KoreMeshEnrollment",
+        "name": "kore-mesh-enrollment",
+        "namespace": "cert-manager",
+        "component": "cert-manager",
+        "adr": 25,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreMeshEnrollment",
+        "name": "kore-mesh-enrollment",
+        "namespace": "gatekeeper-system",
+        "component": "gatekeeper",
+        "adr": 25,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreMeshEnrollment",
+        "name": "kore-mesh-enrollment",
+        "namespace": "istio-system",
+        "component": "istiod",
+        "adr": 25,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreMeshEnrollment",
+        "name": "kore-mesh-enrollment",
+        "namespace": "cosign-system",
+        "component": "policy-controller",
+        "adr": 25,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreMeshEnrollment",
+        "name": "kore-mesh-enrollment",
+        "namespace": "crossplane-system",
+        "component": "crossplane",
+        "adr": 25,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreMeshEnrollment",
+        "name": "kore-mesh-enrollment",
+        "namespace": "external-secrets",
+        "component": "external-secrets",
+        "adr": 25,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreMeshEnrollment",
+        "name": "kore-mesh-enrollment",
+        "namespace": "cnpg-system",
+        "component": "cloudnative-pg",
+        "adr": 25,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreMeshEnrollment",
+        "name": "kore-mesh-enrollment",
+        "namespace": "opentelemetry-operator-system",
+        "component": "opentelemetry-operator",
+        "adr": 25,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreMeshEnrollment",
+        "name": "kore-mesh-enrollment",
+        "namespace": "kore-system",
+        "component": "kore-platform-config",
+        "adr": 25,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreMeshEnrollment",
+        "name": "kore-mesh-enrollment",
+        "namespace": "kore-registry",
+        "component": "oci-registry",
+        "adr": 25,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreMeshEnrollment",
+        "name": "kore-mesh-enrollment",
+        "namespace": "observability",
+        "component": "kore-observability-config",
+        "adr": 25,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreMeshEnrollment",
+        "name": "kore-mesh-enrollment",
+        "namespace": "opa-system",
+        "component": "opa-authorizer",
+        "adr": 25,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreRBAC",
+        "name": "kore-rbac",
+        "namespace": "kube-system",
+        "component": "cluster-provided",
+        "adr": 17,
+        "reason": "Namespace shipped by Kubernetes itself, not owned by any Kore component."
+      },
+      {
+        "kind": "KoreRBAC",
+        "name": "kore-rbac",
+        "namespace": "cert-manager",
+        "component": "cert-manager",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreRBAC",
+        "name": "kore-rbac",
+        "namespace": "gatekeeper-system",
+        "component": "gatekeeper",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreRBAC",
+        "name": "kore-rbac",
+        "namespace": "istio-system",
+        "component": "istiod",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreRBAC",
+        "name": "kore-rbac",
+        "namespace": "cosign-system",
+        "component": "policy-controller",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreRBAC",
+        "name": "kore-rbac",
+        "namespace": "crossplane-system",
+        "component": "crossplane",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreRBAC",
+        "name": "kore-rbac",
+        "namespace": "external-secrets",
+        "component": "external-secrets",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreRBAC",
+        "name": "kore-rbac",
+        "namespace": "cnpg-system",
+        "component": "cloudnative-pg",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreRBAC",
+        "name": "kore-rbac",
+        "namespace": "opentelemetry-operator-system",
+        "component": "opentelemetry-operator",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreRetention",
+        "name": "kore-retention",
+        "namespace": "kube-system",
+        "component": "cluster-provided",
+        "adr": 17,
+        "reason": "Namespace shipped by Kubernetes itself, not owned by any Kore component."
+      },
+      {
+        "kind": "KoreRetention",
+        "name": "kore-retention",
+        "namespace": "cert-manager",
+        "component": "cert-manager",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreRetention",
+        "name": "kore-retention",
+        "namespace": "gatekeeper-system",
+        "component": "gatekeeper",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreRetention",
+        "name": "kore-retention",
+        "namespace": "istio-system",
+        "component": "istiod",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreRetention",
+        "name": "kore-retention",
+        "namespace": "cosign-system",
+        "component": "policy-controller",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreRetention",
+        "name": "kore-retention",
+        "namespace": "crossplane-system",
+        "component": "crossplane",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreRetention",
+        "name": "kore-retention",
+        "namespace": "external-secrets",
+        "component": "external-secrets",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreRetention",
+        "name": "kore-retention",
+        "namespace": "cnpg-system",
+        "component": "cloudnative-pg",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreRetention",
+        "name": "kore-retention",
+        "namespace": "opentelemetry-operator-system",
+        "component": "opentelemetry-operator",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreSecrets",
+        "name": "kore-secrets",
+        "namespace": "kube-system",
+        "component": "cluster-provided",
+        "adr": 17,
+        "reason": "Namespace shipped by Kubernetes itself, not owned by any Kore component."
+      },
+      {
+        "kind": "KoreSecrets",
+        "name": "kore-secrets",
+        "namespace": "cert-manager",
+        "component": "cert-manager",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreSecrets",
+        "name": "kore-secrets",
+        "namespace": "gatekeeper-system",
+        "component": "gatekeeper",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreSecrets",
+        "name": "kore-secrets",
+        "namespace": "istio-system",
+        "component": "istiod",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreSecrets",
+        "name": "kore-secrets",
+        "namespace": "crossplane-system",
+        "component": "crossplane",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreSecrets",
+        "name": "kore-secrets",
+        "namespace": "external-secrets",
+        "component": "external-secrets",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreSecrets",
+        "name": "kore-secrets",
+        "namespace": "cnpg-system",
+        "component": "cloudnative-pg",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreSecrets",
+        "name": "kore-secrets",
+        "namespace": "opentelemetry-operator-system",
+        "component": "opentelemetry-operator",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreWorkloadIdentity",
+        "name": "kore-workload-identity",
+        "namespace": "kube-system",
+        "component": "cluster-provided",
+        "adr": 17,
+        "reason": "Namespace shipped by Kubernetes itself, not owned by any Kore component."
+      },
+      {
+        "kind": "KoreWorkloadIdentity",
+        "name": "kore-workload-identity",
+        "namespace": "cert-manager",
+        "component": "cert-manager",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreWorkloadIdentity",
+        "name": "kore-workload-identity",
+        "namespace": "gatekeeper-system",
+        "component": "gatekeeper",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreWorkloadIdentity",
+        "name": "kore-workload-identity",
+        "namespace": "istio-system",
+        "component": "istiod",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreWorkloadIdentity",
+        "name": "kore-workload-identity",
+        "namespace": "cosign-system",
+        "component": "policy-controller",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreWorkloadIdentity",
+        "name": "kore-workload-identity",
+        "namespace": "crossplane-system",
+        "component": "crossplane",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreWorkloadIdentity",
+        "name": "kore-workload-identity",
+        "namespace": "external-secrets",
+        "component": "external-secrets",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreWorkloadIdentity",
+        "name": "kore-workload-identity",
+        "namespace": "cnpg-system",
+        "component": "cloudnative-pg",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "KoreWorkloadIdentity",
+        "name": "kore-workload-identity",
+        "namespace": "opentelemetry-operator-system",
+        "component": "opentelemetry-operator",
+        "adr": 17,
+        "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      }
+    ]
+}
