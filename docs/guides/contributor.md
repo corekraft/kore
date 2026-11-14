@@ -108,8 +108,10 @@ see [The harness bundle](#the-harness-bundle).
   together without a cluster, and gates a release. A live test needs a cluster
   and runs only when asked. The move to these tiers is in progress under
   [plan 14](../../infra/plans/14-test-tiers.md): the cluster suites are live
-  tests now (#372), and the unit runs still include tests that start real
-  processes.
+  tests now (#372), and the script, hook, status line and bundle tests run in
+  the integration tier (#373). A pull request that touches only `.claude/` files
+  other than hooks and evals, `skills/` or `.codex/` runs no hook test before
+  merge; the nightly integration job covers them after merge (owner decision).
 - The unit run has a budget: a test over 100 ms, a spec file over 1 s, or (once
   every list below is empty) a package run over 20 s fails, naming the test and
   its time. The `test-budget` hook (`harness hook test-budget`, run by
