@@ -4,11 +4,13 @@ import {
   enabledComponents,
   loadRepository,
   type Repository,
-} from "../config/index.js";
-import type { Runner } from "../runtime/index.js";
-import { platformStatus } from "./status.js";
-import { healthyClusterOutput } from "./resilience-fixtures.js";
-import { gatedOffReleaseAbsent } from "../testing/index.js";
+} from "../../src/config/index.js";
+import type { Runner } from "../../src/runtime/index.js";
+import { platformStatus } from "../../src/platform/index.js";
+import {
+  gatedOffReleaseAbsent,
+  healthyClusterOutput,
+} from "../../src/testing/index.js";
 
 // Docs: docs/decisions/0035-fail-fast-readiness-diagnosis.md
 // Offline proof that a controller outage is reported per component: the broken

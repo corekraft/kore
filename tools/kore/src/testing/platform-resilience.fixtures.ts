@@ -1,7 +1,7 @@
 import {
   healthyDaemonSetOutput,
   healthyWebhookOutput,
-} from "../testing/index.js";
+} from "./webhook-fixtures.js";
 
 /** A programmed Gateway with an address and resolved listeners. */
 export function healthyGatewayOutput(
