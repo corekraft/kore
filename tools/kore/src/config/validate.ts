@@ -82,6 +82,12 @@ const environmentRules: Rule<Environment>[] = [
       !["audit", "enforce"].includes(e.imageInventory),
   ),
   rule(
+    "environment.exemptionCheck must be audit or enforce",
+    (e) =>
+      e.exemptionCheck !== undefined &&
+      !["audit", "enforce"].includes(e.exemptionCheck),
+  ),
+  rule(
     "environment.providerOwnedCRDGroups must be a map of API group to reason",
     (e) => {
       const groups: unknown = e.providerOwnedCRDGroups;
@@ -225,9 +231,26 @@ function cycleErrors(catalog: Catalog): string[] {
   }
 }
 
+/** A check that reports findings which warn without failing validation. */
+export type WarningSource = (
+  repository: Repository,
+) => string[] | Promise<string[]>;
+
+/** How exemption findings are treated: unset reads as audit (ADR 0056). */
+export function exemptionCheckMode(
+  environment: Environment,
+): "audit" | "enforce" {
+  return environment.exemptionCheck ?? "audit";
+}
+
+/**
+ * Throws when any error rule fails; otherwise returns the sorted, de-duplicated
+ * warnings of the given sources. Warnings never fail validation.
+ */
 export async function validateRepository(
   repository: Repository,
-): Promise<void> {
+  warningSources: WarningSource[] = [],
+): Promise<string[]> {
   const { versions, catalog, environment } = repository;
   const components = catalog.components ?? [];
   const names = new Set(components.map((component) => component.name));
@@ -252,4 +275,8 @@ export async function validateRepository(
   if (errors.length) {
     throw new Error([...new Set(errors)].sort().join("\n"));
   }
+  const warnings = await Promise.all(
+    warningSources.map(async (source) => source(repository)),
+  );
+  return [...new Set(warnings.flat())].sort();
 }

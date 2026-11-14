@@ -138,6 +138,11 @@ export interface Environment {
    */
   imageInventory?: "audit" | "enforce";
   /**
+   * How `kore validate` treats policy-exemption findings. `audit` (the
+   * default when unset) reports them as warnings; `enforce` makes them errors.
+   */
+  exemptionCheck?: "audit" | "enforce";
+  /**
    * Platform namespaces exempt from the Policy Controller enrollment check,
    * each with its reason (ADR 0056). Their images are still inventoried.
    * Validation rejects a namespace the catalog does not manage.
@@ -253,4 +258,6 @@ export interface Repository {
    * address as a platform value; validation rejects hardcoded registry values.
    */
   registryComponentValues?: Record<string, Record<string, unknown>> | undefined;
+  /** Findings that warn without failing validation; set by `loadRepository`. */
+  warnings?: string[] | undefined;
 }

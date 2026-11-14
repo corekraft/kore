@@ -2,7 +2,7 @@ export const usage = `Kore local platform orchestration
 
 Usage:
   kore doctor [--environment local] [--json]
-  kore validate [--environment local] [--platform-image-lock <file>] [--json]
+  kore validate [--environment local] [--platform-image-lock <file>] [--json]   (warnings print as "warning:" lines on stderr and in --json as warnings; they never change the exit status)
   kore cluster up|stop|destroy --environment <name> [--yes] [--purge-data]
   kore cluster status [--environment <name>] [--json]
   kore platform bootstrap|up|gate-check|stop|destroy --environment <name> [--yes] [--purge-data] [--force]

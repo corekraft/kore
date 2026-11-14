@@ -223,6 +223,13 @@ its approved digest. It refuses a Gatekeeper constraint with no
 the fix: set `enforcementAction` to `deny`, `warn` or `dryrun` explicitly. A
 missing action would mean deny with no audit stage, and a promotion record does
 not stand in for it.
+`kore validate` can also report warnings: findings that do not fail validation.
+Human output prints each as a `warning:` line on stderr, and `--json` adds a
+`warnings` array (omitted when empty). Warnings never change the exit status.
+An environment overlay sets `exemptionCheck` to `audit` or `enforce`
+(optional; unset reads as `audit`, as with `imageInventory`,
+[ADR 0056](docs/decisions/0056-platform-image-inventory.md)); `local` stays on
+`audit`, and `enforce` is for an environment that has promoted the check.
 `kore validate --environment managed-example --platform-image-lock <file>`
 additionally checks a release's `platform-images.lock.json` (attached to the
 GitHub release as an asset) against the committed overlay and image policy

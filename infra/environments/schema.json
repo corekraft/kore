@@ -87,6 +87,10 @@
       "enum": ["audit", "enforce"],
       "description": "Inventory mode and enrollment rule (ADR 0056): enforce labels every catalog platform namespace except enrollmentExemptions with policy.sigstore.dev/include before the inventory runs; audit labels none."
     },
+    "exemptionCheck": {
+      "enum": ["audit", "enforce"],
+      "description": "How kore validate treats policy-exemption findings (ADR 0056 mode): audit, the default when unset, reports them as warnings that never change the exit status; enforce turns them into validation errors."
+    },
     "enrollmentExemptions": {
       "type": "object",
       "additionalProperties": { "type": "string", "minLength": 1 }
