@@ -33,13 +33,27 @@ describe("checkAgentStart", () => {
     ]);
   });
 
-  it("lets herdr agent start through when its args ask for help", () => {
+  it("lets herdr agent start through when help is its first argument", () => {
     expect(checkAgentStart("herdr", ["agent", "start", "--help"])).toBeNull();
     expect(checkAgentStart("herdr", ["agent", "start", "-h"])).toBeNull();
+    expect(block).not.toHaveBeenCalled();
+  });
+
+  it("still blocks herdr agent start when -h or --help follows other arguments", () => {
     expect(
       checkAgentStart("herdr", ["agent", "start", "w3:p2", "--help"]),
-    ).toBeNull();
-    expect(block).not.toHaveBeenCalled();
+    ).toBe(BLOCKED);
+    expect(
+      checkAgentStart("herdr", [
+        "agent",
+        "start",
+        "w3:p2",
+        "--permission-mode",
+        "bypassPermissions",
+        "-h",
+      ]),
+    ).toBe(BLOCKED);
+    expect(block).toHaveBeenCalledTimes(2);
   });
 
   it("lets harness session spawn through, and every other herdr command", () => {

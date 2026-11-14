@@ -8,8 +8,9 @@ export function checkAgentStart(name: string, args: string[]): Finding {
   if (name !== "herdr" || args[0] !== "agent" || args[1] !== "start") {
     return null;
   }
-  // A help request launches nothing, so it passes.
-  if (args.includes("--help") || args.includes("-h")) {
+  // A help request as the first argument launches nothing, so it passes. Help anywhere
+  // else sits beside a launch's flags, so it does not.
+  if (args[2] === "--help" || args[2] === "-h") {
     return null;
   }
   return block(
