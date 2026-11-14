@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { expect, test, vi } from "vitest";
 import { localRegistryReference } from "../../src/images/index.js";
+import type { Repository } from "../../src/config/index.js";
 import type { Runner } from "../../src/runtime/index.js";
+
+// The registry units read only the repository's environment, so a fake carries
+// those fields alone. The one cast stands in for the rest of the Repository type.
+const repositoryWith = (fields: object): Repository => fields as Repository;
 
 const spawnMock = vi.hoisted(() => vi.fn());
 const connectionOutcomes = vi.hoisted(() => [] as boolean[]);
@@ -48,13 +53,13 @@ test("local registry verification starts a host-side port forward", async () => 
   }[] = [];
   let portChecks = 0;
   const reference = await localRegistryReference(
-    {
+    repositoryWith({
       kubeContext: "k3d-kore-local",
       environment: {
         provider: "k3d",
         kubeContext: "k3d-kore-local",
       },
-    } as never,
+    }),
     caRunner,
     "registry.kore.local:30500/reference@sha256:" + "a".repeat(64),
     {
@@ -95,9 +100,9 @@ test("managed registry references pass through without a local port forward", as
 
   await expect(
     localRegistryReference(
-      {
+      repositoryWith({
         environment: { provider: "managed", kubeContext: "managed" },
-      } as never,
+      }),
       caRunner,
       reference,
       {
@@ -117,9 +122,9 @@ test("an already available local registry avoids starting another port forward",
 
   await expect(
     localRegistryReference(
-      {
+      repositoryWith({
         environment: { provider: "k3d", kubeContext: "k3d-kore-local" },
-      } as never,
+      }),
       caRunner,
       reference,
       {
@@ -141,9 +146,9 @@ test("local registry setup reports when the port forward never becomes ready", a
 
   await expect(
     localRegistryReference(
-      {
+      repositoryWith({
         environment: { provider: "k3d", kubeContext: "k3d-kore-local" },
-      } as never,
+      }),
       caRunner,
       "registry.kore.local/reference:dev",
       {
@@ -159,9 +164,9 @@ test("default local registry setup starts kubectl and waits for its port", async
   connectionOutcomes.push(false, true);
   const child = { pid: 1234, unref: vi.fn() };
   spawnMock.mockReturnValue(child);
-  const repository = {
+  const repository = repositoryWith({
     environment: { provider: "k3d", kubeContext: "k3d-kore-local" },
-  } as never;
+  });
 
   try {
     await expect(
@@ -197,9 +202,9 @@ test("default local registry setup fails if kubectl cannot start", async () => {
   try {
     await expect(
       localRegistryReference(
-        {
+        repositoryWith({
           environment: { provider: "k3d", kubeContext: "k3d-kore-local" },
-        } as never,
+        }),
         caRunner,
         "registry.kore.local/reference:dev",
       ),
@@ -214,12 +219,12 @@ test("a k3d environment starts the registry port forward for its own context", a
   let portChecks = 0;
 
   const reference = await localRegistryReference(
-    {
+    repositoryWith({
       environment: {
         provider: "k3d",
         kubeContext: "k3d-kore-local",
       },
-    } as never,
+    }),
     caRunner,
     "10.96.0.50:5000/reference:kore-local",
     {

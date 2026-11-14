@@ -54,7 +54,27 @@ const extra: ApprovedEntry = {
   },
 };
 
-const good = () => ({
+interface Provenance {
+  result: string;
+  issuer?: string;
+  identity?: string;
+}
+
+interface LockEntry {
+  upstream: string;
+  upstreamDigest: string;
+  mirror: string;
+  provenance: Provenance;
+  signer: string;
+}
+
+interface Lock {
+  version: number;
+  authorizedSigners: string[];
+  entries: { "oci-registry": LockEntry; "policy-controller": LockEntry };
+}
+
+const good = (): Lock => ({
   version: 1,
   authorizedSigners: [signer],
   entries: {
@@ -135,10 +155,10 @@ test("provenance must match what the catalog records: verified only for a signed
   const lock = good();
   lock.entries["oci-registry"].provenance = {
     result: "verified",
-  } as never;
+  };
   lock.entries["policy-controller"].provenance = {
     result: "unsigned-upstream",
-  } as never;
+  };
   const errors = platformImageLockErrors(lock, approved).join("\n");
   expect(errors).toMatch(
     /oci-registry: .*unsigned upstream.*unsigned-upstream/,
@@ -148,7 +168,7 @@ test("provenance must match what the catalog records: verified only for a signed
     result: "verified",
     issuer: "https://token.actions.githubusercontent.com",
     identity: "https://github.com/attacker/x@refs/heads/main",
-  } as never;
+  };
   expect(platformImageLockErrors(lock, approved).join()).toMatch(
     /policy-controller: provenance identity/,
   );
