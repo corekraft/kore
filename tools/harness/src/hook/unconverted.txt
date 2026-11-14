@@ -11,6 +11,7 @@ feedback-support.ts
 feedback-tokens.ts
 feedback.ts
 guard-append-only.ts
+guard-bash-segment.ts
 guard-bash.ts
 guard-commands.ts
 guard-corpus.ts
