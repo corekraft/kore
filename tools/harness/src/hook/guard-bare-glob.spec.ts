@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { bareGlob } from "./guard-bare-glob.js";
-import { rawSegments, shellText, type RawWord } from "./guard-shell.js";
+import {
+  commandOf,
+  rawSegments,
+  shellText,
+  type RawWord,
+} from "./guard-shell.js";
 import { warn, type GuardContext } from "./guard-verdict.js";
 
-vi.mock("./guard-shell.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./guard-shell.js")>()),
-  shellText: vi.fn(),
-  rawSegments: vi.fn(),
-}));
+vi.mock("./guard-shell.js");
 vi.mock("./guard-verdict.js");
 
 const WARNING = {
@@ -42,6 +43,11 @@ function scan(
 ) {
   vi.mocked(shellText).mockReturnValue(command);
   vi.mocked(rawSegments).mockReturnValue(segmentsOf(command));
+  // The command name is the first word of a segment; the rest are its arguments.
+  vi.mocked(commandOf).mockImplementation((tokens) => ({
+    name: tokens[0] ?? "",
+    args: tokens.slice(1),
+  }));
   const ctx: GuardContext = {
     root: "/repo",
     readFile: () => Promise.reject(new Error("ENOENT")),
