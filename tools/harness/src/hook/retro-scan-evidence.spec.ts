@@ -27,6 +27,7 @@ vi.mock("./retro-session.js", () => ({
       toolUseId: string | undefined;
       line: number;
       excerpt: string;
+      glob: string;
       outcome?: string;
     }[] = [];
     readonly guardBlocks: { rule: string; line: number; excerpt: string }[] =
@@ -58,6 +59,7 @@ const override = (line: number, excerpt = `ls skills/*/${line}`) => ({
   toolUseId: `t${line}`,
   line,
   excerpt,
+  glob: "skills/*/SKILL.md",
   outcome: "overridden",
 });
 
@@ -75,7 +77,14 @@ describe("retro scan overridden-warning evidence", () => {
         auditRules: ["bare-glob"],
       }).overriddenEvidence,
     ).toEqual({
-      "bare-glob": [{ session: "a", line: 7, excerpt: "ls skills/*/SKILL.md" }],
+      "bare-glob": [
+        {
+          session: "a",
+          line: 7,
+          excerpt: "ls skills/*/SKILL.md",
+          glob: "skills/*/SKILL.md",
+        },
+      ],
     });
   });
 
@@ -99,18 +108,22 @@ describe("retro scan overridden-warning evidence", () => {
       session: "a",
       line: 1,
       excerpt: "ls skills/*/1",
+      glob: "skills/*/SKILL.md",
     });
     expect(rows[19]).toEqual({
       session: "b",
       line: 5,
       excerpt: "ls skills/*/5",
+      glob: "skills/*/SKILL.md",
     });
     expect(report.rules.audit[0]).toMatchObject({
       rule: "bare-glob",
       overridden: 25,
     });
   });
+});
 
+describe("retro scan overridden-warning evidence: audit list and default report", () => {
   it("leaves a rule that is not in the audit list out of the overridden evidence", () => {
     sessions.set("a", {
       warnings: [{ ...override(3), rule: "unquoted-glob" }],

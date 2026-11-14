@@ -10,6 +10,8 @@ export interface Location {
   session: string;
   line: number;
   excerpt: string;
+  /** Overridden bare-glob rows only: the unquoted glob the guard named. */
+  glob?: string;
 }
 
 export class RuleLocations {

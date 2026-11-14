@@ -91,7 +91,29 @@ describe("session analysis warnings", () => {
         toolUseId: "t1",
         line: 4,
         excerpt: "ls skills/*/SKILL.md",
+        glob: "",
       },
+    ]);
+  });
+});
+
+describe("session analysis warning globs", () => {
+  it("records the unquoted glob the guard names, and leaves glob empty when it names none", () => {
+    const found = new SessionAnalysis(
+      session([
+        bashUse(3, "t1", "ls skills/*/SKILL.md"),
+        warningAttachment(
+          4,
+          "t1",
+          "[guard:bare-glob] skills/*/SKILL.md is an unquoted glob; zsh fails the whole command.",
+        ),
+        bashUse(6, "t2", "echo hi"),
+        warningAttachment(7, "t2", "[guard:bare-glob] Quote the glob."),
+      ]),
+    );
+    expect(found.warnings.map((warning) => warning.glob)).toEqual([
+      "skills/*/SKILL.md",
+      "",
     ]);
   });
 

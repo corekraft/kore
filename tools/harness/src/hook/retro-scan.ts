@@ -219,6 +219,7 @@ class Tally {
             session: id,
             line: warning.line,
             excerpt: warning.excerpt,
+            glob: warning.glob,
           });
         }
         touched.add(stats);

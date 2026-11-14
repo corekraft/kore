@@ -25,7 +25,7 @@ import {
 import { defaultDirs, readTranscripts } from "./retro-transcripts.js";
 
 const USAGE =
-  "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD|YYYY-MM-DDTHH:MM:SSZ] [--evidence]\n--since keeps sessions active at or after local midnight of that date, or at or after that UTC instant, like the session-start count.\n--evidence adds guardEvidence (the session, transcript line and excerpt of each guard block) and overriddenEvidence (the same, with the command excerpt, for each overridden audit warning), capped per rule. The default report leaves them out.";
+  "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD|YYYY-MM-DDTHH:MM:SSZ] [--evidence]\n--since keeps sessions active at or after local midnight of that date, or at or after that UTC instant, like the session-start count.\n--evidence adds guardEvidence (the session, transcript line and excerpt of each guard block) and overriddenEvidence (the same, with the command excerpt and the unquoted glob the guard named, for each overridden audit warning), capped per rule. The default report leaves them out.";
 
 const isMissing = (error: unknown): boolean =>
   (error as NodeJS.ErrnoException).code === "ENOENT";
