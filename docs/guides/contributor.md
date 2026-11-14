@@ -278,6 +278,17 @@ takes issue numbers (`12` or `#12`) and covers only those ideas; with it,
 unattributed events are not counted as unmapped. Both flags together cover the
 named ideas inside the range.
 
+Host pressure comes from the `host-sample` events each session spawn records.
+`hostPressure` in `--json` (and one short section in the human report) gives, per
+live-session count and split by whether the local platform was up, the sample
+count and the median and peak of swap (bytes) and load. Each median is compared
+with the median of the same level over the `--host-days N` days before the range
+(default 7; before `--as-of` when the range has no start), and `worsened` is set
+when it is above that median by more than the spread (population standard
+deviation). Fewer than three baseline samples give `insufficient history`. A
+reading a host could not give is left out of the figures, and a range with no
+samples says so (`samples` 0, no levels).
+
 The stage rules are one table, `tools/harness/src/flow/stages.ts`. An event
 joins an idea by issue number at read time: an issue event by its own number, a
 PR event by the `idea` (`#<issue>`) it closes, a pane or session event by the
@@ -425,6 +436,18 @@ reviewer logins they name: `reviewerLogins` in `.claude/harness.json` when set,
 else the owner login (`ownerLogin`, else the repository's owner). A verdict from
 any other login is unverified. `--reviewer <login>[,<login>]` overrides both, and
 `harness judge precheck` prints the reviewers it used in its text and JSON output.
+
+`harness judge precheck` also refuses to run when its harness bundle is behind
+`origin/main` for `tools/harness`: the build stamps the bundle with its commit,
+and the precheck asks GitHub's compare API whether main changed a file under
+`tools/harness` since. It names the fix (update the worktree, `mise run
+harness-build`). When GitHub cannot compare (no stamp, an unpushed commit, no
+network) it only warns.
+
+The `pr-declaration` workflow audits every PR body with `harness judge
+declaration` (the body on stdin): exactly one valid `Safety pattern:` line, and
+it is the last line. It is an audit; a failure annotates the run and does not
+turn the check red. Making it required is a ruleset change for the owner.
 
 A contract step (`expand-contract`, a diff that removes lines) passes once its
 expand step is proven (ADR 0107). The PR body names the merged expand PR on

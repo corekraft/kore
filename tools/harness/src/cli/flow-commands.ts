@@ -26,6 +26,8 @@ interface Flags extends ScopeOptions {
   minCompletedIdeas: number;
   /** From --trailing; the harness config, then five, decide when absent. */
   trailingIdeas?: number;
+  /** From --host-days; seven when absent. */
+  hostDays?: number;
 }
 
 type Parsed = Flags | { error: string };
@@ -97,9 +99,14 @@ function parseFlags({ options, deps }: CommandContext): Parsed {
     }
   }
   const trailing = options["trailing"];
-  if (trailing !== undefined && !/^[1-9]\d{0,8}$/.test(String(trailing))) {
+  const hostDays = options["host-days"];
+  const bad = [
+    ["trailing", trailing],
+    ["host-days", hostDays],
+  ].find(([, v]) => v !== undefined && !/^[1-9]\d{0,8}$/.test(String(v)));
+  if (bad !== undefined) {
     return {
-      error: `Invalid --trailing "${String(trailing)}". Use a whole number of at least 1.`,
+      error: `Invalid --${bad[0] as string} "${String(bad[1])}". Use a whole number of at least 1.`,
     };
   }
   const times = parseTimes(options);
@@ -116,6 +123,7 @@ function parseFlags({ options, deps }: CommandContext): Parsed {
     asOf: asOf ?? deps.clock.now(),
     minCompletedIdeas,
     ...(trailing === undefined ? {} : { trailingIdeas: Number(trailing) }),
+    ...(hostDays === undefined ? {} : { hostDays: Number(hostDays) }),
     ...(since === undefined ? {} : { since }),
     ...(until === undefined ? {} : { until }),
     ...(idea === undefined ? {} : { ideas: idea }),
@@ -182,6 +190,33 @@ function outcomeLines({
   ];
 }
 
+const GIB = 1024 ** 3;
+const gib = (bytes: number | null) =>
+  bytes === null ? "n/a" : `${Math.round((bytes / GIB) * 10) / 10} GiB`;
+const load = (value: number | null) =>
+  value === null ? "n/a" : String(Math.round(value * 100) / 100);
+
+/** One line per session count: the figures, then which of them rose above their baseline. */
+function hostLines({ hostPressure }: Printed): string[] {
+  if (hostPressure.samples === 0) {
+    return ["Host pressure: no samples in this range"];
+  }
+  return [
+    `Host pressure: ${hostPressure.samples} samples; flagged when above the median of the ${hostPressure.trailingDays} days before by more than their spread`,
+    ...hostPressure.levels.map((level) => {
+      const worse = (
+        [
+          ["swap", level.swap],
+          ["load", level.load],
+        ] as const
+      )
+        .filter(([, f]) => f.baseline.status === "ok" && f.baseline.worsened)
+        .map(([name]) => name);
+      return `  ${level.sessions} sessions, ${level.platform ? "platform up" : "loop only"}: ${level.samples} samples, swap median ${gib(level.swap.median)} peak ${gib(level.swap.peak)}, load median ${load(level.load.median)} peak ${load(level.load.peak)}${worse.length === 0 ? "" : ` (worsened: ${worse.join(", ")})`}`;
+    }),
+  ];
+}
+
 function text(report: Printed): string {
   const rows = report.stages.map((s) =>
     [
@@ -210,6 +245,7 @@ function text(report: Printed): string {
     ),
     `Unmapped events: ${report.unmappedEvents}`,
     ...outcomeLines(report),
+    ...hostLines(report),
     report.bottleneck === null
       ? (report.bottleneckNote ?? "No bottleneck.")
       : `Bottleneck: ${report.bottleneck.stage} (${Math.round(report.bottleneck.share * 100)}% of waiting)`,
@@ -231,10 +267,11 @@ async function loadCost({ deps }: CommandContext) {
 }
 
 const report: Command = {
-  summary: `map ledger events to stages; per stage active, waiting, event counts, toil (starting, stopping, waiting, retrying), work in progress (peak and average ideas open), lead time (first event to outcome; median and max), tokens and sessions per closed idea with a trailing average over the N closed ideas before the latest and a worsened flag (--trailing N, default 5, else cost.trailingIdeas; thresholds in ${HARNESS_CONFIG}), and the bottleneck (--min-ideas N, default ${MIN_COMPLETED_IDEAS}; --as-of TIME; --since TIME (inclusive) and --until TIME (exclusive) clip time at those edges and count only ideas open then, with lead time only for ideas whose outcome falls inside; --idea N|#N[,...] covers only those issues; --ledger PATH; --json is one object, version ${REPORT_VERSION}: version, asOf, scope, ideas, minCompletedIdeas, stages, leadTime, metrics, bottleneck, bottleneckNote, unmappedEvents, attribution (since sessions were stamped: events, with an idea, and with an idea and a stage), guardBlocks (blocks per rule), outcomes (mainRed, reverts, liveRuns, ownerMinutes: figures agents do not write, from ci.main, ci.nightly, main.revert and owner.action events that ledger poll-github records), skippedLines)`,
+  summary: `map ledger events to stages; per stage active, waiting, event counts, toil (starting, stopping, waiting, retrying), work in progress (peak and average ideas open), lead time (first event to outcome; median and max), tokens and sessions per closed idea with a trailing average over the N closed ideas before the latest and a worsened flag (--trailing N, default 5, else cost.trailingIdeas; thresholds in ${HARNESS_CONFIG}), and the bottleneck (--min-ideas N, default ${MIN_COMPLETED_IDEAS}; --as-of TIME; --since TIME (inclusive) and --until TIME (exclusive) clip time at those edges and count only ideas open then, with lead time only for ideas whose outcome falls inside; --idea N|#N[,...] covers only those issues; --ledger PATH; --json is one object, version ${REPORT_VERSION}: version, asOf, scope, ideas, minCompletedIdeas, stages, leadTime, metrics, bottleneck, bottleneckNote, unmappedEvents, attribution (since sessions were stamped: events, with an idea, and with an idea and a stage), guardBlocks (blocks per rule), hostPressure (from host-sample events: median and peak swap bytes and load per live-session count, split by platform up or loop only, each against the median and spread of the same level over --host-days N days before the range, default 7, with a worsened flag; samples 0 and no levels when none were taken), outcomes (mainRed, reverts, liveRuns, ownerMinutes: figures agents do not write, from ci.main, ci.nightly, main.revert and owner.action events that ledger poll-github records), skippedLines)`,
   options: {
     "min-ideas": "string",
     trailing: "string",
+    "host-days": "string",
     "as-of": "string",
     since: "string",
     until: "string",

@@ -79,10 +79,69 @@ export function emptyReport(overrides: Partial<Record<string, unknown>> = {}) {
       liveRuns: { rate: null, passed: 0, runs: 0 },
       ownerMinutes: { perMerged: null, minutes: 0, merged: 0 },
     },
+    hostPressure: { trailingDays: 7, samples: 0, levels: [] },
     ...overrides,
     // The cast stands in for the fields the report prints but these tests never read.
   } as unknown as FlowReport;
 }
+
+/** Host pressure at two session counts: one with figures above their baseline, one with too little history. */
+const POPULATED_HOST = {
+  trailingDays: 7,
+  samples: 5,
+  levels: [
+    {
+      sessions: 3,
+      platform: true,
+      samples: 4,
+      swap: {
+        median: 4.25 * 1024 ** 3,
+        peak: 6 * 1024 ** 3,
+        baseline: {
+          status: "ok",
+          samples: 9,
+          median: 2 * 1024 ** 3,
+          spread: 1024 ** 3,
+          worsened: true,
+        },
+      },
+      load: {
+        median: 3.456,
+        peak: 9,
+        baseline: {
+          status: "ok",
+          samples: 9,
+          median: 3,
+          spread: 2,
+          worsened: false,
+        },
+      },
+    },
+    {
+      sessions: 1,
+      platform: false,
+      samples: 1,
+      swap: {
+        median: null,
+        peak: null,
+        baseline: {
+          status: "insufficient history",
+          samples: 0,
+          needed: 3,
+        },
+      },
+      load: {
+        median: 1,
+        peak: 1,
+        baseline: {
+          status: "insufficient history",
+          samples: 0,
+          needed: 3,
+        },
+      },
+    },
+  ],
+} as const;
 
 /** The fixture for a report with every optional section filled in. */
 export function populatedReport() {
@@ -117,6 +176,7 @@ export function populatedReport() {
       ownerMinutes: { perMerged: 5, minutes: 20, merged: 4 },
     },
     guardBlocks: [{ rule: "push", blocks: 2 }],
+    hostPressure: POPULATED_HOST,
     stages: [
       {
         stage: "review",

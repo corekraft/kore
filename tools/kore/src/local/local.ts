@@ -5,7 +5,9 @@ import { appUp, type AppUpOptions } from "../app/index.js";
 import {
   buildAndSignLocalImage,
   loadImageLock,
+  pruneRegistryTagsInCluster,
   pruneStaleImageTags,
+  RegistryPruneError,
   type BuiltLocalImage,
   type ImageLockEntry,
   type LockedImage,
@@ -39,6 +41,7 @@ export interface LocalLifecycleDependencies {
   ) => Promise<BuiltLocalImage>;
   syncSecrets?: typeof syncLocalSecrets;
   pruneImageTags?: typeof pruneStaleImageTags;
+  pruneRegistryTags?: typeof pruneRegistryTagsInCluster;
   platformStop?: typeof platformStop;
   platformDestroy?: typeof platformDestroy;
 }
@@ -72,6 +75,21 @@ async function pruneStaleTags(
     }
     process.stderr.write(
       `could not prune stale local image tags, continuing: ${error.message}\n`,
+    );
+  }
+  try {
+    await (dependencies.pruneRegistryTags ?? pruneRegistryTagsInCluster)(
+      repository,
+      runner,
+    );
+  } catch (error) {
+    if (!(
+      error instanceof CommandError || error instanceof RegistryPruneError
+    )) {
+      throw error;
+    }
+    process.stderr.write(
+      `could not prune registry tags, continuing: ${error.message}\n`,
     );
   }
 }
