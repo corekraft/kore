@@ -71,5 +71,6 @@ export {
 export { managedCluster } from "./managed-cluster.js";
 export type { ManagedCluster } from "./managed-cluster.js";
 export { findRoot } from "./config.js";
-export { validateRepository } from "./validate.js";
+export { exemptionCheckMode, validateRepository } from "./validate.js";
+export type { WarningSource } from "./validate.js";
 export { exists } from "./files.js";

@@ -18,6 +18,7 @@
       "registry-tag-pruning": false
     },
   "imageInventory": "audit",
+  "exemptionCheck": "audit",
   "providerOwnedCRDGroups":
     {
       "k3s.cattle.io": "k3s ships its addon and etcd-snapshot CRDs; the provider owns them (ADR 0088).",

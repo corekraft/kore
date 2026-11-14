@@ -13,6 +13,7 @@ import {
   resolve,
   type Finding,
 } from "./markdown.js";
+import { visionProblems } from "./vision-problems.js";
 
 export const INDEX = "docs/index.md";
 const CLI = "tools/kore/src/cli/cli.ts";
@@ -319,5 +320,6 @@ export function findings(deps: TreeDeps): Finding[] {
     ...indexProblems(tree),
     ...markerProblems(tree),
     ...readmeProblems(tree),
+    ...visionProblems(tree.files, (path) => tree.deps.read(path)),
   ];
 }
