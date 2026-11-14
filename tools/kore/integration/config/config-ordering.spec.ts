@@ -5,7 +5,7 @@ import {
   loadRepository,
   orderedComponents,
   type Catalog,
-} from "./config.js";
+} from "../../src/config/config.js";
 
 test("repository catalogs and local environment validate", async () => {
   const root = await findRoot();

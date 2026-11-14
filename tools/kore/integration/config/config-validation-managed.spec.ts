@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { readinessFor } from "./readiness-fixtures.js";
-import { loadManagedLocal, managedClusterSettings } from "../testing/index.js";
-import { sound, validationMessage } from "./validation.fixtures.js";
+import { readinessFor } from "../../src/config/readiness-fixtures.js";
+import { loadManagedLocal, managedClusterSettings } from "../../src/testing/index.js";
+import { sound, validationMessage } from "../../src/config/validation.fixtures.js";
 
 const badComponents = [
   {

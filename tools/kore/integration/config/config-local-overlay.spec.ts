@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "vitest";
-import { loadRepository, validateRepository } from "./config.js";
+import { loadRepository, validateRepository } from "../../src/config/config.js";
 
 test("the real local overlay is a valid k3d overlay with the matching kube context", async () => {
   const repository = await loadRepository("local");

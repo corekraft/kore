@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vitest";
-import { loadRepository, validateRepository } from "./config.js";
+import { loadRepository, validateRepository } from "../../src/config/config.js";
 
 test("malformed environment fails with useful schema errors", async () => {
   const root = await mkdtemp(join(tmpdir(), "kore-test-"));

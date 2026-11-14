@@ -3,7 +3,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { join } from "node:path";
 import { test } from "vitest";
-import { findRoot, loadRepository } from "./config.js";
+import { findRoot, loadRepository } from "../../src/config/config.js";
 
 const run = promisify(execFile);
 

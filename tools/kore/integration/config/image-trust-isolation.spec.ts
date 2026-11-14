@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { loadRepository, validateRepository } from "./config.js";
-import { trustedSigners } from "./image-trust.js";
-import type { Repository } from "./types.js";
+import { loadRepository, validateRepository } from "../../src/config/config.js";
+import { trustedSigners } from "../../src/config/image-trust.js";
+import type { Repository } from "../../src/config/types.js";
 
 // Docs: docs/decisions/0059-identity-policy-evidence.md
 type Trust = Record<string, unknown>;

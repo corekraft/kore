@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "vitest";
-import { findRoot, loadRepository } from "./config.js";
+import { findRoot, loadRepository } from "../../src/config/config.js";
 
 test("repository toolchain pins are declared in the local mise profile", async () => {
   const root = await findRoot();
