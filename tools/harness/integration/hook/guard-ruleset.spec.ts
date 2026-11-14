@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { committedInventoryText } from "../../src/testing/index.js";
-import { auditEvents, bash, guard } from "./guard-modes-support.js";
+import { bash, blockEvents, guard } from "./guard-modes-support.js";
 
 const PATH = "/repo/.github/rulesets/main.json";
 const ruleset = (change: object = {}) =>
@@ -107,18 +107,18 @@ describe("the declared main ruleset is guarded against weakening", () => {
       /target changes/,
     ],
     ["a file that is no longer JSON", write("{ not json"), /JSON/],
-  ])("warns, naming what weakens, on %s", async (_, payload, named) => {
+  ])("blocks, naming what weakens, on %s", async (_, payload, named) => {
     const result = await run(payload);
-    expect(result.code).toBe(0);
-    expect(result.out).toMatch(/guard:guardrail-demotion/);
-    expect(result.out).toMatch(named);
-    expect(auditEvents(result.events)).toMatchObject([
+    expect(result.code).toBe(2);
+    expect(result.err).toMatch(/guard:guardrail-demotion/);
+    expect(result.err).toMatch(named);
+    expect(blockEvents(result.events)).toMatchObject([
       { label: "guardrail-demotion" },
     ]);
   });
 });
 
-describe("the declared main ruleset is not warned on for tightening", () => {
+describe("the declared main ruleset is not blocked on for tightening", () => {
   it.each([
     [
       "a new rule",
@@ -157,12 +157,12 @@ describe("the declared main ruleset is not warned on for tightening", () => {
     expect(result.out).not.toMatch(/guardrail-demotion/);
   });
 
-  it("warns on a command that rewrites a declared ruleset", async () => {
+  it("blocks on a command that rewrites a declared ruleset", async () => {
     const result = await run(
       bash("sed -i 's/true/false/' .github/rulesets/main.json"),
     );
-    expect(result.out).toMatch(/guard:guardrail-demotion/);
-    expect(result.out).toMatch(/\.github\/rulesets\/main\.json/);
+    expect(result.err).toMatch(/guard:guardrail-demotion/);
+    expect(result.err).toMatch(/\.github\/rulesets\/main\.json/);
   });
 
   it("does not guard other JSON files under .github", async () => {
@@ -176,12 +176,12 @@ describe("a live ruleset change is guarded", () => {
     `node skills/bin/harness.mjs ruleset sync --repo corekraft/kore --target main ${flags}`;
 
   it.each(["--confirm", "--dry-run --confirm", "--confirm --allow-removal"])(
-    "warns on ruleset sync %s",
+    "blocks on ruleset sync %s",
     async (flags) => {
       const result = await run(bash(sync(flags)));
-      expect(result.code).toBe(0);
-      expect(result.out).toMatch(/guard:guardrail-demotion/);
-      expect(result.out).toMatch(/operator/);
+      expect(result.code).toBe(2);
+      expect(result.err).toMatch(/guard:guardrail-demotion/);
+      expect(result.err).toMatch(/operator/);
     },
   );
 
@@ -192,7 +192,7 @@ describe("a live ruleset change is guarded", () => {
 });
 
 describe("a declared ruleset that does not exist yet", () => {
-  it("is not warned on when first written", async () => {
+  it("is not blocked when first written", async () => {
     const result = await guard(
       write(ruleset()),
       committedInventoryText,
@@ -213,14 +213,15 @@ describe("the guard and sync call the same things a weakening", () => {
       ],
     });
 
-  it("warns when an edit adds a merge method", async () => {
+  it("blocks when an edit adds a merge method", async () => {
     const result = await guard(
       write(withMerge(["squash", "merge"])),
       committedInventoryText,
       "/repo",
       { [PATH]: withMerge(["squash"]) },
     );
-    expect(result.out).toMatch(/allowed_merge_methods gains an entry/);
+    expect(result.code).toBe(2);
+    expect(result.err).toMatch(/allowed_merge_methods gains an entry/);
   });
 
   it("stays silent when an edit removes a merge method", async () => {
