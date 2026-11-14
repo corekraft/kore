@@ -164,18 +164,29 @@ describe("harness hook test-budget: package run", () => {
     one("images/pin2.spec.ts", "a", 1),
   ];
 
-  it("fails a run over 20 seconds once every list is empty", async () => {
+  it("fails a run over 120 seconds once every list is empty", async () => {
     const world = twoDomains({ security: "" });
-    const { code, err } = await run(world, slowRun, {}, 21_300);
+    const { code, err } = await run(world, slowRun, {}, 121_300);
     expect(code).toBe(1);
     expect(err).toBe(
-      "test-budget: the tools/kore unit run took 21300 ms, 1300 ms over the 20000 ms package budget, startup and global setup included; the slowest specs are printed above, so speed those up or split them (ADR 0098)\n",
+      "test-budget: the tools/kore unit run took 121300 ms, 1300 ms over the 120000 ms package budget, startup and global setup included; the slowest specs are printed above, so speed those up or split them (ADR 0098)\n",
     );
   });
 
-  it("does not apply the 20 second limit while any list still names a file", async () => {
+  it("passes a 26 second run, which the former 20 second limit failed", async () => {
+    const { code, err } = await run(
+      twoDomains({ security: "" }),
+      slowRun,
+      {},
+      26_000,
+    );
+    expect(code).toBe(0);
+    expect(err).toBe("");
+  });
+
+  it("does not apply the 120 second limit while any list still names a file", async () => {
     const world = twoDomains({ security: "scan.ts\n" });
-    const { code, err } = await run(world, slowRun, {}, 21_300);
+    const { code, err } = await run(world, slowRun, {}, 121_300);
     expect(code).toBe(0);
     expect(err).toBe("");
   });
@@ -221,7 +232,7 @@ describe("harness hook test-budget: missing and header-only lists", () => {
     );
   });
 
-  it("applies the 20 second package limit when no domain has a list at all", async () => {
+  it("applies the 120 second package limit when no domain has a list at all", async () => {
     const { code, err } = await run(
       twoDomains({}),
       [
@@ -230,11 +241,11 @@ describe("harness hook test-budget: missing and header-only lists", () => {
         one("images/pin2.spec.ts", "a", 1),
       ],
       {},
-      21_300,
+      121_300,
     );
     expect(code).toBe(1);
     expect(err).toBe(
-      "test-budget: the tools/kore unit run took 21300 ms, 1300 ms over the 20000 ms package budget, startup and global setup included; the slowest specs are printed above, so speed those up or split them (ADR 0098)\n",
+      "test-budget: the tools/kore unit run took 121300 ms, 1300 ms over the 120000 ms package budget, startup and global setup included; the slowest specs are printed above, so speed those up or split them (ADR 0098)\n",
     );
   });
 });
