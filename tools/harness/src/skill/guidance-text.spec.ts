@@ -8,6 +8,10 @@ const read = (path: string) => readFileSync(join(ROOT, path), "utf8");
 const ADR_0097 =
   "0097-an-outcome-issue-closes-on-recorded-proof-not-on-merge.md";
 
+/** The local-check rule the writer definition and the TDD skill both carry, pointing at AGENTS.md (Changes). */
+const LOCAL_CHECKS_SENTENCE =
+  "Locally run only the related tests and typecheck; the full suites run in CI `check` (AGENTS.md, Changes).";
+
 /** The paragraph under a `## heading`, up to the next `## ` heading. */
 function section(text: string, heading: string): string {
   const start = text.indexOf(`## ${heading}`);
@@ -51,6 +55,24 @@ describe("the writer definition", () => {
   it("warns that gh pr create --body does not apply the template", () => {
     expect(writer).toMatch(
       /`gh pr create --body`[^\n]*does not apply the template/,
+    );
+  });
+
+  it("tells a worker to run only the related tests and typecheck locally, pointing at AGENTS.md", () => {
+    expect(writer).toContain(LOCAL_CHECKS_SENTENCE);
+  });
+});
+
+describe("the test-driven-development skill", () => {
+  const skill = read("skills/test-driven-development/SKILL.md");
+
+  it("tells a worker to run only the related tests and typecheck locally, pointing at AGENTS.md", () => {
+    expect(skill).toContain(LOCAL_CHECKS_SENTENCE);
+  });
+
+  it("gives a guard role rule a spec for every role it names", () => {
+    expect(skill).toContain(
+      "A guard role rule gets a spec for every role it names.",
     );
   });
 });

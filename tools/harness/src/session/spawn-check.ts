@@ -1,6 +1,7 @@
 import type { CommandContext } from "../runtime/index.js";
 import { resolveTier } from "./agent-definition.js";
 import { hostLeaseRefusal } from "./host-lease.js";
+import { spawnLoadRefusal } from "./spawn-load.js";
 import { sessionNameError } from "./names.js";
 import { FAILED, USAGE_ERROR } from "./output.js";
 import { findResult, parseTimeout } from "./wait.js";
@@ -26,7 +27,7 @@ export type Checked =
 
 /**
  * The pane to broadcast back to, or the refusal when not run from a Herdr
- * pane, or when a writer would start while a live run holds the host lease.
+ * pane, or when a writer would start while a live run holds the host lease or the host load is above KORE_SPAWN_MAX_LOAD.
  */
 async function herdrCaller(
   deps: CommandContext["deps"],
@@ -47,7 +48,10 @@ async function herdrCaller(
       code: FAILED,
     };
   }
-  const refused = role === "writer" ? await hostLeaseRefusal(deps) : undefined;
+  const refused =
+    role === "writer"
+      ? ((await hostLeaseRefusal(deps)) ?? spawnLoadRefusal(deps))
+      : undefined;
   if (refused !== undefined) {
     return { error: refused, code: FAILED };
   }

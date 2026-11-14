@@ -1,202 +1,272 @@
-import { describe, expect, it } from "vitest";
-import { testHarness } from "../testing/index.js";
-import { run } from "../cli/index.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { CliDeps } from "../runtime/index.js";
 import {
-  INSIDE,
-  gitCommon,
-  herdrCalls,
-  layoutOf,
-  nameFree,
-  screen,
-  sequence,
-  spawnArgs,
-  splitReturns,
-  stateFile,
-} from "./spawn-support.js";
+  asRegistry,
+  contextOf,
+  fakeDeps,
+  fakeRegistry,
+  type FakeDeps,
+  type FakeRegistry,
+} from "./deps-support.js";
+import { describeFailure } from "./equalize.js";
+import { sessionNameError } from "./names.js";
+import { FAILED, USAGE_ERROR, fail } from "./output.js";
+import type { SessionRecord, SessionRegistry } from "./registry.js";
+import {
+  DEFAULT_TIMEOUT_MS,
+  findResult,
+  formatWait,
+  parseTimeout,
+  wait,
+  waitForResult,
+} from "./wait.js";
 
-const isRead = (_c: string, a: readonly string[]) =>
-  a[0] === "pane" && a[1] === "read";
-const record = {
+const opener = vi.hoisted(() => ({
+  open: vi.fn<(deps: CliDeps) => Promise<SessionRegistry>>(),
+}));
+
+vi.mock("./registry.js", () => ({ SessionRegistry: opener }));
+vi.mock("./equalize.js");
+vi.mock("./names.js");
+vi.mock("./output.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./output.js")>()),
+  fail: vi.fn(),
+}));
+
+const RECORD: SessionRecord = {
   name: "image-trust-writer",
   paneId: "w3:p9",
   callerPane: "w3:p1",
-  model: "claude-sonnet-5-5",
+  model: "claude-opus-5-5",
   role: "writer",
   effort: "high",
   createdAt: "2026-01-02T03:04:05.000Z",
 };
-const files = { [stateFile("image-trust-writer")]: JSON.stringify(record) };
-const wait = ["session", "wait", "image-trust-writer", "--json"];
+const DONE = { ...RECORD, result: { outcome: "done" as const, at: "x" } };
+const READ = ["pane", "read", "w3:p9", "--source", "recent-unwrapped"];
 
-describe("session wait", () => {
-  it("returns session name, pane id, model, outcome word and summary location as JSON", async () => {
-    const h = testHarness({
-      env: INSIDE,
-      files,
-      responses: [gitCommon, screen("All green.\n  RESULT: blocked  \n")],
-    });
-    expect(await run(wait, h.deps)).toBe(0);
-    expect(JSON.parse(h.out())).toEqual({
+let deps: FakeDeps;
+let registry: FakeRegistry;
+
+beforeEach(() => {
+  deps = fakeDeps();
+  registry = fakeRegistry();
+  opener.open.mockResolvedValue(asRegistry(registry));
+  vi.mocked(fail).mockImplementation((_deps, _json, code) => code);
+});
+
+/** The pane's screen as herdr shows it, one answer per poll. */
+function screens(...texts: string[]): void {
+  for (const stdout of texts) {
+    deps.runner.run.mockResolvedValueOnce({ stdout, stderr: "", code: 0 });
+  }
+}
+
+describe("findResult", () => {
+  it("returns the outcome of the last anchored marker line", () => {
+    expect(findResult("RESULT: done\nmore work\nRESULT: blocked\n")).toBe(
+      "blocked",
+    );
+  });
+
+  it("accepts a marker indented or after Claude's bullet, and nothing else", () => {
+    expect(findResult("  RESULT: done")).toBe("done");
+    expect(findResult("● RESULT: blocked")).toBe("blocked");
+    expect(findResult("I will end with RESULT: done")).toBeUndefined();
+    expect(findResult("RESULT: maybe")).toBeUndefined();
+  });
+
+  it("is undefined when the text has no marker", () => {
+    expect(findResult("nothing finished yet")).toBeUndefined();
+  });
+});
+
+describe("parseTimeout", () => {
+  it("defaults to one hour when no timeout is given", () => {
+    expect(parseTimeout(undefined)).toBe(DEFAULT_TIMEOUT_MS);
+    expect(DEFAULT_TIMEOUT_MS).toBe(3_600_000);
+  });
+
+  it("reads a positive whole number of milliseconds", () => {
+    expect(parseTimeout("5000")).toBe(5000);
+  });
+
+  it("refuses zero, fractions, words and a bare flag", () => {
+    const error = {
+      error: "--timeout must be a positive whole number of milliseconds.",
+    };
+    expect(parseTimeout("0")).toEqual(error);
+    expect(parseTimeout("1.5")).toEqual(error);
+    expect(parseTimeout("soon")).toEqual(error);
+    expect(parseTimeout(true)).toEqual(error);
+  });
+});
+
+describe("waitForResult", () => {
+  it("returns the recorded outcome without reading the pane", async () => {
+    const result = await waitForResult(deps, asRegistry(registry), DONE, 1000);
+
+    expect(result).toEqual({
       name: "image-trust-writer",
       paneId: "w3:p9",
-      model: "claude-sonnet-5-5",
-      outcome: "blocked",
+      model: "claude-opus-5-5",
+      outcome: "done",
       summary: "pane w3:p9",
     });
+    expect(deps.runner.run).not.toHaveBeenCalled();
   });
 
-  it("accepts the marker as the first line of an assistant message, after Claude's bullet", async () => {
-    const h = testHarness({
-      env: INSIDE,
-      files,
-      responses: [gitCommon, screen("● RESULT: done\n")],
-    });
-    expect(await run(wait, h.deps)).toBe(0);
-    expect(JSON.parse(h.out())).toMatchObject({ outcome: "done" });
-  });
+  it("polls the pane every 2 seconds until its marker shows, then records the outcome", async () => {
+    screens("working", "RESULT: done\n");
 
-  it("reads the unwrapped pane text so a wrapped line cannot split the marker", async () => {
-    const h = testHarness({
-      env: INSIDE,
-      files,
-      responses: [gitCommon, screen("RESULT: done")],
-    });
-    await run(wait, h.deps);
-    expect(herdrCalls(h)).toContain(
-      "herdr pane read w3:p9 --source recent-unwrapped",
+    const result = await waitForResult(
+      deps,
+      asRegistry(registry),
+      RECORD,
+      60_000,
     );
+
+    expect(deps.runner.run).toHaveBeenNthCalledWith(1, "herdr", READ);
+    expect(deps.runner.run).toHaveBeenNthCalledWith(2, "herdr", READ);
+    expect(deps.clock.sleep).toHaveBeenCalledExactlyOnceWith(2000);
+    expect(result).toMatchObject({ outcome: "done" });
+    expect(registry.write).toHaveBeenCalledExactlyOnceWith({
+      ...RECORD,
+      result: { outcome: "done", at: "2026-01-02T03:04:07.000Z" },
+    });
+  });
+
+  it("fails naming the pane when reading it fails, and records nothing", async () => {
+    deps.runner.run.mockResolvedValueOnce({
+      stdout: "",
+      stderr: "no pane",
+      code: 1,
+    });
+    vi.mocked(describeFailure).mockReturnValue("no pane");
+
+    const result = await waitForResult(
+      deps,
+      asRegistry(registry),
+      RECORD,
+      60_000,
+    );
+
+    expect(result).toEqual({
+      error: "herdr pane read w3:p9 failed: no pane",
+    });
+    expect(registry.write).not.toHaveBeenCalled();
+  });
+
+  it("gives up at the deadline, naming the wait command to run again", async () => {
+    deps.runner.run.mockResolvedValue({ stdout: "", stderr: "", code: 0 });
+
+    const result = await waitForResult(
+      deps,
+      asRegistry(registry),
+      RECORD,
+      5000,
+    );
+
+    expect(result).toEqual({
+      error:
+        'Session image-trust-writer printed no "RESULT: done" or "RESULT: blocked" line in pane w3:p9 within 5 seconds. It may still be working; run `session wait image-trust-writer` again or read the pane.',
+    });
+    expect(deps.clock.sleep).toHaveBeenCalledTimes(2);
+    expect(registry.write).not.toHaveBeenCalled();
   });
 });
 
-describe("session wait refusals and recording", () => {
-  it("keeps waiting while the brief merely mentions the marker words, and ends only on an anchored line", async () => {
-    const brief = [
-      "❯ Print a final line with the word RESULT, a colon, then done or blocked.",
-      "  Or write RESULT: done or RESULT: blocked inside a sentence",
-      "  node skills/bin/harness.mjs session notify w3:p1 --outcome <done|blocked>",
-    ].join("\n");
-    const h = testHarness({
-      env: INSIDE,
-      files,
-      responses: [
-        gitCommon,
-        sequence(
-          isRead,
-          { stdout: brief },
-          { stdout: brief },
-          { stdout: `${brief}\nRESULT: done\n` },
-        ),
-      ],
-    });
-    expect(await run(wait, h.deps)).toBe(0);
-    expect(herdrCalls(h).filter((c) => c.includes("pane read"))).toHaveLength(
-      3,
-    );
-    expect(JSON.parse(h.out())).toMatchObject({ outcome: "done" });
-  });
-
-  it("fails naming the timeout when only the brief is ever on screen", async () => {
-    const h = testHarness({
-      env: INSIDE,
-      files,
-      responses: [gitCommon, screen("then RESULT: done or blocked, please")],
-    });
-    expect(await run([...wait, "--timeout", "5000"], h.deps)).toBe(1);
-    expect(h.err()).toContain("RESULT");
-    expect(h.err()).toContain("5 seconds");
-    expect(h.err()).toContain("w3:p9");
-  });
-
-  it("rejects a timeout that is not a positive number of milliseconds", async () => {
-    const h = testHarness({ env: INSIDE, files, responses: [gitCommon] });
-    expect(await run([...wait, "--timeout", "soon"], h.deps)).toBe(2);
-    expect(h.err()).toContain("--timeout");
-    expect(herdrCalls(h)).toEqual([]);
-  });
-
-  it("fails naming herdr's message when the pane cannot be read", async () => {
-    const h = testHarness({
-      env: INSIDE,
-      files,
-      responses: [
-        gitCommon,
-        { match: isRead, result: { code: 1, stderr: "pane_not_found" } },
-      ],
-    });
-    expect(await run(wait, h.deps)).toBe(1);
-    expect(h.err()).toContain("pane_not_found");
-  });
-
-  it("names the fix when no session by that name was spawned by this tool", async () => {
-    const h = testHarness({ env: INSIDE, responses: [gitCommon] });
-    expect(await run(wait, h.deps)).toBe(1);
-    expect(h.err()).toContain("image-trust-writer");
-    expect(h.err()).toContain("session spawn");
-  });
-});
-
-describe("session wait arguments", () => {
-  it("rejects a second positional argument", async () => {
-    const h = testHarness({ env: INSIDE, files, responses: [gitCommon] });
-    expect(await run(["session", "wait", "a-b", "c-d"], h.deps)).toBe(2);
-    expect(h.err()).toContain('Unexpected argument "c-d"');
-  });
-
-  it("requires the session name", async () => {
-    const h = testHarness({ env: INSIDE });
-    expect(await run(["session", "wait"], h.deps)).toBe(2);
-    expect(h.err()).toContain("session name");
-  });
-});
-
-describe("session wait recording", () => {
-  it("records the result so close can proceed and a repeated wait does not read the pane", async () => {
-    const h = testHarness({
-      env: INSIDE,
-      files,
-      responses: [gitCommon, screen("RESULT: done")],
-    });
-    await run(wait, h.deps);
-    const stored = JSON.parse(
-      h.files.get(stateFile("image-trust-writer")) ?? "null",
-    ) as { result: { outcome: string } };
-    expect(stored.result.outcome).toBe("done");
-    const reads = herdrCalls(h).length;
-    expect(await run(wait, h.deps)).toBe(0);
-    expect(herdrCalls(h)).toHaveLength(reads);
-  });
-
-  it("works later on a --no-wait session, so several sessions run in parallel", async () => {
-    const responses = (pane: string) => [
-      gitCommon,
-      nameFree,
-      layoutOf(),
-      splitReturns(pane),
-      screen("RESULT: done"),
-    ];
-    const h = testHarness({ env: INSIDE, responses: responses("w3:p9") });
-    await run(spawnArgs, h.deps);
-    const second = spawnArgs.map((a) =>
-      a === "image-trust-writer" ? "gateway-tls-writer" : a,
-    );
-    await run(second, h.deps);
+describe("formatWait", () => {
+  it("names the session, its model, the outcome and where the summary is", () => {
     expect(
-      await run(["session", "wait", "image-trust-writer", "--json"], h.deps),
-    ).toBe(0);
-    expect(
-      await run(["session", "wait", "gateway-tls-writer", "--json"], h.deps),
-    ).toBe(0);
+      formatWait({
+        name: "image-trust-writer",
+        paneId: "w3:p9",
+        model: "claude-opus-5-5",
+        outcome: "blocked",
+        summary: "pane w3:p9",
+      }),
+    ).toBe(
+      "image-trust-writer (claude-opus-5-5) finished: RESULT blocked; summary in pane w3:p9.\n",
+    );
   });
 });
 
-describe("session wait name validation", () => {
-  it.each(["Bad Name", "../escape", "a/b"])(
-    "rejects the name %j before touching git or the registry",
-    async (name) => {
-      const h = testHarness({ env: INSIDE, responses: [gitCommon] });
-      expect(await run(["session", "wait", name], h.deps)).toBe(2);
-      expect(h.err()).toContain("Session name");
-      expect(h.runner.calls).toEqual([]);
-    },
-  );
+describe("wait", () => {
+  it("fails with a usage error when no session name is given", async () => {
+    const code = await wait(contextOf(deps));
+
+    expect(code).toBe(USAGE_ERROR);
+    expect(fail).toHaveBeenCalledWith(
+      deps,
+      false,
+      USAGE_ERROR,
+      "Missing the session name: session wait <name>.",
+    );
+    expect(opener.open).not.toHaveBeenCalled();
+  });
+
+  it("refuses an invalid name with the name error, before opening the registry", async () => {
+    vi.mocked(sessionNameError).mockReturnValue("Session names use a-z only.");
+
+    const code = await wait(contextOf(deps, { operand: "Bad Name" }));
+
+    expect(code).toBe(USAGE_ERROR);
+    expect(fail).toHaveBeenCalledWith(
+      deps,
+      false,
+      USAGE_ERROR,
+      "Session names use a-z only.",
+    );
+    expect(opener.open).not.toHaveBeenCalled();
+  });
+
+  it("refuses a bad --timeout with a usage error", async () => {
+    await wait(
+      contextOf(deps, {
+        operand: "image-trust-writer",
+        options: { timeout: "0" },
+      }),
+    );
+
+    expect(fail).toHaveBeenCalledWith(
+      deps,
+      false,
+      USAGE_ERROR,
+      "--timeout must be a positive whole number of milliseconds.",
+    );
+  });
+
+  it("fails naming the spawn command when no such session was spawned", async () => {
+    registry.read.mockResolvedValue(undefined);
+
+    const code = await wait(contextOf(deps, { operand: "image-trust-writer" }));
+
+    expect(code).toBe(FAILED);
+    expect(fail).toHaveBeenCalledWith(
+      deps,
+      false,
+      FAILED,
+      "No session named image-trust-writer was spawned by this tool; start it with `session spawn`.",
+    );
+  });
+
+  it("prints the finished session as text, and as one JSON object under --json", async () => {
+    registry.read.mockResolvedValue(DONE);
+
+    const text = await wait(contextOf(deps, { operand: "image-trust-writer" }));
+    const json = await wait(
+      contextOf(deps, { operand: "image-trust-writer", json: true }),
+    );
+
+    expect([text, json]).toEqual([0, 0]);
+    expect(deps.stdout).toHaveBeenNthCalledWith(
+      1,
+      "image-trust-writer (claude-opus-5-5) finished: RESULT done; summary in pane w3:p9.\n",
+    );
+    expect(deps.stdout).toHaveBeenNthCalledWith(
+      2,
+      '{"name":"image-trust-writer","paneId":"w3:p9","model":"claude-opus-5-5","outcome":"done","summary":"pane w3:p9"}\n',
+    );
+  });
 });

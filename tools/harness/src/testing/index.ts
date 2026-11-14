@@ -64,6 +64,7 @@ export {
   MemoryFileSystem,
   hasMatchUnder,
 } from "./memory-filesystem-support.js";
+export { ledgerEvents } from "./ledger-support.js";
 export {
   GH_USER,
   ISSUE,

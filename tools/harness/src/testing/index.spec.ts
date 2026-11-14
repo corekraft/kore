@@ -52,6 +52,7 @@ vi.mock("./kb-support.js", () =>
     "usage",
   ),
 );
+vi.mock("./ledger-support.js", () => stubs("ledgerEvents"));
 vi.mock("./memory-filesystem-support.js", () =>
   stubs("MemoryFileSystem", "hasMatchUnder"),
 );
@@ -114,6 +115,7 @@ const EXPORTS = [
   "ISSUE",
   "LEDGER",
   "LOCK",
+  "ledgerEvents",
   "MemoryFs",
   "MemoryFileSystem",
   "NEW",
@@ -124,7 +126,10 @@ const EXPORTS = [
   "ROOT",
   "RootedMemoryFileSystem",
   "T0",
+  "TICK_BODY",
+  "TICK_PLAN_FILE",
   "activate",
+  "activePlan",
   "adrFile",
   "adrFrontmatter",
   "allowed",
@@ -166,6 +171,7 @@ const EXPORTS = [
   "newArgs",
   "overlay",
   "planFrontmatter",
+  "planHarness",
   "planText",
   "prRule",
   "provenIdea",
@@ -180,6 +186,7 @@ const EXPORTS = [
   "stateFile",
   "sync",
   "testHarness",
+  "tickPlan",
   "usage",
   "vitestConfig",
   "withFlag",
