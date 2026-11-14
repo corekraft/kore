@@ -1,3 +1,7 @@
+// The role lists below (READ_ONLY, REPORTING, NO_CODE, ROLES) are deliberately independent of
+// guard-roles.ts: importing the registry would make the role check unable to fail. The spec checks
+// them against the registry with roleCoverage (guard-corpus.spec.ts), so drift fails in CI.
+//
 // A deterministic corpus of bypass attempts against `hook guard` (retro finding 9, #335).
 // Each case is a call the guard must refuse, with the rule that refuses it; each `ORDINARY`
 // case is a call that must keep passing. The spec runs both through the hook, in CI `check`,

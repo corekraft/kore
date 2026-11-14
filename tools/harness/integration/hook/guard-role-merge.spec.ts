@@ -206,7 +206,7 @@ describe("role-no-merge: a push with no named target goes where the branch track
     return dir;
   };
   const push = (dir: string, command: string) =>
-    checkDeliveryBash("writer", command, dir);
+    checkDeliveryBash("writer", false, command, dir);
 
   it("blocks a bare push from main, or from a branch that tracks main", () => {
     for (const command of [
@@ -242,7 +242,7 @@ describe("role-no-merge: a push with no named target goes where the branch track
   });
 
   it("fails closed when the branch cannot be read", () => {
-    expect(checkDeliveryBash("writer", "git push", tmpdir())?.rule).toBe(
+    expect(checkDeliveryBash("writer", false, "git push", tmpdir())?.rule).toBe(
       "role-no-merge",
     );
   });

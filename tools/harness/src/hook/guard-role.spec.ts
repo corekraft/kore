@@ -117,6 +117,7 @@ describe("checkRole: which sessions it bounds", () => {
     expect(bash("judge", "gh pr merge 1")).toBe(deliveryHit);
     expect(checkDelivery).toHaveBeenCalledWith(
       "judge",
+      true,
       "Bash",
       { command: "gh pr merge 1" },
       ROOT,
