@@ -64,8 +64,12 @@ function relativeTo(from: string, to: string): string {
 }
 
 /** Runs one tool call as the host does, for a role with no protected finding. */
-const call = (role: unknown, tool: string, input: Record<string, unknown>) =>
-  checkRole(role, tool, input, ROOT);
+const call = (
+  role: unknown,
+  tool: string,
+  input: Record<string, unknown>,
+  cwd?: string,
+) => checkRole(role, tool, input, ROOT, cwd);
 const bash = (role: string, command: string) => call(role, "Bash", { command });
 
 beforeEach(() => {
@@ -114,13 +118,16 @@ describe("checkRole: which sessions it bounds", () => {
     const deliveryHit = hit("role-no-merge", "a merge");
     vi.mocked(checkDelivery).mockReturnValue(deliveryHit);
 
-    expect(bash("judge", "gh pr merge 1")).toBe(deliveryHit);
+    const cwd = `${ROOT}/tools/harness`;
+    expect(call("judge", "Bash", { command: "gh pr merge 1" }, cwd)).toBe(
+      deliveryHit,
+    );
     expect(checkDelivery).toHaveBeenCalledWith(
       "judge",
       true,
       "Bash",
       { command: "gh pr merge 1" },
-      ROOT,
+      { root: ROOT, cwd },
     );
   });
 });
