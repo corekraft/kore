@@ -186,6 +186,10 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/decisions/0052-usage-metering-with-opencost.md`](decisions/0052-usage-metering-with-opencost.md) — usage per organization through OpenCost and platform counters, for visibility only. Read when changing usage reporting.
 - [`docs/decisions/0053-forensic-telemetry-archive.md`](decisions/0053-forensic-telemetry-archive.md) — refines ADR 0019, 0050, and 0051: every log record and span kept unsampled in a Quickwit archive on the object store, buffered through Kafka, fully indexed, write-once, with signed batch digests and audited, tenant-scoped access. Read when changing telemetry retention, sampling, or the archive.
 
+## Ideas
+
+- [`docs/ideas/0001-role-tokens.md`](ideas/0001-role-tokens.md) — Role tokens give writer and judge panes their own GitHub identities
+
 ## Operations and Guides
 
 - [`docs/guides/operator.md`](guides/operator.md) — running the local platform: start, stop, status, and where each recurring task is documented. Read first when operating Kore.
