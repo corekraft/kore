@@ -21,12 +21,12 @@ the terms are in [`GLOSSARY.md`](../../GLOSSARY.md) (Testing). Tracking issue:
 
 ## Step 1: Foundations
 
-Next: #372, #374 and #421 are labelled `ready-for-agent` and can run in parallel; #372 lands first. Label each later ticket when its blockers close. Full state: #371.
+Next: #372 awaits a green nightly run; #373 awaits the owner's required-check ruleset action and a green integration run; #404 awaits a dispatch proof; #405 awaits the owner's number and a live run; #419 awaits a dispatch proof. Label each later ticket when its blockers close. Full state: #371.
 
 ### Work
 
-- [ ] Rename the cluster suites to live tests (#372).
-- [ ] Rename the cluster suites to live tests (#372). Open.
+- [ ] Rename the cluster suites to live tests (#372). #439 delivered the
+      rename; a green nightly run is still owed.
 - [x] Add the integration tier with one hook test moved into it (#418).
 - [ ] Move the remaining script, hook and bundle tests to integration, and
       make the commit gate unit-only (#373). Open.
