@@ -7,13 +7,11 @@ type Node =
   | { kind: "file"; content: string; mode: number }
   | { kind: "link"; target: string; mode: number };
 
-const disk = vi.hoisted(() => ({
-  nodes: new Map<string, unknown>(),
-  failure: undefined as NodeJS.ErrnoException | undefined,
-}));
+const disk: { nodes: Map<string, Node>; failure?: NodeJS.ErrnoException } =
+  vi.hoisted(() => ({ nodes: new Map() }));
 
 vi.mock("node:fs/promises", () => {
-  const nodes = disk.nodes as Map<string, Node>;
+  const { nodes } = disk;
   const absent = (): never => {
     throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
   };
@@ -91,7 +89,7 @@ const hash = async () => (await contextInputs(root)).hash;
 
 beforeEach(() => {
   disk.nodes.clear();
-  disk.failure = undefined;
+  delete disk.failure;
 });
 
 test("the same content hashes the same, whatever order it was written in", async () => {

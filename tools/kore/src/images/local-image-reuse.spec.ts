@@ -73,6 +73,17 @@ function lookup(found: {
 const commands = (run: { mock: { calls: unknown[][] } }) =>
   run.mock.calls.map(([command, args]) => [command, args]);
 
+const inSession: typeof withPublishSession = async (
+  _repository,
+  _runner,
+  action,
+) => await action(session);
+const withSigner: typeof withLocalSigner = async (
+  _repository,
+  _runner,
+  action,
+) => await action(signer);
+
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(localDockerBuildArgs).mockReturnValue(["build"]);
@@ -82,12 +93,8 @@ beforeEach(() => {
   vi.mocked(requireK3d).mockReturnValue(
     fake<K3dCluster>({ clusterName: "kore-local" }),
   );
-  vi.mocked(withPublishSession).mockImplementation(
-    async (_repository, _runner, action) => action(session) as never,
-  );
-  vi.mocked(withLocalSigner).mockImplementation(
-    async (_repository, _runner, action) => action(signer) as never,
-  );
+  vi.mocked(withPublishSession).mockImplementation(inSession);
+  vi.mocked(withLocalSigner).mockImplementation(withSigner);
   vi.mocked(localRegistryReference).mockImplementation(
     async (_repository, _runner, reference) => reference,
   );
