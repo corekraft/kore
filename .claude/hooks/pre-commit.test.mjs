@@ -176,8 +176,6 @@ test("every tool the hook runs goes through the pinned toolchain", () => {
     tools.map((l) => l.split(" ")[0]),
     [
       "lint-staged",
-      "node",
-      "node",
       // The SAST step selects the staged source, checks semgrep, then scans.
       "node",
       "semgrep",
@@ -188,7 +186,7 @@ test("every tool the hook runs goes through the pinned toolchain", () => {
       "run",
     ],
   );
-  assert.equal(lines.length, 19);
+  assert.equal(lines.length, 15);
   // Every tool call follows a mise exec, except the test command the lock
   // starts, which inherits the pinned PATH from the call before it.
   for (const [i, l] of lines.entries()) {
@@ -388,28 +386,8 @@ test("staging a .claude/hooks file runs no test command, since hook tests are in
   assert.doesNotMatch(result.calls, /node --test/);
 });
 
-test("staging a skill, .claude or .codex file checks the skill links strictly with the harness hook", () => {
-  for (const file of ["skills/a/SKILL.md", ".claude/a.json", ".codex/a.toml"]) {
-    const result = commit([file]);
-    assert.equal(result.status, 0, file);
-    assert.match(
-      result.calls,
-      /^node .*\/skills\/bin\/harness\.mjs hook skill-links --strict$/m,
-      file,
-    );
-  }
-});
-
-test("a wrong skill link blocks the commit with one actionable line", () => {
-  const result = commit(["skills/a/SKILL.md"], ["node"]);
-  assert.notEqual(result.status, 0);
-  assert.match(
-    result.stderr,
-    /^pre-commit: skill links are wrong; run 'node skills\/bin\/harness\.mjs hook skill-links --strict' and fix them\n$/,
-  );
-});
-
-test("staging a workflow, skill, .claude or .codex file checks workflow permissions strictly with the harness hook", () => {
+test("staging a workflow, skill, .claude or .codex file runs no harness hook check, since hook checks are integration tests", () => {
+  // The skill links and workflow permissions are checked strictly by CI (mise run test-hooks), never at commit (ADR 0098).
   for (const file of [
     ".github/workflows/a.yml",
     "skills/a/SKILL.md",
@@ -418,24 +396,18 @@ test("staging a workflow, skill, .claude or .codex file checks workflow permissi
   ]) {
     const result = commit([file]);
     assert.equal(result.status, 0, file);
-    assert.match(
-      result.calls,
-      /^node .*\/skills\/bin\/harness\.mjs hook workflow-permissions --strict$/m,
-      file,
-    );
+    assert.equal(result.npmCalls, "", file);
+    assert.doesNotMatch(result.calls, /harness\.mjs hook/, file);
   }
 });
 
-test("a wrong workflow permission blocks the commit with one actionable line", () => {
+test("a wrong skill link or workflow permission does not block the commit, since no check runs at commit", () => {
   const result = commit(
-    [".github/workflows/a.yml"],
-    ["node:workflow-permissions"],
+    [".github/workflows/a.yml", "skills/a/SKILL.md"],
+    ["node"],
   );
-  assert.notEqual(result.status, 0);
-  assert.match(
-    result.stderr,
-    /^pre-commit: workflow permissions are wrong; run 'node skills\/bin\/harness\.mjs hook workflow-permissions --strict' and fix them\n$/,
-  );
+  assert.equal(result.status, 0);
+  assert.equal(result.stderr, "");
 });
 
 test("staging nothing under .github/workflows, skills, .claude or .codex does not check workflow permissions", () => {

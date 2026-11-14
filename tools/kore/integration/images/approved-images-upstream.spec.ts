@@ -3,15 +3,18 @@ import { execFile } from "node:child_process";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { test } from "vitest";
-import { approvedImageList, loadRepository } from "../config/index.js";
-import type { Repository } from "../config/index.js";
+import { approvedImageList, loadRepository } from "../../src/config/index.js";
+import type { Repository } from "../../src/config/index.js";
 import {
   envOption,
   helmEnv,
   helmTemplateArgs,
   withAbsoluteChart,
-} from "../platform/index.js";
-import { renderedImages, unapprovedImages } from "./rendered-images.js";
+} from "../../src/platform/index.js";
+import {
+  renderedImages,
+  unapprovedImages,
+} from "../../src/images/rendered-images.js";
 
 const run = promisify(execFile);
 

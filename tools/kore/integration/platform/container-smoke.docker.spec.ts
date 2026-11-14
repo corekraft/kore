@@ -3,13 +3,16 @@ import { execFile } from "node:child_process";
 import { setTimeout as sleep } from "node:timers/promises";
 import { promisify } from "node:util";
 import { test } from "vitest";
-import { loadRepository } from "../config/index.js";
+import { loadRepository } from "../../src/config/index.js";
 import {
   classifySmokeLogs,
   dockerRunArgs,
   smokeTargets,
-} from "./container-smoke.js";
-import { renderChart, yamlDocuments } from "./upstream-support.js";
+} from "../../src/platform/container-smoke.js";
+import {
+  renderChart,
+  yamlDocuments,
+} from "../../src/platform/upstream-support.js";
 
 const run = promisify(execFile);
 const uptimeMs = 5_000;

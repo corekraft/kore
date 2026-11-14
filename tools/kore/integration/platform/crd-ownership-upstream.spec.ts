@@ -7,13 +7,13 @@ import {
   loadRepository,
   renderedCrdNames,
   type CrdOwnership,
-} from "../config/index.js";
+} from "../../src/config/index.js";
 import {
   envOption,
   helmEnv,
   helmTemplateArgs,
   withAbsoluteChart,
-} from "./helm.js";
+} from "../../src/platform/helm.js";
 
 const run = promisify(execFile);
 
