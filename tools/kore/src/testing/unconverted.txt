@@ -4,5 +4,7 @@ data-export.fixtures.ts
 index.ts
 k3d-cluster.fixtures.ts
 managed-local.fixtures.ts
+platform-readiness.fixtures.ts
+platform-resilience.fixtures.ts
 registry-tls-fixtures.ts
 webhook-fixtures.ts

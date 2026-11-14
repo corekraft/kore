@@ -33,8 +33,6 @@ reference-token.ts
 release-recovery.ts
 render-redaction.ts
 render.ts
-resilience-fixtures.ts
 rollout-feasibility.ts
 up.ts
 upstream-support.ts
-readiness-fixtures.ts
