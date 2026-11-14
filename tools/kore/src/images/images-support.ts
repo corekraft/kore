@@ -28,7 +28,7 @@ export function fakeRepository(
   environment: Record<string, unknown> = {},
   root = "/repo",
 ): Repository {
-  return {
+  return asFake<Repository>({
     root,
     environment: {
       name: "local",
@@ -36,7 +36,7 @@ export function fakeRepository(
       kubeContext: "k3d-kore-local",
       ...environment,
     },
-  } as unknown as Repository;
+  });
 }
 
 /** What the far end of a TLS socket does: answers with `data`, fails with `error`, closes, or stays silent. */
@@ -76,7 +76,7 @@ export function fakeSocket(reply: SocketReply): FakeSocket {
 /** `connect` returns these sockets, one per probe, in order. */
 export function connectTo(...sockets: FakeSocket[]): void {
   for (const socket of sockets) {
-    vi.mocked(connect).mockReturnValueOnce(socket as unknown as TLSSocket);
+    vi.mocked(connect).mockReturnValueOnce(asFake<TLSSocket>(socket));
   }
 }
 
@@ -91,15 +91,15 @@ export function fakeSha1(): void {
       },
       digest: () => `sha:${text}`,
     };
-    return hash as unknown as Hash;
+    return asFake<Hash>(hash);
   });
 }
 
 /** Each random password is a fixed label, so the generated Secret data is exact. */
 export function fixedPasswords(push: string, read: string): void {
   vi.mocked(randomBytes)
-    .mockReturnValueOnce({ toString: () => push } as never)
-    .mockReturnValueOnce({ toString: () => read } as never);
+    .mockImplementationOnce(() => asFake<Buffer>({ toString: () => push }))
+    .mockImplementationOnce(() => asFake<Buffer>({ toString: () => read }));
 }
 
 /** The kubectl arguments of the local registry's port-forward. */
@@ -149,4 +149,12 @@ export function secretData(
       decode(value),
     ]),
   );
+}
+
+/**
+ * The one cast a fake needs. A fake implements the members a unit calls, not
+ * the whole Node type it stands in for, so it is handed over as that type here.
+ */
+function asFake<T>(fake: unknown): T {
+  return fake as T;
 }
