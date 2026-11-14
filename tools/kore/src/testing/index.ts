@@ -122,6 +122,19 @@ export { desiredFingerprint } from "../platform/fingerprint.js";
 export { platformStatus } from "../platform/status.js";
 export { platformRender } from "../platform/render.js";
 export {
+  IngressMeasurement,
+  ingressRoutes,
+} from "../platform/ingress-measurement.js";
+export {
+  FakeLoad,
+  expectedStatus,
+  fixture,
+  metrics,
+  ok as measurementOk,
+  options,
+  sampleResponses,
+} from "../platform/ingress-measurement.fixtures.js";
+export {
   helmEnv,
   helmTemplateArgs,
   helmUpgradeArgs,

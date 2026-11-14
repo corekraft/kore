@@ -1,13 +1,8 @@
-import assert from "node:assert/strict";
+import type { spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
-import { test } from "vitest";
-import {
-  postOtlp,
-  waitForOtlp,
-  withForward,
-  type ForwardChild,
-} from "./otlp-forward.js";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { postOtlp, waitForOtlp, withForward } from "./otlp-forward.js";
 
 class FakeChild extends EventEmitter {
   stdout = new PassThrough();
@@ -19,171 +14,194 @@ class FakeChild extends EventEmitter {
   }
 }
 
-function fake(): { child: FakeChild; calls: string[][]; spawn: never } {
-  const child = new FakeChild();
-  const calls: string[][] = [];
-  const spawn = ((_command: string, args: string[]) => {
-    calls.push(args);
-    return child as unknown as ForwardChild;
-  }) as never;
-  return { child, calls, spawn };
+/** A `spawn` stand-in that hands back the fake child. The one cast meets Node's overloads. */
+function fakeSpawn(child: FakeChild): typeof spawn {
+  const spawnMock = vi.fn(() => child);
+  return spawnMock as unknown as typeof spawn;
 }
 
-test("a forward binds an ephemeral local port, hands it to the caller, and is killed afterwards", async () => {
-  const { child, calls, spawn } = fake();
-  const result = await withForward(
-    {
-      context: "kore-local",
-      namespace: "observability",
-      target: "service/otel-collector",
-      remotePort: 4318,
-      spawn,
-    },
-    async (port) => {
-      assert.equal(child.killed, false);
-      return port;
-    },
-    // announce the port as kubectl does
-    () => child.stdout.write("Forwarding from 127.0.0.1:43211 -> 4318\n"),
-  );
-  assert.equal(result, 43211);
-  assert.equal(child.killed, true);
-  assert.deepEqual(calls[0], [
-    "--context",
-    "kore-local",
-    "--namespace",
-    "observability",
-    "port-forward",
-    "service/otel-collector",
-    ":4318",
-  ]);
+const forward = (child: FakeChild, spawnFn = fakeSpawn(child)) => ({
+  context: "kore-local",
+  namespace: "observability",
+  target: "service/otel-collector",
+  remotePort: 4318,
+  spawn: spawnFn,
 });
 
-test("a forward is killed even when the caller throws", async () => {
-  const { child, spawn } = fake();
-  await assert.rejects(
-    withForward(
-      {
-        context: "c",
-        namespace: "n",
-        target: "service/x",
-        remotePort: 1,
-        spawn,
-      },
-      async () => {
-        throw new Error("boom");
-      },
-      () => child.stdout.write("Forwarding from 127.0.0.1:5000 -> 1\n"),
-    ),
-    /boom/,
-  );
-  assert.equal(child.killed, true);
-});
+/** A typed `fetch` answering each call with the next reply; a thrown reply rejects. */
+function fakeFetch(...replies: (Response | Error)[]) {
+  return vi.fn<typeof fetch>(async () => {
+    const reply = replies.shift();
+    if (reply instanceof Error) {
+      throw reply;
+    }
+    return reply ?? new Response("{}", { status: 200 });
+  });
+}
 
-test("a forward that exits before binding fails naming kubectl's error", async () => {
-  const { child, spawn } = fake();
-  await assert.rejects(
-    withForward(
-      {
-        context: "c",
-        namespace: "n",
-        target: "service/x",
-        remotePort: 1,
-        spawn,
-      },
-      async () => undefined,
-      () => {
-        child.stderr.write('error: services "x" not found\n');
-        child.emit("exit", 1);
-      },
-    ),
-    /not found/,
-  );
-});
-
-test("OTLP JSON is posted with the application/json content type", async () => {
-  let seen: { url: string; init: RequestInit } | undefined;
-  const fetchFn = (async (url: string, init: RequestInit) => {
-    seen = { url, init };
-    return new Response("{}", { status: 200 });
-  }) as unknown as typeof fetch;
-  await postOtlp(4000, "traces", { a: 1 }, fetchFn);
-  assert.equal(seen?.url, "http://127.0.0.1:4000/v1/traces");
-  assert.equal(seen?.init.method, "POST");
-  assert.deepEqual(seen?.init.headers, { "Content-Type": "application/json" });
-  assert.equal(seen?.init.body, '{"a":1}');
-});
-
-test("a rejected OTLP post names the signal and status", async () => {
-  const fetchFn = (async () =>
-    new Response("nope", { status: 415 })) as unknown as typeof fetch;
-  await assert.rejects(postOtlp(1, "logs", {}, fetchFn), /logs.*415/);
-});
-
+const noWait = vi.fn<(milliseconds: number) => Promise<void>>(
+  async () => undefined,
+);
 const reset = () =>
   Object.assign(new TypeError("fetch failed"), {
     cause: Object.assign(new Error("other side closed"), {
       code: "UND_ERR_SOCKET",
     }),
   });
-const noWait = async () => undefined;
 
-test("an OTLP post retries a reset connection and then succeeds", async () => {
-  let calls = 0;
-  const fetchFn = (async () => {
-    calls += 1;
-    if (calls < 3) {
-      throw reset();
-    }
-    return new Response("{}", { status: 200 });
-  }) as unknown as typeof fetch;
-  await postOtlp(1, "logs", {}, fetchFn, noWait);
-  assert.equal(calls, 3);
+beforeEach(() => {
+  vi.useFakeTimers();
 });
 
-test("an OTLP post gives up after a bounded number of resets", async () => {
-  let calls = 0;
-  const fetchFn = (async () => {
-    calls += 1;
-    throw reset();
-  }) as unknown as typeof fetch;
-  await assert.rejects(
-    postOtlp(1, "logs", {}, fetchFn, noWait),
-    /fetch failed/,
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+test("a forward binds an ephemeral local port, hands it to the caller, and is killed afterwards", async () => {
+  const child = new FakeChild();
+  const spawnFn = fakeSpawn(child);
+  const result = await withForward(
+    forward(child, spawnFn),
+    async (port) => {
+      expect(child.killed).toBe(false);
+      return port;
+    },
+    // Announce the port as kubectl does.
+    () => child.stdout.write("Forwarding from 127.0.0.1:43211 -> 4318\n"),
   );
-  assert.equal(calls, 5);
+  expect(result).toBe(43211);
+  expect(child.killed).toBe(true);
+  expect(spawnFn).toHaveBeenCalledWith(
+    "kubectl",
+    [
+      "--context",
+      "kore-local",
+      "--namespace",
+      "observability",
+      "port-forward",
+      "service/otel-collector",
+      ":4318",
+    ],
+    { stdio: ["ignore", "pipe", "pipe"] },
+  );
+});
+
+test("a forward is killed even when the caller throws", async () => {
+  const child = new FakeChild();
+  await expect(
+    withForward(
+      forward(child),
+      async () => {
+        throw new Error("boom");
+      },
+      () => child.stdout.write("Forwarding from 127.0.0.1:5000 -> 1\n"),
+    ),
+  ).rejects.toThrow("boom");
+  expect(child.killed).toBe(true);
+});
+
+test("a forward that exits before binding fails naming kubectl's error", async () => {
+  const child = new FakeChild();
+  await expect(
+    withForward(
+      forward(child),
+      async () => undefined,
+      () => {
+        child.stderr.write('error: services "x" not found\n');
+        child.emit("exit", 1);
+      },
+    ),
+  ).rejects.toThrow(
+    'port-forward to service/otel-collector exited before binding: error: services "x" not found',
+  );
+});
+
+test("a forward that never binds fails after 15 seconds and is still killed", async () => {
+  const child = new FakeChild();
+  const outcome = withForward(forward(child), async () => undefined).catch(
+    (error: unknown) => error,
+  );
+
+  await vi.advanceTimersByTimeAsync(15_000);
+
+  expect(await outcome).toEqual(
+    expect.objectContaining({
+      message: expect.stringMatching(
+        /^port-forward to service\/otel-collector did not bind within 15s/,
+      ),
+    }),
+  );
+  expect(child.killed).toBe(true);
+});
+
+test("OTLP JSON is posted with the application/json content type", async () => {
+  const fetchFn = fakeFetch();
+  await postOtlp(4000, "traces", { a: 1 }, fetchFn, noWait);
+  expect(fetchFn).toHaveBeenCalledWith("http://127.0.0.1:4000/v1/traces", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: '{"a":1}',
+  });
+});
+
+test("a rejected OTLP post names the signal and the status", async () => {
+  const fetchFn = fakeFetch(new Response("nope", { status: 415 }));
+  await expect(postOtlp(1, "logs", {}, fetchFn, noWait)).rejects.toThrow(
+    "Collector rejected OTLP logs: 415 nope",
+  );
+});
+
+test("an OTLP post retries a reset connection after a growing wait and then succeeds", async () => {
+  const wait = vi.fn<(milliseconds: number) => Promise<void>>(
+    async () => undefined,
+  );
+  const fetchFn = fakeFetch(
+    reset(),
+    reset(),
+    new Response("{}", { status: 200 }),
+  );
+  await postOtlp(1, "logs", {}, fetchFn, wait);
+  expect(fetchFn).toHaveBeenCalledTimes(3);
+  expect(wait.mock.calls.map(([ms]) => ms)).toEqual([500, 1000]);
+});
+
+test("an OTLP post gives up after five resets and reports the last error", async () => {
+  const fetchFn = fakeFetch(reset(), reset(), reset(), reset(), reset());
+  await expect(postOtlp(1, "logs", {}, fetchFn, noWait)).rejects.toThrow(
+    "fetch failed",
+  );
+  expect(fetchFn).toHaveBeenCalledTimes(5);
 });
 
 test("an OTLP post does not retry a rejection by the Collector", async () => {
-  let calls = 0;
-  const fetchFn = (async () => {
-    calls += 1;
-    return new Response("bad", { status: 400 });
-  }) as unknown as typeof fetch;
-  await assert.rejects(postOtlp(1, "logs", {}, fetchFn, noWait), /400/);
-  assert.equal(calls, 1);
+  const fetchFn = fakeFetch(new Response("bad", { status: 400 }));
+  await expect(postOtlp(1, "logs", {}, fetchFn, noWait)).rejects.toThrow(
+    "Collector rejected OTLP logs: 400 bad",
+  );
+  expect(fetchFn).toHaveBeenCalledTimes(1);
 });
 
 test("the forward is ready only once the receiver answers an HTTP request", async () => {
-  let calls = 0;
-  const fetchFn = (async (url: string) => {
-    calls += 1;
-    assert.equal(url, "http://127.0.0.1:4000/v1/traces");
-    if (calls < 3) {
-      throw reset();
-    }
-    return new Response("", { status: 405 });
-  }) as unknown as typeof fetch;
-  await waitForOtlp(4000, fetchFn, noWait);
-  assert.equal(calls, 3);
+  const wait = vi.fn<(milliseconds: number) => Promise<void>>(
+    async () => undefined,
+  );
+  const fetchFn = fakeFetch(
+    reset(),
+    reset(),
+    new Response("", { status: 405 }),
+  );
+  await waitForOtlp(4000, fetchFn, wait);
+  expect(fetchFn).toHaveBeenCalledTimes(3);
+  expect(fetchFn).toHaveBeenLastCalledWith("http://127.0.0.1:4000/v1/traces");
+  expect(wait.mock.calls.map(([ms]) => ms)).toEqual([1000, 1000]);
 });
 
 test("a forward that never answers fails naming the port", async () => {
-  const fetchFn = (async () => {
+  const fetchFn = vi.fn<typeof fetch>(async () => {
     throw reset();
-  }) as unknown as typeof fetch;
-  await assert.rejects(
-    waitForOtlp(4000, fetchFn, noWait),
-    /4000.*did not answer/,
+  });
+  await expect(waitForOtlp(4000, fetchFn, noWait)).rejects.toThrow(
+    "port-forward on 127.0.0.1:4000 did not answer an HTTP request within 15s",
   );
+  expect(fetchFn).toHaveBeenCalledTimes(15);
 });

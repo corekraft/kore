@@ -1,6 +1,19 @@
-import assert from "node:assert/strict";
-import { test } from "vitest";
+import { beforeEach, expect, test, vi } from "vitest";
+import { isSensitiveName } from "../runtime/index.js";
 import { redactManifest } from "./render-redaction.js";
+
+// The runtime's name rule is another unit's behaviour, so it is a typed stub
+// here. The redaction marker is a constant and stays the real value.
+vi.mock("../runtime/index.js", () => ({
+  isSensitiveName: vi.fn(),
+  redactionMarker: "<redacted>",
+}));
+
+const sensitive = /secret|password|token|credential/i;
+
+beforeEach(() => {
+  vi.mocked(isSensitiveName).mockImplementation((name) => sensitive.test(name));
+});
 
 const secretManifest = `apiVersion: v1
 kind: Secret
@@ -27,25 +40,24 @@ data:
 test("redaction hides every Secret data and stringData value", () => {
   const out = redactManifest(secretManifest);
 
-  for (const leaked of [
-    "c3VwZXItc2VjcmV0LXVzZXI=",
-    "aHVudGVyMg==",
-    "plain-text-secret",
-    "other=line",
-    "plain-value-123",
-  ]) {
-    assert.ok(!out.includes(leaked), `${leaked} must not appear`);
-  }
-  assert.match(out, /username: <redacted>/);
-  assert.match(out, /config: <redacted>/);
+  expect(out).not.toContain("c3VwZXItc2VjcmV0LXVzZXI=");
+  expect(out).not.toContain("aHVudGVyMg==");
+  expect(out).not.toContain("plain-text-secret");
+  expect(out).not.toContain("other=line");
+  expect(out).not.toContain("plain-value-123");
+  expect(out).toMatch(/username: <redacted>/);
+  expect(out).toMatch(/config: <redacted>/);
 });
 
-test("redaction keeps non-secret documents and structure intact", () => {
+test("redaction keeps the keys and structure of Secrets and of other documents", () => {
   const out = redactManifest(secretManifest);
 
-  assert.match(out, /name: db/);
-  assert.match(out, /kind: ConfigMap/);
-  assert.match(out, /greeting: hello/);
+  expect(out).toContain(
+    "apiVersion: v1\nkind: Secret\nmetadata:\n  name: db\n",
+  );
+  expect(out).toContain("---\n");
+  expect(out).toContain("kind: ConfigMap\n");
+  expect(out).toContain("greeting: hello");
 });
 
 test("redaction hides inline flow-style Secret data", () => {
@@ -53,23 +65,30 @@ test("redaction hides inline flow-style Secret data", () => {
     "kind: Secret\ndata: {password: aHVudGVyMg==}\nstringData: {token: abc123}\n",
   );
 
-  assert.ok(!out.includes("aHVudGVyMg=="));
-  assert.ok(!out.includes("abc123"));
+  expect(out).not.toContain("aHVudGVyMg==");
+  expect(out).not.toContain("abc123");
 });
 
-test("redaction hides known sensitive keys outside Secrets", () => {
+test("redaction hides values under keys the runtime names sensitive, outside Secrets", () => {
   const out = redactManifest(
     "kind: Deployment\nenv:\n  - name: X\n    password: hunter2\n  token: abc.def\n",
   );
 
-  assert.ok(!out.includes("hunter2"));
-  assert.ok(!out.includes("abc.def"));
-  assert.match(out, /password: <redacted>/);
+  expect(out).toBe(
+    "kind: Deployment\nenv:\n  - name: X\n    password: <redacted>\n  token: <redacted>\n",
+  );
 });
 
-test("redaction leaves secret references and ordinary keys readable", () => {
+test("redaction leaves a key the runtime does not name sensitive exactly as written", () => {
+  const manifest = "kind: Deployment\nspec:\n  replicas: 3\n  image: app\n";
+
+  expect(redactManifest(manifest)).toBe(manifest);
+  expect(isSensitiveName).toHaveBeenCalledWith("replicas");
+});
+
+test("redaction leaves secret references and ordinary keys readable even when the runtime names them sensitive", () => {
   const manifest =
     "kind: ExternalSecret\nspec:\n  secretStoreRef: {name: platform-secrets}\n  secretName: db-credentials\n  remoteRef:\n    key: platform/db\n";
 
-  assert.equal(redactManifest(manifest), manifest);
+  expect(redactManifest(manifest)).toBe(manifest);
 });
