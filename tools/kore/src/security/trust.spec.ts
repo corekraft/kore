@@ -78,6 +78,16 @@ test("local trust hands the gateway namespace to Helm ownership and creates cert
   ]);
 });
 
+test("local trust without a platform option still builds and applies the CA secret", async () => {
+  const { runner, run } = fakeRunner(trustReply);
+  await installLocalTrust(repository, runner);
+  expect(run.mock.calls).toContainEqual([
+    "kubectl",
+    applyArgs,
+    { capture: true, input: "SECRET-YAML" },
+  ]);
+});
+
 test("local trust applies its manifests in order: namespaces, CA secret, issuer, then waits for the issuer to be ready", async () => {
   caFiles(certificate, key);
   const { runner, run } = fakeRunner(trustReply);

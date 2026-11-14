@@ -1,19 +1,26 @@
+// Docs: docs/decisions/0104-integration-specs-may-stub-a-domain-s-own-cluster-facing-modules.md
+// Stubs (ADR 0104) the platform's own ./reconcile.js, which applies releases to
+// the cluster and records each call in `reconciled`, and ./admission-gate.js
+// (gate open and close; covered in platform.admission-gate.spec.ts). It also
+// stubs the images barrel's signing-key publish.
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test, vi } from "vitest";
 
-vi.mock("../images/index.js", () => ({
+vi.mock("../../src/images/index.js", () => ({
   ensureLocalSigningPublicKey: async () => undefined,
 }));
-vi.mock("./admission-gate.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./admission-gate.js")>()),
+vi.mock("../../src/platform/admission-gate.js", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("../../src/platform/admission-gate.js")
+  >()),
   closeExistingAdmissionGate: async () => undefined,
   openAdmissionGate: async () => undefined,
 }));
 const reconciled: string[] = [];
-vi.mock("./reconcile.js", () => ({
+vi.mock("../../src/platform/reconcile.js", () => ({
   reconcileComponent: async () => undefined,
   reconcileIfNeeded: async (_r: unknown, _x: unknown, c: { name: string }) => {
     reconciled.push(`reconcile ${c.name}`);
@@ -26,9 +33,9 @@ vi.mock("./reconcile.js", () => ({
     reconciled.push(`reconcile ${c.name}`);
   },
 }));
-import { loadRepository } from "../config/index.js";
-import type { Runner } from "../runtime/index.js";
-import { platformUp } from "./up.js";
+import { loadRepository } from "../../src/config/index.js";
+import type { Runner } from "../../src/runtime/index.js";
+import { platformUp } from "../../src/platform/index.js";
 
 // Docs: docs/decisions/0056-platform-image-inventory.md
 // Namespaces are labelled after policy-controller and the image policy are

@@ -25,6 +25,21 @@ describe("terminateMatching under the unit setup", () => {
   });
 });
 
+describe("terminateMatching with no match", () => {
+  it("with no process matching, stops nothing and returns no pids", async () => {
+    const stopped = await terminateMatching(
+      () => false,
+      () => "",
+      {
+        listProcesses: async () => ENTRIES,
+        report: () => undefined,
+      },
+    );
+
+    expect(stopped).toEqual([]);
+  });
+});
+
 describe("terminateMatching", () => {
   it("sends SIGTERM to each matching process, reports it, and returns the pids stopped", async () => {
     const signalProcess = vi.fn<(pid: number, signal: string) => void>();

@@ -1,34 +1,43 @@
+// Docs: docs/decisions/0104-integration-specs-may-stub-a-domain-s-own-cluster-facing-modules.md
+// Stubs (ADR 0104) the platform's own ./enrollment.js (namespace labels; covered
+// in enrollment.spec.ts) and ./admission-gate.js (gate open and close; covered in
+// platform.admission-gate.spec.ts). It also stubs the images and security
+// barrels' publish, registry and trust calls, which are covered in their own specs.
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 
-vi.mock("./enrollment.js", () => ({
+vi.mock("../../src/platform/enrollment.js", () => ({
   enrollPlatformNamespaces: async () => undefined,
 }));
-vi.mock("../images/index.js", () => ({
+vi.mock("../../src/images/index.js", () => ({
   ensureLocalSigningPublicKey: async () => undefined,
   ensureRegistryAuth: async () => undefined,
   ensureRegistryTrust: async () => undefined,
   registryTrustProblem: async () => undefined,
 }));
-vi.mock("./admission-gate.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./admission-gate.js")>()),
+vi.mock("../../src/platform/admission-gate.js", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("../../src/platform/admission-gate.js")
+  >()),
   closeExistingAdmissionGate: async () => undefined,
   openAdmissionGate: async () => undefined,
   assertAdmissionGateOpen: async () => "g",
 }));
-vi.mock("../security/index.js", () => ({
+vi.mock("../../src/security/index.js", () => ({
   installLocalTrust: async () => undefined,
 }));
 import {
   loadRepository,
   type Component,
   type Repository,
-} from "../config/index.js";
-import { CommandError, type Runner } from "../runtime/index.js";
-import { bootstrapControllers } from "./bootstrap.js";
-import { platformUp } from "./up.js";
-import { platformStatus } from "./status.js";
-import { evaluateReadiness } from "./readiness-manifest.js";
+} from "../../src/config/index.js";
+import { CommandError, type Runner } from "../../src/runtime/index.js";
+import { evaluateReadiness } from "../../src/testing/index.js";
+import {
+  bootstrapControllers,
+  platformStatus,
+  platformUp,
+} from "../../src/platform/index.js";
 
 const deployed = JSON.stringify({ info: { status: "deployed" } });
 

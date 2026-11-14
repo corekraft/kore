@@ -78,6 +78,11 @@ export {
   readinessEvidenceObject,
 } from "../platform/readiness-manifest.js";
 export { withAbsoluteChart } from "../platform/helm.js";
+export {
+  nodePortService,
+  runningK3d,
+  runningK3dCluster,
+} from "../platform/k3d-fixtures.js";
 export { manifestImages } from "../config/manifest-images.js";
 // Platform units that the integration specs of Helm, reconcile and patches run
 // together (plan 14, #424). Production code never imports it, so the platform
