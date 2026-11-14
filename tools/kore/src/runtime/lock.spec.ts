@@ -1,8 +1,10 @@
+import { randomUUID } from "node:crypto";
 import { readFileSync, rmSync } from "node:fs";
 import { link, mkdir, open, rm } from "node:fs/promises";
+import { hostname, uptime } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { processAlive, readOwner } from "./lock-owner.js";
+import { errorCode, processAlive, readOwner } from "./lock-owner.js";
 import { judge, recover, refusal } from "./lock-recovery.js";
 import {
   HELD_LOCK_ENV,
@@ -19,9 +21,10 @@ import {
   ROOT,
   STAGING,
   TOKEN,
-  installLockDefaults,
+  GONE,
+  LIVE_HOLDER,
 } from "./lock-support.js";
-import { systemError, type FakeHandle } from "./runtime-support.js";
+import { fakeHandle, systemError, type FakeHandle } from "./runtime-support.js";
 
 vi.mock("node:crypto");
 vi.mock("node:fs");
@@ -33,23 +36,32 @@ vi.mock("./lock-recovery.js");
 
 let handle: FakeHandle;
 
+const LOCKS_DIR = "/root/.kore/locks";
+
 function options(extra: LockOptions = {}): LockOptions {
   return { onRecover: vi.fn(), onWait: vi.fn(), ...extra };
 }
 
 beforeEach(() => {
-  vi.useFakeTimers();
-  vi.setSystemTime(new Date(CLOCK));
+  vi.useFakeTimers({ now: new Date(CLOCK) });
   vi.spyOn(process, "once").mockImplementation(() => process);
   vi.mocked(join).mockImplementation((...parts) => parts.join("/"));
-  handle = installLockDefaults();
+  vi.mocked(randomUUID).mockReturnValue(TOKEN);
+  vi.mocked(hostname).mockReturnValue("box");
+  vi.mocked(uptime).mockReturnValue(1000);
+  vi.mocked(errorCode).mockImplementation(
+    (error) => (error as NodeJS.ErrnoException).code,
+  );
+  handle = fakeHandle();
+  vi.mocked(open).mockResolvedValue(handle.handle);
+  vi.mocked(link).mockResolvedValue(undefined);
+  vi.mocked(readOwner).mockResolvedValue(OWNER);
+  vi.mocked(judge).mockResolvedValue({ dead: false, reason: "x", fix: "y" });
+  vi.mocked(refusal).mockImplementation(() => new Error("refused"));
   delete process.env[HELD_LOCK_ENV];
 });
 
-afterEach(() => {
-  vi.useRealTimers();
-  delete process.env[HELD_LOCK_ENV];
-});
+afterEach(() => vi.useRealTimers());
 
 describe("holdEnvironmentLock", () => {
   it("stages the owner record and links it into place, so the lock appears with its owner", async () => {
@@ -64,7 +76,7 @@ describe("holdEnvironmentLock", () => {
   it("creates the locks directory, recursively, before taking the lock", async () => {
     await holdEnvironmentLock(ROOT, "local");
 
-    expect(mkdir).toHaveBeenCalledWith("/root/.kore/locks", {
+    expect(mkdir).toHaveBeenCalledWith(LOCKS_DIR, {
       recursive: true,
     });
   });
@@ -119,12 +131,7 @@ describe("holdEnvironmentLock", () => {
 
   it("probes liveness with kill(pid, 0) and dates the boot from the clock minus uptime by default", async () => {
     vi.mocked(link).mockRejectedValueOnce(systemError("EEXIST"));
-    vi.mocked(judge).mockResolvedValueOnce({
-      dead: false,
-      reason: "x",
-      fix: "y",
-      gone: true,
-    });
+    vi.mocked(judge).mockResolvedValueOnce(GONE);
 
     await holdEnvironmentLock(ROOT, "local");
 
@@ -136,12 +143,7 @@ describe("holdEnvironmentLock", () => {
 
 describe("waiting for a live holder", () => {
   beforeEach(() => {
-    vi.mocked(judge).mockResolvedValue({
-      dead: false,
-      reason: "held by running pid 7",
-      fix: "Wait.",
-      live: true,
-    });
+    vi.mocked(judge).mockResolvedValue(LIVE_HOLDER);
     vi.mocked(link).mockRejectedValue(systemError("EEXIST"));
   });
 
@@ -163,11 +165,10 @@ describe("waiting for a live holder", () => {
   });
 
   it("refuses a holder that outlasts the wait, naming the holder and the wait", async () => {
-    const failure = holdEnvironmentLock(
-      ROOT,
-      "local",
-      options({ waitMs: 50, pollMs: 10 }),
-    ).catch((caught: unknown) => caught);
+    const opts = options({ waitMs: 50, pollMs: 10 });
+    const failure = holdEnvironmentLock(ROOT, "local", opts).catch(
+      (caught: unknown) => caught,
+    );
     await vi.runAllTimersAsync();
 
     expect(await failure).toEqual(new Error("refused"));
@@ -211,12 +212,7 @@ describe("recovering a stale lock", () => {
 
   it("retries at once when the lock vanished between the attempt and its inspection", async () => {
     vi.mocked(link).mockRejectedValueOnce(systemError("EEXIST"));
-    vi.mocked(judge).mockResolvedValueOnce({
-      dead: false,
-      reason: "gone",
-      fix: "Retry.",
-      gone: true,
-    });
+    vi.mocked(judge).mockResolvedValueOnce(GONE);
 
     await holdEnvironmentLock(ROOT, "local");
 

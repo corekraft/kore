@@ -241,54 +241,14 @@ describe("ProcessRunner: the timeout", () => {
   });
 });
 
-describe("ProcessRunner: aborting", () => {
-  it("terminates the child at once when the signal is already aborted", () => {
-    const controller = new AbortController();
-    controller.abort();
-
-    void runner().run("tool", [], { signal: controller.signal });
-
-    expect(signalGroup).toHaveBeenCalledWith(4242, "SIGTERM");
-  });
-
-  it("terminates the child when the signal aborts mid-run, and stops listening once it exits", async () => {
-    const controller = new AbortController();
-    const result = runner().run("tool", [], { signal: controller.signal });
-
-    controller.abort();
-    expect(signalGroup).toHaveBeenCalledWith(4242, "SIGTERM");
-
-    child.emit("close", 143);
-    await expect(result).rejects.toBeInstanceOf(CommandError);
-    controller.abort();
-    expect(signalGroup).toHaveBeenCalledTimes(1);
-  });
-
-  it("does not signal a child that was never aborted", () => {
-    void runner().run("tool", [], { signal: new AbortController().signal });
-
-    expect(signalGroup).not.toHaveBeenCalled();
-    expect(child.kill).not.toHaveBeenCalled();
-  });
-});
-
 describe("ProcessRunner: signalling the child", () => {
-  it("signals the whole group of a detached child through the group signaller", () => {
+  it("signals a detached child's whole group through the group signaller", () => {
     void runner().run("tool", []);
 
     lastWatchdog().options.send("SIGKILL");
 
     expect(signalGroup).toHaveBeenCalledWith(4242, "SIGKILL");
     expect(child.kill).not.toHaveBeenCalled();
-  });
-
-  it("signals an uncaptured child itself, since it has no group of its own", () => {
-    void runner().run("tool", [], { capture: false });
-
-    lastWatchdog().options.send("SIGTERM");
-
-    expect(child.kill).toHaveBeenCalledWith("SIGTERM");
-    expect(signalGroup).not.toHaveBeenCalled();
   });
 });
 

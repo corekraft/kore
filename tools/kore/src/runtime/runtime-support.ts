@@ -23,11 +23,8 @@ export function fakeHandle() {
   const writeFile = vi.fn<(data: string) => Promise<void>>(
     async () => undefined,
   );
-  return {
-    close,
-    writeFile,
-    handle: { close, writeFile } as unknown as FileHandle,
-  };
+  const methods: Pick<FileHandle, "close" | "writeFile"> = { close, writeFile };
+  return { close, writeFile, handle: methods as FileHandle };
 }
 
 export type FakeHandle = ReturnType<typeof fakeHandle>;
