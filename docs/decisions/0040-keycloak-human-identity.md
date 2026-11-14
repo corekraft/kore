@@ -2,7 +2,7 @@
 status: proposed
 summary: Each tenant root gets its own Keycloak, composed by the Organization API, with one realm and nested groups per sub-organization, so that tenant's tools read membership from tokens its Keycloak issues.
 date: 2026-11-08
-last-verified: 2026-11-09
+last-verified: 2026-11-14
 ---
 
 # ADR 0040: Give each tenant its own Keycloak with groups mirroring organizations
@@ -22,6 +22,10 @@ follows the same boundary.
 
 ## Decision
 
+- **Horizon split.** The platform organization's Keycloak arrives in Next, so
+  the portal has a sign-in before any tenant exists; its memory counts in
+  Next's footprint. Per-tenant Keycloaks arrive in Then, with the tenancy
+  model they depend on.
 - **Keycloak, one instance per tenant root.** The `Organization` API composes a
   Keycloak for each tenant root through the Keycloak operator, which the
   platform installs once. Each instance claims its database through the

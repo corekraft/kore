@@ -873,9 +873,10 @@
           <article class="tile">
             <h3>A developer portal out of the box</h3>
             <p>
-              Every tenant gets its own Backstage, Argo CD, and Keycloak, wired
-              to the tenancy model: each organization sees its own catalog and
-              delivers from git.
+              Every tenant gets its own Backstage, Argo CD, and Keycloak (the
+              platform Keycloak first, tenant Keycloaks later), wired to the
+              tenancy model: each organization sees its own catalog and delivers
+              from git.
             </p>
             <div class="chips">
               <span class="pill new">New: portal, GitOps</span>
@@ -1947,11 +1948,13 @@
             the organization tree (<a
               href="https://github.com/corekraft/kore/blob/main/docs/decisions/0040-keycloak-human-identity.md"
               >ADR 0040</a
-            >). Organizations use Kore through them without a terminal, and each
-            user sees only their own organizations. Backstage reads cluster and
-            repository state, and every change it makes becomes a reviewed
-            change to desired state that Argo CD or <code>kore</code> applies,
-            never a direct edit to the cluster.
+            >). The platform organization's Keycloak arrives in Next, so the
+            portal has a sign-in from the start; per-tenant Keycloaks arrive
+            later, with Then. Organizations use Kore through them without a
+            terminal, and each user sees only their own organizations. Backstage
+            reads cluster and repository state, and every change it makes
+            becomes a reviewed change to desired state that Argo CD or
+            <code>kore</code> applies, never a direct edit to the cluster.
           </p>
         </div>
         <div class="split">
@@ -2296,7 +2299,10 @@
             <p>
               <code>Organization</code> and <code>Service</code> exist as
               platform APIs; Argo CD delivers a Kotlin BFF and a static frontend
-              that reach HTTPS and scale 1→N; Backstage shows them.
+              that reach HTTPS and scale 1→N; Backstage shows them; people are
+              signed in through the platform Keycloak; each delivered service
+              shows its default dashboard and alerts with no setup; alerts
+              notify-only until thresholds are measured.
             </p>
           </li>
           <li class="horizon">
