@@ -3,8 +3,8 @@
 // Plan: infra/plans/8-harness-measurement.md#step-3-stage-event-ledger
 
 import { describe, expect, it } from "vitest";
-import { run } from "../cli/index.js";
-import { ledgerEvents, testHarness } from "../testing/index.js";
+import { run } from "../../src/cli/index.js";
+import { ledgerEvents, testHarness } from "../../src/testing/index.js";
 
 /** The ledger's events from a fake file map, one JSON object per line. */
 

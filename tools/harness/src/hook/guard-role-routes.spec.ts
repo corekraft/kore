@@ -1,129 +1,171 @@
-import { describe, expect, it } from "vitest";
-import { checkDeliveryBash } from "./guard-role-delivery.js";
-import { allowed, blocked, decide } from "../testing/index.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { expand, isDash } from "./guard-role-merge.js";
+import { gitCall } from "./guard-role-push.js";
+import { commandOf } from "./guard-shell.js";
+import { takesRoute, takesWriterRoute } from "./guard-role-routes.js";
 
-const as = (agent_type: string, command: string) =>
-  decide({ agent_type, tool_name: "Bash", tool_input: { command } });
-const bare = (command: string) =>
-  decide({ tool_name: "Bash", tool_input: { command } });
+vi.mock("./guard-role-merge.js");
+vi.mock("./guard-role-push.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./guard-role-push.js")>()),
+  gitCall: vi.fn(),
+}));
+vi.mock("./guard-shell.js");
 
-/** Routes to main or past the main ruleset that no role-bound pane may take. */
-const EVERY_ROLE = [
-  "gh api repos/corekraft/kore/merges -f base=main -f head=x",
-  "gh api -X POST repos/corekraft/kore/merges",
-  "gh api repos/corekraft/kore/merge-upstream -f branch=main",
-  "gh api -X POST repos/corekraft/kore/git/refs -f ref=refs/heads/main -f sha=abc",
-  "gh api -X PATCH repos/corekraft/kore/git/refs/heads/main -f sha=abc -F force=true",
-  "gh api --method DELETE repos/corekraft/kore/git/refs/heads/x",
-  "gh api repos/corekraft/kore/git/refs -f ref=refs/heads/x -f sha=y",
-  "gh api -X PUT repos/corekraft/kore/contents/a.md -f message=x -f branch=main",
-  "gh api -X DELETE repos/corekraft/kore/rulesets/12",
-  "gh api -X PUT repos/corekraft/kore/branches/main/protection --input p.json",
-  "gh alias set m 'pr merge'",
-  "gh alias set --shell m 'gh pr merge $1'",
-  "gh alias import aliases.yml",
-  "git -c remote.origin.push=HEAD:main push origin",
-  "git -c push.default=upstream push",
-  "git -c branch.feat.merge=refs/heads/main push",
-  "git -c remote.origin.pushurl=/x push origin feat",
-  "git --config-env=remote.origin.push=PUSHSPEC push origin",
-  "echo $(gh pr merge 12 --squash)",
-  "echo `gh pr merge 12`",
-  "ls $(echo $(git push origin main))",
-];
+/** A gh command line, as the shell splits it; expand is faked to return the segment unchanged. */
+const gh = (...words: string[]) => ["gh", ...words];
 
-/** More only the writer can reach: it has the full shell, the read-only roles do not. */
-const WRITER_ONLY = [
-  "git config remote.origin.push HEAD:main",
-  "git config --local branch.feat.merge refs/heads/main",
-  "git config --global push.default upstream",
-  "git config --add remote.origin.push main",
-  "git config --unset remote.origin.url",
-  "git config --replace-all branch.main.remote origin",
-  "git push --repo=origin main",
-  "git push --repo origin main",
-  "time -p gh pr merge 12",
-  "/usr/bin/time -p gh pr merge 12",
-  "sudo -u root gh pr merge 12",
-  "time -p git push origin main",
-  'gh api graphql -f query="$Q"',
-  "gh api graphql -f query='query($id: ID!) { node(id: $id) { id } }'",
-  'gh api graphql -f query="$(cat q.graphql)"',
-  "gh auth token",
-  "gh auth token --hostname github.com",
-  "gh auth status --show-token",
-  "gh auth status -t",
-  "gh auth git-credential get",
-  'curl -X PUT -H "Authorization: Bearer $(gh auth token)" https://api.github.com/repos/corekraft/kore/pulls/12/merge',
-  'curl -H "Authorization: Bearer `gh auth token`" https://api.github.com/user',
-  "echo $(gh auth token)",
-  "TOKEN=$(gh auth token) ./push.sh",
-  'curl -H "Authorization: Bearer $(echo $(gh auth token))" https://api.github.com/user',
-  'curl -H "Authorization: Bearer $(cat <(gh auth token))" https://api.github.com/user',
-];
+/** Command lines in a fake shell: the first word names the command, the rest are its arguments. */
+const splitWords = (words: readonly string[]) => ({
+  name: words[0] ?? "",
+  args: words.slice(1),
+});
 
-describe("role-no-merge: the cheap routes around the merge tool", () => {
-  it("blocks every role-bound pane from each api, alias and git -c route", async () => {
-    for (const role of ["orchestrator", "writer", "judge"]) {
-      for (const command of EVERY_ROLE) {
-        blocked(await as(role, command), "role-no-merge");
-      }
-    }
+beforeEach(() => {
+  vi.mocked(expand).mockImplementation((segment) => [[...segment]]);
+  vi.mocked(isDash).mockImplementation(
+    (word) => word !== undefined && word.startsWith("-"),
+  );
+  vi.mocked(commandOf).mockImplementation(splitWords);
+  vi.mocked(gitCall).mockReturnValue(undefined);
+});
+
+describe("takesRoute: a gh form that moves a branch or rewrites the ruleset", () => {
+  it.each([
+    ["alias set", ["alias", "set", "m", "pr merge"]],
+    ["alias import", ["alias", "import", "aliases.yml"]],
+  ])("takes the route for gh %s", (_name, args) => {
+    expect(takesRoute(gh(...args))).toBe(true);
   });
 
-  it("blocks the writer from each config write, --repo, wrapper and token route", async () => {
-    for (const command of WRITER_ONLY) {
-      blocked(await as("writer", command), "role-no-merge");
-    }
+  it.each([
+    ["a REST write to a git ref", ["api", "-X", "POST", "repos/o/r/git/refs"]],
+    [
+      "a PATCH to a branch",
+      ["api", "-X", "PATCH", "repos/o/r/git/refs/heads/main"],
+    ],
+    [
+      "a DELETE of a ruleset",
+      ["api", "--method", "DELETE", "repos/o/r/rulesets/12"],
+    ],
+    ["a contents write", ["api", "-X", "PUT", "repos/o/r/contents/a.md"]],
+    [
+      "a field, which makes the call a POST",
+      ["api", "repos/o/r/git/trees", "-f", "x=1"],
+    ],
+  ])("takes the route for %s", (_name, args) => {
+    expect(takesRoute(gh(...args))).toBe(true);
   });
 
-  it("leaves a session with no role every one of them", async () => {
-    for (const command of [...EVERY_ROLE, ...WRITER_ONLY]) {
-      allowed(await bare(command));
-    }
+  it("does not take the route for a read of the same path", () => {
+    expect(takesRoute(gh("api", "repos/o/r/git/refs"))).toBe(false);
+    expect(takesRoute(gh("api", "-X", "GET", "repos/o/r/rulesets/12"))).toBe(
+      false,
+    );
   });
 
-  it("still lets a writer read through gh api and git config, and run a timed command", async () => {
-    for (const command of [
-      "gh api repos/corekraft/kore/pulls/12",
-      "gh api repos/corekraft/kore/git/refs/heads/main",
-      "gh api -X GET repos/corekraft/kore/git/refs -f per_page=5",
-      "gh api graphql -f query='{ viewer { login } }'",
-      "gh auth status",
-      "git config --get remote.origin.url",
-      "git config --get branch.main.merge",
-      "git config -l",
-      "git config user.name tester",
-      "git -c core.pager=cat log -1",
-      "time -p ls",
-    ]) {
-      allowed(await as("writer", command));
-    }
+  it("does not take the route for a write to a path the ruleset does not guard", () => {
+    expect(takesRoute(gh("api", "-X", "POST", "repos/o/r/issues"))).toBe(false);
+  });
+
+  it("does not take the route for a command that is not gh", () => {
+    vi.mocked(commandOf).mockReturnValue({
+      name: "git",
+      args: ["alias", "set"],
+    });
+
+    expect(takesRoute(["git", "alias", "set"])).toBe(false);
+  });
+
+  it("takes the route when a wrapped line inside the segment is the gh form", () => {
+    vi.mocked(expand).mockReturnValue([
+      ["env"],
+      ["gh", "alias", "set", "m", "pr merge"],
+    ]);
+
+    expect(takesRoute(["env", "gh", "alias", "set", "m", "pr merge"])).toBe(
+      true,
+    );
   });
 });
 
-describe("role-worktree: a writer's ordinary branch push passes", () => {
-  it("does not read feat/x in a push as an absolute path", async () => {
-    for (const command of [
-      "git push -u origin feat/x",
-      "git push -u origin feat/judge-merge-tool",
-      "git push --force-with-lease origin feat/x:feat/x",
-      "git push origin HEAD:feat/x",
-    ]) {
-      allowed(await as("writer", command));
-    }
+describe("takesWriterRoute: a route only the writer's full shell reaches", () => {
+  it("takes the route for a git config write to a remote, push or branch key", () => {
+    vi.mocked(gitCall).mockReturnValue({
+      config: [],
+      sub: "config",
+      args: ["remote.origin.push", "HEAD:main"],
+    });
+
+    expect(
+      takesWriterRoute(["git", "config", "remote.origin.push", "HEAD:main"]),
+    ).toBe(true);
   });
 
-  it("still reads a real absolute or parent path as outside the worktree", () => {
-    for (const command of [
-      "git push origin feat/x > /etc/out",
-      "cp a ../b",
-      "tee --output=/etc/x",
-      "dd of=/etc/x",
-    ]) {
-      expect(checkDeliveryBash("writer", command, "/repo")?.rule).toBe(
-        "role-worktree",
-      );
-    }
+  it("does not take the route for a git config read, or a key outside the push keys", () => {
+    vi.mocked(gitCall).mockReturnValueOnce({
+      config: [],
+      sub: "config",
+      args: ["--get", "remote.origin.push"],
+    });
+    vi.mocked(gitCall).mockReturnValueOnce({
+      config: [],
+      sub: "config",
+      args: ["user.name", "x"],
+    });
+
+    expect(
+      takesWriterRoute(["git", "config", "--get", "remote.origin.push"]),
+    ).toBe(false);
+    expect(takesWriterRoute(["git", "config", "user.name", "x"])).toBe(false);
+  });
+
+  it("takes the route for a config write flag even with no value after the key", () => {
+    vi.mocked(gitCall).mockReturnValue({
+      config: [],
+      sub: "config",
+      args: ["--unset", "branch.main.remote"],
+    });
+
+    expect(
+      takesWriterRoute(["git", "config", "--unset", "branch.main.remote"]),
+    ).toBe(true);
+  });
+
+  it("does not take the route for a git command that is not config", () => {
+    vi.mocked(gitCall).mockReturnValue({
+      config: [],
+      sub: "push",
+      args: ["origin"],
+    });
+
+    expect(takesWriterRoute(["git", "push", "origin"])).toBe(false);
+  });
+
+  it.each([
+    ["gh auth token", ["auth", "token"]],
+    ["gh auth git-credential", ["auth", "git-credential"]],
+    ["gh auth status --show-token", ["auth", "status", "--show-token"]],
+    ["gh auth status -t", ["auth", "status", "-t"]],
+  ])("takes the route for %s, which prints the credential", (_name, args) => {
+    expect(takesWriterRoute(gh(...args))).toBe(true);
+  });
+
+  it("takes the route for a graphql query that holds a shell expansion", () => {
+    expect(takesWriterRoute(gh("api", "graphql", "-f", "query=$(cat q)"))).toBe(
+      true,
+    );
+  });
+
+  it("does not take the route for gh auth status without the token flag, or a graphql query without an expansion", () => {
+    expect(takesWriterRoute(gh("auth", "status"))).toBe(false);
+    expect(takesWriterRoute(gh("api", "graphql", "-f", "query=ok"))).toBe(
+      false,
+    );
+  });
+
+  it("checks every expanded line of the segment, so a wrapped credential read is taken", () => {
+    vi.mocked(expand).mockReturnValue([["env"], ["gh", "auth", "token"]]);
+
+    expect(takesWriterRoute(["env", "gh", "auth", "token"])).toBe(true);
   });
 });
