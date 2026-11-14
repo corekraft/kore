@@ -1,14 +1,14 @@
 import { expect, test } from "vitest";
-import { loadRepository } from "../config/index.js";
-import { readyRows } from "./readiness-fixtures.js";
-import { platformGeneration } from "./admission-gate.js";
+import { loadRepository } from "../../src/config/index.js";
+import { readyRows } from "../../src/testing/index.js";
 import {
+  type ComponentStatus,
   evaluateReadiness,
+  platformGeneration,
   readinessEvidenceName,
   readinessEvidenceObject,
   readinessFailureSummary,
-} from "./readiness-manifest.js";
-import type { ComponentStatus } from "./status.js";
+} from "../../src/platform/index.js";
 
 // Docs: docs/decisions/0067-platform-readiness-manifest-and-evidence.md
 

@@ -19,7 +19,7 @@ vi.mock("./admission-gate.js", async (importOriginal) => ({
   assertAdmissionGateOpen: async () => "g",
 }));
 vi.mock("./status.js", async () => {
-  const { readyRows } = await import("./readiness-fixtures.js");
+  const { readyRows } = await import("../testing/index.js");
   return {
     imageInventoryStatusName: "image-inventory",
     platformStatus: async (repository: Parameters<typeof readyRows>[0]) =>

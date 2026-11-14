@@ -114,6 +114,17 @@ test("a CRD that does not exist yet is retried after a pause until it is Establi
   expect(run).toHaveBeenCalledTimes(2);
 });
 
+test("a wait that fails for another reason is rethrown at once, with no pause", async () => {
+  const { wait } = waitOn(
+    ["crd/x"],
+    () => new Error("forbidden: cannot list crds"),
+  );
+
+  await expect(wait()).rejects.toThrow("forbidden");
+
+  expect(pause).not.toHaveBeenCalled();
+});
+
 test("a Crossplane Function is proven Installed and then Healthy, in that order", async () => {
   const { run, wait } = waitOn(["function.pkg.crossplane.io/kcl"]);
 

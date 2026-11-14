@@ -95,6 +95,22 @@ test("a run whose evidence is not open closes the gate and never opens it", asyn
   expect(recordReadinessEvidence).not.toHaveBeenCalled();
 });
 
+test("a closed run whose evidence cannot be recorded reports why on the log, and still fails closed", async () => {
+  vi.mocked(evaluateReadiness).mockReturnValue(failingEvidence);
+  vi.mocked(tryRecordReadinessEvidence).mockImplementation(
+    async (_repository, _runner, _evidence, warn) => {
+      warn("evidence write failed");
+    },
+  );
+  const log = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+
+  await expect(openApplicationAdmission(repository, runner)).rejects.toThrow(
+    "stays closed",
+  );
+
+  expect(log).toHaveBeenCalledWith("evidence write failed\n");
+});
+
 test("a closed run fails naming the summary of its failures and the command to rerun", async () => {
   vi.mocked(evaluateReadiness).mockReturnValue(failingEvidence);
 

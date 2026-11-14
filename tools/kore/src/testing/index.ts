@@ -44,3 +44,5 @@ export {
   useExportRepository,
 } from "./data-export.fixtures.js";
 export { registryCaPem, registryTlsSecret } from "./registry-tls-fixtures.js";
+export { readyRows } from "./platform-readiness.fixtures.js";
+export { healthyClusterOutput } from "./platform-resilience.fixtures.js";

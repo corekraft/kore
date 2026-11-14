@@ -1,16 +1,15 @@
-import { loadRepository } from "../config/index.js";
+import { loadRepository } from "../../src/config/index.js";
 import assert from "node:assert/strict";
 import { test } from "vitest";
 
-import { healthyRunner, type Call } from "../testing/index.js";
-import { CommandError, type Runner } from "../runtime/index.js";
+import { healthyRunner, type Call } from "../../src/testing/index.js";
+import { CommandError, type Runner } from "../../src/runtime/index.js";
 import {
   admissionVerdict,
   deployedImage,
   publishSignedCopy,
   publishUntrustedCopies,
-  scaleDeployment,
-} from "./admission-probe.js";
+} from "../../src/platform/index.js";
 
 // Docs: docs/decisions/0028-image-trust-authority.md
 // Helpers for the opt-in live admission specs; fast tests fake the runner.
@@ -20,6 +19,16 @@ const copiedDigest = `sha256:${"d".repeat(64)}`;
 
 function denied(stderr: string): CommandError {
   return new CommandError("kubectl", [], { stdout: "", stderr, code: 1 });
+}
+
+/** No recorded call carries the push password in its arguments. */
+function assertNoSecretInArguments(calls: Call[]): void {
+  for (const call of calls) {
+    assert.ok(
+      !call.args.some((arg) => arg.includes("push-password")),
+      "no secret appears in an argument",
+    );
+  }
 }
 
 test("a server dry run of an admitted pod reports admitted, creating nothing", async () => {
@@ -194,12 +203,7 @@ test("untrusted copies are pushed with the push identity and one is signed with 
   assert.ok(
     envs.every((env) => env["COSIGN_PASSWORD"] === "" || env["DOCKER_CONFIG"]),
   );
-  for (const call of calls) {
-    assert.ok(
-      !call.args.some((arg) => arg.includes("push-password")),
-      "no secret appears in an argument",
-    );
-  }
+  assertNoSecretInArguments(calls);
 });
 
 test("a signed copy is pushed under its own probe repository and signed with the cluster's local key, never a file key", async () => {
@@ -235,64 +239,4 @@ test("a signed copy is pushed under its own probe repository and signed with the
     1,
     "no throwaway key is generated",
   );
-});
-
-test("scaling names the environment context and namespace, never the current context", async () => {
-  const repository = await loadRepository("local");
-  const calls: Call[] = [];
-  const runner: Runner = {
-    async run(command, args) {
-      calls.push({ command, args });
-      return { stdout: "", stderr: "", code: 0 };
-    },
-  };
-
-  await scaleDeployment(repository, runner, "kore-registry", "oci-registry", 0);
-
-  assert.deepEqual(calls[0]!.args, [
-    "--context",
-    repository.environment.kubeContext,
-    "--namespace",
-    "kore-registry",
-    "scale",
-    "deployment/oci-registry",
-    "--replicas=0",
-  ]);
-  assert.equal(
-    calls.length,
-    1,
-    "scaling is one mutation; waiting is the caller's",
-  );
-});
-
-test("a probe can name the ServiceAccount its pod uses, so identity policy can be probed", async () => {
-  const repository = await loadRepository("local");
-  let body = "";
-  const runner: Runner = {
-    async run(_command, _args, options) {
-      body = options?.input ?? "";
-      return { stdout: "pod/x created (server dry run)", stderr: "", code: 0 };
-    },
-  };
-
-  await admissionVerdict(repository, runner, "reference", source, {
-    serviceAccountName: "default",
-  });
-
-  assert.equal(JSON.parse(body).spec.serviceAccountName, "default");
-});
-
-test("a probe without a ServiceAccount option leaves the pod spec unchanged", async () => {
-  const repository = await loadRepository("local");
-  let body = "";
-  const runner: Runner = {
-    async run(_command, _args, options) {
-      body = options?.input ?? "";
-      return { stdout: "", stderr: "", code: 0 };
-    },
-  };
-
-  await admissionVerdict(repository, runner, "reference", source);
-
-  assert.equal("serviceAccountName" in JSON.parse(body).spec, false);
 });
