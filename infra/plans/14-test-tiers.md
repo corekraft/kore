@@ -21,7 +21,7 @@ the terms are in [`GLOSSARY.md`](../../GLOSSARY.md) (Testing). Tracking issue:
 
 ## Step 1: Foundations
 
-Next: #372 awaits a green nightly run; #373 awaits the owner's required-check ruleset action and a green integration run; #404 awaits a dispatch proof; #405 awaits the owner's number and a live run; #419 awaits a dispatch proof. Label each later ticket when its blockers close. Full state: #371.
+Next: Waiting only on the owner or a run, each stated on its issue and rolled up on #371: #372 (one green nightly after the live rename), #373 (owner adds 'integration' as a required check on main's ruleset; one green integration run on main), #405 (owner picks the worker-cap default; a live responsiveness run), #419 (already built in #464; one workflow_dispatch run). #404 is closed on recorded main runs. Unit-run budget is 2 min (ADR 0106). Open retro items and their reasons are on #417 and the issues themselves; no agent work is owed.
 
 ### Work
 
@@ -79,8 +79,8 @@ split into batches of about 15 source files.
 ### Work
 
 - [x] Run integration tests after every merge and gate the release tag on
-      them (#404). Merged in #572 (ADR 0105); a `workflow_dispatch` proof is
-      still owed on #404.
+      them (#404). Merged in #572 (ADR 0105); the proof is recorded on #404
+      (closed 2026-11-14 on real main release runs, not a dispatch).
 - [ ] Measure and raise the unit test worker cap (#405). Measurements are
       recorded on #405; waiting on the owner's number and a live
       responsiveness run.
@@ -92,7 +92,7 @@ split into batches of about 15 source files.
 ### Exit Criteria
 
 - A failing integration test on main leaves no new release tag: #572 merged;
-  the dispatch proof is owed on #404.
+  the proof is recorded on #404.
 - No issue or pull request carries `paused`: done by the orchestrator right
   after this PR merges.
 
