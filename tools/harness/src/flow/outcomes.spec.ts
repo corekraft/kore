@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Kind, LedgerEvent } from "../ledger/index.js";
 import { time } from "./github-waits.js";
 import { inWindow } from "./scope.js";
-import { guardBlocks, outcomes } from "./outcomes.js";
+import { REPOSITORY_KINDS, guardBlocks, outcomes } from "./outcomes.js";
 
 vi.mock("./github-waits.js");
 vi.mock("./scope.js");
@@ -200,5 +200,11 @@ describe("guardBlocks", () => {
         WINDOW,
       ),
     ).toEqual([{ rule: "kept", blocks: 1 }]);
+  });
+});
+
+describe("REPOSITORY_KINDS", () => {
+  it("holds host samples, which belong to no idea, so they are never counted as unmapped work", () => {
+    expect(REPOSITORY_KINDS.has("host-sample")).toBe(true);
   });
 });

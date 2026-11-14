@@ -1,0 +1,42 @@
+name: pr-declaration
+
+# An audit, not a gate (AGENTS.md: audit before enforce). It reports whether the PR
+# body has exactly one valid `Safety pattern: <pattern>` line as its last line, using
+# the judge's own parser (tools/harness/src/judge/declaration.ts) through the harness
+# bundle. The audit step has continue-on-error, so a body that fails the audit shows
+# a failed step and an annotation but leaves the job, and its check run, green.
+# Making the audit required is a ruleset change for the owner.
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  pr-declaration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      MISE_TASK_RUN_AUTO_INSTALL: "false"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        with:
+          install: true
+          install_args: node npm
+          cache: true
+      - name: Install harness dependencies
+        run: npm ci --prefix tools/harness
+      - name: Build harness bundle
+        run: mise run harness-build
+      - name: Audit the PR body declaration
+        continue-on-error: true
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: printf '%s' "$PR_BODY" | node skills/bin/harness.mjs judge declaration

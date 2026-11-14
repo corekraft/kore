@@ -44,6 +44,7 @@ const repository = fakeRepository();
 const managed = fakeRepository({ provider: "managed" });
 
 beforeEach(() => {
+  vi.mocked(pruneStaleImageTags).mockReset();
   vi.mocked(isLocalProvider).mockReturnValue(true);
   vi.mocked(dirname).mockImplementation((path) =>
     path.slice(0, path.lastIndexOf("/")),
