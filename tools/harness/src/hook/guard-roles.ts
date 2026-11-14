@@ -1,7 +1,7 @@
-// The one list of guard roles (ADR 0078, ADR 0080). The guard rules read these groups, and the
-// bypass corpus reads the registry too, so a role is named in one place. The coverage check
-// (guard-role-coverage.ts) fails in CI when a registry role has no spec case or a spec names a
-// role the registry lacks.
+// The one list of guard roles (ADR 0078, ADR 0080). The guard rules read these groups. The bypass
+// corpus (guard-corpus.ts) keeps its own role lists on purpose and is checked AGAINST this registry
+// by roleCoverage in guard-corpus.spec.ts: that check fails in CI when a registry role has no corpus
+// case or a corpus case names a role the registry lacks.
 
 /** Roles that read and report and never write a file (the concierge and challenger never read code). */
 export const READ_ONLY_ROLES = ["concierge", "reader", "refiner", "challenger"];
