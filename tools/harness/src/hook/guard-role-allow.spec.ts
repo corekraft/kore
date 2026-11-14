@@ -78,6 +78,10 @@ describe("readMayRun: paste, cut, uniq, wc and tr are read utilities", () => {
 
   it("refuses uniq with an output file, which is the second positional argument", () => {
     expect(run("uniq", "-c", "input.txt", "out.txt")).toBe(false);
+    expect(run("uniq", "-", "out.txt")).toBe(false);
+    expect(run("uniq", "--", "a", "b")).toBe(false);
+    expect(run("uniq", "-c", "-")).toBe(true);
+    expect(run("uniq", "--", "-x")).toBe(true);
   });
 });
 

@@ -65,9 +65,17 @@ function utilityMayRun(name: string, args: readonly string[]): boolean {
       return !args.some(
         (arg) => /^-[a-zA-Z]*C/.test(arg) || arg === "--compile",
       );
-    case "uniq":
-      // `uniq [INPUT [OUTPUT]]`: a second positional word names a file to write.
-      return args.filter((arg) => !arg.startsWith("-")).length <= 1;
+    case "uniq": {
+      // `uniq [INPUT [OUTPUT]]`: a second positional word names a file to write. A lone `-`
+      // is a positional (standard input), and every word after `--` is positional too.
+      const end = args.indexOf("--");
+      const options = end === -1 ? args : args.slice(0, end);
+      const after = end === -1 ? [] : args.slice(end + 1);
+      const positional =
+        options.filter((arg) => arg === "-" || !arg.startsWith("-")).length +
+        after.length;
+      return positional <= 1;
+    }
     default:
       return true;
   }
