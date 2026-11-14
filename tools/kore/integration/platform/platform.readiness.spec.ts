@@ -10,10 +10,8 @@ vi.mock("../../src/platform/admission-gate.js", async (importOriginal) => ({
 import { loadRepository } from "../../src/config/index.js";
 import type { Runner } from "../../src/runtime/index.js";
 import { RecordingRunner } from "../../src/runtime/index.js";
-import {
-  bootstrapControllers,
-  reconcileComponent,
-} from "../../src/platform/index.js";
+import { bootstrapControllers } from "../../src/platform/index.js";
+import { reconcileComponent } from "../../src/testing/index.js";
 import { withHealthyWebhooks } from "../../src/testing/index.js";
 
 async function helmComponent(readiness: string[], timeout = "1s") {

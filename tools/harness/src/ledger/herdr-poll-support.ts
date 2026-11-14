@@ -1,9 +1,8 @@
-import { MemoryFileSystem } from "../testing/index.js";
-import { FakeRunner } from "../testing/index.js";
-import { pollHerdr } from "./herdr-poll.js";
-import { Ledger } from "./ledger.js";
-
-export const PATH = "/repo/.kore/state/ledger.jsonl";
+// Fakes and data for the herdr-poll unit spec: what `herdr agent list` prints,
+// a recorded pane event, and what a poll should record for a new agent. Only
+// that spec uses them, so they stay beside it (ADR 0098). No unit is imported.
+import { NOW } from "./ledger-support.js";
+import type { LedgerEvent } from "./schema.js";
 
 export interface Agent {
   pane_id: string;
@@ -12,41 +11,49 @@ export interface Agent {
   agent?: string;
 }
 
-const agentList = (agents: Agent[]) =>
-  JSON.stringify({
-    id: "cli:agent:list",
-    result: { agents, type: "agent_list" },
-  });
+/** What `herdr agent list` prints for these agents. */
+export const listing = (agents: unknown[]) =>
+  JSON.stringify({ result: { agents, type: "agent_list" } });
 
-export const writer = (status: string): Agent => ({
-  pane_id: "w3:p74",
+/** An agent named `writer` of type claude, in pane `w3:p74` unless the test says otherwise. */
+export const writer = (status: string, pane = "w3:p74"): Agent => ({
+  pane_id: pane,
   agent_status: status,
-  name: "ledger-poll-herdr-writer",
+  name: "writer",
   agent: "claude",
 });
 
-/** A clock that moves one second on every read, so occurred-at and recorded-at differ. */
-export function setup() {
-  const fs = new MemoryFileSystem();
-  let tick = 0;
-  const clock = {
-    now: () => new Date(Date.UTC(2026, 0, 2, 3, 0, tick++)),
-    sleep: () => Promise.resolve(),
-  };
-  let n = 0;
-  const ledger = new Ledger(fs, clock, { next: () => `id-${++n}` }, PATH);
-  const answer = { stdout: agentList([]), code: 0, stderr: "" };
-  const runner = new FakeRunner([
-    {
-      match: (c, a) => c === "herdr" && a[0] === "agent" && a[1] === "list",
-      result: answer,
-    },
-  ]);
-  const poll = () => pollHerdr({ ledger, runner, clock, fs });
-  const show = (agents: Agent[]) => {
-    answer.stdout = agentList(agents);
-  };
-  const kinds = async () =>
-    (await ledger.list({})).events.map((e) => `${e.kind}:${e.pane}`);
-  return { fs, ledger, runner, poll, show, kinds, answer };
-}
+/** A pane event the ledger already holds, for the last recorded state of each pane. */
+export const paneEvent = (kind: string, pane: string, agent?: string) =>
+  ({
+    id: `herdr:${kind}:${pane}`,
+    source: "herdr",
+    kind,
+    occurredAt: NOW,
+    pane,
+    ...(agent === undefined ? {} : { agent }),
+    schema: 1,
+    recordedAt: NOW,
+  }) as LedgerEvent;
+
+/** `writer` first seen: spawned, then its status, all at NOW. */
+export const SPAWN_AND_BUSY = [
+  {
+    source: "herdr",
+    kind: "pane.spawned",
+    occurredAt: NOW,
+    pane: "w3:p74",
+    agent: "writer",
+  },
+  {
+    source: "herdr",
+    kind: "pane.busy",
+    occurredAt: NOW,
+    pane: "w3:p74",
+    agent: "writer",
+  },
+];
+
+/** `isName`, stubbed: a non-empty string is a name the ledger accepts. */
+export const isNameStub = (value: unknown) =>
+  typeof value === "string" && value !== "";

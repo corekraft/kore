@@ -1,192 +1,123 @@
+// Docs: docs/decisions/0034-registry-authentication-and-authorization.md
 import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, test, vi } from "vitest";
-import { registryHead } from "./registry-https.js";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { withRegistryClient } from "./registry-client.js";
-import type { RegistryCredential } from "./registry-auth.js";
+import { registryHead } from "./registry-https.js";
 
-// Docs: docs/decisions/0034-registry-authentication-and-authorization.md
-// The real files, helper process and HTTPS request are integration concerns
-// (integration/images/registry-client.spec.ts); here every one is a fake.
+vi.mock("node:fs/promises");
+vi.mock("node:os");
+vi.mock("node:path");
+vi.mock("./registry-https.js");
 
-vi.mock("node:fs/promises", () => ({
-  chmod: vi.fn(),
-  mkdtemp: vi.fn(),
-  rm: vi.fn(),
-  writeFile: vi.fn(),
-}));
-vi.mock("node:os", () => ({ tmpdir: vi.fn() }));
-vi.mock("node:path", () => ({
-  delimiter: ":",
-  join: vi.fn(),
-}));
-vi.mock("./registry-https.js", () => ({ registryHead: vi.fn() }));
-
-const credential: RegistryCredential = {
-  username: "kore-push",
-  password: "s3cret-Pass_word-0123",
-};
+const directory = "/tmp/kore-registry-abc";
 const ca = "-----BEGIN CERTIFICATE-----\nQUJD\n-----END CERTIFICATE-----\n";
-const directory = "/tmp/kore-registry-1";
+const credential = { username: "kore-push", password: "s3cret-Pass_word" };
+const helper = `${directory}/docker-credential-kore-env`;
 
-/** Fakes the file, path and temporary-directory calls so the directory is `directory`. */
-function setUp(): void {
+beforeEach(() => {
+  vi.stubEnv("PATH", "/usr/bin:/bin");
+  vi.mocked(join).mockImplementation((...parts: string[]) => parts.join("/"));
   vi.mocked(tmpdir).mockReturnValue("/tmp");
   vi.mocked(mkdtemp).mockResolvedValue(directory);
-  vi.mocked(join).mockImplementation((...parts: string[]) => parts.join("/"));
-  vi.mocked(writeFile).mockResolvedValue(undefined);
-  vi.mocked(chmod).mockResolvedValue(undefined);
-  vi.mocked(rm).mockResolvedValue(undefined);
-}
+});
 
-/** The writeFile call that wrote `name` inside the temporary directory. */
-function writtenTo(name: string) {
-  const call = vi
-    .mocked(writeFile)
-    .mock.calls.find(([path]) => path === `${directory}/${name}`);
-  if (call === undefined) {
-    throw new Error(`no write to ${name}`);
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
+test("the child environment carries the credential and the helper directory, and the helper answers from it", async () => {
+  const env = await withRegistryClient(credential, ca, async (client) => {
+    return client.env;
+  });
+
+  expect(env).toEqual({
+    DOCKER_CONFIG: directory,
+    PATH: `${directory}:/usr/bin:/bin`,
+    KORE_REGISTRY_USERNAME: "kore-push",
+    KORE_REGISTRY_PASSWORD: "s3cret-Pass_word",
+  });
+});
+
+test("the config and the CA are written mode 0600, and the credential is written to no file", async () => {
+  await withRegistryClient(credential, ca, async () => undefined);
+
+  expect(writeFile).toHaveBeenNthCalledWith(
+    1,
+    `${directory}/config.json`,
+    JSON.stringify({ credsStore: "kore-env" }),
+    { mode: 0o600 },
+  );
+  expect(writeFile).toHaveBeenNthCalledWith(2, `${directory}/ca.crt`, ca, {
+    mode: 0o600,
+  });
+  for (const [, content] of vi.mocked(writeFile).mock.calls) {
+    expect(String(content)).not.toContain(credential.password);
   }
-  return call;
-}
-
-describe("withRegistryClient: the temporary directory", () => {
-  test("is made under the system temporary directory with the kore-registry prefix", async () => {
-    setUp();
-    await withRegistryClient(credential, ca, async () => undefined);
-    expect(mkdtemp).toHaveBeenCalledWith("/tmp/kore-registry-");
-  });
-
-  test("is removed recursively and forcibly after the action returns its value", async () => {
-    setUp();
-    const value = await withRegistryClient(
-      credential,
-      ca,
-      async () => "signed",
-    );
-    expect(value).toBe("signed");
-    expect(rm).toHaveBeenCalledWith(directory, {
-      force: true,
-      recursive: true,
-    });
-  });
-
-  test("is removed even when the action fails, and the failure is rethrown unchanged", async () => {
-    setUp();
-    await expect(
-      withRegistryClient(credential, ca, async () => {
-        throw new Error("sign failed");
-      }),
-    ).rejects.toThrow("sign failed");
-    expect(rm).toHaveBeenCalledWith(directory, {
-      force: true,
-      recursive: true,
-    });
-  });
 });
 
-describe("withRegistryClient: the files it writes", () => {
-  test("the Docker config names the kore-env credential store and is private", async () => {
-    setUp();
-    await withRegistryClient(credential, ca, async () => undefined);
-    expect(writtenTo("config.json")).toEqual([
-      `${directory}/config.json`,
-      JSON.stringify({ credsStore: "kore-env" }),
-      { mode: 0o600 },
-    ]);
-  });
+test("the helper script is written and made executable, and only get is answered", async () => {
+  await withRegistryClient(credential, ca, async () => undefined);
 
-  test("the CA is written as the public certificate only and is private", async () => {
-    setUp();
-    await withRegistryClient(credential, ca, async () => undefined);
-    expect(writtenTo("ca.crt")).toEqual([
-      `${directory}/ca.crt`,
-      ca,
-      { mode: 0o600 },
-    ]);
-  });
-
-  test("the helper is written executable and chmodded 0700, and it only answers get", async () => {
-    setUp();
-    await withRegistryClient(credential, ca, async () => undefined);
-    const [, script, options] = writtenTo("docker-credential-kore-env");
-    expect(options).toEqual({ mode: 0o700 });
-    expect(script).toMatch(/^#!\/bin\/sh\n/);
-    expect(script).toContain('if [ "$1" != "get" ]; then');
-    expect(script).toContain("only supports get");
-    expect(chmod).toHaveBeenCalledWith(
-      `${directory}/docker-credential-kore-env`,
-      0o700,
-    );
-  });
-
-  test("the helper's script holds no password, only the environment variable names", async () => {
-    setUp();
-    await withRegistryClient(credential, ca, async () => undefined);
-    const [, script] = writtenTo("docker-credential-kore-env");
-    expect(script).toContain("$KORE_REGISTRY_USERNAME");
-    expect(script).toContain("$KORE_REGISTRY_PASSWORD");
-    expect(script).not.toContain(credential.password);
-  });
+  const script = vi.mocked(writeFile).mock.calls[2]?.[1];
+  expect(vi.mocked(writeFile).mock.calls[2]).toEqual([
+    helper,
+    script,
+    { mode: 0o700 },
+  ]);
+  expect(String(script)).toMatch(/^#!\/bin\/sh\n/);
+  expect(String(script)).toContain('if [ "$1" != "get" ]; then');
+  expect(chmod).toHaveBeenCalledWith(helper, 0o700);
 });
 
-describe("withRegistryClient: what the action receives", () => {
-  test("the environment points DOCKER_CONFIG at the directory and carries the credential", async () => {
-    setUp();
-    let env: NodeJS.ProcessEnv = {};
-    await withRegistryClient(credential, ca, async (client) => {
-      env = client.env;
-    });
-    expect(env).toMatchObject({
-      DOCKER_CONFIG: directory,
-      KORE_REGISTRY_USERNAME: credential.username,
-      KORE_REGISTRY_PASSWORD: credential.password,
-    });
+test("the CA reaches cosign as the temporary file, and head verifies against the same CA", async () => {
+  vi.mocked(registryHead).mockResolvedValue({
+    status: 200,
+    digest: "sha256:d",
+  });
+  let caFile = "";
+  let head: Awaited<ReturnType<typeof registryHead>> | undefined;
+
+  await withRegistryClient(credential, ca, async (client) => {
+    caFile = client.caFile;
+    head = await client.head("https://x/v2/", { accept: "a" });
   });
 
-  test("the directory is first on PATH so the helper resolves before any other", async () => {
-    setUp();
-    let path = "";
-    await withRegistryClient(credential, ca, async (client) => {
-      path = client.env["PATH"] ?? "";
-    });
-    expect(path.startsWith(`${directory}:`)).toBe(true);
+  expect(caFile).toBe(`${directory}/ca.crt`);
+  expect(registryHead).toHaveBeenCalledWith(
+    "https://x/v2/",
+    { accept: "a" },
+    ca,
+  );
+  expect(head).toEqual({ status: 200, digest: "sha256:d" });
+});
+
+test("the Authorization header is the Basic encoding of the credential for in-process lookups", async () => {
+  let authorization = "";
+  await withRegistryClient(credential, ca, async (client) => {
+    authorization = client.authorization;
   });
 
-  test("the Authorization header is Basic over the username and password", async () => {
-    setUp();
-    let header = "";
-    await withRegistryClient(credential, ca, async (client) => {
-      header = client.authorization;
-    });
-    expect(header).toBe(
-      `Basic ${Buffer.from(`${credential.username}:${credential.password}`).toString("base64")}`,
-    );
-  });
+  expect(authorization).toBe(
+    `Basic ${Buffer.from("kore-push:s3cret-Pass_word").toString("base64")}`,
+  );
+});
 
-  test("caFile is the ca.crt inside the directory", async () => {
-    setUp();
-    let caFile = "";
-    await withRegistryClient(credential, ca, async (client) => {
-      caFile = client.caFile;
-    });
-    expect(caFile).toBe(`${directory}/ca.crt`);
-  });
+test("the private directory is removed when the action succeeds", async () => {
+  await withRegistryClient(credential, ca, async () => "done");
 
-  test("head sends the request verified against the registry CA", async () => {
-    setUp();
-    const answer = { status: 200, digest: "sha256:abc" };
-    vi.mocked(registryHead).mockResolvedValue(answer as never);
-    let result: unknown;
-    await withRegistryClient(credential, ca, async (client) => {
-      result = await client.head("https://registry/v2/x", { accept: "a" });
-    });
-    expect(registryHead).toHaveBeenCalledWith(
-      "https://registry/v2/x",
-      { accept: "a" },
-      ca,
-    );
-    expect(result).toBe(answer);
-  });
+  expect(rm).toHaveBeenCalledWith(directory, { force: true, recursive: true });
+});
+
+test("the private directory is removed even when the action fails, and the failure is rethrown", async () => {
+  const failure = new Error("sign failed");
+
+  await expect(
+    withRegistryClient(credential, ca, async () => {
+      throw failure;
+    }),
+  ).rejects.toBe(failure);
+
+  expect(rm).toHaveBeenCalledWith(directory, { force: true, recursive: true });
 });

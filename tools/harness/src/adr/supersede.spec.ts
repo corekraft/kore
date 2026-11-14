@@ -1,41 +1,36 @@
 import { describe, expect, it } from "vitest";
-import { run } from "../cli/index.js";
-import { adrFile, fixture } from "../testing/index.js";
+import { AdrError } from "./adr.js";
+import { ROOT, adrFile, fakeFileSystem } from "./adr-support.js";
+import { Supersession } from "./supersede.js";
 
 const OLD = "docs/decisions/0001-first.md";
 const NEW_PATH = "docs/decisions/0003-third.md";
-const SUPERSEDE = ["adr", "supersede", "--old", "1", "--new", "3"];
+const ACCEPTED = adrFile("0001", "first");
+const SUPERSEDED = ACCEPTED.replace(
+  "status: accepted",
+  `status: superseded\nsuperseded-by: ${NEW_PATH}`,
+);
 
-describe("harness adr supersede", () => {
-  it("sets the old ADR to superseded with the replacement's repository-root path", async () => {
-    const f = fixture();
-    expect(await run(SUPERSEDE, f.deps)).toBe(0);
-    const lines = f.fs.files.get(OLD)?.split("\n") ?? [];
-    expect(lines.slice(0, 4)).toEqual([
-      "---",
-      "status: superseded",
-      `superseded-by: ${NEW_PATH}`,
-      "summary: Existing.",
-    ]);
+const REPOSITORY = {
+  [OLD]: ACCEPTED,
+  [NEW_PATH]: adrFile("0003", "third"),
+};
+
+function supersession(files: Record<string, string> = REPOSITORY) {
+  const fs = fakeFileSystem(files);
+  return { fs, sup: new Supersession(fs, ROOT) };
+}
+
+describe("Supersession.supersede writes", () => {
+  it("sets the old status and adds superseded-by with the replacement's path, changing no other line", async () => {
+    const { fs, sup } = supersession();
+    await sup.supersede("1", "3", false);
+    expect(fs.writeFile.mock.calls).toEqual([[`${ROOT}/${OLD}`, SUPERSEDED]]);
   });
 
-  it("changes no other line of the old ADR and leaves every other file alone", async () => {
-    const f = fixture();
-    const before = f.fs.files.get(OLD)?.split("\n") ?? [];
-    await run(SUPERSEDE, f.deps);
-    const after = f.fs.files.get(OLD)?.split("\n") ?? [];
-    expect(after.filter((l) => !before.includes(l))).toEqual([
-      "status: superseded",
-      `superseded-by: ${NEW_PATH}`,
-    ]);
-    expect(after).toHaveLength(before.length + 1);
-    expect(f.fs.writes).toEqual([OLD]);
-  });
-
-  it("reports exactly the changed lines as JSON", async () => {
-    const f = fixture();
-    await run([...SUPERSEDE, "--json"], f.deps);
-    expect(JSON.parse(f.out())).toEqual({
+  it("reports exactly the two changed lines, with zero-padded numbers", async () => {
+    const { sup } = supersession();
+    expect(await sup.supersede("1", "3", false)).toEqual({
       dryRun: false,
       old: "0001",
       new: "0003",
@@ -51,166 +46,166 @@ describe("harness adr supersede", () => {
     });
   });
 
+  it("accepts the zero-padded form and reads the same file", async () => {
+    const { fs, sup } = supersession();
+    const report = await sup.supersede("0001", "0003", false);
+    expect(report.old).toBe("0001");
+    expect(fs.readFile).toHaveBeenCalledWith(`${ROOT}/${OLD}`);
+  });
+
   it("dry-run reports the same lines and writes nothing", async () => {
-    const real = fixture();
-    await run([...SUPERSEDE, "--json"], real.deps);
-    const dry = fixture();
-    await run([...SUPERSEDE, "--dry-run", "--json"], dry.deps);
-    expect(JSON.parse(dry.out())).toEqual({
-      ...JSON.parse(real.out()),
-      dryRun: true,
-    });
-    expect(dry.fs.writes).toEqual([]);
-  });
-
-  it("accepts zero-padded numbers", async () => {
-    const f = fixture();
-    const argv = ["adr", "supersede", "--old", "0001", "--new", "0003"];
-    expect(await run(argv, f.deps)).toBe(0);
-  });
-
-  it("prints a human summary without --json", async () => {
-    const f = fixture();
-    await run(SUPERSEDE, f.deps);
-    expect(f.out()).toContain(OLD);
-    expect(f.out()).toContain("superseded-by");
+    const real = supersession();
+    const dry = supersession();
+    const realReport = await real.sup.supersede("1", "3", false);
+    const dryReport = await dry.sup.supersede("1", "3", true);
+    expect(dry.fs.writeFile).not.toHaveBeenCalled();
+    expect(dryReport).toEqual({ ...realReport, dryRun: true });
   });
 });
 
-describe("harness adr supersede refusals", () => {
-  async function refuse(
-    extra: Record<string, string>,
-    argv: string[],
-    message: string,
-  ) {
-    const f = fixture(extra);
-    const before = new Map(f.fs.files);
-    expect(await run(argv, f.deps)).toBe(1);
-    expect(f.err()).toContain(message);
-    expect(f.fs.files).toEqual(before);
-    expect(f.fs.writes).toEqual([]);
-  }
-
-  it("refuses a missing replacement and names how to create it", async () => {
-    await refuse(
-      {},
-      ["adr", "supersede", "--old", "1", "--new", "9"],
-      "ADR 0009 does not exist; create it first with `harness adr new`",
-    );
-  });
-
-  it("refuses a missing old ADR", async () => {
-    await refuse(
-      {},
-      ["adr", "supersede", "--old", "7", "--new", "3"],
-      "ADR 0007 does not exist",
-    );
-  });
-
-  it("refuses an already-superseded old ADR", async () => {
-    await refuse(
-      {
-        [OLD]: adrFile("0001", "first").replace(
-          "status: accepted",
-          "status: superseded\nsuperseded-by: docs/decisions/0003-third.md",
-        ),
-      },
-      SUPERSEDE,
-      "ADR 0001 is already superseded",
-    );
-  });
-
-  it("refuses a superseded replacement", async () => {
-    await refuse(
-      {
-        [NEW_PATH]: adrFile("0003", "third").replace(
-          "status: accepted",
-          "status: superseded",
-        ),
-      },
-      SUPERSEDE,
-      "ADR 0003 is itself superseded",
-    );
-  });
+describe("Supersession.supersede flag refusals", () => {
+  it.each([
+    [
+      "first",
+      "3",
+      '--old must be an ADR number such as 12 or 0012; got "first".',
+    ],
+    [
+      "1",
+      "12345",
+      '--new must be an ADR number such as 12 or 0012; got "12345".',
+    ],
+  ])(
+    "refuses a non-number and writes nothing (%s, %s)",
+    async (o, n, message) => {
+      const { fs, sup } = supersession();
+      await expect(sup.supersede(o, n, false)).rejects.toThrow(
+        new AdrError(message),
+      );
+      expect(fs.writeFile).not.toHaveBeenCalled();
+    },
+  );
 
   it("refuses an ADR superseding itself", async () => {
-    await refuse(
-      {},
-      ["adr", "supersede", "--old", "1", "--new", "1"],
-      "cannot supersede itself",
-    );
-  });
-});
-
-describe("harness adr supersede flag and file refusals", () => {
-  async function refuse(argv: string[], message: string, extra = {}) {
-    const f = fixture(extra);
-    expect(await run(argv, f.deps)).toBe(1);
-    expect(f.err()).toContain(message);
-    expect(f.fs.writes).toEqual([]);
-  }
-
-  it("refuses non-numeric and missing flags", async () => {
-    await refuse(
-      ["adr", "supersede", "--old", "first", "--new", "3"],
-      "--old must be an ADR number",
-    );
-    await refuse(["adr", "supersede", "--old", "1"], "--new is required");
-  });
-
-  it("refuses an old ADR without frontmatter status", async () => {
-    await refuse(SUPERSEDE, "has no frontmatter status", {
-      [OLD]: "# ADR 0001: first\n",
-    });
-  });
-
-  it("reports a JSON error with --json", async () => {
-    const f = fixture();
-    await run(
-      ["adr", "supersede", "--old", "1", "--new", "9", "--json"],
-      f.deps,
-    );
-    expect(JSON.parse(f.err())).toMatchObject({
-      error: expect.stringContaining("0009"),
-    });
-  });
-});
-
-describe("harness adr supersede chains and duplicate numbers", () => {
-  it("names the current superseded-by path and the command to chain from it", async () => {
-    const f = fixture({
-      [OLD]: adrFile("0001", "first").replace(
-        "status: accepted",
-        "status: superseded\nsuperseded-by: docs/decisions/0003-third.md",
+    const { fs, sup } = supersession();
+    await expect(sup.supersede("1", "1", false)).rejects.toThrow(
+      new AdrError(
+        "ADR 0001 cannot supersede itself; pass the replacing ADR's number as --new.",
       ),
+    );
+    expect(fs.writeFile).not.toHaveBeenCalled();
+  });
+});
+
+describe("Supersession.supersede missing and chained ADRs", () => {
+  it("refuses a missing old ADR, pointing at the decisions directory", async () => {
+    const { sup } = supersession();
+    await expect(sup.supersede("7", "3", false)).rejects.toThrow(
+      new AdrError(
+        "ADR 0007 does not exist; check the number against docs/decisions/.",
+      ),
+    );
+  });
+
+  it("refuses a missing replacement, saying to create it first", async () => {
+    const { fs, sup } = supersession();
+    await expect(sup.supersede("1", "9", false)).rejects.toThrow(
+      new AdrError(
+        "ADR 0009 does not exist; create it first with `harness adr new`.",
+      ),
+    );
+    expect(fs.writeFile).not.toHaveBeenCalled();
+  });
+
+  it("refuses an old ADR that is already superseded, naming its chain", async () => {
+    const { fs, sup } = supersession({
+      [OLD]: SUPERSEDED,
+      [NEW_PATH]: adrFile("0003", "third"),
       "docs/decisions/0009-ninth.md": adrFile("0009", "ninth"),
     });
-    const argv = ["adr", "supersede", "--old", "1", "--new", "9"];
-    expect(await run(argv, f.deps)).toBe(1);
-    expect(f.err()).toContain(
-      "already superseded by docs/decisions/0003-third.md; to replace that ADR instead, run `harness adr supersede --old 0003 --new 0009`",
+    await expect(sup.supersede("1", "9", false)).rejects.toThrow(
+      new AdrError(
+        `ADR 0001 is already superseded by ${NEW_PATH}; to replace that ADR instead, run \`harness adr supersede --old 0003 --new 0009\`.`,
+      ),
     );
-    expect(f.fs.writes).toEqual([]);
+    expect(fs.writeFile).not.toHaveBeenCalled();
   });
 
-  it("refuses a number shared by two files, listing both and saying to renumber", async () => {
-    const f = fixture({
-      "docs/decisions/0001-other.md": adrFile("0001", "other"),
+  it("refuses an already-superseded old ADR with no superseded-by line", async () => {
+    const { sup } = supersession({
+      [OLD]: ACCEPTED.replace("status: accepted", "status: superseded"),
+      [NEW_PATH]: adrFile("0003", "third"),
     });
-    expect(await run(SUPERSEDE, f.deps)).toBe(1);
-    expect(f.err()).toContain("ADR 0001 matches more than one file");
-    expect(f.err()).toContain("docs/decisions/0001-first.md");
-    expect(f.err()).toContain("docs/decisions/0001-other.md");
-    expect(f.err()).toContain("renumber one");
-    expect(f.fs.writes).toEqual([]);
+    await expect(sup.supersede("1", "3", false)).rejects.toThrow(
+      new AdrError(
+        "ADR 0001 is already superseded; fix its superseded-by line by hand.",
+      ),
+    );
+  });
+});
+
+describe("Supersession.supersede frontmatter refusals", () => {
+  it("refuses an accepted old ADR that already has superseded-by", async () => {
+    const { sup } = supersession({
+      [OLD]: ACCEPTED.replace(
+        "status: accepted",
+        `status: accepted\nsuperseded-by: ${NEW_PATH}`,
+      ),
+      [NEW_PATH]: adrFile("0003", "third"),
+    });
+    await expect(sup.supersede("1", "3", false)).rejects.toThrow(
+      new AdrError(
+        `${OLD} already has superseded-by although its status is accepted; fix the frontmatter by hand.`,
+      ),
+    );
   });
 
-  it("refuses a duplicated replacement number too", async () => {
-    const f = fixture({
-      "docs/decisions/0003-other.md": adrFile("0003", "other"),
+  it("refuses a replacement that is itself superseded", async () => {
+    const { sup } = supersession({
+      [OLD]: ACCEPTED,
+      [NEW_PATH]: adrFile("0003", "third").replace(
+        "status: accepted",
+        "status: superseded",
+      ),
     });
-    expect(await run(SUPERSEDE, f.deps)).toBe(1);
-    expect(f.err()).toContain("ADR 0003 matches more than one file");
-    expect(f.fs.writes).toEqual([]);
+    await expect(sup.supersede("1", "3", false)).rejects.toThrow(
+      new AdrError(
+        "ADR 0003 is itself superseded; use the ADR that replaced it as --new.",
+      ),
+    );
+  });
+
+  it("refuses an old ADR without a frontmatter status", async () => {
+    const { fs, sup } = supersession({
+      [OLD]: "# ADR 0001: first\n",
+      [NEW_PATH]: adrFile("0003", "third"),
+    });
+    await expect(sup.supersede("1", "3", false)).rejects.toThrow(
+      new AdrError(
+        `${OLD} has no frontmatter status; add a "status:" line before superseding it.`,
+      ),
+    );
+    expect(fs.writeFile).not.toHaveBeenCalled();
+  });
+});
+
+describe("Supersession.supersede duplicate numbers", () => {
+  it.each([
+    [
+      "a number that matches two files",
+      { "docs/decisions/0001-other.md": adrFile("0001", "other") },
+      "ADR 0001 matches more than one file: docs/decisions/0001-first.md, docs/decisions/0001-other.md; renumber one so each ADR number is unique, then retry.",
+    ],
+    [
+      "a replacement number that matches two files",
+      { "docs/decisions/0003-other.md": adrFile("0003", "other") },
+      "ADR 0003 matches more than one file: docs/decisions/0003-other.md, docs/decisions/0003-third.md; renumber one so each ADR number is unique, then retry.",
+    ],
+  ])("refuses %s, listing every match", async (_name, extra, message) => {
+    const { fs, sup } = supersession({ ...REPOSITORY, ...extra });
+    await expect(sup.supersede("1", "3", false)).rejects.toThrow(
+      new AdrError(message),
+    );
+    expect(fs.writeFile).not.toHaveBeenCalled();
   });
 });

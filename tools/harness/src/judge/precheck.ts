@@ -17,6 +17,8 @@ export interface Report {
   ok: boolean;
   /** The head commit the verdict covers; the merge tool merges only this one. */
   head?: string;
+  /** The logins whose principles-review verdicts this report trusted. */
+  reviewers: string[];
   pattern: Pattern | undefined;
   idea: string | undefined;
   declaration: { ok: boolean; reason?: string };
@@ -100,6 +102,7 @@ export async function precheck(
     return {
       pr,
       ok: false,
+      reviewers: [...reviewers],
       pattern: undefined,
       idea: undefined,
       declaration: { ok: false, reason: declaration.reason },
@@ -125,6 +128,7 @@ export async function precheck(
   return {
     pr,
     head: view.headSha,
+    reviewers: [...reviewers],
     ok:
       verdict.patternMatches &&
       Object.values(checks).every((c) => c.result === "pass"),
@@ -157,6 +161,7 @@ export function summary(report: Report): string {
   return [
     head,
     `pattern: ${report.pattern ?? "none"}${report.idea === undefined ? "" : ` (idea ${report.idea})`}`,
+    `reviewers: ${report.reviewers.join(", ")}`,
     ...checks,
     ...hints.map((h) => `hint ${h}`),
     ...mismatch,

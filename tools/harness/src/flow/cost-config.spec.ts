@@ -74,3 +74,23 @@ describe("harness config", () => {
     });
   });
 });
+
+describe("harness config reviewer logins", () => {
+  it("reads the reviewer logins the judge trusts for principles-review verdicts", () => {
+    expect(parse({ reviewerLogins: ["bot-a", "junners"] })).toEqual({
+      cost: DEFAULT_COST,
+      reviewerLogins: ["bot-a", "junners"],
+    });
+  });
+
+  it.each([
+    [{ reviewerLogins: [] }],
+    [{ reviewerLogins: "junners" }],
+    [{ reviewerLogins: ["two words"] }],
+    [{ reviewerLogins: [7] }],
+  ])("refuses reviewer logins %j, naming the key and the fix", (config) => {
+    expect(parse(config)).toEqual({
+      error: expect.stringContaining('key "reviewerLogins"'),
+    });
+  });
+});

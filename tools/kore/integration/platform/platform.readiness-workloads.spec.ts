@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 
 import type { Runner } from "../../src/runtime/index.js";
-import { reconcileComponent } from "../../src/platform/index.js";
+import { reconcileComponent } from "../../src/testing/index.js";
 
 type Handler = (args: readonly string[]) => string;
 interface Call {

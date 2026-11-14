@@ -66,4 +66,10 @@ describe("parseDeclaration", () => {
       idea: undefined,
     });
   });
+
+  it("reads a backticked pattern, and a blank idea as no idea", () => {
+    expect(
+      parseDeclaration("Safety pattern: `feature-flagged`\nIdea:   "),
+    ).toEqual({ ok: true, pattern: "feature-flagged", idea: undefined });
+  });
 });

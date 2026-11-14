@@ -131,13 +131,6 @@ export function reviewCheck(view: PrView, reviewers: readonly string[]): Check {
         "no `principles-review:` comment; run the principles-review agent and post its verdict as `principles-review: No violations.` or `principles-review: <n> violations`",
     };
   }
-  if (reviewers.length === 0) {
-    return {
-      result: "unverified",
-      detail:
-        "no known reviewer identity; rerun with `--reviewer <login>` naming who posts principles-review verdicts",
-    };
-  }
   const trusted = reviews
     .filter((c) => reviewers.includes(c.author) && current(view, c))
     .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))

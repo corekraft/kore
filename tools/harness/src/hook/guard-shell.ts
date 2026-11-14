@@ -185,9 +185,14 @@ export interface RawWord {
   equals: boolean;
 }
 
-/** Collects raw words, tracking quotes, as a command is scanned. */
+// Operators that end a command segment: a pipe, a list, a background job, a newline.
+const SEGMENT_BREAK = new Set([";", "&", "|", "\n"]);
+
+/** Collects raw words, tracking quotes and command segments, as a command is scanned. */
 class WordScanner {
   readonly words: RawWord[] = [];
+  readonly segments: RawWord[][] = [];
+  private segment: RawWord[] = [];
   private word: RawWord | null = null;
   private quote: string | null = null;
 
@@ -198,6 +203,7 @@ class WordScanner {
       i = this.step(i);
     }
     this.end();
+    this.breakSegment();
     return this.words;
   }
 
@@ -208,8 +214,16 @@ class WordScanner {
   private end(): void {
     if (this.word) {
       this.words.push(this.word);
+      this.segment.push(this.word);
     }
     this.word = null;
+  }
+
+  private breakSegment(): void {
+    if (this.segment.length > 0) {
+      this.segments.push(this.segment);
+    }
+    this.segment = [];
   }
 
   /** Handles the character at `i`; returns the index of the last one consumed. */
@@ -227,6 +241,9 @@ class WordScanner {
       return i + 1;
     } else if (WORD_BREAK.has(char)) {
       this.end();
+      if (SEGMENT_BREAK.has(char)) {
+        this.breakSegment();
+      }
     } else if (char === "$" && SPECIAL_PARAMETER.test(next ?? "")) {
       this.start().text += char + (next ?? "");
       return i + 1;
@@ -263,6 +280,13 @@ class WordScanner {
 /** Raw shell words, noting an unquoted * or ? and an unquoted leading =. */
 export function rawWords(command: string): RawWord[] {
   return new WordScanner(command).run();
+}
+
+/** Raw shell words grouped by the command segment they belong to, split at ; && || | & and newlines. */
+export function rawSegments(command: string): RawWord[][] {
+  const scanner = new WordScanner(command);
+  scanner.run();
+  return scanner.segments;
 }
 
 /** The first unquoted zsh glob qualifier that runs code: `e:'cmd':` evaluates a string and `+name` calls a function, after any word (`*(e:'cmd':)`, `a(e:'cmd':)`, `{a,b}(e:'cmd':)`). `$(`, `<(` and `>(` are substitutions, checked apart. */

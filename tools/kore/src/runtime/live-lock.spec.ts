@@ -1,149 +1,209 @@
-import { access, mkdtemp, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { afterEach, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { loadRepository } from "../config/index.js";
+import { HOST_LEASE } from "./host-lease.js";
+import { hostRoot, lockScope } from "./host-locks.js";
 import { holdLiveLock } from "./live-lock.js";
-import { HELD_LOCK_ENV, holdEnvironmentLock } from "./lock.js";
+import { isSet, liveEnvironment } from "./live-environment.js";
+import { holdEnvironmentLock, inheritsLock } from "./lock.js";
+import { systemError } from "./runtime-support.js";
+
+vi.mock("../config/index.js");
+vi.mock("./host-locks.js");
+vi.mock("./live-environment.js");
+vi.mock("./lock.js");
+
+const TEN_MINUTES = 10 * 60 * 1000;
+
+function fakeHeld() {
+  return { release: vi.fn(async () => undefined), releaseSync: vi.fn() };
+}
+
+/** Process hooks that record each listener, so a test can fire one. */
+function fakeProcess() {
+  const listeners = new Map<string, () => void>();
+  return {
+    hooks: {
+      on: vi.fn((event: string, listener: () => void) => {
+        listeners.set(event, listener);
+      }),
+      exit: vi.fn<(code: number) => unknown>(),
+    },
+    fire: (event: string) => listeners.get(event)?.(),
+  };
+}
+
+let lease: ReturnType<typeof fakeHeld>;
+let lock: ReturnType<typeof fakeHeld>;
+
+beforeEach(() => {
+  process.env.KORE_RUN_LIVE = "1";
+  vi.mocked(isSet).mockImplementation(
+    (value) => value !== undefined && value !== "",
+  );
+  vi.mocked(liveEnvironment).mockReturnValue("local");
+  vi.mocked(hostRoot).mockReturnValue("/host");
+  vi.mocked(lockScope).mockReturnValue("kore-local");
+  vi.mocked(inheritsLock).mockResolvedValue(false);
+  lease = fakeHeld();
+  lock = fakeHeld();
+  vi.mocked(holdEnvironmentLock)
+    .mockResolvedValueOnce(lease)
+    .mockResolvedValueOnce(lock);
+});
 
 afterEach(() => {
-  delete process.env.KORE_HOST_ROOT;
   delete process.env.KORE_RUN_LIVE;
   delete process.env.KORE_RUN_INTEGRATION;
   delete process.env.KORE_INTEGRATION_LOCK_WAIT_MS;
   delete process.env.KORE_LIVE_LOCK_WAIT_MS;
-  delete process.env[HELD_LOCK_ENV];
 });
 
-async function newRoot(name: string) {
-  const root = await mkdtemp(join(tmpdir(), `kore-proc-lock-${name}-`));
-  process.env.KORE_HOST_ROOT = root;
-  return { root, lock: join(root, ".kore", "locks", "kore-local.lock") };
-}
+describe("holdLiveLock: opting in", () => {
+  it("takes no lock unless live specs are opted into", async () => {
+    delete process.env.KORE_RUN_LIVE;
 
-function fakeProcess() {
-  const handlers: Record<string, () => void> = {};
-  return {
-    handlers,
-    on: (event: string, handler: () => void) =>
-      void (handlers[event] = handler),
-    exit: () => undefined,
-  };
-}
+    await holdLiveLock({
+      scope: async () => "kore-local",
+      process: fakeProcess().hooks,
+    });
 
-test("the test process takes no lock unless live specs are opted into", async () => {
-  // The live quick start runs this suite with the variable already set.
-  delete process.env.KORE_RUN_LIVE;
-  const { lock } = await newRoot("off");
-  await holdLiveLock({ scope: async () => "kore-local" });
-  await expect(access(lock)).rejects.toThrow();
-});
+    expect(holdEnvironmentLock).not.toHaveBeenCalled();
+  });
 
-test("the retired KORE_RUN_INTEGRATION is refused naming KORE_RUN_LIVE, never silently skipped", async () => {
-  process.env.KORE_RUN_INTEGRATION = "1";
-  const { lock } = await newRoot("retired");
-  await expect(
-    holdLiveLock({ scope: async () => "kore-local" }),
-  ).rejects.toThrow(/KORE_RUN_INTEGRATION is retired; set KORE_RUN_LIVE=1/);
-  await expect(access(lock)).rejects.toThrow();
-});
+  it("refuses the retired KORE_RUN_INTEGRATION, naming KORE_RUN_LIVE, rather than skipping", async () => {
+    process.env.KORE_RUN_INTEGRATION = "1";
 
-test("the retired KORE_INTEGRATION_LOCK_WAIT_MS is refused naming KORE_LIVE_LOCK_WAIT_MS, never ignored", async () => {
-  process.env.KORE_RUN_LIVE = "1";
-  process.env.KORE_INTEGRATION_LOCK_WAIT_MS = "5";
-  const { lock } = await newRoot("retired-wait");
-  await expect(
-    holdLiveLock({ scope: async () => "kore-local" }),
-  ).rejects.toThrow(
-    /KORE_INTEGRATION_LOCK_WAIT_MS is retired; set KORE_LIVE_LOCK_WAIT_MS/,
-  );
-  await expect(access(lock)).rejects.toThrow();
-});
-
-test("an opted-in test process holds the lock and releases it on exit", async () => {
-  process.env.KORE_RUN_LIVE = "1";
-  const { root, lock } = await newRoot("on");
-  const proc = fakeProcess();
-  await holdLiveLock({ scope: async () => "kore-local", process: proc });
-
-  await expect(access(lock)).resolves.toBeUndefined();
-  const owner = JSON.parse(await readFile(lock, "utf8"));
-  const leasePath = join(root, ".kore", "locks", "host-lease.lock");
-  const lease = JSON.parse(await readFile(leasePath, "utf8"));
-  expect(process.env[HELD_LOCK_ENV]).toBe(
-    `host-lease:${lease.token},kore-local:${owner.token}`,
-  );
-  proc.handlers.exit?.();
-  await expect(access(lock)).rejects.toThrow();
-  await expect(access(leasePath)).rejects.toThrow();
-});
-
-test("a live spec run waits for the host lease held by another live run", async () => {
-  process.env.KORE_RUN_LIVE = "1";
-  const { root, lock } = await newRoot("lease");
-  const other = await holdEnvironmentLock(root, "host-lease");
-  delete process.env[HELD_LOCK_ENV];
-  try {
     await expect(
       holdLiveLock({
         scope: async () => "kore-local",
-        process: fakeProcess(),
-        waitMs: 50,
+        process: fakeProcess().hooks,
       }),
-    ).rejects.toThrow(/host-lease.*waited 50 ms/);
-    await expect(access(lock)).rejects.toThrow();
-  } finally {
-    await other.release();
-  }
-});
-
-test("an interrupt releases the lock before the process dies", async () => {
-  process.env.KORE_RUN_LIVE = "1";
-  const { lock } = await newRoot("sigint");
-  const proc = fakeProcess();
-  await holdLiveLock({ scope: async () => "kore-local", process: proc });
-
-  expect(proc.handlers.SIGINT).toBeDefined();
-  expect(proc.handlers.SIGTERM).toBeDefined();
-  proc.handlers.SIGINT?.();
-  await expect(access(lock)).rejects.toThrow();
-});
-
-test("a test child process that inherits the holder's token takes no second lock", async () => {
-  process.env.KORE_RUN_LIVE = "1";
-  const { lock } = await newRoot("child");
-  const parent = fakeProcess();
-  await holdLiveLock({
-    scope: async () => "kore-local",
-    process: parent,
+    ).rejects.toThrow(/KORE_RUN_INTEGRATION is retired; set KORE_RUN_LIVE=1/);
+    expect(holdEnvironmentLock).not.toHaveBeenCalled();
   });
-  const before = await readFile(lock, "utf8");
 
-  // node --test starts each spec file in a child that loads the same --import.
-  const child = fakeProcess();
-  await holdLiveLock({
-    scope: async () => "kore-local",
-    process: child,
-    waitMs: 50,
-  });
-  expect(await readFile(lock, "utf8")).toBe(before);
-  expect(child.handlers.exit).toBeUndefined();
-  parent.handlers.exit?.();
-});
+  it("refuses the retired KORE_INTEGRATION_LOCK_WAIT_MS, naming KORE_LIVE_LOCK_WAIT_MS", async () => {
+    process.env.KORE_INTEGRATION_LOCK_WAIT_MS = "5";
 
-test("a test process refuses to start while another holds the lock, naming it", async () => {
-  process.env.KORE_RUN_LIVE = "1";
-  const { root } = await newRoot("busy");
-  const holder = await holdEnvironmentLock(root, "kore-local");
-  delete process.env[HELD_LOCK_ENV];
-  try {
     await expect(
       holdLiveLock({
         scope: async () => "kore-local",
-        process: fakeProcess(),
-        waitMs: 50,
+        process: fakeProcess().hooks,
       }),
-    ).rejects.toThrow(new RegExp(`pid ${process.pid}.*waited 50 ms`));
-  } finally {
-    await holder.release();
-  }
+    ).rejects.toThrow(
+      /KORE_INTEGRATION_LOCK_WAIT_MS is retired; set KORE_LIVE_LOCK_WAIT_MS/,
+    );
+    expect(holdEnvironmentLock).not.toHaveBeenCalled();
+  });
+
+  it("does nothing when the caller already inherits the holder's token", async () => {
+    vi.mocked(inheritsLock).mockResolvedValue(true);
+
+    await holdLiveLock({
+      scope: async () => "kore-local",
+      process: fakeProcess().hooks,
+    });
+
+    expect(holdEnvironmentLock).not.toHaveBeenCalled();
+  });
+});
+
+describe("holdLiveLock: taking the locks", () => {
+  it("takes the host lease first, then the cluster lock, under the live wait", async () => {
+    process.env.KORE_LIVE_LOCK_WAIT_MS = "5000";
+
+    await holdLiveLock({
+      scope: async () => "kore-local",
+      process: fakeProcess().hooks,
+    });
+
+    expect(holdEnvironmentLock).toHaveBeenNthCalledWith(
+      1,
+      "/host",
+      HOST_LEASE,
+      {
+        waitMs: 5000,
+      },
+    );
+    expect(holdEnvironmentLock).toHaveBeenNthCalledWith(
+      2,
+      "/host",
+      "kore-local",
+      {
+        waitMs: 5000,
+      },
+    );
+  });
+
+  it("waits up to ten minutes by default", async () => {
+    await holdLiveLock({
+      scope: async () => "kore-local",
+      process: fakeProcess().hooks,
+    });
+
+    expect(holdEnvironmentLock).toHaveBeenCalledWith("/host", HOST_LEASE, {
+      waitMs: TEN_MINUTES,
+    });
+  });
+
+  it("names the lock after the scope of the environment KORE_LIVE_ENVIRONMENT names", async () => {
+    vi.mocked(loadRepository).mockResolvedValue({
+      environment: "local",
+    } as never);
+
+    await holdLiveLock({ process: fakeProcess().hooks });
+
+    expect(loadRepository).toHaveBeenCalledWith("local");
+    expect(holdEnvironmentLock).toHaveBeenNthCalledWith(
+      2,
+      "/host",
+      "kore-local",
+      expect.anything(),
+    );
+  });
+
+  it("releases the cluster lock and the lease when the cluster lock cannot be taken", async () => {
+    const failure = systemError("EBUSY");
+    vi.mocked(holdEnvironmentLock).mockReset();
+    vi.mocked(holdEnvironmentLock)
+      .mockResolvedValueOnce(lease)
+      .mockRejectedValueOnce(failure);
+
+    await expect(
+      holdLiveLock({
+        scope: async () => "kore-local",
+        process: fakeProcess().hooks,
+      }),
+    ).rejects.toBe(failure);
+    expect(lease.release).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("holdLiveLock: releasing on exit", () => {
+  it("releases both locks when the process exits", async () => {
+    const proc = fakeProcess();
+    await holdLiveLock({
+      scope: async () => "kore-local",
+      process: proc.hooks,
+    });
+
+    proc.fire("exit");
+
+    expect(lock.releaseSync).toHaveBeenCalledTimes(1);
+    expect(lease.releaseSync).toHaveBeenCalledTimes(1);
+  });
+
+  it("releases the locks on an interrupt, then exits 130 for SIGINT and 143 for SIGTERM", async () => {
+    const proc = fakeProcess();
+    await holdLiveLock({
+      scope: async () => "kore-local",
+      process: proc.hooks,
+    });
+
+    proc.fire("SIGINT");
+    proc.fire("SIGTERM");
+
+    expect(lock.releaseSync).toHaveBeenCalledTimes(2);
+    expect(proc.hooks.exit.mock.calls).toEqual([[130], [143]]);
+  });
 });

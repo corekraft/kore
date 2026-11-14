@@ -6,12 +6,14 @@ import { test } from "vitest";
 import { loadRepository } from "../../src/config/index.js";
 import type { Runner } from "../../src/runtime/index.js";
 import {
-  capacityStatus,
   capacityWarningPercent,
-  parseCpu,
-  parseMemory,
   platformStatusReport,
 } from "../../src/platform/index.js";
+import {
+  capacityStatus,
+  parseCpu,
+  parseMemory,
+} from "../../src/testing/index.js";
 
 // Docs: docs/operations/resource-budgets.md
 // The local profile warns before node requests exhaust allocatable CPU or

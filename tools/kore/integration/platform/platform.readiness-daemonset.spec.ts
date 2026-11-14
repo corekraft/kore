@@ -5,7 +5,7 @@ import type { Runner } from "../../src/runtime/index.js";
 import {
   reconcileComponent,
   readinessFailure,
-} from "../../src/platform/index.js";
+} from "../../src/testing/index.js";
 
 interface DaemonSetStatus {
   desiredNumberScheduled: number;

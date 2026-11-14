@@ -1,6 +1,34 @@
-import { describe, expect, it } from "vitest";
-import { testHarness } from "../testing/index.js";
+import { describe, expect, it, vi } from "vitest";
+import type { RunResult, Runner } from "../runtime/index.js";
 import { equalize } from "./equalize.js";
+
+const ok: RunResult = { stdout: "", stderr: "", code: 0 };
+
+/**
+ * A typed runner that answers `pane layout` with `layout`, `pane resize` with
+ * `resize` (success by default), and anything else with success. Each call is
+ * recorded for the assertions.
+ */
+function layoutRunner(
+  layout: unknown,
+  {
+    layoutResult,
+    resize = ok,
+  }: { layoutResult?: RunResult; resize?: RunResult } = {},
+) {
+  const run = vi.fn<Runner["run"]>((_command, args) => {
+    if (args[1] === "layout") {
+      return Promise.resolve(
+        layoutResult ?? {
+          ...ok,
+          stdout: JSON.stringify({ result: { layout } }),
+        },
+      );
+    }
+    return Promise.resolve(args[1] === "resize" ? resize : ok);
+  });
+  return { runner: { run } satisfies Runner, run };
+}
 
 const pane = (id: string, x: number, y: number, height: number) => ({
   pane_id: id,
@@ -12,25 +40,17 @@ const split = (direction: string, y: number, ratio: number, x = 100) => ({
   rect: { x, y, width: 100, height: 100 },
 });
 
-async function resizes(layout: {
-  panes: unknown[];
-  splits: unknown[];
-}): Promise<string[]> {
-  const h = testHarness({
-    responses: [
-      {
-        match: (_c, a) => a[1] === "layout",
-        result: { stdout: JSON.stringify({ result: { layout } }) },
-      },
-    ],
-  });
-  await equalize(h.deps.runner, "main");
-  return h.runner.calls
-    .filter((c) => c.args[1] === "resize")
-    .map((c) => c.args.join(" "));
+/** The arguments of each `pane resize` call, as one line each. */
+async function resizes(layout: { panes: unknown[]; splits: unknown[] }) {
+  const { runner, run } = layoutRunner(layout);
+  await equalize(runner, "main");
+  return run.mock.calls
+    .map(([, args]) => args)
+    .filter((args) => args[1] === "resize")
+    .map((args) => args.join(" "));
 }
 
-describe("equalize", () => {
+describe("equalize moves each split toward its column's share", () => {
   it("moves each column split to 1/(panes left), growing down and shrinking from below", async () => {
     // Split 1 is 0.5 and wants 1/3: shrink it by resizing the pane below it up.
     // Split 2 is 0.5 and wants 1/2: already equal, so no call.
@@ -107,40 +127,16 @@ describe("equalize edge cases", () => {
   });
 
   it("reads the layout for the caller's pane", async () => {
-    const h = testHarness({
-      responses: [
-        {
-          match: (_c, a) => a[1] === "layout",
-          result: {
-            stdout: JSON.stringify({
-              result: {
-                layout: { panes: [pane("main", 0, 0, 100)], splits: [] },
-              },
-            }),
-          },
-        },
-      ],
+    const { runner, run } = layoutRunner({
+      panes: [pane("main", 0, 0, 100)],
+      splits: [],
     });
-    await equalize(h.deps.runner, "main");
-    expect(h.runner.calls[0]?.args).toEqual([
-      "pane",
-      "layout",
-      "--pane",
-      "main",
+    await equalize(runner, "main");
+    expect(run.mock.calls).toEqual([
+      ["herdr", ["pane", "layout", "--pane", "main"]],
     ]);
   });
 });
-
-const layoutResponse = (layout: unknown, resize = {}) => [
-  {
-    match: (_c: string, a: readonly string[]) => a[1] === "layout",
-    result: { stdout: JSON.stringify({ result: { layout } }) },
-  },
-  {
-    match: (_c: string, a: readonly string[]) => a[1] === "resize",
-    result: resize,
-  },
-];
 
 describe("equalize outcome", () => {
   const column = {
@@ -158,54 +154,47 @@ describe("equalize outcome", () => {
   };
 
   it("reports equalized after resizing", async () => {
-    const h = testHarness({ responses: layoutResponse(column) });
-    expect(await equalize(h.deps.runner, "main")).toEqual({
-      status: "equalized",
-    });
+    const { runner } = layoutRunner(column);
+    expect(await equalize(runner, "main")).toEqual({ status: "equalized" });
   });
 
   it("only counts a column right of the caller as spawned", async () => {
-    const h = testHarness({ responses: layoutResponse(column) });
-    const result = await equalize(h.deps.runner, "b");
-    expect(result.status).toBe("skipped");
-    expect(h.runner.calls.some((c) => c.args[1] === "resize")).toBe(false);
+    const { runner, run } = layoutRunner(column);
+    expect(await equalize(runner, "b")).toEqual({
+      status: "skipped",
+      reason: "no spawned column right of the caller",
+    });
+    expect(run.mock.calls.some(([, args]) => args[1] === "resize")).toBe(false);
   });
 
   it("skips with a reason when the splits do not match the panes", async () => {
-    const h = testHarness({
-      responses: layoutResponse({
-        ...column,
-        splits: [split("right", 0, 0.5, 0)],
-      }),
+    const { runner } = layoutRunner({
+      ...column,
+      splits: [split("right", 0, 0.5, 0)],
     });
-    expect(await equalize(h.deps.runner, "main")).toEqual({
+    expect(await equalize(runner, "main")).toEqual({
       status: "skipped",
-      reason: expect.stringContaining("layout") as unknown,
+      reason: "layout splits do not match the spawned panes",
     });
   });
 
   it("fails naming herdr's error when the layout cannot be read", async () => {
-    const h = testHarness({
-      responses: [
-        {
-          match: (_c, a) => a[1] === "layout",
-          result: { code: 1, stderr: "pane gone" },
-        },
-      ],
+    const { runner } = layoutRunner(undefined, {
+      layoutResult: { ...ok, code: 1, stderr: "pane gone" },
     });
-    expect(await equalize(h.deps.runner, "main")).toEqual({
+    expect(await equalize(runner, "main")).toEqual({
       status: "failed",
-      reason: expect.stringContaining("pane gone") as unknown,
+      reason: "herdr pane layout failed: pane gone",
     });
   });
 
   it("fails naming herdr's error when a resize fails", async () => {
-    const h = testHarness({
-      responses: layoutResponse(column, { code: 1, stderr: "too small" }),
+    const { runner } = layoutRunner(column, {
+      resize: { ...ok, code: 1, stderr: "too small" },
     });
-    expect(await equalize(h.deps.runner, "main")).toEqual({
+    expect(await equalize(runner, "main")).toEqual({
       status: "failed",
-      reason: expect.stringContaining("too small") as unknown,
+      reason: "herdr pane resize failed: too small",
     });
   });
 });

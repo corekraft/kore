@@ -64,6 +64,7 @@ export {
   MemoryFileSystem,
   hasMatchUnder,
 } from "./memory-filesystem-support.js";
+export { ledgerEvents } from "./ledger-support.js";
 export {
   GH_USER,
   ISSUE,
@@ -77,6 +78,13 @@ export {
   type FakeIssue,
   type Harness,
 } from "./outcome-support.js";
+export {
+  TICK_BODY,
+  TICK_PLAN_FILE,
+  activePlan,
+  planHarness,
+  tickPlan,
+} from "./plan-support.js";
 export {
   INDEX,
   NEW,

@@ -4,7 +4,7 @@
 import { firstPositional, hasFlag, isKore } from "./guard-shell.js";
 import { block, warn, type Finding } from "./guard-verdict.js";
 
-// The agent-start rule is a command rule too; guard-bash reads every command rule from here.
+// The agent-start rule is a command rule too; guard-bash-segment reads every command rule from here.
 export { checkAgentStart } from "./guard-agent-start.js";
 
 const KUBECTL_OFFLINE = new Set([
@@ -172,7 +172,3 @@ export function checkIdeaIssueClose(name: string, args: string[]): Finding {
       "Instead, run `harness outcome record` to record the outcome, or `harness outcome close --idea <number or slug>` to finish closing one already recorded.",
   );
 }
-
-// The bare-glob rule lives in its own file; re-exported here with the command rules.
-export { bareGlob } from "./guard-bare-glob.js";
-export { unquotedGlob } from "./guard-unquoted-glob.js";

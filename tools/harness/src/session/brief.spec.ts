@@ -15,6 +15,11 @@ const FOLLOW_UP = [
   "- While a live proof is pinned to a head, change no code, because a change invalidates that proof.",
 ].join("\n");
 
+const LOCAL_CHECKS = [
+  "Local checks:",
+  "- Locally run only the related tests and typecheck; the full suites run in CI `check` (AGENTS.md, Changes).",
+].join("\n");
+
 const HEAD = [
   "Do the thing.",
   "",
@@ -22,9 +27,9 @@ const HEAD = [
   "",
 ].join("\n");
 
-/** A pushing role's brief: the follow-up section sits between the name and the finish instructions. */
-const WRITER_BRIEF = [HEAD, FOLLOW_UP, "", FINISH].join("\n");
-/** A read-only role's brief: the same text without the follow-up section. */
+/** A pushing role's brief: the local-checks rule, then the follow-up section, sit between the name and the finish instructions. */
+const WRITER_BRIEF = [HEAD, LOCAL_CHECKS, "", FOLLOW_UP, "", FINISH].join("\n");
+/** A read-only role's brief: the same text without the pushing-role sections. */
 const READER_BRIEF = [HEAD, FINISH].join("\n");
 
 const input = {

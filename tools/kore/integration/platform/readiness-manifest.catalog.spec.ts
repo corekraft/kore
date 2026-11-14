@@ -1,12 +1,14 @@
 import { expect, test } from "vitest";
 import { loadRepository } from "../../src/config/index.js";
-import { readyRows } from "../../src/testing/index.js";
 import {
-  type ComponentStatus,
+  readyRows,
   evaluateReadiness,
-  platformGeneration,
   readinessEvidenceName,
   readinessEvidenceObject,
+} from "../../src/testing/index.js";
+import {
+  type ComponentStatus,
+  platformGeneration,
   readinessFailureSummary,
 } from "../../src/platform/index.js";
 

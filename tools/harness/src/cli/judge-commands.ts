@@ -21,12 +21,13 @@ async function runPrecheck(context: CommandContext): Promise<number> {
   try {
     const pr = prNumber(context.operand, USAGE);
     const root = await deps.root();
+    const repo = await repoOf(context);
     const report = await precheck(
       context,
       root,
-      await repoOf(context),
+      repo,
       pr,
-      reviewersOf(context),
+      await reviewersOf(context, repo),
     );
     deps.stdout(json ? `${JSON.stringify(report)}\n` : summary(report));
     await record(context, report);
@@ -38,7 +39,7 @@ async function runPrecheck(context: CommandContext): Promise<number> {
 
 const precheckCommand: Command = {
   summary:
-    "read-only on GitHub; report a PR's declared safety pattern, pattern hints from its diff, and its CI, scan, coverage and principles-review results; fails when no single valid pattern is declared or a check is not passing; records a precheck ledger event at the shared ledger; principles-review counts only from a named reviewer, made after the head commit (<pr> [--reviewer <login>[,<login>]])",
+    "read-only on GitHub; report a PR's declared safety pattern, pattern hints from its diff, and its CI, scan, coverage and principles-review results; fails when no single valid pattern is declared or a check is not passing; records a precheck ledger event at the shared ledger; principles-review counts only from the reviewers it names (reviewerLogins in .claude/harness.json, else the owner login; --reviewer <login>[,<login>] overrides both), made after the head commit (<pr> [--reviewer <login>[,<login>]])",
   operand: "pr",
   options: { reviewer: "string" },
   run: runPrecheck,

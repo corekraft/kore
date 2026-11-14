@@ -1,5 +1,7 @@
-import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+// The inventory unit: parsing and checking the text, and reading modes from it.
+// It has no collaborators; GuardrailError is a real error class.
+// Docs: infra/plans/14-test-tiers.md#step-1-foundations
+
 import { describe, expect, it } from "vitest";
 import {
   GuardrailError,
@@ -8,7 +10,6 @@ import {
   parseInventory,
 } from "./inventory.js";
 
-const repo = new URL("../../../../", import.meta.url).pathname;
 const entry = (over: Record<string, unknown> = {}) => ({
   rule: "no-verify",
   kind: "bash",
@@ -18,7 +19,7 @@ const entry = (over: Record<string, unknown> = {}) => ({
 });
 const text = (...entries: unknown[]) => JSON.stringify({ guardrails: entries });
 
-describe("guardrail inventory parsing", () => {
+describe("parseInventory: a valid inventory", () => {
   it("lists each guardrail with its kind, mode and owner", () => {
     const inventory = parseInventory(text(entry(), entry({ rule: "x" })));
     expect(inventory.guardrails.map((g) => g.rule)).toEqual(["no-verify", "x"]);
@@ -35,6 +36,15 @@ describe("guardrail inventory parsing", () => {
     });
   });
 
+  it("keeps a deny list on a bash rule as written", () => {
+    const inventory = parseInventory(
+      text(entry({ deny: ["Bash(helm uninstall:*)"] })),
+    );
+    expect(inventory.guardrails[0]?.deny).toEqual(["Bash(helm uninstall:*)"]);
+  });
+});
+
+describe("parseInventory: rejected inventories", () => {
   it("rejects a blank note", () => {
     expect(() => parseInventory(text(entry({ note: " " })))).toThrow(/note/);
   });
@@ -45,6 +55,25 @@ describe("guardrail inventory parsing", () => {
         text(entry({ kind: "ruleset", deny: ["Bash(helm uninstall:*)"] })),
       ),
     ).toThrow(/does not fit its kind/);
+  });
+
+  it.each([
+    ["an empty deny list", entry({ deny: [] }), /deny/],
+    ["a pattern that is not a permission rule", entry({ deny: ["x"] }), /deny/],
+    [
+      "a Bash pattern on a file rule",
+      entry({ kind: "file", deny: ["Bash(helm:*)"] }),
+      /kind/,
+    ],
+    ["a Read pattern on a bash rule", entry({ deny: ["Read(a)"] }), /kind/],
+    [
+      "a mid-pattern wildcard with a trailing :*",
+      entry({ deny: ["Bash(k3d * cluster:*)"] }),
+      /:\*/,
+    ],
+  ])("rejects %s", (_, bad, message) => {
+    expect(() => parseInventory(text(bad))).toThrow(GuardrailError);
+    expect(() => parseInventory(text(bad))).toThrow(message);
   });
 
   it.each([
@@ -86,45 +115,5 @@ describe("guardrail modes", () => {
 
   it("names the audit rules, sorted", () => {
     expect(auditRuleNames(inventory)).toEqual(["no-verify"]);
-  });
-});
-
-describe("the committed inventory", () => {
-  const inventory = parseInventory(
-    readFileSync(join(repo, ".claude/guardrails.yaml"), "utf8"),
-  );
-
-  it("lists exactly the rules the guard source names", () => {
-    const dir = join(repo, "tools/harness/src/hook");
-    const source = readdirSync(dir)
-      .filter((name) => /^guard(-[a-z-]+)?\.ts$/.test(name))
-      .filter((name) => !/-(support|verdict)\.ts$/.test(name))
-      .map((name) => readFileSync(join(dir, name), "utf8"))
-      .join("\n");
-    const named = [
-      ...source.matchAll(/\b(?:block|warn)\(\s*"([a-z0-9-]+)"/g),
-    ].map((m) => m[1] ?? "");
-    const byName = (a: string, b: string) => a.localeCompare(b);
-    // A deny rule's code is a Claude Code permission rule or the guard's generic matcher, and the
-    // ruleset's is `harness ruleset sync`; neither is a block() call.
-    const coded = inventory.guardrails.filter(
-      (g) => g.deny === undefined && g.kind !== "ruleset",
-    );
-    expect(coded.map((g) => g.rule).sort(byName)).toEqual(
-      [...new Set(named)].sort(byName),
-    );
-  });
-
-  it("keeps today's warn rules in audit and the rest enforced", () => {
-    expect(auditRuleNames(inventory)).toEqual([
-      "append-only",
-      "bare-glob",
-      "flag-activation",
-      "guardrail-demotion",
-      "idea-issue-body",
-      "idea-issue-close",
-      "idea-outcome",
-      "image-digest",
-    ]);
   });
 });

@@ -3,10 +3,10 @@ import { test } from "vitest";
 import { loadRepository } from "../../src/config/index.js";
 import type { Runner } from "../../src/runtime/index.js";
 import {
-  crdOwnershipStatus,
   platformStatusReport,
   platformStatus,
 } from "../../src/platform/index.js";
+import { crdOwnershipStatus } from "../../src/testing/index.js";
 
 // Docs: docs/decisions/0057-runtime-crd-ownership.md
 // Cluster CRDs with no catalog owner, or more than one, are reported as

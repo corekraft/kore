@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 // Integration specs: real domains together, in temporary directories, with real processes
 // and the built bundle. The unit run (vitest.config.ts) and the commit hook's related tests
@@ -13,6 +13,8 @@ export default defineConfig({
       "../../.claude/hooks/*.test.mjs",
       "../../.claude/evals/*.test.mjs",
     ],
+    // Fixtures a spec beside them imports (`<name>-support.ts`) hold no suite of their own.
+    exclude: [...configDefaults.exclude, "integration/**/*-support.ts"],
     // The guard-bundle spec reads the built bundle, so build it first (ADR 0092).
     globalSetup: ["tests/build-bundle-setup.ts"],
     // The guard startup timing must not share the host with another file, and the

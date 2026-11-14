@@ -2,9 +2,12 @@ import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "vitest";
-import { FakeRunner, useExportRepository } from "../../src/testing/index.js";
+import {
+  FakeRunner,
+  useExportRepository,
+  backupStatus,
+} from "../../src/testing/index.js";
 import { exportRetainedData } from "../../src/cluster/index.js";
-import { backupStatus } from "../../src/platform/index.js";
 
 // Docs: docs/operations/backups.md
 // The backups row compares the newest export's recorded time with the

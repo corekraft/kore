@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { loadRepository } from "../../src/config/index.js";
 import type { Runner } from "../../src/runtime/index.js";
-import { reconcileComponent } from "../../src/platform/index.js";
+import { reconcileComponent } from "../../src/testing/index.js";
 
 type Call = { command: string; args: readonly string[] };
 

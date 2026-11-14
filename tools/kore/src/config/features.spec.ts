@@ -1,117 +1,103 @@
-import assert from "node:assert/strict";
-import { test } from "vitest";
-import { loadRepository, validateRepository } from "./config.js";
-import { featureEnabled, featureHelmArgs } from "./features.js";
-import { helmTemplateArgs } from "../platform/index.js";
-import type { Repository } from "./types.js";
+import { beforeEach, expect, test, vi } from "vitest";
+import { orderedComponents } from "./order.js";
+import {
+  componentGatedOff,
+  enabledComponents,
+  featureEnabled,
+  featureHelmArgs,
+  gatewayClassName,
+  ingressFlag,
+} from "./features.js";
+import type { Environment } from "./types.js";
+import {
+  fakeCatalog,
+  fakeComponent,
+  fakeEnvironment,
+  fakeRepository,
+} from "./config-support.js";
 
-/** The repository without the catalog's own gated components. */
-async function ungated(name: string): Promise<Repository> {
-  const base = await loadRepository(name);
-  return {
-    ...base,
-    catalog: {
-      ...base.catalog,
-      components: base.catalog.components.map((c) => {
-        const plain = { ...c };
-        delete plain.featureFlag;
-        return plain;
-      }),
-    },
-  };
+vi.mock("./order.js");
+
+/** An environment whose feature flags are the given map (a flag may hold any value). */
+function environment(features?: Record<string, unknown>): Environment {
+  return fakeEnvironment(
+    features === undefined
+      ? {}
+      : { features: features as Record<string, boolean> },
+  );
 }
 
-async function featuresMessage(features: unknown): Promise<string> {
-  const base = await ungated("local");
-  try {
-    await validateRepository({
-      ...base,
-      environment: { ...base.environment, features } as never,
-    });
-  } catch (error) {
-    return (error as Error).message;
-  }
-  return "";
-}
-
-test("an overlay without a features map validates, with every flag off", async () => {
-  const loaded = await ungated("managed-example");
-  const { features: _declared, ...rest } = loaded.environment;
-  const base: Repository = { ...loaded, environment: rest };
-  await validateRepository(base);
-  assert.equal(base.environment.features, undefined);
-  assert.equal(featureEnabled(base.environment, "agent-loop"), false);
-  assert.deepEqual(featureHelmArgs(base.environment), []);
+beforeEach(() => {
+  vi.mocked(orderedComponents).mockReturnValue([]);
 });
 
-test("a map of booleans validates and reads as on or off", async () => {
-  assert.equal(await featuresMessage({ "agent-loop": true, quiet: false }), "");
-  const environment = { features: { "agent-loop": true, quiet: false } };
-  assert.equal(featureEnabled(environment as never, "agent-loop"), true);
-  assert.equal(featureEnabled(environment as never, "quiet"), false);
-  assert.equal(featureEnabled(environment as never, "absent"), false);
+test("a flag is on only when the overlay sets it to true, and an omitted flag is off", () => {
+  const flags = environment({ "agent-loop": true, quiet: false });
+  expect(featureEnabled(flags, "agent-loop")).toBe(true);
+  expect(featureEnabled(flags, "quiet")).toBe(false);
+  expect(featureEnabled(flags, "absent")).toBe(false);
 });
 
-test("a non-boolean flag value is rejected naming the flag and the fix", async () => {
-  const message = await featuresMessage({ "agent-loop": "true" });
-  assert.match(
-    message,
-    /environment\.features\.agent-loop must be true or false/,
+test("a flag holding the string true is not on, because only a boolean turns a flag on", () => {
+  expect(
+    featureEnabled(environment({ "agent-loop": "true" }), "agent-loop"),
+  ).toBe(false);
+  expect(featureEnabled(environment(undefined), "agent-loop")).toBe(false);
+});
+
+test("the Helm arguments hand every declared flag to the chart, sorted by name, as booleans", () => {
+  expect(
+    featureHelmArgs(environment({ quiet: false, "agent-loop": true })),
+  ).toEqual([
+    "--set",
+    "features.agent-loop=true",
+    "--set",
+    "features.quiet=false",
+  ]);
+});
+
+test("an environment with no features map passes no Helm arguments", () => {
+  expect(featureHelmArgs(environment(undefined))).toEqual([]);
+});
+
+test("the ingress flag selects agentgateway as the GatewayClass, and its absence selects Istio", () => {
+  expect(ingressFlag).toBe("ingress-agentgateway");
+  expect(gatewayClassName(environment({ [ingressFlag]: true }))).toBe(
+    "agentgateway",
+  );
+  expect(gatewayClassName(environment({ [ingressFlag]: false }))).toBe("istio");
+  expect(gatewayClassName(environment(undefined))).toBe("istio");
+});
+
+test("a component with a feature flag is gated off while the flag is off, and on once it is on", () => {
+  const gated = fakeComponent({ featureFlag: "agent-loop" });
+  expect(componentGatedOff(environment({ "agent-loop": false }), gated)).toBe(
+    true,
+  );
+  expect(componentGatedOff(environment({ "agent-loop": true }), gated)).toBe(
+    false,
   );
 });
 
-test("a malformed flag name is rejected", async () => {
-  const message = await featuresMessage({ Bad_Name: true });
-  assert.match(
-    message,
-    /environment\.features name Bad_Name must be lowercase/,
-  );
+test("a component with no feature flag is never gated off", () => {
+  const plain = fakeComponent();
+  expect(componentGatedOff(environment(undefined), plain)).toBe(false);
 });
 
-test("features that is not a map is rejected", async () => {
-  assert.match(
-    await featuresMessage(["agent-loop"]),
-    /environment\.features must be a map of flag name to true or false/,
-  );
-});
-
-test("declared flags render into chart values in a stable order, as on or off", () => {
-  assert.deepEqual(
-    featureHelmArgs({ features: { b: false, a: true } } as never),
-    ["--set", "features.a=true", "--set", "features.b=false"],
-  );
-});
-
-test("local charts receive flag values and upstream charts do not", async () => {
-  const base = await loadRepository("local");
-  const repository = {
-    ...base,
-    environment: { ...base.environment, features: { "agent-loop": true } },
-  };
-  const local = repository.catalog.components.find(
-    (c) => c.kind === "local-chart",
-  )!;
-  const upstream = repository.catalog.components.find(
-    (c) => c.kind === "helm",
-  )!;
-  assert.ok(
-    helmTemplateArgs(repository, local)
-      .join(" ")
-      .includes("features.agent-loop=true"),
-  );
-  assert.ok(
-    !helmTemplateArgs(repository, upstream).join(" ").includes("features."),
-  );
-});
-
-test("the managed-example overlay validates with and without flags", async () => {
-  const base = await loadRepository("managed-example");
-  await validateRepository(base);
-  await validateRepository({
-    ...base,
-    environment: {
-      ...base.environment,
-      features: { "agent-loop": false, "ingress-agentgateway": false },
-    },
+test("the enabled components are the catalog in dependency order, minus those a flag gates off", () => {
+  const components = [
+    fakeComponent({ name: "kore-registry" }),
+    fakeComponent({ name: "agent-loop-app", featureFlag: "agent-loop" }),
+    fakeComponent({ name: "kore-ui" }),
+  ];
+  vi.mocked(orderedComponents).mockReturnValue(components);
+  const repository = fakeRepository({
+    catalog: fakeCatalog(components),
+    environment: environment({ "agent-loop": false }),
   });
+
+  expect(enabledComponents(repository)).toEqual([components[0], components[2]]);
+  expect(vi.mocked(orderedComponents).mock.calls).toEqual([
+    [repository.catalog],
+  ]);
 });

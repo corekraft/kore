@@ -24,12 +24,14 @@ vi.mock("../../src/platform/status.js", () => ({
   },
 }));
 
-import { readyRows } from "../../src/testing/index.js";
+import {
+  readyRows,
+  openApplicationAdmission,
+  readinessEvidenceName,
+} from "../../src/testing/index.js";
 import {
   closeGateIfDegraded,
-  openApplicationAdmission,
   platformGeneration,
-  readinessEvidenceName,
 } from "../../src/platform/index.js";
 
 interface Written {

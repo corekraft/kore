@@ -15,6 +15,12 @@ export function notifyCommand(callerPane: string): string {
   return `node skills/bin/harness.mjs session notify ${callerPane} --outcome <done|blocked>`;
 }
 
+/** The local-check rule for a pushing session; the full suites gate in CI, pointing at AGENTS.md (Changes). */
+const LOCAL_CHECKS = [
+  "Local checks:",
+  "- Locally run only the related tests and typecheck; the full suites run in CI `check` (AGENTS.md, Changes).",
+].join("\n");
+
 /** The review follow-up rules for a pushing session. The broadcast is the finish command at the end of the brief, not a second one. */
 const REVIEW_FOLLOW_UP = [
   "Review follow-up:",
@@ -32,7 +38,9 @@ export function buildBrief({
   role,
 }: BriefInput): string {
   const followUp =
-    role !== undefined && PUSHING_ROLES.has(role) ? [REVIEW_FOLLOW_UP, ""] : [];
+    role !== undefined && PUSHING_ROLES.has(role)
+      ? [LOCAL_CHECKS, "", REVIEW_FOLLOW_UP, ""]
+      : [];
   return [
     task,
     "",

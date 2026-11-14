@@ -3,7 +3,7 @@ import { test } from "vitest";
 import { ingressFlag, loadRepository } from "../../src/config/index.js";
 import type { Repository } from "../../src/config/index.js";
 import type { Runner } from "../../src/runtime/index.js";
-import { gatewayCheck, waitForGateway } from "../../src/platform/index.js";
+import { gatewayCheck, waitForGateway } from "../../src/testing/index.js";
 
 const ready = { status: "True" };
 

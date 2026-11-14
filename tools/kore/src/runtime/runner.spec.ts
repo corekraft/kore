@@ -39,9 +39,6 @@ function runner(options: ProcessRunnerOptions = {}): ProcessRunner {
 
 beforeEach(() => {
   FakeWatchdog.reset();
-  liveGroups.add.mockReset();
-  liveGroups.delete.mockReset();
-  killGroup.mockReset();
   child = new FakeChild();
   spawn = vi.fn<(...args: unknown[]) => FakeChild>(() => child);
   signalGroup = vi.fn<(pid: number, signal: Signal) => void>();
@@ -172,9 +169,7 @@ describe("ProcessRunner: the result", () => {
 
 describe("ProcessRunner: the timeout", () => {
   it("uses the call's own timeout over the runner default, and the default over none", () => {
-    void runner({ defaultTimeoutMs: 9000 }).run("tool", [], {
-      timeoutMs: 100,
-    });
+    void runner({ defaultTimeoutMs: 9000 }).run("tool", [], { timeoutMs: 100 });
     expect(lastWatchdog().timeoutMs).toBe(100);
 
     void runner({ defaultTimeoutMs: 9000 }).run("tool", []);
@@ -246,39 +241,8 @@ describe("ProcessRunner: the timeout", () => {
   });
 });
 
-describe("ProcessRunner: aborting", () => {
-  it("terminates the child at once when the signal is already aborted", () => {
-    const controller = new AbortController();
-    controller.abort();
-
-    void runner().run("tool", [], { signal: controller.signal });
-
-    expect(signalGroup).toHaveBeenCalledWith(4242, "SIGTERM");
-  });
-
-  it("terminates the child when the signal aborts mid-run, and stops listening once it exits", async () => {
-    const controller = new AbortController();
-    const result = runner().run("tool", [], { signal: controller.signal });
-
-    controller.abort();
-    expect(signalGroup).toHaveBeenCalledWith(4242, "SIGTERM");
-
-    child.emit("close", 143);
-    await expect(result).rejects.toBeInstanceOf(CommandError);
-    controller.abort();
-    expect(signalGroup).toHaveBeenCalledTimes(1);
-  });
-
-  it("does not signal a child that was never aborted", () => {
-    void runner().run("tool", [], { signal: new AbortController().signal });
-
-    expect(signalGroup).not.toHaveBeenCalled();
-    expect(child.kill).not.toHaveBeenCalled();
-  });
-});
-
 describe("ProcessRunner: signalling the child", () => {
-  it("signals the whole group of a detached child through the group signaller", () => {
+  it("signals a detached child's whole group through the group signaller", () => {
     void runner().run("tool", []);
 
     lastWatchdog().options.send("SIGKILL");
@@ -286,13 +250,50 @@ describe("ProcessRunner: signalling the child", () => {
     expect(signalGroup).toHaveBeenCalledWith(4242, "SIGKILL");
     expect(child.kill).not.toHaveBeenCalled();
   });
+});
 
-  it("signals an uncaptured child itself, since it has no group of its own", () => {
-    void runner().run("tool", [], { capture: false });
+describe("ProcessRunner: a kubeconfig held in memory", () => {
+  it("refuses a kubeconfig combined with stdin input, before starting anything", async () => {
+    await expect(
+      runner().run("kubectl", [], { kubeconfig: "k", input: "i" }),
+    ).rejects.toThrow("a kubeconfig and stdin input cannot be combined");
+    expect(spawn).not.toHaveBeenCalled();
+  });
 
-    lastWatchdog().options.send("SIGTERM");
+  it("reports bash's not-found failure as the caller's command missing, with ENOENT", async () => {
+    const result = runner().run("kubectl", ["get"], { kubeconfig: "k" });
 
-    expect(child.kill).toHaveBeenCalledWith("SIGTERM");
-    expect(signalGroup).not.toHaveBeenCalled();
+    child.stderr.emit("data", Buffer.from("bash: kubectl: command not found"));
+    child.emit("close", 127);
+
+    await expect(result).rejects.toMatchObject({
+      message: "spawn kubectl ENOENT",
+      code: "ENOENT",
+      errno: -2,
+      syscall: "spawn kubectl",
+      path: "kubectl",
+    });
+  });
+
+  it("rewraps any other failure as the caller's own command, not bash's", async () => {
+    const result = runner().run("kubectl", ["apply"], { kubeconfig: "k" });
+
+    child.stderr.emit("data", Buffer.from("forbidden"));
+    child.emit("close", 1);
+
+    const error = await result.catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(CommandError);
+    expect((error as Error).message).toBe(
+      "kubectl apply failed (1): forbidden",
+    );
+  });
+
+  it("passes a spawn error through unchanged, since it is not a command failure", async () => {
+    const result = runner().run("kubectl", [], { kubeconfig: "k" });
+    const failure = new Error("spawn bash EACCES");
+
+    child.emit("error", failure);
+
+    await expect(result).rejects.toBe(failure);
   });
 });

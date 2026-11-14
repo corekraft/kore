@@ -12,10 +12,13 @@ describe("isTooling: paths", () => {
     "tools/kore/scripts/x.sh",
     "tools/kore/vitest.config.ts",
     "tools/kore/lint-staged.config.js",
+    "tools/kore/.oxlintrc.json",
     ".github/workflows/check.yml",
     ".github/workflows/nightly.yml",
     ".github/workflows/integration.yml",
     "tools/kore/integration-setup.ts",
+    "tools/kore/integration/ops/ops-support.ts",
+    "tools/kore/integration/app-up.spec.ts",
     ".mise.toml",
     "tools/kore/src/testing/mock.ts",
     "tools/kore/src/app/app-fixtures.ts",
@@ -52,7 +55,15 @@ describe("isTooling: paths", () => {
     "tools/kore/.npmrc",
     "tools/kore/src/cli/unconverted.txt.bak",
     "tools/kore/src/cli/unconverted-list.ts",
+    "tools/kore/.oxlintrc.jsonc-extra",
+    "tools/kore/src/.oxlintrc.json",
+    "tools/kore/.oxlintrc.json.bak",
+    "apps/web/.oxlintrc.json",
     "tools/kore/src/cli/cli.ts",
+    "tools/kore/integration-notes/x.ts",
+    "tools/kore/integration.ts",
+    "tools/kore/src/integration/x.ts",
+    "tools/kore/src/ops/integration/ops.ts",
   ])("%s is product", (path) => {
     expect(isTooling(file(path))).toBe(false);
   });
@@ -71,6 +82,30 @@ describe("isTooling: renames", () => {
     ).toBe(false);
     expect(
       isTooling(file("skills/values.yaml", [], "apps/web/values.yaml")),
+    ).toBe(false);
+  });
+
+  it("is tooling when a test-support file moves from tools/kore/src into tools/kore/integration", () => {
+    expect(
+      isTooling(
+        file(
+          "tools/kore/integration/ops/ops-support.ts",
+          [],
+          "tools/kore/src/ops/upgrade.fixtures.ts",
+        ),
+      ),
+    ).toBe(true);
+  });
+
+  it("is product when a production file moves into tools/kore/integration", () => {
+    expect(
+      isTooling(
+        file(
+          "tools/kore/integration/ops/ops.ts",
+          [],
+          "tools/kore/src/ops/ops.ts",
+        ),
+      ),
     ).toBe(false);
   });
 

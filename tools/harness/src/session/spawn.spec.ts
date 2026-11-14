@@ -1,164 +1,235 @@
-import { describe, expect, it } from "vitest";
-import { testHarness } from "../testing/index.js";
-import { run } from "../cli/index.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { CliDeps } from "../runtime/index.js";
 import {
-  INSIDE,
-  gitCommon,
-  herdrCalls,
-  layoutOf,
-  nameFree,
-  pane,
-  spawnArgs,
-  splitReturns,
-} from "./spawn-support.js";
+  asRegistry,
+  contextOf,
+  fakeDeps,
+  fakeRegistry,
+  type FakeDeps,
+} from "./deps-support.js";
+import { FAILED, USAGE_ERROR, fail } from "./output.js";
+import { launch } from "./launch.js";
+import { roleToken } from "./role-token.js";
+import { spawn } from "./spawn.js";
+import { check, type Checked } from "./spawn-check.js";
+import { finish } from "./spawn-finish.js";
+import { openPane, type Opened } from "./spawn-pane.js";
+import type { SessionRegistry } from "./registry.js";
 
-describe("session spawn placement", () => {
-  it("splits the caller right for the first spawned pane, without stealing focus", async () => {
-    const h = testHarness({
-      env: INSIDE,
-      responses: [gitCommon, nameFree, layoutOf(), splitReturns("w3:p9")],
+const opener = vi.hoisted(() => ({
+  open: vi.fn<(deps: CliDeps) => Promise<SessionRegistry>>(),
+}));
+
+vi.mock("./registry.js", () => ({ SessionRegistry: opener }));
+vi.mock("./spawn-check.js");
+vi.mock("./role-token.js");
+vi.mock("./spawn-pane.js");
+vi.mock("./launch.js");
+vi.mock("./spawn-finish.js");
+vi.mock("./output.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./output.js")>()),
+  fail: vi.fn(),
+}));
+
+const VALUES = {
+  role: "writer",
+  name: "image-trust-writer",
+  brief: "Do the thing.",
+  model: "claude-opus-5-5",
+  effort: "high",
+};
+const CHECKED: Checked = {
+  values: VALUES,
+  callerPane: "w3:p1",
+  timeoutMs: 60_000,
+};
+const WORKTREE = { path: "/main/.claude/worktrees/x", branch: "feat/x" };
+const CREATED_AT = "2026-01-02T03:04:05.000Z";
+
+/** What openPane hands back for a pane it opened, with a worktree only when the spec places one. */
+function opened(worktree?: typeof WORKTREE): Opened {
+  return {
+    paneId: "w3:p9",
+    leftOpen: "The pane w3:p9 was left open.",
+    placed: {
+      cwd: "/repo",
+      left: "",
+      ...(worktree === undefined ? {} : { worktree }),
+    },
+    explain: vi.fn((error: string) => `explained: ${error}`),
+  };
+}
+
+/** Every step answers the success path; a test overrides the one step it covers. */
+function succeed(): void {
+  vi.mocked(check).mockResolvedValue(CHECKED);
+  vi.mocked(roleToken).mockResolvedValue(undefined);
+  opener.open.mockResolvedValue(asRegistry(fakeRegistry()));
+  vi.mocked(openPane).mockResolvedValue(opened());
+  vi.mocked(launch).mockResolvedValue({ status: "verified" });
+  vi.mocked(finish).mockResolvedValue(0);
+  vi.mocked(fail).mockImplementation((_deps, _json, code) => code);
+}
+
+let deps: FakeDeps;
+
+beforeEach(() => {
+  deps = fakeDeps();
+  succeed();
+});
+
+describe("spawn refuses before anything is opened", () => {
+  it("returns the check's usage error, without resolving the token or opening the registry", async () => {
+    vi.mocked(check).mockResolvedValue({
+      error: "Missing --name.",
+      code: USAGE_ERROR,
     });
-    expect(await run(spawnArgs, h.deps)).toBe(0);
-    const split = herdrCalls(h).find((c) => c.includes("pane split"));
-    expect(split).toBe(
-      "herdr pane split --current --direction right --cwd /work/tree --no-focus --env KORE_AGENT=image-trust-writer",
+
+    const code = await spawn(contextOf(deps));
+
+    expect(code).toBe(USAGE_ERROR);
+    expect(fail).toHaveBeenCalledExactlyOnceWith(
+      deps,
+      false,
+      USAGE_ERROR,
+      "Missing --name.",
     );
+    expect(roleToken).not.toHaveBeenCalled();
+    expect(opener.open).not.toHaveBeenCalled();
   });
 
-  it("splits the bottom-most spawned pane down for later panes", async () => {
-    const h = testHarness({
-      env: INSIDE,
-      responses: [
-        gitCommon,
-        nameFree,
-        layoutOf(pane("w3:p6", 100, 0), pane("w3:p7", 100, 50)),
-        splitReturns("w3:p9"),
-      ],
+  it("fails before any pane is split when the role's identity is missing", async () => {
+    vi.mocked(roleToken).mockResolvedValue({
+      error: "The writer identity is missing.",
     });
-    expect(await run(spawnArgs, h.deps)).toBe(0);
-    const split = herdrCalls(h).find((c) => c.includes("pane split"));
-    expect(split).toBe(
-      "herdr pane split w3:p7 --direction down --cwd /work/tree --no-focus --env KORE_AGENT=image-trust-writer",
-    );
-  });
 
-  it("equalizes the column after the split, before launching the agent", async () => {
-    const h = testHarness({
-      env: INSIDE,
-      responses: [gitCommon, nameFree, layoutOf(), splitReturns("w3:p9")],
-    });
-    await run(spawnArgs, h.deps);
-    const kinds = herdrCalls(h).map((c) => c.split(" ").slice(1, 3).join(" "));
-    const split = kinds.indexOf("pane split");
-    expect(kinds[split + 1]).toBe("pane layout");
-    expect(kinds.indexOf("agent start")).toBeGreaterThan(split + 1);
+    const code = await spawn(contextOf(deps));
+
+    expect(code).toBe(FAILED);
+    expect(fail).toHaveBeenCalledWith(
+      deps,
+      false,
+      FAILED,
+      "The writer identity is missing.",
+    );
+    expect(openPane).not.toHaveBeenCalled();
   });
 });
 
-describe("session spawn launch", () => {
-  it("starts claude with the role, model and effort in the new pane under the given name", async () => {
-    const h = testHarness({
-      env: INSIDE,
-      responses: [gitCommon, nameFree, layoutOf(), splitReturns("w3:p9")],
-    });
-    await run(spawnArgs, h.deps);
-    expect(herdrCalls(h)).toContain(
-      "herdr agent start image-trust-writer --kind claude --pane w3:p9 -- --agent reader --model claude-sonnet-5-5 --effort high",
+describe("spawn opens the pane", () => {
+  it("passes the role's token to the pane when it has one", async () => {
+    vi.mocked(roleToken).mockResolvedValue({ token: "ghs_writer" });
+    const registry = asRegistry(fakeRegistry());
+    opener.open.mockResolvedValue(registry);
+
+    await spawn(contextOf(deps));
+
+    expect(roleToken).toHaveBeenCalledWith(deps, "writer");
+    expect(opener.open).toHaveBeenCalledWith(deps);
+    expect(openPane).toHaveBeenCalledWith(
+      contextOf(deps),
+      CHECKED,
+      registry,
+      "ghs_writer",
     );
   });
 
-  it("prompts with a brief carrying the fresh caller pane id, the name and the exact broadcast", async () => {
-    const h = testHarness({
-      env: { HERDR_ENV: "1", HERDR_PANE_ID: "w3:p42" },
-      responses: [gitCommon, nameFree, layoutOf(), splitReturns("w3:p9")],
-    });
-    await run(spawnArgs, h.deps);
-    const prompt = h.runner.calls.find((c) => c.args[1] === "prompt");
-    expect(prompt?.args.slice(0, 3)).toEqual([
-      "agent",
-      "prompt",
-      "image-trust-writer",
-    ]);
-    const brief = prompt?.args[3] ?? "";
-    expect(brief).toContain("Do the thing.");
-    expect(brief).toContain("broadcast to pane `w3:p42`");
-    expect(brief).toContain("image-trust-writer");
-    expect(brief).toContain(
-      "node skills/bin/harness.mjs session notify w3:p42 --outcome <done|blocked>",
+  it("passes no token for a role that has no identity", async () => {
+    await spawn(contextOf(deps));
+
+    expect(openPane).toHaveBeenCalledWith(
+      contextOf(deps),
+      CHECKED,
+      expect.anything(),
+      undefined,
     );
-    expect(prompt?.args.slice(4)).toEqual([
-      "--wait",
-      "--until",
-      "working",
-      "--timeout",
-      "5000",
-    ]);
   });
 
-  it("reports the session name, pane id and model as JSON", async () => {
-    const h = testHarness({
-      env: INSIDE,
-      responses: [gitCommon, nameFree, layoutOf(), splitReturns("w3:p9")],
+  it("fails with the pane's error, and launches nothing, when the pane cannot be opened", async () => {
+    vi.mocked(openPane).mockResolvedValue({
+      error: "herdr pane split failed.",
     });
-    expect(await run([...spawnArgs, "--json"], h.deps)).toBe(0);
-    expect(JSON.parse(h.out())).toEqual({
-      name: "image-trust-writer",
+
+    const code = await spawn(contextOf(deps));
+
+    expect(code).toBe(FAILED);
+    expect(fail).toHaveBeenCalledWith(
+      deps,
+      false,
+      FAILED,
+      "herdr pane split failed.",
+    );
+    expect(launch).not.toHaveBeenCalled();
+    expect(finish).not.toHaveBeenCalled();
+  });
+});
+
+describe("spawn launches the role", () => {
+  it("explains a failed agent start through the opened pane, and records nothing", async () => {
+    const explain = vi.fn((error: string) => `explained: ${error}`);
+    vi.mocked(openPane).mockResolvedValue({ ...opened(), explain });
+    vi.mocked(launch).mockResolvedValue({ error: "agent start failed" });
+
+    const code = await spawn(contextOf(deps));
+
+    expect(code).toBe(FAILED);
+    expect(explain).toHaveBeenCalledWith("agent start failed");
+    expect(fail).toHaveBeenCalledWith(
+      deps,
+      false,
+      FAILED,
+      "explained: agent start failed",
+    );
+    expect(finish).not.toHaveBeenCalled();
+  });
+
+  it("launches the checked role in the opened pane, naming the pane left open", async () => {
+    await spawn(contextOf(deps));
+
+    expect(launch).toHaveBeenCalledWith(deps, {
+      ...VALUES,
       paneId: "w3:p9",
-      model: "claude-sonnet-5-5",
-      role: "reader",
-      effort: "high",
-      modelCheck: {
-        status: "unverified",
-        reason: expect.stringContaining("Sonnet 5.5") as unknown,
-      },
+      callerPane: "w3:p1",
+      leftOpen: "The pane w3:p9 was left open.",
     });
-  });
-
-  it("prints a human line without --json", async () => {
-    const h = testHarness({
-      env: INSIDE,
-      responses: [gitCommon, nameFree, layoutOf(), splitReturns("w3:p9")],
-    });
-    await run(spawnArgs, h.deps);
-    expect(h.out()).toContain("image-trust-writer");
-    expect(h.out()).toContain("w3:p9");
   });
 });
 
-describe("session spawn ledger", () => {
-  const LEDGER = "/main/.kore/state/ledger.jsonl";
+describe("spawn records the session", () => {
+  it("records the session with its worktree and the clock's creation time", async () => {
+    const registry = asRegistry(fakeRegistry());
+    opener.open.mockResolvedValue(registry);
+    vi.mocked(openPane).mockResolvedValue(opened(WORKTREE));
 
-  it("records a session.launch event with the role and the model tier, from the spawn itself", async () => {
-    const h = testHarness({
-      env: INSIDE,
-      responses: [gitCommon, nameFree, layoutOf(), splitReturns("w3:p9")],
-    });
-    await run(spawnArgs, h.deps);
-    const [line] = (h.files.get(LEDGER) ?? "").split("\n").filter(Boolean);
-    expect(JSON.parse(line ?? "{}")).toMatchObject({
-      source: "herdr",
-      kind: "session.launch",
-      pane: "w3:p9",
-      agent: "image-trust-writer",
-      role: "reader",
-      tier: "claude-sonnet-5-5",
+    await spawn(contextOf(deps));
+
+    expect(finish).toHaveBeenCalledWith(contextOf(deps), {
+      registry,
+      modelCheck: { status: "verified" },
+      record: {
+        name: "image-trust-writer",
+        paneId: "w3:p9",
+        callerPane: "w3:p1",
+        model: "claude-opus-5-5",
+        role: "writer",
+        effort: "high",
+        worktree: WORKTREE,
+        createdAt: CREATED_AT,
+      },
+      timeoutMs: 60_000,
     });
   });
 
-  it("does not record a launch when the spawn fails before the agent starts", async () => {
-    const h = testHarness({
-      env: INSIDE,
-      responses: [
-        gitCommon,
-        nameFree,
-        layoutOf(),
-        {
-          match: (_c, a) => a[1] === "split",
-          result: { code: 1, stderr: "no" },
-        },
-      ],
-    });
-    expect(await run(spawnArgs, h.deps)).not.toBe(0);
-    expect(h.files.get(LEDGER)).toBeUndefined();
+  it("records no worktree field when the spawn placed none", async () => {
+    await spawn(contextOf(deps));
+
+    const record = vi.mocked(finish).mock.calls[0]?.[1].record;
+    expect(record).not.toHaveProperty("worktree");
+  });
+
+  it("returns the exit code that finish returns", async () => {
+    vi.mocked(finish).mockResolvedValue(1);
+
+    await expect(spawn(contextOf(deps))).resolves.toBe(1);
   });
 });

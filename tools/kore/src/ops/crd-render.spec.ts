@@ -1,31 +1,24 @@
-import assert from "node:assert/strict";
-import { test } from "vitest";
-import type { Runner, RunOptions, RunResult } from "../runtime/index.js";
+import { join } from "node:path";
+import { beforeEach, expect, test, vi } from "vitest";
 import { chartCrds, helmChartComponents } from "./crd-render.js";
+import { fakeRunner } from "./ops-support.js";
 
-class Recorder implements Runner {
-  calls: { command: string; args: readonly string[]; options?: RunOptions }[] =
-    [];
-  async run(
-    command: string,
-    args: readonly string[],
-    options?: RunOptions,
-  ): Promise<RunResult> {
-    this.calls.push({ command, args, ...(options ? { options } : {}) });
-    if (command === "helm") {
-      return { stdout: "rendered: yaml", stderr: "", code: 0 };
-    }
-    const crd = {
-      metadata: { name: "a.example.dev" },
-      spec: { group: "example.dev", versions: [] },
-    };
-    return {
-      stdout: `${JSON.stringify(crd)}\n${JSON.stringify({ ...crd, metadata: { name: "b.example.dev" } })}\n`,
-      stderr: "",
-      code: 0,
-    };
-  }
-}
+vi.mock("node:path");
+
+const CRDS = [
+  JSON.stringify({
+    metadata: { name: "a.example.dev" },
+    spec: { group: "example.dev", versions: [] },
+  }),
+  JSON.stringify({
+    metadata: { name: "b.example.dev" },
+    spec: { group: "example.dev", versions: [] },
+  }),
+].join("\n");
+
+/** helm renders the chart; yq reads the CRDs out of what helm rendered. */
+const cli = () =>
+  fakeRunner((command) => (command === "helm" ? "rendered: yaml" : CRDS));
 
 const component = {
   name: "demo",
@@ -36,54 +29,74 @@ const component = {
   values: ["infra/environments/common/values/demo.yaml"],
 };
 
+beforeEach(() => {
+  vi.mocked(join).mockImplementation((...parts: string[]) => parts.join("/"));
+});
+
 test("CRDs are rendered at the requested version with helm template and read with yq", async () => {
-  const runner = new Recorder();
+  const { runner, run } = cli();
   const crds = await chartCrds(runner, "/repo", component, "1.2.3");
-  assert.deepEqual(
-    crds.map((crd) => crd.metadata.name),
-    ["a.example.dev", "b.example.dev"],
-  );
-  const helm = runner.calls[0]!;
-  assert.equal(helm.command, "helm");
-  assert.deepEqual(helm.args.slice(0, 3), ["template", "demo", "demo"]);
-  for (const flag of [
-    "--include-crds",
-    "--repo",
-    "https://charts.example.dev",
-    "--version",
-    "1.2.3",
-    "/repo/infra/environments/common/values/demo.yaml",
-  ]) {
-    assert.ok(helm.args.includes(flag), `helm template gets ${flag}`);
-  }
-  assert.equal(runner.calls[1]!.command, "yq");
-  assert.equal(runner.calls[1]!.options?.input, "rendered: yaml");
+  expect(crds.map((crd) => crd.metadata.name)).toEqual([
+    "a.example.dev",
+    "b.example.dev",
+  ]);
+  expect(run.mock.calls).toEqual([
+    [
+      "helm",
+      [
+        "template",
+        "demo",
+        "demo",
+        "--namespace",
+        "demo-system",
+        "--include-crds",
+        "--repo",
+        "https://charts.example.dev",
+        "--version",
+        "1.2.3",
+        "--values",
+        "/repo/infra/environments/common/values/demo.yaml",
+      ],
+      { capture: true, cwd: "/repo" },
+    ],
+    [
+      "yq",
+      [
+        "eval-all",
+        "--output-format=json",
+        "--indent=0",
+        'select(.kind == "CustomResourceDefinition")',
+      ],
+      { capture: true, input: "rendered: yaml" },
+    ],
+  ]);
 });
 
 test("only template-style helm commands run, so nothing is installed", async () => {
-  const runner = new Recorder();
+  const { runner, run } = cli();
   await chartCrds(runner, "/repo", component, "1.2.3");
-  assert.ok(
-    runner.calls
-      .filter((c) => c.command === "helm")
-      .every((c) => c.args[0] === "template"),
-  );
-  assert.ok(
-    runner.calls.every((c) => c.command === "helm" || c.command === "yq"),
-  );
+  const commands = run.mock.calls.map(([command, args]) => [command, args[0]]);
+  expect(commands).toEqual([
+    ["helm", "template"],
+    ["yq", "eval-all"],
+  ]);
 });
 
 test("an OCI chart is addressed by its repository URL without --repo", async () => {
-  const runner = new Recorder();
+  const { runner, run } = cli();
   await chartCrds(
     runner,
     "/repo",
     { ...component, repository: "oci://ghcr.io/x/demo" },
     "1.2.3",
   );
-  const args = runner.calls[0]!.args;
-  assert.equal(args[2], "oci://ghcr.io/x/demo");
-  assert.ok(!args.includes("--repo"));
+  const args = run.mock.calls[0]![1];
+  expect(args.slice(0, 3)).toEqual([
+    "template",
+    "demo",
+    "oci://ghcr.io/x/demo",
+  ]);
+  expect(args).not.toContain("--repo");
 });
 
 test("only remote helm charts are compared, because local charts change with the repository", () => {
@@ -91,8 +104,5 @@ test("only remote helm charts are compared, because local charts change with the
     component,
     { ...component, name: "own", kind: "local-chart" as never },
   ]);
-  assert.deepEqual(
-    picked.map((c) => c.name),
-    ["demo"],
-  );
+  expect(picked.map((c) => c.name)).toEqual(["demo"]);
 });

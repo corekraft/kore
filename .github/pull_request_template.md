@@ -1,6 +1,12 @@
 ## Summary
 
-<!-- What changed and how it was verified. Link the ticket: `Closes #<number>`. -->
+<!--
+What changed and how it was verified. Link the ticket with `Refs #<number>`.
+Use `Closes #<number>` only when this merge itself delivers the outcome; an
+outcome that needs a live or nightly run is closed by its recorded proof, not
+by the merge (ADR 0097, docs/decisions/0097-an-outcome-issue-closes-on-recorded-proof-not-on-merge.md).
+When unsure, use `Refs`.
+-->
 
 ## Safety pattern
 

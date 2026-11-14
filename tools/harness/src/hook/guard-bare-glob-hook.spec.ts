@@ -45,3 +45,33 @@ describe("hook guard bare glob resolves from the call's directory", () => {
     expect(result.out).toBe("");
   });
 });
+
+const on = (command: string) => ({
+  session_id: "s1",
+  tool_name: "Bash",
+  tool_input: { command },
+});
+
+describe("hook guard bare glob skips glob characters in pattern arguments", () => {
+  it("is silent for a glob character in the pattern of grep, which is not a path", async () => {
+    const result = await guard(on("grep -rn Closed* src"), []);
+    expect(result.out).toBe("");
+  });
+
+  it("warns about the path argument of grep that matches nothing, and not its pattern", async () => {
+    const result = await guard(on("grep Closed* docs/*.zzz"), []);
+    expect(JSON.parse(result.out).hookSpecificOutput.additionalContext).toMatch(
+      /^\[guard:bare-glob\] docs\/\*\.zzz is an unquoted glob/,
+    );
+  });
+
+  it("is silent for a glob character in a [[ ]] comparison pattern", async () => {
+    const result = await guard(on("[[ $x == Closed* ]] && echo ok"), []);
+    expect(result.out).toBe("");
+  });
+
+  it("is silent for a * operand in arithmetic, which is not a glob", async () => {
+    const result = await guard(on("echo $(( * $n * ))"), []);
+    expect(result.out).toBe("");
+  });
+});

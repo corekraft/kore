@@ -1,7 +1,8 @@
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
+import { HARNESS_CONFIG, parseHarnessConfig } from "../flow/index.js";
 import { DEFAULT_LEDGER, Ledger } from "../ledger/index.js";
 import { bundleMainRoot, type CommandContext } from "../runtime/index.js";
-import { JudgeError, type Report } from "../judge/index.js";
+import { JudgeError, reviewersFor, type Report } from "../judge/index.js";
 
 export const FAILED = 1;
 
@@ -62,12 +63,43 @@ export async function record(
   }
 }
 
-/** The reviewers named with --reviewer, split on commas. */
-export const reviewersOf = (context: CommandContext): string[] =>
-  String(context.options["reviewer"] ?? "")
-    .split(",")
-    .map((r) => r.trim())
-    .filter((r) => r !== "");
+const ownerOf = (repo: string): string => repo.split("/")[0] ?? repo;
+
+/**
+ * The logins the judge trusts for principles-review verdicts. --reviewer overrides everything and
+ * the harness config is not read; otherwise reviewerLogins from the config, else its owner login,
+ * else the repository's owner. The config is read from the main checkout, never the working
+ * directory, so a judge run elsewhere cannot widen whom it trusts.
+ */
+export async function reviewersOf(
+  context: CommandContext,
+  repo: string,
+): Promise<string[]> {
+  const { deps } = context;
+  const flag = context.options["reviewer"];
+  if (flag !== undefined) {
+    return reviewersFor({ flag: String(flag), owner: ownerOf(repo) });
+  }
+  const main = await bundleMainRoot(deps);
+  if (main === undefined) {
+    throw new JudgeError(
+      "Cannot find the main checkout from the harness bundle's location, so there is no harness config to read reviewers from. Run the built skills/bin/harness.mjs (mise run harness-build) from inside the repository, or pass --reviewer <login>.",
+    );
+  }
+  const file = join(main, HARNESS_CONFIG);
+  const config = (await deps.fs.exists(file))
+    ? parseHarnessConfig(await deps.fs.readFile(file), HARNESS_CONFIG)
+    : undefined;
+  if (config !== undefined && "error" in config) {
+    throw new JudgeError(
+      `${config.error} The judge reads whom to trust from this file; fix it, or pass --reviewer <login>.`,
+    );
+  }
+  return reviewersFor({
+    configured: config?.reviewerLogins,
+    owner: config?.ownerLogin ?? ownerOf(repo),
+  });
+}
 
 /** Reports an expected judge failure on stderr and returns the failing exit code; rethrows anything else. */
 export function failed(context: CommandContext, error: unknown): number {

@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { loadRepository } from "../../src/config/index.js";
-import { type Call } from "../../src/testing/index.js";
-import { CommandError, type Runner } from "../../src/runtime/index.js";
 import {
+  type Call,
   admissionVerdict,
   ephemeralContainerVerdict,
   runningPodWithImage,
-} from "../../src/platform/index.js";
+} from "../../src/testing/index.js";
+import { CommandError, type Runner } from "../../src/runtime/index.js";
 
 // Docs: docs/decisions/0032-application-namespace-image-admission.md
 // Helpers for the opt-in live coverage specs (init and ephemeral containers).

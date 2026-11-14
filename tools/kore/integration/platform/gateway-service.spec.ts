@@ -3,10 +3,8 @@ import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { test } from "vitest";
 import { loadRepository, type Repository } from "../../src/config/index.js";
-import {
-  helmTemplateArgs,
-  withAbsoluteChart,
-} from "../../src/platform/helm.js";
+import { helmTemplateArgs } from "../../src/platform/index.js";
+import { withAbsoluteChart } from "../../src/testing/index.js";
 
 function render(repository: Repository): string {
   const component = repository.catalog.components.find(

@@ -132,11 +132,11 @@ describe("judge precheck principles-review head commit", () => {
     expect(verdict(h)?.result).toBe("unverified");
   });
 
-  it("reports unverified, naming --reviewer, when no reviewer identity is given", async () => {
+  it("reports unverified, naming the trusted owner login, when the verdict is from another login", async () => {
     const h = scenario();
     expect(await run(["judge", "precheck", "42", "--json"], h.deps)).toBe(1);
     expect(verdict(h)?.result).toBe("unverified");
-    expect(verdict(h)?.detail).toContain("--reviewer");
+    expect(verdict(h)?.detail).toContain("corekraft");
   });
 
   it("reads the newest qualifying review, ignoring a newer one from a stranger", async () => {

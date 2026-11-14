@@ -1,13 +1,19 @@
-import assert from "node:assert/strict";
-import { test } from "vitest";
-import { findRoot } from "../config/index.js";
-import { loadRepository } from "../config/index.js";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { beforeEach, expect, test, vi } from "vitest";
+import { exists } from "../config/index.js";
 import {
+  checkRecovery,
   loadRecovery,
   recoveryProblems,
   statefulComponents,
   type Objective,
 } from "./recovery.js";
+import { fakeRepository, serveDirectories, serveFiles } from "./ops-support.js";
+
+vi.mock("node:fs/promises");
+vi.mock("node:path");
+vi.mock("../config/index.js");
 
 const context = {
   components: ["db", "cache", "pg-controller"],
@@ -30,41 +36,45 @@ const exportObjective: Objective = {
 const problems = (...objectives: Objective[]): string[] =>
   recoveryProblems(objectives, context);
 
+beforeEach(() => {
+  vi.mocked(join).mockImplementation((...parts: string[]) => parts.join("/"));
+});
+
 test("a stateful component with a tested export objective passes", () => {
-  assert.deepEqual(problems(exportObjective), []);
+  expect(problems(exportObjective)).toEqual([]);
 });
 
 test("a stateful component with no objective is reported", () => {
-  assert.deepEqual(problems(), [
+  expect(problems()).toEqual([
     "db: stateful component has no local recovery objective in infra/catalog/recovery.yaml",
   ]);
 });
 
 test("an objective for a component the catalog does not define is reported", () => {
-  const found = problems({ ...exportObjective, components: ["db", "ghost"] });
-  assert.deepEqual(found, ["database: unknown component ghost"]);
+  expect(problems({ ...exportObjective, components: ["db", "ghost"] })).toEqual(
+    ["database: unknown component ghost"],
+  );
 });
 
 test("an export objective needs an existing live spec as its restore test", () => {
   const { restoreTest: _omit, ...rest } = exportObjective;
-  assert.match(
-    problems(rest).join(),
+  expect(problems(rest).join()).toMatch(
     /database: data-export needs a restoreTest/,
   );
-  assert.match(
+  expect(
     problems({
       ...exportObjective,
       restoreTest: "tests/missing.live.spec.ts",
     }).join(),
+  ).toMatch(
     /database: restoreTest tests\/missing\.live\.spec\.ts does not exist/,
   );
-  assert.match(
+  expect(
     problems({
       ...exportObjective,
       restoreTest: "tests/db.live.spec.ts.bak",
     }).join(),
-    /restoreTest must be a \*\.live\.spec\.ts/,
-  );
+  ).toMatch(/restoreTest must be a \*\.live\.spec\.ts/);
 });
 
 test("recovery time and point objectives are positive whole minutes", () => {
@@ -73,8 +83,8 @@ test("recovery time and point objectives are positive whole minutes", () => {
     rtoMinutes: 0,
     rpoMinutes: 1.5,
   }).join("\n");
-  assert.match(found, /database: rtoMinutes must be a positive whole number/);
-  assert.match(found, /database: rpoMinutes must be a positive whole number/);
+  expect(found).toMatch(/database: rtoMinutes must be a positive whole number/);
+  expect(found).toMatch(/database: rpoMinutes must be a positive whole number/);
 });
 
 test("a rebuild objective loses its data by design and says why", () => {
@@ -89,30 +99,29 @@ test("a rebuild objective loses its data by design and says why", () => {
     rtoMinutes: 30,
     reason: "claims are labelled Delete and hold only derived telemetry",
   };
-  assert.deepEqual(problems(rebuild), []);
+  expect(problems(rebuild)).toEqual([]);
   const { reason: _reason, ...noReason } = rebuild;
-  assert.match(problems(noReason).join(), /metrics: rebuild needs a reason/);
-  assert.match(
-    problems({ ...rebuild, rpoMinutes: 60 }).join(),
+  expect(problems(noReason).join()).toMatch(/metrics: rebuild needs a reason/);
+  expect(problems({ ...rebuild, rpoMinutes: 60 }).join()).toMatch(
     /metrics: rebuild recovers no data, so rpoMinutes must be null/,
   );
 });
 
 test("a cron schedule needs five fields", () => {
-  assert.match(
+  expect(
     problems({
       ...exportObjective,
       schedule: { kind: "cron", expression: "daily" },
     }).join(),
+  ).toMatch(
     /database: schedule expression "daily" is not a five-field cron expression/,
   );
-  assert.deepEqual(
+  expect(
     problems({
       ...exportObjective,
       schedule: { kind: "cron", expression: "0 2 * * *" },
     }),
-    [],
-  );
+  ).toEqual([]);
 });
 
 test("a managed objective that is active needs a restore test, a planned one does not", () => {
@@ -127,48 +136,134 @@ test("a managed objective that is active needs a restore test, a planned one doe
     rpoMinutes: 15,
     rtoMinutes: 60,
   };
-  assert.deepEqual(problems(exportObjective, managed), []);
-  assert.match(
+  expect(problems(exportObjective, managed)).toEqual([]);
+  expect(
     problems(exportObjective, { ...managed, status: "active" }).join(),
-    /managed-db: an active scheduled-backup needs a restoreTest/,
-  );
+  ).toMatch(/managed-db: an active scheduled-backup needs a restoreTest/);
 });
 
 test("objective names are unique", () => {
-  assert.match(
-    problems(exportObjective, exportObjective).join(),
+  expect(problems(exportObjective, exportObjective).join()).toMatch(
     /database: duplicate objective name/,
   );
 });
 
-test("this repository's recovery objectives cover every stateful component", async () => {
-  const root = await findRoot();
-  const repository = await loadRepository("local", root);
-  const stateful = await statefulComponents(root, repository);
-  for (const name of [
-    "prometheus",
-    "loki",
-    "grafana",
-    "tempo",
-    "kore-observability-config",
-    "oci-registry",
-    "kore-postgresql-api",
-  ]) {
-    assert.ok(stateful.includes(name), `${name} is detected as stateful`);
-  }
-  const { access } = await import("node:fs/promises");
-  const { join } = await import("node:path");
-  const present = new Set<string>();
-  for (const objective of await loadRecovery(root)) {
-    if (objective.restoreTest) {
-      await access(join(root, objective.restoreTest));
-      present.add(objective.restoreTest);
-    }
-  }
-  const found = recoveryProblems(await loadRecovery(root), {
-    components: repository.catalog.components.map((c) => c.name),
-    stateful,
-    exists: (path) => present.has(path),
+test("the recovery objectives file is read under the repository root", async () => {
+  serveFiles({
+    "/repo/infra/catalog/recovery.yaml": JSON.stringify({
+      objectives: [exportObjective],
+    }),
   });
-  assert.deepEqual(found, []);
+  expect(await loadRecovery("/repo")).toEqual([exportObjective]);
+  expect(vi.mocked(readFile).mock.calls[0]?.[0]).toBe(
+    "/repo/infra/catalog/recovery.yaml",
+  );
+});
+
+test("a recovery file with no objectives list loads as no objectives", async () => {
+  serveFiles({ "/repo/infra/catalog/recovery.yaml": "{}" });
+  expect(await loadRecovery("/repo")).toEqual([]);
+});
+
+test("a stateful component is one whose values, chart or source declare a volume, sorted by name", async () => {
+  serveFiles({
+    "/repo/infra/values/db.yaml": "persistence:\n  enabled: true\n",
+    "/repo/infra/charts/cache/values.yaml": "kind: PersistentVolumeClaim\n",
+    "/repo/infra/values/web.yaml": "replicas: 2\n",
+  });
+  serveDirectories({ "/repo/infra/charts/cache": ["values.yaml"] });
+  vi.mocked(exists).mockImplementation(async (path) =>
+    [
+      "/repo/infra/values/db.yaml",
+      "/repo/infra/charts/cache/values.yaml",
+      "/repo/infra/values/web.yaml",
+    ].includes(path),
+  );
+  const repository = fakeRepository({
+    catalog: {
+      components: [
+        {
+          name: "db",
+          kind: "helm",
+          chart: "db",
+          values: ["infra/values/db.yaml"],
+        },
+        { name: "cache", kind: "local-chart", source: "infra/charts/cache" },
+        {
+          name: "web",
+          kind: "local-chart",
+          chart: "web",
+          values: ["infra/values/web.yaml"],
+        },
+        {
+          name: "remote",
+          kind: "helm",
+          source: "https://charts.example.dev/x",
+        },
+      ],
+    },
+    environment: {},
+  });
+  expect(await statefulComponents("/repo", repository)).toEqual([
+    "cache",
+    "db",
+  ]);
+});
+
+test("a declared file that is not on disk does not make its component stateful", async () => {
+  serveFiles({});
+  serveDirectories({});
+  vi.mocked(exists).mockResolvedValue(false);
+  const repository = fakeRepository({
+    catalog: {
+      components: [
+        {
+          name: "gone",
+          kind: "local-chart",
+          chart: "gone",
+          values: ["infra/gone.yaml"],
+        },
+      ],
+    },
+    environment: {},
+  });
+  expect(await statefulComponents("/repo", repository)).toEqual([]);
+});
+
+test("checkRecovery counts the objectives and passes when the restore test is on disk", async () => {
+  serveFiles({
+    "/repo/infra/catalog/recovery.yaml": JSON.stringify({
+      objectives: [exportObjective],
+    }),
+  });
+  vi.mocked(exists).mockImplementation(
+    async (path) => path === "/repo/tests/db.live.spec.ts",
+  );
+  const repository = fakeRepository({
+    catalog: { components: [{ name: "db", kind: "helm", chart: "db" }] },
+    environment: {},
+  });
+  expect(await checkRecovery(repository)).toEqual({
+    problems: [],
+    objectives: 1,
+    stateful: [],
+  });
+});
+
+test("checkRecovery reports a restore test that is missing from disk", async () => {
+  serveFiles({
+    "/repo/infra/catalog/recovery.yaml": JSON.stringify({
+      objectives: [exportObjective],
+    }),
+  });
+  vi.mocked(exists).mockResolvedValue(false);
+  const repository = fakeRepository({
+    catalog: { components: [{ name: "db", kind: "helm", chart: "db" }] },
+    environment: {},
+  });
+  expect(await checkRecovery(repository)).toEqual({
+    problems: ["database: restoreTest tests/db.live.spec.ts does not exist"],
+    objectives: 1,
+    stateful: [],
+  });
 });

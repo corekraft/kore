@@ -3,7 +3,7 @@ import { loadRepository } from "../../src/config/index.js";
 import { test } from "vitest";
 import type { Call } from "../../src/testing/index.js";
 import type { Runner } from "../../src/runtime/index.js";
-import { admissionVerdict, scaleDeployment } from "../../src/platform/index.js";
+import { admissionVerdict, scaleDeployment } from "../../src/testing/index.js";
 
 // Docs: docs/decisions/0028-image-trust-authority.md
 // The scale and ServiceAccount probes, which the admission catalog spec shares a source with.
