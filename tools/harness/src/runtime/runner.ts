@@ -7,6 +7,12 @@ export interface RunOptions {
   env?: Record<string, string>;
   /** Kills the child after this long; the result then has code 124 and says it timed out. */
   timeoutMs?: number;
+  /**
+   * Starts the child in its own process group with no pipes and lets the parent exit
+   * without it. The result is code 0 with no output at once: nothing waits for the
+   * child, and nothing of it is read back. A command that cannot start is dropped.
+   */
+  detached?: boolean;
 }
 export interface RunResult {
   stdout: string;
@@ -28,6 +34,17 @@ export class ProcessRunner implements Runner {
     args: readonly string[],
     options: RunOptions = {},
   ): Promise<RunResult> {
+    if (options.detached === true) {
+      const child = spawn(command, [...args], {
+        ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
+        ...(options.env === undefined ? {} : { env: options.env }),
+        detached: true,
+        stdio: "ignore",
+      });
+      child.on("error", () => undefined);
+      child.unref();
+      return { stdout: "", stderr: "", code: 0 };
+    }
     return await new Promise((resolve) => {
       const child = spawn(command, [...args], {
         ...(options.cwd === undefined ? {} : { cwd: options.cwd }),

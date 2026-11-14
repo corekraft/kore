@@ -155,4 +155,19 @@ describe("the spawn-session skill", () => {
     expect(skill).not.toContain("It checks Herdr");
     expect(skill).not.toContain("tools/harness/wizards/identities.sh");
   });
+
+  it("tells the orchestrator to prefix follow-ups with [orchestrator], which the retro scan skips", () => {
+    expect(skill).toContain(
+      "follow-up message you type into a worker pane with `[orchestrator]`",
+    );
+  });
+});
+
+describe("the principles-review agent", () => {
+  const agent = read(".claude/agents/principles-review.md");
+
+  it("names the exact review post command, not a hand-written gh comment", () => {
+    expect(agent).toContain("node skills/bin/harness.mjs review post <pr>");
+    expect(agent).toContain("never a hand-written `gh pr comment`");
+  });
 });
