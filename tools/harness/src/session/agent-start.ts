@@ -1,4 +1,4 @@
-import type { CliDeps, RunResult } from "../runtime/index.js";
+import type { CliDeps, LoadReader, RunResult } from "../runtime/index.js";
 import { describeFailure } from "./equalize.js";
 import { displayName, modelOnScreen, type ModelCheck } from "./models.js";
 
@@ -51,7 +51,7 @@ function backoffPause(
 }
 
 /** The host's load average, or infinity when no reader is injected or the host reports none. */
-function hostLoadOf(deps: Pick<CliDeps, "hostLoad">): number {
+function hostLoadOf(deps: { hostLoad?: LoadReader }): number {
   return deps.hostLoad?.oneMinute() ?? Number.POSITIVE_INFINITY;
 }
 
@@ -61,7 +61,7 @@ function hostLoadOf(deps: Pick<CliDeps, "hostLoad">): number {
  * the pause is the backoff, which reads the host load.
  */
 function pauseBeforeRetry(
-  deps: Pick<CliDeps, "hostLoad">,
+  deps: { hostLoad?: LoadReader },
   firstTimeout: number | undefined,
   tries: number,
   waited: number,
@@ -88,7 +88,7 @@ function loadNote(load: number): string {
  * failure, the host load and what to do. An error message, or undefined on success.
  */
 export async function startAgent(
-  deps: Pick<CliDeps, "runner" | "clock" | "hostLoad">,
+  deps: Pick<CliDeps, "runner" | "clock"> & { hostLoad?: LoadReader },
   args: readonly string[],
 ): Promise<string | undefined> {
   let last = "";

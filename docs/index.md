@@ -163,6 +163,7 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0107-the-judge-precheck-accepts-a-contract-once-its-expand-step-is-proven.md`](decisions/0107-the-judge-precheck-accepts-a-contract-once-its-expand-step-is-proven.md) — A contract step that removes lines passes the precheck only when it names a merged expand PR that merged before its head, and a recognised reviewer has recorded the expand's proof on the idea issue.
 - [`docs/decisions/0108-the-judge-precheck-treats-the-ruleset-files-as-developer-tooling.md`](decisions/0108-the-judge-precheck-treats-the-ruleset-files-as-developer-tooling.md) — The main ruleset JSON under .github/rulesets governs which merges are allowed, never what a user or cluster runs, so a diff that edits it alone matches no-behaviour-change; this refines ADR 0099.
 - [`docs/decisions/0109-the-judge-approves-a-pull-request-through-its-own-tool-before-it-merges.md`](decisions/0109-the-judge-approves-a-pull-request-through-its-own-tool-before-it-merges.md) — A judge approve command posts the approving review the ruleset requires, and the role guards allow it and no raw gh pr review.
+- [`docs/decisions/0110-the-judge-precheck-treats-the-pr-declaration-workflow-as-developer-tooling.md`](decisions/0110-the-judge-precheck-treats-the-pr-declaration-workflow-as-developer-tooling.md) — The pr-declaration workflow takes only the PR body as input and builds the harness from the checkout with contents: read, no secrets and no required status, so a diff that edits it alone matches no-behaviour-change; this refines ADR 0105 and ADR 0099.
 
 ## Proposed Decisions
 
@@ -249,7 +250,8 @@ decisions; read one only when planning that area, and expect it to change.
   the PR body, with the one `Safety pattern:` field and the linked idea that
   `harness judge precheck <pr>` reads before it reads the diff, and
   `harness judge approve <pr>` and `harness judge merge <pr>` re-run before they
-  approve and squash-merge. Read when
+  approve and squash-merge; `harness judge diff <pr> [--path <glob>] [--stat]`
+  reads the diff of some files only. Read when
   opening a PR or changing the judge's precheck or merge tool.
 - [`.claude/evals/`](../.claude/evals/) — skill-triggering, review and role
   boundary evals (`--kind boundary`, opt-in). Read when changing a skill
