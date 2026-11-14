@@ -72,6 +72,12 @@ repository root; `mise run kb-check` keeps this list complete.
   one unit with everything mocked, and a speed budget; feature work was paused
   until it was done, and that pause lifts when Step 4 merges. Read before
   writing or moving a test.
+- [`infra/plans/15-next-horizon.md`](../infra/plans/15-next-horizon.md) —
+  active: the Next horizon, services as first-class objects delivered from git
+  that scale; starts after plan 14 Step 4 merges and the Now footprint baseline
+  is recorded. Read before planning `Organization`, `Service`, autoscaling,
+  golden-path templates, platform Argo CD delivery, or the platform Keycloak and
+  Backstage.
 
 ## Decisions
 
