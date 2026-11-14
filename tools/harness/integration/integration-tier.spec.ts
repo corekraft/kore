@@ -2,8 +2,8 @@
 // per package runs it. The guard-bundle startup spec is the tier's one moved
 // test, and the nightly workflow runs the tier. Docs: infra/plans/14-test-tiers.md, ADR 0098.
 
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join, matchesGlob, resolve } from "node:path";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { dirname, join, matchesGlob, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 
@@ -130,4 +130,37 @@ it("runs the tier in the merge check for a change to the commit hooks or the hoo
   ]) {
     expect(triggers.test(path), path).toBe(false);
   }
+});
+
+// The unit run starts no process and reads no built bundle (ADR 0098). A spec that
+// imports a real child_process, or reads skills/bin/harness.mjs, belongs in integration/.
+const unitSpecs = (dir: string): string[] =>
+  readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      return unitSpecs(path);
+    }
+    return entry.name.endsWith(".spec.ts") ? [path] : [];
+  });
+
+it("starts no process and reads no built bundle in any harness unit spec", () => {
+  const offenders = [
+    ...unitSpecs(join(harness, "src")),
+    ...unitSpecs(join(harness, "tests")),
+  ].flatMap((file) => {
+    const text = readFileSync(file, "utf8");
+    const found: string[] = [];
+    if (
+      /^import(?! type)[^;]*from ["'](?:node:)?child_process["']/m.test(text) &&
+      !/vi\.mock\(["'](?:node:)?child_process["']/.test(text)
+    ) {
+      found.push("imports child_process unmocked");
+    }
+    if (/readFile(?:Sync)?\([^)]*harness\.mjs/.test(text)) {
+      found.push("reads the built harness bundle");
+    }
+    return found.map((reason) => `${relative(harness, file)}: ${reason}`);
+  });
+
+  expect(offenders).toEqual([]);
 });
