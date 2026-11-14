@@ -15,21 +15,30 @@ vi.mock("../images/index.js");
 type Run = Runner["run"];
 
 const IMAGE = `10.96.0.50:5000/reference/app@sha256:${"a".repeat(64)}`;
-const repository = {
-  environment: { name: "local" },
-} as unknown as Repository;
-const session = {
-  client: { caFile: "/ca/registry.pem", env: { REGISTRY: "1" } },
-} as never;
-const signer = {
+type Session = Parameters<Parameters<typeof withPublishSession>[2]>[0];
+type Signer = Parameters<Parameters<typeof withLocalSigner>[2]>[0];
+
+/** The one narrowing: a fake carries only the fields the unit reads. */
+function fake<T>(fields: Partial<T>): T {
+  return fields as T;
+}
+
+const repository = fake<Repository>({});
+const session = fake<Session>({
+  client: fake<Session["client"]>({
+    caFile: "/ca/registry.pem",
+    env: { REGISTRY: "1" },
+  }),
+});
+const signer = fake<Signer>({
   key: "k8s://kore-system/signing",
   env: { SIGNER: "1" },
   kubeconfig: "/kube/config",
-} as never;
+});
 
 function fakeRunner() {
   const run = vi.fn<Run>(async () => ({ stdout: "", stderr: "", code: 0 }));
-  return { runner: { run } as Runner, run };
+  return { runner: fake<Runner>({ run }), run };
 }
 
 beforeEach(() => {
