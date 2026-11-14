@@ -37,7 +37,7 @@ describe("session spawn busy retry", () => {
     });
     expect(await run(spawnArgs, h.deps)).toBe(1);
     expect(h.err()).toContain("agent_pane_busy");
-    expect(h.err()).toContain("after 7 tries over 60 s of waiting");
+    expect(h.err()).toContain("after 10 tries");
     expect(h.err()).toContain("w3:p9");
     expect(herdrCalls(h).some((c) => c.includes("agent prompt"))).toBe(false);
   });
