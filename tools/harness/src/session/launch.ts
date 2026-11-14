@@ -47,7 +47,7 @@ export async function launch(
     "agent",
     "prompt",
     name,
-    buildBrief({ task: brief, name, callerPane }),
+    buildBrief({ task: brief, name, callerPane, role }),
     "--wait",
     "--until",
     "working",
