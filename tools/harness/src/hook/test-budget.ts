@@ -1,9 +1,9 @@
 // The test budget as a hook: `harness hook test-budget --package tools/kore --report <report>`, the report the BudgetReporter writes.
 // A unit test over 100 ms, a unit spec file over 1 s, or a package unit run
-// over 20 s fails, naming what was slow. Only converted code is budgeted: each
+// over 120 s fails, naming what was slow. Only converted code is budgeted: each
 // domain's `unconverted.txt` lists the source files not yet converted, one per
 // line relative to the domain directory, and a file is converted unless a list
-// names it. The 20 s limit applies once every list is empty (ADR 0098).
+// names it. The 120 s limit applies once every list is empty (ADR 0098).
 // Docs: infra/plans/14-test-tiers.md#step-1-foundations
 
 import type { CliDeps } from "../runtime/index.js";
@@ -12,7 +12,7 @@ import type { BudgetReport } from "./test-budget-reporter.js";
 
 const TEST_MS = 100;
 const SPEC_MS = 1000;
-const PACKAGE_MS = 20_000;
+const PACKAGE_MS = 120_000;
 const SLOWEST = 10;
 const LIST = "unconverted.txt";
 

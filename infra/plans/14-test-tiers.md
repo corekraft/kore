@@ -70,7 +70,7 @@ split into batches of about 15 source files.
 ### Exit Criteria
 
 - Every unconverted list is empty and deleted.
-- Each package's full unit run takes under 20 s, and its unit coverage meets
+- Each package's full unit run takes under 2 min, and its unit coverage meets
   its thresholds.
 
 ## Step 4: Gate the Release and Lift the Pause

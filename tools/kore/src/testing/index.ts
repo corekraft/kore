@@ -146,3 +146,15 @@ export {
 } from "../platform/helm.js";
 export { recoverUndeployedRelease } from "../platform/reconcile.js";
 export type { ProbePatch } from "../platform/patches.js";
+export { envOption } from "../platform/helm.js";
+// Platform and image units that the integration specs of upstream charts, container
+// smoke and rollout feasibility run through this barrel (plan 14, #373). Production code
+// never imports it, so the platform and images barrels stay as they are.
+export { renderedImages, unapprovedImages } from "../images/rendered-images.js";
+export {
+  classifySmokeLogs,
+  dockerRunArgs,
+  smokeTargets,
+} from "../platform/container-smoke.js";
+export { renderChart, yamlDocuments } from "../platform/upstream.live.js";
+export { rolloutProblems } from "../platform/rollout-feasibility.js";

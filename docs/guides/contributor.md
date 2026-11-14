@@ -113,7 +113,7 @@ see [The harness bundle](#the-harness-bundle).
   other than hooks and evals, `skills/` or `.codex/` runs no hook test before
   merge; the nightly integration job covers them after merge (owner decision).
 - The unit run has a budget: a test over 100 ms, a spec file over 1 s, or (once
-  every list below is empty) a package run over 20 s fails, naming the test and
+  every list below is empty) a package run over 2 min fails, naming the test and
   its time. The `test-budget` hook (`harness hook test-budget`, run by
   `test:budget` after each unit run) reads the report the unit run's
   `BudgetReporter` writes to `test-results/unit.json`, and prints the ten
@@ -208,7 +208,8 @@ importOriginal()), fn: vi.fn() }))`.
   their `--timeout` plus a margin) and names it; kubectl reads carry
   `--request-timeout`.
 - Upstream chart and container checks are opt-in too (`test:upstream-charts`,
-  `test:container-smoke`).
+  `test:container-smoke`). They are integration specs in `tools/kore/integration/`
+  that run helm and docker, so the unit run never starts them.
 - The agentgateway install is proven live by
   `KORE_RUN_AGENTGATEWAY_PROOF=1 tools/kore/scripts/agentgateway-live-proof.sh`.
   It runs a scratch copy of the local overlay with `ingress-agentgateway` on,

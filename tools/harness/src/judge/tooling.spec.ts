@@ -16,6 +16,7 @@ describe("isTooling: paths", () => {
     ".github/workflows/check.yml",
     ".github/workflows/nightly.yml",
     ".github/workflows/integration.yml",
+    ".github/workflows/release.yaml",
     "tools/kore/integration-setup.ts",
     "tools/kore/integration/ops/ops-support.ts",
     "tools/kore/integration/app-up.spec.ts",
@@ -32,7 +33,10 @@ describe("isTooling: paths", () => {
 
   it.each([
     "tools/kore/src/cli/main.ts",
-    ".github/workflows/release.yaml",
+    ".github/workflows/deploy.yml",
+    ".github/workflows/release.yml",
+    ".github/workflows/release.yaml.bak",
+    "infra/release.yaml",
     "apps/web/values.yaml",
     "infra/environments/local/environment.yaml",
     "infra/charts/x/values.yaml",
