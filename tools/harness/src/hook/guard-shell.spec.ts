@@ -121,6 +121,21 @@ describe("rawWords", () => {
       { text: "$?", glob: false, equals: false },
     ]);
   });
+
+  it("keeps a glob inside an ANSI-C $'...' word quoted, past an escaped apostrophe", () => {
+    expect(rawWords("echo $'it\\'s *.lock'")).toEqual([
+      { text: "echo", glob: false, equals: false },
+      { text: "it's *.lock", glob: false, equals: false },
+    ]);
+  });
+
+  it("still notes a glob that follows an ANSI-C $'...' word outside its quotes", () => {
+    expect(rawWords("echo $'done' *.lock")).toEqual([
+      { text: "echo", glob: false, equals: false },
+      { text: "done", glob: false, equals: false },
+      { text: "*.lock", glob: true, equals: false },
+    ]);
+  });
 });
 
 describe("rawSegments", () => {
