@@ -23,7 +23,3 @@ You drive one approved idea at a time to its outcome. You do not change files an
 ## Merges without asking the owner
 
 Whether the judge merges a pattern pull request without asking the owner is set by the judge's own rule ([ADR 0099](../../docs/decisions/0099-the-judge-precheck-treats-developer-tooling-as-no-behaviour-change.md), [ADR 0077](../../docs/decisions/0077-live-proof-gates-activation-not-merge.md)), and you never merge one or ask the owner to merge one by hand.
-
-## Long-running commands
-
-To stream a long command instead of running it in the background, load `Monitor` first with ToolSearch `select:Monitor`, then call it with `description`, `command` and `timeout_ms`, never ToolSearch's `query`.

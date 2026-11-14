@@ -161,28 +161,32 @@ function pathsIn(word: string): string[] {
   ];
 }
 
-/** Whether a path is outside the worktree and not scratch space in tmp. */
-function outside(root: string, path: string): boolean {
+/** Whether a path, read from the directory `dir` the command runs in, is outside the worktree and not scratch space in tmp. */
+function outside(root: string, path: string, dir: string = root): boolean {
   if (path.startsWith("~")) {
     return true;
   }
-  const full = resolve(root, path);
+  const full = resolve(dir, path);
   const from = relative(root, full);
   const within = from === "" || (!from.startsWith("..") && !isAbsolute(from));
   return (
     !within &&
-    !SCRATCH.some((dir) => full.startsWith(dir) || `${full}/` === dir)
+    !SCRATCH.some((tmp) => full.startsWith(tmp) || `${full}/` === tmp)
   );
 }
 
 /** The first path in a writing command, cd or `git -C` that leaves the worktree. */
-function escapes(segment: readonly string[], root: string): string | undefined {
+function escapes(
+  segment: readonly string[],
+  root: string,
+  dir: string,
+): string | undefined {
   const { name, args } = commandOf(segment);
   const target = name === "git" ? args[args.indexOf("-C") + 1] : args[0];
   if (
     (name === "cd" || (name === "git" && args.includes("-C"))) &&
     target !== undefined &&
-    outside(root, target)
+    outside(root, target, dir)
   ) {
     return target;
   }
@@ -194,7 +198,30 @@ function escapes(segment: readonly string[], root: string): string | undefined {
   return segment
     .filter((word) => inline || !/\s/.test(word))
     .flatMap(pathsIn)
-    .find((path) => outside(root, path));
+    .find((path) => outside(root, path, dir));
+}
+
+/**
+ * The first segment that leaves the worktree. Relative paths resolve from the directory
+ * the hook ran in, and from where an earlier cd in the same command left the shell.
+ */
+function leavesWorktree(
+  segments: readonly (readonly string[])[],
+  root: string,
+  cwd: string,
+): readonly string[] | undefined {
+  // A relative directory would resolve against the hook process's own, so it counts as the root.
+  let dir = isAbsolute(cwd) ? cwd : root;
+  for (const segment of segments) {
+    if (escapes(segment, root, dir) !== undefined) {
+      return segment;
+    }
+    const { name, args } = commandOf(segment);
+    if (name === "cd" && args[0] !== undefined && args[0] !== "-") {
+      dir = resolve(dir, args[0]);
+    }
+  }
+  return undefined;
 }
 
 /** The finding for a segment a reporting role may not run: raw pane input is pointed at `session notify`. */
@@ -209,6 +236,7 @@ export function checkDeliveryBash(
   reporting: boolean,
   command: string,
   root: string,
+  cwd: string = root,
 ): Finding {
   const segments = splitSegments(command);
   // A command substituted into another still runs, so the merge checks read it too.
@@ -255,13 +283,16 @@ export function checkDeliveryBash(
     );
     return changing === undefined ? null : refused(changing);
   }
-  for (const segment of segments) {
-    const path = escapes(segment, root);
-    if (path !== undefined) {
-      return outsideWorktree(`\`${segment.join(" ")}\``, root);
-    }
-  }
-  return null;
+  const leaving = leavesWorktree(segments, root, cwd);
+  return leaving === undefined
+    ? null
+    : outsideWorktree(`\`${leaving.join(" ")}\``, root);
+}
+
+/** Where a tool call runs: the worktree root and the directory the hook ran in. */
+export interface Place {
+  readonly root: string;
+  readonly cwd: string;
 }
 
 /** `reporting` is the role's kind from the registry (see checkDeliveryBash). */
@@ -270,10 +301,10 @@ export function checkDelivery(
   reporting: boolean,
   tool: string,
   input: Record<string, unknown>,
-  root: string,
+  { root, cwd }: Place,
 ): Finding {
   if (tool === "Bash" && typeof input["command"] === "string") {
-    return checkDeliveryBash(role, reporting, input["command"], root);
+    return checkDeliveryBash(role, reporting, input["command"], root, cwd);
   }
   if (!WRITE_TOOLS.has(tool)) {
     return null;
