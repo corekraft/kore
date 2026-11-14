@@ -12,6 +12,7 @@ import {
 } from "./deps-support.js";
 import { FAILED, fail } from "./output.js";
 import type { SessionRecord } from "./registry.js";
+import { recordHostSample } from "./spawn-sample.js";
 import { finish } from "./spawn-finish.js";
 import { formatWait, waitForResult, type WaitResult } from "./wait.js";
 
@@ -38,6 +39,7 @@ vi.mock("../runtime/index.js", async (importOriginal) => ({
   mainRoot: vi.fn(),
 }));
 vi.mock("./wait.js");
+vi.mock("./spawn-sample.js");
 vi.mock("./output.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./output.js")>()),
   fail: vi.fn(),
@@ -118,6 +120,18 @@ describe("finish records the session before it reports", () => {
       role: "writer",
       tier: "claude-opus-5-5",
     });
+  });
+
+  it("takes one host sample for the spawned session, after the launch event", async () => {
+    await run({ "no-wait": true });
+
+    expect(recordHostSample).toHaveBeenCalledExactlyOnceWith(deps, {
+      pane: "w3:p9",
+      name: "image-trust-writer",
+    });
+    expect(
+      vi.mocked(recordHostSample).mock.invocationCallOrder[0],
+    ).toBeGreaterThan(ledger.record.mock.invocationCallOrder[0] ?? Infinity);
   });
 
   it("keeps the spawn going when the ledger cannot record the event", async () => {

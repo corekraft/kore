@@ -324,6 +324,15 @@ line for the next stop, and records a `token.usage` only when the total grew.
 Losing the state file costs one full read, not a wrong count. Only numbers are
 read or stored.
 
+Host pressure is recorded by `session spawn` as one `host-sample` event per
+spawn, after the `session.launch` event: the 1-minute `load`, free `memory` as a
+share of total, `swap` in bytes, the `sessions` live in herdr, and whether the
+local `platform` was up (the local journal's last operation is not a stop, down
+or destroy and did not fail). A reading the host cannot give (no load, a failing
+`memory_pressure`, `sysctl` or `free`) is left out of the event, never stored as
+zero. A failed reading or append never blocks the spawn. `harness ledger list
+--kind host-sample` shows them.
+
 Each of `tokensPerIdea` and `sessionsPerIdea` gives `currentIdea` and `current`
 (the most recently closed idea), `trailingAverage` over the N closed ideas
 before it (never including it, so one bad idea cannot dampen its own flag), the
