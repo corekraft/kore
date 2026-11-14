@@ -41,7 +41,6 @@ on:
           - reference
           - registry
           - resilience
-          - responsiveness
           - signer
           - storage
           - telemetry

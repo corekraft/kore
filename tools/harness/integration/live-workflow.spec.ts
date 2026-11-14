@@ -56,10 +56,6 @@ it("takes a number input runs, defaulting to 3, and checks its 2 to 5 range befo
   );
 });
 
-it("offers the responsiveness suite", () => {
-  expect(options).toContain("responsiveness");
-});
-
 it("holds read-only contents permission at the top and on the job, and nothing else", () => {
   const scopes = [...live.matchAll(/^ +(\w[\w-]*): (read|write|none)$/gm)];
   expect(scopes.length).toBeGreaterThan(0);
