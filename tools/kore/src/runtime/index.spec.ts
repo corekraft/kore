@@ -24,8 +24,25 @@ vi.mock("./lock.js");
 vi.mock("./lock-owner.js");
 vi.mock("./processes.js");
 vi.mock("./request-timeout.js");
-vi.mock("./retry.js");
-vi.mock("./runner.js");
+vi.mock("./retry.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./retry.js")>();
+  return {
+    TransientFailureError: actual.TransientFailureError,
+    isTransientKubectlFailure: vi.fn(),
+    withTransientRetry: vi.fn(),
+  };
+});
+vi.mock("./runner.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./runner.js")>();
+  return {
+    // The error classes stay real; the runner classes and function are mocks.
+    CommandError: actual.CommandError,
+    CommandTimeoutError: actual.CommandTimeoutError,
+    ProcessRunner: vi.fn(),
+    RecordingRunner: vi.fn(),
+    withSignal: vi.fn(),
+  };
+});
 
 test("the runtime barrel exposes exactly the runtime entry points", () => {
   expect(Object.keys(runtime).sort()).toEqual([
