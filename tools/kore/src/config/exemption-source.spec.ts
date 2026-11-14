@@ -10,7 +10,7 @@ const files = new Map<string, string>();
 beforeEach(() => {
   files.clear();
   vi.mocked(readFile).mockImplementation(async (path) => {
-    const text = files.get(String(path));
+    const text = files.get(path as string);
     if (text === undefined) {
       throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
     }
@@ -80,4 +80,43 @@ test("application namespaces are the directories under apps/", async () => {
   expect(await new FileExemptionSource("/r").applicationNamespaces()).toEqual([
     "reference",
   ]);
+});
+
+const enoent = () =>
+  Object.assign(new Error("ENOENT: no such file"), { code: "ENOENT" });
+
+test.each([
+  [
+    "constraints",
+    "infra/policies/gatekeeper/constraints",
+    (s: FileExemptionSource) => s.constraints(),
+  ],
+  ["adrStatus", "docs/decisions", (s: FileExemptionSource) => s.adrStatus(66)],
+  [
+    "applicationNamespaces",
+    "apps",
+    (s: FileExemptionSource) => s.applicationNamespaces(),
+  ],
+])(
+  "a missing directory under %s names the path and the fix",
+  async (_name, path, run) => {
+    vi.mocked(readdir).mockRejectedValue(enoent());
+    await expect(run(new FileExemptionSource("/r"))).rejects.toThrow(
+      `exemption check: /r/${path} does not exist; run kore from a full repository checkout`,
+    );
+  },
+);
+
+test("a missing exemptions catalog file names the path and the fix", async () => {
+  await expect(new FileExemptionSource("/r").listed()).rejects.toThrow(
+    "exemption check: /r/infra/catalog/gatekeeper-exemptions.yaml does not exist; run kore from a full repository checkout",
+  );
+});
+
+test("an error that is not a missing path is rethrown unchanged", async () => {
+  const denied = Object.assign(new Error("EACCES"), { code: "EACCES" });
+  vi.mocked(readdir).mockRejectedValue(denied);
+  await expect(new FileExemptionSource("/r").constraints()).rejects.toBe(
+    denied,
+  );
 });

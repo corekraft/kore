@@ -7,13 +7,27 @@ import type {
   ListedExemption,
 } from "./exemption-check.js";
 
+/** Runs a read, naming the path and the fix when it does not exist. */
+async function reading<T>(path: string, read: () => Promise<T>): Promise<T> {
+  try {
+    return await read();
+  } catch (error) {
+    if ((error as { code?: unknown }).code === "ENOENT") {
+      throw new Error(
+        `exemption check: ${path} does not exist; run kore from a full repository checkout`,
+      );
+    }
+    throw error;
+  }
+}
+
 /** Reads the exemption inputs from a repository checkout. */
 export class FileExemptionSource implements ExemptionSource {
   constructor(private readonly root: string) {}
 
   async constraints(): Promise<ConstraintExemptions[]> {
     const dir = join(this.root, "infra/policies/gatekeeper/constraints");
-    const names = (await readdir(dir))
+    const names = (await reading(dir, () => readdir(dir)))
       .filter((f) => f.endsWith(".yaml"))
       .sort();
     return Promise.all(
@@ -33,17 +47,17 @@ export class FileExemptionSource implements ExemptionSource {
   }
 
   async listed(): Promise<ListedExemption[]> {
-    const text = await readFile(
-      join(this.root, "infra/catalog/gatekeeper-exemptions.yaml"),
-      "utf8",
-    );
+    const path = join(this.root, "infra/catalog/gatekeeper-exemptions.yaml");
+    const text = await reading(path, () => readFile(path, "utf8"));
     return (JSON.parse(text) as { exemptions: ListedExemption[] }).exemptions;
   }
 
   async adrStatus(adr: number): Promise<string | undefined> {
     const dir = join(this.root, "docs/decisions");
     const prefix = `${String(adr).padStart(4, "0")}-`;
-    const file = (await readdir(dir)).find((f) => f.startsWith(prefix));
+    const file = (await reading(dir, () => readdir(dir))).find((f) =>
+      f.startsWith(prefix),
+    );
     if (!file) {
       return undefined;
     }
@@ -52,9 +66,10 @@ export class FileExemptionSource implements ExemptionSource {
   }
 
   async applicationNamespaces(): Promise<string[]> {
-    const entries = await readdir(join(this.root, "apps"), {
-      withFileTypes: true,
-    });
+    const dir = join(this.root, "apps");
+    const entries = await reading(dir, () =>
+      readdir(dir, { withFileTypes: true }),
+    );
     return entries.filter((e) => e.isDirectory()).map((e) => e.name);
   }
 }
