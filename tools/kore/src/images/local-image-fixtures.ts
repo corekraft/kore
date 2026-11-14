@@ -5,6 +5,7 @@ import { registryCaPem } from "../testing/index.js";
 import type { ImageLockEntry } from "./image-lock.js";
 import type { Runner, RunOptions, RunResult } from "../runtime/index.js";
 
+export const baseDigest = `sha256:${"b".repeat(64)}`;
 export const digest = `sha256:${"d".repeat(64)}`;
 
 export const kubeContext = "k3d-kore-local";
@@ -40,11 +41,24 @@ export const registryCredentialsJson = JSON.stringify({
   },
 });
 
+/** What the docker daemon answers about the base image and the platform. */
+function dockerAnswer(
+  args: readonly string[],
+  options: { baseDigest?: string; platform?: string },
+): string {
+  if (args[0] === "buildx") {
+    return `${options.baseDigest ?? baseDigest}\n`;
+  }
+  return args[0] === "version" ? `${options.platform ?? "linux/arm64"}\n` : "";
+}
+
 export function fakeRunner(
   options: {
     clusterIp?: string;
     secretExists?: boolean;
     kubeconfig?: string;
+    baseDigest?: string;
+    platform?: string;
   } = {},
 ) {
   const calls: {
@@ -64,6 +78,9 @@ export function fakeRunner(
       if (command === "cosign" && args[0] === "generate-key-pair") {
         exists = true;
         await writeCosignPub(runOptions?.cwd);
+      }
+      if (command === "docker") {
+        stdout = dockerAnswer(args, options);
       }
       if (command === "kubectl") {
         if (args.includes("oci-registry-credentials")) {
@@ -101,7 +118,12 @@ export function stubRegistry(
   registryReference: Mock,
   registryHead: Mock,
 ): void {
-  registryHead.mockResolvedValue({ status: 200, digest });
+  // No source tag is held, so each run builds; a spec that reuses one sets it.
+  registryHead.mockImplementation(async (url: string) =>
+    String(url).includes("/manifests/kore-src-")
+      ? { status: 404, digest: "" }
+      : { status: 200, digest },
+  );
   registryReference.mockImplementation(
     async (_repo, _runner, reference) => reference,
   );

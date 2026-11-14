@@ -114,7 +114,10 @@ test("cosign is pinned to the configured context through an in-memory kubeconfig
     expect(call.options?.env?.KUBECONFIG).toBeUndefined();
     expect(JSON.stringify(call.args)).not.toContain("kubeconfig");
   }
-  const created = (await readdir(tmpdir())).filter((name) => !before.has(name));
+  // The reuse spec runs alongside and names its temp roots kore-reuse-.
+  const created = (await readdir(tmpdir())).filter(
+    (name) => !before.has(name) && !name.startsWith("kore-reuse-"),
+  );
   for (const name of created) {
     for (const file of await filesUnder(join(tmpdir(), name))) {
       expect(await readFile(file, "utf8").catch(() => "")).not.toContain(
