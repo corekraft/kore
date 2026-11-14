@@ -6,7 +6,7 @@ last-verified: 2026-11-14
 
 # Repo Retro 2026-11-14
 
-These findings were proposals. The owner has since accepted the items below,
+These findings were proposals. The owner has since decided the items below,
 recorded on #417, comment of 2026-11-14. None is applied yet.
 
 ## Unified triage and owner decision (2026-11-14)
@@ -143,5 +143,5 @@ Evidence as reported by the retro: counts only, no `file:line` given for the mis
 ## Still open
 
 The owner has decided the items above except 9 and 11. Accepted ones go into
-`infra/plans/3-agent-harness.md` or an ADR as their PRs land, and
+`infra/plans/3-agent-harness.md` or an ADR, and
 `Last retrospective:` is set to the current UTC time. That is not done.
