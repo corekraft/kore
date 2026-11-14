@@ -65,7 +65,10 @@ describe("judge precheck", () => {
 
 describe("judge precheck hints and options", () => {
   it.each([
-    ["no-behaviour-change", ["behaviouralPaths", "noBehaviouralDiff"]],
+    [
+      "no-behaviour-change",
+      ["behaviouralPaths", "noBehaviouralDiff", "toolingPaths"],
+    ],
     ["feature-flagged", ["flagPresentAndOff", "flags"]],
     ["dark-launched", ["flagOnlyInLocal", "flags"]],
     ["branch-by-abstraction", ["deletedFiles", "oldPathRetained"]],
