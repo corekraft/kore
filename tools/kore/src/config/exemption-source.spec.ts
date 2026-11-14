@@ -82,6 +82,34 @@ test("application namespaces are the directories under apps/", async () => {
   ]);
 });
 
+test("static-pass namespaces are read from the image-policy chart values", async () => {
+  files.set(
+    "/r/infra/charts/image-policy/values.yaml",
+    "trust: {}\nstaticPassNamespaces: [cnpg-system, istio-system]\nupstreamImages:\n  - x\n",
+  );
+  expect(await new FileExemptionSource("/r").staticPassNamespaces()).toEqual([
+    "cnpg-system",
+    "istio-system",
+  ]);
+});
+
+test("no staticPassNamespaces key means no static-pass namespace", async () => {
+  files.set("/r/infra/charts/image-policy/values.yaml", "trust: {}\n");
+  expect(await new FileExemptionSource("/r").staticPassNamespaces()).toEqual(
+    [],
+  );
+});
+
+test("gate writers are the gate names the admission-gate role may update", async () => {
+  files.set(
+    "/r/infra/charts/admission-gate/templates/rbac.yaml",
+    "rules:\n  - resources: [koreapplicationadmission]\n    verbs: [create]\n  - apiGroups: [constraints.gatekeeper.sh]\n    resources: [koreapplicationadmission]\n    resourceNames: [kore-application-admission]\n    verbs: [get]\n",
+  );
+  expect(await new FileExemptionSource("/r").gateWriters()).toEqual([
+    "kore-application-admission",
+  ]);
+});
+
 const enoent = () =>
   Object.assign(new Error("ENOENT: no such file"), { code: "ENOENT" });
 
@@ -106,6 +134,21 @@ test.each([
     );
   },
 );
+
+test.each([
+  [
+    "infra/charts/image-policy/values.yaml",
+    (s: FileExemptionSource) => s.staticPassNamespaces(),
+  ],
+  [
+    "infra/charts/admission-gate/templates/rbac.yaml",
+    (s: FileExemptionSource) => s.gateWriters(),
+  ],
+])("a missing %s names the path and the fix", async (path, run) => {
+  await expect(run(new FileExemptionSource("/r"))).rejects.toThrow(
+    `exemption check: /r/${path} does not exist; run kore from a full repository checkout`,
+  );
+});
 
 test("a missing exemptions catalog file names the path and the fix", async () => {
   await expect(new FileExemptionSource("/r").listed()).rejects.toThrow(
