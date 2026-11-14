@@ -7,8 +7,7 @@ last-verified: 2026-11-14
 # Repo Retro 2026-11-14
 
 These findings were proposals. The owner has since accepted the items below,
-recorded on #417, comment of 2026-11-14. None is applied yet; each accepted item
-goes in as its own writer PR.
+recorded on #417, comment of 2026-11-14. None is applied yet.
 
 ## Unified triage and owner decision (2026-11-14)
 
@@ -21,49 +20,45 @@ hand-posted review verdicts, early judge spawns, `session notify` typing over
 the owner's input, missing ledger polling, pre-commit still off, and repeated
 status questions.
 
-The 12 merged items, with their status. Item numbers are the merged list's, not
-the findings' numbers below.
+The merged items, with the owner's decision as recorded on #417 (comment of
+2026-11-14). Item numbers are the merged list's, not the findings' numbers
+below.
 
-**Accepted** (owner, #417):
+**Accepted:**
 
-- 1. The role-worktree guard resolves relative paths from the hook's cwd. 1b,
-     `node -e` regexes read as paths, is deferred.
-- 2. `session notify` never submits over unsent input.
+- 1. The role-worktree guard resolves `cd` from the hook's cwd. 1b is deferred.
+- 2. `session notify` never submits over a half-typed input.
 - 3. Delete the "load Monitor via ToolSearch" line in `writer.md` and
-     `orchestrator.md`. Do not add the tools: the guard only inspects Bash. Add an
-     agent-definition tool-list test.
-- 4a. A read-only `harness judge diff <pr> [--path] [--stat]`.
+     `orchestrator.md`; do not add the tools. Add the agent-definition tool-list
+     test.
+- 4a. A read-only `harness judge diff`.
 - 4b. Semicolon-joined `sed -n` print ranges.
-- 5. The retro scan counts only a block message's leading guard tag.
+- 5. The retro scan counts only the leading guard tag.
 - 6. The `spawn-session` skill: start follow-ups with `[orchestrator]`.
-- 7. `principles-review` ends with the exact `harness review post <pr>` command.
-     No new guard rule.
-- 8. Ledger `poll-github`, built from the existing SessionStart hook code.
-- 10a. `judge precheck` fails fast when the local harness is behind
-  `origin/main`.
-- 10b. A CI audit of the `Safety pattern:` line. Audit, not required.
+- 7. The reviewer ends with the exact `harness review post` command; no new
+     guard rule.
+- 8. Ledger `poll-github` from the existing SessionStart hook code, background,
+     one at a time.
+- 10a. The precheck fails fast when the local harness is behind `origin/main`.
+- 10b. A CI audit that a PR body has exactly one valid `Safety pattern:` line;
+  audit mode, not a required check.
 
 **Rejected:**
 
-- 4d. Allow `git fetch` for read-only roles. It writes refs into the shared
-  `.git`, and 4a removes the need.
+- 4d. Allow `git fetch`.
 
 **Deferred:**
 
-- 4c. Narrow `AWK_RUNS`.
-- 4e. Read-only `gh api`.
-- 10c. The orchestrator runs precheck before spawning a judge, after #332.
-- 12. Repeated status questions. The proposal text was cut off in the retro.
+- 4c, 4e, 10c and 12.
 
-**Owner-only, undecided:**
+**Not decided here:**
 
-- 9. Zsh quote auto-rewrite through `updatedInput`. It needs an ADR; keep the
-     `zsh-quote-globs` memory.
-- 11. Restoring pre-commit (`core.hooksPath`, keeper loop pid 60557).
+- 9. Zsh rewrite through `updatedInput` needs an ADR and an owner decision; keep
+     the `zsh-quote-globs` memory.
+- 11. Pre-commit restore, owner-only.
 
-The accepted items go in as separate writer PRs under #417, in the order a, b,
-c, e, d, f, g, h, which the owner gave as retro items 1, 2, 3, 5, 4b, 4a, 6/7,
-8, 10.
+Items 1 and 4 loosen an enforced guard; the #417 comment is the owner's recorded
+approval (ADR 0080, as ADR 0100 did).
 
 ## The six findings
 
