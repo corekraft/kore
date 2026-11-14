@@ -1,4 +1,4 @@
-// Docs: docs/decisions/0034-k3d-local-cluster.md
+// Docs: docs/decisions/0076-k3d-replaces-minikube.md
 import { beforeEach, expect, test, vi } from "vitest";
 import { k3dErrors } from "./k3d-errors.js";
 import { parseCidr } from "./registry-address.js";

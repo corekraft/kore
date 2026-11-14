@@ -1,4 +1,4 @@
-// Docs: docs/decisions/0067-readiness-manifest.md
+// Docs: docs/decisions/0067-platform-readiness-manifest-and-evidence.md
 import { expect, test } from "vitest";
 import { platformChecks, readinessErrors } from "./readiness.js";
 import type { Catalog, ReadinessManifest, Repository } from "./types.js";
