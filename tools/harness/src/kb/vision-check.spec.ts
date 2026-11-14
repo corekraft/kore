@@ -111,3 +111,123 @@ test("a Decision linking an unknown ADR or no ADR is left to the link checks", (
 test("a file with no Decisions heading has no findings", () => {
   expect(check("# Vision\n\n1. **A.** Decided: x\n")).toEqual([]);
 });
+
+// vision.html: its Decision badges and "Last verified" date must match vision.md.
+const HTML_FILE = "docs/vision.html";
+const md = (date: string, ...items: string[]) =>
+  `---\nlast-verified: ${date}\n---\n${decisions(...items)}`;
+const MD_ITEMS = [
+  item(1, "Chosen, proposed (ADR 0037)", "0037"),
+  item(2, "Decided", "0040"),
+];
+const html = (date: string, ...badges: string[]) =>
+  [
+    `<span>Status: active · Last verified ${date}</span>`,
+    '<h2 id="questions">Decisions</h2>',
+    '<ol class="questions">',
+    ...badges.map((b) => `<li><a class="pill">${b}</a></li>`),
+    "</ol>",
+  ].join("\n");
+const FIRST = "Chosen, proposed · ADR 0037";
+const SECOND = "Decided · ADR 0040";
+const drift = (htmlText: string | null) =>
+  new VisionCheck((adr) => STATES[adr] ?? null).check(
+    md("2026-11-14", ...MD_ITEMS),
+    htmlText,
+  );
+
+test("matching vision.md and vision.html have no drift findings", () => {
+  expect(drift(html("2026-11-14", FIRST, SECOND))).toEqual([]);
+  expect(finding).not.toHaveBeenCalled();
+});
+
+test("an absent vision.html is not checked", () => {
+  expect(drift(null)).toEqual([]);
+  expect(finding).not.toHaveBeenCalled();
+});
+
+test("a badge with a different label is reported with the badge to use", () => {
+  expect(drift(html("2026-11-14", "Decided · ADR 0037", SECOND))).toEqual([
+    PROBLEM,
+  ]);
+  expect(calls()).toEqual([
+    [
+      HTML_FILE,
+      4,
+      'Decision 1 badge says "Decided" but vision.md says "Chosen, proposed"',
+      'change the badge to "Chosen, proposed · ADR 0037"',
+    ],
+  ]);
+});
+
+test("a badge with a different ADR number is reported with the badge to use", () => {
+  drift(html("2026-11-14", FIRST, "Decided · ADR 0041"));
+  expect(calls()).toEqual([
+    [
+      HTML_FILE,
+      5,
+      "Decision 2 badge says ADR 0041 but vision.md says ADR 0040",
+      'change the badge to "Decided · ADR 0040"',
+    ],
+  ]);
+});
+
+test("a decision missing from vision.html is reported with the badge to add", () => {
+  drift(html("2026-11-14", FIRST));
+  expect(calls()).toEqual([
+    [
+      HTML_FILE,
+      3,
+      "Decision 2 is missing from vision.html",
+      'add the badge "Decided · ADR 0040" for it',
+    ],
+  ]);
+});
+
+test("an extra decision in vision.html is reported with its line", () => {
+  drift(html("2026-11-14", FIRST, SECOND, "Decided · ADR 0099"));
+  expect(calls()).toEqual([
+    [
+      HTML_FILE,
+      6,
+      'vision.html has the badge "Decided · ADR 0099", which vision.md does not list',
+      "remove it, or add the Decision to vision.md",
+    ],
+  ]);
+});
+
+test("decisions out of order are reported with the badge belonging at that place", () => {
+  drift(html("2026-11-14", SECOND, FIRST));
+  expect(calls()).toEqual([
+    [
+      HTML_FILE,
+      4,
+      "Decision 1 is out of order in vision.html",
+      'put the badge "Chosen, proposed · ADR 0037" here',
+    ],
+    [
+      HTML_FILE,
+      5,
+      "Decision 2 is out of order in vision.html",
+      'put the badge "Decided · ADR 0040" here',
+    ],
+  ]);
+});
+
+test("mismatched last-verified dates are reported with the date to use", () => {
+  drift(html("2026-11-13", FIRST, SECOND));
+  expect(calls()).toEqual([
+    [
+      HTML_FILE,
+      1,
+      "vision.html says Last verified 2026-11-13 but vision.md says 2026-11-14",
+      "change the header date to 2026-11-14",
+    ],
+  ]);
+});
+
+test("Decided in, in vision.html body text, is not reported", () => {
+  const body = `${html("2026-11-14", FIRST, SECOND)}\n<p>Decided in <a>ADR 0046</a>.</p>`;
+  expect(drift(body)).toEqual([]);
+  expect(finding).not.toHaveBeenCalled();
+});
