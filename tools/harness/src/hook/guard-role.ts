@@ -167,6 +167,7 @@ export function checkRole(
   tool: string,
   input: Record<string, unknown>,
   root: string,
+  cwd: string = root,
 ): Finding {
   const bound =
     typeof agentType === "string" &&
@@ -183,7 +184,7 @@ export function checkRole(
       REPORTING_ROLES.includes(agentType),
       tool,
       input,
-      root,
+      { root, cwd },
     );
   }
   if (typeof agentType !== "string" || !READ_ONLY_ROLE_SET.has(agentType)) {
