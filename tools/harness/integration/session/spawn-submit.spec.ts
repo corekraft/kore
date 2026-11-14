@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { FakeResponse } from "../testing/index.js";
-import { testHarness } from "../testing/index.js";
-import { run } from "../cli/index.js";
+import type { FakeResponse } from "../../src/testing/index.js";
+import { testHarness } from "../../src/testing/index.js";
+import { run } from "../../src/cli/index.js";
 import {
   INSIDE,
   gitCommon,
