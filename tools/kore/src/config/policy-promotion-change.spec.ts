@@ -1,239 +1,246 @@
-import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+// Docs: docs/decisions/0072-constraint-promotion-procedure.md
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { afterEach, test } from "vitest";
-import { loadRepository } from "./config.js";
+import { beforeEach, expect, test, vi } from "vitest";
+import { fakeRepository } from "./config-support.js";
+import {
+  auditEvidence,
+  isRecord,
+  parseJson,
+  recordErrors,
+} from "./policy-promotion.js";
 import {
   promoteConstraint,
   recordPromotionEvidence,
   rollbackConstraint,
 } from "./policy-promotion-change.js";
-import { policyPromotionErrors } from "./policy-promotion.js";
-import type { Repository } from "./types.js";
 
-// Docs: docs/decisions/0072-constraint-promotion-procedure.md
-const now = new Date("2026-11-09T12:00:00Z");
-const temporary: string[] = [];
+vi.mock("node:fs/promises");
+vi.mock("node:path");
+vi.mock("./policy-promotion.js");
 
-afterEach(async () => {
-  await Promise.all(
-    temporary.splice(0).map((path) => rm(path, { recursive: true })),
-  );
-});
+const CONSTRAINTS = "/repo/infra/policies/gatekeeper/constraints";
+const PROMOTIONS = "/repo/infra/policies/gatekeeper/promotions";
+const RBAC = `${CONSTRAINTS}/rbac.yaml`;
+const RECORD = `${PROMOTIONS}/kore-rbac.json`;
+const NOW = new Date("2026-11-08T12:00:00Z");
+const FRESH = "2026-11-07T10:00:00Z";
+const EVIDENCE = { observedAt: FRESH, totalViolations: 0 };
 
-const constraintText = (name: string, action: string): string =>
+// readdir is overloaded; the typed view is the one the policy code calls.
+const listDir = vi.mocked<(path: string) => Promise<string[]>>(readdir);
+
+/** The files the fake filesystem holds, by absolute path. */
+const files = new Map<string, string>();
+
+const constraintText = (action: string) =>
   `apiVersion: constraints.gatekeeper.sh/v1beta1
 kind: KoreRbac
-metadata: {name: ${name}}
+metadata: {name: kore-rbac}
 spec:
   enforcementAction: ${action}
-  match: {kinds: [{apiGroups: [apps], kinds: [Deployment]}]}
+  match: {}
 `;
 
-const audit = (violations: number, at = "2026-11-08T10:00:00Z") => ({
-  metadata: { name: "kore-rbac" },
-  status: {
-    auditTimestamp: at,
-    totalViolations: violations,
-    violations: Array.from({ length: violations }, () => ({
-      kind: "Deployment",
-      name: "leaky",
-      message: "secret-looking message",
-    })),
-  },
+const repository = () => fakeRepository({ root: "/repo" });
+
+beforeEach(() => {
+  files.clear();
+  vi.mocked(join).mockImplementation((...parts: string[]) => parts.join("/"));
+  listDir.mockImplementation(async (dir) =>
+    dir === CONSTRAINTS ? ["rbac.yaml"] : [],
+  );
+  vi.mocked(readFile).mockImplementation(async (path) => {
+    const text = typeof path === "string" ? files.get(path) : undefined;
+    if (text === undefined) {
+      throw new Error("ENOENT");
+    }
+    return text;
+  });
+  vi.mocked(writeFile).mockResolvedValue(undefined);
+  vi.mocked(mkdir).mockResolvedValue(undefined);
+  vi.mocked(isRecord).mockReturnValue(true);
+  vi.mocked(parseJson).mockReturnValue(undefined);
+  vi.mocked(recordErrors).mockReturnValue([]);
 });
 
-async function sandbox(
-  constraints: Record<string, string> = {
-    "rbac.yaml": constraintText("kore-rbac", "dryrun"),
-  },
-): Promise<Repository> {
-  const root = await mkdtemp(join(tmpdir(), "kore-promote-"));
-  temporary.push(root);
-  const policies = join(root, "infra/policies/gatekeeper");
-  await mkdir(join(policies, "constraints"), { recursive: true });
-  for (const [file, text] of Object.entries(constraints)) {
-    await writeFile(join(policies, "constraints", file), text);
-  }
-  return { ...(await loadRepository("local")), root };
+const record = (fields: Record<string, unknown> = {}) => ({
+  constraint: "kore-rbac",
+  from: "dryrun",
+  to: "deny",
+  environments: { prod: EVIDENCE },
+  ...fields,
+});
+
+/** A record file on disk, parsed as the given value. */
+function onDisk(value: unknown): void {
+  files.set(RECORD, JSON.stringify(value));
+  vi.mocked(parseJson).mockReturnValue(value);
 }
 
-const file = (repository: Repository, path: string): Promise<string> =>
-  readFile(join(repository.root, "infra/policies/gatekeeper", path), "utf8");
+const audit = (name = "kore-rbac") => ({ metadata: { name }, status: {} });
 
-test("recording audit evidence keeps only the timestamp and count, never violation messages", async () => {
-  const repository = await sandbox();
-  await recordPromotionEvidence(repository, "kore-rbac", audit(0));
-  const text = await file(repository, "promotions/kore-rbac.json");
-  assert.deepEqual(JSON.parse(text), {
-    constraint: "kore-rbac",
-    from: "dryrun",
-    to: "deny",
-    environments: {
-      local: { observedAt: "2026-11-08T10:00:00Z", totalViolations: 0 },
-    },
-  });
-  assert.doesNotMatch(text, /secret-looking|leaky/);
-});
-
-test("recording evidence for one environment keeps the evidence of the others", async () => {
-  const repository = await sandbox();
-  const dir = join(repository.root, "infra/policies/gatekeeper/promotions");
-  await mkdir(dir, { recursive: true });
-  await writeFile(
-    join(dir, "kore-rbac.json"),
-    JSON.stringify({
-      constraint: "kore-rbac",
-      from: "dryrun",
-      to: "deny",
-      environments: {
-        other: { observedAt: "2026-11-01T00:00:00Z", totalViolations: 0 },
-      },
-    }),
-  );
-  await recordPromotionEvidence(repository, "kore-rbac", audit(0));
-  const record = JSON.parse(
-    await file(repository, "promotions/kore-rbac.json"),
-  );
-  assert.deepEqual(Object.keys(record.environments).sort(), ["local", "other"]);
-});
-
-test("recording refuses an audit of a different constraint or one never audited", async () => {
-  const repository = await sandbox();
-  await assert.rejects(
-    recordPromotionEvidence(repository, "kore-rbac", {
-      ...audit(0),
-      metadata: { name: "kore-secrets" },
-    }),
-    /names kore-secrets, not kore-rbac/,
-  );
-  await assert.rejects(
-    recordPromotionEvidence(repository, "kore-rbac", {
-      metadata: { name: "kore-rbac" },
-    }),
-    /has not been audited yet/,
+test("an audit of a constraint the repository does not have is refused", async () => {
+  listDir.mockResolvedValue([]);
+  await expect(
+    recordPromotionEvidence(repository(), "kore-rbac", audit()),
+  ).rejects.toThrow(
+    "policy: no constraint named kore-rbac in infra/policies/gatekeeper/constraints; list the files there for the exact metadata name",
   );
 });
 
-test("promoting a constraint with clean recent evidence sets only that constraint to deny", async () => {
-  const repository = await sandbox({
-    "rbac.yaml": constraintText("kore-rbac", "dryrun"),
-    "secrets.yaml": constraintText("kore-secrets", "dryrun"),
-  });
-  await recordPromotionEvidence(repository, "kore-rbac", audit(0));
-  const result = await promoteConstraint(repository, "kore-rbac", now);
-  assert.deepEqual(result, {
-    constraint: "kore-rbac",
-    from: "dryrun",
-    to: "deny",
-  });
-  assert.match(
-    await file(repository, "constraints/rbac.yaml"),
-    /enforcementAction: deny\n/,
+test("an audit that names another constraint is refused, and nothing is written", async () => {
+  files.set(RBAC, constraintText("dryrun"));
+  await expect(
+    recordPromotionEvidence(repository(), "kore-rbac", audit("kore-other")),
+  ).rejects.toThrow(
+    "policy: the audit names kore-other, not kore-rbac; pass the output of kubectl get for kore-rbac",
   );
-  assert.match(
-    await file(repository, "constraints/secrets.yaml"),
-    /enforcementAction: dryrun\n/,
-  );
-  assert.deepEqual(await policyPromotionErrors(repository, now), []);
+  expect(writeFile).not.toHaveBeenCalled();
 });
 
-test("promotion is refused while the recorded evidence shows violations, and nothing changes", async () => {
-  const repository = await sandbox();
-  const before = await file(repository, "constraints/rbac.yaml");
-  await recordPromotionEvidence(repository, "kore-rbac", audit(3));
-  await assert.rejects(
-    promoteConstraint(repository, "kore-rbac", now),
-    /3 audit violations.*fix the platform/,
+test("an audit with no evidence yet asks for another cycle before recording", async () => {
+  files.set(RBAC, constraintText("dryrun"));
+  vi.mocked(auditEvidence).mockReturnValue(undefined);
+  await expect(
+    recordPromotionEvidence(repository(), "kore-rbac", audit()),
+  ).rejects.toThrow(
+    "policy: kore-rbac has not been audited yet; wait for an audit cycle and read it again",
   );
-  assert.equal(await file(repository, "constraints/rbac.yaml"), before);
 });
 
-test("promotion is refused on stale evidence and on missing evidence", async () => {
-  const repository = await sandbox();
-  await assert.rejects(
-    promoteConstraint(repository, "kore-rbac", now),
-    /no promotion record.*kore policy record/s,
-  );
-  await recordPromotionEvidence(
-    repository,
+test("the first evidence creates the record, targeting deny, as formatted JSON", async () => {
+  files.set(RBAC, constraintText("dryrun"));
+  vi.mocked(auditEvidence).mockReturnValue(EVIDENCE);
+  const written = await recordPromotionEvidence(
+    repository(),
     "kore-rbac",
-    audit(0, "2026-10-01T00:00:00Z"),
+    audit(),
   );
-  await assert.rejects(
-    promoteConstraint(repository, "kore-rbac", now),
-    /older than 14 days; audit again/,
-  );
-  assert.match(await file(repository, "constraints/rbac.yaml"), /dryrun/);
-});
-
-test("promotion is refused for evidence of another environment", async () => {
-  const repository = await sandbox();
-  await recordPromotionEvidence(repository, "kore-rbac", audit(0));
-  await assert.rejects(
-    promoteConstraint(
+  expect(mkdir).toHaveBeenCalledWith(PROMOTIONS, { recursive: true });
+  expect(writeFile).toHaveBeenCalledWith(
+    RECORD,
+    `${JSON.stringify(
       {
-        ...repository,
-        environment: { ...repository.environment, name: "managed-example" },
+        constraint: "kore-rbac",
+        from: "dryrun",
+        to: "deny",
+        environments: { local: EVIDENCE },
       },
-      "kore-rbac",
-      now,
-    ),
-    /no audit evidence for environment managed-example/,
+      null,
+      2,
+    )}\n`,
+  );
+  expect(written.environments).toEqual({ local: EVIDENCE });
+});
+
+test("evidence for a new environment keeps the others and the target action already recorded", async () => {
+  files.set(RBAC, constraintText("dryrun"));
+  onDisk(record({ to: "warn" }));
+  vi.mocked(auditEvidence).mockReturnValue(EVIDENCE);
+  const written = await recordPromotionEvidence(
+    repository(),
+    "kore-rbac",
+    audit(),
+  );
+  expect(written).toEqual(
+    record({ to: "warn", environments: { prod: EVIDENCE, local: EVIDENCE } }),
   );
 });
 
-test("promotion names the constraint it cannot find or that already enforces", async () => {
-  const repository = await sandbox({
-    "rbac.yaml": constraintText("kore-rbac", "deny"),
-  });
-  await assert.rejects(
-    promoteConstraint(repository, "kore-nope", now),
-    /no constraint named kore-nope/,
-  );
-  await assert.rejects(
-    promoteConstraint(repository, "kore-rbac", now),
-    /already deny/,
+test("an existing record that is not valid is refused, and the fix is to delete it", async () => {
+  files.set(RBAC, constraintText("dryrun"));
+  onDisk({ nope: true });
+  vi.mocked(isRecord).mockReturnValue(false);
+  vi.mocked(auditEvidence).mockReturnValue(EVIDENCE);
+  await expect(
+    recordPromotionEvidence(repository(), "kore-rbac", audit()),
+  ).rejects.toThrow(
+    "policy promotion: infra/policies/gatekeeper/promotions/kore-rbac.json is not a valid promotion record; delete it and run kore policy record again",
   );
 });
 
-test("rollback returns one enforcing constraint to dryrun and keeps its evidence", async () => {
-  const repository = await sandbox({
-    "rbac.yaml": constraintText("kore-rbac", "dryrun"),
-    "secrets.yaml": constraintText("kore-secrets", "deny"),
+test("a promotion with a clean record moves only this constraint's action, and reports the change", async () => {
+  files.set(RBAC, constraintText("dryrun"));
+  onDisk(record());
+  const change = await promoteConstraint(repository(), "kore-rbac", NOW);
+  expect(writeFile).toHaveBeenCalledExactlyOnceWith(
+    RBAC,
+    constraintText("deny"),
+  );
+  expect(change).toEqual({
+    constraint: "kore-rbac",
+    from: "dryrun",
+    to: "deny",
   });
-  await recordPromotionEvidence(repository, "kore-rbac", audit(0));
-  await promoteConstraint(repository, "kore-rbac", now);
-  const result = await rollbackConstraint(repository, "kore-rbac");
-  assert.deepEqual(result, {
+});
+
+test("the promotion checks the record against the time it is given, for this environment", async () => {
+  files.set(RBAC, constraintText("dryrun"));
+  onDisk(record());
+  await promoteConstraint(repository(), "kore-rbac", NOW);
+  expect(recordErrors).toHaveBeenCalledWith(
+    "kore-rbac",
+    "deny",
+    record(),
+    "local",
+    NOW,
+  );
+});
+
+test("a promotion refused by its record names every reason and changes nothing", async () => {
+  files.set(RBAC, constraintText("dryrun"));
+  onDisk(record());
+  vi.mocked(recordErrors).mockReturnValue(["stale evidence", "violations"]);
+  await expect(
+    promoteConstraint(repository(), "kore-rbac", NOW),
+  ).rejects.toThrow("stale evidence\nviolations");
+  expect(writeFile).not.toHaveBeenCalled();
+});
+
+test("a constraint that already enforces is not promoted again", async () => {
+  files.set(RBAC, constraintText("deny"));
+  await expect(
+    promoteConstraint(repository(), "kore-rbac", NOW),
+  ).rejects.toThrow(
+    "policy: kore-rbac is already deny; only a dryrun constraint is promoted",
+  );
+});
+
+test("a dryrun constraint with no promotion record is refused, with the audit to run first", async () => {
+  files.set(RBAC, constraintText("dryrun"));
+  await expect(
+    promoteConstraint(repository(), "kore-rbac", NOW),
+  ).rejects.toThrow(
+    "policy promotion: kore-rbac has no promotion record; audit it and run kore policy record kore-rbac first",
+  );
+});
+
+test("rollback returns an enforcing constraint to dryrun, changing only its action", async () => {
+  files.set(RBAC, constraintText("deny"));
+  const change = await rollbackConstraint(repository(), "kore-rbac");
+  expect(writeFile).toHaveBeenCalledExactlyOnceWith(
+    RBAC,
+    constraintText("dryrun"),
+  );
+  expect(change).toEqual({
     constraint: "kore-rbac",
     from: "deny",
     to: "dryrun",
   });
-  assert.match(
-    await file(repository, "constraints/rbac.yaml"),
-    /enforcementAction: dryrun\n/,
-  );
-  assert.match(
-    await file(repository, "constraints/secrets.yaml"),
-    /enforcementAction: deny\n/,
-  );
-  assert.match(
-    await file(repository, "promotions/kore-rbac.json"),
-    /"totalViolations": 0/,
-  );
-  await assert.rejects(
-    rollbackConstraint(repository, "kore-rbac"),
-    /already dryrun/,
-  );
 });
 
-test("promote then rollback restores the constraint file byte for byte", async () => {
-  const repository = await sandbox();
-  const before = await file(repository, "constraints/rbac.yaml");
-  await recordPromotionEvidence(repository, "kore-rbac", audit(0));
-  await promoteConstraint(repository, "kore-rbac", now);
-  await rollbackConstraint(repository, "kore-rbac");
-  assert.equal(await file(repository, "constraints/rbac.yaml"), before);
+test("rollback of a constraint already in dryrun is refused, since there is nothing to undo", async () => {
+  files.set(RBAC, constraintText("dryrun"));
+  await expect(rollbackConstraint(repository(), "kore-rbac")).rejects.toThrow(
+    "policy: kore-rbac is already dryrun; nothing to roll back",
+  );
+  expect(writeFile).not.toHaveBeenCalled();
+});
+
+test("rollback of a constraint the repository does not have is refused by name", async () => {
+  listDir.mockResolvedValue([]);
+  await expect(rollbackConstraint(repository(), "kore-rbac")).rejects.toThrow(
+    "policy: no constraint named kore-rbac in infra/policies/gatekeeper/constraints",
+  );
 });
