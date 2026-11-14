@@ -78,6 +78,11 @@ export {
   readinessEvidenceObject,
 } from "../platform/readiness-manifest.js";
 export { withAbsoluteChart } from "../platform/helm.js";
+export {
+  nodePortService,
+  runningK3d,
+  runningK3dCluster,
+} from "../platform/k3d-fixtures.js";
 export { manifestImages } from "../config/manifest-images.js";
 export {
   imageInventory,
