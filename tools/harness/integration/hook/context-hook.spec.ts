@@ -6,7 +6,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { run } from "../../src/cli/index.js";
 import { testHarness } from "../../src/testing/index.js";
 import { nodeFileSystem } from "../../src/runtime/index.js";
-import { hookFeedback, hookRun } from "../../src/testing/index.js";
+import * as hookFeedback from "./hook-feedback-support.js";
+import * as hookRun from "./hook-run-support.js";
 
 const { additional, agents, cleanTemps, context, repository } = hookRun;
 const { repoPlan: plan } = hookRun;

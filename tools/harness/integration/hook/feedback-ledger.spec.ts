@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { run } from "../../src/cli/index.js";
 import { testHarness } from "../../src/testing/index.js";
-import { hookFeedback } from "../../src/testing/index.js";
+import * as hookFeedback from "./hook-feedback-support.js";
 
 const { KORE_BIN, edited, failing, hook, ledgerEvents, root } = hookFeedback;
 

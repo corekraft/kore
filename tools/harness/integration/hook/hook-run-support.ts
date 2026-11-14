@@ -2,10 +2,10 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { run } from "../cli/index.js";
-import { nodeFileSystem } from "../runtime/index.js";
-import { testHarness } from "./cli-support.js";
-import type { FakeRunner } from "./runner-support.js";
+import { run } from "../../src/cli/index.js";
+import { nodeFileSystem } from "../../src/runtime/index.js";
+import { testHarness } from "../../src/testing/index.js";
+import type { FakeRunner } from "../../src/testing/index.js";
 
 export const agents = `# AGENTS.md
 

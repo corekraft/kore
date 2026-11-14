@@ -14,8 +14,8 @@ import {
   type TokenState,
 } from "./feedback-tokens.js";
 
-vi.mock("node:os");
-vi.mock("node:path");
+vi.mock("node:os", () => ({ tmpdir: vi.fn() }));
+vi.mock("node:path", () => ({ join: vi.fn() }));
 
 /** One assistant transcript line with the given message id and usage counts. */
 const usage = (
@@ -119,14 +119,17 @@ function fakeFs() {
   };
 }
 
+/** The fake as the file system the hook reads through; the one cast the fake needs, since only the three reads are mocked. */
+const port = (fake: ReturnType<typeof fakeFs>) => fake as unknown as FileSystem;
+
 describe("feedback token reads, what is counted", () => {
   it("reads nothing and reports no growth when there is no transcript path", async () => {
     const fs = fakeFs();
-    expect(await readTokens(fs as never, undefined, state)).toEqual({
+    expect(await readTokens(port(fs), undefined, state)).toEqual({
       total: 0,
       grew: false,
     });
-    expect(await readTokens(fs as never, "", state)).toEqual({
+    expect(await readTokens(port(fs), "", state)).toEqual({
       total: 0,
       grew: false,
     });
@@ -137,7 +140,7 @@ describe("feedback token reads, what is counted", () => {
     const fs = fakeFs();
     fs.readFile.mockResolvedValue(JSON.stringify(saved));
     fs.readFrom.mockResolvedValue(`${usage("m1", 5, 0)}\n`);
-    expect(await readTokens(fs as never, "/t.jsonl", state)).toEqual({
+    expect(await readTokens(port(fs), "/t.jsonl", state)).toEqual({
       total: 15,
       grew: true,
     });
@@ -161,13 +164,13 @@ describe("feedback token reads, damaged and unreadable input", () => {
     const fs = fakeFs();
     fs.readFile.mockRejectedValueOnce(new Error("ENOENT"));
     fs.readFrom.mockResolvedValueOnce("");
-    expect(await readTokens(fs as never, "/t.jsonl", state)).toEqual({
+    expect(await readTokens(port(fs), "/t.jsonl", state)).toEqual({
       total: 0,
       grew: false,
     });
     fs.readFile.mockResolvedValueOnce("{");
     fs.readFrom.mockResolvedValueOnce("");
-    expect(await readTokens(fs as never, "/t.jsonl", state)).toEqual({
+    expect(await readTokens(port(fs), "/t.jsonl", state)).toEqual({
       total: 0,
       grew: false,
     });
@@ -181,7 +184,7 @@ describe("feedback token reads, damaged and unreadable input", () => {
     const fs = fakeFs();
     fs.readFile.mockResolvedValue(JSON.stringify({ offset: -1, total: 9 }));
     fs.readFrom.mockResolvedValue("");
-    await readTokens(fs as never, "/t.jsonl", state);
+    await readTokens(port(fs), "/t.jsonl", state);
     expect(fs.readFrom.mock.calls).toEqual([["/t.jsonl", 0]]);
   });
 
@@ -189,7 +192,7 @@ describe("feedback token reads, damaged and unreadable input", () => {
     const fs = fakeFs();
     fs.readFile.mockResolvedValue(JSON.stringify(saved));
     fs.readFrom.mockResolvedValue("");
-    expect(await readTokens(fs as never, "/t.jsonl", state)).toEqual({
+    expect(await readTokens(port(fs), "/t.jsonl", state)).toEqual({
       total: 10,
       grew: false,
     });
@@ -200,7 +203,7 @@ describe("feedback token reads, damaged and unreadable input", () => {
     const fs = fakeFs();
     fs.readFile.mockResolvedValue(JSON.stringify(saved));
     fs.readFrom.mockRejectedValue(new Error("EIO"));
-    expect(await readTokens(fs as never, "/t.jsonl", state)).toEqual({
+    expect(await readTokens(port(fs), "/t.jsonl", state)).toEqual({
       total: 0,
       grew: false,
     });

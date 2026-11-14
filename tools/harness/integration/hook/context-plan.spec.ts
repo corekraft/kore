@@ -11,7 +11,7 @@ import {
   openItems,
   upcomingSteps,
 } from "../../src/plan/index.js";
-import { hookRun } from "../../src/testing/index.js";
+import * as hookRun from "./hook-run-support.js";
 
 const {
   additional,

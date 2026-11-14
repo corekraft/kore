@@ -1,7 +1,7 @@
 // Feedback hook, stop mode.
 
 import { describe, expect, it } from "vitest";
-import { hookFeedback } from "../../src/testing/index.js";
+import * as hookFeedback from "./hook-feedback-support.js";
 
 const { failing, hook, lines, marked } = hookFeedback;
 

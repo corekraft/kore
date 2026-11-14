@@ -10,8 +10,8 @@ import type { CliDeps, FileSystem } from "../runtime/index.js";
 import { realContextDeps, readJournals } from "./context-deps.js";
 import { windowStart } from "./retro-scan.js";
 
-vi.mock("node:os");
-vi.mock("node:path");
+vi.mock("node:os", () => ({ homedir: vi.fn() }));
+vi.mock("node:path", () => ({ join: vi.fn() }));
 vi.mock("../plan/index.js", () => ({ readPlans: vi.fn() }));
 vi.mock("./retro-scan.js", () => ({ windowStart: vi.fn() }));
 
@@ -42,53 +42,47 @@ beforeEach(() => {
 
 describe("context journals", () => {
   it("parses each journal into its environment, skipping files that are not journals", async () => {
-    const { fs } = fakeCli();
+    const { fs, deps } = fakeCli();
     fs.readdir.mockResolvedValue(["local.jsonl", "notes.txt"]);
     fs.readFile.mockResolvedValue('{"kind":"start","op":"a"}\n');
-    expect(await readJournals(fs as unknown as FileSystem, "/repo")).toEqual({
+    expect(await readJournals(deps.fs, "/repo")).toEqual({
       local: [{ kind: "start", op: "a" }],
     });
     expect(fs.readFile.mock.calls).toEqual([[`${JOURNALS}/local.jsonl`]]);
   });
 
   it("skips torn lines and entries that are not objects", async () => {
-    const { fs } = fakeCli();
+    const { fs, deps } = fakeCli();
     fs.readdir.mockResolvedValue(["local.jsonl"]);
     fs.readFile.mockResolvedValue('not json\n42\nnull\n{"kind":"end"}\n');
-    expect(await readJournals(fs as unknown as FileSystem, "/repo")).toEqual({
+    expect(await readJournals(deps.fs, "/repo")).toEqual({
       local: [{ kind: "end" }],
     });
   });
 
   it("reads no journals when the directory is missing", async () => {
-    const { fs } = fakeCli();
+    const { fs, deps } = fakeCli();
     fs.readdir.mockRejectedValue(enoent());
-    expect(await readJournals(fs as unknown as FileSystem, "/repo")).toEqual(
-      {},
-    );
+    expect(await readJournals(deps.fs, "/repo")).toEqual({});
   });
 
   it("keeps the other journals when one cannot be read", async () => {
-    const { fs } = fakeCli();
+    const { fs, deps } = fakeCli();
     fs.readdir.mockResolvedValue(["a.jsonl", "b.jsonl"]);
     fs.readFile.mockImplementation((path) =>
       path.endsWith("a.jsonl")
         ? Promise.reject(new Error("EIO"))
         : Promise.resolve('{"kind":"start"}'),
     );
-    expect(
-      Object.keys(await readJournals(fs as unknown as FileSystem, "/repo")),
-    ).toEqual(["b"]);
+    expect(Object.keys(await readJournals(deps.fs, "/repo"))).toEqual(["b"]);
   });
 
   it("rethrows a directory error that is not a missing directory", async () => {
-    const { fs } = fakeCli();
+    const { fs, deps } = fakeCli();
     fs.readdir.mockRejectedValue(
       Object.assign(new Error("denied"), { code: "EACCES" }),
     );
-    await expect(
-      readJournals(fs as unknown as FileSystem, "/repo"),
-    ).rejects.toThrow("denied");
+    await expect(readJournals(deps.fs, "/repo")).rejects.toThrow("denied");
   });
 });
 

@@ -10,21 +10,3 @@ export function deps(over: Partial<ContextDeps> = {}): ContextDeps {
     ...over,
   };
 }
-
-/** Deps whose plans are given and whose sessions-since count is fixed; the calls to sessionsSince are recorded. */
-export function briefDeps(
-  sessions: number,
-  plans: Record<string, string> = {},
-) {
-  const calls: [string | null, string | undefined][] = [];
-  return {
-    calls,
-    ...deps({
-      readPlans: () => Promise.resolve(plans),
-      sessionsSince: (date, current) => {
-        calls.push([date, current]);
-        return Promise.resolve(sessions);
-      },
-    }),
-  };
-}

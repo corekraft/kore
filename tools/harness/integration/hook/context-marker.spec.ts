@@ -3,7 +3,7 @@
 // Docs: infra/plans/4-knowledge.md#step-4-upward-context
 
 import { afterEach, describe, expect, it } from "vitest";
-import { hookRun } from "../../src/testing/index.js";
+import * as hookRun from "./hook-run-support.js";
 
 const { additional, cleanTemps, context, frontmatter, repository } = hookRun;
 

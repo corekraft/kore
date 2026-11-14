@@ -13,9 +13,6 @@ export {
   NEW as ADR_NEW,
 } from "./adr-support.js";
 export { testHarness, type TestHarness } from "./cli-support.js";
-// The hook domain's integration helpers, as namespaces so their names do not clash.
-export * as hookRun from "./hook-run-support.js";
-export * as hookFeedback from "./hook-feedback-support.js";
 export { MemoryFileSystem as RootedMemoryFileSystem } from "./filesystem-support.js";
 export {
   OVERLAY,

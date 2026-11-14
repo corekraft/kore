@@ -1,6 +1,4 @@
-// Feedback hook: the post-edit checks, the stop checks, and the dispatch that
-// records ledger events around them. Token counting, ledger writes, the
-// temporary directory and the path helpers are mocks; the error class is real.
+// Feedback hook: post-edit checks, stop checks, and ledger-recording dispatch; tokens, ledger and paths are mocks.
 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -19,10 +17,13 @@ import {
 import { readTokens, tokenStateFile } from "./feedback-tokens.js";
 import { recordEvent } from "./ledger-event.js";
 
-vi.mock("node:os");
-vi.mock("node:path");
-vi.mock("./feedback-tokens.js");
-vi.mock("./ledger-event.js");
+vi.mock("node:os", () => ({ tmpdir: vi.fn() }));
+vi.mock("node:path", () => ({ join: vi.fn() }));
+vi.mock("./feedback-tokens.js", () => ({
+  readTokens: vi.fn(),
+  tokenStateFile: vi.fn(),
+}));
+vi.mock("./ledger-event.js", () => ({ recordEvent: vi.fn() }));
 vi.mock("../runtime/index.js", async (importOriginal) => {
   const real = await importOriginal<typeof import("../runtime/index.js")>();
   return { CommandError: real.CommandError };

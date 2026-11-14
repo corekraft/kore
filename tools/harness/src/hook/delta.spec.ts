@@ -3,16 +3,15 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { activePlans, listItems } from "../plan/index.js";
-import {
-  entry,
-  fakeDeltaDeps as fakeDeps,
-  planText,
-} from "../testing/index.js";
 import { describeChanges, snapshot, update } from "./delta.js";
+import { entry, fakeDeps, planText } from "./delta-support.js";
 
 // The plan parser is another domain's unit: automocked here, with fakes that
 // read a plan's list items and its active plans from the markdown itself.
-vi.mock("../plan/index.js");
+vi.mock("../plan/index.js", () => ({
+  activePlans: vi.fn(),
+  listItems: vi.fn(),
+}));
 
 beforeEach(() => {
   vi.mocked(activePlans).mockImplementation((plans) => Object.keys(plans));

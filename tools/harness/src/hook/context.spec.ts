@@ -13,13 +13,20 @@ import {
   upcomingSteps,
 } from "../plan/index.js";
 import { brief, restore, rules, type JournalEntry } from "./context.js";
-import { briefDeps, deps } from "./context-support.js";
+import { deps } from "./context-support.js";
 import { lastRetrospective, MarkerError } from "./retro-scan.js";
 
 // The plan parser is another domain's unit, and the retrospective scan reads
 // plan markers; both are automocked. The error class and the plans directory
 // are real.
-vi.mock("../plan/index.js");
+vi.mock("../plan/index.js", () => ({
+  activePlans: vi.fn(),
+  listItems: vi.fn(),
+  nextStep: vi.fn(),
+  openCounts: vi.fn(),
+  openItems: vi.fn(),
+  upcomingSteps: vi.fn(),
+}));
 vi.mock("./retro-scan.js", async (importOriginal) => {
   const real = await importOriginal<typeof import("./retro-scan.js")>();
   return {
@@ -49,12 +56,23 @@ const entry = (op: string, kind: string, extra = {}): JournalEntry => ({
 const withJournals = (journals: Record<string, JournalEntry[]>) =>
   deps({ readJournals: () => Promise.resolve(journals) });
 
+/** Deps whose plans are given and whose sessions-since count is fixed; its calls are a mock the spec reads. */
+function briefDeps(sessions: number, plans: Record<string, string> = {}) {
+  const sessionsSince = vi.fn((_date: string | null, _current?: string) =>
+    Promise.resolve(sessions),
+  );
+  return {
+    ...deps({ readPlans: () => Promise.resolve(plans), sessionsSince }),
+    sessionsSince,
+  };
+}
+
 describe("context rules", () => {
   it("keeps each AGENTS.md list item's text, enforcement markers included", () => {
     vi.mocked(listItems).mockReturnValue([
-      { text: "- **Errors.** Fix them. _Enforced: `x`._" },
-      { text: "- **Owner.** One owner." },
-    ] as never);
+      { heading: "Code", text: "- **Errors.** Fix them. _Enforced: `x`._" },
+      { heading: "Platform", text: "- **Owner.** One owner." },
+    ]);
     expect(rules("# AGENTS.md")).toEqual([
       "- **Errors.** Fix them. _Enforced: `x`._",
       "- **Owner.** One owner.",
@@ -72,8 +90,8 @@ describe("context restore", () => {
 
   it("states the rules and the active plan's open items after compaction", async () => {
     vi.mocked(listItems).mockReturnValue([
-      { text: "- **Rule.** Keep it." },
-    ] as never);
+      { heading: "Code", text: "- **Rule.** Keep it." },
+    ]);
     vi.mocked(activePlans).mockReturnValue(["3-agent-harness.md"]);
     vi.mocked(openItems).mockReturnValue(["Step 2: Open: - [ ] Bound output."]);
     const d = deps({
@@ -180,7 +198,7 @@ describe("context brief, retrospective reminder", () => {
     expect(await brief({ source: "clear", session_id: "s1" }, due)).toBe(
       "5 sessions since the last retrospective (2026-11-01); run /retro.",
     );
-    expect(due.calls).toEqual([["2026-11-01", "s1"]]);
+    expect(due.sessionsSince.mock.calls).toEqual([["2026-11-01", "s1"]]);
   });
 
   it("stays silent with four sessions since the marker", async () => {
@@ -200,7 +218,7 @@ describe("context brief, retrospective reminder", () => {
     });
     const d = briefDeps(5);
     expect(await brief({ source: "startup" }, d)).toBe("Warning: bad marker");
-    expect(d.calls).toEqual([]);
+    expect(d.sessionsSince.mock.calls).toEqual([]);
   });
 });
 

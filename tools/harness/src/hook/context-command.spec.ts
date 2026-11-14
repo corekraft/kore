@@ -8,6 +8,7 @@ import type { CliDeps } from "../runtime/index.js";
 import "./context-command.js";
 import { realContextDeps } from "./context-deps.js";
 import { restore } from "./context.js";
+import { deps as contextDeps } from "./context-support.js";
 import { hookCommand, type HookResult } from "./io.js";
 
 vi.mock("./io.js", () => ({ hookCommand: vi.fn() }));
@@ -19,18 +20,24 @@ type Handler = (ctx: {
   payload: unknown;
 }) => Promise<HookResult>;
 
-// The wrapper is automocked, so the handler is the third argument of the one
-// call the module made when it loaded, before any test resets the mocks.
-const [registeredName, , handlerAtLoad] =
-  vi.mocked(hookCommand).mock.calls[0] ?? [];
-const handler = handlerAtLoad as unknown as Handler;
-const deps = {
-  root: () => Promise.resolve("/repo"),
-} as unknown as CliDeps;
-const rootedDeps = { tag: "rooted" };
+/** The handler the wrapper registered when the module loaded; the one cast is the wrapper's typing. */
+function registeredHandler(): Handler {
+  return vi.mocked(hookCommand).mock.calls[0]?.[2] as unknown as Handler;
+}
+
+/** A host's CliDeps reduced to what the handler reads: the repository root. The one cast stands for the rest. */
+function fakeDeps(): CliDeps {
+  return { root: () => Promise.resolve("/repo") } as unknown as CliDeps;
+}
+
+// The wrapper is automocked, so its calls are read at load, before any test resets the mocks.
+const registeredName = vi.mocked(hookCommand).mock.calls[0]?.[0];
+const handler = registeredHandler();
+const deps = fakeDeps();
+const rootedDeps = contextDeps();
 
 beforeEach(() => {
-  vi.mocked(realContextDeps).mockReturnValue(rootedDeps as never);
+  vi.mocked(realContextDeps).mockReturnValue(rootedDeps);
   vi.mocked(restore).mockResolvedValue("");
 });
 

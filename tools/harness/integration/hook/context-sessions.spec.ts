@@ -4,7 +4,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { hookRun } from "../../src/testing/index.js";
+import * as hookRun from "./hook-run-support.js";
 
 const { additional, agents, cleanTemps, context, repository, temp } = hookRun;
 const { repoPlan: plan } = hookRun;

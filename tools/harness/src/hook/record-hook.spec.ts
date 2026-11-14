@@ -5,7 +5,14 @@
 import { describe, expect, it } from "vitest";
 import { run } from "../cli/index.js";
 import { testHarness } from "../testing/index.js";
-import { ledgerEvents } from "./feedback-support.js";
+import { LEDGER } from "./feedback-support.js";
+
+/** The ledger's events from a fake file map, one JSON object per line. */
+const ledgerEvents = (files: Map<string, string>) =>
+  (files.get(LEDGER) ?? "")
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as Record<string, unknown>);
 
 async function record(payload: unknown, env: Record<string, string> = {}) {
   const h = testHarness({ env: { KORE_ROOT: "/repo", ...env } });

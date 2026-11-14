@@ -16,7 +16,7 @@ import { realDeltaDeps } from "./delta-deps.js";
 // join and resolve by plain concatenation, which is all these paths need.
 vi.mock("../plan/index.js", () => ({ readPlans: vi.fn() }));
 vi.mock("../runtime/index.js", () => ({ hostLocksDirectory: vi.fn() }));
-vi.mock("node:path");
+vi.mock("node:path", () => ({ join: vi.fn(), resolve: vi.fn() }));
 
 const LOCKS = "/home/jun/.kore/locks";
 const JOURNAL = "/repo/.kore/state/journal";
