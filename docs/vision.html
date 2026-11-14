@@ -873,9 +873,10 @@
           <article class="tile">
             <h3>A developer portal out of the box</h3>
             <p>
-              Every tenant gets its own Backstage, Argo CD, and Keycloak, wired
-              to the tenancy model: each organization sees its own catalog and
-              delivers from git.
+              Every tenant gets its own Backstage, Argo CD, and Keycloak (the
+              platform Keycloak first, tenant Keycloaks later), wired to the
+              tenancy model: each organization sees its own catalog and delivers
+              from git.
             </p>
             <div class="chips">
               <span class="pill new">New: portal, GitOps</span>
@@ -1752,8 +1753,9 @@
               <tr>
                 <td>Traces</td>
                 <td>
-                  Mesh spans at the Gateway and between services, joined to the
-                  service's own spans
+                  agentgateway spans at the edge, each service's own agent
+                  spans, and waypoint spans only where a service needs L7
+                  policy, joined by trace context
                 </td>
               </tr>
               <tr>
@@ -1782,7 +1784,9 @@
                 resource attributes, so the Kotlin BFF template exports from its
                 first deploy. On the JVM, the Java agent Jib bakes in traces
                 Spring, HTTP clients, JDBC, Kafka, and Redis clients with no
-                code, in every BFF.</span
+                code, in every BFF. Other languages export through the same
+                endpoint once they emit OTLP; until then they get edge spans
+                from agentgateway and metrics.</span
               >
             </li>
             <li>
@@ -1892,8 +1896,10 @@
             <li>
               <strong>Nothing sampled away.</strong
               ><span
-                >Mesh tracing samples every request, and the archive receives
-                every span even where the hot tier samples.</span
+                >The components that emit spans (agentgateway, each service's
+                own agent, and waypoints) sample every request, and the archive
+                receives every span they emit even where the hot tier samples.
+                It cannot hold spans no component emits.</span
               >
             </li>
             <li>
@@ -1947,11 +1953,13 @@
             the organization tree (<a
               href="https://github.com/corekraft/kore/blob/main/docs/decisions/0040-keycloak-human-identity.md"
               >ADR 0040</a
-            >). Organizations use Kore through them without a terminal, and each
-            user sees only their own organizations. Backstage reads cluster and
-            repository state, and every change it makes becomes a reviewed
-            change to desired state that Argo CD or <code>kore</code> applies,
-            never a direct edit to the cluster.
+            >). The platform organization's Keycloak arrives in Next, so the
+            portal has a sign-in from the start; per-tenant Keycloaks arrive
+            later, with Then. Organizations use Kore through them without a
+            terminal, and each user sees only their own organizations. Backstage
+            reads cluster and repository state, and every change it makes
+            becomes a reviewed change to desired state that Argo CD or
+            <code>kore</code> applies, never a direct edit to the cluster.
           </p>
         </div>
         <div class="split">
@@ -2296,7 +2304,10 @@
             <p>
               <code>Organization</code> and <code>Service</code> exist as
               platform APIs; Argo CD delivers a Kotlin BFF and a static frontend
-              that reach HTTPS and scale 1→N; Backstage shows them.
+              that reach HTTPS and scale 1→N; Backstage shows them; people are
+              signed in through the platform Keycloak; each delivered service
+              shows its default dashboard and alerts with no setup; alerts
+              notify-only until thresholds are measured.
             </p>
           </li>
           <li class="horizon">
@@ -2352,10 +2363,15 @@
                 a negative test proves it.
               </li>
               <li>
-                A new service shows request rate, errors, latency, logs, and
-                traces in its organization's dashboards before anyone writes
+                A new service shows request rate, errors, latency, and logs in
+                its organization's dashboards before anyone writes
                 instrumentation code, and another organization cannot query
                 them.
+              </li>
+              <li>
+                A new golden-path BFF also shows traces in those dashboards with
+                no code. Services in other languages get edge spans and metrics
+                until they emit OTLP.
               </li>
               <li>
                 Every workload in every tenant runs by signed digest; no secret

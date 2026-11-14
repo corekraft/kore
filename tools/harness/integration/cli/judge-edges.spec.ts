@@ -140,8 +140,10 @@ describe("judge precheck readable output and errors", () => {
     });
     h.deps.bundleUrl = BUNDLE;
     expect(await run(["judge", "precheck", "7", "--json"], h.deps)).toBe(1);
-    expect(JSON.parse(h.err().split("\n")[0] ?? "").error).toContain(
-      "unreadable",
-    );
+    const lines = h.err().split("\n");
+    // The freshness check warns first when gh cannot say; the JSON error is the line that follows.
+    expect(lines[0]).toMatch(/^warning: /);
+    const json = lines.find((line) => line.startsWith("{")) ?? "";
+    expect(JSON.parse(json).error).toContain("unreadable");
   });
 });

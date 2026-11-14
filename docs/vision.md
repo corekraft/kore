@@ -23,17 +23,17 @@ Markdown file is the source; update both together.
 
 ## The Board
 
-| Pillar                                           | What it means                                                                                                                                                           | Builds on                                                                                                                                                                                                            |
-| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **One home for every app**                       | Every app, the operator's own or a tenant's, runs on the same platform under the same contracts. Nothing is a one-off.                                                  | [Plan 1](../infra/plans/1-initialize.md), [ADR 0002](decisions/0002-tool-responsibility-boundaries.md)                                                                                                               |
-| **Static frontends, small backends**             | Frontends are static builds hosted anywhere static. Each one gets a small, stateless backend for frontend (BFF) that holds its secrets and scales horizontally.         | [ADR 0009](decisions/0009-encrypted-secrets-through-external-secrets.md), [ADR 0006](decisions/0006-istio-ambient-gateway-api.md)                                                                                    |
-| **Organizations are tenants**                    | An organization is one tenant. It can hold sub-organizations (an umbrella of companies), and each one hosts its own services under its own domains.                     | New: tenancy API                                                                                                                                                                                                     |
-| **Every dependency, scoped to the organization** | Object storage, a durable message bus, document, relational, and key-value stores are claims against platform APIs, isolated by organization.                           | [ADR 0008](decisions/0008-crossplane-postgresql-platform-api.md), [ADR 0003](decisions/0003-separate-claims-and-retain-data.md)                                                                                      |
-| **A developer portal out of the box**            | Every tenant gets its own Backstage, Argo CD, and Keycloak, wired to the tenancy model: each organization sees its own catalog and delivers its services from git.      | New: portal, GitOps delivery                                                                                                                                                                                         |
-| **Business and developer platform**              | Business users manage companies, members, domains, and usage. Developers ship, observe, and operate services. Both views read the same model.                           | New: human identity, usage                                                                                                                                                                                           |
-| **Observed from the first request**              | Logs, metrics, and traces from every service, data store, and platform component reach org-scoped backends with no setup. Dashboards and alerts come with each service. | [ADR 0010](decisions/0010-opentelemetry-collector-ingestion.md), [ADR 0019](decisions/0019-telemetry-pipeline-wiring.md)                                                                                             |
-| **Secure and verified by default**               | Signed digests only, mesh identity, mutual TLS, policy, and encrypted secrets come with every service. A tenant cannot opt out.                                         | [ADR 0005](decisions/0005-release-automation-signed-image-trust.md), [ADR 0007](decisions/0007-workload-identity-and-layered-authorization.md), [ADR 0017](decisions/0017-gatekeeper-policy-families-audit-first.md) |
-| **Provider-neutral, local first**                | A service moves from the local k3d cluster to a managed cloud by changing environment configuration, never service code.                                                | [ADR 0012](decisions/0012-environment-overlays-hold-provider-specifics.md)                                                                                                                                           |
+| Pillar                                           | What it means                                                                                                                                                                                                            | Builds on                                                                                                                                                                                                            |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **One home for every app**                       | Every app, the operator's own or a tenant's, runs on the same platform under the same contracts. Nothing is a one-off.                                                                                                   | [Plan 1](../infra/plans/1-initialize.md), [ADR 0002](decisions/0002-tool-responsibility-boundaries.md)                                                                                                               |
+| **Static frontends, small backends**             | Frontends are static builds hosted anywhere static. Each one gets a small, stateless backend for frontend (BFF) that holds its secrets and scales horizontally.                                                          | [ADR 0009](decisions/0009-encrypted-secrets-through-external-secrets.md), [ADR 0006](decisions/0006-istio-ambient-gateway-api.md)                                                                                    |
+| **Organizations are tenants**                    | An organization is one tenant. It can hold sub-organizations (an umbrella of companies), and each one hosts its own services under its own domains.                                                                      | New: tenancy API                                                                                                                                                                                                     |
+| **Every dependency, scoped to the organization** | Object storage, a durable message bus, document, relational, and key-value stores are claims against platform APIs, isolated by organization.                                                                            | [ADR 0008](decisions/0008-crossplane-postgresql-platform-api.md), [ADR 0003](decisions/0003-separate-claims-and-retain-data.md)                                                                                      |
+| **A developer portal out of the box**            | Every tenant gets its own Backstage, Argo CD, and Keycloak (the platform Keycloak first, tenant Keycloaks later), wired to the tenancy model: each organization sees its own catalog and delivers its services from git. | New: portal, GitOps delivery                                                                                                                                                                                         |
+| **Business and developer platform**              | Business users manage companies, members, domains, and usage. Developers ship, observe, and operate services. Both views read the same model.                                                                            | New: human identity, usage                                                                                                                                                                                           |
+| **Observed from the first request**              | Logs, metrics, and traces from every service, data store, and platform component reach org-scoped backends with no setup. Dashboards and alerts come with each service.                                                  | [ADR 0010](decisions/0010-opentelemetry-collector-ingestion.md), [ADR 0019](decisions/0019-telemetry-pipeline-wiring.md)                                                                                             |
+| **Secure and verified by default**               | Signed digests only, mesh identity, mutual TLS, policy, and encrypted secrets come with every service. A tenant cannot opt out.                                                                                          | [ADR 0005](decisions/0005-release-automation-signed-image-trust.md), [ADR 0007](decisions/0007-workload-identity-and-layered-authorization.md), [ADR 0017](decisions/0017-gatekeeper-policy-families-audit-first.md) |
+| **Provider-neutral, local first**                | A service moves from the local k3d cluster to a managed cloud by changing environment configuration, never service code.                                                                                                 | [ADR 0012](decisions/0012-environment-overlays-hold-provider-specifics.md)                                                                                                                                           |
 
 ## Who It Serves
 
@@ -311,19 +311,21 @@ automatic for every service and scopes it to the organization.
 
 What a service gets without writing any instrumentation:
 
-| Signal          | Where it comes from                                                                    |
-| --------------- | -------------------------------------------------------------------------------------- |
-| Request metrics | Gateway and mesh telemetry: request rate, errors, and latency for every route          |
-| Logs            | The node agent collects container output and enriches it with service and organization |
-| Traces          | Mesh spans at the Gateway and between services, joined to the service's own spans      |
-| Resource use    | Kubelet and cluster metrics per service, plus HPA replica counts                       |
-| Data health     | Metrics from each data service operator, such as CloudNativePG and Strimzi             |
+| Signal          | Where it comes from                                                                                                                              |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Request metrics | Gateway and mesh telemetry: request rate, errors, and latency for every route                                                                    |
+| Logs            | The node agent collects container output and enriches it with service and organization                                                           |
+| Traces          | agentgateway spans at the edge, each service's own agent spans, and waypoint spans only where a service needs L7 policy, joined by trace context |
+| Resource use    | Kubelet and cluster metrics per service, plus HPA replica counts                                                                                 |
+| Data health     | Metrics from each data service operator, such as CloudNativePG and Strimzi                                                                       |
 
 - **The OTLP endpoint is injected.** Every service receives the Collector
   endpoint and standard resource attributes in its environment, so the Kotlin
   BFF template exports from its first deploy. On the JVM, the OpenTelemetry
   Java agent that Jib bakes into the image traces Spring, HTTP clients, JDBC,
-  Kafka, and Redis clients with no code, in every BFF.
+  Kafka, and Redis clients with no code, in every BFF. Other languages export
+  through the same endpoint once they emit OTLP; until then they get edge spans
+  from agentgateway and metrics.
 - **The platform stamps the organization.** The Collector adds tenant,
   organization, service, and environment attributes from namespace labels.
   It never trusts an organization a service reports about itself, so one tenant
@@ -365,8 +367,10 @@ Beside the hot tier, every log record and every span is kept as evidence
 - **Indexed on the object store.** Quickwit, licensed under Apache 2.0, keeps
   one index per tenant root in the object store, with every message and
   attribute searchable.
-- **Nothing sampled away.** Mesh tracing samples every request, and the archive
-  receives every span even where the hot tier samples.
+- **Nothing sampled away.** The components that emit spans (agentgateway, each
+  service's own agent, and waypoints) sample every request, and the archive
+  receives every span they emit even where the hot tier samples. It cannot
+  hold spans no component emits.
 - **Tamper-evident.** Each tenant's archive bucket uses S3 Object Lock in
   compliance mode, so no one, root included, can delete or change it before
   retention ends. Each indexed batch has a signed digest, and gaps are
@@ -383,7 +387,9 @@ Every tenant root gets its own Backstage and its own Argo CD, composed by the
 `Organization` API, and the platform organization gets a pair for operators
 ([ADR 0041](decisions/0041-backstage-and-argo-cd-per-tenant.md)). Each tenant
 root also gets its own Keycloak, whose groups mirror the organization tree
-([ADR 0040](decisions/0040-keycloak-human-identity.md)). Organizations use Kore
+([ADR 0040](decisions/0040-keycloak-human-identity.md)). The platform
+organization's Keycloak arrives in Next, so the portal has a sign-in from the
+start; per-tenant Keycloaks arrive later, with Then. Organizations use Kore
 through them without a terminal, and each user sees only their own
 organizations.
 
@@ -494,13 +500,13 @@ What exists or is in flight today, and what the vision adds.
 
 ## Horizons
 
-| Horizon     | Goal                                                                  | Done when                                                                                                                                                                                           |
-| ----------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Now**     | Finish the single-tenant platform in Plan 2.                          | The reference app runs end to end on a fresh profile and passes the portability checks.                                                                                                             |
-| **Next**    | A service is a first-class object, delivered from git, and it scales. | `Organization` and `Service` exist as platform APIs; Argo CD delivers a Kotlin BFF and a static frontend that reach HTTPS and scale 1→N; Backstage shows them.                                      |
-| **Then**    | Many tenants, each with its own data.                                 | Two tenants with nested sub-orgs share a cluster and cannot see or reach each other's services or data; object store, Kafka, document, and key-value claims work alongside PostgreSQL; quotas hold. |
-| **Later**   | The one stop shop.                                                    | An organization admin and a developer do their whole job in Backstage, signed in through single sign-on, from template to running service.                                                          |
-| **Someday** | Stronger isolation and a business layer.                              | A tenant can choose a dedicated virtual or physical cluster; usage turns into reports per organization.                                                                                             |
+| Horizon     | Goal                                                                  | Done when                                                                                                                                                                                                                                                                                                                                         |
+| ----------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Now**     | Finish the single-tenant platform in Plan 2.                          | The reference app runs end to end on a fresh profile and passes the portability checks.                                                                                                                                                                                                                                                           |
+| **Next**    | A service is a first-class object, delivered from git, and it scales. | `Organization` and `Service` exist as platform APIs; Argo CD delivers a Kotlin BFF and a static frontend that reach HTTPS and scale 1→N; Backstage shows them; people are signed in through the platform Keycloak; each delivered service shows its default dashboard and alerts with no setup; alerts notify-only until thresholds are measured. |
+| **Then**    | Many tenants, each with its own data.                                 | Two tenants with nested sub-orgs share a cluster and cannot see or reach each other's services or data; object store, Kafka, document, and key-value claims work alongside PostgreSQL; quotas hold.                                                                                                                                               |
+| **Later**   | The one stop shop.                                                    | An organization admin and a developer do their whole job in Backstage, signed in through single sign-on, from template to running service.                                                                                                                                                                                                        |
+| **Someday** | Stronger isolation and a business layer.                              | A tenant can choose a dedicated virtual or physical cluster; usage turns into reports per organization.                                                                                                                                                                                                                                           |
 
 ## How We Will Know
 
@@ -513,9 +519,11 @@ What exists or is in flight today, and what the vision adds.
   because a pod started cold.
 - An organization admin sees their own tree and nothing else, and a negative
   test proves it.
-- A new service shows request rate, errors, latency, logs, and traces in its
+- A new service shows request rate, errors, latency, and logs in its
   organization's dashboards before anyone writes instrumentation code, and
   another organization cannot query them.
+- A new golden-path BFF also shows traces in those dashboards with no code.
+  Services in other languages get edge spans and metrics until they emit OTLP.
 - Every running workload in every tenant is deployed by signed digest, and no
   secret exists in plaintext on disk or in git.
 - Moving a service between local and a managed environment changes only
