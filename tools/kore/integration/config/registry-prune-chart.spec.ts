@@ -2,8 +2,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "vitest";
-import { findRoot, loadRepository } from "./config.js";
-import { registryPruneFlag } from "./features.js";
+import {
+  findRoot,
+  loadRepository,
+  registryPruneFlag,
+} from "../../src/config/index.js";
 
 // Docs: docs/decisions/0094-worktrees-sharing-a-cluster-share-its-locks-tags-and-forward.md
 
