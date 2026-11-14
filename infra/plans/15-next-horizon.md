@@ -107,7 +107,7 @@ Next: Wait for both start gates (plan 14 Step 4 merged, #614 baseline recorded).
 
 ## Step 2: Organization and Service Platform APIs
 
-Safety pattern: `flag` (`platform-organization-service-apis`, off in `local`),
+Safety pattern: `feature-flagged` (`platform-organization-service-apis`, off in `local`),
 dark launched. With the flag off the render adds nothing to a cluster.
 
 ### Work
@@ -132,7 +132,7 @@ dark launched. With the flag off the render adds nothing to a cluster.
 
 ## Step 3: Autoscaling Defaults
 
-Safety pattern: `flag` (`autoscaling-defaults`, off in `local`).
+Safety pattern: `feature-flagged` (`autoscaling-defaults`, off in `local`).
 
 ### Work
 
@@ -173,7 +173,7 @@ existing reference app keeps working until a service moves to them.
 
 ## Step 5: Platform Argo CD Delivery from Git
 
-Safety pattern: `flag` (`platform-argocd-delivery`, off in `local`). With the
+Safety pattern: `feature-flagged` (`platform-argocd-delivery`, off in `local`). With the
 flag off, Helm stays the only owner of every release, so no resource has two
 owners.
 
@@ -199,7 +199,7 @@ owners.
 
 ## Step 6: Platform Keycloak and Backstage
 
-Safety pattern: `flag` (`platform-portal`, off in `local`). The portal never
+Safety pattern: `feature-flagged` (`platform-portal`, off in `local`). The portal never
 runs open: with the flag on, Backstage starts only once its Keycloak sign-in is
 ready.
 
