@@ -83,6 +83,7 @@ const FORWARDS: Record<string, readonly string[]> = {
   ],
   "../platform/helm.js": [
     "withAbsoluteChart",
+    "envOption",
     "helmEnv",
     "helmTemplateArgs",
     "helmUpgradeArgs",
@@ -140,6 +141,14 @@ const FORWARDS: Record<string, readonly string[]> = {
     "options",
     "sampleResponses",
   ],
+  "../images/rendered-images.js": ["renderedImages", "unapprovedImages"],
+  "../platform/container-smoke.js": [
+    "classifySmokeLogs",
+    "dockerRunArgs",
+    "smokeTargets",
+  ],
+  "../platform/upstream.live.js": ["renderChart", "yamlDocuments"],
+  "../platform/rollout-feasibility.js": ["rolloutProblems"],
 };
 
 /** An entry is a module export name, or `<export> as <barrel name>` when the barrel renames it. */
@@ -239,6 +248,18 @@ vi.mock("../platform/ingress-measurement.js", () =>
 );
 vi.mock("../platform/ingress-measurement.fixtures.js", () =>
   tagged("../platform/ingress-measurement.fixtures.js"),
+);
+vi.mock("../images/rendered-images.js", () =>
+  tagged("../images/rendered-images.js"),
+);
+vi.mock("../platform/container-smoke.js", () =>
+  tagged("../platform/container-smoke.js"),
+);
+vi.mock("../platform/upstream.live.js", () =>
+  tagged("../platform/upstream.live.js"),
+);
+vi.mock("../platform/rollout-feasibility.js", () =>
+  tagged("../platform/rollout-feasibility.js"),
 );
 
 const testing = await import("./index.js");

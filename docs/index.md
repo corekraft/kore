@@ -158,6 +158,7 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0103-the-judge-precheck-treats-the-kore-lint-config-as-developer-tooling.md`](decisions/0103-the-judge-precheck-treats-the-kore-lint-config-as-developer-tooling.md) — A lint rule cannot change what runs, so a diff that edits tools/kore/.oxlintrc.json alone matches no-behaviour-change; this refines ADR 0099.
 - [`docs/decisions/0104-integration-specs-may-stub-a-domain-s-own-cluster-facing-modules.md`](decisions/0104-integration-specs-may-stub-a-domain-s-own-cluster-facing-modules.md) — An integration spec may replace a domain's own modules that talk to the cluster with scripted replies, while still importing only through barrels and never stubbing another domain's internals; this refines ADR 0098.
 - [`docs/decisions/0105-the-judge-precheck-treats-the-release-workflow-as-developer-tooling.md`](decisions/0105-the-judge-precheck-treats-the-release-workflow-as-developer-tooling.md) — The release workflow .github/workflows/release.yaml only ships the code, so a diff that edits it alone matches no-behaviour-change; other workflows and similarly named files stay product; this refines ADR 0099.
+- [`docs/decisions/0106-the-package-unit-run-budget-is-2-minutes.md`](decisions/0106-the-package-unit-run-budget-is-2-minutes.md) — A package's whole unit run must finish under 120 s instead of 20 s, a ceiling against regression on the owner's decision of 2026-11-14.
 
 ## Proposed Decisions
 

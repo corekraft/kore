@@ -9,6 +9,8 @@ last-verified: 2026-11-12
 
 Source: [`infra/plans/14-test-tiers.md` § Purpose](../../infra/plans/14-test-tiers.md#purpose)
 
+> Refined by [ADR 0106](0106-the-package-unit-run-budget-is-2-minutes.md): a package's whole unit run has 120 s, not 20 s.
+
 ## Context
 
 Unit runs took 1m26s in `tools/kore` and 1m05s in `tools/harness` on the
@@ -50,7 +52,7 @@ feature work until it is gone.
   have, and a failing run stops the release tag. They can be run locally by
   an explicit command.
 - **Budget.** A unit test takes under 100 ms, a unit spec file under 1 s, and
-  a package's full unit run under 20 s. The budget fails the run for a
+  a package's full unit run under 120 s (raised from 20 s by ADR 0106). The budget fails the run for a
   converted source file from the day it converts; no audit period.
 - **Coverage thresholds are measured on the unit run alone.**
 

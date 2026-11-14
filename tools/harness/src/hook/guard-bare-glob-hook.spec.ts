@@ -40,6 +40,14 @@ describe("hook guard bare glob resolves from the call's directory", () => {
     expect(result.out).toBe("");
   });
 
+  it("is silent when a cd in the command moves the glob to where it matches", async () => {
+    const result = await guard(
+      { ...bare("/repo"), tool_input: { command: "cd wt && ls infra/*.yaml" } },
+      ["/repo/wt/infra/a.yaml"],
+    );
+    expect(result.out).toBe("");
+  });
+
   it("resolves from the project root when the payload carries no directory", async () => {
     const result = await guard(bare(), ["/repo/infra/a.yaml"]);
     expect(result.out).toBe("");
@@ -73,5 +81,27 @@ describe("hook guard bare glob skips glob characters in pattern arguments", () =
   it("is silent for a * operand in arithmetic, which is not a glob", async () => {
     const result = await guard(on("echo $(( * $n * ))"), []);
     expect(result.out).toBe("");
+  });
+});
+
+describe("hook guard bare glob keeps quoted prose quoted", () => {
+  it("is silent for a glob inside an ANSI-C quoted --body, past an escaped apostrophe", async () => {
+    const result = await guard(
+      on("gh pr comment 485 --body $'it\\'s .kore/state/test-slot-*.lock'"),
+      [],
+    );
+    expect(result.out).not.toContain("bare-glob");
+  });
+
+  it("warns about a glob outside any quotes after that ANSI-C argument", async () => {
+    const result = await guard(
+      on("gh pr comment 485 --body $'done' .kore/state/test-slot-*.lock"),
+      [],
+    );
+    expect(
+      JSON.parse(result.out).hookSpecificOutput.additionalContext,
+    ).toContain(
+      "[guard:bare-glob] .kore/state/test-slot-*.lock is an unquoted glob",
+    );
   });
 });
