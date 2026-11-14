@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import { run } from "../cli/index.js";
-import { testHarness } from "../cli/cli-support.js";
+import { testHarness } from "../testing/index.js";
 import {
   HARNESS_BIN,
   KORE_BIN,

@@ -13,7 +13,7 @@ import {
 import { createServer, type Server } from "node:net";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
-import { cleanGitEnv } from "../src/testing/git-env.js";
+import { cleanGitEnv } from "../src/testing/index.js";
 
 export interface SandboxPaths {
   /** The only tree a writer may change. */

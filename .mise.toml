@@ -63,8 +63,8 @@ depends = ["test-barrel-rule"]
 run = ["npm --prefix tools/harness run test:hooks", ".claude/hooks/harness.sh hook skill-links --strict", ".claude/hooks/harness.sh hook workflow-permissions --strict", ".claude/hooks/harness.sh guardrail deny --check", ".claude/hooks/harness.sh hook kb-check"]
 
 [tasks.test-barrel-rule]
-description = "Run the kore barrel-rule test: oxlint over scratch fixtures, the domain list against src/, and the testing ban (an integration test, so it is outside the unit run and the commit hook)"
-run = "npm --prefix tools/kore run test:barrel-rule"
+description = "Run the barrel-rule tests of tools/kore and tools/harness: oxlint over scratch fixtures, the domain list against src/, and the testing ban (integration tests, so they are outside the unit run and the commit hook)"
+run = ["npm --prefix tools/kore run test:barrel-rule", "npm --prefix tools/harness run test:barrel-rule"]
 
 [tasks.kb-check]
 description = "Check knowledge-base links, index, frontmatter, and Docs: markers, then print the skill budget audit (never fails); pass -- --strict to fail on findings"

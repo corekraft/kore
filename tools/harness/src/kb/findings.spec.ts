@@ -11,7 +11,7 @@ import {
   cleanTree,
   messages,
   planFrontmatter,
-} from "./kb-support.js";
+} from "../testing/index.js";
 
 it("a clean tree reports nothing", () => {
   assert.deepEqual(messages(cleanTree()), []);

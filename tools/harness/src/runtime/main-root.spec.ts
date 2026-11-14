@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { mainRoot } from "./main-root.js";
-import { FakeRunner } from "./runner-support.js";
+import { FakeRunner } from "../testing/index.js";
 
 function deps(
   options: {

@@ -1,5 +1,5 @@
 import { matchesGlob } from "node:path";
-import type { FileSystem } from "./filesystem.js";
+import type { FileSystem } from "../runtime/index.js";
 
 const EXCLUDED = /(^|\/)(node_modules|\.git)(\/|$)/;
 

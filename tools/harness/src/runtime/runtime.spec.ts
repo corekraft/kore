@@ -6,7 +6,7 @@ import { nodeFileSystem } from "./filesystem.js";
 import { localDate, systemClock } from "./clock.js";
 import { systemIds } from "./ids.js";
 import { ProcessRunner } from "./runner.js";
-import { FakeRunner } from "./runner-support.js";
+import { FakeRunner } from "../testing/index.js";
 
 /** No GIT_* variable: the guard cannot tell this fake from a process (#368). */
 const gitEnv = Object.fromEntries(

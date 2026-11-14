@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { run } from "./cli.js";
-import { testHarness } from "./cli-support.js";
+import { testHarness } from "../testing/index.js";
 import {
   BUNDLE,
   LEDGER,

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { run } from "../cli/index.js";
-import { testHarness } from "../cli/cli-support.js";
+import { testHarness } from "../testing/index.js";
 import { INVENTORY_PATH } from "../guardrail/index.js";
-import { committedInventoryText } from "../testing/guardrail-support.js";
+import { committedInventoryText } from "../testing/index.js";
 import { ledgerEvents } from "./feedback-support.js";
 
 /** One ledger and one repository across several hook runs, as in a real session. */

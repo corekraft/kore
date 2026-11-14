@@ -1,5 +1,5 @@
-import { MemoryFileSystem } from "../runtime/memory-filesystem-support.js";
-import { FakeRunner } from "../runtime/runner-support.js";
+import { MemoryFileSystem } from "../testing/index.js";
+import { FakeRunner } from "../testing/index.js";
 import { pollHerdr } from "./herdr-poll.js";
 import { Ledger } from "./ledger.js";
 

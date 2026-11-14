@@ -13,7 +13,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { checkProtected } from "../src/hook/guard-role-protected.js";
+import { checkProtected } from "../src/hook/index.js";
 
 let root = "";
 const bash = (command: string) =>

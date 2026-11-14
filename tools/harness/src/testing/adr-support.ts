@@ -1,7 +1,7 @@
 import type { CliDeps } from "../runtime/index.js";
 import type { FileSystem } from "../runtime/index.js";
-import { FakeRunner } from "../runtime/runner-support.js";
-import { hasMatchUnder } from "../runtime/memory-filesystem-support.js";
+import { FakeRunner } from "./runner-support.js";
+import { hasMatchUnder } from "./memory-filesystem-support.js";
 
 export const PLAN = "infra/plans/10-tools-first-skills.md";
 export const ANCHOR = "step-1-adr-tool";

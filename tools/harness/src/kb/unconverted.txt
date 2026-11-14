@@ -3,7 +3,6 @@ document-checks.ts
 findings.ts
 idea-checks.ts
 index.ts
-kb-support.ts
 markdown.ts
 report.ts
 stale.ts

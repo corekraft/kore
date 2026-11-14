@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { denyRules, modeOf } from "../guardrail/index.js";
-import { committedInventory } from "../testing/guardrail-support.js";
+import { committedInventory } from "../testing/index.js";
 import { evaluate } from "./guard.js";
 
 export const root = "/repo";

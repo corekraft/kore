@@ -1,7 +1,7 @@
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { cleanGitEnv } from "../src/testing/git-env.js";
+import { cleanGitEnv } from "../src/testing/index.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   createFixture,

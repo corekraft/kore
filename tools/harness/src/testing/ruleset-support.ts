@@ -1,5 +1,5 @@
 import { harness } from "./records-support.js";
-import type { FakeResponse } from "../runtime/runner-support.js";
+import type { FakeResponse } from "./runner-support.js";
 
 export const REPO = "corekraft/kore";
 export const DECLARED = ".github/rulesets/main.json";

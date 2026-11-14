@@ -1,7 +1,7 @@
 // Delta: what changed between a session's turns, as UserPromptSubmit context.
 // Plan: infra/plans/6-agent-primitives.md#step-3-what-changed-between-turns
 
-import { cleanGitEnv } from "../testing/git-env.js";
+import { cleanGitEnv } from "../testing/index.js";
 import { spawnSync } from "node:child_process";
 import {
   existsSync,
@@ -15,7 +15,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { run } from "../cli/index.js";
-import { testHarness } from "../cli/cli-support.js";
+import { testHarness } from "../testing/index.js";
 import {
   CommandError,
   nodeFileSystem,

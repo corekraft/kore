@@ -10,7 +10,7 @@ import {
   planFrontmatter,
   usage,
   type Tree,
-} from "./kb-support.js";
+} from "../testing/index.js";
 
 /** run() over a tree whose git history is a fixture: {path: "YYYY-MM-DD"}. */
 async function runWithHistory(

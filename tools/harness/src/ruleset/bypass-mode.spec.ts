@@ -7,7 +7,7 @@ import {
   mutations,
   rulesetRepo,
   sync,
-} from "../testing/ruleset-support.js";
+} from "../testing/index.js";
 import { weakenings } from "./weaken.js";
 
 const actor = (bypass_mode?: string, actor_id = 1) => ({

@@ -1,5 +1,5 @@
 import type { CliDeps } from "../runtime/index.js";
-import { FakeRunner } from "../runtime/runner-support.js";
+import { FakeRunner } from "../testing/index.js";
 
 export const ROOT = "/repo";
 

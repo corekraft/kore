@@ -1,8 +1,8 @@
 // Runs the guard hook in process against a chosen inventory.
 import { run } from "../cli/index.js";
-import { testHarness } from "../cli/cli-support.js";
+import { testHarness } from "../testing/index.js";
 import { INVENTORY_PATH, type Mode } from "../guardrail/index.js";
-import { inventoryWith } from "../testing/guardrail-support.js";
+import { inventoryWith } from "../testing/index.js";
 import { ledgerEvents } from "./feedback-support.js";
 
 export async function guard(

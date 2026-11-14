@@ -1,6 +1,6 @@
 import { hostname } from "node:os";
 import { describe, expect, it } from "vitest";
-import { testHarness } from "../cli/cli-support.js";
+import { testHarness } from "../testing/index.js";
 import { run } from "../cli/index.js";
 import {
   INSIDE,

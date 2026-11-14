@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, it } from "vitest";
-import { cleanGitEnv } from "../src/testing/git-env.js";
+import { cleanGitEnv } from "../src/testing/index.js";
 
 // The status line as the host runs it: the built bundle as a real process,
 // in projects that are not this repository.

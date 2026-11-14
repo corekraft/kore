@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { GuardrailError, parseInventory } from "./inventory.js";
 import { denyDrift, denyList, denyMatches, settingsWithDeny } from "./deny.js";
-import { committedInventory } from "../testing/guardrail-support.js";
+import { committedInventory } from "../testing/index.js";
 
 const repo = new URL("../../../../", import.meta.url).pathname;
 const rule = (over: Record<string, unknown> = {}) => ({

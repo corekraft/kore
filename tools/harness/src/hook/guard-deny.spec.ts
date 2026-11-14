@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { committedInventory } from "../testing/guardrail-support.js";
+import { committedInventory } from "../testing/index.js";
 import { auditEvents, bash, guard } from "./guard-modes-support.js";
 
 // Synthetic deny rules on commands and paths no other guard rule covers, so the

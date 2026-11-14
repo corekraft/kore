@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { run } from "../cli/index.js";
-import { INDEX, NEW, harness } from "../testing/records-support.js";
+import { INDEX, NEW, harness } from "../testing/index.js";
 
 const PATH = "docs/ideas/0001-cache-the-probe-results.md";
 const URL = "https://github.com/corekraft/kore/issues/300";

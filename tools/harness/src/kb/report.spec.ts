@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { it } from "vitest";
 import { run } from "./index.js";
 import { CommandError } from "../runtime/index.js";
-import { cleanTree, fakeDeps, type Tree } from "./kb-support.js";
+import { cleanTree, fakeDeps, type Tree } from "../testing/index.js";
 
 async function runWith(tree: Tree, argv: string[]) {
   const lines: string[] = [];

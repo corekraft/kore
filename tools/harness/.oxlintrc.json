@@ -63,7 +63,86 @@
         "max": 8
       }
     ],
-    "import/no-cycle": "error"
+    "import/no-cycle": "error",
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "group": ["**/adr/**", "!**/adr/index.js"],
+            "message": "import from the adr barrel (adr/index.js), not one of its files"
+          },
+          {
+            "group": ["**/challenge/**", "!**/challenge/index.js"],
+            "message": "import from the challenge barrel (challenge/index.js), not one of its files"
+          },
+          {
+            "group": ["**/cli/**", "!**/cli/index.js"],
+            "message": "import from the cli barrel (cli/index.js), not one of its files"
+          },
+          {
+            "group": ["**/flag/**", "!**/flag/index.js"],
+            "message": "import from the flag barrel (flag/index.js), not one of its files"
+          },
+          {
+            "group": ["**/flow/**", "!**/flow/index.js"],
+            "message": "import from the flow barrel (flow/index.js), not one of its files"
+          },
+          {
+            "group": ["**/guardrail/**", "!**/guardrail/index.js"],
+            "message": "import from the guardrail barrel (guardrail/index.js), not one of its files"
+          },
+          {
+            "group": ["**/hook/**", "!**/hook/index.js"],
+            "message": "import from the hook barrel (hook/index.js), not one of its files"
+          },
+          {
+            "group": ["**/idea/**", "!**/idea/index.js"],
+            "message": "import from the idea barrel (idea/index.js), not one of its files"
+          },
+          {
+            "group": ["**/judge/**", "!**/judge/index.js"],
+            "message": "import from the judge barrel (judge/index.js), not one of its files"
+          },
+          {
+            "group": ["**/kb/**", "!**/kb/index.js"],
+            "message": "import from the kb barrel (kb/index.js), not one of its files"
+          },
+          {
+            "group": ["**/ledger/**", "!**/ledger/index.js"],
+            "message": "import from the ledger barrel (ledger/index.js), not one of its files"
+          },
+          {
+            "group": ["**/outcome/**", "!**/outcome/index.js"],
+            "message": "import from the outcome barrel (outcome/index.js), not one of its files"
+          },
+          {
+            "group": ["**/plan/**", "!**/plan/index.js"],
+            "message": "import from the plan barrel (plan/index.js), not one of its files"
+          },
+          {
+            "group": ["**/ruleset/**", "!**/ruleset/index.js"],
+            "message": "import from the ruleset barrel (ruleset/index.js), not one of its files"
+          },
+          {
+            "group": ["**/runtime/**", "!**/runtime/index.js"],
+            "message": "import from the runtime barrel (runtime/index.js), not one of its files"
+          },
+          {
+            "group": ["**/session/**", "!**/session/index.js"],
+            "message": "import from the session barrel (session/index.js), not one of its files"
+          },
+          {
+            "group": ["**/skill/**", "!**/skill/index.js"],
+            "message": "import from the skill barrel (skill/index.js), not one of its files"
+          },
+          {
+            "group": ["**/testing/**"],
+            "message": "production code must not import the testing domain; only specs, fixtures and test support may"
+          }
+        ]
+      }
+    ]
   },
   "overrides": [
     {
@@ -83,6 +162,90 @@
       "files": ["**/*.live.spec.ts"],
       "rules": {
         "typescript/no-floating-promises": "off"
+      }
+    },
+    {
+      "files": ["**/*.spec.ts", "**/*fixtures.ts", "**/*-support.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/adr/**", "!**/adr/index.js"],
+                "message": "import from the adr barrel (adr/index.js), not one of its files"
+              },
+              {
+                "group": ["**/challenge/**", "!**/challenge/index.js"],
+                "message": "import from the challenge barrel (challenge/index.js), not one of its files"
+              },
+              {
+                "group": ["**/cli/**", "!**/cli/index.js"],
+                "message": "import from the cli barrel (cli/index.js), not one of its files"
+              },
+              {
+                "group": ["**/flag/**", "!**/flag/index.js"],
+                "message": "import from the flag barrel (flag/index.js), not one of its files"
+              },
+              {
+                "group": ["**/flow/**", "!**/flow/index.js"],
+                "message": "import from the flow barrel (flow/index.js), not one of its files"
+              },
+              {
+                "group": ["**/guardrail/**", "!**/guardrail/index.js"],
+                "message": "import from the guardrail barrel (guardrail/index.js), not one of its files"
+              },
+              {
+                "group": ["**/hook/**", "!**/hook/index.js"],
+                "message": "import from the hook barrel (hook/index.js), not one of its files"
+              },
+              {
+                "group": ["**/idea/**", "!**/idea/index.js"],
+                "message": "import from the idea barrel (idea/index.js), not one of its files"
+              },
+              {
+                "group": ["**/judge/**", "!**/judge/index.js"],
+                "message": "import from the judge barrel (judge/index.js), not one of its files"
+              },
+              {
+                "group": ["**/kb/**", "!**/kb/index.js"],
+                "message": "import from the kb barrel (kb/index.js), not one of its files"
+              },
+              {
+                "group": ["**/ledger/**", "!**/ledger/index.js"],
+                "message": "import from the ledger barrel (ledger/index.js), not one of its files"
+              },
+              {
+                "group": ["**/outcome/**", "!**/outcome/index.js"],
+                "message": "import from the outcome barrel (outcome/index.js), not one of its files"
+              },
+              {
+                "group": ["**/plan/**", "!**/plan/index.js"],
+                "message": "import from the plan barrel (plan/index.js), not one of its files"
+              },
+              {
+                "group": ["**/ruleset/**", "!**/ruleset/index.js"],
+                "message": "import from the ruleset barrel (ruleset/index.js), not one of its files"
+              },
+              {
+                "group": ["**/runtime/**", "!**/runtime/index.js"],
+                "message": "import from the runtime barrel (runtime/index.js), not one of its files"
+              },
+              {
+                "group": ["**/session/**", "!**/session/index.js"],
+                "message": "import from the session barrel (session/index.js), not one of its files"
+              },
+              {
+                "group": ["**/skill/**", "!**/skill/index.js"],
+                "message": "import from the skill barrel (skill/index.js), not one of its files"
+              },
+              {
+                "group": ["**/testing/**", "!**/testing/index.js"],
+                "message": "import from the testing barrel (testing/index.js), not one of its files"
+              }
+            ]
+          }
+        ]
       }
     }
   ]
