@@ -9,7 +9,10 @@ import {
 import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import { holdEnvironmentLock, withEnvironmentLock } from "./lock.js";
+import {
+  holdEnvironmentLock,
+  withEnvironmentLock,
+} from "../../src/runtime/index.js";
 
 const deadOwner = {
   pid: 424242,
