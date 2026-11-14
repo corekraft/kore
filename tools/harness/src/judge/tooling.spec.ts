@@ -91,6 +91,23 @@ describe("isTooling: live helpers", () => {
   });
 });
 
+describe("isTooling: rulesets", () => {
+  it("is tooling for a ruleset JSON file directly under .github/rulesets", () => {
+    expect(isTooling(file(".github/rulesets/main.json"))).toBe(true);
+  });
+
+  it.each([
+    ".github/rulesets/main.yaml",
+    ".github/rulesets/main.json.bak",
+    ".github/rulesets/nested/main.json",
+    ".github/rulesets/",
+    ".github/other.json",
+    "infra/rulesets/main.json",
+  ])("%s is product", (path) => {
+    expect(isTooling(file(path))).toBe(false);
+  });
+});
+
 describe("isTooling: renames", () => {
   it("is tooling when both the old and the new path are tooling", () => {
     expect(isTooling(file("skills/b.md", [], "tools/harness/a.ts"))).toBe(true);
