@@ -1,7 +1,7 @@
 ---
 status: active
 summary: North star for Kore as a multi-tenant business and developer platform that hosts every app by organization, with static frontends, small backends for frontend, org-scoped data services and telemetry, and Backstage and Argo CD out of the box.
-last-verified: 2026-11-08
+last-verified: 2026-11-14
 ---
 
 # Platform Vision Board
@@ -33,7 +33,7 @@ Markdown file is the source; update both together.
 | **Business and developer platform**              | Business users manage companies, members, domains, and usage. Developers ship, observe, and operate services. Both views read the same model.                           | New: human identity, usage                                                                                                                                                                                           |
 | **Observed from the first request**              | Logs, metrics, and traces from every service, data store, and platform component reach org-scoped backends with no setup. Dashboards and alerts come with each service. | [ADR 0010](decisions/0010-opentelemetry-collector-ingestion.md), [ADR 0019](decisions/0019-telemetry-pipeline-wiring.md)                                                                                             |
 | **Secure and verified by default**               | Signed digests only, mesh identity, mutual TLS, policy, and encrypted secrets come with every service. A tenant cannot opt out.                                         | [ADR 0005](decisions/0005-release-automation-signed-image-trust.md), [ADR 0007](decisions/0007-workload-identity-and-layered-authorization.md), [ADR 0017](decisions/0017-gatekeeper-policy-families-audit-first.md) |
-| **Provider-neutral, local first**                | A service moves from the local k3d cluster to a managed cloud by changing environment configuration, never service code.                                                             | [ADR 0012](decisions/0012-environment-overlays-hold-provider-specifics.md)                                                                                                                                           |
+| **Provider-neutral, local first**                | A service moves from the local k3d cluster to a managed cloud by changing environment configuration, never service code.                                                | [ADR 0012](decisions/0012-environment-overlays-hold-provider-specifics.md)                                                                                                                                           |
 
 ## Who It Serves
 
@@ -536,63 +536,64 @@ What exists or is in flight today, and what the vision adds.
 
 ## Decisions
 
-Every question is now decided and links to its ADR; the numbers stay stable
-so earlier references still resolve.
+Each Decision links its ADR and is labelled with that ADR's status: "Chosen,
+proposed" while the ADR is proposed, and "Decided" only once it is accepted. The
+numbers stay stable so earlier references still resolve.
 
-1. **Isolation tier.** Decided: one shared cluster, a namespace per service
+1. **Isolation tier.** Chosen, proposed (ADR 0037): one shared cluster, a namespace per service
    environment, no Capsule, and vCluster as a later dedicated tier
    ([ADR 0037](decisions/0037-tenant-isolation-by-namespace.md)).
-2. **Hierarchy depth.** Decided: at most four levels below the tenant root,
+2. **Hierarchy depth.** Chosen, proposed (ADR 0038): at most four levels below the tenant root,
    with tenant and organization labels on namespaces
    ([ADR 0038](decisions/0038-organization-hierarchy-depth-and-labels.md)).
-3. **Sharing.** Decided: owner grants within a tenant, parents can block, and
+3. **Sharing.** Chosen, proposed (ADR 0039): owner grants within a tenant, parents can block, and
    only operators grant across tenants
    ([ADR 0039](decisions/0039-service-sharing-by-owner-grant.md)).
-4. **Argo CD for platform components.** Decided: `kore` keeps the early phases,
+4. **Argo CD for platform components.** Chosen, proposed (ADR 0043): `kore` keeps the early phases,
    and the platform Argo CD owns the configuration phase except the image
    policy ([ADR 0043](decisions/0043-platform-configuration-through-argo-cd.md)).
-5. **Human identity.** Decided: a Keycloak per tenant root with one realm and
+5. **Human identity.** Chosen, proposed (ADR 0040): a Keycloak per tenant root with one realm and
    nested groups per sub-organization, owned by the `Organization` API
    ([ADR 0040](decisions/0040-keycloak-human-identity.md)).
-6. **Backstage tenancy.** Decided: one Backstage and one namespace-scoped Argo
+6. **Backstage tenancy.** Chosen, proposed (ADR 0041): one Backstage and one namespace-scoped Argo
    CD per tenant root, scoped inside by organization
    ([ADR 0041](decisions/0041-backstage-and-argo-cd-per-tenant.md)).
-7. **Default static host.** Decided: in the cluster as a signed image, with
+7. **Default static host.** Chosen, proposed (ADR 0045): in the cluster as a signed image, with
    GitHub Pages or object storage as a per-service escape hatch
    ([ADR 0045](decisions/0045-static-frontends-as-signed-images.md)).
-8. **BFF runtime.** Decided: always the JVM with the Java agent, started from a
+8. **BFF runtime.** Chosen, proposed (ADR 0046): always the JVM with the Java agent, started from a
    build-time AOT cache; native image only by exception
    ([ADR 0046](decisions/0046-bff-jvm-with-agent-and-aot-cache.md)).
-9. **Autoscaling source.** Decided: metrics-server first, as a catalog Helm
+9. **Autoscaling source.** Chosen, proposed (ADR 0047): metrics-server first, as a catalog Helm
    release, with autoscaling defaults in chart values; KEDA after
    ([ADR 0047](decisions/0047-autoscaling-metrics-server-then-keda.md)).
-10. **Usage and cost.** Decided: OpenCost and platform counters meter usage
+10. **Usage and cost.** Chosen, proposed (ADR 0052): OpenCost and platform counters meter usage
     per organization for visibility, rolled up the tree; enforcement stays
     with quotas and there is no billing
     ([ADR 0052](decisions/0052-usage-metering-with-opencost.md)).
-11. **Domain verification and DNS.** Decided: organizations at any level
+11. **Domain verification and DNS.** Chosen, proposed (ADR 0042): organizations at any level
     delegate zones under any TLD, services are subdomains inside them, and
     ExternalDNS writes the records
     ([ADR 0042](decisions/0042-organization-domains-by-delegation.md)).
-12. **Platform default domain.** Decided: every organization gets one default
+12. **Platform default domain.** Chosen, proposed (ADR 0042): every organization gets one default
     zone under a per-environment platform domain, still to be chosen
     ([ADR 0042](decisions/0042-organization-domains-by-delegation.md)).
-13. **Data isolation tiers.** Decided: per-claim instances for PostgreSQL,
+13. **Data isolation tiers.** Chosen, proposed (ADR 0048): per-claim instances for PostgreSQL,
     document, and key-value stores; shared, partitioned Kafka and object store;
     dedicated stores per tenant root on request and operator approval
     ([ADR 0048](decisions/0048-data-service-tenancy-tiers.md)).
-14. **Data store implementations.** Decided: SeaweedFS, Strimzi, FerretDB on
+14. **Data store implementations.** Chosen, proposed (ADR 0049): SeaweedFS, Strimzi, FerretDB on
     CloudNativePG, and Valkey, with no Bitnami images
     ([ADR 0049](decisions/0049-data-store-implementations.md)).
-15. **Telemetry isolation.** Decided: shared backends, a Grafana per tenant,
+15. **Telemetry isolation.** Chosen, proposed (ADR 0050): shared backends, a Grafana per tenant,
     Loki and Tempo multi-tenant, a label-enforcing proxy for Prometheus, and
     Mimir later
     ([ADR 0050](decisions/0050-tenant-telemetry-isolation.md)).
-16. **Telemetry retention and alert routing.** Decided: 14 days of logs and 7
+16. **Telemetry retention and alert routing.** Chosen, proposed (ADR 0051): 14 days of logs and 7
     of traces by default with per-tenant overrides, tenant alerts in the
     tenant's Grafana, and Alertmanager for platform alerts only
     ([ADR 0051](decisions/0051-telemetry-retention-and-alerting.md)).
-17. **Forensic telemetry.** Decided: every log record and span kept unsampled
+17. **Forensic telemetry.** Chosen, proposed (ADR 0053): every log record and span kept unsampled
     in a Quickwit archive on the object store, fed through Kafka, write-once
     with signed batch digests
     ([ADR 0053](decisions/0053-forensic-telemetry-archive.md)).
