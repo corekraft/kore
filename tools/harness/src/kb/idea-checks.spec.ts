@@ -3,7 +3,6 @@
 
 import { beforeEach, expect, test, vi } from "vitest";
 import { checkIdea, IDEA_NAME } from "./idea-checks.js";
-import { fakeFinding, keysOf } from "./kb-support.js";
 import { finding, frontmatter, type Finding } from "./markdown.js";
 
 vi.mock("./markdown.js", async (importOriginal) => ({
@@ -14,97 +13,94 @@ vi.mock("./markdown.js", async (importOriginal) => ({
 
 const FILE = "docs/ideas/0001-a.md";
 const IDEAS = new Map([["0001", FILE]]);
-
-/** A complete idea's frontmatter, with `changes` applied: a null value drops the key. */
-function idea(
-  changes: Record<string, string | null> = {},
-): Record<string, string> {
-  const fields: Record<string, string | null> = {
-    summary: "Tries A.",
-    hypothesis: "A makes B faster.",
-    "expected-outcome": "B is 20 percent faster.",
-    measurement: "Compare B duration before and after.",
-    "safety-pattern": "feature-flagged",
-    date: "2026-11-11",
-    ...changes,
-  };
-  return Object.fromEntries(
-    Object.entries(fields).filter(
-      (entry): entry is [string, string] => entry[1] !== null,
-    ),
-  );
-}
-
-/** Mock frontmatter() to parse the given keys, with parse errors when given. */
-function parse(entries: Record<string, string>, errors: Finding[] = []) {
-  vi.mocked(frontmatter).mockReturnValue({ keys: keysOf(entries), errors });
-}
+const PROBLEM: Finding = { file: "", line: 0, message: "", fix: "" };
+const ERROR: Finding = {
+  file: FILE,
+  line: 4,
+  message: "frontmatter tags is not a scalar string",
+  fix: "use flat key: value lines only",
+};
+const VALID: [string, { value: string; line: number }][] = [
+  ["summary", { value: "Tries A.", line: 2 }],
+  ["hypothesis", { value: "A makes B faster.", line: 3 }],
+  ["expected-outcome", { value: "B is 20 percent faster.", line: 4 }],
+  ["measurement", { value: "Compare B duration before and after.", line: 5 }],
+  ["safety-pattern", { value: "feature-flagged", line: 6 }],
+  ["date", { value: "2026-11-11", line: 7 }],
+];
 
 beforeEach(() => {
-  vi.mocked(finding).mockImplementation(fakeFinding);
+  vi.mocked(finding).mockReturnValue(PROBLEM);
 });
 
 test("a file with no frontmatter is reported on line 1, naming the idea fields", () => {
   vi.mocked(frontmatter).mockReturnValue(null);
-  expect(checkIdea(FILE, "# Idea\n", IDEAS)).toEqual([
-    {
-      file: FILE,
-      line: 1,
-      message: "frontmatter is missing",
-      fix: "start the file with --- and the idea fields (summary, hypothesis, expected-outcome, measurement, safety-pattern, date) ---",
-    },
+  checkIdea(FILE, "# Idea\n", IDEAS);
+  expect(vi.mocked(finding).mock.calls).toEqual([
+    [
+      FILE,
+      1,
+      "frontmatter is missing",
+      "start the file with --- and the idea fields (summary, hypothesis, expected-outcome, measurement, safety-pattern, date) ---",
+    ],
   ]);
 });
 
 test("a complete idea with an issue and an issue parent is clean", () => {
-  parse(idea({ issue: "185", parent: "#127" }));
+  const keys = new Map(VALID);
+  keys.set("issue", { value: "185", line: 8 });
+  keys.set("parent", { value: "#127", line: 9 });
+  vi.mocked(frontmatter).mockReturnValue({ keys, errors: [] });
   expect(checkIdea(FILE, "# Idea 0001: A\n", IDEAS)).toEqual([]);
 });
 
 test("an idea missing a required field reports it on line 1", () => {
-  parse(idea({ measurement: null }));
-  expect(checkIdea(FILE, "# Idea\n", IDEAS)).toEqual([
-    {
-      file: FILE,
-      line: 1,
-      message: "frontmatter measurement is missing",
-      fix: "add a measurement: line",
-    },
+  const keys = new Map(VALID);
+  keys.delete("measurement");
+  vi.mocked(frontmatter).mockReturnValue({ keys, errors: [] });
+  checkIdea(FILE, "# Idea\n", IDEAS);
+  expect(vi.mocked(finding).mock.calls).toEqual([
+    [FILE, 1, "frontmatter measurement is missing", "add a measurement: line"],
   ]);
 });
 
 test("an unknown safety pattern is reported, and the fix lists the allowed ones", () => {
-  parse(idea({ "safety-pattern": "yolo" }));
-  expect(checkIdea(FILE, "# Idea\n", IDEAS)).toEqual([
-    {
-      file: FILE,
-      line: 6,
-      message: "frontmatter safety-pattern is yolo",
-      fix: "use one of no-behaviour-change, feature-flagged, dark-launched, branch-by-abstraction, expand-contract",
-    },
+  const keys = new Map(VALID);
+  keys.set("safety-pattern", { value: "yolo", line: 6 });
+  vi.mocked(frontmatter).mockReturnValue({ keys, errors: [] });
+  checkIdea(FILE, "# Idea\n", IDEAS);
+  expect(vi.mocked(finding).mock.calls).toEqual([
+    [
+      FILE,
+      6,
+      "frontmatter safety-pattern is yolo",
+      "use one of no-behaviour-change, feature-flagged, dark-launched, branch-by-abstraction, expand-contract",
+    ],
   ]);
 });
 
 test("an outcome that is not confirmed, refuted or inconclusive is reported", () => {
-  parse(idea({ outcome: "great" }), []);
-  const problems = checkIdea(FILE, "# Idea\n\n## Outcome\n\nNo.\n", IDEAS);
-  expect(problems).toContainEqual({
-    file: FILE,
-    line: 8,
-    message: "frontmatter outcome is great",
-    fix: "use one of confirmed, refuted, inconclusive",
-  });
+  const keys = new Map(VALID);
+  keys.set("outcome", { value: "great", line: 8 });
+  vi.mocked(frontmatter).mockReturnValue({ keys, errors: [] });
+  checkIdea(FILE, "# Idea\n\n## Outcome\n\nNo.\n", IDEAS);
+  expect(vi.mocked(finding).mock.calls).toEqual([
+    [
+      FILE,
+      8,
+      "frontmatter outcome is great",
+      "use one of confirmed, refuted, inconclusive",
+    ],
+  ]);
 });
 
 test("a date that is not YYYY-MM-DD is reported on the date line", () => {
-  parse(idea({ date: "yesterday" }));
-  expect(checkIdea(FILE, "# Idea\n", IDEAS)).toEqual([
-    {
-      file: FILE,
-      line: 7,
-      message: "frontmatter date is yesterday",
-      fix: "use a YYYY-MM-DD date",
-    },
+  const keys = new Map(VALID);
+  keys.set("date", { value: "yesterday", line: 7 });
+  vi.mocked(frontmatter).mockReturnValue({ keys, errors: [] });
+  checkIdea(FILE, "# Idea\n", IDEAS);
+  expect(vi.mocked(finding).mock.calls).toEqual([
+    [FILE, 7, "frontmatter date is yesterday", "use a YYYY-MM-DD date"],
   ]);
 });
 
@@ -119,91 +115,114 @@ test.each([
   "assignees",
   "state",
 ])("workflow state key %s is reported: the GitHub issue owns it", (key) => {
-  parse(idea({ [key]: "x" }));
-  expect(checkIdea(FILE, "# Idea\n", IDEAS)).toEqual([
-    {
-      file: FILE,
-      line: 8,
-      message: `frontmatter ${key} is workflow state`,
-      fix: "the GitHub issue owns it, so remove the line",
-    },
+  const keys = new Map(VALID);
+  keys.set(key, { value: "x", line: 8 });
+  vi.mocked(frontmatter).mockReturnValue({ keys, errors: [] });
+  checkIdea(FILE, "# Idea\n", IDEAS);
+  expect(vi.mocked(finding).mock.calls).toEqual([
+    [
+      FILE,
+      8,
+      `frontmatter ${key} is workflow state`,
+      "the GitHub issue owns it, so remove the line",
+    ],
   ]);
 });
 
 test("an issue must be a number, #number or a GitHub URL", () => {
-  parse(idea({ issue: "soon" }));
-  expect(checkIdea(FILE, "# Idea\n", IDEAS)).toEqual([
-    {
-      file: FILE,
-      line: 8,
-      message: "frontmatter issue is soon",
-      fix: "use an issue number such as 185 or #185, or its URL",
-    },
+  const soon = new Map(VALID);
+  soon.set("issue", { value: "soon", line: 8 });
+  vi.mocked(frontmatter).mockReturnValue({ keys: soon, errors: [] });
+  checkIdea(FILE, "# Idea\n", IDEAS);
+  expect(vi.mocked(finding).mock.calls).toEqual([
+    [
+      FILE,
+      8,
+      "frontmatter issue is soon",
+      "use an issue number such as 185 or #185, or its URL",
+    ],
   ]);
-  for (const issue of ["185", "https://github.com/corekraft/kore/issues/1"]) {
-    parse(idea({ issue }));
+
+  for (const value of ["185", "https://github.com/corekraft/kore/issues/1"]) {
+    vi.mocked(finding).mockClear();
+    const keys = new Map(VALID);
+    keys.set("issue", { value, line: 8 });
+    vi.mocked(frontmatter).mockReturnValue({ keys, errors: [] });
     expect(checkIdea(FILE, "# Idea\n", IDEAS)).toEqual([]);
+    expect(finding).not.toHaveBeenCalled();
   }
 });
 
 test("a parent is an issue, or an idea number that exists", () => {
-  parse(idea({ parent: "0042" }));
-  expect(checkIdea(FILE, "# Idea\n", IDEAS)).toEqual([
-    {
-      file: FILE,
-      line: 8,
-      message: "frontmatter parent is 0042; idea 0042 does not exist",
-      fix: "use an existing idea's number or an issue such as #127",
-    },
+  const unknown = new Map(VALID);
+  unknown.set("parent", { value: "0042", line: 8 });
+  vi.mocked(frontmatter).mockReturnValue({ keys: unknown, errors: [] });
+  checkIdea(FILE, "# Idea\n", IDEAS);
+  expect(vi.mocked(finding).mock.calls).toEqual([
+    [
+      FILE,
+      8,
+      "frontmatter parent is 0042; idea 0042 does not exist",
+      "use an existing idea's number or an issue such as #127",
+    ],
   ]);
-  parse(idea({ parent: "0001-a" }));
+
+  vi.mocked(finding).mockClear();
+  const existing = new Map(VALID);
+  existing.set("parent", { value: "0001-a", line: 8 });
+  vi.mocked(frontmatter).mockReturnValue({ keys: existing, errors: [] });
   expect(checkIdea(FILE, "# Idea\n", IDEAS)).toEqual([]);
-  parse(idea({ parent: "bogus" }));
-  expect(checkIdea(FILE, "# Idea\n", IDEAS)).toEqual([
-    {
-      file: FILE,
-      line: 8,
-      message: "frontmatter parent is bogus",
-      fix: "use an idea number such as 0001, or an issue such as #127",
-    },
+
+  const bogus = new Map(VALID);
+  bogus.set("parent", { value: "bogus", line: 8 });
+  vi.mocked(frontmatter).mockReturnValue({ keys: bogus, errors: [] });
+  checkIdea(FILE, "# Idea\n", IDEAS);
+  expect(vi.mocked(finding).mock.calls).toContainEqual([
+    FILE,
+    8,
+    "frontmatter parent is bogus",
+    "use an idea number such as 0001, or an issue such as #127",
   ]);
 });
 
 test("an outcome line without an Outcome section is reported, naming the tool that writes both", () => {
-  parse(idea({ outcome: "refuted" }));
-  expect(checkIdea(FILE, "# Idea\n", IDEAS)).toEqual([
-    {
-      file: FILE,
-      line: 8,
-      message: "frontmatter outcome has no ## Outcome section",
-      fix: "run `harness outcome record --idea 1`, or remove the line",
-    },
+  const keys = new Map(VALID);
+  keys.set("outcome", { value: "refuted", line: 8 });
+  vi.mocked(frontmatter).mockReturnValue({ keys, errors: [] });
+  checkIdea(FILE, "# Idea\n", IDEAS);
+  expect(vi.mocked(finding).mock.calls).toEqual([
+    [
+      FILE,
+      8,
+      "frontmatter outcome has no ## Outcome section",
+      "run `harness outcome record --idea 1`, or remove the line",
+    ],
   ]);
 });
 
 test("an Outcome section without an outcome line is reported on the heading", () => {
-  parse(idea());
-  expect(
-    checkIdea(FILE, "# Idea 0001: A\n\n## Outcome\n\nNo.\n", IDEAS),
-  ).toEqual([
-    {
-      file: FILE,
-      line: 3,
-      message: "## Outcome section has no frontmatter outcome line",
-      fix: "the outcome tool writes both; run `harness outcome record`, or remove the section",
-    },
+  vi.mocked(frontmatter).mockReturnValue({ keys: new Map(VALID), errors: [] });
+  checkIdea(FILE, "# Idea 0001: A\n\n## Outcome\n\nNo.\n", IDEAS);
+  expect(vi.mocked(finding).mock.calls).toEqual([
+    [
+      FILE,
+      3,
+      "## Outcome section has no frontmatter outcome line",
+      "the outcome tool writes both; run `harness outcome record`, or remove the section",
+    ],
   ]);
 });
 
 test("an idea file must be named NNNN-slug.md", () => {
-  parse(idea());
-  expect(checkIdea("docs/ideas/a.md", "# Idea\n", IDEAS)).toEqual([
-    {
-      file: "docs/ideas/a.md",
-      line: 1,
-      message: "idea file is not named NNNN-slug.md",
-      fix: "rename it to a four-digit number and a lowercase slug",
-    },
+  vi.mocked(frontmatter).mockReturnValue({ keys: new Map(VALID), errors: [] });
+  checkIdea("docs/ideas/a.md", "# Idea\n", IDEAS);
+  expect(vi.mocked(finding).mock.calls).toEqual([
+    [
+      "docs/ideas/a.md",
+      1,
+      "idea file is not named NNNN-slug.md",
+      "rename it to a four-digit number and a lowercase slug",
+    ],
   ]);
 });
 
@@ -214,30 +233,27 @@ test("the idea file name pattern takes four digits and a lowercase slug", () => 
 });
 
 test("a frontmatter parse error is reported with the idea problems", () => {
-  const error = finding(
-    FILE,
-    4,
-    "frontmatter tags is not a scalar string",
-    "use flat key: value lines only",
-  );
-  parse(idea(), [error]);
-  expect(checkIdea(FILE, "# Idea\n", IDEAS)).toEqual([error]);
+  vi.mocked(frontmatter).mockReturnValue({
+    keys: new Map(VALID),
+    errors: [ERROR],
+  });
+  expect(checkIdea(FILE, "# Idea\n", IDEAS)).toEqual([ERROR]);
 });
 
 test("problems come in line order, and missing fields come after them", () => {
-  parse(idea({ date: "soon", measurement: null }));
-  expect(checkIdea(FILE, "# Idea\n", IDEAS)).toEqual([
-    {
-      file: FILE,
-      line: 6,
-      message: "frontmatter date is soon",
-      fix: "use a YYYY-MM-DD date",
-    },
-    {
-      file: FILE,
-      line: 1,
-      message: "frontmatter measurement is missing",
-      fix: "add a measurement: line",
-    },
+  vi.mocked(frontmatter).mockReturnValue({
+    keys: new Map([
+      ["summary", { value: "Tries A.", line: 2 }],
+      ["hypothesis", { value: "A makes B faster.", line: 3 }],
+      ["expected-outcome", { value: "B is 20 percent faster.", line: 4 }],
+      ["safety-pattern", { value: "feature-flagged", line: 5 }],
+      ["date", { value: "soon", line: 6 }],
+    ]),
+    errors: [],
+  });
+  checkIdea(FILE, "# Idea\n", IDEAS);
+  expect(vi.mocked(finding).mock.calls).toEqual([
+    [FILE, 6, "frontmatter date is soon", "use a YYYY-MM-DD date"],
+    [FILE, 1, "frontmatter measurement is missing", "add a measurement: line"],
   ]);
 });

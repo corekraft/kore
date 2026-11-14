@@ -2,7 +2,6 @@
 // Plan: infra/plans/5-self-maintenance.md#step-5-stale-documents
 
 import { beforeEach, expect, test, vi } from "vitest";
-import { keysOf, fakeProse, fakeTree } from "./kb-support.js";
 import { frontmatter, isExternal, proseLines, resolve } from "./markdown.js";
 import { staleDocuments } from "./stale.js";
 
@@ -18,63 +17,112 @@ const PLAN = "infra/plans/1-a.md";
 const RULES = "skills/tdd/references/rules.md";
 const SKILL = "skills/tdd/SKILL.md";
 
-/** Each file's last-verified date; a file missing from the map has no frontmatter. */
-function verified(dates: Record<string, string>): void {
-  vi.mocked(frontmatter).mockImplementation((file) =>
-    dates[file] === undefined
-      ? null
-      : { keys: keysOf({ "last-verified": dates[file] }), errors: [] },
-  );
-}
-
-/** A commit-date source over a fixture: the newest commit date per path, or null. */
-function history(dates: Record<string, string>) {
-  return vi.fn((path: string) => Promise.resolve(dates[path] ?? null));
-}
-
 beforeEach(() => {
-  vi.mocked(proseLines).mockImplementation(fakeProse);
+  vi.mocked(proseLines).mockReturnValue([]);
   vi.mocked(isExternal).mockReturnValue(false);
-  vi.mocked(resolve).mockImplementation((_from, target) =>
-    target.replace(/^(\.\.\/)+/, ""),
-  );
-  verified({});
+  vi.mocked(resolve).mockImplementation((_from, target) => target);
+  vi.mocked(frontmatter).mockReturnValue(null);
 });
 
 test("without a commit history nothing is stale, and no file is read", async () => {
-  const tree = fakeTree({ [PLAN]: `[rules](../../${RULES})\n`, [RULES]: "r" });
-  expect(await staleDocuments(tree)).toEqual([]);
+  const docs: Record<string, string> = {
+    [PLAN]: "[rules](../../skills/tdd/references/rules.md)",
+    [RULES]: "r",
+  };
+  expect(
+    await staleDocuments({
+      files: () => Object.keys(docs),
+      read: (p) => docs[p] ?? null,
+    }),
+  ).toEqual([]);
   expect(frontmatter).not.toHaveBeenCalled();
 });
 
 test("a plan verified before a file it links to changed is stale, naming the newest such file", async () => {
-  verified({ [PLAN]: "2026-11-07" });
-  const commitDate = history({ [RULES]: "2026-11-09", [SKILL]: "2026-11-12" });
-  const tree = fakeTree({
-    [PLAN]: `[rules](../../${RULES}) [skill](../../${SKILL})\n`,
+  const docs: Record<string, string> = {
+    [PLAN]:
+      "[rules](../../skills/tdd/references/rules.md) [skill](../../skills/tdd/SKILL.md)",
     [RULES]: "r",
     [SKILL]: "s",
-  });
-  expect(await staleDocuments({ ...tree, commitDate })).toEqual([
+  };
+  const dates: Record<string, string> = {
+    [RULES]: "2026-11-09",
+    [SKILL]: "2026-11-12",
+  };
+  vi.mocked(proseLines).mockReturnValue([{ line: 1, text: docs[PLAN] ?? "" }]);
+  vi.mocked(resolve).mockImplementation(
+    (_from, target) =>
+      ({
+        "../../skills/tdd/references/rules.md": RULES,
+        "../../skills/tdd/SKILL.md": SKILL,
+      })[target] ?? target,
+  );
+  vi.mocked(frontmatter).mockImplementation((file) =>
+    file === PLAN
+      ? {
+          keys: new Map([["last-verified", { value: "2026-11-07", line: 2 }]]),
+          errors: [],
+        }
+      : null,
+  );
+  const commitDate = vi.fn((path: string) =>
+    Promise.resolve(dates[path] ?? null),
+  );
+  expect(
+    await staleDocuments({
+      files: () => Object.keys(docs),
+      read: (p) => docs[p] ?? null,
+      commitDate,
+    }),
+  ).toEqual([
     { document: PLAN, verified: "2026-11-07", path: SKILL, date: "2026-11-12" },
   ]);
 });
 
 test("a plan verified on the day its newest file changed is current", async () => {
-  verified({ [PLAN]: "2026-11-12" });
-  const commitDate = history({ [SKILL]: "2026-11-12" });
-  const tree = fakeTree({ [PLAN]: `[skill](../../${SKILL})\n`, [SKILL]: "s" });
-  expect(await staleDocuments({ ...tree, commitDate })).toEqual([]);
+  const docs: Record<string, string> = {
+    [PLAN]: "[skill](../../skills/tdd/SKILL.md)",
+    [SKILL]: "s",
+  };
+  vi.mocked(proseLines).mockReturnValue([{ line: 1, text: docs[PLAN] ?? "" }]);
+  vi.mocked(resolve).mockReturnValue(SKILL);
+  vi.mocked(frontmatter).mockReturnValue({
+    keys: new Map([["last-verified", { value: "2026-11-12", line: 2 }]]),
+    errors: [],
+  });
+  const commitDate = vi.fn((path: string) =>
+    Promise.resolve(path === SKILL ? "2026-11-12" : null),
+  );
+  expect(
+    await staleDocuments({
+      files: () => Object.keys(docs),
+      read: (p) => docs[p] ?? null,
+      commitDate,
+    }),
+  ).toEqual([]);
 });
 
-test("a file whose Docs, Plan or ADR marker points back at a plan or ADR makes it stale", async () => {
-  verified({ [PLAN]: "2026-11-07" });
-  const commitDate = history({ "tools/kore/src/app/index.ts": "2026-12-01" });
-  const tree = fakeTree({
+test("a file whose Docs, Plan or ADR marker points back at a plan makes that plan stale", async () => {
+  const docs: Record<string, string> = {
     [PLAN]: "p",
-    "tools/kore/src/app/index.ts": `// Plan: ${PLAN}. Main module.\n`,
+    "tools/kore/src/app/index.ts": `// Plan: ${PLAN}. Main module.`,
+  };
+  vi.mocked(frontmatter).mockReturnValue({
+    keys: new Map([["last-verified", { value: "2026-11-07", line: 2 }]]),
+    errors: [],
   });
-  expect(await staleDocuments({ ...tree, commitDate })).toEqual([
+  const commitDate = vi.fn((path: string) =>
+    Promise.resolve(
+      path === "tools/kore/src/app/index.ts" ? "2026-12-01" : null,
+    ),
+  );
+  expect(
+    await staleDocuments({
+      files: () => Object.keys(docs),
+      read: (p) => docs[p] ?? null,
+      commitDate,
+    }),
+  ).toEqual([
     {
       document: PLAN,
       verified: "2026-11-07",
@@ -85,21 +133,34 @@ test("a file whose Docs, Plan or ADR marker points back at a plan or ADR makes i
 });
 
 test("ADRs are stale through markers too, and the results are sorted by document", async () => {
-  verified({
-    "docs/decisions/0001-a.md": "2026-11-07",
-    "docs/decisions/0002-b.md": "2026-11-07",
-  });
-  const commitDate = history({
-    "tools/a.ts": "2026-12-01",
-    "tools/b.ts": "2026-12-02",
-  });
-  const tree = fakeTree({
+  const docs: Record<string, string> = {
     "docs/decisions/0002-b.md": "d",
     "docs/decisions/0001-a.md": "d",
-    "tools/a.ts": "// ADR: docs/decisions/0002-b.md\n",
-    "tools/b.ts": "// ADR: docs/decisions/0001-a.md\n",
-  });
-  expect(await staleDocuments({ ...tree, commitDate })).toEqual([
+    "tools/a.ts": "// ADR: docs/decisions/0002-b.md",
+    "tools/b.ts": "// ADR: docs/decisions/0001-a.md",
+  };
+  const dates: Record<string, string> = {
+    "tools/a.ts": "2026-12-01",
+    "tools/b.ts": "2026-12-02",
+  };
+  vi.mocked(frontmatter).mockImplementation((file) =>
+    file.startsWith("docs/decisions/")
+      ? {
+          keys: new Map([["last-verified", { value: "2026-11-07", line: 2 }]]),
+          errors: [],
+        }
+      : null,
+  );
+  const commitDate = vi.fn((path: string) =>
+    Promise.resolve(dates[path] ?? null),
+  );
+  expect(
+    await staleDocuments({
+      files: () => Object.keys(docs),
+      read: (p) => docs[p] ?? null,
+      commitDate,
+    }),
+  ).toEqual([
     {
       document: "docs/decisions/0001-a.md",
       verified: "2026-11-07",
@@ -116,26 +177,59 @@ test("ADRs are stale through markers too, and the results are sorted by document
 });
 
 test("a document with no history for its files is never stale", async () => {
-  verified({ [PLAN]: "2026-11-07" });
-  const commitDate = history({});
-  const tree = fakeTree({ [PLAN]: `[rules](../../${RULES})\n`, [RULES]: "r" });
-  expect(await staleDocuments({ ...tree, commitDate })).toEqual([]);
+  const docs: Record<string, string> = {
+    [PLAN]: "[rules](../../skills/tdd/references/rules.md)",
+    [RULES]: "r",
+  };
+  vi.mocked(proseLines).mockReturnValue([{ line: 1, text: docs[PLAN] ?? "" }]);
+  vi.mocked(resolve).mockReturnValue(RULES);
+  vi.mocked(frontmatter).mockReturnValue({
+    keys: new Map([["last-verified", { value: "2026-11-07", line: 2 }]]),
+    errors: [],
+  });
+  const commitDate = vi.fn(() => Promise.resolve(null));
+  expect(
+    await staleDocuments({
+      files: () => Object.keys(docs),
+      read: (p) => docs[p] ?? null,
+      commitDate,
+    }),
+  ).toEqual([]);
   expect(commitDate.mock.calls).toEqual([[RULES]]);
 });
 
 test("a document without a valid last-verified date is skipped, not judged", async () => {
-  verified({ [PLAN]: "yesterday" });
-  const commitDate = history({ [SKILL]: "2026-12-01" });
-  const tree = fakeTree({
-    [PLAN]: `[skill](../../${SKILL})\n`,
-    "infra/plans/2-b.md": `[skill](../../${SKILL})\n`,
+  const docs: Record<string, string> = {
+    [PLAN]: `[skill](../../${SKILL})`,
+    "infra/plans/2-b.md": `[skill](../../${SKILL})`,
     [SKILL]: "s",
-  });
-  expect(await staleDocuments({ ...tree, commitDate })).toEqual([]);
+  };
+  vi.mocked(proseLines).mockReturnValue([{ line: 1, text: "[skill]" }]);
+  vi.mocked(resolve).mockReturnValue(SKILL);
+  vi.mocked(frontmatter).mockImplementation((file) =>
+    file === PLAN
+      ? {
+          keys: new Map([["last-verified", { value: "yesterday", line: 2 }]]),
+          errors: [],
+        }
+      : null,
+  );
+  const commitDate = vi.fn(() => Promise.resolve("2026-12-01"));
+  expect(
+    await staleDocuments({
+      files: () => Object.keys(docs),
+      read: (p) => docs[p] ?? null,
+      commitDate,
+    }),
+  ).toEqual([]);
 });
 
 test("a document is not its own dependency, and a link to an untracked path is not asked about", async () => {
-  verified({ [PLAN]: "2026-11-07" });
+  const docs: Record<string, string> = {
+    [PLAN]: `[self](1-a.md) [gone](../../nowhere.md) [skill](../../${SKILL})`,
+    [SKILL]: "s",
+  };
+  vi.mocked(proseLines).mockReturnValue([{ line: 1, text: docs[PLAN] ?? "" }]);
   vi.mocked(resolve).mockImplementation(
     (_from, target) =>
       ({
@@ -144,34 +238,52 @@ test("a document is not its own dependency, and a link to an untracked path is n
         [`../../${SKILL}`]: SKILL,
       })[target] ?? target,
   );
-  const commitDate = history({ [SKILL]: "2026-12-01" });
-  const tree = fakeTree({
-    [PLAN]: `[self](1-a.md) [gone](../../nowhere.md) [skill](../../${SKILL})\n`,
-    [SKILL]: "s",
+  vi.mocked(frontmatter).mockReturnValue({
+    keys: new Map([["last-verified", { value: "2026-11-07", line: 2 }]]),
+    errors: [],
   });
-  expect(await staleDocuments({ ...tree, commitDate })).toEqual([
+  const commitDate = vi.fn((path: string) =>
+    Promise.resolve(path === SKILL ? "2026-12-01" : null),
+  );
+  expect(
+    await staleDocuments({
+      files: () => Object.keys(docs),
+      read: (p) => docs[p] ?? null,
+      commitDate,
+    }),
+  ).toEqual([
     { document: PLAN, verified: "2026-11-07", path: SKILL, date: "2026-12-01" },
   ]);
   expect(commitDate.mock.calls).toEqual([[SKILL]]);
 });
 
 test("external links, anchor-only links and markers to non-plan documents are not dependencies", async () => {
-  verified({ [PLAN]: "2026-11-07" });
-  vi.mocked(isExternal).mockImplementation((target) =>
-    target.startsWith("https://"),
-  );
-  const commitDate = history({ "docs/guide.md": "2026-12-01" });
-  const tree = fakeTree({
-    [PLAN]: "[web](https://x.test) [here](#top)\n",
-    "tools/x.ts": "// Docs: skills/tdd/SKILL.md\n",
+  const docs: Record<string, string> = {
+    [PLAN]: "[web](https://x.test) [here](#top)",
+    "tools/x.ts": "// Docs: skills/tdd/SKILL.md",
     "docs/guide.md": "g",
+  };
+  vi.mocked(proseLines).mockReturnValue([{ line: 1, text: docs[PLAN] ?? "" }]);
+  vi.mocked(isExternal).mockImplementation(
+    (target) => target === "https://x.test",
+  );
+  vi.mocked(frontmatter).mockReturnValue({
+    keys: new Map([["last-verified", { value: "2026-11-07", line: 2 }]]),
+    errors: [],
   });
-  expect(await staleDocuments({ ...tree, commitDate })).toEqual([]);
+  const commitDate = vi.fn(() => Promise.resolve("2026-12-01"));
+  expect(
+    await staleDocuments({
+      files: () => Object.keys(docs),
+      read: (p) => docs[p] ?? null,
+      commitDate,
+    }),
+  ).toEqual([]);
   expect(commitDate).not.toHaveBeenCalled();
 });
 
 test("an unreadable file contributes no dependency and no staleness", async () => {
-  const commitDate = history({ "tools/x.ts": "2026-12-01" });
+  const commitDate = vi.fn(() => Promise.resolve("2026-12-01"));
   const unreadable = {
     files: () => [PLAN, "tools/x.ts"],
     read: () => null,

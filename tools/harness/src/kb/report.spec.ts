@@ -4,7 +4,6 @@
 
 import { beforeEach, expect, test, vi } from "vitest";
 import { CommandError } from "../runtime/index.js";
-import { fakeFinding } from "./kb-support.js";
 import { findings } from "./findings.js";
 import { format, run, type KbDeps } from "./report.js";
 import { staleDocuments } from "./stale.js";
@@ -12,12 +11,12 @@ import { staleDocuments } from "./stale.js";
 vi.mock("./findings.js", () => ({ findings: vi.fn() }));
 vi.mock("./stale.js", () => ({ staleDocuments: vi.fn() }));
 
-const broken = fakeFinding(
-  "README.md",
-  3,
-  "link target missing.md does not exist",
-  "point the link at an existing file or remove it",
-);
+const broken = {
+  file: "README.md",
+  line: 3,
+  message: "link target missing.md does not exist",
+  fix: "point the link at an existing file or remove it",
+};
 const stale = {
   document: "infra/plans/1-a.md",
   verified: "2026-11-07",
@@ -27,14 +26,11 @@ const stale = {
 const AUDIT =
   "NAME   DESC  BODY  VERDICT\nbig      10    42  over-budget (body)\n";
 
-function deps(overrides: Partial<KbDeps> = {}): KbDeps {
-  return { files: () => [], read: () => null, ...overrides };
-}
-
 /** run() with its log lines collected, so a test asserts the whole output. */
 async function runWith(argv: string[], overrides: Partial<KbDeps> = {}) {
+  const deps: KbDeps = { files: () => [], read: () => null, ...overrides };
   const log = vi.fn<(line: string) => void>();
-  const status = await run(argv, deps(overrides), log);
+  const status = await run(argv, deps, log);
   return { status, lines: log.mock.calls.map(([line]) => line) };
 }
 
@@ -117,7 +113,7 @@ test("findings come first, then stale, flags, the summary and its staleness note
   });
   expect(lines).toEqual([
     format(broken),
-    expect.stringMatching(/^stale: /),
+    "stale: infra/plans/1-a.md was last verified 2026-11-07, but skills/tdd/SKILL.md changed 2026-11-12; re-read it and update last-verified",
     "flag: flag x is on",
     "kb-check: 1 finding (warn mode; --strict fails on them)",
     "kb-check: 1 stale document (warn only)",
@@ -168,7 +164,7 @@ test("a skill over budget only warns in warn mode, and fails --strict", async ()
   expect(strict.lines.at(-1)).toBe("kb-check: skill audit failed");
 });
 
-test("a failing skill audit keeps the findings' own exit code", async () => {
+test("a passing skill audit keeps the findings' own exit code", async () => {
   vi.mocked(findings).mockReturnValue([broken]);
   const audit = () => Promise.resolve({ text: AUDIT, failing: false });
   expect((await runWith([], { audit })).status).toBe(0);
