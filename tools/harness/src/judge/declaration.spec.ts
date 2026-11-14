@@ -10,7 +10,7 @@ describe("parseDeclaration", () => {
         parseDeclaration(
           body("## Safety", `Safety pattern: ${pattern}`, "Idea: #193"),
         ),
-      ).toEqual({ ok: true, pattern, idea: "#193" });
+      ).toEqual({ ok: true, pattern, idea: "#193", expandStep: undefined });
     }
     expect(PATTERNS).toEqual([
       "no-behaviour-change",
@@ -64,12 +64,76 @@ describe("parseDeclaration", () => {
       ok: true,
       pattern: "no-behaviour-change",
       idea: undefined,
+      expandStep: undefined,
     });
   });
 
   it("reads a backticked pattern, and a blank idea as no idea", () => {
     expect(
       parseDeclaration("Safety pattern: `feature-flagged`\nIdea:   "),
-    ).toEqual({ ok: true, pattern: "feature-flagged", idea: undefined });
+    ).toEqual({
+      ok: true,
+      pattern: "feature-flagged",
+      idea: undefined,
+      expandStep: undefined,
+    });
+  });
+});
+
+describe("parseDeclaration reads the expand step of a contract", () => {
+  it("reads the merged expand PR's number from an Expand step line", () => {
+    expect(
+      parseDeclaration(
+        body("Safety pattern: expand-contract", "Expand step: #547"),
+      ),
+    ).toMatchObject({ ok: true, pattern: "expand-contract", expandStep: 547 });
+  });
+
+  it("fails an Expand step line that is not a PR number, naming the form to use", () => {
+    const result = parseDeclaration(
+      body("Safety pattern: expand-contract", "Expand step: 547"),
+    );
+    expect(result).toMatchObject({ ok: false });
+    expect(JSON.stringify(result)).toContain("Expand step: #<number>");
+  });
+
+  it("fails a blank Expand step line", () => {
+    expect(
+      parseDeclaration(body("Safety pattern: expand-contract", "Expand step:")),
+    ).toMatchObject({ ok: false });
+  });
+
+  it("fails two Expand step lines, even when both name the same PR", () => {
+    const result = parseDeclaration(
+      body(
+        "Safety pattern: expand-contract",
+        "Expand step: #547",
+        "Expand step: #547",
+      ),
+    );
+    expect(result).toMatchObject({ ok: false });
+    expect(JSON.stringify(result)).toContain("exactly one expand step");
+  });
+
+  it("fails an Expand step line on a pattern that has no expand step", () => {
+    const result = parseDeclaration(
+      body("Safety pattern: feature-flagged", "Expand step: #547"),
+    );
+    expect(result).toMatchObject({ ok: false });
+    expect(JSON.stringify(result)).toContain(
+      "Expand step applies only to expand-contract",
+    );
+  });
+
+  it("ignores an Expand step line inside an HTML comment", () => {
+    expect(
+      parseDeclaration(
+        body(
+          "Safety pattern: expand-contract",
+          "<!-- Expand step: #<n> -->",
+          "Expand step: #547",
+        ),
+      ),
+    ).toMatchObject({ ok: true, expandStep: 547 });
   });
 });

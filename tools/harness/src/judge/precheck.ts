@@ -1,6 +1,7 @@
 import type { CommandContext } from "../runtime/index.js";
 import {
   gatherChecks,
+  gatherExpandStep,
   parsePrView,
   type Checks,
   type PrView,
@@ -52,7 +53,7 @@ async function gh(
   context: CommandContext,
   root: string,
   repo: string,
-  args: string[],
+  args: readonly string[],
   pr: number,
 ): Promise<string> {
   // The repository is named, never taken from the working directory or GH_REPO.
@@ -109,7 +110,7 @@ export async function precheck(
     };
   }
   const diff = await gh(context, root, repo, ["pr", "diff", String(pr)], pr);
-  const checks = await gatherChecks(
+  const gathered = await gatherChecks(
     context.deps.runner,
     root,
     repo,
@@ -124,7 +125,25 @@ export async function precheck(
     view.headSha,
   );
   const hints = hintsFor(declaration.pattern, files);
-  const verdict = assess(declaration.pattern, hints, files);
+  const unproven = assess(declaration.pattern, hints, files);
+  // Only a contract that names its expand step, and whose diff fails its pattern, reads it.
+  const expandStep = declaration.expandStep;
+  const expand =
+    unproven.patternMatches || expandStep === undefined
+      ? undefined
+      : await gatherExpandStep({
+          api: (ghArgs) => gh(context, root, repo, ghArgs, pr),
+          pr,
+          view,
+          reviewers,
+          declared: { idea: declaration.idea, expandStep },
+        });
+  const verdict =
+    expand === undefined
+      ? unproven
+      : assess(declaration.pattern, hints, files, expand.result === "pass");
+  const checks: Checks =
+    expand === undefined ? gathered : { ...gathered, expandStep: expand };
   return {
     pr,
     head: view.headSha,

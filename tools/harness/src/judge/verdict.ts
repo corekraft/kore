@@ -41,7 +41,7 @@ const MISMATCH: Record<Pattern, (hints: Hints) => string | undefined> = {
   "expand-contract": (h) =>
     h["additiveOnly"] === true
       ? undefined
-      : `expand-contract, but the diff removes ${String(h["netRemovedLines"])} line(s) without replacing them and deletes ${(h["deletedFiles"] as string[]).length} file(s); that is a contract step, declare it only once the expand step is proven`,
+      : `expand-contract, but the diff removes ${String(h["netRemovedLines"])} line(s) without replacing them and deletes ${(h["deletedFiles"] as string[]).length} file(s); that is a contract step: name its merged expand PR on an \`Expand step: #<n>\` line, and record \`Expand proof: #<n>\` on the idea issue`,
 };
 
 const UNVERIFIED: Record<Pattern, string[]> = {
@@ -52,13 +52,19 @@ const UNVERIFIED: Record<Pattern, string[]> = {
   "expand-contract": ["compatibility of both steps not verified"],
 };
 
-/** Compares the hints to the declared pattern, and lists what remains to be verified. */
+/**
+ * Compares the hints to the declared pattern, and lists what remains to be verified.
+ * `expandProven` is set only when the precheck has proven a contract's expand step; it
+ * excuses a removing diff of expand-contract and nothing else.
+ */
 export function assess(
   pattern: Pattern,
   hints: Hints,
   files: readonly ChangedFile[],
+  expandProven = false,
 ): Assessment {
-  const mismatch = MISMATCH[pattern](hints);
+  const excused = expandProven && pattern === "expand-contract";
+  const mismatch = excused ? undefined : MISMATCH[pattern](hints);
   const cluster = clusterFacing(files);
   const live =
     pattern === "no-behaviour-change"

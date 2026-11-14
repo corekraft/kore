@@ -8,7 +8,13 @@ export const PATTERNS = [
 export type Pattern = (typeof PATTERNS)[number];
 
 export type Declaration =
-  | { ok: true; pattern: Pattern; idea: string | undefined }
+  | {
+      ok: true;
+      pattern: Pattern;
+      idea: string | undefined;
+      /** The PR number of the merged expand step a contract names; undefined for any other PR. */
+      expandStep: number | undefined;
+    }
   | { ok: false; reason: string };
 
 const FIELD = "Safety pattern:";
@@ -17,7 +23,12 @@ const FIX = `Add exactly one \`${FIELD} <pattern>\` line to the PR body (see .gi
 const FIELDS = {
   pattern: /^\s*Safety pattern:\s*(.*?)\s*$/i,
   idea: /^\s*Idea:\s*(.*?)\s*$/i,
+  expandStep: /^\s*Expand step:\s*(.*?)\s*$/i,
 };
+
+const EXPAND_STEP = /^#(\d+)$/;
+const EXPAND_FIX =
+  "Name the merged expand PR on one `Expand step: #<number>` line in the PR body.";
 
 function lines(body: string, field: keyof typeof FIELDS): string[] {
   // Text inside an HTML comment is template guidance, not a declaration.
@@ -58,5 +69,45 @@ export function parseDeclaration(body: string): Declaration {
     };
   }
   const idea = lines(body, "idea")[0];
-  return { ok: true, pattern: value, idea: idea === "" ? undefined : idea };
+  const expand = expandStepOf(body, value);
+  if (!expand.ok) {
+    return expand;
+  }
+  return {
+    ok: true,
+    pattern: value,
+    idea: idea === "" ? undefined : idea,
+    expandStep: expand.expandStep,
+  };
+}
+
+/** Reads the one `Expand step: #<n>` line a contract may name; no line is no expand step. */
+function expandStepOf(
+  body: string,
+  pattern: Pattern,
+):
+  { ok: true; expandStep: number | undefined } | { ok: false; reason: string } {
+  const named = lines(body, "expandStep");
+  if (named.length === 0) {
+    return { ok: true, expandStep: undefined };
+  }
+  if (named.length > 1) {
+    return {
+      ok: false,
+      reason: `The PR names ${named.length} expand steps; name exactly one expand step. ${EXPAND_FIX}`,
+    };
+  }
+  if (pattern !== "expand-contract") {
+    return {
+      ok: false,
+      reason: `Expand step applies only to expand-contract, but the PR declares ${pattern}. Remove the \`Expand step:\` line.`,
+    };
+  }
+  const number = EXPAND_STEP.exec(named[0] ?? "")?.[1];
+  return number === undefined
+    ? {
+        ok: false,
+        reason: `Expand step "${named[0]}" is not a PR number. ${EXPAND_FIX}`,
+      }
+    : { ok: true, expandStep: Number(number) };
 }

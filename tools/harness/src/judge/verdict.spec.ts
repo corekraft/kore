@@ -60,8 +60,46 @@ describe("assess: a hint that contradicts the pattern fails it", () => {
     ).toMatchObject({
       patternMatches: false,
       patternMismatch:
-        "expand-contract, but the diff removes 2 line(s) without replacing them and deletes 1 file(s); that is a contract step, declare it only once the expand step is proven",
+        "expand-contract, but the diff removes 2 line(s) without replacing them and deletes 1 file(s); that is a contract step: name its merged expand PR on an `Expand step: #<n>` line, and record `Expand proof: #<n>` on the idea issue",
     });
+  });
+});
+
+describe("assess: a contract passes only with its expand step proven", () => {
+  it("expand-contract passes a removing diff once its expand step is proven", () => {
+    expect(
+      assess(
+        "expand-contract",
+        { additiveOnly: false, netRemovedLines: 2, deletedFiles: ["old.ts"] },
+        [],
+        true,
+      ),
+    ).toEqual({
+      ...clean,
+      unverified: ["compatibility of both steps not verified"],
+    });
+  });
+
+  it("an expand declared with deletions still fails when no expand step is proven", () => {
+    expect(
+      assess(
+        "expand-contract",
+        { additiveOnly: false, netRemovedLines: 1, deletedFiles: [] },
+        [],
+        false,
+      ),
+    ).toMatchObject({ patternMatches: false });
+  });
+
+  it("a proven expand step does not excuse a pattern other than expand-contract", () => {
+    expect(
+      assess(
+        "branch-by-abstraction",
+        { oldPathRetained: false, deletedFiles: ["a.ts"] },
+        [],
+        true,
+      ),
+    ).toMatchObject({ patternMatches: false });
   });
 
   it("matching hints leave no mismatch reason", () => {
