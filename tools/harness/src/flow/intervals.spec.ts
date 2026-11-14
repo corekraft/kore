@@ -29,7 +29,9 @@ describe("uncovered", () => {
       ),
     ).toBe(100);
   });
+});
 
+describe("uncovered with overlapping holes", () => {
   it("counts time covered by overlapping holes once", () => {
     expect(
       uncovered(
