@@ -170,8 +170,12 @@ create_scratch_overlay() {
     -e "s/\"name\": \"local\"/\"name\": \"$environment\"/" \
     -e "s/\"kubeContext\": \"k3d-kore-local\"/\"kubeContext\": \"$context\"/" \
     -e "s/\"clusterName\": \"kore-local\"/\"clusterName\": \"$cluster\"/" \
+    -e "s#infra/environments/local/#$scratch_dir/#g" \
     "$env_file" && rm -f "$env_file.bak"
   local want
+  # The values files are named by repository path: left as copied, every
+  # chart would read `local`'s values and ignore the rewrites below.
+  ! grep -qF "infra/environments/local/" "$env_file" || fail_setup "could not rewrite $env_file: it still reads values from infra/environments/local"
   for want in "\"name\": \"$environment\"" "\"kubeContext\": \"$context\"" "\"clusterName\": \"$cluster\""; do
     grep -qF "$want" "$env_file" || fail_setup "could not rewrite $env_file: missing $want"
   done
