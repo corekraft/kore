@@ -3,7 +3,13 @@ import {
   committedInventoryText,
   inventoryWith,
 } from "../../src/testing/index.js";
-import { auditEvents, bash, guard, modes } from "./guard-modes-support.js";
+import {
+  auditEvents,
+  bash,
+  blockEvents,
+  guard,
+  modes,
+} from "./guard-modes-support.js";
 
 describe("the inventory protects itself", () => {
   const edit = (oldS: string, newS: string) => ({
@@ -18,28 +24,28 @@ describe("the inventory protects itself", () => {
   const line = (rule: string, mode: string) =>
     `{ "rule": "${rule}", "kind": "bash", "mode": "${mode}", "owner": "x" }`;
 
-  it("warns, naming the rule, on an Edit that turns enforce into audit", async () => {
+  it("blocks, naming the rule, on an Edit that turns enforce into audit", async () => {
     const result = await guard(
       edit(line("no-verify", "enforce"), line("no-verify", "audit")),
       committedInventoryText,
     );
-    expect(result.code).toBe(0);
-    expect(result.out).toMatch(/guard:guardrail-demotion/);
-    expect(result.out).toMatch(/no-verify/);
-    expect(auditEvents(result.events)).toMatchObject([
+    expect(result.code).toBe(2);
+    expect(result.err).toMatch(/guard:guardrail-demotion/);
+    expect(result.err).toMatch(/no-verify/);
+    expect(blockEvents(result.events)).toMatchObject([
       { label: "guardrail-demotion" },
     ]);
   });
 
-  it("warns on an Edit of the mode alone", async () => {
+  it("blocks on an Edit of the mode alone", async () => {
     const result = await guard(
       edit('"mode": "enforce"', '"mode": "audit"'),
       committedInventoryText,
     );
-    expect(result.out).toMatch(/guard:guardrail-demotion/);
+    expect(result.err).toMatch(/guard:guardrail-demotion/);
   });
 
-  it("warns on a Write that demotes a rule the file enforces today", async () => {
+  it("blocks on a Write that demotes a rule the file enforces today", async () => {
     const result = await guard(
       {
         session_id: "s1",
@@ -51,8 +57,8 @@ describe("the inventory protects itself", () => {
       },
       committedInventoryText,
     );
-    expect(result.out).toMatch(/guard:guardrail-demotion/);
-    expect(result.out).toMatch(/destructive/);
+    expect(result.err).toMatch(/guard:guardrail-demotion/);
+    expect(result.err).toMatch(/destructive/);
   });
 
   it("allows promoting, and edits that leave modes alone", async () => {
@@ -124,17 +130,17 @@ describe("the inventory protects its deny patterns", () => {
     ],
   ]);
 
-  weakens("warns, naming the rule, on %s", async (_, from, to, message) => {
+  weakens("blocks, naming the rule, on %s", async (_, from, to, message) => {
     const result = await guard(edit(from, to), committedInventoryText);
-    expect(result.code).toBe(0);
-    expect(result.out).toMatch(/guard:guardrail-demotion/);
-    expect(result.out).toMatch(message);
-    expect(auditEvents(result.events)).toMatchObject([
+    expect(result.code).toBe(2);
+    expect(result.err).toMatch(/guard:guardrail-demotion/);
+    expect(result.err).toMatch(message);
+    expect(blockEvents(result.events)).toMatchObject([
       { label: "guardrail-demotion" },
     ]);
   });
 
-  it("warns on a Write that drops a committed deny pattern", async () => {
+  it("blocks on a Write that drops a committed deny pattern", async () => {
     const result = await guard(
       {
         session_id: "s1",
@@ -149,7 +155,7 @@ describe("the inventory protects its deny patterns", () => {
       },
       committedInventoryText,
     );
-    expect(result.out).toMatch(/deny-helm-uninstall/);
+    expect(result.err).toMatch(/deny-helm-uninstall/);
   });
 });
 
@@ -173,7 +179,7 @@ describe("the inventory protects a pattern edited on its own", () => {
       '"Bash(b:*)"',
       /Read\(\.\/docs\/a\/\*\*\)/,
     ],
-  ])("warns, naming the pattern, on %s", async (_, from, to, message) => {
+  ])("blocks, naming the pattern, on %s", async (_, from, to, message) => {
     const result = await guard(
       {
         session_id: "s1",
@@ -186,10 +192,10 @@ describe("the inventory protects a pattern edited on its own", () => {
       },
       committedInventoryText,
     );
-    expect(result.code).toBe(0);
-    expect(result.out).toMatch(/guard:guardrail-demotion/);
-    expect(result.out).toMatch(message);
-    expect(auditEvents(result.events)).toMatchObject([
+    expect(result.code).toBe(2);
+    expect(result.err).toMatch(/guard:guardrail-demotion/);
+    expect(result.err).toMatch(message);
+    expect(blockEvents(result.events)).toMatchObject([
       { label: "guardrail-demotion" },
     ]);
   });
@@ -256,11 +262,11 @@ describe("the inventory is guarded against Bash edits too", () => {
     "cat new.json | tee .claude/guardrails.yaml",
     "cp new.json /repo/.claude/guardrails.yaml",
     "mv new.json .claude/guardrails.yaml",
-  ])("warns in audit mode on: %s", async (command) => {
+  ])("blocks on: %s", async (command) => {
     const result = await guard(bash(command), committedInventoryText);
-    expect(result.code).toBe(0);
-    expect(result.out).toMatch(/guard:guardrail-demotion/);
-    expect(auditEvents(result.events)).toMatchObject([
+    expect(result.code).toBe(2);
+    expect(result.err).toMatch(/guard:guardrail-demotion/);
+    expect(blockEvents(result.events)).toMatchObject([
       { label: "guardrail-demotion" },
     ]);
   });

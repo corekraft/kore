@@ -21,16 +21,16 @@ const run = (payload: unknown) =>
   });
 
 describe("the guard hook ranks bypass modes", () => {
-  it("warns when a bypass mode widens to always", async () => {
+  it("blocks when a bypass mode widens to always", async () => {
     const result = await run(write("always"));
-    expect(result.out).toMatch(/guard:guardrail-demotion/);
-    expect(result.out).toMatch(/bypass_mode widens/);
+    expect(result.err).toMatch(/guard:guardrail-demotion/);
+    expect(result.err).toMatch(/bypass_mode widens/);
   });
 
-  it("warns when a bypass mode changes to an unknown one", async () => {
+  it("blocks when a bypass mode changes to an unknown one", async () => {
     const result = await run(write("exempt"));
-    expect(result.out).toMatch(/guard:guardrail-demotion/);
-    expect(result.out).toMatch(/bypass_mode widens/);
+    expect(result.err).toMatch(/guard:guardrail-demotion/);
+    expect(result.err).toMatch(/bypass_mode widens/);
   });
 
   it("stays silent on a rewrite that changes nothing", async () => {
@@ -48,7 +48,7 @@ describe("the guard hook ranks bypass modes", () => {
     expect(result.out).not.toMatch(/guardrail-demotion/);
   });
 
-  it("warns when a new bypass actor is added", async () => {
+  it("blocks when a new bypass actor is added", async () => {
     const content = JSON.stringify({
       ...JSON.parse(ruleset("pull_request")),
       bypass_actors: [
@@ -61,7 +61,7 @@ describe("the guard hook ranks bypass modes", () => {
       tool_name: "Write",
       tool_input: { file_path: PATH, content },
     });
-    expect(result.out).toMatch(/guard:guardrail-demotion/);
-    expect(result.out).toMatch(/gains an actor/);
+    expect(result.err).toMatch(/guard:guardrail-demotion/);
+    expect(result.err).toMatch(/gains an actor/);
   });
 });

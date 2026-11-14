@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { committedInventoryText } from "../../src/testing/index.js";
-import { auditEvents, bash, guard } from "./guard-modes-support.js";
+import { bash, blockEvents, guard } from "./guard-modes-support.js";
 
 const SETTINGS = "/repo/.claude/settings.json";
 const settings = (allow: string[], deny: string[]) =>
@@ -30,12 +30,12 @@ describe("settings.json deny patterns are guarded against removal", () => {
       "a Write that drops a deny pattern",
       write(settings(["Bash(ls)"], ["Bash(a:*)"])),
     ],
-  ])("warns, naming the pattern, on %s", async (_, payload) => {
+  ])("blocks, naming the pattern, on %s", async (_, payload) => {
     const result = await run(payload);
-    expect(result.code).toBe(0);
-    expect(result.out).toMatch(/guard:guardrail-demotion/);
-    expect(result.out).toMatch(/helm uninstall/);
-    expect(auditEvents(result.events)).toMatchObject([
+    expect(result.code).toBe(2);
+    expect(result.err).toMatch(/guard:guardrail-demotion/);
+    expect(result.err).toMatch(/helm uninstall/);
+    expect(blockEvents(result.events)).toMatchObject([
       { label: "guardrail-demotion" },
     ]);
   });
@@ -57,11 +57,11 @@ describe("guardrail deny --write --allow-removal is guarded", () => {
   it.each([
     "node skills/bin/harness.mjs guardrail deny --write --allow-removal",
     "harness guardrail deny --allow-removal --write",
-  ])("warns on: %s", async (command) => {
+  ])("blocks on: %s", async (command) => {
     const result = await guard(bash(command), committedInventoryText);
-    expect(result.code).toBe(0);
-    expect(result.out).toMatch(/guard:guardrail-demotion.*--allow-removal/);
-    expect(auditEvents(result.events)).toMatchObject([
+    expect(result.code).toBe(2);
+    expect(result.err).toMatch(/guard:guardrail-demotion.*--allow-removal/);
+    expect(blockEvents(result.events)).toMatchObject([
       { label: "guardrail-demotion" },
     ]);
   });
@@ -82,17 +82,17 @@ describe("an Edit is judged by the whole file it would leave", () => {
   });
   const runOn = (disk: string, payload: unknown) =>
     guard(payload, committedInventoryText, "/repo", { [SETTINGS]: disk });
-  const warned = (result: { code: number; out: string }) => {
-    expect(result.code).toBe(0);
-    expect(result.out).toMatch(/guard:guardrail-demotion/);
+  const blocked = (result: { code: number; err: string }) => {
+    expect(result.code).toBe(2);
+    expect(result.err).toMatch(/guard:guardrail-demotion/);
   };
 
-  it("warns when deny is renamed to ask", async () => {
-    warned(await runOn(compact, edit('"deny":', '"ask":')));
+  it("blocks when deny is renamed to ask", async () => {
+    blocked(await runOn(compact, edit('"deny":', '"ask":')));
   });
 
-  it("warns when a pattern moves from deny into allow", async () => {
-    warned(
+  it("blocks when a pattern moves from deny into allow", async () => {
+    blocked(
       await runOn(
         compact,
         edit(
@@ -103,12 +103,12 @@ describe("an Edit is judged by the whole file it would leave", () => {
     );
   });
 
-  it("warns when replace_all rewrites every occurrence of a pattern", async () => {
+  it("blocks when replace_all rewrites every occurrence of a pattern", async () => {
     const both = JSON.stringify({
       permissions: { ask: ["Bash(h:*)"], deny: ["Bash(h:*)"] },
     });
     const payload = edit('"Bash(h:*)"', '"Bash(z:*)"');
-    warned(
+    blocked(
       await runOn(both, {
         ...payload,
         tool_input: { ...payload.tool_input, replace_all: true },
@@ -116,7 +116,7 @@ describe("an Edit is judged by the whole file it would leave", () => {
     );
   });
 
-  it("warns when the old_string mixes a partial entry with a whole one", async () => {
+  it("blocks when the old_string mixes a partial entry with a whole one", async () => {
     const lines = committedInventoryText.split("\n");
     const at = lines.findIndex((l) => l.includes('"deny-helm-uninstall"'));
     const tail = '"deny": ["Bash(helm uninstall:*)"] },';
@@ -133,8 +133,8 @@ describe("an Edit is judged by the whole file it would leave", () => {
       },
       committedInventoryText,
     );
-    warned(result);
-    expect(result.out).toMatch(/deny-helm-uninstall/);
+    blocked(result);
+    expect(result.err).toMatch(/deny-helm-uninstall/);
   });
 
   it("allows an Edit whose resulting file keeps every deny pattern", async () => {
@@ -152,10 +152,10 @@ describe("a command that rewrites settings.json is guarded like the inventory", 
     "jq '.permissions.deny=[]' .claude/settings.json > .claude/settings.json",
     "cat new.json | tee .claude/settings.json",
     "mv new.json /repo/.claude/settings.json",
-  ])("warns on: %s", async (command) => {
+  ])("blocks on: %s", async (command) => {
     const result = await guard(bash(command), committedInventoryText);
-    expect(result.code).toBe(0);
-    expect(result.out).toMatch(/guard:guardrail-demotion.*settings\.json/);
+    expect(result.code).toBe(2);
+    expect(result.err).toMatch(/guard:guardrail-demotion.*settings\.json/);
   });
 
   it.each([
