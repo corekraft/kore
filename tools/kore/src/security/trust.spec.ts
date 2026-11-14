@@ -1,293 +1,244 @@
-import { list } from "../testing/index.js";
-import { loadRepository } from "../config/index.js";
-import assert from "node:assert/strict";
-import { test } from "vitest";
-
-import { CommandError } from "../runtime/index.js";
-import type { RunOptions, RunResult, Runner } from "../runtime/index.js";
-import {
-  issuerManifest,
-  installLocalTrust,
-  removeLocalTrustArtifacts,
-} from "./trust.js";
-import { chmod, mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
+// Docs: infra/plans/14-test-tiers.md#step-2-pilots
+import { access, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { beforeEach, expect, test, vi } from "vitest";
+import { assertExpectedCluster } from "../cluster/index.js";
+import { isLocalProvider } from "../config/index.js";
+import { CommandError } from "../runtime/index.js";
+import { errno, fakeRepository, fakeRunner } from "./security-support.js";
+import {
+  installLocalTrust,
+  issuerManifest,
+  removeLocalTrustArtifacts,
+} from "./trust.js";
 
-test("CA issuer manifest references a generated secret and never embeds key material", () => {
-  const manifest = issuerManifest("kore-local-ca", "kore-local-ca-key-pair");
-  assert.match(manifest, /kind: ClusterIssuer/);
-  assert.match(manifest, /secretName: kore-local-ca-key-pair/);
-  assert.doesNotMatch(manifest, /BEGIN (RSA )?PRIVATE KEY/);
-});
+vi.mock("node:fs/promises");
+vi.mock("node:os");
+vi.mock("node:path");
+vi.mock("../cluster/index.js");
+vi.mock("../config/index.js");
 
-type Call = { command: string; args: readonly string[]; options?: RunOptions };
+const caRoot = "/ca/root";
+const certificate = "/ca/root/rootCA.pem";
+const key = "/ca/root/rootCA-key.pem";
+const applyArgs = [
+  "--context",
+  "k3d-kore-local",
+  "apply",
+  "--server-side",
+  "--field-manager=kore-trust",
+  "--filename",
+  "-",
+];
+const gatewayNamespace =
+  "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: kore-system\n  labels:\n    app.kubernetes.io/managed-by: Helm\n  annotations:\n    meta.helm.sh/release-name: kore-platform-config\n    meta.helm.sh/release-namespace: kore-system\n";
+const certManagerNamespace =
+  "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: cert-manager\n";
 
-function recordingRunner(): { runner: Runner; calls: Call[] } {
-  const calls: Call[] = [];
-  const runner: Runner = {
-    async run(
-      command: string,
-      args: readonly string[],
-      options?: RunOptions,
-    ): Promise<RunResult> {
-      if (command === "k3d") {
-        return { stdout: list(1), stderr: "", code: 0 };
-      }
-      calls.push({ command, args, ...(options ? { options } : {}) });
-      let stdout = "";
-      if (args.includes("jsonpath={.metadata.name}")) {
-        stdout = "kube-system";
-      } else if (command === "mkcert" && args[0] === "-CAROOT") {
-        stdout = "/tmp";
-      } else if (args.includes("create") && args.includes("secret")) {
-        stdout = "apiVersion: v1\nkind: Secret\n";
-      }
-      return { stdout, stderr: "", code: 0 };
-    },
-  };
-  return { runner, calls };
-}
+const repository = fakeRepository();
 
-function appliedInputs(calls: Call[]): string[] {
-  return calls
-    .filter(({ args }) => args.includes("--filename"))
-    .map(({ options }) => options?.input ?? "");
-}
-
-test("local trust installation hands the gateway namespace to Helm ownership", async () => {
-  const { runner, calls } = recordingRunner();
-  await installLocalTrust(await loadRepository("local"), runner);
-  assert.ok(
-    appliedInputs(calls).some(
-      (input) =>
-        input.includes("name: kore-system") &&
-        input.includes("app.kubernetes.io/managed-by: Helm") &&
-        input.includes("meta.helm.sh/release-name: kore-platform-config"),
-    ),
-  );
-});
-
-test("local trust installation builds the CA secret from the mkcert root for cert-manager", async () => {
-  const { runner, calls } = recordingRunner();
-  await installLocalTrust(await loadRepository("local"), runner);
-  const create = calls.find(({ args }) => args.includes("create"));
-  assert.ok(create);
-  assert.ok(create.args.includes("cert-manager"));
-  assert.ok(create.args.includes("/tmp/rootCA.pem"));
-  assert.ok(create.args.includes("--dry-run=client"));
-});
-
-test("local trust installation applies the issuer then waits for it to be ready", async () => {
-  const { runner, calls } = recordingRunner();
-  await installLocalTrust(await loadRepository("local"), runner);
-  const issuer = calls.findIndex(({ options }) =>
-    options?.input?.includes("name: kore-local-ca"),
-  );
-  const wait = calls.findIndex(
-    ({ args }) =>
-      args.includes("wait") && args.includes("clusterissuer/kore-local-ca"),
-  );
-  assert.ok(issuer >= 0 && wait > issuer);
-  assert.ok(calls[wait]?.args.includes("--for=condition=Ready"));
-});
-
-test("trust installation rejects managed environments before side effects", async () => {
-  const base = await loadRepository("local");
-  const repository = {
-    ...base,
-    environment: { ...base.environment, provider: "managed" as const },
-  };
-  let calls = 0;
-  const runner: Runner = {
-    async run(): Promise<RunResult> {
-      calls += 1;
-      return { stdout: "", stderr: "", code: 0 };
-    },
-  };
-  await assert.rejects(
-    installLocalTrust(repository, runner),
-    /only valid for a local k3d environment/,
-  );
-  assert.equal(calls, 0);
-});
-
-test("trust installation fails closed when mkcert does not expose a CA root", async () => {
-  const repository = await loadRepository("local");
-  const runner: Runner = {
-    async run(command: string, args: readonly string[]): Promise<RunResult> {
-      if (command === "k3d") {
-        return { stdout: list(1), stderr: "", code: 0 };
-      }
-      if (command === "kubectl" && args.includes("jsonpath={.metadata.name}")) {
-        return { stdout: "kube-system", stderr: "", code: 0 };
-      }
-      if (command === "mkcert" && args[0] === "-CAROOT") {
-        return { stdout: "  \n", stderr: "", code: 0 };
-      }
-      return { stdout: "", stderr: "", code: 0 };
-    },
-  };
-  await assert.rejects(
-    installLocalTrust(repository, runner),
-    /did not return its CA root/,
-  );
-});
-
-test("removes the temporary CA artifact directory for the selected environment", async () => {
-  const environment = `test-${process.pid}`;
-  const artifacts = join(tmpdir(), `kore-ca-${environment}`);
-  await mkdir(artifacts, { recursive: true });
-  try {
-    await removeLocalTrustArtifacts({
-      environment: { name: environment },
-    } as never);
-    await assert.rejects(stat(artifacts), { code: "ENOENT" });
-  } finally {
-    await rm(artifacts, { recursive: true, force: true });
+/** mkcert reports the CA root; kubectl prints the CA secret it builds. */
+function trustReply(command: string, args: readonly string[]): string {
+  if (command === "mkcert" && args[0] === "-CAROOT") {
+    return `${caRoot}\n`;
   }
+  return args.includes("create") ? "SECRET-YAML" : "";
+}
+
+/** Only the listed CA files exist; every other path is missing. */
+function caFiles(...present: string[]): void {
+  vi.mocked(access).mockImplementation(async (path) => {
+    if (!present.includes(String(path))) {
+      throw errno("ENOENT");
+    }
+  });
+}
+
+beforeEach(() => {
+  vi.mocked(join).mockImplementation((...parts: string[]) => parts.join("/"));
+  vi.mocked(tmpdir).mockReturnValue("/tmp");
+  vi.mocked(isLocalProvider).mockReturnValue(true);
+  vi.mocked(assertExpectedCluster).mockResolvedValue();
+  caFiles();
 });
 
-async function caRootWithFiles(files: string[]): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "kore-caroot-"));
-  for (const file of files) {
-    await writeFile(join(root, file), "x");
-  }
-  return root;
-}
-
-function trustRunner(caRoot: string, verifyFails: boolean | Error = false) {
-  const { runner, calls } = recordingRunner();
-  const wrapped: Runner = {
-    async run(command, args, options) {
-      if (command === "k3d") {
-        return { stdout: list(1), stderr: "", code: 0 };
-      }
-      if (command === "mkcert" && args[0] === "-CAROOT") {
-        calls.push({ command, args });
-        return { stdout: caRoot, stderr: "", code: 0 };
-      }
-      if (command === "security" && verifyFails) {
-        calls.push({ command, args });
-        throw verifyFails instanceof Error
-          ? verifyFails
-          : new CommandError(command, args, {
-              stdout: "",
-              stderr: "not trusted",
-              code: 1,
-            });
-      }
-      return runner.run(command, args, options);
-    },
-  };
-  return { runner: wrapped, calls };
-}
-
-const installed = (calls: Call[]) =>
-  calls.some(
-    ({ command, args }) => command === "mkcert" && args[0] === "-install",
+test("the CA issuer manifest names the CA secret and embeds no private key material", () => {
+  expect(issuerManifest("kore-local-ca", "kore-local-ca-key-pair")).toBe(
+    "apiVersion: cert-manager.io/v1\nkind: ClusterIssuer\nmetadata:\n  name: kore-local-ca\nspec:\n  ca:\n    secretName: kore-local-ca-key-pair\n",
   );
+});
+
+test("local trust hands the gateway namespace to Helm ownership and creates cert-manager unowned", async () => {
+  const { runner, run } = fakeRunner(trustReply);
+  await installLocalTrust(repository, runner, { platform: "linux" });
+  expect(run.mock.calls.slice(0, 2)).toEqual([
+    ["kubectl", applyArgs, { capture: true, input: gatewayNamespace }],
+    ["kubectl", applyArgs, { capture: true, input: certManagerNamespace }],
+  ]);
+});
+
+test("local trust applies its manifests in order: namespaces, CA secret, issuer, then waits for the issuer to be ready", async () => {
+  caFiles(certificate, key);
+  const { runner, run } = fakeRunner(trustReply);
+  await installLocalTrust(repository, runner, { platform: "darwin" });
+  expect(assertExpectedCluster).toHaveBeenCalledWith(repository, runner);
+  expect(run.mock.calls).toEqual([
+    ["kubectl", applyArgs, { capture: true, input: gatewayNamespace }],
+    ["kubectl", applyArgs, { capture: true, input: certManagerNamespace }],
+    ["mkcert", ["-CAROOT"], { capture: true }],
+    ["security", ["verify-cert", "-c", certificate], { capture: true }],
+    [
+      "kubectl",
+      [
+        "--context",
+        "k3d-kore-local",
+        "--namespace",
+        "cert-manager",
+        "create",
+        "secret",
+        "tls",
+        "kore-local-ca-key-pair",
+        "--cert",
+        certificate,
+        "--key",
+        key,
+        "--dry-run=client",
+        "--output",
+        "yaml",
+      ],
+      { capture: true },
+    ],
+    ["kubectl", applyArgs, { capture: true, input: "SECRET-YAML" }],
+    [
+      "kubectl",
+      applyArgs,
+      {
+        capture: true,
+        input: issuerManifest("kore-local-ca", "kore-local-ca-key-pair"),
+      },
+    ],
+    [
+      "kubectl",
+      [
+        "--context",
+        "k3d-kore-local",
+        "wait",
+        "--for=condition=Ready",
+        "clusterissuer/kore-local-ca",
+        "--timeout=2m",
+      ],
+      { capture: false },
+    ],
+  ]);
+});
 
 test("mkcert -install is skipped when the CA files exist and macOS already trusts the root", async () => {
-  const caRoot = await caRootWithFiles(["rootCA.pem", "rootCA-key.pem"]);
-  try {
-    const { runner, calls } = trustRunner(caRoot);
-    await installLocalTrust(await loadRepository("local"), runner, {
-      platform: "darwin",
-    });
-    assert.equal(installed(calls), false);
-    const verify = calls.find(({ command }) => command === "security");
-    assert.deepEqual(verify?.args, [
-      "verify-cert",
-      "-c",
-      join(caRoot, "rootCA.pem"),
-    ]);
-    assert.ok(calls.some(({ args }) => args.includes("--dry-run=client")));
-  } finally {
-    await rm(caRoot, { recursive: true, force: true });
-  }
+  caFiles(certificate, key);
+  const { runner, run } = fakeRunner(trustReply);
+  await installLocalTrust(repository, runner, { platform: "darwin" });
+  expect(
+    run.mock.calls.map(([command, args]) => [command, args[0]]),
+  ).not.toContainEqual(["mkcert", "-install"]);
 });
 
-test("mkcert -install still runs when the host trust check fails", async () => {
-  const caRoot = await caRootWithFiles(["rootCA.pem", "rootCA-key.pem"]);
-  try {
-    const { runner, calls } = trustRunner(caRoot, true);
-    await installLocalTrust(await loadRepository("local"), runner, {
-      platform: "darwin",
-    });
-    assert.equal(installed(calls), true);
-  } finally {
-    await rm(caRoot, { recursive: true, force: true });
-  }
+test("mkcert -install still runs when the macOS trust check reports the root untrusted", async () => {
+  caFiles(certificate, key);
+  const { runner, run } = fakeRunner(trustReply);
+  run.mockImplementation(async (command, args) => {
+    if (command === "security") {
+      throw new CommandError(command, args, {
+        stdout: "",
+        stderr: "not trusted",
+        code: 1,
+      });
+    }
+    return { stdout: trustReply(command, args), stderr: "", code: 0 };
+  });
+  await installLocalTrust(repository, runner, { platform: "darwin" });
+  expect(run).toHaveBeenCalledWith("mkcert", ["-install"], { capture: false });
 });
 
-test("mkcert -install still runs when the CA key is missing", async () => {
-  const caRoot = await caRootWithFiles(["rootCA.pem"]);
-  try {
-    const { runner, calls } = trustRunner(caRoot);
-    await installLocalTrust(await loadRepository("local"), runner, {
-      platform: "darwin",
-    });
-    assert.equal(installed(calls), true);
-    assert.equal(
-      calls.some(({ command }) => command === "security"),
-      false,
-    );
-  } finally {
-    await rm(caRoot, { recursive: true, force: true });
-  }
+test("mkcert -install still runs without asking macOS when the CA key is missing", async () => {
+  caFiles(certificate);
+  const { runner, run } = fakeRunner(trustReply);
+  await installLocalTrust(repository, runner, { platform: "darwin" });
+  expect(run).toHaveBeenCalledWith("mkcert", ["-install"], { capture: false });
+  expect(run.mock.calls.map(([command]) => command)).not.toContain("security");
 });
 
-test("mkcert -install always runs on hosts without a supported trust check", async () => {
-  const caRoot = await caRootWithFiles(["rootCA.pem", "rootCA-key.pem"]);
-  try {
-    const { runner, calls } = trustRunner(caRoot);
-    await installLocalTrust(await loadRepository("local"), runner, {
-      platform: "linux",
-    });
-    assert.equal(installed(calls), true);
-    assert.equal(
-      calls.some(({ command }) => command === "security"),
-      false,
-    );
-  } finally {
-    await rm(caRoot, { recursive: true, force: true });
-  }
+test("mkcert -install always runs, and the macOS check never runs, on a host without that check", async () => {
+  caFiles(certificate, key);
+  const { runner, run } = fakeRunner(trustReply);
+  await installLocalTrust(repository, runner, { platform: "linux" });
+  expect(run).toHaveBeenCalledWith("mkcert", ["-install"], { capture: false });
+  expect(run.mock.calls.map(([command]) => command)).not.toContain("security");
+  expect(access).not.toHaveBeenCalled();
 });
 
-test("a missing security binary is rethrown rather than treated as untrusted", async () => {
-  const caRoot = await caRootWithFiles(["rootCA.pem", "rootCA-key.pem"]);
-  try {
-    const spawnError = Object.assign(new Error("spawn security ENOENT"), {
-      code: "ENOENT",
-    });
-    const { runner, calls } = trustRunner(caRoot, spawnError);
-    await assert.rejects(
-      installLocalTrust(await loadRepository("local"), runner, {
-        platform: "darwin",
-      }),
-      /spawn security ENOENT/,
-    );
-    assert.equal(installed(calls), false);
-  } finally {
-    await rm(caRoot, { recursive: true, force: true });
-  }
+test("a missing security binary is rethrown rather than treated as an untrusted root", async () => {
+  caFiles(certificate, key);
+  const spawnError = errno("ENOENT");
+  const { runner, run } = fakeRunner(trustReply);
+  run.mockImplementation(async (command, args) => {
+    if (command === "security") {
+      throw spawnError;
+    }
+    return { stdout: trustReply(command, args), stderr: "", code: 0 };
+  });
+  await expect(
+    installLocalTrust(repository, runner, { platform: "darwin" }),
+  ).rejects.toBe(spawnError);
+  expect(
+    run.mock.calls.map(([command, args]) => [command, args[0]]),
+  ).not.toContainEqual(["mkcert", "-install"]);
 });
 
-test("an unreadable CA file is rethrown rather than treated as untrusted", async () => {
-  const caRoot = await caRootWithFiles(["rootCA.pem", "rootCA-key.pem"]);
-  try {
-    await chmod(caRoot, 0o000);
-    const { runner, calls } = trustRunner(caRoot);
-    await assert.rejects(
-      installLocalTrust(await loadRepository("local"), runner, {
-        platform: "darwin",
-      }),
-      { code: "EACCES" },
-    );
-    assert.equal(installed(calls), false);
-  } finally {
-    await chmod(caRoot, 0o700);
-    await rm(caRoot, { recursive: true, force: true });
-  }
+test("an unreadable CA certificate is rethrown rather than treated as an untrusted root", async () => {
+  const denied = errno("EACCES");
+  vi.mocked(access).mockImplementation(async (path) => {
+    if (String(path) === certificate) {
+      throw denied;
+    }
+  });
+  const { runner, run } = fakeRunner(trustReply);
+  await expect(
+    installLocalTrust(repository, runner, { platform: "darwin" }),
+  ).rejects.toBe(denied);
+  expect(
+    run.mock.calls.map(([command, args]) => [command, args[0]]),
+  ).not.toContainEqual(["mkcert", "-install"]);
+});
+
+test("local trust fails closed when mkcert reports no CA root, before building any CA secret", async () => {
+  const { runner, run } = fakeRunner((command, args) =>
+    command === "mkcert" ? "  \n" : trustReply(command, args),
+  );
+  await expect(
+    installLocalTrust(repository, runner, { platform: "linux" }),
+  ).rejects.toThrow(new Error("mkcert did not return its CA root"));
+  expect(run.mock.calls.some(([, args]) => args.includes("create"))).toBe(
+    false,
+  );
+});
+
+test("local trust refuses a managed environment before any command runs", async () => {
+  vi.mocked(isLocalProvider).mockReturnValue(false);
+  const { runner, run } = fakeRunner(trustReply);
+  await expect(
+    installLocalTrust(repository, runner, { platform: "linux" }),
+  ).rejects.toThrow(
+    new Error("local CA trust is only valid for a local k3d environment"),
+  );
+  expect(assertExpectedCluster).not.toHaveBeenCalled();
+  expect(run).not.toHaveBeenCalled();
+});
+
+test("removing trust artifacts deletes only the temporary CA directory of the selected environment", async () => {
+  await removeLocalTrustArtifacts(fakeRepository());
+  expect(rm).toHaveBeenCalledWith("/tmp/kore-ca-local", {
+    recursive: true,
+    force: true,
+  });
+  expect(rm).toHaveBeenCalledTimes(1);
 });
