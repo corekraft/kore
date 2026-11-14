@@ -84,12 +84,13 @@ const ORCHESTRATOR_HARNESS = [
 
 /**
  * The judge also runs its precheck, which reads GitHub and appends one event to the
- * shared ledger, and the approve, merge and send-back tools, which write only through gh and that
+ * shared ledger, `judge diff`, which only reads a PR's diff, and the approve, merge and send-back tools, which write only through gh and that
  * same ledger (never a path of its choosing).
  */
 const JUDGE_HARNESS = [
   ...READS,
   "judge precheck",
+  "judge diff",
   "judge approve",
   "judge merge",
   "judge send-back",
