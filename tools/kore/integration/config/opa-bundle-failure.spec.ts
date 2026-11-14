@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { afterEach, test } from "vitest";
-import { findRoot } from "../../src/config/config.js";
+import { findRoot } from "../../src/config/index.js";
 
 // Docs: docs/decisions/0059-identity-policy-evidence.md
 // OPA loads the chart bundle with `--bundle /bundle` and exits on a bundle it

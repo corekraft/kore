@@ -10,7 +10,7 @@ import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { expect, test, vi } from "vitest";
-import { withEnvironmentLock } from "../../src/runtime/lock.js";
+import { withEnvironmentLock } from "../../src/runtime/index.js";
 
 test("environment lock is removed after a successful operation", async () => {
   const root = await mkdtemp(join(tmpdir(), "kore-lock-success-"));

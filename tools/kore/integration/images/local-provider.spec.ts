@@ -1,12 +1,14 @@
 import { expect, test } from "vitest";
 import { loadRepository, type Repository } from "../../src/config/index.js";
-import { fakeRunner } from "../../src/images/images.fixtures.js";
-import { buildAndSignLocalImage } from "../../src/images/local-image.js";
-import { loadLocalImage } from "../../src/images/local-image.js";
 import {
-  publishImageCopy,
+  imageFakeRunner as fakeRunner,
+  loadLocalImage,
   requireK3d,
-} from "../../src/images/local-publish.js";
+} from "../../src/testing/index.js";
+import {
+  buildAndSignLocalImage,
+  publishImageCopy,
+} from "../../src/images/index.js";
 
 // Docs: docs/decisions/0083-k3d-publishes-through-the-node-containerd-client.md
 

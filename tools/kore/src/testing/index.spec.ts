@@ -149,6 +149,50 @@ const FORWARDS: Record<string, readonly string[]> = {
   ],
   "../platform/upstream.live.js": ["renderChart", "yamlDocuments"],
   "../platform/rollout-feasibility.js": ["rolloutProblems"],
+  "../images/images.fixtures.js": [
+    "digest as imageDigest",
+    "encodeBase64",
+    "entry as imageEntry",
+    "fakeRunner as imageFakeRunner",
+    "filesUnder",
+    "kubeContext",
+    "minifiedKubeconfig",
+    "secretRef",
+    "stubRegistry",
+  ],
+  "../images/local-image.js": ["k3dImageImportArgs", "loadLocalImage"],
+  "../images/local-publish.js": ["requireK3d"],
+  "../images/local-image-args.js": [
+    "k3dImagePublishArgs",
+    "k3dRegistrySessionArgs",
+  ],
+  "../images/local-signer.js": [
+    "localSigningPublicNamespace",
+    "localSigningPublicSecret",
+  ],
+  "../images/registry-forward-owner.js": ["readForwardOwner"],
+  "../images/registry.js": ["forwardResponds"],
+  "../config/mirror.js": ["unmirroredImages"],
+  "../config/identity.js": ["parsePrincipal", "spiffeId", "spiffePrincipal"],
+  "../config/readiness-fixtures.js": ["readinessFor"],
+  "../config/validation.fixtures.js": ["sound", "validationMessage"],
+  "../cli/cli.js": ["main"],
+  "../cli/commands.js": ["COMMANDS", "isMutating"],
+  "../cli/commands-policy.js": ["policyCommand"],
+  "../cli/flags.js": ["parseArgs"],
+  "../cli/mutation.js": ["createMutate"],
+  "../runtime/nightly-script.fixtures.js": [
+    "FAKE_IDENTITY",
+    "FAKE_RECIPIENT",
+    "LOCAL_RECIPIENT",
+    "ctx",
+    "fakes",
+    "files",
+    "hasGnuTimeout",
+    "outside",
+    "run",
+    "useNightlySandbox",
+  ],
 };
 
 /** An entry is a module export name, or `<export> as <barrel name>` when the barrel renames it. */
@@ -166,101 +210,10 @@ const tagged = (path: string) =>
     }),
   );
 
-vi.mock("./app-fixtures.js", () => tagged("./app-fixtures.js"));
-vi.mock("./k3d-cluster.fixtures.js", () => tagged("./k3d-cluster.fixtures.js"));
-vi.mock("./webhook-fixtures.js", () => tagged("./webhook-fixtures.js"));
-vi.mock("./managed-local.fixtures.js", () =>
-  tagged("./managed-local.fixtures.js"),
-);
-vi.mock("./data-export.fixtures.js", () => tagged("./data-export.fixtures.js"));
-vi.mock("./registry-tls-fixtures.js", () =>
-  tagged("./registry-tls-fixtures.js"),
-);
-vi.mock("./platform-readiness.fixtures.js", () =>
-  tagged("./platform-readiness.fixtures.js"),
-);
-vi.mock("./platform-resilience.fixtures.js", () =>
-  tagged("./platform-resilience.fixtures.js"),
-);
-vi.mock("../platform/reconcile.js", () => tagged("../platform/reconcile.js"));
-vi.mock("../platform/readiness.js", () => tagged("../platform/readiness.js"));
-vi.mock("../platform/readiness-poll.js", () =>
-  tagged("../platform/readiness-poll.js"),
-);
-vi.mock("../platform/readiness-gate.js", () =>
-  tagged("../platform/readiness-gate.js"),
-);
-vi.mock("../platform/readiness-gateway.js", () =>
-  tagged("../platform/readiness-gateway.js"),
-);
-vi.mock("../platform/backup-status.js", () =>
-  tagged("../platform/backup-status.js"),
-);
-vi.mock("../platform/capacity-status.js", () =>
-  tagged("../platform/capacity-status.js"),
-);
-vi.mock("../platform/crd-ownership-status.js", () =>
-  tagged("../platform/crd-ownership-status.js"),
-);
-vi.mock("../platform/admission-probe.js", () =>
-  tagged("../platform/admission-probe.js"),
-);
-vi.mock("../platform/admission-probe-copies.js", () =>
-  tagged("../platform/admission-probe-copies.js"),
-);
-vi.mock("../platform/readiness-manifest.js", () =>
-  tagged("../platform/readiness-manifest.js"),
-);
-vi.mock("../platform/helm.js", () => tagged("../platform/helm.js"));
-vi.mock("../platform/k3d-fixtures.js", () =>
-  tagged("../platform/k3d-fixtures.js"),
-);
-vi.mock("../config/manifest-images.js", () =>
-  tagged("../config/manifest-images.js"),
-);
-vi.mock("../platform/image-inventory.js", () =>
-  tagged("../platform/image-inventory.js"),
-);
-vi.mock("../platform/gate-proof-access.js", () =>
-  tagged("../platform/gate-proof-access.js"),
-);
-vi.mock("../platform/admission-gate.js", () =>
-  tagged("../platform/admission-gate.js"),
-);
-vi.mock("../platform/admission-gate-support.js", () =>
-  tagged("../platform/admission-gate-support.js"),
-);
-vi.mock("../platform/fail-fast.fixtures.js", () =>
-  tagged("../platform/fail-fast.fixtures.js"),
-);
-vi.mock("../platform/bootstrap.js", () => tagged("../platform/bootstrap.js"));
-vi.mock("../platform/enrollment.js", () => tagged("../platform/enrollment.js"));
-vi.mock("../platform/gated-release.js", () =>
-  tagged("../platform/gated-release.js"),
-);
-vi.mock("../platform/fingerprint.js", () =>
-  tagged("../platform/fingerprint.js"),
-);
-vi.mock("../platform/status.js", () => tagged("../platform/status.js"));
-vi.mock("../platform/render.js", () => tagged("../platform/render.js"));
-vi.mock("../platform/ingress-measurement.js", () =>
-  tagged("../platform/ingress-measurement.js"),
-);
-vi.mock("../platform/ingress-measurement.fixtures.js", () =>
-  tagged("../platform/ingress-measurement.fixtures.js"),
-);
-vi.mock("../images/rendered-images.js", () =>
-  tagged("../images/rendered-images.js"),
-);
-vi.mock("../platform/container-smoke.js", () =>
-  tagged("../platform/container-smoke.js"),
-);
-vi.mock("../platform/upstream.live.js", () =>
-  tagged("../platform/upstream.live.js"),
-);
-vi.mock("../platform/rollout-feasibility.js", () =>
-  tagged("../platform/rollout-feasibility.js"),
-);
+// One mock per forwarded module, registered before the barrel is imported below.
+for (const path of Object.keys(FORWARDS)) {
+  vi.doMock(path, () => tagged(path));
+}
 
 const testing = await import("./index.js");
 

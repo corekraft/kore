@@ -1,32 +1,32 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import { dispatch } from "../src/cli/cli-dispatch.fixtures.js";
+import { dispatch } from "./cli-dispatch-support.js";
 
 vi.mock("../src/app/index.js", async () =>
-  (await import("../src/cli/cli-dispatch.fixtures.js")).appModule(),
+  (await import("./cli-dispatch-support.js")).appModule(),
 );
 vi.mock("../src/cluster/index.js", async () =>
-  (await import("../src/cli/cli-dispatch.fixtures.js")).clusterModule(),
+  (await import("./cli-dispatch-support.js")).clusterModule(),
 );
 vi.mock("../src/config/index.js", async () =>
-  (await import("../src/cli/cli-dispatch.fixtures.js")).configModule(),
+  (await import("./cli-dispatch-support.js")).configModule(),
 );
 vi.mock("../src/diagnostics/index.js", async () =>
-  (await import("../src/cli/cli-dispatch.fixtures.js")).diagnosticsModule(),
+  (await import("./cli-dispatch-support.js")).diagnosticsModule(),
 );
 vi.mock("../src/runtime/index.js", async () =>
-  (await import("../src/cli/cli-dispatch.fixtures.js")).runtimeModule(),
+  (await import("./cli-dispatch-support.js")).runtimeModule(),
 );
 vi.mock("../src/platform/index.js", async () =>
-  (await import("../src/cli/cli-dispatch.fixtures.js")).platformModule(),
+  (await import("./cli-dispatch-support.js")).platformModule(),
 );
 vi.mock("../src/security/index.js", async () =>
-  (await import("../src/cli/cli-dispatch.fixtures.js")).securityModule(),
+  (await import("./cli-dispatch-support.js")).securityModule(),
 );
 vi.mock("../src/local/index.js", async () =>
-  (await import("../src/cli/cli-dispatch.fixtures.js")).localModule(),
+  (await import("./cli-dispatch-support.js")).localModule(),
 );
 
-import { main } from "../src/cli/cli.js";
+import { main } from "../src/testing/index.js";
 
 beforeEach(() => {
   dispatch.length = 0;

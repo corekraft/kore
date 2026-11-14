@@ -103,6 +103,8 @@ export const runtimeModule = () => ({
 });
 
 export const platformModule = () => ({
+  // The testing barrel's app fixtures read this at import time; the dispatch specs never use its value.
+  platformGeneration: () => "dispatch-generation",
   readinessFailureSummary: (evidence: {
     failures: { requirement: string; name: string; detail: string }[];
   }) =>
@@ -144,7 +146,7 @@ export const localModule = () => ({
 });
 
 export const imagesModule = async () => ({
-  ...(await vi.importActual<object>("../images/index.js")),
+  ...(await vi.importActual<object>("../src/images/index.js")),
   swapLocalSigningKey: vi.fn(async (_repo, _runner, options) => {
     dispatch.push(`swapLocalSigningKey:${options.yes}`);
   }),

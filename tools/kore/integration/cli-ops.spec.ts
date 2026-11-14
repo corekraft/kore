@@ -1,6 +1,5 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import { COMMANDS, isMutating } from "../src/cli/commands.js";
-import { main } from "../src/cli/cli.js";
+import { COMMANDS, isMutating, main } from "../src/testing/index.js";
 
 beforeEach(() => {
   vi.spyOn(process.stdout, "write").mockImplementation(() => true);

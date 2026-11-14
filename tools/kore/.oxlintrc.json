@@ -141,7 +141,7 @@
       }
     },
     {
-      "files": ["**/*.spec.ts", "**/*fixtures.ts"],
+      "files": ["**/*.spec.ts", "**/*fixtures.ts", "integration/**/*.ts"],
       "rules": {
         "no-restricted-imports": [
           "error",

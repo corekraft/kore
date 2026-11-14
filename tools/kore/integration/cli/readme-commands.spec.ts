@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, test } from "vitest";
-import { COMMANDS } from "../../src/cli/commands.js";
+import { COMMANDS } from "../../src/testing/index.js";
 
 // The README's Commands section names every command in the command table, so a
 // reader can find each one. Removing a row fails the test naming that command.

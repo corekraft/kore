@@ -7,8 +7,8 @@ import {
   findRoot,
   loadRepository,
   validateRepository,
-} from "../../src/config/config.js";
-import type { Repository } from "../../src/config/types.js";
+} from "../../src/config/index.js";
+import type { Repository } from "../../src/config/index.js";
 
 // Docs: docs/decisions/0028-image-trust-authority.md (exit criterion: unsigned
 // and unauthorized-identity images are rejected)

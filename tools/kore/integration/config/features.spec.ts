@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { loadRepository, validateRepository } from "../../src/config/config.js";
-import { featureEnabled, featureHelmArgs } from "../../src/config/features.js";
+import { loadRepository, validateRepository } from "../../src/config/index.js";
+import { featureEnabled, featureHelmArgs } from "../../src/config/index.js";
 import { helmTemplateArgs } from "../../src/platform/index.js";
-import type { Repository } from "../../src/config/types.js";
+import type { Repository } from "../../src/config/index.js";
 
 /** The repository without the catalog's own gated components. */
 async function ungated(name: string): Promise<Repository> {

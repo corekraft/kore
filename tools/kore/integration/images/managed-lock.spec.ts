@@ -4,7 +4,7 @@ import {
   loadRepository,
   type Repository,
 } from "../../src/config/index.js";
-import { managedLockErrors } from "../../src/images/managed-lock.js";
+import { managedLockErrors } from "../../src/images/index.js";
 
 const MIRROR = "ghcr.io/corekraft/kore/mirror";
 const SIGNER =

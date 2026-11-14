@@ -6,15 +6,17 @@ import { afterEach, expect, test, vi } from "vitest";
 import { type Repository } from "../../src/config/index.js";
 import {
   encodeBase64,
-  entry,
-  fakeRunner,
+  imageEntry as entry,
+  imageFakeRunner as fakeRunner,
   pushPassword,
   stubRegistry,
-} from "../../src/images/images.fixtures.js";
-import { buildAndSignLocalImage } from "../../src/images/local-image.js";
+} from "../../src/testing/index.js";
+import { buildAndSignLocalImage } from "../../src/images/index.js";
 
 const registryReference = vi.hoisted(() => vi.fn());
-vi.mock("../../src/images/registry.js", () => ({ localRegistryReference: registryReference }));
+vi.mock("../../src/images/registry.js", () => ({
+  localRegistryReference: registryReference,
+}));
 const registryHead = vi.hoisted(() => vi.fn());
 vi.mock("../../src/images/registry-https.js", () => ({ registryHead }));
 

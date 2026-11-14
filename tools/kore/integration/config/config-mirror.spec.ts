@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "vitest";
-import { registryHelmArgs } from "../../src/config/registry-address.js";
-import { approvedImageList } from "../../src/config/approved.js";
-import { findRoot, loadRepository } from "../../src/config/config.js";
-import { unmirroredImages } from "../../src/config/mirror.js";
+import { registryHelmArgs } from "../../src/config/index.js";
+import { approvedImageList } from "../../src/config/index.js";
+import { findRoot, loadRepository } from "../../src/config/index.js";
+import { unmirroredImages } from "../../src/testing/index.js";
 
 test("managed-example rewrites every approved platform image to the signed mirror", async () => {
   // loadRepository validates, so a missing or drifted rewrite fails the load.

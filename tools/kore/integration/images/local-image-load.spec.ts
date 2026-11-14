@@ -1,11 +1,11 @@
 import { loadRepository } from "../../src/config/index.js";
 import { expect, test } from "vitest";
 import { type Repository } from "../../src/config/index.js";
-import { fakeRunner } from "../../src/images/images.fixtures.js";
 import {
+  imageFakeRunner as fakeRunner,
   k3dImageImportArgs,
   loadLocalImage,
-} from "../../src/images/local-image.js";
+} from "../../src/testing/index.js";
 
 const tag = "kore-local/reference:kore-local";
 

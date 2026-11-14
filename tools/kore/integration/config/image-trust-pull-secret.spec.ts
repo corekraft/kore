@@ -8,7 +8,7 @@ import {
   findRoot,
   loadRepository,
   validateRepository,
-} from "../../src/config/config.js";
+} from "../../src/config/index.js";
 
 const releaseSubject =
   "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.1.1";

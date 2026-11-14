@@ -3,11 +3,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { loadRepository } from "../src/config/index.js";
-import { main } from "../src/cli/cli.js";
-import { COMMANDS, isMutating } from "../src/cli/commands.js";
-import { policyCommand } from "../src/cli/commands-policy.js";
-import { parseArgs } from "../src/cli/flags.js";
-import type { CommandContext } from "../src/cli/context.js";
+import {
+  COMMANDS,
+  isMutating,
+  main,
+  parseArgs,
+  policyCommand,
+} from "../src/testing/index.js";
+import type { CommandContext } from "../src/testing/index.js";
 
 // Docs: docs/decisions/0072-constraint-promotion-procedure.md
 const roots: string[] = [];

@@ -120,6 +120,30 @@ test("production code bans the testing domain, and only specs and fixtures get i
   );
 });
 
+// The integration folder is linted with the spec rule (ADR 0098, 0104): every
+// spec and support file there imports other domains through a barrel or the
+// testing barrel. The whole folder must come back clean, not only the rule.
+test("every integration file passes lint with no problem left, so no spec reaches a domain's internals", () => {
+  const run = spawnSync(
+    oxlint,
+    ["-c", configPath, "--format=json", "integration"],
+    {
+      cwd: packageRoot,
+      encoding: "utf8",
+    },
+  );
+  const report = JSON.parse(run.stdout);
+  const problems = [
+    ...new Set(
+      report.diagnostics.map(
+        (d) => `${d.filename}:${d.labels[0]?.span.line ?? 0} ${d.code}`,
+      ),
+    ),
+  ].sort();
+
+  assert.deepEqual(problems, []);
+});
+
 test("a deep import of another domain's file fails lint and names its barrel", () => {
   const result = lint({
     "src/cli/deep.ts":

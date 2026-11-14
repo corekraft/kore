@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "vitest";
-import { loadRepository, validateRepository } from "../../src/config/config.js";
-import { loadManagedLocal, managedClusterSettings } from "../../src/testing/index.js";
-import { sound, validationMessage } from "../../src/config/validation.fixtures.js";
+import { loadRepository, validateRepository } from "../../src/config/index.js";
+import {
+  loadManagedLocal,
+  managedClusterSettings,
+  sound,
+  validationMessage,
+} from "../../src/testing/index.js";
 
 test("validation reports invalid versions, component definitions, and missing value files", async () => {
   const base = await loadManagedLocal();
