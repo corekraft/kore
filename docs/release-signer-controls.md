@@ -14,7 +14,7 @@ is the checklist for the part the repository cannot configure.
   wildcards, `refs/heads/`, `refs/pull/`, other workflows, and other
   repositories, and a test ties the committed subjects to the workflow's real
   `IDENTITY`
-  (`tools/kore/src/config/image-trust.spec.ts`).
+  (`tools/kore/integration/config/image-trust.spec.ts`).
 - **Token permissions.** `node skills/bin/harness.mjs hook workflow-permissions` (run by
   `mise run test-hooks`, so by the `check` workflow) fails when:
   - a workflow other than `release.yaml`, or a job other than `release` and
