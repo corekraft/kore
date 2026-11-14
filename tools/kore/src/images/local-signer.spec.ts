@@ -1,73 +1,90 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { afterEach, expect, test } from "vitest";
-import { loadRepository, type Repository } from "../config/index.js";
-import type { RunOptions, RunResult, Runner } from "../runtime/index.js";
+import { dirname, join } from "node:path";
+import { beforeEach, expect, test, vi } from "vitest";
+import { trustedSigners } from "../config/index.js";
+import { environmentStatePath, type Runner } from "../runtime/index.js";
+import { fakeRepository, typedRunner } from "./images.fixtures.js";
 import {
   ensureLocalSigningPublicKey,
-  localSigningPublicNamespace,
-  localSigningPublicSecret,
   swapLocalSigningKey,
+  withLocalSigner,
 } from "./local-signer.js";
 
-const roots: string[] = [];
-afterEach(async () => {
-  await Promise.all(
-    roots.splice(0).map((root) => rm(root, { force: true, recursive: true })),
-  );
-});
+vi.mock("node:fs/promises");
+vi.mock("node:os");
+vi.mock("node:path");
+vi.mock("../config/index.js");
+vi.mock("../runtime/index.js");
 
-const kubeconfig = `apiVersion: v1
-kind: Config
-current-context: k3d-kore-local
-clusters:
-  - name: k3d-kore-local
-    cluster: {server: "https://0.0.0.0:6443", certificate-authority-data: Q0E=}
-contexts:
-  - name: k3d-kore-local
-    context: {cluster: k3d-kore-local, user: admin@k3d-kore-local}
-users:
-  - name: admin@k3d-kore-local
-    user: {client-certificate-data: Q0VSVA==, client-key-data: S0VZ}
-`;
+const kubeconfig = "KUBECONFIG";
+const publicKey = Buffer.from("PUBLIC KEY").toString("base64");
+const scratch = "/scratch";
 
-type Call = { command: string; args: readonly string[]; options?: RunOptions };
-
-async function setup(): Promise<{
-  repository: Repository;
-  runner: Runner;
-  calls: Call[];
-}> {
-  const root = await mkdtemp(join(tmpdir(), "kore-signer-"));
-  roots.push(root);
-  const repository = { ...(await loadRepository("local")), root };
-  const calls: Call[] = [];
-  const runner: Runner = {
-    async run(command, args, options): Promise<RunResult> {
-      calls.push({ command, args, ...(options ? { options } : {}) });
-      let stdout = "";
-      if (command === "kubectl" && args.includes("config")) {
-        stdout = kubeconfig;
-      } else if (args.includes("--output=name")) {
-        stdout = "secret/kore-local-signing-key\n";
-      } else if (args.some((a) => a.startsWith("--output=jsonpath={.data"))) {
-        stdout = Buffer.from("PUBLIC KEY").toString("base64");
-      }
-      return { stdout, stderr: "", code: 0 };
-    },
-  };
-  return { repository, runner, calls };
+/**
+ * A stateful-enough cluster: the kubeconfig view, whether the private key
+ * Secret exists, and the public key the cluster holds. Everything else is a
+ * silent success.
+ */
+function cluster(options: { secretExists?: boolean } = {}) {
+  return typedRunner((_command, args) => {
+    if (args.includes("config")) {
+      return kubeconfig;
+    }
+    if (args.includes("--output=name")) {
+      return options.secretExists === false
+        ? ""
+        : "secret/kore-local-signing-key\n";
+    }
+    if (args.some((arg) => arg.startsWith("--output=jsonpath"))) {
+      return publicKey;
+    }
+    return "";
+  });
 }
 
-test("the public key is published as a single-entry Secret in the policy-controller namespace through stdin", async () => {
-  const { repository, runner, calls } = await setup();
+/** A label per runner call, so a test reads the order the commands ran in. */
+function labels(calls: Parameters<Runner["run"]>[]): string[] {
+  return calls.map(([command, args]) => {
+    if (command === "cosign") {
+      return "generate";
+    }
+    if (args.includes("apply")) {
+      return "apply";
+    }
+    if (args.includes("delete")) {
+      return "delete";
+    }
+    if (args.includes("config")) {
+      return "config";
+    }
+    if (args.includes("--output=name")) {
+      return "check";
+    }
+    return "read-public";
+  });
+}
 
-  await ensureLocalSigningPublicKey(repository, runner);
+beforeEach(() => {
+  vi.mocked(join).mockImplementation((...parts: string[]) => parts.join("/"));
+  vi.mocked(dirname).mockReturnValue("/state/local");
+  vi.mocked(environmentStatePath).mockReturnValue(
+    "/state/local/local-signing.pub",
+  );
+  vi.mocked(tmpdir).mockReturnValue("/tmp");
+  vi.mocked(mkdtemp).mockResolvedValue(scratch);
+  vi.mocked(access).mockRejectedValue(new Error("ENOENT"));
+  vi.mocked(trustedSigners).mockReturnValue(["local-kore-key"]);
+});
 
-  const apply = calls.find(({ args }) => args.includes("apply"))!;
-  expect(apply.command).toBe("kubectl");
-  expect(apply.args).toEqual([
+test("the public key is published as a single-entry Secret in the policy-controller namespace, through stdin", async () => {
+  const { runner, run } = cluster();
+
+  await ensureLocalSigningPublicKey(fakeRepository(), runner);
+
+  const apply = run.mock.calls.find(([, args]) => args.includes("apply"));
+  expect(apply?.[0]).toBe("kubectl");
+  expect(apply?.[1]).toEqual([
     "--context",
     "k3d-kore-local",
     "apply",
@@ -76,112 +93,154 @@ test("the public key is published as a single-entry Secret in the policy-control
     "--force-conflicts",
     "--filename=-",
   ]);
-  const secret = JSON.parse(apply.options?.input ?? "{}");
+  const secret = JSON.parse(apply?.[2]?.input ?? "{}");
   expect(secret.metadata.namespace).toBe("cosign-system");
-  expect(localSigningPublicNamespace).toBe("cosign-system");
-  expect(secret.metadata.name).toBe(localSigningPublicSecret);
+  expect(secret.metadata.name).toBe("kore-local-signing-pub");
   expect(secret.metadata.labels["app.kubernetes.io/managed-by"]).toBe(
     "kore-signing",
   );
   expect(Object.keys(secret.data)).toEqual(["cosign.pub"]);
-  expect(secret.stringData).toBeUndefined();
-  expect(Buffer.from(secret.data["cosign.pub"], "base64").toString()).toBe(
-    "PUBLIC KEY",
-  );
+  expect(secret.data["cosign.pub"]).toBe(publicKey);
 });
 
 test("no private key material is read, streamed or written when publishing the public key", async () => {
-  const { repository, runner, calls } = await setup();
+  const { runner, run } = cluster();
 
-  await ensureLocalSigningPublicKey(repository, runner);
+  await ensureLocalSigningPublicKey(fakeRepository(), runner);
 
-  for (const call of calls) {
-    const text = [...call.args, call.options?.input ?? ""].join(" ");
-    expect(text).not.toMatch(/cosign\.key|cosign\.password|\.data\}|-o yaml/);
-    expect(text).not.toMatch(/--output=(json|yaml)(\s|$)/);
-  }
-  const reads = calls.filter(({ args }) => args.includes("get"));
-  for (const read of reads) {
-    expect(
-      read.args.some(
-        (a) => a === "--output=name" || a.includes("{.data.cosign\\.pub}"),
-      ),
-    ).toBe(true);
+  for (const [, args, options] of run.mock.calls) {
+    const text = [...args, options?.input ?? ""].join(" ");
+    expect(text).not.toMatch(/cosign\.key|cosign\.password|-o yaml/);
+    expect(args).not.toContain("--output=json");
   }
 });
 
-test("the key pair is ensured before the public Secret is applied", async () => {
-  const { repository, runner, calls } = await setup();
-  await ensureLocalSigningPublicKey(repository, runner);
-  const names = calls.map(({ args }) => {
+test("the key pair is generated only when the cluster holds no private key, and before the public Secret is applied", async () => {
+  const { runner, run } = cluster({ secretExists: false });
+
+  await ensureLocalSigningPublicKey(fakeRepository(), runner);
+
+  expect(labels(run.mock.calls)).toEqual([
+    "config",
+    "check",
+    "generate",
+    "read-public",
+    "apply",
+  ]);
+  expect(run).toHaveBeenCalledWith(
+    "cosign",
+    ["generate-key-pair", "k8s://kore-system/kore-local-signing-key"],
+    expect.objectContaining({
+      capture: false,
+      kubeconfig,
+      cwd: scratch,
+      env: expect.objectContaining({ COSIGN_PASSWORD: "" }),
+    }),
+  );
+});
+
+test("an existing private key is reused, so cosign generates nothing", async () => {
+  const { runner, run } = cluster({ secretExists: true });
+
+  await ensureLocalSigningPublicKey(fakeRepository(), runner);
+
+  expect(labels(run.mock.calls)).not.toContain("generate");
+});
+
+test("the temporary cosign directory is removed even when publishing the Secret fails", async () => {
+  const { runner, run } = cluster();
+  run.mockImplementation(async (_command, args) => {
     if (args.includes("apply")) {
-      return "apply";
+      throw new Error("apply refused");
     }
-    return args.includes("--output=name") ? "check-key" : "other";
+    return { stdout: "", stderr: "", code: 0 };
   });
-  expect(names.indexOf("check-key")).toBeGreaterThanOrEqual(0);
-  expect(names.indexOf("check-key")).toBeLessThan(names.indexOf("apply"));
+
+  await expect(
+    ensureLocalSigningPublicKey(fakeRepository(), runner),
+  ).rejects.toThrow("apply refused");
+
+  expect(rm).toHaveBeenCalledWith(scratch, { force: true, recursive: true });
 });
 
-// A stateful fake cluster: one private key Secret, one public Secret.
-async function swapSetup() {
-  const { repository, calls } = await setup();
-  const state = { privateKey: "OLD", published: "" };
-  const runner: Runner = {
-    async run(command, args, options): Promise<RunResult> {
-      calls.push({ command, args, ...(options ? { options } : {}) });
-      let stdout = "";
-      if (command === "kubectl" && args.includes("config")) {
-        stdout = kubeconfig;
-      } else if (command === "kubectl" && args.includes("delete")) {
-        state.privateKey = "";
-      } else if (command === "cosign") {
-        state.privateKey = "NEW";
-      } else if (args.includes("--output=name")) {
-        stdout = state.privateKey ? "secret/kore-local-signing-key\n" : "";
-      } else if (args.some((a) => a.startsWith("--output=jsonpath={.data"))) {
-        stdout = Buffer.from(`PUBLIC-${state.privateKey}`).toString("base64");
-      } else if (args.includes("apply")) {
-        const secret = JSON.parse(options?.input ?? "{}");
-        state.published = Buffer.from(
-          secret.data["cosign.pub"],
-          "base64",
-        ).toString();
-      }
-      return { stdout, stderr: "", code: 0 };
-    },
-  };
-  state.published = "PUBLIC-OLD";
-  return { repository, runner, calls, state };
-}
+test("the signer publishes the public key under the environment's state directory and hands out its key reference, kubeconfig and environment", async () => {
+  const { runner } = cluster();
+  const action = vi.fn(async () => "signed");
 
-test("swapping the signing key publishes the new public key and the old one is no longer trusted", async () => {
-  const { repository, runner, state } = await swapSetup();
+  const result = await withLocalSigner(fakeRepository(), runner, action);
 
-  await swapLocalSigningKey(repository, runner, { yes: true });
-
-  expect(state.published).toBe("PUBLIC-NEW");
-  expect(state.privateKey).toBe("NEW");
+  expect(result).toBe("signed");
+  expect(environmentStatePath).toHaveBeenCalledWith(
+    "/repo",
+    "local",
+    "local-signing.pub",
+  );
+  expect(mkdir).toHaveBeenCalledWith("/state/local", { recursive: true });
+  expect(writeFile).toHaveBeenCalledWith(
+    "/state/local/local-signing.pub",
+    "PUBLIC KEY",
+  );
+  expect(action).toHaveBeenCalledWith({
+    key: "k8s://kore-system/kore-local-signing-key",
+    publicKey: "/state/local/local-signing.pub",
+    env: expect.objectContaining({ COSIGN_PASSWORD: "" }),
+    kubeconfig,
+  });
 });
 
-test("the old private key is deleted before the new pair is generated, and the public Secret is applied last", async () => {
-  const { repository, runner, calls } = await swapSetup();
+test("a legacy local signing key left on disk is named on stderr and never used", async () => {
+  vi.mocked(access).mockResolvedValue(undefined);
+  const stderr = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+  const { runner } = cluster();
 
-  await swapLocalSigningKey(repository, runner, { yes: true });
+  await ensureLocalSigningPublicKey(fakeRepository(), runner);
 
-  const label = ({ command, args }: Call): string[] => {
-    if (command === "cosign") {
-      return ["generate"];
-    }
-    if (args.includes("delete")) {
-      return ["delete"];
-    }
-    return args.includes("apply") ? ["apply"] : [];
-  };
-  const steps = calls.flatMap(label);
-  expect(steps).toEqual(["delete", "generate", "apply"]);
-  const remove = calls.find(({ args }) => args.includes("delete"))!;
-  expect(remove.args).toEqual([
+  expect(stderr).toHaveBeenCalledWith(
+    expect.stringContaining(
+      "legacy local signing key under /repo/.kore/keys/local is no longer used and can be deleted",
+    ),
+  );
+});
+
+test("a key swap without --yes refuses and touches the cluster in no way", async () => {
+  const { runner, run } = cluster();
+
+  await expect(
+    swapLocalSigningKey(fakeRepository(), runner, { yes: false }),
+  ).rejects.toThrow(/swapping the local signing key .* requires --yes/);
+
+  expect(run).not.toHaveBeenCalled();
+});
+
+test("a managed environment refuses a key swap, because it never trusts the local key", async () => {
+  vi.mocked(trustedSigners).mockReturnValue(["release@kore.dev"]);
+  const { runner, run } = cluster();
+
+  await expect(
+    swapLocalSigningKey(fakeRepository({ name: "managed-example" }), runner, {
+      yes: true,
+    }),
+  ).rejects.toThrow(
+    /environment managed-example does not trust the local signing key/,
+  );
+
+  expect(run).not.toHaveBeenCalled();
+});
+
+test("a key swap deletes the old private key first, generates a new pair, and applies the public Secret last", async () => {
+  const { runner, run } = cluster({ secretExists: false });
+
+  await swapLocalSigningKey(fakeRepository(), runner, { yes: true });
+
+  expect(labels(run.mock.calls)).toEqual([
+    "delete",
+    "config",
+    "check",
+    "generate",
+    "read-public",
+    "apply",
+  ]);
+  expect(run.mock.calls[0]?.[1]).toEqual([
     "--context",
     "k3d-kore-local",
     "--namespace",
@@ -191,34 +250,4 @@ test("the old private key is deleted before the new pair is generated, and the p
     "kore-local-signing-key",
     "--ignore-not-found",
   ]);
-});
-
-test("swapping without --yes refuses and touches nothing", async () => {
-  const { repository, runner, calls } = await swapSetup();
-
-  await expect(
-    swapLocalSigningKey(repository, runner, { yes: false }),
-  ).rejects.toThrow(/--yes/);
-  expect(calls).toEqual([]);
-});
-
-test("a managed environment refuses a key swap because it never trusts the local key", async () => {
-  const { runner, calls } = await swapSetup();
-  const managed = await loadRepository("managed-example");
-
-  await expect(
-    swapLocalSigningKey(managed, runner, { yes: true }),
-  ).rejects.toThrow(/local/);
-  expect(calls).toEqual([]);
-});
-
-test("no private key material is read or streamed while swapping", async () => {
-  const { repository, runner, calls } = await swapSetup();
-
-  await swapLocalSigningKey(repository, runner, { yes: true });
-
-  for (const call of calls) {
-    const text = [...call.args, call.options?.input ?? ""].join(" ");
-    expect(text).not.toMatch(/cosign\.key|cosign\.password|-o yaml/);
-  }
 });

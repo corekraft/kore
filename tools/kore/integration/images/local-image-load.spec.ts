@@ -1,8 +1,11 @@
-import { loadRepository } from "../config/index.js";
+import { loadRepository } from "../../src/config/index.js";
 import { expect, test } from "vitest";
-import { type Repository } from "../config/index.js";
-import { fakeRunner } from "./local-image-fixtures.js";
-import { k3dImageImportArgs, loadLocalImage } from "./local-image.js";
+import { type Repository } from "../../src/config/index.js";
+import { fakeRunner } from "../../src/images/images.fixtures.js";
+import {
+  k3dImageImportArgs,
+  loadLocalImage,
+} from "../../src/images/local-image.js";
 
 const tag = "kore-local/reference:kore-local";
 

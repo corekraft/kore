@@ -1,9 +1,49 @@
 import { readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { Mock } from "vitest";
-import { registryCaPem } from "../testing/index.js";
+import { vi, type Mock } from "vitest";
+import type { Repository } from "../config/index.js";
+
+/** A stand-in registry CA: public material only, enough for the PEM framing. */
+const registryCaPem =
+  "-----BEGIN CERTIFICATE-----\nQUJD\n-----END CERTIFICATE-----\n";
 import type { ImageLockEntry } from "./image-lock.js";
 import type { Runner, RunOptions, RunResult } from "../runtime/index.js";
+
+// Fakes and fixtures shared by the images domain's specs. A support file is not
+// a unit, so it needs no spec of its own (ADR 0098).
+
+/** A typed runner whose stdout depends on the command and its arguments. */
+export function typedRunner(
+  stdout: (command: string, args: readonly string[]) => string = () => "",
+) {
+  const run = vi.fn<Runner["run"]>(async (command, args) => ({
+    stdout: stdout(command, args),
+    stderr: "",
+    code: 0,
+  }));
+  return { runner: { run } as Runner, run };
+}
+
+/**
+ * A k3d repository with the fields the images units read. Overrides replace
+ * the environment's fields. The one cast stands in for the rest of the overlay.
+ */
+export function fakeRepository(
+  environment: Record<string, unknown> = {},
+  root = "/repo",
+): Repository {
+  return {
+    root,
+    environment: {
+      name: "local",
+      provider: "k3d",
+      kubeContext,
+      k3d: { clusterName: "kore-local" },
+      ...environment,
+    },
+    imageTrustValues: {},
+  } as unknown as Repository;
+}
 
 export const digest = `sha256:${"d".repeat(64)}`;
 

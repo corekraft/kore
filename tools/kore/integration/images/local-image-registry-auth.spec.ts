@@ -1,22 +1,22 @@
-import { loadRepository } from "../config/index.js";
+import { loadRepository } from "../../src/config/index.js";
 import { mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, test, vi } from "vitest";
-import { type Repository } from "../config/index.js";
+import { type Repository } from "../../src/config/index.js";
 import {
   encodeBase64,
   entry,
   fakeRunner,
   pushPassword,
   stubRegistry,
-} from "./local-image-fixtures.js";
-import { buildAndSignLocalImage } from "./local-image.js";
+} from "../../src/images/images.fixtures.js";
+import { buildAndSignLocalImage } from "../../src/images/local-image.js";
 
 const registryReference = vi.hoisted(() => vi.fn());
-vi.mock("./registry.js", () => ({ localRegistryReference: registryReference }));
+vi.mock("../../src/images/registry.js", () => ({ localRegistryReference: registryReference }));
 const registryHead = vi.hoisted(() => vi.fn());
-vi.mock("./registry-https.js", () => ({ registryHead }));
+vi.mock("../../src/images/registry-https.js", () => ({ registryHead }));
 
 const roots: string[] = [];
 afterEach(async () => {
