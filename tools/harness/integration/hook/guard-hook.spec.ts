@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { run } from "../cli/index.js";
-import { testHarness } from "../testing/index.js";
-import { modeOf, INVENTORY_PATH } from "../guardrail/index.js";
+import { run } from "../../src/cli/index.js";
+import { testHarness } from "../../src/testing/index.js";
+import { modeOf, INVENTORY_PATH } from "../../src/guardrail/index.js";
 import {
   committedInventory,
   committedInventoryText,
   ledgerEvents,
-} from "../testing/index.js";
-import { evaluate } from "./guard.js";
+} from "../../src/testing/index.js";
+import { evaluate } from "../../src/hook/index.js";
 
 // The hook as the host runs it, in process: exit code, stdout, stderr and the
 // ledger events it records beside the verdict.
