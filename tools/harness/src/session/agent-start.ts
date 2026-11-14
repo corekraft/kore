@@ -2,32 +2,33 @@ import type { CliDeps } from "../runtime/index.js";
 import { describeFailure } from "./equalize.js";
 import { displayName, modelOnScreen, type ModelCheck } from "./models.js";
 
-const BUSY_BOUND_MS = 10_000;
 const MODEL_BOUND_MS = 5_000;
 const RETRY_MS = 500;
+/** Starts tried before giving up; a fresh pane's shell is often not ready for the first few. */
+const START_TRIES = 10;
+const START_PAUSE_MS = 1_000;
 
 /**
- * Starts the agent, retrying `agent_pane_busy` (a fresh pane's shell is not
- * ready yet) for a bounded time. An error message, or undefined on success.
+ * Starts the agent, retrying a failed start up to START_TRIES times one second
+ * apart, whatever the failure (a fresh pane's shell is often not ready yet).
+ * An error message naming the last failure, or undefined on success.
  */
 export async function startAgent(
   deps: CliDeps,
   args: readonly string[],
 ): Promise<string | undefined> {
-  const deadline = deps.clock.now().getTime() + BUSY_BOUND_MS;
-  for (;;) {
+  let last = "";
+  for (let attempt = 1; attempt <= START_TRIES; attempt++) {
     const start = await deps.runner.run("herdr", args);
     if (start.code === 0) {
       return undefined;
     }
-    if (!`${start.stdout}${start.stderr}`.includes("agent_pane_busy")) {
-      return `herdr agent start failed: ${describeFailure(start)}`;
+    last = describeFailure(start);
+    if (attempt < START_TRIES) {
+      await deps.clock.sleep(START_PAUSE_MS);
     }
-    if (deps.clock.now().getTime() >= deadline) {
-      return `herdr agent start failed: agent_pane_busy for ${BUSY_BOUND_MS / 1000} seconds; the pane's shell never became ready (${describeFailure(start)})`;
-    }
-    await deps.clock.sleep(RETRY_MS);
   }
+  return `herdr agent start failed after ${START_TRIES} tries: ${last}`;
 }
 
 /**

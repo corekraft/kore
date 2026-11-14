@@ -30,29 +30,26 @@ describe("session spawn busy retry", () => {
     );
   });
 
-  it("fails naming agent_pane_busy and the bound once the pane never becomes ready", async () => {
+  it("fails naming the last error, the try count and the pane once every try fails", async () => {
     const h = testHarness({
       env: INSIDE,
       responses: [{ match: isStart, result: BUSY }, ...base],
     });
     expect(await run(spawnArgs, h.deps)).toBe(1);
     expect(h.err()).toContain("agent_pane_busy");
-    expect(h.err()).toContain("10 seconds");
+    expect(h.err()).toContain("after 10 tries");
     expect(h.err()).toContain("w3:p9");
     expect(herdrCalls(h).some((c) => c.includes("agent prompt"))).toBe(false);
   });
 
-  it("does not retry a failure that is not agent_pane_busy", async () => {
+  it("retries a start failure that is not agent_pane_busy, then starts the session", async () => {
     const h = testHarness({
       env: INSIDE,
-      responses: [
-        { match: isStart, result: { code: 1, stderr: "boom" } },
-        ...base,
-      ],
+      responses: [sequence(isStart, { code: 1, stderr: "boom" }, {}), ...base],
     });
-    expect(await run(spawnArgs, h.deps)).toBe(1);
+    expect(await run(spawnArgs, h.deps)).toBe(0);
     expect(herdrCalls(h).filter((c) => c.includes("agent start"))).toHaveLength(
-      1,
+      2,
     );
   });
 });

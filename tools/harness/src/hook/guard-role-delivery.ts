@@ -9,6 +9,9 @@ import { isAbsolute, relative, resolve } from "node:path";
 import {
   changesShell,
   harnessAllowed,
+  notifiesFinish,
+  sendsToPane,
+  useNotify,
   SUBSTITUTION,
   wrapsCommands,
   HARNESS,
@@ -78,6 +81,7 @@ const ORCHESTRATOR_HARNESS = [
   "session wait",
   "session close",
   "session equalize",
+  "session notify",
   "idea sync",
   "outcome record",
   "outcome close",
@@ -93,6 +97,7 @@ const JUDGE_HARNESS = [
   "judge precheck",
   "judge merge",
   "judge send-back",
+  "session notify",
 ];
 
 /** The harness commands each delivery role may run; any other role gets the reads. */
@@ -115,30 +120,13 @@ const HERDR_READS = [
   "pane current",
 ];
 
-/** The exact line session/brief.ts tells a session to send: the outcome is done or blocked, and the pane is `$HERDR_PANE_ID` or a literal id. Free text would let a role instruct another pane. */
-const FINISH_LINE =
-  /^\[herdr:[\w.-]+\] finished: RESULT (?:done|blocked); summary in pane (?:\$HERDR_PANE_ID|[\w:]+)$/;
-
-/** The finish broadcast every brief ends with: `herdr pane send-text <pane> "[herdr:<name>] finished: RESULT ..."`, then `herdr pane send-keys <pane> enter`. Nothing else goes through send-text or send-keys. */
-function herdrFinish(args: readonly string[]): boolean {
-  const [group, verb, pane, text, ...rest] = args;
-  if (group !== "pane" || pane === undefined || pane.startsWith("-")) {
-    return false;
-  }
-  if (verb === "send-text") {
-    return rest.length === 0 && FINISH_LINE.test(text ?? "");
-  }
-  return verb === "send-keys" && text === "enter" && rest.length === 0;
-}
-
 /** What a reporting role's shell may run: the shared read allowlist with the role's harness commands, and for the orchestrator the herdr queries. Anything else is refused. */
 function reportingMayRun(role: string, segment: readonly string[]): boolean {
   const { name, args } = commandOf(segment);
   if (name === "herdr") {
     return (
-      herdrFinish(args) ||
-      (role === "orchestrator" &&
-        HERDR_READS.includes(`${args[0] ?? ""} ${args[1] ?? ""}`))
+      role === "orchestrator" &&
+      HERDR_READS.includes(`${args[0] ?? ""} ${args[1] ?? ""}`)
     );
   }
   return readMayRun(segment, harnessFor(role));
@@ -149,6 +137,9 @@ function harnessRefused(role: string, segment: readonly string[]): boolean {
   const { name, args } = commandOf(segment);
   if (name !== "node" || !(args[0] ?? "").endsWith("harness.mjs")) {
     return false;
+  }
+  if (args[1] === "session" && args[2] === "notify") {
+    return !notifiesFinish(segment);
   }
   return !(
     HARNESS.test(args[0] ?? "") && harnessAllowed(name, args, harnessFor(role))
@@ -210,6 +201,12 @@ function escapes(segment: readonly string[], root: string): string | undefined {
     .find((path) => outside(root, path));
 }
 
+/** The finding for a segment a reporting role may not run: raw pane input is pointed at `session notify`. */
+function refused(segment: readonly string[]): Finding {
+  const what = `\`${segment.join(" ")}\``;
+  return sendsToPane(segment) ? useNotify(what) : readOnly(what);
+}
+
 export function checkDeliveryBash(
   role: string,
   command: string,
@@ -260,9 +257,7 @@ export function checkDeliveryBash(
         harnessRefused(role, s) ||
         !reportingMayRun(role, s),
     );
-    return changing === undefined
-      ? null
-      : readOnly(`\`${changing.join(" ")}\``);
+    return changing === undefined ? null : refused(changing);
   }
   for (const segment of segments) {
     const path = escapes(segment, root);

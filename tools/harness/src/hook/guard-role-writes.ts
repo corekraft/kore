@@ -201,6 +201,44 @@ export const harnessStatus = (name: string, args: readonly string[]): boolean =>
   args.length <= 3 &&
   (args[2] === undefined || args[2] === "--json");
 
+/**
+ * The finish notice every brief ends with, in its one allowed shape:
+ * `node skills/bin/harness.mjs session notify <pane> --outcome done|blocked`.
+ * The harness builds the line, so a role cannot write its own text into another pane.
+ */
+export function notifiesFinish(segment: readonly string[]): boolean {
+  const { name, args } = commandOf(segment);
+  const [path, group, verb, pane, flag, outcome, ...rest] = args;
+  return (
+    name === "node" &&
+    HARNESS.test(path ?? "") &&
+    group === "session" &&
+    verb === "notify" &&
+    /^[\w:]+$/.test(pane ?? "") &&
+    flag === "--outcome" &&
+    (outcome === "done" || outcome === "blocked") &&
+    rest.length === 0
+  );
+}
+
+/** `herdr pane send-text` or `send-keys`: raw input typed into a pane. */
+export function sendsToPane(segment: readonly string[]): boolean {
+  const { name, args } = commandOf(segment);
+  return (
+    name === "herdr" &&
+    args[0] === "pane" &&
+    (args[1] === "send-text" || args[1] === "send-keys")
+  );
+}
+
+/** The finding for raw pane input, which names the command a brief's finish notice uses now. */
+export const useNotify = (what: string): Finding =>
+  block(
+    "role-read-only",
+    `${what} types into another pane, and a bounded role sends a pane nothing but its finish notice. ` +
+      "Instead, run `node skills/bin/harness.mjs session notify <pane> --outcome done|blocked`, which builds the finish line, submits it and confirms it arrived.",
+  );
+
 /** The sources (and destination) of `git mv`, `git rm` or `rm [-f]`; any other flag stays a source and is no hook test. */
 export function removal(
   line: readonly string[],

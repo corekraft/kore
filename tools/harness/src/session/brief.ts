@@ -5,9 +5,9 @@ export interface BriefInput {
   callerPane: string;
 }
 
-/** The exact completion command, filled in; `$HERDR_PANE_ID` is expanded by the session's shell. */
-export function broadcastCommand(name: string, callerPane: string): string {
-  return `herdr pane send-text ${callerPane} "[herdr:${name}] finished: RESULT <done|blocked>; summary in pane $HERDR_PANE_ID" && herdr pane send-keys ${callerPane} enter`;
+/** The exact completion command, filled in: the session runs it from its own pane, which reads its name and pane from its environment. */
+export function notifyCommand(callerPane: string): string {
+  return `node skills/bin/harness.mjs session notify ${callerPane} --outcome <done|blocked>`;
 }
 
 /** The task plus the three things every brief carries: caller pane, session name, broadcast. */
@@ -16,8 +16,8 @@ export function buildBrief({ task, name, callerPane }: BriefInput): string {
     task,
     "",
     `You are ${name}; your session name is ${name}.`,
-    `When you finish, broadcast to pane \`${callerPane}\`. Print your summary and a final line with the word RESULT, a colon, then done or blocked. Then, as your very last action, run this one line with the outcome word (done or blocked) in place of <done|blocked>; it expands your own $HERDR_PANE_ID, and must carry no secrets or output beyond the outcome word:`,
+    `When you finish, broadcast to pane \`${callerPane}\`. Print your summary and a final line with the word RESULT, a colon, then done or blocked. Then, as your very last action, run this one line with the outcome word (done or blocked) in place of <done|blocked>; the command fills in your own name and pane, and must carry no secrets or output beyond the outcome word:`,
     "",
-    broadcastCommand(name, callerPane),
+    notifyCommand(callerPane),
   ].join("\n");
 }

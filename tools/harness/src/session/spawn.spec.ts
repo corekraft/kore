@@ -84,7 +84,7 @@ describe("session spawn launch", () => {
     expect(brief).toContain("broadcast to pane `w3:p42`");
     expect(brief).toContain("image-trust-writer");
     expect(brief).toContain(
-      'herdr pane send-text w3:p42 "[herdr:image-trust-writer] finished: RESULT <done|blocked>; summary in pane $HERDR_PANE_ID" && herdr pane send-keys w3:p42 enter',
+      "node skills/bin/harness.mjs session notify w3:p42 --outcome <done|blocked>",
     );
     expect(prompt?.args.slice(4)).toEqual([
       "--wait",
