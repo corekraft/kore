@@ -1,23 +1,17 @@
-// Fixtures and fakes for the github-signals unit spec: the helpers of
-// github-gh.ts stubbed to what they promise, a recorded signal, and one poll
-// over fakes. Only that spec uses them, so they stay beside it (ADR 0098).
+// Fakes and data for the github-signals unit spec: the helpers of github-gh.ts
+// stubbed to what they promise, the mocks' defaults, the CI listings, and what
+// a poll should record for them. Only that spec uses them, so they stay beside
+// it (ADR 0098). No unit is imported here.
 import { vi } from "vitest";
-import {
-  NOW,
-  fakeClock,
-  fakeFileSystem,
-  fakeLedger,
-  fakeRunner,
-} from "./ledger-support.js";
-import type { LedgerEvent } from "./schema.js";
-import { pollSignals } from "./github-signals.js";
 import { asRecord, count, list, pages, when, type Raw } from "./github-gh.js";
 import { fromActions } from "./github-owner-actions.js";
 import { acquire } from "./poll-lock.js";
 import { heldLock } from "./github-poll-support.js";
+import type { EventInput, LedgerEvent } from "./schema.js";
 
 export const REPO = "corekraft/kore";
 export const OWNER = "junners";
+export const T = "2026-02-10T12:00:00Z";
 
 /** The helpers, stubbed to what they promise: records, present times and whole counts. */
 export function stubGhHelpers() {
@@ -107,28 +101,54 @@ export function runs(check: Raw[] = [], nightly: Raw[] = []) {
   });
 }
 
-/** One poll over fakes, holding the given recorded events; `since` only when the test gives one. */
-export function setupSignals(known: LedgerEvent[] = [], since?: string) {
-  const runner = fakeRunner();
-  const fake = fakeLedger();
-  fake.list.mockResolvedValue({ events: known, skipped: 0 });
-  fake.record.mockImplementation((input) =>
-    Promise.resolve({
-      ok: true,
-      event: { ...input, schema: 1, recordedAt: NOW } as LedgerEvent,
-    }),
-  );
-  const fs = fakeFileSystem();
-  const clock = fakeClock();
-  const poll = () =>
-    pollSignals({
-      ledger: fake.ledger,
-      runner,
-      clock,
-      fs,
-      repo: REPO,
-      owner: OWNER,
-      ...(since === undefined ? {} : { since }),
-    });
-  return { runner, fake, fs, clock, poll };
-}
+/** What a poll records for passing run 7 and failing run 8 on main. */
+export const CI_RECORDS = [
+  {
+    id: "github:ci.main:7",
+    source: "github",
+    kind: "ci.main",
+    occurredAt: T,
+    outcome: "success",
+  },
+  {
+    id: "github:ci.main:8",
+    source: "github",
+    kind: "ci.main",
+    occurredAt: T,
+    outcome: "failure",
+  },
+];
+
+/** Commits on main: two reverts (by subject, by body) and one that is not. */
+export const REVERT_COMMITS = [
+  {
+    sha: "abc1234",
+    commit: { message: 'Revert "feat: x"', committer: { date: T } },
+  },
+  {
+    sha: "def5678",
+    commit: {
+      message: "fix\n\nThis reverts commit 1234567.",
+      committer: { date: T },
+    },
+  },
+  { sha: "0123456", commit: { message: "feat: y", committer: { date: T } } },
+];
+
+/** The owner's comment 5, and their review 6 a day later, as fromActions returns them. */
+export const OWNER_ACTIONS: EventInput[] = [
+  {
+    id: "github:owner.action:comment:5",
+    source: "github",
+    kind: "owner.action",
+    occurredAt: T,
+    number: 7,
+  },
+  {
+    id: "github:owner.action:review:6",
+    source: "github",
+    kind: "owner.action",
+    occurredAt: "2026-02-11T00:00:00Z",
+    number: 7,
+  },
+];

@@ -1,20 +1,31 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { PATH } from "./ledger-support.js";
+import {
+  PATH,
+  fakeClock,
+  fakeFileSystem,
+  fakeLedger,
+  fakeRunner,
+  recordsEverything,
+} from "./ledger-support.js";
 import { heldLock } from "./github-poll-support.js";
 import {
   CHECK_LIST,
+  CI_RECORDS,
   NIGHTLY_LIST,
   OWNER,
+  OWNER_ACTIONS,
   REPO,
+  REVERT_COMMITS,
   RUN_LIMIT,
+  T,
   defaultSignals,
   runs,
-  setupSignals,
   signal,
 } from "./github-signals-support.js";
 import { json, list, pages } from "./github-gh.js";
 import { fromActions } from "./github-owner-actions.js";
 import { acquire } from "./poll-lock.js";
+import { pollSignals } from "./github-signals.js";
 
 // Factories, not automocks: an automock loads the real module, which the budget charges to each test.
 vi.mock("./github-gh.js", () => ({
@@ -30,21 +41,42 @@ vi.mock("./github-gh.js", () => ({
 vi.mock("./github-owner-actions.js", () => ({ fromActions: vi.fn() }));
 vi.mock("./poll-lock.js", () => ({ acquire: vi.fn() }));
 
-const T = "2026-02-10T12:00:00Z";
+/** One poll over fakes, holding the given recorded events; `since` only when the test gives one. */
+function setup(known: ReturnType<typeof signal>[] = [], since?: string) {
+  const runner = fakeRunner();
+  const fake = fakeLedger();
+  fake.list.mockResolvedValue({ events: known, skipped: 0 });
+  recordsEverything(fake.record);
+  const fs = fakeFileSystem();
+  const clock = fakeClock();
+  const poll = () =>
+    pollSignals({
+      ledger: fake.ledger,
+      runner,
+      clock,
+      fs,
+      repo: REPO,
+      owner: OWNER,
+      ...(since === undefined ? {} : { since }),
+    });
+  return { runner, fake, fs, clock, poll };
+}
 
 beforeEach(defaultSignals);
 
 describe("pollSignals: the lock", () => {
   it("polls under its own signals lock file, beside the ledger", async () => {
-    const { fs, clock, poll } = setupSignals();
+    const { fs, clock, poll } = setup();
     await poll();
-    expect(vi.mocked(acquire).mock.calls).toEqual([
-      [fs, clock, `${PATH}.signals.lock`],
-    ]);
+    expect(vi.mocked(acquire)).toHaveBeenCalledWith(
+      fs,
+      clock,
+      `${PATH}.signals.lock`,
+    );
   });
 
   it("reports busy, and asks GitHub nothing, when another poll holds the lock", async () => {
-    const { poll } = setupSignals();
+    const { poll } = setup();
     vi.mocked(acquire).mockResolvedValue({ ok: false, message: "held" });
     expect(await poll()).toEqual({ ok: false, message: "held" });
     expect(vi.mocked(list)).not.toHaveBeenCalled();
@@ -52,7 +84,7 @@ describe("pollSignals: the lock", () => {
   });
 
   it("releases the lock after a listing fails", async () => {
-    const { poll } = setupSignals();
+    const { poll } = setup();
     const held = heldLock();
     vi.mocked(acquire).mockResolvedValue(held);
     vi.mocked(pages).mockResolvedValue("gh api commits failed");
@@ -63,7 +95,7 @@ describe("pollSignals: the lock", () => {
 
 describe("pollSignals: where it starts", () => {
   it("lists with no since when nothing is recorded", async () => {
-    const { runner, poll } = setupSignals();
+    const { runner, poll } = setup();
     await poll();
     expect(vi.mocked(list).mock.calls[0]?.[2]).not.toContain("--created");
     expect(vi.mocked(fromActions).mock.calls).toEqual([
@@ -72,13 +104,9 @@ describe("pollSignals: where it starts", () => {
   });
 
   it("starts a day before the latest recorded signal, ignoring other kinds", async () => {
-    const { poll } = setupSignals([
+    const { poll } = setup([
       signal("ci.main", "github:ci.main:1", "2026-02-10T12:00:00.000Z"),
-      signal(
-        "issue.opened",
-        "github:issue.opened:2",
-        "2026-03-01T00:00:00.000Z",
-      ),
+      signal("issue.opened", "github:issue.opened:2", "2026-03-01T00:00:00Z"),
     ]);
     await poll();
     expect(vi.mocked(list).mock.calls[0]?.[2]).toContain(">=2026-02-09");
@@ -86,7 +114,7 @@ describe("pollSignals: where it starts", () => {
   });
 
   it("uses --since when it reaches back further than that", async () => {
-    const { poll } = setupSignals(
+    const { poll } = setup(
       [signal("ci.main", "github:ci.main:1", `${T}.000Z`)],
       "2026-01-01T00:00:00Z",
     );
@@ -99,7 +127,7 @@ describe("pollSignals: where it starts", () => {
 
 describe("pollSignals: CI runs, listed", () => {
   it("lists check runs on main by push, and nightly runs by schedule", async () => {
-    const { poll } = setupSignals();
+    const { poll } = setup();
     await poll();
     expect(vi.mocked(list).mock.calls.map((c) => c[2])).toEqual([
       CHECK_LIST,
@@ -108,14 +136,14 @@ describe("pollSignals: CI runs, listed", () => {
   });
 
   it("drops a run with no conclusion yet", async () => {
-    const { fake, poll } = setupSignals();
+    const { fake, poll } = setup();
     runs([{ databaseId: 7, conclusion: "", updatedAt: T, attempt: 1 }]);
     await poll();
     expect(fake.record).not.toHaveBeenCalled();
   });
 
   it("refuses a full run listing, since some runs may be missing", async () => {
-    const { poll } = setupSignals();
+    const { poll } = setup();
     runs(Array.from({ length: RUN_LIMIT }, (_, i) => ({ databaseId: i + 1 })));
     expect(await poll()).toEqual({
       ok: false,
@@ -125,7 +153,7 @@ describe("pollSignals: CI runs, listed", () => {
   });
 
   it("returns the message of a run listing that failed", async () => {
-    const { poll } = setupSignals();
+    const { poll } = setup();
     vi.mocked(list).mockResolvedValue("gh run list failed");
     expect(await poll()).toEqual({ ok: false, message: "gh run list failed" });
   });
@@ -133,32 +161,17 @@ describe("pollSignals: CI runs, listed", () => {
 
 describe("pollSignals: CI runs, judged", () => {
   it("records a passing run as success, and any other conclusion as failure", async () => {
-    const { fake, poll } = setupSignals();
+    const { fake, poll } = setup();
     runs([
       { databaseId: 7, conclusion: "success", updatedAt: T, attempt: 1 },
       { databaseId: 8, conclusion: "timed_out", updatedAt: T, attempt: 1 },
     ]);
     await poll();
-    expect(fake.record.mock.calls.map((c) => c[0])).toEqual([
-      {
-        id: "github:ci.main:7",
-        source: "github",
-        kind: "ci.main",
-        occurredAt: T,
-        outcome: "success",
-      },
-      {
-        id: "github:ci.main:8",
-        source: "github",
-        kind: "ci.main",
-        occurredAt: T,
-        outcome: "failure",
-      },
-    ]);
+    expect(fake.record.mock.calls.map((c) => c[0])).toEqual(CI_RECORDS);
   });
 
   it("judges a re-run by its first attempt, so a failure re-run to success still counts", async () => {
-    const { fake, poll } = setupSignals();
+    const { fake, poll } = setup();
     runs([{ databaseId: 9, conclusion: "success", updatedAt: T, attempt: 2 }]);
     vi.mocked(json).mockResolvedValue({
       conclusion: "failure",
@@ -177,7 +190,7 @@ describe("pollSignals: CI runs, judged", () => {
   });
 
   it("does not look at a run it already holds", async () => {
-    const { fake, poll } = setupSignals([
+    const { fake, poll } = setup([
       signal("ci.main", "github:ci.main:7", `${T}.000Z`),
     ]);
     runs([{ databaseId: 7, conclusion: "success", updatedAt: T, attempt: 1 }]);
@@ -186,7 +199,7 @@ describe("pollSignals: CI runs, judged", () => {
   });
 
   it("returns the message when a first attempt cannot be read", async () => {
-    const { poll } = setupSignals();
+    const { poll } = setup();
     runs([{ databaseId: 9, conclusion: "success", updatedAt: T, attempt: 2 }]);
     vi.mocked(json).mockResolvedValue("gh api run attempt failed");
     expect(await poll()).toEqual({
@@ -198,24 +211,8 @@ describe("pollSignals: CI runs, judged", () => {
 
 describe("pollSignals: reverts on main", () => {
   it("records a commit that reverts another, by its subject or its body", async () => {
-    const { fake, poll } = setupSignals();
-    vi.mocked(pages).mockResolvedValue([
-      {
-        sha: "abc1234",
-        commit: { message: 'Revert "feat: x"', committer: { date: T } },
-      },
-      {
-        sha: "def5678",
-        commit: {
-          message: "fix\n\nThis reverts commit 1234567.",
-          committer: { date: T },
-        },
-      },
-      {
-        sha: "0123456",
-        commit: { message: "feat: y", committer: { date: T } },
-      },
-    ]);
+    const { fake, poll } = setup();
+    vi.mocked(pages).mockResolvedValue(REVERT_COMMITS);
     await poll();
     expect(vi.mocked(pages).mock.calls[0]?.[2]).toBe(
       "repos/corekraft/kore/commits?sha=main",
@@ -227,7 +224,7 @@ describe("pollSignals: reverts on main", () => {
   });
 
   it("ignores a commit whose id is not hex, or that has no time", async () => {
-    const { fake, poll } = setupSignals();
+    const { fake, poll } = setup();
     vi.mocked(pages).mockResolvedValue([
       {
         sha: "XYZ1234",
@@ -240,7 +237,7 @@ describe("pollSignals: reverts on main", () => {
   });
 
   it("returns the message of a commit listing that failed", async () => {
-    const { poll } = setupSignals();
+    const { poll } = setup();
     vi.mocked(pages).mockResolvedValue("gh api commits failed");
     expect(await poll()).toEqual({
       ok: false,
@@ -249,18 +246,10 @@ describe("pollSignals: reverts on main", () => {
   });
 });
 
-describe("pollSignals: the owner's actions and recording", () => {
+describe("pollSignals: the owner's actions", () => {
   it("records the owner's actions that GitHub reports", async () => {
-    const { fake, poll } = setupSignals();
-    vi.mocked(fromActions).mockResolvedValue([
-      {
-        id: "github:owner.action:comment:5",
-        source: "github",
-        kind: "owner.action",
-        occurredAt: T,
-        number: 7,
-      },
-    ]);
+    const { fake, poll } = setup();
+    vi.mocked(fromActions).mockResolvedValue(OWNER_ACTIONS.slice(0, 1));
     await poll();
     expect(fake.record.mock.calls.map((c) => c[0].kind)).toEqual([
       "owner.action",
@@ -268,7 +257,7 @@ describe("pollSignals: the owner's actions and recording", () => {
   });
 
   it("returns the message when the owner's actions cannot be read, and records nothing", async () => {
-    const { fake, poll } = setupSignals();
+    const { fake, poll } = setup();
     vi.mocked(fromActions).mockResolvedValue("gh api issues/comments failed");
     expect(await poll()).toEqual({
       ok: false,
@@ -276,27 +265,14 @@ describe("pollSignals: the owner's actions and recording", () => {
     });
     expect(fake.record).not.toHaveBeenCalled();
   });
+});
 
+describe("pollSignals: recording", () => {
   it("records in time order, skipping what the ledger holds", async () => {
-    const { fake, poll } = setupSignals([
+    const { fake, poll } = setup([
       signal("owner.action", "github:owner.action:comment:5", `${T}.000Z`),
     ]);
-    vi.mocked(fromActions).mockResolvedValue([
-      {
-        id: "github:owner.action:comment:5",
-        source: "github",
-        kind: "owner.action",
-        occurredAt: T,
-        number: 7,
-      },
-      {
-        id: "github:owner.action:review:6",
-        source: "github",
-        kind: "owner.action",
-        occurredAt: "2026-02-11T00:00:00Z",
-        number: 7,
-      },
-    ]);
+    vi.mocked(fromActions).mockResolvedValue(OWNER_ACTIONS);
     runs([
       {
         databaseId: 3,
@@ -314,7 +290,7 @@ describe("pollSignals: the owner's actions and recording", () => {
   });
 
   it("stops at the first record the ledger refuses, and returns its message", async () => {
-    const { fake, poll } = setupSignals();
+    const { fake, poll } = setup();
     runs([{ databaseId: 7, conclusion: "success", updatedAt: T, attempt: 1 }]);
     fake.record.mockResolvedValue({ ok: false, field: "kind", message: "no" });
     expect(await poll()).toEqual({ ok: false, message: "no" });

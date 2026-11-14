@@ -4,10 +4,11 @@ import { rateLimited } from "./github-poll.js";
 import { isTimestamp } from "./schema.js";
 import { asRecord, count, json, list, pages, when } from "./github-gh.js";
 
-vi.mock("./schema.js");
-vi.mock("./github-poll.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./github-poll.js")>()),
-  rateLimited: vi.fn<typeof rateLimited>(),
+vi.mock("./schema.js", () => ({ isTimestamp: vi.fn() }));
+// A plain factory. RATE_LIMITED is a constant github-gh.ts reads, so it stays real here.
+vi.mock("./github-poll.js", () => ({
+  RATE_LIMITED: /rate limit|HTTP 403|HTTP 429/i,
+  rateLimited: vi.fn(),
 }));
 
 beforeEach(() => {

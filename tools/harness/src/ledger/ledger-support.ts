@@ -10,7 +10,7 @@ import type {
   Runner,
 } from "../runtime/index.js";
 import type { Ledger, RecordResult } from "./ledger.js";
-import type { EventInput } from "./schema.js";
+import type { EventInput, LedgerEvent } from "./schema.js";
 
 export const PATH = "/repo/.kore/state/ledger.jsonl";
 export const NOW = "2026-01-02T03:00:00.000Z";
@@ -71,6 +71,16 @@ export function fakeLedger(): FakeLedger {
   const record = vi.fn<(input: EventInput) => Promise<RecordResult>>();
   const ledger = { path: PATH, list, record } as unknown as Ledger;
   return { ledger, list, record };
+}
+
+/** Makes a fake's `record` accept every input, as the real ledger does, and return the stored event. */
+export function recordsEverything(record: FakeLedger["record"]) {
+  record.mockImplementation((input) =>
+    Promise.resolve({
+      ok: true,
+      event: { ...input, schema: 1, recordedAt: NOW } as LedgerEvent,
+    }),
+  );
 }
 
 export const ok = (stdout: string): RunResult => ({

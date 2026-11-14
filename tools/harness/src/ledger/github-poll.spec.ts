@@ -1,22 +1,59 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { PATH } from "./ledger-support.js";
+import {
+  PATH,
+  fakeClock,
+  fakeFileSystem,
+  fakeLedger,
+  fakeRunner,
+  recordsEverything,
+} from "./ledger-support.js";
 import {
   ISSUE,
+  ISSUE_CALLS,
+  ISSUE_LIST_ARGS,
+  LABEL_CALLS,
+  LABEL_EVENT,
   PR,
-  eventReads,
+  PR_CALLS,
+  answerGh,
   heldLock,
   known,
-  setup,
+  type Gh,
 } from "./github-poll-support.js";
 import { acquire } from "./poll-lock.js";
 import { isTimestamp } from "./schema.js";
+import { pollGithub } from "./github-poll.js";
 
 // Factories, not automocks: an automock loads the real module, which the budget charges to each test.
 vi.mock("./poll-lock.js", () => ({ acquire: vi.fn() }));
 vi.mock("./schema.js", () => ({ isTimestamp: vi.fn() }));
 
 const REPO = "corekraft/kore";
-const RESET = 1769904000; // 2026-02-01T00:00:00.000Z
+
+/** One poll over fakes; `since` is passed only when the test gives one. */
+function setup(gh: Gh, since?: string) {
+  const runner = fakeRunner();
+  answerGh(runner, gh);
+  const { ledger, list, record } = fakeLedger();
+  list.mockResolvedValue({ events: [], skipped: 0 });
+  recordsEverything(record);
+  const fs = fakeFileSystem();
+  const clock = fakeClock();
+  const poll = () =>
+    pollGithub({
+      ledger,
+      runner,
+      clock,
+      fs,
+      repo: REPO,
+      ...(since === undefined ? {} : { since }),
+    });
+  return { runner, fake: { list, record }, fs, clock, poll };
+}
+
+/** The label-event listings that were read, by their gh call. */
+const eventReads = (runner: ReturnType<typeof fakeRunner>) =>
+  runner.run.mock.calls.filter((c) => c[1].join(" ").includes("issues/events"));
 
 beforeEach(() => {
   vi.mocked(isTimestamp).mockReturnValue(true);
@@ -27,9 +64,7 @@ describe("pollGithub: the lock", () => {
   it("polls under the ledger's lock file, beside the ledger", async () => {
     const { fs, clock, poll } = setup({});
     await poll();
-    expect(vi.mocked(acquire).mock.calls).toEqual([
-      [fs, clock, `${PATH}.lock`],
-    ]);
+    expect(vi.mocked(acquire)).toHaveBeenCalledWith(fs, clock, `${PATH}.lock`);
   });
 
   it("reports busy, and asks GitHub and records nothing, when another poll holds the lock", async () => {
@@ -69,20 +104,7 @@ describe("pollGithub: what it asks GitHub for", () => {
       skipped: 0,
     });
     await poll();
-    expect(runner.run.mock.calls[0]?.[1]).toEqual([
-      "issue",
-      "list",
-      "--repo",
-      REPO,
-      "--state",
-      "all",
-      "--limit",
-      "1000",
-      "--search",
-      "updated:>=2026-01-12",
-      "--json",
-      "number,createdAt,closedAt",
-    ]);
+    expect(runner.run.mock.calls[0]?.[1]).toEqual(ISSUE_LIST_ARGS);
   });
 
   it("uses the since it is given, over the latest recorded event", async () => {
@@ -94,24 +116,18 @@ describe("pollGithub: what it asks GitHub for", () => {
 
 describe("pollGithub: how far back it reads label events", () => {
   it("reads at most three pages of label events", async () => {
-    const page = Array.from({ length: 100 }, (_, i) => ({
-      id: i,
-      event: "other",
-    }));
+    const page = Array.from({ length: 100 }, () => ({ event: "other" }));
     const { runner, poll } = setup({ events: [page, page, page, page] });
     await poll();
     expect(eventReads(runner)).toHaveLength(3);
   });
 
   it("stops reading event pages once one reaches back before since", async () => {
-    const newer = Array.from({ length: 100 }, (_, i) => ({
-      id: i,
+    const newer = Array.from({ length: 100 }, () => ({
       event: "other",
       created_at: "2026-02-05T00:00:00Z",
     }));
-    const older = [
-      { id: 500, event: "other", created_at: "2026-01-01T00:00:00Z" },
-    ];
+    const older = [{ event: "other", created_at: "2026-01-01T00:00:00Z" }];
     const { runner, poll } = setup(
       { events: [newer, older, newer] },
       "2026-02-01T00:00:00Z",
@@ -125,80 +141,21 @@ describe("pollGithub: what it records", () => {
   it("records an issue as opened and then closed, in time order, with its number only", async () => {
     const { fake, poll } = setup({ issues: [ISSUE] });
     await poll();
-    expect(fake.record.mock.calls).toEqual([
-      [
-        {
-          id: "github:issue.opened:7",
-          source: "github",
-          kind: "issue.opened",
-          occurredAt: "2026-01-05T00:00:00Z",
-          number: 7,
-        },
-      ],
-      [
-        {
-          id: "github:issue.closed:7",
-          source: "github",
-          kind: "issue.closed",
-          occurredAt: "2026-01-09T00:00:00Z",
-          number: 7,
-        },
-      ],
-    ]);
+    expect(fake.record.mock.calls).toEqual(ISSUE_CALLS);
   });
 
   it("records a pull request as opened and merged, under the issue it closes", async () => {
     const { fake, poll } = setup({ prs: [PR] });
     await poll();
-    expect(fake.record.mock.calls.map((c) => c[0])).toEqual([
-      {
-        id: "github:pr.opened:9",
-        source: "github",
-        kind: "pr.opened",
-        occurredAt: "2026-01-06T00:00:00Z",
-        number: 9,
-        idea: "#7",
-      },
-      {
-        id: "github:pr.merged:9",
-        source: "github",
-        kind: "pr.merged",
-        occurredAt: "2026-01-08T00:00:00Z",
-        number: 9,
-        idea: "#7",
-      },
-    ]);
+    expect(fake.record.mock.calls).toEqual(PR_CALLS);
   });
 });
 
 describe("pollGithub: what it records from label events", () => {
   it("records a label event with its label name", async () => {
-    const { fake, poll } = setup({
-      events: [
-        [
-          {
-            id: 4,
-            event: "labeled",
-            created_at: "2026-01-07T00:00:00Z",
-            label: { name: "bug" },
-            issue: { number: 7 },
-          },
-        ],
-      ],
-    });
+    const { fake, poll } = setup({ events: LABEL_EVENT });
     await poll();
-    expect(fake.record.mock.calls).toEqual([
-      [
-        {
-          id: "github:issue.labelled:4",
-          source: "github",
-          kind: "issue.labelled",
-          occurredAt: "2026-01-07T00:00:00Z",
-          number: 7,
-          label: "bug",
-        },
-      ],
-    ]);
+    expect(fake.record.mock.calls).toEqual(LABEL_CALLS);
   });
 });
 
@@ -267,7 +224,7 @@ describe("pollGithub: a gh call that fails", () => {
   it("answers a rate limit with the time it resets", async () => {
     const { poll } = setup({
       failure: { code: 1, stderr: "API rate limit exceeded" },
-      rateLimit: JSON.stringify({ resources: { core: { reset: RESET } } }),
+      rateLimit: '{"resources":{"core":{"reset":1769904000}}}', // 2026-02-01T00:00:00Z
     });
     expect(await poll()).toEqual({
       ok: false,
@@ -287,10 +244,7 @@ describe("pollGithub: a gh call that fails", () => {
 
   it("refuses a full issue listing, since some may be missing", async () => {
     const { poll } = setup({
-      issues: Array.from({ length: 1000 }, (_, i) => ({
-        ...ISSUE,
-        number: i + 1,
-      })),
+      issues: Array.from({ length: 1000 }, () => ISSUE),
     });
     expect(await poll()).toEqual({
       ok: false,

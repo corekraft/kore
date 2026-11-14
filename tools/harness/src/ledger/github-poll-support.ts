@@ -1,21 +1,10 @@
-// Fixtures and fakes for the github-poll unit spec: what `gh` answers, the
-// lock a poll holds, the canned GitHub items, and one poll over fakes. Only
-// that spec uses them, so they stay beside it (ADR 0098).
+// Fakes and data for the github-poll unit spec: what `gh` answers, the lock a
+// poll holds, a recorded event, the canned GitHub items, and what a poll
+// should record for them. Only that spec uses them, so they stay beside it
+// (ADR 0098). No unit is imported here.
 import { vi } from "vitest";
-import {
-  NOW,
-  fakeClock,
-  fakeFileSystem,
-  fakeLedger,
-  fakeRunner,
-  failed,
-  ok,
-  type FakeRunner,
-} from "./ledger-support.js";
+import { failed, ok, type FakeRunner } from "./ledger-support.js";
 import type { LedgerEvent } from "./schema.js";
-import { pollGithub } from "./github-poll.js";
-
-const REPO = "corekraft/kore";
 
 /** What `gh` answers: a list per call, the events one page at a time, or a failure. */
 export interface Gh {
@@ -85,32 +74,90 @@ export const PR = {
   body: "secret body",
 };
 
-/** One poll over fakes; `since` is passed only when the test gives one. */
-export function setup(gh: Gh, since?: string) {
-  const runner = fakeRunner();
-  answerGh(runner, gh);
-  const fake = fakeLedger();
-  fake.list.mockResolvedValue({ events: [], skipped: 0 });
-  fake.record.mockImplementation((input) =>
-    Promise.resolve({
-      ok: true,
-      event: { ...input, schema: 1, recordedAt: NOW } as LedgerEvent,
-    }),
-  );
-  const fs = fakeFileSystem();
-  const clock = fakeClock();
-  const poll = () =>
-    pollGithub({
-      ledger: fake.ledger,
-      runner,
-      clock,
-      fs,
-      repo: REPO,
-      ...(since === undefined ? {} : { since }),
-    });
-  return { runner, fake, fs, clock, poll };
-}
+/** The `record` calls a poll makes for ISSUE: opened, then closed. */
+export const ISSUE_CALLS = [
+  [
+    {
+      id: "github:issue.opened:7",
+      source: "github",
+      kind: "issue.opened",
+      occurredAt: "2026-01-05T00:00:00Z",
+      number: 7,
+    },
+  ],
+  [
+    {
+      id: "github:issue.closed:7",
+      source: "github",
+      kind: "issue.closed",
+      occurredAt: "2026-01-09T00:00:00Z",
+      number: 7,
+    },
+  ],
+];
 
-/** The label-event listings that were read, by their gh call. */
-export const eventReads = (runner: FakeRunner) =>
-  runner.run.mock.calls.filter((c) => c[1].join(" ").includes("issues/events"));
+/** The `record` calls a poll makes for PR: opened, then merged, under the issue it closes. */
+export const PR_CALLS = [
+  [
+    {
+      id: "github:pr.opened:9",
+      source: "github",
+      kind: "pr.opened",
+      occurredAt: "2026-01-06T00:00:00Z",
+      number: 9,
+      idea: "#7",
+    },
+  ],
+  [
+    {
+      id: "github:pr.merged:9",
+      source: "github",
+      kind: "pr.merged",
+      occurredAt: "2026-01-08T00:00:00Z",
+      number: 9,
+      idea: "#7",
+    },
+  ],
+];
+
+/** The label event a poll records from `LABEL_EVENT`. */
+export const LABEL_EVENT = [
+  [
+    {
+      id: 4,
+      event: "labeled",
+      created_at: "2026-01-07T00:00:00Z",
+      label: { name: "bug" },
+      issue: { number: 7 },
+    },
+  ],
+];
+
+export const LABEL_CALLS = [
+  [
+    {
+      id: "github:issue.labelled:4",
+      source: "github",
+      kind: "issue.labelled",
+      occurredAt: "2026-01-07T00:00:00Z",
+      number: 7,
+      label: "bug",
+    },
+  ],
+];
+
+/** The `gh issue list` arguments a poll asks for when the latest signal is on 2026-01-12. */
+export const ISSUE_LIST_ARGS = [
+  "issue",
+  "list",
+  "--repo",
+  "corekraft/kore",
+  "--state",
+  "all",
+  "--limit",
+  "1000",
+  "--search",
+  "updated:>=2026-01-12",
+  "--json",
+  "number,createdAt,closedAt",
+];

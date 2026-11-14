@@ -5,7 +5,6 @@ import {
   labelled,
   PATH,
   pr,
-  REPO,
   setup,
 } from "./github-poll-support.js";
 
@@ -138,7 +137,7 @@ describe("pollGithub idempotence and --since", () => {
     for (const call of t.runner.calls) {
       expect(call.command).toBe("gh");
       expect(call.args.join(" ")).toMatch(
-        new RegExp(`--repo ${REPO}|repos/${REPO}/`),
+        new RegExp("--repo corekraft/kore|repos/corekraft/kore/"),
       );
     }
   });

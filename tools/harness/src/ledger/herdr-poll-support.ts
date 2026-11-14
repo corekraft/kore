@@ -1,17 +1,8 @@
-// Fixtures and fakes for the herdr-poll unit spec: what `herdr agent list`
-// prints, a recorded pane event, and one poll over fakes. Only that spec uses
-// them, so they stay beside it (ADR 0098).
-import {
-  NOW,
-  fakeClock,
-  fakeFileSystem,
-  fakeLedger,
-  fakeRunner,
-  ok,
-  type FakeRunner,
-} from "./ledger-support.js";
+// Fakes and data for the herdr-poll unit spec: what `herdr agent list` prints,
+// a recorded pane event, and what a poll should record for a new agent. Only
+// that spec uses them, so they stay beside it (ADR 0098). No unit is imported.
+import { NOW } from "./ledger-support.js";
 import type { LedgerEvent } from "./schema.js";
-import { pollHerdr } from "./herdr-poll.js";
 
 export interface Agent {
   pane_id: string;
@@ -45,34 +36,23 @@ export const paneEvent = (kind: string, pane: string, agent?: string) =>
     recordedAt: NOW,
   }) as LedgerEvent;
 
-/** The herdr runner answers `agents`, and the ledger holds `events`. */
-export function setupHerdr(agents: unknown[] = [], events: LedgerEvent[] = []) {
-  const runner: FakeRunner = fakeRunner();
-  runner.run.mockResolvedValue(ok(listing(agents)));
-  return setupWith(runner, events);
-}
-
-/** The same poll, with the runner answering `stdout` as it is printed. */
-export function setupRaw(stdout: string, code = 0, stderr = "") {
-  const runner: FakeRunner = fakeRunner();
-  runner.run.mockResolvedValue({ stdout, stderr, code });
-  return setupWith(runner, []);
-}
-
-function setupWith(runner: FakeRunner, events: LedgerEvent[]) {
-  const fake = fakeLedger();
-  fake.list.mockResolvedValue({ events, skipped: 0 });
-  fake.record.mockImplementation((input) =>
-    Promise.resolve({
-      ok: true,
-      event: { ...input, schema: 1, recordedAt: NOW } as LedgerEvent,
-    }),
-  );
-  const fs = fakeFileSystem();
-  const clock = fakeClock();
-  const poll = () => pollHerdr({ ledger: fake.ledger, runner, clock, fs });
-  return { runner, fake, fs, clock, poll };
-}
+/** `writer` first seen: spawned, then its status, all at NOW. */
+export const SPAWN_AND_BUSY = [
+  {
+    source: "herdr",
+    kind: "pane.spawned",
+    occurredAt: NOW,
+    pane: "w3:p74",
+    agent: "writer",
+  },
+  {
+    source: "herdr",
+    kind: "pane.busy",
+    occurredAt: NOW,
+    pane: "w3:p74",
+    agent: "writer",
+  },
+];
 
 /** `isName`, stubbed: a non-empty string is a name the ledger accepts. */
 export const isNameStub = (value: unknown) =>
