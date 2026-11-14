@@ -1,6 +1,6 @@
 ---
 status: active
-summary: Deliver the vision's Next horizon, services as first-class objects delivered from git that scale, in seven steps from accepting the Next ADRs to an outcome against every Next "Done when" clause; it starts only after plan 14 Step 4 merges and the Now footprint baseline is recorded.
+summary: Deliver the vision's Next horizon, services as first-class objects delivered from git that scale, in seven steps from accepting the Next ADRs to an outcome against every Next "Done when" clause; it starts now: the owner waived both start gates (plan 14 Step 4 merging, the Now footprint baseline) on 2026-11-14 and took them as debt #659.
 last-verified: 2026-11-14
 ---
 
@@ -15,14 +15,18 @@ delivers it: plan 2 covers Now, and plans 3–14 are harness, k3d, agentgateway
 and test work. This plan gives Next ordered steps, exit criteria and an
 outcome. Terms follow [`GLOSSARY.md`](../../GLOSSARY.md). Tracking issue: #616.
 
-**Start gates.** No step's work begins until both hold:
+**Start gates waived.** Two start gates were set: plan 14 Step 4 merged, and
+the Now footprint baseline recorded (#614). On 2026-11-14 the owner waived both
+and took them as debt, filed as #659; no step is blocked on either.
 
-1. **Plan 14 Step 4 has merged.** Its feature pause lifts then
-   ([plan 14](14-test-tiers.md)).
-2. **The Now footprint baseline is recorded** (#614). Vision-grill Q1 requires
-   it first, so the components Next adds are weighed against a measured budget,
-   the way [plan 9](9-k3d-local-cluster.md)'s Machine load section measured the
-   machine.
+1. **Plan 14 Step 4.** Its #405 live responsiveness run is owed as debt (#659).
+   The default of two workers shipped in #598.
+2. **The Now footprint baseline** (#614). Vision-grill Q1 wanted it first, so
+   the components Next adds are weighed against a measured budget, the way
+   [plan 9](9-k3d-local-cluster.md)'s Machine load section measured the
+   machine. Until the baseline is recorded, Step 1 weighs ADRs 0040 and 0041
+   against no measured budget. The headroom threshold is still the owner's
+   call.
 
 The Next ADRs stay `proposed` until Step 1 accepts them (vision-grill Q2).
 Every cluster-facing step declares a safety pattern and keeps its flag off
@@ -63,10 +67,10 @@ and is not part of Next.
 
 ## Step 1: Accept the Next ADRs
 
+Next: Split ADR 0041's Next part into its own ADR (first Work item), then run the footprint check as far as possible without a baseline (#659), then accept the Next ADRs through write-adr.
+
 Safety pattern: `no-behaviour-change` (documentation only). Accepting an ADR
 changes no cluster resource.
-
-Next: Wait for both start gates (plan 14 Step 4 merged, #614 baseline recorded). Then split ADR 0041's Next part into its own ADR (first Work item), check the footprint, and accept the Next ADRs through write-adr.
 
 ### Work
 

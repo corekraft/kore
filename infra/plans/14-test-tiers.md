@@ -21,7 +21,7 @@ the terms are in [`GLOSSARY.md`](../../GLOSSARY.md) (Testing). Tracking issue:
 
 ## Step 1: Foundations
 
-Next: Waiting only on the owner or a run, each stated on its issue and rolled up on #371: #372 (one green nightly after the live rename), #373 (owner adds 'integration' as a required check on main's ruleset; one green integration run on main), #405 (owner picks the worker-cap default; a live responsiveness run), #419 (already built in #464; one workflow_dispatch run). #404 is closed on recorded main runs. Unit-run budget is 2 min (ADR 0106). Open retro items and their reasons are on #417 and the issues themselves; no agent work is owed.
+Next: Waiting only on the owner or a run, each stated on its issue and rolled up on #371: #372 (one green nightly after the live rename), #373 (owner adds 'integration' as a required check on main's ruleset; one green integration run on main), #419 (already built in #464; one workflow_dispatch run). #404 is closed on recorded main runs. Unit-run budget is 2 min (ADR 0106). Open retro items and their reasons are on #417 and the issues themselves; no agent work is owed.
 
 ### Work
 
@@ -81,9 +81,9 @@ split into batches of about 15 source files.
 - [x] Run integration tests after every merge and gate the release tag on
       them (#404). Merged in #572 (ADR 0105); the proof is recorded on #404
       (closed 2026-11-14 on real main release runs, not a dispatch).
-- [ ] Measure and raise the unit test worker cap (#405). Measurements are
-      recorded on #405; waiting on the owner's number and a live
-      responsiveness run.
+- [x] Measure and raise the unit test worker cap (#405). Measurements are
+      recorded on #405; the default of two shipped in #598, and the live
+      responsiveness run is waived by the owner on 2026-11-14 as debt #659.
 - [x] Remove the `paused` label from the frozen issues and pull requests, and
       the pause from the `Next:` lines of plans 2, 11, 12 and 13. The `Next:`
       lines are done in this PR; the label removal is done by the orchestrator

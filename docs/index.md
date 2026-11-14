@@ -74,8 +74,8 @@ repository root; `mise run kb-check` keeps this list complete.
   writing or moving a test.
 - [`infra/plans/15-next-horizon.md`](../infra/plans/15-next-horizon.md) —
   active: the Next horizon, services as first-class objects delivered from git
-  that scale; starts after plan 14 Step 4 merges and the Now footprint baseline
-  is recorded. Read before planning `Organization`, `Service`, autoscaling,
+  that scale; starts with both start gates (plan 14 Step 4, the Now footprint
+  baseline) waived by the owner as debt #659. Read before planning `Organization`, `Service`, autoscaling,
   golden-path templates, platform Argo CD delivery, or the platform Keycloak and
   Backstage.
 
