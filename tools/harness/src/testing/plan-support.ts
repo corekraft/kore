@@ -1,9 +1,12 @@
 import type { CliDeps } from "../runtime/index.js";
-import { FakeRunner } from "../testing/index.js";
+import { FakeRunner } from "./runner-support.js";
 
-export const ROOT = "/repo";
+const ROOT = "/repo";
 
-/** An in-memory repository holding plan files; writes land back in `files`. */
+/**
+ * An in-memory repository holding plan files; writes land back in `files`.
+ * Integration specs run the real plan commands through it.
+ */
 export function planHarness(files: Record<string, string>) {
   const out: string[] = [];
   const err: string[] = [];
@@ -65,3 +68,44 @@ export function planHarness(files: Record<string, string>) {
 
 export const activePlan = (body: string) =>
   `---\nstatus: active\nsummary: s\nlast-verified: 2026-11-11\n---\n\n${body}`;
+
+/** The plan file the tick specs write, and its body: one open item per list entry, with totals. */
+export const TICK_PLAN_FILE = "infra/plans/2-a.md";
+
+export const TICK_BODY = `## Step 1: Alpha
+
+- [ ] Wire the alpha gate
+- [ ] Prove the beta path
+      across two lines
+- [x] Done already
+
+## Step 2: Beta
+
+- [ ] Ship the gamma release
+
+## Where each open item can be done
+
+Every item sits in one class (as of 2026-11-09: 2 local, 1 managed
+cluster, 1 release pipeline).
+
+### Local
+
+- Step 1 (2): Wire the alpha gate (offline only); Prove the beta path
+  across two lines.
+
+### Managed cluster
+
+- Step 2 (1): Ship the gamma release.
+
+### Release pipeline and repository settings
+
+- Step 1 (1): Tag it.
+
+## Step 3: After
+
+- [ ] Later
+`;
+
+export function tickPlan(body = TICK_BODY) {
+  return planHarness({ [TICK_PLAN_FILE]: activePlan(body) });
+}

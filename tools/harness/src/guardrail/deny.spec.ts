@@ -1,11 +1,12 @@
-import { existsSync, readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
-import { GuardrailError, parseInventory } from "./inventory.js";
-import { denyDrift, denyList, denyMatches, settingsWithDeny } from "./deny.js";
-import { committedInventory } from "../testing/index.js";
+// The deny unit: the generated settings deny list, its drift check, and pattern
+// matching. Inventories are typed literals, so the parser is not a collaborator.
+// Docs: infra/plans/14-test-tiers.md#step-1-foundations
 
-const repo = new URL("../../../../", import.meta.url).pathname;
-const rule = (over: Record<string, unknown> = {}) => ({
+import { describe, expect, it } from "vitest";
+import type { Guardrail, Inventory } from "./inventory.js";
+import { denyDrift, denyList, denyMatches, settingsWithDeny } from "./deny.js";
+
+const rule = (over: Partial<Guardrail> = {}): Guardrail => ({
   rule: "deny-x",
   kind: "bash",
   mode: "enforce",
@@ -13,26 +14,7 @@ const rule = (over: Record<string, unknown> = {}) => ({
   deny: ["Bash(x:*)"],
   ...over,
 });
-const inventory = (...rules: unknown[]) =>
-  parseInventory(JSON.stringify({ guardrails: rules }));
-
-// Today's deny list, written out so a regeneration cannot quietly change it.
-const TODAY = [
-  "Bash(k3d cluster delete:*)",
-  "Bash(k3d * cluster delete*)",
-  "Bash(k3d cluster * delete*)",
-  "Bash(tofu destroy:*)",
-  "Bash(terraform destroy:*)",
-  "Bash(helm uninstall:*)",
-  "Bash(kubectl delete namespace:*)",
-  "Bash(kubectl delete ns:*)",
-  "Bash(kore * destroy)",
-  "Bash(kore * destroy *)",
-  "Bash(./bin/kore * destroy)",
-  "Bash(./bin/kore * destroy *)",
-  "Read(./.kore/keys/**)",
-  "Read(./.kore/state/*token*)",
-];
+const inventory = (...guardrails: Guardrail[]): Inventory => ({ guardrails });
 
 describe("the generated deny list", () => {
   it("holds only rules in enforce mode", () => {
@@ -43,17 +25,12 @@ describe("the generated deny list", () => {
     expect(denyList(inv)).toEqual(["Bash(x:*)"]);
   });
 
-  it("equals today's list, and the committed settings deny it exactly", () => {
-    expect(denyList(committedInventory)).toEqual(TODAY);
-    const settings = JSON.parse(
-      readFileSync(`${repo}.claude/settings.json`, "utf8"),
+  it("lists the patterns of every enforced rule, in inventory order", () => {
+    const inv = inventory(
+      rule({ deny: ["Bash(a:*)", "Bash(b:*)"] }),
+      rule({ rule: "deny-z", deny: ["Read(./z/**)"], kind: "file" }),
     );
-    expect(settings.permissions.deny).toEqual(TODAY);
-    expect(
-      committedInventory.guardrails
-        .filter((g) => g.deny !== undefined)
-        .every((g) => g.mode === "enforce"),
-    ).toBe(true);
+    expect(denyList(inv)).toEqual(["Bash(a:*)", "Bash(b:*)", "Read(./z/**)"]);
   });
 
   it("is rewritten into settings without touching any other key", () => {
@@ -66,32 +43,6 @@ describe("the generated deny list", () => {
       permissions: { allow: ["Bash(ls)"], deny: ["Bash(x:*)"] },
       hooks: {},
     });
-  });
-});
-
-describe("the committed deny rules", () => {
-  it("name the module that generates them as their owner, and it exists", () => {
-    for (const g of committedInventory.guardrails.filter((r) => r.deny)) {
-      expect(g.owner).toBe("tools/harness/src/guardrail/deny.ts");
-      expect(existsSync(`${repo}${g.owner}`)).toBe(true);
-    }
-  });
-});
-
-describe("deny rules in the inventory", () => {
-  it.each([
-    ["an empty deny list", rule({ deny: [] }), /deny/],
-    ["a pattern that is not a permission rule", rule({ deny: ["x"] }), /deny/],
-    ["a Bash pattern on a file rule", rule({ kind: "file" }), /kind/],
-    ["a Read pattern on a bash rule", rule({ deny: ["Read(a)"] }), /kind/],
-    [
-      "a mid-pattern wildcard with a trailing :*",
-      rule({ deny: ["Bash(k3d * cluster:*)"] }),
-      /:\*/,
-    ],
-  ])("rejects %s", (_, bad, message) => {
-    expect(() => inventory(bad)).toThrow(GuardrailError);
-    expect(() => inventory(bad)).toThrow(message);
   });
 });
 
@@ -120,6 +71,12 @@ describe("hand-editing the generated list", () => {
     const two = inventory(rule({ deny: ["Bash(x:*)", "Bash(y:*)"] }));
     expect(denyDrift(two, settings(["Bash(y:*)", "Bash(x:*)"]))).toEqual([
       expect.stringMatching(/order/),
+    ]);
+  });
+
+  it("treats settings with no permissions key as an empty deny list", () => {
+    expect(denyDrift(inv, JSON.stringify({ hooks: {} }))).toEqual([
+      expect.stringMatching(/Bash\(x:\*\).*missing/),
     ]);
   });
 });

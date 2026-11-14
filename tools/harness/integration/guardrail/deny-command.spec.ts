@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { run } from "../cli/index.js";
-import { testHarness } from "../testing/index.js";
-import { INVENTORY_PATH } from "./index.js";
-import { denyList } from "./deny.js";
+// The guardrail deny command through the real cli and the real inventory: real units
+// together, so an integration spec (moved from the unit specs, not deleted).
+import { run } from "../../src/cli/index.js";
 import {
   committedInventory,
   committedInventoryText,
-} from "../testing/index.js";
+  testHarness,
+} from "../../src/testing/index.js";
+import { INVENTORY_PATH, denyList } from "../../src/guardrail/index.js";
 
 const SETTINGS = "/repo/.claude/settings.json";
 const settings = (deny: string[]) =>
