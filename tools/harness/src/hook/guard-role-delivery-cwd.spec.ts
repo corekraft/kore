@@ -119,6 +119,13 @@ describe("checkDeliveryBash: relative paths resolve from the hook's directory", 
     });
   });
 
+  it("judges a relative hook directory from the worktree root", () => {
+    expect(bash("cd ../..", "tools/harness")).toMatchObject({
+      rule: "role-worktree",
+    });
+    expect(bash("cd tools", "tools/harness")).toBeNull();
+  });
+
   it("resolves from the worktree root when no directory is given", () => {
     expect(bash("cd ..")).toMatchObject({ rule: "role-worktree" });
     expect(bash("cd tools")).toBeNull();

@@ -210,7 +210,8 @@ function leavesWorktree(
   root: string,
   cwd: string,
 ): readonly string[] | undefined {
-  let dir = cwd;
+  // A relative directory would resolve against the hook process's own, so it counts as the root.
+  let dir = isAbsolute(cwd) ? cwd : root;
   for (const segment of segments) {
     if (escapes(segment, root, dir) !== undefined) {
       return segment;
