@@ -1,19 +1,29 @@
 // Docs: docs/decisions/0056-platform-image-inventory.md (ADR 0056, enrollment exemptions)
 import { expect, test } from "vitest";
 import { enrollmentExemptionErrors } from "./enrollment.js";
-import type { Repository } from "./types.js";
+import type { Environment, Repository } from "./types.js";
+import {
+  fakeCatalog,
+  fakeComponent,
+  fakeEnvironment,
+  fakeRepository,
+} from "./config-support.js";
 
-/** A repository with only the fields the exemption check reads. */
+/** A repository whose catalog manages the given namespaces and whose overlay exempts the given ones. */
 function repositoryWith(
-  exemptions: Record<string, unknown> | undefined,
+  exemptions: Environment["enrollmentExemptions"] | undefined,
   namespaces: string[] = ["kore-system", "observability"],
 ): Repository {
-  return {
-    catalog: {
-      components: namespaces.map((namespace) => ({ namespace })),
-    },
-    environment: { enrollmentExemptions: exemptions },
-  } as unknown as Repository;
+  return fakeRepository({
+    catalog: fakeCatalog(
+      namespaces.map((namespace) =>
+        fakeComponent({ name: namespace, namespace }),
+      ),
+    ),
+    environment: fakeEnvironment(
+      exemptions === undefined ? {} : { enrollmentExemptions: exemptions },
+    ),
+  });
 }
 
 test("an environment with no exemptions has no enrollment errors", () => {

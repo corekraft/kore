@@ -8,13 +8,16 @@ import { orderedComponents, readinessErrors } from "./order.js";
 import { policyErrors } from "./policy-validation.js";
 import { registryAddressErrors } from "./registry-address.js";
 import { validateRepository } from "./validate.js";
-import type {
-  Catalog,
-  Component,
-  Environment,
-  Repository,
-  Versions,
-} from "./types.js";
+import type { Component, Environment, Repository, Versions } from "./types.js";
+import type { ManagedCluster } from "./managed-cluster.js";
+import {
+  fakeCatalog,
+  fakeComponent,
+  fakeEnvironment,
+  fakeRepository,
+  fakeVersions,
+  malformed,
+} from "./config-support.js";
 
 // Factories, not automocks: the collaborators' real modules never load here.
 vi.mock("./approved.js", () => ({ imageListErrors: vi.fn() }));
@@ -28,48 +31,21 @@ vi.mock("./overlay-errors.js", () => ({ overlayErrors: vi.fn() }));
 vi.mock("./policy-validation.js", () => ({ policyErrors: vi.fn() }));
 vi.mock("./registry-address.js", () => ({ registryAddressErrors: vi.fn() }));
 
-const sound = {
-  name: "kore-registry",
-  phase: "core",
-  kind: "helm",
-  namespace: "kore-system",
-  timeout: "5m",
-  version: "istio",
-  chart: "infra/charts/registry",
-  readiness: [{ kind: "deployment", name: "registry" }],
-  dependencies: [],
-} as unknown as Component;
+const sound = fakeComponent();
+const soundVersions = fakeVersions({ istio: "1.23.0" }, {});
+const soundEnvironment = fakeEnvironment();
 
-const soundVersions = {
-  kubernetes: "1.31.0",
-  tools: { k3d: "5.7.0" },
-  components: { istio: "1.23.0" },
-} as unknown as Versions;
-
-const soundEnvironment = {
-  name: "local",
-  provider: "k3d",
-  kubeContext: "k3d-kore-local",
-} as unknown as Environment;
-
-/** A repository that passes every rule, with overrides applied. */
+/** A repository that passes every rule, with the given fields replaced. */
 function repositoryWith(options: {
   components?: Component[];
   versions?: Partial<Versions>;
   environment?: Partial<Environment>;
 }): Repository {
-  const catalog = {
-    components: options.components ?? [sound],
-  } as unknown as Catalog;
-  return {
-    root: "/repo",
+  return fakeRepository({
     versions: { ...soundVersions, ...options.versions },
-    catalog,
+    catalog: fakeCatalog(options.components ?? [sound]),
     environment: { ...soundEnvironment, ...options.environment },
-    approved: { images: [] },
-    seeds: { seeds: [] },
-    readiness: { version: 1, requirements: [] },
-  } as unknown as Repository;
+  });
 }
 
 /** The message a rejected validation carries, or undefined when it passes. */
@@ -112,7 +88,7 @@ test("unsound version pins and sections are reported, each once", async () => {
   const repository = repositoryWith({
     versions: {
       kubernetes: "v1",
-      tools: null as unknown as Record<string, string>,
+      tools: malformed<Record<string, string>>(null),
       components: { istio: "latest" },
     },
   });
@@ -125,7 +101,7 @@ test("unsound version pins and sections are reported, each once", async () => {
   );
 });
 
-test("an invalid environment name, an unknown provider and a missing kube context are each named", async () => {
+test("an invalid environment name and a missing kube context are each named", async () => {
   const repository = repositoryWith({
     environment: { name: "Local", kubeContext: "" },
   });
@@ -138,13 +114,13 @@ test("an invalid environment name, an unknown provider and a missing kube contex
 
 test("an unknown provider gets the generic message, and a retired minikube one gets the migration message", async () => {
   const unknown = repositoryWith({
-    environment: { provider: "gke" as unknown as Environment["provider"] },
+    environment: { provider: malformed<Environment["provider"]>("gke") },
   });
   expect(await messageOf(unknown)).toContain(
     "environment.provider must be k3d or managed",
   );
   const retired = repositoryWith({
-    environment: { provider: "minikube" as unknown as Environment["provider"] },
+    environment: { provider: malformed<Environment["provider"]>("minikube") },
   });
   const message = await messageOf(retired);
   expect(message).toContain(
@@ -155,12 +131,12 @@ test("an unknown provider gets the generic message, and a retired minikube one g
 
 test("a managed environment's cluster below 2 CPUs or 4096 MB is refused, and a k3d overlay is not held to it", async () => {
   const managed = repositoryWith({
-    environment: {
+    environment: fakeEnvironment({
       name: "managed-example",
       provider: "managed",
       kubeContext: "managed",
-      cluster: { cpus: 1, memoryMB: 2048 },
-    } as unknown as Partial<Environment>,
+      cluster: { cpus: 1, memoryMB: 2048 } as ManagedCluster,
+    }),
   });
   expect(await messageOf(managed)).toBe(
     [
@@ -174,14 +150,14 @@ test("a managed environment's cluster below 2 CPUs or 4096 MB is refused, and a 
 test("a component with a bad name, phase, kind, namespace or timeout names each problem", async () => {
   const repository = repositoryWith({
     components: [
-      {
+      malformed<Component>({
         ...sound,
         name: "Bad Name",
         phase: "later",
         kind: "chart",
         namespace: "",
         timeout: "soon",
-      } as unknown as Component,
+      }),
     ],
   });
   expect(await messageOf(repository)).toBe(
@@ -197,12 +173,10 @@ test("a component with a bad name, phase, kind, namespace or timeout names each 
 test("a component needs a known version key, a readiness check, and a chart unless it is a manifest", async () => {
   const repository = repositoryWith({
     components: [
-      {
-        ...sound,
-        version: "cilium",
-        readiness: [],
+      malformed<Component>({
+        ...fakeComponent({ version: "cilium", readiness: [] }),
         chart: undefined,
-      } as unknown as Component,
+      }),
     ],
   });
   expect(await messageOf(repository)).toBe(
@@ -217,18 +191,18 @@ test("a component needs a known version key, a readiness check, and a chart unle
 test("a forced conflict or a skipped wait needs a reason, and a manifest takes no helm options", async () => {
   const repository = repositoryWith({
     components: [
-      {
+      malformed<Component>({
         ...sound,
         helm: { forceConflicts: true, wait: false, reason: " " },
-      } as unknown as Component,
-      {
+      }),
+      malformed<Component>({
         ...sound,
         name: "kore-config",
         kind: "manifest",
         source: undefined,
         chart: undefined,
         helm: { wait: true },
-      } as unknown as Component,
+      }),
     ],
   });
   expect(await messageOf(repository)).toBe(
@@ -244,12 +218,11 @@ test("a forced conflict or a skipped wait needs a reason, and a manifest takes n
 test("duplicate components, CRDs with two owners, and unknown dependencies are each reported", async () => {
   const repository = repositoryWith({
     components: [
-      { ...sound, ownsCRDs: ["widgets.example.com"] } as unknown as Component,
-      {
-        ...sound,
+      fakeComponent({ ownsCRDs: ["widgets.example.com"] }),
+      fakeComponent({
         ownsCRDs: ["widgets.example.com"],
         dependencies: ["kore-ghost"],
-      } as unknown as Component,
+      }),
     ],
   });
   expect(await messageOf(repository)).toBe(

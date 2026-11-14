@@ -4,6 +4,13 @@ import { approvedImageList, imageListErrors } from "./approved.js";
 import { managedMirrorErrors } from "./mirror.js";
 import { evidenceErrors, seedErrors } from "./seeds.js";
 import type { Repository, SeedEvidence } from "./types.js";
+import {
+  fakeApproved,
+  fakeCatalog,
+  fakeComponent,
+  fakeRepository,
+  fakeSeeds,
+} from "./config-support.js";
 
 vi.mock("./mirror.js");
 vi.mock("./seeds.js");
@@ -27,11 +34,11 @@ function repositoryWith(
   images: unknown,
   components = ["kore-registry", "kore-ui"],
 ): Repository {
-  return {
-    seeds: { seeds },
-    approved: { images },
-    catalog: { components: components.map((name) => ({ name })) },
-  } as unknown as Repository;
+  return fakeRepository({
+    seeds: fakeSeeds(seeds),
+    approved: fakeApproved(images),
+    catalog: fakeCatalog(components.map((name) => fakeComponent({ name }))),
+  });
 }
 
 beforeEach(() => {
@@ -79,7 +86,7 @@ test("the full check runs the seed check, then the approved check, then the mirr
 
 test("an approved list that is not a list is reported, and the mirror check is skipped", async () => {
   vi.mocked(seedErrors).mockResolvedValue(["seed problem"]);
-  const repository = repositoryWith([], undefined);
+  const repository = repositoryWith([], null);
   expect(await imageListErrors(repository)).toEqual(["seed problem", notAList]);
   expect(vi.mocked(managedMirrorErrors).mock.calls).toEqual([]);
 });

@@ -1,22 +1,24 @@
 // Docs: docs/decisions/0067-platform-readiness-manifest-and-evidence.md
 import { expect, test } from "vitest";
 import { platformChecks, readinessErrors } from "./readiness.js";
-import type { Catalog, ReadinessManifest, Repository } from "./types.js";
+import type { ReadinessManifest, Repository } from "./types.js";
+import { fakeCatalog, fakeComponent, malformed } from "./config-support.js";
 
-/** A repository with only the readiness and catalog fields the check reads. */
+/**
+ * A repository with only the readiness and catalog fields the check reads. The
+ * manifest is malformed on purpose in the tests that refuse it, so it is not typed.
+ */
 function repositoryWith(
   readiness: Record<string, unknown>,
   components: string[] = ["kore-registry", "kore-ui"],
 ): Pick<Repository, "readiness" | "catalog"> {
   return {
-    readiness: {
+    readiness: malformed<ReadinessManifest>({
       version: 1,
       requirements: [],
       ...readiness,
-    } as unknown as ReadinessManifest,
-    catalog: {
-      components: components.map((name) => ({ name })),
-    } as unknown as Catalog,
+    }),
+    catalog: fakeCatalog(components.map((name) => fakeComponent({ name }))),
   };
 }
 

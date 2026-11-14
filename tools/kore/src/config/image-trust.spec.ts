@@ -10,7 +10,14 @@ import {
   trustedSigners,
 } from "./image-trust.js";
 import { registryPlan, type RegistryPlan } from "./registry-address.js";
-import type { Repository } from "./types.js";
+import {
+  fakeCatalog,
+  fakeComponent,
+  fakeEnvironment,
+  fakeRepository,
+  fakeSeeds,
+} from "./config-support.js";
+import type { Component, Environment, Repository } from "./types.js";
 
 // Factories, not automocks: the collaborators' real modules never load here.
 vi.mock("./enrollment.js", () => ({ enrollmentExemptionErrors: vi.fn() }));
@@ -30,25 +37,28 @@ const keyTrust = {
   keyRef: { name: "local-kore-key", namespace: "cosign-system" },
 };
 const components = [
-  { name: "kore-image-policy" },
-  { name: "policy-controller", namespace: "cosign-system" },
+  fakeComponent({ name: "kore-image-policy" }),
+  fakeComponent({ name: "policy-controller", namespace: "cosign-system" }),
 ];
 
 /** A repository with only the fields the image trust checks read. */
 function repositoryWith(options: {
   trust?: Record<string, unknown> | undefined;
-  provider?: string;
-  components?: unknown[];
+  provider?: Environment["provider"];
+  components?: Component[];
   seeds?: unknown[];
 }): Repository {
-  return {
-    root: "/repo",
-    environment: { name: "local", provider: options.provider ?? "k3d" },
-    catalog: { components: options.components ?? components },
-    seeds: { seeds: options.seeds ?? [] },
-    imageTrustValues:
-      options.trust === undefined ? undefined : { trust: options.trust },
-  } as unknown as Repository;
+  return fakeRepository({
+    environment: fakeEnvironment({
+      name: "local",
+      provider: options.provider ?? "k3d",
+    }),
+    catalog: fakeCatalog(options.components ?? components),
+    seeds: fakeSeeds(options.seeds ?? []),
+    ...(options.trust === undefined
+      ? {}
+      : { imageTrustValues: { trust: options.trust } }),
+  });
 }
 
 beforeEach(() => {
@@ -126,7 +136,7 @@ test("a sound keyless or key authority has no image trust errors", () => {
 test("without the image policy component no trust is required, so there are no trust errors", () => {
   const repository = repositoryWith({
     trust: undefined,
-    components: [{ name: "kore-ui" }],
+    components: [fakeComponent({ name: "kore-ui" })],
   });
   expect(imageTrustErrors(repository)).toEqual([]);
 });

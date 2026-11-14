@@ -6,7 +6,8 @@ import {
   providerCrdGroupErrors,
 } from "./crd-ownership.js";
 import { componentPatchErrors } from "./patch-validation.js";
-import type { Component, Environment } from "./types.js";
+import type { Component } from "./types.js";
+import { fakeComponent, fakeEnvironment } from "./config-support.js";
 
 // Factories, not automocks: the collaborators' real modules never load here.
 vi.mock("./crd-ownership.js", () => ({
@@ -16,13 +17,14 @@ vi.mock("./crd-ownership.js", () => ({
 }));
 vi.mock("./patch-validation.js", () => ({ componentPatchErrors: vi.fn() }));
 
-const environment = {
+const environment = fakeEnvironment({
   provider: "k3d",
   providerOwnedCRDGroups: { "k3s.cattle.io": "shipped by k3s" },
-} as unknown as Environment;
+});
 
+/** A component with the given name, and the CRDs it owns when named. */
 function component(name: string, ownsCRDs?: string[]): Component {
-  return { name, ownsCRDs } as unknown as Component;
+  return fakeComponent(ownsCRDs === undefined ? { name } : { name, ownsCRDs });
 }
 
 beforeEach(() => {

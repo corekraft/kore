@@ -8,12 +8,23 @@ import {
   gatewayClassName,
   ingressFlag,
 } from "./features.js";
-import type { Component, Environment, Repository } from "./types.js";
+import type { Environment } from "./types.js";
+import {
+  fakeCatalog,
+  fakeComponent,
+  fakeEnvironment,
+  fakeRepository,
+} from "./config-support.js";
 
 vi.mock("./order.js");
 
-function environment(features?: Record<string, unknown>) {
-  return { features } as unknown as Environment;
+/** An environment whose feature flags are the given map (a flag may hold any value). */
+function environment(features?: Record<string, unknown>): Environment {
+  return fakeEnvironment(
+    features === undefined
+      ? {}
+      : { features: features as Record<string, boolean> },
+  );
 }
 
 beforeEach(() => {
@@ -59,7 +70,7 @@ test("the ingress flag selects agentgateway as the GatewayClass, and its absence
 });
 
 test("a component with a feature flag is gated off while the flag is off, and on once it is on", () => {
-  const gated = { featureFlag: "agent-loop" } as Pick<Component, "featureFlag">;
+  const gated = fakeComponent({ featureFlag: "agent-loop" });
   expect(componentGatedOff(environment({ "agent-loop": false }), gated)).toBe(
     true,
   );
@@ -69,26 +80,23 @@ test("a component with a feature flag is gated off while the flag is off, and on
 });
 
 test("a component with no feature flag is never gated off", () => {
-  const plain = {} as Pick<Component, "featureFlag">;
+  const plain = fakeComponent();
   expect(componentGatedOff(environment(undefined), plain)).toBe(false);
 });
 
 test("the enabled components are the catalog in dependency order, minus those a flag gates off", () => {
   const components = [
-    { name: "kore-registry" },
-    { name: "agent-loop-app", featureFlag: "agent-loop" },
-    { name: "kore-ui" },
-  ] as unknown as Component[];
+    fakeComponent({ name: "kore-registry" }),
+    fakeComponent({ name: "agent-loop-app", featureFlag: "agent-loop" }),
+    fakeComponent({ name: "kore-ui" }),
+  ];
   vi.mocked(orderedComponents).mockReturnValue(components);
-  const repository = {
-    catalog: { components },
+  const repository = fakeRepository({
+    catalog: fakeCatalog(components),
     environment: environment({ "agent-loop": false }),
-  } as unknown as Repository;
+  });
 
-  expect(enabledComponents(repository)).toEqual([
-    { name: "kore-registry" },
-    { name: "kore-ui" },
-  ]);
+  expect(enabledComponents(repository)).toEqual([components[0], components[2]]);
   expect(vi.mocked(orderedComponents).mock.calls).toEqual([
     [repository.catalog],
   ]);

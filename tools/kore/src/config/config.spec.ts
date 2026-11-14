@@ -15,7 +15,12 @@ import {
 import { exists } from "./files.js";
 import { orderedComponents } from "./order.js";
 import { validateRepository } from "./validate.js";
-import type { Component, Repository } from "./types.js";
+import {
+  fakeComponent,
+  fakeEnvironment,
+  fakeRepository,
+  fakeVersions,
+} from "./config-support.js";
 
 vi.mock("node:fs/promises");
 vi.mock("node:path");
@@ -28,10 +33,9 @@ vi.mock("./registry-address.js", () => ({
   registryConsumers: ["kore-registry", "kore-ui"],
 }));
 
-const repository = {
-  root: "/repo",
-  versions: { components: { istio: "v1.2.0", kube: "1.31.0" } },
-} as unknown as Repository;
+const repository = fakeRepository({
+  versions: fakeVersions({ istio: "v1.2.0", kube: "1.31.0" }),
+});
 
 /** The files a local repository has on disk, by absolute path. */
 const localFiles = (): Record<string, string> => ({
@@ -112,9 +116,9 @@ test("a directory outside any Kore repository fails and says how to point at one
 });
 
 test("a pinned component version is the catalog version without its leading v; a local one has none", () => {
-  const pinned = { name: "istio", version: "istio" } as Component;
-  const local = { name: "kore-ui", version: "local" } as Component;
-  const unknown = { name: "kube", version: "kube-missing" } as Component;
+  const pinned = fakeComponent({ name: "istio", version: "istio" });
+  const local = fakeComponent({ name: "kore-ui", version: "local" });
+  const unknown = fakeComponent({ name: "kube", version: "kube-missing" });
   expect(componentVersion(repository, pinned)).toBe("1.2.0");
   expect(componentVersion(repository, local)).toBeUndefined();
   expect(componentVersion(repository, unknown)).toBeUndefined();
@@ -137,19 +141,20 @@ test("an absolute path stays as it is, and a relative path is joined under the r
 });
 
 test("a component's value files are its own, then the environment's for that component, in that order", () => {
-  const environment = {
-    componentValues: { istio: ["infra/environments/local/istio.yaml"] },
-  };
-  const repo = { ...repository, environment } as unknown as Repository;
-  const component = {
+  const repo = fakeRepository({
+    environment: fakeEnvironment({
+      componentValues: { istio: ["infra/environments/local/istio.yaml"] },
+    }),
+  });
+  const component = fakeComponent({
     name: "istio",
     values: ["infra/charts/istio/values.yaml"],
-  } as Component;
+  });
   expect(componentValues(repo, component)).toEqual([
     "infra/charts/istio/values.yaml",
     "infra/environments/local/istio.yaml",
   ]);
-  expect(componentValues(repo, { name: "kube" } as Component)).toEqual([]);
+  expect(componentValues(repo, fakeComponent({ name: "kube" }))).toEqual([]);
 });
 
 test("loading reads the six catalog and overlay files, validates the whole repository, and returns it", async () => {

@@ -2,12 +2,13 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import { k3dErrors } from "./k3d-errors.js";
 import { parseCidr } from "./registry-address.js";
-import type { Environment, Versions } from "./types.js";
+import type { Environment } from "./types.js";
+import { fakeEnvironment, fakeVersions, malformed } from "./config-support.js";
 
 vi.mock("./registry-address.js");
 
 const digest = `rancher/k3s@sha256:${"a".repeat(64)}`;
-const versions = { images: { k3s: digest } } as unknown as Versions;
+const versions = fakeVersions({}, { k3s: digest });
 
 const validK3d = {
   clusterName: "kore-local",
@@ -15,20 +16,21 @@ const validK3d = {
   ports: [{ hostPort: 8080, loadBalancerPort: 30080 }],
 };
 
-/** A k3d overlay that passes every check, with overrides applied. */
-function k3dEnvironment(overrides: Record<string, unknown> = {}): Environment {
-  return {
-    name: "local",
-    provider: "k3d",
-    kubeContext: "k3d-kore-local",
+/** A k3d overlay that passes every check, with the given fields replaced. */
+function k3dEnvironment(overrides: Partial<Environment> = {}): Environment {
+  return fakeEnvironment({
     k3d: validK3d,
     ...overrides,
-  } as unknown as Environment;
+  } as Partial<Environment>);
 }
 
-/** A k3d block with one field replaced or removed (undefined removes it). */
+/** A k3d block with one field replaced; a field given undefined is removed. */
 const withK3d = (field: string, value: unknown): Environment =>
-  k3dEnvironment({ k3d: { ...validK3d, [field]: value } });
+  k3dEnvironment(
+    malformed<Partial<Environment>>({
+      k3d: { ...validK3d, [field]: value },
+    }),
+  );
 
 beforeEach(() => {
   vi.mocked(parseCidr).mockReturnValue({ base: 0, size: 1 });
@@ -40,30 +42,35 @@ test("a sound k3d overlay with a pinned k3s image has no cluster errors", () => 
 });
 
 test("a k3d block on a non-k3d environment is refused, naming the provider", () => {
-  const environment = {
+  const environment = fakeEnvironment({
     provider: "managed",
     k3d: validK3d,
-  } as unknown as Environment;
+  } as Partial<Environment>);
   expect(k3dErrors(environment, versions)).toEqual([
     "environment.k3d is only valid when provider is k3d, not managed; remove it",
   ]);
 });
 
 test("a non-k3d environment without a k3d block has no cluster errors", () => {
-  const environment = { provider: "managed" } as unknown as Environment;
-  expect(k3dErrors(environment, versions)).toEqual([]);
+  expect(k3dErrors(fakeEnvironment({ provider: "managed" }), versions)).toEqual(
+    [],
+  );
 });
 
 test("a managed cluster block on a k3d overlay is refused, pointing at environment.k3d", () => {
-  const environment = k3dEnvironment({ cluster: {} });
+  const environment = k3dEnvironment(
+    malformed<Partial<Environment>>({ cluster: {} }),
+  );
   expect(k3dErrors(environment, versions)).toEqual([
     "environment.cluster is only valid for provider managed; remove it and use environment.k3d for provider k3d",
   ]);
 });
 
 test("a k3d overlay whose k3d block is missing or not an object says it is required", () => {
-  const missing = k3dEnvironment({ k3d: undefined });
-  const list = k3dEnvironment({ k3d: [] });
+  const missing = k3dEnvironment(
+    malformed<Partial<Environment>>({ k3d: undefined }),
+  );
+  const list = k3dEnvironment(malformed<Partial<Environment>>({ k3d: [] }));
   expect(k3dErrors(missing, versions)).toEqual([
     "environment.k3d is required when provider is k3d",
   ]);
@@ -73,9 +80,11 @@ test("a k3d overlay whose k3d block is missing or not an object says it is requi
 });
 
 test("a k3d field the block does not know is refused, and the image field points at the pin", () => {
-  const environment = k3dEnvironment({
-    k3d: { ...validK3d, image: "rancher/k3s:v1", retries: 2 },
-  });
+  const environment = k3dEnvironment(
+    malformed<Partial<Environment>>({
+      k3d: { ...validK3d, image: "rancher/k3s:v1", retries: 2 },
+    }),
+  );
   expect(k3dErrors(environment, versions)).toEqual([
     "environment.k3d.image is not configurable; the k3s image comes from versions.images.k3s",
     "environment.k3d.retries is not a k3d field; use clusterName, serviceCidr, ports, servers or agents",
@@ -149,13 +158,11 @@ test("the kube context must be k3d-<cluster name> when it is set", () => {
 
 test("the k3s image must be digest-pinned, and an unpinned or missing one is refused", () => {
   expect(
-    k3dErrors(k3dEnvironment(), {
-      images: { k3s: "rancher/k3s:v1.30" },
-    } as unknown as Versions),
+    k3dErrors(k3dEnvironment(), fakeVersions({}, { k3s: "rancher/k3s:v1.30" })),
   ).toEqual([
     "versions.images.k3s must be a digest-pinned image for provider k3d",
   ]);
-  expect(k3dErrors(k3dEnvironment(), {} as Versions)).toEqual([
+  expect(k3dErrors(k3dEnvironment(), fakeVersions())).toEqual([
     "versions.images.k3s must be a digest-pinned image for provider k3d",
   ]);
 });

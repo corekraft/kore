@@ -3,7 +3,18 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { beforeEach, expect, test, vi } from "vitest";
 import { evidenceErrors, seedErrors } from "./seeds.js";
-import type { Component, Repository, Seed, SeedEvidence } from "./types.js";
+import type { Component, Repository } from "./types.js";
+import {
+  fakeCatalog,
+  fakeComponent,
+  fakeEnvironment,
+  fakeEvidence,
+  fakeRepository,
+  fakeSeed,
+  fakeSeeds,
+  fakeVersions,
+  malformed,
+} from "./config-support.js";
 
 vi.mock("node:fs/promises");
 vi.mock("node:path");
@@ -11,23 +22,6 @@ vi.mock("node:path");
 const digest = "a".repeat(64);
 const image = `docker.io/library/registry:2@sha256:${digest}`;
 const issuer = "https://token.actions.githubusercontent.com";
-
-const sound: SeedEvidence = {
-  method: "pulled and scanned",
-  source: "upstream registry",
-  checked: "2026-01-15",
-  provenance: { signed: false },
-} as unknown as SeedEvidence;
-
-const seed = (overrides: Partial<Seed> = {}): Seed =>
-  ({
-    image,
-    catalogImage: "registry",
-    component: "kore-registry",
-    reason: "bootstrap: the mirror cannot verify itself",
-    evidence: sound,
-    ...overrides,
-  }) as unknown as Seed;
 
 /** A repository whose files are the given text, by path relative to the root. */
 function repositoryWith(options: {
@@ -44,21 +38,20 @@ function repositoryWith(options: {
     }
     return text;
   });
-  return {
-    root: "/repo",
-    seeds: { seeds: options.seeds ?? [] },
-    catalog: {
-      components: options.components ?? [
-        {
+  return fakeRepository({
+    seeds: options.seeds === undefined ? fakeSeeds() : fakeSeeds(options.seeds),
+    catalog: fakeCatalog(
+      options.components ?? [
+        fakeComponent({
           name: "kore-registry",
           kind: "manifest",
           values: ["infra/values.yaml"],
-        },
+        }),
       ],
-    },
-    versions: { images: options.images ?? { registry: image } },
-    environment: { name: "local", componentValues: {} },
-  } as unknown as Repository;
+    ),
+    versions: fakeVersions({}, options.images ?? { registry: image }),
+    environment: fakeEnvironment({ componentValues: {} }),
+  });
 }
 
 beforeEach(() => {
@@ -66,28 +59,25 @@ beforeEach(() => {
 });
 
 test("evidence with a method, a source, a checked date and unsigned provenance has no errors", () => {
-  expect(evidenceErrors("seed x", sound)).toEqual([]);
+  expect(evidenceErrors("seed x", fakeEvidence())).toEqual([]);
 });
 
 test("evidence without provenance, method, source or a dated check names each missing part", () => {
-  expect(
-    evidenceErrors("seed x", {
-      checked: "last week",
-    } as unknown as SeedEvidence),
-  ).toEqual([
-    "seed x: evidence.provenance is required: {signed: false} or {signed: true, issuer, identity}",
-    "seed x: evidence.method is required",
-    "seed x: evidence.source is required (upstream verification)",
-    "seed x: evidence.checked must be a YYYY-MM-DD date",
-  ]);
+  expect(evidenceErrors("seed x", malformed({ checked: "last week" }))).toEqual(
+    [
+      "seed x: evidence.provenance is required: {signed: false} or {signed: true, issuer, identity}",
+      "seed x: evidence.method is required",
+      "seed x: evidence.source is required (upstream verification)",
+      "seed x: evidence.checked must be a YYYY-MM-DD date",
+    ],
+  );
 });
 
 test("signed provenance needs an exact https issuer and an exact https URL or email identity", () => {
   const signed = (identity: string, issuerUrl = issuer) =>
-    ({
-      ...sound,
+    fakeEvidence({
       provenance: { signed: true, issuer: issuerUrl, identity },
-    }) as unknown as SeedEvidence;
+    });
   expect(evidenceErrors("seed x", signed("ops@example.com"))).toEqual([]);
   expect(
     evidenceErrors("seed x", signed("https://example.com/release.yaml")),
@@ -103,14 +93,14 @@ test("signed provenance needs an exact https issuer and an exact https URL or em
 });
 
 test("a seed list that is not a list is refused before any seed is read", async () => {
-  expect(await seedErrors(repositoryWith({ seeds: {} }))).toEqual([
+  expect(await seedErrors(repositoryWith({ seeds: malformed({}) }))).toEqual([
     "seeds.seeds must be a list (infra/catalog/seeds.yaml): record every seed artifact",
   ]);
 });
 
 test("a sound seed, pinned to the catalog image and used by its component, has no errors", async () => {
   const repository = repositoryWith({
-    seeds: [seed()],
+    seeds: [fakeSeed({ image })],
     files: { "/repo/infra/values.yaml": `image: sha256:${digest}` },
   });
   expect(await seedErrors(repository)).toEqual([]);
@@ -121,7 +111,7 @@ test("a sound seed, pinned to the catalog image and used by its component, has n
 
 test("a seed naming an unknown component is refused, and no component usage is checked for it", async () => {
   const repository = repositoryWith({
-    seeds: [seed({ component: "kore-ghost" })],
+    seeds: [fakeSeed({ image, component: "kore-ghost" })],
   });
   expect(await seedErrors(repository)).toEqual([
     `seed ${image}: unknown component kore-ghost; use a name from infra/catalog/components.yaml`,
@@ -130,22 +120,21 @@ test("a seed naming an unknown component is refused, and no component usage is c
 });
 
 test("a seed that differs from its catalog image pin is refused, showing the pin it should match", async () => {
+  const other = `docker.io/library/registry:3@sha256:${"b".repeat(64)}`;
   const repository = repositoryWith({
-    seeds: [
-      seed({ image: `docker.io/library/registry:3@sha256:${"b".repeat(64)}` }),
-    ],
+    seeds: [fakeSeed({ image: other })],
     images: { registry: image },
     files: { "/repo/infra/values.yaml": "" },
   });
   const errors = await seedErrors(repository);
   expect(errors).toContain(
-    `seed docker.io/library/registry:3@sha256:${"b".repeat(64)}: does not match versions.images.registry (${image}); update seeds.yaml with the catalog pin`,
+    `seed ${other}: does not match versions.images.registry (${image}); update seeds.yaml with the catalog pin`,
   );
 });
 
 test("a seed whose digest its component never uses is refused as not used", async () => {
   const repository = repositoryWith({
-    seeds: [seed()],
+    seeds: [fakeSeed({ image })],
     files: { "/repo/infra/values.yaml": "image: sha256:unrelated" },
   });
   expect(await seedErrors(repository)).toEqual([
@@ -156,7 +145,7 @@ test("a seed whose digest its component never uses is refused as not used", asyn
 test("an image a component uses, with no seed recorded for it, is reported as unrecorded", async () => {
   const verifier = `docker.io/library/verifier:1@sha256:${"c".repeat(64)}`;
   const repository = repositoryWith({
-    seeds: [seed()],
+    seeds: [fakeSeed({ image })],
     images: { registry: image, verifier },
     files: {
       "/repo/infra/values.yaml": `image: sha256:${digest} other: sha256:${"c".repeat(64)}`,
@@ -169,7 +158,7 @@ test("an image a component uses, with no seed recorded for it, is reported as un
 
 test("a second seed for the same component and catalog image is reported as a duplicate", async () => {
   const repository = repositoryWith({
-    seeds: [seed(), seed()],
+    seeds: [fakeSeed({ image }), fakeSeed({ image })],
     files: { "/repo/infra/values.yaml": `image: sha256:${digest}` },
   });
   expect(await seedErrors(repository)).toEqual([
@@ -177,8 +166,8 @@ test("a second seed for the same component and catalog image is reported as a du
   ]);
 });
 
-test("a values file that does not exist reads as empty, but any other read failure is raised", async () => {
-  const repository = repositoryWith({ seeds: [seed()] });
+test("a values file that cannot be read for any reason other than not existing is raised, not hidden", async () => {
+  const repository = repositoryWith({ seeds: [fakeSeed({ image })] });
   vi.mocked(readFile).mockRejectedValue(
     Object.assign(new Error("denied"), { code: "EACCES" }),
   );
@@ -187,7 +176,7 @@ test("a values file that does not exist reads as empty, but any other read failu
 
 test("a seed missing its catalog image, its reason and a pinned digest names each problem", async () => {
   const repository = repositoryWith({
-    seeds: [seed({ image: "registry:2", catalogImage: "", reason: "" })],
+    seeds: [fakeSeed({ image: "registry:2", catalogImage: "", reason: "" })],
     files: { "/repo/infra/values.yaml": "" },
   });
   const errors = await seedErrors(repository);
