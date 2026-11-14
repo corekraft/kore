@@ -41,6 +41,9 @@ if ! command -v mise >/dev/null 2>&1; then
 fi
 mise install
 mise exec -- npm --prefix tools/kore ci
+# `npm test` ends with the test-budget hook, which runs from the built harness bundle.
+mise exec -- npm --prefix tools/harness ci
+mise exec -- npm --prefix tools/harness run build
 
 step "unit tests and policy tests need no cluster"
 mise exec -- npm --prefix tools/kore test

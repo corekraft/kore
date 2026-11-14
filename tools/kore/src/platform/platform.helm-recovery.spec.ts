@@ -1,9 +1,9 @@
-import { healthyWebhookOutput } from "./webhook-fixtures.js";
+import { healthyWebhookOutput } from "../testing/index.js";
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { loadRepository } from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
-import type { RunOptions, RunResult } from "../runtime/runner.js";
+import { type RunOptions, type RunResult } from "../runtime/index.js";
 import { reconcileComponent, recoverUndeployedRelease } from "./reconcile.js";
 
 const notFound = () =>

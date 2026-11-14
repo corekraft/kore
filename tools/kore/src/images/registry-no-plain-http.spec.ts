@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import { verifyLockedImageArgs } from "../app/verify.js";
+import { verifyLockedImageArgs } from "../app/index.js";
 import {
   k3dImagePublishArgs,
   k3dRegistrySessionArgs,

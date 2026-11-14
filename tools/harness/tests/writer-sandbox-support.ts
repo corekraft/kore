@@ -13,6 +13,7 @@ import {
 import { createServer, type Server } from "node:net";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
+import { cleanGitEnv } from "../src/testing/git-env.js";
 
 export interface SandboxPaths {
   /** The only tree a writer may change. */
@@ -97,6 +98,7 @@ export function runSandboxed(
   return spawnSync("/usr/bin/sandbox-exec", ["-p", profile, command, ...args], {
     cwd,
     encoding: "utf8",
+    env: cleanGitEnv(),
   });
 }
 
@@ -130,7 +132,11 @@ export interface Fixture {
 }
 
 const git = (cwd: string, ...args: string[]): string =>
-  execFileSync("git", args, { cwd, encoding: "utf8" });
+  execFileSync("git", args, {
+    cwd,
+    encoding: "utf8",
+    env: cleanGitEnv(),
+  });
 
 function seedFiles(base: string, rels: string[], content: string): void {
   for (const rel of rels) {

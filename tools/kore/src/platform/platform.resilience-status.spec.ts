@@ -8,7 +8,7 @@ import {
 import type { Runner } from "../runtime/index.js";
 import { platformStatus } from "./status.js";
 import { healthyClusterOutput } from "./resilience-fixtures.js";
-import { gatedOffReleaseAbsent } from "./webhook-fixtures.js";
+import { gatedOffReleaseAbsent } from "../testing/index.js";
 
 // Docs: docs/decisions/0035-fail-fast-readiness-diagnosis.md
 // Offline proof that a controller outage is reported per component: the broken

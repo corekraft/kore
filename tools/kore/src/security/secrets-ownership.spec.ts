@@ -1,4 +1,4 @@
-import { list } from "../cluster/k3d-cluster.fixtures.js";
+import { list } from "../testing/index.js";
 import { loadRepository } from "../config/index.js";
 import assert from "node:assert/strict";
 import {

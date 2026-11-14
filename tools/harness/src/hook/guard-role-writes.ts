@@ -200,3 +200,20 @@ export const harnessStatus = (name: string, args: readonly string[]): boolean =>
   args[1] === "status" &&
   args.length <= 3 &&
   (args[2] === undefined || args[2] === "--json");
+
+/** The sources (and destination) of `git mv`, `git rm` or `rm [-f]`; any other flag stays a source and is no hook test. */
+export function removal(
+  line: readonly string[],
+): { sources: string[]; destination?: string } | undefined {
+  const { name, args } = commandOf(line);
+  const [verb = "", ...rest] = args;
+  if (name === "rm") {
+    return { sources: args.filter((word) => word !== "-f") };
+  }
+  if (name !== "git" || !["mv", "rm"].includes(verb)) {
+    return undefined;
+  }
+  return verb === "rm"
+    ? { sources: rest }
+    : { sources: rest.slice(0, -1), destination: rest.at(-1) ?? "-" };
+}

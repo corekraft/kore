@@ -10,7 +10,7 @@ vi.mock("../images/index.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../images/index.js")>()),
   localRegistryReference: localRegistryReferenceMock,
 }));
-import { findRoot } from "../config/config.js";
+import { findRoot } from "../config/index.js";
 
 import { appUp, appUpRelease } from "./up.js";
 import {
@@ -21,7 +21,7 @@ import {
   repositoryTrustingRelease,
   writeReleaseLock,
   type Call,
-} from "./app-fixtures.js";
+} from "../testing/index.js";
 import type { Runner } from "../runtime/index.js";
 
 afterEach(removeReleaseLocks);

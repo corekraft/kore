@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { loadRepository } from "../config/config.js";
+import { loadRepository } from "../config/index.js";
 import type { Component, Repository } from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
-import type { RunResult } from "../runtime/runner.js";
+import { type RunResult } from "../runtime/index.js";
 import { reconcileComponent } from "./reconcile.js";
 
 const fail = (stderr: string): RunResult => ({ stdout: "", stderr, code: 1 });

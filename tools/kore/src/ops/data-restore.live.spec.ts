@@ -4,7 +4,7 @@ import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 import { exportRetainedData, restoreRetainedData } from "../cluster/index.js";
-import { findRoot } from "../config/config.js";
+import { findRoot } from "../config/index.js";
 import { loadRepository, type Repository } from "../config/index.js";
 import {
   ProcessRunner,

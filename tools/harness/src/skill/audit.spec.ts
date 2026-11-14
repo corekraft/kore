@@ -39,6 +39,7 @@ function harness(
     ids: { next: () => "id-1" },
     stdin: () => Promise.resolve(""),
     fs: {
+      hasGlobMatch: () => Promise.resolve(false),
       readFile: (path) =>
         rel(path) in files
           ? Promise.resolve(files[rel(path)] ?? "")

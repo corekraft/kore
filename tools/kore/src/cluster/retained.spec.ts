@@ -11,12 +11,12 @@ import {
   list,
   testHome,
   text,
-} from "./k3d-cluster.fixtures.js";
+} from "../testing/index.js";
 import { hasVerifiedExport } from "./export-manifest.js";
 import { purgeRetainedResources, retainedResources } from "./retained.js";
 
 import { CommandError } from "../runtime/index.js";
-import { RecordingRunner } from "../runtime/runner.js";
+import { RecordingRunner } from "../runtime/index.js";
 
 test("purge tolerates a PostgreSQL CRD that was never installed", async () => {
   const repository = await k3dRepository();

@@ -14,7 +14,7 @@ import {
   repositoryTrustingRelease,
   writeReleaseLock,
   type Call,
-} from "./app-fixtures.js";
+} from "../testing/index.js";
 
 afterEach(removeReleaseLocks);
 

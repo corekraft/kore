@@ -30,11 +30,11 @@ vi.mock("./status.js", async () => {
 });
 
 import type { Runner } from "../runtime/index.js";
-import type { RunResult } from "../runtime/runner.js";
+import { type RunResult } from "../runtime/index.js";
 import { desiredFingerprint } from "./fingerprint.js";
 import { platformUp } from "./up.js";
 import { nodePortService, runningK3d } from "./k3d-fixtures.js";
-import { healthyWebhookOutput } from "./webhook-fixtures.js";
+import { healthyWebhookOutput } from "../testing/index.js";
 
 const ok = (stdout = ""): RunResult => ({ stdout, stderr: "", code: 0 });
 const temporary: string[] = [];
