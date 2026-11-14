@@ -7,6 +7,8 @@ export interface HarnessConfig {
   cost: CostOptions;
   /** The GitHub login whose actions count as owner time; the repository's owner when absent. */
   ownerLogin?: string;
+  /** The GitHub logins whose principles-review verdicts the judge trusts; the owner login when absent. */
+  reviewerLogins?: string[];
 }
 
 type Failure = { error: string };
@@ -100,6 +102,55 @@ function parseCost(file: string, cost: Raw): HarnessConfig | Failure {
   };
 }
 
+const LOGIN = /^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/;
+
+function reviewerLoginsOf(
+  file: string,
+  value: unknown,
+): { reviewerLogins?: string[] } | Failure {
+  if (value === undefined) {
+    return {};
+  }
+  if (
+    !Array.isArray(value) ||
+    value.length === 0 ||
+    !value.every((r) => typeof r === "string" && LOGIN.test(r))
+  ) {
+    return bad(
+      file,
+      "reviewerLogins",
+      'must be a non-empty list of GitHub logins of letters, digits and "-". Use ["junners"], or remove the key to trust the owner login.',
+    );
+  }
+  return { reviewerLogins: value as string[] };
+}
+
+/** The owner login and the reviewer logins, each checked; a bad one names its key and the fix. */
+function loginsOf(
+  file: string,
+  value: Raw,
+): { ownerLogin?: string; reviewerLogins?: string[] } | Failure {
+  const login = value["ownerLogin"];
+  if (
+    login !== undefined &&
+    (typeof login !== "string" || !LOGIN.test(login))
+  ) {
+    return bad(
+      file,
+      "ownerLogin",
+      'must be a GitHub login of letters, digits and "-". Use "junners".',
+    );
+  }
+  const reviewers = reviewerLoginsOf(file, value["reviewerLogins"]);
+  if ("error" in reviewers) {
+    return reviewers;
+  }
+  return {
+    ...(login === undefined ? {} : { ownerLogin: login as string }),
+    ...reviewers,
+  };
+}
+
 /** Checks the harness config text before any report uses it; a bad key names the file, the key and the fix. */
 export function parseHarnessConfig(
   text: string,
@@ -114,23 +165,18 @@ export function parseHarnessConfig(
   if (!isObject(value)) {
     return bad(file, "(root)", "must be a JSON object. Use {}.");
   }
-  const top = unknownKey(file, "", value, ["cost", "ownerLogin"]);
+  const top = unknownKey(file, "", value, [
+    "cost",
+    "ownerLogin",
+    "reviewerLogins",
+  ]);
   if (top !== undefined) {
     return top;
   }
-  const login = value["ownerLogin"];
-  if (
-    login !== undefined &&
-    (typeof login !== "string" ||
-      !/^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/.test(login))
-  ) {
-    return bad(
-      file,
-      "ownerLogin",
-      'must be a GitHub login of letters, digits and "-". Use "junners".',
-    );
+  const owner = loginsOf(file, value);
+  if ("error" in owner) {
+    return owner;
   }
-  const owner = login === undefined ? {} : { ownerLogin: login as string };
   const cost = value["cost"];
   if (cost === undefined) {
     return { cost: DEFAULT_COST, ...owner };

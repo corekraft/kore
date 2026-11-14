@@ -3,10 +3,10 @@
 // likely safety pattern. The refiner files it through `idea new`, so this
 // fixture runs that same command on what a refiner is told to produce.
 import { describe, expect, it } from "vitest";
-import { run } from "../cli/index.js";
-import { cleanTree, messages } from "../testing/index.js";
-import { harness } from "../testing/index.js";
-import { SAFETY_PATTERNS } from "./index.js";
+import { run } from "../../src/cli/index.js";
+import { cleanTree, messages } from "../../src/testing/index.js";
+import { harness } from "../../src/testing/index.js";
+import { SAFETY_PATTERNS } from "../../src/idea/index.js";
 
 const RAW_REQUEST = "kore local up feels slow, can we make it faster?";
 
