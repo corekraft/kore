@@ -60,6 +60,7 @@ export function useNightlySandbox(): void {
       `#!/usr/bin/env bash
 case "$*" in "local down"*) exit 0 ;; esac
 cp "${overlay}/environment.yaml" "${outside("overlay-environment")}"
+cp "${overlay}/values/otel-collector.yaml" "${outside("overlay-collector")}"
 cp "${overlay}/.sops.yaml" "${outside("overlay-sops-yaml")}"
 cp "${overlay}/secrets/sops-canary.enc.yaml" "${outside("overlay-canary")}"
 exit 1

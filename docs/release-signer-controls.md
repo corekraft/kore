@@ -79,8 +79,11 @@ admin read access); each should print what the comment says.
 
    The `main` ruleset (id `26788821`, target `~DEFAULT_BRANCH`, enforcement
    `active`) holds four rules: `deletion`, `non_fast_forward`, a squash-only
-   `pull_request` rule, and `required_status_checks` for `check` and `scan`
-   from the GitHub Actions app (id `15368`), non-strict. The checks are
+   `pull_request` rule, and `required_status_checks` for `check`, `scan` and
+   `integration` from the GitHub Actions app (id `15368`), non-strict.
+   `integration` runs the integration tier only for a pull request that touches
+   the commit hooks; any other pull request reports it skipped, which satisfies
+   the check (`.github/workflows/integration.yml`). The checks are
    required so the judge and merge tool cannot merge a change whose CI or
    scans have not passed; non-strict means a branch need not be up to date,
    which avoids a re-run per merge. The repository owner bypasses it. A legacy

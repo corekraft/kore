@@ -4,7 +4,9 @@ import { testWorkers } from "../kore/.husky/test-workers.mjs";
 
 export default defineConfig({
   test: {
-    // One cap for every unit path; see .husky/test-workers.mjs.
+    // One cap for every unit path; see .husky/test-workers.mjs. The threads pool
+    // starts a worker per thread, not a process, so the cap costs less memory (#405).
+    pool: "threads",
     maxWorkers: testWorkers(),
     // A mock's calls and behaviour, and a spy's real method, reset before each test (ADR 0098).
     mockReset: true,
