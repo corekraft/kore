@@ -78,10 +78,20 @@ test("an explicit dryrun, warn or deny action is not refused for its action", as
     {
       "dry.yaml":
         "metadata: {name: kore-dry}\nspec:\n  enforcementAction: dryrun\n",
+      "warn.yaml":
+        "metadata: {name: kore-warn}\nspec:\n  enforcementAction: warn\n",
       "deny.yaml":
         "metadata: {name: kore-rbac}\nspec:\n  enforcementAction: deny\n",
     },
-    { "kore-rbac.json": record },
+    {
+      "kore-rbac.json": record,
+      "kore-warn.json": JSON.stringify({
+        constraint: "kore-warn",
+        from: "dryrun",
+        to: "warn",
+        environments: { local: { observedAt: FRESH, totalViolations: 0 } },
+      }),
+    },
   );
   expect(await policyPromotionErrors(repository(), NOW)).toEqual([]);
 });
