@@ -1,16 +1,47 @@
-// The plan parser and retrospective helpers the context hook shares with the
-// rest of the harness, ported from .claude/hooks/context.test.mjs.
+// The plan parser the context hook shares with the rest of the harness, and the
+// retrospective marker and window as the hook sees them over real transcripts.
 // Docs: infra/plans/4-knowledge.md#step-4-upward-context
 
-import { describe, expect, it } from "vitest";
+import { mkdirSync, utimesSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   activePlans,
   nextStep,
   openItems,
   upcomingSteps,
-} from "../plan/index.js";
-import { fourSteps, frontmatter, handedOff, plan } from "./context-support.js";
-import { lastRetrospective, windowStart } from "./retro-scan.js";
+} from "../../src/plan/index.js";
+import * as hookRun from "./hook-run-support.js";
+
+const {
+  additional,
+  cleanTemps,
+  context,
+  fourSteps,
+  frontmatter,
+  handedOff,
+  plan,
+  repository,
+  temp,
+} = hookRun;
+
+afterEach(cleanTemps);
+
+/** A config dir whose project transcripts are the given names, each modified at its date. */
+function transcripts(root: string, files: [string, Date][]): string {
+  const config = temp("kore-config-");
+  const dir = join(config, "projects", root.replace(/[^a-zA-Z0-9]/g, "-"));
+  mkdirSync(dir, { recursive: true });
+  for (const [name, when] of files) {
+    const path = join(dir, `${name}.jsonl`);
+    writeFileSync(path, "");
+    utimesSync(path, when, when);
+  }
+  return config;
+}
+
+const startup = (session = "current") =>
+  JSON.stringify({ source: "startup", session_id: session });
 
 describe("context on the shared plan parser", () => {
   it("openItems lists unchecked items with their step and joins wrapped lines", () => {
@@ -64,7 +95,7 @@ describe("context on the shared plan parser", () => {
   });
 });
 
-describe("context on the shared plan parser, active plans and retrospectives", () => {
+describe("context on the shared plan parser, frontmatter and open items", () => {
   it("activePlans covers every plan whose frontmatter is active, newest first, and never a done one", () => {
     const plans = {
       "1-initialize.md": `${frontmatter("done")}## Step 1: A\n\n- [ ] stale box\n`,
@@ -88,32 +119,6 @@ describe("context on the shared plan parser, active plans and retrospectives", (
     expect(activePlans(plans)).toEqual(["4-new.md", "2-older.md"]);
   });
 
-  it("lastRetrospective returns the latest marker across plans, or null", () => {
-    expect(
-      lastRetrospective({
-        "2-a.md": "Last retrospective: 2026-10-01\n",
-        "3-b.md": handedOff,
-      }),
-    ).toBe("2026-11-01");
-    expect(lastRetrospective({ "3-b.md": plan })).toBeNull();
-  });
-
-  it("lastRetrospective takes the newest marker within a plan, not the first", () => {
-    expect(
-      lastRetrospective({
-        "3-b.md":
-          "Last retrospective: 2026-11-07\n\nlater\n\n- Last retrospective: 2026-11-08\n\nearlier: Last retrospective: 2026-10-01\n",
-      }),
-    ).toBe("2026-11-08");
-  });
-
-  it("windowStart is local midnight of the marker day, so the marker day is inside the window", () => {
-    const start = windowStart("2026-11-08");
-    expect(start).toBe(new Date("2026-11-08T00:00:00").getTime());
-    expect(start - 1).toBeLessThan(start);
-    expect(windowStart(undefined)).toBe(0);
-  });
-
   it("nextStep ends a Next: paragraph at a list item, which the shared parser stops at", () => {
     const markdown =
       "## Step 1: A\n\nNext: do this first\n- [ ] item\n  wrapped\n";
@@ -121,5 +126,55 @@ describe("context on the shared plan parser, active plans and retrospectives", (
       step: "Step 1: A",
       text: "do this first",
     });
+  });
+});
+
+describe("context retrospective marker, as the hook reads it", () => {
+  it("names the latest marker across plans in the reminder", async () => {
+    const root = repository({
+      "infra/plans/2-a.md": "Last retrospective: 2026-10-01\n",
+      "infra/plans/3-b.md": handedOff,
+    });
+    const config = transcripts(
+      root,
+      [1, 2, 3, 4, 5].map((n) => [`s${n}`, new Date()] as [string, Date]),
+    );
+    const result = await context(root, startup("current"), config);
+    expect(additional(result)).toMatch(
+      /^5 sessions since the last retrospective \(2026-11-01\); run \/retro\.$/m,
+    );
+  });
+
+  it("takes the newest marker within a plan, not the first", async () => {
+    const root = repository({
+      "infra/plans/3-b.md":
+        "Last retrospective: 2026-11-07\n\nlater\n\n- Last retrospective: 2026-11-08\n\nearlier: Last retrospective: 2026-10-01\n",
+    });
+    const config = transcripts(
+      root,
+      [1, 2, 3, 4, 5].map((n) => [`s${n}`, new Date()] as [string, Date]),
+    );
+    const result = await context(root, startup("current"), config);
+    expect(additional(result)).toMatch(/\(2026-11-08\)/);
+  });
+
+  it("counts a transcript from the marker day's local midnight, and none from before it", async () => {
+    const root = repository({
+      "infra/plans/3-b.md": "Last retrospective: 2026-11-08\n",
+    });
+    const midnight = new Date("2026-11-08T00:00:00");
+    const before = new Date(midnight.getTime() - 1);
+    const config = transcripts(root, [
+      ["a", midnight],
+      ["b", midnight],
+      ["c", midnight],
+      ["d", midnight],
+      ["e", midnight],
+      ["early", before],
+    ]);
+    const result = await context(root, startup("current"), config);
+    expect(additional(result)).toBe(
+      "5 sessions since the last retrospective (2026-11-08); run /retro.",
+    );
   });
 });

@@ -15,16 +15,19 @@ const DEPS = { tag: "deps" };
 let stdout: ReturnType<typeof vi.fn>;
 let stderr: ReturnType<typeof vi.fn>;
 
+/** The one assertion: a fake's parts as CliDeps, whose members the spec never reads. */
+const asCliDeps = (parts: object) => parts as CliDeps;
+
 /** A context whose stdin carries the given text, as the host sends it. */
 function contextWithStdin(text: string): CommandContext {
   stdout = vi.fn();
   stderr = vi.fn();
-  const deps = {
+  const deps = asCliDeps({
     root: async () => ROOT,
     stdin: async () => text,
     stdout,
     stderr,
-  } as unknown as CliDeps;
+  });
   return { json: false, options: {}, deps };
 }
 

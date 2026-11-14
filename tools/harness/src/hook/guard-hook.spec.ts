@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { run } from "../cli/index.js";
 import { testHarness } from "../testing/index.js";
-import { ledgerEvents } from "./feedback-support.js";
 import { modeOf, INVENTORY_PATH } from "../guardrail/index.js";
 import {
   committedInventory,
   committedInventoryText,
+  ledgerEvents,
 } from "../testing/index.js";
 import { evaluate } from "./guard.js";
 
@@ -31,12 +31,7 @@ async function guard(
   gitCalls?.push(
     ...h.runner.calls.filter((c) => c.command === "git").map((c) => c.args),
   );
-  return {
-    code,
-    out: h.out(),
-    err: h.err(),
-    events: ledgerEvents(h.files),
-  };
+  return { code, out: h.out(), err: h.err(), events: ledgerEvents(h.files) };
 }
 
 const call = (command: string) => ({

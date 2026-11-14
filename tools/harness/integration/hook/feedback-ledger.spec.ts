@@ -1,16 +1,11 @@
 // Feedback hook: ledger recording and fail-open behaviour.
 
 import { describe, expect, it } from "vitest";
-import { run } from "../cli/index.js";
-import { testHarness } from "../testing/index.js";
-import {
-  KORE_BIN,
-  edited,
-  failing,
-  hook,
-  ledgerEvents,
-  root,
-} from "./feedback-support.js";
+import { run } from "../../src/cli/index.js";
+import { testHarness } from "../../src/testing/index.js";
+import * as hookFeedback from "./hook-feedback-support.js";
+
+const { KORE_BIN, edited, failing, hook, ledgerEvents, root } = hookFeedback;
 
 describe("hook feedback records ledger events", () => {
   it("records a tool end as success after any tool, with session, pane and tool", async () => {

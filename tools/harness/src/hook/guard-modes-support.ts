@@ -2,8 +2,9 @@
 import { run } from "../cli/index.js";
 import { testHarness } from "../testing/index.js";
 import { INVENTORY_PATH, type Mode } from "../guardrail/index.js";
-import { inventoryWith } from "../testing/index.js";
-import { ledgerEvents } from "./feedback-support.js";
+import { inventoryWith, ledgerEvents } from "../testing/index.js";
+
+/** The ledger's events from a fake file map, one JSON object per line. */
 
 export async function guard(
   payload: unknown,
