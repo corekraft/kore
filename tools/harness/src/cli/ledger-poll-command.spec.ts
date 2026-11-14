@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { FakeRunner } from "../testing/index.js";
 import { run } from "./cli.js";
-import { DEFAULT, harness } from "./ledger-commands-support.js";
+import {
+  LEDGER_FILE as DEFAULT,
+  ledgerHarness as harness,
+} from "../testing/index.js";
 
 const agents = JSON.stringify({
   result: {

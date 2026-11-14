@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { run } from "./cli.js";
-import { DEFAULT, harness } from "./ledger-commands-support.js";
+import {
+  LEDGER_FILE as DEFAULT,
+  ledgerHarness as harness,
+} from "../testing/index.js";
 
 const POLLER_KINDS = [
   "ci.main",

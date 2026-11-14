@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { FakeRunner } from "../testing/index.js";
 import { run } from "./cli.js";
-import { harness } from "./ledger-commands-support.js";
+import { ledgerHarness as harness } from "../testing/index.js";
 
 const comment = (id: number, login: string) => ({
   id,

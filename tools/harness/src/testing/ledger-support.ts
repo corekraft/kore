@@ -1,6 +1,6 @@
 import type { CliDeps } from "../runtime/index.js";
-import { MemoryFileSystem } from "../testing/index.js";
-import { FakeRunner } from "../testing/index.js";
+import { MemoryFileSystem } from "./memory-filesystem-support.js";
+import { FakeRunner } from "./runner-support.js";
 
 export const DEFAULT = "/repo/.kore/state/ledger.jsonl";
 

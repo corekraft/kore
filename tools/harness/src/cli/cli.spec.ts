@@ -1,112 +1,206 @@
-import { describe, expect, it } from "vitest";
-import { testHarness } from "../testing/index.js";
+import { describe, expect, it, vi } from "vitest";
+import { CommandError, type CliDeps } from "../runtime/index.js";
 import { run } from "./cli.js";
 
-const harness = testHarness;
+const table = vi.hoisted(() => {
+  const command = (summary: string, extra: Record<string, unknown> = {}) => ({
+    summary,
+    run: vi.fn((_context: unknown) => Promise.resolve(0)),
+    ...extra,
+  });
+  return {
+    harness: { version: command("print the harness version") },
+    plan: {
+      tick: command("tick a step", {
+        operand: "step",
+        options: { note: "string", force: "boolean" },
+      }),
+    },
+    hook: { guard: command("guard a tool call") },
+    lone: { "": command("the domain's only command") },
+  };
+});
 
-describe("harness dispatch", () => {
+vi.mock("./domains.js", () => ({ domains: table }));
+
+// The output of the most recent depsOf(): what its stdout and stderr received.
+let captured = { out: "", err: "" };
+
+function depsOf(): CliDeps {
+  captured = { out: "", err: "" };
+  return {
+    stdout: (text: string) => {
+      captured.out += text;
+    },
+    stderr: (text: string) => {
+      captured.err += text;
+    },
+  } as unknown as CliDeps;
+}
+
+function outputOf() {
+  return captured;
+}
+
+describe("harness dispatch: usage", () => {
   it.each([[["--help"]], [["-h"]], [[]]])(
-    "lists domains and commands for %j and exits 0",
+    "prints the usage listing every domain's commands for %j and exits 0",
     async (argv) => {
-      const h = harness();
-      expect(await run(argv, h.deps)).toBe(0);
-      expect(h.out()).toContain("Usage: harness <domain> <command> [--json]");
-      expect(h.out()).toContain("harness version");
-      expect(h.err()).toBe("");
+      const deps = depsOf();
+      expect(await run(argv, deps)).toBe(0);
+      const { out, err } = outputOf();
+      expect(out).toContain("Usage: harness <domain> <command> [--json]");
+      expect(out).toContain(
+        "  harness harness version  print the harness version",
+      );
+      expect(out).toContain("  harness plan tick  tick a step");
+      expect(out).toContain("  harness hook guard  guard a tool call");
+      expect(err).toBe("");
     },
   );
 
-  it("rejects an unknown domain, names it, and shows usage", async () => {
-    const h = harness();
-    expect(await run(["nope", "x"], h.deps)).toBe(2);
-    expect(h.err()).toContain('Unknown domain "nope"');
-    expect(h.err()).toContain("Usage: harness");
-    expect(h.out()).toBe("");
+  it("shows only the domain's commands for `<domain> --help` and exits 0", async () => {
+    const deps = depsOf();
+    expect(await run(["plan", "--help"], deps)).toBe(0);
+    expect(outputOf().out).toContain("tick a step");
   });
 
-  it("rejects an unknown command, names it, and lists the domain's commands", async () => {
-    const h = harness();
-    expect(await run(["harness", "nope"], h.deps)).toBe(2);
-    expect(h.err()).toContain('Unknown command "nope" for domain "harness"');
-    expect(h.err()).toContain("version");
-  });
-
-  it("rejects a domain without a command", async () => {
-    const h = harness();
-    expect(await run(["harness"], h.deps)).toBe(2);
-    expect(h.err()).toContain('Missing command for domain "harness"');
-  });
-
-  it("rejects an unknown flag and runs nothing", async () => {
-    const h = harness();
-    expect(await run(["harness", "version", "--bogus"], h.deps)).toBe(2);
-    expect(h.err()).toContain('Unknown flag "--bogus"');
-    expect(h.err()).toContain("Usage: harness");
-    expect(h.out()).toBe("");
-  });
-
-  it("shows a domain's commands for `<domain> --help`", async () => {
-    const h = harness();
-    expect(await run(["harness", "--help"], h.deps)).toBe(0);
-    expect(h.out()).toContain("version");
-  });
-
-  it("prints human text by default and JSON with --json", async () => {
-    const text = harness();
-    expect(await run(["harness", "version"], text.deps)).toBe(0);
-    expect(text.out()).toMatch(/^harness \d+\.\d+\.\d+\n$/);
-
-    const json = harness();
-    expect(await run(["harness", "version", "--json"], json.deps)).toBe(0);
-    expect(JSON.parse(json.out())).toEqual({
-      version: expect.stringMatching(/^\d+\.\d+\.\d+$/) as unknown,
-    });
-  });
-
-  it("accepts --json before the command", async () => {
-    const h = harness();
-    expect(await run(["--json", "harness", "version"], h.deps)).toBe(0);
-    expect(JSON.parse(h.out())).toHaveProperty("version");
+  it("rejects an unknown domain, names the known ones, and shows usage with exit 2", async () => {
+    const deps = depsOf();
+    expect(await run(["nope", "x"], deps)).toBe(2);
+    const { out, err } = outputOf();
+    expect(err).toContain(
+      'Unknown domain "nope". Domains: harness, plan, hook, lone.',
+    );
+    expect(err).toContain("Usage: harness");
+    expect(out).toBe("");
   });
 });
 
-describe("harness dispatch hardening", () => {
-  it.each([
-    [["constructor", "version"], 'Unknown domain "constructor"'],
-    [["harness", "constructor"], 'Unknown command "constructor"'],
-    [["__proto__", "x"], 'Unknown domain "__proto__"'],
-  ])(
-    "treats inherited object keys %j as unknown, not a crash",
-    async (argv, message) => {
-      const h = harness();
-      expect(await run(argv, h.deps)).toBe(2);
-      expect(h.err()).toContain(message);
-    },
-  );
-
-  it("rejects extra words after the command and runs nothing", async () => {
-    const h = harness();
-    expect(await run(["harness", "version", "extra"], h.deps)).toBe(2);
-    expect(h.err()).toContain('Unexpected argument "extra"');
-    expect(h.err()).toContain("Usage: harness");
-    expect(h.out()).toBe("");
+describe("harness dispatch: resolving the command", () => {
+  it("rejects an unknown command and lists the domain's commands", async () => {
+    const deps = depsOf();
+    expect(await run(["harness", "nope"], deps)).toBe(2);
+    expect(outputOf().err).toContain(
+      'Unknown command "nope" for domain "harness". Commands: version.',
+    );
   });
 
-  it("under --json, usage errors also print an error object on stderr", async () => {
-    const h = harness();
-    expect(await run(["nope", "--json"], h.deps)).toBe(2);
-    const line = h.err().split("\n")[0] ?? "";
-    expect(JSON.parse(line)).toEqual({
-      error: expect.stringMatching(
-        /^Unknown domain "nope"\. Domains: harness(, \w+)*\.$/,
-      ) as unknown,
+  it("rejects a domain without a command when it has several", async () => {
+    const deps = depsOf();
+    expect(await run(["plan"], deps)).toBe(2);
+    expect(outputOf().err).toContain(
+      'Missing command for domain "plan". Commands: tick.',
+    );
+  });
+
+  it("runs a domain's only command when no command name is given", async () => {
+    const deps = depsOf();
+    expect(await run(["lone"], deps)).toBe(0);
+    expect(table.lone[""].run).toHaveBeenCalledTimes(1);
+  });
+
+  it("never resolves a prototype member such as constructor as a domain or command", async () => {
+    const deps = depsOf();
+    expect(await run(["constructor", "x"], deps)).toBe(2);
+    expect(await run(["harness", "__proto__"], deps)).toBe(2);
+    expect(outputOf().err).toContain('Unknown domain "constructor"');
+  });
+});
+
+describe("harness dispatch: flags and operands", () => {
+  it("passes the parsed flags, operand and --json to the command, and returns its exit code", async () => {
+    const deps = depsOf();
+    table.plan.tick.run.mockResolvedValueOnce(4);
+    const code = await run(
+      ["plan", "tick", "A1", "--note", "why", "--force", "--json"],
+      deps,
+    );
+    expect(code).toBe(4);
+    expect(table.plan.tick.run.mock.calls).toEqual([
+      [
+        {
+          json: true,
+          options: { note: "why", force: true },
+          operand: "A1",
+          deps,
+        },
+      ],
+    ]);
+  });
+
+  it("accepts a value written inline with =, and a value that is itself empty", async () => {
+    const deps = depsOf();
+    await run(["plan", "tick", "--note=a=b", "--force"], deps);
+    expect(table.plan.tick.run.mock.calls.at(-1)?.[0]).toMatchObject({
+      options: { note: "a=b", force: true },
     });
-    expect(h.err()).toContain("Usage: harness");
   });
 
-  it("without --json, usage errors print no JSON", async () => {
-    const h = harness();
-    await run(["nope"], h.deps);
-    expect(h.err().startsWith("{")).toBe(false);
+  it("refuses an unknown flag, shows usage, and runs nothing", async () => {
+    const deps = depsOf();
+    expect(await run(["harness", "version", "--bogus"], deps)).toBe(2);
+    expect(outputOf().err).toContain('Unknown flag "--bogus"');
+    expect(table.harness.version.run).not.toHaveBeenCalled();
+  });
+
+  it("refuses a value flag with no value, and a boolean flag given a value", async () => {
+    const deps = depsOf();
+    expect(await run(["plan", "tick", "A1", "--note"], deps)).toBe(2);
+    expect(outputOf().err).toContain('Flag "--note" needs a value.');
+    expect(await run(["plan", "tick", "A1", "--force=yes"], deps)).toBe(2);
+    expect(outputOf().err).toContain('Flag "--force" takes no value.');
+  });
+
+  it("refuses an operand the command does not take, and a second operand", async () => {
+    const deps = depsOf();
+    expect(await run(["harness", "version", "stray"], deps)).toBe(2);
+    expect(outputOf().err).toContain('Unexpected argument "stray".');
+    expect(await run(["plan", "tick", "A1", "A2"], deps)).toBe(2);
+    expect(outputOf().err).toContain('Unexpected argument "A2".');
+  });
+
+  it("asks for a flag placed before the command, and runs nothing", async () => {
+    const deps = depsOf();
+    expect(await run(["--note", "x", "plan", "tick"], deps)).toBe(2);
+    expect(outputOf().err).toContain(
+      'Put "--note" after the command: harness <domain> <command> [flags].',
+    );
+  });
+});
+
+describe("harness dispatch: exit codes and failures", () => {
+  it("prints a command's expected failure on stderr and exits 1", async () => {
+    const deps = depsOf();
+    table.harness.version.run.mockRejectedValueOnce(
+      new CommandError("the version is missing"),
+    );
+    expect(await run(["harness", "version"], deps)).toBe(1);
+    expect(outputOf().err).toBe("the version is missing\n");
+  });
+
+  it("writes a command's expected failure as a JSON line first under --json", async () => {
+    const deps = depsOf();
+    table.harness.version.run.mockRejectedValueOnce(
+      new CommandError("the version is missing"),
+    );
+    expect(await run(["harness", "version", "--json"], deps)).toBe(1);
+    expect(outputOf().err).toBe(
+      '{"error":"the version is missing"}\nthe version is missing\n',
+    );
+  });
+
+  it("rethrows an error that is not a command error, so a bug is never reported as an expected failure", async () => {
+    const deps = depsOf();
+    const bug = new Error("bug");
+    table.harness.version.run.mockRejectedValueOnce(bug);
+    await expect(run(["harness", "version"], deps)).rejects.toBe(bug);
+    expect(outputOf().err).toBe("");
+  });
+
+  it("exits 1, not 2, for a hook, so a typo in settings never blocks a tool call", async () => {
+    const deps = depsOf();
+    expect(await run(["hook", "nope"], deps)).toBe(1);
+    expect(await run(["hook", "guard", "--bogus"], deps)).toBe(1);
   });
 });
