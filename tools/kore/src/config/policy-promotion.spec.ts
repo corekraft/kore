@@ -120,13 +120,9 @@ test("the sample lists at most five violating resources, each without its empty 
   const report = evaluateAudit(
     status({ auditTimestamp: FRESH, totalViolations: 7, violations }),
   );
-  expect(report.sample).toEqual([
-    "Pod/pod-0",
-    "Pod/pod-1",
-    "Pod/pod-2",
-    "Pod/pod-3",
-    "Pod/pod-4",
-  ]);
+  expect(report.sample).toEqual(
+    Array.from({ length: 5 }, (_, index) => `Pod/pod-${index}`),
+  );
 });
 
 const record = {
@@ -136,29 +132,20 @@ const record = {
   environments: { local: { observedAt: FRESH, totalViolations: 0 } },
 };
 
-test("a record that names its constraint and promotes from dryrun is a record", () => {
+test("a record names its constraint and promotes from dryrun to a known action", () => {
   expect(isRecord(record)).toBe(true);
-});
-
-test("a record that does not promote from dryrun, or to an unknown action, is not a record", () => {
   expect(isRecord({ ...record, from: "warn" })).toBe(false);
   expect(isRecord({ ...record, to: "dryrun" })).toBe(false);
 });
 
 test("evidence must carry a parseable timestamp and a whole, non-negative count", () => {
-  const withEvidence = (evidence: unknown) => ({
-    ...record,
-    environments: { local: evidence },
-  });
-  expect(
-    isRecord(withEvidence({ observedAt: "not a date", totalViolations: 0 })),
-  ).toBe(false);
-  expect(
-    isRecord(withEvidence({ observedAt: FRESH, totalViolations: -1 })),
-  ).toBe(false);
-  expect(
-    isRecord(withEvidence({ observedAt: FRESH, totalViolations: 1.5 })),
-  ).toBe(false);
+  const withEvidence = (evidence: unknown) =>
+    isRecord({ ...record, environments: { local: evidence } });
+  expect([
+    withEvidence({ observedAt: "not a date", totalViolations: 0 }),
+    withEvidence({ observedAt: FRESH, totalViolations: -1 }),
+    withEvidence({ observedAt: FRESH, totalViolations: 1.5 }),
+  ]).toEqual([false, false, false]);
 });
 
 test("JSON text parses, and text that is not JSON is undefined rather than an error", () => {
@@ -215,19 +202,18 @@ test("evidence older than fourteen days must be audited again", () => {
   ]);
 });
 
-// policyPromotionErrors reads the constraint files and the promotion records.
-
 function policies(
   constraints: Record<string, string>,
   promotions: Record<string, string> = {},
 ): void {
-  const texts = new Map<string, string>();
-  for (const [file, text] of Object.entries(constraints)) {
-    texts.set(`${CONSTRAINTS}/${file}`, text);
-  }
-  for (const [file, text] of Object.entries(promotions)) {
-    texts.set(`${PROMOTIONS}/${file}`, text);
-  }
+  const texts = new Map<string, string>([
+    ...Object.entries(constraints).map(
+      ([file, text]) => [`${CONSTRAINTS}/${file}`, text] as const,
+    ),
+    ...Object.entries(promotions).map(
+      ([file, text]) => [`${PROMOTIONS}/${file}`, text] as const,
+    ),
+  ]);
   const listing: Record<string, string[]> = {
     [CONSTRAINTS]: Object.keys(constraints),
     [PROMOTIONS]: Object.keys(promotions),
