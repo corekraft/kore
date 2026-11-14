@@ -77,6 +77,7 @@ export {
   type FakeIssue,
   type Harness,
 } from "./outcome-support.js";
+export { activePlan, planHarness } from "./plan-support.js";
 export {
   INDEX,
   NEW,

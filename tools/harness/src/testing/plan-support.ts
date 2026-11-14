@@ -1,9 +1,12 @@
 import type { CliDeps } from "../runtime/index.js";
-import { FakeRunner } from "../testing/index.js";
+import { FakeRunner } from "./runner-support.js";
 
-export const ROOT = "/repo";
+const ROOT = "/repo";
 
-/** An in-memory repository holding plan files; writes land back in `files`. */
+/**
+ * An in-memory repository holding plan files; writes land back in `files`.
+ * Integration specs run the real plan commands through it.
+ */
 export function planHarness(files: Record<string, string>) {
   const out: string[] = [];
   const err: string[] = [];
