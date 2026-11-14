@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { run } from "../cli/index.js";
+import { run } from "../../src/cli/index.js";
 import {
   CANDIDATE,
   CHECKS,
@@ -12,7 +12,7 @@ import {
   rulesetRepo,
   sent,
   sync,
-} from "../testing/index.js";
+} from "../../src/testing/index.js";
 
 const EXTRA = { type: "required_linear_history" };
 
