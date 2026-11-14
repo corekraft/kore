@@ -10,8 +10,12 @@ export function adrLookup(
   read: (path: string) => string | null,
 ): AdrLookup {
   return (number) => {
-    const file = files.find((name) =>
-      new RegExp(`^docs/decisions/${number}-[^/]+\\.md$`).test(name),
+    const prefix = `docs/decisions/${number}-`;
+    const file = files.find(
+      (name) =>
+        name.startsWith(prefix) &&
+        name.endsWith(".md") &&
+        !name.slice(prefix.length).includes("/"),
     );
     const keys = file ? frontmatter(file, read(file) ?? "")?.keys : null;
     const status = keys?.get("status")?.value;

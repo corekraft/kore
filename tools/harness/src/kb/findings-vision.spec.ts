@@ -22,9 +22,9 @@ test("the vision problems are reported with the rest", () => {
   expect(findings({ files: () => Object.keys(docs), read })).toEqual([FOUND]);
 });
 
-test("the vision unit receives the sorted tracked files and the tree's reader", () => {
+test("the vision unit receives the sorted tracked files and a reader of the tree", () => {
   findings({ files: () => ["docs/vision.md", "docs/index.md"], read });
-  expect(vi.mocked(visionProblems).mock.calls).toEqual([
-    [["docs/index.md", "docs/vision.md"], read],
-  ]);
+  const [files, reader] = vi.mocked(visionProblems).mock.calls[0] ?? [];
+  expect(files).toEqual(["docs/index.md", "docs/vision.md"]);
+  expect(reader?.("docs/vision.md")).toBe("# Vision");
 });

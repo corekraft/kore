@@ -320,6 +320,6 @@ export function findings(deps: TreeDeps): Finding[] {
     ...indexProblems(tree),
     ...markerProblems(tree),
     ...readmeProblems(tree),
-    ...visionProblems(tree.files, tree.deps.read),
+    ...visionProblems(tree.files, (path) => tree.deps.read(path)),
   ];
 }
