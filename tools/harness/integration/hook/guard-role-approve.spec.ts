@@ -32,6 +32,12 @@ describe("role-no-merge: the judge approve tool", () => {
         "role-no-merge",
       );
     }
+    for (const role of ["reader", "refiner"]) {
+      blocked(
+        await bash(role, "node skills/bin/harness.mjs judge approve 12"),
+        "role-read-only",
+      );
+    }
     blocked(
       await bash(
         "judge",
