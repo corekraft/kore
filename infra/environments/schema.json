@@ -89,7 +89,7 @@
     },
     "exemptionCheck": {
       "enum": ["audit", "enforce"],
-      "description": "How kore validate treats policy-exemption findings (ADR 0056 mode): audit, the default when unset, reports them as warnings that never change the exit status; enforce turns them into validation errors."
+      "description": "Mode of the policy-exemption check, audit or enforce (ADR 0056 mode); unset reads as audit. Accepted and validated now; the exemption check that consumes it is a later ticket under #613."
     },
     "enrollmentExemptions": {
       "type": "object",

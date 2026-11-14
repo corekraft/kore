@@ -138,8 +138,9 @@ export interface Environment {
    */
   imageInventory?: "audit" | "enforce";
   /**
-   * How `kore validate` treats policy-exemption findings. `audit` (the
-   * default when unset) reports them as warnings; `enforce` makes them errors.
+   * Mode of the policy-exemption check, `audit` or `enforce`; unset reads as
+   * `audit`. Accepted and validated now; the exemption check that consumes it
+   * is a later ticket under #613.
    */
   exemptionCheck?: "audit" | "enforce";
   /**

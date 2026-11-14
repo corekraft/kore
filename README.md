@@ -229,7 +229,8 @@ Human output prints each as a `warning:` line on stderr, and `--json` adds a
 An environment overlay sets `exemptionCheck` to `audit` or `enforce`
 (optional; unset reads as `audit`, as with `imageInventory`,
 [ADR 0056](docs/decisions/0056-platform-image-inventory.md)); `local` stays on
-`audit`, and `enforce` is for an environment that has promoted the check.
+`audit`. The field is accepted and validated now; the exemption check that
+consumes it is a later ticket under #613.
 `kore validate --environment managed-example --platform-image-lock <file>`
 additionally checks a release's `platform-images.lock.json` (attached to the
 GitHub release as an asset) against the committed overlay and image policy
