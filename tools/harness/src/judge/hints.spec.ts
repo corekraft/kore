@@ -164,6 +164,48 @@ describe("hintsFor reads the features object of an overlay", () => {
   });
 });
 
+describe("hintsFor reads a features object whose brace is on the next line", () => {
+  const brace = (flag: string, value: boolean): ChangedFile =>
+    file("infra/environments/local/environment.yaml", [
+      [
+        ctx('  "features":'),
+        ctx("  {"),
+        add(`    "${flag}": ${value},`),
+        ctx("  },"),
+      ],
+    ]);
+
+  it("reports a flag added false as present and off", () => {
+    expect(hintsFor("feature-flagged", [brace("pruning", false)])).toEqual({
+      flags: [{ flag: "pruning", environment: "local", value: false }],
+      flagPresentAndOff: true,
+    });
+  });
+
+  it("reports a flag added true as not off", () => {
+    expect(hintsFor("feature-flagged", [brace("pruning", true)])).toEqual({
+      flags: [{ flag: "pruning", environment: "local", value: true }],
+      flagPresentAndOff: false,
+    });
+  });
+
+  it("ignores a flag added in a different object after it closes", () => {
+    const changed = file("infra/environments/local/environment.yaml", [
+      [
+        ctx('  "features":'),
+        ctx("  {"),
+        ctx('    "a": false'),
+        ctx("  },"),
+        add('  "enabled": true,'),
+      ],
+    ]);
+    expect(hintsFor("feature-flagged", [changed])).toEqual({
+      flags: [],
+      flagPresentAndOff: false,
+    });
+  });
+});
+
 describe("hintsFor dark-launched and branch-by-abstraction", () => {
   it("dark-launched: on in local and off elsewhere", () => {
     expect(
