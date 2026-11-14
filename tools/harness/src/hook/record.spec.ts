@@ -9,7 +9,13 @@ vi.mock("./ledger-event.js");
 
 /** The one assertion: a fake whose members the spec never reads, passed through to the mocked ledger. */
 const asCliDeps = (parts: object) => parts as CliDeps;
-const DEPS = asCliDeps({ tag: "deps" });
+const BUNDLE = "file:///repo/skills/bin/harness.mjs";
+const runnerRun = vi.fn();
+const DEPS = asCliDeps({
+  tag: "deps",
+  bundleUrl: BUNDLE,
+  runner: { run: runnerRun },
+});
 
 /** The handler `record` was built from, read from the hookCommand call that ran when the module loaded. */
 function handlerOf() {
@@ -72,5 +78,47 @@ describe("record hook: what it ignores", () => {
 
   it("returns no output, so the host gets nothing back from the hook", async () => {
     expect(await run({ source: "startup" })).toEqual({});
+  });
+});
+
+describe("record hook: the background ledger poll", () => {
+  it("starts `ledger poll-github` through the runner on a session start", async () => {
+    runnerRun.mockResolvedValue({ stdout: "", stderr: "", code: 0 });
+
+    await run({ source: "startup", session_id: "abc" });
+
+    expect(runnerRun).toHaveBeenCalledWith("node", [
+      "/repo/skills/bin/harness.mjs",
+      "ledger",
+      "poll-github",
+    ]);
+  });
+
+  it("does not wait for the poll, so a poll that never ends never blocks the hook", async () => {
+    runnerRun.mockReturnValue(new Promise(() => undefined));
+
+    expect(await run({ source: "startup", session_id: "abc" })).toEqual({});
+  });
+
+  it("returns the same output when the poll rejects", async () => {
+    runnerRun.mockRejectedValue(new Error("rate limited"));
+
+    expect(await run({ source: "resume", session_id: "abc" })).toEqual({});
+    await Promise.resolve();
+  });
+
+  it("returns the same output when the runner throws at once", async () => {
+    runnerRun.mockImplementation(() => {
+      throw new Error("spawn failed");
+    });
+
+    expect(await run({ source: "clear", session_id: "abc" })).toEqual({});
+  });
+
+  it("does not poll for a compaction or under another mode", async () => {
+    await run({ source: "compact", session_id: "abc" });
+    await runMode({ source: "startup" }, "stop");
+
+    expect(runnerRun).not.toHaveBeenCalled();
   });
 });
