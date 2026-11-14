@@ -2,7 +2,7 @@
 status: accepted
 summary: A diff of docs, tests and developer tooling matches no-behaviour-change; the boundary fails closed, and a guard rule that starts enforcing declares no-behaviour-change, gated by ADR 0080.
 date: 2026-11-12
-last-verified: 2026-11-13
+last-verified: 2026-11-14
 ---
 
 # ADR 0099: The judge precheck treats developer tooling as no behaviour change
@@ -27,6 +27,14 @@ and [plan 14](../../infra/plans/14-test-tiers.md) edits a list: each domain's
 context, so its `"scripts"` header is often out of view, and the precheck could
 not place the change.
 
+The integration tier of [ADR 0098](0098-unit-tests-mock-everything-outside-the-unit-and-integration-tests-gate-only-a-release.md)
+adds a read-only merge-check workflow, `.github/workflows/integration.yml`, and
+its setup, `tools/kore/integration-setup.ts`. Both only build and run tests, so
+no user or cluster observes them, but the list named neither, and the precheck
+reported such a PR as behavioural. The owner decided on 2026-11-14 to add
+exactly these two paths. `.mise.toml` and `tools/kore/tsconfig.json` stay
+product: a pin or a compiler setting can change what runs.
+
 ## Decision
 
 For `no-behaviour-change`, the precheck leaves developer tooling out of the
@@ -38,7 +46,9 @@ Tooling is:
 
 - `tools/harness/`, `.claude/`, `skills/`, `tools/kore/tests/`,
   `tools/kore/.husky`, `tools/kore/scripts`, the kore config files
-  (`tools/kore/*.config.*`), and the `check.yml` and `nightly.yml` workflows.
+  (`tools/kore/*.config.*`), the `check.yml`, `nightly.yml` and
+  `integration.yml` workflows, and `tools/kore/integration-setup.ts`, the setup
+  of the integration tier.
 - Test support inside `tools/kore/src`, by name: `*.fixtures.ts`,
   `*-fixtures.ts`, `*-support.ts` and the `src/testing/` domain. A production
   file with such a name slips past; the judge reads the diff.
