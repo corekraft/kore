@@ -37,7 +37,9 @@ feature work until it is gone.
 - **Each source file has exactly one spec file beside it.**
 - **An integration test runs real units from built domains together.** It may
   run local processes and use temporary files, never a cluster or the network.
-  The script, hook and bundle tests are integration tests.
+  The script, hook and bundle tests are integration tests. An integration spec
+  may stub its own domain's cluster-facing modules; see
+  [ADR 0104](0104-integration-specs-may-stub-a-domain-s-own-cluster-facing-modules.md).
 - **The cluster suites are renamed live tests,** which frees the word
   "integration" for the tier above.
 - **Gates.** The commit hook runs the unit tests related to the staged files.
