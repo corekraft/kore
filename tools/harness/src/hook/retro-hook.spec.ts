@@ -126,7 +126,7 @@ describe("hook retro-scan rejected input", () => {
   it("states both --since forms in the usage text", async () => {
     const result = await retro(repoRoot(), ["--since", "yesterday"]);
     expect(result.err).toBe(
-      "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD|YYYY-MM-DDTHH:MM:SSZ] [--evidence]\n--since keeps sessions active at or after local midnight of that date, or at or after that UTC instant, like the session-start count.\n--evidence adds guardEvidence: the session, transcript line and excerpt of each guard block, capped per rule. The default report leaves it out.\n",
+      "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD|YYYY-MM-DDTHH:MM:SSZ] [--evidence]\n--since keeps sessions active at or after local midnight of that date, or at or after that UTC instant, like the session-start count.\n--evidence adds guardEvidence (the session, transcript line and excerpt of each guard block) and overriddenEvidence (the same, with the command excerpt and the unquoted glob the guard named, for each overridden audit warning), capped per rule. The default report leaves them out.\n",
     );
   });
 

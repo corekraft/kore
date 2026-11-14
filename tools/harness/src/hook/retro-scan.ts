@@ -5,6 +5,7 @@
 
 import { createHash } from "node:crypto";
 import { CommandError } from "../runtime/index.js";
+import { RuleLocations } from "./retro-locations.js";
 import {
   SessionAnalysis,
   type GuardCounts,
@@ -15,8 +16,6 @@ import { parseTranscript, timestamps } from "./retro-transcript.js";
 export { parseTranscript, summarizeError } from "./retro-transcript.js";
 
 const MIN_WARNINGS = 5;
-/** Guard-block locations kept per rule; the guard count still reports every block. */
-const GUARD_EVIDENCE_CAP = 20;
 // The whole value on the line is captured, so a near-miss form is refused
 // rather than read as its date. Group 1 is the prefix, group 2 the value.
 const RETRO_MARKER = /^(\W*Last retrospective: )(\S.*?)[ \t\r]*$/gm;
@@ -40,11 +39,6 @@ export interface ScanOptions {
 interface Evidence {
   session: string;
   line: number;
-}
-
-/** Where one guard block is: its session, transcript line and a short excerpt of the blocked result. */
-interface GuardLocation extends Evidence {
-  excerpt: string;
 }
 
 type RuleStats = Record<Outcome, number> & {
@@ -149,7 +143,8 @@ const emptyStats = (): RuleStats => ({
 /** Counts added up across the sessions in the window. */
 class Tally {
   readonly guards: Record<string, GuardCounts> = {};
-  readonly guardEvidence: Record<string, GuardLocation[]> = {};
+  readonly guardEvidence = new RuleLocations();
+  readonly overriddenEvidence = new RuleLocations();
   readonly failureCounts = new Map<string, number>();
   readonly perSession: Record<string, string[]> = {};
   readonly loaded = new Set<string>();
@@ -165,14 +160,16 @@ class Tally {
 
   add(id: string, found: SessionAnalysis): void {
     this.addGuards(found);
-    this.addGuardLocations(id, found);
+    for (const { rule, line, excerpt } of found.guardBlocks) {
+      this.guardEvidence.add(rule, { session: id, line, excerpt });
+    }
+    this.addWarnings(id, found);
     for (const { tool, error } of found.failures) {
       const key = `${tool}\u0000${error}`;
       this.failureCounts.set(key, (this.failureCounts.get(key) ?? 0) + 1);
     }
     this.addSkills(id, found);
     this.addPhrases(id, found);
-    this.addWarnings(found);
   }
 
   private addGuards(found: SessionAnalysis): void {
@@ -180,15 +177,6 @@ class Tally {
       const total = (this.guards[rule] ??= { blocks: 0, warnings: 0 });
       total.blocks += counts.blocks;
       total.warnings += counts.warnings;
-    }
-  }
-
-  private addGuardLocations(id: string, found: SessionAnalysis): void {
-    for (const { rule, line, excerpt } of found.guardBlocks) {
-      const locations = (this.guardEvidence[rule] ??= []);
-      if (locations.length < GUARD_EVIDENCE_CAP) {
-        locations.push({ session: id, line, excerpt });
-      }
     }
   }
 
@@ -218,13 +206,22 @@ class Tally {
     }
   }
 
-  private addWarnings(found: SessionAnalysis): void {
+  private addWarnings(id: string, found: SessionAnalysis): void {
     const touched = new Set<RuleStats>();
     for (const warning of found.warnings) {
       const stats = this.ruleStats.get(warning.rule);
       if (stats) {
         stats.warnings++;
-        stats[found.outcome(warning)]++;
+        const outcome = found.outcome(warning);
+        stats[outcome]++;
+        if (outcome === "overridden") {
+          this.overriddenEvidence.add(warning.rule, {
+            session: id,
+            line: warning.line,
+            excerpt: warning.excerpt,
+            glob: warning.glob,
+          });
+        }
         touched.add(stats);
       }
     }
@@ -295,12 +292,6 @@ class Tally {
     );
   }
 
-  sortedGuardEvidence(): Record<string, GuardLocation[]> {
-    return Object.fromEntries(
-      Object.entries(this.guardEvidence).sort(([a], [b]) => a.localeCompare(b)),
-    );
-  }
-
   unused(): string[] {
     return this.knownSkills.filter((name) => !this.loaded.has(name)).sort();
   }
@@ -342,7 +333,12 @@ export function scan(
     },
     skippedLines: included.reduce((sum, item) => sum + item.session.skipped, 0),
     guards: tally.sortedGuards(),
-    ...(evidence ? { guardEvidence: tally.sortedGuardEvidence() } : {}),
+    ...(evidence
+      ? {
+          guardEvidence: tally.guardEvidence.sorted(),
+          overriddenEvidence: tally.overriddenEvidence.sorted(),
+        }
+      : {}),
     failures: tally.failures(),
     skills: { perSession: tally.perSession, unused: tally.unused() },
     corrections: tally.corrections(),
