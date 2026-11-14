@@ -1,8 +1,20 @@
 import assert from "node:assert/strict";
-import { test } from "vitest";
-import { loadRepository } from "../config/index.js";
-import type { Runner } from "../runtime/index.js";
-import { platformStatus } from "./status.js";
+import { test, vi } from "vitest";
+
+/** Advances the fake clock until the work settles; the poll bound passes at once, not in real seconds. */
+async function settleOnFakeClock<T>(work: Promise<T>): Promise<T> {
+  let settled = false;
+  const tracked = work.finally(() => {
+    settled = true;
+  });
+  for (let step = 0; step < 200 && !settled; step += 1) {
+    await vi.advanceTimersByTimeAsync(250);
+  }
+  return tracked;
+}
+import { loadRepository } from "../src/config/index.js";
+import type { Runner } from "../src/runtime/index.js";
+import { platformStatus } from "../src/platform/status.js";
 
 // Docs: docs/decisions/0035-fail-fast-readiness-diagnosis.md
 // Registry or verifier unavailability is reported as degraded, naming the cause.
@@ -126,10 +138,14 @@ test("a policy-controller webhook Service without ready endpoints is degraded an
     },
   });
 
-  const [status] = await platformStatus(
-    await only("policy-controller"),
-    runner,
-  );
+  const repository = await only("policy-controller");
+  vi.useFakeTimers();
+  let status: Awaited<ReturnType<typeof platformStatus>>[number] | undefined;
+  try {
+    [status] = await settleOnFakeClock(platformStatus(repository, runner));
+  } finally {
+    vi.useRealTimers();
+  }
 
   assert.equal(status?.status, "degraded");
   assert.match(status!.detail, /cosign-system\/webhook/);
@@ -139,10 +155,14 @@ test("a policy-controller webhook Service without ready endpoints is degraded an
 test("a missing policy-controller webhook configuration is degraded", async () => {
   const { runner } = cluster({ available: true, webhook: undefined });
 
-  const [status] = await platformStatus(
-    await only("policy-controller"),
-    runner,
-  );
+  const repository = await only("policy-controller");
+  vi.useFakeTimers();
+  let status: Awaited<ReturnType<typeof platformStatus>>[number] | undefined;
+  try {
+    [status] = await settleOnFakeClock(platformStatus(repository, runner));
+  } finally {
+    vi.useRealTimers();
+  }
 
   assert.equal(status?.status, "degraded");
   assert.match(status!.detail, /webhookconfiguration/);

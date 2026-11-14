@@ -1,298 +1,346 @@
-import { loadRepository } from "../config/index.js";
-import assert from "node:assert/strict";
-import { test } from "vitest";
-
-import { healthyRunner, type Call } from "../testing/index.js";
+// Docs: docs/decisions/0028-image-trust-authority.md
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import type { Repository } from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 import {
   admissionVerdict,
   deployedImage,
-  publishSignedCopy,
-  publishUntrustedCopies,
+  ephemeralContainerVerdict,
+  modifiedDigestReference,
+  runningPodWithImage,
   scaleDeployment,
+  scope,
+  tagOnlyReference,
+  verdictOf,
 } from "./admission-probe.js";
 
-// Docs: docs/decisions/0028-image-trust-authority.md
-// Helpers for the opt-in live admission specs; fast tests fake the runner.
+vi.mock("./admission-probe-copies.js");
 
-const source = `10.96.0.50:5000/reference@sha256:${"c".repeat(64)}`;
-const copiedDigest = `sha256:${"d".repeat(64)}`;
+type Run = Runner["run"];
 
-function denied(stderr: string): CommandError {
+const DIGEST = "d".repeat(64);
+const IMAGE = `registry.example:5000/app@sha256:${DIGEST}`;
+const repository = {
+  environment: { name: "local", kubeContext: "k3d-kore-local" },
+} as unknown as Repository;
+
+/** A typed runner answering every call with `stdout`, or throwing `failure`. */
+function fakeRunner(stdout = "", failure?: unknown) {
+  const run = vi.fn<Run>(async () => {
+    if (failure !== undefined) {
+      throw failure;
+    }
+    return { stdout, stderr: "", code: 0 };
+  });
+  return { runner: { run } as Runner, run };
+}
+
+/** A kubectl failure whose stderr is the given text. */
+function refusal(stderr: string): CommandError {
   return new CommandError("kubectl", [], { stdout: "", stderr, code: 1 });
 }
 
-test("a server dry run of an admitted pod reports admitted, creating nothing", async () => {
-  const repository = await loadRepository("local");
-  const calls: Call[] = [];
-  const runner: Runner = {
-    async run(command, args, options) {
-      calls.push({ command, args });
-      assert.equal(command, "kubectl");
-      assert.match(options?.input ?? "", /"kind":"Pod"/);
-      return { stdout: "pod/x created (server dry run)", stderr: "", code: 0 };
-    },
-  };
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(1296);
+});
 
-  const verdict = await admissionVerdict(
-    repository,
-    runner,
-    "reference",
-    source,
-  );
+afterEach(() => {
+  vi.useRealTimers();
+});
 
-  assert.equal(verdict.admitted, true);
-  const args = calls[0]!.args;
-  assert.ok(args.includes("--dry-run=server"));
-  assert.deepEqual(args.slice(0, 4), [
+test("a namespace's scope names the environment's context and the namespace, in that order", () => {
+  expect(scope(repository, "reference")).toEqual([
     "--context",
-    repository.environment.kubeContext,
+    "k3d-kore-local",
     "--namespace",
     "reference",
   ]);
 });
 
-test("a webhook denial is reported as not admitted with the verifier's message", async () => {
-  const repository = await loadRepository("local");
-  const runner: Runner = {
-    async run() {
-      throw denied(
-        'admission webhook "policy.sigstore.dev" denied the request: no signatures found',
-      );
-    },
-  };
+test("a server that admits the request is an admitted verdict with the trimmed reply", async () => {
+  const { runner, run } = fakeRunner("  pod/x created  \n");
 
-  const verdict = await admissionVerdict(
+  expect(await verdictOf(runner, ["create"])).toEqual({
+    admitted: true,
+    detail: "pod/x created",
+  });
+  expect(run).toHaveBeenCalledWith("kubectl", ["create"], { capture: true });
+});
+
+test("a request with input passes the input to kubectl alongside the capture", async () => {
+  const { runner, run } = fakeRunner();
+
+  await verdictOf(runner, ["create", "--filename=-"], "{}");
+
+  expect(run).toHaveBeenCalledWith("kubectl", ["create", "--filename=-"], {
+    capture: true,
+    input: "{}",
+  });
+});
+
+test.each([
+  'admission webhook "validation.gatekeeper.sh" denied the request: no',
+  'Internal error occurred: failed calling webhook "x": connection refused',
+])(
+  "a webhook refusal is a denial verdict carrying its text: %s",
+  async (stderr) => {
+    const { runner } = fakeRunner("", refusal(`${stderr}\n`));
+
+    expect(await verdictOf(runner, ["create"])).toEqual({
+      admitted: false,
+      detail: stderr,
+    });
+  },
+);
+
+test("any failure that is not a webhook refusal is rethrown unchanged, so an unreachable cluster is never a denial", async () => {
+  const unreachable = refusal("The connection to the server was refused");
+  const runtime = new TypeError("runner exploded");
+
+  await expect(
+    verdictOf(fakeRunner("", unreachable).runner, ["create"]),
+  ).rejects.toBe(unreachable);
+  await expect(
+    verdictOf(fakeRunner("", runtime).runner, ["create"]),
+  ).rejects.toBe(runtime);
+});
+
+test("a default probe is a Pod of the image in a main container, dry-run on the server from stdin", async () => {
+  const { runner, run } = fakeRunner();
+
+  await admissionVerdict(repository, runner, "reference", IMAGE);
+
+  expect(run).toHaveBeenCalledWith(
+    "kubectl",
+    [
+      "--context",
+      "k3d-kore-local",
+      "--namespace",
+      "reference",
+      "create",
+      "--dry-run=server",
+      "--filename=-",
+    ],
+    { capture: true, input: expect.any(String) },
+  );
+  expect(JSON.parse(String(run.mock.calls[0]?.[2]?.input))).toEqual({
+    apiVersion: "v1",
+    kind: "Pod",
+    metadata: { name: "kore-admission-probe-100" },
+    spec: {
+      restartPolicy: "Never",
+      containers: [{ name: "probe", image: IMAGE }],
+    },
+  });
+});
+
+test("an init container probe puts the probed image only in initContainers, beside a trusted main container", async () => {
+  const { runner, run } = fakeRunner();
+
+  await admissionVerdict(repository, runner, "reference", IMAGE, {
+    placement: "initContainer",
+    trusted: "trusted:1",
+  });
+
+  const pod = JSON.parse(String(run.mock.calls[0]?.[2]?.input)) as {
+    spec: { containers: unknown; initContainers: unknown };
+  };
+  expect(pod.spec.containers).toEqual([{ name: "probe", image: "trusted:1" }]);
+  expect(pod.spec.initContainers).toEqual([
+    { name: "init-probe", image: IMAGE },
+  ]);
+});
+
+test("an init container probe without a trusted main image is refused before any request is sent", async () => {
+  const { runner, run } = fakeRunner();
+
+  await expect(
+    admissionVerdict(repository, runner, "reference", IMAGE, {
+      placement: "initContainer",
+    }),
+  ).rejects.toThrow(
+    "an init container probe needs a `trusted` main container image",
+  );
+
+  expect(run).not.toHaveBeenCalled();
+});
+
+test("a probe that names a ServiceAccount puts it on the pod, and one that names none puts nothing", async () => {
+  const { runner, run } = fakeRunner();
+
+  await admissionVerdict(repository, runner, "reference", IMAGE, {
+    serviceAccountName: "reference-denied",
+  });
+  await admissionVerdict(repository, runner, "reference", IMAGE);
+
+  const named = JSON.parse(String(run.mock.calls[0]?.[2]?.input)) as {
+    spec: object;
+  };
+  const unnamed = JSON.parse(String(run.mock.calls[1]?.[2]?.input)) as {
+    spec: object;
+  };
+  expect(named.spec).toMatchObject({ serviceAccountName: "reference-denied" });
+  expect(unnamed.spec).not.toHaveProperty("serviceAccountName");
+});
+
+test("the running pod is the first Running pod whose first container runs the image", async () => {
+  const { runner, run } = fakeRunner(
+    JSON.stringify({
+      items: [
+        {
+          metadata: { name: "other" },
+          spec: { containers: [{ image: "other:1" }] },
+        },
+        {
+          metadata: { name: "app-1" },
+          spec: { containers: [{ image: IMAGE }] },
+        },
+      ],
+    }),
+  );
+
+  expect(
+    await runningPodWithImage(repository, runner, "reference", IMAGE),
+  ).toBe("app-1");
+  expect(run).toHaveBeenCalledWith(
+    "kubectl",
+    [
+      "--context",
+      "k3d-kore-local",
+      "--namespace",
+      "reference",
+      "get",
+      "pods",
+      "--field-selector=status.phase=Running",
+      "--output=json",
+    ],
+    { capture: true },
+  );
+});
+
+test("a pod already being deleted is skipped, because admission does not validate it", async () => {
+  const { runner } = fakeRunner(
+    JSON.stringify({
+      items: [
+        {
+          metadata: {
+            name: "dying",
+            deletionTimestamp: "2026-11-14T00:00:00Z",
+          },
+          spec: { containers: [{ image: IMAGE }] },
+        },
+        {
+          metadata: { name: "app-2" },
+          spec: { containers: [{ image: IMAGE }] },
+        },
+      ],
+    }),
+  );
+
+  expect(
+    await runningPodWithImage(repository, runner, "reference", IMAGE),
+  ).toBe("app-2");
+});
+
+test("no running pod of the image fails with the command that brings one up", async () => {
+  const { runner } = fakeRunner(JSON.stringify({ items: [] }));
+
+  await expect(
+    runningPodWithImage(repository, runner, "reference", IMAGE),
+  ).rejects.toThrow(
+    `no Running pod of ${IMAGE} in namespace reference; run \`kore app up reference --environment local\` first so a signed workload is running`,
+  );
+});
+
+test("an ephemeral container probe is a server dry-run patch of the ephemeralcontainers subresource", async () => {
+  const { runner, run } = fakeRunner();
+
+  await ephemeralContainerVerdict(
     repository,
     runner,
     "reference",
-    source,
+    "app-1",
+    IMAGE,
   );
 
-  assert.equal(verdict.admitted, false);
-  assert.match(verdict.detail, /no signatures found/);
-});
-
-test("an unexpected failure is rethrown, never read as a denial", async () => {
-  const repository = await loadRepository("local");
-  const runner: Runner = {
-    async run() {
-      throw new Error("spawn kubectl ENOENT");
-    },
-  };
-
-  await assert.rejects(
-    admissionVerdict(repository, runner, "reference", source),
-    /ENOENT/,
-  );
-});
-
-test("a failed dry run that is not an admission denial is not read as one", async () => {
-  const repository = await loadRepository("local");
-  const runner: Runner = {
-    async run() {
-      throw denied("Unable to connect to the server: connection refused");
-    },
-  };
-
-  await assert.rejects(
-    admissionVerdict(repository, runner, "reference", source),
-    /connection refused/,
+  expect(run).toHaveBeenCalledWith(
+    "kubectl",
+    [
+      "--context",
+      "k3d-kore-local",
+      "--namespace",
+      "reference",
+      "patch",
+      "pod/app-1",
+      "--subresource=ephemeralcontainers",
+      "--dry-run=server",
+      "--patch",
+      JSON.stringify({
+        spec: { ephemeralContainers: [{ name: "probe", image: IMAGE }] },
+      }),
+    ],
+    { capture: true },
   );
 });
 
-test("the deployed kore-signed image is read from the enrolled namespace", async () => {
-  const repository = await loadRepository("local");
-  const calls: Call[] = [];
-  const runner: Runner = {
-    async run(command, args) {
-      calls.push({ command, args });
-      return { stdout: `${source}\n`, stderr: "", code: 0 };
-    },
-  };
+test("the deployed image is the first Deployment's first container image, trimmed", async () => {
+  const { runner } = fakeRunner(`${IMAGE}\n`);
 
-  assert.equal(await deployedImage(repository, runner, "reference"), source);
-  assert.ok(calls[0]!.args.includes("--namespace"));
-  assert.ok(calls[0]!.args.includes("reference"));
+  expect(await deployedImage(repository, runner, "reference")).toBe(IMAGE);
 });
 
-test("no deployed image fails with the fix instead of probing nothing", async () => {
-  const repository = await loadRepository("local");
-  const runner: Runner = {
-    async run() {
-      return { stdout: "", stderr: "", code: 0 };
-    },
-  };
+test("a namespace with no workload Deployment fails with the command that deploys one", async () => {
+  const { runner } = fakeRunner("");
 
-  await assert.rejects(
-    deployedImage(repository, runner, "reference"),
-    /kore app up reference/,
+  await expect(deployedImage(repository, runner, "reference")).rejects.toThrow(
+    "no workload Deployment in namespace reference; run `kore app up reference --environment local` first",
   );
 });
 
-test("untrusted copies are pushed with the push identity and one is signed with a throwaway key", async () => {
-  const repository = await loadRepository("local");
-  const calls: Call[] = [];
-  const inputs: string[] = [];
-  const envs: NodeJS.ProcessEnv[] = [];
-  const base = healthyRunner(calls);
-  const runner: Runner = {
-    async run(command, args, options) {
-      if (options?.input !== undefined) {
-        inputs.push(options.input);
-      }
-      if (options?.env) {
-        envs.push(options.env);
-      }
-      return await base.run(command, args, options);
-    },
-  };
-
-  const copies = await publishUntrustedCopies(repository, runner, source, {
-    registry: { isPortOpen: async () => true },
-    digest: async () => copiedDigest,
-  });
-
-  assert.equal(
-    copies.unsigned,
-    `10.96.0.50:5000/kore-admission-probe/unsigned@${copiedDigest}`,
-  );
-  assert.equal(
-    copies.foreignSigned,
-    `10.96.0.50:5000/kore-admission-probe/foreign-signed@${copiedDigest}`,
-  );
-  const pushes = calls.filter(
-    ({ command, args }) => command === "docker" && args[0] === "exec",
-  );
-  assert.equal(pushes.length, 2);
-  for (const push of pushes) {
-    assert.match(push.args.join(" "), /ctr .*images push/);
-    assert.doesNotMatch(push.args.join(" "), /push-password/);
-  }
-  assert.ok(
-    inputs.every((input) =>
-      Buffer.from(input.trim(), "base64")
-        .toString()
-        .includes("kore-push:push-password"),
-    ),
-    "the push password goes through stdin only",
-  );
-
-  const cosign = calls.filter(({ command }) => command === "cosign");
-  assert.deepEqual(
-    cosign.map(({ args }) => args[0]),
-    ["generate-key-pair", "sign"],
-  );
-  const sign = cosign[1]!.args.join(" ");
-  assert.match(sign, /kore-admission-probe\/foreign-signed@sha256:d+/);
-  assert.doesNotMatch(sign, /kore-local-signing-key|k8s:\/\//);
-  assert.doesNotMatch(
-    sign,
-    /unsigned@/,
-    "the unsigned copy is never signed by anyone",
-  );
-  assert.ok(
-    envs.every((env) => env["COSIGN_PASSWORD"] === "" || env["DOCKER_CONFIG"]),
-  );
-  for (const call of calls) {
-    assert.ok(
-      !call.args.some((arg) => arg.includes("push-password")),
-      "no secret appears in an argument",
-    );
-  }
-});
-
-test("a signed copy is pushed under its own probe repository and signed with the cluster's local key, never a file key", async () => {
-  const repository = await loadRepository("local");
-  const calls: Call[] = [];
-  const runner = healthyRunner(calls);
-
-  const signed = await publishSignedCopy(
-    repository,
-    runner,
-    source,
-    "swapped",
-    {
-      registry: { isPortOpen: async () => true },
-      digest: async () => copiedDigest,
-    },
-  );
-
-  assert.equal(
-    signed,
-    `10.96.0.50:5000/kore-admission-probe/swapped@${copiedDigest}`,
-  );
-  const sign = calls.find(
-    ({ command, args }) => command === "cosign" && args[0] === "sign",
-  )!;
-  assert.match(
-    sign.args.join(" "),
-    /k8s:\/\/kore-system\/kore-local-signing-key/,
-  );
-  assert.match(sign.args.join(" "), /kore-admission-probe\/swapped@sha256:d+/);
-  assert.equal(
-    calls.filter(({ command }) => command === "cosign").length,
-    1,
-    "no throwaway key is generated",
+test("the tag-only reference names the repository by kore-local unless another tag is given, and never by digest", () => {
+  expect(tagOnlyReference(IMAGE)).toBe("registry.example:5000/app:kore-local");
+  expect(tagOnlyReference(IMAGE, "canary")).toBe(
+    "registry.example:5000/app:canary",
   );
 });
 
-test("scaling names the environment context and namespace, never the current context", async () => {
-  const repository = await loadRepository("local");
-  const calls: Call[] = [];
-  const runner: Runner = {
-    async run(command, args) {
-      calls.push({ command, args });
-      return { stdout: "", stderr: "", code: 0 };
-    },
-  };
-
-  await scaleDeployment(repository, runner, "kore-registry", "oci-registry", 0);
-
-  assert.deepEqual(calls[0]!.args, [
-    "--context",
-    repository.environment.kubeContext,
-    "--namespace",
-    "kore-registry",
-    "scale",
-    "deployment/oci-registry",
-    "--replicas=0",
-  ]);
-  assert.equal(
-    calls.length,
-    1,
-    "scaling is one mutation; waiting is the caller's",
+test("an image with no sha256 digest is refused, naming the digest it needs", () => {
+  expect(() => tagOnlyReference("registry.example/app:1")).toThrow(
+    "registry.example/app:1 carries no sha256 digest; pass the digest-qualified image the workload runs",
   );
 });
 
-test("a probe can name the ServiceAccount its pod uses, so identity policy can be probed", async () => {
-  const repository = await loadRepository("local");
-  let body = "";
-  const runner: Runner = {
-    async run(_command, _args, options) {
-      body = options?.input ?? "";
-      return { stdout: "pod/x created (server dry run)", stderr: "", code: 0 };
-    },
-  };
-
-  await admissionVerdict(repository, runner, "reference", source, {
-    serviceAccountName: "default",
-  });
-
-  assert.equal(JSON.parse(body).spec.serviceAccountName, "default");
+test("the modified-digest reference changes the last digest character, keeping the repository and the rest of the digest", () => {
+  expect(modifiedDigestReference(IMAGE)).toBe(
+    `registry.example:5000/app@sha256:${"d".repeat(63)}0`,
+  );
 });
 
-test("a probe without a ServiceAccount option leaves the pod spec unchanged", async () => {
-  const repository = await loadRepository("local");
-  let body = "";
-  const runner: Runner = {
-    async run(_command, _args, options) {
-      body = options?.input ?? "";
-      return { stdout: "", stderr: "", code: 0 };
-    },
-  };
+test("a modified digest that ends in 0 becomes 1, so it always differs from the signed digest", () => {
+  const digest = `${"a".repeat(63)}0`;
+  const result = modifiedDigestReference(`app@sha256:${digest}`);
 
-  await admissionVerdict(repository, runner, "reference", source);
+  expect(result).toBe(`app@sha256:${"a".repeat(63)}1`);
+  expect(result).not.toContain(digest);
+});
 
-  assert.equal("serviceAccountName" in JSON.parse(body).spec, false);
+test("scaling a Deployment runs kubectl scale with the replica count in the namespace's scope, capturing its output", async () => {
+  const { runner, run } = fakeRunner();
+
+  await scaleDeployment(repository, runner, "reference", "app", 0);
+
+  expect(run).toHaveBeenCalledWith(
+    "kubectl",
+    [
+      "--context",
+      "k3d-kore-local",
+      "--namespace",
+      "reference",
+      "scale",
+      "deployment/app",
+      "--replicas=0",
+    ],
+    { capture: true },
+  );
 });

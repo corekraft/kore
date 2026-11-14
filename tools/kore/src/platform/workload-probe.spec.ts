@@ -1,46 +1,117 @@
-import assert from "node:assert/strict";
-import { test } from "vitest";
-import { type Call } from "../testing/index.js";
-import { loadRepository } from "../config/index.js";
-import { CommandError, type Runner } from "../runtime/index.js";
+// Docs: infra/plans/14-test-tiers.md#step-2-pilots
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import type { Repository } from "../config/index.js";
+import type { Runner } from "../runtime/index.js";
+import { scope, verdictOf } from "./admission-probe.js";
 import { workloadVerdict } from "./workload-probe.js";
+
+vi.mock("./admission-probe.js");
 
 // Docs: docs/decisions/0072-constraint-promotion-procedure.md
 
-const source = `10.96.0.50:5000/reference@sha256:${"c".repeat(64)}`;
+const SOURCE = `10.96.0.50:5000/reference@sha256:${"c".repeat(64)}`;
+const SCOPE = ["--context", "k3d-kore-local", "--namespace", "reference"];
+const repository = {
+  environment: { kubeContext: "k3d-kore-local" },
+} as unknown as Repository;
 
-test("a workload probe server dry-runs a Deployment naming the account, creating nothing", async () => {
-  const repository = await loadRepository("local");
-  const calls: Call[] = [];
-  const bodies: string[] = [];
-  const runner: Runner = {
-    async run(command, args, options) {
-      calls.push({ command, args });
-      bodies.push(options?.input ?? "");
-      throw new CommandError("kubectl", [], {
-        stdout: "",
-        stderr:
-          'admission webhook "validation.gatekeeper.sh" denied the request: the default ServiceAccount is forbidden',
-        code: 1,
-      });
-    },
-  };
+const run = vi.fn();
+const runner = { run } as unknown as Runner;
 
-  const verdict = await workloadVerdict(
+function verdict() {
+  return { admitted: false, detail: "denied" };
+}
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(0);
+  vi.mocked(scope).mockReturnValue(SCOPE);
+  vi.mocked(verdictOf).mockResolvedValue(verdict() as never);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+/** The Deployment the probe sent to the server, parsed from the stdin it was given. */
+function sentDeployment(): unknown {
+  const [, , body] = vi.mocked(verdictOf).mock.calls[0] ?? [];
+  return JSON.parse(String(body));
+}
+
+test("a workload verdict is the server's verdict on a Deployment dry-run in the namespace's scope", async () => {
+  const result = await workloadVerdict(
     repository,
     runner,
     "reference",
-    source,
+    SOURCE,
     "default",
   );
 
-  assert.equal(verdict.admitted, false);
-  assert.match(verdict.detail, /default ServiceAccount is forbidden/);
-  assert.ok(calls[0]?.args.includes("--dry-run=server"));
-  const deployment = JSON.parse(bodies[0] ?? "{}") as {
-    kind: string;
-    spec: { template: { spec: { serviceAccountName: string } } };
-  };
-  assert.equal(deployment.kind, "Deployment");
-  assert.equal(deployment.spec.template.spec.serviceAccountName, "default");
+  expect(scope).toHaveBeenCalledWith(repository, "reference");
+  expect(verdictOf).toHaveBeenCalledWith(
+    runner,
+    [...SCOPE, "create", "--dry-run=server", "--filename=-"],
+    expect.any(String),
+  );
+  expect(result).toEqual(verdict());
+});
+
+test("the probe Deployment runs the image as the named ServiceAccount, with no token mounted", async () => {
+  await workloadVerdict(repository, runner, "reference", SOURCE, "default");
+
+  expect(sentDeployment()).toEqual({
+    apiVersion: "apps/v1",
+    kind: "Deployment",
+    metadata: { name: "kore-admission-probe-0" },
+    spec: {
+      replicas: 1,
+      selector: {
+        matchLabels: { "app.kubernetes.io/name": "kore-admission-probe-0" },
+      },
+      template: {
+        metadata: {
+          labels: { "app.kubernetes.io/name": "kore-admission-probe-0" },
+        },
+        spec: {
+          serviceAccountName: "default",
+          automountServiceAccountToken: false,
+          containers: [{ name: "probe", image: SOURCE }],
+        },
+      },
+    },
+  });
+});
+
+test("the probe's name is the clock in base 36, so each probe run gets its own name", async () => {
+  vi.setSystemTime(1296);
+
+  await workloadVerdict(repository, runner, "reference", SOURCE, "default");
+
+  expect(sentDeployment()).toMatchObject({
+    metadata: { name: "kore-admission-probe-100" },
+  });
+});
+
+test("the probe names the ServiceAccount it was given, and no other", async () => {
+  await workloadVerdict(
+    repository,
+    runner,
+    "reference",
+    SOURCE,
+    "reference-app",
+  );
+
+  expect(sentDeployment()).toMatchObject({
+    spec: {
+      template: { spec: { serviceAccountName: "reference-app" } },
+    },
+  });
+});
+
+test("the workload probe creates nothing itself: it hands the dry-run to the admission verdict and never calls the runner", async () => {
+  await workloadVerdict(repository, runner, "reference", SOURCE, "default");
+
+  expect(run).not.toHaveBeenCalled();
+  expect(vi.mocked(verdictOf)).toHaveBeenCalledTimes(1);
 });

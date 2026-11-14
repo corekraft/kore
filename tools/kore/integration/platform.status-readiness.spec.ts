@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { loadRepository } from "../config/index.js";
-import type { Runner } from "../runtime/index.js";
-import { platformStatus } from "./status.js";
+import { loadRepository } from "../src/config/index.js";
+import type { Runner } from "../src/runtime/index.js";
+import { platformStatus } from "../src/platform/status.js";
 
 const deployed = JSON.stringify({ info: { status: "deployed" } });
 

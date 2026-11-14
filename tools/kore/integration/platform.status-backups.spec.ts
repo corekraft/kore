@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "vitest";
-import { FakeRunner, useExportRepository } from "../testing/index.js";
-import { exportRetainedData } from "../cluster/index.js";
-import { backupStatus } from "./backup-status.js";
+import { FakeRunner, useExportRepository } from "../src/testing/index.js";
+import { exportRetainedData } from "../src/cluster/index.js";
+import { backupStatus } from "../src/platform/backup-status.js";
 
 // Docs: docs/operations/backups.md
 // The backups row compares the newest export's recorded time with the
@@ -165,7 +165,7 @@ test("an unreadable cluster reports missing, not a false ready", async () => {
 
 test("the platform status report carries the backups row only when unfiltered", async () => {
   await declareObjective();
-  const { platformStatusReport } = await import("./crd-ownership-status.js");
+  const { platformStatusReport } = await import("../src/platform/crd-ownership-status.js");
   state.repository.catalog.components = [];
 
   const rows = await platformStatusReport(state.repository, clusterWith(false));

@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { loadRepository } from "../config/index.js";
-import type { Runner } from "../runtime/index.js";
-import { readinessFailure } from "./readiness.js";
-import { retryBudget } from "./readiness-poll.js";
+import { loadRepository } from "../src/config/index.js";
+import type { Runner } from "../src/runtime/index.js";
+import { readinessFailure } from "../src/platform/readiness.js";
+import { retryBudget } from "../src/platform/readiness-poll.js";
 
 // A loaded host (k3d's own VM during install) can make one `kubectl wait`
 // miss its 3s bound. #119 is the broader fix; this retries only that timeout.

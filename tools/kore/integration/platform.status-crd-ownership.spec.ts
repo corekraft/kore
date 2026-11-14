@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { loadRepository } from "../config/index.js";
-import type { Runner } from "../runtime/index.js";
+import { loadRepository } from "../src/config/index.js";
+import type { Runner } from "../src/runtime/index.js";
 import {
   crdOwnershipStatus,
   platformStatusReport,
-} from "./crd-ownership-status.js";
-import { platformStatus } from "./status.js";
+} from "../src/platform/crd-ownership-status.js";
+import { platformStatus } from "../src/platform/status.js";
 
 // Docs: docs/decisions/0057-runtime-crd-ownership.md
 // Cluster CRDs with no catalog owner, or more than one, are reported as

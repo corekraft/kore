@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { loadRepository } from "../config/index.js";
-import type { Runner } from "../runtime/index.js";
-import { reconcileComponent } from "./reconcile.js";
-import { readinessFailure } from "./readiness.js";
+import { loadRepository } from "../src/config/index.js";
+import type { Runner } from "../src/runtime/index.js";
+import { reconcileComponent } from "../src/platform/reconcile.js";
+import { readinessFailure } from "../src/platform/readiness.js";
 
 interface DaemonSetStatus {
   desiredNumberScheduled: number;
