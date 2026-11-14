@@ -30,7 +30,7 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           changed="$(git diff --name-only "$BASE_SHA...$HEAD_SHA")"
-          if printf '%s\n' "$changed" | grep -qE '^(\.claude/(hooks|evals)/|tools/kore/\.husky/|tools/harness/src/hook/|tools/[^/]+/integration/|tools/[^/]+/vitest\.integration\.config\.ts$|\.github/workflows/integration\.yml$)'; then
+          if printf '%s\n' "$changed" | grep -qE '^(\.claude/|skills/|\.codex/|tools/kore/\.husky/|tools/harness/src/hook/|tools/[^/]+/integration/|tools/[^/]+/vitest\.integration\.config\.ts$|\.github/workflows/integration\.yml$)'; then
             echo "hooks=true" >> "$GITHUB_OUTPUT"
           else
             echo "hooks=false" >> "$GITHUB_OUTPUT"
