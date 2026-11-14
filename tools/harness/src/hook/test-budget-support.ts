@@ -69,6 +69,7 @@ export function depsOf({ files }: World) {
       appendFile: vi.fn(notUsed),
       remove: vi.fn(notUsed),
       readlink: vi.fn(notUsed),
+      hasGlobMatch: vi.fn(notUsed),
       mtimeMs: vi.fn(notUsed),
       readHead: vi.fn(notUsed),
       readFrom: vi.fn(notUsed),
