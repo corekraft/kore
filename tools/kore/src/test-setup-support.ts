@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { vi } from "vitest";
+import { afterAll, vi } from "vitest";
 
 // No unit test may see, or signal, real host processes: unit tests run beside
 // a live cluster, and a real listing would SIGTERM a real host process.
@@ -33,5 +33,6 @@ vi.mock("./runtime/processes.js", async (importOriginal) => {
 if (process.env.KORE_HOST_ROOT === undefined) {
   const host = mkdtempSync(join(tmpdir(), "kore-unit-host-"));
   process.env.KORE_HOST_ROOT = host;
-  process.on("exit", () => rmSync(host, { recursive: true, force: true }));
+  // A worker thread may end without an exit event, so remove it when the file ends.
+  afterAll(() => rmSync(host, { recursive: true, force: true }));
 }

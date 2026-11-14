@@ -16,6 +16,8 @@ jobs:
       contents: read
     env:
       MISE_TASK_RUN_AUTO_INSTALL: "false"
+      # The public runner has four cores; the default cap of two protects a developer host beside a cluster (docs/guides/contributor.md).
+      KORE_TEST_WORKERS: "4"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

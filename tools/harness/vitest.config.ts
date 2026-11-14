@@ -6,6 +6,8 @@ export default defineConfig({
   test: {
     // One cap for every unit path; see .husky/test-workers.mjs.
     maxWorkers: testWorkers(),
+    // Worker threads start faster than forked processes and cut the run's CPU by about a third (the unit-run budget, ADR 0098).
+    pool: "threads",
     // A mock's calls and behaviour, and a spy's real method, reset before each test (ADR 0098).
     mockReset: true,
     restoreMocks: true,
