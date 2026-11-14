@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "vitest";
-import { loadRepository, validateRepository } from "../config/index.js";
-import { desiredFingerprint } from "./fingerprint.js";
-import { helmUpgradeArgs } from "./helm.js";
+import { loadRepository, validateRepository } from "../../src/config/index.js";
+import { desiredFingerprint } from "../../src/testing/index.js";
+import { helmUpgradeArgs } from "../../src/testing/index.js";
 
 // Docs: docs/decisions/0086-resources-only-releases-do-not-wait-on-claims-that-bind-later.md
 

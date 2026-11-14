@@ -1,62 +1,62 @@
-import { loadRepository } from "../config/index.js";
 import { expect, test, vi } from "vitest";
-
-import { RecordingRunner } from "../runtime/index.js";
+import { clusterDestroy, clusterStop } from "../cluster/index.js";
+import { stopRegistryForward } from "../images/index.js";
+import type { ProcessControl } from "../runtime/index.js";
 import { platformDestroy, platformStop } from "./lifecycle.js";
+import { fakeRepository, fakeRunner } from "./platform-support.js";
 
-const stops = vi.hoisted(() => ({ calls: [] as string[] }));
-vi.mock("../images/index.js", () => ({
-  stopRegistryForward: async () => void stops.calls.push("registry-forward"),
-}));
-vi.mock("../cluster/index.js", () => ({
-  clusterStop: async () => void stops.calls.push("cluster-stop"),
-  clusterDestroy: async () => void stops.calls.push("cluster-destroy"),
-}));
+vi.mock("../cluster/index.js");
+vi.mock("../images/index.js");
+
+const processes: ProcessControl = {};
+const local = fakeRepository();
+const managed = fakeRepository({ provider: "managed" });
 
 test("platform stop ends the registry forward before stopping the cluster", async () => {
-  stops.calls.length = 0;
-  await platformStop(await loadRepository("local"), new RecordingRunner());
-  expect(stops.calls).toEqual(["registry-forward", "cluster-stop"]);
-});
-
-test("platform destroy ends the registry forward before destroying", async () => {
-  stops.calls.length = 0;
-  await platformDestroy(await loadRepository("local"), new RecordingRunner(), {
-    yes: true,
-    purgeData: false,
+  const { runner } = fakeRunner();
+  await platformStop(local, runner, processes, { force: true });
+  expect(stopRegistryForward).toHaveBeenCalledWith(local, processes, {
+    force: true,
   });
-  expect(stops.calls).toEqual(["registry-forward", "cluster-destroy"]);
+  expect(clusterStop).toHaveBeenCalledWith(local, runner);
+  expect(
+    vi.mocked(stopRegistryForward).mock.invocationCallOrder[0],
+  ).toBeLessThan(vi.mocked(clusterStop).mock.invocationCallOrder[0]!);
 });
 
-async function k3dRepository() {
-  const base = await loadRepository("local");
-  const { cluster: _cluster, ...environment } = base.environment;
-  return {
-    ...base,
-    environment: {
-      ...environment,
-      provider: "k3d" as const,
-      kubeContext: "k3d-kore-local",
-      k3d: {
-        clusterName: "kore-local",
-        serviceCidr: "10.96.0.0/12",
-        ports: [{ hostPort: 8443, loadBalancerPort: 443 }],
-      },
-    },
-  };
-}
-
-test("platform stop ends the registry forward on k3d", async () => {
-  stops.calls.length = 0;
-  await platformStop(await k3dRepository(), new RecordingRunner());
-  expect(stops.calls).toEqual(["registry-forward", "cluster-stop"]);
+test("platform stop never ends a registry forward on a managed environment", async () => {
+  const { runner } = fakeRunner();
+  await platformStop(managed, runner);
+  expect(stopRegistryForward).not.toHaveBeenCalled();
+  expect(clusterStop).toHaveBeenCalledWith(managed, runner);
 });
 
-test("platform destroy ends the registry forward on k3d before destroying", async () => {
-  stops.calls.length = 0;
-  await platformDestroy(await k3dRepository(), new RecordingRunner(), {
+test("platform stop leaves the cluster running when the registry forward cannot be ended", async () => {
+  vi.mocked(stopRegistryForward).mockRejectedValueOnce(
+    new Error("forward busy"),
+  );
+  const { runner } = fakeRunner();
+  await expect(platformStop(local, runner)).rejects.toThrow("forward busy");
+  expect(clusterStop).not.toHaveBeenCalled();
+});
+
+test("platform destroy ends the registry forward before destroying the cluster", async () => {
+  const { runner } = fakeRunner();
+  const options = { yes: true, purgeData: false, force: true };
+  await platformDestroy(local, runner, options, processes);
+  expect(stopRegistryForward).toHaveBeenCalledWith(local, processes, options);
+  expect(clusterDestroy).toHaveBeenCalledWith(local, runner, options);
+  expect(
+    vi.mocked(stopRegistryForward).mock.invocationCallOrder[0],
+  ).toBeLessThan(vi.mocked(clusterDestroy).mock.invocationCallOrder[0]!);
+});
+
+test("platform destroy on a managed environment destroys the cluster and no registry forward", async () => {
+  const { runner } = fakeRunner();
+  await platformDestroy(managed, runner, { yes: true, purgeData: true });
+  expect(stopRegistryForward).not.toHaveBeenCalled();
+  expect(clusterDestroy).toHaveBeenCalledWith(managed, runner, {
     yes: true,
-    purgeData: false,
+    purgeData: true,
   });
-  expect(stops.calls).toEqual(["registry-forward", "cluster-destroy"]);
 });

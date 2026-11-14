@@ -1,204 +1,210 @@
-import assert from "node:assert/strict";
-import { test } from "vitest";
-import {
-  enabledComponents,
-  loadRepository,
-  type Repository,
-} from "../config/index.js";
-import { CommandError, type Runner } from "../runtime/index.js";
+import { beforeEach, expect, test, vi } from "vitest";
+import { enabledComponents } from "../config/index.js";
 import { enrollPlatformNamespaces } from "./enrollment.js";
+import { managedNamespaces } from "./gated-release.js";
+import {
+  fakeComponent,
+  fakeRepository,
+  fakeRunner,
+} from "./platform-support.js";
+
+vi.mock("../config/index.js");
+vi.mock("./gated-release.js");
+vi.mock("./image-inventory.js", () => ({
+  enrollmentLabel: "policy.sigstore.dev/include",
+}));
 
 // Docs: docs/decisions/0056-platform-image-inventory.md
 // Enforce environments label catalog namespaces; audit ones never do.
 
 interface Existing {
   name: string;
-  labelled?: boolean;
-  ownedByKore?: boolean;
+  labels?: Record<string, string>;
+  /** The field manager that owns a namespace's metadata; helm when not kore's. */
+  manager?: string;
 }
 
-interface Call {
-  args: string[];
-  input: string;
-}
+const inclusion = "policy.sigstore.dev/include";
+const ambient = "istio.io/dataplane-mode";
+const enforce = fakeRepository({
+  imageInventory: "enforce",
+  enrollmentExemptions: { "cosign-system": "not signed" },
+});
+const audit = fakeRepository({ imageInventory: "audit" });
 
+/** The cluster's namespaces, answering the list call with them and every apply with nothing. */
 function cluster(existing: Existing[]) {
-  const calls: Call[] = [];
-  const runner: Runner = {
-    async run(command, args, options) {
-      if (command === "helm") {
-        throw new CommandError(command, args, {
-          stdout: "",
-          stderr: "Error: release: not found",
-          code: 1,
-        });
-      }
-      assert.equal(command, "kubectl");
-      calls.push({ args: [...args], input: options?.input ?? "" });
-      if (args.includes("get")) {
-        return {
-          stdout: JSON.stringify({
-            items: existing.map((ns) => ({
-              metadata: {
-                name: ns.name,
-                labels: ns.labelled
-                  ? { "policy.sigstore.dev/include": "true" }
-                  : {},
-                managedFields: ns.ownedByKore
-                  ? [{ manager: "kore-enrollment" }]
-                  : [{ manager: "helm" }],
-              },
-            })),
-          }),
-          stderr: "",
-          code: 0,
-        };
-      }
-      return { stdout: "", stderr: "", code: 0 };
-    },
-  };
-  return { runner, calls };
-}
-
-const applies = (calls: Call[]) =>
-  calls.filter(({ args }) => args.includes("apply"));
-
-const appliedName = ({ input }: Call) => /name: (\S+)/.exec(input)![1]!;
-
-function namespaces(repository: Repository): string[] {
-  return [...new Set(enabledComponents(repository).map((c) => c.namespace))];
-}
-
-async function enforce() {
-  return await loadRepository("managed-example");
-}
-
-test("enforce labels every platform namespace except the exemptions, with the configured context and field manager", async () => {
-  const repository = await enforce();
-  const exempt = Object.keys(repository.environment.enrollmentExemptions!);
-  const { runner, calls } = cluster(
-    namespaces(repository).map((name) => ({ name })),
+  return fakeRunner((_command, args) =>
+    args.includes("get")
+      ? JSON.stringify({
+          items: existing.map((ns) => ({
+            metadata: {
+              name: ns.name,
+              labels: ns.labels ?? {},
+              managedFields: [{ manager: ns.manager ?? "helm" }],
+            },
+          })),
+        })
+      : "",
   );
+}
 
-  await enrollPlatformNamespaces(repository, runner);
+/** Each apply the run made: its arguments and the namespace manifest it sent. */
+function applies(run: ReturnType<typeof cluster>["run"]) {
+  return run.mock.calls
+    .filter(([, args]) => args.includes("apply"))
+    .map(([, args, options]) => ({ args, input: options?.input ?? "" }));
+}
 
-  const applied = applies(calls);
-  assert.deepEqual(
-    applied.map(appliedName).sort(),
-    namespaces(repository)
-      .filter((n) => !exempt.includes(n))
-      .sort(),
-  );
-  for (const call of applied) {
-    assert.deepEqual(call.args.slice(0, 2), [
+const appliedName = ({ input }: { input: string }) =>
+  /name: (\S+)/.exec(input)![1]!;
+
+beforeEach(() => {
+  vi.mocked(managedNamespaces).mockResolvedValue([]);
+  vi.mocked(enabledComponents).mockReturnValue([]);
+});
+
+test("enforce labels each managed namespace except the exempt ones, with the context and the field manager", async () => {
+  vi.mocked(managedNamespaces).mockResolvedValue([
+    "cosign-system",
+    "kore-system",
+    "reference",
+  ]);
+  const { runner, run } = cluster([
+    { name: "cosign-system" },
+    { name: "kore-system" },
+    { name: "reference" },
+  ]);
+  await enrollPlatformNamespaces(enforce, runner);
+  const applied = applies(run);
+  expect(applied.map(appliedName)).toEqual(["kore-system", "reference"]);
+  for (const { args, input } of applied) {
+    expect(args).toEqual([
       "--context",
-      repository.environment.kubeContext,
+      "k3d-kore-local",
+      "apply",
+      "--server-side",
+      "--field-manager=kore-enrollment",
+      "--filename",
+      "-",
     ]);
-    assert.ok(call.args.includes("--server-side"));
-    assert.ok(call.args.includes("--field-manager=kore-enrollment"));
-    assert.match(call.input, /policy\.sigstore\.dev\/include: "true"/);
+    expect(input).toContain(`${inclusion}: "true"`);
   }
 });
 
-test("audit never labels a namespace", async () => {
-  const repository = await loadRepository("local");
-  const { runner, calls } = cluster(
-    namespaces(repository).map((name) => ({ name })),
-  );
-
-  await enrollPlatformNamespaces(repository, runner);
-
-  assert.equal(applies(calls).length, 0);
-});
-
-test("a second run changes nothing once every namespace is labelled", async () => {
-  const repository = await enforce();
-  const exempt = Object.keys(repository.environment.enrollmentExemptions!);
-  const { runner, calls } = cluster(
-    namespaces(repository).map((name) => ({
-      name,
-      labelled: !exempt.includes(name),
-      ownedByKore: !exempt.includes(name),
-    })),
-  );
-
-  await enrollPlatformNamespaces(repository, runner);
-
-  assert.equal(applies(calls).length, 0);
-});
-
-test("a namespace that left the catalog or became exempt loses the label kore applied", async () => {
-  const repository = await enforce();
-  const { runner, calls } = cluster([
-    ...namespaces(repository).map((name) => ({ name })),
-    { name: "retired", labelled: true, ownedByKore: true },
+test("enforce labels only the namespaces the managed list names, so a gated-off namespace is left alone", async () => {
+  vi.mocked(managedNamespaces).mockResolvedValue(["kore-system"]);
+  const { runner, run } = cluster([
+    { name: "kore-system" },
+    { name: "gated-off" },
   ]);
-  const exempted = cluster(
-    namespaces(repository).map((name) => ({
-      name,
-      labelled: name === "cosign-system",
-      ownedByKore: name === "cosign-system",
-    })),
-  );
-
-  await enrollPlatformNamespaces(repository, runner);
-  await enrollPlatformNamespaces(repository, exempted.runner);
-
-  const released = (list: typeof calls) =>
-    applies(list).filter(
-      ({ input }) => !input.includes("policy.sigstore.dev/include"),
-    );
-  assert.deepEqual(released(calls).map(appliedName), ["retired"]);
-  assert.deepEqual(released(exempted.calls).map(appliedName), [
-    "cosign-system",
-  ]);
-  assert.ok(
-    released(calls)[0]!.args.includes("--field-manager=kore-enrollment"),
-  );
+  await enrollPlatformNamespaces(enforce, runner);
+  expect(applies(run).map(appliedName)).toEqual(["kore-system"]);
 });
 
-test("audit also releases a label kore applied earlier but never touches one it does not own", async () => {
-  const repository = await loadRepository("local");
-  const { runner, calls } = cluster([
-    { name: "observability", labelled: true, ownedByKore: true },
-    { name: "app-ns", labelled: true },
-  ]);
-
-  await enrollPlatformNamespaces(repository, runner);
-
-  assert.deepEqual(applies(calls).map(appliedName), ["observability"]);
+test("audit never labels a namespace and never asks for the managed list", async () => {
+  const { runner, run } = cluster([{ name: "kore-system" }]);
+  await enrollPlatformNamespaces(audit, runner);
+  expect(applies(run)).toEqual([]);
+  expect(managedNamespaces).not.toHaveBeenCalled();
 });
 
-test("a platform namespace that does not exist fails with the fix", async () => {
-  const repository = await enforce();
+test("a second run changes nothing once every namespace is labelled by kore", async () => {
+  vi.mocked(managedNamespaces).mockResolvedValue(["kore-system"]);
+  const { runner, run } = cluster([
+    {
+      name: "kore-system",
+      labels: { [inclusion]: "true" },
+      manager: "kore-enrollment",
+    },
+  ]);
+  await enrollPlatformNamespaces(enforce, runner);
+  expect(applies(run)).toEqual([]);
+});
+
+test("a namespace that left the managed list loses the label kore applied, and nothing else", async () => {
+  vi.mocked(managedNamespaces).mockResolvedValue(["kore-system"]);
+  const { runner, run } = cluster([
+    {
+      name: "kore-system",
+      labels: { [inclusion]: "true" },
+      manager: "kore-enrollment",
+    },
+    {
+      name: "retired",
+      labels: { [inclusion]: "true" },
+      manager: "kore-enrollment",
+    },
+  ]);
+  await enrollPlatformNamespaces(enforce, runner);
+  const released = applies(run);
+  expect(released.map(appliedName)).toEqual(["retired"]);
+  expect(released[0]!.input).not.toContain(inclusion);
+  expect(released[0]!.args).toContain("--field-manager=kore-enrollment");
+});
+
+test("a label another owner set is never released, even on a namespace kore does not manage", async () => {
+  vi.mocked(managedNamespaces).mockResolvedValue([]);
+  const { runner, run } = cluster([
+    { name: "app-ns", labels: { [inclusion]: "true" }, manager: "helm" },
+  ]);
+  await enrollPlatformNamespaces(enforce, runner);
+  expect(applies(run)).toEqual([]);
+});
+
+test("a managed namespace that does not exist fails naming it and the fix", async () => {
+  vi.mocked(managedNamespaces).mockResolvedValue(["kore-system"]);
   const { runner } = cluster([]);
-
-  await assert.rejects(
-    enrollPlatformNamespaces(repository, runner),
-    /namespace .* does not exist.*kore platform up/s,
+  await expect(enrollPlatformNamespaces(enforce, runner)).rejects.toThrow(
+    /namespace kore-system does not exist.*kore platform up/s,
   );
 });
 
-test("enforce never labels the namespace of a component its feature flag gates off", async () => {
-  const repository = await enforce();
-  const gated = repository.catalog.components.find(
-    (c) =>
-      !(c.namespace in repository.environment.enrollmentExemptions!) &&
-      repository.catalog.components.every(
-        (other) => other === c || other.namespace !== c.namespace,
-      ),
-  )!;
-  repository.catalog.components = repository.catalog.components.map((c) =>
-    c === gated ? { ...c, featureFlag: "gated" } : c,
-  );
-  repository.environment.features = { gated: false };
-  const { runner, calls } = cluster(
-    namespaces(repository)
-      .filter((name) => name !== gated.namespace)
-      .map((name) => ({ name })),
-  );
+test("a namespace list with no items is an empty cluster, so audit changes nothing", async () => {
+  const { runner, run } = fakeRunner(() => "{}");
+  await expect(
+    enrollPlatformNamespaces(audit, runner),
+  ).resolves.toBeUndefined();
+  expect(run).toHaveBeenCalledTimes(1);
+  expect(run.mock.calls[0]![1]).toContain("namespaces");
+});
 
-  await enrollPlatformNamespaces(repository, runner);
+test("a mesh-enrolled component's namespace gets the ambient label under its own field manager", async () => {
+  vi.mocked(managedNamespaces).mockResolvedValue([]);
+  vi.mocked(enabledComponents).mockReturnValue([
+    fakeComponent({ namespace: "mesh-system", meshEnrolled: true }),
+  ]);
+  const { runner, run } = cluster([{ name: "mesh-system" }]);
+  await enrollPlatformNamespaces(audit, runner);
+  const [mesh] = applies(run);
+  expect(appliedName({ input: mesh!.input })).toBe("mesh-system");
+  expect(mesh!.input).toContain(`${ambient}: "ambient"`);
+  expect(mesh!.args).toContain("--field-manager=kore-mesh-enrollment");
+});
 
-  assert.ok(!applies(calls).map(appliedName).includes(gated.namespace));
+test("a mesh namespace that does not exist fails naming it as a mesh enrollment", async () => {
+  vi.mocked(managedNamespaces).mockResolvedValue([]);
+  vi.mocked(enabledComponents).mockReturnValue([
+    fakeComponent({ namespace: "mesh-system", meshEnrolled: true }),
+  ]);
+  const { runner } = cluster([]);
+  await expect(enrollPlatformNamespaces(audit, runner)).rejects.toThrow(
+    /mesh-system in the mesh: namespace mesh-system does not exist/,
+  );
+});
+
+test("a mesh label kore applied is released once its component is no longer mesh-enrolled", async () => {
+  vi.mocked(managedNamespaces).mockResolvedValue([]);
+  vi.mocked(enabledComponents).mockReturnValue([]);
+  const { runner, run } = cluster([
+    {
+      name: "old-mesh",
+      labels: { [ambient]: "ambient" },
+      manager: "kore-mesh-enrollment",
+    },
+  ]);
+  await enrollPlatformNamespaces(audit, runner);
+  const [released] = applies(run);
+  expect(released!.input).not.toContain(ambient);
+  expect(released!.args).toContain("--field-manager=kore-mesh-enrollment");
 });

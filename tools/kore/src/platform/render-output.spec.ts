@@ -45,3 +45,31 @@ test("platform render never writes Secret values to the output directory", async
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("platform render validates a manifest component with a client dry-run and never renders it through Helm", async () => {
+  const base = await loadRepository("local");
+  const manifest = base.catalog.components.find(
+    ({ kind }) => kind === "manifest",
+  )!;
+  const repository = {
+    ...base,
+    catalog: {
+      ...base.catalog,
+      components: [{ ...manifest, dependencies: [] }],
+    },
+  };
+  const calls: string[][] = [];
+  const runner: Runner = {
+    async run(command, args) {
+      calls.push([command, ...args]);
+      return { stdout: "", stderr: "", code: 0 };
+    },
+  };
+  await platformRender(repository, runner);
+  assert.deepEqual(
+    calls.map(([command]) => command),
+    ["kubectl"],
+  );
+  assert.ok(calls[0]!.includes("--dry-run=client"));
+  assert.ok(calls[0]!.includes("--recursive"));
+});
