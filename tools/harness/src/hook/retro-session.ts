@@ -27,7 +27,27 @@ type Ordered =
 export interface Warning {
   rule: string;
   toolUseId: string | undefined;
+  /** The transcript line of the warning's attachment. */
+  line: number;
+  /** The first line of the warned call's command, or its tool name when it has none. */
+  excerpt: string;
+  /** The unquoted glob the guard names in its message, or "" when it names none. */
+  glob: string;
 }
+
+const MAX_EXCERPT = 120;
+
+/** What a warned call was doing: its command's first line, capped, else its tool name. */
+const excerptOf = (
+  name: string,
+  input: Record<string, unknown> = {},
+): string => {
+  const command = input["command"];
+  if (typeof command !== "string") {
+    return name;
+  }
+  return (command.split("\n")[0] ?? "").trim().slice(0, MAX_EXCERPT);
+};
 
 export interface GuardCounts {
   blocks: number;
@@ -43,6 +63,9 @@ export interface GuardBlock {
   excerpt: string;
 }
 
+/** A bare-glob message names the glob it flags: "[guard:bare-glob] <glob> is an unquoted glob; ...". */
+const GLOB_NAMED = /\[guard:([a-z0-9-]+)\] (\S+) is an unquoted glob;/g;
+
 const tagsIn = (text: string): string[] =>
   [...text.matchAll(GUARD_TAG)].map((match) => match[1] ?? "");
 
@@ -57,6 +80,7 @@ export class SessionAnalysis {
   readonly guardBlocks: GuardBlock[] = [];
   readonly ordered: Ordered[] = [];
   private readonly calls = new Map<string, string>();
+  private readonly excerpts = new Map<string, string>();
   private failedSinceHuman = false;
 
   constructor(session: Transcript) {
@@ -91,6 +115,7 @@ export class SessionAnalysis {
     const id = block.id ?? "";
     const name = block.name ?? "";
     this.calls.set(id, name);
+    this.excerpts.set(id, excerptOf(name, block.input));
     this.ordered.push({
       kind: "call",
       id,
@@ -131,9 +156,23 @@ export class SessionAnalysis {
     ) {
       return;
     }
-    for (const rule of tagsIn([attachment.content].flat().join("\n"))) {
+    const toolUseId = attachment.toolUseID;
+    const text = [attachment.content].flat().join("\n");
+    const globs = new Map(
+      [...text.matchAll(GLOB_NAMED)].map((match) => [
+        match[1] ?? "",
+        match[2] ?? "",
+      ]),
+    );
+    for (const rule of tagsIn(text)) {
       this.bump(rule, "warnings");
-      this.warnings.push({ rule, toolUseId: attachment.toolUseID });
+      this.warnings.push({
+        rule,
+        toolUseId,
+        line: event.line,
+        excerpt: this.excerpts.get(toolUseId ?? "") ?? "",
+        glob: globs.get(rule) ?? "",
+      });
     }
   }
 
