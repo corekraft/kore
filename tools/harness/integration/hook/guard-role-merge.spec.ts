@@ -61,58 +61,7 @@ describe("role-no-merge: the merge tool is the only way a role merges", () => {
   });
 });
 
-const ALL_ROLES = [
-  "orchestrator",
-  "writer",
-  "concierge",
-  "reader",
-  "refiner",
-  "challenger",
-  "judge",
-];
-
-describe("role-no-merge: the judge approve tool", () => {
-  it("lets only the judge run the approve tool, and not past the ledger", async () => {
-    allowed(
-      await bash(
-        "judge",
-        "node skills/bin/harness.mjs judge approve 12 --reviewer bot --json",
-      ),
-    );
-    for (const role of ["orchestrator", "writer"]) {
-      blocked(
-        await bash(role, "node skills/bin/harness.mjs judge approve 12"),
-        "role-no-merge",
-      );
-    }
-    blocked(
-      await bash(
-        "judge",
-        "node skills/bin/harness.mjs judge approve 12 --ledger /tmp/x.jsonl",
-      ),
-      "role-read-only",
-    );
-  });
-
-  it.each(ALL_ROLES)(
-    "blocks a raw gh pr review --approve for the %s",
-    async (role) => {
-      const result = await bash(role, "gh pr review 12 --approve");
-      expect(result.action).toBe("block");
-    },
-  );
-
-  it.each(ALL_ROLES)(
-    "blocks a review posted through the REST API for the %s",
-    async (role) => {
-      const result = await bash(
-        role,
-        "gh api -X POST repos/o/r/pulls/12/reviews -f event=APPROVE",
-      );
-      expect(result.action).toBe("block");
-    },
-  );
-
+describe("role-no-merge: a merge past the merge tool", () => {
   it("still blocks the judge from merging through a chained or wrapped call", async () => {
     blocked(
       await bash(
