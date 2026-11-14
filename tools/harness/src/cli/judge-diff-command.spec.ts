@@ -22,6 +22,12 @@ const STAT = [
   { path: "docs/b.md", added: 10, removed: 0 },
 ];
 
+/** An asymmetric matcher for an error whose message contains the text; the one cast, because expect's matchers are typed `any`. */
+const messageContaining = (text: string): Error =>
+  expect.objectContaining({
+    message: expect.stringContaining(text),
+  }) as Error;
+
 /** A context whose gh answers `gh pr diff` with the raw diff. */
 function setup(options: Record<string, string | boolean> = {}, json = false) {
   const made = contextOf("42", options, json);
@@ -91,12 +97,7 @@ describe("harness judge diff", () => {
 
     expect(await diffCommands.diff?.run(context)).toBe(1);
     expect(stdout).not.toHaveBeenCalled();
-    expect(failed).toHaveBeenCalledWith(
-      context,
-      expect.objectContaining({
-        message: expect.stringContaining("nope/**") as string,
-      }),
-    );
+    expect(failed).toHaveBeenCalledWith(context, messageContaining("nope/**"));
     expect(stderr).not.toHaveBeenCalled();
   });
 
@@ -108,9 +109,7 @@ describe("harness judge diff", () => {
     expect(stdout).not.toHaveBeenCalled();
     expect(failed).toHaveBeenCalledWith(
       context,
-      expect.objectContaining({
-        message: expect.stringContaining("not found") as string,
-      }),
+      messageContaining("not found"),
     );
   });
 });
