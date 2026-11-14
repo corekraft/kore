@@ -3,17 +3,17 @@ import test from "node:test";
 import { assertExpectedCluster } from "../cluster/index.js";
 import { loadRepository } from "../config/index.js";
 import { findRoot } from "../config/config.js";
-import { ProcessRunner, integrationEnvironment } from "../runtime/index.js";
+import { ProcessRunner, liveEnvironment } from "../runtime/index.js";
 import {
   admissionGateName,
   admissionGateResource,
   readAdmissionGate,
 } from "./admission-gate.js";
-import { assertRbac, proveAdmission } from "./gate-integration-support.js";
+import { assertRbac, proveAdmission } from "./gate-live-support.js";
 import { kubectl } from "./gate-live.js";
 
 // Docs: docs/decisions/0067-platform-readiness-manifest-and-evidence.md
-// Live and opt-in (`npm run test:integration:gate`, KORE_RUN_INTEGRATION=1):
+// Live and opt-in (`npm run test:live:gate`, KORE_RUN_LIVE=1):
 // needs a converged local profile (`kore local up`). It proves, with
 // impersonated non-administrator identities (`kubectl --as`):
 //   1. who can and cannot write the gate, readiness evidence and activation;
@@ -29,8 +29,8 @@ import { kubectl } from "./gate-live.js";
 const live = {
   concurrency: false,
   skip:
-    process.env.KORE_RUN_INTEGRATION !== "1"
-      ? "set KORE_RUN_INTEGRATION=1 to opt into a live local profile"
+    process.env.KORE_RUN_LIVE !== "1"
+      ? "set KORE_RUN_LIVE=1 to opt into a live local profile"
       : false,
   timeout: 10 * 60 * 1000,
 };
@@ -40,7 +40,7 @@ test(
   live,
   async () => {
     const repository = await loadRepository(
-      integrationEnvironment(),
+      liveEnvironment(),
       await findRoot(),
     );
     const runner = new ProcessRunner();

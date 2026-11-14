@@ -2,24 +2,24 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { loadRepository } from "../config/index.js";
 import { clusterDestroy } from "../cluster/index.js";
-import { ProcessRunner, integrationEnvironment } from "../runtime/index.js";
-import { assertDatabasePersistence } from "./platform.database.integration.spec.js";
-import { assertReferenceSmoke } from "./platform.reference-smoke.integration.spec.js";
+import { ProcessRunner, liveEnvironment } from "../runtime/index.js";
+import { assertDatabasePersistence } from "./platform.database.live.spec.js";
+import { assertReferenceSmoke } from "./platform.reference-smoke.live.spec.js";
 
-const environment = integrationEnvironment();
+const environment = liveEnvironment();
 
 test(
   "README local quick start converges and cleans up",
   {
     concurrency: false,
     skip:
-      process.env.KORE_RUN_INTEGRATION !== "1"
-        ? "set KORE_RUN_INTEGRATION=1 to opt into a live platform"
+      process.env.KORE_RUN_LIVE !== "1"
+        ? "set KORE_RUN_LIVE=1 to opt into a live platform"
         : false,
     timeout: 45 * 60 * 1000,
   },
   async () => {
-    const repository = await loadRepository(integrationEnvironment());
+    const repository = await loadRepository(liveEnvironment());
     const runner = new ProcessRunner();
     try {
       await runner.run("mise", ["install"], {

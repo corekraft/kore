@@ -34,20 +34,30 @@ function environmentsIn(root: string): string[] {
     .sort();
 }
 
+/** A retired variable counts as set when it has a value, as an empty one did before the rename. */
+export function isSet(value: string | undefined): boolean {
+  return value !== undefined && value !== "";
+}
+
 /**
- * The environment integration specs test: `KORE_INTEGRATION_ENVIRONMENT`, or
+ * The environment live specs test: `KORE_LIVE_ENVIRONMENT`, or
  * `local` when it is unset or empty. The lock key and every spec's
  * `loadRepository` read it here, so the variable picks the cluster tested and
  * not only the lock taken. A name that is no environment of the repository is
  * refused up front, naming the variable and the valid environments.
  */
-export function integrationEnvironment(start = process.cwd()): string {
-  const given = process.env.KORE_INTEGRATION_ENVIRONMENT;
+export function liveEnvironment(start = process.cwd()): string {
+  if (isSet(process.env.KORE_INTEGRATION_ENVIRONMENT)) {
+    throw new Error(
+      "KORE_INTEGRATION_ENVIRONMENT is retired; set KORE_LIVE_ENVIRONMENT instead (the live specs were renamed from integration specs)",
+    );
+  }
+  const given = process.env.KORE_LIVE_ENVIRONMENT;
   const name = given === undefined || given === "" ? "local" : given;
   const valid = environmentsIn(repositoryRoot(start));
   if (!valid.includes(name)) {
     throw new Error(
-      `KORE_INTEGRATION_ENVIRONMENT="${name}" is not an environment of this repository; use one of: ${valid.join(", ")}, or unset it for local`,
+      `KORE_LIVE_ENVIRONMENT="${name}" is not an environment of this repository; use one of: ${valid.join(", ")}, or unset it for local`,
     );
   }
   return name;

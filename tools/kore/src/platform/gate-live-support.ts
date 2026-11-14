@@ -22,7 +22,7 @@ import {
   revokeProofGateAccess,
 } from "./gate-proof-access.js";
 
-// Shared by gate.integration.spec.ts: the live proof helpers. Kept out of the
+// Shared by gate.live.spec.ts: the live proof helpers. Kept out of the
 // spec so the spec stays within the max-lines rule; behaviour is unchanged.
 
 export async function assertRbac(cluster: Live): Promise<void> {

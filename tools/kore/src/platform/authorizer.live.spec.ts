@@ -11,7 +11,7 @@ import {
 } from "./identity-live.js";
 
 // Docs: docs/decisions/0059-identity-policy-evidence.md
-// Live and opt-in; see identity-live.ts. Run: npm run test:integration:identity
+// Live and opt-in; see identity-live.ts. Run: npm run test:live:identity
 
 test(
   "OPA's decision input carries the authenticated source and destination principals (the waypoint forwards them in x-forwarded-client-cert; ADR 0066)",

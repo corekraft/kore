@@ -9,7 +9,7 @@ import { loadRepository, type Repository } from "../config/index.js";
 import {
   ProcessRunner,
   type Runner,
-  integrationEnvironment,
+  liveEnvironment,
 } from "../runtime/index.js";
 import { loadRecovery } from "./recovery.js";
 
@@ -18,8 +18,8 @@ const CLUSTER = "reference-db";
 const MARKER_TABLE = "kore_ops_restore_marker";
 
 const missing = (): string | false => {
-  if (process.env["KORE_RUN_INTEGRATION"] !== "1") {
-    return "set KORE_RUN_INTEGRATION=1 to opt into a live cluster";
+  if (process.env["KORE_RUN_LIVE"] !== "1") {
+    return "set KORE_RUN_LIVE=1 to opt into a live cluster";
   }
   return process.env["KORE_OPS_AGE_IDENTITY"]
     ? false
@@ -109,7 +109,7 @@ test(
   { concurrency: false, skip: missing() },
   async () => {
     const root = await findRoot();
-    const repository = await loadRepository(integrationEnvironment(), root);
+    const repository = await loadRepository(liveEnvironment(), root);
     const runner: Runner = new ProcessRunner();
     const objective = (await loadRecovery(root)).find(
       (candidate) => candidate.name === "retained-postgresql",

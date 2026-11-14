@@ -15,7 +15,7 @@ import { platformUp } from "./index.js";
 import { workloadVerdict } from "./workload-probe.js";
 
 // Docs: docs/decisions/0072-constraint-promotion-procedure.md
-// Live and opt-in; run: npm run test:integration:policy. Needs a converged
+// Live and opt-in; run: npm run test:live:policy. Needs a converged
 // local profile with the `reference` application up (`kore local up`,
 // `kore app up reference`). It promotes kore-workload-identity through the
 // repository (the same functions `kore policy` uses), applies it with

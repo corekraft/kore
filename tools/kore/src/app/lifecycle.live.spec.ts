@@ -6,7 +6,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { approvedImageList, loadRepository } from "../config/index.js";
 import { recoverRelease } from "../platform/release-recovery.js";
-import { ProcessRunner, integrationEnvironment } from "../runtime/index.js";
+import { ProcessRunner, liveEnvironment } from "../runtime/index.js";
 import type { Repository } from "../config/index.js";
 
 // Docs: docs/decisions/0063-lifecycle-resume-and-release-only-app-up.md
@@ -17,7 +17,7 @@ import type { Repository } from "../config/index.js";
 // namespace, uses only an image already approved in the catalog (the pod never
 // schedules, so nothing is pulled), reads no Secret, passes --context from the
 // repository, and removes the namespace afterwards.
-// Run with: npm run test:integration:lifecycle (sets KORE_RUN_INTEGRATION=1).
+// Run with: npm run test:live:lifecycle (sets KORE_RUN_LIVE=1).
 
 const namespace = "kore-lifecycle-test";
 const release = "lifecycle-probe";
@@ -139,13 +139,13 @@ test(
   {
     concurrency: false,
     skip:
-      process.env.KORE_RUN_INTEGRATION !== "1"
-        ? "set KORE_RUN_INTEGRATION=1 to opt into a live platform"
+      process.env.KORE_RUN_LIVE !== "1"
+        ? "set KORE_RUN_LIVE=1 to opt into a live platform"
         : false,
     timeout: 10 * 60 * 1000,
   },
   async () => {
-    const repository = await loadRepository(integrationEnvironment());
+    const repository = await loadRepository(liveEnvironment());
     const runner = new ProcessRunner();
     const image = approvedImageList(repository)[0]?.image;
     assert.ok(image, "the catalog approves at least one image");

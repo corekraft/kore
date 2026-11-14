@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test, { after as cleanup } from "node:test";
 import { loadRepository } from "../config/index.js";
-import { ProcessRunner, integrationEnvironment } from "../runtime/index.js";
+import { ProcessRunner, liveEnvironment } from "../runtime/index.js";
 import type { Runner } from "../runtime/index.js";
 import { loadRegistryCredential, rotateRegistryCredentials } from "./index.js";
 import type { RegistryCredential } from "./index.js";
@@ -14,7 +14,7 @@ import { loadRegistryCa } from "./registry-tls.js";
 // Docs: docs/decisions/0055-registry-credential-rotation.md and
 // docs/decisions/0058-registry-transport-tls.md
 // Live: needs a running local profile after `kore local up` (a signed,
-// deployed reference image). Run with KORE_RUN_INTEGRATION=1.
+// deployed reference image). Run with KORE_RUN_LIVE=1.
 
 const forwardedHost = "127.0.0.1:30500";
 const forwarded = `https://${forwardedHost}`;
@@ -24,7 +24,7 @@ let caDirectory: string | undefined;
 let caFile = "";
 async function registryCaFile(runner: Runner): Promise<string> {
   if (caFile === "") {
-    const repository = await loadRepository(integrationEnvironment());
+    const repository = await loadRepository(liveEnvironment());
     caDirectory = await mkdtemp(join(tmpdir(), "kore-registry-ca-"));
     caFile = join(caDirectory, "ca.crt");
     await writeFile(caFile, await loadRegistryCa(repository, runner));
@@ -127,8 +127,8 @@ async function kubectl(
 const live = {
   concurrency: false,
   skip:
-    process.env.KORE_RUN_INTEGRATION !== "1"
-      ? "set KORE_RUN_INTEGRATION=1 to opt into a live platform"
+    process.env.KORE_RUN_LIVE !== "1"
+      ? "set KORE_RUN_LIVE=1 to opt into a live platform"
       : false,
   timeout: 20 * 60 * 1000,
 };
@@ -137,7 +137,7 @@ test(
   "the registry keeps images and signatures across a restart and keeps refusing anonymous access",
   live,
   async () => {
-    const repository = await loadRepository(integrationEnvironment());
+    const repository = await loadRepository(liveEnvironment());
     const runner = new ProcessRunner();
     const read = await loadRegistryCredential(repository, runner, "read");
     await localRegistryReference(repository, runner, "kore/x");
@@ -195,7 +195,7 @@ test(
   "rotating the credentials refuses the old ones, accepts the new, and still admits a signed image",
   live,
   async () => {
-    const repository = await loadRepository(integrationEnvironment());
+    const repository = await loadRepository(liveEnvironment());
     const runner = new ProcessRunner();
     const oldPush = await loadRegistryCredential(repository, runner, "push");
     const oldRead = await loadRegistryCredential(repository, runner, "read");
@@ -273,7 +273,7 @@ test(
   "the read credential pulls but cannot push while the push credential can",
   live,
   async () => {
-    const repository = await loadRepository(integrationEnvironment());
+    const repository = await loadRepository(liveEnvironment());
     const runner = new ProcessRunner();
     const read = await loadRegistryCredential(repository, runner, "read");
     const push = await loadRegistryCredential(repository, runner, "push");
@@ -304,7 +304,7 @@ test(
   "the registry answers only HTTPS verified against the kore CA: plain HTTP and an unverified HTTPS request both fail",
   live,
   async () => {
-    const repository = await loadRepository(integrationEnvironment());
+    const repository = await loadRepository(liveEnvironment());
     const runner = new ProcessRunner();
     const read = await loadRegistryCredential(repository, runner, "read");
     await localRegistryReference(repository, runner, "kore/x");

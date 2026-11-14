@@ -3,7 +3,7 @@ import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 import { evaluateAudit } from "../config/index.js";
-import { integrationEnvironment } from "../runtime/index.js";
+import { liveEnvironment } from "../runtime/index.js";
 import { deployedImage } from "./admission-probe.js";
 import {
   constraints,
@@ -16,7 +16,7 @@ import {
 import { workloadVerdict } from "./workload-probe.js";
 
 // Docs: docs/decisions/0059-identity-policy-evidence.md
-// Live and opt-in; see identity-live.ts. Run: npm run test:integration:identity
+// Live and opt-in; see identity-live.ts. Run: npm run test:live:identity
 
 test(
   "every enforcing Gatekeeper constraint audits clean, and every dryrun constraint records its violations as promotion evidence",
@@ -50,11 +50,7 @@ test(
     // Promote one constraint at a time: copy a clean constraint's observedAt
     // and totalViolations into infra/policies/gatekeeper/promotions/<constraint>.json.
     console.log(
-      JSON.stringify(
-        { environment: integrationEnvironment(), evidence },
-        null,
-        2,
-      ),
+      JSON.stringify({ environment: liveEnvironment(), evidence }, null, 2),
     );
     assert.deepEqual(failures, []);
   },

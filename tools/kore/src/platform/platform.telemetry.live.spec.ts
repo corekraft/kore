@@ -6,7 +6,7 @@ import { assertExpectedCluster } from "../cluster/index.js";
 import {
   ProcessRunner,
   type Runner,
-  integrationEnvironment,
+  liveEnvironment,
 } from "../runtime/index.js";
 import { postOtlp, waitForOtlp, withForward } from "./otlp-forward.js";
 import { platformStatus } from "./status.js";
@@ -178,13 +178,13 @@ test(
   {
     concurrency: false,
     skip:
-      process.env.KORE_RUN_INTEGRATION !== "1"
-        ? "set KORE_RUN_INTEGRATION=1 to opt into a live platform"
+      process.env.KORE_RUN_LIVE !== "1"
+        ? "set KORE_RUN_LIVE=1 to opt into a live platform"
         : false,
     timeout: 10 * 60 * 1000,
   },
   async () => {
-    const repository = await loadRepository(integrationEnvironment());
+    const repository = await loadRepository(liveEnvironment());
     const runner = new ProcessRunner();
     await assertExpectedCluster(repository, runner);
     const call = proxy(repository, runner);
@@ -255,13 +255,13 @@ test(
   {
     concurrency: false,
     skip:
-      process.env.KORE_RUN_INTEGRATION !== "1"
-        ? "set KORE_RUN_INTEGRATION=1 to opt into a live platform"
+      process.env.KORE_RUN_LIVE !== "1"
+        ? "set KORE_RUN_LIVE=1 to opt into a live platform"
         : false,
     timeout: 10 * 60 * 1000,
   },
   async () => {
-    const repository = await loadRepository(integrationEnvironment());
+    const repository = await loadRepository(liveEnvironment());
     const runner = new ProcessRunner();
     await assertExpectedCluster(repository, runner);
     const call = proxy(repository, runner);
@@ -306,13 +306,13 @@ test(
   {
     concurrency: false,
     skip:
-      process.env.KORE_RUN_INTEGRATION !== "1"
-        ? "set KORE_RUN_INTEGRATION=1 to opt into a live platform"
+      process.env.KORE_RUN_LIVE !== "1"
+        ? "set KORE_RUN_LIVE=1 to opt into a live platform"
         : false,
     timeout: 10 * 60 * 1000,
   },
   async () => {
-    const repository = await loadRepository(integrationEnvironment());
+    const repository = await loadRepository(liveEnvironment());
     const runner = new ProcessRunner();
     await assertExpectedCluster(repository, runner);
     const statuses = await platformStatus(repository, runner, [

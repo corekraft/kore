@@ -4,7 +4,7 @@ import { assertExpectedCluster } from "../cluster/index.js";
 import { loadRepository } from "../config/index.js";
 import { findRoot } from "../config/config.js";
 import { swapLocalSigningKey } from "../images/index.js";
-import { ProcessRunner, integrationEnvironment } from "../runtime/index.js";
+import { ProcessRunner, liveEnvironment } from "../runtime/index.js";
 import {
   admissionVerdict,
   deployedImage,
@@ -39,8 +39,8 @@ async function until<T>(
 const live = {
   concurrency: false,
   skip:
-    process.env.KORE_RUN_INTEGRATION !== "1"
-      ? "set KORE_RUN_INTEGRATION=1 to opt into a live local profile"
+    process.env.KORE_RUN_LIVE !== "1"
+      ? "set KORE_RUN_LIVE=1 to opt into a live local profile"
       : false,
   timeout: 20 * 60 * 1000,
 };
@@ -50,7 +50,7 @@ test(
   live,
   async () => {
     const repository = await loadRepository(
-      integrationEnvironment(),
+      liveEnvironment(),
       await findRoot(),
     );
     const runner = new ProcessRunner();
