@@ -195,6 +195,8 @@ class WordScanner {
   private segment: RawWord[] = [];
   private word: RawWord | null = null;
   private quote: string | null = null;
+  // Inside $'...' a backslash escapes the next character, as it does in double quotes.
+  private ansi = false;
 
   constructor(private readonly command: string) {}
 
@@ -236,6 +238,12 @@ class WordScanner {
     if (char === "'" || char === '"') {
       this.start();
       this.quote = char;
+      this.ansi = false;
+    } else if (char === "$" && next === "'") {
+      this.start();
+      this.quote = "'";
+      this.ansi = true;
+      return i + 1;
     } else if (char === "\\") {
       this.start().text += next ?? "";
       return i + 1;
@@ -256,7 +264,7 @@ class WordScanner {
   private inQuote(i: number, char: string): number {
     if (char === this.quote) {
       this.quote = null;
-    } else if (char === "\\" && this.quote === '"') {
+    } else if (char === "\\" && (this.quote === '"' || this.ansi)) {
       this.start().text += this.command[i + 1] ?? "";
       return i + 1;
     } else {
