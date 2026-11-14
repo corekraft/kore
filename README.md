@@ -218,7 +218,10 @@ mise exec -- npm --prefix tools/kore run kore -- cluster destroy --environment l
 separate resources and workload charts with no provider-specific references.
 For an environment that declares a `platformMirror` (`managed-example`), it also
 checks that every approved platform image has a rewrite to that signed mirror at
-its approved digest.
+its approved digest. It reports a Gatekeeper constraint with no
+`enforcementAction` as a warning, naming the file and the `dryrun` fix, in its
+output and in the `warnings` field of `--json`; a missing action means deny with
+no audit stage.
 `kore validate --environment managed-example --platform-image-lock <file>`
 additionally checks a release's `platform-images.lock.json` (attached to the
 GitHub release as an asset) against the committed overlay and image policy

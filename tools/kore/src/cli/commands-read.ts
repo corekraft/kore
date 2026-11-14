@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { orderedComponents } from "../config/index.js";
+import { orderedComponents, policyWarnings } from "../config/index.js";
 import { managedLockErrors } from "../images/index.js";
 import {
   doctor,
@@ -52,6 +52,7 @@ export async function validateCommand(
       components: order.length,
       order,
       applications: portability.applications,
+      warnings: await policyWarnings(repository),
       status: "valid",
     },
     json,
