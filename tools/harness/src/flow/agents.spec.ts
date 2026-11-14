@@ -1,8 +1,30 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { LedgerEvent } from "../ledger/index.js";
-import { T0, at } from "./flow-support.js";
+import type { Kind, LedgerEvent } from "../ledger/index.js";
 import { time } from "./github-waits.js";
 import { stampLanded, withPaneAgents } from "./agents.js";
+
+const T0 = Date.parse("2026-01-02T00:00:00.000Z");
+
+let seq = 0;
+
+/** A ledger event `seconds` after T0; the source is claude unless the fields name one. */
+function at(
+  seconds: number,
+  kind: Kind,
+  fields: Partial<LedgerEvent> = {},
+): LedgerEvent {
+  seq += 1;
+  const occurredAt = new Date(T0 + seconds * 1000).toISOString();
+  return {
+    schema: 1,
+    id: `e${seq}`,
+    source: "claude",
+    kind,
+    occurredAt,
+    recordedAt: occurredAt,
+    ...fields,
+  };
+}
 
 vi.mock("./github-waits.js");
 
@@ -80,12 +102,20 @@ describe("stampLanded", () => {
 
   it("is undefined when no claude event names an agent", () => {
     const unnamed = at(10, "tool.end");
-    const herdr = at(5, "pane.spawned", { pane: "p1", agent: "writer" });
+    const herdr = at(5, "pane.spawned", {
+      pane: "p1",
+      agent: "writer",
+      source: "herdr",
+    });
     expect(stampLanded([unnamed, herdr])).toBeUndefined();
   });
 
   it("ignores a named event that is not from claude", () => {
-    const herdr = at(5, "pane.spawned", { pane: "p1", agent: "writer" });
+    const herdr = at(5, "pane.spawned", {
+      pane: "p1",
+      agent: "writer",
+      source: "herdr",
+    });
     const claude = at(20, "tool.end", { agent: "judge" });
     expect(stampLanded([herdr, claude])).toBe(T0 + 20_000);
   });

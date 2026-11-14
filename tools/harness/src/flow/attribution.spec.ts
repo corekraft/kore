@@ -1,6 +1,29 @@
+import type { Kind, LedgerEvent } from "../ledger/index.js";
 import { describe, expect, it } from "vitest";
-import { at } from "./flow-support.js";
 import { attribute } from "./attribution.js";
+
+const T0 = Date.parse("2026-01-02T00:00:00.000Z");
+
+let seq = 0;
+
+/** A ledger event `seconds` after T0; the source is claude unless the fields name one. */
+function at(
+  seconds: number,
+  kind: Kind,
+  fields: Partial<LedgerEvent> = {},
+): LedgerEvent {
+  seq += 1;
+  const occurredAt = new Date(T0 + seconds * 1000).toISOString();
+  return {
+    schema: 1,
+    id: `e${seq}`,
+    source: "claude",
+    kind,
+    occurredAt,
+    recordedAt: occurredAt,
+    ...fields,
+  };
+}
 
 describe("attribute", () => {
   it("keys an issue event by its own issue number", () => {

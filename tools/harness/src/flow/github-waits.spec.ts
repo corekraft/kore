@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { LedgerEvent } from "../ledger/index.js";
-import { at } from "./flow-support.js";
+import type { Kind, LedgerEvent } from "../ledger/index.js";
 import {
   firstTime,
   githubSpans,
@@ -11,15 +10,40 @@ import {
 import { uncovered, type Span } from "./intervals.js";
 import type { Tally } from "./tally.js";
 
+const T0 = Date.parse("2026-01-02T00:00:00.000Z");
+
+let seq = 0;
+
+/** A ledger event `seconds` after T0; the source is claude unless the fields name one. */
+function at(
+  seconds: number,
+  kind: Kind,
+  fields: Partial<LedgerEvent> = {},
+): LedgerEvent {
+  seq += 1;
+  const occurredAt = new Date(T0 + seconds * 1000).toISOString();
+  return {
+    schema: 1,
+    id: `e${seq}`,
+    source: "claude",
+    kind,
+    occurredAt,
+    recordedAt: occurredAt,
+    ...fields,
+  };
+}
+
 vi.mock("./intervals.js");
 
-/** A typed fake of the tally: its window, and the calls the waits make on it. */
+/**
+ * A typed fake of the tally: the window it was built with, and the calls the
+ * waits make on it. The one cast is here, since the class has private members.
+ */
 function fakeTally(window: Span) {
-  return {
-    window,
-    present: vi.fn<Tally["present"]>(),
-    addMs: vi.fn<Tally["addMs"]>(),
-  };
+  const present = vi.fn<Tally["present"]>();
+  const addMs = vi.fn<Tally["addMs"]>();
+  const tally = { window, present, addMs } as unknown as Tally;
+  return { tally, present, addMs };
 }
 
 describe("time", () => {
@@ -107,32 +131,32 @@ describe("githubWaits", () => {
   });
 
   it("marks every wait present, even one wholly outside the window", () => {
-    const tally = fakeTally([1000, 2000]);
-    githubWaits(tally as unknown as Tally, [wait], []);
-    expect(tally.present.mock.calls).toEqual([["merge", 100, 300]]);
-    expect(tally.addMs.mock.calls).toEqual([]);
+    const { tally, present, addMs } = fakeTally([1000, 2000]);
+    githubWaits(tally, [wait], []);
+    expect(present.mock.calls).toEqual([["merge", 100, 300]]);
+    expect(addMs.mock.calls).toEqual([]);
   });
 
   it("charges the wait's time inside the window, minus the holes, as waiting", () => {
-    const tally = fakeTally([200, 1000]);
+    const { tally, addMs } = fakeTally([200, 1000]);
     vi.mocked(uncovered).mockReturnValue(42);
-    githubWaits(tally as unknown as Tally, [wait], [[250, 260]]);
+    githubWaits(tally, [wait], [[250, 260]]);
     expect(vi.mocked(uncovered).mock.calls).toEqual([
       [[200, 300], [[250, 260]]],
     ]);
-    expect(tally.addMs.mock.calls).toEqual([["merge", "waitingMs", 42]]);
+    expect(addMs.mock.calls).toEqual([["merge", "waitingMs", 42]]);
   });
 
   it("clips the charged span to the window on both ends", () => {
-    const tally = fakeTally([150, 250]);
-    githubWaits(tally as unknown as Tally, [wait], []);
+    const { tally } = fakeTally([150, 250]);
+    githubWaits(tally, [wait], []);
     expect(vi.mocked(uncovered).mock.calls).toEqual([[[150, 250], []]]);
   });
 
   it("charges nothing for a wait that ends before the window opens", () => {
-    const tally = fakeTally([400, 500]);
-    githubWaits(tally as unknown as Tally, [wait], []);
+    const { tally, addMs } = fakeTally([400, 500]);
+    githubWaits(tally, [wait], []);
     expect(uncovered).not.toHaveBeenCalled();
-    expect(tally.addMs.mock.calls).toEqual([]);
+    expect(addMs.mock.calls).toEqual([]);
   });
 });
