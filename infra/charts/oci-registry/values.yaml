@@ -24,3 +24,7 @@ tls:
   # its certificate at start, so renewal needs a pod restart; ten years keeps
   # rotation a deliberate, documented act rather than a surprise outage.
   duration: 87600h
+features:
+  # Kore passes the environment's flags here (ADR 0077). Off renders the registry
+  # exactly as before: it refuses manifest deletes.
+  registry-tag-pruning: false

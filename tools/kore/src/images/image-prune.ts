@@ -24,7 +24,7 @@ interface PodSpec {
 }
 
 /** Every image any pod in the cluster names. Throws when they cannot be listed. */
-async function imagesInUse(
+export async function imagesInUse(
   repository: Repository,
   runner: Runner,
 ): Promise<Set<string>> {
