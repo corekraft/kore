@@ -52,6 +52,12 @@ spawn` refuses a new writer while it is held (enforced). Commit-hook test
   **#353 must treat every `kore-src-*` tag as a root and never garbage-collect
   a digest a pod uses or a `kore-src-*` tag names**; deleting such a digest
   makes the next run reuse an image the registry no longer has.
+  **The reuse is behind the `local-image-reuse` flag, off in every environment
+  overlay.** With the flag off a run builds every time, looks up no source tag
+  and publishes none, exactly as before. The flag turns on only through the
+  harness's flag activation, after a live reference-revision rerun, owed on
+  [#344](https://github.com/corekraft/kore/issues/344), shows an unchanged
+  source reused without a rollout.
   `kore local up` prunes, before it builds and only while it holds the host
   lease, kore's own tags (the per-run tags and the old shared `kore-local`) on
   every node of its cluster and on the host, and only those no pod in the

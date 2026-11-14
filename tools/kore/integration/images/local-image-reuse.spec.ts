@@ -41,7 +41,7 @@ afterEach(async () => {
 });
 
 /** A checkout whose app directory is `apps/reference`; `kore-reuse-` names its temp roots. */
-async function checkout(source = "v1"): Promise<Repository> {
+async function checkout(source = "v1", reuse = true): Promise<Repository> {
   const root = await mkdtemp(join(tmpdir(), "kore-reuse-"));
   roots.push(root);
   const app = join(root, "apps/reference");
@@ -52,7 +52,15 @@ async function checkout(source = "v1"): Promise<Repository> {
   );
   await writeFile(join(app, ".dockerignore"), "node_modules\n.git\n");
   await writeFile(join(app, "src/server.ts"), source);
-  return { ...(await loadRepository("local")), root };
+  const local = await loadRepository("local");
+  return {
+    ...local,
+    root,
+    environment: {
+      ...local.environment,
+      features: { ...local.environment.features, "local-image-reuse": reuse },
+    },
+  };
 }
 
 const appOf = (repository: Repository) =>
@@ -279,4 +287,23 @@ test("a missing Dockerfile builds so docker names the problem, with no source ta
 
   expect(builds(run.calls)).toHaveLength(1);
   expect(pushedSourceTags(run.calls)).toEqual([]);
+});
+
+test("with the flag off, an unchanged source builds and publishes again and never reads a source tag", async () => {
+  const repository = await checkout("v1", false);
+  registryWith(new Map());
+  const first = fakeRunner();
+  await buildAndSignLocalImage(repository, first.runner, "reference", entry);
+  const second = fakeRunner();
+
+  await buildAndSignLocalImage(repository, second.runner, "reference", entry);
+
+  expect(builds(first.calls)).toHaveLength(1);
+  expect(builds(second.calls)).toHaveLength(1);
+  expect(pushedSourceTags(second.calls)).toEqual([]);
+  expect(
+    registryHead.mock.calls.some(([url]) =>
+      String(url).includes("/manifests/kore-src-"),
+    ),
+  ).toBe(false);
 });

@@ -19,6 +19,7 @@ import {
   type PublishSession,
 } from "./local-publish.js";
 import { localRegistryReference } from "./registry.js";
+import { featureEnabled } from "../config/index.js";
 
 // Docs: AGENTS.md "It just works." (a no-change rerun is a no-op, not a rollout)
 
@@ -27,6 +28,10 @@ vi.mock("./local-image-source.js");
 vi.mock("./local-signer.js");
 vi.mock("./registry.js");
 vi.mock("./local-publish.js");
+vi.mock("../config/index.js", () => ({
+  featureEnabled: vi.fn(),
+  localImageReuseFlag: "local-image-reuse",
+}));
 
 const digest = `sha256:${"f".repeat(64)}`;
 const reusedDigest = `sha256:${"e".repeat(64)}`;
@@ -62,12 +67,7 @@ function lookup(found: {
   source: string | undefined;
   reused: LockedImage | undefined;
 }): void {
-  vi.mocked(lookUpSource).mockResolvedValue({
-    repositoryPath: "reference",
-    source: found.source,
-    reused: found.reused,
-    lock,
-  });
+  vi.mocked(lookUpSource).mockResolvedValue(found);
 }
 
 const commands = (run: { mock: { calls: unknown[][] } }) =>
@@ -104,6 +104,7 @@ beforeEach(() => {
   });
   vi.mocked(publishedDigest).mockResolvedValue(digest);
   vi.mocked(sourceTag).mockResolvedValue(source);
+  vi.mocked(featureEnabled).mockReturnValue(true);
 });
 
 test("a published source is reused: no build, no import, no publish, no digest read", async () => {
@@ -216,4 +217,51 @@ test("a registry lookup that fails fails the run before any build or signature",
   ).rejects.toThrow("HTTP 500");
 
   expect(run).not.toHaveBeenCalled();
+});
+
+test("reuse is read from the environment's local-image-reuse flag", async () => {
+  lookup({ source, reused: undefined });
+  const { runner } = typedRunner();
+
+  await buildAndSignLocalImage(repository, runner, "reference", entry);
+
+  expect(featureEnabled).toHaveBeenCalledWith(
+    repository.environment,
+    "local-image-reuse",
+  );
+});
+
+test("with the flag off a published source is ignored: no lookup, a build, and no source tag", async () => {
+  vi.mocked(featureEnabled).mockReturnValue(false);
+  vi.mocked(publishToLocalRegistry).mockResolvedValue({
+    address: "10.96.0.77:5000",
+    repositoryPath: "reference",
+  });
+  const { runner, run } = typedRunner();
+
+  const built = await buildAndSignLocalImage(
+    repository,
+    runner,
+    "reference",
+    entry,
+  );
+
+  expect(lookUpSource).not.toHaveBeenCalled();
+  expect(sourceTag).not.toHaveBeenCalled();
+  expect(commands(run).slice(0, 2)).toEqual([
+    ["docker", ["build"]],
+    ["k3d", ["import"]],
+  ]);
+  expect(publishToLocalRegistry).toHaveBeenCalledWith(
+    repository,
+    runner,
+    entry,
+    { imageTag: "kore-local/reference:kore-local-abc", extraTags: [] },
+    session,
+  );
+  expect(built.image).toEqual({
+    reference: `10.96.0.77:5000/reference@${digest}`,
+    digest,
+    signer: "local-kore-key",
+  });
 });

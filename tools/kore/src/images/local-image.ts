@@ -1,5 +1,9 @@
 import type { ImageLockEntry, LockedImage } from "./image-lock.js";
-import type { Repository } from "../config/index.js";
+import {
+  featureEnabled,
+  localImageReuseFlag,
+  type Repository,
+} from "../config/index.js";
 import {
   localDockerBuildArgs,
   k3dImageImportArgs,
@@ -120,14 +124,11 @@ async function buildAndSign(
   application: string,
   entry: ImageLockEntry,
 ): Promise<BuiltLocalImage> {
-  const found = await lookUpSource(
-    repository,
-    runner,
-    application,
-    entry,
-    session.client,
-  );
-  if (found.reused !== undefined) {
+  // Reuse is behind a flag (#344): off, every run builds, as before.
+  const found = featureEnabled(repository.environment, localImageReuseFlag)
+    ? await lookUpSource(repository, runner, application, entry, session.client)
+    : undefined;
+  if (found?.reused !== undefined) {
     await signImage(repository, runner, found.reused, signer, session.client);
     return { image: found.reused, publicKey: signer.publicKey };
   }
@@ -148,9 +149,9 @@ async function buildAndSign(
       repository,
       runner,
       application,
-      found.source,
+      found?.source,
     );
-    await publishToLocalRegistry(
+    const { address, repositoryPath } = await publishToLocalRegistry(
       repository,
       runner,
       entry,
@@ -158,11 +159,17 @@ async function buildAndSign(
       session,
     );
     const digest = await publishedDigest(
-      found.repositoryPath,
+      repositoryPath,
       session.client,
       runTag,
     );
-    const image = found.lock(digest);
+    const image: LockedImage = {
+      // The deployed name is the registry address the nodes pull from and the
+      // image policy matches, not the host the release lock records.
+      reference: `${address}/${repositoryPath}@${digest}`,
+      digest,
+      signer: "local-kore-key",
+    };
     await signImage(repository, runner, image, signer, session.client);
     return { image, publicKey: signer.publicKey };
   } finally {

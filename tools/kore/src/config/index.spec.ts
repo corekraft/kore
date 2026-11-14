@@ -43,6 +43,7 @@ vi.mock("./features.js", () => ({
   featureHelmArgs: vi.fn(),
   gatewayClassName: vi.fn(),
   ingressFlag: "ingress-agentgateway",
+  localImageReuseFlag: "local-image-reuse",
 }));
 vi.mock("./files.js", () => ({ exists: vi.fn() }));
 vi.mock("./image-trust.js", () => ({
@@ -97,6 +98,7 @@ test("the config barrel exposes exactly the entry points other domains use", () 
     "ingressFlag",
     "isLocalProvider",
     "loadRepository",
+    "localImageReuseFlag",
     "localSigner",
     "managedCluster",
     "noMatchPolicy",

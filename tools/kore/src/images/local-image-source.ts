@@ -51,12 +51,10 @@ export async function sourceTag(
 }
 
 export interface SourceLookup {
-  repositoryPath: string;
   /** The tag naming this source, when every input is known. */
   source: string | undefined;
   /** The image an earlier run published for this source, when there is one. */
   reused: LockedImage | undefined;
-  lock: (digest: string) => LockedImage;
 }
 
 /**
@@ -89,9 +87,7 @@ export async function lookUpSource(
     digest = await digestIfPublished(repositoryPath, client, source);
   }
   return {
-    repositoryPath,
     source,
     reused: digest === undefined ? undefined : lock(digest),
-    lock,
   };
 }
