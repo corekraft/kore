@@ -44,3 +44,4 @@ export {
   useExportRepository,
 } from "./data-export.fixtures.js";
 export { registryCaPem, registryTlsSecret } from "./registry-tls-fixtures.js";
+export { manifestImages } from "../config/manifest-images.js";

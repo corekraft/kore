@@ -6,11 +6,10 @@ import {
   findRoot,
   loadRepository,
 } from "../../src/config/index.js";
-import { manifestImages } from "../../src/config/manifest-images.js";
 import { unapprovedImages } from "../../src/images/index.js";
+import { manifestImages } from "../../src/testing/index.js";
 
 // Reads the committed manifests of the local environment, so it is an integration test (ADR 0098).
-// The config barrel does not export manifestImages, so this file reads it from its module.
 
 async function yamlFiles(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true });
