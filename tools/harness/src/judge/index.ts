@@ -6,3 +6,4 @@ export { findingsFrom } from "./review-findings.js";
 export { postReview, type ReviewPosted } from "./review-post.js";
 export { reviewBody } from "./review-verdict.js";
 export { hasSentBack, sendBackBody } from "./send-back.js";
+export { reviewersFor, type ReviewerSources } from "./reviewers.js";
