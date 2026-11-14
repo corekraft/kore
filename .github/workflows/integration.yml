@@ -5,10 +5,13 @@ name: integration
 # (tools/harness, tools/kore) runs the tier and must pass it before it merges; any
 # other pull request skips the tier. Add a tools/ directory to the filter when it
 # gains integration specs. The check is always reported, so
-# a skipped run still satisfies a required check.
+# a skipped run still satisfies a required check. A manual dispatch (plan 14
+# proof run) runs the tier on any ref without diffing, since it has no pull
+# request SHAs.
 
 on:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -28,9 +31,14 @@ jobs:
           fetch-depth: 0
       - id: filter
         env:
+          EVENT_NAME: ${{ github.event_name }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
+          if [ "$EVENT_NAME" = workflow_dispatch ]; then
+            echo "hooks=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           changed="$(git diff --name-only "$BASE_SHA...$HEAD_SHA")"
           if printf '%s\n' "$changed" | grep -qE '^(\.claude/(hooks|evals)/|tools/(harness|kore)/|\.github/workflows/integration\.yml$)'; then
             echo "hooks=true" >> "$GITHUB_OUTPUT"

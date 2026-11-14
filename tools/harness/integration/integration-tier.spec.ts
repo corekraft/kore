@@ -136,6 +136,28 @@ it("runs the tier in the merge check for a change to the commit hooks, the hook 
   }
 });
 
+it("runs the tier on every manual dispatch without diffing, and keeps the pull request path filtered by path", () => {
+  const workflow = readFileSync(
+    join(repo, ".github/workflows/integration.yml"),
+    "utf8",
+  );
+
+  expect(workflow).toMatch(/^on:\n {2}pull_request:\n {2}workflow_dispatch:$/m);
+  expect(workflow).toMatch(
+    /^ {10}EVENT_NAME: \$\{\{ github\.event_name \}\}$/m,
+  );
+  // A dispatch has no pull request SHAs, so it must not reach the diff.
+  const run = /^ {8}run: \|\n((?: {10}.*\n)+)/m.exec(workflow)?.[1] ?? "";
+  const dispatch = run.indexOf('"$EVENT_NAME" = workflow_dispatch');
+  expect(dispatch).toBeGreaterThanOrEqual(0);
+  expect(dispatch).toBeLessThan(run.indexOf("git diff"));
+  expect(run).toMatch(/workflow_dispatch \]; then\n\s+echo "hooks=true"/);
+  // The integration job still needs the changes job, so the check is always reported.
+  expect(workflow).toMatch(
+    /needs: changes\n\s+if: needs\.changes\.outputs\.hooks == 'true'/,
+  );
+});
+
 // The unit run starts no process and reads no built bundle (ADR 0098). A spec that
 // imports a real child_process, or reads skills/bin/harness.mjs, belongs in integration/.
 const unitSpecs = (dir: string): string[] =>
