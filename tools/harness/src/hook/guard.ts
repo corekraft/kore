@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { homedir } from "node:os";
 // PreToolUse guard: enforces mechanically checkable rules from AGENTS.md.
 // Plan: infra/plans/3-agent-harness.md (Step 2).
 //
@@ -69,6 +70,8 @@ export async function guard(
   const verdict = await evaluate(payload, {
     root,
     cwd: callDirectory(call, root),
+    // The home a leading ~ expands to: the environment's HOME, as the shell reads it.
+    home: deps.env["HOME"] || homedir(),
     readFile,
     // Globs resolve from the directory the command runs in, as the shell runs them; the call's when none is given.
     globMatches: (pattern, directory) =>

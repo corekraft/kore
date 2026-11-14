@@ -86,6 +86,7 @@ function ctxWith(files: Files = {}): GuardContext {
     root: ROOT,
     readFile,
     cwd: ROOT,
+    home: "/home/test",
     globMatches: () => Promise.resolve(false),
     modeOf: () => "enforce",
     denyRules: [],

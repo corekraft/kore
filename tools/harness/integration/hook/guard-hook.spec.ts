@@ -175,6 +175,7 @@ describe("hook guard faults", () => {
 const absent = {
   root: "/repo",
   cwd: "/repo",
+  home: "/home/test",
   globMatches: () => Promise.resolve(false),
   modeOf: (rule: string) => modeOf(committedInventory, rule),
   denyRules: [],
@@ -201,6 +202,7 @@ describe("guard evaluation edges", () => {
     const denied = {
       root: "/repo",
       cwd: "/repo",
+      home: "/home/test",
       globMatches: absent.globMatches,
       modeOf: absent.modeOf,
       denyRules: [],

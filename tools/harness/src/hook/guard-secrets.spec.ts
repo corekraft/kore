@@ -22,6 +22,7 @@ const ctxFiles = (files: Record<string, string>): GuardContext => ({
       ? Promise.reject(Object.assign(new Error("ENOENT"), { code: "ENOENT" }))
       : Promise.resolve(files[path]),
   cwd: "/repo",
+  home: "/home/test",
   globMatches: () => Promise.resolve(false),
   modeOf: () => "enforce",
   denyRules: [],

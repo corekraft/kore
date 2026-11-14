@@ -8,7 +8,11 @@ import { committedInventoryText } from "../testing/index.js";
 // directory, through the injected filesystem, and only warns.
 async function guard(payload: unknown, seeded: string[]) {
   const h = testHarness({
-    env: { CLAUDE_PROJECT_DIR: "/repo", KORE_ROOT: "/repo" },
+    env: {
+      CLAUDE_PROJECT_DIR: "/repo",
+      KORE_ROOT: "/repo",
+      HOME: "/home/test",
+    },
     files: { [`/repo/${INVENTORY_PATH}`]: committedInventoryText },
   });
   for (const path of seeded) {
@@ -80,6 +84,13 @@ describe("hook guard bare glob skips glob characters in pattern arguments", () =
 
   it("is silent for a * operand in arithmetic, which is not a glob", async () => {
     const result = await guard(on("echo $(( * $n * ))"), []);
+    expect(result.out).toBe("");
+  });
+});
+
+describe("hook guard bare glob leaves a glob after a shell variable unjudged", () => {
+  it("is silent for a glob whose directory is a shell variable, which the hook cannot resolve", async () => {
+    const result = await guard(on('ls "$d/rust/"*.log'), []);
     expect(result.out).toBe("");
   });
 });
