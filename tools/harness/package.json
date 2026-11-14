@@ -15,7 +15,6 @@
     "test:budget": "../../.claude/hooks/harness.sh hook test-budget --package tools/harness --report test-results/unit.json",
     "test:specs": "../../.claude/hooks/harness.sh hook unit-specs --package tools/harness",
     "test:related": "vitest related --run --passWithNoTests --maxWorkers=2",
-    "test:hooks": "vitest run .claude/",
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "devDependencies": {
