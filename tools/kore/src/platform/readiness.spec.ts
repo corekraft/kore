@@ -1,7 +1,5 @@
-// Docs: infra/plans/14-test-tiers.md#step-2-pilots
 import { beforeEach, expect, test, vi } from "vitest";
 import { errorMessage } from "./probe.js";
-import { gatewayCheck } from "./readiness-gateway.js";
 import { assertIssuerReady } from "./readiness-issuer.js";
 import {
   failureAcrossBounds,
@@ -13,14 +11,18 @@ import { readinessFailure } from "./readiness.js";
 import { withScheduledPods } from "./readiness-daemonset.js";
 import { waitForWebhook } from "./readiness-webhook.js";
 import {
+  AVAILABLE,
+  BASE,
+  CAPTURE,
+  NO_CAPTURE,
   component,
+  gatewayCheckReturns,
   primeReadinessFakes,
   repository,
   tails,
   waitOn,
 } from "./readiness-support.js";
 
-// NOT_YET_THERE is a constant, so the poll mock keeps it real.
 vi.mock("./probe.js");
 vi.mock("./readiness-gateway.js");
 vi.mock("./readiness-issuer.js");
@@ -35,14 +37,7 @@ vi.mock("./readiness-poll.js", async (importOriginal) => ({
   retryBudget: vi.fn(),
 }));
 
-const BASE = ["--context", "k3d-kore-local", "--namespace", "kore-system"];
-const CAPTURE = { capture: true };
-const NO_CAPTURE = { capture: false };
-const AVAILABLE =
-  "go-template={{if .status.availableReplicas}}available{{end}}";
-
 beforeEach(primeReadinessFakes);
-
 test("a deployment is ready when its rollout completes and it has an available replica", async () => {
   const { run, wait } = waitOn(["deployment/web"], (args) =>
     args.includes("get") ? "available" : "",
@@ -201,10 +196,7 @@ test("a webhook configuration is delegated to the webhook wait with the context,
 
 test("a gateway resource is checked by the gateway check, not the rollout", async () => {
   const check = vi.fn(async () => undefined);
-  vi.mocked(gatewayCheck).mockReturnValue({
-    condition: "gateway accepted",
-    run: check,
-  } as unknown as ReturnType<typeof gatewayCheck>);
+  gatewayCheckReturns(check);
   const { run, wait } = waitOn(["gateway/kore"]);
 
   await wait();

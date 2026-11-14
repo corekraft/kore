@@ -68,6 +68,25 @@ export const repository = {
   environment: { name: "local", kubeContext: "k3d-kore-local" },
 } as unknown as Repository;
 
+export const BASE = [
+  "--context",
+  "k3d-kore-local",
+  "--namespace",
+  "kore-system",
+];
+export const CAPTURE = { capture: true };
+export const NO_CAPTURE = { capture: false };
+export const AVAILABLE =
+  "go-template={{if .status.availableReplicas}}available{{end}}";
+
+/** Makes the gateway check for any Gateway resource run `run`. */
+export function gatewayCheckReturns(run: () => Promise<void>): void {
+  vi.mocked(gatewayCheck).mockReturnValue({
+    condition: "gateway accepted",
+    run,
+  } as unknown as ReturnType<typeof gatewayCheck>);
+}
+
 /** A component in kore-system with a 10m timeout and no readiness of its own unless given. */
 export function component(extra: Record<string, unknown> = {}): Component {
   return {

@@ -1,7 +1,10 @@
-// Docs: docs/decisions/0028-image-trust-authority.md
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import type { Repository } from "../config/index.js";
-import { CommandError, type Runner } from "../runtime/index.js";
+import {
+  IMAGE,
+  fakeRunner,
+  refusal,
+  repository,
+} from "./admission-probe-support.js";
 import {
   admissionVerdict,
   deployedImage,
@@ -16,46 +19,17 @@ import {
 
 vi.mock("./admission-probe-copies.js");
 
-type Run = Runner["run"];
-
-const DIGEST = "d".repeat(64);
-const IMAGE = `registry.example:5000/app@sha256:${DIGEST}`;
-const repository = {
-  environment: { name: "local", kubeContext: "k3d-kore-local" },
-} as unknown as Repository;
-
-/** A typed runner answering every call with `stdout`, or throwing `failure`. */
-function fakeRunner(stdout = "", failure?: unknown) {
-  const run = vi.fn<Run>(async () => {
-    if (failure !== undefined) {
-      throw failure;
-    }
-    return { stdout, stderr: "", code: 0 };
-  });
-  return { runner: { run } as Runner, run };
-}
-
-/** A kubectl failure whose stderr is the given text. */
-function refusal(stderr: string): CommandError {
-  return new CommandError("kubectl", [], { stdout: "", stderr, code: 1 });
-}
+const SCOPE = ["--context", "k3d-kore-local", "--namespace", "reference"];
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(1296);
 });
 
-afterEach(() => {
-  vi.useRealTimers();
-});
+afterEach(() => vi.useRealTimers());
 
 test("a namespace's scope names the environment's context and the namespace, in that order", () => {
-  expect(scope(repository, "reference")).toEqual([
-    "--context",
-    "k3d-kore-local",
-    "--namespace",
-    "reference",
-  ]);
+  expect(scope(repository, "reference")).toEqual(SCOPE);
 });
 
 test("a server that admits the request is an admitted verdict with the trimmed reply", async () => {
@@ -113,15 +87,7 @@ test("a default probe is a Pod of the image in a main container, dry-run on the 
 
   expect(run).toHaveBeenCalledWith(
     "kubectl",
-    [
-      "--context",
-      "k3d-kore-local",
-      "--namespace",
-      "reference",
-      "create",
-      "--dry-run=server",
-      "--filename=-",
-    ],
+    [...SCOPE, "create", "--dry-run=server", "--filename=-"],
     { capture: true, input: expect.any(String) },
   );
   expect(JSON.parse(String(run.mock.calls[0]?.[2]?.input))).toEqual({
@@ -206,10 +172,7 @@ test("the running pod is the first Running pod whose first container runs the im
   expect(run).toHaveBeenCalledWith(
     "kubectl",
     [
-      "--context",
-      "k3d-kore-local",
-      "--namespace",
-      "reference",
+      ...SCOPE,
       "get",
       "pods",
       "--field-selector=status.phase=Running",
@@ -267,10 +230,7 @@ test("an ephemeral container probe is a server dry-run patch of the ephemeralcon
   expect(run).toHaveBeenCalledWith(
     "kubectl",
     [
-      "--context",
-      "k3d-kore-local",
-      "--namespace",
-      "reference",
+      ...SCOPE,
       "patch",
       "pod/app-1",
       "--subresource=ephemeralcontainers",
@@ -332,15 +292,7 @@ test("scaling a Deployment runs kubectl scale with the replica count in the name
 
   expect(run).toHaveBeenCalledWith(
     "kubectl",
-    [
-      "--context",
-      "k3d-kore-local",
-      "--namespace",
-      "reference",
-      "scale",
-      "deployment/app",
-      "--replicas=0",
-    ],
+    [...SCOPE, "scale", "deployment/app", "--replicas=0"],
     { capture: true },
   );
 });

@@ -1,7 +1,6 @@
 // Docs: infra/plans/14-test-tiers.md#step-2-pilots
 // Docs: docs/decisions/0067-platform-readiness-manifest-and-evidence.md
 import { beforeEach, expect, test, vi } from "vitest";
-import type { Repository } from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 import {
   admissionGateFieldManager,
@@ -16,48 +15,13 @@ import {
   tryRecordReadinessEvidence,
   type ReadinessEvidence,
 } from "./readiness-manifest.js";
-import type { ComponentStatus } from "./status.js";
+import { manifest, repositoryWith, row } from "./readiness-manifest-support.js";
 
 vi.mock("./admission-gate.js");
 
 type Run = Runner["run"];
 
 const when = new Date("2026-11-08T12:00:00.000Z");
-
-/** A repository whose readiness manifest has the given requirements. */
-function repositoryWith(
-  requirements: {
-    name: string;
-    step: number;
-    capability: string;
-    components?: string[];
-    platformChecks?: string[];
-  }[],
-): Repository {
-  return {
-    readiness: { version: 1, requirements },
-    environment: { name: "local", kubeContext: "k3d-kore-local" },
-  } as unknown as Repository;
-}
-
-const row = (name: string, status: ComponentStatus["status"], detail = "ok") =>
-  ({ name, namespace: "kore-system", status, detail }) as ComponentStatus;
-
-const manifest = repositoryWith([
-  {
-    name: "gateway-ready",
-    step: 1,
-    capability: "ingress",
-    components: ["gateway"],
-  },
-  {
-    name: "policy-ready",
-    step: 2,
-    capability: "policy",
-    components: ["policy", "gate"],
-    platformChecks: ["registry-trust"],
-  },
-]);
 
 beforeEach(() => {
   vi.mocked(platformGeneration).mockReturnValue("gen-7");
