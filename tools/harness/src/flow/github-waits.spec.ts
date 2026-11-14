@@ -8,7 +8,7 @@ import {
   type GithubWait,
 } from "./github-waits.js";
 import { uncovered, type Span } from "./intervals.js";
-import type { Tally } from "./tally.js";
+import { Tally } from "./tally.js";
 
 const T0 = Date.parse("2026-01-02T00:00:00.000Z");
 
@@ -36,14 +36,16 @@ function at(
 vi.mock("./intervals.js");
 
 /**
- * A typed fake of the tally: the window it was built with, and the calls the
- * waits make on it. The one cast is here, since the class has private members.
+ * The tally is real, so its window and type are real; the two methods the
+ * waits call are spies that record and charge nothing.
  */
 function fakeTally(window: Span) {
-  const present = vi.fn<Tally["present"]>();
-  const addMs = vi.fn<Tally["addMs"]>();
-  const tally = { window, present, addMs } as unknown as Tally;
-  return { tally, present, addMs };
+  const tally = new Tally(window);
+  return {
+    tally,
+    present: vi.spyOn(tally, "present").mockImplementation(() => undefined),
+    addMs: vi.spyOn(tally, "addMs").mockImplementation(() => undefined),
+  };
 }
 
 describe("time", () => {
