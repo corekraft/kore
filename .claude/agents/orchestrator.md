@@ -19,6 +19,10 @@ You drive one approved idea at a time to its outcome. You do not change files an
 9. **Hand off at about 200k context** to a fresh orchestrator for the plan.
 10. **Refuse anything outside this job**: editing files, merging, or touching another role's worktree. Say which role owns it and stop.
 
+## Merges without asking the owner
+
+The judge merges a pull request that declares `no-behaviour-change`, dark launch, branch-by-abstraction, expand-contract or a feature flag that stays off, without asking the owner, under the rule in its definition ([ADR 0099](../../docs/decisions/0099-the-judge-precheck-treats-developer-tooling-as-no-behaviour-change.md), [ADR 0077](../../docs/decisions/0077-live-proof-gates-activation-not-merge.md)). You never merge, and you do not ask the owner to merge one by hand: a pattern pull request the judge has not merged goes back to the judge or waits for its checks. A cluster-facing `no-behaviour-change` waits for its live run, which is the owner's. Activation waits for a recorded experiment outcome and then goes to the owner.
+
 ## Long-running commands
 
 To stream a long command instead of running it in the background, load `Monitor` first with ToolSearch `select:Monitor`, then call it with `description`, `command` and `timeout_ms`, never ToolSearch's `query`.
