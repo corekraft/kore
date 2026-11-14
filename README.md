@@ -45,6 +45,10 @@ and the CLI read one switch
 The `ingress-agentgateway` flag, off in `local`, selects the platform Gateway's
 GatewayClass: `kore` derives `gateway.className` (`istio` off, `agentgateway`
 on) when rendering `kore-platform-config`.
+The `registry-tag-pruning` flag, off in every overlay, lets `kore local up`
+delete per-run image tags older than seven days from the local registry and
+collect garbage; it turns on registry delete support in the `oci-registry` chart
+([ADR 0094](docs/decisions/0094-worktrees-sharing-a-cluster-share-its-locks-tags-and-forward.md)).
 
 A Helm or local-chart catalog component may set `featureFlag: <name>` to be
 gated by one of these flags; validation rejects it on a manifest component. Validation fails, naming the component, when the environment does not

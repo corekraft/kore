@@ -28,7 +28,7 @@
       "hostname": "REQUIRED",
       "port": 443
     },
-  "features": { "ingress-agentgateway": false },
+  "features": { "ingress-agentgateway": false, "registry-tag-pruning": false },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },
   "telemetry":
     { "otlpEndpoint": "http://otel-collector.observability.svc:4318" },
