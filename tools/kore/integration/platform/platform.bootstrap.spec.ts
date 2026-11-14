@@ -1,21 +1,31 @@
-import { loadRepository } from "../config/index.js";
-import { withHealthyWebhooks } from "../testing/index.js";
-import { desiredFingerprint } from "./fingerprint.js";
-import assert from "node:assert/strict";
-import { test, vi } from "vitest";
-// The admission gate is covered in platform.admission-gate.spec.ts.
-vi.mock("./admission-gate.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./admission-gate.js")>()),
+// Docs: docs/decisions/0104-integration-specs-may-stub-a-domain-s-own-cluster-facing-modules.md
+// Stubs the platform's own ./admission-gate.js (ADR 0104): opening and closing
+// the gate talks to the cluster, which this spec does not have, so both are
+// no-ops here. The gate itself is covered in platform.admission-gate.spec.ts.
+vi.mock("../../src/platform/admission-gate.js", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("../../src/platform/admission-gate.js")
+  >()),
   closeExistingAdmissionGate: async () => undefined,
   openAdmissionGate: async () => undefined,
 }));
-import { runningK3dCluster } from "./k3d-fixtures.js";
-import { bootstrapControllers } from "./bootstrap.js";
-import { platformStop, platformDestroy } from "./lifecycle.js";
+import { loadRepository } from "../../src/config/index.js";
+import {
+  desiredFingerprint,
+  runningK3dCluster,
+  withHealthyWebhooks,
+} from "../../src/testing/index.js";
+import assert from "node:assert/strict";
+import { test, vi } from "vitest";
+import {
+  bootstrapControllers,
+  platformStop,
+  platformDestroy,
+} from "../../src/platform/index.js";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
-import type { Runner } from "../runtime/index.js";
-import { RecordingRunner } from "../runtime/index.js";
+import type { Runner } from "../../src/runtime/index.js";
+import { RecordingRunner } from "../../src/runtime/index.js";
 import { tmpdir } from "node:os";
 
 test("controller bootstrap reconciles controllers before shared Gateway configuration", async () => {
@@ -115,7 +125,12 @@ test("platform destroy purges and then deletes the k3d cluster", async () => {
     },
   };
   try {
-    await platformDestroy(repository, runner, { yes: true, purgeData: true });
+    await platformDestroy(
+      repository,
+      runner,
+      { yes: true, purgeData: true },
+      { listProcesses: async () => [] },
+    );
     assert.deepEqual(calls.at(-1), {
       command: "k3d",
       args: ["cluster", "delete", "kore-local"],

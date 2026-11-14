@@ -4,32 +4,44 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test, vi } from "vitest";
 
-// Covered elsewhere: enrollment, the signing key, the admission gate, status.
-vi.mock("./enrollment.js", () => ({
+// Docs: docs/decisions/0104-integration-specs-may-stub-a-domain-s-own-cluster-facing-modules.md
+// Stubs (ADR 0104) the platform's own modules that talk to the cluster:
+// ./enrollment.js (namespace labels; covered in enrollment.spec.ts),
+// ./admission-gate.js (gate open and close; covered in
+// platform.admission-gate.spec.ts) and ./status.js (prerequisite rows from
+// readyRows). It also stubs the images barrel's signing-key publish, covered in
+// platform.signing-key.spec.ts.
+vi.mock("../../src/platform/enrollment.js", () => ({
   enrollPlatformNamespaces: async () => undefined,
 }));
-vi.mock("../images/index.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../images/index.js")>()),
+vi.mock("../../src/images/index.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../src/images/index.js")>()),
   ensureLocalSigningPublicKey: async () => undefined,
 }));
-vi.mock("./admission-gate.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./admission-gate.js")>()),
+vi.mock("../../src/platform/admission-gate.js", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("../../src/platform/admission-gate.js")
+  >()),
   closeExistingAdmissionGate: async () => undefined,
   openAdmissionGate: async () => undefined,
   assertAdmissionGateOpen: async () => "g",
 }));
-vi.mock("./status.js", async () => {
-  const { readyRows } = await import("../testing/index.js");
-  return {
-    imageInventoryStatusName: "image-inventory",
-    platformStatus: async (repository: Parameters<typeof readyRows>[0]) =>
-      readyRows(repository),
-  };
-});
+vi.mock("../../src/platform/status.js", () => ({
+  imageInventoryStatusName: "image-inventory",
+  // Read lazily: the testing barrel loads this module, so it cannot be read while the factory runs.
+  platformStatus: async (
+    repository: Parameters<
+      typeof import("../../src/testing/index.js").readyRows
+    >[0],
+  ) => {
+    const { readyRows } = await import("../../src/testing/index.js");
+    return readyRows(repository);
+  },
+}));
 
-import { loadRepository } from "../config/index.js";
-import type { Runner } from "../runtime/index.js";
-import { platformUp } from "./up.js";
+import { loadRepository } from "../../src/config/index.js";
+import type { Runner } from "../../src/runtime/index.js";
+import { platformUp } from "../../src/platform/index.js";
 
 type Call = { command: string; args: readonly string[] };
 

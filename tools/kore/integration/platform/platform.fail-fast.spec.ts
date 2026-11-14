@@ -7,7 +7,7 @@ import {
   pod,
   Scenario,
   waiting,
-} from "./fail-fast-fixtures.js";
+} from "../../src/testing/index.js";
 
 test("a crash-looping container is named with its previous logs and helm is cancelled", async () => {
   const scenario = new Scenario(() => [pod({ containers: [crashLoop(3)] })]);
