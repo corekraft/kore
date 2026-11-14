@@ -174,3 +174,45 @@ test("an environment source must be a manifest component's existing directory", 
     /environment component source for a non-manifest component: loki/,
   );
 });
+
+test("the gatekeeper exemptions schema requires every field and the seeded file carries them", async () => {
+  const schema = JSON.parse(
+    await readFile(
+      new URL(
+        "../../../../infra/catalog/schemas/gatekeeper-exemptions.schema.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  const item = schema.properties.exemptions.items;
+  assert.deepEqual(item.required, [
+    "kind",
+    "name",
+    "namespace",
+    "component",
+    "adr",
+    "reason",
+  ]);
+  assert.equal(item.additionalProperties, false);
+  const seeded = JSON.parse(
+    await readFile(
+      new URL(
+        "../../../../infra/catalog/gatekeeper-exemptions.yaml",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  for (const entry of seeded.exemptions) {
+    assert.deepEqual(Object.keys(entry).sort(), [...item.required].sort());
+    assert.equal(typeof entry.adr, "number");
+  }
+});
+
+test("the repository's seeded constraints raise no exemption warnings except the kore-secret-source gap", async () => {
+  const { warnings } = await loadRepository("local");
+  assert.deepEqual(warnings, [
+    "exemption: kore-mesh-enrollment exempts namespace kore-secret-source, which gatekeeper-exemptions.yaml does not list; add an entry with its component and accepted ADR, or remove the namespace from exemptNamespaces",
+  ]);
+});

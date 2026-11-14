@@ -245,11 +245,14 @@ export function exemptionCheckMode(
 
 /**
  * Throws when any error rule fails; otherwise returns the sorted, de-duplicated
- * warnings of the given sources. Warnings never fail validation.
+ * warnings of the given sources. Warnings never fail validation. The exemption
+ * source's findings are warnings under `exemptionCheck: audit` and errors
+ * under `enforce`.
  */
 export async function validateRepository(
   repository: Repository,
   warningSources: WarningSource[] = [],
+  exemptionSource?: WarningSource,
 ): Promise<string[]> {
   const { versions, catalog, environment } = repository;
   const components = catalog.components ?? [];
@@ -272,11 +275,18 @@ export async function validateRepository(
     ...readinessErrors(repository),
     ...registryAddressErrors(repository),
   ];
+  const exemptions = (await exemptionSource?.(repository)) ?? [];
+  if (exemptionCheckMode(environment) === "enforce") {
+    errors.push(...exemptions);
+  }
   if (errors.length) {
     throw new Error([...new Set(errors)].sort().join("\n"));
   }
   const warnings = await Promise.all(
     warningSources.map(async (source) => source(repository)),
   );
+  if (exemptionCheckMode(environment) === "audit") {
+    warnings.push(exemptions);
+  }
   return [...new Set(warnings.flat())].sort();
 }
