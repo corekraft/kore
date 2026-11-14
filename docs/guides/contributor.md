@@ -414,6 +414,13 @@ else the owner login (`ownerLogin`, else the repository's owner). A verdict from
 any other login is unverified. `--reviewer <login>[,<login>]` overrides both, and
 `harness judge precheck` prints the reviewers it used in its text and JSON output.
 
+A contract step (`expand-contract`, a diff that removes lines) passes once its
+expand step is proven (ADR 0107). The PR body names the merged expand PR on
+`Expand step: #<number>`, and the idea issue carries a comment from a trusted
+reviewer login with a line `Expand proof: #<number>` for that PR. The expand
+PR must merge before the contract's head commit. Without all three, the
+precheck refuses and says what to add.
+
 A listing too long to page through (200 runs or PRs, or 300 comments, events or
 commits) fails the poll instead of recording part of it: pass `--since` to bound
 a first poll. Later polls start a day before the latest recorded signal, and

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { CommandContext, Runner } from "../runtime/index.js";
 import {
   gatherChecks,
+  gatherExpandStep,
   parsePrView,
   type Checks,
   type PrView,
@@ -60,6 +61,7 @@ const DECLARED: Declaration = {
   ok: true,
   pattern: "feature-flagged",
   idea: "#10",
+  expandStep: undefined,
 };
 
 const runner = { run: vi.fn<Runner["run"]>() };
@@ -218,5 +220,76 @@ describe("precheck names a gh failure instead of reporting a verdict", () => {
     await expect(run()).rejects.toThrow(
       "gh returned unreadable output for PR #42.",
     );
+  });
+});
+
+describe("precheck reads a contract's expand step only when its diff needs one", () => {
+  const CONTRACT: Declaration = {
+    ok: true,
+    pattern: "expand-contract",
+    idea: "#502",
+    expandStep: 547,
+  };
+  const MISMATCH = {
+    patternMatches: false,
+    clusterFacing: false,
+    unverified: [],
+  };
+  const CLEAN = { patternMatches: true, clusterFacing: false, unverified: [] };
+
+  it("reads no expand step when the diff already matches the pattern", async () => {
+    ready();
+    vi.mocked(parseDeclaration).mockReturnValue(CONTRACT);
+    await run();
+    expect(gatherExpandStep).not.toHaveBeenCalled();
+  });
+
+  it("reads no expand step when the PR declares none, even though the diff mismatches", async () => {
+    ready();
+    vi.mocked(assess).mockReturnValue(MISMATCH);
+    await run();
+    expect(gatherExpandStep).not.toHaveBeenCalled();
+  });
+
+  it("passes a proven expand step to the verdict, and the contract is ready", async () => {
+    ready();
+    vi.mocked(parseDeclaration).mockReturnValue(CONTRACT);
+    vi.mocked(assess).mockReturnValueOnce(MISMATCH).mockReturnValueOnce(CLEAN);
+    vi.mocked(gatherExpandStep).mockResolvedValue({ result: "pass" });
+    expect(await run()).toMatchObject({
+      ok: true,
+      checks: { ...PASSING, expandStep: { result: "pass" } },
+    });
+    expect(gatherExpandStep).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        pr: 42,
+        view: PR_VIEW,
+        reviewers: REVIEWERS,
+        declared: { idea: "#502", expandStep: 547 },
+      }),
+    );
+    expect(assess).toHaveBeenLastCalledWith(
+      "expand-contract",
+      HINTS,
+      FILES,
+      true,
+    );
+  });
+
+  it("refuses a contract whose expand step is not proven, carrying the check's reason", async () => {
+    ready();
+    vi.mocked(parseDeclaration).mockReturnValue(CONTRACT);
+    vi.mocked(assess).mockReturnValue(MISMATCH);
+    vi.mocked(gatherExpandStep).mockResolvedValue({
+      result: "missing",
+      detail: "no proof",
+    });
+    expect(await run()).toMatchObject({
+      ok: false,
+      checks: {
+        ...PASSING,
+        expandStep: { result: "missing", detail: "no proof" },
+      },
+    });
   });
 });
