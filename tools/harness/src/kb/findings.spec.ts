@@ -5,13 +5,13 @@ import { beforeEach, expect, test, vi } from "vitest";
 import { checkFrontmatter } from "./document-checks.js";
 import { findings } from "./findings.js";
 import { checkIdea } from "./idea-checks.js";
+import { FIX_INDEX, FIX_LINK, PROBLEM } from "./kb-support.js";
 import {
   anchors,
   finding,
   isExternal,
   proseLines,
   resolve,
-  type Finding,
 } from "./markdown.js";
 
 vi.mock("./document-checks.js", () => ({ checkFrontmatter: vi.fn() }));
@@ -28,9 +28,20 @@ vi.mock("./markdown.js", async (importOriginal) => ({
   resolve: vi.fn(),
 }));
 
-const FIX_LINK = "point the link at an existing file or remove it";
-const FIX_INDEX = "create it with one entry per plan, ADR, and skill";
-const PROBLEM: Finding = { file: "", line: 0, message: "", fix: "" };
+/** The problems of a tree given as literal file texts. */
+function scan(docs: Record<string, string>) {
+  return findings({
+    files: () => Object.keys(docs),
+    read: (path) => docs[path] ?? null,
+  });
+}
+
+/** The arguments finding() was called with, one array per problem. */
+const calls = () => vi.mocked(finding).mock.calls;
+
+/** proseLines() of this text returns these lines; every other file has none. */
+const proseOf = (text: string, lines: { line: number; text: string }[]) =>
+  vi.mocked(proseLines).mockImplementation((t) => (t === text ? lines : []));
 
 beforeEach(() => {
   vi.mocked(finding).mockReturnValue(PROBLEM);
@@ -43,35 +54,21 @@ beforeEach(() => {
 });
 
 test("a tree with an index and nothing to check reports nothing", () => {
-  const docs: Record<string, string> = { "docs/index.md": "" };
-  expect(
-    findings({
-      files: () => Object.keys(docs),
-      read: (path) => docs[path] ?? null,
-    }),
-  ).toEqual([]);
+  expect(scan({ "docs/index.md": "" })).toEqual([]);
   expect(finding).not.toHaveBeenCalled();
 });
 
 test("a relative link to a missing file is reported on its line", () => {
-  const docs: Record<string, string> = {
+  proseOf("# A\n[rules](references/gone.md)", [
+    { line: 1, text: "# A" },
+    { line: 2, text: "[rules](references/gone.md)" },
+  ]);
+  vi.mocked(resolve).mockReturnValue("docs/references/gone.md");
+  scan({
     "docs/index.md": "",
     "docs/a.md": "# A\n[rules](references/gone.md)",
-  };
-  vi.mocked(proseLines).mockImplementation((text) =>
-    text === "# A\n[rules](references/gone.md)"
-      ? [
-          { line: 1, text: "# A" },
-          { line: 2, text: "[rules](references/gone.md)" },
-        ]
-      : [],
-  );
-  vi.mocked(resolve).mockReturnValue("docs/references/gone.md");
-  findings({
-    files: () => Object.keys(docs),
-    read: (path) => docs[path] ?? null,
   });
-  expect(vi.mocked(finding).mock.calls).toEqual([
+  expect(calls()).toEqual([
     [
       "docs/a.md",
       2,
@@ -82,41 +79,21 @@ test("a relative link to a missing file is reported on its line", () => {
 });
 
 test("a link that leaves the repository is reported with the path as written", () => {
-  const docs: Record<string, string> = {
-    "docs/index.md": "",
-    "docs/a.md": "[up](../../../x.md)",
-  };
-  vi.mocked(proseLines).mockImplementation((text) =>
-    text === "[up](../../../x.md)" ? [{ line: 1, text }] : [],
-  );
+  proseOf("[up](../../../x.md)", [{ line: 1, text: "[up](../../../x.md)" }]);
   vi.mocked(resolve).mockReturnValue(null);
-  findings({
-    files: () => Object.keys(docs),
-    read: (path) => docs[path] ?? null,
-  });
-  expect(vi.mocked(finding).mock.calls).toEqual([
+  scan({ "docs/index.md": "", "docs/a.md": "[up](../../../x.md)" });
+  expect(calls()).toEqual([
     ["docs/a.md", 1, "link target ../../../x.md does not exist", FIX_LINK],
   ]);
 });
 
 test("external links are never resolved, and a bare anchor is checked against the file's own headings", () => {
   const text = "[web](https://x.test/a) [top](#intro) [bad](#nowhere)";
-  const docs: Record<string, string> = {
-    "docs/index.md": "",
-    "docs/a.md": text,
-  };
-  vi.mocked(proseLines).mockImplementation((t) =>
-    t === text ? [{ line: 1, text }] : [],
-  );
-  vi.mocked(isExternal).mockImplementation(
-    (target) => target === "https://x.test/a",
-  );
+  proseOf(text, [{ line: 1, text }]);
+  vi.mocked(isExternal).mockImplementation((t) => t === "https://x.test/a");
   vi.mocked(anchors).mockReturnValue(["intro"]);
-  findings({
-    files: () => Object.keys(docs),
-    read: (path) => docs[path] ?? null,
-  });
-  expect(vi.mocked(finding).mock.calls).toEqual([
+  scan({ "docs/index.md": "", "docs/a.md": text });
+  expect(calls()).toEqual([
     [
       "docs/a.md",
       1,
@@ -128,20 +105,14 @@ test("external links are never resolved, and a bare anchor is checked against th
 });
 
 test("an anchor into a file with no headings says to remove the anchor", () => {
-  const docs: Record<string, string> = {
+  proseOf("[n](notes.md#gone)", [{ line: 1, text: "[n](notes.md#gone)" }]);
+  vi.mocked(resolve).mockReturnValue("docs/notes.md");
+  scan({
     "docs/index.md": "",
     "docs/notes.md": "plain",
     "docs/a.md": "[n](notes.md#gone)",
-  };
-  vi.mocked(proseLines).mockImplementation((t) =>
-    t === "[n](notes.md#gone)" ? [{ line: 1, text: t }] : [],
-  );
-  vi.mocked(resolve).mockReturnValue("docs/notes.md");
-  findings({
-    files: () => Object.keys(docs),
-    read: (path) => docs[path] ?? null,
   });
-  expect(vi.mocked(finding).mock.calls).toEqual([
+  expect(calls()).toEqual([
     [
       "docs/a.md",
       1,
@@ -152,61 +123,47 @@ test("an anchor into a file with no headings says to remove the anchor", () => {
 });
 
 test("an existing anchor passes, and an anchor into a non-Markdown file is not checked", () => {
-  const docs: Record<string, string> = {
-    "docs/index.md": "",
-    "docs/rules.md": "# Rules",
-    "src/a.ts": "export {};",
-    "docs/a.md": "[ok](rules.md#rules) [code](src/a.ts#L3)",
-  };
-  vi.mocked(proseLines).mockImplementation((t) =>
-    t === "[ok](rules.md#rules) [code](src/a.ts#L3)"
-      ? [{ line: 1, text: t }]
-      : [],
-  );
+  proseOf("[ok](rules.md#rules) [code](src/a.ts#L3)", [
+    { line: 1, text: "[ok](rules.md#rules) [code](src/a.ts#L3)" },
+  ]);
   vi.mocked(resolve).mockImplementation(
     (_from, target) =>
       ({ "rules.md": "docs/rules.md", "src/a.ts": "src/a.ts" })[target] ?? null,
   );
   vi.mocked(anchors).mockReturnValue(["rules"]);
   expect(
-    findings({
-      files: () => Object.keys(docs),
-      read: (path) => docs[path] ?? null,
+    scan({
+      "docs/index.md": "",
+      "docs/rules.md": "# Rules",
+      "src/a.ts": "export {};",
+      "docs/a.md": "[ok](rules.md#rules) [code](src/a.ts#L3)",
     }),
   ).toEqual([]);
   expect(finding).not.toHaveBeenCalled();
 });
 
 test("a link to a tracked directory exists, and the repository root is a valid target", () => {
-  const docs: Record<string, string> = {
-    "docs/index.md": "",
-    "docs/references/rules.md": "# Rules",
-    "docs/tdd.md": "[dir](references/) [root](.)",
-  };
-  vi.mocked(proseLines).mockImplementation((t) =>
-    t === "[dir](references/) [root](.)" ? [{ line: 1, text: t }] : [],
-  );
+  proseOf("[dir](references/) [root](.)", [
+    { line: 1, text: "[dir](references/) [root](.)" },
+  ]);
   vi.mocked(resolve).mockImplementation((_from, target) =>
     target === "." ? "." : "docs/references",
   );
   expect(
-    findings({
-      files: () => Object.keys(docs),
-      read: (path) => docs[path] ?? null,
+    scan({
+      "docs/index.md": "",
+      "docs/references/rules.md": "# Rules",
+      "docs/tdd.md": "[dir](references/) [root](.)",
     }),
   ).toEqual([]);
 });
 
 test("plans and ADRs get the frontmatter check, and ideas the idea check with their numbers", () => {
-  const docs: Record<string, string> = {
+  scan({
     "docs/index.md": "",
     "infra/plans/1-a.md": "p",
     "docs/decisions/0001-a.md": "d",
     "docs/ideas/0001-a.md": "i",
-  };
-  findings({
-    files: () => Object.keys(docs),
-    read: (path) => docs[path] ?? null,
   });
   expect(checkFrontmatter).toHaveBeenCalledWith(
     "infra/plans/1-a.md",
@@ -227,16 +184,12 @@ test("plans and ADRs get the frontmatter check, and ideas the idea check with th
 });
 
 test("two idea files that share a number are reported on the later one, naming the earlier", () => {
-  const docs: Record<string, string> = {
+  scan({
     "docs/index.md": "",
     "docs/ideas/0001-a.md": "a",
     "docs/ideas/0001-b.md": "b",
-  };
-  findings({
-    files: () => Object.keys(docs),
-    read: (path) => docs[path] ?? null,
   });
-  expect(vi.mocked(finding).mock.calls).toContainEqual([
+  expect(calls()).toContainEqual([
     "docs/ideas/0001-b.md",
     1,
     "idea number 0001 is also used by docs/ideas/0001-a.md",
@@ -245,32 +198,22 @@ test("two idea files that share a number are reported on the later one, naming t
 });
 
 test("an index entry naming a missing file is reported, and so is a plan the index omits", () => {
-  const docs: Record<string, string> = {
-    "docs/index.md":
-      "# Index\n\n- [`infra/plans/9-gone.md`](../infra/plans/9-gone.md) — gone.",
-    "infra/plans/2-b.md": "p",
-  };
-  vi.mocked(proseLines).mockImplementation((t) =>
-    t === docs["docs/index.md"]
-      ? [
-          { line: 1, text: "# Index" },
-          { line: 2, text: "" },
-          {
-            line: 3,
-            text: "- [`infra/plans/9-gone.md`](../infra/plans/9-gone.md) — gone.",
-          },
-        ]
-      : [],
-  );
+  const index =
+    "# Index\n\n- [`infra/plans/9-gone.md`](../infra/plans/9-gone.md) — gone.";
+  proseOf(index, [
+    { line: 1, text: "# Index" },
+    { line: 2, text: "" },
+    {
+      line: 3,
+      text: "- [`infra/plans/9-gone.md`](../infra/plans/9-gone.md) — gone.",
+    },
+  ]);
   vi.mocked(resolve).mockImplementation(
     (_from, target) =>
       ({ "../infra/plans/9-gone.md": "infra/plans/9-gone.md" })[target] ?? null,
   );
-  findings({
-    files: () => Object.keys(docs),
-    read: (path) => docs[path] ?? null,
-  });
-  expect(vi.mocked(finding).mock.calls).toEqual([
+  scan({ "docs/index.md": index, "infra/plans/2-b.md": "p" });
+  expect(calls()).toEqual([
     [
       "docs/index.md",
       3,
@@ -293,12 +236,8 @@ test("an index entry naming a missing file is reported, and so is a plan the ind
 });
 
 test("a missing index is reported once, on line 1", () => {
-  const docs: Record<string, string> = { "infra/plans/1-a.md": "p" };
-  findings({
-    files: () => Object.keys(docs),
-    read: (path) => docs[path] ?? null,
-  });
-  expect(vi.mocked(finding).mock.calls).toContainEqual([
+  scan({ "infra/plans/1-a.md": "p" });
+  expect(calls()).toContainEqual([
     "docs/index.md",
     1,
     "the knowledge index is missing",
@@ -312,30 +251,26 @@ test("a file that cannot be read is skipped, and an unreadable index is a missin
     read: () => null,
   };
   expect(findings(unreadable)).toEqual([PROBLEM]);
-  expect(vi.mocked(finding).mock.calls).toEqual([
+  expect(calls()).toEqual([
     ["docs/index.md", 1, "the knowledge index is missing", FIX_INDEX],
   ]);
 });
 
 test("Docs:, Plan: and ADR: markers whose path or anchor does not resolve are reported", () => {
-  const docs: Record<string, string> = {
+  vi.mocked(anchors).mockReturnValue(["adr-0001-a"]);
+  scan({
     "docs/index.md": "",
     "docs/decisions/0001-a.md": "# ADR 0001: A",
     "tools/kore/src/a.ts": "// Docs: infra/plans/9-gone.md#x",
     "tools/kore/src/b.ts": "// ADR: docs/decisions/0001-a.md#no-such",
-  };
-  vi.mocked(anchors).mockReturnValue(["adr-0001-a"]);
-  findings({
-    files: () => Object.keys(docs),
-    read: (path) => docs[path] ?? null,
   });
-  expect(vi.mocked(finding).mock.calls).toContainEqual([
+  expect(calls()).toContainEqual([
     "tools/kore/src/a.ts",
     1,
     "Docs: path infra/plans/9-gone.md does not exist",
     "use a path from the repository root",
   ]);
-  expect(vi.mocked(finding).mock.calls).toContainEqual([
+  expect(calls()).toContainEqual([
     "tools/kore/src/b.ts",
     1,
     "ADR: anchor #no-such is not a heading in docs/decisions/0001-a.md",
@@ -344,7 +279,7 @@ test("Docs:, Plan: and ADR: markers whose path or anchor does not resolve are re
 });
 
 test("the CLI usage text's commands must each appear in README.md, once each", () => {
-  const docs: Record<string, string> = {
+  scan({
     "docs/index.md": "",
     "README.md": "Run `kore -- doctor`.",
     "tools/kore/src/cli/cli.ts": [
@@ -358,12 +293,8 @@ test("the CLI usage text's commands must each appear in README.md, once each", (
       "",
       "`;",
     ].join("\n"),
-  };
-  findings({
-    files: () => Object.keys(docs),
-    read: (path) => docs[path] ?? null,
   });
-  expect(vi.mocked(finding).mock.calls).toEqual([
+  expect(calls()).toEqual([
     [
       "tools/kore/src/cli/cli.ts",
       6,
