@@ -1,9 +1,9 @@
-import { loadRepository } from "../src/config/index.js";
+import { loadRepository } from "../config/index.js";
 import assert from "node:assert/strict";
 import { test } from "vitest";
 
-import type { Runner } from "../src/runtime/index.js";
-import { reconcileComponent } from "../src/platform/reconcile.js";
+import type { Runner } from "../runtime/index.js";
+import { reconcileComponent } from "./reconcile.js";
 
 type Handler = (args: readonly string[]) => string;
 interface Call {

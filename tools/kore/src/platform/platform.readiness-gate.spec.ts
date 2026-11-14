@@ -1,6 +1,6 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import { loadRepository } from "../src/config/index.js";
-import type { Runner } from "../src/runtime/index.js";
+import { loadRepository } from "../config/index.js";
+import type { Runner } from "../runtime/index.js";
 
 // Docs: docs/decisions/0067-platform-readiness-manifest-and-evidence.md
 
@@ -9,12 +9,12 @@ const rowsBox = vi.hoisted(() => ({
   reads: 0,
 }));
 
-vi.mock("../src/cluster/index.js", () => ({
+vi.mock("../cluster/index.js", () => ({
   assertExpectedCluster: async () => undefined,
   ClusterUnavailableError: class extends Error {},
   clusterUp: async () => undefined,
 }));
-vi.mock("../src/platform/status.js", () => ({
+vi.mock("./status.js", () => ({
   imageInventoryStatusName: "image-inventory",
   platformStatus: async () => {
     rowsBox.reads += 1;
@@ -22,10 +22,10 @@ vi.mock("../src/platform/status.js", () => ({
   },
 }));
 
-import { readyRows } from "../src/platform/readiness-fixtures.js";
-import { platformGeneration } from "../src/platform/admission-gate.js";
-import { closeGateIfDegraded, openApplicationAdmission } from "../src/platform/bootstrap.js";
-import { readinessEvidenceName } from "../src/platform/readiness-manifest.js";
+import { readyRows } from "./readiness-fixtures.js";
+import { platformGeneration } from "./admission-gate.js";
+import { closeGateIfDegraded, openApplicationAdmission } from "./bootstrap.js";
+import { readinessEvidenceName } from "./readiness-manifest.js";
 
 interface Written {
   kind: string;
@@ -55,7 +55,7 @@ function cluster(options: {
         };
         if (object.kind === "ConfigMap") {
           if (options.failEvidence) {
-            const { CommandError } = await import("../src/runtime/index.js");
+            const { CommandError } = await import("../runtime/index.js");
             throw new CommandError(command, args, {
               stdout: "",
               stderr: "namespaces kore-system not found",

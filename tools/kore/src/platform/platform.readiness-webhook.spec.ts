@@ -15,10 +15,10 @@ async function settleOnFakeClock<T>(work: Promise<T>): Promise<T> {
   }
   return tracked;
 }
-import { loadRepository } from "../src/config/index.js";
-import type { Runner } from "../src/runtime/index.js";
-import { reconcileComponent } from "../src/platform/reconcile.js";
-import { platformStatus } from "../src/platform/status.js";
+import { loadRepository } from "../config/index.js";
+import type { Runner } from "../runtime/index.js";
+import { reconcileComponent } from "./reconcile.js";
+import { platformStatus } from "./status.js";
 
 const WEBHOOK = "validatingwebhookconfiguration/demo-webhook";
 

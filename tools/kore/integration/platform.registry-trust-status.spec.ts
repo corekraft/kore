@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 import { loadRepository } from "../src/config/index.js";
 import type { Runner } from "../src/runtime/index.js";
 import { registryTlsSecret } from "../src/testing/index.js";
-import { platformStatus } from "../src/platform/status.js";
+import { platformStatus } from "../src/platform/index.js";
 
 // Docs: docs/decisions/0058-registry-transport-tls.md
 

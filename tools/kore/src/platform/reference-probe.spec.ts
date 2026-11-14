@@ -70,6 +70,17 @@ test("the probe pod runs the application's own image as the chosen ServiceAccoun
   });
 });
 
+test("the probe pod's resources are capped at 10m and 32Mi requested, 100m and 128Mi limited", () => {
+  const pod = meshProbePod({ ...PROBE, name: "p" }) as {
+    spec: { containers: { resources: unknown }[] };
+  };
+
+  expect(pod.spec.containers[0]?.resources).toEqual({
+    requests: { cpu: "10m", memory: "32Mi" },
+    limits: { cpu: "100m", memory: "128Mi" },
+  });
+});
+
 test("the probe pod runs as a non-root user with a read-only root and every capability dropped", () => {
   const pod = meshProbePod({ ...PROBE, name: "p" }) as {
     spec: { containers: { securityContext: unknown }[] };
@@ -133,6 +144,12 @@ test("a run applies the probe pod in the namespace, waits for it to succeed, rea
   const outcome = await runMeshProbe(repository, runner, "reference", PROBE);
 
   expect(outcome).toEqual({ status: 403 });
+  expect(run.mock.calls.map(([command]) => command)).toEqual([
+    "kubectl",
+    "kubectl",
+    "kubectl",
+    "kubectl",
+  ]);
   expect(run.mock.calls.map(([, args]) => args)).toEqual([
     [...SCOPE, "apply", "--filename=-"],
     [

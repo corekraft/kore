@@ -3,15 +3,15 @@ import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vitest";
-import { loadRepository } from "../src/config/index.js";
-import type { Runner } from "../src/runtime/index.js";
+import { loadRepository } from "../config/index.js";
+import type { Runner } from "../runtime/index.js";
 import {
   capacityStatus,
   capacityWarningPercent,
   parseCpu,
   parseMemory,
-} from "../src/platform/capacity-status.js";
-import { platformStatusReport } from "../src/platform/crd-ownership-status.js";
+} from "./capacity-status.js";
+import { platformStatusReport } from "./crd-ownership-status.js";
 
 // Docs: docs/operations/resource-budgets.md
 // The local profile warns before node requests exhaust allocatable CPU or

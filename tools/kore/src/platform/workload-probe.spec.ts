@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
-import { scope, verdictOf } from "./admission-probe.js";
+import { scope, verdictOf, type AdmissionVerdict } from "./admission-probe.js";
 import { workloadVerdict } from "./workload-probe.js";
 
 vi.mock("./admission-probe.js");
@@ -15,10 +15,11 @@ const repository = {
   environment: { kubeContext: "k3d-kore-local" },
 } as unknown as Repository;
 
-const run = vi.fn();
-const runner = { run } as unknown as Runner;
+const run = vi.fn<Runner["run"]>();
+const runner = { run } as Runner;
 
-function verdict() {
+/** The server's refusal, as the admission verdict reports it. */
+function verdict(): AdmissionVerdict {
   return { admitted: false, detail: "denied" };
 }
 
@@ -26,7 +27,7 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(0);
   vi.mocked(scope).mockReturnValue(SCOPE);
-  vi.mocked(verdictOf).mockResolvedValue(verdict() as never);
+  vi.mocked(verdictOf).mockResolvedValue(verdict());
 });
 
 afterEach(() => {

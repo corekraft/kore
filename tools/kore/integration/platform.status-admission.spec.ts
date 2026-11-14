@@ -14,7 +14,7 @@ async function settleOnFakeClock<T>(work: Promise<T>): Promise<T> {
 }
 import { loadRepository } from "../src/config/index.js";
 import type { Runner } from "../src/runtime/index.js";
-import { platformStatus } from "../src/platform/status.js";
+import { platformStatus } from "../src/platform/index.js";
 
 // Docs: docs/decisions/0035-fail-fast-readiness-diagnosis.md
 // Registry or verifier unavailability is reported as degraded, naming the cause.

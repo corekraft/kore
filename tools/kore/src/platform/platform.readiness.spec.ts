@@ -1,17 +1,17 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 // The admission gate is covered in platform.admission-gate.spec.ts.
-vi.mock("../src/platform/admission-gate.js", async (importOriginal) => ({
+vi.mock("./admission-gate.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./admission-gate.js")>()),
   closeExistingAdmissionGate: async () => undefined,
   openAdmissionGate: async () => undefined,
 }));
-import { loadRepository } from "../src/config/index.js";
-import type { Runner } from "../src/runtime/index.js";
-import { RecordingRunner } from "../src/runtime/index.js";
-import { bootstrapControllers } from "../src/platform/bootstrap.js";
-import { reconcileComponent } from "../src/platform/reconcile.js";
-import { withHealthyWebhooks } from "../src/testing/index.js";
+import { loadRepository } from "../config/index.js";
+import type { Runner } from "../runtime/index.js";
+import { RecordingRunner } from "../runtime/index.js";
+import { bootstrapControllers } from "./bootstrap.js";
+import { reconcileComponent } from "./reconcile.js";
+import { withHealthyWebhooks } from "../testing/index.js";
 
 async function helmComponent(readiness: string[], timeout = "1s") {
   const repository = await loadRepository("local");

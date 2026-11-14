@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { ingressFlag, loadRepository } from "../src/config/index.js";
-import type { Repository } from "../src/config/index.js";
-import type { Runner } from "../src/runtime/index.js";
-import { gatewayCheck, waitForGateway } from "../src/platform/readiness-gateway.js";
+import { ingressFlag, loadRepository } from "../config/index.js";
+import type { Repository } from "../config/index.js";
+import type { Runner } from "../runtime/index.js";
+import { gatewayCheck, waitForGateway } from "./readiness-gateway.js";
 
 const ready = { status: "True" };
 

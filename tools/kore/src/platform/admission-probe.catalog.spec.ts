@@ -1,16 +1,16 @@
-import { loadRepository } from "../src/config/index.js";
+import { loadRepository } from "../config/index.js";
 import assert from "node:assert/strict";
 import { test } from "vitest";
 
-import { healthyRunner, type Call } from "../src/testing/index.js";
-import { CommandError, type Runner } from "../src/runtime/index.js";
+import { healthyRunner, type Call } from "../testing/index.js";
+import { CommandError, type Runner } from "../runtime/index.js";
 import {
   admissionVerdict,
   deployedImage,
   publishSignedCopy,
   publishUntrustedCopies,
   scaleDeployment,
-} from "../src/platform/admission-probe.js";
+} from "./admission-probe.js";
 
 // Docs: docs/decisions/0028-image-trust-authority.md
 // Helpers for the opt-in live admission specs; fast tests fake the runner.
