@@ -12,10 +12,16 @@ import {
 } from "./guard-shell.js";
 import { warn, type Finding, type GuardContext } from "./guard-verdict.js";
 
-// A pattern that is absolute, starts with ~ or .., or walks with ** is not walked
-// on this hook, which runs before every Bash call: it counts as unmatched and warns.
+// A pattern that starts with .. or walks with ** is not walked on this hook, which
+// runs before every Bash call: it counts as unmatched and warns.
 const WALKABLE = (pattern: string): boolean =>
-  !/^(\/|~|\.\.)/.test(pattern) && !pattern.includes("**");
+  !pattern.startsWith("..") && !pattern.includes("**");
+
+// A leading ~ or ~/ is the home directory, as the shell expands it.
+const expandHome = (pattern: string, home: string): string =>
+  pattern === "~" || pattern.startsWith("~/")
+    ? home + pattern.slice(1)
+    : pattern;
 
 // An audit rule never changes a verdict: a match that fails counts as unmatched.
 async function matches(
@@ -23,10 +29,11 @@ async function matches(
   pattern: string,
   directory: string,
 ): Promise<boolean> {
-  if (!WALKABLE(pattern)) {
+  const expanded = expandHome(pattern, ctx.home);
+  if (!WALKABLE(expanded)) {
     return false;
   }
-  return ctx.globMatches(pattern, directory).catch(() => false);
+  return ctx.globMatches(expanded, directory).catch(() => false);
 }
 
 // A cd target the rule cannot resolve: a variable, a command substitution, ~, or an option such as -.
@@ -43,9 +50,7 @@ function afterCd(
   if (target.startsWith("/")) {
     return posix.resolve(target);
   }
-  return directory === undefined
-    ? undefined
-    : posix.resolve(directory, target);
+  return directory === undefined ? undefined : posix.resolve(directory, target);
 }
 
 interface LocatedGlob {
@@ -70,7 +75,7 @@ function globsIn(
       if (
         directory !== undefined &&
         word.glob &&
-        !word.text.includes("${") &&
+        !word.text.includes("$") &&
         !patterns.has(word)
       ) {
         globs.push({ word, directory });

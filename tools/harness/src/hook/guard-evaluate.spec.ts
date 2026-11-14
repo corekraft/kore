@@ -21,6 +21,7 @@ const ctx: GuardContext = {
   root: ROOT,
   readFile: () => Promise.reject(new Error("no file in this unit")),
   cwd: ROOT,
+  home: "/home/test",
   globMatches: () => Promise.resolve(false),
   modeOf: () => "enforce",
   denyRules: [],

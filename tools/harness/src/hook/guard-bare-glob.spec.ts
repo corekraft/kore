@@ -51,6 +51,7 @@ function scan(
   const ctx: GuardContext = {
     root: "/repo",
     cwd: "/repo",
+    home: "/home/test",
     readFile: () => Promise.reject(new Error("ENOENT")),
     modeOf: () => "audit",
     denyRules: [],
@@ -102,18 +103,64 @@ describe("bare-glob", () => {
     expect(matches).not.toHaveBeenCalled();
   });
 
-  it("warns without walking for a glob that is absolute, starts with ~ or .., or has **", async () => {
-    for (const word of [
-      "/etc/*.conf",
-      "~/*.yaml",
-      "../*.yaml",
-      "src/**/*.zzz",
-    ]) {
+  it("warns without walking for a glob that starts with .. or has **", async () => {
+    for (const word of ["../*.yaml", "src/**/*.zzz"]) {
       const matches = vi.fn(async () => true);
       expect(await scan(`ls ${word}`, matches), word).toBe(WARNING);
       expect(matches, word).not.toHaveBeenCalled();
       expect(warn, word).toHaveBeenLastCalledWith("bare-glob", message(word));
     }
+  });
+});
+
+describe("bare-glob, paths the rule walks or leaves unjudged", () => {
+  it("is silent for a glob after a shell variable, and never asks the filesystem", async () => {
+    for (const command of ['ls "$d/rust/"*.log', "ls tools/$p/src/*/"]) {
+      const matches = vi.fn(async () => false);
+      expect(await scan(command, matches), command).toBeNull();
+      expect(matches, command).not.toHaveBeenCalled();
+    }
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("expands a leading ~/ to the home directory, and is silent when that path matches", async () => {
+    const matches = vi.fn<GuardContext["globMatches"]>(async () => true);
+    expect(await scan("ls ~/logs/*.log", matches)).toBeNull();
+    expect(matches).toHaveBeenCalledExactlyOnceWith(
+      "/home/test/logs/*.log",
+      "/repo",
+    );
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("warns for a ~/ glob that matches nothing under the expanded home, naming the word as typed", async () => {
+    const matches = vi.fn<GuardContext["globMatches"]>(async () => false);
+    expect(await scan("ls ~/logs/*.log", matches)).toBe(WARNING);
+    expect(matches).toHaveBeenCalledExactlyOnceWith(
+      "/home/test/logs/*.log",
+      "/repo",
+    );
+    expect(warn).toHaveBeenCalledExactlyOnceWith(
+      "bare-glob",
+      message("~/logs/*.log"),
+    );
+  });
+
+  it("walks an absolute glob, and is silent when it matches", async () => {
+    const matches = vi.fn<GuardContext["globMatches"]>(async () => true);
+    expect(await scan("ls /abs/*.md", matches)).toBeNull();
+    expect(matches).toHaveBeenCalledExactlyOnceWith("/abs/*.md", "/repo");
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("warns for an absolute glob that matches nothing", async () => {
+    const matches = vi.fn<GuardContext["globMatches"]>(async () => false);
+    expect(await scan("ls /abs/*.md", matches)).toBe(WARNING);
+    expect(matches).toHaveBeenCalledExactlyOnceWith("/abs/*.md", "/repo");
+    expect(warn).toHaveBeenCalledExactlyOnceWith(
+      "bare-glob",
+      message("/abs/*.md"),
+    );
   });
 
   it("warns, and does not reject, when the filesystem match fails", async () => {

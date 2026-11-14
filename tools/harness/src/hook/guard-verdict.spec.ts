@@ -17,6 +17,7 @@ const ctxWithModes = (modes: Record<string, Mode>): GuardContext => ({
   root: "/repo",
   readFile: () => Promise.reject(new Error("no file in this unit")),
   cwd: "/repo",
+  home: "/home/test",
   globMatches: () => Promise.resolve(false),
   modeOf: (rule) => modes[rule] ?? "enforce",
   denyRules: [],

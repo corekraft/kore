@@ -23,6 +23,7 @@ const ctxWith = (denyRules: DenyRule[]): GuardContext => ({
   root: "/repo",
   readFile: () => Promise.reject(new Error("no file in this unit")),
   cwd: "/repo",
+  home: "/home/test",
   globMatches: () => Promise.resolve(false),
   modeOf: () => "audit",
   denyRules,
