@@ -81,12 +81,12 @@ export function fakeLife(): Life {
   };
 }
 
-/** Covers every idea in `byIdea` as the select domain would: all of it, with no open waits. */
 /** Covers one idea, `#1`, whose events are `own`. */
 export function coverIdea(...own: LedgerEvent[]) {
   cover(new Map([["#1", own]]));
 }
 
+/** Covers every idea in `byIdea` as the select domain would: all of it, with no open waits. */
 export function cover(
   byIdea: Map<string, LedgerEvent[]>,
   named: LedgerEvent[] = [],
