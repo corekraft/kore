@@ -1,8 +1,10 @@
 name: integration
 
 # The merge check for the integration tier (ADR 0098). A pull request that touches
-# the commit hooks or the harness hook scripts runs the tier and must pass it before
-# it merges; any other pull request skips the tier. The check is always reported, so
+# the commit hooks, the hook scripts, or any product tooling with integration specs
+# (tools/harness, tools/kore) runs the tier and must pass it before it merges; any
+# other pull request skips the tier. Add a tools/ directory to the filter when it
+# gains integration specs. The check is always reported, so
 # a skipped run still satisfies a required check.
 
 on:
@@ -30,7 +32,7 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           changed="$(git diff --name-only "$BASE_SHA...$HEAD_SHA")"
-          if printf '%s\n' "$changed" | grep -qE '^(\.claude/(hooks|evals)/|tools/kore/\.husky/|tools/harness/src/hook/|tools/[^/]+/integration/|tools/[^/]+/vitest\.integration\.config\.ts$|\.github/workflows/integration\.yml$)'; then
+          if printf '%s\n' "$changed" | grep -qE '^(\.claude/(hooks|evals)/|tools/(harness|kore)/|\.github/workflows/integration\.yml$)'; then
             echo "hooks=true" >> "$GITHUB_OUTPUT"
           else
             echo "hooks=false" >> "$GITHUB_OUTPUT"
