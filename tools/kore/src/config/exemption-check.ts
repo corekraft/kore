@@ -28,7 +28,14 @@ export interface ExemptionSource {
   /** The ADR's status, or undefined when no such ADR exists. */
   adrStatus(adr: number): Promise<string | undefined>;
   applicationNamespaces(): Promise<string[]>;
+  /** Namespaces the ADR 0032 static-pass image policy covers. */
+  staticPassNamespaces(): Promise<string[]>;
+  /** Gate constraint names the admission-gate role lets bootstrap write (ADR 0054). */
+  gateWriters(): Promise<string[]>;
 }
+
+/** The ClusterImagePolicy whose static pass skips signature checks (ADR 0032). */
+const staticPassPolicy = "kore-upstream-images";
 
 const listFile = "gatekeeper-exemptions.yaml";
 
@@ -41,11 +48,14 @@ export class ExemptionCheck {
   constructor(private readonly source: ExemptionSource) {}
 
   async findings(components: Component[]): Promise<string[]> {
-    const [constraints, listed, applications] = await Promise.all([
-      this.source.constraints(),
-      this.source.listed(),
-      this.source.applicationNamespaces(),
-    ]);
+    const [constraints, listed, applications, staticPass, gateWriters] =
+      await Promise.all([
+        this.source.constraints(),
+        this.source.listed(),
+        this.source.applicationNamespaces(),
+        this.source.staticPassNamespaces(),
+        this.source.gateWriters(),
+      ]);
     const findings: string[] = [];
     const used = new Set<string>();
     for (const { name, exemptNamespaces } of constraints) {
@@ -63,8 +73,15 @@ export class ExemptionCheck {
         }
       }
     }
+    findings.push(
+      ...this.staticPassFindings(staticPass, applications, listed, used),
+      ...this.gateWriterFindings(gateWriters, listed, used),
+    );
     for (const entry of listed) {
-      if (!used.has(`${entry.name}/${entry.namespace}`)) {
+      if (
+        !used.has(`${entry.name}/${entry.namespace}`) &&
+        !used.has(entry.name)
+      ) {
         findings.push(
           `exemption: ${entry.name} namespace ${entry.namespace} is listed but no constraint exempts it; remove the entry from ${listFile}`,
         );
@@ -76,6 +93,50 @@ export class ExemptionCheck {
       );
     }
     return [...new Set(findings)];
+  }
+
+  private staticPassFindings(
+    namespaces: string[],
+    applications: string[],
+    listed: ListedExemption[],
+    used: Set<string>,
+  ): string[] {
+    const findings: string[] = [];
+    for (const namespace of namespaces) {
+      used.add(`${staticPassPolicy}/${namespace}`);
+      if (applications.includes(namespace)) {
+        findings.push(
+          `exemption: ${staticPassPolicy} passes images in application namespace ${namespace}; remove it from staticPassNamespaces, since applications are never exempt`,
+        );
+      }
+      if (
+        !listed.some(
+          (e) => e.name === staticPassPolicy && e.namespace === namespace,
+        )
+      ) {
+        findings.push(
+          `exemption: ${staticPassPolicy} passes images in namespace ${namespace}, which ${listFile} does not list; add an entry with its component and accepted ADR, or remove the namespace from staticPassNamespaces`,
+        );
+      }
+    }
+    return findings;
+  }
+
+  private gateWriterFindings(
+    writers: string[],
+    listed: ListedExemption[],
+    used: Set<string>,
+  ): string[] {
+    const findings: string[] = [];
+    for (const writer of writers) {
+      used.add(writer);
+      if (!listed.some((e) => e.name === writer)) {
+        findings.push(
+          `exemption: ${writer} is written by bootstrap automation, which ${listFile} does not list; add an entry with its component and accepted ADR`,
+        );
+      }
+    }
+    return findings;
   }
 
   private componentFindings(

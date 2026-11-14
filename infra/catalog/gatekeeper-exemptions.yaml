@@ -553,6 +553,30 @@
         "component": "opentelemetry-operator",
         "adr": 17,
         "reason": "Platform controller namespace; upstream chart does not meet this policy, so it is exempt by name."
+      },
+      {
+        "kind": "ClusterImagePolicy",
+        "name": "kore-upstream-images",
+        "namespace": "istio-system",
+        "component": "istiod",
+        "adr": 32,
+        "reason": "Static pass for the Istio proxy repository, which is unsigned upstream; the chart owns the repository list."
+      },
+      {
+        "kind": "ClusterImagePolicy",
+        "name": "kore-upstream-images",
+        "namespace": "cnpg-system",
+        "component": "cloudnative-pg",
+        "adr": 32,
+        "reason": "Static pass for the CloudNativePG operator repository that runs as each database pod's init container."
+      },
+      {
+        "kind": "KoreApplicationAdmission",
+        "name": "kore-application-admission",
+        "namespace": "kore-system",
+        "component": "kore-admission-gate",
+        "adr": 54,
+        "reason": "Only bootstrap automation (group kore:bootstrap) writes the admission gate; the gate is runtime state, not a constraint file."
       }
     ]
 }

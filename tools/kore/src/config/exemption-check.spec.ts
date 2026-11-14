@@ -32,6 +32,8 @@ function check(source: Partial<ExemptionSource> = {}): ExemptionCheck {
     listed: async () => [listed()],
     adrStatus: async () => "accepted",
     applicationNamespaces: async () => [],
+    staticPassNamespaces: async () => [],
+    gateWriters: async () => [],
     ...source,
   });
 }
@@ -121,4 +123,110 @@ test("each finding is reported once even when two rules would repeat it", async 
     listed: async () => [listed(), listed()],
   }).findings(components);
   expect(findings).toHaveLength(1);
+});
+
+const staticPass = (fields: Partial<ListedExemption> = {}) =>
+  listed({
+    kind: "ClusterImagePolicy",
+    name: "kore-upstream-images",
+    adr: 32,
+    ...fields,
+  });
+
+test("an unlisted static-pass namespace is reported with the fix", async () => {
+  const findings = await check({
+    staticPassNamespaces: async () => ["cert-manager"],
+    constraints: async () => [],
+    listed: async () => [],
+  }).findings(components);
+  expect(findings).toEqual([
+    "exemption: kore-upstream-images passes images in namespace cert-manager, which gatekeeper-exemptions.yaml does not list; add an entry with its component and accepted ADR, or remove the namespace from staticPassNamespaces",
+  ]);
+});
+
+test("a listed static-pass namespace with an accepted ADR raises nothing", async () => {
+  const findings = await check({
+    staticPassNamespaces: async () => ["cert-manager"],
+    constraints: async () => [],
+    listed: async () => [staticPass()],
+  }).findings(components);
+  expect(findings).toEqual([]);
+});
+
+test("a static-pass namespace that is an application namespace is reported", async () => {
+  const findings = await check({
+    staticPassNamespaces: async () => ["cert-manager"],
+    applicationNamespaces: async () => ["cert-manager"],
+    constraints: async () => [],
+    listed: async () => [staticPass()],
+  }).findings(components);
+  expect(findings).toEqual([
+    "exemption: kore-upstream-images passes images in application namespace cert-manager; remove it from staticPassNamespaces, since applications are never exempt",
+  ]);
+});
+
+test("a listed static-pass entry no policy covers is reported as unused", async () => {
+  const findings = await check({
+    constraints: async () => [],
+    listed: async () => [staticPass()],
+  }).findings(components);
+  expect(findings).toEqual([
+    "exemption: kore-upstream-images namespace cert-manager is listed but no constraint exempts it; remove the entry from gatekeeper-exemptions.yaml",
+  ]);
+});
+
+const gate = (fields: Partial<ListedExemption> = {}) =>
+  listed({
+    kind: "KoreApplicationAdmission",
+    name: "kore-application-admission",
+    adr: 54,
+    ...fields,
+  });
+
+const gateCheck = (source: Partial<ExemptionSource> = {}) =>
+  check({
+    gateWriters: async () => ["kore-application-admission"],
+    constraints: async () => [],
+    listed: async () => [gate()],
+    ...source,
+  });
+
+test("a listed gate writer with an owning component and accepted ADR raises nothing", async () => {
+  expect(await gateCheck().findings(components)).toEqual([]);
+});
+
+test("a gate writer missing from the list is reported", async () => {
+  const findings = await gateCheck({ listed: async () => [] }).findings(
+    components,
+  );
+  expect(findings).toEqual([
+    "exemption: kore-application-admission is written by bootstrap automation, which gatekeeper-exemptions.yaml does not list; add an entry with its component and accepted ADR",
+  ]);
+});
+
+test("a gate writer entry naming an unknown component is reported", async () => {
+  const findings = await gateCheck({
+    listed: async () => [gate({ component: "ghost" })],
+  }).findings(components);
+  expect(findings).toEqual([
+    "exemption: kore-application-admission namespace cert-manager names component ghost, which is not in the catalog; name the owning component or use cluster-provided",
+  ]);
+});
+
+test("a gate writer entry whose ADR is not accepted is reported", async () => {
+  const findings = await gateCheck({
+    adrStatus: async () => "proposed",
+  }).findings(components);
+  expect(findings).toEqual([
+    "exemption: kore-application-admission namespace cert-manager cites ADR 0054, which is proposed; cite an accepted ADR or remove the exemption",
+  ]);
+});
+
+test("a gate writer entry the gate chart no longer writes is reported as unused", async () => {
+  const findings = await gateCheck({ gateWriters: async () => [] }).findings(
+    components,
+  );
+  expect(findings).toEqual([
+    "exemption: kore-application-admission namespace cert-manager is listed but no constraint exempts it; remove the entry from gatekeeper-exemptions.yaml",
+  ]);
 });
