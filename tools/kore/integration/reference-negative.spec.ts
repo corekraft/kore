@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { test } from "vitest";
-import { findRoot } from "../config/index.js";
+import { findRoot } from "../src/config/index.js";
 
 // Docs: docs/decisions/0017-gatekeeper-policy-families-audit-first.md
 // Offline negative tests for the reference application: the rendered

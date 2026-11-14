@@ -4,7 +4,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { test } from "vitest";
-import { findRoot } from "../config/index.js";
+import { findRoot } from "../src/config/index.js";
 
 // Docs: docs/decisions/0012-environment-overlays-hold-provider-specifics.md
 // Offline contract of the reference application charts: what the Step 12

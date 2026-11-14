@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import { expect, test } from "vitest";
 
-const script = new URL("../../scripts/clean-machine-e2e.sh", import.meta.url)
+const script = new URL("../scripts/clean-machine-e2e.sh", import.meta.url)
   .pathname;
 
 test("the clean-machine end-to-end script does nothing unless explicitly opted in", async () => {

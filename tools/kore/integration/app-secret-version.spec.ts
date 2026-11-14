@@ -1,4 +1,4 @@
-import { loadRepository } from "../config/index.js";
+import { loadRepository } from "../src/config/index.js";
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { join } from "node:path";
@@ -6,13 +6,13 @@ import { promisify } from "node:util";
 import { afterEach, expect, test, vi } from "vitest";
 
 const localRegistryReferenceMock = vi.hoisted(() => vi.fn());
-vi.mock("../images/index.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../images/index.js")>()),
+vi.mock("../src/images/index.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../src/images/index.js")>()),
   localRegistryReference: localRegistryReferenceMock,
 }));
-import { findRoot } from "../config/index.js";
+import { findRoot } from "../src/config/index.js";
 
-import { appUp, appUpRelease } from "./up.js";
+import { appUp, appUpRelease } from "../src/app/index.js";
 import {
   healthyRunner,
   lockedImage,
@@ -21,8 +21,8 @@ import {
   repositoryTrustingRelease,
   writeReleaseLock,
   type Call,
-} from "../testing/index.js";
-import type { Runner } from "../runtime/index.js";
+} from "../src/testing/index.js";
+import type { Runner } from "../src/runtime/index.js";
 
 afterEach(removeReleaseLocks);
 
