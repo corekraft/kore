@@ -13,8 +13,10 @@ import {
   reviewersOf,
 } from "./judge-shared.js";
 import { REPO, reportOf, ROOT } from "./judge-command-support.js";
+import { requireFreshBundle } from "./judge-freshness.js";
 
 vi.mock("../judge/index.js");
+vi.mock("./judge-freshness.js");
 vi.mock("./judge-approve-command.js", () => ({
   approveCommands: { approve: { summary: "approve" } },
 }));
@@ -64,6 +66,31 @@ describe("harness judge precheck", () => {
     expect(precheck).toHaveBeenCalledWith(context, ROOT, REPO, 42, ["bot"]);
     expect(stdout).toHaveBeenCalledWith("SUMMARY");
     expect(record).toHaveBeenCalledWith(context, REPORT);
+  });
+
+  it("checks the harness bundle is fresh before it reads the PR", async () => {
+    const { context } = contextOf();
+    ready();
+    vi.mocked(precheck).mockResolvedValue(REPORT);
+
+    await judgeCommands.precheck?.run(context);
+    expect(requireFreshBundle).toHaveBeenCalledWith(context, ROOT, REPO);
+    expect(
+      vi.mocked(requireFreshBundle).mock.invocationCallOrder[0],
+    ).toBeLessThan(vi.mocked(precheck).mock.invocationCallOrder[0] ?? 0);
+  });
+
+  it("stops without a precheck when the bundle is behind main", async () => {
+    const { context } = contextOf();
+    ready();
+    const error = new Error("behind");
+    vi.mocked(requireFreshBundle).mockRejectedValue(error);
+    vi.mocked(failed).mockReturnValue(1);
+
+    expect(await judgeCommands.precheck?.run(context)).toBe(1);
+    expect(failed).toHaveBeenCalledWith(context, error);
+    expect(precheck).not.toHaveBeenCalled();
+    expect(record).not.toHaveBeenCalled();
   });
 
   it("prints the report as JSON under --json", async () => {

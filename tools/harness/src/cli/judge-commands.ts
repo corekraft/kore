@@ -8,6 +8,7 @@ import {
   repoOf,
   reviewersOf,
 } from "./judge-shared.js";
+import { requireFreshBundle } from "./judge-freshness.js";
 import { approveCommands } from "./judge-approve-command.js";
 import { mergeCommands } from "./judge-merge-commands.js";
 
@@ -23,6 +24,7 @@ async function runPrecheck(context: CommandContext): Promise<number> {
     const pr = prNumber(context.operand, USAGE);
     const root = await deps.root();
     const repo = await repoOf(context);
+    await requireFreshBundle(context, root, repo);
     const report = await precheck(
       context,
       root,
@@ -40,7 +42,7 @@ async function runPrecheck(context: CommandContext): Promise<number> {
 
 const precheckCommand: Command = {
   summary:
-    "read-only on GitHub; report a PR's declared safety pattern, pattern hints from its diff, and its CI, scan, coverage and principles-review results; fails when no single valid pattern is declared or a check is not passing; records a precheck ledger event at the shared ledger; principles-review counts only from the reviewers it names (reviewerLogins in .claude/harness.json, else the owner login; --reviewer <login>[,<login>] overrides both), made after the head commit (<pr> [--reviewer <login>[,<login>]])",
+    "read-only on GitHub; report a PR's declared safety pattern, pattern hints from its diff, and its CI, scan, coverage and principles-review results; fails when no single valid pattern is declared or a check is not passing; fails fast, naming the fix, when this harness bundle is behind origin/main for tools/harness (compared through the GitHub compare API; only a warning when the comparison is impossible); records a precheck ledger event at the shared ledger; principles-review counts only from the reviewers it names (reviewerLogins in .claude/harness.json, else the owner login; --reviewer <login>[,<login>] overrides both), made after the head commit (<pr> [--reviewer <login>[,<login>]])",
   operand: "pr",
   options: { reviewer: "string" },
   run: runPrecheck,
