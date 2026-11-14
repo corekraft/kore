@@ -3,7 +3,7 @@ import { describe, test } from "vitest";
 import { loadRepository, orderedComponents } from "../config/index.js";
 import { CommandError, type Runner, type RunResult } from "../runtime/index.js";
 import { reconcileComponent } from "./reconcile.js";
-import { healthyClusterOutput } from "./resilience-fixtures.js";
+import { healthyClusterOutput } from "../testing/index.js";
 
 // Docs: docs/decisions/0004-fail-closed-application-admission-gate.md
 // Offline proof that a reconciliation interrupted at any component converges on
