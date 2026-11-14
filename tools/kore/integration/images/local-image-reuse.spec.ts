@@ -1,23 +1,22 @@
-import {
-  chmod,
-  mkdir,
-  mkdtemp,
-  rm,
-  symlink,
-  writeFile,
-} from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { chmod, mkdir, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import type { Repository } from "../../src/config/index.js";
 import { afterEach, expect, test, vi } from "vitest";
-import { loadRepository, type Repository } from "../../src/config/index.js";
 import { buildAndSignLocalImage } from "../../src/images/index.js";
-import type { Runner } from "../../src/runtime/index.js";
 import {
   imageBaseDigest as baseDigest,
   imageDigest as digest,
   imageEntry as entry,
   imageFakeRunner as fakeRunner,
 } from "../../src/testing/index.js";
+import {
+  appOf,
+  builds,
+  checkout,
+  pushedSourceTags,
+  removeCheckouts,
+  reuseRegistry,
+} from "./local-image-reuse-support.js";
 
 // Docs: AGENTS.md "It just works." (a no-change rerun is a no-op, not a rollout)
 
@@ -29,76 +28,17 @@ vi.mock("../../src/images/registry.js", () => ({
 const registryHead = vi.hoisted(() => vi.fn());
 vi.mock("../../src/images/registry-https.js", () => ({ registryHead }));
 
-const roots: string[] = [];
+const { registryWith, published } = reuseRegistry({
+  reference: registryReference,
+  head: registryHead,
+});
 
 afterEach(async () => {
   registryReference.mockReset();
   registryHead.mockReset();
   vi.restoreAllMocks();
-  await Promise.all(
-    roots.splice(0).map((root) => rm(root, { force: true, recursive: true })),
-  );
+  await removeCheckouts();
 });
-
-/** A checkout whose app directory is `apps/reference`; `kore-reuse-` names its temp roots. */
-async function checkout(source = "v1", reuse = true): Promise<Repository> {
-  const root = await mkdtemp(join(tmpdir(), "kore-reuse-"));
-  roots.push(root);
-  const app = join(root, "apps/reference");
-  await mkdir(join(app, "src"), { recursive: true });
-  await writeFile(
-    join(app, "Dockerfile"),
-    "FROM node:26.13.0-alpine3.24\nCOPY src ./src\n",
-  );
-  await writeFile(join(app, ".dockerignore"), "node_modules\n.git\n");
-  await writeFile(join(app, "src/server.ts"), source);
-  const local = await loadRepository("local");
-  return {
-    ...local,
-    root,
-    environment: {
-      ...local.environment,
-      features: { ...local.environment.features, "local-image-reuse": reuse },
-    },
-  };
-}
-
-const appOf = (repository: Repository) =>
-  join(repository.root, "apps/reference");
-
-/** A registry where run tags resolve and a source tag resolves only when held. */
-function registryWith(tags: Map<string, string>): void {
-  registryReference.mockImplementation(
-    async (_repo, _runner, reference) => reference,
-  );
-  registryHead.mockImplementation(async (url: string) => {
-    const tag = String(url).split("/manifests/")[1]!;
-    if (!tag.startsWith("kore-src-")) {
-      return { status: 200, digest };
-    }
-    const found = tags.get(tag);
-    return found ? { status: 200, digest: found } : { status: 404, digest: "" };
-  });
-}
-
-const builds = (calls: { command: string; args: readonly string[] }[]) =>
-  calls.filter((c) => c.command === "docker" && c.args[0] === "build");
-
-function pushedSourceTags(calls: { args: readonly string[] }[]): string[] {
-  return calls
-    .flatMap(({ args }) => args.join("\n").match(/images push[^\n]*/g) ?? [])
-    .flatMap((line) => line.match(/kore-src-[0-9a-f]{16}/g) ?? []);
-}
-
-/** Runs once to publish the source tag, then returns a registry that holds it. */
-async function published(repository: Repository, runner = fakeRunner()) {
-  registryWith(new Map());
-  await buildAndSignLocalImage(repository, runner.runner, "reference", entry);
-  const [tag] = pushedSourceTags(runner.calls);
-  expect(tag).toMatch(/^kore-src-[0-9a-f]{16}$/);
-  registryWith(new Map([[tag!, digest]]));
-  return tag!;
-}
 
 test("unchanged source reuses the published digest with no build, no import and no publish", async () => {
   const repository = await checkout();
@@ -205,88 +145,6 @@ test("a different build platform builds again", async () => {
 
   expect(builds(second.calls)).toHaveLength(1);
   expect(pushedSourceTags(second.calls)[0]).not.toBe(before);
-});
-
-test("a base image that cannot be resolved builds, never reuses, and publishes no source tag", async () => {
-  const repository = await checkout();
-  await published(repository);
-  const stderr = vi.spyOn(process.stderr, "write").mockReturnValue(true);
-  const second = fakeRunner();
-  const failing: Runner = {
-    run: async (command, args, options) => {
-      if (command === "docker" && args[0] === "buildx") {
-        return { stdout: "", stderr: "offline", code: 0 };
-      }
-      return await second.runner.run(command, args, options);
-    },
-  };
-
-  await buildAndSignLocalImage(repository, failing, "reference", entry);
-
-  expect(builds(second.calls)).toHaveLength(1);
-  expect(pushedSourceTags(second.calls)).toEqual([]);
-  expect(stderr).toHaveBeenCalledWith(
-    expect.stringMatching(/could not resolve the base image.*apps\/reference/),
-  );
-});
-
-test("a registry error that is not a missing tag fails the run: no build, no reuse", async () => {
-  const repository = await checkout();
-  await published(repository);
-  registryHead.mockImplementation(async (url: string) =>
-    String(url).includes("/manifests/kore-src-")
-      ? { status: 500, digest: "" }
-      : { status: 200, digest },
-  );
-  const second = fakeRunner();
-
-  await expect(
-    buildAndSignLocalImage(repository, second.runner, "reference", entry),
-  ).rejects.toThrow(/HTTP 500/);
-
-  expect(builds(second.calls)).toEqual([]);
-  expect(second.calls.some(({ args }) => args[0] === "sign")).toBe(false);
-});
-
-test("an edit during the build keeps the old source tag off the new image", async () => {
-  const repository = await checkout();
-  registryWith(new Map());
-  const stderr = vi.spyOn(process.stderr, "write").mockReturnValue(true);
-  const run = fakeRunner();
-  const editing: Runner = {
-    run: async (command, args, options) => {
-      const result = await run.runner.run(command, args, options);
-      if (command === "docker" && args[0] === "build") {
-        await writeFile(join(appOf(repository), "src/server.ts"), "edited");
-      }
-      return result;
-    },
-  };
-
-  const built = await buildAndSignLocalImage(
-    repository,
-    editing,
-    "reference",
-    entry,
-  );
-
-  expect(built.image.digest).toBe(digest); // this run still deploys what it built
-  expect(pushedSourceTags(run.calls)).toEqual([]);
-  expect(stderr).toHaveBeenCalledWith(
-    expect.stringMatching(/changed during the build/),
-  );
-});
-
-test("a missing Dockerfile builds so docker names the problem, with no source tag", async () => {
-  const repository = await checkout();
-  await rm(join(appOf(repository), "Dockerfile"));
-  registryWith(new Map());
-  const run = fakeRunner();
-
-  await buildAndSignLocalImage(repository, run.runner, "reference", entry);
-
-  expect(builds(run.calls)).toHaveLength(1);
-  expect(pushedSourceTags(run.calls)).toEqual([]);
 });
 
 test("with the flag off, an unchanged source builds and publishes again and never reads a source tag", async () => {
