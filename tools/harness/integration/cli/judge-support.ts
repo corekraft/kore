@@ -1,6 +1,6 @@
-import { run } from "./cli.js";
-import { testHarness } from "../testing/index.js";
-import type { FakeResponse } from "../testing/index.js";
+import { run } from "../../src/cli/index.js";
+import { testHarness } from "../../src/testing/index.js";
+import type { FakeResponse } from "../../src/testing/index.js";
 
 /** Where the harness bundle sits in the fake checkout; the judge finds the ledger from here. */
 export const REPO = "corekraft/kore";

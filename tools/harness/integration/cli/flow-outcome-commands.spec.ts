@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { run } from "./cli.js";
-import { DEFAULT, harness } from "./ledger-commands-support.js";
-import { at, finishedIdea } from "../testing/index.js";
+import { run } from "../../src/cli/index.js";
+import {
+  LEDGER_FILE as DEFAULT,
+  ledgerHarness as harness,
+} from "../../src/testing/index.js";
+import { at, finishedIdea } from "../../src/testing/index.js";
 
 function seeded() {
   const h = harness();
