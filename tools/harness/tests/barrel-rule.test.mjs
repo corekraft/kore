@@ -302,3 +302,45 @@ test("an integration test that imports a src domain's barrel passes lint", () =>
   assert.equal(result.status, 0);
   assert.deepEqual(result.violations, []);
 });
+
+// ADR 0098: the testing barrel re-exports fakes that reach into domain
+// internals, so its one file (and no other) may deep-import a domain. The
+// override in .oxlintrc.json cannot carry this comment: that file stays plain
+// JSON, which this test parses.
+test("the testing barrel may deep-import another domain's internals", () => {
+  const result = lint({
+    "src/testing/index.ts":
+      'import { activePlan } from "../plan/active.js";\nexport { activePlan };\n',
+  });
+
+  assert.equal(result.status, 0);
+  assert.deepEqual(result.violations, []);
+});
+
+test("a fixture beside the testing barrel still fails lint on a deep import", () => {
+  const result = lint({
+    "src/testing/plan-support.ts":
+      'import { activePlan } from "../plan/active.js";\nexport { activePlan };\n',
+  });
+
+  assert.deepEqual(result.violations, [
+    {
+      file: "src/testing/plan-support.ts",
+      line: 1,
+      help: barrelMessage("plan"),
+    },
+  ]);
+});
+
+test("the testing barrel override names only its own file and turns off only no-restricted-imports", () => {
+  const overrides = config.overrides.filter((override) =>
+    override.files.some((glob) => glob.includes("testing")),
+  );
+
+  assert.deepEqual(overrides, [
+    {
+      files: ["**/src/testing/index.ts"],
+      rules: { "no-restricted-imports": "off" },
+    },
+  ]);
+});
