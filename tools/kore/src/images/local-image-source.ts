@@ -4,9 +4,15 @@ import type { Runner } from "../runtime/index.js";
 import { resolveBuildInputs } from "./local-image-base.js";
 import { contextInputs, sourceTagOf } from "./local-image-context.js";
 import type { ImageLockEntry, LockedImage } from "./image-lock.js";
-import { digestIfPublished, localRepositoryPath } from "./local-publish.js";
-import type { PublishSession } from "./local-publish.js";
-import { verifiedRegistryAddress } from "./registry-service.js";
+import {
+  digestIfPublished,
+  localRepositoryPath,
+  type PublishSession,
+} from "./local-publish.js";
+import {
+  ensureRegistryForward,
+  verifiedRegistryAddress,
+} from "./registry-service.js";
 
 // Docs: AGENTS.md "It just works." (a no-change rerun is a no-op, not a rollout)
 
@@ -76,10 +82,12 @@ export async function lookUpSource(
     signer: "local-kore-key",
   });
   const source = await sourceTag(repository, runner, application);
-  const digest =
-    source === undefined
-      ? undefined
-      : await digestIfPublished(repositoryPath, client, source);
+  let digest: string | undefined;
+  if (source !== undefined) {
+    // The lookup dials 127.0.0.1:30500, which only the port-forward serves.
+    await ensureRegistryForward(repository, runner);
+    digest = await digestIfPublished(repositoryPath, client, source);
+  }
   return {
     repositoryPath,
     source,

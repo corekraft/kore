@@ -121,6 +121,25 @@ async function ensurePortForward(
   );
 }
 
+/**
+ * Makes the registry answer on 127.0.0.1:30500 before any request to it: a
+ * forward already running is used, otherwise one is started and awaited.
+ */
+export async function ensureRegistryForward(
+  repository: Repository,
+  runner: Runner,
+  dependencies: RegistryDependencies = {},
+): Promise<void> {
+  if (repository.environment.provider !== "k3d") {
+    return;
+  }
+  await ensurePortForward(
+    repository,
+    dependencies,
+    await loadRegistryCa(repository, runner),
+  );
+}
+
 export async function localRegistryReference(
   repository: Repository,
   runner: Runner,
@@ -130,11 +149,7 @@ export async function localRegistryReference(
   if (repository.environment.provider !== "k3d") {
     return reference;
   }
-  await ensurePortForward(
-    repository,
-    dependencies,
-    await loadRegistryCa(repository, runner),
-  );
+  await ensureRegistryForward(repository, runner, dependencies);
   return reference.replace(/^[^/]+/, "127.0.0.1:30500");
 }
 

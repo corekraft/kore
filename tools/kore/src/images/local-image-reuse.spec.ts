@@ -17,7 +17,10 @@ import { buildAndSignLocalImage } from "./local-image.js";
 // Docs: AGENTS.md "It just works." (a no-change rerun is a no-op, not a rollout)
 
 const registryReference = vi.hoisted(() => vi.fn());
-vi.mock("./registry.js", () => ({ localRegistryReference: registryReference }));
+vi.mock("./registry.js", () => ({
+  ensureRegistryForward: vi.fn(),
+  localRegistryReference: registryReference,
+}));
 const registryHead = vi.hoisted(() => vi.fn());
 vi.mock("./registry-https.js", () => ({ registryHead }));
 
