@@ -2,7 +2,7 @@
 status: accepted
 summary: While a component installs or its readiness is awaited, kore watches only that component's namespace read-only, and on a fatal pod state (crash loop, persistent image pull, config, or container-create error, persistent scheduling or sandbox-creation failure) cancels the running command and fails with the pod, container, state, message, previous logs, and a fix hint instead of waiting out the timeout.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-14
 ---
 
 # ADR 0035: Fail-fast readiness diagnosis

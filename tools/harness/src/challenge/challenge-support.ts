@@ -3,7 +3,7 @@
 import { vi } from "vitest";
 import type { IdeaRecord, IdeaRepository } from "../idea/index.js";
 import type { Runner, RunResult } from "../runtime/index.js";
-import type { Context } from "./challenge.js";
+import type { Context } from "./index.js";
 import captured from "./fixtures/gh-issue-comments.json" with { type: "json" };
 
 /** A captured `gh issue view --json comments` payload, as gh printed it. */
