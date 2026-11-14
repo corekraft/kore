@@ -43,6 +43,10 @@ vi.mock("./worktree.js", () => ({
 
 const CLOSED_AT = "2026-01-02T03:06:00.000Z";
 const WORKTREE_FLAG = { "remove-worktree": true };
+const RERUN = "session close image-trust-writer --remove-worktree";
+const REMOVED =
+  "Removed worktree /main/.claude/worktrees/x and deleted branch feat/x.";
+const CLOSED = { ...SPAWNED, closedAt: CLOSED_AT };
 
 /** The registry this test reads and writes, handed to close through the mocked class. */
 function registryOf(record: typeof SPAWNED | undefined) {
@@ -212,6 +216,7 @@ describe("session close --remove-worktree", () => {
       s.runner.runner,
       WORKTREE,
       "/main",
+      RERUN,
     );
     expect(s.stdout).toHaveBeenCalledWith(
       "Closed image-trust-writer (pane w3:p9). Removed worktree /main/.claude/worktrees/x and deleted branch feat/x.\n",
@@ -256,11 +261,40 @@ describe("session close --remove-worktree", () => {
       paneId: "w3:p9",
       closed: true,
       equalize: { status: "equalized" },
-      removal: {
-        removed: true,
-        message:
-          "Removed worktree /main/.claude/worktrees/x and deleted branch feat/x.",
-      },
+      removal: { removed: true, message: REMOVED },
     });
+  });
+});
+
+describe("session close --remove-worktree retries a kept worktree", () => {
+  it("removes the worktree of a closed session without closing the pane, rewriting the record, or equalizing", async () => {
+    const registry = registryOf(CLOSED);
+    const s = scene({ flags: WORKTREE_FLAG });
+    expect(await close(s.context)).toBe(0);
+    expect(registry.write).not.toHaveBeenCalled();
+    expect(equalize).not.toHaveBeenCalled();
+    expect(removeMergedWorktree).toHaveBeenCalledWith(
+      s.runner.runner,
+      WORKTREE,
+      "/main",
+      RERUN,
+    );
+    expect(s.stdout).toHaveBeenCalledWith(
+      "Session image-trust-writer was already closed (pane w3:p9). Removed worktree /main/.claude/worktrees/x and deleted branch feat/x.\n",
+    );
+  });
+
+  it("exits 1 again, with the reason, when the retried removal is still refused", async () => {
+    const registry = registryOf(CLOSED);
+    vi.mocked(removeMergedWorktree).mockResolvedValue({
+      removed: false,
+      reason: `worktree /main/.claude/worktrees/x has uncommitted or untracked changes. Kept worktree /main/.claude/worktrees/x and branch feat/x. Commit, stash or delete them. Then rerun \`${RERUN}\`.`,
+    });
+    const s = scene({ flags: WORKTREE_FLAG });
+    expect(await close(s.context)).toBe(1);
+    expect(registry.write).not.toHaveBeenCalled();
+    expect(s.stderr).toHaveBeenCalledWith(
+      expect.stringContaining(`Then rerun \`${RERUN}\`.`),
+    );
   });
 });

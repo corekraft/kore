@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { testHarness } from "../../src/testing/index.js";
-import { run } from "../../src/cli/index.js";
 import {
   INSIDE,
   gitCommon,
   herdrCalls,
   layoutOf,
   stateFile,
-} from "../../src/session/spawn-support.js";
+  testHarness,
+} from "../../src/testing/index.js";
+import { run } from "../../src/cli/index.js";
 
 const created = {
   name: "image-trust-writer",
@@ -159,4 +159,79 @@ describe("session close name validation", () => {
       expect(h.runner.calls).toEqual([]);
     },
   );
+});
+
+/** Answers for the removal: a merged PR at the worktree's HEAD, a clean tree, and git and gh that succeed. */
+const git = [
+  {
+    match: (c: string, a: readonly string[]) => c === "gh" && a[0] === "pr",
+    result: { stdout: '[{"number":12,"headRefOid":"abc123"}]' },
+  },
+  {
+    match: (c: string, a: readonly string[]) =>
+      c === "git" && a[0] === "rev-parse",
+    result: { stdout: "abc123\n" },
+  },
+  {
+    match: (c: string, a: readonly string[]) =>
+      c === "git" && a[0] === "status",
+    result: { stdout: "" },
+  },
+  {
+    match: (c: string, a: readonly string[]) =>
+      c === "git" && a[0] === "worktree",
+    result: {},
+  },
+  {
+    match: (c: string, a: readonly string[]) =>
+      c === "git" && a[0] === "branch",
+    result: {},
+  },
+];
+
+describe("session close --remove-worktree on a session already closed", () => {
+  const worktree = { path: "/main/.claude/worktrees/x", branch: "feat/x" };
+  const closed = {
+    ...withResult,
+    worktree,
+    closedAt: "2026-01-02T03:06:00.000Z",
+  };
+  const retry = [
+    "session",
+    "close",
+    "image-trust-writer",
+    "--json",
+    "--remove-worktree",
+  ];
+  it("removes the kept worktree without a second pane close, and says it was already closed", async () => {
+    const h = testHarness({
+      env: INSIDE,
+      files: stateOf(closed),
+      responses: [gitCommon, ...git],
+    });
+    expect(await run(retry, h.deps)).toBe(0);
+    expect(herdrCalls(h)).toEqual([]);
+    expect(JSON.parse(h.out())).toMatchObject({
+      alreadyClosed: true,
+      removal: { removed: true },
+    });
+  });
+
+  it("still refuses a retry from another pane, leaving the session and its worktree alone", async () => {
+    const h = testHarness({
+      env: { HERDR_ENV: "1", HERDR_PANE_ID: "w3:p77" },
+      files: stateOf(closed),
+      responses: [gitCommon, ...git],
+    });
+    expect(await run(retry, h.deps)).toBe(1);
+    expect(h.err()).toContain("spawned from pane w3:p1");
+    const removing = h.runner.calls.filter(
+      (c) =>
+        c.command === "gh" ||
+        c.args.includes("worktree") ||
+        c.args.includes("branch"),
+    );
+    expect(removing).toEqual([]);
+    expect(herdrCalls(h)).toEqual([]);
+  });
 });
