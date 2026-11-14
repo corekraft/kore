@@ -3,7 +3,7 @@ import { loadavg } from "node:os";
 import test from "node:test";
 import { loadRepository } from "../config/index.js";
 import { ProcessRunner, liveEnvironment } from "../runtime/index.js";
-import { mkcertRoot } from "./gateway-cluster-support.js";
+import { mkcertRoot } from "./gateway-cluster.live.js";
 import {
   IngressMeasurement,
   ingressMeasurementDefaults,

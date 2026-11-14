@@ -9,7 +9,7 @@ import {
   dockerRunArgs,
   smokeTargets,
 } from "./container-smoke.js";
-import { renderChart, yamlDocuments } from "./upstream-support.js";
+import { renderChart, yamlDocuments } from "./upstream.live.js";
 
 const run = promisify(execFile);
 const uptimeMs = 5_000;

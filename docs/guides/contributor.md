@@ -136,8 +136,9 @@ see [The harness bundle](#the-harness-bundle).
   file. It reads the same unconverted lists as the budget, so a listed file is
   not checked. Live and docker specs (`*.live.spec.ts`, `*.docker.spec.ts`) are
   live tests and do not count. Support and fixture files (`*-support.ts`,
-  `*-fixtures.ts`, `*.fixtures.ts`) and `.d.ts` files are not units and need no
-  spec.
+  `*-fixtures.ts`, `*.fixtures.ts`), live helpers (`*.live.ts`, imported only
+  by live and opt-in suites) and `.d.ts` files are not units and need no spec.
+  Live helpers are excluded from unit coverage too.
 - Vitest resets mocks before each test, in both packages: a mock's calls and
   behaviour, and a spy's real method, do not carry from one test to the next
   (`mockReset` and `restoreMocks` in each `vitest.config.ts`). Do not reset

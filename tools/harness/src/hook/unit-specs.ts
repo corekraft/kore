@@ -3,8 +3,8 @@
 // `<name>.spec.ts`: none fails, and so does a `<name>.test.ts` beside that one.
 // "Converted" is what the budget means: no `unconverted.txt` names the file,
 // read by the same helpers the budget reads (test-budget.ts). Live and docker
-// specs are live tests, not unit specs. Support and fixture files are not
-// units, so they need no spec (ADR 0098).
+// specs are live tests, not unit specs. Support, fixture and live-helper files
+// (`*.live.ts`) are not units, so they need no spec (ADR 0098).
 // Docs: infra/plans/14-test-tiers.md#step-1-foundations
 
 import type { CliDeps } from "../runtime/index.js";
@@ -15,11 +15,14 @@ import { isListed, readLists } from "./test-budget.js";
 const SPEC_OR_TYPES = /\.(spec|test)\.ts$|\.d\.ts$/;
 /** Support and fixture files, by name: `<name>-support.ts`, `<name>-fixtures.ts` or `<name>.fixtures.ts`. */
 const SUPPORT_OR_FIXTURE = /(-support|-fixtures|\.fixtures)\.ts$/;
+/** A live helper: `<name>.live.ts`, imported only by live and opt-in suites, never by the unit run. */
+const LIVE_HELPER = /\.live\.ts$/;
 
 const isSource = (name: string): boolean =>
   name.endsWith(".ts") &&
   !SPEC_OR_TYPES.test(name) &&
-  !SUPPORT_OR_FIXTURE.test(name);
+  !SUPPORT_OR_FIXTURE.test(name) &&
+  !LIVE_HELPER.test(name);
 
 /** Every directory under `dir`, mapped to the names of the files directly in it. */
 async function filesByDir(

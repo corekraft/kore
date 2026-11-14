@@ -28,6 +28,18 @@ const forward = (child: FakeChild, spawnFn = fakeSpawn(child)) => ({
   spawn: spawnFn,
 });
 
+/**
+ * A minimal HTTP answer with the fields postOtlp reads. Building a real Response
+ * costs more than a unit budget allows on its first use, so this is the one cast.
+ */
+function response(status: number, body = ""): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    text: async () => body,
+  } as unknown as Response;
+}
+
 /** A typed `fetch` answering each call with the next reply; a thrown reply rejects. */
 function fakeFetch(...replies: (Response | Error)[]) {
   return vi.fn<typeof fetch>(async () => {
@@ -35,7 +47,7 @@ function fakeFetch(...replies: (Response | Error)[]) {
     if (reply instanceof Error) {
       throw reply;
     }
-    return reply ?? new Response("{}", { status: 200 });
+    return reply ?? response(200, "{}");
   });
 }
 
@@ -145,7 +157,7 @@ test("OTLP JSON is posted with the application/json content type", async () => {
 });
 
 test("a rejected OTLP post names the signal and the status", async () => {
-  const fetchFn = fakeFetch(new Response("nope", { status: 415 }));
+  const fetchFn = fakeFetch(response(415, "nope"));
   await expect(postOtlp(1, "logs", {}, fetchFn, noWait)).rejects.toThrow(
     "Collector rejected OTLP logs: 415 nope",
   );
@@ -155,11 +167,7 @@ test("an OTLP post retries a reset connection after a growing wait and then succ
   const wait = vi.fn<(milliseconds: number) => Promise<void>>(
     async () => undefined,
   );
-  const fetchFn = fakeFetch(
-    reset(),
-    reset(),
-    new Response("{}", { status: 200 }),
-  );
+  const fetchFn = fakeFetch(reset(), reset(), response(200, "{}"));
   await postOtlp(1, "logs", {}, fetchFn, wait);
   expect(fetchFn).toHaveBeenCalledTimes(3);
   expect(wait.mock.calls.map(([ms]) => ms)).toEqual([500, 1000]);
@@ -174,7 +182,7 @@ test("an OTLP post gives up after five resets and reports the last error", async
 });
 
 test("an OTLP post does not retry a rejection by the Collector", async () => {
-  const fetchFn = fakeFetch(new Response("bad", { status: 400 }));
+  const fetchFn = fakeFetch(response(400, "bad"));
   await expect(postOtlp(1, "logs", {}, fetchFn, noWait)).rejects.toThrow(
     "Collector rejected OTLP logs: 400 bad",
   );
@@ -185,11 +193,7 @@ test("the forward is ready only once the receiver answers an HTTP request", asyn
   const wait = vi.fn<(milliseconds: number) => Promise<void>>(
     async () => undefined,
   );
-  const fetchFn = fakeFetch(
-    reset(),
-    reset(),
-    new Response("", { status: 405 }),
-  );
+  const fetchFn = fakeFetch(reset(), reset(), response(405, ""));
   await waitForOtlp(4000, fetchFn, wait);
   expect(fetchFn).toHaveBeenCalledTimes(3);
   expect(fetchFn).toHaveBeenLastCalledWith("http://127.0.0.1:4000/v1/traces");
