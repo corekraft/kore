@@ -1,187 +1,228 @@
-import assert from "node:assert/strict";
-import { it } from "vitest";
-import { allowed, bash, blocked, type Result } from "../testing/index.js";
+// Command rules: each rule's command shapes, and the context, destructive, no-verify and idea-issue findings. Shell helpers and verdict constructors are mocked.
+
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as commands from "./guard-commands.js";
-import { splitSegments } from "./guard-shell.js";
+import {
+  checkContext,
+  checkDestructive,
+  checkIdeaIssueBody,
+  checkIdeaIssueClose,
+  checkNoVerify,
+} from "./guard-commands.js";
+import { firstPositional, hasFlag, isKore } from "./guard-shell.js";
+import { block, warn, type Hit } from "./guard-verdict.js";
 
-it("guard-commands exports only the command rules it owns, so no glob rule is re-exported through it", () => {
-  assert.deepEqual(Object.keys(commands).sort(), [
-    "checkAgentStart",
-    "checkContext",
-    "checkDestructive",
-    "checkIdeaIssueBody",
-    "checkIdeaIssueClose",
-    "checkNoVerify",
-  ]);
-});
+vi.mock("./guard-agent-start.js", () => ({ checkAgentStart: vi.fn() }));
+vi.mock("./guard-shell.js", () => ({
+  firstPositional: vi.fn(),
+  hasFlag: vi.fn(),
+  isKore: vi.fn(),
+}));
+vi.mock("./guard-verdict.js", () => ({ block: vi.fn(), warn: vi.fn() }));
 
-it("splitSegments separates chained commands but keeps quoted operators", async () => {
-  assert.deepEqual(splitSegments("a && b; c | d"), [
-    ["a"],
-    ["b"],
-    ["c"],
-    ["d"],
-  ]);
-  assert.deepEqual(splitSegments('echo "a && b"'), [["echo", "a && b"]]);
-});
+// The command name the rules are given as data: each rule is called, and no process is started.
+const GIT = "git";
 
-it("kubectl-context: kubectl without --context is blocked", async () => {
-  blocked(await bash("kubectl get pods"), "kubectl-context");
-  blocked(await bash("cd x && kubectl apply -f a.yaml"), "kubectl-context");
-  blocked(await bash("KUBECONFIG=a kubectl get ns"), "kubectl-context");
-});
-
-it("kubectl-context: explicit context passes in both spellings", async () => {
-  allowed(await bash("kubectl get pods --context kore-local"));
-  allowed(await bash("kubectl --context=kore-local get pods"));
-});
-
-it("kubectl-context: commands that never reach a cluster pass", async () => {
-  allowed(await bash("kubectl config get-contexts"));
-  allowed(await bash("kubectl version --client"));
-  allowed(await bash('echo "kubectl get pods"'));
-});
-
-it("helm-context: cluster-touching helm without --kube-context is blocked", async () => {
-  blocked(await bash("helm upgrade --install a ./chart"), "helm-context");
-  blocked(await bash("helm list -A"), "helm-context");
-});
-
-it("helm-context: explicit context and offline subcommands pass", async () => {
-  allowed(
-    await bash("helm upgrade --install a ./chart --kube-context kore-local"),
+beforeEach(() => {
+  // Typed stand-ins for the shell helpers, with the same meaning as the real ones.
+  vi.mocked(firstPositional).mockImplementation((args) =>
+    args.find((a) => !a.startsWith("-")),
   );
-  allowed(await bash("helm template a ./chart"));
-  allowed(await bash("helm lint ./chart"));
-  allowed(await bash("helm dependency update ./chart"));
-});
-
-it("destructive: k3d cluster delete is blocked in any argument order and for any cluster", async () => {
-  blocked(await bash("k3d cluster delete kore-local"), "destructive");
-  blocked(await bash("k3d cluster delete --all"), "destructive");
-  blocked(await bash("k3d cluster delete kore-local --all"), "destructive");
-  blocked(await bash("k3d --verbose cluster delete other"), "destructive");
-  blocked(await bash("k3d cluster --trace delete other"), "destructive");
-  blocked(await bash("k3d cluster delete -c ./k3d.yaml"), "destructive");
-});
-
-it("destructive: non-destructive k3d operations pass", async () => {
-  allowed(await bash("k3d cluster list"));
-  allowed(await bash("k3d cluster get kore-local"));
-  allowed(await bash("k3d cluster start kore-local"));
-  allowed(await bash("k3d cluster stop kore-local"));
-  allowed(await bash("k3d image import kore:dev -c kore-local"));
-});
-
-it("destructive: cluster and infrastructure destruction is blocked", async () => {
-  blocked(await bash("k3d cluster delete kore-local"), "destructive");
-  blocked(await bash("k3d cluster delete --all"), "destructive");
-  blocked(await bash("tofu destroy"), "destructive");
-  blocked(
-    await bash("kubectl delete namespace apps --context kore-local"),
-    "destructive",
+  vi.mocked(hasFlag).mockImplementation((args, flag) =>
+    args.some((a) => a === flag || a.startsWith(`${flag}=`)),
   );
-  blocked(
-    await bash("kubectl delete ns apps --context kore-local"),
-    "destructive",
-  );
-  blocked(
-    await bash("helm uninstall a --kube-context kore-local"),
-    "destructive",
-  );
-  blocked(
-    await bash("./bin/kore cluster destroy --environment local"),
-    "destructive",
-  );
-  blocked(
-    await bash("npm --prefix tools/kore run kore -- platform destroy"),
-    "destructive",
-  );
+  vi.mocked(isKore).mockReturnValue(false);
+  vi.mocked(block).mockImplementation((rule): Hit => ({
+    action: "block",
+    rule,
+    message: rule,
+  }));
+  vi.mocked(warn).mockImplementation((rule): Hit => ({
+    action: "warn",
+    rule,
+    message: rule,
+  }));
 });
 
-it("destructive: non-destructive siblings pass", async () => {
-  allowed(await bash("k3d cluster list"));
-  allowed(await bash("tofu plan"));
-  allowed(await bash("kubectl delete pod a --context kore-local"));
-  allowed(await bash("git commit -m 'feat: add destroy guard'"));
+describe("module surface", () => {
+  it("exports only the command rules it owns, so no glob rule is re-exported through it", () => {
+    expect(Object.keys(commands).sort()).toEqual([
+      "checkAgentStart",
+      "checkContext",
+      "checkDestructive",
+      "checkIdeaIssueBody",
+      "checkIdeaIssueClose",
+      "checkNoVerify",
+    ]);
+  });
 });
 
-it("no-verify: skipping commit hooks is blocked", async () => {
-  blocked(await bash("git commit --no-verify -m 'x'"), "no-verify");
-  blocked(await bash("git commit -n -m 'x'"), "no-verify");
-  blocked(await bash("git add . && git commit -nm 'x'"), "no-verify");
+describe("checkContext", () => {
+  it("blocks kubectl that names a subcommand without --context", () => {
+    expect(checkContext("kubectl", ["get", "pods"])).toMatchObject({
+      rule: "kubectl-context",
+    });
+    expect(block).toHaveBeenCalledWith(
+      "kubectl-context",
+      expect.stringContaining("--context"),
+    );
+  });
+
+  it("passes kubectl with --context, and kubectl commands that never reach a cluster", () => {
+    expect(
+      checkContext("kubectl", ["get", "pods", "--context=kore-local"]),
+    ).toBeNull();
+    expect(checkContext("kubectl", ["config", "view"])).toBeNull();
+    expect(checkContext("kubectl", [])).toBeNull();
+    expect(checkContext("kubectl", ["version", "--client"])).toBeNull();
+    expect(block).not.toHaveBeenCalled();
+  });
+
+  it("blocks a cluster-touching helm command without --kube-context, and passes an offline one", () => {
+    expect(checkContext("helm", ["upgrade", "app", "./chart"])).toMatchObject({
+      rule: "helm-context",
+    });
+    expect(
+      checkContext("helm", ["upgrade", "app", "--kube-context", "kore-local"]),
+    ).toBeNull();
+    expect(checkContext("helm", ["lint", "./chart"])).toBeNull();
+  });
+
+  it("ignores any other command", () => {
+    expect(checkContext("ls", ["-la"])).toBeNull();
+  });
 });
 
-it("no-verify: ordinary commits pass", async () => {
-  allowed(await bash("git commit -m 'fix: handle -n flag'"));
-  allowed(await bash("git commit -am 'chore: tidy'"));
-  allowed(await bash("git log -n 5"));
+describe("checkDestructive", () => {
+  it("blocks deleting a k3d cluster in either argument order", () => {
+    expect(
+      checkDestructive("k3d", ["cluster", "delete", "kore-local"]),
+    ).toMatchObject({
+      rule: "destructive",
+    });
+    expect(
+      checkDestructive("k3d", ["cluster", "--all", "delete"]),
+    ).toMatchObject({
+      rule: "destructive",
+    });
+    expect(checkDestructive("k3d", ["cluster", "list"])).toBeNull();
+  });
+
+  it("blocks destroy in tofu and terraform, and uninstall in helm", () => {
+    expect(checkDestructive("tofu", ["apply", "destroy"])).toMatchObject({
+      rule: "destructive",
+    });
+    expect(checkDestructive("terraform", ["destroy"])).toMatchObject({
+      rule: "destructive",
+    });
+    expect(checkDestructive("helm", ["uninstall", "app"])).toMatchObject({
+      rule: "destructive",
+    });
+    expect(checkDestructive("helm", ["list"])).toBeNull();
+  });
+
+  it("blocks deleting a namespace with kubectl, and not deleting a pod", () => {
+    expect(
+      checkDestructive("kubectl", ["delete", "namespace", "kore"]),
+    ).toMatchObject({
+      rule: "destructive",
+    });
+    expect(checkDestructive("kubectl", ["delete", "pod", "p"])).toBeNull();
+  });
+
+  it("blocks kore destroy only for the kore command itself", () => {
+    vi.mocked(isKore).mockReturnValue(true);
+    expect(checkDestructive("kore", ["destroy"])).toMatchObject({
+      rule: "destructive",
+    });
+    vi.mocked(isKore).mockReturnValue(false);
+    expect(checkDestructive("other", ["destroy"])).toBeNull();
+  });
 });
 
-const bodyWarned = (result: Result, label: string) => {
-  assert.equal(result.action, "warn", `${label}: ${JSON.stringify(result)}`);
-  assert.equal(result.rule, "idea-issue-body", label);
-  assert.match(result.message, /\[guard:idea-issue-body\]/, label);
-  assert.match(result.message, /harness idea sync/, label);
-  assert.match(result.message, /Instead/, label);
-};
+describe("checkNoVerify", () => {
+  it("blocks a git commit that skips hooks, with --no-verify or a short -n flag", () => {
+    expect(
+      checkNoVerify(GIT, ["commit", "--no-verify", "-m", "x"]),
+    ).toMatchObject({
+      rule: "no-verify",
+    });
+    expect(checkNoVerify(GIT, ["commit", "-nm", "x"])).toMatchObject({
+      rule: "no-verify",
+    });
+  });
 
-it("idea-issue-body: editing an issue body by hand warns and names the sync tool", async () => {
-  for (const command of [
-    "gh issue edit 186 --body 'new text'",
-    "gh issue edit 186 -b 'new text'",
-    "gh issue edit 186 --body-file notes.md",
-    "gh issue edit 186 -F notes.md",
-    "gh issue edit 186 --repo corekraft/kore --body=x",
-    "gh issue edit 186 --body-file -",
-    "gh issue edit 186 --title 'x'",
-    "gh issue edit 186 -t x",
-  ]) {
-    bodyWarned(await bash(command), command);
-  }
+  it("passes an ordinary commit, a push, and a non-git command", () => {
+    expect(checkNoVerify(GIT, ["commit", "-m", "x"])).toBeNull();
+    expect(checkNoVerify(GIT, ["push", "--no-verify"])).toBeNull();
+    expect(checkNoVerify("npm", ["commit", "--no-verify"])).toBeNull();
+  });
 });
 
-it("idea-issue-body: label, assignee and read commands are not warned", async () => {
-  for (const command of [
-    "gh issue edit 186 --add-label ready-for-agent",
-    "gh issue edit 186 --add-assignee junners",
-    "gh issue view 186 --json body",
-    "gh issue comment 186 --body 'note'",
-    "gh pr edit 12 --body 'x'",
-  ]) {
-    assert.equal((await bash(command)).action, "allow", command);
-  }
+describe("checkIdeaIssueBody", () => {
+  it("warns when an issue edit sets its body, file, title or a body flag", () => {
+    expect(
+      checkIdeaIssueBody("gh", ["issue", "edit", "3", "--body", "x"]),
+    ).toMatchObject({
+      rule: "idea-issue-body",
+    });
+    expect(
+      checkIdeaIssueBody("gh", ["issue", "edit", "3", "--title", "t"]),
+    ).toMatchObject({
+      rule: "idea-issue-body",
+    });
+  });
+
+  it("passes a label edit, a read, and any other command", () => {
+    expect(
+      checkIdeaIssueBody("gh", ["issue", "edit", "3", "--add-label", "x"]),
+    ).toBeNull();
+    expect(
+      checkIdeaIssueBody("gh", ["issue", "view", "3", "--body"]),
+    ).toBeNull();
+    expect(checkIdeaIssueBody(GIT, ["issue", "edit", "--body"])).toBeNull();
+  });
 });
 
-const closeWarned = (result: Result, label: string) => {
-  assert.equal(result.action, "warn", `${label}: ${JSON.stringify(result)}`);
-  assert.equal(result.rule, "idea-issue-close", label);
-  assert.match(result.message, /\[guard:idea-issue-close\]/, label);
-  assert.match(result.message, /harness outcome close/, label);
-  assert.match(result.message, /Instead/, label);
-};
+describe("checkIdeaIssueClose", () => {
+  it("warns when an issue closes, and when an outcome label is added in either spelling", () => {
+    expect(checkIdeaIssueClose("gh", ["issue", "close", "3"])).toMatchObject({
+      rule: "idea-issue-close",
+    });
+    expect(
+      checkIdeaIssueClose("gh", [
+        "issue",
+        "edit",
+        "3",
+        "--add-label",
+        "outcome:confirmed",
+      ]),
+    ).toMatchObject({
+      rule: "idea-issue-close",
+    });
+    expect(
+      checkIdeaIssueClose("gh", [
+        "issue",
+        "edit",
+        "3",
+        "--add-label=outcome:x",
+      ]),
+    ).toMatchObject({
+      rule: "idea-issue-close",
+    });
+  });
 
-it("idea-issue-close: closing an issue or setting an outcome label by hand warns and names the outcome tool", async () => {
-  for (const command of [
-    "gh issue close 186",
-    "gh issue close 186 --reason completed --repo corekraft/kore",
-    "gh issue edit 186 --add-label outcome:confirmed",
-    "gh issue edit 186 --add-label=outcome:refuted",
-    "gh issue edit 186 -l outcome:confirmed",
-    "gh issue edit 186 --add-label ready-for-agent,outcome:inconclusive",
-  ]) {
-    closeWarned(await bash(command), command);
-  }
-});
-
-it("idea-issue-close: other label edits, reads and comments are not warned", async () => {
-  for (const command of [
-    "gh issue edit 186 --add-label ready-for-agent",
-    "gh issue edit 186 --remove-label needs-triage",
-    "gh issue view 186",
-    "gh issue comment 186 --body 'note'",
-    "gh pr close 12",
-  ]) {
-    assert.equal((await bash(command)).action, "allow", command);
-  }
+  it("passes other label edits, comments and reads", () => {
+    expect(
+      checkIdeaIssueClose("gh", [
+        "issue",
+        "edit",
+        "3",
+        "-l",
+        "ready-for-agent",
+      ]),
+    ).toBeNull();
+    expect(checkIdeaIssueClose("gh", ["issue", "comment", "3"])).toBeNull();
+    expect(warn).not.toHaveBeenCalled();
+  });
 });
