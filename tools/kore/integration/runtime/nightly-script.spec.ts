@@ -158,3 +158,30 @@ test("it does nothing unless KORE_RUN_NIGHTLY=1", () => {
   expect(result.status).toBe(0);
   expect(result.stderr).toMatch(/skipped/);
 });
+
+test("a measurement-only suite is skipped, named in the summary, and never run, while every other suite runs", () => {
+  const { status, stderr, calls } = run([
+    "test:live:a",
+    "test:live:footprint",
+    "test:live:b",
+  ]);
+  expect(status).toBe(0);
+  expect(calls.filter((call) => call.startsWith("suite"))).toEqual([
+    "suite test:live:a",
+    "suite test:live:b",
+  ]);
+  expect(stderr).toMatch(/^skipped: test:live:footprint$/m);
+});
+
+test("a night with no excluded suite reports nothing as skipped", () => {
+  const { status, stderr } = run(["test:live:a"]);
+  expect(status).toBe(0);
+  expect(stderr).not.toMatch(/skipped: test:live/);
+});
+
+test("a night whose only suite is a measurement suite fails as finding none", () => {
+  const { status, stderr, calls } = run(["test:live:footprint"]);
+  expect(status).toBe(1);
+  expect(stderr).toMatch(/found no test:live suites/);
+  expect(calls.some((call) => call.startsWith("suite"))).toBe(false);
+});
