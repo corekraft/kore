@@ -54,12 +54,8 @@ description = "Format files with the pinned prettier: mise run format <files>"
 run = "tools/kore/node_modules/.bin/prettier --write"
 
 [tasks.test-hooks]
-description = "Run the hook, status line and eval grading tests under harness vitest, then the harness integration script (a stopgap until #418); check skill links and workflow permissions with the harness hooks, and that the settings deny list is the one the inventory generates; then kb-check in warn mode"
-run = ["npm --prefix tools/harness run test:hooks", "mise run test-harness-integration", ".claude/hooks/harness.sh hook skill-links --strict", ".claude/hooks/harness.sh hook workflow-permissions --strict", ".claude/hooks/harness.sh guardrail deny --check", ".claude/hooks/harness.sh hook kb-check"]
-
-[tasks.test-harness-integration]
-description = "Run the harness integration script (real shell parser and filesystem, in temporary folders). It runs in neither `mise run test` nor the commit hook; `mise run test-hooks` calls it, so CI runs it, until #418 gives integration tests their own place"
-run = "npm --prefix tools/harness run test:integration"
+description = "Run the hook, status line and eval grading tests under harness vitest; check skill links and workflow permissions with the harness hooks, and that the settings deny list is the one the inventory generates; then kb-check in warn mode"
+run = ["npm --prefix tools/harness run test:hooks", ".claude/hooks/harness.sh hook skill-links --strict", ".claude/hooks/harness.sh hook workflow-permissions --strict", ".claude/hooks/harness.sh guardrail deny --check", ".claude/hooks/harness.sh hook kb-check"]
 
 [tasks.kb-check]
 description = "Check knowledge-base links, index, frontmatter, and Docs: markers, then print the skill budget audit (never fails); pass -- --strict to fail on findings"

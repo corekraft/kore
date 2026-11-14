@@ -71,8 +71,11 @@ not seen. That is the standing limit of
 the role guards are a hint, and containment comes from separate identities and
 the sandbox, not from this check.
 
-The `test-hooks` mise task, which the CI `check` workflow already runs, also
-calls `mise run test-harness-integration`, so the guard's real-parser case runs
-on every pull request without a change to the workflow. ADR 0098 reserves
-integration tests for releases and hook changes, so this is a stopgap until
-#418 gives them their own place, and the call moves there then.
+The guard's real-parser case, `tools/harness/integration/`, runs only by hand:
+`npm --prefix tools/harness run test:integration`. No CI task or commit hook
+runs it, and `.mise.toml` and `check.yml` are unchanged from main. The judge
+sent a version that chained it into the CI `test-hooks` task back, because
+`.mise.toml` then changed the behaviour that CI runs, which the precheck
+refuses under no-behaviour-change. A reviewer runs it on a pull request that
+touches the guard. Until #418 gives integration tests a place that CI runs, the
+real-parser case stays unchecked by CI.

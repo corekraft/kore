@@ -2,7 +2,7 @@ import type { Repository } from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 
 // Docs: docs/decisions/0028-image-trust-authority.md
-// Helpers for the opt-in live admission specs (`*.integration.spec.ts`). They
+// Helpers for the opt-in live admission specs (`*.live.spec.ts`). They
 // only ever dry-run admission or push throwaway test images; nothing here
 // deploys a workload.
 
