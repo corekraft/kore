@@ -69,6 +69,12 @@ describe("the test-driven-development skill", () => {
   it("tells a worker to run only the related tests and typecheck locally, pointing at AGENTS.md", () => {
     expect(skill).toContain(LOCAL_CHECKS_SENTENCE);
   });
+
+  it("gives a guard role rule a spec for every role it names", () => {
+    expect(skill).toContain(
+      "A guard role rule gets a spec for every role it names.",
+    );
+  });
 });
 
 describe("the orchestrator definition", () => {
