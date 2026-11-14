@@ -1,8 +1,15 @@
 // Docs: docs/decisions/0034-registry-authentication-and-authorization.md
-import { createHash, randomBytes, type Hash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { beforeEach, expect, test, vi } from "vitest";
 import { registryPlan } from "../config/index.js";
-import { fakeRepository, fakeRunner } from "./images-support.js";
+import {
+  appliedItems,
+  fakeRepository,
+  fakeRunner,
+  fakeSha1,
+  fixedPasswords,
+  secretData,
+} from "./images-support.js";
 import {
   applyRegistryCredentials,
   ensureRegistryAuth,
@@ -18,15 +25,7 @@ import {
 vi.mock("node:crypto");
 vi.mock("../config/index.js");
 
-interface Manifest {
-  kind: string;
-  metadata: { name: string; namespace?: string };
-  data?: Record<string, string>;
-}
-
 const encode = (value: string): string => Buffer.from(value).toString("base64");
-const decode = (value: string | undefined): string =>
-  Buffer.from(value ?? "", "base64").toString("utf8");
 const noSecret = (): string => "";
 const storedSecret = JSON.stringify({
   data: {
@@ -36,58 +35,6 @@ const storedSecret = JSON.stringify({
     "read-password": encode("existing-read"),
   },
 });
-
-/** Each random password is a fixed label, so the expected Secret data is exact. */
-function fixedPasswords(push: string, read: string): void {
-  vi.mocked(randomBytes)
-    .mockReturnValueOnce({ toString: () => push } as never)
-    .mockReturnValueOnce({ toString: () => read } as never);
-}
-
-/** The SHA-1 digest is `sha:` plus the hashed text, so the htpasswd lines are exact. */
-function fakeSha1(): void {
-  vi.mocked(createHash).mockImplementation(() => {
-    let text = "";
-    const hash = {
-      update: (value: string) => {
-        text = value;
-        return hash;
-      },
-      digest: () => `sha:${text}`,
-    };
-    return hash as unknown as Hash;
-  });
-}
-
-/** The items of the one apply call, decoded from its stdin. */
-function appliedItems(
-  calls: readonly (readonly unknown[])[],
-): Record<string, unknown>[] {
-  const apply = calls.find((call) => (call[1] as string[]).includes("apply"));
-  if (apply === undefined) {
-    throw new Error("no apply call was made");
-  }
-  return (
-    JSON.parse((apply[2] as { input: string }).input) as {
-      items: Record<string, unknown>[];
-    }
-  ).items;
-}
-
-function secretData(
-  items: Record<string, unknown>[],
-  name: string,
-): Record<string, string> {
-  const secret = items.find(
-    (item) => (item as unknown as Manifest).metadata.name === name,
-  ) as unknown as Manifest;
-  return Object.fromEntries(
-    Object.entries(secret.data ?? {}).map(([key, value]) => [
-      key,
-      decode(value),
-    ]),
-  );
-}
 
 beforeEach(() => {
   vi.mocked(registryPlan).mockReturnValue({
@@ -152,7 +99,7 @@ test("the registry namespace is applied first and every Secret lives in it", asy
 
   await ensureRegistryAuth(fakeRepository(), runner);
 
-  const items = appliedItems(run.mock.calls) as unknown as Manifest[];
+  const items = appliedItems(run.mock.calls);
   expect(items[0]).toEqual({
     apiVersion: "v1",
     kind: "Namespace",

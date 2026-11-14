@@ -48,8 +48,6 @@ test("the images barrel exposes exactly the public surface, each name from the m
     localSignArgs: localImage.localSignArgs,
     imageDigestFromRegistryHead: localImageArgs.imageDigestFromRegistryHead,
     localDockerBuildArgs: localImageArgs.localDockerBuildArgs,
-    k3dImagePublishArgs: localImageArgs.k3dImagePublishArgs,
-    k3dRegistrySessionArgs: localImageArgs.k3dRegistrySessionArgs,
     pruneStaleImageTags: imagePrune.pruneStaleImageTags,
     localRegistryReference: registry.localRegistryReference,
     stopRegistryForward: registry.stopRegistryForward,

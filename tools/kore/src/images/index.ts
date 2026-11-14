@@ -51,7 +51,5 @@ export {
 } from "./release-image.js";
 export {
   imageDigestFromRegistryHead,
-  k3dImagePublishArgs,
-  k3dRegistrySessionArgs,
   localDockerBuildArgs,
 } from "./local-image-args.js";

@@ -1,9 +1,15 @@
 // Docs: docs/decisions/0058-registry-transport-tls.md
 import { spawn } from "node:child_process";
-import { connect, type TLSSocket } from "node:tls";
+import { connect } from "node:tls";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { listHostProcesses, terminateMatching } from "../runtime/index.js";
-import { fakeRepository, fakeRunner } from "./images-support.js";
+import {
+  connectTo,
+  fakeRepository,
+  fakeRunner,
+  fakeSocket,
+  forwardArgs,
+} from "./images-support.js";
 import {
   clearForwardOwner,
   ownershipConflict,
@@ -24,56 +30,7 @@ vi.mock("./registry-tls.js");
 vi.mock("../runtime/index.js");
 
 const reference = "registry.kore.local:30500/reference:dev";
-const forwardArgs = [
-  "--context",
-  "k3d-kore-local",
-  "--namespace",
-  "kore-registry",
-  "port-forward",
-  "service/oci-registry",
-  "30500:5000",
-];
-
-/** What the far end does: answers with `data`, fails with `error`, closes, or stays silent. */
-type Reply =
-  { data: string } | { error: Error } | { close: true } | { silent: true };
-
-interface FakeSocket {
-  once: ReturnType<typeof vi.fn>;
-  write: ReturnType<typeof vi.fn>;
-  destroy: ReturnType<typeof vi.fn>;
-}
-
-/**
- * A TLS socket that plays `reply` as soon as its listener is registered, so a
- * probe resolves on the microtask queue, the way a real handshake does.
- */
-function fakeSocket(reply: Reply): FakeSocket {
-  const socket: FakeSocket = {
-    once: vi.fn((event: string, listener: (...args: unknown[]) => void) => {
-      if (event === "secureConnect" && "data" in reply) {
-        queueMicrotask(() => listener());
-      } else if (event === "data" && "data" in reply) {
-        queueMicrotask(() => listener(Buffer.from(reply.data)));
-      } else if (event === "error" && "error" in reply) {
-        queueMicrotask(() => listener(reply.error));
-      } else if (event === "close" && "close" in reply) {
-        queueMicrotask(() => listener());
-      }
-      return socket;
-    }),
-    write: vi.fn(() => true),
-    destroy: vi.fn(),
-  };
-  return socket;
-}
-
-/** `connect` returns these sockets, one per probe, in order. */
-function connectTo(...sockets: FakeSocket[]): void {
-  for (const socket of sockets) {
-    vi.mocked(connect).mockReturnValueOnce(socket as unknown as TLSSocket);
-  }
-}
+const owner = { pid: 4242, root: "/worktrees/a", starter: 7 };
 
 beforeEach(() => {
   vi.mocked(loadRegistryCa).mockResolvedValue("ca-pem");
@@ -119,11 +76,7 @@ test("an open forward with no recorded owner is used, and reported as unowned", 
 });
 
 test("an open forward with a recorded owner is used without a warning", async () => {
-  vi.mocked(readForwardOwner).mockResolvedValue({
-    pid: 4242,
-    root: "/worktrees/a",
-    starter: 7,
-  });
+  vi.mocked(readForwardOwner).mockResolvedValue(owner);
   const lines: string[] = [];
 
   await localRegistryReference(
@@ -142,12 +95,11 @@ test("an open forward with a recorded owner is used without a warning", async ()
 
 test("a closed port starts the forward, records its owner, and waits until it answers", async () => {
   vi.useFakeTimers();
-  const repository = fakeRepository();
   const spawnPortForward = vi.fn(() => 1234);
   const answers = [false, false, true];
 
   const pending = localRegistryReference(
-    repository,
+    fakeRepository(),
     fakeRunner().runner,
     reference,
     {
@@ -158,8 +110,11 @@ test("a closed port starts the forward, records its owner, and waits until it an
   await vi.advanceTimersByTimeAsync(1000);
 
   await expect(pending).resolves.toBe("127.0.0.1:30500/reference:dev");
-  expect(spawnPortForward).toHaveBeenCalledExactlyOnceWith(repository);
-  expect(recordForwardOwner).toHaveBeenCalledExactlyOnceWith(repository, 1234);
+  expect(spawnPortForward).toHaveBeenCalledExactlyOnceWith(fakeRepository());
+  expect(recordForwardOwner).toHaveBeenCalledExactlyOnceWith(
+    fakeRepository(),
+    1234,
+  );
   expect(answers).toEqual([]);
 });
 
@@ -190,10 +145,9 @@ test("the default start runs kubectl detached with its output ignored, and recor
     fakeSocket({ error: new Error("connection refused") }),
     fakeSocket({ data: "HTTP/1.1 401 Unauthorized" }),
   );
-  const repository = fakeRepository();
 
   const pending = localRegistryReference(
-    repository,
+    fakeRepository(),
     fakeRunner().runner,
     reference,
   );
@@ -205,7 +159,7 @@ test("the default start runs kubectl detached with its output ignored, and recor
     stdio: "ignore",
   });
   expect(child.unref).toHaveBeenCalledOnce();
-  expect(recordForwardOwner).toHaveBeenCalledWith(repository, 1234);
+  expect(recordForwardOwner).toHaveBeenCalledWith(fakeRepository(), 1234);
 });
 
 test("a kubectl that starts without a process id fails with the start error", async () => {
@@ -273,11 +227,7 @@ test("stopping with no recorded owner terminates the matching forward and clears
 });
 
 test("a forward a conflicting owner still runs is left alone, with the reason and the way past it", async () => {
-  vi.mocked(readForwardOwner).mockResolvedValue({
-    pid: 4242,
-    root: "/worktrees/a",
-    starter: 7,
-  });
+  vi.mocked(readForwardOwner).mockResolvedValue(owner);
   vi.mocked(ownershipConflict).mockReturnValue(
     "it was started from /worktrees/a, so stop it from there",
   );
@@ -300,11 +250,7 @@ test("a forward a conflicting owner still runs is left alone, with the reason an
 });
 
 test("a conflicting owner that has already exited no longer blocks the stop", async () => {
-  vi.mocked(readForwardOwner).mockResolvedValue({
-    pid: 4242,
-    root: "/worktrees/a",
-    starter: 7,
-  });
+  vi.mocked(readForwardOwner).mockResolvedValue(owner);
   vi.mocked(ownershipConflict).mockReturnValue("some reason");
 
   await expect(stopRegistryForward(fakeRepository())).resolves.toEqual([]);
@@ -312,11 +258,7 @@ test("a conflicting owner that has already exited no longer blocks the stop", as
 });
 
 test("force stops a forward another owner holds, without asking whether it conflicts", async () => {
-  vi.mocked(readForwardOwner).mockResolvedValue({
-    pid: 4242,
-    root: "/worktrees/a",
-    starter: 7,
-  });
+  vi.mocked(readForwardOwner).mockResolvedValue(owner);
   vi.mocked(terminateMatching).mockResolvedValue([4242]);
 
   await expect(

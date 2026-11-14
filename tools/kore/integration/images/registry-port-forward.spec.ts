@@ -6,9 +6,17 @@ import type { Runner } from "../../src/runtime/index.js";
 const spawnMock = vi.hoisted(() => vi.fn());
 const connectionOutcomes = vi.hoisted(() => [] as boolean[]);
 vi.mock("node:child_process", () => ({ spawn: spawnMock }));
-vi.mock("../../src/images/registry-tls.js", () => ({
-  loadRegistryCa: async () => "ca-pem",
-}));
+// The runner answers the registry CA read with a PEM, so the real CA read runs.
+const caPem = "-----BEGIN CERTIFICATE-----\nQUJD\n-----END CERTIFICATE-----\n";
+const caRunner: Runner = {
+  run: async () => ({
+    stdout: JSON.stringify({
+      data: { "ca.crt": Buffer.from(caPem).toString("base64") },
+    }),
+    stderr: "",
+    code: 0,
+  }),
+};
 vi.mock("node:tls", () => ({
   connect: vi.fn(() => {
     const connected = connectionOutcomes.shift() ?? false;
@@ -39,13 +47,6 @@ test("local registry verification starts a host-side port forward", async () => 
     input: string | undefined;
   }[] = [];
   let portChecks = 0;
-  const runner: Runner = {
-    async run(command, args, options) {
-      calls.push({ command, args, input: options?.input });
-      return { stdout: "", stderr: "", code: 0 };
-    },
-  };
-
   const reference = await localRegistryReference(
     {
       kubeContext: "k3d-kore-local",
@@ -54,7 +55,7 @@ test("local registry verification starts a host-side port forward", async () => 
         kubeContext: "k3d-kore-local",
       },
     } as never,
-    runner,
+    caRunner,
     "registry.kore.local:30500/reference@sha256:" + "a".repeat(64),
     {
       spawnPortForward: (repository) => {
@@ -97,7 +98,7 @@ test("managed registry references pass through without a local port forward", as
       {
         environment: { provider: "managed", kubeContext: "managed" },
       } as never,
-      {} as Runner,
+      caRunner,
       reference,
       {
         spawnPortForward: () => {
@@ -119,7 +120,7 @@ test("an already available local registry avoids starting another port forward",
       {
         environment: { provider: "k3d", kubeContext: "k3d-kore-local" },
       } as never,
-      {} as Runner,
+      caRunner,
       reference,
       {
         isPortOpen: async () => true,
@@ -143,7 +144,7 @@ test("local registry setup reports when the port forward never becomes ready", a
       {
         environment: { provider: "k3d", kubeContext: "k3d-kore-local" },
       } as never,
-      {} as Runner,
+      caRunner,
       "registry.kore.local/reference:dev",
       {
         isPortOpen: async () => false,
@@ -166,7 +167,7 @@ test("default local registry setup starts kubectl and waits for its port", async
     await expect(
       localRegistryReference(
         repository,
-        {} as Runner,
+        caRunner,
         "registry.kore.local/reference:dev",
       ),
     ).resolves.toBe("127.0.0.1:30500/reference:dev");
@@ -199,7 +200,7 @@ test("default local registry setup fails if kubectl cannot start", async () => {
         {
           environment: { provider: "k3d", kubeContext: "k3d-kore-local" },
         } as never,
-        {} as Runner,
+        caRunner,
         "registry.kore.local/reference:dev",
       ),
     ).rejects.toThrow(/could not start the local OCI registry port-forward/);
@@ -219,7 +220,7 @@ test("a k3d environment starts the registry port forward for its own context", a
         kubeContext: "k3d-kore-local",
       },
     } as never,
-    {} as Runner,
+    caRunner,
     "10.96.0.50:5000/reference:kore-local",
     {
       spawnPortForward: (repository) => {
