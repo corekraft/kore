@@ -32,6 +32,7 @@ const KEYS = [
   "attribution",
   "guardBlocks",
   "outcomes",
+  "hostPressure",
   "skippedLines",
 ];
 
@@ -43,7 +44,7 @@ describe("flow report", () => {
     expect(Object.keys(report)).toEqual(KEYS);
     expect(report).toMatchObject({ bottleneckNote: null });
     expect(report).toMatchObject({
-      version: 6,
+      version: 7,
       asOf: "2026-01-02T03:04:05.000Z",
       ideas: { total: 3, completed: 3 },
       minCompletedIdeas: 3,
