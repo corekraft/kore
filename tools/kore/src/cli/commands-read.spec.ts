@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { beforeEach, expect, test, vi } from "vitest";
-import { orderedComponents } from "../config/index.js";
+import { orderedComponents, policyWarnings } from "../config/index.js";
 import { managedLockErrors } from "../images/index.js";
 import {
   doctor,
@@ -57,6 +57,22 @@ beforeEach(() => {
   vi.mocked(summarizeOperations).mockReturnValue(operations as never);
   vi.mocked(readJournal).mockResolvedValue([] as never);
   vi.mocked(managedLockErrors).mockReturnValue([]);
+  vi.mocked(policyWarnings).mockResolvedValue([]);
+});
+
+test("validate reports a constraint with no enforcementAction as a warning and still reports valid", async () => {
+  const warning =
+    "policy promotion: infra/policies/gatekeeper/constraints/rbac.yaml has no spec.enforcementAction, so Gatekeeper enforces deny with no audit stage; set enforcementAction: dryrun until a recorded promotion";
+  vi.mocked(policyWarnings).mockResolvedValue([warning]);
+  expect(
+    await validateCommand(
+      fakeContext({ command: "validate", repository, json: true }),
+    ),
+  ).toBe(0);
+  expect(print).toHaveBeenCalledWith(
+    expect.objectContaining({ status: "valid", warnings: [warning] }),
+    true,
+  );
 });
 
 test("validate reports the environment's components in order and its applications, without reading any lock", async () => {
@@ -74,6 +90,7 @@ test("validate reports the environment's components in order and its application
       components: 2,
       order: ["gateway", "registry"],
       applications: ["reference"],
+      warnings: [],
       status: "valid",
     },
     true,
