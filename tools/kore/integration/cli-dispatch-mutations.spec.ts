@@ -1,35 +1,35 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import { dispatch } from "./cli-dispatch.fixtures.js";
+import { dispatch } from "../src/cli/cli-dispatch.fixtures.js";
 
-vi.mock("../app/index.js", async () =>
-  (await import("./cli-dispatch.fixtures.js")).appModule(),
+vi.mock("../src/app/index.js", async () =>
+  (await import("../src/cli/cli-dispatch.fixtures.js")).appModule(),
 );
-vi.mock("../cluster/index.js", async () =>
-  (await import("./cli-dispatch.fixtures.js")).clusterModule(),
+vi.mock("../src/cluster/index.js", async () =>
+  (await import("../src/cli/cli-dispatch.fixtures.js")).clusterModule(),
 );
-vi.mock("../config/index.js", async () =>
-  (await import("./cli-dispatch.fixtures.js")).configModule(),
+vi.mock("../src/config/index.js", async () =>
+  (await import("../src/cli/cli-dispatch.fixtures.js")).configModule(),
 );
-vi.mock("../diagnostics/index.js", async () =>
-  (await import("./cli-dispatch.fixtures.js")).diagnosticsModule(),
+vi.mock("../src/diagnostics/index.js", async () =>
+  (await import("../src/cli/cli-dispatch.fixtures.js")).diagnosticsModule(),
 );
-vi.mock("../runtime/index.js", async () =>
-  (await import("./cli-dispatch.fixtures.js")).runtimeModule(),
+vi.mock("../src/runtime/index.js", async () =>
+  (await import("../src/cli/cli-dispatch.fixtures.js")).runtimeModule(),
 );
-vi.mock("../images/index.js", async () =>
-  (await import("./cli-dispatch.fixtures.js")).imagesModule(),
+vi.mock("../src/images/index.js", async () =>
+  (await import("../src/cli/cli-dispatch.fixtures.js")).imagesModule(),
 );
-vi.mock("../platform/index.js", async () =>
-  (await import("./cli-dispatch.fixtures.js")).platformModule(),
+vi.mock("../src/platform/index.js", async () =>
+  (await import("../src/cli/cli-dispatch.fixtures.js")).platformModule(),
 );
-vi.mock("../security/index.js", async () =>
-  (await import("./cli-dispatch.fixtures.js")).securityModule(),
+vi.mock("../src/security/index.js", async () =>
+  (await import("../src/cli/cli-dispatch.fixtures.js")).securityModule(),
 );
-vi.mock("../local/index.js", async () =>
-  (await import("./cli-dispatch.fixtures.js")).localModule(),
+vi.mock("../src/local/index.js", async () =>
+  (await import("../src/cli/cli-dispatch.fixtures.js")).localModule(),
 );
 
-import { main } from "./cli.js";
+import { main } from "../src/cli/cli.js";
 
 beforeEach(() => {
   dispatch.length = 0;
@@ -231,7 +231,7 @@ test("signer swap-key without --yes still reaches the operation, which refuses",
 });
 
 test("platform gate-check fails naming the prerequisite after it closes the gate", async () => {
-  const { closeGateIfDegraded } = await import("../platform/index.js");
+  const { closeGateIfDegraded } = await import("../src/platform/index.js");
   vi.mocked(closeGateIfDegraded).mockResolvedValueOnce({
     closed: true,
     failures: [
@@ -267,7 +267,7 @@ test("platform gate-check requires an explicit environment", async () => {
 });
 
 test("app up hands the app domain no tunnel hook", async () => {
-  const { appUpRelease } = await import("../app/index.js");
+  const { appUpRelease } = await import("../src/app/index.js");
   await main(["app", "up", "reference", "--environment", "local"]);
   expect(vi.mocked(appUpRelease).mock.calls.at(-1)?.[4]).toBeUndefined();
 });

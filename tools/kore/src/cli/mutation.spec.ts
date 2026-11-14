@@ -1,240 +1,123 @@
-import { access, mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { afterEach, beforeEach, expect, test } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { Repository } from "../config/index.js";
+import {
+  hostRoot,
+  lockScope,
+  withEnvironmentLock,
+  withHostLease,
+  withJournal,
+} from "../runtime/index.js";
 import type { Runner } from "../runtime/index.js";
 import { createMutate, lockWaitMs } from "./mutation.js";
 
-// Docs: AGENTS.md "Mutations are serialized per environment."
+// Real locks and journal files are integration tests (tools/kore/integration).
+// Here the lock, lease and journal are typed mocks, and the clock is not read.
 
-const runner: Runner = {
-  run: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
-} as unknown as Runner;
+vi.mock("../runtime/index.js");
 
-let host: string;
-let roots: string[] = [];
-const checkout = async () => {
-  const dir = await mkdtemp(join(tmpdir(), "kore-mutation-wt-"));
-  roots.push(dir);
-  return dir;
-};
-let previous: string | undefined;
+const tenMinutes = 10 * 60 * 1000;
+const thirtyMinutes = 30 * 60 * 1000;
+const runner = {} as Runner;
+const repository = {
+  root: "/repo",
+  environment: { name: "local", kubeContext: "k3d-kore-local" },
+} as unknown as Repository;
 
-beforeEach(async () => {
-  host = await mkdtemp(join(tmpdir(), "kore-mutation-host-"));
+beforeEach(() => {
   delete process.env.KORE_LOCK_WAIT_MS;
-  previous = process.env.KORE_HOST_ROOT;
-  process.env.KORE_HOST_ROOT = host;
-});
-
-afterEach(async () => {
-  delete process.env.KORE_LOCK_WAIT_MS;
-  if (previous === undefined) {
-    delete process.env.KORE_HOST_ROOT;
-  } else {
-    process.env.KORE_HOST_ROOT = previous;
-  }
-  await Promise.all(
-    [host, ...roots].map((dir) => rm(dir, { recursive: true, force: true })),
+  vi.mocked(hostRoot).mockReturnValue("/host");
+  vi.mocked(lockScope).mockReturnValue("kore-local");
+  vi.mocked(withEnvironmentLock).mockImplementation(
+    async (_root, _scope, operation) => operation(),
   );
-  roots = [];
+  vi.mocked(withHostLease).mockImplementation(async (operation) => operation());
+  vi.mocked(withJournal).mockImplementation(async (_entry, _runner, work) =>
+    work(runner),
+  );
 });
 
-/** A worktree checkout of the environment named `name`, on cluster `cluster`. */
-function worktree(root: string, name: string, cluster: string): Repository {
-  return {
-    root,
-    environment: {
-      name,
-      kubeContext: `k3d-${cluster}`,
-      k3d: { clusterName: cluster },
-    },
-  } as unknown as Repository;
-}
+afterEach(() => {
+  delete process.env.KORE_LOCK_WAIT_MS;
+});
 
-function mutateFor(
-  root: string,
-  name = "local",
-  cluster = "kore-local",
-  action = "up",
-) {
+function mutateFor(action: string, command = "local") {
   return createMutate({
-    command: "local",
+    command,
     action,
-    mutations: [action],
-    environmentName: name,
-    repository: worktree(root, name, cluster),
+    mutations: ["up", "stop"],
+    environmentName: "local",
+    repository,
     runner,
   });
 }
 
-test("two worktrees mutating one cluster are serialized: the second waits, then runs", async () => {
-  const first = mutateFor(await checkout());
-  const second = mutateFor(await checkout());
-  const order: string[] = [];
-  let release: () => void = () => undefined;
-  const blocked = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-
-  const running = first("up a", async () => {
-    order.push("a:start");
-    await blocked;
-    order.push("a:end");
-    return 0;
-  });
-  await new Promise((resolve) => setTimeout(resolve, 20));
-  const waiting = second("up b", async () => {
-    order.push("b:start");
-    order.push("b:end");
-    return 0;
-  });
-  await new Promise((resolve) => setTimeout(resolve, 200));
-  expect(order).toEqual(["a:start"]);
-
-  release();
-  await Promise.all([running, waiting]);
-  expect(order).toEqual(["a:start", "a:end", "b:start", "b:end"]);
+test("an ordinary mutation takes the environment lock for ten minutes and no host lease", async () => {
+  await mutateFor("stop")("stop local", async () => 0);
+  expect(withHostLease).not.toHaveBeenCalled();
+  expect(withEnvironmentLock).toHaveBeenCalledWith(
+    "/host",
+    "kore-local",
+    expect.any(Function),
+    { waitMs: tenMinutes },
+  );
 });
 
-test("a mutation that outwaits its holder is refused, naming the cluster", async () => {
-  process.env.KORE_LOCK_WAIT_MS = "100";
-  const first = mutateFor(await checkout(), "local", "kore-local", "stop");
-  const second = mutateFor(await checkout(), "local", "kore-local", "stop");
-  let release: () => void = () => undefined;
-  const blocked = new Promise<void>((resolve) => {
-    release = resolve;
+test("kore local up takes the exclusive host lease first, then the environment lock, waiting thirty minutes", async () => {
+  await mutateFor("up")("up local", async () => 0);
+  expect(withHostLease).toHaveBeenCalledWith(expect.any(Function), {
+    waitMs: thirtyMinutes,
   });
-  const running = first("up a", async () => {
-    await blocked;
-    return 0;
-  });
-  await new Promise((resolve) => setTimeout(resolve, 20));
-
-  await expect(second("up b", async () => 0)).rejects.toThrow(/kore-local/);
-  release();
-  await running;
+  expect(withEnvironmentLock).toHaveBeenCalledWith(
+    "/host",
+    "kore-local",
+    expect.any(Function),
+    { waitMs: thirtyMinutes },
+  );
 });
 
-test("a live run that outwaits the host lease is refused, naming the lease", async () => {
-  process.env.KORE_LOCK_WAIT_MS = "100";
-  const first = mutateFor(await checkout(), "local", "kore-local");
-  const second = mutateFor(await checkout(), "scratch", "kore-scratch");
-  let release: () => void = () => undefined;
-  const blocked = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const running = first("up a", async () => {
-    await blocked;
-    return 0;
-  });
-  await new Promise((resolve) => setTimeout(resolve, 20));
-
-  await expect(second("up b", async () => 0)).rejects.toThrow(/host-lease/);
-  release();
-  await running;
+test("the mutation is journaled under its label, cluster context and the repository root, with the runner it is given", async () => {
+  const work = vi.fn(async () => 0);
+  await mutateFor("stop")("stop local", work);
+  expect(withJournal).toHaveBeenCalledWith(
+    {
+      root: "/repo",
+      environment: "local",
+      command: "stop local",
+      context: "k3d-kore-local",
+    },
+    runner,
+    work,
+  );
 });
 
-test("kore local up holds the exclusive host lease; other mutations do not", async () => {
-  const lease = join(host, ".kore", "locks", "host-lease.lock");
-  const held = async (action: string, mutations: string[]) => {
-    let present = false;
-    await createMutate({
-      command: "local",
-      action,
-      mutations,
-      environmentName: "local",
-      repository: worktree(await checkout(), "local", "kore-local"),
-      runner,
-    })(action, async () => {
-      present = await access(lease).then(
-        () => true,
-        () => false,
-      );
-      return 0;
-    });
-    return present;
-  };
-
-  expect(await held("up", ["up"])).toBe(true);
-  expect(await held("stop", ["stop"])).toBe(false);
-  await expect(access(lease)).rejects.toThrow();
+test("the mutation returns the result of its work", async () => {
+  expect(await mutateFor("stop")("stop local", async () => 7)).toBe(7);
 });
 
-test("a live run on another cluster waits for the host lease instead of loading the host beside it", async () => {
-  const first = mutateFor(await checkout(), "local", "kore-local");
-  const second = mutateFor(await checkout(), "scratch", "kore-scratch");
-  const order: string[] = [];
-  let release: () => void = () => undefined;
-  const blocked = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const running = first("up a", async () => {
-    order.push("a:start");
-    await blocked;
-    order.push("a:end");
-    return 0;
-  });
-  await new Promise((resolve) => setTimeout(resolve, 20));
-  const waiting = second("up b", async () => {
-    order.push("b:start");
-    return 0;
-  });
-  await new Promise((resolve) => setTimeout(resolve, 200));
-  expect(order).toEqual(["a:start"]);
-
-  release();
-  await Promise.all([running, waiting]);
-  expect(order).toEqual(["a:start", "a:end", "b:start"]);
+test("an action the command does not list is refused before any lock or journal entry", async () => {
+  await expect(
+    mutateFor("destroy")("destroy local", async () => 0),
+  ).rejects.toThrow("unknown local action: destroy");
+  expect(withEnvironmentLock).not.toHaveBeenCalled();
+  expect(withJournal).not.toHaveBeenCalled();
+  expect(withHostLease).not.toHaveBeenCalled();
 });
 
-test("a lock wait that is not a number is refused before anything is locked", async () => {
-  for (const bad of ["", "10m", "-5"]) {
-    process.env.KORE_LOCK_WAIT_MS = bad;
-    await expect(
-      mutateFor(await checkout())("up", async () => 0),
-    ).rejects.toThrow(/KORE_LOCK_WAIT_MS/);
-  }
-  await expect(access(join(host, ".kore", "locks"))).rejects.toThrow();
+test("lockWaitMs gives kore local up thirty minutes and every other mutation ten", () => {
+  expect(lockWaitMs("local", "up")).toBe(thirtyMinutes);
+  expect(lockWaitMs("local", "stop")).toBe(tenMinutes);
+  expect(lockWaitMs("app", "up")).toBe(tenMinutes);
 });
 
-test("the lock is keyed by cluster name at a host path, not by worktree", async () => {
-  const mutate = mutateFor(await checkout());
-  let owner = "";
-  await mutate("up", async () => {
-    owner = await readFile(
-      join(host, ".kore", "locks", "kore-local.lock"),
-      "utf8",
-    );
-    return 0;
-  });
-  expect(JSON.parse(owner).pid).toBe(process.pid);
-});
-
-test("environments on different clusters do not block each other", async () => {
-  const one = mutateFor(await checkout(), "local", "kore-local", "stop");
-  const other = mutateFor(await checkout(), "scratch", "kore-scratch", "stop");
-  let inner = false;
-  await one("up", async () => {
-    await other("up", async () => {
-      inner = true;
-      return 0;
-    });
-    return 0;
-  });
-  expect(inner).toBe(true);
-});
-
-test("kore local up waits longer than a fresh up takes, and other mutations keep ten minutes", () => {
-  const freshUpMs = 20 * 60 * 1000;
-  expect(lockWaitMs("local", "up")).toBeGreaterThan(freshUpMs);
-  expect(lockWaitMs("local", "stop")).toBe(10 * 60 * 1000);
-  expect(lockWaitMs("app", "up")).toBe(10 * 60 * 1000);
-});
-
-test("KORE_LOCK_WAIT_MS overrides the longer local up default", () => {
+test("KORE_LOCK_WAIT_MS overrides the wait for every mutation, including local up", () => {
   process.env.KORE_LOCK_WAIT_MS = "1234";
   expect(lockWaitMs("local", "up")).toBe(1234);
   expect(lockWaitMs("local", "stop")).toBe(1234);
+});
+
+test("a KORE_LOCK_WAIT_MS that is not whole milliseconds is refused, naming the value and the fix", () => {
+  process.env.KORE_LOCK_WAIT_MS = "10m";
+  expect(() => lockWaitMs("local", "up")).toThrow(
+    'KORE_LOCK_WAIT_MS must be a whole number of milliseconds, got "10m"; unset it for the default',
+  );
 });

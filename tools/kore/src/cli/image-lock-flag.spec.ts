@@ -1,26 +1,48 @@
-import { expect, test } from "vitest";
+import { expect, test, vi, beforeEach } from "vitest";
+import { relative, resolve } from "node:path";
 import { imageLockFlag } from "./image-lock-flag.js";
-import { parseArgs } from "./flags.js";
+import { parsedArgs } from "./cli-support.js";
+
+vi.mock("node:path");
 
 const root = "/repo/kore";
-const flag = (...args: string[]) => imageLockFlag(parseArgs(args), root);
 
-test("no --image-lock keeps the committed lock", () => {
-  expect(flag("reference")).toBeUndefined();
+beforeEach(() => {
+  vi.mocked(resolve).mockImplementation((...parts) => parts.join("/"));
+  vi.mocked(relative).mockImplementation((_from, to) => `relative:${to}`);
 });
 
-test("an absolute --image-lock becomes the root-relative path the loader joins", () => {
-  expect(flag("--image-lock", "/tmp/release/images.lock.json")).toBe(
-    "../../tmp/release/images.lock.json",
+test("without --image-lock the flag resolves to nothing and touches no path", () => {
+  expect(imageLockFlag(parsedArgs(), root)).toBeUndefined();
+  expect(resolve).not.toHaveBeenCalled();
+  expect(relative).not.toHaveBeenCalled();
+});
+
+test("an absolute --image-lock is resolved against the root, then made root-relative for the loader", () => {
+  const flag = parsedArgs({
+    "image-lock": "/tmp/release/images.lock.json",
+  });
+  expect(imageLockFlag(flag, root)).toBe(
+    "relative:/repo/kore//tmp/release/images.lock.json",
+  );
+  expect(resolve).toHaveBeenCalledWith(root, "/tmp/release/images.lock.json");
+  expect(relative).toHaveBeenCalledWith(
+    root,
+    "/repo/kore//tmp/release/images.lock.json",
   );
 });
 
 test("a relative --image-lock is taken from the repository root", () => {
-  expect(flag("--image-lock=release/images.lock.json")).toBe(
-    "release/images.lock.json",
+  const flag = parsedArgs({ "image-lock": "release/images.lock.json" });
+  expect(imageLockFlag(flag, root)).toBe(
+    "relative:/repo/kore/release/images.lock.json",
   );
+  expect(resolve).toHaveBeenCalledWith(root, "release/images.lock.json");
 });
 
-test("--image-lock without a file is refused with the usage", () => {
-  expect(() => flag("--image-lock")).toThrow(/--image-lock requires a file/);
+test("--image-lock without a file is refused with the usage, before any path is resolved", () => {
+  expect(() => imageLockFlag(parsedArgs({ "image-lock": true }), root)).toThrow(
+    "--image-lock requires a file: the images.lock.json attached to a release",
+  );
+  expect(resolve).not.toHaveBeenCalled();
 });
