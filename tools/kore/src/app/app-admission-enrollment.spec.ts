@@ -5,7 +5,7 @@ import {
   healthyReadinessOutput,
   readPassword,
   pushPassword,
-} from "./app-fixtures.js";
+} from "../testing/index.js";
 import { enrollNamespace } from "./install.js";
 
 const label = "policy.sigstore.dev/include";

@@ -1,5 +1,4 @@
-import { loadRepository } from "./config.js";
-import type { Repository } from "./types.js";
+import { loadRepository, type Repository } from "../config/index.js";
 
 /** The cluster settings a managed overlay declares. */
 export const managedClusterSettings = {

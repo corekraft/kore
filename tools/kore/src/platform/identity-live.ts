@@ -2,7 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { assertExpectedCluster } from "../cluster/index.js";
 import { loadRepository, type Repository } from "../config/index.js";
-import { findRoot } from "../config/config.js";
+import { findRoot } from "../config/index.js";
 import {
   ProcessRunner,
   liveEnvironment,

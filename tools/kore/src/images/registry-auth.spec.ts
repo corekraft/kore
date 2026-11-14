@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { expect, test } from "vitest";
 import { loadRepository } from "../config/index.js";
-import { RecordingRunner } from "../runtime/runner.js";
+import { RecordingRunner } from "../runtime/index.js";
 import {
   ensureRegistryAuth,
   loadRegistryCredential,

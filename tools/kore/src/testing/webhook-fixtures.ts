@@ -1,4 +1,4 @@
-import { registryTlsSecret } from "../images/registry-tls-fixtures.js";
+import { registryTlsSecret } from "./registry-tls-fixtures.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 
 /** Releases the local catalog gates off, so a healthy cluster never has them. */

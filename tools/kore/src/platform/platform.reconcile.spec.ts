@@ -8,7 +8,7 @@ import { platformStatus } from "./status.js";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import type { Runner } from "../runtime/index.js";
-import { RecordingRunner } from "../runtime/runner.js";
+import { RecordingRunner } from "../runtime/index.js";
 import { tmpdir } from "node:os";
 
 test("the PostgreSQL connection secret is explicitly marked ready for Crossplane", async () => {

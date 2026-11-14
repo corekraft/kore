@@ -3,7 +3,7 @@ import { execFile } from "node:child_process";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { test } from "vitest";
-import { findRoot } from "../config/config.js";
+import { findRoot } from "../config/index.js";
 import { gatewayClassName, loadRepository } from "../config/index.js";
 
 // Docs: docs/decisions/0013-local-tls-before-gateway.md
