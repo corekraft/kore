@@ -35,6 +35,8 @@ The same guard also reads regexes inside `node -e` code (such as
 - There is no read-only `gh api` case, so `gh api user` with a `jq` login
   filter is blocked (3 transcripts).
 
+Evidence as reported by the retro: transcript counts, and the file `tools/harness/src/hook/guard-role-allow.ts` with the rule names `READER_GIT` and `SED_PRINT`; no line numbers given.
+
 ## 3. The writer and orchestrator definitions tell agents to use tools they do not have
 
 30 failures, the latest at 20:02Z on 2026-11-14. Line 29 of
@@ -54,12 +56,16 @@ Option: for these two rules, have the hook swap in the corrected command
 instead of blocking (PreToolUse `updatedInput`). Nothing in the harness does
 this yet, so it needs an ADR first.
 
+Evidence as reported by the retro: block counts only, no `file:line` given.
+
 ## 5. The scan's repeated-corrections list is mostly noise
 
 The largest groups are follow-up instructions typed into worker panes, not the
 user correcting an agent. Fix: add a step to `skills/spawn-session/SKILL.md` to
 start every follow-up with `[orchestrator]`, which the scan already skips. Of
 13 lines checked, none was a real correction worth a rule.
+
+Evidence as reported by the retro: counts only, no `file:line` given. `skills/spawn-session/SKILL.md` is the proposed fix location, not evidence.
 
 ## 6. Small scan miscount
 
@@ -69,6 +75,8 @@ that is really a `role-worktree` block.
 Other blocks look like they stopped what they should, except one
 `role-no-merge` block of `outcome record --help`. The three audit rules marked
 not-promotable should stay as they are.
+
+Evidence as reported by the retro: counts only, no `file:line` given for the miscounted blocks.
 
 ## No change proposed
 
