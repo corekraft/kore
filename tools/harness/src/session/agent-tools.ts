@@ -27,14 +27,20 @@ export function undeclaredTools(markdown: string): string[] {
     return [];
   }
   const body = markdown.replace(/^---\n[\s\S]*?\n---/, "");
-  const mentions = [
-    ...DISTINCT.map((name) => ({ name, pattern: `\\b${name}\\b` })),
-    ...COMMON.map((name) => ({ name, pattern: `\`${name}\`` })),
-  ]
-    .map(({ name, pattern }) => ({
-      name,
-      at: body.search(new RegExp(pattern)),
-    }))
-    .filter(({ name, at }) => at >= 0 && !tools.includes(name));
-  return mentions.sort((a, b) => a.at - b.at).map(({ name }) => name);
+  const found = new Map<string, number>();
+  const note = (name: string | undefined, at: number, known: string[]) => {
+    if (name !== undefined && known.includes(name) && !found.has(name)) {
+      found.set(name, at);
+    }
+  };
+  for (const word of body.matchAll(/[A-Za-z]+/g)) {
+    note(word[0], word.index, DISTINCT);
+  }
+  for (const quoted of body.matchAll(/`([A-Za-z]+)`/g)) {
+    note(quoted[1], quoted.index, [...DISTINCT, ...COMMON]);
+  }
+  return [...found]
+    .filter(([name]) => !tools.includes(name))
+    .sort((a, b) => a[1] - b[1])
+    .map(([name]) => name);
 }
