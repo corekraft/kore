@@ -8,5 +8,7 @@ export default defineConfig({
   test: {
     name: "integration",
     include: ["integration/**/*.ts"],
+    // Host locks and ownership records go to a temporary host root, never the real home.
+    setupFiles: ["integration-setup.ts"],
   },
 });
