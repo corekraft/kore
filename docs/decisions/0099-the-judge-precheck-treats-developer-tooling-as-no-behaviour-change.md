@@ -48,8 +48,9 @@ Tooling is:
 - `tools/harness/`, `.claude/`, `skills/`, `tools/kore/tests/`,
   `tools/kore/.husky`, `tools/kore/scripts`, the kore config files
   (`tools/kore/*.config.*`), the `check.yml`, `nightly.yml` and
-  `integration.yml` workflows, and `tools/kore/integration-setup.ts`, the setup
-  of the integration tier.
+  `integration.yml` workflows, `tools/kore/integration-setup.ts`, the setup
+  of the integration tier, and `tools/kore/integration/`, its specs and support
+  files.
 - `.mise.toml` at the repository root, the task wiring and tool pins of the
   repository ([ADR 0102](0102-the-judge-precheck-treats-mise-toml-as-developer-tooling.md)).
 - Test support inside `tools/kore/src`, by name: `*.fixtures.ts`,

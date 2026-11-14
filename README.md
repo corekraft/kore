@@ -290,6 +290,7 @@ is the source of truth.
 | `kore data`     | Exports retained CloudNativePG data as an age-encrypted, digest-manifested artifact, or restores it into a fresh profile.                      |
 | `kore local`    | Brings the whole local environment up or down (`--prune` destroys it; `--prune --purge-data` also purges retained data).                       |
 | `kore registry` | Rotates the registry's push and read passwords and the enrolled pull Secrets (`rotate-credentials --yes`).                                     |
+| `kore signer`   | Swaps the local cosign signing key and republishes only the public key to Policy Controller (`swap-key --yes`).                                |
 | `kore secrets`  | Syncs local secrets, including the generated API token, into the cluster.                                                                      |
 | `kore trust`    | Installs the local certificate authority before the Gateway is configured.                                                                     |
 | `kore ops`      | Offline checks: dependency inventory and integrity, recovery objectives, upgrade from the previous release, CRD safety. Read-only.             |

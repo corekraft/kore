@@ -17,7 +17,7 @@ Follow `AGENTS.md` and the `test-driven-development` skill. Write each failing t
    - Does it destroy anything? Keep the `--yes` gate. Does it destroy retained data? Keep `--purge-data` as a second opt-in.
    - Does it report state? Then it offers `--json`. What exactly does that object contain?
    - If it fails partway and is run again, does it recover?
-5. **Keep docs in step.** Update the `usage` string in `cli/usage.ts` and the matching section of `README.md`.
+5. **Keep docs in step.** Update the `usage` string in `cli/usage.ts` and the matching section of `README.md`. Two tests catch a missing entry: `cli/usage.spec.ts` fails, naming the command, when the usage text has no `kore <command>` line, and `integration/cli/readme-commands.spec.ts` fails, naming the command, when the README's Commands section has no `` `kore <command>` `` row.
 6. **Verify.** Run `mise run test` (typecheck, build, tests, coverage thresholds) and `npm --prefix tools/kore run lint`. Never lower the thresholds.
 
-Steps 2 and 6 are tools. Steps 1, 3, 4 and 5 are judgement: which domain owns the behavior and what the command mutates or destroys are design decisions.
+Steps 2, 5 (the usage and README name checks) and 6 are tools. Steps 1, 3, 4 and 5's wording are judgement: which domain owns the behavior and what the command mutates or destroys are design decisions. The usage and README checks catch a missing entry, but not an inaccurate one.

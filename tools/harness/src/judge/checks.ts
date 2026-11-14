@@ -1,4 +1,5 @@
 import type { Runner } from "../runtime/index.js";
+import { NAMED_HEAD, TRAILING_HEAD, VERDICT_LINE } from "./review-verdict.js";
 
 export const RESULTS = [
   "pass",
@@ -44,7 +45,6 @@ const CI_JOB = "check";
 const SCAN_JOB = "scan";
 /** The CI steps that run the suites with the coverage threshold: kore's and the harness's. */
 const COVERAGE_STEPS = ["Unit tests", "Harness tests"];
-const REVIEW = /^\s*principles-review:\s*(.*)$/im;
 
 function text(value: unknown): string {
   return typeof value === "string" ? value : "";
@@ -101,8 +101,6 @@ function job(view: PrView, name: string): Check {
     : { result, detail: `${name}: ${found.conclusion || found.status}` };
 }
 
-const NAMED_HEAD = /\bhead\s+([0-9a-f]{7,40})\b/i;
-
 /**
  * Whether a review covers the PR's current head. A review that names a commit
  * (`head <sha>`) is current only if that is the head; otherwise it must be newer
@@ -124,8 +122,8 @@ function current(view: PrView, comment: PrComment): boolean {
  * commit, decides. A review from anyone else, or from before the head commit, is not
  * trusted: the result is unverified, not a pass.
  */
-function review(view: PrView, reviewers: readonly string[]): Check {
-  const reviews = view.comments.filter((c) => REVIEW.test(c.body));
+export function reviewCheck(view: PrView, reviewers: readonly string[]): Check {
+  const reviews = view.comments.filter((c) => VERDICT_LINE.test(c.body));
   if (reviews.length === 0) {
     return {
       result: "missing",
@@ -150,8 +148,8 @@ function review(view: PrView, reviewers: readonly string[]): Check {
       detail: `no principles-review comment from ${reviewers.join(" or ")} for the current head (name it as "head <sha>", or post it after the head commit); rerun the review on the current head`,
     };
   }
-  const verdict = (REVIEW.exec(trusted.body)?.[1] ?? "")
-    .replace(/\s*\(?\bhead\s+[0-9a-f]{7,40}\)?\s*$/i, "")
+  const verdict = (VERDICT_LINE.exec(trusted.body)?.[1] ?? "")
+    .replace(TRAILING_HEAD, "")
     .trim();
   return /^no violations\.?$/i.test(verdict)
     ? { result: "pass" }
@@ -230,6 +228,6 @@ export async function gatherChecks(
     ci: job(view, CI_JOB),
     scan: job(view, SCAN_JOB),
     coverage: await coverage(runner, root, repo, view),
-    principlesReview: review(view, reviewers),
+    principlesReview: reviewCheck(view, reviewers),
   };
 }

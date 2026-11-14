@@ -1,0 +1,172 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { expect, test } from "vitest";
+import { loadImageLock, imageForApplication } from "../../src/images/image-lock.js";
+
+test("loads an application image only when its lock entry is immutable and signed", async () => {
+  const root = await mkdtemp(join(tmpdir(), "kore-image-lock-"));
+  await mkdir(join(root, "infra/catalog"), { recursive: true });
+  await writeFile(
+    join(root, "infra/catalog/images.lock.json"),
+    JSON.stringify({
+      version: 1,
+      authorizedSigners: ["release@kore.dev"],
+      entries: {
+        reference: {
+          image: "registry.kore.local/reference",
+          digest: "sha256:" + "a".repeat(64),
+          signer: "release@kore.dev",
+        },
+      },
+    }),
+  );
+
+  const lock = await loadImageLock(root);
+  expect(imageForApplication(lock, "reference")).toEqual({
+    reference: "registry.kore.local/reference@sha256:" + "a".repeat(64),
+    digest: "sha256:" + "a".repeat(64),
+    signer: "release@kore.dev",
+  });
+});
+
+test("allows an immutable image from a registry exposed on an explicit port", async () => {
+  const root = await mkdtemp(join(tmpdir(), "kore-image-lock-port-"));
+  await writeFile(
+    join(root, "images.lock.json"),
+    JSON.stringify({
+      version: 1,
+      authorizedSigners: ["release@kore.dev"],
+      entries: {
+        reference: {
+          image: "registry.kore.local:30500/reference",
+          digest: "sha256:" + "a".repeat(64),
+          signer: "release@kore.dev",
+        },
+      },
+    }),
+  );
+  await expect(loadImageLock(root, "images.lock.json")).resolves.toBeTruthy();
+});
+
+test("reports the required location when the image lock file is absent", async () => {
+  const root = await mkdtemp(join(tmpdir(), "kore-image-lock-missing-"));
+  await expect(loadImageLock(root, "images.lock.json")).rejects.toThrow(
+    /image lock is required at/,
+  );
+});
+
+test.each([
+  [
+    "tag-only",
+    {
+      image: "registry.kore.local/reference:latest",
+      digest: "",
+      signer: "release@kore.dev",
+    },
+  ],
+  [
+    "missing signer",
+    {
+      image: "registry.kore.local/reference",
+      digest: "sha256:" + "b".repeat(64),
+      signer: "",
+    },
+  ],
+  [
+    "invalid digest",
+    {
+      image: "registry.kore.local/reference",
+      digest: "sha256:bad",
+      signer: "release@kore.dev",
+    },
+  ],
+])("rejects an image lock with %s trust data", async (_case, entry) => {
+  const root = await mkdtemp(join(tmpdir(), "kore-image-lock-invalid-"));
+  await writeFile(
+    join(root, "images.lock.json"),
+    JSON.stringify({
+      version: 1,
+      authorizedSigners: ["release@kore.dev"],
+      entries: { reference: entry },
+    }),
+  );
+  await expect(loadImageLock(root, "images.lock.json")).rejects.toThrow(
+    /image lock|digest|signer/i,
+  );
+});
+
+test("refuses applications without a locked image", () => {
+  expect(() =>
+    imageForApplication(
+      { version: 1, authorizedSigners: ["release@kore.dev"], entries: {} },
+      "reference",
+    ),
+  ).toThrow(/no locked image/i);
+});
+
+test("rejects a locked image signed by an unauthorized identity", async () => {
+  const root = await mkdtemp(join(tmpdir(), "kore-image-lock-signer-"));
+  await writeFile(
+    join(root, "images.lock.json"),
+    JSON.stringify({
+      version: 1,
+      authorizedSigners: ["release@kore.dev"],
+      entries: {
+        reference: {
+          image: "registry.kore.local/reference",
+          digest: "sha256:" + "a".repeat(64),
+          signer: "developer@kore.dev",
+        },
+      },
+    }),
+  );
+  await expect(loadImageLock(root, "images.lock.json")).rejects.toThrow(
+    /unauthorized signer/i,
+  );
+});
+
+test.each([
+  ["not an object", "null", /must be an object/],
+  [
+    "wrong lock version",
+    JSON.stringify({ version: 2, entries: {}, authorizedSigners: ["a"] }),
+    /version 1/,
+  ],
+  [
+    "no authorized signers",
+    JSON.stringify({ version: 1, entries: {}, authorizedSigners: [] }),
+    /authorized signers/,
+  ],
+  [
+    "invalid application name",
+    JSON.stringify({
+      version: 1,
+      authorizedSigners: ["a"],
+      entries: { Bad_Name: {} },
+    }),
+    /invalid entry/,
+  ],
+  [
+    "invalid image reference",
+    JSON.stringify({
+      version: 1,
+      authorizedSigners: ["a"],
+      entries: {
+        app: {
+          image: "reference",
+          digest: "sha256:" + "a".repeat(64),
+          signer: "a",
+        },
+      },
+    }),
+    /internal image/,
+  ],
+])("rejects image lock with %s", async (_case, contents, message) => {
+  const root = await mkdtemp(join(tmpdir(), "kore-image-lock-shape-"));
+  await writeFile(join(root, "images.lock.json"), contents);
+  await expect(loadImageLock(root, "images.lock.json")).rejects.toThrow(
+    message,
+  );
+});

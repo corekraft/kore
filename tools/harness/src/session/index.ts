@@ -43,8 +43,9 @@ const notifyCommand: Command = {
 
 const closeCommand: Command = {
   summary:
-    "close a spawned pane once its result is recorded (<name>; only the pane that spawned it)",
+    "close a spawned pane once its result is recorded (<name>; only the pane that spawned it); --remove-worktree also removes its worktree and deletes its branch, only when a merged PR has that branch as its head and the worktree is clean, otherwise it keeps both and exits 1",
   operand: "name",
+  options: { "remove-worktree": "boolean" },
   run: close,
 };
 
