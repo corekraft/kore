@@ -1,6 +1,8 @@
 export { PATTERNS, parseDeclaration, type Pattern } from "./declaration.js";
 export { JudgeError } from "./errors.js";
 export { reviewCheck, type PrComment, type PrView } from "./checks.js";
+export { auditDeclaration, type Audit } from "./declaration-audit.js";
+export { harnessFreshness, type Freshness } from "./freshness.js";
 export { precheck, readPr, summary, type Report } from "./precheck.js";
 export { findingsFrom } from "./review-findings.js";
 export { postReview, type ReviewPosted } from "./review-post.js";
