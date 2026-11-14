@@ -1,167 +1,106 @@
-import assert from "node:assert/strict";
-import { it } from "vitest";
+// Append-only records: which paths a command rewrites, and the warning it raises. `warn` is mocked.
+
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  allowed,
-  bash,
-  blocked,
-  edit,
-  read,
-  write,
-  type Result,
-} from "../testing/index.js";
+  appendOnlyWarn,
+  checkAppendOnly,
+  isAppendOnly,
+  writtenPath,
+} from "./guard-append-only.js";
+import { warn, type Hit } from "./guard-verdict.js";
 
-const HISTORY = ".claude/evals/history.jsonl";
-const JOURNAL = ".kore/state/journal/local.jsonl";
-
-const appendOnlyWarned = (result: Result, label: string) => {
-  assert.equal(result.action, "warn", `${label}: ${JSON.stringify(result)}`);
-  assert.equal(result.rule, "append-only", label);
-  assert.match(result.message, /\[guard:append-only\]/, label);
-  assert.match(result.message, /eval\.mjs/, `${label}: names the eval owner`);
-  assert.match(result.message, /kore/, `${label}: names the kore owner`);
-  assert.match(result.message, /Instead/, `${label}: offers the fix`);
-};
-
-it("append-only: Edit and Write on a history or journal file warn, naming the owner and the fix", async () => {
-  for (const file of [HISTORY, JOURNAL]) {
-    appendOnlyWarned(await edit(`/repo/${file}`, "a", "b"), `Edit ${file}`);
-    appendOnlyWarned(await write(`/repo/${file}`, "{}\n"), `Write ${file}`);
-  }
-});
-
-it("append-only: Bash that truncates, rewrites, moves, or removes the files warns", async () => {
-  for (const command of [
-    `echo x > ${HISTORY}`,
-    `echo x >${JOURNAL}`,
-    `: > ${JOURNAL}`,
-    `sed -i '' s/a/b/ ${HISTORY}`,
-    `sed -i.bak s/a/b/ ${JOURNAL}`,
-    `rm ${HISTORY}`,
-    `rm -f .kore/state/journal/*.jsonl`,
-    `mv ${JOURNAL} /tmp/x`,
-    `mv /tmp/x ${HISTORY}`,
-    `truncate -s 0 ${JOURNAL}`,
-    `cd x && rm ${HISTORY}`,
-    `echo x | tee ${HISTORY}`,
-    `echo x | tee -p ${JOURNAL}`,
-    `cp /tmp/x ${JOURNAL}`,
-    `cp -f /tmp/x ${HISTORY}`,
-    `rm -rf .kore/state/journal`,
-    `rm -rf .kore/state/journal/`,
-    `rm -rf .kore/state`,
-    `rm -rf .kore/state/`,
-    `rm -rf .kore`,
-    `rm -rf .kore/`,
-    `rm -rf /repo/.kore/state/journal`,
-    `rm -rf /repo/.kore`,
-    `mv .kore/state/journal x`,
-    `mv .kore/state/journal/ x`,
-    `mv .kore /tmp/x`,
-  ]) {
-    appendOnlyWarned(await bash(command), command);
-  }
-});
-
-it("append-only: appending and reading the files is allowed", async () => {
-  for (const command of [
-    `echo x >> ${HISTORY}`,
-    `echo x >>${JOURNAL}`,
-    `cat ${HISTORY}`,
-    `tail -n 5 ${JOURNAL}`,
-    `grep fail ${HISTORY}`,
-    `cat ${JOURNAL} > /tmp/copy.txt`,
-    `rm /tmp/other.jsonl`,
-    `echo x | tee -a ${HISTORY}`,
-    `echo x | tee --append ${JOURNAL}`,
-    `echo x | tee /tmp/other.txt`,
-    `cp ${HISTORY} /tmp/backup.jsonl`,
-    `cp ${JOURNAL} /tmp/dir/`,
-    `echo x > .kore/state/other.txt`,
-    `rm -rf .kore/locks/x`,
-    `rm .kore/state/other.txt`,
-  ]) {
-    allowed(await bash(command));
-  }
-  allowed(await read(`/repo/${HISTORY}`));
-  allowed(await read(`/repo/${JOURNAL}`));
-  allowed(await edit("/repo/.claude/evals/other.jsonl", "a", "b"));
-});
+vi.mock("./guard-verdict.js");
 
 const LEDGER = ".kore/state/ledger.jsonl";
+const HISTORY = ".claude/evals/history.jsonl";
+const ROOT = "/repo";
 
-it("append-only: Edit and Write on the ledger warn, naming the harness ledger tool as owner", async () => {
-  for (const result of [
-    await edit(`/repo/${LEDGER}`, "a", "b"),
-    await write(`/repo/${LEDGER}`, "{}\n"),
-  ]) {
-    appendOnlyWarned(result, "ledger file tool");
-    assert.match(result.message, /harness ledger/, "names the ledger tool");
-  }
+beforeEach(() => {
+  vi.mocked(warn).mockImplementation((rule: string, message: string): Hit => ({
+    action: "warn",
+    rule,
+    message,
+  }));
 });
 
-it("append-only: Bash that rewrites, truncates, moves, or removes the ledger warns", async () => {
-  for (const command of [
-    `echo x > ${LEDGER}`,
-    `: > ${LEDGER}`,
-    `sed -i '' s/a/b/ ${LEDGER}`,
-    `truncate -s 0 ${LEDGER}`,
-    `mv ${LEDGER} /tmp/x`,
-    `mv /tmp/x ${LEDGER}`,
-    `rm ${LEDGER}`,
-    `rm -f /repo/${LEDGER}`,
-    `cp /tmp/x ${LEDGER}`,
-    `echo x | tee ${LEDGER}`,
-  ]) {
-    const result = await bash(command);
-    appendOnlyWarned(result, command);
-    assert.match(
-      result.message,
-      /harness ledger/,
-      `${command}: names the tool`,
+describe("isAppendOnly", () => {
+  it("matches each append-only record, with or without a directory before it", () => {
+    expect(isAppendOnly(HISTORY)).toBe(true);
+    expect(isAppendOnly(`/repo/${LEDGER}`)).toBe(true);
+    expect(isAppendOnly(".kore/state/journal/local.jsonl")).toBe(true);
+    expect(isAppendOnly(`.kore/state/test-pass/${"a".repeat(40)}/x`)).toBe(
+      true,
     );
-  }
+  });
+
+  it("does not match a record with a suffix, or an ordinary file", () => {
+    expect(isAppendOnly(`${HISTORY}.bak`)).toBe(false);
+    expect(isAppendOnly("docs/ledger.jsonl")).toBe(false);
+  });
 });
 
-it("append-only: recording to and reading the ledger is allowed", async () => {
-  for (const command of [
-    `echo x >> ${LEDGER}`,
-    `cat ${LEDGER}`,
-    `tail -n 5 ${LEDGER}`,
-    `grep stage ${LEDGER}`,
-    `cp ${LEDGER} /tmp/backup.jsonl`,
-    `node skills/bin/harness.mjs ledger record --source claude --stage build --kind start`,
-    `node skills/bin/harness.mjs ledger list`,
-  ]) {
-    allowed(await bash(command));
-  }
-  allowed(await read(`/repo/${LEDGER}`));
+describe("appendOnlyWarn", () => {
+  it("warns under the append-only rule, naming the path and the fix", () => {
+    const finding = appendOnlyWarn(LEDGER);
+    expect(finding).toMatchObject({ action: "warn", rule: "append-only" });
+    expect(warn).toHaveBeenCalledWith(
+      "append-only",
+      expect.stringContaining(`${LEDGER} is an append-only record`),
+    );
+    expect(vi.mocked(warn).mock.calls[0]?.[1]).toContain(
+      "Instead, append through",
+    );
+  });
 });
 
-it("append-only: a blocking rule in the same command still blocks", async () => {
-  blocked(await bash(`rm ${HISTORY} && kubectl get pods`), "kubectl-context");
+describe("writtenPath", () => {
+  it("finds the target of a truncating redirect, and no target for an append", () => {
+    const matches = (path: string) => path === LEDGER;
+    expect(
+      writtenPath("echo", ["x"], ["echo", "x", `>${LEDGER}`], matches),
+    ).toBe(LEDGER);
+    expect(
+      writtenPath("echo", ["x"], ["echo", "x", `>>${LEDGER}`], matches),
+    ).toBeUndefined();
+  });
+
+  it("finds the operand that a rewriting command changes", () => {
+    const matches = (path: string) => path === LEDGER;
+    expect(writtenPath("sed", ["-i", "s/a/b/", LEDGER], [], matches)).toBe(
+      LEDGER,
+    );
+    expect(writtenPath("mv", ["a", LEDGER], [], matches)).toBe(LEDGER);
+    expect(writtenPath("cp", ["a", LEDGER], [], matches)).toBe(LEDGER);
+    expect(writtenPath("tee", ["-a", LEDGER], [], matches)).toBeUndefined();
+    expect(writtenPath("cat", [LEDGER], [], matches)).toBeUndefined();
+  });
 });
 
-// A recorded test pass lets the commit hook skip its tests, so only the test
-// lock may write one: forged or deleted records are warned like the journals.
-const PASS = `.kore/state/test-pass/${"a".repeat(40)}/${"b".repeat(64)}`;
+describe("checkAppendOnly", () => {
+  it("warns when rm or mv removes a protected directory, with or without the repository prefix", () => {
+    expect(
+      checkAppendOnly("rm", ["-rf", ".kore/state/journal"], [], ROOT),
+    ).toMatchObject({
+      rule: "append-only",
+    });
+    expect(
+      checkAppendOnly("mv", [`${ROOT}/.kore/state`, "x"], [], ROOT),
+    ).toMatchObject({
+      rule: "append-only",
+    });
+  });
 
-it("append-only: a test-pass record cannot be written, moved or removed by hand", async () => {
-  for (const [label, result] of [
-    ["Edit", await edit(`/repo/${PASS}`, "a", "b")],
-    ["Write", await write(`/repo/${PASS}`, "{}\n")],
-    ["redirect", await bash(`echo '{}' > ${PASS}`)],
-    ["touch-by-copy", await bash(`cp /tmp/x ${PASS}`)],
-    ["rm", await bash(`rm ${PASS}`)],
-    ["rm dir", await bash(`rm -rf .kore/state/test-pass`)],
-    ["mv dir", await bash(`mv .kore/state/test-pass /tmp/x`)],
-  ] as const) {
-    assert.equal(result.action, "warn", `${label}: ${JSON.stringify(result)}`);
-    assert.equal(result.rule, "append-only", label);
-    assert.match(result.message, /test-lock\.mjs/, `${label}: names the owner`);
-  }
-});
+  it("warns when a rewriting command targets a record, and names the record", () => {
+    checkAppendOnly("sed", ["-i", "s/a/b/", LEDGER], [], ROOT);
+    expect(warn).toHaveBeenCalledWith(
+      "append-only",
+      expect.stringContaining(LEDGER),
+    );
+  });
 
-it("append-only: reading a test-pass record is allowed", async () => {
-  allowed(await bash(`cat ${PASS}`));
-  allowed(await bash(`ls .kore/state/test-pass`));
+  it("stays silent for an unrelated command, and never warns for a directory outside the protected set", () => {
+    expect(checkAppendOnly("rm", ["-rf", "src/build"], [], ROOT)).toBeNull();
+    expect(checkAppendOnly("cat", [LEDGER], [], ROOT)).toBeNull();
+    expect(warn).not.toHaveBeenCalled();
+  });
 });
