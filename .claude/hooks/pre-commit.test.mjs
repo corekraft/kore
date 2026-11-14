@@ -384,7 +384,7 @@ test("failing full harness unit tests block the commit with one actionable line"
 test("staging a .claude/hooks file runs no test command, since hook tests are integration tests", () => {
   const result = commit([".claude/hooks/a.mjs"]);
   assert.equal(result.status, 0);
-  assert.doesNotMatch(result.npmCalls, /test:hooks/);
+  assert.equal(result.npmCalls, "");
   assert.doesNotMatch(result.calls, /node --test/);
 });
 
