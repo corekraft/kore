@@ -1,10 +1,4 @@
 # Source files not yet converted to unit tests under ADR 0098; delete a line when its spec is rewritten (plan 14).
-environment-state.ts
-helm-timeout.ts
-host-lease.ts
-host-locks.ts
-index.ts
-journal.ts
 live-environment.ts
 live-groups.ts
 live-lock-setup.ts
