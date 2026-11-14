@@ -13,7 +13,7 @@ import {
   helmEnv,
   helmTemplateArgs,
   withAbsoluteChart,
-} from "../../src/platform/helm.js";
+} from "../../src/testing/index.js";
 
 const run = promisify(execFile);
 

@@ -11,10 +11,7 @@ import {
   helmTemplateArgs,
   withAbsoluteChart,
 } from "../../src/platform/index.js";
-import {
-  renderedImages,
-  unapprovedImages,
-} from "../../src/images/rendered-images.js";
+import { renderedImages, unapprovedImages } from "../../src/testing/index.js";
 
 const run = promisify(execFile);
 

@@ -7,12 +7,10 @@ import { loadRepository } from "../../src/config/index.js";
 import {
   classifySmokeLogs,
   dockerRunArgs,
-  smokeTargets,
-} from "../../src/platform/container-smoke.js";
-import {
   renderChart,
+  smokeTargets,
   yamlDocuments,
-} from "../../src/platform/upstream.live.js";
+} from "../../src/testing/index.js";
 
 const run = promisify(execFile);
 const uptimeMs = 5_000;

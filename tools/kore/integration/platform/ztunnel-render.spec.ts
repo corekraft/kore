@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { loadRepository } from "../../src/config/index.js";
-import { renderChart } from "../../src/platform/upstream.live.js";
+import { renderChart } from "../../src/testing/index.js";
 
 // Opt-in: renders the pinned ztunnel chart (needs helm, yq, and network).
 test.runIf(process.env["KORE_CHECK_UPSTREAM_CHARTS"] === "1")(
