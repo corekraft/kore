@@ -19,9 +19,10 @@ import type { Component, Repository } from "./types.js";
 
 vi.mock("node:fs/promises");
 vi.mock("node:path");
-vi.mock("./files.js");
-vi.mock("./order.js");
-vi.mock("./validate.js");
+// Factories, not automocks: the collaborators' real modules never load here.
+vi.mock("./files.js", () => ({ exists: vi.fn() }));
+vi.mock("./order.js", () => ({ orderedComponents: vi.fn() }));
+vi.mock("./validate.js", () => ({ validateRepository: vi.fn() }));
 // registryConsumers is a constant list: kept real so the test names its members.
 vi.mock("./registry-address.js", () => ({
   registryConsumers: ["kore-registry", "kore-ui"],

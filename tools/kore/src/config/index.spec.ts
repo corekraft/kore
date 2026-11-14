@@ -15,19 +15,64 @@ import { evaluateAudit } from "./policy-promotion.js";
 import { promoteConstraint } from "./policy-promotion-change.js";
 import { validateRepository } from "./validate.js";
 
-vi.mock("./approved.js");
-vi.mock("./config.js");
-vi.mock("./crd-ownership.js");
-vi.mock("./features.js");
-vi.mock("./files.js");
-vi.mock("./image-trust.js");
-vi.mock("./managed-cluster.js");
-vi.mock("./patch-validation.js");
-vi.mock("./policy-promotion.js");
-vi.mock("./policy-promotion-change.js");
-vi.mock("./provider.js");
-vi.mock("./registry-address.js");
-vi.mock("./validate.js");
+// Factories, not automocks: each module exports exactly the names the barrel
+// re-exports, and no real module graph loads here.
+vi.mock("./approved.js", () => ({ approvedImageList: vi.fn() }));
+vi.mock("./config.js", () => ({
+  absolute: vi.fn(),
+  componentValues: vi.fn(),
+  componentVersion: vi.fn(),
+  expandVersions: vi.fn(),
+  findRoot: vi.fn(),
+  loadRepository: vi.fn(),
+  orderedComponents: vi.fn(),
+}));
+vi.mock("./crd-ownership.js", () => ({
+  checkCrdOwnership: vi.fn(),
+  crdGroupErrors: vi.fn(),
+  crdNameFormatErrors: vi.fn(),
+  crdOwners: vi.fn(),
+  providerCrdGroupErrors: vi.fn(),
+  providerOwnsCrd: vi.fn(),
+  renderedCrdNames: vi.fn(),
+}));
+vi.mock("./features.js", () => ({
+  componentGatedOff: vi.fn(),
+  enabledComponents: vi.fn(),
+  featureEnabled: vi.fn(),
+  featureHelmArgs: vi.fn(),
+  gatewayClassName: vi.fn(),
+  ingressFlag: "ingress-agentgateway",
+}));
+vi.mock("./files.js", () => ({ exists: vi.fn() }));
+vi.mock("./image-trust.js", () => ({
+  localSigner: "local-kore-key",
+  noMatchPolicy: vi.fn(),
+  trustedSigners: vi.fn(),
+}));
+vi.mock("./managed-cluster.js", () => ({ managedCluster: vi.fn() }));
+vi.mock("./patch-validation.js", () => ({
+  patchableKinds: vi.fn(),
+  probeFields: vi.fn(),
+  probeNames: vi.fn(),
+}));
+vi.mock("./policy-promotion.js", () => ({
+  auditEvidence: vi.fn(),
+  evaluateAudit: vi.fn(),
+  policyPromotionErrors: vi.fn(),
+}));
+vi.mock("./policy-promotion-change.js", () => ({
+  promoteConstraint: vi.fn(),
+  recordPromotionEvidence: vi.fn(),
+  rollbackConstraint: vi.fn(),
+}));
+vi.mock("./provider.js", () => ({ isLocalProvider: vi.fn() }));
+vi.mock("./registry-address.js", () => ({
+  registryConsumers: [],
+  registryHelmArgs: vi.fn(),
+  registryPlan: vi.fn(),
+}));
+vi.mock("./validate.js", () => ({ validateRepository: vi.fn() }));
 
 test("the config barrel exposes exactly the entry points other domains use", () => {
   expect(Object.keys(config).sort()).toEqual([

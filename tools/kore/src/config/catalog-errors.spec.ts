@@ -8,8 +8,13 @@ import {
 import { componentPatchErrors } from "./patch-validation.js";
 import type { Component, Environment } from "./types.js";
 
-vi.mock("./crd-ownership.js");
-vi.mock("./patch-validation.js");
+// Factories, not automocks: the collaborators' real modules never load here.
+vi.mock("./crd-ownership.js", () => ({
+  crdGroupErrors: vi.fn(),
+  crdNameFormatErrors: vi.fn(),
+  providerCrdGroupErrors: vi.fn(),
+}));
+vi.mock("./patch-validation.js", () => ({ componentPatchErrors: vi.fn() }));
 
 const environment = {
   provider: "k3d",

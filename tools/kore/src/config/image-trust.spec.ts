@@ -12,8 +12,9 @@ import {
 import { registryPlan, type RegistryPlan } from "./registry-address.js";
 import type { Repository } from "./types.js";
 
-vi.mock("./enrollment.js");
-vi.mock("./registry-address.js");
+// Factories, not automocks: the collaborators' real modules never load here.
+vi.mock("./enrollment.js", () => ({ enrollmentExemptionErrors: vi.fn() }));
+vi.mock("./registry-address.js", () => ({ registryPlan: vi.fn() }));
 
 const release =
   "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v1.2.3";
