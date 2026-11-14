@@ -3,14 +3,9 @@
 import { describe, expect, it } from "vitest";
 import { run } from "../../src/cli/index.js";
 import { testHarness } from "../../src/testing/index.js";
-import {
-  KORE_BIN,
-  edited,
-  failing,
-  hook,
-  ledgerEvents,
-  root,
-} from "./feedback-support.js";
+import { hookFeedback } from "../../src/testing/index.js";
+
+const { KORE_BIN, edited, failing, hook, ledgerEvents, root } = hookFeedback;
 
 describe("hook feedback records ledger events", () => {
   it("records a tool end as success after any tool, with session, pane and tool", async () => {

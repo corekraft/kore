@@ -4,15 +4,10 @@
 import { describe, expect, it } from "vitest";
 import { run } from "../../src/cli/index.js";
 import { testHarness } from "../../src/testing/index.js";
-import {
-  HARNESS_BIN,
-  KORE_BIN,
-  edited,
-  failing,
-  hook,
-  lines,
-  marked,
-} from "./feedback-support.js";
+import { hookFeedback } from "../../src/testing/index.js";
+
+const { HARNESS_BIN, KORE_BIN, edited, failing, hook, lines, marked } =
+  hookFeedback;
 
 describe("hook feedback post-edit", () => {
   it("runs nothing for files outside the tracked sources", async () => {

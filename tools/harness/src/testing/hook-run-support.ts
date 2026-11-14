@@ -2,10 +2,10 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { run } from "../../src/cli/index.js";
-import { testHarness } from "../../src/testing/index.js";
-import { nodeFileSystem } from "../../src/runtime/index.js";
-import type { FakeRunner } from "../../src/testing/index.js";
+import { run } from "../cli/index.js";
+import { nodeFileSystem } from "../runtime/index.js";
+import { testHarness } from "./cli-support.js";
+import type { FakeRunner } from "./runner-support.js";
 
 export const agents = `# AGENTS.md
 
@@ -20,6 +20,81 @@ export const repoPlan = `# Plan
 - [ ] **Bound output.** Cap hook output
   at 40 lines.
 `;
+
+// Plan text the context specs read through the hook: a plan, a handed-off plan, and four steps.
+export const plan = `# Plan
+
+## Step 1: Done
+
+- [x] Finished work.
+
+## Step 2: Open
+
+### Work
+
+- [ ] **Bound output.** Cap hook output
+  at 40 lines.
+- [x] Done here.
+
+### Exit Criteria
+
+- [ ] A large report is bounded.
+`;
+
+export const handedOff = `# Plan
+
+## Step 8: Earlier
+
+- [ ] Confirm live.
+
+## Step 9: Operator Load
+
+Next: write the statusline tests, then
+wire it into settings.
+
+### Work
+
+- [x] Brief.
+- [ ] Statusline.
+
+## Results
+
+- Last retrospective: 2026-11-01
+`;
+
+export const fourSteps = `# Plan
+
+## Step 1: Done
+
+- [x] Finished.
+
+## Step 2: Current
+
+- [ ] Now.
+
+## Step 3: Third
+
+- [ ] Later.
+
+## Step 4: Closed
+
+- [x] Already done.
+
+## Step 5: Fifth
+
+- [ ] Later still.
+
+## Step 6: Sixth
+
+- [ ] Much later.
+
+## Step 7: Seventh
+
+- [ ] Beyond the horizon.
+`;
+
+export const frontmatter = (status: string) =>
+  `---\nstatus: ${status}\nsummary: A plan.\nlast-verified: 2026-11-07\n---\n\n`;
 
 const temps: string[] = [];
 export const temp = (prefix: string): string => {

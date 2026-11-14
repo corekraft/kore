@@ -11,14 +11,19 @@ import {
   openItems,
   upcomingSteps,
 } from "../../src/plan/index.js";
-import { fourSteps, frontmatter, handedOff, plan } from "./context-fixtures.js";
-import {
+import { hookRun } from "../../src/testing/index.js";
+
+const {
   additional,
   cleanTemps,
   context,
+  fourSteps,
+  frontmatter,
+  handedOff,
+  plan,
   repository,
   temp,
-} from "./context-run-support.js";
+} = hookRun;
 
 afterEach(cleanTemps);
 

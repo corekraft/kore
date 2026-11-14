@@ -3,13 +3,9 @@
 // Docs: infra/plans/4-knowledge.md#step-4-upward-context
 
 import { afterEach, describe, expect, it } from "vitest";
-import { frontmatter } from "./context-fixtures.js";
-import {
-  additional,
-  cleanTemps,
-  context,
-  repository,
-} from "./context-run-support.js";
+import { hookRun } from "../../src/testing/index.js";
+
+const { additional, cleanTemps, context, frontmatter, repository } = hookRun;
 
 afterEach(cleanTemps);
 

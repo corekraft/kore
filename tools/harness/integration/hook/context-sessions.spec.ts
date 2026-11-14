@@ -4,15 +4,10 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import {
-  additional,
-  agents,
-  cleanTemps,
-  context,
-  repoPlan as plan,
-  repository,
-  temp,
-} from "./context-run-support.js";
+import { hookRun } from "../../src/testing/index.js";
+
+const { additional, agents, cleanTemps, context, repository, temp } = hookRun;
+const { repoPlan: plan } = hookRun;
 
 afterEach(cleanTemps);
 

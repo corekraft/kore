@@ -1,7 +1,9 @@
 // Feedback hook, stop mode.
 
 import { describe, expect, it } from "vitest";
-import { failing, hook, lines, marked } from "./feedback-support.js";
+import { hookFeedback } from "../../src/testing/index.js";
+
+const { failing, hook, lines, marked } = hookFeedback;
 
 describe("hook feedback stop", () => {
   it("costs nothing when no TypeScript changed", async () => {
