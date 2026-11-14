@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { testHarness } from "../../src/testing/index.js";
-import { run } from "../../src/cli/index.js";
 import {
   INSIDE,
   gitCommon,
   herdrCalls,
   layoutOf,
   stateFile,
-} from "../../src/session/spawn-support.js";
+  testHarness,
+} from "../../src/testing/index.js";
+import { run } from "../../src/cli/index.js";
 
 const created = {
   name: "image-trust-writer",

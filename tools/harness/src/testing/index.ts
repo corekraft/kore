@@ -37,6 +37,13 @@ export {
 } from "./guard-support.js";
 export { cleanGitEnv } from "./git-env.js";
 export {
+  INSIDE,
+  gitCommon,
+  herdrCalls,
+  layoutOf,
+  stateFile,
+} from "./close-session-support.js";
+export {
   committedInventory,
   committedInventoryText,
   inventoryWith,
