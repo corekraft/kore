@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "vitest";
-import { loadRepository, validateRepository } from "./config.js";
-import { loadManagedLocal } from "../testing/index.js";
-import { managedCluster } from "./managed-cluster.js";
-import type { Environment, Repository } from "./types.js";
+import { loadRepository, validateRepository } from "../../src/config/config.js";
+import { loadManagedLocal } from "../../src/testing/index.js";
+import { managedCluster } from "../../src/config/managed-cluster.js";
+import type { Environment, Repository } from "../../src/config/types.js";
 
 const k3d = {
   clusterName: "kore-local",

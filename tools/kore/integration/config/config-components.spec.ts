@@ -7,7 +7,7 @@ import {
   componentVersion,
   expandVersions,
   loadRepository,
-} from "./config.js";
+} from "../../src/config/config.js";
 
 test("component helpers resolve local and pinned versions and combine value files", async () => {
   const repository = await loadRepository("local");

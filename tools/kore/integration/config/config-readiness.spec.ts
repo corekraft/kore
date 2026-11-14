@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { loadRepository, validateRepository } from "./config.js";
-import type { ReadinessManifest, Repository } from "./types.js";
+import { loadRepository, validateRepository } from "../../src/config/config.js";
+import type { ReadinessManifest, Repository } from "../../src/config/types.js";
 
 // Docs: docs/decisions/0067-platform-readiness-manifest-and-evidence.md
 

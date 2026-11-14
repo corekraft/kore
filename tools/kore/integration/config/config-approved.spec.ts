@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { loadRepository, validateRepository } from "./config.js";
-import type { ApprovedImage, Repository } from "./types.js";
+import { loadRepository, validateRepository } from "../../src/config/config.js";
+import type { ApprovedImage, Repository } from "../../src/config/types.js";
 
 async function withApproved(
   change: (images: ApprovedImage[]) => ApprovedImage[],

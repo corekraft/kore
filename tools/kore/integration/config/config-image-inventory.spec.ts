@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { loadRepository, validateRepository } from "./config.js";
+import { loadRepository, validateRepository } from "../../src/config/config.js";
 
 // Docs: docs/decisions/0056-platform-image-inventory.md
 
