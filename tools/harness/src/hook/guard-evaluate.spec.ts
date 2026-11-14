@@ -20,6 +20,7 @@ const ROOT = "/repo";
 const ctx: GuardContext = {
   root: ROOT,
   readFile: () => Promise.reject(new Error("no file in this unit")),
+  cwd: ROOT,
   globMatches: () => Promise.resolve(false),
   modeOf: () => "enforce",
   denyRules: [],

@@ -20,6 +20,7 @@ const SETTINGS = ".claude/settings.json";
 const ctxWith = (denyRules: DenyRule[]): GuardContext => ({
   root: "/repo",
   readFile: () => Promise.reject(new Error("no file in this unit")),
+  cwd: "/repo",
   globMatches: () => Promise.resolve(false),
   modeOf: () => "enforce",
   denyRules,

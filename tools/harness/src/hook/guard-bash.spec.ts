@@ -45,6 +45,7 @@ const ALLOW: Verdict = { action: "allow" };
 const ctx: GuardContext = {
   root: "/repo",
   readFile: () => Promise.reject(new Error("no file in this unit")),
+  cwd: "/repo",
   globMatches: () => Promise.resolve(false),
   modeOf: () => "enforce",
   denyRules: [],

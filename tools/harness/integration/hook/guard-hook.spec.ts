@@ -174,6 +174,7 @@ describe("hook guard faults", () => {
 
 const absent = {
   root: "/repo",
+  cwd: "/repo",
   globMatches: () => Promise.resolve(false),
   modeOf: (rule: string) => modeOf(committedInventory, rule),
   denyRules: [],
@@ -199,6 +200,7 @@ describe("guard evaluation edges", () => {
   it("rethrows an unexpected read error so the hook fails open with its cause", async () => {
     const denied = {
       root: "/repo",
+      cwd: "/repo",
       globMatches: absent.globMatches,
       modeOf: absent.modeOf,
       denyRules: [],
