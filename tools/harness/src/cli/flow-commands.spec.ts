@@ -140,7 +140,7 @@ describe("flow report: cost settings", () => {
     vi.mocked(join).mockReturnValue(CONFIG);
     exists.mockResolvedValue(true);
     readFile.mockResolvedValue("cost: {}");
-    vi.mocked(parseHarnessConfig).mockReturnValue({ cost: config } as never);
+    vi.mocked(parseHarnessConfig).mockReturnValue({ cost: config });
     ledgerOf();
     vi.mocked(buildReport).mockReturnValue(emptyReport());
 
@@ -159,9 +159,7 @@ describe("flow report: cost settings", () => {
     const { context, stderr, exists } = contextOf({}, true);
     vi.mocked(join).mockReturnValue(CONFIG);
     exists.mockResolvedValue(true);
-    vi.mocked(parseHarnessConfig).mockReturnValue({
-      error: "bad cost",
-    } as never);
+    vi.mocked(parseHarnessConfig).mockReturnValue({ error: "bad cost" });
 
     expect(await run(context)).toBe(1);
     expect(stderr).toHaveBeenCalledWith(
@@ -276,9 +274,7 @@ describe("flow report: a populated report", () => {
 describe("flow report: ledger", () => {
   it("refuses when the ledger cannot open, and prints nothing", async () => {
     const { context, stderr, stdout } = contextOf();
-    vi.mocked(openLedger).mockResolvedValue({
-      error: "no ledger here",
-    } as unknown as Awaited<ReturnType<typeof openLedger>>);
+    vi.mocked(openLedger).mockResolvedValue({ error: "no ledger here" });
 
     expect(await run(context)).toBe(1);
     expect(stderr).toHaveBeenCalledWith("no ledger here\n");

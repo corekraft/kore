@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { CommandError, type CliDeps } from "../runtime/index.js";
+import { depsWith } from "./command-support.js";
 import { run } from "./cli.js";
 
 const table = vi.hoisted(() => {
@@ -28,14 +29,14 @@ let captured = { out: "", err: "" };
 
 function depsOf(): CliDeps {
   captured = { out: "", err: "" };
-  return {
+  return depsWith({
     stdout: (text: string) => {
       captured.out += text;
     },
     stderr: (text: string) => {
       captured.err += text;
     },
-  } as unknown as CliDeps;
+  });
 }
 
 function outputOf() {

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import pkg from "../../package.json" with { type: "json" };
-import type { CommandContext } from "../runtime/index.js";
+import { contextWith } from "./command-support.js";
 import { domains } from "./domains.js";
 
 // Factory mocks: the table only assembles the other domains' exports, so none of
@@ -33,7 +33,7 @@ vi.mock("./records.js", () => ({ records: fakes.records }));
 
 function contextOf(json: boolean) {
   const stdout = vi.fn();
-  const context = { json, deps: { stdout } } as unknown as CommandContext;
+  const context = contextWith({ stdout }, {}, json);
   return { context, stdout };
 }
 

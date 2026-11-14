@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { precheck, summary } from "../judge/index.js";
-import type { CommandContext } from "../runtime/index.js";
+import { contextWith } from "./command-support.js";
 import { judgeCommands } from "./judge-commands.js";
 import { mergeCommands } from "./judge-merge-commands.js";
 import {
@@ -11,6 +11,7 @@ import {
   repoOf,
   reviewersOf,
 } from "./judge-shared.js";
+import { REPO, reportOf, ROOT } from "./judge-command-support.js";
 
 vi.mock("../judge/index.js");
 vi.mock("./judge-merge-commands.js", () => ({
@@ -25,18 +26,16 @@ vi.mock("./judge-shared.js", async (importOriginal) => ({
   reviewersOf: vi.fn(),
 }));
 
-const ROOT = "/repo";
-const REPO = "corekraft/kore";
-const REPORT = { ok: true, pr: 42 };
+const REPORT = reportOf();
 
 function contextOf(json = false, operand: string | undefined = "42") {
   const stdout = vi.fn();
-  const context = {
+  const context = contextWith(
+    { root: vi.fn().mockResolvedValue(ROOT), stdout },
+    { reviewer: "bot" },
     json,
     operand,
-    options: { reviewer: "bot" },
-    deps: { root: vi.fn().mockResolvedValue(ROOT), stdout },
-  } as unknown as CommandContext;
+  );
   return { context, stdout };
 }
 
@@ -51,7 +50,7 @@ describe("harness judge precheck", () => {
   it("runs the precheck on the PR, prints the summary, and records the verdict", async () => {
     const { context, stdout } = contextOf();
     ready();
-    vi.mocked(precheck).mockResolvedValue(REPORT as never);
+    vi.mocked(precheck).mockResolvedValue(REPORT);
 
     expect(await judgeCommands.precheck?.run(context)).toBe(0);
     expect(prNumber).toHaveBeenCalledWith(
@@ -66,7 +65,7 @@ describe("harness judge precheck", () => {
   it("prints the report as JSON under --json", async () => {
     const { context, stdout } = contextOf(true);
     ready();
-    vi.mocked(precheck).mockResolvedValue(REPORT as never);
+    vi.mocked(precheck).mockResolvedValue(REPORT);
 
     await judgeCommands.precheck?.run(context);
     expect(stdout).toHaveBeenCalledWith(`${JSON.stringify(REPORT)}\n`);
@@ -75,7 +74,7 @@ describe("harness judge precheck", () => {
   it("fails with the failing exit code when the precheck does not pass, still printing and recording it", async () => {
     const { context, stdout } = contextOf();
     ready();
-    vi.mocked(precheck).mockResolvedValue({ ok: false, pr: 42 } as never);
+    vi.mocked(precheck).mockResolvedValue(reportOf({ ok: false }));
 
     expect(await judgeCommands.precheck?.run(context)).toBe(FAILED);
     expect(stdout).toHaveBeenCalledWith("SUMMARY");

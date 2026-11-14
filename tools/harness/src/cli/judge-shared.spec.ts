@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import { parseHarnessConfig } from "../flow/index.js";
 import { Ledger } from "../ledger/index.js";
 import { JudgeError, reviewersFor } from "../judge/index.js";
-import { bundleMainRoot, type CommandContext } from "../runtime/index.js";
+import { bundleMainRoot } from "../runtime/index.js";
+import { contextWith, fakeLedger } from "./command-support.js";
 import {
   failed,
   FAILED,
@@ -13,6 +14,7 @@ import {
   repoOf,
   reviewersOf,
 } from "./judge-shared.js";
+import { CLOCK, harnessConfig, reportOf } from "./judge-command-support.js";
 
 vi.mock("node:path");
 vi.mock("../flow/index.js", async (importOriginal) => ({
@@ -34,7 +36,6 @@ vi.mock("../runtime/index.js", async (importOriginal) => ({
 
 const MAIN = "/main";
 const LEDGER_PATH = "/main/.kore/state/ledger.jsonl";
-const CLOCK = { now: () => new Date("2026-01-02T03:04:05Z") };
 
 function contextOf(
   options: Record<string, string | boolean> = {},
@@ -44,18 +45,32 @@ function contextOf(
   const run = vi.fn();
   const exists = vi.fn().mockResolvedValue(false);
   const readFile = vi.fn();
-  const context = {
-    json,
-    options,
-    deps: {
+  const context = contextWith(
+    {
       fs: { exists, readFile },
       clock: CLOCK,
       ids: { ids: true },
       stderr,
       runner: { run },
     },
-  } as unknown as CommandContext;
+    options,
+    json,
+  );
   return { context, stderr, run, exists, readFile };
+}
+
+/** Makes `new Ledger(...)` in the unit return a fake that lists these events and records to `write`. */
+function ledgerWith(
+  events: { label: string; number?: number }[] = [],
+  result?: Parameters<typeof fakeLedger>[1],
+) {
+  const fake = fakeLedger(events, result);
+  // A plain function, so `new Ledger(...)` in the unit returns this fake.
+  vi.mocked(Ledger).mockImplementation(function () {
+    return fake.ledger;
+  });
+  vi.mocked(bundleMainRoot).mockResolvedValue(MAIN);
+  return fake;
 }
 
 describe("judge failed", () => {
@@ -145,10 +160,9 @@ describe("judge reviewers from the harness config", () => {
     vi.mocked(join).mockReturnValue("/main/harness.yaml");
     exists.mockResolvedValue(true);
     readFile.mockResolvedValue("config");
-    vi.mocked(parseHarnessConfig).mockReturnValue({
-      reviewerLogins: ["bot"],
-      ownerLogin: "owner",
-    } as never);
+    vi.mocked(parseHarnessConfig).mockReturnValue(
+      harnessConfig({ reviewerLogins: ["bot"], ownerLogin: "owner" }),
+    );
     vi.mocked(reviewersFor).mockReturnValue(["bot"]);
 
     expect(await reviewersOf(context, "corekraft/kore")).toEqual(["bot"]);
@@ -177,9 +191,7 @@ describe("judge reviewers from the harness config", () => {
     vi.mocked(bundleMainRoot).mockResolvedValue(MAIN);
     vi.mocked(join).mockReturnValue("/main/harness.yaml");
     exists.mockResolvedValue(true);
-    vi.mocked(parseHarnessConfig).mockReturnValue({
-      error: "bad yaml",
-    } as never);
+    vi.mocked(parseHarnessConfig).mockReturnValue({ error: "bad yaml" });
 
     await expect(reviewersOf(context, "corekraft/kore")).rejects.toThrow(
       "bad yaml The judge reads whom to trust from this file; fix it, or pass --reviewer <login>.",
@@ -226,36 +238,19 @@ describe("judge repository", () => {
 });
 
 describe("judge precheck record", () => {
-  function ledgerWith(
-    events: { number?: number; label?: string }[] = [],
-    write = vi.fn().mockResolvedValue({ ok: true }),
-  ) {
-    const ledger = {
-      list: vi.fn().mockResolvedValue({ events }),
-      record: write,
-    };
-    // A class, so `new Ledger(...)` in the unit returns this fake.
-    vi.mocked(Ledger).mockImplementation(
-      class {
-        constructor() {
-          return ledger as unknown as Ledger;
-        }
-      } as never,
-    );
-    vi.mocked(bundleMainRoot).mockResolvedValue(MAIN);
-    return ledger;
-  }
-
   it("records a new verdict as a github precheck event, with its pattern and idea", async () => {
     const { context } = contextOf();
     const ledger = ledgerWith();
-    await record(context, {
-      pr: 42,
-      ok: true,
-      pattern: "no-behaviour-change",
-      idea: "#193",
-    } as never);
-    expect(ledger.record.mock.calls).toEqual([
+    await record(
+      context,
+      reportOf({
+        pr: 42,
+        ok: true,
+        pattern: "no-behaviour-change",
+        idea: "#193",
+      }),
+    );
+    expect(ledger.write.mock.calls).toEqual([
       [
         {
           source: "github",
@@ -272,8 +267,8 @@ describe("judge precheck record", () => {
   it("labels a verdict with no declared pattern as none, and leaves out an idea that is not a plain reference", async () => {
     const { context } = contextOf();
     const ledger = ledgerWith();
-    await record(context, { pr: 42, ok: false, idea: "bad idea!" } as never);
-    expect(ledger.record.mock.calls[0]?.[0]).toEqual({
+    await record(context, reportOf({ pr: 42, ok: false, idea: "bad idea!" }));
+    expect(ledger.write.mock.calls[0]?.[0]).toEqual({
       source: "github",
       kind: "precheck",
       occurredAt: "2026-01-02T03:04:05.000Z",
@@ -285,15 +280,15 @@ describe("judge precheck record", () => {
   it("records nothing when the PR's newest verdict already has this label", async () => {
     const { context } = contextOf();
     const ledger = ledgerWith([{ number: 42, label: "none:fail" }]);
-    await record(context, { pr: 42, ok: false } as never);
-    expect(ledger.record).not.toHaveBeenCalled();
+    await record(context, reportOf({ pr: 42, ok: false }));
+    expect(ledger.write).not.toHaveBeenCalled();
   });
 
   it("refuses a rejected event, and says to rerun the precheck", async () => {
     const { context } = contextOf();
-    ledgerWith([], vi.fn().mockResolvedValue({ ok: false, message: "full" }));
+    ledgerWith([], { ok: false, field: "label", message: "full" });
     await expect(
-      record(context, { pr: 42, ok: true } as never),
+      record(context, reportOf({ pr: 42, ok: true })),
     ).rejects.toThrow(
       "The precheck ran, but its ledger event was rejected: full Fix the ledger, then rerun `harness judge precheck 42`.",
     );

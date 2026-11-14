@@ -2,7 +2,8 @@
 // so it needs no spec of its own (ADR 0098).
 import { vi } from "vitest";
 import type { FlowReport } from "../flow/index.js";
-import type { CommandContext } from "../runtime/index.js";
+import type { Ledger } from "../ledger/index.js";
+import { contextWith } from "./command-support.js";
 import { openLedger } from "./ledger-commands.js";
 
 export const NOW = new Date("2026-01-02T03:04:05Z");
@@ -18,25 +19,27 @@ export function contextOf(
   const root = vi.fn().mockResolvedValue(ROOT);
   const exists = vi.fn().mockResolvedValue(false);
   const readFile = vi.fn();
-  const context = {
-    json,
-    options,
-    deps: {
+  const context = contextWith(
+    {
       clock: { now: () => NOW },
       root,
       fs: { exists, readFile },
       stdout,
       stderr,
     },
-  } as unknown as CommandContext;
+    options,
+    json,
+  );
   return { context, stdout, stderr, root, exists, readFile };
 }
 
 /** Makes the mocked ledger open with these events and this many skipped lines. */
 export function ledgerOf(events: unknown[] = [], skipped = 0) {
-  vi.mocked(openLedger).mockResolvedValue({
-    ledger: { list: vi.fn().mockResolvedValue({ events, skipped }) },
-  } as unknown as Awaited<ReturnType<typeof openLedger>>);
+  // The cast stands in for the ledger's file handling; the report reads only `list`.
+  const ledger = {
+    list: vi.fn().mockResolvedValue({ events, skipped }),
+  } as unknown as Ledger;
+  vi.mocked(openLedger).mockResolvedValue({ ledger });
 }
 
 /** A report with nothing in it, so each human line is the one the report prints. */
@@ -77,6 +80,7 @@ export function emptyReport(overrides: Partial<Record<string, unknown>> = {}) {
       ownerMinutes: { perMerged: null, minutes: 0, merged: 0 },
     },
     ...overrides,
+    // The cast stands in for the fields the report prints but these tests never read.
   } as unknown as FlowReport;
 }
 
