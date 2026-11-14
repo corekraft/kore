@@ -36,6 +36,12 @@ test("usage opens with the product name and the usage heading", () => {
   ]);
 });
 
+test("usage describes the validate warnings and the environment exemptionCheck mode", () => {
+  expect(usage).toContain(
+    "environment exemptionCheck: audit|enforce, unset reads as audit",
+  );
+});
+
 test("usage does not mention the removed tunnel command", () => {
   expect(usage).not.toMatch(/tunnel/i);
 });

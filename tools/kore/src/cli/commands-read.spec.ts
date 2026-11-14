@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { beforeEach, expect, test, vi } from "vitest";
 import { orderedComponents } from "../config/index.js";
+import type { Repository } from "../config/index.js";
 import { managedLockErrors } from "../images/index.js";
 import {
   doctor,
@@ -79,6 +80,41 @@ test("validate reports the environment's components in order and its application
     true,
   );
   expect(readFile).not.toHaveBeenCalled();
+});
+
+test("validate carries warnings in the report and on stderr, and still exits 0", async () => {
+  const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  const warned: Repository = {
+    ...repository,
+    warnings: ["policy x: namespace y is not listed"],
+  };
+  const context = fakeContext({
+    command: "validate",
+    repository: warned,
+    json: true,
+  });
+  expect(await validateCommand(context)).toBe(0);
+  expect(error.mock.calls).toEqual([
+    ["warning: policy x: namespace y is not listed"],
+  ]);
+  expect(print).toHaveBeenCalledWith(
+    {
+      environment: "local",
+      components: 2,
+      order: ["gateway", "registry"],
+      applications: ["reference"],
+      status: "valid",
+      warnings: ["policy x: namespace y is not listed"],
+    },
+    true,
+  );
+});
+
+test("validate writes nothing to stderr and adds no warnings field when there are none", async () => {
+  const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  await validateCommand(fakeContext({ command: "validate", repository }));
+  expect(error).not.toHaveBeenCalled();
+  expect(vi.mocked(print).mock.calls[0]?.[0]).not.toHaveProperty("warnings");
 });
 
 test("validate checks a --platform-image-lock against the environment before it reports valid", async () => {

@@ -1,6 +1,8 @@
 import { registryPlan, type Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 
+export { ensureRegistryForward } from "./registry.js";
+
 /**
  * Returns the environment's registry.address after proving the in-cluster
  * Service actually answers there. The address is configuration, never a live

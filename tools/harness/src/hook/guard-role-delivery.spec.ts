@@ -202,6 +202,18 @@ describe("checkDeliveryBash: a reporting role's shell", () => {
     });
   });
 
+  it("lists `judge diff` for the judge and for no other delivery role", () => {
+    const listed = (role: string): readonly string[] => {
+      vi.mocked(harnessAllowed).mockClear();
+      bash(role, `node ${HARNESS_PATH} judge diff 1`);
+      return vi.mocked(harnessAllowed).mock.calls[0]?.[2] ?? [];
+    };
+
+    expect(listed("judge")).toContain("judge diff");
+    expect(listed("orchestrator")).not.toContain("judge diff");
+    expect(listed("writer")).not.toContain("judge diff");
+  });
+
   it("points raw pane input at the finish notice", () => {
     vi.mocked(sendsToPane).mockReturnValue(true);
 

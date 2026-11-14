@@ -46,6 +46,10 @@ export async function validateCommand(
     (component) => component.name,
   );
   const portability = await validatePortability(repository, context.runner);
+  const warnings = repository.warnings ?? [];
+  for (const warning of warnings) {
+    console.error(`warning: ${warning}`);
+  }
   print(
     {
       environment: repository.environment.name,
@@ -53,6 +57,7 @@ export async function validateCommand(
       order,
       applications: portability.applications,
       status: "valid",
+      ...(warnings.length > 0 ? { warnings } : {}),
     },
     json,
   );

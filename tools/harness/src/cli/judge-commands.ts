@@ -10,6 +10,7 @@ import {
 } from "./judge-shared.js";
 import { requireFreshBundle } from "./judge-freshness.js";
 import { declarationCommands } from "./judge-declaration-command.js";
+import { diffCommands } from "./judge-diff-command.js";
 import { approveCommands } from "./judge-approve-command.js";
 import { mergeCommands } from "./judge-merge-commands.js";
 
@@ -52,6 +53,7 @@ const precheckCommand: Command = {
 export const judgeCommands: Record<string, Command> = {
   precheck: precheckCommand,
   ...declarationCommands,
+  ...diffCommands,
   ...approveCommands,
   ...mergeCommands,
 };
