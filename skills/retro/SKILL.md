@@ -22,5 +22,3 @@ File findings as harness ideas only. Never edit hooks, settings, skills, `AGENTS
 5. **End by filing each finding through the idea tool**, one idea per finding, and list the idea numbers it printed:
    `node skills/bin/harness.mjs idea new --kind harness --title "<change>" --hypothesis "<if we change X, Y happens>" --expected-outcome "<what moves, by how much>" --measurement "<how it is read from the ledger>" --safety-pattern <pattern> --metric <flow report metric> --direction up|down --window <days>d`.
    The metric must be one `harness flow report --json` reports; the tool refuses any other and lists the valid ones, and `kb-check` rejects a harness idea with no metric, direction or window. Pick the metric the finding's change should move, the direction it should move in, and a window long enough for several ideas to close. Describe the finding in your own words with counts and rule names; never paste transcript content into an idea.
-
-Steps 1 and 5 are tools. Steps 2 to 4 are judgement: which change fits a finding and which metric it should move are not something a script can decide.
