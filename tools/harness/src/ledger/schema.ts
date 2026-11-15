@@ -38,6 +38,7 @@ export const KINDS = [
   "auto-approved",
   "guardrail.requested",
   "harness-change-reverted",
+  "guardrail.activated",
 ] as const;
 export type Kind = (typeof KINDS)[number];
 
@@ -241,6 +242,7 @@ const RULES: readonly Rule[] = [
       "retro-triggered",
       "auto-approved",
       "guardrail.requested",
+      "guardrail.activated",
     ],
   },
   {

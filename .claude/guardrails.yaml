@@ -32,6 +32,7 @@
     { "rule": "judge-principles-review", "kind": "checklist", "mode": "enforce", "owner": "tools/harness/src/judge/checklist.ts" },
     { "rule": "judge-expand-step", "kind": "checklist", "mode": "enforce", "owner": "tools/harness/src/judge/checklist.ts" },
     { "rule": "judge-pattern-match", "kind": "checklist", "mode": "enforce", "owner": "tools/harness/src/judge/checklist.ts" },
+    { "rule": "judge-guardrail-activation", "kind": "checklist", "mode": "audit", "owner": "tools/harness/src/judge/checklist.ts", "note": "Starts in audit (AGENTS.md, Audit before enforce): a change that lands a guardrail in enforce, loosens one or removes one is listed here until a person approves enforcing this item through `guardrail request` and `guardrail activate` (plan 12, Step 4)." },
     { "rule": "deny-cluster-delete", "kind": "bash", "mode": "enforce", "owner": "tools/harness/src/guardrail/deny.ts", "deny": ["Bash(k3d cluster delete:*)", "Bash(k3d * cluster delete*)", "Bash(k3d cluster * delete*)"] },
     { "rule": "deny-iac-destroy", "kind": "bash", "mode": "enforce", "owner": "tools/harness/src/guardrail/deny.ts", "deny": ["Bash(tofu destroy:*)", "Bash(terraform destroy:*)"] },
     { "rule": "deny-helm-uninstall", "kind": "bash", "mode": "enforce", "owner": "tools/harness/src/guardrail/deny.ts", "deny": ["Bash(helm uninstall:*)"] },

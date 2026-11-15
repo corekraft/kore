@@ -13,6 +13,7 @@ export const ITEMS = [
   "principles-review",
   "expand-step",
   "pattern-match",
+  "guardrail-activation",
 ] as const;
 export type Item = (typeof ITEMS)[number];
 
@@ -23,7 +24,10 @@ export const ruleOf = (item: Item): string => `judge-${item}`;
 
 /** What the precheck found for each item; the expand step only when the diff needed one. */
 export type Findings = Readonly<
-  { [I in Exclude<Item, "expand-step">]: Check } & { "expand-step"?: Check }
+  { [I in Exclude<Item, "expand-step" | "guardrail-activation">]: Check } & {
+    "expand-step"?: Check;
+    "guardrail-activation"?: Check;
+  }
 >;
 
 export interface Checklist {
@@ -76,11 +80,33 @@ export function modesFrom(inventory: Inventory): ItemModes {
 }
 
 /**
+ * The guardrail-activation check: every change that lands a guardrail in enforce, loosens it
+ * or removes it needs a guardrail.activated event, written only by `guardrail activate` on a
+ * person's approval. A new guardrail has no such event, so it must start in audit.
+ */
+function activationCheck(
+  changes: readonly string[],
+  activated: ReadonlySet<string>,
+): Check {
+  const missing = changes.filter((change) => !activated.has(change));
+  return missing.length === 0
+    ? { result: "pass" }
+    : {
+        result: "fail",
+        detail: `${missing.join(", ")} has no guardrail.activated event; run \`harness guardrail request\` and \`harness guardrail activate\`, or land it in audit`,
+      };
+}
+
+/**
  * The report under the modes: an item that fails in enforce mode makes it not ready; one
  * that fails in audit mode is listed under `audited` and changes nothing else. A report
  * that stopped at its declaration has no items and is returned as it is.
  */
-export function applyChecklist(report: Report, modes: ItemModes): Report {
+export function applyChecklist(
+  report: Report,
+  modes: ItemModes,
+  activated: ReadonlySet<string> = new Set(),
+): Report {
   const { checks } = report;
   if (checks === undefined) {
     return report;
@@ -98,6 +124,14 @@ export function applyChecklist(report: Report, modes: ItemModes): Report {
         report.patternMatches === true
           ? { result: "pass" }
           : { result: "fail", detail: report.patternMismatch ?? "" },
+      ...(report.guardrailChanges === undefined
+        ? {}
+        : {
+            "guardrail-activation": activationCheck(
+              report.guardrailChanges,
+              activated,
+            ),
+          }),
     },
     modes,
   );

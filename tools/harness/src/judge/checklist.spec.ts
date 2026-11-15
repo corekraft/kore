@@ -24,6 +24,7 @@ const ENFORCE: ItemModes = {
   "principles-review": "enforce",
   "expand-step": "enforce",
   "pattern-match": "enforce",
+  "guardrail-activation": "enforce",
 };
 const PASSING: Findings = {
   ci: { result: "pass" },
@@ -203,6 +204,7 @@ describe("modes today", () => {
       "judge-principles-review",
       "judge-expand-step",
       "judge-pattern-match",
+      "judge-guardrail-activation",
     ]);
   });
 });

@@ -30,3 +30,10 @@ export {
   type RequestPorts,
   type RequestResult,
 } from "./request.js";
+export {
+  GuardrailActivate,
+  approvalLine,
+  type ActivatePorts,
+  type ActivateResult,
+  type IssueComment,
+} from "./activate.js";

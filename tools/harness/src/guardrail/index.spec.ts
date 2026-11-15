@@ -4,6 +4,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import * as barrel from "./index.js";
+import * as activate from "./activate.js";
 import * as commands from "./commands.js";
 import * as deny from "./deny.js";
 import * as evidence from "./evidence.js";
@@ -12,6 +13,7 @@ import * as request from "./request.js";
 import * as inventory from "./inventory.js";
 import * as read from "./read.js";
 
+vi.mock("./activate.js");
 vi.mock("./commands.js");
 vi.mock("./deny.js");
 vi.mock("./evidence.js");
@@ -25,11 +27,13 @@ describe("the guardrail barrel", () => {
     expect(Object.keys(barrel).sort()).toEqual(
       [
         "GUARDRAIL_KINDS",
+        "GuardrailActivate",
         "GuardrailError",
         "GuardrailRequest",
         "INVENTORY_PATH",
         "MODES",
         "MissingInventoryError",
+        "approvalLine",
         "auditRuleNames",
         "classifyAudit",
         "denyDrift",
@@ -70,6 +74,11 @@ describe("the guardrail barrel", () => {
     expect(barrel.findInventory).toBe(read.findInventory);
     expect(barrel.readInventory).toBe(read.readInventory);
     expect(barrel.guardrailCommands).toBe(commands.guardrailCommands);
+  });
+
+  it("re-exports the activation names as the activate module's own", () => {
+    expect(barrel.GuardrailActivate).toBe(activate.GuardrailActivate);
+    expect(barrel.approvalLine).toBe(activate.approvalLine);
   });
 
   it("re-exports the request, evidence, pending and status names as their modules' own", () => {

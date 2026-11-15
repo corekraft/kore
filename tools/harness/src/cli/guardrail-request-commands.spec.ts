@@ -36,6 +36,7 @@ vi.mock("../idea/index.js", () => ({
   IdeaRepository: vi.fn(),
   IdeaError: class IdeaError extends Error {},
 }));
+vi.mock("./guardrail-activate-commands.js", () => ({ activate: {} }));
 vi.mock("./ledger-commands.js");
 vi.mock("./judge-shared.js");
 
@@ -50,8 +51,7 @@ const request = vi.fn();
 const get = vi.fn();
 const run = vi.fn();
 const readFile = vi.fn();
-const stdout = vi.fn();
-const stderr = vi.fn();
+const [stdout, stderr] = [vi.fn(), vi.fn()];
 
 const FLAGS = {
   to: "enforce",
