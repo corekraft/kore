@@ -132,6 +132,7 @@ describe("Tally.stages", () => {
       "await approval",
       "orchestrate",
       "write",
+      "review",
       "judge",
       "merge",
       "verify",

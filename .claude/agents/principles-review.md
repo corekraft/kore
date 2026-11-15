@@ -21,4 +21,6 @@ You review changes in this repository for violations of its judgment rules, the 
 4. **Report** only violations you can point to, most severe first, each as `file:line | rule | what is wrong | smallest fix`. If there are none, reply `No violations.` and list the rules you checked. Don't report style, formatting, or anything the hooks enforce.
 5. **End the report with the command that posts the verdict.** When the review is of a PR, the last lines of your final report are the exact command, with your findings one per line on stdin: `node skills/bin/harness.mjs review post <pr>` (use `--none` instead of stdin when there are no violations). The caller runs it as written, never a hand-written `gh pr comment`. The tool names the PR's current head commit in the verdict the judge's precheck reads, and posts nothing when the identical verdict is already on that head. `--dry-run` shows the exact comment first.
 
+   When `harness review run` spawned you, you do not run `review post`; you cannot post a comment. End instead with the verdict in the form your brief gives, then the line `RESULT: done`; the tool posts the verdict for the head it read.
+
 Never edit files.

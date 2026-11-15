@@ -349,7 +349,7 @@ events count only after the PR merged); a claude session no agent name reaches i
 session, `orchestrate`; a PR is in `merge` from open until merged; a closed issue
 is `outcome`. A pane is active from `pane.spawned` or `pane.busy` and waiting from
 `pane.waiting` until its next event. An open issue or PR is waiting, minus any
-time a refine, write, judge or verify pane was alive, up to `--as-of`
+time a refine, write, review, judge or verify pane was alive, up to `--as-of`
 (default now).
 
 Toil is time an agent spent not advancing work, per stage, in seconds under
@@ -512,6 +512,14 @@ reviewer logins they name: `reviewerLogins` in `.claude/harness.json` when set,
 else the owner login (`ownerLogin`, else the repository's owner). A verdict from
 any other login is unverified. `--reviewer <login>[,<login>]` overrides both, and
 `harness judge precheck` prints the reviewers it used in its text and JSON output.
+
+`harness review run <pr>` posts that verdict itself. It reads the PR head once,
+spawns the principles-review Reviewer (Sonnet, medium, from its definition)
+through `session spawn`, collects its `VERDICT:` block with `session wait`, and
+posts it for that same head. If the head moved during the review it discards the
+verdict and reviews again (3 reviews at most); a pane that ends blocked or with
+no verdict records a `review.run` failure event and posts nothing.
+`orchestrate run` calls it before each precheck.
 
 Each checklist item of the precheck (`ci`, `scan`, `coverage`,
 `principles-review`, `expand-step`, `pattern-match`, `guardrail-activation`) reads its mode from the
