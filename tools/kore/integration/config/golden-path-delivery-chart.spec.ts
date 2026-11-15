@@ -107,6 +107,14 @@ test("the sync owns the workload: the Application never creates the namespace an
   assert.doesNotMatch(set, /CreateNamespace=true/);
 });
 
+test("the generated Application carries the service's part-of label, so Backstage finds it with the same selector as the workload", async () => {
+  const set = (await delivery())[0]!;
+  assert.match(
+    set,
+    /labels:\n\s+platform\.kore\.dev\/service: '\{\{ \.metadata\.name \}\}'\n\s+app\.kubernetes\.io\/part-of: '\{\{ \.metadata\.name \}\}'/,
+  );
+});
+
 test("a template image without a sha256 digest is refused so a tag never reaches the cluster", async () => {
   const tagged = JSON.stringify({
     "static-frontend": { image: "ghcr.io/x/a", digest: "latest" },

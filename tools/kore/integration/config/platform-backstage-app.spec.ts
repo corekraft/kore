@@ -106,3 +106,35 @@ test("the Keycloak client also accepts the in-app sign-in callback, beside the p
     /backstage\.\{\{ \.Values\.platformDomain \}\}\/api\/auth\/oidc\/handler\/frame/,
   );
 });
+
+test("the Kubernetes plugin shows each service's Argo CD Application beside its workload, read as the user", async () => {
+  const config = JSON.parse(await source("app-config.yaml"));
+  assert.deepEqual(config.kubernetes.customResources, [
+    { group: "argoproj.io", apiVersion: "v1alpha1", plural: "applications" },
+  ]);
+  const [cluster] = config.kubernetes.clusterLocatorMethods[0].clusters;
+  assert.equal(cluster.authProvider, "oidc");
+  assert.equal("serviceAccountToken" in cluster, false);
+});
+
+test("the Argo CD view is read by the signed-in operators group only, never by Backstage's own service account", async () => {
+  const documents = (await render()).split(/^---$/m);
+  const named = (kind: string): string | undefined =>
+    documents.find(
+      (part) =>
+        new RegExp(`^kind: ${kind}$`, "m").test(part) &&
+        /^ {2}name: kore-backstage-argocd-view$/m.test(part),
+    );
+  const role = named("ClusterRole");
+  assert.ok(role, "the view role is rendered");
+  assert.match(role, /apiGroups: \["argoproj\.io"\]/);
+  assert.match(role, /resources: \["applications"\]/);
+  assert.match(role, /apiGroups: \["apps"\]/);
+  assert.match(role, /resources: \["deployments"\]/);
+  assert.equal((role.match(/verbs: \["get", "list"\]/g) ?? []).length, 2);
+  assert.equal(/\*|create|update|patch|delete/.test(role), false);
+  const binding = named("ClusterRoleBinding");
+  assert.ok(binding, "the view binding is rendered");
+  assert.match(binding, /kind: Group\n\s+name: platform-operators/);
+  assert.equal(/kind: ServiceAccount/.test(binding), false);
+});

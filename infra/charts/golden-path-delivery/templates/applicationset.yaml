@@ -23,6 +23,7 @@ spec:
       name: 'golden-path-{{`{{ .metadata.name }}`}}'
       labels:
         platform.kore.dev/service: '{{`{{ .metadata.name }}`}}'
+        app.kubernetes.io/part-of: '{{`{{ .metadata.name }}`}}'
     spec:
       project: {{ .Values.project | quote }}
       source:
