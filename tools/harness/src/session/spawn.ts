@@ -50,5 +50,6 @@ export async function spawn(context: CommandContext): Promise<number> {
       createdAt: deps.clock.now().toISOString(),
     },
     timeoutMs: checked.timeoutMs,
+    tier: checked.tier,
   });
 }

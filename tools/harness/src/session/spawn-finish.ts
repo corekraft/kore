@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { DEFAULT_LEDGER, Ledger } from "../ledger/index.js";
+import { DEFAULT_LEDGER, Ledger, type TierOrigin } from "../ledger/index.js";
 import {
   mainRoot,
   type CliDeps,
@@ -16,10 +16,16 @@ interface Finish {
   record: SessionRecord;
   modelCheck: ModelCheck;
   timeoutMs: number;
+  /** Where the tier came from; absent leaves the launch event with no tier source. */
+  tier?: TierOrigin;
 }
 
 /** Appends a session.launch event for the session. Best effort: a ledger problem never fails the spawn. */
-async function recordLaunch(deps: CliDeps, record: SessionRecord) {
+async function recordLaunch(
+  deps: CliDeps,
+  record: SessionRecord,
+  tier: TierOrigin | undefined,
+) {
   try {
     const main = await mainRoot(deps);
     if (main === undefined) {
@@ -38,6 +44,7 @@ async function recordLaunch(deps: CliDeps, record: SessionRecord) {
       agent: record.name,
       role: record.role,
       tier: record.model,
+      ...tier,
     });
   } catch {
     // The ledger is a measurement; it never gates a spawn.
@@ -47,12 +54,12 @@ async function recordLaunch(deps: CliDeps, record: SessionRecord) {
 /** Records the spawned session, then reports it or, without --no-wait, waits for its result. */
 export async function finish(
   { json, deps, options }: CommandContext,
-  { registry, record, modelCheck, timeoutMs }: Finish,
+  { registry, record, modelCheck, timeoutMs, tier }: Finish,
 ): Promise<number> {
   const { name, paneId, callerPane, model, role, effort, worktree } = record;
   const extra = worktree === undefined ? {} : { worktree };
   await registry.create(record);
-  await recordLaunch(deps, record);
+  await recordLaunch(deps, record, tier);
   await recordHostSample(deps, { pane: paneId, name });
   const verdict =
     modelCheck.status === "verified"

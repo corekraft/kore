@@ -27,6 +27,7 @@ vi.mock("./handoff.js");
 vi.mock("./worktree.js");
 
 const CHECKED = {
+  tier: { tierSource: "definition" as const },
   values: {
     role: "writer",
     name: "image-trust-writer",

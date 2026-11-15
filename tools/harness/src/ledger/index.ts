@@ -19,3 +19,4 @@ export {
   type LedgerEvent,
   type Source,
 } from "./schema.js";
+export type { TierOrigin, TierSource } from "./schema-tier.js";
