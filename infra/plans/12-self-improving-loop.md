@@ -16,7 +16,7 @@ weaken its own guardrails
 
 ## Step 1: Harness Metrics
 
-Next: #325 (session wait) once #364 merges, since both change session spawn. Steps 2–3 (#214–#218) and #220, #221, #223, #224 stay deferred under #333 until about 20 ideas have outcomes from #354's metrics that agents cannot set. Full state: #366.
+Next: The owner said on 2026-11-14 not to defer Steps 2 and 3 (#211, #213-#218, #220, #221, #223, #224); #333 is history only. Start with #206, then #209, then #211. #325 owes one recorded live notify proof (code merged in #450, #555, #590); the #478 backstop landed in #555. Full state: #366.
 
 ### Work
 
