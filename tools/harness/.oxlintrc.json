@@ -125,6 +125,10 @@
             "message": "import from the queue barrel (queue/index.js), not one of its files"
           },
           {
+            "group": ["**/retro/**", "!**/retro/index.js"],
+            "message": "import from the retro barrel (retro/index.js), not one of its files"
+          },
+          {
             "group": ["**/ruleset/**", "!**/ruleset/index.js"],
             "message": "import from the ruleset barrel (ruleset/index.js), not one of its files"
           },
@@ -230,6 +234,10 @@
               {
                 "group": ["**/queue/**", "!**/queue/index.js"],
                 "message": "import from the queue barrel (queue/index.js), not one of its files"
+              },
+              {
+                "group": ["**/retro/**", "!**/retro/index.js"],
+                "message": "import from the retro barrel (retro/index.js), not one of its files"
               },
               {
                 "group": ["**/ruleset/**", "!**/ruleset/index.js"],

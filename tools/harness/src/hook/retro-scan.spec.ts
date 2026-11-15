@@ -38,6 +38,15 @@ describe("lastRetrospective: which marker wins", () => {
     ).toBe("2026-11-13T00:00:00Z");
   });
 
+  it("reads the marker section `retro record` keeps, over the dated lines above it", () => {
+    expect(
+      lastRetrospective({
+        "3.md":
+          "Last retrospective: 2026-11-12\n\n## Retrospective marker\n\nLast retrospective: 2026-11-14T09:30:00Z\n",
+      }),
+    ).toBe("2026-11-14T09:30:00Z");
+  });
+
   it("ranks a bare date above a timestamp from an earlier day", () => {
     expect(
       lastRetrospective({

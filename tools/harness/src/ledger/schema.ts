@@ -34,6 +34,7 @@ export const KINDS = [
   "host-sample",
   "kore.retry",
   "pane.interrupted",
+  "retro-triggered",
 ] as const;
 export type Kind = (typeof KINDS)[number];
 
@@ -232,6 +233,7 @@ const RULES: readonly Rule[] = [
       "send-back",
       "escalation",
       "kore.retry",
+      "retro-triggered",
     ],
   },
   {
