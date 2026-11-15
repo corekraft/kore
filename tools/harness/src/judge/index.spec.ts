@@ -8,6 +8,7 @@ import * as errors from "./errors.js";
 import * as freshness from "./freshness.js";
 import * as judge from "./index.js";
 import * as precheck from "./precheck.js";
+import * as prBody from "./pr-body.js";
 import * as reviewFindings from "./review-findings.js";
 import * as reviewPost from "./review-post.js";
 import * as reviewVerdict from "./review-verdict.js";
@@ -24,6 +25,7 @@ vi.mock("./freshness.js");
 vi.mock("./diff-select.js");
 vi.mock("./errors.js");
 vi.mock("./precheck.js");
+vi.mock("./pr-body.js");
 vi.mock("./review-findings.js");
 vi.mock("./review-post.js");
 vi.mock("./review-verdict.js");
@@ -45,6 +47,7 @@ it("the judge barrel exposes exactly the names its callers import", () => {
     "postReview",
     "precheck",
     "readPr",
+    "renderPrBody",
     "reviewBody",
     "reviewCheck",
     "reviewersFor",
@@ -64,6 +67,7 @@ it("each export is the unit's own export, not a copy or a wrapper", () => {
   expect(judge.harnessFreshness).toBe(freshness.harnessFreshness);
   expect(judge.reviewCheck).toBe(checks.reviewCheck);
   expect(judge.precheck).toBe(precheck.precheck);
+  expect(judge.renderPrBody).toBe(prBody.renderPrBody);
   expect(judge.readPr).toBe(precheck.readPr);
   expect(judge.summary).toBe(precheck.summary);
   expect(judge.findingsFrom).toBe(reviewFindings.findingsFrom);
