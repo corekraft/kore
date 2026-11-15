@@ -18,4 +18,4 @@ Follow `AGENTS.md` and the `test-driven-development` skill. Write each failing t
    - Does it report state? Then it offers `--json`. What exactly does that object contain?
    - If it fails partway and is run again, does it recover?
 5. **Keep docs in step.** Update the `usage` string in `cli/usage.ts` and the matching section of `README.md`. Two tests catch a missing entry: `cli/usage.spec.ts` fails, naming the command, when the usage text has no `kore <command>` line, and `integration/cli/readme-commands.spec.ts` fails, naming the command, when the README's Commands section has no `` `kore <command>` `` row.
-6. **Verify.** Run `mise run test` (typecheck, build, tests, coverage thresholds) and `npm --prefix tools/kore run lint`. Never lower the thresholds.
+6. **Verify.** Run `mise run test-related <changed files>` (typecheck, lint and the related unit tests); CI runs the full suite. Never lower the thresholds.

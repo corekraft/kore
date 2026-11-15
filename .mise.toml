@@ -30,6 +30,10 @@ run = "npm --prefix tools/kore run build"
 description = "Run tests that do not require a cluster"
 run = "npm --prefix tools/kore test && npm --prefix apps/reference test && npm --prefix tools/harness test"
 
+[tasks.test-related]
+description = "Typecheck, lint and run only the unit tests related to the files given, through the commit hook's related-tests script: mise run test-related <files>. Starts no cluster or integration run"
+run = "node tools/kore/.husky/test-related.mjs"
+
 [tasks.test-integration]
 description = "Run the integration tier of tools/kore and tools/harness: real units together, no cluster. Not part of the default test run or the commit hook"
 run = ["npm --prefix tools/kore run test:integration", "npm --prefix tools/harness run test:integration"]
