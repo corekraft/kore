@@ -1,7 +1,12 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import { helmInstalledComponents, isLocalProvider } from "../config/index.js";
 import { installLocalTrust } from "../security/index.js";
-import { bootstrapControllers, openApplicationAdmission } from "./bootstrap.js";
+import {
+  bootstrapControllers,
+  openApplicationAdmission,
+  orphanCheckDeferred,
+} from "./bootstrap.js";
+import { assertNoOrphanedReleases } from "./gated-release.js";
 import { enrollPlatformNamespaces } from "./enrollment.js";
 import { CommandError } from "../runtime/index.js";
 import type { ReadinessEvidence } from "./readiness-manifest.js";
@@ -19,6 +24,7 @@ vi.mock("../config/index.js");
 vi.mock("../security/index.js");
 vi.mock("./bootstrap.js");
 vi.mock("./enrollment.js");
+vi.mock("./gated-release.js");
 vi.mock("./platform-state.js");
 vi.mock("./probe.js");
 vi.mock("./reconcile.js");
@@ -202,4 +208,42 @@ test("any other failure reading the delivery release stops up, never a guess tha
     unreachable,
   );
   expect(reconcileConfiguration).not.toHaveBeenCalled();
+});
+
+test("up hands the orphan check to itself and runs it after the configuration, before enrollment, when the check is deferred", async () => {
+  vi.mocked(orphanCheckDeferred).mockReturnValue(true);
+  vi.mocked(assertNoOrphanedReleases).mockImplementation(async () => {
+    order.push("orphans");
+  });
+  await platformUp(local, fakeRunner().runner);
+  expect(bootstrapControllers).toHaveBeenCalledWith(local, expect.anything(), {
+    orphanCheck: "caller",
+  });
+  expect(order.slice(-6)).toEqual([
+    "configure:policy",
+    "configure:enforce",
+    "orphans",
+    "enroll",
+    "open-gate",
+    "state:ready",
+  ]);
+});
+
+test("a deferred orphan refusal fails up after configuring, and leaves the gate closed and the state unwritten", async () => {
+  vi.mocked(orphanCheckDeferred).mockReturnValue(true);
+  vi.mocked(assertNoOrphanedReleases).mockRejectedValueOnce(
+    new Error("helm uninstall agentgateway"),
+  );
+  await expect(platformUp(local, fakeRunner().runner)).rejects.toThrow(
+    "helm uninstall agentgateway",
+  );
+  expect(order).toContain("configure:policy");
+  expect(openApplicationAdmission).not.toHaveBeenCalled();
+  expect(writePlatformState).not.toHaveBeenCalled();
+});
+
+test("up does not run its own orphan check when bootstrap already did it up front", async () => {
+  vi.mocked(orphanCheckDeferred).mockReturnValue(false);
+  await platformUp(local, fakeRunner().runner);
+  expect(assertNoOrphanedReleases).not.toHaveBeenCalled();
 });

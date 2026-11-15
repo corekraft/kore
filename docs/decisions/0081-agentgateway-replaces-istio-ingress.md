@@ -46,6 +46,14 @@ Rollback stays operator-run (2026-11-15, #207): Kore refuses to reconcile a
 gated-off release that is still installed, and uninstalling `agentgateway-crds`
 deletes the CRDs and their custom resources, so the operator runs the two
 `helm uninstall` steps after `kore local up` (plan 13, Step 2).
-The exception is Kore's own `AgentgatewayParameters/kore-gateway-service`,
-rendered by platform-config for the Gateway: the live proof deletes that one
-named object and refuses any other Agentgateway custom resource.
+The refusal moves later under the class-change flag (2026-11-15, #207 live
+run 5, #126): up front, the refusal stopped the run before
+`kore-platform-config` could be re-rendered with the flag off, while removing
+the CRDs first broke Helm's old release manifest (the `AgentgatewayParameters`
+kind was missing). So with `gateway-class-change-release` on, `kore local up`
+reconciles every component first and then refuses, still naming the
+`helm uninstall` steps and still exiting non-zero; Helm itself removes Kore's
+`AgentgatewayParameters` as platform-config re-renders. With the flag off the
+refusal stays up front, with no Helm call before it. Kore still never
+uninstalls CRDs; that consent stays with the operator. This supersedes the
+earlier note that the live proof deletes that object by hand.

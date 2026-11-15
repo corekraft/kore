@@ -78,23 +78,22 @@ outage. It prints one line before the delete. A matching class is a no-op, and s
 absent Gateway with no old proxy (a fresh profile); an absent Gateway whose old
 proxy remains (an interrupted change) still waits for the proxy. The flag off
 changes nothing. Rollback is three steps. First turn `ingress-agentgateway` off and run
-`kore local up`; with the new flag on, the class change releases the Gateway
-back to Istio. Kore then refuses to reconcile the gated-off releases that are
-still installed (`agentgateway-crds is gated off ... run helm uninstall ...`),
-so the operator removes them, in order:
+`kore local up`; with the new flag on, the run reconciles every component first
+(the class change releases the Gateway back to Istio, and Helm removes Kore's
+own `AgentgatewayParameters/kore-gateway-service` when platform-config is
+re-rendered), then refuses the gated-off releases that are still installed
+(`agentgateway-crds is gated off ... run helm uninstall ...`) and exits non-zero.
+That failure is expected. With the flag off the refusal stays up front, before
+any mutation. The operator then removes the releases, in order:
 `helm uninstall agentgateway --namespace agentgateway-system --kube-context <ctx>`,
 then `helm uninstall agentgateway-crds --namespace agentgateway-system --kube-context <ctx>`.
 Uninstalling `agentgateway-crds` deletes the CRDs and every custom resource of
 those kinds, so it is the operator's explicit step (data destruction needs
-consent), never Kore's. The one exception is Kore's own
-`AgentgatewayParameters/kore-gateway-service`, which the platform-config chart
-renders for the Gateway while it is on the agentgateway class; the live proof
-deletes that named object (in `kore-system`, on the throwaway context) and still
-fails for any other Agentgateway custom resource. The next `kore local up` with
-the flag off renders the Istio ConfigMap instead, so no agentgateway object
-remains. A one-command rollback would be a separate, consented
-`kore` command if wanted. The refusal stays unchanged (decided on the #207 live
-rerun, where phase 4 failed on it). Activation of
+consent), never Kore's; the proof checks no Agentgateway custom resource remains
+before it. The second `kore local up` converges as a no-op. A one-command
+rollback would be a separate, consented `kore` command if wanted. The refusal's
+position moved later under the flag (decided on the live run 5 of #207, ADR 0081
+addendum). Activation of
 `gateway-class-change-release` is for the live proof profile: in the throwaway
 profile of `tools/kore/scripts/agentgateway-live-proof.sh`, the script turns it
 on together with `ingress-agentgateway` in phase 2 and keeps it on through

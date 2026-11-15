@@ -1,5 +1,10 @@
 import type { Repository } from "../config/index.js";
-import { enabledComponents, isLocalProvider } from "../config/index.js";
+import {
+  enabledComponents,
+  featureEnabled,
+  gatewayClassChangeFlag,
+  isLocalProvider,
+} from "../config/index.js";
 import {
   assertExpectedCluster,
   ClusterUnavailableError,
@@ -55,13 +60,33 @@ export async function closeApplicationAdmission(
   await closeExistingAdmissionGate(repository, runner);
 }
 
+/**
+ * With `gateway-class-change-release` on, a gated-off release is reported after
+ * the components are reconciled, not before: `kore-platform-config` must be
+ * re-rendered without the gated-off resources before the operator can safely
+ * uninstall the release (ADR 0081 addendum). With the flag off the refusal
+ * stays up front, before any mutation.
+ */
+export function orphanCheckDeferred(repository: Repository): boolean {
+  return featureEnabled(repository.environment, gatewayClassChangeFlag);
+}
+
+export interface BootstrapOptions {
+  /** `caller`: the caller runs the deferred orphan check after its own components. */
+  orphanCheck?: "bootstrap" | "caller";
+}
+
 export async function bootstrapControllers(
   repository: Repository,
   runner: Runner,
+  options: BootstrapOptions = {},
 ): Promise<void> {
   await ensureCluster(repository, runner);
   await closeApplicationAdmission(repository, runner);
-  await assertNoOrphanedReleases(repository, runner);
+  const deferred = orphanCheckDeferred(repository);
+  if (!deferred) {
+    await assertNoOrphanedReleases(repository, runner);
+  }
   for (const component of enabledComponents(repository)) {
     if (
       component.phase === "configuration" ||
@@ -106,5 +131,8 @@ export async function bootstrapControllers(
     // Policy Controller is ready; kore-image-policy (configuration phase)
     // references this public-key Secret, so it must exist first (ADR 0028).
     await ensureLocalSigningPublicKey(repository, runner);
+  }
+  if (deferred && options.orphanCheck !== "caller") {
+    await assertNoOrphanedReleases(repository, runner);
   }
 }

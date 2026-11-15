@@ -21,14 +21,16 @@
 #      Istio ingress proxy (deploy and svc kore-gateway-istio) is gone.
 #   3. rerun `kore local up`; no Helm release revision changes.
 #   4. ingress-agentgateway off again (gateway-class-change-release stays on):
-#      delete Kore's own AgentgatewayParameters kore-gateway-service (rendered by
-#      platform-config for the Gateway), assert no other Agentgateway custom
-#      resources exist, uninstall the agentgateway
-#      and agentgateway-crds releases on the throwaway context only (Kore
-#      refuses to reconcile a gated-off release that is still installed), then
-#      `kore local up`: rollback. The Gateway is ready on the
-#      istio class, and the agentgateway proxy (deploy and svc kore-gateway)
-#      is gone. If a Service keeps NodePort 30443 across a class change, this
+#      the first `kore local up` is EXPECTED to fail: it converges
+#      platform-config (the Gateway back on the istio class, Kore's own
+#      AgentgatewayParameters removed by Helm, the Istio proxy back) and then
+#      refuses the gated-off agentgateway releases still installed, naming the
+#      helm uninstall steps (ADR 0081). The script asserts that, checks no
+#      Agentgateway custom resource remains, uninstalls the agentgateway and
+#      agentgateway-crds releases on the throwaway context only, then
+#      `kore local up` converges as a no-op: the agentgateway proxy
+#      (deploy and svc kore-gateway) is gone, and a third run changes no
+#      revision. If a Service keeps NodePort 30443 across a class change, this
 #      phase fails and names which one, so the owner of its removal is known.
 # Then a read-only measurement (kubectl top) is written to a results file
 # outside git and printed.
@@ -205,43 +207,56 @@ gone deploy kore-gateway-istio
 gone svc kore-gateway-istio
 echo "phase 2 ok: rollout, CRDs, ambient label, status, gateway ready and Istio proxy gone" >&2
 
+assert_no_revision_change() { # label: rerun kore local up; no Helm release revision may change
+  before="$(revisions)"
+  kore local up --environment "$scratch"
+  after="$(revisions)"
+  # The local reference image gets a new digest on every run, so reference/reference
+  # moves a revision on every `up` (known issue, #344). Every other release must hold.
+  changed="$(diff <(echo "$before") <(echo "$after") | sed -n 's/^> \([^ ]*\) .*/\1/p' || true)"
+  unexpected="$(printf '%s\n' "$changed" | grep -v '^$' | grep -vx 'reference/reference' || true)"
+  if [ -n "$unexpected" ]; then
+    diff <(echo "$before") <(echo "$after") >&2 || true
+    fail "$1: a rerun changed the Helm revision of: $(echo $unexpected)"
+  fi
+  if printf '%s\n' "$changed" | grep -qx 'reference/reference'; then
+    echo "known issue (#344): reference/reference changed revision; the local reference image gets a new digest every run. Not an agentgateway problem." >&2
+  fi
+}
+
 step "phase 3: rerun kore local up, no Helm revision may change"
-before="$(revisions)"
-kore local up --environment "$scratch"
-after="$(revisions)"
-# The local reference image gets a new digest on every run, so reference/reference
-# moves a revision on every `up` (known issue, #344). Every other release must hold.
-changed="$(diff <(echo "$before") <(echo "$after") | sed -n 's/^> \([^ ]*\) .*/\1/p' || true)"
-unexpected="$(printf '%s\n' "$changed" | grep -v '^$' | grep -vx 'reference/reference' || true)"
-if [ -n "$unexpected" ]; then
-  diff <(echo "$before") <(echo "$after") >&2 || true
-  fail "a rerun changed the Helm revision of: $(echo $unexpected)"
-fi
-if printf '%s\n' "$changed" | grep -qx 'reference/reference'; then
-  echo "known issue (#344): reference/reference changed revision; the local reference image gets a new digest every run. Not an agentgateway problem." >&2
-fi
+assert_no_revision_change "phase 3"
 echo "phase 3 ok: no platform release changed" >&2
 
-step "phase 4: ingress flag off again (class-change flag stays on), kore local up (rollback)"
+step "phase 4: ingress flag off again (class-change flag stays on), rollback"
 sed -i.bak 's/"ingress-agentgateway": true/"ingress-agentgateway": false/' "$env_file"
 rm -f "$env_file.bak"
 grep -qF '"ingress-agentgateway": false' "$env_file" || fail "could not turn the flag off in $env_file"
-# Kore refuses to reconcile a gated-off release that is still installed, so the
-# operator removes it first (plan 13, Step 2). Removing the CRD release deletes
-# the CRDs and every custom resource of those kinds, so check none exist.
-# Guards independent of how $context was built: never the local environment,
-# never the kore-local context, and the overlay must name this context.
+# With gateway-class-change-release on, Kore reconciles every component first
+# and only then refuses a gated-off release that is still installed (ADR 0081),
+# so the first run converges platform-config (the Gateway back on the istio
+# class, Kore's AgentgatewayParameters removed by Helm) and then exits non-zero.
+# That failure is the expected result; success would mean the refusal is gone.
+if up_out="$(kore local up --environment "$scratch" 2>&1)"; then
+  printf '%s\n' "$up_out" >&2
+  fail "rollback: kore local up succeeded while gated-off agentgateway releases are installed; it must refuse and name the helm uninstall steps"
+fi
+printf '%s\n' "$up_out" >&2
+printf '%s\n' "$up_out" | grep -q "is gated off" || fail "rollback: the first kore local up failed, but not with the gated-off refusal"
+printf '%s\n' "$up_out" | grep -q "helm uninstall agentgateway" || fail "rollback: the refusal does not name the helm uninstall steps"
+class="$(k -n kore-system get gateway kore-gateway -o jsonpath='{.spec.gatewayClassName}')"
+[ "$class" = "istio" ] || fail "rollback: gateway/kore-gateway is on class '$class' after the refused run, expected istio"
+gone agentgatewayparameters.agentgateway.dev kore-gateway-service
+k -n kore-system get deploy kore-gateway-istio >/dev/null || fail "rollback: Istio did not recreate deploy/kore-gateway-istio"
+echo "phase 4 refusal ok: Gateway on istio, Kore's AgentgatewayParameters gone, Istio proxy back" >&2
+# Removing the CRD release deletes the CRDs and every custom resource of those
+# kinds, so check none exist. Kore never uninstalls CRDs: that consent stays with
+# the operator. Guards independent of how $context was built: never the local
+# environment, never the kore-local context, and the overlay must name this context.
 [ "$scratch" != "local" ] || fail "rollback uninstalls refuse environment 'local'; use a throwaway KORE_PROOF_ENVIRONMENT"
 [ "$context" != "k3d-kore-local" ] || fail "rollback uninstalls refuse context k3d-kore-local; use a throwaway KORE_PROOF_ENVIRONMENT"
 grep -qF "\"kubeContext\": \"$context\"" "$env_file" || fail "rollback uninstalls refuse context '$context': $env_file does not name it as its kubeContext"
 crds="$(k get crd -o name)" || fail "could not list CRDs on $context, so Agentgateway custom resources cannot be ruled out; nothing was uninstalled"
-# The Gateway's AgentgatewayParameters is Kore's own: the platform-config chart
-# renders it (templates/gateway-service.yaml) while the Gateway is on the
-# agentgateway class. Uninstalling the CRDs removes it, and the next
-# `kore local up` (flag off) renders the Istio ConfigMap instead. Delete exactly
-# that one object, in the Gateway's namespace, before the listing so it is not
-# counted; the operator is still installed, so no finalizer is left waiting.
-k -n kore-system delete agentgatewayparameters.agentgateway.dev/kore-gateway-service --ignore-not-found --timeout=60s
 crs=""
 for crd in $(printf '%s\n' "$crds" | sed -n 's|^customresourcedefinition.apiextensions.k8s.io/\(.*\.agentgateway\.dev\)$|\1|p'); do
   found="$(k get "$crd" --all-namespaces -o name)" || fail "could not list $crd on $context; nothing was uninstalled"
@@ -252,10 +267,10 @@ mise exec -- helm uninstall agentgateway --namespace agentgateway-system --kube-
 mise exec -- helm uninstall agentgateway-crds --namespace agentgateway-system --kube-context "$context"
 kore local up --environment "$scratch"
 [ "$(gateway_state)" = "ready" ] || fail "after rollback platform status does not report the Gateway ready: '$(gateway_state)'"
-k -n kore-system get deploy kore-gateway-istio >/dev/null || fail "rollback: Istio did not recreate deploy/kore-gateway-istio"
 gone deploy kore-gateway
 gone svc kore-gateway
-echo "phase 4 ok: Gateway ready on the istio class, agentgateway proxy gone" >&2
+assert_no_revision_change "phase 4"
+echo "phase 4 ok: refusal converged platform-config, uninstalls, then a no-op run and a third run that changed no revision" >&2
 
 step "measurement (read-only) -> $results"
 {
