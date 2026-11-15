@@ -31,6 +31,9 @@ export const KINDS = [
   "main.revert",
   "owner.action",
   "host-sample",
+  "escalation",
+  "kore.retry",
+  "pane.interrupted",
 ] as const;
 export type Kind = (typeof KINDS)[number];
 
@@ -226,6 +229,8 @@ const RULES: readonly Rule[] = [
       "challenge.round",
       "precheck",
       "send-back",
+      "escalation",
+      "kore.retry",
     ],
   },
   {
