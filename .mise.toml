@@ -20,6 +20,7 @@ semgrep = "1.182.1"
 actionlint = "1.7.12"
 zizmor = "1.31.1"
 hadolint = "2.15.1"
+gradle = "9.9.1"
 
 [tasks.build]
 description = "Build the kore executable"

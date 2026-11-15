@@ -1,0 +1,23 @@
+# Non-secret configuration only: the AOT training run reads this file and the
+# resulting cache is baked into the image (ADR 0046).
+server:
+  port: 8080
+  servlet:
+    session:
+      # Host-only: no domain key, so the browser never shares the session with
+      # other services under the same domain (vision, host-only cookies).
+      cookie:
+        http-only: true
+        secure: true
+        # Lax keeps the session on the top-level redirect back from the sign-in
+        # provider, which Strict would drop.
+        same-site: lax
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true

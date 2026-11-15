@@ -145,7 +145,7 @@ dark launched. With the flag off the render adds nothing to a cluster.
       labels
       ([ADR 0037](../../docs/decisions/0037-tenant-isolation-by-namespace.md),
       [ADR 0038](../../docs/decisions/0038-organization-hierarchy-depth-and-labels.md)).
-- [ ] Give each `Service` a default host in the organization's default zone
+- [x] Give each `Service` a default host in the organization's default zone
       ([ADR 0042](../../docs/decisions/0042-organization-domains-by-delegation.md)).
 - [ ] Validate both kinds in `kore validate` before any mutation, and report
       their status through `kore status`.
@@ -164,7 +164,7 @@ Safety pattern: `feature-flagged` (`autoscaling-defaults`, off in `local`).
 
 - [x] Install metrics-server as a catalog Helm release, pinned and mirrored
       ([ADR 0047](../../docs/decisions/0047-autoscaling-metrics-server-then-keda.md)).
-- [ ] Add a CPU HorizontalPodAutoscaler to the workload chart from chart values,
+- [x] Add a CPU HorizontalPodAutoscaler to the workload chart from chart values,
       with no replica count, at least two replicas, and a PodDisruptionBudget.
 - [ ] Prove a BFF scales 1→N under load and back, with no request failing
       because a pod started cold.
@@ -183,11 +183,11 @@ existing reference app keeps working until a service moves to them.
 - [x] Build a static frontend template into a signed image served from a pinned
       static-server image
       ([ADR 0045](../../docs/decisions/0045-static-frontends-as-signed-images.md)).
-- [ ] Build a Kotlin BFF template with Jib on the GraalVM JDK, with the
+- [x] Build a Kotlin BFF template with Jib on the GraalVM JDK, with the
       OpenTelemetry Java agent and a JDK AOT cache from a build-time training
       run
       ([ADR 0046](../../docs/decisions/0046-bff-jvm-with-agent-and-aot-cache.md)).
-- [ ] Add the unit-level assertion on the template's cookie and response
+- [x] Add the unit-level assertion on the template's cookie and response
       settings that the vision's token test names: every session cookie
       host-only, `HttpOnly`, `Secure` and `SameSite`.
 - [ ] Sign both images through release automation and deploy them by digest.

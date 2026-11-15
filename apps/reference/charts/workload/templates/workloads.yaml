@@ -1,3 +1,32 @@
+{{- $autoscaling := .Values.autoscaling }}
+{{- if $autoscaling.enabled }}
+{{- if lt (int $autoscaling.minReplicas) 2 }}
+{{- fail "autoscaling.minReplicas must be at least 2 so one pod can be lost or drained without an outage; raise it or set autoscaling.enabled=false" }}
+{{- end }}
+{{- if lt (int $autoscaling.maxReplicas) (int $autoscaling.minReplicas) }}
+{{- fail "autoscaling.maxReplicas must not be below autoscaling.minReplicas; raise maxReplicas" }}
+{{- end }}
+{{- if not ((.Values.resources.requests | default dict).cpu) }}
+{{- fail "autoscaling.enabled needs resources.requests.cpu: the autoscaler computes CPU utilisation against the request; set resources.requests.cpu (for example 25m) or set autoscaling.enabled=false" }}
+{{- end }}
+{{- end }}
+{{- $pdb := .Values.podDisruptionBudget }}
+{{- $minAvailable := $pdb.minAvailable }}
+{{- if and $pdb.enabled (kindIs "invalid" $pdb.minAvailable) (kindIs "invalid" $pdb.maxUnavailable) }}
+{{- $minAvailable = 1 }}
+{{- end }}
+{{- if and $pdb.enabled (not (kindIs "invalid" $pdb.minAvailable)) (not (kindIs "invalid" $pdb.maxUnavailable)) }}
+{{- fail "podDisruptionBudget.minAvailable and podDisruptionBudget.maxUnavailable are both set; unset one of them" }}
+{{- end }}
+{{- if and $pdb.enabled (not (kindIs "invalid" $pdb.maxUnavailable)) (lt (int $pdb.maxUnavailable) 1) }}
+{{- fail "podDisruptionBudget.maxUnavailable must be at least 1, or no pod could ever be drained; raise it or use minAvailable" }}
+{{- end }}
+{{- if and $pdb.enabled $autoscaling.enabled (not (kindIs "invalid" $minAvailable)) (ge (int $minAvailable) (int $autoscaling.minReplicas)) }}
+{{- fail (printf "podDisruptionBudget.minAvailable (%v) must be below autoscaling.minReplicas (%v), or every node drain is blocked; lower minAvailable or raise autoscaling.minReplicas" $minAvailable $autoscaling.minReplicas) }}
+{{- end }}
+{{- if and .Values.podDisruptionBudget.enabled (not $autoscaling.enabled) }}
+{{- fail "podDisruptionBudget.enabled needs autoscaling.enabled=true: a budget over a single replica blocks every node drain; enable autoscaling or disable the budget" }}
+{{- end }}
 {{- range $component := list "frontend" "api" }}
 apiVersion: v1
 kind: ServiceAccount
@@ -11,7 +40,9 @@ metadata:
   name: reference-{{ $component }}
   labels: {app.kubernetes.io/name: reference-{{ $component }}, app.kubernetes.io/part-of: reference}
 spec:
+  {{- if not $autoscaling.enabled }}
   replicas: 1
+  {{- end }}
   selector: {matchLabels: {app.kubernetes.io/name: reference-{{ $component }}}}
   template:
     metadata:
@@ -57,6 +88,38 @@ spec:
   selector: {app.kubernetes.io/name: reference-{{ $component }}}
   ports: [{name: http, port: 8080, targetPort: http}]
 ---
+{{- if $autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: reference-{{ $component }}
+  labels: {app.kubernetes.io/name: reference-{{ $component }}, app.kubernetes.io/part-of: reference}
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: reference-{{ $component }}}
+  minReplicas: {{ $autoscaling.minReplicas }}
+  maxReplicas: {{ $autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: {type: Utilization, averageUtilization: {{ $autoscaling.targetCPUUtilizationPercentage }}}
+---
+{{- end }}
+{{- if $.Values.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: reference-{{ $component }}
+  labels: {app.kubernetes.io/name: reference-{{ $component }}, app.kubernetes.io/part-of: reference}
+spec:
+  {{- if not (kindIs "invalid" $pdb.maxUnavailable) }}
+  maxUnavailable: {{ $pdb.maxUnavailable }}
+  {{- else }}
+  minAvailable: {{ $minAvailable }}
+  {{- end }}
+  selector: {matchLabels: {app.kubernetes.io/name: reference-{{ $component }}}}
+---
+{{- end }}
 {{- end }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute

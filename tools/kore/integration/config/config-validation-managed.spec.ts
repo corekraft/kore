@@ -113,6 +113,7 @@ test("validation reports malformed version sections and missing sections", async
       "unknown environment component values: istio-cni",
       "unknown environment component values: kore-image-policy",
       "unknown environment component values: kore-local-tls",
+      "unknown environment component values: kore-platform-apis",
       "unknown environment component values: kore-platform-config",
       "unknown environment component values: kore-storage",
       "unknown environment component values: loki",
