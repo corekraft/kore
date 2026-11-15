@@ -170,4 +170,27 @@ describe("the principles-review agent", () => {
     expect(agent).toContain("node skills/bin/harness.mjs review post <pr>");
     expect(agent).toContain("never a hand-written `gh pr comment`");
   });
+
+  it("keys the live-run rule on the declared safety pattern", () => {
+    expect(agent).toContain("`Safety pattern:` line");
+    expect(agent).toMatch(
+      /`no-behaviour-change`[^\n]*cite a live run before merge/,
+    );
+    expect(agent).toContain("flag that exists and defaults off");
+    expect(agent).toContain("before `harness flag activate`, not before merge");
+    expect(agent).toContain("would the container start");
+  });
+
+  it("names k3d, never Minikube, in the provider-neutrality question", () => {
+    expect(agent).not.toMatch(/minikube/i);
+    expect(agent).toContain(
+      "no k3d, no cloud and no provider resource under `apps/`",
+    );
+  });
+
+  it("seeds the live-run rule with a no-behaviour-change fixture that cites no live run", () => {
+    const fixture = read(".claude/evals/principles-review/just-works.diff");
+    expect(fixture).toContain("Safety pattern: no-behaviour-change");
+    expect(fixture).not.toMatch(/live run/i);
+  });
 });
