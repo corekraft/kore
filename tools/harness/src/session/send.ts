@@ -12,14 +12,18 @@ import { SessionRegistry } from "./registry.js";
 
 const USAGE = "session send <name> --message <text>";
 
-/** Appends a session.send event for the target. Best effort: a ledger problem never fails the send. */
-async function recordSend(deps: CliDeps, pane: string, name: string) {
+/** The reason the event was not recorded, or undefined once it is. Only a ledger write failure is expected; anything else is rethrown. */
+async function recordSend(
+  deps: CliDeps,
+  pane: string,
+  name: string,
+): Promise<string | undefined> {
+  const main = await mainRoot(deps);
+  if (main === undefined) {
+    return "cannot find the main checkout to keep the ledger in";
+  }
   try {
-    const main = await mainRoot(deps);
-    if (main === undefined) {
-      return;
-    }
-    await new Ledger(
+    const written = await new Ledger(
       deps.fs,
       deps.clock,
       deps.ids,
@@ -31,8 +35,12 @@ async function recordSend(deps: CliDeps, pane: string, name: string) {
       pane,
       agent: name,
     });
-  } catch {
-    // The ledger is a measurement; it never gates a send.
+    return written.ok ? undefined : written.message;
+  } catch (error) {
+    if (typeof (error as NodeJS.ErrnoException).code !== "string") {
+      throw error;
+    }
+    return (error as Error).message;
   }
 }
 
@@ -77,7 +85,13 @@ export async function send(context: CommandContext): Promise<number> {
   if (error !== undefined) {
     return fail(deps, json, FAILED, error);
   }
-  await recordSend(deps, record.paneId, name);
+  const unrecorded = await recordSend(deps, record.paneId, name);
+  if (unrecorded !== undefined) {
+    // Delivery happened, so the exit code stays 0; the missing event is said, not hidden.
+    deps.stderr(
+      `Sent, but the session.send event was not recorded: ${unrecorded}. Record it with \`harness ledger record --source herdr --kind session.send --pane ${record.paneId} --agent ${name}\`.\n`,
+    );
+  }
   deps.stdout(
     json
       ? `${JSON.stringify({ name, pane: record.paneId, sent: true })}\n`

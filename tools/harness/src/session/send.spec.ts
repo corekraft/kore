@@ -37,9 +37,11 @@ const record = {
 } as unknown as SessionRecord;
 const NOW = new Date("2026-11-15T12:00:00.000Z");
 const out: string[] = [];
+const err: string[] = [];
 const append = vi.fn();
 const deps = {
   stdout: (t: string) => out.push(t),
+  stderr: (t: string) => err.push(t),
   clock: { now: () => NOW },
 } as unknown as CliDeps;
 const ctx = (
@@ -56,6 +58,7 @@ const failure = () => vi.mocked(fail).mock.calls[0]?.[3];
 
 beforeEach(() => {
   out.length = 0;
+  err.length = 0;
   vi.resetAllMocks();
   vi.mocked(fail).mockImplementation((_d, _j, code) => code);
   vi.mocked(mainRoot).mockResolvedValue("/repo");
@@ -66,7 +69,7 @@ beforeEach(() => {
   vi.mocked(Ledger).mockImplementation(function () {
     return { record: append } as unknown as Ledger;
   });
-  append.mockResolvedValue({ ok: true });
+  append.mockResolvedValue({ ok: true, event: {} });
 });
 
 describe("session send", () => {
@@ -105,11 +108,6 @@ describe("session send", () => {
     expect(append).not.toHaveBeenCalled();
   });
 
-  it("still succeeds when the ledger cannot be written", async () => {
-    append.mockRejectedValue(new Error("disk full"));
-    expect(await send(ctx("image-trust-writer", "Rebase"))).toBe(0);
-  });
-
   it.each([
     ["no name", undefined, "Rebase"],
     ["no message", "image-trust-writer", undefined],
@@ -139,5 +137,53 @@ describe("session send", () => {
     expect(await send(ctx("image-trust-writer", "Rebase"))).toBe(1);
     expect(failure()).toContain("is closed");
     expect(deliver).not.toHaveBeenCalled();
+  });
+});
+
+describe("session send when the event is not recorded", () => {
+  const warned = () => err.join("");
+  const RECORD =
+    "harness ledger record --source herdr --kind session.send --pane w3:p9 --agent image-trust-writer";
+
+  it("warns with the cause and the record command when the write fails, and still exits 0", async () => {
+    append.mockRejectedValue(
+      Object.assign(new Error("no space left"), { code: "ENOSPC" }),
+    );
+    expect(await send(ctx("image-trust-writer", "Rebase"))).toBe(0);
+    expect(out).toEqual(["Sent to image-trust-writer (w3:p9).\n"]);
+    expect(warned()).toBe(
+      `Sent, but the session.send event was not recorded: no space left. Record it with \`${RECORD}\`.\n`,
+    );
+  });
+
+  it("warns with the schema's message when the ledger rejects the event", async () => {
+    append.mockResolvedValue({
+      ok: false,
+      field: "pane",
+      message: 'Invalid event: field "pane" is bad.',
+    });
+    expect(await send(ctx("image-trust-writer", "Rebase"))).toBe(0);
+    expect(warned()).toContain(
+      'not recorded: Invalid event: field "pane" is bad.',
+    );
+  });
+
+  it("warns when the main checkout cannot be found", async () => {
+    vi.mocked(mainRoot).mockResolvedValue(undefined);
+    expect(await send(ctx("image-trust-writer", "Rebase"))).toBe(0);
+    expect(warned()).toContain("not recorded: cannot find the main checkout");
+    expect(append).not.toHaveBeenCalled();
+  });
+
+  it("says nothing on stderr when the event is recorded", async () => {
+    await send(ctx("image-trust-writer", "Rebase"));
+    expect(warned()).toBe("");
+  });
+
+  it("rethrows an error that is not a ledger write failure", async () => {
+    append.mockRejectedValue(new TypeError("bug"));
+    await expect(send(ctx("image-trust-writer", "Rebase"))).rejects.toThrow(
+      "bug",
+    );
   });
 });
