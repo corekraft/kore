@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { withGatewayFlagsOff } from "../../src/testing/index.js";
 import { describe, test } from "vitest";
 import {
   enabledComponents,
@@ -67,7 +68,7 @@ function clusterWith(down: string | undefined, mode: "zero" | "stuck") {
   return { runner, calls };
 }
 
-const repository = await loadRepository("local");
+const repository = withGatewayFlagsOff(await loadRepository("local"));
 const names = repository.catalog.components.map(({ name }) => name);
 
 test("every readiness-checked workload is covered by the outage scenarios", () => {
