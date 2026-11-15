@@ -27,6 +27,14 @@
   "kubernetes":
     {
       "serviceLocatorMethod": { "type": "multiTenant" },
+      "customResources":
+        [
+          {
+            "group": "argoproj.io",
+            "apiVersion": "v1alpha1",
+            "plural": "applications"
+          }
+        ],
       "clusterLocatorMethods":
         [
           {

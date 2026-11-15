@@ -29,3 +29,32 @@ subjects:
   - kind: ServiceAccount
     name: backstage
     namespace: {{ .Release.Namespace }}
+---
+# The Argo CD sync and rollout view (ADR 0111). The Kubernetes plugin reads as
+# the signed-in user, so the grant is to the operators group, never to the
+# backstage service account above. Read-only: get and list on Applications and
+# Deployments, nothing else, no wildcards.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kore-backstage-argocd-view
+rules:
+  - apiGroups: ["argoproj.io"]
+    resources: ["applications"]
+    verbs: ["get", "list"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kore-backstage-argocd-view
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kore-backstage-argocd-view
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: platform-operators
