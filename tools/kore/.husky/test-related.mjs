@@ -40,8 +40,9 @@ export function commands(files) {
   return steps;
 }
 
-/** Runs each step, stopping at the first failure; returns the exit code. */
+/** Runs every step, reporting each failure; returns the first non-zero exit code. */
 export function run(files, exec = spawnSync) {
+  let first = 0;
   for (const step of commands(files)) {
     const result = exec("npm", step.args, {
       cwd: join(root, step.cwd),
@@ -51,10 +52,10 @@ export function run(files, exec = spawnSync) {
       process.stderr.write(
         `test-related: \`npm ${step.args.join(" ")}\` failed in ${step.cwd}; fix it and rerun\n`,
       );
-      return result.status ?? 1;
+      first ||= result.status ?? 1;
     }
   }
-  return 0;
+  return first;
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

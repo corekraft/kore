@@ -62,13 +62,15 @@ describe("test-related", () => {
     assert.doesNotMatch(all, /integration|live|k3d|cluster/);
   });
 
-  test("a failing step stops the run and returns its exit code", () => {
+  test("a failing step does not stop the later ones, and the first failure's code is returned", () => {
     const seen: string[][] = [];
+    const statuses = [0, 3, 4];
     const code = run(["tools/kore/src/a.ts"], (_cmd, args) => {
       seen.push(args);
-      return { status: 3 };
+      return { status: statuses[seen.length - 1] ?? 0 };
     });
     assert.equal(code, 3);
-    assert.equal(seen.length, 1);
+    assert.equal(seen.length, 3);
+    assert.equal(seen[2]?.[1], "test:related");
   });
 });
